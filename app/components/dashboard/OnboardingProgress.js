@@ -23,6 +23,12 @@ export default function OnboardingProgress({ status, onEmployeeAdded }) {
 
   if (!status?.steps?.length || status.complete) return null;
 
+  // labelKey through t(), with the English the server sent as the fallback —
+  // lib/onboarding.js runs with no reader's language and cannot translate;
+  // this card can. A step with no key at all (none today) prints its label.
+  const stepLabel = (step) =>
+    step.labelKey ? t(step.labelKey, step.label, step.labelValues) : step.label;
+
   return (
     <div className="bg-card border border-border rounded-xl p-5">
       <div className="flex items-start gap-4">
@@ -62,7 +68,7 @@ export default function OnboardingProgress({ status, onEmployeeAdded }) {
                   <span
                     className={`text-sm ${step.done ? "text-muted-foreground line-through" : "text-foreground font-medium"}`}
                   >
-                    {step.label}
+                    {stepLabel(step)}
                   </span>
                 </div>
                 {!step.done && status.seatsRemaining !== 0 && (
@@ -71,7 +77,7 @@ export default function OnboardingProgress({ status, onEmployeeAdded }) {
                     onClick={() => setShowAddEmployee(true)}
                     className="flex items-center gap-1 text-xs font-semibold text-foreground border border-border rounded-full px-3 py-1.5 shrink-0"
                   >
-                    <UserPlus size={13} /> Add Employee
+                    <UserPlus size={13} /> {t("app.onboarding.addEmployee")}
                   </button>
                 )}
               </div>
@@ -128,7 +134,7 @@ export default function OnboardingProgress({ status, onEmployeeAdded }) {
               <span
                 className={`text-sm ${step.done ? "text-muted-foreground line-through" : "text-foreground font-medium"}`}
               >
-                {step.label}
+                {stepLabel(step)}
               </span>
             </Link>
           );

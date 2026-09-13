@@ -3,9 +3,12 @@
 A narrow, sanctioned exception to non-negotiable #3 ("the platform console
 can view everything and edit nothing on a company's data"). The owner asked
 for it directly: FieldQuo should be able to write a company's old records —
-quotes, invoices, jobs from QuickBooks, Jobber, a spreadsheet, a shoebox —
-into their FieldQuo account, charge a surcharge for the work, and let the
-company decide whether to buy it.
+from QuickBooks, Jobber, a spreadsheet, a shoebox — into their FieldQuo
+account, charge a surcharge for the work, and let the company decide whether
+to buy it. What is actually written today is **clients and quotes**; the brief
+also named invoices and jobs, and those are deliberately not built (see "What
+was not built" below). The settings page's subtitle says clients and quotes
+for that reason — it used to promise invoices and jobs too.
 
 **Not to be confused with** `AGENTS.md`'s "Migrations: `prisma db push` — no
 migration files" — that's a schema-migration convention. This document is

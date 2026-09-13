@@ -135,6 +135,33 @@ export async function GET(request) {
   });
   const cap = seatCheck({ roster, plan: seatPlan?.plan || null });
 
+  // ── When each invitation dies ────────────────────────────────────────────
+  //
+  // The Team page said "Invited" and nothing about for how long, so an owner
+  // could not tell a link opened this morning from one that died on Sunday —
+  // and there was nothing to do about the second. The expiry lives on Better
+  // Auth's Invitation row, keyed by email within the org; the newest pending
+  // one is the link that works. Null when the org has no pending row for the
+  // address (a profile whose invitation was cancelled underneath it, or a
+  // company with no authOrgId), and the page then says nothing rather than
+  // inventing a date.
+  const expiresByEmail = new Map();
+  if (member.authOrgId && pending.length) {
+    const invitations = await db.invitation.findMany({
+      where: {
+        organizationId: member.authOrgId,
+        status: "pending",
+        email: { in: pending.map((p) => p.email) },
+      },
+      select: { email: true, expiresAt: true },
+      orderBy: { createdAt: "desc" },
+    });
+    for (const inv of invitations) {
+      if (!expiresByEmail.has(inv.email)) expiresByEmail.set(inv.email, inv.expiresAt);
+    }
+  }
+  const withExpiry = (p) => ({ ...p, expiresAt: expiresByEmail.get(p.email) ?? null });
+
   const seats = {
     used: counted.seats,
     limit: limitCheck.limit ?? null,
@@ -152,7 +179,7 @@ export async function GET(request) {
   };
 
   if (!seesFullRecord) {
-    return NextResponse.json({ pending, seats });
+    return NextResponse.json({ pending: pending.map(withExpiry), seats });
   }
 
   // ── Pay and the permission grid, for the people who do hold user:view ────
@@ -166,7 +193,7 @@ export async function GET(request) {
 
   return NextResponse.json({
     pending: pending.map((p) => {
-      const out = redactPay(full, p, { fields: ["laborCostPerHour"] });
+      const out = redactPay(full, withExpiry(p), { fields: ["laborCostPerHour"] });
 
       // The grid follows the same rule as editing it: anyone ranked below you.
       // Not `can(role, "user:manage")` — supervisors hold that, and an invite

@@ -42,6 +42,7 @@ import {
   ArrowRight,
   GripVertical,
   AlertTriangle,
+  Trash2,
 } from "lucide-react";
 
 import { useTranslation } from "@/app/hooks/useTranslation";
@@ -722,6 +723,14 @@ function LeadDrawer({ leadId, assignees, onClose, onPatched, t }) {
   const [err, setErr] = useState("");
   const [noteText, setNoteText] = useState("");
   const [savingNote, setSavingNote] = useState(false);
+  const [deletingNoteId, setDeletingNoteId] = useState(null);
+  // The call-back log is the Notes dial's, on top of the requests dial: an
+  // Estimator may change the request and only read its notes; Crew (the
+  // "jobs and visits only" floor) get the lead with the log removed and
+  // `notesRestricted` set. Same functions the API asks — lib/permissions/
+  // enforce.js, Notes. Affordance only; the server refuses regardless.
+  const canWriteNotes = useHasLevel("notes", "view_edit_all");
+  const canDeleteNotes = useHasLevel("notes", "view_edit_delete_all");
   const [converting, setConverting] = useState(false);
   const [busy, setBusy] = useState(false);
   // Same reason-before-move shape as the board's drag prompt above — a click
@@ -788,6 +797,20 @@ function LeadDrawer({ leadId, assignees, onClose, onPatched, t }) {
       setNoteText("");
     } finally {
       setSavingNote(false);
+    }
+  }
+
+  // DELETE /api/leads/[id]/notes/[noteId] — the top rung of the Notes dial.
+  // Removed from the local list only after the server said so.
+  async function deleteNote(noteId) {
+    setDeletingNoteId(noteId);
+    setErr("");
+    try {
+      const res = await fetch(`/api/leads/${leadId}/notes/${noteId}`, { method: "DELETE" });
+      if (!res.ok) return reportResponseError(res, setErr, t("app.leads.noteDeleteError", "Couldn't delete that note."));
+      setLead((prev) => ({ ...prev, notes: (prev.notes || []).filter((n) => n.id !== noteId) }));
+    } finally {
+      setDeletingNoteId(null);
     }
   }
 
@@ -913,7 +936,10 @@ function LeadDrawer({ leadId, assignees, onClose, onPatched, t }) {
                 <ul className="space-y-1">
                   {lead.scoreReasons.map((r, i) => (
                     <li key={i} className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span>{r.label}</span>
+                      {/* Keyed reasons print in the reader's language; a row
+                          scored before keys existed carries only its English
+                          label and prints that. See lib/leads/score.js. */}
+                      <span>{r.key ? t(r.key, r.label, r.values) : r.label}</span>
                       {r.weight > 0 && <span className="text-foreground font-medium">+{r.weight}</span>}
                     </li>
                   ))}
@@ -1162,32 +1188,62 @@ function LeadDrawer({ leadId, assignees, onClose, onPatched, t }) {
             {/* Notes */}
             <div>
               <div className="text-xs font-semibold text-foreground mb-1.5">{t("app.leads.notes")}</div>
-              <form onSubmit={addNote} className="flex gap-2 mb-2">
-                <input
-                  value={noteText}
-                  onChange={(e) => setNoteText(e.target.value)}
-                  placeholder={t("app.leads.addNote")}
-                  className="flex-1 border border-border rounded-lg px-3 py-2 text-sm bg-card"
-                />
-                <button
-                  type="submit"
-                  disabled={savingNote || !noteText.trim()}
-                  className="px-3 py-2 rounded-lg bg-inverted text-inverted-foreground text-xs font-semibold disabled:opacity-50"
-                >
-                  {savingNote ? <Loader2 size={13} className="animate-spin" /> : t("app.leads.saveNote")}
-                </button>
-              </form>
-              {(lead.notes || []).length === 0 ? (
+              {/* The composer is drawn only for a member who may write. A
+                  greyed-out input that the POST refuses is the dead control
+                  AGENTS.md names. */}
+              {canWriteNotes && !lead.notesRestricted && (
+                <form onSubmit={addNote} className="flex gap-2 mb-2">
+                  <input
+                    value={noteText}
+                    onChange={(e) => setNoteText(e.target.value)}
+                    placeholder={t("app.leads.addNote")}
+                    className="flex-1 border border-border rounded-lg px-3 py-2 text-sm bg-card"
+                  />
+                  <button
+                    type="submit"
+                    disabled={savingNote || !noteText.trim()}
+                    className="px-3 py-2 rounded-lg bg-inverted text-inverted-foreground text-xs font-semibold disabled:opacity-50"
+                  >
+                    {savingNote ? <Loader2 size={13} className="animate-spin" /> : t("app.leads.saveNote")}
+                  </button>
+                </form>
+              )}
+              {/* Restriction is said, not left as an empty log: "No notes
+                  yet" over notes that exist would send somebody to go and
+                  collect what the office already knows. */}
+              {lead.notesRestricted ? (
+                <p className="text-xs text-muted-foreground italic">
+                  {t("app.access.restricted", "Hidden by your access level")}
+                </p>
+              ) : (lead.notes || []).length === 0 ? (
                 <p className="text-xs text-muted-foreground">{t("app.leads.noNotes")}</p>
               ) : (
                 <ul className="space-y-2">
                   {lead.notes.map((n) => (
-                    <li key={n.id} className="text-xs border-l-2 border-border pl-2.5">
-                      <p className="text-foreground whitespace-pre-wrap">{n.body}</p>
-                      <p className="text-muted-foreground mt-0.5">
-                        {n.author?.name || t("app.leads.someone")} ·{" "}
-                        {new Date(n.createdAt).toLocaleDateString()}
-                      </p>
+                    <li key={n.id} className="text-xs border-l-2 border-border pl-2.5 flex items-start gap-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-foreground whitespace-pre-wrap">{n.body}</p>
+                        <p className="text-muted-foreground mt-0.5">
+                          {n.author?.name || t("app.leads.someone")} ·{" "}
+                          {new Date(n.createdAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                      {canDeleteNotes && (
+                        <button
+                          type="button"
+                          onClick={() => deleteNote(n.id)}
+                          disabled={deletingNoteId === n.id}
+                          aria-label={t("app.leads.deleteNote", "Delete note")}
+                          title={t("app.leads.deleteNote", "Delete note")}
+                          className="shrink-0 p-1 rounded text-muted-foreground hover:text-red-700 dark:hover:text-red-300 disabled:opacity-50"
+                        >
+                          {deletingNoteId === n.id ? (
+                            <Loader2 size={12} className="animate-spin" />
+                          ) : (
+                            <Trash2 size={12} />
+                          )}
+                        </button>
+                      )}
                     </li>
                   ))}
                 </ul>

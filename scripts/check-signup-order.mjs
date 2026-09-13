@@ -533,9 +533,15 @@ ok(
 // something that did not exist. The owner corrected the pricing — two months
 // free — so the saving is now real, and the failure to guard against is the
 // opposite one: an annual option offered with no reason to take it.
+// The sentence is a catalogue key now (app.signup.plan.save, "Save {amount} a
+// year — two months free."), so the anchor is the key plus the amount being
+// handed to it in the page's currency symbol — the same fact the old literal
+// `Save ${symbol}` pinned, one translation layer down.
 ok(
   "the plan step states what the year saves",
-  /yearlySaving/.test(page) && /Save \$\{symbol\}/.test(page),
+  /yearlySaving/.test(page) &&
+    /"app\.signup\.plan\.save"/.test(page) &&
+    /amount: `\$\{symbol\}\$\{money\(yearlySaving\)\}`/.test(page),
   "the reason to commit IS the saving — an annual option with no stated benefit " +
     "is a question the buyer answers by picking monthly",
 );

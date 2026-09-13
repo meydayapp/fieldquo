@@ -539,6 +539,7 @@ export const SCREENS_CHAPTER = {
     "settings-team": { body: [
       "The same “Manage Team” screen as “Your team” in the main sidebar: the seat panel, the roster with each person's access level, “Add User”, and the pending invites.",
       "See “Roles and access” for what each level in the dropdown means.",
+      "“Workers” is a tab on this screen, not a Settings row, and only the owner and administrators see it — “Everyone on the books — their pay rate, start date, and payout status.” Each row opens to edit the person's name, the mobile they text site photos from, pay rate per hour, start date, who they report to, field or office, guaranteed hours a week and whether they are active, with “Connect Stripe” for payouts; the page refuses everyone else, Manager and Dispatcher included, because a pay rate is payroll wherever it is typed, and employee-or-contractor is deliberately not editable there.",
     ] },
     "settings-availability": { body: [
       "“Your hours” — a “Whose hours” picker, then “Working hours” (the shift, for scheduling and timesheets) and “Bookable hours” (the window the public booking page offers), with a sticky “Save hours”.",
@@ -681,7 +682,7 @@ export const SCREENS_CHAPTER = {
 export const ROLES_CHAPTER = {
   heading: "Roles and access — who sees what",
   intro: [
-    "A contractor adds a person from Manage Team, and picks one of five access levels: Crew, Estimator, Dispatcher, Manager, or the owner's own level. The first four are presets — a filled-in grid of eleven permission areas and three switches — and the owner can change any dial afterwards, which turns the preset into “Custom”. The tables below are computed from the product's own permission code on the day this guide was built, so they say what the sidebar actually does.",
+    "A contractor adds a person from Manage Team, and picks one of five access levels: Crew, Estimator, Dispatcher, Manager, or the owner's own level. The first four are presets — a filled-in grid of eleven permission areas and three switches. Crew is fixed: pick it and there is no grid to move, because the free level cannot be reshaped — a grid raised above the Crew ceiling is a paid seat whichever way it was reached. The three paid presets — Estimator, Dispatcher, Manager — can be reshaped afterwards, and moving any dial turns the preset into “Custom”. The tables below are computed from the product's own permission code on the day this guide was built, so they say what the sidebar actually does.",
     "Two things to get right on a call. First, a Crew login is not a seat: a person whose access is at or below the Crew level costs nothing and does not count against the plan's full seats — that is what the “Crew logins” column of the plans table means. Estimator, Dispatcher, Manager and the owner are full seats. Second, hiding a row is not the security: every API the product exposes checks the same grid again on the server, so a person who types a URL they were not shown gets a refusal, not the page.",
     "There is a sixth choice in the dropdown, “Make administrator”, which grants everything the owner has except ownership itself. It exists for a business partner or a bookkeeper who must see billing. Do not suggest it for staff.",
   ],
@@ -742,7 +743,7 @@ export const ROLES_CHAPTER = {
   no: "No",
   editorHeading: "The Custom access editor",
   editorBody: [
-    "On Manage Team, every person has a dropdown with the same five choices as the invite screen — Crew, Estimator, Dispatcher, Manager, Administrator — plus “Custom”, which opens the grid. Picking a preset applies its tier and its permissions in one go. Custom shows the eleven areas as dropdowns and the three switches as checkboxes, starting from whatever the person has now, and a “Worker tier” / “Manager tier” chip on each preset says which tier it produces (Dispatcher and Manager share the Manager tier; Crew and Estimator share the Worker tier).",
+    "On Manage Team, every person has a dropdown with the same five choices as the invite screen — Crew, Estimator, Dispatcher, Manager, Administrator — plus “Custom”, which opens the grid. Picking a preset applies its tier and its permissions in one go; picking Crew shows no grid at all, only a line saying what Crew gets, while the paid presets show their grid underneath. Custom shows the eleven areas as dropdowns and the three switches as checkboxes, starting from whatever the person has now, and a “Worker tier” / “Manager tier” chip on each preset says which tier it produces (Dispatcher and Manager share the Manager tier; Crew and Estimator share the Worker tier).",
     "A person can only hand out what they hold: when a Manager invites someone, the server clamps every dial to the Manager's own level and drops any switch the Manager does not have. Changing an existing person's access, making an administrator, and revoking access are owner-and-administrator only.",
   ],
   editorCaption: "Manage Team — the Custom access editor open on an Estimator.",

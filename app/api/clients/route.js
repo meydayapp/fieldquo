@@ -90,6 +90,20 @@ export async function POST(request) {
   const badEmail = emailRefusal(email);
   if (badEmail) return NextResponse.json(badEmail, { status: 400 });
 
+  // Private notes are the Notes dial's write rung, not the client dial's — an
+  // Estimator adds clients at notes:view_all and the form hides the field
+  // from them. Only a note that would actually be stored is refused; an empty
+  // string from an older form creates nothing and is not a grant to check.
+  if (typeof notes === "string" && notes.trim() !== "") {
+    try {
+      const full = await loadEnforceableMember(db, member.id);
+      requireLevel(full, "notes", "view_edit_all", "add notes to a client");
+    } catch (err) {
+      const { body: errBody, status } = permissionErrorResponse(err);
+      return NextResponse.json(errBody, { status });
+    }
+  }
+
   try {
     const client = await db.client.create({
       data: {

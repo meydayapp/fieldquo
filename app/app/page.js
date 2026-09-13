@@ -112,6 +112,12 @@ function clockTime(value) {
 export default function DashboardPage() {
   const { t } = useTranslation();
   const canCreateQuote = useHasLevel("quotes", "view_create_edit");
+  // GET /api/quotes refuses at quotes:none (Crew), and the "Recent quotes"
+  // card answered that 403 with a "didn't load" error card and a Retry that
+  // would 403 again. A boundary working is not a failure to report: below
+  // view_only the card is not drawn and the list is not asked for. Same
+  // functions the route asks — lib/permissions/enforce.js.
+  const canSeeQuotes = useHasLevel("quotes", "view_only");
   // The set-up card links to owner/admin settings screens, and GET
   // /api/setup-steps refuses everyone else with the same `user:manage` rule —
   // so the card is not drawn for a member it would only 403.
@@ -265,6 +271,9 @@ export default function DashboardPage() {
   }, []);
 
   const loadRecentQuotes = useCallback(async () => {
+    // Not asked for below the level — see canSeeQuotes. The card is absent,
+    // so a list nobody will render is a request nobody needs.
+    if (!canSeeQuotes) return;
     const result = await fetchArray("/api/quotes");
     if (result.aborted) return;
     if (result.ok) {
@@ -273,8 +282,11 @@ export default function DashboardPage() {
       return;
     }
     setRecentQuotes(null);
-    setQuotesErrorKey(result.errorKey);
-  }, []);
+    // Same split as loadMoney: a 403 is a boundary working (the provider can
+    // fall open while the server does not), so there is nothing to apologise
+    // for and nothing to retry. Everything else says so and offers the retry.
+    setQuotesErrorKey(result.status === 403 ? "" : result.errorKey);
+  }, [canSeeQuotes]);
 
   const loadMoney = useCallback(async () => {
     const result = await fetchList(
@@ -1104,6 +1116,9 @@ export default function DashboardPage() {
       <MigrationNotice />
 
       <div className="grid lg:grid-cols-2 gap-6">
+        {/* Absent, not erroring, for a member below quotes:view_only — see
+            canSeeQuotes. The appointments card beside it stays. */}
+        {canSeeQuotes && (
         <div className={CARD_CLIPPED}>
           <div className="flex items-center justify-between px-4 sm:px-5 py-4 border-b border-foreground/15">
             <h2 className="font-semibold text-foreground">{t("app.dash.recentQuotes")}</h2>
@@ -1162,6 +1177,7 @@ export default function DashboardPage() {
             </div>
           </ListState>
         </div>
+        )}
 
         <div className={CARD_CLIPPED}>
           <div className="flex items-center justify-between px-4 sm:px-5 py-4 border-b border-foreground/15">

@@ -108,6 +108,24 @@ export async function PATCH(request, { params }) {
   const badEmail = email === undefined || email === "" ? null : emailRefusal(email);
   if (badEmail) return NextResponse.json(badEmail, { status: 400 });
 
+  // The private notes are the Notes dial's, not the client dial's — see the
+  // Notes section of lib/permissions/enforce.js. Refused when the request
+  // would CHANGE them, rather than whenever the key is present: the edit form
+  // omits the field below the level, but a member who never saw the notes
+  // (redacted off the read) and posts the field anyway must not be able to
+  // blank them, and must not have the change dropped on the floor either.
+  // Judged against the row, not the key, so a form that echoes the notes it
+  // was shown is not refused for repeating them.
+  if (notes !== undefined && (notes ?? "") !== (existing.notes ?? "")) {
+    try {
+      const full = await loadEnforceableMember(db, member.id);
+      requireLevel(full, "notes", "view_edit_all", "edit a client's notes");
+    } catch (err) {
+      const { body: errBody, status } = permissionErrorResponse(err);
+      return NextResponse.json(errBody, { status });
+    }
+  }
+
   const updated = await db.client.update({
     where: { id: id },
     data: {

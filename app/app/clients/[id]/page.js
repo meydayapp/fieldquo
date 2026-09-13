@@ -56,6 +56,11 @@ export default function ClientDetailPage() {
   // buttons were drawn for one, the two Quick Actions opening a whole builder
   // before the save came back 403.
   const canEditClient = useHasLevel("clientsProperties", "full_edit");
+  // The private notes are the Notes dial's, not the client dial's: a member
+  // may edit the client and still only READ its notes (Estimator), or not see
+  // them at all (Crew). Same functions the API asks — see the Notes section
+  // of lib/permissions/enforce.js.
+  const canEditNotes = useHasLevel("notes", "view_edit_all");
   const canCreateQuote = useHasLevel("quotes", "view_create_edit");
   const canCreateJob = useHasLevel("jobs", "view_create_edit");
   // The equipment panel reads serial numbers, install dates and a service
@@ -122,10 +127,14 @@ export default function ClientDetailPage() {
     setSaving(true);
     setError("");
     try {
+      // Below the notes write rung the field is not drawn, and it is not sent
+      // either: PATCH refuses a body that would change the notes, and a form
+      // echoing "" over notes it was never shown would be exactly that.
+      const { notes, ...withoutNotes } = form;
       const res = await fetch(`/api/clients/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify(canEditNotes ? form : withoutNotes),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || t("app.clientDetail.saveError"));
@@ -264,6 +273,15 @@ export default function ClientDetailPage() {
         {client.notes && (
           <p className="text-sm text-muted-foreground pt-2 border-t border-border">
             {client.notes}
+          </p>
+        )}
+        {/* Said, for the same reason `restricted` is said above: a member on
+            the Notes floor gets the client with its notes removed, and a
+            client with no notes paragraph reads as a client nobody has
+            written about. */}
+        {client.notesRestricted && (
+          <p className="text-xs text-muted-foreground italic pt-2 border-t border-border">
+            {t("app.clientDetail.notesRestricted", "Notes hidden by your access level")}
           </p>
         )}
       </div>
@@ -494,13 +512,19 @@ export default function ClientDetailPage() {
                 className={inputClass}
               />
 
-              <textarea
-                rows={2}
-                placeholder={t("app.field.notes")}
-                value={form.notes}
-                onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                className={inputClass}
-              />
+              {/* Drawn only for a member who may write notes. A read-only
+                  textarea would invite typing into a field the save then
+                  refuses; the notes themselves stay readable on the card
+                  behind this form for anyone at "View all notes". */}
+              {canEditNotes && (
+                <textarea
+                  rows={2}
+                  placeholder={t("app.field.notes")}
+                  value={form.notes}
+                  onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                  className={inputClass}
+                />
+              )}
 
               {/* Their language drives every document and email they receive —
                   see lib/i18n/clientLanguage.js. Editable here, not only at

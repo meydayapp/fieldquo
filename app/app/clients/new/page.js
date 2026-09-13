@@ -27,6 +27,9 @@ export default function NewClientPage() {
   // refused. The list no longer offers the button; this is the door a bookmark
   // still opens.
   const canCreate = useHasLevel("clientsProperties", "full_edit");
+  // Private notes are a separate grant from adding the client — the Notes
+  // dial's write rung. See lib/permissions/enforce.js, Notes.
+  const canEditNotes = useHasLevel("notes", "view_edit_all");
   const [form, setForm] = useState({
     type: "individual",
     name: "",
@@ -273,17 +276,19 @@ export default function NewClientPage() {
           companyDefault={companyLanguage}
         />
 
-        <div>
-          <label className="text-sm font-medium text-foreground block mb-1">
-            {t("app.field.notes")}
-          </label>
-          <textarea
-            rows={3}
-            className={inputClass}
-            value={form.notes}
-            onChange={(e) => set("notes", e.target.value)}
-          />
-        </div>
+        {canEditNotes && (
+          <div>
+            <label className="text-sm font-medium text-foreground block mb-1">
+              {t("app.field.notes")}
+            </label>
+            <textarea
+              rows={3}
+              className={inputClass}
+              value={form.notes}
+              onChange={(e) => set("notes", e.target.value)}
+            />
+          </div>
+        )}
 
         <div className="flex items-center justify-end gap-3 pt-2">
           <Link

@@ -44,18 +44,44 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 
 // "1 month free" / "3 months free". The banner hardcoded the plural and read
 // "1 months free" for the whole life of the current one-month offer. Same
-// shape as MONTHS_FREE on app/refer/[code]/page.js.
-function monthsFree(n) {
+// shape as MONTHS_FREE on app/refer/[code]/page.js. Takes `t` because the
+// two forms are catalogue keys now; one/other is the split the offer needs
+// (it is one month), not a full CLDR plural.
+function monthsFree(t, n) {
   const count = Number(n) || 0;
-  return `${count} ${count === 1 ? "month" : "months"} free`;
+  return t(
+    count === 1 ? "app.signup.monthsFree.one" : "app.signup.monthsFree.other",
+    count === 1 ? "{n} month free" : "{n} months free",
+    { n: count },
+  );
 }
 
 // "3 days" / "1 day". Used only by the resumed-payment line, which quotes what
 // is left of a free month that started when the company was created — so it
-// has to be able to say one day without saying "1 days".
-function dayCount(n) {
+// has to be able to say one day without saying "1 days". The nouns are the
+// same keys the shell's subtitle already uses for the same number.
+function dayCount(t, n) {
   const count = Number(n) || 0;
-  return `${count} ${count === 1 ? "day" : "days"}`;
+  return `${count} ${t(count === 1 ? "app.signup.finish.day" : "app.signup.finish.days")}`;
+}
+
+// The offer line, translated. trialLabel() is the one place the amount is
+// written, and it stays that way: only the FREE wording is a catalogue key,
+// because a paid first month is a number and a noun the helper already
+// formats. When the amount is zero the English helper output is the fallback,
+// so this can never say something trialLabel() would not.
+function trialText(t, amount = TRIAL_PRICE) {
+  return amount > 0 ? trialLabel(amount) : t("app.signup.trialFree", trialLabel(amount));
+}
+
+// `t()` leaves a {placeholder} in place when no value is given for it, which
+// is what lets a sentence carry ONE bold span without being split into keys
+// at the word boundary — the translator owns the whole sentence, and the bold
+// lands wherever their word order puts the name. Returns [before, after].
+function around(sentence, placeholder) {
+  const at = sentence.indexOf(placeholder);
+  if (at < 0) return [sentence, ""];
+  return [sentence.slice(0, at), sentence.slice(at + placeholder.length)];
 }
 
 // Prices on this page are whole dollars in a stated currency, and the currency
@@ -65,7 +91,8 @@ function dayCount(n) {
 //
 // A FIXED locale, not the reader's: this page renders on the server too, and a
 // number grouped one way in Node and another in the browser is a hydration
-// mismatch. The signup funnel is English-only copy throughout.
+// mismatch. (The funnel's copy is translated through app.signup.* keys; the
+// number formatting deliberately is not, for that reason.)
 function money(value) {
   return Number(value || 0).toLocaleString("en-CA", {
     maximumFractionDigits: 0,
@@ -90,29 +117,46 @@ const PASSWORD_MIN = 8;
 const PASSWORD_MAX = 128;
 
 // The company half of the form, shared by the "account" and "business" steps.
-function validateCompanyFields(form) {
+// `t` comes in as an argument: these are module-scope functions, not
+// components, so they cannot call the hook — and the messages they return are
+// rendered straight under the field.
+function validateCompanyFields(form, t) {
   const errors = {};
-  if (!form.companyName.trim()) errors.companyName = "Company name is required";
+  if (!form.companyName.trim())
+    errors.companyName = t("app.signup.error.companyName", "Company name is required");
   if (form.phone && !isValidPhone(form.phone))
-    errors.phone = "Format: 555-123-4567";
+    errors.phone = t("app.signup.error.phone", "Format: 555-123-4567");
   if (!form.address.trim())
-    errors.address = "Start typing and select your address";
+    errors.address = t("app.signup.error.address", "Start typing and select your address");
   return errors;
 }
 
 // Everything the account step asks for: the company rules above plus the
 // personal fields only that step collects.
-function validateAccountFields(form) {
-  const errors = validateCompanyFields(form);
-  if (!form.firstName.trim()) errors.firstName = "First name is required";
-  if (!form.lastName.trim()) errors.lastName = "Last name is required";
-  if (!isValidEmail(form.email)) errors.email = "Enter a valid email address";
+function validateAccountFields(form, t) {
+  const errors = validateCompanyFields(form, t);
+  if (!form.firstName.trim())
+    errors.firstName = t("app.signup.error.firstName", "First name is required");
+  if (!form.lastName.trim())
+    errors.lastName = t("app.signup.error.lastName", "Last name is required");
+  if (!isValidEmail(form.email))
+    errors.email = t("app.signup.error.email", "Enter a valid email address");
   if (!form.password || form.password.length < PASSWORD_MIN)
-    errors.password = `At least ${PASSWORD_MIN} characters`;
+    errors.password = t("app.signup.error.passwordMin", `At least ${PASSWORD_MIN} characters`, { n: PASSWORD_MIN });
   else if (form.password.length > PASSWORD_MAX)
-    errors.password = `At most ${PASSWORD_MAX} characters`;
+    errors.password = t("app.signup.error.passwordMax", `At most ${PASSWORD_MAX} characters`, { n: PASSWORD_MAX });
   return errors;
 }
+
+// What CompanyFields / AccountFields translate with when nobody hands them a
+// `t`: the English fallback, verbatim. SignupPage always passes its own, so in
+// the product this never runs. It exists for scripts/check-auth-pages.mjs,
+// which calls the two components as plain functions — outside React, where the
+// hook would throw — to prove every field still reads and writes its key of
+// `form`; that check compares the labels it finds against the English words,
+// so the fallback has to BE those words.
+const englishOnly = (key, fallbackOrValues) =>
+  typeof fallbackOrValues === "string" ? fallbackOrValues : key;
 
 // Where a visit starts before anything is known about it. Derived from the
 // funnel rather than typed, so the two can't drift apart.
@@ -130,7 +174,7 @@ const INITIAL_STEP = firstStep({ accountExists: false });
 // Module scope on purpose: declared inside SignupPage it would be a new
 // component type on every render, remounting AddressAutocomplete and losing
 // focus mid-keystroke.
-function CompanyFields({ form, setForm, fieldErrors }) {
+function CompanyFields({ form, setForm, fieldErrors, t = englishOnly }) {
   return (
     <>
       <div>
@@ -139,7 +183,7 @@ function CompanyFields({ form, setForm, fieldErrors }) {
             unlabelled boxes. The ids are prefixed because the account step
             renders this component inside a form that has its own fields. */}
         <label htmlFor="signup-companyName" className={FIELD_LABEL}>
-          Company name
+          {t("app.signup.field.companyName", "Company name")}
         </label>
         <input
           id="signup-companyName"
@@ -155,7 +199,7 @@ function CompanyFields({ form, setForm, fieldErrors }) {
 
       <div>
         <label htmlFor="signup-phone" className={FIELD_LABEL}>
-          Phone
+          {t("app.signup.field.phone", "Phone")}
         </label>
         <input
           id="signup-phone"
@@ -177,7 +221,7 @@ function CompanyFields({ form, setForm, fieldErrors }) {
             pointing at an id nothing carries is a control that looks wired and
             is not. The fix belongs in that component, which this change does
             not own. */}
-        <label className={FIELD_LABEL}>Address</label>
+        <label className={FIELD_LABEL}>{t("app.signup.address", "Address")}</label>
         <AddressAutocomplete
           value={form.address}
           onChange={(val) => setForm((f) => ({ ...f, address: val }))}
@@ -202,7 +246,7 @@ function CompanyFields({ form, setForm, fieldErrors }) {
               country: country || f.country,
             }))
           }
-          placeholder="Start typing your address..."
+          placeholder={t("app.signup.field.addressPlaceholder", "Start typing your address...")}
           className={fieldClass(Boolean(fieldErrors.address))}
         />
         {fieldErrors.address && (
@@ -213,25 +257,25 @@ function CompanyFields({ form, setForm, fieldErrors }) {
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label htmlFor="signup-city" className={FIELD_LABEL}>
-            City
+            {t("app.signup.field.city", "City")}
           </label>
           <input
             id="signup-city"
             value={form.city}
             readOnly
-            placeholder="Auto-filled from address"
+            placeholder={t("app.signup.field.autoFilled", "Auto-filled from address")}
             className={READONLY_FIELD}
           />
         </div>
         <div>
           <label htmlFor="signup-province" className={FIELD_LABEL}>
-            Province
+            {t("app.signup.field.province", "Province")}
           </label>
           <input
             id="signup-province"
             value={form.province}
             readOnly
-            placeholder="Auto-filled from address"
+            placeholder={t("app.signup.field.autoFilled", "Auto-filled from address")}
             className={READONLY_FIELD}
           />
         </div>
@@ -240,7 +284,7 @@ function CompanyFields({ form, setForm, fieldErrors }) {
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label htmlFor="signup-country" className={FIELD_LABEL}>
-            Country
+            {t("app.signup.field.country", "Country")}
           </label>
           <select
             id="signup-country"
@@ -252,7 +296,7 @@ function CompanyFields({ form, setForm, fieldErrors }) {
                 Without it the select would DISPLAY Canada while the value was
                 "" — the screen stating something the record does not, which is
                 the whole failure this change removes. */}
-            <option value="">Select a country…</option>
+            <option value="">{t("app.signup.field.selectCountry", "Select a country…")}</option>
             {COUNTRIES.map((c) => (
               <option key={c.code} value={c.code}>
                 {c.name}
@@ -262,12 +306,12 @@ function CompanyFields({ form, setForm, fieldErrors }) {
           {/* Filled in from the address you pick, and it decides which prices
               you are shown on the last step. */}
           <p className="text-xs text-muted-foreground mt-1">
-            Filled in from your address. Sets your billing currency.
+            {t("app.signup.field.countryHint", "Filled in from your address. Sets your billing currency.")}
           </p>
         </div>
         <div>
           <label htmlFor="signup-language" className={FIELD_LABEL}>
-            Language
+            {t("app.signup.field.language", "Language")}
           </label>
           <select
             id="signup-language"
@@ -282,7 +326,7 @@ function CompanyFields({ form, setForm, fieldErrors }) {
             ))}
           </select>
           <p className="text-xs text-muted-foreground mt-1">
-            Your default in the app.
+            {t("app.signup.field.languageHint", "Your default in the app.")}
           </p>
         </div>
       </div>
@@ -309,13 +353,13 @@ function CompanyFields({ form, setForm, fieldErrors }) {
  * Presentational only. The submit handler, the validators and the step machine
  * all stay in SignupPage, so nothing about what gets POSTed passes through here.
  */
-export function AccountFields({ form, setForm, fieldErrors }) {
+export function AccountFields({ form, setForm, fieldErrors, t = englishOnly }) {
   return (
     <>
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label htmlFor="signup-firstName" className={FIELD_LABEL}>
-            First name
+            {t("app.signup.field.firstName", "First name")}
           </label>
           <input
             id="signup-firstName"
@@ -330,7 +374,7 @@ export function AccountFields({ form, setForm, fieldErrors }) {
         </div>
         <div>
           <label htmlFor="signup-lastName" className={FIELD_LABEL}>
-            Last name
+            {t("app.signup.field.lastName", "Last name")}
           </label>
           <input
             id="signup-lastName"
@@ -347,7 +391,7 @@ export function AccountFields({ form, setForm, fieldErrors }) {
 
       <div>
         <label htmlFor="signup-email" className={FIELD_LABEL}>
-          Email
+          {t("app.signup.field.email", "Email")}
         </label>
         <input
           id="signup-email"
@@ -361,11 +405,11 @@ export function AccountFields({ form, setForm, fieldErrors }) {
         {fieldErrors.email && <p className={FIELD_ERROR}>{fieldErrors.email}</p>}
       </div>
 
-      <CompanyFields form={form} setForm={setForm} fieldErrors={fieldErrors} />
+      <CompanyFields form={form} setForm={setForm} fieldErrors={fieldErrors} t={t} />
 
       <div>
         <label htmlFor="signup-password" className={FIELD_LABEL}>
-          Password
+          {t("app.signup.field.password", "Password")}
         </label>
         <input
           id="signup-password"
@@ -457,9 +501,10 @@ export function resolvePlanSelection({
 }
 
 export default function SignupPage() {
-  // Only the copy this redesign ADDED goes through t(). The rest of the funnel
-  // is English throughout (see the note on money()), and converting it wholesale
-  // would be a translation change wearing a layout change's clothes.
+  // Every sentence on the funnel goes through t() with its English as the
+  // fallback (app.signup.* in appMessages.js). It was English-only for a long
+  // time on the reasoning that converting it belonged to its own change; this
+  // is that change. What stays fixed is number formatting — see money().
   const { t } = useTranslation();
 
   // Signed-out is the common case, so the funnel opens on "account". A visitor
@@ -1058,7 +1103,7 @@ export default function SignupPage() {
       const keys = Object.keys(shown);
       if (keys.length === 0) return shown;
 
-      const fresh = validateAccountFields(form);
+      const fresh = validateAccountFields(form, t);
       const narrowed = {};
       let changed = false;
       for (const key of keys) {
@@ -1069,7 +1114,7 @@ export default function SignupPage() {
       // re-render the whole form for no reason.
       return changed ? narrowed : shown;
     });
-  }, [form]);
+  }, [form, t]);
 
   useEffect(() => {
     // ── What the link asked for ─────────────────────────────────────────────
@@ -1149,7 +1194,7 @@ export default function SignupPage() {
     e.preventDefault();
     setError("");
 
-    const errors = validateCompanyFields(form);
+    const errors = validateCompanyFields(form, t);
     setFieldErrors(errors);
     if (Object.keys(errors).length > 0) return;
 
@@ -1164,7 +1209,7 @@ export default function SignupPage() {
     e.preventDefault();
     setError("");
 
-    const errors = validateAccountFields(form);
+    const errors = validateAccountFields(form, t);
 
     setFieldErrors(errors);
     if (Object.keys(errors).length > 0) return;
@@ -1186,7 +1231,9 @@ export default function SignupPage() {
       if (result?.error) {
         // Surface Better Auth's own message on the specific field when possible,
         // otherwise fall back to the general error banner.
-        const message = result.error.message || "Could not create your account";
+        const message =
+          result.error.message ||
+          t("app.signup.error.createAccount", "Could not create your account");
         if (message.toLowerCase().includes("email")) {
           setFieldErrors({ email: message });
         } else {
@@ -1200,7 +1247,7 @@ export default function SignupPage() {
       setAccountReady({ email: form.email });
       goToStep(nextStep("account", { accountExists: true }));
     } catch (err) {
-      setError(err?.message || "Could not create your account");
+      setError(err?.message || t("app.signup.error.createAccount", "Could not create your account"));
     } finally {
       setSubmitting(false);
     }
@@ -1239,14 +1286,21 @@ export default function SignupPage() {
     // disabled button is not a guard — the same three states are checked on the
     // server, and this only decides which sentence they read.
     if (!hasSelection) {
-      setError("Please select a plan first.");
+      setError(t("app.signup.error.selectPlan", "Please select a plan first."));
       return;
     }
     if (!planCurrency) {
       setError(
         basis.country
-          ? `We don't have plan pricing for ${countryName} yet — get in touch and we'll sort it out.`
-          : "Add your business address first — it's what tells us which currency to price in.",
+          ? t(
+              "app.signup.error.noPricingFor",
+              "We don't have plan pricing for {country} yet — get in touch and we'll sort it out.",
+              { country: countryName },
+            )
+          : t(
+              "app.signup.error.addressFirst",
+              "Add your business address first — it's what tells us which currency to price in.",
+            ),
       );
       return;
     }
@@ -1279,7 +1333,10 @@ export default function SignupPage() {
         if (!res.ok || !data?.checkoutUrl) {
           setError(
             data?.error ||
-              "We couldn't open checkout. Try again, or get in touch and we'll finish it with you.",
+              t(
+                "app.signup.error.checkout",
+                "We couldn't open checkout. Try again, or get in touch and we'll finish it with you.",
+              ),
           );
           return;
         }
@@ -1290,7 +1347,7 @@ export default function SignupPage() {
         window.location.href = data.checkoutUrl;
         return;
       } catch (err) {
-        setError(err?.message || "We couldn't open checkout.");
+        setError(err?.message || t("app.signup.error.checkoutShort", "We couldn't open checkout."));
         return;
       } finally {
         setSubmitting(false);
@@ -1328,12 +1385,12 @@ export default function SignupPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error || "Could not finish setting up your company");
+        setError(data.error || t("app.signup.error.finishCompany", "Could not finish setting up your company"));
         return;
       }
 
       if (!data.checkoutUrl) {
-        setError("Company was created, but no checkout URL was returned.");
+        setError(t("app.signup.error.noCheckoutUrl", "Company was created, but no checkout URL was returned."));
         return;
       }
 
@@ -1348,7 +1405,7 @@ export default function SignupPage() {
 
       window.location.href = data.checkoutUrl;
     } catch (err) {
-      setError(err?.message || "Could not finish setting up your company");
+      setError(err?.message || t("app.signup.error.finishCompany", "Could not finish setting up your company"));
     } finally {
       setSubmitting(false);
     }
@@ -1379,7 +1436,7 @@ export default function SignupPage() {
         title={
           finishCheckout
             ? t("app.signup.finish.title", "One step left")
-            : "Start your free trial"
+            : t("app.signup.title", "Start your free trial")
         }
         subtitle={
           finishCheckout ? (
@@ -1419,7 +1476,7 @@ export default function SignupPage() {
             <>
               {/* Off the trialLabel helper, never a hardcoded number — this line
                   had drifted to "$1" while the system actually charges $0. */}
-              {trialLabel()}
+              {trialText(t)}
               {" — "}
               {t(
                 "app.signup.subtitle",
@@ -1533,15 +1590,30 @@ export default function SignupPage() {
 
         {resumedSignup && !alreadyOnFieldquo && (
           <div className="max-w-md mx-auto mb-6 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-xl px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
-            <p>
-              You&apos;re signed in as{" "}
-              <strong>{accountReady?.email || "your account"}</strong>, but your
-              business was never finished — that last step is what creates it.
-              Carry on below and nothing you&apos;ve already entered is lost.
-            </p>
+            {(() => {
+              const [before, after] = around(
+                t(
+                  "app.signup.resumed.body",
+                  "You're signed in as {email}, but your business was never finished — that last step is what creates it. Carry on below and nothing you've already entered is lost.",
+                ),
+                "{email}",
+              );
+              return (
+                <p>
+                  {before}
+                  <strong>
+                    {accountReady?.email ||
+                      t("app.signup.resumed.yourAccount", "your account")}
+                  </strong>
+                  {after}
+                </p>
+              );
+            })()}
             <p className="mt-2">
-              Joining a business someone invited you to? Ask them to resend the
-              invitation instead — this page sets up a new business of your own.
+              {t(
+                "app.signup.resumed.invited",
+                "Joining a business someone invited you to? Ask them to resend the invitation instead — this page sets up a new business of your own.",
+              )}
             </p>
           </div>
         )}
@@ -1558,10 +1630,25 @@ export default function SignupPage() {
                 was never written" case AuthShell's header warns about.
                 check:auth-pages proves the token resolves in both palettes; it
                 cannot prove anything about a literal. */}
-            <p className="text-sm text-foreground">
-              <strong>{referrer.referrerName}</strong> referred you —{" "}
-              <strong>{monthsFree(referrer.months)}</strong> added to your trial.
-            </p>
+            {(() => {
+              // Two bold spans in one translated sentence: split on {name}
+              // first, then on {months} in whatever is left after it.
+              const sentence = t(
+                "app.signup.referred",
+                "{name} referred you — {months} added to your trial.",
+              );
+              const [a, rest] = around(sentence, "{name}");
+              const [b, c] = around(rest, "{months}");
+              return (
+                <p className="text-sm text-foreground">
+                  {a}
+                  <strong>{referrer.referrerName}</strong>
+                  {b}
+                  <strong>{monthsFree(t, referrer.months)}</strong>
+                  {c}
+                </p>
+              );
+            })()}
           </div>
         )}
         {error && (
@@ -1578,7 +1665,7 @@ export default function SignupPage() {
             resumed-signup banner below exists to answer. */}
         {!entryChecked && !alreadyOnFieldquo && (
           <div className="bg-card border border-border rounded-xl shadow-sm p-8 text-center text-sm text-muted-foreground">
-            Getting things ready...
+            {t("app.signup.gettingReady", "Getting things ready...")}
           </div>
         )}
         {entryChecked && !alreadyOnFieldquo && step === "account" && (
@@ -1591,11 +1678,13 @@ export default function SignupPage() {
                 describing a choice that hasn't been made. */}
             <div>
               <h2 className="text-lg font-semibold text-foreground">
-                Your account and business
+                {t("app.signup.account.title", "Your account and business")}
               </h2>
               <p className="text-sm text-muted-foreground mt-1">
-                We'll ask which trades you work in next, and you'll pick a plan
-                at the end — the price depends on where your business is.
+                {t(
+                  "app.signup.account.body",
+                  "We'll ask which trades you work in next, and you'll pick a plan at the end — the price depends on where your business is.",
+                )}
               </p>
             </div>
 
@@ -1606,6 +1695,7 @@ export default function SignupPage() {
               form={form}
               setForm={setForm}
               fieldErrors={fieldErrors}
+              t={t}
             />
 
             <button
@@ -1613,7 +1703,9 @@ export default function SignupPage() {
               disabled={submitting}
               className={PRIMARY_BUTTON}
             >
-              {submitting ? "Creating your account..." : "Continue"}
+              {submitting
+                ? t("app.signup.creatingAccount", "Creating your account...")
+                : t("app.signup.continue", "Continue")}
             </button>
           </form>
         )}
@@ -1632,19 +1724,34 @@ export default function SignupPage() {
                 doesn't exist. */}
             <div>
               <h2 className="text-lg font-semibold text-foreground">
-                {alreadyOnFieldquo ? "Your new business" : "Your business"}
+                {alreadyOnFieldquo
+                  ? t("app.signup.business.titleNew", "Your new business")
+                  : t("app.signup.business.title", "Your business")}
               </h2>
               <p className="text-sm text-muted-foreground mt-1">
-                This is the business your clients will see on quotes and
-                invoices.{" "}
+                {t(
+                  "app.signup.business.body",
+                  "This is the business your clients will see on quotes and invoices.",
+                )}{" "}
                 {alreadyOnFieldquo ? (
-                  <>
-                    It&apos;s separate from{" "}
-                    <strong>{alreadyOnFieldquo.name}</strong> — nothing there
-                    changes.
-                  </>
+                  (() => {
+                    const [before, after] = around(
+                      t(
+                        "app.signup.business.separate",
+                        "It's separate from {name} — nothing there changes.",
+                      ),
+                      "{name}",
+                    );
+                    return (
+                      <>
+                        {before}
+                        <strong>{alreadyOnFieldquo.name}</strong>
+                        {after}
+                      </>
+                    );
+                  })()
                 ) : (
-                  "You can change any of it later in Settings."
+                  t("app.signup.business.changeLater", "You can change any of it later in Settings.")
                 )}
               </p>
             </div>
@@ -1653,21 +1760,24 @@ export default function SignupPage() {
               form={form}
               setForm={setForm}
               fieldErrors={fieldErrors}
+              t={t}
             />
 
             <button type="submit" className={PRIMARY_BUTTON}>
-              Continue
+              {t("app.signup.continue", "Continue")}
             </button>
           </form>
         )}
         {entryChecked && !alreadyOnFieldquo && step === "industry" && (
           <div className="bg-card border border-border rounded-xl shadow-sm p-6 sm:p-8">
             <h2 className="text-lg font-semibold text-foreground mb-1">
-              What trades does your company work in?
+              {t("app.signup.industry.title", "What trades does your company work in?")}
             </h2>
             <p className="text-sm text-muted-foreground mb-4">
-              Select all that apply — this narrows down which quote types you'll
-              see.
+              {t(
+                "app.signup.industry.body",
+                "Select all that apply — this narrows down which quote types you'll see.",
+              )}
             </p>
             <div className="grid grid-cols-2 gap-2">
               {INDUSTRIES.map((ind) => (
@@ -1707,7 +1817,7 @@ export default function SignupPage() {
               disabled={selectedIndustries.length === 0}
               className={`${PRIMARY_BUTTON} mt-6 disabled:opacity-40`}
             >
-              Continue
+              {t("app.signup.continue", "Continue")}
             </button>
 
             <button
@@ -1715,19 +1825,25 @@ export default function SignupPage() {
               onClick={() => goBackToStep(previousStep("industry", { accountExists }))}
               className="w-full mt-3 text-sm text-muted-foreground hover:text-foreground"
             >
-              ← Back
+              ← {t("app.signup.back", "Back")}
             </button>
           </div>
         )}
         {entryChecked && !alreadyOnFieldquo && step === "services" && (
           <div className="bg-card border border-border rounded-xl shadow-sm p-6 sm:p-8">
             <h2 className="text-lg font-semibold text-foreground mb-1">
-              Which services do you offer?
+              {t("app.signup.services.title", "Which services do you offer?")}
             </h2>
             <p className="text-sm text-muted-foreground mb-4">
               {showAllServices
-                ? "Browsing every quote type — turn on the ones you offer. You can change this anytime."
-                : "We've preselected the usual quote types for your trade. Adjust as needed — you can change this anytime."}
+                ? t(
+                    "app.signup.services.bodyAll",
+                    "Browsing every quote type — turn on the ones you offer. You can change this anytime.",
+                  )
+                : t(
+                    "app.signup.services.bodyPreset",
+                    "We've preselected the usual quote types for your trade. Adjust as needed — you can change this anytime.",
+                  )}
             </p>
             {(() => {
               const presetKeys = categoryKeysForIndustries(selectedIndustries);
@@ -1753,7 +1869,7 @@ export default function SignupPage() {
                   ))}
                   {categories.length === 0 && (
                     <p className="col-span-2 text-sm text-muted-foreground">
-                      Loading services...
+                      {t("app.signup.services.loading", "Loading services...")}
                     </p>
                   )}
                 </div>
@@ -1767,8 +1883,8 @@ export default function SignupPage() {
                 className="w-full mt-3 text-sm font-medium text-muted-foreground hover:text-foreground"
               >
                 {showAllServices
-                  ? "← Show just my trade's quote types"
-                  : "+ Add a quote type from another trade"}
+                  ? `← ${t("app.signup.services.showMine", "Show just my trade's quote types")}`
+                  : `+ ${t("app.signup.services.addOther", "Add a quote type from another trade")}`}
               </button>
             )}
 
@@ -1780,7 +1896,7 @@ export default function SignupPage() {
               disabled={selectedCategoryIds.length === 0}
               className={`${PRIMARY_BUTTON} mt-6 disabled:opacity-40`}
             >
-              Continue
+              {t("app.signup.continue", "Continue")}
             </button>
 
             <button
@@ -1788,7 +1904,7 @@ export default function SignupPage() {
               onClick={() => goBackToStep(previousStep("services", { accountExists }))}
               className="w-full mt-3 text-sm text-muted-foreground hover:text-foreground"
             >
-              ← Back
+              ← {t("app.signup.back", "Back")}
             </button>
           </div>
         )}
@@ -1803,11 +1919,13 @@ export default function SignupPage() {
                 page's heading, and two h1s is one page claiming to be two. */}
             <div className="mb-6">
               <h2 className="text-2xl font-bold text-foreground">
-                Choose your plan
+                {t("app.signup.plan.title", "Choose your plan")}
               </h2>
               <p className="text-sm text-muted-foreground mt-2">
-                Last step — then we'll take you to checkout.
-                {currencyName ? ` Prices in ${currencyName}.` : ""}
+                {t("app.signup.plan.body", "Last step — then we'll take you to checkout.")}
+                {currencyName
+                  ? ` ${t("app.signup.plan.pricesIn", "Prices in {currency}.", { currency: currencyName })}`
+                  : ""}
               </p>
             </div>
 
@@ -1819,19 +1937,20 @@ export default function SignupPage() {
             {!basis.country ? (
               <div className="max-w-md mx-auto bg-card border border-border rounded-xl p-6 text-center">
                 <h2 className="font-semibold text-foreground">
-                  Where is your business?
+                  {t("app.signup.plan.whereTitle", "Where is your business?")}
                 </h2>
                 <p className="text-sm text-muted-foreground mt-2">
-                  We price in Canadian and US dollars, and the address you gave
-                  us doesn't say which country you're in — so we'd be guessing
-                  at your price. Add it and these plans will fill in.
+                  {t(
+                    "app.signup.plan.whereBody",
+                    "We price in Canadian and US dollars, and the address you gave us doesn't say which country you're in — so we'd be guessing at your price. Add it and these plans will fill in.",
+                  )}
                 </p>
                 <button
                   type="button"
                   onClick={() => goToStep(firstStep({ accountExists }))}
                   className="mt-4 bg-inverted text-inverted-foreground px-5 py-2.5 rounded-full text-sm font-semibold"
                 >
-                  Add your business address
+                  {t("app.signup.plan.addAddress", "Add your business address")}
                 </button>
               </div>
             ) : !planCurrency ? (
@@ -1841,42 +1960,54 @@ export default function SignupPage() {
                  the product failing to read its own form. */
               <div className="max-w-md mx-auto bg-card border border-border rounded-xl p-6 text-center">
                 <h2 className="font-semibold text-foreground">
-                  We don't have pricing for {countryName} yet
+                  {t("app.signup.plan.noPricingTitle", "We don't have pricing for {country} yet", { country: countryName })}
                 </h2>
                 <p className="text-sm text-muted-foreground mt-2">
-                  FieldQuo bills in Canadian and US dollars today. Get in touch
-                  and we'll set your business up by hand — everything you've
-                  entered here is kept in this tab in the meantime.
+                  {t(
+                    "app.signup.plan.noPricingBody",
+                    "FieldQuo bills in Canadian and US dollars today. Get in touch and we'll set your business up by hand — everything you've entered here is kept in this tab in the meantime.",
+                  )}
                 </p>
                 <Link
                   href="/contact"
                   className="inline-block mt-4 bg-inverted text-inverted-foreground px-5 py-2.5 rounded-full text-sm font-semibold"
                 >
-                  Contact us
+                  {t("app.signup.contactUs", "Contact us")}
                 </Link>
                 <p className="text-xs text-muted-foreground mt-3">
-                  Not right?{" "}
+                  {t("app.signup.plan.notRight", "Not right?")}{" "}
                   <button
                     type="button"
                     onClick={() => goToStep(firstStep({ accountExists }))}
                     className="underline"
                   >
-                    Change your country
+                    {t("app.signup.plan.changeCountry", "Change your country")}
                   </button>
                 </p>
               </div>
             ) : plansLoading ? (
               <div className="bg-card border border-border rounded-xl p-8 text-center text-sm text-muted-foreground">
-                Loading plans...
+                {t("app.signup.plan.loading", "Loading plans...")}
               </div>
             ) : visiblePlans.length === 0 ? (
-              <div className="bg-card border border-border rounded-xl p-8 text-center text-sm text-muted-foreground">
-                No plans are available right now. Please{" "}
-                <Link href="/contact" className="underline">
-                  contact us
-                </Link>{" "}
-                to get started.
-              </div>
+              (() => {
+                const [before, after] = around(
+                  t(
+                    "app.signup.plan.none",
+                    "No plans are available right now. Please {link} to get started.",
+                  ),
+                  "{link}",
+                );
+                return (
+                  <div className="bg-card border border-border rounded-xl p-8 text-center text-sm text-muted-foreground">
+                    {before}
+                    <Link href="/contact" className="underline">
+                      {t("app.signup.plan.noneLink", "contact us")}
+                    </Link>
+                    {after}
+                  </div>
+                );
+              })()
             ) : (
               <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {visiblePlans.map((plan) => (
@@ -1902,17 +2033,19 @@ export default function SignupPage() {
                     country the ladder has no currency for. */}
                 <div className="text-left border border-dashed border-border rounded-2xl p-6 flex flex-col justify-center bg-card">
                   <h3 className="text-lg font-semibold text-foreground">
-                    Need more than Scale?
+                    {t("app.signup.plan.moreTitle", "Need more than Scale?")}
                   </h3>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Scale covers up to 10 seats and 15 crew. For a bigger
-                    team, we'll work out a plan by hand.
+                    {t(
+                      "app.signup.plan.moreBody",
+                      "Scale covers up to 10 seats and 15 crew. For a bigger team, we'll work out a plan by hand.",
+                    )}
                   </p>
                   <Link
                     href="/contact"
                     className="mt-4 text-sm font-semibold underline underline-offset-2 self-start"
                   >
-                    Contact us
+                    {t("app.signup.contactUs", "Contact us")}
                   </Link>
                 </div>
               </div>
@@ -1921,9 +2054,9 @@ export default function SignupPage() {
             {planCurrency && (
               <div className="max-w-md mx-auto mt-8 bg-card border border-border rounded-xl p-5">
                 <div className="text-sm text-muted-foreground">
-                  Selected plan:{" "}
+                  {t("app.signup.plan.selected", "Selected plan:")}{" "}
                   <span className="font-semibold text-foreground">
-                    {hasSelection ? selectedPlanName : "None yet"}
+                    {hasSelection ? selectedPlanName : t("app.signup.plan.noneYet", "None yet")}
                   </span>
                 </div>
 
@@ -1940,7 +2073,7 @@ export default function SignupPage() {
                 {hasSelection && (
                   <div className="mt-4">
                     <div className="text-sm font-medium text-foreground">
-                      How would you like to be billed?
+                      {t("app.signup.plan.billingQuestion", "How would you like to be billed?")}
                     </div>
 
                     <div className="mt-2 space-y-2">
@@ -1960,12 +2093,14 @@ export default function SignupPage() {
                         />
                         <span className="text-sm">
                           <span className="font-medium text-foreground">
-                            No commitment
+                            {t("app.signup.plan.noCommitment", "No commitment")}
                           </span>
                           <span className="block text-muted-foreground">
-                            {symbol}
-                            {money(pricing.monthlyTotal)} a month, cancel any
-                            time.
+                            {t(
+                              "app.signup.plan.monthlyLine",
+                              "{price} a month, cancel any time.",
+                              { price: `${symbol}${money(pricing.monthlyTotal)}` },
+                            )}
                           </span>
                         </span>
                       </label>
@@ -1989,19 +2124,19 @@ export default function SignupPage() {
                         />
                         <span className="text-sm">
                           <span className="font-medium text-foreground">
-                            1 year commitment
+                            {t("app.signup.plan.yearCommitment", "1 year commitment")}
                           </span>
                           <span className="block text-muted-foreground">
-                            {annualAvailable ? (
-                              <>
-                                {symbol}
-                                {money(annualPrice)} a year — that&apos;s{" "}
-                                {symbol}
-                                {money(annualPrice / 12)} a month.
-                              </>
-                            ) : (
-                              "This plan is billed monthly only."
-                            )}
+                            {annualAvailable
+                              ? t(
+                                  "app.signup.plan.yearlyLine",
+                                  "{year} a year — that's {month} a month.",
+                                  {
+                                    year: `${symbol}${money(annualPrice)}`,
+                                    month: `${symbol}${money(annualPrice / 12)}`,
+                                  },
+                                )
+                              : t("app.signup.plan.monthlyOnly", "This plan is billed monthly only.")}
                           </span>
                           {/* The saving is the REASON to commit, so it is said
                               in money and in months rather than a percentage —
@@ -2011,8 +2146,15 @@ export default function SignupPage() {
                           {annualAvailable && (
                             <span className="block mt-1 font-medium text-green-700 dark:text-green-400">
                               {yearlySaving > 0
-                                ? `Save ${symbol}${money(yearlySaving)} a year — two months free.`
-                                : "Same rate as monthly — the year is the commitment, not a discount."}
+                                ? t(
+                                    "app.signup.plan.save",
+                                    "Save {amount} a year — two months free.",
+                                    { amount: `${symbol}${money(yearlySaving)}` },
+                                  )
+                                : t(
+                                    "app.signup.plan.sameRate",
+                                    "Same rate as monthly — the year is the commitment, not a discount.",
+                                  )}
                             </span>
                           )}
                         </span>
@@ -2030,17 +2172,35 @@ export default function SignupPage() {
                         trial days once trialEndsAt has passed. Saying "first
                         month free" over a charge that lands today is the exact
                         shape of promise this codebase forbids. */}
-                    {finishCheckout
-                      ? resumeTrialLive
-                        ? `Free for another ${dayCount(resumeTrialDaysLeft)}, then `
-                        : "Billed from today: "
-                      : `${trialLabel(pricing.trialTotal)}, then `}
-                    <span className="font-semibold text-foreground">
-                      {symbol}
-                      {money(charge.amount)}
-                      {charge.interval === "year" ? " a year" : "/mo"}
-                    </span>
-                    .
+                    {(() => {
+                      // One translated sentence with the charge in bold —
+                      // split on {charge} so the bold lands where the
+                      // language puts it, not where English does.
+                      const sentence = finishCheckout
+                        ? resumeTrialLive
+                          ? t(
+                              "app.signup.plan.chargeResume",
+                              "Free for another {days}, then {charge}.",
+                              { days: dayCount(t, resumeTrialDaysLeft) },
+                            )
+                          : t("app.signup.plan.chargeToday", "Billed from today: {charge}.")
+                        : t("app.signup.plan.chargeTrial", "{trial}, then {charge}.", {
+                            trial: trialText(t, pricing.trialTotal),
+                          });
+                      const [before, after] = around(sentence, "{charge}");
+                      const amount = `${symbol}${money(charge.amount)}`;
+                      return (
+                        <>
+                          {before}
+                          <span className="font-semibold text-foreground">
+                            {charge.interval === "year"
+                              ? t("app.signup.plan.aYear", "{amount} a year", { amount })
+                              : t("app.signup.plan.perMonth", "{amount}/mo", { amount })}
+                          </span>
+                          {after}
+                        </>
+                      );
+                    })()}
                   </div>
                 )}
 
@@ -2050,7 +2210,9 @@ export default function SignupPage() {
                   disabled={submitting || !hasSelection || !charge}
                   className={`${PRIMARY_BUTTON} mt-4 disabled:opacity-40`}
                 >
-                  {submitting ? "Setting up..." : "Continue to Payment"}
+                  {submitting
+                    ? t("app.signup.settingUp", "Setting up...")
+                    : t("app.signup.continueToPayment", "Continue to Payment")}
                 </button>
 
                 {/* ── No Back when this is a resumed payment ───────────────
@@ -2070,7 +2232,7 @@ export default function SignupPage() {
                     }
                     className="w-full mt-3 text-sm text-muted-foreground hover:text-foreground"
                   >
-                    ← Back
+                    ← {t("app.signup.back", "Back")}
                   </button>
                 )}
               </div>
@@ -2078,9 +2240,9 @@ export default function SignupPage() {
           </div>
         )}
         <p className="text-sm text-muted-foreground mt-6">
-          Already have an account?{" "}
+          {t("app.signup.alreadyAccount", "Already have an account?")}{" "}
           <Link href="/login" className="font-medium text-foreground underline">
-            Log in
+            {t("app.signup.logIn", "Log in")}
           </Link>
         </p>
       </AuthShell>

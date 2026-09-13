@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { levelOrRefusal } from "@/lib/permissions/apiGate";
+import { requireLevel, permissionErrorResponse } from "@/lib/permissions/enforce";
 
 // A lead's call-back log. Kept separate from the lead's own `message` (the
 // homeowner's words) so "left a voicemail, trying Tue" can't be confused with
@@ -15,13 +16,23 @@ export async function GET(request, { params }) {
 
   // A lead's notes are the lead: "spoke to the owner, budget is soft" is the
   // same record one field over.
-  const { response: denied } = await levelOrRefusal(
+  const { full, response: denied } = await levelOrRefusal(
     member,
     "requests",
     "view_only",
     "see requests",
   );
   if (denied) return denied;
+
+  // ...and the notes dial is the second gate on the same read. The floor of
+  // that ladder, "View notes on jobs and visits only", is exactly what this
+  // log is not — see the Notes section of lib/permissions/enforce.js.
+  try {
+    requireLevel(full, "notes", "view_all", "see notes on requests");
+  } catch (err) {
+    const { body, status } = permissionErrorResponse(err);
+    return NextResponse.json(body, { status });
+  }
 
   const { id } = await params;
   const lead = await db.leadRequest.findFirst({
@@ -44,13 +55,22 @@ export async function POST(request, { params }) {
   if (response) return response;
 
   // Writing on a lead is the same level PATCH /api/leads/[id] requires.
-  const { response: denied } = await levelOrRefusal(
+  const { full, response: denied } = await levelOrRefusal(
     member,
     "requests",
     "view_create_edit",
     "change a request",
   );
   if (denied) return denied;
+
+  // The notes dial's WRITE rung. An Estimator sits at notes:view_all and may
+  // change the request itself; the call-back log is a separate grant.
+  try {
+    requireLevel(full, "notes", "view_edit_all", "add notes to requests");
+  } catch (err) {
+    const { body, status } = permissionErrorResponse(err);
+    return NextResponse.json(body, { status });
+  }
 
   const { id } = await params;
   const lead = await db.leadRequest.findFirst({

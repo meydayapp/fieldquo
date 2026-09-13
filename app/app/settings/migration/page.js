@@ -2,9 +2,12 @@
 
 // app/app/settings/migration/page.js
 //
-// Bring your old data into FieldQuo — quotes, invoices, jobs from QuickBooks,
+// Bring your old data into FieldQuo — clients and quotes from QuickBooks,
 // Jobber, a spreadsheet, a shoebox. Request it, talk it through with FieldQuo,
-// see the price, decide, pay, and watch what gets brought in.
+// see the price, decide, pay, and watch what gets brought in. Clients and
+// quotes only: lib/migrations/writes.js creates nothing else (no invoice or
+// job writes — see "What was not built" in docs/MIGRATION-SERVICE.md), so the
+// page's subtitle promises nothing else either.
 //
 // State machine lives in lib/migrations/state.js; this page only renders
 // whichever step the request's `status` says it's in. See

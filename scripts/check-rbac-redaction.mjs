@@ -563,8 +563,11 @@ check("requests is no longer described as inert",
   !/\* requests\s+— saved, shown back, gates no request anywhere/.test(HEADER));
 check("jobCosting is no longer described as inert",
   !/\* jobCosting\s+— saved, shown back, gates no costing view anywhere/.test(HEADER));
-check("notes IS still named as the one that is (it genuinely is)",
-  /notes — saved, shown back, gates no note anywhere/.test(HEADER));
+// notes was the last inert one, and scripts/check-notes-dial.mjs executes it
+// now. The header must not drift back to calling it dead.
+check("notes is no longer described as inert",
+  !/notes — saved, shown back, gates no note anywhere/.test(HEADER) &&
+  /EVERY CATEGORY IN THE EDITOR NOW GATES SOMETHING/.test(HEADER));
 check("showPricing's description covers the read half it now controls",
   /See prices on quotes, invoices and jobs/.test(HEADER));
 

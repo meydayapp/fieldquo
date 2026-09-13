@@ -15,6 +15,8 @@ import {
   filterNavItemsByPermission,
   NAV_REQUIREMENTS,
 } from "../lib/permissions/nav.js";
+import { PERMISSION_PRESETS, PRESET_TO_ROLE } from "../lib/permissions.js";
+import { readFileSync } from "node:fs";
 
 let pass = 0;
 const failures = [];
@@ -60,6 +62,22 @@ check("Their own clock stays", navRowAllowed("app.nav.clock", employee));
 check("Their own payslips stay", navRowAllowed("app.nav.payroll", employee));
 check("Requests stay", navRowAllowed("app.nav.requests", employee));
 check("A row nothing has an opinion about stays", navRowAllowed("app.nav.calendar", employee));
+
+// ── The inbox is the requests grid one screen over ─────────────────────────
+//
+// GET /api/messaging/threads refuses at requests:view_only (an inbound Page
+// message IS a request). The Messages row had no rule, so a Crew member at
+// requests:none saw the row and met the refusal behind it. Executed against
+// the Crew preset itself, not a hand-written grid, so the assertion follows
+// the preset if it moves.
+console.log("\nMessages follows the requests dial, as the route does\n");
+const crew = { role: PRESET_TO_ROLE.worker, permissions: PERMISSION_PRESETS.worker.values };
+check("Crew (requests: none) does not see Messages", !navRowAllowed("app.nav.messages", crew));
+check("Daniel's grid (requests: view_only) keeps Messages", navRowAllowed("app.nav.messages", employee));
+check("the rule is the SAME dial and rung the route gates on",
+  NAV_REQUIREMENTS["app.nav.messages"]?.category === "requests" &&
+  NAV_REQUIREMENTS["app.nav.messages"]?.level === "view_only" &&
+  /requireLevel\(full, "requests", "view_only"/.test(readFileSync(new URL("../app/api/messaging/threads/route.js", import.meta.url), "utf8")));
 
 console.log("\nWho keeps the full menu\n");
 check("owner sees everything", Object.keys(NAV_REQUIREMENTS).every((k) => navRowAllowed(k, owner)));

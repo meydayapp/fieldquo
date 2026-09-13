@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { Plus, Clock, Mail, X } from "lucide-react";
+import { Plus, Clock, Mail, X, RefreshCw } from "lucide-react";
 import { formatCompanyDate } from "@/lib/format/companyDate";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { useTranslation } from "@/app/hooks/useTranslation";
@@ -27,6 +27,23 @@ import {
 // That duplication is why this screen said "Supervisor / Admin" while the invite
 // screen said "Dispatcher / Manager" for the same people — two sources of truth,
 // and only one of them got updated. Imported now, so they cannot drift again.
+
+// Where an invitation stands against the clock: { expired } once the link has
+// died, { today } on its last day, else { days } left, rounded UP so a link
+// that dies tomorrow morning reads as one day rather than zero. Null when
+// there is no date to read — the pending route sends null when Better Auth
+// has no live invitation row for the address, and nothing is said then rather
+// than a guessed date. Module-level like timeAgo, for the same reason: the
+// clock is read here, not in the render.
+function invitationExpiry(expiresAt) {
+  if (!expiresAt) return null;
+  const at = new Date(expiresAt);
+  const ms = at.getTime() - Date.now();
+  if (!Number.isFinite(ms)) return null;
+  if (ms <= 0) return { expired: true };
+  if (at.toDateString() === new Date().toDateString()) return { today: true };
+  return { days: Math.ceil(ms / 86400000) };
+}
 
 function timeAgo(date, dateFormat) {
   if (!date) return "Never";
@@ -78,6 +95,11 @@ export default function TeamOverviewPage() {
   // wrong person gets cut off.
   const [confirmRevoke, setConfirmRevoke] = useState(null);
   const [revokingId, setRevokingId] = useState(null);
+  // The pending invite being sent again, and what the server said happened —
+  // "sent again to x" or "renewed, but the email didn't go out", which are
+  // different sentences because they are different outcomes.
+  const [resendingId, setResendingId] = useState(null);
+  const [notice, setNotice] = useState("");
 
   // What THIS user is allowed to assign. Comes from the server rather than
   // being inferred client-side: the UI should offer exactly what the API will
@@ -118,7 +140,13 @@ export default function TeamOverviewPage() {
     ]).then(([memberData, pendingData, grantData, workerData, companyData]) => {
       setLoadFailed(false);
       setMembers(Array.isArray(memberData) ? memberData : []);
-      setPending(Array.isArray(pendingData.pending) ? pendingData.pending : []);
+      // The clock is read once, when the list lands, not on every render.
+      setPending(
+        (Array.isArray(pendingData.pending) ? pendingData.pending : []).map((p) => ({
+          ...p,
+          expiry: invitationExpiry(p.expiresAt),
+        })),
+      );
       setSeats(pendingData.seats || { used: 0, limit: null });
       setGrants(grantData);
       setWorksAlone(Boolean(companyData?.worksAloneAt));
@@ -384,6 +412,61 @@ export default function TeamOverviewPage() {
     }
   }
 
+  // Send a pending invitation again. The server (POST
+  // /api/settings/members/pending/[id]/resend) renews the link and re-sends
+  // the email, or issues a fresh link when the old one has already died; it
+  // also re-checks the permission and the company. This only offers the
+  // control, and repeats what the server reported.
+  async function resendInvite(pendingRow) {
+    setResendingId(pendingRow.id);
+    setError("");
+    setNotice("");
+    try {
+      const res = await fetch(`/api/settings/members/pending/${pendingRow.id}/resend`, {
+        method: "POST",
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(
+          data?.error || t("app.setTeam.errResend", "Could not resend that invitation."),
+        );
+      }
+      if (data?.emailSent) {
+        setNotice(
+          t("app.setTeam.resentInvite", "Invitation sent again to {email}.", {
+            email: pendingRow.email,
+          }),
+        );
+      } else {
+        // The link was renewed and the email failed: say both, because a
+        // green "sent" over a message nobody received is the lie this page
+        // exists to avoid.
+        setError(
+          t(
+            "app.setTeam.resentInviteNoEmail",
+            "The invitation was renewed, but the email didn't go out: {error}",
+            { error: data?.emailError || "" },
+          ),
+        );
+      }
+      await load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setResendingId(null);
+    }
+  }
+
+  // "Expires in 3 days" / "Expires today" / "Expired", from invitationExpiry.
+  function expiryLabel(state) {
+    if (!state) return null;
+    if (state.expired) return t("app.setTeam.expired", "Expired — resend for a fresh link");
+    if (state.today) return t("app.setTeam.expiresToday", "Expires today");
+    return t("app.setTeam.expiresIn", "Expires in {days}", {
+      days: t("app.duration.days", { value: state.days }),
+    });
+  }
+
   const canManageInvites = ["owner", "admin", "supervisor"].includes(
     grants.yourRole,
   );
@@ -449,6 +532,11 @@ export default function TeamOverviewPage() {
       {error && (
         <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-lg px-4 py-3 text-sm text-red-700 dark:text-red-300">
           {error}
+        </div>
+      )}
+      {notice && (
+        <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 rounded-lg px-4 py-3 text-sm text-emerald-800 dark:text-emerald-300">
+          {notice}
         </div>
       )}
 
@@ -797,6 +885,21 @@ export default function TeamOverviewPage() {
                   {p.name || p.email}
                 </div>
                 <div className="text-xs text-muted-foreground">{p.email}</div>
+                {/* How long the link in their inbox still works. An expired
+                    one is said in red: the row otherwise looks identical to a
+                    live invite, and an owner waiting on a hire who "never got
+                    the email" needs to see that the email they got is dead. */}
+                {p.expiry && (
+                  <div
+                    className={`text-xs mt-0.5 ${
+                      p.expiry.expired
+                        ? "text-red-700 dark:text-red-300"
+                        : "text-muted-foreground"
+                    }`}
+                  >
+                    {expiryLabel(p.expiry)}
+                  </div>
+                )}
               </div>
               {/* The ROLE column showed only "Invited", so an owner scanning
                   this page could not tell an Administrator invite from a
@@ -827,15 +930,28 @@ export default function TeamOverviewPage() {
                   with the member rows above it. */}
               <span className="hidden lg:inline text-xs text-muted-foreground">—</span>
               {canManageInvites ? (
-                <button
-                  type="button"
-                  onClick={() => setConfirmRevoke(p)}
-                  disabled={revokingId === p.id}
-                  className="text-xs font-semibold text-red-700 dark:text-red-300 border border-border rounded-full px-2.5 py-1 flex items-center gap-1 disabled:opacity-60"
-                >
-                  <X size={12} />{" "}
-                  {t("app.setTeam.cancelInvite", "Cancel invite")}
-                </button>
+                <span className="flex items-center gap-1.5 flex-wrap justify-end">
+                  <button
+                    type="button"
+                    onClick={() => resendInvite(p)}
+                    disabled={resendingId === p.id || revokingId === p.id}
+                    className="text-xs font-semibold text-foreground border border-border rounded-full px-2.5 py-1 flex items-center gap-1 disabled:opacity-60"
+                  >
+                    <RefreshCw size={12} className={resendingId === p.id ? "animate-spin" : ""} />{" "}
+                    {resendingId === p.id
+                      ? t("app.setTeam.resendingInvite", "Sending…")
+                      : t("app.setTeam.resendInvite", "Resend invite")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmRevoke(p)}
+                    disabled={revokingId === p.id || resendingId === p.id}
+                    className="text-xs font-semibold text-red-700 dark:text-red-300 border border-border rounded-full px-2.5 py-1 flex items-center gap-1 disabled:opacity-60"
+                  >
+                    <X size={12} />{" "}
+                    {t("app.setTeam.cancelInvite", "Cancel invite")}
+                  </button>
+                </span>
               ) : (
                 <span className="text-xs text-muted-foreground">—</span>
               )}

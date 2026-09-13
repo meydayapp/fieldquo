@@ -396,6 +396,37 @@ ok(
   ),
 );
 
+// ══ The home page's "Recent quotes" card, for a member who may not read quotes ══
+//
+// GET /api/quotes refuses at quotes:none — the Crew preset. The card read that
+// 403 as a load failure: "this didn't load", with a Retry that 403'd again, on
+// the first screen a crew member sees every morning. A boundary working is not
+// a failure to report. Below view_only the card is not drawn and the list is
+// not asked for; a 403 that still arrives (the provider falls open, the server
+// does not) is treated as loadMoney already treats it — no error key.
+console.log("\n4. The home page does not report a working boundary as a failure\n");
+const home = code("app/app/page.js");
+ok(
+  "the card asks the same question the route does — quotes:view_only",
+  /const canSeeQuotes = useHasLevel\("quotes", "view_only"\)/.test(home),
+);
+ok(
+  "the Recent quotes card is not drawn below it",
+  /\{canSeeQuotes && \(\s*<div className=\{CARD_CLIPPED\}>\s*<div[^]*?app\.dash\.recentQuotes/.test(home),
+);
+ok(
+  "…and GET /api/quotes is not asked for below it",
+  /if \(!canSeeQuotes\) return;\s*const result = await fetchArray\("\/api\/quotes"\)/.test(home),
+);
+ok(
+  "a 403 that arrives anyway sets no error key (loadMoney's rule)",
+  /setQuotesErrorKey\(result\.status === 403 \? "" : result\.errorKey\)/.test(home),
+);
+ok(
+  "the appointments card beside it is unconditional",
+  /app\.dash\.upcomingAppointments/.test(home) && !/canSeeQuotes && \([^]*?app\.dash\.upcomingAppointments[^]*?\)\}/.test(home.slice(home.indexOf("canSeeQuotes && ("), home.indexOf("app.dash.upcomingAppointments"))),
+);
+
 console.log(
   failures.length
     ? `\nFAILED — ${failures.length} of ${pass + failures.length}\n${failures.map((f) => `  x ${f}`).join("\n")}`
