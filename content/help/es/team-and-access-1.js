@@ -130,7 +130,7 @@ export const ARTICLES = {
         heading: "Qué recibe la persona",
         blocks: [
           { p: "Un correo de FieldQuo con el asunto «You're invited to join su empresa on FieldQuo», en el idioma que usted eligió, con un enlace. El enlace abre **Unirte a su empresa**, que indica con qué nivel fue invitada. Una persona nueva escribe su nombre y crea una contraseña; alguien que ya tiene una cuenta de FieldQuo en otra empresa inicia sesión con su contraseña existente y se agrega a la suya." },
-          { p: "El enlace es válido **48 horas**. Después abre en «Esta invitación ha caducado» con una nota para pedirle una nueva — cancele la invitación anterior y envíe otra. Un enlace que usted canceló abre en «Esta invitación no se puede usar». No hay botón de reenviar; una invitación nueva es el reenvío." },
+          { p: "El enlace es válido **7 días** — la fila pendiente en Gestionar equipo dice «Vence en N días», luego «Vencida» — y un control **Reenviar** junto a **Cancelar** renueva el enlace y vuelve a enviar el correo. Después abre en «Esta invitación ha caducado» con una nota para pedirle una nueva — cancele la invitación anterior y envíe otra. Un enlace que usted canceló abre en «Esta invitación no se puede usar». No hay botón de reenviar; una invitación nueva es el reenvío." },
         ],
       },
       {
@@ -154,7 +154,7 @@ export const ARTICLES = {
       },
     ],
     faq: [
-      { q: "¿Puedo reenviar una invitación?", a: "No como tal. Cancele la invitación pendiente y envíe una nueva desde Agregar usuario; el nuevo enlace vale otras 48 horas." },
+      { q: "¿Puedo reenviar una invitación?", a: "Sí. Pulse **Reenviar** junto a la invitación pendiente en Gestionar equipo: un enlace vigente se renueva por otros 7 días y el correo vuelve a salir; uno vencido se reemplaza por un enlace nuevo. Una invitación aceptada o cancelada no se puede reenviar." },
       { q: "La persona ya usa FieldQuo en otra empresa. ¿Puede aceptar?", a: "Sí. La página de unión reconoce el correo, la persona inicia sesión con su contraseña existente y se agrega a su empresa con el nivel que usted eligió." },
       { q: "¿Por qué falta el campo Costo de mano de obra en mi formulario?", a: "Solo se muestra a un propietario o a un administrador. Un Manager o un Dispatcher que invita a alguien no puede fijar una tarifa; el campo se oculta en lugar de ignorarse en silencio." },
     ],
@@ -588,7 +588,7 @@ export const ARTICLES = {
             ],
           } },
           { p: "Un guion significa que la escalera termina ahí; la última celda llena es el peldaño más alto. **Requests** es la pantalla Prospectos. **Jobs** en No access retiene la ficha del trabajo, no el trabajo en sí: el horario, la lista de verificación de la visita y el reloj son áreas propias, así que un miembro de la cuadrilla sigue viendo su día. El peldaño más alto de Time Tracking es el que borra una entrada, y la escalera de la nómina empieza a propósito en «los suyos»: un empleado que ve la paga de otro es un incidente, no un ajuste." },
-          { warning: "El ajuste **Notes** se guarda y se vuelve a mostrar, pero hoy no restringe nada: una persona puesta en «View notes on jobs and visits only» lee y escribe notas en prospectos, clientes y presupuestos exactamente igual que alguien en «View all notes». No base una decisión de personal en él." },
+          { note: "El ajuste **Notes** controla las notas internas sobre personas — el registro de llamadas de un cliente potencial y las notas privadas de un cliente: leerlas en **View all notes**, escribirlas en **View and edit all notes**, borrar una nota de cliente potencial en **View, edit and delete all notes**. Por debajo, la persona ve «oculto por su nivel de acceso» en lugar de las notas. Las notas de una visita siguen siendo legibles en todos los niveles, y las notas de un presupuesto o de un gasto pertenecen a ese documento, no a este ajuste." },
         ],
       },
       {

@@ -132,7 +132,7 @@ export const ARTICLES = {
         heading: "What the person receives",
         blocks: [
           { p: "An email from FieldQuo titled “You're invited to join your company on FieldQuo”, in the language you chose, with a link. The link opens **Join your company**, which says which level they were invited as. A newcomer types their name and creates a password; somebody who already has a FieldQuo account at another company signs in with their existing password and is added to yours." },
-          { p: "The link is good for **48 hours**. After that it opens on “This invitation has expired” with a note to ask you for a new one — cancel the old invitation and send another. A link you cancelled opens on “This invitation can't be used”. There is no resend button; a new invitation is the resend." },
+          { p: "The link is good for **7 days** — the pending row on Manage Team says “Expires in N days”, then “Expired” — and a **Resend** control beside **Cancel** renews the link and sends the email again. After that it opens on “This invitation has expired” with a note to ask you for a new one — cancel the old invitation and send another. A link you cancelled opens on “This invitation can't be used”. There is no resend button; a new invitation is the resend." },
         ],
       },
       {
@@ -156,7 +156,7 @@ export const ARTICLES = {
       },
     ],
     faq: [
-      { q: "Can I resend an invitation?", a: "Not as such. Cancel the pending invitation and send a new one from Add User; the new link is good for another 48 hours." },
+      { q: "Can I resend an invitation?", a: "Yes. Press **Resend** beside the pending invitation on Manage Team: a live link is renewed for another 7 days and the email goes out again; an expired one is replaced by a fresh link. An accepted or cancelled invitation cannot be resent." },
       { q: "The person already uses FieldQuo at another company. Can they accept?", a: "Yes. The join page recognises the email, they sign in with their existing password, and they are added to your company with the level you chose." },
       { q: "Why is the Labour cost field missing on my form?", a: "It is shown only to an owner or administrator. A Manager or Dispatcher inviting somebody cannot set a pay rate; the field is hidden rather than silently ignored." },
     ],
@@ -590,7 +590,7 @@ export const ARTICLES = {
             ],
           } },
           { p: "A dash means the ladder stops there; the last filled cell is the top rung. **Requests** is the Leads screen. **Jobs** at No access withholds the job record, not the work: the schedule, the visit checklist and the clock are their own areas, so a crew member still sees their day. The top rung of Time Tracking is the one that deletes an entry, and the payroll ladder deliberately starts at “their own”: one employee seeing another's pay is an incident, not a setting." },
-          { warning: "The **Notes** dial is saved and shown back, but today it restricts nothing: a person set to “View notes on jobs and visits only” reads and writes notes on leads, clients and quotes exactly like somebody on “View all notes”. Do not make a staffing decision on it." },
+          { note: "The **Notes** dial gates the internal notes on people — a lead's call-back log and a client's private notes: read them at **View all notes**, write them at **View and edit all notes**, remove a lead note at **View, edit and delete all notes**. Below that a person sees “hidden by your access level” where the notes would be. Notes on a visit itself stay readable at every level, and a quote's or an expense's notes belong to that document, not to this dial." },
         ],
       },
       {

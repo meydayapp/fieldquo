@@ -869,7 +869,7 @@ export const ARTICLES = {
       "Demandez à FieldQuo d'importer vos anciens dossiers : une demande, un appel, un prix que vous acceptez ou refusez, un paiement par la facturation FieldQuo, et un journal de chaque dossier créé.",
     updated: "2026-09-12",
     intro: [
-      "**Migration de données — Importez vos anciennes soumissions, factures et chantiers dans FieldQuo — depuis QuickBooks, Jobber, un tableur ou une boîte à chaussures.** C'est un service payant fait par le personnel de FieldQuo, pas un importateur en libre-service, et c'est le seul cas autorisé où FieldQuo écrit dans votre compte.",
+      "**Migration de données — Importez vos anciens clients et soumissions dans FieldQuo — depuis QuickBooks, Jobber, un tableur ou une boîte à chaussures.** C'est un service payant fait par le personnel de FieldQuo, pas un importateur en libre-service, et c'est le seul cas autorisé où FieldQuo écrit dans votre compte.",
       "Les règles sont strictes et valent la peine d'être connues avant de demander : le personnel ne peut que créer de nouveaux dossiers, jamais modifier ni supprimer ce qui existe déjà, seulement après que vous avez accepté un prix et payé, et chaque dossier créé est consigné là où vous pouvez le voir.",
     ],
     sections: [

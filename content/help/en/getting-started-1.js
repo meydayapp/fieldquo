@@ -868,7 +868,7 @@ export const ARTICLES = {
       "Ask FieldQuo to bring your old records in: a request, a call, a price you accept or decline, a payment through FieldQuo billing, and a log of every record created.",
     updated: "2026-09-12",
     intro: [
-      "**Data Migration — Bring your old quotes, invoices and jobs into FieldQuo — from QuickBooks, Jobber, a spreadsheet, or a shoebox.** It is a paid service done by FieldQuo's own staff, not a self-serve importer, and it is the one sanctioned case where FieldQuo writes inside your account.",
+      "**Data Migration — Bring your old clients and quotes into FieldQuo — from QuickBooks, Jobber, a spreadsheet, or a shoebox.** It is a paid service done by FieldQuo's own staff, not a self-serve importer, and it is the one sanctioned case where FieldQuo writes inside your account.",
       "The rules are strict and worth knowing before you ask: staff may only create new records, never change or delete anything that already exists, only after you have accepted a price and paid it, and every record they create is logged where you can see it.",
     ],
     sections: [

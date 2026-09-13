@@ -130,7 +130,7 @@ export const ARTICLES = {
         heading: "Ce que la personne reçoit",
         blocks: [
           { p: "Un courriel de FieldQuo intitulé « You're invited to join votre entreprise on FieldQuo », dans la langue que vous avez choisie, avec un lien. Le lien ouvre **Joindre votre entreprise**, qui indique le niveau auquel elle a été invitée. Une nouvelle personne tape son nom et crée un mot de passe ; quelqu'un qui a déjà un compte FieldQuo dans une autre entreprise se connecte avec son mot de passe existant et est ajouté à la vôtre." },
-          { p: "Le lien est valide **48 heures**. Passé ce délai, il ouvre sur « Cette invitation est expirée » avec une note pour vous en demander une nouvelle — annulez l'ancienne invitation et envoyez-en une autre. Un lien que vous avez annulé ouvre sur « Cette invitation ne peut pas être utilisée ». Il n'y a pas de bouton pour renvoyer ; une nouvelle invitation est le renvoi." },
+          { p: "Le lien est valide **7 jours** — la ligne en attente sur Gérer l'équipe indique « Expire dans N jours », puis « Expirée » — et un bouton **Renvoyer** à côté de **Annuler** renouvelle le lien et renvoie le courriel. Passé ce délai, il ouvre sur « Cette invitation est expirée » avec une note pour vous en demander une nouvelle — annulez l'ancienne invitation et envoyez-en une autre. Un lien que vous avez annulé ouvre sur « Cette invitation ne peut pas être utilisée ». Il n'y a pas de bouton pour renvoyer ; une nouvelle invitation est le renvoi." },
         ],
       },
       {
@@ -154,7 +154,7 @@ export const ARTICLES = {
       },
     ],
     faq: [
-      { q: "Puis-je renvoyer une invitation ?", a: "Pas directement. Annulez l'invitation en attente et envoyez-en une nouvelle depuis Ajouter un utilisateur ; le nouveau lien est valide 48 heures de plus." },
+      { q: "Puis-je renvoyer une invitation ?", a: "Oui. Appuyez sur **Renvoyer** à côté de l'invitation en attente dans Gérer l'équipe : un lien encore valide est renouvelé pour 7 jours de plus et le courriel repart; un lien expiré est remplacé par un nouveau. Une invitation acceptée ou annulée ne peut pas être renvoyée." },
       { q: "La personne utilise déjà FieldQuo dans une autre entreprise. Peut-elle accepter ?", a: "Oui. La page d'adhésion reconnaît le courriel, la personne se connecte avec son mot de passe existant, et elle est ajoutée à votre entreprise avec le niveau que vous avez choisi." },
       { q: "Pourquoi le champ Coût de main-d'œuvre manque-t-il sur mon formulaire ?", a: "Il n'est montré qu'à un propriétaire ou à un administrateur. Un Manager ou un Dispatcher qui invite quelqu'un ne peut pas fixer un taux horaire ; le champ est masqué plutôt qu'ignoré en silence." },
     ],
@@ -588,7 +588,7 @@ export const ARTICLES = {
             ],
           } },
           { p: "Un tiret veut dire que l'échelle s'arrête là ; la dernière case remplie est l'échelon le plus haut. **Requests**, c'est l'écran Prospects. **Jobs** à No access retient la fiche du chantier, pas le travail : l'horaire, la liste de vérification de la visite et la pointeuse sont leurs propres domaines, alors un équipier voit quand même sa journée. L'échelon le plus haut de Time Tracking est celui qui supprime une entrée, et l'échelle de la paie commence volontairement à « leurs propres » : un employé qui voit la paie d'un autre, c'est un incident, pas un réglage." },
-          { warning: "Le réglage **Notes** est enregistré et réaffiché, mais aujourd'hui il ne restreint rien : une personne réglée à « View notes on jobs and visits only » lit et écrit les notes des prospects, des clients et des soumissions exactement comme quelqu'un à « View all notes ». Ne fondez pas une décision de personnel dessus." },
+          { note: "Le réglage **Notes** contrôle les notes internes sur les personnes — le journal de rappels d'un prospect et les notes privées d'un client : lecture à **View all notes**, écriture à **View and edit all notes**, suppression d'une note de prospect à **View, edit and delete all notes**. En dessous, la personne voit « masqué par votre niveau d'accès » à la place des notes. Les notes d'une visite restent lisibles à tous les niveaux, et les notes d'une soumission ou d'une dépense appartiennent à ce document, pas à ce réglage." },
         ],
       },
       {

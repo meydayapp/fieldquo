@@ -869,7 +869,7 @@ export const ARTICLES = {
       "Pídale a FieldQuo que traiga sus registros antiguos: una solicitud, una llamada, un precio que usted acepta o rechaza, un pago a través de la facturación de FieldQuo, y un registro de cada dato creado.",
     updated: "2026-09-12",
     intro: [
-      "**Migración de datos — Trae tus presupuestos, facturas y trabajos antiguos a FieldQuo — desde QuickBooks, Jobber, una hoja de cálculo o una caja de zapatos.** Es un servicio de pago hecho por el propio personal de FieldQuo, no un importador de autoservicio, y es el único caso autorizado en que FieldQuo escribe dentro de su cuenta.",
+      "**Migración de datos — Trae tus clientes y presupuestos antiguos a FieldQuo — desde QuickBooks, Jobber, una hoja de cálculo o una caja de zapatos.** Es un servicio de pago hecho por el propio personal de FieldQuo, no un importador de autoservicio, y es el único caso autorizado en que FieldQuo escribe dentro de su cuenta.",
       "Las reglas son estrictas y vale la pena conocerlas antes de pedirlo: el personal solo puede crear registros nuevos, nunca cambiar ni borrar nada que ya exista, solo después de que usted haya aceptado un precio y lo haya pagado, y cada registro que crea queda anotado donde usted puede verlo.",
     ],
     sections: [
