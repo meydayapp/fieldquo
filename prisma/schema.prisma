@@ -1949,6 +1949,10 @@ model PendingTeamProfile {
   // with no role reconciles harmlessly.
   role               String?
   invitationLanguage String?  @default("en")
+  // "Start onboarding checklist" ticked on the New User form. Read once, on
+  // accept, when the Worker row exists to start a run for — see
+  // app/api/invitations/[id]/accept/route.js and lib/onboarding/service.js.
+  startOnboarding    Boolean  @default(false)
   createdAt          DateTime @default(now())
 
   @@unique([companyId, email])
@@ -5886,6 +5890,12 @@ model Worker {
   leaveRequests    LeaveRequest[]
   safetyIncidentsInvolved SafetyIncident[]
   shiftAttendance  ShiftAttendance[]
+  // The person's HR file — see the HR & compliance block at the end of the file.
+  hrDocuments        WorkerDocument[]
+  onboardingRuns     OnboardingRun[]
+  taxFormSubmissions TaxFormSubmission[]
+  policyAcknowledgements PolicyAcknowledgement[]
+  hrNotes            WorkerNote[]
 }
 
 model TimeEntry {
@@ -14900,5 +14910,270 @@ model AnalyticsDaily {
 
   @@index([date, surface])
   @@index([surface, event, date])
+  @@index([companyId, date])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// HR & compliance — the person's file
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// What a company holds ON a person, as distinct from what a person DID on a
+// job. JobDailyLog is per job; SafetyIncident is per event; TimeEntry is per
+// shift. None of them can answer "is Dana's WHMIS card still valid", "did
+// Marco finish his first-week checklist", "has everybody read the vehicle
+// policy since we changed it", or "what was said to Sam in March". These
+// seven models are that file. Every row carries companyId and every read
+// filters on it — a person's file is the most sensitive thing in the tenant
+// and it is never reachable from another company's session.
+//
+// Nothing here is ever deleted. A document is archived (archivedAt), a policy
+// is archived, a note stays. A performance file that can be emptied is not a
+// performance file.
+
+/// A file about a person — a certification, a driver's licence, a signed
+/// contract, a tax form. Stored the way SubcontractorDocument stores files
+/// (a Cloudinary URL from /api/upload; the route refuses any other host).
+///
+/// `uploadedByKind` says which side filed it: a manager filing a contract, or
+/// the worker filing their own licence from /app/me/documents. A worker's own
+/// upload is unverified until a manager marks it (verifiedAt) — the badge on
+/// the compliance screen is the difference between "she says she has a WHMIS
+/// card" and "we have looked at it".
+///
+/// `expiresAt` is read by lib/hr/documentExpiry.js through the same window as
+/// a van's insurance (lib/expiry/window.js): a missing date is "unknown",
+/// never "expired". `reminded30At` / `reminded7At` are the cron's memory so
+/// a person is told once at each mark, not every morning.
+model WorkerDocument {
+  id        String @id @default(cuid())
+  companyId String
+  workerId  String
+  worker    Worker @relation(fields: [workerId], references: [id], onDelete: Cascade)
+
+  /// certification | licence | id | contract | tax_form | policy_ack | other —
+  /// WORKER_DOCUMENT_KINDS in lib/hr/documents.js.
+  kind  String @default("other")
+  title String
+
+  fileUrl   String
+  sizeBytes Int?
+  mimeType  String?
+
+  issuedAt  DateTime?
+  expiresAt DateTime?
+  /// The licence or certificate number as printed on it. Free text.
+  number    String?
+
+  uploadedById   String?
+  /// manager | worker
+  uploadedByKind String  @default("manager")
+  verifiedById   String?
+  verifiedAt     DateTime?
+  note           String?
+
+  archivedAt   DateTime?
+  archivedById String?
+
+  reminded30At DateTime?
+  reminded7At  DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([companyId, workerId])
+  @@index([companyId, expiresAt])
+}
+
+/// A new-hire checklist as the company writes it. `items` is a Json list of
+///   { key, label, kind: task|document|policy|form, required, dueDays,
+///     documentKind?, policyId?, formKind? }
+/// validated by lib/onboarding/template.js on every write. One default per
+/// company is created lazily the first time the onboarding screen is opened
+/// (lib/onboarding/defaultTemplate.js) — not by a migration, so a company
+/// that never opens it never gets one.
+model OnboardingTemplate {
+  id        String   @id @default(cuid())
+  companyId String
+  name      String
+  items     Json
+  isDefault Boolean  @default(false)
+  archivedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+}
+
+/// One person going through one template. `items` is the template's list
+/// copied at start — a template edited later does not move the goalposts on
+/// somebody halfway through — with per-item progress:
+///   { key, label, kind, required, dueDays, ..., status: open|done,
+///     doneAt?, doneByUserId?, doneByName?, documentId?, acknowledgementId?,
+///     taxFormId? }
+/// `completedAt` is stamped when every REQUIRED item is done. The three
+/// notifiedAt columns are the cron's memory (day one, overdue, completed).
+model OnboardingRun {
+  id         String   @id @default(cuid())
+  companyId  String
+  workerId   String
+  worker     Worker   @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  templateId String
+  items      Json
+  startedAt  DateTime @default(now())
+  startedById String?
+  completedAt DateTime?
+
+  dayOneNotifiedAt    DateTime?
+  overdueNotifiedAt   DateTime?
+  completedNotifiedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId, workerId])
+  @@index([companyId, completedAt])
+}
+
+/// What a worker typed into a TD1 / W-4 shaped form, and nothing more.
+/// FieldQuo files NOTHING with any government: the screen says so, the PDF
+/// says so. The payroll admin downloads the PDF and keeps it the way they
+/// keep a paper one. `fields` is validated against lib/hr/taxForms.js's
+/// field list per form kind; the PDF is rendered from these fields on demand
+/// (GET /api/hr/tax-forms/[id]/pdf), never stored as a file.
+model TaxFormSubmission {
+  id        String   @id @default(cuid())
+  companyId String
+  workerId  String
+  worker    Worker   @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  /// td1_federal | td1_provincial | w4
+  formKind  String
+  taxYear   Int
+  fields    Json
+  signatureName String
+  submittedAt   DateTime @default(now())
+  ip        String?
+  userAgent String?
+
+  @@index([companyId, workerId])
+}
+
+/// A rule the company asks its people to read and sign — Safety & PPE,
+/// vehicle use, time & attendance. `body` is the CURRENT text; every
+/// published text is also frozen in CompanyPolicyVersion, because a signed
+/// version is never rewritten: when the body changes after somebody has
+/// acknowledged it, `version` goes up and the old text stays where it was
+/// signed (lib/hr/policies.js `nextVersionFor`).
+///
+/// `audienceTitles` is the publish scope: empty means everybody; otherwise
+/// the worker's `Worker.title` has to match one (case-insensitive).
+model CompanyPolicy {
+  id        String  @id @default(cuid())
+  companyId String
+  title     String
+  /// Markdown, plain and short.
+  body      String
+  version   Int     @default(1)
+  effectiveFrom DateTime @default(now())
+  requiresAcknowledgement Boolean @default(true)
+  audienceTitles String[] @default([])
+  /// Which starter the text began from (safety_ppe, vehicle_use, …), or null
+  /// when written from scratch. For the screen's "based on" hint only.
+  templateKey String?
+
+  archivedAt  DateTime?
+  createdById String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  versions         CompanyPolicyVersion[]
+  acknowledgements PolicyAcknowledgement[]
+
+  @@index([companyId, archivedAt])
+}
+
+/// The frozen text of one version of one policy. Written when the version is
+/// created, never updated. What a signature points at.
+model CompanyPolicyVersion {
+  id        String        @id @default(cuid())
+  companyId String
+  policyId  String
+  policy    CompanyPolicy @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  version   Int
+  title     String
+  body      String
+  /// sha256 of `${title}\n\n${body}` — what the acknowledgement's bodyHash is
+  /// compared against, the same tamper-evidence Quote.signature carries.
+  bodyHash  String
+  effectiveFrom DateTime
+  createdAt DateTime @default(now())
+
+  @@unique([policyId, version])
+}
+
+/// "I have read and understood" — a typed name over one frozen version, with
+/// the same audit shape as a client's quote signature: who, when, from which
+/// address and browser, and a hash of exactly what was on screen. A person
+/// acknowledges each version at most once; a new version asks again.
+model PolicyAcknowledgement {
+  id            String        @id @default(cuid())
+  companyId     String
+  policyId      String
+  policy        CompanyPolicy @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  policyVersion Int
+  workerId      String
+  worker        Worker        @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  acknowledgedAt DateTime     @default(now())
+  ip            String?
+  userAgent     String?
+  signatureName String
+  bodyHash      String
+
+  @@unique([policyId, policyVersion, workerId])
+  @@index([companyId, workerId])
+}
+
+/// The performance file: a note, a recognition, a warning, a write-up.
+/// Written by a manager (authorMemberId), about a worker. `visibleToWorker`
+/// decides whether it appears on their own screen; a warning or write-up can
+/// additionally require their acknowledgement, which shows as a pending item
+/// on their home until signed (acknowledgedAt). Never deleted — a warning
+/// that can be removed was never a warning.
+model WorkerNote {
+  id             String   @id @default(cuid())
+  companyId      String
+  workerId       String
+  worker         Worker   @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  authorMemberId String
+  authorName     String?
+  /// note | recognition | warning | write_up
+  kind           String   @default("note")
+  body           String
+  occurredAt     DateTime @default(now())
+  visibleToWorker Boolean @default(false)
+  requiresAcknowledgement Boolean @default(false)
+  acknowledgedAt DateTime?
+  acknowledgedName String?
+  createdAt      DateTime @default(now())
+
+  @@index([companyId, workerId, occurredAt])
+}
+
+/// The manager's day book: one entry per thing worth remembering about the
+/// DAY — weather that stopped work, who called in, a client who rang, a
+/// machine that broke. Company-level and dated, deliberately NOT JobDailyLog,
+/// which is one job's diary and is read from that job's page: "it rained all
+/// Tuesday" belongs to the company, not to whichever job somebody opened.
+model ManagerLogEntry {
+  id             String   @id @default(cuid())
+  companyId      String
+  authorMemberId String
+  authorName     String?
+  /// The day the entry is about, as a date — not when it was typed.
+  date           DateTime @db.Date
+  body           String
+  /// weather | incident | staffing | client | equipment | other
+  tags           String[] @default([])
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
   @@index([companyId, date])
 }

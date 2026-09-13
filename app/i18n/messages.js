@@ -424,6 +424,9 @@ const en = {
   "feature.crew_shifts.name": "Crew shifts",
   "feature.crew_shifts.summary":
     "Build next week's rota, publish it, and everyone sees their own shifts.",
+  "feature.hr_compliance.name": "Employee files and compliance",
+  "feature.hr_compliance.summary":
+    "A file per person: tickets and licences with expiry reminders, a new-hire checklist, policies signed by name, and a compliance view of who is missing what.",
   "feature.recurring_jobs.name": "Repeat jobs",
   "feature.recurring_jobs.summary":
     "Weekly, monthly or seasonal work that puts itself back on the calendar.",
@@ -945,6 +948,9 @@ const fr = {
   "feature.crew_shifts.name": "Quarts de l'équipe",
   "feature.crew_shifts.summary":
     "Bâtissez l'horaire de la semaine prochaine, publiez-le, et chacun voit ses propres quarts.",
+  "feature.hr_compliance.name": "Documents des employés, intégration et politiques",
+  "feature.hr_compliance.summary":
+    "Un dossier par personne : cartes et permis avec rappels d'expiration, liste d'intégration des nouveaux, politiques signées par nom, et une vue de conformité de ce qui manque à qui.",
   "feature.recurring_jobs.name": "Travaux récurrents",
   "feature.recurring_jobs.summary":
     "Des travaux hebdomadaires, mensuels ou saisonniers qui se replacent seuls au calendrier.",
@@ -1449,6 +1455,9 @@ const es = {
   "feature.crew_shifts.name": "Turnos del equipo",
   "feature.crew_shifts.summary":
     "Arma el rol de la próxima semana, publícalo, y cada quien ve sus propios turnos.",
+  "feature.hr_compliance.name": "Documentos de empleados, incorporación y políticas",
+  "feature.hr_compliance.summary":
+    "Un expediente por persona: certificados y licencias con recordatorios de vencimiento, lista de incorporación, políticas firmadas con el nombre y una vista de cumplimiento de a quién le falta qué.",
   "feature.recurring_jobs.name": "Trabajos que se repiten",
   "feature.recurring_jobs.summary":
     "Trabajo semanal, mensual o de temporada que se vuelve a poner solo en el calendario.",
@@ -1954,6 +1963,9 @@ const uk = {
   "feature.crew_shifts.name": "Зміни бригади",
   "feature.crew_shifts.summary":
     "Складіть графік на наступний тиждень, опублікуйте — і кожен бачить свої зміни.",
+  "feature.hr_compliance.name": "Документи працівників, адаптація та політики",
+  "feature.hr_compliance.summary":
+    "Файл на кожну особу: посвідчення та ліцензії з нагадуванням про закінчення, чекліст для новачка, політики з підписом на ім'я та огляд відповідності — кому чого бракує.",
   "feature.recurring_jobs.name": "Повторювані роботи",
   "feature.recurring_jobs.summary":
     "Щотижнева, щомісячна або сезонна робота, яка сама повертається в календар.",
@@ -2458,6 +2470,9 @@ const pa = {
   "feature.crew_shifts.name": "ਕਰੂ ਦੀਆਂ ਸ਼ਿਫਟਾਂ",
   "feature.crew_shifts.summary":
     "ਅਗਲੇ ਹਫ਼ਤੇ ਦਾ ਸ਼ਡਿਊਲ ਬਣਾਓ, ਸਾਂਝਾ ਕਰੋ, ਅਤੇ ਹਰ ਕੋਈ ਆਪਣੀਆਂ ਸ਼ਿਫਟਾਂ ਵੇਖੇ।",
+  "feature.hr_compliance.name": "ਕਰਮਚਾਰੀ ਦਸਤਾਵੇਜ਼, ਆਨਬੋਰਡਿੰਗ ਅਤੇ ਨੀਤੀਆਂ",
+  "feature.hr_compliance.summary":
+    "ਹਰ ਵਿਅਕਤੀ ਦੀ ਫਾਈਲ: ਮਿਆਦ ਦੀਆਂ ਯਾਦ-ਦਹਾਨੀਆਂ ਵਾਲੇ ਸਰਟੀਫਿਕੇਟ ਅਤੇ ਲਾਇਸੈਂਸ, ਨਵੇਂ ਕਰਮਚਾਰੀ ਦੀ ਚੈੱਕਲਿਸਟ, ਨਾਮ ਨਾਲ ਦਸਤਖ਼ਤ ਕੀਤੀਆਂ ਨੀਤੀਆਂ, ਅਤੇ ਕਿਸ ਕੋਲ ਕੀ ਘੱਟ ਹੈ ਦਾ ਪਾਲਣਾ ਦ੍ਰਿਸ਼।",
   "feature.recurring_jobs.name": "ਵਾਰ-ਵਾਰ ਹੋਣ ਵਾਲੇ ਕੰਮ",
   "feature.recurring_jobs.summary":
     "ਹਫ਼ਤਾਵਾਰੀ, ਮਹੀਨਾਵਾਰ ਜਾਂ ਮੌਸਮੀ ਕੰਮ ਜੋ ਆਪਣੇ ਆਪ ਕੈਲੰਡਰ ਵਿੱਚ ਮੁੜ ਆਉਂਦਾ ਹੈ।",
@@ -2967,6 +2982,9 @@ const tl = {
   "feature.crew_shifts.name": "Mga shift ng crew",
   "feature.crew_shifts.summary":
     "Gawin ang rota para sa susunod na linggo, i-publish, at makikita ng bawat isa ang sarili niyang shift.",
+  "feature.hr_compliance.name": "Mga dokumento ng empleyado, onboarding at mga patakaran",
+  "feature.hr_compliance.summary":
+    "Isang file bawat tao: mga sertipiko at lisensya na may paalala ng pag-expire, checklist ng bagong hire, mga patakarang nilagdaan sa pangalan, at compliance view kung sino ang kulang ng ano.",
   "feature.recurring_jobs.name": "Mga paulit-ulit na trabaho",
   "feature.recurring_jobs.summary":
     "Lingguhan, buwanan o pana-panahong trabaho na kusang bumabalik sa kalendaryo.",
@@ -3391,6 +3409,9 @@ const de = {
   "feature.scheduling.summary": "Einsätze in den Kalender setzen, die hinfahrende Person zuweisen und die ganze Woche des Teams auf einen Blick sehen.",
   "feature.crew_shifts.name": "Schichten des Teams",
   "feature.crew_shifts.summary": "Den Plan für nächste Woche bauen, veröffentlichen — und jeder sieht seine eigenen Schichten.",
+  "feature.hr_compliance.name": "Mitarbeiterdokumente, Einarbeitung und Richtlinien",
+  "feature.hr_compliance.summary":
+    "Eine Akte pro Person: Nachweise und Führerscheine mit Ablauferinnerung, eine Checkliste für neue Mitarbeiter, namentlich unterschriebene Richtlinien und eine Compliance-Übersicht, wem was fehlt.",
   "feature.recurring_jobs.name": "Wiederkehrende Aufträge",
   "feature.recurring_jobs.summary": "Wöchentliche, monatliche oder saisonale Arbeit, die sich selbst wieder in den Kalender setzt.",
   "feature.appointment_reminders.name": "Terminerinnerungen",
@@ -3758,6 +3779,9 @@ const zh = {
   "feature.scheduling.summary": "把上门排进日历，指定谁去，一眼看到整个班组这一周。",
   "feature.crew_shifts.name": "班组排班",
   "feature.crew_shifts.summary": "排好下周的班表，发布出去，每个人都能看到自己的班。",
+  "feature.hr_compliance.name": "员工文件、入职与政策",
+  "feature.hr_compliance.summary":
+    "每人一份档案：带到期提醒的证书和执照、新员工清单、署名签署的政策，以及谁缺什么的合规视图。",
   "feature.recurring_jobs.name": "重复工程",
   "feature.recurring_jobs.summary": "每周、每月或按季节的活，会自动排回日历。",
   "feature.appointment_reminders.name": "约见提醒",
@@ -4223,6 +4247,9 @@ const it = {
   "feature.crew_shifts.name": "Turni della squadra",
   "feature.crew_shifts.summary":
     "Prepari i turni della settimana successiva, li pubblichi e ciascuno vedrà i propri.",
+  "feature.hr_compliance.name": "Documenti dei dipendenti, inserimento e policy",
+  "feature.hr_compliance.summary":
+    "Un fascicolo per persona: attestati e patenti con promemoria di scadenza, una checklist per i nuovi assunti, policy firmate col nome e una vista di conformità su chi manca di cosa.",
   "feature.recurring_jobs.name": "Lavori ricorrenti",
   "feature.recurring_jobs.summary":
     "Lavori settimanali, mensili o stagionali che si rimettono da soli in calendario.",

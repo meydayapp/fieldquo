@@ -328,9 +328,9 @@ const idsOf = (list) => list.map((m) => m.id).sort();
 section("1. The catalog is sound, and an unrecognised audience REFUSES");
 // ═══════════════════════════════════════════════════════════════════════════
 
-ok("the catalog holds exactly the declared types", NOTIFICATION_TYPE_KEYS.length === 13, NOTIFICATION_TYPE_KEYS);
+ok("the catalog holds exactly the declared types", NOTIFICATION_TYPE_KEYS.length === 20, NOTIFICATION_TYPE_KEYS);
 ok(
-  "six from the audit's tier 1, the undelivered quote, and the six rota/time-clock types",
+  "six from the audit's tier 1, the undelivered quote, and the six rota/time-clock types, and the seven HR-file types",
   JSON.stringify([...NOTIFICATION_TYPE_KEYS].sort()) ===
     JSON.stringify(
       [
@@ -352,6 +352,16 @@ ok(
         "timeclock.stillClockedIn",
         "timeclock.stillClockedInManager",
         "attendance.noShow",
+        // The HR file (2026-09-13): a document lapsing, a checklist, a
+        // policy or a note to sign. Named recipients on the worker-facing
+        // five — scripts/check-hr.mjs executes the seam.
+        "hr.document.expiring",
+        "hr.document.expiringManager",
+        "hr.onboarding.started",
+        "hr.onboarding.overdue",
+        "hr.onboarding.completed",
+        "hr.policy.toAcknowledge",
+        "hr.note.toAcknowledge",
       ].sort(),
     ),
   NOTIFICATION_TYPE_KEYS,
@@ -472,6 +482,17 @@ const EXPECTED = {
   // The manager's copies: user:manage, the same audience as leave.requested.
   "timeclock.stillClockedInManager": ["m_owner", "m_admin", "m_manager", "m_dispatcher"],
   "attendance.noShow": ["m_owner", "m_admin", "m_manager", "m_dispatcher"],
+  // ── The HR file (2026-09-13) ────────────────────────────────────────────
+  // Worker-facing types on the schedule floor (always called with the one
+  // worker named through notifyEvent's recipientUserIds); the manager-facing
+  // two on `user:manage`.
+  "hr.document.expiring": ["m_owner", "m_admin", "m_manager", "m_dispatcher", "m_estimator", "m_crew"],
+  "hr.document.expiringManager": ["m_owner", "m_admin", "m_manager", "m_dispatcher"],
+  "hr.onboarding.started": ["m_owner", "m_admin", "m_manager", "m_dispatcher", "m_estimator", "m_crew"],
+  "hr.onboarding.overdue": ["m_owner", "m_admin", "m_manager", "m_dispatcher", "m_estimator", "m_crew"],
+  "hr.onboarding.completed": ["m_owner", "m_admin", "m_manager", "m_dispatcher"],
+  "hr.policy.toAcknowledge": ["m_owner", "m_admin", "m_manager", "m_dispatcher", "m_estimator", "m_crew"],
+  "hr.note.toAcknowledge": ["m_owner", "m_admin", "m_manager", "m_dispatcher", "m_estimator", "m_crew"],
 };
 
 for (const type of NOTIFICATION_TYPE_KEYS) {
