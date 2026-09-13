@@ -130,7 +130,9 @@ function MessageEditor({ type, onSaved }) {
   return (
     <section className="rounded-xl border border-border bg-card p-5">
       <div className="flex items-center justify-between gap-2">
-        <h2 className="text-sm font-bold text-foreground">{type.label}</h2>
+        <h2 className="text-sm font-bold text-foreground">
+          {type.labelKey ? t(type.labelKey, type.label) : type.label}
+        </h2>
         {isCustom && (
           <span className="text-xs text-muted-foreground">{t("app.setMessages.customised")}</span>
         )}
@@ -151,7 +153,7 @@ function MessageEditor({ type, onSaved }) {
             key={tk.token}
             type="button"
             onClick={() => setText((prevText) => `${prevText}{${tk.token}}`)}
-            title={tk.hint}
+            title={tk.hintKey ? t(tk.hintKey, tk.hint) : tk.hint}
             className="text-xs px-2 py-1 rounded border border-border text-muted-foreground hover:text-foreground hover:bg-muted font-mono"
           >
             {`{${tk.token}}`}

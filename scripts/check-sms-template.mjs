@@ -86,7 +86,11 @@ const cronSrc = readFileSync(new URL("../app/api/cron/appointment-reminders/rout
 ok("the reminder cron renders through renderMessage", /renderMessage\(\{\s*type: "appointment_reminder"/.test(cronSrc));
 ok("…and no longer calls the English builder directly", !/appointmentReminderText\(/.test(cronSrc));
 ok("…passing the client's language", /language,?\s*$|language:\s*language/m.test(cronSrc) && /resolveClientLanguage\(/.test(cronSrc));
-ok("…and formatting the time in the company's zone", /formatWhen\([^)]*timezone: appt\.company\.timezone/.test(cronSrc));
+ok("…and formatting the time in the company's zone", /formatWhen\([^)]*timezone: row\.company\.timezone/.test(cronSrc));
+// The cron reads BOTH tables now — a crew visit on a job reminded nobody
+// while the notifications card promised a reminder before every visit. See
+// scripts/check-visit-reminders.mjs for the verdict itself.
+ok("…for appointments AND job visits, through one verdict", /db\.jobVisit\.findMany/.test(cronSrc) && /db\.appointment\.findMany/.test(cronSrc) && /reminderVerdict\(/.test(cronSrc));
 const visitSrc = readFileSync(new URL("../app/api/jobs/[id]/visits/[visitId]/route.js", import.meta.url), "utf8");
 ok("the on-my-way send passes the client's language", /type: "on_my_way"[\s\S]{0,600}resolveClientLanguage\(/.test(visitSrc));
 

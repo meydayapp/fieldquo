@@ -46,19 +46,25 @@
 // an answer it did not get: a refusal, a desktop, no fix inside eight seconds
 // all send the same request this button always sent, minus the stamp. There
 // is no background reading here; nothing runs between taps.
+//
+// ── Now a thin wrapper ─────────────────────────────────────────────────────
+//
+// The buttons, the stamp and the sentences above moved into
+// app/components/schedule/EntryActions.js, which renders the same control on
+// the calendar for appointments and visits alike and adds the two things this
+// file never had: moving the visit's time, and cancelling it with a reason.
+// What stays here is the crew gate — mayMoveVisit, mirroring the route — and
+// `crew: true`, which is what makes "On my way" appear and the tap ask the
+// phone where it is.
 "use client";
 
-import { useState } from "react";
-import { Loader2, MessageSquare } from "lucide-react";
-import { reportResponseError, showError } from "@/lib/clientErrors";
-import { visitActions, mayMoveVisit } from "@/lib/jobs/visitStatus";
+import { mayMoveVisit } from "@/lib/jobs/visitStatus";
 import { usePermissions } from "@/app/providers/PermissionProvider";
 import { hasLevel } from "@/lib/permissions/enforce";
 import { useSession } from "@/lib/auth-client";
-import { captureStamp } from "@/lib/location/capture";
+import EntryActions from "@/app/components/schedule/EntryActions";
 
 export default function VisitStatus({ jobId, visit, client, onChanged }) {
-  const [busy, setBusy] = useState(null);
   const caller = usePermissions();
   const { data: session } = useSession();
 
@@ -73,65 +79,16 @@ export default function VisitStatus({ jobId, visit, client, onChanged }) {
   // work that would 403.
   if (!mayMove) return null;
 
-  const actions = visitActions(visit.status);
-
-  async function move(to) {
-    setBusy(to);
-    try {
-      // null whenever the phone did not answer; the body then carries no
-      // `stamp` key at all, which is exactly the request this sent before.
-      const stamp = await captureStamp();
-      const res = await fetch(`/api/jobs/${jobId}/visits/${visit.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: to, ...(stamp && { stamp }) }),
-      });
-      if (!res.ok) {
-        await reportResponseError(res, "Couldn't update the visit.");
-        return;
-      }
-      onChanged?.();
-    } catch {
-      showError("Couldn't update the visit. Check your connection.");
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  const textsGoTo = client?.restricted
-    ? "The client gets your “on my way” text — their number is hidden by your access level."
-    : client?.phone
-      ? `Texts your “on my way” wording to ${client.phone}.`
-      : "No mobile on file for this client, so nothing will be sent — the visit just moves.";
-
   return (
-    <div className="mt-3 flex flex-wrap items-center gap-2">
-      {actions.map((a) => (
-        <button
-          key={a.to}
-          type="button"
-          onClick={() => move(a.to)}
-          disabled={busy !== null}
-          title={a.texts ? textsGoTo : undefined}
-          className={
-            a.tone === "primary"
-              ? "inline-flex items-center gap-1.5 text-sm font-semibold px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50"
-              : "inline-flex items-center gap-1.5 text-sm font-semibold px-3 py-1.5 rounded-lg border border-border hover:bg-muted disabled:opacity-50"
-          }
-        >
-          {busy === a.to ? (
-            <Loader2 size={13} className="animate-spin" />
-          ) : a.texts ? (
-            <MessageSquare size={13} />
-          ) : null}
-          {a.label}
-        </button>
-      ))}
-      {actions.some((a) => a.texts) && (
-        <span className="text-xs text-muted-foreground basis-full">
-          {textsGoTo}
-        </span>
-      )}
-    </div>
+    <EntryActions
+      kind="visit"
+      id={visit.id}
+      jobId={jobId}
+      status={visit.status}
+      scheduledAt={visit.scheduledAt}
+      client={client}
+      crew
+      onChanged={onChanged}
+    />
   );
 }

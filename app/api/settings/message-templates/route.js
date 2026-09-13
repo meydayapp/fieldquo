@@ -31,7 +31,7 @@ export async function GET(request) {
 
   const company = await db.company.findUnique({
     where: { id: member.companyId },
-    select: { smsTemplates: true },
+    select: { smsTemplates: true, name: true, phone: true },
   });
   const stored = company?.smsTemplates && typeof company.smsTemplates === "object"
     ? company.smsTemplates
@@ -42,12 +42,23 @@ export async function GET(request) {
   const types = Object.entries(SMS_TEMPLATE_TYPES)
     .filter(([, spec]) => spec.editable)
     .map(([key, spec]) => {
-      const samples = samplesFor(spec);
+      // The company's own name and phone stand in for the samples, so the
+      // preview reads as the text their client will get — and a company with
+      // no phone on file sees the "call us" tail drop out here rather than
+      // discovering it on a client's screen.
+      const samples = {
+        ...samplesFor(spec),
+        ...(company?.name && { company: company.name }),
+        ...("phone" in spec.tokens && { phone: company?.phone || null }),
+      };
       const custom = typeof stored[key] === "string" ? stored[key] : null;
       return {
         key,
         label: spec.label,
-        tokens: Object.entries(spec.tokens).map(([t, m]) => ({ token: t, hint: m.hint })),
+        // The screen renders the KEY through t(); `label`/`hint` stay as the
+        // English fallback for a language missing one.
+        labelKey: spec.labelKey,
+        tokens: Object.entries(spec.tokens).map(([t, m]) => ({ token: t, hint: m.hint, hintKey: m.hintKey })),
         custom,
         // What actually sends today, rendered with sample values — the default
         // wording when nothing's been customised, so the preview of an untouched
@@ -86,7 +97,7 @@ export async function PUT(request) {
 
   const company = await db.company.findUnique({
     where: { id: member.companyId },
-    select: { smsTemplates: true },
+    select: { smsTemplates: true, name: true, phone: true },
   });
   const stored = company?.smsTemplates && typeof company.smsTemplates === "object"
     ? { ...company.smsTemplates }
@@ -122,7 +133,13 @@ export async function PUT(request) {
     metadata: { type },
   });
 
-  const samples = samplesFor(spec);
+  // Same stand-ins as the GET, so the preview after a save matches the one
+  // before it.
+  const samples = {
+    ...samplesFor(spec),
+    ...(company?.name && { company: company.name }),
+    ...("phone" in spec.tokens && { phone: company?.phone || null }),
+  };
   return NextResponse.json({
     ok: true,
     custom: text || null,

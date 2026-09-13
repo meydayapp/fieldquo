@@ -244,7 +244,10 @@ const VISIT_ROUTE = strip(read("app/api/jobs/[id]/visits/[visitId]/route.js"));
   ok(/stamp != null/.test(patch.slice(write, record + 40)) || /stamp != null/.test(patch), "the stamp block is gated on `stamp != null` — absent is a no-op", null);
   ok(/try\s*\{[\s\S]*recordStampIfPresent[\s\S]*\}\s*catch/.test(patch), "the stamp block sits inside its own try/catch");
   ok(!/if\s*\(\s*![\w.]*stamp[\w.]*\s*\)\s*return/.test(patch), "no early return keyed on a missing stamp");
-  ok(after.includes("NextResponse.json(updated)"), "the response is still `updated` — the visit row, unchanged shape");
+  // The row, plus one `notice` field saying whether the client was written to
+  // (the office move/cancel actions) — every column of `updated` still comes
+  // back, so the checklist and the job page read the same shape they did.
+  ok(after.includes("NextResponse.json({ ...updated, notice })"), "the response is still the `updated` visit row (spread, plus `notice`)");
 }
 
 const CLOCK_ROUTE = strip(read("app/api/time-clock/route.js"));
@@ -270,9 +273,13 @@ const STAMPS = strip(read("lib/location/stamps.js"));
 }
 
 // Both clients: the stamp is captured at the tap and attached only when present.
-const VISIT_UI = strip(read("app/components/jobs/VisitStatus.js"));
-ok(/captureStamp\(\)/.test(VISIT_UI) && /\.\.\.\(stamp && \{ stamp \}\)/.test(VISIT_UI), "VisitStatus attaches `stamp` only when it got one");
-ok(/body:\s*JSON\.stringify\(\{\s*status/.test(VISIT_UI), "VisitStatus still sends { status } first — the shape check:visit-status greps for");
+// VisitStatus is a wrapper now; the tap lives in the shared EntryActions,
+// which asks the phone only for the crew's own taps (`crew && kind === "visit"`).
+const VISIT_UI = strip(read("app/components/schedule/EntryActions.js"));
+ok(/captureStamp\(\)/.test(VISIT_UI) && /\.\.\.\(stamp && \{ stamp \}\)/.test(VISIT_UI), "EntryActions attaches `stamp` only when it got one");
+ok(/crew && kind === "visit" \? await captureStamp\(\) : null/.test(VISIT_UI), "…and only asks the phone for a crew member's own visit tap");
+ok(/patch\(\{\s*status:\s*to/.test(VISIT_UI), "EntryActions still sends { status } first — the shape check:visit-status greps for");
+ok(/EntryActions/.test(strip(read("app/components/jobs/VisitStatus.js"))), "VisitStatus renders EntryActions with crew set");
 const CLOCK_UI = strip(read("app/app/clock/page.js"));
 ok(/captureStamp\(\)/.test(CLOCK_UI) && /\.\.\.\(stamp && \{ stamp \}\)/.test(CLOCK_UI), "clock screen attaches `stamp` only when it got one");
 ok(/locationState === "prompt"/.test(CLOCK_UI) && /app\.clock\.locationNotice/.test(CLOCK_UI), "clock screen explains BEFORE the browser asks, in the prompt state only");

@@ -128,7 +128,7 @@ export default function JobPhotoCurator({ jobId }) {
     <section className="rounded-xl border border-border bg-card p-5">
       <div className="flex items-center justify-between gap-2 mb-1">
         <h2 className="text-sm font-bold text-foreground flex items-center gap-1.5">
-          <ImageIcon size={15} /> Job photos ({photos.length})
+          <ImageIcon size={15} /> {t("app.jobPhotos.title", { count: photos.length })}
         </h2>
         <span className="text-xs text-muted-foreground">
           {featuredCount} on your website

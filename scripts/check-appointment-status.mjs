@@ -40,6 +40,7 @@ import {
   appointmentStatusClasses,
   appointmentStatusLabel,
   appointmentStatusPresentation,
+  appointmentActions,
 } from "@/lib/appointments/statusLabels";
 
 let pass = 0;
@@ -344,6 +345,47 @@ ok(
 const chipRow = src.match(/data-tour="appts-filters"[\s\S]*?<\/div>/);
 ok(!!chipRow, `${PAGE} still has its filter row`);
 ok(/min-h-\[44px\]/.test(chipRow ? chipRow[0] : ""), "the filter chips are 44px targets");
+
+// ── 12. The office can complete, cancel and reopen an appointment ──────────
+//
+// The calendar could reassign a row and nothing else. appointmentActions is
+// what the shared control (app/components/schedule/EntryActions.js) offers on
+// an appointment row; every move it names must be a real AppointmentStatus,
+// must round-trip, must be a status (never a delete), and must carry a key
+// in every language.
+{
+  const enumValues = [...schema.matchAll(/enum AppointmentStatus \{([\s\S]*?)\}/g)][0][1]
+    .split("\n").map((l) => l.trim()).filter((l) => l && !l.startsWith("//"));
+  for (const from of enumValues) {
+    for (const a of appointmentActions(from)) {
+      ok(enumValues.includes(a.to), `appointmentActions("${from}") → "${a.to}" is a real AppointmentStatus`);
+      ok(typeof a.labelKey === "string" && a.labelKey.startsWith("app.visitAction."), `…and "${a.to}" carries a catalogue key`);
+      for (const code of Object.keys(APP_MESSAGES)) {
+        ok(typeof APP_MESSAGES[code][a.labelKey] === "string", `…which "${code}" has (${a.labelKey})`);
+      }
+    }
+  }
+  let status = "scheduled";
+  const step = (to) => {
+    const offered = appointmentActions(status).map((a) => a.to);
+    ok(offered.includes(to), `from "${status}" the office is offered "${to}" (got ${offered.join(", ") || "nothing"})`);
+    status = to;
+  };
+  step("completed");
+  step("scheduled"); // Reopen
+  step("cancelled");
+  step("scheduled"); // Put it back on
+  ok(appointmentActions("confirmed").length === 0, "a Booking-shaped row (confirmed) gets no appointment buttons — its id would 404");
+  ok(appointmentActions("needs_supervisor").every((a) => a.to !== "scheduled"), "needs_supervisor is cleared by assigning, never by a button that claims to");
+
+  const route = read("app/api/appointments/[id]/route.js");
+  ok(/cancelReason/.test(route) && /reopening/.test(route), "the route records a cancel reason and clears it on reopen");
+  ok(/cancelReason\s+String\?/.test(schema.match(/model Appointment \{[\s\S]*?\n\}/)[0]), "Appointment.cancelReason exists to hold it");
+  const entry = read("app/components/schedule/EntryActions.js");
+  ok(!/method:\s*"DELETE"/.test(entry), "the shared control never DELETEs — cancelling is a status");
+  ok(/kind="appointment"/.test(src) && /EntryActions/.test(src), `${PAGE} mounts the shared control on appointment rows`);
+  ok(/cancelledWhy/.test(src), `${PAGE} shows the reason beside a cancelled row`);
+}
 
 if (failures.length) {
   console.error(`check:appointment-status FAILED — ${failures.length} problem(s):`);

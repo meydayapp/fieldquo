@@ -304,6 +304,10 @@ export async function POST(request, { params }) {
     quoteNumber: booking.quote?.quoteNumber || null,
     arrivalWindowMinutes: booking.mode === "visit" ? company.arrivalWindowMinutes : 0,
     manageUrl,
+    // The language the page was rendered in — the quote's, else the company
+    // default (visitView decides, so the letter and the page agree).
+    language: visitView(after, now).language,
+    initiatedBy: "client",
   }).catch((err) => console.error("[visit] reschedule emails failed:", err?.message));
 
   return NextResponse.json({ ...visitView(after, now), rescheduled: true });

@@ -207,6 +207,10 @@ export async function POST(request, { params }) {
     location: visitWhere(visit),
     timezone: company.timezone,
     quoteNumber: booking.quote?.quoteNumber || null,
+    // The same language the manage page itself was rendered in — see
+    // visitView: the quote's language, else the company default.
+    language: visitView(visit, now).language,
+    initiatedBy: "client",
     refund: {
       refunded: Boolean(refundedAt),
       amountCents: plan.amountCents,

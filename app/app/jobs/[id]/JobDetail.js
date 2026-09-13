@@ -743,8 +743,8 @@ export default function JobDetail({ jobId }) {
                       </div>
                       <p className="text-xs text-muted-foreground mt-1">
                         {v.assignedTo?.name
-                          ? `Assigned to ${v.assignedTo.name}`
-                          : "Unassigned"}
+                          ? t("app.visitAction.assignedTo", { name: v.assignedTo.name })
+                          : t("app.visitAction.unassigned", "Unassigned")}
                         {items.length > 0 &&
                           ` · ${done}/${items.length} checklist items`}
                         {v.photos?.length > 0 &&
@@ -770,6 +770,13 @@ export default function JobDetail({ jobId }) {
                       {v.returnNotes && (
                         <p className="text-sm text-amber-700 dark:text-amber-300 mt-2 whitespace-pre-wrap">
                           {v.returnNotes}
+                        </p>
+                      )}
+                      {/* Why the office called it off — the row is kept, so the
+                          reason is kept with it. Cleared when it goes back on. */}
+                      {v.cancelReason && ["cancelled", "canceled"].includes(v.status) && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {t("app.visitAction.cancelledWhy", { reason: v.cancelReason })}
                         </p>
                       )}
                     </div>

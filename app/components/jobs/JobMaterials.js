@@ -169,7 +169,7 @@ export default function JobMaterials({ jobId }) {
     <div id="job-materials" className="bg-card border border-border rounded-xl p-5">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-sm font-semibold text-foreground">
-          Materials to buy
+          {t("app.jobMaterials.title", "Materials to buy")}
           {p?.total > 0 && (
             <span
               className={`ml-2 text-xs font-normal ${p.complete ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"}`}

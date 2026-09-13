@@ -459,7 +459,15 @@ console.log("\nAn opted-out number is refused by every client-facing SMS send pa
 
   const webhook = readSrc("app/api/sms/inbound/route.js");
   ok("inbound SMS webhook verifies the Twilio signature", /verifyTwilioWebhook\(/.test(webhook));
-  ok("inbound SMS webhook resolves company by smsFromNumber", /smsFromNumber:\s*to/.test(webhook));
+  // The lookup moved into lib/sms/clientLine.js, which also decides the
+  // `from` every client text leaves on — one decision, both directions. The
+  // route must go through it, and it must still key on smsFromNumber for a
+  // dedicated number and on the shared system line for everyone else (the
+  // case every company is in, since nothing writes smsFromNumber).
+  const clientLine = readSrc("lib/sms/clientLine.js");
+  ok("inbound SMS webhook resolves its tenants through lib/sms/clientLine.js", /resolveInboundTenants\(/.test(webhook));
+  ok("…which keys a dedicated number on Company.smsFromNumber", /smsFromNumber:\s*to/.test(clientLine));
+  ok("…and the shared system number on the sender's client records", /systemSmsNumber\(/.test(clientLine) && /companiesHoldingPhone\(/.test(clientLine));
   ok("inbound SMS webhook records opt-out via recordSmsOptOut", /recordSmsOptOut\(/.test(webhook));
   ok("inbound SMS webhook records opt-in via recordSmsOptIn", /recordSmsOptIn\(/.test(webhook));
   ok("references the env flag the owner must set after checking the Twilio console", /SMS_OPT_OUT_SEND_CONFIRMATION/.test(webhook));
@@ -472,7 +480,10 @@ console.log("\nAn opted-out number is refused by every client-facing SMS send pa
   // top of the file and never re-verified wouldn't pass by accident.
   const postBody = extractFunction(webhook, "POST") || "";
   const sendIdxs = [...postBody.matchAll(/sendSms\(/g)].map((m) => m.index);
-  ok("exactly two confirmation sendSms( calls (opt-out reply + opt-in reply)", sendIdxs.length === 2, sendIdxs.length);
+  // One confirmation send, for both verdicts: on the shared line several
+  // tenants may hold the phone, and one STOP must not come back as three
+  // "you're unsubscribed" texts.
+  ok("exactly one confirmation sendSms( call (opt-out and opt-in share it)", sendIdxs.length === 1, sendIdxs.length);
   ok(
     "every confirmation sendSms( is guarded by shouldSendOwnConfirmation() immediately before it",
     sendIdxs.length > 0 &&

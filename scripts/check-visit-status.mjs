@@ -29,6 +29,7 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import {
   visitActions,
+  visitActionLabel,
   VISIT_STATUS_LABELS,
   VISIT_STATUS_TONE,
   VISIT_TONE_CLASSES,
@@ -65,11 +66,29 @@ section("1. Something outside app/api PATCHes a visit with a status");
 const clientFiles = walk("app").filter((f) => !f.startsWith(join("app", "api")));
 const senders = clientFiles.filter((f) => {
   const src = read(f);
-  // The endpoint, and a status in the body. Both, in the same file — either
-  // alone is what the codebase had before and it was not enough.
-  return /\/visits\/\$\{[^}]*\}/.test(src) && /body:\s*JSON\.stringify\(\{\s*status/.test(src);
+  // The endpoint, and a status in a PATCH body. Both, in the same file —
+  // either alone is what the codebase had before and it was not enough. The
+  // body may be built inline (`JSON.stringify({ status`) or handed to a
+  // shared patch() as `{ status: to` — app/components/schedule/EntryActions.js
+  // does the second, for the calendar and the job page alike.
+  return (
+    /\/visits\/\$\{[^}]*\}/.test(src) &&
+    (/body:\s*JSON\.stringify\(\{\s*status/.test(src) || /patch\(\{\s*status:\s*to/.test(src))
+  );
 });
 ok(senders.length > 0, "at least one client surface sends { status } to /api/jobs/[id]/visits/[visitId]", senders);
+
+// ── And it is reachable from BOTH places a visit is looked at ──────────────
+//
+// The job page had the buttons and the calendar had none; a dispatcher
+// looking at Tuesday could reassign a visit and do nothing else. Both screens
+// now mount the same control, so a transition added to visitActions reaches
+// both or neither.
+const JOB_PAGE_VISIT = read("app/components/jobs/VisitStatus.js");
+const CALENDAR = read("app/app/appointments/page.js");
+ok(/EntryActions/.test(JOB_PAGE_VISIT), "the job page's visit control is the shared EntryActions");
+ok(/EntryActions/.test(CALENDAR) && /kind="visit"/.test(CALENDAR), "the calendar mounts EntryActions on visit rows");
+ok(/mayMoveVisit\(/.test(CALENDAR), "the calendar gates a visit's controls on the same mayMoveVisit the job page uses");
 
 // ══ 2. Every status the UI can send is one the route knows ═════════════════
 
@@ -185,6 +204,45 @@ ok(
   "exactly one offered transition is marked as texting the client, and it is on_the_way",
   texting,
 );
+
+// ══ 3b. Cancelling is a status, never a delete — and it carries a reason ═══
+//
+// The office cancel posts { status: "cancelled", cancelReason }. The route
+// must write the reason on the way in and clear it on the way back out, and
+// nothing on the visit path may delete the row: a called-off Tuesday is a
+// fact about the day.
+
+section("3b. Cancel is a status with a reason; reopen clears it; nothing deletes");
+
+ok(!/jobVisit\.delete/.test(ROUTE), "the visit PATCH route never deletes a visit row");
+ok(/cancelReason/.test(ROUTE) && /status === "cancelled"/.test(ROUTE), "the route writes cancelReason when the status becomes cancelled");
+ok(/reopening/.test(ROUTE) && /cancelReason: null|cancelReason\s*=\s*[\s\S]*?reopening[\s\S]*?null/.test(ROUTE), "putting a visit back on clears its cancelReason");
+const ENTRY = read("app/components/schedule/EntryActions.js");
+ok(!/method:\s*"DELETE"/.test(ENTRY), "the shared control never sends DELETE — cancelling is a PATCH");
+ok(/cancelReason/.test(ENTRY), "the cancel dialog sends a reason");
+
+// Complete → reopen → complete is a round trip through the offered moves.
+{
+  let status = "scheduled";
+  const step = (to) => {
+    const offered = visitActions(status).map((a) => a.to);
+    ok(offered.includes(to), `from "${status}" the UI offers "${to}"`, offered);
+    status = to;
+  };
+  step("completed");
+  step("scheduled"); // Reopen
+  step("cancelled");
+  step("scheduled"); // Put it back on
+  step("completed");
+}
+
+// Every offered move carries a catalogue key, written out in full.
+for (const s of ["scheduled", "on_the_way", "completed", "cancelled"]) {
+  for (const a of visitActions(s)) {
+    ok(typeof a.labelKey === "string" && a.labelKey.startsWith("app.visitAction."), `"${s}" → "${a.to}" carries a translation key`, a);
+  }
+}
+ok(typeof visitActionLabel === "function" && visitActionLabel({ labelKey: "k", label: "L" }, (k, f) => `${k}!${f}`) === "k!L", "visitActionLabel resolves through t()");
 
 // ══ 4. No transition produces an unstyled badge ════════════════════════════
 

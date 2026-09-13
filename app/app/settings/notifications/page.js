@@ -292,7 +292,7 @@ export default function NotificationsPage() {
               {t("app.setReminders.title", "Appointment reminders")}
             </h2>
             <p className="text-sm text-muted-foreground mt-0.5">
-              {t("app.setReminders.desc", "Text the client a reminder before their appointment. Sent from your business name; clients can reply STOP to opt out.")}
+              {t("app.setReminders.desc", "Text the client a reminder before their appointment or job visit. Sent from your business name; clients can reply STOP to opt out.")}
             </p>
           </div>
         </div>
@@ -319,7 +319,12 @@ export default function NotificationsPage() {
         </div>
 
         <p className="text-xs text-muted-foreground border-t border-border pt-3">
-          {t("app.setReminders.note", "Each reminder is a text message billed to your account. We never text a client who has opted out, and never more than once per appointment.")}
+          {/* "Billed to your account" was the previous fallback, and nothing
+              meters a client text (lib/sms/twilioClient.js charges no credit
+              — only the crew line and voice do). The copy says what is true.
+              Reminders reach job visits as well as appointments since the
+              cron read both tables (lib/sms/reminderPlan.js). */}
+          {t("app.setReminders.note", "Reminders are included in your plan — nothing is billed per text. We never text a client who has opted out, and never more than once per appointment or visit.")}
           {remSaving && (
             <span className="inline-flex items-center gap-1.5 ml-2">
               <Loader2 size={12} className="animate-spin" /> {t("app.action.saving")}

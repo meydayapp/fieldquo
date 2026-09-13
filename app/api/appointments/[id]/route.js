@@ -11,6 +11,13 @@ import {
   redactClient,
 } from "@/lib/permissions/enforce";
 import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
+import { planOfficeMove, bracketStops, moveReasonMessage } from "@/lib/schedule/moveEntry";
+import { assigneeStopsAround } from "@/lib/schedule/entryNeighbours";
+import { notifyClientMoved, notifyClientCancelled } from "@/lib/schedule/clientNotice";
+import { travelMinutes, hasPoint } from "@/lib/booking/travel";
+import { serverMapsKey } from "@/lib/measure/roofMeasurement";
+import { getAppOrigin } from "@/lib/appUrl";
+import { visitManagePath } from "@/lib/booking/manageVisit";
 
 // ── The list route was scoped; this one was not ────────────────────────────
 //
@@ -87,8 +94,29 @@ export async function PATCH(request, { params }) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
 
+  // Everything the office actions below need, in one read: the booking behind
+  // a converted appointment (its end time, its mode, the client's own link and
+  // the fee they paid), the client to write to, the quote whose language the
+  // letter follows, and the company row the sender and the zone come from.
   const existing = await db.appointment.findFirst({
     where: { id: _params.id, companyId: member.companyId },
+    include: {
+      client: { select: { id: true, name: true, email: true, language: true, address: true } },
+      quote: { select: { language: true, quoteNumber: true } },
+      company: true,
+      booking: {
+        select: {
+          id: true,
+          status: true,
+          endTime: true,
+          mode: true,
+          manageToken: true,
+          feePaidCents: true,
+          feeCurrency: true,
+          eventType: { select: { name: true, durationMinutes: true } },
+        },
+      },
+    },
   });
   if (!existing) return NextResponse.json(NOT_FOUND, { status: 404 });
 
@@ -216,12 +244,73 @@ export async function PATCH(request, { params }) {
     }
   }
 
+  // ── Moving it: the booking page's own arithmetic, with an override ───────
+  //
+  // `scheduledAt` used to be written as posted. It is now held to the same
+  // travel-buffer check the client's manage link applies — lib/schedule/
+  // moveEntry.js, through the same `reachable` — and refused with a reason the
+  // dialog can explain. `force: true` is the office saying it knows better,
+  // which it may; a client never can. See moveEntry.js for why.
+  let plan = null;
+  if (body.scheduledAt !== undefined) {
+    const start = new Date(body.scheduledAt);
+    const stops = Number.isFinite(start.getTime())
+      ? await assigneeStopsAround({
+          companyId: member.companyId,
+          assignedToId: existing.assignedToId,
+          start,
+          exclude: { appointmentId: existing.id, bookingId: existing.booking?.id || null },
+        })
+      : [];
+    const { previous, next } = bracketStops(stops, start);
+    const here = { lat: Number(existing.latitude), lng: Number(existing.longitude) };
+    const key = serverMapsKey();
+    const [fromPrev, toNext] = await Promise.all([
+      previous?.point && hasPoint(here) ? travelMinutes(previous.point, here, { key }) : null,
+      next?.point && hasPoint(here) ? travelMinutes(here, next.point, { key }) : null,
+    ]);
+
+    plan = planOfficeMove({
+      scheduledAt: body.scheduledAt,
+      force: body.force === true,
+      previous,
+      next,
+      travelFromPrevious: fromPrev?.minutes ?? null,
+      travelToNext: toNext?.minutes ?? null,
+      travelBuffer: existing.company?.travelBufferMinutes || 0,
+      durationMinutes:
+        existing.booking?.eventType?.durationMinutes ||
+        (existing.booking?.endTime
+          ? (existing.booking.endTime.getTime() - existing.scheduledAt.getTime()) / 60000
+          : undefined),
+    });
+    if (!plan.ok) {
+      return NextResponse.json(
+        { error: moveReasonMessage(plan.reason, plan.travel), reason: plan.reason, travel: plan.travel },
+        { status: plan.httpStatus },
+      );
+    }
+  }
+
+  // Cancelling is a status with a reason, never a delete — the row stays so
+  // the day still says what was called off. Putting it back on clears the
+  // reason, or the badge would say "Scheduled" beside a sentence about why it
+  // isn't.
+  const cancelling = body.status === "cancelled";
+  const reopening = body.status === "scheduled" && existing.status === "cancelled";
+  const cancelReason = cancelling
+    ? String(body.cancelReason ?? "").trim().slice(0, 500) || null
+    : reopening
+      ? null
+      : undefined;
+
   const updated = await db.appointment.update({
     where: { id: _params.id },
     data: {
-      ...(body.scheduledAt && { scheduledAt: new Date(body.scheduledAt) }),
+      ...(plan && { scheduledAt: plan.start }),
       ...(body.location !== undefined && { location: body.location }),
       ...(body.status && { status: body.status }),
+      ...(cancelReason !== undefined && { cancelReason }),
       ...("assignedToId" in body && {
         assignedToId: body.assignedToId || null,
         status:
@@ -233,12 +322,78 @@ export async function PATCH(request, { params }) {
     include: { client: true, assignedTo: { select: { id: true, name: true } } },
   });
 
+  // ── The booking behind it moves with it ──────────────────────────────────
+  //
+  // The client's link keeps Booking and Appointment in step from its side
+  // (reschedule/route.js moves the appointment); this is the same promise from
+  // the office side. Without it the client's own page would still show the
+  // old time, and a cancelled appointment would leave a confirmed booking
+  // holding the slot on the booking page. Best-effort, logged: the appointment
+  // has already changed.
+  if (existing.booking) {
+    const bookingData = {
+      ...(plan && { startTime: plan.start, endTime: plan.end }),
+      ...(cancelling && { status: "cancelled" }),
+      ...(reopening && existing.booking.status === "cancelled" && { status: "confirmed" }),
+    };
+    if (Object.keys(bookingData).length) {
+      await db.booking
+        .update({ where: { id: existing.booking.id }, data: bookingData })
+        .catch((err) => console.error("[appointment] booking not kept in step:", err?.message));
+    }
+  }
+
+  // ── Telling the client, in their language ────────────────────────────────
+  //
+  // Opt-out rather than opt-in: a moved visit the client is not told about is
+  // a homeowner waiting at the old time. The dialog shows the address it will
+  // write to and lets the office untick it for a change already agreed by
+  // phone. `notifyClient: false` is that tick.
+  const tell = body.notifyClient !== false;
+  const notice = { sent: false, language: null };
+  if (tell && (plan || cancelling)) {
+    let manageUrl = null;
+    if (existing.booking?.manageToken) {
+      try {
+        manageUrl = `${getAppOrigin(request)}${visitManagePath(existing.booking.manageToken)}`;
+      } catch (err) {
+        console.error("[appointment] manage link unavailable:", err?.message);
+      }
+    }
+    const common = {
+      company: existing.company,
+      client: existing.client,
+      quote: existing.quote,
+      eventTypeName: existing.booking?.eventType?.name || null,
+      location: existing.location || existing.client?.address || null,
+    };
+    const result = plan
+      ? await notifyClientMoved({
+          ...common,
+          previousStartTime: existing.scheduledAt,
+          startTime: plan.start,
+          mode: existing.booking?.mode || "visit",
+          manageUrl,
+        })
+      : await notifyClientCancelled({
+          ...common,
+          startTime: existing.scheduledAt,
+          fee:
+            existing.booking?.feePaidCents > 0
+              ? { amountCents: existing.booking.feePaidCents, currency: existing.booking.feeCurrency }
+              : null,
+        });
+    notice.sent = result.sent;
+    notice.language = result.language;
+  }
+
   // Redacted on the way out too. The calendar writes this response straight
   // back into its row state, so an unredacted PATCH reply would restore every
   // field the GET just stripped.
   return NextResponse.json({
     ...updated,
     client: redactClient(full, updated.client),
+    notice,
   });
 }
 

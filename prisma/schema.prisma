@@ -3766,6 +3766,13 @@ model Appointment {
   requiresSupervisor Boolean           @default(false)
   status             AppointmentStatus @default(scheduled)
   notes              String?
+  /// Why the office called this one off. Written by the office cancel action
+  /// (app/api/appointments/[id]) and shown on the card next to the badge; null
+  /// on every row cancelled before the column existed, and on a booking the
+  /// CLIENT cancelled through their own link, which records no office reason.
+  /// A cancelled appointment stays a row: cancelling is a status, never a
+  /// delete, because a slot that was called off is a fact about the day.
+  cancelReason       String?
   /// Once-only guard so the reminder cron can't text the same client twice for
   /// the same appointment (same pattern as Job.reviewRequestedAt). Null until a
   /// reminder actually goes out.
@@ -4521,6 +4528,15 @@ model JobVisit {
   /// same reasoning Quote.declineReason gives for staying free text rather
   /// than a forced dropdown.
   returnNotes  String?
+  /// Why the office called this visit off — same column, same meaning as
+  /// Appointment.cancelReason, and shown beside the "Cancelled" badge on the
+  /// job page. Cleared when the visit is put back on.
+  cancelReason String?
+  /// When the reminder text went out — same once-only claim as
+  /// Appointment.reminderSentAt, for the same cron. Reminders reached only
+  /// Appointment rows before this existed, so a crew visit scheduled on a
+  /// job — the normal way to use the product — reminded nobody.
+  reminderSentAt DateTime?
   locationStamps LocationStamp[]
   subcontractors JobSubcontractor[]
 }

@@ -28,6 +28,9 @@ import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvide
 import { usePermissions } from "@/app/providers/PermissionProvider";
 import { can } from "@/lib/permissions";
 import { navRowAllowed } from "@/lib/permissions/nav";
+import { hasLevel } from "@/lib/permissions/enforce";
+import { mayMoveVisit } from "@/lib/jobs/visitStatus";
+import EntryActions from "@/app/components/schedule/EntryActions";
 import { useSession } from "@/lib/auth-client";
 
 import { useTranslation } from "@/app/hooks/useTranslation";
@@ -919,6 +922,55 @@ export default function AppointmentsPage() {
               )}
             </div>
 
+            {/* ── Move it, call it off, mark it done, put it back ──────────
+                The calendar could reassign a row and do nothing else; the
+                office had to ring the crew to move a visit. Offered on the
+                same dial each row's route uses — an appointment to its
+                assignee or schedule:edit_all, a visit under mayMoveVisit
+                (which mirrors its own route, clause for clause). A booking
+                that never became an appointment has no office editor behind
+                it and gets nothing, for the reason the assignee block above
+                gives. Hiding the buttons is not access control; the routes
+                re-ask and refuse with a sentence naming who to ask. */}
+            {appt.kind === "visit"
+              ? mayMoveVisit({
+                  assignedToId: appt.assignedToId ?? null,
+                  userId: myUserId,
+                  hasEditAll: hasLevel(caller, "schedule", "edit_all"),
+                }) && (
+                  <EntryActions
+                    kind="visit"
+                    id={appt.id}
+                    jobId={appt.jobId}
+                    status={appt.status}
+                    scheduledAt={appt.scheduledAt}
+                    // A name and an address, no email key: the feed narrows a
+                    // visit's client to what name_address_only allows, and
+                    // the dialog says so rather than claiming "no email".
+                    client={{ name: appt.client?.name || null }}
+                    onChanged={load}
+                  />
+                )
+              : appt.kind === "booking"
+                ? null
+                : (!caller?.role ||
+                    (myUserId && appt.assignedToId === myUserId) ||
+                    hasLevel(caller, "schedule", "edit_all")) && (
+                    <EntryActions
+                      kind="appointment"
+                      id={appt.id}
+                      status={appt.status}
+                      scheduledAt={appt.scheduledAt}
+                      client={appt.client || null}
+                      onChanged={load}
+                    />
+                  )}
+            {appt.cancelReason && appt.status === "cancelled" && (
+              <p className="text-xs text-muted-foreground mt-2">
+                {t("app.visitAction.cancelledWhy", { reason: appt.cancelReason })}
+              </p>
+            )}
+
             {isOpen && (
               <AppointmentDetails
                 appt={appt}
@@ -1306,7 +1358,7 @@ function NewAppointmentModal({ members, onClose, onCreated }) {
             disabled={saving}
             className="inline-flex items-center justify-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-5 py-2.5 rounded-lg disabled:opacity-60 w-full mt-2"
           >
-            {saving ? "Creating..." : "Create Appointment"}
+            {saving ? t("app.appts.creating", "Creating…") : t("app.appts.create", "Create Appointment")}
           </button>
         </form>
       </div>

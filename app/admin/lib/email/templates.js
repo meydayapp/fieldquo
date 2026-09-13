@@ -18,25 +18,57 @@
 // the one nobody looks at. The shell renders exactly what the confirmation
 // email rendered before it existed.
 //
-// ── These letters are English, and that is this file's existing pattern ─────
+// ── The words come from the catalogue, in the client's language ────────────
 //
-// formatWhen() below hardcodes en-US and no caller passes a language, so all of
-// them are English today. New wording here follows that rather than inventing a
-// second, half-translated pattern. Making the set language-aware is one piece of
-// work with an obvious shape: put the sentences in lib/i18n/emailCopy.js (which
-// already carries all six languages for quotes and invoices), resolve the
-// language with lib/i18n/clientLanguage.js at the call site, and thread it down
-// — including into describeWindow(), which already accepts one. All the letters
-// at once, or none: a French confirmation followed by an English cancellation is
-// worse than either being consistently one language.
+// These letters were English with an en-US date while the quote they were
+// about had been translated — the exact failure lib/i18n/emailCopy.js was
+// written to end, one letter later. Every sentence now comes from
+// emailCopy(language).visit and the date is formatted in that language's
+// locale, so the confirmation, the move and the cancellation are one language,
+// all three at once. Nobody here decides WHICH language: callers resolve it
+// with lib/i18n/clientLanguage.js (the quote's language, then the client's,
+// then the company's) and pass it down. Omitted, it is English — the same
+// fallback emailCopy() makes, so an unknown code still produces a sendable
+// letter rather than a failed send.
+//
+// ── Who made the change is part of the sentence ────────────────────────────
+//
+// "has been cancelled, as requested" is true when the client pressed the
+// button on their own link and false when the office pressed it on the
+// calendar. `initiatedBy` picks the sentence; and when the office made the
+// change the office does not also get a letter telling it so — the company
+// copy is for hearing about something a client did.
 
 import { sendEmail, senderFor } from "@/lib/email/resend";
-import { describeWindow } from "@/lib/booking/arrivalWindow";
+import { describeWindow, letterLocale } from "@/lib/booking/arrivalWindow";
 import { formatMoney } from "@/lib/currency";
+import { emailCopy, EMAIL_COPY } from "@/lib/i18n/emailCopy";
 
-function formatWhen(startTime, timezone) {
+/**
+ * The letter's sentences, for one language.
+ *
+ * Merged over English PER KEY rather than per block: emailCopy() merges the
+ * top level only, so a language whose `visit` block was missing one key would
+ * otherwise render "undefined" in the middle of a letter — the exact bug that
+ * function's own comment describes, one level down.
+ */
+function visitCopy(language) {
+  const dict = emailCopy(language);
+  return { ...EMAIL_COPY.en.visit, ...(dict.visit || {}), greeting: dict.greeting };
+}
+
+/**
+ * "Tuesday, August 12 at 2:00 PM EDT", in the reader's locale and the
+ * company's zone.
+ *
+ * The locale comes from the same map describeWindow uses, so the exact time
+ * and the arrival window on one letter are spelled by one rule; this used to
+ * hardcode en-US, which for English is still what that map says.
+ */
+function formatWhen(startTime, timezone, language = "en") {
+  const locale = letterLocale(language);
   try {
-    return new Intl.DateTimeFormat("en-US", {
+    return new Intl.DateTimeFormat(locale, {
       weekday: "long",
       month: "long",
       day: "numeric",
@@ -76,11 +108,12 @@ function escAttr(value) {
  * The shared booking letter.
  *
  * @param {string}   companyName
- * @param {string}   headline   the <h1>. HTML, not text — the callers pass
- *                              entities (&rsquo;). Every one is a literal in
- *                              this file; nothing user-supplied reaches it.
+ * @param {string}   headline   the <h1>. HTML, not text: the callers esc() the
+ *                              catalogue sentence before passing it, so a
+ *                              translation containing an apostrophe or an
+ *                              ampersand renders as written.
  * @param {string[]} intro      paragraph lines, joined with a blank line. Also
- *                              HTML: callers esc() the values they interpolate.
+ *                              HTML: callers esc() every line, values included.
  * @param {Array}    rows       [{ label, value }] — falsy values are dropped,
  *                              so an absent address leaves no empty row
  * @param {object}  [action]    { url, label } — the manage-this-visit button
@@ -153,9 +186,9 @@ function bookingEmailShell({ companyName, headline, intro, rows, action, footnot
  * null for most bookings. Same shape in all three letters so the homeowner
  * reads the same sentence in the confirmation, the cancellation and the move.
  */
-function aboutQuoteLine(quoteNumber) {
+function aboutQuoteLine(quoteNumber, copy) {
   const ref = String(quoteNumber ?? "").trim();
-  return ref ? [`About your estimate ${esc(ref)}.`] : [];
+  return ref ? [esc(copy.aboutQuote(ref))] : [];
 }
 
 /** "the $120.00 visit fee" — or nothing at all when no fee was taken. */
@@ -198,7 +231,10 @@ export function buildBookingConfirmationEmail({
   arrivalWindowMinutes,
   manageUrl,
   quoteNumber,
+  language = "en",
 }) {
+  const copy = visitCopy(language);
+
   // ── Window if the company set one, exact time otherwise ──────────────────
   //
   // describeWindow returns null when windows are off, so this falls straight
@@ -206,28 +242,26 @@ export function buildBookingConfirmationEmail({
   // divergent copy of it. Only the CLIENT sees the window; the crew's own
   // schedule keeps the real time. See lib/booking/arrivalWindow.js.
   const when =
-    describeWindow(startTime, arrivalWindowMinutes, { timezone }) ||
-    formatWhen(startTime, timezone);
+    describeWindow(startTime, arrivalWindowMinutes, { timezone, language }) ||
+    formatWhen(startTime, timezone, language);
 
   const html = bookingEmailShell({
     companyName,
-    headline: "You&rsquo;re booked in",
+    headline: esc(copy.confirmedHeadline),
     intro: [
-      `Hi ${esc(clientName)},`,
-      `Your ${esc(eventTypeName)} with ${esc(companyName)} is confirmed.`,
-      ...aboutQuoteLine(quoteNumber),
+      esc(copy.greeting(clientName)),
+      esc(copy.confirmedIntro(eventTypeName, companyName)),
+      ...aboutQuoteLine(quoteNumber, copy),
     ],
     rows: [
-      { label: "When", value: when },
-      { label: "Where", value: location },
+      { label: copy.when, value: when },
+      { label: copy.where, value: location },
     ],
-    ...(manageUrl && { action: { url: manageUrl, label: "Change or cancel this visit" } }),
-    footnote: manageUrl
-      ? "Need to change or cancel? Use the link above — or just reply to this email."
-      : "Need to change or cancel? Just reply to this email.",
+    ...(manageUrl && { action: { url: manageUrl, label: copy.manageCta } }),
+    footnote: manageUrl ? copy.changeViaLink : copy.changeViaReply,
   });
 
-  return { subject: `Confirmed: ${eventTypeName} with ${companyName}`, html };
+  return { subject: copy.confirmedSubject(eventTypeName, companyName), html };
 }
 
 export async function sendBookingConfirmationEmail({ to, company, ...rest }) {
@@ -280,10 +314,14 @@ export function buildVisitCancelledEmails({
   timezone,
   refund = {},
   quoteNumber,
+  language = "en",
+  initiatedBy = "client",
 }) {
   const companyName = company?.name || "";
-  const when = formatWhen(startTime, timezone);
+  const copy = visitCopy(language);
+  const when = formatWhen(startTime, timezone, language);
   const amount = feeAmount(refund.amountCents, refund.currency || company?.currency);
+  const byOffice = initiatedBy === "office";
 
   // Three honest sentences, never "a refund is on its way" when it isn't. The
   // no_payment_intent case is deliberately worded as something a person will
@@ -291,62 +329,73 @@ export function buildVisitCancelledEmails({
   const feeLine = !amount
     ? null
     : refund.refunded
-      ? `Your ${amount} visit fee has been refunded to the card you paid with. Cards usually take a few working days to show it.`
+      ? copy.feeRefunded(amount)
       : refund.reason === "already_refunded"
-        ? `The ${amount} visit fee was already refunded.`
+        ? copy.feeAlreadyRefunded(amount)
         : refund.reason === "no_payment_intent"
-          ? `The ${amount} visit fee wasn't taken through this system, so it isn't returned automatically — reply to this email and we'll sort it out.`
-          : `The ${amount} visit fee isn't returned automatically. Reply to this email if you'd like to talk about it.`;
+          ? copy.feeNotThroughSystem(amount)
+          : copy.feeNotReturned(amount);
 
   const clientHtml = bookingEmailShell({
     companyName,
-    headline: "Your visit is cancelled",
+    headline: esc(copy.cancelledHeadline),
     intro: [
-      `Hi ${esc(clientName)},`,
-      `Your ${esc(eventTypeName)} with ${esc(companyName)} has been cancelled, as requested.`,
-      ...aboutQuoteLine(quoteNumber),
+      esc(copy.greeting(clientName)),
+      esc(
+        byOffice
+          ? copy.cancelledByOffice(eventTypeName, companyName)
+          : copy.cancelledByYou(eventTypeName, companyName),
+      ),
+      ...aboutQuoteLine(quoteNumber, copy),
       ...(feeLine ? [esc(feeLine)] : []),
     ],
     rows: [
-      { label: "Was booked for", value: when },
-      { label: "Where", value: location },
+      { label: copy.wasBookedFor, value: when },
+      { label: copy.where, value: location },
     ],
-    footnote: "Changed your mind? Reply to this email and we'll find you another time.",
+    footnote: byOffice ? copy.cancelledFootnoteByOffice : copy.cancelledFootnoteByYou,
   });
 
-  const companyHtml = bookingEmailShell({
-    companyName,
-    headline: "A booking was cancelled",
-    intro: [
-      `${esc(clientName)} cancelled their ${esc(eventTypeName)} using the link in their confirmation email.`,
-      ...(feeLine
-        ? [
-            esc(
-              refund.refunded
-                ? `The ${amount} visit fee was refunded automatically, per your cancellation policy.`
-                : `The ${amount} visit fee was NOT refunded.`,
-            ),
-          ]
-        : []),
-    ],
-    rows: [
-      { label: "Client", value: clientName },
-      { label: "Email", value: clientEmail },
-      { label: "Was booked for", value: when },
-      { label: "Where", value: location },
-    ],
-    footnote: "The slot is free again on your calendar.",
-  });
+  // The office's copy is in the OFFICE's language — the company default — and
+  // only exists when a client did the cancelling. An office that pressed the
+  // button does not need a letter about it.
+  const officeCopy = visitCopy(company?.defaultLanguage || "en");
+  const officeWhen = formatWhen(startTime, timezone, company?.defaultLanguage || "en");
+  const companyHtml = byOffice
+    ? null
+    : bookingEmailShell({
+        companyName,
+        headline: esc(officeCopy.officeCancelledHeadline),
+        intro: [
+          esc(officeCopy.officeCancelledIntro(clientName, eventTypeName)),
+          ...(feeLine
+            ? [
+                esc(
+                  refund.refunded
+                    ? officeCopy.officeFeeRefunded(amount)
+                    : officeCopy.officeFeeNotRefunded(amount),
+                ),
+              ]
+            : []),
+        ],
+        rows: [
+          { label: officeCopy.client, value: clientName },
+          { label: officeCopy.email, value: clientEmail },
+          { label: officeCopy.wasBookedFor, value: officeWhen },
+          { label: officeCopy.where, value: location },
+        ],
+        footnote: officeCopy.officeCancelledFootnote,
+      });
 
   return {
     client: {
       to: clientEmail,
-      subject: `Cancelled: ${eventTypeName} with ${companyName}`,
+      subject: copy.cancelledSubject(eventTypeName, companyName),
       html: clientHtml,
     },
     company: {
-      to: company?.email || null,
-      subject: `Cancelled: ${clientName} — ${when}`,
+      to: byOffice ? null : company?.email || null,
+      subject: officeCopy.officeCancelledSubject(clientName, officeWhen),
       html: companyHtml,
     },
   };
@@ -406,60 +455,73 @@ export function buildVisitRescheduledEmails({
   arrivalWindowMinutes,
   manageUrl,
   quoteNumber,
+  language = "en",
+  initiatedBy = "client",
 }) {
   const companyName = company?.name || "";
-  const wasWhen = formatWhen(previousStartTime, timezone);
+  const copy = visitCopy(language);
+  const byOffice = initiatedBy === "office";
+  const wasWhen = formatWhen(previousStartTime, timezone, language);
   const clientWhen =
-    describeWindow(startTime, arrivalWindowMinutes, { timezone }) ||
-    formatWhen(startTime, timezone);
-  // The crew's copy always carries the exact time. An arrival window is a
-  // promise made to the client, not a change to when the van leaves.
-  const exactWhen = formatWhen(startTime, timezone);
+    describeWindow(startTime, arrivalWindowMinutes, { timezone, language }) ||
+    formatWhen(startTime, timezone, language);
 
   const clientHtml = bookingEmailShell({
     companyName,
-    headline: "Your visit has moved",
+    headline: esc(copy.movedHeadline),
     intro: [
-      `Hi ${esc(clientName)},`,
-      `Your ${esc(eventTypeName)} with ${esc(companyName)} is now booked for a new time.`,
-      ...aboutQuoteLine(quoteNumber),
+      esc(copy.greeting(clientName)),
+      esc(
+        byOffice
+          ? copy.movedByOffice(eventTypeName, companyName)
+          : copy.movedByYou(eventTypeName, companyName),
+      ),
+      ...aboutQuoteLine(quoteNumber, copy),
     ],
     rows: [
-      { label: "New time", value: clientWhen },
-      { label: "Previously", value: wasWhen },
-      { label: "Where", value: location },
+      { label: copy.newTime, value: clientWhen },
+      { label: copy.previously, value: wasWhen },
+      { label: copy.where, value: location },
     ],
-    ...(manageUrl && { action: { url: manageUrl, label: "Change or cancel this visit" } }),
-    footnote:
-      "Nothing else has changed — any visit fee you already paid still stands against this booking.",
+    ...(manageUrl && { action: { url: manageUrl, label: copy.manageCta } }),
+    footnote: copy.movedFootnote,
   });
 
-  const companyHtml = bookingEmailShell({
-    companyName,
-    headline: "A booking moved",
-    intro: [
-      `${esc(clientName)} moved their ${esc(eventTypeName)} using the link in their confirmation email.`,
-      "The old slot is free again and the new one is on your calendar.",
-    ],
-    rows: [
-      { label: "Client", value: clientName },
-      { label: "Email", value: clientEmail },
-      { label: "New time", value: exactWhen },
-      { label: "Previously", value: wasWhen },
-      { label: "Where", value: location },
-    ],
-    footnote: "Any visit fee already paid carries over — nothing was charged or refunded.",
-  });
+  // The crew's copy always carries the exact time. An arrival window is a
+  // promise made to the client, not a change to when the van leaves. Written
+  // in the office's language, and only when the client did the moving.
+  const officeLanguage = company?.defaultLanguage || "en";
+  const officeCopy = visitCopy(officeLanguage);
+  const exactWhen = formatWhen(startTime, timezone, officeLanguage);
+  const officeWasWhen = formatWhen(previousStartTime, timezone, officeLanguage);
+  const companyHtml = byOffice
+    ? null
+    : bookingEmailShell({
+        companyName,
+        headline: esc(officeCopy.officeMovedHeadline),
+        intro: [
+          esc(officeCopy.officeMovedIntro(clientName, eventTypeName)),
+          esc(officeCopy.officeMovedLine),
+        ],
+        rows: [
+          { label: officeCopy.client, value: clientName },
+          { label: officeCopy.email, value: clientEmail },
+          { label: officeCopy.newTime, value: exactWhen },
+          { label: officeCopy.previously, value: officeWasWhen },
+          { label: officeCopy.where, value: location },
+        ],
+        footnote: officeCopy.officeMovedFootnote,
+      });
 
   return {
     client: {
       to: clientEmail,
-      subject: `Moved: ${eventTypeName} with ${companyName}`,
+      subject: copy.movedSubject(eventTypeName, companyName),
       html: clientHtml,
     },
     company: {
-      to: company?.email || null,
-      subject: `Moved: ${clientName} — now ${exactWhen}`,
+      to: byOffice ? null : company?.email || null,
+      subject: officeCopy.officeMovedSubject(clientName, exactWhen),
       html: companyHtml,
     },
   };

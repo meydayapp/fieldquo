@@ -28,6 +28,9 @@ import {
   buildVisitRescheduledEmails,
 } from "@/app/admin/lib/email/templates";
 import { readFileSync } from "node:fs";
+import { planOfficeMove, bracketStops, moveReasonMessage, MOVE_REASONS, DEFAULT_STOP_MINUTES } from "@/lib/schedule/moveEntry";
+import { serviceName, windowFor } from "@/lib/schedule/clientNotice";
+import { SUPPORTED_EMAIL_LANGUAGES } from "@/lib/i18n/emailCopy";
 
 let pass = 0, fail = 0;
 const ok = (n, c, got) => { if (c) { pass++; console.log(`  ✓ ${n}`); } else { fail++; console.log(`  ✗ ${n}${got !== undefined ? `  got: ${JSON.stringify(got)}` : ""}`); } };
@@ -286,8 +289,12 @@ console.log("\nThe letters");
 // reschedule wouldn't be a second copy of this layout; this proves the
 // extraction didn't quietly redesign the email that was already going out.
 const GOLDEN_CONFIRMATION =
-  '<!DOCTYPE html> <html> <head><meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" /></head> <body style="margin:0;padding:24px 12px;background:#F8F4EF;font-family:Arial,Helvetica,sans-serif;color:#2d2520;"> <table width="100%" cellpadding="0" cellspacing="0" role="presentation"> <tr><td align="center"> <table width="600" cellpadding="0" cellspacing="0" role="presentation" style="width:100%;max-width:600px;background:#ffffff;border:1px solid #eadfd4;border-radius:10px;overflow:hidden;"> <tr><td style="background:#1A1917;padding:22px 30px;"> <span style="color:#ff5a00;font-size:13px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;">Northline Refinishing</span> </td></tr> <tr><td style="padding:30px;"> <h1 style="margin:0 0 12px;font-size:25px;line-height:1.3;font-weight:700;color:#2d2520;">You&rsquo;re booked in</h1> <p style="margin:0 0 16px;font-size:15px;line-height:1.75;color:#6b5d52;"> Hi Dana &lt;O\'Brien&gt;,<br/><br/> Your On-site estimate with Northline Refinishing is confirmed. </p> <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="width:100%;border-collapse:collapse;margin:0 0 22px;background:#F8F4EF;border:1px solid #eadfd4;border-radius:10px;"> <tr> <td style="padding:14px 16px;font-size:13px;color:#6b5d52;">When</td> <td style="padding:14px 16px;font-size:15px;color:#2d2520;font-weight:700;text-align:right;">Tuesday, August 25 at 2:00 PM EDT</td> </tr> <tr> <td style="padding:14px 16px;border-top:1px solid #eadfd4;font-size:13px;color:#6b5d52;">Where</td> <td style="padding:14px 16px;border-top:1px solid #eadfd4;font-size:15px;color:#2d2520;font-weight:700;text-align:right;">14 Maple St, Toronto</td> </tr> </table> <p style="margin:0;font-size:15px;line-height:1.75;color:#6b5d52;"> Need to change or cancel? Just reply to this email. </p> </td></tr> <tr><td style="background:#F8F4EF;border-top:1px solid #eadfd4;padding:20px 30px;font-size:11px;line-height:1.6;color:#6b5d52;"> Northline Refinishing </td></tr> </table> </td></tr> </table> </body> </html>';
+  '<!DOCTYPE html> <html> <head><meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" /></head> <body style="margin:0;padding:24px 12px;background:#F8F4EF;font-family:Arial,Helvetica,sans-serif;color:#2d2520;"> <table width="100%" cellpadding="0" cellspacing="0" role="presentation"> <tr><td align="center"> <table width="600" cellpadding="0" cellspacing="0" role="presentation" style="width:100%;max-width:600px;background:#ffffff;border:1px solid #eadfd4;border-radius:10px;overflow:hidden;"> <tr><td style="background:#1A1917;padding:22px 30px;"> <span style="color:#ff5a00;font-size:13px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;">Northline Refinishing</span> </td></tr> <tr><td style="padding:30px;"> <h1 style="margin:0 0 12px;font-size:25px;line-height:1.3;font-weight:700;color:#2d2520;">You’re booked in</h1> <p style="margin:0 0 16px;font-size:15px;line-height:1.75;color:#6b5d52;"> Hi Dana &lt;O\'Brien&gt;,<br/><br/> Your On-site estimate with Northline Refinishing is confirmed. </p> <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="width:100%;border-collapse:collapse;margin:0 0 22px;background:#F8F4EF;border:1px solid #eadfd4;border-radius:10px;"> <tr> <td style="padding:14px 16px;font-size:13px;color:#6b5d52;">When</td> <td style="padding:14px 16px;font-size:15px;color:#2d2520;font-weight:700;text-align:right;">Tuesday, August 25 at 2:00 PM EDT</td> </tr> <tr> <td style="padding:14px 16px;border-top:1px solid #eadfd4;font-size:13px;color:#6b5d52;">Where</td> <td style="padding:14px 16px;border-top:1px solid #eadfd4;font-size:15px;color:#2d2520;font-weight:700;text-align:right;">14 Maple St, Toronto</td> </tr> </table> <p style="margin:0;font-size:15px;line-height:1.75;color:#6b5d52;"> Need to change or cancel? Just reply to this email. </p> </td></tr> <tr><td style="background:#F8F4EF;border-top:1px solid #eadfd4;padding:20px 30px;font-size:11px;line-height:1.6;color:#6b5d52;"> Northline Refinishing </td></tr> </table> </td></tr> </table> </body> </html>';
 
+// The one deliberate difference from the golden as first recorded: the
+// headline's apostrophe is the character (from lib/i18n/emailCopy.js, esc()'d)
+// rather than the `&rsquo;` entity a literal in the builder used to carry. A
+// mail client renders both identically; everything else is byte-identical.
 const norm = (s) => s.replace(/\s+/g, " ").trim();
 const confirmArgs = {
   companyName: "Northline Refinishing",
@@ -333,7 +340,7 @@ ok("the client's copy says cancelled", cancelled.client.html.includes("Your visi
 ok("the company's copy is a different letter", cancelled.company.html.includes("A booking was cancelled"));
 ok("the company's copy names the client", cancelled.company.html.includes("dana@example.test"));
 ok("NOT REFUNDED never reads as refunded", !/has been refunded/.test(cancelled.client.html), cancelled.client.html.match(/refunded[^<]*/g));
-ok("not refunded says the fee isn't returned automatically", cancelled.client.html.includes("isn't returned automatically"));
+ok("not refunded says the fee isn't returned automatically", /isn[’']t returned automatically/.test(cancelled.client.html));
 ok("the company is told the fee was NOT refunded", cancelled.company.html.includes("NOT refunded"));
 
 const refunded = buildVisitCancelledEmails({
@@ -436,6 +443,153 @@ ok("the appointment moves with it", /db\.appointment[\s\S]*scheduledAt: plan\.st
 ok("THE FEE CARRIES OVER — reschedule touches no fee column", !/feePaidCents|feeRefunded|feeStripePaymentIntentId/.test(code(reschedRoute)), code(reschedRoute).match(/fee\w*/g));
 ok("reschedule never calls Stripe at all", !/stripe/i.test(code(reschedRoute)));
 ok("the emails can't fail the move", /sendVisitRescheduledEmails\([\s\S]*\}\)\.catch\(/.test(reschedRoute));
+
+// ══ The OFFICE side: the same arithmetic, with an override ══════════════════
+//
+// The calendar and the job page could reassign a visit and do nothing else.
+// The office move goes through lib/schedule/moveEntry.js — `reachable` from
+// lib/booking/travel.js, the same function the client's link is held to —
+// and refuses with a reason the dialog explains. `force` is the office
+// overruling a straight-line estimate it knows to be wrong.
+
+console.log("\nOffice reschedule keeps the travel buffer\n");
+
+const officeNow = new Date("2026-08-24T13:00:00Z");
+const prev = { startAt: new Date("2026-08-25T14:00:00Z"), endAt: new Date("2026-08-25T15:00:00Z"), point: { lat: 43.65, lng: -79.38 } };
+const nxt = { startAt: new Date("2026-08-25T17:00:00Z"), endAt: new Date("2026-08-25T18:00:00Z"), point: { lat: 43.7, lng: -79.4 } };
+
+{
+  // 15:00 → 15:30 with 25 min of driving and a 15 min buffer = 40 needed, 30 available.
+  const r = planOfficeMove({ scheduledAt: "2026-08-25T15:30:00Z", now: officeNow, previous: prev, travelFromPrevious: 25, travelBuffer: 15 });
+  ok("a move that leaves too little for the drive + buffer is refused", r.ok === false && r.httpStatus === 409 && r.reason === "travel_short", r);
+  ok("…saying by how many minutes, against the previous stop", r.travel.shortBy === 10 && r.travel.against === "previous", r.travel);
+}
+{
+  const r = planOfficeMove({ scheduledAt: "2026-08-25T15:45:00Z", now: officeNow, previous: prev, travelFromPrevious: 25, travelBuffer: 15 });
+  ok("the same move with enough gap is accepted", r.ok === true && r.start.toISOString() === "2026-08-25T15:45:00.000Z", r);
+  ok("…with an end an hour later by default", r.end.getTime() - r.start.getTime() === DEFAULT_STOP_MINUTES * 60000, r.end);
+}
+{
+  // Ends 16:45, next starts 17:00, 20 min drive: 15 available.
+  const r = planOfficeMove({ scheduledAt: "2026-08-25T15:45:00Z", now: officeNow, next: nxt, travelToNext: 20, travelBuffer: 0 });
+  ok("the NEXT stop is checked too", r.ok === false && r.reason === "travel_short" && r.travel.against === "next" && r.travel.shortBy === 5, r);
+}
+{
+  const r = planOfficeMove({ scheduledAt: "2026-08-25T15:30:00Z", now: officeNow, previous: prev, travelFromPrevious: 25, travelBuffer: 15, force: true });
+  ok("force overrides a short gap — the office may know better", r.ok === true, r);
+}
+{
+  const r = planOfficeMove({ scheduledAt: "2026-08-25T15:30:00Z", now: officeNow, previous: prev, travelFromPrevious: null, travelBuffer: 15 });
+  ok("unknown travel never blocks (no coordinates on one end)", r.ok === true, r);
+}
+{
+  const r = planOfficeMove({ scheduledAt: "2026-08-20T15:30:00Z", now: officeNow });
+  ok("a past time is refused once", r.ok === false && r.reason === "in_the_past" && r.httpStatus === 409, r);
+  const f = planOfficeMove({ scheduledAt: "2026-08-20T15:30:00Z", now: officeNow, force: true });
+  ok("…and accepted on force, so the record can be corrected", f.ok === true, f);
+}
+for (const bad of [null, "", undefined, "next tuesday", "2026-13-45"]) {
+  const r = planOfficeMove({ scheduledAt: bad, now: officeNow });
+  ok(`${JSON.stringify(bad)} is a 400, not a move`, r.ok === false && r.httpStatus === 400, r);
+}
+{
+  const stops = [
+    { startAt: new Date("2026-08-25T10:00:00Z"), endAt: new Date("2026-08-25T11:00:00Z") },
+    { startAt: new Date("2026-08-25T14:00:00Z"), endAt: new Date("2026-08-25T15:00:00Z") },
+    { startAt: new Date("2026-08-25T17:00:00Z"), endAt: new Date("2026-08-25T18:00:00Z") },
+    { startAt: "garbage" },
+  ];
+  const b = bracketStops(stops, new Date("2026-08-25T15:30:00Z"));
+  ok("bracketStops picks the nearest stop either side", b.previous === stops[1] && b.next === stops[2], b);
+  ok("…and ignores a stop with no readable time", bracketStops([{ startAt: null }], new Date()).previous === null);
+}
+ok("every reason has a sentence for the log", MOVE_REASONS.every((r) => typeof moveReasonMessage(r) === "string" && moveReasonMessage(r).length > 0));
+
+// Both office routes go through the planner and hold cancel to a status.
+const apptRoute = code(readFileSync(new URL("../app/api/appointments/[id]/route.js", import.meta.url), "utf8"));
+const visitRoute = code(readFileSync(new URL("../app/api/jobs/[id]/visits/[visitId]/route.js", import.meta.url), "utf8"));
+for (const [name, src] of [["appointments/[id]", apptRoute], ["jobs/[id]/visits/[visitId]", visitRoute]]) {
+  ok(`${name} plans a move through planOfficeMove`, /planOfficeMove\(\{/.test(src));
+  ok(`${name} brackets the assignee's real day`, /assigneeStopsAround\(\{/.test(src) && /bracketStops\(/.test(src));
+  ok(`${name} passes the company's travel buffer`, /travelBuffer:\s*[\w.]*company\??\.travelBufferMinutes/.test(src));
+  ok(`${name} writes the planned start, not the raw body`, /scheduledAt: plan\.start/.test(src) && !/scheduledAt: new Date\(body\.scheduledAt\)|scheduledAt: new Date\(scheduledAt\)/.test(src));
+  ok(`${name} answers a refusal with the reason key and the travel verdict`, /reason: plan\.reason, travel: plan\.travel/.test(src));
+  ok(`${name} records a cancel reason and clears it on reopen`, /cancelReason/.test(src) && /reopening/.test(src));
+  ok(`${name} tells the client through the shared notices`, /notifyClientMoved\(/.test(src) && /notifyClientCancelled\(/.test(src));
+  ok(`${name} honours notifyClient: false`, /notifyClient !== false/.test(src));
+}
+ok("the appointment route keeps the booking in step (time, and cancel/reopen)", /db\.booking\s*\.update\(/.test(apptRoute) && /startTime: plan\.start, endTime: plan\.end/.test(apptRoute) && /cancelling && \{ status: "cancelled" \}/.test(apptRoute));
+ok("the visit route never deletes a visit", !/jobVisit\.delete/.test(visitRoute));
+
+// ══ The notices go out in the CLIENT's language ═════════════════════════════
+//
+// The three booking letters were English literals. They read from
+// lib/i18n/emailCopy.js now, in the language resolveClientLanguage picks —
+// the quote's, else the client's, else the company's — and the office
+// notices say "the office moved it", not "as requested".
+
+console.log("\nNotifications fire in the client's language\n");
+
+const frCompany = { ...COMPANY, defaultLanguage: "en" };
+const movedFr = buildVisitRescheduledEmails({
+  company: frCompany,
+  clientName: "Dana Brien",
+  clientEmail: "dana@example.test",
+  eventTypeName: "Estimation sur place",
+  previousStartTime: new Date("2026-08-25T18:00:00Z"),
+  startTime: new Date("2026-08-27T14:00:00Z"),
+  timezone: "America/Toronto",
+  arrivalWindowMinutes: 0,
+  language: "fr",
+  initiatedBy: "office",
+});
+ok("a French client reads a French subject", /^Déplacé/.test(movedFr.client.subject), movedFr.client.subject);
+ok("…and a French headline", movedFr.client.html.includes("Votre visite a été déplacée"));
+ok("…and a French date", /août/.test(movedFr.client.html), movedFr.client.html.match(/[0-9]+ août[^<]*/));
+ok("the office wording says the company moved it, not 'as requested'", movedFr.client.html.includes("a déplacé votre") && !/comme demandé/.test(movedFr.client.html));
+ok("an office-initiated move sends the office no letter about itself", movedFr.company.to === null && movedFr.company.html === null);
+
+const cancelledFr = buildVisitCancelledEmails({
+  company: frCompany,
+  clientName: "Dana Brien",
+  clientEmail: "dana@example.test",
+  eventTypeName: "Estimation sur place",
+  startTime: hoursOut(72),
+  timezone: "America/Toronto",
+  language: "fr",
+  initiatedBy: "office",
+  refund: { refunded: false, amountCents: 12000, currency: "cad", reason: "office_cancelled" },
+});
+ok("a French cancellation is French", cancelledFr.client.html.includes("Votre visite est annulée") && cancelledFr.client.html.includes("a dû annuler"));
+ok("…and never promises a refund the office did not issue", !/remboursés sur la carte/.test(cancelledFr.client.html) && /ne sont pas remboursés automatiquement/.test(cancelledFr.client.html));
+
+// The client's own cancel still tells the office, in the OFFICE's language.
+const cancelledByClient = buildVisitCancelledEmails({
+  company: { ...COMPANY, defaultLanguage: "fr" },
+  clientName: "Dana Brien",
+  clientEmail: "dana@example.test",
+  eventTypeName: "On-site estimate",
+  startTime: hoursOut(72),
+  timezone: "America/Toronto",
+  language: "en",
+  initiatedBy: "client",
+});
+ok("a client-initiated cancel: the client reads English", cancelledByClient.client.html.includes("as requested"));
+ok("…and the francophone office reads French", cancelledByClient.company.to === COMPANY.email && cancelledByClient.company.html.includes("Une réservation a été annulée"));
+
+// Every language the catalogue carries produces a letter with no hole in it.
+for (const lang of SUPPORTED_EMAIL_LANGUAGES) {
+  const c = buildBookingConfirmationEmail({ ...confirmArgs, language: lang });
+  const m = buildVisitRescheduledEmails({ company: COMPANY, clientName: "D", clientEmail: "d@x", eventTypeName: "E", previousStartTime: hoursOut(48), startTime: hoursOut(72), timezone: "America/Toronto", language: lang });
+  const x = buildVisitCancelledEmails({ company: COMPANY, clientName: "D", clientEmail: "d@x", eventTypeName: "E", startTime: hoursOut(72), timezone: "America/Toronto", language: lang, refund: { refunded: true, amountCents: 100, currency: "cad" } });
+  const all = [c.html, c.subject, m.client.html, m.client.subject, m.company.html, x.client.html, x.client.subject, x.company.html].join("");
+  ok(`"${lang}": no "undefined" and no untranslated key in any of the three letters`, !/undefined|\[object Object\]/.test(all), all.match(/.{0,30}undefined.{0,30}/));
+}
+ok("an unknown language falls back to English rather than failing", /booked in/.test(buildBookingConfirmationEmail({ ...confirmArgs, language: "xx" }).html));
+
+// The pure helpers the office notices lean on.
+ok("serviceName prefers the event type, then the job title, then the catalogue word", serviceName({ eventTypeName: "Estimate", jobTitle: "Job", language: "fr" }) === "Estimate" && serviceName({ jobTitle: "Job", language: "fr" }) === "Job" && serviceName({ language: "fr" }) === "visite");
+ok("windowFor: an on-site visit gets the company window, a call gets none", windowFor({ arrivalWindowMinutes: 60 }, "visit") === 60 && windowFor({ arrivalWindowMinutes: 60 }, "call") === 0);
 
 console.log(`\n${fail === 0 ? "ALL PASS" : "FAILURES"} — ${pass} passed, ${fail} failed\n`);
 process.exit(fail ? 1 : 0);

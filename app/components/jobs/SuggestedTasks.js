@@ -22,6 +22,7 @@
 import { useState } from "react";
 import { Check, Loader2, Plus, Sparkles, X } from "lucide-react";
 import { reportResponseError, showError } from "@/lib/clientErrors";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 const PRIORITY_STYLES = {
   urgent:
@@ -47,6 +48,7 @@ const REASONS = {
 };
 
 export default function SuggestedTasks({ jobId, onCreated }) {
+  const { t } = useTranslation();
   const [state, setState] = useState("idle"); // idle | loading | ready | adding
   const [suggestions, setSuggestions] = useState([]);
   const [chosen, setChosen] = useState(() => new Set());
@@ -160,7 +162,7 @@ export default function SuggestedTasks({ jobId, onCreated }) {
         <div>
           <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
             <Sparkles size={14} className="text-muted-foreground" />
-            Tasks from the notes
+            {t("app.suggestedTasks.title", "Tasks from the notes")}
           </h2>
           <p className="text-xs text-muted-foreground mt-0.5">
             Reads the client, quote and visit notes on this job. Suggestions
