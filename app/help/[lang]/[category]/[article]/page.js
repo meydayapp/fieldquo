@@ -20,6 +20,7 @@ import { categoryLabels } from "@/app/components/help-centre/HelpShell";
 import { helpT, HELP_CHROME_LANGS } from "@/lib/help/chrome";
 import { figureSources, loadArticle, videoEmbed, writtenArticles } from "@/lib/help/content";
 import { helpCanonical, helpPath } from "@/lib/help/urls";
+import { HELP_LANGS } from "@/lib/help/tree";
 
 export const dynamicParams = false;
 
@@ -125,10 +126,19 @@ export default async function HelpArticlePage({ params }) {
           <p className="mt-5 flex items-start gap-2 rounded-xl border border-border bg-muted/50 px-4 py-3 text-sm text-foreground" data-help-lang-notice={langUsed}>
             <Info size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
             <span>
-              {t("article.englishOnly")}{" "}
-              <Link href={helpPath("fr", category, slug)} className="underline">Français</Link>
-              {" · "}
-              <Link href={helpPath("es", category, slug)} className="underline">Español</Link>
+              {/* Two different truths: a language the centre does not write
+                  in (uk, pa…), or a fr/es article whose translation has not
+                  landed yet. The links to the other written languages are
+                  only offered in the first case. */}
+              {HELP_LANGS.includes(lang) ? t("article.notTranslatedYet") : t("article.englishOnly")}
+              {!HELP_LANGS.includes(lang) && (
+                <>
+                  {" "}
+                  <Link href={helpPath("fr", category, slug)} className="underline">Français</Link>
+                  {" · "}
+                  <Link href={helpPath("es", category, slug)} className="underline">Español</Link>
+                </>
+              )}
             </span>
           </p>
         )}
