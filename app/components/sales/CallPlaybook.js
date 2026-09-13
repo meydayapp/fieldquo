@@ -54,6 +54,7 @@ import { AlertCircle, ChevronLeft, ChevronRight, CircleHelp, Loader2, ShieldAler
 import { objectionsToShow } from "@/lib/sales/playbook/objections";
 import { languageMeta } from "@/app/i18n/languages";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import StayOnTheLine from "@/app/components/sales/StayOnTheLine";
 
 const BTN =
   "inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60";
@@ -250,6 +251,8 @@ function AiScript({ script, language, switchProps }) {
         <H>{t("app.salesCall.aiScriptClose")}</H>
         <p className="text-sm text-foreground break-words mt-1">{script.closeAsk}</p>
       </div>
+      {/* After a yes: text the link, stay on the line — in the script's language. */}
+      <StayOnTheLine language={script.language || "en"} />
 
       {script.doNotSay?.length ? (
         <div>
@@ -430,6 +433,8 @@ function ConsoleScript({ script, stages, language, switchProps }) {
             <p className="text-sm text-foreground break-words">{script.closeAsk}</p>
           </div>
         ) : null}
+        {/* After a yes: text the link, stay on the line — in the script's language. */}
+        <StayOnTheLine language={script.language || "en"} compact />
       </div>
     </div>
   );
@@ -577,6 +582,10 @@ export default function CallPlaybook({
         // is where "the French one could not be written" is said.
         <ScriptLanguageSwitch {...switchProps} />
       ) : null}
+      {/* No AI script for this row: the after-a-yes step still stands, in
+          the language the script would be in. With a script it is drawn
+          under that script's close instead. */}
+      {!data.callScript ? <StayOnTheLine language={data.scriptLanguage?.current || data.scriptLanguage?.default || "en"} /> : null}
 
       {/* ── One stage, and the rep moves it ──────────────────────────────── */}
       {stage ? (

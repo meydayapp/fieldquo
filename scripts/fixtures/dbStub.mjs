@@ -113,6 +113,11 @@ export const rows = {
   salesCallAttempt: [],
   salesRepActivity: [],
   platformAuditLog: [],
+  // The platform's retry-rule overrides (check-sales-retry-pool) and the
+  // per-link signup progress rows (check-signup-progress): the first is read
+  // once per request by loadRetryRules, the second stamped step by step.
+  salesRetryRule: [],
+  salesSignupProgress: [],
 };
 
 /** Every write the product attempted, in order: { model, action, data }. */
@@ -166,6 +171,8 @@ export function resetDbStub() {
   rows.salesCallAttempt = [];
   rows.salesRepActivity = [];
   rows.platformAuditLog = [];
+  rows.salesRetryRule = [];
+  rows.salesSignupProgress = [];
   writes.length = 0;
   reads.length = 0;
   failNext.model = null;
@@ -486,6 +493,8 @@ export const db = new Proxy(
     salesCallAttempt: model("salesCallAttempt"),
     salesRepActivity: model("salesRepActivity"),
     platformAuditLog: model("platformAuditLog"),
+    salesRetryRule: model("salesRetryRule"),
+    salesSignupProgress: model("salesSignupProgress"),
     marketingCampaignDelivery: uniqueCreateModel("marketingCampaignDelivery", [
       "campaignId",
       "subscriberId",

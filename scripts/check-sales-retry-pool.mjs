@@ -9,9 +9,18 @@
 // ══ What this holds ═══════════════════════════════════════════════════════
 //
 //   1. The rule table is TOTAL over the disposition vocabulary, and every
-//      number is the one the module's header defends.
-//   2. nextAttempt(): a "no answer" walks four blocks of the prospect's day
-//      and exhausts on the fourth; "busy" comes back in fifteen minutes in the
+//      number is the one the module's header defends — the owner's
+//      2026-09-13 numbers: no answer 2 h, same day, 3 attempts.
+//   1b. The platform override: effectiveRetryRules() lets a SalesRetryRule
+//      row win over the default, a row outside the sane range falls back
+//      per field, a row for a callback/final outcome is ignored,
+//      retryRuleEditData() refuses a bad cell, retryRuleResetData() is the
+//      defaults, and nextAttempt() honours the table it is handed.
+//   2. nextAttempt(): a "no answer" is rung two hours on, the SAME DAY, in
+//      the next block when that block is still today (09:00 → 12:00), at
+//      the delayed instant when the rotation would fall to tomorrow but
+//      today is open (19:00 → 21:00), and tomorrow only when today is shut;
+//      the third exhausts. "busy" comes back in fifteen minutes in the
 //      same block; "voicemail" waits two days and exhausts on the third; a
 //      callback is the agreed time; every final outcome schedules nothing.
 //   3. The window roll: a retry never lands inside a shut window — the
@@ -25,7 +34,8 @@
 //      and deletes nothing.
 //   6. The disposition write, against the db stub: saveDisposition() runs
 //      the rule inside its transaction and writes the pool columns on the
-//      prospect; the fourth no-answer exhausts it.
+//      prospect; the third no-answer exhausts it — unless a SalesRetryRule
+//      row raised the ceiling, in which case the override wins.
 //   7. The pool, against the db stub: claimCandidateWhere() admits a due
 //      retry and refuses a scheduled one and an exhausted one; claimBatch()
 //      hands a due retry out FIRST, ahead of a fresh row that would sort
@@ -35,9 +45,11 @@
 //      exhausted one in "later".
 //   9. The screens and the words: the queue route and the lead route carry
 //      `retry`; the console and the lead screen print it; the four keys
-//      exist in all nine languages; the platform route is superadmin-only
-//      and recycles with a guarded updateMany and an audit row; the sidebar
-//      links it; the audit action is described.
+//      exist in all nine languages; the platform route is superadmin-only,
+//      recycles with a guarded updateMany and an audit row, saves the rules
+//      by upsert (never a delete) with an audit row, and resets by WRITING
+//      the defaults; the editor posts both; the sidebar links it; the audit
+//      actions are described.
 //
 // ══ Judged by exit code ═══════════════════════════════════════════════════
 import { readFileSync } from "node:fs";
@@ -51,17 +63,26 @@ import {
   RETRY_MAX_ATTEMPTS,
   RETRY_RULES,
   RETRY_RULE_ORDER,
+  RETRY_RULE_DEFAULTS,
+  RETRY_DELAY_MAX_MINUTES,
+  RETRY_ATTEMPTS_MAX,
   blockOf,
+  effectiveRetryRules,
+  localDateOf,
+  maxAttemptsOf,
   nextAttempt,
   nextBlockAfter,
   recycleData,
   retryAvailableWhere,
+  retryRuleEditData,
+  retryRuleFor,
+  retryRuleResetData,
   retryRuleTable,
   retryStateOf,
   rollToOpen,
   windowOpenAt,
 } from "@/lib/sales/retryRules";
-import { regroupForRetry, retryViewFor, retryWindowFor, retryWriteFor } from "@/lib/sales/retryPool";
+import { loadRetryRules, regroupForRetry, retryViewFor, retryWindowFor, retryWriteFor } from "@/lib/sales/retryPool";
 import { DISPOSITIONS, DISPOSITION_ORDER } from "@/lib/sales/calls/dispositions";
 import { SALES_CALL_WINDOW, localTimeIn } from "@/lib/sales/callingWindow";
 import { CALLING_JURISDICTIONS, SUBDIVISION_TIME_ZONES } from "@/lib/sales/callingRules";
@@ -71,7 +92,7 @@ import { groupByWindow } from "@/lib/sales/queueWindows";
 import { saveDisposition } from "@/lib/sales/calls/store";
 import { APP_MESSAGES } from "@/app/i18n/appMessages";
 import { AUDIT_ACTIONS } from "@/lib/platform/auditActions";
-import { db, resetDbStub, rows, writes } from "./fixtures/dbStub.mjs";
+import { db, reads, resetDbStub, rows, writes } from "./fixtures/dbStub.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const read = (p) => readFileSync(join(ROOT, p), "utf8");
@@ -108,10 +129,12 @@ for (const code of RETRY_RULE_ORDER) {
   ok(`…and carries a reason in words`, typeof r.why === "string" && r.why.length > 10);
   ok(`…and a known kind`, [RETRY_KIND_RETRY, RETRY_KIND_CALLBACK, RETRY_KIND_FINAL].includes(r.kind));
 }
-ok("no answer: 3 h, 4 attempts, rotates", RETRY_RULES.no_answer.delayMinutes === 180 && RETRY_RULES.no_answer.maxAttempts === 4 && RETRY_RULES.no_answer.rotateBlock === true);
+ok("no answer: 2 h, SAME DAY, 3 attempts, rotates — the owner's numbers from Belkins", RETRY_RULES.no_answer.delayMinutes === 120 && RETRY_RULES.no_answer.sameDay === true && RETRY_RULES.no_answer.maxAttempts === 3 && RETRY_RULES.no_answer.rotateBlock === true);
+ok("…and the reason names the source", /Belkins/.test(RETRY_RULES.no_answer.why) && /three attempts/.test(RETRY_RULES.no_answer.why));
 ok("busy: 15 min, 6 attempts, same block", RETRY_RULES.busy.delayMinutes === 15 && RETRY_RULES.busy.maxAttempts === 6 && RETRY_RULES.busy.rotateBlock === false);
-ok("voicemail: 2 days, 3 attempts, rotates", RETRY_RULES.voicemail.delayMinutes === 2 * 24 * 60 && RETRY_RULES.voicemail.maxAttempts === 3 && RETRY_RULES.voicemail.rotateBlock === true);
+ok("voicemail: 2 days, 3 attempts, rotates, not same day", RETRY_RULES.voicemail.delayMinutes === 2 * 24 * 60 && RETRY_RULES.voicemail.maxAttempts === 3 && RETRY_RULES.voicemail.rotateBlock === true && RETRY_RULES.voicemail.sameDay === false);
 ok("gatekeeper: 1 day, 4 attempts, rotates", RETRY_RULES.gatekeeper.delayMinutes === 24 * 60 && RETRY_RULES.gatekeeper.maxAttempts === 4);
+ok("RETRY_RULE_DEFAULTS is the same table", RETRY_RULE_DEFAULTS === RETRY_RULES);
 ok("callback is its own kind with no ceiling", RETRY_RULES.callback.kind === RETRY_KIND_CALLBACK && RETRY_RULES.callback.maxAttempts === null);
 for (const code of ["reached_interested", "agreed_link_sent", "reached_not_interested", "do_not_call", "bad_number", "not_a_fit"]) {
   ok(`${code} is final`, RETRY_RULES[code].kind === RETRY_KIND_FINAL);
@@ -123,6 +146,55 @@ ok("the platform table is the rules in order, with the words", (() => {
   const t = retryRuleTable();
   return t.length === RETRY_RULE_ORDER.length && t.every((r, i) => r.code === RETRY_RULE_ORDER[i] && r.why === RETRY_RULES[r.code].why);
 })());
+ok("…every row says whether it is editable and what the default is", retryRuleTable().every((r) => typeof r.editable === "boolean" && r.source === "default" && r.defaults && r.defaults.delayMinutes === RETRY_RULES[r.code].delayMinutes) && retryRuleTable().filter((r) => r.editable).map((r) => r.code).join() === "no_answer,busy,voicemail,gatekeeper");
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("1b. The platform override: rows win, bad cells fall back, nothing else is editable");
+{
+  const rows = [
+    { outcome: "no_answer", delayMinutes: 180, sameDay: false, maxAttempts: 5, rotateBlock: true, note: "trying three hours", updatedById: "adm_1", updatedAt: new Date("2026-09-13T12:00:00Z") },
+    { outcome: "busy", delayMinutes: 0, sameDay: true, maxAttempts: 999, rotateBlock: false },
+    { outcome: "callback", delayMinutes: 60, sameDay: true, maxAttempts: 2, rotateBlock: true },
+    { outcome: "reached_not_interested", delayMinutes: 60, sameDay: true, maxAttempts: 2, rotateBlock: true },
+    { outcome: "made_up", delayMinutes: 60, sameDay: true, maxAttempts: 2, rotateBlock: true },
+  ];
+  const rules = effectiveRetryRules(rows);
+  ok("an override row replaces the default's numbers", rules.no_answer.delayMinutes === 180 && rules.no_answer.sameDay === false && rules.no_answer.maxAttempts === 5 && rules.no_answer.source === "override");
+  ok("…and carries the note, who and when for the screen; the code's why stays", rules.no_answer.note === "trying three hours" && rules.no_answer.updatedById === "adm_1" && rules.no_answer.updatedAt === "2026-09-13T12:00:00.000Z" && rules.no_answer.why === RETRY_RULES.no_answer.why);
+  ok("a value outside the sane range falls back to the default for THAT field only", rules.busy.delayMinutes === 15 && rules.busy.maxAttempts === 6 && rules.busy.sameDay === true && rules.busy.source === "override");
+  ok("a row for a callback is ignored", rules.callback.kind === RETRY_KIND_CALLBACK && rules.callback.delayMinutes === null && rules.callback.source === "default");
+  ok("a row for a final outcome is ignored", rules.reached_not_interested.kind === RETRY_KIND_FINAL && rules.reached_not_interested.source === "default");
+  ok("a row for an outcome the table does not know adds nothing", !("made_up" in rules));
+  ok("untouched rules are the defaults, said to be", rules.voicemail.delayMinutes === RETRY_RULES.voicemail.delayMinutes && rules.voicemail.source === "default");
+  ok("the table is frozen", Object.isFrozen(rules) && Object.isFrozen(rules.no_answer));
+  ok("no rows, null, or nonsense: the defaults", effectiveRetryRules([]).no_answer.delayMinutes === 120 && effectiveRetryRules(null).busy.maxAttempts === 6 && effectiveRetryRules("x").gatekeeper.source === "default");
+  ok("maxAttemptsOf reads the table it is given", maxAttemptsOf(rules) === 6 && maxAttemptsOf(effectiveRetryRules([{ outcome: "busy", delayMinutes: 15, sameDay: true, maxAttempts: 9, rotateBlock: false }])) === 9 && RETRY_MAX_ATTEMPTS === 6);
+  ok("retryRuleFor reads the table it is given, and the defaults when given none", retryRuleFor("no_answer", rules).maxAttempts === 5 && retryRuleFor("no_answer").maxAttempts === 3 && retryRuleFor("no_answer", rows).maxAttempts === 3);
+  ok("retryRuleTable(rules) prints the override with its source", retryRuleTable(rules).find((r) => r.code === "no_answer").source === "override" && retryRuleTable(rules).find((r) => r.code === "no_answer").maxAttempts === 5);
+
+  // nextAttempt honours the table: the third no-answer no longer exhausts.
+  const third = nextAttempt({ outcome: "no_answer", attemptCount: 2, now: new Date("2026-09-11T14:00:00Z"), timeZone: TORONTO, rules });
+  ok("nextAttempt on the override: the third no-answer is NOT exhausted (ceiling 5)", third.exhausted === false && third.maxAttempts === 5 && third.nextAttemptAt instanceof Date);
+  ok("…and waits the override's three hours, not the default's two", third.nextAttemptAt.getTime() >= new Date("2026-09-11T17:00:00Z").getTime());
+  const fifth = nextAttempt({ outcome: "no_answer", attemptCount: 4, now: new Date("2026-09-11T14:00:00Z"), timeZone: TORONTO, rules });
+  ok("…the fifth does", fifth.exhausted === true);
+  ok("retryStateOf on the override reads the new ceiling", retryStateOf({ attemptCount: 1, lastOutcome: "no_answer" }, new Date(), rules).maxAttempts === 5);
+  ok("retryViewFor carries the table through", retryViewFor({ attemptCount: 1, lastOutcome: "no_answer" }, { rules }).maxAttempts === 5);
+
+  // The edit validator and the reset data.
+  const good = retryRuleEditData("no_answer", { delayMinutes: 90, sameDay: true, maxAttempts: 4, rotateBlock: false, note: " why " }, { adminId: "adm_2" });
+  ok("retryRuleEditData accepts a sane edit and stamps who", good.ok && good.data.outcome === "no_answer" && good.data.delayMinutes === 90 && good.data.maxAttempts === 4 && good.data.rotateBlock === false && good.data.note === "why" && good.data.updatedById === "adm_2");
+  ok("…refuses a wait of 0, a wait past the max, a ceiling of 0, a ceiling past the max", !retryRuleEditData("no_answer", { delayMinutes: 0, sameDay: true, maxAttempts: 3, rotateBlock: true }).ok && !retryRuleEditData("no_answer", { delayMinutes: RETRY_DELAY_MAX_MINUTES + 1, sameDay: true, maxAttempts: 3, rotateBlock: true }).ok && !retryRuleEditData("no_answer", { delayMinutes: 60, sameDay: true, maxAttempts: 0, rotateBlock: true }).ok && !retryRuleEditData("no_answer", { delayMinutes: 60, sameDay: true, maxAttempts: RETRY_ATTEMPTS_MAX + 1, rotateBlock: true }).ok);
+  ok("…refuses a non-boolean flag, a fraction, a string", !retryRuleEditData("no_answer", { delayMinutes: 60, sameDay: "yes", maxAttempts: 3, rotateBlock: true }).ok && !retryRuleEditData("no_answer", { delayMinutes: 60.5, sameDay: true, maxAttempts: 3, rotateBlock: true }).ok && !retryRuleEditData("no_answer", { delayMinutes: "lots", sameDay: true, maxAttempts: 3, rotateBlock: true }).ok);
+  ok("…refuses a callback, a final outcome, an unknown one", !retryRuleEditData("callback", { delayMinutes: 60, sameDay: true, maxAttempts: 3, rotateBlock: true }).ok && !retryRuleEditData("do_not_call", { delayMinutes: 60, sameDay: true, maxAttempts: 3, rotateBlock: true }).ok && !retryRuleEditData("nope", {}).ok);
+  const reset = retryRuleResetData("no_answer", { adminId: "adm_3" });
+  ok("retryRuleResetData is the default numbers with who pressed it, and no note", reset.delayMinutes === 120 && reset.sameDay === true && reset.maxAttempts === 3 && reset.rotateBlock === true && reset.note === null && reset.updatedById === "adm_3");
+  ok("…and null for anything but a retry", retryRuleResetData("callback") === null && retryRuleResetData("bad_number") === null);
+  ok("a reset applied over an override restores the defaults exactly", (() => {
+    const after = effectiveRetryRules([{ ...reset, updatedAt: new Date() }]);
+    return after.no_answer.delayMinutes === RETRY_RULES.no_answer.delayMinutes && after.no_answer.maxAttempts === RETRY_RULES.no_answer.maxAttempts && after.no_answer.sameDay === RETRY_RULES.no_answer.sameDay && after.no_answer.source === "override";
+  })());
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 section("2. nextAttempt(): one no-answer per block, then exhausted");
@@ -133,25 +205,46 @@ section("2. nextAttempt(): one no-answer per block, then exhausted");
   let count = 0;
   let last = null;
   const seen = [];
+  const stamps = [];
   let d = null;
   for (let i = 0; i < 6; i++) {
     d = nextAttempt({ outcome: "no_answer", attemptCount: count, now, timeZone: TORONTO, lastBlock: last });
     if (d.exhausted) break;
     seen.push(d.block);
+    stamps.push(local(d.nextAttemptAt));
     count = d.attemptCount;
     last = d.block;
     now = d.nextAttemptAt;
   }
-  ok("first no-answer at 10:00 is aimed at midday", seen[0] === "midday", seen);
-  ok("then afternoon, then evening — three different blocks", seen.join(",") === "midday,afternoon,evening", seen);
-  ok("every scheduled instant is inside the window", seen.length === 3);
-  ok("the fourth no-answer exhausts", d?.exhausted === true && d.attemptCount === 4 && d.nextAttemptAt === null && d.block === null, d);
-  ok("…and says the ceiling", d?.maxAttempts === 4);
+  ok("first no-answer at 10:00 is aimed at midday, two hours on, the same day (12:00)", seen[0] === "midday" && stamps[0] === "Fri 12:00", { seen, stamps });
+  ok("then afternoon (14:00, the same Friday) — two different blocks", seen.join(",") === "midday,afternoon" && stamps[1] === "Fri 14:00", { seen, stamps });
+  ok("every scheduled instant is inside the window", seen.length === 2);
+  ok("the THIRD no-answer exhausts — Belkins' fourth attempt reaches nobody", d?.exhausted === true && d.attemptCount === 3 && d.nextAttemptAt === null && d.block === null, d);
+  ok("…and says the ceiling", d?.maxAttempts === 3);
 }
 {
-  // Friday 19:30 EDT — evening. The next block is morning: tomorrow (Saturday) at 10:00.
+  // Same day, three ways. Friday 09:00: the rotated block (midday) is still
+  // today → 12:00. Friday 19:00 (evening): the rotation wants tomorrow
+  // morning, but 21:00 is still open today → 21:00, evening again. Friday
+  // 19:30: 21:30 is the close → shut → tomorrow's morning at the weekend
+  // opening, 10:00.
+  const a = nextAttempt({ outcome: "no_answer", attemptCount: 0, now: new Date("2026-09-11T13:00:00Z"), timeZone: TORONTO });
+  ok("09:00 no-answer: the rotated block is reachable today, so 12:00 midday — not 11:00, the same morning", local(a.nextAttemptAt) === "Fri 12:00" && a.block === "midday", local(a.nextAttemptAt));
+  const b = nextAttempt({ outcome: "no_answer", attemptCount: 0, now: new Date("2026-09-11T23:00:00Z"), timeZone: TORONTO });
+  ok("19:00 no-answer: rotation would say tomorrow; same day wins — 21:00, inside the window", local(b.nextAttemptAt) === "Fri 21:00" && b.block === "evening" && windowOpenAt(b.nextAttemptAt, TORONTO) === true, local(b.nextAttemptAt));
+  ok("…and the 2 h same-day roll stays INSIDE the window (21:00 < 21:30 close)", localDateOf(b.nextAttemptAt, TORONTO) === localDateOf(new Date("2026-09-11T23:00:00Z"), TORONTO));
+  const c = nextAttempt({ outcome: "no_answer", attemptCount: 0, now: new Date("2026-09-11T23:20:00Z"), timeZone: TORONTO });
+  ok("19:20 no-answer: 21:20 is still open today → 21:20", local(c.nextAttemptAt) === "Fri 21:20", local(c.nextAttemptAt));
+  const d2 = nextAttempt({ outcome: "no_answer", attemptCount: 0, now: new Date("2026-09-11T23:30:00Z"), timeZone: TORONTO });
+  ok("19:30 no-answer: 21:30 is the close, today is shut → Saturday 10:00, morning", local(d2.nextAttemptAt) === "Sat 10:00" && d2.block === "morning", local(d2.nextAttemptAt));
+  const off = nextAttempt({ outcome: "no_answer", attemptCount: 0, now: new Date("2026-09-11T23:00:00Z"), timeZone: TORONTO, rules: effectiveRetryRules([{ outcome: "no_answer", delayMinutes: 120, sameDay: false, maxAttempts: 3, rotateBlock: true }]) });
+  ok("with sameDay switched off on the platform, the same 19:00 no-answer waits for tomorrow's morning", local(off.nextAttemptAt) === "Sat 10:00" && off.block === "morning", local(off.nextAttemptAt));
+  ok("localDateOf: one zone, several agreeing, several disagreeing, a bad one", localDateOf(new Date("2026-09-11T23:00:00Z"), TORONTO) === "2026-09-11" && localDateOf(new Date("2026-09-11T16:00:00Z"), ["America/Toronto", "America/Winnipeg"]) === "2026-09-11" && localDateOf(new Date("2026-09-12T04:30:00Z"), ["America/Toronto", "America/Winnipeg"]) === null && localDateOf(new Date(), "Not/AZone") === null);
+}
+{
+  // Friday 19:30 EDT — evening; 21:30 is the close. The next block is morning: tomorrow (Saturday) at 10:00.
   const d = nextAttempt({ outcome: "no_answer", attemptCount: 0, now: new Date("2026-09-11T23:30:00Z"), timeZone: TORONTO });
-  ok("an evening no-answer rolls to Saturday morning at the weekend opening (10:00)", local(d.nextAttemptAt) === "Sat 10:00" && d.block === "morning", local(d.nextAttemptAt));
+  ok("an evening no-answer at the close rolls to Saturday morning at the weekend opening (10:00)", local(d.nextAttemptAt) === "Sat 10:00" && d.block === "morning", local(d.nextAttemptAt));
 }
 {
   const d = nextAttempt({ outcome: "no_answer", attemptCount: 0, now: new Date("2026-09-11T14:00:00Z"), timeZone: TORONTO, lastBlock: "afternoon" });
@@ -255,16 +348,30 @@ section("3. The window roll: never inside a shut window");
   ok(`${checked} schedules across ${zones.length} zones: every one inside the window, after the delay, in the block it names`, bad === null, bad);
 }
 {
-  // Rotation across a spread: a rotating retry never lands in the block it was dialled in
-  // (unless the window forces it — none in the table does).
+  // Rotation across a spread: a rotating retry never lands in the block it
+  // was dialled in — EXCEPT where "same day" keeps an evening dial today
+  // (the rotated block would be tomorrow), which is the rule, not a leak:
+  // every such case is in the evening block and still today.
   let bad = null;
+  let sameDayKept = 0;
   for (let h = 0; h < 24 && !bad; h++) {
     const now = new Date(Date.UTC(2026, 8, 9, h, 0));
     const from = blockOf(now, TORONTO);
     const d = nextAttempt({ outcome: "no_answer", attemptCount: 0, now, timeZone: TORONTO });
-    if (d.block === from) bad = { now: now.toISOString(), from, got: d.block };
+    if (d.block === from) {
+      if (from === "evening" && localDateOf(d.nextAttemptAt, TORONTO) === localDateOf(now, TORONTO)) sameDayKept++;
+      else bad = { now: now.toISOString(), from, got: d.block };
+    }
   }
-  ok("a rotating retry never lands in the block it was dialled in", bad === null, bad);
+  ok("a rotating retry never lands in the block it was dialled in, except an evening dial kept today by same-day", bad === null && sameDayKept > 0, bad ?? sameDayKept);
+  ok("with same-day off, it never does at all", (() => {
+    const rules = effectiveRetryRules([{ outcome: "no_answer", delayMinutes: 120, sameDay: false, maxAttempts: 3, rotateBlock: true }]);
+    for (let h = 0; h < 24; h++) {
+      const now = new Date(Date.UTC(2026, 8, 9, h, 0));
+      if (nextAttempt({ outcome: "no_answer", attemptCount: 0, now, timeZone: TORONTO, rules }).block === blockOf(now, TORONTO)) return false;
+    }
+    return true;
+  })());
 }
 {
   const r = rollToOpen({ from: new Date("2026-09-12T01:25:00Z"), timeZone: "Not/AZone" });
@@ -278,7 +385,7 @@ section("3. The window roll: never inside a shut window");
 section("4. An unknown zone delays, names no block, never exhausts early");
 {
   const d = nextAttempt({ outcome: "no_answer", attemptCount: 0, now: new Date("2026-09-11T14:00:00Z"), timeZone: null });
-  ok("no zone: the bare delay stands", d.nextAttemptAt?.getTime() === new Date("2026-09-11T17:00:00Z").getTime());
+  ok("no zone: the bare delay stands (two hours)", d.nextAttemptAt?.getTime() === new Date("2026-09-11T16:00:00Z").getTime());
   ok("…no block is invented", d.block === null && d.zoneKnown === false);
   const w = retryWriteFor({ outcome: "no_answer", prospect: { attemptCount: 0, country: "US", province: "FL" }, timeZone: null, now: new Date("2026-09-11T14:00:00Z") });
   ok("a split state (Florida) with no stated zone is 'ambiguous', and the write says so — and schedules across both halves", w.zoneSource === "ambiguous" && w.timeZone === null && w.candidates.length === 2 && w.data.retryBlock === "midday", w);
@@ -304,17 +411,19 @@ section("4. An unknown zone delays, names no block, never exhausts early");
 section("5. Exhaustion is set once; recycle resets the count and deletes nothing");
 {
   const now = new Date("2026-09-11T14:00:00Z");
-  const w = retryWriteFor({ outcome: "no_answer", prospect: { attemptCount: 3, exhaustedAt: null, country: "CA", province: "ON" }, now });
-  ok("the fourth no-answer writes exhaustedAt", w.data.exhaustedAt === now && w.data.nextAttemptAt === null && w.data.attemptCount === 4);
-  const again = retryWriteFor({ outcome: "reached_not_interested", prospect: { attemptCount: 4, exhaustedAt: now, country: "CA", province: "ON" }, now: new Date(now.getTime() + 1000) });
-  ok("a later final outcome does not clear it — clearing is the recycle's job", !("exhaustedAt" in again.data) && again.data.attemptCount === 5);
+  const w = retryWriteFor({ outcome: "no_answer", prospect: { attemptCount: 2, exhaustedAt: null, country: "CA", province: "ON" }, now });
+  ok("the third no-answer writes exhaustedAt", w.data.exhaustedAt === now && w.data.nextAttemptAt === null && w.data.attemptCount === 3);
+  const raised = retryWriteFor({ outcome: "no_answer", prospect: { attemptCount: 2, exhaustedAt: null, country: "CA", province: "ON" }, now, rules: effectiveRetryRules([{ outcome: "no_answer", delayMinutes: 120, sameDay: true, maxAttempts: 4, rotateBlock: true }]) });
+  ok("…unless the platform raised the ceiling: retryWriteFor honours the table it is handed", !("exhaustedAt" in raised.data) && raised.data.nextAttemptAt instanceof Date);
+  const again = retryWriteFor({ outcome: "reached_not_interested", prospect: { attemptCount: 3, exhaustedAt: now, country: "CA", province: "ON" }, now: new Date(now.getTime() + 1000) });
+  ok("a later final outcome does not clear it — clearing is the recycle's job", !("exhaustedAt" in again.data) && again.data.attemptCount === 4);
   const already = retryWriteFor({ outcome: "no_answer", prospect: { attemptCount: 9, exhaustedAt: now, country: "CA", province: "ON" }, now: new Date(now.getTime() + 1000) });
   ok("an exhausted row dialled by hand again does not move the exhausted date", !("exhaustedAt" in already.data));
   const r = recycleData({ adminId: "adm_1", now });
   ok("recycle: count 0, nothing scheduled, exhausted cleared, who and when stamped", r.attemptCount === 0 && r.nextAttemptAt === null && r.retryBlock === null && r.exhaustedAt === null && r.recycledAt === now && r.recycledById === "adm_1");
   ok("…and the last outcome is NOT in the recycle data — history stays", !("lastOutcome" in r));
-  const s = retryStateOf({ attemptCount: 4, exhaustedAt: now, lastOutcome: "no_answer", nextAttemptAt: null }, now);
-  ok("retryStateOf reads an exhausted row as exhausted, not due, not scheduled", s.exhausted && !s.due && !s.scheduled && s.maxAttempts === 4);
+  const s = retryStateOf({ attemptCount: 3, exhaustedAt: now, lastOutcome: "no_answer", nextAttemptAt: null }, now);
+  ok("retryStateOf reads an exhausted row as exhausted, not due, not scheduled", s.exhausted && !s.due && !s.scheduled && s.maxAttempts === 3);
   const due = retryStateOf({ attemptCount: 1, nextAttemptAt: new Date(now.getTime() - 1), lastOutcome: "busy" }, now);
   ok("…a past instant as due, with the last outcome's ceiling", due.due && !due.scheduled && due.maxAttempts === 6);
   const ahead = retryStateOf({ attemptCount: 1, nextAttemptAt: new Date(now.getTime() + 1), lastOutcome: "busy" }, now);
@@ -342,12 +451,25 @@ section("6. The disposition write runs the rule inside the transaction (db stub)
     const upd = writes.findIndex((w) => w.model === "prospect" && w.action === "updateMany");
     return txAt !== -1 && upd > txAt;
   })());
-  // Three more no-answers: the fourth exhausts.
-  for (let i = 2; i <= 4; i++) {
+  ok("…the rule table was read from the client, once, before the transaction", (() => {
+    const i = reads.findIndex((r) => r.model === "salesRetryRule");
+    const txAt = writes.findIndex((w) => w.model === "salesCallAttempt" && w.action === "update");
+    return i !== -1 && reads.filter((r) => r.model === "salesRetryRule").length === 1 && txAt !== -1;
+  })());
+  // Two more no-answers: the third exhausts.
+  for (let i = 2; i <= 3; i++) {
     rows.salesCallAttempt.push({ id: `a${i}`, salesRepId: "rep_a", prospectId: "p1", leadId: null, toE164: "+14165550100", disposition: null });
     await saveDisposition({ salesRepId: "rep_a", attemptId: `a${i}`, code: "no_answer", now: new Date(now.getTime() + i * 3600 * 1000), client: db });
   }
-  ok("the fourth no-answer exhausts the row", rows.prospect[0].attemptCount === 4 && rows.prospect[0].exhaustedAt instanceof Date && rows.prospect[0].nextAttemptAt === null, rows.prospect[0]);
+  ok("the third no-answer exhausts the row", rows.prospect[0].attemptCount === 3 && rows.prospect[0].exhaustedAt instanceof Date && rows.prospect[0].nextAttemptAt === null, rows.prospect[0]);
+  // The platform's override, in the write path: a ceiling of 5 and the third does not exhaust.
+  resetDbStub();
+  rows.salesRetryRule.push({ id: "rr1", outcome: "no_answer", delayMinutes: 120, sameDay: true, maxAttempts: 5, rotateBlock: true, note: null, updatedById: "adm_1", updatedAt: now });
+  rows.prospect.push({ id: "p3", assignedRepId: "rep_a", attemptCount: 2, retryBlock: null, exhaustedAt: null, country: "CA", province: "ON", leads: [], doNotContactAt: null });
+  rows.salesCallAttempt.push({ id: "c1", salesRepId: "rep_a", prospectId: "p3", leadId: null, toE164: "+14165550102", disposition: null });
+  const over = await saveDisposition({ salesRepId: "rep_a", attemptId: "c1", code: "no_answer", now, client: db });
+  ok("with a SalesRetryRule row raising the ceiling to 5, the third no-answer does NOT exhaust — the override wins in the write path", over.ok && rows.prospect[0].attemptCount === 3 && !rows.prospect[0].exhaustedAt && rows.prospect[0].nextAttemptAt instanceof Date && over.retry.maxAttempts === 5, rows.prospect[0]);
+  ok("loadRetryRules reads the rows through the client and merges them", (await loadRetryRules({ db })).no_answer.maxAttempts === 5 && (await loadRetryRules({ db: {} })).no_answer.maxAttempts === 3);
   // A prospect held by another rep is not written — the WHERE scopes it.
   resetDbStub();
   rows.prospect.push({ id: "p2", assignedRepId: "rep_b", attemptCount: 0, retryBlock: null, exhaustedAt: null, country: "CA", province: "ON", leads: [] });
@@ -492,11 +614,13 @@ section("9. The screens, the words, the platform lever");
   const lead = decomment(read("app/sales/leads/[id]/page.js"));
   ok("the lead screen prints the same sentences", /app\.salesQueue\.retry\.next/.test(lead) && /app\.salesQueue\.retry\.exhausted/.test(lead));
   const leadRoute = decomment(read("app/api/sales/leads/[id]/route.js"));
-  ok("…from the lead route's `retry`, on the rep's clock", /retry: retryFor\(lead, request\)/.test(leadRoute) && /retryViewFor\(lead\.prospect/.test(leadRoute));
+  ok("…from the lead route's `retry`, on the rep's clock, on the loaded table", /retry: await retryFor\(lead, request\)/.test(leadRoute) && /retryViewFor\(lead\.prospect/.test(leadRoute) && /loadRetryRules\(\{ db \}\)/.test(leadRoute));
+  ok("the queue route loads the table once and hands it to every retryViewFor", /const retryRules = await loadRetryRules\(\{ db \}\)/.test(route) && (route.match(/rules: retryRules/g) || []).length === 2);
   const calls = decomment(read("app/api/sales/calls/route.js"));
   ok("the disposition response carries the decision", /retry: result\.retry/.test(calls));
   const store = decomment(read("lib/sales/calls/store.js"));
   ok("saveDisposition reads the prospect INSIDE the transaction for the rule", /const pool = await tx\.prospect\.findUnique/.test(store) && /retryWriteFor\(/.test(store));
+  ok("…and loads the rule table once, before it, and hands it in", /const retryRules = await loadRetryRules\(\{ db: client \}\)/.test(store) && /rules: retryRules/.test(store));
 
   for (const key of ["app.salesQueue.retry.next", "app.salesQueue.retry.due", "app.salesQueue.retry.exhausted", "app.salesQueue.windowGroup.retryAt"]) {
     for (const lang of Object.keys(APP_MESSAGES)) {
@@ -515,15 +639,27 @@ section("9. The screens, the words, the platform lever");
   ok("…writes an audit row", /action: "sales_prospect_recycled"/.test(platform));
   ok("…and deletes nothing", !/\.delete\(|deleteMany\(/.test(platform));
   ok("the audit action is described", Boolean(AUDIT_ACTIONS?.sales_prospect_recycled?.label));
+  ok("the platform route saves the rules by UPSERT per outcome, through the validator, with an audit row", /action === "rules"/.test(platform) && /tx\.salesRetryRule\.upsert\(\{ where: \{ outcome \}/.test(platform) && /retryRuleEditData\(code/.test(platform) && /action: "sales_retry_rules_set"/.test(platform));
+  ok("…and resets by WRITING the defaults (retryRuleResetData), with its own audit row", /action === "reset"/.test(platform) && /retryRuleResetData\(code/.test(platform) && /action: "sales_retry_rules_reset"/.test(platform));
+  ok("…GET prints the LOADED table, not the constant", /rules: retryRuleTable\(rules\)/.test(platform) && /await loadRetryRules\(\{ db \}\)/.test(platform));
+  ok("both audit actions are described", Boolean(AUDIT_ACTIONS?.sales_retry_rules_set?.label) && Boolean(AUDIT_ACTIONS?.sales_retry_rules_reset?.label));
   const platformPage = decomment(read("app/platform/sales/retry-pool/page.js"));
   ok("the platform page calls the route and offers Recycle", /\/api\/platform\/sales\/retry-pool/.test(platformPage) && /action: "recycle"/.test(platformPage));
-  ok("…and prints the rule table from the module's own words", /r\.why/.test(platformPage));
+  ok("…and mounts the editor with the loaded rules", /<RetryRulesEditor/.test(platformPage) && /rules=\{data\.rules\}/.test(platformPage));
+  const editor = decomment(read("app/components/platform/sales/RetryRulesEditor.js"));
+  ok("the editor prints the rule table from the module's own words, and posts rules and reset", /r\.why/.test(editor) && /action: "rules"/.test(editor) && /action: "reset"/.test(editor));
+  ok("…edits only the four numbers, on retry rows only, and asks twice before a reset", /delayMinutes/.test(editor) && /sameDay/.test(editor) && /maxAttempts/.test(editor) && /rotateBlock/.test(editor) && /isRetry && d/.test(editor) && /confirmReset/.test(editor));
   const sidebar = decomment(read("app/components/platform/PlatformSidebar.js"));
   ok("the sidebar links it", /href: "\/platform\/sales\/retry-pool"/.test(sidebar));
   const schema = read("prisma/schema.prisma");
   for (const col of ["attemptCount", "nextAttemptAt", "lastOutcome", "retryBlock", "exhaustedAt", "recycledAt", "recycledById"]) {
     ok(`Prospect.${col} is in the schema`, new RegExp(`\\n  ${col}\\s+\\S+`).test(schema.slice(schema.indexOf("model Prospect {"), schema.indexOf("model SalesQueueClaim {"))));
   }
+  const ruleModel = schema.slice(schema.indexOf("model SalesRetryRule {"), schema.indexOf("model SalesSignupProgress {"));
+  for (const col of ["outcome", "delayMinutes", "sameDay", "maxAttempts", "rotateBlock", "note", "updatedById"]) {
+    ok(`SalesRetryRule.${col} is in the schema`, new RegExp(`\\n  ${col}\\s+\\S+`).test(ruleModel));
+  }
+  ok("SalesRetryRule.outcome is unique — one rule per outcome", /outcome String @unique/.test(ruleModel));
   const pkg = JSON.parse(read("package.json"));
   ok("package.json has check:sales-retry-pool", typeof pkg.scripts["check:sales-retry-pool"] === "string");
   ok("…and check:all runs it", /check:sales-retry-pool/.test(pkg.scripts["check:all"]));

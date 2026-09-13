@@ -54,6 +54,7 @@ import DialRegion from "@/app/components/sales/DialRegion";
 import ContactNumbers from "@/app/components/sales/ContactNumbers";
 import OutreachNotice from "../OutreachNotice";
 import SignupLinkSms from "../SignupLinkSms";
+import SignupProgress from "@/app/components/sales/SignupProgress";
 
 // Matches the console's fields — 44px tall and 16px text, so a phone does not
 // zoom the page when a rep taps one.
@@ -772,6 +773,9 @@ export default function SalesLeadPage({ params }) {
           the prospect is. It decides for itself whether to render a button —
           see its header. */}
       <SignupLinkSms leadId={id} />
+      {/* Where they are in the signup, once a link has been texted from here
+          (renders nothing before that) — lib/sales/signupProgress.js. */}
+      <SignupProgress leadId={id} />
 
       {/* ── Conversations ──────────────────────────────────────────────────── */}
       <div className="space-y-3">

@@ -197,10 +197,20 @@ section("2. 1 pm Eastern: everything callable, shuts-soonest first");
   const r = groupByWindow(rows, { repZone: ET, shiftEnd: shiftEndFrom({ now: ONE_PM_ET }), now: ONE_PM_ET });
   ok("one callable group holds every window row; the later group holds only the two that can never be rung", r.groups.length === 2 && r.groups[0].kind === WINDOW_GROUP_NOW && r.groups[0].count === 7 && r.groups[1].ids.slice().sort().join(",") === "az,bad", r.groups.map((g) => [g.kind, g.ids]));
   const order = r.groups[0].ids;
-  const closes = order.map((id) => Date.parse(r.byId[id].closesAtIso));
-  ok("…sorted by closing time ascending", closes.every((t, i) => i === 0 || t >= closes[i - 1]), order.map((id) => [id, r.byId[id].closesAtLocal]));
-  ok("…Atlantic (20:30 ET) before Eastern (21:00) before Colorado (22:00) before Pacific and Phoenix (23:00)", order.indexOf("ns") < order.indexOf("ny") && order.indexOf("ny") < order.indexOf("co") && order.indexOf("co") < order.indexOf("ca") && r.byId.ns.closesAtLocal === "20:30" && r.byId.ca.closesAtLocal === "23:00", order);
+  // Since 2026-09-13 the first key inside "Callable now" is the best-window
+  // score (lib/sales/callWindowScore.js): at 1 pm Eastern the Pacific and
+  // Phoenix rows are at 10 am local — Belkins' second-best hour — and go
+  // FIRST; every other row is in an ordinary hour and keeps the
+  // shuts-soonest order among themselves.
+  const scores = order.map((id) => r.byId[id].windowScore);
+  ok("…sorted by window score descending first", scores.every((v, i) => i === 0 || v <= scores[i - 1]), order.map((id) => [id, r.byId[id].windowScore]));
+  ok("…California and Phoenix (10 am local, the second-best hour) go first", order.slice(0, 2).sort().join() === "ca,phx" && r.byId.ca.windowScore > r.byId.ns.windowScore, order);
+  const rest = order.slice(2);
+  const closes = rest.map((id) => Date.parse(r.byId[id].closesAtIso));
+  ok("…then the rest by closing time ascending", closes.every((t, i) => i === 0 || t >= closes[i - 1]), rest.map((id) => [id, r.byId[id].closesAtLocal]));
+  ok("…Atlantic (20:30 ET) before Eastern (21:00) before Colorado (22:00); Pacific closes 23:00", order.indexOf("ns") < order.indexOf("ny") && order.indexOf("ny") < order.indexOf("co") && r.byId.ns.closesAtLocal === "20:30" && r.byId.ca.closesAtLocal === "23:00", order);
   ok("ties keep claim order: California before Phoenix, Illinois before Manitoba is decided by the clock (IL 22:00, MB 22:30)", order.indexOf("ca") < order.indexOf("phx") && order.indexOf("il") < order.indexOf("mb"), order);
+  ok("no row in an ordinary hour is chipped 'best time now'; the score is null on a row that is not open", order.every((id) => r.byId[id].bestTimeNow === false) && r.byId.az.windowScore === null && r.byId.bad.windowScore === null);
   ok("no row has an opening time when it is open now", order.every((id) => r.byId[id].opensAtIso === null && r.byId[id].callableNow === true));
 }
 

@@ -28,6 +28,7 @@ import { containsMarkupCharacters } from "@/lib/security/rejectMarkupCharacters"
 import { recordError } from "@/lib/platform/errorLog";
 import { recordSignupOrigin } from "@/lib/platform/signupOrigin";
 import { deriveVia } from "@/lib/platform/signupFlags";
+import { stampSignupPlanByToken } from "@/lib/sales/signupProgress";
 
 export async function POST(request) {
   const session = await auth.api.getSession({ headers: request.headers });
@@ -89,6 +90,11 @@ export async function POST(request) {
     // rep" would mean a mistyped promo code silently attributing a commission.
     // Separate field, separate resolution, no fallthrough in either direction.
     salesCode,
+    // The token from a link a rep TEXTED (lib/sales/signupProgress.js).
+    // Stamps "plan chosen" on that rep's panel and nothing else: it is not
+    // attribution (salesCode is), grants nothing, and is never trusted for
+    // anything but which row to stamp.
+    signupLinkToken,
     // Where to send the user after checkout — set when signup began from a flow
     // like "add this quote to your project". Validated to an internal path below.
     next,
@@ -365,6 +371,18 @@ export async function POST(request) {
       message: `Sales attribution capture threw during signup: ${err?.message}`,
       companyId: company.id,
     }).catch(() => {});
+  }
+
+  // ── The rep's panel: "Plan chosen" ──────────────────────────────────────
+  //
+  // The company exists and the card page is next — the server's own fact,
+  // stamped once on the progress row the texted link's token names. Best-
+  // effort like the attribution above: a failed stamp is a quieter panel,
+  // never a failed signup.
+  if (typeof signupLinkToken === "string" && signupLinkToken) {
+    await stampSignupPlanByToken({ client: db, token: signupLinkToken, companyId: company.id, now: new Date() }).catch((err) => {
+      console.error("[companies] signup progress plan stamp failed:", err?.message || err);
+    });
   }
 
   // ── Where the request came from ─────────────────────────────────────────

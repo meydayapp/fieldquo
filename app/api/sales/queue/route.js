@@ -68,7 +68,7 @@ import {
   usableTimeZone,
 } from "@/lib/sales/queueBatch";
 import { groupByWindow, repClock, zoneAcronym } from "@/lib/sales/queueWindows";
-import { regroupForRetry, retryViewFor } from "@/lib/sales/retryPool";
+import { loadRetryRules, regroupForRetry, retryViewFor } from "@/lib/sales/retryPool";
 import { repLanguageOrNull } from "@/lib/sales/repLanguage";
 import { requiredLanguageFor } from "@/lib/sales/leadLanguage";
 // Namespace import, not a named one: the pipeline is growing
@@ -164,6 +164,9 @@ async function queueBody(rep, { tradeKey = null, prospectId = null, timeZone = n
   // response so the list grouping, the current row's decision and what the
   // browser re-asks with all see the same rows. lib/sales/windowPolicy.js.
   const policyContext = await loadWindowPolicyContext({ now });
+  // The retry rule table for this response — the platform's overrides over
+  // the code defaults, read once so every row's "Retry N of M" agrees.
+  const retryRules = await loadRetryRules({ db });
 
   // Everything the rep holds, whatever trade the picker is on. The list used
   // to be narrowed to the picked trade, so a rep who claimed painters and
@@ -247,7 +250,7 @@ async function queueBody(rep, { tradeKey = null, prospectId = null, timeZone = n
   // fifteen minutes after it said busy; an exhausted row is "later", with
   // its reason, until the lease lapses and the pool forgets it.
   const retries = Object.fromEntries(
-    inClaimOrder.map((p) => [p.id, retryViewFor(p, { repZone: zone, language: lang, now })]),
+    inClaimOrder.map((p) => [p.id, retryViewFor(p, { repZone: zone, language: lang, now, rules: retryRules })]),
   );
   const windows = regroupForRetry(grouped, retries, { shiftEnd, now });
   const byId = new Map(inClaimOrder.map((p) => [p.id, p]));
@@ -588,7 +591,7 @@ async function queueBody(rep, { tradeKey = null, prospectId = null, timeZone = n
         })(),
         // The pool's state for the Dialer card — the same object the row
         // carries, read from the same columns.
-        retry: retryViewFor(full, { repZone: zone, language: lang, now }),
+        retry: retryViewFor(full, { repZone: zone, language: lang, now, rules: retryRules }),
         history: history.map((a) => ({
           id: a.id,
           direction: a.direction,

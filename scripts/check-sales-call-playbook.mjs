@@ -52,6 +52,10 @@ import {
   validateObjection,
 } from "@/lib/sales/playbook/objections";
 import { OBJECTION_STAGE, STAGE_KEYS } from "@/lib/sales/playbook/stages";
+import { STAY_ON_THE_LINE, STAY_ON_THE_LINE_LANGUAGES, stayOnTheLineFor } from "@/lib/sales/playbook/stayOnTheLine";
+import { SCRIPT_LANGUAGES } from "@/lib/sales/intel/callScript";
+import { playbookMoments } from "@/lib/sales/playbook/moments";
+import { APP_MESSAGES } from "@/app/i18n/appMessages";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const read = (p) => readFileSync(join(ROOT, p), "utf8");
@@ -468,6 +472,34 @@ const SCREEN = "app/components/sales/CallPlaybook.js";
     "no price, rate or figure is rendered from this screen's own copy",
     !/\$\d/.test(decomment(src)),
   );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 6b. After a yes: text the link, stay on the line — EN / FR / ES
+// ═══════════════════════════════════════════════════════════════════════════
+
+section("6b. The stay-on-the-line step, in the lead's language");
+
+{
+  ok("the table covers exactly the script languages", STAY_ON_THE_LINE_LANGUAGES.slice().sort().join() === SCRIPT_LANGUAGES.slice().sort().join());
+  for (const lang of STAY_ON_THE_LINE_LANGUAGES) {
+    const step = STAY_ON_THE_LINE[lang];
+    ok(`${lang}: say, then and watch are all sentences`, [step.say, step.then, step.watch].every((v) => typeof v === "string" && v.length > 30));
+    ok(`${lang}: the say line texts the link and asks them to open it now; the then line stays through the card`, /lien|enlace|link/i.test(step.say) && /carte|tarjeta|card/i.test(step.then));
+    ok(`${lang}: no digits — nothing here is a price or a time`, !/\d/.test(step.say + step.then + step.watch));
+  }
+  ok("English is the owner's sentence", STAY_ON_THE_LINE.en.say === "I'm texting you the link now — open it while we're on, it's two minutes.");
+  ok("…and the card objection's answer", /not charged for a month/.test(STAY_ON_THE_LINE.en.then) && /Settings in one click/.test(STAY_ON_THE_LINE.en.then));
+  ok("stayOnTheLineFor: fr and es are their own; an unknown language falls back to English and says so", stayOnTheLineFor("fr").say === STAY_ON_THE_LINE.fr.say && !stayOnTheLineFor("fr").fallback && stayOnTheLineFor("es").language === "es" && stayOnTheLineFor("de").language === "en" && stayOnTheLineFor("de").fallback === true && stayOnTheLineFor(null).language === "en");
+  const comp = decomment(read("app/components/sales/StayOnTheLine.js"));
+  ok("the component prints the step from the module, in the script's language", /stayOnTheLineFor\(language\)/.test(comp) && /step\.say/.test(comp) && /step\.then/.test(comp));
+  const cp = decomment(read("app/components/sales/CallPlaybook.js"));
+  ok("CallPlaybook mounts it under the close in both layouts, and when there is no AI script at all", (cp.match(/<StayOnTheLine language=\{script\.language \|\| "en"\}/g) || []).length === 2 && /!data\.callScript \? <StayOnTheLine/.test(cp));
+  for (const lang of Object.keys(APP_MESSAGES)) {
+    ok(`app.salesCall.stayOnTheLine exists in ${lang}`, typeof APP_MESSAGES[lang]["app.salesCall.stayOnTheLine"] === "string" && APP_MESSAGES[lang]["app.salesCall.stayOnTheLine"].length > 0);
+  }
+  const yes = playbookMoments().find((m) => m.key === "ask_for_the_business")?.lines.find((l) => l.label === "If they say yes");
+  ok("the off-call moment's 'if they say yes' texts the link and stays on the line too", Boolean(yes) && /texting you the link now/.test(yes.text) && /cancel from Settings/.test(yes.text));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

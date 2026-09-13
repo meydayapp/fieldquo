@@ -653,6 +653,22 @@ section("9. The two scheduled touchpoints the owner asked for");
     FIRST_CHECKIN_DAY === SCHEDULED_CHECKIN_DAYS[0]);
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+section("10. The two unfinished-signup drafts live beside these, not inside them");
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// lib/sales/checkin/unfinishedSignup.js: +2 h and +24 h after a texted link
+// was OPENED and not finished. They hang on the lead, carry the link, and
+// are composed by their own function — so the company engine's tables stay
+// exactly as the owner set them and its no-link judge keeps its rule.
+{
+  const { UNFINISHED_SIGNUP_REASON, UNFINISHED_SIGNUP_TOUCHPOINTS, unfinishedSignupDraft } = await import("@/lib/sales/checkin/unfinishedSignup");
+  ok("the unfinished-signup reason is NOT a company reason — the engine never fires it", !REASON_CODES.includes(UNFINISHED_SIGNUP_REASON) && UNFINISHED_SIGNUP_REASON === "signup_unfinished");
+  ok("the company touchpoints are still 1 and 7 days — the hour-granular ones are the other module's", SCHEDULED_CHECKIN_DAYS.join(",") === "1,7" && UNFINISHED_SIGNUP_TOUCHPOINTS.map((t) => t.key).join(",") === "2h,24h");
+  const text = unfinishedSignupDraft({ language: "en", repName: "Daniel", link: "https://fieldquo.com/signup?sales=daniel&link=abcdefghijklmnopqrstuv", touchpoint: "2h" });
+  ok("its draft carries a link, which judgeDraft refuses — the two composers are deliberately not one", judgeDraft(text).ok === false && judgeDraft(text).reason !== undefined);
+}
+
 console.log(`\n${pass} checks, ${failures.length} failure(s).`);
 if (failures.length) {
   for (const f of failures) console.log(`  · ${f}`);

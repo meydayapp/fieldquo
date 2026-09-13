@@ -5,15 +5,14 @@
 //
 // ══ Two halves ═════════════════════════════════════════════════════════════
 //
-// The RULE TABLE is read-only, and the screen says why rather than drawing a
-// disabled form: every number in lib/sales/retryRules.js is paired with the
-// reason it is that number, and an editable cell would let the number change
-// without the reason. The words on this screen are the module's own `why`
-// strings, so the screen and the code cannot disagree about what a rule is
-// for.
+// The RULE TABLE is a form since 2026-09-13 (the owner's decision — the
+// numbers are his to set as the funnel is measured):
+// app/components/platform/sales/RetryRulesEditor.js. Every number is still
+// paired with the code's own `why`, an edit may carry a note, and "Reset to
+// defaults" writes the defaults back rather than deleting anything.
 //
 // The EXHAUSTED LIST is every prospect the rule has taken out of the pool —
-// four no-answers, three voicemails — newest first, with one control:
+// three no-answers, three voicemails — newest first, with one control:
 // Recycle. It resets the attempt count and puts the row back; nothing is
 // deleted, the last outcome stays, and the audit log gets a row. A recycled
 // prospect that exhausts again comes back here with both dates on it.
@@ -27,15 +26,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Loader2, RotateCcw } from "lucide-react";
-import { RETRY_KIND_CALLBACK, RETRY_KIND_FINAL, RETRY_KIND_RETRY } from "@/lib/sales/retryRules";
-import { DISPOSITIONS } from "@/lib/sales/calls/dispositions";
-
-function minutesText(m) {
-  if (!Number.isFinite(m)) return "—";
-  if (m % (24 * 60) === 0) return `${m / (24 * 60)} day${m === 24 * 60 ? "" : "s"}`;
-  if (m % 60 === 0) return `${m / 60} h`;
-  return `${m} min`;
-}
+import RetryRulesEditor from "@/app/components/platform/sales/RetryRulesEditor";
 
 function when(iso) {
   if (!iso) return "—";
@@ -137,53 +128,19 @@ export default function RetryPoolPage() {
 
       {/* ── The rules ─────────────────────────────────────────────────── */}
       <section className="rounded-lg border border-border bg-card p-3 sm:p-4 space-y-3">
-        <div>
-          <h2 className="text-base font-semibold text-foreground">The rules, as they stand</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            What happens to a prospect after each outcome a rep can log. Read-only: every number
-            here is paired in <code className="text-xs">lib/sales/retryRules.js</code> with the reason it
-            is that number, and a form that changed one without the other would change a rep&apos;s day
-            without a sentence saying why. The attempt ceiling is compared against all dispositioned
-            dials on the row; the rule that fires is the one for the latest outcome. Rotation moves the
-            next dial to the next part of the prospect&apos;s day — {(data?.blocks || []).join(" → ") || "morning → midday → afternoon → evening"} — in
-            the prospect&apos;s own zone, and never inside a shut calling window.
-          </p>
-        </div>
+        <h2 className="text-base font-semibold text-foreground">The rules, as they stand</h2>
         {!data ? (
           <p className="text-sm text-muted-foreground flex items-center gap-2">
             <Loader2 size={14} className="animate-spin" /> Loading…
           </p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-xs text-muted-foreground border-b border-border">
-                  <th className="py-2 pr-3 font-medium">Outcome</th>
-                  <th className="py-2 pr-3 font-medium">Then</th>
-                  <th className="py-2 pr-3 font-medium">Wait</th>
-                  <th className="py-2 pr-3 font-medium">Ceiling</th>
-                  <th className="py-2 pr-3 font-medium">Rotate block</th>
-                  <th className="py-2 font-medium">Why</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.rules.map((r) => (
-                  <tr key={r.code} className="border-b border-border last:border-0 align-top">
-                    <td className="py-2 pr-3 text-foreground whitespace-nowrap">
-                      {DISPOSITIONS[r.code]?.label || r.code}
-                    </td>
-                    <td className="py-2 pr-3 text-foreground whitespace-nowrap">
-                      {r.kind === RETRY_KIND_RETRY ? "Retry" : r.kind === RETRY_KIND_CALLBACK ? "Callback at the agreed time" : r.kind === RETRY_KIND_FINAL ? "Final — no retry" : r.kind}
-                    </td>
-                    <td className="py-2 pr-3 text-foreground whitespace-nowrap">{r.kind === RETRY_KIND_RETRY ? minutesText(r.delayMinutes) : "—"}</td>
-                    <td className="py-2 pr-3 text-foreground whitespace-nowrap">{r.kind === RETRY_KIND_RETRY ? `${r.maxAttempts} attempts` : "—"}</td>
-                    <td className="py-2 pr-3 text-foreground whitespace-nowrap">{r.kind === RETRY_KIND_RETRY ? (r.rotateBlock ? "Yes" : "No") : "—"}</td>
-                    <td className="py-2 text-muted-foreground">{r.why}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <RetryRulesEditor
+            rules={data.rules}
+            blocks={data.blocks || []}
+            // The fresh table after a save, so the exhausted rows below
+            // re-read "N of M" on the new ceiling without a reload.
+            onSaved={(rules) => setData((prev) => (prev ? { ...prev, rules } : prev))}
+          />
         )}
       </section>
 

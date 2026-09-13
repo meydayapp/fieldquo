@@ -107,6 +107,25 @@ function money(value) {
 // phone and home address, which is not something to leave behind on a machine;
 // and a second tab starting a different signup must not inherit the first one's
 // company. The PASSWORD is deliberately never written to it.
+/**
+ * Tell the rep's panel where this signup is. Fire-and-forget on purpose:
+ * the page must never wait on it, and a failure is not the visitor's
+ * problem. `keepalive` so a report fired just before a navigation still
+ * leaves. lib/sales/signupProgress.js says what the server does with it.
+ */
+function reportSignupStep(token, step) {
+  try {
+    fetch("/api/signup/progress", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token, step }),
+      keepalive: true,
+    }).catch(() => {});
+  } catch {
+    // A runtime without fetch keepalive, or a blocked request. Nothing to do.
+  }
+}
+
 const DRAFT_KEY = "fieldquo:signup-draft";
 
 // Better Auth enforces 8–128 characters on the server — its own defaults, since
@@ -542,6 +561,11 @@ export default function SignupPage() {
   // SignupOrigin can say which signups came from paid ads. Nothing on this
   // page renders because of them.
   const [utm, setUtm] = useState(null);
+  // The per-text token on a link a rep TEXTED (`&link=`), so the rep's
+  // panel can watch the steps while they stay on the line —
+  // lib/sales/signupProgress.js. Absent on the rep's plain link and on
+  // every other way in; then nothing is reported.
+  const [signupLinkToken, setSignupLinkToken] = useState("");
   // Where to return after checkout, when signup began from a flow like "add this
   // quote to your project" (?next=/q/<token>). Internal paths only.
   const [nextPath, setNextPath] = useState("");
@@ -666,6 +690,19 @@ export default function SignupPage() {
     }
     if (Object.keys(tags).length) setUtm(tags);
   }, []);
+
+  useEffect(() => {
+    const token = new URLSearchParams(window.location.search).get("link");
+    if (token) setSignupLinkToken(token);
+  }, []);
+
+  // "Opened" — the first thing a rep on the phone wants to see. A beacon:
+  // fired once per token, never awaited, never read; the endpoint answers
+  // 204 whatever happened, and a blocked request costs the signup nothing.
+  useEffect(() => {
+    if (!signupLinkToken) return;
+    reportSignupStep(signupLinkToken, "opened");
+  }, [signupLinkToken]);
 
   // Confirm the referral code is real before promising anything. A typo'd link
   // should not produce a banner claiming free months that the API then
@@ -875,6 +912,7 @@ export default function SignupPage() {
         if (draft?.referralCode && !query.get("ref")) setReferralCode(draft.referralCode);
         if (draft?.salesCode && !query.get("sales")) setSalesCode(draft.salesCode);
         if (draft?.utm && !query.get("utm_source") && !query.get("utm_medium")) setUtm(draft.utm);
+        if (draft?.signupLinkToken && !query.get("link")) setSignupLinkToken(draft.signupLinkToken);
         // Applied later, once we know whether the account behind it still
         // exists — see the resume effect below.
         draftStepRef.current = draft?.step || null;
@@ -909,6 +947,7 @@ export default function SignupPage() {
           // rejects a cookie for.
           referralCode,
           salesCode,
+          signupLinkToken,
           utm,
         }),
       );
@@ -1217,6 +1256,9 @@ export default function SignupPage() {
     setFieldErrors(errors);
     if (Object.keys(errors).length > 0) return;
 
+    // "Company details" for the rep watching — see the "opened" beacon above.
+    if (signupLinkToken) reportSignupStep(signupLinkToken, "company");
+
     // Off the funnel, not typed. Every forward move on this page asks
     // lib/signup/funnel.js where it goes, so reordering the steps there cannot
     // leave a button pointing at the old next one.
@@ -1398,6 +1440,11 @@ export default function SignupPage() {
           // namespace note in app/api/companies/route.js.
           salesCode: salesCode || undefined,
           utm: utm || undefined,
+          // The token from a texted link, so the server can stamp "plan
+          // chosen" on the rep's panel. Not a code and not attribution:
+          // attribution is the salesCode above, and the server never trusts
+          // this for anything but the stamp.
+          signupLinkToken: signupLinkToken || undefined,
           next: nextPath || undefined,
         }),
       });

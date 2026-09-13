@@ -14530,3 +14530,98 @@ model HelpFeedback {
 
   @@index([slug, createdAt])
 }
+
+// ============================================================
+// Sales retry rules — the platform's override of lib/sales/retryRules.js
+// ============================================================
+//
+// One row per disposition outcome whose default rule is a RETRY (no answer,
+// busy, voicemail, gatekeeper). The code table is the default; a row here
+// replaces its four numbers for every rep's queue from the next request on
+// (lib/sales/retryPool.js loadRetryRules reads all rows once per request).
+// "Reset to defaults" on /platform/sales/retry-pool WRITES the defaults into
+// these rows — a row saying "the defaults, set by X on Y" is a fact the
+// audit trail can read; a deleted row is only silence. Nothing deletes here.
+// Additive: no other model references this one.
+model SalesRetryRule {
+  id String @id @default(cuid())
+
+  /// The disposition code (lib/sales/calls/dispositions.js). Unique: there
+  /// is one rule per outcome, and an upsert on it is how a save is atomic.
+  outcome String @unique
+
+  /// Minutes from the disposition to the earliest next dial.
+  delayMinutes Int
+  /// When true, a delayed instant still inside today's window in the
+  /// prospect's zone is taken even if the block rotation would rather wait
+  /// for tomorrow (the owner's "two hours later, same day").
+  sameDay Boolean @default(false)
+  /// Total dispositioned dials on the row at which it leaves the pool.
+  maxAttempts Int
+  /// Aim the retry at the next part of the prospect's day.
+  rotateBlock Boolean @default(true)
+
+  /// Why the number is what it is, in the superadmin's words. Optional; the
+  /// code table's own reason is printed beside it either way.
+  note String?
+
+  /// Who set it last. A plain id rather than a relation on purpose: this is
+  /// attribution, not ownership — an admin leaving must not take the rule
+  /// with them, and the audit row carries the same id with the change.
+  updatedById String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================================
+// Sales signup progress — what a rep sees while the prospect signs up
+// ============================================================
+//
+// One row per signup link a rep TEXTS to a lead (lib/sales/salesSms.js
+// deliverSignupLinkSms). The link carries `&link=<token>`; the public signup
+// page and the server stamp each step against the token, and the rep's lead
+// panel polls the row (app/api/sales/leads/[id]/signup-progress) to draw
+// "Link sent → Opened → Company details → Plan chosen → Card entered →
+// Signed up" while they are still on the phone. Every stamp is set once and
+// never moved back (lib/sales/signupProgress.js). Carries NO personal data
+// of its own: the lead's name and number live on SalesLead, the company's on
+// Company; this row is ids and instants.
+//
+// Plain ids rather than relations, on purpose: a lead row is never deleted
+// (AGENTS.md), and this row is evidence of what happened on a link — it must
+// not ride along with anything a cascade could take. Additive.
+model SalesSignupProgress {
+  id String @id @default(cuid())
+
+  /// The random token in the link. Unique; the only thing a browser needs
+  /// to report a step, and useless for anything else.
+  token String @unique
+
+  /// The lead the link was texted to, and the rep who texted it — the
+  /// scope the rep endpoint reads by (a rep sees only links they sent).
+  leadId     String
+  salesRepId String
+
+  /// "Link sent": when the carrier accepted the text.
+  linkSentAt DateTime?
+  /// "Opened": the signup page loaded with the token.
+  openedAt DateTime?
+  /// "Company details": the business step was submitted in the browser.
+  companyAt DateTime?
+  /// "Plan chosen": the company was created and the card page reached
+  /// (app/api/companies). companyId is set at the same instant.
+  planAt    DateTime?
+  companyId String?
+  /// "Card entered": Stripe's checkout session completed.
+  cardAt DateTime?
+  /// "Signed up": the Subscription row was written.
+  completedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([leadId, salesRepId])
+  @@index([salesRepId, openedAt])
+  @@index([companyId])
+}

@@ -34,7 +34,7 @@ import { assignedCompanyWhere } from "@/lib/sales/scope";
 import { decideUnlink } from "@/lib/sales/leadLink";
 import { getOnboardingStatus } from "@/lib/onboarding";
 import { onboardingProgress, walkthroughGate } from "@/lib/sales/nextSteps";
-import { retryViewFor } from "@/lib/sales/retryPool";
+import { loadRetryRules, retryViewFor } from "@/lib/sales/retryPool";
 import { usableTimeZone } from "@/lib/sales/queueBatch";
 import { repLanguageOrNull } from "@/lib/sales/repLanguage";
 
@@ -192,14 +192,18 @@ const LEAD_SELECT = {
  * the queue route reads them. Null for a lead with no prospect — a
  * hand-typed lead is not in the pool and the screen says nothing.
  */
-function retryFor(lead, request) {
+async function retryFor(lead, request) {
   if (!lead?.prospect) return null;
   const url = new URL(request.url);
   const now = new Date();
+  // The platform's rule overrides over the code defaults, so "of 3" here is
+  // the same "of 3" the queue prints (lib/sales/retryPool.js loadRetryRules).
+  const rules = await loadRetryRules({ db });
   return retryViewFor(lead.prospect, {
     repZone: usableTimeZone((url.searchParams.get("timeZone") || "").trim().slice(0, 64), now),
     language: repLanguageOrNull((url.searchParams.get("language") || "").trim().slice(0, 8)) || "en",
     now,
+    rules,
   });
 }
 
@@ -273,7 +277,7 @@ export async function GET(request, { params }) {
     // whole feature exists to avoid.
     serverNow: new Date().toISOString(),
     outreach: await outreachStatus(rep),
-    retry: retryFor(lead, request),
+    retry: await retryFor(lead, request),
   });
 }
 
@@ -413,6 +417,6 @@ export async function PATCH(request, { params }) {
       : null,
     numbers: lead ? await contactNumbersFor(lead, { optedOut: phoneOptOut }) : null,
     serverNow: new Date().toISOString(),
-    retry: retryFor(lead, request),
+    retry: await retryFor(lead, request),
   });
 }

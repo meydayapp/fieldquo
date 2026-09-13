@@ -69,6 +69,18 @@ import {
   DEMO_ORIGIN,
 } from "@/lib/sales/checkin/materialise";
 import { SCHEDULED_CHECKIN_DAYS, RETENTION_NEAR_DAYS, checkInSignals } from "@/lib/sales/checkin/signals";
+import {
+  UNFINISHED_SIGNUP_MAX_AGE_MS,
+  UNFINISHED_SIGNUP_REASON,
+  UNFINISHED_SIGNUP_TOUCHPOINTS,
+  isUnfinishedSignupKey,
+  materialiseUnfinishedSignupsForRep,
+  unfinishedSignupDedupeKey,
+  unfinishedSignupDraft,
+  unfinishedSignupDue,
+  unfinishedSignupLanguage,
+} from "@/lib/sales/checkin/unfinishedSignup";
+import { judgeDraft } from "@/lib/sales/checkin/draft";
 import { REP_COMPANY_SELECT } from "@/lib/sales/scope";
 import { SALES_SMS_WINDOW } from "@/lib/sales/smsWindow";
 import { localTimeIn } from "@/lib/sales/callingWindow";
@@ -274,6 +286,9 @@ function memoryClient(seed) {
     salesCheckIn: model("salesCheckIn", { unique: [["salesRepId", "dedupeKey"]] }),
     salesLead: model("salesLead", { unique: ["convertedCompanyId"] }),
     salesLeadLinkEvent: model("salesLeadLinkEvent"),
+    // Present only when seeded (section 2b): the unfinished-signup pass
+    // reads it and must be a quiet no-op for a client without it.
+    ...(seed?.salesSignupProgress ? { salesSignupProgress: model("salesSignupProgress") } : {}),
     // No salesSmsMessage at all: a write there throws, which is the assertion.
   };
 }
@@ -446,6 +461,96 @@ function seed() {
     Object.keys(MATERIALISE_COMPANY_SELECT).filter((k) => !(k in REP_COMPANY_SELECT)).sort().join() === "country,email,members,phone,province,timezone",
     Object.keys(MATERIALISE_COMPANY_SELECT));
   ok("…and REP_COMPANY_SELECT itself is untouched", !("phone" in REP_COMPANY_SELECT));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("2b. Unfinished signups: +2 h and +24 h after the link was opened, on the lead, with the link");
+// ═══════════════════════════════════════════════════════════════════════════
+
+{
+  const HOUR = 60 * 60 * 1000;
+  ok("two touchpoints: 2h and 24h", UNFINISHED_SIGNUP_TOUCHPOINTS.map((t) => t.key).join() === "2h,24h" && UNFINISHED_SIGNUP_TOUCHPOINTS[0].afterMs === 2 * HOUR && UNFINISHED_SIGNUP_TOUCHPOINTS[1].afterMs === 24 * HOUR);
+  const opened = new Date(NOW.getTime() - 3 * HOUR);
+  ok("three hours after the open: the 2h draft is due, at open + 2 h", unfinishedSignupDue({ openedAt: opened, completedAt: null, now: NOW })?.key === "2h" && unfinishedSignupDue({ openedAt: opened, completedAt: null, now: NOW }).dueAt.getTime() === opened.getTime() + 2 * HOUR);
+  ok("one hour after: nothing yet", unfinishedSignupDue({ openedAt: new Date(NOW.getTime() - 1 * HOUR), completedAt: null, now: NOW }) === null);
+  ok("thirty hours after: the 24h draft — the LATEST due, not both", unfinishedSignupDue({ openedAt: new Date(NOW.getTime() - 30 * HOUR), completedAt: null, now: NOW })?.key === "24h");
+  ok("a completed signup: never", unfinishedSignupDue({ openedAt: opened, completedAt: NOW, now: NOW }) === null);
+  ok("an unopened link: never", unfinishedSignupDue({ openedAt: null, completedAt: null, now: NOW }) === null);
+  ok("a week-old link: stale, nothing (a call, not a text)", unfinishedSignupDue({ openedAt: new Date(NOW.getTime() - UNFINISHED_SIGNUP_MAX_AGE_MS - 1), completedAt: null, now: NOW }) === null);
+  ok("hostile instants: null", unfinishedSignupDue({ openedAt: "yesterday", now: NOW }) === null && unfinishedSignupDue({ openedAt: new Date(NOW.getTime() + HOUR), now: NOW }) === null);
+  ok("the key is its own shape, never a company touchpoint's", unfinishedSignupDedupeKey("sp_1", "2h") === "signup:sp_1:2h" && isUnfinishedSignupKey("signup:sp_1:24h") && !isUnfinishedSignupKey("scheduled:co_1:1") && touchpointOfKey("signup:sp_1:2h") === null && unfinishedSignupDedupeKey("sp_1", "3h") === null && unfinishedSignupDedupeKey("", "2h") === null);
+  const link = "https://fieldquo.com/signup?sales=daniel&link=abcdefghijklmnopqrstuv";
+  for (const language of ["en", "fr", "es"]) {
+    for (const touchpoint of ["2h", "24h"]) {
+      const text = unfinishedSignupDraft({ language, repName: "Daniel", businessName: "Easy Roofers Inc.", link, touchpoint });
+      ok(`${language} ${touchpoint}: a sentence with the rep, the business, the link and the no-charge line`, typeof text === "string" && text.includes("Daniel") && text.includes("Easy Roofers Inc.") && text.includes(link) && /mois|mes|month/.test(text), text);
+      ok(`${language} ${touchpoint}: two GSM-7 segments with room for the CASL footer (the link is a third of it)`, text.length <= 245, text.length);
+    }
+  }
+  ok("the 24h draft is not the 2h draft", unfinishedSignupDraft({ language: "en", link, touchpoint: "2h" }) !== unfinishedSignupDraft({ language: "en", link, touchpoint: "24h" }));
+  ok("an unknown language is English; no link is no draft", /it is FieldQuo\./.test(unfinishedSignupDraft({ language: "de", link })) && unfinishedSignupDraft({ language: "en", link: "" }) === null);
+  ok("judgeDraft would refuse it (it carries a link) — which is why this draft has its own composer and never goes through the model", judgeDraft(unfinishedSignupDraft({ language: "en", repName: "Daniel", link })).ok === false);
+  ok("the lead's language: Quebec is French, elsewhere English", unfinishedSignupLanguage({ province: "QC" }) === "fr" && unfinishedSignupLanguage({ province: "ON" }) === "en" && unfinishedSignupLanguage({}) === "en" && unfinishedSignupLanguage({ prospect: { province: "QC" } }) === "fr");
+
+  // Against the in-memory client: two opened links (one Quebec), one
+  // completed, one not yet due, one with no number, one another rep's lead.
+  const client = memoryClient({
+    salesRep: [{ ...REP, code: "daniel" }],
+    salesLead: [
+      { id: "lead_on", salesRepId: "rep_daniel", businessName: "Easy Roofers Inc.", phone: "416-555-0180", timeZone: null, province: "ON", country: "CA" },
+      { id: "lead_qc", salesRepId: "rep_daniel", businessName: "Toitures Tremblay", phone: "514-555-0199", timeZone: null, province: "QC", country: "CA" },
+      { id: "lead_done", salesRepId: "rep_daniel", businessName: "Done Co", phone: "613-555-0142", province: "ON", country: "CA" },
+      { id: "lead_soon", salesRepId: "rep_daniel", businessName: "Soon Co", phone: "613-555-0143", province: "ON", country: "CA" },
+      { id: "lead_nonum", salesRepId: "rep_daniel", businessName: "No Number", phone: null, province: "ON", country: "CA" },
+      { id: "lead_other", salesRepId: "rep_other", businessName: "Not Mine", phone: "604-555-0170", province: "BC", country: "CA" },
+    ],
+    salesSignupProgress: [
+      { id: "sp_on", token: "tok_on_aaaaaaaaaaaaaaaa", leadId: "lead_on", salesRepId: "rep_daniel", linkSentAt: new Date(NOW.getTime() - 4 * HOUR), openedAt: new Date(NOW.getTime() - 3 * HOUR), completedAt: null },
+      { id: "sp_qc", token: "tok_qc_aaaaaaaaaaaaaaaa", leadId: "lead_qc", salesRepId: "rep_daniel", linkSentAt: new Date(NOW.getTime() - 30 * HOUR), openedAt: new Date(NOW.getTime() - 30 * HOUR), completedAt: null },
+      { id: "sp_done", token: "tok_done_aaaaaaaaaaaaaa", leadId: "lead_done", salesRepId: "rep_daniel", openedAt: new Date(NOW.getTime() - 3 * HOUR), completedAt: new Date(NOW.getTime() - 2 * HOUR) },
+      { id: "sp_soon", token: "tok_soon_aaaaaaaaaaaaaa", leadId: "lead_soon", salesRepId: "rep_daniel", openedAt: new Date(NOW.getTime() - 1 * HOUR), completedAt: null },
+      { id: "sp_nonum", token: "tok_nonum_aaaaaaaaaaaaa", leadId: "lead_nonum", salesRepId: "rep_daniel", openedAt: new Date(NOW.getTime() - 3 * HOUR), completedAt: null },
+      { id: "sp_other", token: "tok_other_aaaaaaaaaaaaa", leadId: "lead_other", salesRepId: "rep_daniel", openedAt: new Date(NOW.getTime() - 3 * HOUR), completedAt: null },
+      { id: "sp_theirs", token: "tok_theirs_aaaaaaaaaaaa", leadId: "lead_other", salesRepId: "rep_other", openedAt: new Date(NOW.getTime() - 3 * HOUR), completedAt: null },
+    ],
+  });
+  // The completed row must not even be read: the store reads opened-and-not-completed.
+  const r = await materialiseUnfinishedSignupsForRep({ salesRepId: "rep_daniel", client, now: NOW, origin: "https://fieldquo.com" });
+  ok("two drafts: the Ontario 2h nudge and the Quebec 24h one", r.created.length === 2 && r.created.map((c) => `${c.leadId}:${c.touchpoint}:${c.language}`).sort().join() === "lead_on:2h:en,lead_qc:24h:fr", r.created);
+  const on = client.tables.salesCheckIn.find((c) => c.leadId === "lead_on");
+  const qc = client.tables.salesCheckIn.find((c) => c.leadId === "lead_qc");
+  ok("the row hangs on the lead, no company, engine origin, its own reason, rule-drafted, not degraded", on && on.companyId === null && on.origin === "engine" && on.reasonCode === UNFINISHED_SIGNUP_REASON && on.draftSource === "rule" && on.degraded === false && on.status === "draft", on);
+  ok("…keyed signup:<progressId>:2h", on.dedupeKey === "signup:sp_on:2h" && qc.dedupeKey === "signup:sp_qc:24h");
+  ok("…addressed to the lead's number in E.164", on.toE164 === "+14165550180" && qc.toE164 === "+15145550199");
+  ok("…carrying THIS link's token, so the stepper keeps counting", on.draftText.includes("/signup?sales=daniel&link=tok_on_aaaaaaaaaaaaaaaa") && qc.draftText.includes("&link=tok_qc_aaaaaaaaaaaaaaaa"));
+  ok("…in the lead's language: English for Ontario, French for Quebec", /Still on for Easy Roofers Inc\./.test(on.draftText) && /Bonjour, c'est Daniel de FieldQuo/.test(qc.draftText) && /d'hier/.test(qc.draftText));
+  ok("…scheduled no earlier than the touchpoint, in the lead's texting window", on.scheduledFor.getTime() >= NOW.getTime() - 1 * HOUR && qc.scheduledFor.getTime() >= NOW.getTime() - 6 * HOUR);
+  ok("the completed one, the not-yet-due one, the numberless one and the other rep's lead are skipped with reasons", r.skipped.map((s) => `${s.progressId}:${s.reason}`).sort().join() === "sp_nonum:no_number,sp_other:lead_not_yours,sp_soon:not_due", r.skipped);
+  ok("…and the other rep's own row was never read for this rep", !client.tables.salesCheckIn.some((c) => c.salesRepId === "rep_other"));
+  const again = await materialiseUnfinishedSignupsForRep({ salesRepId: "rep_daniel", client, now: NOW, origin: "https://fieldquo.com" });
+  ok("a second run writes nothing — the dedupe key holds", again.created.length === 0 && again.skipped.filter((s) => s.reason === "open").length === 2 && client.tables.salesCheckIn.length === 2);
+  const later = await materialiseUnfinishedSignupsForRep({ salesRepId: "rep_daniel", client, now: new Date(NOW.getTime() + 24 * HOUR), origin: "https://fieldquo.com" });
+  ok("a day later the Ontario link gets its 24h draft beside the 2h one, and the once-too-soon link its first; Quebec (now 54 h) gets nothing new", later.created.map((c) => c.dedupeKey).sort().join() === "signup:sp_on:24h,signup:sp_soon:24h" && client.tables.salesCheckIn.length === 4 && later.skipped.some((s) => s.progressId === "sp_qc" && s.reason === "open"), later);
+  const done = await materialiseUnfinishedSignupsForRep({ salesRepId: "rep_daniel", client: memoryClient({ salesRep: [{ ...REP, code: "daniel" }], salesLead: [], salesSignupProgress: [{ id: "sp_x", token: "tok_x_aaaaaaaaaaaaaaaaa", leadId: "l", salesRepId: "rep_daniel", openedAt: new Date(NOW.getTime() - 3 * HOUR), completedAt: NOW }] }), now: NOW, origin: "https://fieldquo.com" });
+  ok("a completed signup drafts nothing, ever", done.created.length === 0 && done.skipped.length === 0);
+  const noOrigin = await materialiseUnfinishedSignupsForRep({ salesRepId: "rep_daniel", client: memoryClient({ salesRep: [{ ...REP, code: "daniel" }], salesLead: [{ id: "lead_on", salesRepId: "rep_daniel", businessName: "X", phone: "416-555-0180", province: "ON", country: "CA" }], salesSignupProgress: [{ id: "sp_on", token: "tok_on_aaaaaaaaaaaaaaaa", leadId: "lead_on", salesRepId: "rep_daniel", openedAt: new Date(NOW.getTime() - 3 * HOUR), completedAt: null }] }), now: NOW, origin: null });
+  ok("no origin for the link: skipped as no_origin, never a draft without its link", noOrigin.created.length === 0 && noOrigin.skipped[0]?.reason === "no_origin");
+  ok("a client without the table (the company engine's own fixtures above): a quiet no-op", (await materialiseUnfinishedSignupsForRep({ salesRepId: "rep_daniel", client: seed(), now: NOW, origin: "https://fieldquo.com" })).created.length === 0);
+  // Through materialiseCheckInsForRep: the pass runs first and its result rides on the report.
+  const prev = process.env.NEXT_PUBLIC_APP_URL;
+  process.env.NEXT_PUBLIC_APP_URL = "https://fieldquo.com";
+  try {
+    const full = await materialiseCheckInsForRep({ salesRepId: REP.id, client, now: new Date(NOW.getTime() + 25 * HOUR), loadSetup: async () => setupDone, snapshotBudget: 10 });
+    ok("materialiseCheckInsForRep runs the pass and reports it as signupDrafts", full.ok === true && full.signupDrafts && Array.isArray(full.signupDrafts.created) && Array.isArray(full.signupDrafts.skipped));
+  } finally {
+    if (prev === undefined) delete process.env.NEXT_PUBLIC_APP_URL;
+    else process.env.NEXT_PUBLIC_APP_URL = prev;
+  }
+  const src = decomment(read("lib/sales/checkin/materialise.js"));
+  ok("…in its own try/catch, before the company loop, with the origin from the deployment", /materialiseUnfinishedSignupsForRep\(\{ salesRepId: rep\.id, client, now, origin, dryRun \}\)/.test(src) && src.indexOf("materialiseUnfinishedSignupsForRep(") < src.indexOf("client.company.findMany(") && /getAppOrigin\(\)/.test(src));
+  ok("…and the cron's report counts them", /r\.signupDrafts\?\.created\?\.length/.test(src));
+  const mod = decomment(read("lib/sales/checkin/unfinishedSignup.js"));
+  ok("the module never imports the send path (the cron rule in check-sales-messages)", !/from "\.\/store"|salesSms"/.test(mod) && /from "\.\/rows"/.test(mod));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

@@ -38,6 +38,7 @@ import { fetchJson } from "@/lib/fetchJson";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { NEXT_STEP_MINUTES, SIGNUP_SENT_STATUS } from "@/lib/sales/nextSteps";
 import EventModal from "@/app/sales/calendar/EventModal";
+import SignupProgress from "@/app/components/sales/SignupProgress";
 
 const BTN =
   "inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60";
@@ -218,6 +219,11 @@ export default function NextSteps({ prospectId = null, leadId: leadIdProp = null
           <CalendarPlus size={16} /> {t("app.salesCall.scheduleCallback")}
         </button>
       </div>
+
+      {/* The live stepper for a link this rep TEXTED to this lead — renders
+          nothing until there is one (lib/sales/signupProgress.js), and polls
+          every ten seconds while the call is live. */}
+      {leadId ? <SignupProgress leadId={leadId} /> : null}
 
       {progress ? (
         <p className="text-xs text-muted-foreground break-words" data-testid="onboarding-progress">

@@ -473,7 +473,9 @@ function rowMeta(item, t) {
   // the window's opening would be a true time with a false reason.
   const retry = retryLine(item.retry, t);
   if (w?.retryHold) window = "";
-  return { place, research, window, outcome, retry, zone: w?.zoneShort || null, zoneId: w?.zone || null };
+  // lib/sales/callWindowScore.js: the top hour tier (3–4 pm where they are),
+  // decided by the server on the prospect's clock. One chip, one meaning.
+  return { place, research, window, outcome, retry, zone: w?.zoneShort || null, zoneId: w?.zone || null, bestTimeNow: Boolean(w?.bestTimeNow) && !w?.retryHold };
 }
 
 /** One sentence for a row's place in the retry pool, or "" when it has none. */
@@ -1688,6 +1690,11 @@ function QueueList({ t, loading, data, items, groups, itemById, current, visible
                                   title={t("app.salesQueue.frenchChipTitle")}
                                 >
                                   {t("app.salesQueue.frenchChip")}
+                                </span>
+                              ) : null}
+                              {meta.bestTimeNow ? (
+                                <span className="inline-block rounded border border-emerald-600/40 bg-emerald-600/10 px-1 py-px mr-1 text-[11px] leading-4 text-foreground" data-testid="best-time-now">
+                                  {t("app.salesQueue.bestTimeNow")}
                                 </span>
                               ) : null}
                               {[meta.research, meta.window].filter(Boolean).join(" · ")}
