@@ -239,6 +239,15 @@ as "for development, not for production apps used by real advertisers."
   var involved either way; this is a dashboard setting this repo cannot read
   or set for you. See `lib/billing/renewalReminder.js` for why 7 and 30 days
   were chosen.
+- **`/api/cron/availability-apply`** — daily at 05:00 UTC: approved
+  availability requests whose effective date has arrived become the
+  person's AvailabilitySchedule rows (lib/availability/requests.js
+  `applyDue`). One invocation a day, one indexed read of
+  `AvailabilityRequest(status, effectiveFrom)`, and a write per request
+  that is due — most days none. Nothing beyond `CRON_SECRET`. A request
+  approved for today or a past date is applied at approval time and never
+  reaches this cron; it exists only so "takes effect Monday" lands on
+  Monday. ≈30 invocations a month against the Hobby/Pro cron budget.
 - **`/api/cron/grace-warning`** — the past-due read-only warning. No env var
   of its own beyond `CRON_SECRET` above, but it depends on the same Stripe
   billing webhook the grace period itself does: without

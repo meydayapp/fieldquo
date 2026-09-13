@@ -34,7 +34,8 @@ const round2 = (v) => Math.round((Number(v) || 0) * 100) / 100;
  * period nor the next one and is simply never paid.
  */
 const endOfDay = (d) => new Date(new Date(d).getTime() + 86400000 - 1);
-import { loadEnforceableMember, hasLevel } from "@/lib/permissions/enforce";
+import { loadEnforceableMember } from "@/lib/permissions/enforce";
+import { canSeeOwnPay } from "@/lib/payroll/ownPayGate";
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -43,13 +44,12 @@ export async function GET(request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   // Owners/admins hold everything; everyone else needs at least view_own.
+  // The rule lives in lib/payroll/ownPayGate.js because the employee home
+  // and the Earnings tab ask the same question.
   if (member.role !== "owner" && member.role !== "admin") {
     try {
       const full = await loadEnforceableMember(db, member.id);
-      const allowed =
-        hasLevel(full, "payroll", "view_own") ||
-        hasLevel(full, "payroll", "view_all") ||
-        hasLevel(full, "payroll", "run_payroll");
+      const allowed = canSeeOwnPay(full);
       if (!allowed) {
         return NextResponse.json(
           { error: "Payslips aren't shared with your account. Ask an owner." },

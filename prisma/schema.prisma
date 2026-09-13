@@ -1119,6 +1119,30 @@ model Company {
   /// One Json column rather than four scalars because nothing queries on the
   /// parts — they are read together, as one policy, every time.
   payCycle Json?
+
+  /// Does a shift trade or cover need a manager's approval after the peer has
+  /// accepted? Default true: the manager is the one who knows the crew, and a
+  /// swap that puts an apprentice alone on a site is theirs to refuse. When
+  /// false, the peer's acceptance completes the swap and the manager is told
+  /// rather than asked. Read by lib/shiftRequests/state.js.
+  shiftSwapsNeedApproval Boolean @default(true)
+  /// Does a change to somebody's availability need approval? Default true —
+  /// a worker who removes Fridays removes themselves from the rota, and the
+  /// person who writes the rota should hear about it before it happens. When
+  /// false, /app/settings/availability keeps writing directly, as it always
+  /// did, and the request screen says so.
+  availabilityNeedsApproval Boolean @default(true)
+  /// The company's limits on time off, above any one policy's balance:
+  /// blackout date ranges nobody may book, the most people off at once, and
+  /// which country's and province's statutory holidays the calendar follows.
+  ///
+  /// { blackouts: [{ from, to, label }], maxConcurrent, holidayRegion }
+  /// — resolved and validated by lib/leave/rules.js, which also says why this
+  /// is one Json column and not a LeaveBlackout table: nothing queries on the
+  /// parts, they are read together every time a request is judged, and the
+  /// list is three rows long in practice. Null means no rules, which is what
+  /// every company had before the column existed.
+  leaveRules Json?
   taxRate                Decimal          @default(0) @db.Decimal(6, 3)
   paymentMethods         String[]         @default(["cash", "e_transfer", "cheque"])
   bookingSlug            String?          @unique
@@ -1299,6 +1323,10 @@ model Company {
   forecastSettings      ForecastSettings?
   workers               Worker[]
   shifts                Shift[]
+  shiftRequests         ShiftRequest[]
+  availabilityRequests  AvailabilityRequest[]
+  shoutOuts             ShoutOut[]
+  scheduleEvents        ScheduleEvent[]
   eventTypes            EventType[]
   funnels               Funnel[]
   jobs                  Job[]
@@ -1855,6 +1883,9 @@ model User {
   changeOrdersCreated   ChangeOrder[]          @relation("ChangeOrderCreatedBy")
   changeOrdersDecided   ChangeOrder[]          @relation("ChangeOrderDecidedBy")
   shiftOverrides        Shift[]                @relation("ShiftAvailabilityOverride")
+  shiftRequestsDecided  ShiftRequest[]         @relation("ShiftRequestDecidedBy")
+  availabilityRequestsDecided AvailabilityRequest[] @relation("AvailabilityRequestDecidedBy")
+  scheduleEventsCreated ScheduleEvent[]        @relation("ScheduleEventCreatedBy")
   workerProfile         Worker?
   campaignsAssigned     MarketingCampaign[]    @relation("CampaignAssignee")
   // Who signed off on a marketing asset before it could be scheduled or
@@ -1906,6 +1937,7 @@ model Member {
   // companies is two participants, and neither may see the other's rooms.
   chatMemberships CompanyChatMember[]
   chatMessages    CompanyChatMessage[] @relation("CompanyChatAuthor")
+  shoutOutsSent   ShoutOut[]           @relation("ShoutOutFrom")
 
   @@unique([userId, companyId])
 }
@@ -5866,6 +5898,10 @@ model Worker {
   timeEntries TimeEntry[]
   locationStamps LocationStamp[]
   shifts      Shift[]
+  shiftRequestsFrom ShiftRequest[] @relation("ShiftRequestFrom")
+  shiftRequestsTo   ShiftRequest[] @relation("ShiftRequestTo")
+  availabilityRequests AvailabilityRequest[]
+  shoutOutsReceived ShoutOut[]
   payouts     Payout[]
   salaries    Salary[]
   payRunLines PayRunLine[]
@@ -5929,15 +5965,40 @@ model Shift {
   id        String   @id @default(cuid())
   companyId String
   company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  workerId  String
-  worker    Worker   @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  /// Null is an OPEN shift — hours the manager needs covered and has not
+  /// given to anyone yet. It sits on the week board's "Open shifts" row and,
+  /// once published, on every eligible worker's Home and Schedule as "Open
+  /// shift — claim it"; a claim is a ShiftRequest of kind `cover` with the
+  /// claimant as toWorker, and the shift gets its workerId when that request
+  /// is approved (or accepted, when the company does not require approval).
+  ///
+  /// Widened from required on 2026-09-13 rather than modelled as a separate
+  /// OpenShift table, because an open shift IS a shift: same times, job,
+  /// breaks, label, publish flag, same coverage maths once claimed. A second
+  /// table would need every reader of Shift duplicated for it, and the
+  /// "claim" would be a copy rather than an assignment. Every reader that
+  /// groups by workerId (the day board's rows, the coverage strip, the
+  /// worker's own GET) filters null out explicitly — an open shift is nobody
+  /// on site, and must never be counted as somebody.
+  workerId  String?
+  worker    Worker?  @relation(fields: [workerId], references: [id], onDelete: Cascade)
   jobId     String?
   job       Job?     @relation(fields: [jobId], references: [id], onDelete: SetNull)
   start     DateTime
   end       DateTime
   note      String?
+  /// "Lead", "Helper", "Yard" — the role this shift fills, in the manager's
+  /// own words. Free text, up to 40 characters, shown as the small uppercase
+  /// caption on the week board's block; null shows the job's client instead.
+  /// Not an enum for the same reason Worker.title is not: every trade names
+  /// its roles differently.
+  label     String?
   published Boolean  @default(false)
   createdAt DateTime @default(now())
+
+  /// Trade, cover and claim requests against this shift. See ShiftRequest.
+  requests        ShiftRequest[] @relation("ShiftRequestShift")
+  offeredInTrades ShiftRequest[] @relation("ShiftRequestOffered")
 
   /// Set when a manager scheduled this OUTSIDE what the worker said they were
   /// available for, and chose to go ahead.
@@ -6022,6 +6083,174 @@ model ShiftBreak {
 enum ShiftBreakKind {
   lunch
   break
+}
+
+/// A worker asking to give a shift away: a TRADE (I take yours, you take
+/// mine), a COVER (somebody takes mine, I take nothing), or a CLAIM of an open
+/// shift (a cover with the claimant as toWorker and no fromWorker to relieve).
+///
+/// ── The state machine ────────────────────────────────────────────────────
+///
+///   pending_peer     waiting on the colleague named in toWorkerId, or — for
+///                    an open cover — on anyone eligible to accept it.
+///   pending_manager  the peer said yes; waiting on the reporting line.
+///   approved         the shift's workerId has moved. Terminal.
+///   declined         by the peer or the manager, with a note. Terminal.
+///   cancelled        withdrawn by the requester before anyone decided. Terminal.
+///   expired          the shift started before anybody decided. Terminal.
+///
+/// Every transition is in lib/shiftRequests/state.js as a pure function the
+/// check script executes against hostile input; the routes call it and
+/// nothing else decides. The shift moves in the SAME transaction as the
+/// approval, after lib/scheduling/shiftFit.js has been re-run for the new
+/// person — a swap that lands somebody on approved leave is refused there
+/// with the reason, not discovered on the morning.
+///
+/// ── Expiry is lazy, on read ──────────────────────────────────────────────
+///
+/// A request whose shift has started is marked expired by the list routes
+/// when they next read it, not by a cron. A cron would cost an invocation a
+/// day to find rows nobody is looking at, and the only moment the difference
+/// matters is when somebody opens the list — which is exactly when the read
+/// happens. The transition is written back so the row's history is honest.
+model ShiftRequest {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  shiftId   String
+  shift     Shift   @relation("ShiftRequestShift", fields: [shiftId], references: [id], onDelete: Cascade)
+  kind      ShiftRequestKind
+  /// Who is giving the shift away. Null for a CLAIM of an open shift — there
+  /// is nobody to relieve.
+  fromWorkerId String?
+  fromWorker   Worker? @relation("ShiftRequestFrom", fields: [fromWorkerId], references: [id], onDelete: Cascade)
+  /// Who takes it. Null on an OPEN cover until somebody accepts; set on a
+  /// trade (the other person) and on a claim (the claimant) from the start.
+  toWorkerId String?
+  toWorker   Worker? @relation("ShiftRequestTo", fields: [toWorkerId], references: [id], onDelete: SetNull)
+  /// Trade only: the shift the requester takes in return.
+  offeredShiftId String?
+  offeredShift   Shift?  @relation("ShiftRequestOffered", fields: [offeredShiftId], references: [id], onDelete: SetNull)
+  status    ShiftRequestStatus @default(pending_peer)
+  note      String?
+  /// The peer's or manager's reason when declining; the fit check's refusal
+  /// when a swap could not be applied.
+  decisionNote String?
+  decidedById  String?
+  decidedBy    User?     @relation("ShiftRequestDecidedBy", fields: [decidedById], references: [id])
+  decidedAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([companyId, status])
+  @@index([shiftId])
+  @@index([fromWorkerId, status])
+  @@index([toWorkerId, status])
+}
+
+enum ShiftRequestKind {
+  trade
+  cover
+}
+
+enum ShiftRequestStatus {
+  pending_peer
+  pending_manager
+  approved
+  declined
+  cancelled
+  expired
+}
+
+/// A worker's proposed new availability, waiting to become their
+/// AvailabilitySchedule rows on `effectiveFrom`.
+///
+/// `days` is the SAME shape /api/availability PATCH takes — an array of
+/// { dayOfWeek, startTime, endTime, timezone } — so applying an approved
+/// request is the ordinary "replace the week" write and not a second
+/// arithmetic. Multiple rows per day are allowed (the schedule table has no
+/// per-day unique), which is how "8–12 and 2–6" is said; a day with no rows
+/// is a day they are not available, and an empty array is "never" — which
+/// the request screen refuses to submit, because a request to be available
+/// at no time is a resignation typed into the wrong form.
+///
+/// Applied by the approval route when effectiveFrom is today or past, and by
+/// /api/cron/availability-apply (daily, 05:00 UTC) when it is in the future —
+/// the request stays `approved` with `appliedAt` null until then, so the
+/// worker's screen can say "approved, takes effect Monday" rather than
+/// silently changing their week early.
+model AvailabilityRequest {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  workerId  String
+  worker    Worker  @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  effectiveFrom DateTime
+  days      Json
+  desiredHoursPerWeek Decimal? @db.Decimal(5, 2)
+  note      String?
+  status    AvailabilityRequestStatus @default(pending)
+  decisionNote String?
+  decidedById  String?
+  decidedBy    User?     @relation("AvailabilityRequestDecidedBy", fields: [decidedById], references: [id])
+  decidedAt    DateTime?
+  /// When the rows were actually written. Null until then, even when approved.
+  appliedAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([companyId, status])
+  @@index([workerId, status])
+  @@index([status, effectiveFrom])
+}
+
+enum AvailabilityRequestStatus {
+  pending
+  approved
+  declined
+}
+
+/// "Great work on the Dubois kitchen" — one colleague to another, in 240
+/// characters. Shows on the recipient's Home and in the company feed on
+/// everyone's Home. No reactions, no threads, no counts: the whole feature
+/// is that somebody said it and everybody saw it.
+///
+/// From a MEMBER (anyone with a login can send one) to a WORKER (the person
+/// on the roster, who may have no login — a shout-out to the yard hand still
+/// shows on the feed). Cascades with either: a shout-out is about the two
+/// people, and means nothing when one is gone.
+model ShoutOut {
+  id           String   @id @default(cuid())
+  companyId    String
+  company      Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  fromMemberId String
+  fromMember   Member   @relation("ShoutOutFrom", fields: [fromMemberId], references: [id], onDelete: Cascade)
+  toWorkerId   String
+  toWorker     Worker   @relation(fields: [toWorkerId], references: [id], onDelete: Cascade)
+  message      String
+  createdAt    DateTime @default(now())
+
+  @@index([companyId, createdAt])
+  @@index([toWorkerId, createdAt])
+}
+
+/// A company event on one day — "Safety meeting 7:30", "Yard closed" — on
+/// the week board's Events row and on every worker's Home and Schedule for
+/// that day. A calendar DATE (midnight UTC, like LeaveRequest.startDate),
+/// not an instant: the event is "on Tuesday", and a time in the title is
+/// the manager's to type.
+model ScheduleEvent {
+  id          String   @id @default(cuid())
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  date        DateTime
+  title       String
+  description String?
+  createdById String?
+  createdBy   User?    @relation("ScheduleEventCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+
+  @@index([companyId, date])
 }
 
 model Payout {
