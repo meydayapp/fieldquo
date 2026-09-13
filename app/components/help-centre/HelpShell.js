@@ -22,6 +22,7 @@ import { HELP_CHROME_LANGS } from "@/lib/help/chrome";
 import { LANGUAGES } from "@/app/i18n/languages";
 import HelpSearch from "./HelpSearch";
 import { HelpContactLink, HelpLanguageMenu, HelpThemeToggle } from "./HelpChromeControls";
+import HelpHostLinks from "./HelpHostLinks";
 
 // Languages the picker offers: those with chrome, in the app's own order,
 // with the native name the app's own switcher uses.
@@ -38,6 +39,7 @@ export default function HelpShell({ lang, t, children, showSearch = true }) {
   const labels = categoryLabels(t);
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
+      <HelpHostLinks />
       <header className="sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4 sm:px-6">
           {/* The navy wordmark vanishes on the dark header; the composed

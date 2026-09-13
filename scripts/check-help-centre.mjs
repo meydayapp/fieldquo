@@ -43,7 +43,7 @@ import { fileURLToPath } from "node:url";
 import { HELP_LANGS, HELP_TREE, HELP_ARTICLES, HELP_CATEGORIES, REAL_CATEGORY_KEYS, articleMeta, articleForScreen, categoryOf } from "@/lib/help/tree";
 import { HELP_CHROME, HELP_CHROME_LANGS, HELP_CHROME_KEYS, helpT } from "@/lib/help/chrome";
 import { isHelpHost } from "@/lib/help/host";
-import { helpPath, helpCanonical, figureSrc } from "@/lib/help/urls";
+import { helpPath, helpCanonical, shortHelpPath, figureSrc } from "@/lib/help/urls";
 import { parseFigureRef } from "@/lib/help/figures";
 import { pickHelpLang } from "@/lib/help/lang";
 import { RESERVED_SUBDOMAINS, subdomainFromHost, validateSubdomain } from "@/lib/site/subdomain";
@@ -335,6 +335,12 @@ section("6. Routing: reserved host, middleware order, theme");
     const src = read("app/components/help-centre/HelpChromeControls.js");
     ok("swapLang handles both the /help-prefixed and the short pathname", src.includes('const i = parts[1] === "help" ? 2 : 1;'));
   }
+  ok("shortHelpPath strips the /help prefix and helpCanonical uses it", shortHelpPath("en") === "/en" && shortHelpPath("fr", "settings", "x") === "/fr/settings/x" && helpCanonical("fr", "settings", "x") === "https://help.fieldquo.com/fr/settings/x" && !helpCanonical("en").includes("/help/"));
+  const root = read("app/help/page.js");
+  ok("/help redirects to the SHORT form on the help host and the /help form elsewhere", root.includes('redirect(isHelpHost(h.get("host")) ? shortHelpPath(lang) : helpPath(lang))'));
+  const hostLinks = read("app/components/help-centre/HelpHostLinks.js");
+  ok("on the help host, clicks on /help/… links navigate to the short path client-side", hostLinks.includes('window.location.hostname.startsWith("help.")') && hostLinks.includes('url.pathname.slice("/help".length)') && read("app/components/help-centre/HelpShell.js").includes("<HelpHostLinks />"));
+  ok("the sitemap and the article canonical both come from helpCanonical (short form)", read("app/help/sitemap.xml/route.js").includes("helpCanonical(l, category, slug)") && read("app/help/[lang]/[category]/[article]/page.js").includes("canonical: helpCanonical(lang, category, slug)"));
   ok("pickHelpLang: q-values, regions, junk, default",
     pickHelpLang("fr-CA,fr;q=0.9,en;q=0.8") === "fr" && pickHelpLang("es-MX") === "es" && pickHelpLang("de-DE,uk;q=0.7,en;q=0.3") === "en" &&
     pickHelpLang("en;q=0.2, fr;q=0.9") === "fr" && pickHelpLang("") === "en" && pickHelpLang(null) === "en" && pickHelpLang("*;q=0, ;;;") === "en");
