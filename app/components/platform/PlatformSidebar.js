@@ -366,6 +366,10 @@ const GROUPS = [
     label: "FieldQuo's own systems",
     items: [
       { label: "AI usage", href: "/platform/ai-usage", icon: Sparkles },
+      // Where fieldquo.com's traffic goes, the signup funnel, which /app
+      // screens are used and by how many companies. FieldQuo's own count
+      // (lib/analytics/product/), so it sits with FieldQuo's own systems.
+      { label: "Analytics", href: "/platform/analytics", icon: BarChart3 },
       // FieldQuo's OWN phone agent, not a tenant's receptionist. Sits next to
       // AI usage rather than anywhere near Companies for exactly that reason
       // — this row is about what FieldQuo says on its own line, and putting

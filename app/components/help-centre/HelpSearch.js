@@ -17,6 +17,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Search, X } from "lucide-react";
 import { helpPath, searchIndexSrc } from "@/lib/help/urls";
+import { trackHelpSearch } from "@/lib/analytics/track";
 
 const norm = (s) =>
   String(s || "")
@@ -82,6 +83,18 @@ export default function HelpSearch({ lang, placeholder, label, noneLabel, countL
       .slice(0, 12)
       .map((r) => r.e);
   }, [index, q]);
+
+  // What people look for, and what they do not find — the help centre's
+  // "searches with no results" list on /platform/analytics. Recorded once the
+  // typing has SETTLED (a second of silence), never per keystroke, so "invo"
+  // and "invoi" are not two searches; the query is bounded and lower-cased
+  // server-side and no account or page is attached. Rides in the next
+  // beacon rather than sending one of its own (lib/analytics/track.js).
+  useEffect(() => {
+    if (!index || q.trim().length < 2) return undefined;
+    const id = setTimeout(() => trackHelpSearch(q, results.length), 1000);
+    return () => clearTimeout(id);
+  }, [q, index, results.length]);
 
   const showPanel = open && q.trim().length > 1;
 

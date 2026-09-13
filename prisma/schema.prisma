@@ -5906,8 +5906,63 @@ model Shift {
   /// typing, but a reason makes the record worth reading later.
   availabilityOverrideNote String?
 
+  /// Lunch and breaks inside this shift. See ShiftBreak.
+  breaks ShiftBreak[]
+
   @@index([companyId, start])
   @@index([workerId, start])
+}
+
+/// A lunch or a break inside one shift — a window when the person is on the
+/// rota but not on the tools.
+///
+/// ── Why a child model and not a Json column on Shift ─────────────────────────
+///
+/// Every break is READ by three different things: the day board's coverage
+/// strip (who is actually working at 12:30, so a manager can see whether the
+/// two people on lunch leave anyone on site), the worker's own published shift,
+/// and later payroll (an unpaid half hour comes off the expected hours that
+/// logged time is checked against). A Json blob would be written by the modal
+/// and read by nothing until somebody remembered to parse it — the exact
+/// "written and never read" failure class this codebase is swept for — and a
+/// query like "who is on break between 12:00 and 13:00" would be a full scan
+/// with a JSON parse per row instead of an index hit on (shiftId, start).
+///
+/// ── Why per shift and not a company policy ("lunch is 12–12:30") ───────────
+///
+/// Because coverage is the whole point. A company-wide lunch puts everyone off
+/// the tools at the same moment; the manager STAGGERS lunches precisely so
+/// somebody is always on site, and a staggered rota is a different time per
+/// person per day. A default can be offered by the screen (the "add a 30-minute
+/// lunch at the midpoint" button does exactly that) but the record is the
+/// actual window this person was given, on this shift.
+///
+/// Instants, like Shift.start and Shift.end, never wall-clock strings: a break
+/// is a slice of a shift that is itself an instant, and mixing the two would
+/// put a break on the wrong side of a daylight-saving change.
+///
+/// Cascade: a break has no meaning outside its shift. Deleting the shift
+/// (already a Manager-level action, see DELETE /api/shifts/[id]) takes its
+/// breaks with it.
+model ShiftBreak {
+  id        String         @id @default(cuid())
+  shiftId   String
+  shift     Shift          @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+  start     DateTime
+  end       DateTime
+  kind      ShiftBreakKind @default(break)
+  /// Paid breaks stay inside the scheduled hours; an unpaid lunch comes off
+  /// them. Defaulted to unpaid because a lunch is the common case and an
+  /// unpaid one is the one that must never be silently counted as work.
+  paid      Boolean        @default(false)
+  createdAt DateTime       @default(now())
+
+  @@index([shiftId, start])
+}
+
+enum ShiftBreakKind {
+  lunch
+  break
 }
 
 model Payout {
@@ -14624,4 +14679,90 @@ model SalesSignupProgress {
   @@index([leadId, salesRepId])
   @@index([salesRepId, openedAt])
   @@index([companyId])
+}
+
+// ============================================================
+// FieldQuo's own page-view measurement — lib/analytics/product/
+// ============================================================
+//
+// First-party, no third-party tracker, no cookie, no IP. Two tables:
+//
+//   AnalyticsEvent  one row per hit (page view, signup step, help search,
+//                   feature use), kept RAW_RETENTION_DAYS (30) and then
+//                   compacted by /api/cron/analytics-compact — the ONE
+//                   scheduled deletion in the product, and it deletes only
+//                   these rows. lib/analytics/product/rollup.js.
+//   AnalyticsDaily  the count per (UTC day, surface, event, path, language,
+//                   company, demo) that every screen reads, incremented in
+//                   the same transaction as the raw insert. `uniqueVisitors`
+//                   is null until compaction fills it from the raw rows.
+//
+// Additive: nothing references these and they reference nothing — a
+// companyId here is a plain string, never a relation, so a company's own
+// deletion path is untouched and a hit can outlive a demo company's retirement.
+model AnalyticsEvent {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  /// page_view | signup_step | checkout_started | help_search | feature_used
+  event   String
+  /// marketing | help | app | sales | platform | client — decided from the
+  /// route pattern on the server, never from what the browser claimed.
+  surface String
+  /// The route PATTERN ("/app/quotes/[id]"), a funnel step, a feature key,
+  /// or a bounded help query. Never an id, a token or a query string.
+  path     String
+  language String @default("")
+
+  /// Who to count as one: the anonymous per-browser id on public surfaces,
+  /// the member id on /app, the rep id on /sales, the admin id on /platform.
+  /// Null for a server-only event with nobody behind it (a Stripe webhook).
+  visitorId String?
+  companyId String?
+  memberId  String?
+  repId     String?
+  /// Company.isDemo at write time — the console excludes these by default.
+  isDemo    Boolean @default(false)
+
+  /// The referring site's HOST on the first view of a page load; our own
+  /// hosts are never recorded. utm_* from the landing query string.
+  referrerHost String?
+  utmSource    String?
+  utmMedium    String?
+  utmCampaign  String?
+  /// phone | tablet | desktop
+  viewport String?
+  /// help_search: { results }. Nothing else writes it.
+  meta Json?
+
+  @@index([createdAt])
+  @@index([surface, createdAt])
+  @@index([companyId, createdAt])
+}
+
+model AnalyticsDaily {
+  id String @id @default(cuid())
+  /// date|surface|event|path|language|companyId|demo joined on U+001F —
+  /// the upsert target; every part is bounded and control-free at the door.
+  key String @unique
+
+  date     DateTime @db.Date
+  surface  String
+  /// The raw event names, plus the dimension rows only this table carries:
+  /// referrer (path = host), utm_campaign, utm_source, help_search_empty.
+  event    String
+  path     String
+  language String  @default("")
+  companyId String?
+  isDemo    Boolean @default(false)
+
+  count          Int  @default(0)
+  /// Distinct visitorIds that day for this key. Null until the compaction
+  /// cron has folded the day's raw rows; the console reads the raw rows for
+  /// days still inside the retention window.
+  uniqueVisitors Int?
+
+  @@index([date, surface])
+  @@index([surface, event, date])
+  @@index([companyId, date])
 }

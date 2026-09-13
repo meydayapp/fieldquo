@@ -98,6 +98,16 @@ function answer(p, u, method, body) {
       contact: { to: "+14055550177", choices: [{ id: "cn1", e164: "+14055550177", kind: "mobile", label: "Dave — mobile", preferred: true }], refused: [] },
       messages: [{ id: "sm1", toE164: "+14055550177", body: "Hi Dave, Daniel from FieldQuo. Did the booking link land in your inbox OK?", sentAt: "2026-09-09T16:02:00.000Z" }],
     };
+  if (p === "/api/sales/product-usage") {
+    // The "What contractors use most" card: past the 150-view gate, the top
+    // ten features by sidebar key with a pricing-page summary key each.
+    const items = [
+      ["app.nav.quotes", "feature.quotes.summary", 1_266, 38], ["app.nav.home", "feature.dashboard.summary", 1_104, 40], ["app.nav.jobs", "feature.jobs.summary", 733, 31],
+      ["app.nav.invoices", "feature.invoices.summary", 612, 29], ["app.nav.calendar", "feature.scheduling.summary", 588, 27], ["app.nav.clients", "feature.clients.summary", 402, 26],
+      ["app.nav.requests", "feature.leads.summary", 366, 21], ["app.nav.settings", null, 244, 33], ["app.nav.messages", null, 120, 9], ["app.nav.team", "feature.team_access.summary", 96, 18],
+    ].map(([navKey, summaryKey, views, companies], i) => ({ rank: i + 1, navKey, summaryKey, registryBlurb: navKey === "app.nav.messages" ? "Facebook Page and Instagram DMs answered from one inbox." : null, views, companies }));
+    return { days: 30, eligible: true, totalViews: 6_873, threshold: 150, items };
+  }
   if (p === "/api/sales/funnel") {
     const monthKey = monthKeyOf(new Date());
     const [y, mo] = monthKey.split("-").map(Number);

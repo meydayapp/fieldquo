@@ -118,6 +118,14 @@ export const rows = {
   // once per request by loadRetryRules, the second stamped step by step.
   salesRetryRule: [],
   salesSignupProgress: [],
+  // FieldQuo's own page-view tables (lib/analytics/product/store.js). Every
+  // writer that a check executes — a quote send, a booking finalise — now
+  // records a feature use, so the two delegates have to exist here or the
+  // Proxy below throws on the availability probe. Recorded like any write;
+  // scripts/check-product-analytics.mjs asserts the store's semantics with
+  // its own stub, this one only has to be present and quiet.
+  analyticsEvent: [],
+  analyticsDaily: [],
 };
 
 /** Every write the product attempted, in order: { model, action, data }. */
@@ -495,6 +503,8 @@ export const db = new Proxy(
     platformAuditLog: model("platformAuditLog"),
     salesRetryRule: model("salesRetryRule"),
     salesSignupProgress: model("salesSignupProgress"),
+    analyticsEvent: model("analyticsEvent"),
+    analyticsDaily: model("analyticsDaily"),
     marketingCampaignDelivery: uniqueCreateModel("marketingCampaignDelivery", [
       "campaignId",
       "subscriberId",

@@ -731,6 +731,7 @@ export const ARTICLES = {
         heading: "Quels services voient quelles données",
         blocks: [
           { p: "La page de confidentialité de FieldQuo liste chaque service externe auquel le produit est branché, et la compilation échoue si la liste cesse de correspondre au code. Voici cette liste, dans les mots qui comptent pour un entrepreneur." },
+          { p: "Une chose n’y figure PAS, volontairement : un service d’analyse Web. FieldQuo compte lui-même quelles pages de son propre site sont ouvertes, sans témoin de suivi, sans pixel publicitaire et sans conserver d’adresse IP — il enregistre la route de la page, jamais quelle soumission ou quel client s’y trouvait." },
           { table: {
             head: ["Service", "Ce qu'il reçoit"],
             rows: [

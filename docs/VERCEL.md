@@ -324,6 +324,37 @@ Set only to override. The default is in brackets.
 
 ---
 
+## Not a variable — FieldQuo's own page-view analytics (added 2026-09-13)
+
+There is nothing to set. `POST /api/track` receives one beacon per page view
+from `lib/analytics/track.js` (mounted once in `app/layout.js`) and writes
+`AnalyticsEvent` + `AnalyticsDaily`; `/api/cron/analytics-compact` (03:10
+UTC, `vercel.json`) folds raw rows older than 30 days into the daily table
+and deletes them — **the one scheduled deletion in the product, of FieldQuo's
+own page-view rows only**, never a customer's data
+(`lib/analytics/product/rollup.js`). The report is `/platform/analytics`
+(superadmin + admin) and the rep card is `/api/sales/product-usage` (top ten
+/app features, shown only past 150 views).
+
+Privacy, as stated on `/privacy` and in the help centre: no third-party
+tracker, no cookie, **no IP stored**. A page is recorded as its route pattern
+(`/app/quotes/[id]`, never the id or a token), with the interface language,
+a viewport bucket, the referrer's host and any `utm_*` tags on the landing;
+public surfaces carry a random id in `localStorage` (`fieldquo:aid`) so one
+reader counts once; signed-in surfaces carry none — the member / rep / admin
+comes from the session server-side. Impersonation sessions are not counted.
+
+Cost: one function invocation per page view plus one flush on tab hide, rate-
+limited 200 / 10 min per IP. At 100 active users × ~40 views a day that is
+~4,000 invocations and ~5,000 raw rows a day (≈150k rows a month, capped at
+~30 days ≈ 150k rows resident); daily rows are a few thousand a month.
+
+A developer's `npm run dev` on localhost sends nothing (it would count its
+own clicks into the production Neon database) unless
+`localStorage["fieldquo:track-local"] = "1"` is set in that browser.
+
+---
+
 ## After changing anything here
 
 Vercel does **not** apply new environment variables to a running deployment.

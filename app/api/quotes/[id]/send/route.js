@@ -32,6 +32,7 @@ import { planOrRefusal } from "@/lib/signup/planGate";
 import { onQuoteSent } from "@/lib/quotes/quoteLifecycle";
 import { onQuoteEmailed } from "@/lib/voice/triggers";
 import { recordActivity } from "@/lib/activity/log";
+import { recordFeatureUse } from "@/lib/analytics/product/server";
 import { recordError, errorDetail } from "@/lib/platform/errorLog";
 import {
   loadEnforceableMember,
@@ -412,6 +413,10 @@ export async function POST(request, { params }) {
       console.error("[quotes/send] couldn't queue the callback:", err?.message),
     );
   }
+
+  // FieldQuo's own usage count (lib/analytics/product/server.js): a quote
+  // left, so "quote_sent" moves. After the send, best-effort, never throws.
+  await recordFeatureUse("quote_sent", { companyId: member.companyId, memberId: member.id });
 
   await recordActivity(member, {
     action: isFollowUp ? "quote.followed_up" : "quote.sent",

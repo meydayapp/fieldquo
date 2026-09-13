@@ -74,6 +74,7 @@ import {
 } from "./nextAction";
 import OutreachNotice from "./leads/OutreachNotice";
 import MyFunnelCard from "./MyFunnelCard";
+import ProductUsageCard from "./ProductUsageCard";
 
 const CARD = "rounded-xl border border-border bg-card p-4 space-y-3";
 const BTN =
@@ -433,6 +434,9 @@ export default function SalesHomePage() {
 
       {/* ── The rep's funnel this month — its own card, its own fetch ──────── */}
       <MyFunnelCard />
+
+      {/* ── What contractors use most — gated at 150 /app views by the route ── */}
+      <ProductUsageCard />
 
       {/* ── The signup link ───────────────────────────────────────────────── */}
       <section className={CARD}>

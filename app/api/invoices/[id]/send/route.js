@@ -24,6 +24,7 @@ import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { planOrRefusal } from "@/lib/signup/planGate";
 import { recordActivity } from "@/lib/activity/log";
+import { recordFeatureUse } from "@/lib/analytics/product/server";
 import { sendEmail, SENDER_SELECT } from "@/lib/email/resend";
 import { resolveSender } from "@/lib/email/companySender";
 import { ensurePortalToken, portalInvoiceUrl } from "@/lib/clientPortal";
@@ -207,6 +208,9 @@ export async function POST(request, { params }) {
     },
     select: { status: true, sentAt: true, sentToEmail: true },
   });
+
+  // Usage count — see lib/analytics/product/server.js.
+  await recordFeatureUse("invoice_sent", { companyId: member.companyId, memberId: member.id });
 
   await recordActivity(member, {
     action: "invoice.sent",

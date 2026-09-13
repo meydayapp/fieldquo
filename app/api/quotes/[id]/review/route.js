@@ -10,6 +10,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
+import { recordFeatureUse } from "@/lib/analytics/product/server";
 import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { requirePermission } from "@/lib/permissions";
 import { reviewQuote } from "@/lib/ai/quoteReview";
@@ -105,6 +106,10 @@ export async function POST(request, { params }) {
       data: { aiReview: review, aiReviewedAt: new Date() },
       select: { aiReviewedAt: true },
     });
+
+    // Usage count — see lib/analytics/product/server.js. After the review is
+    // stored, so a run the model refused is not counted as one that ran.
+    await recordFeatureUse("ai_review_run", { companyId: member.companyId, memberId: member.id });
 
     return NextResponse.json({
       review,

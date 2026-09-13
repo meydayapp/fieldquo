@@ -95,6 +95,7 @@ on all ten abandoned signups).
 | A recommendation may only cite a real capability | `ProspectOpportunity.capabilityCode` FK → `FieldQuoCapability` |
 | A rep never writes their own attribution or ledger | `lib/sales/gate.js` |
 | FieldQuo's own spend is not a tenant's | `PlatformAiUsage`, `PlatformVoiceCall` |
+| The one scheduled deletion is of FieldQuo's own page-view rows, never a tenant's | `lib/analytics/product/store.js` — `AnalyticsEvent` only, by day, after the day's counts are on `AnalyticsDaily` |
 
 ## Three-valued fields — `null` is not `false`
 
@@ -247,6 +248,8 @@ tenancy, so it carries no information.
 | `AiCreditBundle` | — | Company |
 | `AiEmployee` | — | AiEmployeeSource, Company |
 | `AiEmployeeSource` | AiEmployee | — |
+| `AnalyticsDaily` | — | — |
+| `AnalyticsEvent` | — | — |
 | `Appointment` | Booking, Client, Quote | Booking |
 | `Asset` | Debt | AssetDocument, AssetUseLog, Expense |
 | `AssetDocument` | Asset | — |

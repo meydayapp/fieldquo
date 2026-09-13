@@ -41,6 +41,7 @@ import { LANGUAGES } from "@/app/i18n/languages";
 import { COUNTRIES } from "@/lib/currency";
 import { isInternalPath } from "@/lib/appUrl";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { trackSignupStep, trackCheckoutStarted } from "@/lib/analytics/track";
 
 // "1 month free" / "3 months free". The banner hardcoded the plural and read
 // "1 months free" for the whole life of the current one-month offer. Same
@@ -876,6 +877,19 @@ export default function SignupPage() {
   // writer's first pass holding the empty initial form, and it would save that
   // over the draft it is here to preserve.
   const [hydrated, setHydrated] = useState(false);
+
+  // The public signup funnel on /platform/analytics — every visitor, not only
+  // the ones a rep texted. One event per step SHOWN, after the draft has been
+  // restored so a resumed visit counts where it landed and not at "account".
+  // "visited" is the page view itself; "checkout started" fires at the
+  // handoff below; "completed" is the server's, from the billing sync
+  // (lib/analytics/product/events.js SIGNUP_FUNNEL). Anonymous: the beacon
+  // carries a route pattern and a step name, nothing typed into the form.
+  useEffect(() => {
+    if (!hydrated) return;
+    const funnelStep = { account: "account", business: "account", industry: "trades", services: "services", plan: "plan" }[step];
+    if (funnelStep) trackSignupStep(funnelStep);
+  }, [hydrated, step]);
   const draftStepRef = useRef(null);
 
   useEffect(() => {
@@ -1423,6 +1437,7 @@ export default function SignupPage() {
         // company that was created weeks ago, and handleFinish already removed
         // it on the run that created it. Clearing it again would be tidying
         // something that isn't there.
+        trackCheckoutStarted();
         window.location.href = data.checkoutUrl;
         return;
       } catch (err) {
@@ -1488,6 +1503,8 @@ export default function SignupPage() {
         // Nothing to do about it, and nothing that should stop checkout.
       }
 
+      // The funnel's "checkout started" bar; flushed before the navigation.
+      trackCheckoutStarted();
       window.location.href = data.checkoutUrl;
     } catch (err) {
       setError(err?.message || t("app.signup.error.finishCompany", "Could not finish setting up your company"));

@@ -116,6 +116,19 @@ export default function PrivacyPage() {
           able to show it happened.
         </li>
       </ul>
+      <h3>Page views</h3>
+      <p>
+        FieldQuo measures which of its own pages are viewed &mdash; the
+        marketing site, the help centre, the back office and the pages a
+        company&apos;s clients open &mdash; itself, without any third-party
+        analytics service, tracking cookie or advertising pixel. What is
+        recorded is the page&apos;s route (never the specific quote, booking
+        or client it showed), the interface language, a screen-size bucket,
+        the referring site&apos;s domain and any campaign tags in the link,
+        plus a random identifier kept in the browser&apos;s own storage so
+        that one reader is counted once. No IP address is stored. Raw entries
+        are kept for 30 days and then reduced to daily totals.
+      </p>
       <p>
         We do not knowingly collect information from anyone we know to be a
         minor, and FieldQuo is built for business-to-business and

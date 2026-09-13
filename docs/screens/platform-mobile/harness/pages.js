@@ -9,6 +9,7 @@ import React from "react";
 
 import PlatformDashboard from "@/app/platform/page";
 import AiUsagePage from "@/app/platform/ai-usage/page";
+import AnalyticsPage from "@/app/platform/analytics/page";
 import AuditLogPage from "@/app/platform/audit-log/page";
 import BillingPlansPage from "@/app/platform/billing/plans/page";
 import BillingPromotionsPage from "@/app/platform/billing/promotions/page";
@@ -91,6 +92,7 @@ const asyncPage = (Component, params) => {
 export const PAGES = {
   "/platform": { render: page(PlatformDashboard) },
   "/platform/ai-usage": { render: page(AiUsagePage) },
+  "/platform/analytics": { render: page(AnalyticsPage) },
   "/platform/audit-log": { render: page(AuditLogPage) },
   "/platform/billing/plans": { render: page(BillingPlansPage) },
   "/platform/billing/promotions": { render: page(BillingPromotionsPage) },

@@ -14354,5 +14354,264 @@
   "tapCount": 1,
   "truncatedCount": 0,
   "smallInputCount": 0
+ },
+ "/platform/analytics @375": {
+  "file": "analytics-375.png",
+  "vw": 375,
+  "vh": 812,
+  "docW": 375,
+  "docH": 3414,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [
+   {
+    "width": 309,
+    "y": 1444,
+    "inScroller": true,
+    "scrollerFits": true,
+    "caption": "Page"
+   },
+   {
+    "width": 309,
+    "y": 1916,
+    "inScroller": true,
+    "scrollerFits": true,
+    "caption": "Language"
+   },
+   {
+    "width": 309,
+    "y": 2128,
+    "inScroller": true,
+    "scrollerFits": true,
+    "caption": "Referring site"
+   },
+   {
+    "width": 309,
+    "y": 2411,
+    "inScroller": true,
+    "scrollerFits": true,
+    "caption": "Campaign"
+   },
+   {
+    "width": 309,
+    "y": 2590,
+    "inScroller": true,
+    "scrollerFits": true,
+    "caption": "Source"
+   },
+   {
+    "width": 309,
+    "y": 2851,
+    "inScroller": true,
+    "scrollerFits": true,
+    "caption": "Article"
+   },
+   {
+    "width": 309,
+    "y": 3050,
+    "inScroller": true,
+    "scrollerFits": true,
+    "caption": "Query"
+   },
+   {
+    "width": 309,
+    "y": 3225,
+    "inScroller": true,
+    "scrollerFits": true,
+    "caption": "Query"
+   }
+  ],
+  "tap": [
+   {
+    "tag": "input",
+    "cls": "h-4 w-4",
+    "text": "",
+    "x": 16,
+    "y": 327,
+    "w": 16,
+    "h": 16,
+    "right": 32,
+    "inline": false,
+    "primary": false,
+    "type": "checkbox"
+   }
+  ],
+  "tapPrimary": [],
+  "truncated": [
+   {
+    "tag": "span",
+    "cls": "text-foreground truncate",
+    "text": "Account & company",
+    "x": 33,
+    "y": 900,
+    "w": 78,
+    "h": 20,
+    "right": 111
+   },
+   {
+    "tag": "span",
+    "cls": "text-foreground truncate",
+    "text": "Checkout started",
+    "x": 33,
+    "y": 1012,
+    "w": 98,
+    "h": 20,
+    "right": 131
+   },
+   {
+    "tag": "span",
+    "cls": "text-foreground truncate",
+    "text": "Completed (card entered)",
+    "x": 33,
+    "y": 1040,
+    "w": 95,
+    "h": 20,
+    "right": 128
+   }
+  ],
+  "dialogs": [],
+  "fixed": [],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 375,
+   "h": 3357,
+   "right": 375
+  },
+  "smallInputs": [],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Analytics"
+  ],
+  "textLength": 2406,
+  "consoleErrors": [],
+  "tapCount": 1,
+  "truncatedCount": 3,
+  "smallInputCount": 0
+ },
+ "/platform/analytics @768": {
+  "file": "analytics-768.png",
+  "vw": 768,
+  "vh": 1024,
+  "docW": 768,
+  "docH": 2957,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [
+   {
+    "width": 686,
+    "y": 1043,
+    "inScroller": true,
+    "scrollerFits": true,
+    "caption": "Page"
+   },
+   {
+    "width": 686,
+    "y": 1491,
+    "inScroller": true,
+    "scrollerFits": true,
+    "caption": "Language"
+   },
+   {
+    "width": 686,
+    "y": 1703,
+    "inScroller": true,
+    "scrollerFits": true,
+    "caption": "Referring site"
+   },
+   {
+    "width": 686,
+    "y": 1986,
+    "inScroller": true,
+    "scrollerFits": true,
+    "caption": "Campaign"
+   },
+   {
+    "width": 686,
+    "y": 2165,
+    "inScroller": true,
+    "scrollerFits": true,
+    "caption": "Source"
+   },
+   {
+    "width": 686,
+    "y": 2410,
+    "inScroller": true,
+    "scrollerFits": true,
+    "caption": "Article"
+   },
+   {
+    "width": 686,
+    "y": 2585,
+    "inScroller": true,
+    "scrollerFits": true,
+    "caption": "Query"
+   },
+   {
+    "width": 686,
+    "y": 2760,
+    "inScroller": true,
+    "scrollerFits": true,
+    "caption": "Query"
+   }
+  ],
+  "tap": [
+   {
+    "tag": "input",
+    "cls": "h-4 w-4",
+    "text": "",
+    "x": 214,
+    "y": 219,
+    "w": 16,
+    "h": 16,
+    "right": 230,
+    "inline": false,
+    "primary": false,
+    "type": "checkbox"
+   }
+  ],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 768,
+   "h": 2900,
+   "right": 768
+  },
+  "smallInputs": [
+   {
+    "tag": "select",
+    "cls": "border border-border rounded-lg px-3 py-2 min-h-[44px] lg:min-h-[36px] text-sm bg-card text-foreground",
+    "text": "Last 7 daysLast 30 daysLast 90 days",
+    "x": 73,
+    "y": 205,
+    "w": 129,
+    "h": 44,
+    "right": 202,
+    "fontSize": "14px"
+   }
+  ],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Analytics"
+  ],
+  "textLength": 2406,
+  "consoleErrors": [],
+  "tapCount": 1,
+  "truncatedCount": 0,
+  "smallInputCount": 1
  }
 }

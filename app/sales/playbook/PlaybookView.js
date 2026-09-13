@@ -31,6 +31,7 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 import { STAGES, orderStages } from "@/lib/sales/playbook/stages";
 
 import PlaybookSearch from "./PlaybookSearch";
+import ProductUsageCard from "../ProductUsageCard";
 
 const CARD = "rounded-xl border border-border bg-card";
 
@@ -157,6 +158,15 @@ export default function PlaybookView({
             </div>
           </details>
         ))}
+      </section>
+
+      {/* What contractors actually open, so "what do people use it for?" is
+          answered with a count. The same card as the home screen; the route
+          holds it back until 150 /app views stand behind it. */}
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold text-foreground">{t("app.salesUsage.title")}</h2>
+        <p className="text-sm text-muted-foreground max-w-2xl">{t("app.salesUsage.playbookIntro")}</p>
+        <ProductUsageCard compact />
       </section>
 
       <section className="space-y-3">

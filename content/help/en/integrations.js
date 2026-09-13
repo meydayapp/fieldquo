@@ -734,6 +734,7 @@ export const ARTICLES = {
         heading: "Which services see which data",
         blocks: [
           { p: "FieldQuo's privacy page lists every outside service the product is wired to, and the build fails if the list stops matching the code. This is that list, in the words that matter to a contractor." },
+          { p: "One thing is deliberately NOT on it: a web-analytics service. FieldQuo counts which of its own pages are opened by itself, without a tracking cookie, an advertising pixel or a stored IP address — it records the page's route, never which quote or client was on it." },
           { table: {
             head: ["Service", "What it receives"],
             rows: [

@@ -36,6 +36,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
+import { recordFeatureUse } from "@/lib/analytics/product/server";
 import {
   loadEnforceableMember,
   requireLevel,
@@ -437,6 +438,10 @@ export async function POST(request, { params }) {
   // transaction and best effort — a reply that reached the homeowner must
   // never be reported as failed because a chip could not be repainted.
   await rescoreThread({ threadId: thread.id, companyId: member.companyId }).catch(() => null);
+
+  // Usage count — see lib/analytics/product/server.js. Below the `!result.ok`
+  // return on purpose: a reply Meta refused is not a message sent.
+  await recordFeatureUse("message_sent", { companyId: member.companyId, memberId: member.id });
 
   return NextResponse.json({ sent: true, message: shaped });
 }

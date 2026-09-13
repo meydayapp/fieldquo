@@ -128,6 +128,16 @@ const RESOLVES_ITS_OWN = {
     "not a dual-audience endpoint). Every OTHER app/api/meta-ads/* route is " +
     "a normal POST reached via fetch() and uses memberOrRefusal like " +
     "everything else.",
+  "app/api/track/route.js":
+    "The page-view beacon: a public POST that a stranger on the pricing page " +
+    "fires with no session, and that a signed-in member fires from /app in " +
+    "the same shape. A failed resolution is not a refusal — the route answers " +
+    "204 whatever happened (the page never reads it, and a status per outcome " +
+    "would be an oracle for the allow-list) and simply drops the /app rows it " +
+    "cannot attribute. It wraps getCurrentMember in its own try/catch, reads " +
+    "the session ONLY when the batch holds /app events, and refuses an " +
+    "impersonation session's rows explicitly (support's clicks are not the " +
+    "customer's usage). See lib/analytics/product/events.js.",
 };
 
 // The helpers that turn a thrown gate into something answerable.

@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { recordActivity } from "@/lib/activity/log";
+import { recordFeatureUse } from "@/lib/analytics/product/server";
 import {
   loadEnforceableMember,
   requireToggle,
@@ -223,6 +224,9 @@ export async function POST(request) {
   // rest, and closing it early would take the invoice off the to-do list while
   // most of the money was still outstanding.
   if (after.isPaid) await resolveInvoiceChaseTask(invoice.id);
+
+  // Usage count — see lib/analytics/product/server.js.
+  await recordFeatureUse("payment_collected", { companyId: member.companyId, memberId: member.id });
 
   await recordActivity(member, {
     action: "payment.recorded",

@@ -13,6 +13,7 @@ import {
   assignedJobWhere,
 } from "@/lib/permissions/enforce";
 import { createJob } from "@/lib/jobs/createJob";
+import { recordFeatureUse } from "@/lib/analytics/product/server";
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -93,6 +94,9 @@ export async function POST(request) {
     siteAddress,
   });
   if (error) return NextResponse.json({ error }, { status });
+
+  // Usage count — see lib/analytics/product/server.js.
+  await recordFeatureUse("job_created", { companyId: member.companyId, memberId: member.id });
 
   return NextResponse.json(job, { status: 201 });
 }

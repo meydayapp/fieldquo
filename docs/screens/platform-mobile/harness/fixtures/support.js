@@ -310,6 +310,75 @@ function errorsList(url) {
   };
 }
 
+// ── /platform/analytics ────────────────────────────────────────────────────
+// The product-analytics report (app/api/platform/analytics/product). Enough
+// rows to fill every table, one funnel with a real drop, a "never opened"
+// list, and one company to drill into.
+function productAnalytics(url) {
+  const days = Number(url.searchParams.get("range")) || 30;
+  const includeDemo = url.searchParams.get("demo") === "1";
+  const companyId = url.searchParams.get("company") || null;
+  const rank = (pairs, extra = {}) => pairs.map(([key, count, uniq]) => ({ key, count, uniqueVisitors: uniq ?? null, uniqueKnown: uniq ? 1 : 0, companies: 0, ...extra }));
+  const step = (key, count, prev) => ({ key, count, dropFromPrevious: prev === null ? null : Math.max(0, prev - count), dropPct: prev === null || prev === 0 ? null : Math.round(((prev - count) / prev) * 1000) / 10, ofFirstPct: Math.round((count / 412) * 1000) / 10 });
+  const counts = [["visited", 412], ["account", 168], ["trades", 131], ["services", 126], ["plan", 97], ["checkout_started", 41], ["completed", 23]];
+  const steps = counts.map(([k, c], i) => step(k, c, i === 0 ? null : counts[i - 1][1]));
+  const pages = [
+    ["/app", 1842, 61], ["/app/quotes", 1266, 58], ["/app/quotes/[id]", 1104, 55], ["/app/jobs", 733, 44], ["/app/invoices", 612, 41],
+    ["/app/appointments", 588, 39], ["/app/clients", 402, 37], ["/app/leads", 366, 30], ["/app/quotes/new", 301, 33], ["/app/settings", 244, 40],
+    ["/app/jobs/[id]", 231, 29], ["/app/messages", 120, 12], ["/app/settings/team", 96, 22], ["/app/clock", 88, 9], ["/app/analytics/kpis", 40, 7],
+  ].map(([key, count, companies]) => ({ key, count, uniqueVisitors: Math.round(count / 6), uniqueKnown: 1, companies, feature: { href: key.split("/").slice(0, 3).join("/"), navKey: "app.nav.quotes" }, totalCompanies: 40 }));
+  const neverUsed = ["/app/fleet", "/app/safety", "/app/settings/cabinet-rates", "/app/settings/translations", "/app/marketing/designer/calendar", "/app/plans/new"].map((key) => ({ key, feature: key === "/app/marketing/designer/calendar" ? { feature: "marketing_designer" } : null }));
+  const actions = [["quote_sent", 214, 31], ["job_created", 160, 28], ["invoice_sent", 141, 27], ["payment_collected", 66, 19], ["booking_created", 38, 11], ["message_sent", 19, 4], ["ai_review_run", 12, 6]].map(([key, count, companies]) => ({ key, count, companies, uniqueVisitors: null, uniqueKnown: 0 }));
+  const companies = [company(0), company(1), company(2), company(5), company(6)].map((c) => ({ id: c.id, name: c.name, isDemo: false }));
+  const companyRow = companyId ? {
+    id: companyId, name: COMPANIES.find((c) => c.id === companyId)?.name || companyId, isDemo: false,
+    pages: rank([["/app", 212, 4], ["/app/quotes", 140, 4], ["/app/quotes/[id]", 96, 3], ["/app/jobs", 55, 3], ["/app/invoices", 41, 2]]),
+    actions: rank([["quote_sent", 31], ["invoice_sent", 12], ["payment_collected", 6]]),
+    languages: rank([["fr", 480], ["en", 64]]),
+  } : null;
+  return {
+    range: { days, start: "2026-08-14", end: "2026-09-13", options: [7, 30, 90] },
+    includeDemo,
+    rawRetentionDays: 30,
+    totals: { views: 14_207, bySurface: { marketing: 5_318, help: 812, app: 6_873, sales: 604, platform: 388, client: 212 } },
+    marketing: {
+      pages: rank([["/", 2104, 1650], ["/pricing", 1188, 902], ["/signup", 412, 380], ["/features", 366, 300], ["/features/[slug]", 291, 240], ["/compare/[slug]", 188, 160], ["/industries/[slug]", 174, 150], ["/login", 160, 120], ["/about", 91, 80], ["/contact", 63, 55]]),
+      languages: rank([["en", 3_410], ["fr", 1_602], ["es", 240], ["unknown", 66]]),
+      referrers: rank([["google.com", 1_412], ["facebook.com", 388], ["bing.com", 121], ["duckduckgo.com", 44], ["reddit.com", 19]]),
+      campaigns: rank([["spring-roofers-qc", 240], ["painters-gta", 131], ["fb-retarget", 62]]),
+      sources: rank([["google", 320], ["facebook", 202], ["newsletter", 40]]),
+      perDay: [],
+    },
+    funnel: { steps, stoppedAt: [["visited", 244, 62.9], ["account", 37, 9.5], ["trades", 5, 1.3], ["services", 29, 7.5], ["plan", 56, 14.4], ["checkout_started", 17, 4.4]].map(([key, count, pct]) => ({ key, count, pct })), basis: "visitors" },
+    help: {
+      articles: rank([["/help/[lang]/[category]/[article]", 612, 480], ["/help/[lang]", 140, 122], ["/help/[lang]/[category]", 60, 51]]),
+      searches: rank([["invoice reminders", 22], ["stripe payout", 19], ["quickbooks", 14], ["change order", 9]]),
+      searchesEmpty: rank([["quickbooks", 14], ["change order", 9], ["gps tracking", 4]]),
+      languages: rank([["en", 540], ["fr", 251], ["es", 21]]),
+    },
+    product: {
+      pages, neverUsed, actions, actionsNeverUsed: [], totalCompanies: 40,
+      languages: rank([["fr", 3_802], ["en", 2_911], ["es", 160]]),
+      perDay: [],
+      featureWriters: {},
+      salesGate: { eligible: true, totalViews: 6_873, threshold: 150 },
+      companiesSeen: 33,
+    },
+    client: {
+      pages: rank([["/q/[token]", 96, 80], ["/book/[companySlug]", 61, 52], ["/portal/[token]", 33, 20], ["/site/[subdomain]", 22, 18]]),
+      languages: rank([["en", 120], ["fr", 92]]),
+      surfaces: [
+        { key: "quote_approval", views: 96, outcome: "approved", outcomes: 31 },
+        { key: "booking", views: 61, outcome: "booked", outcomes: 38 },
+        { key: "portal", views: 33, outcome: "paid", outcomes: 21 },
+        { key: "website", views: 22, outcome: "live_sites", outcomes: 6 },
+      ],
+    },
+    companies,
+    company: companyRow,
+  };
+}
+
 // ── /platform/ai-usage ─────────────────────────────────────────────────────
 function aiUsage() {
   const d = new Date();
@@ -867,6 +936,9 @@ export default function answer({ method, path, url, body }) {
 
   // /platform/errors
   if (path === "/api/platform/errors") return method === "PATCH" ? { ok: true, resolved: body?.ids?.length || 0 } : errorsList(url);
+
+  // /platform/analytics
+  if (path === "/api/platform/analytics/product") return productAnalytics(url);
 
   // /platform/ai-usage
   if (path === "/api/platform/ai-usage") return method === "PATCH" ? { id: body?.companyId, name: "", aiMonthlyTokenCap: body?.cap ?? null } : aiUsage();
