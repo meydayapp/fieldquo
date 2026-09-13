@@ -481,6 +481,17 @@ export const ARTICLES = {
     ],
     sections: [
       {
+        id: "cost-attendance-holidays",
+        heading: 'Horas, coste, asistencia y festivos — antes de publicar',
+        blocks: [
+          { p: "Sobre el tablero, una línea dice lo que cuesta el horario antes de publicarlo: **Este día** y **Esta semana** en dinero, las horas programadas esta semana y las horas extra por encima del umbral semanal (40 h salvo que una nómina lo cambie). El dinero solo lo ven quienes pueden ver las tarifas — los mismos que las ven en Ajustes → Trabajadores; los demás ven las horas. Alguien programado sin tarifa por hora aparece **nombrado** junto al total (**Tarifa sin definir: Jean Roy**) en vez de contado a cero, porque un total que omite a tres personas no es un total." },
+          { p: "Bajo cada nombre del tablero del día, **38,5h esta semana** son las horas programadas de esa persona en la semana, borradores incluidos. Por encima del umbral se vuelve ámbar y dice **más de 40 h**. La vista Semana tiene las mismas cifras en lista, **Horas esta semana**, con el coste por persona cuando puedes verlo." },
+          { p: "Una pequeña etiqueta en un bloque de turno es el veredicto del reloj para ese turno: **A tiempo**, **12 min tarde**, **Salió 20 min antes** o **No se presentó**. Se calcula cada quince minutos a partir de los fichajes (un primer fichaje más de diez minutos después del inicio es tarde; ninguno una hora después del inicio es ausencia; una salida más de quince minutos antes del fin es salida anticipada), hueca mientras el turno sigue en curso y rellena cuando es definitiva. La misma etiqueta está en la fila de la [[timesheets-and-approving-hours|hoja de horas]], y un recuento de 30 días por persona en su tarjeta de Gestionar equipo." },
+          { p: "Un festivo oficial, o un rango bloqueado definido en [[time-off-policies|Políticas de ausencias]], dibuja una banda gris arriba del tablero — **Día del Trabajo — festivo oficial**. Nada se atenúa ni se rechaza: un fontanero trabaja el Día del Trabajo. Se dice, para que quien programa el día lo sepa." },
+          { note: "Publicar ahora avisa al equipo. Cada persona cuyos turnos acaban de hacerse visibles recibe una notificación — **Tu horario está publicado: lun 14 sep, 8:00 – 16:00 en Sophie Dubois, 12 rue Principale, y 4 más** — en la campana y como push en los teléfonos donde activó las notificaciones. Mover un turno publicado, cambiarle el trabajo, borrarlo o despublicarlo también avisa. Los borradores nunca: crear, mover o borrar un borrador no dice nada a nadie. Cada uno de esos cambios se escribe además en el registro de actividad — quién, el turno de quién, las horas antiguas y nuevas." },
+        ],
+      },
+      {
         id: "overview",
         heading: "Qué hay en la pantalla",
         blocks: [
@@ -622,12 +633,21 @@ export const ARTICLES = {
     title: "El reloj de tiempo",
     summary:
       "La marcación propia de la cuadrilla: registrar la entrada en el trabajo en el que están, cambiar de trabajo a mitad del día, registrar la salida y ver las horas de hoy — con una posición capturada al tocar para que la hoja de tiempo muestre a qué distancia del sitio se hizo.",
-    updated: "2026-09-12",
+    updated: "2026-09-13",
     intro: [
       "**Reloj de tiempo** es la única pantalla que un trabajador por hora toca en cada turno, así que se mantiene sencilla: la fecha, un reloj en vivo, un botón grande, el total de hoy. Cada toque escribe una entrada de tiempo simple que va al gerente para revisarla en las hojas de tiempo — aquí no se hace ningún cálculo de nómina.",
       "Cada entrada puede nombrar el trabajo en el que se trabajó, que es lo que permite al costeo saber cuánto costó de verdad la mano de obra de un trabajo. Una hora sin trabajo — traslados, el taller, una mañana presupuestando — es una hora real y se registra exactamente como tal.",
     ],
     sections: [
+      {
+        id: "still-clocked-in",
+        heading: '¿Sigues fichado?',
+        blocks: [
+          { p: "Cada quince minutos FieldQuo busca un fichaje que haya sobrevivido a su turno. Si tu turno publicado terminó hace más de treinta minutos y sigues fichado — o, sin turno detrás de la entrada, llevas catorce horas fichado — tu teléfono recibe un aviso, **¿Sigues fichado?**, y tu responsable una nota. Una vez por entrada, nunca cada cuarto de hora." },
+          { note: "No se cierra nada por ti. Si te fuiste a las 16:00 o trabajaste hasta las 19:00 es una cuestión de pago, y solo la responde una persona: tú, fichando la salida, o tu responsable, con la salida manual en la [[timesheets-and-approving-hours|hoja de horas]]. Un reloj que adivinara inventaría horas o las quitaría." },
+          { p: "Cada fichaje — entrada, salida, cambio de trabajo, comida y descanso — se escribe también en el registro de actividad de la empresa con la hora, para que una edición posterior de la entrada nunca borre lo que el reloj registró originalmente." },
+        ],
+      },
       {
         id: "overview",
         heading: "Qué hay en la pantalla",

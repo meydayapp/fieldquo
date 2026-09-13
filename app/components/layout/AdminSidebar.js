@@ -28,6 +28,7 @@ import {
   BadgeCheck,
   Clock,
   CalendarClock,
+  CalendarDays,
   CalendarSync,
   Wallet,
   Gift,
@@ -169,6 +170,11 @@ export const NAV_GROUPS = [
       // row and the endpoint never disagree about who gets in.
       { key: "app.nav.subcontractors", href: "/app/subcontractors", icon: HardHat, helpArticle: "subcontractors" },
       { key: "app.nav.scheduler", href: "/app/scheduler", icon: CalendarClock, helpArticle: "scheduler" },
+      // The person's OWN next two weeks, phone-first (app/app/me/schedule).
+      // Every role: the schedule ladder's floor is view_own, so there is no
+      // NAV_REQUIREMENTS rule to write — nobody is below it. A manager gets
+      // it too; their own shifts are theirs to see without opening the board.
+      { key: "app.nav.mySchedule", href: "/app/me/schedule", icon: CalendarDays, helpArticle: "my-schedule" },
       { key: "app.nav.teamSchedule", href: "/app/schedule", icon: Calendar, helpArticle: "team-schedule" },
       { key: "app.nav.clock", href: "/app/clock", icon: Clock, helpArticle: "clock" },
       { key: "app.nav.timesheets", href: "/app/settings/team/timesheets", icon: Clock, helpArticle: "timesheets" },

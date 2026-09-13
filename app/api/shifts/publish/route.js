@@ -10,6 +10,7 @@ import { loadEnforceableMember, hasLevel } from "@/lib/permissions/enforce";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { can } from "@/lib/permissions";
+import { notifyPublished, notifyShiftChange, recordShiftActivity } from "@/lib/shifts/shiftNotify";
 
 export async function POST(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -36,9 +37,60 @@ export async function POST(request) {
   const { from, to, published = true } = await request.json().catch(() => ({}));
   if (!from || !to) return NextResponse.json({ error: "from and to are required." }, { status: 400 });
 
-  const result = await db.shift.updateMany({
-    where: { companyId: member.companyId, start: { gte: new Date(from), lte: new Date(to) } },
-    data: { published: Boolean(published) },
+  // ── Read what is about to flip, then flip it ─────────────────────────────
+  //
+  // updateMany answers with a count and nothing else, and the count was all
+  // this route ever knew. The rows that CHANGE are what matter: a worker is
+  // told about the shifts that just became visible to them (never the ones
+  // that were already published — a re-press of Publish must not re-notify
+  // the whole crew), and an unpublish tells the people whose shifts just
+  // vanished from their phone. So the rows whose `published` differs from
+  // the target are read first, the update is scoped to exactly those, and
+  // the notifications go out after it has committed.
+  const target = Boolean(published);
+  const changing = await db.shift.findMany({
+    where: {
+      companyId: member.companyId,
+      start: { gte: new Date(from), lte: new Date(to) },
+      published: !target,
+    },
+    select: {
+      id: true,
+      workerId: true,
+      start: true,
+      end: true,
+      jobId: true,
+      published: true,
+      job: { select: { title: true, siteAddress: true, client: { select: { name: true } } } },
+    },
   });
-  return NextResponse.json({ ok: true, count: result.count, published: Boolean(published) });
+  const result = changing.length
+    ? await db.shift.updateMany({
+        where: { id: { in: changing.map((s) => s.id) }, companyId: member.companyId },
+        data: { published: target },
+      })
+    : { count: 0 };
+
+  if (result.count > 0) {
+    // One audit row for the press, not one per shift: "Published 14 shifts"
+    // is the fact; the per-shift trail is on each shift's own edits.
+    await recordShiftActivity(member, {
+      verb: "published",
+      shift: { id: null, start: from, end: to, published: target },
+      count: result.count,
+    });
+    if (target) {
+      notifyPublished({ companyId: member.companyId, shifts: changing, actorUserId: member.userId || null }).catch(() => {});
+    } else {
+      for (const s of changing) {
+        notifyShiftChange({
+          companyId: member.companyId,
+          before: { ...s, published: true },
+          after: { ...s, published: false },
+          actorUserId: member.userId || null,
+        }).catch(() => {});
+      }
+    }
+  }
+  return NextResponse.json({ ok: true, count: result.count, published: target });
 }

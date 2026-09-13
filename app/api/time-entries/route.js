@@ -8,6 +8,45 @@ import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { loadEnforceableMember, hasLevel, redactPayList } from "@/lib/permissions/enforce";
 import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
+import { PUNCH_WINDOW_MS } from "@/lib/shifts/attendance";
+
+// ── The rota's verdict beside the punch ─────────────────────────────────────
+//
+// ShiftAttendance is per SHIFT (the plan); a timesheet row is per ENTRY (what
+// happened). They are joined here by worker and by the punch window
+// lib/shifts/attendance.js uses to decide which punches belong to a shift,
+// so the chip on the row says the same thing the day board's block says.
+// An entry with no published shift around it has no verdict and no chip.
+async function attachAttendance(entries) {
+  if (!entries.length) return entries;
+  const workerIds = [...new Set(entries.map((e) => e.workerId))];
+  const times = entries.map((e) => new Date(e.clockIn).getTime());
+  const lo = new Date(Math.min(...times) - PUNCH_WINDOW_MS);
+  const hi = new Date(Math.max(...times) + PUNCH_WINDOW_MS);
+  const rows = await db.shiftAttendance.findMany({
+    where: { workerId: { in: workerIds }, shift: { start: { lte: hi }, end: { gte: lo } } },
+    select: {
+      workerId: true,
+      status: true,
+      final: true,
+      lateMinutes: true,
+      earlyMinutes: true,
+      shift: { select: { start: true, end: true } },
+    },
+  });
+  return entries.map((e) => {
+    const at = new Date(e.clockIn).getTime();
+    const hit = rows.find(
+      (r) =>
+        r.workerId === e.workerId &&
+        at >= new Date(r.shift.start).getTime() - PUNCH_WINDOW_MS &&
+        at <= new Date(r.shift.end).getTime() + PUNCH_WINDOW_MS,
+    );
+    return hit
+      ? { ...e, attendance: { status: hit.status, final: hit.final, lateMinutes: hit.lateMinutes, earlyMinutes: hit.earlyMinutes } }
+      : e;
+  });
+}
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -66,7 +105,7 @@ export async function GET(request) {
   // Each entry embeds the worker's rate, which made this a third door onto
   // payroll for anyone who could read timesheets. Own entries keep it.
   return NextResponse.json(
-    redactPayList(full, entries, { ownUserId: member.userId }),
+    redactPayList(full, await attachAttendance(entries), { ownUserId: member.userId }),
   );
 }
 

@@ -481,6 +481,17 @@ export const ARTICLES = {
     ],
     sections: [
       {
+        id: "cost-attendance-holidays",
+        heading: 'Heures, coût, assiduité et jours fériés — avant de publier',
+        blocks: [
+          { p: "Au-dessus du tableau, une ligne indique ce que coûte l'horaire avant sa publication : **Ce jour** et **Cette semaine** en argent, les heures planifiées cette semaine, et les heures supplémentaires au-delà du seuil hebdomadaire (40 h sauf si une paie le remplace). L'argent n'est visible que par ceux qui peuvent voir les taux de paie — les mêmes qui les voient dans Réglages → Travailleurs ; les autres voient les heures. Une personne planifiée sans taux horaire est **nommée** à côté du total (**Taux non défini : Jean Roy**) plutôt que comptée à zéro, parce qu'un total qui oublie trois personnes n'est pas un total." },
+          { p: "Sous chaque nom du tableau du jour, **38,5h cette semaine** est le total planifié de la personne pour la semaine, brouillons compris. Au-delà du seuil il devient ambre et dit **plus de 40 h**. La vue Semaine reprend les mêmes chiffres en liste, **Heures cette semaine**, avec le coût par personne quand vous pouvez le voir." },
+          { p: "Une petite pastille sur un bloc de quart est le verdict de l'horodateur pour ce quart : **À l'heure**, **12 min de retard**, **Parti 20 min plus tôt** ou **Absent**. Elle est calculée toutes les quinze minutes à partir des pointages (un premier pointage plus de dix minutes après le début est un retard ; aucun pointage une heure après le début est une absence ; un départ plus de quinze minutes avant la fin est un départ anticipé), creuse tant que le quart est en cours et pleine une fois définitive. La même pastille figure sur la ligne de la [[timesheets-and-approving-hours|feuille de temps]], et un compte sur 30 jours par personne se trouve sur sa fiche dans Gérer l'équipe." },
+          { p: "Un jour férié, ou une période bloquée définie dans [[time-off-policies|Politiques de congés]], trace un bandeau grisé en haut du tableau — **Fête du Travail — jour férié**. Rien n'est grisé ni refusé : un plombier travaille à la fête du Travail. C'est dit, pour que le gestionnaire qui planifie la journée le sache." },
+          { note: "Publier prévient maintenant l'équipe. Chaque personne dont les quarts viennent de devenir visibles reçoit une notification — **Votre horaire est publié : lun. 14 sept., 8:00 – 16:00 chez Sophie Dubois, 12 rue Principale, et 4 de plus** — dans la cloche et en notification push sur les téléphones où elle a activé les notifications. Déplacer un quart publié, changer son travail, le supprimer ou le dépublier la prévient aussi. Jamais les brouillons : créer, déplacer ou supprimer un brouillon ne dit rien à personne. Chacune de ces modifications est aussi écrite dans le journal d'activité — qui, le quart de qui, les anciennes et nouvelles heures." },
+        ],
+      },
+      {
         id: "overview",
         heading: "Ce qu'il y a à l'écran",
         blocks: [
@@ -622,12 +633,21 @@ export const ARTICLES = {
     title: "La pointeuse",
     summary:
       "Le pointage de l'équipe : pointer l'entrée sur le chantier où l'on est, changer de chantier en cours de journée, pointer la sortie et voir les heures du jour — avec une position saisie au moment du pointage pour que la feuille de temps puisse montrer à quelle distance du chantier il a été fait.",
-    updated: "2026-09-12",
+    updated: "2026-09-13",
     intro: [
       "**Pointeuse** est le seul écran qu'un travailleur à l'heure touche à chaque quart, alors il reste dépouillé : la date, une horloge en direct, un gros bouton, le total du jour. Chaque touche écrit une simple entrée de temps qui va au gestionnaire pour révision sur les feuilles de temps — aucun calcul de paie ne se fait ici.",
       "Chaque entrée peut nommer le chantier sur lequel elle a été travaillée, ce qui permet aux coûts de chantier de savoir ce que la main-d'œuvre d'un chantier a vraiment coûté. Une heure sans chantier — déplacement, cour, une matinée de soumissions — est une vraie heure et est enregistrée exactement comme telle.",
     ],
     sections: [
+      {
+        id: "still-clocked-in",
+        heading: 'Toujours pointé ?',
+        blocks: [
+          { p: "Toutes les quinze minutes, FieldQuo cherche un pointage qui a survécu à son quart. Si votre quart publié s'est terminé il y a plus de trente minutes et que vous êtes encore pointé — ou, sans quart derrière l'entrée, si vous êtes pointé depuis quatorze heures — votre téléphone reçoit une notification, **Toujours pointé ?**, et votre gestionnaire une note. Une fois par entrée, jamais tous les quarts d'heure." },
+          { note: "Rien n'est fermé à votre place. Que vous soyez parti à 16 h ou ayez travaillé jusqu'à 19 h est une question de paie, et seule une personne y répond : vous, en pointant votre départ, ou votre gestionnaire, avec le départ manuel sur la [[timesheets-and-approving-hours|feuille de temps]]. Un horodateur qui devinerait inventerait des heures ou en retirerait." },
+          { p: "Chaque pointage — arrivée, départ, changement de travail, dîner et pause — est aussi écrit dans le journal d'activité de l'entreprise avec l'heure, pour qu'une modification ultérieure de l'entrée n'efface jamais ce que l'horodateur avait enregistré." },
+        ],
+      },
       {
         id: "overview",
         heading: "Ce qu'il y a à l'écran",

@@ -91,12 +91,21 @@ export const ARTICLES = {
     title: "Time off policies",
     summary:
       "The kinds of time off your team can take and how each balance builds up — fixed days, per pay period, or vacation pay as a percentage — plus the manual year-end carry-over.",
-    updated: "2026-09-12",
+    updated: "2026-09-13",
     intro: [
       "A policy is one kind of time off — Vacation, Sick, Personal, Unpaid, Other — with a rule for how much of it a person earns and whether a manager has to approve a request. Policies live on **Settings → Time Off Policies**; the requests and balances they produce live on the **Time Off** screen, where staff ask and managers approve. See [[time-off-requests|Time off requests]].",
       "FieldQuo tracks what you configure. It does not decide what you owe: the note at the bottom of the screen says statutory minimums vary by province, state and length of service, and the starter sets say plainly what year their figures come from.",
     ],
     sections: [
+      {
+        id: "limits",
+        heading: 'Limits on time off',
+        blocks: [
+          { p: "Below the policies, **Limits on time off** holds the rules that sit above any one policy's balance. **Blackout dates**: ranges nobody can request inside, each with a reason (**Christmas installs**) so the refusal says why. **Most people off at once**: a whole number, or blank for no limit; a request is refused when that many people are already approved off on any of its days, and the refusal names them. **Statutory holidays**: the calendar the leave count follows — Canada by province or territory, or the United States federal set — computed from each holiday's rule (the Monday before May 25, the first Monday in September, Easter minus two days) so next year is right without anyone editing a table. It follows your company address unless you pick a region, and **Show the holidays** lists this year's and next year's, with the observed day when a holiday falls on a weekend." },
+          { note: "A company outside Canada and the United States has no holiday calendar here, and the screen says so. Every working day in a request is then counted, which is the honest answer — a Canadian calendar applied to Lyon would not be." },
+          { p: "The rota bands a holiday or a blackout across the top of the [[the-scheduler-and-crew-shifts|day board]], and the Team view of [[time-off-requests|Time off]] shows the ranges and the limit on its Policies card." },
+        ],
+      },
       {
         id: "overview",
         heading: "Overview",

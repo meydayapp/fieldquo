@@ -35,6 +35,13 @@ function toneFor(action) {
   if (action.includes("payment")) return "bg-green-500";
   if (action.includes("sent")) return "bg-blue-500";
   if (action.startsWith("settings")) return "bg-amber-500";
+  // The rota reaching the crew, and the crew punching the clock — the two
+  // families lib/shifts/shiftNotify.js and /api/time-clock write. Published
+  // is the moment a week becomes real to the people on it; a punch is the
+  // hour payroll will pay. Both worth a colour of their own on a long page.
+  if (action === "shift.published") return "bg-emerald-500";
+  if (action.startsWith("shift.")) return "bg-sky-500";
+  if (action.startsWith("timeClock.")) return "bg-teal-500";
   return "bg-muted-foreground";
 }
 

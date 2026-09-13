@@ -11348,3 +11348,50 @@ payments, form at 0.7), Townsquare Interactive, Duda, CallRail.
 find-probe-fallback-crawls.mjs` counts the affected prospects read-only
 (10,316 of 20,492 crawled; $0 on the backlog lane, ≈$0.02 for the nine claimed)
 — the broad re-crawl is the owner's call.
+
+## The employee home: Homebase's dashboard on FieldQuo's brand (13 September 2026)
+
+The owner sent Homebase's screens and asked for the employee-facing
+experience to work like that on the phone and the web, with a manager's
+phone that is as easy. What shipped, and the decisions behind it:
+
+- **One shell, two tab sets.** `app/components/me/MeShell.js` renders the
+  five tabs across the top from `lg` and hands the bottom bar to the
+  layout's `MobileTabBar` below it (two fixed bars cannot share the bottom
+  edge, and `<main>` reserves one). The bar swaps to the me tabs on any
+  `/app/me` screen and — deliberately — for a crew member whose document
+  tabs all gated away: that person's product is their next shift, their
+  hours and their crew, not Chat + More. `lib/me/tabs.js` picks worker vs
+  manager by the schedule dial at edit_all, failing CLOSED (a gridless
+  employee is a worker; a gridless supervisor a manager) because the cost of
+  guessing "manager" is a coverage strip about yourself.
+- **Next up is a timeline, not a shift.** The owner: "Crew members don't go
+  to appointments or calls." `lib/me/timeline.js` folds shifts, open
+  shifts, visits dispatched to the person, tasks due and company events;
+  appointments are fetched only for roles that can quote and never
+  rendered as an empty section. A Worker with no login gets shifts only.
+- **Money is gated at the source.** The estimate line and the Earnings
+  figures exist in the payload only when `lib/payroll/ownPayGate.js` says
+  so (the rule my-payslips already enforced, now shared); the manager's
+  Wages tile only behind `canSeeAllPay`. A missing rate is absent, never $0.
+- **Trades, covers and claims are a pure state machine**
+  (`lib/shiftRequests/state.js`, executed against every actor × state ×
+  action by `check:employee-home`). The swap moves `Shift.workerId` in the
+  same transaction as the approval, after `shiftFit` is re-run for the
+  taker — a swap onto approved leave is declined with the reason. Expiry
+  is lazy on read, not a cron: the only moment a stale row matters is when
+  somebody looks. `Shift.workerId` became nullable for open shifts (the
+  schema comment says why a second table was refused).
+- **Availability is a request with an effective date**, one table
+  (`AvailabilitySchedule`) read by the shift fit and the booking engine,
+  labelled honestly by role. Approved-for-today applies at once; a future
+  date waits for `/api/cron/availability-apply` (its own daily route, not a
+  branch in another cron).
+- **The week is a grid** (`WeekGrid.js`): Events and Open shifts rows,
+  hrs / $ per person, colour per job from eight measured pairs, labels,
+  wages / hours footer with the OT context per day from
+  `lib/shifts/labourCost.js` (the parallel agent's, imported, not copied),
+  Apply-to toggles that create N days in one transaction and name the
+  refused ones.
+- Screens in `docs/screens/employee-home/`; help articles EN/FR/ES; nine
+  languages; §0 line 21 in docs/OPEN-WORK-APP.md carries what is not done.

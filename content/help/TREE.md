@@ -310,7 +310,7 @@ _Generated 2026-09-13 — 311 articles in the tree; written: en 311, fr 311, es 
 | `the-crew-tab-bar` — The crew tab bar | ✓ | ✓ | ✓ |  | crew_shifts |  |
 | `what-a-crew-member-sees` — What a crew member sees | ✓ | ✓ | ✓ |  | team_access |  |
 | `clock-in-and-out-on-your-phone` — Clock in and out on your phone | ✓ | ✓ | ✓ | clock | time_clock |  |
-| `your-schedule-on-your-phone` — Your schedule on your phone | ✓ | ✓ | ✓ |  | crew_shifts |  |
+| `your-schedule-on-your-phone` — Your schedule on your phone | ✓ | ✓ | ✓ | my-schedule | crew_shifts |  |
 | `photos-from-the-field` — Photos from the field | ✓ | ✓ | ✓ |  | job_photos |  |
 | `text-a-photo-to-the-crew-inbox` — Text a photo in without an app | ✓ | ✓ | ✓ | crew-inbox | crew_inbox |  |
 | `chat-on-your-phone` — Chat on your phone | ✓ | ✓ | ✓ | chat | team_chat |  |

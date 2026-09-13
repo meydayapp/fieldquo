@@ -41,6 +41,41 @@ import { todayHoursFrom } from "@/lib/timeclock/todayHours";
 import { recordStampIfPresent } from "@/lib/location/stamps";
 import { entryHours, openBreak } from "@/lib/timeclock/entryHours";
 import { BREAK_KINDS } from "@/lib/shifts/coverage";
+import { recordActivity } from "@/lib/activity/log";
+
+// ── Every punch leaves a row in the activity trail ──────────────────────────
+//
+// Manual time entries, leave and payroll were logged; the self-serve clock —
+// the door most hours actually come through — was not, so "when did Marc
+// say he clocked out" had no answer but the entry itself, which a manager
+// can edit. The trail is the record that survives the edit. Never throws
+// (recordActivity's own contract), always after the write.
+const PUNCH_KEYS = {
+  in: "app.activity.event.clockIn",
+  out: "app.activity.event.clockOut",
+  switch: "app.activity.event.clockSwitch",
+  break_start: "app.activity.event.breakStart",
+  break_end: "app.activity.event.breakEnd",
+};
+function logPunch(member, action, { worker, entry, job, hours, kind } = {}) {
+  const jobTitle = job?.title || "";
+  const summaries = {
+    in: `${worker.name} clocked in${jobTitle ? ` on ${jobTitle}` : ""}`,
+    out: `${worker.name} clocked out${hours != null ? ` — ${hours} h` : ""}`,
+    switch: `${worker.name} switched to ${jobTitle || "no job"}`,
+    break_start: `${worker.name} started a ${kind === "lunch" ? "lunch" : "break"}`,
+    break_end: `${worker.name} ended their break`,
+  };
+  return recordActivity(member, {
+    action: `timeClock.${action}`,
+    entityType: "timeEntry",
+    entityId: entry?.id || null,
+    summary: summaries[action],
+    summaryKey: PUNCH_KEYS[action],
+    summaryParams: { name: worker.name, job: jobTitle, hours: hours ?? "", kind: kind || "" },
+    metadata: { workerId: worker.id, jobId: job?.id || entry?.jobId || null, at: new Date().toISOString() },
+  });
+}
 
 // The breaks on an entry, as every read of the open entry returns them: the
 // clock screen needs the running one to offer "End break", and the day board
@@ -222,7 +257,8 @@ export async function POST(request) {
   const open = await db.timeEntry.findFirst({
     where: { workerId: worker.id, clockOut: null },
     orderBy: { clockIn: "desc" },
-    include: { breaks: BREAKS_SELECT },
+    // The job rides along for the activity row a clock-out writes.
+    include: { breaks: BREAKS_SELECT, job: { select: { id: true, title: true } } },
   });
 
   // ── Lunch and breaks, from the clock ──────────────────────────────────────
@@ -245,6 +281,7 @@ export async function POST(request) {
       data: { timeEntryId: open.id, start: new Date(), kind },
     });
     const entry = await db.timeEntry.findUnique({ where: { id: open.id }, select: OPEN_SELECT });
+    await logPunch(member, "break_start", { worker, entry, kind });
     return NextResponse.json({ ok: true, open: entry });
   }
 
@@ -255,6 +292,7 @@ export async function POST(request) {
     }
     await db.timeEntryBreak.update({ where: { id: running.id }, data: { end: new Date() } });
     const entry = await db.timeEntry.findUnique({ where: { id: open.id }, select: OPEN_SELECT });
+    await logPunch(member, "break_end", { worker, entry });
     return NextResponse.json({ ok: true, open: entry });
   }
 
@@ -290,6 +328,7 @@ export async function POST(request) {
       timeEntryId: entry.id,
       jobId: entry.jobId,
     });
+    await logPunch(member, "in", { worker, entry, job: entry.job });
     return NextResponse.json({ ok: true, open: entry });
   }
 
@@ -329,6 +368,7 @@ export async function POST(request) {
       timeEntryId: entry.id,
       jobId: entry.jobId,
     });
+    await logPunch(member, "out", { worker, entry, job: open.job, hours });
     return NextResponse.json({ ok: true, entry });
   }
 
@@ -369,6 +409,7 @@ export async function POST(request) {
         data: { jobId: resolved.jobId },
         select: OPEN_SELECT,
       });
+      await logPunch(member, "switch", { worker, entry, job: entry.job });
       return NextResponse.json({ ok: true, open: entry, corrected: true });
     }
 
@@ -428,6 +469,7 @@ export async function POST(request) {
         jobId: entry.jobId,
       });
     }
+    await logPunch(member, "switch", { worker, entry, job: entry.job, hours });
     return NextResponse.json({ ok: true, open: entry, closedHours: hours });
   }
 

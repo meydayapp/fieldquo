@@ -20,12 +20,20 @@ export const ARTICLES = {
     title: "Timesheets: review and approve hours",
     summary:
       "Where the office reviews every clock-in, sees where the phone was when it happened, approves the hours a pay run may use, and logs a punch somebody forgot.",
-    updated: "2026-09-12",
+    updated: "2026-09-13",
     intro: [
       "The crew clock in and out on **Time clock**; the office reviews the result on **Timesheets**. Nothing reaches a pay run until somebody presses **Approve** on it, and nothing on this screen is hidden from the person who worked the hours — the same entry they see on their phone is the row you see here.",
       "This article covers what each row shows, what the position chips mean and do not mean, how to add a missed punch, and who is allowed to approve, edit or delete an entry.",
     ],
     sections: [
+      {
+        id: "export-and-attendance",
+        heading: 'The raw CSV, and the attendance chip',
+        blocks: [
+          { p: "**Export** at the top of Timesheets downloads the raw timesheet as a CSV: pick the first and last day and, optionally, one person, then **Download CSV**. One row per entry — worker, title, date, clock-in, clock-out, unpaid and paid break minutes, net hours, job, status, who approved it, how far from the site the phone was at clock-in when it answered, and the attendance verdict. The file is named for the range (**timesheet_2026-09-01_2026-09-14.csv**). Hours, never pay: the hourly rate stays behind its own gate." },
+          { p: "A chip beside a name — **On time**, **Late 12 min**, **Left 20 min early**, **No-show** — is the rota's verdict for the published shift that punch belongs to, the same one the [[the-scheduler-and-crew-shifts|day board]] shows on the block. A punch with no published shift around it has no chip." },
+        ],
+      },
       {
         id: "overview",
         heading: "Overview",
@@ -115,12 +123,22 @@ export const ARTICLES = {
     title: "Time off requests",
     summary:
       "How anyone on the team asks for time off, how the request finds the right manager, what approving it changes on the calendar and the balance, and who can do what.",
-    updated: "2026-09-12",
+    updated: "2026-09-13",
     intro: [
       "**Time Off** is one screen with two audiences. Everybody sees their own balances and requests and can ask for days off; a manager also gets a **Team** tab with the requests waiting on them, who is off next, and everyone's balances.",
       "The balances come from the policies an owner sets up under **Settings → Time Off Policies** — see [[time-off-policies|Time off policies]]. Without a policy there is nothing to request against, and the screen says so.",
     ],
     sections: [
+      {
+        id: "limits-and-the-team-screen",
+        heading: "Blackout dates, the limit, holidays — and the manager's screen",
+        blocks: [
+          { p: "Three rules sit above every policy's balance, set under [[time-off-policies|Time off policies]]. A **blackout range** (Dec 15 – Jan 5, say) refuses any request touching it, naming the range and the reason; the form says so as soon as you pick the dates, before you type a note. **Most people off at once** refuses a request when that many colleagues are already approved off on any day of it — the refusal names who. Pending requests do not count; only approved leave does. **Statutory holidays** inside a request are not charged against the balance and are listed under the dates." },
+          { p: "The **Team** view is now the manager's desk: **Requests (N)** as a table — the person, the policy and its type with when it was submitted, the dates, the total in hours (from their working hours; days when none are set) and ✓ approve, ✕ decline, › details. **View history** opens what was decided earlier. **Hours approved: 2026** sums approved time by person and type, with a chip per type to filter. On the right, **Upcoming time off** as cards and the **Policies** card, which shows each policy with how many people hold it, the blackout ranges and the limit." },
+          { p: "**Details** (›) opens the request: category, first and last day, **Time requested**, **Post-balance** — what the person would have left once it is approved — the note, and **Other employees off** during those dates, or **No other employees off**. That last line is the limit showing its work. On a phone it opens as a sheet from the bottom." },
+          { p: "**Add time off** lets a manager enter leave for somebody — a phone call that said Dana is off Thursday. It is the same request, created already approved with the manager as reviewer, and the balance, blackout ranges and limit still apply." },
+        ],
+      },
       {
         id: "overview",
         heading: "Overview",

@@ -35,6 +35,8 @@ import { useFeatureFlags } from "@/app/providers/FeatureProvider";
 import { usePermissions } from "@/app/providers/PermissionProvider";
 import { filterNavItems } from "@/lib/features/nav";
 import { filterNavItemsByPermission } from "@/lib/permissions/nav";
+import { isMePath } from "@/lib/me/tabs";
+import { MeTabBar } from "@/app/components/me/MeShell";
 
 // Same i18n keys AdminSidebar's own NAV_GROUPS rows use for these four
 // destinations — not new strings, so there is nothing to translate twice and
@@ -103,6 +105,22 @@ export default function MobileTabBar() {
     filterNavItems(TAB_ITEMS, featureFlags),
     caller,
   );
+
+  // ── The employee home's bar ─────────────────────────────────────────────
+  //
+  // On any /app/me screen the five tabs are the employee home's (Home ·
+  // Schedule · Earnings · Messages · More, or the manager set — lib/me/
+  // tabs.js), so the bar a person is standing on is the bar of the screen
+  // they are on. And for the person in the van it is the bar EVERYWHERE:
+  // when the pipeline gating above leaves nothing but Chat standing — the
+  // Crew preset sits at `none` on all four document ladders — the old bar
+  // was Chat + More, the docs/MOBILE-TABBAR.md edge case. That person's
+  // product is their next shift, their hours and their crew, and those are
+  // the tabs they get. One bar at a time: MeTabBar carries the same chrome
+  // and the same row height <main> reserves, so nothing else changes.
+  if (isMePath(pathname) || tabs.filter((t) => t.href !== "/app/chat").length === 0) {
+    return <MeTabBar />;
+  }
 
   return (
     // The bottom padding below carries the safe-area inset as extra space BELOW

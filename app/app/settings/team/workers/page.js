@@ -56,6 +56,11 @@ function WorkersScreen() {
   const { t } = useTranslation();
   const [workers, setWorkers] = useState(null);
   const [error, setError] = useState("");
+  // The last thirty days against the rota, per person — late, no-shows,
+  // early outs — from the time-clock watch's verdicts. Read beside the
+  // roster, never in place of it: a failure here leaves the card without
+  // the line rather than the page without the people.
+  const [attendance, setAttendance] = useState(null);
 
   const load = useCallback(async () => {
     try {
@@ -65,6 +70,12 @@ function WorkersScreen() {
     } catch (err) {
       setError(err.message);
       setWorkers([]);
+    }
+    try {
+      const a = await fetchJson("/api/workers/attendance");
+      setAttendance(a?.summary || {});
+    } catch {
+      setAttendance(null);
     }
   }, []);
 
@@ -131,6 +142,7 @@ function WorkersScreen() {
             workers={workers}
             key={w.id}
             worker={w}
+            attendance={attendance ? attendance[w.id] || null : null}
             reload={load}
             onConnect={() => connectStripe(w.id)}
           />
@@ -150,7 +162,7 @@ function WorkersScreen() {
   );
 }
 
-function WorkerRow({ worker, workers = [], reload, onConnect }) {
+function WorkerRow({ worker, workers = [], attendance = null, reload, onConnect }) {
   const { t } = useTranslation();
   // The rate is typed by a person in the company own currency, so it is
   // formatted in that currency rather than labelled with a symbol the
@@ -464,6 +476,26 @@ function WorkerRow({ worker, workers = [], reload, onConnect }) {
             })}
           {!worker.userId && t("app.setWorkers.noLogin")}
         </div>
+        {/* Attendance over the last 30 days, from the rota's verdicts. Only
+            when at least one published shift has a final verdict — a person
+            with none is not "always on time", they are unmeasured, and the
+            line stays off rather than saying 0 of 0. */}
+        {attendance && attendance.total > 0 && (
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px]">
+            <span className="text-muted-foreground">
+              {t("app.attendance.summary30", { total: attendance.total })}
+            </span>
+            <span className={attendance.late ? "text-amber-700 dark:text-amber-300" : "text-muted-foreground"}>
+              {t("app.attendance.lateCount", { n: attendance.late })}
+            </span>
+            <span className={attendance.no_show ? "text-red-700 dark:text-red-300" : "text-muted-foreground"}>
+              {t("app.attendance.noShowCount", { n: attendance.no_show })}
+            </span>
+            <span className={attendance.early_out ? "text-amber-700 dark:text-amber-300" : "text-muted-foreground"}>
+              {t("app.attendance.earlyOutCount", { n: attendance.early_out })}
+            </span>
+          </div>
+        )}
       </div>
       <div className="flex items-center gap-2 shrink-0">
         {worker.type === "contractor" &&

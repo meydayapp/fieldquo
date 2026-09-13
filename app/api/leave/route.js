@@ -25,6 +25,9 @@ import {
 import { consumeBalance, refreshAccruals } from "@/lib/leave/balances";
 import { ensureWorkerForMember } from "@/lib/team/ensureWorker";
 import { annotateRouting } from "@/lib/org/leaveRouting";
+import { judgeLeaveRequest, loadLeaveLimits, othersApprovedDuring } from "@/lib/leave/limits";
+import { holidaysBetween } from "@/lib/leave/statutoryHolidays";
+import { hoursPerWorkingDay } from "@/lib/leave/balances";
 
 const YEAR = () => new Date().getUTCFullYear();
 
@@ -120,21 +123,79 @@ export async function GET(request) {
         select: { id: true },
       }),
     ]);
+    // ── The limits, the calendar, and who else is off ───────────────────
+    //
+    // The Team view bands statutory holidays and blackout ranges, the
+    // Policies card shows the cap, and the details modal lists "other
+    // employees off" for each request — which is the max-concurrent rule
+    // showing its work. Hours per day come from each person's WorkingHours
+    // (lib/leave/balances.js's hoursPerWorkingDay); null when nobody set
+    // them, and the screen then shows days, never an invented 8.
+    const { rules, region } = await loadLeaveLimits(member.companyId);
+    const span = { from: new Date(Date.UTC(year, 0, 1)), to: new Date(Date.UTC(year + 1, 11, 31)) };
+    const holidays = region ? holidaysBetween({ ...region, ...span }) : [];
+    const workerUserIds = [...new Set(requests.map((r) => r.worker?.id).filter(Boolean))];
+    const workerRows = workerUserIds.length
+      ? await db.worker.findMany({ where: { id: { in: workerUserIds } }, select: { id: true, userId: true } })
+      : [];
+    const hoursRows = workerRows.filter((w) => w.userId).length
+      ? await db.workingHours.findMany({
+          where: { companyId: member.companyId, userId: { in: workerRows.map((w) => w.userId).filter(Boolean) } },
+          select: { userId: true, startTime: true, endTime: true },
+        })
+      : [];
+    const hoursByUser = {};
+    for (const h of hoursRows) (hoursByUser[h.userId] ||= []).push(h);
+    const hoursPerDayByWorker = {};
+    for (const w of workerRows) hoursPerDayByWorker[w.id] = w.userId ? hoursPerWorkingDay(hoursByUser[w.userId] || []) : null;
+    const approvedAll = await othersApprovedDuring({ companyId: member.companyId, workerId: null, startDate: span.from, endDate: span.to });
+    // What the person would have left once THIS request is approved — the
+    // details modal's "Post-balance". Days policies only; a vacation-pay
+    // (% of gross) policy accrues money and a request in days cannot be
+    // priced here without the rate, so it says "not computed" rather than
+    // guessing. Unpaid policies have no balance and say so.
+    const balanceAfterFor = (r) => {
+      if (r.policy?.paid === false) return null;
+      const y = new Date(r.startDate).getUTCFullYear();
+      const b = balances.find((x) => x.policyId === r.policyId && x.workerId === r.workerId && x.year === y);
+      if (!b || b.policy?.accrualMethod === "percent_of_gross") return undefined;
+      const { remainingDays } = remainingBalance(b);
+      const after = r.status === "pending" ? Number(remainingDays) - Number(r.days) : Number(remainingDays);
+      return { isMoney: false, remaining: Math.round(after * 100) / 100 };
+    };
+    const othersOffFor = (r) =>
+      approvedAll
+        .filter((o) => o.workerId !== r.workerId && new Date(o.startDate) <= new Date(r.endDate) && new Date(o.endDate) >= new Date(r.startDate))
+        .map((o) => ({ workerId: o.workerId, workerName: o.workerName, policyName: o.policyName, startDate: o.startDate, endDate: o.endDate }));
+
     return NextResponse.json({
       scope: "team",
+      rules,
+      holidayRegion: region,
+      holidays,
+      hoursPerDayByWorker,
       policies,
       // Each pending request carries who it is waiting on, escalated past
       // whoever is away today, and whether THIS viewer may act on it. The
       // second is not the first: a request waiting on a supervisor is still
       // approvable by the owner. See lib/org/leaveRouting.js.
-      requests: await annotateRouting({
-        companyId: member.companyId,
-        requests,
-        actorWorkerId: viewer?.id || null,
-        hasManagePermission: can(member.role, "user:manage"),
-      }),
+      requests: (
+        await annotateRouting({
+          companyId: member.companyId,
+          requests,
+          actorWorkerId: viewer?.id || null,
+          hasManagePermission: can(member.role, "user:manage"),
+        })
+      ).map((r) => ({ ...r, othersOff: othersOffFor(r), hoursPerDay: hoursPerDayByWorker[r.workerId] ?? null, balanceAfter: balanceAfterFor(r) })),
       balances: balances.map((b) => ({ ...b, ...remainingBalance(b) })),
       canApprove: can(member.role, "user:manage"),
+      // The same people, as a picker for "Add time off" — active workers
+      // whose leave a manager may enter on their behalf.
+      workers: await db.worker.findMany({
+        where: { companyId: member.companyId, active: true },
+        orderBy: { name: "asc" },
+        select: { id: true, name: true, title: true, userId: true },
+      }),
     });
   }
 
@@ -172,9 +233,16 @@ export async function GET(request) {
       return acc;
     }, {});
 
+  const limits = await loadLeaveLimits(member.companyId);
   return NextResponse.json({
     scope: "self",
     worker,
+    // The blackouts and the calendar, so the form can say "closed Dec 15 –
+    // Jan 5" before the person asks rather than after.
+    rules: limits.rules,
+    holidays: limits.region
+      ? holidaysBetween({ ...limits.region, from: new Date(Date.UTC(year, 0, 1)), to: new Date(Date.UTC(year + 1, 11, 31)) })
+      : [],
     policies,
     // The person who asked for the time off is the one most in the dark about
     // where it went. `canAct` comes back false on their own request, which is
@@ -198,16 +266,37 @@ export async function POST(request) {
   if (!member.userId)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const worker = await myWorker(member);
-  if (!worker) {
-    return NextResponse.json(
-      { error: "Your account isn't set up as a team member who can book leave." },
-      { status: 400 },
-    );
-  }
-
   const body = await request.json().catch(() => ({}));
   const { policyId, startDate, endDate, reason, halfDay } = body || {};
+
+  // ── A manager entering time off for somebody else ───────────────────────
+  //
+  // "Add time off" on the Team view: the same request row, created already
+  // approved with the manager as reviewer — a phone call that said "Dana is
+  // off Thursday" is a decision made, not a request to be routed back to the
+  // manager who just made it. Gated on user:manage (the audience that can
+  // approve); the worker must be this company's. Balance, blackout and cap
+  // are all still judged: entering it by hand is not a way around them.
+  const onBehalf = typeof body?.workerId === "string" && body.workerId.trim() ? body.workerId.trim() : null;
+  if (onBehalf && !can(member.role, "user:manage")) {
+    return NextResponse.json({ error: "Only a manager can add time off for somebody else." }, { status: 403 });
+  }
+  const worker = onBehalf
+    ? await db.worker.findFirst({
+        where: { id: onBehalf, companyId: member.companyId },
+        select: { id: true, name: true, hourlyRate: true, userId: true },
+      })
+    : await myWorker(member);
+  if (!worker) {
+    return NextResponse.json(
+      {
+        error: onBehalf
+          ? "That person isn't on this company's roster."
+          : "Your account isn't set up as a team member who can book leave.",
+      },
+      { status: onBehalf ? 404 : 400 },
+    );
+  }
 
   const policy = await db.leavePolicy.findFirst({
     where: { id: policyId, companyId: member.companyId, active: true },
@@ -216,8 +305,27 @@ export async function POST(request) {
     return NextResponse.json({ error: "Pick a leave type." }, { status: 400 });
   }
 
-  const workingDays = await workingDaysFor(member.userId);
-  let days = countWorkingDays(startDate, endDate, { workingDays });
+  // ── The company's limits, before the balance ────────────────────────────
+  //
+  // A blackout is a refusal with the range named; the cap is a refusal
+  // naming who is already off; a statutory holiday inside the range is not
+  // a working day and is not charged (countWorkingDays already took a
+  // holiday list — nothing passed one until now). lib/leave/limits.js.
+  const judged = await judgeLeaveRequest({
+    companyId: member.companyId,
+    workerId: worker.id,
+    startDate,
+    endDate,
+  });
+  if (judged.refusal) {
+    return NextResponse.json(
+      { error: judged.refusal.message, reason: judged.refusal.reason, ...judged.refusal, othersOff: judged.othersOff },
+      { status: 422 },
+    );
+  }
+
+  const workingDays = await workingDaysFor(onBehalf ? worker.userId : member.userId);
+  let days = countWorkingDays(startDate, endDate, { workingDays, holidays: judged.holidays });
   if (halfDay && days === 1) days = 0.5;
 
   if (!days) {
@@ -277,14 +385,16 @@ export async function POST(request) {
       halfDay: Boolean(halfDay) && days === 0.5,
       reason: reason || null,
       // Policies can auto-approve (sick days, commonly). Approving on creation
-      // means the balance is consumed immediately, which is correct.
-      status: policy.requiresApproval ? "pending" : "approved",
-      ...(policy.requiresApproval ? {} : { reviewedAt: new Date() }),
+      // means the balance is consumed immediately, which is correct. A
+      // manager's own entry is approved by that manager, by name.
+      status: policy.requiresApproval && !onBehalf ? "pending" : "approved",
+      ...(policy.requiresApproval && !onBehalf ? {} : { reviewedAt: new Date() }),
+      ...(onBehalf ? { reviewedById: member.userId } : {}),
     },
     include: { policy: { select: { name: true } } },
   });
 
-  if (!policy.requiresApproval) {
+  if (!policy.requiresApproval || onBehalf) {
     await consumeBalance({ policy, workerId: worker.id, year, days });
   }
 
@@ -292,8 +402,10 @@ export async function POST(request) {
     action: "leave.requested",
     entityType: "leave",
     entityId: created.id,
-    summary: `${worker.name} requested ${days} day(s) of ${policy.name}${policy.requiresApproval ? "" : " (auto-approved)"}`,
-    metadata: { days, policy: policy.name, startDate, endDate },
+    summary: onBehalf
+      ? `Added ${days} day(s) of ${policy.name} for ${worker.name} (entered by a manager)`
+      : `${worker.name} requested ${days} day(s) of ${policy.name}${policy.requiresApproval ? "" : " (auto-approved)"}`,
+    metadata: { days, policy: policy.name, startDate, endDate, onBehalf: Boolean(onBehalf) },
   });
 
   // ── "Somebody calling in sick" — the owner's own words, and until now it
@@ -322,7 +434,7 @@ export async function POST(request) {
       policyName: policy.name || "",
       days,
       // Whether anybody has to act, or this is purely "Dana is out on Tuesday".
-      autoApproved: !policy.requiresApproval,
+      autoApproved: !policy.requiresApproval || Boolean(onBehalf),
     },
     actorUserId: member.userId || null,
   }).catch(() => {});

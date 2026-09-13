@@ -376,11 +376,20 @@ export const ARTICLES = {
     title: "Votre horaire sur votre téléphone",
     summary:
       "Où vit la journée d'un équipier : les quarts publiés sous Attribuer les quarts, les rendez-vous dans le Calendrier, les visites sur le chantier, et les tâches à faire.",
-    updated: "2026-09-12",
+    updated: "2026-09-13",
     intro: [
       "Votre journée est à trois endroits, exprès, parce que ce sont trois choses différentes : un **quart**, ce sont les heures que votre gestionnaire a publiées pour vous; une **visite**, c'est un bloc de travail réservé sur un chantier; une **tâche à faire**, c'est une tâche à votre nom. Les trois ne montrent que ce qui est à vous, et aucun ne montre un brouillon que le bureau n'a pas publié.",
     ],
     sections: [
+      {
+        id: "my-schedule",
+        heading: 'Mon horaire',
+        blocks: [
+          { p: "**Mon horaire** dans le menu (et l'onglet Horaire de la barre du bas sur le téléphone) est vos deux prochaines semaines, une carte par jour, faite pour le pouce : **Demain, mardi 15 sept.**, puis les heures en grand — **8:00 – 16:00** — le client et l'adresse du chantier, qui d'autre est sur ce travail ce jour-là en initiales, votre dîner et vos pauses, et la note du gestionnaire citée. Sur la carte d'aujourd'hui, un bouton vert **Pointer** ouvre l'horodateur. Un quart placé hors des heures où vous vous êtes dit disponible le dit, avec qui l'a fait." },
+          { p: "**Ajouter au calendrier** télécharge vos quarts publiés en fichier .ics que le calendrier du téléphone ouvre ; retéléchargez-le la semaine suivante et les événements se mettent à jour au lieu de se dédoubler. **Demander un congé** mène à l'écran Congés. Seuls les quarts publiés apparaissent — un brouillon que votre gestionnaire n'a pas validé n'atteint jamais votre téléphone." },
+          { note: "Quand un gestionnaire publie, déplace, change le travail ou annule l'un de vos quarts, vous recevez une notification dans la cloche et, si vous les avez activées, une notification push : **Votre horaire est publié : lun. 14 sept., 8:00 – 16:00 chez Sophie Dubois, 12 rue Principale, et 4 de plus**. La toucher ouvre cet écran." },
+        ],
+      },
       {
         id: "overview",
         heading: "Vue d'ensemble",

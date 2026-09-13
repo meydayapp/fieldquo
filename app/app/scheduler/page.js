@@ -41,6 +41,8 @@ import ListState from "@/app/components/ListState";
 import { usePermissions } from "@/app/providers/PermissionProvider";
 import { hasLevel } from "@/lib/permissions/enforce";
 import { dayBoundsLocal, localYmd } from "@/lib/shifts/coverage";
+import { dailyLabourCost, minutesByWorker, weeklyLabourCost } from "@/lib/shifts/labourCost";
+import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
 import { useVisibleRefresh } from "@/app/hooks/useVisibleRefresh";
 import DayBoard from "./DayBoard";
 import ShiftModal from "./ShiftModal";
@@ -138,12 +140,22 @@ export default function SchedulerPage() {
   //
   // The day board asks for exactly its day, the week list for its week; the
   // route answers both with the same shape, so one loader serves both views.
+  // The week the day belongs to (Sunday to Sunday, the pay week the
+  // overtime threshold is counted over) rides along on every load, so the
+  // board can say "38.5h this week" beside each name and price the week
+  // before anything is published. The route answers it as `weekShifts`.
+  const costWeek = useMemo(() => {
+    const anchor = view === "day" && dayBounds ? new Date(dayBounds.start) : weekStart;
+    const start = startOfWeek(anchor);
+    return { start, end: addDays(start, 7) };
+  }, [view, dayBounds, weekStart]);
+
   const load = useCallback(async () => {
     const from =
       view === "day" && dayBounds ? new Date(dayBounds.start) : weekStart;
     const to = view === "day" && dayBounds ? new Date(dayBounds.end) : weekEnd;
     const result = await fetchList(
-      `/api/shifts?from=${from.toISOString()}&to=${to.toISOString()}`,
+      `/api/shifts?from=${from.toISOString()}&to=${to.toISOString()}&weekFrom=${costWeek.start.toISOString()}&weekTo=${costWeek.end.toISOString()}`,
     );
     if (result.aborted) return;
     if (!result.ok) {
@@ -153,12 +165,51 @@ export default function SchedulerPage() {
     }
     setErrorKey("");
     setData(result.data);
-  }, [view, dayBounds, weekStart, weekEnd]);
+  }, [view, dayBounds, weekStart, weekEnd, costWeek]);
 
   useEffect(() => {
     setLoading(true);
     load().finally(() => setLoading(false));
   }, [load]);
+
+  // ── Hours and money, before publish ─────────────────────────────────────
+  //
+  // lib/shifts/labourCost.js, pure. Rates arrive only when the route's
+  // canSeeAllPay said so (`payVisible`); without them the same arithmetic
+  // yields hours and overtime and no total, and the line says hours only.
+  const money = useCompanyMoney();
+  const labour = useMemo(() => {
+    if (!data?.manager) return null;
+    const weekShifts = data.weekShifts || [];
+    const workers = (data.workers || []).map((w) => ({
+      ...w,
+      hourlyRate: data.rates ? data.rates[w.id] ?? null : null,
+    }));
+    const weekMinutes = minutesByWorker(weekShifts, costWeek.start.getTime(), costWeek.end.getTime());
+    const week = weeklyLabourCost({ minutes: weekMinutes, workers, thresholdWeekly: data.otThresholdWeekly });
+    let day = null;
+    if (view === "day" && dayBounds) {
+      day = dailyLabourCost({
+        dayMinutes: minutesByWorker(weekShifts, dayBounds.start, dayBounds.end),
+        weekMinutesBefore: minutesByWorker(weekShifts, costWeek.start.getTime(), dayBounds.start),
+        workers,
+        thresholdWeekly: data.otThresholdWeekly,
+      });
+    }
+    return { weekMinutes, week, day, payVisible: Boolean(data.payVisible) };
+  }, [data, costWeek, view, dayBounds]);
+  const attendanceByShift = useMemo(() => {
+    const map = {};
+    for (const a of data?.attendance || []) map[a.shiftId] = a;
+    return map;
+  }, [data]);
+  // The marks on this day: the holiday whose observed day is this date, the
+  // blackout ranges covering it. Both are calendar days (ISO strings).
+  const dayMarks = useMemo(() => {
+    const holidays = (data?.holidays || []).filter((h) => h.observed === dateStr);
+    const blackouts = (data?.blackouts || []).filter((b) => b.from <= dateStr && b.to >= dateStr);
+    return { holidays, blackouts };
+  }, [data, dateStr]);
 
   // ── The board follows the time clock, live ──────────────────────────────
   //
@@ -582,6 +633,15 @@ export default function SchedulerPage() {
         </div>
       )}
 
+      {/* ── What the rota costs, before it is published ─────────────────────
+          Hours for everyone who can see the board; money only when the route
+          sent rates (payroll at view_all — the same gate as the Workers
+          tab). People scheduled with no rate are NAMED, not priced at zero:
+          a total that quietly omits three of five people is not a total. */}
+      {isManager && labour && !loading && !errorKey && (
+        <LabourLine labour={labour} view={view} money={money} t={t} />
+      )}
+
       {/* Created, and worth a word: the shift is outside this person's usual
           pattern. Not an error — that is what an extra day or an early start
           IS — but a mistyped hour looks exactly the same, and only the manager
@@ -630,6 +690,11 @@ export default function SchedulerPage() {
             t={t}
             onAddAt={openNewAt}
             onEditShift={(shift) => setModal({ shift })}
+            weekMinutes={labour?.weekMinutes || null}
+            otThresholdWeekly={data?.otThresholdWeekly ?? null}
+            attendanceByShift={attendanceByShift}
+            holidays={dayMarks.holidays}
+            blackouts={dayMarks.blackouts}
           />
           {/* The board has drawn every row and none of them holds a shift.
               Said once under the board, not as a separate empty panel that
@@ -649,6 +714,7 @@ export default function SchedulerPage() {
         </>
       ) : (
         <div className="space-y-3">
+          {isManager && labour && <WeekHoursPanel labour={labour} money={money} t={t} />}
           {days.map((day) => {
             const key = ymd(day);
             const list = (shiftsByDay[key] || []).sort(
@@ -804,6 +870,84 @@ export default function SchedulerPage() {
           t={t}
         />
       )}
+    </div>
+  );
+}
+
+// ── The labour line ─────────────────────────────────────────────────────────
+//
+// One sentence per figure, whole keys, numbers interpolated. `total` is null
+// when nobody scheduled has a rate; the overtime hours are shown whether or
+// not there is money, because they are the thing a manager can still fix
+// before publishing.
+function LabourLine({ labour, view, money, t }) {
+  const { week, day, payVisible } = labour;
+  const missing = (view === "day" && day ? day.missingRate : week.missingRate).map((m) => m.name).filter(Boolean);
+  const weekHours = Math.round((Object.values(labour.weekMinutes).reduce((a, b) => a + b, 0) / 60) * 10) / 10;
+  const otHours = Math.round(week.rows.reduce((a, r) => a + r.overtimeHours, 0) * 10) / 10;
+  return (
+    <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border border-border bg-card px-4 py-2.5 text-sm">
+      {view === "day" && day && payVisible && (
+        <span className="text-foreground">
+          <span className="text-muted-foreground">{t("app.scheduler.costDay")}</span>{" "}
+          <span className="font-semibold tabular-nums">{day.total == null ? "—" : money(day.total)}</span>
+        </span>
+      )}
+      {payVisible ? (
+        <span className="text-foreground">
+          <span className="text-muted-foreground">{t("app.scheduler.costWeek")}</span>{" "}
+          <span className="font-semibold tabular-nums">{week.total == null ? "—" : money(week.total)}</span>
+        </span>
+      ) : null}
+      <span className="text-muted-foreground">
+        {t("app.scheduler.weekScheduled", { hours: weekHours })}
+      </span>
+      <span className={otHours > 0 ? "font-semibold text-amber-700 dark:text-amber-300" : "text-muted-foreground"}>
+        {t("app.scheduler.weekOvertime", { hours: otHours, threshold: week.thresholdWeekly })}
+      </span>
+      {missing.length > 0 && (
+        <span className="text-amber-700 dark:text-amber-300" title={t("app.scheduler.rateNotSetTitle")}>
+          {t("app.scheduler.rateNotSet", { names: missing.join(", ") })}
+        </span>
+      )}
+      {!payVisible && (
+        <span className="text-[11px] text-muted-foreground">{t("app.scheduler.costHidden")}</span>
+      )}
+    </div>
+  );
+}
+
+// ── The week list's per-person hours ────────────────────────────────────────
+function WeekHoursPanel({ labour, money, t }) {
+  const { week, payVisible } = labour;
+  if (!week.rows.length) return null;
+  return (
+    <div className="rounded-xl border border-border bg-card p-4">
+      <h3 className="mb-2 text-sm font-bold text-foreground">{t("app.scheduler.weekHoursTitle")}</h3>
+      <ul className="divide-y divide-border">
+        {week.rows.map((r) => (
+          <li key={r.workerId} className="flex items-center justify-between gap-3 py-1.5 text-sm">
+            <span className="min-w-0 truncate text-foreground">{r.name || r.workerId}</span>
+            <span className="flex shrink-0 items-center gap-3 tabular-nums">
+              <span className={r.overtime ? "font-semibold text-amber-700 dark:text-amber-300" : "text-muted-foreground"}>
+                {t("app.scheduler.weekHours", { hours: `${r.hours}h` })}
+                {r.overtime ? ` · ${t("app.scheduler.overOt", { hours: week.thresholdWeekly })}` : ""}
+              </span>
+              {payVisible && (
+                <span className="w-20 text-right text-foreground">
+                  {r.cost == null ? (
+                    <span className="text-amber-700 dark:text-amber-300" title={t("app.scheduler.rateNotSetTitle")}>
+                      {t("app.scheduler.rateNotSetShort")}
+                    </span>
+                  ) : (
+                    money(r.cost)
+                  )}
+                </span>
+              )}
+            </span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

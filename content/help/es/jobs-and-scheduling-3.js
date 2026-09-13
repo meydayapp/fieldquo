@@ -19,12 +19,20 @@ export const ARTICLES = {
     title: "Hojas de horas: revisar y aprobar horas",
     summary:
       "La pantalla donde la oficina revisa cada fichaje, ve dónde estaba el teléfono en ese momento, aprueba las horas que una nómina puede usar y registra un fichaje que alguien olvidó.",
-    updated: "2026-09-12",
+    updated: "2026-09-13",
     intro: [
       "La cuadrilla marca entrada y salida en el **Reloj de tiempo**; la oficina revisa el resultado en **Hojas de horas**. Nada llega a una nómina hasta que alguien presiona **Aprobar**, y nada en esta pantalla se le oculta a la persona que trabajó las horas: el registro que ve en su teléfono es la fila que usted ve aquí.",
       "Este artículo explica qué muestra cada fila, qué significan y qué no significan las etiquetas de posición, cómo agregar un fichaje olvidado y quién puede aprobar, editar o eliminar un registro.",
     ],
     sections: [
+      {
+        id: "export-and-attendance",
+        heading: 'El CSV en bruto y la etiqueta de asistencia',
+        blocks: [
+          { p: "**Exportar** arriba de Hojas de horas descarga la hoja en bruto como CSV: elige el primer y último día y, si quieres, una persona, y pulsa **Descargar CSV**. Una fila por entrada — trabajador, título, fecha, entrada, salida, minutos de descanso no pagados y pagados, horas netas, trabajo, estado, quién aprobó, distancia al sitio al fichar cuando el teléfono respondió, y el veredicto de asistencia. El archivo lleva el nombre del rango (**timesheet_2026-09-01_2026-09-14.csv**). Horas, nunca salario: la tarifa por hora queda tras su propia puerta." },
+          { p: "Una etiqueta junto a un nombre — **A tiempo**, **12 min tarde**, **Salió 20 min antes**, **No se presentó** — es el veredicto del horario para el turno publicado al que pertenece ese fichaje, el mismo que el [[the-scheduler-and-crew-shifts|tablero del día]] muestra en el bloque. Un fichaje sin turno publicado alrededor no tiene etiqueta." },
+        ],
+      },
       {
         id: "overview",
         heading: "Resumen",
@@ -114,12 +122,22 @@ export const ARTICLES = {
     title: "Solicitudes de tiempo libre",
     summary:
       "Cómo cualquier persona del equipo pide tiempo libre, cómo la solicitud encuentra al gerente correcto, qué cambia aprobarla en el calendario y en el saldo, y quién puede hacer qué.",
-    updated: "2026-09-12",
+    updated: "2026-09-13",
     intro: [
       "**Tiempo libre** es una sola pantalla con dos públicos. Todos ven sus propios saldos y solicitudes y pueden pedir días libres; un gerente tiene además una pestaña **Equipo** con las solicitudes que lo esperan, quién se ausenta próximamente y los saldos de todos.",
       "Los saldos vienen de las políticas que un propietario configura en **Configuración → Políticas de ausencias**; vea [[time-off-policies|Políticas de tiempo libre]]. Sin una política no hay contra qué solicitar, y la pantalla lo dice.",
     ],
     sections: [
+      {
+        id: "limits-and-the-team-screen",
+        heading: 'Fechas bloqueadas, el límite, festivos — y la pantalla del responsable',
+        blocks: [
+          { p: "Tres reglas están por encima del saldo de cada política, definidas en [[time-off-policies|Políticas de ausencias]]. Un **rango bloqueado** (del 15 dic al 5 ene, por ejemplo) rechaza cualquier solicitud que lo toque, nombrando el rango y el motivo; el formulario lo dice en cuanto eliges las fechas, antes de escribir una nota. **Máximo de personas ausentes a la vez** rechaza una solicitud cuando ya hay tantos compañeros con ausencia aprobada en cualquiera de sus días — el rechazo nombra a quién. Las pendientes no cuentan; solo la ausencia aprobada. Los **festivos oficiales** dentro de una solicitud no se descuentan del saldo y se listan bajo las fechas." },
+          { p: "La vista **Equipo** es ahora el escritorio del responsable: **Solicitudes (N)** como tabla — la persona, la política y su tipo con la fecha de envío, las fechas, el total en horas (según sus horas de trabajo; en días si no hay ninguna definida) y ✓ aprobar, ✕ rechazar, › detalles. **Ver historial** abre lo decidido antes. **Horas aprobadas: 2026** suma el tiempo aprobado por persona y tipo, con una etiqueta por tipo para filtrar. A la derecha, **Ausencias próximas** como tarjetas y la tarjeta **Políticas**, que muestra cada política con cuántas personas la tienen, los rangos bloqueados y el límite." },
+          { p: "**Detalles** (›) abre la solicitud: categoría, primer y último día, **Tiempo solicitado**, **Saldo posterior** — lo que le quedaría a la persona una vez aprobada — la nota, y **Otros empleados ausentes** en esas fechas, o **Ningún otro empleado ausente**. Esa última línea es el límite mostrando su cálculo. En un teléfono se abre como una hoja desde abajo." },
+          { p: "**Añadir ausencia** permite a un responsable registrar una ausencia para alguien — una llamada que dijo que Dana no viene el jueves. Es la misma solicitud, creada ya aprobada con el responsable como revisor, y el saldo, los rangos bloqueados y el límite siguen aplicándose." },
+        ],
+      },
       {
         id: "overview",
         heading: "Resumen",

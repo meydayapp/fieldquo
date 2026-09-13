@@ -42,6 +42,7 @@ import {
 import { fetchJson } from "@/lib/fetchJson";
 import { COUNTRIES } from "@/lib/currency";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import LeaveLimitsCard from "@/app/components/settings/LeaveLimitsCard";
 
 const METHOD_LABEL = {
   annual_allotment: "Fixed days per year",
@@ -322,6 +323,10 @@ export default function LeaveSettingsPage() {
           </button>
         </section>
       )}
+
+      {/* Above the policies: blackouts, the cap, the holiday calendar —
+          Company.leaveRules, its own card and its own route. */}
+      <LeaveLimitsCard />
 
       <p className="text-xs text-muted-foreground flex items-start gap-1.5">
         <Info size={13} className="mt-0.5 shrink-0" />

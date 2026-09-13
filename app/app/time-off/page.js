@@ -5,8 +5,10 @@
 //
 //   • Everyone sees their own balances, can request time off, and can withdraw
 //     a request they haven't taken yet.
-//   • A manager also gets a Team tab: who's off when, and pending requests to
-//     approve or decline.
+//   • A manager also gets a Team tab (TeamTimeOff.js): requests to approve or
+//     decline with a details view, who's off next, hours approved by type,
+//     the policies with the company's blackout ranges and "most off at
+//     once" beside them, and Add time off for somebody else.
 //
 // ── Why the remaining figure is shown but not trusted ───────────────────────
 //
@@ -35,6 +37,10 @@ import { formatDateOnly, isoDateOnly } from "@/lib/format/companyDate";
 
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
+// The request form (own, and a manager's "Add time off") and the manager's
+// screen live beside this file; both read the limits the route now sends.
+import RequestForm from "./RequestForm";
+import TeamTimeOff from "./TeamTimeOff";
 const STATUS_STYLE = {
   pending: "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300",
   approved: "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300",
@@ -292,6 +298,8 @@ function MyTimeOff({ data, errorMessage, onRetry, reload }) {
         <RequestForm
           policies={data.policies}
           balances={data.balances || []}
+          rules={data.rules || null}
+          holidays={data.holidays || []}
           onDone={(created) => {
             setOpen(false);
             // The new row lands in a list sorted by date, which may be a long
@@ -379,174 +387,6 @@ function BalanceCard({ balance }) {
         </p>
       )}
     </div>
-  );
-}
-
-function RequestForm({ policies, balances, onDone, onCancel }) {
-  const money = useCompanyMoney();
-  const { t } = useTranslation();
-  const today = iso(new Date());
-  const [form, setForm] = useState({
-    policyId: policies[0]?.id || "",
-    startDate: today,
-    endDate: today,
-    halfDay: false,
-    reason: "",
-  });
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-
-  const policy = policies.find((p) => p.id === form.policyId);
-  const balance = balances.find((b) => b.policyId === form.policyId);
-  const sameDay = form.startDate === form.endDate;
-
-  async function submit(e) {
-    e.preventDefault();
-    setBusy(true);
-    setError("");
-    try {
-      const created = await fetchJson("/api/leave", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, halfDay: sameDay && form.halfDay }),
-      });
-      onDone(created);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <form
-      onSubmit={submit}
-      className="rounded-xl border border-border bg-card p-4 space-y-4"
-    >
-      <div className="grid gap-3 sm:grid-cols-2">
-        <label className="block">
-          <span className="text-xs font-medium text-muted-foreground">{t("app.timeOff.type")}</span>
-          <select
-            value={form.policyId}
-            onChange={(e) => setForm({ ...form, policyId: e.target.value })}
-            className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-          >
-            {policies.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-                {p.paid === false ? ` (${t("app.timeOff.unpaidSuffix")})` : ""}
-              </option>
-            ))}
-          </select>
-        </label>
-        <div className="flex items-end">
-          {policy?.paid === false ? (
-            <p className="text-xs text-muted-foreground">
-              {t("app.timeOff.unpaidNoBalance")}
-            </p>
-          ) : balance ? (
-            <p className="text-xs text-muted-foreground">
-              {policy?.accrualMethod === "percent_of_gross"
-                ? t("app.timeOff.vacationPayAccrued", {
-                    amount: money(balance.remainingAmount),
-                  })
-                : /* "day(s)" was a parenthesised English plural. Ukrainian has
-                     three forms and French counts zero as singular, so the key
-                     is a function over Intl.PluralRules — see
-                     lib/i18n/plurals.js. */
-                  t("app.timeOff.daysAvailable", {
-                    days: balance.remainingDays,
-                  })}
-            </p>
-          ) : null}
-        </div>
-
-        <label className="block">
-          <span className="text-xs font-medium text-muted-foreground">{t("app.timeOff.firstDay")}</span>
-          <input
-            type="date"
-            required
-            value={form.startDate}
-            onChange={(e) =>
-              setForm((f) => ({
-                ...f,
-                startDate: e.target.value,
-                // Keep the range valid without silently moving the user's end
-                // date backwards.
-                endDate: f.endDate < e.target.value ? e.target.value : f.endDate,
-              }))
-            }
-            className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-          />
-        </label>
-        <label className="block">
-          <span className="text-xs font-medium text-muted-foreground">{t("app.timeOff.lastDay")}</span>
-          <input
-            type="date"
-            required
-            min={form.startDate}
-            value={form.endDate}
-            onChange={(e) => setForm({ ...form, endDate: e.target.value })}
-            className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-          />
-        </label>
-      </div>
-
-      {sameDay && (
-        <label className="flex items-center gap-2 text-sm text-foreground">
-          <input
-            type="checkbox"
-            checked={form.halfDay}
-            onChange={(e) => setForm({ ...form, halfDay: e.target.checked })}
-            className="rounded border-border"
-          />
-          {t("app.timeOff.halfDayOnly")}
-        </label>
-      )}
-
-      <label className="block">
-        <span className="text-xs font-medium text-muted-foreground">
-          {t("app.timeOff.note")}
-        </span>
-        <textarea
-          rows={2}
-          value={form.reason}
-          onChange={(e) => setForm({ ...form, reason: e.target.value })}
-          placeholder={t("app.timeOff.notePlaceholder")}
-          className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-        />
-      </label>
-
-      {policy && !policy.requiresApproval && (
-        <p className="text-xs text-muted-foreground flex items-start gap-1.5">
-          <Info size={13} className="mt-0.5 shrink-0" />
-          {t("app.timeOff.autoApproved")}
-        </p>
-      )}
-
-      {error && (
-        <div className="rounded-lg bg-red-50 dark:bg-red-950/30 px-3 py-2 text-sm text-red-700 dark:text-red-300">
-          {error}
-        </div>
-      )}
-
-      <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="rounded-lg border border-border px-4 py-2 text-sm"
-        >
-          {t("app.action.cancel")}
-        </button>
-        <button
-          disabled={busy}
-          className="inline-flex items-center justify-center gap-2 rounded-lg bg-inverted text-inverted-foreground px-4 py-2 text-sm font-medium disabled:opacity-60"
-        >
-          {busy && <Loader2 size={14} className="animate-spin" />}
-          {t("app.timeOff.submitRequest")}
-        </button>
-      </div>
-    </form>
   );
 }
 
@@ -673,153 +513,6 @@ function RequestRow({ request, reload, canCancel, canReview, showWho }) {
         <div className="mt-2 rounded-lg bg-red-50 dark:bg-red-950/30 px-3 py-2 text-sm text-red-700 dark:text-red-300">
           {error}
         </div>
-      )}
-    </div>
-  );
-}
-
-// ── Team ───────────────────────────────────────────────────────────────────
-
-function TeamTimeOff({ data, reload }) {
-  const money = useCompanyMoney();
-  const { t } = useTranslation();
-  if (!data) {
-    return (
-      <div className="flex items-center gap-2 text-sm text-muted-foreground py-10 justify-center">
-        <Loader2 className="animate-spin" size={16} /> {t("app.state.loading")}
-      </div>
-    );
-  }
-
-  const pending = (data.requests || []).filter((r) => r.status === "pending");
-  const now = new Date();
-  const upcoming = (data.requests || [])
-    .filter((r) => r.status === "approved" && new Date(r.endDate) >= now)
-    .sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
-  const past = (data.requests || []).filter(
-    (r) => !pending.includes(r) && !upcoming.includes(r),
-  );
-
-  return (
-    <div className="space-y-6">
-      <section>
-        <h2 className="font-semibold text-foreground mb-2">
-          {t("app.timeOff.awaitingApproval")}
-          {pending.length > 0 && (
-            <span className="ml-2 text-sm font-normal text-muted-foreground">
-              {pending.length}
-            </span>
-          )}
-        </h2>
-        {pending.length ? (
-          <div className="space-y-2">
-            {pending.map((r) => (
-              <RequestRow
-                key={r.id}
-                request={r}
-                reload={reload}
-                // Per request, not per role. The PATCH route already refuses a
-                // supervisor who isn't above this person, and a button that
-                // renders only to return 403 is the dead control this codebase
-                // keeps finding. Falls back to the role when routing couldn't
-                // be computed, which is the behaviour that was here before.
-                canReview={r.routing ? r.routing.canAct : data.canApprove}
-                showWho
-              />
-            ))}
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">{t("app.timeOff.nothingToApprove")}</p>
-        )}
-        {pending.length > 0 &&
-          !pending.some((r) => (r.routing ? r.routing.canAct : data.canApprove)) && (
-          <p className="mt-2 text-xs text-muted-foreground flex items-start gap-1.5">
-            <Info size={13} className="mt-0.5 shrink-0" />
-            {t("app.timeOff.viewOnly")}
-          </p>
-        )}
-      </section>
-
-      <section>
-        <h2 className="font-semibold text-foreground mb-2">
-          {t("app.timeOff.whosOffNext")}
-        </h2>
-        {upcoming.length ? (
-          <div className="space-y-2">
-            {upcoming.map((r) => (
-              <RequestRow
-                key={r.id}
-                request={r}
-                reload={reload}
-                canCancel={data.canApprove}
-                showWho
-              />
-            ))}
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            {t("app.timeOff.noneUpcoming")}
-          </p>
-        )}
-      </section>
-
-      {data.balances?.length > 0 && (
-        <section>
-          <h2 className="font-semibold text-foreground mb-2">{t("app.timeOff.balances")}</h2>
-          <div className="overflow-x-auto rounded-xl border border-border">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
-                <tr>
-                  <th className="px-3 py-2">{t("app.timeOff.person")}</th>
-                  <th className="px-3 py-2">{t("app.timeOff.policy")}</th>
-                  <th className="px-3 py-2 text-right">{t("app.timeOff.accrued")}</th>
-                  <th className="px-3 py-2 text-right">{t("app.timeOff.taken")}</th>
-                  <th className="px-3 py-2 text-right">{t("app.timeOff.left")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.balances.map((b) => {
-                  const isMoney = b.policy?.accrualMethod === "percent_of_gross";
-                  return (
-                    <tr key={b.id} className="border-t border-border">
-                      <td className="px-3 py-2 text-foreground">
-                        {b.worker?.name}
-                        {personTitle(b.worker) && (
-                          <span className="block text-xs text-muted-foreground">
-                            {personTitle(b.worker)}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2 text-muted-foreground">
-                        {b.policy?.name}
-                      </td>
-                      <td className="px-3 py-2 text-right">
-                        {isMoney ? money(b.accruedAmount) : b.accruedDays}
-                      </td>
-                      <td className="px-3 py-2 text-right">
-                        {isMoney ? money(b.usedAmount) : b.usedDays}
-                      </td>
-                      <td className="px-3 py-2 text-right font-semibold text-foreground">
-                        {isMoney ? money(b.remainingAmount) : b.remainingDays}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      )}
-
-      {past.length > 0 && (
-        <section>
-          <h2 className="font-semibold text-foreground mb-2">{t("app.timeOff.earlier")}</h2>
-          <div className="space-y-2">
-            {past.slice(0, 20).map((r) => (
-              <RequestRow key={r.id} request={r} reload={reload} showWho />
-            ))}
-          </div>
-        </section>
       )}
     </div>
   );

@@ -121,8 +121,8 @@
       "schedule": "10 3 * * *"
     },
     {
-      "path": "/api/cron/availability-apply",
-      "schedule": "0 5 * * *"
+      "path": "/api/cron/time-clock-watch",
+      "schedule": "*/15 * * * *"
     }
   ]
 }

@@ -18,6 +18,7 @@ import { canApprove } from "@/lib/org/reportingLine";
 import { recordActivity } from "@/lib/activity/log";
 import { canTakeLeave } from "@/lib/leave/accrual";
 import { consumeBalance, releaseBalance } from "@/lib/leave/balances";
+import { judgeLeaveRequest } from "@/lib/leave/limits";
 
 const ACTIONS = new Set(["approve", "decline", "cancel"]);
 
@@ -155,6 +156,24 @@ export async function PATCH(request, { params }) {
           error: `${req.worker.name} doesn't have the balance for this. ${check.message}`,
           reason: check.reason,
         },
+        { status: 422 },
+      );
+    }
+
+    // The cap and the blackouts, re-judged at the moment it becomes real —
+    // somebody else's leave may have been approved since this was asked, and
+    // the owner may have closed the range. The message names who is already
+    // off; the way past it is the limit in Settings → Time off, not a second
+    // press (lib/leave/limits.js).
+    const judged = await judgeLeaveRequest({
+      companyId: member.companyId,
+      workerId: req.workerId,
+      startDate: req.startDate,
+      endDate: req.endDate,
+    });
+    if (judged.refusal) {
+      return NextResponse.json(
+        { error: judged.refusal.message, reason: judged.refusal.reason, ...judged.refusal, othersOff: judged.othersOff },
         { status: 422 },
       );
     }

@@ -484,6 +484,17 @@ export const ARTICLES = {
     ],
     sections: [
       {
+        id: "cost-attendance-holidays",
+        heading: 'Hours, cost, attendance and holidays — before you publish',
+        blocks: [
+          { p: "Above the board, one line says what the rota costs before it is published: **This day** and **This week** in money, the hours scheduled this week, and the overtime hours over the weekly threshold (40 h unless a pay run overrides it). The money shows only to people who can see pay rates — the same people who see them under Settings → Workers; everyone else sees the hours. Somebody scheduled with no hourly rate is **named** beside the total (**Rate not set: Jean Roy**) rather than counted at zero, because a total that quietly leaves three people out is not a total." },
+          { p: "Under each name on the day board, **38.5h this week** is that person's scheduled hours for the week, drafts included. Past the threshold it turns amber and says **over 40h**. The Week view has the same figures as a list, **Hours this week**, with the cost per person when you may see it." },
+          { p: "A small chip on a shift block is the time clock's verdict for that shift: **On time**, **Late 12 min**, **Left 20 min early** or **No-show**. It is computed every fifteen minutes from the person's punches (a first punch more than ten minutes after the start is late; none an hour after the start is a no-show; a clock-out more than fifteen minutes before the end is early out), hollow while the shift is still under way and filled once it is final. The same chip sits on the [[timesheets-and-approving-hours|timesheet]] row, and a 30-day count per person is on their card in Manage Team." },
+          { p: "A statutory holiday, or a blackout range from [[time-off-policies|Time off policies]], draws a muted band across the top of the board — **Labour Day — statutory holiday**. Nothing is greyed or refused: a plumber works Labour Day. It is said, so a manager scheduling the day knows." },
+          { note: "Publishing now tells the crew. Each person whose shifts just became visible gets one notification — **Your schedule is out: Mon 14 Sep, 8:00 – 16:00 at Sophie Dubois, 12 rue Principale, and 4 more** — in the bell and as a push on the phones they turned notifications on in. Moving a published shift, changing its job, deleting it or unpublishing it tells them too. Drafts never do: creating, moving or deleting a draft says nothing to anybody. Every one of those edits is also written to the Activity log — who, whose shift, the old and new times." },
+        ],
+      },
+      {
         id: "overview",
         heading: "What is on the screen",
         blocks: [
@@ -625,12 +636,21 @@ export const ARTICLES = {
     title: "The time clock",
     summary:
       "The crew's own punch: clock in against the job they are on, switch jobs mid-day, clock out, and see today's hours — with one position captured at the tap so the timesheet can show how far from the site it was.",
-    updated: "2026-09-12",
+    updated: "2026-09-13",
     intro: [
       "**Time clock** is the one screen an hourly worker touches every shift, so it is kept spare: the date, a live clock, one big button, today's total. Every tap writes a plain time entry that goes to the manager to review on Timesheets — no pay maths happens here.",
       "Each entry can name the job it was worked on, which is what lets job costing know what a job's labour really cost. An hour with no job — travel, the yard, a morning of quoting — is a real hour and is recorded as exactly that.",
     ],
     sections: [
+      {
+        id: "still-clocked-in",
+        heading: 'Still clocked in?',
+        blocks: [
+          { p: "Every fifteen minutes FieldQuo looks for a clock-in that has outlived its shift. If your published shift ended more than thirty minutes ago and you are still on the clock — or, with no shift behind the entry, you have been clocked in for fourteen hours — your phone gets one push, **Still clocked in?**, and your manager gets a note. Once per entry, never every quarter hour." },
+          { note: "Nothing is closed for you. Whether you left at 16:00 or worked until 19:00 is a pay question, and only a person answers it: you, by clocking out, or your manager, with the manual clock-out on the [[timesheets-and-approving-hours|timesheet]]. A clock that guessed would either invent hours or take them away." },
+          { p: "Every punch — in, out, a job switch, lunch and break — is also written to the company's Activity log with the time, so a later edit to the entry never erases what the clock originally recorded." },
+        ],
+      },
       {
         id: "overview",
         heading: "What is on the screen",

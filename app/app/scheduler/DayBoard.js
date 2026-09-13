@@ -46,6 +46,7 @@ import {
   statusAt,
 } from "@/lib/shifts/coverage";
 import { jobLabel } from "./ShiftModal";
+import AttendanceChip from "@/app/components/team/AttendanceChip";
 
 // The name column is a CSS variable, not a number: 164px on a phone, 208px
 // from the sm breakpoint, so a 375px screen keeps three hour columns in view
@@ -105,12 +106,23 @@ function hourLabel(ms, language) {
 }
 
 const hm = (minutes) => `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, "0")}m`;
+// Hours to one decimal for the week line — "38.5h" reads faster than
+// "38h 30m" beside a threshold, and the threshold is in hours.
+const hoursShort = (minutes) => `${Math.round((minutes / 60) * 10) / 10}h`;
 const localAt = (ymd, hhmm) => new Date(`${ymd}T${hhmm}:00`).getTime();
 
 /**
  * @param data      the /api/shifts payload for exactly this day
  * @param dateStr   "2026-09-14", the viewer's local day
  * @param now       the instant "now" for the status dots (a Date)
+ */
+/**
+ * @param weekMinutes       workerId → scheduled minutes this week (drafts
+ *                          included), from lib/shifts/labourCost.js
+ * @param otThresholdWeekly the hours after which the week line turns amber
+ * @param attendanceByShift shiftId → ShiftAttendance row, for the chip
+ * @param holidays          [{ key, name, observed }] falling on this day
+ * @param blackouts         [{ from, to, label }] covering this day
  */
 export default function DayBoard({
   data,
@@ -123,6 +135,11 @@ export default function DayBoard({
   t,
   onAddAt,
   onEditShift,
+  weekMinutes = null,
+  otThresholdWeekly = null,
+  attendanceByShift = null,
+  holidays = [],
+  blackouts = [],
 }) {
   const day = useMemo(() => dayBoundsLocal(dateStr), [dateStr]);
   const shifts = useMemo(() => data?.shifts || [], [data]);
@@ -292,6 +309,39 @@ export default function DayBoard({
             </div>
           </div>
 
+          {/* ── A statutory holiday or a blackout, across the whole board ──
+              One muted band per mark, above the rows: the day is still a
+              working day for whoever is scheduled (a plumber works Labour
+              Day), so nothing is greyed or refused — it is said. The name
+              comes from the catalogue by key (app.holiday.*), the blackout
+              label from what the owner typed. */}
+          {(holidays.length > 0 || blackouts.length > 0) && (
+            <div className="flex border-b border-border bg-muted/60">
+              <div
+                className="sticky left-0 z-20 shrink-0 border-r border-border bg-muted/60 px-3 py-1.5 text-[11px] font-semibold text-muted-foreground"
+                style={{ width: NAME_COL }}
+              >
+                {holidays.length > 0 ? t("app.scheduler.holidayRowLabel") : t("app.scheduler.blackoutRowLabel")}
+              </div>
+              <div className="flex-1 px-3 py-1.5 text-[11px] text-muted-foreground">
+                {holidays.map((h) => (
+                  <span key={`h-${h.key}-${h.observed}`} className="mr-3 inline-flex items-center gap-1">
+                    <span className="font-semibold text-foreground">{t(`app.holiday.${h.key}`, h.name)}</span>
+                    {" — "}
+                    {t("app.scheduler.statutoryHoliday")}
+                  </span>
+                ))}
+                {blackouts.map((b) => (
+                  <span key={`b-${b.from}`} className="mr-3 inline-flex items-center gap-1">
+                    <span className="font-semibold text-foreground">{b.label || `${b.from} – ${b.to}`}</span>
+                    {" — "}
+                    {t("app.scheduler.blackoutBand")}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* ── Rows ───────────────────────────────────────────────────── */}
           {rows.length === 0 ? (
             <div className="px-4 py-8 text-sm text-muted-foreground">
@@ -312,6 +362,9 @@ export default function DayBoard({
                 windows={availabilityByWorker[w.id] || null}
                 leave={leaveByWorker[w.id] || null}
                 live={isToday ? liveByWorker[w.id] || null : null}
+                weekMinutes={weekMinutes ? weekMinutes[w.id] || 0 : null}
+                otThresholdWeekly={otThresholdWeekly}
+                attendanceByShift={attendanceByShift}
                 isToday={isToday}
                 nowMs={nowMs}
                 isManager={isManager}
@@ -329,8 +382,12 @@ export default function DayBoard({
           {nowMark && nowMs >= day.start && nowMs < day.end && (
             <div
               aria-hidden="true"
-              className={`pointer-events-none absolute bottom-0 z-10 w-px bg-red-500 ${isManager ? "top-[72px]" : "top-[28px]"}`}
+              className="pointer-events-none absolute bottom-0 z-10 w-px bg-red-500"
               style={{
+                // Below the coverage strip (44px, managers only), the hour
+                // header (28px) and the holiday/blackout band when one is
+                // drawn (29px) — the line starts where the rows start.
+                top: (isManager ? 72 : 28) + (holidays.length > 0 || blackouts.length > 0 ? 29 : 0),
                 left: `calc(${NAME_COL} + (100% - ${NAME_COL}) * ${nowMark.leftPct / 100})`,
               }}
             />
@@ -389,6 +446,9 @@ function WorkerRow({
   windows,
   leave,
   live,
+  weekMinutes = null,
+  otThresholdWeekly = null,
+  attendanceByShift = null,
   isToday,
   nowMs,
   isManager,
@@ -400,6 +460,10 @@ function WorkerRow({
   onEditShift,
 }) {
   const minutes = scheduledMinutes(shifts, day.start, day.end);
+  // The week so far, drafts included — the number a manager reads before
+  // pressing Publish. Amber past the overtime threshold payroll will use.
+  const overOt =
+    weekMinutes != null && otThresholdWeekly != null && weekMinutes / 60 > otThresholdWeekly;
   const allDraft = shifts.length > 0 && shifts.every((s) => !s.published);
 
   // ── The dot ─────────────────────────────────────────────────────────────
@@ -491,7 +555,9 @@ function WorkerRow({
       : axis.start;
 
   return (
-    <div className="flex border-b border-border last:border-b-0">
+    // data-worker-row is the anchor the people quick-jump on the phone
+    // scrolls to (page.js); it carries no data of its own.
+    <div className="flex border-b border-border last:border-b-0" data-worker-row={worker.id}>
       <div
         className="sticky left-0 z-20 flex shrink-0 items-center gap-2.5 border-r border-border bg-card px-3 py-2"
         style={{ width: NAME_COL }}
@@ -516,6 +582,20 @@ function WorkerRow({
               7:42" is the sentence the dot exists to explain, and cutting it
               at "on site sin…" loses the number that matters. */}
           <div className="line-clamp-2 text-[11px] leading-tight text-muted-foreground">{detail}</div>
+          {/* Managers only: the worker's payload has no week beside it. A
+              zero is shown as a zero — "0h this week" is a fact about the
+              rota, not an absence. */}
+          {isManager && weekMinutes != null && (
+            <div
+              className={`text-[11px] leading-tight ${
+                overOt ? "font-semibold text-amber-700 dark:text-amber-300" : "text-muted-foreground"
+              }`}
+              title={overOt ? t("app.scheduler.overOtTitle", { hours: otThresholdWeekly }) : undefined}
+            >
+              {t("app.scheduler.weekHours", { hours: hoursShort(weekMinutes) })}
+              {overOt ? ` · ${t("app.scheduler.overOt", { hours: otThresholdWeekly })}` : ""}
+            </div>
+          )}
         </div>
       </div>
 
@@ -607,6 +687,7 @@ function WorkerRow({
             .filter(Boolean)
             .join(" · ");
           const wide = p.widthPct * columns.length > 110; // roughly > 1 column
+          const attendance = attendanceByShift ? attendanceByShift[s.id] || null : null;
           const classes = `absolute top-1.5 z-[6] flex h-11 flex-col justify-center overflow-hidden rounded-md border px-1.5 text-left text-[11px] leading-tight ${swatchFor(s.job?.id)} ${s.published ? "" : "border-dashed"} ${p.clippedStart ? "rounded-l-none" : ""} ${p.clippedEnd ? "rounded-r-none" : ""}`;
           const inner = (
             <>
@@ -639,6 +720,9 @@ function WorkerRow({
                 )}
                 <span className="truncate">{wide ? times : formatTimeOfDay(s.start, language)}</span>
                 {p.clippedEnd ? " ▶" : ""}
+                {/* The rota's verdict — late, no-show, early out, on time —
+                    from the time-clock watch, on the block it is about. */}
+                {attendance && wide && <AttendanceChip attendance={attendance} t={t} size="xs" className="ml-auto shrink-0" />}
               </span>
               {wide && (label || !s.published) && (
                 <span className="relative z-[1] truncate opacity-90">

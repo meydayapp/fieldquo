@@ -90,12 +90,21 @@ export const ARTICLES = {
     title: "Políticas de tiempo libre",
     summary:
       "Los tipos de tiempo libre que su equipo puede tomar y cómo se acumula cada saldo — días fijos, por período de pago, o pago de vacaciones como porcentaje — más el traslado de fin de año, hecho a mano.",
-    updated: "2026-09-12",
+    updated: "2026-09-13",
     intro: [
       "Una política es un tipo de tiempo libre — Vacaciones, Enfermedad, Personal, Sin goce, Otro — con una regla sobre cuánto acumula una persona y si un encargado tiene que aprobar la solicitud. Las políticas viven en **Configuración → Políticas de ausencias**; las solicitudes y los saldos que producen viven en la pantalla **Ausencias**, donde el personal pide y los encargados aprueban. Vea [[time-off-requests|Solicitudes de tiempo libre]].",
       "FieldQuo registra lo que usted configura. No decide lo que debe: la nota al pie de la pantalla dice que los mínimos legales varían según la provincia, el estado y la antigüedad, y los conjuntos iniciales dicen claramente de qué año vienen sus cifras.",
     ],
     sections: [
+      {
+        id: "limits",
+        heading: 'Límites de ausencias',
+        blocks: [
+          { p: "Bajo las políticas, **Límites de ausencias** guarda las reglas que están por encima del saldo de cualquier política. **Fechas bloqueadas**: rangos dentro de los que nadie puede solicitar, cada uno con un motivo (**Instalaciones de Navidad**) para que el rechazo lo diga. **Máximo de personas ausentes a la vez**: un número entero, o en blanco para no limitar; una solicitud se rechaza cuando ya hay tantas personas con ausencia aprobada en cualquiera de sus días, y el rechazo las nombra. **Festivos oficiales**: el calendario que sigue el recuento — Canadá por provincia o territorio, o los federales de Estados Unidos — calculado a partir de la regla de cada festivo (el lunes antes del 25 de mayo, el primer lunes de septiembre, Pascua menos dos días) para que el año siguiente sea correcto sin que nadie edite una tabla. Sigue la dirección de la empresa salvo que elijas una región, y **Mostrar los festivos** lista los de este año y el próximo, con el día trasladado cuando un festivo cae en fin de semana." },
+          { note: "Una empresa fuera de Canadá y Estados Unidos no tiene calendario de festivos aquí, y la pantalla lo dice. Entonces se cuenta cada día laborable de la solicitud, que es la respuesta honesta — un calendario canadiense aplicado a Lyon no lo sería." },
+          { p: "El horario dibuja un festivo o un rango bloqueado como banda arriba del [[the-scheduler-and-crew-shifts|tablero del día]], y la vista Equipo de [[time-off-requests|Ausencias]] muestra los rangos y el límite en su tarjeta Políticas." },
+        ],
+      },
       {
         id: "overview",
         heading: "Visión general",

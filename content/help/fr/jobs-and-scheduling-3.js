@@ -18,12 +18,20 @@ export const ARTICLES = {
     title: "Feuilles de temps : réviser et approuver les heures",
     summary:
       "L'écran où le bureau révise chaque pointage, voit où était le téléphone à ce moment-là, approuve les heures qu'une paie peut utiliser et enregistre un pointage oublié.",
-    updated: "2026-09-12",
+    updated: "2026-09-13",
     intro: [
       "L'équipe pointe l'entrée et la sortie sur la **Pointeuse**; le bureau révise le résultat sur **Feuilles de temps**. Rien n'atteint une paie tant que quelqu'un n'a pas appuyé sur **Approuver**, et rien sur cet écran n'est caché à la personne qui a fait les heures — l'entrée qu'elle voit sur son téléphone est la ligne que vous voyez ici.",
       "Cet article décrit ce que montre chaque ligne, ce que les puces de position veulent dire et ne veulent pas dire, comment ajouter un pointage oublié, et qui a le droit d'approuver, de modifier ou de supprimer une entrée.",
     ],
     sections: [
+      {
+        id: "export-and-attendance",
+        heading: "Le CSV brut, et la pastille d'assiduité",
+        blocks: [
+          { p: "**Exporter** en haut des Feuilles de temps télécharge la feuille brute en CSV : choisissez le premier et le dernier jour et, au besoin, une personne, puis **Télécharger le CSV**. Une ligne par entrée — travailleur, titre, date, arrivée, départ, minutes de pause non payées et payées, heures nettes, travail, statut, qui a approuvé, distance du site au pointage quand le téléphone a répondu, et le verdict d'assiduité. Le fichier porte le nom de la période (**timesheet_2026-09-01_2026-09-14.csv**). Des heures, jamais la paie : le taux horaire reste derrière sa propre barrière." },
+          { p: "Une pastille à côté d'un nom — **À l'heure**, **12 min de retard**, **Parti 20 min plus tôt**, **Absent** — est le verdict de l'horaire pour le quart publié auquel ce pointage appartient, le même que le [[the-scheduler-and-crew-shifts|tableau du jour]] affiche sur le bloc. Un pointage sans quart publié autour de lui n'a pas de pastille." },
+        ],
+      },
       {
         id: "overview",
         heading: "Vue d'ensemble",
@@ -113,12 +121,22 @@ export const ARTICLES = {
     title: "Demandes de congé",
     summary:
       "Comment n'importe qui dans l'équipe demande un congé, comment la demande trouve le bon gestionnaire, ce que l'approbation change au calendrier et au solde, et qui peut faire quoi.",
-    updated: "2026-09-12",
+    updated: "2026-09-13",
     intro: [
       "**Congés** est un seul écran pour deux publics. Tout le monde voit ses propres soldes et demandes et peut demander des jours de congé; un gestionnaire a en plus un onglet **Équipe** avec les demandes qui l'attendent, qui est en congé bientôt, et les soldes de tout le monde.",
       "Les soldes viennent des politiques qu'un propriétaire configure sous **Paramètres → Politiques de congés** — voir [[time-off-policies|Politiques de congés]]. Sans politique, il n'y a rien contre quoi faire une demande, et l'écran le dit.",
     ],
     sections: [
+      {
+        id: "limits-and-the-team-screen",
+        heading: "Périodes bloquées, limite, jours fériés — et l'écran du gestionnaire",
+        blocks: [
+          { p: "Trois règles se placent au-dessus du solde de chaque politique, réglées dans [[time-off-policies|Politiques de congés]]. Une **période bloquée** (du 15 déc. au 5 janv., par exemple) refuse toute demande qui la touche, en nommant la période et la raison ; le formulaire le dit dès que vous choisissez les dates, avant de taper une note. **Nombre maximal d'absents en même temps** refuse une demande quand autant de collègues sont déjà en congé approuvé l'un de ses jours — le refus nomme qui. Les demandes en attente ne comptent pas ; seuls les congés approuvés comptent. Les **jours fériés** dans une demande ne sont pas déduits du solde et sont listés sous les dates." },
+          { p: "La vue **Équipe** est maintenant le bureau du gestionnaire : **Demandes (N)** en tableau — la personne, la politique et son type avec la date de soumission, les dates, le total en heures (d'après ses heures de travail ; en jours si aucune n'est définie) et ✓ approuver, ✕ refuser, › détails. **Voir l'historique** ouvre ce qui a été décidé avant. **Heures approuvées : 2026** totalise le temps approuvé par personne et par type, avec une pastille par type pour filtrer. À droite, **Congés à venir** en cartes et la carte **Politiques**, qui montre chaque politique avec le nombre de personnes qui la détiennent, les périodes bloquées et la limite." },
+          { p: "**Détails** (›) ouvre la demande : catégorie, premier et dernier jour, **Temps demandé**, **Solde après** — ce qu'il resterait à la personne une fois approuvé — la note, et **Autres employés absents** à ces dates, ou **Aucun autre employé absent**. Cette dernière ligne, c'est la limite qui montre son calcul. Sur un téléphone, elle s'ouvre en feuille depuis le bas." },
+          { p: "**Ajouter un congé** permet à un gestionnaire de saisir un congé pour quelqu'un — un appel qui dit que Dana est absente jeudi. C'est la même demande, créée déjà approuvée avec le gestionnaire comme réviseur, et le solde, les périodes bloquées et la limite s'appliquent toujours." },
+        ],
+      },
       {
         id: "overview",
         heading: "Vue d'ensemble",

@@ -90,12 +90,21 @@ export const ARTICLES = {
     title: "Politiques de congés",
     summary:
       "Les types de congés que votre équipe peut prendre et comment chaque solde s'accumule — jours fixes, par période de paie, ou indemnité de vacances en pourcentage — plus le report de fin d'année, fait à la main.",
-    updated: "2026-09-12",
+    updated: "2026-09-13",
     intro: [
       "Une politique, c'est un type de congé — Vacances, Maladie, Personnel, Non payé, Autre — avec une règle sur ce qu'une personne accumule et sur la nécessité qu'un gestionnaire approuve la demande. Les politiques vivent dans **Paramètres → Politiques de congés**; les demandes et les soldes qu'elles produisent vivent sur l'écran **Congés**, où le personnel demande et les gestionnaires approuvent. Voir [[time-off-requests|Demandes de congés]].",
       "FieldQuo suit ce que vous configurez. Il ne décide pas de ce que vous devez : la note au bas de l'écran dit que les minimums légaux varient selon la province, l'État et l'ancienneté, et les ensembles de départ disent clairement de quelle année viennent leurs chiffres.",
     ],
     sections: [
+      {
+        id: "limits",
+        heading: 'Limites des congés',
+        blocks: [
+          { p: "Sous les politiques, **Limites des congés** contient les règles qui se placent au-dessus du solde de chaque politique. **Périodes bloquées** : des périodes que personne ne peut demander, chacune avec une raison (**Installations de Noël**) pour que le refus la donne. **Nombre maximal d'absents en même temps** : un nombre entier, ou vide pour aucune limite ; une demande est refusée quand autant de personnes sont déjà en congé approuvé l'un de ses jours, et le refus les nomme. **Jours fériés** : le calendrier que suit le décompte — le Canada par province ou territoire, ou les fériés fédéraux des États-Unis — calculé d'après la règle de chaque fête (le lundi avant le 25 mai, le premier lundi de septembre, Pâques moins deux jours) pour que l'année suivante soit juste sans que personne ne modifie une table. Il suit l'adresse de l'entreprise sauf si vous choisissez une région, et **Afficher les jours fériés** liste ceux de cette année et de la prochaine, avec le jour observé quand une fête tombe une fin de semaine." },
+          { note: "Une entreprise hors du Canada et des États-Unis n'a pas de calendrier de fériés ici, et l'écran le dit. Chaque jour ouvrable d'une demande est alors compté, ce qui est la réponse honnête — un calendrier canadien appliqué à Lyon ne le serait pas." },
+          { p: "L'horaire trace un férié ou une période bloquée en bandeau en haut du [[the-scheduler-and-crew-shifts|tableau du jour]], et la vue Équipe de [[time-off-requests|Congés]] montre les périodes et la limite sur sa carte Politiques." },
+        ],
+      },
       {
         id: "overview",
         heading: "Vue d'ensemble",

@@ -9,6 +9,7 @@ import { memberOrRefusal } from "@/lib/apiMember";
 import { can } from "@/lib/permissions";
 import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
 import { validateBreaks } from "@/lib/shifts/coverage";
+import { afterShiftDelete, afterShiftUpdate } from "@/lib/shifts/shiftNotify";
 
 const SHIFT_SELECT = {
   id: true,
@@ -16,7 +17,6 @@ const SHIFT_SELECT = {
   start: true,
   end: true,
   note: true,
-  label: true,
   published: true,
   availabilityOverrideAt: true,
   availabilityOverrideNote: true,
@@ -92,10 +92,6 @@ export async function PATCH(request, { params }) {
   if (body.end !== undefined) data.end = new Date(body.end);
   if (body.note !== undefined)
     data.note = body.note ? String(body.note).slice(0, 300) : null;
-  // The role caption on the week board's block ("Lead", "Helper"). Same
-  // trim-or-null shape as the note; see Shift.label in the schema.
-  if (body.label !== undefined)
-    data.label = body.label && String(body.label).trim() ? String(body.label).trim().slice(0, 40) : null;
   if (body.published !== undefined) data.published = Boolean(body.published);
   if (body.jobId !== undefined) {
     // Same tenant check the create does. Attaching a job is the one field on
@@ -153,12 +149,7 @@ export async function PATCH(request, { params }) {
   // attaching a job must not fail because the worker's availability was edited
   // afterwards. The shift was already agreed; this route is not the place to
   // relitigate it.
-  //
-  // An OPEN shift (workerId null — see Shift.workerId in the schema) has
-  // nobody to check against, so it moves freely; the fit check runs when it
-  // is claimed. Said explicitly rather than left to `findFirst({ id: null })`
-  // happening to return nothing.
-  if ((data.start !== undefined || data.end !== undefined) && existing.workerId) {
+  if (data.start !== undefined || data.end !== undefined) {
     const worker = await db.worker.findFirst({
       where: { id: existing.workerId, companyId: member.companyId },
       select: { id: true, name: true, userId: true },
@@ -208,6 +199,10 @@ export async function PATCH(request, { params }) {
       }
 
       const shift = await updateShift(id, data, breaks);
+      // The trail and the worker's notification, after the write and never
+      // able to fail it (lib/shifts/shiftNotify.js): a draft moving says
+      // nothing; a published shift moving, re-jobbed or just published does.
+      await afterShiftUpdate(member, existing, shift);
       return NextResponse.json({
         ok: true,
         shift,
@@ -218,6 +213,10 @@ export async function PATCH(request, { params }) {
   }
 
   const shift = await updateShift(id, data, breaks);
+  // The trail and the worker's notification, after the write and never
+  // able to fail it (lib/shifts/shiftNotify.js): a draft moving says
+  // nothing; a published shift moving, re-jobbed or just published does.
+  await afterShiftUpdate(member, existing, shift);
   return NextResponse.json({ ok: true, shift });
 }
 
@@ -260,5 +259,8 @@ export async function DELETE(request, { params }) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   await db.shift.delete({ where: { id } });
+  // Logged, and — if it was published — the person on it is told it is
+  // gone. A deleted draft was never theirs to know about.
+  await afterShiftDelete(member, existing);
   return NextResponse.json({ ok: true });
 }
