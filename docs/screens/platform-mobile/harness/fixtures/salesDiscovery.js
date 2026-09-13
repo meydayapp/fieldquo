@@ -1247,7 +1247,7 @@ export default function answer({ method, path, url, body }) {
     return { considered: 100, written: 100, unknown: 61, notContractor: 4, byTrade: { general_contracting: 20, remodeling: 9, plumbing: 6 }, dropped: 0, batches: 1, promptTokens: 1740, completionTokens: 4100, costMicros: 4326, model: "gpt-5-mini", stopped: null, remaining: 163211, seconds: 9.4, cost: "<$0.01", estimate: { rows: 163311, costMicros: 7_100_000 } };
   }
   if (path === "/api/platform/sales/review/suggested/ai") {
-    return { rows: 163311, batches: 1634, model: "gpt-5-mini", priced: true, avgChars: 31.2, promptTokens: 3_213_000, completionTokens: 6_860_000, costMicros: 7_277_000, cost: "$7.28", configured: true, confirmPhrase: "COMPUTE AI SUGGESTIONS" };
+    return { rows: 163311, batches: 1634, model: "gpt-5-mini", priced: true, avgChars: 31.2, promptTokens: 3_213_000, completionTokens: 6_860_000, costMicros: 7_277_000, cost: "$7.28", configured: true, confirmPhrase: "COMPUTE AI SUGGESTIONS", capMicros: 10_000_000, cap: "$10.00", approval: { approved: false, approvedAt: null, approvedBy: null, limitMicros: 0, limit: "<$0.01", spentMicros: 0, spent: "<$0.01", note: null } };
   }
   if (path === "/api/platform/sales/review/suggested" && method === "POST") {
     return { mode: body?.mode || "stale", version: "2026-09-13.1", considered: 5000, written: 5000, remaining: 0, byTrade: { roofing: 412, plumbing: 380 }, notContractor: 61, mixed: 12, none: 3900, seconds: 4.2 };

@@ -70,6 +70,7 @@ import { drainSalesPipeline } from "@/lib/sales/pipeline/runner";
 import { handlerStatus } from "@/lib/sales/pipeline/registry";
 import { topUpResearchBacklog } from "@/lib/sales/pipeline/research";
 import { SUGGEST_CRON_SLICE, suggestTradesBatch } from "@/lib/sales/discovery/suggestTradesBatch";
+import { runTradeSuggestAiSlice } from "@/lib/sales/discovery/suggestTradesAiApproval";
 
 // Same reasoning as grace-warning's BATCH: the query is driven by `status`,
 // not a cursor, so leftovers are picked up by the next tick and nothing is
@@ -210,6 +211,32 @@ export async function GET(request) {
     suggestions = { error: err?.message || String(err) };
   }
   result.suggestions = suggestions;
+
+  // ── Then the PAID pass, only while an approval row says so ──────────────
+  //
+  // The owner approved the AI pass over the names the table cannot read
+  // (≈ $6.86 estimated, $10 cap). The key is Sensitive in Vercel, so this is
+  // the only place it can run, and one four-minute button press at a time
+  // would be twenty presses. lib/sales/discovery/suggestTradesAiApproval.js
+  // reads the approval (a PlatformAiBudget "job" row), sums the ledger,
+  // runs batches with the time AND the money left, and clears the row when
+  // the rows run out or the cap is hit. With no approval it returns at once.
+  //
+  // The time it gets is what this invocation has left: maxDuration less what
+  // the drains, the backlog and the free slice already spent, less a margin
+  // for the last batch and the audit row. Nothing here changes the batch
+  // arithmetic the check reasons about.
+  const AI_SLICE_MAX_MS = 180_000;
+  const AI_SLICE_MARGIN_MS = 30_000;
+  const elapsed = Date.now() - now.getTime();
+  const aiDeadline = Math.min(AI_SLICE_MAX_MS, maxDuration * 1000 - elapsed - AI_SLICE_MARGIN_MS);
+  let aiSuggestions;
+  try {
+    aiSuggestions = await runTradeSuggestAiSlice({ db, deadlineMs: aiDeadline, now, trigger: "cron" });
+  } catch (err) {
+    aiSuggestions = { error: err?.message || String(err) };
+  }
+  result.aiSuggestions = aiSuggestions;
 
   // handlers is in the response on purpose: until the eight stages are written,
   // the truthful answer to "did the pipeline run?" includes which stages exist.

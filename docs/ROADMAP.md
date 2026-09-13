@@ -802,10 +802,28 @@ chips said, because the bottleneck was a person looking at one row at a time.
   299,945, the folder total, exactly. Bases: name 90,569 · licence 6,797 ·
   site name 1,821 · site 1,707. **Phase 2 estimate for the 153,748: 1,538
   calls, ≈ $6.86 on gpt-5-mini** — waiting on the owner's yes.
-- `scripts/check-trade-suggestions.mjs` (184 checks, in check:all): the six
+- **Phase 2 approved and running unattended (later the same day)**: the owner
+  said yes to ≈ $6.86. The key is Sensitive in Vercel and the button ran one
+  four-minute slice per press, so the yes is a ROW — `PlatformAiBudget` scope
+  `job` / `trade_suggest_ai` with three additive columns (`approvedAt`,
+  `approvedBy`, `note`), cap **$10** — and the sales-pipeline cron runs
+  `runTradeSuggestAiSlice` every minute with the time and the MONEY left
+  (`lib/sales/discovery/suggestTradesAiApproval.js`; `suggestTradesAi` now
+  takes `budgetMicros`), sums spend from the PlatformAiUsage ledger since
+  `approvedAt`, refreshes `cachedSpentMicros`, and clears the row when the
+  rows run out or the cap is hit, saying which. Typing the phrase on the
+  folder approves + runs the first slice; "Stop the unattended pass"
+  withdraws it; `scripts/suggest-trades.mjs --ai --approve --budget=1000
+  --by=…` set it on 2026-09-13 at 19:12 UTC ("owner via chat 2026-09-13",
+  153,748 rows remained). An unattended slice writes no audit row
+  (`platformAdminId` is NOT NULL) — the ledger and the budget row are its
+  record; a button-triggered slice audits as the admin.
+- `scripts/check-trade-suggestions.mjs` (209 checks, in check:all): the six
   examples, hostile names, the domain guards, the stored form, the batch's
   cursor and idempotence against a fake client, the per-row trade sources, the
-  AI parser and the cost arithmetic, and the grep. Five mutations caught.
+  AI parser and the cost arithmetic, the approval slice (refuses without an
+  approval, stops at the cap, clears when done), and the grep. Five
+  mutations caught.
 
 ## The console is the dialler the owner drew, and a rep reads "lead" (11 September 2026)
 

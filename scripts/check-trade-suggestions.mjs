@@ -79,6 +79,16 @@ import {
   suggestTradesAi,
 } from "../lib/sales/discovery/suggestTradesAi.js";
 import { SUGGESTED_GROUPS, suggestedGroupAccepts, suggestedGroupReject } from "../lib/sales/discovery/suggestedGroups.js";
+import {
+  CLEAR_REASONS,
+  JOB_SCOPE,
+  TRADE_SUGGEST_AI_CAP_MICROS,
+  TRADE_SUGGEST_AI_JOB,
+  approveTradeSuggestAi,
+  clearTradeSuggestAiApproval,
+  loadTradeSuggestAiApproval,
+  runTradeSuggestAiSlice,
+} from "../lib/sales/discovery/suggestTradesAiApproval.js";
 import { parseReviewFilter, reviewWhereSql, reviewOrderSql, suggestedGroupSql, REVIEW_PAGE_SIZE } from "../lib/sales/discovery/reviewFolder.js";
 import { TRADE_SOURCES, bulkReview, tradeKeyFor } from "../lib/sales/discovery/reviewBulk.js";
 import { assertStrictSchema, validateAgainstSchema } from "../lib/ai/jsonSchema.js";
@@ -493,7 +503,8 @@ section("7. suggestTradesAi");
   const unpriced = costFromCounts({ rows: 100, avgChars: 30, model: "some-model-nobody-priced" });
   ok("an unpriced model reports null rather than the fallback price", unpriced.priced === false && unpriced.costMicros === null);
   ok("zero rows is zero everything", costFromCounts({ rows: 0, avgChars: 0 }).batches === 0 && costFromCounts({ rows: 0, avgChars: 0 }).promptTokens === 0);
-  ok("the UI never carries a price: no dollar figure in the page or the routes", !/\$\d/.test(read("app/platform/sales/review/page.js")) && !/\$\d/.test(read("app/api/platform/sales/review/suggested/ai/route.js")));
+  const noComments = (src) => src.replace(/\/\/.*$/gm, "").replace(/\{\/\*[\s\S]*?\*\/\}/g, "");
+  ok("the UI never carries a price: no dollar figure in the page's or the route's code", !/\$\d/.test(noComments(read("app/platform/sales/review/page.js"))) && !/\$\d/.test(noComments(read("app/api/platform/sales/review/suggested/ai/route.js"))));
   ok("the confirm phrase is words", AI_CONFIRM_PHRASE === "COMPUTE AI SUGGESTIONS");
   ok("the area is a platform area string", TRADE_SUGGESTION_AI_AREA === "trade_suggestion");
 
@@ -533,13 +544,152 @@ section("7. suggestTradesAi");
     const vendorDown = await suggestTradesAi({ db, askModel: async () => ({ ok: false, reason: "vendor_error", message: "429" }), checkBudget, recordUsage, now: NOW });
     ok("a vendor failure stops after the one call, writes nothing", vendorDown.batches === 1 && vendorDown.written === 0 && /vendor_error/.test(vendorDown.stopped));
   }
+  // The money ceiling inside the loop.
+  {
+    const store = Array.from({ length: 5 * AI_BATCH }, (_, i) => ({ id: `q${String(i).padStart(3, "0")}`, businessName: `Name ${i}`, city: "X", province: "OR" }));
+    let calls = 0;
+    const db = {
+      async $queryRaw(strings, ...values) {
+        const text = strings.join("?");
+        if (text.startsWith("SELECT COUNT(*)")) return [{ n: store.length }];
+        const cursor = values.find((v) => typeof v === "string" && /^q\d{3}$/.test(v)) || null;
+        const take = values.find((v) => typeof v === "number") ?? AI_BATCH;
+        return store.filter((r) => !cursor || r.id > cursor).slice(0, take).map((r) => ({ ...r }));
+      },
+      async $executeRaw(strings, ...values) { return values[2].length; },
+    };
+    const askModel = async (args) => {
+      calls += 1;
+      await args.onUsage({ model: "gpt-5-mini", promptTokens: 1_000_000, completionTokens: 1_000_000 }); // $1.13 a call at the table's price
+      return { ok: true, data: { results: [{ i: 0, tradeKey: "unknown", confidence: 0.1, why: "x" }] } };
+    };
+    const r = await suggestTradesAi({ db, askModel, checkBudget: async () => ({ allowed: true }), recordUsage: async () => {}, budgetMicros: 2_000_000, now: NOW });
+    ok("budgetMicros stops the loop before the batch that would pass it (two calls at $1.13 reach $2)", calls === 2 && r.stopped === "job_budget" && r.costMicros > 2_000_000 && r.considered === 2 * AI_BATCH, r);
+  }
+
   const cron = read("app/api/cron/sales-pipeline/route.js");
-  ok("the cron runs the FREE slice in missing mode only, and never the AI pass", cron.includes('mode: "missing"') && cron.includes("SUGGEST_CRON_SLICE") && !cron.includes("suggestTradesAi"));
-  ok("nothing but the gated route and the --apply script calls suggestTradesAi", (() => {
-    const callers = ["app/api/platform/sales/review/suggested/ai/route.js", "scripts/suggest-trades.mjs"];
-    return callers.every((f) => read(f).includes("suggestTradesAi(")) && !cron.includes("suggestTradesAi") && !read("app/api/platform/sales/review/suggested/route.js").includes("suggestTradesAi");
+  ok("the cron runs the FREE slice in missing mode", cron.includes('mode: "missing"') && cron.includes("SUGGEST_CRON_SLICE"));
+  ok("the cron runs the PAID pass only through the approval slice, with the time left, never suggestTradesAi directly", cron.includes("runTradeSuggestAiSlice") && !cron.includes("suggestTradesAi(") && cron.includes("maxDuration * 1000 - elapsed"));
+  ok("nothing but the approval slice and the --apply script calls suggestTradesAi", (() => {
+    const direct = ["lib/sales/discovery/suggestTradesAiApproval.js", "scripts/suggest-trades.mjs"];
+    return read(direct[0]).includes("run = suggestTradesAi") && read(direct[1]).includes("suggestTradesAi(") && !read("app/api/platform/sales/review/suggested/ai/route.js").includes("suggestTradesAi(") && !read("app/api/platform/sales/review/suggested/route.js").includes("suggestTradesAi");
   })());
-  ok("the script runs the AI pass only behind --apply", /apply/.test(read("scripts/suggest-trades.mjs")) && read("scripts/suggest-trades.mjs").includes("if (!apply)"));
+  ok("the script runs the AI pass here only behind --apply, and --approve sends nothing to a vendor", read("scripts/suggest-trades.mjs").includes("if (!apply)") && read("scripts/suggest-trades.mjs").includes("--approve"));
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   7b. The approval: the cron slice refuses without it, stops at the cap, clears when done
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+section("7b. The stored approval and the unattended slice");
+{
+  function makeDb({ rows = 3 } = {}) {
+    let budget = null;
+    const audits = [];
+    const usage = [];
+    // `rows` BATCHES of AI_BATCH names, so one model call is one "row" of the fixture.
+    const store = Array.from({ length: rows * AI_BATCH }, (_, i) => ({ id: `q${String(i).padStart(5, "0")}`, businessName: `Name ${i}`, city: "X", province: "OR" }));
+    const asked = new Set();
+    const db = {
+      platformAiBudget: {
+        async findUnique() { return budget ? { ...budget } : null; },
+        async upsert({ create, update }) { budget = budget ? { ...budget, ...update } : { ...create }; return { ...budget }; },
+        async update({ data }) { budget = { ...budget, ...data }; return { ...budget }; },
+      },
+      platformAiUsage: {
+        async aggregate({ where }) {
+          const since = where.createdAt.gte;
+          return { _sum: { costMicros: usage.filter((u) => u.area === where.area && u.createdAt >= since).reduce((a, u) => a + u.costMicros, 0) } };
+        },
+        async create({ data }) { usage.push({ ...data, createdAt: data.createdAt || new Date() }); return data; },
+      },
+      platformAuditLog: { async create({ data }) { audits.push(data); return data; } },
+      async $queryRaw(strings, ...values) {
+        const text = strings.join("?");
+        const left = store.filter((r) => !asked.has(r.id));
+        if (text.startsWith("SELECT COUNT(*)") && text.includes("AVG")) return [{ n: left.length / AI_BATCH, chars: 12 }];
+        if (text.startsWith("SELECT COUNT(*)")) return [{ n: left.length / AI_BATCH }];
+        const cursor = values.find((v) => typeof v === "string" && /^q\d{5}$/.test(v)) || null;
+        const take = values.find((v) => typeof v === "number") ?? AI_BATCH;
+        return left.filter((r) => !cursor || r.id > cursor).slice(0, take).map((r) => ({ ...r }));
+      },
+      async $executeRaw(strings, ...values) { for (const id of values[2]) asked.add(id); return values[2].length; },
+    };
+    return { db, audits, usage, get budget() { return budget; } };
+  }
+  // A run that costs `micros` per row and records it in the ledger, like the real one.
+  const runner = (micros) => async ({ db, deadlineMs, budgetMicros, now, recordUsage }) =>
+    suggestTradesAi({
+      db, deadlineMs, budgetMicros, now, recordUsage,
+      checkBudget: async () => ({ allowed: true }),
+      askModel: async (args) => {
+        await args.onUsage({ model: "gpt-5-mini", promptTokens: 0, completionTokens: Math.round(micros / 1.0) }); // $1/M output → micros
+        return { ok: true, data: { results: Array.from({ length: AI_BATCH }, (_, i) => ({ i, tradeKey: "plumbing", confidence: 0.7, why: "plumb" })) } };
+      },
+    });
+  // Early in the day, because the fake ledger stamps rows with the real clock
+  // and the approval sums from approvedAt.
+  const T0 = new Date("2026-09-13T00:00:00Z");
+
+  // 1. No approval: nothing runs.
+  {
+    const f = makeDb();
+    const r = await runTradeSuggestAiSlice({ db: f.db, deadlineMs: 60_000, now: T0, run: runner(10) });
+    ok("no approval row → the slice refuses and sends nothing", r.ran === false && r.skipped === "no approval" && f.usage.length === 0 && f.audits.length === 0, r);
+  }
+  // 2. Approve, run to the end: clears with "done".
+  {
+    const f = makeDb({ rows: 3 });
+    const { row } = await approveTradeSuggestAi(f.db, { approvedBy: "owner via chat 2026-09-13", budgetMicros: 10_000_000, adminId: "a1", now: T0 });
+    ok("approval row: scope job, the key, the cap, active, who, when, the note carries what was known", row.scope === JOB_SCOPE && row.scopeId === TRADE_SUGGEST_AI_JOB && row.limitMicros === 10_000_000 && row.active && row.approvedBy === "owner via chat 2026-09-13" && row.approvedAt === T0 && /3 rows remained/.test(row.note), row);
+    ok("approval audited with kind approved and the remaining count", f.audits[0].action === "sales_trade_suggestions_ai_approval" && f.audits[0].details.kind === "approved" && f.audits[0].details.remainingAtApproval === 3);
+    const a = await loadTradeSuggestAiApproval(f.db);
+    ok("loaded: approved, nothing spent yet, the whole cap remains", a.approved && a.spentMicros === 0 && a.remainingMicros === 10_000_000);
+    const r = await runTradeSuggestAiSlice({ db: f.db, deadlineMs: 60_000, now: new Date(T0.getTime() + 1000), run: runner(1000), adminId: "a1", trigger: "cron" });
+    ok("the slice ran every row and cleared itself: done", r.ran && r.cleared === "done" && r.result.remaining === 0 && f.budget.active === false && /cleared .*every row has been asked/.test(f.budget.note), { cleared: r.cleared, note: f.budget.note });
+    ok("spend under the approval is summed from the ledger and cached on the row", r.spentMicros === 3000 && f.budget.cachedSpentMicros === 3000);
+    ok("one audit row for the slice (trigger cron, cleared done) and one for the clearing", f.audits.some((x) => x.action === "sales_trade_suggestions_ai" && x.details.trigger === "cron" && x.details.cleared === "done") && f.audits.some((x) => x.details.kind === "cleared" && x.details.reason === "done"));
+    ok("every audit row names the admin (the column is NOT NULL)", f.audits.every((x) => x.platformAdminId === "a1"));
+    const again = await runTradeSuggestAiSlice({ db: f.db, deadlineMs: 60_000, now: T0, run: runner(1000) });
+    ok("the next tick finds no approval and does nothing", again.ran === false && again.skipped === "no approval");
+  }
+  // 3. Approve with a small cap: stops at the budget, clears with "budget", one batch overshoot at most.
+  {
+    const f = makeDb({ rows: 50 });
+    await approveTradeSuggestAi(f.db, { approvedBy: "test", budgetMicros: 2_500_000, now: T0 });
+    const r = await runTradeSuggestAiSlice({ db: f.db, deadlineMs: 60_000, now: new Date(T0.getTime() + 1000), run: runner(1_000_000) });
+    ok("an unattended slice (no admin) writes NO audit row — the ledger and the budget row are its record", f.audits.length === 0 && f.usage.length === 3 && f.budget.cachedSpentMicros === 3_000_000);
+    ok("a $2.50 cap with $1 batches: three batches, stopped at job_budget, cleared budget, 47 rows left untouched", r.ran && r.result.batches === 3 && r.result.stopped === "job_budget" && r.cleared === "budget" && r.result.remaining === 47 && f.budget.active === false && /budget cap was reached/.test(f.budget.note), { batches: r.result.batches, stopped: r.result.stopped, cleared: r.cleared, remaining: r.result.remaining });
+    const after = await loadTradeSuggestAiApproval(f.db);
+    ok("after clearing, the loaded approval is not approved and reports the cached spend", after.approved === false && after.spentMicros === 3_000_000);
+  }
+  // 4. Already over the cap when the tick arrives (spend landed between ticks): cleared before any call.
+  {
+    const f = makeDb({ rows: 5 });
+    await approveTradeSuggestAi(f.db, { approvedBy: "test", budgetMicros: 1_000, now: T0 });
+    await f.db.platformAiUsage.create({ data: { area: "trade_suggestion", model: "gpt-5-mini", costMicros: 5_000, createdAt: new Date(T0.getTime() + 500) } });
+    const r = await runTradeSuggestAiSlice({ db: f.db, deadlineMs: 60_000, now: new Date(T0.getTime() + 1000), run: async () => { throw new Error("must not run"); } });
+    ok("cap already spent → cleared as budget without a model call", r.ran === false && r.cleared === "budget" && f.budget.active === false);
+    ok("spend from BEFORE the approval does not count (a fresh approval sums from its own approvedAt)", (await approveTradeSuggestAi(f.db, { approvedBy: "test", budgetMicros: 1_000, now: new Date(T0.getTime() + 2000) })) && (await loadTradeSuggestAiApproval(f.db)).spentMicros === 0);
+  }
+  // 5. No time left in the invocation: nothing sent, approval kept.
+  {
+    const f = makeDb({ rows: 2 });
+    await approveTradeSuggestAi(f.db, { approvedBy: "test", now: T0 });
+    const r = await runTradeSuggestAiSlice({ db: f.db, deadlineMs: 0, now: T0, run: async () => { throw new Error("must not run"); } });
+    ok("no time left → skipped, approval still active", r.ran === false && /no time/.test(r.skipped) && f.budget.active === true);
+    const stopped = await clearTradeSuggestAiApproval(f.db, { reason: "stopped", now: T0 });
+    ok("a superadmin's stop clears with its own reason", stopped.active === false && /stopped by a superadmin/.test(stopped.note) && CLEAR_REASONS.stopped);
+  }
+  ok("the cap constant is $10", TRADE_SUGGEST_AI_CAP_MICROS === 10_000_000);
+  ok("approving needs a name and a non-zero budget", await approveTradeSuggestAi(makeDb().db, { approvedBy: "", now: T0 }).then(() => false, (e) => /approvedBy/.test(e.message)) && await approveTradeSuggestAi(makeDb().db, { approvedBy: "x", budgetMicros: 0, now: T0 }).then(() => false, (e) => /zero budget/.test(e.message)));
+  ok("clearing with a made-up reason throws", await clearTradeSuggestAiApproval(makeDb().db, { reason: "bored" }).then(() => false, (e) => /reason/.test(e.message)));
+  const schema = read("prisma/schema.prisma");
+  ok("PlatformAiBudget carries approvedAt / approvedBy / note", /approvedAt DateTime\?/.test(schema) && /approvedBy String\?/.test(schema) && schema.includes("A \"job\" budget"));
+  ok("the approval audit action is registered", Boolean(AUDIT_ACTIONS.sales_trade_suggestions_ai_approval));
+  const aiRoute = read("app/api/platform/sales/review/suggested/ai/route.js");
+  ok("the button approves then runs the first slice; { clear } withdraws", aiRoute.includes("approveTradeSuggestAi(") && aiRoute.includes("runTradeSuggestAiSlice(") && aiRoute.includes("body?.clear === true"));
+  ok("the page shows the approval and offers Stop while it runs", read("app/platform/sales/review/page.js").includes("data-suggest-ai-stop") && read("app/platform/sales/review/page.js").includes("ai.approval.spent"));
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

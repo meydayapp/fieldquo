@@ -868,11 +868,29 @@ function SuggestedMode({ card, setCard, modeSwitch }) {
       setAiResult(res);
       setAiConfirm(null);
       setNote(
-        `AI read ${res.considered.toLocaleString()} names on ${res.model || "the model"} for ${res.cost}: ${Object.values(res.byTrade || {}).reduce((a, b) => a + b, 0)} with a trade, ${res.notContractor} not contractors, ${res.unknown} unknown${res.stopped ? ` — stopped: ${res.stopped}` : ""}. ${res.remaining.toLocaleString()} remain.`,
+        `Approved. The first slice read ${(res.considered || 0).toLocaleString()} names on ${res.model || "the model"} for ${res.cost}: ${Object.values(res.byTrade || {}).reduce((a, b) => a + b, 0)} with a trade, ${res.notContractor || 0} not contractors, ${res.unknown || 0} unknown${res.stopped ? ` — stopped: ${res.stopped}` : ""}. ${(res.remaining || 0).toLocaleString()} remain${res.cleared ? ` — cleared: ${res.cleared}` : "; the pipeline cron carries on every minute"}.`,
       );
       await loadCards();
     } catch (err) {
       setError(err?.message || "The AI pass did not run.");
+    } finally {
+      setAiBusy(false);
+    }
+  }
+
+  async function stopAi() {
+    setAiBusy(true);
+    setError("");
+    try {
+      await fetchJson("/api/platform/sales/review/suggested/ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clear: true }),
+      });
+      setNote("The unattended AI pass is stopped; what was written stays.");
+      await loadCards();
+    } catch (err) {
+      setError(err?.message || "Could not stop the pass.");
     } finally {
       setAiBusy(false);
     }
@@ -968,24 +986,40 @@ function SuggestedMode({ card, setCard, modeSwitch }) {
               : ""}
             {ai && ai.configured === false ? " · AI is not configured on this deployment" : ""}
           </p>
+          {ai?.approval?.approved ? (
+            <p className="text-sm text-amber-900 dark:text-amber-200" data-suggest-ai-approved>
+              <strong>Running unattended</strong> — approved {ai.approval.approvedAt ? new Date(ai.approval.approvedAt).toLocaleString() : ""} by {ai.approval.approvedBy};
+              the pipeline cron does a few minutes of batches every minute. Spent {ai.approval.spent} of the {ai.approval.limit} cap so far. It stops on
+              its own when the rows run out or the cap is reached.
+            </p>
+          ) : ai?.approval?.note ? (
+            <p className="text-xs text-muted-foreground">Last run: {ai.approval.note}</p>
+          ) : null}
           <div className="flex flex-col sm:flex-row gap-2">
-            <button
-              type="button"
-              className={`${BTN} border border-amber-400 text-amber-900 dark:text-amber-100`}
-              disabled={!ai || ai.error || !ai.rows || aiBusy || ai.configured === false}
-              onClick={() => setAiConfirm({ typed: "" })}
-              data-suggest-ai-open
-            >
-              <Sparkles size={16} /> Compute AI suggestions for the rest{ai && !ai.error ? ` (${ai.rows.toLocaleString()} rows${ai.priced ? `, ≈ ${ai.cost}` : ""})` : ""}
-            </button>
+            {ai?.approval?.approved ? (
+              <button type="button" className={`${BTN} border border-border text-foreground`} disabled={aiBusy} onClick={stopAi} data-suggest-ai-stop>
+                <X size={16} /> Stop the unattended pass
+              </button>
+            ) : (
+              <button
+                type="button"
+                className={`${BTN} border border-amber-400 text-amber-900 dark:text-amber-100`}
+                disabled={!ai || ai.error || !ai.rows || aiBusy || ai.configured === false}
+                onClick={() => setAiConfirm({ typed: "" })}
+                data-suggest-ai-open
+              >
+                <Sparkles size={16} /> Compute AI suggestions for the rest{ai && !ai.error ? ` (${ai.rows.toLocaleString()} rows${ai.priced ? `, ≈ ${ai.cost}` : ""})` : ""}
+              </button>
+            )}
           </div>
           {aiConfirm ? (
             <div className="space-y-2" data-suggest-ai-confirm>
               <p className="text-sm text-amber-900 dark:text-amber-200">
-                This sends {ai.rows.toLocaleString()} business names (with city and province, nothing else) to {ai.model} in
-                batches of 100, under the platform AI budget, and costs about {ai.priced ? ai.cost : "an unpriced amount"}. It
-                writes a suggestion per row — never a trade. Each press runs for up to four minutes and reports what it
-                actually cost. Type <strong>{ai.confirmPhrase}</strong> to run it.
+                This approves sending {ai.rows.toLocaleString()} business names (with city and province, nothing else) to {ai.model} in
+                batches of 100, capped at {ai.cap} (the estimate is {ai.priced ? ai.cost : "unpriced"}), under the platform AI
+                budget. It writes a suggestion per row — never a trade. The first slice runs now for up to four minutes; the
+                pipeline cron carries on unattended and stops by itself at the end or at the cap. Type{" "}
+                <strong>{ai.confirmPhrase}</strong> to approve.
               </p>
               <div className="flex flex-col sm:flex-row gap-2">
                 <input

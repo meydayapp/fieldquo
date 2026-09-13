@@ -12339,6 +12339,30 @@ model PlatformAiBudget {
   cachedSpentMicros Int @default(0)
   cachedAt          DateTime?
 
+  // ── A "job" budget: an approval to spend, with a cap, on one named task ─
+  //
+  // Added 2026-09-13 for the Review folder's AI trade-suggestion pass
+  // (lib/sales/discovery/suggestTradesAiApproval.js). The owner said yes to
+  // "≈ $6.86" and cannot press a button twenty times; a cron slice runs it
+  // unattended. The thing that gates the cron is an APPROVAL, and an approval
+  // to spend up to N on X is exactly what this row already is — so scope
+  // "job", scopeId the job's key, limitMicros the cap, active = still
+  // approved. No second key/value table: this one was built to stop an
+  // unattended model loop, which is what it stops here.
+  //
+  // `checkPlatformAiBudget` never reads a "job" row (it asks for campaign,
+  // daily, global); the job's own slice does, and sums the ledger from
+  // `approvedAt` for its area — the same "from the ledger, never the cache"
+  // rule as above.
+  /// When the approval was given; the slice sums spend from here. Null on
+  /// the three older scopes.
+  approvedAt DateTime?
+  /// Who said yes, as words — "owner via chat 2026-09-13", an admin's email.
+  approvedBy String?
+  /// What was known at approval, and why it ended: "153,748 rows remained ·
+  /// estimate $6.86 · cleared 2026-09-14: done". Human text, appended to.
+  note       String?
+
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
