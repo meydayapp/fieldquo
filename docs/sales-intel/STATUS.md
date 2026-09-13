@@ -615,9 +615,13 @@ executes it: 280 assertions, 31 mutations tested, all 31 caught.
 **The null-versus-false rule, in one sentence.** A capability is `false` only
 when at least one page actually rendered, no page in the crawl was blocked or
 errored, the crawl did not say of itself that it was incomplete, and — for a
-capability whose signal lives beyond the front page — the crawler visited more
-than the front page; everything else is `null`. One function,
-`absenceEligibility()`, decides it and nothing else may.
+capability whose signal lives beyond the front page — the crawler reached more
+than the front page by following the site's own navigation rather than by
+guessing URLs (`via` on the `page_fetch` envelope), and, for the enquiry form,
+actually fetched a contact-like page or saw a form somewhere; everything else
+is `null`. One function, `absenceEligibility()`, decides it and nothing else
+may. (The navigation clause is from 2026-09-13: a probed crawl of a gutter
+company — `/contact` and `/services` both 404 — had been counted as a look.)
 
 Three corollaries that are easy to get wrong and are executed rather than
 assumed:

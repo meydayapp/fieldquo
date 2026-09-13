@@ -1385,6 +1385,261 @@ async function main() {
   }
 
   // ══════════════════════════════════════════════════════════════════════════
+  section("12. The site's own navigation is followed, and absence is earned");
+
+  // ── The real failure, as a fixture ────────────────────────────────────
+  //
+  // Roth's Solution (rothssolution.com, 2026-09-09): twenty-seven internal
+  // links, one of them `/about`, the contact page at `/contact_us`. The old
+  // ranking recognised only `/about`, decided the menu had said nothing,
+  // probed `/contact` and `/services`, got two 404s, and every deep
+  // capability was written false. This fixture is that site, and the
+  // assertions are that crawl reading the menu instead.
+  const technology = await import("@/lib/sales/intel/technology");
+  const capabilityDetect = await import("@/lib/sales/intel/capabilityDetect");
+  const signatureSeed = await import("@/lib/sales/intel/signatureSeed");
+
+  const ROTH_HOME = `<!doctype html><html><head><title>Roth's Solution</title>
+<script type="text/javascript">
+  window.liveSiteAsyncInit = function() { LiveSite.init({ id : 'WI-5IJ4YH4D236MT27JPFMU' }); };
+  (function(d, s, id){ var js, p = 'https://', r = Math.floor(new Date().getTime() / 1000000);
+    js = d.createElement(s); js.id = id; js.src = p + "d2ra6nuwn69ktl.cloudfront.net/assets/livesite.js?" + r;
+  }(document, 'script', 'livesite-jssdk'));
+</script>
+<script src="https://static.cdn-website.com/mnlt/production/6773/_dm/s/rt/dist/scripts/d-js-one-runtime-unified-desktop.min.js"></script>
+</head><body>
+<nav><a href="/">Home</a><a href="/about">About</a><a href="/contact_us">Contact</a>
+<a href="/painting">Painting</a><a href="/gutter-installation">Gutter Installation</a><a href="/epoxy-flooring">Epoxy Flooring</a>
+<a href="/reviews">Reviews</a><a href="/referral">Referral</a><a href="/service-area">Service Area</a><a href="/privacy">Privacy Policy</a>
+<a href="/logo.png">logo</a><a href="/p/1187">Make a Payment</a></nav>
+<h1>Gutters, painting and flooring</h1><p>${"Lancaster, Orchard Park and Amherst. ".repeat(30)}</p>
+<p>Call <a href="tel:+17168805389">(716) 880-5389</a></p>
+</body></html>`;
+  const ROTH_CONTACT = `<html><head><title>Contact</title></head><body><nav><a href="/">Home</a><a href="/about">About</a></nav>
+<h1>Contact us</h1><p>${"We answer the same day. ".repeat(30)}</p>
+<form method="post" id="1349628759"><input type="text" name="dmform-0" placeholder="Name"><input type="email" name="dmform-1" placeholder="Email">
+<input type="tel" name="dmform-2" placeholder="Phone"><textarea name="dmform-3" placeholder="Message"></textarea><input type="submit" value="Send Message"></form>
+</body></html>`;
+  const thinPage = (title) => `<html><head><title>${title}</title></head><body><nav><a href="/">Home</a></nav><p>${`${title}. `.repeat(60)}</p></body></html>`;
+  const htmlRoute = (body) => ({ status: 200, headers: { "content-type": "text/html" }, body });
+
+  const rothSite = () =>
+    makeNet({
+      "https://northline.ca/robots.txt": { status: 200, body: "User-agent: *\nAllow: /\n" },
+      "https://northline.ca/contact_us": htmlRoute(ROTH_CONTACT),
+      "https://northline.ca/about": htmlRoute(thinPage("About")),
+      "https://northline.ca/reviews": htmlRoute(thinPage("Reviews")),
+      "https://northline.ca/service-area": htmlRoute(thinPage("Service area")),
+      "https://northline.ca/p/1187": htmlRoute(thinPage("Pay")),
+      "https://northline.ca/": htmlRoute(ROTH_HOME),
+    });
+
+  {
+    // Pure: the ranking, against the fixture's links and against hostile ones.
+    const page = html.extractPage({ html: ROTH_HOME, finalUrl: "https://northline.ca/", status: 200 });
+    const ranked = urlMod.rankNavigation({ links: page.links, baseHost: "northline.ca", limit: 5 });
+    const urls = ranked.map((c) => c.url);
+    ok("tokenised ranking finds /contact_us", urls.includes("https://northline.ca/contact_us"), urls);
+    ok("…ranked as the contact kind", ranked.find((c) => c.url.endsWith("/contact_us"))?.kind === "contact");
+    ok("…and it comes straight after /about, as the priority order says", urls.indexOf("https://northline.ca/contact_us") === 1, urls);
+    ok("anchor text ranks /p/1187 labelled \"Make a Payment\" as a payment page", ranked.some((c) => c.url.endsWith("/p/1187") && c.kind === "payment" && c.via === "text"), ranked);
+    ok("/service-area is a locations page, not a services page", ranked.find((c) => c.url.endsWith("/service-area"))?.kind === "locations");
+    ok("the service pages are NOT ranked", !urls.some((u) => /painting|gutter|epoxy/.test(u)));
+    ok("nothing off-site or non-page is ranked", urls.every((u) => u.startsWith("https://northline.ca/") && !u.endsWith(".png")));
+
+    ok("tokenises on underscore", urlMod.tokeniseSegment("contact_us").join(" ") === "contact us");
+    ok("tokenises on camel case", urlMod.tokeniseSegment("contactUs").join(" ") === "contact us");
+    ok("tokenises on a digit boundary", urlMod.tokeniseSegment("page2Section").join(" ") === "page 2 section");
+    ok("drops the extension", urlMod.slugKind("/contact_us.html").kind === "contact");
+    ok("a blog post about paying is NOT a payment page", urlMod.slugKind("/blog/pay-your-crew").kind === null);
+    ok("a three-word last segment does not match a single-word slug", urlMod.slugKind("/pay-your-crew").kind === null);
+    ok("get-in-touch is contact", urlMod.slugKind("/get-in-touch").kind === "contact");
+    ok("free-estimate is quote", urlMod.slugKind("/free-estimate").kind === "quote");
+    ok("my-account is portal", urlMod.slugKind("/my-account").kind === "portal");
+    ok("book-online is booking", urlMod.slugKind("/book-online").kind === "booking");
+    ok("make-a-payment is payment", urlMod.slugKind("/make-a-payment").kind === "payment");
+    ok("the home page ranks -1", urlMod.slugKind("/").rank === -1);
+    ok("PRIORITY_SLUGS still lists the older spellings in order", urlMod.PRIORITY_SLUGS.indexOf("about") < urlMod.PRIORITY_SLUGS.indexOf("contact") && urlMod.PRIORITY_SLUGS.includes("request-a-quote"));
+
+    ok("text: \"Contact\"", urlMod.textKind("Contact").kind === "contact");
+    ok("text: \"Schedule Now\" is booking", urlMod.textKind("Schedule Now").kind === "booking");
+    ok("text: \"My Account\" is portal", urlMod.textKind("My Account").kind === "portal");
+    ok("text: \"Get a quote\" is quote", urlMod.textKind("Get a quote").kind === "quote");
+    ok("text: \"Pay\" is payment", urlMod.textKind("Pay").kind === "payment");
+    ok("text: \"Reviews →\" survives the arrow", urlMod.textKind("Reviews →").kind === "reviews");
+    ok("text: a sentence is not a menu item", urlMod.textKind("Contact us today for a free estimate on all your gutter needs").kind === null);
+    ok("text: hostile input does not throw", urlMod.textKind(null).kind === null && urlMod.textKind({}).kind === null && urlMod.textKind("x".repeat(100000)).kind === null);
+    ok("rankNavigation: hostile links do not throw", Array.isArray(urlMod.rankNavigation({ links: [null, 42, {}, { url: "javascript:alert(1)", text: "Contact" }, { url: "https://evil.example/contact", text: "Contact" }], baseHost: "northline.ca" })));
+    ok("rankNavigation: a link is not ranked by its text when it points off-site", urlMod.rankNavigation({ links: [{ url: "https://evil.example/x", text: "Contact" }], baseHost: "northline.ca" }).length === 0);
+
+    const menu = urlMod.serviceMenu({ links: page.links, baseHost: "northline.ca" });
+    const names = menu.map((m) => m.text);
+    ok("the service menu is the links the ranking did not claim", names.includes("Painting") && names.includes("Gutter Installation") && names.includes("Epoxy Flooring"), names);
+    ok("…without the priority pages", !names.includes("Contact") && !names.includes("About") && !names.includes("Reviews"));
+    ok("…without chrome, privacy, referrals or assets", !names.includes("Home") && !names.includes("Privacy Policy") && !names.includes("Referral") && !names.includes("logo"), names);
+    ok("…and without the payment link the anchor text ranked", !names.includes("Make a Payment"));
+  }
+
+  {
+    // End to end: the crawl follows the menu and never guesses.
+    seedProspect();
+    const net = rothSite();
+    const result = await crawlSite.crawlProspectSite({ prospectId: "p1", deps: crawlDeps(net) });
+    ok("the Roth fixture crawls", result.outcome === "crawled", result);
+    ok("…/contact_us was fetched", net.requests.includes("https://northline.ca/contact_us"), net.requests);
+    ok("…and the blind /contact was NOT", !net.requests.includes("https://northline.ca/contact"), net.requests);
+    ok("…nor /services", !net.requests.includes("https://northline.ca/services"));
+    ok("…the result says no probe was used", result.probed === false && result.probesFailed.length === 0, result);
+    const envelopes = store.evidence.filter((r) => r.type === "page_fetch").map((r) => JSON.parse(r.rawValue));
+    const contact = envelopes.find((e) => e.requestedUrl === "https://northline.ca/contact_us");
+    ok("…the contact page's envelope says via=nav, navMatch=contact", contact?.via === "nav" && contact?.navMatch === "contact", contact);
+    ok("…the home page's envelope says via=start", envelopes.find((e) => e.requestedUrl === "https://northline.ca/")?.via === "start");
+    const pay = envelopes.find((e) => e.requestedUrl === "https://northline.ca/p/1187");
+    ok("…the anchor-text-ranked page was fetched and stamped payment", pay?.via === "nav" && pay?.navMatch === "payment", pay);
+    const navLinks = store.evidence.filter((r) => r.type === "nav_link");
+    ok("nav_link rows record the service menu with the anchor text", navLinks.some((r) => r.rawValue === "Gutter Installation" && r.normalizedValue === "/gutter-installation"), navLinks.map((r) => r.rawValue));
+    ok("…once per path", new Set(navLinks.map((r) => r.normalizedValue)).size === navLinks.length);
+    const inline = store.evidence.filter((r) => r.type === "script_src" && r.detector === evidence.INLINE_DETECTOR);
+    ok("the inline vcita loader became a script_src row", inline.some((r) => r.normalizedValue === "https://d2ra6nuwn69ktl.cloudfront.net/assets/livesite.js"), inline);
+    ok("…with source \"website\" so loadCrawl can read it back", inline.every((r) => r.source === "website"));
+    ok("…without the timestamp query", inline.every((r) => !r.normalizedValue.includes("?")));
+    ok("…and the LiveSite.init token became an inline_token row", store.evidence.some((r) => r.type === "inline_token" && r.rawValue === "LiveSite.init"));
+    ok("…and no row stores the script body", !store.evidence.some((r) => String(r.rawValue || "").includes("liveSiteAsyncInit")));
+    ok("every row's type is declared", store.evidence.every((r) => evidence.EVIDENCE_TYPES.includes(r.type)));
+
+    // The rows, read back the way the pipeline reads them, through both
+    // detectors — vcita is detected, and it proves the four capabilities.
+    const crawlRows = store.evidence.map((r) => ({ type: r.type, sourceUrl: r.sourceUrl, rawValue: r.rawValue, normalizedValue: r.normalizedValue }));
+    const crawl = technology.normaliseCrawl(technology.pagesFromEvidence(crawlRows));
+    ok("pagesFromEvidence carries via/navMatch back", crawl.pages.some((p) => p.via === "nav" && p.navMatch === "contact"), crawl.pages.map((p) => [p.finalUrl, p.via, p.navMatch]));
+    const tech = technology.detectTechnologies({ signatures: signatureSeed.seedSignatures(), crawl });
+    const codes = tech.technologies.map((t) => t.technologyCode);
+    ok("VCITA_LIVESITE is detected from the inline loader", codes.includes("VCITA_LIVESITE"), codes);
+    ok("…structurally, above the threshold", tech.technologies.find((t) => t.technologyCode === "VCITA_LIVESITE")?.confidence >= 0.9);
+    ok("DUDA is detected from the site builder's runtime", codes.includes("DUDA"), codes);
+    ok("neither is a competitor", tech.technologies.every((t) => t.isCompetitor === false));
+    const caps = capabilityDetect.detectCapabilities({ crawl, technologies: tech.technologies, prospect: { hasWebsite: true } });
+    const cap = (code) => caps.capabilities.find((c) => c.code === code);
+    ok("CLIENT_PORTAL is true via vcita", cap("CLIENT_PORTAL")?.value === true && cap("CLIENT_PORTAL").evidence.some((e) => e.rawValue === "technology:VCITA_LIVESITE"), cap("CLIENT_PORTAL"));
+    ok("…at 0.7, one notch under Jobber", cap("CLIENT_PORTAL")?.confidence === 0.7, cap("CLIENT_PORTAL")?.confidence);
+    ok("ONLINE_BOOKING is true via vcita", cap("ONLINE_BOOKING")?.value === true);
+    ok("ONLINE_PAYMENT is true via vcita", cap("ONLINE_PAYMENT")?.value === true);
+    ok("LEAD_CAPTURE_FORM is true — the form on /contact_us was read", cap("LEAD_CAPTURE_FORM")?.value === true && cap("LEAD_CAPTURE_FORM").evidence.some((e) => e.normalizedValue === "LEAD_CAPTURE_FORM:lead_form"), cap("LEAD_CAPTURE_FORM"));
+    ok("eligibility says the navigation was followed", caps.eligibility.navigation === "followed" && caps.eligibility.contactPage === true, caps.eligibility);
+    ok("…so a genuine absence is still sayable", cap("LIVE_CHAT")?.value === false && cap("INSTANT_ESTIMATE")?.value === false);
+  }
+
+  {
+    // Probe fallback: ONLY when the ranking is empty, and it says so.
+    seedProspect();
+    const menuless = `<html><head><title>One page</title></head><body><nav><a href="/">Home</a><a href="/painting">Painting</a><a href="/drywall">Drywall</a></nav><p>${"Painting and drywall. ".repeat(40)}</p></body></html>`;
+    // Exact routes before the "/" prefix route: makeNet matches by prefix, and
+    // a probe that fell through to the home page would look like a 200.
+    const net = makeNet({
+      "https://northline.ca/robots.txt": { status: 200, body: "User-agent: *\nAllow: /\n" },
+      "https://northline.ca/contact": { status: 404, body: "not found" },
+      "https://northline.ca/services": { status: 404, body: "not found" },
+      "https://northline.ca/about": htmlRoute(thinPage("About")),
+      "https://northline.ca/": htmlRoute(menuless),
+    });
+    const result = await crawlSite.crawlProspectSite({ prospectId: "p1", deps: crawlDeps(net) });
+    ok("a menu with no recognised page falls back to the three probes", result.probed === true, result);
+    ok("…and names the ones that 404'd", result.probesFailed.length === 2 && result.probesFailed.every((u) => /\/(contact|services)$/.test(u)), result.probesFailed);
+    ok("…in the note", /probed: navigation ranked nothing, 2 of 3/.test(result.note), result.note);
+    const envelopes = store.evidence.filter((r) => r.type === "page_fetch").map((r) => JSON.parse(r.rawValue));
+    ok("…every probed page is stamped via=probe", envelopes.filter((e) => e.requestedUrl !== "https://northline.ca/").every((e) => e.via === "probe"), envelopes);
+    ok("…the 404 is recorded WITH its stamp", envelopes.some((e) => e.status === 404 && e.via === "probe" && e.navMatch === "contact"), envelopes);
+
+    // …and absence is withheld from it.
+    const crawl = technology.normaliseCrawl(technology.pagesFromEvidence(store.evidence.map((r) => ({ ...r }))));
+    const caps = capabilityDetect.detectCapabilities({ crawl, technologies: [], prospect: {} });
+    const cap = (code) => caps.capabilities.find((c) => c.code === code);
+    ok("a probed crawl cannot say \"no enquiry form\"", cap("LEAD_CAPTURE_FORM")?.value === null && cap("LEAD_CAPTURE_FORM").reason === "probe_fallback", cap("LEAD_CAPTURE_FORM"));
+    ok("…nor \"no client portal\", \"no booking\", \"no payment\"", ["CLIENT_PORTAL", "ONLINE_BOOKING", "ONLINE_PAYMENT", "INSTANT_ESTIMATE", "ONLINE_REVIEWS"].every((c) => cap(c)?.value === null), caps.capabilities.map((c) => [c.code, c.value]));
+    ok("…while a site-wide absence (live chat) is still earned from the rendered pages", cap("LIVE_CHAT")?.value === false, cap("LIVE_CHAT"));
+    ok("…and the eligibility names the reason", caps.eligibility.navigation === "probed" && caps.eligibility.reason === "probe_fallback", caps.eligibility);
+  }
+
+  {
+    // One recognised link is enough: no probes.
+    seedProspect();
+    const oneLink = `<html><head><title>Two pages</title></head><body><nav><a href="/">Home</a><a href="/about-us">About us</a><a href="/roofing">Roofing</a></nav><p>${"Roofing. ".repeat(60)}</p></body></html>`;
+    const net = makeNet({
+      "https://northline.ca/robots.txt": { status: 200, body: "User-agent: *\nAllow: /\n" },
+      "https://northline.ca/about-us": htmlRoute(thinPage("About us")),
+      "https://northline.ca/": htmlRoute(oneLink),
+    });
+    const result = await crawlSite.crawlProspectSite({ prospectId: "p1", deps: crawlDeps(net) });
+    ok("one recognised link means no probing", result.probed === false && !net.requests.includes("https://northline.ca/contact"), net.requests);
+    const crawl = technology.normaliseCrawl(technology.pagesFromEvidence(store.evidence.map((r) => ({ ...r }))));
+    const caps = capabilityDetect.detectCapabilities({ crawl, technologies: [], prospect: {} });
+    const cap = (code) => caps.capabilities.find((c) => c.code === code);
+    ok("…navigation was followed, so a deep absence is sayable", cap("CLIENT_PORTAL")?.value === false, cap("CLIENT_PORTAL"));
+    ok("…but not the enquiry form: no contact-like page and no form anywhere", cap("LEAD_CAPTURE_FORM")?.value === null && cap("LEAD_CAPTURE_FORM").reason === "no_contact_page_fetched", cap("LEAD_CAPTURE_FORM"));
+  }
+
+  {
+    // Rows written before the stamp existed: judged by the older rule, never
+    // promoted to "followed" and never demoted to "probed".
+    const old = [
+      { url: "https://dunn.example/", finalUrl: "https://dunn.example/", status: 200, text: "x".repeat(400), links: [{ href: "/about", url: "https://dunn.example/about", text: "About" }] },
+      { url: "https://dunn.example/contact", finalUrl: "https://dunn.example/contact", status: 200, text: "y".repeat(400), links: [{ href: "/", url: "https://dunn.example/", text: "Home" }] },
+    ];
+    const caps = capabilityDetect.detectCapabilities({ crawl: { pages: old }, technologies: [], prospect: {} });
+    const cap = (code) => caps.capabilities.find((c) => c.code === code);
+    ok("unstamped rows: navigation is \"unknown\"", caps.eligibility.navigation === "unknown", caps.eligibility);
+    ok("…a deep absence is still sayable, as before", cap("CLIENT_PORTAL")?.value === false);
+    ok("…and a /contact page fetched with 200 counts as a contact page by its path", caps.eligibility.contactPage === true && cap("LEAD_CAPTURE_FORM")?.value === false, cap("LEAD_CAPTURE_FORM"));
+  }
+
+  {
+    // The hash: an inline loader with a per-render timestamp does not change
+    // it; adding the loader does.
+    const withLoader = (stamp) => `<html><head><title>T</title><script>js.src = "https://" + "d2ra6nuwn69ktl.cloudfront.net/assets/livesite.js?" + ${stamp}; var nonce="${stamp}";</script></head><body><nav><a href="/about">About</a></nav><p>${"Words. ".repeat(60)}</p></body></html>`;
+    const a = html.extractPage({ html: withLoader(1757000), finalUrl: "https://northline.ca/", status: 200 });
+    const b = html.extractPage({ html: withLoader(1758999), finalUrl: "https://northline.ca/", status: 200 });
+    ok("the same inline loader with a different nonce hashes the SAME", fingerprint.contentHash([a]) === fingerprint.contentHash([b]));
+    const c = html.extractPage({ html: withLoader(1757000).replace(/<script>[\s\S]*?<\/script>/, ""), finalUrl: "https://northline.ca/", status: 200 });
+    ok("removing the loader DOES change the hash", fingerprint.contentHash([a]) !== fingerprint.contentHash([c]));
+    ok("inline URLs are folded into `scripts`, not a new key", !("inlineScripts" in fingerprint.canonicalPage(a)) && fingerprint.canonicalPage(a).scripts.some((s) => s.includes("livesite.js")));
+    ok("…so a page with no inline loader hashes exactly as it did", JSON.stringify(Object.keys(fingerprint.canonicalPage(c))) === JSON.stringify(["path", "status", "title", "lang", "metas", "scripts", "iframes", "links", "forms", "buttons", "jsonLd", "dataAttrs", "contacts", "text"]));
+    ok("CONTENT_HASH_VERSION was NOT bumped", fingerprint.CONTENT_HASH_VERSION === "crawl-v1");
+  }
+
+  {
+    // scanInlineScript against hostile input.
+    const found = html.scanInlineScript(`s.src='https://js.calltrk.com/companies/1/a.js?v=1';x.src="//cdn.foo.com/a/b.js";y='1.2.3/x.js';z="file.js";Calendly.initInlineWidget({});Stripe("pk_live_1")`);
+    ok("scan: absolute, protocol-relative and quoted host-relative URLs", found.urls.map((u) => u.url).join(" ") === "https://js.calltrk.com/companies/1/a.js https://cdn.foo.com/a/b.js", found.urls);
+    ok("scan: tokens are the allow-list, nothing else", found.tokens.includes("Calendly.initInlineWidget") && found.tokens.includes("Stripe(") && found.tokens.includes("calltrk") && found.tokens.every((t) => html.INLINE_VENDOR_TOKENS.some((v) => v.token === t)), found.tokens);
+    const t0 = Date.now();
+    html.scanInlineScript(`"${"a.".repeat(20000)}/${"b".repeat(200000)}`);
+    html.scanInlineScript("x".repeat(2_000_000));
+    ok("scan: a pathological body finishes fast", Date.now() - t0 < 500, Date.now() - t0);
+    ok("scan: null and objects do not throw", html.scanInlineScript(null).urls.length === 0 && html.scanInlineScript({}).urls.length === 0);
+    const capped = html.scanInlineScript(Array.from({ length: 100 }, (_, i) => `"https://h${i}.example.com/x.js"`).join(";"));
+    ok("scan: capped at CAPS.inlineScripts", capped.urls.length === html.CAPS.inlineScripts);
+    const withSrc = html.extractPage({ html: `<script src="/a.js">var x = "https://ignored.example.com/y.js";</script>`, finalUrl: "https://northline.ca/" });
+    ok("a body under a src tag is ignored, as a browser ignores it", withSrc.inlineScripts.length === 0);
+    const jsonLd = html.extractPage({ html: `<script type="application/ld+json">{"@type":"LocalBusiness","url":"https://cdn.example.com/x.js"}</script>`, finalUrl: "https://northline.ca/" });
+    ok("a JSON-LD block is kept as JSON-LD and not scanned", jsonLd.jsonLd.length === 1 && jsonLd.inlineScripts.length === 0);
+  }
+
+  {
+    // The seed still validates with the four new rows, and says how each was verified.
+    const rows = signatureSeed.seedSignatures();
+    for (const code of ["VCITA_LIVESITE", "TOWNSQUARE_INTERACTIVE", "DUDA", "CALLRAIL"]) {
+      const row = rows.find((r) => r.code === code);
+      ok(`seed has ${code}, active, not a competitor`, row && row.active === true && row.isCompetitor === false, row);
+    }
+    const notes = signatureSeed.sourcingNotes();
+    ok("vcita's note says the CloudFront host was confirmed as vcita's", /clients\.vcita\.com/.test(notes.VCITA_LIVESITE));
+    ok("Townsquare's note says the engage host belongs to the vcita signature", /VCITA_LIVESITE/.test(notes.TOWNSQUARE_INTERACTIVE));
+    ok("CallRail proves no capability", !capabilityDetect.DETECTED_CAPABILITY_CODES.some((c) => capabilityDetect.technologiesProving(c).includes("CALLRAIL")));
+    ok("Townsquare proves no capability", !capabilityDetect.DETECTED_CAPABILITY_CODES.some((c) => capabilityDetect.technologiesProving(c).includes("TOWNSQUARE_INTERACTIVE")));
+    ok("vcita proves portal, booking, payment and the form", ["CLIENT_PORTAL", "ONLINE_BOOKING", "ONLINE_PAYMENT", "LEAD_CAPTURE_FORM"].every((c) => capabilityDetect.technologiesProving(c).includes("VCITA_LIVESITE")));
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
   section("11. Source rules — each scoped to ONE brace-matched function");
 
   {
@@ -1398,6 +1653,9 @@ async function main() {
       ok("…and does all four BEFORE fetching anything", fn.indexOf("crawlSuppressed(") < fn.indexOf("fetchCrawlPage("));
       ok("…demo first of all", fn.indexOf("isDemo(") < fn.indexOf("findUnique"));
       ok("…consults robots before any page", fn.indexOf("robotsFetchOutcome(") < fn.indexOf("fetchOne("));
+      ok("…ranks the navigation on path AND text", /rankNavigation\(/.test(fn));
+      ok("…probes ONLY when the ranking is empty", /queue\.length === 0/.test(fn) && !/queue\.length < 2/.test(fn));
+      ok("…records the service menu without a fetch", /serviceMenu\(/.test(fn));
       ok("…and never writes robotsAllowed on an unknown outcome", !/act === "unknown"[\s\S]{0,200}recordRobots/.test(fn));
     }
 
@@ -1406,6 +1664,15 @@ async function main() {
       ok("…never deletes evidence", !/deleteMany|\.delete\(/.test(write));
       ok("…writes hasWebsite only as true", !/hasWebsite:\s*false/.test(write));
       ok("…and writes the prospect and its evidence in one transaction", /\$transaction/.test(write));
+    }
+  }
+  {
+    const src = read("lib/sales/intel/capabilityDetect.js");
+    const fn = functionSource(src, "absenceEligibility");
+    if (ok("absenceEligibility() was found", fn !== null)) {
+      ok("…reads the crawler's via stamp", /via === "probe"/.test(fn) && /via === "nav"/.test(fn));
+      ok("…vetoes deep absence on a probed crawl", /navigation !== "probed"/.test(fn));
+      ok("…and asks whether a contact-like page rendered", /contactPage/.test(fn));
     }
   }
   {

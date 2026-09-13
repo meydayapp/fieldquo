@@ -114,12 +114,35 @@ read-then-write would let two overlapping invocations both conclude the gap had
 elapsed and both fire, which is the exact pair the table exists to prevent.
 
 **Which pages get fetched.** The home page, then the site's OWN internal links
-ranked by the brief's slug list (`about`, `contact`, `services`, `pricing`,
-`book`, `booking`, `estimate`, `quote`, `request-a-quote`, `team`, `locations`,
-`careers`), capped at six pages. Blind probing of a fixed URL list is what
-fills a contractor's error log with 404s; ranking real links returns 200s. Only
-when the navigation yields fewer than two recognised links does it fall back to
-three blind probes (`/contact`, `/services`, `/about`).
+ranked by `PRIORITY_PAGES` in `url.js` — fourteen kinds in priority order
+(about, contact, services, pricing, booking, quote, payment, portal, reviews,
+team, locations, faq, careers, gallery), each with the path spellings
+contractors actually use (`contact_us`, `get-in-touch`, `free-estimate`,
+`make-a-payment`, `my-account`…) and a pattern for the anchor text — capped at
+six pages. A path is tokenised on `-`, `_`, `.` and camel/digit boundaries
+before matching, and a link ranks on its path OR its label, so "Make a Payment"
+routed to `/p/1187` is a payment page. Blind probing of a fixed URL list is
+what fills a contractor's error log with 404s; ranking real links returns
+200s. Only when the ranking is EMPTY — not merely short — does it fall back to
+three blind probes (`/contact`, `/services`, `/about`); until 2026-09-13 the
+threshold was "fewer than two", which on a gutter company's site threw away
+twenty-six real links, probed two 404s, and never fetched `/contact_us`. The
+links the ranking does not claim are the service menu and are recorded as
+`nav_link` evidence with no fetch. Every `page_fetch` envelope says how the
+page was reached (`via`: `start` / `nav` / `probe`) and what it was ranked as
+(`navMatch`), and the crawl result carries `probed` and `probesFailed` — the
+capability detector reads the first to refuse an absence claim from a guessed
+crawl.
+
+**Inline `<script>` bodies are scanned, never stored.** vcita's LiveSite, a
+CallRail tag and a Duda runtime reach a page through a script the page
+CREATES — `js.src = p + "d2ra6nuwn69ktl.cloudfront.net/assets/livesite.js?"` —
+and a declared-tag scan never sees them. `html.js`'s `scanInlineScript` reads
+loader URLs (absolute, protocol-relative, or the quoted host-relative form)
+out of a body and emits them as `script_src` rows with an `.inline` detector
+suffix, plus a short allow-list of vendor init tokens (`LiveSite.init`,
+`HCPWidget`…) as loose `inline_token` rows. The body is discarded; the URL is
+hashed without its query, so a per-render timestamp is not a change.
 
 ---
 
@@ -167,10 +190,10 @@ The rule that resolves the table's two value columns:
   action and field list; a link's href AND the text a human clicks).
 
 Types used: `page_fetch`, `page_content`, `meta`, `script_src`, `iframe_host`,
-`link`, `form`, `button`, `schema_org`, `dom_attr`, `contact`. The first, plus
-`button`, `contact` and `dom_attr`, are **not** in the schema comment's
-illustrative list — named here so the next agent finds them in a document
-rather than in a query. `script_src`, `iframe_host`, `link` and `meta` match
+`link`, `form`, `button`, `schema_org`, `dom_attr`, `contact`, `nav_link`,
+`inline_token`. The first, plus `button`, `contact`, `dom_attr`, `nav_link`
+and `inline_token`, are **not** in the schema comment's illustrative list —
+named here so the next agent finds them in a document rather than in a query. `script_src`, `iframe_host`, `link` and `meta` match
 `TechnologySignature.patterns`'s own vocabulary exactly.
 
 Rows are append-only, so a reader wanting the current picture filters on

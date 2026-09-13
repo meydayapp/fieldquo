@@ -11321,3 +11321,30 @@ nobody was locked out at launch); the brief's "admins, reps may join" is one
 line in `DEFAULT_TEAMS` if he wants it back. Presence for platform admins
 measures only the chat; a real "online" for staff would need the platform
 gate to stamp it.
+
+## The crawler reads the menu; "no enquiry form" is earned (13 September 2026)
+
+Roth's Solution (rothssolution.com) was shown to a rep as no form, no portal,
+no booking, no way to pay. The site has all four — a Duda contact form at
+`/contact_us` and vcita's LiveSite widget (Schedule Now · Make a Payment · My
+Account), white-labelled by Townsquare Interactive. Three causes, all fixed
+and each executed in `scripts/check-sales-crawl.mjs` §12 (467 assertions):
+`rankCandidates` matched a path segment exactly against twelve words, so
+twenty-six of the home page's twenty-seven links were discarded and the
+crawler probed `/contact` and `/services` blind (two 404s); the absence rule
+counted the probed crawl as "looked beyond the front page"; and the vcita
+loader lives in an inline `<script>` body the extractor never read. Now:
+`lib/sales/crawl/url.js` ranks on tokenised paths AND anchor text with the
+spellings contractors use, probes only when the ranking is EMPTY, and records
+the unranked links as `nav_link` evidence (the rep's "Lists N services in its
+menu" fact); every `page_fetch` envelope carries `via` (start/nav/probe) and
+`navMatch`, and `absenceEligibility()` refuses a deep absence from a probed
+crawl and "no enquiry form" unless a contact-like page rendered or a form was
+seen; `html.js` scans inline bodies for loader URLs (folded into
+`script_src`) and an allow-list of vendor tokens, and stores no body. Four
+signatures added, each sourced: vcita LiveSite (proves portal, booking,
+payments, form at 0.7), Townsquare Interactive, Duda, CallRail.
+`CONTENT_HASH_VERSION` was deliberately NOT bumped; `scripts/
+find-probe-fallback-crawls.mjs` counts the affected prospects read-only
+(10,316 of 20,492 crawled; $0 on the backlog lane, ≈$0.02 for the nine claimed)
+— the broad re-crawl is the owner's call.
