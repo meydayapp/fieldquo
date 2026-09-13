@@ -139,7 +139,12 @@ const PASSWORD_MAX = 128;
 // `t` comes in as an argument: these are module-scope functions, not
 // components, so they cannot call the hook — and the messages they return are
 // rendered straight under the field.
-function validateCompanyFields(form, t) {
+// `t` defaults to the English-only formatter: one caller (the abandoned-
+// signup snapshot) judges readiness without rendering anything, and a
+// validator that throws "t is not a function" the moment a field is empty
+// took the whole funnel down on 2026-09-13 — every visitor saw "This page
+// couldn't load". A message nobody reads may be English; a crash may not.
+function validateCompanyFields(form, t = englishOnly) {
   const errors = {};
   if (!form.companyName.trim())
     errors.companyName = t("app.signup.error.companyName", "Company name is required");
@@ -152,7 +157,7 @@ function validateCompanyFields(form, t) {
 
 // Everything the account step asks for: the company rules above plus the
 // personal fields only that step collects.
-function validateAccountFields(form, t) {
+function validateAccountFields(form, t = englishOnly) {
   const errors = validateCompanyFields(form, t);
   if (!form.firstName.trim())
     errors.firstName = t("app.signup.error.firstName", "First name is required");

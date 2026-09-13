@@ -391,6 +391,19 @@ const EXPECTED_BODY = [
   "signupLinkToken",
   "next",
 ];
+// 2026-09-13: the funnel crashed for every visitor because one caller ran
+// validateCompanyFields(form) without `t` and the validator called it on the
+// first empty field. Every helper that formats a sentence takes `t` with the
+// English-only default, and no call site may omit it without that default
+// existing.
+{
+  const src = readFileSync("app/signup/page.js", "utf8");
+  ok("validateCompanyFields and validateAccountFields default `t` to englishOnly",
+    /function validateCompanyFields\(form, t = englishOnly\)/.test(src) &&
+    /function validateAccountFields\(form, t = englishOnly\)/.test(src));
+  ok("monthsFree / dayCount / trialText are never called without t",
+    !/\b(monthsFree|dayCount|trialText)\(\s*[^t\s]/.test(src));
+}
 ok(
   "...carrying exactly the same keys",
   bodyKeys.join(",") === EXPECTED_BODY.join(","),
