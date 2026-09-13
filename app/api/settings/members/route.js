@@ -219,6 +219,9 @@ export async function POST(request) {
     // Job title — what the company calls them, distinct from `role`, the seat.
     // Held on the PendingTeamProfile and written to the Worker row on accept.
     title,
+    // "Start onboarding checklist" — default ON on the form; the run starts
+    // on accept, when the person has a Worker row (lib/onboarding/service.js).
+    startOnboarding,
   } = await request.json();
 
   if (!email)
@@ -440,6 +443,7 @@ export async function POST(request) {
       permissions: safePermissions || null,
       role,
       invitationLanguage: safeInvitationLanguage,
+      startOnboarding: startOnboarding !== false,
     },
     update: {
       name: name || null,
@@ -455,6 +459,7 @@ export async function POST(request) {
       permissions: safePermissions || null,
       role,
       invitationLanguage: safeInvitationLanguage,
+      startOnboarding: startOnboarding !== false,
     },
   });
 

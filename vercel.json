@@ -123,6 +123,10 @@
     {
       "path": "/api/cron/time-clock-watch",
       "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/hr-reminders",
+      "schedule": "40 7 * * *"
     }
   ]
 }

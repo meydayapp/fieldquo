@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { reconcilePendingProfiles } from "@/lib/team/reconcilePendingProfile";
 import { ensureWorkerForMember } from "@/lib/team/ensureWorker";
+import { startRun } from "@/lib/onboarding/service";
 // The admitted statuses, shared with the accept page so the screen it shows
 // and the gate below cannot drift — see lib/invitations/arrival.js.
 import { ACCEPTABLE_INVITATION_STATUSES } from "@/lib/invitations/arrival";
@@ -108,7 +109,7 @@ export async function POST(request, { params }) {
     // `title` is read here, BEFORE reconcilePendingProfiles deletes the
     // pending row in step 3, because the Worker row that holds it is only
     // made in step 4.
-    select: { role: true, title: true },
+    select: { role: true, title: true, startOnboarding: true },
   });
   const fieldquoRole =
     pending?.role || (invitation.role === "admin" ? "admin" : "employee");
@@ -144,13 +145,26 @@ export async function POST(request, { params }) {
   // 4. Give them a Worker row, linked to this user. Without it they have a login
   //    but no presence on the books — no timesheets, no payslips, no leave. See
   //    the note in ensureWorker.js.
-  await ensureWorkerForMember({
+  const linked = await ensureWorkerForMember({
     companyId: company.id,
     userId: session.user.id,
     title: pending?.title || null,
-  }).catch((err) =>
-    console.error("[accept invitation] worker link failed", err?.message),
-  );
+  }).catch((err) => {
+    console.error("[accept invitation] worker link failed", err?.message);
+    return null;
+  });
+
+  // 5. The checklist, if the New User form asked for one. Idempotent: a
+  //    worker already on an open run is not given a second. Never fails the
+  //    accept — the person is in; the checklist can be started by hand from
+  //    their file if this did not run.
+  if (pending?.startOnboarding && linked?.worker?.id) {
+    await startRun(db, {
+      companyId: company.id,
+      worker: { id: linked.worker.id, name: linked.worker.name, userId: session.user.id },
+      actorUserId: null,
+    }).catch((err) => console.error("[accept invitation] onboarding start failed", err?.message));
+  }
 
   return NextResponse.json({ ok: true, companyId: company.id });
 }

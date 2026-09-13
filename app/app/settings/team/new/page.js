@@ -86,6 +86,10 @@ function NewUserForm() {
   );
 
   const [invitationLanguage, setInvitationLanguage] = useState("en");
+  // "Start onboarding checklist" — on by default. The run starts when the
+  // invite is accepted and a Worker row exists (lib/onboarding/service.js);
+  // the flag rides on the PendingTeamProfile until then.
+  const [startOnboarding, setStartOnboarding] = useState(true);
 
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -250,6 +254,7 @@ function NewUserForm() {
             ? { isAdministrator: true }
             : permissionValues,
           invitationLanguage,
+          startOnboarding,
         }),
       });
 
@@ -599,6 +604,23 @@ function NewUserForm() {
               ))}
             </select>
           </div>
+
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              className="mt-1"
+              checked={startOnboarding}
+              onChange={(e) => setStartOnboarding(e.target.checked)}
+            />
+            <span>
+              <span className="text-sm font-medium text-foreground block">
+                {t("app.hr.onboarding.startOnInvite")}
+              </span>
+              <span className="text-xs text-muted-foreground block">
+                {t("app.hr.onboarding.startOnInviteHint")}
+              </span>
+            </span>
+          </label>
         </div>
 
         <div className="flex gap-3">

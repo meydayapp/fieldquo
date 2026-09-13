@@ -259,6 +259,15 @@ as "for development, not for production apps used by real advertisers."
   already uses for releasing an unpaid phone number: one when the account
   goes read-only, one reminder inside the final two days, silence in
   between. See `lib/billing/graceWarning.js` for the reasoning.
+- **`/api/cron/hr-reminders`** (07:40 UTC daily, `vercel.json`) — the HR
+  file's reminders: a certification or licence lapsing (the person at 30 and
+  7 days, their managers at 7), a new hire's checklist on day one and its
+  overdue items weekly, a completed checklist to the managers. No env var of
+  its own beyond `CRON_SECRET`. Cost: **one function invocation a day**, a
+  handful of small indexed queries (`WorkerDocument` by expiry within 31
+  days, open `OnboardingRun` rows), and one feed row + Web Push per reminder
+  — no email, no SMS, no AI. A company with nobody on a checklist and no
+  dated certificate costs nothing beyond the invocation.
 - **Rotate three secrets** — they were pasted into a chat transcript:
   Cloudinary API secret, the Neon database password, `BETTER_AUTH_SECRET`.
 - **Resend DNS for `fieldquo.com`**: TXT at `resend._domainkey` with Resend's
