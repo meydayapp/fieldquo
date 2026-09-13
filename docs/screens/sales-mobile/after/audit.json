@@ -1,0 +1,5170 @@
+{
+ "today @375": {
+  "file": "today-375.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/wt-portal/portal.html?page=today",
+  "vw": 375,
+  "vh": 812,
+  "docW": 375,
+  "docH": 2785,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [
+   {
+    "width": 309,
+    "y": 1616,
+    "inScroller": true,
+    "scrollerFits": true,
+    "caption": "Stage"
+   }
+  ],
+  "tap": [
+   {
+    "tag": "select",
+    "cls": "border border-border rounded-lg px-3 py-2 min-h-[40px] text-sm bg-card text-foreground disabled:opacity-60",
+    "text": "2026-09 — so far2026-082026-072026-062026-052026-04",
+    "x": 167,
+    "y": 1340,
+    "w": 175,
+    "h": 40,
+    "right": 342,
+    "inline": false,
+    "primary": false,
+    "type": null
+   }
+  ],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 747,
+    "w": 375,
+    "h": 65,
+    "right": 375,
+    "z": "40"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 375,
+   "h": 2728,
+   "right": 375
+  },
+  "smallInputs": [],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Your day"
+  ],
+  "textLength": 2108,
+  "consoleErrors": [],
+  "tapCount": 1,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "today @768": {
+  "file": "today-768.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/wt-portal/portal.html?page=today",
+  "vw": 768,
+  "vh": 1024,
+  "docW": 768,
+  "docH": 2351,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [
+   {
+    "width": 686,
+    "y": 1464,
+    "inScroller": true,
+    "scrollerFits": true,
+    "caption": "Stage"
+   }
+  ],
+  "tap": [
+   {
+    "tag": "select",
+    "cls": "border border-border rounded-lg px-3 py-2 min-h-[40px] text-sm bg-card text-foreground disabled:opacity-60",
+    "text": "2026-09 — so far2026-082026-072026-062026-052026-04",
+    "x": 566,
+    "y": 1220,
+    "w": 161,
+    "h": 40,
+    "right": 727,
+    "inline": false,
+    "primary": false,
+    "type": null
+   }
+  ],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 959,
+    "w": 768,
+    "h": 65,
+    "right": 768,
+    "z": "40"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 768,
+   "h": 2294,
+   "right": 768
+  },
+  "smallInputs": [
+   {
+    "tag": "select",
+    "cls": "border border-border rounded-lg px-3 py-2 min-h-[40px] text-sm bg-card text-foreground disabled:opacity-60",
+    "text": "2026-09 — so far2026-082026-072026-062026-052026-04",
+    "x": 566,
+    "y": 1220,
+    "w": 161,
+    "h": 40,
+    "right": 727,
+    "fontSize": "14px"
+   }
+  ],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Your day"
+  ],
+  "textLength": 2108,
+  "consoleErrors": [],
+  "tapCount": 1,
+  "truncatedCount": 0,
+  "smallInputCount": 1
+ },
+ "today-drawer @375": {
+  "file": "today-drawer-375.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/wt-portal/portal.html?page=today&scene=drawer",
+  "vw": 375,
+  "vh": 812,
+  "docW": 375,
+  "docH": 2785,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [
+   {
+    "width": 309,
+    "y": 1616,
+    "inScroller": true,
+    "scrollerFits": true,
+    "caption": "Stage"
+   }
+  ],
+  "tap": [
+   {
+    "tag": "select",
+    "cls": "border border-border rounded-lg px-3 py-2 min-h-[40px] text-sm bg-card text-foreground disabled:opacity-60",
+    "text": "2026-09 — so far2026-082026-072026-062026-052026-04",
+    "x": 167,
+    "y": 1340,
+    "w": 175,
+    "h": 40,
+    "right": 342,
+    "inline": false,
+    "primary": false,
+    "type": null
+   }
+  ],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 747,
+    "w": 375,
+    "h": 65,
+    "right": 375,
+    "z": "40"
+   },
+   {
+    "tag": "div",
+    "cls": "lg:hidden fixed inset-0 z-50",
+    "text": "Sales portalAvailable · 12m 00sAvailableBreakDinnerMeetingTrainingOffT",
+    "x": 0,
+    "y": 0,
+    "w": 375,
+    "h": 812,
+    "right": 375,
+    "z": "50"
+   }
+  ],
+  "asides": [
+   {
+    "tag": "aside",
+    "cls": "absolute left-0 top-0 h-full w-[min(20rem,86vw)] max-w-[86vw] shadow-2xl flex flex-col bg-card text-foreground pt-[env(safe-area-inset-top)]",
+    "text": "Sales portalAvailable · 12m 00sAvailableBreakDinnerMeetingTrainingOffT",
+    "x": 0,
+    "y": 0,
+    "w": 320,
+    "h": 812,
+    "right": 320,
+    "fixed": false
+   }
+  ],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 375,
+   "h": 2728,
+   "right": 375
+  },
+  "smallInputs": [],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Your day"
+  ],
+  "textLength": 2295,
+  "consoleErrors": [],
+  "tapCount": 1,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "today-drawer @768": {
+  "file": "today-drawer-768.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/wt-portal/portal.html?page=today&scene=drawer",
+  "vw": 768,
+  "vh": 1024,
+  "docW": 768,
+  "docH": 2351,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [
+   {
+    "width": 686,
+    "y": 1464,
+    "inScroller": true,
+    "scrollerFits": true,
+    "caption": "Stage"
+   }
+  ],
+  "tap": [
+   {
+    "tag": "select",
+    "cls": "border border-border rounded-lg px-3 py-2 min-h-[40px] text-sm bg-card text-foreground disabled:opacity-60",
+    "text": "2026-09 — so far2026-082026-072026-062026-052026-04",
+    "x": 566,
+    "y": 1220,
+    "w": 161,
+    "h": 40,
+    "right": 727,
+    "inline": false,
+    "primary": false,
+    "type": null
+   }
+  ],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 959,
+    "w": 768,
+    "h": 65,
+    "right": 768,
+    "z": "40"
+   },
+   {
+    "tag": "div",
+    "cls": "lg:hidden fixed inset-0 z-50",
+    "text": "Sales portalAvailable · 12m 00sAvailableBreakDinnerMeetingTrainingOffT",
+    "x": 0,
+    "y": 0,
+    "w": 768,
+    "h": 1024,
+    "right": 768,
+    "z": "50"
+   }
+  ],
+  "asides": [
+   {
+    "tag": "aside",
+    "cls": "absolute left-0 top-0 h-full w-[min(20rem,86vw)] max-w-[86vw] shadow-2xl flex flex-col bg-card text-foreground pt-[env(safe-area-inset-top)]",
+    "text": "Sales portalAvailable · 12m 00sAvailableBreakDinnerMeetingTrainingOffT",
+    "x": 0,
+    "y": 0,
+    "w": 320,
+    "h": 1024,
+    "right": 320,
+    "fixed": false
+   }
+  ],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 768,
+   "h": 2294,
+   "right": 768
+  },
+  "smallInputs": [
+   {
+    "tag": "select",
+    "cls": "border border-border rounded-lg px-3 py-2 min-h-[40px] text-sm bg-card text-foreground disabled:opacity-60",
+    "text": "2026-09 — so far2026-082026-072026-062026-052026-04",
+    "x": 566,
+    "y": 1220,
+    "w": 161,
+    "h": 40,
+    "right": 727,
+    "fontSize": "14px"
+   }
+  ],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Your day"
+  ],
+  "textLength": 2295,
+  "consoleErrors": [],
+  "tapCount": 1,
+  "truncatedCount": 0,
+  "smallInputCount": 1
+ },
+ "today-status-menu @375": {
+  "file": "today-status-menu-375.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/wt-portal/portal.html?page=today&scene=status-menu",
+  "vw": 375,
+  "vh": 812,
+  "docW": 375,
+  "docH": 2785,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [
+   {
+    "width": 309,
+    "y": 1616,
+    "inScroller": true,
+    "scrollerFits": true,
+    "caption": "Stage"
+   }
+  ],
+  "tap": [
+   {
+    "tag": "select",
+    "cls": "border border-border rounded-lg px-3 py-2 min-h-[40px] text-sm bg-card text-foreground disabled:opacity-60",
+    "text": "2026-09 — so far2026-082026-072026-062026-052026-04",
+    "x": 167,
+    "y": 1340,
+    "w": 175,
+    "h": 40,
+    "right": 342,
+    "inline": false,
+    "primary": false,
+    "type": null
+   }
+  ],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 747,
+    "w": 375,
+    "h": 65,
+    "right": 375,
+    "z": "40"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 375,
+   "h": 2728,
+   "right": 375
+  },
+  "smallInputs": [],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Your day"
+  ],
+  "textLength": 2108,
+  "consoleErrors": [],
+  "tapCount": 1,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "today-status-menu @768": {
+  "file": "today-status-menu-768.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/wt-portal/portal.html?page=today&scene=status-menu",
+  "vw": 768,
+  "vh": 1024,
+  "docW": 768,
+  "docH": 2351,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [
+   {
+    "width": 686,
+    "y": 1464,
+    "inScroller": true,
+    "scrollerFits": true,
+    "caption": "Stage"
+   }
+  ],
+  "tap": [
+   {
+    "tag": "select",
+    "cls": "border border-border rounded-lg px-3 py-2 min-h-[40px] text-sm bg-card text-foreground disabled:opacity-60",
+    "text": "2026-09 — so far2026-082026-072026-062026-052026-04",
+    "x": 566,
+    "y": 1220,
+    "w": 161,
+    "h": 40,
+    "right": 727,
+    "inline": false,
+    "primary": false,
+    "type": null
+   }
+  ],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 959,
+    "w": 768,
+    "h": 65,
+    "right": 768,
+    "z": "40"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 768,
+   "h": 2294,
+   "right": 768
+  },
+  "smallInputs": [
+   {
+    "tag": "select",
+    "cls": "border border-border rounded-lg px-3 py-2 min-h-[40px] text-sm bg-card text-foreground disabled:opacity-60",
+    "text": "2026-09 — so far2026-082026-072026-062026-052026-04",
+    "x": 566,
+    "y": 1220,
+    "w": 161,
+    "h": 40,
+    "right": 727,
+    "fontSize": "14px"
+   }
+  ],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Your day"
+  ],
+  "textLength": 2108,
+  "consoleErrors": [],
+  "tapCount": 1,
+  "truncatedCount": 0,
+  "smallInputCount": 1
+ },
+ "leads @375": {
+  "file": "leads-375.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/wt-portal/portal.html?page=leads",
+  "vw": 375,
+  "vh": 812,
+  "docW": 375,
+  "docH": 1240,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 747,
+    "w": 375,
+    "h": 65,
+    "right": 375,
+    "z": "40"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 375,
+   "h": 1183,
+   "right": 375
+  },
+  "smallInputs": [],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "My leads"
+  ],
+  "textLength": 901,
+  "consoleErrors": [],
+  "tapCount": 0,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "leads @768": {
+  "file": "leads-768.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/wt-portal/portal.html?page=leads",
+  "vw": 768,
+  "vh": 1024,
+  "docW": 768,
+  "docH": 1024,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 959,
+    "w": 768,
+    "h": 65,
+    "right": 768,
+    "z": "40"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 768,
+   "h": 817,
+   "right": 768
+  },
+  "smallInputs": [],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "My leads"
+  ],
+  "textLength": 901,
+  "consoleErrors": [],
+  "tapCount": 0,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "lead @375": {
+  "file": "lead-375.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/wt-portal/portal.html?page=lead",
+  "vw": 375,
+  "vh": 812,
+  "docW": 375,
+  "docH": 3209,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [
+   {
+    "tag": "a",
+    "cls": "text-sm text-muted-foreground flex items-center gap-1",
+    "text": "My leads",
+    "x": 16,
+    "y": 81,
+    "w": 343,
+    "h": 20,
+    "right": 359,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "summary",
+    "cls": "cursor-pointer",
+    "text": "What Oklahoma actually says",
+    "x": 33,
+    "y": 1056,
+    "w": 309,
+    "h": 16,
+    "right": 342,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 h-5 w-5 shrink-0",
+    "text": "",
+    "x": 46,
+    "y": 1133,
+    "w": 20,
+    "h": 20,
+    "right": 66,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "summary",
+    "cls": "cursor-pointer text-xs text-muted-foreground flex items-center gap-1.5",
+    "text": "Where they are: OK, US",
+    "x": 33,
+    "y": 1338,
+    "w": 309,
+    "h": 16,
+    "right": 342,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "select",
+    "cls": "mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground",
+    "text": "Pick their time zone…",
+    "x": 33,
+    "y": 2173,
+    "w": 309,
+    "h": 38,
+    "right": 342,
+    "inline": false,
+    "primary": false,
+    "type": null
+   }
+  ],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 747,
+    "w": 375,
+    "h": 65,
+    "right": 375,
+    "z": "40"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 375,
+   "h": 3152,
+   "right": 375
+  },
+  "smallInputs": [],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Bright Current Electrical"
+  ],
+  "textLength": 2650,
+  "consoleErrors": [],
+  "tapCount": 5,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "lead @768": {
+  "file": "lead-768.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/wt-portal/portal.html?page=lead",
+  "vw": 768,
+  "vh": 1024,
+  "docW": 768,
+  "docH": 2664,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [
+   {
+    "tag": "a",
+    "cls": "text-sm text-muted-foreground flex items-center gap-1",
+    "text": "My leads",
+    "x": 24,
+    "y": 89,
+    "w": 720,
+    "h": 20,
+    "right": 744,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "summary",
+    "cls": "cursor-pointer",
+    "text": "What Oklahoma actually says",
+    "x": 41,
+    "y": 796,
+    "w": 686,
+    "h": 16,
+    "right": 727,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 h-5 w-5 shrink-0",
+    "text": "",
+    "x": 54,
+    "y": 873,
+    "w": 20,
+    "h": 20,
+    "right": 74,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "summary",
+    "cls": "cursor-pointer text-xs text-muted-foreground flex items-center gap-1.5",
+    "text": "Where they are: OK, US",
+    "x": 41,
+    "y": 1046,
+    "w": 686,
+    "h": 16,
+    "right": 727,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "select",
+    "cls": "mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground",
+    "text": "Pick their time zone…",
+    "x": 41,
+    "y": 1786,
+    "w": 686,
+    "h": 37,
+    "right": 727,
+    "inline": false,
+    "primary": false,
+    "type": null
+   }
+  ],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 959,
+    "w": 768,
+    "h": 65,
+    "right": 768,
+    "z": "40"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 768,
+   "h": 2607,
+   "right": 768
+  },
+  "smallInputs": [
+   {
+    "tag": "textarea",
+    "cls": "w-full rounded-md border border-border bg-background px-3 py-2 text-sm",
+    "text": "Owner, two vans. Demo booked for Tuesday 3 pm; wants the invoice side ",
+    "x": 41,
+    "y": 1472,
+    "w": 686,
+    "h": 78,
+    "right": 727,
+    "fontSize": "14px"
+   },
+   {
+    "tag": "select",
+    "cls": "mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground",
+    "text": "Pick their time zone…",
+    "x": 41,
+    "y": 1786,
+    "w": 686,
+    "h": 37,
+    "right": 727,
+    "fontSize": "14px"
+   },
+   {
+    "tag": "input",
+    "cls": "w-full rounded-md border border-border bg-background px-3 py-2 text-sm",
+    "text": "",
+    "x": 41,
+    "y": 2261,
+    "w": 686,
+    "h": 38,
+    "right": 727,
+    "fontSize": "14px"
+   },
+   {
+    "tag": "textarea",
+    "cls": "w-full rounded-md border border-border bg-background px-3 py-2 text-sm",
+    "text": "",
+    "x": 41,
+    "y": 2311,
+    "w": 686,
+    "h": 178,
+    "right": 727,
+    "fontSize": "14px"
+   }
+  ],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Bright Current Electrical"
+  ],
+  "textLength": 2650,
+  "consoleErrors": [],
+  "tapCount": 5,
+  "truncatedCount": 0,
+  "smallInputCount": 4
+ },
+ "companies @375": {
+  "file": "companies-375.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/wt-portal/portal.html?page=companies",
+  "vw": 375,
+  "vh": 812,
+  "docW": 375,
+  "docH": 867,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [
+   {
+    "width": 567,
+    "y": 202,
+    "inScroller": true,
+    "scrollerFits": true,
+    "caption": "Company"
+   }
+  ],
+  "tap": [],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 747,
+    "w": 375,
+    "h": 65,
+    "right": 375,
+    "z": "40"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 375,
+   "h": 810,
+   "right": 375
+  },
+  "smallInputs": [],
+  "scrollers": [
+   {
+    "tag": "div",
+    "cls": "overflow-x-auto",
+    "text": "CompanySigned upSubscriptionMilestonesCheck-inEasy Roofers Inc.Taking ",
+    "x": 17,
+    "y": 202,
+    "w": 341,
+    "h": 576,
+    "right": 358
+   }
+  ],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "My companies"
+  ],
+  "textLength": 704,
+  "consoleErrors": [],
+  "tapCount": 0,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "companies @768": {
+  "file": "companies-768.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/wt-portal/portal.html?page=companies",
+  "vw": 768,
+  "vh": 1024,
+  "docW": 768,
+  "docH": 1024,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [
+   {
+    "width": 718,
+    "y": 190,
+    "inScroller": true,
+    "scrollerFits": true,
+    "caption": "Company"
+   }
+  ],
+  "tap": [],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 959,
+    "w": 768,
+    "h": 65,
+    "right": 768,
+    "z": "40"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 768,
+   "h": 674,
+   "right": 768
+  },
+  "smallInputs": [],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "My companies"
+  ],
+  "textLength": 704,
+  "consoleErrors": [],
+  "tapCount": 0,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "calendar @375": {
+  "file": "calendar-375.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/wt-portal/portal.html?page=calendar",
+  "vw": 375,
+  "vh": 812,
+  "docW": 375,
+  "docH": 1027,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 747,
+    "w": 375,
+    "h": 65,
+    "right": 375,
+    "z": "40"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 375,
+   "h": 970,
+   "right": 375
+  },
+  "smallInputs": [],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Calendar"
+  ],
+  "textLength": 514,
+  "consoleErrors": [],
+  "tapCount": 0,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "calendar @768": {
+  "file": "calendar-768.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/wt-portal/portal.html?page=calendar",
+  "vw": 768,
+  "vh": 1024,
+  "docW": 768,
+  "docH": 1024,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [
+   {
+    "tag": "div",
+    "cls": "flex items-center gap-1 rounded px-1 py-0.5 text-[11px] leading-tight truncate bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-3",
+    "text": "9:30 AM Maple Ridge Painting",
+    "x": 236,
+    "y": 397,
+    "w": 90,
+    "h": 18,
+    "right": 326,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "div",
+    "cls": "flex items-center gap-1 rounded px-1 py-0.5 text-[11px] leading-tight truncate bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-3",
+    "text": "2:30 PM Northline Plumbing",
+    "x": 133,
+    "y": 490,
+    "w": 90,
+    "h": 18,
+    "right": 223,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "div",
+    "cls": "flex items-center gap-1 rounded px-1 py-0.5 text-[11px] leading-tight truncate bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:te",
+    "text": "3:00 PM Demo · Bright Current Electrical",
+    "x": 236,
+    "y": 490,
+    "w": 90,
+    "h": 18,
+    "right": 326,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "div",
+    "cls": "flex items-center gap-1 rounded px-1 py-0.5 text-[11px] leading-tight truncate bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-3",
+    "text": "10:00 AM Tahoe Electric Co.",
+    "x": 442,
+    "y": 490,
+    "w": 90,
+    "h": 18,
+    "right": 532,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "div",
+    "cls": "flex items-center gap-1 rounded px-1 py-0.5 text-[11px] leading-tight truncate bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:te",
+    "text": "1:00 PM Walkthrough · Easy Roofers Inc.",
+    "x": 236,
+    "y": 583,
+    "w": 90,
+    "h": 18,
+    "right": 326,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "div",
+    "cls": "flex items-center gap-1 rounded px-1 py-0.5 text-[11px] leading-tight truncate bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amb",
+    "text": "11:00 AM Trade show — Ottawa Home & Reno",
+    "x": 442,
+    "y": 583,
+    "w": 90,
+    "h": 18,
+    "right": 532,
+    "inline": false,
+    "primary": false,
+    "type": null
+   }
+  ],
+  "tapPrimary": [],
+  "truncated": [
+   {
+    "tag": "span",
+    "cls": "truncate",
+    "text": "9:30 AM Maple Ridge Painting",
+    "x": 254,
+    "y": 399,
+    "w": 68,
+    "h": 14,
+    "right": 322
+   },
+   {
+    "tag": "span",
+    "cls": "truncate",
+    "text": "2:30 PM Northline Plumbing",
+    "x": 151,
+    "y": 492,
+    "w": 68,
+    "h": 14,
+    "right": 219
+   },
+   {
+    "tag": "span",
+    "cls": "truncate",
+    "text": "3:00 PM Demo · Bright Current Electrical",
+    "x": 254,
+    "y": 492,
+    "w": 68,
+    "h": 14,
+    "right": 322
+   },
+   {
+    "tag": "span",
+    "cls": "truncate",
+    "text": "10:00 AM Tahoe Electric Co.",
+    "x": 460,
+    "y": 492,
+    "w": 68,
+    "h": 14,
+    "right": 528
+   },
+   {
+    "tag": "span",
+    "cls": "truncate",
+    "text": "1:00 PM Walkthrough · Easy Roofers Inc.",
+    "x": 254,
+    "y": 585,
+    "w": 68,
+    "h": 14,
+    "right": 322
+   },
+   {
+    "tag": "span",
+    "cls": "truncate",
+    "text": "11:00 AM Trade show — Ottawa Home & Reno",
+    "x": 460,
+    "y": 585,
+    "w": 68,
+    "h": 14,
+    "right": 528
+   }
+  ],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 959,
+    "w": 768,
+    "h": 65,
+    "right": 768,
+    "z": "40"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 768,
+   "h": 866,
+   "right": 768
+  },
+  "smallInputs": [],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Calendar"
+  ],
+  "textLength": 473,
+  "consoleErrors": [],
+  "tapCount": 6,
+  "truncatedCount": 6,
+  "smallInputCount": 0
+ },
+ "notes @375": {
+  "file": "notes-375.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/wt-portal/portal.html?page=notes",
+  "vw": 375,
+  "vh": 812,
+  "docW": 375,
+  "docH": 1073,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 747,
+    "w": 375,
+    "h": 65,
+    "right": 375,
+    "z": "40"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 375,
+   "h": 1016,
+   "right": 375
+  },
+  "smallInputs": [],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "My notes"
+  ],
+  "textLength": 1143,
+  "consoleErrors": [],
+  "tapCount": 0,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "notes @768": {
+  "file": "notes-768.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/wt-portal/portal.html?page=notes",
+  "vw": 768,
+  "vh": 1024,
+  "docW": 768,
+  "docH": 1024,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 959,
+    "w": 768,
+    "h": 65,
+    "right": 768,
+    "z": "40"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 768,
+   "h": 768,
+   "right": 768
+  },
+  "smallInputs": [],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "My notes"
+  ],
+  "textLength": 1143,
+  "consoleErrors": [],
+  "tapCount": 0,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "note @375": {
+  "file": "note-375.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/wt-portal/portal.html?page=note",
+  "vw": 375,
+  "vh": 812,
+  "docW": 375,
+  "docH": 1264,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 747,
+    "w": 375,
+    "h": 65,
+    "right": 375,
+    "z": "40"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 375,
+   "h": 1207,
+   "right": 375
+  },
+  "smallInputs": [],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [],
+  "textLength": 841,
+  "consoleErrors": [],
+  "tapCount": 0,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "note @768": {
+  "file": "note-768.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/wt-portal/portal.html?page=note",
+  "vw": 768,
+  "vh": 1024,
+  "docW": 768,
+  "docH": 1090,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 959,
+    "w": 768,
+    "h": 65,
+    "right": 768,
+    "z": "40"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 768,
+   "h": 1033,
+   "right": 768
+  },
+  "smallInputs": [],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [],
+  "textLength": 841,
+  "consoleErrors": [],
+  "tapCount": 0,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "playbook @375": {
+  "file": "playbook-375.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/wt-portal/portal.html?page=playbook",
+  "vw": 375,
+  "vh": 812,
+  "docW": 375,
+  "docH": 3671,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 747,
+    "w": 375,
+    "h": 65,
+    "right": 375,
+    "z": "40"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 375,
+   "h": 3614,
+   "right": 375
+  },
+  "smallInputs": [],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Playbook"
+  ],
+  "textLength": 3073,
+  "consoleErrors": [],
+  "tapCount": 0,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "playbook @768": {
+  "file": "playbook-768.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/wt-portal/portal.html?page=playbook",
+  "vw": 768,
+  "vh": 1024,
+  "docW": 768,
+  "docH": 3159,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 959,
+    "w": 768,
+    "h": 65,
+    "right": 768,
+    "z": "40"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 768,
+   "h": 3102,
+   "right": 768
+  },
+  "smallInputs": [],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Playbook"
+  ],
+  "textLength": 3438,
+  "consoleErrors": [],
+  "tapCount": 0,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "support @375": {
+  "file": "support-375.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/wt-portal/portal.html?page=support",
+  "vw": 375,
+  "vh": 812,
+  "docW": 375,
+  "docH": 1165,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 747,
+    "w": 375,
+    "h": 65,
+    "right": 375,
+    "z": "40"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 375,
+   "h": 1108,
+   "right": 375
+  },
+  "smallInputs": [],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "FieldQuo tech support"
+  ],
+  "textLength": 671,
+  "consoleErrors": [],
+  "tapCount": 0,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "support @768": {
+  "file": "support-768.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/wt-portal/portal.html?page=support",
+  "vw": 768,
+  "vh": 1024,
+  "docW": 768,
+  "docH": 1147,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 959,
+    "w": 768,
+    "h": 65,
+    "right": 768,
+    "z": "40"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 768,
+   "h": 1090,
+   "right": 768
+  },
+  "smallInputs": [
+   {
+    "tag": "select",
+    "cls": "w-full min-h-[44px] rounded-lg border border-border bg-card px-3 text-sm text-foreground",
+    "text": "Choose…Easy Roofers Inc.Maple Ridge PaintingNorthline PlumbingDemo 3 (",
+    "x": 45,
+    "y": 234,
+    "w": 678,
+    "h": 44,
+    "right": 723,
+    "fontSize": "14px"
+   },
+   {
+    "tag": "input",
+    "cls": "w-full min-h-[44px] rounded-lg border border-border bg-card px-3 text-sm text-foreground",
+    "text": "",
+    "x": 45,
+    "y": 318,
+    "w": 678,
+    "h": 44,
+    "right": 723,
+    "fontSize": "14px"
+   },
+   {
+    "tag": "textarea",
+    "cls": "w-full rounded-lg border border-border bg-card p-3 text-sm text-foreground",
+    "text": "",
+    "x": 45,
+    "y": 402,
+    "w": 678,
+    "h": 126,
+    "right": 723,
+    "fontSize": "14px"
+   },
+   {
+    "tag": "select",
+    "cls": "w-full min-h-[44px] rounded-lg border border-border bg-card px-3 text-sm text-foreground",
+    "text": "LowNormalHighUrgent",
+    "x": 45,
+    "y": 574,
+    "w": 678,
+    "h": 44,
+    "right": 723,
+    "fontSize": "14px"
+   }
+  ],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "FieldQuo tech support"
+  ],
+  "textLength": 671,
+  "consoleErrors": [],
+  "tapCount": 0,
+  "truncatedCount": 0,
+  "smallInputCount": 4
+ },
+ "support-ticket @375": {
+  "file": "support-ticket-375.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/wt-portal/portal.html?page=support&scene=open-ticket",
+  "vw": 375,
+  "vh": 812,
+  "docW": 375,
+  "docH": 1603,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 747,
+    "w": 375,
+    "h": 65,
+    "right": 375,
+    "z": "40"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 375,
+   "h": 1546,
+   "right": 375
+  },
+  "smallInputs": [],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "FieldQuo tech support"
+  ],
+  "textLength": 1073,
+  "consoleErrors": [],
+  "tapCount": 0,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "support-ticket @768": {
+  "file": "support-ticket-768.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/wt-portal/portal.html?page=support&scene=open-ticket",
+  "vw": 768,
+  "vh": 1024,
+  "docW": 768,
+  "docH": 1476,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 959,
+    "w": 768,
+    "h": 65,
+    "right": 768,
+    "z": "40"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 768,
+   "h": 1419,
+   "right": 768
+  },
+  "smallInputs": [
+   {
+    "tag": "select",
+    "cls": "w-full min-h-[44px] rounded-lg border border-border bg-card px-3 text-sm text-foreground",
+    "text": "Choose…Easy Roofers Inc.Maple Ridge PaintingNorthline PlumbingDemo 3 (",
+    "x": 45,
+    "y": 234,
+    "w": 678,
+    "h": 44,
+    "right": 723,
+    "fontSize": "14px"
+   },
+   {
+    "tag": "input",
+    "cls": "w-full min-h-[44px] rounded-lg border border-border bg-card px-3 text-sm text-foreground",
+    "text": "",
+    "x": 45,
+    "y": 318,
+    "w": 678,
+    "h": 44,
+    "right": 723,
+    "fontSize": "14px"
+   },
+   {
+    "tag": "textarea",
+    "cls": "w-full rounded-lg border border-border bg-card p-3 text-sm text-foreground",
+    "text": "",
+    "x": 45,
+    "y": 402,
+    "w": 678,
+    "h": 126,
+    "right": 723,
+    "fontSize": "14px"
+   },
+   {
+    "tag": "select",
+    "cls": "w-full min-h-[44px] rounded-lg border border-border bg-card px-3 text-sm text-foreground",
+    "text": "LowNormalHighUrgent",
+    "x": 45,
+    "y": 574,
+    "w": 678,
+    "h": 44,
+    "right": 723,
+    "fontSize": "14px"
+   }
+  ],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "FieldQuo tech support"
+  ],
+  "textLength": 1073,
+  "consoleErrors": [],
+  "tapCount": 0,
+  "truncatedCount": 0,
+  "smallInputCount": 5
+ },
+ "pay @375": {
+  "file": "pay-375.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/wt-portal/portal.html?page=pay",
+  "vw": 375,
+  "vh": 812,
+  "docW": 375,
+  "docH": 2829,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 29,
+    "y": 1699,
+    "w": 13,
+    "h": 102,
+    "right": 42,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 29,
+    "y": 1839,
+    "w": 13,
+    "h": 62,
+    "right": 42,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 29,
+    "y": 1939,
+    "w": 13,
+    "h": 62,
+    "right": 42,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 29,
+    "y": 2039,
+    "w": 13,
+    "h": 102,
+    "right": 42,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 29,
+    "y": 2179,
+    "w": 13,
+    "h": 62,
+    "right": 42,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   }
+  ],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 747,
+    "w": 375,
+    "h": 65,
+    "right": 375,
+    "z": "40"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 375,
+   "h": 2772,
+   "right": 375
+  },
+  "smallInputs": [],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Your pay"
+  ],
+  "textLength": 2385,
+  "consoleErrors": [],
+  "tapCount": 5,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "pay @768": {
+  "file": "pay-768.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/wt-portal/portal.html?page=pay",
+  "vw": 768,
+  "vh": 1024,
+  "docW": 768,
+  "docH": 2119,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 37,
+    "y": 1216,
+    "w": 13,
+    "h": 62,
+    "right": 50,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 37,
+    "y": 1316,
+    "w": 13,
+    "h": 42,
+    "right": 50,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 37,
+    "y": 1396,
+    "w": 13,
+    "h": 42,
+    "right": 50,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 37,
+    "y": 1476,
+    "w": 13,
+    "h": 62,
+    "right": 50,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 37,
+    "y": 1576,
+    "w": 13,
+    "h": 42,
+    "right": 50,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   }
+  ],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 959,
+    "w": 768,
+    "h": 65,
+    "right": 768,
+    "z": "40"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 768,
+   "h": 2062,
+   "right": 768
+  },
+  "smallInputs": [
+   {
+    "tag": "input",
+    "cls": "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground",
+    "text": "",
+    "x": 24,
+    "y": 1683,
+    "w": 672,
+    "h": 38,
+    "right": 696,
+    "fontSize": "14px"
+   }
+  ],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Your pay"
+  ],
+  "textLength": 2385,
+  "consoleErrors": [],
+  "tapCount": 5,
+  "truncatedCount": 0,
+  "smallInputCount": 1
+ },
+ "voicemail @375": {
+  "file": "voicemail-375.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/wt-portal/portal.html?page=voicemail",
+  "vw": 375,
+  "vh": 812,
+  "docW": 375,
+  "docH": 857,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [
+   {
+    "tag": "a",
+    "cls": "text-sm font-medium text-primary hover:underline",
+    "text": "Open the record",
+    "x": 33,
+    "y": 250,
+    "w": 107,
+    "h": 20,
+    "right": 140,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "a",
+    "cls": "text-sm font-medium text-primary hover:underline",
+    "text": "Open the record",
+    "x": 33,
+    "y": 434,
+    "w": 107,
+    "h": 20,
+    "right": 140,
+    "inline": false,
+    "primary": false,
+    "type": null
+   }
+  ],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 747,
+    "w": 375,
+    "h": 65,
+    "right": 375,
+    "z": "40"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 375,
+   "h": 800,
+   "right": 375
+  },
+  "smallInputs": [],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Voicemail"
+  ],
+  "textLength": 478,
+  "consoleErrors": [],
+  "tapCount": 2,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "voicemail @768": {
+  "file": "voicemail-768.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/wt-portal/portal.html?page=voicemail",
+  "vw": 768,
+  "vh": 1024,
+  "docW": 768,
+  "docH": 1024,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [
+   {
+    "tag": "a",
+    "cls": "text-sm font-medium text-primary hover:underline",
+    "text": "Open the record",
+    "x": 620,
+    "y": 189,
+    "w": 107,
+    "h": 20,
+    "right": 727,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "a",
+    "cls": "text-sm font-medium text-primary hover:underline",
+    "text": "Open the record",
+    "x": 620,
+    "y": 341,
+    "w": 107,
+    "h": 20,
+    "right": 727,
+    "inline": false,
+    "primary": false,
+    "type": null
+   }
+  ],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 959,
+    "w": 768,
+    "h": 65,
+    "right": 768,
+    "z": "40"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 768,
+   "h": 684,
+   "right": 768
+  },
+  "smallInputs": [],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Voicemail"
+  ],
+  "textLength": 478,
+  "consoleErrors": [],
+  "tapCount": 2,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "demo @375": {
+  "file": "demo-375.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/wt-portal/portal.html?page=demo",
+  "vw": 375,
+  "vh": 812,
+  "docW": 375,
+  "docH": 1685,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 747,
+    "w": 375,
+    "h": 65,
+    "right": 375,
+    "z": "40"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 375,
+   "h": 1628,
+   "right": 375
+  },
+  "smallInputs": [],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Your demo account"
+  ],
+  "textLength": 2101,
+  "consoleErrors": [],
+  "tapCount": 0,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "demo @768": {
+  "file": "demo-768.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/wt-portal/portal.html?page=demo",
+  "vw": 768,
+  "vh": 1024,
+  "docW": 768,
+  "docH": 1365,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 959,
+    "w": 768,
+    "h": 65,
+    "right": 768,
+    "z": "40"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 768,
+   "h": 1308,
+   "right": 768
+  },
+  "smallInputs": [],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Your demo account"
+  ],
+  "textLength": 2101,
+  "consoleErrors": [],
+  "tapCount": 0,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "messages @375": {
+  "file": "messages-375.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/wt-portal/portal.html?page=messages",
+  "vw": 375,
+  "vh": 812,
+  "docW": 375,
+  "docH": 812,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [],
+  "tapPrimary": [],
+  "truncated": [
+   {
+    "tag": "span",
+    "cls": "min-w-0 flex-1 truncate text-xs text-foreground",
+    "text": "Le lien dit que mon courriel est déjà utilisé, je peux pas passer l'ét",
+    "x": 77,
+    "y": 345,
+    "w": 143,
+    "h": 16,
+    "right": 220
+   },
+   {
+    "tag": "span",
+    "cls": "min-w-0 flex-1 truncate text-xs text-muted-foreground",
+    "text": "You: Hi, Rachel from FieldQuo. No rush, text back when you're off the ",
+    "x": 77,
+    "y": 521,
+    "w": 268,
+    "h": 16,
+    "right": 345
+   }
+  ],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 747,
+    "w": 375,
+    "h": 65,
+    "right": 375,
+    "z": "40"
+   }
+  ],
+  "asides": [
+   {
+    "tag": "aside",
+    "cls": "flex md:flex w-full md:w-[280px] md:shrink-0 flex-col border-r border-border bg-card min-h-0",
+    "text": "Texts New messageRoadblocks1Needs a reply44 unreadMESMSMelton Electric",
+    "x": 17,
+    "y": 82,
+    "w": 341,
+    "h": 634,
+    "right": 358,
+    "fixed": false
+   }
+  ],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 375,
+   "h": 748,
+   "right": 375
+  },
+  "smallInputs": [],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Texts"
+  ],
+  "textLength": 596,
+  "consoleErrors": [],
+  "tapCount": 0,
+  "truncatedCount": 2,
+  "smallInputCount": 0
+ },
+ "messages @768": {
+  "file": "messages-768.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/wt-portal/portal.html?page=messages",
+  "vw": 768,
+  "vh": 1024,
+  "docW": 768,
+  "docH": 1033,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [],
+  "tapPrimary": [],
+  "truncated": [
+   {
+    "tag": "span",
+    "cls": "min-w-0 flex-1 truncate text-xs text-foreground",
+    "text": "she does the books",
+    "x": 85,
+    "y": 289,
+    "w": 106,
+    "h": 16,
+    "right": 191
+   },
+   {
+    "tag": "span",
+    "cls": "min-w-0 flex-1 truncate text-xs text-foreground",
+    "text": "Le lien dit que mon courriel est déjà utilisé, je peux pas passer l'ét",
+    "x": 85,
+    "y": 353,
+    "w": 82,
+    "h": 16,
+    "right": 167
+   },
+   {
+    "tag": "span",
+    "cls": "truncate text-sm font-medium text-foreground",
+    "text": "Park Place Installations",
+    "x": 85,
+    "y": 507,
+    "w": 147,
+    "h": 20,
+    "right": 232
+   },
+   {
+    "tag": "span",
+    "cls": "min-w-0 flex-1 truncate text-xs text-muted-foreground",
+    "text": "You: Hi, Rachel from FieldQuo. No rush, text back when you're off the ",
+    "x": 85,
+    "y": 529,
+    "w": 207,
+    "h": 16,
+    "right": 292
+   }
+  ],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 959,
+    "w": 768,
+    "h": 65,
+    "right": 768,
+    "z": "40"
+   }
+  ],
+  "asides": [
+   {
+    "tag": "aside",
+    "cls": "flex md:flex w-full md:w-[280px] md:shrink-0 flex-col border-r border-border bg-card min-h-0",
+    "text": "Texts New messageRoadblocks1Needs a reply44 unreadMESMSMelton Electric",
+    "x": 25,
+    "y": 90,
+    "w": 280,
+    "h": 846,
+    "right": 305,
+    "fixed": false
+   }
+  ],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 768,
+   "h": 976,
+   "right": 768
+  },
+  "smallInputs": [],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Texts"
+  ],
+  "textLength": 817,
+  "consoleErrors": [],
+  "tapCount": 0,
+  "truncatedCount": 4,
+  "smallInputCount": 0
+ },
+ "team @375": {
+  "file": "team-375.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/wt-portal/portal.html?page=team",
+  "vw": 375,
+  "vh": 812,
+  "docW": 375,
+  "docH": 837,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [],
+  "tapPrimary": [],
+  "truncated": [
+   {
+    "tag": "span",
+    "cls": "min-w-0 flex-1 truncate text-xs text-foreground",
+    "text": "Maria Lopez: I can take it if Daniel can't",
+    "x": 77,
+    "y": 223,
+    "w": 202,
+    "h": 16,
+    "right": 279
+   },
+   {
+    "tag": "span",
+    "cls": "min-w-0 flex-1 truncate text-xs text-foreground",
+    "text": "support@fieldquo.com: Every night at 3am Eastern. You can reset it you",
+    "x": 77,
+    "y": 282,
+    "w": 240,
+    "h": 16,
+    "right": 317
+   },
+   {
+    "tag": "span",
+    "cls": "min-w-0 flex-1 truncate text-xs text-muted-foreground",
+    "text": "support@fieldquo.com: Reminder: the sales guide is in the portal now, ",
+    "x": 77,
+    "y": 392,
+    "w": 268,
+    "h": 16,
+    "right": 345
+   },
+   {
+    "tag": "span",
+    "cls": "min-w-0 flex-1 truncate text-xs text-muted-foreground",
+    "text": "support@fieldquo.com: Ticket #418 closed — the Stripe payout was a ban",
+    "x": 77,
+    "y": 451,
+    "w": 268,
+    "h": 16,
+    "right": 345
+   },
+   {
+    "tag": "span",
+    "cls": "min-w-0 flex-1 truncate text-xs text-muted-foreground",
+    "text": "emilio@fieldquo.com: Only reps who sell in French get Quebec leads fro",
+    "x": 77,
+    "y": 620,
+    "w": 268,
+    "h": 16,
+    "right": 345
+   }
+  ],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 747,
+    "w": 375,
+    "h": 65,
+    "right": 375,
+    "z": "40"
+   }
+  ],
+  "asides": [
+   {
+    "tag": "aside",
+    "cls": "flex md:flex w-full md:w-[280px] md:shrink-0 flex-col border-r border-border bg-card min-h-0",
+    "text": "Team NewUnread44 unread#Teams#sales1:41 AMMaria Lopez: I can take it i",
+    "x": 17,
+    "y": 82,
+    "w": 341,
+    "h": 666,
+    "right": 358,
+    "fixed": false
+   }
+  ],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 375,
+   "h": 780,
+   "right": 375
+  },
+  "smallInputs": [],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Team"
+  ],
+  "textLength": 787,
+  "consoleErrors": [],
+  "tapCount": 0,
+  "truncatedCount": 5,
+  "smallInputCount": 0
+ },
+ "team @768": {
+  "file": "team-768.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/wt-portal/portal.html?page=team",
+  "vw": 768,
+  "vh": 1024,
+  "docW": 768,
+  "docH": 1065,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [],
+  "tapPrimary": [],
+  "truncated": [
+   {
+    "tag": "span",
+    "cls": "min-w-0 flex-1 truncate text-xs text-foreground",
+    "text": "Maria Lopez: I can take it if Daniel can't",
+    "x": 85,
+    "y": 231,
+    "w": 141,
+    "h": 16,
+    "right": 226
+   },
+   {
+    "tag": "span",
+    "cls": "truncate text-sm font-semibold text-foreground",
+    "text": "support@fieldquo.com",
+    "x": 85,
+    "y": 268,
+    "w": 153,
+    "h": 20,
+    "right": 238
+   },
+   {
+    "tag": "span",
+    "cls": "min-w-0 flex-1 truncate text-xs text-foreground",
+    "text": "support@fieldquo.com: Every night at 3am Eastern. You can reset it you",
+    "x": 85,
+    "y": 290,
+    "w": 179,
+    "h": 16,
+    "right": 264
+   },
+   {
+    "tag": "span",
+    "cls": "min-w-0 flex-1 truncate text-xs text-muted-foreground",
+    "text": "support@fieldquo.com: Reminder: the sales guide is in the portal now, ",
+    "x": 85,
+    "y": 400,
+    "w": 207,
+    "h": 16,
+    "right": 292
+   },
+   {
+    "tag": "span",
+    "cls": "min-w-0 flex-1 truncate text-xs text-muted-foreground",
+    "text": "support@fieldquo.com: Ticket #418 closed — the Stripe payout was a ban",
+    "x": 85,
+    "y": 459,
+    "w": 207,
+    "h": 16,
+    "right": 292
+   },
+   {
+    "tag": "span",
+    "cls": "min-w-0 flex-1 truncate text-xs text-muted-foreground",
+    "text": "emilio@fieldquo.com: Only reps who sell in French get Quebec leads fro",
+    "x": 85,
+    "y": 628,
+    "w": 207,
+    "h": 16,
+    "right": 292
+   }
+  ],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 959,
+    "w": 768,
+    "h": 65,
+    "right": 768,
+    "z": "40"
+   }
+  ],
+  "asides": [
+   {
+    "tag": "aside",
+    "cls": "flex md:flex w-full md:w-[280px] md:shrink-0 flex-col border-r border-border bg-card min-h-0",
+    "text": "Team NewUnread44 unread#Teams#sales1:41 AMMaria Lopez: I can take it i",
+    "x": 25,
+    "y": 90,
+    "w": 280,
+    "h": 878,
+    "right": 305,
+    "fixed": false
+   }
+  ],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 768,
+   "h": 1008,
+   "right": 768
+  },
+  "smallInputs": [],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Team"
+  ],
+  "textLength": 936,
+  "consoleErrors": [],
+  "tapCount": 0,
+  "truncatedCount": 6,
+  "smallInputCount": 0
+ },
+ "threads @375": {
+  "file": "threads-375.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/wt-portal/portal.html?page=threads",
+  "vw": 375,
+  "vh": 812,
+  "docW": 375,
+  "docH": 812,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [],
+  "tapPrimary": [],
+  "truncated": [
+   {
+    "tag": "p",
+    "cls": "text-sm font-medium text-foreground truncate",
+    "text": "Booking more painting jobs without the back-and-forth",
+    "x": 60,
+    "y": 255,
+    "w": 282,
+    "h": 20,
+    "right": 342
+   }
+  ],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 747,
+    "w": 375,
+    "h": 65,
+    "right": 375,
+    "z": "40"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 375,
+   "h": 396,
+   "right": 375
+  },
+  "smallInputs": [],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Conversations"
+  ],
+  "textLength": 369,
+  "consoleErrors": [],
+  "tapCount": 0,
+  "truncatedCount": 1,
+  "smallInputCount": 0
+ },
+ "threads @768": {
+  "file": "threads-768.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/wt-portal/portal.html?page=threads",
+  "vw": 768,
+  "vh": 1024,
+  "docW": 768,
+  "docH": 1024,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 959,
+    "w": 768,
+    "h": 65,
+    "right": 768,
+    "z": "40"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 768,
+   "h": 392,
+   "right": 768
+  },
+  "smallInputs": [],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Conversations"
+  ],
+  "textLength": 369,
+  "consoleErrors": [],
+  "tapCount": 0,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "thread @375": {
+  "file": "thread-375.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/wt-portal/portal.html?page=thread",
+  "vw": 375,
+  "vh": 812,
+  "docW": 375,
+  "docH": 1103,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [
+   {
+    "tag": "a",
+    "cls": "text-sm text-muted-foreground flex items-center gap-1",
+    "text": "Conversations",
+    "x": 16,
+    "y": 81,
+    "w": 343,
+    "h": 20,
+    "right": 359,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "a",
+    "cls": "underline",
+    "text": "Bright Current Electrical",
+    "x": 16,
+    "y": 186,
+    "w": 155,
+    "h": 17,
+    "right": 171,
+    "inline": true,
+    "primary": false,
+    "type": null
+   }
+  ],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 747,
+    "w": 375,
+    "h": 65,
+    "right": 375,
+    "z": "40"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 375,
+   "h": 1046,
+   "right": 375
+  },
+  "smallInputs": [],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Re: A quicker way to quote roofing jobs"
+  ],
+  "textLength": 591,
+  "consoleErrors": [],
+  "tapCount": 2,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "thread @768": {
+  "file": "thread-768.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/wt-portal/portal.html?page=thread",
+  "vw": 768,
+  "vh": 1024,
+  "docW": 768,
+  "docH": 1024,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [
+   {
+    "tag": "a",
+    "cls": "text-sm text-muted-foreground flex items-center gap-1",
+    "text": "Conversations",
+    "x": 24,
+    "y": 89,
+    "w": 720,
+    "h": 20,
+    "right": 744,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "a",
+    "cls": "underline",
+    "text": "Bright Current Electrical",
+    "x": 24,
+    "y": 166,
+    "w": 155,
+    "h": 17,
+    "right": 179,
+    "inline": true,
+    "primary": false,
+    "type": null
+   }
+  ],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 959,
+    "w": 768,
+    "h": 65,
+    "right": 768,
+    "z": "40"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 768,
+   "h": 934,
+   "right": 768
+  },
+  "smallInputs": [
+   {
+    "tag": "textarea",
+    "cls": "w-full rounded-md border border-border bg-background px-3 py-2 text-sm",
+    "text": "",
+    "x": 41,
+    "y": 658,
+    "w": 686,
+    "h": 158,
+    "right": 727,
+    "fontSize": "14px"
+   }
+  ],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Re: A quicker way to quote roofing jobs"
+  ],
+  "textLength": 591,
+  "consoleErrors": [],
+  "tapCount": 2,
+  "truncatedCount": 0,
+  "smallInputCount": 1
+ },
+ "settings @375": {
+  "file": "settings-375.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/wt-portal/portal.html?page=settings",
+  "vw": 375,
+  "vh": 812,
+  "docW": 375,
+  "docH": 3089,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [
+   {
+    "tag": "a",
+    "cls": "underline text-foreground",
+    "text": "Pay",
+    "x": 85,
+    "y": 178,
+    "w": 23,
+    "h": 17,
+    "right": 108,
+    "inline": true,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 29,
+    "y": 414,
+    "w": 13,
+    "h": 82,
+    "right": 42,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 29,
+    "y": 534,
+    "w": 13,
+    "h": 42,
+    "right": 42,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 29,
+    "y": 614,
+    "w": 13,
+    "h": 42,
+    "right": 42,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 29,
+    "y": 694,
+    "w": 13,
+    "h": 42,
+    "right": 42,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 29,
+    "y": 774,
+    "w": 13,
+    "h": 42,
+    "right": 42,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 29,
+    "y": 854,
+    "w": 13,
+    "h": 42,
+    "right": 42,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 29,
+    "y": 934,
+    "w": 13,
+    "h": 42,
+    "right": 42,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 29,
+    "y": 1014,
+    "w": 13,
+    "h": 42,
+    "right": 42,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 29,
+    "y": 1094,
+    "w": 13,
+    "h": 42,
+    "right": 42,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 29,
+    "y": 1419,
+    "w": 13,
+    "h": 42,
+    "right": 42,
+    "inline": false,
+    "primary": false,
+    "type": "checkbox"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 29,
+    "y": 1499,
+    "w": 13,
+    "h": 42,
+    "right": 42,
+    "inline": false,
+    "primary": false,
+    "type": "checkbox"
+   }
+  ],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 747,
+    "w": 375,
+    "h": 65,
+    "right": 375,
+    "z": "40"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 375,
+   "h": 3032,
+   "right": 375
+  },
+  "smallInputs": [],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Settings"
+  ],
+  "textLength": 2101,
+  "consoleErrors": [],
+  "tapCount": 19,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "settings @768": {
+  "file": "settings-768.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/wt-portal/portal.html?page=settings",
+  "vw": 768,
+  "vh": 1024,
+  "docW": 768,
+  "docH": 2745,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [
+   {
+    "tag": "a",
+    "cls": "underline text-foreground",
+    "text": "Pay",
+    "x": 379,
+    "y": 146,
+    "w": 23,
+    "h": 17,
+    "right": 402,
+    "inline": true,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 37,
+    "y": 322,
+    "w": 13,
+    "h": 62,
+    "right": 50,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 37,
+    "y": 422,
+    "w": 13,
+    "h": 42,
+    "right": 50,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 37,
+    "y": 502,
+    "w": 13,
+    "h": 42,
+    "right": 50,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 37,
+    "y": 582,
+    "w": 13,
+    "h": 42,
+    "right": 50,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 37,
+    "y": 662,
+    "w": 13,
+    "h": 42,
+    "right": 50,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 37,
+    "y": 742,
+    "w": 13,
+    "h": 42,
+    "right": 50,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 37,
+    "y": 822,
+    "w": 13,
+    "h": 42,
+    "right": 50,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 37,
+    "y": 902,
+    "w": 13,
+    "h": 42,
+    "right": 50,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 37,
+    "y": 982,
+    "w": 13,
+    "h": 42,
+    "right": 50,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 37,
+    "y": 1267,
+    "w": 13,
+    "h": 42,
+    "right": 50,
+    "inline": false,
+    "primary": false,
+    "type": "checkbox"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 37,
+    "y": 1347,
+    "w": 13,
+    "h": 42,
+    "right": 50,
+    "inline": false,
+    "primary": false,
+    "type": "checkbox"
+   }
+  ],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 959,
+    "w": 768,
+    "h": 65,
+    "right": 768,
+    "z": "40"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 768,
+   "h": 2688,
+   "right": 768
+  },
+  "smallInputs": [],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Settings"
+  ],
+  "textLength": 2101,
+  "consoleErrors": [],
+  "tapCount": 19,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "welcome @375": {
+  "file": "welcome-375.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/wt-portal/portal.html?page=welcome",
+  "vw": 375,
+  "vh": 812,
+  "docW": 375,
+  "docH": 3561,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 29,
+    "y": 554,
+    "w": 13,
+    "h": 102,
+    "right": 42,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 29,
+    "y": 694,
+    "w": 13,
+    "h": 62,
+    "right": 42,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 29,
+    "y": 794,
+    "w": 13,
+    "h": 62,
+    "right": 42,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 29,
+    "y": 894,
+    "w": 13,
+    "h": 102,
+    "right": 42,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 29,
+    "y": 1034,
+    "w": 13,
+    "h": 62,
+    "right": 42,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 29,
+    "y": 1560,
+    "w": 13,
+    "h": 82,
+    "right": 42,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 29,
+    "y": 1680,
+    "w": 13,
+    "h": 42,
+    "right": 42,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 29,
+    "y": 1760,
+    "w": 13,
+    "h": 42,
+    "right": 42,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 29,
+    "y": 1840,
+    "w": 13,
+    "h": 42,
+    "right": 42,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 29,
+    "y": 1920,
+    "w": 13,
+    "h": 42,
+    "right": 42,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 29,
+    "y": 2000,
+    "w": 13,
+    "h": 42,
+    "right": 42,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 29,
+    "y": 2080,
+    "w": 13,
+    "h": 42,
+    "right": 42,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   }
+  ],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 747,
+    "w": 375,
+    "h": 65,
+    "right": 375,
+    "z": "40"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 375,
+   "h": 3504,
+   "right": 375
+  },
+  "smallInputs": [],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Welcome to FieldQuo"
+  ],
+  "textLength": 2479,
+  "consoleErrors": [],
+  "tapCount": 22,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "welcome @768": {
+  "file": "welcome-768.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/wt-portal/portal.html?page=welcome",
+  "vw": 768,
+  "vh": 1024,
+  "docW": 768,
+  "docH": 3194,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 37,
+    "y": 478,
+    "w": 13,
+    "h": 62,
+    "right": 50,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 37,
+    "y": 578,
+    "w": 13,
+    "h": 42,
+    "right": 50,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 37,
+    "y": 658,
+    "w": 13,
+    "h": 42,
+    "right": 50,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 37,
+    "y": 738,
+    "w": 13,
+    "h": 62,
+    "right": 50,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 37,
+    "y": 838,
+    "w": 13,
+    "h": 42,
+    "right": 50,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 37,
+    "y": 1281,
+    "w": 13,
+    "h": 62,
+    "right": 50,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 37,
+    "y": 1381,
+    "w": 13,
+    "h": 42,
+    "right": 50,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 37,
+    "y": 1461,
+    "w": 13,
+    "h": 42,
+    "right": 50,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 37,
+    "y": 1541,
+    "w": 13,
+    "h": 42,
+    "right": 50,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 37,
+    "y": 1621,
+    "w": 13,
+    "h": 42,
+    "right": 50,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 37,
+    "y": 1701,
+    "w": 13,
+    "h": 42,
+    "right": 50,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 37,
+    "y": 1781,
+    "w": 13,
+    "h": 42,
+    "right": 50,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   }
+  ],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 959,
+    "w": 768,
+    "h": 65,
+    "right": 768,
+    "z": "40"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 768,
+   "h": 3137,
+   "right": 768
+  },
+  "smallInputs": [
+   {
+    "tag": "input",
+    "cls": "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground",
+    "text": "",
+    "x": 24,
+    "y": 945,
+    "w": 672,
+    "h": 38,
+    "right": 696,
+    "fontSize": "14px"
+   }
+  ],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Welcome to FieldQuo"
+  ],
+  "textLength": 2479,
+  "consoleErrors": [],
+  "tapCount": 22,
+  "truncatedCount": 0,
+  "smallInputCount": 1
+ },
+ "login @375": {
+  "file": "login-375.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/wt-portal/portal.html?page=login",
+  "vw": 375,
+  "vh": 812,
+  "docW": 375,
+  "docH": 812,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": null,
+  "smallInputs": [],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [],
+  "textLength": 105,
+  "consoleErrors": [],
+  "tapCount": 0,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "login @768": {
+  "file": "login-768.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/wt-portal/portal.html?page=login",
+  "vw": 768,
+  "vh": 1024,
+  "docW": 768,
+  "docH": 1024,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": null,
+  "smallInputs": [],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [],
+  "textLength": 105,
+  "consoleErrors": [],
+  "tapCount": 0,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "invite @375": {
+  "file": "invite-375.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/wt-portal/portal.html?page=invite",
+  "vw": 375,
+  "vh": 812,
+  "docW": 375,
+  "docH": 812,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": null,
+  "smallInputs": [],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Set your password"
+  ],
+  "textLength": 348,
+  "consoleErrors": [],
+  "tapCount": 0,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "invite @768": {
+  "file": "invite-768.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/wt-portal/portal.html?page=invite",
+  "vw": 768,
+  "vh": 1024,
+  "docW": 768,
+  "docH": 1024,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": null,
+  "smallInputs": [],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Set your password"
+  ],
+  "textLength": 348,
+  "consoleErrors": [],
+  "tapCount": 0,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "queue @375": {
+  "file": "queue-375.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/wt-console/console.html?do=1",
+  "vw": 375,
+  "vh": 812,
+  "docW": 375,
+  "docH": 3703,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 747,
+    "w": 375,
+    "h": 65,
+    "right": 375,
+    "z": "40"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 375,
+   "h": 3646,
+   "right": 375
+  },
+  "smallInputs": [],
+  "scrollers": [
+   {
+    "tag": "div",
+    "cls": "flex gap-0.5 overflow-x-auto -mx-1 px-1",
+    "text": "CompanyContactScriptResearchNotesDispositionTasksLeads11",
+    "x": 29,
+    "y": 982,
+    "w": 317,
+    "h": 44,
+    "right": 346
+   }
+  ],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Today’s queue"
+  ],
+  "textLength": 3246,
+  "consoleErrors": [],
+  "tapCount": 0,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "queue @768": {
+  "file": "queue-768.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/wt-console/console.html?do=1",
+  "vw": 768,
+  "vh": 1024,
+  "docW": 768,
+  "docH": 2955,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 959,
+    "w": 768,
+    "h": 65,
+    "right": 768,
+    "z": "40"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 768,
+   "h": 2898,
+   "right": 768
+  },
+  "smallInputs": [],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Today’s queue"
+  ],
+  "textLength": 3246,
+  "consoleErrors": [],
+  "tapCount": 0,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "queue-call @375": {
+  "file": "queue-call-375.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/wt-console/console.html?do=1&scene=call",
+  "vw": 375,
+  "vh": 812,
+  "docW": 375,
+  "docH": 3880,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 747,
+    "w": 375,
+    "h": 65,
+    "right": 375,
+    "z": "40"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 375,
+   "h": 3823,
+   "right": 375
+  },
+  "smallInputs": [],
+  "scrollers": [
+   {
+    "tag": "div",
+    "cls": "flex gap-0.5 overflow-x-auto -mx-1 px-1",
+    "text": "CompanyContactScriptResearchNotesDispositionTasksLeads11",
+    "x": 29,
+    "y": 1159,
+    "w": 317,
+    "h": 44,
+    "right": 346
+   }
+  ],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Today’s queue"
+  ],
+  "textLength": 3475,
+  "consoleErrors": [],
+  "tapCount": 0,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "queue-call @768": {
+  "file": "queue-call-768.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/wt-console/console.html?do=1&scene=call",
+  "vw": 768,
+  "vh": 1024,
+  "docW": 768,
+  "docH": 3093,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 959,
+    "w": 768,
+    "h": 65,
+    "right": 768,
+    "z": "40"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 768,
+   "h": 3036,
+   "right": 768
+  },
+  "smallInputs": [],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Today’s queue"
+  ],
+  "textLength": 3475,
+  "consoleErrors": [],
+  "tapCount": 0,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "queue-ring @375": {
+  "file": "queue-ring-375.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/wt-console/console.html?do=1&scene=ring",
+  "vw": 375,
+  "vh": 812,
+  "docW": 375,
+  "docH": 3703,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 747,
+    "w": 375,
+    "h": 65,
+    "right": 375,
+    "z": "40"
+   },
+   {
+    "tag": "div",
+    "cls": "fixed inset-x-0 top-0 lg:top-[61px] lg:left-[var(--fq-sales-rail,220px)] z-[70] transition-transform duration-200 ease-out motion-reduce:tra",
+    "text": "Incoming callBright Current Electrical · (918) 555-0123Claimed by you ",
+    "x": 0,
+    "y": 0,
+    "w": 375,
+    "h": 245,
+    "right": 375,
+    "z": "70"
+   },
+   {
+    "tag": "div",
+    "cls": "fq-toast-layer fq-sales-shell",
+    "text": "Incoming call — Bright Current Electrical",
+    "x": 16,
+    "y": 666,
+    "w": 343,
+    "h": 66,
+    "right": 359,
+    "z": "120"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 375,
+   "h": 3646,
+   "right": 375
+  },
+  "smallInputs": [],
+  "scrollers": [
+   {
+    "tag": "div",
+    "cls": "flex gap-0.5 overflow-x-auto -mx-1 px-1",
+    "text": "CompanyContactScriptResearchNotesDispositionTasksLeads11",
+    "x": 29,
+    "y": 982,
+    "w": 317,
+    "h": 44,
+    "right": 346
+   }
+  ],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Today’s queue"
+  ],
+  "textLength": 3504,
+  "consoleErrors": [],
+  "tapCount": 0,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "queue-ring @768": {
+  "file": "queue-ring-768.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/wt-console/console.html?do=1&scene=ring",
+  "vw": 768,
+  "vh": 1024,
+  "docW": 768,
+  "docH": 2955,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 959,
+    "w": 768,
+    "h": 65,
+    "right": 768,
+    "z": "40"
+   },
+   {
+    "tag": "div",
+    "cls": "fixed inset-x-0 top-0 lg:top-[61px] lg:left-[var(--fq-sales-rail,220px)] z-[70] transition-transform duration-200 ease-out motion-reduce:tra",
+    "text": "Incoming callBright Current Electrical · (918) 555-0123Claimed by you ",
+    "x": 0,
+    "y": 0,
+    "w": 768,
+    "h": 117,
+    "right": 768,
+    "z": "70"
+   },
+   {
+    "tag": "div",
+    "cls": "fq-toast-layer fq-sales-shell",
+    "text": "Incoming call — Bright Current Electrical",
+    "x": 176,
+    "y": 898,
+    "w": 416,
+    "h": 46,
+    "right": 592,
+    "z": "120"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 768,
+   "h": 2898,
+   "right": 768
+  },
+  "smallInputs": [],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Today’s queue"
+  ],
+  "textLength": 3504,
+  "consoleErrors": [],
+  "tapCount": 0,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "queue-ring-answered @375": {
+  "file": "queue-ring-answered-375.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/wt-console/console.html?do=1&scene=ring-answered",
+  "vw": 375,
+  "vh": 812,
+  "docW": 375,
+  "docH": 3878,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 747,
+    "w": 375,
+    "h": 65,
+    "right": 375,
+    "z": "40"
+   },
+   {
+    "tag": "div",
+    "cls": "fq-toast-layer fq-sales-shell",
+    "text": "Incoming call — Bright Current Electrical",
+    "x": 16,
+    "y": 666,
+    "w": 343,
+    "h": 66,
+    "right": 359,
+    "z": "120"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 375,
+   "h": 3821,
+   "right": 375
+  },
+  "smallInputs": [],
+  "scrollers": [
+   {
+    "tag": "div",
+    "cls": "flex gap-0.5 overflow-x-auto -mx-1 px-1",
+    "text": "CompanyContactScriptResearchNotesDispositionTasksLeads11",
+    "x": 29,
+    "y": 1157,
+    "w": 317,
+    "h": 44,
+    "right": 346
+   }
+  ],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Today’s queue"
+  ],
+  "textLength": 3369,
+  "consoleErrors": [],
+  "tapCount": 0,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "queue-ring-answered @768": {
+  "file": "queue-ring-answered-768.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/wt-console/console.html?do=1&scene=ring-answered",
+  "vw": 768,
+  "vh": 1024,
+  "docW": 768,
+  "docH": 3106,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 959,
+    "w": 768,
+    "h": 65,
+    "right": 768,
+    "z": "40"
+   },
+   {
+    "tag": "div",
+    "cls": "fq-toast-layer fq-sales-shell",
+    "text": "Incoming call — Bright Current Electrical",
+    "x": 176,
+    "y": 898,
+    "w": 416,
+    "h": 46,
+    "right": 592,
+    "z": "120"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 768,
+   "h": 3049,
+   "right": 768
+  },
+  "smallInputs": [],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Today’s queue"
+  ],
+  "textLength": 3369,
+  "consoleErrors": [],
+  "tapCount": 0,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "queue-drawer @375": {
+  "file": "queue-drawer-375.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/wt-console/console.html?do=1&scene=mobile-drawer",
+  "vw": 375,
+  "vh": 812,
+  "docW": 375,
+  "docH": 3703,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [
+   {
+    "tag": "div",
+    "cls": "fixed inset-0 z-50 lg:hidden",
+    "text": "Yours to work Hide the queueWhich trade are you calling today?115 free",
+    "x": 0,
+    "y": 0,
+    "w": 375,
+    "h": 796,
+    "right": 375,
+    "tallerThanViewport": false,
+    "scrolls": false
+   }
+  ],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 747,
+    "w": 375,
+    "h": 65,
+    "right": 375,
+    "z": "40"
+   },
+   {
+    "tag": "div",
+    "cls": "fixed inset-0 z-50 lg:hidden",
+    "text": "Yours to work Hide the queueWhich trade are you calling today?115 free",
+    "x": 0,
+    "y": 0,
+    "w": 375,
+    "h": 796,
+    "right": 375,
+    "z": "50"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 375,
+   "h": 3646,
+   "right": 375
+  },
+  "smallInputs": [],
+  "scrollers": [
+   {
+    "tag": "div",
+    "cls": "flex gap-0.5 overflow-x-auto -mx-1 px-1",
+    "text": "CompanyContactScriptResearchNotesDispositionTasksLeads11",
+    "x": 29,
+    "y": 982,
+    "w": 317,
+    "h": 44,
+    "right": 346
+   }
+  ],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Today’s queue"
+  ],
+  "textLength": 5497,
+  "consoleErrors": [],
+  "tapCount": 0,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "queue-drawer @768": {
+  "file": "queue-drawer-768.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/wt-console/console.html?do=1&scene=mobile-drawer",
+  "vw": 768,
+  "vh": 1024,
+  "docW": 768,
+  "docH": 2955,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [
+   {
+    "tag": "div",
+    "cls": "fixed inset-0 z-50 lg:hidden",
+    "text": "Yours to work Hide the queueWhich trade are you calling today?115 free",
+    "x": 0,
+    "y": 0,
+    "w": 768,
+    "h": 1008,
+    "right": 768,
+    "tallerThanViewport": false,
+    "scrolls": false
+   }
+  ],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 959,
+    "w": 768,
+    "h": 65,
+    "right": 768,
+    "z": "40"
+   },
+   {
+    "tag": "div",
+    "cls": "fixed inset-0 z-50 lg:hidden",
+    "text": "Yours to work Hide the queueWhich trade are you calling today?115 free",
+    "x": 0,
+    "y": 0,
+    "w": 768,
+    "h": 1008,
+    "right": 768,
+    "z": "50"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 768,
+   "h": 2898,
+   "right": 768
+  },
+  "smallInputs": [],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Today’s queue"
+  ],
+  "textLength": 5497,
+  "consoleErrors": [],
+  "tapCount": 0,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "queue-maximized @375": {
+  "file": "queue-maximized-375.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/wt-console/console.html?do=1&scene=maximized",
+  "vw": 375,
+  "vh": 812,
+  "docW": 375,
+  "docH": 1053,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 747,
+    "w": 375,
+    "h": 65,
+    "right": 375,
+    "z": "40"
+   },
+   {
+    "tag": "section",
+    "cls": "rounded-xl border border-border bg-card p-4 space-y-3 @container min-w-0 flex-1 lg:order-2 fixed inset-0 z-40 rounded-none overflow-y-auto l",
+    "text": "CompanyContactScriptResearchNotesDispositionTasksLeads11 EditSCSouth C",
+    "x": 0,
+    "y": 0,
+    "w": 375,
+    "h": 812,
+    "right": 375,
+    "z": "40"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 375,
+   "h": 996,
+   "right": 375
+  },
+  "smallInputs": [],
+  "scrollers": [
+   {
+    "tag": "div",
+    "cls": "flex gap-0.5 overflow-x-auto -mx-1 px-1",
+    "text": "CompanyContactScriptResearchNotesDispositionTasksLeads11",
+    "x": 13,
+    "y": 17,
+    "w": 349,
+    "h": 44,
+    "right": 362
+   }
+  ],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Today’s queue"
+  ],
+  "textLength": 3246,
+  "consoleErrors": [],
+  "tapCount": 0,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "queue-maximized @768": {
+  "file": "queue-maximized-768.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/wt-console/console.html?do=1&scene=maximized",
+  "vw": 768,
+  "vh": 1024,
+  "docW": 768,
+  "docH": 1024,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 959,
+    "w": 768,
+    "h": 65,
+    "right": 768,
+    "z": "40"
+   },
+   {
+    "tag": "section",
+    "cls": "rounded-xl border border-border bg-card p-4 space-y-3 @container min-w-0 flex-1 lg:order-2 fixed inset-0 z-40 rounded-none overflow-y-auto l",
+    "text": "CompanyContactScriptResearchNotesDispositionTasksLeads11 EditSCSouth C",
+    "x": 0,
+    "y": 0,
+    "w": 768,
+    "h": 1024,
+    "right": 768,
+    "z": "40"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 768,
+   "h": 944,
+   "right": 768
+  },
+  "smallInputs": [],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Today’s queue"
+  ],
+  "textLength": 3246,
+  "consoleErrors": [],
+  "tapCount": 0,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "queue-tab-contact @375": {
+  "file": "queue-tab-contact-375.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/wt-console/console.html?do=1&scene=tab-contact",
+  "vw": 375,
+  "vh": 812,
+  "docW": 375,
+  "docH": 1902,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [
+   {
+    "tag": "a",
+    "cls": "text-foreground underline break-all",
+    "text": "southcountyelectric.com",
+    "x": 54,
+    "y": 1290,
+    "w": 160,
+    "h": 20,
+    "right": 214,
+    "inline": false,
+    "primary": false,
+    "type": null
+   }
+  ],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 747,
+    "w": 375,
+    "h": 65,
+    "right": 375,
+    "z": "40"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 375,
+   "h": 1845,
+   "right": 375
+  },
+  "smallInputs": [],
+  "scrollers": [
+   {
+    "tag": "div",
+    "cls": "flex gap-0.5 overflow-x-auto -mx-1 px-1",
+    "text": "CompanyContactScriptResearchNotesDispositionTasksLeads11",
+    "x": 29,
+    "y": 982,
+    "w": 317,
+    "h": 44,
+    "right": 346
+   }
+  ],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Today’s queue"
+  ],
+  "textLength": 1246,
+  "consoleErrors": [],
+  "tapCount": 1,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "queue-tab-contact @768": {
+  "file": "queue-tab-contact-768.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/wt-console/console.html?do=1&scene=tab-contact",
+  "vw": 768,
+  "vh": 1024,
+  "docW": 768,
+  "docH": 1738,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [
+   {
+    "tag": "a",
+    "cls": "text-foreground underline break-all",
+    "text": "southcountyelectric.com",
+    "x": 62,
+    "y": 1198,
+    "w": 160,
+    "h": 20,
+    "right": 222,
+    "inline": false,
+    "primary": false,
+    "type": null
+   }
+  ],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 959,
+    "w": 768,
+    "h": 65,
+    "right": 768,
+    "z": "40"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 768,
+   "h": 1681,
+   "right": 768
+  },
+  "smallInputs": [],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Today’s queue"
+  ],
+  "textLength": 1246,
+  "consoleErrors": [],
+  "tapCount": 1,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "queue-tab-disposition @375": {
+  "file": "queue-tab-disposition-375.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/wt-console/console.html?do=1&scene=tab-disposition",
+  "vw": 375,
+  "vh": 812,
+  "docW": 375,
+  "docH": 2378,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 747,
+    "w": 375,
+    "h": 65,
+    "right": 375,
+    "z": "40"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 375,
+   "h": 2321,
+   "right": 375
+  },
+  "smallInputs": [],
+  "scrollers": [
+   {
+    "tag": "div",
+    "cls": "flex gap-0.5 overflow-x-auto -mx-1 px-1",
+    "text": "CompanyContactScriptResearchNotesDispositionTasksLeads11",
+    "x": 29,
+    "y": 982,
+    "w": 317,
+    "h": 44,
+    "right": 346
+   }
+  ],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Today’s queue"
+  ],
+  "textLength": 1677,
+  "consoleErrors": [],
+  "tapCount": 0,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "queue-tab-disposition @768": {
+  "file": "queue-tab-disposition-768.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/wt-console/console.html?do=1&scene=tab-disposition",
+  "vw": 768,
+  "vh": 1024,
+  "docW": 768,
+  "docH": 1862,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 959,
+    "w": 768,
+    "h": 65,
+    "right": 768,
+    "z": "40"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 768,
+   "h": 1805,
+   "right": 768
+  },
+  "smallInputs": [],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Today’s queue"
+  ],
+  "textLength": 1677,
+  "consoleErrors": [],
+  "tapCount": 0,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "queue-typed @375": {
+  "file": "queue-typed-375.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/wt-console/console.html?do=1&scene=typed",
+  "vw": 375,
+  "vh": 812,
+  "docW": 375,
+  "docH": 3763,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 747,
+    "w": 375,
+    "h": 65,
+    "right": 375,
+    "z": "40"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 375,
+   "h": 3706,
+   "right": 375
+  },
+  "smallInputs": [],
+  "scrollers": [
+   {
+    "tag": "div",
+    "cls": "flex gap-0.5 overflow-x-auto -mx-1 px-1",
+    "text": "CompanyContactScriptResearchNotesDispositionTasksLeads11",
+    "x": 29,
+    "y": 1042,
+    "w": 317,
+    "h": 44,
+    "right": 346
+   }
+  ],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Today’s queue"
+  ],
+  "textLength": 3378,
+  "consoleErrors": [],
+  "tapCount": 0,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "queue-typed @768": {
+  "file": "queue-typed-768.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/wt-console/console.html?do=1&scene=typed",
+  "vw": 768,
+  "vh": 1024,
+  "docW": 768,
+  "docH": 2999,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 959,
+    "w": 768,
+    "h": 65,
+    "right": 768,
+    "z": "40"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 768,
+   "h": 2942,
+   "right": 768
+  },
+  "smallInputs": [],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Today’s queue"
+  ],
+  "textLength": 3378,
+  "consoleErrors": [],
+  "tapCount": 0,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ }
+}

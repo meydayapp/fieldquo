@@ -1,0 +1,348 @@
+{
+ "/platform @375": {
+  "file": "dashboard-tenants-375.png",
+  "vw": 375,
+  "vh": 812,
+  "docW": 375,
+  "docH": 5725,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [
+   {
+    "width": 680,
+    "y": 2253,
+    "inScroller": true,
+    "scrollerFits": true,
+    "caption": "Trade"
+   }
+  ],
+  "tap": [
+   {
+    "tag": "a",
+    "cls": "text-xs font-semibold text-red-800 dark:text-red-200 underline mt-2 inline-block",
+    "text": "See what Resend reports",
+    "x": 69,
+    "y": 330,
+    "w": 148,
+    "h": 16,
+    "right": 217,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "a",
+    "cls": "inline-block mt-3 text-sm font-semibold underline underline-offset-2 text-red-800 dark:text-red-200",
+    "text": "Check where Retell is posting call events →",
+    "x": 69,
+    "y": 1264,
+    "w": 269,
+    "h": 40,
+    "right": 338,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "button",
+    "cls": "flex items-center gap-2 text-sm font-semibold text-muted-foreground hover:text-foreground",
+    "text": "Refresh",
+    "x": 285,
+    "y": 1358,
+    "w": 74,
+    "h": 20,
+    "right": 359,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "button",
+    "cls": "px-3.5 py-1.5 text-xs font-semibold rounded-md transition-colors text-muted-foreground hover:text-foreground",
+    "text": "FieldQuo",
+    "x": 20,
+    "y": 1450,
+    "w": 81,
+    "h": 28,
+    "right": 101,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "button",
+    "cls": "px-3.5 py-1.5 text-xs font-semibold rounded-md transition-colors bg-background text-foreground shadow-sm",
+    "text": "Our customers",
+    "x": 105,
+    "y": 1450,
+    "w": 115,
+    "h": 28,
+    "right": 220,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "button",
+    "cls": "w-full flex justify-between text-sm gap-4 text-left hover:bg-muted rounded px-2 -mx-2 py-1",
+    "text": "Prairie Plumbing & Heating (1987) Ltd.77 quote(s) · quiet 41d",
+    "x": 29,
+    "y": 3581,
+    "w": 301,
+    "h": 28,
+    "right": 330,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "button",
+    "cls": "w-full flex justify-between text-sm gap-4 text-left hover:bg-muted rounded px-2 -mx-2 py-1",
+    "text": "Tidewater Flooring Installers of Hampton Roads58 quote(s) · quiet 36d",
+    "x": 29,
+    "y": 3615,
+    "w": 301,
+    "h": 28,
+    "right": 330,
+    "inline": false,
+    "primary": false,
+    "type": null
+   }
+  ],
+  "tapPrimary": [],
+  "truncated": [
+   {
+    "tag": "span",
+    "cls": "text-foreground truncate underline decoration-dotted underline-offset-2",
+    "text": "Prairie Plumbing & Heating (1987) Ltd.",
+    "x": 37,
+    "y": 3585,
+    "w": 119,
+    "h": 20,
+    "right": 156
+   },
+   {
+    "tag": "span",
+    "cls": "text-foreground truncate underline decoration-dotted underline-offset-2",
+    "text": "Tidewater Flooring Installers of Hampton Roads",
+    "x": 37,
+    "y": 3619,
+    "w": 119,
+    "h": 20,
+    "right": 156
+   },
+   {
+    "tag": "div",
+    "cls": "text-sm text-foreground truncate",
+    "text": "Les Entreprises de Toiture Rive-Sud Beauchemin & Fils inc.",
+    "x": 37,
+    "y": 4989,
+    "w": 200,
+    "h": 20,
+    "right": 237
+   },
+   {
+    "tag": "div",
+    "cls": "text-xs text-muted-foreground truncate",
+    "text": "Roofing · Siding · Gutters & eavestrough",
+    "x": 37,
+    "y": 5009,
+    "w": 200,
+    "h": 16,
+    "right": 237
+   },
+   {
+    "tag": "div",
+    "cls": "text-sm text-foreground truncate",
+    "text": "Easy Roofers & Exterior Renovations of Greater Moncton Ltd.",
+    "x": 37,
+    "y": 5050,
+    "w": 200,
+    "h": 20,
+    "right": 237
+   },
+   {
+    "tag": "div",
+    "cls": "text-xs text-muted-foreground truncate",
+    "text": "Roofing · Siding · Gutters & eavestrough",
+    "x": 37,
+    "y": 5070,
+    "w": 200,
+    "h": 16,
+    "right": 237
+   }
+  ],
+  "dialogs": [],
+  "fixed": [],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 375,
+   "h": 5668,
+   "right": 375
+  },
+  "smallInputs": [],
+  "scrollers": [
+   {
+    "tag": "div",
+    "cls": "bg-card border border-border rounded-xl overflow-x-auto",
+    "text": "TradeCompaniesQuotesWonWin rateMedian quotePipelineRoofing244217947.9%",
+    "x": 16,
+    "y": 2252,
+    "w": 343,
+    "h": 624,
+    "right": 359
+   }
+  ],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Dashboard"
+  ],
+  "textLength": 5517,
+  "consoleErrors": [],
+  "tapCount": 7,
+  "truncatedCount": 14,
+  "smallInputCount": 0
+ },
+ "/platform @768": {
+  "file": "dashboard-tenants-768.png",
+  "vw": 768,
+  "vh": 1024,
+  "docW": 768,
+  "docH": 4154,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [
+   {
+    "width": 718,
+    "y": 1649,
+    "inScroller": true,
+    "scrollerFits": true,
+    "caption": "Trade"
+   }
+  ],
+  "tap": [
+   {
+    "tag": "a",
+    "cls": "text-xs font-semibold text-red-800 dark:text-red-200 underline mt-2 inline-block",
+    "text": "See what Resend reports",
+    "x": 77,
+    "y": 242,
+    "w": 148,
+    "h": 16,
+    "right": 225,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "a",
+    "cls": "inline-block mt-3 text-sm font-semibold underline underline-offset-2 text-red-800 dark:text-red-200",
+    "text": "Check where Retell is posting call events →",
+    "x": 77,
+    "y": 792,
+    "w": 291,
+    "h": 20,
+    "right": 368,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "button",
+    "cls": "flex items-center gap-2 text-sm font-semibold text-muted-foreground hover:text-foreground",
+    "text": "Refresh",
+    "x": 670,
+    "y": 866,
+    "w": 74,
+    "h": 20,
+    "right": 744,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "button",
+    "cls": "px-3.5 py-1.5 text-xs font-semibold rounded-md transition-colors text-muted-foreground hover:text-foreground",
+    "text": "FieldQuo",
+    "x": 28,
+    "y": 958,
+    "w": 81,
+    "h": 28,
+    "right": 109,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "button",
+    "cls": "px-3.5 py-1.5 text-xs font-semibold rounded-md transition-colors bg-background text-foreground shadow-sm",
+    "text": "Our customers",
+    "x": 113,
+    "y": 958,
+    "w": 115,
+    "h": 28,
+    "right": 228,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "button",
+    "cls": "w-full flex justify-between text-sm gap-4 text-left hover:bg-muted rounded px-2 -mx-2 py-1",
+    "text": "Prairie Plumbing & Heating (1987) Ltd.77 quote(s) · quiet 41d",
+    "x": 37,
+    "y": 2578,
+    "w": 678,
+    "h": 28,
+    "right": 715,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "button",
+    "cls": "w-full flex justify-between text-sm gap-4 text-left hover:bg-muted rounded px-2 -mx-2 py-1",
+    "text": "Tidewater Flooring Installers of Hampton Roads58 quote(s) · quiet 36d",
+    "x": 37,
+    "y": 2612,
+    "w": 678,
+    "h": 28,
+    "right": 715,
+    "inline": false,
+    "primary": false,
+    "type": null
+   }
+  ],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 768,
+   "h": 4097,
+   "right": 768
+  },
+  "smallInputs": [],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Dashboard"
+  ],
+  "textLength": 5517,
+  "consoleErrors": [],
+  "tapCount": 7,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ }
+}

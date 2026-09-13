@@ -47,8 +47,10 @@
 // the harness's pages.js, so a route added to the console without a fixture
 // fails by name instead of going unaudited.
 //
-// Runs in ~2 minutes. CHECK_PLATFORM_MOBILE_ROUTES=/platform,/platform/growth
-// narrows it while working on one screen.
+// Runs in ~2 minutes. `npm run check:platform-mobile -- /platform,/platform/growth`
+// (or CHECK_PLATFORM_MOBILE_ROUTES=… — documented in docs/VERCEL.md as
+// local-only, because check-env-docs.mjs lists every process.env read)
+// narrows it to those routes while working on one screen.
 
 import { execSync } from "node:child_process";
 import fs from "node:fs";
@@ -109,7 +111,8 @@ for (const f of pageFiles) ok(`app/platform/${f || "(root)"}/page.js has a harne
 ok("…and the harness names no page that does not exist", rows.every((r) => pageFiles.includes(r.file)), rows.filter((r) => !pageFiles.includes(r.file)).map((r) => r.file).join(" "));
 
 const allRoutes = rows.map((r) => r.route);
-const routes = process.env.CHECK_PLATFORM_MOBILE_ROUTES ? process.env.CHECK_PLATFORM_MOBILE_ROUTES.split(",") : allRoutes;
+const only = process.env.CHECK_PLATFORM_MOBILE_ROUTES || process.argv.slice(2).find((arg) => arg.startsWith("/platform"));
+const routes = only ? only.split(",") : allRoutes;
 
 // ═══════════════════════════════════════════════════════════════════════════
 section("2. Build the harness");

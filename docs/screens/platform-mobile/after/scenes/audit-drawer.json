@@ -1,0 +1,282 @@
+{
+ "/platform @375": {
+  "file": "dashboard-drawer-375.png",
+  "vw": 375,
+  "vh": 812,
+  "docW": 375,
+  "docH": 4370,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [
+   {
+    "tag": "a",
+    "cls": "text-xs font-semibold text-red-800 dark:text-red-200 underline mt-2 inline-block",
+    "text": "See what Resend reports",
+    "x": 69,
+    "y": 330,
+    "w": 148,
+    "h": 16,
+    "right": 217,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "a",
+    "cls": "inline-block mt-3 text-sm font-semibold underline underline-offset-2 text-red-800 dark:text-red-200",
+    "text": "Check where Retell is posting call events →",
+    "x": 69,
+    "y": 1264,
+    "w": 269,
+    "h": 40,
+    "right": 338,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "button",
+    "cls": "flex items-center gap-2 text-sm font-semibold text-muted-foreground hover:text-foreground",
+    "text": "Refresh",
+    "x": 285,
+    "y": 1358,
+    "w": 74,
+    "h": 20,
+    "right": 359,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "button",
+    "cls": "px-3.5 py-1.5 text-xs font-semibold rounded-md transition-colors bg-background text-foreground shadow-sm",
+    "text": "FieldQuo",
+    "x": 20,
+    "y": 1450,
+    "w": 81,
+    "h": 28,
+    "right": 101,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "button",
+    "cls": "px-3.5 py-1.5 text-xs font-semibold rounded-md transition-colors text-muted-foreground hover:text-foreground",
+    "text": "Our customers",
+    "x": 105,
+    "y": 1450,
+    "w": 115,
+    "h": 28,
+    "right": 220,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "a",
+    "cls": "inline-flex items-center gap-2 bg-amber-900 text-white text-sm font-semibold px-4 py-2 rounded-lg",
+    "text": "View companies",
+    "x": 37,
+    "y": 4011,
+    "w": 164,
+    "h": 36,
+    "right": 201,
+    "inline": false,
+    "primary": false,
+    "type": null
+   }
+  ],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "div",
+    "cls": "lg:hidden fixed inset-0 z-50",
+    "text": "PlatformDashboardCompaniesCompaniesIncomplete signupsSignup origins3Su",
+    "x": 0,
+    "y": 0,
+    "w": 375,
+    "h": 812,
+    "right": 375,
+    "z": "50"
+   }
+  ],
+  "asides": [
+   {
+    "tag": "aside",
+    "cls": "absolute left-0 top-0 h-full w-[min(20rem,86vw)] max-w-[86vw] shadow-2xl flex flex-col bg-sidebar text-sidebar-foreground pt-[env(safe-area-",
+    "text": "PlatformDashboardCompaniesCompaniesIncomplete signupsSignup origins3Su",
+    "x": 0,
+    "y": 0,
+    "w": 320,
+    "h": 812,
+    "right": 320,
+    "fixed": false
+   }
+  ],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 375,
+   "h": 4313,
+   "right": 375
+  },
+  "smallInputs": [],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Dashboard"
+  ],
+  "textLength": 4139,
+  "consoleErrors": [],
+  "tapCount": 6,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "/platform @768": {
+  "file": "dashboard-drawer-768.png",
+  "vw": 768,
+  "vh": 1024,
+  "docW": 768,
+  "docH": 3194,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [
+   {
+    "tag": "a",
+    "cls": "text-xs font-semibold text-red-800 dark:text-red-200 underline mt-2 inline-block",
+    "text": "See what Resend reports",
+    "x": 77,
+    "y": 242,
+    "w": 148,
+    "h": 16,
+    "right": 225,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "a",
+    "cls": "inline-block mt-3 text-sm font-semibold underline underline-offset-2 text-red-800 dark:text-red-200",
+    "text": "Check where Retell is posting call events →",
+    "x": 77,
+    "y": 792,
+    "w": 291,
+    "h": 20,
+    "right": 368,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "button",
+    "cls": "flex items-center gap-2 text-sm font-semibold text-muted-foreground hover:text-foreground",
+    "text": "Refresh",
+    "x": 670,
+    "y": 866,
+    "w": 74,
+    "h": 20,
+    "right": 744,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "button",
+    "cls": "px-3.5 py-1.5 text-xs font-semibold rounded-md transition-colors bg-background text-foreground shadow-sm",
+    "text": "FieldQuo",
+    "x": 28,
+    "y": 958,
+    "w": 81,
+    "h": 28,
+    "right": 109,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "button",
+    "cls": "px-3.5 py-1.5 text-xs font-semibold rounded-md transition-colors text-muted-foreground hover:text-foreground",
+    "text": "Our customers",
+    "x": 113,
+    "y": 958,
+    "w": 115,
+    "h": 28,
+    "right": 228,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "a",
+    "cls": "inline-flex items-center gap-2 bg-amber-900 text-white text-sm font-semibold px-4 py-2 rounded-lg",
+    "text": "View companies",
+    "x": 45,
+    "y": 2911,
+    "w": 164,
+    "h": 36,
+    "right": 209,
+    "inline": false,
+    "primary": false,
+    "type": null
+   }
+  ],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "div",
+    "cls": "lg:hidden fixed inset-0 z-50",
+    "text": "PlatformDashboardCompaniesCompaniesIncomplete signupsSignup origins3Su",
+    "x": 0,
+    "y": 0,
+    "w": 768,
+    "h": 1024,
+    "right": 768,
+    "z": "50"
+   }
+  ],
+  "asides": [
+   {
+    "tag": "aside",
+    "cls": "absolute left-0 top-0 h-full w-[min(20rem,86vw)] max-w-[86vw] shadow-2xl flex flex-col bg-sidebar text-sidebar-foreground pt-[env(safe-area-",
+    "text": "PlatformDashboardCompaniesCompaniesIncomplete signupsSignup origins3Su",
+    "x": 0,
+    "y": 0,
+    "w": 320,
+    "h": 1024,
+    "right": 320,
+    "fixed": false
+   }
+  ],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 768,
+   "h": 3137,
+   "right": 768
+  },
+  "smallInputs": [],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Dashboard"
+  ],
+  "textLength": 4139,
+  "consoleErrors": [],
+  "tapCount": 6,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ }
+}

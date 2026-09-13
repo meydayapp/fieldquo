@@ -14,6 +14,9 @@ import { STATUS_CHOICES, STATE_ORDER, REP_STATES, PAUSE_REASON_ORDER, PAUSE_REAS
 // the rows here are the rows those frames show.
 import { fetchJson as messagesFetch } from "../../../sales-messages/harness/stubs/fetchJson.js";
 import { fetchJson as staffFetch } from "../../../team-chat/harness/staffFetch.js";
+// The rep's own funnel card on Today (69a79204): built through the pure
+// stage helpers the route uses, over a month of invented dials.
+import { stageCounts, buildRepFunnel, monthKeyOf, shiftMonth } from "@/lib/sales/funnelStages";
 
 // One lead opened in full — the shape of GET /api/sales/leads/[id]. Bright
 // Current, not Easy Roofers: the link-a-signup box only shows on a lead
@@ -65,6 +68,9 @@ function answer(p, u, method, body) {
   if (p === "/api/sales/auth/logout") return { ok: true };
   if (p === "/api/sales/queue") return QUEUE;
   if (p === "/api/sales/leads") return { leads: LEADS, counts: LEAD_COUNTS, outreach: OUTREACH };
+  // No link texted from this lead yet: the progress panel draws nothing on a
+  // 404, which is the state the lead detail is captured in.
+  if (/^\/api\/sales\/leads\/[^/]+\/signup-progress$/.test(p)) return json({ error: "Not found" }, 404);
   if (/^\/api\/sales\/leads\/[^/]+$/.test(p)) { const d = leadDetail(p.split("/").pop()); return d || json({ error: "Not found." }, 404); }
   if (p === "/api/sales/threads") return { threads: THREADS, outreach: OUTREACH };
   if (/^\/api\/sales\/threads\/[^/]+$/.test(p)) {
@@ -92,6 +98,20 @@ function answer(p, u, method, body) {
       contact: { to: "+14055550177", choices: [{ id: "cn1", e164: "+14055550177", kind: "mobile", label: "Dave — mobile", preferred: true }], refused: [] },
       messages: [{ id: "sm1", toE164: "+14055550177", body: "Hi Dave, Daniel from FieldQuo. Did the booking link land in your inbox OK?", sentAt: "2026-09-09T16:02:00.000Z" }],
     };
+  if (p === "/api/sales/funnel") {
+    const monthKey = monthKeyOf(new Date());
+    const [y, mo] = monthKey.split("-").map(Number);
+    const at = (day, hour = 14) => new Date(Date.UTC(y, mo - 1, Math.min(day, 28), hour)).toISOString();
+    const mix = ["no_answer", "no_answer", "voicemail", "gatekeeper", "reached_not_interested", "reached_interested", "callback", "agreed_link_sent", "no_answer", "busy"];
+    const attempts = Array.from({ length: 410 }, (_, i) => ({ salesRepId: ME.id, direction: "out", dialledAt: at(1 + (i % 26), 13 + (i % 6)), disposition: mix[i % mix.length], leadId: mix[i % mix.length] === "agreed_link_sent" ? `lead_${i}` : null, prospectId: `p_${i}`, toE164: `+1405555${String(1000 + i).slice(-4)}` }));
+    const companies = Array.from({ length: 8 }, (_, i) => ({ id: `fc_${i}`, stripeChargesEnabled: i < 4, isDemo: false }));
+    const subscriptions = companies.slice(0, 6).map((c, i) => ({ companyId: c.id, billingStartedAt: i < 3 ? at(4 + i) : null, createdAt: at(2 + i), status: i < 3 ? "active" : "trialing", canceledAt: null, refundedAt: null, refundedAmountCents: 0, disputeStatus: null }));
+    const attributions = companies.map((c, i) => ({ salesRepId: ME.id, companyId: c.id, capturedAt: at(2 + i) }));
+    const counts = stageCounts({ attempts, linkSends: [{ salesRepId: ME.id, leadId: "lead_x", sentAt: at(9) }], attributions, companies, subscriptions, retainedCompanyIds: ["fc_0"], monthKey });
+    const months = [];
+    for (let i = 0; i < 6; i += 1) months.push(shiftMonth(monthKey, -i));
+    return { monthKey, currentMonth: monthKey, months, funnel: buildRepFunnel({ rep: { id: ME.id, name: ME.name, code: ME.code, active: true, startedAt: "2026-06-01T14:00:00.000Z", acceptedAt: "2026-06-01T14:00:00.000Z", invitedAt: "2026-05-28T14:00:00.000Z" }, counts, monthKey, references: null }), generatedAt: new Date().toISOString() };
+  }
   if (p === "/api/sales/companies") return { companies: COMPANIES, checkInError: null };
   if (p === "/api/sales/events") return { events: EVENTS };
   if (p === "/api/sales/notes") {
