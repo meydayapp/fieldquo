@@ -720,6 +720,12 @@ section("10. The column itself");
   const page = src("app/platform/sales/reps/page.js");
   ok("the reps screen has a Sells in row per rep with a Set/Change control", /Sells in/.test(page) && /\(rep\.sellsIn \|\| \[\]\)\.length \? "Change" : "Set"/.test(page));
   ok("…and says out loud when there is no French", /holds every Quebec lead back/.test(page));
+  // 2026-09-13: the owner opened a rep's card to pay them and found no
+  // payout method — the rep had typed it on /sales/settings and the console
+  // selected engagement but never these three.
+  ok("the list SELECTS the rep's payout method, handle and confirmation", /payoutMethod: true/.test(list) && /payoutHandle: true/.test(list) && /payoutConfirmedAt: true/.test(list));
+  ok("…and its RESPONSE carries them", /payoutMethod: r\.payoutMethod \|\| null/.test(list) && /payoutHandle: r\.payoutHandle \|\| null/.test(list) && /payoutConfirmedAt: r\.payoutConfirmedAt/.test(list));
+  ok("the rep card shows them by the method's own label, and absence as absence", /Payout details/.test(page) && /payoutMethod\(rep\.payoutMethod\)\?\.label/.test(page) && /Not provided — the rep sets it under Pay/.test(page) && /Never confirmed by the rep/.test(page));
 }
 
 console.log(`\n${pass} passed, ${failures.length} failed`);

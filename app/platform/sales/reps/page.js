@@ -115,7 +115,7 @@ import PlatformWriteGate, {
   usePlatformAdmin,
 } from "@/app/components/platform/PlatformWriteGate";
 import { codeProblem, suggestCode, workEmailProblem } from "@/lib/sales/repAdmin";
-import { ENGAGEMENTS } from "@/lib/sales/payoutDetails";
+import { ENGAGEMENTS, payoutMethod } from "@/lib/sales/payoutDetails";
 import { LANGUAGES } from "@/app/i18n/languages";
 import { FRENCH } from "@/lib/sales/leadLanguage";
 import { centsToMoney } from "@/lib/sales/money";
@@ -1252,6 +1252,39 @@ export default function PlatformSalesRepsPage() {
                     ) : null}
                   </div>
                 ) : null}
+
+                {/* ── How they want to be paid ───────────────────────────
+                    Typed by the rep on /sales/settings (method + the one
+                    handle that method needs), never by the console — the
+                    owner reads it here at pay time. Absence is shown as
+                    absence: a batch cannot be paid to "—". */}
+                <div className="rounded-lg border border-border p-3 space-y-1">
+                  <div className="text-xs font-medium text-muted-foreground">Payout details</div>
+                  {rep.payoutMethod ? (
+                    <>
+                      <div className="text-sm text-foreground">
+                        {payoutMethod(rep.payoutMethod)?.label || rep.payoutMethod}
+                        {rep.payoutHandle ? (
+                          <>
+                            {" "}
+                            · <span className="font-mono break-all select-all">{rep.payoutHandle}</span>
+                          </>
+                        ) : (
+                          <span className="text-muted-foreground"> · no {payoutMethod(rep.payoutMethod)?.handleLabel?.toLowerCase() || "details"} given yet</span>
+                        )}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {rep.payoutConfirmedAt
+                          ? `Confirmed by the rep ${formatDate(rep.payoutConfirmedAt)}`
+                          : "Never confirmed by the rep"}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-sm text-muted-foreground">
+                      Not provided — the rep sets it under Pay → Settings on the sales portal.
+                    </div>
+                  )}
+                </div>
 
                 {/* ── Payments ───────────────────────────────────────────
                     The rep's batches, where and when each was paid, and

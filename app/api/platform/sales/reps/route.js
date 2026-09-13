@@ -86,6 +86,11 @@ export async function GET(request) {
       endedAt: true,
       inviteExpiresAt: true,
       engagement: true,
+      // The rep types these on /sales/settings; the console never read them,
+      // so the owner opened a rep's card to pay them and found no method.
+      payoutMethod: true,
+      payoutHandle: true,
+      payoutConfirmedAt: true,
       accruesPaidLeave: true,
       // The languages they can SELL in — who may be handed a Quebec row.
       // Selected AND mapped below; the engagement column was selected here
@@ -268,6 +273,9 @@ export async function GET(request) {
       // yet". A field the select reads and the map forgets is the failure
       // class AGENTS.md lists first, one line lower than usual.
       engagement: r.engagement || null,
+      payoutMethod: r.payoutMethod || null,
+      payoutHandle: r.payoutHandle || null,
+      payoutConfirmedAt: r.payoutConfirmedAt,
       accruesPaidLeave: Boolean(r.accruesPaidLeave),
       // Through sellsInOf so a code dropped from app/i18n/languages.js reads
       // as not ticked here, exactly as allocation reads it.
