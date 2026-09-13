@@ -189,11 +189,11 @@ export const ARTICLES = {
         id: "what-a-crew-member-gets",
         heading: "Ce qu'un équipier obtient",
         blocks: [
-          { p: "Le niveau Crew est réglé à No access sur les prospects, les soumissions et les factures, et à View only sur les chantiers — restreint aux chantiers où vous êtes réservé. La barre se lit donc **Chantiers · Clavardage · Plus**, et les trois se partagent la largeur également." },
+          { p: "Le niveau Crew est réglé à No access sur les prospects, les soumissions et les factures, donc aucun des quatre onglets de documents n'est dessiné. Quand il ne reste que le clavardage dans la barre, FieldQuo y met plutôt les cinq onglets de l'espace employé — **Accueil · Horaire · Gains · Messages · Plus** — les mêmes cinq que montre chaque écran sous Mon espace. Voir [[your-home-screen|Votre écran d'accueil]]." },
           { bullets: [
-            "**Chantiers** — les chantiers où vous avez une visite, avec l'adresse, les visites et la liste de vérification.",
-            "**Clavardage** — #general, le salon de chaque chantier où vous êtes, et les messages directs. C'est le seul onglet que tous les niveaux gardent, parce que le clavardage est l'écran de l'équipe elle-même.",
-            "**Plus** — la pointeuse, vos quarts, les congés, la sécurité, vos bulletins de paie, les paramètres.",
+            "**Accueil** — votre prochain quart ou visite, Pointer, Message et Trouver un remplaçant, les heures du jour, les coups de chapeau.",
+            "**Horaire** — vos quarts, visites et tâches par jour. **Gains** — vos heures par période de paie, et l'argent si votre accès le permet.",
+            "**Messages** — #general, le salon de chaque chantier où vous êtes, et les messages directs. **Plus** — les demandes, le répertoire de l'équipe, les notifications, les paramètres, la déconnexion.",
           ] },
         ],
       },
@@ -207,7 +207,7 @@ export const ARTICLES = {
       },
     ],
     faq: [
-      { q: "Puis-je choisir quels onglets sont dans la barre?", a: "Non. Les cinq sont fixes — les quatre écrans de documents et le clavardage — et votre niveau d'accès décide lesquels sont dessinés." },
+      { q: "Puis-je choisir quels onglets sont dans la barre?", a: "Non. Les cinq sont fixes — les quatre écrans de documents et le clavardage, ou les cinq de l'espace employé quand tous les onglets de documents sont masqués ou que vous êtes sur un écran de Mon espace — et votre niveau d'accès décide quel jeu vous obtenez." },
       { q: "Pourquoi n'y a-t-il pas d'onglet Pointeuse?", a: "La barre est réservée aux écrans par lesquels le travail circule et au clavardage. La pointeuse est à un tapotement sous Plus, et c'est pareil pour tout le monde, quel que soit le niveau." },
     ],
   },
@@ -982,6 +982,195 @@ export const ARTICLES = {
       { q: "J'ai tapoté Pointer l'entrée sans signal et j'ai rangé le téléphone. Suis-je pointé?", a: "Non. Rien n'a été enregistré. Ouvrez l'écran : s'il ne dit pas En service, tapotez de nouveau là où vous avez du signal, et dites la vraie heure de début à votre gestionnaire." },
       { q: "Les photos prises hors ligne vont-elles se téléverser d'elles-mêmes plus tard?", a: "Non. Téléversez-les depuis la page du chantier quand vous avez une connexion, ou textez-les à la ligne d'équipe — un message photo passe souvent là où une page web ne passe pas." },
       { q: "Un mode hors ligne s'en vient-il?", a: "Pas aujourd'hui, et cet article le dira quand ça changera. La conception actuelle, c'est que ce que l'écran montre est ce que le serveur a." },
+    ],
+  },
+
+  "your-home-screen": {
+    title: "Votre écran d'accueil",
+    summary:
+      "Le premier écran sur votre téléphone : votre prochain quart ou visite, Pointer, Message et Trouver un remplaçant en un geste, les heures du jour et les coups de chapeau. Où mènent les cinq onglets.",
+    updated: "2026-09-13",
+    intro: [
+      "**Mon espace** est l'écran où votre journée commence. Il montre la prochaine chose que FieldQuo a pour vous — un quart, une visite qui vous a été assignée, un rendez-vous si vous en prenez, une tâche à échéance — avec le chantier, qui d'autre y est et les notes laissées par votre gestionnaire. Dessous, les trois boutons que vous utilisez le plus, puis les heures du jour, puis ce que les collègues ont dit les uns des autres cette semaine.",
+      "C'est le même écran sur un téléphone et sur un ordinateur. Sur un téléphone, les cinq onglets sont en bas ; sur un ordinateur, ils traversent le haut de la page, dans la mise en page habituelle avec la barre latérale.",
+    ],
+    sections: [
+      {
+        id: "overview",
+        heading: "Vue d'ensemble",
+        blocks: [
+          { p: "Ouvrez **Mon espace** dans la barre latérale sous Personnes, ou touchez **Accueil** dans la barre du bas. Les cinq onglets sont **Accueil · Horaire · Gains · Messages · Plus**. Si vous gérez l'horaire — votre accès à Horaire est *Modifier l'horaire de tous* ou plus — les deux du milieu deviennent **Horaire** (le tableau) et **Équipe**, et l'accueil montre la couverture du jour plutôt que votre propre journée." },
+          { figure: "harness:my-home", caption: "Mon espace sur un téléphone — la carte du prochain quart avec Trouver un remplaçant et Échanger, les trois actions rapides, les heures du jour et le fil des coups de chapeau, avec la barre Accueil · Horaire · Gains · Messages · Plus." },
+        ],
+      },
+      {
+        id: "what-is-on-the-screen",
+        heading: "Ce qu'il y a à l'écran",
+        blocks: [
+          { bullets: [
+            "**La salutation** — bonjour, bon après-midi ou bonsoir selon l'heure de votre téléphone, votre titre de poste sous votre nom.",
+            "**Événements du jour** — ce que votre gestionnaire a mis dans la ligne Événements de la semaine pour aujourd'hui : une réunion sécurité, une cour fermée.",
+            "**À venir** — la prochaine chose pas encore terminée : **Demain, 9 h – 16 h**, le client et le chantier, votre rôle si le gestionnaire l'a saisi, les collègues sur le même projet ce jour-là, et **Notes pour ce quart**. Un quart que vous pouvez échanger ou céder porte **Trouver un remplaçant** et **Échanger** ; une visite porte **Ouvrir la visite** ; un quart ouvert que personne n'a encore porte **Quart ouvert — le prendre**.",
+            "**Gains estimés** — sous un quart, les heures nettes des pauses non payées à votre taux horaire. Seulement si votre accès vous permet de voir vos propres bulletins ; sinon la ligne n'existe simplement pas.",
+            "**Pointer · Message · Trouver un remplaçant** — la pointeuse, le clavardage d'équipe, et une demande de remplacement sur votre prochain quart.",
+            "**Aujourd'hui** — une fois pointé : *Vous avez gagné 140,00 $ en travaillant 8 h* (ou seulement les heures), une barre de votre premier pointage à maintenant, et **Voir la feuille de temps**.",
+            "**À venir** — le reste de la quinzaine, chaque ligne avec une pastille disant s'il s'agit d'un Quart, d'une Visite, d'un Rendez-vous, d'une Tâche ou d'un Quart ouvert.",
+            "**Coups de chapeau** — les vingt derniers de l'entreprise, les vôtres surlignés. **Envoyer un coup de chapeau** choisit un collègue et prend jusqu'à 240 caractères.",
+          ] },
+          { note: "Les rendez-vous et les appels n'apparaissent que pour les personnes dont le rôle peut faire des soumissions — la même règle qui décide qui les clients peuvent réserver. Un membre d'équipe terrain ne voit jamais de section rendez-vous, même vide." },
+        ],
+      },
+      {
+        id: "the-other-tabs",
+        heading: "Les autres onglets",
+        blocks: [
+          { table: {
+            head: ["Onglet", "Ce qu'il contient"],
+            rows: [
+              ["**Horaire**", "Vos quarts, visites, rendez-vous et tâches par jour, avec les événements de l'entreprise, et le lien calendrier."],
+              ["**Gains**", "Les heures par période de paie, les minutes de pause non payées, la liste jour par jour, une estimation brute à votre taux quand vous pouvez voir la paie, et le bulletin une fois la paie approuvée."],
+              ["**Messages**", "Le clavardage de l'entreprise — #general, une salle par projet où vous êtes, les messages directs."],
+              ["**Plus**", "Profil, Demandes (congés, échange, remplacement, disponibilités), Équipe, Notifications, Synchronisation du calendrier, Paramètres, Aide, Se déconnecter."],
+            ],
+          } },
+          { p: "Il n'y a pas de NIP de pointage et pas de carte pour un tel NIP : la pointeuse de FieldQuo, c'est votre propre compte sur votre propre téléphone." },
+        ],
+      },
+      {
+        id: "who-can-see-it",
+        heading: "Qui peut le voir",
+        blocks: [
+          { p: "Toute personne ayant un compte. Ce qui change selon le niveau, c'est l'argent : la ligne de gains et les montants de l'onglet Gains exigent Paie à *Voir ses propres bulletins* ou plus, ce que les profils Équipe, Estimateur, Répartiteur et Gestionnaire détiennent tous et qu'un propriétaire peut retirer. Une personne du registre sans compte — un aide de cour ajouté sans courriel — n'a pas d'écran d'accueil, et ses quarts restent sur le tableau." },
+        ],
+      },
+    ],
+    faq: [
+      { q: "Pourquoi mon accueil montre-t-il une bande de couverture et un rapport au lieu de mon quart ?", a: "Parce que votre accès à Horaire est à Modifier l'horaire de tous ou plus, donc FieldQuo vous montre l'accueil du gestionnaire : qui est pointé, ce qui attend une révision, ce qui n'est pas encore publié aujourd'hui. La vue employé est celle que voit votre équipe." },
+      { q: "La ligne de gains ne dit rien — mon taux manque-t-il ?", a: "Soit votre accès n'inclut pas votre propre paie, auquel cas rien sur l'argent n'est affiché nulle part, soit personne n'a saisi de taux horaire pour vous. Demandez à la personne qui gère l'équipe ; un taux manquant n'est jamais affiché comme 0 $." },
+      { q: "Puis-je modifier mon nom ou mon téléphone ici ?", a: "Pas encore. La carte de profil est en lecture seule — la personne qui gère l'équipe modifie votre nom, votre titre et votre téléphone depuis Gérer l'équipe — et elle le dit plutôt que d'offrir des champs qui ne s'enregistreraient pas." },
+    ],
+  },
+
+  "trading-and-covering-shifts": {
+    title: "Échanger et faire remplacer des quarts",
+    summary:
+      "Céder un quart, l'échanger avec un collègue ou prendre un quart ouvert — qui doit dire oui, ce que voit votre gestionnaire, et pourquoi un échange peut être refusé.",
+    updated: "2026-09-13",
+    intro: [
+      "Un quart publié que vous ne pouvez pas faire a trois portes de sortie, toutes depuis votre téléphone : **Trouver un remplaçant** demande à quelqu'un de le prendre, **Échanger** le troque contre un des siens, et un **quart ouvert** — des heures publiées par votre gestionnaire sans personne dessus — peut être pris. Chacune est une demande à laquelle l'autre personne répond d'abord et que votre gestionnaire approuve ensuite, et vous êtes averti à chaque étape.",
+    ],
+    sections: [
+      {
+        id: "overview",
+        heading: "Vue d'ensemble",
+        blocks: [
+          { p: "Les demandes vivent sous **Plus → Demandes** et sur le quart lui-même. Une demande porte toujours sur un quart publié qui n'a pas commencé. Une fois le quart commencé, ce qui était en attente expire de lui-même — personne ne peut approuver un échange pour un quart déjà en cours." },
+          { table: {
+            head: ["Type", "Qui prend le quart", "Qui répond en premier"],
+            rows: [
+              ["**Remplacement**", "Le collègue que vous nommez, ou quiconque est admissible si vous ne nommez personne", "Ce collègue — pour un remplacement ouvert, la première personne admissible à accepter"],
+              ["**Échange**", "Le collègue que vous nommez ; vous prenez un des siens en retour, ou rien", "Ce collègue"],
+              ["**Prise**", "Vous, sur un quart ouvert", "Personne — ça va directement au gestionnaire"],
+            ],
+          } },
+        ],
+      },
+      {
+        id: "how-to",
+        heading: "Comment demander",
+        blocks: [
+          { steps: [
+            "Sur **Accueil**, touchez **Trouver un remplaçant** ou **Échanger** sur votre prochain quart — ou ouvrez **Plus → Demandes**, touchez **Remplacement** ou **Échange**, et choisissez lequel de vos quarts à venir est concerné.",
+            "Pour un remplacement, choisissez un collègue ou laissez **Quiconque le peut** : un remplacement ouvert va d'abord aux collègues ayant votre titre de poste, et à tous les actifs si personne ne le partage.",
+            "Pour un échange, choisissez le collègue et, si vous voulez un de ses quarts en retour, lequel. **Rien — je donne simplement le mien** est un choix valide.",
+            "Ajoutez une note si utile (*Dentiste à 9 h, de retour à midi*) et touchez **Envoyer la demande**.",
+            "Surveillez **Les miennes** sous Demandes : **En attente du collègue**, puis **En attente du gestionnaire**, puis **Approuvée** ou **Refusée**. Vous pouvez la **Retirer** à tout moment avant la décision.",
+          ] },
+          { tip: "Pour prendre un quart ouvert, touchez **Quart ouvert — le prendre** sur l'accueil ou dans À venir. Cela saute l'étape du collègue et arrive chez votre gestionnaire." },
+        ],
+      },
+      {
+        id: "what-happens",
+        heading: "Ce qui se passe à l'approbation",
+        blocks: [
+          { p: "Le quart passe à la personne qui le prend — sur le tableau, sur les deux téléphones, au moment même où l'approbation est enregistrée. Un échange avec un quart offert en retour déplace les deux. Avant cette écriture, FieldQuo refait la vérification que l'horaire fait quand un gestionnaire ébauche un quart : les disponibilités déclarées de la nouvelle personne et tout congé approuvé. Un échange qui mettrait quelqu'un un jour où il est en congé est **refusé avec cette raison** plutôt qu'approuvé et découvert le matin." },
+          { bullets: [
+            "**Réglage d'entreprise** — *Les échanges de quarts exigent une approbation* est activé par défaut. Désactivé, l'acceptation d'un collègue conclut l'échange et le gestionnaire est informé plutôt que sollicité.",
+            "**Notifications** — le collègue est averti quand on lui demande, le gestionnaire quand une approbation est requise, les deux travailleurs quand c'est décidé.",
+            "**Expiration** — une demande dont le quart a commencé affiche **Expirée** la prochaine fois que quelqu'un ouvre la liste.",
+          ] },
+        ],
+      },
+      {
+        id: "for-managers",
+        heading: "Pour les gestionnaires",
+        blocks: [
+          { p: "Les demandes qui vous attendent apparaissent à trois endroits qui lisent les mêmes lignes : le panneau **Demandes** au-dessus de l'horaire (avec un compteur), l'onglet **À approuver** sous Plus → Demandes sur votre téléphone, et la carte **À réviser** sur votre accueil. **Approuver** ou **Refuser** avec une note facultative. Quiconque est au-dessus de l'employé dans la ligne hiérarchique peut agir, de même que quiconque a l'accès Horaire à *Modifier l'horaire de tous*." },
+        ],
+      },
+    ],
+    faq: [
+      { q: "Mon gestionnaire peut-il accepter un remplacement au nom de mon collègue ?", a: "Non. Accepter est la réponse du collègue et approuver celle du gestionnaire ; un gestionnaire qui veut déplacer un quart sans l'accord du collègue utilise l'horaire, où c'est consigné comme sa décision." },
+      { q: "Pourquoi mon échange approuvé a-t-il été refusé ?", a: "La personne qui prend le quart n'est pas disponible à ce moment ou a un congé approuvé ce jour-là, et la vérification se fait au moment de l'approbation. La raison est sur la demande." },
+      { q: "Quelqu'un sans compte peut-il prendre mon quart ?", a: "Le gestionnaire peut l'y placer, mais cette personne ne peut pas accepter une demande — il n'y a pas de téléphone pour la joindre. Les échanges ne listent que les collègues ayant un compte." },
+    ],
+  },
+
+  "changing-your-availability": {
+    title: "Changer vos disponibilités",
+    summary:
+      "Proposez de nouvelles heures à partir d'une date de votre choix, copiez votre semaine actuelle pour commencer, ajoutez plusieurs plages par jour, et voyez ce que votre gestionnaire a approuvé et quand ça prend effet.",
+    updated: "2026-09-13",
+    intro: [
+      "Vos disponibilités sont la semaine dans laquelle l'horaire est bâti : un quart en dehors est refusé sauf si votre gestionnaire passe outre, et si votre rôle peut faire des soumissions, les clients peuvent aussi vous réserver à l'intérieur — un seul jeu d'heures, lu par les deux. Le changer est une demande avec une date d'entrée en vigueur, pour que l'horaire de cette semaine reste tel que publié et que la nouvelle semaine commence quand vous l'avez dit.",
+    ],
+    sections: [
+      {
+        id: "overview",
+        heading: "Vue d'ensemble",
+        blocks: [
+          { p: "Ouvrez **Plus → Mes disponibilités**. La carte du haut est votre semaine actuelle, une ligne par jour avec ses plages — ou **Indisponible**. Dessous, **Demander de nouvelles disponibilités** ; dessous encore, **Vos demandes** avec leur état, et pour un gestionnaire, les demandes en attente avec un comparatif jour par jour." },
+          { note: "Il y a une seule disponibilité par personne. L'en-tête d'un membre d'équipe terrain lit *Heures où vous pouvez travailler* ; celui de quelqu'un qui peut faire des soumissions lit *Heures où vous pouvez travailler et recevoir des rendez-vous*, avec un lien vers sa page de réservation. Mêmes lignes, même demande — l'étiquette dit honnêtement ce que font les lignes." },
+        ],
+      },
+      {
+        id: "how-to",
+        heading: "Comment demander de nouvelles heures",
+        blocks: [
+          { steps: [
+            "Touchez **Demander de nouvelles disponibilités**. Le formulaire s'ouvre avec votre semaine actuelle déjà remplie (**Copier les heures actuelles** la ramène si vous l'effacez).",
+            "Réglez **Mes disponibilités entrent en vigueur le** — la date où la nouvelle semaine commence. Vos heures actuelles restent jusque-là.",
+            "Pour chaque jour sous **Jours et heures**, touchez **+** pour ajouter une plage de–à ; ajoutez-en une deuxième pour une journée coupée. **Toute la journée** et **Indisponible** se font en un geste.",
+            "Au besoin, saisissez **Heures souhaitées par semaine** et une note, puis touchez **Soumettre** en bas.",
+            "La demande apparaît **En attente**. Vous pouvez la **Retirer** jusqu'à la décision.",
+          ] },
+        ],
+      },
+      {
+        id: "what-happens",
+        heading: "Ce qui se passe ensuite",
+        blocks: [
+          { bullets: [
+            "**Approuvée avec une date passée ou d'aujourd'hui** — appliquée immédiatement ; votre semaine change maintenant.",
+            "**Approuvée avec une date future** — la demande lit *approuvée, s'applique le …* et le changement arrive ce matin-là, pas avant.",
+            "**Refusée** — votre semaine actuelle demeure ; la note du gestionnaire, s'il y en a une, est sur la demande.",
+            "**Réglage d'entreprise désactivé** — *Les disponibilités exigent une approbation* est activé par défaut ; désactivé, la demande est approuvée à l'arrivée et attend quand même sa date. Paramètres → Disponibilités continue d'écrire directement, comme avant.",
+          ] },
+          { p: "Une plage doit commencer avant de finir, deux plages d'un même jour ne peuvent pas se chevaucher, et une demande sans aucune heure est refusée — une semaine où vous n'êtes jamais disponible est une démission tapée dans le mauvais formulaire." },
+        ],
+      },
+      {
+        id: "for-managers",
+        heading: "Pour les gestionnaires",
+        blocks: [
+          { p: "Sous **À réviser** sur votre accueil, le panneau Demandes de l'horaire, et **Mes disponibilités** même, chaque demande en attente montre la personne, la date d'entrée en vigueur, le total d'heures par semaine, et un tableau des jours qui changent : ce qu'elle a maintenant, ce qu'elle demande. **Approuver** ou **Refuser** ; vous ne pouvez pas approuver la vôtre." },
+        ],
+      },
+    ],
+    faq: [
+      { q: "Est-ce que ça change aussi mes heures de réservation ?", a: "Si votre rôle peut faire des soumissions, oui — le calendrier de réservation lit les mêmes lignes. Sinon, les clients n'ont jamais pu vous réserver et ne le peuvent toujours pas." },
+      { q: "Puis-je avoir deux demandes en attente ?", a: "Non. Retirez la première ou attendez sa réponse. Deux demandes approuvées pour la même personne sont appliquées dans l'ordre des dates et la plus récente demeure." },
+      { q: "Et les heures de travail dans Paramètres → Disponibilités ?", a: "Cet écran contient aussi votre horaire habituel (Heures de travail), pour lequel l'horaire ne fait qu'avertir. La demande ici change la moitié disponibilités — celle qui refuse un quart." },
     ],
   },
 };

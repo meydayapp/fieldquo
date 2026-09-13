@@ -34,6 +34,7 @@ export const SCREENS = [
   { slug: "subcontractors", nav: "app.nav.subcontractors", href: "/app/subcontractors", page: "app/app/subcontractors/page.js" },
   { slug: "scheduler", nav: "app.nav.scheduler", href: "/app/scheduler", page: "app/app/scheduler/page.js" },
   { slug: "my-schedule", nav: "app.nav.mySchedule", href: "/app/me/schedule", page: "app/app/me/schedule/page.js" },
+  { slug: "my-home", nav: "app.nav.myHome", href: "/app/me", page: "app/app/me/page.js" },
   { slug: "team-schedule", nav: "app.nav.teamSchedule", href: "/app/schedule", page: "app/app/schedule/page.js" },
   { slug: "clock", nav: "app.nav.clock", href: "/app/clock", page: "app/app/clock/page.js" },
   { slug: "timesheets", nav: "app.nav.timesheets", href: "/app/settings/team/timesheets", page: "app/app/settings/team/timesheets/page.js", settings: true },

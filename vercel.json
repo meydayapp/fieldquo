@@ -127,6 +127,10 @@
     {
       "path": "/api/cron/hr-reminders",
       "schedule": "40 7 * * *"
+    },
+    {
+      "path": "/api/cron/availability-apply",
+      "schedule": "0 5 * * *"
     }
   ]
 }

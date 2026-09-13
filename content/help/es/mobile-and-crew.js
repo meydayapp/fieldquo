@@ -189,11 +189,11 @@ export const ARTICLES = {
         id: "what-a-crew-member-gets",
         heading: "Qué recibe un miembro de la cuadrilla",
         blocks: [
-          { p: "El nivel Crew está en No access para prospectos, presupuestos y facturas, y en View only para trabajos — limitado a los trabajos en los que está reservado. Así que la barra se lee **Trabajos · Chat · Más**, y las tres se reparten el ancho por igual." },
+          { p: "El nivel Crew está en No access para prospectos, presupuestos y facturas, así que ninguna de las cuatro pestañas de documentos se dibuja. Cuando eso deja la barra solo con el chat, FieldQuo pone en su lugar las cinco del espacio del empleado — **Inicio · Horario · Ganancias · Mensajes · Más** — las mismas cinco que muestra cada pantalla bajo Mi espacio. Vea [[your-home-screen|Tu pantalla de inicio]]." },
           { bullets: [
-            "**Trabajos** — los trabajos en los que tiene una visita, con la dirección, las visitas y la lista de verificación.",
-            "**Chat** — #general, la sala de cada trabajo en el que está, y los mensajes directos. Es la única pestaña que todos los niveles conservan, porque el chat es la pantalla propia de la cuadrilla.",
-            "**Más** — el reloj de tiempo, sus turnos, las ausencias, la seguridad, sus recibos de nómina, la configuración.",
+            "**Inicio** — su próximo turno o visita, Fichar, Mensaje y Buscar cobertura, las horas de hoy, los reconocimientos.",
+            "**Horario** — sus turnos, visitas y tareas por día. **Ganancias** — sus horas por periodo de pago, y el dinero si su acceso lo permite.",
+            "**Mensajes** — #general, la sala de cada trabajo en el que está, y los mensajes directos. **Más** — solicitudes, el directorio del equipo, notificaciones, configuración, cerrar sesión.",
           ] },
         ],
       },
@@ -207,7 +207,7 @@ export const ARTICLES = {
       },
     ],
     faq: [
-      { q: "¿Puedo elegir qué pestañas van en la barra?", a: "No. Las cinco son fijas — las cuatro pantallas de documentos y el chat — y su nivel de acceso decide cuáles se dibujan." },
+      { q: "¿Puedo elegir qué pestañas van en la barra?", a: "No. Las cinco son fijas — las cuatro pantallas de documentos y el chat, o las cinco del espacio del empleado cuando todas las pestañas de documentos quedan ocultas o está en una pantalla de Mi espacio — y su nivel de acceso decide qué juego recibe." },
       { q: "¿Por qué no hay una pestaña de Reloj de tiempo?", a: "La barra está reservada para las pantallas por las que se mueve el trabajo y para el chat. El reloj de tiempo está a un toque bajo Más, y es igual para todos sin importar el nivel." },
     ],
   },
@@ -982,6 +982,195 @@ export const ARTICLES = {
       { q: "Toqué Registrar entrada sin señal y guardé el teléfono. ¿Estoy en turno?", a: "No. No se registró nada. Abra la pantalla: si no dice En turno, vuelva a tocar donde tenga señal, y dígale a su gerente la hora real de inicio." },
       { q: "¿Las fotos que tomé sin conexión se subirán solas después?", a: "No. Súbalas desde la página del trabajo cuando tenga conexión, o envíelas por mensaje de texto a la línea de la cuadrilla — un mensaje con imagen a menudo pasa donde una página web no." },
       { q: "¿Viene un modo sin conexión?", a: "Hoy no, y este artículo lo dirá cuando eso cambie. El diseño actual es que lo que muestra la pantalla es lo que tiene el servidor." },
+    ],
+  },
+
+  "your-home-screen": {
+    title: "Tu pantalla de inicio",
+    summary:
+      "La primera pantalla en tu teléfono: tu próximo turno o visita, Fichar, Mensaje y Buscar cobertura con un toque, las horas de hoy y los reconocimientos. Adónde llevan las cinco pestañas.",
+    updated: "2026-09-13",
+    intro: [
+      "**Mi espacio** es la pantalla donde empieza tu día. Muestra lo siguiente que FieldQuo tiene para ti — un turno, una visita asignada, una cita si las atiendes, una tarea con fecha — con el sitio, quién más está en él y las notas que dejó tu gerente. Debajo, los tres botones que más usas, luego las horas de hoy, luego lo que los compañeros han dicho unos de otros esta semana.",
+      "Es la misma pantalla en el teléfono y en la computadora. En el teléfono las cinco pestañas están abajo; en la computadora cruzan la parte superior de la página, dentro del diseño habitual con la barra lateral.",
+    ],
+    sections: [
+      {
+        id: "overview",
+        heading: "Vista general",
+        blocks: [
+          { p: "Abre **Mi espacio** en la barra lateral bajo Personas, o toca **Inicio** en la barra inferior. Las cinco pestañas son **Inicio · Horario · Ganancias · Mensajes · Más**. Si gestionas el horario — tu acceso a Horario es *Editar el horario de todos* o superior — las dos del medio pasan a ser **Horario** (el tablero) y **Equipo**, y el inicio muestra la cobertura de hoy en lugar de tu propio día." },
+          { figure: "harness:my-home", caption: "Mi espacio en un teléfono — la tarjeta del próximo turno con Buscar cobertura e Intercambiar, las tres acciones rápidas, las horas de hoy y el muro de reconocimientos, con la barra Inicio · Horario · Ganancias · Mensajes · Más." },
+        ],
+      },
+      {
+        id: "what-is-on-the-screen",
+        heading: "Qué hay en la pantalla",
+        blocks: [
+          { bullets: [
+            "**El saludo** — buenos días, buenas tardes o buenas noches según el reloj de tu teléfono, tu puesto bajo tu nombre.",
+            "**Eventos de hoy** — lo que tu gerente puso en la fila Eventos de la semana para hoy: una reunión de seguridad, el patio cerrado.",
+            "**Lo siguiente** — lo más próximo que aún no ha terminado: **Mañana, 9 AM – 4 PM**, el cliente y el sitio, tu rol si el gerente lo escribió, los compañeros en el mismo trabajo ese día y **Notas para este turno**. Un turno que puedes intercambiar o ceder lleva **Buscar cobertura** e **Intercambiar**; una visita lleva **Abrir la visita**; un turno abierto que nadie tiene aún lleva **Turno abierto — tómalo**.",
+            "**Ganancias estimadas** — bajo un turno, las horas netas de descansos no pagados a tu tarifa por hora. Solo si tu acceso te deja ver tus propios recibos; si no, la línea simplemente no está.",
+            "**Fichar · Mensaje · Buscar cobertura** — el reloj de fichaje, el chat del equipo y una solicitud de cobertura para tu próximo turno.",
+            "**Hoy** — una vez fichado: *Ganaste $140.00 trabajando 8 h* (o solo las horas), una barra desde tu primer fichaje hasta ahora, y **Ver hoja de horas**.",
+            "**Próximamente** — el resto de la quincena, cada línea con una etiqueta que dice si es Turno, Visita, Cita, Tarea o Turno abierto.",
+            "**Reconocimientos** — los últimos veinte de la empresa, los tuyos resaltados. **Enviar un reconocimiento** elige a un compañero y admite hasta 240 caracteres.",
+          ] },
+          { note: "Las citas y llamadas aparecen solo para quienes su rol puede cotizar — la misma regla que decide a quién pueden reservar los clientes. Un miembro de cuadrilla nunca ve una sección de citas, ni siquiera vacía." },
+        ],
+      },
+      {
+        id: "the-other-tabs",
+        heading: "Las otras pestañas",
+        blocks: [
+          { table: {
+            head: ["Pestaña", "Qué contiene"],
+            rows: [
+              ["**Horario**", "Tus turnos, visitas, citas y tareas por día, con los eventos de la empresa, y el enlace al calendario."],
+              ["**Ganancias**", "Horas por periodo de pago, minutos de descanso no pagados, la lista día a día, una estimación bruta a tu tarifa cuando puedes ver el pago, y el recibo cuando la nómina se aprueba."],
+              ["**Mensajes**", "El chat de la empresa — #general, una sala por trabajo en el que estás, mensajes directos."],
+              ["**Más**", "Perfil, Solicitudes (días libres, intercambio, cobertura, disponibilidad), Equipo, Notificaciones, Sincronizar calendario, Configuración, Ayuda, Cerrar sesión."],
+            ],
+          } },
+          { p: "No hay PIN de fichaje ni tarjeta para uno: el reloj de FieldQuo es tu propia cuenta en tu propio teléfono." },
+        ],
+      },
+      {
+        id: "who-can-see-it",
+        heading: "Quién puede verlo",
+        blocks: [
+          { p: "Cualquiera con cuenta. Lo que cambia por nivel es el dinero: la línea de ganancias y las cifras de la pestaña Ganancias requieren Nómina en *Ver sus propios recibos* o superior, que los perfiles Cuadrilla, Estimador, Despachador y Gerente tienen y un propietario puede retirar. Alguien en la plantilla sin cuenta — un ayudante de patio añadido sin correo — no tiene pantalla de inicio, y sus turnos siguen en el tablero." },
+        ],
+      },
+    ],
+    faq: [
+      { q: "¿Por qué mi Inicio muestra una franja de cobertura y un informe en vez de mi turno?", a: "Porque tu acceso a Horario está en Editar el horario de todos o superior, así que FieldQuo te muestra el Inicio del gerente: quién fichó, qué necesita revisión, qué no está publicado hoy. La vista de empleado es la que ve tu cuadrilla." },
+      { q: "La línea de ganancias no dice nada — ¿falta mi tarifa?", a: "O tu acceso no incluye tu propio pago, en cuyo caso no se muestra nada de dinero en ninguna parte, o nadie ha registrado una tarifa por hora para ti. Pregunta a quien gestiona el equipo; una tarifa ausente nunca se muestra como $0." },
+      { q: "¿Puedo editar mi nombre o teléfono aquí?", a: "Todavía no. La tarjeta de perfil es de solo lectura — quien gestiona el equipo cambia tu nombre, puesto y teléfono desde Gestionar equipo — y lo dice en vez de ofrecer campos que no se guardarían." },
+    ],
+  },
+
+  "trading-and-covering-shifts": {
+    title: "Intercambiar y cubrir turnos",
+    summary:
+      "Cede un turno, cámbialo con un compañero o toma uno abierto — quién tiene que decir que sí, qué ve tu gerente y por qué un cambio puede rechazarse.",
+    updated: "2026-09-13",
+    intro: [
+      "Un turno publicado al que no puedes ir tiene tres salidas, todas desde tu teléfono: **Buscar cobertura** pide a alguien que lo tome, **Intercambiar** lo cambia por uno suyo, y un **turno abierto** — horas que tu gerente publicó sin nadie asignado — se puede tomar. Cada una es una solicitud que la otra persona responde primero y tu gerente aprueba después, y te avisan en cada paso.",
+    ],
+    sections: [
+      {
+        id: "overview",
+        heading: "Vista general",
+        blocks: [
+          { p: "Las solicitudes viven en **Más → Solicitudes** y en el propio turno. Una solicitud siempre trata de un turno publicado que no ha empezado. Cuando el turno empieza, lo que estaba pendiente caduca solo — nadie puede aprobar un cambio de un turno ya en curso." },
+          { table: {
+            head: ["Tipo", "Quién toma el turno", "Quién responde primero"],
+            rows: [
+              ["**Cobertura**", "El compañero que nombras, o cualquiera elegible si no nombras a nadie", "Ese compañero — en una cobertura abierta, la primera persona elegible que acepte"],
+              ["**Intercambio**", "El compañero que nombras; tú tomas uno suyo a cambio, o nada", "Ese compañero"],
+              ["**Solicitud**", "Tú, en un turno abierto", "Nadie — va directo al gerente"],
+            ],
+          } },
+        ],
+      },
+      {
+        id: "how-to",
+        heading: "Cómo pedirlo",
+        blocks: [
+          { steps: [
+            "En **Inicio**, toca **Buscar cobertura** o **Intercambiar** en tu próximo turno — o abre **Más → Solicitudes**, toca **Cobertura** o **Intercambio**, y elige cuál de tus próximos turnos es.",
+            "Para una cobertura, elige a un compañero o deja **Cualquiera que pueda**: una cobertura abierta va primero a los compañeros con tu mismo puesto, y a todos los activos si nadie lo comparte.",
+            "Para un intercambio, elige al compañero y, si quieres uno de sus turnos a cambio, cuál. **Nada — solo cedo el mío** es una opción válida.",
+            "Añade una nota si ayuda (*Dentista a las 9, vuelvo al mediodía*) y toca **Enviar solicitud**.",
+            "Sigue **Mías** en Solicitudes: **Esperando al compañero**, luego **Esperando al gerente**, luego **Aprobada** o **Rechazada**. Puedes **Retirar** en cualquier momento antes de la decisión.",
+          ] },
+          { tip: "Para tomar un turno abierto, toca **Turno abierto — tómalo** en Inicio o en Próximamente. Salta el paso del compañero y llega a tu gerente." },
+        ],
+      },
+      {
+        id: "what-happens",
+        heading: "Qué pasa cuando se aprueba",
+        blocks: [
+          { p: "El turno pasa a la persona que lo toma — en el tablero, en ambos teléfonos, en el mismo instante en que se guarda la aprobación. Un intercambio con un turno ofrecido a cambio mueve los dos. Antes de escribirlo, FieldQuo vuelve a ejecutar la misma verificación que hace el programador cuando un gerente arma un turno: la disponibilidad declarada de la nueva persona y cualquier permiso aprobado. Un cambio que pondría a alguien en un día libre se **rechaza con esa razón** en vez de aprobarse y descubrirse por la mañana." },
+          { bullets: [
+            "**Ajuste de empresa** — *Los cambios de turno necesitan aprobación* está activado por defecto. Desactivado, la aceptación del compañero completa el cambio y al gerente se le informa en vez de preguntarle.",
+            "**Notificaciones** — al compañero se le avisa cuando se le pide, al gerente cuando hace falta aprobación, a ambos trabajadores cuando se decide.",
+            "**Caducidad** — una solicitud cuyo turno ya empezó muestra **Caducada** la próxima vez que alguien abre la lista.",
+          ] },
+        ],
+      },
+      {
+        id: "for-managers",
+        heading: "Para gerentes",
+        blocks: [
+          { p: "Las solicitudes que te esperan aparecen en tres lugares que leen las mismas filas: el panel **Solicitudes** sobre el programador (con un contador), la pestaña **Por aprobar** en Más → Solicitudes en tu teléfono, y la tarjeta **Por revisar** en tu Inicio. **Aprobar** o **Rechazar** con una nota opcional. Cualquiera por encima del trabajador en la línea de reporte puede actuar, igual que cualquiera con acceso a Horario en *Editar el horario de todos*." },
+        ],
+      },
+    ],
+    faq: [
+      { q: "¿Puede mi gerente aceptar una cobertura en nombre de mi compañero?", a: "No. Aceptar es la respuesta del compañero y aprobar la del gerente; un gerente que quiera mover un turno sin el visto bueno del compañero usa el programador, donde queda registrado como su decisión." },
+      { q: "¿Por qué se rechazó mi cambio aprobado?", a: "La persona que toma el turno no está disponible entonces o tiene permiso aprobado ese día, y la verificación se hace al aprobar. La razón está en la solicitud." },
+      { q: "¿Puede alguien sin cuenta tomar mi turno?", a: "El gerente puede programarlo, pero esa persona no puede aceptar una solicitud — no hay teléfono al que llegar. Los intercambios solo listan compañeros con cuenta." },
+    ],
+  },
+
+  "changing-your-availability": {
+    title: "Cambiar tu disponibilidad",
+    summary:
+      "Propón nuevas horas desde la fecha que elijas, copia tu semana actual para empezar, añade varias franjas por día y mira qué aprobó tu gerente y cuándo entra en vigor.",
+    updated: "2026-09-13",
+    intro: [
+      "Tu disponibilidad es la semana dentro de la cual se arma el horario: un turno fuera de ella se rechaza salvo que tu gerente lo fuerce, y si tu rol puede cotizar, los clientes también pueden reservarte dentro de ella — un solo juego de horas, leído por ambos. Cambiarla es una solicitud con fecha de entrada en vigor, para que el horario de esta semana siga como se publicó y la nueva semana empiece cuando dijiste.",
+    ],
+    sections: [
+      {
+        id: "overview",
+        heading: "Vista general",
+        blocks: [
+          { p: "Abre **Más → Mi disponibilidad**. La tarjeta de arriba es tu semana actual, una fila por día con sus franjas — o **No disponible**. Debajo, **Solicitar nueva disponibilidad**; más abajo, **Tus solicitudes** con su estado, y para un gerente, las solicitudes en espera con una comparación día a día." },
+          { note: "Hay una sola disponibilidad por persona. El encabezado de un miembro de cuadrilla dice *Horas en que puedes trabajar*; el de alguien que puede cotizar dice *Horas en que puedes trabajar y recibir citas*, con un enlace a su página de reservas. Mismas filas, misma solicitud — la etiqueta dice con honestidad lo que hacen las filas." },
+        ],
+      },
+      {
+        id: "how-to",
+        heading: "Cómo solicitar nuevas horas",
+        blocks: [
+          { steps: [
+            "Toca **Solicitar nueva disponibilidad**. El formulario se abre con tu semana actual ya cargada (**Copiar las actuales** la devuelve si la borras).",
+            "Fija **Mi disponibilidad entra en vigor el** — la fecha en que empieza la nueva semana. Tus horas actuales se mantienen hasta entonces.",
+            "Para cada día bajo **Días y horas**, toca **+** para añadir una franja de–a; añade una segunda para un día partido. **Todo el día** y **No disponible** son un toque cada uno.",
+            "Si quieres, escribe **Horas deseadas por semana** y una nota, y toca **Enviar** abajo.",
+            "La solicitud aparece **En espera**. Puedes **Retirar** hasta que se decida.",
+          ] },
+        ],
+      },
+      {
+        id: "what-happens",
+        heading: "Qué pasa después",
+        blocks: [
+          { bullets: [
+            "**Aprobada con fecha pasada o de hoy** — se aplica de inmediato; tu semana cambia ahora.",
+            "**Aprobada con fecha futura** — la solicitud dice *aprobada, se aplica el …* y el cambio llega esa mañana, no antes.",
+            "**Rechazada** — tu semana actual se mantiene; la nota del gerente, si la hay, está en la solicitud.",
+            "**Ajuste de empresa desactivado** — *La disponibilidad necesita aprobación* está activado por defecto; desactivado, la solicitud se aprueba al llegar y aun así espera su fecha. Configuración → Disponibilidad sigue escribiendo directamente, como antes.",
+          ] },
+          { p: "Una franja debe empezar antes de terminar, dos franjas del mismo día no pueden solaparse, y una solicitud sin ninguna hora se rechaza — una semana en la que nunca estás disponible es una renuncia escrita en el formulario equivocado." },
+        ],
+      },
+      {
+        id: "for-managers",
+        heading: "Para gerentes",
+        blocks: [
+          { p: "Bajo **Por revisar** en tu Inicio, el panel Solicitudes del programador y **Mi disponibilidad** mismo, cada solicitud en espera muestra la persona, la fecha de entrada en vigor, las horas por semana que suma y una tabla de los días que cambian: lo que tiene ahora, lo que pidió. **Aprobar** o **Rechazar**; no puedes aprobar la tuya." },
+        ],
+      },
+    ],
+    faq: [
+      { q: "¿Esto cambia también mis horas de reserva?", a: "Si tu rol puede cotizar, sí — el calendario de reservas lee las mismas filas. Si no, los clientes nunca pudieron reservarte y siguen sin poder." },
+      { q: "¿Puedo tener dos solicitudes en espera?", a: "No. Retira la primera o espera su respuesta. Dos solicitudes aprobadas para la misma persona se aplican por orden de fecha y la más reciente se mantiene." },
+      { q: "¿Y las horas de trabajo en Configuración → Disponibilidad?", a: "Esa pantalla también guarda tu patrón habitual (Horas de trabajo), sobre el que el horario solo avisa. La solicitud aquí cambia la mitad de disponibilidad — la que rechaza un turno." },
     ],
   },
 };

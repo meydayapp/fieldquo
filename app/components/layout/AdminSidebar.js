@@ -139,6 +139,16 @@ export const NAV_GROUPS = [
   {
     key: "app.nav.group.people",
     items: [
+      // ── The employee home ───────────────────────────────────────────────
+      //
+      // Home · Schedule · Earnings · Messages · More for the person in the
+      // van; Home · Schedule · Team · Messages · More for whoever runs the
+      // crew (lib/me/tabs.js decides which). One row for every role, first
+      // under People because it is the one screen about YOU rather than
+      // about the company's work — and on a phone it is the bottom bar
+      // itself (app/components/layout/MobileTabBar.js). No NAV_REQUIREMENTS
+      // entry: there is no level at which a person has no home.
+      { key: "app.nav.myHome", href: "/app/me", icon: Home, helpArticle: "my-home" },
       { key: "app.nav.clients", href: "/app/clients", icon: Users, helpArticle: "clients" },
       // The CUSTOMER's kit — their furnace, their panel — and whose warranty
       // is about to run out. Next to Clients because that is what it is a fact

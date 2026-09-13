@@ -191,11 +191,11 @@ export const ARTICLES = {
         id: "what-a-crew-member-gets",
         heading: "What a crew member gets",
         blocks: [
-          { p: "The Crew level is set to No access on Leads, Quotes and Invoices, and to View only on Jobs — narrowed to the jobs you are booked on. So the bar reads **Jobs · Chat · More**, and the three fill the width evenly." },
+          { p: "The Crew level is set to No access on Leads, Quotes and Invoices, so none of the four document tabs are drawn. When that leaves the bar with nothing but Chat, FieldQuo swaps in the employee home's own five instead — **Home · Schedule · Earnings · Messages · More** — the same five every screen under My home shows. See [[your-home-screen|Your home screen]]." },
           { bullets: [
-            "**Jobs** — the jobs you have a visit on, with the address, the visits and the checklist.",
-            "**Chat** — #general, the room for each job you are on, and direct messages. It is the one tab every level keeps, because the chat is the crew's own screen.",
-            "**More** — the time clock, your shifts, time off, safety, your payslips, settings.",
+            "**Home** — your next shift or visit, Clock in, Message and Find cover, today's hours, the shout-outs.",
+            "**Schedule** — your shifts, visits and tasks by day. **Earnings** — your hours per pay period, and the money if your access allows it.",
+            "**Messages** — #general, the room for each job you are on, and direct messages. **More** — requests, the team directory, notifications, settings, sign out.",
           ] },
         ],
       },
@@ -209,7 +209,7 @@ export const ARTICLES = {
       },
     ],
     faq: [
-      { q: "Can I choose which tabs are in the bar?", a: "No. The five are fixed — the four document screens and Chat — and your access level decides which of them are drawn." },
+      { q: "Can I choose which tabs are in the bar?", a: "No. The five are fixed — the four document screens and Chat, or the employee home's five when the document tabs all gate away or you are on a My home screen — and your access level decides which set you get." },
       { q: "Why is there no Time clock tab?", a: "The bar is reserved for the screens work moves through and the chat. The time clock is one tap away under More, and the same for everyone regardless of level." },
     ],
   },
@@ -984,6 +984,195 @@ export const ARTICLES = {
       { q: "I tapped Clock in with no signal and put the phone away. Am I clocked in?", a: "No. Nothing was recorded. Open the screen: if it does not say On the clock, tap again where you have signal, and tell your manager the real start time." },
       { q: "Will the photos I took offline upload on their own later?", a: "No. Upload them from the job page when you have a connection, or text them to the crew line — a picture message often gets through where a web page does not." },
       { q: "Is offline mode coming?", a: "Not today, and this article will say so when that changes. The current design is that what the screen shows is what the server has." },
+    ],
+  },
+
+  "your-home-screen": {
+    title: "Your home screen",
+    summary:
+      "The first screen on your phone: your next shift or visit, one-tap Clock in, Message and Find cover, today's hours, and the shout-outs. Where the five tabs go.",
+    updated: "2026-09-13",
+    intro: [
+      "**My home** is the screen your day starts on. It shows the next thing FieldQuo has for you — a shift, a visit dispatched to you, an appointment if you take them, a task that is due — with the site, who else is on it and the notes your manager left. Under it are the three buttons you reach for most, then today's hours, then what colleagues have said about each other this week.",
+      "It is the same screen on a phone and on a computer. On a phone the five tabs sit along the bottom; on a computer they run across the top of the page, inside the ordinary sidebar layout.",
+    ],
+    sections: [
+      {
+        id: "overview",
+        heading: "Overview",
+        blocks: [
+          { p: "Open **My home** from the sidebar under People, or tap **Home** in the bottom bar. The five tabs are **Home · Schedule · Earnings · Messages · More**. If you run the rota — your access to Schedule is *Edit everyone's schedule* or higher — the middle two are **Schedule** (the board) and **Team** instead, and Home shows today's coverage rather than your own day." },
+          { figure: "harness:my-home", caption: "My home on a phone — the next shift card with Find cover and Trade, the three quick actions, today's hours and the shout-outs feed, with the Home · Schedule · Earnings · Messages · More bar." },
+        ],
+      },
+      {
+        id: "what-is-on-the-screen",
+        heading: "What is on the screen",
+        blocks: [
+          { bullets: [
+            "**The greeting** — good morning, afternoon or evening by your phone's clock, your job title under your name.",
+            "**Events today** — anything your manager put on the week's Events row for today: a safety meeting, a yard closure.",
+            "**Next up** — the earliest thing not yet over: **Tomorrow, 9 AM – 4 PM**, the client and site, your role on it if the manager typed one, the colleagues on the same job that day, and **Notes for this shift**. A shift you can trade or give away carries **Find cover** and **Trade**; a visit carries **Open the visit**; an open shift nobody has yet carries **Open shift — claim it**.",
+            "**Est. earnings** — under a shift, hours net of unpaid breaks at your hourly rate. Only if your access lets you see your own payslips; otherwise the line is simply not there.",
+            "**Clock in · Message · Find cover** — the time clock, the crew chat, and a cover request on your next shift.",
+            "**Today** — once you have clocked in: *You earned $140.00 working 8 hr* (or just the hours), a bar from your first clock-in to now, and **View timecard**.",
+            "**Coming up** — the rest of the fortnight, each line with a chip saying whether it is a Shift, a Visit, an Appointment, a Task or an Open shift.",
+            "**Shout-outs** — the last twenty across the company, yours highlighted. **Send a shout-out** picks a colleague and takes up to 240 characters.",
+          ] },
+          { note: "Appointments and calls appear only for people whose role can quote — the same rule that decides who clients can book. A crew member never sees an appointments section, not even an empty one." },
+        ],
+      },
+      {
+        id: "the-other-tabs",
+        heading: "The other tabs",
+        blocks: [
+          { table: {
+            head: ["Tab", "What it holds"],
+            rows: [
+              ["**Schedule**", "Your shifts, visits, appointments and tasks by day, with the company's events, and the calendar link."],
+              ["**Earnings**", "Hours per pay period, unpaid break minutes, the day-by-day list, a gross estimate at your rate when you may see pay, and the payslip once the run is approved."],
+              ["**Messages**", "The company chat — #general, a room per job you are on, direct messages."],
+              ["**More**", "Profile, Requests (time off, trade, cover, availability), Team, Notifications, Calendar sync, Settings, Support, Sign out."],
+            ],
+          } },
+          { p: "There is no clock-in PIN and no card for one: FieldQuo's time clock is your own login on your own phone." },
+        ],
+      },
+      {
+        id: "who-can-see-it",
+        heading: "Who can see it",
+        blocks: [
+          { p: "Everyone with a login. What changes by level is the money: the earnings line and the Earnings tab's dollar figures need Payroll at *View their own payslips* or higher, which the Crew, Estimator, Dispatcher and Manager presets all hold and an owner can withdraw. Somebody on the roster with no login — a yard hand added without an email — has no home screen, and their shifts still show on the board." },
+        ],
+      },
+    ],
+    faq: [
+      { q: "Why does my Home show a coverage strip and a report instead of my shift?", a: "Because your access to Schedule is at Edit everyone's schedule or higher, so FieldQuo shows you the manager's Home: who is clocked in, what needs review, what is not yet published today. The worker's view is what your crew sees." },
+      { q: "The earnings line says nothing — is my rate missing?", a: "Either your access does not include your own pay, in which case nothing about money is shown anywhere, or nobody has entered an hourly rate for you. Ask whoever manages the team; a missing rate is never shown as $0." },
+      { q: "Can I edit my name or phone here?", a: "Not yet. The profile card is read-only — whoever manages the team changes your name, title and phone from Manage team — and it says so rather than offering fields that would not save." },
+    ],
+  },
+
+  "trading-and-covering-shifts": {
+    title: "Trading and covering shifts",
+    summary:
+      "Give a shift away, swap one with a colleague, or claim an open one — who has to say yes, what your manager sees, and why a swap can be refused.",
+    updated: "2026-09-13",
+    intro: [
+      "A published shift you cannot make has three ways out, all from your phone: **Find cover** asks somebody to take it, **Trade** swaps it for one of theirs, and an **open shift** — hours your manager posted with nobody on them — can be claimed. Each one is a request that the other person answers first and your manager approves second, and you are told at every step.",
+    ],
+    sections: [
+      {
+        id: "overview",
+        heading: "Overview",
+        blocks: [
+          { p: "Requests live under **More → Requests** and on the shift itself. A request is always about one published shift that has not started. Once the shift starts, whatever was pending expires on its own — nobody can approve a swap for a shift already under way." },
+          { table: {
+            head: ["Kind", "Who takes the shift", "Who answers first"],
+            rows: [
+              ["**Cover**", "The colleague you name, or anyone eligible if you name nobody", "That colleague — for an open cover, the first eligible person to accept"],
+              ["**Trade**", "The colleague you name; you take one of theirs in return, or nothing", "That colleague"],
+              ["**Claim**", "You, on an open shift", "Nobody — it goes straight to the manager"],
+            ],
+          } },
+        ],
+      },
+      {
+        id: "how-to",
+        heading: "How to ask",
+        blocks: [
+          { steps: [
+            "On **Home**, tap **Find cover** or **Trade** on your next shift — or open **More → Requests**, tap **Cover** or **Trade**, and pick which of your upcoming shifts it is about.",
+            "For a cover, pick a colleague or leave it as **Anyone who can**: an open cover goes first to colleagues with your job title, and to everyone active if nobody shares it.",
+            "For a trade, pick the colleague and, if you want one of their shifts in return, which one. **Nothing — just give mine away** is a valid choice.",
+            "Add a note if it helps (*Dentist at 9, back by noon*) and tap **Send request**.",
+            "Watch **Mine** under Requests: **Waiting on colleague**, then **Waiting on manager**, then **Approved** or **Declined**. You can **Withdraw** it any time before a decision.",
+          ] },
+          { tip: "To claim an open shift, tap **Open shift — claim it** on Home or in Coming up. It skips the colleague step and lands with your manager." },
+        ],
+      },
+      {
+        id: "what-happens",
+        heading: "What happens when it is approved",
+        blocks: [
+          { p: "The shift moves to the person taking it — on the board, on both phones, in the same moment the approval is saved. A trade with a shift offered in return moves both. Before that write, FieldQuo re-runs the same check the scheduler runs when a manager drafts a shift: the new person's declared availability and any approved leave. A swap that would put somebody on a day they are off is **declined with that reason** rather than approved and discovered on the morning." },
+          { bullets: [
+            "**Company setting** — *Shift swaps need approval* is on by default. Turned off, a colleague's acceptance completes the swap and the manager is told rather than asked.",
+            "**Notifications** — the colleague is told when asked, the manager when it needs approval, both workers when it is decided.",
+            "**Expiry** — a request whose shift has started shows **Expired** the next time anybody opens the list.",
+          ] },
+        ],
+      },
+      {
+        id: "for-managers",
+        heading: "For managers",
+        blocks: [
+          { p: "Requests waiting on you appear in three places that read the same rows: the **Requests** panel above the scheduler (with a count), the **Needs your approval** tab under More → Requests on your phone, and the **Needs review** card on your Home. **Approve** or **Decline** with an optional note. Anyone above the worker on the reporting line may act, as may anyone whose Schedule access is *Edit everyone's schedule*." },
+        ],
+      },
+    ],
+    faq: [
+      { q: "Can my manager accept a cover on my colleague's behalf?", a: "No. Accepting is the colleague's answer and approving is the manager's; a manager who wants to move a shift without the colleague's say-so uses the scheduler, where that is recorded as their decision." },
+      { q: "Why was my approved swap declined?", a: "The person taking the shift is not available then or has approved leave that day, and the check runs at approval time. The reason is on the request." },
+      { q: "Can someone with no login take my shift?", a: "They can be scheduled by the manager, but they cannot accept a request — there is no phone to reach them on. Trades only list colleagues with a login." },
+    ],
+  },
+
+  "changing-your-availability": {
+    title: "Changing your availability",
+    summary:
+      "Propose new hours from a date of your choosing, copy your current week to start, add several ranges a day, and see what your manager approved and when it takes effect.",
+    updated: "2026-09-13",
+    intro: [
+      "Your availability is the week the rota is built inside: a shift outside it is refused unless your manager overrides it, and if your role can quote, clients can book you inside it too — one set of hours, read by both. Changing it is a request with an effective date, so this week's rota stays as published and the new week begins when you said.",
+    ],
+    sections: [
+      {
+        id: "overview",
+        heading: "Overview",
+        blocks: [
+          { p: "Open **More → My availability**. The top card is your current week, one row per day with its ranges — or **Unavailable**. Under it, **Request new availability**; under that, **Your requests** with their state, and for a manager, the requests waiting with a day-by-day diff." },
+          { note: "There is one availability per person. A crew member's heading reads *Hours you can work*; somebody who can quote reads *Hours you can work and be booked for appointments*, with a link to their booking page. Same rows, same request — the label is honest about what the rows do." },
+        ],
+      },
+      {
+        id: "how-to",
+        heading: "How to request new hours",
+        blocks: [
+          { steps: [
+            "Tap **Request new availability**. The form opens with your current week already filled in (**Copy from current** brings it back if you clear it).",
+            "Set **My availability takes effect on** — the date the new week starts. Your current hours stay until then.",
+            "For each day under **Days and times**, tap **+** to add a from–to range; add a second for a split day. **All day** and **Unavailable** are one tap each.",
+            "Optionally type **Desired hours per week** and a note, then tap **Submit** at the bottom.",
+            "The request shows as **Waiting**. You can **Withdraw** it until it is decided.",
+          ] },
+        ],
+      },
+      {
+        id: "what-happens",
+        heading: "What happens next",
+        blocks: [
+          { bullets: [
+            "**Approved with a past or today's date** — applied at once; your week changes now.",
+            "**Approved with a future date** — the request reads *approved, applies on …* and the change lands on that morning, not before.",
+            "**Declined** — your current week stands; the manager's note, if any, is on the request.",
+            "**Company setting off** — *Availability needs approval* is on by default; turned off, the request is approved on arrival and still waits for its date. Settings → Availability keeps writing directly, as before.",
+          ] },
+          { p: "A range must start before it ends, two ranges on one day may not overlap, and a request with no hours at all is refused — a week you are never available is a resignation typed into the wrong form." },
+        ],
+      },
+      {
+        id: "for-managers",
+        heading: "For managers",
+        blocks: [
+          { p: "Under **Needs review** on your Home, the Requests panel on the scheduler, and **My availability** itself, each waiting request shows the person, the effective date, the hours per week it adds up to, and a table of the days that change: what they have now, what they asked for. **Approve** or **Decline**; you cannot approve your own." },
+        ],
+      },
+    ],
+    faq: [
+      { q: "Does this change my booking hours too?", a: "If your role can quote, yes — the booking calendar reads the same rows. If it cannot, clients were never able to book you and still cannot." },
+      { q: "Can I have two requests waiting?", a: "No. Withdraw the first or wait for its answer. Two approved requests for the same person are applied in date order and the later one stands." },
+      { q: "What about working hours in Settings → Availability?", a: "That screen also holds your usual pattern (Working hours), which the rota only warns about. The request here changes the availability half — the one that refuses a shift." },
     ],
   },
 };
