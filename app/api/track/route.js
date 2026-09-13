@@ -42,8 +42,13 @@ import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
 import { sanitiseBatch, MAX_BATCH_BYTES } from "@/lib/analytics/product/events";
 import { recordRows, analyticsAvailable } from "@/lib/analytics/product/store";
 
-/** One beacon per page view; two hundred in ten minutes is a very busy tab. */
-const TRACK_LIMIT = { limit: 200, windowMs: 10 * 60 * 1000 };
+/**
+ * One beacon per page view. The bucket is per IP, and the sales floor is
+ * twenty reps behind one office address, each moving between screens — so
+ * the ceiling is set for a room, not a tab: six hundred views in ten minutes
+ * from one address is still a script, never a floor.
+ */
+const TRACK_LIMIT = { limit: 600, windowMs: 10 * 60 * 1000 };
 
 const noContent = () => new NextResponse(null, { status: 204 });
 

@@ -345,7 +345,7 @@ reader counts once; signed-in surfaces carry none — the member / rep / admin
 comes from the session server-side. Impersonation sessions are not counted.
 
 Cost: one function invocation per page view plus one flush on tab hide, rate-
-limited 200 / 10 min per IP. At 100 active users × ~40 views a day that is
+limited 600 / 10 min per IP (a sales floor shares one address). At 100 active users × ~40 views a day that is
 ~4,000 invocations and ~5,000 raw rows a day (≈150k rows a month, capped at
 ~30 days ≈ 150k rows resident); daily rows are a few thousand a month.
 
