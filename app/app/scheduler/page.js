@@ -7,8 +7,11 @@
 //
 // Two views of the same rows, one toggle:
 //
-//   Week  the original list, seven day cards — readable on a phone, the
-//         place to see the shape of a week.
+//   Week  a grid (WeekGrid.js): a row per person, a column per day, an
+//         Events row and an Open shifts row on top, wages and hours per day
+//         in the footer, "ADD +" in any empty cell, Apply-to weekday
+//         toggles in the modal. Scrolls sideways on a phone with the names
+//         and the header sticky; prints on landscape letter.
 //   Day   the dispatch board (DayBoard.js): a row per person, a column per
 //         hour, lunches and breaks hatched inside the blocks, approved leave
 //         as OUT, and a coverage strip so a manager can see who is left on
@@ -26,6 +29,7 @@ import {
   Loader2,
   CalendarDays,
   Copy,
+  Printer,
   Send,
 } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
@@ -46,13 +50,22 @@ import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
 import { useVisibleRefresh } from "@/app/hooks/useVisibleRefresh";
 import DayBoard from "./DayBoard";
 import ShiftModal from "./ShiftModal";
+import WeekGrid from "./WeekGrid";
+import RequestsPanel from "./RequestsPanel";
+import EventDialog from "./EventDialog";
+import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 
 const VIEW_KEY = "scheduler.view";
 
-function startOfWeek(d) {
+// `weekStartsOn` is the company's preference for the GRID (Monday for most
+// trades). The pay week the overtime threshold is counted over stays
+// Sunday-anchored (the default) — see costWeek — because that is what
+// buildPayRun counts, and a grid that started Monday while overtime was
+// counted from Sunday would still be right about both.
+function startOfWeek(d, weekStartsOn = 0) {
   const x = new Date(d);
   x.setHours(0, 0, 0, 0);
-  x.setDate(x.getDate() - x.getDay()); // Sunday
+  x.setDate(x.getDate() - ((x.getDay() - weekStartsOn + 7) % 7));
   return x;
 }
 function addDays(d, n) {
@@ -97,7 +110,15 @@ export default function SchedulerPage() {
       /* not remembered, still shown */
     }
   };
-  const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
+  const { weekStartsOn } = useCompanyPreferences();
+  const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), weekStartsOn));
+  // The company's week start arrives with the preferences provider a tick
+  // after first paint; realign once it does, never on every render.
+  useEffect(() => {
+    setWeekStart((w) => startOfWeek(w, weekStartsOn));
+  }, [weekStartsOn]);
+  // { ymd } to add an event on a day; { event } to edit one.
+  const [eventDialog, setEventDialog] = useState(null);
   const [dateStr, setDateStr] = useState(() => localYmd(new Date()));
   const [data, setData] = useState(null);
   const [errorKey, setErrorKey] = useState("");
@@ -249,14 +270,6 @@ export default function SchedulerPage() {
   // the level above the one the Dispatcher preset grants. So a Dispatcher
   // drafted and published a week and was also shown a ✕ that could only 403.
   const canDeleteShift = hasLevel(caller, "schedule", "edit_delete_all");
-  const shiftsByDay = useMemo(() => {
-    const map = {};
-    for (const s of data?.shifts || []) {
-      const k = ymd(new Date(s.start));
-      (map[k] ||= []).push(s);
-    }
-    return map;
-  }, [data]);
 
   // The same route for "Publish week" and "Publish this day" — it already
   // took a range; the day button simply sends a shorter one.
@@ -294,18 +307,25 @@ export default function SchedulerPage() {
   // unavailable) is counted as skipped rather than forced through with an
   // override nobody chose. Confirmed first, because it creates rows.
   async function copyFromLastWeek() {
-    if (!dayBounds) return;
-    const sourceStart = new Date(dayBounds.start);
+    // The week view copies the WHOLE previous week; the day view one day.
+    // Same rule for both: a person with a shift on the target day is
+    // skipped, and a refused copy is counted, never forced.
+    const wholeWeek = view === "week";
+    if (!wholeWeek && !dayBounds) return;
+    const sourceStart = new Date(wholeWeek ? weekStart : dayBounds.start);
     sourceStart.setDate(sourceStart.getDate() - 7);
-    const sourceStr = localYmd(sourceStart);
-    const source = dayBoundsLocal(sourceStr);
-    const dow = new Date(dayBounds.start).getDay();
+    const sourceEnd = new Date(sourceStart);
+    sourceEnd.setDate(sourceEnd.getDate() + (wholeWeek ? 7 : 1));
+    const source = { start: sourceStart.getTime(), end: sourceEnd.getTime() };
+    const dow = new Date(wholeWeek ? weekStart : dayBounds.start).getDay();
     if (
       !window.confirm(
-        t("app.scheduler.copyConfirm", {
-          weekday: weekdayName(dow, language),
-          date: formatDayMonth(sourceStart, language),
-        }),
+        wholeWeek
+          ? t("app.scheduler.copyWeekConfirm", { date: formatDayMonth(sourceStart, language) })
+          : t("app.scheduler.copyConfirm", {
+              weekday: weekdayName(dow, language),
+              date: formatDayMonth(sourceStart, language),
+            }),
       )
     )
       return;
@@ -327,7 +347,11 @@ export default function SchedulerPage() {
         );
         return;
       }
-      const taken = new Set((data?.shifts || []).map((s) => s.workerId));
+      // Taken per (worker, day) — a week copy must not skip Tuesday because
+      // the person already has a Monday. Open shifts (no worker) are copied
+      // as open shifts and never "taken".
+      const dayOf = (iso) => localYmd(new Date(iso));
+      const taken = new Set((data?.shifts || []).filter((s) => s.workerId).map((s) => `${s.workerId}|${dayOf(s.start)}`));
       // Seven local days forward, through the Date constructor, so a copy
       // across a clock change keeps its wall-clock time.
       const forward = (iso) => {
@@ -338,7 +362,8 @@ export default function SchedulerPage() {
       let copied = 0;
       let skipped = 0;
       for (const s of sourceShifts) {
-        if (taken.has(s.workerId)) {
+        const key = s.workerId ? `${s.workerId}|${dayOf(forward(s.start))}` : null;
+        if (key && taken.has(key)) {
           skipped += 1;
           continue;
         }
@@ -346,11 +371,12 @@ export default function SchedulerPage() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            workerId: s.workerId,
+            workerId: s.workerId || null,
             start: forward(s.start),
             end: forward(s.end),
             jobId: s.job?.id || null,
             note: s.note || undefined,
+            label: s.label || undefined,
             breaks: (s.breaks || []).map((b) => ({
               start: forward(b.start),
               end: forward(b.end),
@@ -361,7 +387,7 @@ export default function SchedulerPage() {
         });
         if (res.ok) {
           copied += 1;
-          taken.add(s.workerId);
+          if (key) taken.add(key);
         } else {
           skipped += 1;
         }
@@ -380,7 +406,16 @@ export default function SchedulerPage() {
   }
 
   const weekLabel = `${formatDayMonth(weekStart, language)} – ${formatDayMonth(addDays(weekStart, 6), language)}`;
-  const anyDraft = (data?.shifts || []).some((s) => !s.published);
+  const draftCount = (data?.shifts || []).filter((s) => !s.published).length;
+  const anyDraft = draftCount > 0;
+  // The day board draws rows per person; an open shift (workerId null) is
+  // nobody on site and must not be counted as somebody by the coverage
+  // strip. The week grid draws them on its own row.
+  const boardData = useMemo(
+    () => (data ? { ...data, shifts: (data.shifts || []).filter((s) => s.workerId) } : data),
+    [data],
+  );
+  const openCount = (data?.shifts || []).filter((s) => !s.workerId).length;
   const todayStr = localYmd(now);
   const shiftDay = (n) => {
     const d = new Date(dayBounds ? dayBounds.start : Date.now());
@@ -430,7 +465,7 @@ export default function SchedulerPage() {
 
   return (
     <div
-      className={`${view === "day" ? "max-w-6xl" : "max-w-3xl"} mx-auto p-4 sm:p-6`}
+      className="max-w-6xl mx-auto p-4 sm:p-6"
     >
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
@@ -545,10 +580,10 @@ export default function SchedulerPage() {
             <ChevronLeft size={16} />
           </button>
           <button
-            onClick={() => setWeekStart(startOfWeek(new Date()))}
+            onClick={() => setWeekStart(startOfWeek(new Date(), weekStartsOn))}
             className="px-3 py-2 rounded-lg border border-border text-sm font-medium hover:bg-muted"
           >
-            {t("app.scheduler.thisWeek")}
+            {t("app.scheduler.today")}
           </button>
           <button
             onClick={() => setWeekStart(addDays(weekStart, 7))}
@@ -569,7 +604,7 @@ export default function SchedulerPage() {
           isManager only means user:view. See the comment above the two
           constants. */}
       {view === "week" && canEditSchedule && (
-        <div className="flex items-center gap-2 mb-4">
+        <div className="mb-4 flex flex-wrap items-center gap-2 print:hidden">
           <button
             data-tour="scheduler-add"
             onClick={() =>
@@ -585,10 +620,32 @@ export default function SchedulerPage() {
           >
             <Plus size={15} /> {t("app.scheduler.addShift")}
           </button>
-          {anyDraft && (
+          {/* The only view for now: rows are employees. Said as a label
+              rather than a dropdown of one. */}
+          <span className="rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground">
+            {t("app.scheduler.employeeView")}
+          </span>
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={copyFromLastWeek}
+              disabled={busy || loading || Boolean(errorKey)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm font-medium hover:bg-muted disabled:opacity-60"
+            >
+              <Copy size={14} /> {t("app.scheduler.copyWeek")}
+            </button>
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm font-medium hover:bg-muted"
+            >
+              <Printer size={14} /> {t("app.scheduler.print")}
+            </button>
+            {/* Publish (N): the count of drafts is the honest label, and
+                a zero is a disabled button rather than a missing one. */}
             <button
               onClick={publishWeek}
-              disabled={busy}
+              disabled={busy || draftCount === 0}
               className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-4 py-2 disabled:opacity-60"
             >
               {busy ? (
@@ -596,9 +653,38 @@ export default function SchedulerPage() {
               ) : (
                 <Send size={15} />
               )}
-              {t("app.scheduler.publishWeek")}
+              {t("app.scheduler.publishCount", { n: draftCount })}
             </button>
-          )}
+          </div>
+        </div>
+      )}
+
+      {/* Trades, covers, claims and availability changes waiting on a
+          manager — the same rows the phone shows, approved from here. */}
+      {canEditSchedule && (
+        <RequestsPanel t={t} language={language} onChanged={load} />
+      )}
+
+      {/* The people quick-jump: on a phone the day board is a long scroll of
+          rows, and a dispatcher looking for one person should not have to
+          scroll for them. A row of names that scrolls its row into view;
+          hidden from lg up where the whole board is on screen. */}
+      {view === "day" && isManager && (data?.workers || []).length > 4 && !loading && !errorKey && (
+        <div className="mb-3 flex gap-1.5 overflow-x-auto pb-1 lg:hidden print:hidden">
+          {(data?.workers || []).map((w) => (
+            <button
+              key={w.id}
+              type="button"
+              onClick={() =>
+                document
+                  .querySelector(`[data-worker-row="${w.id}"]`)
+                  ?.scrollIntoView({ behavior: "smooth", block: "center" })
+              }
+              className="min-h-[36px] shrink-0 rounded-full border border-border px-3 text-xs font-semibold text-foreground"
+            >
+              {w.name.split(" ")[0]}
+            </button>
+          ))}
         </div>
       )}
 
@@ -680,7 +766,7 @@ export default function SchedulerPage() {
       ) : view === "day" ? (
         <>
           <DayBoard
-            data={data}
+            data={boardData}
             dateStr={dateStr}
             now={now}
             isManager={Boolean(isManager)}
@@ -713,135 +799,47 @@ export default function SchedulerPage() {
           )}
         </>
       ) : (
-        <div className="space-y-3">
-          {isManager && labour && <WeekHoursPanel labour={labour} money={money} t={t} />}
-          {days.map((day) => {
-            const key = ymd(day);
-            const list = (shiftsByDay[key] || []).sort(
-              (a, b) => new Date(a.start) - new Date(b.start),
-            );
-            const isToday = ymd(new Date()) === key;
-            return (
-              <div
-                key={key}
-                className={`rounded-xl border bg-card p-4 ${isToday ? "border-foreground/40" : "border-border"}`}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-bold text-foreground">
-                    {formatWeekdayDayMonth(day, language)}
-                    {isToday && (
-                      <span className="ml-2 text-xs font-medium text-emerald-600 dark:text-emerald-400">
-                        {t("app.scheduler.today")}
-                      </span>
-                    )}
-                  </h3>
-                  {/* Same route, same level. This one is also a 44px target
-                      now: it was a bare 16px icon with no padding, and it is
-                      the fastest way to add a shift to a given day. */}
-                  {canEditSchedule && (
-                    <button
-                      type="button"
-                      onClick={() => setModal({ dateStr: key })}
-                      className="-mr-2 inline-flex size-11 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
-                      aria-label={t("app.scheduler.addShift")}
-                    >
-                      <Plus size={16} />
-                    </button>
-                  )}
-                </div>
-                {!list.length ? (
-                  <p className="text-sm text-muted-foreground">
-                    {t("app.scheduler.noShifts")}
-                  </p>
-                ) : (
-                  <ul className="space-y-1.5">
-                    {list.map((s) => (
-                      <li
-                        key={s.id}
-                        className="flex items-center justify-between gap-2 rounded-lg bg-muted/50 px-3 py-2"
-                      >
-                        <div className="min-w-0">
-                          <div className="text-sm font-medium text-foreground truncate">
-                            {fmtTime(s.start, language)} – {fmtTime(s.end, language)}
-                            {isManager && s.worker?.name
-                              ? ` · ${s.worker.name}`
-                              : ""}
-                          </div>
-                          {(s.job?.title || s.note) && (
-                            <div className="text-xs text-muted-foreground truncate">
-                              {[s.job?.title, s.note]
-                                .filter(Boolean)
-                                .join(" · ")}
-                            </div>
-                          )}
-                          {/* The lunch is part of the shift; a list that
-                              hid it would tell a worker to be on the tools
-                              for eight hours straight. */}
-                          {s.breaks?.length > 0 && (
-                            <div className="text-xs text-muted-foreground truncate">
-                              {s.breaks
-                                .map(
-                                  (b) =>
-                                    `${b.kind === "lunch" ? t("app.scheduler.lunch") : t("app.scheduler.break")} ${fmtTime(b.start, language)}–${fmtTime(b.end, language)}`,
-                                )
-                                .join(" · ")}
-                            </div>
-                          )}
-                          {/* The worker sees this on their OWN shift. That is
-                              the point of recording it rather than confirming
-                              it in a dialog: they were scheduled outside what
-                              they said they were available for, and they should
-                              learn it here, not on the morning. */}
-                          {s.availabilityOverrideAt && (
-                            <div className="text-xs text-amber-700 dark:text-amber-400">
-                              {t("app.scheduler.outsideAvailability")}
-                              {s.availabilityOverrideBy?.name
-                                ? ` · ${s.availabilityOverrideBy.name}`
-                                : ""}
-                              {s.availabilityOverrideNote
-                                ? ` — ${s.availabilityOverrideNote}`
-                                : ""}
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          {!s.published && (
-                            <span className="text-[10px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400">
-                              {t("app.scheduler.draft")}
-                            </span>
-                          )}
-                          {/* Same modal the board opens: times, job, note,
-                              lunch and breaks. Edit was only reachable from
-                              the board until this button; the list is the
-                              phone view and a phone user has the same
-                              shifts to fix. */}
-                          {canEditSchedule && (
-                            <button
-                              type="button"
-                              onClick={() => setModal({ shift: s })}
-                              className="text-xs font-medium text-foreground underline"
-                            >
-                              {t("app.action.edit")}
-                            </button>
-                          )}
-                          {isManager && canDeleteShift && (
-                            <button
-                              onClick={() => removeShift(s.id)}
-                              className="text-muted-foreground hover:text-red-600"
-                              aria-label={t("app.action.delete")}
-                            >
-                              <X size={15} />
-                            </button>
-                          )}
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            );
-          })}
-        </div>
+        <>
+          <WeekGrid
+            days={days}
+            shifts={data?.shifts || []}
+            workers={isManager ? data?.workers || [] : data?.self ? [data.self] : []}
+            events={data?.events || []}
+            labour={labour}
+            dayWages={(c) =>
+              labour?.week && data?.weekShifts
+                ? dailyLabourCost({
+                    dayMinutes: minutesByWorker(data.weekShifts, c.start, c.end),
+                    weekMinutesBefore: minutesByWorker(data.weekShifts, costWeek.start.getTime(), c.start),
+                    workers: (data.workers || []).map((w) => ({ ...w, hourlyRate: data.rates ? data.rates[w.id] ?? null : null })),
+                    thresholdWeekly: data.otThresholdWeekly,
+                  }).total
+                : null
+            }
+            payVisible={Boolean(labour?.payVisible)}
+            language={language}
+            t={t}
+            canEdit={canEditSchedule}
+            todayYmd={todayStr}
+            onAdd={(workerId, dateStr) => setModal({ workerId, dateStr })}
+            onEdit={(shift) => (canEditSchedule ? setModal({ shift }) : null)}
+            onAddEvent={(ymdStr) => setEventDialog({ ymd: ymdStr })}
+            onEditEvent={(event) => (canEditSchedule ? setEventDialog({ event }) : null)}
+          />
+          {/* The worker's open shifts to claim, and their own events, come
+              on the same payload; the grid draws them on its rows. */}
+          {openCount > 0 && isManager && (
+            <p className="mt-2 text-xs text-muted-foreground">{t("app.scheduler.openShiftsHint", { n: openCount })}</p>
+          )}
+          {/* Landscape letter for the printed grid: the page's chrome is
+              hidden by print:hidden on each piece; this sets the sheet. */}
+          <style>{`@media print {
+  @page { size: letter landscape; margin: 10mm; }
+  [data-week-grid] table { font-size: 10px; }
+  [data-week-grid] td, [data-week-grid] th { min-width: 0 !important; }
+  aside, nav, header { display: none !important; }
+}`}</style>
+        </>
       )}
 
       {!isManager && !loading && (
@@ -857,6 +855,8 @@ export default function SchedulerPage() {
           workers={data?.workers || []}
           jobs={data?.jobs || []}
           canDelete={canDeleteShift}
+          language={language}
+          weekStartsOn={weekStartsOn}
           onClose={() => setModal(null)}
           onSaved={async (warnings) => {
             setModal(null);
@@ -865,6 +865,18 @@ export default function SchedulerPage() {
           }}
           onDeleted={async () => {
             setModal(null);
+            await load();
+          }}
+          t={t}
+        />
+      )}
+      {eventDialog && canEditSchedule && (
+        <EventDialog
+          ymd={eventDialog.ymd || null}
+          event={eventDialog.event || null}
+          onClose={() => setEventDialog(null)}
+          onSaved={async () => {
+            setEventDialog(null);
             await load();
           }}
           t={t}

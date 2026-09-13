@@ -17,6 +17,7 @@ const SHIFT_SELECT = {
   start: true,
   end: true,
   note: true,
+  label: true,
   published: true,
   availabilityOverrideAt: true,
   availabilityOverrideNote: true,
@@ -92,6 +93,10 @@ export async function PATCH(request, { params }) {
   if (body.end !== undefined) data.end = new Date(body.end);
   if (body.note !== undefined)
     data.note = body.note ? String(body.note).slice(0, 300) : null;
+  // The role caption on the week board's block ("Lead", "Helper"). Same
+  // trim-or-null shape as the note; see Shift.label in the schema.
+  if (body.label !== undefined)
+    data.label = body.label && String(body.label).trim() ? String(body.label).trim().slice(0, 40) : null;
   if (body.published !== undefined) data.published = Boolean(body.published);
   if (body.jobId !== undefined) {
     // Same tenant check the create does. Attaching a job is the one field on
@@ -149,7 +154,12 @@ export async function PATCH(request, { params }) {
   // attaching a job must not fail because the worker's availability was edited
   // afterwards. The shift was already agreed; this route is not the place to
   // relitigate it.
-  if (data.start !== undefined || data.end !== undefined) {
+  //
+  // An OPEN shift (workerId null — see Shift.workerId in the schema) has
+  // nobody to check against, so it moves freely; the fit check runs when it
+  // is claimed. Said explicitly rather than left to `findFirst({ id: null })`
+  // happening to return nothing.
+  if ((data.start !== undefined || data.end !== undefined) && existing.workerId) {
     const worker = await db.worker.findFirst({
       where: { id: existing.workerId, companyId: member.companyId },
       select: { id: true, name: true, userId: true },

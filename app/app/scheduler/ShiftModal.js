@@ -18,6 +18,8 @@ import Link from "next/link";
 import { ExternalLink, Trash2, X } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
 import { midpointLunch, validateBreaks } from "@/lib/shifts/coverage";
+import { orderedWeekdayNames } from "@/lib/format/localeDate";
+import { weekDatesAround } from "@/lib/shifts/weekDates";
 
 const pad = (n) => String(n).padStart(2, "0");
 const hhmmOf = (iso) => {
@@ -59,11 +61,22 @@ export default function ShiftModal({
   onSaved,
   onDeleted,
   t,
+  language = "en",
+  weekStartsOn = 0,
 }) {
   const editing = Boolean(shift?.id);
+  // "" is nobody chosen yet; OPEN is an open shift (workerId null on the
+  // wire — see Shift.workerId in the schema). Editing keeps whatever the
+  // shift has, open included.
+  const OPEN = "__open__";
   const [workerId, setWorkerId] = useState(
-    shift?.workerId || initial.workerId || workers?.[0]?.id || "",
+    shift ? (shift.workerId || OPEN) : initial.workerId === null ? OPEN : initial.workerId || workers?.[0]?.id || "",
   );
+  const [label, setLabel] = useState(shift?.label || "");
+  // "Apply to": the other weekdays of this week to create the same shift on.
+  // The shift's own day is always included and cannot be toggled off. Only
+  // when creating — an edit is one shift.
+  const [applyTo, setApplyTo] = useState([]);
   const [date, setDate] = useState(
     shift ? ymdOf(shift.start) : initial.dateStr || "",
   );
@@ -153,15 +166,17 @@ export default function ShiftModal({
         end: localIso(date, end),
         jobId: jobId || null,
         note: note.trim() || (editing ? "" : undefined),
+        label: label.trim() || (editing ? "" : undefined),
         breaks: breaksVerdict.breaks,
         override: override || undefined,
         overrideNote:
           override && overrideNote.trim() ? overrideNote.trim() : undefined,
+        ...(editing ? {} : { applyDays: applyTo.filter((d) => d !== date) }),
       };
       const res = await fetch(editing ? `/api/shifts/${shift.id}` : "/api/shifts", {
         method: editing ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(editing ? payload : { workerId, ...payload }),
+        body: JSON.stringify(editing ? payload : { workerId: workerId === OPEN ? null : workerId, ...payload }),
       });
       if (!res.ok) {
         // 409 is the fit check: this person is not available, or is on
@@ -170,9 +185,13 @@ export default function ShiftModal({
         if (res.status === 409 && body?.blocks?.length) {
           // canOverride false is approved leave — a decision the company
           // already made and honoured. There is no "anyway" button for it, and
-          // offering one would be offering to break a promise.
+          // offering one would be offering to break a promise. With "Apply to"
+          // the refusal names each day, so Friday's leave reads as Friday's.
+          const perDay = Array.isArray(body.refused) && body.refused.length > 1
+            ? body.refused.map((r) => `${r.date}: ${r.blocks.join(" ")}`)
+            : body.blocks;
           setRefusal({
-            reasons: body.blocks,
+            reasons: perDay,
             canOverride: Boolean(body.canOverride),
           });
           return;
@@ -186,7 +205,10 @@ export default function ShiftModal({
       // manager is told it is outside this person's usual pattern, which is
       // how a mistyped hour reads as a mistyped hour.
       const body = await res.json().catch(() => null);
-      await onSaved(body?.warnings || []);
+      // Days that did not fit ride back as warnings, per day, so "Apply to
+      // Mon–Fri" that wrote four days says which one it did not.
+      const refusedLines = (body?.refused || []).map((r) => `${r.date}: ${r.blocks.join(" ")}`);
+      await onSaved([...(body?.warnings || []), ...refusedLines]);
     } finally {
       setSaving(false);
     }
@@ -284,12 +306,15 @@ export default function ShiftModal({
               disabled={editing}
               className={`${field} disabled:opacity-70`}
             >
+              {/* An OPEN shift: nobody yet. Claimed from the employee home
+                  through the cover flow, assigned by a manager's approval. */}
+              <option value={OPEN}>{t("app.scheduler.openShiftOption")}</option>
               {(workers || []).map((w) => (
                 <option key={w.id} value={w.id}>
                   {w.name}
                 </option>
               ))}
-              {editing && !(workers || []).some((w) => w.id === workerId) && (
+              {editing && workerId !== OPEN && !(workers || []).some((w) => w.id === workerId) && (
                 <option value={workerId}>{shift?.worker?.name || "—"}</option>
               )}
             </select>
@@ -305,6 +330,34 @@ export default function ShiftModal({
               className={field}
             />
           </label>
+          {/* ── Apply to ─────────────────────────────────────────────
+              The same shift on other days of this week, one save. The
+              server creates the days that fit in one transaction and names
+              the ones that do not; see POST /api/shifts. */}
+          {!editing && date ? (
+            <div>
+              <span className="text-xs text-muted-foreground">{t("app.scheduler.applyTo")}</span>
+              <div className="mt-1 flex flex-wrap gap-1">
+                {weekDatesAround(date, weekStartsOn).map((d) => {
+                  const own = d.ymd === date;
+                  const on = own || applyTo.includes(d.ymd);
+                  const name = orderedWeekdayNames(weekStartsOn, language).find((n) => n.index === d.dow)?.label || "";
+                  return (
+                    <button
+                      key={d.ymd}
+                      type="button"
+                      disabled={own}
+                      aria-pressed={on}
+                      onClick={() => setApplyTo((list) => (list.includes(d.ymd) ? list.filter((x) => x !== d.ymd) : [...list, d.ymd]))}
+                      className={`min-h-[36px] rounded-lg border px-2 text-xs font-semibold ${on ? "border-foreground bg-foreground text-background" : "border-border text-muted-foreground"} disabled:opacity-100`}
+                    >
+                      {name.slice(0, 3)}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
           <div className="flex gap-3">
             <label className="block flex-1">
               <span className="text-xs text-muted-foreground">
@@ -370,6 +423,19 @@ export default function ShiftModal({
               value={note}
               onChange={(e) => setNote(e.target.value)}
               placeholder={t("app.scheduler.notePlaceholder")}
+              className={field}
+            />
+          </label>
+          {/* The role caption on the week grid's block — "Lead", "Helper".
+              Free text; null shows the job's client instead. */}
+          <label className="block">
+            <span className="text-xs text-muted-foreground">
+              {t("app.scheduler.labelOptional")}
+            </span>
+            <input
+              value={label}
+              onChange={(e) => setLabel(e.target.value.slice(0, 40))}
+              placeholder={t("app.scheduler.labelPlaceholder")}
               className={field}
             />
           </label>
