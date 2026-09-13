@@ -185,7 +185,7 @@ export const ARTICLES = {
             head: ["Cifra", "Cómo se calcula"],
             rows: [
               ["**Costo combinado por prospecto**", "Todo lo registrado, dividido entre los prospectos de su tablero de Prospectos en el mismo periodo. Los prospectos ingresados a mano o importados de un archivo se dejan fuera y se cuentan aparte —«+ 4 prospectos ingresados manualmente o importados, no contados»— porque el gasto de este periodo no los provocó."],
-              ["**Gasto por canal**", "Los importes registrados por canal, con los prospectos y el costo por prospecto que usted tecleó, marcados «(según lo ingresado)»."],
+              ["**Gasto por canal**", "Los importes registrados por canal bajo **Gastado**, con los prospectos y el costo por prospecto que usted tecleó, marcados «(según lo ingresado)», y una columna **Presupuestado (campañas)**: los presupuestos de sus campañas no archivadas en Marketing, sumados por canal — las campañas de folletos a Volantes, Meta / anuncios pagados a Facebook / Instagram, correo y otras a Otro. Un canal con presupuesto y nada registrado muestra «nada registrado todavía», y una lista bajo la tabla nombra la campaña de la que sale la cifra. Un presupuesto nunca entra en un total ni en un costo por prospecto."],
               ["**Campañas**", "Una fila por campaña de Meta que FieldQuo ha sincronizado: lo que costó, lo que Meta reportó (impresiones, alcance, clics, CTR, CPC, conversaciones, reproducciones de video, interacciones) y qué fue de sus prospectos por formulario: prospectos, presupuestos, trabajos, facturado."],
               ["**≈ aproximado**", "Una cuenta de Meta que reporta en una moneda distinta a la de su empresa se convierte a un tipo de cambio fijado y se marca ≈. Si ese tipo tiene más de 45 días, o FieldQuo no tiene tipo de cambio para ese par, las filas quedan fuera y la pantalla nombra el importe y el motivo."],
             ],
@@ -206,6 +206,7 @@ export const ARTICLES = {
       { q: "¿FieldQuo puede decirme qué canal está funcionando?", a: "Solo para los prospectos por formulario de Meta, por campaña. Todo lo demás está combinado, y la pantalla lo dice bajo la cifra en lugar de adivinar." },
       { q: "¿La sincronización de Meta corre sola?", a: "No. Pulse Sincronizar ahora en Configuración → Meta Ads; cada pulsación importa los últimos 30 días." },
       { q: "¿Por qué mi cifra dice «Aún no hay datos suficientes»?", a: "No se ha registrado gasto, o no llegó ningún prospecto en el periodo. Ambos casos se muestran en lugar de un cero." },
+      { q: "¿Por qué un canal muestra una cifra Presupuestada si no registré nada?", a: "Porque una campaña de ese canal en Marketing lleva un presupuesto. Presupuestado es lo que reservó para toda la vida de la campaña, no para un periodo; Gastado es lo que se registró aquí o se sincronizó desde Meta. Archive la campaña y su presupuesto sale de la columna." },
     ],
   },
 

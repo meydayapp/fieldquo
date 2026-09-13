@@ -554,9 +554,9 @@ export const ARTICLES = {
           { table: {
             head: ["Archivo", "Una fila por", "Columnas"],
             rows: [
-              ["summary", "periodo", "Empresa, periodo, fecha de generación, moneda de facturación; luego por moneda: Facturado, del cual impuesto, Pagos recibidos, Comisiones de procesamiento, Comisiones de cuenta de Stripe, Gastos; luego las limitaciones y las notas sobre el periodo."],
+              ["summary", "periodo", "Empresa, periodo, fecha de generación, moneda de facturación; luego por moneda: Facturado, del cual impuesto, Pagos recibidos, Reembolsos, Comisiones de procesamiento, Comisiones de cuenta de Stripe, Gastos; luego las limitaciones y las notas sobre el periodo."],
               ["invoices", "factura", "Número de factura, Emitida, Fecha tomada de, Vencimiento, Cliente, Estado, Versión, Moneda, Subtotal, Descuento, Impuesto, Impuesto aplicado, Total, Pagado hasta la fecha, Recibido en el periodo, Saldo."],
-              ["payments", "pago", "Fecha, Número de factura, Cliente, Forma de pago, Moneda, Importe, Comisión de procesamiento, Neto depositado, Tarifa de comisión, Comisiones de cuenta de Stripe, Referencia, Notas."],
+              ["payments", "pago o reembolso", "Fecha, Número de factura, Cliente, Forma de pago, Moneda, Importe, Comisión de procesamiento, Neto depositado, Tarifa de comisión, Comisiones de cuenta de Stripe, Referencia, Notas. Un reembolso emitido desde FieldQuo es su propia línea: forma de pago **refund**, un Importe negativo, el identificador de reembolso de Stripe como Referencia y el motivo como Notas."],
               ["expenses", "gasto", "Fecha, Categoría, Moneda, Importe, Gastos generales, Recurrente, Frecuencia, Trabajo, Notas."],
             ],
           } },
@@ -583,7 +583,7 @@ export const ARTICLES = {
             "Una declaración. Nada de esto se ha remitido a ninguna autoridad fiscal.",
             "Una declaración de impuestos sobre las ventas. El impuesto de una factura es un solo importe, sin códigos de impuesto ni impuesto por línea.",
             "Créditos fiscales por compras. Los gastos no llevan impuesto ni proveedor, así que el impuesto recuperable de lo que compró no se registra.",
-            "Reembolsos y notas de crédito. Un reembolso se ve en la factura y en su panel de Stripe; no es una fila de este archivo.",
+            "Notas de crédito. Un reembolso emitido desde la factura en FieldQuo es una línea negativa del archivo de pagos y se totaliza bajo Reembolsos; un reembolso hecho directamente en su panel de Stripe no es una línea — solo se ve en el importe reembolsado del pago original.",
             "Un plan de cuentas. Nada está asignado a una cuenta contable: su contador lo hace una vez, al importar.",
           ] },
         ],
@@ -592,7 +592,7 @@ export const ARTICLES = {
         id: "importing-it",
         heading: "Importar en QuickBooks o Xero",
         blocks: [
-          { p: "Asigne el **Importe** del archivo de pagos a ingresos, la **Comisión de procesamiento** a un gasto de comisiones bancarias y el **Neto depositado** al depósito bancario; el extracto bancario cuadra entonces línea por línea. Las facturas entran por el **Total** con **Impuesto** como importe del impuesto. La guía por programa está en [[quickbooks-xero-and-your-bookkeeper|QuickBooks, Xero y su contador]]; las columnas de comisiones se explican en [[payment-processing-fees-and-payouts|Comisiones de procesamiento de pagos y transferencias]]." },
+          { p: "Asigne el **Importe** del archivo de pagos a ingresos, la **Comisión de procesamiento** a un gasto de comisiones bancarias y el **Neto depositado** al depósito bancario; el extracto bancario cuadra entonces línea por línea. Una línea **refund** es un Importe negativo contra la misma cuenta de ingresos, sin comisión propia. Las facturas entran por el **Total** con **Impuesto** como importe del impuesto. La guía por programa está en [[quickbooks-xero-and-your-bookkeeper|QuickBooks, Xero y su contador]]; las columnas de comisiones se explican en [[payment-processing-fees-and-payouts|Comisiones de procesamiento de pagos y transferencias]]." },
         ],
       },
       {

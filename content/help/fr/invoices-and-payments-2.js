@@ -56,7 +56,7 @@ export const ARTICLES = {
         id: "payments",
         heading: "Paiements",
         blocks: [
-          { p: "Un client paie depuis le bouton Payer du courriel de facture ou depuis son espace client. Les modes offerts dépendent de votre devise : la carte partout, et le débit préautorisé pour les entreprises canadiennes qui facturent en dollars canadiens." },
+          { p: "Un client paie depuis le bouton Payer du courriel de facture ou depuis son espace client. Les modes offerts dépendent de votre devise et de votre compte Stripe : la carte partout, et — une fois que Stripe l'a activé sur votre compte — **Payer depuis un compte bancaire** à côté du bouton carte sur les factures, les acomptes et les versements d'un calendrier de paiement : le débit préautorisé pour une entreprise canadienne qui facture en dollars canadiens. Un paiement bancaire met de 3 à 5 jours ouvrables à passer, et la facture lit **Paiement bancaire en attente** d'ici là." },
           { p: "Sur chaque paiement, FieldQuo enregistre les frais au taux publié, et la ligne du paiement sur la facture se lit, par exemple, **« frais carte 68,10 $ · déposé 2 191,90 $ »**. Un paiement que vous enregistrez à la main — comptant, chèque, virement Interac — ne porte aucuns frais et n'en affiche aucun." },
           { figure: "live:app-invoices", caption: "Factures — Impayé, Payée et Total facturé, puis chaque facture avec son état et son solde." },
           { p: "Le financement en plusieurs versements (Affirm), si vous l'activez, est tarifé par Affirm plutôt qu'au taux carte; ces frais sont refacturés sur ces paiements de la même façon." },
@@ -98,7 +98,7 @@ export const ARTICLES = {
         id: "refunds",
         heading: "Remboursements",
         blocks: [
-          { p: "Un remboursement rend l'argent au client par Stripe. Les frais de traitement ne sont **pas remboursés** : Stripe garde ses frais sur une transaction remboursée, et les frais déjà déduits restent déduits. La fiche du paiement continue d'afficher les frais d'origine, et le remboursement apparaît dans votre tableau de bord Stripe sur la même transaction." },
+          { p: "Un remboursement s'émet depuis la facture dans FieldQuo — **Rembourser** sur la ligne du paiement, en totalité ou en partie, avec un motif — et rend l'argent au client par Stripe. Les frais de traitement ne sont **pas remboursés** : Stripe garde ses frais sur une transaction remboursée, et les frais déjà déduits restent déduits. Le paiement continue d'afficher ses frais d'origine, et le remboursement est sa propre ligne en dessous, avec le montant en négatif. Voir [[refunds|Remboursements]]." },
           { warning: "Remboursez le montant de la facture, pas le net. Un client qui a payé 2 260 $ s'attend à recevoir 2 260 $; les 68,10 $ de frais sont votre coût pour avoir encaissé le paiement." },
         ],
       },
@@ -157,35 +157,35 @@ export const ARTICLES = {
   "bank-debit-in-canada": {
     title: "Débit bancaire au Canada : 1 % plafonné à 5 $",
     summary:
-      "Où le débit préautorisé est offert, ce qu'il coûte, combien de temps un débit met à passer, et pourquoi le plafond de 5 $ est la façon la moins chère d'encaisser une grosse facture récurrente.",
+      "Où le débit préautorisé est offert, ce qu'il coûte, combien de temps un débit met à passer, et pourquoi le plafond de 5 $ est la façon la moins chère d'encaisser une grosse facture.",
     updated: "2026-09-12",
     intro: [
-      "Un client canadien inscrit à un forfait de service peut payer par débit préautorisé directement depuis son compte bancaire plutôt que par carte. Les frais sont de **1 % + 0,40 $, plafonnés à 5,00 $** par paiement — un débit de 5 000 $ vous coûte donc 5 $, là où le même montant par carte coûte 150,30 $. Le débit bancaire est refacturé au coût de Stripe; FieldQuo n'y ajoute rien.",
-      "Cet article dit exactement où le débit bancaire est offert (les forfaits de service facturés en dollars canadiens, pas le bouton Payer d'une facture ponctuelle), ce que le client accepte, combien de temps un débit met à passer, et comment les frais figurent sur la facture et dans votre export comptable.",
+      "Un client canadien peut payer une facture, un acompte, un versement d'un calendrier de paiement ou un forfait de service par débit préautorisé directement depuis son compte bancaire plutôt que par carte. Les frais sont de **1 % + 0,40 $, plafonnés à 5,00 $** par paiement — un débit de 5 000 $ vous coûte donc 5 $, là où le même montant par carte coûte 150,30 $. Le débit bancaire est refacturé au coût de Stripe; FieldQuo n'y ajoute rien.",
+      "Cet article dit exactement où le débit bancaire est offert (le bouton **Payer … depuis un compte bancaire** de l'espace client pour les factures, les acomptes et les versements, et les forfaits de service avec prélèvement automatique — pour une entreprise qui facture en dollars canadiens), ce que le client accepte, combien de temps un débit met à passer, et comment les frais figurent sur la facture et dans votre export comptable.",
     ],
     sections: [
       {
         id: "overview",
         heading: "Vue d'ensemble",
         blocks: [
-          { p: "Le débit bancaire dans FieldQuo est le débit préautorisé canadien (DPA) par Stripe. Le client enregistre son compte bancaire une seule fois, sur une page hébergée par Stripe, et accepte par écrit une série de paiements d'un montant fixe à une fréquence fixe. Ensuite, chaque échéance du forfait est prélevée sans que le client fasse quoi que ce soit, et chaque prélèvement produit une facture qu'il peut voir dans son espace client." },
-          { p: "Il est offert seulement quand l'entreprise facture en **CAD**. Stripe exige que la devise du débit corresponde au compte bancaire canadien du client; une entreprise qui facture en dollars américains ne voit que la carte comme mode automatique." },
-          { note: "Le débit bancaire n'est pas offert sur le bouton Payer d'une facture ordinaire. Ce paiement accepte les cartes (et Affirm, si vous avez activé le paiement échelonné). Le débit bancaire vit sur les forfaits de service avec prélèvement automatique — voir [[service-plans|Forfaits de service]]." },
+          { p: "Le débit bancaire dans FieldQuo est le débit préautorisé canadien (DPA) par Stripe, sous deux formes. Dans l'espace client, un client qui paie une facture, un acompte ou un versement appuie sur **Payer … depuis un compte bancaire** et accepte un mandat ponctuel pour ce seul paiement sur la page de Stripe, qui vérifie le compte automatiquement quand la banque le permet. Sur un forfait de service, le client enregistre son compte bancaire une seule fois et accepte par écrit une série de paiements d'un montant fixe à une fréquence fixe; ensuite, chaque échéance du forfait est prélevée sans que le client fasse quoi que ce soit, et chaque prélèvement produit une facture qu'il peut voir dans son espace client." },
+          { p: "Il est offert seulement quand l'entreprise facture en **CAD**. Stripe exige que la devise du débit corresponde au compte bancaire canadien du client; une entreprise qui facture en dollars américains obtient plutôt le débit bancaire ACH sur le même bouton de l'espace client (0,8 %, plafonné à 5,00 $), et la carte comme seul mode automatique sur les forfaits." },
+          { note: "Le bouton bancaire de l'espace client n'est offert qu'une fois que Stripe a activé cette capacité sur votre compte. FieldQuo la demande à la connexion, et **Paramètres → Paiements** dit où vous en êtes : **Les clients peuvent payer les factures par carte ou depuis un compte bancaire**, ou que le paiement bancaire sera proposé dès que Stripe l'activera. Les frais de réservation restent par carte seulement — un créneau retenu 30 minutes ne peut pas attendre cinq jours. Les forfaits de service avec prélèvement automatique gardent leur propre mandat — voir [[service-plans|Forfaits de service]]." },
         ],
       },
       {
         id: "where-it-is-offered",
         heading: "Où le débit bancaire est offert",
         blocks: [
-          { p: "Le choix revient au client, pas à vous : quand vous demandez à un client d'autoriser un forfait, la page de Stripe propose une carte ou, pour une entreprise en CAD, un compte bancaire, et le client choisit. Voici le chemin de votre côté." },
+          { p: "Le choix revient au client, pas à vous. Dans l'espace client, le bouton bancaire est à côté du bouton carte et le client choisit; quand vous demandez à un client d'autoriser un forfait, la page de Stripe propose une carte ou, pour une entreprise en CAD, un compte bancaire. Voici le chemin de votre côté." },
           { steps: [
-            "Ouvrez **Forfaits** et créez le forfait en choisissant **Prélever automatiquement** sous **Mode de paiement**.",
-            "Enregistrez-le. Le forfait affiche **Prélèvement automatique demandé, mais le client n'a pas encore accepté** tant que le client n'a pas agi. Appuyez sur **Demander au client d'autoriser les paiements** pour lui envoyer le lien par courriel.",
+            "Sur une facture, un acompte ou un versement, il n'y a rien à configurer : une fois que Stripe a activé le débit bancaire sur votre compte, l'espace client montre **Payer … depuis un compte bancaire** à côté de **Payer … par carte**. La page de Stripe prend les coordonnées bancaires, affiche son entente de débit préautorisé pour ce seul paiement, et les frais sont calculés exactement pour ce mode — une facture de 5 000 $ coûte 5,00 $.",
+            "Sur un forfait de service, ouvrez **Forfaits** et créez le forfait en choisissant **Prélever automatiquement** sous **Mode de paiement**. Enregistrez-le; le forfait affiche **Prélèvement automatique demandé, mais le client n'a pas encore accepté** tant que le client n'a pas agi. Appuyez sur **Demander au client d'autoriser les paiements** pour lui envoyer le lien par courriel.",
             "Le client lit les conditions d'autorisation sur sa propre page, coche la case et arrive sur la page de Stripe, qui propose **carte** ou **compte bancaire**. Pour un compte bancaire, Stripe affiche sa propre entente de débit préautorisé et en envoie une copie au client par courriel.",
             "Une fois le compte enregistré, le forfait affiche **Prélèvement automatique — débit bancaire**, avec la date à laquelle le client l'a autorisé. D'ici là, il facture chaque visite, exactement comme un forfait sans mandat.",
           ] },
           { figure: "live:app-plans", caption: "Forfaits — chaque forfait avec sa fréquence, son mode de paiement et la prochaine étape." },
-          { note: "Le texte d'autorisation n'existe qu'en anglais et en français. Un client dont la langue n'est ni l'une ni l'autre ne se voit pas offrir le prélèvement automatique du tout : son forfait envoie plutôt une facture avec un lien de paiement à chaque visite. Tous les détails : [[service-plan-bank-debit-mandates|Forfaits payés par débit bancaire : le mandat]]." },
+          { note: "Le texte d'autorisation des forfaits n'existe qu'en anglais et en français. Un client dont la langue n'est ni l'une ni l'autre ne se voit pas offrir le prélèvement automatique du tout : son forfait envoie plutôt une facture avec un lien de paiement à chaque visite. Tous les détails : [[service-plan-bank-debit-mandates|Forfaits payés par débit bancaire : le mandat]]." },
         ],
       },
       {
@@ -200,7 +200,7 @@ export const ARTICLES = {
               ["5 000 $", "5,00 $ (le plafond)", "150,30 $"],
             ],
           } },
-          { p: "Les frais sont déduits du prélèvement avant que l'argent atteigne votre banque, comme pour une carte. La ligne du paiement sur la facture se lit, par exemple, **« frais débit bancaire 5,00 $ · déposé 4 995,00 $ »**, et l'export comptable inscrit le mode « acss_debit » dans sa colonne **Fee rate**. Il n'y a aucun supplément international ni de conversion de devise sur le débit bancaire." },
+          { p: "Les frais sont déduits du prélèvement avant que l'argent atteigne votre banque, comme pour une carte. La ligne du paiement sur la facture se lit, par exemple, **« frais débit bancaire 5,00 $ · déposé 4 995,00 $ »**, et l'export comptable inscrit le mode « acss_debit » dans sa colonne **Fee rate**. Il n'y a aucun supplément international ni de conversion de devise sur le débit bancaire, et les frais sont les mêmes que le débit vienne du bouton de l'espace client ou d'un forfait." },
           { tip: "Le plafond est atteint à 460 $. Au-delà, chaque dollar de plus qu'un client paie par débit bancaire est sans frais — c'est pourquoi un forfait d'entretien trimestriel ou annuel est l'endroit où l'offrir." },
         ],
       },
@@ -208,11 +208,11 @@ export const ARTICLES = {
         id: "how-a-debit-settles",
         heading: "Comment un débit passe",
         blocks: [
-          { p: "Un paiement par carte a sa réponse en quelques secondes. Un débit bancaire est accepté sur-le-champ, mais l'argent circule ensuite dans le système bancaire et met environ **5 jours ouvrables** à passer." },
+          { p: "Un paiement par carte a sa réponse en quelques secondes. Un débit bancaire est accepté sur-le-champ, mais l'argent circule ensuite dans le système bancaire et met de **3 à 5 jours ouvrables** à passer." },
           { bullets: [
-            "Pendant le transit, l'échéance du forfait s'affiche comme en cours de prélèvement et la facture n'est **pas** marquée payée — FieldQuo n'affiche pas une facture réglée sur de l'argent qui n'est pas arrivé. Stripe envoie au client l'avis de prélèvement que le mandat exige.",
+            "Pendant le transit, la facture n'est **pas** marquée payée — FieldQuo n'affiche pas une facture réglée sur de l'argent qui n'est pas arrivé. Depuis l'espace client, la facture du client lit **Paiement bancaire en attente** et la vôtre porte un bandeau disant qu'un paiement bancaire est en route et depuis quand; sur un forfait, l'échéance s'affiche comme en cours de prélèvement. Stripe envoie au client l'avis de prélèvement que le mandat exige.",
             "Quand le débit passe, la facture devient **Payée** et le client reçoit un reçu de votre entreprise par courriel.",
-            "Si la banque le retourne (fonds insuffisants, compte fermé), l'échéance est marquée échouée et le client reçoit la facture avec un lien de paiement par courriel : la visite reste facturée et peut encore être payée par carte.",
+            "Si la banque le retourne (fonds insuffisants, compte fermé), le solde reste dû. Depuis l'espace client, la facture lit **Le paiement bancaire a échoué** avec la raison donnée par Stripe, et le client peut réessayer ou payer par carte; sur un forfait, l'échéance est marquée échouée et le client reçoit la facture avec un lien de paiement par courriel : la visite reste facturée et peut encore être payée par carte.",
           ] },
           { warning: "Un compte bancaire qui attend encore la vérification par microdépôts n'est pas encore un mandat. FieldQuo n'enregistre l'autorisation que lorsque Stripe confirme la configuration terminée; un forfait peut donc afficher « Le client a accepté mais n'a pas encore enregistré de moyen de paiement » pendant un jour ou deux, le temps que le client confirme les dépôts." },
         ],
@@ -229,14 +229,14 @@ export const ARTICLES = {
         id: "who-can-see-it",
         heading: "Qui peut le mettre en place",
         blocks: [
-          { p: "Les forfaits de service sont rangés sous Factures dans la grille d'accès : quiconque voit les factures voit les forfaits. Créer un forfait et envoyer le lien d'autorisation exige l'accès en modification aux factures **et** l'option **paiements** — le niveau Gestionnaire et plus, et tout accès personnalisé qui a les deux. Les frais eux-mêmes ne sont pas un paramètre; personne ne peut les changer." },
+          { p: "Le bouton de l'espace client n'exige rien de vous au-delà d'un compte Stripe connecté. Les forfaits de service sont rangés sous Factures dans la grille d'accès : quiconque voit les factures voit les forfaits. Créer un forfait et envoyer le lien d'autorisation exige l'accès en modification aux factures **et** l'option **paiements** — le niveau Gestionnaire et plus, et tout accès personnalisé qui a les deux. Les frais eux-mêmes ne sont pas un paramètre; personne ne peut les changer." },
         ],
       },
     ],
     faq: [
-      { q: "Un client peut-il payer une facture ponctuelle par débit bancaire?", a: "Non. Le bouton Payer d'une facture accepte les cartes, plus Affirm si vous offrez le financement. Le débit bancaire passe par un forfait de service que le client a autorisé." },
+      { q: "Un client peut-il payer une facture ponctuelle par débit bancaire?", a: "Oui — depuis son espace client, avec Payer … depuis un compte bancaire à côté du bouton carte, une fois que Stripe a activé le débit bancaire sur votre compte. Les acomptes et les versements d'un calendrier de paiement aussi. Les frais de réservation restent par carte seulement, et un forfait de service garde son mandat permanent." },
       { q: "Le plafond de 5 $ est-il par paiement ou par mois?", a: "Par paiement. Deux débits de 5 000 $ dans le même mois coûtent 5 $ chacun." },
-      { q: "Pourquoi la facture est-elle encore impayée deux jours après le débit?", a: "Un débit bancaire met environ cinq jours ouvrables à passer. La facture est marquée payée quand l'argent arrive vraiment, pas quand le débit est demandé." },
+      { q: "Pourquoi la facture est-elle encore impayée deux jours après le débit?", a: "Un débit bancaire met de 3 à 5 jours ouvrables à passer. La facture lit Paiement bancaire en attente, et elle est marquée payée quand l'argent arrive vraiment, pas quand le débit est demandé." },
     ],
   },
 
@@ -430,10 +430,10 @@ export const ARTICLES = {
   "refunds": {
     title: "Remboursements",
     summary:
-      "Comment rendre un paiement en ligne à un client par Stripe, ce que FieldQuo enregistre quand vous le faites, et pourquoi les frais de traitement restent déduits.",
+      "Comment rendre un paiement à un client depuis la facture — par Stripe pour une carte ou un débit bancaire, à la main pour du comptant — ce que FieldQuo enregistre quand vous le faites, et pourquoi les frais de traitement restent déduits.",
     updated: "2026-09-12",
     intro: [
-      "Un remboursement rend tout ou partie d'un paiement en ligne sur la carte ou le compte bancaire du client. Vous l'émettez dans votre tableau de bord Stripe — il n'y a pas de bouton de remboursement dans FieldQuo — et FieldQuo l'enregistre dès que Stripe le signale : la ligne du paiement, le solde et l'état de la facture, et une notification aux personnes qui s'occupent des paiements.",
+      "Un remboursement rend tout ou partie d'un paiement au client. Vous l'émettez depuis la facture dans FieldQuo — **Rembourser** sur la ligne du paiement — pour le montant complet ou une partie, avec un motif que le client verra sur sa facture. Un paiement par carte ou par débit bancaire repart par où il est venu, par Stripe; un remboursement en comptant, par chèque ou par virement Interac est enregistré sans qu'aucun argent passe par Stripe. FieldQuo inscrit le remboursement comme sa propre ligne sous le paiement, et le solde et l'état de la facture suivent.",
       "Les frais de traitement ne sont pas remboursés. Stripe garde ses frais sur une transaction remboursée, alors les frais déjà déduits restent déduits. Remboursez le montant que le client a payé, pas le net que vous avez reçu.",
     ],
     sections: [
@@ -441,7 +441,7 @@ export const ARTICLES = {
         id: "overview",
         heading: "Vue d'ensemble",
         blocks: [
-          { p: "Chaque paiement en ligne est une transaction Stripe au nom de votre entreprise. La rembourser est un geste Stripe, fait depuis le tableau de bord Express derrière **Gérer dans Stripe**, pour le montant complet ou une partie, une fois ou plusieurs. FieldQuo écoute la confirmation de Stripe et met la facture à jour — il n'émet jamais un remboursement de facture de lui-même, et il ne sort jamais d'argent de votre solde sans que Stripe lui dise que le remboursement a eu lieu." },
+          { p: "Chaque paiement en ligne est une transaction Stripe au nom de votre entreprise, et la rembourser est un remboursement Stripe — émis depuis FieldQuo, parce que le tableau de bord Express derrière **Gérer dans Stripe** ne peut pas rembourser une transaction que la plateforme a créée pour vous. FieldQuo n'enregistre le remboursement qu'une fois que Stripe confirme que l'argent a bougé, une fois ou plusieurs sur le même paiement, et n'en émet jamais un de lui-même. Une session de soutien en lecture seule est refusée : l'accès du soutien ne peut pas faire bouger l'argent d'une entreprise." },
           { note: "Il y a un remboursement que FieldQuo émet lui-même : les frais de visite d'une réservation, rendus quand un client annule une visite dans le délai d'avis que vous avez fixé. C'est une règle à part — voir [[booking-fees-and-visit-deposits|Frais de réservation et acomptes de visite]]." },
         ],
       },
@@ -450,12 +450,12 @@ export const ARTICLES = {
         heading: "Comment rembourser un paiement en ligne",
         blocks: [
           { steps: [
-            "Ouvrez la facture et notez la date et le montant du paiement sur sa ligne.",
-            "Ouvrez **Paramètres → Paiements** et appuyez sur **Gérer dans Stripe**.",
-            "Dans le tableau de bord de Stripe, ouvrez le paiement et remboursez-le — le montant complet ou une partie.",
-            "De retour dans FieldQuo, la facture se met à jour d'elle-même dès que Stripe confirme le remboursement. Rien à appuyer.",
+            "Ouvrez la facture et trouvez le paiement sous **Historique des paiements**. Un paiement qui retient encore de l'argent affiche **Rembourser** à côté.",
+            "Appuyez sur **Rembourser**. La boîte de dialogue — **Rembourser ce paiement** — dit combien peut encore être remboursé, et demande le **Montant à rembourser** (le montant complet ou une partie) et un **Motif** (« Travaux annulés, trop-perçu, geste commercial »).",
+            "Lisez la ligne sous les champs. Pour un paiement par carte ou par débit bancaire : l'argent retourne sur la carte ou le compte bancaire du client via Stripe, généralement sous 5 à 10 jours ouvrables, et Stripe ne rend pas ses frais de traitement. Pour un paiement comptant, par chèque ou par virement : aucun argent ne bouge; cela enregistre que vous avez rendu le montant.",
+            "Appuyez sur **Rembourser**. La ligne apparaît tout de suite — **Remboursement (Card) — votre motif**, avec un montant négatif — et le solde et l'état de la facture se mettent à jour. Un double clic ou un envoi répété ne peut pas l'émettre deux fois.",
           ] },
-          { figure: "live:app-settings-payments", caption: "Paramètres → Paiements — Gérer dans Stripe ouvre le tableau de bord où les remboursements s'émettent." },
+          { figure: "harness:invoice-detail", caption: "La facture — l'Historique des paiements au bas, où Rembourser se trouve à côté de chaque paiement qui retient encore de l'argent." },
           { warning: "Remboursez le montant de la facture, pas le net. Un client qui a payé 2 260 $ s'attend à recevoir 2 260 $; les 68,10 $ de frais sont votre coût pour avoir encaissé le paiement, et Stripe ne les rend pas." },
         ],
       },
@@ -464,10 +464,10 @@ export const ARTICLES = {
         heading: "Ce que FieldQuo enregistre",
         blocks: [
           { bullets: [
-            "La ligne du paiement garde son montant et ses frais d'origine, et gagne le montant remboursé et la date. Un deuxième remboursement partiel sur la même transaction met à jour la même ligne avec le nouveau total remboursé — jamais une deuxième ligne.",
+            "**Une ligne de remboursement** à part sous le paiement : un montant négatif, le mode, le motif et qui l'a émis. Le paiement d'origine garde son montant et ses frais. Un deuxième remboursement partiel est une deuxième ligne, et ensemble ils ne peuvent jamais dépasser ce que le paiement retient encore.",
             "Le montant payé de la facture baisse du remboursement et son solde remonte d'autant. Une facture entièrement remboursée se lit **Remboursé**; une facture remboursée en partie se lit **Remboursé en partie**, avec une bannière du genre « Partiellement remboursée — 500,00 $ ont été retournés au client. »",
-            "Les propriétaires et les administrateurs reçoivent une notification : « Somme reprise sur la facture INV-1042 — Jane Tremblay », marquée **Remboursé**. Le niveau Gestionnaire ne la reçoit pas — voir [[disputes-and-chargebacks|Litiges et rétrofacturations]] pour savoir qui est averti.",
-            "Dans l'export comptable, le paiement garde son brut, ses frais et son net; le remboursement apparaît dans votre tableau de bord Stripe sur la même transaction.",
+            "Les propriétaires et les administrateurs reçoivent une notification une fois que Stripe confirme le remboursement : « Somme reprise sur la facture INV-1042 — Jane Tremblay », marquée **Remboursé**. Le niveau Gestionnaire ne la reçoit pas — voir [[disputes-and-chargebacks|Litiges et rétrofacturations]] pour savoir qui est averti.",
+            "Dans l'export comptable, le paiement garde son brut, ses frais et son net, et le remboursement est une ligne à part dans le fichier des paiements — mode **refund**, un montant négatif, l'identifiant de remboursement Stripe comme référence et votre motif comme note — avec un total **Refunds** dans le sommaire à côté de **Payments received**. Un remboursement fait directement dans votre tableau de bord Stripe est plutôt inscrit sur le montant remboursé du paiement d'origine, pas comme une ligne.",
           ] },
           { p: "Un remboursement sur une version antérieure d'une facture modifiée est appliqué à la dernière version, parce que la famille de versions partage un seul solde courant." },
         ],
@@ -476,7 +476,7 @@ export const ARTICLES = {
         id: "the-fee",
         heading: "Les frais sur un paiement remboursé",
         blocks: [
-          { p: "Stripe garde ses frais de traitement sur une transaction remboursée. Un remboursement émis depuis votre tableau de bord laisse les frais où ils sont, et le seul remboursement que FieldQuo émet lui-même — les frais de visite — est créé avec les frais délibérément **non** rendus : les rendre laisserait FieldQuo payer Stripe pour un paiement que personne n'a gardé. Les frais que vous avez vus sur la ligne du paiement sont donc les frais que vous avez payés, remboursement ou pas." },
+          { p: "Stripe garde ses frais de traitement sur une transaction remboursée, et FieldQuo ne rend pas sa part non plus — la boîte de dialogue le dit avant que vous confirmiez. Un remboursement depuis la facture, un remboursement fait dans votre tableau de bord Stripe et les frais de visite que FieldQuo rend sur une réservation annulée sont tous créés avec les frais délibérément **non** rendus : les rendre laisserait FieldQuo payer Stripe pour un paiement que personne n'a gardé. Les frais que vous avez vus sur la ligne du paiement sont donc les frais que vous avez payés, remboursement ou pas." },
           { p: "Si votre solde ne peut pas couvrir un remboursement, Stripe récupère la différence sur vos prochains paiements avant de virer quoi que ce soit — voir la section sur les soldes négatifs de [[payment-processing-fees-and-payouts|Frais de traitement des paiements et virements]]." },
         ],
       },
@@ -484,19 +484,19 @@ export const ARTICLES = {
         id: "manual-payments",
         heading: "Rembourser un paiement comptant, par chèque ou par virement Interac",
         blocks: [
-          { p: "FieldQuo n'enregistre pas les remboursements de paiements manuels. Le formulaire **Enregistrer un paiement** refuse un montant négatif, alors un remboursement en argent comptant que vous remettez ne peut pas être saisi comme paiement. Rendez l'argent en dehors de l'application et, si la facture doit afficher un total plus petit, modifiez plutôt la facture — voir [[edit-an-invoice-after-sending|Modifier une facture après l'envoi]]." },
+          { p: "Un paiement comptant, par chèque ou par virement Interac se rembourse depuis la même action **Rembourser**. Le paiement n'a pas été encaissé par FieldQuo, alors aucun appel à Stripe n'est fait : la ligne enregistre que vous avez rendu le montant à la main, et le solde de la facture remonte d'autant. Le formulaire **Enregistrer un paiement** refuse toujours un montant négatif — un remboursement n'est pas un paiement saisi avec un signe moins. Si la facture doit afficher un total plus petit, modifiez plutôt la facture — voir [[edit-an-invoice-after-sending|Modifier une facture après l'envoi]]." },
         ],
       },
       {
         id: "who-can",
         heading: "Qui peut rembourser",
         blocks: [
-          { p: "Quiconque peut ouvrir **Gérer dans Stripe** — les propriétaires et les administrateurs. Voir le remboursement sur la facture exige l'option **paiements**, que le niveau Gestionnaire possède et que les niveaux Équipe, Estimateur et Répartiteur n'ont pas." },
+          { p: "Les propriétaires et les administrateurs, et quiconque a à la fois l'option **paiements** et l'accès en modification aux factures — le niveau Gestionnaire y répond; les niveaux Équipe, Estimateur et Répartiteur non. **Rembourser** ne s'affiche que pour eux, et la demande est refusée à tout autre et à une session de soutien en lecture seule. Voir la ligne de remboursement sur la facture exige la même option **paiements**." },
         ],
       },
     ],
     faq: [
-      { q: "Y a-t-il un bouton de remboursement sur la facture?", a: "Non. Les remboursements s'émettent dans votre tableau de bord Stripe par Gérer dans Stripe; FieldQuo enregistre le résultat automatiquement." },
+      { q: "Y a-t-il un bouton de remboursement sur la facture?", a: "Oui — Rembourser, à côté de chaque paiement de l'Historique des paiements qui retient encore de l'argent. C'est le seul endroit où ces transactions peuvent être remboursées : le tableau de bord Express derrière Gérer dans Stripe ne peut pas rembourser une transaction que la plateforme a créée pour vous." },
       { q: "Le client récupère-t-il ses frais de traitement?", a: "Le client n'a jamais payé de frais — il a payé le total de la facture. Remboursez ce total. Les frais ont été déduits de votre côté et restent déduits." },
       { q: "Le rappel de retard va-t-il relancer une facture remboursée?", a: "Non. Le rappel automatique de retard ne relance que les factures encore à l'état Envoyée ou En retard; une facture remboursée ou remboursée en partie n'est ni l'un ni l'autre." },
     ],

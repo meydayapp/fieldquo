@@ -37,7 +37,7 @@ export const ARTICLES = {
         blocks: [
           { bullets: [
             "**Primer uso** — una sola caja bajo **¿Qué debería decir tu sitio web?**, cuatro fichas de ejemplo que puede tocar para llenarla, una flecha **Crear mi sitio**, y la línea **Nada es público hasta que lo publiques.**",
-            "**La barra** — su dirección (**sunombre.fieldquo.com**), una etiqueta **En vivo** una vez publicado, **Abrir**, **Guardar**, y **Publicar** (que pasa a ser **Actualizar** cuando el sitio está en vivo).",
+            "**La barra** — su dirección (**sunombre.fieldquo.com**), una etiqueta **En vivo** una vez publicado, **Abrir**, **Despublicar** (solo mientras el sitio está en vivo), **Guardar**, y **Publicar** (que pasa a ser **Actualizar** cuando el sitio está en vivo).",
             "**El hilo** — lo que pidió y lo que se construyó. Cuando falta algo, el asistente lo dice con una acción de un toque, mostrada en inglés: **Add photos**, **Pair them up**, **Add a logo**, **Add a review**, **Set hours**, **Choose services**.",
             "Las fichas **Diseño** y **Estilo**, la caja de instrucción (**Hazlo más atrevido · empieza con reseñas · página más corta…**), y el panel **Ajustar** con **Dirección web**, **Idiomas**, **Pares de antes y después** y el código para incrustar las reseñas.",
             "**Vista previa | Secciones** — el sitio en vivo con un selector escritorio / móvil y un botón de actualizar, o las secciones de la página de inicio como campos de texto que puede reescribir a mano.",
@@ -72,6 +72,7 @@ export const ARTICLES = {
               ["El panel **Secciones**", "Reescriba a mano cualquier encabezado o párrafo de la página de inicio, elija la variante de diseño de una sección, agregue o quite una foto, **Ocultar** o **Mostrar** una sección. Su logo, colores, servicios, horario y datos de contacto no se editan aquí — cámbielos en la configuración de la empresa y el sitio se actualiza."],
               ["**Guardar**", "Guarda el borrador. Una vez que el sitio está en vivo no hay un borrador aparte: un cambio guardado es lo que ven los visitantes."],
               ["**Publicar** / **Actualizar**", "Hace público el sitio en su dirección, o lo reconfirma. Requiere una empresa que haya terminado de contratar un plan."],
+              ["**Despublicar**", "Pone el sitio fuera de línea tras un cuadro — **¿Poner tu sitio fuera de línea?** — que dice qué pasa: los visitantes ven de inmediato una página de «no publicado», Google lo quita de sus resultados en los días siguientes, y se conservan todas las secciones, fotos e idiomas. **Publicar** vuelve a poner el mismo sitio."],
               ["**Idiomas** (bajo Ajustar)", "Agregar un idioma escribe todo el sitio en ese idioma — no es una traducción automática — y da a los visitantes un selector en el encabezado. Su idioma principal está marcado y no se puede quitar."],
             ],
           } },
@@ -84,7 +85,7 @@ export const ARTICLES = {
         heading: "Publicar, las fotos de stock y retirar el sitio",
         blocks: [
           { p: "Mientras no tenga fotos, el creador usa fotografía de stock para que la página no quede vacía — solo como fondo del encabezado y en lugares parecidos, nunca en **Our work**, porque esa sección afirma que las fotos son trabajos que usted hizo. Publicar con fotos de stock todavía en la página está permitido, pero nunca en silencio: un cuadro las cuenta y ofrece **Agregar mis fotos** o **Publicar de todos modos**." },
-          { p: "Hoy no hay un botón para despublicar en esta pantalla. Una vez que el sitio está en vivo, sigue en vivo; puede ocultar secciones o reescribirlas, y la dirección sigue respondiendo. FieldQuo no retira un sitio publicado desde el creador." },
+          { p: "Para retirar un sitio en vivo, pulse **Despublicar** en la barra y confirme **Ponerlo fuera de línea**. No se borra nada: el hilo dice **Tu sitio está fuera de línea. No se borró nada — vuelve a publicarlo cuando quieras.**, la etiqueta **En vivo** desaparece, y la dirección responde con una página de «no publicado» hasta que vuelva a pulsar **Publicar**. Cancelar su suscripción le pide despublicar primero; este es el botón al que se refiere." },
         ],
       },
       {
@@ -103,7 +104,7 @@ export const ARTICLES = {
         id: "who-can-see-it",
         heading: "Quién puede verlo",
         blocks: [
-          { p: "La pantalla y sus guardados están abiertos a propietarios, administradores, despachadores y gerentes. Los estimadores y la cuadrilla no ven la fila, y la página los rechaza. Agregar o quitar un idioma del sitio es solo para el propietario y los administradores. Publicar también requiere una empresa que haya terminado el pago — una prueba que nunca agregó una tarjeta puede construir el sitio, pero no ponerlo frente al público." },
+          { p: "La pantalla, sus guardados, Publicar, Despublicar, los idiomas y las fotos son solo para propietarios y administradores — una sola regla para todo el sitio web, porque una página publicada es la cara pública de la empresa. Todos los demás, despachadores y gerentes incluidos, no ven la fila, y la página los rechaza. Publicar también requiere una empresa que haya terminado el pago — una prueba que nunca agregó una tarjeta puede construir el sitio, pero no ponerlo frente al público." },
         ],
       },
     ],
@@ -366,6 +367,7 @@ export const ARTICLES = {
             "**Solicitar una cotización** — «Describen el trabajo y dejan sus datos. Llega a tu lista de prospectos. Ideal para quienes todavía comparan precios.»",
             "**Reservar una visita** — «Eligen una hora según tu disponibilidad real. Ideal para quienes ya decidieron y solo quieren que vayas.»",
             "**Estimación instantánea** — la página de dirección de entrada y precio de salida; cada estimación llega a su cola de revisión antes de ser vinculante. Los oficios y las tarifas se configuran en **Configuración → Cotizaciones instantáneas**.",
+            "**Diseña tu cocina** — «Un propietario diseña su propia cocina — gabinetes, acabados, todo — y te la envía como consulta con el plano adjunto.» Se muestra solo mientras **Kitchen Design & New Installs** está activado en Servicios, y solo como enlace: no tiene código para incrustar.",
             "**Una tarjeta por embudo publicado**, con el nombre que usted le dio — «Un embudo de clientes potenciales paso a paso — comparte el enlace en un anuncio o ponlo en tu web.» Los embudos en borrador no se listan, porque su enlace todavía no funcionaría.",
             "Una línea de cierre: el formulario de cotización solo ofrece los servicios activados en Configuración → Servicios, y nunca muestra sus precios.",
           ] },
@@ -394,6 +396,7 @@ export const ARTICLES = {
               ["Solicitar una cotización", "Elige un servicio, describe el trabajo, agrega fotos, deja sus datos", "Un prospecto puntuado en el tablero de Prospectos — vea [[the-self-quote-form|El formulario de autopresupuesto]]"],
               ["Reservar una visita", "Elige un tipo de cita y un horario según su disponibilidad real, y paga una tarifa de visita si usted la cobra", "Una cita en su calendario y un prospecto — vea [[the-booking-page|La página de reservas]]"],
               ["Estimación instantánea", "Ingresa una dirección o traza un área, ve un precio inicial", "Revisiones de presupuesto, donde usted confirma el precio antes de enviar nada — vea [[estimate-reviews|Revisiones de estimaciones]]"],
+              ["Diseña tu cocina", "Dibuja su cocina en un plano, elige acabados, deja sus datos", "Un prospecto con el plano adjunto y sin precio — usted lo cotiza; vea [[the-kitchen-designer|El diseñador de cocina]]"],
               ["Un embudo", "Recorre un cuestionario corto y deja sus datos", "Un prospecto puntuado, marcado con el canal del embudo — vea [[funnels|Embudos de captación]]"],
             ],
           } },
@@ -408,7 +411,7 @@ export const ARTICLES = {
       },
     ],
     faq: [
-      { q: "¿Por qué no aparece mi embudo?", a: "Solo aparecen los embudos publicados con dirección. Abra Embudos, abra el embudo y presione Publish; primero necesita un paso de contacto." },
+      { q: "¿Por qué no aparece mi embudo?", a: "Solo aparecen los embudos publicados con dirección. Abra Embudos, abra el embudo y presione Publicar; primero necesita un paso de contacto." },
       { q: "¿Estos enlaces muestran mis precios?", a: "No. El formulario de cotización recopila suficientes detalles para cotizar con precisión sin publicar una tarifa. La estimación instantánea muestra un precio inicial solo para los oficios que usted activó, y solo lo que eligió bajo «Lo que ve el propietario»." },
       { q: "¿Hay un código QR?", a: "Hoy no en esta pantalla. Copie el enlace y use cualquier generador de códigos QR; el enlace no cambia." },
     ],
@@ -495,7 +498,7 @@ export const ARTICLES = {
         id: "overview",
         heading: "Resumen",
         blocks: [
-          { p: "La página se deriva del registro de su empresa, no se escribe desde cero. Una fila aparece porque lo que hay detrás existe: el formulario de presupuesto siempre está; **Reservar una visita** aparece en cuanto tiene un tipo de cita activo; **Obtener un precio al instante** en cuanto hay un estimador instantáneo activado; cada embudo publicado como botón propio; su sitio web en cuanto está publicado o en cuanto ingresó un dominio en Configuración de la empresa; el enlace de reseñas en cuanto está configurado en Reseñas; su teléfono y su correo desde Configuración de la empresa. Una fila que usted apaga se queda apagada; una fila que nadie tocó está encendida la primera vez que se carga la página — incluido un embudo que publique el mes que viene." },
+          { p: "La página se deriva del registro de su empresa, no se escribe desde cero. Una fila aparece porque lo que hay detrás existe: el formulario de presupuesto siempre está; **Reservar una visita** aparece en cuanto tiene un tipo de cita activo; **Obtener un precio al instante** en cuanto hay un estimador instantáneo activado; **Diseña tu cocina** en cuanto Kitchen Design & New Installs está activado en Servicios; cada embudo publicado como botón propio; su sitio web en cuanto está publicado o en cuanto ingresó un dominio en Configuración de la empresa; el enlace de reseñas en cuanto está configurado en Reseñas; su teléfono y su correo desde Configuración de la empresa. Una fila que usted apaga se queda apagada; una fila que nadie tocó está encendida la primera vez que se carga la página — incluido un embudo que publique el mes que viene." },
           { p: "La página sigue por sí sola el teléfono del visitante entre claro y oscuro; el selector claro / oscuro de esta pantalla solo cambia el marco de la vista previa. Lleva una pequeña línea **Made by FieldQuo** al final, en todos los planes — vea [[the-site-by-fieldquo-footer|El pie de página «Sitio por FieldQuo»]]." },
         ],
       },
@@ -539,6 +542,7 @@ export const ARTICLES = {
             rows: [
               ["Obtener un precio al instante", "Un estimador instantáneo está activado en Configuración → Cotizaciones instantáneas", "Sí"],
               ["Presupuesto gratis (el formulario de presupuesto)", "Siempre — toda empresa lo tiene", "Sí"],
+              ["Diseña tu cocina", "Kitchen Design & New Installs está activado en Configuración → Servicios", "Sí"],
               ["Reservar una visita", "Al menos un tipo de cita activo en Configuración → Página de reservas", "Sí"],
               ["Cada embudo publicado, por su nombre", "El embudo está publicado", "Sí"],
               ["Visita nuestro sitio web", "Un dominio en Configuración de la empresa, o un sitio FieldQuo publicado", "Sí"],
@@ -616,7 +620,7 @@ export const ARTICLES = {
             "Abra **Embudos** bajo Crecer en la barra lateral y presione **Nuevo embudo**.",
             "Escriba una frase bajo **Descríbelo y deja que la IA lo construya** («Un embudo de TikTok para pintura exterior que califique el presupuesto y agende una estimación») y presione **Generar**, o elija una plantilla: **Sitio web — pedir presupuesto**, **TikTok — cuestionario de 60 segundos**, **Instagram — estimación gratuita**, **YouTube — reserva tu visita**, cada una «cuestionario → calificar → captar». **o empieza desde un embudo en blanco** es la tercera puerta.",
             "El editor se abre con los pasos a la izquierda, el paso seleccionado en el centro y una vista previa de teléfono con sus colores a la derecha — vea [[build-a-funnel|Construir un embudo y leer su informe de abandono]].",
-            "Presione **Publish**. El enlace público y el código para incrustar aparecen en la página del embudo, y el embudo se lista en **Configuración → Comparte tus enlaces** y, una vez activado, en su enlace para la bio.",
+            "Presione **Publicar**. El enlace público y el código para incrustar aparecen en la página del embudo, y el embudo se lista en **Configuración → Comparte tus enlaces** y, una vez activado, en su enlace para la bio. **Despublicar** lo devuelve a borrador; el enlace deja de responder, y los recorridos y el informe se conservan.",
           ] },
           { figure: "create:app-funnels-create", caption: "Nuevo embudo — la caja de IA («Descríbelo y deja que la IA lo construya»), las cuatro plantillas por canal, y «o empieza desde un embudo en blanco»." },
           { note: "La IA escribe solo las frases del embudo — el gancho, las preguntas, el texto de los botones — a partir de sus servicios reales y del canal que nombró. Nunca inventa un servicio ni un precio, y las preguntas de puntuación conservan sus valores de respuesta fijos, así que un embudo generado puntúa los contactos exactamente igual que uno construido a mano. Si la IA no está disponible, recibe la plantilla del canal con textos más planos, nunca un embudo roto. Generar consume la asignación mensual de IA de su plan." },
@@ -652,13 +656,14 @@ export const ARTICLES = {
       { q: "¿Qué pasa con los prospectos si elimino un embudo?", a: "Los prospectos que ya están en su tablero se quedan donde están. Lo que se va con el embudo es cada recorrido registrado y todo el informe de abandono que hay detrás — el cuadro de eliminación dice cuántos recorridos." },
       { q: "¿Puedo usar el mismo embudo en TikTok y en mi sitio web?", a: "Sí — el canal es una etiqueta que viaja en el origen del prospecto; el enlace funciona en cualquier parte. Haga dos si quiere comparar por separado el abandono de los dos públicos." },
       { q: "¿Un embudo necesita mi sitio web FieldQuo?", a: "No. Es una página propia con su propia dirección, y se puede incrustar en cualquier sitio que usted ya administre." },
+      { q: "¿Mi píxel de Meta o Google Analytics puede ver el embudo?", a: "Sí — pegue el ID bajo Píxeles de seguimiento publicitario en el creador. El píxel se carga en la página pública, registra una vista y dispara el evento de cliente potencial de la plataforma cuando se envía el formulario, sin datos personales. FieldQuo no añade ningún aviso de consentimiento de cookies; si sus visitantes están en un lugar que lo exige, ponerlo es responsabilidad suya. Vea [[build-a-funnel|Construir un embudo y leer su informe de abandono]]." },
     ],
   },
 
   "build-a-funnel": {
     title: "Construir un embudo y leer su informe de abandono",
     summary:
-      "El editor de embudos paso a paso: los siete tipos de paso, las etiquetas de puntuación, el paso de estimación instantánea, los píxeles publicitarios, qué exige Publish, y cómo leer Starts, Leads, Conversion y el abandono por paso.",
+      "El editor de embudos paso a paso: los siete tipos de paso, las etiquetas de puntuación, el paso de estimación instantánea, los píxeles publicitarios, qué exige Publicar, y cómo leer Inicios, Clientes potenciales, Conversión y el abandono por paso.",
     updated: "2026-09-12",
     intro: [
       "Abra un embudo desde **Embudos** y está en el editor: la lista de pasos a la izquierda, el editor del paso seleccionado en el centro, y una vista previa en vivo de ese paso con sus colores a la derecha. Este artículo explica qué hace cada tipo de paso, qué preguntas alimentan la puntuación del prospecto, cómo llega un precio a la mitad de un embudo, y cómo leer el informe una vez que la gente lo ha recorrido.",
@@ -668,7 +673,7 @@ export const ARTICLES = {
         id: "overview",
         heading: "Resumen",
         blocks: [
-          { p: "La barra superior tiene el nombre del embudo (escriba para renombrarlo), su etiqueta **Borrador** o **Publicado**, **Save**, y **Publish** / **Unpublish**. Cuando el embudo está publicado, su enlace público aparece con **Copy link** y **Open**, y su código para incrustar con **Copy code**; mientras es borrador no se ofrece ninguno, porque el enlace todavía no funcionaría. Debajo, en cuanto alguien lo ha empezado, está **Performance**. Las palabras de la barra están en inglés en la pantalla de todos los idiomas; las etiquetas del editor siguen su idioma." },
+          { p: "La barra superior tiene el nombre del embudo (escriba para renombrarlo), su etiqueta **Borrador** o **Publicado**, **Guardar**, y **Publicar** / **Despublicar**. Cuando el embudo está publicado, su enlace público aparece con **Copiar enlace** y **Abrir**, y su código para incrustar con **Copiar código**; mientras es borrador no se ofrece ninguno, porque el enlace todavía no funcionaría. Debajo, en cuanto alguien lo ha empezado, está **Rendimiento**. La barra y el editor siguen ambos su idioma." },
         ],
       },
       {
@@ -716,19 +721,19 @@ export const ARTICLES = {
         heading: "Cómo publicarlo y compartirlo",
         blocks: [
           { steps: [
-            "Presione **Save** cada vez que el botón esté oscuro; muestra **Saved** cuando no hay nada pendiente.",
-            "Bajo **Píxeles de seguimiento publicitario** (opcional) puede anotar un **ID del píxel de Meta**, un **ID del píxel de TikTok** o un **ID de medición de GA4**. FieldQuo los guarda, pero la página pública del embudo hoy no carga los scripts de los píxeles, así que la plataforma publicitaria todavía no se entera de las visitas al embudo — trate los tres campos como un registro hasta que eso cambie.",
-            "Presione **Publish**. La etiqueta pasa a **Publicado** y aparecen el enlace público y el código para incrustar.",
-            "Presione **Copy link** para un anuncio o una publicación, o **Copy code** para poner el embudo en un sitio que ya tenga; también se lista en **Configuración → Comparte tus enlaces** y en su enlace para la bio.",
+            "Presione **Guardar** cada vez que el botón esté oscuro; muestra **Guardado** cuando no hay nada pendiente.",
+            "Bajo **Píxeles de seguimiento publicitario** (opcional), pegue un **ID del píxel de Meta**, un **ID del píxel de TikTok** o un **ID de medición de GA4**. Cada píxel configurado se carga en la página pública del embudo y registra una vista; cuando un visitante envía el formulario de contacto dispara el evento de cliente potencial de la plataforma — Meta **Lead**, GA4 **generate_lead**, TikTok **SubmitForm** — sin datos personales. Un ID que no tiene la forma que la plataforma emite se ignora en lugar de ponerse en la página. FieldQuo no añade ningún aviso de consentimiento de cookies en ninguna parte; si sus visitantes están en un lugar que lo exige, ponerlo es responsabilidad suya.",
+            "Presione **Publicar**. La etiqueta pasa a **Publicado** y aparecen el enlace público y el código para incrustar.",
+            "Presione **Copiar enlace** para un anuncio o una publicación, o **Copiar código** para poner el embudo en un sitio que ya tenga; también se lista en **Configuración → Comparte tus enlaces** y en su enlace para la bio.",
           ] },
-          { warning: "**Publish** se rechaza sin un paso de contacto — un embudo sin formulario no captura nada, y el mensaje lo dice. Un paso de estimación instantánea sin un servicio presupuestable también lo bloquea; los motivos se listan bajo un aviso de «este embudo todavía no puede publicarse» en lugar de esconderse tras un botón en gris." },
+          { warning: "**Publicar** se rechaza sin un paso de contacto — un embudo sin formulario no captura nada, y el mensaje lo dice. Un paso de estimación instantánea sin un servicio presupuestable también lo bloquea; los motivos se listan bajo un aviso de **Este embudo aún no puede publicarse** en lugar de esconderse tras un botón en gris." },
         ],
       },
       {
         id: "read-the-drop-off",
         heading: "Cómo leer el informe de abandono",
         blocks: [
-          { p: "**Performance** aparece en cuanto al menos un visitante ha empezado el embudo. Muestra **Starts** (visitantes distintos que vieron el primer paso), **Leads** (recorridos completados) y **Conversion** (contactos como proporción de los inicios), y luego una barra por paso en su orden, con el número de visitantes distintos que lo alcanzaron y ese número como porcentaje de los inicios." },
+          { p: "**Rendimiento** aparece en cuanto al menos un visitante ha empezado el embudo. Muestra **Inicios** (visitantes distintos que vieron el primer paso), **Clientes potenciales** (recorridos completados) y **Conversión** (contactos como proporción de los inicios), y luego una barra por paso en su orden, con el número de visitantes distintos que lo alcanzaron y ese número como porcentaje de los inicios." },
           { bullets: [
             "Un paso donde el porcentaje cae de golpe es el paso a cambiar: menos respuestas, una pregunta más amable, o el precio movido después del paso de contacto.",
             "El informe se construye con los recorridos de este embudo; eliminar el embudo elimina el informe, y despublicarlo lo conserva.",
@@ -766,10 +771,10 @@ export const ARTICLES = {
         heading: "Qué hay en la pantalla",
         blocks: [
           { bullets: [
-            "El nombre de la tarjeta y una etiqueta de estado, en inglés: **Draft**, **Active**, **Completed** o **Partial**.",
+            "El nombre de la tarjeta y una etiqueta de estado: **Borrador**, **Activa**, **En pausa**, **Enviada**, **Enviada parcialmente** o **Archivada**.",
             "Su tipo: **Distribución de folletos**, **Meta / anuncios pagados**, **Envío masivo de correo** u **Otro**.",
             "Su progreso — una ruta de folletos muestra **visitadas/total paradas** con una barra y **… contactados**; un correo muestra el nombre de la plantilla y **Enviado a …** o **Aún no enviado**; un anuncio muestra **Presupuesto …** y **vinculado** cuando se ingresó un enlace.",
-            "A quién está asignada.",
+            "A quién está asignada — y bajo la tarjeta, sus botones de estado: **Activar** o **Pausar** (**Reanudar** cuando está en pausa), y **Archivar**; una tarjeta archivada muestra **Restaurar**. En cuanto tenga alguna, un enlace **Mostrar archivadas (n)** arriba a la derecha las devuelve a la vista.",
             "Sin nada todavía: **Aún no hay campañas. Crea una para empezar a hacer seguimiento de tu marketing.**",
           ] },
           { figure: "live:app-marketing", caption: "Marketing — el título, Suscriptores, Gasto en marketing y Nueva campaña, y una tarjeta por campaña con su tipo y su estado." },
@@ -802,7 +807,7 @@ export const ARTICLES = {
               ["Otro", "Un presupuesto y un enlace, para cualquier otra cosa — una cuña de radio, un patrocinio", "[[marketing-spend|Gasto en marketing]]"],
             ],
           } },
-          { note: "El **Presupuesto** de una tarjeta de anuncios pagados u otro es una nota en la tarjeta. Lo que realmente gastó se registra en **Gasto en marketing**, que es lo que leen las cifras de costo por prospecto; un presupuesto escrito aquí no las alimenta." },
+          { note: "El **Presupuesto** de una tarjeta de anuncios pagados u otro es lo que reserva para toda la vida de la campaña. Se muestra en **Gasto en marketing** como **Presupuestado (campañas)**, junto a lo que realmente se gastó en ese canal, y nunca entra en un total ni en un costo por prospecto — esos leen solo el gasto registrado o sincronizado. Vea [[marketing-spend|Gasto en marketing]]." },
         ],
       },
       {
@@ -810,10 +815,10 @@ export const ARTICLES = {
         heading: "Estados",
         blocks: [
           { bullets: [
-            "**Draft** — toda campaña nueva. Una campaña de folletos o de anuncios pagados conserva esta etiqueta; FieldQuo no la cambia por sí solo y no hay ningún control en la pantalla para ajustarla, así que lea el progreso de una campaña de folletos en sus paradas, no en su etiqueta.",
-            "**Completed** — una campaña de correo una vez que se envió a todos los suscriptores.",
-            "**Partial** — un envío de correo que se detuvo a medias; la página de la campaña ofrece reanudar el envío, que escribe solo a las personas que aún no recibieron el correo.",
-            "**Active** existe como valor y se muestra en una tarjeta que lo lleva, pero hoy nada en la pantalla lo establece.",
+            "**Borrador** — toda campaña nueva. En una campaña de folletos, de anuncios pagados u otra, pulse **Activar** cuando la ruta se está recorriendo o los anuncios están encendidos; la etiqueta dice **Activa**.",
+            "**Activa** y **En pausa** — **Pausar** deja en espera una campaña activa y **Reanudar** la retoma. Una campaña de correo no tiene ninguno de los dos botones: el envío es el acto, y su etiqueta la escribe el propio envío.",
+            "**Enviada** — una campaña de correo una vez que se envió a todos los suscriptores. **Enviada parcialmente** — un envío que se detuvo a medias; la página de la campaña ofrece reanudar el envío, que escribe solo a las personas que aún no recibieron el correo. Nada de lo que usted pulse fija estas dos.",
+            "**Archivada** — **Archivar** en cualquier campaña, tras una confirmación (**¿Archivar? Sale de la lista; no se borra nada.**). La tarjeta sale de la lista tras **Mostrar archivadas**, su presupuesto sale de la página de gasto, y cada parada, cada envío y cada nota que contiene se conserva. **Restaurar** la devuelve como borrador.",
           ] },
         ],
       },
@@ -821,12 +826,12 @@ export const ARTICLES = {
         id: "who-can-see-it",
         heading: "Quién puede verlo",
         blocks: [
-          { p: "La fila **Marketing**, la lista, los suscriptores y el informe de gasto son para propietarios, administradores, despachadores y gerentes. Marcar una parada en una ruta de folletos es trabajo de campo y está abierto a cualquier miembro activo, y la página de una campaña oculta su presupuesto y sus notas a quien esté por debajo de ese nivel — pero la cuadrilla y los estimadores no tienen ninguna fila desde donde llegar a la lista, así que entrégueles directamente el enlace de la campaña." },
+          { p: "La fila **Marketing**, la lista, los suscriptores y el informe de gasto son para propietarios, administradores, despachadores y gerentes, y también los botones Activar, Pausar, Archivar y Restaurar. Marcar una parada en una ruta de folletos es trabajo de campo y está abierto a cualquier miembro activo, y la página de una campaña oculta su presupuesto y sus notas a quien esté por debajo de ese nivel — pero la cuadrilla y los estimadores no tienen ninguna fila desde donde llegar a la lista, así que entrégueles directamente el enlace de la campaña." },
         ],
       },
     ],
     faq: [
-      { q: "¿Puedo eliminar una campaña?", a: "Hoy no desde la pantalla — ni la lista ni la página de una campaña tienen un control de eliminación, así que una campaña terminada se queda en el estante con su etiqueta. Las paradas de una ruta de folletos se pueden quitar una por una." },
+      { q: "¿Puedo eliminar una campaña?", a: "No, a propósito — eliminar se llevaría cada registro de puerta y cada envío con ella. Pulse Archivar en su lugar: la campaña sale de la lista, conserva todo, y Restaurar la devuelve. Las paradas de una ruta de folletos todavía se pueden quitar una por una." },
       { q: "¿Una campaña de Meta aquí se conecta con mi cuenta publicitaria de Meta?", a: "No desde esta tarjeta — contiene un presupuesto y un enlace. La sincronización de la cuenta publicitaria, los formularios de prospectos y la importación del gasto están en Configuración → Meta Ads." },
       { q: "¿De dónde salen las direcciones de correo de un envío?", a: "De Suscriptores — las personas suscritas en ese momento. Quien se dio de baja queda excluido automáticamente." },
     ],

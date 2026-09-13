@@ -136,7 +136,7 @@ export const ARTICLES = {
             rows: [
               ["Client", "Obligatoire. Le chantier reprend le nom, le téléphone, le courriel et l'adresse du client sur sa page et sur chaque visite."],
               ["Titre du chantier", "Obligatoire. C'est ce qu'affichent la liste, le calendrier et le salon de clavardage du chantier."],
-              ["Adresse du chantier", "Facultatif. Une fois renseignée, FieldQuo la place sur une carte pour que les pointages et les boutons On my way / Mark complete puissent dire à quelle distance du chantier la personne se trouvait. Si l'adresse ne peut pas être placée, la page du chantier le dit et vous demande de la vérifier."],
+              ["Adresse du chantier", "Facultatif. Une fois renseignée, FieldQuo la place sur une carte pour que les pointages et les boutons En route / Marquer comme terminée puissent dire à quelle distance du chantier la personne se trouvait. Si l'adresse ne peut pas être placée, la page du chantier le dit et vous demande de la vérifier."],
               ["Il s'agit d'un chantier récurrent + Récurrence", "Marque le chantier **Récurrent** et, dès qu'une première visite existe, garde exactement une visite à venir au calendrier à ce rythme — voir [[recurring-jobs|Chantiers récurrents]]."],
               ["Pourquoi y retournez-vous ?", "Seulement sur un chantier de rappel. Obligatoire, parmi une liste fixe de raisons ; le rappel compte dans le taux de reprises/rappels du tableau de bord des indicateurs et est lié depuis le chantier d'origine."],
             ],
@@ -231,9 +231,9 @@ export const ARTICLES = {
         blocks: [
           { p: "La carte **Visites** indique « 2 of 3 complete » et offre **Ajouter une visite** et **Enregistrer un chantier de rappel**. Chaque visite affiche sa date et son heure, un badge (**Planifié**, **En route**, **Terminé**, **Annulé**), « Assigned to Dave » ou « Unassigned », l'avancement de la liste de vérification, le nombre de photos, et où était le téléphone au moment du toucher — **Arrivé à 12 m du chantier**." },
           { bullets: [
-            "**On my way** — passe la visite à En route et envoie un texto au client ; la ligne sous les boutons dit à quel numéro il part. Voir [[the-on-my-way-text|Le texto « En route »]].",
-            "**Mark complete** — marque la visite terminée. Sur un chantier récurrent, la visite suivante est mise au calendrier sur-le-champ.",
-            "**Cancel visit** — annule cette visite seulement ; le statut du chantier ne change pas.",
+            "**En route** — passe la visite à En route et envoie un texto au client ; la ligne sous les boutons dit à quel numéro il part. Voir [[the-on-my-way-text|Le texto « En route »]].",
+            "**Marquer comme terminée** — marque la visite terminée. Sur un chantier récurrent, la visite suivante est mise au calendrier sur-le-champ.",
+            "**Annuler la visite** — annule cette visite seulement ; le statut du chantier ne change pas.",
             "**Reopen** sur une visite terminée, et **Put it back on** sur une visite annulée, la ramènent à Planifié — une fausse manœuvre sur un téléphone ne doit pas être définitive.",
             "La liste de vérification sous chaque visite est la copie à cocher de l'équipe — voir [[checklists-on-site|Les listes de vérification sur le chantier]].",
           ] },
@@ -250,7 +250,7 @@ export const ARTICLES = {
       },
     ],
     faq: [
-      { q: "Pourquoi mon équipe ne peut-elle pas changer le statut?", a: "Le profil Équipe consulte les chantiers ; il ne les modifie pas. La liste de statut, Modifier et Archiver sont cachés à ce niveau parce que le serveur les refuserait. L'équipe fait avancer ses visites — On my way, Mark complete — et c'est à ça que sert la page sur le terrain." },
+      { q: "Pourquoi mon équipe ne peut-elle pas changer le statut?", a: "Le profil Équipe consulte les chantiers ; il ne les modifie pas. La liste de statut, Modifier et Archiver sont cachés à ce niveau parce que le serveur les refuserait. L'équipe fait avancer ses visites — En route, Marquer comme terminée — et c'est à ça que sert la page sur le terrain." },
       { q: "La carte des coûts est absente.", a: "Elle ne s'affiche qu'aux personnes qui ont l'interrupteur Job costing, et elle se cache tant que rien n'a été enregistré contre le chantier. Le propriétaire, les administrateurs et le profil Gestionnaire ont l'interrupteur." },
       { q: "Que se passe-t-il quand je passe le chantier à Terminé?", a: "Deux tâches sont créées — demander un avis au client, et revoir ce que le chantier a réellement coûté — la revue des coûts s'ouvre d'elle-même une fois, et la demande d'avis automatique part selon son horaire si vous l'avez activée." },
     ],
@@ -270,7 +270,7 @@ export const ARTICLES = {
         id: "overview",
         heading: "Vue d'ensemble",
         blocks: [
-          { p: "FieldQuo garde une ligne par chose réelle et lit les trois en même temps, si bien qu'une visite planifiée sur un chantier apparaît au calendrier sans copie qui pourrait diverger. Le prix à payer, c'est que les commandes varient selon la sorte : un rendez-vous se réassigne sur le calendrier, une visite se travaille depuis son chantier, et une réservation se déplace par le client, avec son propre lien." },
+          { p: "FieldQuo garde une ligne par chose réelle et lit les trois en même temps, si bien qu'une visite planifiée sur un chantier apparaît au calendrier sans copie qui pourrait diverger. Les commandes varient un peu selon la sorte : un rendez-vous et une visite de chantier se réassignent, se déplacent, s'annulent et se terminent depuis le calendrier (une visite aussi depuis la page de son chantier); une réservation qui n'est pas encore devenue un rendez-vous se déplace par le client, avec son propre lien." },
         ],
       },
       {
@@ -280,8 +280,8 @@ export const ARTICLES = {
           { table: {
             head: ["Sorte", "D'où elle vient", "À quoi elle appartient"],
             rows: [
-              ["Visite de chantier", "**Ajouter une visite** ou **Planifier une visite** sur la page d'un chantier ; la visite suivante d'un chantier récurrent.", "Un chantier. Elle porte la liste de vérification de l'équipe, les photos, les notes et les boutons On my way / Mark complete."],
-              ["Rendez-vous", "**Nouveau rendez-vous** sur le calendrier ; une réservation confirmée depuis votre page de rendez-vous ; un rappel ou une visite réservés par le réceptionniste IA.", "Un client, sans chantier derrière. C'est pour lui que le texto de rappel de rendez-vous est envoyé."],
+              ["Visite de chantier", "**Ajouter une visite** ou **Planifier une visite** sur la page d'un chantier ; la visite suivante d'un chantier récurrent.", "Un chantier. Elle porte la liste de vérification de l'équipe, les photos, les notes et les boutons En route / Marquer comme terminée."],
+              ["Rendez-vous", "**Nouveau rendez-vous** sur le calendrier ; une réservation confirmée depuis votre page de rendez-vous ; un rappel ou une visite réservés par le réceptionniste IA.", "Un client, sans chantier derrière. Il reçoit le texto de rappel, comme une visite."],
               ["Réservation client", "Une réservation confirmée depuis la page de rendez-vous qui n'a pas encore été transformée en rendez-vous.", "Le type de rendez-vous choisi par le client. Le client peut la déplacer ou l'annuler avec le lien de son courriel de confirmation."],
             ],
           } },
@@ -317,13 +317,13 @@ export const ARTICLES = {
         id: "what-each-can-and-cannot-do",
         heading: "Ce que chaque sorte peut et ne peut pas faire",
         blocks: [
-          { p: "Un rendez-vous sur le calendrier peut être réassigné (ou réclamé avec **Me l'assigner**), et c'est tout ce que le calendrier offre : il n'y a là aucun bouton pour terminer, annuler ou déplacer un rendez-vous. Une visite de chantier se déplace par son chantier — annulez-la et ajoutez-en une nouvelle — et ses boutons de statut vivent sur la page du chantier. Une réservation client se déplace ou s'annule par le client, avec son propre lien ; voir [[clients-rescheduling-and-cancelling|Quand un client déplace ou annule]]." },
-          { note: "Les rappels de rendez-vous partent pour les rendez-vous seulement. Une visite de chantier ne déclenche pas le texto de rappel ; le bouton **On my way** de l'équipe est l'avertissement du client pour une visite." },
+          { p: "Un rendez-vous sur le calendrier et une visite de chantier — sur le calendrier ou sur la page de son chantier — partagent un même jeu de boutons : **Reporter**, **Marquer comme terminée**, **Annuler la visite**, puis **Rouvrir** ou **Remettre au calendrier**. Reporter est tenu au même calcul de marge de déplacement que le lien du client et explique un trou trop court avant d'offrir **Déplacer quand même**; Annuler la visite demande un motif qui reste sur la ligne, et c'est un statut, jamais une suppression. Les deux boîtes de dialogue proposent d'envoyer un courriel au client, dans la langue du client, disant que le bureau l'a déplacée ou annulée. Une réservation passée par la page de rendez-vous se déplace et s'annule avec son rendez-vous; celle qui n'est pas encore devenue un rendez-vous se déplace par le client, avec son propre lien — voir [[clients-rescheduling-and-cancelling|Quand un client déplace ou annule]]." },
+          { note: "Les rappels de rendez-vous partent pour les rendez-vous et les visites de chantier pareillement, une fois chacun, au délai réglé sous Paramètres → Notifications. Le bouton **En route** de l'équipe est le second avertissement de la visite, au moment du départ." },
         ],
       },
     ],
     faq: [
-      { q: "Pourquoi ma visite de chantier ne reçoit-elle pas de texto de rappel?", a: "Le rappel tourne sur les rendez-vous, pas sur les visites de chantier. Pour une visite, le toucher On my way de l'équipe envoie un texto au client au moment où ça compte." },
+      { q: "Une visite de chantier reçoit-elle un texto de rappel?", a: "Oui — le rappel lit les visites de chantier comme les rendez-vous : même formulation, même délai, même vérification STOP, jamais deux fois. Une visite déjà terminée ou annulée n'en reçoit pas. Le toucher En route de l'équipe est un second texto, au moment où ça compte." },
       { q: "Puis-je transformer un rendez-vous en chantier?", a: "Pas avec un bouton. Créez le chantier (ou laissez la soumission approuvée le créer) et planifiez une visite dessus ; le rendez-vous reste au calendrier sur sa propre ligne." },
       { q: "Une ligne Réservation client n'a pas de lien Ouvrir le projet.", a: "Exact — une réservation appartient à un type de rendez-vous et à un client, pas à un chantier. Elle devient un rendez-vous d'elle-même ; elle ne devient jamais une visite de chantier." },
     ],
@@ -343,7 +343,7 @@ export const ARTICLES = {
         id: "overview",
         heading: "Vue d'ensemble",
         blocks: [
-          { p: "Rien ne se réserve depuis la grille elle-même. Vous la lisez, vous choisissez un jour pour réduire la liste, puis vous agissez sur les lignes : appeler, naviguer, assigner, ouvrir le chantier. La réservation se fait par **Nouveau rendez-vous** ou depuis la page d'un chantier — voir [[book-a-visit-for-a-client|Réserver une visite pour un client]]." },
+          { p: "Rien ne se réserve depuis la grille elle-même. Vous la lisez, vous choisissez un jour pour réduire la liste, puis vous agissez sur les lignes : appeler, naviguer, assigner, déplacer, annuler ou terminer, ouvrir le chantier. La réservation se fait par **Nouveau rendez-vous** ou depuis la page d'un chantier — voir [[book-a-visit-for-a-client|Réserver une visite pour un client]]." },
         ],
       },
       {
@@ -367,7 +367,7 @@ export const ARTICLES = {
         blocks: [
           { p: "Chaque carte commence par le nom du client et un badge de statut — **Planifié**, **Superviseur requis**, **Terminé**, **Annulé**, et pour les autres sortes **Confirmé**, **En attente de paiement**, **En route**. Puis le badge de sorte, l'heure (et l'heure de fin quand une réservation en porte une), et un numéro de téléphone et une adresse qui fonctionnent comme des liens. Appuyez sur la carte pour ouvrir les détails." },
           { bullets: [
-            "**Visite de chantier** — le titre du chantier, le nom de la personne assignée et **Ouvrir le projet**. La visite elle-même se modifie sur le chantier.",
+            "**Visite de chantier** — le titre du chantier, le nom de la personne assignée et **Ouvrir le projet**. Ses notes et sa liste de vérification se modifient sur le chantier; la déplacer, l'annuler et la terminer se fait aussi d'ici.",
             "**Réservation client** — le type de rendez-vous et la personne assignée. Déplacée par le client, avec son propre lien.",
             "**Superviseur requis** — ce rendez-vous doit être assigné à un propriétaire, un administrateur ou un superviseur.",
             "**Réservé par le réceptionniste IA** — personne de l'entreprise n'a parlé à ce client ; les mots de l'appelant sont dans les notes.",
@@ -397,6 +397,20 @@ export const ARTICLES = {
         ],
       },
       {
+        id: "move-cancel-or-complete",
+        heading: "Déplacer, annuler ou terminer une entrée",
+        blocks: [
+          { p: "Sous un rendez-vous ou une visite de chantier sur lesquels vous pouvez agir, la ligne porte **Reporter**, **Marquer comme terminée** et **Annuler la visite** — et sur une entrée terminée ou annulée, **Rouvrir** ou **Remettre au calendrier**. Une **Réservation client** pas encore devenue un rendez-vous n'a rien de tout ça; le client la déplace avec son lien." },
+          { steps: [
+            "Appuyez sur **Reporter**. Sous **Nouvelle date et heure**, choisissez le moment. La case **Prévenir … du changement par courriel** est cochée quand le client a une adresse au dossier — la boîte de dialogue dit clairement quand il n'y en a pas — et la lettre part dans la langue du client, en disant que le bureau l'a déplacée.",
+            "Appuyez sur **Déplacer**. Une heure déjà passée, ou qui laisse trop peu pour le trajet depuis l'arrêt précédent ou vers le suivant — la même vérification de marge de déplacement que la page de rendez-vous applique — est refusée avec le motif, et **Déplacer quand même** la renvoie quand vous en savez plus que l'estimation.",
+            "Appuyez sur **Annuler la visite** pour l'annuler. Le **Motif (conservé sur la visite, non envoyé au client)** est facultatif; écrit, il s'affiche ensuite sous la ligne et s'efface si vous la remettez au calendrier. La même case de courriel s'applique, et la lettre du client dit que le bureau a annulé.",
+            "Appuyez sur **Marquer comme terminée** quand c'est fait, **Rouvrir** pour revenir en arrière, ou **Remettre au calendrier** pour rétablir une visite annulée. Annuler est un statut, jamais une suppression — la ligne reste.",
+          ] },
+          { note: "Les boutons apparaissent aux mêmes conditions que les routes imposent : un rendez-vous à la personne assignée ou à Horaire à « Edit everyone's schedule »; une visite à la personne assignée, à n'importe qui quand elle n'est pas assignée, ou à ce même niveau. Une réservation derrière un rendez-vous se déplace et s'annule avec lui, donc la plage sur votre page de rendez-vous suit." },
+        ],
+      },
+      {
         id: "who-sees-what",
         heading: "Qui voit quoi",
         blocks: [
@@ -414,7 +428,7 @@ export const ARTICLES = {
     ],
     faq: [
       { q: "Pourquoi la grille commence-t-elle le dimanche?", a: "Le premier jour de la semaine est un réglage d'entreprise dans Profil de l'entreprise. Changez-le là et la grille suit." },
-      { q: "Puis-je déplacer un rendez-vous en le glissant?", a: "Non. Le calendrier réassigne les rendez-vous ; il ne les déplace pas. Une visite de chantier s'annule et se recrée sur le chantier ; une réservation client se déplace par le client, avec son lien." },
+      { q: "Puis-je déplacer un rendez-vous en le glissant?", a: "Pas en le glissant. Appuyez sur **Reporter** sur la ligne — un rendez-vous ou une visite de chantier — et choisissez la nouvelle heure; la vérification du trajet dit si c'est trop serré. Une réservation client pas encore devenue un rendez-vous se déplace par le client, avec son lien." },
       { q: "Où est Votre équipe?", a: "Elle s'affiche sous la liste pour les personnes qui voient l'horaire de toute l'équipe — Répartiteur, Gestionnaire, administrateur et propriétaire — et liste ce que chaque personne a au calendrier pour les deux prochaines semaines. Voir [[the-team-schedule|L'horaire de l'équipe]]." },
     ],
   },
@@ -490,7 +504,7 @@ export const ARTICLES = {
     ],
     faq: [
       { q: "Puis-je réserver deux visites sur un même chantier?", a: "Oui — autant que le chantier en demande. La carte Visites les compte (« 1 of 3 complete ») et chacune a sa date, sa personne et sa liste de vérification." },
-      { q: "Réserver une visite avertit-il le client?", a: "Non. Rien n'est envoyé quand une visite est réservée. Le client a de vos nouvelles quand l'équipe appuie sur On my way, et un rendez-vous peut recevoir un texto de rappel si les rappels sont activés." },
+      { q: "Réserver une visite avertit-il le client?", a: "Non. Rien n'est envoyé quand une visite est réservée. Le client a de vos nouvelles quand l'équipe appuie sur En route, et l'une comme l'autre peut recevoir un texto de rappel si les rappels sont activés. La déplacer ou l'annuler plus tard propose bien d'envoyer un courriel au client." },
       { q: "Pourquoi la visite n'a-t-elle pas de durée?", a: "Une visite a un début et pas de fin. Seule une réservation faite par la page de rendez-vous porte une heure de fin, et c'est pourquoi le verdict de trajet entre deux arrêts, sur le calendrier, n'est donné qu'après une réservation." },
     ],
   },
@@ -587,10 +601,10 @@ export const ARTICLES = {
   "appointment-reminders": {
     title: "Rappels de rendez-vous",
     summary:
-      "Un texto au client 2, 24 ou 48 heures avant un rendez-vous : comment l'activer, ce qu'il dit, quels rendez-vous en reçoivent un, et ce que ça coûte.",
+      "Un texto au client 2, 24 ou 48 heures avant un rendez-vous ou une visite de chantier : comment l'activer, ce qu'il dit, quelles entrées en reçoivent un, et ce que ça coûte.",
     updated: "2026-09-12",
     intro: [
-      "Moins de portes closes : avec les rappels activés, chaque client qui a un numéro de cellulaire reçoit un texto avant son rendez-vous, dans sa langue, qui commence par le nom de votre entreprise. C'est désactivé tant qu'un propriétaire ou un administrateur ne l'active pas, parce que chaque rappel est un texto facturé à votre compte.",
+      "Moins de portes closes : avec les rappels activés, chaque client qui a un numéro de cellulaire reçoit un texto avant son rendez-vous ou sa visite de chantier, dans sa langue, qui commence par le nom de votre entreprise. C'est désactivé tant qu'un propriétaire ou un administrateur ne l'active pas; les textos eux-mêmes sont inclus dans votre forfait, rien n'est facturé par message.",
       "Les rappels partent par texto seulement. Il n'y a pas de rappel par courriel.",
     ],
     sections: [
@@ -608,7 +622,7 @@ export const ARTICLES = {
         blocks: [
           { steps: [
             "Ouvrez **Paramètres → Notifications**.",
-            "Trouvez la carte **Rappels de rendez-vous** — « Envoyez au client un rappel par texto avant son rendez-vous. Envoyé au nom de votre entreprise ; le client peut répondre STOP pour se désabonner. »",
+            "Trouvez la carte **Rappels de rendez-vous** — « Envoyez au client un texto de rappel avant son rendez-vous ou sa visite de chantier. Envoyé au nom de votre entreprise; le client peut répondre STOP pour se désabonner. »",
             "Appuyez sur **2 heures avant**, **24 heures avant** ou **48 heures avant**. Ça s'enregistre au moment où vous appuyez.",
             "Pour arrêter, appuyez sur **Désactivé**. Les rappels déjà envoyés ne sont pas touchés ; plus aucun ne part ensuite.",
           ] },
@@ -619,13 +633,13 @@ export const ARTICLES = {
         id: "when-it-goes",
         heading: "Quand un rappel part, et quand il ne part pas",
         blocks: [
-          { p: "Chaque rendez-vous est considéré une fois, et un texto ne part que si toutes les conditions suivantes sont vraies :" },
+          { p: "Chaque rendez-vous et chaque visite de chantier est considéré une fois, et un texto ne part que si toutes les conditions suivantes sont vraies :" },
           { bullets: [
-            "C'est un **rendez-vous** au statut **Planifié** — créé avec **Nouveau rendez-vous**, issu d'une réservation sur votre page de rendez-vous, ou réservé par le réceptionniste IA. Un rendez-vous **Superviseur requis**, terminé ou annulé n'en reçoit pas.",
+            "C'est un **rendez-vous** au statut **Planifié** — créé avec **Nouveau rendez-vous**, issu d'une réservation sur votre page de rendez-vous, ou réservé par le réceptionniste IA — ou une **visite de chantier** sur un chantier non archivé. Une entrée **Superviseur requis**, terminée ou annulée n'en reçoit pas.",
             "Il tombe dans les sept prochains jours et son délai est atteint.",
             "Le client a un numéro de téléphone auquel FieldQuo peut texter.",
             "Le client ne s'est pas désabonné des textos ni des appels — voir [[client-consent-and-unsubscribes|Consentement des clients et désabonnements]].",
-            "Aucun rappel n'a encore été envoyé pour ce rendez-vous. Jamais plus d'un par rendez-vous, même si vous changez le délai ou si le rendez-vous est déplacé.",
+            "Aucun rappel n'a encore été envoyé pour cette entrée. Jamais plus d'un par rendez-vous ou visite, même si vous changez le délai ou si l'entrée est déplacée.",
           ] },
         ],
       },
@@ -641,8 +655,8 @@ export const ARTICLES = {
         id: "which-appointments",
         heading: "Quelles entrées reçoivent un rappel",
         blocks: [
-          { p: "Les rendez-vous seulement. Une **Visite de chantier** planifiée sur un chantier ne déclenche pas de texto de rappel ; le toucher **On my way** de l'équipe est l'avertissement du client pour une visite. Une **Réservation client** qui n'est pas encore devenue un rendez-vous n'en déclenche pas non plus — elle en devient un dès qu'elle est confirmée et, s'il y a des frais de visite, payée." },
-          { warning: "Les rappels sont par entreprise, pas par personne : le délai s'applique à chaque rendez-vous planifié du compte, peu importe à qui il est assigné." },
+          { p: "Les rendez-vous et les visites de chantier. Une **Visite de chantier** planifiée sur un chantier reçoit le même texto au même délai, avec l'adresse du chantier (ou celle du client) comme lieu; le toucher **En route** de l'équipe est un second avertissement, au moment du départ. Une **Réservation client** qui n'est pas encore devenue un rendez-vous n'en déclenche pas non plus — elle en devient un dès qu'elle est confirmée et, s'il y a des frais de visite, payée." },
+          { warning: "Les rappels sont par entreprise, pas par personne : le délai s'applique à chaque rendez-vous et à chaque visite planifiés du compte, peu importe à qui ils sont assignés." },
         ],
       },
       {
@@ -654,19 +668,19 @@ export const ARTICLES = {
       },
     ],
     faq: [
-      { q: "Combien coûte un rappel?", a: "Chaque rappel est un texto facturé à votre compte. Les rappels sont désactivés tant que vous n'avez pas choisi de délai, alors rien n'est envoyé — ni facturé — à une entreprise qui n'a jamais ouvert le réglage." },
+      { q: "Combien coûte un rappel?", a: "Rien par message — les rappels sont inclus dans votre forfait, et la carte Notifications le dit. Ils sont désactivés tant que vous n'avez pas choisi de délai, alors rien n'est envoyé à une entreprise qui n'a jamais ouvert le réglage." },
       { q: "Puis-je rappeler par courriel plutôt?", a: "Non. Les rappels sont des textos seulement, pour l'instant." },
-      { q: "Le client n'a pas reçu de rappel.", a: "Vérifiez que le rendez-vous est Planifié (pas Superviseur requis), que le client a un numéro de téléphone, qu'il ne s'est pas désabonné, et que le rendez-vous était encore à venir au passage horaire — un rendez-vous déjà à l'intérieur de son délai est texté au passage suivant, un rendez-vous passé ne l'est pas." },
+      { q: "Le client n'a pas reçu de rappel.", a: "Vérifiez que l'entrée est Planifiée (pas Superviseur requis, terminée ou annulée), que le client a un numéro de téléphone, qu'il ne s'est pas désabonné, et que le rendez-vous était encore à venir au passage horaire — un rendez-vous déjà à l'intérieur de son délai est texté au passage suivant, un rendez-vous passé ne l'est pas." },
     ],
   },
 
   "the-on-my-way-text": {
     title: "Le texto « En route »",
     summary:
-      "Le texto que reçoit un client quand l'équipe appuie sur On my way sur une visite : comment il part, ce qu'il dit, comment changer la formulation, et qui peut le faire.",
+      "Le texto que reçoit un client quand l'équipe appuie sur En route sur une visite : comment il part, ce qu'il dit, comment changer la formulation, et qui peut le faire.",
     updated: "2026-09-12",
     intro: [
-      "Au moment où un membre de l'équipe se met en route, le téléphone du client vibre : « Northside Painting : Dave est en route. Répondez si vous devez reporter. » Il part d'un seul toucher sur la visite, il porte le nom de votre entreprise, et c'est le seul texto automatique qu'une visite de chantier envoie.",
+      "Au moment où un membre de l'équipe se met en route, le téléphone du client vibre : « Northside Painting : Dave est en route, arrivée dans 20 min. Pour reporter, appelez le 555-0100. » Il part d'un seul toucher sur la visite, il porte le nom de votre entreprise, et c'est le seul texto automatique qu'une visite de chantier envoie.",
       "Avec le rappel de rendez-vous, c'est l'un des deux textos que vos clients reçoivent de FieldQuo, et les deux se modifient sur le même écran.",
     ],
     sections: [
@@ -674,7 +688,7 @@ export const ARTICLES = {
         id: "overview",
         heading: "Vue d'ensemble",
         blocks: [
-          { p: "Le texto est l'effet secondaire d'un changement de statut. Sur la page du chantier, chaque visite a un bouton **On my way** ; l'appuyer passe la visite à **En route**, note où était le téléphone, et texte le client s'il a un numéro de cellulaire et ne s'est pas désabonné. Le statut s'enregistre que le texto puisse être livré ou non — une panne de messagerie ne bloque jamais l'équipe." },
+          { p: "Le texto est l'effet secondaire d'un changement de statut. Sur la page du chantier, chaque visite a un bouton **En route** ; l'appuyer passe la visite à **En route**, note où était le téléphone, et texte le client s'il a un numéro de cellulaire et ne s'est pas désabonné. Le statut s'enregistre que le texto puisse être livré ou non — une panne de messagerie ne bloque jamais l'équipe." },
         ],
       },
       {
@@ -684,20 +698,20 @@ export const ARTICLES = {
           { steps: [
             "Ouvrez le chantier sur votre téléphone et trouvez la visite du jour dans la carte **Visites**.",
             "Lisez la ligne sous les boutons. Elle dit « Texts your “on my way” wording to 514-555-0123 », ou que le numéro du client est masqué par votre niveau d'accès (ça part quand même), ou « No mobile on file for this client, so nothing will be sent — the visit just moves. »",
-            "Appuyez sur **On my way**. Votre téléphone peut demander votre position une fois ; la refuser n'empêche pas le toucher.",
-            "Le badge de la visite indique **En route** et le texto part en arrière-plan. Appuyez sur **Mark complete** quand vous avez fini.",
+            "Appuyez sur **En route**. Votre téléphone peut demander votre position une fois ; la refuser n'empêche pas le toucher.",
+            "Le badge de la visite indique **En route** et le texto part en arrière-plan. Appuyez sur **Marquer comme terminée** quand vous avez fini.",
           ] },
-          { note: "Le bouton dit ce qu'il fait parce que le téléphone d'un inconnu vibre quand vous appuyez. Une visite **En route** offre **Mark complete** et **Cancel visit**, pas un second **On my way** — un texto par départ." },
+          { note: "Le bouton dit ce qu'il fait parce que le téléphone d'un inconnu vibre quand vous appuyez. Une visite **En route** offre **Marquer comme terminée** et **Annuler la visite**, pas un second **En route** — un texto par départ." },
         ],
       },
       {
         id: "the-wording",
         heading: "La formulation",
         blocks: [
-          { p: "**Paramètres → Messages aux clients** — « Les textos que reçoivent vos clients. Laissez-en un tel quel pour utiliser notre formulation, ou personnalisez-le à votre image. » — a un éditeur par texto qui part vraiment : « On my way » et « Appointment reminder ». Rien d'autre n'est offert, parce qu'aucun autre texto automatique ne part." },
-          { figure: "live:app-settings-messages", caption: "Paramètres → Messages aux clients — l'éditeur On my way avec ses jetons de champs, l'aperçu « Votre client voit : », Enregistrer et Utiliser le texte par défaut." },
+          { p: "**Paramètres → Messages aux clients** — « Les textos que reçoivent vos clients. Laissez-en un tel quel pour utiliser notre formulation, ou personnalisez-le à votre image. » — a un éditeur par texto qui part vraiment : « En route » et « Rappel de rendez-vous ». Rien d'autre n'est offert, parce qu'aucun autre texto automatique ne part." },
+          { figure: "live:app-settings-messages", caption: "Paramètres → Messages aux clients — l'éditeur En route avec ses jetons de champs, l'aperçu « Votre client voit : », Enregistrer et Utiliser le texte par défaut." },
           { steps: [
-            "Ouvrez **Paramètres → Messages aux clients** et trouvez « On my way ».",
+            "Ouvrez **Paramètres → Messages aux clients** et trouvez « En route ».",
             "Écrivez votre message dans la case, ou appuyez sur un jeton de champ pour l'ajouter à la fin. L'aperçu **Votre client voit :** remplit les champs avec des valeurs d'exemple à mesure que vous tapez.",
             "Appuyez sur **Enregistrer**. Un message avec un champ que FieldQuo ne connaît pas — « Champ inconnu : {price}. Seuls les champs ci-dessus fonctionnent. » — ne peut pas être enregistré.",
             "Pour revenir à la formulation intégrée, appuyez sur **Utiliser le texte par défaut**.",
@@ -708,7 +722,8 @@ export const ARTICLES = {
               ["{company}", "Le nom de votre entreprise."],
               ["{worker}", "Le nom du membre de l'équipe assigné — « Your technician » quand la visite n'est pas assignée."],
               ["{name}", "Le prénom du client."],
-              ["{eta}", "L'heure d'arrivée estimée, si connue. La page du chantier n'en envoie pas aujourd'hui, alors le champ ressort vide et les espaces autour sont nettoyées."],
+              ["{eta}", "L'heure d'arrivée estimée, calculée de l'endroit où était votre téléphone au moment du toucher jusqu'à l'adresse du chantier, avec la même estimation de trajet que la page de rendez-vous. Sans position, ou pour un chantier jamais placé sur la carte, le champ ressort vide et les espaces autour sont nettoyées."],
+              ["{phone}", "Le téléphone de votre entreprise, des Paramètres de l'entreprise — le numéro que la formulation intégrée dit au client d'appeler, puisqu'une réponse n'est jamais lue. Vide, et cette phrase disparaît."],
             ],
           } },
         ],
@@ -725,7 +740,7 @@ export const ARTICLES = {
         heading: "Qui peut l'envoyer, qui peut le changer",
         blocks: [
           { bullets: [
-            "**On my way** apparaît pour la personne à qui la visite est assignée, pour n'importe qui sur une visite non assignée, et pour les personnes dont l'accès Horaire est « Edit everyone's schedule ». Un membre de l'équipe sur la visite d'un autre voit le badge et aucun bouton.",
+            "**En route** apparaît pour la personne à qui la visite est assignée, pour n'importe qui sur une visite non assignée, et pour les personnes dont l'accès Horaire est « Edit everyone's schedule ». Un membre de l'équipe sur la visite d'un autre voit le badge et aucun bouton.",
             "Le numéro du client est masqué pour l'équipe sur la page du chantier, mais le texto y part quand même — la ligne sous le bouton le dit.",
             "**Messages aux clients** se modifie par le propriétaire, les administrateurs et les superviseurs — les profils Répartiteur et Gestionnaire.",
           ] },
@@ -733,7 +748,7 @@ export const ARTICLES = {
       },
     ],
     faq: [
-      { q: "Le client peut-il répondre?", a: "Le texto invite à répondre, mais FieldQuo n'a pas de boîte de réception pour les textos des clients : une réponse n'apparaît nulle part dans FieldQuo aujourd'hui. Attendez-vous plutôt à un appel." },
+      { q: "Le client peut-il répondre?", a: "Pas utilement : FieldQuo n'a pas de boîte de réception pour les textos des clients, et seul STOP est lu. C'est pourquoi la formulation intégrée dit d'appeler le téléphone de votre entreprise plutôt que d'inviter une réponse — gardez **{phone}** dans la vôtre aussi." },
       { q: "Est-il envoyé depuis mon propre numéro?", a: "Il part du numéro depuis lequel FieldQuo texte et commence par le nom de votre entreprise, pour que le client sache qui s'en vient." },
       { q: "Pourquoi le client a-t-il reçu de l'anglais alors que nous travaillons en français?", a: "La fiche du client dit anglais, ou n'a pas de langue et la langue par défaut de votre entreprise est l'anglais. Réglez la langue sur la fiche du client ; votre formulation française ne s'applique qu'aux clients qui lisent le français." },
     ],
@@ -761,7 +776,7 @@ export const ARTICLES = {
         heading: "Le lien du client",
         blocks: [
           { p: "Le lien est créé quand la réservation est confirmée et vit dans le courriel de confirmation et dans chaque courriel « votre visite a été déplacée » qui suit. La page, dans la langue du client, montre **Votre rendez-vous** — **Quand** (avec votre fenêtre d'arrivée, si vous en avez réglé une), **Où**, le dépôt payé — et, sous **Besoin de changer quelque chose ?**, **Changer l'heure** et **Annuler ce rendez-vous**. Quand ni l'un ni l'autre n'est plus permis, elle dit pourquoi : « Northside Painting demande un préavis d'au moins 24 heures; ce rendez-vous ne peut donc plus être modifié ici. Appelez Northside Painting au … — ils peuvent encore le déplacer pour vous. »" },
-          { note: "Seules les réservations ont ce lien. Un rendez-vous que vous avez réservé à la main avec **Nouveau rendez-vous** et une visite planifiée sur un chantier n'envoient rien au client et n'ont pas de lien libre-service. Les courriels autour d'une réservation — confirmation, déplacement, annulation — sont en anglais aujourd'hui ; la page de gestion elle-même est dans la langue du client." },
+          { note: "Seules les réservations ont ce lien. Un rendez-vous que vous avez réservé à la main avec **Nouveau rendez-vous** et une visite planifiée sur un chantier n'envoient rien au client à la réservation et n'ont pas de lien libre-service; quand le bureau en déplace ou en annule un, le client peut recevoir un courriel depuis cette boîte de dialogue. Les courriels autour d'une réservation — confirmée, déplacée, annulée — et la page de gestion sont tous dans la langue du client, et une lettre de déplacement ou d'annulation dit si c'était à sa demande ou un changement du bureau." },
         ],
       },
       {
@@ -825,7 +840,7 @@ export const ARTICLES = {
       },
     ],
     faq: [
-      { q: "Le client dit que le lien ne le laisse pas annuler.", a: "Il est à l'intérieur de votre préavis de modification. La page nomme le préavis et votre numéro de téléphone. Il n'y a pas de bouton côté bureau pour annuler une réservation aujourd'hui, alors convenez du changement au téléphone et réservez vous-même la nouvelle heure comme rendez-vous ou comme visite." },
+      { q: "Le client dit que le lien ne le laisse pas annuler.", a: "Il est à l'intérieur de votre préavis de modification. La page nomme le préavis et votre numéro de téléphone. Convenez du changement au téléphone, puis appuyez sur **Reporter** ou **Annuler la visite** sur la ligne du rendez-vous dans le calendrier : la réservation derrière se déplace ou s'annule avec lui, et, si la case de courriel reste cochée, le client est prévenu que le bureau a fait le changement." },
       { q: "Pourquoi les frais n'ont-ils pas été remboursés?", a: "Les remboursements sont désactivés tant que vous n'avez pas activé Rembourser les frais de visite en cas d'annulation à temps, et même alors seulement avec le préavis que vous avez fixé. La page du client et les deux courriels disent ce qui s'est appliqué." },
       { q: "Le client reçoit-il le lien si je réserve le rendez-vous moi-même?", a: "Non. Le lien n'existe que pour les réservations faites par la page de rendez-vous ou par le réceptionniste IA. Un rendez-vous que vous créez depuis le calendrier n'envoie rien au client." },
     ],

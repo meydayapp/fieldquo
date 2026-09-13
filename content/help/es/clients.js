@@ -559,7 +559,7 @@ export const ARTICLES = {
           { p: "El pie dice “You're receiving this because you're a customer of …” con un enlace **Unsubscribe**, y la página que abre dice claramente que los presupuestos, facturas y recibos sobre trabajos solicitados seguirán llegando — solo se detiene el correo promocional." },
           { bullets: [
             "**Comerciales, con el enlace:** las campañas de correo de marketing; la solicitud automática de reseña después de un trabajo (vea [[review-requests|Solicitudes de reseña después de un trabajo]]); y una regla de seguimiento de “trabajo completado”, ya que el trabajo terminó y es un contacto discrecional.",
-            "**Transaccionales, sin enlace:** un presupuesto o una factura enviados; los seguimientos de “presupuesto enviado, sin respuesta” y de factura vencida, que son sobre un documento con el que el cliente ya está en una transacción; las confirmaciones de reserva y de presupuesto instantáneo; y el correo de cuenta como el restablecimiento de contraseña.",
+            "**Transaccionales, sin enlace:** un presupuesto o una factura enviados; los seguimientos de “consulta nueva, nadie respondió”, “presupuesto enviado, sin respuesta” y de factura vencida, que responden a una solicitud del cliente o a un documento con el que ya está en una transacción; las confirmaciones de reserva y de presupuesto instantáneo; y el correo de cuenta como el restablecimiento de contraseña.",
             "**Registrado al salir:** una solicitud de reseña se envía a alguien que nunca estuvo en una lista de correo, así que el envío primero crea su fila de suscriptor con un token — eso es lo que hace que el enlace de ese correo funcione.",
           ] },
         ],
@@ -582,7 +582,7 @@ export const ARTICLES = {
         blocks: [
           { p: "El mensaje de texto de recordatorio de cita predeterminado termina con “Responda STOP para no recibir más”, en el idioma del cliente — si reescribe el texto en **Configuración → Mensajes de clientes**, conserve esa línea, porque nada la vuelve a agregar. La palabra clave en sí es siempre STOP — las operadoras la tratan como universal. Una respuesta es una baja solo cuando todo el mensaje es la palabra clave: **STOP**, **STOPALL**, **UNSUBSCRIBE**, **CANCEL**, **END** o **QUIT** (un punto final está bien). “Please stop by at 3” no es una baja." },
           { bullets: [
-            "**STOP** registra una baja de SMS para ese número y su empresa en cuanto llega. Desde entonces, el recordatorio automático y el texto de “en camino” saltan ambos ese número.",
+            "**STOP** registra una baja de SMS en cuanto llega. Los textos a clientes salen por la línea compartida de FieldQuo, así que la respuesta no puede nombrar a una empresa: da de baja el número en todas las empresas que lo tienen en una ficha de cliente. Desde entonces, el recordatorio automático y el texto de “en camino” saltan ambos ese número.",
             "**START** o **UNSTOP** la revierte, por el mismo canal. Que el cliente reciba o no un texto de confirmación depende de cómo esté configurado el número en la operadora, no de un ajuste en FieldQuo. **YES** deliberadamente no es un alta — normalmente significa “sí a la cita”.",
             "Un número que se dio de baja de las **llamadas** también recibe rechazo para mensajes de texto, pero un START no restaura el consentimiento de llamadas — esa baja es de una sola vía.",
           ] },

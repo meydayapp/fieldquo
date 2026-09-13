@@ -41,7 +41,7 @@ export const ARTICLES = {
         blocks: [
           { bullets: [
             "**First run** — a single box under **What should your website say?**, four example chips you can tap to fill it, a **Build my site** arrow, and the line **Nothing is public until you publish it.**",
-            "**The bar** — your address (**yourname.fieldquo.com**), a **Live** badge once published, **Open**, **Save**, and **Publish** (which reads **Update** once the site is live).",
+            "**The bar** — your address (**yourname.fieldquo.com**), a **Live** badge once published, **Open**, **Unpublish** (only while the site is live), **Save**, and **Publish** (which reads **Update** once the site is live).",
             "**The thread** — what you asked for and what was built. When something is missing, the assistant says so with a one-tap action: **Add photos**, **Pair them up**, **Add a logo**, **Add a review**, **Set hours**, **Choose services**.",
             "**Layout** and **Style** chips, the prompt box (**Make it bolder · lead with reviews · shorter page…**), and the **Fine-tune** disclosure with **Web address**, **Languages**, **Before & after pairs** and the reviews embed.",
             "**Preview | Sections** — the live site with a desktop / mobile toggle and a refresh button, or the Home page's sections as text fields you can reword by hand.",
@@ -76,6 +76,7 @@ export const ARTICLES = {
               ["**Sections** pane", "Reword any heading or paragraph on the Home page by hand, choose a section's layout variant, add or remove a photo, **Hide** or **Show** a section. Your logo, colours, services, hours and contact details are not editable here — change them in company settings and the site updates."],
               ["**Save**", "Saves the draft. Once the site is live there is no separate draft: a saved change is what visitors see."],
               ["**Publish** / **Update**", "Makes the site public at your address, or re-confirms it. Needs a company that has finished signing up for a plan."],
+              ["**Unpublish**", "Takes the site offline after a dialog — **Take your website offline?** — that says what happens: visitors see a “not published” page straight away, Google drops the listing over the following days, and every section, photo and language is kept. **Publish** puts the same site back."],
               ["**Languages** (under Fine-tune)", "Adding a language writes the whole site in it — it is not machine-translated — and gives visitors a switcher in the header. Your main language is marked and cannot be removed."],
             ],
           } },
@@ -88,7 +89,7 @@ export const ARTICLES = {
         heading: "Publishing, stock photos and taking the site down",
         blocks: [
           { p: "When you have no photos yet the builder uses stock photography so the page is not empty — only as a background in the header and similar spots, never in **Our work**, because that section says the photos are jobs you did. Publishing with stock photos still on the page is allowed but never silent: a dialog counts them and offers **Add my photos** or **Publish anyway**." },
-          { p: "There is no Unpublish button on this screen today. Once a site is live it stays live; you can hide sections or rewrite them, and the address keeps answering. FieldQuo does not take a published site down from the builder." },
+          { p: "To take a live site down, press **Unpublish** in the bar and confirm **Take it offline**. Nothing is deleted: the thread says **Your site is offline. Nothing was deleted — publish again whenever you're ready.**, the **Live** badge goes, and the address answers with a “not published” page until you press **Publish** again. Cancelling your subscription asks you to unpublish first; this is the button it means." },
         ],
       },
       {
@@ -107,7 +108,7 @@ export const ARTICLES = {
         id: "who-can-see-it",
         heading: "Who can see it",
         blocks: [
-          { p: "The screen and its saves are open to owners, administrators, Dispatchers and Managers. Estimators and Crew do not see the row and the page refuses them. Adding or removing a site language is owner-and-administrator only. Publishing also needs a company that has finished checkout — a trial that never added a card can build the site but not put it in front of the public." },
+          { p: "The screen, its saves, Publish, Unpublish, languages and photos are for owners and administrators only — one rule for the whole website, because a published page is the company's public face. Everyone else, Dispatchers and Managers included, does not see the row and the page refuses them. Publishing also needs a company that has finished checkout — a trial that never added a card can build the site but not put it in front of the public." },
         ],
       },
     ],
@@ -370,6 +371,7 @@ export const ARTICLES = {
             "**Request a quote** — “They describe the job and leave their details. Lands in your Leads pipeline. Best for people still comparing prices.”",
             "**Book a visit** — “They pick a time from your real availability. Best for people who've already decided and just want you there.”",
             "**Instant estimate** — the address-in, price-out page; every estimate lands in your review queue before it is binding. Trades and rates live under **Settings → Instant Quotes**.",
+            "**Design your kitchen** — “A homeowner lays out their own kitchen — cabinets, finishes, the lot — and sends it to you as an enquiry with the drawing attached.” Shown only while **Kitchen Design & New Installs** is on under Services, and as a link only: there is no embed snippet for it.",
             "**One card per published funnel**, named as you named it — “A tap-through lead funnel — share the link on an ad, or put it on your site.” Draft funnels are not listed, because their link would not work yet.",
             "A closing line: the quote form only offers the services you enabled under Settings → Services, and never shows your prices.",
           ] },
@@ -398,6 +400,7 @@ export const ARTICLES = {
               ["Request a quote", "Picks a service, describes the job, adds photos, leaves their details", "A scored lead on the Leads board — see [[the-self-quote-form|The self-quote form]]"],
               ["Book a visit", "Chooses an event type and a slot from your real availability, pays a visit fee if you charge one", "An appointment on your calendar and a lead — see [[the-booking-page|The booking page]]"],
               ["Instant estimate", "Enters an address or traces an area, sees a starting price", "Estimate Reviews, where you confirm the price before anything is sent — see [[estimate-reviews|Estimate Reviews]]"],
+              ["Design your kitchen", "Draws their kitchen on a plan, picks finishes, leaves their details", "A lead with the drawing attached and no price — you quote it; see [[the-kitchen-designer|The kitchen designer]]"],
               ["A funnel", "Taps through a short quiz and leaves their details", "A scored lead tagged with the funnel's channel — see [[funnels|Lead funnels]]"],
             ],
           } },
@@ -499,7 +502,7 @@ export const ARTICLES = {
         id: "overview",
         heading: "Overview",
         blocks: [
-          { p: "The page is derived from your company record, not typed from scratch. A row appears because the thing behind it exists: the quote form is always there; **Book a visit** appears once you have an active event type; **Get an instant price** once an instant estimator is switched on; each published funnel as its own button; your website once it is published or once you entered a domain in Company Settings; the review link once it is set under Reviews; your phone and email from Company Settings. A row you turn off stays off; a row nobody touched is on the first time the page loads — including a funnel you publish next month." },
+          { p: "The page is derived from your company record, not typed from scratch. A row appears because the thing behind it exists: the quote form is always there; **Book a visit** appears once you have an active event type; **Get an instant price** once an instant estimator is switched on; **Design your kitchen** once Kitchen Design & New Installs is on under Services; each published funnel as its own button; your website once it is published or once you entered a domain in Company Settings; the review link once it is set under Reviews; your phone and email from Company Settings. A row you turn off stays off; a row nobody touched is on the first time the page loads — including a funnel you publish next month." },
           { p: "The page follows the visitor's phone between light and dark on its own; the light / dark switch on this screen only changes the preview frame. It carries a small **Made by FieldQuo** line at the very bottom on every plan — see [[the-site-by-fieldquo-footer|The “Site by FieldQuo” footer]]." },
         ],
       },
@@ -543,6 +546,7 @@ export const ARTICLES = {
             rows: [
               ["Get an instant price", "An instant estimator is switched on under Settings → Instant Quotes", "Yes"],
               ["Get a free quote (the quote form)", "Always — every company has it", "Yes"],
+              ["Design your kitchen", "Kitchen Design & New Installs is on under Settings → Services", "Yes"],
               ["Book a visit", "At least one active event type under Settings → Booking Page", "Yes"],
               ["Each published funnel, by its name", "The funnel is published", "Yes"],
               ["Visit our website", "A domain in Company Settings, or a published FieldQuo site", "Yes"],
@@ -620,7 +624,7 @@ export const ARTICLES = {
             "Open **Funnels** under Grow in the sidebar and press **New funnel**.",
             "Either type a sentence under **Describe it and let AI build it** (“A TikTok funnel for exterior house painting that qualifies budget and books an estimate”) and press **Generate**, or pick a template: **Website — get a quote**, **TikTok — 60-second quiz**, **Instagram — free estimate**, **YouTube — book your visit**, each “quiz → qualify → capture”. **or start from a blank funnel** is the third door.",
             "The builder opens with the steps on the left, the selected step in the middle and a branded phone preview on the right — see [[build-a-funnel|Build a funnel and read its drop-off]].",
-            "Press **Publish**. The public link and the embed code appear on the funnel's page, and the funnel is listed on **Settings → Share your links** and, switched on, on your bio link.",
+            "Press **Publish**. The public link and the embed code appear on the funnel's page, and the funnel is listed on **Settings → Share your links** and, switched on, on your bio link. **Unpublish** takes it back to a draft; the link stops answering and the runs and report are kept.",
           ] },
           { figure: "create:app-funnels-create", caption: "New funnel — the AI box (“Describe it and let AI build it”), the four channel templates, and “or start from a blank funnel”." },
           { note: "The AI writes the funnel's sentences only — the hook, the questions, the button text — from your real services and the channel you named. It never invents a service or a price, and the scoring questions keep their fixed answer values so a generated funnel scores leads exactly like a hand-built one. If the AI is unreachable you get the channel template with plainer copy, never a broken funnel. Generating spends your plan's monthly AI allowance." },
@@ -656,6 +660,7 @@ export const ARTICLES = {
       { q: "What happens to the leads if I delete a funnel?", a: "Leads already on your board stay where they are. What goes with the funnel is every recorded run and the whole drop-off report behind it — the delete dialog says how many runs." },
       { q: "Can I use the same funnel on TikTok and on my website?", a: "Yes — the channel is a label that travels on the lead's source; the link works anywhere. Make two if you want to compare the two audiences' drop-off separately." },
       { q: "Does a funnel need my FieldQuo website?", a: "No. It is its own page at its own address, and it can be embedded on any site you already run." },
+      { q: "Can my Meta pixel or Google Analytics see the funnel?", a: "Yes — paste the id under Ad tracking pixels in the builder. The pixel loads on the public page, records a page view and fires the platform's lead event when the form is sent, with no personal details attached. FieldQuo adds no cookie-consent banner; if your visitors are somewhere that requires one, that is yours to provide. See [[build-a-funnel|Build a funnel and read its drop-off]]." },
     ],
   },
 
@@ -672,7 +677,7 @@ export const ARTICLES = {
         id: "overview",
         heading: "Overview",
         blocks: [
-          { p: "The top bar holds the funnel's name (type to rename), its **Draft** or **Published** badge, **Save**, and **Publish** / **Unpublish**. When the funnel is published, its public link appears with **Copy link** and **Open**, and its embed code with **Copy code**; while it is a draft neither is offered, because the link would not work yet. Below, once anyone has started it, sits **Performance**. The bar's words are in English on every language's screen; the editor's labels follow your language." },
+          { p: "The top bar holds the funnel's name (type to rename), its **Draft** or **Published** badge, **Save**, and **Publish** / **Unpublish**. When the funnel is published, its public link appears with **Copy link** and **Open**, and its embed code with **Copy code**; while it is a draft neither is offered, because the link would not work yet. Below, once anyone has started it, sits **Performance**. The bar and the editor both follow your language." },
         ],
       },
       {
@@ -721,7 +726,7 @@ export const ARTICLES = {
         blocks: [
           { steps: [
             "Press **Save** whenever the button is dark; it reads **Saved** when nothing is pending.",
-            "Under **Ad tracking pixels** (optional) you can store a **Meta Pixel ID**, a **TikTok Pixel ID** or a **GA4 Measurement ID**. FieldQuo saves them, but the public funnel page does not load the pixel scripts today, so the ad platform is not yet told about visits to the funnel — treat the three fields as a record until that changes.",
+            "Under **Ad tracking pixels** (optional), paste a **Meta Pixel ID**, a **TikTok Pixel ID** or a **GA4 Measurement ID**. Each pixel that is set loads on the public funnel page and records a page view, and when a visitor sends the contact form it fires the platform's lead event — Meta **Lead**, GA4 **generate_lead**, TikTok **SubmitForm** — with no personal details attached. An id that is not shaped the way the platform issues it is ignored rather than put on the page. FieldQuo adds no cookie-consent banner anywhere; if your visitors are somewhere that requires one, that is yours to provide.",
             "Press **Publish**. The badge turns **Published** and the public link and embed code appear.",
             "Press **Copy link** for an ad or a post, or **Copy code** to put the funnel on a site you already have; it is also listed on **Settings → Share your links** and on your bio link.",
           ] },
@@ -770,10 +775,10 @@ export const ARTICLES = {
         heading: "What is on the screen",
         blocks: [
           { bullets: [
-            "The card's name and a status chip: **Draft**, **Active**, **Completed** or **Partial**.",
+            "The card's name and a status chip: **Draft**, **Active**, **Paused**, **Sent**, **Partially sent** or **Archived**.",
             "Its kind: **Pamphlet distribution**, **Meta / paid ads**, **Email blast** or **Other**.",
             "Its progress — a pamphlet route shows **visited/total stops** with a bar and **… spoke to**; an email shows the template name and **Sent to …** or **Not sent yet**; an ad shows **Budget …** and **linked** when a link was entered.",
-            "Who it is assigned to.",
+            "Who it is assigned to — and under the card, its status buttons: **Activate** or **Pause** (**Resume** when paused), and **Archive**; an archived card shows **Restore**. Once you have any, a **Show archived (n)** link at the top right brings them back into view.",
             "With nothing yet: **No campaigns yet. Create one to start tracking your marketing.**",
           ] },
           { figure: "live:app-marketing", caption: "Marketing — the title, Subscribers, Marketing spend and New Campaign, and one card per campaign with its kind and status." },
@@ -806,7 +811,7 @@ export const ARTICLES = {
               ["Other", "A budget and a link, for anything else — a radio spot, a sponsorship", "[[marketing-spend|Marketing spend]]"],
             ],
           } },
-          { note: "The **Budget** on a paid-ads or other card is a note on the card. What you actually spent is recorded under **Marketing spend**, which is what the cost-per-lead figures read; a budget typed here does not feed them." },
+          { note: "The **Budget** on a paid-ads or other card is what you set aside for the campaign's whole life. It shows on **Marketing spend** as **Budgeted (campaigns)** beside what was actually spent on that channel, and never enters a total or a cost per lead — those read only the spend you logged or synced. See [[marketing-spend|Marketing spend]]." },
         ],
       },
       {
@@ -814,10 +819,10 @@ export const ARTICLES = {
         heading: "Statuses",
         blocks: [
           { bullets: [
-            "**Draft** — every new campaign. A pamphlet or paid-ads campaign keeps this chip; FieldQuo does not change it on its own and there is no control on the screen to set it, so read a pamphlet campaign's progress from its stops, not its chip.",
-            "**Completed** — an email campaign once every subscriber has been sent it.",
-            "**Partial** — an email send that stopped partway; the campaign page offers **Resume send**, which mails only the people not yet reached.",
-            "**Active** exists as a value and shows on a card that carries it, but nothing on the screen sets it today.",
+            "**Draft** — every new campaign. On a pamphlet, paid-ads or other campaign, press **Activate** when the route is being walked or the ads are on; the chip reads **Active**.",
+            "**Active** and **Paused** — **Pause** puts an active campaign on hold and **Resume** brings it back. An email campaign has neither button: sending is the act, and its chip is written by the send itself.",
+            "**Sent** — an email campaign once every subscriber has been sent it. **Partially sent** — a send that stopped partway; the campaign page offers **Resume send**, which mails only the people not yet reached. Nothing you press sets these two.",
+            "**Archived** — **Archive** on any campaign, after a confirmation (**Archive? It leaves the list; nothing is deleted.**). The card leaves the list behind **Show archived**, its budget leaves the Spend page, and every stop, delivery and note it holds is kept. **Restore** brings it back as a draft.",
           ] },
         ],
       },
@@ -825,12 +830,12 @@ export const ARTICLES = {
         id: "who-can-see-it",
         heading: "Who can see it",
         blocks: [
-          { p: "The **Marketing** row, the list, the subscribers and the spend report are for owners, administrators, Dispatchers and Managers. Marking a stop on a pamphlet route is fieldwork and is open to any active member, and a campaign's own page hides its budget and notes from anyone below that level — but Crew and Estimators have no row to reach the list from, so hand them the campaign's link directly." },
+          { p: "The **Marketing** row, the list, the subscribers and the spend report are for owners, administrators, Dispatchers and Managers, and so are the Activate, Pause, Archive and Restore buttons. Marking a stop on a pamphlet route is fieldwork and is open to any active member, and a campaign's own page hides its budget and notes from anyone below that level — but Crew and Estimators have no row to reach the list from, so hand them the campaign's link directly." },
         ],
       },
     ],
     faq: [
-      { q: "Can I delete a campaign?", a: "Not from the screen today — neither the list nor a campaign's page has a delete control, so a finished campaign stays on the shelf with its chip. Stops on a pamphlet route can be removed one by one." },
+      { q: "Can I delete a campaign?", a: "No, on purpose — deleting would take every doorstep record and every delivery with it. Press Archive instead: the campaign leaves the list, keeps everything, and Restore brings it back. Stops on a pamphlet route can still be removed one by one." },
       { q: "Does a Meta campaign here connect to my Meta ad account?", a: "Not from this card — it holds a budget and a link. The ad-account sync, lead forms and spend import live under Settings → Meta Ads." },
       { q: "Where do the email addresses for a blast come from?", a: "From Subscribers — the people who are currently subscribed. Anyone who unsubscribed is left out automatically." },
     ],

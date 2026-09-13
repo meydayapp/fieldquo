@@ -65,7 +65,7 @@ export const ARTICLES = {
         id: "payments",
         heading: "Payments",
         blocks: [
-          { p: "A client pays from the invoice email's Pay button or from the client portal. The methods on offer depend on your currency: cards everywhere, and pre-authorized bank debit for Canadian companies billing in Canadian dollars." },
+          { p: "A client pays from the invoice email's Pay button or from the client portal. The methods on offer depend on your currency and on your Stripe account: cards everywhere, and — once Stripe has activated it on your account — **Pay from bank account** beside the card button on invoices, deposits and payment-schedule instalments: pre-authorized bank debit for a Canadian company billing in Canadian dollars. A bank payment takes 3–5 business days to clear, and the invoice reads **Bank payment pending** until it does." },
           { p: "On each payment, FieldQuo records the fee at the published rate, and the invoice's payment row reads, for example, **“card processing $68.10 · deposited $2,191.90”**. A payment you record by hand — cash, cheque, e-transfer — carries no fee and shows none." },
           { figure: "live:app-invoices", caption: "Invoices — Outstanding, Paid and Total Billed, then every invoice with its status and balance." },
           { p: "Pay-over-time financing (Affirm), if you turn it on, is priced by Affirm rather than at the card rate; that fee is passed through on those payments the same way." },
@@ -107,7 +107,7 @@ export const ARTICLES = {
         id: "refunds",
         heading: "Refunds",
         blocks: [
-          { p: "A refund returns the client's money through Stripe. The processing fee is **not returned**: Stripe keeps its fee on a refunded charge, and so the fee already deducted stays deducted. The payment record keeps showing the original fee, and the refund appears in your Stripe dashboard against the same charge." },
+          { p: "A refund is issued from the invoice in FieldQuo — **Refund** on the payment row, full or partial, with a reason — and returns the client's money through Stripe. The processing fee is **not returned**: Stripe keeps its fee on a refunded charge, and so the fee already deducted stays deducted. The payment keeps showing its original fee, and the refund is its own line under it, with the amount as a negative. See [[refunds|Refunds]]." },
           { warning: "Refund the invoice amount, not the net. A client who paid $2,260 expects $2,260 back; the $68.10 fee is your cost of having taken the payment." },
         ],
       },
@@ -165,35 +165,35 @@ export const ARTICLES = {
   "bank-debit-in-canada": {
     title: "Bank debit in Canada: 1% capped at $5",
     summary:
-      "Where pre-authorized bank debit is offered, what it costs, how long a debit takes to clear, and why the $5 cap is the cheapest way to collect a large recurring bill.",
+      "Where pre-authorized bank debit is offered, what it costs, how long a debit takes to clear, and why the $5 cap is the cheapest way to collect a large bill.",
     updated: "2026-09-12",
     intro: [
-      "A Canadian client on a service plan can pay by pre-authorized debit straight from their bank account instead of a card. The fee is **1% + $0.40, capped at $5.00** per payment — so a $5,000 debit costs you $5, where the same amount by card costs $150.30. Bank debit is passed through at Stripe's cost; FieldQuo adds nothing to it.",
-      "This article says exactly where bank debit is offered (service plans billed in Canadian dollars, not the Pay button on a one-off invoice), what the client agrees to, how long a debit takes to clear, and how the fee shows on the invoice and in your accounting export.",
+      "A Canadian client can pay an invoice, a deposit, a payment-schedule instalment or a service plan by pre-authorized debit straight from their bank account instead of a card. The fee is **1% + $0.40, capped at $5.00** per payment — so a $5,000 debit costs you $5, where the same amount by card costs $150.30. Bank debit is passed through at Stripe's cost; FieldQuo adds nothing to it.",
+      "This article says exactly where bank debit is offered (the **Pay … from bank account** button on the client portal for invoices, deposits and instalments, and service plans with automatic collection — for a company billing in Canadian dollars), what the client agrees to, how long a debit takes to clear, and how the fee shows on the invoice and in your accounting export.",
     ],
     sections: [
       {
         id: "overview",
         heading: "Overview",
         blocks: [
-          { p: "Bank debit in FieldQuo is Canadian pre-authorized debit (PAD) through Stripe. The client saves their bank account once, on a Stripe-hosted page, and agrees in writing to a series of payments of a fixed amount on a fixed cadence. From then on each occurrence of the plan is debited without the client doing anything, and every debit raises an invoice the client can see in their portal." },
-          { p: "It is offered only when the company bills in **CAD**. Stripe requires the debit currency to match the client's Canadian bank account, so a company billing in US dollars sees card as the only automatic method." },
-          { note: "Bank debit is not offered on the Pay button of an ordinary invoice. That checkout takes cards (and Affirm, if you turned pay-over-time on). Bank debit lives on service plans with automatic collection — see [[service-plans|Service plans]]." },
+          { p: "Bank debit in FieldQuo is Canadian pre-authorized debit (PAD) through Stripe, in two shapes. On the client portal, a client paying an invoice, a deposit or an instalment presses **Pay … from bank account** and agrees to a one-off mandate for that payment on Stripe's page, which verifies the account automatically where the bank supports it. On a service plan, the client saves their bank account once and agrees in writing to a series of payments of a fixed amount on a fixed cadence; from then on each occurrence of the plan is debited without the client doing anything, and every debit raises an invoice the client can see in their portal." },
+          { p: "It is offered only when the company bills in **CAD**. Stripe requires the debit currency to match the client's Canadian bank account, so a company billing in US dollars gets ACH bank debit on the same portal button instead (0.8%, capped at $5.00), and card as the only automatic method on service plans." },
+          { note: "The portal's bank button is offered only once Stripe has activated the capability on your account. FieldQuo requests it when you connect, and **Settings → Payments** says which it is: **Clients can pay invoices by card or from a bank account**, or that bank payments will be offered once Stripe activates them. Booking fees stay card-only — a slot held for 30 minutes cannot wait five days. Service plans with automatic collection keep their own mandate — see [[service-plans|Service plans]]." },
         ],
       },
       {
         id: "where-it-is-offered",
         heading: "Where bank debit is offered",
         blocks: [
-          { p: "The choice is made by the client, not by you: when you ask a client to authorise a plan, Stripe's page offers a card or, for a CAD company, a bank account, and the client picks. Here is the path from your side." },
+          { p: "The choice is made by the client, not by you. On the portal, the bank button sits beside the card button and the client picks; when you ask a client to authorise a plan, Stripe's page offers a card or, for a CAD company, a bank account. Here is the path from your side." },
           { steps: [
-            "Open **Service Plans** and create the plan, choosing **Charge automatically** under **How it gets paid**.",
-            "Save it. The plan reads **Automatic payment asked for, but the client hasn't agreed yet** until the client acts. Press **Ask the client to authorise payments** to email them the link.",
+            "On an invoice, a deposit or an instalment there is nothing to set up: once Stripe has activated bank debit on your account, the client's portal shows **Pay … from bank account** beside **Pay … by card**. Stripe's page takes the bank details, shows its pre-authorized debit agreement for that one payment, and the fee is worked out for that method exactly — a $5,000 invoice costs $5.00.",
+            "On a service plan, open **Service Plans** and create the plan, choosing **Charge automatically** under **How it gets paid**. Save it; the plan reads **Automatic payment asked for, but the client hasn't agreed yet** until the client acts. Press **Ask the client to authorise payments** to email them the link.",
             "The client reads the authorisation terms on their own page, ticks the box, and lands on Stripe's page, which offers **card** or **bank account**. For a bank account Stripe shows its own pre-authorized debit agreement and emails the client a copy.",
             "Once the account is saved the plan reads **Charged automatically — bank debit**, with the date the client authorised it. Until then it invoices each visit, exactly as a plan without a mandate does.",
           ] },
           { figure: "live:app-plans", caption: "Service Plans — every plan with its cadence, how it gets paid, and what happens next." },
-          { note: "The authorisation wording exists in English and French only. A client whose language is neither is not offered automatic charging at all — their plan sends an invoice with a pay link on each visit instead. Full detail: [[service-plan-bank-debit-mandates|Service plans paid by bank debit: the mandate]]." },
+          { note: "The service-plan authorisation wording exists in English and French only. A client whose language is neither is not offered automatic charging at all — their plan sends an invoice with a pay link on each visit instead. Full detail: [[service-plan-bank-debit-mandates|Service plans paid by bank debit: the mandate]]." },
         ],
       },
       {
@@ -208,7 +208,7 @@ export const ARTICLES = {
               ["$5,000", "$5.00 (the cap)", "$150.30"],
             ],
           } },
-          { p: "The fee is deducted from the debit before the money reaches your bank, the same way a card fee is. The invoice's payment row reads, for example, **“bank debit processing $5.00 · deposited $4,995.00”**, and the accounting export writes the method as “acss_debit” in its **Fee rate** column. There is no international or currency-conversion surcharge on bank debit." },
+          { p: "The fee is deducted from the debit before the money reaches your bank, the same way a card fee is. The invoice's payment row reads, for example, **“bank debit processing $5.00 · deposited $4,995.00”**, and the accounting export writes the method as “acss_debit” in its **Fee rate** column. There is no international or currency-conversion surcharge on bank debit, and the fee is the same whether the debit came from the portal button or from a plan." },
           { tip: "The cap is reached at $460. Above that, every extra dollar a client pays by bank debit is free of fees — which is why a quarterly or annual maintenance plan is the place to offer it." },
         ],
       },
@@ -216,11 +216,11 @@ export const ARTICLES = {
         id: "how-a-debit-settles",
         heading: "How a debit settles",
         blocks: [
-          { p: "A card charge is answered in seconds. A bank debit is accepted immediately but the money moves through the banking system afterwards, and takes about **5 business days** to settle." },
+          { p: "A card charge is answered in seconds. A bank debit is accepted immediately but the money moves through the banking system afterwards, and takes **3–5 business days** to settle." },
           { bullets: [
-            "While it is in transit, the plan's occurrence shows as charging and the invoice is **not** marked paid — FieldQuo does not show a settled bill against money that has not arrived. Stripe sends the client the debit notification the mandate requires.",
+            "While it is in transit the invoice is **not** marked paid — FieldQuo does not show a settled bill against money that has not arrived. From the portal, the client's invoice reads **Bank payment pending** and yours carries a banner saying a bank payment is on its way and since when; on a plan, the occurrence shows as charging. Stripe sends the client the debit notification the mandate requires.",
             "When it clears, the invoice becomes **Paid** and the client is emailed a receipt from your company.",
-            "If the bank returns it (insufficient funds, a closed account), the occurrence is marked failed and the client is emailed the invoice with a pay link, so the visit is still billed and can still be paid by card.",
+            "If the bank returns it (insufficient funds, a closed account), the balance is still owing. From the portal, the invoice reads **Bank payment failed** with Stripe's reason, and the client can try again or pay by card; on a plan, the occurrence is marked failed and the client is emailed the invoice with a pay link, so the visit is still billed and can still be paid by card.",
           ] },
           { warning: "A bank account that still needs micro-deposit verification is not a mandate yet. FieldQuo does not record the authorisation until Stripe reports the setup complete, so a plan can read “the client agreed but hasn't saved a payment method yet” for a day or two while the client confirms the deposits." },
         ],
@@ -237,14 +237,14 @@ export const ARTICLES = {
         id: "who-can-see-it",
         heading: "Who can set it up",
         blocks: [
-          { p: "Service plans sit under Invoices in the access grid: anyone who can see invoices can see plans. Creating a plan and sending the authorisation link needs edit access to invoices **and** the **payments** toggle — the Manager level and above, and any Custom access with both. The fee itself is not a setting; nobody can change it." },
+          { p: "The portal button needs nothing from you beyond a connected Stripe account. Service plans sit under Invoices in the access grid: anyone who can see invoices can see plans. Creating a plan and sending the authorisation link needs edit access to invoices **and** the **payments** toggle — the Manager level and above, and any Custom access with both. The fee itself is not a setting; nobody can change it." },
         ],
       },
     ],
     faq: [
-      { q: "Can a client pay a one-off invoice by bank debit?", a: "No. The Pay button on an invoice takes cards, plus Affirm if you offer financing. Bank debit is available through a service plan the client has authorised." },
+      { q: "Can a client pay a one-off invoice by bank debit?", a: "Yes — from their portal, with Pay … from bank account beside the card button, once Stripe has activated bank debit on your account. Deposits and payment-schedule instalments too. Booking fees stay card-only, and a service plan keeps its standing mandate." },
       { q: "Is the $5 cap per payment or per month?", a: "Per payment. Two $5,000 debits in one month cost $5 each." },
-      { q: "Why is the invoice still unpaid two days after the debit?", a: "A bank debit takes about five business days to settle. The invoice is marked paid when the money actually arrives, not when the debit is requested." },
+      { q: "Why is the invoice still unpaid two days after the debit?", a: "A bank debit takes 3–5 business days to settle. The invoice reads Bank payment pending, and is marked paid when the money actually arrives, not when the debit is requested." },
     ],
   },
 
@@ -438,10 +438,10 @@ export const ARTICLES = {
   "refunds": {
     title: "Refunds",
     summary:
-      "How to return an online payment to a client through Stripe, what FieldQuo records when you do, and why the processing fee stays deducted.",
+      "How to return a payment to a client from the invoice — through Stripe for a card or bank payment, by hand for cash — what FieldQuo records when you do, and why the processing fee stays deducted.",
     updated: "2026-09-12",
     intro: [
-      "A refund returns some or all of an online payment to the client's card or bank account. You issue it in your Stripe dashboard — there is no refund button in FieldQuo — and FieldQuo records it the moment Stripe reports it: the payment row, the invoice's balance and status, and a notification to the people who handle payments.",
+      "A refund returns some or all of a payment to the client. You issue it from the invoice in FieldQuo — **Refund** on the payment row — for the full amount or a part of it, with a reason the client will see on their invoice. A card or bank payment goes back the way it came, through Stripe; a cash, cheque or e-transfer refund is recorded with no money moving through Stripe. FieldQuo writes the refund as its own line under the payment, and the invoice's balance and status follow.",
       "The processing fee is not returned. Stripe keeps its fee on a refunded charge, so the fee already deducted stays deducted. Refund the amount the client paid, not the net you received.",
     ],
     sections: [
@@ -449,7 +449,7 @@ export const ARTICLES = {
         id: "overview",
         heading: "Overview",
         blocks: [
-          { p: "Every online payment is a Stripe charge in your company's name. Refunding it is a Stripe action, done from the Express dashboard behind **Manage in Stripe**, for the full amount or a part of it, once or several times. FieldQuo listens for Stripe's confirmation and updates the invoice — it never issues an invoice refund on its own, and it never moves money out of your balance without Stripe telling it the refund happened." },
+          { p: "Every online payment is a Stripe charge in your company's name, and refunding it is a Stripe refund — issued from FieldQuo, because the Express dashboard behind **Manage in Stripe** cannot refund a charge the platform created on your behalf. FieldQuo records the refund only once Stripe confirms the money moved, once or several times on the same payment, and never issues one on its own. A read-only support session is refused: support access cannot move a company's money." },
           { note: "There is one refund FieldQuo does issue itself: a booking visit fee returned when a client cancels a visit inside the notice window you set. That is a separate rule — see [[booking-fees-and-visit-deposits|Booking fees and visit deposits]]." },
         ],
       },
@@ -458,12 +458,12 @@ export const ARTICLES = {
         heading: "How to refund an online payment",
         blocks: [
           { steps: [
-            "Open the invoice and note the payment's date and amount from its payment row.",
-            "Open **Settings → Payments** and press **Manage in Stripe**.",
-            "In Stripe's dashboard, open the payment and refund it — the whole amount or a partial one.",
-            "Back in FieldQuo, the invoice updates on its own once Stripe confirms the refund. Nothing to press.",
+            "Open the invoice and find the payment under **Payment History**. A payment that still holds money shows **Refund** beside it.",
+            "Press **Refund**. The dialog — **Refund this payment** — says how much can still be refunded from it, and asks for the **Amount to refund** (the whole amount or a part) and a **Reason** (“Job cancelled, overpaid, goodwill”).",
+            "Read the line under the fields. For a card or bank payment: the money goes back to the client's card or bank account through Stripe, usually within 5–10 business days, and Stripe does not return its processing fee. For a cash, cheque or e-transfer payment: no money moves; it records that you returned the amount.",
+            "Press **Refund**. The row appears at once — **Refund (Card) — your reason**, with a negative amount — and the invoice's balance and status update. A double-click or a retried submit cannot issue it twice.",
           ] },
-          { figure: "live:app-settings-payments", caption: "Settings → Payments — Manage in Stripe opens the dashboard where refunds are issued." },
+          { figure: "harness:invoice-detail", caption: "The invoice — Payment History at the bottom, where Refund sits beside each payment that still holds money." },
           { warning: "Refund the invoice amount, not the net. A client who paid $2,260 expects $2,260 back; the $68.10 fee is your cost of having taken the payment, and Stripe does not return it." },
         ],
       },
@@ -472,10 +472,10 @@ export const ARTICLES = {
         heading: "What FieldQuo records",
         blocks: [
           { bullets: [
-            "The payment row keeps its original amount and fee, and gains the refunded amount and date. A second partial refund on the same charge updates the same row to the new total refunded — never a second row.",
+            "**A refund row** of its own under the payment: a negative amount, the method, the reason and who issued it. The original payment keeps its amount and fee. A second partial refund is a second row, and together they can never exceed what the payment still holds.",
             "The invoice's paid figure drops by the refund and its balance rises by it. A fully refunded invoice reads **Refunded**; a partly refunded one reads **Partially refunded**, with a banner such as “Partly refunded — $500.00 was returned to the client.”",
-            "Owners and administrators get a notification: “Money taken back on invoice INV-1042 — Jane Tremblay”, marked **Refunded**. The Manager level does not — see [[disputes-and-chargebacks|Disputes and chargebacks]] for who is told.",
-            "In the accounting export the payment keeps its gross, fee and net; the refund appears in your Stripe dashboard against the same charge.",
+            "Owners and administrators get a notification once Stripe confirms the refund: “Money taken back on invoice INV-1042 — Jane Tremblay”, marked **Refunded**. The Manager level does not — see [[disputes-and-chargebacks|Disputes and chargebacks]] for who is told.",
+            "In the accounting export the payment keeps its gross, fee and net, and the refund is a line of its own in the payments file — method **refund**, a negative amount, Stripe's refund id as the reference and your reason as the note — with a **Refunds** total in the summary beside **Payments received**. A refund made directly in your Stripe dashboard is recorded on the original payment's refunded amount instead, not as a line.",
           ] },
           { p: "A refund on an older version of an amended invoice is applied to the latest version, because the family of versions shares one running balance." },
         ],
@@ -484,7 +484,7 @@ export const ARTICLES = {
         id: "the-fee",
         heading: "The fee on a refunded payment",
         blocks: [
-          { p: "Stripe keeps its processing fee on a refunded charge. A refund issued from your dashboard leaves the fee where it is, and the one refund FieldQuo issues itself — the visit fee — is created with the fee deliberately **not** returned: returning it would leave FieldQuo paying Stripe for a payment nobody kept. So the fee you saw on the payment row is the fee you paid, refund or no refund." },
+          { p: "Stripe keeps its processing fee on a refunded charge, and FieldQuo does not return its share either — the dialog says so before you confirm. A refund from the invoice, a refund made in your Stripe dashboard and the visit fee FieldQuo returns on a cancelled booking are all created with the fee deliberately **not** returned: returning it would leave FieldQuo paying Stripe for a payment nobody kept. So the fee you saw on the payment row is the fee you paid, refund or no refund." },
           { p: "If your balance cannot cover a refund, Stripe recovers the difference from your next payments before paying anything out — see the negative-balance section of [[payment-processing-fees-and-payouts|Payment processing fees and payouts]]." },
         ],
       },
@@ -492,19 +492,19 @@ export const ARTICLES = {
         id: "manual-payments",
         heading: "Refunding a cash, cheque or e-transfer payment",
         blocks: [
-          { p: "FieldQuo does not record refunds of manual payments. The **Record Payment** form refuses a negative amount, so a cash refund you hand back cannot be entered as a payment. Return the money outside the app and, if the invoice should show a smaller total, amend the invoice instead — see [[edit-an-invoice-after-sending|Edit an invoice after it was sent]]." },
+          { p: "A cash, cheque or e-transfer payment is refunded from the same **Refund** action. The payment was not taken through FieldQuo, so no Stripe call is made: the row records that you returned the amount by hand, and the invoice's balance rises by it. The **Record Payment** form still refuses a negative amount — a refund is not a payment typed with a minus sign. If the invoice should show a smaller total, amend the invoice instead — see [[edit-an-invoice-after-sending|Edit an invoice after it was sent]]." },
         ],
       },
       {
         id: "who-can",
         heading: "Who can refund",
         blocks: [
-          { p: "Whoever can open **Manage in Stripe** — owners and administrators. Seeing the refund on the invoice needs the **payments** toggle, which the Manager level holds and Crew, Estimator and Dispatcher do not." },
+          { p: "Owners and administrators, and anyone whose access has both the **payments** toggle and edit access to invoices — the Manager level qualifies; Crew, Estimator and Dispatcher do not. **Refund** only renders for them, and the request is refused for anyone else and for a read-only support session. Seeing the refund row on the invoice needs the same **payments** toggle." },
         ],
       },
     ],
     faq: [
-      { q: "Is there a refund button on the invoice?", a: "No. Refunds are issued in your Stripe dashboard via Manage in Stripe; FieldQuo records the result automatically." },
+      { q: "Is there a refund button on the invoice?", a: "Yes — Refund, beside each payment under Payment History that still holds money. It is the only place these charges can be refunded: the Express dashboard behind Manage in Stripe cannot refund a charge the platform created for you." },
       { q: "Does the client get their processing fee back?", a: "The client never paid a fee — they paid the invoice total. Refund that total. The fee was deducted from your side and stays deducted." },
       { q: "Will the overdue reminder chase a refunded invoice?", a: "No. The automatic overdue reminder only chases invoices still in the sent or overdue state; a refunded or partially refunded invoice is neither." },
     ],

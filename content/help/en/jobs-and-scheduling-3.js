@@ -452,7 +452,7 @@ export const ARTICLES = {
           { steps: [
             "Open the job and choose **Cancelled** in the status dropdown next to the title.",
             "If the job came from a quote, the *schedule this job* task on your to-do list closes itself.",
-            "Open each of its visits and press **Cancel visit**. Cancelling the job does not cancel its visits; they stay on the calendar and would still send reminders.",
+            "Press **Cancel visit** on each of its visits — on the job page or the calendar. It asks for an optional reason and, unless you untick it, emails the client in their language that the office cancelled. Cancelling the job does not cancel its visits; they stay on the calendar and would still get a reminder text.",
           ] },
           { p: "A cancelled job keeps everything on it — hours, expenses, photos, notes. It never gets a review request, its recurrence stops rolling forward, and its chat room moves under **Finished jobs**." },
         ],

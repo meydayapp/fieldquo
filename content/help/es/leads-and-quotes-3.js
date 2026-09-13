@@ -535,7 +535,7 @@ export const ARTICLES = {
             "Presione **Guardar y recalcular la cotización**. El dibujo se almacena y el grupo de ebanistería del presupuesto se reescribe a partir de él — los otros grupos de alcance del presupuesto (un baño, un piso) se dejan como están.",
             "Envíe el presupuesto. El dibujo se imprime en el PDF del presupuesto y después en la factura, a partir de las mismas formas que dibujó la pantalla.",
           ] },
-          { p: "Un presupuesto que ya se envió es un compromiso, así que su diseño se abre en solo lectura y la pantalla lo dice. Para cambiar la distribución después de enviar, empiece un presupuesto nuevo — FieldQuo no tiene hoy un control para duplicar presupuestos." },
+          { p: "Un presupuesto que ya se envió es un compromiso, así que su diseño se abre en solo lectura y la pantalla lo dice. Para cambiar la distribución después de enviar, pulse **Duplicar** junto a esa nota: un borrador nuevo con el siguiente número, con el mismo cliente, idioma, líneas y dibujo — nada del historial de envío, nada de los cambios del cliente — se abre directo en su diseñador, desbloqueado. El presupuesto enviado queda intacto." },
         ],
       },
       {
@@ -556,7 +556,7 @@ export const ARTICLES = {
     ],
     faq: [
       { q: "Vendo reacabado de gabinetes. ¿Necesito Precios de gabinetes?", a: "No. El reacabado y el recubrimiento se cotizan desde sus propias listas de tarifas en Servicios y precios y Cotizaciones instantáneas; Precios de gabinetes alimenta solo al diseñador de cocina, y la pantalla permanece oculta hasta que el diseño de cocinas esté activado." },
-      { q: "¿Un propietario puede diseñar una cocina antes de que yo haya cotizado?", a: "No desde ningún enlace que FieldQuo entregue hoy. El enlace del cliente existe solo una vez enviado un presupuesto, y edita el diseño de ese presupuesto." },
+      { q: "¿Un propietario puede diseñar una cocina antes de que yo haya cotizado?", a: "Sí. Con **Kitchen Design & New Installs** activado en Servicios, existe una página pública **Diseña tu cocina**: una tarjeta en Configuración → Comparte tus enlaces, una fila en su enlace para la bio y un enlace en el paso Diseño de cocina del formulario de cotización. Lo que dibuja llega como prospecto con el plano adjunto y sin precio — usted lo cotiza. El enlace del cliente de un presupuesto enviado es otra cosa: edita el diseño de ese presupuesto." },
       { q: "¿La edición del cliente cambia mi presupuesto?", a: "Nunca por sí sola. Es una segunda versión que usted puede cargar; el presupuesto solo se mueve cuando presiona Guardar y recalcular la cotización." },
     ],
   },

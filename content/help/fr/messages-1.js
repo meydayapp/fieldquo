@@ -617,7 +617,7 @@ export const ARTICLES = {
       "Le texto « en route » et le rappel de rendez-vous — quand chacun est envoyé, les champs que vous pouvez utiliser, comment la formulation suit la langue du client, et ce que FieldQuo n'envoie pas par texto.",
     updated: "2026-09-12",
     intro: [
-      "FieldQuo envoie un texto à un client en exactement deux occasions : quand un membre de l'équipe appuie sur **On my way** sur une visite, et, si vous l'activez, un rappel **2 heures avant**, **24 heures avant** ou **48 heures avant** un rendez-vous. **Paramètres → Messages aux clients** est l'endroit où vous changez la formulation des deux, avec un aperçu **Votre client voit :** en direct pour que personne n'envoie jamais un **{price}** brut à un client.",
+      "FieldQuo envoie un texto à un client en exactement deux occasions : quand un membre de l'équipe appuie sur **En route** sur une visite, et, si vous l'activez, un rappel **2 heures avant**, **24 heures avant** ou **48 heures avant** un rendez-vous ou une visite de chantier. **Paramètres → Messages aux clients** est l'endroit où vous changez la formulation des deux, avec un aperçu **Votre client voit :** en direct pour que personne n'envoie jamais un **{price}** brut à un client.",
       "Il n'y a pas de troisième texto. La page le dit — deux sortes de textos et pas plus — et elle ne peut pas faire apparaître un éditeur pour un message qui ne part jamais, parce que la liste vient des messages qui sont réellement envoyés.",
     ],
     sections: [
@@ -625,7 +625,7 @@ export const ARTICLES = {
         id: "overview",
         heading: "Vue d'ensemble",
         blocks: [
-          { p: "Les deux textos partent du numéro de texto partagé de FieldQuo et commencent par le nom de votre entreprise — **Northside Painting : Dave est en route, arrivée dans 20 min.** — pour que le client sache de qui ça vient. Chaque rappel se termine par **Répondez STOP pour ne plus recevoir**, et un client qui répond STOP ne reçoit plus jamais ni l'un ni l'autre ; la même vérification de désabonnement s'exécute avant le texto « en route ». Les rappels partent par texto seulement : il n'y a pas de rappel par courriel." },
+          { p: "Les deux textos partent du numéro de texto partagé de FieldQuo et commencent par le nom de votre entreprise — **Northside Painting : Dave est en route, arrivée dans 20 min.** — pour que le client sache de qui ça vient. Chaque rappel se termine par **Répondez STOP pour ne plus recevoir**, et un client qui répond STOP ne reçoit plus jamais ni l'un ni l'autre — la réponse revient à la ligne partagée, donc elle désabonne ce numéro de toutes les entreprises qui l'ont sur une fiche client ; la même vérification de désabonnement s'exécute avant le texto « en route ». Les rappels partent par texto seulement : il n'y a pas de rappel par courriel." },
         ],
       },
       {
@@ -635,11 +635,11 @@ export const ARTICLES = {
           { table: {
             head: ["Texto", "Quand il est envoyé", "Champs"],
             rows: [
-              ["**On my way**", "Au moment où l'état d'une visite passe à **En route** sur la page du chantier — par le membre d'équipe assigné, n'importe qui sur une visite non assignée, ou quelqu'un qui peut modifier l'horaire de tout le monde. Le bouton nomme le numéro qu'il va texter, ou dit clairement que le client n'a pas de téléphone au dossier et que rien ne partira.", "**{company}**, **{worker}**, **{name}**, **{eta}**"],
-              ["**Appointment reminder**", "Une fois par rendez-vous, dans l'heure du délai choisi dans **Paramètres → Notifications → Rappels de rendez-vous** (**Désactivé**, **2 heures avant**, **24 heures avant**, **48 heures avant**). Désactivé par défaut ; une entreprise qui n'a jamais choisi de délai n'en envoie aucun.", "**{company}**, **{when}**, **{location}**"],
+              ["**En route**", "Au moment où l'état d'une visite passe à **En route** sur la page du chantier — par le membre d'équipe assigné, n'importe qui sur une visite non assignée, ou quelqu'un qui peut modifier l'horaire de tout le monde. Le bouton nomme le numéro qu'il va texter, ou dit clairement que le client n'a pas de téléphone au dossier et que rien ne partira.", "**{company}**, **{worker}**, **{name}**, **{eta}**, **{phone}**"],
+              ["**Rappel de rendez-vous**", "Une fois par rendez-vous ou visite de chantier, dans l'heure du délai choisi dans **Paramètres → Notifications → Rappels de rendez-vous** (**Désactivé**, **2 heures avant**, **24 heures avant**, **48 heures avant**). Désactivé par défaut ; une entreprise qui n'a jamais choisi de délai n'en envoie aucun.", "**{company}**, **{when}**, **{location}**"],
             ],
           } },
-          { p: "La formulation par défaut, telle que le client la reçoit : **Northside Painting : Dave est en route, arrivée dans 20 min. Répondez si vous devez reporter.** et **Northside Painting : Rappel — votre rendez-vous est mar. 12 août à 14 h au 123 Oak St. Répondez STOP pour ne plus recevoir.** Un champ sans valeur disparaît tout simplement — pas d'heure d'arrivée, pas de « arrivée dans , »." },
+          { p: "La formulation par défaut, telle que le client la reçoit : **Northside Painting : Dave est en route, arrivée dans 20 min. Pour reporter, appelez le 555-0100.** et **Northside Painting : Rappel — votre rendez-vous est mar. 12 août à 14 h au 123 Oak St. Répondez STOP pour ne plus recevoir.** L'heure d'arrivée est calculée depuis la position du membre d'équipe au moment du tap; le numéro est le vôtre, celui des Paramètres de l'entreprise. Un champ sans valeur disparaît tout simplement — pas d'heure d'arrivée, pas de « arrivée dans , », et pas de phrase « appelez » sans téléphone au dossier." },
         ],
       },
       {
@@ -648,7 +648,7 @@ export const ARTICLES = {
         blocks: [
           { steps: [
             "Ouvrez **Paramètres → Messages aux clients** (sous **Messagerie et alertes**).",
-            "Écrivez dans la zone **On my way** ou **Appointment reminder**. Touchez une pastille — **{company}**, **{worker}**, **{name}**, **{eta}** — pour insérer un champ à la fin.",
+            "Écrivez dans la zone **En route** ou **Rappel de rendez-vous**. Touchez une pastille — **{company}**, **{worker}**, **{name}**, **{eta}**, **{phone}** — pour insérer un champ à la fin.",
             "Regardez **Votre client voit :** se remplir avec des valeurs d'exemple. Un champ inconnu est signalé — **Champ inconnu : {price}. Seuls les champs ci-dessus fonctionnent.** — et **Enregistrer** reste désactivé tant qu'il n'a pas disparu. Le serveur vérifie la même chose.",
             "Appuyez sur **Enregistrer**. La carte reçoit l'étiquette **Personnalisé** et un bouton **Utiliser le texte par défaut**, qui remet la formulation intégrée.",
           ] },
@@ -680,7 +680,7 @@ export const ARTICLES = {
         id: "who-can-see-it",
         heading: "Qui peut la voir",
         blocks: [
-          { p: "**Paramètres → Messages aux clients** est réservé au propriétaire, aux administrateurs, aux Gestionnaires et aux Répartiteurs. Le délai de rappel dans **Paramètres → Notifications** est réservé au propriétaire et aux administrateurs. Appuyer sur **On my way** sur une visite suit la règle de l'horaire : le membre d'équipe assigné, n'importe qui sur une visite non assignée, ou quelqu'un qui peut modifier l'horaire de tout le monde." },
+          { p: "**Paramètres → Messages aux clients** est réservé au propriétaire, aux administrateurs, aux Gestionnaires et aux Répartiteurs. Le délai de rappel dans **Paramètres → Notifications** est réservé au propriétaire et aux administrateurs. Appuyer sur **En route** sur une visite suit la règle de l'horaire : le membre d'équipe assigné, n'importe qui sur une visite non assignée, ou quelqu'un qui peut modifier l'horaire de tout le monde." },
         ],
       },
     ],

@@ -14,18 +14,18 @@ export const ARTICLES = {
   "follow-up-rules": {
     title: "Règles de relance",
     summary:
-      "Relancer par courriel une soumission restée sans réponse, une facture en retard ou un chantier terminé, automatiquement, après le délai de votre choix — et ce qui arrête chaque règle.",
+      "Relancer par courriel une demande restée sans réponse, une soumission qui traîne, une facture en retard ou un chantier terminé, automatiquement, après le délai de votre choix — et ce qui arrête chaque règle.",
     updated: "2026-09-12",
     intro: [
-      "Une règle de relance tient en une phrase : un certain temps après qu'une soumission, une facture ou un chantier atteint un état donné, envoyer ce gabarit de courriel. FieldQuo vérifie chaque règle active une fois par jour et envoie le gabarit au client de tout ce qui a franchi la ligne — une soumission envoyée depuis trois jours, une facture en retard de cinq jours, un chantier terminé depuis deux jours — sans que personne ait à y penser.",
-      "Cet article couvre l'écran **Paramètres → Relances** : les trois déclencheurs, le délai, les gabarits qu'une règle peut envoyer, ce qui la met en pause et l'arrête, et qui ne reçoit rien.",
+      "Une règle de relance tient en une phrase : un certain temps après qu'une demande, une soumission, une facture ou un chantier atteint un état donné, envoyer ce gabarit de courriel. FieldQuo vérifie chaque règle active une fois par jour et envoie le gabarit au client de tout ce qui a franchi la ligne — une demande à laquelle personne n'a répondu depuis deux jours, une soumission envoyée depuis trois, une facture en retard de cinq jours, un chantier terminé depuis deux jours — sans que personne ait à y penser.",
+      "Cet article couvre l'écran **Paramètres → Relances** : les quatre déclencheurs, le délai, les gabarits qu'une règle peut envoyer, ce qui la met en pause et l'arrête, et qui ne reçoit rien.",
     ],
     sections: [
       {
         id: "overview",
         heading: "Vue d'ensemble",
         blocks: [
-          { p: "Chaque règle envoie exactement une chose, par un seul canal : un gabarit de courriel. Il n'y a ni relance par texto ni tâche dans l'application — l'écran dessine une seule étape **Envoyer un courriel** parce que c'est la seule qui existe. Deux règles peuvent partager un déclencheur (un rappel doux à 3 jours, un plus ferme à 7), chacune pointant vers un gabarit différent, et chaque soumission, facture ou chantier reçoit le courriel de chaque règle une fois, pas plus." },
+          { p: "Chaque règle envoie exactement une chose, par un seul canal : un gabarit de courriel. Il n'y a ni relance par texto ni tâche dans l'application — l'écran dessine une seule étape **Envoyer un courriel** parce que c'est la seule qui existe. Deux règles peuvent partager un déclencheur (un rappel doux à 3 jours, un plus ferme à 7), chacune pointant vers un gabarit différent, et chaque demande, soumission, facture ou chantier reçoit le courriel de chaque règle une fois, pas plus." },
           { p: "Le courriel part au nom de votre entreprise — depuis votre propre domaine vérifié si vous en avez un (voir [[send-from-your-own-domain|Envoyer les courriels depuis votre propre domaine]]), sinon depuis l'adresse partagée de FieldQuo — et les réponses vont au courriel de votre entreprise, ou à défaut à l'adresse du propriétaire du compte, pour qu'aucune réponse ne se perde." },
         ],
       },
@@ -49,12 +49,12 @@ export const ARTICLES = {
           { steps: [
             "Ouvrez **Paramètres → Relances** et appuyez sur **Nouvelle règle**. Si le bouton est désactivé, la ligne jaune au-dessus dit pourquoi : il vous faut d'abord un gabarit de relance, de marketing ou personnalisé sous **Modèles de courriel**. Chaque nouvelle entreprise a déjà un gabarit « Follow-up email (default) », donc c'est rare.",
             "Donnez-lui un **Nom de la règle (facultatif)** — laissé vide, la règle prend le nom du déclencheur.",
-            "Choisissez le **Déclencheur** : **Soumission envoyée, sans réponse**, **Facture en retard** ou **Chantier terminé**. La phrase sous la liste dit exactement quand chacun se déclenche.",
-            "Réglez le **Délai** et son **Unité** (heures ou jours). Choisir un déclencheur remplit sa valeur par défaut — 3 jours pour une soumission, 5 jours pour une facture, 2 jours pour un chantier terminé — et vous pouvez la changer.",
+            "Choisissez le **Déclencheur** : **Nouvelle demande, personne n'a répondu**, **Soumission envoyée, sans réponse**, **Facture en retard** ou **Chantier terminé**. La phrase sous la liste dit exactement quand chacun se déclenche.",
+            "Réglez le **Délai** et son **Unité** (heures ou jours). Choisir un déclencheur remplit sa valeur par défaut — 2 jours pour une demande, 3 jours pour une soumission, 5 jours pour une facture, 2 jours pour un chantier terminé — et vous pouvez la changer.",
             "Choisissez le **Gabarit à envoyer** et appuyez sur **Créer la règle**. La règle est active tout de suite et le schéma au-dessus de la liste se redessine.",
           ] },
           { figure: "live:app-settings-follow-ups", caption: "Paramètres → Relances — le schéma Comment tout cela s’exécute tiré des règles, puis la liste des règles avec Mettre en pause et la corbeille sur chaque ligne." },
-          { note: "Les noms des déclencheurs dans la liste déroulante — Quote sent, no response; Invoice overdue; Job completed — s'affichent en anglais quelle que soit votre langue de travail. Le schéma et la liste des règles, eux, les traduisent." },
+          { note: "Choisir **Nouvelle demande, personne n'a répondu** ajoute une ligne sous la liste : une demande n'a pas encore de soumission, donc les champs de soumission d'un gabarit ({{quoteUrl}}, {{quoteTotal}}, {{quoteNumber}}) sortent vides. Il peut remplir le nom, le téléphone et l'adresse du client, les coordonnées de votre entreprise, et le service demandé comme titre du chantier." },
         ],
       },
       {
@@ -64,7 +64,7 @@ export const ARTICLES = {
           { table: {
             head: ["Réglage", "Ce qu'il change"],
             rows: [
-              ["**Déclencheur**", "Quels dossiers la règle surveille et ce qui compte comme franchir la ligne : une soumission encore à l'état envoyé, une facture impayée passée sa date d'échéance, ou un chantier marqué terminé (à compter du moment où il a été terminé, pas de sa dernière modification)."],
+              ["**Déclencheur**", "Quels dossiers la règle surveille et ce qui compte comme franchir la ligne : une demande encore à l'état Nouveau, sans soumission et avec une adresse courriel, une soumission encore à l'état envoyé, une facture impayée passée sa date d'échéance, ou un chantier marqué terminé (à compter du moment où il a été terminé, pas de sa dernière modification)."],
               ["**Délai** et **Unité**", "Combien de temps le dossier doit être resté dans cet état avant que le courriel parte. Tout ce qui n'est pas en heures est traité en jours."],
               ["**Gabarit à envoyer**", "Le courriel que reçoit le client. Seuls les gabarits de relance, de marketing et personnalisés sont proposés — jamais ceux de soumission, d'instructions ou de reçu, qui sont des envois ponctuels. Si le gabarit est supprimé plus tard, la ligne affiche **(gabarit supprimé)** et la règle n'envoie rien."],
               ["**Mettre en pause**", "La règle est gardée et sautée. Le schéma marque l'étape « En pause — cette étape est ignorée. » **Activer** la remet en marche; tout ce qui a franchi la ligne entre-temps est rattrapé à la prochaine exécution."],
@@ -77,14 +77,15 @@ export const ARTICLES = {
         id: "how-they-run",
         heading: "Quand elles s'exécutent, et ce qui les arrête",
         blocks: [
-          { p: "La vérification se fait une fois par jour : une règle réglée à 3 jours envoie donc à la première exécution après le troisième jour, pas à l'heure exacte. À chaque exécution, pour chaque règle active, FieldQuo trouve tous les dossiers qui correspondent et n'ont pas encore reçu le courriel de cette règle, l'envoie et le note — une règle ne peut donc jamais envoyer deux fois pour la même soumission, facture ou chantier, même si deux exécutions se chevauchent." },
+          { p: "La vérification se fait une fois par jour : une règle réglée à 3 jours envoie donc à la première exécution après le troisième jour, pas à l'heure exacte. À chaque exécution, pour chaque règle active, FieldQuo trouve tous les dossiers qui correspondent et n'ont pas encore reçu le courriel de cette règle, l'envoie et le note — une règle ne peut donc jamais envoyer deux fois pour la même demande, soumission, facture ou chantier, même si deux exécutions se chevauchent." },
           { bullets: [
+            "**Nouvelle demande, personne n'a répondu** s'arrête dès que la demande est marquée contactée, soumissionnée, gagnée ou perdue — et envoyer une soumission la marque contactée pour vous. Chaque demande reçoit le courriel une seule fois.",
             "**Soumission envoyée, sans réponse** s'arrête dès que le client accepte ou refuse la soumission. Chaque soumission reçoit le courriel une seule fois.",
             "**Facture en retard** s'arrête dès que la facture est payée. Chaque facture reçoit le courriel une seule fois.",
             "**Chantier terminé** s'arrête si le chantier est rouvert. Chaque chantier reçoit le courriel une seule fois.",
           ] },
           { note: "Les clients sans adresse courriel au dossier sont ignorés. Les chantiers, soumissions et factures importés comme historique ne sont jamais relancés — une règle créée aujourd'hui rattrape bien les vraies soumissions du mois dernier, mais pas un chantier de 2024 saisi pour la comptabilité." },
-          { tip: "Une relance **Chantier terminé** est du marketing au sens de la loi (un merci, une demande d'avis) : elle porte un lien de désabonnement et n'est pas envoyée à qui s'est désabonné de vos courriels de marketing. Les relances de soumission et de facture concernent une transaction déjà en cours avec le client et ne portent pas de lien de désabonnement." },
+          { tip: "Une relance **Chantier terminé** est du marketing au sens de la loi (un merci, une demande d'avis) : elle porte un lien de désabonnement et n'est pas envoyée à qui s'est désabonné de vos courriels de marketing. Les relances de demande, de soumission et de facture répondent à quelque chose que le client a demandé et ne portent pas de lien de désabonnement." },
         ],
       },
       {
@@ -740,7 +741,7 @@ export const ARTICLES = {
       "Exactement deux textos rejoignent vos clients — « en route » et le rappel de rendez-vous — dans la langue du client, avec votre formulation si vous l'avez réglée. Ce qui déclenche chacun, ce qui n'est pas texté, et ce qui arrive quand un client répond.",
     updated: "2026-09-12",
     intro: [
-      "FieldQuo texte vos clients dans deux situations et aucune autre : quand un membre d'équipe marque une visite **En route**, et avant un rendez-vous, au délai que vous avez choisi. Les deux partent au nom de votre entreprise, dans la langue du client, avec la formulation que vous avez réglée sous **Paramètres → Messages aux clients** ou la formulation intégrée si vous n'y avez pas touché.",
+      "FieldQuo texte vos clients dans deux situations et aucune autre : quand un membre d'équipe marque une visite **En route**, et avant un rendez-vous ou une visite de chantier, au délai que vous avez choisi. Les deux partent au nom de votre entreprise, dans la langue du client, avec la formulation que vous avez réglée sous **Paramètres → Messages aux clients** ou la formulation intégrée si vous n'y avez pas touché.",
       "Tout le reste — une soumission, une facture, une confirmation de réservation, une relance — passe par courriel, et il n'y a pas de textos bidirectionnels avec les clients. Cet article trace cette ligne précisément pour que personne ne promette un texto que le produit n'envoie pas.",
     ],
     sections: [
@@ -758,11 +759,11 @@ export const ARTICLES = {
           { table: {
             head: ["Texto", "Quand il part", "Formulation intégrée (en français)"],
             rows: [
-              ["**En route**", "Au moment où le statut d'une visite passe à **En route** — habituellement le membre d'équipe qui appuie sur son téléphone. Seulement si le client du chantier a un numéro de téléphone.", "« Northside Painting : Dave est en route, arrivée dans 20 min. Répondez si vous devez reporter. »"],
-              ["**Rappel de rendez-vous**", "Dès qu'un rendez-vous de votre Calendrier entre dans le délai choisi sous **Paramètres → Notifications** — 2, 24 ou 48 heures avant. Vérifié chaque heure; envoyé une fois par rendez-vous.", "« Northside Painting : Rappel — votre rendez-vous est mar. 15 sept., 14 h au 123 Oak St. Répondez STOP pour ne plus recevoir. »"],
+              ["**En route**", "Au moment où le statut d'une visite passe à **En route** — habituellement le membre d'équipe qui appuie sur son téléphone. Seulement si le client du chantier a un numéro de téléphone.", "« Northside Painting : Dave est en route, arrivée dans 20 min. Pour reporter, appelez le 555-0100. » L'heure d'arrivée est calculée de la position du membre d'équipe au moment du tap jusqu'à l'adresse du chantier; le numéro est celui de votre entreprise, et la phrase disparaît si vous n'en avez pas au dossier."],
+              ["**Rappel de rendez-vous**", "Dès qu'un rendez-vous de votre Calendrier, ou une visite sur un chantier, entre dans le délai choisi sous **Paramètres → Notifications** — 2, 24 ou 48 heures avant. Vérifié chaque heure; envoyé une fois par rendez-vous ou visite.", "« Northside Painting : Rappel — votre rendez-vous est mar. 15 sept., 14 h au 123 Oak St. Répondez STOP pour ne plus recevoir. »"],
             ],
           } },
-          { p: "Les rappels de rendez-vous sont à **Désactivé** tant qu'un propriétaire ou un administrateur ne choisit pas un délai — chaque rappel est un texto que l'entreprise paie, donc rien ne part que personne n'a activé. Ils visent les rendez-vous du Calendrier (réservations sur votre page de rendez-vous, appels réservés par la réceptionniste, rendez-vous que vous ajoutez); une visite sur un chantier est un dossier différent et ne reçoit pas de rappel par texto." },
+          { p: "Les rappels de rendez-vous sont à **Désactivé** tant qu'un propriétaire ou un administrateur ne choisit pas un délai — les rappels sont inclus dans votre forfait, mais rien ne part que personne n'a activé. Ils visent les rendez-vous du Calendrier (réservations sur votre page de rendez-vous, appels réservés par la réceptionniste, rendez-vous que vous ajoutez) et les visites réservées sur un chantier, une fois chacun; une entrée terminée ou annulée n'en reçoit pas." },
           { figure: "live:app-settings-messages", caption: "Paramètres → Messages aux clients — un éditeur par texto, En route et Rappel de rendez-vous, avec les jetons, l'aperçu « Votre client voit : », Enregistrer et Utiliser le texte par défaut." },
         ],
       },
@@ -777,7 +778,7 @@ export const ARTICLES = {
             "**La réceptionniste ne peut pas texter.** Quand elle doit diriger un appelant vers votre page de rendez-vous, elle lit le lien à voix haute et dit clairement qu'elle ne peut pas le texter.",
             "**Pas de textos de marketing.** Les campagnes sont par courriel; il n'y a pas de fonction d'envoi massif de textos.",
           ] },
-          { warning: "La formulation intégrée du texto « en route » se termine par « Répondez si vous devez reporter », mais une réponse n'est pas lue par FieldQuo. Si vous voulez que les clients puissent répondre à ce texto, mettez le numéro de votre bureau dans votre formulation personnalisée — ou retirez l'invitation." },
+          { warning: "Une réponse au texto « en route » n'est pas lue par FieldQuo — seul STOP l'est — donc la formulation intégrée se termine par « Pour reporter, appelez le {phone} », le téléphone de votre entreprise dans Paramètres de l'entreprise. Si vous écrivez la vôtre, gardez **{phone}** dedans plutôt que d'inviter une réponse que personne ne verra." },
         ],
       },
       {
@@ -792,7 +793,7 @@ export const ARTICLES = {
         id: "opting-out",
         heading: "Se désabonner",
         blocks: [
-          { p: "Avant chaque texto, FieldQuo vérifie le numéro du client contre la liste de désabonnement de votre entreprise : un numéro qui a demandé de ne plus recevoir de textos, ou de ne pas être appelé, est ignoré — le texto « en route » comme le rappel. Le rappel se termine par « Répondez STOP pour ne plus recevoir » dans toutes les langues, et STOP est gardé en anglais exprès parce que les opérateurs le traitent comme universel." },
+          { p: "Avant chaque texto, FieldQuo vérifie le numéro du client contre la liste de désabonnement de votre entreprise : un numéro qui a demandé de ne plus recevoir de textos, ou de ne pas être appelé, est ignoré — le texto « en route » comme le rappel. Le rappel se termine par « Répondez STOP pour ne plus recevoir » dans toutes les langues, et STOP est gardé en anglais exprès parce que les opérateurs le traitent comme universel. Les textos aux clients partent de la ligne partagée de FieldQuo, donc un STOP ne peut pas nommer une entreprise : il désabonne ce numéro de toutes les entreprises qui l'ont sur une fiche client." },
           { p: "Aucun consentement marketing n'entre en jeu : les deux textos concernent une visite que le client a réservée. Ni l'un ni l'autre ne porte de lien de désabonnement, et ni l'un ni l'autre n'est envoyé à un client sans numéro de téléphone au dossier." },
         ],
       },

@@ -37,7 +37,7 @@ export const ARTICLES = {
         blocks: [
           { bullets: [
             "**Premier lancement** — une seule boîte sous **Que devrait dire votre site web ?**, quatre puces d'exemple à toucher pour la remplir, une flèche **Créer mon site**, et la ligne **Rien n'est public tant que vous ne l'avez pas publié.**",
-            "**La barre** — votre adresse (**votrenom.fieldquo.com**), un badge **En ligne** une fois publié, **Ouvrir**, **Enregistrer**, et **Publier** (qui devient **Mettre à jour** quand le site est en ligne).",
+            "**La barre** — votre adresse (**votrenom.fieldquo.com**), un badge **En ligne** une fois publié, **Ouvrir**, **Dépublier** (seulement quand le site est en ligne), **Enregistrer**, et **Publier** (qui devient **Mettre à jour** quand le site est en ligne).",
             "**Le fil** — ce que vous avez demandé et ce qui a été construit. Quand il manque quelque chose, l'assistant le dit avec une action à un toucher, affichée en anglais : **Add photos**, **Pair them up**, **Add a logo**, **Add a review**, **Set hours**, **Choose services**.",
             "Les puces **Mise en page** et **Style**, la boîte de consigne (**Rendez-le plus audacieux · mettez les avis en avant · page plus courte…**), et le volet **Ajuster** avec **Adresse web**, **Langues**, **Paires avant-après** et le code d'intégration des avis.",
             "**Aperçu | Sections** — le site en direct avec une bascule ordinateur / mobile et un bouton d'actualisation, ou les sections de la page d'accueil sous forme de champs texte à reformuler à la main.",
@@ -72,6 +72,7 @@ export const ARTICLES = {
               ["Le volet **Sections**", "Reformulez à la main n'importe quel titre ou paragraphe de la page d'accueil, choisissez la variante de mise en page d'une section, ajoutez ou retirez une photo, **Masquer** ou **Afficher** une section. Votre logo, vos couleurs, vos services, vos heures et vos coordonnées ne se modifient pas ici — changez-les dans les paramètres de l'entreprise et le site se met à jour."],
               ["**Enregistrer**", "Enregistre le brouillon. Une fois le site en ligne, il n'y a pas de brouillon séparé : un changement enregistré est ce que les visiteurs voient."],
               ["**Publier** / **Mettre à jour**", "Rend le site public à votre adresse, ou le reconfirme. Exige une entreprise qui a terminé son inscription à un forfait."],
+              ["**Dépublier**", "Met le site hors ligne après une boîte de dialogue — **Mettre votre site hors ligne ?** — qui dit ce qui se passe : les visiteurs voient tout de suite une page « non publié », Google retire le site de ses résultats dans les jours qui suivent, et chaque section, photo et langue est conservée. **Publier** remet le même site en ligne."],
               ["**Langues** (sous Ajuster)", "Ajouter une langue rédige tout le site dans cette langue — ce n'est pas une traduction automatique — et donne aux visiteurs un sélecteur dans l'en-tête. Votre langue principale est indiquée et ne peut pas être retirée."],
             ],
           } },
@@ -84,7 +85,7 @@ export const ARTICLES = {
         heading: "Publier, les photos d'archive et retirer le site",
         blocks: [
           { p: "Tant que vous n'avez pas de photos, le créateur utilise des photos d'archive pour que la page ne soit pas vide — seulement en arrière-plan de l'en-tête et à des endroits semblables, jamais dans **Our work**, parce que cette section affirme que les photos sont des chantiers que vous avez faits. Publier avec des photos d'archive encore sur la page est permis, mais jamais en silence : une boîte de dialogue les compte et propose **Ajouter mes photos** ou **Publier quand même**." },
-          { p: "Il n'y a pas de bouton pour dépublier sur cet écran aujourd'hui. Une fois le site en ligne, il reste en ligne ; vous pouvez masquer des sections ou les réécrire, et l'adresse continue de répondre. FieldQuo ne retire pas un site publié depuis le créateur." },
+          { p: "Pour retirer un site en ligne, appuyez sur **Dépublier** dans la barre et confirmez **Le mettre hors ligne**. Rien n'est supprimé : le fil dit **Votre site est hors ligne. Rien n'a été supprimé — republiez-le quand vous voulez.**, le badge **En ligne** disparaît, et l'adresse répond avec une page « non publié » jusqu'à ce que vous appuyiez de nouveau sur **Publier**. Annuler votre abonnement vous demande de dépublier d'abord ; c'est ce bouton-là." },
         ],
       },
       {
@@ -103,7 +104,7 @@ export const ARTICLES = {
         id: "who-can-see-it",
         heading: "Qui peut le voir",
         blocks: [
-          { p: "L'écran et ses enregistrements sont ouverts aux propriétaires, aux administrateurs, aux répartiteurs et aux gestionnaires. Les estimateurs et les équipes ne voient pas la ligne, et la page les refuse. Ajouter ou retirer une langue du site est réservé au propriétaire et aux administrateurs. Publier exige aussi une entreprise qui a terminé son paiement — un essai qui n'a jamais ajouté de carte peut construire le site, mais pas le mettre devant le public." },
+          { p: "L'écran, ses enregistrements, Publier, Dépublier, les langues et les photos sont réservés aux propriétaires et aux administrateurs — une seule règle pour tout le site, parce qu'une page publiée est le visage public de l'entreprise. Tous les autres, répartiteurs et gestionnaires compris, ne voient pas la ligne, et la page les refuse. Publier exige aussi une entreprise qui a terminé son paiement — un essai qui n'a jamais ajouté de carte peut construire le site, mais pas le mettre devant le public." },
         ],
       },
     ],
@@ -366,6 +367,7 @@ export const ARTICLES = {
             "**Demander une soumission** — « Ils décrivent le travail et laissent leurs coordonnées. Cela arrive dans votre liste de prospects. Idéal pour ceux qui comparent encore les prix. »",
             "**Réserver une visite** — « Ils choisissent une heure selon vos réelles disponibilités. Idéal pour ceux qui ont déjà décidé et veulent simplement votre présence. »",
             "**Estimation instantanée** — la page adresse-en-entrée, prix-en-sortie ; chaque estimation arrive dans votre file de révision avant d'être contraignante. Les métiers et les tarifs se règlent dans **Paramètres → Soumissions instantanées**.",
+            "**Concevez votre cuisine** — « Un propriétaire dessine lui-même sa cuisine — armoires, finis, tout — et vous l'envoie comme demande avec le plan joint. » Affichée seulement tant que **Kitchen Design & New Installs** est activé sous Services, et comme lien seulement : il n'y a pas de code à intégrer pour elle.",
             "**Une carte par entonnoir publié**, au nom que vous lui avez donné — « Un entonnoir de prospects à parcourir — partagez le lien dans une annonce ou placez-le sur votre site. » Les entonnoirs en brouillon ne sont pas listés, parce que leur lien ne fonctionnerait pas encore.",
             "Une ligne de clôture : le formulaire de soumission n'offre que les services activés dans Paramètres → Services, et n'affiche jamais vos prix.",
           ] },
@@ -394,6 +396,7 @@ export const ARTICLES = {
               ["Demander une soumission", "Choisit un service, décrit le travail, ajoute des photos, laisse ses coordonnées", "Un prospect noté sur le tableau Prospects — voir [[the-self-quote-form|Le formulaire d'auto-soumission]]"],
               ["Réserver une visite", "Choisit un type de rendez-vous et une plage selon vos vraies disponibilités, paie des frais de visite si vous en exigez", "Un rendez-vous dans votre calendrier et un prospect — voir [[the-booking-page|La page de rendez-vous]]"],
               ["Estimation instantanée", "Saisit une adresse ou trace une zone, voit un prix de départ", "Révisions de devis, où vous confirmez le prix avant tout envoi — voir [[estimate-reviews|Révisions d'estimations]]"],
+              ["Concevez votre cuisine", "Dessine sa cuisine sur un plan, choisit les finis, laisse ses coordonnées", "Une demande avec le plan joint et sans prix — c'est vous qui soumissionnez ; voir [[the-kitchen-designer|Le concepteur de cuisine]]"],
               ["Un entonnoir", "Parcourt un court questionnaire et laisse ses coordonnées", "Un prospect noté, marqué du canal de l'entonnoir — voir [[funnels|Les entonnoirs de prospects]]"],
             ],
           } },
@@ -408,7 +411,7 @@ export const ARTICLES = {
       },
     ],
     faq: [
-      { q: "Pourquoi mon entonnoir n'est-il pas listé ?", a: "Seuls les entonnoirs publiés avec une adresse apparaissent. Ouvrez Funnels dans la barre latérale, ouvrez l'entonnoir et appuyez sur Publish ; il lui faut d'abord une étape de coordonnées." },
+      { q: "Pourquoi mon entonnoir n'est-il pas listé ?", a: "Seuls les entonnoirs publiés avec une adresse apparaissent. Ouvrez Entonnoirs dans la barre latérale, ouvrez l'entonnoir et appuyez sur Publier ; il lui faut d'abord une étape de coordonnées." },
       { q: "Ces liens montrent-ils mes prix ?", a: "Non. Le formulaire de soumission recueille assez de détails pour soumissionner avec précision sans publier un tarif. L'estimation instantanée montre un prix de départ seulement pour les métiers que vous avez activés, et seulement ce que vous avez choisi sous « Ce que le propriétaire voit »." },
       { q: "Y a-t-il un code QR ?", a: "Pas sur cet écran aujourd'hui. Copiez le lien et utilisez n'importe quel générateur de code QR ; le lien ne change pas." },
     ],
@@ -495,7 +498,7 @@ export const ARTICLES = {
         id: "overview",
         heading: "Aperçu général",
         blocks: [
-          { p: "La page est dérivée de la fiche de votre entreprise, pas tapée de zéro. Une ligne apparaît parce que la chose derrière existe : le formulaire de soumission est toujours là ; **Prendre rendez-vous** apparaît dès que vous avez un type de rendez-vous actif ; **Obtenir un prix instantané** dès qu'un estimateur instantané est activé ; chaque entonnoir publié comme bouton distinct ; votre site web dès qu'il est publié ou dès que vous avez saisi un domaine dans le Profil de l'entreprise ; le lien d'avis dès qu'il est réglé dans Avis ; votre téléphone et votre courriel depuis le Profil de l'entreprise. Une ligne que vous désactivez reste désactivée ; une ligne que personne n'a touchée est activée au premier chargement de la page — y compris un entonnoir que vous publiez le mois prochain." },
+          { p: "La page est dérivée de la fiche de votre entreprise, pas tapée de zéro. Une ligne apparaît parce que la chose derrière existe : le formulaire de soumission est toujours là ; **Prendre rendez-vous** apparaît dès que vous avez un type de rendez-vous actif ; **Obtenir un prix instantané** dès qu'un estimateur instantané est activé ; **Concevez votre cuisine** dès que Kitchen Design & New Installs est activé sous Services ; chaque entonnoir publié comme bouton distinct ; votre site web dès qu'il est publié ou dès que vous avez saisi un domaine dans le Profil de l'entreprise ; le lien d'avis dès qu'il est réglé dans Avis ; votre téléphone et votre courriel depuis le Profil de l'entreprise. Une ligne que vous désactivez reste désactivée ; une ligne que personne n'a touchée est activée au premier chargement de la page — y compris un entonnoir que vous publiez le mois prochain." },
           { p: "La page suit d'elle-même le téléphone du visiteur entre clair et sombre ; la bascule clair / sombre de cet écran ne change que le cadre d'aperçu. Elle porte une petite ligne **Made by FieldQuo** tout en bas, sur chaque forfait — voir [[the-site-by-fieldquo-footer|Le pied de page « Site par FieldQuo »]]." },
         ],
       },
@@ -539,6 +542,7 @@ export const ARTICLES = {
             rows: [
               ["Obtenir un prix instantané", "Un estimateur instantané est activé dans Paramètres → Soumissions instantanées", "Oui"],
               ["Devis gratuit (le formulaire de soumission)", "Toujours — chaque entreprise l'a", "Oui"],
+              ["Concevez votre cuisine", "Kitchen Design & New Installs est activé sous Paramètres → Services", "Oui"],
               ["Prendre rendez-vous", "Au moins un type de rendez-vous actif dans Paramètres → Page de rendez-vous", "Oui"],
               ["Chaque entonnoir publié, par son nom", "L'entonnoir est publié", "Oui"],
               ["Voir notre site web", "Un domaine dans le Profil de l'entreprise, ou un site FieldQuo publié", "Oui"],
@@ -613,10 +617,10 @@ export const ARTICLES = {
         heading: "Comment créer un entonnoir",
         blocks: [
           { steps: [
-            "Ouvrez **Funnels** sous Croissance dans la barre latérale (la page s'intitule **Entonnoirs**) et appuyez sur **Nouvel entonnoir**.",
+            "Ouvrez **Entonnoirs** sous Croissance dans la barre latérale et appuyez sur **Nouvel entonnoir**.",
             "Soit tapez une phrase sous **Décrivez-le et laissez l'IA le construire** (« Un entonnoir TikTok pour la peinture extérieure qui qualifie le budget et fixe une estimation ») et appuyez sur **Générer**, soit choisissez un modèle : **Site web — obtenir une soumission**, **TikTok — questionnaire de 60 secondes**, **Instagram — estimation gratuite**, **YouTube — réservez votre visite**, chacun « questionnaire → qualification → coordonnées ». **ou partez d'un entonnoir vierge** est la troisième porte.",
             "L'éditeur s'ouvre avec les étapes à gauche, l'étape sélectionnée au centre et un aperçu téléphone à vos couleurs à droite — voir [[build-a-funnel|Construire un entonnoir et lire son rapport d'abandon]].",
-            "Appuyez sur **Publish**. Le lien public et le code d'intégration apparaissent sur la page de l'entonnoir, et l'entonnoir est listé dans **Paramètres → Partager vos liens** et, une fois activé, sur votre lien de profil.",
+            "Appuyez sur **Publier**. Le lien public et le code d'intégration apparaissent sur la page de l'entonnoir, et l'entonnoir est listé dans **Paramètres → Partager vos liens** et, une fois activé, sur votre lien de profil. **Dépublier** le ramène en brouillon ; le lien cesse de répondre, et les parcours et le rapport sont conservés.",
           ] },
           { figure: "create:app-funnels-create", caption: "Nouvel entonnoir — la boîte IA (« Décrivez-le et laissez l'IA le construire »), les quatre modèles par canal, et « ou partez d'un entonnoir vierge »." },
           { note: "L'IA n'écrit que les phrases de l'entonnoir — l'accroche, les questions, le texte des boutons — à partir de vos vrais services et du canal nommé. Elle n'invente jamais un service ni un prix, et les questions de notation gardent leurs valeurs de réponse fixes, donc un entonnoir généré note les pistes exactement comme un entonnoir construit à la main. Si l'IA n'est pas joignable, vous obtenez le modèle du canal avec des textes plus plats, jamais un entonnoir brisé. Générer consomme l'allocation IA mensuelle de votre forfait." },
@@ -644,7 +648,7 @@ export const ARTICLES = {
         id: "who-can-see-it",
         heading: "Qui peut le voir",
         blocks: [
-          { p: "Les propriétaires, les administrateurs, les répartiteurs et les gestionnaires voient la ligne **Funnels** et peuvent créer, modifier, publier et supprimer. Les estimateurs et les équipes ne voient pas la ligne, et la liste les refuse. La page publique de l'entonnoir n'exige rien du visiteur, sinon un pouce." },
+          { p: "Les propriétaires, les administrateurs, les répartiteurs et les gestionnaires voient la ligne **Entonnoirs** et peuvent créer, modifier, publier et supprimer. Les estimateurs et les équipes ne voient pas la ligne, et la liste les refuse. La page publique de l'entonnoir n'exige rien du visiteur, sinon un pouce." },
         ],
       },
     ],
@@ -652,23 +656,24 @@ export const ARTICLES = {
       { q: "Qu'arrive-t-il aux pistes si je supprime un entonnoir ?", a: "Les pistes déjà sur votre tableau restent où elles sont. Ce qui part avec l'entonnoir, c'est chaque parcours enregistré et tout le rapport d'abandon qui va avec — la boîte de dialogue de suppression dit combien de parcours." },
       { q: "Puis-je utiliser le même entonnoir sur TikTok et sur mon site web ?", a: "Oui — le canal est une étiquette qui voyage dans la source de la piste ; le lien fonctionne partout. Faites-en deux si vous voulez comparer séparément l'abandon des deux publics." },
       { q: "Un entonnoir a-t-il besoin de mon site web FieldQuo ?", a: "Non. C'est une page à part, à sa propre adresse, et elle peut être intégrée dans n'importe quel site que vous gérez déjà." },
+      { q: "Mon pixel Meta ou Google Analytics peut-il voir l'entonnoir ?", a: "Oui — collez l'identifiant sous Pixels de suivi publicitaire dans le créateur. Le pixel se charge sur la page publique, enregistre une vue de page et déclenche l'événement prospect de la plateforme quand le formulaire est envoyé, sans aucune donnée personnelle. FieldQuo n'ajoute aucune bannière de consentement aux témoins ; si vos visiteurs se trouvent là où elle est obligatoire, elle est à votre charge. Voir [[build-a-funnel|Construire un entonnoir et lire son rapport d'abandon]]." },
     ],
   },
 
   "build-a-funnel": {
     title: "Construire un entonnoir et lire son rapport d'abandon",
     summary:
-      "L'éditeur d'entonnoir étape par étape : les sept sortes d'étapes, les marqueurs de notation, l'étape d'estimation instantanée, les pixels publicitaires, ce qu'exige Publish, et comment lire Starts, Leads, Conversion et l'abandon par étape.",
+      "L'éditeur d'entonnoir étape par étape : les sept sortes d'étapes, les marqueurs de notation, l'étape d'estimation instantanée, les pixels publicitaires, ce qu'exige Publier, et comment lire Démarrages, Prospects, Conversion et l'abandon par étape.",
     updated: "2026-09-12",
     intro: [
-      "Ouvrez un entonnoir depuis **Funnels** (la page **Entonnoirs**) et vous êtes dans l'éditeur : la liste des étapes à gauche, l'éditeur de l'étape sélectionnée au centre, et un aperçu en direct de cette étape à vos couleurs à droite. Cet article explique ce que fait chaque sorte d'étape, quelles questions alimentent la note de la piste, comment un prix se retrouve au milieu d'un entonnoir, et comment lire le rapport une fois que des gens l'ont parcouru.",
+      "Ouvrez un entonnoir depuis **Entonnoirs** et vous êtes dans l'éditeur : la liste des étapes à gauche, l'éditeur de l'étape sélectionnée au centre, et un aperçu en direct de cette étape à vos couleurs à droite. Cet article explique ce que fait chaque sorte d'étape, quelles questions alimentent la note de la piste, comment un prix se retrouve au milieu d'un entonnoir, et comment lire le rapport une fois que des gens l'ont parcouru.",
     ],
     sections: [
       {
         id: "overview",
         heading: "Aperçu général",
         blocks: [
-          { p: "La barre du haut contient le nom de l'entonnoir (tapez pour renommer), son badge **Brouillon** ou **Publié**, **Save**, et **Publish** / **Unpublish**. Quand l'entonnoir est publié, son lien public apparaît avec **Copy link** et **Open**, et son code d'intégration avec **Copy code** ; tant qu'il est en brouillon, ni l'un ni l'autre n'est offert, parce que le lien ne fonctionnerait pas encore. En dessous, dès que quelqu'un l'a commencé, se trouve **Performance**. Les mots de la barre sont en anglais sur l'écran de chaque langue ; les libellés de l'éditeur suivent votre langue." },
+          { p: "La barre du haut contient le nom de l'entonnoir (tapez pour renommer), son badge **Brouillon** ou **Publié**, **Enregistrer**, et **Publier** / **Dépublier**. Quand l'entonnoir est publié, son lien public apparaît avec **Copier le lien** et **Ouvrir**, et son code d'intégration avec **Copier le code** ; tant qu'il est en brouillon, ni l'un ni l'autre n'est offert, parce que le lien ne fonctionnerait pas encore. En dessous, dès que quelqu'un l'a commencé, se trouve **Performance**. La barre et l'éditeur suivent tous deux votre langue." },
         ],
       },
       {
@@ -716,19 +721,19 @@ export const ARTICLES = {
         heading: "Comment le publier et le partager",
         blocks: [
           { steps: [
-            "Appuyez sur **Save** chaque fois que le bouton est foncé ; il affiche **Saved** quand rien n'est en attente.",
-            "Sous **Pixels de suivi publicitaire** (facultatif), vous pouvez consigner un **Identifiant du pixel Meta**, un **Identifiant du pixel TikTok** ou un **Identifiant de mesure GA4**. FieldQuo les enregistre, mais la page publique de l'entonnoir ne charge pas les scripts des pixels aujourd'hui : la plateforme publicitaire n'est donc pas encore informée des visites de l'entonnoir — considérez ces trois champs comme une note en attendant que ça change.",
-            "Appuyez sur **Publish**. Le badge passe à **Publié** et le lien public et le code d'intégration apparaissent.",
-            "Appuyez sur **Copy link** pour une publicité ou une publication, ou sur **Copy code** pour mettre l'entonnoir sur un site que vous avez déjà ; il est aussi listé dans **Paramètres → Partager vos liens** et sur votre lien de profil.",
+            "Appuyez sur **Enregistrer** chaque fois que le bouton est foncé ; il affiche **Enregistré** quand rien n'est en attente.",
+            "Sous **Pixels de suivi publicitaire** (facultatif), collez un **Identifiant du pixel Meta**, un **Identifiant du pixel TikTok** ou un **Identifiant de mesure GA4**. Chaque pixel renseigné se charge sur la page publique de l'entonnoir et enregistre une vue de page ; quand un visiteur envoie le formulaire de coordonnées, il déclenche l'événement prospect de la plateforme — Meta **Lead**, GA4 **generate_lead**, TikTok **SubmitForm** — sans aucune donnée personnelle. Un identifiant qui n'a pas la forme que la plateforme délivre est ignoré plutôt que placé sur la page. FieldQuo n'ajoute aucune bannière de consentement aux témoins, nulle part ; si vos visiteurs se trouvent là où elle est obligatoire, elle est à votre charge.",
+            "Appuyez sur **Publier**. Le badge passe à **Publié** et le lien public et le code d'intégration apparaissent.",
+            "Appuyez sur **Copier le lien** pour une publicité ou une publication, ou sur **Copier le code** pour mettre l'entonnoir sur un site que vous avez déjà ; il est aussi listé dans **Paramètres → Partager vos liens** et sur votre lien de profil.",
           ] },
-          { warning: "**Publish** est refusé sans étape de coordonnées — un entonnoir sans formulaire ne recueille rien, et le message le dit. Une étape d'estimation instantanée sans service chiffrable bloque aussi ; les raisons sont listées sous une bannière « cet entonnoir ne peut pas encore être mis en ligne » plutôt que cachées derrière un bouton grisé." },
+          { warning: "**Publier** est refusé sans étape de coordonnées — un entonnoir sans formulaire ne recueille rien, et le message le dit. Une étape d'estimation instantanée sans service chiffrable bloque aussi ; les raisons sont listées sous une bannière **Cet entonnoir ne peut pas encore être mis en ligne** plutôt que cachées derrière un bouton grisé." },
         ],
       },
       {
         id: "read-the-drop-off",
         heading: "Comment lire le rapport d'abandon",
         blocks: [
-          { p: "**Performance** apparaît dès qu'au moins un visiteur a commencé l'entonnoir. Il montre **Starts** (les visiteurs distincts qui ont vu la première étape), **Leads** (les parcours terminés) et **Conversion** (les pistes en proportion des départs), puis une barre par étape dans votre ordre, avec le nombre de visiteurs distincts qui l'ont atteinte et ce nombre en pourcentage des départs." },
+          { p: "**Performance** apparaît dès qu'au moins un visiteur a commencé l'entonnoir. Il montre **Démarrages** (les visiteurs distincts qui ont vu la première étape), **Prospects** (les parcours terminés) et **Conversion** (les pistes en proportion des départs), puis une barre par étape dans votre ordre, avec le nombre de visiteurs distincts qui l'ont atteinte et ce nombre en pourcentage des départs." },
           { bullets: [
             "Une étape où le pourcentage chute brusquement est l'étape à changer : moins de réponses, une question plus accueillante, ou le prix déplacé après l'étape des coordonnées.",
             "Le rapport est construit à partir des parcours de cet entonnoir ; supprimer l'entonnoir supprime le rapport, et dépublier le conserve.",
@@ -766,10 +771,10 @@ export const ARTICLES = {
         heading: "Ce qu'il y a à l'écran",
         blocks: [
           { bullets: [
-            "Le nom de la carte et une puce de statut, en anglais : **Draft**, **Active**, **Completed** ou **Partial**.",
+            "Le nom de la carte et une puce de statut : **Brouillon**, **Active**, **En pause**, **Envoyée**, **Partiellement envoyée** ou **Archivée**.",
             "Son type : **Distribution de dépliants**, **Meta / publicités payantes**, **Envoi courriel** ou **Autre**.",
             "Sa progression — un trajet de dépliants affiche **visités/total arrêts** avec une barre et **… contactés** ; un courriel affiche le nom du modèle et **Envoyé à …** ou **Pas encore envoyé** ; une publicité affiche **Budget …** et **lié** quand un lien a été saisi.",
-            "À qui elle est assignée.",
+            "À qui elle est assignée — et sous la carte, ses boutons de statut : **Activer** ou **Mettre en pause** (**Reprendre** quand elle est en pause), et **Archiver** ; une carte archivée affiche **Restaurer**. Dès que vous en avez, un lien **Afficher les archivées (n)** en haut à droite les ramène à la vue.",
             "Sans campagne : **Aucune campagne pour l'instant. Créez-en une pour suivre votre marketing.**",
           ] },
           { figure: "live:app-marketing", caption: "Marketing — le titre, Abonnés, Dépenses marketing et Nouvelle campagne, et une carte par campagne avec son type et son statut." },
@@ -802,7 +807,7 @@ export const ARTICLES = {
               ["Autre", "Un budget et un lien, pour tout le reste — une publicité radio, une commandite", "[[marketing-spend|Dépenses marketing]]"],
             ],
           } },
-          { note: "Le **Budget** d'une carte de publicités payantes ou autre est une note sur la carte. Ce que vous avez réellement dépensé s'enregistre dans **Dépenses marketing**, que lisent les chiffres de coût par piste ; un budget tapé ici ne les alimente pas." },
+          { note: "Le **Budget** d'une carte de publicités payantes ou autre est ce que vous réservez pour toute la durée de la campagne. Il s'affiche dans **Dépenses marketing** sous **Budgété (campagnes)**, à côté de ce qui a réellement été dépensé sur ce canal, et n'entre jamais dans un total ni dans un coût par piste — ceux-ci ne lisent que les dépenses enregistrées ou synchronisées. Voir [[marketing-spend|Dépenses marketing]]." },
         ],
       },
       {
@@ -810,10 +815,10 @@ export const ARTICLES = {
         heading: "Les statuts",
         blocks: [
           { bullets: [
-            "**Draft** — toute nouvelle campagne. Une campagne de dépliants ou de publicités payantes garde cette puce ; FieldQuo ne la change pas de lui-même et aucune commande à l'écran ne permet de la régler, donc lisez la progression d'une campagne de dépliants dans ses arrêts, pas dans sa puce.",
-            "**Completed** — une campagne courriel une fois que chaque abonné l'a reçue.",
-            "**Partial** — un envoi courriel arrêté en cours de route ; la page de la campagne propose de reprendre l'envoi, qui n'écrit qu'aux personnes pas encore rejointes.",
-            "**Active** existe comme valeur et s'affiche sur une carte qui la porte, mais rien à l'écran ne la règle aujourd'hui.",
+            "**Brouillon** — toute nouvelle campagne. Sur une campagne de dépliants, de publicités payantes ou autre, appuyez sur **Activer** quand le trajet est en cours ou que les publicités tournent ; la puce lit **Active**.",
+            "**Active** et **En pause** — **Mettre en pause** suspend une campagne active et **Reprendre** la relance. Une campagne courriel n'a ni l'un ni l'autre : l'envoi est le geste, et sa puce est écrite par l'envoi lui-même.",
+            "**Envoyée** — une campagne courriel une fois que chaque abonné l'a reçue. **Partiellement envoyée** — un envoi arrêté en cours de route ; la page de la campagne propose de reprendre l'envoi, qui n'écrit qu'aux personnes pas encore rejointes. Rien de ce que vous appuyez ne règle ces deux-là.",
+            "**Archivée** — **Archiver** sur n'importe quelle campagne, après une confirmation (**Archiver ? Elle quitte la liste ; rien n'est supprimé.**). La carte quitte la liste derrière **Afficher les archivées**, son budget quitte la page des dépenses, et chaque arrêt, chaque envoi et chaque note qu'elle contient est conservé. **Restaurer** la ramène en brouillon.",
           ] },
         ],
       },
@@ -821,12 +826,12 @@ export const ARTICLES = {
         id: "who-can-see-it",
         heading: "Qui peut le voir",
         blocks: [
-          { p: "La ligne **Marketing**, la liste, les abonnés et le rapport de dépenses sont pour les propriétaires, les administrateurs, les répartiteurs et les gestionnaires. Marquer un arrêt sur un trajet de dépliants est du travail de terrain, ouvert à tout membre actif, et la page d'une campagne cache son budget et ses notes à quiconque est sous ce niveau — mais les équipes et les estimateurs n'ont aucune ligne pour atteindre la liste, donc remettez-leur directement le lien de la campagne." },
+          { p: "La ligne **Marketing**, la liste, les abonnés et le rapport de dépenses sont pour les propriétaires, les administrateurs, les répartiteurs et les gestionnaires, et les boutons Activer, Mettre en pause, Archiver et Restaurer aussi. Marquer un arrêt sur un trajet de dépliants est du travail de terrain, ouvert à tout membre actif, et la page d'une campagne cache son budget et ses notes à quiconque est sous ce niveau — mais les équipes et les estimateurs n'ont aucune ligne pour atteindre la liste, donc remettez-leur directement le lien de la campagne." },
         ],
       },
     ],
     faq: [
-      { q: "Puis-je supprimer une campagne ?", a: "Pas depuis l'écran aujourd'hui — ni la liste ni la page d'une campagne n'a de commande de suppression, donc une campagne terminée reste sur l'étagère avec sa puce. Les arrêts d'un trajet de dépliants peuvent être retirés un à un." },
+      { q: "Puis-je supprimer une campagne ?", a: "Non, volontairement — supprimer emporterait chaque fiche de porte-à-porte et chaque envoi avec elle. Appuyez plutôt sur Archiver : la campagne quitte la liste, garde tout, et Restaurer la ramène. Les arrêts d'un trajet de dépliants peuvent toujours être retirés un à un." },
       { q: "Une campagne Meta ici se connecte-t-elle à mon compte publicitaire Meta ?", a: "Pas depuis cette carte — elle contient un budget et un lien. La synchronisation du compte publicitaire, les formulaires de prospects et l'importation des dépenses se trouvent dans Paramètres → Publicités Meta." },
       { q: "D'où viennent les adresses courriel d'un envoi ?", a: "Des Abonnés — les personnes actuellement abonnées. Quiconque s'est désabonné est exclu automatiquement." },
     ],

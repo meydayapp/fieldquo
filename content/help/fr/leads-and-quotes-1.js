@@ -97,7 +97,7 @@ export const ARTICLES = {
     faq: [
       { q: "Pourquoi ne puis-je pas glisser un prospect directement dans Gagné ?", a: "Gagné signifie qu'un client a dit oui à une soumission chiffrée, et un prospect sans soumission n'a rien derrière lui. Convertissez-le d'abord ; une fois la soumission créée, vous pouvez déplacer la carte à la main, et quand le client accepte en ligne, elle bouge toute seule." },
       { q: "Où est passé le courriel du prospect ?", a: "Votre niveau d'accès aux clients est « nom et adresse seulement », donc le serveur retire le courriel, le téléphone et le budget déclaré avant de vous envoyer le tableau. Demandez à un propriétaire ou à un administrateur si vous en avez besoin." },
-      { q: "Marquer un prospect Contacté envoie-t-il quelque chose ?", a: "Non. Cela consigne que vous avez parlé à la personne. Aucun bouton de statut de ce tableau n'envoie de courriel ni de texto." },
+      { q: "Marquer un prospect Contacté envoie-t-il quelque chose ?", a: "Non. Cela consigne que vous avez parlé à la personne. Aucun bouton de statut de ce tableau n'envoie de courriel ni de texto — mais marquer un prospect Contacté arrête bien une règle de relance **Nouvelle demande, personne n'a répondu**, si vous en avez une. Voir [[follow-up-rules|Règles de relance]]." },
       { q: "Les appels reçus par la réceptionniste apparaissent-ils ici ?", a: "Oui. Un appel pris par la réceptionniste téléphonique crée un prospect avec les coordonnées de l'appelant, classé sans budget, parce que la réceptionniste ne peut jamais parler d'argent. Voir [[the-phone-receptionist|La réceptionniste téléphonique]]." },
     ],
   },
@@ -609,7 +609,7 @@ export const ARTICLES = {
         id: "overview",
         heading: "Aperçu",
         blocks: [
-          { p: "L'écran dit **Soumissions — Gérez les soumissions de vos clients.** Le bouton **Nouvelle soumission** ouvre le générateur — voir [[build-a-quote|Bâtir une soumission]]. Chaque ligne ouvre la page de la soumission, où vivent l'envoi, la modification, la révision IA et la décision du client." },
+          { p: "L'écran dit **Soumissions — Gérez les soumissions de vos clients.** Le bouton **Nouvelle soumission** ouvre le générateur — voir [[build-a-quote|Bâtir une soumission]]. Chaque ligne ouvre la page de la soumission, où vivent l'envoi, la modification, la révision IA et la décision du client — et **Dupliquer**, qui repart d'une soumission déjà écrite pour en faire un nouveau brouillon." },
         ],
       },
       {
@@ -699,6 +699,7 @@ export const ARTICLES = {
             "Activez les types de soumission que vous vendez et fixez leurs tarifs — [[quote-types-and-takeoffs|Types de soumission et relevés]]. Un type désactivé n'a pas de tuile.",
             "Mettez vos extras ponctuels dans le catalogue de prix — [[lines-from-your-price-book|Des lignes tirées de votre catalogue de prix]] — pour qu'ils soient à un doigt de distance.",
             "Ayez l'adresse du client : elle détermine le taux de taxe, et une soumission sans territoire affiche un taux présumé avec une mise en garde dessous.",
+            "Vous avez déjà tarifé quelque chose de semblable ? **Dupliquer** sur la page de cette soumission ouvre un nouveau brouillon sous le numéro suivant, avec le même client, la même langue, les mêmes services et lignes, les options offertes, le calcul de coût, les notes et les sections du courriel — et rien de son historique : pas de date d'envoi, de signature, d'approbation, de modifications du client ni de révision IA.",
           ] },
           { tip: "Vous partez d'un prospect ? **Convertir en devis** dans le panneau du prospect ouvre cet écran avec le client, le service, les réponses et les photos déjà remplis. Voir [[convert-a-lead-to-a-quote|Convertir un prospect en soumission]]." },
         ],

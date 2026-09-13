@@ -420,7 +420,7 @@ export const ARTICLES = {
         heading: "What is on the screen",
         blocks: [
           { bullets: [
-            "**Your minimum price** — the **Jobs per week** box, **Save**, then four tiles: **Monthly fixed costs**, **Jobs / month**, **Cost per job** and **Minimum price**, with a line saying what the total includes and the target margin it assumes.",
+            "**Your minimum price** — the **Jobs per week** and **Target margin %** boxes, **Save**, then four tiles: **Monthly fixed costs**, **Jobs / month**, **Cost per job** and **Minimum price**, with a line saying what the total includes and the target margin it assumes.",
             "**Paid hours that never reached a job** — the week you guarantee people against the hours they actually logged on jobs, last 30 days. Reported, and deliberately **not** counted in the price above; the box says so.",
             "**Fixed costs** — rent, insurance, phone, subscriptions: anything that arrives whether or not you win a job, monthly or yearly.",
             "**Salaries** — business overhead only: your own draw, an office wage. Not the crew, whose hours are already charged to each job as labour.",
@@ -437,11 +437,11 @@ export const ARTICLES = {
           { steps: [
             "Open **Settings → Overhead** and fill the registers: fixed costs, salaries, any debt, any asset worth more than a few hundred dollars.",
             "Link an asset to the loan that paid for it. The loan then counts as interest only and the asset's depreciation carries its cost — otherwise the same truck is charged twice, and the screen warns you when it sees that pattern.",
-            "Type **Jobs per week** — a normal week for your crew — and press **Save**.",
+            "Type **Jobs per week** — a normal week for your crew — and, if 20% is not your figure, **Target margin %**; then press **Save**.",
             "Read **Minimum price**. Anything quoted below it does not cover the shop before materials and labour are even counted.",
           ] },
           { figure: "harness:settings-overhead", caption: "Settings → Overhead — Your minimum price with its four tiles, and the note explaining what the total includes." },
-          { note: "The tiles read **Cost per job** as the overhead a job has to carry, and **Minimum price** as that cost at a **20%** target margin. Materials and labour for the specific job are on top — the note under the tiles says so." },
+          { note: "The tiles read **Cost per job** as the overhead a job has to carry, and **Minimum price** as that cost at your **Target margin %** — 20% until you set one, and the note under the tiles says when it is still the default. Materials and labour for the specific job are on top — the note says that too." },
         ],
       },
       {
@@ -454,7 +454,7 @@ export const ARTICLES = {
               ["Monthly fixed costs", "Fixed costs + salaries + debt, plus depreciation on your assets and interest on their loans. A loan linked to an asset counts as interest only."],
               ["Jobs / month", "Jobs per week × 4.33."],
               ["Cost per job", "Monthly fixed costs ÷ jobs per month."],
-              ["Minimum price", "Cost per job ÷ (1 − 20%)."],
+              ["Minimum price", "Cost per job ÷ (1 − target margin) — 20% unless you set your own."],
             ],
           } },
         ],
@@ -487,7 +487,7 @@ export const ARTICLES = {
     faq: [
       { q: "Why is the minimum price blank?", a: "Jobs per week is not set. The screen refuses to divide your overhead by a number it invented. Type a normal week's capacity and press Save." },
       { q: "Should my crew's wages go under Salaries?", a: "No. Crew hours are charged to each job as labour in the Cost & margin panel; putting them here as well counts them twice. Salaries is for fixed overhead pay — your own draw, an office wage, a bookkeeper's hours." },
-      { q: "Is the 20% margin adjustable?", a: "Not on the screen today. The minimum price is shown at a 20% target margin and says so under the tiles. The Cost & margin panel on a quote measures against a separate 30% target." },
+      { q: "Is the 20% margin adjustable?", a: "Yes — **Target margin %** sits beside Jobs per week and takes 0 to 95. Leave it blank and the floor uses 20% and says under the tiles that it is the default. The Cost & margin panel on a quote measures against a separate 30% target." },
     ],
   },
 
@@ -635,7 +635,7 @@ export const ARTICLES = {
           { bullets: [
             "Attached to the quote email as **Quote-Q-2026-0012.pdf** every time you press Send or Send again. If the PDF fails to render, the email still goes and the failure is logged for support — the client is never left waiting on a build error.",
             "Re-rendered after the client approves, with their signature, and emailed to them and to the owners as the signed copy.",
-            "Not downloadable from the back office today — the quote page has no PDF button. Your copy is the attachment on the approval email; before approval, the client's copy is the one on the quote email.",
+            "Downloadable from the quote page with **Download PDF** — the same document the client gets, in the quote's own language, saved as Quote-Q-2026-0012.pdf. The button appears only for members with the **See prices** switch, because the PDF is the priced document and nothing else.",
             "Never sent for a quote entered as a past job.",
           ] },
         ],

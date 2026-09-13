@@ -564,7 +564,7 @@ export const ARTICLES = {
           { p: "The footer reads “You're receiving this because you're a customer of …” with an **Unsubscribe** link, and the page it opens says plainly that quotes, invoices and receipts about work they requested will still arrive — only promotional email stops." },
           { bullets: [
             "**Commercial, with the link:** marketing email campaigns; the automatic review request after a job (see [[review-requests|Review requests after a job]]); and a “job completed” follow-up rule, since the work is finished and this is discretionary outreach.",
-            "**Transactional, no link:** a sent quote or invoice; the “quote sent, no response” and overdue-invoice follow-ups, which are about a document the client is already in a transaction with; booking and instant-quote confirmations; and account mail such as password resets.",
+            "**Transactional, no link:** a sent quote or invoice; the “new enquiry, nobody replied”, “quote sent, no response” and overdue-invoice follow-ups, which answer a request the client made or a document they are already in a transaction with; booking and instant-quote confirmations; and account mail such as password resets.",
             "**Recorded on the way out:** a review request is sent to someone who was never on a mailing list, so the send first creates their subscriber row with a token — that is what makes the link in that email work.",
           ] },
         ],
@@ -587,7 +587,7 @@ export const ARTICLES = {
         blocks: [
           { p: "The default appointment reminder text ends with “Reply STOP to opt out”, in the client's language — if you rewrite the wording under **Settings → Client messages**, keep that line, because nothing adds it back. The keyword itself is always STOP — carriers treat it as universal. A reply is an opt-out only when the whole message is the keyword: **STOP**, **STOPALL**, **UNSUBSCRIBE**, **CANCEL**, **END** or **QUIT** (a trailing full stop is fine). “Please stop by at 3” is not an opt-out." },
           { bullets: [
-            "**STOP** records an SMS opt-out for that number and your company the moment it arrives. From then on the reminder cron and the on-my-way text both skip that number.",
+            "**STOP** records an SMS opt-out the moment it arrives. Client texts leave on FieldQuo's shared line, so the reply cannot name one company: it opts the number out of every company holding it on a client record. From then on the reminder cron and the on-my-way text both skip that number.",
             "**START** or **UNSTOP** reverses it, on the same channel. Whether the client gets a confirmation text depends on how the number is set up at the carrier, not on a setting in FieldQuo. **YES** is deliberately not an opt-in — it usually means “yes to the appointment”.",
             "A number that opted out of **calls** is refused texts as well, but a START does not restore call consent — that opt-out is one-way.",
           ] },

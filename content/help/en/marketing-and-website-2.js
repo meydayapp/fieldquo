@@ -188,7 +188,7 @@ export const ARTICLES = {
             head: ["Figure", "How it is worked out"],
             rows: [
               ["**Blended cost per lead**", "Everything logged, divided by the leads on your Leads board in the same period. Leads entered by hand or imported from a file are left out and counted separately — “+ 4 leads entered manually or imported, not counted” — because this period's spend did not cause them."],
-              ["**Spend by channel**", "The logged amounts per channel, with the leads and cost per lead you typed in, marked “(as entered)”."],
+              ["**Spend by channel**", "The logged amounts per channel under **Spent**, with the leads and cost per lead you typed in, marked “(as entered)”, and a **Budgeted (campaigns)** column: the budgets of your unarchived campaigns under Marketing, summed per channel — pamphlet campaigns to Pamphlets, Meta / paid ads to Facebook / Instagram, email and other to Other. A channel with a budget and nothing logged yet shows “nothing logged yet”, and a list under the table names which campaign put the number there. A budget never enters a total or a cost per lead."],
               ["**Campaigns**", "One row per Meta campaign FieldQuo has synced: what it cost, what Meta reported (impressions, reach, clicks, CTR, CPC, conversations, video views, engagements) and what became of its lead-form leads — leads, quotes, jobs, invoiced."],
               ["**≈ approximate**", "A Meta account that reports in a different currency than your company's is converted at a pinned exchange rate and marked ≈. If that rate is more than 45 days old, or FieldQuo holds no rate for the pair, the rows are left out and the screen names the amount and the reason."],
             ],
@@ -209,6 +209,7 @@ export const ARTICLES = {
       { q: "Can FieldQuo tell me which channel is working?", a: "Only for Meta lead-form leads, per campaign. Everything else is blended, and the screen says so under the figure rather than guessing." },
       { q: "Does the Meta sync run on its own?", a: "No. Press Sync now on Settings → Meta Ads; each press imports the last 30 days." },
       { q: "Why does my figure say “Not enough data yet”?", a: "No spend has been logged, or no lead arrived in the period. Both are shown rather than a zero." },
+      { q: "Why does a channel show a Budgeted figure when I logged nothing?", a: "Because a campaign under Marketing on that channel carries a budget. Budgeted is what you set aside for the campaign's whole life, not for a period; Spent is what was logged here or synced from Meta. Archive the campaign and its budget leaves the column." },
     ],
   },
 

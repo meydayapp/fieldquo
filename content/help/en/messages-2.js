@@ -17,18 +17,18 @@ export const ARTICLES = {
   "follow-up-rules": {
     title: "Follow-up rules",
     summary:
-      "Chase a quiet quote, an overdue invoice or a finished job by email, automatically, on a delay you choose — and what stops each rule.",
+      "Chase an unanswered enquiry, a quiet quote, an overdue invoice or a finished job by email, automatically, on a delay you choose — and what stops each rule.",
     updated: "2026-09-12",
     intro: [
-      "A follow-up rule is one sentence: a set time after a quote, an invoice or a job reaches a certain state, send this email template. FieldQuo checks every active rule once a day and sends the template to the client of anything that has crossed the line — a quote sitting at sent for three days, an invoice five days past due, a job completed two days ago — without anyone remembering to.",
-      "This article covers the **Settings → Follow-ups** screen: the three triggers, the delay, which templates a rule can send, what pauses and stops one, and who receives nothing.",
+      "A follow-up rule is one sentence: a set time after an enquiry, a quote, an invoice or a job reaches a certain state, send this email template. FieldQuo checks every active rule once a day and sends the template to the client of anything that has crossed the line — an enquiry nobody has answered in two days, a quote sitting at sent for three, an invoice five days past due, a job completed two days ago — without anyone remembering to.",
+      "This article covers the **Settings → Follow-ups** screen: the four triggers, the delay, which templates a rule can send, what pauses and stops one, and who receives nothing.",
     ],
     sections: [
       {
         id: "overview",
         heading: "Overview",
         blocks: [
-          { p: "Every rule sends exactly one thing by one channel: an email template. There is no text-message follow-up and no in-app task — the screen draws a single **Send email** step because that is the only step there is. Two rules can share a trigger (a soft nudge at 3 days and a firmer one at 7), each pointing at a different template, and each quote, invoice or job gets each rule's email once and only once." },
+          { p: "Every rule sends exactly one thing by one channel: an email template. There is no text-message follow-up and no in-app task — the screen draws a single **Send email** step because that is the only step there is. Two rules can share a trigger (a soft nudge at 3 days and a firmer one at 7), each pointing at a different template, and each enquiry, quote, invoice or job gets each rule's email once and only once." },
           { p: "The email goes out under your company's name — from your own verified domain if you have one (see [[send-from-your-own-domain|Send email from your own domain]]), otherwise from FieldQuo's shared address — and replies go to your company email, falling back to the account owner's address so a reply is never lost." },
         ],
       },
@@ -52,12 +52,12 @@ export const ARTICLES = {
           { steps: [
             "Open **Settings → Follow-ups** and press **New Rule**. If the button is disabled, the yellow line above says why: you need a Follow-up, Marketing or Custom template first under **Email Templates**. Every new company already has a “Follow-up email (default)” template, so this is rare.",
             "Give it a **Rule name (optional)** — left blank, the rule takes the trigger's name.",
-            "Pick the **Trigger**: **Quote sent, no response**, **Invoice overdue** or **Job completed**. The sentence under the dropdown says exactly when each one fires.",
-            "Set the **Delay** and its **Unit** (hours or days). Choosing a trigger fills in its default — 3 days for a quote, 5 days for an invoice, 2 days for a completed job — and you can change it.",
+            "Pick the **Trigger**: **New enquiry, nobody replied**, **Quote sent, no response**, **Invoice overdue** or **Job completed**. The sentence under the dropdown says exactly when each one fires.",
+            "Set the **Delay** and its **Unit** (hours or days). Choosing a trigger fills in its default — 2 days for an enquiry, 3 days for a quote, 5 days for an invoice, 2 days for a completed job — and you can change it.",
             "Choose the **Template to send** and press **Create Rule**. The rule is active at once and the picture above the list redraws.",
           ] },
           { figure: "live:app-settings-follow-ups", caption: "Settings → Follow-ups — the How these run flow drawn from the rules, then the rule list with Pause and delete on each row." },
-          { note: "The trigger names in the dropdown — Quote sent, no response; Invoice overdue; Job completed — are shown in English whatever language you work in. The flow picture and the rule list translate them." },
+          { note: "Choosing **New enquiry, nobody replied** adds a line under the dropdown: an enquiry has no quote yet, so a template's quote fields ({{quoteUrl}}, {{quoteTotal}}, {{quoteNumber}}) come out blank. It can fill the client's name, phone and address, your company details, and the service they asked about as the job title." },
         ],
       },
       {
@@ -67,7 +67,7 @@ export const ARTICLES = {
           { table: {
             head: ["Setting", "What it changes"],
             rows: [
-              ["**Trigger**", "Which records the rule watches and what counts as crossing the line: a quote still at sent, an unpaid invoice past its due date, or a job marked complete (from the moment it was completed, not the last time it was edited)."],
+              ["**Trigger**", "Which records the rule watches and what counts as crossing the line: an enquiry still at New with no quote and an email address, a quote still at sent, an unpaid invoice past its due date, or a job marked complete (from the moment it was completed, not the last time it was edited)."],
               ["**Delay** and **Unit**", "How long the record must have been in that state before the email goes. Anything not in hours is treated as days."],
               ["**Template to send**", "The email the client receives. Only Follow-up, Marketing and Custom templates are offered — never the quote, instructions or receipt templates, which are one-off sends. If the template is later deleted, the row reads **(template deleted)** and the rule sends nothing."],
               ["**Pause**", "The rule is kept and skipped. The picture marks the step “Paused — this step is skipped.” **Activate** turns it back on; anything that crossed the line meanwhile is caught on the next run."],
@@ -80,14 +80,15 @@ export const ARTICLES = {
         id: "how-they-run",
         heading: "When they run, and what stops them",
         blocks: [
-          { p: "The check runs once a day, so a rule set to 3 days sends on the first run after the third day rather than at the exact hour. On each run, for each active rule, FieldQuo finds every matching record that has not already had this rule's email, sends it, and writes it down — so a rule can never send twice for the same quote, invoice or job, even if two runs overlap." },
+          { p: "The check runs once a day, so a rule set to 3 days sends on the first run after the third day rather than at the exact hour. On each run, for each active rule, FieldQuo finds every matching record that has not already had this rule's email, sends it, and writes it down — so a rule can never send twice for the same enquiry, quote, invoice or job, even if two runs overlap." },
           { bullets: [
+            "**New enquiry, nobody replied** stops once the enquiry is marked contacted, quoted, won or lost — and sending a quote marks it contacted for you. Each enquiry gets the email once.",
             "**Quote sent, no response** stops as soon as the client accepts or declines the quote. Each quote gets the email once.",
             "**Invoice overdue** stops as soon as the invoice is paid. Each invoice gets the email once.",
             "**Job completed** stops if the job is reopened. Each job gets the email once.",
           ] },
           { note: "Clients with no email address on file are skipped. Jobs, quotes and invoices you imported as past history are never followed up — a rule created today does catch up on last month's real quotes, but not on a 2024 job you typed in for the books." },
-          { tip: "A **Job completed** follow-up is marketing in the legal sense (a thank-you, a request for a review), so it carries an unsubscribe link and is not sent to anyone who has unsubscribed from your marketing email. Quote and invoice follow-ups are about a transaction the client is already in and carry no unsubscribe link." },
+          { tip: "A **Job completed** follow-up is marketing in the legal sense (a thank-you, a request for a review), so it carries an unsubscribe link and is not sent to anyone who has unsubscribed from your marketing email. Enquiry, quote and invoice follow-ups answer something the client asked for and carry no unsubscribe link." },
         ],
       },
       {
@@ -743,7 +744,7 @@ export const ARTICLES = {
       "Exactly two texts reach your clients — On my way and the appointment reminder — in the client's language, with your wording if you set it. What triggers each, what is not texted, and what happens when a client replies.",
     updated: "2026-09-12",
     intro: [
-      "FieldQuo texts your clients in two situations and no others: when a crew member marks a visit **On the way**, and before an appointment, at the lead time you chose. Both go out under your business name, in the client's language, with the wording you set under **Settings → Client messages** or the built-in wording if you left it alone.",
+      "FieldQuo texts your clients in two situations and no others: when a crew member marks a visit **On the way**, and before an appointment or a job visit, at the lead time you chose. Both go out under your business name, in the client's language, with the wording you set under **Settings → Client messages** or the built-in wording if you left it alone.",
       "Everything else — a quote, an invoice, a booking confirmation, a follow-up — goes by email, and there is no two-way texting with clients. This article draws that line precisely so nobody promises a text the product does not send.",
     ],
     sections: [
@@ -761,11 +762,11 @@ export const ARTICLES = {
           { table: {
             head: ["Text", "When it goes", "Built-in wording (English)"],
             rows: [
-              ["**On my way**", "The moment a visit's status is set to **On the way** — usually the crew member tapping it on their phone. Only when the job's client has a phone number.", "“Northside Painting: Dave is on the way, ETA 20 min. Reply if you need to reschedule.”"],
-              ["**Appointment reminder**", "Once an appointment on your Schedule is inside the lead time you chose under **Settings → Notifications** — 2, 24 or 48 hours before. Checked every hour; sent once per appointment.", "“Northside Painting: Reminder — your appointment is Tue, Sep 15, 2:00 PM at 123 Oak St. Reply STOP to opt out.”"],
+              ["**On my way**", "The moment a visit's status is set to **On the way** — usually the crew member tapping it on their phone. Only when the job's client has a phone number.", "“Northside Painting: Dave is on the way, ETA 20 min. To reschedule, call 555-0100.” The ETA is worked out from the crew member's position at the tap to the job's address; the phone is your company phone, and that sentence is dropped when you have none on file."],
+              ["**Appointment reminder**", "Once an appointment on your Schedule, or a visit on a job, is inside the lead time you chose under **Settings → Notifications** — 2, 24 or 48 hours before. Checked every hour; sent once per appointment or visit.", "“Northside Painting: Reminder — your appointment is Tue, Sep 15, 2:00 PM at 123 Oak St. Reply STOP to opt out.”"],
             ],
           } },
-          { p: "Appointment reminders are **Off** until an owner or administrator picks a lead time — every reminder is a text the company pays for, so nothing is sent that nobody switched on. They apply to appointments on the Schedule (bookings from your booking page, calls the receptionist booked, appointments you add); a visit on a job is a different record and is not reminded by text." },
+          { p: "Appointment reminders are **Off** until an owner or administrator picks a lead time — reminders are included in your plan, but nothing is sent that nobody switched on. They apply to appointments on the Schedule (bookings from your booking page, calls the receptionist booked, appointments you add) and to visits booked on a job alike, once each; a completed or cancelled entry gets none." },
           { figure: "live:app-settings-messages", caption: "Settings → Client messages — one editor per text, On my way and Appointment reminder, with the token chips, the “Your client sees:” preview, Save and Use default." },
         ],
       },
@@ -780,7 +781,7 @@ export const ARTICLES = {
             "**The receptionist cannot text.** When it has to send a caller to your booking page it reads the link out and says plainly that it cannot text it.",
             "**No marketing texts.** Campaigns are email; there is no mass-text feature.",
           ] },
-          { warning: "The built-in On my way wording ends with “Reply if you need to reschedule”, but a reply is not read by FieldQuo. If you want clients to be able to answer that text, put your own office number in your custom wording — or remove the invitation." },
+          { warning: "A reply to the On my way text is not read by FieldQuo — only STOP is — so the built-in wording ends “To reschedule, call {phone}”, your company phone from Company Settings. If you write your own wording, keep **{phone}** in it rather than inviting a reply nobody will see." },
         ],
       },
       {
@@ -795,7 +796,7 @@ export const ARTICLES = {
         id: "opting-out",
         heading: "Opting out",
         blocks: [
-          { p: "Before every text FieldQuo checks the client's number against the opt-out list for your company: a number that has asked to stop receiving texts, or that has asked not to be called, is skipped — the on-my-way text and the reminder alike. The reminder ends “Reply STOP to opt out” in every language, and STOP is kept in English on purpose because carriers treat it as universal." },
+          { p: "Before every text FieldQuo checks the client's number against the opt-out list for your company: a number that has asked to stop receiving texts, or that has asked not to be called, is skipped — the on-my-way text and the reminder alike. The reminder ends “Reply STOP to opt out” in every language, and STOP is kept in English on purpose because carriers treat it as universal. Client texts leave on FieldQuo's shared line, so a STOP cannot name one company: it opts that phone out of every company holding it on a client record." },
           { p: "There is no marketing consent involved: both texts are about a visit the client booked. Neither carries an unsubscribe link, and neither is sent to a client who has no phone number on file." },
         ],
       },

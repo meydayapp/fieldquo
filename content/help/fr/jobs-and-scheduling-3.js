@@ -450,7 +450,7 @@ export const ARTICLES = {
           { steps: [
             "Ouvrez le chantier et choisissez **Annulé** dans la liste déroulante de statut à côté du titre.",
             "Si le chantier vient d'une soumission, la tâche *planifier ce chantier* de votre liste À faire se ferme d'elle-même.",
-            "Ouvrez chacune de ses visites et appuyez sur « Cancel visit ». Annuler le chantier n'annule pas ses visites; elles restent au calendrier et enverraient encore des rappels.",
+            "Appuyez sur **Annuler la visite** sur chacune de ses visites — sur la page du chantier ou au calendrier. Un motif facultatif est demandé et, sauf si vous décochez la case, le client reçoit un courriel dans sa langue disant que le bureau a annulé. Annuler le chantier n'annule pas ses visites; elles restent au calendrier et recevraient encore un texto de rappel.",
           ] },
           { p: "Un chantier annulé garde tout ce qu'il porte — heures, dépenses, photos, notes. Il ne reçoit jamais de demande d'avis, sa récurrence cesse d'avancer, et son salon de clavardage passe sous **Travaux terminés**." },
         ],

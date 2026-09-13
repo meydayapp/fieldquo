@@ -70,7 +70,7 @@ callbacks, the crew inbox, team chat, How You Compare, the KPI dashboard,
 
 <!-- tree:start -->
 
-_Generated 2026-09-13 — 311 articles in the tree; written: en 292, fr 279, es 279; “Only in FieldQuo”: 34._
+_Generated 2026-09-13 — 311 articles in the tree; written: en 311, fr 311, es 311; “Only in FieldQuo”: 34._
 
 ### getting-started (23)
 
@@ -305,19 +305,19 @@ _Generated 2026-09-13 — 311 articles in the tree; written: en 292, fr 279, es 
 
 | Article | en | fr | es | Screen | Feature | Only |
 |---|:-:|:-:|:-:|---|---|:-:|
-| `using-fieldquo-on-your-phone` — Using FieldQuo on your phone | ✓ | · | · |  | time_clock |  |
-| `install-it-like-an-app` — Install it like an app | ✓ | · | · |  | time_clock |  |
-| `the-crew-tab-bar` — The crew tab bar | ✓ | · | · |  | crew_shifts |  |
-| `what-a-crew-member-sees` — What a crew member sees | ✓ | · | · |  | team_access |  |
-| `clock-in-and-out-on-your-phone` — Clock in and out on your phone | ✓ | · | · | clock | time_clock |  |
-| `your-schedule-on-your-phone` — Your schedule on your phone | ✓ | · | · |  | crew_shifts |  |
-| `photos-from-the-field` — Photos from the field | ✓ | · | · |  | job_photos |  |
-| `text-a-photo-to-the-crew-inbox` — Text a photo in without an app | ✓ | · | · | crew-inbox | crew_inbox |  |
-| `chat-on-your-phone` — Chat on your phone | ✓ | · | · | chat | team_chat |  |
-| `time-off-on-your-phone` — Ask for time off from your phone | ✓ | · | · | time-off | time_off |  |
-| `report-a-safety-incident` — Report a safety incident | ✓ | · | · | safety | proof |  |
-| `push-notifications` — Push notifications | ✓ | · | · |  | appointment_reminders |  |
-| `bad-connections-and-offline` — Bad connections, and why there is no offline mode | ✓ | · | · |  | time_clock |  |
+| `using-fieldquo-on-your-phone` — Using FieldQuo on your phone | ✓ | ✓ | ✓ |  | time_clock |  |
+| `install-it-like-an-app` — Install it like an app | ✓ | ✓ | ✓ |  | time_clock |  |
+| `the-crew-tab-bar` — The crew tab bar | ✓ | ✓ | ✓ |  | crew_shifts |  |
+| `what-a-crew-member-sees` — What a crew member sees | ✓ | ✓ | ✓ |  | team_access |  |
+| `clock-in-and-out-on-your-phone` — Clock in and out on your phone | ✓ | ✓ | ✓ | clock | time_clock |  |
+| `your-schedule-on-your-phone` — Your schedule on your phone | ✓ | ✓ | ✓ |  | crew_shifts |  |
+| `photos-from-the-field` — Photos from the field | ✓ | ✓ | ✓ |  | job_photos |  |
+| `text-a-photo-to-the-crew-inbox` — Text a photo in without an app | ✓ | ✓ | ✓ | crew-inbox | crew_inbox |  |
+| `chat-on-your-phone` — Chat on your phone | ✓ | ✓ | ✓ | chat | team_chat |  |
+| `time-off-on-your-phone` — Ask for time off from your phone | ✓ | ✓ | ✓ | time-off | time_off |  |
+| `report-a-safety-incident` — Report a safety incident | ✓ | ✓ | ✓ | safety | proof |  |
+| `push-notifications` — Push notifications | ✓ | ✓ | ✓ |  | appointment_reminders |  |
+| `bad-connections-and-offline` — Bad connections, and why there is no offline mode | ✓ | ✓ | ✓ |  | time_clock |  |
 
 ### reports-and-insights (21)
 
@@ -420,14 +420,14 @@ _Generated 2026-09-13 — 311 articles in the tree; written: en 292, fr 279, es 
 
 | Article | en | fr | es | Screen | Feature | Only |
 |---|:-:|:-:|:-:|---|---|:-:|
-| `nothing-says-fieldquo` — Nothing says FieldQuo | · | · | · |  | white_label | ✓ |
-| `the-quote-email` — The quote email | · | · | · |  | quote_send |  |
-| `the-quote-approval-page` — The quote approval page | · | · | · |  | online_approval |  |
-| `the-invoice-email-and-pay-page` — The invoice email and pay page | · | · | · |  | invoice_send |  |
-| `the-client-portal-as-a-client` — The client portal | · | · | · |  | client_portal |  |
-| `the-booking-page` — The booking page | · | · | · |  | booking_page |  |
-| `managing-a-booked-visit` — Managing a booked visit | · | · | · |  | client_reschedule |  |
-| `the-instant-estimate-page` — The instant estimate page | · | · | · |  | instant_quotes |  |
+| `nothing-says-fieldquo` — Nothing says FieldQuo | ✓ | ✓ | ✓ |  | white_label | ✓ |
+| `the-quote-email` — The quote email | ✓ | ✓ | ✓ |  | quote_send |  |
+| `the-quote-approval-page` — The quote approval page | ✓ | ✓ | ✓ |  | online_approval |  |
+| `the-invoice-email-and-pay-page` — The invoice email and pay page | ✓ | ✓ | ✓ |  | invoice_send |  |
+| `the-client-portal-as-a-client` — The client portal | ✓ | ✓ | ✓ |  | client_portal |  |
+| `the-booking-page` — The booking page | ✓ | ✓ | ✓ |  | booking_page |  |
+| `managing-a-booked-visit` — Managing a booked visit | ✓ | ✓ | ✓ |  | client_reschedule |  |
+| `the-instant-estimate-page` — The instant estimate page | ✓ | ✓ | ✓ |  | instant_quotes |  |
 | `the-self-quote-form-as-a-client` — The self-quote form | ✓ | ✓ | ✓ |  | self_quote |  |
 | `the-review-request` — The review request | ✓ | ✓ | ✓ |  | review_requests |  |
 | `the-referral-page` — The referral page | ✓ | ✓ | ✓ |  | referrals |  |
@@ -441,16 +441,16 @@ _Generated 2026-09-13 — 311 articles in the tree; written: en 292, fr 279, es 
 
 | Article | en | fr | es | Screen | Feature | Only |
 |---|:-:|:-:|:-:|---|---|:-:|
-| `stripe` — Stripe | · | · | · |  | stripe_connect |  |
-| `facebook-and-instagram` — Facebook and Instagram (Meta) | · | · | · |  | page_messaging |  |
-| `whatsapp` — WhatsApp Business | · | · | · |  | whatsapp_messaging |  |
-| `phone-and-texts` — Phone numbers and texts (Twilio) | · | · | · |  | voice_receptionist |  |
-| `google-maps-and-solar` — Google Maps and Google Solar | · | · | · |  | aerial_measure |  |
-| `photos-and-files` — Photos and files (Cloudinary) | · | · | · |  | job_photos |  |
-| `email-delivery` — Email delivery (Resend) and your own domain | · | · | · |  | own_email_domain |  |
-| `quickbooks-xero-and-your-bookkeeper` — QuickBooks, Xero and your bookkeeper | · | · | · |  | expenses |  |
-| `stock-photos-on-your-website` — Stock photos on your website (Unsplash) | · | · | · |  | website_builder |  |
-| `data-and-privacy` — Your data, your clients' data, and deletion | · | · | · |  |  |  |
-| `no-public-api-or-zapier` — No public API or Zapier, yet | · | · | · |  |  |  |
+| `stripe` — Stripe | ✓ | ✓ | ✓ |  | stripe_connect |  |
+| `facebook-and-instagram` — Facebook and Instagram (Meta) | ✓ | ✓ | ✓ |  | page_messaging |  |
+| `whatsapp` — WhatsApp Business | ✓ | ✓ | ✓ |  | whatsapp_messaging |  |
+| `phone-and-texts` — Phone numbers and texts (Twilio) | ✓ | ✓ | ✓ |  | voice_receptionist |  |
+| `google-maps-and-solar` — Google Maps and Google Solar | ✓ | ✓ | ✓ |  | aerial_measure |  |
+| `photos-and-files` — Photos and files (Cloudinary) | ✓ | ✓ | ✓ |  | job_photos |  |
+| `email-delivery` — Email delivery (Resend) and your own domain | ✓ | ✓ | ✓ |  | own_email_domain |  |
+| `quickbooks-xero-and-your-bookkeeper` — QuickBooks, Xero and your bookkeeper | ✓ | ✓ | ✓ |  | expenses |  |
+| `stock-photos-on-your-website` — Stock photos on your website (Unsplash) | ✓ | ✓ | ✓ |  | website_builder |  |
+| `data-and-privacy` — Your data, your clients' data, and deletion | ✓ | ✓ | ✓ |  |  |  |
+| `no-public-api-or-zapier` — No public API or Zapier, yet | ✓ | ✓ | ✓ |  |  |  |
 
 <!-- tree:end -->

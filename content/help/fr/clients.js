@@ -559,7 +559,7 @@ export const ARTICLES = {
           { p: "Le pied de page dit « You're receiving this because you're a customer of … » avec un lien **Unsubscribe**, et la page qu'il ouvre dit clairement que les soumissions, factures et reçus concernant des travaux demandés continueront d'arriver — seul le courriel promotionnel s'arrête." },
           { bullets: [
             "**Commerciaux, avec le lien :** les campagnes de courriel marketing ; la demande d'avis automatique après un chantier (voir [[review-requests|Les demandes d'avis après un chantier]]) ; et une règle de suivi « chantier terminé », puisque les travaux sont finis et que c'est une relance discrétionnaire.",
-            "**Transactionnels, sans lien :** une soumission ou une facture envoyée ; les suivis « soumission envoyée, sans réponse » et de facture en retard, qui portent sur un document avec lequel le client est déjà en transaction ; les confirmations de réservation et de soumission instantanée ; et le courrier de compte comme la réinitialisation de mot de passe.",
+            "**Transactionnels, sans lien :** une soumission ou une facture envoyée ; les suivis « nouvelle demande, personne n'a répondu », « soumission envoyée, sans réponse » et de facture en retard, qui répondent à une demande du client ou portent sur un document avec lequel il est déjà en transaction ; les confirmations de réservation et de soumission instantanée ; et le courrier de compte comme la réinitialisation de mot de passe.",
             "**Consigné au passage :** une demande d'avis est envoyée à quelqu'un qui n'a jamais été sur une liste d'envoi, alors l'envoi crée d'abord sa ligne d'abonné avec un jeton — c'est ce qui fait fonctionner le lien dans ce courriel.",
           ] },
         ],
@@ -582,7 +582,7 @@ export const ARTICLES = {
         blocks: [
           { p: "Le texto de rappel de rendez-vous par défaut se termine par « Répondez STOP pour ne plus recevoir », dans la langue du client — si vous réécrivez le libellé sous **Paramètres → Messages aux clients**, gardez cette ligne, parce que rien ne la rajoute. Le mot-clé lui-même est toujours STOP — les opérateurs le traitent comme universel. Une réponse n'est un retrait que si tout le message est le mot-clé : **STOP**, **STOPALL**, **UNSUBSCRIBE**, **CANCEL**, **END** ou **QUIT** (un point final est accepté). « Please stop by at 3 » n'est pas un retrait." },
           { bullets: [
-            "**STOP** consigne un retrait SMS pour ce numéro et votre entreprise dès qu'il arrive. À partir de là, le rappel automatique et le texto « en route » sautent tous deux ce numéro.",
+            "**STOP** consigne un retrait SMS dès qu'il arrive. Les textos aux clients partent de la ligne partagée de FieldQuo, donc la réponse ne peut pas nommer une entreprise : elle retire le numéro de toutes les entreprises qui l'ont sur une fiche client. À partir de là, le rappel automatique et le texto « en route » sautent tous deux ce numéro.",
             "**START** ou **UNSTOP** l'annule, sur le même canal. Que le client reçoive ou non un texto de confirmation dépend de la configuration du numéro chez l'opérateur, pas d'un réglage dans FieldQuo. **YES** n'est volontairement pas une réinscription — ça veut habituellement dire « oui au rendez-vous ».",
             "Un numéro qui a refusé les **appels** se voit aussi refuser les textos, mais un START ne rétablit pas le consentement aux appels — ce retrait-là est à sens unique.",
           ] },

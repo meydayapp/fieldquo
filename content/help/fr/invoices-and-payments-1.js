@@ -406,7 +406,7 @@ export const ARTICLES = {
       "Le chemin du bouton Payer dans le courriel jusqu'à l'argent dans votre banque : le portail, Stripe Checkout, avec quoi le client peut payer, et ce que FieldQuo enregistre quand le paiement arrive.",
     updated: "2026-09-12",
     intro: [
-      "Une fois Stripe connecté et activé, chaque courriel de facture porte **Payer en ligne**. Le client arrive sur son portail, voit le solde dans votre couleur de marque, appuie sur **Payer 2 260,00 $**, et paie sur la page de paiement hébergée par Stripe. FieldQuo ne voit jamais la carte, ne détient jamais l'argent, et enregistre le paiement dès que Stripe le confirme.",
+      "Une fois Stripe connecté et activé, chaque courriel de facture porte **Payer en ligne**. Le client arrive sur son portail, voit le solde dans votre couleur de marque, appuie sur **Payer 2 260,00 $** — **Payer 2 260,00 $ par carte** ou **Payer 2 260,00 $ depuis un compte bancaire** quand votre compte Stripe peut accepter les paiements bancaires — et paie sur la page de paiement hébergée par Stripe. FieldQuo ne voit jamais la carte, ne détient jamais l'argent, et enregistre le paiement dès que Stripe le confirme.",
     ],
     sections: [
       {
@@ -423,11 +423,11 @@ export const ARTICLES = {
         blocks: [
           { steps: [
             "Il ouvre le courriel de la facture et appuie sur **Payer en ligne** (ou, dans le portail, ouvre la facture depuis la liste).",
-            "Il vérifie le chiffre — le solde, ou l'étape demandée — et appuie sur **Payer …**.",
-            "Il paie sur Stripe Checkout : carte, plus **Affirm** en paiement échelonné quand vous l'avez activé et que le montant est entre 50 $ et 30 000 $ en CAD ou en USD.",
-            "Il revient au portail, qui montre maintenant le paiement reçu et le nouveau solde.",
+            "Il vérifie le chiffre — le solde, ou l'étape demandée (un acompte, un versement) — et appuie sur **Payer … par carte**, ou sur **Payer … depuis un compte bancaire** quand ce second bouton est là.",
+            "Il paie sur Stripe Checkout : carte, plus **Affirm** en paiement échelonné quand vous l'avez activé et que le montant est entre 50 $ et 30 000 $ en CAD ou en USD. Un paiement bancaire est un débit préautorisé ponctuel (Canada) ou un débit ACH (É.-U.) sur la page de Stripe, qui vérifie le compte automatiquement quand la banque le permet.",
+            "Il revient au portail. Un paiement par carte apparaît reçu tout de suite, avec le nouveau solde; un paiement bancaire lit **Paiement bancaire en attente** pendant 3 à 5 jours ouvrables, puis payé — ou **Le paiement bancaire a échoué**, avec la raison donnée par Stripe, le solde toujours dû et le bouton carte toujours offert.",
           ] },
-          { note: "Le débit préautorisé bancaire canadien est offert sur les **plans de service**, où le client signe un mandat une fois et chaque occurrence est prélevée automatiquement. Une facture ponctuelle se paie par carte (ou Affirm). Voir [[service-plan-bank-debit-mandates|Plans de service payés par débit bancaire]]." },
+          { note: "**Payer depuis un compte bancaire** n'apparaît qu'une fois que Stripe a activé le débit bancaire sur votre compte — FieldQuo le demande pour vous à la connexion, et **Paramètres → Paiements** dit où vous en êtes (**Les clients peuvent payer les factures par carte ou depuis un compte bancaire**). Les frais de réservation restent par carte seulement. Les plans de service gardent leur mandat permanent, signé une fois — voir [[service-plan-bank-debit-mandates|Plans de service payés par débit bancaire]]. Les modes hors ligne imprimés sur la ligne « Modes de paiement acceptés » de la facture — comptant, virement électronique, chèque — se cochent sous **Paramètres → Paiements → Modes de paiement que vous acceptez**." },
         ],
       },
       {
@@ -435,7 +435,7 @@ export const ARTICLES = {
         heading: "Ce que FieldQuo enregistre quand le paiement arrive",
         blocks: [
           { bullets: [
-            "**Une ligne de paiement** avec la date, **Card** comme mode (l'historique nomme les modes en anglais), le montant, et en dessous **frais carte 68,10 $ · déposé 2 191,90 $**.",
+            "**Une ligne de paiement** avec la date, le mode (**Card**, ou le débit bancaire — l'historique nomme les modes en anglais), le montant, et en dessous **frais carte 68,10 $ · déposé 2 191,90 $** — pour un paiement bancaire de 5 000 $, **frais débit bancaire 5,00 $ · déposé 4 995,00 $**.",
             "**Le solde et le statut** — recalculés sur chaque paiement; **Payée** quand il ne reste rien, avec une date de paiement et « via Stripe » sur le bandeau.",
             "**Une notification** — **Facture payée** envoie un courriel à toute personne ayant un rôle de propriétaire ou d'administrateur, activée par défaut sous **Paramètres → Notifications**.",
             "**La tâche de relance** se ferme, et l'argent dû et l'échelle des comptes clients du tableau de bord laissent tomber la facture.",
@@ -454,8 +454,8 @@ export const ARTICLES = {
     ],
     faq: [
       { q: "Le client peut-il payer une partie de la facture?", a: "Seulement quand un calendrier de paiement demande une étape — le bouton Payer demande alors cette part. Sinon, le bouton demande le solde complet. Un paiement partiel reçu autrement s'enregistre à la main." },
-      { q: "FieldQuo prend-il une commission?", a: "Les frais de traitement sont de 3 % + 30 ¢ sur un paiement par carte, retenus avant que l'argent atteigne votre banque et affichés sur la ligne de paiement. Rien d'autre, et aucuns frais mensuels." },
-      { q: "Le client a payé mais la facture dit encore Envoyée.", a: "Stripe confirme le débit à FieldQuo quelques secondes après le paiement. Si elle reste impayée, vérifiez le tableau de bord Stripe via **Gérer dans Stripe** — un paiement qui est là mais pas ici est à signaler au soutien, avec le numéro de facture." },
+      { q: "FieldQuo prend-il une commission?", a: "Les frais de traitement sont de 3 % + 30 ¢ sur un paiement par carte et de 1 % + 40 ¢ plafonnés à 5 $ sur un débit bancaire canadien, retenus avant que l'argent atteigne votre banque et affichés sur la ligne de paiement. Rien d'autre, et aucuns frais mensuels." },
+      { q: "Le client a payé mais la facture dit encore Envoyée.", a: "Stripe confirme un paiement par carte à FieldQuo quelques secondes après le paiement. Un paiement bancaire est différent : la facture montre un paiement bancaire en attente pendant 3 à 5 jours ouvrables, et c'est normal. Si un paiement par carte reste impayé, vérifiez le tableau de bord Stripe via **Gérer dans Stripe** — un paiement qui est là mais pas ici est à signaler au soutien, avec le numéro de facture." },
       { q: "Peuvent-ils payer depuis la soumission à la place?", a: "Les acomptes sur une soumission ont leur propre parcours — voir [[deposits-on-quotes|Acomptes sur les soumissions]]. La facture est ce contre quoi le solde est payé." },
     ],
   },

@@ -407,7 +407,7 @@ export const ARTICLES = {
       "The path from the Pay button in the email to money in your bank: the portal, Stripe Checkout, what the client can pay with, and what FieldQuo records when the payment lands.",
     updated: "2026-09-12",
     intro: [
-      "Once Stripe is connected and enabled, every invoice email carries **Pay online**. The client lands on their portal, sees the balance in your brand colour, presses **Pay $2,260.00**, and pays on Stripe's hosted checkout page. FieldQuo never sees the card, never holds the money, and records the payment the moment Stripe confirms it.",
+      "Once Stripe is connected and enabled, every invoice email carries **Pay online**. The client lands on their portal, sees the balance in your brand colour, presses **Pay $2,260.00** — **Pay $2,260.00 by card** or **Pay $2,260.00 from bank account** when your Stripe account can take bank payments — and pays on Stripe's hosted checkout page. FieldQuo never sees the card, never holds the money, and records the payment the moment Stripe confirms it.",
     ],
     sections: [
       {
@@ -424,11 +424,11 @@ export const ARTICLES = {
         blocks: [
           { steps: [
             "Opens the invoice email and presses **Pay online** (or, in the portal, opens the invoice from the list).",
-            "Checks the figure — the balance, or the stage being requested — and presses **Pay …**.",
-            "Pays on Stripe Checkout: card, plus **Affirm** pay-over-time when you have switched it on and the amount is between $50 and $30,000 in CAD or USD.",
-            "Returns to the portal, which now shows the payment received and the new balance.",
+            "Checks the figure — the balance, or the stage being requested (a deposit, an instalment) — and presses **Pay … by card**, or **Pay … from bank account** when that second button is there.",
+            "Pays on Stripe Checkout: card, plus **Affirm** pay-over-time when you have switched it on and the amount is between $50 and $30,000 in CAD or USD. A bank payment is a one-off pre-authorized debit (Canada) or ACH debit (US) on Stripe's page, which verifies the account automatically where the bank supports it.",
+            "Returns to the portal. A card payment shows as received at once, with the new balance; a bank payment reads **Bank payment pending** for 3–5 business days and then paid — or **Bank payment failed**, with Stripe's reason, the balance still owing and the card button still offered.",
           ] },
-          { note: "Canadian pre-authorized bank debit is offered on **service plans**, where the client signs a mandate once and each occurrence is collected automatically. A one-off invoice is paid by card (or Affirm). See [[service-plan-bank-debit-mandates|Service plans paid by bank debit]]." },
+          { note: "**Pay from bank account** appears only once Stripe has activated bank debit on your account — FieldQuo requests it when you connect, and **Settings → Payments** says which is the case (**Clients can pay invoices by card or from a bank account**). Booking fees stay card-only. Service plans keep their standing mandate, signed once — see [[service-plan-bank-debit-mandates|Service plans paid by bank debit]]. The offline methods printed as **Accepted:** on the invoice — cash, e-transfer, cheque — are ticked under **Settings → Payments → Payment methods you accept**." },
         ],
       },
       {
@@ -436,7 +436,7 @@ export const ARTICLES = {
         heading: "What FieldQuo records when the payment lands",
         blocks: [
           { bullets: [
-            "**A payment row** with the date, **Card** as the method, the amount, and underneath it **card processing $68.10 · deposited $2,191.90**.",
+            "**A payment row** with the date, the method (**Card**, or the bank debit), the amount, and underneath it **card processing $68.10 · deposited $2,191.90** — for a $5,000 bank payment, **bank debit processing $5.00 · deposited $4,995.00**.",
             "**The balance and status** — recomputed across every payment; **Paid** when nothing is left, with a paid date and **via Stripe** on the banner.",
             "**A notification** — **Invoice paid** emails everyone with an owner or admin role, on by default under **Settings → Notifications**.",
             "**The follow-up task** closes, and the dashboard's **Money owed** and receivables ladder drop the invoice.",
@@ -455,8 +455,8 @@ export const ARTICLES = {
     ],
     faq: [
       { q: "Can the client pay part of the invoice?", a: "Only when a payment schedule is asking for a stage — the Pay button then requests that share. Otherwise the button asks for the full balance. A partial payment you receive another way is recorded by hand." },
-      { q: "Does FieldQuo take a cut?", a: "The processing fee is 3% + 30¢ on a card payment, deducted before the money reaches your bank and shown on the payment row. Nothing else, and no monthly fee." },
-      { q: "The client paid but the invoice still says Sent.", a: "Stripe confirms the charge to FieldQuo a few seconds after checkout. If it stays unpaid, check the Stripe dashboard via **Manage in Stripe** — a payment that is there but not here is something to tell support, with the invoice number." },
+      { q: "Does FieldQuo take a cut?", a: "The processing fee is 3% + 30¢ on a card payment and 1% + 40¢ capped at $5 on a Canadian bank debit, deducted before the money reaches your bank and shown on the payment row. Nothing else, and no monthly fee." },
+      { q: "The client paid but the invoice still says Sent.", a: "Stripe confirms a card charge to FieldQuo a few seconds after checkout. A bank payment is different: the invoice shows a bank payment pending for 3–5 business days, and that is normal. If a card payment stays unpaid, check the Stripe dashboard via **Manage in Stripe** — a payment that is there but not here is something to tell support, with the invoice number." },
       { q: "Can they pay from the quote instead?", a: "Deposits on a quote are their own flow — see [[deposits-on-quotes|Deposits on quotes]]. The invoice is what the balance is paid against." },
     ],
   },

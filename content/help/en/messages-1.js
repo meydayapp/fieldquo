@@ -623,7 +623,7 @@ export const ARTICLES = {
       "The On my way text and the appointment reminder — when each is sent, the fields you can use, how the wording follows the client's language, and what FieldQuo does not text.",
     updated: "2026-09-12",
     intro: [
-      "FieldQuo texts a client on exactly two occasions: when a crew member presses **On my way** on a visit, and, if you switch it on, a reminder **2**, **24** or **48 hours before** an appointment. **Settings → Client messages** is where you change the wording of both, with a live **Your client sees:** preview so nobody ever texts a customer a raw **{price}**.",
+      "FieldQuo texts a client on exactly two occasions: when a crew member presses **On my way** on a visit, and, if you switch it on, a reminder **2**, **24** or **48 hours before** an appointment or a job visit. **Settings → Client messages** is where you change the wording of both, with a live **Your client sees:** preview so nobody ever texts a customer a raw **{price}**.",
       "There is no third text. The page says so — **Two kinds of text and no more** — and it cannot grow an editor for a message that never goes out, because the list comes from the messages that actually send.",
     ],
     sections: [
@@ -631,7 +631,7 @@ export const ARTICLES = {
         id: "overview",
         heading: "Overview",
         blocks: [
-          { p: "Both texts leave from FieldQuo's shared texting number and begin with your company name — **Northside Painting: Dave is on the way, ETA 20 min.** — so the client knows who it is from. Every reminder ends with **Reply STOP to opt out**, and a client who replies STOP is never texted again by either message; the same opt-out check runs before the On my way text. Reminders go by text message only: there is no email reminder." },
+          { p: "Both texts leave from FieldQuo's shared texting number and begin with your company name — **Northside Painting: Dave is on the way, ETA 20 min.** — so the client knows who it is from. Every reminder ends with **Reply STOP to opt out**, and a client who replies STOP is never texted again by either message — the reply comes back to the shared line, so it opts that phone out of every company holding it on a client record; the same opt-out check runs before the On my way text. Reminders go by text message only: there is no email reminder." },
         ],
       },
       {
@@ -641,11 +641,11 @@ export const ARTICLES = {
           { table: {
             head: ["Text", "When it is sent", "Fields"],
             rows: [
-              ["**On my way**", "The moment a visit's status is moved to **On my way** on the job page — by the assigned crew member, anyone on an unassigned visit, or someone who can edit everyone's schedule. The button names the number it will text, or says plainly that the client has no phone on file and nothing will be sent.", "**{company}**, **{worker}**, **{name}**, **{eta}**"],
-              ["**Appointment reminder**", "Once per appointment, within the hour of the lead time chosen under **Settings → Notifications → Appointment reminders** (**Off**, **2 hours before**, **24 hours before**, **48 hours before**). Off by default; a company that never chose a lead time sends none.", "**{company}**, **{when}**, **{location}**"],
+              ["**On my way**", "The moment a visit's status is moved to **On my way** on the job page — by the assigned crew member, anyone on an unassigned visit, or someone who can edit everyone's schedule. The button names the number it will text, or says plainly that the client has no phone on file and nothing will be sent.", "**{company}**, **{worker}**, **{name}**, **{eta}**, **{phone}**"],
+              ["**Appointment reminder**", "Once per appointment or job visit, within the hour of the lead time chosen under **Settings → Notifications → Appointment reminders** (**Off**, **2 hours before**, **24 hours before**, **48 hours before**). Off by default; a company that never chose a lead time sends none.", "**{company}**, **{when}**, **{location}**"],
             ],
           } },
-          { p: "The default wording, as the client receives it: **Northside Painting: Dave is on the way, ETA 20 min. Reply if you need to reschedule.** and **Northside Painting: Reminder — your appointment is Tue, Aug 12 at 2:00 PM at 123 Oak St. Reply STOP to opt out.** A field with no value simply disappears — no ETA, no “ETA ,”." },
+          { p: "The default wording, as the client receives it: **Northside Painting: Dave is on the way, ETA 20 min. To reschedule, call 555-0100.** and **Northside Painting: Reminder — your appointment is Tue, Aug 12 at 2:00 PM at 123 Oak St. Reply STOP to opt out.** The ETA is worked out from the crew member's position at the tap; the phone is yours from Company Settings. A field with no value simply disappears — no ETA, no “ETA ,”, and no “call” sentence when there is no phone." },
         ],
       },
       {
@@ -654,7 +654,7 @@ export const ARTICLES = {
         blocks: [
           { steps: [
             "Open **Settings → Client messages** (under **Messaging & alerts**).",
-            "Type in the **On my way** or **Appointment reminder** box. Tap a chip — **{company}**, **{worker}**, **{name}**, **{eta}** — to insert a field at the end.",
+            "Type in the **On my way** or **Appointment reminder** box. Tap a chip — **{company}**, **{worker}**, **{name}**, **{eta}**, **{phone}** — to insert a field at the end.",
             "Watch **Your client sees:** fill in with sample values. An unknown field is flagged — **Unknown field: {price}. Only the fields above work.** — and **Save** stays disabled until it is gone. The server checks the same thing.",
             "Press **Save**. The card gains a **Customised** tag and a **Use default** button, which puts the built-in wording back.",
           ] },

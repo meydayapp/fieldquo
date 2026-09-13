@@ -137,7 +137,7 @@ for (const lang of HELP_CHROME_LANGS) {
         title: plain(a.title),
         summary: plain(a.summary),
         headings: (a.sections || []).map((s) => plain(s.heading)),
-        body: firstParas.join(" ").slice(0, 1200),
+        body: firstParas.join(" ").slice(0, 700),
       });
     }
   }

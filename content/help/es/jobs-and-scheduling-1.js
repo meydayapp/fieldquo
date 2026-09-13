@@ -136,7 +136,7 @@ export const ARTICLES = {
             rows: [
               ["Cliente", "Obligatorio. El trabajo lleva el nombre, el teléfono, el correo y la dirección del cliente a su página y a cada visita."],
               ["Título del trabajo", "Obligatorio. Es lo que muestran la lista, el calendario y la sala de chat del trabajo."],
-              ["Dirección del sitio", "Opcional. Una vez fijada, FieldQuo la ubica en un mapa para que las marcas de entrada y los botones On my way / Mark complete puedan decir a qué distancia del sitio estaba la persona. Si la dirección no se puede ubicar, la página del trabajo lo dice y le pide revisarla."],
+              ["Dirección del sitio", "Opcional. Una vez fijada, FieldQuo la ubica en un mapa para que las marcas de entrada y los botones Voy en camino / Marcar como completada puedan decir a qué distancia del sitio estaba la persona. Si la dirección no se puede ubicar, la página del trabajo lo dice y le pide revisarla."],
               ["Este es un trabajo recurrente + Recurrencia", "Marca el trabajo como **Recurrente** y, en cuanto existe una primera visita, mantiene exactamente una visita próxima en el calendario a ese ritmo — vea [[recurring-jobs|Trabajos recurrentes]]."],
               ["¿Por qué vuelves?", "Solo en un trabajo de regreso. Obligatorio, de una lista fija de motivos; el regreso cuenta en la tasa de retrabajo/regresos del tablero de indicadores y queda enlazado desde el trabajo original."],
             ],
@@ -231,9 +231,9 @@ export const ARTICLES = {
         blocks: [
           { p: "La tarjeta **Visitas** dice “2 of 3 complete” y ofrece **Agregar visita** y **Registrar un trabajo de regreso**. Cada visita muestra su fecha y hora, una etiqueta (**Programado**, **En camino**, **Completado**, **Cancelado**), “Assigned to Dave” o “Unassigned”, el avance de la lista de verificación, el número de fotos y dónde estaba el teléfono al pulsar — **Llegó a 12 m del sitio**." },
           { bullets: [
-            "**On my way** — pasa la visita a En camino y le envía un mensaje al cliente; la línea bajo los botones dice a qué número va. Vea [[the-on-my-way-text|El mensaje “En camino”]].",
-            "**Mark complete** — marca la visita como hecha. En un trabajo recurrente pone la siguiente visita en el calendario de inmediato.",
-            "**Cancel visit** — cancela solo esta visita; el estado del trabajo no cambia.",
+            "**Voy en camino** — pasa la visita a En camino y le envía un mensaje al cliente; la línea bajo los botones dice a qué número va. Vea [[the-on-my-way-text|El mensaje “En camino”]].",
+            "**Marcar como completada** — marca la visita como hecha. En un trabajo recurrente pone la siguiente visita en el calendario de inmediato.",
+            "**Cancelar visita** — cancela solo esta visita; el estado del trabajo no cambia.",
             "**Reopen** en una visita completada, y **Put it back on** en una cancelada, la devuelven a Programado — un toque en falso en el teléfono no debe ser permanente.",
             "La lista de verificación bajo cada visita es la copia marcable de la cuadrilla — vea [[checklists-on-site|Listas de verificación en la obra]].",
           ] },
@@ -250,7 +250,7 @@ export const ARTICLES = {
       },
     ],
     faq: [
-      { q: "¿Por qué mi cuadrilla no puede cambiar el estado?", a: "El perfil Cuadrilla ve los trabajos; no los edita. El desplegable de estado, Editar y Archivar están ocultos en ese nivel porque el servidor los rechazaría. La cuadrilla mueve sus visitas — On my way, Mark complete — que es para lo que sirve la página en la obra." },
+      { q: "¿Por qué mi cuadrilla no puede cambiar el estado?", a: "El perfil Cuadrilla ve los trabajos; no los edita. El desplegable de estado, Editar y Archivar están ocultos en ese nivel porque el servidor los rechazaría. La cuadrilla mueve sus visitas — Voy en camino, Marcar como completada — que es para lo que sirve la página en la obra." },
       { q: "Falta la tarjeta de costeo.", a: "Solo la ven las personas con el interruptor Job costing activado, y se oculta hasta que se registra algo contra el trabajo. El propietario, los administradores y el perfil Gerente tienen el interruptor." },
       { q: "¿Qué pasa cuando marco el trabajo como Completado?", a: "Se crean dos tareas — pedirle una reseña al cliente y revisar lo que el trabajo costó en realidad — la revisión de costos se abre sola una vez, y la solicitud de reseña automática sale según su horario si usted la activó." },
     ],
@@ -270,7 +270,7 @@ export const ARTICLES = {
         id: "overview",
         heading: "Resumen",
         blocks: [
-          { p: "FieldQuo guarda una fila por cosa real y lee las tres a la vez, así que una visita programada en un trabajo aparece en el calendario sin una segunda copia que pudiera desviarse. El costo es que los controles cambian según el tipo: una cita se reasigna en el calendario, una visita se trabaja desde su trabajo, y una reserva la mueve el cliente con su propio enlace." },
+          { p: "FieldQuo guarda una fila por cosa real y lee las tres a la vez, así que una visita programada en un trabajo aparece en el calendario sin una segunda copia que pudiera desviarse. Los controles cambian un poco según el tipo: una cita y una visita de obra se reasignan, se mueven, se cancelan y se completan desde el calendario (una visita también desde la página de su trabajo); una reserva que aún no se convirtió en cita la mueve el cliente con su propio enlace." },
         ],
       },
       {
@@ -280,8 +280,8 @@ export const ARTICLES = {
           { table: {
             head: ["Tipo", "De dónde sale", "A qué pertenece"],
             rows: [
-              ["Visita de obra", "**Agregar visita** o **Programar una visita** en la página de un trabajo; la siguiente visita de un trabajo recurrente.", "A un trabajo. Lleva la lista de verificación de la cuadrilla, las fotos, las notas y los botones On my way / Mark complete."],
-              ["Cita", "**Nueva cita** en el calendario; una reserva confirmada desde su página de reservas; una llamada o una visita reservada por el recepcionista IA.", "A un cliente, sin trabajo detrás. Es para lo que se envía el mensaje de recordatorio de cita."],
+              ["Visita de obra", "**Agregar visita** o **Programar una visita** en la página de un trabajo; la siguiente visita de un trabajo recurrente.", "A un trabajo. Lleva la lista de verificación de la cuadrilla, las fotos, las notas y los botones Voy en camino / Marcar como completada."],
+              ["Cita", "**Nueva cita** en el calendario; una reserva confirmada desde su página de reservas; una llamada o una visita reservada por el recepcionista IA.", "A un cliente, sin trabajo detrás. Recibe el mensaje de recordatorio, igual que una visita."],
               ["Reserva del cliente", "Una reserva confirmada desde la página de reservas que todavía no se convirtió en cita.", "Al tipo de evento que eligió el cliente. El cliente puede moverla o cancelarla con el enlace de su correo de confirmación."],
             ],
           } },
@@ -317,13 +317,13 @@ export const ARTICLES = {
         id: "what-each-can-and-cannot-do",
         heading: "Qué puede y qué no puede hacer cada tipo",
         blocks: [
-          { p: "Una cita en el calendario se puede reasignar (o reclamar con **Asignármelo**), y eso es todo lo que el calendario ofrece: ahí no hay botón para completar, cancelar ni mover una cita. Una visita de obra se mueve a través de su trabajo — cancélela y agregue una nueva — y sus botones de estado viven en la página del trabajo. Una reserva del cliente la mueve o la cancela el cliente con su propio enlace; vea [[clients-rescheduling-and-cancelling|Cuando un cliente reprograma o cancela]]." },
-          { note: "Los recordatorios de cita salen solo para las citas. Una visita de obra no dispara el mensaje de recordatorio; el botón **On my way** de la cuadrilla es el aviso al cliente para una visita." },
+          { p: "Una cita en el calendario y una visita de obra — en el calendario o en la página de su trabajo — comparten un mismo juego de botones: **Reprogramar**, **Marcar como completada**, **Cancelar visita**, y después **Reabrir** o **Volver a programar**. Reprogramar se rige por la misma aritmética de margen de viaje que el enlace del cliente y explica un hueco demasiado corto antes de ofrecer **Mover de todos modos**; Cancelar visita pide un motivo que se queda en la fila, y es un estado, nunca una eliminación. Ambos diálogos ofrecen avisar al cliente por correo, en el idioma del cliente, de que la oficina la movió o la canceló. Una reserva que llegó por la página de reservas se mueve y se cancela con su cita; la que aún no se convirtió en cita la mueve el cliente con su propio enlace — vea [[clients-rescheduling-and-cancelling|Cuando un cliente reprograma o cancela]]." },
+          { note: "Los recordatorios de cita salen para las citas y las visitas de obra por igual, una vez cada una, con la antelación fijada en Configuración → Notificaciones. El botón **Voy en camino** de la cuadrilla es el segundo aviso de la visita, en el momento de salir." },
         ],
       },
     ],
     faq: [
-      { q: "¿Por qué mi visita de obra no recibe mensaje de recordatorio?", a: "El recordatorio corre sobre las citas, no sobre las visitas de obra. Para una visita, el toque On my way de la cuadrilla le envía al cliente un mensaje en el momento que importa." },
+      { q: "¿Una visita de obra recibe mensaje de recordatorio?", a: "Sí — el recordatorio lee las visitas de obra igual que las citas: misma redacción, misma antelación, misma comprobación de STOP, nunca dos veces. Una visita ya completada o cancelada no recibe ninguno. El toque Voy en camino de la cuadrilla es un segundo mensaje, en el momento que importa." },
       { q: "¿Puedo convertir una cita en trabajo?", a: "No con un botón. Cree el trabajo (o deje que el presupuesto aprobado lo cree) y programe una visita en él; la cita se queda en el calendario en su propia fila." },
       { q: "Una fila Reserva del cliente no tiene enlace Abrir trabajo.", a: "Correcto — una reserva pertenece a un tipo de evento y a un cliente, no a un trabajo. Se convierte en cita por sí sola; nunca se convierte en visita de obra." },
     ],
@@ -343,7 +343,7 @@ export const ARTICLES = {
         id: "overview",
         heading: "Resumen",
         blocks: [
-          { p: "Nada se reserva desde la cuadrícula en sí. Usted la lee, elige un día para recortar la lista y luego actúa sobre las filas: llamar, navegar, asignar, abrir el trabajo. La reserva se hace con **Nueva cita** o desde la página de un trabajo — vea [[book-a-visit-for-a-client|Reservar una visita para un cliente]]." },
+          { p: "Nada se reserva desde la cuadrícula en sí. Usted la lee, elige un día para recortar la lista y luego actúa sobre las filas: llamar, navegar, asignar, mover, cancelar o completar, abrir el trabajo. La reserva se hace con **Nueva cita** o desde la página de un trabajo — vea [[book-a-visit-for-a-client|Reservar una visita para un cliente]]." },
         ],
       },
       {
@@ -367,7 +367,7 @@ export const ARTICLES = {
         blocks: [
           { p: "Cada tarjeta empieza con el nombre del cliente y una etiqueta de estado — **Programado**, **Se requiere supervisor**, **Completado**, **Cancelado**, y para los otros tipos **Confirmado**, **Pendiente de pago**, **En camino**. Luego la etiqueta de tipo, la hora (y la hora de fin cuando una reserva la tiene), y un número de teléfono y una dirección que funcionan como enlaces. Pulse la tarjeta para abrir los detalles." },
           { bullets: [
-            "**Visita de obra** — el título del trabajo, el nombre de la persona asignada y **Abrir trabajo**. La visita en sí se edita en el trabajo.",
+            "**Visita de obra** — el título del trabajo, el nombre de la persona asignada y **Abrir trabajo**. Sus notas y su lista de verificación se editan en el trabajo; moverla, cancelarla y completarla también funcionan desde aquí.",
             "**Reserva del cliente** — el tipo de evento y la persona asignada. La mueve el cliente con su propio enlace.",
             "**Se requiere supervisor** — esta cita debe asignarse a un propietario, un administrador o un supervisor.",
             "**Reservado por el recepcionista IA** — nadie de la empresa habló con este cliente; las palabras del que llamó están en las notas.",
@@ -397,6 +397,20 @@ export const ARTICLES = {
         ],
       },
       {
+        id: "move-cancel-or-complete",
+        heading: "Cómo mover, cancelar o completar una entrada",
+        blocks: [
+          { p: "Bajo una cita o una visita de obra sobre la que usted puede actuar, la fila lleva **Reprogramar**, **Marcar como completada** y **Cancelar visita** — y en una terminada o cancelada, **Reabrir** o **Volver a programar**. Una **Reserva del cliente** que aún no se convirtió en cita no tiene nada de esto; el cliente la mueve con su enlace." },
+          { steps: [
+            "Pulse **Reprogramar**. Bajo **Nueva fecha y hora**, elija cuándo. La casilla **Avisar del cambio a … por correo** está marcada cuando el cliente tiene correo registrado — el diálogo lo dice claramente cuando no lo hay — y la carta sale en el idioma del cliente, diciendo que la oficina la movió.",
+            "Pulse **Mover**. Una hora ya pasada, o una que deja demasiado poco para el trayecto desde la parada anterior o hacia la siguiente — la misma comprobación de margen de viaje que aplica la página de reservas — se rechaza con el motivo, y **Mover de todos modos** la reenvía cuando usted sabe más que la estimación.",
+            "Pulse **Cancelar visita** para suspenderla. El **Motivo (se guarda en la visita, no se envía al cliente)** es opcional; si lo escribe, aparece después bajo la fila y se borra si la vuelve a programar. Aplica la misma casilla de correo, y la carta del cliente dice que la oficina canceló.",
+            "Pulse **Marcar como completada** cuando esté hecha, **Reabrir** para deshacerlo, o **Volver a programar** para reponer una cancelada. Cancelar es un estado, nunca una eliminación — la fila se queda.",
+          ] },
+          { note: "Los botones aparecen en los mismos términos que exigen las rutas: una cita a su asignado o a Horario en “Edit everyone's schedule”; una visita a su asignado, a cualquiera cuando está sin asignar, o a ese mismo nivel. Una reserva detrás de una cita se mueve y se cancela con ella, así que el hueco en su página de reservas la sigue." },
+        ],
+      },
+      {
         id: "who-sees-what",
         heading: "Quién ve qué",
         blocks: [
@@ -414,7 +428,7 @@ export const ARTICLES = {
     ],
     faq: [
       { q: "¿Por qué la cuadrícula empieza en domingo?", a: "El primer día de la semana es un ajuste de empresa en Configuración de la empresa. Cámbielo ahí y la cuadrícula lo sigue." },
-      { q: "¿Puedo mover una cita arrastrándola?", a: "No. El calendario reasigna citas; no las mueve. Una visita de obra se cancela y se vuelve a agregar en el trabajo; una reserva del cliente la mueve el cliente con su enlace." },
+      { q: "¿Puedo mover una cita arrastrándola?", a: "No arrastrándola. Pulse **Reprogramar** en la fila — una cita o una visita de obra — y elija la nueva hora; la comprobación del trayecto dice si queda demasiado justo. Una reserva del cliente que aún no se convirtió en cita la mueve el cliente con su enlace." },
       { q: "¿Dónde está Tu equipo?", a: "Se muestra bajo la lista para las personas que ven el horario de todo el equipo — Despachador, Gerente, administrador y propietario — y lista lo que cada persona tiene agendado para las próximas dos semanas. Vea [[the-team-schedule|El horario del equipo]]." },
     ],
   },
@@ -490,7 +504,7 @@ export const ARTICLES = {
     ],
     faq: [
       { q: "¿Puedo reservar dos visitas en un mismo trabajo?", a: "Sí — tantas como el trabajo necesite. La tarjeta Visitas las cuenta (“1 of 3 complete”) y cada una tiene su fecha, su persona y su lista de verificación." },
-      { q: "¿Reservar una visita le avisa al cliente?", a: "No. No se envía nada al reservar una visita. El cliente sabe de usted cuando la cuadrilla pulsa On my way, y una cita puede recibir un mensaje de recordatorio si los recordatorios están activados." },
+      { q: "¿Reservar una visita le avisa al cliente?", a: "No. No se envía nada al reservar una visita. El cliente sabe de usted cuando la cuadrilla pulsa Voy en camino, y cualquiera de las dos puede recibir un mensaje de recordatorio si los recordatorios están activados. Moverla o cancelarla después sí ofrece avisar al cliente por correo." },
       { q: "¿Por qué la visita no tiene duración?", a: "Una visita tiene inicio y no tiene fin. Solo una reserva hecha por la página de reservas lleva hora de fin, y por eso el veredicto de trayecto entre paradas, en el calendario, solo se da después de una reserva." },
     ],
   },
@@ -587,10 +601,10 @@ export const ARTICLES = {
   "appointment-reminders": {
     title: "Recordatorios de cita",
     summary:
-      "Un mensaje de texto al cliente 2, 24 o 48 horas antes de una cita: cómo activarlo, qué dice, qué citas lo reciben y cuánto cuesta.",
+      "Un mensaje de texto al cliente 2, 24 o 48 horas antes de una cita o una visita de obra: cómo activarlo, qué dice, qué entradas lo reciben y cuánto cuesta.",
     updated: "2026-09-12",
     intro: [
-      "Menos puertas cerradas: con los recordatorios activados, cada cliente con número de celular recibe un mensaje antes de su cita, en su propio idioma, que empieza con el nombre de su empresa. Está desactivado hasta que un propietario o un administrador lo activa, porque cada recordatorio es un mensaje de texto que se cobra a su cuenta.",
+      "Menos puertas cerradas: con los recordatorios activados, cada cliente con número de celular recibe un mensaje antes de su cita o visita de obra, en su propio idioma, que empieza con el nombre de su empresa. Está desactivado hasta que un propietario o un administrador lo activa; los mensajes en sí están incluidos en su plan, no se cobra nada por mensaje.",
       "Los recordatorios van solo por mensaje de texto. No hay recordatorio por correo.",
     ],
     sections: [
@@ -608,7 +622,7 @@ export const ARTICLES = {
         blocks: [
           { steps: [
             "Abra **Configuración → Notificaciones**.",
-            "Busque la tarjeta **Recordatorios de cita** — “Envía al cliente un recordatorio por mensaje antes de su cita. Se envía con el nombre de tu empresa; el cliente puede responder STOP para darse de baja.”",
+            "Busque la tarjeta **Recordatorios de cita** — “Envía al cliente un SMS de recordatorio antes de su cita o visita de trabajo. Se envía con el nombre de tu negocio; el cliente puede responder STOP para darse de baja.”",
             "Pulse **2 horas antes**, **24 horas antes** o **48 horas antes**. Se guarda al pulsarlo.",
             "Para detenerlos, pulse **Desactivado**. Los recordatorios ya enviados no cambian; desde entonces no sale ninguno más.",
           ] },
@@ -619,13 +633,13 @@ export const ARTICLES = {
         id: "when-it-goes",
         heading: "Cuándo sale un recordatorio y cuándo no",
         blocks: [
-          { p: "Cada cita se considera una sola vez, y el mensaje sale solo cuando todo lo siguiente es cierto:" },
+          { p: "Cada cita y cada visita de obra se considera una sola vez, y el mensaje sale solo cuando todo lo siguiente es cierto:" },
           { bullets: [
-            "Es una **cita** en estado **Programado** — creada con **Nueva cita**, nacida de una reserva en su página de reservas, o reservada por el recepcionista IA. Una cita **Se requiere supervisor**, completada o cancelada no recibe ninguno.",
+            "Es una **cita** en estado **Programado** — creada con **Nueva cita**, nacida de una reserva en su página de reservas, o reservada por el recepcionista IA — o una **visita de obra** en un trabajo no archivado. Una entrada **Se requiere supervisor**, completada o cancelada no recibe ninguno.",
             "Cae dentro de los próximos siete días y su anticipación ya se alcanzó.",
             "El cliente tiene un número de teléfono al que FieldQuo puede enviar mensajes.",
             "El cliente no se dio de baja de los mensajes ni de las llamadas — vea [[client-consent-and-unsubscribes|Consentimiento de clientes y bajas]].",
-            "No se ha enviado antes un recordatorio para esta cita. Nunca más de uno por cita, aunque usted cambie la anticipación o la cita se mueva.",
+            "No se ha enviado antes un recordatorio para esta entrada. Nunca más de uno por cita o visita, aunque usted cambie la anticipación o la entrada se mueva.",
           ] },
         ],
       },
@@ -641,8 +655,8 @@ export const ARTICLES = {
         id: "which-appointments",
         heading: "Qué entradas reciben recordatorio",
         blocks: [
-          { p: "Solo las citas. Una **Visita de obra** programada en un trabajo no dispara el mensaje de recordatorio; el toque **On my way** de la cuadrilla es el aviso al cliente para una visita. Una **Reserva del cliente** que todavía no se convirtió en cita tampoco — se convierte en una en cuanto se confirma y, si hay tarifa de visita, se paga." },
-          { warning: "Los recordatorios son por empresa, no por persona: la anticipación aplica a cada cita programada de la cuenta, esté asignada a quien esté." },
+          { p: "Las citas y las visitas de obra. Una **Visita de obra** programada en un trabajo recibe el mismo mensaje con la misma anticipación, con la dirección de la obra (o la del cliente) como lugar; el toque **Voy en camino** de la cuadrilla es un segundo aviso, en el momento de salir. Una **Reserva del cliente** que todavía no se convirtió en cita tampoco — se convierte en una en cuanto se confirma y, si hay tarifa de visita, se paga." },
+          { warning: "Los recordatorios son por empresa, no por persona: la anticipación aplica a cada cita y a cada visita programadas de la cuenta, estén asignadas a quien estén." },
         ],
       },
       {
@@ -654,19 +668,19 @@ export const ARTICLES = {
       },
     ],
     faq: [
-      { q: "¿Cuánto cuesta un recordatorio?", a: "Cada recordatorio es un mensaje de texto que se cobra a su cuenta. Los recordatorios están desactivados hasta que usted elige una anticipación, así que no se envía — ni se cobra — nada a una empresa que nunca abrió el ajuste." },
+      { q: "¿Cuánto cuesta un recordatorio?", a: "Nada por mensaje — los recordatorios están incluidos en su plan, y la tarjeta de Notificaciones lo dice. Están desactivados hasta que usted elige una anticipación, así que no se envía nada a una empresa que nunca abrió el ajuste." },
       { q: "¿Puedo recordar por correo en su lugar?", a: "No. Los recordatorios son solo mensajes de texto por ahora." },
-      { q: "El cliente no recibió el recordatorio.", a: "Revise que la cita esté Programado (no Se requiere supervisor), que el cliente tenga número de teléfono, que no se haya dado de baja, y que la cita todavía estuviera en el futuro cuando pasó la corrida de cada hora — una cita ya dentro de su anticipación recibe el mensaje en la siguiente corrida; una que ya pasó, no." },
+      { q: "El cliente no recibió el recordatorio.", a: "Revise que la entrada esté Programado (no Se requiere supervisor, completada ni cancelada), que el cliente tenga número de teléfono, que no se haya dado de baja, y que la cita todavía estuviera en el futuro cuando pasó la corrida de cada hora — una cita ya dentro de su anticipación recibe el mensaje en la siguiente corrida; una que ya pasó, no." },
     ],
   },
 
   "the-on-my-way-text": {
     title: "El mensaje “En camino”",
     summary:
-      "El mensaje que recibe un cliente cuando la cuadrilla pulsa On my way en una visita: cómo se envía, qué dice, cómo cambiar la redacción y quién puede hacerlo.",
+      "El mensaje que recibe un cliente cuando la cuadrilla pulsa Voy en camino en una visita: cómo se envía, qué dice, cómo cambiar la redacción y quién puede hacerlo.",
     updated: "2026-09-12",
     intro: [
-      "En el momento en que un miembro de la cuadrilla sale, el teléfono del cliente vibra: “Northside Painting: Dave va en camino. Responda si necesita cambiar la hora.” Se envía con un solo toque en la visita, lleva el nombre de su empresa y es el único mensaje automático que envía una visita de obra.",
+      "En el momento en que un miembro de la cuadrilla sale, el teléfono del cliente vibra: “Northside Painting: Dave va en camino, llega en 20 min. Para cambiar la hora, llame al 555-0100.” Se envía con un solo toque en la visita, lleva el nombre de su empresa y es el único mensaje automático que envía una visita de obra.",
       "Junto con el recordatorio de cita es uno de los dos mensajes que sus clientes reciben de FieldQuo, y ambos se editan en la misma pantalla.",
     ],
     sections: [
@@ -674,7 +688,7 @@ export const ARTICLES = {
         id: "overview",
         heading: "Resumen",
         blocks: [
-          { p: "El mensaje es un efecto secundario de un cambio de estado. En la página del trabajo, cada visita tiene un botón **On my way**; al pulsarlo, la visita pasa a **En camino**, se registra dónde estaba el teléfono y se le envía un mensaje al cliente si tiene número de celular y no se ha dado de baja. El estado se guarda aunque el mensaje no se pueda entregar — una caída del servicio de mensajes nunca bloquea a la cuadrilla." },
+          { p: "El mensaje es un efecto secundario de un cambio de estado. En la página del trabajo, cada visita tiene un botón **Voy en camino**; al pulsarlo, la visita pasa a **En camino**, se registra dónde estaba el teléfono y se le envía un mensaje al cliente si tiene número de celular y no se ha dado de baja. El estado se guarda aunque el mensaje no se pueda entregar — una caída del servicio de mensajes nunca bloquea a la cuadrilla." },
         ],
       },
       {
@@ -684,20 +698,20 @@ export const ARTICLES = {
           { steps: [
             "Abra el trabajo en su teléfono y busque la visita de hoy en la tarjeta **Visitas**.",
             "Lea la línea bajo los botones. Dice “Texts your “on my way” wording to 514-555-0123”, o que el número del cliente está oculto por su nivel de acceso (igual se envía), o “No mobile on file for this client, so nothing will be sent — the visit just moves.”",
-            "Pulse **On my way**. Su teléfono puede pedirle la ubicación una vez; negarla no impide el toque.",
-            "La etiqueta de la visita dice **En camino** y el mensaje sale en segundo plano. Pulse **Mark complete** cuando termine.",
+            "Pulse **Voy en camino**. Su teléfono puede pedirle la ubicación una vez; negarla no impide el toque.",
+            "La etiqueta de la visita dice **En camino** y el mensaje sale en segundo plano. Pulse **Marcar como completada** cuando termine.",
           ] },
-          { note: "El botón dice lo que hace porque el teléfono de un desconocido vibra cuando usted lo pulsa. Una visita **En camino** ofrece **Mark complete** y **Cancel visit**, no un segundo **On my way** — un mensaje por salida." },
+          { note: "El botón dice lo que hace porque el teléfono de un desconocido vibra cuando usted lo pulsa. Una visita **En camino** ofrece **Marcar como completada** y **Cancelar visita**, no un segundo **Voy en camino** — un mensaje por salida." },
         ],
       },
       {
         id: "the-wording",
         heading: "La redacción",
         blocks: [
-          { p: "**Configuración → Mensajes de clientes** — “Los mensajes de texto que reciben tus clientes. Deja uno sin cambios para usar nuestra redacción, o hazlo sonar como tú.” — tiene un editor por cada mensaje que realmente se envía: “On my way” y “Appointment reminder”. No se ofrece nada más, porque no sale ningún otro mensaje automático." },
-          { figure: "live:app-settings-messages", caption: "Configuración → Mensajes de clientes — el editor On my way con sus fichas de campos, la vista previa “Tu cliente ve:”, Guardar y Usar el predeterminado." },
+          { p: "**Configuración → Mensajes de clientes** — “Los mensajes de texto que reciben tus clientes. Deja uno sin cambios para usar nuestra redacción, o hazlo sonar como tú.” — tiene un editor por cada mensaje que realmente se envía: “Voy en camino” y “Recordatorio de cita”. No se ofrece nada más, porque no sale ningún otro mensaje automático." },
+          { figure: "live:app-settings-messages", caption: "Configuración → Mensajes de clientes — el editor Voy en camino con sus fichas de campos, la vista previa “Tu cliente ve:”, Guardar y Usar el predeterminado." },
           { steps: [
-            "Abra **Configuración → Mensajes de clientes** y busque “On my way”.",
+            "Abra **Configuración → Mensajes de clientes** y busque “Voy en camino”.",
             "Escriba su mensaje en el cuadro, o pulse una ficha de campo para agregarla al final. La vista previa **Tu cliente ve:** llena los campos con valores de ejemplo mientras escribe.",
             "Pulse **Guardar**. Un mensaje con un campo que FieldQuo no conoce — “Campo desconocido: {price}. Solo funcionan los campos anteriores.” — no se puede guardar.",
             "Para volver a la redacción integrada, pulse **Usar el predeterminado**.",
@@ -708,7 +722,8 @@ export const ARTICLES = {
               ["{company}", "El nombre de su empresa."],
               ["{worker}", "El nombre del miembro de la cuadrilla asignado — “Your technician” cuando la visita no está asignada."],
               ["{name}", "El primer nombre del cliente."],
-              ["{eta}", "La llegada estimada, si se conoce. La página del trabajo no la envía hoy, así que el campo sale vacío y los espacios alrededor se limpian."],
+              ["{eta}", "La llegada estimada, calculada desde donde estaba su teléfono al tocar hasta la dirección del trabajo, con la misma estimación de trayecto que usa la página de reservas. Sin ubicación, o en un trabajo que nunca se ubicó en el mapa, el campo sale vacío y los espacios alrededor se limpian."],
+              ["{phone}", "El teléfono de su empresa, de Configuración de la empresa — el número al que la redacción integrada le dice al cliente que llame, ya que una respuesta nunca se lee. Vacío, y esa frase desaparece."],
             ],
           } },
         ],
@@ -725,7 +740,7 @@ export const ARTICLES = {
         heading: "Quién puede enviarlo, quién puede cambiarlo",
         blocks: [
           { bullets: [
-            "**On my way** aparece para la persona a la que está asignada la visita, para cualquiera en una visita sin asignar y para las personas cuyo acceso a Horario es “Edit everyone's schedule”. Un miembro de la cuadrilla en la visita de otro ve la etiqueta y ningún botón.",
+            "**Voy en camino** aparece para la persona a la que está asignada la visita, para cualquiera en una visita sin asignar y para las personas cuyo acceso a Horario es “Edit everyone's schedule”. Un miembro de la cuadrilla en la visita de otro ve la etiqueta y ningún botón.",
             "El número del cliente está oculto para la cuadrilla en la página del trabajo, pero el mensaje igual le llega — la línea bajo el botón lo dice.",
             "**Mensajes de clientes** lo editan el propietario, los administradores y los supervisores — los perfiles Despachador y Gerente.",
           ] },
@@ -733,7 +748,7 @@ export const ARTICLES = {
       },
     ],
     faq: [
-      { q: "¿El cliente puede responder?", a: "El mensaje invita a responder, pero FieldQuo no tiene bandeja de entrada para mensajes de clientes: una respuesta no aparece en ningún lugar de FieldQuo hoy. Espere más bien una llamada." },
+      { q: "¿El cliente puede responder?", a: "No de forma útil: FieldQuo no tiene bandeja de entrada para mensajes de clientes, y solo lee STOP. Por eso la redacción integrada dice que llame al teléfono de su empresa en lugar de invitar a responder — conserve **{phone}** también en la suya." },
       { q: "¿Se envía desde mi propio número?", a: "Sale del número desde el que FieldQuo envía mensajes y empieza con el nombre de su empresa, para que el cliente sepa quién viene." },
       { q: "¿Por qué el cliente recibió inglés si trabajamos en español?", a: "La ficha del cliente dice inglés, o no tiene idioma y el idioma por defecto de su empresa es inglés. Fije el idioma en la ficha del cliente; su redacción en español aplica solo a los clientes que leen español." },
     ],
@@ -761,7 +776,7 @@ export const ARTICLES = {
         heading: "El enlace del cliente",
         blocks: [
           { p: "El enlace se genera cuando se confirma la reserva y vive en el correo de confirmación y en cada correo “su visita se movió” posterior. La página, en el idioma del cliente, muestra **Su visita** — **Cuándo** (con su ventana de llegada, si fijó una), **Dónde**, el depósito pagado — y, bajo **¿Necesita cambiar algo?**, **Cambiar la hora** y **Cancelar esta visita**. Cuando ya no se permite ninguna de las dos, dice por qué: “Northside Painting pide un aviso de al menos 24 horas, así que esta visita ya no se puede cambiar aquí. Llame a Northside Painting al … — todavía pueden moverla por usted.”" },
-          { note: "Solo las reservas tienen este enlace. Una cita que usted reservó a mano con **Nueva cita** y una visita programada en un trabajo no le envían nada al cliente y no tienen enlace de autoservicio. Los correos alrededor de una reserva — confirmación, movida, cancelada — están en inglés hoy; la página de gestión en sí está en el idioma del cliente." },
+          { note: "Solo las reservas tienen este enlace. Una cita que usted reservó a mano con **Nueva cita** y una visita programada en un trabajo no le envían nada al cliente al reservar y no tienen enlace de autoservicio; cuando la oficina mueve o cancela una, se le puede avisar al cliente por correo desde ese diálogo. Los correos alrededor de una reserva — confirmada, movida, cancelada — y la página de gestión están todos en el idioma del cliente, y una carta de cambio o de cancelación dice si fue a petición suya o un cambio de la oficina." },
         ],
       },
       {
@@ -825,7 +840,7 @@ export const ARTICLES = {
       },
     ],
     faq: [
-      { q: "El cliente dice que el enlace no lo deja cancelar.", a: "Está dentro de su aviso de cambio. La página nombra el aviso y su número de teléfono. Hoy no hay un botón del lado de la oficina para cancelar una reserva, así que acuerde el cambio por teléfono y reserve usted mismo la nueva hora como cita o como visita." },
+      { q: "El cliente dice que el enlace no lo deja cancelar.", a: "Está dentro de su aviso de cambio. La página nombra el aviso y su número de teléfono. Acuerde el cambio por teléfono y luego pulse **Reprogramar** o **Cancelar visita** en la fila de la cita en el calendario: la reserva detrás se mueve o se cancela con ella, y, con la casilla de correo marcada, el cliente sabe que la oficina hizo el cambio." },
       { q: "¿Por qué no se reembolsó la tarifa?", a: "Los reembolsos están desactivados salvo que usted haya activado Devolver la tarifa de visita si cancelan a tiempo, y aun así solo con el aviso que fijó. La página del cliente y ambos correos dicen cuál aplicó." },
       { q: "¿El cliente recibe el enlace si yo mismo reservo la cita?", a: "No. El enlace existe solo para reservas hechas por la página de reservas o por el recepcionista IA. Una cita que usted crea desde el calendario no le envía nada al cliente." },
     ],

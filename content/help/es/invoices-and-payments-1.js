@@ -406,7 +406,7 @@ export const ARTICLES = {
       "El camino desde el botón Pagar en el correo hasta el dinero en su banco: el portal, Stripe Checkout, con qué puede pagar el cliente, y qué registra FieldQuo cuando llega el pago.",
     updated: "2026-09-12",
     intro: [
-      "Una vez conectado y habilitado Stripe, cada correo de factura lleva **Pagar en línea**. El cliente llega a su portal, ve el saldo en el color de su marca, toca **Pagar $2,260.00**, y paga en la página de pago alojada por Stripe. FieldQuo nunca ve la tarjeta, nunca retiene el dinero, y registra el pago en cuanto Stripe lo confirma.",
+      "Una vez conectado y habilitado Stripe, cada correo de factura lleva **Pagar en línea**. El cliente llega a su portal, ve el saldo en el color de su marca, toca **Pagar $2,260.00** — **Pagar $2,260.00 con tarjeta** o **Pagar $2,260.00 desde una cuenta bancaria** cuando su cuenta de Stripe puede aceptar pagos bancarios — y paga en la página de pago alojada por Stripe. FieldQuo nunca ve la tarjeta, nunca retiene el dinero, y registra el pago en cuanto Stripe lo confirma.",
     ],
     sections: [
       {
@@ -423,11 +423,11 @@ export const ARTICLES = {
         blocks: [
           { steps: [
             "Abre el correo de la factura y toca **Pagar en línea** (o, en el portal, abre la factura desde la lista).",
-            "Revisa la cifra — el saldo, o la etapa solicitada — y toca **Pagar …**.",
-            "Paga en Stripe Checkout: tarjeta, más **Affirm** a plazos cuando usted lo activó y el monto está entre $50 y $30,000 en CAD o USD.",
-            "Vuelve al portal, que ahora muestra el pago recibido y el nuevo saldo.",
+            "Revisa la cifra — el saldo, o la etapa solicitada (un depósito, una cuota) — y toca **Pagar … con tarjeta**, o **Pagar … desde una cuenta bancaria** cuando ese segundo botón está ahí.",
+            "Paga en Stripe Checkout: tarjeta, más **Affirm** a plazos cuando usted lo activó y el monto está entre $50 y $30,000 en CAD o USD. Un pago bancario es un débito preautorizado de una sola vez (Canadá) o un débito ACH (EE. UU.) en la página de Stripe, que verifica la cuenta automáticamente cuando el banco lo permite.",
+            "Vuelve al portal. Un pago con tarjeta aparece recibido de inmediato, con el nuevo saldo; un pago bancario dice **Pago bancario pendiente** durante 3 a 5 días hábiles y luego pagado — o **El pago bancario falló**, con el motivo que da Stripe, el saldo todavía pendiente y el botón de tarjeta todavía ofrecido.",
           ] },
-          { note: "El débito bancario preautorizado canadiense se ofrece en los **planes de servicio**, donde el cliente firma un mandato una vez y cada ocurrencia se cobra automáticamente. Una factura suelta se paga con tarjeta (o Affirm). Ver [[service-plan-bank-debit-mandates|Planes de servicio pagados por débito bancario]]." },
+          { note: "**Pagar desde una cuenta bancaria** aparece solo cuando Stripe ha activado el débito bancario en su cuenta — FieldQuo lo solicita por usted al conectar, y **Configuración → Pagos** dice en qué punto está (**Los clientes pueden pagar las facturas con tarjeta o desde una cuenta bancaria**). Las tarifas de reserva siguen siendo solo con tarjeta. Los planes de servicio conservan su mandato permanente, firmado una vez — ver [[service-plan-bank-debit-mandates|Planes de servicio pagados por débito bancario]]. Las formas fuera de línea impresas en la línea «Formas de pago aceptadas» de la factura — efectivo, transferencia electrónica, cheque — se marcan en **Configuración → Pagos → Formas de pago que aceptas**." },
         ],
       },
       {
@@ -435,7 +435,7 @@ export const ARTICLES = {
         heading: "Qué registra FieldQuo cuando llega el pago",
         blocks: [
           { bullets: [
-            "**Una fila de pago** con la fecha, **Card** como método (el historial nombra los métodos en inglés), el monto, y debajo **comisión de tarjeta $68.10 · depositado $2,191.90**.",
+            "**Una fila de pago** con la fecha, el método (**Card**, o el débito bancario — el historial nombra los métodos en inglés), el monto, y debajo **comisión de tarjeta $68.10 · depositado $2,191.90** — para un pago bancario de $5,000, **comisión de débito bancario $5.00 · depositado $4,995.00**.",
             "**El saldo y el estado** — recalculados sobre cada pago; **Pagada** cuando no queda nada, con una fecha de pago y «via Stripe» en el aviso.",
             "**Una notificación** — **Factura pagada** envía un correo a todos los que tienen rol de propietario o administrador, activada por defecto bajo **Configuración → Notificaciones**.",
             "**La tarea de seguimiento** se cierra, y el dinero adeudado y la escalera de cuentas por cobrar del panel sueltan la factura.",
@@ -454,8 +454,8 @@ export const ARTICLES = {
     ],
     faq: [
       { q: "¿El cliente puede pagar una parte de la factura?", a: "Solo cuando un calendario de pagos pide una etapa — el botón Pagar solicita entonces esa parte. Si no, el botón pide el saldo completo. Un pago parcial que reciba de otra forma se registra a mano." },
-      { q: "¿FieldQuo se queda con una parte?", a: "La comisión de procesamiento es 3% + 30¢ en un pago con tarjeta, descontada antes de que el dinero llegue a su banco y mostrada en la fila del pago. Nada más, y sin cuota mensual." },
-      { q: "El cliente pagó pero la factura sigue diciendo Enviada.", a: "Stripe confirma el cobro a FieldQuo unos segundos después del pago. Si sigue sin pagar, revise el panel de Stripe con **Gestionar en Stripe** — un pago que está ahí pero no aquí es algo para contarle a soporte, con el número de factura." },
+      { q: "¿FieldQuo se queda con una parte?", a: "La comisión de procesamiento es 3% + 30¢ en un pago con tarjeta y 1% + 40¢ con tope de $5 en un débito bancario canadiense, descontada antes de que el dinero llegue a su banco y mostrada en la fila del pago. Nada más, y sin cuota mensual." },
+      { q: "El cliente pagó pero la factura sigue diciendo Enviada.", a: "Stripe confirma un cobro con tarjeta a FieldQuo unos segundos después del pago. Un pago bancario es distinto: la factura muestra un pago bancario pendiente durante 3 a 5 días hábiles, y eso es normal. Si un pago con tarjeta sigue sin pagar, revise el panel de Stripe con **Gestionar en Stripe** — un pago que está ahí pero no aquí es algo para contarle a soporte, con el número de factura." },
       { q: "¿Pueden pagar desde el presupuesto en su lugar?", a: "Los depósitos en un presupuesto tienen su propio flujo — ver [[deposits-on-quotes|Depósitos en presupuestos]]. La factura es contra lo que se paga el saldo." },
     ],
   },

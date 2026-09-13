@@ -550,7 +550,7 @@ export const ARTICLES = {
             "Press **Save & reprice quote**. The drawing is stored and the quote's cabinetry group is rewritten from it — other scope groups on the quote (a bathroom, a floor) are left alone.",
             "Send the quote. The drawing prints on the quote PDF and later on the invoice, from the same shapes the screen drew.",
           ] },
-          { p: "A quote that has already been sent is a commitment, so its design opens read-only and the screen says so. To change the layout after sending, start a new quote — FieldQuo has no duplicate-quote control today." },
+          { p: "A quote that has already been sent is a commitment, so its design opens read-only and the screen says so. To change the layout after sending, press **Duplicate** beside that note: a fresh draft under the next quote number, with the same client, language, lines and drawing — none of the send history, none of the client's own edits — opens straight in its designer, unlocked. The sent quote is untouched." },
         ],
       },
       {
@@ -571,7 +571,7 @@ export const ARTICLES = {
     ],
     faq: [
       { q: "I sell cabinet refinishing. Do I need Cabinet Pricing?", a: "No. Refinishing and refacing price from their own rate cards under Services and Instant Quotes; Cabinet Pricing feeds the kitchen designer only, and the screen stays hidden until Kitchen Design is on." },
-      { q: "Can a homeowner design a kitchen before I have quoted?", a: "Not from any link FieldQuo hands out today. The client link exists only once a quote has been sent, and it edits that quote's design." },
+      { q: "Can a homeowner design a kitchen before I have quoted?", a: "Yes. With **Kitchen Design & New Installs** on under Services, a public **Design your kitchen** page exists: a card on Settings → Share your links, a row on your bio link, and a link on the quote form's Kitchen Design step. What they draw arrives as a lead with the drawing attached and no price — you quote it. The client link on a sent quote is different: it edits that quote's design." },
       { q: "Does the client's edit change my quote?", a: "Never on its own. It is a second version you can load; the quote only moves when you press Save & reprice quote." },
     ],
   },

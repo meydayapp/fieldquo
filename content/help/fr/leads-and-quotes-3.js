@@ -535,7 +535,7 @@ export const ARTICLES = {
             "Appuyez sur **Enregistrer et retarifer la soumission**. Le dessin est stocké et le groupe d'armoires de la soumission est réécrit à partir de lui — les autres groupes de travaux de la soumission (une salle de bain, un plancher) sont laissés tels quels.",
             "Envoyez la soumission. Le dessin s'imprime sur le PDF de la soumission et plus tard sur la facture, à partir des mêmes formes que l'écran a dessinées.",
           ] },
-          { p: "Une soumission déjà envoyée est un engagement, donc sa conception s'ouvre en lecture seule et l'écran le dit. Pour changer la disposition après l'envoi, commencez une nouvelle soumission — FieldQuo n'a pas de commande de duplication de soumission aujourd'hui." },
+          { p: "Une soumission déjà envoyée est un engagement, donc sa conception s'ouvre en lecture seule et l'écran le dit. Pour changer la disposition après l'envoi, appuyez sur **Dupliquer** à côté de cette note : un nouveau brouillon sous le numéro suivant, avec le même client, la même langue, les mêmes lignes et le même dessin — rien de l'historique d'envoi, rien des modifications du client — s'ouvre directement dans son concepteur, déverrouillé. La soumission envoyée n'est pas touchée." },
         ],
       },
       {
@@ -556,7 +556,7 @@ export const ARTICLES = {
     ],
     faq: [
       { q: "Je vends de la refinition d'armoires. Ai-je besoin des Tarifs des armoires ?", a: "Non. La refinition et le resurfaçage se chiffrent à partir de leurs propres grilles sous Services et tarifs et Soumissions instantanées; les Tarifs des armoires n'alimentent que le concepteur de cuisine, et l'écran reste caché tant que la conception de cuisine n'est pas activée." },
-      { q: "Un propriétaire peut-il concevoir une cuisine avant que j'aie soumissionné ?", a: "Pas à partir d'un lien que FieldQuo remet aujourd'hui. Le lien client n'existe qu'une fois une soumission envoyée, et il modifie la conception de cette soumission." },
+      { q: "Un propriétaire peut-il concevoir une cuisine avant que j'aie soumissionné ?", a: "Oui. Avec **Kitchen Design & New Installs** activé sous Services, une page publique **Concevez votre cuisine** existe : une carte sur Paramètres → Partager vos liens, une ligne sur votre lien de profil, et un lien à l'étape Conception de cuisine du formulaire de soumission. Ce qu'il dessine arrive comme demande avec le plan joint et sans prix — c'est vous qui soumissionnez. Le lien client d'une soumission envoyée, c'est autre chose : il modifie la conception de cette soumission." },
       { q: "La modification du client change-t-elle ma soumission ?", a: "Jamais d'elle-même. C'est une deuxième version que vous pouvez charger; la soumission ne bouge que lorsque vous appuyez sur Enregistrer et retarifer la soumission." },
     ],
   },

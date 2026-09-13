@@ -451,7 +451,7 @@ export const ARTICLES = {
           { steps: [
             "Abra el trabajo y elija **Cancelado** en el desplegable de estado junto al título.",
             "Si el trabajo vino de un presupuesto, la tarea *programar este trabajo* de su lista de tareas se cierra sola.",
-            "Abra cada una de sus visitas y presione «Cancel visit». Cancelar el trabajo no cancela sus visitas; se quedan en el calendario y seguirían enviando recordatorios.",
+            "Presione **Cancelar visita** en cada una de sus visitas — en la página del trabajo o en el calendario. Pide un motivo opcional y, salvo que desmarque la casilla, avisa al cliente por correo en su idioma de que la oficina canceló. Cancelar el trabajo no cancela sus visitas; se quedan en el calendario y seguirían recibiendo el mensaje de recordatorio.",
           ] },
           { p: "Un trabajo cancelado conserva todo lo que tiene: horas, gastos, fotos, notas. Nunca recibe una solicitud de reseña, su recurrencia deja de avanzar y su sala de chat pasa a **Trabajos terminados**." },
         ],

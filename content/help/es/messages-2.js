@@ -14,18 +14,18 @@ export const ARTICLES = {
   "follow-up-rules": {
     title: "Reglas de seguimiento",
     summary:
-      "Dar seguimiento por correo a un presupuesto sin respuesta, una factura vencida o un trabajo terminado, automáticamente, con el retraso que usted elija — y qué detiene cada regla.",
+      "Dar seguimiento por correo a una consulta sin respuesta, un presupuesto que no avanza, una factura vencida o un trabajo terminado, automáticamente, con el retraso que usted elija — y qué detiene cada regla.",
     updated: "2026-09-12",
     intro: [
-      "Una regla de seguimiento cabe en una frase: cierto tiempo después de que un presupuesto, una factura o un trabajo alcance un estado determinado, enviar esta plantilla de correo. FieldQuo revisa cada regla activa una vez al día y envía la plantilla al cliente de todo lo que haya cruzado la línea — un presupuesto enviado hace tres días, una factura vencida hace cinco, un trabajo completado hace dos — sin que nadie tenga que acordarse.",
-      "Este artículo cubre la pantalla **Configuración → Seguimientos**: los tres desencadenantes, el retraso, qué plantillas puede enviar una regla, qué la pausa y qué la detiene, y quién no recibe nada.",
+      "Una regla de seguimiento cabe en una frase: cierto tiempo después de que una consulta, un presupuesto, una factura o un trabajo alcance un estado determinado, enviar esta plantilla de correo. FieldQuo revisa cada regla activa una vez al día y envía la plantilla al cliente de todo lo que haya cruzado la línea — una consulta que nadie respondió en dos días, un presupuesto enviado hace tres, una factura vencida hace cinco, un trabajo completado hace dos — sin que nadie tenga que acordarse.",
+      "Este artículo cubre la pantalla **Configuración → Seguimientos**: los cuatro desencadenantes, el retraso, qué plantillas puede enviar una regla, qué la pausa y qué la detiene, y quién no recibe nada.",
     ],
     sections: [
       {
         id: "overview",
         heading: "Resumen",
         blocks: [
-          { p: "Cada regla envía exactamente una cosa por un solo canal: una plantilla de correo. No hay seguimiento por mensaje de texto ni tarea dentro de la aplicación — la pantalla dibuja un único paso **Enviar correo** porque es el único paso que existe. Dos reglas pueden compartir un desencadenante (un recordatorio suave a los 3 días y uno más firme a los 7), cada una apuntando a una plantilla distinta, y cada presupuesto, factura o trabajo recibe el correo de cada regla una sola vez." },
+          { p: "Cada regla envía exactamente una cosa por un solo canal: una plantilla de correo. No hay seguimiento por mensaje de texto ni tarea dentro de la aplicación — la pantalla dibuja un único paso **Enviar correo** porque es el único paso que existe. Dos reglas pueden compartir un desencadenante (un recordatorio suave a los 3 días y uno más firme a los 7), cada una apuntando a una plantilla distinta, y cada consulta, presupuesto, factura o trabajo recibe el correo de cada regla una sola vez." },
           { p: "El correo sale a nombre de su empresa — desde su propio dominio verificado si tiene uno (ver [[send-from-your-own-domain|Enviar correo desde su propio dominio]]), y si no desde la dirección compartida de FieldQuo — y las respuestas llegan al correo de su empresa, o en su defecto a la dirección del propietario de la cuenta, para que ninguna respuesta se pierda." },
         ],
       },
@@ -49,12 +49,12 @@ export const ARTICLES = {
           { steps: [
             "Abra **Configuración → Seguimientos** y pulse **Nueva regla**. Si el botón está desactivado, la línea amarilla de arriba dice por qué: primero necesita una plantilla de seguimiento, marketing o personalizada en **Plantillas de correo**. Toda empresa nueva ya tiene una plantilla «Follow-up email (default)», así que es raro.",
             "Póngale un **Nombre de la regla (opcional)** — si lo deja vacío, la regla toma el nombre del desencadenante.",
-            "Elija el **Desencadenante**: **Cotización enviada, sin respuesta**, **Factura vencida** o **Trabajo completado**. La frase bajo la lista dice exactamente cuándo se dispara cada uno.",
-            "Fije el **Retraso** y su **Unidad** (horas o días). Al elegir un desencadenante se rellena su valor por defecto — 3 días para un presupuesto, 5 días para una factura, 2 días para un trabajo completado — y usted puede cambiarlo.",
+            "Elija el **Desencadenante**: **Consulta nueva, nadie respondió**, **Cotización enviada, sin respuesta**, **Factura vencida** o **Trabajo completado**. La frase bajo la lista dice exactamente cuándo se dispara cada uno.",
+            "Fije el **Retraso** y su **Unidad** (horas o días). Al elegir un desencadenante se rellena su valor por defecto — 2 días para una consulta, 3 días para un presupuesto, 5 días para una factura, 2 días para un trabajo completado — y usted puede cambiarlo.",
             "Elija la **Plantilla a enviar** y pulse **Crear regla**. La regla queda activa de inmediato y el esquema sobre la lista se vuelve a dibujar.",
           ] },
           { figure: "live:app-settings-follow-ups", caption: "Configuración → Seguimientos — el esquema Cómo se ejecutan generado desde las reglas, y luego la lista de reglas con Pausar y la papelera en cada fila." },
-          { note: "Los nombres de los desencadenantes en la lista desplegable — Quote sent, no response; Invoice overdue; Job completed — se muestran en inglés sea cual sea su idioma de trabajo. El esquema y la lista de reglas sí los traducen." },
+          { note: "Elegir **Consulta nueva, nadie respondió** añade una línea bajo la lista: una consulta aún no tiene presupuesto, así que los campos de cotización de una plantilla ({{quoteUrl}}, {{quoteTotal}}, {{quoteNumber}}) salen vacíos. Puede rellenar el nombre, teléfono y dirección del cliente, los datos de su empresa y el servicio consultado como título del trabajo." },
         ],
       },
       {
@@ -64,7 +64,7 @@ export const ARTICLES = {
           { table: {
             head: ["Ajuste", "Qué cambia"],
             rows: [
-              ["**Desencadenante**", "Qué registros vigila la regla y qué cuenta como cruzar la línea: un presupuesto que sigue en estado enviado, una factura impaga pasada su fecha de vencimiento, o un trabajo marcado como completado (desde el momento en que se completó, no desde su última edición)."],
+              ["**Desencadenante**", "Qué registros vigila la regla y qué cuenta como cruzar la línea: una consulta que sigue en Nueva, sin presupuesto y con correo, un presupuesto que sigue en estado enviado, una factura impaga pasada su fecha de vencimiento, o un trabajo marcado como completado (desde el momento en que se completó, no desde su última edición)."],
               ["**Retraso** y **Unidad**", "Cuánto tiempo debe llevar el registro en ese estado antes de que salga el correo. Todo lo que no sea horas se trata como días."],
               ["**Plantilla a enviar**", "El correo que recibe el cliente. Solo se ofrecen plantillas de seguimiento, marketing y personalizadas — nunca las de presupuesto, instrucciones o recibo, que son envíos puntuales. Si la plantilla se elimina después, la fila muestra **(plantilla eliminada)** y la regla no envía nada."],
               ["**Pausar**", "La regla se conserva y se omite. El esquema marca el paso «En pausa: este paso se omite.» **Activar** la vuelve a encender; lo que haya cruzado la línea mientras tanto se atiende en la siguiente ejecución."],
@@ -77,14 +77,15 @@ export const ARTICLES = {
         id: "how-they-run",
         heading: "Cuándo se ejecutan y qué las detiene",
         blocks: [
-          { p: "La revisión se hace una vez al día, así que una regla fijada en 3 días envía en la primera ejecución después del tercer día, no a la hora exacta. En cada ejecución, para cada regla activa, FieldQuo busca todos los registros que coinciden y aún no han recibido el correo de esa regla, lo envía y lo anota — por eso una regla nunca puede enviar dos veces para el mismo presupuesto, factura o trabajo, aunque dos ejecuciones se solapen." },
+          { p: "La revisión se hace una vez al día, así que una regla fijada en 3 días envía en la primera ejecución después del tercer día, no a la hora exacta. En cada ejecución, para cada regla activa, FieldQuo busca todos los registros que coinciden y aún no han recibido el correo de esa regla, lo envía y lo anota — por eso una regla nunca puede enviar dos veces para la misma consulta, presupuesto, factura o trabajo, aunque dos ejecuciones se solapen." },
           { bullets: [
+            "**Consulta nueva, nadie respondió** se detiene cuando la consulta se marca contactada, cotizada, ganada o perdida — y enviar un presupuesto la marca contactada por usted. Cada consulta recibe el correo una sola vez.",
             "**Cotización enviada, sin respuesta** se detiene en cuanto el cliente acepta o rechaza el presupuesto. Cada presupuesto recibe el correo una sola vez.",
             "**Factura vencida** se detiene en cuanto se paga la factura. Cada factura recibe el correo una sola vez.",
             "**Trabajo completado** se detiene si el trabajo se reabre. Cada trabajo recibe el correo una sola vez.",
           ] },
           { note: "Se omiten los clientes sin dirección de correo registrada. Los trabajos, presupuestos y facturas importados como historial nunca reciben seguimiento — una regla creada hoy sí alcanza los presupuestos reales del mes pasado, pero no un trabajo de 2024 que usted registró para la contabilidad." },
-          { tip: "Un seguimiento de **Trabajo completado** es marketing en el sentido legal (un agradecimiento, una solicitud de reseña), así que lleva un enlace para darse de baja y no se envía a quien se haya dado de baja de sus correos de marketing. Los seguimientos de presupuesto y de factura tratan de una transacción ya en curso con el cliente y no llevan enlace de baja." },
+          { tip: "Un seguimiento de **Trabajo completado** es marketing en el sentido legal (un agradecimiento, una solicitud de reseña), así que lleva un enlace para darse de baja y no se envía a quien se haya dado de baja de sus correos de marketing. Los seguimientos de consulta, de presupuesto y de factura responden a algo que el cliente pidió y no llevan enlace de baja." },
         ],
       },
       {
@@ -740,7 +741,7 @@ export const ARTICLES = {
       "Exactamente dos mensajes de texto llegan a sus clientes — «en camino» y el recordatorio de cita — en el idioma del cliente, con su redacción si la configuró. Qué dispara cada uno, qué no se envía por mensaje, y qué pasa cuando un cliente responde.",
     updated: "2026-09-12",
     intro: [
-      "FieldQuo envía mensajes de texto a sus clientes en dos situaciones y ninguna más: cuando un miembro de la cuadrilla marca una visita como **En camino**, y antes de una cita, con la antelación que usted eligió. Ambos salen con el nombre de su empresa, en el idioma del cliente, con la redacción que usted fijó en **Configuración → Mensajes de clientes** o la redacción integrada si la dejó como estaba.",
+      "FieldQuo envía mensajes de texto a sus clientes en dos situaciones y ninguna más: cuando un miembro de la cuadrilla marca una visita como **En camino**, y antes de una cita o una visita de trabajo, con la antelación que usted eligió. Ambos salen con el nombre de su empresa, en el idioma del cliente, con la redacción que usted fijó en **Configuración → Mensajes de clientes** o la redacción integrada si la dejó como estaba.",
       "Todo lo demás — un presupuesto, una factura, una confirmación de reserva, un seguimiento — va por correo, y no hay mensajería bidireccional con clientes. Este artículo traza esa línea con precisión para que nadie prometa un mensaje que el producto no envía.",
     ],
     sections: [
@@ -758,11 +759,11 @@ export const ARTICLES = {
           { table: {
             head: ["Mensaje", "Cuándo sale", "Redacción integrada (en español)"],
             rows: [
-              ["**En camino**", "En el momento en que el estado de una visita pasa a **En camino** — normalmente el miembro de la cuadrilla tocándolo en su teléfono. Solo si el cliente del trabajo tiene número de teléfono.", "«Northside Painting: Dave va en camino, llega en 20 min. Responda si necesita cambiar la hora.»"],
-              ["**Recordatorio de cita**", "En cuanto una cita de su Calendario entra en la antelación elegida en **Configuración → Notificaciones** — 2, 24 o 48 horas antes. Se revisa cada hora; se envía una vez por cita.", "«Northside Painting: Recordatorio — su cita es mar., 15 sept, 2:00 p.m. en 123 Oak St. Responda STOP para no recibir más.»"],
+              ["**En camino**", "En el momento en que el estado de una visita pasa a **En camino** — normalmente el miembro de la cuadrilla tocándolo en su teléfono. Solo si el cliente del trabajo tiene número de teléfono.", "«Northside Painting: Dave va en camino, llega en 20 min. Para cambiar la hora, llame al 555-0100.» La hora de llegada se calcula desde la posición del miembro de la cuadrilla al tocar hasta la dirección del trabajo; el número es el de su empresa, y la frase desaparece si no tiene uno registrado."],
+              ["**Recordatorio de cita**", "En cuanto una cita de su Calendario, o una visita de un trabajo, entra en la antelación elegida en **Configuración → Notificaciones** — 2, 24 o 48 horas antes. Se revisa cada hora; se envía una vez por cita o visita.", "«Northside Painting: Recordatorio — su cita es mar., 15 sept, 2:00 p.m. en 123 Oak St. Responda STOP para no recibir más.»"],
             ],
           } },
-          { p: "Los recordatorios de cita están en **Desactivado** hasta que un propietario o administrador elige una antelación — cada recordatorio es un mensaje que la empresa paga, así que no se envía nada que nadie haya activado. Aplican a las citas del Calendario (reservas desde su página de reservas, llamadas que agendó el recepcionista, citas que usted añade); una visita en un trabajo es un registro distinto y no recibe recordatorio por mensaje." },
+          { p: "Los recordatorios de cita están en **Desactivado** hasta que un propietario o administrador elige una antelación — los recordatorios están incluidos en su plan, pero no se envía nada que nadie haya activado. Aplican a las citas del Calendario (reservas desde su página de reservas, llamadas que agendó el recepcionista, citas que usted añade) y a las visitas agendadas en un trabajo por igual, una vez cada una; una entrada completada o cancelada no recibe ninguno." },
           { figure: "live:app-settings-messages", caption: "Configuración → Mensajes de clientes — un editor por mensaje, En camino y Recordatorio de cita, con los tokens, la vista previa «Tu cliente ve:», Guardar y Usar el predeterminado." },
         ],
       },
@@ -777,7 +778,7 @@ export const ARTICLES = {
             "**El recepcionista no puede enviar mensajes.** Cuando tiene que remitir a alguien a su página de reservas, lee el enlace en voz alta y dice claramente que no puede enviarlo por mensaje.",
             "**No hay mensajes de marketing.** Las campañas son por correo; no existe una función de envío masivo de mensajes.",
           ] },
-          { warning: "La redacción integrada de «en camino» termina con «Responda si necesita cambiar la hora», pero FieldQuo no lee la respuesta. Si quiere que los clientes puedan contestar ese mensaje, ponga el número de su oficina en su redacción personalizada — o quite la invitación." },
+          { warning: "FieldQuo no lee la respuesta al mensaje de «en camino» — solo lee STOP — así que la redacción integrada termina con «Para cambiar la hora, llame al {phone}», el teléfono de su empresa en Configuración de la empresa. Si escribe la suya, conserve **{phone}** en lugar de invitar a una respuesta que nadie verá." },
         ],
       },
       {
@@ -792,7 +793,7 @@ export const ARTICLES = {
         id: "opting-out",
         heading: "Darse de baja",
         blocks: [
-          { p: "Antes de cada mensaje, FieldQuo comprueba el número del cliente contra la lista de bajas de su empresa: un número que pidió dejar de recibir mensajes, o que pidió que no lo llamen, se omite — tanto el mensaje de «en camino» como el recordatorio. El recordatorio termina con «Responda STOP para no recibir más» en todos los idiomas, y STOP se mantiene en inglés a propósito porque los operadores lo tratan como universal." },
+          { p: "Antes de cada mensaje, FieldQuo comprueba el número del cliente contra la lista de bajas de su empresa: un número que pidió dejar de recibir mensajes, o que pidió que no lo llamen, se omite — tanto el mensaje de «en camino» como el recordatorio. El recordatorio termina con «Responda STOP para no recibir más» en todos los idiomas, y STOP se mantiene en inglés a propósito porque los operadores lo tratan como universal. Los mensajes a clientes salen por la línea compartida de FieldQuo, así que un STOP no puede nombrar a una empresa: da de baja ese número en todas las empresas que lo tienen en una ficha de cliente." },
           { p: "No interviene ningún consentimiento de marketing: ambos mensajes tratan de una visita que el cliente reservó. Ninguno lleva enlace de baja, y ninguno se envía a un cliente sin número de teléfono registrado." },
         ],
       },

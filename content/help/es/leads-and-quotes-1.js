@@ -97,7 +97,7 @@ export const ARTICLES = {
     faq: [
       { q: "¿Por qué no puedo arrastrar un prospecto directamente a Ganado?", a: "Ganado significa que un cliente dijo que sí a un presupuesto con precio, y un prospecto sin presupuesto no tiene nada detrás. Conviértalo primero; una vez que existe un presupuesto puede mover la tarjeta a mano, y cuando el cliente acepta en línea se mueve sola." },
       { q: "¿Dónde quedó el correo del prospecto?", a: "Su nivel de acceso a clientes es «solo nombre y dirección», así que el servidor quita el correo, el teléfono y el presupuesto declarado antes de enviarle el tablero. Pida a un propietario o administrador si los necesita." },
-      { q: "¿Marcar un prospecto como Contactado envía algo?", a: "No. Registra que usted habló con la persona. Ningún botón de estado de este tablero envía correos ni mensajes de texto." },
+      { q: "¿Marcar un prospecto como Contactado envía algo?", a: "No. Registra que usted habló con la persona. Ningún botón de estado de este tablero envía correos ni mensajes de texto — aunque marcar un prospecto como Contactado sí detiene una regla de seguimiento **Consulta nueva, nadie respondió**, si tiene una. Vea [[follow-up-rules|Reglas de seguimiento]]." },
       { q: "¿Las llamadas que atiende la recepcionista aparecen aquí?", a: "Sí. Una llamada que toma la recepcionista telefónica crea un prospecto con los datos de quien llamó, calificado sin presupuesto, porque la recepcionista nunca puede hablar de dinero. Vea [[the-phone-receptionist|La recepcionista telefónica]]." },
     ],
   },
@@ -609,7 +609,7 @@ export const ARTICLES = {
         id: "overview",
         heading: "Resumen",
         blocks: [
-          { p: "La pantalla dice **Cotizaciones — Gestiona las cotizaciones de clientes.** El botón **Nueva cotización** abre el generador; vea [[build-a-quote|Armar un presupuesto]]. Cada fila abre la página del presupuesto, donde viven el envío, la edición, la revisión de IA y la decisión del cliente." },
+          { p: "La pantalla dice **Cotizaciones — Gestiona las cotizaciones de clientes.** El botón **Nueva cotización** abre el generador; vea [[build-a-quote|Armar un presupuesto]]. Cada fila abre la página del presupuesto, donde viven el envío, la edición, la revisión de IA y la decisión del cliente — y **Duplicar**, que parte de un presupuesto ya escrito para hacer un borrador nuevo." },
         ],
       },
       {
@@ -699,6 +699,7 @@ export const ARTICLES = {
             "Active los tipos de presupuesto que vende y fije sus tarifas: [[quote-types-and-takeoffs|Tipos de presupuesto y mediciones]]. Un tipo desactivado no tiene tarjeta.",
             "Ponga sus extras puntuales en la lista de precios — [[lines-from-your-price-book|Líneas desde su lista de precios]] — para tenerlos a un toque.",
             "Tenga la dirección del cliente: determina la tasa de impuesto, y un presupuesto sin jurisdicción muestra una tasa supuesta con una advertencia debajo.",
+            "¿Ya cotizó algo parecido? **Duplicar** en la página de ese presupuesto abre un borrador nuevo con el siguiente número, con el mismo cliente, idioma, servicios y líneas, los extras ofrecidos, el costeo, las notas y las secciones del correo — y nada de su historial: sin fecha de envío, firma, aprobación, cambios del cliente ni revisión de IA.",
           ] },
           { tip: "¿Viene de un prospecto? **Convertir en presupuesto** en el panel del prospecto abre esta pantalla con el cliente, el servicio, las respuestas y las fotos ya llenos. Vea [[convert-a-lead-to-a-quote|Convertir un prospecto en presupuesto]]." },
         ],

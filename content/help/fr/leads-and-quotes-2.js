@@ -416,7 +416,7 @@ export const ARTICLES = {
         heading: "Ce qu'il y a à l'écran",
         blocks: [
           { bullets: [
-            "**Votre prix minimum** — la case **Chantiers par semaine**, **Enregistrer**, puis quatre tuiles : **Coûts fixes mensuels**, **Chantiers / mois**, **Coût par chantier** et **Prix minimum**, avec une ligne disant ce que le total comprend et la marge cible qu'il suppose.",
+            "**Votre prix minimum** — les cases **Chantiers par semaine** et **Marge cible %**, **Enregistrer**, puis quatre tuiles : **Coûts fixes mensuels**, **Chantiers / mois**, **Coût par chantier** et **Prix minimum**, avec une ligne disant ce que le total comprend et la marge cible qu'il suppose.",
             "**Heures payées qui n'ont jamais atteint un chantier** — la semaine que vous garantissez aux gens contre les heures réellement consignées sur des chantiers, sur 30 jours. Rapporté, et volontairement **pas** compté dans le prix ci-dessus ; l'encadré le dit.",
             "**Coûts fixes** — loyer, assurance, téléphone, abonnements : tout ce qui arrive que vous gagniez un chantier ou non, au mois ou à l'année.",
             "**Salaires** — frais généraux d'entreprise seulement : votre propre retrait, un salaire de bureau. Pas l'équipe de chantier, dont les heures sont déjà imputées à chaque chantier comme main-d'œuvre.",
@@ -433,11 +433,11 @@ export const ARTICLES = {
           { steps: [
             "Ouvrez **Paramètres → Frais généraux** et remplissez les registres : coûts fixes, salaires, toute dette, tout actif qui vaut plus que quelques centaines de dollars.",
             "Liez un actif au prêt qui l'a payé. Le prêt ne compte alors que pour ses intérêts et l'amortissement de l'actif porte son coût — sinon le même camion est facturé deux fois, et l'écran vous avertit quand il voit ce motif.",
-            "Tapez **Chantiers par semaine** — une semaine normale pour votre équipe — et appuyez sur **Enregistrer**.",
+            "Tapez **Chantiers par semaine** — une semaine normale pour votre équipe — et, si 20 % n'est pas votre chiffre, **Marge cible %**; puis appuyez sur **Enregistrer**.",
             "Lisez **Prix minimum**. Tout ce qui est soumissionné en dessous ne couvre pas l'atelier avant même de compter les matériaux et la main-d'œuvre.",
           ] },
           { figure: "harness:settings-overhead", caption: "Paramètres → Frais généraux — Votre prix minimum avec ses quatre tuiles, et la note qui explique ce que le total comprend." },
-          { note: "Les tuiles donnent **Coût par chantier** comme les frais généraux qu'un chantier doit porter, et **Prix minimum** comme ce coût à une marge cible de **20 %**. Les matériaux et la main-d'œuvre du chantier s'ajoutent — la note sous les tuiles le dit." },
+          { note: "Les tuiles donnent **Coût par chantier** comme les frais généraux qu'un chantier doit porter, et **Prix minimum** comme ce coût à votre **Marge cible %** — 20 % tant que vous n'en fixez pas une, et la note sous les tuiles dit quand c'est encore la valeur par défaut. Les matériaux et la main-d'œuvre du chantier s'ajoutent — la note le dit aussi." },
         ],
       },
       {
@@ -450,7 +450,7 @@ export const ARTICLES = {
               ["Coûts fixes mensuels", "Coûts fixes + salaires + dette, plus l'amortissement de vos actifs et les intérêts de leurs prêts. Un prêt lié à un actif ne compte que pour ses intérêts."],
               ["Chantiers / mois", "Chantiers par semaine × 4,33."],
               ["Coût par chantier", "Coûts fixes mensuels ÷ chantiers par mois."],
-              ["Prix minimum", "Coût par chantier ÷ (1 − 20 %)."],
+              ["Prix minimum", "Coût par chantier ÷ (1 − marge cible) — 20 % sauf si vous fixez la vôtre."],
             ],
           } },
         ],
@@ -483,7 +483,7 @@ export const ARTICLES = {
     faq: [
       { q: "Pourquoi le prix minimum est-il vide ?", a: "Les chantiers par semaine ne sont pas définis. L'écran refuse de diviser vos frais généraux par un nombre qu'il aurait inventé. Tapez la capacité d'une semaine normale et appuyez sur Enregistrer." },
       { q: "Les salaires de mon équipe vont-ils sous Salaires ?", a: "Non. Les heures de l'équipe sont imputées à chaque chantier comme main-d'œuvre dans le panneau Coût et marge ; les mettre ici en plus les compte deux fois. Salaires sert à la paie fixe de frais généraux — votre propre retrait, un salaire de bureau, les heures d'un comptable." },
-      { q: "La marge de 20 % est-elle ajustable ?", a: "Pas à l'écran aujourd'hui. Le prix minimum est affiché à une marge cible de 20 % et le dit sous les tuiles. Le panneau Coût et marge d'une soumission se mesure à une cible distincte de 30 %." },
+      { q: "La marge de 20 % est-elle ajustable ?", a: "Oui — **Marge cible %** est à côté de Chantiers par semaine et accepte de 0 à 95. Laissez-la vide et le plancher utilise 20 % en disant sous les tuiles que c'est la valeur par défaut. Le panneau Coût et marge d'une soumission se mesure à une cible distincte de 30 %." },
     ],
   },
 
@@ -631,7 +631,7 @@ export const ARTICLES = {
           { bullets: [
             "Joint au courriel de soumission sous le nom **Quote-Q-2026-0012.pdf** chaque fois que vous appuyez sur Envoyer ou Renvoyer. Si le PDF ne se génère pas, le courriel part quand même et l'échec est consigné pour le soutien — le client n'attend jamais après une erreur de génération.",
             "Régénéré après l'approbation du client, avec sa signature, et envoyé par courriel à lui et aux propriétaires comme copie signée.",
-            "Pas téléchargeable depuis le bureau aujourd'hui — la page de la soumission n'a pas de bouton PDF. Votre copie est la pièce jointe du courriel d'approbation ; avant l'approbation, la copie du client est celle du courriel de soumission.",
+            "Téléchargeable depuis la page de la soumission avec **Télécharger le PDF** — le même document que reçoit le client, dans la langue de la soumission, enregistré sous Quote-Q-2026-0012.pdf. Le bouton n'apparaît qu'aux membres qui ont le commutateur **See prices**, parce que le PDF est le document tarifé et rien d'autre.",
             "Jamais envoyé pour une soumission saisie comme chantier passé.",
           ] },
         ],

@@ -618,7 +618,7 @@ export const ARTICLES = {
       "El mensaje «en camino» y el recordatorio de cita: cuándo se envía cada uno, los campos que puede usar, cómo la redacción sigue el idioma del cliente y qué no envía FieldQuo por texto.",
     updated: "2026-09-12",
     intro: [
-      "FieldQuo envía un mensaje de texto a un cliente en exactamente dos ocasiones: cuando un miembro de la cuadrilla pulsa **On my way** en una visita, y, si usted lo activa, un recordatorio **2 horas antes**, **24 horas antes** o **48 horas antes** de una cita. **Configuración → Mensajes de clientes** es donde cambia la redacción de ambos, con una vista previa **Tu cliente ve:** en vivo para que nadie envíe nunca a un cliente un **{price}** sin reemplazar.",
+      "FieldQuo envía un mensaje de texto a un cliente en exactamente dos ocasiones: cuando un miembro de la cuadrilla pulsa **Voy en camino** en una visita, y, si usted lo activa, un recordatorio **2 horas antes**, **24 horas antes** o **48 horas antes** de una cita o una visita de trabajo. **Configuración → Mensajes de clientes** es donde cambia la redacción de ambos, con una vista previa **Tu cliente ve:** en vivo para que nadie envíe nunca a un cliente un **{price}** sin reemplazar.",
       "No hay un tercer mensaje. La página lo dice — dos tipos de texto y nada más — y no puede hacer aparecer un editor para un mensaje que nunca sale, porque la lista viene de los mensajes que realmente se envían.",
     ],
     sections: [
@@ -626,7 +626,7 @@ export const ARTICLES = {
         id: "overview",
         heading: "Resumen",
         blocks: [
-          { p: "Los dos mensajes salen del número de texto compartido de FieldQuo y empiezan con el nombre de su empresa — **Northside Painting: Dave va en camino, llega en 20 min.** — para que el cliente sepa de quién viene. Cada recordatorio termina con **Responda STOP para no recibir más**, y un cliente que responde STOP no vuelve a recibir ninguno de los dos; la misma comprobación de baja se ejecuta antes del mensaje «en camino». Los recordatorios van solo por mensaje de texto: no hay recordatorio por correo." },
+          { p: "Los dos mensajes salen del número de texto compartido de FieldQuo y empiezan con el nombre de su empresa — **Northside Painting: Dave va en camino, llega en 20 min.** — para que el cliente sepa de quién viene. Cada recordatorio termina con **Responda STOP para no recibir más**, y un cliente que responde STOP no vuelve a recibir ninguno de los dos — la respuesta vuelve a la línea compartida, así que da de baja ese número en todas las empresas que lo tienen en una ficha de cliente; la misma comprobación de baja se ejecuta antes del mensaje «en camino». Los recordatorios van solo por mensaje de texto: no hay recordatorio por correo." },
         ],
       },
       {
@@ -636,11 +636,11 @@ export const ARTICLES = {
           { table: {
             head: ["Mensaje", "Cuándo se envía", "Campos"],
             rows: [
-              ["**On my way**", "En el momento en que el estado de una visita pasa a **En camino** en la página del trabajo: por el miembro de la cuadrilla asignado, cualquiera en una visita sin asignar, o alguien que puede editar el horario de todos. El botón nombra el número al que va a escribir, o dice claramente que el cliente no tiene teléfono registrado y no se enviará nada.", "**{company}**, **{worker}**, **{name}**, **{eta}**"],
-              ["**Appointment reminder**", "Una vez por cita, dentro de la hora del plazo elegido en **Configuración → Notificaciones → Recordatorios de cita** (**Desactivado**, **2 horas antes**, **24 horas antes**, **48 horas antes**). Desactivado por defecto; una empresa que nunca eligió un plazo no envía ninguno.", "**{company}**, **{when}**, **{location}**"],
+              ["**Voy en camino**", "En el momento en que el estado de una visita pasa a **En camino** en la página del trabajo: por el miembro de la cuadrilla asignado, cualquiera en una visita sin asignar, o alguien que puede editar el horario de todos. El botón nombra el número al que va a escribir, o dice claramente que el cliente no tiene teléfono registrado y no se enviará nada.", "**{company}**, **{worker}**, **{name}**, **{eta}**, **{phone}**"],
+              ["**Recordatorio de cita**", "Una vez por cita o visita de trabajo, dentro de la hora del plazo elegido en **Configuración → Notificaciones → Recordatorios de cita** (**Desactivado**, **2 horas antes**, **24 horas antes**, **48 horas antes**). Desactivado por defecto; una empresa que nunca eligió un plazo no envía ninguno.", "**{company}**, **{when}**, **{location}**"],
             ],
           } },
-          { p: "La redacción por defecto, tal como la recibe el cliente: **Northside Painting: Dave va en camino, llega en 20 min. Responda si necesita cambiar la hora.** y **Northside Painting: Recordatorio — su cita es mar, 12 ago, 2:00 p. m. en 123 Oak St. Responda STOP para no recibir más.** Un campo sin valor simplemente desaparece: sin hora de llegada, sin «llega en ,»." },
+          { p: "La redacción por defecto, tal como la recibe el cliente: **Northside Painting: Dave va en camino, llega en 20 min. Para cambiar la hora, llame al 555-0100.** y **Northside Painting: Recordatorio — su cita es mar, 12 ago, 2:00 p. m. en 123 Oak St. Responda STOP para no recibir más.** La hora de llegada se calcula desde la posición del miembro de la cuadrilla al tocar; el número es el suyo, el de Configuración de la empresa. Un campo sin valor simplemente desaparece: sin hora de llegada, sin «llega en ,», y sin la frase «llame» cuando no hay teléfono registrado." },
         ],
       },
       {
@@ -649,7 +649,7 @@ export const ARTICLES = {
         blocks: [
           { steps: [
             "Abra **Configuración → Mensajes de clientes** (bajo **Mensajería y alertas**).",
-            "Escriba en el cuadro **On my way** o **Appointment reminder**. Toque un chip — **{company}**, **{worker}**, **{name}**, **{eta}** — para insertar un campo al final.",
+            "Escriba en el cuadro **Voy en camino** o **Recordatorio de cita**. Toque un chip — **{company}**, **{worker}**, **{name}**, **{eta}**, **{phone}** — para insertar un campo al final.",
             "Vea cómo **Tu cliente ve:** se completa con valores de ejemplo. Un campo desconocido se señala — **Campo desconocido: {price}. Solo funcionan los campos anteriores.** — y **Guardar** sigue desactivado hasta que desaparezca. El servidor comprueba lo mismo.",
             "Pulse **Guardar**. La tarjeta recibe la etiqueta **Personalizado** y un botón **Usar el predeterminado**, que devuelve la redacción integrada.",
           ] },
@@ -681,7 +681,7 @@ export const ARTICLES = {
         id: "who-can-see-it",
         heading: "Quién puede verlo",
         blocks: [
-          { p: "**Configuración → Mensajes de clientes** es para el dueño, los administradores, los Gerentes y los Despachadores. El plazo del recordatorio en **Configuración → Notificaciones** es solo para el dueño y los administradores. Pulsar **On my way** en una visita sigue la regla del horario: el miembro de la cuadrilla asignado, cualquiera en una visita sin asignar, o alguien que puede editar el horario de todos." },
+          { p: "**Configuración → Mensajes de clientes** es para el dueño, los administradores, los Gerentes y los Despachadores. El plazo del recordatorio en **Configuración → Notificaciones** es solo para el dueño y los administradores. Pulsar **Voy en camino** en una visita sigue la regla del horario: el miembro de la cuadrilla asignado, cualquiera en una visita sin asignar, o alguien que puede editar el horario de todos." },
         ],
       },
     ],

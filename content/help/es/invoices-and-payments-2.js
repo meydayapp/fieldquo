@@ -57,7 +57,7 @@ export const ARTICLES = {
         id: "payments",
         heading: "Pagos",
         blocks: [
-          { p: "Un cliente paga desde el botón Pagar del correo de la factura o desde el portal de cliente. Los métodos ofrecidos dependen de su moneda: tarjeta en todas partes, y débito bancario preautorizado para las empresas canadienses que facturan en dólares canadienses." },
+          { p: "Un cliente paga desde el botón Pagar del correo de la factura o desde el portal de cliente. Los métodos ofrecidos dependen de su moneda y de su cuenta de Stripe: tarjeta en todas partes, y — una vez que Stripe lo ha activado en su cuenta — **Pagar desde una cuenta bancaria** junto al botón de tarjeta en facturas, depósitos y cuotas de un calendario de pagos: débito bancario preautorizado para una empresa canadiense que factura en dólares canadienses. Un pago bancario tarda de 3 a 5 días hábiles en liquidarse, y la factura dice **Pago bancario pendiente** hasta entonces." },
           { p: "En cada pago, FieldQuo registra la comisión a la tarifa publicada, y la línea del pago en la factura dice, por ejemplo, **“comisión de tarjeta $68.10 · depositado $2,191.90”**. Un pago que registra a mano — efectivo, cheque, transferencia — no lleva comisión y no muestra ninguna." },
           { figure: "live:app-invoices", caption: "Facturas — Pendiente, Pagada y Total facturado, y luego cada factura con su estado y su saldo." },
           { p: "La financiación a plazos (Affirm), si la activa, la cobra Affirm en lugar de la tarifa de tarjeta; esa comisión se traslada en esos pagos de la misma manera." },
@@ -99,7 +99,7 @@ export const ARTICLES = {
         id: "refunds",
         heading: "Reembolsos",
         blocks: [
-          { p: "Un reembolso devuelve el dinero al cliente a través de Stripe. La comisión de procesamiento **no se devuelve**: Stripe conserva su comisión en un cobro reembolsado, así que la comisión ya descontada sigue descontada. El registro del pago sigue mostrando la comisión original, y el reembolso aparece en su panel de Stripe sobre el mismo cobro." },
+          { p: "Un reembolso se emite desde la factura en FieldQuo — **Reembolsar** en la fila del pago, total o parcial, con un motivo — y devuelve el dinero al cliente a través de Stripe. La comisión de procesamiento **no se devuelve**: Stripe conserva su comisión en un cobro reembolsado, así que la comisión ya descontada sigue descontada. El pago sigue mostrando su comisión original, y el reembolso es su propia línea debajo, con el importe en negativo. Vea [[refunds|Reembolsos]]." },
           { warning: "Reembolse el importe de la factura, no el neto. Un cliente que pagó $2,260 espera recibir $2,260; los $68.10 de comisión son su costo por haber cobrado el pago." },
         ],
       },
@@ -158,35 +158,35 @@ export const ARTICLES = {
   "bank-debit-in-canada": {
     title: "Débito bancario en Canadá: 1% con tope de $5",
     summary:
-      "Dónde se ofrece el débito bancario preautorizado, cuánto cuesta, cuánto tarda un débito en liquidarse y por qué el tope de $5 es la forma más barata de cobrar una factura recurrente grande.",
+      "Dónde se ofrece el débito bancario preautorizado, cuánto cuesta, cuánto tarda un débito en liquidarse y por qué el tope de $5 es la forma más barata de cobrar una factura grande.",
     updated: "2026-09-12",
     intro: [
-      "Un cliente canadiense con un plan de servicio puede pagar por débito preautorizado directamente desde su cuenta bancaria en lugar de con tarjeta. La comisión es de **1% + $0.40, con tope de $5.00** por pago, así que un débito de $5,000 le cuesta $5, mientras que el mismo importe con tarjeta cuesta $150.30. El débito bancario se traslada al costo de Stripe; FieldQuo no le añade nada.",
-      "Este artículo dice exactamente dónde se ofrece el débito bancario (los planes de servicio facturados en dólares canadienses, no el botón Pagar de una factura puntual), qué acepta el cliente, cuánto tarda un débito en liquidarse y cómo figura la comisión en la factura y en su exportación contable.",
+      "Un cliente canadiense puede pagar una factura, un depósito, una cuota de un calendario de pagos o un plan de servicio por débito preautorizado directamente desde su cuenta bancaria en lugar de con tarjeta. La comisión es de **1% + $0.40, con tope de $5.00** por pago, así que un débito de $5,000 le cuesta $5, mientras que el mismo importe con tarjeta cuesta $150.30. El débito bancario se traslada al costo de Stripe; FieldQuo no le añade nada.",
+      "Este artículo dice exactamente dónde se ofrece el débito bancario (el botón **Pagar … desde una cuenta bancaria** del portal de cliente para facturas, depósitos y cuotas, y los planes de servicio con cobro automático — para una empresa que factura en dólares canadienses), qué acepta el cliente, cuánto tarda un débito en liquidarse y cómo figura la comisión en la factura y en su exportación contable.",
     ],
     sections: [
       {
         id: "overview",
         heading: "Resumen",
         blocks: [
-          { p: "El débito bancario en FieldQuo es el débito preautorizado canadiense (PAD) a través de Stripe. El cliente guarda su cuenta bancaria una sola vez, en una página alojada por Stripe, y acepta por escrito una serie de pagos de un importe fijo con una periodicidad fija. A partir de ahí, cada ocurrencia del plan se debita sin que el cliente haga nada, y cada débito genera una factura que puede ver en su portal." },
-          { p: "Se ofrece solo cuando la empresa factura en **CAD**. Stripe exige que la moneda del débito coincida con la cuenta bancaria canadiense del cliente, así que una empresa que factura en dólares estadounidenses ve la tarjeta como único método automático." },
-          { note: "El débito bancario no se ofrece en el botón Pagar de una factura normal. Ese pago acepta tarjetas (y Affirm, si activó el pago a plazos). El débito bancario vive en los planes de servicio con cobro automático — vea [[service-plans|Planes de servicio]]." },
+          { p: "El débito bancario en FieldQuo es el débito preautorizado canadiense (PAD) a través de Stripe, en dos formas. En el portal de cliente, un cliente que paga una factura, un depósito o una cuota toca **Pagar … desde una cuenta bancaria** y acepta un mandato de una sola vez para ese pago en la página de Stripe, que verifica la cuenta automáticamente cuando el banco lo permite. En un plan de servicio, el cliente guarda su cuenta bancaria una sola vez y acepta por escrito una serie de pagos de un importe fijo con una periodicidad fija; a partir de ahí, cada ocurrencia del plan se debita sin que el cliente haga nada, y cada débito genera una factura que puede ver en su portal." },
+          { p: "Se ofrece solo cuando la empresa factura en **CAD**. Stripe exige que la moneda del débito coincida con la cuenta bancaria canadiense del cliente, así que una empresa que factura en dólares estadounidenses obtiene en su lugar el débito bancario ACH en el mismo botón del portal (0.8%, con tope de $5.00), y la tarjeta como único método automático en los planes." },
+          { note: "El botón bancario del portal se ofrece solo cuando Stripe ha activado esa capacidad en su cuenta. FieldQuo la solicita al conectar, y **Configuración → Pagos** dice en qué punto está: **Los clientes pueden pagar las facturas con tarjeta o desde una cuenta bancaria**, o que el pago bancario se ofrecerá cuando Stripe lo active. Las tarifas de reserva siguen siendo solo con tarjeta — un horario retenido 30 minutos no puede esperar cinco días. Los planes de servicio con cobro automático conservan su propio mandato — vea [[service-plans|Planes de servicio]]." },
         ],
       },
       {
         id: "where-it-is-offered",
         heading: "Dónde se ofrece el débito bancario",
         blocks: [
-          { p: "La elección la hace el cliente, no usted: cuando le pide a un cliente que autorice un plan, la página de Stripe ofrece una tarjeta o, para una empresa en CAD, una cuenta bancaria, y el cliente elige. Este es el camino desde su lado." },
+          { p: "La elección la hace el cliente, no usted. En el portal, el botón bancario está junto al botón de tarjeta y el cliente elige; cuando le pide a un cliente que autorice un plan, la página de Stripe ofrece una tarjeta o, para una empresa en CAD, una cuenta bancaria. Este es el camino desde su lado." },
           { steps: [
-            "Abra **Planes de servicio** y cree el plan eligiendo **Cobrar automáticamente** en **Cómo se cobra**.",
-            "Guárdelo. El plan dice **Se pidió el cobro automático, pero el cliente todavía no lo ha autorizado** hasta que el cliente actúe. Pulse **Pedirle al cliente que autorice los pagos** para enviarle el enlace por correo.",
+            "En una factura, un depósito o una cuota no hay nada que configurar: una vez que Stripe ha activado el débito bancario en su cuenta, el portal del cliente muestra **Pagar … desde una cuenta bancaria** junto a **Pagar … con tarjeta**. La página de Stripe toma los datos bancarios, muestra su acuerdo de débito preautorizado para ese único pago, y la comisión se calcula exactamente para ese método — una factura de $5,000 cuesta $5.00.",
+            "En un plan de servicio, abra **Planes de servicio** y cree el plan eligiendo **Cobrar automáticamente** en **Cómo se cobra**. Guárdelo; el plan dice **Se pidió el cobro automático, pero el cliente todavía no lo ha autorizado** hasta que el cliente actúe. Pulse **Pedirle al cliente que autorice los pagos** para enviarle el enlace por correo.",
             "El cliente lee las condiciones de autorización en su propia página, marca la casilla y llega a la página de Stripe, que ofrece **tarjeta** o **cuenta bancaria**. Para una cuenta bancaria, Stripe muestra su propio acuerdo de débito preautorizado y le envía una copia al cliente por correo.",
             "Una vez guardada la cuenta, el plan dice **Se cobra automáticamente — débito bancario**, con la fecha en que el cliente lo autorizó. Hasta entonces, factura cada visita, exactamente como un plan sin mandato.",
           ] },
           { figure: "live:app-plans", caption: "Planes de servicio — cada plan con su periodicidad, cómo se cobra y qué viene después." },
-          { note: "El texto de autorización existe solo en inglés y en francés. A un cliente cuyo idioma no es ninguno de los dos no se le ofrece el cobro automático en absoluto: su plan envía una factura con enlace de pago en cada visita. Todo el detalle: [[service-plan-bank-debit-mandates|Planes de servicio pagados por débito bancario: el mandato]]." },
+          { note: "El texto de autorización de los planes existe solo en inglés y en francés. A un cliente cuyo idioma no es ninguno de los dos no se le ofrece el cobro automático en absoluto: su plan envía una factura con enlace de pago en cada visita. Todo el detalle: [[service-plan-bank-debit-mandates|Planes de servicio pagados por débito bancario: el mandato]]." },
         ],
       },
       {
@@ -201,7 +201,7 @@ export const ARTICLES = {
               ["$5,000", "$5.00 (el tope)", "$150.30"],
             ],
           } },
-          { p: "La comisión se descuenta del débito antes de que el dinero llegue a su banco, igual que la de tarjeta. La línea del pago en la factura dice, por ejemplo, **“comisión de débito bancario $5.00 · depositado $4,995.00”**, y la exportación contable escribe el método como “acss_debit” en su columna **Fee rate**. No hay recargo internacional ni de conversión de moneda en el débito bancario." },
+          { p: "La comisión se descuenta del débito antes de que el dinero llegue a su banco, igual que la de tarjeta. La línea del pago en la factura dice, por ejemplo, **“comisión de débito bancario $5.00 · depositado $4,995.00”**, y la exportación contable escribe el método como “acss_debit” en su columna **Fee rate**. No hay recargo internacional ni de conversión de moneda en el débito bancario, y la comisión es la misma tanto si el débito vino del botón del portal como de un plan." },
           { tip: "El tope se alcanza en $460. Por encima, cada dólar adicional que un cliente paga por débito bancario está libre de comisión, y por eso un plan de mantenimiento trimestral o anual es el lugar para ofrecerlo." },
         ],
       },
@@ -209,11 +209,11 @@ export const ARTICLES = {
         id: "how-a-debit-settles",
         heading: "Cómo se liquida un débito",
         blocks: [
-          { p: "Un cobro con tarjeta se responde en segundos. Un débito bancario se acepta de inmediato, pero el dinero se mueve después por el sistema bancario y tarda unos **5 días hábiles** en liquidarse." },
+          { p: "Un cobro con tarjeta se responde en segundos. Un débito bancario se acepta de inmediato, pero el dinero se mueve después por el sistema bancario y tarda de **3 a 5 días hábiles** en liquidarse." },
           { bullets: [
-            "Mientras está en tránsito, la ocurrencia del plan aparece como en cobro y la factura **no** se marca como pagada: FieldQuo no muestra una cuenta saldada contra dinero que no ha llegado. Stripe le envía al cliente el aviso de débito que el mandato exige.",
+            "Mientras está en tránsito, la factura **no** se marca como pagada: FieldQuo no muestra una cuenta saldada contra dinero que no ha llegado. Desde el portal, la factura del cliente dice **Pago bancario pendiente** y la suya lleva un aviso que dice que hay un pago bancario en camino y desde cuándo; en un plan, la ocurrencia aparece como en cobro. Stripe le envía al cliente el aviso de débito que el mandato exige.",
             "Cuando se liquida, la factura pasa a **Pagada** y el cliente recibe por correo un recibo de su empresa.",
-            "Si el banco lo devuelve (fondos insuficientes, una cuenta cerrada), la ocurrencia se marca como fallida y el cliente recibe por correo la factura con un enlace de pago, así que la visita sigue facturada y todavía puede pagarse con tarjeta.",
+            "Si el banco lo devuelve (fondos insuficientes, una cuenta cerrada), el saldo sigue pendiente. Desde el portal, la factura dice **El pago bancario falló** con el motivo que da Stripe, y el cliente puede intentarlo de nuevo o pagar con tarjeta; en un plan, la ocurrencia se marca como fallida y el cliente recibe por correo la factura con un enlace de pago, así que la visita sigue facturada y todavía puede pagarse con tarjeta.",
           ] },
           { warning: "Una cuenta bancaria que aún necesita la verificación por microdepósitos todavía no es un mandato. FieldQuo no registra la autorización hasta que Stripe informa que la configuración está completa, así que un plan puede decir “El cliente aceptó, pero aún no ha guardado una forma de pago” durante uno o dos días mientras el cliente confirma los depósitos." },
         ],
@@ -230,14 +230,14 @@ export const ARTICLES = {
         id: "who-can-see-it",
         heading: "Quién puede configurarlo",
         blocks: [
-          { p: "Los planes de servicio están bajo Facturas en la cuadrícula de acceso: quien puede ver facturas puede ver planes. Crear un plan y enviar el enlace de autorización requiere acceso de edición a facturas **y** la opción **pagos**: el nivel Gerente y superiores, y cualquier acceso personalizado con ambos. La comisión en sí no es un ajuste; nadie puede cambiarla." },
+          { p: "El botón del portal no exige nada de usted más allá de una cuenta de Stripe conectada. Los planes de servicio están bajo Facturas en la cuadrícula de acceso: quien puede ver facturas puede ver planes. Crear un plan y enviar el enlace de autorización requiere acceso de edición a facturas **y** la opción **pagos**: el nivel Gerente y superiores, y cualquier acceso personalizado con ambos. La comisión en sí no es un ajuste; nadie puede cambiarla." },
         ],
       },
     ],
     faq: [
-      { q: "¿Puede un cliente pagar una factura puntual por débito bancario?", a: "No. El botón Pagar de una factura acepta tarjetas, más Affirm si ofrece financiación. El débito bancario está disponible a través de un plan de servicio que el cliente ha autorizado." },
+      { q: "¿Puede un cliente pagar una factura puntual por débito bancario?", a: "Sí — desde su portal, con Pagar … desde una cuenta bancaria junto al botón de tarjeta, una vez que Stripe ha activado el débito bancario en su cuenta. Los depósitos y las cuotas de un calendario de pagos también. Las tarifas de reserva siguen siendo solo con tarjeta, y un plan de servicio conserva su mandato permanente." },
       { q: "¿El tope de $5 es por pago o por mes?", a: "Por pago. Dos débitos de $5,000 en un mismo mes cuestan $5 cada uno." },
-      { q: "¿Por qué la factura sigue sin pagar dos días después del débito?", a: "Un débito bancario tarda unos cinco días hábiles en liquidarse. La factura se marca como pagada cuando el dinero llega de verdad, no cuando se solicita el débito." },
+      { q: "¿Por qué la factura sigue sin pagar dos días después del débito?", a: "Un débito bancario tarda de 3 a 5 días hábiles en liquidarse. La factura dice Pago bancario pendiente, y se marca como pagada cuando el dinero llega de verdad, no cuando se solicita el débito." },
     ],
   },
 
@@ -431,10 +431,10 @@ export const ARTICLES = {
   "refunds": {
     title: "Reembolsos",
     summary:
-      "Cómo devolverle un pago en línea a un cliente a través de Stripe, qué registra FieldQuo cuando lo hace, y por qué la comisión de procesamiento sigue descontada.",
+      "Cómo devolverle un pago a un cliente desde la factura — a través de Stripe para tarjeta o débito bancario, a mano para efectivo — qué registra FieldQuo cuando lo hace, y por qué la comisión de procesamiento sigue descontada.",
     updated: "2026-09-12",
     intro: [
-      "Un reembolso devuelve una parte o la totalidad de un pago en línea a la tarjeta o la cuenta bancaria del cliente. Usted lo emite en su panel de Stripe — no hay botón de reembolso en FieldQuo — y FieldQuo lo registra en cuanto Stripe lo informa: la línea del pago, el saldo y el estado de la factura, y una notificación a las personas que se ocupan de los pagos.",
+      "Un reembolso devuelve una parte o la totalidad de un pago al cliente. Usted lo emite desde la factura en FieldQuo — **Reembolsar** en la fila del pago — por el importe completo o una parte, con un motivo que el cliente verá en su factura. Un pago con tarjeta o por débito bancario vuelve por donde vino, a través de Stripe; un reembolso en efectivo, con cheque o por transferencia se registra sin que ningún dinero pase por Stripe. FieldQuo escribe el reembolso como su propia línea debajo del pago, y el saldo y el estado de la factura lo siguen.",
       "La comisión de procesamiento no se devuelve. Stripe conserva su comisión en un cobro reembolsado, así que la comisión ya descontada sigue descontada. Reembolse el importe que el cliente pagó, no el neto que usted recibió.",
     ],
     sections: [
@@ -442,7 +442,7 @@ export const ARTICLES = {
         id: "overview",
         heading: "Resumen",
         blocks: [
-          { p: "Cada pago en línea es un cobro de Stripe a nombre de su empresa. Reembolsarlo es una acción de Stripe, hecha desde el panel Express detrás de **Gestionar en Stripe**, por el importe completo o una parte, una vez o varias. FieldQuo escucha la confirmación de Stripe y actualiza la factura: nunca emite un reembolso de factura por su cuenta, y nunca saca dinero de su saldo sin que Stripe le diga que el reembolso ocurrió." },
+          { p: "Cada pago en línea es un cobro de Stripe a nombre de su empresa, y reembolsarlo es un reembolso de Stripe — emitido desde FieldQuo, porque el panel Express detrás de **Gestionar en Stripe** no puede reembolsar un cobro que la plataforma creó en su nombre. FieldQuo registra el reembolso solo cuando Stripe confirma que el dinero se movió, una vez o varias sobre el mismo pago, y nunca emite uno por su cuenta. Una sesión de soporte de solo lectura se rechaza: el acceso de soporte no puede mover el dinero de una empresa." },
           { note: "Hay un reembolso que FieldQuo sí emite por sí mismo: la tarifa de visita de una reserva, devuelta cuando un cliente cancela una visita dentro del plazo de aviso que usted fijó. Es una regla aparte — vea [[booking-fees-and-visit-deposits|Tarifas de reserva y depósitos de visita]]." },
         ],
       },
@@ -451,12 +451,12 @@ export const ARTICLES = {
         heading: "Cómo reembolsar un pago en línea",
         blocks: [
           { steps: [
-            "Abra la factura y anote la fecha y el importe del pago en su línea.",
-            "Abra **Configuración → Pagos** y pulse **Gestionar en Stripe**.",
-            "En el panel de Stripe, abra el pago y reembólselo: el importe completo o una parte.",
-            "De vuelta en FieldQuo, la factura se actualiza sola en cuanto Stripe confirma el reembolso. No hay nada que pulsar.",
+            "Abra la factura y busque el pago en **Historial de pagos**. Un pago que todavía retiene dinero muestra **Reembolsar** a su lado.",
+            "Pulse **Reembolsar**. El cuadro — **Reembolsar este pago** — dice cuánto se puede reembolsar todavía, y pide el **Importe a reembolsar** (el importe completo o una parte) y un **Motivo** (“Trabajo cancelado, pago de más, cortesía”).",
+            "Lea la línea bajo los campos. Para un pago con tarjeta o por débito bancario: el dinero vuelve a la tarjeta o cuenta bancaria del cliente a través de Stripe, normalmente en 5–10 días hábiles, y Stripe no devuelve su comisión de procesamiento. Para un pago en efectivo, con cheque o por transferencia: no se mueve dinero; registra que usted devolvió el importe.",
+            "Pulse **Reembolsar**. La fila aparece de inmediato — **Reembolso (Card) — su motivo**, con un importe negativo — y el saldo y el estado de la factura se actualizan. Un doble clic o un envío repetido no puede emitirlo dos veces.",
           ] },
-          { figure: "live:app-settings-payments", caption: "Configuración → Pagos — Gestionar en Stripe abre el panel donde se emiten los reembolsos." },
+          { figure: "harness:invoice-detail", caption: "La factura — el Historial de pagos al final, donde Reembolsar está junto a cada pago que todavía retiene dinero." },
           { warning: "Reembolse el importe de la factura, no el neto. Un cliente que pagó $2,260 espera recibir $2,260; los $68.10 de comisión son su costo por haber cobrado el pago, y Stripe no los devuelve." },
         ],
       },
@@ -465,10 +465,10 @@ export const ARTICLES = {
         heading: "Qué registra FieldQuo",
         blocks: [
           { bullets: [
-            "La línea del pago conserva su importe y su comisión originales, y suma el importe reembolsado y la fecha. Un segundo reembolso parcial sobre el mismo cobro actualiza la misma línea con el nuevo total reembolsado; nunca una segunda línea.",
+            "**Una fila de reembolso** propia debajo del pago: un importe negativo, el método, el motivo y quién lo emitió. El pago original conserva su importe y su comisión. Un segundo reembolso parcial es una segunda fila, y juntas nunca pueden superar lo que el pago todavía retiene.",
             "La cifra pagada de la factura baja en el reembolso y su saldo sube en la misma cantidad. Una factura reembolsada por completo dice **Reembolsada**; una reembolsada en parte dice **Reembolso parcial**, con un aviso como “Reembolsada en parte — se le devolvieron $500.00 al cliente.”",
-            "Propietarios y administradores reciben una notificación: “Se retiró dinero de la factura INV-1042 — Jane Tremblay”, marcada **Reembolsado**. El nivel Gerente no la recibe — vea [[disputes-and-chargebacks|Disputas y contracargos]] para saber a quién se avisa.",
-            "En la exportación contable, el pago conserva su bruto, su comisión y su neto; el reembolso aparece en su panel de Stripe sobre el mismo cobro.",
+            "Propietarios y administradores reciben una notificación cuando Stripe confirma el reembolso: “Se retiró dinero de la factura INV-1042 — Jane Tremblay”, marcada **Reembolsado**. El nivel Gerente no la recibe — vea [[disputes-and-chargebacks|Disputas y contracargos]] para saber a quién se avisa.",
+            "En la exportación contable, el pago conserva su bruto, su comisión y su neto, y el reembolso es una línea propia en el archivo de pagos — método **refund**, un importe negativo, el identificador de reembolso de Stripe como referencia y su motivo como nota — con un total **Refunds** en el resumen junto a **Payments received**. Un reembolso hecho directamente en su panel de Stripe se registra en cambio sobre el importe reembolsado del pago original, no como una línea.",
           ] },
           { p: "Un reembolso sobre una versión anterior de una factura modificada se aplica a la versión más reciente, porque la familia de versiones comparte un único saldo acumulado." },
         ],
@@ -477,7 +477,7 @@ export const ARTICLES = {
         id: "the-fee",
         heading: "La comisión en un pago reembolsado",
         blocks: [
-          { p: "Stripe conserva su comisión de procesamiento en un cobro reembolsado. Un reembolso emitido desde su panel deja la comisión donde está, y el único reembolso que FieldQuo emite por sí mismo — la tarifa de visita — se crea con la comisión deliberadamente **no** devuelta: devolverla dejaría a FieldQuo pagándole a Stripe por un pago que nadie conservó. Así que la comisión que vio en la línea del pago es la comisión que pagó, con reembolso o sin él." },
+          { p: "Stripe conserva su comisión de procesamiento en un cobro reembolsado, y FieldQuo tampoco devuelve su parte — el cuadro lo dice antes de que confirme. Un reembolso desde la factura, un reembolso hecho en su panel de Stripe y la tarifa de visita que FieldQuo devuelve en una reserva cancelada se crean todos con la comisión deliberadamente **no** devuelta: devolverla dejaría a FieldQuo pagándole a Stripe por un pago que nadie conservó. Así que la comisión que vio en la línea del pago es la comisión que pagó, con reembolso o sin él." },
           { p: "Si su saldo no puede cubrir un reembolso, Stripe recupera la diferencia de sus siguientes pagos antes de transferir nada — vea la sección de saldos negativos de [[payment-processing-fees-and-payouts|Comisiones de procesamiento de pagos y transferencias]]." },
         ],
       },
@@ -485,19 +485,19 @@ export const ARTICLES = {
         id: "manual-payments",
         heading: "Reembolsar un pago en efectivo, con cheque o por transferencia",
         blocks: [
-          { p: "FieldQuo no registra reembolsos de pagos manuales. El formulario **Registrar pago** rechaza un importe negativo, así que un reembolso en efectivo que usted entrega no puede anotarse como pago. Devuelva el dinero fuera de la aplicación y, si la factura debe mostrar un total menor, modifique la factura — vea [[edit-an-invoice-after-sending|Editar una factura después de enviarla]]." },
+          { p: "Un pago en efectivo, con cheque o por transferencia se reembolsa desde la misma acción **Reembolsar**. El pago no se cobró a través de FieldQuo, así que no se hace ninguna llamada a Stripe: la fila registra que usted devolvió el importe a mano, y el saldo de la factura sube en la misma cantidad. El formulario **Registrar pago** sigue rechazando un importe negativo — un reembolso no es un pago escrito con un signo menos. Si la factura debe mostrar un total menor, modifique la factura — vea [[edit-an-invoice-after-sending|Editar una factura después de enviarla]]." },
         ],
       },
       {
         id: "who-can",
         heading: "Quién puede reembolsar",
         blocks: [
-          { p: "Quien pueda abrir **Gestionar en Stripe**: propietarios y administradores. Ver el reembolso en la factura requiere la opción **pagos**, que el nivel Gerente tiene y los niveles Cuadrilla, Estimador y Despachador no." },
+          { p: "Propietarios y administradores, y cualquiera cuyo acceso tenga a la vez la opción **pagos** y acceso de edición a facturas — el nivel Gerente cumple; los niveles Cuadrilla, Estimador y Despachador no. **Reembolsar** solo se muestra para ellos, y la solicitud se rechaza para cualquier otra persona y para una sesión de soporte de solo lectura. Ver la fila de reembolso en la factura requiere la misma opción **pagos**." },
         ],
       },
     ],
     faq: [
-      { q: "¿Hay un botón de reembolso en la factura?", a: "No. Los reembolsos se emiten en su panel de Stripe mediante Gestionar en Stripe; FieldQuo registra el resultado automáticamente." },
+      { q: "¿Hay un botón de reembolso en la factura?", a: "Sí — Reembolsar, junto a cada pago del Historial de pagos que todavía retiene dinero. Es el único lugar donde se pueden reembolsar estos cobros: el panel Express detrás de Gestionar en Stripe no puede reembolsar un cobro que la plataforma creó por usted." },
       { q: "¿El cliente recupera su comisión de procesamiento?", a: "El cliente nunca pagó una comisión: pagó el total de la factura. Reembolse ese total. La comisión se descontó de su lado y sigue descontada." },
       { q: "¿El recordatorio de vencimiento reclamará una factura reembolsada?", a: "No. El recordatorio automático de vencimiento solo reclama facturas que siguen en estado Enviada o Atrasada; una factura reembolsada o con reembolso parcial no es ninguna de las dos." },
     ],

@@ -184,7 +184,7 @@ export const ARTICLES = {
             head: ["Chiffre", "Comment il est calculé"],
             rows: [
               ["**Coût moyen par prospect**", "Tout ce qui est enregistré, divisé par les prospects de votre tableau Prospects sur la même période. Les prospects saisis à la main ou importés d'un fichier sont exclus et comptés à part — « + 4 prospects saisis manuellement ou importés, non comptés » — parce que la dépense de la période ne les a pas provoqués."],
-              ["**Dépenses par canal**", "Les montants enregistrés par canal, avec les prospects et le coût par prospect que vous avez tapés, marqués « (saisi) »."],
+              ["**Dépenses par canal**", "Les montants enregistrés par canal sous **Dépensé**, avec les prospects et le coût par prospect que vous avez tapés, marqués « (saisi) », et une colonne **Budgété (campagnes)** : les budgets de vos campagnes non archivées dans Marketing, additionnés par canal — les campagnes de dépliants vers Dépliants, Meta / publicités payantes vers Facebook / Instagram, courriel et autre vers Autre. Un canal avec un budget et rien d'enregistré affiche « rien d'enregistré pour l'instant », et une liste sous le tableau nomme la campagne d'où vient le chiffre. Un budget n'entre jamais dans un total ni dans un coût par prospect."],
               ["**Campagnes**", "Une ligne par campagne Meta synchronisée par FieldQuo : ce qu'elle a coûté, ce que Meta a rapporté (impressions, portée, clics, CTR, CPC, conversations, vues vidéo, interactions) et ce que sont devenus ses prospects par formulaire — prospects, soumissions, chantiers, facturé."],
               ["**≈ approximatif**", "Un compte Meta qui rapporte dans une autre devise que celle de votre entreprise est converti à un taux de change fixé et marqué ≈. Si ce taux date de plus de 45 jours, ou si FieldQuo n'a pas de taux pour cette paire, les lignes sont exclues et l'écran nomme le montant et la raison."],
             ],
@@ -205,6 +205,7 @@ export const ARTICLES = {
       { q: "FieldQuo peut-il me dire quel canal fonctionne ?", a: "Seulement pour les prospects par formulaire Meta, par campagne. Tout le reste est fondu dans la moyenne, et l'écran le dit sous le chiffre plutôt que de deviner." },
       { q: "La synchronisation Meta tourne-t-elle toute seule ?", a: "Non. Appuyez sur Synchroniser maintenant dans Paramètres → Publicités Meta ; chaque pression importe les 30 derniers jours." },
       { q: "Pourquoi mon chiffre dit-il « Pas encore assez de données » ?", a: "Aucune dépense n'a été enregistrée, ou aucun prospect n'est arrivé pendant la période. Les deux cas sont affichés plutôt qu'un zéro." },
+      { q: "Pourquoi un canal affiche-t-il un chiffre Budgété alors que je n'ai rien enregistré ?", a: "Parce qu'une campagne de ce canal dans Marketing porte un budget. Budgété est ce que vous avez réservé pour toute la durée de la campagne, pas pour une période ; Dépensé est ce qui a été enregistré ici ou synchronisé depuis Meta. Archivez la campagne et son budget quitte la colonne." },
     ],
   },
 

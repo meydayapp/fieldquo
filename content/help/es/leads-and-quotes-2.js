@@ -416,7 +416,7 @@ export const ARTICLES = {
         heading: "Qué hay en la pantalla",
         blocks: [
           { bullets: [
-            "**Tu precio mínimo** — la casilla **Trabajos por semana**, **Guardar**, y luego cuatro cuadros: **Costos fijos mensuales**, **Trabajos / mes**, **Costo por trabajo** y **Precio mínimo**, con una línea que dice qué incluye el total y el margen objetivo que supone.",
+            "**Tu precio mínimo** — las casillas **Trabajos por semana** y **Margen objetivo %**, **Guardar**, y luego cuatro cuadros: **Costos fijos mensuales**, **Trabajos / mes**, **Costo por trabajo** y **Precio mínimo**, con una línea que dice qué incluye el total y el margen objetivo que supone.",
             "**Horas pagadas que nunca llegaron a un trabajo** — la semana que usted garantiza a la gente frente a las horas que realmente registraron en trabajos, últimos 30 días. Se informa, y a propósito **no** se cuenta en el precio de arriba; el recuadro lo dice.",
             "**Costos fijos** — alquiler, seguro, teléfono, suscripciones: todo lo que llega gane usted un trabajo o no, mensual o anual.",
             "**Salarios** — solo gastos generales del negocio: su propio retiro, un sueldo de oficina. No la cuadrilla, cuyas horas ya se cargan a cada trabajo como mano de obra.",
@@ -433,11 +433,11 @@ export const ARTICLES = {
           { steps: [
             "Abra **Configuración → Gastos generales** y complete los registros: costos fijos, salarios, cualquier deuda, cualquier activo que valga más de unos cientos de dólares.",
             "Vincule un activo al préstamo que lo pagó. El préstamo entonces cuenta solo por sus intereses y la depreciación del activo carga su costo — de lo contrario la misma camioneta se cobra dos veces, y la pantalla le avisa cuando ve ese patrón.",
-            "Escriba **Trabajos por semana** — una semana normal para su cuadrilla — y pulse **Guardar**.",
+            "Escriba **Trabajos por semana** — una semana normal para su cuadrilla — y, si el 20 % no es su cifra, **Margen objetivo %**; luego pulse **Guardar**.",
             "Lea **Precio mínimo**. Todo lo presupuestado por debajo no cubre el taller antes siquiera de contar materiales y mano de obra.",
           ] },
           { figure: "harness:settings-overhead", caption: "Configuración → Gastos generales — Tu precio mínimo con sus cuatro cuadros, y la nota que explica qué incluye el total." },
-          { note: "Los cuadros dan **Costo por trabajo** como los gastos generales que un trabajo tiene que cargar, y **Precio mínimo** como ese costo a un margen objetivo del **20 %**. Los materiales y la mano de obra del trabajo concreto van aparte — la nota bajo los cuadros lo dice." },
+          { note: "Los cuadros dan **Costo por trabajo** como los gastos generales que un trabajo tiene que cargar, y **Precio mínimo** como ese costo a su **Margen objetivo %** — 20 % mientras no fije uno, y la nota bajo los cuadros dice cuándo sigue siendo el valor predeterminado. Los materiales y la mano de obra del trabajo concreto van aparte — la nota también lo dice." },
         ],
       },
       {
@@ -450,7 +450,7 @@ export const ARTICLES = {
               ["Costos fijos mensuales", "Costos fijos + salarios + deuda, más la depreciación de sus activos y el interés de sus préstamos. Un préstamo vinculado a un activo cuenta solo por su interés."],
               ["Trabajos / mes", "Trabajos por semana × 4.33."],
               ["Costo por trabajo", "Costos fijos mensuales ÷ trabajos por mes."],
-              ["Precio mínimo", "Costo por trabajo ÷ (1 − 20 %)."],
+              ["Precio mínimo", "Costo por trabajo ÷ (1 − margen objetivo) — 20 % salvo que fije el suyo."],
             ],
           } },
         ],
@@ -483,7 +483,7 @@ export const ARTICLES = {
     faq: [
       { q: "¿Por qué el precio mínimo está vacío?", a: "Los trabajos por semana no están definidos. La pantalla se niega a dividir sus gastos generales por un número que inventó. Escriba la capacidad de una semana normal y pulse Guardar." },
       { q: "¿Los sueldos de mi cuadrilla van en Salarios?", a: "No. Las horas de la cuadrilla se cargan a cada trabajo como mano de obra en el panel Costo y margen; ponerlas aquí además las cuenta dos veces. Salarios es para pagos fijos de gastos generales — su propio retiro, un sueldo de oficina, las horas de un contador." },
-      { q: "¿El margen del 20 % es ajustable?", a: "Hoy no, en la pantalla. El precio mínimo se muestra a un margen objetivo del 20 % y lo dice bajo los cuadros. El panel Costo y margen de un presupuesto se mide contra un objetivo aparte del 30 %." },
+      { q: "¿El margen del 20 % es ajustable?", a: "Sí — **Margen objetivo %** está junto a Trabajos por semana y acepta de 0 a 95. Déjelo vacío y el piso usa 20 % diciendo bajo los cuadros que es el valor predeterminado. El panel Costo y margen de un presupuesto se mide contra un objetivo aparte del 30 %." },
     ],
   },
 
@@ -631,7 +631,7 @@ export const ARTICLES = {
           { bullets: [
             "Adjunto al correo del presupuesto como **Quote-Q-2026-0012.pdf** cada vez que usted pulsa Enviar o Enviar de nuevo. Si el PDF no se genera, el correo sale igual y la falla se registra para soporte — el cliente nunca queda esperando por un error de generación.",
             "Regenerado después de que el cliente aprueba, con su firma, y enviado por correo a él y a los propietarios como la copia firmada.",
-            "No se puede descargar desde la oficina hoy — la página del presupuesto no tiene botón de PDF. Su copia es el adjunto del correo de aprobación; antes de la aprobación, la copia del cliente es la del correo del presupuesto.",
+            "Se descarga desde la página del presupuesto con **Descargar PDF** — el mismo documento que recibe el cliente, en el idioma del presupuesto, guardado como Quote-Q-2026-0012.pdf. El botón solo aparece a los miembros con el interruptor **See prices**, porque el PDF es el documento con precios y nada más.",
             "Nunca se envía por un presupuesto registrado como trabajo pasado.",
           ] },
         ],

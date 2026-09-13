@@ -554,9 +554,9 @@ export const ARTICLES = {
           { table: {
             head: ["Fichier", "Une ligne par", "Colonnes"],
             rows: [
-              ["summary", "période", "Entreprise, période, date de génération, devise de facturation ; puis par devise : Facturé, dont taxes, Paiements reçus, Frais de traitement, Frais de compte Stripe, Dépenses ; puis les limites et les notes sur la période."],
+              ["summary", "période", "Entreprise, période, date de génération, devise de facturation ; puis par devise : Facturé, dont taxes, Paiements reçus, Remboursements, Frais de traitement, Frais de compte Stripe, Dépenses ; puis les limites et les notes sur la période."],
               ["invoices", "facture", "Numéro de facture, Émise, Date tirée de, Échéance, Client, Statut, Version, Devise, Sous-total, Rabais, Taxe, Taxe appliquée, Total, Payé à ce jour, Reçu dans la période, Solde."],
-              ["payments", "paiement", "Date, Numéro de facture, Client, Moyen, Devise, Montant, Frais de traitement, Net déposé, Taux de frais, Frais de compte Stripe, Référence, Notes."],
+              ["payments", "paiement ou remboursement", "Date, Numéro de facture, Client, Moyen, Devise, Montant, Frais de traitement, Net déposé, Taux de frais, Frais de compte Stripe, Référence, Notes. Un remboursement émis depuis FieldQuo est sa propre ligne : moyen **refund**, un Montant négatif, l'identifiant de remboursement Stripe comme Référence et le motif comme Notes."],
               ["expenses", "dépense", "Date, Catégorie, Devise, Montant, Frais généraux, Récurrente, Fréquence, Chantier, Notes."],
             ],
           } },
@@ -583,7 +583,7 @@ export const ARTICLES = {
             "Une déclaration. Rien ici n'a été remis à une administration fiscale.",
             "Une déclaration de taxes de vente. La taxe d'une facture est un montant unique, sans codes de taxe ni taxe par ligne.",
             "Les crédits de taxe sur intrants. Les dépenses ne portent ni taxe ni fournisseur, donc la taxe récupérable sur vos achats n'est pas suivie.",
-            "Les remboursements et notes de crédit. Un remboursement apparaît sur la facture et dans votre tableau de bord Stripe ; ce n'est pas une ligne de ce fichier.",
+            "Les notes de crédit. Un remboursement émis depuis la facture dans FieldQuo est une ligne négative du fichier des paiements et se totalise sous Remboursements ; un remboursement fait directement dans votre tableau de bord Stripe n'est pas une ligne — il n'apparaît que sur le montant remboursé du paiement d'origine.",
             "Un plan comptable. Rien n'est associé à un compte du grand livre — votre comptable le fait une fois, à l'import.",
           ] },
         ],
@@ -592,7 +592,7 @@ export const ARTICLES = {
         id: "importing-it",
         heading: "Importer dans QuickBooks ou Xero",
         blocks: [
-          { p: "Associez le **Montant** du fichier des paiements aux revenus, les **Frais de traitement** à une dépense de frais marchands et le **Net déposé** au dépôt bancaire ; le flux bancaire concorde alors ligne pour ligne. Les factures entrent au **Total** avec **Taxe** comme montant de taxe. La marche à suivre par logiciel est dans [[quickbooks-xero-and-your-bookkeeper|QuickBooks, Xero et votre comptable]] ; les colonnes de frais sont expliquées dans [[payment-processing-fees-and-payouts|Frais de traitement des paiements et versements]]." },
+          { p: "Associez le **Montant** du fichier des paiements aux revenus, les **Frais de traitement** à une dépense de frais marchands et le **Net déposé** au dépôt bancaire ; le flux bancaire concorde alors ligne pour ligne. Une ligne **refund** est un Montant négatif sur le même compte de revenus, sans frais propres. Les factures entrent au **Total** avec **Taxe** comme montant de taxe. La marche à suivre par logiciel est dans [[quickbooks-xero-and-your-bookkeeper|QuickBooks, Xero et votre comptable]] ; les colonnes de frais sont expliquées dans [[payment-processing-fees-and-payouts|Frais de traitement des paiements et versements]]." },
         ],
       },
       {

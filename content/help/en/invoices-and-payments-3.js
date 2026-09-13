@@ -556,9 +556,9 @@ export const ARTICLES = {
           { table: {
             head: ["File", "One row per", "Columns"],
             rows: [
-              ["summary", "the range", "Company, range, generated date, billing currency; then per currency: Invoiced, of which tax, Payments received, Processing fees, Stripe account fees, Expenses; then the limitations and any notes on the range."],
+              ["summary", "the range", "Company, range, generated date, billing currency; then per currency: Invoiced, of which tax, Payments received, Refunds, Processing fees, Stripe account fees, Expenses; then the limitations and any notes on the range."],
               ["invoices", "invoice", "Invoice number, Issued, Date taken from, Due, Client, Status, Version, Currency, Subtotal, Discount, Tax, Tax applied, Total, Paid to date, Received in range, Balance."],
-              ["payments", "payment", "Date, Invoice number, Client, Method, Currency, Amount, Processing fee, Net deposited, Fee rate, Stripe account fees, Reference, Notes."],
+              ["payments", "payment or refund", "Date, Invoice number, Client, Method, Currency, Amount, Processing fee, Net deposited, Fee rate, Stripe account fees, Reference, Notes. A refund issued from FieldQuo is its own line: method **refund**, a negative Amount, Stripe's refund id as the Reference and the reason as the Notes."],
               ["expenses", "expense", "Date, Category, Currency, Amount, Overhead, Recurring, Frequency, Job, Notes."],
             ],
           } },
@@ -585,7 +585,7 @@ export const ARTICLES = {
             "A filing. Nothing here has been remitted to any tax authority.",
             "A sales-tax return. Invoice tax is one amount per invoice, with no tax codes and no per-line tax.",
             "Input tax credits. Expenses carry no tax and no supplier, so recoverable tax on what you bought is not tracked.",
-            "Refunds and credit notes. A refund shows on the invoice and in your Stripe dashboard; it is not a row in this file.",
+            "Credit notes. A refund issued from the invoice in FieldQuo is a negative line in the payments file and is totalled under Refunds; a refund made directly in your Stripe dashboard is not a line — it shows on the original payment's refunded amount only.",
             "A chart of accounts. Nothing is mapped to a GL account — your bookkeeper does that once, on import.",
           ] },
         ],
@@ -594,7 +594,7 @@ export const ARTICLES = {
         id: "importing-it",
         heading: "Importing into QuickBooks or Xero",
         blocks: [
-          { p: "Map the payments file's **Amount** to income, **Processing fee** to a merchant-fees expense and **Net deposited** to the bank deposit; the bank feed then matches line for line. Invoices go in at **Total** with **Tax** as the tax amount. The walk-through per package is in [[quickbooks-xero-and-your-bookkeeper|QuickBooks, Xero and your bookkeeper]]; the fee columns are explained in [[payment-processing-fees-and-payouts|Payment processing fees and payouts]]." },
+          { p: "Map the payments file's **Amount** to income, **Processing fee** to a merchant-fees expense and **Net deposited** to the bank deposit; the bank feed then matches line for line. A **refund** line is a negative Amount against the same income account, with no fee of its own. Invoices go in at **Total** with **Tax** as the tax amount. The walk-through per package is in [[quickbooks-xero-and-your-bookkeeper|QuickBooks, Xero and your bookkeeper]]; the fee columns are explained in [[payment-processing-fees-and-payouts|Payment processing fees and payouts]]." },
         ],
       },
       {

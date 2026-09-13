@@ -101,7 +101,7 @@ export const ARTICLES = {
     faq: [
       { q: "Why can I not drag a lead straight to Won?", a: "Won means a client said yes to a priced quote, and a lead with no quote has nothing behind it. Convert it first; once a quote exists you can move the card by hand, and when the client accepts online it moves on its own." },
       { q: "Where did the lead's email go?", a: "Your access level on Clients is “name and address only”, so the server removes the email, phone and stated budget before the board is sent to you. Ask an owner or administrator if you need them." },
-      { q: "Does marking a lead Contacted send anything?", a: "No. It records that you spoke to the person. Nothing is emailed or texted by any status button on this board." },
+      { q: "Does marking a lead Contacted send anything?", a: "No. It records that you spoke to the person. Nothing is emailed or texted by any status button on this board — though marking a lead Contacted does stop a **New enquiry, nobody replied** follow-up rule, if you run one. See [[follow-up-rules|Follow-up rules]]." },
       { q: "Can the receptionist's callers appear here?", a: "Yes. A call the phone receptionist takes creates a lead with the caller's details and is scored without a budget, because the receptionist may never discuss money. See [[the-phone-receptionist|The phone receptionist]]." },
     ],
   },
@@ -613,7 +613,7 @@ export const ARTICLES = {
         id: "overview",
         heading: "Overview",
         blocks: [
-          { p: "The screen reads **Quotes — Manage customer quotes.** The **New Quote** button opens the builder — see [[build-a-quote|Build a quote]]. Every row opens the quote's own page, where sending, editing, the AI review and the client's decision live." },
+          { p: "The screen reads **Quotes — Manage customer quotes.** The **New Quote** button opens the builder — see [[build-a-quote|Build a quote]]. Every row opens the quote's own page, where sending, editing, the AI review and the client's decision live — and **Duplicate**, which starts a fresh draft from a quote you have already written." },
         ],
       },
       {
@@ -703,6 +703,7 @@ export const ARTICLES = {
             "Turn on the quote types you sell and set their rates — [[quote-types-and-takeoffs|Quote types and takeoffs]]. A type that is off has no tile.",
             "Put your one-off extras in the price book — [[lines-from-your-price-book|Lines from your price book]] — so they are one tap away.",
             "Have the client's address: it drives the tax rate, and a quote with no jurisdiction shows an assumed rate with a caution under it.",
+            "Priced something like it before? **Duplicate** on that quote's page opens a fresh draft under the next quote number with the same client, language, services and lines, add-on offers, costing, notes and email sections — and none of its history: no send date, signature, approval, client edits or AI review.",
           ] },
           { tip: "Coming from a lead? **Convert to quote** on the lead panel opens this screen with the client, the service, the answers and the photos already filled in. See [[convert-a-lead-to-a-quote|Convert a lead to a quote]]." },
         ],

@@ -271,7 +271,7 @@ export const ARTICLES = {
         id: "overview",
         heading: "Overview",
         blocks: [
-          { p: "FieldQuo keeps one row per real thing and reads all three at once, so a visit booked on a job shows on the calendar without a second copy that could drift. The cost is that the controls differ per kind: an appointment can be reassigned on the calendar, a visit is worked from its job, and a booking is moved by the client through their own link." },
+          { p: "FieldQuo keeps one row per real thing and reads all three at once, so a visit booked on a job shows on the calendar without a second copy that could drift. The controls differ a little per kind: an appointment and a job visit can be reassigned, moved, cancelled and completed from the calendar (a visit also from its job page); a booking that has not yet become an appointment is moved by the client through their own link." },
         ],
       },
       {
@@ -282,7 +282,7 @@ export const ARTICLES = {
             head: ["Kind", "Where it comes from", "What it belongs to"],
             rows: [
               ["Job visit", "**Add visit** or **Schedule a visit** on a job page; the next visit of a recurring job.", "A job. It carries the crew's checklist, photos, notes and the On my way / Mark complete buttons."],
-              ["Appointment", "**New Appointment** on the calendar; a confirmed booking from your booking page; a callback or visit booked by the AI receptionist.", "A client, with no job behind it. It is what the appointment reminder text is sent for."],
+              ["Appointment", "**New Appointment** on the calendar; a confirmed booking from your booking page; a callback or visit booked by the AI receptionist.", "A client, with no job behind it. It gets the reminder text, as a visit does."],
               ["Client booking", "A confirmed booking from the booking page that has not been turned into an appointment yet.", "The event type the client chose. The client can move or cancel it with the link in their confirmation email."],
             ],
           } },
@@ -318,13 +318,13 @@ export const ARTICLES = {
         id: "what-each-can-and-cannot-do",
         heading: "What each kind can and cannot do",
         blocks: [
-          { p: "An appointment on the calendar can be reassigned (or claimed with **Assign to me**), and that is all the calendar offers: there is no button there to complete, cancel or move an appointment. A job visit is moved through its job — cancel it and add a new one — and its status buttons live on the job page. A client booking is moved or cancelled by the client through their own link; see [[clients-rescheduling-and-cancelling|When a client reschedules or cancels]]." },
-          { note: "Appointment reminders go out for appointments only. A job visit does not trigger the reminder text; the crew's **On my way** button is the client's heads-up for a visit." },
+          { p: "An appointment on the calendar and a job visit — on the calendar or on its job page — share one set of buttons: **Reschedule**, **Mark complete**, **Cancel visit**, and afterwards **Reopen** or **Put it back on**. Reschedule is held to the same travel-buffer arithmetic as the client's own link and explains a short gap before offering **Move it anyway**; Cancel visit asks for a reason that stays on the row, and is a status, never a delete. Both dialogs offer to email the client, in the client's language, that the office moved or cancelled it. A booking that came through the booking page moves and cancels with its appointment; one that has not become an appointment yet is moved by the client through their own link — see [[clients-rescheduling-and-cancelling|When a client reschedules or cancels]]." },
+          { note: "Appointment reminders go out for appointments and job visits alike, once each, at the lead time set under Settings → Notifications. The crew's **On my way** button is the visit's second heads-up, at the moment they leave." },
         ],
       },
     ],
     faq: [
-      { q: "Why does my job visit not get a reminder text?", a: "The reminder runs on appointments, not on job visits. For a visit, the crew's On my way tap sends the client a text at the moment it matters." },
+      { q: "Does a job visit get a reminder text?", a: "Yes — the reminder reads job visits as well as appointments: same wording, same lead time, same STOP check, never twice. A visit already completed or cancelled gets none. The crew's On my way tap is a second text, at the moment it matters." },
       { q: "Can I turn an appointment into a job?", a: "Not with a button. Create the job (or let the approved quote create it) and book a visit on it; the appointment stays on the calendar as its own row." },
       { q: "A Client booking row has no Open job link.", a: "Right — a booking belongs to an event type and a client, not to a job. It becomes an appointment on its own; it never becomes a job visit." },
     ],
@@ -344,7 +344,7 @@ export const ARTICLES = {
         id: "overview",
         heading: "Overview",
         blocks: [
-          { p: "Nothing is booked from the grid itself. You read it, pick a day to narrow the list, then act on the rows: call, navigate, assign, open the job. Booking happens through **New Appointment** or from a job page — see [[book-a-visit-for-a-client|Book a visit for a client]]." },
+          { p: "Nothing is booked from the grid itself. You read it, pick a day to narrow the list, then act on the rows: call, navigate, assign, move, cancel or complete, open the job. Booking happens through **New Appointment** or from a job page — see [[book-a-visit-for-a-client|Book a visit for a client]]." },
         ],
       },
       {
@@ -368,7 +368,7 @@ export const ARTICLES = {
         blocks: [
           { p: "Each card leads with the client's name and a status badge — **Scheduled**, **Supervisor required**, **Completed**, **Cancelled**, and for other kinds **Confirmed**, **Awaiting payment**, **On the way**. Then the kind badge, the time (and the end time when a booking carries one), and a phone number and address that work as links. Press the card to open the details." },
           { bullets: [
-            "**Job visit** — the job's title, the assignee's name, and **Open job**. The visit itself is edited on the job.",
+            "**Job visit** — the job's title, the assignee's name, and **Open job**. Its notes and checklist are edited on the job; moving, cancelling and completing it work from here too.",
             "**Client booking** — the event type and the assignee. Moved by the client through their own link.",
             "**Supervisor required** — this appointment must be assigned to an owner, administrator or supervisor.",
             "**Booked by the AI receptionist** — nobody in the company spoke to this client; the caller's own words are in the notes.",
@@ -398,6 +398,20 @@ export const ARTICLES = {
         ],
       },
       {
+        id: "move-cancel-or-complete",
+        heading: "How to move, cancel or complete an entry",
+        blocks: [
+          { p: "Under an appointment or a job visit you may act on, the row carries **Reschedule**, **Mark complete** and **Cancel visit** — and on a finished or cancelled one, **Reopen** or **Put it back on**. A **Client booking** that has not become an appointment yet has none of these; the client moves it through their link." },
+          { steps: [
+            "Press **Reschedule**. Under **New date and time**, pick when. The tick **Email … about the change** is on when the client has an address on file — the dialog says plainly when there is none — and the letter goes in the client's language, saying the office moved it.",
+            "Press **Move it**. A time in the past, or one that leaves too little for the drive from the stop before or to the stop after — the same travel-buffer check the booking page applies — is refused with the reason, and **Move it anyway** re-sends it when you know better than the estimate.",
+            "Press **Cancel visit** to call it off. **Reason (kept on the visit, not sent to the client)** is optional; written, it shows under the row afterwards and is cleared if you put it back on. The same email tick applies, and the client's letter says the office cancelled.",
+            "Press **Mark complete** when it is done, **Reopen** to undo that, or **Put it back on** to reinstate a cancelled one. Cancelling is a status, never a delete — the row stays.",
+          ] },
+          { note: "The buttons appear on the same terms the routes enforce: an appointment to its assignee or to Schedule at **Edit everyone's schedule**; a visit to its assignee, to anyone when it is unassigned, or to that same level. A booking behind an appointment moves and is cancelled with it, so the slot on your booking page follows." },
+        ],
+      },
+      {
         id: "who-sees-what",
         heading: "Who sees what",
         blocks: [
@@ -415,7 +429,7 @@ export const ARTICLES = {
     ],
     faq: [
       { q: "Why does the grid start on Sunday?", a: "The first day of the week is a company setting under Company Settings. Change it there and the grid follows." },
-      { q: "Can I move an appointment by dragging it?", a: "No. The calendar reassigns appointments; it does not move them. A job visit is cancelled and re-added on the job; a client booking is moved by the client through their link." },
+      { q: "Can I move an appointment by dragging it?", a: "Not by dragging. Press **Reschedule** on the row — an appointment or a job visit — and pick the new time; the travel check says if it is too tight. A client booking that has not become an appointment yet is moved by the client through their link." },
       { q: "Where is Your team?", a: "It shows under the list for people who can see the whole team's schedule — Dispatcher, Manager, administrator and owner — and lists what each person has booked over the next two weeks. See [[the-team-schedule|The Team Schedule]]." },
     ],
   },
@@ -491,7 +505,7 @@ export const ARTICLES = {
     ],
     faq: [
       { q: "Can I book two visits on one job?", a: "Yes — as many as the job needs. The Visits card counts them (“1 of 3 complete”) and each has its own date, person and checklist." },
-      { q: "Does booking a visit tell the client?", a: "No. Nothing is sent when a visit is booked. The client hears from you when the crew presses On my way, and an appointment can get a reminder text if reminders are on." },
+      { q: "Does booking a visit tell the client?", a: "No. Nothing is sent when a visit is booked. The client hears from you when the crew presses On my way, and either kind can get a reminder text if reminders are on. Moving or cancelling one later does offer to email the client." },
       { q: "Why is there no duration on the visit?", a: "A visit has a start and no end. Only a booking made through the booking page carries an end time, which is why the drive-between-stops verdict on the calendar is only given after a booking." },
     ],
   },
@@ -588,10 +602,10 @@ export const ARTICLES = {
   "appointment-reminders": {
     title: "Appointment reminders",
     summary:
-      "A text to the client 2, 24 or 48 hours before an appointment: how to turn it on, what it says, which appointments get one, and what it costs.",
+      "A text to the client 2, 24 or 48 hours before an appointment or a job visit: how to turn it on, what it says, which entries get one, and what it costs.",
     updated: "2026-09-12",
     intro: [
-      "Fewer locked doors: with reminders on, every client with a mobile number gets one text before their appointment, in their own language, starting with your company name. It is off until an owner or administrator switches it on, because every reminder is a text message billed to your account.",
+      "Fewer locked doors: with reminders on, every client with a mobile number gets one text before their appointment or job visit, in their own language, starting with your company name. It is off until an owner or administrator switches it on; the texts themselves are included in your plan, nothing is billed per message.",
       "Reminders go by text message only. There is no email reminder.",
     ],
     sections: [
@@ -609,7 +623,7 @@ export const ARTICLES = {
         blocks: [
           { steps: [
             "Open **Settings → Notifications**.",
-            "Find the **Appointment reminders** card — “Text the client a reminder before their appointment. Sent from your business name; clients can reply STOP to opt out.”",
+            "Find the **Appointment reminders** card — “Text the client a reminder before their appointment or job visit. Sent from your business name; clients can reply STOP to opt out.”",
             "Press **2 hours before**, **24 hours before** or **48 hours before**. It saves as you press it.",
             "To stop, press **Off**. Reminders already sent are not affected; none are sent from then on.",
           ] },
@@ -620,13 +634,13 @@ export const ARTICLES = {
         id: "when-it-goes",
         heading: "When a reminder goes, and when it does not",
         blocks: [
-          { p: "Each appointment is considered once, and a text goes only when all of the following are true:" },
+          { p: "Each appointment and each job visit is considered once, and a text goes only when all of the following are true:" },
           { bullets: [
-            "It is an **appointment** in status **Scheduled** — booked with **New Appointment**, made from a booking on your booking page, or booked by the AI receptionist. A **Supervisor required**, completed or cancelled appointment gets none.",
+            "It is an **appointment** in status **Scheduled** — booked with **New Appointment**, made from a booking on your booking page, or booked by the AI receptionist — or a **job visit** on a job that is not archived. A **Supervisor required**, completed or cancelled entry gets none.",
             "It is within the next seven days and the lead time has been reached.",
             "The client has a phone number FieldQuo can text.",
             "The client has not opted out of texts or calls — see [[client-consent-and-unsubscribes|Client consent and unsubscribes]].",
-            "No reminder has been sent for this appointment before. Never more than one per appointment, even if you change the lead time or the appointment moves.",
+            "No reminder has been sent for this entry before. Never more than one per appointment or visit, even if you change the lead time or the entry moves.",
           ] },
         ],
       },
@@ -642,8 +656,8 @@ export const ARTICLES = {
         id: "which-appointments",
         heading: "Which entries get a reminder",
         blocks: [
-          { p: "Only appointments. A **Job visit** booked on a job does not trigger a reminder text; the crew's **On my way** tap is the client's heads-up for a visit. A **Client booking** that has not yet become an appointment does not either — it becomes one as soon as it is confirmed and, if there is a visit fee, paid." },
-          { warning: "Reminders are per company, not per person: the lead time applies to every scheduled appointment in the account, whoever it is assigned to." },
+          { p: "Appointments and job visits. A **Job visit** booked on a job gets the same text at the same lead time, with the job's site address (or the client's) as the place; the crew's **On my way** tap is a second heads-up, at the moment they leave. A **Client booking** that has not yet become an appointment does not either — it becomes one as soon as it is confirmed and, if there is a visit fee, paid." },
+          { warning: "Reminders are per company, not per person: the lead time applies to every scheduled appointment and visit in the account, whoever it is assigned to." },
         ],
       },
       {
@@ -655,9 +669,9 @@ export const ARTICLES = {
       },
     ],
     faq: [
-      { q: "What does a reminder cost?", a: "Each reminder is one text message billed to your account. Reminders are off until you choose a lead time, so nothing is sent — or billed — for a company that never opened the setting." },
+      { q: "What does a reminder cost?", a: "Nothing per message — reminders are included in your plan, and the Notifications card says so. They are off until you choose a lead time, so nothing is sent for a company that never opened the setting." },
       { q: "Can I remind by email instead?", a: "No. Reminders are text messages only today." },
-      { q: "The client did not get a reminder.", a: "Check that the appointment is Scheduled (not Supervisor required), that the client has a phone number, that they have not opted out, and that the appointment was still in the future when the hourly run came round — an appointment already inside its lead time is texted on the next run, one that has passed is not." },
+      { q: "The client did not get a reminder.", a: "Check that the entry is Scheduled (not Supervisor required, completed or cancelled), that the client has a phone number, that they have not opted out, and that the appointment was still in the future when the hourly run came round — an appointment already inside its lead time is texted on the next run, one that has passed is not." },
     ],
   },
 
@@ -667,7 +681,7 @@ export const ARTICLES = {
       "The text a client gets when the crew taps On my way on a visit: how it is sent, what it says, how to change the wording, and who can.",
     updated: "2026-09-12",
     intro: [
-      "The moment a crew member sets off, the client's phone buzzes: “Northside Painting: Dave is on the way. Reply if you need to reschedule.” It is sent by one tap on the visit, it carries your company's name, and it is the one automated text a job visit sends.",
+      "The moment a crew member sets off, the client's phone buzzes: “Northside Painting: Dave is on the way, ETA 20 min. To reschedule, call 555-0100.” It is sent by one tap on the visit, it carries your company's name, and it is the one automated text a job visit sends.",
       "Together with the appointment reminder it is one of the two texts your clients receive from FieldQuo, and both are edited on the same screen.",
     ],
     sections: [
@@ -709,7 +723,8 @@ export const ARTICLES = {
               ["{company}", "Your business name."],
               ["{worker}", "The assigned crew member's name — “Your technician” when the visit is unassigned."],
               ["{name}", "The client's first name."],
-              ["{eta}", "Estimated arrival, if known. The job page does not send one today, so the field comes out empty and the spaces around it are tidied."],
+              ["{eta}", "Estimated arrival, worked out from where your phone was at the tap to the job's address, with the same travel estimate the booking page uses. No location, or a job that was never placed on the map, and the field comes out empty with the spaces around it tidied."],
+              ["{phone}", "Your business phone from Company Settings — the number the built-in wording tells the client to call, since a reply is never read. Empty, and that sentence is dropped."],
             ],
           } },
         ],
@@ -734,7 +749,7 @@ export const ARTICLES = {
       },
     ],
     faq: [
-      { q: "Can the client reply?", a: "The text invites a reply, but FieldQuo has no client texting inbox: a reply is not shown anywhere in FieldQuo today. Expect a phone call instead." },
+      { q: "Can the client reply?", a: "Not usefully: FieldQuo has no client texting inbox, and only STOP is read. That is why the built-in wording says to call your business phone rather than inviting a reply — keep **{phone}** in your own wording too." },
       { q: "Is it sent from my own number?", a: "It goes out from the number FieldQuo texts from and begins with your company name, so the client knows who is coming." },
       { q: "Why did the client get English when we work in French?", a: "The client's record says English, or has no language and your company's default is English. Set the language on the client's record; your French wording applies only to clients who read French." },
     ],
@@ -762,7 +777,7 @@ export const ARTICLES = {
         heading: "The client's link",
         blocks: [
           { p: "The link is minted when the booking is confirmed and lives in the confirmation email and in every “your visit has moved” email after it. The page, in the client's language, shows **Your visit** — when (with your arrival window, if you set one), where, the deposit paid — and, under **Need to change something?**, **Change the time** and **Cancel this visit**. When neither is allowed any more, it says why: “Northside Painting asks for at least 24 hours' notice, so this visit can't be changed here any more. Call Northside Painting on … — they can still move it for you.”" },
-          { note: "Only bookings have this link. An appointment you booked by hand with **New Appointment** and a visit booked on a job send the client nothing and have no self-serve link. The emails around a booking — confirmation, moved, cancelled — are in English today; the manage page itself is in the client's language." },
+          { note: "Only bookings have this link. An appointment you booked by hand with **New Appointment** and a visit booked on a job send the client nothing at booking and have no self-serve link; when the office moves or cancels one, the client can be emailed from that dialog. The emails around a booking — confirmed, moved, cancelled — and the manage page are all in the client's language, and a moved or cancelled letter says whether it was as requested or the office's change." },
         ],
       },
       {
@@ -826,7 +841,7 @@ export const ARTICLES = {
       },
     ],
     faq: [
-      { q: "The client says the link does not let them cancel.", a: "They are inside your change notice. The page names the notice and your phone number. There is no office-side button to cancel a booking today, so agree the change on the phone and book the new time yourself as an appointment or a visit." },
+      { q: "The client says the link does not let them cancel.", a: "They are inside your change notice. The page names the notice and your phone number. Agree the change on the phone, then press **Reschedule** or **Cancel visit** on the appointment's row in the calendar: the booking behind it moves or is cancelled with it, and, with the email tick left on, the client is told the office made the change." },
       { q: "Why was the fee not refunded?", a: "Refunds are off unless you turned on Return the visit fee when they cancel in time, and even then only with the notice you set. The client's page and both emails say which applied." },
       { q: "Does the client get the link if I book the appointment myself?", a: "No. The link exists only for bookings made through the booking page or by the AI receptionist. An appointment you create from the calendar sends the client nothing." },
     ],
