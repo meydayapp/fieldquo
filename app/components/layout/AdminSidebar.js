@@ -38,6 +38,7 @@ import {
   Eye,
   UserCog,
   ShieldAlert,
+  BookOpen,
   ListTodo,
   ShoppingCart,
   Truck,
@@ -185,6 +186,10 @@ export const NAV_GROUPS = [
       // "safety" category for who this hides from (report_own is the floor,
       // not `none`, so this row shows for a Crew member too).
       { key: "app.nav.safety", href: "/app/safety", icon: ShieldAlert, helpArticle: "safety" },
+      // The manager's day book — weather, who called in, what broke. Not a
+      // job's diary (that is on the job). Gated in lib/permissions/nav.js on
+      // the same roles /api/hr/log requires.
+      { key: "app.nav.log", href: "/app/log", icon: BookOpen, helpArticle: "manager-log" },
     ],
   },
   {

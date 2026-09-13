@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 13 September 2026 (the crew scheduler has a day board — a row per person, a column per hour, lunches and breaks hatched inside the shifts, a coverage strip per half hour, approved leave as OUT, job visits on the row, and the time clock's Start lunch / Start break turning the dot green and amber live; lib/shifts/coverage.js is the arithmetic, check:shift-board executes it.)
+Last updated: 13 September 2026 (the HR file — employee documents with expiry reminders, new-hire onboarding checklists with TD1/W-4 forms, policies with per-version acknowledgement, a performance file, the manager's log book and the HR & compliance overview; lib/hr, lib/onboarding, check:hr executes it against a two-company fake database.)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -9,6 +9,92 @@ it exists to answer.
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
+
+## The HR file: documents, onboarding, policies, notes, the log book, compliance (13 September 2026)
+
+**Owner:** team management to match Homebase — new-hire onboarding, employee
+documents, HR & compliance. The audit found none of it: no worker document,
+no checklist, no policy acknowledgement, no write-up.
+
+**Employee documents** — `WorkerDocument`: certification | licence | id |
+contract | tax_form | policy_ack | other, with issue/expiry dates and the
+printed number. Managers file from the person's HR file
+(`/app/settings/team/people/[workerId]`, linked from every roster row and
+from the compliance screen); the person files their own certification,
+licence or ID from `/app/me/documents`, which arrives **Not yet verified**
+until a manager marks it. Archive, never delete. Expiry rides
+`lib/expiry/window.js` unchanged (`lib/hr/documentExpiry.js`): a missing
+date is *unknown*, never expired. `/api/cron/hr-reminders` (07:40 UTC, one
+run a day) tells the person at 30 and 7 days and their managers at 7,
+stamping `reminded30At` / `reminded7At` so each mark fires once — the
+check walks a certificate through its last five weeks and counts two
+messages, not thirty-five.
+
+**Onboarding** — `OnboardingTemplate` (items validated by
+`lib/onboarding/template.js`; a policy item may only point inside the
+tenant) and `OnboardingRun` (the items copied at start with per-item
+status/doneAt/doneBy/evidence id). The default template is created
+LAZILY the first time a company opens Manage Team → Onboarding or invites
+somebody with **Start onboarding checklist** ticked (on by default; the
+flag rides `PendingTeamProfile.startOnboarding` until the accept route has
+a Worker row to start a run for). Its tax-form items follow the country —
+TD1 federal + provincial for CA, W-4 for US, none when unknown. A `task`
+is ticked by hand with the name on it; `document`, `policy` and `form`
+items tick THEMSELVES from the file (`reconcile()`), and un-tick when the
+evidence is archived. Completion = every required item; managers are told
+once. `/app/me/onboarding` is the person's list, each row opening the
+thing it asks for. **Tax forms** (`TaxFormSubmission`, `/app/me/tax-forms`,
+PDF via `lib/hr/renderTaxFormPdf.js`): the TD1/W-4 questions, a typed
+signature, a PDF for the payroll admin; **nothing is filed with any
+government and no withholding is computed** — the screen and the PDF say
+so. **The SIN/SSN is never collected** (a decision, not a gap: a SIN in a
+Json column readable by every supervisor is the one field that turns a
+breach into identity theft; the printed sheet leaves the box for a pen).
+
+**Policies** — `CompanyPolicy` + frozen `CompanyPolicyVersion` rows +
+`PolicyAcknowledgement` (name, version, ip, user agent, sha256 of the
+text — the quote-signature audit shape). `nextVersionFor()`: a text edit
+after anybody signed publishes N+1 and asks everyone again; before any
+signature it corrects the draft in place. Scope: everyone or by job title.
+Settings → Policies lists signature counts, shows who has/hasn't, Remind
+nudges the rest; four starters in EN/FR/ES under `content/hr/policies/`.
+`pendingPolicyCount(workerId)` in `lib/hr/pending.js` for the employee
+home banner.
+
+**Performance file** — `WorkerNote`: note | recognition | warning |
+write_up, private or visible, optionally requiring the person's typed
+acknowledgement (`/app/me/notes`); never edited or deleted. The rota's
+late / no-show / early-out verdicts (`ShiftAttendance`, another agent's
+module) appear on the same timeline read-only, guarded on the delegate
+existing.
+
+**Log book** — `ManagerLogEntry` at `/app/log` (People, managers only):
+by day, six tags, the author corrects their own line, nobody deletes.
+Distinct from `JobDailyLog`, which is one job's diary.
+
+**Compliance** — `/app/settings/team/compliance`, a tab on Manage Team:
+one row per person — documents expiring/expired/unverified, onboarding
+progress + overdue, policies unsigned, write-ups unacknowledged — a table
+on a desk and cards on a phone. **Not built, on purpose:** labour-law
+alerts by province/state (break rules, overtime thresholds) — legal claims
+the product cannot stand behind; the screen says so in a footer.
+
+Gate: `user:manage` for every manager route (`lib/hr/access.js`, checked
+again server-side in every `/api/hr/*` route through `lib/hr/gate.js`);
+the person's own rows through `myWorker()` (companyId + userId from the
+session, never an id off the request). Notifications: seven `hr.*` types
+on the named-recipient seam, sentences in nine languages. Help: five
+articles EN/FR/ES under team-and-access. `npm run check:hr` — 152
+assertions, the loaders executed against `scripts/hrFakeDb.mjs` holding
+two companies.
+
+**Product decisions made here, for the owner to reverse:** SIN/SSN never
+collected; a worker-uploaded document is unverified until a manager looks;
+the 30/7/7 reminder marks; write-ups default to visible + acknowledgement;
+a gridless legacy member (no permission grid at all) receives no
+worker-facing HR notification, because the feed's audience floor fails
+closed — the invite flow always writes a grid, so this touches only
+pre-grid accounts.
 
 ## The scheduler's day board, lunches and breaks, and a dot the time clock drives (13 September 2026)
 

@@ -39,6 +39,7 @@ export const SCREENS = [
   { slug: "timesheets", nav: "app.nav.timesheets", href: "/app/settings/team/timesheets", page: "app/app/settings/team/timesheets/page.js", settings: true },
   { slug: "time-off", nav: "app.nav.timeOff", href: "/app/time-off", page: "app/app/time-off/page.js" },
   { slug: "safety", nav: "app.nav.safety", href: "/app/safety", page: "app/app/safety/page.js" },
+  { slug: "manager-log", nav: "app.nav.log", href: "/app/log", page: "app/app/log/page.js" },
   // Money
   { slug: "payroll", nav: "app.nav.payroll", href: "/app/payroll", page: "app/app/payroll/page.js" },
   { slug: "expenses", nav: "app.nav.expenses", href: "/app/settings/expense-tracking", page: "app/app/settings/expense-tracking/page.js", settings: true },
@@ -78,6 +79,7 @@ export const SCREENS = [
   { slug: "settings-team", nav: "app.settings.team", href: "/app/settings/team", page: "app/app/settings/team/page.js", settings: true, sameAs: "team" },
   { slug: "settings-availability", nav: "app.settings.availability", href: "/app/settings/availability", page: "app/app/settings/availability/page.js", settings: true },
   { slug: "settings-leave", nav: "app.settings.leave", href: "/app/settings/leave", page: "app/app/settings/leave/page.js", settings: true },
+  { slug: "settings-policies", nav: "app.settings.policies", href: "/app/settings/policies", page: "app/app/settings/policies/page.js", settings: true },
   { slug: "settings-booking-page", nav: "app.settings.bookingPage", href: "/app/settings/booking-page", page: "app/app/settings/booking-page/page.js", settings: true },
   { slug: "settings-work-areas", nav: "app.settings.workAreas", href: "/app/settings/work-areas", page: "app/app/settings/work-areas/page.js", settings: true },
   // Services & pricing

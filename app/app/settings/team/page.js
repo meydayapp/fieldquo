@@ -111,6 +111,29 @@ export default function TeamOverviewPage() {
     yourRole: null,
   });
 
+  // The HR file's chips beside each name — "Onboarding 3/7", an expiring
+  // ticket — from /api/hr/compliance, keyed by userId. Read beside the
+  // roster, never in place of it: a failure here leaves the row without
+  // the chip, not the page without the people. Managers only; the route
+  // refuses everybody else and the state stays empty.
+  const [hrByUserId, setHrByUserId] = useState({});
+  useEffect(() => {
+    if (!canAdd) return;
+    let cancelled = false;
+    fetch("/api/hr/compliance")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((body) => {
+        if (cancelled || !body?.rows) return;
+        const map = {};
+        for (const row of body.rows) if (row.userId) map[row.userId] = row;
+        setHrByUserId(map);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [canAdd]);
+
   const load = useCallback(() => {
     return Promise.all([
       // Guarded like its four siblings below. It was the ONE unguarded call in
@@ -770,6 +793,20 @@ export default function TeamOverviewPage() {
             {t("app.nav.payroll")}
           </Link>
         )}
+        {/* The HR file: the same `user:manage` every /api/hr route requires. */}
+        {canAdd && (
+          <>
+            <Link href="/app/settings/team/compliance" className="border border-border rounded-full px-4 py-2" data-hr-tab="compliance">
+              {t("app.hr.compliance.tab")}
+            </Link>
+            <Link href="/app/settings/team/onboarding" className="border border-border rounded-full px-4 py-2" data-hr-tab="onboarding">
+              {t("app.hr.templates.tab")}
+            </Link>
+            <Link href="/app/settings/policies" className="border border-border rounded-full px-4 py-2" data-hr-tab="policies">
+              {t("app.hr.policies.tab")}
+            </Link>
+          </>
+        )}
       </div>
 
       <div className="bg-card border border-border rounded-xl overflow-x-auto">
@@ -812,6 +849,26 @@ export default function TeamOverviewPage() {
                   ) : null}
                   {m.user.email}
                 </div>
+                {/* The person's HR file, and the one chip that changes what a
+                    manager does next: an unfinished checklist. Both only for
+                    managers, whose /api/hr/compliance read filled the map. */}
+                {hrByUserId[m.userId] && (
+                  <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
+                    <Link href={`/app/settings/team/people/${hrByUserId[m.userId].workerId}`} className="underline text-muted-foreground" data-hr-file-link>
+                      {t("app.hr.person.file")}
+                    </Link>
+                    {hrByUserId[m.userId].onboarding && !hrByUserId[m.userId].onboarding.complete && (
+                      <span className={`rounded-full border px-2 py-0.5 ${hrByUserId[m.userId].onboarding.overdue ? "border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300" : "border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300"}`} data-hr-onboarding-chip>
+                        {t("app.hr.onboarding.chip", { done: hrByUserId[m.userId].onboarding.done, total: hrByUserId[m.userId].onboarding.total })}
+                      </span>
+                    )}
+                    {(hrByUserId[m.userId].documents.expired > 0 || hrByUserId[m.userId].documents.dueSoon > 0) && (
+                      <span className="rounded-full border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 px-2 py-0.5">
+                        {t("app.hr.person.documentsChip", { count: hrByUserId[m.userId].documents.expired + hrByUserId[m.userId].documents.dueSoon })}
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Read-only badge when this member is at or above the viewer's
@@ -1030,6 +1087,13 @@ export default function TeamOverviewPage() {
                       {personTitle(w) && w.email ? " · " : ""}
                       {w.email}
                     </div>
+                  )}
+                  {/* A person with no login still has an HR file — a
+                      contract, a ticket with an expiry — kept by managers. */}
+                  {canAdd && (
+                    <Link href={`/app/settings/team/people/${w.id}`} className="text-xs underline text-muted-foreground" data-hr-file-link>
+                      {t("app.hr.person.file")}
+                    </Link>
                   )}
                 </div>
                 <span className="text-xs px-2.5 py-1 rounded-full bg-muted text-muted-foreground shrink-0">

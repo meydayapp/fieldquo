@@ -2,8 +2,8 @@
 
 // app/app/settings/team/people/[workerId]/page.js
 //
-// One person's HR file: their onboarding checklist and their documents (the
-// performance notes follow in the next commit). The roster (Manage Team) links here; the compliance
+// One person's HR file: their onboarding checklist, their documents, their
+// performance notes. The roster (Manage Team) links here; the compliance
 // screen's counts link here. Managers only — `user:manage`, the same gate
 // every /api/hr route enforces again server-side.
 //
@@ -18,6 +18,7 @@ import { fetchList } from "@/lib/loadState";
 import ListState from "@/app/components/ListState";
 import OnboardingChecklist from "@/app/components/hr/OnboardingChecklist";
 import WorkerDocumentsPanel from "@/app/components/hr/WorkerDocumentsPanel";
+import WorkerNotesPanel from "@/app/components/hr/WorkerNotesPanel";
 
 export default function PersonFilePage({ params }) {
   const { workerId } = use(params);
@@ -68,6 +69,7 @@ function PersonFile({ workerId }) {
             </div>
             <OnboardingChecklist mode="manager" workerId={workerId} />
             <WorkerDocumentsPanel mode="manager" workerId={workerId} />
+            <WorkerNotesPanel workerId={workerId} />
           </>
         )}
       </ListState>
