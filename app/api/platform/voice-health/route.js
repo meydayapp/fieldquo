@@ -30,6 +30,7 @@ import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
 import { poolStatus } from "@/lib/voice/pool";
 import { RECONCILE_AREA } from "@/lib/voice/reconcileCalls";
 import { WEBHOOK_AREA } from "@/lib/voice/webhookHealth";
+import { webhookAttention } from "@/lib/voice/webhookAttention";
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -39,7 +40,7 @@ export async function GET(request) {
 
   const since = new Date(Date.now() - 7 * DAY);
 
-  const [pool, rescues, unknownDuration, overdrawn, rejects, lastCall, negatives] =
+  const [pool, rescues, unknownDuration, overdrawn, refusals, lastCall, lastAccepted, negatives] =
     await Promise.all([
       poolStatus(),
       db.platformErrorLog.count({
@@ -51,12 +52,25 @@ export async function GET(request) {
       db.platformErrorLog.count({
         where: { area: RECONCILE_AREA, code: "overdrawn", createdAt: { gte: since } },
       }),
-      db.platformErrorLog.findFirst({
-        where: { area: WEBHOOK_AREA, code: { startsWith: "webhook_rejected_" } },
+      // Refused deliveries that nobody has marked reviewed on /platform/errors.
+      // Rejections are throttled to one row an hour per reason
+      // (lib/voice/webhookHealth.js), so 50 rows is two days of continuous
+      // refusal — more than the 24 h window the rule looks at.
+      db.platformErrorLog.findMany({
+        where: { area: WEBHOOK_AREA, code: { startsWith: "webhook_rejected_" }, resolvedAt: null },
         orderBy: { createdAt: "desc" },
-        select: { code: true, createdAt: true },
+        take: 50,
+        select: { code: true, createdAt: true, resolvedAt: true },
       }),
       db.voiceCall.findFirst({ orderBy: { createdAt: "desc" }, select: { createdAt: true } }),
+      // The last delivery the WEBHOOK accepted. A row the reconciler rescued
+      // (recoveredAt set) is proof the webhook did not deliver it, so it is
+      // excluded — otherwise a dead webhook with a working sweep reads healthy.
+      db.voiceCall.findFirst({
+        where: { recoveredAt: null },
+        orderBy: { createdAt: "desc" },
+        select: { createdAt: true },
+      }),
       // Companies actually in the red RIGHT NOW, from the ledger rather than
       // from a log of past events. groupBy over a sum is the same arithmetic
       // balanceFor does, done once for everyone instead of per company.
@@ -87,13 +101,35 @@ export async function GET(request) {
     });
   }
 
-  if (rejects) {
+  // ── Refused deliveries ───────────────────────────────────────────────────
+  //
+  // Red only while it is current: a refusal in the last 24 h, or newer than
+  // the last delivery we accepted. One eight-day-old row with sixty minutes
+  // of verified calls after it is history, and sat on this card as a warning
+  // for a week — lib/voice/webhookAttention.js is the rule. The count of
+  // deliveries accepted since the newest refusal is a second query because it
+  // depends on that row's time.
+  const acceptedSince = refusals[0]
+    ? await db.voiceCall.count({
+        where: { recoveredAt: null, createdAt: { gt: refusals[0].createdAt } },
+      })
+    : 0;
+  const attention = webhookAttention({
+    refusals,
+    lastAcceptedAt: lastAccepted?.createdAt || null,
+    acceptedSince,
+  });
+  if (attention.level === "red") {
     alerts.push({
-      level: "warn",
+      level: "critical",
       code: "webhook_rejected",
       message:
-        `We turned away a call event from Retell (${String(rejects.code).replace("webhook_rejected_", "")}). ` +
-        `Deliveries are arriving and being refused, which looks identical to an idle phone.`,
+        `Call events from Retell are being refused (${attention.lastRefusal.reason}). ` +
+        `Deliveries are arriving and being turned away, which looks identical to an idle phone.`,
+      // The bullet goes to the remedy; the row it is built from is on the
+      // errors queue, where marking it reviewed is what clears this.
+      href: "/platform/voice-webhooks",
+      rowsHref: `/platform/errors?area=${WEBHOOK_AREA}`,
     });
   }
 
@@ -131,9 +167,14 @@ export async function GET(request) {
       companiesOverdrawn: negatives.length,
       overdrawnCents: negatives.reduce((n, r) => n + (r._sum.cents || 0), 0),
       lastCallAt: lastCall?.createdAt || null,
-      lastRejection: rejects
-        ? { reason: String(rejects.code).replace("webhook_rejected_", ""), at: rejects.createdAt }
+      // Kept for the readiness copy that reads it; the same fact as
+      // webhookAttention.lastRefusal, unreviewed rows only.
+      lastRejection: attention.lastRefusal
+        ? { reason: attention.lastRefusal.reason, at: attention.lastRefusal.at }
         : null,
+      // The whole verdict, so the dashboard can print the muted line when the
+      // refusal is old news and the red one when it is not.
+      webhookAttention: attention,
     },
   });
 }

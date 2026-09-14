@@ -92,7 +92,12 @@ function ReviewForm({ count, busy, onSubmit, onCancel }) {
 export default function PlatformErrorsPage() {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
-  const [area, setArea] = useState("");
+  // `?area=voice_webhook` from the dashboard's refused-deliveries line lands
+  // on the filtered list, not on everything.
+  const [area, setArea] = useState(() => {
+    if (typeof window === "undefined") return "";
+    return new URLSearchParams(window.location.search).get("area") || "";
+  });
   const [showReviewed, setShowReviewed] = useState(false);
   const [busy, setBusy] = useState(false);
   // Checkbox selection, by id. Cleared on every reload so a row that moved to

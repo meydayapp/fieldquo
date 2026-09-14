@@ -1,12 +1,47 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 13 September 2026 (the Subscription row agrees with Stripe without a webhook: every route that mutates a subscription at Stripe writes Stripe's reply through one mapping — lib/billing/subscriptionFields.js — a "Sync from Stripe" button on the platform company page, a six-hourly /api/cron/billing-sync that files `billing_drift`, "Stripe webhooks: … / never" on /platform, the cancelled state on Account & Billing, and the 41-char retention coupon name fixed; check:billing-sync executes it.)
+Last updated: 14 September 2026 (fixed errors stop haunting /platform/errors — a reviewed state with a one-line note, Unmark, a checkbox batch, every count unreviewed-only — and the /platform phone-pool card is red only for a refusal inside 24 h or newer than the last accepted delivery, else a muted dated line; check:platform-errors executes both.)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
 it exists to answer.
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
+
+---
+
+## Fixed errors stop haunting /platform/errors, and the phone-pool card stops crying wolf (14 September 2026)
+
+The owner: "if it is fixed why do I see the errors?" The queue's Acknowledge
+(`resolvedAt`/`resolvedBy`) already hid a row; it is now finished rather than
+duplicated. `PlatformErrorLog.resolvedNote` (additive; the row is never
+deleted — a `billing_drift` entry that is "fixed" is still the evidence the
+webhook never fired; the note is so "why is this fine" outlives the person).
+`lib/platform/errorLog.js` `reviewErrors()` marks or unmarks up to 200 rows
+and writes one `error_reviewed` / `error_unreviewed` audit row in the same
+transaction; `PATCH /api/platform/errors` (bulk) and `/api/platform/errors/[id]`
+call it, gated on `company:view`. The page: **Mark reviewed** with a one-line
+optional note, **Unmark**, a checkbox per row, select-all, "Mark N reviewed",
+"Show reviewed (N)", and "Reviewed by <email> <when> — <note>" muted; `?area=`
+from the URL is honoured. Every count is of unreviewed rows (no rail or
+dashboard badge counted errors — checked). Nothing reviews automatically.
+
+The `/platform` "phone pool needs attention" bullet was one
+`webhook_rejected_no_signature` row from 6 September with 62 minutes of
+verified calls after it, and no date, count or link. `lib/voice/webhookAttention.js`
+is the rule, pure: red when an UNREVIEWED refusal is inside 24 h or newer than
+the last delivery the webhook accepted (`VoiceCall` with `recoveredAt` null —
+a rescued row is proof it did NOT deliver); otherwise a muted footer line
+"N refused deliveries (last: 8 d ago) · M accepted since — review". The bullet
+links to `/platform/voice-webhooks`, the rows to `/platform/errors?area=voice_webhook`.
+`check:platform-errors` (101 assertions) executes both.
+
+### Still owed here
+
+- `check:platform-mobile` fails "/platform: rendered against answered
+  fixtures — unanswered: GET /api/platform/webhook-health": the Stripe
+  webhook-health route from `ac5534cb` has no fixture in that harness. Not
+  this change; noted so it is not mistaken for one.
 
 ---
 

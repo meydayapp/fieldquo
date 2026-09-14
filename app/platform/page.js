@@ -23,6 +23,7 @@ import {
 import MetricCard, { money, count } from "@/app/components/platform/MetricCard";
 import Sparkline from "@/app/components/platform/Sparkline";
 import TenantBoard from "./TenantBoard";
+import { refusedPhrase } from "@/lib/voice/webhookAttention";
 
 /** "4 min ago" / "3 h ago" / "2 d ago" — coarse on purpose; a timestamp is
  *  a fact, "ago" is the question the line answers. */
@@ -271,6 +272,13 @@ export default function PlatformDashboardPage() {
             ? "text-red-700 dark:text-red-300"
             : "text-amber-800 dark:text-amber-300";
           const c = voiceHealth.concurrency;
+          // The heading names the critical thing. Refused deliveries are
+          // critical too (a caller's call is being thrown away right now),
+          // and "at its limit" would send someone to look at concurrency.
+          const poolCritical = voiceHealth.alerts.some(
+            (a) => a.level === "critical" && a.code !== "webhook_rejected",
+          );
+          const attention = voiceHealth.meter?.webhookAttention || null;
           return (
             <div className={`${tone} border rounded-xl p-5`}>
               <div className="flex items-start gap-3">
@@ -278,12 +286,39 @@ export default function PlatformDashboardPage() {
                 <div className="min-w-0">
                   <h2 className={`font-semibold ${ink}`}>
                     {critical
-                      ? "The phone pool is at its limit"
+                      ? poolCritical
+                        ? "The phone pool is at its limit"
+                        : "Call events are being refused"
                       : "The phone pool needs attention"}
                   </h2>
                   <ul className={`text-sm ${body} mt-1 space-y-1`}>
                     {voiceHealth.alerts.map((a) => (
-                      <li key={a.code}>{a.message}</li>
+                      <li key={a.code}>
+                        {a.href ? (
+                          <Link href={a.href} className="underline underline-offset-2">
+                            {a.message}
+                          </Link>
+                        ) : (
+                          a.message
+                        )}
+                        {/* The count, the date and the row — the three things
+                            the old bullet lacked, which is how one refusal
+                            from a week ago read as a live fault. */}
+                        {a.code === "webhook_rejected" && attention?.lastRefusal && (
+                          <span className="block text-xs mt-0.5 font-mono opacity-80">
+                            {refusedPhrase(attention.refused)} (last: {relativeTime(attention.lastRefusal.at)})
+                            {` · ${attention.acceptedSince} accepted since`}
+                            {a.rowsHref && (
+                              <>
+                                {" · "}
+                                <Link href={a.rowsHref} className="underline underline-offset-2">
+                                  the rows →
+                                </Link>
+                              </>
+                            )}
+                          </span>
+                        )}
+                      </li>
                     ))}
                   </ul>
                   <p className={`text-xs ${body} opacity-70 mt-2 font-mono`}>
@@ -312,6 +347,17 @@ export default function PlatformDashboardPage() {
                     {voiceHealth.meter?.companiesOverdrawn
                       ? ` · ${voiceHealth.meter.companiesOverdrawn} overdrawn`
                       : ""}
+                    {/* An old refusal with accepted deliveries after it is a
+                        fact, not a fault: muted, dated, and linked to the row
+                        so it can be marked reviewed and stop appearing. */}
+                    {attention?.level === "quiet" && attention.lastRefusal ? (
+                      <>
+                        {` · ${refusedPhrase(attention.refused)} (last: ${relativeTime(attention.lastRefusal.at)}) · ${attention.acceptedSince} accepted since — `}
+                        <Link href="/platform/errors?area=voice_webhook" className="underline underline-offset-2">
+                          review
+                        </Link>
+                      </>
+                    ) : null}
                   </p>
                   {/* ── The remedy, next to the diagnosis ──────────────────
                       This banner named a fault nobody could act on: it said
@@ -326,7 +372,9 @@ export default function PlatformDashboardPage() {
                       Shown only for the alert it actually addresses. A repair
                       link under "you are at your concurrency limit" would be a
                       button that fixes a different problem. */}
-                  {voiceHealth.alerts.some((a) => /webhook/i.test(a.message || "")) && (
+                  {voiceHealth.alerts.some(
+                    (a) => a.code === "webhook_rejected" || /webhook/i.test(a.message || ""),
+                  ) && (
                     <Link
                       href="/platform/voice-webhooks"
                       className={`inline-block mt-3 text-sm font-semibold underline underline-offset-2 ${ink}`}
