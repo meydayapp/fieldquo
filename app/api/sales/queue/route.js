@@ -732,13 +732,22 @@ export async function POST(request) {
     const result = await claimBatch({ db, rep, tradeKey, timeZone, now, policyContext });
     result.auto = auto;
     result.releasedClosed = releasedClosed;
-    if (result.nextOpensAt) {
+    if (result.nextOpensAt || result.opensSoonAt) {
       // On the rep's clock, in the rep's language, with the zone's acronym —
-      // the same formatter every "opens at" on the list goes through.
+      // the same formatter every "opens at" on the list goes through. Two
+      // instants: the earliest opening among the rows LEFT (nextOpensAt) and
+      // among the rows TAKEN for the hour ahead of their window
+      // (opensSoonAt — lib/sales/queueBatch.js CLAIM_OPENS_WITHIN_MS).
       const zone = repZoneFrom(timeZone, now);
       const lang = repLanguageOrNull(language) || "en";
-      result.nextOpensAtLocal = repClock(new Date(result.nextOpensAt), { repZone: zone, language: lang, now });
-      result.nextOpensAtZone = zoneAcronym(zone, { at: now });
+      if (result.nextOpensAt) {
+        result.nextOpensAtLocal = repClock(new Date(result.nextOpensAt), { repZone: zone, language: lang, now });
+        result.nextOpensAtZone = zoneAcronym(zone, { at: now });
+      }
+      if (result.opensSoonAt) {
+        result.opensSoonAtLocal = repClock(new Date(result.opensSoonAt), { repZone: zone, language: lang, now });
+        result.opensSoonAtZone = zoneAcronym(zone, { at: now });
+      }
     }
     if (result.claimed > 0) queueResearchFor(result.claimedIds);
     return NextResponse.json(

@@ -311,7 +311,7 @@ import SignupLinkSms from "@/app/sales/leads/SignupLinkSms";
 import SignupProgress from "@/app/components/sales/SignupProgress";
 import { LAYER_HEADINGS } from "@/lib/sales/prospectView";
 import { CALL_ALLOWED, CALL_REFUSED, dialHref, salesCallReadiness } from "@/lib/sales/callingRules";
-import { QUEUE_TOP_UP_BELOW, QUEUE_TOP_UP_MIN_INTERVAL_MS } from "@/lib/sales/queueBatch";
+import { QUEUE_TOP_UP_BELOW, QUEUE_TOP_UP_MIN_INTERVAL_MS, opensWithin } from "@/lib/sales/queueBatch";
 import {
   DIAL_DO_NOT_CONTACT,
   DIAL_NO_NUMBER,
@@ -907,6 +907,50 @@ function RetryTag({ retry }) {
       <RotateCcw size={12} aria-hidden="true" />
       <span className="break-words">{text}</span>
     </p>
+  );
+}
+
+/**
+ * "The calling window for Quebec hasn't started — it opens at 09:00 (in 10
+ * minutes). Read the research and the script now; the dial button turns on
+ * by itself." Rendered only while the current lead's window is shut and
+ * opens within the claim's pre-open hour (lib/sales/queueBatch.js
+ * opensWithin) — the same readiness object the WindowTag prints, so the
+ * time and the jurisdiction name are the decision's own, never derived
+ * here. Nothing once the window is open, and nothing for a row that is
+ * shut for longer: that one reads "Window opens at …" on the tag and is
+ * not the case this line exists for.
+ */
+function PreOpenBanner({ t, compliance, clock }) {
+  if (!compliance || compliance.decision === CALL_ALLOWED) return null;
+  // A Date from the in-page readiness; an ISO string from the server's
+  // fallback shape. Either, never a guess.
+  const opensAt =
+    compliance.opensAt instanceof Date
+      ? compliance.opensAt
+      : typeof compliance.opensAt === "string" && Number.isFinite(Date.parse(compliance.opensAt))
+        ? new Date(compliance.opensAt)
+        : null;
+  if (!opensAt || !compliance.opensAtText) return null;
+  const nowMs = clock ? clock.serverMs + (Date.now() - clock.localMs) : Date.now();
+  const now = new Date(nowMs);
+  if (!opensWithin({ readiness: { opensAt }, now })) return null;
+  const minutes = Math.max(1, Math.ceil((opensAt.getTime() - nowMs) / 60_000));
+  const inText = t("app.duration.minutes", { value: minutes });
+  const name = compliance.jurisdiction?.name || "";
+  return (
+    <div
+      className="rounded-lg border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 px-3 py-2 text-sm text-amber-900 dark:text-amber-100 flex items-start gap-2"
+      role="status"
+      data-pre-open-banner
+    >
+      <Clock size={15} className="mt-0.5 shrink-0" aria-hidden="true" />
+      <span className="break-words">
+        {name
+          ? t("app.salesQueue.preOpenBanner", { jurisdiction: name, time: compliance.opensAtText, in: inText })
+          : t("app.salesQueue.preOpenBannerNoJurisdiction", { time: compliance.opensAtText, in: inText })}
+      </span>
+    </div>
   );
 }
 
@@ -1998,7 +2042,26 @@ function ClaimCard({ t, data, tradeKey, setQuery, stocked, empties, remainingTod
               })}
             </p>
           ) : null}
-          {batchResult.reasonKey ? (
+          {/* Rows taken for the hour AHEAD of their window (the owner's
+              08:50, 2026-09-14 — lib/sales/queueBatch.js
+              CLAIM_OPENS_WITHIN_MS): say when they open and that the
+              rep can prepare, instead of "no leads are open right now". */}
+          {batchResult.opensSoon > 0 && batchResult.opensSoonAtLocal ? (
+            <p className="text-xs text-amber-800 dark:text-amber-200 break-words" data-batch-opens-soon>
+              {batchResult.openNow === 0
+                ? t("app.salesQueue.batchAllOpenSoon", {
+                    claimed: t("app.salesQueue.prospectCount", { value: batchResult.claimed }),
+                    time: batchResult.opensSoonAtLocal,
+                    zone: batchResult.opensSoonAtZone || "",
+                  })
+                : t("app.salesQueue.batchOpensSoon", {
+                    count: batchResult.opensSoon,
+                    time: batchResult.opensSoonAtLocal,
+                    zone: batchResult.opensSoonAtZone || "",
+                  })}
+            </p>
+          ) : null}
+          {batchResult.reasonKey && !(batchResult.opensSoon > 0 && batchResult.openNow === 0) ? (
             <p className="text-xs text-muted-foreground break-words">
               {batchReasonText(t, batchResult, data?.batch?.dailyCap ?? 0)}
             </p>
@@ -2785,6 +2848,15 @@ function QueueConsole() {
             and never covers anything: nothing sits under it in its own
             column. The section inside is in normal flow. */}
         <div className={`lg:w-[360px] lg:shrink-0 lg:sticky lg:top-[77px] lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto space-y-4 ${COLUMN_ORDER.dialer}`} data-dialer-column>
+          {/* ── The hour before the window ───────────────────────────────
+              A row claimed ahead of its window (CLAIM_OPENS_WITHIN_MS) sits
+              in the Dialer with the Call button refused. The owner's
+              08:50: say WHY, in one amber line, and what to do with the
+              minutes — read the research and the script. Derived from the
+              same readiness the Call button is refused on (`compliance`,
+              re-judged every thirty seconds by `tick`), so it disappears
+              the moment the window opens and the button turns on. */}
+          <PreOpenBanner t={t} compliance={compliance} clock={clock} />
           {/* ── The Dialer: a phone's, and nothing else ──────────────────
               Window line · number display with × · round keypad · the
               green Call · the cap line · Auto-dial. The Call button IS
