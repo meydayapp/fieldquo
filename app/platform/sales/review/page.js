@@ -1506,6 +1506,12 @@ function SuggestedGroup({ card, onBack, onChanged, setNote, setError }) {
           />
           {tickedIds.length} of {rows.length} ticked
         </label>
+        {/* The page size sits here as well as by the pager: the owner, on a
+            1,985-row card, read "50 of 50 ticked" at the top and never
+            scrolled to the selector at the bottom. */}
+        {data && data.total > PAGE_SIZES[0] ? (
+          <PageSizeSelect value={pageSize} onChange={setPageSize} disabled={loading} />
+        ) : null}
         <span className="flex-1" />
         {card.accepts.map((src) => (
           <button
