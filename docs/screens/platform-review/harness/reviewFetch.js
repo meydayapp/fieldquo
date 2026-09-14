@@ -26,15 +26,15 @@ let rows = [
   row("p7", "Construction 2Much inc.", "Montréal", "+15145550101", "5782-8485-02", []),
   row("p8", "Gestion Immobilière Arpin inc.", "Saint-Thomas", "+14505550128", "5782-8527-02", [], {
     status: "needs_review", classification: "needs_review", classificationReason: "The source lists this as a shop as well as a trade — it may be a contractor with a showroom.",
-    sourceProvider: "overture", sourceLabel: "Overture Maps — places", register: null, licenceNumber: null, categories: ["contractor", "home_improvement_store"], reasons: ["unclear", "duplicate"], campaign: { id: "c2", name: "Quebec — overture" },
+    sourceProvider: "overture", sourceLabel: "Overture Maps — places", register: null, licenceNumber: null, categories: ["contractor", "home_improvement_store"], reasons: ["unclear", "duplicate"], campaign: { id: "c2", name: "Quebec — overture" }, tradingNames: ["Toitures Arpin"],
     duplicateOf: { id: "p99", businessName: "Les Entreprises Arpin inc.", city: "Saint-Thomas", status: "discovered", tradeKey: "general_contracting" },
   }),
 ];
 let total = 46485;
 
 const base = {
-  page: 0, pageSize: 50,
-  filter: { campaignId: null, source: "rbq", province: "QC", reason: null, q: null, website: null, retail: null },
+  page: 0, pageSize: 50, pageSizes: [50, 100, 200], duplicates: 0,
+  filter: { campaignId: null, source: "rbq", province: "QC", reason: null, q: null, website: null, retail: null, dups: "hide" },
   reasons: [
     { key: "no_trade", label: "No trade", note: "" },
     { key: "unclear", label: "Unclear contractor / shop", note: "" },
@@ -64,9 +64,26 @@ export async function fetchJson(url, init = {}) {
     const params = new URLSearchParams(u.split("?")[1] || "");
     const q = (params.get("q") || "").toLowerCase();
     const retail = params.get("retail") === "yes";
-    let out = q ? rows.filter((r) => r.businessName.toLowerCase().includes(q)) : rows;
+    const hideDups = params.get("dups") === "hide";
+    const pageSize = [50, 100, 200].includes(Number(params.get("pageSize"))) ? Number(params.get("pageSize")) : 50;
+    let out = q ? rows.filter((r) => [r.businessName, ...(r.tradingNames || [])].some((n) => n.toLowerCase().includes(q))) : rows;
     if (retail) out = rows.filter((r) => r.retailWord);
-    return { ...base, total: retail ? 1093 : q ? 583 : total, rows: out, filter: { ...base.filter, q: q || null, retail: retail ? "yes" : null } };
+    if (hideDups) out = out.filter((r) => !r.duplicateOf);
+    // A page of the size asked for: the fixture's rows repeated with fresh
+    // ids, so the 200-row frame is 200 real cards and the render is timed
+    // against what the route would actually send.
+    if (out.length && out.length < pageSize && pageSize > 50) {
+      const seed = out;
+      out = [];
+      for (let i = 0; out.length < pageSize; i++) out.push({ ...seed[i % seed.length], id: `${seed[i % seed.length].id}-${i}` });
+    }
+    // The count route counts flagged duplicates inside the filter; the
+    // fixture has one (Arpin) and it is in the "toiture" search only when
+    // the search is empty, so: shown → 1, hidden → 0, searched → 2 as the
+    // production folder had for that filter.
+    const duplicates = hideDups ? 0 : q ? 2 : 1;
+    const totalOut = retail ? 1093 : q ? 433 : total;
+    return { ...base, pageSize, total: hideDups && !q && !retail ? totalOut - 1 : totalOut, duplicates, rows: out, filter: { ...base.filter, q: q || null, retail: retail ? "yes" : null, dups: hideDups ? "hide" : null } };
   }
   throw new Error("harness: no fixture for " + u);
 }

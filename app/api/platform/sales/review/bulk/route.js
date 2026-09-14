@@ -42,6 +42,17 @@
 // if the number moved by more than the caller's `expectedCount` allows it
 // refuses and reports the new count rather than assigning to rows nobody
 // looked at.
+//
+// ══ Minus the rows the reviewer unticked, and never a flagged duplicate ════
+//
+// The owner: "select all 433 but not all of them — some are duplicates I
+// would uncheck". So `filter.excludeIds` carries the rows unticked on the
+// page (parseReviewFilter bounds it; the WHERE gets `"id" NOT IN`), and
+// bulkReview drops flagged duplicates on its own whatever the filter said —
+// a bulk accept clears the duplicate flag, and a name-based batch must not
+// be what answers "same business or not". The expected count the screen
+// sends is therefore total − duplicates − unticked, which is what the
+// server recounts.
 export const runtime = "nodejs";
 export const maxDuration = 300;
 

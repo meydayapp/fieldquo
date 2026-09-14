@@ -51,6 +51,36 @@
 // Keys in this mode: j/k move · space tick / untick · Enter accept the ticked
 // rows · / search is off (no search box here).
 //
+// ══ The bulk bar, since 2026-09-14 ═════════════════════════════════════════
+//
+// Row-by-row mode had a bulk assign already — "Select all N matching this
+// filter" at the far right of the filter row, then a trade, then Assign —
+// and the owner did not see it: he filtered to `?reason=no_trade&q=toiture`
+// and clicked 433 rows one at a time. Three corrections from that:
+//
+//   1. The control is a sticky BAR directly above the list, not a button in
+//      the filter row. It says what matches in words ("433 rows match
+//      toiture · No trade · QC"), shows the trade select FIRST, and its
+//      button reads "Assign Roofing to all 433" the moment a trade is
+//      picked — with "Pick the trade to assign" while none is, because a
+//      disabled button with no explanation is the dead control AGENTS.md
+//      names. Shift+A puts the cursor in the select. The old button is
+//      gone: one control is better than two.
+//   2. "Select all 433 but not all of them — some are duplicates I would
+//      uncheck." So every row carries a checkbox, ticked, and the whole
+//      filter set is the selection; a row unticked here is an EXCLUSION the
+//      bulk route honours (`filter.excludeIds`, `"id" NOT IN`). The confirm
+//      says "Assign Roofing to 431 rows (2 excluded)".
+//   3. Flagged duplicates are never in a bulk. They get a "Duplicate of …"
+//      chip and a checkbox that is off and stays off; the server drops them
+//      whatever the page sent (reviewBulk.js); and the "Hide duplicates"
+//      toggle in the filter bar — on by default — keeps them off the list
+//      and out of the count altogether, so 433 means 433 assignable rows.
+//
+// The page size (50 · 100 · 200) sits by the pager in both modes, is
+// remembered in localStorage (`fq.review.pageSize`), and is clamped by the
+// route to those three (reviewFolder.js says why 200 is the ceiling).
+//
 // ══ English ════════════════════════════════════════════════════════════════
 //
 // /platform is English-only by convention (app/platform/sales/notes/page.js
@@ -77,6 +107,54 @@ function readFilterFromUrl() {
     if (v) out[k] = v;
   }
   return out;
+}
+
+/** `?dups=show` is the one way to see flagged duplicates in the list; anything else hides them. */
+function readHideDupsFromUrl() {
+  if (typeof window === "undefined") return true;
+  return new URLSearchParams(window.location.search).get("dups") !== "show";
+}
+
+// ── The page size, remembered per browser ──────────────────────────────────
+//
+// A convenience, not a setting: localStorage throws in private windows and
+// under some site-data settings, so every read and write is wrapped and the
+// default (50, the route's own) is what a blank or broken store yields. The
+// route clamps whatever arrives to REVIEW_PAGE_SIZES, so a stored junk value
+// costs nothing but a default page.
+const PAGE_SIZE_KEY = "fq.review.pageSize";
+const PAGE_SIZES = [50, 100, 200];
+function readPageSize() {
+  try {
+    const n = Number(window.localStorage.getItem(PAGE_SIZE_KEY));
+    return PAGE_SIZES.includes(n) ? n : PAGE_SIZES[0];
+  } catch {
+    return PAGE_SIZES[0];
+  }
+}
+function rememberPageSize(n) {
+  try {
+    if (n === PAGE_SIZES[0]) window.localStorage.removeItem(PAGE_SIZE_KEY);
+    else window.localStorage.setItem(PAGE_SIZE_KEY, String(n));
+  } catch {
+    // A preference is not worth a broken pager.
+  }
+}
+
+/** The pager's page-size control, the same in both modes. */
+function PageSizeSelect({ value, onChange, disabled }) {
+  return (
+    <label className="inline-flex items-center gap-2 text-sm text-foreground">
+      <span className="text-muted-foreground">Rows per page</span>
+      <select className={FIELD} value={String(value)} onChange={(e) => onChange(Number(e.target.value))} disabled={disabled} aria-label="Rows per page" data-page-size>
+        {PAGE_SIZES.map((n) => (
+          <option key={n} value={String(n)}>
+            {n}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
 }
 
 /** `?mode=suggested&card=hvac` — the By-suggestion mode is a URL, like the filters. */
@@ -126,11 +204,29 @@ function Highlighted({ text, words }) {
   );
 }
 
-function filterToParams(filter, page) {
+function filterToParams(filter, page, { pageSize = PAGE_SIZES[0], hideDups = true } = {}) {
   const params = new URLSearchParams();
   for (const k of FILTER_KEYS) if (filter[k]) params.set(k, filter[k]);
+  // The "Possible duplicate" reason IS the duplicates; hiding them under it
+  // would show an empty folder and call it filtered.
+  if (filter.reason !== "duplicate") params.set("dups", hideDups ? "hide" : "show");
+  if (pageSize !== PAGE_SIZES[0]) params.set("pageSize", String(pageSize));
   if (page) params.set("page", String(page));
   return params;
+}
+
+/** The active filter in words, for the bulk bar: "toiture · No trade · QC · RBQ". */
+function describeFilter(filter, data) {
+  const parts = [];
+  if (filter.q) parts.push(`“${filter.q}”`);
+  if (filter.reason) parts.push((data?.reasons || []).find((r) => r.key === filter.reason)?.label || filter.reason);
+  if (filter.province) parts.push(filter.province);
+  if (filter.source) parts.push((data?.sources || []).find((x) => x.key === filter.source)?.label || filter.source);
+  if (filter.campaignId) parts.push((data?.campaigns || []).find((c) => c.id === filter.campaignId)?.name || "this campaign");
+  if (filter.website === "yes") parts.push("has a website");
+  if (filter.website === "no") parts.push("no website");
+  if (filter.retail === "yes") parts.push("shop word in the name");
+  return parts.join(" · ");
 }
 
 export default function PlatformSalesReviewPage() {
@@ -187,24 +283,38 @@ function RowsMode({ modeSwitch }) {
   const [focus, setFocus] = useState(0);
   // Per-row picked trade, keyed by prospect id. A chip press or the select.
   const [picked, setPicked] = useState({});
-  const [bulk, setBulk] = useState(null); // { decision, tradeKey } | null
-  const [confirm, setConfirm] = useState(null); // { decision, tradeKey, count, sample }
+  // The bulk bar: the trade chosen for "assign to all", and the rows the
+  // reviewer UNTICKED on this page — exclusions from the filter set. Reset on
+  // every load: an exclusion is a row on the page in front of you.
+  const [bulkTrade, setBulkTrade] = useState("");
+  const [excluded, setExcluded] = useState({});
+  const [confirm, setConfirm] = useState(null); // { decision, tradeKey, count, excluded, duplicates, sample }
+  const [hideDups, setHideDups] = useState(() => readHideDupsFromUrl());
+  const [pageSize, setPageSizeState] = useState(() => (typeof window === "undefined" ? PAGE_SIZES[0] : readPageSize()));
   const [maintenance, setMaintenance] = useState(null);
   const [maintenanceBusy, setMaintenanceBusy] = useState(false);
   const [showMaintenance, setShowMaintenance] = useState(false);
   const [reloadAfter, setReloadAfter] = useState(false);
   const qRef = useRef(null);
+  const tradeRef = useRef(null);
   const rowRefs = useRef([]);
+
+  const setPageSize = (n) => {
+    rememberPageSize(n);
+    setPage(0);
+    setPageSizeState(n);
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const params = filterToParams(filter, page);
+      const params = filterToParams(filter, page, { pageSize, hideDups });
       const res = await fetchJson(`/api/platform/sales/review?${params}`);
       setData(res);
       setFocus(0);
       setPicked({});
+      setExcluded({});
       if (typeof window !== "undefined") {
         const url = params.toString() ? `?${params}` : window.location.pathname;
         window.history.replaceState(null, "", url);
@@ -215,7 +325,7 @@ function RowsMode({ modeSwitch }) {
     } finally {
       setLoading(false);
     }
-  }, [filter, page]);
+  }, [filter, page, pageSize, hideDups]);
 
   useEffect(() => {
     load();
@@ -235,6 +345,15 @@ function RowsMode({ modeSwitch }) {
   };
 
   const narrow = Boolean(filter.campaignId || filter.source || filter.province || filter.q || filter.retail || filter.reason);
+
+  // What "assign to all" would write: the filter's rows, minus the flagged
+  // duplicates the server counted (never written in bulk), minus the rows
+  // unticked on this page. The number on the button, the confirm and the
+  // request are this one number.
+  const duplicates = Number(data?.duplicates) || 0;
+  const excludedIds = Object.keys(excluded).filter((id) => excluded[id]);
+  const bulkCount = data ? Math.max(0, data.total - duplicates - excludedIds.length) : 0;
+  const tickable = rows.filter((r) => !r.duplicateOf);
 
   const tradeLabel = useMemo(() => {
     const m = new Map((data?.trades || []).map((t) => [t.key, t.label]));
@@ -324,11 +443,20 @@ function RowsMode({ modeSwitch }) {
       } else if (e.key === "/") {
         e.preventDefault();
         qRef.current?.focus();
+      } else if (e.key === "A" && e.shiftKey && tradeRef.current) {
+        // Shift+A: the bulk bar's trade select. Only exists while the bar does.
+        e.preventDefault();
+        tradeRef.current.focus();
+      } else if (e.key === " " && current && narrow && !current.duplicateOf) {
+        // Untick (exclude) or re-tick the focused row for the bulk. A
+        // flagged duplicate has no tick to toggle — it is never in a bulk.
+        e.preventDefault();
+        setExcluded((x) => ({ ...x, [current.id]: !x[current.id] }));
       }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [rows.length, current, picked, decide, confirm]);
+  }, [rows.length, current, picked, decide, confirm, narrow]);
 
   useEffect(() => {
     rowRefs.current[focus]?.scrollIntoView?.({ block: "nearest" });
@@ -344,18 +472,21 @@ function RowsMode({ modeSwitch }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          filter,
+          // The filter as the list was loaded — duplicates hidden or not —
+          // plus the rows unticked on this page. The server drops flagged
+          // duplicates on its own either way (reviewBulk.js).
+          filter: { ...filter, dups: hideDups && filter.reason !== "duplicate" ? "hide" : null, excludeIds: confirm.excluded },
           decision: confirm.decision,
           tradeKey: confirm.tradeKey,
           expectedCount: confirm.count,
         }),
       });
       setConfirm(null);
-      setBulk(null);
+      setBulkTrade("");
       setNote(
         confirm.decision === "accept"
-          ? `Assigned ${res.tradeLabel} to ${res.count} rows across ${res.campaigns} campaign${res.campaigns === 1 ? "" : "s"}. ${res.research}`
-          : `Rejected ${res.count} rows across ${res.campaigns} campaign${res.campaigns === 1 ? "" : "s"}.`,
+          ? `Assigned ${res.tradeLabel} to ${res.count} rows across ${res.campaigns} campaign${res.campaigns === 1 ? "" : "s"}.${confirm.excluded.length ? ` ${confirm.excluded.length} unticked row${confirm.excluded.length === 1 ? "" : "s"} left as they were.` : ""} ${res.research}`
+          : `Rejected ${res.count} rows across ${res.campaigns} campaign${res.campaigns === 1 ? "" : "s"}.${confirm.excluded.length ? ` ${confirm.excluded.length} unticked row${confirm.excluded.length === 1 ? "" : "s"} left as they were.` : ""}`,
       );
       await load();
     } catch (err) {
@@ -400,7 +531,8 @@ function RowsMode({ modeSwitch }) {
         </p>
         <p className="text-xs text-muted-foreground">
           Keys: <kbd>j</kbd>/<kbd>k</kbd> move · <kbd>1</kbd>–<kbd>9</kbd> pick a suggested trade · <kbd>Enter</kbd> accept ·{" "}
-          <kbd>x</kbd> not a contractor · <kbd>d</kbd> duplicate · <kbd>s</kbd> still unsure · <kbd>/</kbd> search
+          <kbd>x</kbd> not a contractor · <kbd>d</kbd> duplicate · <kbd>s</kbd> still unsure · <kbd>/</kbd> search ·{" "}
+          <kbd>space</kbd> untick a row from a bulk · <kbd>Shift</kbd>+<kbd>A</kbd> the bulk trade
         </p>
       </header>
 
@@ -474,6 +606,20 @@ function RowsMode({ modeSwitch }) {
             />
             Name carries a shop word
           </label>
+          <label className="inline-flex items-center gap-2 min-h-[44px] px-1 text-sm text-foreground">
+            <input
+              type="checkbox"
+              checked={filter.reason === "duplicate" ? false : hideDups}
+              disabled={filter.reason === "duplicate"}
+              onChange={(e) => {
+                setPage(0);
+                setHideDups(e.target.checked);
+              }}
+              data-hide-dups
+            />
+            Hide duplicates
+            {filter.reason === "duplicate" ? <span className="text-xs text-muted-foreground">(this reason is the duplicates)</span> : null}
+          </label>
         </div>
 
         <div className="flex flex-wrap items-center gap-2 text-sm">
@@ -486,69 +632,29 @@ function RowsMode({ modeSwitch }) {
               Clear filters
             </button>
           ) : null}
-          <span className="flex-1" />
-          {narrow && data && data.total > 0 ? (
-            <button type="button" className={`${BTN} border border-border text-foreground`} onClick={() => setBulk({ decision: "accept", tradeKey: "" })} data-bulk-open>
-              Select all {data.total.toLocaleString()} matching this filter
-            </button>
+          {data && duplicates > 0 && !hideDups ? (
+            <span className="text-xs text-muted-foreground" data-review-dups>
+              {duplicates.toLocaleString()} flagged duplicate{duplicates === 1 ? "" : "s"} shown — decided row by row, never in a bulk
+            </span>
           ) : null}
         </div>
-
-        {bulk ? (
-          <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/40 dark:border-amber-800 p-3 space-y-2" data-bulk-panel>
-            <p className="text-sm text-amber-900 dark:text-amber-200">
-              One decision for all <strong>{data.total.toLocaleString()}</strong> rows matching this filter. The server re-runs
-              the filter; a row a rep holds or a do-not-contact row is never touched.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-2">
-              <select className={`${FIELD} flex-1`} value={bulk.tradeKey} onChange={(e) => setBulk({ ...bulk, tradeKey: e.target.value })} aria-label="Trade to assign" data-bulk-trade>
-                <option value="">Choose a trade…</option>
-                {(data.trades || []).map((t) => (
-                  <option key={t.key} value={t.key}>
-                    {t.label}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="button"
-                className={`${BTN} bg-primary text-primary-foreground`}
-                disabled={!bulk.tradeKey}
-                onClick={() => setConfirm({ decision: "accept", tradeKey: bulk.tradeKey, count: data.total, sample: rows.slice(0, 3).map((r) => r.businessName) })}
-                data-bulk-assign
-              >
-                <Check size={16} /> Assign {bulk.tradeKey ? tradeLabel(bulk.tradeKey) : "trade"} to {data.total.toLocaleString()} rows
-              </button>
-              {filter.retail === "yes" ? (
-                <button
-                  type="button"
-                  className={`${BTN} border border-border text-foreground`}
-                  onClick={() => setConfirm({ decision: "reject", tradeKey: null, count: data.total, sample: rows.slice(0, 3).map((r) => r.businessName) })}
-                  data-bulk-reject
-                >
-                  <X size={16} /> Reject all {data.total.toLocaleString()} as shops
-                </button>
-              ) : null}
-              <button type="button" className={`${BTN} text-muted-foreground`} onClick={() => setBulk(null)}>
-                Cancel
-              </button>
-            </div>
-          </div>
-        ) : null}
       </section>
 
       {/* ── Confirmation ───────────────────────────────────────────────── */}
       {confirm ? (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" data-bulk-confirm>
           <div className="w-full max-w-md rounded-xl border border-border bg-card p-5 space-y-4">
-            <h2 className="text-base font-semibold text-foreground">
+            <h2 className="text-base font-semibold text-foreground" data-bulk-confirm-title>
               {confirm.decision === "accept"
-                ? `Assign ${tradeLabel(confirm.tradeKey)} to ${confirm.count.toLocaleString()} rows?`
-                : `Reject ${confirm.count.toLocaleString()} rows as shops?`}
+                ? `Assign ${tradeLabel(confirm.tradeKey)} to ${confirm.count.toLocaleString()} rows${confirm.excluded.length ? ` (${confirm.excluded.length} excluded)` : ""}?`
+                : `Reject ${confirm.count.toLocaleString()} rows as not contractors${confirm.excluded.length ? ` (${confirm.excluded.length} excluded)` : ""}?`}
             </h2>
             <p className="text-sm text-muted-foreground">
               {confirm.decision === "accept"
                 ? "Every matching row becomes an accepted contractor in this trade's queue. Written as one audited act, with a correction on each row."
                 : "Every matching row is rejected and marked do-not-contact, so a re-import cannot put it back in front of a rep."}
+              {confirm.excluded.length ? ` The ${confirm.excluded.length} row${confirm.excluded.length === 1 ? " you unticked stays" : "s you unticked stay"} as ${confirm.excluded.length === 1 ? "it is" : "they are"}.` : ""}
+              {confirm.duplicates ? ` ${confirm.duplicates.toLocaleString()} flagged duplicate${confirm.duplicates === 1 ? "" : "s"} in this filter ${confirm.duplicates === 1 ? "is" : "are"} left for row by row.` : ""}
             </p>
             <div className="text-sm text-foreground">
               <p className="font-medium">For example:</p>
@@ -571,6 +677,101 @@ function RowsMode({ modeSwitch }) {
             </div>
           </div>
         </div>
+      ) : null}
+
+      {/* ── The bulk bar: the filter is the decision, minus what you untick ── */}
+      {narrow && data && data.total > 0 ? (
+        <section
+          className="sticky top-0 z-20 rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-950/60 dark:border-amber-800 p-3 space-y-2 shadow-sm"
+          data-bulk-bar
+        >
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-amber-900 dark:text-amber-200">
+            <span className="font-semibold" data-bulk-match>
+              {bulkCount.toLocaleString()} row{bulkCount === 1 ? "" : "s"} match {describeFilter(filter, data)}
+            </span>
+            {excludedIds.length ? <span data-bulk-excluded>· {excludedIds.length} unticked</span> : null}
+            {duplicates ? <span data-bulk-dups>· {duplicates.toLocaleString()} duplicate{duplicates === 1 ? "" : "s"} left for row by row</span> : null}
+            <label className="inline-flex items-center gap-2 ml-auto">
+              <input
+                type="checkbox"
+                checked={tickable.length > 0 && tickable.every((r) => !excluded[r.id])}
+                onChange={(e) => {
+                  const next = { ...excluded };
+                  for (const r of tickable) next[r.id] = !e.target.checked;
+                  setExcluded(next);
+                }}
+                aria-label="Tick every row on this page"
+                data-bulk-tick-all
+              />
+              this page
+            </label>
+          </div>
+          {bulkCount > 0 ? (
+            <div className="flex flex-col sm:flex-row gap-2">
+              <select
+                ref={tradeRef}
+                className={`${FIELD} flex-1`}
+                value={bulkTrade}
+                onChange={(e) => setBulkTrade(e.target.value)}
+                aria-label="Trade to assign"
+                data-bulk-trade
+              >
+                <option value="">Pick the trade to assign…</option>
+                {(data.trades || []).map((t) => (
+                  <option key={t.key} value={t.key}>
+                    {t.label}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                className={`${BTN} bg-primary text-primary-foreground`}
+                disabled={!bulkTrade || Boolean(busy)}
+                title={bulkTrade ? undefined : "Pick the trade to assign"}
+                onClick={() =>
+                  setConfirm({
+                    decision: "accept",
+                    tradeKey: bulkTrade,
+                    count: bulkCount,
+                    excluded: excludedIds,
+                    duplicates,
+                    sample: tickable.filter((r) => !excluded[r.id]).slice(0, 3).map((r) => r.businessName),
+                  })
+                }
+                data-bulk-open
+                data-bulk-assign
+              >
+                <Check size={16} /> {bulkTrade ? `Assign ${tradeLabel(bulkTrade)} to all ${bulkCount.toLocaleString()}` : "Pick the trade to assign"}
+              </button>
+              <button
+                type="button"
+                className={`${BTN} border border-border text-foreground`}
+                disabled={Boolean(busy)}
+                onClick={() =>
+                  setConfirm({
+                    decision: "reject",
+                    tradeKey: null,
+                    count: bulkCount,
+                    excluded: excludedIds,
+                    duplicates,
+                    sample: tickable.filter((r) => !excluded[r.id]).slice(0, 3).map((r) => r.businessName),
+                  })
+                }
+                data-bulk-reject
+              >
+                <X size={16} /> Reject all {bulkCount.toLocaleString()} (not contractors)
+              </button>
+            </div>
+          ) : (
+            <p className="text-xs text-amber-900/80 dark:text-amber-200/80">
+              Nothing left to assign in bulk: every matching row is unticked or a flagged duplicate. Duplicates are decided row by row.
+            </p>
+          )}
+          <p className="text-xs text-amber-900/80 dark:text-amber-200/80">
+            One decision for the whole filter, not just this page. The server re-runs the filter; a row a rep holds, a do-not-contact
+            row and a flagged duplicate are never touched. Untick a row to leave it out.
+          </p>
+        </section>
       ) : null}
 
       {/* ── Rows ─────────────────────────────────────────────────────────── */}
@@ -598,6 +799,22 @@ function RowsMode({ modeSwitch }) {
               data-active={active ? "1" : undefined}
             >
               <div className="flex flex-wrap items-start gap-x-3 gap-y-1">
+                {narrow ? (
+                  // The row's place in the bulk: ticked means "in", unticked
+                  // means excluded. A flagged duplicate is off and disabled —
+                  // the bulk route never writes one, so a tick would be a
+                  // control that does nothing.
+                  <input
+                    type="checkbox"
+                    className="mt-1.5"
+                    checked={p.duplicateOf ? false : !excluded[p.id]}
+                    disabled={Boolean(p.duplicateOf)}
+                    onChange={(e) => setExcluded((x) => ({ ...x, [p.id]: !e.target.checked }))}
+                    onClick={(e) => e.stopPropagation()}
+                    aria-label={p.duplicateOf ? `${p.businessName} is a flagged duplicate — decided row by row` : `Include ${p.businessName} in the bulk`}
+                    data-bulk-tick={p.id}
+                  />
+                ) : null}
                 <div className="min-w-0 flex-1">
                   <p className="font-medium text-foreground break-words">{p.businessName || "(no name)"}</p>
                   {p.tradingNames?.length ? (
@@ -627,6 +844,11 @@ function RowsMode({ modeSwitch }) {
                     </span>
                   ))}
                   {p.deferred ? <span className="rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground">skipped before</span> : null}
+                  {p.duplicateOf ? (
+                    <span className="rounded-full border border-amber-400 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 text-[11px] text-amber-900 dark:text-amber-200" data-duplicate-chip>
+                      Duplicate of {p.duplicateOf.businessName || p.duplicateOf.id}
+                    </span>
+                  ) : null}
                 </div>
               </div>
 
@@ -725,8 +947,8 @@ function RowsMode({ modeSwitch }) {
         })}
       </div>
 
-      {data && data.total > data.pageSize ? (
-        <nav className="flex items-center gap-3 text-sm text-foreground">
+      {data && (data.total > PAGE_SIZES[0] || pageSize !== PAGE_SIZES[0]) ? (
+        <nav className="flex flex-wrap items-center gap-3 text-sm text-foreground" data-review-pager>
           <button type="button" className={`${BTN} border border-border`} disabled={page === 0 || loading} onClick={() => setPage((p) => Math.max(0, p - 1))}>
             Previous
           </button>
@@ -736,6 +958,7 @@ function RowsMode({ modeSwitch }) {
           <button type="button" className={`${BTN} border border-border`} disabled={page + 1 >= pages || loading} onClick={() => setPage((p) => p + 1)}>
             Next
           </button>
+          <PageSizeSelect value={pageSize} onChange={setPageSize} disabled={loading} />
         </nav>
       ) : null}
 
@@ -1124,6 +1347,7 @@ function CardButton({ card, onOpen }) {
 
 function SuggestedGroup({ card, onBack, onChanged, setNote, setError }) {
   const [page, setPage] = useState(0);
+  const [pageSize, setPageSizeState] = useState(() => (typeof window === "undefined" ? PAGE_SIZES[0] : readPageSize()));
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [checked, setChecked] = useState({});
@@ -1132,10 +1356,17 @@ function SuggestedGroup({ card, onBack, onChanged, setNote, setError }) {
   const [busy, setBusy] = useState(false);
   const rowRefs = useRef([]);
 
+  const setPageSize = (n) => {
+    rememberPageSize(n);
+    setPage(0);
+    setPageSizeState(n);
+  };
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams({ suggested: card.key, page: String(page) });
+      if (pageSize !== PAGE_SIZES[0]) params.set("pageSize", String(pageSize));
       const res = await fetchJson(`/api/platform/sales/review?${params}`);
       setData(res);
       const next = {};
@@ -1148,7 +1379,7 @@ function SuggestedGroup({ card, onBack, onChanged, setNote, setError }) {
     } finally {
       setLoading(false);
     }
-  }, [card.key, card.checkedByDefault, page, setError]);
+  }, [card.key, card.checkedByDefault, page, pageSize, setError]);
 
   useEffect(() => {
     load();
@@ -1362,8 +1593,8 @@ function SuggestedGroup({ card, onBack, onChanged, setNote, setError }) {
         })}
       </div>
 
-      {data && data.total > data.pageSize ? (
-        <nav className="flex items-center gap-3 text-sm text-foreground">
+      {data && (data.total > PAGE_SIZES[0] || pageSize !== PAGE_SIZES[0]) ? (
+        <nav className="flex flex-wrap items-center gap-3 text-sm text-foreground" data-suggest-pager>
           <button type="button" className={`${BTN} border border-border`} disabled={page === 0 || loading} onClick={() => setPage((p) => Math.max(0, p - 1))}>
             Previous
           </button>
@@ -1373,6 +1604,7 @@ function SuggestedGroup({ card, onBack, onChanged, setNote, setError }) {
           <button type="button" className={`${BTN} border border-border`} disabled={page + 1 >= pages || loading} onClick={() => setPage((p) => p + 1)}>
             Next
           </button>
+          <PageSizeSelect value={pageSize} onChange={setPageSize} disabled={loading} />
         </nav>
       ) : null}
 

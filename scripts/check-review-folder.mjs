@@ -82,9 +82,14 @@ import {
   reviewOrderSql,
   untouchableGuardWhere,
   parseReviewFilter,
+  parsePageSize,
   countersByCampaign,
   counterUpdates,
   REVIEW_DECISIONS,
+  REVIEW_EXCLUDE_MAX,
+  REVIEW_PAGE_SIZE,
+  REVIEW_PAGE_SIZES,
+  REVIEW_PAGE_SIZE_MAX,
 } from "../lib/sales/discovery/reviewFolder.js";
 import { reviewDecide } from "../lib/sales/discovery/reviewDecide.js";
 import { bulkReview } from "../lib/sales/discovery/reviewBulk.js";
@@ -621,6 +626,40 @@ section("7. bulkReview — never touches a claimed or do-not-contact row");
   let threw = false;
   try { await bulkReview({ db, filter, decision: "duplicate", expectedCount: 1, adminId: "a" }); } catch { threw = true; }
   ok("bulk duplicate is not a thing", threw);
+
+  // ── The rows the reviewer unticked, and the flagged duplicates ──────────
+  //
+  // The owner: "select all 433 but not all of them — some are duplicates I
+  // would uncheck". The SELECT here LIES again — it hands back the unticked
+  // row and a flagged duplicate as if the WHERE had kept them — and neither
+  // may be written: the exclusion and the duplicate rule are re-applied on
+  // the rows read, the way the untouchable guard is.
+  {
+    const c = [campaignFixture()];
+    const p = [
+      prospectFixture({ id: "e1", businessName: "Toitures Un" }),
+      prospectFixture({ id: "e2", businessName: "Toitures Deux (unticked)" }),
+      prospectFixture({ id: "e3", businessName: "Toitures Trois" }),
+      prospectFixture({ id: "e4", businessName: "Toitures Quatre (flagged duplicate)", possibleDuplicateOfId: "e1" }),
+    ];
+    const client = makeClient({ prospects: p, campaigns: c, selection: p });
+    const f = parseReviewFilter({ source: "rbq", q: "toiture", excludeIds: ["e2", " e2 ", "", 42] });
+    ok("parseReviewFilter: excludeIds de-duplicated, trimmed and bounded", JSON.stringify(f.excludeIds) === JSON.stringify(["e2"]) && parseReviewFilter({ excludeIds: Array.from({ length: 900 }, (_, i) => `x${i}`) }).excludeIds.length === REVIEW_EXCLUDE_MAX);
+    ok("parseReviewFilter: excludeIds from a URL are never read", parseReviewFilter(new URLSearchParams("excludeIds=e2")).excludeIds === null);
+    const whereText = reviewWhereSql(f, { now: NOW }).sql;
+    ok("the WHERE carries the exclusion", /"id" NOT IN/.test(whereText));
+    ok("…and hides duplicates only when asked", !/"possibleDuplicateOfId" IS NULL/.test(whereText) && /"possibleDuplicateOfId" IS NULL/.test(reviewWhereSql({ ...f, dups: "hide" }, { now: NOW }).sql));
+    ok("parseReviewFilter: dups is 'hide' or nothing", parseReviewFilter({ dups: "hide" }).dups === "hide" && parseReviewFilter({ dups: "show" }).dups === null && parseReviewFilter({ dups: "yes" }).dups === null);
+    const r = await bulkReview({ db: client.db, filter: f, decision: "accept", tradeKey: "roofing", expectedCount: 2, adminId: "admin1", now: NOW });
+    ok("the bulk wrote the two rows that were neither unticked nor flagged", r.ok === true && r.count === 2, r);
+    ok("the unticked row was not written, though the selection returned it", p.find((x) => x.id === "e2").tradeKey === null);
+    ok("the flagged duplicate was not written, though the selection returned it and the filter did not say dups: hide", p.find((x) => x.id === "e4").tradeKey === null && p.find((x) => x.id === "e4").possibleDuplicateOfId === "e1");
+    ok("…and the other two got the trade", ["e1", "e3"].every((id) => p.find((x) => x.id === id).tradeKey === "roofing"));
+    ok("the audit row says how many were excluded", client.audits.length === 1 && client.audits[0].details.excluded === 1, client.audits[0]?.details);
+    const src = read("lib/sales/discovery/reviewBulk.js");
+    ok("bulkReview forces duplicates out of its own WHERE, whatever the filter said", /reviewWhereSql\(\{ \.\.\.filter, dups: "hide" \}/.test(src));
+    ok("…and drops them and the exclusions again from the rows read", /!excluded\.has\(r\.id\) && !r\.possibleDuplicateOfId/.test(src));
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -643,7 +682,16 @@ section("8. The folder's WHERE, and what the screen wires");
   const order = reviewOrderSql();
   ok("the sort puts skipped rows last, keyword names first, then websites, then oldest",
     order.sql.indexOf('"reviewDeferredAt" IS NOT NULL) ASC') < order.sql.indexOf("~*") && order.sql.indexOf("~*") < order.sql.indexOf('"websiteUrl" IS NOT NULL) DESC') && order.sql.endsWith('"createdAt" ASC, "id" ASC') && order.values.includes(nameKeywordPgRegex()));
-  ok("parseReviewFilter drops junk", JSON.stringify(parseReviewFilter({ reason: "nope", website: "maybe", retail: "no" })) === JSON.stringify({ campaignId: null, source: null, province: null, reason: null, q: null, website: null, retail: null, suggested: null, ids: null }));
+  ok("parseReviewFilter drops junk", JSON.stringify(parseReviewFilter({ reason: "nope", website: "maybe", retail: "no", dups: "maybe" })) === JSON.stringify({ campaignId: null, source: null, province: null, reason: null, q: null, website: null, retail: null, suggested: null, ids: null, excludeIds: null, dups: null }));
+
+  // The page size: three values, clamped by the route, 200 the ceiling.
+  ok("the page sizes are 50, 100 and 200, and the cap is 200", JSON.stringify(REVIEW_PAGE_SIZES) === "[50,100,200]" && REVIEW_PAGE_SIZE_MAX === 200 && REVIEW_PAGE_SIZE === 50);
+  ok("parsePageSize: a listed size is kept", parsePageSize("100") === 100 && parsePageSize(200) === 200 && parsePageSize("50") === 50);
+  ok("parsePageSize: anything else is the default, never the nearest and never an error", [parsePageSize("500"), parsePageSize("0"), parsePageSize("-1"), parsePageSize("1e9"), parsePageSize("abc"), parsePageSize(null), parsePageSize(undefined), parsePageSize("150")].every((n) => n === REVIEW_PAGE_SIZE));
+  const listRoute = read("app/api/platform/sales/review/route.js");
+  ok("the list route reads pageSize through the clamp and pages by it", /parsePageSize\(url\.searchParams\.get\("pageSize"\)\)/.test(listRoute) && /LIMIT \$\{pageSize\} OFFSET \$\{page \* pageSize\}/.test(listRoute) && !/REVIEW_PAGE_SIZE\b/.test(listRoute.replace(/REVIEW_PAGE_SIZES/g, "")));
+  ok("…and counts the flagged duplicates inside the filter in the same pass", /COUNT\("possibleDuplicateOfId"\)::int AS dups/.test(listRoute) && /duplicates: Number\(duplicates\)/.test(listRoute));
+  ok("…and suggestions are still computed once per row in the route, not in the component", /suggestTrades\(p\)/.test(listRoute) && !/suggestTrades\(/.test(read("app/platform/sales/review/page.js")));
   ok("the guard where matches the guard SQL", JSON.stringify(untouchableGuardWhere(NOW)) === JSON.stringify({ doNotContactAt: null, OR: [{ assignedRepId: null }, { claimExpiresAt: { lt: NOW } }] }));
 
   const page = read("app/platform/sales/review/page.js");
@@ -654,8 +702,33 @@ section("8. The folder's WHERE, and what the screen wires");
   ok("keys are off while typing", page.includes('tag === "input"'));
   ok("suggestions render their basis", page.includes("{s.basis}"));
   ok("the bulk confirmation shows sample names", page.includes("confirm.sample.map"));
-  ok("reject-all is offered only on the shop-word filter", /filter\.retail === "yes" \? \(\s*<button/.test(page));
   ok("the shop-word case says why there is no chip", page.includes("the name carries a shop word"));
+
+  // ── The bulk bar (2026-09-14) ─────────────────────────────────────────
+  //
+  // The owner filtered to 433 roofers and clicked them one by one because
+  // the bulk control was a button at the far right of the filter row. Now
+  // it is a bar above the list; these pin the parts he asked for.
+  const bar = page.slice(page.indexOf("data-bulk-bar"), page.indexOf("{/* ── Rows"));
+  ok("the bar is rendered directly above the list, sticky, only on a narrowed non-empty folder", page.indexOf("data-bulk-bar") < page.indexOf("data-review-rows") && /narrow && data && data\.total > 0 \? \(\s*<section\s+className="sticky/.test(page));
+  ok("…the old far-right button is gone: one control", (page.match(/data-bulk-open/g) || []).length === 1 && !page.includes("Select all {data.total"));
+  ok("…it says what matches, in words", /describeFilter\(filter, data\)/.test(bar) && /function describeFilter/.test(page) && /shop word in the name/.test(page));
+  ok("…the trade select comes first and Shift+A focuses it", bar.indexOf("data-bulk-trade") < bar.indexOf("data-bulk-assign") && /ref=\{tradeRef\}/.test(bar) && /e\.key === "A" && e\.shiftKey && tradeRef\.current/.test(page));
+  ok("…the primary button is enabled iff a trade is chosen, and says so while none is", /disabled=\{!bulkTrade \|\| Boolean\(busy\)\}/.test(bar) && /title=\{bulkTrade \? undefined : "Pick the trade to assign"\}/.test(bar) && /\{bulkTrade \? `Assign \$\{tradeLabel\(bulkTrade\)\} to all \$\{bulkCount\.toLocaleString\(\)\}` : "Pick the trade to assign"\}/.test(bar));
+  ok("…it keeps data-bulk-open on the primary button", /data-bulk-open\s+data-bulk-assign/.test(bar));
+  ok("…and offers reject as the secondary", /data-bulk-reject/.test(bar) && /Reject all \{bulkCount\.toLocaleString\(\)\} \(not contractors\)/.test(bar));
+  ok("…the count on the button is total − duplicates − unticked", /const bulkCount = data \? Math\.max\(0, data\.total - duplicates - excludedIds\.length\) : 0/.test(page));
+  ok("every row carries a checkbox while the folder is narrowed, and unticking is an exclusion", /data-bulk-tick=\{p\.id\}/.test(page) && /onChange=\{\(e\) => setExcluded\(\(x\) => \(\{ \.\.\.x, \[p\.id\]: !e\.target\.checked \}\)\)\}/.test(page));
+  ok("…space toggles the focused row's tick", /e\.key === " " && current && narrow && !current\.duplicateOf/.test(page));
+  ok("…the header checkbox ticks or unticks the whole page", /data-bulk-tick-all/.test(bar));
+  ok("a flagged duplicate is unticked, disabled and chipped", /checked=\{p\.duplicateOf \? false : !excluded\[p\.id\]\}/.test(page) && /disabled=\{Boolean\(p\.duplicateOf\)\}/.test(page) && /data-duplicate-chip/.test(page) && /Duplicate of \{p\.duplicateOf\.businessName \|\| p\.duplicateOf\.id\}/.test(page));
+  ok("the request carries the exclusions and the duplicates setting", /excludeIds: confirm\.excluded/.test(page) && /dups: hideDups && filter\.reason !== "duplicate" \? "hide" : null/.test(page));
+  ok("the confirm says how many were excluded", /\(\$\{confirm\.excluded\.length\} excluded\)/.test(page) && /data-bulk-confirm-title/.test(page));
+  ok("Hide duplicates is a filter-bar toggle, on by default, off and disabled under the duplicate reason", /data-hide-dups/.test(page) && /useState\(\(\) => readHideDupsFromUrl\(\)\)/.test(page) && /\.get\("dups"\) !== "show"/.test(page) && /checked=\{filter\.reason === "duplicate" \? false : hideDups\}/.test(page) && /disabled=\{filter\.reason === "duplicate"\}/.test(page));
+  ok("…and the list request sends it, except under the duplicate reason", /if \(filter\.reason !== "duplicate"\) params\.set\("dups", hideDups \? "hide" : "show"\)/.test(page));
+  ok("the page-size selector is by the pager in both modes and is remembered", (page.match(/<PageSizeSelect /g) || []).length === 2 && /const PAGE_SIZE_KEY = "fq\.review\.pageSize"/.test(page) && /const PAGE_SIZES = \[50, 100, 200\]/.test(page) && /params\.set\("pageSize", String\(pageSize\)\)/.test(page));
+  ok("…every localStorage read and write is wrapped", (page.match(/window\.localStorage/g) || []).length === 3 && (page.slice(page.indexOf("function readPageSize"), page.indexOf("function PageSizeSelect")).match(/try \{/g) || []).length === 2);
+  ok("…and the suggested cards send it too", /new URLSearchParams\(\{ suggested: card\.key, page: String\(page\) \}\);\s*if \(pageSize !== PAGE_SIZES\[0\]\) params\.set\("pageSize"/.test(page));
 
   const sidebar = read("app/components/platform/PlatformSidebar.js");
   ok("the sidebar has the Review folder under Sales", sidebar.includes('href: "/platform/sales/review"') && sidebar.indexOf('href: "/platform/sales/review"') > sidebar.indexOf('href: "/platform/sales/campaigns"'));

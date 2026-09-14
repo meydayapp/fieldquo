@@ -45,8 +45,9 @@ import { db } from "@/lib/db";
 import { superadminOrRefusal } from "@/lib/sales/intel/configAdmin";
 import {
   DECISION_FIELDS,
-  REVIEW_PAGE_SIZE,
+  REVIEW_PAGE_SIZES,
   REVIEW_REASONS,
+  parsePageSize,
   parseReviewFilter,
   reviewOrderSql,
   reviewReasonsOf,
@@ -110,12 +111,19 @@ export async function GET(request) {
   const url = new URL(request.url);
   const filter = parseReviewFilter(url.searchParams);
   const page = Math.max(0, Math.floor(Number(url.searchParams.get("page")) || 0));
+  // Clamped to the three sizes the screen offers (reviewFolder.js says why
+  // 200 is the ceiling); anything else is the default, never an error.
+  const pageSize = parsePageSize(url.searchParams.get("pageSize"));
   const now = new Date();
   const where = reviewWhereSql(filter, { now });
 
-  const [[{ n: total }], idRows, facetData] = await Promise.all([
-    db.$queryRaw`SELECT COUNT(*)::int AS n FROM "Prospect" WHERE ${where}`,
-    db.$queryRaw`SELECT id FROM "Prospect" WHERE ${where} ORDER BY ${reviewOrderSql(filter)} LIMIT ${REVIEW_PAGE_SIZE} OFFSET ${page * REVIEW_PAGE_SIZE}`,
+  // One pass counts both: the rows matching the filter, and how many of them
+  // are flagged duplicates — which a bulk decision leaves alone (reviewBulk.js),
+  // so the bar can say "431 rows (2 duplicates left for row by row)" from a
+  // number the server counted rather than one the page guessed.
+  const [[{ n: total, dups: duplicates }], idRows, facetData] = await Promise.all([
+    db.$queryRaw`SELECT COUNT(*)::int AS n, COUNT("possibleDuplicateOfId")::int AS dups FROM "Prospect" WHERE ${where}`,
+    db.$queryRaw`SELECT id FROM "Prospect" WHERE ${where} ORDER BY ${reviewOrderSql(filter)} LIMIT ${pageSize} OFFSET ${page * pageSize}`,
     facets(now),
   ]);
   const ids = idRows.map((r) => r.id);
@@ -160,8 +168,10 @@ export async function GET(request) {
 
   return NextResponse.json({
     total: Number(total),
+    duplicates: Number(duplicates),
     page,
-    pageSize: REVIEW_PAGE_SIZE,
+    pageSize,
+    pageSizes: [...REVIEW_PAGE_SIZES],
     filter,
     reasons: Object.entries(REVIEW_REASONS).map(([key, r]) => ({ key, ...r })),
     trades: tradePickerOptions(),
