@@ -889,6 +889,25 @@ section("6. Source: the route, the gate, the cron, the screen, the sticky fix");
   ok("the single path survives as \"Just one\"", /act\("claim"\)/.test(page) && /app\.salesQueue\.claimJustOne/.test(page));
   ok("Release the rest posts release_rest", /act\("release_rest"\)/.test(page));
   ok("…and is not rendered when it would release nothing", /untouchedCount > 0 \?/.test(page));
+  // The Dialer column's "Text the signup link to <business>": its own card
+  // UNDER the Dialer card (after the keypad, the Call button and Auto-dial —
+  // the owner's placement), in the same column, before the tabbed card.
+  const column = page.slice(page.indexOf("data-dialer-column"), page.indexOf('data-console-panel={'));
+  const card = column.slice(column.indexOf('data-console-card="signup-text"'));
+  ok("the Dialer column mounts SignupLinkSms for the current lead, in its own card under the Dialer card", /import SignupLinkSms from "@\/app\/sales\/leads\/SignupLinkSms"/.test(page) && /<SignupLinkSms leadId=\{current\.lead\.id\} \/>/.test(card) && column.indexOf("<AutodialControl") < column.indexOf('data-console-card="signup-text"') && column.indexOf('data-console-card="dialer"') < column.indexOf('data-console-card="signup-text"'));
+  ok("…the button names the business, and the stepper sits under it", /app\.salesQueue\.textSignupLink", \{ business: current\.businessName \}/.test(card) && /<SignupProgress leadId=\{current\.lead\.id\} \/>/.test(card) && card.indexOf("data-signup-text-button") < card.indexOf("<SignupProgress"));
+  ok("…and a business with no lead yet gets one first — by prospectId only", /body: JSON\.stringify\(\{ prospectId: current\.id \}\)/.test(page.slice(page.indexOf("async function openSignupText"), page.indexOf("const panelProps"))));
+  for (const lang of Object.keys(APP_MESSAGES)) {
+    ok(`${lang}: textSignupLink keeps its {business} slot`, String(APP_MESSAGES[lang]["app.salesQueue.textSignupLink"]).includes("{business}"));
+  }
+  ok("the browser sends its zone with every request, and never a number", /timeZone: browserTimeZone\(\)/.test(page) && /search\.set\("timeZone", zone\)/.test(page) && !/max:\s*\d/.test(page));
+  ok("at the cap the button is replaced by the sentence, not greyed", /remainingToday > 0 \? \(/.test(page) && /app\.salesQueue\.batchReason\.dailyCap/.test(page));
+  ok("a row prints researched / researching / not researched as three sentences", /rowResearched/.test(page) && /rowResearching/.test(page) && /rowNotResearched/.test(page));
+  ok("…and the window's opening or closing, on the REP's clock from the server's strings", /rowWindowOpensAt/.test(page) && /rowWindowClosesAt/.test(page) && /w\.opensAtLocal/.test(page) && /w\.closesAtLocal/.test(page) && !/hhmmIn\(/.test(page));
+  ok("the route reads the shift from the ledger and groups by window", /shiftStartFor\(\{ db, salesRepId: rep\.id, timeZone: zone, now \}\)/.test(route) && /groupByWindow\(/.test(route) && /queue\.windows = \{/.test(route));
+  ok("the claim itself reads the same ledger — never a shiftStart the browser sent", /shiftStartFor\(\{ db, salesRepId: rep\.id/.test(lib) && !/body\.shiftStart/.test(route));
+  ok("…and the last outcome by its disposition key", /app\.salesCall\.disposition\.\$\{item\.lastOutcome\.disposition\}\.label/.test(page));
+
   ok("the browser sends its zone with every request, and never a number", /timeZone: browserTimeZone\(\)/.test(page) && /search\.set\("timeZone", zone\)/.test(page) && !/max:\s*\d/.test(page));
   ok("at the cap the button is replaced by the sentence, not greyed", /remainingToday > 0 \? \(/.test(page) && /app\.salesQueue\.batchReason\.dailyCap/.test(page));
   ok("a row prints researched / researching / not researched as three sentences", /rowResearched/.test(page) && /rowResearching/.test(page) && /rowNotResearched/.test(page));

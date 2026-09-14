@@ -512,6 +512,11 @@ ok(
   // typed number is SAVED on the rep's own record through that route (which
   // refuses a record this rep does not hold — ownerFor(rep.id)) before it
   // is dialled by the id that came back. It reads nothing from the pool.
+  // SignupLinkSms (mounted under the Dialer since 2026-09-14) and
+  // SignupProgress read /api/sales/sms and /api/sales/leads/[id]/signup-progress
+  // from inside their own components — the rep's OWN lead, by id, both
+  // refusing a lead the rep does not hold. Neither string is in this file,
+  // and neither route can list anything unclaimed.
   const ALLOWED = ["/api/sales/queue", "/api/sales/notes", "/api/sales/leads", "/api/sales/calls/numbers"];
   const called = [...new Set([...consoleSrc.matchAll(/["'`](\/api\/[A-Za-z0-9/_-]+)/g)].map((m) => m[1]))];
   const unexpected = called.filter((u) => !ALLOWED.some((a) => u === a || u.startsWith(`${a}/`)));

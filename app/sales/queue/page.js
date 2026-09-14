@@ -211,6 +211,22 @@
 // UI is indistinguishable from absence of feature — that is the complaint this
 // rewrite started from, and rendering nothing was the reason for it.
 //
+// ══ "Text the signup link to <business>", under the Dialer (2026-09-14) ═══
+//
+// The owner: a rep should not have to hunt for it. It is its own card right
+// under the Dialer card, in the Dialer's column — below the keypad, the
+// window line and the Auto-dial row, not squeezed under the number — one
+// full-width button naming the business. A press opens
+// app/sales/leads/SignupLinkSms.js — the same panel the lead screen and the
+// Texts screen mount, with the same blockers, the same fixed wording
+// (lib/sales/salesSmsRules.js's signupLinkSmsBody: the rep's own
+// /signup?sales=<code> link) and the same server re-check — for the rep's
+// lead on this business. The text is filed against a SalesLead, so a
+// business with no lead yet gets one first, through the same POST the
+// Disposition tab's "Work as a lead" makes (prospectId only; the server
+// reads the rest), and the panel opens on the id that came back. Under the
+// button, the signup stepper (SignupProgress) once a link has gone.
+//
 // ══ The decision is re-asked on a timer ═══════════════════════════════════
 //
 // The window closes while the page is open. A decision computed by the server
@@ -244,6 +260,7 @@ import {
   Mail,
   MapPin,
   Maximize2,
+  MessageSquare,
   Minimize2,
   NotebookPen,
   OctagonAlert,
@@ -268,6 +285,8 @@ import { fetchJson } from "@/lib/fetchJson";
 import ContactNumbers from "@/app/components/sales/ContactNumbers";
 import DialerPad, { typedToE164 } from "@/app/components/sales/DialerPad";
 import QueueLeadEditor from "@/app/components/sales/QueueLeadEditor";
+import SignupLinkSms from "@/app/sales/leads/SignupLinkSms";
+import SignupProgress from "@/app/components/sales/SignupProgress";
 import { LAYER_HEADINGS } from "@/lib/sales/prospectView";
 import { CALL_ALLOWED, CALL_REFUSED, dialHref, salesCallReadiness } from "@/lib/sales/callingRules";
 import { QUEUE_TOP_UP_BELOW, QUEUE_TOP_UP_MIN_INTERVAL_MS } from "@/lib/sales/queueBatch";
@@ -2511,6 +2530,45 @@ function QueueConsole() {
     setEditing(false);
   }, [current?.id]);
 
+  // ── "Text the signup link to <business>" ───────────────────────────────
+  //
+  // See the header. Folded shut again whenever the open business changes: a
+  // text panel for the last business under the next one's number is the
+  // confusing thing.
+  const [smsOpen, setSmsOpen] = useState(false);
+  useEffect(() => {
+    setSmsOpen(false);
+  }, [current?.id]);
+  async function openSignupText() {
+    if (!current?.id) return;
+    if (smsOpen) {
+      setSmsOpen(false);
+      return;
+    }
+    if (current.lead?.id) {
+      setSmsOpen(true);
+      return;
+    }
+    setBusy("lead");
+    setError("");
+    try {
+      const body = await fetchJson("/api/sales/leads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prospectId: current.id }),
+      });
+      if (!body?.lead?.id) throw new Error(t("app.salesQueue.carryToLeadFailed"));
+      // The reload is what puts `current.lead` on the record; the panel is
+      // rendered off that, so it opens once the reload lands.
+      await load();
+      setSmsOpen(true);
+    } catch (err) {
+      setError(err?.message || t("app.salesQueue.carryToLeadFailed"));
+    } finally {
+      setBusy("");
+    }
+  }
+
   // ── The top bar's search, over the held list ─────────────────────────
   //
   // Registered with the shell for as long as this screen is mounted (the
@@ -2801,7 +2859,7 @@ function QueueConsole() {
               scrollbar, like the rail — so it stays in reach while the tall
               card scrolls, and never covers anything: nothing sits under it
               in its own column. The section inside is in normal flow. */}
-          <div className={`lg:w-[320px] lg:shrink-0 lg:sticky lg:top-[77px] lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto ${COLUMN_ORDER.dialer}`} data-dialer-column>
+          <div className={`lg:w-[320px] lg:shrink-0 lg:sticky lg:top-[77px] lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto space-y-4 ${COLUMN_ORDER.dialer}`} data-dialer-column>
             {/* ── The Dialer: a phone's, and nothing else ──────────────────
                 Window line · number display with × · round keypad · the
                 green Call · the cap line · Auto-dial. The Call button IS
@@ -2896,6 +2954,44 @@ function QueueConsole() {
               />
             </section>
 
+            {/* ── Text the signup link ───────────────────────────────────
+                Its own card under the Dialer, in the Dialer's column — the
+                owner's placement: below the keypad, the window line and the
+                Auto-dial row, not squeezed under the number. One full-width
+                button naming the business; a press opens SignupLinkSms for
+                this business's lead (the message in full, every blocker, who
+                it goes to, Send), and a business with no lead yet gets one
+                first — see openSignupText(). Under it, always, the signup
+                stepper (SignupProgress) — it renders nothing until a link has
+                been texted, and "Link sent → Opened → …" after. Not drawn
+                with nothing open: there is nobody to text. */}
+            {current ? (
+              <section className={CARD} data-signup-text data-console-card="signup-text">
+                <button
+                  type="button"
+                  className={`${BTN} w-full border-2 border-brand-accent bg-card text-foreground`}
+                  disabled={busy === "lead"}
+                  onClick={openSignupText}
+                  aria-expanded={smsOpen}
+                  aria-controls="dialer-signup-text"
+                  data-signup-text-button
+                >
+                  {busy === "lead" ? <Loader2 className="animate-spin shrink-0" size={16} /> : <MessageSquare size={16} className="text-brand-accent-text shrink-0" aria-hidden="true" />}
+                  <span className="min-w-0 break-words">
+                    {smsOpen ? t("app.salesQueue.textSignupLinkClose") : t("app.salesQueue.textSignupLink", { business: current.businessName })}
+                  </span>
+                </button>
+                {!smsOpen && !current.lead?.id ? (
+                  <p className="text-xs text-muted-foreground break-words">{t("app.salesQueue.textSignupLinkCreatesLead")}</p>
+                ) : null}
+                {smsOpen && current.lead?.id ? (
+                  <div id="dialer-signup-text" data-signup-text-panel>
+                    <SignupLinkSms leadId={current.lead.id} />
+                  </div>
+                ) : null}
+                {current.lead?.id ? <SignupProgress leadId={current.lead.id} /> : null}
+              </section>
+            ) : null}
           </div>
 
           {/* ── The tall card: company · contact · script · research · notes ·
