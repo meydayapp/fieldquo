@@ -276,10 +276,16 @@ const fakeDb = {
   salesLead: {
     // Added when handleSalesInboundSms started STORING replies rather than
     // dropping every one that was not a STOP. It matches an incoming number to
-    // a lead, so the stub has to be able to answer that.
+    // a lead — through lib/sales/messages/business.js leadsOnNumber, which
+    // narrows on the last four digits and compares normalised — so the stub
+    // answers a `contains` on the phone.
+    findMany: async ({ where }) =>
+      [...store.leads.values()]
+        .filter((l) => (where?.phone?.contains ? String(l.phone || "").includes(where.phone.contains) : true))
+        .sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0)),
     findFirst: async ({ where }) =>
       [...store.leads.values()]
-        .filter((l) => (where?.phone?.not === null ? l.phone != null : true))
+        .filter((l) => (where?.id ? l.id === where.id : true))
         .sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0))[0] || null,
     updateMany: async ({ where, data }) => {
       const lead = store.leads.get(where.id);

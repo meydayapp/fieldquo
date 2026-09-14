@@ -223,6 +223,39 @@ function TriageChip({ triage, className = "" }) {
   );
 }
 
+// ── The kind chip on an outbound bubble ───────────────────────────────────
+//
+// "Signup link", "Day 1 check-in", "Signup nudge", "Follow-up" — decided
+// server-side by lib/sales/messages/messageKind.js off the row the text was
+// sent from, and drawn here in the rep's language. A plain reply the rep
+// typed is `reply` and draws nothing, for the reason the triage chip draws
+// nothing on `fine`: the exceptions are what have to stand out.
+function KindChip({ item }) {
+  const { t } = useTranslation();
+  if (!item?.kindLabelKey || item.textKind === "reply") return null;
+  return (
+    <span className={`${TAG} bg-muted text-muted-foreground`} data-kind={item.textKind}>
+      {t(item.kindLabelKey, item.kindParams || {})}
+    </span>
+  );
+}
+
+/** The bubble's body with its kind chip above it — null when there is no chip, so the kit draws its default. */
+function bodyWithKind(m, extra = null) {
+  if (!extra && (!m.kindLabelKey || m.textKind === "reply")) return null;
+  return (
+    <div>
+      {m.kindLabelKey && m.textKind !== "reply" ? (
+        <p className="pb-0.5">
+          <KindChip item={m} />
+        </p>
+      ) : null}
+      <p className="whitespace-pre-wrap break-words text-sm text-foreground">{m.body}</p>
+      {extra}
+    </div>
+  );
+}
+
 function prettyE164(e164) {
   const s = String(e164 || "");
   const m = /^\+1(\d{3})(\d{3})(\d{4})$/.exec(s);
@@ -478,6 +511,10 @@ function ContactChannels({ thread, openWith }) {
     rows.push({ e164, ...meta });
   };
   push(openWith, { kind: "sms", label: t("app.salesText.channelThisThread") });
+  // Every other number folded into this conversation — the shop line the
+  // engine texted, the cell the rep texted — listed so the rep can see the
+  // conversation is with a business that has more than one phone.
+  for (const n of thread?.numbers || []) push(n.e164, { kind: "sms", label: t("app.salesText.channelInConversation") });
   for (const n of numbers || []) push(n.e164, { kind: n.kind, label: n.label, canText: n.canText, canCall: n.canCall, preferred: n.preferred });
 
   return (
@@ -901,7 +938,13 @@ function SalesMessagesScreen() {
       }
       try {
         await fetchJson("/api/sales/messages/read", { method: "POST", body: { with: openWith } });
-        setList((rows) => (rows ? rows.map((c) => (c.e164 === openWith ? { ...c, unread: 0 } : c)) : rows));
+        setList((rows) =>
+          rows
+            ? rows.map((c) =>
+                c.e164 === openWith || (c.numbers || []).some((n) => n.e164 === openWith) ? { ...c, unread: 0 } : c,
+              )
+            : rows,
+        );
       } catch {
         // A read marker that failed to write costs a stale badge, nothing
         // more; the thread is already on screen.
@@ -989,6 +1032,12 @@ function SalesMessagesScreen() {
         // mistake the fixture for a customer.
         subtitle: [
           c.isDemo ? t("app.salesPortal.demoBadge") : null,
+          // The floor: a text from a number nobody at FieldQuo has texted or
+          // holds a lead for. Said before anything else, so a rep answering
+          // it knows they are claiming it.
+          c.unowned ? t("app.salesText.unownedSubtitle") : null,
+          // More than one number folded into this conversation.
+          (c.numbers || []).length > 1 ? t("app.salesText.numbersInConversation", { count: c.numbers.length }) : null,
           key === GROUP_DRAFTS && c.nextDraftDue
             ? t("app.salesText.draftDueSubtitle", { when: dayOf(c.nextDraftDue) })
             : c.draftOnly
@@ -1010,6 +1059,12 @@ function SalesMessagesScreen() {
       })),
     }));
   }, [list, t, roadblocksOnly, draftsOnly]);
+
+  const selectedRoomId = useMemo(() => {
+    if (!openWith) return null;
+    const room = (list || []).find((c) => c.e164 === openWith || (c.numbers || []).some((n) => n.e164 === openWith));
+    return room ? room.e164 : openWith;
+  }, [list, openWith]);
 
   // ── The thread's rows ─────────────────────────────────────────────────
   const them =
@@ -1036,6 +1091,12 @@ function SalesMessagesScreen() {
       // A demo send: the check-in row itself, drawn as the bubble the rep
       // would have seen go, and labelled as such under it.
       demo: Boolean(m.demo),
+      // Which kind of TEXT this was — the chip. Server-decided. Not `kind`:
+      // that is the kit's row kind ("message" | "draft" | "system") and the
+      // grouping reads it.
+      textKind: m.kind || null,
+      kindLabelKey: m.kindLabelKey || null,
+      kindParams: m.kindParams || null,
     }));
     const drafts = (thread.checkIns || []).map((c) => ({
       ...c,
@@ -1268,7 +1329,10 @@ function SalesMessagesScreen() {
   const listPane = (
     <RoomList
       groups={groups}
-      selectedId={openWith || null}
+      // The open thread's row is the conversation whose NUMBERS include the
+      // one in the URL: a business's row is keyed on its latest number, and
+      // a reply on their other line must not unhighlight the room.
+      selectedId={selectedRoomId}
       focusedId={focusedRoom}
       onFocusItem={setFocusedRoom}
       onSelect={(room) => openThread(room.id)}
@@ -1566,18 +1630,18 @@ function SalesMessagesScreen() {
           setInFlight((rows) => rows.filter((r) => r.id !== m.id));
         }}
         renderBody={(m) =>
-          m.demo ? (
-            <div>
-              <p className="whitespace-pre-wrap break-words text-sm text-foreground">{m.body}</p>
-              {/* Said under the bubble, in words, every time: a rep who
-                  shows this thread to a lead must never read it as a text
-                  that reached a phone. */}
+          bodyWithKind(
+            m,
+            m.demo ? (
+              /* Said under the bubble, in words, every time: a rep who
+                 shows this thread to a lead must never read it as a text
+                 that reached a phone. */
               <p className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground" data-demo-sent>
                 <MonitorPlay size={12} aria-hidden="true" />
                 {t("app.salesText.demoSentMarker")}
               </p>
-            </div>
-          ) : null
+            ) : null,
+          )
         }
         renderDraft={(d) => (
           <CheckInDraft

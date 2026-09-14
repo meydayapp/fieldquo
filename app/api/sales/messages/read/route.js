@@ -23,6 +23,9 @@ import { NextResponse } from "next/server";
 import { requireOutreachRep } from "@/lib/sales/outreachGate";
 import { normalisePhone } from "@/lib/sales/suppressionRules";
 import { markThreadDone, markThreadRead } from "@/lib/sales/messages/readState";
+import { resolveBusiness } from "@/lib/sales/messages/businessResolve";
+import { mergeReadStates } from "@/lib/sales/messages/business";
+import { db } from "@/lib/db";
 
 export async function POST(request) {
   const { rep, refusal } = await requireOutreachRep(request);
@@ -32,12 +35,26 @@ export async function POST(request) {
   const withE164 = normalisePhone(body?.with);
   if (!withE164) return NextResponse.json({ error: "Which conversation?" }, { status: 400 });
 
-  // `done` absent → a read receipt. `done: true|false` → file or unfile,
-  // which also counts as a read. The server's clock in both cases.
-  const state =
-    typeof body?.done === "boolean"
-      ? await markThreadDone({ salesRepId: rep.id, e164: withE164, done: body.done })
-      : await markThreadRead({ salesRepId: rep.id, e164: withE164 });
+  // The conversation is with a BUSINESS and the marker is per number, so
+  // every number of theirs is marked: a rep who has the room open has read
+  // the reply that came from the owner's cell as surely as the one from the
+  // shop line, and an unread badge that survives opening the thread is a
+  // control that appears to work and does not.
+  const business = await resolveBusiness({ salesRepId: rep.id, withE164, client: db }).catch(() => null);
+  const numbers = business?.numbers?.length ? business.numbers : [withE164];
 
-  return NextResponse.json({ ok: true, with: withE164, readAt: state.readAt, doneAt: state.doneAt });
+  // `done` absent → a read receipt. `done: true|false` → file or unfile,
+  // which also counts as a read. The server's clock in both cases, and the
+  // same instant for every number so the merged state is one moment.
+  const at = new Date();
+  const states = await Promise.all(
+    numbers.map((e164) =>
+      typeof body?.done === "boolean"
+        ? markThreadDone({ salesRepId: rep.id, e164, done: body.done, at })
+        : markThreadRead({ salesRepId: rep.id, e164, at }),
+    ),
+  );
+  const state = mergeReadStates(states) || { readAt: null, doneAt: null };
+
+  return NextResponse.json({ ok: true, with: withE164, numbers, readAt: state.readAt, doneAt: state.doneAt });
 }

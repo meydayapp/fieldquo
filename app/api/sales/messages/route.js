@@ -55,6 +55,18 @@
 // count unread says `unread: null`, never 0. The bucket a conversation lands
 // in is lib/sales/messages/rooms.js, pure, executed by the check.
 //
+// ══ One conversation per business ═════════════════════════════════════════
+//
+// The owner's rule: "any texts sent to a company should also end up in SMS"
+// — and in ONE conversation for that company, whichever of their numbers
+// each text went to. The list folds per-number threads by business
+// (lib/sales/messages/business.js) and the thread is read across every
+// number the business has (businessResolve.js), so the signup link the rep
+// texted to the owner's cell and the day-1 check-in the engine aimed at the
+// shop line sit in the same room, each with its kind chip, and the numbers
+// are listed in the context bar. `with` stays a number — the one a reply
+// goes to by default — because every row is keyed on one.
+//
 // ══ The thread is a chat client's thread, and it carries the room's context ═
 //
 // Beside the messages: the rep's call attempts to this number (read only —
@@ -98,6 +110,8 @@ import { signupLinkFor } from "@/lib/sales/repStats";
 import { markAgreedOnCall } from "@/lib/sales/agreedOnCall";
 import { threadTriage } from "@/lib/sales/messages/triage";
 import { lastReviewOf } from "@/lib/sales/conversationAudit";
+import { resolveBusiness } from "@/lib/sales/messages/businessResolve";
+import { mergeReadStates } from "@/lib/sales/messages/business";
 
 /**
  * The `!` catalogue for one conversation.
@@ -207,18 +221,34 @@ export async function GET(request) {
       console.error("[sales messages] demo sends unreadable:", err?.message);
     }
     const conversations = (await salesConversations({ salesRepId: rep.id, readStates })).map((c) => {
-      const draft = drafts ? drafts.get(c.e164) || null : null;
+      // Drafts and demo sends are keyed per number; a conversation is per
+      // business, so every number of it is asked and the answers added up.
+      const e164s = (c.numbers || [{ e164: c.e164 }]).map((n) => n.e164);
+      const draftRows = drafts ? e164s.map((n) => drafts.get(n)).filter(Boolean) : [];
+      const draft = draftRows.length
+        ? {
+            count: draftRows.reduce((n, d) => n + (d.count || 0), 0),
+            nextDue: draftRows.map((d) => d.nextDue).filter(Boolean).sort((a, b) => new Date(a) - new Date(b))[0] || null,
+            name: draftRows.find((d) => d.name)?.name || null,
+            isDemo: draftRows.some((d) => d.isDemo),
+          }
+        : null;
+      const demo = e164s.map((n) => demoSent.get(n)).find(Boolean) || null;
       return {
         ...c,
         // A thread that has messages but no lead can still be named by the
         // company its draft is about.
-        name: c.name || draft?.name || demoSent.get(c.e164)?.name || null,
-        isDemo: Boolean(draft?.isDemo) || demoSent.has(c.e164),
+        name: c.name || draft?.name || demo?.name || null,
+        isDemo: Boolean(draft?.isDemo) || Boolean(demo),
         // Null when the table could not be read — absence, not zero.
         openDrafts: drafts ? draft?.count || 0 : null,
         nextDraftDue: draft?.nextDue || null,
       };
     });
+    // Every number already inside a listed conversation, so a draft or a
+    // demo send on the business's OTHER number joins it rather than opening
+    // a second row.
+    const listed = () => new Set(conversations.flatMap((c) => (c.numbers || [{ e164: c.e164 }]).map((n) => n.e164)));
 
     // ── Threads that exist only as a draft ──────────────────────────────
     //
@@ -231,11 +261,12 @@ export async function GET(request) {
     // `draftOnly: true` so the screen does not print "You: …" over words
     // that never went.
     if (drafts) {
-      const seen = new Set(conversations.map((c) => c.e164));
+      const seen = listed();
       for (const [e164, draft] of drafts) {
         if (seen.has(e164)) continue;
         conversations.push({
           e164,
+          numbers: [{ e164, lastAt: null, count: 0 }],
           lastAt: draft.nextDue || draft.firstCreatedAt,
           lastBody: draft.draftText,
           lastDirection: "out",
@@ -259,11 +290,12 @@ export async function GET(request) {
     // its SalesSmsMessage: our words last, so rooms.js files it under
     // "Waiting on them" — where a real send lands.
     {
-      const seen = new Set(conversations.map((c) => c.e164));
+      const seen = listed();
       for (const [e164, sent] of demoSent) {
         if (seen.has(e164)) continue;
         conversations.push({
           e164,
+          numbers: [{ e164, lastAt: sent.lastAt, count: 1 }],
           lastAt: sent.lastAt,
           lastBody: sent.lastBody,
           lastDirection: "out",
@@ -288,8 +320,17 @@ export async function GET(request) {
     });
   }
 
-  const messages = await salesThread({ salesRepId: rep.id, withE164 });
-  const { lead, company, timeZone } = await threadContext({ salesRepId: rep.id, toE164: withE164 });
+  // The business behind the number, and every number of theirs — the thread
+  // is read across all of them. Falls back to the one number when nothing
+  // names a business: a stranger's text is a conversation with one phone.
+  const business = await resolveBusiness({ salesRepId: rep.id, withE164, client: db }).catch(() => null);
+  const numbers = business?.numbers?.length ? business.numbers : [withE164];
+  const messages = await salesThread({ salesRepId: rep.id, withE164, numbers });
+  const { lead, company, timeZone } = await threadContext({
+    salesRepId: rep.id,
+    toE164: withE164,
+    ...(business ? { lead: business.lead } : {}),
+  });
 
   // The same readiness the send itself evaluates, so the screen can hide a
   // compose box that could not succeed and SAY WHY. It is not the decision:
@@ -305,12 +346,14 @@ export async function GET(request) {
   // The room's context, every piece read on its own so one missing table
   // costs its own panel and nothing else. All read-only.
   const now = new Date();
-  const [readState, calls, suppressions, numbers, emailThreads, pastCheckIns, prospectScore] =
+  const [readState, calls, suppressions, contactNumbers, emailThreads, pastCheckIns, prospectScore] =
     await Promise.all([
-      threadReadState({ salesRepId: rep.id, e164: withE164 }).catch(() => null),
+      // The read state of the whole conversation: the latest read and the
+      // latest filing across its numbers (business.js mergeReadStates).
+      Promise.all(numbers.map((n) => threadReadState({ salesRepId: rep.id, e164: n }).catch(() => null))).then(mergeReadStates),
       db.salesCallAttempt
         .findMany({
-          where: { salesRepId: rep.id, toE164: withE164 },
+          where: { salesRepId: rep.id, toE164: { in: numbers } },
           orderBy: { dialledAt: "desc" },
           take: 30,
           select: {
@@ -325,7 +368,11 @@ export async function GET(request) {
           },
         })
         .catch(() => null),
-      findSuppressions(db, { phone: withE164 }).catch(() => null),
+      // Per number, then flattened: a STOP from the owner's cell is a fact
+      // about this conversation whichever number it is opened from.
+      Promise.all(numbers.map((n) => findSuppressions(db, { phone: n })))
+        .then((lists) => lists.flat())
+        .catch(() => null),
       lead
         ? loadContactNumbers({ prospectId: lead.prospectId || null, salesLeadId: lead.id }).catch(() => null)
         : Promise.resolve([]),
@@ -341,7 +388,7 @@ export async function GET(request) {
         : Promise.resolve([]),
       db.salesCheckIn
         .findMany({
-          where: { salesRepId: rep.id, toE164: withE164, status: { in: ["sent", "dismissed"] } },
+          where: { salesRepId: rep.id, toE164: { in: numbers }, status: { in: ["sent", "dismissed"] } },
           orderBy: { updatedAt: "desc" },
           take: 10,
           // origin and companyId: a demo thread whose only draft has been
@@ -378,7 +425,7 @@ export async function GET(request) {
   let suggestion = null;
   let checkInError = null;
   try {
-    checkIns = await openCheckIns({ salesRepId: rep.id, toE164: withE164 });
+    checkIns = await openCheckIns({ salesRepId: rep.id, toE164: withE164, numbers });
     // Only when nothing is already open on this thread. A second draft for the
     // same company on the same day is noise, and the dedupe key would refuse
     // to store it anyway.
@@ -432,7 +479,7 @@ export async function GET(request) {
   // The demo's sent check-ins, drawn as its outbound messages. No
   // SalesSmsMessage row exists for them — see simulateDemoSend for why —
   // so they are read from the check-in table and merged in by time.
-  const demoMessages = demoThread ? await sentDemoCheckIns({ salesRepId: rep.id, toE164: withE164 }).catch(() => []) : [];
+  const demoMessages = demoThread ? await sentDemoCheckIns({ salesRepId: rep.id, toE164: withE164, numbers }).catch(() => []) : [];
   const threadMessages = demoMessages.length
     ? [...messages, ...demoMessages].sort((a, b) => new Date(a.sentAt) - new Date(b.sentAt))
     : messages;
@@ -442,8 +489,22 @@ export async function GET(request) {
   // Null when never, and null when the audit log could not be read.
   const reviewedByOwner = await lastReviewOf({ repId: rep.id, kind: "sms", with: withE164 });
 
+  // Every number in this conversation, with what last touched each, for
+  // the context bar's list — `with` first, which is where a reply goes.
+  const numberRows = numbers.map((e164) => {
+    let lastAt = null;
+    let count = 0;
+    for (const m of threadMessages) {
+      if (m.toE164 !== e164 && m.fromE164 !== e164) continue;
+      count += 1;
+      if (!lastAt || new Date(m.sentAt) > new Date(lastAt)) lastAt = m.sentAt;
+    }
+    return { e164, lastAt, count };
+  });
+
   return NextResponse.json({
     with: withE164,
+    numbers: numberRows,
     messages: threadMessages,
     reviewedByOwner,
     lead: lead
@@ -530,8 +591,8 @@ export async function GET(request) {
       province: prospect?.province || lead?.province || null,
       score: prospectScore ? { value: prospectScore.score, at: prospectScore.computedAt } : null,
       repName: rep.name || null,
-      numbers: numbers
-        ? numbers.map((n) => ({
+      numbers: contactNumbers
+        ? contactNumbers.map((n) => ({
             id: n.id,
             e164: n.e164,
             kind: n.kind,
@@ -574,13 +635,23 @@ export async function POST(request) {
     );
   }
 
-  const lead = await leadForThread({ salesRepId: rep.id, toE164: withE164 });
+  // The lead by number, else the business's lead when the number is another
+  // of theirs (the owner's cell a rep was given on a call) — with THIS
+  // number standing in for the lead's own, the way the signup-link route
+  // hands a chosen number to the send, so every gate runs against the number
+  // that will actually be messaged, judged in the lead's zone.
+  const lead =
+    (await leadForThread({ salesRepId: rep.id, toE164: withE164 })) ||
+    (await resolveBusiness({ salesRepId: rep.id, withE164, client: db })
+      .then((b) => (b?.lead ? { ...b.lead, phone: withE164 } : null))
+      .catch(() => null));
 
   const result = await deliverReplySms({
     rep,
     // The lead supplies the prospect's TIME ZONE, which is what the texting
     // window is judged in. A lead matched by anything other than the number
-    // would evaluate the clock against somebody else's town.
+    // — or the business behind it — would evaluate the clock against
+    // somebody else's town.
     lead: lead || { phone: withE164, timeZone: null },
     text,
     origin: getAppOrigin(request),
