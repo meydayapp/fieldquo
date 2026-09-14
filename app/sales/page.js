@@ -64,6 +64,7 @@ import {
   AlertCircle,
   ArrowRight,
   CheckCircle2,
+  ClipboardCheck,
   ClipboardCopy,
   Clock,
   Loader2,
@@ -83,6 +84,7 @@ import {
   repliesWaiting,
   untouchedLeads,
 } from "./nextAction";
+import { UnloggedCallsList } from "@/app/components/sales/UnloggedCalls";
 import OutreachNotice from "./leads/OutreachNotice";
 import MyFunnelCard from "./MyFunnelCard";
 import ProductUsageCard from "./ProductUsageCard";
@@ -176,6 +178,10 @@ export default function SalesHomePage() {
   const leads = useEndpoint("/api/sales/leads", loadFailed);
   const threads = useEndpoint("/api/sales/threads", loadFailed);
   const waiting = useEndpoint("/api/sales/checkins/waiting", loadFailed);
+  // Calls with no outcome — "write it up later" and walked-away-from. The
+  // count is the badge's; the list is UnloggedCalls.js, drawn in place.
+  const unlogged = useEndpoint("/api/sales/calls/unlogged", loadFailed);
+  const [unloggedOpen, setUnloggedOpen] = useState(false);
 
   const [copied, setCopied] = useState(false);
 
@@ -284,6 +290,55 @@ export default function SalesHomePage() {
           routes compute it; taking the first that arrived avoids claiming
           sending is fine because the other request is still in flight. */}
       <OutreachNotice outreach={leads.data?.outreach || threads.data?.outreach} />
+
+      {/* ── Calls to write up ─────────────────────────────────────────────
+          "Write it up later" put them here. A card whatever the count, so
+          "nothing to write up" is a sentence and not a card that vanished;
+          the list opens in place and each row takes the same six buttons
+          the pop-up offers. What is still here at day end is logged by the
+          line (the cron), marked so. */}
+      <section className={CARD} data-unlogged-calls={Number.isFinite(unlogged.data?.count) ? unlogged.data.count : undefined}>
+        <div className="flex items-center gap-2">
+          <ClipboardCheck size={16} className="text-muted-foreground shrink-0" />
+          <h2 className="text-base font-semibold text-foreground">{t("app.salesCall.unlogged.title")}</h2>
+        </div>
+        {unlogged.error ? (
+          <CardError message={unlogged.error} onRetry={unlogged.reload} retryLabel={tryAgain} />
+        ) : unlogged.loading ? (
+          <p className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 size={16} className="animate-spin" /> {t("app.salesToday.loading")}
+          </p>
+        ) : !Number.isFinite(unlogged.data?.count) ? (
+          <p className="text-sm text-muted-foreground">{notLoaded}</p>
+        ) : unlogged.data.count === 0 ? (
+          <p className="text-sm text-muted-foreground break-words">{t("app.salesCall.unlogged.none")}</p>
+        ) : (
+          <>
+            <p className="text-sm text-foreground break-words">
+              {t("app.salesCall.unlogged.todayLine", { count: t("app.salesCall.unlogged.count", { value: unlogged.data.count }) })}
+            </p>
+            {unloggedOpen ? (
+              <UnloggedCallsList
+                onCountChange={(c) => {
+                  if (c === 0) {
+                    setUnloggedOpen(false);
+                    unlogged.reload();
+                  }
+                }}
+              />
+            ) : (
+              <button
+                type="button"
+                className="inline-flex items-center gap-2 min-h-[44px] px-4 rounded-lg bg-primary text-primary-foreground text-sm font-semibold"
+                onClick={() => setUnloggedOpen(true)}
+                data-unlogged-open
+              >
+                {t("app.salesCall.unlogged.writeThemUp")} <ArrowRight size={16} />
+              </button>
+            )}
+          </>
+        )}
+      </section>
 
       {/* ── Check-in texts waiting to be sent ───────────────────────────────
           The engine wrote them; only the rep can send them. Drawn as a card

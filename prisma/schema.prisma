@@ -13405,6 +13405,18 @@ model SalesCallAttempt {
   /// account is a guess about a conversation and the rep's is the record.
   dispositionAutoLogged Boolean @default(false)
 
+  /// "Write it up later": the rep chose to log this call after the next
+  /// one. Set by the `defer` action, which also frees the dialler — the
+  /// pending-outcome hold reads `disposition IS NULL AND this IS NULL`.
+  /// While it is set and `disposition` is null the row is on the rep's
+  /// unlogged list (the Today card, the Queue badge, the log-out gate), and
+  /// the retry pool has been given a PROVISIONAL schedule from the line's
+  /// own verdict (or no_answer) so the row is not offered again meanwhile;
+  /// the real outcome recomputes it. The day-end cron logs whatever is
+  /// still unwritten, marked dispositionAutoLogged, so no count ever
+  /// carries an empty outcome past the rep's day.
+  dispositionDeferredAt DateTime?
+
   /// Who ended the call — "rep" (the Hang up button), "prospect" (the far end
   /// dropped while the rep's device was still up), or null (it never
   /// connected, or a handset dial where nobody can say). Reported by the

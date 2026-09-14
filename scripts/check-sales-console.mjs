@@ -517,7 +517,11 @@ ok(
   // from inside their own components — the rep's OWN lead, by id, both
   // refusing a lead the rep does not hold. Neither string is in this file,
   // and neither route can list anything unclaimed.
-  const ALLOWED = ["/api/sales/queue", "/api/sales/notes", "/api/sales/leads", "/api/sales/calls/numbers"];
+  // /api/sales/calls/unlogged joined when "Release the rest" learned to show
+  // the calls with no outcome first (2026-09-14): a read of the rep's OWN
+  // attempts, scoped by requireCallingRep, so still nothing about another
+  // rep's rows or an unclaimed prospect.
+  const ALLOWED = ["/api/sales/queue", "/api/sales/notes", "/api/sales/leads", "/api/sales/calls/numbers", "/api/sales/calls/unlogged"];
   const called = [...new Set([...consoleSrc.matchAll(/["'`](\/api\/[A-Za-z0-9/_-]+)/g)].map((m) => m[1]))];
   const unexpected = called.filter((u) => !ALLOWED.some((a) => u === a || u.startsWith(`${a}/`)));
   ok(

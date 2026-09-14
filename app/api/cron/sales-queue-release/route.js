@@ -38,6 +38,7 @@ import { requireCronSecret } from "@/lib/security/cronAuth";
 import { db } from "@/lib/db";
 import { recordError } from "@/lib/platform/errorLog";
 import { releaseDayEnded } from "@/lib/sales/queueBatch";
+import { autoLogStale } from "@/lib/sales/calls/store";
 
 export async function GET(request) {
   const denied = requireCronSecret(request);
@@ -50,7 +51,24 @@ export async function GET(request) {
       now,
       log: (line) => console.error(line),
     });
-    return NextResponse.json({ ok: true, at: now.toISOString(), ...counts });
+    // ── And what was never written up ─────────────────────────────────
+    //
+    // Same rep-day clock. A call the rep deferred ("write it up later")
+    // or simply walked away from is logged by the line — its own verdict
+    // where it has one, no_answer otherwise — and marked autoLogged, so
+    // no count carries an empty outcome past the rep's day. Soft: a
+    // failure here is recorded and does not undo the release above.
+    let autoLog = null;
+    try {
+      autoLog = await autoLogStale({ client: db, now, log: (line) => console.error(line) });
+    } catch (err) {
+      await recordError({
+        area: "cron:sales-queue-release",
+        message: `Day-end auto-log failed: ${err?.message}`,
+      }).catch(() => {});
+      autoLog = { failed: true, error: err?.message || "failed" };
+    }
+    return NextResponse.json({ ok: true, at: now.toISOString(), ...counts, autoLog });
   } catch (err) {
     await recordError({
       area: "cron:sales-queue-release",

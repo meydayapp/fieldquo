@@ -50,6 +50,7 @@ import { threadReadStates } from "@/lib/sales/messages/readState";
 import { roomsFor } from "@/lib/staff/store";
 import { staffRoomList } from "@/lib/staff/rooms";
 import { voicemailWhere } from "@/lib/sales/calls/voicemail";
+import { unloggedWhere } from "@/lib/sales/calls/store";
 import { waitingDraftsFor } from "@/lib/sales/checkin/waiting";
 
 async function counted(fn) {
@@ -83,7 +84,7 @@ export async function GET(request) {
     console.error("[sales badges]", err?.message || err);
   }
 
-  const [callsToday, texts, team, voicemail] = await Promise.all([
+  const [callsToday, texts, team, voicemail, unlogged] = await Promise.all([
     counted(() =>
       db.salesCallAttempt.count({ where: { salesRepId: rep.id, direction: "out", dialledAt: { gte: dayStart } } }),
     ),
@@ -109,6 +110,9 @@ export async function GET(request) {
         },
       });
     }),
+    // Calls with no outcome — every day's, not today's. The Queue badge
+    // and the Today card; the same WHERE the unlogged list reads.
+    counted(() => db.salesCallAttempt.count({ where: unloggedWhere(rep.id) })),
   ]);
 
   return NextResponse.json({
@@ -118,6 +122,7 @@ export async function GET(request) {
     texts,
     team,
     voicemail,
+    unlogged,
     drafts,
     draftsDemo,
     serverNow: now.toISOString(),

@@ -728,8 +728,39 @@ export default function CallPanel({
     }
   }
 
-  /** "Later": the pop-up closes; the form in the Dialer column stays. */
-  const later = useCallback(() => setSheetOpen(false), []);
+  // ── "Write it up later" ─────────────────────────────────────────────
+  //
+  // The call goes to the rep's unlogged list (UnloggedCalls.js: the Today
+  // card, the Queue badge, the log-out gate) and the dialler is freed —
+  // the server's `defer` stops holding it in pendingAttempt and gives the
+  // retry pool a provisional schedule. Not a dismiss: a pop-up closed with
+  // Esc IS this, so the rep is never left with a form they have to find.
+  const later = useCallback(async () => {
+    setSheetOpen(false);
+    const row = pending;
+    if (!row?.id || row.override) return;
+    setBusy("defer");
+    try {
+      await fetchJson("/api/sales/calls", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "defer", attemptId: row.id }),
+      });
+      setPending((p) => (p?.id === row.id ? null : p));
+      setDraft(EMPTY_DRAFT);
+      setFormError("");
+      await presenceRef.current.refresh();
+      await load();
+      onWorked?.();
+    } catch (err) {
+      // The form is still in the Dialer column; the sentence says why.
+      setFormError(err?.message || t("app.salesCall.deferFailed"));
+    } finally {
+      setBusy("");
+    }
+    // `load` and `onWorked` are read when the reply lands.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pending?.id, pending?.override]);
 
   /** Draw `node` in the console's slot when it has one, inline otherwise. */
   const into = (slot, node) => (slot ? createPortal(node, slot) : node);
@@ -879,7 +910,7 @@ export default function CallPanel({
               {/* The six buttons, over the one shared draft. Every press
                   folds to a real code in lib/sales/calls/outcomeChoices.js;
                   this screen has no say in which. */}
-              <OutcomeForm t={t} draft={draft} setDraft={setDraft} busy={busy} onSave={saveOutcome} error={formError} />
+              <OutcomeForm t={t} draft={draft} setDraft={setDraft} busy={busy} onSave={saveOutcome} onLater={pending.override ? null : later} error={formError} />
 
               {pending.autoAsk && pending.dialChannel === "browser" ? (
                 <p className="text-xs text-amber-900 dark:text-amber-200 break-words">

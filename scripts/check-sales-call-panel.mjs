@@ -397,7 +397,7 @@ section("7. The pop-up: after an answered call ended, never on connect, never a 
   const onDisconnect = between(panel, 'call.on("disconnect"', 'call.on("error"');
   ok("…not on disconnect either (the carrier's word comes first)", !/setSheetOpen/.test(onDisconnect));
   ok("the sheet is closed while a call is up and when nothing is pending", /open=\{Boolean\(sheetOpen && pending && !startedAt\)\}/.test(panel));
-  ok("a save closes it; 'later' closes it and leaves the form in the Dialer column", /setSheetOpen\(false\);/.test(between(panel, "async function saveOutcome()", "const later")) && /const later = useCallback\(\(\) => setSheetOpen\(false\), \[\]\);/.test(panel));
+  ok("a save closes it; 'later' closes it first, then defers (section 8)", /setSheetOpen\(false\);/.test(between(panel, "async function saveOutcome()", "const later")) && /const later = useCallback\(async \(\) => \{\s*setSheetOpen\(false\);/.test(panel));
   ok("the timer never auto-logs once the rep has started (draftStarted)", /if \(draftStarted\(draftRef\.current\)\) return;/.test(timer));
 
   const sheet = between(form, "export function OutcomeSheet(", "\n}");
@@ -405,9 +405,82 @@ section("7. The pop-up: after an answered call ended, never on connect, never a 
   ok("1–4 press the primary buttons and M opens More, but never while typing in a field", /OUTCOME_CHOICES\.find\(\(c\) => c\.hotkey === e\.key\)/.test(sheet) && /e\.key === "m" \|\| e\.key === "M"/.test(sheet) && /if \(typing\) return;/.test(sheet));
   ok("the backdrop is a 'later' button, and the dialog is not aria-modal", /data-outcome-backdrop/.test(sheet) && /onClick=\{onLater\}/.test(sheet) && /aria-modal="false"/.test(sheet));
   ok("a phone gets a bottom sheet, a desktop a centred dialog", /items-end sm:items-center sm:justify-center/.test(sheet));
-  ok("the sheet carries the 'Write it up later' button (onLater) and the panel copies do not", /onLater=\{later\}/.test(between(panel, "<OutcomeSheet", "</OutcomeSheet>")) && !/onLater=/.test(between(panel, "both(slots?.disposition || null, (inline) =>", "{autoLogged && !pending && !startedAt")));
+  ok("the sheet AND the panel copies carry 'Write it up later' — except when the rep is correcting a line-logged outcome", /onLater=\{later\}/.test(between(panel, "<OutcomeSheet", "</OutcomeSheet>")) && /onLater=\{pending\.override \? null : later\}/.test(between(panel, "both(slots?.disposition || null, (inline) =>", "{autoLogged && !pending && !startedAt")));
   ok("the note field is capped at OUTCOME_NOTE_MAX in the form", /maxLength=\{OUTCOME_NOTE_MAX\}/.test(form));
   ok("the fold, not the screen, names the code: saveOutcome posts fold.code", /disposition: fold\.code/.test(panel) && !/disposition: code/.test(panel));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("8. Write it up later: the dialler is freed, the list counts only unlogged, day end logs the rest");
+// ═══════════════════════════════════════════════════════════════════════════
+{
+  const store = source("lib/sales/calls/store.js");
+  const route = source("app/api/sales/calls/route.js");
+  const panel = source("app/components/sales/CallPanel.js");
+
+  const defer = between(store, "export async function deferDisposition(", "\nexport ");
+  ok("deferDisposition stamps dispositionDeferredAt on the rep's own unlogged row and refuses one with an outcome", /where: \{ id: attemptId, salesRepId \}/.test(defer) && /if \(row\.disposition\) return \{ ok: false/.test(defer) && /data: \{ dispositionDeferredAt: now \}/.test(defer));
+  ok("…gives the retry pool a PROVISIONAL schedule from the line's verdict, else no_answer", /const provisional = autoLogOutcome\(row\)\.code \|\| "no_answer";/.test(defer) && /retryWriteFor\(\{ outcome: provisional/.test(defer));
+  ok("…and never writes lastOutcome for an outcome nobody chose", /const \{ lastOutcome, \.\.\.data \} = retry\.data;/.test(defer));
+  ok("…a second defer is a no-op that says so", /if \(row\.dispositionDeferredAt\) return \{ ok: true, deferred: true, already: true/.test(defer));
+
+  const save = between(store, "export async function saveDisposition(", "\nexport ");
+  ok("the real outcome recomputes against the pre-provisional count (deferred or line-logged)", /const recount = overriding \|\| Boolean\(existing\.dispositionDeferredAt\);/.test(save) && /prospect: recount \?/.test(save));
+
+  // The dialler is freed: GET's pendingAttempt skips a deferred row.
+  const pendingExpr = between(route, "pendingAttempt: attempts", "today:");
+  ok("deferring frees the dialler — pendingAttempt skips rows with dispositionDeferredAt", /!a\.disposition && !a\.dispositionDeferredAt/.test(pendingExpr));
+  const deferRoute = between(route, 'if (action === "defer")', 'if (action === "autodial")');
+  ok("…the route's `defer` goes through deferDisposition and moves the rep to available", /deferDisposition\(\{ salesRepId: rep\.id, attemptId, now \}\)/.test(deferRoute) && /STATE_AVAILABLE/.test(deferRoute));
+  const laterFn = between(panel, "const later = useCallback(async () => {", "}, [pending?.id, pending?.override]);");
+  ok("…and the panel's 'later' posts defer, clears pending, refreshes presence and re-arms the dialler (load, onWorked)", /action: "defer"/.test(laterFn) && /setPending\(\(p\) => \(p\?\.id === row\.id \? null : p\)\)/.test(laterFn) && /await presenceRef\.current\.refresh\(\);\s*await load\(\);\s*onWorked\?\.\(\);/.test(laterFn));
+  ok("…but a correction of a line-logged outcome cannot be deferred (nothing to defer)", /if \(!row\?\.id \|\| row\.override\) return;/.test(laterFn));
+
+  // The list counts only unlogged attempts.
+  const whereFn = between(store, "export function unloggedWhere(", "\n}");
+  ok("unloggedWhere is the ONE definition: this rep, outbound, disposition null — nothing about deferral, nothing about today", /salesRepId, direction: "out", disposition: null/.test(whereFn) && !/dispositionDeferredAt/.test(whereFn) && !/dialledAt/.test(whereFn));
+  const list = between(store, "export async function unloggedAttempts(", "\nexport ");
+  ok("…the list reads it", /where: unloggedWhere\(salesRepId\)/.test(list));
+  const badges = source("app/api/sales/badges/route.js");
+  ok("…and so does the badge", /db\.salesCallAttempt\.count\(\{ where: unloggedWhere\(rep\.id\) \}\)/.test(badges) && /unlogged,/.test(badges));
+  const shell = source("app/sales/SalesShell.js");
+  ok("the Queue row wears the badge", /"\/sales\/queue": "unlogged"/.test(shell));
+  ok("sign-out asks the list first and offers 'sign out anyway'", /fetchJson\("\/api\/sales\/calls\/unlogged"\)/.test(between(shell, "async function signOut()", "\n  }")) && /onProceed=\{signOutNow\}/.test(shell) && /app\.salesCall\.unlogged\.signOutAnyway/.test(shell));
+  const queue = source("app/sales/queue/page.js");
+  ok("'Release the rest' asks the list first and offers 'release anyway'", /if \(action === "release_rest" && !pastUnloggedGate\)/.test(queue) && /act\("release_rest", \{ pastUnloggedGate: true \}\)/.test(queue));
+  ok("…and the gate flag never reaches the wire", /async function act\(action, \{ pastUnloggedGate = false, \.\.\.extra \} = \{\}\)/.test(queue));
+  const home = source("app/sales/page.js");
+  ok("the Today card counts them and opens the same list", /useEndpoint\("\/api\/sales\/calls\/unlogged"/.test(home) && /<UnloggedCallsList/.test(home) && /app\.salesCall\.unlogged\.todayLine/.test(home));
+  const listCmp = source("app/components/sales/UnloggedCalls.js");
+  ok("every row of the list saves through the same fold and the same disposition action", /foldChoice\(/.test(listCmp) && /action: "disposition"/.test(listCmp) && /<OutcomeForm /.test(listCmp));
+
+  // Day end.
+  const stale = between(store, "export async function autoLogStale(", "\nexport ");
+  ok("autoLogStale reads unlogged outbound rows with a rep, oldest first", /direction: "out", disposition: null, salesRepId: \{ not: null \}/.test(stale) && /orderBy: \{ dialledAt: "asc" \}/.test(stale));
+  ok("…uses the rep's day (latest claim's repTimeZone, UTC otherwise) through staleAtDayEnd", /distinct: \["salesRepId"\]/.test(stale) && /staleAtDayEnd\(\{ dialledAt: row\.dialledAt, timeZone: zone, now \}\)/.test(stale));
+  ok("…logs the line's verdict, else no_answer, marked autoLogged, through saveDisposition", /const code = autoLogOutcome\(row\)\.code \|\| "no_answer";/.test(stale) && /saveDisposition\(\{ salesRepId: row\.salesRepId, attemptId: row\.id, code, now, client, autoLogged: true \}\)/.test(stale));
+  ok("…and deletes nothing", !/delete/.test(stale));
+  const cron = source("app/api/cron/sales-queue-release/route.js");
+  ok("the day-end cron calls it after the release, soft", /await releaseDayEnded\(/.test(cron) && /autoLog = await autoLogStale\(\{ client: db, now/.test(cron) && cron.indexOf("releaseDayEnded(") < cron.indexOf("autoLogStale("));
+
+  const schema = readFileSync(join(ROOT, "prisma/schema.prisma"), "utf8");
+  ok("dispositionDeferredAt exists on SalesCallAttempt, nullable", /dispositionDeferredAt DateTime\?/.test(between(schema, "model SalesCallAttempt {", "\nmodel ")));
+  const keys = ["title", "count", "todayLine", "gateBody", "gateBodyNoCount", "none", "writeThemUp", "writeUp", "close", "stay", "signOutAnyway", "releaseAnyway", "loading", "loadFailed", "tryAgain"];
+  const missing = Object.keys(APP_MESSAGES).flatMap((l) => keys.filter((k) => APP_MESSAGES[l][`app.salesCall.unlogged.${k}`] === undefined).map((k) => `${l}:${k}`));
+  ok("the list's sentences exist in every language", missing.length === 0, missing);
+  ok("the count declines by language (a countedNoun, not a bare number)", typeof APP_MESSAGES.fr["app.salesCall.unlogged.count"] === "function" && APP_MESSAGES.fr["app.salesCall.unlogged.count"]({ value: 3 }) === "3 appels" && APP_MESSAGES.en["app.salesCall.unlogged.count"]({ value: 1 }) === "1 call");
+}
+
+// ── staleAtDayEnd, executed ──────────────────────────────────────────────
+{
+  const { staleAtDayEnd } = await import("@/lib/sales/calls/store");
+  const noon = new Date("2026-09-14T16:00:00Z"); // 12:00 Toronto
+  ok("a call from yesterday afternoon (Toronto) is stale at noon today", staleAtDayEnd({ dialledAt: new Date("2026-09-13T20:00:00Z"), timeZone: "America/Toronto", now: noon }) === true);
+  ok("a call from this morning is not", staleAtDayEnd({ dialledAt: new Date("2026-09-14T13:00:00Z"), timeZone: "America/Toronto", now: noon }) === false);
+  ok("23:50 last night Toronto is stale at 00:10 — day end is the calendar, not 24 h", staleAtDayEnd({ dialledAt: new Date("2026-09-14T03:50:00Z"), timeZone: "America/Toronto", now: new Date("2026-09-14T04:10:00Z") }) === true);
+  ok("…and the same instant is NOT stale for a rep in Vancouver, where it is still the same day", staleAtDayEnd({ dialledAt: new Date("2026-09-14T03:50:00Z"), timeZone: "America/Vancouver", now: new Date("2026-09-14T04:10:00Z") }) === false);
+  ok("a broken date is never stale", staleAtDayEnd({ dialledAt: "nope", timeZone: "America/Toronto", now: noon }) === false);
+  ok("an unusable zone falls back to UTC rather than throwing", staleAtDayEnd({ dialledAt: new Date("2026-09-13T20:00:00Z"), timeZone: "Mars/Olympus", now: noon }) === true);
 }
 
 console.log(`\ncheck-sales-call-panel: ${passed} passed, ${failed} failed`);

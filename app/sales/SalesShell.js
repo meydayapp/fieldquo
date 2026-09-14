@@ -63,6 +63,8 @@ import IncomingCallDock from "@/app/components/sales/IncomingCallDock";
 import { RepPresenceProvider, RepStatusPicker } from "@/app/components/sales/RepStatus";
 import SalesMobileTabBar from "@/app/components/sales/SalesMobileTabBar";
 import SalesTour from "@/app/components/sales/SalesTour";
+import { fetchJson } from "@/lib/fetchJson";
+import { UnloggedCallsGate } from "@/app/components/sales/UnloggedCalls";
 import ToastLayer from "@/app/components/ToastLayer";
 import { notify } from "@/lib/notify/browser";
 import { onBadgesChanged } from "@/lib/chat/badges";
@@ -121,6 +123,7 @@ const TAB_ICONS = {
 
 /** Which badge each row wears, by href → field of /api/sales/badges. */
 const TAB_BADGES = {
+  "/sales/queue": "unlogged",
   "/sales/messages": "texts",
   "/sales/team": "team",
   "/sales/voicemail": "voicemail",
@@ -201,9 +204,32 @@ export default function SalesShell({ children }) {
     load();
   }, [load]);
 
-  async function signOut() {
+  // ── Sign out, after the calls with no outcome ─────────────────────────
+  //
+  // A rep who pressed "write it up later" three times today is asked once,
+  // here, before they go: the list, two minutes, and a button that signs
+  // out anyway. Not a wall — the cron logs whatever is left as the line's
+  // verdict at day end (app/api/cron/sales-queue-release). The count is
+  // asked fresh rather than read off the badge, which can be ten seconds
+  // stale, and a failed count signs out rather than trapping the rep.
+  const [unloggedGate, setUnloggedGate] = useState(null);
+  async function signOutNow() {
     await fetch("/api/sales/auth/logout", { method: "POST" });
     window.location.href = "/sales/login";
+  }
+  async function signOut() {
+    let count = 0;
+    try {
+      const body = await fetchJson("/api/sales/calls/unlogged");
+      count = Number.isFinite(body?.count) ? body.count : 0;
+    } catch {
+      count = 0;
+    }
+    if (count > 0) {
+      setUnloggedGate({ count });
+      return;
+    }
+    await signOutNow();
   }
 
   // ── The sidebar's own state: folded or not, and its digits ─────────────
@@ -670,6 +696,14 @@ export default function SalesShell({ children }) {
             list of rows at the top of the drawer. Passed as a node so the bar
             never names a status. */}
         <SalesMobileTabBar tabs={tabs} name={me?.name || null} onSignOut={signOut} drawerExtra={<RepStatusPicker layout="list" />} />
+        <UnloggedCallsGate
+          open={Boolean(unloggedGate)}
+          count={unloggedGate?.count ?? null}
+          onClose={() => setUnloggedGate(null)}
+          onProceed={signOutNow}
+          proceedLabel={t("app.salesCall.unlogged.signOutAnyway")}
+          onAllDone={() => setUnloggedGate(null)}
+        />
         {/* The bottom padding reserves exactly what is pinned over the bottom
             of the viewport below lg — the tab bar's row plus the safe-area
             inset, through the variable app/globals.css declares — and only the

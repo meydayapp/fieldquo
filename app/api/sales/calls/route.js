@@ -45,6 +45,7 @@ import {
   attemptsLast24h,
   autoLogAttempt,
   callStoreState,
+  deferDisposition,
   recordCallEnd,
   currentActivity,
   heartbeat,
@@ -74,7 +75,7 @@ import { TWIML_APP_ENV, browserDialReadiness, callPlan } from "@/lib/sales/calls
 import { repCallStats } from "@/lib/sales/calls/reporting";
 import { saveRepAutodial } from "@/lib/sales/autodialWrite";
 
-const ACTIONS = ["dial", "disposition", "state", "heartbeat", "autodial", "ended", "auto_log"];
+const ACTIONS = ["dial", "disposition", "state", "heartbeat", "autodial", "ended", "auto_log", "defer"];
 const MAX_NOTE = 2000;
 
 const bad = (error, status = 400) => NextResponse.json({ error }, { status });
@@ -248,7 +249,9 @@ export async function GET(request) {
     // rep is the only person who can fix one.
     pendingAttempt: attempts
       ? (() => {
-          const row = attempts.find((a) => !a.disposition);
+          // A deferred call is unlogged but does not hold the dialler — that
+          // is what "later" means. It is on the unlogged list instead.
+          const row = attempts.find((a) => !a.disposition && !a.dispositionDeferredAt);
           return row
             ? {
                 id: row.id,
@@ -392,6 +395,21 @@ export async function POST(request) {
         : null,
       serverNow: now.toISOString(),
     });
+  }
+
+  if (action === "defer") {
+    // ── "Write it up later" ──────────────────────────────────────────────
+    //
+    // The row stays unlogged and joins the rep's list (the Today card, the
+    // Queue badge, the log-out gate); the dialler is freed, because GET's
+    // pendingAttempt below no longer holds a deferred row. The retry pool
+    // gets a provisional schedule meanwhile — deferDisposition says how.
+    const attemptId = typeof body.attemptId === "string" ? body.attemptId.trim() : "";
+    if (!attemptId) return bad("Which call?");
+    const result = await deferDisposition({ salesRepId: rep.id, attemptId, now });
+    if (!result.ok) return bad(result.error, 409);
+    await setRepState({ salesRepId: rep.id, to: STATE_AVAILABLE, now }).catch(() => {});
+    return NextResponse.json({ ok: true, deferred: true, provisional: result.provisional, serverNow: now.toISOString() });
   }
 
   if (action === "autodial") {

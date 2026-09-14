@@ -325,6 +325,7 @@ import RepNoteVisibilityNotice from "@/app/components/sales/RepNoteVisibilityNot
 import RepNoteUnavailable from "@/app/components/sales/RepNoteUnavailable";
 import DialRegion, { Notice } from "@/app/components/sales/DialRegion";
 import AutodialControl, { useAutodial } from "@/app/components/sales/AutodialControl";
+import { UnloggedCallsGate } from "@/app/components/sales/UnloggedCalls";
 import { useSalesSearch } from "@/app/components/sales/SalesSearch";
 import { useConsoleSlots } from "@/app/components/sales/consoleSlots";
 import { useTranslation } from "@/app/hooks/useTranslation";
@@ -2186,7 +2187,28 @@ function QueueConsole() {
     }
   }
 
-  async function act(action, extra = {}) {
+  const [unloggedGate, setUnloggedGate] = useState(null);
+  async function act(action, { pastUnloggedGate = false, ...extra } = {}) {
+    // ── "Release the rest" shows the unlogged calls first ──────────────
+    //
+    // The owner's rule for the end of a day: before the rows go back, the
+    // calls with no outcome are put in front of the rep — two minutes, or
+    // the cron logs them as the line's verdict. The count is asked fresh;
+    // a failed count releases rather than blocks. The gate's own button
+    // comes back here with pastUnloggedGate, which never reaches the wire.
+    if (action === "release_rest" && !pastUnloggedGate) {
+      let count = 0;
+      try {
+        const body = await fetchJson("/api/sales/calls/unlogged");
+        count = Number.isFinite(body?.count) ? body.count : 0;
+      } catch {
+        count = 0;
+      }
+      if (count > 0) {
+        setUnloggedGate({ count });
+        return;
+      }
+    }
     setBusy(action);
     setError("");
     try {
@@ -2935,6 +2957,17 @@ function QueueConsole() {
               dialRequest={dialRequest}
             />
             {current ? <CapLine compliance={compliance} /> : null}
+            <UnloggedCallsGate
+              open={Boolean(unloggedGate)}
+              count={unloggedGate?.count ?? null}
+              onClose={() => setUnloggedGate(null)}
+              onProceed={() => {
+                setUnloggedGate(null);
+                act("release_rest", { pastUnloggedGate: true });
+              }}
+              proceedLabel={t("app.salesCall.unlogged.releaseAnyway")}
+              onAllDone={() => setUnloggedGate(null)}
+            />
 
             {/* ── Auto-dial, one row ───────────────────────────────────
                 The switch, and — only while they have something to say —
