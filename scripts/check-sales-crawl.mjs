@@ -1135,10 +1135,18 @@ async function main() {
   }
   {
     seedProspect();
-    const net = makeNet({ "https://northline.ca/robots.txt": { throws: "ECONNRESET" } });
+    // Down on BOTH schemes. A transport failure over https is tried once
+    // over http (crawlSite.js step 7; scripts/check-sales-site-kind.mjs
+    // executes the fallback itself), so "will not connect" has to mean the
+    // host, not the port.
+    const net = makeNet({
+      "https://northline.ca/robots.txt": { throws: "ECONNRESET" },
+      "http://northline.ca/robots.txt": { throws: "ECONNRESET" },
+    });
     const result = await crawlSite.crawlProspectSite({ prospectId: "p1", deps: crawlDeps(net) });
     ok("a robots.txt that will not connect does not allow the crawl", result.outcome === "failed" && result.retry === true, result);
     ok("…and writes nothing to robotsAllowed", store.hosts.get("northline.ca").robotsAllowed === null);
+    ok("…and http was tried once, after https refused", net.requests.length === 2 && net.requests[1] === "http://northline.ca/robots.txt", net.requests);
   }
   {
     seedProspect();

@@ -228,6 +228,95 @@ unchanged.
 
 ---
 
+## Directories and platform profiles
+
+The URL on a prospect's record is not always the prospect's site. Ring A Ling
+Upholstery & Carpet Cleaners (Randolph NY) listed `www.ethicalservices.com`
+— a carpet-cleaner **directory**: "Find a Provider", "List Your Business",
+"Register Here", "Member Login", a provider search by city, and the
+directory's own `service@` in the footer. The crawler read it correctly and
+every reader believed it was theirs: the rep's card said "Has a website of
+their own", "No enquiry form", "No client portal" (the member login on
+`/contact.php` was the directory's), and the directory's address became the
+lead's email.
+
+`lib/sales/intel/siteKind.js` now answers **whose site it is** — `own`,
+`directory`, `platform_profile` or `unknown` — from the pages, the host and
+how many other prospects list the same host (counted by
+`countProspectsOnHost` in `lib/sales/intel/db.js`; the classifier has no
+database). It is a deterministic ladder with every rung cited as a reason:
+
+1. a host on `PLATFORM_PROFILE_HOSTS` (facebook, yelp, houzz, angi,
+   thumbtack, google.com/maps, business.site, linktr.ee…) → `platform_profile`,
+   with no page at all;
+2. a host on `KNOWN_DIRECTORY_HOSTS` (Yellow Pages, Pages Jaunes, 411habitation,
+   hub.biz, manta, contractors.com…) → `directory`, likewise — these refuse the
+   crawler, so their listings never render a page to read;
+3. the record's URL is a **listing path** (`/profile/…`,
+   `/Contractor-SubContractor/…`) on a host ≥ 3 other prospects share →
+   `directory`, even when nothing loaded;
+4. the pages: **decisive** menu phrases with no innocent reading on a
+   business's own site ("Claim this listing", "Add your company", "Search the
+   directory"), **strong** ones a manufacturer or a union also says about
+   itself ("Find a dealer", "Become a member"), **weak** ones ("Member login"),
+   a GET provider-search form that asks for a city or state, a login form with
+   a password field, and whether the site's own brand (the title's first
+   segment, or `og:site_name`) carries the business's name. Two decisive
+   phrases decide; one decides with any corroboration unless the title names
+   the business; a title that names the business otherwise decides `own`.
+
+Only same-host links are read (a fence maker's "Find a distributor" and a
+footer link to trex.com's contractor finder both looked like directory menus),
+a path pattern counts as the same observation as its link text, a page title
+of "Home" / "Contact" / "Account Suspended" is not a brand, and a **shared
+host never decides alone** — measured, the shared hosts are franchises
+(key.me 3,451 prospects, minutekey.com 2,161, servpro.com 322) whose pages are
+the franchisee's own presence. The classifier's header records the
+2,000-prospect measurement (82% own, 14.5% unknown, 1.8% directory, 1.7%
+platform profile) and every adjustment it forced.
+
+**What a `directory` or `platform_profile` verdict does downstream**
+(`lib/sales/intel/capabilityDetect.js`, detector version 3):
+
+| Reader | Consequence |
+|---|---|
+| `WEBSITE` | **false**, evidence row `site_kind:<kind>:<host>` with `brand=<the site's own title>` first, the classifier's rows after it — so the screen says "Their listed website is a directory (Ethical Services), not their own site" |
+| `EMAIL_CONTACT`, `PHONE_CONTACT` | kept as observed, if observed, with the listing page as `sourceUrl`; the screen says "listed on the directory, not on a site of theirs". Never false |
+| every other capability | **null**, whatever the pages carried — a booking widget on a directory is the directory's. Never false |
+| `Prospect.email` | not filled from the listing (the address is as likely the directory's own) |
+| the trade (`inferTrade`) | not established from the listing's copy — `siteBelongsToProspect: false`, the same gate a derived site that failed corroboration goes through |
+| `INFER_FROM_SITE`, `GENERATE_CALL_SCRIPT` | handed **no page excerpts** (`loadStoredSiteKind`) — a directory's "serving the community since 1994" is the directory's sentence |
+| the `NO_WEBSITE` rule | fires on `WEBSITE false`; its sentence says "no website of its own — at most a listing on somebody else's", true of both cases |
+| the lead score | no "has website" points exist; the listed URL is not double-counted as "source lists no website" |
+
+`unknown` changes nothing anywhere: an unknown must not turn a real site into
+"no website". A version-2 `false` written off a directory's pages is
+superseded by the version-3 `null` on the next analysis (analyzeCapabilities'
+rule 1 applies only within a detector version).
+
+**https → http.** `safeCrawlUrl` defaults a schemeless address to https, and a
+site that serves http only (Ethical Services refuses 443) failed the robots
+fetch, retried, and was never read. `crawlProspectSite` step 7 now tries the
+robots fetch once over http when https gave a **transport** failure
+(`httpFallbackEligible` in `policy.js`: refused, reset, timeout, a bare
+`TypeError` from a TLS failure — never a DNS failure, an unsafe URL, a
+politeness refusal, or any HTTP status), and if http answers the whole crawl
+runs there. A site that answered on https, with any status, is never
+downgraded; a **derived** address never is (step 2b's rule about choosing
+plaintext for a host nobody vouched for). Every `page_fetch` envelope carries
+`scheme` (what was actually used) and `schemeFallback` (`{ from, to, error }`
+or null), and the task note says "https refused (ECONNREFUSED); crawled over
+http".
+
+Executed by `scripts/check-sales-site-kind.mjs` against the directory's real
+HTML (`scripts/fixtures/site-kind/`), through the same
+extract → evidence → rebuild path production uses. `scripts/
+find-directory-hosts.mjs` lists, read-only, the hosts most shared across
+prospects so the known-directory list can be grown from data rather than
+guessed.
+
+---
+
 ## Owner / follow-up work, stated rather than left implied
 
 1. **A `/bot` page.** The User-Agent points at `https://www.fieldquo.com/contact`

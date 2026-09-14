@@ -11925,6 +11925,75 @@ line in `DEFAULT_TEAMS` if he wants it back. Presence for platform admins
 measures only the chat; a real "online" for staff would need the platform
 gate to stamp it.
 
+## A directory is not their website; a crawl of it proves nothing about them (14 September 2026)
+
+Ring A Ling Upholstery & Carpet Cleaners (Randolph NY) listed
+`www.ethicalservices.com` — a carpet-cleaner directory ("Find a Provider",
+"List Your Business", "Member Login", a provider search by city). The crawler
+read it correctly and every reader believed it was theirs: "Has a website of
+their own", "No enquiry form", "No client portal" (the member login the rep
+opened on `/contact.php` was the directory's), and the directory's own
+`service@` became the lead's email. Shipped, all executed in
+`scripts/check-sales-site-kind.mjs` against the directory's real HTML
+(`scripts/fixtures/site-kind/`) through the same extract → evidence →
+rebuild path production uses:
+
+- **`lib/sales/intel/siteKind.js`** — `classifySiteKind()` answers whose site
+  the record's URL is: `own`, `directory`, `platform_profile`, `unknown`, a
+  deterministic ladder with every rung cited (platform host; known-directory
+  host; a listing path on a shared host; then the pages: decisive / strong /
+  weak menu phrases, a provider-search form, a login form, whether the
+  site's own brand carries the business's name). Measured on 2,000 random
+  crawled prospects before it shipped (82% own, 14.5% unknown, 1.8%
+  directory, 1.7% platform profile — every directory row hand-checked) and
+  the header records what the measurement forced: a **shared host never
+  decides alone** (the shared hosts are franchises — key.me 3,451,
+  minutekey.com 2,161, servpro.com 322), site builders are not platforms,
+  only same-host links count, "Find a dealer" and "Become a member" are what
+  a manufacturer and a union say about themselves, a title of "Home" is not
+  a brand.
+- **Consequences** (`capabilityDetect.js` v3, `analyzeCapabilities.js`,
+  `prospectView.js`, `rules.js`, `inferFromSite.js`,
+  `generateCallScript.js`): on a directory or a profile, WEBSITE is **false**
+  with a `site_kind:<kind>` verdict row naming the site by its own title,
+  email/phone stay as observed and are said to be "listed on the directory,
+  not on a site of theirs", every other capability is **null** (never false),
+  `Prospect.email` is not filled from the listing, the trade is not
+  established from its copy, the site-inference and call-script stages get
+  no page excerpts, and the `NO_WEBSITE` rule fires with a sentence true of
+  both cases ("no website of its own — at most a listing on somebody
+  else's"). The rep's Website bullet reads "Their listed website is a
+  directory (Ethical Services), not their own site". A version-2 `false`
+  read off a directory is superseded by the version-3 `null` on re-analysis.
+- **https → http, once, on a transport failure** (`crawlSite.js` step 7,
+  `policy.js` `httpFallbackEligible`): Ethical Services refuses 443, so a
+  schemeless address defaulted to https failed the robots fetch and was never
+  read. A site that answered on https, with any status, is never downgraded;
+  a derived address never is. Every `page_fetch` envelope now carries
+  `scheme` and `schemeFallback`.
+- **A pre-existing bug found by the fixture:** `normalisePage` dropped every
+  page's anchor texts on a second pass, and the pipeline normalises twice
+  (`loadCrawl`, then each detector) — so the label signals ("Book Online",
+  "Claim this listing", tradeDetect's menu text) fired only in checks that
+  handed detectors raw pages, never in production. Idempotent now, and
+  asserted.
+- `scripts/find-directory-hosts.mjs` (read-only) lists the hosts most shared
+  across prospects with what the lists already say about each; the top 30
+  are franchises, chains, platforms, Yellow Pages and California's licence
+  board (now on the known-directory list).
+
+**Not done, on purpose.** No re-crawl or re-analysis was queued — the owner
+decides that (the affected rows are the crawled prospects whose URL is a
+directory or a profile; the v3 detector corrects each on its next
+analysis). Ring A Ling's lead still carries `service@ethicalservices.com`
+as its email and the prospect row its copy — nothing here deletes or
+rewrites data; a rep or a targeted script clears it. The `NO_WEBSITE` rule's
+new sentence and the `detection.site_kind` confidence signal reach the
+database when a superadmin presses Seed on `/platform/sales/capabilities`.
+Franchise pages (a franchisee listing servpro.com) are read as `own`, which
+is right for capabilities and wrong for the pitch — a fourth kind is a
+product decision, not taken here.
+
 ## The crawler reads the menu; "no enquiry form" is earned (13 September 2026)
 
 Roth's Solution (rothssolution.com) was shown to a rep as no form, no portal,

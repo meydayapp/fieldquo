@@ -636,7 +636,10 @@ function stubDb({
   };
   return {
     written,
-    prospect: { findUnique: async () => prospect },
+    // `count` is how many OTHER prospects share the site's host — the one
+    // input lib/sales/intel/siteKind.js needs from the database. Zero here:
+    // every fixture site is its own.
+    prospect: { findUnique: async () => prospect, count: async () => 0 },
     prospectTechnology: { findMany: async () => [] },
     prospectCapability: { findMany: async () => [] },
     prospectEvidence: { findMany: async () => [] },
