@@ -293,6 +293,11 @@ const GROUPS = [
       // told on their own compose screen that this exists, which is the whole
       // reason it is allowed to.
       { label: "Sales notes", href: "/platform/sales/notes", icon: NotebookPen },
+      // Beside the notes, because it is the same act one step further: what
+      // a rep actually SAID to a prospect, by text and by email, read by the
+      // owner. Superadmin-only ("chat:audit"), read-only, and the rep sees
+      // "Reviewed by the owner" on the thread — lib/sales/conversationAudit.js.
+      { label: "Rep conversations", href: "/platform/sales/conversations", icon: MessageSquareText },
       // Where the prospects come from. Placed directly under the reps because
       // it is the screen that fills their queue: a campaign is one territory,
       // one trade and one target, and the single-trade queue it produces is

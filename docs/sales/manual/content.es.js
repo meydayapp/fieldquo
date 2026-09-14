@@ -617,6 +617,8 @@ export const MANUAL = {
         { p: "Escribe **@** y una ventana titulada {{app.teamChat.mentionTitle}} lista a las personas de la sala ({{app.teamChat.mentionKeys}}). Una mención es por nombre visible, así que **@Daniel** funciona; **@support** llega al dueño del buzón de soporte. La insignia de Equipo cuenta las menciones a ti por separado." },
         { figure: "team-mention", caption: "La ventana @ listando a las personas de la sala." },
         { p: "Las reglas del redactor son las mismas que en Mensajes: {{app.chat.enterToSend}}, y ! abre las respuestas predefinidas." },
+        { h: "Quién puede leer qué" },
+        { p: "Una sala la leen las personas que están en ella — soporte no puede leer un mensaje directo en el que no está. Una excepción, dicha para que nunca sorprenda: el propietario puede leer cualquier conversación del equipo y cualquier conversación entre un representante y un prospecto; se te avisa cuando lo ha hecho. En un chat, la sala muestra una línea — {{app.teamChat.system.audited|name=Emilio;date=14 sept 2026}}. En un hilo de texto o de correo ves {{app.salesText.reviewedByOwner|date=14 sept 2026}}. Cada una de esas lecturas queda además en el registro de auditoría de FieldQuo." },
         { tryIt: [
           "Abre #sales y saluda — una línea, con tu nombre y el oficio con el que empiezas.",
           "Abre la barra de Miembros y encuentra a tu capacitador. Inicia un mensaje directo con él.",
@@ -713,6 +715,7 @@ export const MANUAL = {
           "**Una reserva es una promesa de llamar.** Una reserva impide que cualquier otro representante llame a ese negocio. Trabájala o devuélvela — {{app.salesQueue.releaseRestNote}}",
           "**Registra cada llamada, con sus palabras.** Los dos resultados que requieren una nota la requieren porque es el único registro que habrá.",
           "**Tus notas las pueden leer los superadministradores, nunca otros representantes.** No escribas nada que no quieras que se lea.",
+          "**El propietario puede leer cualquier conversación del equipo y cualquier conversación entre un representante y un prospecto; se te avisa cuando lo ha hecho.** Una línea en la sala, o {{app.salesText.reviewedByOwner|date=14 sept 2026}} en el hilo.",
           "**La demo es tuya; la cuenta de un cliente es suya.** Nunca entras a la empresa de un cliente.",
         ] },
       ],

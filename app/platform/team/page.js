@@ -56,6 +56,8 @@ const PERMISSION_WORDS = {
     "read and work the escalation queue — technical problems sales reps report about their companies",
   "signup:review":
     "mark a flagged signup reviewed — one whose request came from outside CA/US, disagreed with the stated country, or repeated an IP",
+  "chat:audit":
+    "read any staff conversation and any rep's texts and emails with a prospect, read-only — every look is logged, and the people in a staff conversation are told",
 };
 
 function describe(permissions) {

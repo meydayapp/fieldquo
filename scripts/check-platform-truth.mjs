@@ -340,6 +340,20 @@ const GATED = [
     route: "app/api/platform/migrations/[id]/cancel/route.js",
     permission: "migration:cancel",
   },
+  // The fourth pass: the owner reading conversations they are not in. Two
+  // screens, one permission ("chat:audit", superadmin-only), and both READ
+  // rather than write — gated all the same, because the tab and the page
+  // must not be drawn for a support session that the route will refuse.
+  {
+    file: "app/platform/chat/page.js",
+    route: "app/api/platform/chat/audit/rooms/route.js",
+    permission: "chat:audit",
+  },
+  {
+    file: "app/platform/sales/conversations/page.js",
+    route: "app/api/platform/sales/conversations/route.js",
+    permission: "chat:audit",
+  },
 ];
 
 // The /platform/sales editors gate on the ROLE rather than on a matrix

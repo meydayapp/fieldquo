@@ -140,9 +140,14 @@ const TAB_DRAFT_BADGES = {
 
 const COLLAPSE_KEY = "fq-sales-sidebar-collapsed";
 
-/** How often the badges are re-read while the tab is visible. 60s: a text
- *  back is worth a minute, and it is one small request. */
-const BADGE_POLL_MS = 60 * 1000;
+/** How often the badges are re-read while the tab is VISIBLE. 10s, down
+ *  from 60 on 2026-09-14: the Team badge is how a rep learns a direct
+ *  message landed while they were on another screen, and a minute is long
+ *  enough for the person who wrote it to think they were ignored. It is one
+ *  small request; the interval is cleared outright while the tab is hidden
+ *  (not merely skipped), and the badges are re-read the instant the tab is
+ *  focused or becomes visible again. */
+const BADGE_POLL_MS = 10 * 1000;
 
 /**
  * The top bar's search box. Drawn only while a screen has registered for
@@ -271,17 +276,41 @@ export default function SalesShell({ children }) {
           /* the digits are chrome; a failed read draws none, never a wrong one */
         });
     read();
-    // Then once a minute while the tab is visible — the same gate the /app
-    // bell uses, for the same reason: a phone in a pocket should not spend
-    // data on three digits nobody is looking at.
-    const tick = () => {
-      if (typeof document !== "undefined" && document.hidden) return;
-      read();
+    // Then every BADGE_POLL_MS while the tab is visible. The interval is
+    // STOPPED while the tab is hidden rather than ticking and skipping — a
+    // phone in a pocket should not wake a timer for three digits nobody is
+    // looking at — and restarted, with an immediate read, when the tab is
+    // shown or focused again, so the digits are right the moment the rep
+    // looks rather than up to ten seconds later.
+    let id = null;
+    const stop = () => {
+      if (id !== null) clearInterval(id);
+      id = null;
     };
-    const id = setInterval(tick, BADGE_POLL_MS);
+    const start = () => {
+      if (id !== null) return;
+      id = setInterval(read, BADGE_POLL_MS);
+    };
+    const onVisibility = () => {
+      if (document.hidden) {
+        stop();
+      } else {
+        read();
+        start();
+      }
+    };
+    const onFocus = () => {
+      read();
+      start();
+    };
+    if (!document.hidden) start();
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("focus", onFocus);
     return () => {
       cancelled = true;
-      clearInterval(id);
+      stop();
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("focus", onFocus);
     };
   }, [chromeless, pathname]);
 

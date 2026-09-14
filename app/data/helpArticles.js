@@ -268,6 +268,29 @@ export const HELP_ARTICLES = [
       ] },
     ],
   },
+  {
+    slug: "conversation-audit",
+    category: "troubleshooting",
+    audience: "platform",
+    title: "The owner can read any conversation — and people are told",
+    summary: "Staff DMs, groups, and a rep's texts and emails with prospects are readable by the owner, read-only, logged, and announced.",
+    body: [
+      { p: "The owner can read any staff conversation and any rep–prospect conversation; you are told when they have." },
+      { h: "What it is" },
+      { steps: [
+        "Superadmin-only: the permission is chat:audit, and admin and support never hold it. Hiding the tab is not the control — the routes refuse below superadmin.",
+        "Read-only: there is no send box on the audit screens and no route behind them that writes to a room or a thread. The owner is never added as a member of a room.",
+        "Logged: every open writes an audit-log entry (\u201cRead a staff conversation\u201d, \u201cRead a rep's conversation with a prospect\u201d) on /platform/audit-log.",
+        "Announced: in the staff chat a system line is posted into the room — \u201cEmilio (owner) viewed this conversation on <date>\u201d — where its participants see it. On a rep's text or email thread, the rep sees \u201cReviewed by the owner on <date>\u201d in their own portal.",
+      ] },
+      { h: "Where" },
+      { steps: [
+        "/platform/chat → the \u201cAll conversations (audit)\u201d tab (superadmins only).",
+        "/platform/sales/conversations, or the Conversations link on a rep's card.",
+      ] },
+      { note: "This is separate from impersonation, which is a customer's account and stays read-only with no exception. Both are the same idea: reading is allowed, changing is not, and every look leaves a record." },
+    ],
+  },
 
   // ── Website ──
   {

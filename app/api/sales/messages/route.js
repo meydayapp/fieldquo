@@ -97,6 +97,7 @@ import { CHECKIN_REASONS, REASON_CODES, checkinHeadlineKey } from "@/lib/sales/c
 import { signupLinkFor } from "@/lib/sales/repStats";
 import { markAgreedOnCall } from "@/lib/sales/agreedOnCall";
 import { threadTriage } from "@/lib/sales/messages/triage";
+import { lastReviewOf } from "@/lib/sales/conversationAudit";
 
 /**
  * The `!` catalogue for one conversation.
@@ -436,9 +437,15 @@ export async function GET(request) {
     ? [...messages, ...demoMessages].sort((a, b) => new Date(a.sentAt) - new Date(b.sentAt))
     : messages;
 
+  // When the owner last read this thread from the console (lib/sales/
+  // conversationAudit.js) — the rep is told, on the thread, every time.
+  // Null when never, and null when the audit log could not be read.
+  const reviewedByOwner = await lastReviewOf({ repId: rep.id, kind: "sms", with: withE164 });
+
   return NextResponse.json({
     with: withE164,
     messages: threadMessages,
+    reviewedByOwner,
     lead: lead
       ? {
           id: lead.id,

@@ -617,6 +617,8 @@ export const MANUAL = {
         { p: "Tapez **@** et une fenêtre intitulée {{app.teamChat.mentionTitle}} liste les personnes du salon ({{app.teamChat.mentionKeys}}). Une mention se fait par nom affiché, donc **@Daniel** fonctionne ; **@support** rejoint le titulaire de la boîte d'assistance. La pastille Équipe compte séparément les mentions de vous." },
         { figure: "team-mention", caption: "La fenêtre @ qui liste les personnes du salon." },
         { p: "Les règles de la zone de saisie sont les mêmes que pour les textos : {{app.chat.enterToSend}}, et ! ouvre les réponses prédéfinies." },
+        { h: "Qui peut lire quoi" },
+        { p: "Un salon est lisible par les personnes qui y sont — le soutien ne peut pas lire un message direct dont il ne fait pas partie. Une exception, dite pour qu'elle ne surprenne jamais : le propriétaire peut lire toute conversation du personnel et toute conversation entre un représentant et un prospect; vous êtes prévenu quand il l'a fait. Dans un clavardage, le salon affiche une ligne — {{app.teamChat.system.audited|name=Emilio;date=14 sept. 2026}}. Sur un fil de textos ou de courriels, vous voyez {{app.salesText.reviewedByOwner|date=14 sept. 2026}}. Chacune de ces lectures est aussi dans le journal d'audit de FieldQuo." },
         { tryIt: [
           "Ouvrez #sales et dites bonjour — une ligne, avec votre nom et le métier par lequel vous commencez.",
           "Ouvrez la barre des membres et trouvez votre formateur. Lancez un message direct avec lui.",
@@ -713,6 +715,7 @@ export const MANUAL = {
           "**Une réservation est une promesse d'appeler.** Une réservation empêche tout autre représentant d'appeler cette entreprise. Travaillez-la ou remettez-la — {{app.salesQueue.releaseRestNote}}",
           "**Consignez chaque appel, dans leurs mots.** Les deux issues qui exigent une note l'exigent parce que c'est le seul compte rendu qu'il y aura.",
           "**Vos notes sont lisibles par les superadministrateurs, jamais par les autres représentants.** N'écrivez rien que vous ne voudriez pas voir lu.",
+          "**Le propriétaire peut lire toute conversation du personnel et toute conversation entre un représentant et un prospect; vous êtes prévenu quand il l'a fait.** Une ligne dans le salon, ou {{app.salesText.reviewedByOwner|date=14 sept. 2026}} sur le fil.",
           "**La démo est à vous ; le compte d'un client est à lui.** Vous ne vous connectez jamais à l'entreprise d'un client.",
         ] },
       ],

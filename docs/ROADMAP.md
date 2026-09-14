@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 14 September 2026 (the rep console is two panes: the left rail and the phone's drawer are gone, the Leads tab is the one place the trade picker, "Claim the next 25", the grouped list and both Release buttons live — "Just one" dropped on the owner's word — an empty day opens on Leads, and "Text the signup link to <business>" is its own card under the Dialer, mounting SignupLinkSms and the signup stepper; check:sales-batch-claim asserts all of it.)
+Last updated: 14 September 2026 (the console can assign a rep their next leads: the rep card's Queue… panel ends with Assign leads — trade with the rep's own pool counts, count, province, one of their languages — and /platform/sales/prospects has checkboxes with Assign to rep / Unassign, refused row by row with the reason; the selection is the rep's own selectClaimBatch/writeClaimBatch by import, never a copy; the hour before a window now counts for a claim; check:sales-assign asserts all of it.)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -9,6 +9,85 @@ it exists to answer.
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
+
+## The console assigns a rep their next leads, and the hour before a window counts (14 September 2026)
+
+The owner: "Can I assign the next leads to the sales rep from /platform?"
+Until now, no — claiming was rep-side only. And at 08:50 Eastern with a
+Quebec trade: "I can't claim them" — the batch took only rows open at the
+instant of the press.
+
+- **One selection, two callers.** `lib/sales/queueBatch.js`'s `claimBatch()`
+  is now composed of two exported halves: `selectClaimBatch()` (read the
+  pool, judge every candidate, order, cut — the window rule, due retries,
+  best-window score, researched first, the language rule, the retry pool)
+  and `writeClaimBatch()` (the guarded lease + claim rows in one
+  transaction). `lib/sales/assignLeads.js` imports both; the console adds
+  only a NARROWING (`assignFilterWhere`: a province, one of the rep's
+  languages) AND-ed onto the same WHERE. Against the same pool at the same
+  instant the console hands out exactly the rows the rep's press would, in
+  the same order — `check:sales-assign` executes that.
+- **The rep card's Assign leads panel** (`/platform/sales/reps`, inside
+  Queue…): trade with the pool counts for THIS rep (the same
+  `claimCandidateWhere({ rep })` count the rep's ClaimCard shows), count
+  (25), province/state from `subdivisionOptions()` (derived from the
+  calling-rules table, not a second list), language from the rep's own
+  `sellsIn`. `GET/POST /api/platform/sales/reps/[id]/assign`. Result line
+  in the server's numbers: "Assigned 25 Flooring leads in Quebec to Rachel
+  · 3 not offered (language) · the rest open later". Caps: batch max and
+  the rep's daily cap from the claim log — a console assignment is a claim
+  on the rep's day.
+- **Hand-picked rows** on `/platform/sales/prospects`: a checkbox beside
+  every row (beside, not inside, the row's button), Assign to [rep ▾] /
+  Unassign. `assignProspectsToRep()` judges each row by
+  `assignRefusalFor()` — do-not-contact, needs review, no trade (the Review
+  folder), claimed by Daniel until…, worked by Daniel, already the rep's, in
+  Quebec — no French, outside Quebec — no English, exhausted, a retry
+  scheduled — and returns the refused rows with the sentence; a row that
+  changed hands between the read and the write comes back "claimed by
+  another rep just now". Claim rows continue the rep's own position order.
+  The list route now carries the active reps and each row's holder by name.
+- **Unassign** is `releaseUntouched({ reason: "admin", onlyIds,
+  includeDialled })` — the one function that puts a row back; a worked row
+  is refused with "a conversation is not a lease". Nothing here writes
+  `assignedRepId: null`.
+- **What the claim log records:** `mode: "admin"` (no new column — `mode`
+  already held batch / single / reassigned; the schema comment now says so)
+  and a batchId `assigned_by:<adminId>:<instant>`, the way a reassignment
+  names its source rep. The zone on the claim is the rep's last-known
+  browser zone (their latest claim's), UTC for a rep who has never claimed.
+- **The sweeps leave a console assignment alone on its day and the next**
+  — `autoReleaseProtected()`, read by both `releaseDayEnded()` and
+  `releaseClosedUntouched()`. Decided, and commented in the function: an
+  owner assigning at 6 pm for a rep who has gone home is the ordinary case,
+  and judged in UTC a 3 pm Eastern assignment would otherwise have gone back
+  at 8 pm Eastern. The 48-hour lease, "Release the rest" and the console's
+  own Unassign still bound it.
+- **The rep hears.** A Web Push through `pushToReps` in the rep's language
+  ("Emilio Boves assigned you 25 leads (Flooring, Quebec) — open the queue",
+  nine languages), and a line on Today from `adminAssignedSummary()` on
+  `GET /api/sales/queue` (`adminAssigned`) — who, how many, which trade,
+  where; nothing when nothing is held. The queue's own list needed no
+  change: it lists every row where `assignedRepId` is the rep.
+- **Audit:** `leads_assigned` (good) / `leads_unassigned` (danger) in
+  `lib/platform/auditActions.js`, written with the rep, trade, province,
+  language, how (batch/picked) and every prospect id.
+- **The hour before a window** (committed separately, 37b82082):
+  `CLAIM_OPENS_WITHIN_MS` — a row whose window opens within an hour is
+  claimable, after every open-now row; an amber line above the Dialer says
+  when it opens and to read the research; the claim result says "their
+  window opens at 09:00 ET; you can prepare now".
+- Checks: `check:sales-assign` (139, new, in `check:all`) — the shared
+  selection by execution and by import, both caps, every refusal sentence,
+  the mid-flight race, unassign's reason, both audit rows, the push, the
+  Today summary, the sweeps' protection at the boundary minute, both routes'
+  literal role check, the screens through the shared gate.
+  `check:platform-truth` GATED: reps page and prospects page → the assign
+  route (superadminOnly); prospects page joins SALES_GATED.
+- **Not done / owed:** the assign panel's "next window opens" time is
+  printed in UTC on the console (the rep's own screen prints it on their
+  clock); no bulk "assign to every rep on shift" — the owner asked for one
+  rep at a time.
 
 ## Cancel at the period end, Resume in one click, one trial per company (14 September 2026)
 
@@ -12182,3 +12261,90 @@ before it reaches the bank, never billed separately, no monthly fee.
   refunds from the invoice with the fee not returned, and the client portal
   are all named; financing stays partial with its limit.
 - Nine languages: 62 `featurePage.payments.*` keys per module.
+
+## The owner can read any conversation — and everybody is told (14 September 2026)
+
+**Owner:** the staff chat's direct messages are readable only by their two
+participants (verified) — *"or at least me as the super admin owner?"* — and
+the reps' texts and emails with prospects too.
+
+**The permission — `chat:audit`, in `SUPERADMIN_ONLY_PERMISSIONS`.** Admin and
+support never hold it; the comment in `lib/platform/permissions.js` says why:
+the chat's whole model is "membership is the permission", and the one
+exception has to be the owner, read-only, and never secret. Both audit gates
+go through `lib/platform/auditGate.js`, which re-reads the admin ROW (an
+inactive admin's token is not enough) and takes the permission literal from
+the route so `check-platform-truth`'s GATED table can prove screen and route
+name the same one.
+
+**Staff chat — `lib/staff/audit.js`, rules in `auditRules.js`.** `auditRooms`
+lists every room (DM, group, team) named for EVERYONE in it — a DM is "Daniel
+↔ Jesus", the auditor is on neither side — and `auditRoomMessages` pages one
+room's history. Read-only: the auditor is NEVER added as a member (a member
+changes the room's mentions and unread for everyone), never posts speech,
+never touches `lastSeenAt` or `lastMessageAt`. Announced: every open writes
+`PlatformAuditLog` `chat_audited` `{ roomId, kind, participants }` and, once
+per look (a ten-minute window, so paging does not fill the room with
+footprints), posts a system line INTO the room — *"Emilio (owner) viewed this
+conversation on 14 Sep 2026"* — said in each participant's language from
+`app.teamChat.system.audited`. Both writes are one transaction and come
+BEFORE the read: a recorded look at nothing is harmless, an unrecorded look
+is the thing the file exists to prevent. Routes:
+`GET /api/platform/chat/audit/rooms`, `GET …/rooms/[id]/messages?before&limit`;
+no write handler on either. Screen: `/platform/chat` gains an **"All
+conversations (audit)"** tab — hidden below superadmin, gated again by
+`PlatformWriteGate` — drawn by `app/components/platform/ChatAudit.js` on the
+chat kit's layout/list/thread with NO Composer imported (grep-proof), a kind
+chip on every row, and the banner *"Read-only audit view — participants are
+told you looked."*
+
+**Rep ↔ prospect — `lib/sales/conversationAudit.js`.** `GET
+/api/platform/sales/conversations?repId=&q=` lists a rep's texts (the rep's
+own `salesConversations()` grouping, called WITHOUT read states) and email
+threads; `GET …/conversations/sms/<E.164>?repId=` and `…/email/<threadId>`
+read one, writing `rep_conversation_audited` `{ repId, kind, with|threadId,
+leadId }` first. No line is posted into the conversation (the prospect is not
+a party to the console); instead the rep sees **"Reviewed by the owner on
+<date>"** on that thread in their own portal — `reviewedByOwner` on both
+rep-facing thread payloads, read back from the audit row by `lastReviewOf()`
+(a JSON-path query — the record IS the notice, so the two cannot disagree;
+fails soft to null so a thread never fails to load over the log), drawn by
+`app/components/sales/ReviewedByOwner.js`, mounted on the email thread page.
+The texts page (`app/sales/messages/page.js`) was owned by a concurrent
+change; its one-line mount is handed over rather than forked. Screen:
+`/platform/sales/conversations` (sidebar: "Rep conversations", beside Sales
+notes) — rep picker, search, the chat kit's list, and the rep's own
+`MessageThread` renderer, no composer; honours `?repId=` from a rep card link
+(the card itself is in the concurrently-edited reps page; the link is handed
+over the same way).
+
+**Two additions from the owner while in the file.** (1) A DIRECT message now
+pushes to the other side like an @mention does — `lib/staff/directPush.js`,
+pure: the one other open member, never the author, skipped when their
+`lastSeenAt` is within 30 s (they have the room open — it is stamped on
+every thread read, including the 15 s poll), title
+`app.notify.directMessage.title` "New message from {name}" in the
+recipient's language, body the first 80 characters, deep link
+`/sales/team?room=<id>` / `/platform/chat?room=<id>` (StaffChat opens
+`?room=` on arrival). Groups and channels stay mention-only; a DM takes the
+direct push INSTEAD of the mention push so one message is one notification.
+(2) `SalesShell`'s badge poll is 10 s while the tab is visible, the interval
+is STOPPED (not skipped) while hidden, and the badges are re-read the instant
+the tab is focused or shown. The platform rail polls a different route
+(`/api/platform/notifications/count`) and was left alone.
+
+**Checks.** `check-staff-chat.mjs` §8–9 (94 new assertions — the audit write
+path EXECUTED against `scripts/auditFakeDb.mjs`: a DM the owner is not in is
+readable only with the permission, the row and the line are written, no
+membership is ever created, a second request in the window posts no second
+line, paging back works; the DM push rule executed for author / looker /
+group / broken room; the poll constants). New
+`check-platform-conversation-audit.mjs` (79: refusal below superadmin, the
+routes' gating, read-only by grep AND by execution — the only write in the
+lib is the audit row — the row's contents, `reviewedByOwner` on both rep
+payloads keyed on rep + kind + thread, the screen, the help sentence).
+`check-platform-truth` GATED gains the two screens. Help: platform runbook
+article `conversation-audit`; sales manual chapter 9 "Who can read what"
+and a bullet in the rules, EN/ES/FR: *"The owner can read any staff
+conversation and any rep–prospect conversation; you are told when they
+have."*

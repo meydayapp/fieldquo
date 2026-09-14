@@ -633,6 +633,8 @@ export const MANUAL = {
         { p: "Type **@** and a popup titled {{app.teamChat.mentionTitle}} lists the people in the room ({{app.teamChat.mentionKeys}}). A mention is by display name, so **@Daniel** works; **@support** reaches the support mailbox's owner. The Team badge counts mentions of you separately." },
         { figure: "team-mention", caption: "The @ popup listing the people in the room." },
         { p: "Composer rules are the same as Texts: {{app.chat.enterToSend}}, and ! opens canned responses." },
+        { h: "Who can read what" },
+        { p: "A room is readable by the people in it — support cannot read a direct message they are not in. One exception, stated so it is never a surprise: the owner can read any staff conversation and any rep–prospect conversation; you are told when they have. In a chat the room shows a line — {{app.teamChat.system.audited|name=Emilio;date=14 Sep 2026}}. On a text or email thread you see {{app.salesText.reviewedByOwner|date=14 Sep 2026}}. Every such look is also in FieldQuo's audit log." },
         { tryIt: [
           "Open #sales and say hello — one line, with your name and the trade you are starting on.",
           "Open the Members bar and find your trainer. Start a direct message with them.",
@@ -729,6 +731,7 @@ export const MANUAL = {
           "**A claim is a promise to call.** A claim stops every other rep phoning that business. Work it or release it — {{app.salesQueue.releaseRestNote}}",
           "**Write up every call, in their words.** The two outcomes that need a note need it because it is the only record there will be.",
           "**Your notes are readable by superadmins, never by other reps.** Write nothing you would not want read.",
+          "**The owner can read any staff conversation and any rep–prospect conversation; you are told when they have.** A line in the room, or {{app.salesText.reviewedByOwner|date=14 Sep 2026}} on the thread.",
           "**The demo is yours; a customer's account is theirs.** You never sign into a customer's company.",
         ] },
       ],

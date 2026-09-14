@@ -78,6 +78,22 @@ import {
   CHANNEL_NAME_MAX,
 } from "@/lib/staff/channels";
 import { parseMentions, mentionsFor, participantKey, parseParticipantKey, handlesOf } from "@/lib/staff/mentions";
+import {
+  auditorDisplayName,
+  auditLineBody,
+  needsAuditLine,
+  auditPageSize,
+  auditParticipants,
+  auditRoomRow,
+  auditThreadMessages,
+  AUDIT_LINE_WINDOW_MS,
+  AUDIT_PAGE_MAX,
+} from "@/lib/staff/auditRules";
+import { directPushRecipient, directPushSnippet, DIRECT_PUSH_LOOKING_MS } from "@/lib/staff/directPush";
+import { canPlatform, SUPERADMIN_ONLY_PERMISSIONS } from "@/lib/platform/permissions";
+import { AUDIT_ACTIONS } from "@/lib/platform/auditActions";
+import { auditRooms, auditRoomMessages } from "@/lib/staff/audit";
+import { fakeAuditDb } from "./auditFakeDb.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const read = (p) => readFileSync(join(ROOT, p), "utf8");
@@ -566,6 +582,194 @@ section("6. Both screens exist, are reachable, and nothing was written over");
   ok("…and is not the chat", !/StaffChat/.test(accounts));
   ok("…and is still substantial", accounts.split("\n").length > 300, accounts.split("\n").length);
   ok("the sidebar still points at it", /href: "\/platform\/team"/.test(sidebar));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("8. The owner may read any room — superadmin only, read-only, announced");
+// ═══════════════════════════════════════════════════════════════════════════
+
+{
+  // ── The permission ─────────────────────────────────────────────────────
+  ok("chat:audit is declared superadmin-only", SUPERADMIN_ONLY_PERMISSIONS.includes("chat:audit"));
+  ok("…a superadmin holds it", canPlatform("superadmin", "chat:audit"));
+  ok("…an admin is refused", !canPlatform("admin", "chat:audit"));
+  ok("…and support is refused", !canPlatform("support", "chat:audit"));
+
+  // ── The gate: the audit routes check that permission and nothing weaker ─
+  const gate = decomment(read("lib/platform/auditGate.js"));
+  ok("the audit gate asks canPlatform for the permission the route named", /canPlatform\(admin\.role, permission\)/.test(gate) && /canPlatform\(row\.role, permission\)/.test(gate));
+  ok("…and re-reads the admin row (an inactive admin's token is not enough)", /platformAdmin\.findUnique/.test(gate) && /if \(!row\?\.active\)/.test(gate));
+  const listRoute = decomment(read("app/api/platform/chat/audit/rooms/route.js"));
+  const threadRoute = decomment(read("app/api/platform/chat/audit/rooms/[id]/messages/route.js"));
+  ok("the rooms route is gated on chat:audit", /requireAuditor\(request, "chat:audit"\)/.test(listRoute));
+  ok("the messages route is gated on chat:audit", /requireAuditor\(request, "chat:audit"\)/.test(threadRoute));
+  ok("neither audit route has a write handler", !/export async function (POST|PATCH|PUT|DELETE)/.test(listRoute) && !/export async function (POST|PATCH|PUT|DELETE)/.test(threadRoute));
+  ok("params is awaited on the messages route", /await params/.test(threadRoute));
+
+  // ── The reader never becomes a member, never uses the member reader ────
+  const audit = decomment(read("lib/staff/audit.js"));
+  ok("the audit reader never creates or upserts a membership", !/staffRoomMember\.(create|upsert|update|createMany|updateMany)/.test(audit));
+  ok("…never touches lastSeenAt (it is not reading AS anybody)", !/lastSeenAt: new Date/.test(audit));
+  ok("…never bumps the room's lastMessageAt (the participants' order is theirs)", !/lastMessageAt: new Date/.test(audit) && !/staffRoom\.update/.test(audit));
+  ok("…never posts speech — only kind: \"system\"", (audit.match(/staffMessage\.create/g) || []).length === 1 && /kind: "system"/.test(audit) && !/kind: "message"/.test(audit));
+  ok("…and does not go through roomFor/roomsFor (membership is still THEIR permission)", !/roomFor\(|roomsFor\(/.test(audit));
+  ok("…and the store itself still fetches by membership (section 5 above still holds)", /members: \{ some: \{ \.\.\.memberWhere\(viewer\), open: true \} \}/.test(decomment(read("lib/staff/store.js"))));
+
+  // ── Every open writes the audit row and the system line, in ONE transaction ─
+  ok("every open writes a chat_audited audit row", /action: "chat_audited"/.test(audit));
+  ok("…with the room, its kind and its participants", /roomId: room\.id,\s*kind: row\.kind,\s*title: row\.title,\s*participants:/.test(audit));
+  ok("…and the system line in the SAME transaction", /const writes = \[\s*client\.platformAuditLog\.create/.test(audit) && /writes\.push\(\s*client\.staffMessage\.create/.test(audit) && /await client\.\$transaction\(writes\)/.test(audit));
+  ok("…written BEFORE the messages are read", audit.indexOf("$transaction(writes)") < audit.indexOf("staffMessage.findMany"));
+  ok("the line's meta says who, from which email, and when", /meta: \{ system: "audited", name, email: viewer\.email, at: now\.toISOString\(\) \}/.test(audit));
+  ok("chat_audited is described for the audit-log screen, in the access tone", AUDIT_ACTIONS.chat_audited?.tone === "access");
+
+  // ── The rules, executed ────────────────────────────────────────────────
+  ok("the auditor is named from the email's local part", auditorDisplayName("emilio.boves@gmail.com") === "Emilio");
+  ok("…a plain local part too", auditorDisplayName("support@fieldquo.com") === "Support");
+  ok("…and nothing is 'The owner', never blank", auditorDisplayName("") === "The owner" && auditorDisplayName(null) === "The owner");
+  const at = new Date("2026-09-14T15:00:00Z");
+  ok("the stored sentence is the one the owner asked for", auditLineBody({ name: "Emilio", at }) === "Emilio (owner) viewed this conversation on Sep 14, 2026", auditLineBody({ name: "Emilio", at }));
+  ok("…and survives a bad date", auditLineBody({ name: "Emilio", at: "nope" }) === "Emilio (owner) viewed this conversation");
+  ok("a first look posts the line", needsAuditLine({ latest: null, now: at }));
+  ok("a request 5 minutes into the same look does not", !needsAuditLine({ latest: { sentAt: new Date(at.getTime() - 5 * 60000) }, now: at }));
+  ok("…but a look after the window does", needsAuditLine({ latest: { sentAt: new Date(at.getTime() - AUDIT_LINE_WINDOW_MS) }, now: at }));
+  ok("a malformed previous line counts as none", needsAuditLine({ latest: { sentAt: "garbage" }, now: at }));
+  ok("the page size is clamped", auditPageSize("5000") === AUDIT_PAGE_MAX && auditPageSize("abc") > 0 && auditPageSize("-3") > 0 && auditPageSize("20") === 20);
+
+  const members = [
+    { platformAdminId: "a1", platformAdmin: { email: "emilio@x.com" }, open: true },
+    { salesRepId: "r1", salesRep: { name: "Daniel", email: "d@x.com" }, open: true },
+    { salesRepId: "r2", salesRep: { name: "Jesus", email: "j@x.com" }, open: false },
+  ];
+  const parts = auditParticipants(members);
+  ok("participants carry kind, name and open", parts.length === 3 && parts[1].kind === "rep" && parts[1].name === "Daniel" && parts[2].open === false);
+  ok("a broken row (neither id) is dropped, not invented", auditParticipants([{ open: true }]).length === 0);
+  const dm = auditRoomRow({ id: "d", kind: "direct", members: members.slice(0, 2), lastMessageAt: at, _count: { messages: 4 } });
+  ok("a DM is named for BOTH sides — the auditor is on neither", dm.title === "emilio@x.com ↔ Daniel", dm.title);
+  ok("…and is kind 'direct' with its participants", dm.kind === "direct" && dm.participants.length === 2 && dm.messageCount === 4);
+  ok("a team channel reads as 'team'", auditRoomRow({ kind: "channel", teamKey: "sales", slug: "sales", members }).kind === "team");
+  ok("a group reads as 'group', with # and its slug", auditRoomRow({ kind: "channel", slug: "west", members }).kind === "group" && auditRoomRow({ kind: "channel", slug: "west", members }).title === "#west");
+  ok("a closed member is not counted", auditRoomRow({ kind: "channel", slug: "west", members }).memberCount === 2);
+  const thread = auditThreadMessages([
+    { id: "1", body: "hi", sentAt: at, authorSalesRepId: "r1", authorSalesRep: { name: "Daniel" } },
+    { id: "2", body: "line", kind: "system", sentAt: at, meta: { system: "audited", name: "Emilio" }, authorPlatformAdminId: "a1", authorPlatformAdmin: { email: "e@x" } },
+  ]);
+  ok("every audited row is 'in' — the owner said none of them", thread.every((m) => m.direction === "in"));
+  ok("…each named for its author", thread[0].who === "Daniel");
+  ok("…and a system line keeps its meta for the reader's language", thread[1].kind === "system" && thread[1].meta?.system === "audited");
+
+  // ── The write path, EXECUTED against an in-memory database ────────────
+  {
+    const t0 = new Date("2026-09-14T15:00:00Z");
+    const db = fakeAuditDb({
+      platformAdmin: [{ id: "owner", email: "emilio.boves@gmail.com", role: "superadmin", active: true }],
+      salesRep: [{ id: "r1", name: "Daniel", email: "d@x" }, { id: "r2", name: "Jesus", email: "j@x" }],
+      staffRoom: [{ id: "dm", kind: "direct", directKey: "rep:r1|rep:r2", lastMessageAt: t0, createdAt: t0 }],
+      staffRoomMember: [
+        { id: "m1", roomId: "dm", salesRepId: "r1", open: true, lastSeenAt: t0 },
+        { id: "m2", roomId: "dm", salesRepId: "r2", open: true, lastSeenAt: null },
+      ],
+      staffMessage: [
+        { id: "x1", roomId: "dm", body: "secret one", kind: "message", sentAt: new Date(t0.getTime() - 2000), authorSalesRepId: "r1" },
+        { id: "x2", roomId: "dm", body: "secret two", kind: "message", sentAt: new Date(t0.getTime() - 1000), authorSalesRepId: "r2" },
+      ],
+    });
+    const owner = { id: "owner", email: "emilio.boves@gmail.com", role: "superadmin" };
+    const membersBefore = db.tables.staffRoomMember.length;
+
+    const list = await auditRooms(owner, { client: db });
+    ok("EXECUTED: the owner's list shows a DM they are not in", list.length === 1 && list[0].kind === "direct" && list[0].title === "Daniel ↔ Jesus", list);
+    ok("…and listing writes nothing", db.tables.platformAuditLog.length === 0 && db.tables.staffMessage.length === 2);
+
+    const opened = await auditRoomMessages(owner, "dm", { now: t0, client: db });
+    ok("EXECUTED: the owner reads both secret messages", opened.messages.filter((m) => m.kind === "message").map((m) => m.body).join("|") === "secret one|secret two", opened.messages);
+    ok("…every row is 'in' (the owner said none of them)", opened.messages.every((m) => m.direction === "in"));
+    ok("…the open wrote ONE chat_audited row", db.tables.platformAuditLog.length === 1 && db.tables.platformAuditLog[0].action === "chat_audited");
+    const details = db.tables.platformAuditLog[0].details;
+    ok("…naming the room, its kind and BOTH participants", details.roomId === "dm" && details.kind === "direct" && details.participants.map((p) => p.name).join() === "Daniel,Jesus" && details.continued === false, details);
+    const line = db.tables.staffMessage.find((m) => m.kind === "system");
+    ok("…and posted the system line into the room, in the owner's name", Boolean(line) && line.body === "Emilio (owner) viewed this conversation on Sep 14, 2026" && line.authorPlatformAdminId === "owner", line);
+    ok("…with the facts in meta for the participants' language", line?.meta?.system === "audited" && line?.meta?.name === "Emilio" && line?.meta?.email === "emilio.boves@gmail.com" && line?.meta?.at === t0.toISOString());
+    ok("…the line is in the page the owner got back too", opened.messages.some((m) => m.kind === "system" && m.meta?.system === "audited"));
+    ok("…and the participants see it as a system line, not as unread", unreadFor({ messages: db.tables.staffMessage, lastSeenAt: null, viewer: { kind: "rep", id: "r2" } }) === 1);
+    ok("THE AUDITOR WAS NEVER ADDED AS A MEMBER", db.tables.staffRoomMember.length === membersBefore && !db.tables.staffRoomMember.some((m) => m.platformAdminId === "owner"));
+    ok("…the members' lastSeenAt is untouched", db.tables.staffRoomMember[0].lastSeenAt === t0 && db.tables.staffRoomMember[1].lastSeenAt === null);
+    ok("…the room's order is untouched", db.tables.staffRoom[0].lastMessageAt === t0);
+    ok("the response says it announced", opened.audited.announced === true && opened.audited.name === "Emilio");
+
+    // A second request a minute later is the same look: row yes, line no.
+    const again = await auditRoomMessages(owner, "dm", { now: new Date(t0.getTime() + 60000), client: db });
+    ok("a request a minute later writes another row (continued: true)…", db.tables.platformAuditLog.length === 2 && db.tables.platformAuditLog[1].details.continued === true);
+    ok("…but posts no second line", db.tables.staffMessage.filter((m) => m.kind === "system").length === 1 && again.audited.announced === false);
+    // Eleven minutes later is a new look.
+    await auditRoomMessages(owner, "dm", { now: new Date(t0.getTime() + AUDIT_LINE_WINDOW_MS + 60000), client: db });
+    ok("a look after the window posts a new line", db.tables.staffMessage.filter((m) => m.kind === "system").length === 2);
+    // Paging back returns only older rows.
+    const page = await auditRoomMessages(owner, "dm", { now: t0, before: new Date(t0.getTime() - 1500).toISOString(), limit: "10", client: db });
+    ok("paging back with `before` returns only older rows", page.messages.length === 1 && page.messages[0].body === "secret one" && page.hasMore === false, page.messages);
+    ok("a room that does not exist is null, not a throw", (await auditRoomMessages(owner, "nope", { client: db })) === null);
+    ok("no viewer reads nothing", (await auditRoomMessages(null, "dm", { client: db })) === null && (await auditRooms(null, { client: db })).length === 0);
+  }
+
+  // ── The screen: a tab, only with the permission, and no composer ───────
+  const page = decomment(read("app/platform/chat/page.js"));
+  ok("/platform/chat asks for chat:audit", /can\("chat:audit"\)/.test(page));
+  ok("…through the shared identity hook", /usePlatformAdmin\(\)/.test(page));
+  ok("…and the audit tab exists only behind it", /tabsVisible \? \(/.test(page) && /data-audit-tab/.test(page));
+  ok("…still mounting the ordinary chat for everyone", /<StaffChat/.test(page));
+  const screen = decomment(read("app/components/platform/ChatAudit.js"));
+  ok("the audit screen has NO composer (grep-proof)", !/<Composer/.test(screen) && !/Composer[,}]/.test(screen.split("from \"@/app/components/chat\"")[0]));
+  ok("…and no send", !/staffApi\.send|method: "POST"/.test(screen));
+  ok("…reads only the audit routes", /\/api\/platform\/chat\/audit\/rooms/.test(screen) && !/\/api\/staff\//.test(screen));
+  ok("…and says participants are told, before the first message", /Read-only audit view — participants are told you looked\./.test(screen) && /data-audit-banner/.test(screen));
+  ok("…with a kind chip on every row", /data-kind-chip/.test(screen));
+  ok("the participants' screen says the line in their language", /app\.teamChat\.system\.audited/.test(read("app/i18n/appMessages.js")) && /name: meta\.name \|\| item\.who, date/.test(decomment(read("app/components/staff/StaffChat.js"))));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("9. A direct message is pushed to the other side; a channel pushes mentions only");
+// ═══════════════════════════════════════════════════════════════════════════
+
+{
+  const now = new Date("2026-09-14T15:00:00Z");
+  const me = { kind: "rep", id: "r1" };
+  const dm = { kind: "direct" };
+  const fresh = (s) => new Date(now.getTime() - s * 1000);
+  const members = [
+    { salesRepId: "r1", lastSeenAt: fresh(1) },
+    { platformAdminId: "a1", lastSeenAt: fresh(600) },
+  ];
+  const got = directPushRecipient({ room: dm, members, viewer: me, now });
+  ok("a DM post pushes to the OTHER participant, once", got?.kind === "user" && got?.id === "a1", got);
+  ok("…never to the author", directPushRecipient({ room: dm, members: [members[0]], viewer: me, now }) === null);
+  ok("…not to somebody looking at the room (seen within the last 30 s)", directPushRecipient({ room: dm, members: [members[0], { platformAdminId: "a1", lastSeenAt: fresh(10) }], viewer: me, now }) === null);
+  ok("…but to somebody who looked 31 s ago", Boolean(directPushRecipient({ room: dm, members: [members[0], { platformAdminId: "a1", lastSeenAt: fresh(DIRECT_PUSH_LOOKING_MS / 1000 + 1) }], viewer: me, now })));
+  ok("…and to somebody who has never opened it", Boolean(directPushRecipient({ room: dm, members: [members[0], { platformAdminId: "a1", lastSeenAt: null }], viewer: me, now })));
+  ok("a closed member is not a recipient", directPushRecipient({ room: dm, members: [members[0], { platformAdminId: "a1", open: false }], viewer: me, now }) === null);
+  ok("a group post pushes NOBODY this way", directPushRecipient({ room: { kind: "channel" }, members, viewer: me, now }) === null);
+  ok("a direct room with three sides is broken and pushes nobody", directPushRecipient({ room: dm, members: [...members, { salesRepId: "r2" }], viewer: me, now }) === null);
+  ok("the snippet is the first 80 characters", directPushSnippet("a".repeat(100)).length === 81 && directPushSnippet("a".repeat(100)).endsWith("…") && directPushSnippet("  hi\n there ") === "hi there");
+
+  const store = decomment(read("lib/staff/store.js"));
+  ok("posting hands every message to one push decision", /pushAfterPost\(\{ viewer, roomId, text, mentions \}\)/.test(store));
+  ok("…a direct room takes the direct push, not the mention push as well", /if \(room\.kind === "direct"\) return pushDirect\(/.test(store) && /if \(mentions\.length\) return pushMentions\(/.test(store));
+  ok("…the direct push asks the pure rule", /directPushRecipient\(\{ room, members: room\.members, viewer \}\)/.test(store));
+  ok("…reads the recipient's lastSeenAt for it", /members: \{ where: \{ open: true \}, select: \{ platformAdminId: true, salesRepId: true, lastSeenAt: true/.test(store));
+  ok("…and pushes in the recipient's language through the same helper as a mention", /pushToReps\(\{ salesRepIds: repIds, payload: payloadFor\(/.test(store) && /app\.notify\.directMessage\.title/.test(store));
+  ok("…deep-linking to the room in each portal", /\/sales\/team\?room=/.test(store) && /\/platform\/chat\?room=/.test(store));
+  ok("the chat opens ?room= on arrival", /URLSearchParams\(window\.location\.search\)\.get\("room"\)/.test(decomment(read("app/components/staff/StaffChat.js"))));
+  const en = read("app/i18n/appMessages.js");
+  ok("the push title is a catalogue key in nine languages", (en.match(/"app\.notify\.directMessage\.title":/g) || []).length === 9);
+
+  // ── The badge poll ─────────────────────────────────────────────────────
+  const shell = decomment(read("app/sales/SalesShell.js"));
+  ok("the sales badges poll every 10 s while visible", /const BADGE_POLL_MS = 10 \* 1000;/.test(shell));
+  ok("…and the interval is STOPPED while hidden, not skipped", /addEventListener\("visibilitychange", onVisibility\)/.test(shell) && /if \(document\.hidden\) \{\s*stop\(\);/.test(shell));
+  ok("…re-read immediately on focus", /addEventListener\("focus", onFocus\)/.test(shell) && /const onFocus = \(\) => \{\s*read\(\);\s*start\(\);/.test(shell));
+  ok("…and both listeners are removed on unmount", /removeEventListener\("visibilitychange", onVisibility\)/.test(shell) && /removeEventListener\("focus", onFocus\)/.test(shell));
+  // The platform rail polls /api/platform/notifications/count, not the sales
+  // badges route; it is not the same digits and was left as it was.
+  ok("the platform rail does not poll the sales badges route", !/\/api\/sales\/badges/.test(decomment(read("app/components/platform/PlatformSidebar.js"))));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

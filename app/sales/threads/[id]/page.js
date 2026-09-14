@@ -22,6 +22,7 @@ import { jsonBody } from "@/lib/jsonBody";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import OutreachNotice from "../../leads/OutreachNotice";
 import MessageThread from "../../messages/MessageThread";
+import ReviewedByOwner from "@/app/components/sales/ReviewedByOwner";
 
 function when(value) {
   if (!value) return "";
@@ -136,6 +137,9 @@ export default function SalesThreadPage({ params }) {
           </Link>
           {thread.lead.email ? ` · ${thread.lead.email}` : ""}
         </p>
+        {/* The owner read this thread from the console. Said here, on the
+            thread, from the audit row — the rep is always told. */}
+        <ReviewedByOwner review={data.reviewedByOwner} className="mt-1" />
       </div>
 
       {error && (

@@ -16,6 +16,7 @@ import { outreachStatus } from "@/lib/sales/outreachSender";
 import { threadWhere } from "@/lib/sales/outreach";
 import { contactOptedOut } from "@/lib/sales/outreachInbound";
 import { publicAttachments } from "@/lib/messaging/attachments";
+import { lastReviewOf } from "@/lib/sales/conversationAudit";
 
 export async function GET(request, { params }) {
   const { rep, refusal } = await requireOutreachRep(request);
@@ -86,6 +87,9 @@ export async function GET(request, { params }) {
 
   return NextResponse.json({
     thread,
+    // When the owner last read this thread from the console — the rep is
+    // told on the thread (lib/sales/conversationAudit.js). Null when never.
+    reviewedByOwner: await lastReviewOf({ repId: rep.id, kind: "email", threadId: thread.id }),
     optedOut: optOut.optedOut,
     optedOutReason: optOut.reason,
     // The English sentence AND the key that composed it. The screen prefers

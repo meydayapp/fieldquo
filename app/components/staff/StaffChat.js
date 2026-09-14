@@ -434,6 +434,20 @@ export default function StaffChat({ heading = "Team" }) {
     loadList();
   }, [loadList]);
 
+  // ?room=<id> opens that room on arrival — the deep link a direct-message
+  // push carries (lib/staff/store.js pushDirect). Read once, from the URL,
+  // not from a router hook: this component is mounted by two portals whose
+  // layouts differ, and window.location is the one thing both have. The
+  // server still decides whether the room is theirs — an id that is not
+  // answers 404 and the thread says so.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const wanted = new URLSearchParams(window.location.search).get("room");
+    if (!wanted) return;
+    setOpenId(wanted);
+    setPane(PANE_THREAD);
+  }, []);
+
   useEffect(() => {
     if (!openId) return;
     setRoom(null);
@@ -640,11 +654,25 @@ export default function StaffChat({ heading = "Team" }) {
     (item) => {
       const meta = item.meta || {};
       const names = Array.isArray(meta.names) ? meta.names.join(", ") : "";
-      const values = { who: item.who, names, to: meta.to || "", from: meta.from || "" };
+      // An audit line ("Emilio (owner) viewed this conversation on …",
+      // lib/staff/auditRules.js) carries the reader's name and the instant
+      // in its meta; the date is said in the reader's language here.
+      let date = "";
+      if (meta.at) {
+        const d = new Date(meta.at);
+        if (!Number.isNaN(d.getTime())) {
+          try {
+            date = d.toLocaleDateString(language || undefined, { dateStyle: "medium" });
+          } catch {
+            date = d.toLocaleDateString(undefined, { dateStyle: "medium" });
+          }
+        }
+      }
+      const values = { who: item.who, names, to: meta.to || "", from: meta.from || "", name: meta.name || item.who, date };
       const key = meta.system ? `app.teamChat.system.${meta.system}` : null;
       return key ? t(key, item.body, values) : item.body;
     },
-    [t],
+    [t, language],
   );
 
   // ── Actions on the open room ───────────────────────────────────────────
