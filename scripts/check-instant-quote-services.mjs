@@ -254,6 +254,15 @@ for (const bad of [null, undefined, "nope", 7, [null, undefined, 3, "x"]]) {
   );
 }
 
+// 2026-09-14: the settings page's Save button was `onClick={save}`; save's
+// first parameter is the config to write, so it received the click event and
+// JSON.stringify threw on the cyclic structure. A handler that takes a
+// parameter must never be passed to onClick bare.
+{
+  const page = readFileSync("app/app/settings/instant-quotes/page.js", "utf8");
+  ok("the instant-quotes Save button never hands the click event to save()", !/onClick=\{save\}/.test(page) && /onClick=\{\(\) => save\(\)\}/.test(page));
+}
+
 console.log(
   `check-instant-quote-services: ${pass} passed, ${failures.length} failed`,
 );
