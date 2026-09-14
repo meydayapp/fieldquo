@@ -387,15 +387,22 @@ section("4. The one write the engine can make is behind the flag the rep's route
 section("5. Pressing Call does not wait for a playbook");
 
 const PANEL = "app/components/sales/CallPanel.js";
+// The fetch moved out of CallPanel into PlaybookMount.js so DialRegion can
+// mount the script when the dial is NOT on the screen (a closed calling
+// window left the Script tab blank). CallPanel hands it the prospect; the
+// loader is asserted where it lives.
+const MOUNT = "app/components/sales/PlaybookMount.js";
 {
-  const src = read(PANEL);
-  const place = namedFunctionBody(src, "async function place(");
+  const panel = read(PANEL);
+  const place = namedFunctionBody(panel, "async function place(");
   ok("CallPanel's place() was found and parsed", place.length > 400, place.length);
   ok(
     "place() does not fetch the playbook — nothing loads between the press and the ring",
-    !/\/api\/sales\/playbook/.test(place) && !/loadPlaybook/.test(place),
+    !/\/api\/sales\/playbook/.test(place) && !/loadPlaybook/.test(place) && !/PlaybookMount/.test(place),
   );
+  ok("CallPanel itself holds no playbook fetch — the one path is PlaybookMount", !/\/api\/sales\/playbook/.test(panel) && !/loadPlaybook/.test(panel) && /import PlaybookMount from "\.\/PlaybookMount"/.test(panel));
 
+  const src = read(MOUNT);
   const loader = arrowBody(src, "const loadPlaybook = useCallback(");
   ok("the loader was found and parsed", loader.length > 100, loader.length);
   // The URL is built by playbookUrl() beside the loader now, so the language
@@ -418,7 +425,16 @@ const PANEL = "app/components/sales/CallPanel.js";
     "a playbook that will not load does not disable the call",
     /setPlaybookError\(/.test(loader) && !/setError\(/.test(loader),
   );
-  ok("CallPanel actually renders the panel", /<CallPlaybook/.test(src));
+  ok("PlaybookMount actually renders the panel, once", (decomment(src).match(/<CallPlaybook/g) || []).length === 1);
+  ok("…and CallPanel mounts it in both of its branches (tables absent, and the real panel), with the prospect and the script slot", (panel.match(/<PlaybookMount/g) || []).length === 2 && /slot=\{slots\?\.script \|\| null\}/.test(panel));
+  // ── The script without the dial ────────────────────────────────────
+  const region = decomment(read("app/components/sales/DialRegion.js"));
+  ok("DialRegion mounts the playbook in the non-ready branch — same component, same fetch path", /import PlaybookMount from "\.\/PlaybookMount"/.test(region) && /\{playbookWithoutDial \? \(\s*<PlaybookMount/.test(region) && (region.match(/<PlaybookMount/g) || []).length === 1);
+  ok("…never beside a dial (READY is CallPanel's), never without a prospect, never on a do-not-contact", /const dialRendered = space\.state === DIAL_READY && space\.href && target;/.test(region) && /!dialRendered &&\s*Boolean\(target\) &&\s*space\.state !== DIAL_NO_PROSPECT &&\s*space\.state !== DIAL_DO_NOT_CONTACT/.test(region));
+  ok("…with the same slot CallPanel portals into, so the Script tab is filled either way", /slot=\{slots\?\.script \|\| null\}/.test(region.slice(region.indexOf("{playbookWithoutDial ? ("))));
+  ok("…and the closed-window note names the opening instant WindowLines prints — only for a shut window", /space\.state === DIAL_REFUSED && space\.showWindow && compliance\?\.opensAtText/.test(region) && /t\("app\.salesDial\.window\.readAhead", \{ opensAt: compliance\.opensAtText \}\)/.test(region));
+  ok("…the note is drawn above the script, muted", /\{note \? \(\s*<p className="text-xs text-muted-foreground break-words" data-playbook-note>/.test(decomment(src)));
+  ok("…and the mount carries no dial: no href, no place(), no Twilio", !/href/.test(decomment(src)) && !/place\(/.test(decomment(src)) && !/Device|Twilio/.test(decomment(src)));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

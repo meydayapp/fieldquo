@@ -16,12 +16,19 @@
 //
 // ══ The poll ══════════════════════════════════════════════════════════════
 //
-// Every ten seconds while mounted and the signup is not complete — the
-// cadence the server hands back (`pollMs`), the way the console's window
-// re-ask uses a thirty-second tick. Cleared on unmount, so a closed panel
-// stops asking; stopped on completion, because a finished signup does not
-// change. `stuck` and `stuckForMs` come from the SERVER's clock, so a laptop
-// five minutes slow still says "3 min".
+// One read on mount (and again when the rep texts a link — SignupLinkSms
+// announces it on window); the ANSWER decides whether there is a next read.
+// lib/sales/signupProgressPoll.js is the whole rule: a 404 stops it (no row
+// — nothing can change until the rep sends), a completed signup stops it,
+// and a live one is re-read no sooner than thirty seconds, whatever cadence
+// the server hands back. Cleared on unmount, so a closed panel stops
+// asking. `stuck` and `stuckForMs` come from the SERVER's clock, so a
+// laptop five minutes slow still says "3 min".
+//
+// It used to arm a ten-second interval on MOUNT, regardless of the answer,
+// and this panel mounts on every current card and every lead panel —
+// which is how a lead nobody had texted came to 404 ten times a minute on
+// the live console.
 //
 // ══ The talking point ═════════════════════════════════════════════════════
 //
@@ -35,79 +42,83 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, Circle, Loader2 } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
-
-/** The fallback cadence when the server did not say. Matches PROGRESS_POLL_MS. */
-const DEFAULT_POLL_MS = 10 * 1000;
+import { SIGNUP_LINK_SENT_EVENT, nextSignupPollMs } from "@/lib/sales/signupProgressPoll";
 
 export default function SignupProgress({ leadId, className = "" }) {
   const { t } = useTranslation();
-  const [state, setState] = useState({ progress: null, pollMs: DEFAULT_POLL_MS, missing: true, error: "" });
+  const [state, setState] = useState({ progress: null, missing: true, error: "" });
   const timer = useRef(null);
+  // The progress the last answer left, read inside the timer callback so a
+  // transient failure keeps polling the row it already knows about.
+  const progressRef = useRef(null);
+  progressRef.current = state.progress;
 
   useEffect(() => {
     let alive = true;
+    const clear = () => {
+      if (timer.current) clearTimeout(timer.current);
+      timer.current = null;
+    };
     if (!leadId) {
-      setState({ progress: null, pollMs: DEFAULT_POLL_MS, missing: true, error: "" });
+      setState({ progress: null, missing: true, error: "" });
       return undefined;
     }
-    async function tick() {
+
+    // One read, and the answer says whether there is another. A read that
+    // lands after unmount writes nothing and arms nothing.
+    async function read() {
+      clear();
+      let status = 0;
+      let progress = progressRef.current;
+      let pollMs = null;
       let res;
       try {
         res = await fetch(`/api/sales/leads/${encodeURIComponent(leadId)}/signup-progress`);
+        status = res.status;
       } catch {
-        if (alive) setState((s) => ({ ...s, error: t("app.salesSignupProgress.unreachable") }));
-        return;
+        if (!alive) return;
+        // Unreachable: say so under a stepper that exists; nothing under one
+        // that never did.
+        setState((s) => ({ ...s, error: t("app.salesSignupProgress.unreachable") }));
       }
       if (!alive) return;
-      if (res.status === 404) {
-        // No link texted from this lead, or not this rep's link. Nothing to draw.
-        setState({ progress: null, pollMs: DEFAULT_POLL_MS, missing: true, error: "" });
-        return;
+      if (res) {
+        if (status === 404) {
+          // No link texted from this lead, or not this rep's link. Nothing to
+          // draw, and nothing to keep asking about.
+          progress = null;
+          setState({ progress: null, missing: true, error: "" });
+        } else {
+          const body = await res.json().catch(() => null);
+          if (!alive) return;
+          if (res.ok && body?.progress) {
+            progress = body.progress;
+            pollMs = body.pollMs;
+            setState({ progress: body.progress, missing: false, error: "" });
+          } else {
+            setState((s) => ({ ...s, error: body?.error || t("app.salesSignupProgress.unreachable") }));
+          }
+        }
       }
-      const body = await res.json().catch(() => null);
-      if (!alive) return;
-      if (!res.ok || !body?.progress) {
-        setState((s) => ({ ...s, error: body?.error || t("app.salesSignupProgress.unreachable") }));
-        return;
-      }
-      setState({ progress: body.progress, pollMs: Number(body.pollMs) || DEFAULT_POLL_MS, missing: false, error: "" });
+      const next = nextSignupPollMs({ status, progress, pollMs });
+      if (next != null) timer.current = setTimeout(read, next);
     }
-    tick();
+
+    // The rep just texted this lead a link: there is a row now. Ask once;
+    // the answer arms the poll.
+    const onSent = (event) => {
+      if (event?.detail?.leadId === leadId) read();
+    };
+    window.addEventListener(SIGNUP_LINK_SENT_EVENT, onSent);
+    read();
     return () => {
       alive = false;
+      clear();
+      window.removeEventListener(SIGNUP_LINK_SENT_EVENT, onSent);
     };
   }, [leadId, t]);
 
-  // The poll: re-armed whenever the interval or the completion state
-  // changes; cleared on unmount. A completed signup polls no more.
-  const { progress, pollMs, missing } = state;
-  const completed = Boolean(progress?.completed);
-  useEffect(() => {
-    if (timer.current) clearInterval(timer.current);
-    timer.current = null;
-    if (!leadId || completed) return undefined;
-    timer.current = setInterval(async () => {
-      let res;
-      try {
-        res = await fetch(`/api/sales/leads/${encodeURIComponent(leadId)}/signup-progress`);
-      } catch {
-        return;
-      }
-      if (res.status === 404) {
-        setState({ progress: null, pollMs: DEFAULT_POLL_MS, missing: true, error: "" });
-        return;
-      }
-      const body = await res.json().catch(() => null);
-      if (res.ok && body?.progress) {
-        setState({ progress: body.progress, pollMs: Number(body.pollMs) || DEFAULT_POLL_MS, missing: false, error: "" });
-      }
-    }, pollMs);
-    return () => {
-      if (timer.current) clearInterval(timer.current);
-      timer.current = null;
-    };
-  }, [leadId, pollMs, completed]);
-
+  const { progress, missing } = state;
   if (missing || !progress) return null;
 
   const stuckStep = progress.stuck ? progress.steps.find((s) => s.key === progress.stuckAtKey) : null;

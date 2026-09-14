@@ -32,6 +32,7 @@ import { AlertTriangle, Check, Loader2, MessageSquare } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { jsonBody } from "@/lib/jsonBody";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { announceSignupLinkSent } from "@/lib/sales/signupProgressPoll";
 
 function when(value) {
   if (!value) return "";
@@ -105,6 +106,11 @@ export default function SignupLinkSms({ leadId, inThread = false, onSent = null 
         ),
       });
       setSent(result);
+      // The stepper (SignupProgress) stopped asking the moment the route
+      // said there was no row; there is one now, and this is the only way
+      // it learns that short of a remount. Announced before the re-read so
+      // the stepper's first read and ours go out together.
+      announceSignupLinkSent(leadId);
       await load();
       onSent?.(result);
     } catch (err) {

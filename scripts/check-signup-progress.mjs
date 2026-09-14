@@ -25,9 +25,12 @@
 //      names and answers 204; the companies route and the billing sync stamp
 //      the server-side steps; the signup page reads ?link=, beacons the two
 //      steps and sends the token with the company; the rep route scopes by
-//      leadWhere and 404s; the component polls at the server's cadence,
-//      clears its interval, prints the stuck sentence and the card talking
-//      point; it is mounted on the lead panel and the console's card; the
+//      leadWhere and 404s; the component reads once and lets the ANSWER arm
+//      the next read — the pure rule in lib/sales/signupProgressPoll.js is
+//      executed: a 404 stops it, a completed row stops it, a live row is
+//      re-read no sooner than thirty seconds; SignupLinkSms announces a send
+//      and the component listens; it prints the stuck sentence and the card
+//      talking point; it is mounted on the lead panel and the console's card; the
 //      keys exist in nine languages; the schema has the model; check:all
 //      runs this.
 //
@@ -55,6 +58,7 @@ import {
   stampSignupStepByToken,
 } from "@/lib/sales/signupProgress";
 import { signupLinkFor } from "@/lib/sales/repStats";
+import { MIN_PANEL_POLL_MS, SIGNUP_LINK_SENT_EVENT, nextSignupPollMs } from "@/lib/sales/signupProgressPoll";
 import { APP_MESSAGES } from "@/app/i18n/appMessages";
 import { db, resetDbStub, rows, writes } from "./fixtures/dbStub.mjs";
 
@@ -140,7 +144,20 @@ section("3. The view: current step, stuck after three minutes, never once comple
   ok("one minute on: not stuck", fresh.stuck === false && fresh.stuckAtKey === null && fresh.stuckForMs === 0);
   const stuck = signupProgressView(r, plus(60_000 + STUCK_AFTER_MS));
   ok("three minutes on the same step: stuck at 'opened', for three minutes", stuck.stuck === true && stuck.stuckAtKey === "opened" && stuck.stuckForMs === STUCK_AFTER_MS);
-  ok("STUCK_AFTER_MS is the owner's three minutes; the poll is ten seconds", STUCK_AFTER_MS === 3 * 60 * 1000 && PROGRESS_POLL_MS === 10 * 1000);
+  ok("STUCK_AFTER_MS is the owner's three minutes; the poll is thirty seconds, and the panel's floor agrees", STUCK_AFTER_MS === 3 * 60 * 1000 && PROGRESS_POLL_MS === 30 * 1000 && MIN_PANEL_POLL_MS === 30 * 1000);
+
+  // ── The panel's poll rule, executed ──────────────────────────────────
+  // The live console 404ed this route ten times a minute for a lead nobody
+  // had texted: the interval was armed on mount, not on the answer.
+  const live = { completed: false, steps: [] };
+  ok("a 404 stops the poll — no row, nothing to watch", nextSignupPollMs({ status: 404, progress: null, pollMs: 10_000 }) === null);
+  ok("…even if a stale row is still held", nextSignupPollMs({ status: 404, progress: live, pollMs: 10_000 }) === null);
+  ok("no row from any other answer stops it too (a 500, a body with no progress)", nextSignupPollMs({ status: 500, progress: null, pollMs: 10_000 }) === null && nextSignupPollMs({ status: 200, progress: null, pollMs: 10_000 }) === null);
+  ok("a completed signup stops it", nextSignupPollMs({ status: 200, progress: { ...live, completed: true }, pollMs: 10_000 }) === null);
+  ok("a live row polls at the server's cadence…", nextSignupPollMs({ status: 200, progress: live, pollMs: 45_000 }) === 45_000);
+  ok("…floored at thirty seconds whatever the server says", nextSignupPollMs({ status: 200, progress: live, pollMs: 10_000 }) === MIN_PANEL_POLL_MS && nextSignupPollMs({ status: 200, progress: live, pollMs: 0 }) === MIN_PANEL_POLL_MS && nextSignupPollMs({ status: 200, progress: live, pollMs: "x" }) === MIN_PANEL_POLL_MS && nextSignupPollMs({ status: 200, progress: live }) === MIN_PANEL_POLL_MS);
+  ok("a fetch that threw over a row it already knew keeps polling that row", nextSignupPollMs({ status: 0, progress: live, pollMs: null }) === MIN_PANEL_POLL_MS);
+  ok("the send announcement has a namespaced name", /^fieldquo:/.test(SIGNUP_LINK_SENT_EVENT));
   const moved = signupProgressView({ ...r, companyAt: plus(200_000) }, plus(200_000 + 60_000));
   ok("a new stamp resets the clock: not stuck one minute after 'company'", moved.stuck === false && moved.currentKey === "company");
   const done = signupProgressView({ ...r, companyAt: plus(200_000), planAt: plus(300_000), cardAt: plus(400_000), completedAt: plus(400_000), companyId: "co_1" }, plus(400_000 + 24 * 3600 * 1000));
@@ -173,9 +190,13 @@ section("4. The wiring");
   ok("the rep route scopes the lead by leadWhere and the row by the rep, and 404s both ways", /leadWhere\(rep\.id, id\)/.test(route) && /signupProgressForRep\(\{ client: db, leadId: lead\.id, salesRepId: rep\.id/.test(route) && (route.match(/status: 404/g) || []).length === 2 && /requireOutreachRep\(request\)/.test(route));
   ok("…and hands the panel its cadence from the server", /pollMs: PROGRESS_POLL_MS/.test(route) && /stuckAfterMs: STUCK_AFTER_MS/.test(route));
   const comp = decomment(read("app/components/sales/SignupProgress.js"));
-  ok("the component polls at the server's cadence and clears the interval on unmount", /setInterval\(/.test(comp) && /clearInterval\(timer\.current\)/.test(comp) && /pollMs/.test(comp));
-  ok("…stops polling once complete", /if \(!leadId \|\| completed\) return undefined;/.test(comp));
-  ok("…renders nothing on 404 (no link texted, or not this rep's)", /res\.status === 404/.test(comp) && /if \(missing \|\| !progress\) return null;/.test(comp));
+  ok("the component has no interval: one read, and the answer arms the next through the pure rule", !/setInterval\(/.test(comp) && /const next = nextSignupPollMs\(\{ status, progress, pollMs \}\);/.test(comp) && /if \(next != null\) timer\.current = setTimeout\(read, next\);/.test(comp));
+  ok("…and clears the pending read on unmount", /clearTimeout\(timer\.current\)/.test(comp) && /alive = false;\s*clear\(\);/.test(comp));
+  ok("…listens for the send announcement for ITS lead and reads once more", /window\.addEventListener\(SIGNUP_LINK_SENT_EVENT, onSent\)/.test(comp) && /event\?\.detail\?\.leadId === leadId\) read\(\)/.test(comp) && /window\.removeEventListener\(SIGNUP_LINK_SENT_EVENT, onSent\)/.test(comp));
+  ok("…renders nothing on 404 (no link texted, or not this rep's)", /status === 404/.test(comp) && /if \(missing \|\| !progress\) return null;/.test(comp));
+  const smsPanel = decomment(read("app/sales/leads/SignupLinkSms.js"));
+  ok("SignupLinkSms announces a send the server accepted, before its own re-read", /announceSignupLinkSent\(leadId\);/.test(smsPanel) && smsPanel.indexOf("announceSignupLinkSent(leadId);") > smsPanel.indexOf("setSent(result);") && smsPanel.indexOf("announceSignupLinkSent(leadId);") < smsPanel.indexOf("onSent?.(result);"));
+  ok("…and never on a refusal", smsPanel.indexOf("announceSignupLinkSent(leadId);") < smsPanel.indexOf("} catch (err) {", smsPanel.indexOf("async function send(")));
   ok("…prints the stuck sentence with the step and the minutes from the server's clock", /app\.salesSignupProgress\.stuck/.test(comp) && /stuckForMs \/ 60000/.test(comp) && /data-testid="signup-progress-stuck"/.test(comp));
   ok("…and the card talking point inline once past 'opened'", /app\.salesSignupProgress\.cardPoint/.test(comp) && /reached >= 2/.test(comp));
   const lead = decomment(read("app/sales/leads/[id]/page.js"));

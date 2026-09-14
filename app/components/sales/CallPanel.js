@@ -51,7 +51,11 @@
 // ══ The playbook loads WITH the prospect, never on the press ══════════════
 //
 // CallPlaybook is fetched from a `useEffect` keyed on `prospectId` — the same
-// moment the card appears — and never from `place()`. That is not tidiness:
+// moment the card appears — and never from `place()`. The fetch itself now
+// lives in PlaybookMount.js, which DialRegion also mounts when this panel is
+// NOT on the screen (a closed calling window, a number nobody confirmed), so
+// the Script tab reads the same playbook whether or not there is a dial. This
+// file only hands it the prospect. That is not tidiness:
 // assembling a script reads the prospect, its capabilities, its technologies
 // and its opportunities, selects a playbook and renders nine stages. Putting
 // that between the press and the ring would add a wait to the one action a rep
@@ -79,8 +83,7 @@ import {
 import { fetchJson } from "@/lib/fetchJson";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { STATE_AFTER_CALL } from "@/lib/sales/calls/agentState";
-import CallPlaybook from "./CallPlaybook";
-import { rememberScriptLanguage, rememberedScriptLanguage } from "@/lib/sales/scriptLanguageMemory";
+import PlaybookMount from "./PlaybookMount";
 import PublishedEmail from "./PublishedEmail";
 import TransferControl from "./TransferControl";
 import NextSteps from "./NextSteps";
@@ -171,8 +174,9 @@ export default function CallPanel({
   // when it is null (the lead screen, an older console) the piece renders
   // where it always did. The state machine is untouched by this: the
   // disposition form still reads `pending` from this component's state and
-  // still writes through saveOutcome(), the playbook is still fetched here
-  // with the prospect. Only the DOM position moves. A second copy of the
+  // still writes through saveOutcome(), the playbook is still fetched with
+  // the prospect (PlaybookMount, which takes `script`). Only the DOM
+  // position moves. A second copy of the
   // form in the console would be AGENTS.md failure class 4 with a live call
   // behind it.
   slots = null,
@@ -228,21 +232,11 @@ export default function CallPanel({
   // contact already filled from who they're on the phone with, so it survives
   // past the call whether or not the call gets dispositioned.
 
-  // The script. Loaded with the prospect — see the header — and kept in its
-  // own three fields rather than folded into `config`, because the calling
-  // setup and the words are two different failures: Twilio being unconfigured
-  // must not hide the playbook, and a playbook that will not load must not
-  // stop the rep dialling.
-  const [playbook, setPlaybook] = useState(null);
-  const [playbookLoading, setPlaybookLoading] = useState(false);
-  const [playbookError, setPlaybookError] = useState("");
-  // The script's language switch. Null means "the default" — the route
-  // decides what that is for this lead and this rep — and a code means the
-  // rep flipped it. Its own loading flag: switching language re-reads the
-  // playbook UNDER the script that is already on screen, and the whole
-  // panel must not blank while a rep is mid-call.
-  const [scriptLanguage, setScriptLanguage] = useState(null);
-  const [scriptLanguageLoading, setScriptLanguageLoading] = useState(false);
+  // The prospect's published contact, off the playbook read — PlaybookMount
+  // fetches the script (see the header) and hands the body back through
+  // onData; the Contact card wants one field of it. Null until it arrives.
+  const [playbookProspect, setPlaybookProspect] = useState(null);
+  const onPlaybookData = useCallback((body) => setPlaybookProspect(body?.prospect || null), []);
 
   const deviceRef = useRef(null);
   const callRef = useRef(null);
@@ -255,88 +249,6 @@ export default function CallPanel({
   const presence = useRepPresence();
   const presenceRef = useRef(presence);
   presenceRef.current = presence;
-
-  // Why there is no script, when there is no script. A lead the rep typed in
-  // has no discovery behind it, so lib/sales/playbook has nothing to build one
-  // from — that is a fact about the record, not a failure, and it gets said
-  // rather than rendered as an empty space.
-  const scriptProspectId = prospectId || playbookProspectId || null;
-  const playbookUnavailable = scriptProspectId ? "" : t("app.salesCall.playbookUnavailableLead");
-
-  // `t` is deliberately NOT a dependency of this callback or of load() below.
-  // Both dep arrays are what re-runs the effects that call them, and a rep
-  // changing language mid-call would otherwise re-fetch the script and the
-  // calling setup underneath a live conversation. The only cost is that the
-  // fallback sentence for a fetch that fails immediately after a language
-  // switch is a beat behind; the alternative is a refetch during a call.
-  const playbookUrl = useCallback(
-    (language) =>
-      `/api/sales/playbook?prospectId=${encodeURIComponent(scriptProspectId)}${language ? `&language=${encodeURIComponent(language)}` : ""}`,
-    [scriptProspectId],
-  );
-
-  const loadPlaybook = useCallback(async () => {
-    if (!scriptProspectId) return;
-    setPlaybookLoading(true);
-    setPlaybookError("");
-    try {
-      // The first read is the default language. If this rep chose another
-      // language for leads of this kind before (remembered per rep, per
-      // language-of-lead — a Quebec lead and a Texas lead are two habits),
-      // the same read is made again in that language, under the default
-      // that is already on screen. Two reads only when there is a habit.
-      const first = await fetchJson(playbookUrl(null));
-      setPlaybook(first);
-      const remembered = rememberedScriptLanguage(first?.scriptLanguage);
-      if (remembered && remembered !== first?.scriptLanguage?.current && first?.scriptLanguage?.available?.includes(remembered)) {
-        setScriptLanguage(remembered);
-        setScriptLanguageLoading(true);
-        try {
-          setPlaybook(await fetchJson(playbookUrl(remembered)));
-        } catch {
-          // The default is on screen and is a true script; a habit that
-          // could not be honoured is not a failure of the panel.
-        } finally {
-          setScriptLanguageLoading(false);
-        }
-      } else {
-        setScriptLanguage(null);
-      }
-    } catch (err) {
-      // Its own error, never the panel's. A failed script must not read as a
-      // failed call setup, and it must not clear the dial button.
-      setPlaybook(null);
-      setPlaybookError(err?.message || t("app.salesCall.playbookFetchFailed"));
-    } finally {
-      setPlaybookLoading(false);
-    }
-  }, [scriptProspectId, playbookUrl]);
-
-  useEffect(() => {
-    loadPlaybook();
-  }, [loadPlaybook]);
-
-  // The switch. The script that is on screen stays there, dimmed, until the
-  // other language arrives; a failure leaves it and says nothing new — the
-  // route's own fallback sentence covers the case where it answered with
-  // the default instead.
-  const changeScriptLanguage = useCallback(
-    async (language) => {
-      if (!scriptProspectId || !language) return;
-      setScriptLanguage(language);
-      setScriptLanguageLoading(true);
-      try {
-        const next = await fetchJson(playbookUrl(language));
-        setPlaybook(next);
-        rememberScriptLanguage(next?.scriptLanguage, language);
-      } catch (err) {
-        setPlaybookError(err?.message || t("app.salesCall.playbookFetchFailed"));
-      } finally {
-        setScriptLanguageLoading(false);
-      }
-    },
-    [scriptProspectId, playbookUrl],
-  );
 
   const load = useCallback(async () => {
     try {
@@ -642,16 +554,7 @@ export default function CallPanel({
         {/* The call still happens on this path, so the words still belong on
             the screen. The two systems are unrelated: no SalesCallAttempt
             table is not a reason to send a rep in without a script. */}
-        <CallPlaybook
-          loading={playbookLoading}
-          error={playbookError}
-          data={playbook}
-          unavailable={playbookUnavailable}
-          onRetry={loadPlaybook}
-          scriptLanguage={scriptLanguage}
-          scriptLanguageLoading={scriptLanguageLoading}
-          onScriptLanguage={changeScriptLanguage}
-        />
+        <PlaybookMount prospectId={prospectId} playbookProspectId={playbookProspectId} onData={onPlaybookData} />
       </div>
     );
   }
@@ -672,7 +575,7 @@ export default function CallPanel({
           there is none. */}
       {into(
         slots?.contact || null,
-        <PublishedEmail email={playbook?.prospect?.email || null} source={playbook?.prospect?.emailSource || null} />,
+        <PublishedEmail email={playbookProspect?.email || null} source={playbookProspect?.emailSource || null} />,
       )}
 
       {/* ── On a call ───────────────────────────────────────────────────── */}
@@ -906,20 +809,12 @@ export default function CallPanel({
           three states because the rep needs the opener before the ring, the
           objections while they are being pushed back on, and the stages again
           when they are writing down what was actually said. */}
-      {into(
-        slots?.script || null,
-        <CallPlaybook
-          loading={playbookLoading}
-          error={playbookError}
-          data={playbook}
-          unavailable={playbookUnavailable}
-          onRetry={loadPlaybook}
-          layout={slots?.script ? "console" : "stack"}
-          scriptLanguage={scriptLanguage}
-          scriptLanguageLoading={scriptLanguageLoading}
-          onScriptLanguage={changeScriptLanguage}
-        />,
-      )}
+      <PlaybookMount
+        prospectId={prospectId}
+        playbookProspectId={playbookProspectId}
+        slot={slots?.script || null}
+        onData={onPlaybookData}
+      />
     </div>
   );
 }

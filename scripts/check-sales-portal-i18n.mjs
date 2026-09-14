@@ -89,6 +89,7 @@ const FINISHED = [
       "app/components/sales/StageBoard.js",
       "app/components/sales/CallPanel.js",
       "app/components/sales/CallPlaybook.js",
+      "app/components/sales/PlaybookMount.js",
       "app/components/sales/CallConsolePreview.js",
       "app/components/sales/ContactNumbers.js",
       "app/components/sales/DialRegion.js",

@@ -553,6 +553,7 @@ const TOUCHED = [
   "lib/fetchJson.js",
   "app/components/sales/DialRegion.js",
   "app/components/sales/CallPanel.js",
+  "app/components/sales/PlaybookMount.js",
   "app/components/sales/PayoutDestinationForm.js",
 ];
 for (const path of TOUCHED) {

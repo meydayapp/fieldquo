@@ -334,7 +334,7 @@ section("4. The lead screen actually renders it, and hands it a lead");
     !/prospectId/.test(targetBlock.replace(/\/\/[^\n]*/g, "")),
   );
   ok("…while the linked business's playbook is asked for on its own prop", /playbookProspectId=\{lead\.prospect\?\.id \|\| lead\.prospectId \|\| null\}/.test(region));
-  ok("…which CallPanel uses for the script and never for the dial", (() => { const cp = decomment(read("app/components/sales/CallPanel.js")); return /const scriptProspectId = prospectId \|\| playbookProspectId \|\| null/.test(cp) && /playbook\?prospectId=\$\{encodeURIComponent\(scriptProspectId\)\}/.test(cp) && /\.\.\.\(prospectId \? \{ prospectId \} : \{ leadId \}\)/.test(cp); })());
+  ok("…which PlaybookMount uses for the script and CallPanel never for the dial", (() => { const cp = decomment(read("app/components/sales/CallPanel.js")); const pm = decomment(read("app/components/sales/PlaybookMount.js")); return /const scriptProspectId = prospectId \|\| playbookProspectId \|\| null/.test(pm) && /playbook\?prospectId=\$\{encodeURIComponent\(scriptProspectId\)\}/.test(pm) && /playbookProspectId=\{playbookProspectId\}/.test(cp) && !/playbookProspectId/.test(cp.slice(cp.indexOf("async function place("), cp.indexOf("async function place(") + 3000)) && /\.\.\.\(prospectId \? \{ prospectId \} : \{ leadId \}\)/.test(cp); })());
 
   // The three steps, in the order the queue runs them.
   ok("the screen asks salesCallReadiness for the decision", /salesCallReadiness\(/.test(src));
@@ -382,7 +382,7 @@ section("5. The panel sends exactly one id");
   // shown an empty space where a script would be.
   ok(
     "a lead with no prospect gets a stated reason for having no script",
-    /playbookUnavailable/.test(src) && /unavailable=\{playbookUnavailable\}/.test(src),
+    (() => { const pm = decomment(read("app/components/sales/PlaybookMount.js")); return /playbookUnavailable/.test(pm) && /unavailable=\{playbookUnavailable\}/.test(pm); })(),
   );
 }
 

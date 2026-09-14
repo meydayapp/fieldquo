@@ -902,10 +902,12 @@ section("8. Three languages — English, French, Spanish");
     ok("…and the fallback sentence when the route answered with the default", /data-script-language-fallback/.test(draw) && /scriptLanguageFallback/.test(draw));
     ok("…only when the panel gave it somewhere to send a choice — no dead control", /data\.scriptLanguage && onScriptLanguage/.test(draw));
     ok("the generated-from line stays", /aiScriptGenerated"/.test(draw) && /aiScriptGeneratedNoCrawl/.test(draw));
-    const panel = decomment(read("app/components/sales/CallPanel.js"));
-    ok("CallPanel re-reads the playbook with &language= on a choice", /&language=\$\{encodeURIComponent\(language\)\}/.test(panel) && /const changeScriptLanguage = useCallback/.test(panel));
+    // The loader and the switch live in PlaybookMount.js now — the one
+    // fetch path CallPanel and DialRegion both mount.
+    const panel = decomment(read("app/components/sales/PlaybookMount.js"));
+    ok("PlaybookMount re-reads the playbook with &language= on a choice", /&language=\$\{encodeURIComponent\(language\)\}/.test(panel) && /const changeScriptLanguage = useCallback/.test(panel));
     ok("…remembers it per rep per language-of-lead, and honours the memory on open", /rememberScriptLanguage\(next\?\.scriptLanguage, language\)/.test(panel) && /rememberedScriptLanguage\(first\?\.scriptLanguage\)/.test(panel));
-    ok("…and hands the switch to both CallPlaybook renders", (panel.match(/onScriptLanguage=\{changeScriptLanguage\}/g) || []).length === 2);
+    ok("…and hands the switch to the one CallPlaybook render", (panel.match(/onScriptLanguage=\{changeScriptLanguage\}/g) || []).length === 1 && (panel.match(/<CallPlaybook/g) || []).length === 1);
     const store = new Map();
     const storage = { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, v), removeItem: (k) => store.delete(k) };
     const sl = { repId: "rep-1", leadLanguage: "fr", default: "fr" };

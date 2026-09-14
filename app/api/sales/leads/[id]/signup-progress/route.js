@@ -1,7 +1,10 @@
 // app/api/sales/leads/[id]/signup-progress/route.js
 //
 // Where the prospect is in the signup the rep just texted them — for the
-// rep who texted it, polled every ten seconds while the call is live.
+// rep who texted it, re-read every thirty seconds while the signup is live.
+// A 404 here is final until the rep sends a link: the panel reads once and
+// stops on it (lib/sales/signupProgressPoll.js), so this route is not
+// polled for rows that do not exist.
 //
 // ══ Scope ═════════════════════════════════════════════════════════════════
 //

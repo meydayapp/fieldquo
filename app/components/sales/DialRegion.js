@@ -31,6 +31,22 @@
 // queue — "I don't even know where to go to dial" — was an empty region on an
 // empty queue, and absence of UI is indistinguishable from absence of feature.
 // That rule now travels with the component instead of being a note in one page.
+//
+// ══ The script does not wait for the dial ═════════════════════════════════
+//
+// The playbook used to be fetched inside CallPanel, and CallPanel mounts only
+// in the READY branch below. So a New York lead opened at 07:40 ET — calling
+// window shut until 08:00 — had a Dialer card that said so and a Script tab
+// that said nothing: the fetch never ran. Reps use that half hour to read
+// ahead; a blank tab is the control that appears to work and doesn't.
+//
+// Every state that HAS a prospect now mounts PlaybookMount (the one fetch
+// path — CallPanel mounts the same component in the READY branch). Two
+// exceptions, on purpose: no prospect (nothing to read; the empty state
+// keeps its labelled picture), and do-not-contact (a hard stop gets no
+// script to rehearse, for the same reason it gets no dial control). The
+// dial is untouched — dialSpace() still decides, this file still only
+// chooses an icon, and the mount carries no href.
 "use client";
 
 import { Ban, CircleHelp, Clock, PhoneOff, ShieldAlert } from "lucide-react";
@@ -46,6 +62,7 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 import { weekdayName } from "@/lib/format/localeDate";
 import CallPanel from "./CallPanel";
 import CallConsolePreview from "./CallConsolePreview";
+import PlaybookMount from "./PlaybookMount";
 
 // ══ Resolving what the server composed ═════════════════════════════════════
 //
@@ -307,6 +324,28 @@ export default function DialRegion({
     ? t("app.salesDial.whatJurisdictionSays", { jurisdiction: compliance.jurisdiction.name })
     : t("app.salesDial.callingRules");
 
+  // ── The script without the dial ─────────────────────────────────────
+  // The READY branch is CallPanel's (it mounts PlaybookMount itself). Every
+  // other state with a prospect gets the mount below — except the hard
+  // stop. `target` is what the screen would have dialled, so a lead with no
+  // linked business still reaches the mount and reads its "no script for a
+  // typed-in lead" sentence rather than an empty tab.
+  const dialRendered = space.state === DIAL_READY && space.href && target;
+  const playbookWithoutDial =
+    !dialRendered &&
+    Boolean(target) &&
+    space.state !== DIAL_NO_PROSPECT &&
+    space.state !== DIAL_DO_NOT_CONTACT;
+  // "Calling window opens at 08:00 on Tue 8 Sep — read ahead", only when the
+  // window is the thing shut. opensAtText is the same CLDR-formatted instant
+  // WindowLines prints, so the two never disagree about the hour. An
+  // unconfirmed decision or a missing number is not a window, and gets no
+  // opening time invented for it.
+  const readAheadNote =
+    playbookWithoutDial && space.state === DIAL_REFUSED && space.showWindow && compliance?.opensAtText
+      ? t("app.salesDial.window.readAhead", { opensAt: compliance.opensAtText })
+      : null;
+
   return (
     <>
       {space.state === DIAL_READY && space.href && target ? (
@@ -474,6 +513,21 @@ export default function DialRegion({
             {citation}
           </details>
         ) : null
+      ) : null}
+
+      {/* The script when there is no dial — see the header. Not in the
+          READY branch, where CallPanel mounts the same component; not
+          without a prospect; not on a do-not-contact. Last in the DOM for
+          the reason CallPanel gives: on the lead screen the notices above
+          are what a thumb reaches for first, and on the console the slot
+          decides where it is drawn anyway. */}
+      {playbookWithoutDial ? (
+        <PlaybookMount
+          prospectId={target.prospectId || null}
+          playbookProspectId={playbookProspectId}
+          slot={slots?.script || null}
+          note={readAheadNote}
+        />
       ) : null}
     </>
   );

@@ -256,7 +256,9 @@ section("4. The email the crawler read reaches the lead");
   ok("the prospect view shows the address beside 'Publishes an email address'", row?.text === "Publishes an email address" && row.detail === "emma@scountyelectric.com" && row.email === "emma@scountyelectric.com", row);
   ok("…and on the view itself, null when none", view.email === "emma@scountyelectric.com" && prospectView({ prospect: { id: "p" } }).email === null);
   const panel = decomment(read("app/components/sales/CallPanel.js"));
-  ok("the call panel renders the copy control, from the playbook read", /<PublishedEmail email=\{playbook\?\.prospect\?\.email \|\| null\}/.test(panel));
+  // The playbook is fetched by PlaybookMount now; CallPanel takes the body
+  // back through onData and reads one field of it for the Contact card.
+  ok("the call panel renders the copy control, from the playbook read", /<PublishedEmail email=\{playbookProspect\?\.email \|\| null\}/.test(panel) && /setPlaybookProspect\(body\?\.prospect \|\| null\)/.test(panel) && /onData=\{onPlaybookData\}/.test(panel));
   const route = decomment(read("app/api/sales/playbook/route.js"));
   ok("…which the playbook route returns, null when none", /email: mine\.email \|\| null/.test(route));
   const copyBtn = decomment(read("app/components/sales/PublishedEmail.js"));
