@@ -4,13 +4,17 @@
 // customer necessarily noticing — a rejected email, a Stripe sync that didn't
 // land, a PDF that didn't render.
 //
-// Acknowledging clears a row so the list stays a to-do. An empty list is the
-// point: it means nothing is currently broken.
+// Marking a row reviewed hides it so the list stays a to-do — an empty list
+// is the point: it means nothing is currently broken. Nothing is deleted and
+// nothing is reviewed automatically: a fixed error stays in the archive behind
+// "Show reviewed", with who decided it was fine and their one-line reason,
+// because the row is the evidence and the reason has to outlive the person.
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Loader2, AlertTriangle, Check, Mail, CreditCard, FileText, Bot, Webhook, Upload, Clock, Users } from "lucide-react";
+import { Loader2, AlertTriangle, Check, Undo2, Mail, CreditCard, FileText, Bot, Webhook, Upload, Clock, Users } from "lucide-react";
+import { fetchJson } from "@/lib/fetchJson";
 
 // Icon AND label together, because they were two facts about the same thing
 // kept in one place and none. `account_abuse` had an icon and no label, so the
@@ -50,44 +54,82 @@ function when(iso) {
   return d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 }
 
+const BTN =
+  "inline-flex items-center gap-1.5 text-xs font-semibold border border-border rounded-full px-3 py-1.5 hover:bg-muted disabled:opacity-60 min-h-[44px] lg:min-h-0";
+
+// The one-line "why is this fine" prompt. Optional: an empty note still marks
+// the row, because insisting on prose produces "ok" typed 40 times, not
+// reasons. Shared by the per-row button and the batch bar.
+function ReviewForm({ count, busy, onSubmit, onCancel }) {
+  const [note, setNote] = useState("");
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        onSubmit(note);
+      }}
+      className="mt-2 flex flex-wrap gap-2 items-center"
+    >
+      <input
+        autoFocus
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+        placeholder="Why is this fine? (optional, one line)"
+        maxLength={300}
+        className="flex-1 min-w-[200px] border border-border rounded-lg px-3 py-2 text-sm bg-card text-foreground"
+      />
+      <button type="submit" disabled={busy} className={`${BTN} bg-inverted text-inverted-foreground border-foreground`}>
+        {busy ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+        Mark {count > 1 ? `${count} ` : ""}reviewed
+      </button>
+      <button type="button" onClick={onCancel} disabled={busy} className={BTN}>
+        Cancel
+      </button>
+    </form>
+  );
+}
+
 export default function PlatformErrorsPage() {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   const [area, setArea] = useState("");
-  const [showResolved, setShowResolved] = useState(false);
+  const [showReviewed, setShowReviewed] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Checkbox selection, by id. Cleared on every reload so a row that moved to
+  // the other list can't stay "selected" invisibly.
+  const [selected, setSelected] = useState(() => new Set());
+  // Which note form is open: an error id, "batch", or null.
+  const [noteFor, setNoteFor] = useState(null);
 
   const load = useCallback(async () => {
     setError("");
     try {
       const qs = new URLSearchParams();
       if (area) qs.set("area", area);
-      if (showResolved) qs.set("resolved", "1");
-      const res = await fetch(`/api/platform/errors?${qs}`);
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || `Request failed (${res.status}).`);
+      if (showReviewed) qs.set("resolved", "1");
+      const json = await fetchJson(`/api/platform/errors?${qs}`);
       setData(json);
+      setSelected(new Set());
+      setNoteFor(null);
     } catch (e) {
       setError(e.message);
     }
-  }, [area, showResolved]);
+  }, [area, showReviewed]);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  async function resolve(ids) {
+  // One row goes through the [id] route; a batch through the collection. Both
+  // land in the same helper server-side, so the difference is only the URL.
+  async function review(ids, reviewed, note = "") {
     setBusy(true);
     setError("");
     try {
-      const res = await fetch("/api/platform/errors", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids }),
-      });
-      if (!res.ok) {
-        const json = await res.json().catch(() => ({}));
-        throw new Error(json.error || `Request failed (${res.status}).`);
+      if (ids.length === 1) {
+        await fetchJson(`/api/platform/errors/${ids[0]}`, { method: "PATCH", body: { reviewed, note } });
+      } else {
+        await fetchJson("/api/platform/errors", { method: "PATCH", body: { ids, reviewed, note } });
       }
       await load();
     } catch (e) {
@@ -98,6 +140,20 @@ export default function PlatformErrorsPage() {
   }
 
   const errors = data?.errors || [];
+  const allSelected = errors.length > 0 && errors.every((e) => selected.has(e.id));
+  const selectedIds = errors.filter((e) => selected.has(e.id)).map((e) => e.id);
+
+  function toggle(id) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+  function toggleAll() {
+    setSelected(allSelected ? new Set() : new Set(errors.map((e) => e.id)));
+  }
 
   return (
     <div className="space-y-5">
@@ -108,8 +164,8 @@ export default function PlatformErrorsPage() {
           </h1>
           <p className="text-sm text-muted-foreground mt-1 max-w-xl">
             Failures that don&apos;t surface to the customer — rejected emails, Stripe
-            syncs that didn&apos;t land, PDFs that didn&apos;t render. Acknowledge one to
-            clear it from the queue.
+            syncs that didn&apos;t land, PDFs that didn&apos;t render. Mark one reviewed to
+            clear it from the queue; it stays in the archive with your reason.
           </p>
         </div>
         {data && (
@@ -120,7 +176,7 @@ export default function PlatformErrorsPage() {
                 : "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300"
             }`}
           >
-            {data.unresolvedCount} unresolved
+            {data.unresolvedCount} unreviewed
           </span>
         )}
       </div>
@@ -146,11 +202,43 @@ export default function PlatformErrorsPage() {
             {areaLabel(a.area)} ({a.count})
           </button>
         ))}
-        <label className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground">
-          <input type="checkbox" checked={showResolved} onChange={(e) => setShowResolved(e.target.checked)} />
-          Show acknowledged
+        <label className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground min-h-[44px] lg:min-h-0">
+          <input type="checkbox" checked={showReviewed} onChange={(e) => setShowReviewed(e.target.checked)} />
+          Show reviewed{data ? ` (${data.reviewedCount})` : ""}
         </label>
       </div>
+
+      {/* Batch bar. The "Mark all shown" shortcut of old is "select all" here,
+          so what gets marked is what is ticked and visible — never a row that
+          scrolled off or arrived since the page loaded. */}
+      {errors.length > 0 && (
+        <div className="rounded-xl border border-border bg-card px-4 py-2 flex items-center gap-3 flex-wrap">
+          <label className="flex items-center gap-2 text-xs font-semibold text-foreground min-h-[44px] lg:min-h-0">
+            <input type="checkbox" checked={allSelected} onChange={toggleAll} aria-label="Select all shown" />
+            {selectedIds.length ? `${selectedIds.length} selected` : "Select all shown"}
+          </label>
+          {selectedIds.length > 0 && !showReviewed && noteFor !== "batch" && (
+            <button onClick={() => setNoteFor("batch")} disabled={busy} className={BTN}>
+              <Check size={12} /> Mark {selectedIds.length} reviewed
+            </button>
+          )}
+          {selectedIds.length > 0 && showReviewed && (
+            <button onClick={() => review(selectedIds, false)} disabled={busy} className={BTN}>
+              <Undo2 size={12} /> Unmark {selectedIds.length}
+            </button>
+          )}
+          {noteFor === "batch" && (
+            <div className="basis-full">
+              <ReviewForm
+                count={selectedIds.length}
+                busy={busy}
+                onSubmit={(note) => review(selectedIds, true, note)}
+                onCancel={() => setNoteFor(null)}
+              />
+            </div>
+          )}
+        </div>
+      )}
 
       {error && (
         <p className="text-sm rounded-lg bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-900 px-3 py-2">
@@ -168,10 +256,10 @@ export default function PlatformErrorsPage() {
         <div className="rounded-xl border border-dashed border-border bg-card p-10 text-center">
           <Check size={26} className="mx-auto mb-2 text-emerald-600" />
           <p className="text-sm font-semibold text-foreground">
-            {showResolved ? "Nothing acknowledged yet." : "Nothing is broken."}
+            {showReviewed ? "Nothing reviewed yet." : "Nothing is broken."}
           </p>
           <p className="text-xs text-muted-foreground mt-1">
-            {showResolved ? "" : "Failures will appear here the moment they happen."}
+            {showReviewed ? "" : "Failures will appear here the moment they happen."}
           </p>
         </div>
       )}
@@ -180,8 +268,15 @@ export default function PlatformErrorsPage() {
         {errors.map((e) => {
           const Icon = areaIcon(e.area);
           return (
-            <div key={e.id} className="rounded-xl border border-border bg-card p-4">
+            <div key={e.id} className={`rounded-xl border border-border bg-card p-4 ${e.resolvedAt ? "opacity-80" : ""}`}>
               <div className="flex items-start gap-3">
+                <input
+                  type="checkbox"
+                  checked={selected.has(e.id)}
+                  onChange={() => toggle(e.id)}
+                  aria-label={`Select ${e.code || e.area} error`}
+                  className="mt-2.5 shrink-0"
+                />
                 <span className="grid w-9 h-9 rounded-lg place-items-center bg-muted text-muted-foreground shrink-0">
                   <Icon size={16} />
                 </span>
@@ -222,14 +317,29 @@ export default function PlatformErrorsPage() {
                       </pre>
                     </details>
                   )}
+                  {e.resolvedAt && (
+                    <p className="text-[11px] text-muted-foreground mt-1.5 break-words">
+                      Reviewed by {e.resolvedByEmail || "platform"} {when(e.resolvedAt)}
+                      {e.resolvedNote ? ` — ${e.resolvedNote}` : ""}
+                    </p>
+                  )}
+                  {noteFor === e.id && (
+                    <ReviewForm
+                      count={1}
+                      busy={busy}
+                      onSubmit={(note) => review([e.id], true, note)}
+                      onCancel={() => setNoteFor(null)}
+                    />
+                  )}
                 </div>
-                {!e.resolvedAt && (
-                  <button
-                    onClick={() => resolve([e.id])}
-                    disabled={busy}
-                    className="shrink-0 inline-flex items-center gap-1.5 text-xs font-semibold border border-border rounded-full px-3 py-1.5 hover:bg-muted disabled:opacity-60"
-                  >
-                    <Check size={12} /> Acknowledge
+                {!e.resolvedAt && noteFor !== e.id && (
+                  <button onClick={() => setNoteFor(e.id)} disabled={busy} className={`shrink-0 ${BTN}`}>
+                    <Check size={12} /> Mark reviewed
+                  </button>
+                )}
+                {e.resolvedAt && (
+                  <button onClick={() => review([e.id], false)} disabled={busy} className={`shrink-0 ${BTN}`}>
+                    <Undo2 size={12} /> Unmark
                   </button>
                 )}
               </div>
@@ -237,16 +347,6 @@ export default function PlatformErrorsPage() {
           );
         })}
       </div>
-
-      {errors.length > 1 && !showResolved && (
-        <button
-          onClick={() => resolve(errors.map((e) => e.id))}
-          disabled={busy}
-          className="text-xs font-semibold text-muted-foreground hover:text-foreground underline disabled:opacity-60"
-        >
-          Acknowledge all {errors.length} shown
-        </button>
-      )}
     </div>
   );
 }

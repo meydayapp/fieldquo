@@ -270,10 +270,26 @@ model PlatformErrorLog {
   // record what's actually useful without a schema change.
   detail Json?
 
-  // Support workflow: acknowledged errors drop out of the default view so the
-  // list stays a to-do rather than an archive.
-  resolvedAt DateTime?
-  resolvedBy String?
+  // Support workflow — "reviewed" on the screen. A reviewed error drops out of
+  // the default view so the list stays a to-do rather than an archive.
+  //
+  // Why a stamp and not a delete: the row is the evidence. A billing_drift
+  // entry that is "fixed" is still the record that the webhook never fired,
+  // and the owner's question — "if it is fixed why do I see the errors?" —
+  // is answered by hiding it, not by losing it. This codebase never deletes.
+  //
+  // Why a note: "why is this fine" has to survive the person who decided it.
+  // Six months on, a row that says "reviewed by X" and nothing else is a
+  // question; one that says "— key rotated 2026-09-14" is an answer.
+  //
+  // Reversible on purpose: Unmark clears all three, because a review that
+  // turned out to be wrong is worse than no review. `resolvedBy` holds the
+  // PlatformAdmin id (older rows may hold an email — the read path resolves
+  // both to an email for display); no FK, for the same reason companyId has
+  // none.
+  resolvedAt   DateTime?
+  resolvedBy   String?
+  resolvedNote String?
 
   createdAt DateTime @default(now())
 
