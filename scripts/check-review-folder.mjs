@@ -687,6 +687,13 @@ section("8. The folder's WHERE, and what the screen wires");
   // The page size: three values, clamped by the route, 200 the ceiling.
   ok("the page sizes are 50, 100 and 200, and the cap is 200", JSON.stringify(REVIEW_PAGE_SIZES) === "[50,100,200]" && REVIEW_PAGE_SIZE_MAX === 200 && REVIEW_PAGE_SIZE === 50);
   ok("parsePageSize: a listed size is kept", parsePageSize("100") === 100 && parsePageSize(200) === 200 && parsePageSize("50") === 50);
+  // 2026-09-14: a 200-row card's accept was trimmed to 50 ids and the drift
+  // guard refused it. The bound is the largest page, not the default.
+  {
+    const ids = Array.from({ length: 260 }, (_, n) => `id-${n}`);
+    const parsed = parseReviewFilter({ ids });
+    ok("ids are bounded by the largest page size (200), not the default (50)", parsed.ids.length === REVIEW_PAGE_SIZE_MAX && REVIEW_PAGE_SIZE_MAX === 200, parsed.ids.length);
+  }
   ok("parsePageSize: anything else is the default, never the nearest and never an error", [parsePageSize("500"), parsePageSize("0"), parsePageSize("-1"), parsePageSize("1e9"), parsePageSize("abc"), parsePageSize(null), parsePageSize(undefined), parsePageSize("150")].every((n) => n === REVIEW_PAGE_SIZE));
   const listRoute = read("app/api/platform/sales/review/route.js");
   ok("the list route reads pageSize through the clamp and pages by it", /parsePageSize\(url\.searchParams\.get\("pageSize"\)\)/.test(listRoute) && /LIMIT \$\{pageSize\} OFFSET \$\{page \* pageSize\}/.test(listRoute) && !/REVIEW_PAGE_SIZE\b/.test(listRoute.replace(/REVIEW_PAGE_SIZES/g, "")));
@@ -726,7 +733,9 @@ section("8. The folder's WHERE, and what the screen wires");
   ok("the confirm says how many were excluded", /\(\$\{confirm\.excluded\.length\} excluded\)/.test(page) && /data-bulk-confirm-title/.test(page));
   ok("Hide duplicates is a filter-bar toggle, on by default, off and disabled under the duplicate reason", /data-hide-dups/.test(page) && /useState\(\(\) => readHideDupsFromUrl\(\)\)/.test(page) && /\.get\("dups"\) !== "show"/.test(page) && /checked=\{filter\.reason === "duplicate" \? false : hideDups\}/.test(page) && /disabled=\{filter\.reason === "duplicate"\}/.test(page));
   ok("…and the list request sends it, except under the duplicate reason", /if \(filter\.reason !== "duplicate"\) params\.set\("dups", hideDups \? "hide" : "show"\)/.test(page));
-  ok("the page-size selector is by the pager in both modes and is remembered", (page.match(/<PageSizeSelect /g) || []).length === 2 && /const PAGE_SIZE_KEY = "fq\.review\.pageSize"/.test(page) && /const PAGE_SIZES = \[50, 100, 200\]/.test(page) && /params\.set\("pageSize", String\(pageSize\)\)/.test(page));
+  // Three mounts: by the pager in both modes, and — since 61bac0ad — beside
+  // "N of N ticked" at the top of a suggestion card, where the owner looks.
+  ok("the page-size selector is by the pager in both modes (and atop a card) and is remembered", (page.match(/<PageSizeSelect /g) || []).length === 3 && /const PAGE_SIZE_KEY = "fq\.review\.pageSize"/.test(page) && /const PAGE_SIZES = \[50, 100, 200\]/.test(page) && /params\.set\("pageSize", String\(pageSize\)\)/.test(page));
   ok("…every localStorage read and write is wrapped", (page.match(/window\.localStorage/g) || []).length === 3 && (page.slice(page.indexOf("function readPageSize"), page.indexOf("function PageSizeSelect")).match(/try \{/g) || []).length === 2);
   ok("…and the suggested cards send it too", /new URLSearchParams\(\{ suggested: card\.key, page: String\(page\) \}\);\s*if \(pageSize !== PAGE_SIZES\[0\]\) params\.set\("pageSize"/.test(page));
 
