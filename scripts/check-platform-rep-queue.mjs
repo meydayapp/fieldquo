@@ -290,11 +290,11 @@ function scriptedDb({ prospects, leads, claims, between = null }) {
 
 const fixture = () => ({
   prospects: [
-    { id: "p1", assignedRepId: "dan", assignedAt: new Date(NOW - 3 * HOUR), claimExpiresAt: new Date(NOW.getTime() + 45 * HOUR) },
-    { id: "p2", assignedRepId: "dan", assignedAt: new Date(NOW - 20 * HOUR), claimExpiresAt: new Date(NOW.getTime() + 28 * HOUR) },
-    { id: "p3", assignedRepId: "dan", assignedAt: new Date(NOW - 50 * HOUR), claimExpiresAt: null },
-    { id: "p4", assignedRepId: "dan", assignedAt: new Date(NOW - 60 * HOUR), claimExpiresAt: new Date(NOW - 12 * HOUR) },
-    { id: "p5", assignedRepId: "eve", assignedAt: new Date(NOW - HOUR), claimExpiresAt: new Date(NOW.getTime() + 47 * HOUR) },
+    { id: "p1", assignedRepId: "dan", assignedAt: new Date(NOW - 3 * HOUR), mergedIntoId: null, claimExpiresAt: new Date(NOW.getTime() + 45 * HOUR) },
+    { id: "p2", assignedRepId: "dan", assignedAt: new Date(NOW - 20 * HOUR), mergedIntoId: null, claimExpiresAt: new Date(NOW.getTime() + 28 * HOUR) },
+    { id: "p3", assignedRepId: "dan", assignedAt: new Date(NOW - 50 * HOUR), mergedIntoId: null, claimExpiresAt: null },
+    { id: "p4", assignedRepId: "dan", assignedAt: new Date(NOW - 60 * HOUR), mergedIntoId: null, claimExpiresAt: new Date(NOW - 12 * HOUR) },
+    { id: "p5", assignedRepId: "eve", assignedAt: new Date(NOW - HOUR), mergedIntoId: null, claimExpiresAt: new Date(NOW.getTime() + 47 * HOUR) },
   ],
   leads: [
     { id: "l1", salesRepId: "dan", status: "new", convertedCompanyId: null, prospectId: "p3" },

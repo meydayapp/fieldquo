@@ -85,6 +85,7 @@ import { openCheckIns } from "@/lib/sales/checkin/store";
 import { openTriageThreads } from "@/lib/sales/messages/triageStore";
 import { loadContactNumbers, pickContactNumber } from "@/lib/sales/contact/resolve";
 import { adminAssignedSummary } from "@/lib/sales/assignLeads";
+import { loadMergedAnalysis } from "@/lib/sales/discovery/mergedReads";
 
 const ACTIONS = ["claim", "claim_batch", "release", "release_rest", "worked", "do_not_contact"];
 const MAX_REASON = 300;
@@ -358,6 +359,18 @@ async function queueBody(rep, { tradeKey = null, prospectId = null, timeZone = n
     });
 
     if (full) {
+      // A survivor's analysis is the union of its own and its merged-from
+      // rows' (lib/sales/discovery/mergedReads.js — own row per code wins,
+      // evidence appended). Written back onto `full` so every read below —
+      // the view, the brief, the owner quote — sees one set.
+      const analysis = await loadMergedAnalysis(db, full);
+      Object.assign(full, {
+        capabilities: analysis.capabilities,
+        technologies: analysis.technologies,
+        inferences: analysis.inferences,
+        evidence: analysis.evidence,
+      });
+
       const [rules, signatures, suppression, contactRows, ours, myLead, history, briefTask, converted, checkIns, openTriage] = await Promise.all([
         db.confidenceRule.findMany(),
         db.technologySignature.findMany({ select: { code: true, name: true } }),

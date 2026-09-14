@@ -144,7 +144,9 @@ export async function GET(request) {
   const page = Math.max(0, Math.floor(Number(url.searchParams.get("page")) || 0));
 
   const now = new Date();
-  const where = {};
+  // Rows merged into another (mergedIntoId) are carried by their survivor
+  // and listed nowhere; the survivor's duplicate panel is where they show.
+  const where = { mergedIntoId: null };
 
   if (territoryId) where.territoryId = territoryId;
   if (campaignId) where.campaignId = campaignId;

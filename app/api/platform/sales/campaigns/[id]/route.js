@@ -87,7 +87,7 @@ export async function GET(request, { params }) {
 
   const [review, flagged, tasks, researchQueued, allTasks] = await Promise.all([
     db.prospect.findMany({
-      where: { campaignId: id, status: "needs_review" },
+      where: { campaignId: id, status: "needs_review", mergedIntoId: null },
       orderBy: { createdAt: "asc" },
       take: REVIEW_PAGE,
       select: {
@@ -107,7 +107,7 @@ export async function GET(request, { params }) {
         possibleDuplicateOfId: true,
       },
     }),
-    db.prospect.count({ where: { campaignId: id, possibleDuplicateOfId: { not: null } } }),
+    db.prospect.count({ where: { campaignId: id, possibleDuplicateOfId: { not: null }, mergedIntoId: null } }),
     // What the pipeline is actually doing. Without this the screen can say
     // "running" while every task has been abandoned, which is the state a
     // superadmin most needs to see and the one a status column cannot show.
