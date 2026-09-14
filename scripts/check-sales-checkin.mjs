@@ -669,6 +669,165 @@ section("10. The two unfinished-signup drafts live beside these, not inside them
   ok("its draft carries a link, which judgeDraft refuses — the two composers are deliberately not one", judgeDraft(text).ok === false && judgeDraft(text).reason !== undefined);
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+section("11. Every attributed company gets its day-1 draft — the owner's rule, executed");
+// ═══════════════════════════════════════════════════════════════════════════
+//
+//   "shouldn't the draft be for companies that signed up regardless of the
+//    milestone?"
+//
+// Yes, and here is the proof rather than the sentence: a company with NOTHING
+// else going on — onboarding done, payouts connected, every setup step done,
+// trial far off, milestone far off — is still due on day 1 and on day 7. The
+// only things that stop a day-1 draft are the ones that protect the company
+// (a cancelled subscription) or a data fault (no signup date). The demo is
+// suppressed HERE on purpose — it is materialised through the stand-in path
+// (materialise.js materialiseDemoCheckIn), checked in
+// check-sales-checkin-materialise.mjs §3 — and nothing about activation,
+// milestones or "unknown_state" gates it.
+{
+  const { planCheckIn } = await import("@/lib/sales/checkin/plan");
+  const quiet = {
+    signedUpAt: dayAgo(1),
+    onboardingCompletedAt: dayAgo(1),
+    chargesEnabled: true,
+    subscriptionStatus: "active",
+  };
+  const d1 = decide(quiet, { trialEndsAt: dayAgo(-40) });
+  ok("a company with no other signal is DUE on day 1", d1.due === true && d1.scheduledDay === 1, { due: d1.due, suppressed: d1.suppressed, reasons: codes(d1) });
+  ok("…for the honest reason: nothing looks wrong", d1.primary?.code === "all_good", d1.primary?.code);
+  const d7 = decide({ ...quiet, signedUpAt: dayAgo(7) }, { lastCheckInAt: dayAgo(6) });
+  ok("…and on day 7, after a day-1 send", d7.due === true && d7.scheduledDay === 7, { due: d7.due, suppressed: d7.suppressed });
+  const near = decide({ ...quiet, signedUpAt: dayAgo(PLAN_RETENTION_DAYS - 10) }, { lastCheckInAt: dayAgo(PLAN_RETENTION_DAYS - 17) });
+  ok("…and in the fortnight before the milestone", near.due === true && codes(near).includes("retention_milestone_near"), { due: near.due, reasons: codes(near) });
+
+  // The gates that DO stop day 1, each named — and nothing else.
+  const cancelled = decide({ ...quiet, subscriptionStatus: "canceled" });
+  ok("a cancelled subscription is the one company-protecting gate on day 1", cancelled.due === false && cancelled.suppressed?.code === "subscription_ended");
+  const noDate = decide({ ...quiet, signedUpAt: null });
+  ok("no signup date is a data fault, said as one", noDate.due === false && noDate.suppressed?.code === "signup_date_unknown");
+  const unmeasured = checkInSignals({ company: company(quiet), setup: null, retentionDays: PLAN_RETENTION_DAYS, now: NOW });
+  ok("an UNMEASURED company (no snapshot read) is still due on day 1 — unknown_state is a reason, never a gate", unmeasured.due === true && unmeasured.scheduledDay === 1, unmeasured.suppressed);
+  const noPlan = checkInSignals({ company: company(quiet), setup: ALL_STEPS_DONE, retentionDays: null, now: NOW });
+  ok("a rep with no commission plan (no milestone at all) still gets the day-1 draft", noPlan.due === true && noPlan.scheduledDay === 1, noPlan.suppressed);
+
+  // And through the planner, which is what the backlog actually runs.
+  const plan = planCheckIn({ company: company(quiet), setup: ALL_STEPS_DONE, retentionDays: PLAN_RETENTION_DAYS, now: NOW, timeZone: "America/Toronto" });
+  ok("the planner keys the day-1 row for it", plan.state === "due" && plan.dedupeKey === "scheduled:c1:1", { state: plan.state, key: plan.dedupeKey });
+
+  // What the materialiser's company query gates on: attribution and not-demo,
+  // nothing else. Read off the source so a `subscription: { status: "active" }`
+  // creeping into the WHERE would fail here.
+  const materialise = codeOnly("lib/sales/checkin/materialise.js");
+  const query = /company\.findMany\(\{\s*where: \{([^}]*)\}/.exec(materialise)?.[1] || "";
+  ok("the backlog's company query is attribution + not-demo, and nothing else",
+    /assignedCompanyWhere\(rep\.id\)/.test(query) && /isDemo: false/.test(query) && !/subscription|onboarding|stripe|milestone|activat/i.test(query), query.trim());
+  const cron = codeOnly("app/api/cron/sales-checkins/route.js");
+  ok("the cron runs the fleet materialiser (every active rep, daily)", /materialiseCheckInsForAllReps\(/.test(cron));
+  const fleet = /export async function materialiseCheckInsForAllReps[\s\S]*?\n\}\n/.exec(materialise)?.[0] || "";
+  ok("…and the fleet loop materialises each rep's DEMO on the same pass", /materialiseDemoCheckIn\(/.test(fleet), fleet.length);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("12. Drafts waiting — one count, three readers");
+// ═══════════════════════════════════════════════════════════════════════════
+//
+//   "there should be a little banner on the side that calls the rep's
+//    attention that a check-in or follow-up text has been created waiting to
+//    be sent"
+//
+// lib/sales/checkin/waiting.js is the one definition; the sidebar badge, the
+// Today card and the texts banner read it and nothing else.
+{
+  const { waitingDraftsFor, WAITING_LIST_LIMIT } = await import("@/lib/sales/checkin/waiting");
+  const { describeDraftKey } = await import("@/lib/sales/checkin/plan");
+  const { touchpointLabelKey, TOUCHPOINT_LABEL_KEYS } = await import("@/lib/sales/checkin/touchpointLabel");
+  const { APP_MESSAGES } = await import("@/app/i18n/appMessages");
+
+  const rows = [
+    { id: "a", salesRepId: "rep", status: "draft", toE164: "+15145550101", origin: "engine", dedupeKey: "scheduled:co1:1", companyId: "co1", company: { name: "Easy Roofers", isDemo: false }, lead: null, createdAt: dayAgo(2), reasonCode: "all_good", scheduledFor: null, sendingStartedAt: null, leadId: null },
+    { id: "b", salesRepId: "rep", status: "sent", toE164: "+15145550102", origin: "engine", dedupeKey: "scheduled:co2:1", companyId: "co2", company: { name: "Sent Co", isDemo: false }, lead: null, createdAt: dayAgo(2), reasonCode: null, scheduledFor: null, sendingStartedAt: dayAgo(1), leadId: null },
+    { id: "c", salesRepId: "rep", status: "dismissed", toE164: "+15145550103", origin: "engine", dedupeKey: "scheduled:co3:1", companyId: "co3", company: { name: "Put Away Co", isDemo: false }, lead: null, createdAt: dayAgo(2), reasonCode: null, scheduledFor: null, sendingStartedAt: null, leadId: null },
+    { id: "d", salesRepId: "rep", status: "draft", toE164: "+16135550150", origin: "demo", dedupeKey: "demo:codemo:7", companyId: "codemo", company: { name: "Flooring Demo", isDemo: true }, lead: null, createdAt: dayAgo(1), reasonCode: null, scheduledFor: null, sendingStartedAt: null, leadId: null },
+    { id: "e", salesRepId: "rep", status: "draft", toE164: null, origin: "engine", dedupeKey: "scheduled:co5:retention", companyId: "co5", company: { name: "No Number Co", isDemo: false }, lead: null, createdAt: dayAgo(1), reasonCode: null, scheduledFor: null, sendingStartedAt: null, leadId: null },
+    { id: "f", salesRepId: "rep", status: "draft", toE164: "+15145550106", origin: "engine", dedupeKey: "signup:prog1:24h", companyId: null, company: null, lead: { businessName: "Opened The Link Ltd", contactName: "Sam" }, createdAt: dayAgo(0), reasonCode: "signup_unfinished", scheduledFor: null, sendingStartedAt: null, leadId: "lead1" },
+    { id: "g", salesRepId: "rep", status: "draft", toE164: "+15145550107", origin: "manual", dedupeKey: null, companyId: null, company: null, lead: { businessName: null, contactName: "Priya" }, createdAt: dayAgo(0), reasonCode: null, scheduledFor: dayAgo(-1), sendingStartedAt: null, leadId: "lead2" },
+    { id: "z", salesRepId: "OTHER", status: "draft", toE164: "+15145550199", origin: "engine", dedupeKey: "scheduled:co9:1", companyId: "co9", company: { name: "Not Mine", isDemo: false }, lead: null, createdAt: dayAgo(0), reasonCode: null, scheduledFor: null, sendingStartedAt: null, leadId: null },
+  ];
+  const queries = [];
+  const client = {
+    salesCheckIn: {
+      findMany: async ({ where, orderBy }) => {
+        queries.push({ where, orderBy });
+        return rows.filter((r) => Object.entries(where).every(([k, v]) => r[k] === v));
+      },
+    },
+  };
+  const w = await waitingDraftsFor("rep", { client });
+  ok("waiting = drafts not sent and not put away, for THIS rep", w.count === 5, w.count);
+  ok("…the query itself narrows to the rep and to status draft", queries[0]?.where.salesRepId === "rep" && queries[0]?.where.status === "draft", queries[0]);
+  ok("…demo drafts are counted in the total and reported apart", w.demoCount === 1 && w.items.find((i) => i.id === "d")?.isDemo === true, w.demoCount);
+  ok("…a numberless draft is counted and flagged, so the banner can send the rep to add the number", w.noNumberCount === 1 && w.items.find((i) => i.id === "e")?.noNumber === true);
+  ok("…and a sent or dismissed row is never waiting", !w.items.some((i) => i.id === "b" || i.id === "c"));
+  ok("…nor another rep's", !w.items.some((i) => i.id === "z"));
+  const byId = Object.fromEntries(w.items.map((i) => [i.id, i]));
+  ok("each item names the company, or the lead when there is no company", byId.a.companyName === "Easy Roofers" && byId.f.companyName === "Opened The Link Ltd" && byId.g.companyName === "Priya");
+  ok("each item says which touchpoint it is, parsed from the key", byId.a.touchpoint === 1 && byId.a.kind === "scheduled" && byId.d.touchpoint === 7 && byId.d.kind === "demo" && byId.e.touchpoint === "retention" && byId.f.kind === "signup" && byId.g.kind === "manual", w.items.map((i) => [i.id, i.kind, i.touchpoint]));
+  ok("the list is capped; the count is not", Number.isInteger(WAITING_LIST_LIMIT) && WAITING_LIST_LIMIT >= 20);
+  ok("no rep → nothing, without a query", (await waitingDraftsFor(null, { client })).count === 0 && queries.length === 1);
+
+  // The key parser, on every shape a row can carry.
+  ok("describeDraftKey reads every key shape", JSON.stringify([
+    describeDraftKey("scheduled:co:1"), describeDraftKey("demo:co:retention"), describeDraftKey("signup:p:2h"),
+    describeDraftKey("engine:co:2026-09-14"), describeDraftKey(null), describeDraftKey("scheduled:co:nope"),
+  ]) === JSON.stringify([
+    { kind: "scheduled", touchpoint: 1 }, { kind: "demo", touchpoint: "retention" }, { kind: "signup", touchpoint: "2h" },
+    { kind: "engine", touchpoint: null }, { kind: "manual", touchpoint: null }, { kind: "manual", touchpoint: null },
+  ]));
+
+  // The labels: a key per kind, present in every language.
+  const labels = w.items.map((i) => touchpointLabelKey(i));
+  ok("every waiting item gets a label key", labels.every((k) => TOUCHPOINT_LABEL_KEYS.includes(k)), labels);
+  ok("day-1 and day-7 share the day key; the milestone, signup and follow-up have their own",
+    touchpointLabelKey(byId.a) === "app.salesCheckin.touchpoint.day" && touchpointLabelKey(byId.d) === "app.salesCheckin.touchpoint.day" &&
+    touchpointLabelKey(byId.e) === "app.salesCheckin.touchpoint.retention" && touchpointLabelKey(byId.f) === "app.salesCheckin.touchpoint.signup" &&
+    touchpointLabelKey(byId.g) === "app.salesCheckin.touchpoint.manual");
+  const NEW_KEYS = [
+    ...TOUCHPOINT_LABEL_KEYS,
+    "app.salesText.demoThreadNote", "app.salesText.demoSentMarker", "app.salesText.waitingCount", "app.salesText.waitingBanner",
+    "app.salesText.waitingBannerBody", "app.salesText.waitingDemoNote", "app.salesText.waitingNoNumber", "app.salesText.waitingShowDrafts",
+    "app.salesText.filterNoDrafts", "app.salesToday.checkinsTitle", "app.salesToday.checkinsCount", "app.salesToday.checkinsLine",
+    "app.salesToday.checkinsNone", "app.salesToday.checkinsOpen", "app.salesToday.checkinsAll", "app.salesToday.checkinsMore",
+    "app.salesToday.checkinsUnnamed", "app.salesPortal.badgeDrafts",
+  ];
+  const langs = Object.keys(APP_MESSAGES);
+  ok("nine languages", langs.length === 9, langs);
+  const missing = langs.flatMap((l) => NEW_KEYS.filter((k) => APP_MESSAGES[l][k] === undefined).map((k) => `${l}:${k}`));
+  ok("every new string exists in every language", missing.length === 0, missing);
+  ok("the demo note now says Send works and nothing leaves", /Send here shows what happens, nothing leaves FieldQuo/.test(APP_MESSAGES.en["app.salesText.demoThreadNote"]));
+
+  // The three readers, and no fourth definition.
+  const badges = codeOnly("app/api/sales/badges/route.js");
+  const waitingRoute = codeOnly("app/api/sales/checkins/waiting/route.js");
+  const messages = codeOnly("app/api/sales/messages/route.js");
+  ok("the sidebar badge reads waitingDraftsFor", /waitingDraftsFor\(rep\.id\)/.test(badges) && /drafts,/.test(badges));
+  ok("the Today card's route reads waitingDraftsFor", /waitingDraftsFor\(rep\.id\)/.test(waitingRoute));
+  ok("the texts list carries waitingDraftsFor's answer for the banner", /waitingDraftsFor\(rep\.id\)/.test(messages) && /waiting,\s*\}\)/.test(messages));
+  const shell = codeOnly("app/sales/SalesShell.js");
+  ok("the sidebar draws the drafts badge on Texts", /"\/sales\/messages": "drafts"/.test(shell) && /app\.salesPortal\.badgeDrafts/.test(shell));
+  const today = codeOnly("app/sales/page.js");
+  ok("Today fetches the waiting route and links each row to its thread", /\/api\/sales\/checkins\/waiting/.test(today) && /\/sales\/messages\?thread=\$\{encodeURIComponent\(item\.toE164\)\}/.test(today));
+  ok("…and sends a numberless one to My companies", /item\.noNumber\s*\?\s*"\/sales\/companies"/.test(today));
+  const page = codeOnly("app/sales/messages/page.js");
+  ok("the texts banner reads the list's `waiting` and filters to threads with a draft", /setWaiting\(data\.waiting/.test(page) && /c\.openDrafts > 0/.test(page) && /data-drafts-waiting=/.test(page));
+  // No second count: nobody else runs `status: "draft"` over the table to make a number for a screen.
+  const others = ["app/api/sales/badges/route.js", "app/sales/page.js", "app/sales/SalesShell.js", "app/sales/messages/page.js"]
+    .filter((f) => /salesCheckIn\.(count|findMany)/.test(codeOnly(f)));
+  ok("none of the three surfaces counts the table itself", others.length === 0, others);
+  const waitingSrc = codeOnly("lib/sales/checkin/waiting.js");
+  ok("waiting.js imports no send path", !/checkin\/store|salesSms|twilio|deliverReplySms/.test(waitingSrc));
+}
+
 console.log(`\n${pass} checks, ${failures.length} failure(s).`);
 if (failures.length) {
   for (const f of failures) console.log(`  · ${f}`);

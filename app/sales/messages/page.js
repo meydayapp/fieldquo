@@ -37,6 +37,25 @@
 // reason is printed instead. That is courtesy, not enforcement — the two
 // checkins routes and the reply route each refuse it again on their own.
 //
+// ══ The demo thread keeps its Send ═════════════════════════════════════════
+//
+// It used to lose it — "nothing is ever sent from a demo" — and the owner,
+// on his own demo thread, asked where the button was. A rep learns the tool
+// on the demo, so the draft's Send is there and does everything a real send
+// does except reach a carrier (lib/sales/checkin/store.js simulateDemoSend,
+// decided on Company.isDemo re-read server-side): the draft becomes an
+// outbound bubble marked as a demo, the list moves the thread on, and the
+// next touchpoint arrives on schedule. What the demo does NOT get is the
+// free-text composer: a typed reply would go through the real reply route,
+// and that route has no carrier to fake.
+//
+// ══ The banner: drafts waiting ═════════════════════════════════════════════
+//
+// Above the list, when the engine has written drafts nobody has sent: the
+// count from lib/sales/checkin/waiting.js — the ONE definition, shared with
+// the sidebar badge and the Today card — and a press that narrows the list
+// to the threads holding one.
+//
 // ══ Nothing on this page sends anything on its own ═════════════════════════
 //
 // There is no interval, no scheduler and no effect that calls a send. Every
@@ -68,7 +87,9 @@ import {
   Loader2,
   MessageSquare,
   MessageSquarePlus,
+  MonitorPlay,
   OctagonAlert,
+  PencilLine,
   Phone,
   RotateCcw,
   Search,
@@ -789,6 +810,9 @@ function SalesMessagesScreen() {
 
   const [list, setList] = useState(null);
   const [listMeta, setListMeta] = useState({ readStateError: null, draftsError: null });
+  // The banner's number — waitingDraftsFor()'s answer, carried on the list
+  // read. Null until read, and null when it could not be counted.
+  const [waiting, setWaiting] = useState(null);
   const [openWith, setOpenWith] = useState(() => params.get("thread") || params.get("with") || "");
   const [thread, setThread] = useState(null);
   const [text, setText] = useState("");
@@ -816,6 +840,10 @@ function SalesMessagesScreen() {
   // triage filed as a roadblock — the ones the owner is afraid of losing.
   // A view, not a filing: nothing is written when it is toggled.
   const [roadblocksOnly, setRoadblocksOnly] = useState(() => params.get("filter") === "roadblocks");
+  // "Drafts waiting": the list narrowed to threads holding a draft. The
+  // banner's press, and ?filter=drafts from the Today card. A view, not a
+  // filing: nothing is written when it is toggled.
+  const [draftsOnly, setDraftsOnly] = useState(() => params.get("filter") === "drafts");
   const [triageBusy, setTriageBusy] = useState(false);
   // The instant the rep had last looked BEFORE this opening — what the red
   // line is drawn from. Frozen per thread so the line does not vanish the
@@ -833,6 +861,7 @@ function SalesMessagesScreen() {
       const data = await fetchJson("/api/sales/messages");
       setList(data.conversations || []);
       setListMeta({ readStateError: data.readStateError || null, draftsError: data.draftsError || null });
+      setWaiting(data.waiting && Number.isFinite(data.waiting.count) ? data.waiting : null);
     } catch (err) {
       setError(err?.message || t("app.salesText.listLoadFailed"));
     }
@@ -943,7 +972,10 @@ function SalesMessagesScreen() {
     // The filter narrows every bucket rather than replacing them: a
     // roadblock the rep already answered is still a roadblock, and it stays
     // under "Waiting on them" where its state is true.
-    const visible = (rooms) => (roadblocksOnly ? rooms.filter((c) => c.triage?.kind === TRIAGE_ROADBLOCK) : rooms);
+    const visible = (rooms) =>
+      rooms
+        .filter((c) => !roadblocksOnly || c.triage?.kind === TRIAGE_ROADBLOCK)
+        .filter((c) => !draftsOnly || (Number.isFinite(c.openDrafts) && c.openDrafts > 0));
     return GROUP_ORDER.map((key) => ({
       key,
       title: t(GROUP_TITLE_KEY[key]),
@@ -976,7 +1008,7 @@ function SalesMessagesScreen() {
         badges: <TriageChip triage={c.triage} />,
       })),
     }));
-  }, [list, t, roadblocksOnly]);
+  }, [list, t, roadblocksOnly, draftsOnly]);
 
   // ── The thread's rows ─────────────────────────────────────────────────
   const them =
@@ -1000,6 +1032,9 @@ function SalesMessagesScreen() {
       at: m.sentAt,
       kind: "message",
       status: "sent",
+      // A demo send: the check-in row itself, drawn as the bubble the rep
+      // would have seen go, and labelled as such under it.
+      demo: Boolean(m.demo),
     }));
     const drafts = (thread.checkIns || []).map((c) => ({
       ...c,
@@ -1287,6 +1322,49 @@ function SalesMessagesScreen() {
               {listMeta.readStateError} {listMeta.draftsError}
             </p>
           ) : null}
+          {/* ── Drafts waiting ──────────────────────────────────────────────
+              Drawn only when the count is above zero AND was counted: null
+              draws nothing, never "0 drafts waiting". Pressing it narrows the
+              list to the threads holding a draft; a numberless draft has no
+              thread, so the banner sends the rep to My companies for those. */}
+          {waiting && waiting.count > 0 ? (
+            <div
+              className="mt-2 rounded-lg border border-primary/40 bg-primary/10 px-2.5 py-2 text-xs text-foreground space-y-1.5"
+              role="status"
+              data-drafts-waiting={waiting.count}
+              data-drafts-waiting-demo={waiting.demoCount}
+            >
+              <p className="flex items-start gap-1.5 break-words">
+                <PencilLine size={13} className="mt-0.5 shrink-0 text-primary" aria-hidden="true" />
+                <span>
+                  <span className="font-semibold">{t("app.salesText.waitingBanner", { count: t("app.salesText.waitingCount", { value: waiting.count }) })}</span>
+                  {" — "}
+                  {t("app.salesText.waitingBannerBody")}
+                  {waiting.demoCount > 0 ? ` ${t("app.salesText.waitingDemoNote", { count: waiting.demoCount })}` : null}
+                </span>
+              </p>
+              {waiting.noNumberCount > 0 ? (
+                <p className="break-words pl-5">
+                  <Link href="/sales/companies" className="underline">
+                    {t("app.salesText.waitingNoNumber", { count: waiting.noNumberCount })}
+                  </Link>
+                </p>
+              ) : null}
+              <div className="flex flex-wrap gap-1.5 pl-5">
+                <button
+                  type="button"
+                  onClick={() => setDraftsOnly((v) => !v)}
+                  aria-pressed={draftsOnly}
+                  className={`${TAG} min-h-[44px] lg:min-h-[36px] px-2.5 transition-colors motion-reduce:transition-none ${
+                    draftsOnly ? "bg-primary text-primary-foreground" : "border border-border bg-card text-foreground hover:bg-muted"
+                  }`}
+                  data-drafts-filter
+                >
+                  {draftsOnly ? t("app.salesText.filterAll") : t("app.salesText.waitingShowDrafts")}
+                </button>
+              </div>
+            </div>
+          ) : null}
         </div>
       }
       empty={
@@ -1299,6 +1377,8 @@ function SalesMessagesScreen() {
           // The filter hid everything: say that, not "you have no
           // conversations", which would be false.
           <p className="px-3 py-4 text-sm text-muted-foreground break-words">{t("app.salesText.filterNoRoadblocks")}</p>
+        ) : draftsOnly && list.length ? (
+          <p className="px-3 py-4 text-sm text-muted-foreground break-words">{t("app.salesText.filterNoDrafts")}</p>
         ) : (
           // Nothing invented to fill it. A rep who has texted nobody has no
           // conversations, which is a true and ordinary state.
@@ -1482,11 +1562,25 @@ function SalesMessagesScreen() {
           setText(m.body);
           setInFlight((rows) => rows.filter((r) => r.id !== m.id));
         }}
+        renderBody={(m) =>
+          m.demo ? (
+            <div>
+              <p className="whitespace-pre-wrap break-words text-sm text-foreground">{m.body}</p>
+              {/* Said under the bubble, in words, every time: a rep who
+                  shows this thread to a lead must never read it as a text
+                  that reached a phone. */}
+              <p className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground" data-demo-sent>
+                <MonitorPlay size={12} aria-hidden="true" />
+                {t("app.salesText.demoSentMarker")}
+              </p>
+            </div>
+          ) : null
+        }
         renderDraft={(d) => (
           <CheckInDraft
             draft={d}
             busy={draftBusy === d.id}
-            canSend={!suppressed && !demoThread}
+            canSend={!suppressed}
             onSaveText={(next) =>
               checkInCall(`/api/sales/checkins/${d.id}`, { method: "PATCH", body: { text: next } }, d.id)
             }
@@ -1517,7 +1611,7 @@ function SalesMessagesScreen() {
             draft={thread.suggestion}
             suggestion
             busy={draftBusy === "suggestion"}
-            canSend={!suppressed && !demoThread}
+            canSend={!suppressed}
             onAdopt={() =>
               checkInCall("/api/sales/checkins", { method: "POST", body: { to: openWith, origin: "engine" } }, "suggestion")
             }
@@ -1548,8 +1642,13 @@ function SalesMessagesScreen() {
             ))}
           <p className="text-sm text-muted-foreground break-words">{t("app.salesText.suppressedBody")}</p>
         </div>
-      ) : thread && (thread.messages || []).length === 0 && demoThread ? (
-        // ── The demo: nothing is ever sent from it, and the screen says so ──
+      ) : thread && demoThread ? (
+        // ── The demo: the draft's Send is the send, and it leaves nothing ──
+        //
+        // Before AND after the send, so the free-text composer never appears
+        // on a demo thread: the reply route has no carrier to fake, and a box
+        // that refused "you have not texted this number before" on the demo
+        // would teach the wrong lesson.
         <div className="border-t border-border bg-muted px-4 py-3 text-sm text-muted-foreground break-words" data-first-contact="demo">
           {t("app.salesText.demoThreadNote")}
         </div>

@@ -716,6 +716,83 @@ link has no thread.
   the two engine fixes.
 - **Screens.** `docs/screens/sales-messages/desktop-company-checkin.png`.
 
+## The demo's Send, and the drafts-waiting attention (14 September 2026)
+
+The owner, on his own demo thread ("Flooring Demo — Daniel"): "the drafts
+that are created don't have a send button, and there should be a little
+banner on the side that calls the rep's attention that a check-in or
+follow-up text has been created waiting to be sent … and shouldn't the draft
+be for companies that signed up regardless of the milestone?"
+
+- **What gated day 1 before, verbatim.** Nothing about the milestone or
+  activation: `checkInSignals()` raises day 1 for any company with
+  `dayInLife >= 1` and nothing sent (`scheduledCheckinDue`), before the
+  cadence guard, whatever its reasons. The gates on a real company are the
+  ones that protect it — `subscription_ended` (canceled /
+  incomplete_expired), `signup_date_unknown` (a data fault), the 14-day
+  grace, and the 3-day breathing room after a send. The ONE thing that was
+  gated out was the demo: `if (c.isDemo === true) return
+  suppress("demo_company")` first in the engine, `isDemo: false` in the
+  materialiser's query, and a demo path that wrote only `demo:<id>:1` with a
+  signup date of "yesterday" every morning and a send path that refused it
+  (`sendCheckIn`: "Nothing is ever sent from a demo"). §11 of
+  `check-sales-checkin.mjs` now executes the rule: a company with no other
+  signal is due on day 1, day 7 and the milestone approach; unmeasured
+  (`unknown_state`) and plan-less reps included; the materialiser's WHERE is
+  attribution + not-demo and nothing else.
+- **The demo runs the real schedule.** `materialiseDemoCheckIn()` runs
+  `planCheckIn()` over the stand-in with `keyPrefix: "demo"`
+  (`plan.js` `KEY_PREFIX_DEMO`; `touchpointOfKey` reads both prefixes) and
+  the demo's own rows: anchored to the first demo row's `createdAt` minus
+  a day, day 7 arrives six days after the rep first saw it (re-aiming an
+  untouched day-1 draft, or a new row after a send), the milestone approach
+  at `retentionDays - RETENTION_NEAR_DAYS`. Executed in
+  `check-sales-checkin-materialise.mjs` §3.
+- **The demo's Send.** `sendCheckIn()` re-reads `Company.isDemo` and hands a
+  demo (or `origin: "demo"`) row to `simulateDemoSend()`: the same
+  compare-and-set claim, the same `sent` flip, NO `deliverReplySms`, no
+  Twilio, no `SalesSmsMessage` (that table's invariant — a row iff the
+  carrier accepted — is kept; the funnel and growth never count a demo).
+  The thread draws the sent demo rows as outbound bubbles marked "Sent
+  (demo — nothing left FieldQuo)" (`sentDemoCheckIns`), keeps its demo
+  identity after the send (read off sent rows), the list keeps the thread
+  under "Waiting on them" (`sentDemoByThread`), and the footer reads "This
+  is your demo company — Send here shows what happens, nothing leaves
+  FieldQuo." The free-text composer never appears on a demo thread (the
+  reply route has no carrier to fake). `check-sales-messages` §3: the stub
+  carrier is called zero times, the row is sent with `sentMessageId` null,
+  a second press is refused.
+- **Attention — one count, three readers.** `lib/sales/checkin/waiting.js`
+  `waitingDraftsFor(repId)`: every `status: "draft"` row of any origin
+  (`count`), the demo's share (`demoCount`), the numberless share
+  (`noNumberCount`), and up to 50 items with company, touchpoint (parsed
+  from the key by `plan.js describeDraftKey`), number. Read by
+  `/api/sales/badges` (`drafts` — a second, outlined pencil badge on the
+  sidebar's Texts row), by `GET /api/sales/checkins/waiting` (the Today
+  card "Check-in texts waiting": company · Day 1 / Day 7 / Milestone /
+  Signup nudge / Follow-up · Open → the thread, or My companies for a
+  numberless one) and by the texts list (`waiting` on the payload → the
+  banner "N drafts waiting — the engine wrote them for you; review and
+  press Send", whose press narrows the list to threads holding a draft;
+  `?filter=drafts` from the card). §12 of `check-sales-checkin.mjs`
+  executes the count against a stub and asserts that none of the three
+  surfaces counts the table itself. Nine languages
+  (`app.salesText.waiting*`, `app.salesToday.checkins*`,
+  `app.salesCheckin.touchpoint.*`, `app.salesPortal.badgeDrafts`).
+- **Manual** (EN/FR/ES, chapter 8): the demo paragraph now says its Send
+  works, and a paragraph on the three reminders.
+- **Screens.** `docs/screens/sales-messages/desktop-demo-send.png`,
+  `desktop-demo-sent.png`, `desktop-drafts-filter.png`,
+  `mobile-demo-send.png`, `mobile-drafts-banner.png`;
+  `docs/screens/sales-portal/10-today-checkins.en.png` and
+  `10-today-checkins.mobile.en.png`.
+- **Not changed, and worth knowing.** `dayInLife` is whole days from
+  `Company.createdAt`, so the 07:00 UTC cron writes the day-1 draft on the
+  second morning for a company that signed up after 03:00 Toronto time;
+  the on-request materialiser (Texts list, My companies) writes it as soon
+  as 24 hours have passed. Making it "the calendar day after" is a one-line
+  change in `signals.js` that shifts every fixture — left for a decision.
+
 ## The call script in English, French and Spanish (12 September 2026)
 
 The owner: "the queue has a script; the script seems to be English only, the

@@ -53,6 +53,10 @@ export async function POST(request, { params }) {
   return NextResponse.json({
     ok: true,
     checkIn: result.checkIn,
+    // True when the company row said isDemo and nothing reached a carrier
+    // (lib/sales/checkin/store.js simulateDemoSend). The screen re-reads
+    // the thread either way; this is for a caller that reads the answer.
+    demo: Boolean(result.demo),
     messages: await salesThread({ salesRepId: rep.id, withE164: row.toE164 }),
     checkIns: await openCheckIns({ salesRepId: rep.id, toE164: row.toE164 }),
   });

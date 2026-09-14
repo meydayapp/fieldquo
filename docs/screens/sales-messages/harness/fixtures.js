@@ -247,3 +247,50 @@ FIXTURES.companyCheckin = {
   contacts,
   signup,
 };
+
+// ── 2026-09-14: the demo's Send, and the drafts-waiting attention ───────────
+//
+// The owner, on his own demo thread ("Flooring Demo — Daniel"): "the drafts
+// that are created don't have a send button, and there should be a little
+// banner on the side that calls the rep's attention". The demo thread now
+// carries the demo as a WARNING beside a Send that works (no blocker), the
+// list carries lib/sales/checkin/waiting.js's answer for the banner, and
+// pressing Send on the demo draft turns it into an outbound bubble marked as
+// a demo (the stub below mirrors store.js simulateDemoSend).
+const demoDraftSendable = {
+  ...demoDraft,
+  companyId: "co-demo",
+  draftText: "Hi, it is Rachel from FieldQuo, about Flooring Demo — Daniel. I noticed payouts are not connected yet, so you cannot take card payments through the app. Happy to walk you through it whenever suits. How is it going so far - is everything working the way you expected?",
+};
+const demoThreadSendable = baseThread(DEMO, {
+  messages: [],
+  lead: null,
+  company: null,
+  draftCompany: { id: "co-demo", name: "Flooring Demo — Daniel", isDemo: true },
+  demo: true,
+  timeZone: null,
+  canSend: false,
+  blockers: [],
+  warnings: [{ code: "demo_company", title: "This is your demo company.", fix: "Send here shows what happens; nothing leaves FieldQuo." }],
+  checkIns: [demoDraftSendable],
+});
+const demoConversationSendable = { ...demoConversation, lastBody: demoDraftSendable.draftText, name: "Flooring Demo — Daniel" };
+const noNumberDraftWaiting = { id: "ck-nonum", companyId: "co-nonum", companyName: "Northside Painting", leadId: null, toE164: null, isDemo: false, noNumber: true, kind: "scheduled", touchpoint: 7, reasonCode: "all_good", scheduledFor: null, createdAt: ago(60), sendingStartedAt: null };
+const waiting = {
+  count: 3,
+  demoCount: 1,
+  noNumberCount: 1,
+  items: [
+    { id: easyDraft.id, companyId: "co-easy", companyName: "Easy Roofers Inc.", leadId: "lead-easy", toE164: EZ, isDemo: false, noNumber: false, kind: "scheduled", touchpoint: 1, reasonCode: "onboarding_unfinished", scheduledFor: easyDraftAt, createdAt: ago(15), sendingStartedAt: null },
+    { id: demoDraftSendable.id, companyId: "co-demo", companyName: "Flooring Demo — Daniel", leadId: null, toE164: DEMO, isDemo: true, noNumber: false, kind: "demo", touchpoint: 1, reasonCode: "payments_not_connected", scheduledFor: easyDraftAt, createdAt: ago(15), sendingStartedAt: null },
+    noNumberDraftWaiting,
+  ],
+};
+FIXTURES.demoSend = {
+  conversations: [easyConversation, demoConversationSendable, ...conversations],
+  threads: { [EZ]: easy, [DEMO]: demoThreadSendable, [ME]: melton, [SL]: sloth, [PP]: park, [SC]: closed, [CP]: fresh },
+  contacts,
+  signup,
+  waiting,
+};
+export const DEMO_E164 = DEMO;

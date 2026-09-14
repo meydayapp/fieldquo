@@ -170,7 +170,10 @@ function answer(p, u, method, body) {
 // Texts and Team: the other harnesses' fetchJson-level stubs, wrapped back
 // into a Response so the shipped lib/fetchJson in this bundle can unwrap it.
 async function delegated(p, url, options) {
-  const stub = p.startsWith("/api/sales/messages") ? messagesFetch : p.startsWith("/api/staff/") ? staffFetch : null;
+  // /api/sales/checkins/* too: the Today card's waiting list and the
+  // draft's own send are answered by the texts fixtures, so the card and
+  // the thread show the same three drafts.
+  const stub = p.startsWith("/api/sales/messages") || p.startsWith("/api/sales/checkins") ? messagesFetch : p.startsWith("/api/staff/") ? staffFetch : null;
   if (!stub) return null;
   try {
     let body = options.body;

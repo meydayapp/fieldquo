@@ -25,7 +25,9 @@ export const ME = {
   signupLink: "https://fieldquo.com/signup?sales=danielboves",
   signups: { today: 1, thisWeek: 2, total: 9 },
 };
-export const BADGES = { callsToday: 24, dayCap: 250, texts: 3, team: 1, voicemail: 2 };
+// drafts / draftsDemo (2026-09-14): lib/sales/checkin/waiting.js's count —
+// the same three the texts harness's demoSend scenario lists.
+export const BADGES = { callsToday: 24, dayCap: 250, texts: 3, team: 1, voicemail: 2, drafts: 3, draftsDemo: 1 };
 
 // ── Today ─────────────────────────────────────────────────────────────────
 // A reply is waiting (the top rung), 7 rows claimed of which 5 are callable

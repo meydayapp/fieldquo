@@ -35,6 +35,10 @@
 //   voicemail   voicemails left for this rep since the start of their local
 //               day. There is no "heard" marker on a voicemail row, so this
 //               is NOT "unheard" — the sidebar's title says "today".
+//   drafts      check-in and follow-up drafts waiting for the rep to press
+//               Send — lib/sales/checkin/waiting.js's one definition, the
+//               same count the Today card and the texts banner show.
+//   draftsDemo  how many of those sit on the rep's demo company.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
@@ -46,6 +50,7 @@ import { threadReadStates } from "@/lib/sales/messages/readState";
 import { roomsFor } from "@/lib/staff/store";
 import { staffRoomList } from "@/lib/staff/rooms";
 import { voicemailWhere } from "@/lib/sales/calls/voicemail";
+import { waitingDraftsFor } from "@/lib/sales/checkin/waiting";
 
 async function counted(fn) {
   try {
@@ -65,6 +70,18 @@ export async function GET(request) {
   const url = new URL(request.url);
   const timeZone = (url.searchParams.get("timeZone") || "").trim().slice(0, 64) || null;
   const dayStart = startOfLocalDay(timeZone, now) || new Date(now.getTime() - 24 * 3600 * 1000);
+
+  // Both digits from one read, or both null: a total that counted and a demo
+  // share that could not is a pair the sidebar cannot draw honestly.
+  let drafts = null;
+  let draftsDemo = null;
+  try {
+    const waiting = await waitingDraftsFor(rep.id);
+    drafts = waiting.count;
+    draftsDemo = waiting.demoCount;
+  } catch (err) {
+    console.error("[sales badges]", err?.message || err);
+  }
 
   const [callsToday, texts, team, voicemail] = await Promise.all([
     counted(() =>
@@ -101,6 +118,8 @@ export async function GET(request) {
     texts,
     team,
     voicemail,
+    drafts,
+    draftsDemo,
     serverNow: now.toISOString(),
   });
 }

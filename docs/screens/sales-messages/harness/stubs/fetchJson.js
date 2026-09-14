@@ -19,10 +19,13 @@ export async function fetchJson(url, options = {}) {
 
   if (u.pathname === "/api/sales/messages" && method === "GET") {
     const withE164 = u.searchParams.get("with");
-    if (!withE164) return { conversations: fx.conversations, readStateError: fx.readStateError || null, draftsError: fx.draftsError || null };
+    // Fresh objects every read, as a real response is: the page's setState
+    // bails out on an identical reference, so a fixture mutated in place
+    // (the demo send below) would never reach the screen.
+    if (!withE164) return { conversations: fx.conversations.map((c) => ({ ...c })), readStateError: fx.readStateError || null, draftsError: fx.draftsError || null, waiting: fx.waiting ? { ...fx.waiting, items: [...fx.waiting.items] } : null };
     const thread = fx.threads[withE164];
     if (!thread) throw new Error("No such thread in fixtures: " + withE164);
-    return thread;
+    return { ...thread, messages: [...(thread.messages || [])], checkIns: thread.checkIns ? [...thread.checkIns] : thread.checkIns };
   }
   if (u.pathname === "/api/sales/messages" && method === "POST") {
     if (fx.sendRefusal) { const e = new Error(fx.sendRefusal); throw e; }
@@ -59,6 +62,26 @@ export async function fetchJson(url, options = {}) {
   }
   if (u.pathname === "/api/sales/sms" && method === "GET") return fx.signup;
   if (u.pathname === "/api/sales/sms" && method === "POST") return { ok: true };
+  if (u.pathname === "/api/sales/checkins/waiting") return { ok: true, ...(fx.waiting || { count: 0, demoCount: 0, noNumberCount: 0, items: [] }) };
+  if (/^\/api\/sales\/checkins\/[^/]+\/send$/.test(u.pathname) && method === "POST") {
+    // The demo's simulated send, as store.js simulateDemoSend leaves the
+    // thread: the draft consumed, an outbound bubble marked demo, the list
+    // row moved on (no draft, our words last).
+    const id = u.pathname.split("/")[4];
+    for (const thread of Object.values(fx.threads)) {
+      const draft = (thread.checkIns || []).find((c) => c.id === id);
+      if (!draft) continue;
+      thread.checkIns = thread.checkIns.filter((c) => c.id !== id);
+      if (thread.demo) {
+        thread.messages = [...thread.messages, { id: "demo:" + id, direction: "out", body: draft.draftText, sentAt: new Date().toISOString(), fromE164: null, toE164: thread.with, demo: true }];
+      }
+      const conv = fx.conversations.find((c) => c.e164 === thread.with);
+      if (conv) Object.assign(conv, { openDrafts: 0, nextDraftDue: null, draftOnly: false, lastDirection: "out", lastAt: new Date().toISOString(), count: 1 });
+      if (fx.waiting) { fx.waiting.count -= 1; if (draft.origin === "demo") fx.waiting.demoCount -= 1; fx.waiting.items = fx.waiting.items.filter((i) => i.id !== id); }
+      return { ok: true, demo: Boolean(thread.demo), checkIn: { ...draft, status: "sent" }, messages: thread.messages, checkIns: thread.checkIns };
+    }
+    return { ok: true };
+  }
   if (u.pathname.startsWith("/api/sales/checkins")) return { ok: true };
   if (u.pathname === "/api/sales/leads" && method === "POST") return { lead: { id: "lead-from-prospect" } };
   throw new Error("Harness has no answer for " + method + " " + url);

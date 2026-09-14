@@ -469,26 +469,51 @@ function stubClient(rows) {
 const REP = { id: "rep_1", name: "Daniel", code: "DANIEL" };
 
 {
-  // A demo draft (the fixture materialise.js writes on the rep's demo
-  // company): refused on the company row, before the claim, whatever the
-  // request says.
+  // A demo draft (the rows materialise.js writes on the rep's demo
+  // company): SENT, simulated — decided on the company row re-read by the
+  // send path, whatever the request says — with the same claim and the
+  // same status flip as a real send, and NO carrier. The owner's ask on his
+  // own demo thread: "the drafts that are created don't have a send button".
   const rows = [{ id: "ck_demo", salesRepId: "rep_1", companyId: "co_demo", origin: "demo", status: "draft", sendingStartedAt: null, toE164: "+16135550150", draftText: "Hi" }];
+  const client = stubClient(rows);
   let delivered = 0;
   const result = await sendCheckIn({
-    rep: REP, id: "ck_demo", client: stubClient(rows),
-    deliver: async () => { delivered += 1; return { ok: true }; },
+    rep: REP, id: "ck_demo", client,
+    deliver: async () => { delivered += 1; return { ok: true, messageId: "sms_never" }; },
   });
-  ok("a demo company's draft is refused by the send path", result.ok === false && result.status === 409 && result.demo === true, result);
-  ok("…before the claim, so the row is untouched", rows[0].sendingStartedAt === null && rows[0].status === "draft");
-  ok("…and the carrier was not reached", delivered === 0);
+  ok("a demo company's draft is sent by the send path, marked as a demo", result.ok === true && result.demo === true, result);
+  ok("…the row is marked sent", rows[0].status === "sent" && rows[0].sentAt instanceof Date, rows[0]);
+  ok("…with NO message row to point at (nothing left the building)", rows[0].sentMessageId === null, rows[0].sentMessageId);
+  ok("…the carrier stub was called ZERO times", delivered === 0, delivered);
+  ok("…and the claim was taken first, as a compare-and-set",
+    client.writes.some((w) => w.op === "updateMany" && w.where.sendingStartedAt === null && w.data.sendingStartedAt), client.writes);
+  ok("…and nothing wrote a SalesSmsMessage", !("salesSmsMessage" in client));
+  // A second press: already sent.
+  const again = await sendCheckIn({ rep: REP, id: "ck_demo", client, deliver: async () => { delivered += 1; return { ok: true }; } });
+  ok("a sent demo draft cannot be sent again", again.ok === false && again.status === 409 && delivered === 0, again);
 }
 
 {
-  // The same refusal when only the ORIGIN says demo — the company row is
-  // what binds, but a row that calls itself a demo is not sent either.
+  // The same simulated path when only the ORIGIN says demo — the company row
+  // is what binds, but a row that calls itself a demo never reaches a carrier
+  // either.
   const rows = [{ id: "ck_d2", salesRepId: "rep_1", companyId: "co_real", origin: "demo", status: "draft", sendingStartedAt: null, toE164: "+16135550150", draftText: "Hi" }];
-  const result = await sendCheckIn({ rep: REP, id: "ck_d2", client: stubClient(rows), deliver: async () => ({ ok: true }) });
-  ok("a row with origin demo is refused even on a non-demo company id", result.ok === false && result.demo === true, result);
+  let delivered = 0;
+  const result = await sendCheckIn({ rep: REP, id: "ck_d2", client: stubClient(rows), deliver: async () => { delivered += 1; return { ok: true }; } });
+  ok("a row with origin demo is simulated even on a non-demo company id", result.ok === true && result.demo === true && delivered === 0, result);
+}
+
+{
+  // The demo branch is decided on the ROW, not on anything the request
+  // carries: the function takes no request, and the isDemo read is a fresh
+  // findUnique on the company.
+  const store = decomment(read(STORE));
+  const fn = functionSource(store, SEND_FN);
+  ok("the demo decision re-reads Company.isDemo", Boolean(fn) && /company\.findUnique\(\{ where: \{ id: row\.companyId \}, select: \{ isDemo: true \} \}\)/.test(fn));
+  const sim = functionSource(store, "simulateDemoSend");
+  ok("the simulated send exists", sim !== null);
+  ok("…and never reaches deliverReplySms, sendSms or a message row",
+    Boolean(sim) && !/deliverReplySms|sendSms|salesSmsMessage|twilio/i.test(sim), sim?.slice(0, 200));
 }
 
 {
@@ -675,8 +700,11 @@ section("4. Suppression — the screen offers nothing and the server refuses");
   const emptyBranch = emptyAt >= 0 ? otherwiseHalf.slice(emptyAt, otherwiseHalf.indexOf(") : ", emptyAt + 10)) : "";
   ok("the empty-thread branch holds no free-text box", emptyBranch.length > 0 && !/<Composer/.test(emptyBranch) && !/<textarea/.test(emptyBranch), emptyBranch.slice(0, 80));
 
-  // And the draft's own send button is withheld the same way.
-  ok("drafts are told whether a send is possible", /canSend=\{!suppressed && !demoThread\}/.test(page));
+  // And the draft's own send button is withheld the same way — for a
+  // suppressed thread only. A demo thread KEEPS its Send (the send path
+  // simulates it), which is the whole point of the demo.
+  ok("drafts are told whether a send is possible", /canSend=\{!suppressed\}/.test(page));
+  ok("…and a demo thread is not what withholds it", !/canSend=\{!suppressed && !demoThread\}/.test(page));
   const draftUi = decomment(read("app/sales/messages/CheckInDraft.js"));
   ok("…and the draft withholds the button rather than disabling it",
     /canSend \? \(/.test(draftUi) && /app\.salesText\.sendNow/.test(draftUi));
@@ -998,7 +1026,14 @@ section("12. The four groups, executed");
   const page = decomment(read("app/sales/messages/page.js"));
   ok("the screen never prints \"You:\" over a draft-only thread", /c\.draftOnly\s*\?\s*t\("app\.salesText\.draftWaitingSubtitle"\)/.test(page));
   ok("…marks a demo thread as one in the list", /c\.isDemo \? t\("app\.salesPortal\.demoBadge"\)/.test(page));
-  ok("…and offers no send on a demo draft", (page.match(/canSend=\{!suppressed && !demoThread\}/g) || []).length === 2);
+  ok("…and offers Send on a demo draft (simulated by the send path)", (page.match(/canSend=\{!suppressed\}/g) || []).length === 2);
+  ok("…marks a demo's sent bubble as one, in words", /app\.salesText\.demoSentMarker/.test(page) && /renderBody=\{\(m\) =>\s*m\.demo \?/.test(page));
+  ok("…and never draws the free-text composer on a demo thread", /thread && demoThread \? \(/.test(page));
+  // The thread keeps saying it is a demo AFTER the send, when no draft is
+  // left to say so — read off the sent rows.
+  ok("the route reads demo-ness off sent rows too", /\(pastCheckIns \|\| \[\]\)\.some\(\(c\) => c\.origin === "demo"\)/.test(route));
+  ok("…and draws the sent demo check-ins as the thread's messages", /sentDemoCheckIns\(/.test(route) && /messages: threadMessages/.test(route));
+  ok("…and keeps the demo thread in the list after its send", /sentDemoByThread\(/.test(route));
   ok("…and does not offer the signup link to a company that already signed up",
     /thread\.company \|\| thread\.draftCompany\) \? \(/.test(page) && page.indexOf("thread.draftCompany) ? (") < page.indexOf("&& thread.lead ? ("));
 }

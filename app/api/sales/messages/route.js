@@ -81,8 +81,11 @@ import {
   threadContext,
   openCheckIns,
   openCheckInsByThread,
+  sentDemoCheckIns,
+  sentDemoByThread,
   suggestionForThread,
 } from "@/lib/sales/checkin/store";
+import { waitingDraftsFor } from "@/lib/sales/checkin/waiting";
 import { threadReadStates, threadReadState } from "@/lib/sales/messages/readState";
 import { salesSmsWindowState } from "@/lib/sales/smsWindow";
 import { findSuppressions } from "@/lib/sales/suppression";
@@ -182,14 +185,34 @@ export async function GET(request) {
       draftsError = "Check-in drafts could not be read, so \"Drafts due\" may be missing conversations.";
       console.error("[sales messages] drafts unreadable:", err?.message);
     }
+    // The banner's number: the ONE definition of "waiting" (lib/sales/checkin/
+    // waiting.js), the same one the sidebar badge and the Today card read.
+    // Null when it could not be counted — the banner then draws nothing,
+    // never "0 drafts waiting".
+    let waiting = null;
+    try {
+      waiting = await waitingDraftsFor(rep.id);
+    } catch (err) {
+      console.error("[sales messages] waiting drafts uncounted:", err?.message);
+    }
+    // Demo threads whose draft was SENT (simulated — store.js
+    // simulateDemoSend): no SalesSmsMessage exists for them, so without this
+    // the demo conversation would vanish from the list the moment the rep
+    // pressed Send, which is the opposite of what a send looks like.
+    let demoSent = new Map();
+    try {
+      demoSent = await sentDemoByThread({ salesRepId: rep.id });
+    } catch (err) {
+      console.error("[sales messages] demo sends unreadable:", err?.message);
+    }
     const conversations = (await salesConversations({ salesRepId: rep.id, readStates })).map((c) => {
       const draft = drafts ? drafts.get(c.e164) || null : null;
       return {
         ...c,
         // A thread that has messages but no lead can still be named by the
         // company its draft is about.
-        name: c.name || draft?.name || null,
-        isDemo: Boolean(draft?.isDemo),
+        name: c.name || draft?.name || demoSent.get(c.e164)?.name || null,
+        isDemo: Boolean(draft?.isDemo) || demoSent.has(c.e164),
         // Null when the table could not be read — absence, not zero.
         openDrafts: drafts ? draft?.count || 0 : null,
         nextDraftDue: draft?.nextDue || null,
@@ -229,10 +252,38 @@ export async function GET(request) {
         });
       }
     }
+    // ── The demo thread after its send ──────────────────────────────────
+    //
+    // Listed from the sent demo row the way a real thread is listed from
+    // its SalesSmsMessage: our words last, so rooms.js files it under
+    // "Waiting on them" — where a real send lands.
+    {
+      const seen = new Set(conversations.map((c) => c.e164));
+      for (const [e164, sent] of demoSent) {
+        if (seen.has(e164)) continue;
+        conversations.push({
+          e164,
+          lastAt: sent.lastAt,
+          lastBody: sent.lastBody,
+          lastDirection: "out",
+          leadId: null,
+          name: sent.name,
+          isDemo: true,
+          count: 1,
+          unanswered: true,
+          lastInboundAt: null,
+          unread: readStates ? 0 : null,
+          readState: readStates ? readStates.get(e164) || null : null,
+          openDrafts: drafts ? 0 : null,
+          nextDraftDue: null,
+        });
+      }
+    }
     return NextResponse.json({
       conversations,
       readStateError,
       draftsError: draftsError || backlogError,
+      waiting,
     });
   }
 
@@ -292,7 +343,10 @@ export async function GET(request) {
           where: { salesRepId: rep.id, toE164: withE164, status: { in: ["sent", "dismissed"] } },
           orderBy: { updatedAt: "desc" },
           take: 10,
-          select: { id: true, status: true, sentAt: true, dismissedAt: true, draftText: true, reasonCode: true },
+          // origin and companyId: a demo thread whose only draft has been
+          // sent has no open row left to say it is a demo, and it must not
+          // stop being one the moment Send is pressed.
+          select: { id: true, status: true, sentAt: true, dismissedAt: true, draftText: true, reasonCode: true, origin: true, companyId: true },
         })
         .catch(() => null),
       lead?.prospectId
@@ -351,24 +405,40 @@ export async function GET(request) {
   // already applied. A demo is said in data so the screen can refuse the
   // composer for the same reason the send path will.
   let draftCompany = null;
-  const draftCompanyId = !company && checkIns?.length ? checkIns.find((c) => c.companyId)?.companyId || null : null;
+  const draftCompanyId = !company
+    ? (checkIns || []).find((c) => c.companyId)?.companyId || (pastCheckIns || []).find((c) => c.companyId)?.companyId || null
+    : null;
   if (draftCompanyId) {
     draftCompany = await db.company
       .findUnique({ where: { id: draftCompanyId }, select: { id: true, name: true, isDemo: true } })
       .catch(() => null);
   }
-  const demoThread = Boolean(draftCompany?.isDemo) || (checkIns || []).some((c) => c.origin === "demo");
-  const demoBlocker = demoThread
+  const demoThread =
+    Boolean(draftCompany?.isDemo) ||
+    (checkIns || []).some((c) => c.origin === "demo") ||
+    (pastCheckIns || []).some((c) => c.origin === "demo");
+  // Said as a warning beside a Send that works, not as a blocker: the demo's
+  // Send is real in every respect but the carrier (lib/sales/checkin/store.js
+  // simulateDemoSend), and a blocker would hide the button a rep is here to
+  // learn.
+  const demoWarning = demoThread
     ? {
         code: "demo_company",
-        title: "This is your demo company. Nothing is sent from a demo.",
-        fix: "The draft is here so you can see what a day-1 check-in looks like; on a real signup it is sendable.",
+        title: "This is your demo company.",
+        fix: "Send here shows what happens; nothing leaves FieldQuo.",
       }
     : null;
+  // The demo's sent check-ins, drawn as its outbound messages. No
+  // SalesSmsMessage row exists for them — see simulateDemoSend for why —
+  // so they are read from the check-in table and merged in by time.
+  const demoMessages = demoThread ? await sentDemoCheckIns({ salesRepId: rep.id, toE164: withE164 }).catch(() => []) : [];
+  const threadMessages = demoMessages.length
+    ? [...messages, ...demoMessages].sort((a, b) => new Date(a.sentAt) - new Date(b.sentAt))
+    : messages;
 
   return NextResponse.json({
     with: withE164,
-    messages,
+    messages: threadMessages,
     lead: lead
       ? {
           id: lead.id,
@@ -391,9 +461,14 @@ export async function GET(request) {
     draftCompany: draftCompany ? { id: draftCompany.id, name: draftCompany.name, isDemo: draftCompany.isDemo } : null,
     demo: demoThread,
     timeZone,
+    // A demo thread's composer is not a send path — the reply route writes
+    // a SalesSmsMessage only after a carrier accepts, and there is no
+    // carrier — so free-text replies stay off; the draft's own Send is the
+    // demo's send. The window and the opt-out list are judged for a real
+    // number and are not reported as blockers on a fictional one.
     canSend: demoThread ? false : readiness ? readiness.canSend : false,
     suppressed: readiness ? readiness.blockers.some((b) => b.code === "suppressed") : false,
-    blockers: demoBlocker ? [demoBlocker, ...(readiness ? readiness.blockers : [])] : readiness ? readiness.blockers : null,
+    blockers: demoThread ? [] : readiness ? readiness.blockers : null,
     checkIns,
     checkInError,
     suggestion,
@@ -416,10 +491,10 @@ export async function GET(request) {
     window: salesSmsWindowState(now, timeZone, {
       windowPolicy: readiness?.windowOverride ? { mode: readiness.windowOverride } : null,
     }),
-    // Caveats beside a Send that works — today only the console's
-    // calling-window override produces one. Null when the readiness could
-    // not be read, the same as `blockers`.
-    warnings: readiness ? readiness.warnings : null,
+    // Caveats beside a Send that works — the console's calling-window
+    // override, and the demo's "nothing leaves FieldQuo". Null when the
+    // readiness could not be read, the same as `blockers`.
+    warnings: demoWarning ? [demoWarning, ...(readiness?.warnings || [])] : readiness ? readiness.warnings : null,
     // Null when the table could not be read; [] when there were none.
     calls: calls
       ? calls.map((c) => ({

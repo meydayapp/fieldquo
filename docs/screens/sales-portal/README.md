@@ -66,3 +66,17 @@ payout, earnings). Never Claim, Call, Auto-dial, Send, Accept or Reset.
 Rendered frames driven from a fixture rather than a session already exist
 for the queue screen in `../sales-console/` and for the texts screen in
 `../sales-messages/`.
+
+## 2026-09-14 — check-in texts waiting
+
+`10-today-checkins.en.png` (1280) and `10-today-checkins.mobile.en.png`
+(375 at 2×): Today with the new card "Check-in texts waiting" — "3 check-in
+texts waiting to be sent. 1 of them on your demo company." — listing Easy
+Roofers Inc. · Day 1 check-in · Open, the demo company (tagged Demo) · Day 1,
+and Northside Painting · Day 7 · No number on file (its Open goes to My
+companies) — and, in the sidebar, the second badge on Texts: a pencil and
+the same count. All three numbers (badge, card, the texts banner in
+`../sales-messages/desktop-demo-send.png`) come from one function,
+`lib/sales/checkin/waiting.js`. Rendered with
+`page=today&scenario=demoSend`; the card and the demo thread are answered
+by the texts harness's `demoSend` fixtures.

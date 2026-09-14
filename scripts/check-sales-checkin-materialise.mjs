@@ -587,6 +587,45 @@ section("3. The demo fixture");
 }
 
 {
+  // ── The demo on the REAL schedule ─────────────────────────────────────
+  //
+  // The owner: "shouldn't the draft be for companies that signed up
+  // regardless of the milestone?" — and the demo has to show that. Anchored
+  // to the first demo row's createdAt minus one day, the stand-in then runs
+  // the same planner as a customer: day 7 six days later (re-aiming an
+  // untouched day-1 draft, or a new row after a send), the milestone
+  // approach at retentionDays - RETENTION_NEAR_DAYS.
+  const client = seed();
+  const demoRows = () => client.tables.salesCheckIn.filter((r) => r.companyId === "co_demo");
+  const first = await materialiseDemoCheckIn({ salesRepId: REP.id, client, now: NOW });
+  ok("day 1: the first demo draft, keyed demo:<company>:1", first.created === true && first.touchpoint === 1 && demoRows()[0]?.dedupeKey === "demo:co_demo:1", first);
+
+  // Untouched for a week: the day-1 draft is RE-AIMED at day 7, not joined.
+  const day7 = await materialiseDemoCheckIn({ salesRepId: REP.id, client, now: new Date(NOW.getTime() + 6 * DAY) });
+  ok("day 7 with the day-1 draft untouched → refreshed onto the day-7 key, one row", day7.refreshed === true && day7.touchpoint === 7 && demoRows().length === 1 && demoRows()[0].dedupeKey === "demo:co_demo:7", { day7, rows: demoRows().map((r) => r.dedupeKey) });
+
+  // The rep "sends" it (what store.js simulateDemoSend writes) — the next
+  // touchpoint arrives as its own row.
+  Object.assign(demoRows()[0], { status: "sent", sentAt: new Date(NOW.getTime() + 6 * DAY) });
+  const day8 = await materialiseDemoCheckIn({ salesRepId: REP.id, client, now: new Date(NOW.getTime() + 7 * DAY) });
+  ok("the day after a demo send: nothing new (sent before the next touchpoint)", day8.created === false && demoRows().length === 1, day8);
+  const nearMilestone = new Date(NOW.getTime() + (RETENTION - RETENTION_NEAR_DAYS + 1) * DAY);
+  const near = await materialiseDemoCheckIn({ salesRepId: REP.id, client, now: nearMilestone });
+  ok("the fortnight before the milestone: a new demo row, keyed demo:<company>:retention", near.created === true && near.touchpoint === TOUCHPOINT_RETENTION && demoRows().some((r) => r.dedupeKey === "demo:co_demo:retention"), { near, rows: demoRows().map((r) => r.dedupeKey) });
+  const again = await materialiseDemoCheckIn({ salesRepId: REP.id, client, now: nearMilestone });
+  ok("…once", again.created === false && again.reason === "exists" && demoRows().length === 2, again);
+  ok("every demo row is marked demo in origin, key and number", demoRows().every((r) => r.origin === DEMO_ORIGIN && /^demo:/.test(r.dedupeKey) && r.toE164 === DEMO_CHECKIN_E164));
+  ok("…and none of it touched the company row or wrote an attribution", client.writes.every((w) => w.model !== "company" && w.model !== "salesAttribution"));
+
+  // A fresh rep who sends day 1 on day 1 gets a NEW day-7 row on day 7.
+  const c2 = seed();
+  await materialiseDemoCheckIn({ salesRepId: REP.id, client: c2, now: NOW });
+  Object.assign(c2.tables.salesCheckIn[0], { status: "sent", sentAt: NOW });
+  const d7 = await materialiseDemoCheckIn({ salesRepId: REP.id, client: c2, now: new Date(NOW.getTime() + 6 * DAY) });
+  ok("day 1 sent on day 1 → day 7 is a second row", d7.created === true && d7.touchpoint === 7 && c2.tables.salesCheckIn.filter((r) => r.companyId === "co_demo").length === 2, d7);
+}
+
+{
   // The whole-fleet loop the cron calls.
   const client = seed();
   client.tables.salesRep.push({ id: "rep_left", name: "Gone", active: false, endedAt: NOW, demoCompanyId: null, createdAt: NOW });

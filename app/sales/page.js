@@ -10,16 +10,25 @@
 // outside a shop between calls asking "who is waiting on me". Two different
 // questions, so two screens rather than one screen with a scoreboard bolted on.
 //
-// ══ Four independent loads, and one of them failing is not a zero ════════
+// ══ Five independent loads, and one of them failing is not a zero ════════
 //
 // Every card fetches its own endpoint and holds its own state. That is more
 // code than one aggregating call and it is the shape the data forces: there is
 // no /api/sales/home, this work may not add one (the API surface belongs to
 // another brief), and — more importantly — a rep on a driveway connection gets
-// three cards and one honest "couldn't load" instead of a blank page. Nothing
+// four cards and one honest "couldn't load" instead of a blank page. Nothing
 // here ever renders 0 for a load that failed; `null` and `0` are different
 // values all the way from the fetch to the sentence at the top. lib/loadState.js
 // argues the general case; app/sales/nextAction.js is where it is enforced.
+//
+// ══ The check-in texts waiting ════════════════════════════════════════════
+//
+// The owner: "a little banner on the side that calls the rep's attention
+// that a check-in or follow-up text has been created waiting to be sent".
+// The card below the next-action sentence lists them — company, which
+// touchpoint (day 1, day 7, the milestone), Open — from
+// /api/sales/checkins/waiting, which is lib/sales/checkin/waiting.js's ONE
+// count, the same number the sidebar badge and the texts banner show.
 //
 // ══ The signup link finally has a reader ═════════════════════════════════
 //
@@ -59,10 +68,12 @@ import {
   Clock,
   Loader2,
   Mail,
+  PencilLine,
   Phone,
   RefreshCw,
   Users,
 } from "lucide-react";
+import { touchpointLabelKey } from "@/lib/sales/checkin/touchpointLabel";
 import { fetchJson } from "@/lib/fetchJson";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import {
@@ -164,6 +175,7 @@ export default function SalesHomePage() {
   const queue = useEndpoint("/api/sales/queue", loadFailed);
   const leads = useEndpoint("/api/sales/leads", loadFailed);
   const threads = useEndpoint("/api/sales/threads", loadFailed);
+  const waiting = useEndpoint("/api/sales/checkins/waiting", loadFailed);
 
   const [copied, setCopied] = useState(false);
 
@@ -272,6 +284,79 @@ export default function SalesHomePage() {
           routes compute it; taking the first that arrived avoids claiming
           sending is fine because the other request is still in flight. */}
       <OutreachNotice outreach={leads.data?.outreach || threads.data?.outreach} />
+
+      {/* ── Check-in texts waiting to be sent ───────────────────────────────
+          The engine wrote them; only the rep can send them. Drawn as a card
+          whatever the count, so "none waiting" is a sentence the rep reads
+          and not a card that quietly disappears. */}
+      <section className={CARD} data-checkins-waiting={Number.isFinite(waiting.data?.count) ? waiting.data.count : undefined}>
+        <div className="flex items-center gap-2">
+          <PencilLine size={16} className="text-muted-foreground shrink-0" />
+          <h2 className="text-base font-semibold text-foreground">{t("app.salesToday.checkinsTitle")}</h2>
+        </div>
+        {waiting.error ? (
+          <CardError message={waiting.error} onRetry={waiting.reload} retryLabel={tryAgain} />
+        ) : waiting.loading ? (
+          <p className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 size={16} className="animate-spin" /> {t("app.salesToday.loading")}
+          </p>
+        ) : !Number.isFinite(waiting.data?.count) ? (
+          <p className="text-sm text-muted-foreground">{notLoaded}</p>
+        ) : waiting.data.count === 0 ? (
+          <p className="text-sm text-muted-foreground break-words">{t("app.salesToday.checkinsNone")}</p>
+        ) : (
+          <>
+            <p className="text-sm text-foreground break-words">
+              {t("app.salesToday.checkinsLine", { count: t("app.salesToday.checkinsCount", { value: waiting.data.count }) })}
+              {waiting.data.demoCount > 0 ? ` ${t("app.salesText.waitingDemoNote", { count: waiting.data.demoCount })}` : null}
+            </p>
+            <ul className="divide-y divide-border/60 rounded-lg border border-border" data-checkins-list>
+              {waiting.data.items.map((item) => {
+                const labelKey = touchpointLabelKey(item);
+                // A numberless draft has no thread to open; My companies is
+                // where the number gets added, so that is where Open goes.
+                const href = item.noNumber
+                  ? "/sales/companies"
+                  : `/sales/messages?thread=${encodeURIComponent(item.toE164)}`;
+                return (
+                  <li key={item.id} className="flex items-center gap-3 px-3 py-2">
+                    <span className="min-w-0 flex-1">
+                      {/* The badge sits BESIDE the truncating name, not inside
+                          it, so a long demo name on a phone loses letters and
+                          never the word "Demo". */}
+                      <span className="flex items-center gap-1.5 min-w-0">
+                        <span className="truncate text-sm font-medium text-foreground">
+                          {item.companyName || item.toE164 || t("app.salesToday.checkinsUnnamed")}
+                        </span>
+                        {item.isDemo ? (
+                          <span className="shrink-0 inline-flex rounded-full border border-border bg-card px-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                            {t("app.salesPortal.demoBadge")}
+                          </span>
+                        ) : null}
+                      </span>
+                      <span className="block truncate text-xs text-muted-foreground">
+                        {t(labelKey, { day: item.touchpoint })}
+                        {item.noNumber ? ` · ${t("app.salesPortal.checkInNoNumber")}` : null}
+                      </span>
+                    </span>
+                    <Link href={href} className={`${BTN} shrink-0 border border-border text-foreground px-3`}>
+                      {t("app.salesToday.checkinsOpen")} <ArrowRight size={14} />
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+            {waiting.data.count > waiting.data.items.length ? (
+              <p className="text-xs text-muted-foreground">
+                {t("app.salesToday.checkinsMore", { shown: waiting.data.items.length, count: waiting.data.count })}
+              </p>
+            ) : null}
+            <Link href="/sales/messages?filter=drafts" className={`${BTN} border border-border text-foreground w-full`}>
+              {t("app.salesToday.checkinsAll")}
+            </Link>
+          </>
+        )}
+      </section>
 
       {/* ── Conversations ─────────────────────────────────────────────────── */}
       <section className={CARD}>

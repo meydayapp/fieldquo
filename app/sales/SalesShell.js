@@ -81,6 +81,7 @@ import {
   MessageSquare,
   MonitorPlay,
   NotebookPen,
+  PencilLine,
   PhoneCall,
   Search,
   Settings,
@@ -122,6 +123,19 @@ const TAB_BADGES = {
   "/sales/messages": "texts",
   "/sales/team": "team",
   "/sales/voicemail": "voicemail",
+};
+
+/**
+ * A SECOND digit on a row: drafts waiting for the rep to press Send, on
+ * Texts. Its own map and its own look (outlined, with a pencil) rather than
+ * added into `texts`: an unread reply and an unsent draft are different
+ * calls on the rep's attention — one is a contractor waiting, the other is
+ * the engine waiting — and one number for both would say neither. The
+ * field is lib/sales/checkin/waiting.js's count, the same one the Today
+ * card and the texts banner show.
+ */
+const TAB_DRAFT_BADGES = {
+  "/sales/messages": "drafts",
 };
 
 const COLLAPSE_KEY = "fq-sales-sidebar-collapsed";
@@ -473,6 +487,8 @@ export default function SalesShell({ children }) {
             const Icon = TAB_ICONS[tab.href] || BookOpen;
             const badgeField = TAB_BADGES[tab.href];
             const badge = badgeField && Number.isFinite(badges?.[badgeField]) && badges[badgeField] > 0 ? badges[badgeField] : null;
+            const draftField = TAB_DRAFT_BADGES[tab.href];
+            const draftBadge = draftField && Number.isFinite(badges?.[draftField]) && badges[draftField] > 0 ? badges[draftField] : null;
             return (
               <Link
                 key={tab.href}
@@ -513,6 +529,24 @@ export default function SalesShell({ children }) {
                     aria-label={t("app.salesPortal.badgeCount", { count: badge })}
                   >
                     {badge > 99 ? "99+" : badge}
+                  </span>
+                ) : null}
+                {/* Drafts waiting to be sent: outlined, with the pencil, so
+                    it cannot be read as unread replies. Folded, it sits on
+                    the icon's other corner. */}
+                {draftBadge !== null ? (
+                  <span
+                    className={`inline-flex items-center justify-center gap-0.5 rounded-full min-w-[20px] h-5 px-1.5 text-[11px] font-bold tabular-nums border ${
+                      active
+                        ? "border-sidebar-primary-foreground text-sidebar-primary-foreground"
+                        : "border-sidebar-primary text-sidebar-primary"
+                    } ${collapsed ? "absolute -bottom-0.5 -right-0.5 bg-sidebar" : ""}`}
+                    data-sales-badge={draftField}
+                    aria-label={t("app.salesPortal.badgeDrafts", { count: draftBadge })}
+                    title={t("app.salesPortal.badgeDrafts", { count: draftBadge })}
+                  >
+                    <PencilLine size={10} aria-hidden="true" />
+                    {draftBadge > 99 ? "99+" : draftBadge}
                   </span>
                 ) : null}
               </Link>

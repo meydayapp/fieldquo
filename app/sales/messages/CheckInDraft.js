@@ -300,6 +300,7 @@ export default function CheckInDraft({
                   disabled={busy}
                   onClick={() => onSend?.()}
                   className={`${BTN} bg-primary text-primary-foreground`}
+                  data-draft-send
                 >
                   {busy ? (
                     <Loader2
