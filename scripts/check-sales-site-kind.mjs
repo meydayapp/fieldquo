@@ -414,7 +414,10 @@ section("4. The capability consequences, on the same crawl");
   for (const code of capabilityDetect.DETECTED_CAPABILITY_CODES) {
     if (code === "WEBSITE" || code === "EMAIL_CONTACT" || code === "PHONE_CONTACT") continue;
     const row = CAP(withVerdict, code);
-    ok(`${code} is NULL on a directory — never false, whatever the pages carried`, row.value === null && row.reason === "not_their_own_site" && row.evidence.length === 0, row);
+    // Version 4: a null cites WHY it is null — one crawl_quality row naming
+    // the reason — and never a signal row, so nothing on the directory's
+    // pages can reach the verdict.
+    ok(`${code} is NULL on a directory — never false, whatever the pages carried`, row.value === null && row.reason === "not_their_own_site" && row.evidence.length === 1 && row.evidence[0].type === "crawl_quality" && row.evidence[0].normalizedValue === `${code}:withheld:not_their_own_site`, row);
   }
   ok("EMAIL_CONTACT stays TRUE — the address on the listing is a real observation", CAP(withVerdict, "EMAIL_CONTACT").value === true);
   ok("…with the directory page as its sourceUrl", CAP(withVerdict, "EMAIL_CONTACT").evidence[0].sourceUrl.startsWith(ES), CAP(withVerdict, "EMAIL_CONTACT").evidence[0]);
@@ -432,7 +435,7 @@ section("4. The capability consequences, on the same crawl");
   ok("a Facebook page: WEBSITE false", CAP(fbCaps, "WEBSITE").value === false && CAP(fbCaps, "WEBSITE").evidence[0].normalizedValue === "site_kind:platform_profile:facebook.com", CAP(fbCaps, "WEBSITE"));
   ok("…and every other capability null", fbCaps.capabilities.filter((c) => c.code !== "WEBSITE").every((c) => c.value === null));
 
-  ok("the detector version moved to 3, so a version-2 false read off a directory is superseded", capabilityDetect.CAPABILITY_DETECTOR_VERSION === "3");
+  ok("the detector version moved past 3, so a version-2 false read off a directory is superseded", Number(capabilityDetect.CAPABILITY_DETECTOR_VERSION) >= 3);
   const src = read("lib/sales/intel/capabilityDetect.js");
   const fn = functionSource(src, "detectCapabilities");
   ok("detectCapabilities gates on notTheirOwnSite, before any signal is read", fn && /notTheirOwnSite\(siteKind\.kind\)/.test(fn) && fn.indexOf("KEPT_ON_A_LISTING.has(code)") < fn.indexOf("for (const signal of SIGNALS[code]"), fn?.slice(0, 200));

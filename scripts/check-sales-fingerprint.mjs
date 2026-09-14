@@ -1059,7 +1059,7 @@ function stubDb({
   });
   ok("an older version's finding IS overwritten by the current version's null", db.written.capabilities.some((c) => c.code === "ONLINE_BOOKING" && c.value === null && c.detectorVersion === CAPABILITY_DETECTOR_VERSION), db.written.capabilities);
   ok("…and nothing was reported as kept", !/kept/.test(result.note), result.note);
-  ok("the current detector version is 3 — absence is refused from a probed crawl (2) and from a directory's pages (3)", CAPABILITY_DETECTOR_VERSION === "3");
+  ok("the current detector version is 4 — absence is refused from a probed crawl (2), from a directory's pages (3) and from a JavaScript shell (4)", CAPABILITY_DETECTOR_VERSION === "4");
 }
 {
   // …but a genuinely new observation DOES overwrite.

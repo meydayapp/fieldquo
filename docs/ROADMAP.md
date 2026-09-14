@@ -1,12 +1,71 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 14 September 2026 (the console can assign a rep their next leads: the rep card's Queue… panel ends with Assign leads — trade with the rep's own pool counts, count, province, one of their languages — and /platform/sales/prospects has checkboxes with Assign to rep / Unassign, refused row by row with the reason; the selection is the rep's own selectClaimBatch/writeClaimBatch by import, never a copy; the hour before a window now counts for a claim; check:sales-assign asserts all of it.)
+Last updated: 14 September 2026 (the crawler reads the site's own sitemap, WordPress REST index and framework payload; a JavaScript shell withholds every verdict and says why; services offered are an evidence-cited list — schema, menu, sitemap, page index — on the rep card, in the brief and fenced in the AI summary; check:sales-services and check:sales-crawl §13 assert it, measured on 2,000 stored and 50 live sites.)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
 it exists to answer.
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
+
+---
+
+## The crawler reads the site's own sitemap, WordPress index and script payload; services are evidence-cited; a JavaScript shell says so instead of "no booking" (14 September 2026)
+
+The owner's concern, verbatim: "not identifying the services the company
+offers or not properly reading the website and making false claims which
+then create a false interpretation of what they have or might not have."
+
+- **Structured sources** (`lib/sales/crawl/sitemap.js`, `structured.js`,
+  `html.js`, `crawlSite.js`, crawler v3): the sitemap (robots' `Sitemap:`
+  lines, then `/sitemap.xml` only as a fallback; ≤ 3 files / 500 URLs) is
+  read after the home page and its URLs join the menu's in the ranking as
+  `via: "sitemap"` — a script-drawn menu no longer hides `/contact-us-2`.
+  A WordPress site's `/wp-json/wp/v2/pages` (and a `services` post type)
+  is read for titles and links. `__NEXT_DATA__`, `__NUXT__`,
+  `__INITIAL_STATE__`, Wix warmup and Squarespace context yield their
+  sentences as `rendered_text` (bounded; no key, token or URL leaves a
+  payload; the payload is never stored). Five new evidence types:
+  `sitemap_url`, `wp_page`, `rendered_text`, `heading`, `structured_source`
+  — none of them a page. `CONTENT_HASH_VERSION` deliberately not bumped.
+- **No false claims** (`capabilityDetect.js` v4): a JavaScript shell
+  (framework marker beside no links / no body) refuses every absence with
+  reason `js_shell`; WEBSITE stays true; a shell with recovered copy is read
+  for presence only; every null verdict cites a `crawl_quality` row naming
+  its reason, so the rep reads "their site is drawn by JavaScript; we could
+  not read it" instead of "not established". Every verdict cites its rows;
+  the card says "Seen on /contact" and "we looked at (/, /about) and this
+  was not on any of them". `schemaFacts.js` reads JSON-LD: telephone, email,
+  ReserveAction, Review, OfferCatalog — presence only, never absence.
+- **Services offered** (`lib/sales/intel/servicesOffered.js`): an
+  evidence-cited list (schema › menu › wp › sitemap › heading › payload),
+  each name with its row and page, mapped to the trade vocabulary, stored as
+  the `services` ProspectInference by ANALYZE_CAPABILITIES (never from a
+  directory), rendered as "Services they list" (nine languages) with the
+  source per name, in the brief and the call-script prompt. The
+  site-inference model gets the list, is told not to add to it, and its
+  `services_offered` answer is fenced name by name against the evidence
+  (mutation-tested). `isChromeLabel` grown from a hand-check of 2,000 menus.
+- **Measured** (read-only): over 2,000 stored prospects — JSON-LD parses on
+  54.0%, names a phone on 24.9%, services on 5.5%; 1.2% are shells; 31.2%
+  yield ≥ 1 service name (mean 9.4). `scripts/audit-false-claims.mjs` on 300
+  prospects with a deep false: 147 of 2,125 false verdicts are no longer
+  false on re-detect; 66 of 300 prospects carry a contradiction. Nothing
+  requeued: ≈ 200 shell-and-no-services and ≈ 16,500 no-service-names
+  prospects would benefit from a v3 re-crawl — the owner's call.
+- Checks: `check:sales-services` (92 assertions, two mutants), `check:sales-crawl`
+  §13 (10 MB sitemap, self-referencing index, malformed JSON-LD, payload
+  bomb, end-to-end shell + sitemap + wp-json), fingerprint / site-kind /
+  crawl-storage / site-inferences updated. Docs: `docs/sales-intel/CRAWLING.md`.
+
+### Still owed here
+
+- The v3 re-crawl (owner's approval): `scripts/find-probe-fallback-crawls.mjs`
+  is the shape; the set is "js_shell in the latest crawl, or no `services`
+  inference".
+- `check:prospect-ui` fails at HEAD on `db.salesRep.findMany` from
+  f915d2a8's prospects route — the other session's area, not touched here.
+
 
 ---
 

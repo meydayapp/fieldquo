@@ -21,6 +21,8 @@ crawl/crawlSite.js            the ONE file that both queries Postgres and
       ├── policy.js           constants + every politeness decision (pure)
       ├── url.js              SSRF vetting, same-site, page ranking (pure)
       ├── robots.js           robots.txt parser + matcher (pure)
+      ├── sitemap.js          the site's own sitemap: files, URLs, bounds (pure)
+      ├── structured.js       WordPress REST index; framework payload text (pure)
       ├── html.js             the lexer + §8 extraction (pure)
       ├── fingerprint.js      what "unchanged" means (pure)
       ├── evidence.js         page record → ProspectEvidence rows (pure)
@@ -191,10 +193,13 @@ The rule that resolves the table's two value columns:
 
 Types used: `page_fetch`, `page_content`, `meta`, `script_src`, `iframe_host`,
 `link`, `form`, `button`, `schema_org`, `dom_attr`, `contact`, `nav_link`,
-`inline_token`. The first, plus `button`, `contact`, `dom_attr`, `nav_link`
-and `inline_token`, are **not** in the schema comment's illustrative list —
+`inline_token`, and — from crawler version 3 (2026-09-14) — `sitemap_url`,
+`wp_page`, `rendered_text`, `heading`, `structured_source`. The first, plus
+`button`, `contact`, `dom_attr`, `nav_link`, `inline_token` and the five
+version-3 types, are **not** in the schema comment's illustrative list —
 named here so the next agent finds them in a document rather than in a query. `script_src`, `iframe_host`, `link` and `meta` match
-`TechnologySignature.patterns`'s own vocabulary exactly.
+`TechnologySignature.patterns`'s own vocabulary exactly. The version-3 types
+are described under "Structured sources" below.
 
 Rows are append-only, so a reader wanting the current picture filters on
 `observedAt >= prospect.lastCrawledAt` — which is why the evidence and the
@@ -314,6 +319,132 @@ extract → evidence → rebuild path production uses. `scripts/
 find-directory-hosts.mjs` lists, read-only, the hosts most shared across
 prospects so the known-directory list can be grown from data rather than
 guessed.
+
+---
+
+## Structured sources: the sitemap, the WordPress index, the framework payload (14 September 2026)
+
+The owner's concern, verbatim: "not identifying the services the company
+offers or not properly reading the website and making false claims which
+then create a false interpretation of what they have or might not have."
+A crawler that reads `<a href>` tags off the home page and does not run
+scripts is blind to a menu a script draws, and a JavaScript-rendered site
+handed it a 200, a bundle and two links — which the capability detector then
+searched for a booking page and, finding none, called absent. Three sources
+the site publishes *for exactly this reader* are now read, without executing
+anything:
+
+| Source | Read when | Stored as | Feeds |
+|---|---|---|---|
+| **Sitemap** (`sitemap.js`) — robots.txt's `Sitemap:` lines, then `/sitemap.xml` only when those yielded nothing; an index's children (page sitemaps first, never posts/attachments, never `.gz`, never off-site) | after the home page, before ranking; at most 3 files / 500 URLs / 2 MB scanned per file | `sitemap_url` (path as key, URL as value, the sitemap file as `sourceUrl`), `structured_source` per file | `rankNavigation` as `via: "sitemap"` candidates (path-only ranking, merged by rank with the menu's, menu wins a tie); service names |
+| **WordPress REST** (`structured.js`) — `/wp-json/wp/v2/pages?per_page=50&_fields=id,link,title,excerpt`, then `/types`, then any post type whose slug says service/trade/work (≤ 2) | after the pages, only when the home page carries `/wp-content/`, `/wp-includes/`, `/wp-json` or a WordPress generator meta | `wp_page` (title + link + excerpt, ≤ 1 KB, path as key), `structured_source` per answer | service names (a `services` post type wholesale; a `page` only when its path or title names a service) |
+| **Framework payload** (`structured.js`, read by `html.js`) — `__NEXT_DATA__`, `__NUXT_DATA__`, `window.__NUXT__=`, `window.__INITIAL_STATE__=`, Wix `warmupData`, Squarespace `Static.SQUARESPACE_CONTEXT`, any `<script type=json id="__X__">` | on every page, at most 2 payloads, 200 KB parsed, 2,000 strings, 20 KB kept | `rendered_text` (one row per page, strings joined, page URL as key) | the capability detector's *presence* signals on a shell; service names (short, trade-shaped lines only) |
+
+What never leaves a payload: keys, tokens, URLs, anything under three words
+or under half letters, a 40-character run of word characters. The check feeds
+one a `pk_live_…` key and a JWT and asserts neither comes out. The payload
+itself is never stored; `rendered_text` is in the content hash **only when
+present**, so no hash changes for a site without one (the same argument the
+inline-loader scan made for `scripts`).
+
+A structured file is **never a page**: a 404 on `/sitemap.xml` is a
+`structured_source` row, not a `page_fetch`, so
+`technology.js`'s `pagesFromEvidence` never sees it and a missing sitemap can
+never read as "a page in the crawl errored". `heading` rows (h1–h3, ≤ 30 per
+page) are kept beside them for the service reader; headings are deliberately
+not in the content hash.
+
+`CRAWL_DETECTOR_VERSION` is `"3"`. `CONTENT_HASH_VERSION` was deliberately
+**not** bumped: that would re-analyse every crawled prospect with model calls.
+
+### A JavaScript shell says so (capability detector version 4)
+
+`capabilityDetect.jsShell(page)`: a 2xx page with ≤ 2 links or under 300
+characters of text **and** a framework marker — `/_next/static/`, `/_nuxt/`,
+Wix's `static.parastorage.com`, Webflow, Squarespace, an Angular
+`main.*.js`, a React/Vue bundle, `data-reactroot`, `data-v-app`,
+`data-n-head`, `data-wf-page`, `data-mesh-id`, or a payload the extractor
+recovered text from. A page that is merely thin, with no marker, is not a
+shell; a server-rendered Next.js page with forty links is not a shell. When
+a crawl holds one:
+
+- every absence is refused, site-wide signals included (`reason: js_shell`),
+  checked *before* "no page loaded" because an empty-bodied shell is that too;
+- `WEBSITE` is **true** (a modern site is not a missing one), citing the shell;
+- a shell **with** recovered text is read for *presence* — a phone, hours, an
+  email, "book online" in its copy — and never for absence;
+- every null verdict cites a `crawl_quality` row whose `normalizedValue` is
+  `CODE:withheld:<reason>` and whose text is "site is rendered by
+  JavaScript; we could not read it". `prospectView.js` reads the reason and
+  tells the rep exactly that instead of "not established".
+
+Every verdict now cites what it rests on: a true cites its signal rows, a
+false cites the pages searched, a null cites its reason. `prospectView.js`
+prints "Seen on /contact" under a true and "We looked at the pages that
+rendered (/, /about, /contact-us) and this was not on any of them" under a
+false. A page reached through the sitemap counts as navigation *followed*.
+
+`schemaFacts.js` reads the site's own JSON-LD (bounded: depth 8, 400 nodes,
+40 service names): a `telephone` / `email` proves the contact, a
+`ReserveAction` / `ScheduleAction` proves booking, `Review` nodes prove
+reviews, an OfferCatalogue names the services. Presence only — a block that
+names no email says nothing about whether the site publishes one.
+
+### Services offered, evidence-cited
+
+`lib/sales/intel/servicesOffered.js` `servicesFrom({ evidence })` reads
+`nav_link`, `sitemap_url`, `schema_org`, `wp_page`, `heading` and
+`rendered_text` rows of the latest crawl into a list of at most 25
+`{ name, source, sourceUrl, tradeKey, confidence, evidenceId }`, deduplicated
+on the accent-folded name, trust order schema › menu › wp › sitemap ›
+page_heading › rendered_text. A path or title is a service only under a
+services section or with a trade word (tradeSuggest's `NAME_KEYWORDS`,
+reused); a heading or a payload line only with a trade word and no sentence
+shape; a menu label without a work word is kept one notch down so the card
+leads with "Gutter Guard Installation" and not the town names beside it.
+`url.js`'s `isChromeLabel` is the one test of "not a service" for the menu,
+the titles and the headings alike — grown, from a hand-check of 2,000 menus,
+to refuse "Request", "Blog:", "Our Promise", "Thank You", "JOB POSITIONS",
+"Watch Video", "À propos", "Nous joindre", "Réalisations", article titles,
+questions and anything over five words.
+
+Written by `ANALYZE_CAPABILITIES` as the `services` `ProspectInference`
+(value: the JSON list; `evidenceIds`: the rows each name came from;
+`modelVersion: services/1`), never from a directory or an uncorroborated
+derived site, never erased by a run that finds nothing. Rendered as the
+"Services they list" fact row (nine languages) with each name's source and
+page in the detail; the brief carries one known line; the call-script prompt
+gets the names. The site-inference model gets the list under **SERVICES THEY
+LIST** with "do not add a service that is not in the evidence", and its
+`services_offered` answer (the eleventh kind, `SITE_INFERENCE_VERSION` 2) is
+split into names, each dropped unless it is a case- and accent-insensitive
+substring of the page text or that list — mutation-tested in
+`scripts/check-sales-services.mjs`.
+
+### Measured before shipping (14 September 2026)
+
+Over the **stored** evidence of 2,000 random crawled prospects
+(`scripts/measure-sales-services.mjs`, read-only): JSON-LD that parses on
+some page 54.0%; naming a business 40.0%; with a telephone 24.9%; an email
+9.4%; opening hours 15.6%; a rating or reviews 4.2%; a booking action 0.2%;
+services by name 5.5%. A JavaScript shell in the crawl: 1.2% (24 of 2,000,
+none with recovered text — no v3 rows exist yet). Prospects with at least one
+service name from the rows on file: 31.2%, mean 9.4 per site with any
+(menu 6,644 names, schema 577). The twenty hand-checked lists are what grew
+`isChromeLabel`. `scripts/audit-false-claims.mjs` over 300 random prospects
+with a deep false: 2,125 false verdicts, all written by a detector before 4;
+22 sit on a crawl holding a shell; 16 are contradicted by the site's own
+JSON-LD; 147 are no longer false when the current detector re-reads the rows
+(null with a reason, or true); 66 of the 300 prospects carry at least one
+such contradiction. No sitemap contradiction can show yet: no prospect has
+`sitemap_url` rows before a v3 crawl. The live read of 50 random sites is
+recorded in the same script's header block below this one when it finishes.
+
+Nothing was requeued. 12,375 prospects carry a false deep verdict; the
+owner decides whether a v3 re-crawl of the shell-and-no-services set (17 of
+2,000 ≈ 0.9%, so ≈ 200 of the 24,000 crawled) and the no-service-names set
+(1,376 of 2,000 ≈ 69%, so ≈ 16,500) is worth the backlog lane's free
+re-analysis.
 
 ---
 

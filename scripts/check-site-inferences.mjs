@@ -274,7 +274,7 @@ section("2. The material: the same excerpts the script reads, the page and not a
   ok("the schema passes the vendor's strict lint", assertStrictSchema(schema).ok, assertStrictSchema(schema).errors);
   ok("…has no numeric field anywhere — confidence is a word, mapped in code", !/"type":"(number|integer)"/.test(JSON.stringify(schema)) && JSON.stringify(schema.properties.inferences.items.properties.confidence.enum) === JSON.stringify(Object.keys(CONFIDENCE_WORDS)));
   ok("…and the kind is an enum over the closed list", JSON.stringify(schema.properties.inferences.items.properties.kind.enum) === JSON.stringify([...SITE_INFERENCE_KINDS]));
-  ok("the closed list is the ten kinds the owner was promised", SITE_INFERENCE_KINDS.length === 10 && ["crew_size", "years_in_business", "founded_year", "owner_name", "service_area", "emphasis", "hiring", "licence_or_insurance_claim", "languages_spoken", "busy_season"].every((k) => SITE_INFERENCE_KINDS.includes(k)));
+  ok("the closed list is the ten kinds the owner was promised, plus services_offered (2026-09-14, evidence-fenced — scripts/check-sales-services.mjs)", SITE_INFERENCE_KINDS.length === 11 && ["crew_size", "years_in_business", "founded_year", "owner_name", "service_area", "emphasis", "hiring", "licence_or_insurance_claim", "languages_spoken", "busy_season", "services_offered"].every((k) => SITE_INFERENCE_KINDS.includes(k)));
   ok("…each with a label", SITE_INFERENCE_KINDS.every((k) => SITE_INFERENCE_LABELS[k]));
 
   const h1 = siteInferenceInputHash(inputs);
@@ -453,7 +453,7 @@ section("5. The brief and the script both carry the kinds");
   const prompt = callScriptPrompt(inputs);
   ok("the script prompt prints every kind under WHAT WE INFERRED", /WHAT WE INFERRED ABOUT THEM/.test(prompt) && SITE_INFERENCE_KINDS.every((k) => prompt.includes(`- ${k.replace(/_/g, " ")}: value for ${k.replace(/_/g, " ")}`)), inputs.inferences);
   ok("…once — not again as a fact under WHAT WE KNOW", !inputs.known.some((line) => /^(Owner|Crew size|Founded|Years in business):/.test(line)), inputs.known);
-  ok(`…within the ${12} the prompt is bounded to, so ten kinds plus trade and derived_site fit`, inputs.inferences.length === 10);
+  ok(`…within the ${14} the prompt is bounded to, so eleven kinds plus trade, derived_site and services fit`, inputs.inferences.length === 11);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

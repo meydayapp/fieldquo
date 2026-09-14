@@ -1309,7 +1309,10 @@ async function main() {
       "https://northline.ca/": { status: 200, headers: { "content-type": "text/html" }, body: "<title>Home</title><div id=app></div>" },
     });
     await crawlSite.crawlProspectSite({ prospectId: "p1", deps: crawlDeps(net) });
-    const probes = net.requests.filter((u) => u !== "https://northline.ca/" && !u.endsWith("robots.txt"));
+    // The sitemap is asked for once (v3) and is not a probe: it is the URL
+    // list the site publishes for exactly this reader.
+    ok("the sitemap is asked for, once", net.requests.filter((u) => u === "https://northline.ca/sitemap.xml").length === 1, net.requests);
+    const probes = net.requests.filter((u) => u !== "https://northline.ca/" && !u.endsWith("robots.txt") && !u.endsWith("sitemap.xml"));
     ok("a site with no usable links is probed, but barely", probes.length <= 3, probes);
     ok("…and only at the top-priority slugs", probes.every((u) => /\/(contact|services|about)$/.test(u)), probes);
   }
@@ -1648,6 +1651,172 @@ async function main() {
   }
 
   // ══════════════════════════════════════════════════════════════════════════
+  section("13. Structured sources: the sitemap, the WordPress index, the framework payload — read, bounded, cited");
+
+  const sitemapMod = await import("@/lib/sales/crawl/sitemap");
+  const structured = await import("@/lib/sales/crawl/structured");
+
+  {
+    // ── The sitemap parser, against real shapes and hostile ones ─────────
+    const urlset = `<?xml version="1.0"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<url><loc>https://northline.ca/</loc></url><url><loc>https://northline.ca/contact-us-2/</loc><lastmod>2026-01-01</lastmod></url>
+<url><loc><![CDATA[https://northline.ca/services/roofing?utm=x&amp;y=1]]></loc></url><url><loc>https://northline.ca/blog/2024/05/how-to</loc></url>
+<url><loc>https://elsewhere.example/page</loc></url><url><loc>javascript:alert(1)</loc></url><url><loc>https://northline.ca/logo.png</loc></url></urlset>`;
+    const parsed = sitemapMod.parseSitemap(urlset);
+    ok("a urlset parses as one, six of seven locs kept", parsed.kind === "urlset" && parsed.urls.length === 6, parsed);
+    ok("…CDATA and &amp; are decoded", parsed.urls.some((u) => u === "https://northline.ca/services/roofing?utm=x&y=1"), parsed.urls);
+    ok("…a javascript: loc is refused", !parsed.urls.some((u) => /^javascript/.test(u)));
+    const pages = sitemapMod.sitemapPages(parsed.urls, { baseHost: "northline.ca" });
+    ok("sitemapPages keeps same-site pages, shallow first, and drops the home page, assets, posts and other hosts", JSON.stringify(pages.map((p) => p.path)) === JSON.stringify(["/contact-us-2", "/services/roofing"]), pages);
+
+    const index = `<sitemapindex><sitemap><loc>https://northline.ca/page-sitemap.xml</loc></sitemap><sitemap><loc>https://northline.ca/post-sitemap.xml</loc></sitemap>
+<sitemap><loc>https://northline.ca/attachment-sitemap.xml</loc></sitemap><sitemap><loc>https://northline.ca/sitemap.xml</loc></sitemap><sitemap><loc>https://northline.ca/big.xml.gz</loc></sitemap><sitemap><loc>https://other.example/x.xml</loc></sitemap></sitemapindex>`;
+    const idx = sitemapMod.parseSitemap(index);
+    ok("an index parses as one", idx.kind === "index" && idx.urls.length === 6);
+    const children = sitemapMod.childSitemapsToFollow(idx.urls, { baseHost: "northline.ca", already: new Set(["northline.ca/sitemap.xml"]) });
+    ok("children: the page sitemap first, at most two, never itself, never .gz, never off-site", JSON.stringify(children) === JSON.stringify(["https://northline.ca/page-sitemap.xml", "https://northline.ca/post-sitemap.xml"]), children);
+
+    const huge = `<urlset>${"<url><loc>https://northline.ca/p/x</loc></url>".repeat(300_000)}</urlset>`;
+    ok("…a 10 MB sitemap is bounded", huge.length > 10_000_000);
+    const t0 = Date.now();
+    const big = sitemapMod.parseSitemap(huge);
+    ok("…parsed within the URL cap and the scan cap, in well under a second", big.urls.length <= sitemapMod.MAX_SITEMAP_URLS && big.truncated === true && Date.now() - t0 < 1000, { n: big.urls.length, ms: Date.now() - t0 });
+    ok("the distinct-URL cap is 500 and the file cap is 3", sitemapMod.MAX_SITEMAP_URLS === 500 && sitemapMod.MAX_SITEMAP_FILES === 3);
+    ok("garbage yields nothing, not an exception", sitemapMod.parseSitemap("<<<<not xml").urls.length === 0 && sitemapMod.parseSitemap(null).urls.length === 0);
+    const tries = sitemapMod.sitemapUrlsToTry({ baseUrl: "https://northline.ca/", baseHost: "northline.ca", robotsSitemaps: ["https://northline.ca/sm.xml", "https://evil.example/sm.xml", "https://northline.ca/sm.xml.gz"] });
+    ok("robots' Sitemap: lines come first, same-site only, .gz dropped, then /sitemap.xml as the default", JSON.stringify(tries) === JSON.stringify([{ url: "https://northline.ca/sm.xml", from: "robots" }, { url: "https://northline.ca/sitemap.xml", from: "default" }]), tries);
+  }
+
+  {
+    // ── The framework payload reader ──────────────────────────────────────
+    const payload = JSON.stringify({ props: { pageProps: { hero: "Gutter guard installation across Western New York", key: "pk_live_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcd", url: "https://x.com/a", token: "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U", items: [{ title: "Epoxy Flooring" }, { title: "Call (716) 880-5389 for a free estimate today" }] } } });
+    const next = `<html><head><script src="/_next/static/chunks/main-abc123.js"></script><script id="__NEXT_DATA__" type="application/json">${payload}</script></head><body><div id="__next"></div></body></html>`;
+    const page = html.extractPage({ html: next, finalUrl: "https://northline.ca/", status: 200 });
+    ok("a __NEXT_DATA__ payload is read", page.payload?.framework === "next" && page.payload.method === "json", page.payload);
+    ok("…its sentences become renderedText", /Gutter guard installation across Western New York/.test(page.renderedText) && /free estimate today/.test(page.renderedText), page.renderedText);
+    ok("…a two-word label is not", !/Epoxy Flooring/.test(page.renderedText));
+    ok("…and no key, token or URL leaves the payload", !/pk_live|eyJhbGci|https:\/\/x\.com/.test(page.renderedText));
+    ok("…the payload itself is nowhere in the record", !JSON.stringify(page).includes("pk_live"));
+    const nuxt = html.extractPage({ html: `<script>window.__NUXT__={"data":[{"copy":"Serving Buffalo homeowners since nineteen ninety-eight"}]};</script>`, finalUrl: "https://northline.ca/", status: 200 });
+    ok("window.__NUXT__ = {…} is read", nuxt.payload?.framework === "nuxt" && /Serving Buffalo homeowners/.test(nuxt.renderedText), nuxt.payload);
+    const fnForm = html.extractPage({ html: `<script>window.__NUXT__=(function(a,b){return {data:[{copy:"Serving Buffalo homeowners since nineteen ninety-eight",k:a}]}}(null,1));</script>`, finalUrl: "https://northline.ca/", status: 200 });
+    ok("Nuxt 2's function form falls back to quoted literals", fnForm.payload?.method === "literals" && /Serving Buffalo homeowners/.test(fnForm.renderedText), fnForm.payload);
+    const sq = html.extractPage({ html: `<script>Static.SQUARESPACE_CONTEXT = {"website":{"siteTitle":"Northline Painting and Decorating"}};</script>`, finalUrl: "https://northline.ca/", status: 200 });
+    ok("Squarespace's context is read", sq.payload?.framework === "squarespace" && /Northline Painting and Decorating/.test(sq.renderedText));
+    const plain = html.extractPage({ html: HOME_HTML, finalUrl: "https://northline.ca/", status: 200 });
+    ok("an ordinary page has no payload and empty renderedText", plain.payload === null && plain.renderedText === "");
+    ok("…so its hash is exactly what it was — no renderedText key", !Object.keys(fingerprint.canonicalPage(plain)).includes("renderedText"));
+    ok("…while a page with a payload hashes on it", Object.keys(fingerprint.canonicalPage(page)).includes("renderedText"));
+    const bomb = `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({ a: Array.from({ length: 50_000 }, (_, i) => `sentence number ${i} of the payload bomb`) })}</script>`;
+    const t0 = Date.now();
+    const bombed = html.extractPage({ html: bomb, finalUrl: "https://northline.ca/", status: 200 });
+    ok("a 50,000-string payload is capped at the string cap and the char cap, quickly", bombed.payload.strings <= structured.MAX_PAYLOAD_STRINGS && bombed.renderedText.length <= structured.MAX_RENDERED_TEXT_CHARS && Date.now() - t0 < 1500, { strings: bombed.payload.strings, chars: bombed.renderedText.length });
+    ok("headings are kept, h1–h3, deduplicated, invisible ones dropped", JSON.stringify(html.extractPage({ html: `<h1>Painters in Ottawa</h1><h2>Interior Painting</h2><h2>Interior Painting</h2><h4>Not kept</h4><svg><title>x</title></svg><script><h1>no</h1></script>`, finalUrl: "https://northline.ca/", status: 200 }).headings.map((h) => h.text)) === JSON.stringify(["Painters in Ottawa", "Interior Painting"]));
+  }
+
+  {
+    // ── The WordPress REST reader ─────────────────────────────────────────
+    const body = JSON.stringify([
+      { id: 1, link: "https://northline.ca/deck-staining/", title: { rendered: "Deck &amp; Fence Staining" }, excerpt: { rendered: "<p>We stain decks. [&hellip;]</p>\n" } },
+      { id: 2, link: "https://other.example/x/", title: { rendered: "Not ours" }, excerpt: { rendered: "" } },
+      { id: 3, link: "https://northline.ca/", title: { rendered: "" }, excerpt: { rendered: "" } },
+      { id: 4, link: "https://northline.ca/long/", title: { rendered: "Long" }, excerpt: { rendered: "<p>" + "x".repeat(5000) + "</p>" } },
+    ]);
+    const wp = structured.parseWpPages(body, { baseHost: "northline.ca" });
+    ok("REST pages: same-site, titled, tags stripped, entities decoded", wp.pages.length === 2 && wp.pages[0].title === "Deck & Fence Staining" && wp.pages[0].excerpt === "We stain decks. …", wp.pages);
+    ok("…each record under 1 KB", wp.pages.every((p) => JSON.stringify(p).length <= structured.MAX_WP_RECORD_CHARS + 100), wp.pages.map((p) => JSON.stringify(p).length));
+    ok("a non-JSON answer is an error, not a throw", structured.parseWpPages("<html>", {}).error === "not_json" && structured.parseWpPages("{}", {}).error === "not_a_list");
+    const types = structured.wpServiceTypes(JSON.stringify({ post: { slug: "post", rest_base: "posts" }, page: { slug: "page", rest_base: "pages" }, service: { slug: "service", rest_base: "services", name: "Services" }, "our-work": { slug: "our-work", rest_base: "our-work" }, "x y": { slug: "x y", rest_base: "x y" } }));
+    ok("service-like post types are found, pages and posts skipped, a bad rest_base refused", JSON.stringify(types.map((t) => t.restBase)) === JSON.stringify(["services", "our-work"]), types);
+    ok("WordPress is recognised off wp-content, wp-includes or the generator meta", structured.looksLikeWordPress(plainPage()) && !structured.looksLikeWordPress({ scripts: ["https://x.com/app.js"], links: [], metas: [] }));
+    function plainPage() {
+      return html.extractPage({ html: HOME_HTML, finalUrl: "https://northline.ca/", status: 200 });
+    }
+  }
+
+  {
+    // ── End to end: a JavaScript-shell home page whose sitemap names the
+    //    pages, on a WordPress install ─────────────────────────────────────
+    seedProspect();
+    const SHELL = `<html><head><title>Northline</title><script src="/wp-content/themes/x/app.js"></script><script src="/_next/static/chunks/main.js"></script></head><body><div id="__next"></div></body></html>`;
+    const net = makeNet({
+      "https://northline.ca/robots.txt": { status: 200, body: "User-agent: *\nAllow: /\nSitemap: https://northline.ca/sitemap_index.xml\n" },
+      "https://northline.ca/sitemap_index.xml": { status: 200, headers: { "content-type": "application/xml" }, body: `<sitemapindex><sitemap><loc>https://northline.ca/page-sitemap.xml</loc></sitemap><sitemap><loc>https://northline.ca/sitemap_index.xml</loc></sitemap></sitemapindex>` },
+      "https://northline.ca/page-sitemap.xml": { status: 200, headers: { "content-type": "application/xml" }, body: `<urlset><url><loc>https://northline.ca/</loc></url><url><loc>https://northline.ca/contact-us-2/</loc></url><url><loc>https://northline.ca/services/roofing/</loc></url><url><loc>https://northline.ca/book-online/</loc></url></urlset>` },
+      "https://northline.ca/contact-us-2/": { status: 200, headers: { "content-type": "text/html" }, body: ROTH_CONTACT },
+      "https://northline.ca/book-online/": { status: 200, headers: { "content-type": "text/html" }, body: thinPage("Book online") },
+      "https://northline.ca/wp-json/wp/v2/pages": { status: 200, headers: { "content-type": "application/json" }, body: JSON.stringify([{ id: 9, link: "https://northline.ca/services/roofing/", title: { rendered: "Roofing" }, excerpt: { rendered: "<p>Roofs.</p>" } }]) },
+      "https://northline.ca/wp-json/wp/v2/types": { status: 200, headers: { "content-type": "application/json" }, body: JSON.stringify({ services: { slug: "services", rest_base: "services" } }) },
+      "https://northline.ca/wp-json/wp/v2/services": { status: 200, headers: { "content-type": "application/json" }, body: JSON.stringify([{ id: 12, link: "https://northline.ca/service/gutter-guards/", title: { rendered: "Gutter Guards" }, excerpt: { rendered: "" } }]) },
+      "https://northline.ca/": { status: 200, headers: { "content-type": "text/html" }, body: SHELL },
+    });
+    const result = await crawlSite.crawlProspectSite({ prospectId: "p1", deps: crawlDeps(net) });
+    ok("the crawl completed", result.outcome === "crawled", result);
+    ok("the sitemap index from robots.txt was read, its page child followed, itself not re-fetched", net.requests.filter((u) => u.includes("sitemap_index.xml")).length === 1 && net.requests.includes("https://northline.ca/page-sitemap.xml"), net.requests);
+    ok("…and /sitemap.xml was not also tried, because robots named one that answered", !net.requests.includes("https://northline.ca/sitemap.xml"), net.requests);
+    ok("the contact page the shell hid was fetched through the sitemap", net.requests.includes("https://northline.ca/contact-us-2/"), net.requests);
+    ok("…and so was the booking page", net.requests.includes("https://northline.ca/book-online/"));
+    ok("no blind probe was made", !net.requests.some((u) => /\/(contact|services|about)$/.test(u)) && result.probed === false, net.requests);
+    ok("the result says how many sitemap pages, and how many were followed", result.sitemap.pages === 3 && result.sitemap.followed === 2, result.sitemap);
+    const fetches = store.evidence.filter((e) => e.type === "page_fetch").map((e) => JSON.parse(e.rawValue));
+    ok("the contact page's envelope says via: sitemap, ranked contact", fetches.some((f) => f.finalUrl === "https://northline.ca/contact-us-2/" && f.via === "sitemap" && f.navMatch === "contact"), fetches);
+    const sm = store.evidence.filter((e) => e.type === "sitemap_url");
+    ok("every same-site sitemap page is a sitemap_url row keyed on its path", sm.length === 3 && sm.every((e) => e.normalizedValue.startsWith("/")) && sm.some((e) => e.normalizedValue === "/services/roofing"), sm.map((e) => e.normalizedValue));
+    ok("…sourced to the sitemap file it came from", sm.every((e) => e.sourceUrl === "https://northline.ca/page-sitemap.xml"));
+    const sources = store.evidence.filter((e) => e.type === "structured_source").map((e) => e.normalizedValue);
+    ok("each structured file has a structured_source row, sitemap and wp-json alike — two sitemap files, three REST answers", sources.filter((v) => v.startsWith("sitemap:")).length === 2 && sources.filter((v) => v.startsWith("wp_rest:")).length === 3, sources);
+    const wpRows = store.evidence.filter((e) => e.type === "wp_page").map((e) => JSON.parse(e.rawValue));
+    ok("the WordPress pages and the services post type are wp_page rows", wpRows.length === 2 && wpRows.some((r) => r.title === "Gutter Guards" && r.type === "services") && wpRows.some((r) => r.title === "Roofing" && r.type === "page"), wpRows);
+    ok("no structured file became a page", !fetches.some((f) => /sitemap|wp-json/.test(f.finalUrl || "")), fetches.map((f) => f.finalUrl));
+    ok("the detector version on every row is 3", store.evidence.every((e) => e.detectorVersion === "3"));
+
+    // The reader side: the shell home page plus two rendered sitemap pages.
+    const rows = store.evidence.filter((e) => ["page_fetch", "page_content", "meta", "script_src", "iframe_host", "link", "form", "button", "schema_org", "dom_attr", "inline_token", "rendered_text", "heading"].includes(e.type));
+    const crawl = technology.normaliseCrawl(technology.pagesFromEvidence(rows));
+    const det = capabilityDetect.detectCapabilities({ crawl, technologies: [], prospect: { websiteUrl: "https://northline.ca/" } });
+    ok("the home page is a JavaScript shell to the detector", det.rendered === "js_shell" && det.eligibility.reason === "js_shell", det.eligibility);
+    ok("WEBSITE is true — two sitemap pages rendered", det.capabilities.find((c) => c.code === "WEBSITE").value === true && det.capabilities.find((c) => c.code === "WEBSITE").evidence[0].normalizedValue === "WEBSITE:rendered");
+    const shellOnly = capabilityDetect.detectCapabilities({ crawl: technology.normaliseCrawl(technology.pagesFromEvidence(rows.filter((e) => e.sourceUrl === "https://northline.ca/"))), technologies: [], prospect: { websiteUrl: "https://northline.ca/" } });
+    ok("…and with the shell alone WEBSITE is still true, citing the shell — a modern site is not a missing one", shellOnly.capabilities.find((c) => c.code === "WEBSITE").value === true && shellOnly.capabilities.find((c) => c.code === "WEBSITE").evidence[0].normalizedValue === "WEBSITE:js_shell", shellOnly.capabilities.find((c) => c.code === "WEBSITE"));
+    ok("…every other verdict null with the js_shell reason", shellOnly.capabilities.filter((c) => c.code !== "WEBSITE").every((c) => c.value === null && /:withheld:js_shell$/.test(c.evidence[0]?.normalizedValue || "")));
+    ok("the form on the sitemap-found contact page is still SEEN", det.capabilities.find((c) => c.code === "LEAD_CAPTURE_FORM").value === true);
+    ok("…but nothing is FALSE anywhere: a shell in the crawl refuses every absence", det.capabilities.every((c) => c.value !== false), det.capabilities.map((c) => `${c.code}=${c.value}`));
+    ok("…and each null cites the js_shell reason in a crawl_quality row", det.capabilities.filter((c) => c.value === null).every((c) => c.evidence.length === 1 && c.evidence[0].type === "crawl_quality" && /:withheld:js_shell$/.test(c.evidence[0].normalizedValue) && c.evidence[0].rawValue.startsWith(capabilityDetect.JS_SHELL_SENTENCE)));
+  }
+
+  {
+    // ── The same site, server-rendered: a sitemap page counts as navigation
+    //    followed, so absence CAN be earned through it ───────────────────────
+    seedProspect();
+    const net = makeNet({
+      "https://northline.ca/robots.txt": { status: 200, body: "User-agent: *\nAllow: /\n" },
+      "https://northline.ca/sitemap.xml": { status: 200, headers: { "content-type": "application/xml" }, body: `<urlset><url><loc>https://northline.ca/contact-us-2/</loc></url><url><loc>https://northline.ca/reviews/</loc></url></urlset>` },
+      "https://northline.ca/contact-us-2/": { status: 200, headers: { "content-type": "text/html" }, body: ROTH_CONTACT },
+      "https://northline.ca/reviews/": { status: 200, headers: { "content-type": "text/html" }, body: thinPage("Reviews") },
+      "https://northline.ca/": { status: 200, headers: { "content-type": "text/html" }, body: `<html><head><title>Northline</title></head><body><nav><a href="/">Home</a><a href="/painting">Painting</a></nav><h1>Painters</h1><p>${"Ottawa painters. ".repeat(40)}</p></body></html>` },
+    });
+    await crawlSite.crawlProspectSite({ prospectId: "p1", deps: crawlDeps(net) });
+    const rows = store.evidence.filter((e) => e.type !== "sitemap_url" && e.type !== "wp_page" && e.type !== "structured_source" && e.type !== "nav_link");
+    const det = capabilityDetect.detectCapabilities({ crawl: technology.normaliseCrawl(technology.pagesFromEvidence(rows)), technologies: [], prospect: {} });
+    ok("a menu with no priority link and a sitemap with two: navigation counts as followed", det.eligibility.navigation === "followed" && det.eligibility.deep === true, det.eligibility);
+    ok("…so ONLINE_BOOKING can be false, citing the three pages searched", det.capabilities.find((c) => c.code === "ONLINE_BOOKING").value === false && /contact-us-2/.test(det.capabilities.find((c) => c.code === "ONLINE_BOOKING").evidence[0].rawValue));
+  }
+
+  {
+    // ── A malformed JSON-LD block, and one with facts ─────────────────────
+    const schemaFacts = await import("@/lib/sales/intel/schemaFacts");
+    const bad = schemaFacts.schemaFactsOfBlock('{"@type": "LocalBusiness", "telephone": ');
+    ok("malformed JSON-LD is counted and yields nothing", bad.blocks === 1 && bad.parsed === 0 && bad.telephone.length === 0);
+    ok("…and the crawler's own type reader marks it invalid rather than throwing", evidence.schemaTypesOf('{"@type": ') === "invalid_json_ld");
+    const deep = schemaFacts.schemaFactsOfBlock(JSON.stringify({ "@type": "Plumber", telephone: "+1 716 555 0100", email: "mailto:Info@Northline.ca", openingHoursSpecification: [{}], aggregateRating: { "@type": "AggregateRating", ratingValue: 4.9 }, review: [{ "@type": "Review" }, { "@type": "Review" }], potentialAction: { "@type": "ReserveAction" }, paymentAccepted: "Cash, Credit Card", hasOfferCatalog: { "@type": "OfferCatalog", itemListElement: [{ "@type": "Offer", itemOffered: { "@type": "Service", name: "Drain Cleaning" } }, "Sump Pumps"] } }));
+    ok("a rich block yields every fact, once", deep.telephone[0] === "+1 716 555 0100" && deep.email[0] === "info@northline.ca" && deep.hours && deep.aggregateRating && deep.reviews === 2 && deep.bookingAction === "reserveaction" && deep.paymentAccepted === "Cash, Credit Card" && deep.services.map((s) => s.name).join("|") === "Drain Cleaning|Sump Pumps", deep);
+    const nested = JSON.stringify({ a: { b: { c: { d: { e: { f: { g: { h: { i: { j: { k: { "@type": "Service", name: "too deep" } } } } } } } } } } } });
+    ok("nesting past the walk depth is not read", schemaFacts.schemaFactsOfBlock(nested).services.length === 0);
+    const wide = JSON.stringify({ "@graph": Array.from({ length: 5000 }, (_, i) => ({ "@type": "Service", name: `S${i}` })) });
+    ok("a five-thousand-node graph is bounded", schemaFacts.schemaFactsOfBlock(wide).services.length <= 40);
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
   section("11. Source rules — each scoped to ONE brace-matched function");
 
   {
@@ -1664,6 +1833,10 @@ async function main() {
       ok("…ranks the navigation on path AND text", /rankNavigation\(/.test(fn));
       ok("…probes ONLY when the ranking is empty", /queue\.length === 0/.test(fn) && !/queue\.length < 2/.test(fn));
       ok("…records the service menu without a fetch", /serviceMenu\(/.test(fn));
+      ok("…asks for the sitemap after the home page and before ranking", fn.indexOf("fetchOne(crawlUrl.toString())") < fn.indexOf("sitemapUrlsToTry(") && fn.indexOf("sitemapUrlsToTry(") < fn.indexOf("rankNavigation("));
+      ok("…ranks the sitemap's URLs as via: sitemap", /via: "sitemap"/.test(fn));
+      ok("…reads the WordPress index only when the page says WordPress", /looksLikeWordPress\(homePage\)/.test(fn));
+      ok("…and hands the structured sources to the writer", /crawlEvidence\(pages, structured\)/.test(src));
       ok("…and never writes robotsAllowed on an unknown outcome", !/act === "unknown"[\s\S]{0,200}recordRobots/.test(fn));
     }
 
@@ -1679,6 +1852,8 @@ async function main() {
     const fn = functionSource(src, "absenceEligibility");
     if (ok("absenceEligibility() was found", fn !== null)) {
       ok("…reads the crawler's via stamp", /via === "probe"/.test(fn) && /via === "nav"/.test(fn));
+      ok("…counts a sitemap-reached page as navigation followed", /via === "sitemap"/.test(fn));
+      ok("…and refuses every absence on a JavaScript shell, before the rendered count is read", /deny\("js_shell"\)/.test(fn) && fn.indexOf('deny("js_shell")') < fn.indexOf('deny("no_page_rendered")'));
       ok("…vetoes deep absence on a probed crawl", /navigation !== "probed"/.test(fn));
       ok("…and asks whether a contact-like page rendered", /contactPage/.test(fn));
     }
@@ -1756,6 +1931,8 @@ async function main() {
       "lib/sales/crawl/policy.js",
       "lib/sales/crawl/fingerprint.js",
       "lib/sales/crawl/evidence.js",
+      "lib/sales/crawl/sitemap.js",
+      "lib/sales/crawl/structured.js",
     ]) {
       const src = read(file);
       ok(`${file} contains no fetch( of its own`, !/[^a-zA-Z.]fetch\(/.test(src), file);

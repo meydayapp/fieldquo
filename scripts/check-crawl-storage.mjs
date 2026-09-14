@@ -346,8 +346,8 @@ async function main() {
     ok("…and it is applied, not merely declared", /MAX_ROWS_PER_CRAWL\)/.test(writer));
     ok("…and links are ranked before it bites", /RANKED\s*=\s*\{\s*link:\s*linkRank/.test(writer));
     ok(
-      "the two types a dedupe must not touch are named",
-      /NEVER_DEDUPED\s*=\s*new Set\(\["page_fetch",\s*"page_content"\]\)/.test(writer),
+      "the per-page types a dedupe must not touch are named — the envelope, the text, and (v3) the recovered text and the structured-source record",
+      /NEVER_DEDUPED\s*=\s*new Set\(\["page_fetch",\s*"page_content",\s*"rendered_text",\s*"structured_source"\]\)/.test(writer),
     );
 
     const reader = decomment(read("lib/sales/intel/capabilityDetect.js"));
