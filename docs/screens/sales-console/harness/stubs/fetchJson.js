@@ -122,7 +122,7 @@ export async function fetchJson(url, options = {}) {
       timeZones: [{ value: "America/Chicago", label: "Central Time (Chicago)" }, { value: "America/New_York", label: "Eastern Time (New York)" }],
       sms: {
         canSend: true, blockers: [], warnings: [], to: "+14055550100", from: "+17165550616", timeZone: "America/Chicago", timeZoneSource: "derived",
-        body: "Daniel here, from FieldQuo — here's the link we talked about: https://www.fieldquo.com/signup?sales=danielroy FieldQuo, 1 Front St W, Toronto ON M5J 2X5. Reply STOP to opt out.",
+        body: "Hi Dave, this is Daniel — here is the link to sign up that we talked about: https://www.fieldquo.com/signup?sales=danielroy You can reply to this text if you have any questions.",
       },
     };
   }

@@ -24,11 +24,26 @@
 //
 // The server re-checks all of it after this screen has rendered — see
 // lib/sales/salesSms.js. This agreeing with it is courtesy, not security.
+//
+// ══ "Text a different number" (2026-09-14) ═════════════════════════════════
+//
+// The text goes to the number in the dialler — the business line — and the
+// owner of the company is often on a different mobile. So the panel takes
+// one: typed here, SAVED on the lead first through the same route the
+// dialler's "they gave us another number" uses (POST /api/sales/calls/numbers
+// with the leadId — the server normalises it, refuses a do-not-contact
+// record, and folds a duplicate into the row it already has), labelled
+// "mobile (owner)", kind mobile, canText. Then it is the chosen
+// contactNumberId, so the preview, the "Goes to" line and the send are all
+// computed for THAT number — the SMS route's textTargetFor() re-reads the
+// row by id and salesSmsStatus() judges suppression and the window against
+// it, never against the lead's primary. Next time it is in the picker like
+// any other row. Nothing new is stored anywhere: it is a SalesContactNumber.
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, Check, Loader2, MessageSquare } from "lucide-react";
+import { AlertTriangle, Check, Loader2, MessageSquare, Phone } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { jsonBody } from "@/lib/jsonBody";
 import { useTranslation } from "@/app/hooks/useTranslation";
@@ -59,6 +74,12 @@ export default function SignupLinkSms({ leadId, inThread = false, onSent = null 
   // send route re-reads it against this lead. "" means the one the server puts
   // first, so the default is decided in one place rather than copied here.
   const [numberId, setNumberId] = useState("");
+  // "Text a different number": the form's open state, what is typed, and
+  // the number just saved (for the one-line confirmation).
+  const [otherOpen, setOtherOpen] = useState(false);
+  const [otherTyped, setOtherTyped] = useState("");
+  const [otherBusy, setOtherBusy] = useState(false);
+  const [otherSaved, setOtherSaved] = useState("");
 
   const load = useCallback(async () => {
     setError("");
@@ -121,6 +142,42 @@ export default function SignupLinkSms({ leadId, inThread = false, onSent = null 
       await load();
     } finally {
       setBusy(false);
+    }
+  }
+
+  /**
+   * Save the typed number on the lead, then text that one. The server owns
+   * the normalisation (the same function the suppression list keys on) and
+   * every refusal; this only forwards what was typed and picks the row that
+   * came back for it.
+   */
+  async function useOtherNumber(event) {
+    event.preventDefault();
+    const raw = otherTyped.trim();
+    if (!raw) return;
+    setOtherBusy(true);
+    setError("");
+    try {
+      const body = await fetchJson("/api/sales/calls/numbers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leadId, e164: raw, kind: "mobile", label: "mobile (owner)", canText: true }),
+      });
+      // The row for what was typed, matched on digits: the server stored it
+      // in E.164 and the rep typed it however they did.
+      const digits = raw.replace(/\D/g, "").replace(/^1(?=\d{10}$)/, "");
+      const saved = (body?.numbers || []).find((n) => String(n.e164 || "").replace(/\D/g, "").endsWith(digits)) || null;
+      if (!saved?.id) throw new Error(t("app.salesLeads.smsRefusedOther"));
+      setOtherSaved(saved.e164);
+      setOtherOpen(false);
+      setOtherTyped("");
+      // Reloads through the effect on numberId — the preview, the blockers
+      // and "Goes to" are recomputed for this number by the server.
+      setNumberId(saved.id);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setOtherBusy(false);
     }
   }
 
@@ -229,6 +286,64 @@ export default function SignupLinkSms({ leadId, inThread = false, onSent = null 
             ))}
           </select>
         </label>
+      )}
+      {/* ── Text a different number ─────────────────────────────────────
+          See the header. Offered whenever the lead is not do-not-contact —
+          the numbers route refuses that case with the reason, so the form
+          would only ever produce an error there. */}
+      {otherSaved ? (
+        <p className="text-xs text-emerald-800 dark:text-emerald-300 break-words" data-sms-other-saved>
+          {t("app.salesLeads.smsOtherNumberSaved", { number: otherSaved })}
+        </p>
+      ) : null}
+      {!otherOpen ? (
+        <button
+          type="button"
+          className="inline-flex items-center gap-1.5 min-h-[44px] text-sm font-medium text-foreground underline"
+          onClick={() => setOtherOpen(true)}
+          aria-expanded={false}
+          data-sms-other-number
+        >
+          <Phone size={14} aria-hidden="true" /> {t("app.salesLeads.smsOtherNumber")}
+        </button>
+      ) : (
+        <form onSubmit={useOtherNumber} className="space-y-2 rounded-md border border-border bg-muted/40 p-3" data-sms-other-number-form>
+          <label className="block text-xs text-muted-foreground">
+            {t("app.salesLeads.smsOtherNumberLabel")}
+            <input
+              type="tel"
+              inputMode="tel"
+              autoComplete="off"
+              value={otherTyped}
+              onChange={(e) => setOtherTyped(e.target.value)}
+              className="mt-1 block w-full min-h-[44px] rounded-md border border-border bg-background px-3 py-2 text-base text-foreground"
+              placeholder="+1 613 555 0199"
+              required
+            />
+          </label>
+          <p className="text-xs text-muted-foreground break-words">{t("app.salesLeads.smsOtherNumberHint")}</p>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="submit"
+              disabled={otherBusy || !otherTyped.trim()}
+              className="min-h-[44px] text-sm font-semibold px-3 py-2 rounded-lg bg-inverted text-inverted-foreground flex items-center gap-1.5 disabled:opacity-60"
+              data-sms-other-number-use
+            >
+              {otherBusy ? <Loader2 size={15} className="animate-spin" /> : <Phone size={15} />}
+              {t("app.salesLeads.smsOtherNumberUse")}
+            </button>
+            <button
+              type="button"
+              className="min-h-[44px] text-sm font-medium px-3 py-2 rounded-lg border border-border text-foreground"
+              onClick={() => {
+                setOtherOpen(false);
+                setOtherTyped("");
+              }}
+            >
+              {t("app.common.cancel")}
+            </button>
+          </div>
+        </form>
       )}
       {(contact.refused || []).map((r, i) => (
         <div

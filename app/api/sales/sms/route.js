@@ -50,6 +50,9 @@ import { markAgreedOnCall } from "@/lib/sales/agreedOnCall";
 const LEAD_SELECT = {
   id: true,
   businessName: true,
+  // Who the text greets — signupGreeting(): the first name when a rep
+  // recorded one, else the business name.
+  contactName: true,
   email: true,
   phone: true,
   timeZone: true,
@@ -178,6 +181,7 @@ export async function GET(request) {
       rep,
       lead: chosen.ok ? { ...lead, phone: chosen.e164 } : lead,
       origin: getAppOrigin(request),
+      purpose: "signup_link",
     }),
     // The picker, and what was refused with the reason. A rep who was given a
     // number and cannot see it in the list will phone it off their own handset

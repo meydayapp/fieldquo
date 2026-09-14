@@ -303,9 +303,16 @@ delete process.env.TWILIO_API_KEY_SECRET;
 delete process.env.TWILIO_PHONE_NUMBER;
 
 const { sendSms } = await import("@/lib/sms/twilioClient");
-const { salesSmsReadiness, signupLinkSmsBody, isNorthAmerican, smsSegments } = await import(
-  "@/lib/sales/salesSmsRules"
-);
+const {
+  salesSmsReadiness,
+  signupLinkSmsBody,
+  signupGreeting,
+  replySmsBody,
+  SIGNUP_LINK_CLOSING_REPLY,
+  SIGNUP_LINK_CLOSING_REPLY_OR_CALL,
+  isNorthAmerican,
+  smsSegments,
+} = await import("@/lib/sales/salesSmsRules");
 const { SALES_SMS_WINDOW, withinSalesSmsHours, isSalesSmsTimeZone, SALES_SMS_TIME_ZONES } =
   await import("@/lib/sales/smsWindow");
 const { SALES_CALL_WINDOW } = await import("@/lib/sales/callingWindow");
@@ -589,6 +596,10 @@ const READY = {
   leadTimeZone: "America/Toronto",
   suppression: { suppressed: false, reason: null },
   now: MIDDAY,
+  // The signup-link text: solicited, no address in it. Every other text is
+  // purpose "reply" (the default) and keeps the address rule — asserted below.
+  purpose: "signup_link",
+  greetTo: "Dave",
 };
 
 /**
@@ -613,12 +624,83 @@ const codes = (r) => r.blockers.map((b) => b.code);
 {
   const good = readiness(READY);
   ok("a complete, allowed send can go", good.canSend === true, codes(good));
-  ok("…and the message names the sender", good.body.includes("Daniel"), good.body);
+  ok("…and the message names the sender", good.body.includes("this is Daniel"), good.body);
   ok("…carries the signup link", good.body.includes(READY.signupLink), good.body);
-  ok("…carries FieldQuo's mailing address", good.body.includes(ADDRESS), good.body);
-  ok("…and offers a working unsubscribe", /Reply STOP to opt out/.test(good.body), good.body);
+  // ── 2026-09-14: the owner's wording, no address, no STOP line ──────────
+  // A one-to-one text a rep sends by hand at the prospect's request during
+  // the call — solicited, so CASL GIC reg. s.3(b) exempts it from s.6.
+  // salesSmsRules.js's header carries the reasoning; this pins the body.
+  ok(
+    "the signup text is exactly the owner's sentence",
+    good.body === `Hi Dave, this is Daniel — here is the link to sign up that we talked about: ${READY.signupLink} ${SIGNUP_LINK_CLOSING_REPLY}`,
+    good.body,
+  );
+  ok("…with NO mailing address in it", !good.body.includes(ADDRESS), good.body);
+  ok("…and NO STOP line", !/STOP/.test(good.body), good.body);
   ok("…normalised to E.164", good.to === "+16135550142", good.to);
   ok("…and stays inside a couple of segments", smsSegments(good.body) <= 3, smsSegments(good.body));
+
+  // The greeting: first name, else the business, else nobody.
+  ok("greeting: the contact's first name", signupGreeting({ contactName: "Dave Hensley", businessName: "South County Electric" }) === "Dave");
+  ok("…a one-word name stays whole", signupGreeting({ contactName: "  Priya " }) === "Priya");
+  ok("…no contact → the business name", signupGreeting({ contactName: "", businessName: "Ring A Ling Upholstery" }) === "Ring A Ling Upholstery");
+  ok("…neither → nobody, and the body opens \"Hi,\"", signupGreeting({}) === "" && signupLinkSmsBody({ repName: "Daniel", signupLink: "L", greetTo: signupGreeting({}) }).startsWith("Hi, this is Daniel —"));
+  ok("…and a business greeting reads \"Hi Ring A Ling Upholstery,\"", signupLinkSmsBody({ repName: "Daniel", signupLink: "L", greetTo: "Ring A Ling Upholstery" }).startsWith("Hi Ring A Ling Upholstery, this is Daniel —"));
+
+  // The closing sentence is chosen at send time by whether a call back
+  // reaches a person (FIELDQUO_SALES_TRANSFER_TO). Both branches.
+  ok("closing, callback unreachable: reply only", signupLinkSmsBody({ repName: "D", signupLink: "L" }).endsWith(` L ${SIGNUP_LINK_CLOSING_REPLY}`));
+  ok("closing, callback reachable: reply or call", signupLinkSmsBody({ repName: "D", signupLink: "L", callbackReachable: true }).endsWith(` L ${SIGNUP_LINK_CLOSING_REPLY_OR_CALL}`));
+  ok("…and only a literal true picks the call sentence", !signupLinkSmsBody({ repName: "D", signupLink: "L", callbackReachable: "yes" }).includes("call this number"));
+  ok("the two sentences say what they say", SIGNUP_LINK_CLOSING_REPLY === "You can reply to this text if you have any questions." && SIGNUP_LINK_CLOSING_REPLY_OR_CALL === "You can reply to this text or call this number if you have any questions.");
+  {
+    const { salesCallbackReachable } = await import("@/lib/sales/salesSms");
+    ok("salesCallbackReachable: unset → false", salesCallbackReachable({}) === false);
+    ok("…a +E.164 → true", salesCallbackReachable({ FIELDQUO_SALES_TRANSFER_TO: "+16135550199" }) === true);
+    ok("…a formatted NANP number normalises → true", salesCallbackReachable({ FIELDQUO_SALES_TRANSFER_TO: "(613) 555-0199" }) === true);
+    ok("…anything that would not dial → false", salesCallbackReachable({ FIELDQUO_SALES_TRANSFER_TO: "sales@fieldquo.com" }) === false && salesCallbackReachable({ FIELDQUO_SALES_TRANSFER_TO: "+44 20 7946 0000" }) === false);
+    const status = functionSource(read("lib/sales/salesSms.js"), "salesSmsStatus");
+    ok("salesSmsStatus passes the reachability, the greeting and the purpose through", Boolean(status) && /callbackReachable: salesCallbackReachable\(\)/.test(status) && /greetTo: signupGreeting\(/.test(status) && /purpose,/.test(status));
+    const deliver = functionSource(read("lib/sales/salesSms.js"), "deliverSignupLinkSms");
+    ok("deliverSignupLinkSms asks readiness as the signup link", Boolean(deliver) && /purpose: "signup_link"/.test(deliver));
+    const reply = functionSource(read("lib/sales/salesSms.js"), "deliverReplySms");
+    ok("…and deliverReplySms does NOT — a reply keeps the address rule", Boolean(reply) && !/signup_link/.test(reply));
+    const route = read("app/api/sales/sms/route.js");
+    ok("the sms route's GET previews as the signup link and selects contactName for the greeting", /purpose: "signup_link"/.test(route) && /contactName: true/.test(route));
+    ok("the messages and check-in readiness reads stay purpose reply", !/signup_link/.test(read("app/api/sales/messages/route.js")) && !/signup_link/.test(read("app/api/sales/checkins/route.js")));
+  }
+
+  // ── "Text a different number" (2026-09-14) ─────────────────────────────
+  // The owner is often on a mobile that is not the business line. The panel
+  // saves the typed number on the lead through the dialler's own numbers
+  // route — no new column, a SalesContactNumber labelled "mobile (owner)" —
+  // and then texts THAT row by id, so every check runs against it.
+  {
+    const panel = read("app/sales/leads/SignupLinkSms.js");
+    ok("the panel offers \"Text a different number\"", /app\.salesLeads\.smsOtherNumber"/.test(panel) && /data-sms-other-number-form/.test(panel));
+    ok("…saved through POST /api/sales/calls/numbers by leadId, as a mobile labelled \"mobile (owner)\", textable", /fetchJson\("\/api\/sales\/calls\/numbers", \{\s*method: "POST"[\s\S]{0,200}?leadId, e164: raw, kind: "mobile", label: "mobile \(owner\)", canText: true/.test(panel));
+    ok("…and the saved row becomes the chosen contactNumberId, which re-reads the preview", /setNumberId\(saved\.id\)/.test(panel) && /contactNumberId=\$\{encodeURIComponent\(numberId\)\}/.test(panel));
+    const numbersRoute = read("app/api/sales/calls/numbers/route.js");
+    ok("the numbers route resolves a leadId to the rep's OWN lead", /if \(leadId\) \{[\s\S]{0,300}?where: \{ id: leadId, salesRepId: repId \}/.test(numbersRoute));
+    ok("…normalises through the suppression list's own function and refuses a do-not-contact record", /const e164 = normalisePhone\(body\.e164/.test(numbersRoute) && /if \(owner\.doNotContactAt\)/.test(numbersRoute));
+    const smsRoute = read("app/api/sales/sms/route.js");
+    ok("the SMS route judges the CHOSEN number — readiness and the send both see it as the lead's phone", (smsRoute.match(/lead: chosen\.ok \? \{ \.\.\.lead, phone: chosen\.e164 \} : lead/g) || []).length >= 1 && /lead: \{ \.\.\.lead, phone: chosen\.e164 \}/.test(smsRoute));
+    ok("…and the chosen row is re-read by id against this lead, never trusted from the body", /contactNumberId,\s*channel: CHANNEL_TEXT/.test(smsRoute) && /typeof body\.contactNumberId === "string" \? body\.contactNumberId\.trim\(\) : ""/.test(smsRoute));
+    // The readiness itself, executed: the chosen number is what is judged.
+    const other = readiness({ ...READY, leadPhone: "+16135550199" });
+    ok("readiness on a different number normalises and addresses THAT number", other.to === "+16135550199", other.to);
+    const overseas = readiness({ ...READY, leadPhone: "+44 20 7946 0000" });
+    ok("…and a non-NANP mobile is refused the same as a non-NANP business line", overseas.canSend === false, codes(overseas));
+    const stopped = readiness({ ...READY, leadPhone: "+16135550199", suppression: { suppressed: true, reason: "opted out by text" } });
+    ok("…and a suppression on the mobile blocks it", codes(stopped).includes("suppressed"), codes(stopped));
+  }
+
+  // The unsolicited texts keep both. A check-in, a follow-up, a recovery
+  // text all go through replySmsBody, and none of them was asked for.
+  const unsolicited = replySmsBody({ text: "Hi Dave, did the setup go through?", mailingAddress: ADDRESS });
+  ok("an unsolicited text still carries FieldQuo's mailing address", unsolicited.includes(ADDRESS), unsolicited);
+  ok("…and still offers STOP", /Reply STOP to opt out\./.test(unsolicited), unsolicited);
+  ok("…and refuses to compose without the address", (() => { try { replySmsBody({ text: "x", mailingAddress: " " }); return false; } catch { return true; } })());
 
   // A blocked send never builds a message. A half-built body is how a text goes
   // out with a hole where the mailing address should be.
@@ -636,19 +718,19 @@ const codes = (r) => r.blockers.map((b) => b.code);
 }
 
 {
-  const r = readiness({ ...READY, mailingAddress: "" });
-  ok("a missing mailing address blocks the send", codes(r).includes("mailing_address_unset"), codes(r));
+  // The address blocker: still there for every text that carries an address
+  // (purpose "reply", the default), gone for the signup link, which does not.
+  const r = readiness({ ...READY, purpose: "reply", mailingAddress: "" });
+  ok("a missing mailing address blocks an unsolicited text", codes(r).includes("mailing_address_unset"), codes(r));
   ok(
     "…and it is CASL that is cited",
     /CASL/.test(r.blockers.find((b) => b.code === "mailing_address_unset")?.fix || ""),
   );
-  let threw = false;
-  try {
-    signupLinkSmsBody({ repName: "Daniel", signupLink: "https://x/y", mailingAddress: "  " });
-  } catch {
-    threw = true;
-  }
-  ok("…and the body builder refuses to compose one without it", threw);
+  const dflt = readiness({ ...READY, purpose: undefined, mailingAddress: "" });
+  ok("…and the DEFAULT purpose is the blocked side", codes(dflt).includes("mailing_address_unset"), codes(dflt));
+  const signup = readiness({ ...READY, mailingAddress: "" });
+  ok("the signup link goes without an address — it carries none", signup.canSend === true && !codes(signup).includes("mailing_address_unset"), codes(signup));
+  ok("…and the signup body builder needs only a sender and a link", signupLinkSmsBody({ repName: "Daniel", signupLink: "https://x/y" }).includes("https://x/y"));
 }
 
 {
@@ -705,6 +787,7 @@ const codes = (r) => r.blockers.map((b) => b.code);
   // things rather than one per attempt.
   const r = readiness({
     ...READY,
+    purpose: "reply",
     fromNumber: null,
     mailingAddress: "",
     leadPhone: "nonsense",
@@ -955,12 +1038,11 @@ section("9. The send is ordered, gated, and scoped");
   // The unsubscribe promise has a listener behind it. A "Reply STOP" line with
   // nothing handling STOP is the bug this repo's own SMS webhook was written to
   // close, and shipping a second one would be worse than the first.
-  const body = signupLinkSmsBody({
-    repName: "Daniel",
-    signupLink: "https://fieldquo.com/signup?sales=DANIEL",
-    mailingAddress: ADDRESS,
-  });
-  ok("the message promises STOP", /STOP/.test(body), body);
+  // Since 2026-09-14 the signup text itself carries no STOP line (solicited
+  // — see salesSmsRules.js); the unsolicited texts do, and the listener
+  // behind the word is what this block is really about.
+  const body = replySmsBody({ text: "Did the setup go through?", mailingAddress: ADDRESS });
+  ok("an unsolicited text promises STOP", /STOP/.test(body), body);
 
   const webhook = functionSource(read("app/api/sms/inbound/route.js"), "POST");
   ok("app/api/sms/inbound exports POST", webhook !== null);
