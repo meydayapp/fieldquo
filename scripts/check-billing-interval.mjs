@@ -36,6 +36,7 @@ import {
   resolveCheckoutInterval,
   DEFAULT_INTERVAL,
 } from "@/lib/billing/interval";
+import { subscriptionFieldsFromStripe } from "@/lib/billing/subscriptionFields";
 
 let pass = 0;
 const fails = [];
@@ -91,16 +92,21 @@ const schema = readFileSync("prisma/schema.prisma", "utf8");
 const sub = schema.slice(schema.indexOf("model Subscription {"));
 ok("Subscription carries the cadence", /billingInterval String @default\("month"\)/.test(sub.slice(0, sub.indexOf("\n}"))));
 
+// ac5534cb moved the Stripe-object → columns mapping (the cadence included)
+// into one shared function, so the webhook and the reconcile route no longer
+// name intervalFromStripeSubscription themselves. The pins now hold what
+// matters: both callers go through that function, and the function itself
+// writes the cadence from the live price and stays silent when Stripe does.
 const stripeBilling = readFileSync("lib/platform/stripeBilling.js", "utf8");
 const reconcile = readFileSync("app/api/settings/subscription/reconcile/route.js", "utf8");
-ok("the webhook writes it from the live price", /intervalFromStripeSubscription\(obj\)/.test(stripeBilling));
-ok("the reconcile route writes it too", /intervalFromStripeSubscription\(live\)/.test(reconcile));
-// Both spread CONDITIONALLY. An unconditional write is the regression that
-// would put "month" over a real commitment.
-ok("the webhook leaves it alone when Stripe doesn't say",
-  /\.\.\.\(intervalFromStripeSubscription\(obj\)\s*\n?\s*\?\s*\{ billingInterval/.test(stripeBilling));
-ok("...and so does reconcile",
-  /\.\.\.\(intervalFromStripeSubscription\(live\)\s*\n?\s*\?\s*\{ billingInterval/.test(reconcile));
+ok("the webhook writes it from the live price", /data: subscriptionFieldsFromStripe\(obj\)/.test(stripeBilling));
+ok("the reconcile route writes it too", /subscriptionFieldsFromStripe\(live/.test(reconcile));
+// Executed, not grepped: a year price → "year"; no price interval → the key is
+// absent, so an update cannot put "month" over a real commitment.
+const yearly = subscriptionFieldsFromStripe({ id: "sub_y", status: "active", items: { data: [{ price: { recurring: { interval: "year" } } }] } });
+const silent = subscriptionFieldsFromStripe({ id: "sub_s", status: "active", items: { data: [{ price: {} }] } });
+ok("the webhook leaves it alone when Stripe doesn't say", yearly.billingInterval === "year" && !("billingInterval" in silent), { yearly: yearly.billingInterval, silent: silent.billingInterval });
+ok("...and so does reconcile", !("billingInterval" in subscriptionFieldsFromStripe({ id: "sub_n", status: "active" })));
 // checkout.session.completed lands before the subscription event; the metadata
 // we set is the earliest honest answer.
 ok("the checkout upsert reads the metadata we set",
