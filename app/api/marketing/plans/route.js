@@ -3,7 +3,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { partitionPlans, withheldReasons } from "@/lib/platform/sellablePlans";
+import { partitionPlans, withheldReasons, isRetired } from "@/lib/platform/sellablePlans";
 import { recordError } from "@/lib/platform/errorLog";
 
 // Public — the signup page needs to show plans without a session. This is
@@ -67,6 +67,9 @@ export async function GET(request) {
       // then remembering to strip it again was a leak waiting for the day
       // somebody edits the spread below.
       isPublic: true,
+      // Same rule, same reason: a retired plan read without this column would
+      // read as not retired and sell by link again. Stripped below.
+      retiredAt: true,
     },
   });
 
@@ -105,7 +108,9 @@ export async function GET(request) {
               `${r.name}: ${
                 r.reason === "private"
                   ? "marked private"
-                  : "no usable monthly price"
+                  : r.reason === "retired"
+                    ? "retired"
+                    : "no usable monthly price"
               }`,
           )
           .join("; "),
@@ -113,22 +118,41 @@ export async function GET(request) {
     }).catch(() => {});
   }
 
-  const unlisted = wantedPlanId
-    ? withheld.find(
-        (p) => p.id === wantedPlanId && p.isPublic === false && Number(p.priceMonthly) > 0,
-      )
-    : null;
+  // ── …unless it has been retired ──────────────────────────────────────────
+  //
+  // The link hand-off is for a plan that is private, not for one that is
+  // gone. The owner's "Live test — $1" was private, and private alone left
+  // it buyable at $1 by anyone holding the link. A retired plan is refused
+  // here by the same predicate every sell route uses (isRetired), and the
+  // refusal is SAID — `refused` below — so the signup page can tell the
+  // visitor the plan they were sent is no longer offered and show them the
+  // current ones, rather than silently landing them on a step with nothing
+  // selected.
+  const wanted = wantedPlanId ? plans.find((p) => p.id === wantedPlanId) || null : null;
+  const refused = wanted && isRetired(wanted) ? { planId: wanted.id, reason: "retired" } : null;
+  const unlisted =
+    wantedPlanId && !refused
+      ? withheld.find(
+          (p) => p.id === wantedPlanId && p.isPublic === false && Number(p.priceMonthly) > 0,
+        )
+      : null;
+
+  // isPublic and retiredAt dropped — both are internal decisions, not plan
+  // attributes a visitor has any use for. (stripePriceId is no longer
+  // selected at all.)
+  const publicShape = ({ isPublic, retiredAt, ...plan }) => plan;
 
   return NextResponse.json({
-    // isPublic dropped — it is an internal decision, not a plan attribute a
-    // visitor has any use for. (stripePriceId is no longer selected at all.)
     plans: [
-      ...sellable.map(({ isPublic, ...plan }) => plan),
-      ...(unlisted ? [{ ...(({ isPublic, ...rest }) => rest)(unlisted), unlisted: true }] : []),
+      ...sellable.map(publicShape),
+      ...(unlisted ? [{ ...publicShape(unlisted), unlisted: true }] : []),
     ],
     // The signup page needs to tell "we have no plans configured" apart from
     // "these plans exist but none can be bought right now". They look
     // identical as an empty array and mean completely different things.
     unavailable: allWithheld,
+    // Why the plan the link asked for is not in the list, when it is not.
+    // Null on every request without ?plan=, and on one whose plan is fine.
+    refused,
   });
 }

@@ -81,7 +81,12 @@ export async function GET(request) {
       // a billing page that cannot name the plan you are paying for is broken in
       // a more obvious way than one showing a row it should not sell.
       OR: [
-        { isPublic: true, ...(currency ? { currency } : {}) },
+        // retiredAt: null in the WHERE, not filtered afterwards: a retired
+        // plan is off the menu whatever its isPublic says, and a public plan
+        // can be retired. Their own plan stays in the second branch even when
+        // retired — it is what they are paying for, and the card has to name
+        // it; the checkout route is what refuses switching TO one.
+        { isPublic: true, retiredAt: null, ...(currency ? { currency } : {}) },
         ...(subscription?.planId ? [{ id: subscription.planId }] : []),
       ],
     },

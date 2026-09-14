@@ -28,6 +28,8 @@ import {
   CreditCard,
   Sparkles,
   Percent,
+  Archive,
+  ArchiveRestore,
 } from "lucide-react";
 import { count } from "@/app/components/platform/MetricCard";
 import { fetchJson } from "@/lib/fetchJson";
@@ -36,7 +38,7 @@ import { fetchJson } from "@/lib/fetchJson";
 import { planMoney } from "@/lib/pricing/ladder";
 // The card says what THIS says, and nothing else, about whether a plan can be
 // bought. See the note on PlanCard's status line.
-import { planStatus } from "@/lib/platform/sellablePlans";
+import { planStatus, isRetired } from "@/lib/platform/sellablePlans";
 import ProcessingRatesCard from "./ProcessingRatesCard";
 import PlatformWriteGate, {
   usePlatformAdmin,
@@ -92,8 +94,13 @@ export default function PlatformPlansPage() {
   // plan:manage — held by admin and superadmin, refused for support. This
   // screen drew the whole editor for a support agent and let the API say no
   // after they had typed a price in.
-  const { status: roleStatus, error: roleError, can } = usePlatformAdmin();
+  const { status: roleStatus, error: roleError, can, isSuperadmin } = usePlatformAdmin();
   const canManage = can("plan:manage");
+  // Retire / un-retire is superadmin-only — the route says so with an inline
+  // role check, and the flag here is read off the same role. plan:manage
+  // (admin) edits prices; withdrawing a plan from sale, or putting a
+  // withdrawn one back, is the owner's call.
+  const canRetire = isSuperadmin;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -199,6 +206,29 @@ export default function PlatformPlansPage() {
         },
       );
       setDraft(null);
+      await load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function setRetired(plan, retired) {
+    const question = retired
+      ? `Retire "${plan.name}"? It stays for the companies already on it and ` +
+        "can't be bought or switched to by anybody — not from the pricing page, " +
+        "not from a signup link. You can un-retire it later."
+      : `Put "${plan.name}" back on sale? Links carrying its id will work again.`;
+    if (!confirm(question)) return;
+    setBusy(true);
+    setError("");
+    try {
+      await fetchJson(`/api/platform/billing/plans/${plan.id}/retire`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ retired }),
+      });
       await load();
     } catch (err) {
       setError(err.message);
@@ -554,9 +584,11 @@ export default function PlatformPlansPage() {
             usage={usage}
             usageKnown={!usageError}
             canManage={canManage}
+            canRetire={canRetire}
             busy={busy}
             onEdit={edit}
             onRemove={remove}
+            onRetire={setRetired}
             empty={
               <>
                 Nothing seeded yet. Run{" "}
@@ -574,9 +606,11 @@ export default function PlatformPlansPage() {
             usage={usage}
             usageKnown={!usageError}
             canManage={canManage}
+            canRetire={canRetire}
             busy={busy}
             onEdit={edit}
             onRemove={remove}
+            onRetire={setRetired}
             empty="None."
           />
         </div>
@@ -585,7 +619,7 @@ export default function PlatformPlansPage() {
   );
 }
 
-function Group({ title, note, plans, usage, usageKnown, canManage, busy, onEdit, onRemove, empty }) {
+function Group({ title, note, plans, usage, usageKnown, canManage, canRetire, busy, onEdit, onRemove, onRetire, empty }) {
   return (
     <section>
       <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">
@@ -603,9 +637,11 @@ function Group({ title, note, plans, usage, usageKnown, canManage, busy, onEdit,
               subscribers={usage[p.name] || 0}
               usageKnown={usageKnown}
               canManage={canManage}
+              canRetire={canRetire}
               busy={busy}
               onEdit={() => onEdit(p)}
               onRemove={() => onRemove(p)}
+              onRetire={(retired) => onRetire(p, retired)}
             />
           ))}
         </div>
@@ -614,13 +650,24 @@ function Group({ title, note, plans, usage, usageKnown, canManage, busy, onEdit,
   );
 }
 
-function PlanCard({ plan: p, subscribers, usageKnown, canManage, busy, onEdit, onRemove }) {
+function PlanCard({ plan: p, subscribers, usageKnown, canManage, canRetire, busy, onEdit, onRemove, onRetire }) {
   const status = planStatus(p);
+  // The badge is derived from the same predicate the sell paths refuse on,
+  // not from a second reading of the column.
+  const retired = isRetired(p);
   return (
-    <div className="bg-card border border-border rounded-xl p-5 flex flex-col">
+    <div className={`bg-card border border-border rounded-xl p-5 flex flex-col${retired ? " opacity-75" : ""}`}>
       <div className="flex items-start justify-between gap-2">
         <h3 className="font-semibold text-foreground">{p.name}</h3>
         <div className="flex items-center gap-1.5 shrink-0">
+          {retired && (
+            <span
+              className="text-[10px] uppercase tracking-wide text-red-700 dark:text-red-300 border border-red-200 dark:border-red-900 rounded px-1.5 py-0.5"
+              title="Kept for the companies on it; cannot be bought or switched to, listed or by link"
+            >
+              Retired
+            </span>
+          )}
           {!p.isPublic && (
             <span
               className="text-[10px] uppercase tracking-wide text-muted-foreground border border-border rounded px-1.5 py-0.5"
@@ -708,6 +755,22 @@ function PlanCard({ plan: p, subscribers, usageKnown, canManage, busy, onEdit, o
         >
           Edit
         </button>
+        {/* Retire / un-retire: superadmin only, and absent (not disabled)
+            for everyone else — the route 403s an admin, and a greyed button
+            with no explanation is the dead-control shape this repo keeps
+            removing. Delete stays: it is the right answer for a plan nobody
+            is on, and retire is the answer for one somebody is. */}
+        {canRetire && (
+          <button
+            onClick={() => onRetire(!retired)}
+            disabled={busy}
+            title={retired ? "Put this plan back on sale" : "Retire — keep it for its subscribers, sell it to nobody"}
+            className="border border-border text-muted-foreground px-3 py-1.5 rounded-lg hover:bg-muted hover:text-foreground disabled:opacity-40 inline-flex items-center gap-1.5 text-sm font-semibold"
+          >
+            {retired ? <ArchiveRestore size={14} /> : <Archive size={14} />}
+            {retired ? "Un-retire" : "Retire"}
+          </button>
+        )}
         <button
           onClick={onRemove}
           disabled={busy}

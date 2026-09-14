@@ -30,6 +30,7 @@ import { recordError } from "@/lib/platform/errorLog";
 import { recordSignupOrigin } from "@/lib/platform/signupOrigin";
 import { deriveVia } from "@/lib/platform/signupFlags";
 import { stampSignupPlanByToken } from "@/lib/sales/signupProgress";
+import { isRetired, RETIRED_PLAN_ERROR } from "@/lib/platform/sellablePlans";
 
 export async function POST(request) {
   const session = await auth.api.getSession({ headers: request.headers });
@@ -209,6 +210,19 @@ export async function POST(request) {
       { error: "Selected plan not found" },
       { status: 400 },
     );
+  }
+
+  // ── A retired plan is refused here, before any company row exists ────────
+  //
+  // "Exists" was the whole test, and /api/marketing/plans hands an unlisted
+  // plan to anyone holding its link — so the owner's "Live test — $1" was a
+  // working $1 signup for as long as the link was out. Retired is decided by
+  // the one predicate the pricing page and the change-plan checkout use, and
+  // it is checked BEFORE the transaction below for the same reason the
+  // billable-price check is: a refusal must not leave a memberless company
+  // behind it. 409, not 404 — the plan exists; it is simply not offered.
+  if (isRetired(plan)) {
+    return NextResponse.json({ error: RETIRED_PLAN_ERROR }, { status: 409 });
   }
 
   // What createTrialCheckoutSession needs to know about money: the free first

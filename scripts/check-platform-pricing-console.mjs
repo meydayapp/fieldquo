@@ -39,7 +39,16 @@ import { parsePlanFields } from "@/lib/billing/planFields";
 import { parsePromotionFields } from "@/lib/billing/promotionFields";
 import { promotionStatus } from "@/lib/pricing/promotionStatus";
 import { promotionIsLive, priceFor, SEAT_LADDER } from "@/lib/pricing/ladder";
-import { isSellable } from "@/lib/platform/sellablePlans";
+import {
+  isSellable,
+  isSellableAnnually,
+  isRetired,
+  planStatus,
+  partitionPlans,
+  withheldReasons,
+  RETIRED_PLAN_ERROR,
+} from "@/lib/platform/sellablePlans";
+import { resumeDecision } from "@/lib/billing/resume";
 
 let pass = 0;
 const fails = [];
@@ -628,6 +637,234 @@ ok("a private plan is refused by the company-facing picker", () => {
   // function rather than on the form's source.
   assert.equal(isSellable({ ...LADDER_ROW, isPublic: false }), false);
   assert.equal(isSellable({ ...LADDER_ROW, isPublic: true }), true);
+});
+
+/* ── 7. A retired plan is sold by nobody, listed or by link ────────────────
+ *
+ * isPublic: false only takes a plan off the MENU. /api/marketing/plans hands
+ * an unlisted plan to anyone holding a link with its id (the bespoke-rate
+ * hand-off), and /api/companies and the change-plan checkout accept any plan
+ * that exists — so the owner's private "Live test — $1" was a working $1
+ * signup for anyone with the link. It could not be deleted: Test Inc.'s
+ * subscription references it, and this codebase never deletes.
+ *
+ * Plan.retiredAt is the third state: kept for its subscribers, sold to
+ * nobody. The predicate is executed here against real shapes — a Date, an
+ * ISO string (a JSON round-trip), null, and an omitted column — and then
+ * every path that sells or switches to a plan is read to prove it asks that
+ * predicate before it sells. The grep half is the weaker half and says so;
+ * the backstop in recurringLine is what makes a forgotten route fail loudly
+ * rather than sell.
+ */
+console.log("\nA retired plan is kept for its subscribers and sold to nobody\n");
+
+const RETIRED_ROW = { ...LADDER_ROW, retiredAt: new Date("2026-09-14T12:00:00Z") };
+
+ok("retiredAt set (a Date) → retired, and not sellable on either cadence", () => {
+  assert.equal(isRetired(RETIRED_ROW), true);
+  assert.equal(isSellable(RETIRED_ROW), false);
+  assert.equal(isSellableAnnually({ ...RETIRED_ROW, priceAnnual: 1188 }), false);
+});
+
+ok("retiredAt as an ISO string (JSON round-trip) is still retired", () => {
+  assert.equal(isRetired({ ...LADDER_ROW, retiredAt: "2026-09-14T12:00:00.000Z" }), true);
+  assert.equal(isSellable({ ...LADDER_ROW, retiredAt: "2026-09-14T12:00:00.000Z" }), false);
+});
+
+ok("retired beats public: isPublic true does not put a retired plan back on sale", () => {
+  assert.equal(isSellable({ ...RETIRED_ROW, isPublic: true }), false);
+});
+
+ok("un-retire restores: retiredAt null is exactly the plan it was", () => {
+  const back = { ...RETIRED_ROW, retiredAt: null };
+  assert.equal(isRetired(back), false);
+  assert.equal(isSellable(back), isSellable(LADDER_ROW));
+  assert.equal(planStatus(back).code, planStatus(LADDER_ROW).code);
+});
+
+ok("a row read without the column is NOT retired (so every narrow select must include it)", () => {
+  const { retiredAt, ...narrow } = RETIRED_ROW;
+  assert.equal(isRetired(narrow), false);
+});
+
+ok("the status line says retired, once, above the price fault", () => {
+  const s = planStatus({ ...RETIRED_ROW, priceMonthly: 0 });
+  assert.equal(s.code, "retired");
+  assert.equal(s.tone, "note");
+  assert.match(s.text, /Retired/);
+  assert.ok(!/price id/i.test(s.text));
+});
+
+ok("partitionPlans withholds it and the outage alert names the reason", () => {
+  const { sellable, withheld } = partitionPlans([LADDER_ROW, RETIRED_ROW]);
+  assert.deepEqual(sellable, [LADDER_ROW]);
+  assert.deepEqual(withheld, [RETIRED_ROW]);
+  assert.deepEqual(withheldReasons(withheld), [{ name: RETIRED_ROW.name, reason: "retired" }]);
+});
+
+ok("the refusal sentence exists once and says 'no longer offered'", () => {
+  assert.match(RETIRED_PLAN_ERROR, /no longer offered/);
+});
+
+// ── The sell paths, each read for the call ────────────────────────────────
+//
+// Each assertion is scoped to the file and to the shape "isRetired(plan)
+// guards a 409" rather than "the file mentions isRetired", because the file
+// header comments already mention it. Comments are stripped by code().
+
+const SELL_PATHS = [
+  {
+    file: "app/api/companies/route.js",
+    what: "signup refuses a retired plan with 409 before any company row exists",
+    guard: /if \(isRetired\(plan\)\)[\s\S]{0,200}RETIRED_PLAN_ERROR[\s\S]{0,80}status: 409/,
+    // Must come BEFORE the transaction that creates the company.
+    before: "$transaction",
+  },
+  {
+    file: "app/api/platform/billing/checkout/route.js",
+    what: "the change-plan checkout refuses a retired target with 409",
+    guard: /if \(isRetired\(plan\)\)[\s\S]{0,200}RETIRED_PLAN_ERROR[\s\S]{0,80}status: 409/,
+    // Before Checkout, changeSubscriptionPlan and schedulePlanChange alike.
+    before: "classifyPlanChange({",
+  },
+];
+
+for (const p of SELL_PATHS) {
+  ok(p.what, () => {
+    const src = code(p.file);
+    const m = src.match(p.guard);
+    assert.ok(m, `${p.file}: no isRetired(plan) → 409 RETIRED_PLAN_ERROR guard`);
+    const at = src.indexOf(m[0]);
+    const later = src.indexOf(p.before);
+    assert.ok(later > at, `${p.file}: the guard sits after ${p.before}`);
+  });
+}
+
+ok("the marketing route's link branch refuses a retired plan and says why", () => {
+  const src = code("app/api/marketing/plans/route.js");
+  assert.match(src, /retiredAt: true/, "the narrow select omits retiredAt — a retired plan would read as not retired");
+  assert.match(src, /isRetired\(wanted\)/, "the ?plan= branch does not test isRetired");
+  assert.match(src, /wantedPlanId && !refused/, "the unlisted hand-off is not gated on the refusal");
+  assert.match(src, /refused,?\s*\}\)/, "the refusal is not returned to the signup page");
+  assert.ok(!/isPublic,\s*\.\.\.plan\s*\}\)\s*=>\s*plan\)/.test(src) || /retiredAt/.test(src.slice(src.indexOf("publicShape"))), "retiredAt leaks in the public payload");
+});
+
+ok("the signup page reads the refusal and says the plan is no longer offered", () => {
+  const src = code("app/signup/page.js");
+  assert.match(src, /setRefusedPlan\(data\?\.refused/);
+  assert.match(src, /refusedPlan\?\.reason === "retired"/);
+  assert.match(src, /"app\.signup\.plan\.retired"/);
+});
+
+ok("the company-facing picker excludes retired plans in the WHERE, keeping the company's own", () => {
+  const src = code("app/api/settings/plans/route.js");
+  assert.match(src, /\{ isPublic: true, retiredAt: null,/);
+  assert.match(src, /\{ id: subscription\.planId \}/);
+});
+
+ok("the sales knowledge base selects retiredAt so the sales line cannot read a retired plan out", () => {
+  assert.match(code("lib/platform/salesKnowledge.js"), /retiredAt: true/);
+});
+
+ok("the pricing page reads whole rows (no narrow select to forget the column in)", () => {
+  const src = code("app/(marketing)/pricing/page.js");
+  assert.match(src, /db\.plan\.findMany\(\{ orderBy: \{ priceMonthly: "asc" \} \}\)/);
+  assert.match(src, /partitionPlans\(allPlans\)/);
+});
+
+ok("recurringLine — every Stripe line that sells a plan — throws on a retired one", () => {
+  const src = code("lib/platform/stripeBilling.js");
+  const fn = src.slice(src.indexOf("function recurringLine("));
+  const body = fn.slice(0, fn.indexOf("return {"));
+  assert.match(body, /if \(isRetired\(plan\)\)\s*\{\s*throw new Error/);
+  // …and every builder goes through it.
+  for (const builder of ["createTrialCheckoutSession", "createBillingCheckoutSession", "changeSubscriptionPlan", "schedulePlanChange"]) {
+    const b = src.slice(src.indexOf(`export async function ${builder}(`));
+    const end = b.indexOf("\nexport ");
+    assert.match(b.slice(0, end > 0 ? end : undefined), /recurringLine\(\{/, `${builder} does not build its line through recurringLine`);
+  }
+});
+
+// ── Resume, executed ──────────────────────────────────────────────────────
+//
+// Uncancel is an existing subscription continuing and stays. Everything else
+// Resume can do creates a NEW Stripe subscription on the plan, which is a
+// sale of it, and none of those is offered on a retired plan.
+ok("resume: an ending subscription on a retired plan can still be un-cancelled", () => {
+  assert.deepEqual(resumeDecision({ status: "active", cancelAtPeriodEnd: true, planRetired: true }), { mode: "uncancel" });
+});
+
+ok("resume: cancelled on a retired plan → retired, never credited / charge_now / checkout", () => {
+  const now = new Date("2026-09-14T08:00:00Z");
+  const end = new Date("2026-10-14T12:26:43Z");
+  for (const s of [
+    { status: "canceled", currentPeriodEnd: end, canceledAt: now, hasPaymentMethod: true },
+    { status: "canceled", currentPeriodEnd: end, canceledAt: now, hasPaymentMethod: false },
+    { status: "canceled", currentPeriodEnd: new Date("2026-09-01T00:00:00Z"), canceledAt: now, hasPaymentMethod: true },
+    { status: null },
+  ]) {
+    const d = resumeDecision({ ...s, planRetired: true, now });
+    assert.equal(d.mode, "retired", JSON.stringify(s));
+    assert.equal(d.reason, "plan_retired");
+  }
+});
+
+ok("resume: the same states with the plan on sale keep their old answers", () => {
+  const now = new Date("2026-09-14T08:00:00Z");
+  const end = new Date("2026-10-14T12:26:43Z");
+  assert.equal(resumeDecision({ status: "canceled", currentPeriodEnd: end, canceledAt: now, hasPaymentMethod: true, now }).mode, "credited");
+  assert.equal(resumeDecision({ status: "canceled", currentPeriodEnd: end, canceledAt: now, hasPaymentMethod: false, now }).mode, "checkout");
+  assert.equal(resumeDecision({ status: null, now }).mode, "checkout");
+});
+
+ok("resume: the route answers 409, the checkout fallback answers null, the button draws nothing", () => {
+  const lib = code("lib/billing/resume.js");
+  assert.match(lib, /planRetired: isRetired\(row\.plan\)/, "loadResumeState does not pass planRetired");
+  assert.match(lib, /isRetired\(row\?\.plan\) \? RETIRED/, "the two early exits still answer checkout");
+  const fallback = lib.slice(lib.indexOf("export async function resumeViaCheckout("));
+  assert.match(fallback.slice(0, fallback.indexOf("createBillingCheckoutSession(")), /if \(isRetired\(row\.plan\)\) return null;/);
+  assert.match(lib, /decision\.mode === "retired"[\s\S]{0,200}retired: true/);
+  const route = code("app/api/platform/billing/resume/route.js");
+  assert.match(route, /if \(result\.retired\)[\s\S]{0,120}status: 409/);
+  const button = code("app/components/billing/ResumePlanButton.js");
+  assert.match(button, /case "retired":\s*default:\s*return null;/);
+});
+
+// ── The console: badge, action, audit, script ─────────────────────────────
+ok("the console derives its Retired badge from isRetired and offers Retire / Un-retire to a superadmin only", () => {
+  const src = code(CONSOLE_FORM);
+  assert.match(src, /const retired = isRetired\(p\);/);
+  assert.match(src, /Retired\s*<\/span>/);
+  assert.match(src, /const canRetire = isSuperadmin;/);
+  assert.match(src, /\{canRetire && \([\s\S]{0,600}onRetire\(!retired\)/);
+  assert.match(src, /\{retired \? "Un-retire" : "Retire"\}/);
+  assert.match(src, /\/api\/platform\/billing\/plans\/\$\{plan\.id\}\/retire/);
+});
+
+ok("the retire route is superadmin-only, writes retiredAt and its audit row in one transaction", () => {
+  const src = code("app/api/platform/billing/plans/[id]/retire/route.js");
+  assert.match(src, /admin\.role !== "superadmin"/);
+  assert.match(src, /\$transaction\(\[[\s\S]*retiredAt: body\.retired \? now : null[\s\S]*platformAuditLog\.create[\s\S]*"plan_retired" : "plan_unretired"/);
+  assert.ok(!/plan\.delete|subscription\.(update|delete)/.test(src), "the retire route touches a subscription or deletes");
+});
+
+ok("both audit actions have wording", () => {
+  const src = code("lib/platform/auditActions.js");
+  assert.match(src, /plan_retired:/);
+  assert.match(src, /plan_unretired:/);
+});
+
+ok("the editor cannot set retiredAt through PATCH — it is an action, not a field", () => {
+  assert.ok(!/retiredAt/.test(code("lib/billing/planFields.js")));
+});
+
+ok("scripts/retire-plan.mjs is dry-run by default, writes only on --yes, and deletes nothing", () => {
+  const src = code("scripts/retire-plan.mjs");
+  assert.match(src, /const write = args\.includes\("--yes"\);/);
+  assert.match(src, /if \(!write\) \{[\s\S]{0,400}Dry run/);
+  assert.match(src, /retiredAt: unretire \? null : now/);
+  assert.match(src, /platformAuditLog\.create/);
+  assert.ok(!/\.delete\(|deleteMany|subscription\.update/.test(src));
 });
 
 console.log(

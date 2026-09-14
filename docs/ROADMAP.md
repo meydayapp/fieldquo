@@ -273,6 +273,59 @@ instant of the press.
   clock); no bulk "assign to every rep on shift" — the owner asked for one
   rep at a time.
 
+## A plan can be retired: kept for its subscribers, sold to nobody (14 September 2026)
+
+The owner: "remove the live test" — the private "Live test — $1"
+(`cmtzrltno00000kt62j25oip1`). `isPublic: false` only hid it from the pricing
+page: `/api/marketing/plans?plan=<id>` served an unlisted plan to anyone with
+the link, and `/api/companies` and the change-plan checkout accepted any plan
+id that exists, so the link was a working $1 signup. It cannot be deleted —
+Test Inc.'s subscription references it, and this codebase never deletes.
+
+- **Schema (additive):** `Plan.retiredAt DateTime?`. A retired plan is kept
+  for the subscriptions on it and is not sellable anywhere, listed or by
+  link. `isRetired()` in `lib/platform/sellablePlans.js` is the one
+  predicate; `isSellable`, `isSellableAnnually` and `planStatus` (`retired`,
+  above `no_price`) read it first. `RETIRED_PLAN_ERROR` is the one sentence.
+- **Every sell path refuses (409):** signup (`app/api/companies/route.js`,
+  before the company transaction), the change-plan checkout (before
+  Checkout, `changeSubscriptionPlan` and `schedulePlanChange` alike), the
+  marketing route's unlisted-by-link branch (and it answers `refused:
+  { planId, reason: "retired" }` so `/signup` can say "That plan is no longer
+  offered — here are the current ones", nine languages), the company-facing
+  picker (`retiredAt: null` in the WHERE, the company's own plan still
+  named), the sales knowledge base (selects the column). Backstop:
+  `recurringLine` in `lib/platform/stripeBilling.js` — every Stripe line that
+  sells a plan — throws on a retired one, so a forgotten route fails loudly
+  rather than sells.
+- **Resume:** `resumeDecision` takes `planRetired`; un-cancel (an existing
+  subscription continuing — Test Inc. today) is unchanged, and credited,
+  charge_now and checkout — each a NEW subscription on the plan — become
+  `retired`: the route answers 409, `resumeViaCheckout` answers null, the
+  button draws nothing.
+- **Console:** `/platform/billing/plans` shows a Retired badge (derived from
+  `isRetired`) and a Retire / Un-retire button for a superadmin only —
+  `POST /api/platform/billing/plans/[id]/retire { retired }`, inline role
+  check, the write and its audit row (`plan_retired` / `plan_unretired`,
+  with `subscribersKept`) in one transaction. `check:platform-truth` GATED
+  entry (superadminOnly).
+- **Run:** `scripts/retire-plan.mjs <planId>` (dry run; `--yes` writes;
+  `--unretire`; `--by=`). Run once on 2026-09-14 15:42 UTC on the live test:
+  `retiredAt` set, audit row under the owner's superadmin with
+  `by: "owner via chat 2026-09-14"`, Test Inc.'s subscription untouched
+  (ends 2026-10-14 by itself).
+- **Checks:** `check:pricing-console` +31 — the predicate against a Date, an
+  ISO string, null and an omitted column; un-retire restores; partition and
+  the outage alert; each sell path's guard and its position; the narrow
+  selects; the backstop and that all four builders go through it;
+  `resumeDecision` executed both ways; the console, the route, the audit
+  wording, PATCH cannot set it, the script's flags. `check:billing-resume`
+  +5 executed against the fakes: cancelled-on-retired refused with nothing
+  created and no Checkout, the preview says retired, ending-on-retired still
+  un-cancels.
+- **Not done / owed:** nothing on the marketing `/pricing` page changes
+  (retired plans were never listed there); no bulk retire.
+
 ## Cancel at the period end, Resume in one click, one trial per company (14 September 2026)
 
 The owner pressed the banner's "Start again" twice on his own cancelled $1

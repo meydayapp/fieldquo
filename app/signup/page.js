@@ -733,6 +733,12 @@ export default function SignupPage() {
 
   const [plans, setPlans] = useState([]);
   const [plansLoading, setPlansLoading] = useState(true);
+  // Why the plan the link named is not in the list — { planId, reason } from
+  // /api/marketing/plans, or null. Today the one reason is "retired": the
+  // plan exists, somebody was sent its link, and it is no longer offered.
+  // Said on the page rather than silently landing them with nothing
+  // selected, which reads as the link being broken.
+  const [refusedPlan, setRefusedPlan] = useState(null);
   const [selectedPlanId, setSelectedPlanId] = useState(null);
 
   // What the link that sent them here asked for: { tier, planId }. A ref rather
@@ -1237,6 +1243,7 @@ export default function SignupPage() {
         // place that knows the billing currency — and a withdrawn plan is
         // dropped there by the same rule that drops a wrong-currency one.
         setPlans(list);
+        setRefusedPlan(data?.refused && typeof data.refused === "object" ? data.refused : null);
       })
       .catch(() => setPlans([]))
       .finally(() => setPlansLoading(false));
@@ -1687,6 +1694,24 @@ export default function SignupPage() {
             >
               {t("app.signup.finish.signOut", "Sign out of this account")}
             </button>
+          </div>
+        )}
+
+        {/* ── The link named a plan that is no longer offered ──────────────
+            A retired plan (Plan.retiredAt) is refused by /api/marketing/plans
+            even by link, and the refusal comes back as `refused` so it can be
+            said here. Shown on every step, because this is where the link
+            lands; the plan step below carries the current plans, which is the
+            "here are the current ones" half. Nothing is pre-selected for
+            them — see resolvePlanSelection. */}
+        {refusedPlan?.reason === "retired" && !alreadyOnFieldquo && (
+          <div className="max-w-md mx-auto mb-6 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-xl px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
+            <p>
+              {t(
+                "app.signup.plan.retired",
+                "That plan is no longer offered — here are the current ones.",
+              )}
+            </p>
           </div>
         )}
 

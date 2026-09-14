@@ -331,6 +331,35 @@ const seed = ({ row = baseRow(), company = { id: COMPANY, currency: "USD", onboa
   ok("preview for Test Inc.: charge_now, $1.00 monthly, plan named", pv.mode === "charge_now" && pv.amountCents === 100 && pv.currency === "usd" && pv.interval === "month" && pv.planName === PLAN.name, pv);
   ok("preview: the live read healed nothing it should not (row still canceled, old id)", rows.subscription[0].status === "canceled" && rows.subscription[0].stripeSubscriptionId === SUB);
 
+  // (i) the plan has been RETIRED (Plan.retiredAt — the owner's own live test,
+  //     2026-09-14). Cancelled with a card on file, which is the charge_now
+  //     shape above: nothing may be created on a retired plan, so nothing is,
+  //     no Checkout opens, and the answer names the reason.
+  seed({
+    row: { ...baseRow(), plan: { ...PLAN, retiredAt: T("2026-09-14T12:00:00Z") } },
+    live: { id: SUB, status: "canceled", canceled_at: sec(T("2026-09-13T20:06:24Z")), current_period_end: sec(oct13), trial_end: sec(oct13), cancel_at_period_end: false, cancel_at: null, customer: customerWithCard, default_payment_method: null, items: { data: [{ price: PRICE }] } },
+  });
+  const rr = await resumeSubscription(COMPANY, { baseUrl: "https://app.fieldquo.com", now: NOW });
+  ok("retired plan: refused — nothing created, no Checkout, reason plan_retired", rr.resumed === false && rr.retired === true && rr.reason === "plan_retired" && created.length === 0 && checkoutSessions.length === 0 && !rr.checkoutUrl, rr);
+  ok("retired plan: the note says it is no longer offered", /no longer offered/.test(rr.note || ""), rr.note);
+  ok("retired plan: the row is untouched (still canceled, old id)", rows.subscription[0].status === "canceled" && rows.subscription[0].stripeSubscriptionId === SUB);
+  const pvr = resumePreview(await loadResumeState(COMPANY, { now: NOW }));
+  ok("retired plan: the preview says retired too, so no button is drawn", pvr.mode === "retired" && pvr.reason === "plan_retired", pvr);
+
+  // (j) …but an ENDING subscription on a retired plan is un-cancelled as
+  //     before: that is an existing subscription continuing, which is exactly
+  //     what retirement keeps.
+  {
+    const endSec2 = sec(T("2026-10-14T12:26:43Z"));
+    seed({
+      row: { ...baseRow(), plan: { ...PLAN, retiredAt: T("2026-09-14T12:00:00Z") }, status: "active", canceledAt: null, trialEndsAt: null, cancelAtPeriodEnd: true, cancelAt: T("2026-10-14T12:26:43Z") },
+      company: { id: COMPANY, currency: "USD", onboardingStatus: "active", trialUsedAt: T("2026-08-13T00:00:00Z") },
+      live: { id: SUB, status: "active", cancel_at_period_end: true, cancel_at: endSec2, current_period_end: endSec2, trial_end: null, customer: customerWithCard, default_payment_method: null, items: { data: [{ price: PRICE }] } },
+    });
+    const ru = await resumeSubscription(COMPANY, { baseUrl: "https://app.fieldquo.com", now: NOW });
+    ok("retired plan, ending: un-cancelled (Test Inc. today), nothing created", ru.resumed === "uncancelled" && created.length === 0 && checkoutSessions.length === 0, ru);
+  }
+
   // (h) already live → none, and the preview says so
   seed({
     row: { ...baseRow(), status: "active", canceledAt: null, trialEndsAt: null },

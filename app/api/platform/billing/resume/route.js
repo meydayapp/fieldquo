@@ -77,6 +77,11 @@ export async function POST(request) {
     if (result.alreadyLive) {
       return NextResponse.json({ resumed: false, alreadyLive: true, note: "Your plan is already active." });
     }
+    // A retired plan: the same 409 and sentence every sell path answers
+    // with. Nothing was created or charged (lib/billing/resume.js).
+    if (result.retired) {
+      return NextResponse.json({ error: result.note, reason: result.reason }, { status: 409 });
+    }
     // Checkout: the plan cards' path, for the same plan and cadence. A null
     // URL means there was nothing to build one from (no plan on the row) and
     // the page's own cards are the way.

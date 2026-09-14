@@ -11,6 +11,10 @@
 //   credited     "Resume — nothing charged until {date}"   nothing charged
 //   charge_now   "Restart — your first month is charged today ({amount})"
 //   checkout     "Start again"                             opens Stripe Checkout
+//   retired      (no button) — the plan has been retired and every one of
+//                the outcomes above bar uncancel would sell it again. The
+//                plan cards on Account & Billing are the way on; a button
+//                whose only possible answer is a 409 is a dead control.
 //
 // The owner's own words for the two that cost money: a company that cancelled
 // during its trial "should go straight to the first month" (one trial, ever —
@@ -79,6 +83,7 @@ export function resumeLabel(preview, { t, formatDate, money }) {
           });
     case "checkout":
       return t("app.billing.resumeCheckout", "Start again");
+    case "retired":
     default:
       return null;
   }

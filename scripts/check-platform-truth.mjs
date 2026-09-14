@@ -294,6 +294,15 @@ const GATED = [
     route: "app/api/platform/billing/plans/route.js",
     permission: "plan:manage",
   },
+  // Retire / un-retire on the same page: a superadmin-only inline check on
+  // the route, and the page derives its button from isSuperadmin. An admin
+  // with plan:manage sees Edit and Delete but no Retire — the route would
+  // 403 it.
+  {
+    file: "app/platform/billing/plans/page.js",
+    route: "app/api/platform/billing/plans/[id]/retire/route.js",
+    superadminOnly: true,
+  },
   {
     file: "app/platform/billing/promotions/page.js",
     route: "app/api/platform/billing/promotions/route.js",

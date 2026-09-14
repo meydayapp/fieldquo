@@ -828,6 +828,24 @@ model Plan {
   /// everything, because that is where bespoke plans get made.
   isPublic          Boolean  @default(true)
 
+  /// ── Retired: kept for its subscribers, sold to nobody ───────────────────
+  ///
+  /// isPublic = false only takes a plan off the MENU. The row still answered
+  /// /api/marketing/plans?plan=<id> (the unlisted-by-link hand-off), and
+  /// /api/companies and the change-plan checkout accepted any plan id that
+  /// exists — so the owner's "Live test — $1" stayed buyable, at $1, by anyone
+  /// holding the link. Deleting it is not an option: a Subscription references
+  /// it, and this codebase never deletes.
+  ///
+  /// A retired plan is kept for the subscriptions on it — Stripe bills them
+  /// as before; cancel-at-period-end and Resume's un-cancel work unchanged —
+  /// and is not sellable ANYWHERE, listed or by link. isSellable() in
+  /// lib/platform/sellablePlans.js reads this before any other test, and every
+  /// route that sells or switches to a plan refuses one that is retired with
+  /// a 409. Reversible: null it and the plan is exactly what it was. Set from
+  /// /platform/billing/plans (superadmin) or scripts/retire-plan.mjs.
+  retiredAt         DateTime?
+
   createdAt         DateTime @default(now())
 
   subscriptions Subscription[]

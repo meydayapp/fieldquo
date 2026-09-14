@@ -24,6 +24,7 @@ import { stripe } from "@/lib/stripe";
 import { writeSubscriptionFromStripe } from "@/lib/platform/stripeSync";
 import { isCanceledSubscriptionError, subscriptionStatusFromStripe } from "@/lib/billing/subscriptionFields";
 import { trialDaysAllowed } from "@/lib/billing/trialOnce";
+import { isRetired, RETIRED_PLAN_ERROR } from "@/lib/platform/sellablePlans";
 
 // Note: this is called by a COMPANY (upgrading their own plan), not a platform admin —
 // hence getCurrentMember, not getCurrentPlatformAdmin. It lives under /platform/billing
@@ -64,6 +65,15 @@ export async function POST(request) {
 
   if (!plan)
     return NextResponse.json({ error: "Plan not found" }, { status: 404 });
+
+  // A retired plan cannot be bought OR switched to — this route does both
+  // (Checkout below, changeSubscriptionPlan / schedulePlanChange above it),
+  // so one refusal here covers every way in. A company ALREADY on a retired
+  // plan is untouched by this: it is `plan` (the target) that is tested, not
+  // `existing.plan`, and moving off a retired plan onto a current one is
+  // exactly what should keep working.
+  if (isRetired(plan))
+    return NextResponse.json({ error: RETIRED_PLAN_ERROR }, { status: 409 });
 
   // During an active trial, a plan change must stay free until the trial
   // ends — the new price only applies afterward. Carry the remaining days
