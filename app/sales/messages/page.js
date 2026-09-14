@@ -128,6 +128,7 @@ import {
   triageShowsChip,
 } from "@/lib/sales/messages/triage";
 import { conversationInitials, sentenceAround } from "./MessageThread";
+import ReviewedByOwner from "@/app/components/sales/ReviewedByOwner";
 import CheckInDraft from "./CheckInDraft";
 import SignupLinkSms from "../leads/SignupLinkSms";
 import { useThreadRefresh } from "./useThreadRefresh";
@@ -1529,6 +1530,8 @@ function SalesMessagesScreen() {
           </button>
         </div>
       </header>
+      {/* The owner can read this thread from the console; when they have, the rep is told here. */}
+      <ReviewedByOwner review={thread?.reviewedByOwner} className="px-3 pt-1" />
 
       {error ? (
         <div className="border-b border-amber-300 bg-amber-50 dark:bg-amber-950/40 px-3 py-2 text-sm text-amber-900 dark:text-amber-200">
