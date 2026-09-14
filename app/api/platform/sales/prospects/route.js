@@ -30,6 +30,10 @@
 // already has a route of its own (campaigns/[id]/review), the rep's claim is
 // written through /api/sales/queue, and a superadmin editing a discovered fact
 // in place would destroy the provenance ProspectCorrection exists to keep.
+// Handing a row to a rep from this list is a write on the REP's queue, not on
+// the prospect's facts, and goes through /api/platform/sales/reps/[id]/assign
+// (lib/sales/assignLeads.js); this route only carries what that screen needs
+// to offer it — the active reps, and who holds each row.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
@@ -41,6 +45,7 @@ import {
   claimState,
   contactability,
 } from "@/lib/sales/prospectView";
+import { sellsInOf } from "@/lib/sales/leadLanguage";
 
 const PAGE_SIZE = 50;
 
@@ -228,6 +233,9 @@ export async function GET(request) {
         claimExpiresAt: true,
         doNotContactAt: true,
         doNotContactReason: true,
+        // Who holds the row, for the list's "claimed by Daniel" and for the
+        // Assign / Unassign controls to say whose it is.
+        assignedRep: { select: { id: true, name: true } },
         territory: { select: { id: true, name: true } },
         campaign: { select: { id: true, name: true } },
         technologies: { where: { isCompetitor: true }, select: { technologyCode: true } },
@@ -247,6 +255,14 @@ export async function GET(request) {
     db.prospect.groupBy({ by: ["status"], _count: { _all: true } }),
     sourceCategoryFacets(),
   ]);
+  // The reps a superadmin may hand a row to: active only, with the languages
+  // they sell in, so the picker can say "no French" beside a name before the
+  // server refuses the Quebec rows row by row.
+  const reps = await db.salesRep.findMany({
+    where: { active: true },
+    orderBy: { name: "asc" },
+    select: { id: true, name: true, sellsIn: true },
+  });
 
   return NextResponse.json({
     prospects: rows.map((p) => ({
@@ -275,8 +291,12 @@ export async function GET(request) {
       territory: p.territory,
       campaign: p.campaign,
       claim: claimState(p, { repId: null, now }),
+      // The holder by name, only while the claim is live or worked — a
+      // lapsed lease's old holder is history the detail screen can show.
+      holder: p.assignedRep && p.assignedRepId && (p.claimExpiresAt === null || p.claimExpiresAt > now) ? { id: p.assignedRep.id, name: p.assignedRep.name } : null,
       contact: contactability(p),
     })),
+    reps: reps.map((r) => ({ id: r.id, name: r.name, sellsIn: sellsInOf(r) })),
     total,
     page,
     pageSize: PAGE_SIZE,

@@ -84,6 +84,7 @@ import { composeBrief } from "@/lib/sales/intel/brief";
 import { openCheckIns } from "@/lib/sales/checkin/store";
 import { openTriageThreads } from "@/lib/sales/messages/triageStore";
 import { loadContactNumbers, pickContactNumber } from "@/lib/sales/contact/resolve";
+import { adminAssignedSummary } from "@/lib/sales/assignLeads";
 
 const ACTIONS = ["claim", "claim_batch", "release", "release_rest", "worked", "do_not_contact"];
 const MAX_REASON = 300;
@@ -623,9 +624,18 @@ async function queueBody(rep, { tradeKey = null, prospectId = null, timeZone = n
   }
 
   const takenToday = await claimsTakenToday({ db, salesRepId: rep.id, timeZone: zone, now });
+  // Rows the platform console handed this rep (claim mode "admin") and the
+  // latest such hand-out — who, how many, which trade, where — for the
+  // Today screen's "Emilio assigned you 25 flooring leads" line. Null when
+  // there is none open, and the card draws nothing. lib/sales/assignLeads.js.
+  const adminAssigned = await adminAssignedSummary({ db, salesRepId: rep.id, now }).catch((err) => {
+    console.error("[sales/queue] adminAssignedSummary failed:", err?.message || err);
+    return null;
+  });
 
   return {
     rep: { id: rep.id, name: rep.name, email: rep.email },
+    adminAssigned,
     tradeKey: tradeKey || null,
     trades,
     queue,

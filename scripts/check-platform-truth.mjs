@@ -354,6 +354,26 @@ const GATED = [
     route: "app/api/platform/sales/conversations/route.js",
     permission: "chat:audit",
   },
+  // The console handing a rep leads (lib/sales/assignLeads.js). The route
+  // is a literal role check like its queue sibling; both screens that post
+  // to it — the rep card's Assign panel and the prospects list's checkboxes
+  // — derive isSuperadmin from the shared hook, so a failed /api/platform/me
+  // draws no panel rather than a refusal to a real superadmin.
+  {
+    file: "app/platform/sales/reps/page.js",
+    route: "app/api/platform/sales/reps/[id]/assign/route.js",
+    superadminOnly: true,
+  },
+  {
+    file: "app/platform/sales/prospects/page.js",
+    route: "app/api/platform/sales/reps/[id]/assign/route.js",
+    superadminOnly: true,
+  },
+  {
+    file: "app/platform/sales/prospects/page.js",
+    route: "app/api/platform/sales/reps/[id]/unassign/route.js",
+    superadminOnly: true,
+  },
 ];
 
 // The /platform/sales editors gate on the ROLE rather than on a matrix
@@ -366,6 +386,7 @@ const SALES_GATED = [
   "app/platform/sales/capabilities/page.js",
   "app/platform/sales/confidence/page.js",
   "app/platform/sales/playbooks/page.js",
+  "app/platform/sales/prospects/page.js",
   "app/platform/sales/reps/page.js",
   "app/platform/sales/rules/page.js",
   "app/platform/sales/signatures/page.js",

@@ -417,6 +417,29 @@ export default function SalesHomePage() {
                 notLoadedLabel={notLoaded}
               />
             </div>
+            {/* The platform console handed this rep leads — lib/sales/
+                assignLeads.js, read by GET /api/sales/queue as `adminAssigned`.
+                Only while some of them are still held; nothing otherwise,
+                for the same reason as the lapse line below. The trade and
+                the province are named only when the hand-out agreed on one. */}
+            {queue.data?.adminAssigned?.latest ? (
+              <p className="flex items-start gap-2 text-sm text-foreground break-words" data-admin-assigned>
+                <Users size={15} className="mt-0.5 shrink-0 text-muted-foreground" />
+                {t(
+                  queue.data.adminAssigned.latest.tradeLabel
+                    ? "app.salesToday.assignedLine"
+                    : "app.salesToday.assignedLineNoTrade",
+                  {
+                    admin: queue.data.adminAssigned.latest.adminName,
+                    count: t("app.salesToday.assignedCount", { value: queue.data.adminAssigned.latest.count }),
+                    trade: queue.data.adminAssigned.latest.tradeLabel || "",
+                    where: queue.data.adminAssigned.latest.provinceName
+                      ? `${queue.data.adminAssigned.latest.tradeLabel ? ", " : " · "}${queue.data.adminAssigned.latest.provinceName}`
+                      : "",
+                  },
+                )}
+              </p>
+            ) : null}
             {/* Rendered only when it is true. A permanently visible "0 lapse
                 soon" trains a rep to stop reading the line that matters. */}
             {q.lapsingSoon ? (

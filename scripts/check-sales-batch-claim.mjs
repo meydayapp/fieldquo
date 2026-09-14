@@ -902,7 +902,7 @@ section("6. Source: the route, the gate, the cron, the screen, the sticky fix");
   ok("\"researching…\" is read from the pipeline's own task table, never inferred", /db\.salesPipelineTask\.findMany\(\{\s*where: \{ prospectId: \{ in: ids \}, status: \{ in: \["queued", "claimed"\] \}/.test(route));
   ok("the response carries the ordered ids for the autodialler", /claimedIds: won/.test(lib) && /result: batch/.test(route));
   ok("nothing in queueBatch lists the pool by the availability condition alone", !/findMany\(\{\s*where: claimCandidateWhere/.test(lib));
-  ok("…every candidate read ANDs the research condition onto it", (lib.match(/where: \{ AND: \[base, (researchedWhere|unresearchedWhere)\(\)\] \}/g) || []).length === 2);
+  ok("…every candidate read ANDs the research condition onto it", (lib.match(/where: \{ AND: \[base, (researchedWhere|unresearchedWhere)\(\), \.\.\.narrow\] \}/g) || []).length === 2);
 
   // The gate's list and the lib's writes.
   const written = new Set([...lib.matchAll(/\b(?:db|tx)\.(\w+)\.(create|createMany|update|updateMany|upsert|delete|deleteMany)\b/g)].map((m) => m[1]));

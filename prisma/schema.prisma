@@ -11398,7 +11398,12 @@ model SalesQueueClaim {
   prospect   Prospect @relation(fields: [prospectId], references: [id], onDelete: Cascade)
 
   claimedAt DateTime @default(now())
-  /// "batch" (Claim the next N) or "single" (Just one).
+  /// How the claim came to be: "batch" (Claim the next N), "single" (Just
+  /// one — retired from the screen, kept in the log), "reassigned" (moved
+  /// from another rep by the console, lib/sales/reassign.js) or "admin" (the
+  /// console handed the rep the row, lib/sales/assignLeads.js — the two
+  /// automatic give-backs leave such a row alone on its day and the next,
+  /// queueBatch.autoReleaseProtected).
   mode      String
   /// Shared by every row one press produced, so a batch can be read back as a
   /// batch; `position` is the dial order inside it, researched rows first.

@@ -68,6 +68,21 @@
 // and the same panel asks what to do with it first; one confirm does the
 // hand-off and the deactivation in one transaction.
 //
+// ══ Assign leads, since 2026-09-14 ════════════════════════════════════════
+//
+// The owner: "Can I assign the next leads to the sales rep from /platform?"
+// The Queue… panel now ends with an Assign leads block: a trade (with the
+// pool counts the rep's own ClaimCard shows, counted for THIS rep — a
+// Quebec row an anglophone rep cannot be handed is not in their number), a
+// count (25, the batch size), a province or state, and one of the rep's
+// selling languages. Assign calls POST /api/platform/sales/reps/[id]/assign,
+// which is the rep's OWN selection — lib/sales/queueBatch.js's
+// selectClaimBatch/writeClaimBatch, the same two the rep's Claim is made of
+// — narrowed by what was asked. The result line says what happened in the
+// server's numbers: "Assigned 25 Flooring leads in Quebec to Rachel · 3 not
+// offered (language)". The rep is pushed and their Today screen says who
+// handed them what.
+//
 // ══ An accordion, since 2026-09-12 ════════════════════════════════════════
 //
 // The owner: each rep is a collapsed header row — name, status, the
@@ -103,6 +118,7 @@ import {
   Copy,
   HandCoins,
   ListChecks,
+  ListPlus,
   Loader2,
   Mail,
   Phone,
@@ -177,6 +193,28 @@ function queueSentence(q) {
  * since. `null` is "the call store is not on this build", which is a
  * different sentence from "offline".
  */
+/**
+ * "Assigned 25 Flooring leads in Quebec to Rachel · 3 not offered (language)"
+ * — every number the server's. A short batch says why, from the same reason
+ * keys the rep's own screen reads (none open now, the rest open later, the
+ * daily cap, the pool empty).
+ */
+function assignSentence(res, rep, panel) {
+  const trade = (panel?.trades || []).find((t) => t.key === res.tradeKey)?.label || res.tradeKey || "";
+  const where = res.province ? ` in ${(panel?.provinces || []).find((p) => p.code === res.province)?.name || res.province}` : "";
+  const lang = res.language ? ` (${LANGUAGES.find((l) => l.code === res.language)?.name || res.language})` : "";
+  const parts = [`Assigned ${plural(res.assigned, `${trade} lead`.trim())}${where}${lang} to ${rep.name}`];
+  if (res.skippedForLanguage > 0) parts.push(`${res.skippedForLanguage} not offered (language)`);
+  if (res.skippedForWindow > 0) parts.push(`${res.skippedForWindow} left — window shut for the rest of their shift`);
+  if (res.reason === "daily_cap") parts.push(`${rep.name} is at the daily ceiling`);
+  else if (res.reason === "none_open_now") parts.push(`none open now${res.nextOpensAt ? ` — next window opens ${new Date(res.nextOpensAt).toISOString().slice(11, 16)} UTC` : ""}`);
+  else if (res.reason === "partial_open") parts.push(`the rest open later${res.nextOpensAt ? ` (${new Date(res.nextOpensAt).toISOString().slice(11, 16)} UTC)` : ""}`);
+  else if (res.reason === "pool_empty") parts.push("the pool for this trade is empty");
+  else if (res.reason === "contended") parts.push("every row was taken by another rep first");
+  if (Number.isFinite(res.remainingToday)) parts.push(`${res.remainingToday} claims left today`);
+  return parts.join(" · ");
+}
+
 function presenceSentence(p) {
   if (!p) return { text: "Presence unavailable on this build.", tone: "muted" };
   if (!p.everSignedIn) return { text: "Never signed in to the sales portal.", tone: "muted" };
@@ -260,6 +298,12 @@ export default function PlatformSalesRepsPage() {
   const [queuePanel, setQueuePanel] = useState({});
   // rep id → the target picked in that card's Move picker.
   const [moveTarget, setMoveTarget] = useState({});
+  // rep id → the answer of GET /reps/[id]/assign (pool counts per trade,
+  // provinces, the rep's languages, claims left today), loaded with the
+  // queue panel; the draft the Assign form holds; and the last result line.
+  const [assignPanel, setAssignPanel] = useState({});
+  const [assignDraft, setAssignDraft] = useState({});
+  const [assignResult, setAssignResult] = useState({});
   // rep id → the deactivation panel: counts from the server, the chosen
   // hand-off, and the targets. Opened from Deactivate, or by the 409.
   const [deactivating, setDeactivating] = useState({});
@@ -415,9 +459,50 @@ export default function PlatformSalesRepsPage() {
   }
 
   async function loadQueue(rep) {
-    const data = await fetchJson(`/api/platform/sales/reps/${rep.id}/queue`);
+    // The queue and the assign options together: the panel draws both, and
+    // a failed assign read must not take the queue's release controls down
+    // with it — it is reported on its own line.
+    const [data, assign] = await Promise.all([
+      fetchJson(`/api/platform/sales/reps/${rep.id}/queue`),
+      rep.active
+        ? fetchJson(`/api/platform/sales/reps/${rep.id}/assign`).catch((err) => ({ error: err.message || "Could not read the pool." }))
+        : Promise.resolve(null),
+    ]);
     setQueuePanel((q) => ({ ...q, [rep.id]: data }));
+    setAssignPanel((a) => ({ ...a, [rep.id]: assign }));
     return data;
+  }
+
+  /**
+   * Hand the rep the next N of a trade. The server decides which rows — the
+   * rep's own selection, narrowed — and the sentence here is its numbers.
+   */
+  async function assignLeads(rep) {
+    const draft = assignDraft[rep.id] || {};
+    const panel = assignPanel[rep.id];
+    if (!draft.tradeKey) {
+      setError("Choose a trade to assign from.");
+      return;
+    }
+    setBusy(true);
+    clearBanners();
+    try {
+      const res = await fetchJson(`/api/platform/sales/reps/${rep.id}/assign`, {
+        method: "POST",
+        body: {
+          tradeKey: draft.tradeKey,
+          count: Number(draft.count) || panel?.batchMax || 25,
+          province: draft.province || null,
+          language: draft.language || null,
+        },
+      });
+      setAssignResult((r) => ({ ...r, [rep.id]: assignSentence(res, rep, panel) }));
+      await Promise.all([load(), loadQueue(rep)]);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function openQueue(rep) {
@@ -1365,6 +1450,13 @@ export default function PlatformSalesRepsPage() {
                       onPickTarget={(id) => setMoveTarget((m) => ({ ...m, [rep.id]: id }))}
                       onRelease={(scope) => releaseQueue(rep, scope)}
                       onMove={() => moveQueue(rep)}
+                      assign={assignPanel[rep.id] || null}
+                      assignDraft={assignDraft[rep.id] || null}
+                      onAssignDraft={(patch) =>
+                        setAssignDraft((d) => ({ ...d, [rep.id]: { ...(d[rep.id] || {}), ...patch } }))
+                      }
+                      onAssign={() => assignLeads(rep)}
+                      assignResult={assignResult[rep.id] || ""}
                     />
                   ) : null}
                 </div>
@@ -1801,7 +1893,7 @@ export default function PlatformSalesRepsPage() {
  * something — a "Release untouched" over zero untouched rows is a button that
  * appears to work and doesn't.
  */
-function QueuePanel({ rep, panel, isSuperadmin, busy, moveTarget, onPickTarget, onRelease, onMove }) {
+function QueuePanel({ rep, panel, isSuperadmin, busy, moveTarget, onPickTarget, onRelease, onMove, assign = null, assignDraft = null, onAssignDraft, onAssign, assignResult = "" }) {
   const q = panel.queue || {};
   const presence = presenceSentence(q.presence);
   const presenceClass =
@@ -1904,8 +1996,174 @@ function QueuePanel({ rep, panel, isSuperadmin, busy, moveTarget, onPickTarget, 
             {rep.name} brought in stay credited to {rep.name} — attributions and
             commission never move. {panel.meNote}
           </p>
+
+          {rep.active ? (
+            <AssignPanel
+              rep={rep}
+              assign={assign}
+              draft={assignDraft}
+              onDraft={onAssignDraft}
+              onAssign={onAssign}
+              busy={busy}
+              result={assignResult}
+            />
+          ) : null}
         </div>
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * Assign leads: the next N of a trade, by the rep's own selection.
+ *
+ * The trade select carries the pool counts for THIS rep (what the pool would
+ * offer them, and what they hold) — the same two numbers the rep's ClaimCard
+ * shows. The province list is the calling-rules table; the language list is
+ * the rep's own "Sells in". The button is disabled, never dead: with no
+ * claims left today, or an empty pool for the picked trade, it says so.
+ */
+function AssignPanel({ rep, assign, draft, onDraft, onAssign, busy, result }) {
+  const d = draft || {};
+  if (!assign) {
+    return (
+      <div className="pt-3 border-t border-border text-sm text-muted-foreground" data-assign-panel="loading">
+        Reading the pool for {rep.name}…
+      </div>
+    );
+  }
+  if (assign.error) {
+    return (
+      <div className="pt-3 border-t border-border text-sm text-red-700 dark:text-red-300" data-assign-panel="failed">
+        Could not read the pool for {rep.name}: {assign.error}
+      </div>
+    );
+  }
+  const trades = assign.trades || [];
+  const picked = trades.find((t) => t.key === d.tradeKey) || null;
+  const nothingLeft = (assign.remainingToday ?? 0) <= 0;
+  const poolEmpty = picked ? picked.available === 0 : false;
+  const provinces = assign.provinces || [];
+  const ca = provinces.filter((p) => p.country === "CA");
+  const us = provinces.filter((p) => p.country === "US");
+  const languages = assign.languages || [];
+  return (
+    <div className="pt-3 border-t border-border space-y-2" data-assign-panel="ready">
+      <div className="text-xs uppercase tracking-wide text-muted-foreground">Assign leads</div>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <div>
+          <label htmlFor={`assign-trade-${rep.id}`} className={LABEL}>
+            Trade
+          </label>
+          <select
+            id={`assign-trade-${rep.id}`}
+            value={d.tradeKey || ""}
+            onChange={(e) => onDraft({ tradeKey: e.target.value })}
+            className={FIELD}
+            disabled={busy}
+          >
+            <option value="">Choose a trade</option>
+            {trades.map((t) => (
+              <option key={t.key} value={t.key}>
+                {t.label} — {t.available} in {rep.name}&apos;s pool, {t.held} held
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label htmlFor={`assign-count-${rep.id}`} className={LABEL}>
+            How many (up to {assign.batchMax})
+          </label>
+          <input
+            id={`assign-count-${rep.id}`}
+            type="number"
+            min={1}
+            max={assign.batchMax}
+            value={d.count ?? assign.batchMax}
+            onChange={(e) => onDraft({ count: e.target.value })}
+            className={FIELD}
+            disabled={busy}
+          />
+        </div>
+        <div>
+          <label htmlFor={`assign-province-${rep.id}`} className={LABEL}>
+            Province or state
+          </label>
+          <select
+            id={`assign-province-${rep.id}`}
+            value={d.province || ""}
+            onChange={(e) => onDraft({ province: e.target.value })}
+            className={FIELD}
+            disabled={busy}
+          >
+            <option value="">Anywhere</option>
+            <optgroup label="Canada">
+              {ca.map((p) => (
+                <option key={p.code} value={p.code}>
+                  {p.name}
+                </option>
+              ))}
+            </optgroup>
+            <optgroup label="United States">
+              {us.map((p) => (
+                <option key={p.code} value={p.code}>
+                  {p.name}
+                </option>
+              ))}
+            </optgroup>
+          </select>
+        </div>
+        <div>
+          <label htmlFor={`assign-language-${rep.id}`} className={LABEL}>
+            Language
+          </label>
+          <select
+            id={`assign-language-${rep.id}`}
+            value={d.language || ""}
+            onChange={(e) => onDraft({ language: e.target.value })}
+            className={FIELD}
+            disabled={busy}
+          >
+            <option value="">All of {rep.name}&apos;s ({languages.map((c) => LANGUAGES.find((l) => l.code === c)?.name || c).join(", ")})</option>
+            {languages.map((c) => (
+              <option key={c} value={c}>
+                {LANGUAGES.find((l) => l.code === c)?.name || c}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={onAssign}
+          disabled={busy || !d.tradeKey || nothingLeft || poolEmpty}
+          className={BTN_PRIMARY}
+          data-assign-button
+        >
+          <ListPlus size={13} /> Assign
+        </button>
+        <span className="text-xs text-muted-foreground">
+          {nothingLeft
+            ? `${rep.name} is at the daily ceiling of ${assign.dailyCap} claims; tomorrow starts fresh.`
+            : poolEmpty
+              ? `Nothing in ${rep.name}'s pool for ${picked?.label || "that trade"} — the language rule and other reps' claims already counted.`
+              : `${assign.remainingToday} of ${assign.dailyCap} claims left today.`}
+        </span>
+      </div>
+      {result ? (
+        <p className="text-sm text-foreground break-words" data-assign-result>
+          {result}
+        </p>
+      ) : null}
+      <p className={HELP}>
+        The same next leads {rep.name} would get by pressing &quot;Claim the next {assign.batchMax}&quot;
+        — the calling window open now or within the hour, due retries first, researched before not,
+        never a language they don&apos;t sell in, never do-not-contact — narrowed to what you pick here.
+        Their day is judged in {assign.timeZone || "UTC"}; rows you assign are left alone by the
+        automatic day-end release until the day after, and lapse on their own after 48 hours.
+        {rep.name} gets a push and a line on their Today screen.
+      </p>
     </div>
   );
 }

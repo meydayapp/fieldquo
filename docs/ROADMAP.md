@@ -89,6 +89,85 @@ instant of the press.
   clock); no bulk "assign to every rep on shift" — the owner asked for one
   rep at a time.
 
+## The console assigns a rep their next leads, and the hour before a window counts (14 September 2026)
+
+The owner: "Can I assign the next leads to the sales rep from /platform?"
+Until now, no — claiming was rep-side only. And at 08:50 Eastern with a
+Quebec trade: "I can't claim them" — the batch took only rows open at the
+instant of the press.
+
+- **One selection, two callers.** `lib/sales/queueBatch.js`'s `claimBatch()`
+  is now composed of two exported halves: `selectClaimBatch()` (read the
+  pool, judge every candidate, order, cut — the window rule, due retries,
+  best-window score, researched first, the language rule, the retry pool)
+  and `writeClaimBatch()` (the guarded lease + claim rows in one
+  transaction). `lib/sales/assignLeads.js` imports both; the console adds
+  only a NARROWING (`assignFilterWhere`: a province, one of the rep's
+  languages) AND-ed onto the same WHERE. Against the same pool at the same
+  instant the console hands out exactly the rows the rep's press would, in
+  the same order — `check:sales-assign` executes that.
+- **The rep card's Assign leads panel** (`/platform/sales/reps`, inside
+  Queue…): trade with the pool counts for THIS rep (the same
+  `claimCandidateWhere({ rep })` count the rep's ClaimCard shows), count
+  (25), province/state from `subdivisionOptions()` (derived from the
+  calling-rules table, not a second list), language from the rep's own
+  `sellsIn`. `GET/POST /api/platform/sales/reps/[id]/assign`. Result line
+  in the server's numbers: "Assigned 25 Flooring leads in Quebec to Rachel
+  · 3 not offered (language) · the rest open later". Caps: batch max and
+  the rep's daily cap from the claim log — a console assignment is a claim
+  on the rep's day.
+- **Hand-picked rows** on `/platform/sales/prospects`: a checkbox beside
+  every row (beside, not inside, the row's button), Assign to [rep ▾] /
+  Unassign. `assignProspectsToRep()` judges each row by
+  `assignRefusalFor()` — do-not-contact, needs review, no trade (the Review
+  folder), claimed by Daniel until…, worked by Daniel, already the rep's, in
+  Quebec — no French, outside Quebec — no English, exhausted, a retry
+  scheduled — and returns the refused rows with the sentence; a row that
+  changed hands between the read and the write comes back "claimed by
+  another rep just now". Claim rows continue the rep's own position order.
+  The list route now carries the active reps and each row's holder by name.
+- **Unassign** is `releaseUntouched({ reason: "admin", onlyIds,
+  includeDialled })` — the one function that puts a row back; a worked row
+  is refused with "a conversation is not a lease". Nothing here writes
+  `assignedRepId: null`.
+- **What the claim log records:** `mode: "admin"` (no new column — `mode`
+  already held batch / single / reassigned; the schema comment now says so)
+  and a batchId `assigned_by:<adminId>:<instant>`, the way a reassignment
+  names its source rep. The zone on the claim is the rep's last-known
+  browser zone (their latest claim's), UTC for a rep who has never claimed.
+- **The sweeps leave a console assignment alone on its day and the next**
+  — `autoReleaseProtected()`, read by both `releaseDayEnded()` and
+  `releaseClosedUntouched()`. Decided, and commented in the function: an
+  owner assigning at 6 pm for a rep who has gone home is the ordinary case,
+  and judged in UTC a 3 pm Eastern assignment would otherwise have gone back
+  at 8 pm Eastern. The 48-hour lease, "Release the rest" and the console's
+  own Unassign still bound it.
+- **The rep hears.** A Web Push through `pushToReps` in the rep's language
+  ("Emilio Boves assigned you 25 leads (Flooring, Quebec) — open the queue",
+  nine languages), and a line on Today from `adminAssignedSummary()` on
+  `GET /api/sales/queue` (`adminAssigned`) — who, how many, which trade,
+  where; nothing when nothing is held. The queue's own list needed no
+  change: it lists every row where `assignedRepId` is the rep.
+- **Audit:** `leads_assigned` (good) / `leads_unassigned` (danger) in
+  `lib/platform/auditActions.js`, written with the rep, trade, province,
+  language, how (batch/picked) and every prospect id.
+- **The hour before a window** (committed separately, 37b82082):
+  `CLAIM_OPENS_WITHIN_MS` — a row whose window opens within an hour is
+  claimable, after every open-now row; an amber line above the Dialer says
+  when it opens and to read the research; the claim result says "their
+  window opens at 09:00 ET; you can prepare now".
+- Checks: `check:sales-assign` (139, new, in `check:all`) — the shared
+  selection by execution and by import, both caps, every refusal sentence,
+  the mid-flight race, unassign's reason, both audit rows, the push, the
+  Today summary, the sweeps' protection at the boundary minute, both routes'
+  literal role check, the screens through the shared gate.
+  `check:platform-truth` GATED: reps page and prospects page → the assign
+  route (superadminOnly); prospects page joins SALES_GATED.
+- **Not done / owed:** the assign panel's "next window opens" time is
+  printed in UTC on the console (the rep's own screen prints it on their
+  clock); no bulk "assign to every rep on shift" — the owner asked for one
+  rep at a time.
+
 ## Cancel at the period end, Resume in one click, one trial per company (14 September 2026)
 
 The owner pressed the banner's "Start again" twice on his own cancelled $1

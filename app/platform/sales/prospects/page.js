@@ -24,10 +24,27 @@
 // whether something is verified, and nothing here decides what a `false`
 // capability versus a `null` one is allowed to say.
 //
+// ══ Assign to a rep, since 2026-09-14 ═════════════════════════════════════
+//
+// The owner: "Can I assign the next leads to the sales rep from /platform?"
+// The rep card's Assign panel hands out the NEXT leads by the rep's own
+// selection; this list is the other half — a superadmin looking at a row and
+// saying "Rachel, this one". A checkbox beside every row, and a bar above the
+// list: Assign to [rep ▾] and Unassign. Both post to
+// /api/platform/sales/reps/[id]/assign and /unassign (lib/sales/
+// assignLeads.js), and both come back row by row: the rows that were
+// refused are listed here with the server's reason — "Claimed by Daniel
+// until…", "In Quebec — Daniel does not sell in French", "Do not contact" —
+// rather than silently dropped. The controls draw only for a superadmin,
+// through the same gate every /platform/sales editor uses; the list itself
+// is readable as before.
+//
 // ══ Mobile-first ══════════════════════════════════════════════════════════
 //
 // Single column, full-width controls, 44px targets, no table and no modal.
-// This file is in scripts/check-mobile-surfaces.mjs's STRICT list.
+// This file is in scripts/check-mobile-surfaces.mjs's STRICT list. The
+// checkbox sits BESIDE the row's button, not inside it — a control inside a
+// button is not reachable by keyboard and not valid HTML.
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
@@ -45,6 +62,8 @@ import {
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { LAYER_HEADINGS, SOURCE_CATEGORY_HEADING } from "@/lib/sales/prospectView";
+import PlatformWriteGate, { usePlatformAdmin } from "@/app/components/platform/PlatformWriteGate";
+import { FRENCH } from "@/lib/sales/leadLanguage";
 
 const BTN =
   "inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60";
@@ -118,6 +137,18 @@ export default function PlatformProspectsPage() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState("");
 
+  // ── Assign / Unassign ──────────────────────────────────────────────────
+  // Who is signed in, through the shared hook: never-loaded and refused are
+  // kept apart (PlatformWriteGate's header), so a failed /api/platform/me
+  // draws no controls rather than a refusal to a real superadmin.
+  const { status: roleStatus, error: roleError, isSuperadmin } = usePlatformAdmin();
+  const [ticked, setTicked] = useState(() => new Set());
+  const [assignRepId, setAssignRepId] = useState("");
+  const [assignBusy, setAssignBusy] = useState("");
+  // The last assign/unassign answer: the sentence, and the refused rows with
+  // the server's reason for each.
+  const [assignOutcome, setAssignOutcome] = useState(null);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -166,6 +197,55 @@ export default function PlatformProspectsPage() {
     setPage(0);
     setApplied(filters);
     setShowFilters(false);
+  }
+
+  function toggleTicked(id) {
+    setTicked((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  /**
+   * Assign the ticked rows to the picked rep, or take them back. The server
+   * judges every row and answers row by row; the sentence and the refusals
+   * are drawn from its answer, never from what was ticked.
+   */
+  async function assignTicked(action) {
+    const ids = [...ticked];
+    if (ids.length === 0) return;
+    const rep = (data?.reps || []).find((r) => r.id === assignRepId) || null;
+    if (!rep) {
+      setAssignOutcome({ error: "Choose a rep first." });
+      return;
+    }
+    setAssignBusy(action);
+    setAssignOutcome(null);
+    try {
+      const res = await fetchJson(`/api/platform/sales/reps/${rep.id}/${action}`, {
+        method: "POST",
+        body: { prospectIds: ids },
+      });
+      const done = action === "assign" ? res.assigned : res.unassigned;
+      const refused = res.refused || [];
+      setAssignOutcome({
+        text:
+          action === "assign"
+            ? `Assigned ${done} of ${ids.length} to ${rep.name}${refused.length ? ` · ${refused.length} refused` : ""}${
+                Number.isFinite(res.remainingToday) ? ` · ${res.remainingToday} claims left today` : ""
+              }.`
+            : `Took ${done} of ${ids.length} back from ${rep.name}${refused.length ? ` · ${refused.length} refused` : ""}.`,
+        refused,
+      });
+      setTicked(new Set());
+      await load();
+    } catch (err) {
+      setAssignOutcome({ error: err?.message || `Could not ${action}.` });
+    } finally {
+      setAssignBusy("");
+    }
   }
 
   // ── One prospect ───────────────────────────────────────────────────────
@@ -511,8 +591,27 @@ export default function PlatformProspectsPage() {
         </div>
       ) : null}
 
+      {/* The controls draw only for a superadmin. A support session reads
+          the list as before and sees nothing it could not press. */}
+      <PlatformWriteGate status={roleStatus} allowed={isSuperadmin} error={roleError} action="Assigning prospects to a rep" who="superadmin">
+        {null}
+      </PlatformWriteGate>
+
       {!loading && data ? (
         <>
+          {isSuperadmin ? (
+            <AssignBar
+              reps={data.reps || []}
+              repId={assignRepId}
+              onRep={setAssignRepId}
+              ticked={ticked.size}
+              busy={assignBusy}
+              onAssign={() => assignTicked("assign")}
+              onUnassign={() => assignTicked("unassign")}
+              onClear={() => setTicked(new Set())}
+              outcome={assignOutcome}
+            />
+          ) : null}
           <p className="text-sm text-muted-foreground">
             {data.total} matching prospect{data.total === 1 ? "" : "s"}
             {data.total > data.pageSize
@@ -548,7 +647,18 @@ export default function PlatformProspectsPage() {
 
           <ul className="space-y-3">
             {data.prospects.map((p) => (
-              <li key={p.id}>
+              <li key={p.id} className={isSuperadmin ? "flex items-start gap-2" : undefined}>
+                {isSuperadmin ? (
+                  <label className="flex items-center justify-center min-h-[44px] min-w-[44px] shrink-0 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="h-5 w-5"
+                      checked={ticked.has(p.id)}
+                      onChange={() => toggleTicked(p.id)}
+                      aria-label={`Select ${p.businessName}`}
+                    />
+                  </label>
+                ) : null}
                 <button
                   type="button"
                   className={`${CARD} w-full text-left min-h-[44px] hover:border-foreground/30`}
@@ -592,7 +702,13 @@ export default function PlatformProspectsPage() {
                       </Pill>
                     ) : null}
                     {p.contact.callable ? null : <Pill tone="gap">{p.contact.title}</Pill>}
-                    {p.claim.state === "unclaimed" ? null : <Pill tone="unknown">{p.claim.state.replace(/_/g, " ")}</Pill>}
+                    {/* Whose it is, by name, while the claim is live or worked. */}
+                    {p.claim.state === "unclaimed" ? null : (
+                      <Pill tone="unknown">
+                        {p.claim.state.replace(/_/g, " ")}
+                        {p.holder?.name ? ` · ${p.holder.name}` : ""}
+                      </Pill>
+                    )}
                   </div>
                 </button>
               </li>
@@ -620,6 +736,86 @@ export default function PlatformProspectsPage() {
             </div>
           ) : null}
         </>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * Assign to [rep ▾] · Assign · Unassign, over the ticked rows, and the last
+ * answer under it: the sentence, then every refused row with the server's
+ * reason. A rep without French is offered with " — no French" beside the
+ * name rather than hidden, so the superadmin can see who cannot take a
+ * Quebec row and fix their card; the server still refuses row by row.
+ */
+function AssignBar({ reps, repId, onRep, ticked, busy, onAssign, onUnassign, onClear, outcome }) {
+  return (
+    <div className={CARD} data-assign-bar>
+      <div className="flex flex-wrap items-end gap-2">
+        <div className="flex-1 min-w-[12rem]">
+          <label className={LABEL} htmlFor="assign-rep">
+            Assign to rep
+          </label>
+          <select id="assign-rep" className={FIELD} value={repId} onChange={(e) => onRep(e.target.value)} disabled={Boolean(busy)}>
+            <option value="">{reps.length === 0 ? "No active rep" : "Choose a rep"}</option>
+            {reps.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.name}
+                {(r.sellsIn || []).includes(FRENCH) ? "" : " — no French"}
+              </option>
+            ))}
+          </select>
+        </div>
+        <button
+          type="button"
+          className={`${BTN} bg-inverted text-inverted-foreground`}
+          disabled={Boolean(busy) || !repId || ticked === 0}
+          onClick={onAssign}
+          data-assign-ticked
+        >
+          {busy === "assign" ? <Loader2 className="animate-spin" size={16} /> : null}
+          Assign {ticked > 0 ? `(${ticked})` : ""}
+        </button>
+        <button
+          type="button"
+          className={`${BTN} border border-border text-foreground`}
+          disabled={Boolean(busy) || !repId || ticked === 0}
+          onClick={onUnassign}
+          data-unassign-ticked
+        >
+          {busy === "unassign" ? <Loader2 className="animate-spin" size={16} /> : null}
+          Unassign {ticked > 0 ? `(${ticked})` : ""}
+        </button>
+        {ticked > 0 ? (
+          <button type="button" className={`${BTN} text-muted-foreground`} onClick={onClear} disabled={Boolean(busy)}>
+            Clear
+          </button>
+        ) : null}
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Tick rows, pick a rep. Assign hands them the ticked rows as a 48-hour lease — refused row by
+        row when a row is somebody else&apos;s, do-not-contact, in the Review folder, or in a language
+        the rep does not sell in. Unassign gives ticked rows the rep holds back to the pool; a worked
+        row stays. Nothing is deleted.
+      </p>
+      {outcome?.error ? (
+        <p className="text-sm text-red-700 dark:text-red-300 break-words" data-assign-outcome="error">
+          {outcome.error}
+        </p>
+      ) : null}
+      {outcome?.text ? (
+        <p className="text-sm text-foreground break-words" data-assign-outcome="done">
+          {outcome.text}
+        </p>
+      ) : null}
+      {outcome?.refused?.length ? (
+        <ul className="space-y-1" data-assign-refused>
+          {outcome.refused.map((r) => (
+            <li key={r.id} className="text-xs text-amber-900 dark:text-amber-200 break-words">
+              <span className="font-medium">{r.businessName || r.id}</span> — {r.reason}
+            </li>
+          ))}
+        </ul>
       ) : null}
     </div>
   );
