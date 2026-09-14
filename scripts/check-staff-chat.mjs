@@ -90,6 +90,8 @@ import {
   AUDIT_PAGE_MAX,
 } from "@/lib/staff/auditRules";
 import { directPushRecipient, directPushSnippet, DIRECT_PUSH_LOOKING_MS } from "@/lib/staff/directPush";
+import { roomsFor, roomFor, markRoomSeen, THREAD_TAKE } from "@/lib/staff/store";
+import { unreadWhere, mentionsWhere, countsByRoom, seenUpTo } from "@/lib/chat/unreadQuery";
 import { canPlatform, SUPERADMIN_ONLY_PERMISSIONS } from "@/lib/platform/permissions";
 import { AUDIT_ACTIONS } from "@/lib/platform/auditActions";
 import { auditRooms, auditRoomMessages } from "@/lib/staff/audit";
@@ -736,15 +738,20 @@ section("9. A direct message is pushed to the other side; a channel pushes menti
   const dm = { kind: "direct" };
   const fresh = (s) => new Date(now.getTime() - s * 1000);
   const members = [
-    { salesRepId: "r1", lastSeenAt: fresh(1) },
-    { platformAdminId: "a1", lastSeenAt: fresh(600) },
+    { salesRepId: "r1", lastOpenedAt: fresh(1) },
+    { platformAdminId: "a1", lastOpenedAt: fresh(600) },
   ];
   const got = directPushRecipient({ room: dm, members, viewer: me, now });
   ok("a DM post pushes to the OTHER participant, once", got?.kind === "user" && got?.id === "a1", got);
   ok("…never to the author", directPushRecipient({ room: dm, members: [members[0]], viewer: me, now }) === null);
-  ok("…not to somebody looking at the room (seen within the last 30 s)", directPushRecipient({ room: dm, members: [members[0], { platformAdminId: "a1", lastSeenAt: fresh(10) }], viewer: me, now }) === null);
-  ok("…but to somebody who looked 31 s ago", Boolean(directPushRecipient({ room: dm, members: [members[0], { platformAdminId: "a1", lastSeenAt: fresh(DIRECT_PUSH_LOOKING_MS / 1000 + 1) }], viewer: me, now })));
-  ok("…and to somebody who has never opened it", Boolean(directPushRecipient({ room: dm, members: [members[0], { platformAdminId: "a1", lastSeenAt: null }], viewer: me, now })));
+  ok("…not to somebody looking at the room (drawn for them within the last 30 s)", directPushRecipient({ room: dm, members: [members[0], { platformAdminId: "a1", lastOpenedAt: fresh(10) }], viewer: me, now }) === null);
+  ok("…but to somebody who looked 31 s ago", Boolean(directPushRecipient({ room: dm, members: [members[0], { platformAdminId: "a1", lastOpenedAt: fresh(DIRECT_PUSH_LOOKING_MS / 1000 + 1) }], viewer: me, now })));
+  ok("…and to somebody who has never opened it", Boolean(directPushRecipient({ room: dm, members: [members[0], { platformAdminId: "a1", lastOpenedAt: null }], viewer: me, now })));
+  // lastSeenAt is the READ boundary and stops at the last message shown; a
+  // reader staring at a quiet room has an old one. It must not be what
+  // decides "looking", or every first message after a lull is pushed to the
+  // person it is already in front of.
+  ok("…and lastSeenAt alone does not make somebody 'looking'", Boolean(directPushRecipient({ room: dm, members: [members[0], { platformAdminId: "a1", lastSeenAt: fresh(1), lastOpenedAt: fresh(600) }], viewer: me, now })));
   ok("a closed member is not a recipient", directPushRecipient({ room: dm, members: [members[0], { platformAdminId: "a1", open: false }], viewer: me, now }) === null);
   ok("a group post pushes NOBODY this way", directPushRecipient({ room: { kind: "channel" }, members, viewer: me, now }) === null);
   ok("a direct room with three sides is broken and pushes nobody", directPushRecipient({ room: dm, members: [...members, { salesRepId: "r2" }], viewer: me, now }) === null);
@@ -754,7 +761,9 @@ section("9. A direct message is pushed to the other side; a channel pushes menti
   ok("posting hands every message to one push decision", /pushAfterPost\(\{ viewer, roomId, text, mentions \}\)/.test(store));
   ok("…a direct room takes the direct push, not the mention push as well", /if \(room\.kind === "direct"\) return pushDirect\(/.test(store) && /if \(mentions\.length\) return pushMentions\(/.test(store));
   ok("…the direct push asks the pure rule", /directPushRecipient\(\{ room, members: room\.members, viewer \}\)/.test(store));
-  ok("…reads the recipient's lastSeenAt for it", /members: \{ where: \{ open: true \}, select: \{ platformAdminId: true, salesRepId: true, lastSeenAt: true/.test(store));
+  ok("…reads the recipient's lastOpenedAt for it", /members: \{ where: \{ open: true \}, select: \{ platformAdminId: true, salesRepId: true, lastOpenedAt: true/.test(store));
+  ok("…which every read of the thread stamps", /data: \{ lastOpenedAt: now \}/.test(store));
+  ok("…and the column exists", /lastOpenedAt DateTime\?/.test(read("prisma/schema.prisma").split("model StaffRoomMember")[1].split("\n}")[0]));
   ok("…and pushes in the recipient's language through the same helper as a mention", /pushToReps\(\{ salesRepIds: repIds, payload: payloadFor\(/.test(store) && /app\.notify\.directMessage\.title/.test(store));
   ok("…deep-linking to the room in each portal", /\/sales\/team\?room=/.test(store) && /\/platform\/chat\?room=/.test(store));
   ok("the chat opens ?room= on arrival", /URLSearchParams\(window\.location\.search\)\.get\("room"\)/.test(decomment(read("app/components/staff/StaffChat.js"))));
@@ -770,6 +779,165 @@ section("9. A direct message is pushed to the other side; a channel pushes menti
   // The platform rail polls /api/platform/notifications/count, not the sales
   // badges route; it is not the same digits and was left as it was.
   ok("the platform rail does not poll the sales badges route", !/\/api\/sales\/badges/.test(decomment(read("app/components/platform/PlatformSidebar.js"))));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("10. Unread is a COUNT, the thread is the NEWEST, and seen is the last message shown");
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// The owner's report: "sometimes in the chat the unread messages don't
+// clear." Three causes, each executed here against the fake database:
+//
+//   1. The list loaded each room's OLDEST 200 messages and counted the
+//      unread among them. A room past 200 would have counted its newest
+//      messages — the only ones that can be unread — never. Now a grouped
+//      count over every message, and the thread reads newest-first.
+//   2. The read was stamped "now" rather than "up to the last message
+//      shown", so a message in the payload could sit later than the stamp.
+//   3. The badge and the list polled on their own clocks after an open —
+//      section 11 reads the screens for the immediate refresh.
+
+{
+  const t0 = new Date("2026-09-14T09:00:00Z");
+  const at = (i) => new Date(t0.getTime() + i * 1000);
+  const REP = { kind: "rep", id: "r1", name: "Daniel" };
+  const ADMIN = { kind: "user", id: "a1", name: "emilio@fieldquo.com" };
+  // 250 messages in #sales, the admin and the rep alternating, one system
+  // line, two @mentions of the rep — #245 and #248 — and the rep has read up
+  // to #240. The old slice held #1–#200: every one before the boundary.
+  const messages = [];
+  for (let i = 1; i <= 250; i++) {
+    const admin = i % 2 === 0;
+    messages.push({
+      id: `s${i}`,
+      roomId: "sales",
+      kind: i === 244 ? "system" : "message",
+      body: i === 244 ? "somebody joined" : `message ${i}`,
+      meta: i === 244 ? { system: "joined" } : null,
+      mentions: i === 245 || i === 248 ? ["rep:r1"] : [],
+      sentAt: at(i),
+      ...(admin ? { authorPlatformAdminId: "a1" } : { authorSalesRepId: "r1" }),
+    });
+  }
+  const db = fakeDb({
+    admins: [{ id: "a1", email: "emilio@fieldquo.com", role: "superadmin", active: true }],
+    reps: [{ id: "r1", name: "Daniel", email: "d@x", active: true, endedAt: null, acceptedAt: t0, passwordHash: "x" }],
+    rooms: [
+      { id: "sales", kind: "channel", name: "sales", slug: "sales", teamKey: "sales", lastMessageAt: at(250) },
+      { id: "quiet", kind: "channel", name: "quiet", slug: "quiet", lastMessageAt: at(3) },
+      { id: "empty", kind: "channel", name: "empty", slug: "empty", lastMessageAt: null },
+    ],
+    members: [
+      { id: "m1", roomId: "sales", salesRepId: "r1", lastSeenAt: at(240), lastOpenedAt: null },
+      { id: "m2", roomId: "sales", platformAdminId: "a1", lastSeenAt: null, lastOpenedAt: null },
+      { id: "m3", roomId: "quiet", salesRepId: "r1", lastSeenAt: null },
+      { id: "m4", roomId: "quiet", platformAdminId: "a1", lastSeenAt: at(9) },
+      { id: "m5", roomId: "empty", salesRepId: "r1", lastSeenAt: null },
+    ],
+    messages: [
+      ...messages,
+      { id: "q1", roomId: "quiet", body: "hi", sentAt: at(2), authorPlatformAdminId: "a1", mentions: [] },
+      { id: "q2", roomId: "quiet", body: "me", sentAt: at(3), authorSalesRepId: "r1", mentions: [] },
+    ],
+  });
+
+  // ── 1. The count ───────────────────────────────────────────────────────
+  const rooms = await roomsFor(REP, { client: db });
+  const sales = rooms.find((r) => r.id === "sales");
+  // After #240 there are ten rows. Odd numbers are the rep's own — #241,
+  // #243, #245, #247, #249 — and never count; #244 is a system line; the
+  // admin's #242, #246, #248 and #250 are the four that do.
+  const expected = messages.filter((m) => m.kind !== "system" && m.authorPlatformAdminId && m.sentAt > at(240)).length;
+  ok("the fixture is what the comment says", expected === 4, expected);
+  ok("the list counts unread with a QUERY over every message: seen at #240 of 250 → the four the admin sent after it", sales?.unread === 4, sales?.unread);
+  ok("…the old oldest-200 slice would have said zero (none of #1–#200 is after #240)", unreadFor({ messages: messages.slice(0, 200), lastSeenAt: at(240), viewer: REP }) === 0);
+  ok("…and the rule over ALL the rows agrees with the query", unreadFor({ messages, lastSeenAt: at(240), viewer: REP }) === sales?.unread);
+  ok("mentions after the boundary are counted apart: #248 (the admin's), not #245 (the rep's own)", sales?.mentions === 1, sales?.mentions);
+  ok("…and agree with the rule over the rows", mentionsFor({ messages, lastSeenAt: at(240), viewer: REP }) === sales?.mentions);
+  ok("the listed room carries ONE preview row, the last thing somebody said", sales?.messages?.length === 1 && sales.messages[0].id === "s250", sales?.messages?.map((m) => m.id));
+  const listed = staffRoomList(rooms, REP).find((r) => r.id === "sales");
+  ok("…and the row reads the store's counts, not a count over that one row", listed.unread === 4 && listed.mentions === 1 && listed.lastBody === "message 250", [listed.unread, listed.mentions, listed.lastBody]);
+  ok("a never-seen room counts everything from others", rooms.find((r) => r.id === "quiet")?.unread === 1);
+  ok("…the same room, read by the other side, is clear (their own word was the last)", (await roomsFor(ADMIN, { client: db })).find((r) => r.id === "quiet")?.unread === 0);
+  ok("…and for the other side, #sales never seen is the 125 the rep sent", (await roomsFor(ADMIN, { client: db })).find((r) => r.id === "sales")?.unread === 125);
+  ok("an empty room is zero, not an error", rooms.find((r) => r.id === "empty")?.unread === 0);
+  ok("unread sorts first, still", staffRoomList(rooms, REP)[0].id === "sales");
+
+  // The where is what the query runs; the pure builder is checked apart so
+  // a wrong shape fails here and not only in the fake.
+  const where = unreadWhere({ rooms: [{ id: "a", lastSeenAt: at(1) }, { id: "b", lastSeenAt: null }], at: "sentAt", notMine: { OR: [{ authorSalesRepId: null }, { authorSalesRepId: { not: "r1" } }] } });
+  ok("unreadWhere: not system, not mine, and per room after ITS lastSeenAt — or everything, never seen", JSON.stringify(where) === JSON.stringify({ AND: [{ kind: { not: "system" } }, { OR: [{ authorSalesRepId: null }, { authorSalesRepId: { not: "r1" } }] }, { OR: [{ roomId: "a", sentAt: { gt: at(1) } }, { roomId: "b" }] }] }), where);
+  ok("unreadWhere with no rooms is null, so no query runs", unreadWhere({ rooms: [] }) === null);
+  ok("mentionsWhere narrows the same where to the viewer's key", JSON.stringify(mentionsWhere({ rooms: [{ id: "a" }], at: "sentAt", key: "rep:r1" }).AND.at(-1)) === JSON.stringify({ mentions: { has: "rep:r1" } }));
+  ok("…and is null without a key", mentionsWhere({ rooms: [{ id: "a" }], key: null }) === null);
+  const folded = countsByRoom([{ roomId: "a", _count: { _all: 3 } }, { roomId: "b", _count: { _all: 0 } }, null]);
+  ok("countsByRoom folds groupBy rows and reads an absent room as nothing", folded.get("a") === 3 && folded.get("b") === 0 && (folded.get("c") || 0) === 0);
+
+  // ── 2. The thread is the newest, oldest-first ──────────────────────────
+  const thread = await roomFor(REP, "sales", { client: db });
+  ok(`the thread is the NEWEST ${THREAD_TAKE}, not the oldest`, thread.messages.length === 250 && thread.messages.at(-1).id === "s250");
+  ok("…handed back oldest-first, the way the screen draws it", thread.messages[0].id === "s1" && new Date(thread.messages[1].sentAt) > new Date(thread.messages[0].sentAt));
+  for (let i = 251; i <= 700; i++) db.tables.staffMessage.push({ id: `s${i}`, roomId: "sales", kind: "message", body: `message ${i}`, mentions: [], sentAt: at(i), authorPlatformAdminId: "a1" });
+  const long = await roomFor(REP, "sales", { client: db });
+  ok(`a 700-message room reads as its last ${THREAD_TAKE}: #201–#700, and #700 is there`, long.messages.length === THREAD_TAKE && long.messages[0].id === "s201" && long.messages.at(-1).id === "s700", [long.messages.length, long.messages[0]?.id, long.messages.at(-1)?.id]);
+  ok("…where the old oldest-500 read stopped at #500 and never showed #501–#700", (() => {
+    const oldest = [...db.tables.staffMessage.filter((m) => m.roomId === "sales")].sort((a, b) => a.sentAt - b.sentAt).slice(0, 500);
+    return oldest.at(-1).id === "s500" && !oldest.some((m) => m.id === "s700");
+  })());
+  ok("a stranger reads nothing", (await roomFor({ kind: "rep", id: "r9" }, "sales", { client: db })) === null);
+
+  // ── 3. Seen is the last message SHOWN, and only ever moves forward ─────
+  const upTo = seenUpTo(long.messages, "sentAt");
+  ok("seenUpTo is the last message's own timestamp", upTo?.getTime() === at(700).getTime(), upTo);
+  ok("…null for an empty payload", seenUpTo([], "sentAt") === null && seenUpTo(null) === null);
+  ok("…and ignores an undated row", seenUpTo([{ id: "x" }, { sentAt: at(2) }], "sentAt")?.getTime() === at(2).getTime());
+  const now = new Date("2026-09-14T15:00:00Z");
+  ok("markRoomSeen stamps it", (await markRoomSeen({ viewer: REP, roomId: "sales", upTo, now }, { client: db })) === true);
+  const mine = db.tables.staffRoomMember.find((m) => m.id === "m1");
+  ok("…lastSeenAt is the last message's time, not the clock", mine.lastSeenAt.getTime() === at(700).getTime() && mine.lastSeenAt.getTime() !== now.getTime(), mine.lastSeenAt);
+  ok("…and lastOpenedAt is the clock — the room was drawn for them just now", mine.lastOpenedAt?.getTime() === now.getTime(), mine.lastOpenedAt);
+  ok("…so the room is clear", (await roomsFor(REP, { client: db })).find((r) => r.id === "sales")?.unread === 0);
+  // A message that lands the same instant the read is stamped: with "now"
+  // it would have a sentAt before the stamp and never count. With the last
+  // message's time it is later than the stamp and counts.
+  db.tables.staffMessage.push({ id: "late", roomId: "sales", kind: "message", body: "landed during the read", mentions: [], sentAt: at(701), authorPlatformAdminId: "a1" });
+  ok("a message that landed during the read is still unread", (await roomsFor(REP, { client: db })).find((r) => r.id === "sales")?.unread === 1);
+  // Another tab, whose payload was older, stamps after this one.
+  await markRoomSeen({ viewer: REP, roomId: "sales", upTo: at(650), now: new Date(now.getTime() + 1000) }, { client: db });
+  ok("an older stamp from another tab does not move lastSeenAt BACK", mine.lastSeenAt.getTime() === at(700).getTime());
+  ok("…though it still says the room was drawn again", mine.lastOpenedAt.getTime() === now.getTime() + 1000);
+  await markRoomSeen({ viewer: REP, roomId: "empty", upTo: null, now }, { client: db });
+  ok("an empty payload stamps no read boundary — nothing was seen", db.tables.staffRoomMember.find((m) => m.id === "m5").lastSeenAt === null);
+  ok("…but does stamp the open", db.tables.staffRoomMember.find((m) => m.id === "m5").lastOpenedAt?.getTime() === now.getTime());
+  ok("a non-member stamps nothing", (await markRoomSeen({ viewer: { kind: "rep", id: "r9" }, roomId: "sales", upTo }, { client: db })) === false);
+
+  const route = decomment(read("app/api/staff/rooms/[id]/route.js"));
+  ok("the thread route marks seen up to the last message IN ITS PAYLOAD", /markRoomSeen\(\{ viewer, roomId: room\.id, upTo: seenUpTo\(room\.messages, "sentAt"\) \}\)/.test(route));
+  ok("…and never up to the clock", !/lastSeenAt: new Date|upTo: new Date/.test(route));
+  const store = decomment(read("lib/staff/store.js"));
+  ok("the store's list include is ONE preview row, newest first, not a slice of 200", /take: 1,/.test(store) && !/take: 200/.test(store));
+  ok("…the thread reads newest-first and reverses", /orderBy: \{ sentAt: "desc" \}, take: THREAD_TAKE/.test(store) && /\.reverse\(\)/.test(store));
+  ok("…the counts are grouped counts, not a JavaScript filter", /staffMessage\.groupBy\(countByRoomArgs\(/.test(store) && !/unreadFor\(/.test(store));
+  ok("…and the read boundary only moves forward, in one statement", /OR: \[\{ lastSeenAt: null \}, \{ lastSeenAt: \{ lt: seen \} \}\]/.test(store));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("11. Opening a room clears the badge NOW, not on the next poll");
+// ═══════════════════════════════════════════════════════════════════════════
+
+{
+  const chat = decomment(read("app/components/staff/StaffChat.js"));
+  ok("the screen has one 'after seen' step: re-read the list and announce it", /const afterSeen = useCallback\(\(\) => \{\s*loadList\(\);\s*announceBadgesChanged\(\);/.test(chat));
+  ok("…run after the OPEN's room read resolves (the read is what marks it seen)", /loadRoom\(openId\)\.then\(\(seen\) => \{\s*if \(seen\) afterSeen\(\);/.test(chat));
+  ok("…after a send", /await loadRoom\(openId, \{ keepSeen: true \}\);[\s\S]{0,300}afterSeen\(\);/.test(chat));
+  ok("…and on coming back to the tab with a room open — visibility and focus", /addEventListener\("visibilitychange", wake\)/.test(chat) && /addEventListener\("focus", wake\)/.test(chat) && /loadRoom\(openId, \{ keepSeen: true \}\)\.then\(\(seen\) => \{\s*if \(seen\) afterSeen\(\);/.test(chat));
+  ok("…both removed on unmount", /removeEventListener\("visibilitychange", wake\)/.test(chat) && /removeEventListener\("focus", wake\)/.test(chat));
+  ok("loadRoom says whether it succeeded, so a failed read announces nothing", /return true;\s*\} catch \(err\) \{\s*setRoomError\(say\(err, "app\.teamChat\.roomLoadError"\)\);\s*return false;/.test(chat));
+  const shell = decomment(read("app/sales/SalesShell.js"));
+  ok("the sales shell re-reads the badges on the announcement", /const offBadges = onBadgesChanged\(read\);/.test(shell) && /offBadges\(\);/.test(shell));
+  const badges = decomment(read("lib/chat/badges.js"));
+  ok("the event has one name, in one file", /export const BADGES_EVENT = "fieldquo:badges";/.test(badges) && !/"fieldquo:badges"/.test(chat + shell));
+  ok("…and dispatching on the server is a no-op", /if \(typeof window === "undefined"\) return;/.test(badges));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

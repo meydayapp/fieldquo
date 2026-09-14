@@ -11221,6 +11221,34 @@ model Prospect {
   /// provenance, and a wrong merge is unrecoverable.
   possibleDuplicateOfId String?
 
+  // ── A merge a human decided, and how it comes apart again ──────────────
+  //
+  // The flag above leaves two rows for one business, each carrying what ITS
+  // source knew: the register has the licence and the trade, the directory
+  // has the website and the phone. The rep holds one of them and never sees
+  // the other. lib/sales/discovery/mergeProspects.js closes that gap WITHOUT
+  // the unrecoverable merge the comment above warns about: the survivor's
+  // EMPTY fields are filled from the others, every fill is recorded here as
+  // (field, from which row, from which source), the other rows are RETIRED —
+  // pointed at the survivor, kept whole, excluded from every queue and count
+  // — and an unmerge clears exactly the fields the plan filled and nothing
+  // else. Nothing is deleted and nothing set is overwritten, which is what
+  // makes a wrong merge recoverable where a row-collapsing one was not.
+
+  /// Set on a RETIRED row: the survivor it was merged into. Every queue,
+  /// count, review card and ingest excludes rows carrying this — through the
+  /// shared where-builders (claimCandidateWhere, queueWhere, the review
+  /// folder's untouchable guard), never per call site. The row keeps its
+  /// status, its provenance and its evidence.
+  mergedIntoId String?
+  mergedAt     DateTime?
+  /// On a SURVIVOR: the merge plans, appended in order, each one the audit of
+  /// what was filled from where and what was re-parented — the exact list an
+  /// unmerge reverses. `kind: "autofill"` entries are the ingest-time fills a
+  /// strong dedupe match (same phone, same domain) makes on its own; those
+  /// retire nothing and an unmerge leaves them alone.
+  mergedFrom   Json?
+
   /// When a superadmin looked at this row in the Review folder
   /// (/platform/sales/review) and passed — "still unsure". Not a decision:
   /// the row keeps its status and stays in the folder, and this only sorts it
@@ -11360,6 +11388,9 @@ model Prospect {
   @@index([suggestedTradeKey])
   /// The cron slice's "rows not yet suggested" scan.
   @@index([suggestedAt])
+  /// "The rows merged into this one" — the survivor's duplicate panel, and
+  /// the read-path union of their evidence (lib/sales/discovery/mergedReads.js).
+  @@index([mergedIntoId])
   repNotes SalesRepNote[]
   playbookAssignments SalesPlaybookAssignment[]
   talkingPoints       ProspectTalkingPoint[]
@@ -14917,8 +14948,20 @@ model StaffRoomMember {
   /// When they last had this room open. Unread is COUNTED against this rather
   /// than stored as a number: a stored counter is a second source of truth
   /// that drifts the first time a message is deleted or a read is missed, and
-  /// counting from a timestamp cannot drift.
+  /// counting from a timestamp cannot drift. Moves only as far as the last
+  /// message they were SHOWN (lib/chat/unreadQuery.js seenUpTo), never to
+  /// "now" — a stamp from the clock can be later than a message that was in
+  /// the payload, and that room then reads as unread until the next poll.
   lastSeenAt DateTime?
+
+  /// When this room was last DRAWN for them — every read of the thread, the
+  /// open and the fifteen-second poll — whether or not anything new was
+  /// shown. Read by lib/staff/directPush.js: a reader whose room was drawn
+  /// within the last half minute has the words in front of them and is not
+  /// pushed. A separate column because the two are separate facts: a quiet
+  /// room's lastSeenAt is as old as its last message while its reader is
+  /// looking at it.
+  lastOpenedAt DateTime?
 
   /// False once they have left or been removed. The row STAYS — their
   /// messages are attributed to it, and a membership that was deleted would

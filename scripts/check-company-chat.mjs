@@ -47,7 +47,9 @@ import {
   openDirect,
   postMessage,
   markRoomSeen,
+  THREAD_TAKE,
 } from "@/lib/company/chat/store";
+import { seenUpTo } from "@/lib/chat/unreadQuery";
 import {
   CHAT_ROOM_KINDS,
   OFFICE_ROLES,
@@ -395,12 +397,94 @@ section("6. Mentions and DMs notify the right people, in their language");
   // Bob's own post stamped his lastSeenAt; only Dan's @all came after it.
   ok("Bob's list shows the job room unread with his mentions counted separately", bobJob.unread === 1 && bobJob.mentions === 1, [bobJob.unread, bobJob.mentions]);
   ok("unread rooms sort first", bobList[0].unread > 0);
-  await markRoomSeen(BOB, j1.id, { client: db });
+  // Opening is the thread read, marked seen up to the last message IT
+  // showed — what the route does (section 10 has the whole argument).
+  const bobThread = await roomFor(BOB, j1.id, { client: db });
+  await markRoomSeen(BOB, j1.id, { client: db, upTo: seenUpTo(bobThread.messages, "createdAt") });
   const after = roomList(await roomsFor(BOB, { client: db }), "mBob").find((r) => r.id === j1.id);
   ok("opening the room clears both counts", after.unread === 0 && after.mentions === 0);
+  ok("…and stamped the last message's own time, not the clock", memberRows(db, j1.id).find((m) => m.memberId === "mBob").lastSeenAt.getTime() === new Date(bobThread.messages.at(-1).createdAt).getTime());
   const anaJob = roomList(await roomsFor(ANA, { client: db }), "mAna").find((r) => r.id === j1.id);
   // After Ana's last post: Bob's note to himself and Dan's @all.
   ok("the author's own messages never count as unread for them", anaJob.unread === 2 && anaJob.mentions === 1 && anaJob.lastWasMine === false, [anaJob.unread, anaJob.mentions]);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("10. Unread is a COUNT, the thread is the NEWEST, and seen is the last message shown");
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// The same three causes as scripts/check-staff-chat.mjs section 10, on the
+// crew's chat: the list counted unread over each room's OLDEST 200 rows, the
+// thread read its oldest 500, and the read was stamped "now". Executed here
+// with 250 messages in #general, seen at #240.
+
+{
+  const db = seed();
+  await ensureCompanyRooms("A", { client: db });
+  const general = roomOf(db, "general");
+  const t0 = new Date("2026-09-14T09:00:00Z");
+  const at = (i) => new Date(t0.getTime() + i * 1000);
+  // Even numbers are Ana's, odd Bob's own; #244 is a system line; #246 and
+  // #248 say Bob's name.
+  for (let i = 1; i <= 250; i++) {
+    db.tables.companyChatMessage.push({
+      id: `g${i}`,
+      companyId: "A",
+      roomId: general.id,
+      kind: i === 244 ? "system" : "message",
+      body: `message ${i}`,
+      meta: i === 244 ? { system: "joined" } : null,
+      mentions: i === 246 || i === 248 ? ["member:mBob"] : [],
+      createdAt: at(i),
+      authorMemberId: i === 244 ? null : i % 2 === 0 ? "mAna" : "mBob",
+    });
+  }
+  const bobRow = memberRows(db, general.id).find((m) => m.memberId === "mBob");
+  bobRow.lastSeenAt = at(240);
+
+  // ── 1. The count ───────────────────────────────────────────────────────
+  const rooms = await roomsFor(BOB, { client: db });
+  const gen = rooms.find((r) => r.id === general.id);
+  const all = db.tables.companyChatMessage.filter((m) => m.roomId === general.id);
+  ok("the list counts unread with a QUERY over every message: seen at #240 of 250 → Ana's #242, #246, #248, #250", gen?.unread === 4, gen?.unread);
+  ok("…the old oldest-200 slice would have said zero", unreadFor({ messages: [...all].sort((a, b) => a.createdAt - b.createdAt).slice(0, 200), lastSeenAt: at(240), memberId: "mBob" }) === 0);
+  ok("…and the rule over ALL the rows agrees with the query", unreadFor({ messages: all, lastSeenAt: at(240), memberId: "mBob" }) === gen?.unread);
+  ok("mentions after the boundary are counted apart: two", gen?.mentions === 2 && mentionsFor({ messages: all, lastSeenAt: at(240), memberId: "mBob" }) === 2, gen?.mentions);
+  ok("the listed room carries ONE preview row, the last thing somebody said", gen?.messages?.length === 1 && gen.messages[0].id === "g250");
+  const row = roomList(rooms, "mBob").find((r) => r.id === general.id);
+  ok("…and the row reads the store's counts, not a count over that one row", row.unread === 4 && row.mentions === 2 && row.lastBody === "message 250", [row.unread, row.mentions]);
+  ok("Ana, never having opened it, has Bob's 125", (await roomsFor(ANA, { client: db })).find((r) => r.id === general.id)?.unread === 125);
+  ok("the count is scoped to the company — Zed's list has none of it", (await roomsFor(ZED, { client: db })).every((r) => r.unread === 0));
+
+  // ── 2. The thread is the newest, oldest-first ──────────────────────────
+  for (let i = 251; i <= 700; i++) db.tables.companyChatMessage.push({ id: `g${i}`, companyId: "A", roomId: general.id, kind: "message", body: `message ${i}`, mentions: [], meta: null, createdAt: at(i), authorMemberId: "mAna" });
+  const long = await roomFor(BOB, general.id, { client: db });
+  ok(`a 700-message room reads as its last ${THREAD_TAKE}: #201–#700, oldest first`, long.messages.length === THREAD_TAKE && long.messages[0].id === "g201" && long.messages.at(-1).id === "g700", [long.messages.length, long.messages[0]?.id, long.messages.at(-1)?.id]);
+
+  // ── 3. Seen is the last message SHOWN, and only ever moves forward ─────
+  const upTo = seenUpTo(long.messages, "createdAt");
+  ok("seenUpTo is the last message's own timestamp", upTo?.getTime() === at(700).getTime());
+  ok("markRoomSeen stamps it", (await markRoomSeen(BOB, general.id, { client: db, upTo })) === true && bobRow.lastSeenAt.getTime() === at(700).getTime());
+  ok("…so the room is clear", (await roomsFor(BOB, { client: db })).find((r) => r.id === general.id)?.unread === 0);
+  db.tables.companyChatMessage.push({ id: "late", companyId: "A", roomId: general.id, kind: "message", body: "landed during the read", mentions: [], meta: null, createdAt: at(701), authorMemberId: "mAna" });
+  ok("a message that landed during the read is still unread", (await roomsFor(BOB, { client: db })).find((r) => r.id === general.id)?.unread === 1);
+  await markRoomSeen(BOB, general.id, { client: db, upTo: at(650) });
+  ok("an older stamp from another tab does not move lastSeenAt BACK", bobRow.lastSeenAt.getTime() === at(700).getTime());
+  ok("no payload, no stamp — and still 'yes, you are a member'", (await markRoomSeen(BOB, general.id, { client: db })) === true && bobRow.lastSeenAt.getTime() === at(700).getTime());
+  ok("a support session still stamps nothing", (await markRoomSeen(SUPPORT, general.id, { client: db, upTo })) === false);
+
+  const route = decomment(read("app/api/chat/rooms/[id]/route.js"));
+  ok("the thread route marks seen up to the last message IN ITS PAYLOAD", /markRoomSeen\(member, room\.id, \{ upTo: seenUpTo\(room\.messages, "createdAt"\) \}\)/.test(route));
+  const store = decomment(read("lib/company/chat/store.js"));
+  ok("the store's list include is ONE preview row, not a slice of 200", /take: 1,/.test(store) && !/take: 200/.test(store));
+  ok("…the thread reads newest-first and reverses", /orderBy: \{ createdAt: "desc" \}, take: THREAD_TAKE/.test(store) && /\.reverse\(\)/.test(store));
+  ok("…the counts are grouped counts scoped to the company", /companyChatMessage\.groupBy\(countByRoomArgs\(\{ AND: \[scope, /.test(store) && !/unreadFor\(/.test(store));
+  ok("…and the read boundary only moves forward, in one statement", /OR: \[\{ lastSeenAt: null \}, \{ lastSeenAt: \{ lt: seen \} \}\]/.test(store));
+
+  const screen = decomment(read("app/components/company/CompanyChat.js"));
+  ok("the screen re-reads the list and announces after the OPEN's room read", /const afterSeen = useCallback\(\(\) => \{\s*loadList\(\);\s*announceBadgesChanged\(\);/.test(screen) && /loadRoom\(openId\)\.then\(\(seen\) => \{\s*if \(seen\) afterSeen\(\);/.test(screen));
+  ok("…after a send", /await loadRoom\(openId, \{ keepSeen: true \}\);[\s\S]{0,200}afterSeen\(\);/.test(screen));
+  ok("…and on coming back to the tab with a room open", /addEventListener\("visibilitychange", wake\)/.test(screen) && /addEventListener\("focus", wake\)/.test(screen) && /removeEventListener\("focus", wake\)/.test(screen));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

@@ -44,6 +44,7 @@ import { notify } from "@/lib/notify/browser";
 import { chatApi, CHAT_REFUSAL_KEYS } from "@/lib/company/chat/client";
 import { groupOf, GROUP_ORDER } from "@/lib/company/chat/rules";
 import { layoutThread } from "@/lib/chat/threadLayout";
+import { announceBadgesChanged } from "@/lib/chat/badges";
 import { personTitle } from "@/lib/team/personLabel";
 import {
   ChatLayout,
@@ -359,12 +360,25 @@ export default function CompanyChat({ heading = "Chat", initialRoomId = null, he
         if (!keepSeen) lastSeenRef.current = next.lastSeenAt || null;
         setRoom(next);
         setRoomError("");
+        return true;
       } catch (err) {
         setRoomError(say(err, "app.companyChat.roomLoadError"));
+        return false;
       }
     },
     [say],
   );
+
+  // ── After anything that marked a room seen ─────────────────────────────
+  //
+  // The server stamps lastSeenAt inside the room GET, but the list polls
+  // every fifteen seconds, so a room plainly open on screen kept its badge
+  // in the list for up to a poll. Re-read the list now, and announce it
+  // (lib/chat/badges.js) for any chrome that draws a digit.
+  const afterSeen = useCallback(() => {
+    loadList();
+    announceBadgesChanged();
+  }, [loadList]);
 
   useEffect(() => {
     loadList();
@@ -373,8 +387,10 @@ export default function CompanyChat({ heading = "Chat", initialRoomId = null, he
   useEffect(() => {
     if (!openId) return;
     setRoom(null);
-    loadRoom(openId);
-  }, [openId, loadRoom]);
+    loadRoom(openId).then((seen) => {
+      if (seen) afterSeen();
+    });
+  }, [openId, loadRoom, afterSeen]);
 
   // Polling, while the tab is visible. A chat that only updates on reload is
   // a mailbox.
@@ -387,6 +403,31 @@ export default function CompanyChat({ heading = "Chat", initialRoomId = null, he
     const id = setInterval(tick, POLL_MS);
     return () => clearInterval(id);
   }, [loadList, loadRoom, openId]);
+
+  // Coming back to the tab. The poll skips while the tab is hidden, so a
+  // room left open overnight has not been marked seen since the tab went to
+  // the background; whoever returns to it is looking at every message in
+  // it, and the list must say so now, not after the next tick. The room GET
+  // is what marks it seen, so it goes first and the list follows it.
+  useEffect(() => {
+    if (typeof document === "undefined") return undefined;
+    const wake = () => {
+      if (document.hidden) return;
+      if (openId) {
+        loadRoom(openId, { keepSeen: true }).then((seen) => {
+          if (seen) afterSeen();
+        });
+      } else {
+        loadList();
+      }
+    };
+    document.addEventListener("visibilitychange", wake);
+    window.addEventListener("focus", wake);
+    return () => {
+      document.removeEventListener("visibilitychange", wake);
+      window.removeEventListener("focus", wake);
+    };
+  }, [openId, loadRoom, loadList, afterSeen]);
 
   // ── The list, grouped ──────────────────────────────────────────────────
   const groups = useMemo(() => {
@@ -450,13 +491,14 @@ export default function CompanyChat({ heading = "Chat", initialRoomId = null, he
       setText("");
       lastSeenRef.current = new Date().toISOString();
       await loadRoom(openId, { keepSeen: true });
-      loadList();
+      // Saying something is seeing it: the list and the digit follow.
+      afterSeen();
     } catch (err) {
       setActionError(say(err, "app.companyChat.refusal.notSent"));
     } finally {
       setSending(false);
     }
-  }, [text, openId, sending, loadRoom, loadList, say]);
+  }, [text, openId, sending, loadRoom, afterSeen, say]);
 
   // ── @ popup ────────────────────────────────────────────────────────────
   const token = useMemo(() => mentionTokenAt(text), [text]);

@@ -65,6 +65,7 @@ import SalesMobileTabBar from "@/app/components/sales/SalesMobileTabBar";
 import SalesTour from "@/app/components/sales/SalesTour";
 import ToastLayer from "@/app/components/ToastLayer";
 import { notify } from "@/lib/notify/browser";
+import { onBadgesChanged } from "@/lib/chat/badges";
 import { SalesSearchProvider, useSalesSearchBox } from "@/app/components/sales/SalesSearch";
 import { ConsoleSlotsProvider } from "@/app/components/sales/consoleSlots";
 import { usePathname } from "next/navigation";
@@ -146,7 +147,8 @@ const COLLAPSE_KEY = "fq-sales-sidebar-collapsed";
  *  enough for the person who wrote it to think they were ignored. It is one
  *  small request; the interval is cleared outright while the tab is hidden
  *  (not merely skipped), and the badges are re-read the instant the tab is
- *  focused or becomes visible again. */
+ *  focused or becomes visible again — and the instant a chat screen says
+ *  a room was opened or written to (lib/chat/badges.js). */
 const BADGE_POLL_MS = 10 * 1000;
 
 /**
@@ -306,11 +308,17 @@ export default function SalesShell({ children }) {
     if (!document.hidden) start();
     document.addEventListener("visibilitychange", onVisibility);
     window.addEventListener("focus", onFocus);
+    // And the moment a chat screen says the digits moved — a room opened,
+    // a message sent — rather than up to ten seconds later. The Team badge
+    // that stayed lit over an open room was the owner's report; this is the
+    // half of the fix on this side of the event (lib/chat/badges.js).
+    const offBadges = onBadgesChanged(read);
     return () => {
       cancelled = true;
       stop();
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("focus", onFocus);
+      offBadges();
     };
   }, [chromeless, pathname]);
 

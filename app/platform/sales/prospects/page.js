@@ -63,6 +63,7 @@ import {
 import { fetchJson } from "@/lib/fetchJson";
 import { LAYER_HEADINGS, SOURCE_CATEGORY_HEADING } from "@/lib/sales/prospectView";
 import PlatformWriteGate, { usePlatformAdmin } from "@/app/components/platform/PlatformWriteGate";
+import DuplicateGroup from "@/app/components/platform/DuplicateGroup";
 import { FRENCH } from "@/lib/sales/leadLanguage";
 
 const BTN =
@@ -134,6 +135,17 @@ export default function PlatformProspectsPage() {
 
   const [selectedId, setSelectedId] = useState(null);
   const [detail, setDetail] = useState(null);
+  // A re-read of the open row, bumped by the duplicate panel after a merge
+  // or an unmerge — the row's fields just changed underneath the screen.
+  const [detailVersion, setDetailVersion] = useState(0);
+  // `?id=` opens a row directly. The duplicate panel links between rows of
+  // one group this way, and a superadmin pastes one from the audit log.
+  // Read in an effect, never in the initial state: the first render has to
+  // match the server's, which has no window.
+  useEffect(() => {
+    const wanted = new URLSearchParams(window.location.search).get("id");
+    if (wanted) setSelectedId(wanted);
+  }, []);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState("");
 
@@ -191,7 +203,7 @@ export default function PlatformProspectsPage() {
     return () => {
       cancelled = true;
     };
-  }, [selectedId]);
+  }, [selectedId, detailVersion]);
 
   function apply() {
     setPage(0);
@@ -268,7 +280,7 @@ export default function PlatformProspectsPage() {
           </div>
         ) : null}
 
-        {detail ? <ProspectDetail detail={detail} /> : null}
+        {detail ? <ProspectDetail detail={detail} onSelect={setSelectedId} onChanged={() => setDetailVersion((v) => v + 1)} /> : null}
       </div>
     );
   }
@@ -894,7 +906,7 @@ function SourceCategories({ view }) {
 }
 
 /** One prospect: facts, then inferences, then recommendations. Never merged. */
-function ProspectDetail({ detail }) {
+function ProspectDetail({ detail, onSelect = null, onChanged = null }) {
   const p = detail.prospect;
 
   return (
@@ -1118,10 +1130,23 @@ function ProspectDetail({ detail }) {
             {p.classificationReason ? ` — ${p.classificationReason}` : ""}
           </li>
           {p.possibleDuplicateOfId ? (
-            <li>Flagged as a possible duplicate. Kept and workable — merging destroys provenance.</li>
+            <li>Flagged as a possible duplicate. Kept and workable; the panel below shows the other row and what a merge would fill.</li>
           ) : null}
+          {p.mergedIntoId ? (
+            <li>
+              Retired: merged into{" "}
+              <button type="button" className="underline underline-offset-2" onClick={() => onSelect && onSelect(p.mergedIntoId)}>
+                another row
+              </button>
+              , which now carries this one&rsquo;s fields and observations. Out of every queue and count.
+            </li>
+          ) : null}
+          {p.mergedFromIds?.length ? <li>Carries {p.mergedFromIds.length} merged row{p.mergedFromIds.length === 1 ? "" : "s"} — their observations read together with this one&rsquo;s.</li> : null}
         </ul>
       </section>
+
+      {/* ── The other rows for this business, and the merge ─────────────── */}
+      <DuplicateGroup prospectId={p.id} onSelect={onSelect} onChanged={onChanged} />
 
       {/* ── What the source called this ─────────────────────────────────── */}
       <SourceCategories view={p.sourceCategoriesView} />
