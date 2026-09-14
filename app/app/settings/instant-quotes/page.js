@@ -1235,7 +1235,7 @@ function TradeCard({ trade, canEdit, onSaved }) {
       </div>
 
       <div className="mt-5 flex items-center gap-3">
-        {/* Not `onClick={save}`: save's first parameter is the config to
+        {/* Not `onClick={ save }` bare: save's first parameter is the config to
             write, and a click handler receives the click EVENT — which is
             cyclic, so every press died in JSON.stringify ("cannot serialize
             cyclic structure", the owner's report of 2026-09-14). */}
@@ -1813,7 +1813,7 @@ function FinancingCard({ financing, canEdit, onSaved }) {
         <div className="mt-4 flex items-center gap-2">
           <button
             type="button"
-            onClick={save}
+            onClick={() => save()}
             disabled={saving || halfStated}
             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-inverted text-inverted-foreground text-sm font-semibold disabled:opacity-50"
           >

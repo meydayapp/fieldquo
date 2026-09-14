@@ -260,7 +260,7 @@ for (const bad of [null, undefined, "nope", 7, [null, undefined, 3, "x"]]) {
 // parameter must never be passed to onClick bare.
 {
   const page = readFileSync("app/app/settings/instant-quotes/page.js", "utf8");
-  ok("the instant-quotes Save button never hands the click event to save()", !/onClick=\{save\}/.test(page) && /onClick=\{\(\) => save\(\)\}/.test(page));
+  ok("the instant-quotes Save button never hands the click event to save()", !/onClick=\{save\}/.test(page.replace(/\{\/\*[\s\S]*?\*\/\}/g, "")) && /onClick=\{\(\) => save\(\)\}/.test(page));
 }
 
 console.log(
