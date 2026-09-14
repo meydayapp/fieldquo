@@ -121,6 +121,7 @@ import {
   ListPlus,
   Loader2,
   Mail,
+  MessagesSquare,
   Phone,
   Plus,
   UserCheck,
@@ -1430,14 +1431,23 @@ export default function PlatformSalesRepsPage() {
                         </div>
                       ) : null}
                     </div>
-                    <button
-                      onClick={() => openQueue(rep)}
-                      disabled={busy}
-                      className={BTN_QUIET}
-                      aria-expanded={Boolean(queuePanel[rep.id])}
-                    >
-                      <ListChecks size={13} /> {queuePanel[rep.id] ? "Close" : "Queue…"}
-                    </button>
+                    <div className="flex flex-wrap gap-2 shrink-0">
+                      {/* The rep's texts and emails with prospects, read-only,
+                          on /platform/sales/conversations (superadmin-only
+                          there; the page itself refuses everyone else, so
+                          the link is drawn for whoever can open this card). */}
+                      <Link href={`/platform/sales/conversations?repId=${rep.id}`} className={BTN_QUIET}>
+                        <MessagesSquare size={13} /> Conversations
+                      </Link>
+                      <button
+                        onClick={() => openQueue(rep)}
+                        disabled={busy}
+                        className={BTN_QUIET}
+                        aria-expanded={Boolean(queuePanel[rep.id])}
+                      >
+                        <ListChecks size={13} /> {queuePanel[rep.id] ? "Close" : "Queue…"}
+                      </button>
+                    </div>
                   </div>
 
                   {queuePanel[rep.id] ? (
