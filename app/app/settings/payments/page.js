@@ -115,7 +115,13 @@ function PaymentsPageScreen() {
       if (!data?.url) throw new Error(t("app.setPayments.noOnboardingLink"));
       window.location.href = data.url;
     } catch (err) {
-      setError(err.message || t("app.setPayments.connectError"));
+      // FieldQuo's own Stripe setup is unfinished (the route says which):
+      // say so in the contractor's words, and that nothing else is blocked.
+      if (err?.data?.platformSetup) {
+        setError(t("app.setPayments.platformSetup"));
+      } else {
+        setError(err.message || t("app.setPayments.connectError"));
+      }
       setConnecting(false);
     }
   }

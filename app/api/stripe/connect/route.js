@@ -7,6 +7,7 @@ import { memberOrRefusal } from "@/lib/apiMember";
 import { isBillingAdmin, BILLING_ADMIN_ERROR } from "@/lib/billing/billingAdmin";
 import { createConnectOnboardingLink } from "@/lib/stripe";
 import { getAppOrigin } from "@/lib/appUrl";
+import { recordError } from "@/lib/platform/errorLog";
 
 export async function POST(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -70,6 +71,31 @@ export async function POST(request) {
     return NextResponse.json({ url });
   } catch (err) {
     console.error("[stripe/connect] failed:", err);
+    // ── A refusal about FieldQuo, not about this company ───────────────
+    //
+    // Live mode asks the PLATFORM to finish its Connect platform profile
+    // (business model + who carries connected-account losses) before the
+    // first Express account can be created. The owner met it mid-demo, as
+    // Stripe's raw sentence on a contractor's screen: "Please review the
+    // responsibilities of managing losses for connected accounts at
+    // https://dashboard.stripe.com/settings/connect/platform-profile."
+    // That is FieldQuo's homework and the contractor cannot act on it — so
+    // the contractor gets a white-label sentence that says nothing else is
+    // blocked, and the link goes where the person who CAN act will see it:
+    // the platform errors queue.
+    const raw = String(err?.raw?.message || err?.message || "");
+    if (/platform-profile|managing losses|connected accounts/i.test(raw)) {
+      await recordError({
+        area: "stripe",
+        code: "connect_platform_profile_incomplete",
+        message:
+          "Stripe refused to create a connected account because FieldQuo's Connect platform profile is incomplete. " +
+          "Complete it at https://dashboard.stripe.com/settings/connect/platform-profile (live mode), then the company presses Connect again.",
+        companyId: company?.id || null,
+        detail: { stripeMessage: raw, url: "https://dashboard.stripe.com/settings/connect/platform-profile" },
+      }).catch(() => {});
+      return NextResponse.json({ error: "platform_setup", platformSetup: true }, { status: 503 });
+    }
     return NextResponse.json(
       {
         error:
