@@ -1013,6 +1013,54 @@ be for companies that signed up regardless of the milestone?"
   as 24 hours have passed. Making it "the calendar day after" is a one-line
   change in `signals.js` that shifts every fixture — left for a decision.
 
+## Every text to a business lands in ITS conversation (14 September 2026)
+
+The owner: "any texts sent to a company should also end up in SMS" — and in
+one conversation per business, the numbers listed inside it. Six paths were
+read and then executed against an in-memory client (§15 of
+`scripts/check-sales-messages.mjs`, one block per path, mutation-tested on
+three of them):
+
+- **Already correct.** The signup link (`deliverSignupLinkSms` files the row
+  on the lead); a typed reply (`deliverReplySms`, same); the demo's
+  simulated send (drawn from the sent `SalesCheckIn` row, no message row —
+  `sentDemoCheckIns`); and the list query, which has no direction filter, so
+  a freshly texted link with no reply is listed under "Waiting on them".
+- **Fixed — one conversation per business.** The list was keyed on the
+  number, so the link texted to the owner's cell ("Text a different
+  number") and the day-1 check-in aimed at the shop line were two rows.
+  `lib/sales/messages/business.js` folds per-number threads by the
+  strongest identity the rows carry (company → prospect → lead); the thread
+  route reads messages, drafts, calls, STOPs and demo sends across every
+  number of the business (`businessResolve.js` walks leads, stored contact
+  numbers, message rows and check-in rows); the read route marks all of
+  them; the context bar lists them ("Also in this conversation") and the
+  list says "2 numbers". `with` stays a number — the one a reply goes to.
+- **Fixed — a company check-in whose number is on no lead.** The backlog
+  aims a company's draft at `Company.phone` / the owner's `Member.phone`,
+  which need not be the number on the rep's lead; the send matched the lead
+  by number only, found none, and refused for "we don't know their time
+  zone" — so the text never went and, had it gone, would have had no lead
+  and no name. `sendCheckIn` now falls back to the row's own `leadId`
+  (scoped to the rep) with the draft's number standing in for the lead's.
+- **Fixed — inbound matching.** `handleSalesInboundSms` matched a lead by
+  reading "the most recently updated lead with any phone" and discarding it
+  on mismatch — the same bug the thread route had already fixed — so a
+  contractor texting first was filed to nobody. It now matches normalised
+  across every lead (`leadsOnNumber`), then stored contact numbers, after
+  the rep who last texted the number. A number nobody holds is stored with
+  no rep and reaches the **floor**: listed to every rep who can text as an
+  unowned conversation named by its number; the first reply claims its rows
+  (`deliverReplySms` `updateMany`, attribution only), after which the other
+  reps no longer see it. Nothing is dropped.
+- **Kind chip.** Every outbound bubble says what it was — "Signup link",
+  "Day 1 check-in", "Milestone check-in", "Signup nudge", "Follow-up" —
+  decided server-side (`lib/sales/messages/messageKind.js`) off the
+  check-in row the message was sent from; a plain reply carries `reply`
+  and draws nothing. The demo's bubbles get the same chip from the same
+  function. Nine languages (`app.salesText.kindReply`,
+  `unownedSubtitle`, `numbersInConversation`, `channelInConversation`).
+
 ## The call script in English, French and Spanish (12 September 2026)
 
 The owner: "the queue has a script; the script seems to be English only, the

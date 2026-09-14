@@ -45,6 +45,17 @@
 // and the runner exits non-zero on an uncaught throw as loudly as on a failed
 // assertion. Judge this file by its EXIT CODE.
 //
+// ══ 5. Every text sent to a business ends up in ITS conversation ══════════
+//
+// The owner: "any texts sent to a company should also end up in SMS". §15
+// drives each outbound path — the signup link, a link to the business's
+// OTHER number, the engine's check-in on a company that signed up straight
+// from the link, a typed reply, the demo's simulated send, a reply that
+// arrives from a number nobody texted — over an in-memory client and asserts
+// the row lands in ONE conversation per business, with the numbers listed
+// inside it and a kind chip on every outbound bubble, and that a
+// conversation with only our own words in it is listed at all.
+//
 // ══ Mutation-tested ═══════════════════════════════════════════════════════
 //
 // The grouping window, the day break, the draft-never-auto-sends rule and the
@@ -152,7 +163,10 @@ function walk(dir, out = []) {
 // scripts/fixtures/dbStub.mjs gives: "the row was claimed with
 // sendingStartedAt: null in the WHERE" is a claim about an argument, and this
 // is where the argument can be inspected.
-globalThis.__FQ_MSG = { rows: { salesCheckIn: [] }, writes: [] };
+// `db` is set by §15 for the one function that reaches for the module-level
+// client (handleSalesInboundSms) and cleared again after; every other model
+// keeps throwing, so a stray read is still a failure and not a silent null.
+globalThis.__FQ_MSG = { rows: { salesCheckIn: [] }, writes: [], db: null };
 const DB_HOOKS = `
 export async function resolve(specifier, context, nextResolve) {
   if (specifier === "@/lib/db") return { url: "fq-stub:msg-db", shortCircuit: true };
@@ -161,7 +175,7 @@ export async function resolve(specifier, context, nextResolve) {
 export async function load(url, context, nextLoad) {
   if (url === "fq-stub:msg-db")
     return { format: "module", shortCircuit: true, source:
-      "export const db = new Proxy({}, { get: (_t, model) => new Proxy({}, { get: (_m, op) => async (args) => { throw new Error('the module-level db was used: ' + String(model) + '.' + String(op)); } }) });" };
+      "export const db = new Proxy({}, { get: (_t, model) => { const real = globalThis.__FQ_MSG && globalThis.__FQ_MSG.db; if (real && real[model]) return real[model]; return new Proxy({}, { get: (_m, op) => async (args) => { throw new Error('the module-level db was used: ' + String(model) + '.' + String(op)); } }); } });" };
   return nextLoad(url, context);
 }
 `;
@@ -1027,7 +1041,9 @@ section("12. The four groups, executed");
   ok("the screen never prints \"You:\" over a draft-only thread", /c\.draftOnly\s*\?\s*t\("app\.salesText\.draftWaitingSubtitle"\)/.test(page));
   ok("…marks a demo thread as one in the list", /c\.isDemo \? t\("app\.salesPortal\.demoBadge"\)/.test(page));
   ok("…and offers Send on a demo draft (simulated by the send path)", (page.match(/canSend=\{!suppressed\}/g) || []).length === 2);
-  ok("…marks a demo's sent bubble as one, in words", /app\.salesText\.demoSentMarker/.test(page) && /renderBody=\{\(m\) =>\s*m\.demo \?/.test(page));
+  // The demo marker rides under the body the kind chip draws (bodyWithKind),
+  // so one renderBody serves both: the chip above, the "demo" line below.
+  ok("…marks a demo's sent bubble as one, in words", /app\.salesText\.demoSentMarker/.test(page) && /renderBody=\{\(m\) =>\s*bodyWithKind\(\s*m,\s*m\.demo \?/.test(page));
   ok("…and never draws the free-text composer on a demo thread", /thread && demoThread \? \(/.test(page));
   // The thread keeps saying it is a demo AFTER the send, when no draft is
   // left to say so — read off the sent rows.
@@ -1141,6 +1157,300 @@ section("14. New text to a number: Canada and the US, nobody else's, no duplicat
   ok("the picker's search is scoped to the rep's leads", /salesRepId: rep\.id/.test(contacts));
   ok("…and to prospects they hold, through queueWhere", /queueWhere\(rep\.id\)/.test(contacts));
   ok("…and never returns a do-not-contact business", /doNotContactAt: null/.test(contacts));
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("15. Every text sent to a business ends up in its conversation");
+// ═══════════════════════════════════════════════════════════════════════════
+
+{
+  const { salesConversations, salesThread, handleSalesInboundSms, deliverReplySms } = await import("@/lib/sales/salesSms");
+  const { businessKeyOf, mergeThreadsByBusiness, mergeReadStates, leadsOnNumber } = await import("@/lib/sales/messages/business");
+  const { resolveBusiness } = await import("@/lib/sales/messages/businessResolve");
+  const { outboundKind, MESSAGE_KIND_LABEL_KEYS, KIND_SIGNUP_LINK, KIND_CHECKIN, KIND_REPLY, KIND_SIGNUP_NUDGE } = await import("@/lib/sales/messages/messageKind");
+  const { sentDemoCheckIns } = await import("@/lib/sales/checkin/store");
+  const { APP_MESSAGES } = await import("../app/i18n/appMessages.js");
+
+  const T0 = new Date("2026-09-14T14:00:00Z");
+  const later = (m) => new Date(T0.getTime() + m * 60_000);
+  const normalise = (v) => String(v || "").replace(/\D/g, "").replace(/^1?(\d{10})$/, "+1$1");
+
+  /** Matches Prisma's `{ in }`, `{ not }`, `{ contains }` and equality for the fields these reads use. */
+  const hit = (row, where) => {
+    if (!where) return true;
+    for (const [k, v] of Object.entries(where)) {
+      if (k === "OR") { if (!v.some((w) => hit(row, w))) return false; continue; }
+      if (k === "AND") { if (!v.every((w) => hit(row, w))) return false; continue; }
+      const actual = row[k];
+      if (v && typeof v === "object" && !(v instanceof Date)) {
+        if ("in" in v && !v.in.includes(actual)) return false;
+        if ("not" in v && (v.not === null ? actual == null : actual === v.not)) return false;
+        if ("contains" in v && !String(actual || "").includes(v.contains)) return false;
+        continue;
+      }
+      if (actual !== v) return false;
+    }
+    return true;
+  };
+  const sortBy = (rows, orderBy) => {
+    if (!orderBy) return rows;
+    const [[field, dir]] = Object.entries(orderBy);
+    return [...rows].sort((a, b) => (dir === "desc" ? 1 : -1) * (new Date(b[field] || 0) - new Date(a[field] || 0)));
+  };
+
+  /** An in-memory Prisma for the four tables a conversation is read from. */
+  function fakeDb({ leads = [], messages = [], checkIns = [], contactNumbers = [], numbers = [] } = {}) {
+    const leadById = (id) => leads.find((l) => l.id === id) || null;
+    const withLead = (m) => ({ ...m, lead: m.leadId ? leadById(m.leadId) : null, checkIn: checkIns.find((c) => c.sentMessageId === m.id) || null });
+    let seq = 0;
+    const db = {
+      leads, messages, checkIns, contactNumbers,
+      writes: [],
+      salesLead: {
+        findMany: async ({ where, orderBy, take }) => sortBy(leads.filter((l) => hit(l, where)), orderBy).slice(0, take || 999),
+        findFirst: async ({ where, orderBy }) => sortBy(leads.filter((l) => hit(l, where)), orderBy)[0] || null,
+      },
+      salesSmsMessage: {
+        findMany: async ({ where, orderBy, take }) => sortBy(messages.filter((m) => hit(m, where)), orderBy).slice(0, take || 999).map(withLead),
+        findFirst: async ({ where, orderBy }) => { const r = sortBy(messages.filter((m) => hit(m, where)), orderBy)[0]; return r ? withLead(r) : null; },
+        create: async ({ data }) => { const row = { id: `m${++seq}`, sentAt: data.sentAt || later(seq), ...data }; messages.push(row); db.writes.push({ op: "create", data }); return row; },
+        updateMany: async ({ where, data }) => { const rows = messages.filter((m) => hit(m, where)); for (const r of rows) Object.assign(r, data); db.writes.push({ op: "updateMany", where, data }); return { count: rows.length }; },
+      },
+      salesCheckIn: {
+        findMany: async ({ where, orderBy }) => sortBy(checkIns.filter((c) => hit(c, where)), orderBy),
+        findFirst: async ({ where, orderBy }) => sortBy(checkIns.filter((c) => hit(c, where)), orderBy)[0] || null,
+      },
+      salesContactNumber: {
+        findMany: async ({ where }) => contactNumbers.filter((n) => hit(n, where)),
+        findFirst: async ({ where }) => contactNumbers.find((n) => hit(n, where)) || null,
+      },
+      platformSmsNumber: { findFirst: async ({ where }) => numbers.find((n) => hit(n, where)) || null },
+      salesRep: { findMany: async () => [] },
+    };
+    return db;
+  }
+
+  const REP_A = "rep_a";
+  // One contractor, two numbers: the lead's own (the shop) and the owner's
+  // cell a rep was given on a call, stored as a SalesContactNumber.
+  const SHOP = "+15145550134";
+  const CELL = "+15145550199";
+  const LEAD = { id: "L1", salesRepId: REP_A, businessName: "Loop Inc", contactName: "Marc", phone: "(514) 555-0134", convertedCompanyId: null, prospectId: "P1", province: "QC", country: "CA", timeZone: null, status: "contacted", email: null, updatedAt: T0 };
+
+  // ── 1. The signup link, and the link to their OTHER number ──────────────
+  {
+    const db = fakeDb({
+      leads: [LEAD],
+      contactNumbers: [{ id: "n1", salesLeadId: "L1", prospectId: null, e164: CELL, kind: "mobile", canText: true }],
+      messages: [
+        { id: "m1", direction: "out", salesRepId: REP_A, leadId: "L1", fromE164: "+15145550111", toE164: SHOP, body: "Hi, it is Rachel from FieldQuo. Here is the link to get started: https://fieldquo.com/signup?sales=RACHEL", sentAt: later(0) },
+        { id: "m2", direction: "out", salesRepId: REP_A, leadId: "L1", fromE164: "+15145550111", toE164: CELL, body: "Hi, it is Rachel from FieldQuo. Here is the link to get started: https://fieldquo.com/signup?sales=RACHEL", sentAt: later(5) },
+      ],
+    });
+    const list = await salesConversations({ salesRepId: REP_A, client: db });
+    ok("PATH 1 · the signup link and the link to a different number are ONE conversation for the business",
+      list.length === 1 && list[0].name === "Loop Inc", list.map((c) => [c.e164, c.name]));
+    ok("…with both numbers listed inside it, latest first",
+      list[0]?.numbers?.map((n) => n.e164).join(",") === `${CELL},${SHOP}`, list[0]?.numbers);
+    ok("…keyed on the business, not the number", list[0]?.businessKey === "prospect:P1", list[0]?.businessKey);
+    ok("…and its message count is both texts", list[0]?.count === 2, list[0]?.count);
+    // Opened from EITHER number, the thread is the whole conversation.
+    const fromCell = await resolveBusiness({ salesRepId: REP_A, withE164: CELL, client: db });
+    ok("…opened from the cell, the business resolves to the lead and both numbers", fromCell.lead?.id === "L1" && fromCell.numbers.includes(SHOP) && fromCell.numbers.includes(CELL), fromCell);
+    const thread = await salesThread({ salesRepId: REP_A, withE164: CELL, numbers: fromCell.numbers, client: db });
+    ok("…and the thread read from the cell holds the shop-line text too", thread.length === 2, thread.map((m) => m.toE164));
+    ok("…each bubble chipped as the signup link", thread.every((m) => m.kind === KIND_SIGNUP_LINK && m.kindLabelKey === "app.salesText.cannedSignupTitle"), thread.map((m) => m.kind));
+    // The write itself: the signup-link send files the row on the lead, and
+    // the route hands the chosen number to it with the lead intact.
+    const smsLib = decomment(read("lib/sales/salesSms.js"));
+    const signup = functionSource(smsLib, "deliverSignupLinkSms");
+    ok("…because deliverSignupLinkSms writes leadId: lead.id on the row", Boolean(signup) && /leadId: lead\.id/.test(signup));
+    const smsRoute = decomment(read("app/api/sales/sms/route.js"));
+    ok("…and the send route keeps the lead and swaps only the number", /lead: \{ \.\.\.lead, phone: chosen\.e164 \}/.test(smsRoute));
+  }
+
+  // ── 2. The engine's check-in on a company that signed up from the link ──
+  {
+    // The company's lead (materialise.js ensureLead wrote it, named after the
+    // company, pointing at it) carries the cell; the backlog aimed the day-1
+    // draft at the company's own shop line. No lead matches the SHOP number.
+    const COMPANY_LEAD = { ...LEAD, id: "L_co", phone: CELL, businessName: "Easy Roofers Inc", convertedCompanyId: "co_1", prospectId: null, updatedAt: later(1) };
+    const rows = [{ id: "ck1", salesRepId: REP_A, companyId: "co_1", leadId: "L_co", origin: "engine", status: "draft", sendingStartedAt: null, toE164: SHOP, draftText: "Day 1 — any questions?", dedupeKey: "scheduled:co_1:1" }];
+    const db = fakeDb({ leads: [COMPANY_LEAD], checkIns: rows });
+    db.salesCheckIn.updateMany = async ({ where, data }) => { const hits = rows.filter((r) => hit(r, where)); for (const r of hits) Object.assign(r, data); return { count: hits.length }; };
+    db.salesCheckIn.update = async ({ where, data }) => { const r = rows.find((x) => x.id === where.id); Object.assign(r, data); return r; };
+    db.company = { findUnique: async () => ({ isDemo: false }) };
+    let handed = null;
+    const result = await sendCheckIn({
+      rep: { id: REP_A, name: "Rachel" }, id: "ck1", client: db, now: T0,
+      deliver: async (args) => {
+        handed = args;
+        const row = await db.salesSmsMessage.create({ data: { direction: "out", salesRepId: REP_A, leadId: args.lead?.id || null, fromE164: "+15145550111", toE164: args.lead.phone, body: args.text, sentAt: T0 } });
+        return { ok: true, messageId: row.id, sentAt: T0 };
+      },
+    });
+    ok("PATH 2 · a company check-in whose number is on no lead still sends with the ROW's lead", result.ok === true && handed?.lead?.id === "L_co", { result, lead: handed?.lead });
+    ok("…to the draft's number, judged in the lead's province", handed?.lead?.phone === SHOP && handed?.lead?.province === "QC", handed?.lead);
+    ok("…and the sent row points at the message", rows[0].status === "sent" && rows[0].sentMessageId === "m1", rows[0]);
+    const list = await salesConversations({ salesRepId: REP_A, client: db });
+    ok("…so the conversation exists, named after the company, keyed on it", list.length === 1 && list[0].name === "Easy Roofers Inc" && list[0].businessKey === "company:co_1", list);
+    const thread = await salesThread({ salesRepId: REP_A, withE164: SHOP, numbers: [SHOP, CELL], client: db });
+    ok("…and the bubble is chipped \"Day 1 check-in\"", thread[0]?.kind === KIND_CHECKIN && thread[0]?.kindLabelKey === "app.salesCheckin.touchpoint.day" && thread[0]?.kindParams?.day === 1, thread[0]);
+    // Every kind the engine can produce has a label in every catalogue.
+    for (const lang of Object.keys(APP_MESSAGES)) {
+      ok(`…every kind label exists in ${lang}`, MESSAGE_KIND_LABEL_KEYS.every((k) => typeof APP_MESSAGES[lang][k] === "string" && APP_MESSAGES[lang][k].length > 0), MESSAGE_KIND_LABEL_KEYS.filter((k) => !APP_MESSAGES[lang][k]));
+    }
+    ok("…the day-7 key, the milestone, the signup nudge and a manual follow-up each get their own chip",
+      outboundKind({ direction: "out", body: "x", checkIn: { dedupeKey: "scheduled:c:7" } }).params.day === 7 &&
+      outboundKind({ direction: "out", body: "x", checkIn: { dedupeKey: "scheduled:c:retention" } }).labelKey === "app.salesCheckin.touchpoint.retention" &&
+      outboundKind({ direction: "out", body: "x https://fieldquo.com/signup?sales=R", checkIn: { dedupeKey: "signup:p:2h" } }).kind === KIND_SIGNUP_NUDGE &&
+      outboundKind({ direction: "out", body: "x", checkIn: { dedupeKey: null, origin: "manual" } }).labelKey === "app.salesCheckin.touchpoint.manual");
+    ok("…and an inbound row has no kind of ours", outboundKind({ direction: "in", body: "STOP" }) === null);
+    // The materialiser gives a company with no lead one, named after it.
+    const mat = decomment(read("lib/sales/checkin/materialise.js"));
+    const ensure = functionSource(mat, "ensureLead");
+    ok("…the backlog creates the company's lead (businessName: company.name, convertedCompanyId)", Boolean(ensure) && /businessName: company\.name/.test(ensure) && /convertedCompanyId: company\.id/.test(ensure));
+    const store = decomment(read(STORE));
+    const send = functionSource(store, SEND_FN);
+    ok("…and sendCheckIn falls back to the row's leadId, scoped to the rep", Boolean(send) && /where: \{ id: row\.leadId, salesRepId: rep\.id \}/.test(send));
+  }
+
+  // ── 3. A reply typed in the composer ────────────────────────────────────
+  {
+    const db = fakeDb({
+      leads: [LEAD],
+      messages: [
+        { id: "m1", direction: "out", salesRepId: REP_A, leadId: "L1", fromE164: "+15145550111", toE164: SHOP, body: "link https://fieldquo.com/signup?sales=RACHEL", sentAt: later(0) },
+        { id: "m2", direction: "in", salesRepId: REP_A, leadId: "L1", fromE164: SHOP, toE164: "+15145550111", body: "sure, Thursday", sentAt: later(3) },
+        { id: "m3", direction: "out", salesRepId: REP_A, leadId: "L1", fromE164: "+15145550111", toE164: SHOP, body: "Thursday it is. Reply STOP to opt out.", sentAt: later(4) },
+      ],
+    });
+    const thread = await salesThread({ salesRepId: REP_A, withE164: SHOP, client: db });
+    ok("PATH 3 · a typed reply threads into the same conversation, oldest first", thread.map((m) => m.id).join(",") === "m1,m2,m3");
+    ok("…chipped as a plain reply — carried in data, drawn as no chip", thread[2].kind === KIND_REPLY && thread[2].kindLabelKey === "app.salesText.kindReply", thread[2]);
+    const page = decomment(read("app/sales/messages/page.js"));
+    ok("…which the screen honours: KindChip draws nothing for `reply`", /function KindChip/.test(page) && /item\.textKind === "reply"\) return null/.test(page));
+    // The kit's own `kind` ("message" | "draft" | "system") drives grouping;
+    // the text's kind rides under another name so the two never collide —
+    // check:undef caught the first draft of this doing exactly that.
+    ok("…and the text's kind never shadows the kit's row kind", /textKind: m\.kind \|\| null/.test(page) && !/kind: m\.kind/.test(page));
+    ok("…and every other kind is drawn from its catalogue key", /t\(item\.kindLabelKey, item\.kindParams/.test(page));
+    // deliverReplySms files the row on the lead it was handed and claims the
+    // floor's rows for the number.
+    const smsLib = decomment(read("lib/sales/salesSms.js"));
+    const reply = functionSource(smsLib, "deliverReplySms");
+    ok("…deliverReplySms writes leadId from the lead it was handed", Boolean(reply) && /leadId: lead\?\.id \|\| null/.test(reply));
+    ok("…and claims unowned inbound rows on that number (attribution only)", Boolean(reply) && /updateMany\(\{\s*where: \{ direction: "in", salesRepId: null, fromE164: status\.to \}/.test(reply));
+  }
+
+  // ── 4. The demo's simulated send ────────────────────────────────────────
+  {
+    const DEMO = "+16135550150";
+    const db = fakeDb({
+      checkIns: [{ id: "ckd", salesRepId: REP_A, companyId: "co_demo", origin: "demo", status: "sent", toE164: DEMO, draftText: "Demo day 1", dedupeKey: "demo:co_demo:1", sentAt: later(2), sentMessageId: null }],
+    });
+    const rows = await sentDemoCheckIns({ salesRepId: REP_A, toE164: DEMO, client: db });
+    ok("PATH 4 · the demo's simulated send is drawn as an OUTBOUND bubble, marked demo", rows.length === 1 && rows[0].direction === "out" && rows[0].demo === true && rows[0].body === "Demo day 1", rows);
+    ok("…chipped \"Day 1 check-in\" by the same function a real send uses", rows[0]?.kind === KIND_CHECKIN && rows[0]?.kindParams?.day === 1, rows[0]);
+    ok("…and no SalesSmsMessage was needed for it", db.messages.length === 0);
+    const route = decomment(read("app/api/sales/messages/route.js"));
+    ok("…the list keeps the demo thread from sentDemoByThread with lastDirection \"out\"", /for \(const \[e164, sent\] of demoSent\)/.test(route) && /lastDirection: "out",\s*leadId: null,\s*name: sent\.name,\s*isDemo: true/.test(route));
+  }
+
+  // ── 5. An inbound text: matched by number, or filed to the floor ────────
+  {
+    const SALES = "+15145550111";
+    const db = fakeDb({
+      numbers: [{ e164: SALES, purpose: "sales", active: true }],
+      leads: [LEAD, { ...LEAD, id: "L9", salesRepId: "rep_b", businessName: "Somebody Else", phone: "613-555-0177", prospectId: "P9", updatedAt: later(9) }],
+      contactNumbers: [{ id: "n1", salesLeadId: "L1", prospectId: null, e164: CELL }],
+    });
+    globalThis.__FQ_MSG.db = db;
+    const noop = () => {};
+    try {
+      // (a) From the lead's own number, nobody has texted it yet: matched on
+      // the NORMALISED phone — the lead's is stored "(514) 555-0134" — and
+      // NOT on "the most recently updated lead", which is rep_b's.
+      const a = await handleSalesInboundSms({ to: SALES, from: SHOP, body: "hi, is this FieldQuo?", schedule: noop });
+      const rowA = db.messages.find((m) => m.direction === "in" && m.fromE164 === SHOP);
+      ok("PATH 5 · a text from a lead's number, never texted, is filed to that lead's rep", a.handled === true && rowA?.salesRepId === REP_A && rowA?.leadId === "L1", rowA);
+      // (b) From the owner's cell — a stored contact number on the lead.
+      await handleSalesInboundSms({ to: SALES, from: CELL, body: "it's Marc on my cell", schedule: noop });
+      const rowB = db.messages.find((m) => m.direction === "in" && m.fromE164 === CELL);
+      ok("…a text from the lead's OTHER number (a stored contact number) lands on the same lead", rowB?.salesRepId === REP_A && rowB?.leadId === "L1", rowB);
+      const list = await salesConversations({ salesRepId: REP_A, client: db });
+      ok("…and the two arrive in ONE conversation, needing a reply, with both numbers", list.length === 1 && list[0].unanswered === true && list[0].numbers.length === 2 && list[0].name === "Loop Inc", list);
+      // (c) From a number nobody holds: stored with no rep, never dropped —
+      // and listed to the rep as the floor's, as a stranger's number.
+      const STRANGER = "+14165550100";
+      const c = await handleSalesInboundSms({ to: SALES, from: STRANGER, body: "who is this?", schedule: noop });
+      const rowC = db.messages.find((m) => m.direction === "in" && m.fromE164 === STRANGER);
+      ok("…a text from a number nobody holds is STORED, with no rep and no lead invented", c.action === "stored" && rowC && rowC.salesRepId === null && rowC.leadId === null, rowC);
+      const floor = await salesConversations({ salesRepId: REP_A, client: db });
+      const stranger = floor.find((x) => x.e164 === STRANGER);
+      ok("…and reaches the floor: listed to the rep as an unowned conversation named by its number", Boolean(stranger) && stranger.unowned === true && stranger.name === null && stranger.lastDirection === "in", stranger);
+      ok("…while the lead's own conversation is not marked unowned", floor.find((x) => x.name === "Loop Inc")?.unowned === false);
+      const forB = await salesConversations({ salesRepId: "rep_b", client: db });
+      ok("…rep_b sees the stranger too, and NOT rep_a's conversation", forB.length === 1 && forB[0].e164 === STRANGER, forB.map((x) => x.e164));
+      // (d) The rep who texted a number last owns its replies, over the lead's own rep.
+      db.messages.push({ id: "mx", direction: "out", salesRepId: "rep_b", leadId: "L9", fromE164: SALES, toE164: SHOP, body: "hello from rep b", sentAt: later(20) });
+      await handleSalesInboundSms({ to: SALES, from: SHOP, body: "hey rep b", schedule: noop });
+      const rowD = db.messages.filter((m) => m.direction === "in" && m.fromE164 === SHOP).pop();
+      ok("…the rep who texted the number LAST owns the reply, whatever lead carries the number", rowD?.salesRepId === "rep_b" && rowD?.leadId === "L9", rowD);
+      // (e) A reply from the floor claims the stranger's rows for the rep.
+      const claim = await db.salesSmsMessage.updateMany({ where: { direction: "in", salesRepId: null, fromE164: STRANGER }, data: { salesRepId: REP_A } });
+      ok("…and a reply's claim (the updateMany deliverReplySms issues) gives the stranger's rows to the rep who answered", claim.count === 1 && rowC.salesRepId === REP_A, claim);
+      const afterClaim = await salesConversations({ salesRepId: "rep_b", client: db });
+      ok("…after which the other reps no longer see it", !afterClaim.some((x) => x.e164 === STRANGER), afterClaim.map((x) => x.e164));
+    } finally {
+      globalThis.__FQ_MSG.db = null;
+    }
+    const inbound = functionSource(decomment(read("lib/sales/salesSms.js")), "handleSalesInboundSms");
+    ok("…the inbound handler matches leads through leadsOnNumber, never \"most recently updated lead with any phone\"", Boolean(inbound) && /leadsOnNumber\(db, fromE164\)/.test(inbound) && !/phone: \{ not: null \}/.test(inbound));
+    ok("…and asks the stored contact numbers", Boolean(inbound) && /salesContactNumber/.test(inbound));
+    const matched = await leadsOnNumber(fakeDb({ leads: [LEAD] }), "514 555 0134");
+    ok("…leadsOnNumber compares normalised, narrowing on the last four digits", matched.length === 1 && matched[0].id === "L1");
+  }
+
+  // ── 6. A conversation with only OUR words in it is listed ───────────────
+  {
+    const db = fakeDb({
+      leads: [LEAD],
+      messages: [{ id: "m1", direction: "out", salesRepId: REP_A, leadId: "L1", fromE164: "+15145550111", toE164: SHOP, body: "link https://fieldquo.com/signup?sales=RACHEL", sentAt: later(0) }],
+    });
+    const list = await salesConversations({ salesRepId: REP_A, client: db, readStates: new Map() });
+    ok("PATH 6 · a freshly texted link with no reply yet is a listed conversation", list.length === 1 && list[0].lastDirection === "out" && list[0].count === 1 && list[0].unanswered === false, list);
+    ok("…with zero unread when the markers could be read, and null when they could not", list[0]?.unread === 0 && (await salesConversations({ salesRepId: REP_A, client: db }))[0]?.unread === null);
+    const { groupOf } = await import("@/lib/sales/messages/rooms");
+    ok("…filed under \"Waiting on them\"", groupOf(list[0]) === "waiting", groupOf(list[0]));
+    const conv = functionSource(decomment(read("lib/sales/salesSms.js")), "salesConversations");
+    ok("…because the list query has no direction filter of its own", Boolean(conv) && !/direction: "out"/.test(conv) && /\{ salesRepId \}, \{ salesRepId: null, direction: "in" \}/.test(conv));
+  }
+
+  // ── The fold itself, on hostile shapes ──────────────────────────────────
+  {
+    ok("businessKeyOf prefers company, then prospect, then the lead", businessKeyOf({ id: "L", prospectId: "P", convertedCompanyId: "C" }) === "company:C" && businessKeyOf({ id: "L", prospectId: "P" }) === "prospect:P" && businessKeyOf({ id: "L" }) === "lead:L" && businessKeyOf(null) === null && businessKeyOf({}) === null);
+    const merged = mergeThreadsByBusiness([
+      { e164: "+1a", businessKey: "lead:L", lastAt: later(1), lastDirection: "out", count: 2, unread: 1, readState: { readAt: later(0), doneAt: later(0) }, lastInboundAt: later(0), leadId: "L", name: null, triage: { kind: "fine" }, unowned: false },
+      { e164: "+1b", businessKey: "lead:L", lastAt: later(5), lastDirection: "in", count: 1, unread: 1, readState: null, lastInboundAt: later(5), leadId: null, name: "Named", triage: { kind: "question" }, unowned: false },
+      { e164: "+1c", businessKey: null, lastAt: later(3), lastDirection: "in", count: 1, unread: null, readState: null, lastInboundAt: later(3), leadId: null, name: null, triage: null, unowned: true },
+      null,
+    ]);
+    ok("two numbers of one business fold; a stranger's stays its own", merged.length === 2 && merged[0].e164 === "+1b" && merged[0].numbers.length === 2 && merged[1].e164 === "+1c");
+    ok("…sums count and unread, keeps the name any number offers, the latest inbound, the latest reply's chip", merged[0].count === 3 && merged[0].unread === 2 && merged[0].name === "Named" && merged[0].leadId === "L" && merged[0].triage?.kind === "question" && merged[0].triage?.open === true);
+    ok("…a filing older than the other number's reply does not make the conversation done", merged[0].readState?.doneAt?.getTime() === later(0).getTime() && merged[0].lastInboundAt.getTime() === later(5).getTime());
+    ok("…an uncountable number makes the whole conversation uncountable, not zero", merged[1].unread === null && merged[1].unowned === true);
+    ok("mergeReadStates takes the latest of each and null for none", mergeReadStates([null, { readAt: later(1), doneAt: null }, { readAt: later(0), doneAt: later(2) }])?.doneAt?.getTime() === later(2).getTime() && mergeReadStates([null]) === null);
+    const readRoute = decomment(read("app/api/sales/messages/read/route.js"));
+    ok("the read route marks EVERY number of the business", /resolveBusiness\(/.test(readRoute) && /numbers\.map\(\(e164\) =>/.test(readRoute));
+    const route = decomment(read("app/api/sales/messages/route.js"));
+    ok("the thread route reads messages, drafts, calls, STOPs and demo sends across the business's numbers",
+      /salesThread\(\{ salesRepId: rep\.id, withE164, numbers \}\)/.test(route) && /openCheckIns\(\{ salesRepId: rep\.id, toE164: withE164, numbers \}\)/.test(route) && /toE164: \{ in: numbers \}/.test(route) && /numbers\.map\(\(n\) => findSuppressions/.test(route) && /sentDemoCheckIns\(\{ salesRepId: rep\.id, toE164: withE164, numbers \}\)/.test(route));
+    ok("…and returns the numbers for the context bar", /numbers: numberRows,/.test(route));
+    const page = decomment(read("app/sales/messages/page.js"));
+    ok("the screen lists every number in the conversation and highlights the room by any of them", /thread\?\.numbers \|\| \[\]/.test(page) && /\(c\.numbers \|\| \[\]\)\.some\(\(n\) => n\.e164 === openWith\)/.test(page));
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
