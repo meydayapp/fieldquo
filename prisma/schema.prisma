@@ -13392,6 +13392,31 @@ model SalesCallAttempt {
   dispositionAt   DateTime?
   dispositionNote String?
 
+  /// TRUE when the outcome above was written by the LINE, not by the rep.
+  ///
+  /// A prospect who picks up and puts the phone down inside ten seconds, or a
+  /// call that never connected, has an outcome the carrier already reported
+  /// (lib/sales/calls/dispositions.js autoLogOutcome). Making the rep type
+  /// "no answer" after every ring-out was the single thing that stopped the
+  /// floor: the panel demanded an outcome before the next dial and drew it
+  /// on a tab the rep was not looking at. So those are logged by themselves,
+  /// marked here, and the rep may OVERWRITE one — the only case
+  /// saveDisposition() allows a second outcome on a row — because the line's
+  /// account is a guess about a conversation and the rep's is the record.
+  dispositionAutoLogged Boolean @default(false)
+
+  /// Who ended the call — "rep" (the Hang up button), "prospect" (the far end
+  /// dropped while the rep's device was still up), or null (it never
+  /// connected, or a handset dial where nobody can say). Reported by the
+  /// browser at the moment the SDK fires `disconnect`, which is the only
+  /// place the two can be told apart: Twilio's status callback says
+  /// "completed" for both.
+  hungUpBy String?
+  /// Why it ended, in the vocabulary of whoever knew: "rep_hangup",
+  /// "prospect_hangup", or the carrier's terminal status for a call that
+  /// never connected ("no-answer", "busy", "failed", "canceled").
+  endReason String?
+
   /// Set only by the `callback` disposition. The claim's lease is extended to
   /// cover it, which is why dispositions.js bounds how far out it may be.
   callbackAt DateTime?

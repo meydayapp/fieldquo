@@ -43,7 +43,9 @@ import { getAppOrigin } from "@/lib/appUrl";
 import {
   CallStoreUnavailable,
   attemptsLast24h,
+  autoLogAttempt,
   callStoreState,
+  recordCallEnd,
   currentActivity,
   heartbeat,
   ownNumbers,
@@ -72,7 +74,7 @@ import { TWIML_APP_ENV, browserDialReadiness, callPlan } from "@/lib/sales/calls
 import { repCallStats } from "@/lib/sales/calls/reporting";
 import { saveRepAutodial } from "@/lib/sales/autodialWrite";
 
-const ACTIONS = ["dial", "disposition", "state", "heartbeat", "autodial"];
+const ACTIONS = ["dial", "disposition", "state", "heartbeat", "autodial", "ended", "auto_log"];
 const MAX_NOTE = 2000;
 
 const bad = (error, status = 400) => NextResponse.json({ error }, { status });
@@ -248,7 +250,19 @@ export async function GET(request) {
       ? (() => {
           const row = attempts.find((a) => !a.disposition);
           return row
-            ? { id: row.id, toE164: row.toE164, dialledAt: row.dialledAt, prospectId: row.prospectId }
+            ? {
+                id: row.id,
+                toE164: row.toE164,
+                dialledAt: row.dialledAt,
+                prospectId: row.prospectId,
+                // What the line knows, so the panel can ask for the auto-log
+                // at once for a call that ended while nobody was looking,
+                // and skip the ask for a handset dial nothing reports on.
+                dialChannel: row.dialChannel,
+                hungUpBy: row.hungUpBy || null,
+                endedAt: row.endedAt,
+                providerStatus: row.providerStatus || null,
+              }
             : null;
         })()
       : null,
@@ -320,6 +334,62 @@ export async function POST(request) {
     return NextResponse.json({
       ok: true,
       presence: livePresence(result.activity, now, { portalSeenAt: now }),
+      serverNow: now.toISOString(),
+    });
+  }
+
+  if (action === "ended") {
+    // ── Who hung up, from the only place that knows ──────────────────────
+    //
+    // Twilio's status callback says "completed" whichever side dropped. The
+    // browser can tell: its Hang up handler posts "rep" before it
+    // disconnects, and the SDK's `disconnect` with no local hang-up before
+    // it posts "prospect". Written once (recordCallEnd), scoped to this
+    // rep's own attempt, and soft — a lost report leaves hungUpBy null,
+    // which autoLogOutcome reads as "ask the rep", never as a hang-up.
+    const attemptId = typeof body.attemptId === "string" ? body.attemptId.trim() : "";
+    if (!attemptId) return bad("Which call?");
+    const result = await recordCallEnd({
+      salesRepId: rep.id,
+      attemptId,
+      hungUpBy: typeof body.hungUpBy === "string" ? body.hungUpBy : null,
+    });
+    if (!result.ok) return bad(result.error);
+    return NextResponse.json({ ok: true, updated: result.updated, serverNow: now.toISOString() });
+  }
+
+  if (action === "auto_log") {
+    // ── The line logs what it already knows ──────────────────────────────
+    //
+    // Asked by the panel five seconds after a call ends when the rep has
+    // not started an outcome, and again on load for a call that ended while
+    // nobody was looking. The decision is autoLogOutcome() over the row as
+    // it stands in the database NOW — the carrier's stamps and the browser's
+    // hungUpBy — never over anything this request carries besides the id.
+    // `ok: false` with a reason is an answer, not an error: "talked" means
+    // ask the rep, "not_reported" means ask again shortly.
+    const attemptId = typeof body.attemptId === "string" ? body.attemptId.trim() : "";
+    if (!attemptId) return bad("Which call?");
+    const result = await autoLogAttempt({ salesRepId: rep.id, attemptId, now });
+    if (result.ok) {
+      // The write-up is done, by the line. Same transition the typed path
+      // makes below, for the same reason.
+      await setRepState({ salesRepId: rep.id, to: STATE_AVAILABLE, now }).catch(() => {});
+    }
+    return NextResponse.json({
+      ok: result.ok,
+      code: result.code,
+      reason: result.reason,
+      talkSeconds: result.talkSeconds,
+      retry: result.retry
+        ? {
+            kind: result.retry.kind,
+            attemptCount: result.retry.attemptCount,
+            maxAttempts: result.retry.maxAttempts,
+            nextAttemptAt: result.retry.nextAttemptAt ? result.retry.nextAttemptAt.toISOString() : null,
+            exhausted: result.retry.exhausted,
+          }
+        : null,
       serverNow: now.toISOString(),
     });
   }
