@@ -1287,6 +1287,27 @@ exact trade key, so not one could be dialled. The owner's decision, verbatim:
   all 20). 3,314 dup-flagged rows were left in needs_review for the folder's
   duplicate bucket. Idempotent: the second dry run planned 64 — new rows the
   still-running Oregon campaign wrote under the old deploy.
+- **Merge without losing anything** (`lib/sales/discovery/mergeProspects.js`,
+  `mergedReads.js`, `duplicateGroup.js`; `app/components/platform/DuplicateGroup.js`
+  on the folder's focused flagged row and the prospect detail; `POST
+  /api/platform/sales/prospects/merge` + `/unmerge`, superadmin): the owner's
+  "if we flag a duplicate we can obtain whatever information might have been
+  missed in the one used by the sales rep". Keep one row, merge the rest: only
+  its EMPTY fields fill (phone match first, then domain, name, oldest;
+  website+domain from one row; a street never crosses towns), the plan is
+  the audit (`Prospect.mergedFrom`), the others are retired (`mergedIntoId`,
+  `mergedAt` — additive) and excluded from every queue, count, folder read
+  and re-ingest through the shared where-builders; contact numbers (by
+  number), leads, queue claims, call attempts and a live claim move to the
+  survivor; two reps holding two of the rows is a refusal naming both;
+  evidence/capabilities/inferences stay on the retired rows and both
+  human-facing reads union them. Unmerge clears exactly the filled fields
+  (kept and named if changed since), moves everything back, reverses the
+  funnel. Ingest now also fills at dedupe steps 2–3 (`kind: "autofill"`).
+  The rep card gains "Merged from · N other records" in nine languages.
+  `check:sales-merge` executes the plan, the apply, the unmerge, the
+  where-builders and the ingest against an in-memory client. NOT done:
+  a bulk "merge every phone-flagged pair" — each merge is a human decision.
 - **The folder** (`app/platform/sales/review/page.js`, sidebar row "Review
   folder" with a count badge from `/api/platform/sales/review/count`,
   superadmin only): every row that is `needs_review`, or contractor with no

@@ -157,6 +157,54 @@ the reason the Overture provider gives for filtering territory there rather
 than at ingest — "filtering afterwards would make '250 per task' mean
 'somewhere between 0 and 250'".
 
+## What a flag leaves behind, and the merge that closes it (14 September 2026)
+
+The flag is right and it has a cost the owner named: "if we flag a duplicate
+we can obtain whatever information might have been missed in the one used by
+the sales rep." Two rows for one business each carry what *their* source
+knew — the register has the licence and the trade, the directory has the
+website and the phone — and the rep holds one of them.
+
+`lib/sales/discovery/mergeProspects.js` closes that without the unrecoverable
+merge the header warns about:
+
+- **`planMerge({ survivor, others })`** is pure. For every empty scalar on the
+  survivor it takes the first non-empty value across the others in a fixed
+  order (phone match, domain match, name match, then oldest), grouped so a
+  website, its domain and `hasWebsite` come from one row and a street line
+  never crosses towns; the other rows' names join `tradingNames`. Every fill
+  is `{ field, value, from, source, via }` — the plan is the audit. It refuses
+  two live claims by two different reps, naming both.
+- **`applyMerge`** is one transaction: fills guarded per field on `IS NULL`,
+  `mergedFrom` appended (jsonb, atomically), the others set `mergedIntoId` /
+  `mergedAt` and nothing else, contact numbers re-parented by number, leads,
+  queue claims and call attempts moved, a live claim moved, flags at the
+  retired rows repointed, campaign counters moved through
+  `reviewFolder.js`'s table (`mergeRetireEffects`, `fillEffects`), audit row
+  `sales_prospects_merged`. **Nothing is deleted.** Evidence, capabilities
+  and inferences stay on the retired rows — the per-(prospect, code) uniques
+  would otherwise force a drop — and `mergedReads.js` unions them on read for
+  the two human-facing reads (the superadmin detail, the rep card): own row
+  per code wins, evidence appended, borrowed rows tagged `fromProspectId`.
+- **`unmerge`** reverses it: clears exactly the filled fields where the value
+  still stands (a value a human changed since is kept and named), moves the
+  children back per the plan, reactivates the rows, reverses the counters.
+- Retired rows are out of `claimCandidateWhere`, `queueWhere`, the folder's
+  untouchable guard and every per-site list; a re-ingest of a retired row's
+  source record resolves to the survivor as a **fill-only** update, so the
+  retired row is never resurrected and the survivor's own fields are never
+  overwritten.
+- **Steps 2 and 3 now fill at ingest** (`kind: "autofill"` on `mergedFrom`):
+  same phone or same domain copies the new record's fields into the existing
+  row's empty ones and still writes the new row flagged. Step 4 fills nothing.
+- The screen: `app/components/platform/DuplicateGroup.js` on the Review
+  folder's focused flagged row and on the prospect detail — the rows one
+  column each, gaps lit, "keep this one", **Merge into the kept one** →
+  preview of what fills from where → confirm; **Unmerge** on a survivor.
+  `POST /api/platform/sales/prospects/merge` (preview without `confirm`) and
+  `/unmerge`, superadmin only. The rep card says "Merged from · N other
+  records" in nine languages. `npm run check:sales-merge` executes all of it.
+
 ## Territory cannot be applied to a domain
 
 `SalesTerritory` is `country` / `province` / `city` / a lat-lng-radius, and

@@ -91,6 +91,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { AlertCircle, Check, Copy, HelpCircle, Loader2, Sparkles, Wrench, X } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
+import DuplicateGroup from "@/app/components/platform/DuplicateGroup";
 
 const BTN =
   "inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60";
@@ -869,6 +870,10 @@ function RowsMode({ modeSwitch }) {
                   {p.duplicateOf.tradeKey ? ` as ${tradeLabel(p.duplicateOf.tradeKey)}` : ""}.
                 </div>
               ) : null}
+              {/* The two rows side by side, and the merge — on the focused
+                  row only, so a page of fifty flagged rows is one read, not
+                  fifty. app/components/platform/DuplicateGroup.js owns it. */}
+              {p.duplicateOf && active ? <DuplicateGroup prospectId={p.id} onChanged={load} /> : null}
 
               {/* ── Suggestions, numbered, with their basis ────────────── */}
               <div className="flex flex-wrap items-center gap-2" data-suggestions>

@@ -692,7 +692,7 @@ section("8. The folder's WHERE, and what the screen wires");
   ok("the list route reads pageSize through the clamp and pages by it", /parsePageSize\(url\.searchParams\.get\("pageSize"\)\)/.test(listRoute) && /LIMIT \$\{pageSize\} OFFSET \$\{page \* pageSize\}/.test(listRoute) && !/REVIEW_PAGE_SIZE\b/.test(listRoute.replace(/REVIEW_PAGE_SIZES/g, "")));
   ok("…and counts the flagged duplicates inside the filter in the same pass", /COUNT\("possibleDuplicateOfId"\)::int AS dups/.test(listRoute) && /duplicates: Number\(duplicates\)/.test(listRoute));
   ok("…and suggestions are still computed once per row in the route, not in the component", /suggestTrades\(p\)/.test(listRoute) && !/suggestTrades\(/.test(read("app/platform/sales/review/page.js")));
-  ok("the guard where matches the guard SQL", JSON.stringify(untouchableGuardWhere(NOW)) === JSON.stringify({ doNotContactAt: null, OR: [{ assignedRepId: null }, { claimExpiresAt: { lt: NOW } }] }));
+  ok("the guard where matches the guard SQL", JSON.stringify(untouchableGuardWhere(NOW)) === JSON.stringify({ doNotContactAt: null, mergedIntoId: null, OR: [{ assignedRepId: null }, { claimExpiresAt: { lt: NOW } }] }));
 
   const page = read("app/platform/sales/review/page.js");
   ok("the page is a client component that calls the folder route", page.includes('"use client"') && page.includes("/api/platform/sales/review?") && page.includes("/api/platform/sales/review/bulk") && page.includes("/api/platform/sales/review/reclassify"));
