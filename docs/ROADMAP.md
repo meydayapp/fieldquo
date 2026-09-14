@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 14 September 2026 (fixed errors stop haunting /platform/errors — a reviewed state with a one-line note, Unmark, a checkbox batch, every count unreviewed-only — and the /platform phone-pool card is red only for a refusal inside 24 h or newer than the last accepted delivery, else a muted dated line; check:platform-errors executes both.)
+Last updated: 14 September 2026 (a paid plan is cancelled at the end of its paid period, a trial at once; Resume is one button whose label says what the press costs — uncancel, credited to the old period end, or charged today — with Checkout only when Stripe has no card; one free trial per company, ever, via Company.trialUsedAt; check:billing-resume executes all of it.)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -9,6 +9,73 @@ it exists to answer.
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
+
+## Cancel at the period end, Resume in one click, one trial per company (14 September 2026)
+
+The owner pressed the banner's "Start again" twice on his own cancelled $1
+live-test plan (07:15, 07:17 UTC). It was a link to the page he was on — "no
+window, no pop up". His two rules: "resume current (remaining balance on the
+month)", and "if I cancelled I shouldn't get a new free trial — I should go
+straight to the first month, because otherwise companies can cancel and go
+again for the first free trial."
+
+**Cancel.** `lib/billing/cancelPolicy.js`: a `trialing` subscription is
+cancelled at once as before (nothing paid for); an `active` one gets Stripe's
+`cancel_at_period_end: true` — status stays active, the company is not
+churned, `canceledAt` stays null, the product works to the paid-to date, and
+the 30-day read-only window starts when Stripe actually ends it (the deleted
+webhook or the six-hourly sync). `past_due` is immediate (the period is
+unpaid). The route reads Stripe live before deciding. Two additive columns,
+`Subscription.cancelAtPeriodEnd` / `cancelAt`, written only through
+`subscriptionFieldsFromStripe` (cleared on a canceled object; a partial object
+writes neither) and in the drift set, so a portal or dashboard cancellation
+reaches the banner within six hours. A plan change on an ending subscription
+is refused with "Press Resume first" (409). The cancellation email says "ends
+on {date}; nothing more will be charged. Resume any time before then" only
+for a booked end — the old single sentence promised "keep access until" on an
+immediate cancellation too.
+
+**Resume.** `POST /api/platform/billing/resume` (billing admin), decided by
+the pure `resumeDecision` in `lib/billing/resume.js`: *uncancel* (live +
+booked end → `cancel_at_period_end: false`, nothing charged); *credited* (a
+`canceled` subscription with PAID time left → a new subscription on the same
+customer and the old Price, `trial_end` = the old period end,
+`error_if_incomplete`, no prorations, the checkout metadata — Stripe cannot
+un-cancel a cancelled subscription); *charge_now* (cancelled during the
+trial, or the paid period elapsed → a new subscription with NO trial, the
+first invoice charged on the press); *checkout* (no card at Stripe, a Price
+that no longer matches the Plan row, or a Stripe refusal → the existing
+Checkout for the same plan and cadence, with no trial). `GET` is the preview:
+the button is labelled from it — "Resume", "Resume — nothing charged until
+{date}", "Restart — your first month is charged today ($1.00)", "Start again"
+— so the charge is on the button before it is pressed. One shared
+`ResumePlanButton` on the banner (a new amber "ends on" strip for a booked
+end, Resume replacing the link for a cancelled one) and on Account & Billing
+(primary; "Choose a different plan" stays as the path to the cards); it
+POSTs, never links, and reloads with a green "Resumed — …" receipt. Nine
+languages. Activity `billing.resumed` with the mode.
+
+**One trial, ever.** `Company.trialUsedAt` (additive), stamped from Stripe's
+own `trial_start` the first time a subscription with a trial is seen
+(`stampTrialUsed` in `lib/platform/stripeSync.js`: `writeSubscriptionFromStripe`
+and the created/updated webhook), backfilled from `Subscription.createdAt`
+by `scripts/backfill-trial-used.mjs` (dry run by default, `--yes` writes; run
+once on 2026-09-14: one company, Test Inc.). Every checkout path — signup,
+the plan-change Checkout, Resume's fallback — computes trial days through
+`trialDaysAllowed()` in `lib/billing/trialOnce.js`, which answers 0 once the
+stamp exists. Referral months and the resume credit are not trials and do not
+consult it. /platform/companies/[id] shows "Ends {date} — customer cancelled"
+and "Trial used on {date}". Help EN/FR/ES rewritten accordingly.
+
+`npm run check:billing-resume` executes cancelModeFor, resumeDecision over
+every state, priceStillMatches, trialDaysAllowed (a stamped company never
+gets a trial), the mapping's two new columns, accessFor's `endsAt`, and
+resumeSubscription against the db/Stripe fakes — the uncancel update, the
+credited create with `trial_end` to the second, the charge_now create with no
+trial, the no-card and declined-card fallbacks to a Checkout that carries no
+trial, the unchanged-price guard — plus the stamp's idempotence; source pins
+hold the routes, the banner (never a link to the page it is on), the nine
+languages and the help to it.
 
 ## Fixed errors stop haunting /platform/errors, and the phone-pool card stops crying wolf (14 September 2026)
 

@@ -131,7 +131,9 @@ console.log("\n── 2. subscriptionDrift ────────────�
   ok("billingInterval not flagged when Stripe did not say", !names.includes("billingInterval"), names);
   ok("each entry carries before and after", drift.every((d) => "before" in d && "after" in d));
   const same = subscriptionDrift(
-    { status: "canceled", canceledAt: new Date(T0 * 1000), trialEndsAt: null },
+    // cancelAtPeriodEnd false / cancelAt null: what every real row holds
+    // (schema defaults) — the mapping clears both on a canceled object.
+    { status: "canceled", canceledAt: new Date(T0 * 1000), trialEndsAt: null, cancelAtPeriodEnd: false, cancelAt: null },
     subscriptionFieldsFromStripe({ id: SUB, status: "canceled", canceled_at: T0 }),
   );
   ok("a row that agrees drifts nowhere (dates compared by instant)", same.length === 0, same);
@@ -153,7 +155,7 @@ console.log("\n── 3. isCanceledSubscriptionError ─────────
 console.log("\n── 4. writeSubscriptionFromStripe / syncSubscriptionFromStripe ──");
 {
   resetAll();
-  rows.subscription.push({ id: "s1", companyId: COMPANY, stripeSubscriptionId: SUB, status: "active", canceledAt: null, currentPeriodEnd: null, trialEndsAt: null, billingInterval: "month" });
+  rows.subscription.push({ cancelAtPeriodEnd: false, cancelAt: null, id: "s1", companyId: COMPANY, stripeSubscriptionId: SUB, status: "active", canceledAt: null, currentPeriodEnd: null, trialEndsAt: null, billingInterval: "month" });
   rows.company.push({ id: COMPANY, onboardingStatus: "active" });
   state.subscriptions.set(SUB, { id: SUB, status: "canceled", canceled_at: T0, current_period_end: T0 + 100, trial_end: null, items: { data: [] } });
 
@@ -173,7 +175,7 @@ console.log("\n── 4. writeSubscriptionFromStripe / syncSubscriptionFromStrip
   // A row already cancelled keeps its own canceledAt when Stripe's is absent.
   resetAll();
   const earlier = new Date("2026-08-01T00:00:00Z");
-  rows.subscription.push({ id: "s1", companyId: COMPANY, stripeSubscriptionId: SUB, status: "canceled", canceledAt: earlier, trialEndsAt: null });
+  rows.subscription.push({ cancelAtPeriodEnd: false, cancelAt: null, id: "s1", companyId: COMPANY, stripeSubscriptionId: SUB, status: "canceled", canceledAt: earlier, trialEndsAt: null });
   rows.company.push({ id: COMPANY });
   state.subscriptions.set(SUB, { id: SUB, status: "canceled", canceled_at: null, trial_end: null });
   const r3 = await syncSubscriptionFromStripe(COMPANY);
@@ -181,7 +183,7 @@ console.log("\n── 4. writeSubscriptionFromStripe / syncSubscriptionFromStrip
 
   // Missing at Stripe is NOT cancelled.
   resetAll();
-  rows.subscription.push({ id: "s1", companyId: COMPANY, stripeSubscriptionId: SUB, status: "active", trialEndsAt: null });
+  rows.subscription.push({ cancelAtPeriodEnd: false, cancelAt: null, id: "s1", companyId: COMPANY, stripeSubscriptionId: SUB, status: "active", trialEndsAt: null });
   rows.company.push({ id: COMPANY, onboardingStatus: "active" });
   const r4 = await syncSubscriptionFromStripe(COMPANY);
   ok("'No such subscription' → reason stripe_missing, nothing written", !r4.ok && r4.reason === "stripe_missing" && rows.subscription[0].status === "active" && writes.length === 0, r4);
@@ -190,7 +192,7 @@ console.log("\n── 4. writeSubscriptionFromStripe / syncSubscriptionFromStrip
   resetAll();
   const r5 = await syncSubscriptionFromStripe("nobody");
   ok("no row → no_row, not a throw", !r5.ok && r5.reason === "no_row");
-  rows.subscription.push({ id: "s2", companyId: "c2", stripeSubscriptionId: null, status: "trialing" });
+  rows.subscription.push({ cancelAtPeriodEnd: false, cancelAt: null, id: "s2", companyId: "c2", stripeSubscriptionId: null, status: "trialing" });
   const r6 = await syncSubscriptionFromStripe("c2");
   ok("no Stripe id → no_stripe_subscription", !r6.ok && r6.reason === "no_stripe_subscription");
 
@@ -207,7 +209,7 @@ console.log("\n── 4. writeSubscriptionFromStripe / syncSubscriptionFromStrip
 console.log("\n── 5. customer.subscription.deleted ────────────────────────────");
 {
   resetAll();
-  rows.subscription.push({ id: "s1", companyId: COMPANY, stripeSubscriptionId: SUB, status: "active", canceledAt: null, pastDueSince: new Date(), pendingPlanId: "p9", stripeScheduleId: "sched_1" });
+  rows.subscription.push({ cancelAtPeriodEnd: false, cancelAt: null, id: "s1", companyId: COMPANY, stripeSubscriptionId: SUB, status: "active", canceledAt: null, pastDueSince: new Date(), pendingPlanId: "p9", stripeScheduleId: "sched_1" });
   rows.company.push({ id: COMPANY, onboardingStatus: "active" });
   await syncSubscriptionFromStripeEvent({ type: "customer.subscription.deleted", data: { object: { id: SUB, status: "canceled", canceled_at: T0, current_period_end: T0 + 5 } } });
   const row = rows.subscription[0];
@@ -217,7 +219,7 @@ console.log("\n── 5. customer.subscription.deleted ────────�
 
   // updated with a status outside our enum must not throw.
   resetAll();
-  rows.subscription.push({ id: "s1", companyId: COMPANY, stripeSubscriptionId: SUB, status: "active", planId: "p1" });
+  rows.subscription.push({ cancelAtPeriodEnd: false, cancelAt: null, id: "s1", companyId: COMPANY, stripeSubscriptionId: SUB, status: "active", planId: "p1" });
   rows.company.push({ id: COMPANY });
   let threw = null;
   try {
@@ -254,10 +256,10 @@ console.log("\n── 7. /api/cron/billing-sync ──────────�
   const denied = await GET(req("Bearer wrong"));
   ok("wrong secret → 401", denied.status === 401);
 
-  rows.subscription.push({ id: "s1", companyId: "c-drift", stripeSubscriptionId: "sub_drift", status: "active", canceledAt: null, trialEndsAt: null, updatedAt: new Date(1) });
-  rows.subscription.push({ id: "s2", companyId: "c-fine", stripeSubscriptionId: "sub_fine", status: "active", canceledAt: null, trialEndsAt: null, updatedAt: new Date(2) });
-  rows.subscription.push({ id: "s3", companyId: "c-gone", stripeSubscriptionId: "sub_gone", status: "active", canceledAt: null, trialEndsAt: null, updatedAt: new Date(3) });
-  rows.subscription.push({ id: "s4", companyId: "c-nostripe", stripeSubscriptionId: null, status: "trialing", updatedAt: new Date(4) });
+  rows.subscription.push({ cancelAtPeriodEnd: false, cancelAt: null, id: "s1", companyId: "c-drift", stripeSubscriptionId: "sub_drift", status: "active", canceledAt: null, trialEndsAt: null, updatedAt: new Date(1) });
+  rows.subscription.push({ cancelAtPeriodEnd: false, cancelAt: null, id: "s2", companyId: "c-fine", stripeSubscriptionId: "sub_fine", status: "active", canceledAt: null, trialEndsAt: null, updatedAt: new Date(2) });
+  rows.subscription.push({ cancelAtPeriodEnd: false, cancelAt: null, id: "s3", companyId: "c-gone", stripeSubscriptionId: "sub_gone", status: "active", canceledAt: null, trialEndsAt: null, updatedAt: new Date(3) });
+  rows.subscription.push({ cancelAtPeriodEnd: false, cancelAt: null, id: "s4", companyId: "c-nostripe", stripeSubscriptionId: null, status: "trialing", updatedAt: new Date(4) });
   rows.company.push({ id: "c-drift", onboardingStatus: "active" }, { id: "c-fine" }, { id: "c-gone" }, { id: "c-nostripe" });
   state.subscriptions.set("sub_drift", { id: "sub_drift", status: "canceled", canceled_at: T0, trial_end: null });
   state.subscriptions.set("sub_fine", { id: "sub_fine", status: "active", trial_end: null });
@@ -341,7 +343,10 @@ console.log("\n── 9. The routes, pinned ────────────
   // "/*" in prose, and the stripper swallows half the file after it.
   const page = read("app/app/settings/account-billing/page.js");
   ok("the billing page asks for the live read", /\/api\/settings\/subscription\?live=1/.test(page));
-  ok("the billing page renders the cancelled state with Start a new plan", /app\.billing\.cancelledOn/.test(page) && /app\.billing\.startNewPlan/.test(page) && /href="#plans"/.test(page) && /<div id="plans">/.test(page));
+  // Since 2026-09-14 the cancelled state's primary action is the shared Resume
+  // button (scripts/check-billing-resume.mjs owns it); "Choose a different
+  // plan" is the secondary path to the cards.
+  ok("the billing page renders the cancelled state with Resume and the path to the plan cards", /app\.billing\.cancelledOn/.test(page) && /<ResumePlanButton/.test(page) && /href="#plans"/.test(page) && /<div id="plans">/.test(page));
   ok("a cancelled company's old tier is buyable again", /status === "canceled" \? null : subscription\?\.plan\?\.id/.test(page));
 
   const cron = stripComments(read("app/api/cron/billing-sync/route.js"));
@@ -357,7 +362,7 @@ console.log("\n── 9. The routes, pinned ────────────
   const script = read("scripts/sync-subscription.mjs");
   ok("the shell script refuses a test-mode key by name", /sk_test_/.test(script) && /startsWith\("sk_live_"\)/.test(script));
 
-  for (const key of ["app.billing.cancelledOn", "app.billing.cancelledNoDate", "app.billing.startNewPlan"]) {
+  for (const key of ["app.billing.cancelledOn", "app.billing.cancelledNoDate", "app.billing.chooseDifferentPlan"]) {
     const missing = Object.entries(APP_MESSAGES).filter(([, m]) => !m[key]).map(([l]) => l);
     ok(`${key} exists in all ${Object.keys(APP_MESSAGES).length} languages`, missing.length === 0, missing);
   }
@@ -365,7 +370,7 @@ console.log("\n── 9. The routes, pinned ────────────
 
   for (const lang of ["en", "fr", "es"]) {
     const help = read(`content/help/${lang}/billing-and-subscription-2.js`);
-    ok(`help (${lang}) says a cancelled subscription can only be replaced`, /(Start a new plan|Démarrer un nouveau forfait|Iniciar un nuevo plan)/.test(help));
+    ok(`help (${lang}) says a cancelled subscription can only be resumed or replaced`, /(only resumed or replaced|seulement repris ou remplacé|solo reanudar o reemplazar)/.test(help));
   }
 }
 

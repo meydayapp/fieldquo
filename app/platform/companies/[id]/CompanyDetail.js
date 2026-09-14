@@ -285,10 +285,20 @@ export default function CompanyDetail({ companyId }) {
                 </span>
               }
             />
-            <Field
-              label={sub.trialEndsAt ? "Trial ends" : "Renews"}
-              value={formatDate(sub.trialEndsAt || sub.currentPeriodEnd)}
-            />
+            {/* A paid plan the customer cancelled at the period end: still
+                active, nothing more billed, ends on cancelAt. "Renews" on
+                that date would be false — nothing renews. */}
+            {sub.cancelAtPeriodEnd ? (
+              <Field
+                label="Ends"
+                value={`${formatDate(sub.cancelAt || sub.currentPeriodEnd)} — customer cancelled`}
+              />
+            ) : (
+              <Field
+                label={sub.trialEndsAt ? "Trial ends" : "Renews"}
+                value={formatDate(sub.trialEndsAt || sub.currentPeriodEnd)}
+              />
+            )}
           </dl>
         ) : (
           <p className="text-sm text-muted-foreground">
@@ -296,6 +306,15 @@ export default function CompanyDetail({ companyId }) {
             manually.
             {company.trialEndsAt &&
               ` Trial ends ${formatDate(company.trialEndsAt)}.`}
+          </p>
+        )}
+        {/* One free trial per company, ever (lib/billing/trialOnce.js). A
+            support question — "why was I charged on restart?" — is answered
+            by this line. Absent when the column is null: "not used" would be
+            a statement the backfill has not made yet. */}
+        {company.trialUsedAt && (
+          <p className="text-xs text-muted-foreground mt-3">
+            Trial used on {formatDate(company.trialUsedAt)} — a restart after a cancellation is charged on the day.
           </p>
         )}
       </div>

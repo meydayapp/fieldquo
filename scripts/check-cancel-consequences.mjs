@@ -161,20 +161,25 @@ for (const key of emittable) {
   }
 }
 
-// ── It ends NOW, and the screen no longer says otherwise ──────────────────
+const cancelSrc = src(CANCEL);
+// ── When it ends, and the screen says the same thing the route does ───────
 //
-// cancelSubscription() is stripe.subscriptions.cancel() with no
-// cancel_at_period_end, so there is no period to keep working through. The
-// screen used to promise one.
+// Since 2026-09-14 a PAID plan is cancelled at the end of the paid period
+// (cancel_at_period_end) and a TRIAL on the button press — lib/billing/
+// cancelPolicy.js, executed in scripts/check-billing-resume.mjs. The confirm
+// step branches on the same function, so it promises the rest of the month
+// exactly when the route grants it, and never otherwise.
 const billingSrc = src("lib/platform/stripeBilling.js");
 ok(/subscriptions\.cancel\(/.test(billingSrc),
-   "cancelSubscription() calls stripe.subscriptions.cancel()");
-ok(!/cancel_at_period_end/.test(billingSrc),
-   "…with no cancel_at_period_end anywhere in the billing module — so it is immediate");
+   "cancelSubscription() calls stripe.subscriptions.cancel() (the trial path)");
+ok(/cancelModeFor\(liveStatus\)/.test(cancelSrc) && /cancel_at_period_end: true/.test(cancelSrc),
+   "the cancel route decides immediate vs period-end with cancelModeFor, from Stripe's live status");
+ok(/cancelModeFor\(status\)/.test(flowSrc) && flowSrc.includes('"app.cancelFlow.endsOnDate"'),
+   "the flow's confirm sentence branches on the SAME function");
 ok(!/keep working normally until then/i.test(flowSrc),
-   "the flow no longer promises the rest of the month it does not get");
+   "the old unconditional promise of the rest of the month is gone");
 ok(flowSrc.includes('"app.cancelFlow.endsNow"'),
-   "and says plainly that the plan ends on the button press");
+   "and a trial is still told plainly that it ends on the button press");
 
 // ── Read-only immediately, locked after CANCELLED_DAYS ────────────────────
 const cancelledNow = { status: "canceled", canceledAt: new Date("2026-01-01T00:00:00Z") };
@@ -196,7 +201,6 @@ ok(flowSrc.includes('"app.cancelFlow.youReadOnly"') && src(ROUTE).includes("CANC
 // The most reassuring sentence on the screen, so it gets the strictest check:
 // the module that cancels must not delete anything, and the access gate must
 // have no state that means "gone".
-const cancelSrc = src(CANCEL);
 ok(!/\.delete\(|\.deleteMany\(/.test(cancelSrc),
    "the cancel route deletes nothing");
 ok(!/\.delete\(|\.deleteMany\(/.test(src("app/api/cron/voice-rent/route.js")),

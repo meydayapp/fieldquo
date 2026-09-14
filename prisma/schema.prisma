@@ -930,6 +930,24 @@ model Subscription {
   /// punished for it; they may simply need to look up an old invoice.
   canceledAt DateTime?
 
+  /// A cancellation that has not landed yet.
+  ///
+  /// A PAYING subscription is cancelled at the end of the period it has paid
+  /// for (Stripe's cancel_at_period_end), not on the button press — the owner's
+  /// rule of 2026-09-14: "resume current, remaining balance on the month". The
+  /// status stays `active`, the company is not churned, and `canceledAt` stays
+  /// null until Stripe actually ends it (customer.subscription.deleted, or the
+  /// six-hourly sync), which is when the 30-day read-only window starts. A
+  /// trial is still cancelled at once — nothing has been paid for.
+  ///
+  /// Both written from Stripe's reply through lib/billing/subscriptionFields.js,
+  /// like every other column Stripe is the authority on; Resume clears them by
+  /// asking Stripe to, never by hand.
+  cancelAtPeriodEnd Boolean   @default(false)
+  /// When the pending cancellation lands — Stripe's `cancel_at`. Null unless
+  /// cancelAtPeriodEnd is set.
+  cancelAt          DateTime?
+
   /// Why they left, in their own words. The single most valuable field in this
   /// table and the one nobody remembers to collect.
   cancelReason String?
@@ -1181,6 +1199,18 @@ model Company {
   industries             String[]         @default([])
   onboardingStatus       OnboardingStatus @default(pending)
   trialEndsAt            DateTime?
+  /// The one free trial this company has had, and when it began.
+  ///
+  /// The owner's rule (2026-09-14): "if I cancelled I shouldn't get a new free
+  /// trial — I should go straight to the first month, because otherwise
+  /// companies can cancel and go again for the first free trial." Stamped the
+  /// first time a Stripe subscription with a trial is seen for the company
+  /// (lib/platform/stripeSync.js), backfilled from Subscription.createdAt for
+  /// every company that ever had a subscription (scripts/backfill-trial-used.mjs).
+  /// Every checkout path asks lib/billing/trialOnce.js, which answers 0 trial
+  /// days once this is set. Referral months and the retention discount are
+  /// not trials and do not consult it.
+  trialUsedAt            DateTime?
   shareAnonymizedPricing Boolean          @default(false)
 
   /// ── The abandoned-signup recovery nudge ──────────────────────────────────

@@ -38,15 +38,19 @@
 //
 // ══ Every sentence is a fact about code, and it used to be wrong ═══════════
 //
-// This screen previously said: "You've paid to <date>, so you keep working
-// normally until then." That was false in both halves.
-// app/api/platform/billing/cancel/route.js calls cancelSubscription(), which is
-// `stripe.subscriptions.cancel()` with no cancel_at_period_end — Stripe ends
-// the subscription THERE AND THEN, fires customer.subscription.deleted, and
-// lib/platform/stripeBilling.js writes status:"canceled" with canceledAt=now.
-// accessFor() in lib/billing/access.js then returns `readonly` immediately. So
-// the contractor lost write access the moment they pressed a button that had
-// just promised them the rest of the month, and the remainder is not refunded.
+// This screen once said: "You've paid to <date>, so you keep working
+// normally until then." For a long while that was false — the cancel route
+// ended every subscription on the spot and kept the remainder — and the screen
+// was corrected to say so in bold. Since 2026-09-14 it is true again for a
+// PAID plan, and the sentence branches on `status` (lib/billing/cancelPolicy.js,
+// the same rule the route applies from Stripe's own word):
+//
+//   trialing  ends on the button press. Nothing was paid for; the account is
+//             read-only at once (accessFor in lib/billing/access.js), and a
+//             restart later is charged on the day — one trial, ever.
+//   active    ends on the paid-to date (Stripe's cancel_at_period_end). Full
+//             access until then, nothing more charged, and Resume before the
+//             date is one click that costs nothing.
 //
 // Everything else on this screen is read from /api/settings/subscription/
 // consequences, which counts the company's OWN rows. A warning that lists a
@@ -62,6 +66,7 @@ import { Loader2, X, ArrowLeft, Check, AlertTriangle } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
 import { consequenceItems } from "@/lib/billing/cancelConsequences";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { cancelModeFor } from "@/lib/billing/cancelPolicy";
 import { formatAppMoney } from "@/lib/format/money";
 import { CREDIT_CURRENCY } from "@/lib/voice/creditCurrency";
 import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
@@ -154,9 +159,13 @@ function itemText(item, t, money) {
   }
 }
 
-export default function CancelFlow({ open, onClose, onCancelled, periodEnd, formatDate }) {
+export default function CancelFlow({ open, onClose, onCancelled, periodEnd, formatDate, status }) {
   const money = useCompanyMoney();
   const { t } = useTranslation();
+  // The route decides from Stripe's live status; this mirrors it for the
+  // sentence. Anything other than a paid, active plan ends now.
+  const atPeriodEnd = cancelModeFor(status) === "period_end" && Boolean(periodEnd);
+  const endDate = periodEnd ? (formatDate ? formatDate(periodEnd) : new Date(periodEnd).toLocaleDateString()) : "";
   const [step, setStep] = useState("why");
   const [reason, setReason] = useState(null);
   const [note, setNote] = useState("");
@@ -389,25 +398,26 @@ export default function CancelFlow({ open, onClose, onCancelled, periodEnd, form
         {step === "confirm" && (
           <div className="p-5 space-y-4">
             {/* ── When ─────────────────────────────────────────────────────
-                Immediate, because cancelSubscription() is
-                stripe.subscriptions.cancel() with no cancel_at_period_end.
-                The date is still shown when we have it, but as the thing that
-                is NOT refunded rather than as a promise of time left. */}
+                A paid plan ends on the paid-to date (the route sends
+                cancel_at_period_end); a trial ends on the button press. The
+                date is the COMPANY's format, not toLocaleDateString() —
+                "8/29/2026" is ambiguous to anyone outside the US, and a
+                cancellation screen is the worst place to make someone decode
+                a date. */}
             <p className="text-sm text-foreground">
-              <strong>
-                {t("app.cancelFlow.endsNow", "Your plan ends the moment you press the button below — not at the end of the month.")}
-              </strong>
-              {periodEnd && (
+              {atPeriodEnd ? (
                 <>
-                  {" "}
-                  {/* The COMPANY's date format, not toLocaleDateString().
-                      "8/29/2026" is ambiguous to anyone outside the US, and
-                      formatDate is what every other date in the product uses —
-                      a cancellation screen is the worst place to show someone a
-                      date they have to decode. */}
-                  {t("app.cancelFlow.paidToNoRefund", "You've paid to {date}, and the rest of that isn't refunded.", {
-                    date: formatDate ? formatDate(periodEnd) : new Date(periodEnd).toLocaleDateString(),
-                  })}
+                  <strong>
+                    {t("app.cancelFlow.endsOnDate", "Your plan ends on {date} — nothing more will be charged.", { date: endDate })}
+                  </strong>{" "}
+                  {t("app.cancelFlow.endsOnDateBody", "Everything keeps working until then. Change your mind before that date and press Resume: the plan continues and nothing is charged.")}
+                </>
+              ) : (
+                <>
+                  <strong>
+                    {t("app.cancelFlow.endsNow", "Your plan ends the moment you press the button below — not at the end of the month.")}
+                  </strong>{" "}
+                  {t("app.cancelFlow.noSecondTrial", "Your free trial has been used: starting the plan again later is charged on the day.")}
                 </>
               )}
             </p>
@@ -447,7 +457,9 @@ export default function CancelFlow({ open, onClose, onCancelled, periodEnd, form
                 <div className="flex gap-2">
                   <AlertTriangle size={16} className="text-amber-600 shrink-0 mt-0.5" />
                   <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">
-                    {t("app.cancelFlow.doFirst", "Sort these out first — the account goes read-only the moment you cancel, so you won't be able to afterwards.")}
+                    {atPeriodEnd
+                      ? t("app.cancelFlow.doFirstByDate", "Sort these out before {date} — the account goes read-only then, and you won't be able to afterwards.", { date: endDate })
+                      : t("app.cancelFlow.doFirst", "Sort these out first — the account goes read-only the moment you cancel, so you won't be able to afterwards.")}
                   </p>
                 </div>
                 <ul className="mt-2 space-y-2 text-sm text-amber-900 dark:text-amber-200 list-disc pl-5">

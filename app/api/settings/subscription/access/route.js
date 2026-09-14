@@ -46,5 +46,10 @@ export async function GET(request) {
     // Only present while a brand-new company has no card yet — the minutes
     // before the setup gate sends them back to /signup.
     ...(access.minutesLeft ? { minutesLeft: access.minutesLeft } : {}),
+    // A paid plan booked to end on this date (cancel-at-period-end). Full
+    // access until then; the banner says so and offers Resume. Billing
+    // state, so withheld from anyone who may not see billing state — the
+    // same rule as `reason` above.
+    ...(access.endsAt && seesDetail ? { endsAt: access.endsAt } : {}),
   });
 }

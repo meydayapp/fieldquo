@@ -85,6 +85,12 @@ export async function GET(request) {
       pendingEffectiveAt: true,
       // When the plan ended, for "Your subscription was cancelled on <date>".
       canceledAt: true,
+      // A paid plan booked to end on its paid-to date (cancel/route.js). The
+      // page renders "Your plan ends on <date>" and the Resume button from
+      // these; without them the card would say "Next billing date" about a
+      // date on which nothing is billed.
+      cancelAtPeriodEnd: true,
+      cancelAt: true,
       plan: {
         // seats and crewSeats, not just maxUsers — the card describes the plan as
         // "1 seat · 5 crew", and a field the screen reads but the route never

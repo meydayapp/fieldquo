@@ -144,7 +144,7 @@ export const ARTICLES = {
           { steps: [
             "Open **Settings → Account & Billing**.",
             "To move to another plan, choose it in the **Plans** grid. A downgrade or a switch between **Monthly** and **1 year commitment** lands on the renewal date, with nothing charged before it; an upgrade applies now. See [[change-your-plan|Change your plan]].",
-            "To stop the renewal altogether, press **Cancel plan** — read [[cancel-your-subscription|Cancel your subscription]] first, because the plan ends the moment you confirm, not on the renewal date.",
+            "To stop the renewal altogether, press **Cancel plan** — read [[cancel-your-subscription|Cancel your subscription]] first. On a paid plan the cancellation is booked for the renewal date itself — nothing more is charged and you keep working until then; only a trial ends the moment you confirm.",
           ] },
           { figure: "live:app-settings-account-billing", caption: "Account & Billing — the next billing date under the plan card, and the Monthly / 1 year commitment switch above the Plans grid." },
         ],
@@ -168,9 +168,9 @@ export const ARTICLES = {
     title: "Cancel your subscription",
     summary:
       "How the Cancel plan button works: the reason step, the offer step, the warnings that apply to your company, and the thirty days of read-only that follow.",
-    updated: "2026-09-12",
+    updated: "2026-09-14",
     intro: [
-      "Cancelling is a button on Account & Billing, not an email to support. Before the plan ends, FieldQuo asks why you are leaving, may make one offer that fits the reason, and then tells you — in the plain words below — exactly what stops, what keeps running, and what does not happen. The plan ends the moment you confirm; the account stays open **read-only for 30 days**, and nothing is deleted.",
+      "Cancelling is a button on Account & Billing, not an email to support. Before the plan ends, FieldQuo asks why you are leaving, may make one offer that fits the reason, and then tells you — in the plain words below — exactly what stops, what keeps running, and what does not happen. A plan you are paying for ends on the date you have paid to — nothing more is charged, and **Resume** before that date costs nothing. A trial ends the moment you confirm. Either way the account then stays open **read-only for 30 days**, and nothing is deleted.",
       "Read this before you press the button, because two of the things that keep running after a cancellation cost money: a rented phone number, and automatic phone-credit top-ups.",
     ],
     sections: [
@@ -178,8 +178,8 @@ export const ARTICLES = {
         id: "overview",
         heading: "Overview",
         blocks: [
-          { p: "Pressing **Cancel plan** opens a short flow: **Before you go** (why you are leaving), sometimes **One thing first** (an offer), then **Cancel your plan** (the consequences and the confirmation). Confirming cancels the subscription at Stripe immediately. Stripe tells FieldQuo, the plan's status becomes **Cancelled**, and a 30-day read-only window starts. After it, the account locks until someone starts a plan again." },
-          { warning: "The plan ends the moment you confirm — not at the end of the month or the year. What you have already paid for the rest of the period is not refunded. If you want the remaining weeks, keep the plan until the next billing date and cancel then." },
+          { p: "Pressing **Cancel plan** opens a short flow: **Before you go** (why you are leaving), sometimes **One thing first** (an offer), then **Cancel your plan** (the consequences and the confirmation). What confirming does depends on whether you have paid. On a **paid plan** the subscription is booked to end on your next billing date: the status stays **Active**, the card reads *Your plan ends on {date} — nothing more will be charged*, and everything keeps working until then. On a **trial** the subscription ends at once, because nothing has been paid for. When the plan actually ends, its status becomes **Cancelled** and a 30-day read-only window starts. After it, the account locks until someone resumes." },
+          { warning: "Nothing is refunded — but nothing is lost either. A paid month or year runs to the date on your invoice and you keep working until then. A trial ends on the button press, and the free first month is not offered again: one free trial per company, ever. Restarting after a trial cancellation is charged on the day." },
         ],
       },
       {
@@ -191,7 +191,7 @@ export const ARTICLES = {
             "**Before you go** — the screen shows what you have built up (quotes, clients, invoices) and asks what is making you cancel: too expensive, paying for people who do not use it, seasonal work, not using it enough, a missing feature, moving elsewhere, closing the business, or something else. Pick one, or press **Skip this and cancel**.",
             "**One thing first** — if an offer fits, it is shown here (the table below). Take it and the plan stays; or press **No thanks — cancel my account**.",
             "**Cancel your plan** — read the consequences, add a note if you like (it is the only way we find out what to fix), and press **Cancel my plan**. **Keep my plan** closes the flow with nothing changed.",
-            "An email confirms the cancellation. The plan card now reads **Cancelled** with the date it happened, the **Cancel plan** button is gone, and the only action left on the card is **Start a new plan** — a cancelled subscription cannot be paused, discounted or changed, only replaced.",
+            "An email confirms it. On a paid plan the card now reads *Your plan ends on {date}* with a **Resume** button; the **Cancel plan** button is gone. On a trial the card reads **Cancelled** with the date it happened, and the actions left are **Resume** and **Choose a different plan** — a cancelled subscription cannot be paused, discounted or changed, only resumed or replaced.",
           ] },
           { figure: "live:app-settings-account-billing", caption: "Account & Billing — Cancel plan sits under the plan card, next to Manage billing & payment method." },
           { note: "Everything in the flow is decided on the server. The offer you see is the one your account is entitled to, and a cancellation is only ever recorded once Stripe has actually ended the subscription." },
@@ -220,8 +220,8 @@ export const ARTICLES = {
             "**Read-only for 30 days.** Everyone can still open FieldQuo and read everything — download what you need for your accountant — but nobody can change anything. A banner across the top counts the days.",
             "**Then locked.** After the 30 days the account stays shut until the plan is started again. Nothing is deleted at any point; starting again gives all of it back.",
             "**Your clients keep every link.** Quotes, the client portal and invoice pay pages still open, and anything they pay still reaches your own Stripe account.",
-            "**No refund of the remaining period.** The screen states the date you have paid to before you confirm.",
-            "**Starting again** is **Choose plan** on the same screen, which opens a new Stripe checkout. The free first month is not offered a second time.",
+            "**No refund, no loss.** A paid period runs to its date and you keep full access until then; the screen states that date before you confirm.",
+            "**Resume** is one button, on the banner and on Account & Billing, and it says on its face what pressing it does. On a plan booked to end: *Resume* — the booking is removed and the plan continues, nothing charged. On a paid plan that already ended with weeks left: *Resume — nothing charged until {date}* — the weeks you paid for are honoured on the new subscription. On a plan cancelled during its trial: *Restart — your first month is charged today ({amount})* — the free first month is not offered a second time. If Stripe has no card on file for you, Resume opens a Stripe checkout instead, with no trial. **Choose a different plan** is still on the same screen for a different tier.",
           ] },
         ],
       },
@@ -249,8 +249,9 @@ export const ARTICLES = {
       },
     ],
     faq: [
-      { q: "Can I cancel at the end of my billing period instead of today?", a: "Not from the button — it ends the plan immediately. Wait until the day before your next billing date and cancel then; the renewal reminder on a yearly plan gives you 30 days' notice of that date." },
-      { q: "I paid for a year. Do I get the rest back?", a: "No. The screen says the date you have paid to and that the rest is not refunded, before you confirm." },
+      { q: "Can I cancel at the end of my billing period instead of today?", a: "That is what the button does on a paid plan: it books the end for your next billing date, nothing more is charged, and you keep working until then. A trial ends immediately instead, because there is no paid period to run out." },
+      { q: "I cancelled during my free trial. Can I restart for free?", a: "No. Each company gets one free trial. Resume on a trial-cancelled plan is labelled *Restart — your first month is charged today* with the amount, and the charge is taken when you press it. Referral months are not a trial and are unaffected." },
+      { q: "I paid for a year. Do I get the rest back?", a: "No — you keep it. The plan runs to the end of the year you paid for and ends then; the screen says the date before you confirm. Press Resume before that date and it simply continues." },
       { q: "Will my data be deleted after the 30 days?", a: "No. Locked is not erased. To have data actually deleted, see [[closing-your-account|Closing your account and your data]]." },
     ],
   },

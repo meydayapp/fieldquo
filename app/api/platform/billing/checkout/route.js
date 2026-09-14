@@ -23,6 +23,7 @@ import { resolveCheckoutInterval } from "@/lib/billing/interval";
 import { stripe } from "@/lib/stripe";
 import { writeSubscriptionFromStripe } from "@/lib/platform/stripeSync";
 import { isCanceledSubscriptionError, subscriptionStatusFromStripe } from "@/lib/billing/subscriptionFields";
+import { trialDaysAllowed } from "@/lib/billing/trialOnce";
 
 // Note: this is called by a COMPANY (upgrading their own plan), not a platform admin —
 // hence getCurrentMember, not getCurrentPlatformAdmin. It lives under /platform/billing
@@ -72,13 +73,14 @@ export async function POST(request) {
   // lose the days already committed; there is no reason left to treat the two
   // differently now that both arrive here as a planId. Absent/expired trial →
   // no trial days.
-  let trialDays;
-  if (company?.trialEndsAt && company.trialEndsAt.getTime() > Date.now()) {
-    trialDays = Math.max(
-      1,
-      Math.ceil((company.trialEndsAt.getTime() - Date.now()) / (24 * 60 * 60 * 1000)),
-    );
-  }
+  //
+  // ── …and never a second one ─────────────────────────────────────────────
+  //
+  // The owner's rule (2026-09-14): one free trial per company, ever. A company
+  // that cancelled in week two still had a trialEndsAt in the future, and this
+  // block granted it a second free month on "Choose plan". trialDaysAllowed
+  // answers 0 once Company.trialUsedAt is stamped — lib/billing/trialOnce.js.
+  const trialDays = trialDaysAllowed(company) || undefined;
 
   // ── The cadence, which this route used to throw away ──────────────────────
   //
@@ -125,6 +127,22 @@ export async function POST(request) {
       // In our enum, not Stripe's: `unpaid` is a past_due company that may
       // still upgrade, and the LIVE set below is written in our words.
       liveStatus = subscriptionStatusFromStripe(live.status) || existing.status;
+      // A plan booked to end on the paid-to date (cancel/route.js) is not
+      // changed underneath the booking: Stripe would keep the end date on the
+      // new price, and a schedule cannot be started from it. Resume first —
+      // one click, nothing charged — then choose. Said, not silently done.
+      if (live.cancel_at_period_end && LIVE.has(liveStatus)) {
+        const ends = live.cancel_at || live.current_period_end;
+        return NextResponse.json(
+          {
+            error: ends
+              ? `Your plan is set to end on ${new Date(ends * 1000).toISOString().slice(0, 10)}. Press Resume first, then change plan.`
+              : "Your plan is set to end. Press Resume first, then change plan.",
+            endingAt: ends ? new Date(ends * 1000) : null,
+          },
+          { status: 409 },
+        );
+      }
     } catch (err) {
       if (isCanceledSubscriptionError(err)) {
         await writeSubscriptionFromStripe(

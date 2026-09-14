@@ -139,7 +139,7 @@ export const ARTICLES = {
           { steps: [
             "Abra **Configuración → Cuenta y facturación**.",
             "Para pasar a otro plan, elíjalo en la cuadrícula **Planes**. Una bajada de plan o un cambio entre **Mensual** y **Compromiso de 1 año** cae en la fecha de renovación, sin cobrar nada antes; una subida de plan aplica ahora. Vea [[change-your-plan|Cambiar de plan]].",
-            "Para detener la renovación por completo, pulse **Cancelar plan**: lea primero [[cancel-your-subscription|Cancelar su suscripción]], porque el plan termina en el momento en que confirma, no en la fecha de renovación.",
+            "Para detener la renovación por completo, pulse **Cancelar plan**: lea primero [[cancel-your-subscription|Cancelar su suscripción]]. En un plan pagado la cancelación queda programada para la propia fecha de renovación: no se cobra nada más y sigue trabajando hasta entonces; solo una prueba termina en el momento en que confirma.",
           ] },
           { figure: "live:app-settings-account-billing", caption: "Cuenta y facturación — la próxima fecha de facturación bajo la tarjeta del plan, y el selector Mensual / Compromiso de 1 año sobre la cuadrícula Planes." },
         ],
@@ -163,9 +163,9 @@ export const ARTICLES = {
     title: "Cancelar su suscripción",
     summary:
       "Cómo funciona el botón Cancelar plan: el paso del motivo, el paso de la oferta, los avisos que aplican a su empresa, y los treinta días de solo lectura que siguen.",
-    updated: "2026-09-12",
+    updated: "2026-09-14",
     intro: [
-      "Cancelar es un botón en Cuenta y facturación, no un correo a soporte. Antes de que el plan termine, FieldQuo pregunta por qué se va, puede hacer una oferta que encaje con el motivo, y luego le dice — con las palabras claras de abajo — exactamente qué se detiene, qué sigue funcionando, y qué no pasa. El plan termina en el momento en que confirma; la cuenta queda abierta en **solo lectura durante 30 días**, y nada se borra.",
+      "Cancelar es un botón en Cuenta y facturación, no un correo a soporte. Antes de que el plan termine, FieldQuo pregunta por qué se va, puede hacer una oferta que encaje con el motivo, y luego le dice — con las palabras claras de abajo — exactamente qué se detiene, qué sigue funcionando, y qué no pasa. Un plan que está pagando termina en la fecha hasta la que ha pagado: no se cobra nada más, y **Reanudar** antes de esa fecha no cuesta nada. Una prueba termina en el momento en que confirma. En ambos casos la cuenta queda después abierta en **solo lectura durante 30 días**, y nada se borra.",
       "Lea esto antes de pulsar el botón, porque dos de las cosas que siguen funcionando después de una cancelación cuestan dinero: un número de teléfono alquilado, y las recargas automáticas de crédito telefónico.",
     ],
     sections: [
@@ -173,8 +173,8 @@ export const ARTICLES = {
         id: "overview",
         heading: "Resumen",
         blocks: [
-          { p: "Pulsar **Cancelar plan** abre un flujo corto: **Antes de irte** (por qué se va), a veces **Una cosa primero** (una oferta), luego **Cancelar tu plan** (las consecuencias y la confirmación). Confirmar cancela la suscripción en Stripe de inmediato. Stripe se lo dice a FieldQuo, el estado del plan pasa a **Cancelado**, y arranca una ventana de solo lectura de 30 días. Después, la cuenta se bloquea hasta que alguien vuelva a iniciar un plan." },
-          { warning: "El plan termina en el momento en que confirma, no al final del mes ni del año. Lo que ya pagó por el resto del período no se reembolsa. Si quiere las semanas que quedan, conserve el plan hasta la próxima fecha de facturación y cancele entonces." },
+          { p: "Pulsar **Cancelar plan** abre un flujo corto: **Antes de irte** (por qué se va), a veces **Una cosa primero** (una oferta), luego **Cancelar tu plan** (las consecuencias y la confirmación). Lo que hace confirmar depende de si ha pagado. En un **plan pagado**, la suscripción queda programada para terminar en su próxima fecha de facturación: el estado sigue **Activo**, la tarjeta dice *Tu plan termina el {date} — no se cobrará nada más*, y todo sigue funcionando hasta entonces. En una **prueba**, la suscripción termina de inmediato, porque no se ha pagado nada. Cuando el plan termina de verdad, su estado pasa a **Cancelado** y arranca una ventana de solo lectura de 30 días. Después, la cuenta se bloquea hasta que alguien reanude." },
+          { warning: "No se reembolsa nada, pero tampoco se pierde nada. Un mes o un año pagados corren hasta la fecha de su factura y sigue trabajando hasta entonces. Una prueba termina al pulsar el botón, y el primer mes gratis no se ofrece otra vez: una sola prueba gratuita por empresa, para siempre. Reiniciar después de cancelar una prueba se cobra ese mismo día." },
         ],
       },
       {
@@ -186,7 +186,7 @@ export const ARTICLES = {
             "**Antes de irte**: la pantalla muestra lo que ha acumulado (presupuestos, clientes, facturas) y pregunta qué lo lleva a cancelar: demasiado caro, paga por gente que no lo usa, trabajo de temporada, no lo usa lo suficiente, le falta una función, se cambia a otra cosa, cierra el negocio, u otra cosa. Elija una, o pulse **Omitir esto y cancelar**.",
             "**Una cosa primero**: si una oferta encaja, se muestra aquí (la tabla de abajo). Tómela y el plan se queda; o pulse **No, gracias — cancelar mi cuenta**.",
             "**Cancelar tu plan**: lea las consecuencias, agregue una nota si quiere (es la única forma en que nos enteramos de qué arreglar), y pulse **Cancelar mi plan**. **Mantener mi plan** cierra el flujo sin cambiar nada.",
-            "Un correo confirma la cancelación. La tarjeta del plan ahora dice **Cancelado** con la fecha, el botón **Cancelar plan** ya no está, y la única acción que queda en la tarjeta es **Iniciar un nuevo plan** — una suscripción cancelada no se puede pausar, descontar ni cambiar, solo reemplazar.",
+            "Un correo lo confirma. En un plan pagado, la tarjeta ahora dice *Tu plan termina el {date}* con un botón **Reanudar**; el botón **Cancelar plan** ya no está. En una prueba, la tarjeta dice **Cancelado** con la fecha, y las acciones que quedan son **Reanudar** y **Elegir otro plan** — una suscripción cancelada no se puede pausar, descontar ni cambiar, solo reanudar o reemplazar.",
           ] },
           { figure: "live:app-settings-account-billing", caption: "Cuenta y facturación — Cancelar plan está bajo la tarjeta del plan, junto a Gestionar facturación y método de pago." },
           { note: "Todo en el flujo se decide en el servidor. La oferta que ve es la que corresponde a su cuenta, y una cancelación solo se registra una vez que Stripe ha terminado realmente la suscripción." },
@@ -215,8 +215,8 @@ export const ARTICLES = {
             "**Solo lectura durante 30 días.** Todos pueden seguir abriendo FieldQuo y leer todo — descargue lo que necesite para su contador — pero nadie puede cambiar nada. Un aviso en la parte superior cuenta los días.",
             "**Luego bloqueada.** Pasados los 30 días la cuenta queda cerrada hasta que se vuelva a iniciar el plan. Nada se borra en ningún momento; volver a empezar lo devuelve todo.",
             "**Sus clientes conservan cada enlace.** Los presupuestos, el portal del cliente y las páginas de pago de factura siguen abriéndose, y cualquier cosa que paguen sigue llegando a su propia cuenta de Stripe.",
-            "**Sin reembolso del período restante.** La pantalla indica la fecha hasta la que ha pagado antes de que confirme.",
-            "**Volver a empezar** es **Elegir plan** en la misma pantalla, que abre una nueva página de pago de Stripe. El primer mes gratis no se ofrece una segunda vez.",
+            "**Sin reembolso, sin pérdida.** Un período pagado corre hasta su fecha y conserva el acceso completo hasta entonces; la pantalla indica esa fecha antes de que confirme.",
+            "**Reanudar** es un solo botón, en el aviso superior y en Cuenta y facturación, y dice por sí mismo qué hace al pulsarlo. En un plan programado para terminar: *Reanudar* — se quita la programación y el plan continúa, sin cobro. En un plan pagado que ya terminó con semanas restantes: *Reanudar — no se cobra nada hasta el {date}* — las semanas que pagó se respetan en la nueva suscripción. En un plan cancelado durante su prueba: *Reiniciar — tu primer mes se cobra hoy ({amount})* — el primer mes gratis no se ofrece una segunda vez. Si Stripe no tiene ninguna tarjeta suya, Reanudar abre en su lugar una página de pago de Stripe, sin prueba. **Elegir otro plan** sigue en la misma pantalla para otro nivel.",
           ] },
         ],
       },
@@ -244,8 +244,9 @@ export const ARTICLES = {
       },
     ],
     faq: [
-      { q: "¿Puedo cancelar al final de mi período de facturación en lugar de hoy?", a: "No desde el botón: termina el plan de inmediato. Espere hasta el día anterior a su próxima fecha de facturación y cancele entonces; el recordatorio de renovación en un plan anual le da 30 días de aviso de esa fecha." },
-      { q: "Pagué un año. ¿Me devuelven el resto?", a: "No. La pantalla dice la fecha hasta la que ha pagado y que el resto no se reembolsa, antes de que confirme." },
+      { q: "¿Puedo cancelar al final de mi período de facturación en lugar de hoy?", a: "Eso es lo que hace el botón en un plan pagado: programa el fin para su próxima fecha de facturación, no se cobra nada más, y sigue trabajando hasta entonces. Una prueba termina de inmediato, porque no hay un período pagado que agotar." },
+      { q: "Cancelé durante mi prueba gratuita. ¿Puedo reiniciar gratis?", a: "No. Cada empresa tiene una sola prueba gratuita. En un plan cancelado durante la prueba, Reanudar se llama *Reiniciar — tu primer mes se cobra hoy* con el importe, y el cobro se hace al pulsarlo. Los meses de referido no son una prueba y no se ven afectados." },
+      { q: "Pagué un año. ¿Me devuelven el resto?", a: "No: lo conserva. El plan corre hasta el final del año pagado y termina entonces; la pantalla dice la fecha antes de que confirme. Pulse Reanudar antes de esa fecha y simplemente continúa." },
       { q: "¿Se borrarán mis datos después de los 30 días?", a: "No. Bloqueado no es borrado. Para que los datos se borren de verdad, vea [[closing-your-account|Cerrar su cuenta y sus datos]]." },
     ],
   },

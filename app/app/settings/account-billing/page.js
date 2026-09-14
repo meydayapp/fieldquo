@@ -11,6 +11,7 @@ import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
 import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
 
 import CancelFlow from "./CancelFlow";
+import ResumePlanButton from "@/app/components/billing/ResumePlanButton";
 import {
   annualPriceOf,
   annualSaving,
@@ -423,6 +424,12 @@ function AccountBillingScreen() {
   // change-plan all act on a live subscription and none of them can act on
   // this one, so the card says the state and the one thing that works next.
   const isCancelled = subscription?.status === "canceled";
+  // A paid plan booked to end on its paid-to date (cancel-at-period-end).
+  // Still active — full access, the plan card is still "current" — but the
+  // date line below must say "ends on", not "next billing date": nothing is
+  // billed on it. Resume is one Stripe update and charges nothing.
+  const isEnding = !isCancelled && Boolean(subscription?.cancelAtPeriodEnd);
+  const endsAt = isEnding ? subscription.cancelAt || subscription.currentPeriodEnd : null;
   const trialDays = isTrialing ? daysLeft(subscription.trialEndsAt) : null;
   // On a cancelled row the old tier is NOT "current": its card must be
   // buyable again, or the one plan they had is the one plan they cannot
@@ -498,23 +505,43 @@ function AccountBillingScreen() {
                 {t("app.billing.trialEnds", "Trial ends in {days} day{plural}", { days: trialDays, plural: trialDays === 1 ? "" : "s" })}
               </p>
             )}
-            {!isTrialing && !isCancelled && subscription?.currentPeriodEnd && (
+            {!isTrialing && !isCancelled && !isEnding && subscription?.currentPeriodEnd && (
               <p className="text-xs text-muted-foreground mt-2">
                 {t("app.billing.nextBillingDate", "Next billing date")}{" "}
                 {formatDate(subscription.currentPeriodEnd)}
               </p>
             )}
-            {isCancelled && (
-              <p className="text-sm text-foreground mt-2 max-w-md">
-                {subscription.canceledAt
-                  ? t("app.billing.cancelledOn", "Your subscription was cancelled on {date}.", {
-                      date: formatDate(subscription.canceledAt),
-                    })
-                  : t("app.billing.cancelledNoDate", "Your subscription has been cancelled.")}{" "}
-                <a href="#plans" className="font-semibold underline underline-offset-2">
-                  {t("app.billing.startNewPlan", "Start a new plan →")}
-                </a>
-              </p>
+            {/* ── Ending, or ended: the state, then Resume ──────────────────
+                One button, shared with the banner
+                (app/components/billing/ResumePlanButton.js), whose label
+                says what the press does — "Resume", "Resume — nothing
+                charged until {date}", or "Restart — your first month is
+                charged today ({amount})". "Choose a different plan" is the
+                secondary path to the cards below; it is a link to an anchor
+                on THIS page, which is fine here because the cards are here. */}
+            {(isCancelled || isEnding) && (
+              <div className="mt-2 max-w-md">
+                <p className="text-sm text-foreground">
+                  {isEnding
+                    ? t("app.billing.endsOn", "Your plan ends on {date} — nothing more will be charged. Everything keeps working until then.", {
+                        date: endsAt ? formatDate(endsAt) : "",
+                      })
+                    : subscription.canceledAt
+                      ? t("app.billing.cancelledOn", "Your subscription was cancelled on {date}.", {
+                          date: formatDate(subscription.canceledAt),
+                        })
+                      : t("app.billing.cancelledNoDate", "Your subscription has been cancelled.")}
+                </p>
+                <div className="flex flex-wrap items-center gap-3 mt-3">
+                  <ResumePlanButton
+                    onError={setError}
+                    className="inline-flex items-center gap-1.5 bg-inverted text-inverted-foreground rounded-full px-4 py-2 text-sm font-semibold disabled:opacity-60"
+                  />
+                  <a href="#plans" className="text-sm font-semibold underline underline-offset-2">
+                    {t("app.billing.chooseDifferentPlan", "Choose a different plan")}
+                  </a>
+                </div>
+              </div>
             )}
 
             {/* The recovery path. Says out loud that a plan can exist in Stripe
@@ -613,7 +640,7 @@ function AccountBillingScreen() {
             <ExternalLink size={14} />
             {t("app.billing.myEarnings", "See what my clients paid me")}
           </a>
-          {subscription?.status && subscription.status !== "canceled" && (
+          {subscription?.status && subscription.status !== "canceled" && !isEnding && (
             <button
               onClick={() => setShowCancelConfirm(true)}
               className="text-sm font-medium text-red-600 dark:text-red-400 px-4 py-2 rounded-full hover:bg-red-50 dark:bg-red-950/40"
@@ -849,6 +876,10 @@ function AccountBillingScreen() {
         open={showCancelConfirm}
         onClose={() => setShowCancelConfirm(false)}
         periodEnd={subscription?.currentPeriodEnd}
+        // Decides the sentence on the confirm step: a trial ends on the
+        // button, a paid plan ends on the paid-to date (lib/billing/
+        // cancelPolicy.js — the route decides the same way, from Stripe).
+        status={subscription?.status}
         formatDate={formatDate}
         onCancelled={async () => {
           setShowCancelConfirm(false);

@@ -139,7 +139,7 @@ export const ARTICLES = {
           { steps: [
             "Ouvrez **Paramètres → Compte et facturation**.",
             "Pour passer à un autre forfait, choisissez-le dans la grille **Forfaits**. Une descente de forfait ou un passage entre **Mensuel** et **Engagement d'un an** tombe à la date de renouvellement, sans rien facturer avant; une montée de forfait s'applique maintenant. Voir [[change-your-plan|Changer de forfait]].",
-            "Pour arrêter le renouvellement tout court, appuyez sur **Annuler le forfait** — lisez d'abord [[cancel-your-subscription|Annuler votre abonnement]], parce que le forfait se termine dès que vous confirmez, pas à la date de renouvellement.",
+            "Pour arrêter le renouvellement tout court, appuyez sur **Annuler le forfait** — lisez d'abord [[cancel-your-subscription|Annuler votre abonnement]]. Sur un forfait payé, l'annulation est programmée pour la date de renouvellement elle-même — plus rien n'est facturé et vous continuez de travailler jusque-là; seul un essai se termine dès que vous confirmez.",
           ] },
           { figure: "live:app-settings-account-billing", caption: "Compte et facturation — la prochaine date de facturation sous la carte du forfait, et le sélecteur Mensuel / Engagement d'un an au-dessus de la grille Forfaits." },
         ],
@@ -163,9 +163,9 @@ export const ARTICLES = {
     title: "Annuler votre abonnement",
     summary:
       "Comment fonctionne le bouton Annuler le forfait : l'étape de la raison, l'étape de l'offre, les avertissements qui s'appliquent à votre entreprise, et les trente jours de lecture seule qui suivent.",
-    updated: "2026-09-12",
+    updated: "2026-09-14",
     intro: [
-      "Annuler, c'est un bouton dans Compte et facturation, pas un courriel au soutien. Avant que le forfait se termine, FieldQuo demande pourquoi vous partez, peut faire une offre qui correspond à la raison, puis vous dit — dans les mots clairs ci-dessous — exactement ce qui s'arrête, ce qui continue de tourner, et ce qui n'arrive pas. Le forfait se termine dès que vous confirmez; le compte reste ouvert en **lecture seule pendant 30 jours**, et rien n'est supprimé.",
+      "Annuler, c'est un bouton dans Compte et facturation, pas un courriel au soutien. Avant que le forfait se termine, FieldQuo demande pourquoi vous partez, peut faire une offre qui correspond à la raison, puis vous dit — dans les mots clairs ci-dessous — exactement ce qui s'arrête, ce qui continue de tourner, et ce qui n'arrive pas. Un forfait que vous payez se termine à la date jusqu'à laquelle vous avez payé — plus rien n'est facturé, et **Reprendre** avant cette date ne coûte rien. Un essai se termine dès que vous confirmez. Dans les deux cas, le compte reste ensuite ouvert en **lecture seule pendant 30 jours**, et rien n'est supprimé.",
       "Lisez ceci avant d'appuyer sur le bouton, parce que deux des choses qui continuent de tourner après une annulation coûtent de l'argent : un numéro de téléphone loué, et les recharges automatiques de crédit téléphonique.",
     ],
     sections: [
@@ -173,8 +173,8 @@ export const ARTICLES = {
         id: "overview",
         heading: "Vue d'ensemble",
         blocks: [
-          { p: "Appuyer sur **Annuler le forfait** ouvre un court parcours : **Avant de partir** (pourquoi vous partez), parfois **Une chose d'abord** (une offre), puis **Annuler votre forfait** (les conséquences et la confirmation). Confirmer annule l'abonnement chez Stripe immédiatement. Stripe le dit à FieldQuo, l'état du forfait devient **Annulé**, et une fenêtre de lecture seule de 30 jours commence. Après, le compte se verrouille jusqu'à ce que quelqu'un redémarre un forfait." },
-          { warning: "Le forfait se termine dès que vous confirmez — pas à la fin du mois ni de l'année. Ce que vous avez déjà payé pour le reste de la période n'est pas remboursé. Si vous voulez les semaines qui restent, gardez le forfait jusqu'à la prochaine date de facturation et annulez à ce moment-là." },
+          { p: "Appuyer sur **Annuler le forfait** ouvre un court parcours : **Avant de partir** (pourquoi vous partez), parfois **Une chose d'abord** (une offre), puis **Annuler votre forfait** (les conséquences et la confirmation). Ce que fait la confirmation dépend de si vous avez payé. Sur un **forfait payé**, l'abonnement est programmé pour se terminer à votre prochaine date de facturation : l'état reste **Actif**, la carte indique *Votre forfait se termine le {date} — plus rien ne sera facturé*, et tout continue de fonctionner jusque-là. Sur un **essai**, l'abonnement se termine tout de suite, parce que rien n'a été payé. Quand le forfait se termine vraiment, son état devient **Annulé** et une fenêtre de lecture seule de 30 jours commence. Après, le compte se verrouille jusqu'à ce que quelqu'un reprenne." },
+          { warning: "Rien n'est remboursé — mais rien n'est perdu non plus. Un mois ou une année payés courent jusqu'à la date de votre facture et vous continuez de travailler jusque-là. Un essai se termine au moment où vous appuyez sur le bouton, et le premier mois gratuit n'est pas offert de nouveau : un seul essai gratuit par entreprise, pour toujours. Redémarrer après l'annulation d'un essai est facturé le jour même." },
         ],
       },
       {
@@ -186,7 +186,7 @@ export const ARTICLES = {
             "**Avant de partir** — l'écran montre ce que vous avez accumulé (soumissions, clients, factures) et demande ce qui vous fait annuler : trop cher, vous payez pour des gens qui ne l'utilisent pas, travail saisonnier, pas assez utilisé, une fonction manquante, vous passez à autre chose, vous fermez l'entreprise, ou autre chose. Choisissez-en une, ou appuyez sur **Passer et annuler**.",
             "**Une chose d'abord** — si une offre correspond, elle est montrée ici (le tableau ci-dessous). Prenez-la et le forfait reste; ou appuyez sur **Non merci — annuler mon compte**.",
             "**Annuler votre forfait** — lisez les conséquences, ajoutez une note si vous voulez (c'est la seule façon pour nous de savoir quoi corriger), et appuyez sur **Annuler mon forfait**. **Garder mon forfait** ferme le parcours sans rien changer.",
-            "Un courriel confirme l'annulation. La carte du forfait indique maintenant **Annulé** avec la date, le bouton **Annuler le forfait** a disparu, et la seule action qui reste sur la carte est **Démarrer un nouveau forfait** — un abonnement annulé ne peut être ni mis en pause, ni réduit, ni changé, seulement remplacé.",
+            "Un courriel le confirme. Sur un forfait payé, la carte indique maintenant *Votre forfait se termine le {date}* avec un bouton **Reprendre**; le bouton **Annuler le forfait** a disparu. Sur un essai, la carte indique **Annulé** avec la date, et les actions qui restent sont **Reprendre** et **Choisir un autre forfait** — un abonnement annulé ne peut être ni mis en pause, ni réduit, ni changé, seulement repris ou remplacé.",
           ] },
           { figure: "live:app-settings-account-billing", caption: "Compte et facturation — Annuler le forfait se trouve sous la carte du forfait, à côté de Gérer la facturation et le mode de paiement." },
           { note: "Tout dans le parcours est décidé sur le serveur. L'offre que vous voyez est celle à laquelle votre compte a droit, et une annulation n'est enregistrée qu'une fois que Stripe a réellement mis fin à l'abonnement." },
@@ -215,8 +215,8 @@ export const ARTICLES = {
             "**Lecture seule pendant 30 jours.** Tout le monde peut encore ouvrir FieldQuo et tout lire — téléchargez ce qu'il faut pour votre comptable — mais personne ne peut rien changer. Une bannière en haut compte les jours.",
             "**Puis verrouillé.** Après les 30 jours, le compte reste fermé jusqu'à ce que le forfait soit redémarré. Rien n'est supprimé à aucun moment; redémarrer redonne tout.",
             "**Vos clients gardent chaque lien.** Les soumissions, le portail client et les pages de paiement de facture s'ouvrent toujours, et tout ce qu'ils paient arrive toujours dans votre propre compte Stripe.",
-            "**Aucun remboursement de la période restante.** L'écran indique la date jusqu'à laquelle vous avez payé avant que vous confirmiez.",
-            "**Redémarrer**, c'est **Choisir ce forfait** sur le même écran, qui ouvre une nouvelle page de paiement Stripe. Le premier mois gratuit n'est pas offert une deuxième fois.",
+            "**Aucun remboursement, aucune perte.** Une période payée court jusqu'à sa date et vous gardez l'accès complet jusque-là; l'écran indique cette date avant que vous confirmiez.",
+            "**Reprendre** est un seul bouton, sur la bannière et dans Compte et facturation, et il dit lui-même ce que fait l'appui. Sur un forfait programmé pour se terminer : *Reprendre* — la programmation est retirée et le forfait continue, rien n'est facturé. Sur un forfait payé déjà terminé avec des semaines restantes : *Reprendre — rien n'est facturé avant le {date}* — les semaines que vous avez payées sont honorées sur le nouvel abonnement. Sur un forfait annulé pendant son essai : *Redémarrer — votre premier mois est facturé aujourd'hui ({amount})* — le premier mois gratuit n'est pas offert une deuxième fois. Si Stripe n'a aucune carte pour vous, Reprendre ouvre plutôt une page de paiement Stripe, sans essai. **Choisir un autre forfait** reste sur le même écran pour un autre palier.",
           ] },
         ],
       },
@@ -244,8 +244,9 @@ export const ARTICLES = {
       },
     ],
     faq: [
-      { q: "Puis-je annuler à la fin de ma période de facturation plutôt qu'aujourd'hui?", a: "Pas avec le bouton — il met fin au forfait immédiatement. Attendez la veille de votre prochaine date de facturation et annulez à ce moment-là; le rappel de renouvellement d'un forfait annuel vous donne 30 jours de préavis de cette date." },
-      { q: "J'ai payé pour une année. Est-ce que je récupère le reste?", a: "Non. L'écran indique la date jusqu'à laquelle vous avez payé et que le reste n'est pas remboursé, avant que vous confirmiez." },
+      { q: "Puis-je annuler à la fin de ma période de facturation plutôt qu'aujourd'hui?", a: "C'est ce que fait le bouton sur un forfait payé : il programme la fin à votre prochaine date de facturation, plus rien n'est facturé, et vous continuez de travailler jusque-là. Un essai se termine plutôt immédiatement, parce qu'il n'y a pas de période payée à écouler." },
+      { q: "J'ai annulé pendant mon essai gratuit. Puis-je redémarrer gratuitement?", a: "Non. Chaque entreprise a droit à un seul essai gratuit. Sur un forfait annulé pendant l'essai, Reprendre s'appelle *Redémarrer — votre premier mois est facturé aujourd'hui* avec le montant, et le paiement est pris au moment où vous appuyez. Les mois de parrainage ne sont pas un essai et ne sont pas touchés." },
+      { q: "J'ai payé pour une année. Est-ce que je récupère le reste?", a: "Non — vous le gardez. Le forfait court jusqu'à la fin de l'année payée et se termine à ce moment-là; l'écran indique la date avant que vous confirmiez. Appuyez sur Reprendre avant cette date et il continue tout simplement." },
       { q: "Mes données seront-elles supprimées après les 30 jours?", a: "Non. Verrouillé ne veut pas dire effacé. Pour faire vraiment supprimer des données, voir [[closing-your-account|Fermer votre compte et vos données]]." },
     ],
   },

@@ -13,6 +13,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { createTrialCheckoutSession } from "@/lib/platform/stripeBilling";
+import { trialDaysAllowed } from "@/lib/billing/trialOnce";
 import { TRIAL_PRICE } from "@/lib/pricing";
 import { seedStandardAddOns } from "@/lib/products/seedStandardAddOns";
 import { seedDefaultTemplates } from "@/lib/email/seedDefaultTemplates";
@@ -526,10 +527,13 @@ export async function POST(request) {
   // free-until date Stripe should honour.
   const effectiveTrialEnd =
     referral?.trialEndsAt || (promo?.ok && promo.trialEndsAt) || company.trialEndsAt;
-  const trialDays = Math.max(
-    1,
-    Math.ceil((effectiveTrialEnd.getTime() - Date.now()) / (24 * 60 * 60 * 1000)),
-  );
+  // Through the one-trial rule (lib/billing/trialOnce.js) like every other
+  // checkout. The row was created a few lines up, so trialUsedAt is null and
+  // this is the full free month — the call is here so the rule has no path
+  // around it, not because a fresh company can fail it. Floored at 1 because
+  // createTrialCheckoutSession sends trial_period_days unconditionally and
+  // Stripe rejects 0.
+  const trialDays = Math.max(1, trialDaysAllowed(company, { trialEndsAt: effectiveTrialEnd }));
 
   // ── The last step is deliberately the external, hard-to-undo one ────────
   //
