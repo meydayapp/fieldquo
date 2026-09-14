@@ -706,10 +706,27 @@ section("7. Six tabs, and all six on a 375px screen");
     // A sidebar row now: the active mark is a left rule, not an underline.
     /min-h-\[44px\][^`]*border-l-2/.test(shell),
   );
+  // The owner on a 2000px screen (2026-09-14): the console sat in a centred
+  // band with dead space either side and the tabbed card was the narrowest
+  // thing on the page. The queue's container has no max-width now; the
+  // reading screens keep 5xl and the chat client 7xl.
+  const containerLine = shell.match(/const container = `[\s\S]*?mx-auto px-4 sm:px-6`;/)?.[0] || "";
   ok(
-    "the console gets the width a two-column surface needs, and only it does",
-    /max-w-7xl.*:.*max-w-5xl/.test(shell) && /\/sales\/queue/.test(shell),
-    "widening every screen would cost the reading screens their measure",
+    "the queue container has no max-width cap — the two panes fill what the sidebar leaves",
+    /pathname\.startsWith\("\/sales\/queue"\) \? "max-w-none"/.test(containerLine) && !/max-w-(?:[2-7]xl|screen-\w+|\[)[^"]*"\s*:\s*pathname\.startsWith\("\/sales\/messages"\)/.test(containerLine),
+    containerLine.slice(0, 200),
+  );
+  ok(
+    "…the reading screens keep their measure (5xl) and the chat client its 7xl",
+    /"max-w-7xl"/.test(containerLine) && /"max-w-5xl"/.test(containerLine) && /\/sales\/messages/.test(containerLine),
+  );
+  ok(
+    "…and nothing in the page re-caps it: no max-w on the console root or its panes",
+    !/max-w-/.test(consoleSrc.slice(consoleSrc.indexOf("data-sales-console"), consoleSrc.indexOf("data-dialer-column"))),
+  );
+  ok(
+    "the Dialer column is fixed-width and the tabbed card takes the rest (flex-1 min-w-0)",
+    /lg:w-\[3[4-8]0px\] lg:shrink-0/.test(consoleSrc) && /min-w-0 flex-1 \$\{COLUMN_ORDER\.panel\}/.test(consoleSrc),
   );
 }
 
@@ -808,7 +825,7 @@ section("7. Six tabs, and all six on a 375px screen");
   // The dialler's column is a BOUNDED sticky (max-h + its own scrollbar),
   // the shape that covers nothing — the section inside is in normal flow,
   // which the assertion above already holds.
-  const column = consoleSrc.match(/<div[^>]*data-dialer-column[^>]*>/)?.[0] || consoleSrc.match(/<div className=\{`lg:w-\[320px\][^`]*`\}[^>]*>/)?.[0] || "";
+  const column = consoleSrc.match(/<div[^>]*data-dialer-column[^>]*>/)?.[0] || consoleSrc.match(/<div className=\{`lg:w-\[360px\][^`]*`\}[^>]*>/)?.[0] || "";
   ok("the dialler column's sticky is bounded", /lg:sticky/.test(column) && /lg:max-h-\[/.test(column) && /lg:overflow-y-auto/.test(column), column.slice(0, 160));
 }
 

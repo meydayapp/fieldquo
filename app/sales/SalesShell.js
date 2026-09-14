@@ -301,8 +301,17 @@ export default function SalesShell({ children }) {
   // client: a 280px room list, the thread, and a 340px contact bar do not
   // fit in 1024px without the thread — the pane a rep reads — going below
   // 400px.
-  const wide = pathname.startsWith("/sales/queue") || pathname.startsWith("/sales/messages");
-  const container = `${wide ? "max-w-7xl" : "max-w-5xl"} mx-auto px-4 sm:px-6`;
+  //
+  // /sales/queue has NO cap since 2026-09-14. The owner, on a 2000px screen:
+  // the console sat in a centred 1080px band with dead space either side,
+  // and the tabbed card — the thing holding the script, the research and
+  // the notes — was the narrowest element on the page, its tab strip
+  // scrolling. A cap is right for prose; a working surface with a fixed
+  // 360px dialler beside one flexible card wants every pixel the sidebar
+  // leaves, and the card takes all of it (flex-1 min-w-0 in the page).
+  const container = `${
+    pathname.startsWith("/sales/queue") ? "max-w-none" : pathname.startsWith("/sales/messages") ? "max-w-7xl" : "max-w-5xl"
+  } mx-auto px-4 sm:px-6`;
 
   // ── The one list of what the portal has ─────────────────────────────────
   //

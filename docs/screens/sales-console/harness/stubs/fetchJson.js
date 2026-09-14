@@ -111,6 +111,22 @@ export async function fetchJson(url, options = {}) {
   }
   if (p === "/api/sales/notes" && method === "POST") { state.notes.unshift({ id: "n" + Date.now(), title: body.body.slice(0, 40), body: body.body, updatedAt: new Date().toISOString() }); return { ok: true }; }
   if (p === "/api/sales/leads" && method === "POST") return { lead: { id: "lead1" } };
+  // The Dialer pane's "Text the signup link" (SignupLinkSms): the readiness
+  // read, and the send. The body is the shape lib/sales/salesSmsRules.js's
+  // signupLinkSmsBody() produces — the rep's own /signup?sales= link.
+  if (p === "/api/sales/sms" && method === "GET") {
+    return {
+      lead: { id: "lead1", phone: "+14055550100", timeZone: "America/Chicago" },
+      contact: { choices: [{ id: "n1", e164: "+14055550100", label: "Listing" }], refused: [] },
+      messages: state.smsSent ? [{ id: "m1", toE164: "+14055550100", sentAt: new Date().toISOString() }] : [],
+      timeZones: [{ value: "America/Chicago", label: "Central Time (Chicago)" }, { value: "America/New_York", label: "Eastern Time (New York)" }],
+      sms: {
+        canSend: true, blockers: [], warnings: [], to: "+14055550100", from: "+17165550616", timeZone: "America/Chicago", timeZoneSource: "derived",
+        body: "Daniel here, from FieldQuo — here's the link we talked about: https://www.fieldquo.com/signup?sales=danielroy FieldQuo, 1 Front St W, Toronto ON M5J 2X5. Reply STOP to opt out.",
+      },
+    };
+  }
+  if (p === "/api/sales/sms" && method === "POST") { state.smsSent = true; return { ok: true, messageId: "m1", to: "+14055550100", sentAt: new Date().toISOString() }; }
   if (p.startsWith("/api/sales/leads/")) return { lead: { id: "lead1", status: "new" } };
   if (p === "/api/sales/events") return { events: [] };
   if (p === "/api/sales/tour") return { step: 0, dismissed: true, completed: false };

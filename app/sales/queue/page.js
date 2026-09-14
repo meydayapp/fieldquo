@@ -15,9 +15,42 @@
 //
 // Every dialler has the same shape — ominicontacto's agent console, and the
 // list/detail split in next15-echo's conversations screen — because it is the
-// shape the job has. So: a persistent left column that is the rep's own
-// claimed queue, a right pane that is the prospect they are on, and a call
-// region pinned to the top of that pane.
+// shape the job has. So: the rep's own claimed queue as a list, a pane that
+// is the prospect they are on, and a call region at the top of that pane.
+//
+// ══ Two panes, not three (2026-09-14) ═════════════════════════════════════
+//
+// From 2026-09-11 the list was a third column: a left rail holding two cards
+// — the trade picker with its claim buttons, and "Yours to work" with the
+// grouped list and the Release buttons — beside the Dialer and the tabbed
+// card, whose Leads tab drew the SAME list and the SAME claim button a
+// second time. The owner, with the screenshot: two panes, the Dialer and
+// the tabbed card, and the Leads tab as the one place the trade selector,
+// "Claim the next 25", the claimed list and the two Release buttons live.
+// So the rail, its fold state, the phone's drawer and "Just one" are gone;
+// LeadsPanel (below) is everything the rail showed, drawn once, inside the
+// tab. Nothing the rail could do was dropped — the trade picker, the pool
+// summary, the batch result, the zone chips, the window groups, Release the
+// rest, Release all and the day's progress bar are all still there, and the
+// one control taken away, "Just one", was the owner's call: one claim
+// control, the batch. On a phone the tab is the only list; there is no
+// second copy to keep in step.
+//
+// The tab a rep lands on is still Script (Disposition on autodial) — the
+// tab for a rep who has something to say — except when they hold nothing:
+// then it is Leads, so the claim button is the first thing on the screen
+// rather than an empty script.
+//
+// The Dialer column also gained the one button the owner asked to be able
+// to find without hunting: "Text the signup link to <business>", its own
+// card right under the Dialer card (below the keypad, the window line and
+// Auto-dial — the owner's placement, not squeezed under the number), for
+// the lead on screen. It mounts app/sales/leads/SignupLinkSms.js — the same
+// panel the lead screen and the Texts screen use, with the same blockers,
+// the same fixed wording and the same server re-check — against the rep's
+// lead for this business, creating that lead first (the same POST the
+// Disposition tab's "Work as a lead" makes) when there is none yet, and
+// the signup stepper (SignupProgress) under it once a link has gone.
 //
 // ══ Why one at a time was RIGHT, and what is kept of it ═══════════════════
 //
@@ -111,9 +144,10 @@
 // Single column, full-width controls, 44px targets, no table and no modal.
 // This file is in scripts/check-mobile-surfaces.mjs's STRICT list.
 //
-// The two columns are a `lg:` grid only. Below that it is master-then-detail
-// on one column: the list is shown when nothing is open, and folds behind one
-// button once a prospect is. Not a route change — folding it is a state
+// The two panes are a `lg:` flex row only. Below that they stack, Dialer
+// first, and the Leads tab in the tabbed card is the phone's only list —
+// there is no drawer any more (there was, 2026-09-11 to 2026-09-14, holding a
+// second copy of the rail). Switching tabs is a state change, not a route
 // change, so the list is still there, still loaded, still in the same scroll
 // position, which is the entire point of the rewrite.
 //
@@ -184,6 +218,13 @@
 // with no call attempt, and app/api/cron/sales-queue-release still does
 // the same when the rep's day ends — the top-up's release is the third
 // path, and the only one that runs without anybody pressing anything.
+// "Just one" was the single-claim path on this screen until 2026-09-14 —
+// one claim control, the batch, was the owner's decision. The route still
+// accepts `claim` and nothing calls it now (grep 'action: "claim"' under
+// app/sales finds nothing); it is left in place because its cap and log
+// path are what scripts/check-sales-batch-claim.mjs exercises for a single
+// claim, and removing a server action is a product decision, not a layout
+// one.
 //
 // ══ The list is grouped by when a row can be rung, on the rep's clock ═════
 //
@@ -210,22 +251,6 @@
 // refused with the rule and the hour, or not confirmed either way. Absence of
 // UI is indistinguishable from absence of feature — that is the complaint this
 // rewrite started from, and rendering nothing was the reason for it.
-//
-// ══ "Text the signup link to <business>", under the Dialer (2026-09-14) ═══
-//
-// The owner: a rep should not have to hunt for it. It is its own card right
-// under the Dialer card, in the Dialer's column — below the keypad, the
-// window line and the Auto-dial row, not squeezed under the number — one
-// full-width button naming the business. A press opens
-// app/sales/leads/SignupLinkSms.js — the same panel the lead screen and the
-// Texts screen mount, with the same blockers, the same fixed wording
-// (lib/sales/salesSmsRules.js's signupLinkSmsBody: the rep's own
-// /signup?sales=<code> link) and the same server re-check — for the rep's
-// lead on this business. The text is filed against a SalesLead, so a
-// business with no lead yet gets one first, through the same POST the
-// Disposition tab's "Work as a lead" makes (prospectId only; the server
-// reads the rest), and the panel opens on the id that came back. Under the
-// button, the signup stepper (SignupProgress) once a link has gone.
 //
 // ══ The decision is re-asked on a timer ═══════════════════════════════════
 //
@@ -264,8 +289,6 @@ import {
   Minimize2,
   NotebookPen,
   OctagonAlert,
-  PanelLeftClose,
-  PanelLeftOpen,
   Pencil,
   Phone,
   PhoneIncoming,
@@ -279,7 +302,6 @@ import {
   Undo2,
   UserPlus,
   UserRound,
-  X,
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import ContactNumbers from "@/app/components/sales/ContactNumbers";
@@ -693,8 +715,6 @@ function ProspectNotes({ prospectId, businessName }) {
   );
 }
 
-const RAIL_KEY = "fq-queue-rail";
-
 /**
  * Which side the phone-style dialler sits. The owner: "can the dialer be on
  * the right side like a normal phone dialer". One word to flip it back:
@@ -764,8 +784,8 @@ function topUpToast(t, body) {
 }
 
 /**
- * The zone chips. Drawn above the list in the rail, the drawer and the
- * Leads tab — one renderer. The selected chip says the zone's next fact:
+ * The zone chips. Drawn above the list in the Leads tab — one renderer.
+ * The selected chip says the zone's next fact:
  * "open until 9:00 PM PT" when any of its rows can be rung now, else
  * "closed — opens 8:00 AM". Both strings are the server's, on the rep's
  * clock.
@@ -1644,8 +1664,15 @@ function QueueList({ t, loading, data, items, groups, itemById, current, visible
         <p className="text-sm text-muted-foreground break-words">{t("app.salesQueue.searchNoMatch", { query })}</p>
       ) : null}
 
+      {/* Two columns from 2xl (1536: the card is about 890px beside the
+          360px Dialer) — the owner's line. A viewport breakpoint, not the
+          card's @container variant: the production CSS carries no `@3xl:`
+          rule (CallPlaybook's has never been emitted either — see the
+          2026-09-14 ROADMAP note), so a variant that works in a standalone
+          compile and not in `next build` is not one to lean on for a
+          screen going live in the morning. */}
       {items.length > 0 ? (
-        <div className={wide ? "grid gap-3 md:grid-cols-2 xl:grid-cols-3" : "space-y-3"}>
+        <div className={wide ? "grid gap-3 2xl:grid-cols-2" : "space-y-3"}>
           {(() => {
             let position = 0;
             return groups.map((group) => {
@@ -1738,17 +1765,20 @@ function QueueList({ t, loading, data, items, groups, itemById, current, visible
 }
 
 /**
- * The rail's whole content: the trade picker and the claim buttons, the
- * grouped list, Release the rest, and the day's count at the foot. Drawn in
- * the rail from lg up and in the drawer below it.
+ * The Leads tab's whole content: the trade picker and the claim button, the
+ * grouped list at the tab's full width, Release the rest, Release all, and
+ * the day's count at the foot. This was the left rail's content until
+ * 2026-09-14 (header: "Two panes, not three"); it is drawn once now, here.
+ * `wide` on QueueList is what lays the groups out in columns — the tab is
+ * wide enough for them; the rail never was.
  */
-function QueueRail(props) {
-  const { t, loading, data, items, untouchedCount, busy, act } = props;
+function LeadsPanel(props) {
+  const { t, loading, items, untouchedCount, busy, act } = props;
   const worked = items.length - untouchedCount;
   return (
-    <div className="space-y-3">
+    <div className="space-y-3" data-leads-panel>
       <ClaimCard {...props} />
-      <section className={CARD}>
+      <section className="space-y-3 border-t border-border pt-3" data-yours-to-work>
         <div className="flex items-baseline justify-between gap-2">
           <h3 className="text-sm font-semibold text-foreground">{t("app.salesQueue.yoursToWork")}</h3>
           {loading ? (
@@ -1757,7 +1787,7 @@ function QueueRail(props) {
             <span className="text-xs text-muted-foreground">{t("app.salesQueue.claimedCount", { value: items.length })}</span>
           )}
         </div>
-        <QueueList {...props} />
+        <QueueList {...props} wide />
         {/* ── Give back what was never dialled ──────────────────────────
             Every row with no call attempt since it was claimed. The server
             decides the set at press time (releaseUntouched — the same
@@ -1768,9 +1798,10 @@ function QueueRail(props) {
           <div className="space-y-1 pt-1">
             <button
               type="button"
-              className={`${BTN} border border-border text-foreground w-full`}
+              className={`${BTN} border border-border text-foreground w-full md:w-auto`}
               disabled={Boolean(busy)}
               onClick={() => act("release_rest")}
+              data-release-rest
             >
               {busy === "release_rest" ? <Loader2 className="animate-spin" size={16} /> : <Undo2 size={16} />}
               {t("app.salesQueue.releaseRest", {
@@ -1789,11 +1820,12 @@ function QueueRail(props) {
         {!loading && items.length > 0 ? (
           <button
             type="button"
-            className={`${BTN} border border-border text-muted-foreground w-full`}
+            className={`${BTN} border border-border text-muted-foreground w-full md:w-auto`}
             disabled={Boolean(busy)}
             onClick={() => {
               if (window.confirm(t("app.salesQueue.releaseAllConfirm", { value: items.length }))) act("release_all");
             }}
+            data-release-all
           >
             {busy === "release_all" ? <Loader2 className="animate-spin" size={16} /> : <Undo2 size={16} />}
             {t("app.salesQueue.releaseAll", {
@@ -1813,19 +1845,19 @@ function QueueRail(props) {
           </div>
         ) : null}
       </section>
-      {data?.batch?.result ? null : null}
     </div>
   );
 }
 
 /**
- * The trade picker and the claim buttons — "Claim the next 25", "Just
- * one", the pool's counts and what the last press did. Unchanged from the
- * page's old left column; the rail and the drawer both draw it.
+ * The trade picker and the ONE claim control — "Claim the next 25" — with
+ * the pool's counts and what the last press did. "Just one" stood under it
+ * until 2026-09-14; the owner wanted a single claim control, and the batch
+ * is it. Drawn once, at the top of the Leads tab.
  */
 function ClaimCard({ t, data, tradeKey, setQuery, stocked, empties, remainingToday, batchSize, batchResult, busy, act }) {
   return (
-    <section className={CARD} data-tour="sales-queue-claim">
+    <section className="space-y-3" data-tour="sales-queue-claim" data-claim-card>
       <label className="block text-sm font-medium text-foreground" htmlFor="q-trade">
         {t("app.salesQueue.tradePickerLabel")}
       </label>
@@ -1906,9 +1938,10 @@ function ClaimCard({ t, data, tradeKey, setQuery, stocked, empties, remainingTod
           {remainingToday > 0 ? (
             <button
               type="button"
-              className={`${BTN} bg-primary text-primary-foreground w-full`}
+              className={`${BTN} bg-primary text-primary-foreground w-full md:w-auto md:min-w-[16rem]`}
               disabled={Boolean(busy)}
               onClick={() => act("claim_batch")}
+              data-claim-batch
             >
               {busy === "claim_batch" ? (
                 <Loader2 className="animate-spin" size={16} />
@@ -1922,17 +1955,6 @@ function ClaimCard({ t, data, tradeKey, setQuery, stocked, empties, remainingTod
               {t("app.salesQueue.batchReason.dailyCap", { cap: data?.batch?.dailyCap ?? 0 })}
             </p>
           )}
-          {remainingToday > 0 ? (
-            <button
-              type="button"
-              className={`${BTN} border border-border text-foreground w-full`}
-              disabled={Boolean(busy)}
-              onClick={() => act("claim")}
-            >
-              {busy === "claim" ? <Loader2 className="animate-spin" size={16} /> : null}
-              {t("app.salesQueue.claimJustOne")}
-            </button>
-          ) : null}
           <p className="text-xs text-muted-foreground break-words">
             {t("app.salesQueue.claimBatchNote", {
               remaining: t("app.salesQueue.claimsRemainingCount", { value: remainingToday }),
@@ -2488,13 +2510,10 @@ function QueueConsole() {
 
   // ── The console's own chrome state ───────────────────────────────────
   //
-  // The rail (the day's list beside the cards) folds to a strip and is
-  // remembered per browser; below lg it is a drawer instead. The bottom
-  // panel's tab and its maximised state are per visit. None of this is in
+  // The panel's tab and its maximised state are per visit. Neither is in
   // the URL: a link to a lead should open the lead, not somebody else's
-  // folded rail.
-  const [railOpen, setRailOpen] = useState(false);
-  const [queueDrawer, setQueueDrawer] = useState(false);
+  // open tab.
+  //
   // Script first for a rep reading; Disposition first for one on autodial,
   // whose next action after every call is to log it. The switch is the
   // rep's own persisted setting (SalesRep.autodial), so this follows it
@@ -2502,39 +2521,38 @@ function QueueConsole() {
   const [tab, setTab] = useState("script");
   const [maximized, setMaximized] = useState(false);
   const [editing, setEditing] = useState(false);
+  // ── An empty day opens on Leads ────────────────────────────────────────
+  //
+  // The claim button lives in the Leads tab now (header: "Two panes, not
+  // three"), and a rep who holds nothing has no script to read — so the
+  // first load with nothing claimed opens that tab, and the claim button is
+  // the first thing on the screen. Once only, on the first load: the tab
+  // is the rep's after that, and a release that empties the list mid-shift
+  // must not yank them off the Disposition they were writing.
+  const landedOnLeads = useRef(false);
   useEffect(() => {
-    // Remembered per browser. First visit: open only where three cards and
-    // the list fit side by side (2xl, 1536px); narrower than that the strip
-    // and the Leads tab carry the list, and the cards get the width the
-    // reference gives them.
-    try {
-      const stored = window.localStorage.getItem(RAIL_KEY);
-      setRailOpen(stored === null ? window.innerWidth >= 1536 : stored !== "0");
-    } catch {
-      setRailOpen(false);
-    }
-  }, []);
-  function toggleRail() {
-    setRailOpen((open) => {
-      try {
-        window.localStorage.setItem(RAIL_KEY, open ? "0" : "1");
-      } catch {
-        /* nothing to remember it in */
-      }
-      return !open;
-    });
-  }
+    if (loading || landedOnLeads.current) return;
+    landedOnLeads.current = true;
+    if (items.length === 0) setTab("leads");
+  }, [loading, items.length]);
   // The lead editor folds shut when the lead changes: an open form for the
   // last business under the next one's name is the confusing thing.
   useEffect(() => {
     setEditing(false);
   }, [current?.id]);
 
-  // ── "Text the signup link to <business>" ───────────────────────────────
+  // ── "Text the signup link", under the number ──────────────────────────
   //
-  // See the header. Folded shut again whenever the open business changes: a
-  // text panel for the last business under the next one's number is the
-  // confusing thing.
+  // The owner: a rep should not have to hunt for it. The button is its own
+  // card under the Dialer card; pressing it opens the same panel
+  // the lead screen and the Texts screen mount (SignupLinkSms — the exact
+  // message, every blocker, the number picker, Send) for THIS business's
+  // lead. The text is filed against a SalesLead, so a business with no lead
+  // yet gets one first, through the same POST the Disposition tab's "Work as
+  // a lead" makes — sending only the prospectId, the server reading the rest
+  // — and then the panel opens against the id that came back. Folded shut
+  // again whenever the open business changes: a text panel for the last
+  // business under the next one's number is the confusing thing.
   const [smsOpen, setSmsOpen] = useState(false);
   useEffect(() => {
     setSmsOpen(false);
@@ -2651,7 +2669,7 @@ function QueueConsole() {
     if (loading || fetching || busy || !data || !tradeKey) return;
     if (openHeld >= topUpBelow) return;
     // At the cap the top-up would be refused; say so once rather than ask
-    // every minute. The rail's own cap sentence stands.
+    // every minute. The Leads tab's own cap sentence stands.
     if (!(remainingToday > 0)) return;
     const nowMs = Date.now();
     if (nowMs - lastTopUp.current < topUpInterval) return;
@@ -2661,7 +2679,7 @@ function QueueConsole() {
     // every thirty seconds so a window closing under the rep is noticed.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openHeld, loading, fetching, busy, tradeKey, remainingToday, topUpBelow, topUpInterval, tick, data?.serverNow]);
-  const railProps = {
+  const panelProps = {
     t,
     loading,
     data,
@@ -2706,514 +2724,422 @@ function QueueConsole() {
           in act(). It used to be drawn here, fixed at the same bottom offset
           and z-index as the tour's launcher pill, which covered it. */}
 
-      {/* Below lg: one button opens the day's list as a drawer. From lg up
-          the rail beside the cards is the list and this is not drawn. */}
+      {/* Below lg: the title. The list is the Leads tab, on a phone as on a
+          desktop — there is no drawer (header: "Mobile-first"). */}
       <div className="lg:hidden flex items-center justify-between gap-2">
         <h1 className="text-lg font-semibold text-foreground">{t("app.salesQueue.pageTitle")}</h1>
-        <button
-          type="button"
-          className={`${BTN} border border-border bg-card text-foreground`}
-          onClick={() => setQueueDrawer(true)}
-          aria-expanded={queueDrawer}
-          data-queue-drawer-open
-        >
-          <ListFilter size={16} />
-          {t("app.salesQueue.showQueue", { count: items.length })}
-        </button>
       </div>
 
-      {/* The drawer, below lg. Same rail, same rows, same buttons; a scrim
-          and a Close. Not a route: the list is still loaded and still in
-          the same scroll position underneath. */}
-      {queueDrawer ? (
-        <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true" aria-label={t("app.salesQueue.yoursToWork")} data-queue-drawer>
-          <button
-            type="button"
-            className="absolute inset-0 bg-black/40 min-h-[44px]"
-            aria-label={t("app.salesQueue.hideQueue")}
-            onClick={() => setQueueDrawer(false)}
-          />
-          <div className="absolute inset-y-0 left-0 w-[min(22rem,90vw)] bg-muted shadow-2xl overflow-y-auto p-3 space-y-3 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
-            <div className="flex items-center justify-between gap-2">
-              <h2 className="text-base font-semibold text-foreground">{t("app.salesQueue.yoursToWork")}</h2>
+      {/* ── The walk row, then the two panes ──────────────────────────── */}
+      <div className="min-w-0 space-y-4" data-console-panes>
+        {/* ── Where you are in the day, and what is next ─────────────
+            One slim row above the cards: previous / position / next, and
+            the row after this one in the grouped order with its window on
+            the rep's clock. */}
+        {current ? (
+          <div className="flex flex-wrap items-center justify-between gap-2" data-console-nav>
+            <div className="flex items-center gap-2">
               <button
                 type="button"
                 className={`${BTN} border border-border bg-card text-foreground`}
-                onClick={() => setQueueDrawer(false)}
+                disabled={index <= 0}
+                onClick={() => select(walkItems[index - 1].id)}
               >
-                <X size={16} /> {t("app.salesQueue.hideQueue")}
+                <ChevronLeft size={16} /> {t("app.salesQueue.previous")}
               </button>
-            </div>
-            <QueueRail {...railProps} select={(id) => { select(id); setQueueDrawer(false); }} />
-          </div>
-        </div>
-      ) : null}
-
-      <div className="lg:flex lg:items-start lg:gap-4">
-        {/* ── The rail: the day, beside the cards ──────────────────────────
-            Sticky under the top bar for the viewport's height and scrolling
-            inside itself — the bounded sticky, which covers nothing because
-            nothing sits under it in its own column. Folded, it is a strip
-            with the count and the button to unfold it; the list is still
-            mounted and still where it was. */}
-        <aside
-          data-queue-rail={railOpen ? "open" : "collapsed"}
-          className={`hidden lg:block shrink-0 lg:sticky lg:top-[77px] lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto transition-[width] duration-200 motion-reduce:transition-none ${
-            railOpen ? "w-[18rem]" : "w-[3.5rem]"
-          }`}
-        >
-          {railOpen ? (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between gap-2 px-1">
-                <h2 className="text-base font-semibold text-foreground">{t("app.salesQueue.yoursToWork")}</h2>
-                <button
-                  type="button"
-                  className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg text-muted-foreground hover:bg-card hover:text-foreground"
-                  onClick={toggleRail}
-                  aria-expanded="true"
-                  aria-label={t("app.salesQueue.collapseRail")}
-                  title={t("app.salesQueue.collapseRail")}
-                  data-queue-rail-toggle
-                >
-                  <PanelLeftClose size={18} />
-                </button>
-              </div>
-              <QueueRail {...railProps} />
-            </div>
-          ) : (
-            <div className="rounded-xl border border-border bg-card p-1.5 flex flex-col items-center gap-2">
+              <span className="text-xs text-muted-foreground tabular-nums">
+                {t("app.salesQueue.positionOf", { position: index < 0 ? "—" : index + 1, total: walkItems.length })}
+                {zoneFilter ? ` · ${zoneFilter}` : ""}
+              </span>
+              {/* Outside the selected zone (index −1), Next goes to the
+                  zone's first row rather than sitting disabled. */}
               <button
                 type="button"
-                className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
-                onClick={toggleRail}
-                aria-expanded="false"
-                aria-label={t("app.salesQueue.expandRail")}
-                title={t("app.salesQueue.expandRail")}
-                data-queue-rail-toggle
+                className={`${BTN} border border-border bg-card text-foreground`}
+                disabled={index < 0 ? walkItems.length === 0 : index >= walkItems.length - 1}
+                onClick={() => select(walkItems[index < 0 ? 0 : index + 1].id)}
               >
-                <PanelLeftOpen size={18} />
+                {t("app.salesQueue.next")} <ChevronRight size={16} />
               </button>
-              <span className="text-xs font-semibold tabular-nums text-foreground" title={t("app.salesQueue.claimedCount", { value: items.length })}>
-                {items.length}
-              </span>
-              {index >= 0 ? (
-                <span className="text-[11px] tabular-nums text-muted-foreground">
-                  {index + 1}/{items.length}
-                </span>
+            </div>
+            <div className="text-xs text-muted-foreground min-w-0 break-words" data-next-in-queue>
+              {t("app.salesQueue.nextInQueue")}{": "}
+              {nextItem ? (
+                <button type="button" className="min-h-[44px] font-medium text-foreground underline" onClick={() => select(nextItem.id)}>
+                  {nextItem.businessName}
+                  {nextMeta?.window ? ` · ${nextMeta.window}` : ""}
+                </button>
+              ) : (
+                <span>{t("app.salesQueue.nextInQueueNone")}</span>
+              )}
+            </div>
+          </div>
+        ) : null}
+
+        {/* ── Two columns: the phone on one side, one tall tabbed card on
+            the other, DIALER_SIDE deciding which. Below lg they stack,
+            dialler first. */}
+        <div className="lg:flex lg:items-start lg:gap-4 space-y-4 lg:space-y-0">
+        {/* The dialler's column. Bounded sticky — max-h and its own
+            scrollbar — so it stays in reach while the tall card scrolls,
+            and never covers anything: nothing sits under it in its own
+            column. The section inside is in normal flow. */}
+        <div className={`lg:w-[360px] lg:shrink-0 lg:sticky lg:top-[77px] lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto space-y-4 ${COLUMN_ORDER.dialer}`} data-dialer-column>
+          {/* ── The Dialer: a phone's, and nothing else ──────────────────
+              Window line · number display with × · round keypad · the
+              green Call · the cap line · Auto-dial. The Call button IS
+              DialRegion's — CallPanel, dialHref via dialSpace — and when
+              the record cannot be dialled, its refusal stands where the
+              button would. NOT sticky: on a call the live block makes it
+              taller than a phone's viewport, and a sticky element taller
+              than the viewport never scrolls through — see the header's
+              "The call region scrolls with the page". */}
+          <section className={CARD} data-tour="sales-queue-dial" data-console-card="dialer">
+            <div className="flex items-start justify-between gap-2">
+              <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
+                <Phone size={16} className="text-brand-accent-text" aria-hidden="true" />
+                {t("app.salesQueue.cardDialer")}
+              </h2>
+              {fetching && !loading ? (
+                <Loader2 className="animate-spin text-muted-foreground shrink-0" size={16} />
               ) : null}
             </div>
-          )}
-        </aside>
 
-        {/* ── The cards, and the panel under them ───────────────────────── */}
-        <div className="min-w-0 flex-1 space-y-4">
-          {/* ── Where you are in the day, and what is next ─────────────
-              One slim row above the cards: previous / position / next, and
-              the row after this one in the grouped order with its window on
-              the rep's clock. */}
+            {/* The calling window, one small line above the display. */}
+            {current ? <WindowTag compliance={compliance} row={currentRow} /> : null}
+            {current ? <RetryTag retry={current.retry || currentRow?.retry || null} /> : null}
+
+            <DialerPad
+              value={typed}
+              onChange={(v) => {
+                setTyped(v);
+                setTypedError("");
+              }}
+              onKey={onDialKey}
+              liveCall={liveCallUp}
+              disabled={!current || current.contact?.callable === false}
+              error={typedError}
+              typedNote={
+                current && typedE164 && !storedForTyped
+                  ? t("app.salesQueue.typedNumberNote", { business: current.businessName })
+                  : ""
+              }
+            />
+
+            {/* Where an answered inbound call is drawn (consoleSlots.js).
+                Empty until IncomingCallDock portals into it. */}
+            <div ref={liveCallSlotRef} data-live-call-slot />
+
+            {/* ── The Call button, or the reason there is not one ────────
+                Never blank. lib/sales/dialSpace.js decides which of the
+                seven states this is and supplies the sentence; DialRegion
+                only picks an icon. CallPanel inside it draws the Call
+                button here and portals its disposition form, next steps,
+                script and the published-email box into the panel's tabs
+                and the Contact card. */}
+            <DialRegion
+              space={space}
+              compliance={compliance}
+              target={
+                current
+                  ? {
+                      prospectId: current.id,
+                      phoneE164: typedE164 || chosenNumber?.e164 || current.phoneE164,
+                      // An id of a row we stored, never a number. The server
+                      // re-reads it against this prospect before anything rings.
+                      // For a typed number beforeDial supplies the id.
+                      contactNumberId: storedForTyped?.id || chosenNumber?.id || null,
+                      businessName: current.businessName,
+                    }
+                  : null
+              }
+              onWorked={worked}
+              autoDial={auto.token}
+              onAutoDialResult={auto.onResult}
+              slots={slots}
+              compact
+              beforeDial={beforeDial}
+              onLiveCall={onLiveCall}
+              dialRequest={dialRequest}
+            />
+            {current ? <CapLine compliance={compliance} /> : null}
+
+            {/* ── Auto-dial, one row ───────────────────────────────────
+                The switch, and — only while they have something to say —
+                the five-second countdown on the next row, the wait for a
+                window, the reason it stopped. lib/sales/autodial.js
+                decides; AutodialControl.js keeps the clock; CallPanel
+                dials. */}
+            <AutodialControl
+              auto={auto}
+              claimLabel={tradeKey && remainingToday > 0 ? t("app.salesQueue.claimBatch", { count: batchSize }) : null}
+              onClaim={tradeKey && remainingToday > 0 ? () => act("claim_batch") : null}
+              busy={Boolean(busy)}
+              compact
+            />
+          </section>
+
+          {/* ── Text the signup link ───────────────────────────────────
+              Its own card under the Dialer, in the Dialer's column — the
+              owner's placement: below the keypad, the window line and the
+              Auto-dial row, not squeezed under the number. One full-width
+              button naming the business; a press opens SignupLinkSms for
+              this business's lead (the message in full, every blocker, who
+              it goes to, Send), and a business with no lead yet gets one
+              first — see openSignupText(). Under it, always, the signup
+              stepper (SignupProgress) — it renders nothing until a link has
+              been texted, and "Link sent → Opened → …" after. Not drawn
+              with nothing open: there is nobody to text. */}
           {current ? (
-            <div className="flex flex-wrap items-center justify-between gap-2" data-console-nav>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  className={`${BTN} border border-border bg-card text-foreground`}
-                  disabled={index <= 0}
-                  onClick={() => select(walkItems[index - 1].id)}
-                >
-                  <ChevronLeft size={16} /> {t("app.salesQueue.previous")}
-                </button>
-                <span className="text-xs text-muted-foreground tabular-nums">
-                  {t("app.salesQueue.positionOf", { position: index < 0 ? "—" : index + 1, total: walkItems.length })}
-                  {zoneFilter ? ` · ${zoneFilter}` : ""}
+            <section className={CARD} data-signup-text data-console-card="signup-text">
+              <button
+                type="button"
+                className={`${BTN} w-full border-2 border-brand-accent bg-card text-foreground`}
+                disabled={busy === "lead"}
+                onClick={openSignupText}
+                aria-expanded={smsOpen}
+                aria-controls="dialer-signup-text"
+                data-signup-text-button
+              >
+                {busy === "lead" ? <Loader2 className="animate-spin shrink-0" size={16} /> : <MessageSquare size={16} className="text-brand-accent-text shrink-0" aria-hidden="true" />}
+                <span className="min-w-0 break-words">
+                  {smsOpen ? t("app.salesQueue.textSignupLinkClose") : t("app.salesQueue.textSignupLink", { business: current.businessName })}
                 </span>
-                {/* Outside the selected zone (index −1), Next goes to the
-                    zone's first row rather than sitting disabled. */}
-                <button
-                  type="button"
-                  className={`${BTN} border border-border bg-card text-foreground`}
-                  disabled={index < 0 ? walkItems.length === 0 : index >= walkItems.length - 1}
-                  onClick={() => select(walkItems[index < 0 ? 0 : index + 1].id)}
-                >
-                  {t("app.salesQueue.next")} <ChevronRight size={16} />
-                </button>
-              </div>
-              <div className="text-xs text-muted-foreground min-w-0 break-words" data-next-in-queue>
-                {t("app.salesQueue.nextInQueue")}{": "}
-                {nextItem ? (
-                  <button type="button" className="min-h-[44px] font-medium text-foreground underline" onClick={() => select(nextItem.id)}>
-                    {nextItem.businessName}
-                    {nextMeta?.window ? ` · ${nextMeta.window}` : ""}
-                  </button>
-                ) : (
-                  <span>{t("app.salesQueue.nextInQueueNone")}</span>
-                )}
-              </div>
-            </div>
-          ) : null}
-
-          {/* ── Two columns: the phone on one side, one tall tabbed card on
-              the other, DIALER_SIDE deciding which. Below lg they stack,
-              dialler first. */}
-          <div className="lg:flex lg:items-start lg:gap-4 space-y-4 lg:space-y-0">
-          {/* The dialler's column. Bounded sticky — max-h and its own
-              scrollbar, like the rail — so it stays in reach while the tall
-              card scrolls, and never covers anything: nothing sits under it
-              in its own column. The section inside is in normal flow. */}
-          <div className={`lg:w-[320px] lg:shrink-0 lg:sticky lg:top-[77px] lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto space-y-4 ${COLUMN_ORDER.dialer}`} data-dialer-column>
-            {/* ── The Dialer: a phone's, and nothing else ──────────────────
-                Window line · number display with × · round keypad · the
-                green Call · the cap line · Auto-dial. The Call button IS
-                DialRegion's — CallPanel, dialHref via dialSpace — and when
-                the record cannot be dialled, its refusal stands where the
-                button would. NOT sticky: on a call the live block makes it
-                taller than a phone's viewport, and a sticky element taller
-                than the viewport never scrolls through — see the header's
-                "The call region scrolls with the page". */}
-            <section className={CARD} data-tour="sales-queue-dial" data-console-card="dialer">
-              <div className="flex items-start justify-between gap-2">
-                <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
-                  <Phone size={16} className="text-brand-accent-text" aria-hidden="true" />
-                  {t("app.salesQueue.cardDialer")}
-                </h2>
-                {fetching && !loading ? (
-                  <Loader2 className="animate-spin text-muted-foreground shrink-0" size={16} />
-                ) : null}
-              </div>
-
-              {/* The calling window, one small line above the display. */}
-              {current ? <WindowTag compliance={compliance} row={currentRow} /> : null}
-              {current ? <RetryTag retry={current.retry || currentRow?.retry || null} /> : null}
-
-              <DialerPad
-                value={typed}
-                onChange={(v) => {
-                  setTyped(v);
-                  setTypedError("");
-                }}
-                onKey={onDialKey}
-                liveCall={liveCallUp}
-                disabled={!current || current.contact?.callable === false}
-                error={typedError}
-                typedNote={
-                  current && typedE164 && !storedForTyped
-                    ? t("app.salesQueue.typedNumberNote", { business: current.businessName })
-                    : ""
-                }
-              />
-
-              {/* Where an answered inbound call is drawn (consoleSlots.js).
-                  Empty until IncomingCallDock portals into it. */}
-              <div ref={liveCallSlotRef} data-live-call-slot />
-
-              {/* ── The Call button, or the reason there is not one ────────
-                  Never blank. lib/sales/dialSpace.js decides which of the
-                  seven states this is and supplies the sentence; DialRegion
-                  only picks an icon. CallPanel inside it draws the Call
-                  button here and portals its disposition form, next steps,
-                  script and the published-email box into the panel's tabs
-                  and the Contact card. */}
-              <DialRegion
-                space={space}
-                compliance={compliance}
-                target={
-                  current
-                    ? {
-                        prospectId: current.id,
-                        phoneE164: typedE164 || chosenNumber?.e164 || current.phoneE164,
-                        // An id of a row we stored, never a number. The server
-                        // re-reads it against this prospect before anything rings.
-                        // For a typed number beforeDial supplies the id.
-                        contactNumberId: storedForTyped?.id || chosenNumber?.id || null,
-                        businessName: current.businessName,
-                      }
-                    : null
-                }
-                onWorked={worked}
-                autoDial={auto.token}
-                onAutoDialResult={auto.onResult}
-                slots={slots}
-                compact
-                beforeDial={beforeDial}
-                onLiveCall={onLiveCall}
-                dialRequest={dialRequest}
-              />
-              {current ? <CapLine compliance={compliance} /> : null}
-
-              {/* ── Auto-dial, one row ───────────────────────────────────
-                  The switch, and — only while they have something to say —
-                  the five-second countdown on the next row, the wait for a
-                  window, the reason it stopped. lib/sales/autodial.js
-                  decides; AutodialControl.js keeps the clock; CallPanel
-                  dials. */}
-              <AutodialControl
-                auto={auto}
-                claimLabel={tradeKey && remainingToday > 0 ? t("app.salesQueue.claimBatch", { count: batchSize }) : null}
-                onClaim={tradeKey && remainingToday > 0 ? () => act("claim_batch") : null}
-                busy={Boolean(busy)}
-                compact
-              />
+              </button>
+              {!smsOpen && !current.lead?.id ? (
+                <p className="text-xs text-muted-foreground break-words">{t("app.salesQueue.textSignupLinkCreatesLead")}</p>
+              ) : null}
+              {smsOpen && current.lead?.id ? (
+                <div id="dialer-signup-text" data-signup-text-panel>
+                  <SignupLinkSms leadId={current.lead.id} />
+                </div>
+              ) : null}
+              {current.lead?.id ? <SignupProgress leadId={current.lead.id} /> : null}
             </section>
+          ) : null}
+        </div>
 
-            {/* ── Text the signup link ───────────────────────────────────
-                Its own card under the Dialer, in the Dialer's column — the
-                owner's placement: below the keypad, the window line and the
-                Auto-dial row, not squeezed under the number. One full-width
-                button naming the business; a press opens SignupLinkSms for
-                this business's lead (the message in full, every blocker, who
-                it goes to, Send), and a business with no lead yet gets one
-                first — see openSignupText(). Under it, always, the signup
-                stepper (SignupProgress) — it renders nothing until a link has
-                been texted, and "Link sent → Opened → …" after. Not drawn
-                with nothing open: there is nobody to text. */}
+        {/* ── The tall card: company · contact · script · research · notes ·
+            disposition · tasks · leads. Every panel stays mounted (hidden
+            attribute) so the portals have their targets and nothing a rep
+            typed is lost on a flip. Maximise takes the viewport. */}
+        <section
+          // @container: the Script tab's two-column layout keys on THIS
+          // card's width (Tailwind container query), not the viewport — at
+          // 1280 beside the Dialer the card is too narrow for a side column
+          // and the callouts drop under the steps instead of crushing them.
+          className={`${CARD} @container min-w-0 flex-1 ${COLUMN_ORDER.panel} ${maximized ? "fixed inset-0 z-40 rounded-none overflow-y-auto lg:left-[var(--fq-sales-rail,220px)] lg:top-[61px]" : ""}`}
+          data-console-panel={maximized ? "maximized" : "docked"}
+        >
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex gap-0.5 overflow-x-auto -mx-1 px-1" role="tablist" aria-label={t("app.salesQueue.panelTabsAria")}>
+              {PANEL_TABS.map((entry) => (
+                <button
+                  key={entry.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={tab === entry.key}
+                  aria-controls={`console-tab-${entry.key}`}
+                  id={`console-tabbtn-${entry.key}`}
+                  onClick={() => setTab(entry.key)}
+                  data-console-tab={entry.key}
+                  className={`inline-flex items-center gap-1.5 min-h-[44px] px-1.5 2xl:px-3 rounded-lg text-sm font-medium border-b-2 shrink-0 ${
+                    tab === entry.key
+                      ? "border-brand-accent text-foreground bg-muted"
+                      : "border-transparent text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {/* Icons from 2xl only: below that the eight tabs need the width for their words. */}
+                  <entry.Icon size={15} aria-hidden="true" className="hidden 2xl:inline" />
+                  {t(entry.labelKey)}
+                  {entry.key === "leads" && items.length ? (
+                    <span className="hidden 2xl:inline rounded-full bg-muted px-1.5 text-[11px] tabular-nums">{items.length}</span>
+                  ) : null}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              className="hidden lg:inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground shrink-0"
+              onClick={() => setMaximized((m) => !m)}
+              aria-pressed={maximized}
+              aria-label={maximized ? t("app.salesQueue.restorePanel") : t("app.salesQueue.maximizePanel")}
+              title={maximized ? t("app.salesQueue.restorePanel") : t("app.salesQueue.maximizePanel")}
+              data-console-maximize
+            >
+              {maximized ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+            </button>
+          </div>
+
+          {/* Company: the business, with Edit and Dial beside each number */}
+          <div role="tabpanel" id="console-tab-company" aria-labelledby="console-tabbtn-company" hidden={tab !== "company"} className="space-y-3" data-console-card="company">
             {current ? (
-              <section className={CARD} data-signup-text data-console-card="signup-text">
+              <div className="flex justify-end">
                 <button
                   type="button"
-                  className={`${BTN} w-full border-2 border-brand-accent bg-card text-foreground`}
-                  disabled={busy === "lead"}
-                  onClick={openSignupText}
-                  aria-expanded={smsOpen}
-                  aria-controls="dialer-signup-text"
-                  data-signup-text-button
+                  className="inline-flex items-center gap-1.5 min-h-[44px] px-2 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted"
+                  onClick={() => setEditing((e) => !e)}
+                  aria-expanded={editing}
+                  data-company-edit
                 >
-                  {busy === "lead" ? <Loader2 className="animate-spin shrink-0" size={16} /> : <MessageSquare size={16} className="text-brand-accent-text shrink-0" aria-hidden="true" />}
-                  <span className="min-w-0 break-words">
-                    {smsOpen ? t("app.salesQueue.textSignupLinkClose") : t("app.salesQueue.textSignupLink", { business: current.businessName })}
-                  </span>
+                  <Pencil size={14} /> {editing ? t("app.salesQueue.editClose") : t("app.salesQueue.edit")}
                 </button>
-                {!smsOpen && !current.lead?.id ? (
-                  <p className="text-xs text-muted-foreground break-words">{t("app.salesQueue.textSignupLinkCreatesLead")}</p>
-                ) : null}
-                {smsOpen && current.lead?.id ? (
-                  <div id="dialer-signup-text" data-signup-text-panel>
-                    <SignupLinkSms leadId={current.lead.id} />
-                  </div>
-                ) : null}
-                {current.lead?.id ? <SignupProgress leadId={current.lead.id} /> : null}
-              </section>
+              </div>
+            ) : null}
+            {!loading && !current ? (
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-foreground">{t("app.salesQueue.paneEmptyTitle")}</p>
+                <p className="text-sm text-muted-foreground break-words">{t("app.salesQueue.paneEmptyBody")}</p>
+              </div>
+            ) : null}
+            {!loading && current ? (
+              <CompanyCard
+                t={t}
+                current={current}
+                row={currentRow}
+                compliance={compliance}
+                numbers={currentNumbers}
+                onDial={current.contact?.callable === false ? null : dialNumber}
+              />
+            ) : null}
+            {/* ── The record, corrected from the screen the rep is on ─────
+                Writes the rep's own lead through the route that already
+                writes it — never the discovered Prospect, whose phone number
+                is a dedupe key and whose province decides a statute. The
+                component's header argues that split at length. Behind
+                Edit, in this tab, because it is this tab's record. */}
+            {!loading && current && editing ? (
+              <div className="border-t border-border pt-3">
+                <QueueLeadEditor
+                  prospectId={current.id}
+                  businessName={current.businessName}
+                  lead={current.lead || null}
+                  onChanged={load}
+                />
+              </div>
+            ) : null}
+            {current ? (
+              <p className="text-xs text-muted-foreground break-words">{current.claim.text}</p>
             ) : null}
           </div>
 
-          {/* ── The tall card: company · contact · script · research · notes ·
-              disposition · tasks · leads. Every panel stays mounted (hidden
-              attribute) so the portals have their targets and nothing a rep
-              typed is lost on a flip. Maximise takes the viewport. */}
-          <section
-            // @container: the Script tab's two-column layout keys on THIS
-            // card's width (Tailwind container query), not the viewport — with
-            // the rail open at 1280 the card is too narrow for a side column
-            // and the callouts drop under the steps instead of crushing them.
-            className={`${CARD} @container min-w-0 flex-1 ${COLUMN_ORDER.panel} ${maximized ? "fixed inset-0 z-40 rounded-none overflow-y-auto lg:left-[var(--fq-sales-rail,220px)] lg:top-[61px]" : ""}`}
-            data-console-panel={maximized ? "maximized" : "docked"}
-          >
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex gap-0.5 overflow-x-auto -mx-1 px-1" role="tablist" aria-label={t("app.salesQueue.panelTabsAria")}>
-                {PANEL_TABS.map((entry) => (
-                  <button
-                    key={entry.key}
-                    type="button"
-                    role="tab"
-                    aria-selected={tab === entry.key}
-                    aria-controls={`console-tab-${entry.key}`}
-                    id={`console-tabbtn-${entry.key}`}
-                    onClick={() => setTab(entry.key)}
-                    data-console-tab={entry.key}
-                    className={`inline-flex items-center gap-1.5 min-h-[44px] px-1.5 2xl:px-3 rounded-lg text-sm font-medium border-b-2 shrink-0 ${
-                      tab === entry.key
-                        ? "border-brand-accent text-foreground bg-muted"
-                        : "border-transparent text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    {/* Icons from 2xl only: below that the eight tabs need the width for their words. */}
-                    <entry.Icon size={15} aria-hidden="true" className="hidden 2xl:inline" />
-                    {t(entry.labelKey)}
-                    {entry.key === "leads" && items.length ? (
-                      <span className="hidden 2xl:inline rounded-full bg-muted px-1.5 text-[11px] tabular-nums">{items.length}</span>
-                    ) : null}
-                  </button>
-                ))}
-              </div>
-              <button
-                type="button"
-                className="hidden lg:inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground shrink-0"
-                onClick={() => setMaximized((m) => !m)}
-                aria-pressed={maximized}
-                aria-label={maximized ? t("app.salesQueue.restorePanel") : t("app.salesQueue.maximizePanel")}
-                title={maximized ? t("app.salesQueue.restorePanel") : t("app.salesQueue.maximizePanel")}
-                data-console-maximize
-              >
-                {maximized ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
-              </button>
-            </div>
-
-            {/* Company: the business, with Edit and Dial beside each number */}
-            <div role="tabpanel" id="console-tab-company" aria-labelledby="console-tabbtn-company" hidden={tab !== "company"} className="space-y-3" data-console-card="company">
-              {current ? (
-                <div className="flex justify-end">
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-1.5 min-h-[44px] px-2 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted"
-                    onClick={() => setEditing((e) => !e)}
-                    aria-expanded={editing}
-                    data-company-edit
-                  >
-                    <Pencil size={14} /> {editing ? t("app.salesQueue.editClose") : t("app.salesQueue.edit")}
-                  </button>
-                </div>
-              ) : null}
-              {!loading && !current ? (
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-foreground">{t("app.salesQueue.paneEmptyTitle")}</p>
-                  <p className="text-sm text-muted-foreground break-words">{t("app.salesQueue.paneEmptyBody")}</p>
-                </div>
-              ) : null}
-              {!loading && current ? (
-                <CompanyCard
+          {/* Contact: the person, their numbers with Dial, the published
+              email, the add-number control, and the call history at the foot */}
+          <div role="tabpanel" id="console-tab-contact" aria-labelledby="console-tabbtn-contact" hidden={tab !== "contact"} className="space-y-4" data-console-card="contact">
+            {!loading && !current ? (
+              <p className="text-sm text-muted-foreground">{t("app.salesQueue.pickOrClaim")}</p>
+            ) : null}
+            {!loading && current ? (
+              <>
+                <ContactCard
                   t={t}
                   current={current}
-                  row={currentRow}
-                  compliance={compliance}
                   numbers={currentNumbers}
                   onDial={current.contact?.callable === false ? null : dialNumber}
                 />
-              ) : null}
-              {/* ── The record, corrected from the screen the rep is on ─────
-                  Writes the rep's own lead through the route that already
-                  writes it — never the discovered Prospect, whose phone number
-                  is a dedupe key and whose province decides a statute. The
-                  component's header argues that split at length. Behind
-                  Edit, in this tab, because it is this tab's record. */}
-              {!loading && current && editing ? (
-                <div className="border-t border-border pt-3">
-                  <QueueLeadEditor
-                    prospectId={current.id}
-                    businessName={current.businessName}
-                    lead={current.lead || null}
-                    onChanged={load}
-                  />
-                </div>
-              ) : null}
-              {current ? (
-                <p className="text-xs text-muted-foreground break-words">{current.claim.text}</p>
-              ) : null}
-            </div>
-
-            {/* Contact: the person, their numbers with Dial, the published
-                email, the add-number control, and the call history at the foot */}
-            <div role="tabpanel" id="console-tab-contact" aria-labelledby="console-tabbtn-contact" hidden={tab !== "contact"} className="space-y-4" data-console-card="contact">
-              {!loading && !current ? (
-                <p className="text-sm text-muted-foreground">{t("app.salesQueue.pickOrClaim")}</p>
-              ) : null}
-              {!loading && current ? (
-                <>
-                  <ContactCard
-                    t={t}
-                    current={current}
-                    numbers={currentNumbers}
-                    onDial={current.contact?.callable === false ? null : dialNumber}
-                  />
-                  {/* The address their own site publishes, with Copy —
-                      CallPanel reads it with the playbook and portals it
-                      here (it is contact data, not dial data). */}
-                  <div ref={setContactSlot} data-slot="contact" />
-                  {/* Numbers the server would not offer, with the reason,
-                      and "they gave us another number" — the same
-                      component as the lead screen's, without the radios:
-                      the dialler's display is the choice now. */}
-                  <ContactNumbers
-                    prospectId={current.id}
-                    numbers={currentNumbers}
-                    selectedId={chosenNumber?.id || ""}
-                    onSelect={(pick) => setNumberId(pick?.id || "")}
-                    onChanged={load}
-                    disabled={current.contact?.callable === false}
-                    parts={["refused", "add"]}
-                  />
-                  <div className="border-t border-border pt-4 space-y-3" data-console-card="history">
-                    <div className="flex items-baseline justify-between gap-2">
-                      <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                        <History size={15} className="text-brand-accent-text" aria-hidden="true" />
-                        {t("app.salesQueue.cardHistory")}
-                      </h3>
-                      {current.lead?.id ? (
-                        <Link href={`/sales/leads/${current.lead.id}`} className="text-sm font-medium text-foreground underline min-h-[44px] inline-flex items-center">
-                          {t("app.salesQueue.viewAll")}
-                        </Link>
-                      ) : null}
-                    </div>
-                    <CallHistory t={t} current={current} language={language} />
-                  </div>
-                </>
-              ) : null}
-            </div>
-
-            {/* Script */}
-            <div role="tabpanel" id="console-tab-script" aria-labelledby="console-tabbtn-script" hidden={tab !== "script"} className="space-y-3">
-              {/* CallPanel portals the playbook here (layout="console"). */}
-              <div ref={setScriptSlot} data-slot="script" />
-              {!current && !loading ? (
-                <p className="text-sm text-muted-foreground">{t("app.salesQueue.pickOrClaim")}</p>
-              ) : null}
-            </div>
-
-            {/* Research: the three layers, in the same order every time */}
-            <div role="tabpanel" id="console-tab-research" aria-labelledby="console-tabbtn-research" hidden={tab !== "research"} className="space-y-4" data-tour="sales-queue-research">
-              {!loading && current ? <ResearchLayers t={t} current={current} /> : null}
-              {!current && !loading ? (
-                <p className="text-sm text-muted-foreground">{t("app.salesQueue.pickOrClaim")}</p>
-              ) : null}
-            </div>
-
-            {/* Notes */}
-            <div role="tabpanel" id="console-tab-notes" aria-labelledby="console-tabbtn-notes" hidden={tab !== "notes"} className="space-y-3">
-              {!loading && current ? (
-                <>
-                  <h3 className="text-sm font-semibold text-foreground">
-                    <NotebookPen size={15} className="inline mr-1" />
-                    {t("app.salesQueue.notesHeading", { business: current.businessName })}
-                  </h3>
-                  <ProspectNotes prospectId={current.id} businessName={current.businessName} />
-                </>
-              ) : (
-                <p className="text-sm text-muted-foreground">{t("app.salesQueue.pickOrClaim")}</p>
-              )}
-            </div>
-
-            {/* Disposition: the form CallPanel portals here, then next steps,
-                then the claim's own wrap-up (worked / release / lead / DNC) */}
-            <div role="tabpanel" id="console-tab-disposition" aria-labelledby="console-tabbtn-disposition" hidden={tab !== "disposition"} className="space-y-4">
-              <div ref={setDispositionSlot} data-slot="disposition" />
-              <div ref={setNextStepsSlot} data-slot="next-steps" />
-              {!loading && current ? (
-                <WrapUp
-                  t={t}
-                  current={current}
-                  busy={busy}
-                  act={act}
-                  carryToLead={carryToLead}
-                  dncOpen={dncOpen}
-                  setDncOpen={setDncOpen}
-                  dncReason={dncReason}
-                  setDncReason={setDncReason}
+                {/* The address their own site publishes, with Copy —
+                    CallPanel reads it with the playbook and portals it
+                    here (it is contact data, not dial data). */}
+                <div ref={setContactSlot} data-slot="contact" />
+                {/* Numbers the server would not offer, with the reason,
+                    and "they gave us another number" — the same
+                    component as the lead screen's, without the radios:
+                    the dialler's display is the choice now. */}
+                <ContactNumbers
+                  prospectId={current.id}
+                  numbers={currentNumbers}
+                  selectedId={chosenNumber?.id || ""}
+                  onSelect={(pick) => setNumberId(pick?.id || "")}
+                  onChanged={load}
+                  disabled={current.contact?.callable === false}
+                  parts={["refused", "add"]}
                 />
-              ) : (
-                <p className="text-sm text-muted-foreground">{t("app.salesQueue.pickOrClaim")}</p>
-              )}
-            </div>
-
-            {/* Tasks: callbacks promised and check-in drafts due */}
-            <div role="tabpanel" id="console-tab-tasks" aria-labelledby="console-tabbtn-tasks" hidden={tab !== "tasks"} className="space-y-3">
-              {!loading && current ? <TasksTab t={t} current={current} language={language} /> : (
-                <p className="text-sm text-muted-foreground">{t("app.salesQueue.pickOrClaim")}</p>
-              )}
-            </div>
-
-            {/* Leads: the batch, full width, same grouping, click selects */}
-            <div role="tabpanel" id="console-tab-leads" aria-labelledby="console-tabbtn-leads" hidden={tab !== "leads"} className="space-y-3">
-              <QueueList {...railProps} wide />
-            </div>
-          </section>
+                <div className="border-t border-border pt-4 space-y-3" data-console-card="history">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                      <History size={15} className="text-brand-accent-text" aria-hidden="true" />
+                      {t("app.salesQueue.cardHistory")}
+                    </h3>
+                    {current.lead?.id ? (
+                      <Link href={`/sales/leads/${current.lead.id}`} className="text-sm font-medium text-foreground underline min-h-[44px] inline-flex items-center">
+                        {t("app.salesQueue.viewAll")}
+                      </Link>
+                    ) : null}
+                  </div>
+                  <CallHistory t={t} current={current} language={language} />
+                </div>
+              </>
+            ) : null}
           </div>
+
+          {/* Script */}
+          <div role="tabpanel" id="console-tab-script" aria-labelledby="console-tabbtn-script" hidden={tab !== "script"} className="space-y-3">
+            {/* CallPanel portals the playbook here (layout="console"). */}
+            <div ref={setScriptSlot} data-slot="script" />
+            {!current && !loading ? (
+              <p className="text-sm text-muted-foreground">{t("app.salesQueue.pickOrClaim")}</p>
+            ) : null}
+          </div>
+
+          {/* Research: the three layers, in the same order every time */}
+          <div role="tabpanel" id="console-tab-research" aria-labelledby="console-tabbtn-research" hidden={tab !== "research"} className="space-y-4" data-tour="sales-queue-research">
+            {!loading && current ? <ResearchLayers t={t} current={current} /> : null}
+            {!current && !loading ? (
+              <p className="text-sm text-muted-foreground">{t("app.salesQueue.pickOrClaim")}</p>
+            ) : null}
+          </div>
+
+          {/* Notes */}
+          <div role="tabpanel" id="console-tab-notes" aria-labelledby="console-tabbtn-notes" hidden={tab !== "notes"} className="space-y-3">
+            {!loading && current ? (
+              <>
+                <h3 className="text-sm font-semibold text-foreground">
+                  <NotebookPen size={15} className="inline mr-1" />
+                  {t("app.salesQueue.notesHeading", { business: current.businessName })}
+                </h3>
+                <ProspectNotes prospectId={current.id} businessName={current.businessName} />
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">{t("app.salesQueue.pickOrClaim")}</p>
+            )}
+          </div>
+
+          {/* Disposition: the form CallPanel portals here, then next steps,
+              then the claim's own wrap-up (worked / release / lead / DNC) */}
+          <div role="tabpanel" id="console-tab-disposition" aria-labelledby="console-tabbtn-disposition" hidden={tab !== "disposition"} className="space-y-4">
+            <div ref={setDispositionSlot} data-slot="disposition" />
+            <div ref={setNextStepsSlot} data-slot="next-steps" />
+            {!loading && current ? (
+              <WrapUp
+                t={t}
+                current={current}
+                busy={busy}
+                act={act}
+                carryToLead={carryToLead}
+                dncOpen={dncOpen}
+                setDncOpen={setDncOpen}
+                dncReason={dncReason}
+                setDncReason={setDncReason}
+              />
+            ) : (
+              <p className="text-sm text-muted-foreground">{t("app.salesQueue.pickOrClaim")}</p>
+            )}
+          </div>
+
+          {/* Tasks: callbacks promised and check-in drafts due */}
+          <div role="tabpanel" id="console-tab-tasks" aria-labelledby="console-tabbtn-tasks" hidden={tab !== "tasks"} className="space-y-3">
+            {!loading && current ? <TasksTab t={t} current={current} language={language} /> : (
+              <p className="text-sm text-muted-foreground">{t("app.salesQueue.pickOrClaim")}</p>
+            )}
+          </div>
+
+          {/* Leads: the trade picker, Claim the next 25, the batch at full
+              width in its window groups, Release the rest, Release all,
+              the day's progress. The one place all of it lives. */}
+          <div role="tabpanel" id="console-tab-leads" aria-labelledby="console-tabbtn-leads" hidden={tab !== "leads"} className="space-y-3">
+            <LeadsPanel {...panelProps} />
+          </div>
+        </section>
         </div>
       </div>
     </div>

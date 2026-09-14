@@ -19,14 +19,14 @@ switch's loading state is the real one.
 | File | What it shows |
 |---|---|
 | `first-cut-*.png` | The three earlier frames the owner redirected from (three cards; dialler on the right; two columns). Kept as history. |
-| `desktop-idle.png` | The approved frame: sidebar, top bar (search · status menu · name), the queue rail folded, Previous · 1 of 11 · Next + Next in queue, the phone-style Dialer on the left, the tall tabbed card on the right with Script open — numbered steps, Key talking points, Goal. |
+| `desktop-idle.png` | The approved frame (2026-09-11, three panes): sidebar, top bar (search · status menu · name), the queue rail folded, Previous · 1 of 11 · Next + Next in queue, the phone-style Dialer on the left, the tall tabbed card on the right with Script open — numbered steps, Key talking points, Goal. **Superseded 2026-09-14** by the two-pane console — the rail and the phone's drawer are gone, the Leads tab is the list, and "Text the signup link to <business>" is its own card under the Dialer; see `../sales-portal/queue-simplified-1280.png` and `queue-simplified-375.png`. The frames below that show a rail or a drawer are history. |
 | `desktop-call.png` | On a call: the live block (timer, caller-id notice, Mute, Hang up) in the Dialer, the keypad in DTMF mode. |
 | `desktop-typed.png` | A number keyed in on the pad; the note that Call saves it on this lead first. |
 | `desktop-typed-refused.png` | A typed number the numbers route refused (a do-not-contact record): the sentence under the display, no dial. |
 | `desktop-typed-call.png` | The typed number dialled (saved, then rung by its id) and a DTMF key pressed on the call. |
 | `desktop-dial-button.png` | The Dial button beside a number on the Contact tab: pasted into the display and rung through the same gate. |
 | `desktop-tab-company.png` … `desktop-tab-leads.png` | Each tab: Company (Edit, Dial per number, tags, capabilities), Contact (owner + why, numbers, published email, add-number, Call history), Research (the three layers), Notes, Disposition (no call to write up → the ten outcomes listed; Next steps; the wrap-up), Tasks (callbacks, check-in drafts), Leads (the batch, grouped by window). |
-| `desktop-rail-expanded.png` | The queue rail unfolded: trade picker, the grouped day, the current row highlighted. |
+| `desktop-rail-expanded.png` | (history) The queue rail unfolded: trade picker, the grouped day, the current row highlighted. The rail went on 2026-09-14; its content is the Leads tab. |
 | `desktop-ring.png` / `desktop-ring-closed.png` | The incoming-call drawer down from under the top bar (business · number · Claimed by you · Pick up · Decline), and the same screen after Decline. |
 | `desktop-ring-answered.png` | Picked up: the drawer gone, the inbound call's controls in the Dialer's live-call slot. |
 | `desktop-zone-pt.png` | The zone chips (All · ET · CT · MT · PT) with PT selected: the list filtered inside its window groups, "closed — opens 11:00 AM" under the chip, the walk (Next, Next in queue) following the filter. |
@@ -35,4 +35,4 @@ switch's loading state is the real one.
 | `desktop-script-fr.png` / `desktop-script-es.png` | The Script tab's language switch (English · Français · Español) pressed to Français and to Español: the same five steps in that language — vous, soumission, cellulaire; usted, cotización — the headings still in the rep's portal language, the "Generated from what the crawler saw on …" line unchanged, the citation still in the site's own English. |
 | `desktop-status-menu.png` | The rep-status dropdown open. |
 | `desktop-maximized.png` | The tabbed card taking the viewport. |
-| `mobile-idle.png` / `mobile-drawer.png` / `mobile-tab-contact.png` / `mobile-tab-script.png` | The phone: dialler first, then the tabbed card; the queue as a drawer. |
+| `mobile-idle.png` / `mobile-drawer.png` / `mobile-tab-contact.png` / `mobile-tab-script.png` | The phone: dialler first, then the tabbed card. `mobile-drawer.png` is history — there is no drawer since 2026-09-14; the Leads tab is the phone's list (`../sales-portal/queue-simplified-375.png`). |

@@ -886,9 +886,25 @@ section("6. Source: the route, the gate, the cron, the screen, the sticky fix");
   // The screen.
   ok("the button says the server's number, never a typed 100", /t\("app\.salesQueue\.claimBatch", \{ count: batchSize \}\)/.test(page) && !/claimBatch", \{ count: 100/.test(page));
   ok("…and batchSize is min(server max, what is left of the day)", /const batchSize = Math\.min\(data\?\.batch\?\.max \?\? 0, remainingToday\)/.test(page));
-  ok("the single path survives as \"Just one\"", /act\("claim"\)/.test(page) && /app\.salesQueue\.claimJustOne/.test(page));
+  // ── Two panes, not three (2026-09-14) ─────────────────────────────────
+  // The left rail (trade picker + claim buttons, "Yours to work" + Release)
+  // and the phone's drawer are gone; the Leads tab is the one place all of
+  // it lives, and "Just one" is gone with them — one claim control, the
+  // batch. The page's header carries the owner's words.
+  ok("no left rail: no <aside>, no rail toggle, no fold state, no drawer", !/<aside/.test(page) && !/data-queue-rail/.test(page) && !/railOpen|RAIL_KEY|toggleRail/.test(page) && !/data-queue-drawer|queueDrawer/.test(page));
+  ok("no \"Just one\": the single claim is not posted from this screen and its key is gone", !/act\("claim"\)/.test(page) && !/claimJustOne/.test(page) && Object.keys(APP_MESSAGES).every((lang) => APP_MESSAGES[lang]["app.salesQueue.claimJustOne"] === undefined));
+  ok("…and the rail's own keys went with it", ["showQueue", "hideQueue", "expandRail", "collapseRail"].every((k) => Object.keys(APP_MESSAGES).every((lang) => APP_MESSAGES[lang][`app.salesQueue.${k}`] === undefined)));
+  const leadsTab = page.slice(page.indexOf('id="console-tab-leads"'), page.indexOf("</section>", page.indexOf('id="console-tab-leads"')));
+  ok("the Leads tab renders LeadsPanel, and nothing else renders it", /<LeadsPanel/.test(leadsTab) && (page.match(/<LeadsPanel/g) || []).length === 1);
+  const panel = page.slice(page.indexOf("function LeadsPanel("), page.indexOf("function QueueConsole("));
+  ok("LeadsPanel holds the trade select, ONE claim action, the wide list and both Release buttons", /<ClaimCard/.test(panel) && /<QueueList \{\.\.\.props\} wide \/>/.test(panel) && /data-release-rest/.test(panel) && /act\("release_rest"\)/.test(panel) && /data-release-all/.test(panel) && /act\("release_all"\)/.test(panel));
+  const claimCard = panel.slice(panel.indexOf("function ClaimCard("));
+  ok("…the trade select is in ClaimCard, with the claim hint line", /<select\s+id="q-trade"/.test(claimCard) && /app\.salesQueue\.claimBatchNote/.test(claimCard));
+  ok("…and ClaimCard posts exactly one claim action: claim_batch", (claimCard.match(/act\("claim(?:_batch)?"\)/g) || []).join(",") === 'act("claim_batch")');
+  ok("…ClaimCard keeps the tour anchor the queue step points at", /data-tour="sales-queue-claim"/.test(claimCard));
   ok("Release the rest posts release_rest", /act\("release_rest"\)/.test(page));
   ok("…and is not rendered when it would release nothing", /untouchedCount > 0 \?/.test(page));
+  ok("an empty first load opens the Leads tab, once", /landedOnLeads\.current = true;\s*if \(items\.length === 0\) setTab\("leads"\);/.test(page));
   // The Dialer column's "Text the signup link to <business>": its own card
   // UNDER the Dialer card (after the keypad, the Call button and Auto-dial —
   // the owner's placement), in the same column, before the tabbed card.
@@ -908,21 +924,13 @@ section("6. Source: the route, the gate, the cron, the screen, the sticky fix");
   ok("the claim itself reads the same ledger — never a shiftStart the browser sent", /shiftStartFor\(\{ db, salesRepId: rep\.id/.test(lib) && !/body\.shiftStart/.test(route));
   ok("…and the last outcome by its disposition key", /app\.salesCall\.disposition\.\$\{item\.lastOutcome\.disposition\}\.label/.test(page));
 
-  ok("the browser sends its zone with every request, and never a number", /timeZone: browserTimeZone\(\)/.test(page) && /search\.set\("timeZone", zone\)/.test(page) && !/max:\s*\d/.test(page));
-  ok("at the cap the button is replaced by the sentence, not greyed", /remainingToday > 0 \? \(/.test(page) && /app\.salesQueue\.batchReason\.dailyCap/.test(page));
-  ok("a row prints researched / researching / not researched as three sentences", /rowResearched/.test(page) && /rowResearching/.test(page) && /rowNotResearched/.test(page));
-  ok("…and the window's opening or closing, on the REP's clock from the server's strings", /rowWindowOpensAt/.test(page) && /rowWindowClosesAt/.test(page) && /w\.opensAtLocal/.test(page) && /w\.closesAtLocal/.test(page) && !/hhmmIn\(/.test(page));
-  ok("the route reads the shift from the ledger and groups by window", /shiftStartFor\(\{ db, salesRepId: rep\.id, timeZone: zone, now \}\)/.test(route) && /groupByWindow\(/.test(route) && /queue\.windows = \{/.test(route));
-  ok("the claim itself reads the same ledger — never a shiftStart the browser sent", /shiftStartFor\(\{ db, salesRepId: rep\.id/.test(lib) && !/body\.shiftStart/.test(route));
-  ok("…and the last outcome by its disposition key", /app\.salesCall\.disposition\.\$\{item\.lastOutcome\.disposition\}\.label/.test(page));
-
   // The sticky fix.
   const dialTag = page.match(/<section[^>]*data-tour="sales-queue-dial"[^>]*>/)?.[0] || "";
   ok("the dial section is in normal flow — no sticky, no fixed, no z-index on it", dialTag.length > 0 && !/\bsticky\b|\bfixed\b|\bz-\d/.test(dialTag), dialTag.slice(0, 120));
   ok("…and the header records why (the owner's sentence about the notes scrolling underneath)", /scrolls underneath/.test(read("app/sales/queue/page.js")) && /taller than the viewport/.test(read("app/sales/queue/page.js")));
   ok("…the lead editor and the notes still come AFTER the dial in the same column, so nothing else could cover them", page.indexOf('data-tour="sales-queue-dial"') < page.indexOf("<QueueLeadEditor") && page.indexOf("<QueueLeadEditor") < page.indexOf("<ProspectNotes"));
-  const aside = page.match(/<aside[^>]*className=\{`[^`]*`\}/)?.[0] || "";
-  ok("the list column's sticky is bounded (max-h + overflow-y-auto), which is the version that covers nothing", /lg:sticky/.test(aside) && /lg:max-h-\[/.test(aside) && /lg:overflow-y-auto/.test(aside), aside.slice(0, 160));
+  const dialerColumn = page.match(/<div className=\{`lg:w-\[360px\][^`]*`\} data-dialer-column>/)?.[0] || "";
+  ok("the Dialer column's sticky is bounded (max-h + overflow-y-auto), which is the version that covers nothing", /lg:sticky/.test(dialerColumn) && /lg:max-h-\[/.test(dialerColumn) && /lg:overflow-y-auto/.test(dialerColumn), dialerColumn.slice(0, 160));
 
   // Every key the screen asks for, in nine languages.
   const missing = [];

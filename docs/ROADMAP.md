@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 14 September 2026 (a paid plan is cancelled at the end of its paid period, a trial at once; Resume is one button whose label says what the press costs — uncancel, credited to the old period end, or charged today — with Checkout only when Stripe has no card; one free trial per company, ever, via Company.trialUsedAt; check:billing-resume executes all of it.)
+Last updated: 14 September 2026 (the rep console is two panes: the left rail and the phone's drawer are gone, the Leads tab is the one place the trade picker, "Claim the next 25", the grouped list and both Release buttons live — "Just one" dropped on the owner's word — an empty day opens on Leads, and "Text the signup link to <business>" is its own card under the Dialer, mounting SignupLinkSms and the signup stepper; check:sales-batch-claim asserts all of it.)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -111,6 +111,79 @@ links to `/platform/voice-webhooks`, the rows to `/platform/errors?area=voice_we
   this change; noted so it is not mistaken for one.
 
 ---
+
+## Two panes, not three: the rail folds into the Leads tab, and the text button is under the Dialer (14 September 2026)
+
+The owner, with a screenshot of the three-column console: keep the Dialer and
+the tabbed card, drop the two left cards, and make the Leads tab the one place
+the list lives. `app/sales/queue/page.js`:
+
+- **Gone**: the `<aside>` rail (fold state, `RAIL_KEY`, the collapsed strip),
+  the phone's queue drawer and its "Show the queue (N)" button, and "Just one"
+  — the owner wanted one claim control, and the batch is it. The route still
+  accepts `claim` and nothing calls it now — left in place (its cap and log
+  path are what the check exercises for a single claim); removing it is a
+  product decision. Five keys removed in nine languages
+  (`claimJustOne`, `showQueue`, `hideQueue`, `expandRail`, `collapseRail`).
+- **The Leads tab** renders `LeadsPanel` — `ClaimCard` (trade picker, pool
+  summary, "Claim the next 25", the claims-left line, the batch result), then
+  "Yours to work" with the zone chips, the window groups at the tab's width
+  (`QueueList wide`), "Release the rest", "Release all" and the progress bar.
+  Everything the rail showed, drawn once. The tour's `sales-queue-claim`
+  anchor is on it.
+- **An empty first load opens Leads** (`landedOnLeads`, once): a rep holding
+  nothing sees the claim button first, not an empty script. Script /
+  Disposition-on-autodial otherwise, as before.
+- **"Text the signup link to <business>"** — its own card under the Dialer
+  card in the Dialer column (below the keypad, the window line and Auto-dial;
+  the owner's placement). One press opens `SignupLinkSms` for the business's
+  lead — the same panel the lead screen and Texts use: the fixed message
+  (`lib/sales/salesSmsRules.js` `signupLinkSmsBody`: "<rep> here, from
+  FieldQuo — here's the link we talked about: <origin>/signup?sales=<repCode>
+  [&link=<token>] FieldQuo, <address>. Reply STOP to opt out."), every
+  blocker, the number picker, Send. A business with no lead yet gets one
+  first through `POST /api/sales/leads { prospectId }` (the same call as
+  "Work as a lead"), then the panel opens on the id that came back.
+  `SignupProgress` sits under the button once a link has gone.
+- Phone: Dialer, then the text card, then the tabbed card; the Leads tab is
+  the phone's only list.
+- **The console fills the viewport.** The owner on a 2000px screen: the
+  columns sat in a centred 1080px band and the tabbed card was the narrowest
+  thing on the page with its tab strip scrolling. `SalesShell`'s container
+  is `max-w-none` for /sales/queue only (reading screens keep 5xl, the chat
+  client 7xl); the Dialer column is a fixed 360px and the tabbed card is
+  `flex-1 min-w-0` — all of the rest. The Leads tab's groups go two-up from
+  2xl (1536). The walk row and "Next in queue" span the width. 375 unchanged.
+  Maximise (⤢) verified in the harness. check:sales-console asserts the
+  container line and that nothing in the page re-caps it.
+  Frames: `docs/screens/sales-portal/queue-simplified-{1280,1920,375}.png`
+  (+ `-1920-script`).
+- `scripts/check-sales-batch-claim.mjs` asserts no aside / rail / drawer, no
+  "Just one" and no orphan keys, LeadsPanel's contents and the single
+  `claim_batch` in ClaimCard, the Leads-on-empty effect, and the text card's
+  placement, label slot and lead-creation body. The console harness scenes
+  open the Leads tab instead of the rail; `docs/screens/sales-portal/
+  queue-simplified-{1280,375}.png` are the frames (with 1920 and a 1920 Script frame); the sales manual's
+  chapter 3 and 4 wording (en/fr/es) follows the two panes.
+
+### Still owed here
+
+- `SignupProgress` is mounted twice while a lead exists — once in the text
+  card, once inside NextSteps on the Disposition tab — so it polls twice
+  every ten seconds. Small, but one mount would do.
+- **Tailwind container-query variants are not in the production CSS.**
+  `app/components/sales/CallPlaybook.js` has used
+  `@3xl:grid-cols-[minmax(0,1fr)_minmax(0,18rem)]` for the script's side
+  column, and `.next/static/chunks/*.css` after `npm run build` contains no
+  `@3xl` rule and no `@container (width >= …)` block at all — while the
+  same globals.css through `@tailwindcss/postcss` standalone, and through
+  `@tailwindcss/node` in the console harness, emits them. So the Script
+  tab's talking-points column has never rendered beside the steps in
+  production, only under them. Found while laying out the Leads grid, which
+  therefore uses the `2xl:` viewport breakpoint instead. Needs its own
+  look (the Next/Turbopack CSS pipeline, not the class).
+- `check:app-catalogue` is red on HEAD for `app.jobTitle` (13 keys absent
+  in de/zh/it, recorded complete) — not this work's, still red.
 
 ## The row agrees with Stripe without a webhook (13 September 2026)
 
@@ -1121,9 +1194,8 @@ them is beside them.
 - The real generator's lint refuses digits in every field; the "no day, no
   clock time" rule for the ask is prompt-only ("tomorrow at ten" in words
   passes). A word-level guard would close it.
-- With the rail unfolded at 1280 the eight tabs scroll sideways; they fit
-  from 1536. The rail is the rep's own toggle and folds by default under
-  1536.
+- ~~With the rail unfolded at 1280 the eight tabs scroll sideways; they fit
+  from 1536.~~ Moot since 2026-09-14: there is no rail (two panes, above).
 - Two pre-existing red checks not touched by this work: `check:mobile`
   (a `whitespace-nowrap` in app/sales/messages/page.js) and
   `check:playbook-voice` (app/api/sales/leads/route.js's email copy).

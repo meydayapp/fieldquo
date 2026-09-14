@@ -12,8 +12,10 @@ createRoot(document.getElementById("root")).render(
 );
 
 // ── Scene driver ─────────────────────────────────────────────────────────
-// ?scene=idle|call|tab-<key>|rail-collapsed|ring|mobile-drawer — clicks the
-// real controls in order. Nothing rendered here that a rep could not reach.
+// ?scene=idle|call|tab-<key>|ring|zone-pt|shut|topup|signup-text — clicks
+// the real controls in order. Nothing rendered here that a rep could not
+// reach. The rail and the phone's drawer went on 2026-09-14 (two panes, not
+// three): the list scenes open the Leads tab, which is where the list is.
 const scene = params.get("scene") || "";
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const until = async (sel, tries = 150) => {
@@ -52,26 +54,32 @@ const pressCall = async () => (await until('[data-console-card="dialer"] [data-c
     for (const d of digits) { (await until(`[data-dial-key="${d}"]`)).click(); await wait(30); }
   };
   if (scene === "zone-pt") {
-    await click('[data-queue-rail-toggle]');
-    await click('[data-queue-rail="open"] [data-zone-chip="PT"]');
+    await click('[data-console-tab="leads"]');
+    await click('#console-tab-leads [data-zone-chip="PT"]');
     await wait(300);
   }
   if (scene === "shut") {
-    await click('[data-queue-rail-toggle]');
+    await click('[data-console-tab="leads"]');
     await until('[data-none-open-now]');
     await wait(200);
   }
   if (scene === "topup") {
     // The "shut" scenario has 0 open rows: the console tops up on its own.
     await until('[data-top-up-toast]');
-    await click('[data-queue-rail-toggle]');
-    await until('[data-queue-rail="open"] [data-zone-chip="PT"]');
+    await click('[data-console-tab="leads"]');
+    await until('#console-tab-leads [data-zone-chip="PT"]');
     await wait(300);
   }
   if (scene === "shut-claimed") {
-    await click('[data-queue-rail-toggle]');
-    await click('[data-queue-rail="open"] [data-claim-open-now]');
+    await click('[data-console-tab="leads"]');
+    await click('#console-tab-leads [data-claim-open-now]');
     await until('[data-none-open-now-result]');
+    await wait(300);
+  }
+  if (scene === "signup-text") {
+    // The Dialer pane's button: opens SignupLinkSms for the open lead.
+    await click('[data-signup-text-button]');
+    await until('[data-signup-text-panel] form');
     await wait(300);
   }
   if (scene === "typed") {
@@ -100,10 +108,6 @@ const pressCall = async () => (await until('[data-console-card="dialer"] [data-c
     await click(`[data-console-tab="${scene.slice(4)}"]`);
     await wait(200);
   }
-  if (scene === "rail-expanded" || scene === "rail-collapsed") {
-    await click('[data-queue-rail-toggle]');
-    await wait(400);
-  }
   if (scene === "ring") {
     window.__ring("+19185550123");
     await until('[data-incoming-drawer="open"]');
@@ -127,11 +131,6 @@ const pressCall = async () => (await until('[data-console-card="dialer"] [data-c
     await until('[data-live-call-slot] [data-inbound-live]');
     await wait(1600);
   }
-  if (scene === "mobile-drawer") {
-    await click('[data-queue-drawer-open]');
-    await until('[data-queue-drawer]');
-    await wait(300);
-  }
   if (scene === "maximized") {
     await click('[data-console-maximize]');
     await wait(300);
@@ -139,6 +138,12 @@ const pressCall = async () => (await until('[data-console-card="dialer"] [data-c
   if (scene === "status-menu") {
     await click('[data-tour="sales-status"] button');
     await wait(200);
+  }
+  if (params.get("quiet")) {
+    // The fixture's four-open day tops itself up on load and the toast it
+    // draws is real; a frame that is not about the top-up closes it.
+    for (const b of document.querySelectorAll('[data-toast] button[aria-label]')) b.click();
+    await wait(400);
   }
   const scrollTo = params.get("scroll");
   if (scrollTo) {

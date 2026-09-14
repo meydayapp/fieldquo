@@ -59,8 +59,10 @@ export const FIGURES = {
   "console-tab-disposition": ["docs/screens/sales-console/desktop-tab-disposition.png"],
   "console-tab-tasks": ["docs/screens/sales-console/desktop-tab-tasks.png"],
   "console-tab-leads": ["docs/screens/sales-console/desktop-tab-leads.png"],
-  "console-rail": ["docs/screens/sales-console/desktop-rail-expanded.png"],
-  "console-mobile": ["docs/screens/sales-console/mobile-idle.png"],
+  // 2026-09-14: two panes, not three. The rail is gone; the Leads tab is
+  // the list, and the frames are the ones shot for that change.
+  "console-leads": ["docs/screens/sales-portal/queue-simplified-1280.png", "docs/screens/sales-console/desktop-tab-leads.png"],
+  "console-mobile": ["docs/screens/sales-portal/queue-simplified-375.png", "docs/screens/sales-console/mobile-idle.png"],
 
   // Chapter 4 — claiming
   "queue-zone-pt": ["docs/screens/sales-console/desktop-zone-pt.png"],

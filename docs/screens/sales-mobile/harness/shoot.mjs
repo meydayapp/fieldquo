@@ -6,7 +6,8 @@
 // The screens come from two harnesses: docs/screens/sales-portal/harness
 // (every page but the queue, inside the shipped SalesShell) and
 // docs/screens/sales-console/harness (the queue, with its dialler, incoming
-// call drawer and lead panel). Build both first:
+// call drawer and tabbed card — the Leads tab is the phone's list). Build
+// both first:
 //
 //   OUT=/tmp/fq-portal-harness sh docs/screens/sales-portal/harness/build.sh
 //   OUT=/tmp/fq-console-harness sh docs/screens/sales-console/harness/build.sh
@@ -60,7 +61,7 @@ export const FRAMES = {
   "queue-call": queue("&scene=call"),
   "queue-ring": queue("&scene=ring"),
   "queue-ring-answered": queue("&scene=ring-answered"),
-  "queue-drawer": queue("&scene=mobile-drawer"),
+  "queue-tab-leads": queue("&scene=tab-leads"),
   "queue-maximized": queue("&scene=maximized"),
   "queue-tab-contact": queue("&scene=tab-contact"),
   "queue-tab-disposition": queue("&scene=tab-disposition"),
