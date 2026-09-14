@@ -25,15 +25,36 @@
 // rather than an untracked call, and that is the right way round: the cap has
 // a private right of action behind it and an uncounted call is the failure.
 //
-// ══ The disposition is not optional, and not a modal ══════════════════════
+// ══ The disposition is not optional, and not a modal over a live call ═════
 //
 // A call with no outcome makes every number computed from it wrong, and the
 // rep is the only person who can fix one. So an unlogged call is rendered at
 // the top of this panel, in place of the Call button, until it is written up.
-// Not a modal — a modal on a phone, over a rep who is still talking, is worse
-// than useless — and not a block on the rest of the portal either. The one
-// thing it holds back is starting another call, because two unlogged calls is
-// how a day's numbers become unrecoverable.
+// Never a modal DURING a call — a modal on a phone, over a rep who is still
+// talking, is worse than useless — and not a block on the rest of the portal
+// either. The one thing it holds back is starting another call, because two
+// unlogged calls is how a day's numbers become unrecoverable.
+//
+// The form is drawn in the Dialer column AND, when the console offers a
+// Disposition tab, in that tab too — one state, two places. It used to go
+// ONLY into the tab, which is how a rep on the Script tab came to see the
+// refusal ("the last one is not written up yet") and nothing to press.
+//
+// ══ The line logs what it already knows ═══════════════════════════════════
+//
+// A prospect who picks up and puts the phone down, or a line nobody answers,
+// is an outcome the carrier has already reported. Asking the rep to type it
+// after every one — and holding the next dial until they did — stopped the
+// floor on 2026-09-14. So when a browser call ends, this panel waits
+// AUTO_LOG_GRACE_SECONDS for the rep to start an outcome, then asks the
+// server to log what the row says (lib/sales/calls/dispositions.js
+// autoLogOutcome: who hung up, how long they talked, or the terminal status
+// of a call that never connected). A hang-up under ten seconds, a no-answer
+// and a busy tone are written by themselves, marked autoLogged, and a
+// fifteen-second strip says so with a "change" that reopens the form. A
+// conversation — ten seconds or more, or the rep's own Hang up — is never
+// logged for the rep. Who hung up is posted from here at `disconnect`,
+// because Twilio's "completed" says nothing about which side dropped.
 //
 // ══ Transfer lives in TransferControl, not here ═══════════════════════════
 //
@@ -83,6 +104,13 @@ import {
 import { fetchJson } from "@/lib/fetchJson";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { STATE_AFTER_CALL } from "@/lib/sales/calls/agentState";
+import {
+  AUTO_LOG_GRACE_SECONDS,
+  AUTO_LOG_UNDO_SECONDS,
+  HUNG_UP_BY_PROSPECT,
+  HUNG_UP_BY_REP,
+  PROVIDER_ENDED,
+} from "@/lib/sales/calls/dispositions";
 import PlaybookMount from "./PlaybookMount";
 import PublishedEmail from "./PublishedEmail";
 import TransferControl from "./TransferControl";
@@ -225,6 +253,21 @@ export default function CallPanel({
   const [code, setCode] = useState("");
   const [note, setNote] = useState("");
   const [callbackAt, setCallbackAt] = useState("");
+  // What the line logged by itself, while the "change" strip is up:
+  // `{ attemptId, code, toE164, dialledAt, until }`.
+  const [autoLogged, setAutoLogged] = useState(null);
+  // A refused dial press flashes the form so the rep sees what to press.
+  const [flash, setFlash] = useState(0);
+  const formRef = useRef(null);
+  // Who ended the current call, known only here: "rep" is set by hangUp()
+  // before it disconnects; anything else at `disconnect` is the far end.
+  const hungUpByRef = useRef(null);
+  // The outcome the rep has started, readable from a timer without closing
+  // over a stale render.
+  const codeRef = useRef("");
+  const noteRef = useRef("");
+  codeRef.current = code;
+  noteRef.current = note;
   // The "Schedule a call back" calendar entry — and the demo, the sign-up and
   // the walkthrough beside it — live in NextSteps.js, separate from the
   // disposition callback above (which is how a LOGGED call records the time
@@ -254,7 +297,21 @@ export default function CallPanel({
     try {
       const body = await fetchJson("/api/sales/calls");
       setConfig(body);
-      setPending(body?.pendingAttempt || null);
+      const row = body?.pendingAttempt || null;
+      // A call that ended while nobody was looking (a reload, a closed
+      // laptop) is asked about at once rather than after the grace: the
+      // grace exists so a rep who is reaching for the picker is not raced,
+      // and nobody reaches for a picker on a page that just mounted. Only a
+      // browser dial the carrier has finished with can be answered.
+      setPending(
+        row
+          ? {
+              ...row,
+              autoAsk: row.dialChannel === "browser" && (Boolean(row.endedAt) || PROVIDER_ENDED.includes(row.providerStatus)),
+              graceMs: 0,
+            }
+          : null,
+      );
     } catch (err) {
       setError(err?.message || t("app.salesCall.loadSetupFailed"));
     }
@@ -383,11 +440,34 @@ export default function CallPanel({
       presenceRef.current.setCallUp(true);
       onLiveCall?.(call);
 
+      hungUpByRef.current = null;
       call.on("disconnect", () => {
         callRef.current = null;
         onLiveCall?.(null);
         setStartedAt(null);
-        setPending({ id: body.attemptId, toE164: body.to, dialledAt: body.serverNow });
+        // Who dropped. The Hang up button set "rep" before disconnecting;
+        // a disconnect nobody here asked for is the far end. Posted, not
+        // awaited — the write-up must not wait on it, and a lost report
+        // reads as "ask the rep", never as a hang-up.
+        const hungUpBy = hungUpByRef.current === HUNG_UP_BY_REP ? HUNG_UP_BY_REP : HUNG_UP_BY_PROSPECT;
+        hungUpByRef.current = null;
+        fetchJson("/api/sales/calls", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "ended", attemptId: body.attemptId, hungUpBy }),
+        }).catch(() => {});
+        setPending({
+          id: body.attemptId,
+          toE164: body.to,
+          dialledAt: body.serverNow,
+          dialChannel: "browser",
+          hungUpBy,
+          // The line may log this one — after the grace, and only if the
+          // rep has not started. The rep's own hang-up is never auto-logged
+          // (the server refuses it too); asking would be a wasted round trip.
+          autoAsk: hungUpBy !== HUNG_UP_BY_REP,
+          graceMs: AUTO_LOG_GRACE_SECONDS * 1000,
+        });
         setAttempt(null);
         try {
           device.destroy();
@@ -452,7 +532,16 @@ export default function CallPanel({
     if (!dialRequest?.token || dialRequestSeen.current === dialRequest.token) return;
     dialRequestSeen.current = dialRequest.token;
     if (busy || startedAt || pending) {
+      // Said with what to press, and the form is flashed and scrolled to —
+      // the refusal alone, on a tab without the form, was the floor's
+      // whole complaint.
       setError(t("app.salesCall.dialWhileBusy"));
+      setFlash((n) => n + 1);
+      try {
+        formRef.current?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+      } catch {
+        /* an old browser; the flash still shows */
+      }
       return;
     }
     if (!browserReady && !fallbackHref) return;
@@ -463,11 +552,100 @@ export default function CallPanel({
   }, [dialRequest?.token]);
 
   function hangUp() {
+    // Before the disconnect, so the handler it fires reads "rep". The far
+    // end dropping and the rep pressing the button in the same instant is
+    // filed as the rep's — they pressed it.
+    hungUpByRef.current = HUNG_UP_BY_REP;
     try {
       callRef.current?.disconnect?.();
     } catch {
       /* the disconnect handler does the rest */
     }
+  }
+
+  // ── The line logs what it knows, after the grace ─────────────────────
+  //
+  // One timer per pending attempt. It asks the server once the grace has
+  // passed, and only if the rep has not started typing — a code or a note
+  // in the form means the rep is answering and the line stays out of it.
+  // "not_reported" (the carrier's completed event is still in flight) is
+  // asked again a few times; every other refusal leaves the form up.
+  const autoAskSeen = useRef(null);
+  useEffect(() => {
+    if (!pending?.autoAsk || !pending.id) return undefined;
+    if (autoAskSeen.current === pending.id) return undefined;
+    autoAskSeen.current = pending.id;
+    const attemptId = pending.id;
+    const toE164 = pending.toE164;
+    const dialledAt = pending.dialledAt;
+    let cancelled = false;
+    let timer = null;
+    let tries = 0;
+    const ask = async () => {
+      if (cancelled) return;
+      if (codeRef.current || noteRef.current) return;
+      tries += 1;
+      let body = null;
+      try {
+        body = await fetchJson("/api/sales/calls", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "auto_log", attemptId }),
+        });
+      } catch {
+        return; // the form is still there; the rep can log it
+      }
+      if (cancelled) return;
+      if (body?.ok && body.code) {
+        setPending((p) => (p?.id === attemptId ? null : p));
+        setAutoLogged({ attemptId, code: body.code, toE164, dialledAt, until: Date.now() + AUTO_LOG_UNDO_SECONDS * 1000 });
+        // The server moved the rep to available; the same order the typed
+        // path keeps, for the same reason (see saveOutcome).
+        await presenceRef.current.refresh();
+        await load();
+        onWorked?.();
+        return;
+      }
+      if (body?.reason === "not_reported" && tries < 5) {
+        timer = setTimeout(ask, 3000);
+      }
+    };
+    timer = setTimeout(ask, Math.max(0, Number(pending.graceMs) || 0));
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+    // `load` and `onWorked` are read when the answer lands; keying on them
+    // would re-arm the timer on every parent render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pending?.id, pending?.autoAsk]);
+
+  useEffect(() => {
+    if (!flash) return undefined;
+    const id = setTimeout(() => setFlash(0), 2500);
+    return () => clearTimeout(id);
+  }, [flash]);
+
+  // The strip goes away by itself. A rep who wants to change it after
+  // fifteen seconds still can — the row is in today's list — but the strip
+  // in the dial space would otherwise sit over the Call button.
+  useEffect(() => {
+    if (!autoLogged) return undefined;
+    const ms = autoLogged.until - Date.now();
+    if (ms <= 0) {
+      setAutoLogged(null);
+      return undefined;
+    }
+    const id = setTimeout(() => setAutoLogged(null), ms);
+    return () => clearTimeout(id);
+  }, [autoLogged]);
+
+  /** "Change": the line's outcome comes back up as the rep's to overwrite. */
+  function changeAutoLogged() {
+    if (!autoLogged) return;
+    setPending({ id: autoLogged.attemptId, toE164: autoLogged.toE164, dialledAt: autoLogged.dialledAt, override: autoLogged.code, autoAsk: false });
+    setAutoLogged(null);
+    setError("");
   }
 
   function toggleMute() {
@@ -515,6 +693,18 @@ export default function CallPanel({
 
   /** Draw `node` in the console's slot when it has one, inline otherwise. */
   const into = (slot, node) => (slot ? createPortal(node, slot) : node);
+  /**
+   * Draw inline AND in the console's slot — one state, two places. `render`
+   * is called once per place with whether this is the inline copy, so a ref
+   * that scrolls the form into view lands on the copy in the Dialer column
+   * and not on the one behind a hidden tab.
+   */
+  const both = (slot, render) => (
+    <>
+      {render(true)}
+      {slot ? createPortal(render(false), slot) : null}
+    </>
+  );
   // The console's Call button is the big green one of the reference dialler;
   // the lead screen keeps the portal's primary. Same button, same press.
   const callClass = slots
@@ -621,106 +811,150 @@ export default function CallPanel({
         </div>
       ) : null}
 
-      {/* ── An unlogged call, which outranks starting another ───────────── */}
-      {into(
-        slots?.disposition || null,
-        !startedAt && pending ? (
-        <div className="rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 p-4 space-y-3" data-call-disposition>
-          <div>
-            <p className="font-semibold text-amber-900 dark:text-amber-100">
-              {t("app.salesCall.whatHappened")}
-            </p>
-            <p className="text-xs text-amber-900 dark:text-amber-200 break-words">
-              {t("app.salesCall.whatHappenedBody", { number: pending.toE164 })}
-            </p>
-          </div>
+      {/* ── An unlogged call, which outranks starting another ─────────────
+          Drawn HERE, in the Dialer column where the Call button was, and
+          again in the console's Disposition tab when it has one. One form,
+          one state, two places — see the header. */}
+      {!startedAt && pending
+        ? both(slots?.disposition || null, (inline) => (
+            <div
+              className={`rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 p-4 space-y-3 ${flash ? "ring-2 ring-amber-500 animate-pulse" : ""}`}
+              data-call-disposition={inline ? "dialer" : "tab"}
+              ref={inline ? formRef : null}
+            >
+              <div>
+                <p className="font-semibold text-amber-900 dark:text-amber-100">
+                  {t("app.salesCall.whatHappened")}
+                </p>
+                <p className="text-xs text-amber-900 dark:text-amber-200 break-words">
+                  {pending.override
+                    ? t("app.salesCall.changeAutoLoggedBody", {
+                        outcome: t(`app.salesCall.disposition.${pending.override}.label`),
+                        number: pending.toE164,
+                      })
+                    : t("app.salesCall.whatHappenedBody", { number: pending.toE164 })}
+                </p>
+              </div>
 
-          {/* The disposition VALUE is an enum the server writes to
-              SalesCallAttempt. Only `d.label` is words, and WHICH words is
-              still lib/sales/calls/dispositions.js's decision — this screen
-              has no say in it. What the table now sends beside each label is
-              the catalogue key it was written from, so the one control a rep
-              touches on every call reads in the rep's own language. The
-              English label is the fallback and nothing else. */}
-          <select
-            className={FIELD}
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            aria-label={t("app.salesCall.outcomeAria")}
-          >
-            <option value="">{t("app.salesCall.pickOutcome")}</option>
-            {dispositions.map((d) => (
-              <option key={d.code} value={d.code}>
-                {t(d.labelKey, d.label)}
-              </option>
-            ))}
-          </select>
-          {chosen ? (
-            <p className="text-xs text-amber-900 dark:text-amber-200 break-words">
-              {t(chosen.hintKey, chosen.hint)}
-            </p>
-          ) : null}
-
-          {chosen?.requiresCallback ? (
-            <label className="block text-sm">
-              <span className="text-amber-900 dark:text-amber-100">
-                {t("app.salesCall.callbackWhen")}
-              </span>
-              <input
-                type="datetime-local"
+              {/* The disposition VALUE is an enum the server writes to
+                  SalesCallAttempt. Only `d.label` is words, and WHICH words is
+                  still lib/sales/calls/dispositions.js's decision — this screen
+                  has no say in it. What the table now sends beside each label is
+                  the catalogue key it was written from, so the one control a rep
+                  touches on every call reads in the rep's own language. The
+                  English label is the fallback and nothing else. */}
+              <select
                 className={FIELD}
-                value={callbackAt}
-                onChange={(e) => setCallbackAt(e.target.value)}
-              />
-            </label>
-          ) : null}
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                aria-label={t("app.salesCall.outcomeAria")}
+              >
+                <option value="">{t("app.salesCall.pickOutcome")}</option>
+                {dispositions.map((d) => (
+                  <option key={d.code} value={d.code}>
+                    {t(d.labelKey, d.label)}
+                  </option>
+                ))}
+              </select>
+              {chosen ? (
+                <p className="text-xs text-amber-900 dark:text-amber-200 break-words">
+                  {t(chosen.hintKey, chosen.hint)}
+                </p>
+              ) : null}
 
-          <label className="block text-sm">
-            <span className="text-amber-900 dark:text-amber-100">
-              {chosen?.requiresNote
-                ? t("app.salesCall.noteLabelRequired")
-                : t("app.salesCall.noteLabelOptional")}
-            </span>
-            <textarea
-              className={FIELD}
-              rows={3}
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder={
-                chosen?.requiresNote
-                  ? t("app.salesCall.notePlaceholderRequired")
-                  : t("app.salesCall.notePlaceholderOptional")
-              }
-            />
-          </label>
+              {chosen?.requiresCallback ? (
+                <label className="block text-sm">
+                  <span className="text-amber-900 dark:text-amber-100">
+                    {t("app.salesCall.callbackWhen")}
+                  </span>
+                  <input
+                    type="datetime-local"
+                    className={FIELD}
+                    value={callbackAt}
+                    onChange={(e) => setCallbackAt(e.target.value)}
+                  />
+                </label>
+              ) : null}
 
-          <button
-            type="button"
-            className={`${BTN} bg-primary text-primary-foreground w-full`}
-            disabled={!code || Boolean(busy)}
-            onClick={saveOutcome}
-          >
-            {busy === "disposition" ? <Loader2 className="animate-spin" size={16} /> : null}
-            {t("app.salesCall.saveOutcome")}
-          </button>
-        </div>
-        ) : slots?.disposition ? (
-          // The console's Disposition tab, with no call to write up: say so,
-          // and list what a written-up call will ask for. A blank tab reads
-          // as a broken one.
-          <div className="rounded-lg border border-dashed border-border bg-muted p-3 text-sm text-muted-foreground space-y-2" data-call-disposition-empty>
-            <p className="font-semibold text-foreground">{t("app.salesCall.noCallToLog")}</p>
-            <p className="break-words">{t("app.salesCall.noCallToLogBody")}</p>
-            <ul className="flex flex-wrap gap-1.5">
-              {dispositions.map((d) => (
-                <li key={d.code} className="rounded-full border border-border bg-card px-2.5 py-1 text-xs text-foreground">
-                  {t(d.labelKey, d.label)}
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : null,
-      )}
+              <label className="block text-sm">
+                <span className="text-amber-900 dark:text-amber-100">
+                  {chosen?.requiresNote
+                    ? t("app.salesCall.noteLabelRequired")
+                    : t("app.salesCall.noteLabelOptional")}
+                </span>
+                <textarea
+                  className={FIELD}
+                  rows={3}
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  placeholder={
+                    chosen?.requiresNote
+                      ? t("app.salesCall.notePlaceholderRequired")
+                      : t("app.salesCall.notePlaceholderOptional")
+                  }
+                />
+              </label>
+
+              <button
+                type="button"
+                className={`${BTN} bg-primary text-primary-foreground w-full`}
+                disabled={!code || Boolean(busy)}
+                onClick={saveOutcome}
+              >
+                {busy === "disposition" ? <Loader2 className="animate-spin" size={16} /> : null}
+                {t("app.salesCall.saveOutcome")}
+              </button>
+              {pending.autoAsk && pending.dialChannel === "browser" ? (
+                <p className="text-xs text-amber-900 dark:text-amber-200 break-words">
+                  {t("app.salesCall.autoLogPending")}
+                </p>
+              ) : null}
+            </div>
+          ))
+        : slots?.disposition
+          ? createPortal(
+              // The console's Disposition tab, with no call to write up: say so,
+              // and list what a written-up call will ask for. A blank tab reads
+              // as a broken one.
+              <div className="rounded-lg border border-dashed border-border bg-muted p-3 text-sm text-muted-foreground space-y-2" data-call-disposition-empty>
+                <p className="font-semibold text-foreground">{t("app.salesCall.noCallToLog")}</p>
+                <p className="break-words">{t("app.salesCall.noCallToLogBody")}</p>
+                <ul className="flex flex-wrap gap-1.5">
+                  {dispositions.map((d) => (
+                    <li key={d.code} className="rounded-full border border-border bg-card px-2.5 py-1 text-xs text-foreground">
+                      {t(d.labelKey, d.label)}
+                    </li>
+                  ))}
+                </ul>
+              </div>,
+              slots.disposition,
+            )
+          : null}
+
+      {/* ── What the line logged by itself, with fifteen seconds to change it ── */}
+      {autoLogged && !pending && !startedAt
+        ? both(slots?.disposition || null, () => (
+            <div
+              className="rounded-lg border border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 p-3 text-sm text-emerald-900 dark:text-emerald-100 flex items-center justify-between gap-3"
+              data-call-auto-logged={autoLogged.code}
+              role="status"
+            >
+              <p className="break-words min-w-0">
+                {t("app.salesCall.autoLoggedAs", {
+                  outcome: t(`app.salesCall.disposition.${autoLogged.code}.label`),
+                })}
+              </p>
+              <button
+                type="button"
+                className="shrink-0 min-h-[36px] px-3 rounded-lg border border-emerald-400 font-semibold"
+                onClick={changeAutoLogged}
+                data-call-auto-logged-change
+              >
+                {t("app.salesCall.autoLoggedChange")}
+              </button>
+            </div>
+          ))
+        : null}
 
       {/* ── The call button ─────────────────────────────────────────────── */}
       {!startedAt && !pending ? (

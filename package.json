@@ -272,6 +272,7 @@
     "check:sales-rule-admin": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-sales-rule-admin.mjs",
     "check:sales-calling-window": "node --import ./scripts/alias-loader.mjs scripts/check-sales-calling-window.mjs",
     "check:sales-call-handling": "node --import ./scripts/alias-loader.mjs scripts/check-sales-call-handling.mjs",
+    "check:sales-call-panel": "node --import ./scripts/alias-loader.mjs scripts/check-sales-call-panel.mjs",
     "check:sales-inbound-call": "node --import ./scripts/alias-loader.mjs scripts/check-sales-inbound-call.mjs",
     "check:sales-suppression": "node --import ./scripts/alias-loader.mjs scripts/check-sales-suppression.mjs",
     "check:sales-sms": "node --import ./scripts/alias-loader.mjs scripts/check-sales-sms.mjs",

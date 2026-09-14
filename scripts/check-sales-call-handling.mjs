@@ -1103,11 +1103,17 @@ ok("every write path requires the store first", (() => {
   }
   return true;
 })());
-ok("a disposition never overwrites one already recorded", (() => {
+ok("a disposition never overwrites one the REP recorded — only one the line auto-logged", (() => {
   // The literal guard, not merely the words. `if (false && existing.disposition)`
   // contains the words and does nothing, which is how a check certifies a hole.
+  // The one way through it is `overriding`, which requires the existing row to
+  // be dispositionAutoLogged AND this write to be the rep's (not autoLogged).
   const body = fnBody("lib/sales/calls/store.js", "export async function saveDisposition(");
-  return /if \(existing\.disposition\) \{/.test(body) && /already has an outcome/.test(body);
+  return (
+    /if \(existing\.disposition && !overriding\) \{/.test(body) &&
+    /already has an outcome/.test(body) &&
+    /const overriding = Boolean\(existing\.disposition\) && existing\.dispositionAutoLogged === true && !autoLogged;/.test(body)
+  );
 })());
 ok("the suppression write is inside the same transaction as the attempt", (() => {
   const body = fnBody("lib/sales/calls/store.js", "export async function saveDisposition(");
