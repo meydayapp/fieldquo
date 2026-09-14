@@ -131,6 +131,7 @@ import { conversationInitials, sentenceAround } from "./MessageThread";
 import ReviewedByOwner from "@/app/components/sales/ReviewedByOwner";
 import CheckInDraft from "./CheckInDraft";
 import SignupLinkSms from "../leads/SignupLinkSms";
+import { CallHistoryStrip } from "@/app/components/sales/CallHistory";
 import { useThreadRefresh } from "./useThreadRefresh";
 
 const BTN =
@@ -458,6 +459,11 @@ function ContactDetails({ thread, openWith }) {
         </Field>
         <Field label={t("app.salesText.fieldAssignedRep")}>{contact.repName || null}</Field>
       </dl>
+
+      {/* Every call to this lead — the same strip the queue and the lead
+          page draw, so a rep answering a text knows what was said on the
+          phone. Nothing when the contact is not a lead of theirs. */}
+      {lead?.id ? <CallHistoryStrip leadId={lead.id} limit={3} /> : null}
 
       <div className="flex flex-col gap-2">
         {lead ? (
