@@ -68,6 +68,16 @@ import { dirname, join } from "node:path";
 delete process.env.OPENAI_API_KEY;
 
 import { CANDOUR, NEXT_STEP_OFFER, OPENER, PERMISSION_ASK, PIVOT, seedPlaybooks } from "../lib/sales/playbook/defaults.js";
+import {
+  TURNAROUND,
+  TURNAROUND_DISCOVERY,
+  TURNAROUND_FIT,
+  TURNAROUND_LANGUAGES,
+  TURNAROUND_PAIN,
+  turnaroundFor,
+} from "../lib/sales/playbook/turnaround.js";
+import { SCRIPT_LANGUAGES } from "../lib/sales/intel/callScript.js";
+import { APP_MESSAGES } from "../app/i18n/appMessages.js";
 import { SEAT_LADDER } from "../lib/pricing/ladder.js";
 import {
   MAX_GENERATED_POINTS,
@@ -985,6 +995,90 @@ section("Discovery — a survey, not an interrogation");
       asks.some((q) => /\bhow many\b/i.test(q)),
       asks,
     );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("The turnaround question — asked in every playbook, answered with their number");
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// The owner, 2026-09-14: does the pitch ask how long it takes from the
+// homeowner reaching out to the quote being in their hands? It did not. So
+// every discovery stage now asks it, every pain stage asks — as a question
+// whose number is theirs — how often somebody else's quote got there first,
+// and every fit stage answers the number they gave with the one product
+// claim the owner wants stated against it. lib/sales/playbook/turnaround.js
+// holds the three, with their French and Spanish, and the four playbooks
+// import the English rather than carry four copies.
+//
+// "how long" + "quote" is the match rather than the constant, on purpose: a
+// superadmin rewording the question in the database keeps the question, and
+// this file asserts the seed asks it in words a rewording would keep.
+{
+  const TURNAROUND_Q = (q) => /\bhow long\b/i.test(q) && /\bquote\b/i.test(q);
+  ok("the detector recognises the shipped question", TURNAROUND_Q(TURNAROUND_DISCOVERY));
+  ok(
+    "…and not the questions that were there before, which asked who and when but never how long",
+    !TURNAROUND_Q("A homeowner calls on a Tuesday — who writes that quote, and when? Evenings?") &&
+      !TURNAROUND_Q("How long is it usually before you get to reply?"),
+  );
+
+  for (const p of PLAYBOOKS) {
+    const discovery = promptsOf(p, "discovery");
+    ok(`${p.key}: discovery asks how long a quote takes to reach the homeowner`, discovery.some(TURNAROUND_Q), discovery);
+    // Saylor's ladder: a leading question with the options in it, so the
+    // cheapest reply is one of them rather than a shrug.
+    ok(`${p.key}: …with the options in it`, discovery.some((q) => TURNAROUND_Q(q) && /same day|couple of days|a week/i.test(q)));
+    // The discovery say still promises three things; a fourth prompt would
+    // make that sentence a lie the rep reads out.
+    ok(`${p.key}: discovery still asks exactly the three things it says it will`, discovery.length === 3, discovery.length);
+
+    const pain = promptsOf(p, "pain");
+    ok(`${p.key}: the pain stage asks how often somebody else's quote got there first`, pain.includes(TURNAROUND_PAIN), pain);
+    ok(`${p.key}: …and it is a question, so the number is theirs`, TURNAROUND_PAIN.trim().endsWith("?") && /\bhow often\b/i.test(TURNAROUND_PAIN));
+
+    const fit = sayOf(p, "fit");
+    ok(`${p.key}: the fit stage answers the number they gave with the owner's contrast`, fit.includes(TURNAROUND_FIT), fit.slice(0, 80));
+    ok(`${p.key}: …and points back at it as theirs`, /\b(?:the )?time you (?:just )?gave me\b/i.test(fit), fit.match(/time you[^.]*/i)?.[0]);
+  }
+
+  // No digit in any of the three, in any language. The fit line carries a
+  // figure — under two minutes — and it is OURS, spelled, because a digit
+  // anywhere in a rep's line is what every sweep here reads as an invented
+  // fact; the two questions carry none because the number is the prospect's.
+  ok("the table covers exactly the script languages", TURNAROUND_LANGUAGES.slice().sort().join() === SCRIPT_LANGUAGES.slice().sort().join(), TURNAROUND_LANGUAGES);
+  for (const lang of TURNAROUND_LANGUAGES) {
+    const b = TURNAROUND[lang];
+    ok(`${lang}: discovery, pain and fit are all written`, [b.discovery, b.pain, b.fit].every((v) => typeof v === "string" && v.length > 40));
+    ok(`${lang}: both questions end in a question mark`, /\?\s*$/.test(b.discovery) && /\?\s*$/.test(b.pain));
+    ok(`${lang}: no digit in any of the three`, !/\d/.test(b.discovery + b.pain + b.fit));
+    ok(`${lang}: the fit names the product and the two minutes, spelled`, /FieldQuo/.test(b.fit) && /\b(?:two|deux|dos) minut/i.test(b.fit), b.fit);
+    ok(`${lang}: the fit says they approve it from their phone`, /phone|cellulaire|celular/i.test(b.fit), b.fit);
+    const hits = BANNED.filter((x) => x.pattern.test(b.discovery + " " + b.pain + " " + b.fit)).map((x) => x.move);
+    ok(`${lang}: none of the three makes a banned move`, hits.length === 0, hits);
+  }
+  ok("the English entries are the constants the playbooks import", TURNAROUND.en.discovery === TURNAROUND_DISCOVERY && TURNAROUND.en.pain === TURNAROUND_PAIN && TURNAROUND.en.fit === TURNAROUND_FIT);
+  ok(
+    "turnaroundFor: fr and es are their own; an unknown language falls back to English and says so",
+    turnaroundFor("fr").fit === TURNAROUND.fr.fit && !turnaroundFor("fr").fallback && turnaroundFor("es-MX").language === "es" && turnaroundFor("de").language === "en" && turnaroundFor("de").fallback === true && turnaroundFor(null).language === "en",
+  );
+
+  // The screen. The AI script's three questions are about what the crawler
+  // could not see, so the turnaround question has to stand beside the script
+  // in its language — both layouts, and when there is no script at all — or
+  // a rep reading the French script never asks it.
+  const comp = read("app/components/sales/TurnaroundQuestion.js").replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, "");
+  ok("the component prints the three beats from the module, in the script's language", /turnaroundFor\(language\)/.test(comp) && /beats\.discovery/.test(comp) && /beats\.pain/.test(comp) && /beats\.fit/.test(comp));
+  ok("…and records nothing — the number is the prospect's and goes in the notes", !/useState|onChange|<input|<textarea/.test(comp));
+  const cp = read("app/components/sales/CallPlaybook.js").replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, "");
+  ok(
+    "CallPlaybook mounts it beside the script in both layouts, and when there is no AI script at all",
+    (cp.match(/<TurnaroundQuestion language=\{script\.language \|\| "en"\}/g) || []).length === 2 && /!data\.callScript \? <TurnaroundQuestion/.test(cp),
+  );
+  for (const key of ["app.salesCall.turnaroundQuestion", "app.salesCall.turnaroundAnswer"]) {
+    for (const lang of Object.keys(APP_MESSAGES)) {
+      ok(`${key} exists in ${lang}`, typeof APP_MESSAGES[lang][key] === "string" && APP_MESSAGES[lang][key].length > 0);
+    }
   }
 }
 

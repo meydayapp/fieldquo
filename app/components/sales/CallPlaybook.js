@@ -55,6 +55,7 @@ import { objectionsToShow } from "@/lib/sales/playbook/objections";
 import { languageMeta } from "@/app/i18n/languages";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import StayOnTheLine from "@/app/components/sales/StayOnTheLine";
+import TurnaroundQuestion from "@/app/components/sales/TurnaroundQuestion";
 
 const BTN =
   "inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60";
@@ -232,6 +233,10 @@ function AiScript({ script, language, switchProps }) {
           </ol>
         </div>
       ) : null}
+      {/* The turnaround question, under the model's three: the model's are
+          about what the crawler could not see; this one is asked on every
+          call, in the script's language, whatever the model wrote. */}
+      <TurnaroundQuestion language={script.language || "en"} />
 
       {script.objections?.length ? (
         <div>
@@ -433,6 +438,8 @@ function ConsoleScript({ script, stages, language, switchProps }) {
             <p className="text-sm text-foreground break-words">{script.closeAsk}</p>
           </div>
         ) : null}
+        {/* The turnaround question, beside the script — see TurnaroundQuestion.js. */}
+        <TurnaroundQuestion language={script.language || "en"} compact />
         {/* After a yes: text the link, stay on the line — in the script's language. */}
         <StayOnTheLine language={script.language || "en"} compact />
       </div>
@@ -585,6 +592,7 @@ export default function CallPlaybook({
       {/* No AI script for this row: the after-a-yes step still stands, in
           the language the script would be in. With a script it is drawn
           under that script's close instead. */}
+      {!data.callScript ? <TurnaroundQuestion language={data.scriptLanguage?.current || data.scriptLanguage?.default || "en"} /> : null}
       {!data.callScript ? <StayOnTheLine language={data.scriptLanguage?.current || data.scriptLanguage?.default || "en"} /> : null}
 
       {/* ── One stage, and the rep moves it ──────────────────────────────── */}

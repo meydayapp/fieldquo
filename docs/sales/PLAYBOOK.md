@@ -109,6 +109,16 @@ And when you get to the pain, **ask him for the number.** Never bring one of
 your own. "In a normal month, how many quotes go out later than you meant them
 to?" is worth more later than any figure you could have supplied.
 
+**The turnaround question is in every script, and it is the one to get an
+answer to.** "When someone reaches out today, how long is it usually before they've actually got a quote in their hands — same day, a couple of days, a week?" Then the
+implication, still as his number: "And in that time, how often do you reckon they've already had one from somebody else?"
+Whatever he says — an hour, a couple of days, a week — that is the number the
+*What we do* stage answers, in his own words, with the one product claim the
+owner wants stated against it: the quote built while you are still standing in
+the driveway, under two minutes from your own price list, approved from the
+homeowner's phone. On the call screen the three sentences sit beside the
+script in its language — English, French or Spanish — whatever the AI wrote.
+
 ## 4. The four scripts
 
 Which one opens is decided by what our own research found about that business.
@@ -139,7 +149,7 @@ could cost you the meeting is the only honest move you have.
 
 > - How many of you are on the tools at the moment — you and a crew, or you and a couple of subs?
 > - Is most of it repeat and referral now, or are you still bidding against two others on a lot of jobs?
-> - How far out are you booked — weeks, or months?
+> - When someone reaches out today, how long is it usually before they've actually got a quote in their hands — same day, a couple of days, a week?
 
 **How it works today** — *How a job goes from a phone call to money in the bank today. Whatever we detected, they are the authority on this and we are guessing.*
 
@@ -153,11 +163,11 @@ could cost you the meeting is the only honest move you have.
 
 > - Which part of that is the one that annoys you?
 > - In a normal month, how many quotes go out later than you meant them to?
-> - And when one goes out late, what usually happens to it?
+> - And in that time, how often do you reckon they've already had one from somebody else?
 
 **What we do** — *What we do about the thing they just described. This is the only stage that carries per-prospect talking points, and every one of them cites something observed.*
 
-> Then two things, and they answer what you just said. The first is whose name is on it: the quote, the invoice, the booking page and every email between them carry yours, and none of them carry ours — somebody holding three quotes cannot tell that two were written in the same software. The second is what happens before it goes: every quote gets read back to you, free, on every quote — what you have left off, and whether the price sits above or below what you have actually been winning at. Not what other contractors charge; your own accepted and declined jobs. Nobody else's numbers come into it and yours do not go out. Does the one you use now tell you that before you send it? And before you have to raise it: nothing comes off {competitor} to look at this. Nothing gets switched off, nothing gets imported, nobody learns anything this week.
+> Then three things, and they answer what you just said. First, the time you just gave me. Whatever that number is for you today — an hour, a couple of days, weeks — with FieldQuo the quote is built while you're still standing in the driveway, under two minutes from your own price list, and they approve it from their phone. Second, whose name is on it: the quote, the invoice, the booking page and every email between them carry yours, and none of them carry ours. Third, what happens before it goes: every quote gets read back to you, free — what you have left off, and whether the price sits above or below what you have actually been winning at. Your own jobs, nobody else's. Does the one you use now tell you that before you send it? And before you have to raise it: nothing comes off {competitor} to look at this — nothing switched off, nothing imported, nobody learning anything this week.
 
 **If they push back** — *What to say when they push back. Rendered from the objection store, filtered to this prospect, never authored inline.*
 
@@ -189,7 +199,7 @@ could cost you the meeting is the only honest move you have.
 
 > - Where does most of it come from now — word of mouth, a board, or the ads?
 > - How many of you are there?
-> - How far will you travel for a job worth having?
+> - When someone reaches out today, how long is it usually before they've actually got a quote in their hands — same day, a couple of days, a week?
 
 **How it works today** — *How a job goes from a phone call to money in the bank today. Whatever we detected, they are the authority on this and we are guessing.*
 
@@ -203,11 +213,12 @@ could cost you the meeting is the only honest move you have.
 
 > - How many of those calls come in while you're up a ladder?
 > - In a week, how many go to voicemail and never call back?
+> - And in that time, how often do you reckon they've already had one from somebody else?
 > - Do people ask you for photos of previous work before they'll commit?
 
 **What we do** — *What we do about the thing they just described. This is the only stage that carries per-prospect talking points, and every one of them cites something observed.*
 
-> Then the photos you've just described are the site. We build it out of the jobs you've already done: your name at the top, your colour, the work, and a way for somebody to ask you for a price at nine at night while you're asleep. You don't write anything. And the objection you're about to have — that it's a project — it isn't. It's built out of what you've already done, and I can show you one in fifteen minutes.
+> Then the photos you've just described are the site. We build it out of the jobs you've already done: your name at the top, your colour, the work, and a way for somebody to ask you for a price at nine at night while you're asleep. You don't write anything. And the objection you're about to have — that it's a project — it isn't. It's built out of what you've already done, and I can show you one in fifteen minutes. And the time you gave me a minute ago: Whatever that number is for you today — an hour, a couple of days, weeks — with FieldQuo the quote is built while you're still standing in the driveway, under two minutes from your own price list, and they approve it from their phone.
 
 **If they push back** — *What to say when they push back. Rendered from the objection store, filtered to this prospect, never authored inline.*
 
@@ -238,7 +249,7 @@ could cost you the meeting is the only honest move you have.
 > Can I ask you three things about the enquiries you do get? Nothing about your rates.
 
 > - Roughly how many does the site bring you in a week?
-> - Who picks up when you're out on a job?
+> - When someone reaches out today, how long is it usually before they've actually got a quote in their hands — same day, a couple of days, a week?
 > - Are you booking a visit to measure, or quoting off photos people send?
 
 **How it works today** — *How a job goes from a phone call to money in the bank today. Whatever we detected, they are the authority on this and we are guessing.*
@@ -252,11 +263,12 @@ could cost you the meeting is the only honest move you have.
 **What it costs them** — *Which part of that process costs them, in their own words. Never our words — a pain the rep names is a pain the prospect disputes.*
 
 > - Out of the ones who message you, how many go quiet before a time's agreed?
+> - And in that time, how often do you reckon they've already had one from somebody else?
 > - Have you ever turned up and they'd forgotten, or had somebody else in?
 
 **What we do** — *What we do about the thing they just described. This is the only stage that carries per-prospect talking points, and every one of them cites something observed.*
 
-> Nobody books a kitchen off a form and I'm not going to suggest they should. What gets booked is you turning up to measure — a slot you've allowed, the address, the photos already attached, and none of that back-and-forth to arrange it. And the bit you'd raise: you keep the site you've got. It gains a button. It doesn't get rebuilt.
+> Nobody books a kitchen off a form and I'm not going to suggest they should. What gets booked is you turning up to measure — a slot you've allowed, the address, the photos already attached, and none of that back-and-forth to arrange it. And the bit you'd raise: you keep the site you've got. It gains a button. It doesn't get rebuilt. And once you're there, the time you gave me: Whatever that number is for you today — an hour, a couple of days, weeks — with FieldQuo the quote is built while you're still standing in the driveway, under two minutes from your own price list, and they approve it from their phone.
 
 **If they push back** — *What to say when they push back. Rendered from the objection store, filtered to this prospect, never authored inline.*
 
@@ -288,7 +300,7 @@ could cost you the meeting is the only honest move you have.
 
 > - Roughly how many enquiries a week land in it?
 > - What do you always end up having to ask them?
-> - Who else can see it — anybody, or just you?
+> - When someone reaches out today, how long is it usually before they've actually got a quote in their hands — same day, a couple of days, a week?
 
 **How it works today** — *How a job goes from a phone call to money in the bank today. Whatever we detected, they are the authority on this and we are guessing.*
 
@@ -301,11 +313,12 @@ could cost you the meeting is the only honest move you have.
 **What it costs them** — *Which part of that process costs them, in their own words. Never our words — a pain the rep names is a pain the prospect disputes.*
 
 > - How many go cold while they're waiting on you?
+> - And in that time, how often do you reckon they've already had one from somebody else?
 > - Have you ever priced the same job twice because the first one got lost?
 
 **What we do** — *What we do about the thing they just described. This is the only stage that carries per-prospect talking points, and every one of them cites something observed.*
 
-> Then it's the four things you just named. They get asked before the enquiry reaches you, and what arrives isn't a note in an inbox — it's a job in a list, with the answers and the photos on it, one press from a quote you can send from the van. And before you ask: you keep the address that's on the site. Anyone who'd rather just email you still can.
+> Then it's the four things you just named. They get asked before the enquiry reaches you, and what arrives isn't a note in an inbox — it's a job in a list, with the answers and the photos on it, one press from a quote you can send from the van. And before you ask: you keep the address that's on the site. Anyone who'd rather just email you still can. And the time you gave me: Whatever that number is for you today — an hour, a couple of days, weeks — with FieldQuo the quote is built while you're still standing in the driveway, under two minutes from your own price list, and they approve it from their phone.
 
 **If they push back** — *What to say when they push back. Rendered from the objection store, filtered to this prospect, never authored inline.*
 
