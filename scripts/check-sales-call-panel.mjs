@@ -48,6 +48,29 @@ import {
   planDisposition,
 } from "@/lib/sales/calls/dispositions";
 import { RETRY_RULES, RETRY_KIND_RETRY, nextAttempt } from "@/lib/sales/retryRules";
+import {
+  CHOICE_CALL_BACK,
+  CHOICE_KEYS,
+  CHOICE_NOT_NOW,
+  CHOICE_NO_CALLBACKS,
+  CHOICE_SENT_LINK,
+  CHOICE_VOICEMAIL,
+  CHOICE_WRONG_OR_NOT_BUSINESS,
+  MORE_CHOICE_KEYS,
+  OFFERED_CODES,
+  OUTCOME_CHOICES,
+  OUTCOME_NOTE_MAX,
+  PRIMARY_CHOICE_KEYS,
+  WHEN_LATER_TODAY,
+  WHEN_PICK,
+  WHEN_TOMORROW,
+  WHICH_NOT_A_BUSINESS,
+  WHICH_WRONG_NUMBER,
+  callbackTimeFor,
+  choiceCoverage,
+  choiceForCode,
+  foldChoice,
+} from "@/lib/sales/calls/outcomeChoices";
 import { APP_MESSAGES } from "@/app/i18n/appMessages";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -139,7 +162,9 @@ ok("PROVIDER_ENDED is Twilio's five terminal statuses", PROVIDER_ENDED.slice().s
 }
 {
   const v = autoLogOutcome(browserRow({ providerStatus: "completed", answeredAt: secs(0), endedAt: secs(2), talkSeconds: 2, hungUpBy: HUNG_UP_BY_REP }));
-  ok("the REP hung up at 2 s → never auto-logged; they were there", v.code === null && v.reason === "rep_hung_up", v);
+  ok("the REP hung up a CONNECTED call at 2 s → never auto-logged; they were there (and talkSeconds says it connected)", v.code === null && v.reason === "rep_hung_up" && v.talkSeconds === 2, v);
+  const ringing = autoLogOutcome(browserRow({ providerStatus: "canceled", hungUpBy: HUNG_UP_BY_REP }));
+  ok("the rep hung up while it was still RINGING (Twilio: canceled) → no_answer by the line; nothing unanswered reaches the rep", ringing.code === "no_answer" && ringing.reason === "canceled", ringing);
 }
 {
   const v = autoLogOutcome(browserRow({ providerStatus: "no-answer" }));
@@ -245,7 +270,7 @@ section("5. The panel: the form where the rep is, the grace, the undo");
   ok("`disconnect` posts who hung up: rep if the button was pressed, else prospect", /HUNG_UP_BY_REP \? HUNG_UP_BY_REP : HUNG_UP_BY_PROSPECT/.test(onDisconnect) && /action: "ended"/.test(onDisconnect));
   ok("…and arms the auto-ask with the grace, except for the rep's own hang-up", /autoAsk: hungUpBy !== HUNG_UP_BY_REP/.test(onDisconnect) && /graceMs: AUTO_LOG_GRACE_SECONDS \* 1000/.test(onDisconnect));
   const timer = between(panel, "const autoAskSeen = useRef(null);", "useEffect(() => {\n    if (!flash)");
-  ok("the timer stays out of it once the rep has started typing", /if \(codeRef\.current \|\| noteRef\.current\) return;/.test(timer));
+  ok("the timer stays out of it once the rep has started typing", /if \(draftStarted\(draftRef\.current\)\) return;/.test(timer));
   ok("…posts auto_log after the grace", /action: "auto_log"/.test(timer) && /setTimeout\(ask, Math\.max\(0, Number\(pending\.graceMs\)/.test(timer));
   ok("…asks again while the carrier has not reported, a bounded number of times", /reason === "not_reported" && tries < 5/.test(timer));
   ok("…and on success clears the pending call, opens the undo strip for AUTO_LOG_UNDO_SECONDS, and frees the dialler (refresh, load, onWorked)", /setAutoLogged\(\{ attemptId, code: body\.code[^}]*until: Date\.now\(\) \+ AUTO_LOG_UNDO_SECONDS \* 1000/.test(timer) && /await presenceRef\.current\.refresh\(\);\s*await load\(\);\s*onWorked\?\.\(\);/.test(timer));
@@ -275,6 +300,114 @@ section("5. The panel: the form where the rep is, the grace, the undo");
   const newKeys = ["app.salesCall.autoLoggedAs", "app.salesCall.autoLoggedChange", "app.salesCall.changeAutoLoggedBody", "app.salesCall.autoLogPending"];
   const missing = Object.keys(APP_MESSAGES).flatMap((l) => newKeys.filter((k) => !APP_MESSAGES[l][k]).map((k) => `${l}:${k}`));
   ok("the strip's and the form's new sentences exist in every language", missing.length === 0, missing);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("6. The owner's six buttons — presentation over the vocabulary");
+// ═══════════════════════════════════════════════════════════════════════════
+ok("exactly four primary, in the owner's order: Sent the link, Call back, Not now, Left a voicemail", PRIMARY_CHOICE_KEYS.join() === [CHOICE_SENT_LINK, CHOICE_CALL_BACK, CHOICE_NOT_NOW, CHOICE_VOICEMAIL].join());
+ok("exactly two under More: Requested no call-backs, Wrong number / not a business", MORE_CHOICE_KEYS.join() === [CHOICE_NO_CALLBACKS, CHOICE_WRONG_OR_NOT_BUSINESS].join());
+ok("keys 1–4 on the primary four, none on More", OUTCOME_CHOICES.filter((c) => c.primary).map((c) => c.hotkey).join() === "1,2,3,4" && OUTCOME_CHOICES.filter((c) => !c.primary).every((c) => c.hotkey === null));
+{
+  const cov = choiceCoverage();
+  ok("every code a button can become is a real disposition", cov.unknown.length === 0, cov.unknown);
+  ok("the line's three (no_answer, busy, hung_up) are NOT offered", cov.autoOffered.length === 0, cov.autoOffered);
+  ok("…and with the line's three, the buttons reach every outcome in the table — nothing became unreachable", cov.unreachable.length === 0, cov.unreachable);
+  ok("OFFERED_CODES is exactly the table minus the line's three", OFFERED_CODES.slice().sort().join() === DISPOSITION_ORDER.filter((c) => !AUTO_LOGGED_CODES.includes(c)).sort().join());
+}
+ok("the folds are the real codes: Call back → callback | gatekeeper | reached_interested; Wrong/not a business → bad_number | not_a_fit", OUTCOME_CHOICES.find((c) => c.key === CHOICE_CALL_BACK).folds.join() === "callback,gatekeeper,reached_interested" && OUTCOME_CHOICES.find((c) => c.key === CHOICE_WRONG_OR_NOT_BUSINESS).folds.join() === "bad_number,not_a_fit");
+ok("Not now → reached_not_interested (the stored code is unchanged; only the words moved)", OUTCOME_CHOICES.find((c) => c.key === CHOICE_NOT_NOW).folds.join() === "reached_not_interested" && DISPOSITIONS.reached_not_interested.label === "Not now");
+ok("Requested no call-backs → do_not_call, the one suppression code", OUTCOME_CHOICES.find((c) => c.key === CHOICE_NO_CALLBACKS).folds.join() === "do_not_call" && DISPOSITIONS.do_not_call.doNotContact === true);
+ok("the note is capped at 280", OUTCOME_NOTE_MAX === 280);
+
+// ── foldChoice, every branch ─────────────────────────────────────────────
+{
+  const f = foldChoice({ key: CHOICE_SENT_LINK, note: "  they said yes  ", now: T0 });
+  ok("Sent the link → agreed_link_sent, note trimmed", f.ok && f.code === "agreed_link_sent" && f.note === "they said yes" && f.callbackAt === null, f);
+  ok("…and planDisposition accepts what the fold produced", planDisposition({ code: f.code, note: f.note, callbackAt: f.callbackAt, now: T0 }).ok === true);
+}
+ok("Left a voicemail → voicemail", foldChoice({ key: CHOICE_VOICEMAIL, now: T0 }).code === "voicemail");
+{
+  const f = foldChoice({ key: CHOICE_NOT_NOW, note: "call after the season", now: T0 });
+  ok("Not now → reached_not_interested with the objection as the note", f.ok && f.code === "reached_not_interested" && f.note === "call after the season", f);
+  ok("…which planDisposition plans, holding the claim", planDisposition({ code: f.code, note: f.note, now: T0 }).ok === true && planDisposition({ code: f.code, note: f.note, now: T0 }).prospect.claimExpiresAt instanceof Date);
+}
+{
+  const later = foldChoice({ key: CHOICE_CALL_BACK, whenKind: WHEN_LATER_TODAY, now: T0 });
+  ok("Call back · later today → callback three hours on", later.ok && later.code === "callback" && later.callbackAt.getTime() === T0.getTime() + 3 * 60 * 60 * 1000, later);
+  ok("…and planDisposition accepts it", planDisposition({ code: later.code, callbackAt: later.callbackAt, now: T0 }).ok === true);
+  const tmrw = foldChoice({ key: CHOICE_CALL_BACK, whenKind: WHEN_TOMORROW, now: T0 });
+  const expect = callbackTimeFor(WHEN_TOMORROW, { now: T0 });
+  ok("Call back · tomorrow → callback at 10:00 the next day (the caller's zone)", tmrw.ok && tmrw.code === "callback" && tmrw.callbackAt.getTime() === expect.getTime() && expect.getHours() === 10 && expect.getTime() > T0.getTime(), tmrw);
+  const pick = foldChoice({ key: CHOICE_CALL_BACK, whenKind: WHEN_PICK, whenAt: "2026-09-16T15:00:00Z", now: T0 });
+  ok("Call back · pick → callback at the chosen time", pick.ok && pick.code === "callback" && pick.callbackAt.toISOString() === "2026-09-16T15:00:00.000Z", pick);
+  const badPick = foldChoice({ key: CHOICE_CALL_BACK, whenKind: WHEN_PICK, whenAt: "not a date", now: T0 });
+  ok("Call back · pick with an unreadable time → refused with the key", !badPick.ok && badPick.reasonKey === "app.salesCall.choice.call_back.needsTime", badPick);
+  const gk = foldChoice({ key: CHOICE_CALL_BACK, notOwner: true, now: T0 });
+  ok("Call back · no time · not the owner → gatekeeper", gk.ok && gk.code === "gatekeeper" && gk.callbackAt === null, gk);
+  const int = foldChoice({ key: CHOICE_CALL_BACK, interested: true, now: T0 });
+  ok("Call back · no time · interested → reached_interested", int.ok && int.code === "reached_interested", int);
+  const neither = foldChoice({ key: CHOICE_CALL_BACK, now: T0 });
+  ok("Call back · no time · nothing ticked → refused, never a callback at an invented hour", !neither.ok && neither.reasonKey === "app.salesCall.choice.call_back.needsTimeOrTick", neither);
+  const both = foldChoice({ key: CHOICE_CALL_BACK, notOwner: true, interested: true, now: T0 });
+  ok("Call back · no time · both ticked → refused (one or the other)", !both.ok && both.reasonKey === "app.salesCall.choice.call_back.needsTimeOrTick", both);
+  const timed = foldChoice({ key: CHOICE_CALL_BACK, whenKind: WHEN_LATER_TODAY, notOwner: true, now: T0 });
+  ok("Call back · with a time · a tick as well → the time wins; it is a callback", timed.ok && timed.code === "callback", timed);
+}
+{
+  const empty = foldChoice({ key: CHOICE_NO_CALLBACKS, note: "   ", now: T0 });
+  ok("Requested no call-backs with no words → refused", !empty.ok && empty.reasonKey === "app.salesCall.choice.no_callbacks.needsWords", empty);
+  const said = foldChoice({ key: CHOICE_NO_CALLBACKS, note: "take me off your list", now: T0 });
+  ok("…with their words → do_not_call, and planDisposition writes the suppression", said.ok && said.code === "do_not_call" && planDisposition({ code: said.code, note: said.note, now: T0 }).suppression?.channels.join() === "phone");
+}
+{
+  const which = foldChoice({ key: CHOICE_WRONG_OR_NOT_BUSINESS, now: T0 });
+  ok("Wrong number / not a business with nothing chosen → refused", !which.ok && which.reasonKey === "app.salesCall.choice.wrong_or_not_business.needsWhich", which);
+  const wrong = foldChoice({ key: CHOICE_WRONG_OR_NOT_BUSINESS, which: WHICH_WRONG_NUMBER, now: T0 });
+  ok("…wrong number → bad_number, no words needed", wrong.ok && wrong.code === "bad_number", wrong);
+  const nb = foldChoice({ key: CHOICE_WRONG_OR_NOT_BUSINESS, which: WHICH_NOT_A_BUSINESS, now: T0 });
+  ok("…not a business, no words → refused", !nb.ok && nb.reasonKey === "app.salesCall.choice.wrong_or_not_business.needsWords", nb);
+  const nb2 = foldChoice({ key: CHOICE_WRONG_OR_NOT_BUSINESS, which: WHICH_NOT_A_BUSINESS, note: "a franchise head office", now: T0 });
+  ok("…not a business, with words → not_a_fit", nb2.ok && nb2.code === "not_a_fit" && planDisposition({ code: nb2.code, note: nb2.note, now: T0 }).ok === true, nb2);
+}
+ok("a note longer than 280 is clipped, not refused", foldChoice({ key: CHOICE_VOICEMAIL, note: "x".repeat(500), now: T0 }).note.length === OUTCOME_NOTE_MAX);
+ok("an unknown key → refused with a key, never a code", (() => { const f = foldChoice({ key: "made_up", now: T0 }); return !f.ok && f.code === null && f.reasonKey === "app.salesCall.choice.unknown"; })() && !foldChoice({}).ok && !foldChoice(null).ok);
+ok("choiceForCode maps a stored code back to its button, and the line's codes to none", choiceForCode("gatekeeper")?.key === CHOICE_CALL_BACK && choiceForCode("not_a_fit")?.key === CHOICE_WRONG_OR_NOT_BUSINESS && choiceForCode("hung_up") === null);
+{
+  const langs = Object.keys(APP_MESSAGES);
+  const missing = langs.flatMap((l) => CHOICE_KEYS.filter((k) => !APP_MESSAGES[l][`app.salesCall.choice.${k}.label`]).map((k) => `${l}:${k}`));
+  ok(`every button has a label in all ${langs.length} languages`, missing.length === 0, missing);
+  ok("FR and ES carry the owner's wording for option 5", APP_MESSAGES.fr["app.salesCall.choice.no_callbacks.label"] === "A demandé de ne plus être rappelé" && APP_MESSAGES.es["app.salesCall.choice.no_callbacks.label"] === "Pidió que no lo vuelvan a llamar");
+  ok("…and the stored code's own label says the same in English", APP_MESSAGES.en["app.salesCall.disposition.do_not_call.label"] === "Requested no call-backs" && APP_MESSAGES.en["app.salesCall.disposition.reached_not_interested.label"] === "Not now");
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("7. The pop-up: after an answered call ended, never on connect, never a wall");
+// ═══════════════════════════════════════════════════════════════════════════
+{
+  const panel = source("app/components/sales/CallPanel.js");
+  const form = source("app/components/sales/OutcomeForm.js");
+  ok("the picker is OutcomeForm, in all three places (Dialer column / tab through both(), and the sheet)", (panel.match(/<OutcomeForm /g) || []).length === 2 && /both\(slots\?\.disposition \|\| null, \(inline\) =>/.test(panel) && /<OutcomeSheet/.test(panel));
+  ok("…and no copy of the panel still renders a <select> of dispositions", !/<select/.test(panel) && !/<select/.test(form));
+  const timer = between(panel, "const autoAskSeen = useRef(null);", "useEffect(() => {\n    if (!flash)");
+  ok("the sheet opens ONLY from the auto-log reply: reason talked | rep_hung_up AND a numeric talkSeconds (connected)", /\(body\?\.reason === "talked" \|\| body\?\.reason === "rep_hung_up"\) && typeof body\?\.talkSeconds === "number"/.test(timer) && /setSheetOpen\(true\)/.test(timer));
+  ok("…nothing else in the panel opens it", (panel.match(/setSheetOpen\(true\)/g) || []).length === 1);
+  const connect = between(panel, "const call = await device.connect(", 'call.on("disconnect"');
+  ok("…not on connect", !/setSheetOpen/.test(connect));
+  const onDisconnect = between(panel, 'call.on("disconnect"', 'call.on("error"');
+  ok("…not on disconnect either (the carrier's word comes first)", !/setSheetOpen/.test(onDisconnect));
+  ok("the sheet is closed while a call is up and when nothing is pending", /open=\{Boolean\(sheetOpen && pending && !startedAt\)\}/.test(panel));
+  ok("a save closes it; 'later' closes it and leaves the form in the Dialer column", /setSheetOpen\(false\);/.test(between(panel, "async function saveOutcome()", "const later")) && /const later = useCallback\(\(\) => setSheetOpen\(false\), \[\]\);/.test(panel));
+  ok("the timer never auto-logs once the rep has started (draftStarted)", /if \(draftStarted\(draftRef\.current\)\) return;/.test(timer));
+
+  const sheet = between(form, "export function OutcomeSheet(", "\n}");
+  ok("Esc is later", /e\.key === "Escape"/.test(sheet) && /onLater\?\.\(\);/.test(sheet));
+  ok("1–4 press the primary buttons and M opens More, but never while typing in a field", /OUTCOME_CHOICES\.find\(\(c\) => c\.hotkey === e\.key\)/.test(sheet) && /e\.key === "m" \|\| e\.key === "M"/.test(sheet) && /if \(typing\) return;/.test(sheet));
+  ok("the backdrop is a 'later' button, and the dialog is not aria-modal", /data-outcome-backdrop/.test(sheet) && /onClick=\{onLater\}/.test(sheet) && /aria-modal="false"/.test(sheet));
+  ok("a phone gets a bottom sheet, a desktop a centred dialog", /items-end sm:items-center sm:justify-center/.test(sheet));
+  ok("the sheet carries the 'Write it up later' button (onLater) and the panel copies do not", /onLater=\{later\}/.test(between(panel, "<OutcomeSheet", "</OutcomeSheet>")) && !/onLater=/.test(between(panel, "both(slots?.disposition || null, (inline) =>", "{autoLogged && !pending && !startedAt")));
+  ok("the note field is capped at OUTCOME_NOTE_MAX in the form", /maxLength=\{OUTCOME_NOTE_MAX\}/.test(form));
+  ok("the fold, not the screen, names the code: saveOutcome posts fold.code", /disposition: fold\.code/.test(panel) && !/disposition: code/.test(panel));
 }
 
 console.log(`\ncheck-sales-call-panel: ${passed} passed, ${failed} failed`);

@@ -212,9 +212,10 @@ ok(
   Object.values(DISPOSITIONS).every((d) => d.prospectStatus === null || d.prospectStatus === "needs_review"),
 );
 ok(
-  "“not interested” keeps the prospect worked, so nobody else re-pitches them",
-  DISPOSITIONS.reached_not_interested.claim === CLAIM_WORKED,
+  "“not now” (the code is still reached_not_interested) HOLDS the claim — a later pass, not a close (owner, 2026-09-14)",
+  DISPOSITIONS.reached_not_interested.claim === CLAIM_HOLD && DISPOSITIONS.reached_not_interested.label === "Not now",
 );
+ok("…and the one permanent stop is do_not_call, worded as the owner asked", DISPOSITIONS.do_not_call.claim === CLAIM_WORKED && DISPOSITIONS.do_not_call.label === "Requested no call-backs");
 ok("“do not call” writes the list, not just the row", DISPOSITIONS.do_not_call.doNotContact === true);
 ok("“do not call” refuses to be logged without words", DISPOSITIONS.do_not_call.requiresNote === true);
 ok(
@@ -299,7 +300,7 @@ ok("the lead status follows the vocabulary and never invents one", (() => {
   const interested = plan({ code: "reached_interested" }).lead;
   const no = plan({ code: "reached_not_interested" }).lead;
   const nothing = plan({ code: "no_answer" }).lead;
-  return interested.status === "contacted" && no.status === "lost" && nothing === null;
+  return interested.status === "contacted" && no.status === "contacted" && nothing === null;
 })());
 ok("every planned attempt records the code it came from", (() => {
   const r = plan({ code: "voicemail" });

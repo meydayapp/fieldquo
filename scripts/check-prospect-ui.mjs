@@ -1227,7 +1227,7 @@ ok(
     );
     ok(
       "…and the disposition it names is a real one that writes a suppression",
-      DISPOSITIONS.do_not_call?.label === "Asked not to be called again" &&
+      DISPOSITIONS.do_not_call?.label === "Requested no call-backs" &&
         DISPOSITIONS.do_not_call?.doNotContact === true,
       DISPOSITIONS.do_not_call?.label,
     );

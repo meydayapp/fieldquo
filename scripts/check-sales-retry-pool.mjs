@@ -136,8 +136,15 @@ ok("voicemail: 2 days, 3 attempts, rotates, not same day", RETRY_RULES.voicemail
 ok("gatekeeper: 1 day, 4 attempts, rotates", RETRY_RULES.gatekeeper.delayMinutes === 24 * 60 && RETRY_RULES.gatekeeper.maxAttempts === 4);
 ok("RETRY_RULE_DEFAULTS is the same table", RETRY_RULE_DEFAULTS === RETRY_RULES);
 ok("callback is its own kind with no ceiling", RETRY_RULES.callback.kind === RETRY_KIND_CALLBACK && RETRY_RULES.callback.maxAttempts === null);
-for (const code of ["reached_interested", "agreed_link_sent", "reached_not_interested", "do_not_call", "bad_number", "not_a_fit"]) {
+for (const code of ["reached_interested", "agreed_link_sent", "do_not_call", "bad_number", "not_a_fit"]) {
   ok(`${code} is final`, RETRY_RULES[code].kind === RETRY_KIND_FINAL);
+}
+ok("“not now” (reached_not_interested) is a RETRY: 30 days, not same day, no rotation — the owner's later pass", RETRY_RULES.reached_not_interested.kind === RETRY_KIND_RETRY && RETRY_RULES.reached_not_interested.delayMinutes === 30 * 24 * 60 && RETRY_RULES.reached_not_interested.sameDay === false && RETRY_RULES.reached_not_interested.rotateBlock === false);
+ok("…its ceiling is busy's, so RETRY_MAX_ATTEMPTS does not move", RETRY_RULES.reached_not_interested.maxAttempts === RETRY_RULES.busy.maxAttempts);
+ok("…and the platform can push it out as well as in (the delay ceiling is past 30 days)", RETRY_DELAY_MAX_MINUTES > 30 * 24 * 60 && retryRuleEditData("reached_not_interested", { delayMinutes: 60 * 24 * 60, sameDay: false, maxAttempts: 6, rotateBlock: false }).ok === true);
+{
+  const d = nextAttempt({ outcome: "reached_not_interested", attemptCount: 1, now: new Date("2026-09-11T14:00:00Z"), timeZone: TORONTO });
+  ok("a “not now” on 11 Sep is scheduled on or after 11 Oct, inside the window", d.kind === RETRY_KIND_RETRY && d.nextAttemptAt instanceof Date && d.nextAttemptAt.getTime() >= new Date("2026-10-11T14:00:00Z").getTime() && d.exhausted === false, d.nextAttemptAt);
 }
 ok("busy's ceiling is the highest, so 'Retry 1 of M' before a dial reads M = 6", RETRY_MAX_ATTEMPTS === 6);
 ok("the four blocks, in rotation order", RETRY_BLOCKS.join(",") === "morning,midday,afternoon,evening");
@@ -146,7 +153,7 @@ ok("the platform table is the rules in order, with the words", (() => {
   const t = retryRuleTable();
   return t.length === RETRY_RULE_ORDER.length && t.every((r, i) => r.code === RETRY_RULE_ORDER[i] && r.why === RETRY_RULES[r.code].why);
 })());
-ok("…every row says whether it is editable and what the default is", retryRuleTable().every((r) => typeof r.editable === "boolean" && r.source === "default" && r.defaults && r.defaults.delayMinutes === RETRY_RULES[r.code].delayMinutes) && retryRuleTable().filter((r) => r.editable).map((r) => r.code).join() === "no_answer,busy,hung_up,voicemail,gatekeeper");
+ok("…every row says whether it is editable and what the default is", retryRuleTable().every((r) => typeof r.editable === "boolean" && r.source === "default" && r.defaults && r.defaults.delayMinutes === RETRY_RULES[r.code].delayMinutes) && retryRuleTable().filter((r) => r.editable).map((r) => r.code).join() === "no_answer,busy,hung_up,voicemail,gatekeeper,reached_not_interested");
 
 // ═══════════════════════════════════════════════════════════════════════════
 section("1b. The platform override: rows win, bad cells fall back, nothing else is editable");
@@ -155,7 +162,7 @@ section("1b. The platform override: rows win, bad cells fall back, nothing else 
     { outcome: "no_answer", delayMinutes: 180, sameDay: false, maxAttempts: 5, rotateBlock: true, note: "trying three hours", updatedById: "adm_1", updatedAt: new Date("2026-09-13T12:00:00Z") },
     { outcome: "busy", delayMinutes: 0, sameDay: true, maxAttempts: 999, rotateBlock: false },
     { outcome: "callback", delayMinutes: 60, sameDay: true, maxAttempts: 2, rotateBlock: true },
-    { outcome: "reached_not_interested", delayMinutes: 60, sameDay: true, maxAttempts: 2, rotateBlock: true },
+    { outcome: "do_not_call", delayMinutes: 60, sameDay: true, maxAttempts: 2, rotateBlock: true },
     { outcome: "made_up", delayMinutes: 60, sameDay: true, maxAttempts: 2, rotateBlock: true },
   ];
   const rules = effectiveRetryRules(rows);
@@ -163,7 +170,7 @@ section("1b. The platform override: rows win, bad cells fall back, nothing else 
   ok("…and carries the note, who and when for the screen; the code's why stays", rules.no_answer.note === "trying three hours" && rules.no_answer.updatedById === "adm_1" && rules.no_answer.updatedAt === "2026-09-13T12:00:00.000Z" && rules.no_answer.why === RETRY_RULES.no_answer.why);
   ok("a value outside the sane range falls back to the default for THAT field only", rules.busy.delayMinutes === 15 && rules.busy.maxAttempts === 6 && rules.busy.sameDay === true && rules.busy.source === "override");
   ok("a row for a callback is ignored", rules.callback.kind === RETRY_KIND_CALLBACK && rules.callback.delayMinutes === null && rules.callback.source === "default");
-  ok("a row for a final outcome is ignored", rules.reached_not_interested.kind === RETRY_KIND_FINAL && rules.reached_not_interested.source === "default");
+  ok("a row for a final outcome is ignored", rules.do_not_call.kind === RETRY_KIND_FINAL && rules.do_not_call.source === "default");
   ok("a row for an outcome the table does not know adds nothing", !("made_up" in rules));
   ok("untouched rules are the defaults, said to be", rules.voicemail.delayMinutes === RETRY_RULES.voicemail.delayMinutes && rules.voicemail.source === "default");
   ok("the table is frozen", Object.isFrozen(rules) && Object.isFrozen(rules.no_answer));
@@ -286,7 +293,7 @@ section("2c. callback and final outcomes");
   const none = nextAttempt({ outcome: "callback", attemptCount: 1, now: new Date("2026-09-11T14:00:00Z"), timeZone: TORONTO, callbackAt: "not a date" });
   ok("a callback with no usable time schedules nothing rather than now", none.nextAttemptAt === null);
 }
-for (const code of ["reached_interested", "agreed_link_sent", "reached_not_interested", "do_not_call", "bad_number", "not_a_fit"]) {
+for (const code of ["reached_interested", "agreed_link_sent", "do_not_call", "bad_number", "not_a_fit"]) {
   const d = nextAttempt({ outcome: code, attemptCount: 7, now: new Date("2026-09-11T14:00:00Z"), timeZone: TORONTO });
   ok(`${code}: counted, nothing scheduled, never exhausted`, d.kind === RETRY_KIND_FINAL && d.attemptCount === 8 && d.nextAttemptAt === null && d.exhausted === false);
 }
@@ -415,7 +422,7 @@ section("5. Exhaustion is set once; recycle resets the count and deletes nothing
   ok("the third no-answer writes exhaustedAt", w.data.exhaustedAt === now && w.data.nextAttemptAt === null && w.data.attemptCount === 3);
   const raised = retryWriteFor({ outcome: "no_answer", prospect: { attemptCount: 2, exhaustedAt: null, country: "CA", province: "ON" }, now, rules: effectiveRetryRules([{ outcome: "no_answer", delayMinutes: 120, sameDay: true, maxAttempts: 4, rotateBlock: true }]) });
   ok("…unless the platform raised the ceiling: retryWriteFor honours the table it is handed", !("exhaustedAt" in raised.data) && raised.data.nextAttemptAt instanceof Date);
-  const again = retryWriteFor({ outcome: "reached_not_interested", prospect: { attemptCount: 3, exhaustedAt: now, country: "CA", province: "ON" }, now: new Date(now.getTime() + 1000) });
+  const again = retryWriteFor({ outcome: "do_not_call", prospect: { attemptCount: 3, exhaustedAt: now, country: "CA", province: "ON" }, now: new Date(now.getTime() + 1000) });
   ok("a later final outcome does not clear it — clearing is the recycle's job", !("exhaustedAt" in again.data) && again.data.attemptCount === 4);
   const already = retryWriteFor({ outcome: "no_answer", prospect: { attemptCount: 9, exhaustedAt: now, country: "CA", province: "ON" }, now: new Date(now.getTime() + 1000) });
   ok("an exhausted row dialled by hand again does not move the exhausted date", !("exhaustedAt" in already.data));

@@ -46,6 +46,7 @@ import {
   describeSuppression,
 } from "@/lib/sales/suppressionRules";
 import { dispositionOptions, DISPOSITION_COPY_KEYS } from "@/lib/sales/calls/dispositions";
+import { CHOICE_COPY_KEYS, CHOICE_REFUSAL_KEYS } from "@/lib/sales/calls/outcomeChoices";
 import { CHECKIN_HEADLINE_KEYS, checkinHeadlineKey, REASON_CODES } from "@/lib/sales/checkin/signals";
 import { ENGAGEMENTS, PAYOUT_METHODS, payoutReadiness } from "@/lib/sales/payoutDetails";
 import { MILESTONE_LABEL_KEYS, MILESTONE_LABELS } from "@/lib/sales/commission";
@@ -257,6 +258,15 @@ section("1. Every key these functions can NAME, the catalogue answers");
     DISPOSITION_COPY_KEYS.length === options.length * 2,
     { declared: DISPOSITION_COPY_KEYS.length, picker: options.length * 2 },
   );
+}
+
+// ── The six outcome buttons and every refusal the fold can print ──────────
+{
+  for (const k of CHOICE_COPY_KEYS) keyLives(k, "CHOICE_COPY_KEYS");
+  for (const k of CHOICE_REFUSAL_KEYS) keyLives(k, "CHOICE_REFUSAL_KEYS");
+  for (const k of ["more", "less", "later", "noteOptional", "noteRequired", "notePlaceholder", "call_back.when", "call_back.later_today", "call_back.tomorrow", "call_back.pick", "call_back.notOwner", "call_back.interested", "wrong_or_not_business.wrong_number", "wrong_or_not_business.not_a_business"]) {
+    keyLives(`app.salesCall.choice.${k}`, "OutcomeForm");
+  }
 }
 
 // ── Eight check-in reasons ────────────────────────────────────────────────
@@ -480,7 +490,10 @@ section("2. The SCREEN resolves the key — it does not print the English");
 
 const RESOLVES = [
   ["app/components/sales/DialRegion.js", ["say(t, space.titleKey", "say(t, b.titleKey", "say(t, u.titleKey", "say(t, w.titleKey", "WindowLines"]],
-  ["app/components/sales/CallPanel.js", ["t(d.labelKey", "t(chosen.hintKey"]],
+  // The picker moved to OutcomeForm.js (the owner's six buttons) and reads
+  // the choice keys; CallPanel names the label key on the auto-log strip.
+  ["app/components/sales/CallPanel.js", ["t(`app.salesCall.disposition.${autoLogged.code}.label`)", "t(choiceLabelKey(c.key))"]],
+  ["app/components/sales/OutcomeForm.js", ["t(choiceLabelKey(choice.key))", "t(choiceHintKey(chosen.key))"]],
   ["app/components/sales/PayoutDestinationForm.js", ["t(m.labelKey", "t(m.noteKey", "t(chosen.handleLabelKey", "t(engagement.labelKey"]],
   ["app/components/sales/EarningsPanel.js", ["t(rung.labelKey"]],
   ["app/components/sales/RepNoteUnavailable.js", ["NOTES_REFUSAL_KEYS"]],
@@ -553,6 +566,7 @@ const TOUCHED = [
   "lib/fetchJson.js",
   "app/components/sales/DialRegion.js",
   "app/components/sales/CallPanel.js",
+  "app/components/sales/OutcomeForm.js",
   "app/components/sales/PlaybookMount.js",
   "app/components/sales/PayoutDestinationForm.js",
 ];

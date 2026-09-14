@@ -395,7 +395,7 @@ for (const lang of LANGS) {
 //   · the manual follow-up control and the draft's send button exist by name.
 for (const [key, phrase] of [
   ["app.salesDial.silentVoicemail", "heard the beep and hung up"],
-  ["app.salesQueue.dncScopeNote", "Asked not to be called again"],
+  ["app.salesQueue.dncScopeNote", "Requested no call-backs"],
   ["app.salesQueue.dncScopeNote", "binds every rep and every channel"],
   ["app.salesDial.decliningNotice", "passes them to the next person on the ring plan"],
   ["app.salesDial.nobodyElseFree", "Nobody else is free right now"],

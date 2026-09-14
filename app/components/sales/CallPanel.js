@@ -40,6 +40,16 @@
 // ONLY into the tab, which is how a rep on the Script tab came to see the
 // refusal ("the last one is not written up yet") and nothing to press.
 //
+// There IS a pop-up now (OutcomeForm.js's OutcomeSheet), and it does not
+// contradict the paragraph above: it opens only after the carrier has
+// reported the call ENDED and the server has said it was answered — the
+// auto-log reply, "talked" or the rep's own hang-up on a connected call —
+// never on connect, never over a live call, never for a call nobody
+// answered. It never blocks the rest of the portal: Esc, the X and a click
+// outside are "later", and the form in the Dialer column is still there.
+// The buttons are the owner's six (lib/sales/calls/outcomeChoices.js), keys
+// 1–4 and M; the nine-option dropdown is gone from every copy.
+//
 // ══ The line logs what it already knows ═══════════════════════════════════
 //
 // A prospect who picks up and puts the phone down, or a line nobody answers,
@@ -89,7 +99,7 @@
 // only stage it was needed for.
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   AlertCircle,
@@ -111,6 +121,8 @@ import {
   HUNG_UP_BY_REP,
   PROVIDER_ENDED,
 } from "@/lib/sales/calls/dispositions";
+import { OUTCOME_CHOICES, choiceLabelKey, foldChoice } from "@/lib/sales/calls/outcomeChoices";
+import OutcomeForm, { EMPTY_DRAFT, OutcomeSheet, draftStarted } from "./OutcomeForm";
 import PlaybookMount from "./PlaybookMount";
 import PublishedEmail from "./PublishedEmail";
 import TransferControl from "./TransferControl";
@@ -119,9 +131,6 @@ import { useRepPresence } from "./RepStatus";
 
 const BTN =
   "inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60";
-const FIELD =
-  "w-full border border-border rounded-lg px-3 py-2.5 min-h-[44px] text-base bg-card text-foreground disabled:opacity-60";
-
 /** "4:12". A call timer, so seconds are never dropped. */
 function clock(ms) {
   if (!Number.isFinite(ms) || ms < 0) return "0:00";
@@ -248,11 +257,15 @@ export default function CallPanel({
   const [muted, setMuted] = useState(false);
   const [tick, setTick] = useState(0);
 
-  // Written up, or waiting to be.
+  // Written up, or waiting to be. `draft` is what the rep has pressed and
+  // typed in the outcome form — OutcomeForm.js's shape, shared by the three
+  // copies of the form (Dialer column, Disposition tab, pop-up).
   const [pending, setPending] = useState(null);
-  const [code, setCode] = useState("");
-  const [note, setNote] = useState("");
-  const [callbackAt, setCallbackAt] = useState("");
+  const [draft, setDraft] = useState(EMPTY_DRAFT);
+  const [formError, setFormError] = useState("");
+  // The pop-up. Opened only by the auto-log reply saying "answered, ask the
+  // rep"; closed by a save, by "later", or by the pending call going away.
+  const [sheetOpen, setSheetOpen] = useState(false);
   // What the line logged by itself, while the "change" strip is up:
   // `{ attemptId, code, toE164, dialledAt, until }`.
   const [autoLogged, setAutoLogged] = useState(null);
@@ -264,10 +277,8 @@ export default function CallPanel({
   const hungUpByRef = useRef(null);
   // The outcome the rep has started, readable from a timer without closing
   // over a stale render.
-  const codeRef = useRef("");
-  const noteRef = useRef("");
-  codeRef.current = code;
-  noteRef.current = note;
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
   // The "Schedule a call back" calendar entry — and the demo, the sign-up and
   // the walkthrough beside it — live in NextSteps.js, separate from the
   // disposition callback above (which is how a LOGGED call records the time
@@ -359,8 +370,6 @@ export default function CallPanel({
   // `tick` is read so the timer re-renders; the value itself is not used.
   void tick;
 
-  const dispositions = useMemo(() => config?.dispositions || [], [config]);
-  const chosen = dispositions.find((d) => d.code === code) || null;
 
   async function place(channel) {
     // Never two at once, and never over a call. The Call button is not
@@ -583,7 +592,7 @@ export default function CallPanel({
     let tries = 0;
     const ask = async () => {
       if (cancelled) return;
-      if (codeRef.current || noteRef.current) return;
+      if (draftStarted(draftRef.current)) return;
       tries += 1;
       let body = null;
       try {
@@ -608,6 +617,15 @@ export default function CallPanel({
       }
       if (body?.reason === "not_reported" && tries < 5) {
         timer = setTimeout(ask, 3000);
+        return;
+      }
+      // The server's word that the call was ANSWERED and the rep has to say
+      // what happened: a conversation ("talked"), or the rep's own hang-up on
+      // a connected call (talkSeconds is a number only when it connected).
+      // This — and nothing else — opens the pop-up. A call nobody answered
+      // never reaches here with a code of null and a number of seconds.
+      if ((body?.reason === "talked" || body?.reason === "rep_hung_up") && typeof body?.talkSeconds === "number") {
+        setSheetOpen(true);
       }
     };
     timer = setTimeout(ask, Math.max(0, Number(pending.graceMs) || 0));
@@ -645,6 +663,8 @@ export default function CallPanel({
     if (!autoLogged) return;
     setPending({ id: autoLogged.attemptId, toE164: autoLogged.toE164, dialledAt: autoLogged.dialledAt, override: autoLogged.code, autoAsk: false });
     setAutoLogged(null);
+    setDraft(EMPTY_DRAFT);
+    setFormError("");
     setError("");
   }
 
@@ -657,9 +677,27 @@ export default function CallPanel({
   }
 
   async function saveOutcome() {
-    if (!pending || !code) return;
+    if (!pending || !draft.choice) return;
+    // The fold is pure (outcomeChoices.js): the six buttons become one of the
+    // table's codes, or a refusal with the sentence to print. Nothing here
+    // names a code.
+    const fold = foldChoice({
+      key: draft.choice,
+      note: draft.note,
+      whenKind: draft.whenKind,
+      whenAt: draft.whenAt ? new Date(draft.whenAt) : null,
+      notOwner: draft.notOwner,
+      interested: draft.interested,
+      which: draft.which,
+      now: new Date(),
+    });
+    if (!fold.ok) {
+      setFormError(t(fold.reasonKey));
+      return;
+    }
     setBusy("disposition");
     setError("");
+    setFormError("");
     try {
       await fetchJson("/api/sales/calls", {
         method: "POST",
@@ -667,15 +705,14 @@ export default function CallPanel({
         body: JSON.stringify({
           action: "disposition",
           attemptId: pending.id,
-          disposition: code,
-          note,
-          callbackAt: callbackAt ? new Date(callbackAt).toISOString() : null,
+          disposition: fold.code,
+          note: fold.note,
+          callbackAt: fold.callbackAt ? fold.callbackAt.toISOString() : null,
         }),
       });
       setPending(null);
-      setCode("");
-      setNote("");
-      setCallbackAt("");
+      setDraft(EMPTY_DRAFT);
+      setSheetOpen(false);
       // The server moved the rep back to available. Awaited BEFORE onWorked,
       // because the queue's autodialler arms on onWorked and reads the state
       // through the same context — armed against a row still saying on_call
@@ -685,11 +722,14 @@ export default function CallPanel({
       await load();
       onWorked?.();
     } catch (err) {
-      setError(err?.message || t("app.salesCall.outcomeSaveFailed"));
+      setFormError(err?.message || t("app.salesCall.outcomeSaveFailed"));
     } finally {
       setBusy("");
     }
   }
+
+  /** "Later": the pop-up closes; the form in the Dialer column stays. */
+  const later = useCallback(() => setSheetOpen(false), []);
 
   /** Draw `node` in the console's slot when it has one, inline otherwise. */
   const into = (slot, node) => (slot ? createPortal(node, slot) : node);
@@ -836,74 +876,11 @@ export default function CallPanel({
                 </p>
               </div>
 
-              {/* The disposition VALUE is an enum the server writes to
-                  SalesCallAttempt. Only `d.label` is words, and WHICH words is
-                  still lib/sales/calls/dispositions.js's decision — this screen
-                  has no say in it. What the table now sends beside each label is
-                  the catalogue key it was written from, so the one control a rep
-                  touches on every call reads in the rep's own language. The
-                  English label is the fallback and nothing else. */}
-              <select
-                className={FIELD}
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                aria-label={t("app.salesCall.outcomeAria")}
-              >
-                <option value="">{t("app.salesCall.pickOutcome")}</option>
-                {dispositions.map((d) => (
-                  <option key={d.code} value={d.code}>
-                    {t(d.labelKey, d.label)}
-                  </option>
-                ))}
-              </select>
-              {chosen ? (
-                <p className="text-xs text-amber-900 dark:text-amber-200 break-words">
-                  {t(chosen.hintKey, chosen.hint)}
-                </p>
-              ) : null}
+              {/* The six buttons, over the one shared draft. Every press
+                  folds to a real code in lib/sales/calls/outcomeChoices.js;
+                  this screen has no say in which. */}
+              <OutcomeForm t={t} draft={draft} setDraft={setDraft} busy={busy} onSave={saveOutcome} error={formError} />
 
-              {chosen?.requiresCallback ? (
-                <label className="block text-sm">
-                  <span className="text-amber-900 dark:text-amber-100">
-                    {t("app.salesCall.callbackWhen")}
-                  </span>
-                  <input
-                    type="datetime-local"
-                    className={FIELD}
-                    value={callbackAt}
-                    onChange={(e) => setCallbackAt(e.target.value)}
-                  />
-                </label>
-              ) : null}
-
-              <label className="block text-sm">
-                <span className="text-amber-900 dark:text-amber-100">
-                  {chosen?.requiresNote
-                    ? t("app.salesCall.noteLabelRequired")
-                    : t("app.salesCall.noteLabelOptional")}
-                </span>
-                <textarea
-                  className={FIELD}
-                  rows={3}
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                  placeholder={
-                    chosen?.requiresNote
-                      ? t("app.salesCall.notePlaceholderRequired")
-                      : t("app.salesCall.notePlaceholderOptional")
-                  }
-                />
-              </label>
-
-              <button
-                type="button"
-                className={`${BTN} bg-primary text-primary-foreground w-full`}
-                disabled={!code || Boolean(busy)}
-                onClick={saveOutcome}
-              >
-                {busy === "disposition" ? <Loader2 className="animate-spin" size={16} /> : null}
-                {t("app.salesCall.saveOutcome")}
-              </button>
               {pending.autoAsk && pending.dialChannel === "browser" ? (
                 <p className="text-xs text-amber-900 dark:text-amber-200 break-words">
                   {t("app.salesCall.autoLogPending")}
@@ -919,10 +896,12 @@ export default function CallPanel({
               <div className="rounded-lg border border-dashed border-border bg-muted p-3 text-sm text-muted-foreground space-y-2" data-call-disposition-empty>
                 <p className="font-semibold text-foreground">{t("app.salesCall.noCallToLog")}</p>
                 <p className="break-words">{t("app.salesCall.noCallToLogBody")}</p>
+                {/* What the buttons offer — not the line's three, which a
+                    rep never picks (outcomeChoices.js). */}
                 <ul className="flex flex-wrap gap-1.5">
-                  {dispositions.map((d) => (
-                    <li key={d.code} className="rounded-full border border-border bg-card px-2.5 py-1 text-xs text-foreground">
-                      {t(d.labelKey, d.label)}
+                  {OUTCOME_CHOICES.map((c) => (
+                    <li key={c.key} className="rounded-full border border-border bg-card px-2.5 py-1 text-xs text-foreground">
+                      {t(choiceLabelKey(c.key))}
                     </li>
                   ))}
                 </ul>
@@ -955,6 +934,19 @@ export default function CallPanel({
             </div>
           ))
         : null}
+
+      {/* ── The pop-up, after an answered call has ended ─────────────────
+          Same draft, same save. Opened only by the auto-log reply — see the
+          header and the timer above. */}
+      <OutcomeSheet
+        t={t}
+        open={Boolean(sheetOpen && pending && !startedAt)}
+        onLater={later}
+        title={t("app.salesCall.whatHappened")}
+        body={pending ? t("app.salesCall.whatHappenedBody", { number: pending.toE164 }) : ""}
+      >
+        <OutcomeForm t={t} draft={draft} setDraft={setDraft} busy={busy} onSave={saveOutcome} onLater={later} error={formError} autoFocus />
+      </OutcomeSheet>
 
       {/* ── The call button ─────────────────────────────────────────────── */}
       {!startedAt && !pending ? (
