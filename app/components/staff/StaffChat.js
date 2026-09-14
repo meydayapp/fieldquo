@@ -40,6 +40,7 @@ import { notify } from "@/lib/notify/browser";
 import { staffApi, STAFF_REFUSAL_KEYS } from "@/lib/staff/client";
 import { slugify, groupOf, GROUP_ORDER } from "@/lib/staff/channels";
 import { layoutThread } from "@/lib/chat/threadLayout";
+import { announceBadgesChanged } from "@/lib/chat/badges";
 import {
   ChatLayout,
   PANE_LIST,
@@ -423,12 +424,26 @@ export default function StaffChat({ heading = "Team" }) {
         if (!keepSeen) lastSeenRef.current = next.lastSeenAt || null;
         setRoom(next);
         setRoomError("");
+        return true;
       } catch (err) {
         setRoomError(say(err, "app.teamChat.roomLoadError"));
+        return false;
       }
     },
     [say],
   );
+
+  // ── After anything that marked a room seen ─────────────────────────────
+  //
+  // The server stamps lastSeenAt inside the room GET, but the list polls
+  // every fifteen seconds and the sidebar's Team digit every ten, so a room
+  // plainly open on screen kept its badge for up to a poll. Re-read the
+  // list now, and tell the chrome (lib/chat/badges.js) so the digit follows
+  // in the same breath rather than on its own clock.
+  const afterSeen = useCallback(() => {
+    loadList();
+    announceBadgesChanged();
+  }, [loadList]);
 
   useEffect(() => {
     loadList();
@@ -451,8 +466,10 @@ export default function StaffChat({ heading = "Team" }) {
   useEffect(() => {
     if (!openId) return;
     setRoom(null);
-    loadRoom(openId);
-  }, [openId, loadRoom]);
+    loadRoom(openId).then((seen) => {
+      if (seen) afterSeen();
+    });
+  }, [openId, loadRoom, afterSeen]);
 
   // Polling, while the tab is visible. A chat that only updates on reload is
   // a mailbox.
@@ -465,6 +482,32 @@ export default function StaffChat({ heading = "Team" }) {
     const id = setInterval(tick, POLL_MS);
     return () => clearInterval(id);
   }, [loadList, loadRoom, openId]);
+
+  // Coming back to the tab. The poll skips while the tab is hidden, so a
+  // room left open overnight has not been marked seen since the tab went to
+  // the background; a rep who returns to it in the morning is looking at
+  // every message in it, and the badge must say so now, not after the next
+  // tick. The room GET is what marks it seen, so it goes first and the list
+  // and digit follow it.
+  useEffect(() => {
+    if (typeof document === "undefined") return undefined;
+    const wake = () => {
+      if (document.hidden) return;
+      if (openId) {
+        loadRoom(openId, { keepSeen: true }).then((seen) => {
+          if (seen) afterSeen();
+        });
+      } else {
+        loadList();
+      }
+    };
+    document.addEventListener("visibilitychange", wake);
+    window.addEventListener("focus", wake);
+    return () => {
+      document.removeEventListener("visibilitychange", wake);
+      window.removeEventListener("focus", wake);
+    };
+  }, [openId, loadRoom, loadList, afterSeen]);
 
   // ── The list, grouped ──────────────────────────────────────────────────
   const teamTopic = useCallback(
@@ -569,14 +612,15 @@ export default function StaffChat({ heading = "Team" }) {
       lastSeenRef.current = new Date().toISOString();
       await loadRoom(openId, { keepSeen: true });
       // The list re-reads too, so the preview and the ordering move with the
-      // message rather than on some later refresh.
-      loadList();
+      // message rather than on some later refresh — and saying something is
+      // seeing it, so the digit follows as well.
+      afterSeen();
     } catch (err) {
       setActionError(say(err, "app.teamChat.refusal.notSent"));
     } finally {
       setSending(false);
     }
-  }, [text, openId, sending, loadRoom, loadList, say]);
+  }, [text, openId, sending, loadRoom, afterSeen, say]);
 
   // ── @ popup ────────────────────────────────────────────────────────────
   const token = useMemo(() => mentionTokenAt(text), [text]);

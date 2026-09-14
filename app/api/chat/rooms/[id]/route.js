@@ -5,7 +5,8 @@
 // GET  → { id, lastSeenAt, kind, jobId, active, title, memberCount, readOnly,
 //          members: [{ id, name, email, label, isYou }],
 //          messages: [{ id, body, at, kind, direction, who, whoKey,
-//                       mentionsMe, meta }] }
+//                       mentionsMe, meta }] }   the newest THREAD_TAKE,
+//                                              oldest first
 // POST { body } → { ok, message }   mentions parsed on write; codes:
 //                                   no_room | empty | read_only
 //
@@ -20,6 +21,7 @@ import { NextResponse } from "next/server";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { roomFor, postMessage, markRoomSeen, seesAllRooms } from "@/lib/company/chat/store";
 import { roomTitle, threadMessages, isActiveJob, memberName } from "@/lib/company/chat/rules";
+import { seenUpTo } from "@/lib/chat/unreadQuery";
 
 export async function GET(request, { params }) {
   const { member, response } = await memberOrRefusal(request);
@@ -36,9 +38,11 @@ export async function GET(request, { params }) {
   const mine = members.find((m) => m.memberId === member.id) || null;
   const lastSeenAt = mine?.lastSeenAt || null;
 
-  // Opening it is reading it. A support session holds no row and stamps
-  // nothing — it must leave no trace on the customer's data.
-  await markRoomSeen(member, room.id);
+  // Opening it is reading it — up to the last message THIS payload shows,
+  // not up to now (lib/chat/unreadQuery.js seenUpTo). A support session
+  // holds no row and stamps nothing — it must leave no trace on the
+  // customer's data.
+  await markRoomSeen(member, room.id, { upTo: seenUpTo(room.messages, "createdAt") });
 
   const title = roomTitle(room, member.id);
   return NextResponse.json({

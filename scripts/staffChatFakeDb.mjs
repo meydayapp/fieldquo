@@ -1,86 +1,56 @@
 // scripts/staffChatFakeDb.mjs
 //
-// An in-memory stand-in for the four Prisma delegates lib/staff/teams.js
-// touches, so scripts/check-staff-chat.mjs can EXECUTE the membership rule
-// rather than grep for it. Just enough Prisma: findUnique/findFirst/findMany
-// with flat equality (and `in`), create, update, upsert by the two compound
-// uniques, and $transaction over an array of already-built promises.
+// The table map for lib/staff/teams.js and lib/staff/store.js, over the
+// shared engine in scripts/fakePrisma.mjs, so scripts/check-staff-chat.mjs
+// can EXECUTE the membership rule and the unread query rather than grep for
+// them.
 //
-// Deliberately not a general mock. Every unsupported shape throws, so a test
-// that reaches for something this does not model fails loudly instead of
-// passing on an undefined.
-let seq = 0;
-const nextId = (p) => `${p}${++seq}`;
+// This file carried a smaller engine of its own — flat equality, no
+// relations, no orderBy — which was enough while the check drove only
+// teams.js. Driving store.js (a room with its members and messages,
+// newest-first, and a grouped count) needed what the company fake already
+// had, so both now share fakePrisma.mjs; see there for what is modelled and
+// what refuses.
+import { makeFakeDb } from "./fakePrisma.mjs";
 
-function matches(row, where) {
-  for (const [k, v] of Object.entries(where || {})) {
-    if (v && typeof v === "object" && !(v instanceof Date)) {
-      if (Array.isArray(v.in)) { if (!v.in.includes(row[k])) return false; continue; }
-      if (k === "roomId_platformAdminId" || k === "roomId_salesRepId") {
-        if (!matches(row, v)) return false;
-        continue;
-      }
-      throw new Error(`fake db: unsupported where on ${k}: ${JSON.stringify(v)}`);
-    }
-    if ((row[k] ?? null) !== (v ?? null)) return false;
-  }
-  return true;
-}
-
-function delegate(table, idPrefix, uniques = []) {
-  const pick = (row, select) => {
-    if (!row) return null;
-    if (!select) return { ...row };
-    const out = {};
-    for (const k of Object.keys(select)) if (select[k]) out[k] = row[k] ?? null;
-    return out;
-  };
-  const find = (where) => table.find((r) => matches(r, where)) || null;
-  return {
-    findUnique: async ({ where, select }) => pick(find(where), select),
-    findFirst: async ({ where, select }) => pick(find(where), select),
-    findMany: async ({ where, select } = {}) => table.filter((r) => matches(r, where)).map((r) => pick(r, select)),
-    create: async ({ data, select }) => {
-      const row = { id: nextId(idPrefix), open: true, ...data };
-      for (const u of uniques) {
-        if (u.every((k) => row[k] != null) && table.some((r) => u.every((k) => r[k] === row[k]))) {
-          const err = new Error("Unique constraint failed"); err.code = "P2002"; throw err;
-        }
-      }
-      table.push(row);
-      return pick(row, select);
+const SHAPE = {
+  tables: ["platformAdmin", "salesRep", "staffRoom", "staffRoomMember", "staffMessage"],
+  relations: {
+    staffRoom: {
+      members: { table: "staffRoomMember", kind: "many", foreignKey: "roomId" },
+      messages: { table: "staffMessage", kind: "many", foreignKey: "roomId" },
     },
-    update: async ({ where, data, select }) => {
-      const row = find(where);
-      if (!row) throw new Error("fake db: update of a row that is not there");
-      Object.assign(row, data);
-      return pick(row, select);
+    staffRoomMember: {
+      platformAdmin: { table: "platformAdmin", kind: "one", localKey: "platformAdminId" },
+      salesRep: { table: "salesRep", kind: "one", localKey: "salesRepId" },
+      room: { table: "staffRoom", kind: "one", localKey: "roomId" },
     },
-    upsert: async ({ where, update, create, select }) => {
-      const row = find(where);
-      if (row) { Object.assign(row, update || {}); return pick(row, select); }
-      const made = { id: nextId(idPrefix), open: true, ...create };
-      table.push(made);
-      return pick(made, select);
+    staffMessage: {
+      authorPlatformAdmin: { table: "platformAdmin", kind: "one", localKey: "authorPlatformAdminId" },
+      authorSalesRep: { table: "salesRep", kind: "one", localKey: "authorSalesRepId" },
     },
-    _rows: table,
-  };
-}
+  },
+  uniques: {
+    staffRoom: [["teamKey"], ["directKey"], ["slug"]],
+    staffRoomMember: [["roomId", "platformAdminId"], ["roomId", "salesRepId"]],
+  },
+  defaults: {
+    staffRoomMember: { open: true, lastSeenAt: null, lastOpenedAt: null, removedAt: null },
+    // sentAt is the message's own clock column, filled per insert the way
+    // @default(now()) fills it.
+    staffMessage: () => ({ kind: "message", mentions: [], meta: null, sentAt: new Date() }),
+    staffRoom: { name: null, slug: null, teamKey: null, directKey: null, private: false, isDefault: false, lastMessageAt: null },
+  },
+  idPrefix: { platformAdmin: "a", salesRep: "r", staffRoom: "room", staffRoomMember: "m", staffMessage: "msg" },
+};
 
 /** A fresh database. Pass rows to start with. */
-export function fakeDb({ admins = [], reps = [], rooms = [], members = [] } = {}) {
-  const tables = {
-    platformAdmin: [...admins],
-    salesRep: [...reps],
-    staffRoom: [...rooms],
-    staffRoomMember: [...members],
-  };
-  return {
-    platformAdmin: delegate(tables.platformAdmin, "a"),
-    salesRep: delegate(tables.salesRep, "r"),
-    staffRoom: delegate(tables.staffRoom, "room", [["teamKey"], ["directKey"], ["slug"]]),
-    staffRoomMember: delegate(tables.staffRoomMember, "m", [["roomId", "platformAdminId"], ["roomId", "salesRepId"]]),
-    $transaction: async (ops) => Promise.all(ops),
-    tables,
-  };
+export function fakeDb({ admins = [], reps = [], rooms = [], members = [], messages = [] } = {}) {
+  return makeFakeDb(SHAPE, {
+    platformAdmin: admins,
+    salesRep: reps,
+    staffRoom: rooms,
+    staffRoomMember: members,
+    staffMessage: messages,
+  });
 }
