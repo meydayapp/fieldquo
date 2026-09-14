@@ -127,7 +127,7 @@ function rowView(p, now, rules) {
 }
 
 async function exhaustedPage({ page, now, rules }) {
-  const where = { exhaustedAt: { not: null } };
+  const where = { exhaustedAt: { not: null }, mergedIntoId: null };
   const [total, rows, recycledTotal] = await Promise.all([
     db.prospect.count({ where }),
     db.prospect.findMany({

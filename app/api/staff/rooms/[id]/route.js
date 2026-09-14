@@ -6,7 +6,8 @@
 //           topic, memberCount, canManage, canLeave,
 //           members: [{ kind, id, name, email, presence }],
 //           messages: [{ id, body, at, kind, direction, who, whoKey,
-//                        mentionsMe, meta }] }
+//                        mentionsMe, meta }] }   the newest THREAD_TAKE,
+//                                               oldest first
 // POST  { body } → { ok, message }   mentions parsed on write
 // PATCH { name?, topic? } → { ok }   owner or superadmin; a team room keeps
 //                                    its name; codes: not_owner | team_room |
@@ -19,6 +20,7 @@ import { NextResponse } from "next/server";
 import { resolveStaffViewer } from "@/lib/staff/viewer";
 import { roomFor, postStaffMessage, markRoomSeen, updateRoom, staffDirectory } from "@/lib/staff/store";
 import { threadMessages, roomTitle } from "@/lib/staff/rooms";
+import { seenUpTo } from "@/lib/chat/unreadQuery";
 import { participantName, participantOf, sameParticipant } from "@/lib/staff/participants";
 import { canManage, canLeave } from "@/lib/staff/channels";
 
@@ -40,8 +42,11 @@ export async function GET(request, { params }) {
   const mine = members.find((m) => sameParticipant(participantOf(m), viewer)) || null;
   const lastSeenAt = mine?.lastSeenAt || null;
 
-  // Opening it is reading it.
-  await markRoomSeen({ viewer, roomId: room.id });
+  // Opening it is reading it — up to the last message THIS payload shows,
+  // not up to now. A message that lands between the read above and this
+  // write is later than the stamp and still counts; one already in the
+  // payload can never be later than it. lib/chat/unreadQuery.js seenUpTo.
+  await markRoomSeen({ viewer, roomId: room.id, upTo: seenUpTo(room.messages, "sentAt") });
 
   // Presence for the header's dot and the @ list, from the same directory
   // read the picker uses.

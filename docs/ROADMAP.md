@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 14 September 2026 (the crawler reads the site's own sitemap, WordPress REST index and framework payload; a JavaScript shell withholds every verdict and says why; services offered are an evidence-cited list — schema, menu, sitemap, page index — on the rep card, in the brief and fenced in the AI summary; check:sales-services and check:sales-crawl §13 assert it, measured on 2,000 stored and 50 live sites.)
+Last updated: 14 September 2026 (chat unread: both stores count unread with a grouped query over every message instead of a slice of the oldest 200, the thread reads its newest 500, a read is stamped with the last message shown rather than the clock, and opening a room re-reads the list and the /sales Team badge at once; StaffRoomMember.lastOpenedAt carries the "is looking" fact for the DM push; check:staff-chat §10–11 and check:company-chat §10 execute it against the fake database.)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -9,6 +9,49 @@ it exists to answer.
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
+
+## Chat unread counts that clear: a count, not a slice; the last message shown, not the clock (14 September 2026)
+
+The owner: "Sometimes in the chat the unread messages don't clear." Both
+chats — the staff one (`/sales/team`, `/platform/chat`) and the crew one
+(`/app/chat`) — had the same three faults.
+
+- **The count was over the wrong rows.** Each listed room loaded its
+  OLDEST 200 messages (`orderBy asc, take 200`) and counted the unread among
+  them; the thread read its oldest 500. Past 200 messages the newest — the
+  only ones that can be unread — were never in the payload. No room had
+  reached it (largest: 14). Now `lib/chat/unreadQuery.js` builds one `where`
+  per fact — not system, not mine (with the explicit NULL-author branch SQL
+  needs), after each room's own lastSeenAt — and each store runs two
+  `groupBy` counts across all the viewer's rooms; the listed room carries ONE
+  preview row. The thread reads newest-first and reverses (no "load earlier"
+  yet, so a long room loses its beginning, never its end).
+- **The read was stamped "now".** `markRoomSeen` now takes `upTo` — the
+  sentAt/createdAt of the last message the route's payload contained
+  (`seenUpTo`) — and moves lastSeenAt forward only, in one guarded
+  `updateMany`. A message stamped by a server whose clock ran ahead could sit
+  in the payload yet later than a "now" stamp: that is the room that would
+  not clear. A message landing between the read and the stamp is later than
+  the last shown and still counts.
+- **Two facts had one column.** `lib/staff/directPush.js` skipped the DM push
+  for a reader whose lastSeenAt was under 30 s old — "they are looking".
+  With lastSeenAt stopping at the last message shown, a reader staring at a
+  quiet room would be pushed. `StaffRoomMember.lastOpenedAt` (additive,
+  pushed) is stamped on every read of the thread and is what directPush reads.
+- **Nothing told the badge.** The list polled at 15 s and the /sales Team
+  digit at 10 s after an open. The screens now run `afterSeen()` — re-read
+  the list and dispatch `fieldquo:badges` (`lib/chat/badges.js`) — after the
+  open's room read resolves, after a send, and on `visibilitychange`/`focus`
+  with a room open (a tab left open overnight clears when they come back);
+  `SalesShell` re-reads the badges on the event. The /app chrome has no chat
+  digit; the company chat announces anyway so one has something to hear.
+- **Executed:** `scripts/fakePrisma.mjs` is now the one engine behind both
+  fakes (relations, orderBy, `gt/lt`, `has`, `groupBy`, seeded rows get
+  column defaults); check:staff-chat §10–11 and check:company-chat §10 seed
+  250 messages read up to #240 and assert 4 unread (the old slice: 0), the
+  query agreeing with `unreadFor` over all rows, a 700-message thread reading
+  #201–#700, the stamp equal to the last message's time, a same-instant
+  arrival still unread, an older tab's stamp not moving it back.
 
 ## The crawler reads the site's own sitemap, WordPress index and script payload; services are evidence-cited; a JavaScript shell says so instead of "no booking" (14 September 2026)
 
@@ -1292,6 +1335,27 @@ exact trade key, so not one could be dialled. The owner's decision, verbatim:
   all 20). 3,314 dup-flagged rows were left in needs_review for the folder's
   duplicate bucket. Idempotent: the second dry run planned 64 — new rows the
   still-running Oregon campaign wrote under the old deploy.
+- **Merge without losing anything** (`lib/sales/discovery/mergeProspects.js`,
+  `mergedReads.js`, `duplicateGroup.js`; `app/components/platform/DuplicateGroup.js`
+  on the folder's focused flagged row and the prospect detail; `POST
+  /api/platform/sales/prospects/merge` + `/unmerge`, superadmin): the owner's
+  "if we flag a duplicate we can obtain whatever information might have been
+  missed in the one used by the sales rep". Keep one row, merge the rest: only
+  its EMPTY fields fill (phone match first, then domain, name, oldest;
+  website+domain from one row; a street never crosses towns), the plan is
+  the audit (`Prospect.mergedFrom`), the others are retired (`mergedIntoId`,
+  `mergedAt` — additive) and excluded from every queue, count, folder read
+  and re-ingest through the shared where-builders; contact numbers (by
+  number), leads, queue claims, call attempts and a live claim move to the
+  survivor; two reps holding two of the rows is a refusal naming both;
+  evidence/capabilities/inferences stay on the retired rows and both
+  human-facing reads union them. Unmerge clears exactly the filled fields
+  (kept and named if changed since), moves everything back, reverses the
+  funnel. Ingest now also fills at dedupe steps 2–3 (`kind: "autofill"`).
+  The rep card gains "Merged from · N other records" in nine languages.
+  `check:sales-merge` executes the plan, the apply, the unmerge, the
+  where-builders and the ingest against an in-memory client. NOT done:
+  a bulk "merge every phone-flagged pair" — each merge is a human decision.
 - **The folder** (`app/platform/sales/review/page.js`, sidebar row "Review
   folder" with a count badge from `/api/platform/sales/review/count`,
   superadmin only): every row that is `needs_review`, or contractor with no

@@ -28,6 +28,8 @@ import { db } from "@/lib/db";
 import { superadminOrRefusal } from "@/lib/sales/intel/configAdmin";
 import { DISCOVERY_TRADES } from "@/lib/sales/discovery/trades";
 import { CLAIM_HOURS, prospectView, sourceCategoryView } from "@/lib/sales/prospectView";
+import { loadMergedAnalysis } from "@/lib/sales/discovery/mergedReads";
+import { mergedFromIds } from "@/lib/sales/discovery/mergeProspects";
 
 export async function GET(request, { params }) {
   const { refusal } = await superadminOrRefusal(request);
@@ -55,6 +57,11 @@ export async function GET(request, { params }) {
 
   if (!prospect) return NextResponse.json({ error: "Not found." }, { status: 404 });
 
+  // A survivor's analysis is the union of its own and its merged-from rows'
+  // — mergedReads.js says which wins. One call, so this route and the rep's
+  // card cannot disagree about what a merge shows.
+  const analysis = await loadMergedAnalysis(db, prospect);
+
   const [rules, signatures, rep] = await Promise.all([
     db.confidenceRule.findMany(),
     db.technologySignature.findMany({ select: { code: true, name: true } }),
@@ -70,14 +77,14 @@ export async function GET(request, { params }) {
 
   const view = prospectView({
     prospect,
-    capabilities: prospect.capabilities,
-    technologies: prospect.technologies.map((t) => ({
+    capabilities: analysis.capabilities,
+    technologies: analysis.technologies.map((t) => ({
       ...t,
       name: signatureNames[t.technologyCode] || t.technologyCode,
     })),
-    inferences: prospect.inferences,
+    inferences: analysis.inferences,
     opportunities: prospect.opportunities,
-    evidence: prospect.evidence,
+    evidence: analysis.evidence,
     scores: prospect.scores,
     rules,
     capabilityNames: Object.fromEntries(
@@ -111,6 +118,10 @@ export async function GET(request, { params }) {
           prospect.sourceConfidence === null ? null : Number(prospect.sourceConfidence),
       },
       possibleDuplicateOfId: prospect.possibleDuplicateOfId,
+      // The merge state, for the duplicate panel: retired INTO another row,
+      // or carrying others. The panel itself reads /prospects/duplicates.
+      mergedIntoId: prospect.mergedIntoId,
+      mergedFromIds: mergedFromIds(prospect),
       sourceCategories: prospect.sourceCategories,
       // The same array, split into what a screen may SAY about it. Assembled
       // here rather than in the component for the reason this file's header
@@ -124,9 +135,10 @@ export async function GET(request, { params }) {
       doNotContactAt: prospect.doNotContactAt,
       doNotContactReason: prospect.doNotContactReason,
       corrections: prospect.corrections,
-      evidenceCount: prospect.evidence.length,
-      evidence: prospect.evidence.slice(0, 60).map((e) => ({
+      evidenceCount: analysis.evidence.length,
+      evidence: analysis.evidence.slice(0, 60).map((e) => ({
         id: e.id,
+        fromProspectId: e.fromProspectId || null,
         type: e.type,
         source: e.source,
         sourceUrl: e.sourceUrl,
