@@ -28,6 +28,19 @@
 // Nothing here is queued, written or requeued. The count of prospects that
 // would benefit from a re-crawl (a shell home page, or no service names on
 // file) is printed for the owner to decide on.
+//
+// ══ Measured 2026-09-14 ═══════════════════════════════════════════════════
+//
+// Stored, 2,000 random crawled prospects (seed 11): JSON-LD parses on 54.0%,
+// names a business 40.0%, a telephone 24.9%, an email 9.4%, hours 15.6%, a
+// rating or reviews 4.2%, a booking action 0.2%, services by name 5.5%; a
+// JavaScript shell in 1.2% (none with recovered text — no v3 rows yet);
+// ≥ 1 service name on 31.2%, mean 9.4 per site with any (menu 6,644 names,
+// schema 577). Live, 50 random sites (56 tried, 6 home pages down): readable
+// sitemap 84.0%; WordPress 30.0% with the REST index answering on 80.0% of
+// those; JSON-LD naming services 6.0%; shells 0.0%; ≥ 1 service name 80.0%,
+// mean 10.6. The hand-checked lists are in docs/sales-intel/CRAWLING.md
+// under "Measured before shipping", with what each check changed.
 import "dotenv/config";
 import { db } from "@/lib/db";
 import { jsShell } from "@/lib/sales/intel/capabilityDetect";
@@ -117,7 +130,7 @@ async function stored() {
       t.shell += 1;
       if (shells.some((pg) => !pg.renderedText)) t.shellNoText += 1;
     }
-    const found = servicesFrom({ evidence: rows });
+    const found = servicesFrom({ evidence: rows, businessName: p.businessName });
     const n = found.services.length;
     dist.set(n, (dist.get(n) || 0) + 1);
     if (n) {
@@ -232,7 +245,7 @@ async function readLive(prospect) {
   const crawl = normaliseCrawl(pagesFromEvidence(rows.filter((r) => CRAWL_EVIDENCE_TYPES.includes(r.type))));
   out.shell = crawl.pages.some((pg) => jsShell(pg));
   out.jsonLdServices = crawl.pages.map((pg) => schemaFacts(pg)).reduce((n, f) => n + f.services.length, 0);
-  out.services = servicesFrom({ evidence: rows }).services.map((s) => `${s.name} [${s.source}]`);
+  out.services = servicesFrom({ evidence: rows, businessName: prospect.businessName }).services.map((s) => `${s.name} [${s.source}]`);
   return out;
 }
 

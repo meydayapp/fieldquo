@@ -48,7 +48,10 @@ then create a false interpretation of what they have or might not have."
   (mutation-tested). `isChromeLabel` grown from a hand-check of 2,000 menus.
 - **Measured** (read-only): over 2,000 stored prospects — JSON-LD parses on
   54.0%, names a phone on 24.9%, services on 5.5%; 1.2% are shells; 31.2%
-  yield ≥ 1 service name (mean 9.4). `scripts/audit-false-claims.mjs` on 300
+  yield ≥ 1 service name (mean 9.4). Live, 50 random sites: a readable
+  sitemap on 84%, WordPress REST answering on 80% of WordPress sites, ≥ 1
+  service name on 80% (mean 10.6); the hand-check grew the refusals (place
+  pages, mastheads, usernames). `scripts/audit-false-claims.mjs` on 300
   prospects with a deep false: 147 of 2,125 false verdicts are no longer
   false on re-detect; 66 of 300 prospects carry a contradiction. Nothing
   requeued: ≈ 200 shell-and-no-services and ≈ 16,500 no-service-names

@@ -437,8 +437,24 @@ with a deep false: 2,125 false verdicts, all written by a detector before 4;
 JSON-LD; 147 are no longer false when the current detector re-reads the rows
 (null with a reason, or true); 66 of the 300 prospects carry at least one
 such contradiction. No sitemap contradiction can show yet: no prospect has
-`sitemap_url` rows before a v3 crawl. The live read of 50 random sites is
-recorded in the same script's header block below this one when it finishes.
+`sitemap_url` rows before a v3 crawl.
+
+**Live**, 50 random crawled sites read politely one at a time (56 tried, 6
+home pages did not load): a readable sitemap on **84.0%**; WordPress on
+30.0%, and its REST index answered on 80.0% of those (12 of 15); JSON-LD
+naming services on 6.0%; no home page a JavaScript shell (0 of 50 — the 1.2%
+in the stored sample is the population rate); sites with ≥ 1 service name
+**80.0%**, mean 10.6 per site with any. The twenty live lists, hand-checked,
+grew the refusals again: a garage-door company's sitemap carried twenty
+"Garage Door Service in 83676" postcode pages beside its six real services,
+an exterior cleaner's nine "Window Cleaning Webster Ny" location pages, and
+the menus offered "HIRE US", "CAMDENOLIVERO33", "Career With Us", "Benefits
+Package", "Click Here For Closed Captioning" and the business's own name as
+an h1 — so `looksLikePlacePage` (a place after "in", a trailing state or
+province code, three digits), the masthead rule (a name that is the
+prospect's own is not a service), a not-a-word rule and thirty more chrome
+phrases were added, and the sample lists in the script's output are what to
+re-check after the next change.
 
 Nothing was requeued. 12,375 prospects carry a false deep verdict; the
 owner decides whether a v3 re-crawl of the shell-and-no-services set (17 of
