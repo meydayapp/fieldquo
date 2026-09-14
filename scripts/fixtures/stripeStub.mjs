@@ -164,3 +164,14 @@ export const invoiceBalanceCents = refuse("invoiceBalanceCents");
 export const createInvoiceCheckoutSession = refuse("createInvoiceCheckoutSession");
 export const createBookingFeeCheckoutSession = refuse("createBookingFeeCheckoutSession");
 export const payoutToContractor = refuse("payoutToContractor");
+// The Connect webhook route's graph (lib/servicePlans/stripeMandate.js) names
+// these four; lib/platform/stripeDestinations.js imports that route for its
+// CONNECT_EVENTS, and the billing-sync cron imports stripeDestinations — so a
+// check that loads the cron under this stub has to link them. Same rule:
+// linkable, never callable. CHARGE_CAPABILITIES is data the real file freezes;
+// an empty frozen object keeps a module-scope read from throwing while any
+// lookup on it answers undefined rather than a capability it does not have.
+export const CHARGE_CAPABILITIES = Object.freeze({});
+export const ensureChargeCapabilities = refuse("ensureChargeCapabilities");
+export const destinationChargeParams = refuse("destinationChargeParams");
+export const destinationChargeParamsWithRecovery = refuse("destinationChargeParamsWithRecovery");

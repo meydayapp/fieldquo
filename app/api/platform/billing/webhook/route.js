@@ -11,6 +11,26 @@ import { grantAiBundlePeriod, resolveAiBundleSubscription } from "@/lib/ai/credi
 import { recordError } from "@/lib/platform/errorLog";
 import { stampWebhookReceived } from "@/lib/platform/webhookHealth";
 
+// ── The events THIS FILE dispatches before the subscription switch ───────
+//
+// The billing destination must deliver these too, or a delayed Affirm payment
+// and every refund and chargeback vanish exactly as the subscription events
+// did on 2026-09-12. Together with BILLING_EVENTS (the switch in
+// lib/platform/stripeBilling.js) this is the whole required list for the
+// billing destination — lib/platform/stripeDestinations.js takes the union.
+// scripts/check-stripe-destinations.mjs asserts every `event.type === "…"`
+// literal in POST below is in one of the two lists, and every entry here is
+// matched by such a literal. The invoice.* and checkout.session.completed
+// branches below are on BILLING_EVENTS already and are not repeated here.
+export const BILLING_ROUTE_EVENTS = Object.freeze([
+  "checkout.session.async_payment_succeeded",
+  "checkout.session.async_payment_failed",
+  "charge.refunded",
+  "charge.dispute.created",
+  "charge.dispute.updated",
+  "charge.dispute.closed",
+]);
+
 // Raw body required for Stripe signature verification — Next.js needs the request
 // body untouched by JSON parsing before this point.
 export async function POST(request) {

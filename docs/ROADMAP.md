@@ -74,6 +74,32 @@ the cron route end to end (drift filed, agreeing row silent, missing row
 left alone), and the coupon-name bound; source pins hold the routes to it.
 `check:retention` carries the coupon bound too.
 
+**The destinations themselves, verified by the deployment (14 September
+2026).** The live billing destination had been created with nine events none
+of which a subscription produces; the required list was a table in
+`docs/VERCEL.md` and a person compared it to a paste. Now the handlers export
+their own case lists — `BILLING_EVENTS` beside the switch in
+`lib/platform/stripeBilling.js`, `BILLING_ROUTE_EVENTS` beside the dispatch in
+`app/api/platform/billing/webhook/route.js`, `CONNECT_EVENTS` beside the
+switch in `app/api/stripe/webhook/route.js` — and
+`lib/platform/stripeDestinations.js` lists the destinations back from Stripe
+(v1 for url/events/status/API version, v2 for the "Your account" vs
+"Connected accounts" scope) and diffs each: missing events, extra, disabled,
+apex or preview host, duplicates, wrong scope, wildcard, not found.
+`account.updated` is the one exemption (a "Your account" destination never
+receives it). `GET /api/platform/webhook-health` answers `destinations` from
+a ten-minute cache (`PlatformSetting` `stripe_destinations_audit`); `POST` is
+the "Re-check now" button; the "Stripe webhooks" card on `/platform` prints a
+second line per destination, green "Destination OK (15 events)" or red with
+the missing events and where to fix them, and says when the key is
+test-mode. `/api/cron/billing-sync` runs the same audit forced and files
+`webhook_destination_misconfigured` once per 24 h per destination
+(`lastFlaggedAt` in the same setting). `npm run check:stripe-destinations`
+parses both switches and asserts the constants equal them both ways, runs the
+comparison over every fixture, and executes the cache and the once-a-day flag
+against the db stub. The events row of the table in `docs/VERCEL.md` now says
+"derived from code; verified on /platform".
+
 ### Still owed here
 
 - **Test Inc.'s row** (`cmtzyunut000004jncwlnob1g`) still says `active` until

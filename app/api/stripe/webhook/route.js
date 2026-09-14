@@ -34,6 +34,29 @@ import { stampWebhookReceived } from "@/lib/platform/webhookHealth";
 // session it will be handed: both dispatch through settleCheckoutSession, which
 // routes on metadata. See lib/stripe/settleCheckoutSession.js for the full
 // story.
+//
+// ── The events the switch below handles, as data ─────────────────────────
+//
+// The Connect destination in Stripe must be subscribed to every one of these
+// (and, per docs/VERCEL.md, scoped to "Your account", not "Connected
+// accounts" — the destination charges land on the platform account). The
+// deployment checks the live destination against this list itself
+// (lib/platform/stripeDestinations.js) instead of a person reading a paste;
+// scripts/check-stripe-destinations.mjs asserts it equals the `case` labels
+// of the switch, both ways.
+export const CONNECT_EVENTS = Object.freeze([
+  "account.updated",
+  "checkout.session.completed",
+  "checkout.session.async_payment_succeeded",
+  "checkout.session.async_payment_failed",
+  "payment_intent.succeeded",
+  "payment_intent.payment_failed",
+  "charge.refunded",
+  "charge.dispute.created",
+  "charge.dispute.updated",
+  "charge.dispute.closed",
+]);
+
 export async function POST(request) {
   const body = await request.text();
   const signature = request.headers.get("stripe-signature");

@@ -68,6 +68,10 @@ export default function PlatformDashboardPage() {
   // subscription whose row stayed "active" because no webhook was arriving —
   // in minutes. See app/api/platform/webhook-health.
   const [webhookHealth, setWebhookHealth] = useState(null);
+  // "Re-check now" on the destination audit: POST asks Stripe again instead
+  // of serving the ten-minute cache. Held apart from `loading` so the rest of
+  // the dashboard does not blank while one Stripe call runs.
+  const [recheckingDestinations, setRecheckingDestinations] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -124,6 +128,18 @@ export default function PlatformDashboardPage() {
       .then(setWebhookHealth)
       .catch(() => {});
   }, []);
+
+  async function recheckDestinations() {
+    setRecheckingDestinations(true);
+    try {
+      const r = await fetch("/api/platform/webhook-health", { method: "POST" });
+      if (r.ok) setWebhookHealth(await r.json());
+    } catch {
+      // The previous answer stays on screen; the button is not the fact.
+    } finally {
+      setRecheckingDestinations(false);
+    }
+  }
 
   if (loading) {
     return (
@@ -331,38 +347,105 @@ export default function PlatformDashboardPage() {
           no event since this deployment existed. Rendered from the stamp the
           webhook routes write AFTER signature verification, so a probe cannot
           turn it green. */}
-      {webhookHealth && (
-        <div
-          className={`rounded-xl border p-4 text-sm ${
-            webhookHealth.healthy
-              ? "border-border bg-card text-muted-foreground"
-              : "bg-red-50 dark:bg-red-950/40 border-red-300 dark:border-red-900 text-red-800 dark:text-red-200"
-          }`}
-        >
-          <span className="font-semibold text-foreground">Stripe webhooks</span>
-          {[
-            ["billing", "Billing"],
-            ["connect", "Connect"],
-          ].map(([key, label]) => {
-            const last = webhookHealth[key];
-            return (
-              <span key={key} className="block sm:inline sm:ml-3">
-                {label}:{" "}
-                {last ? (
-                  <>
-                    last event {relativeTime(last.at)}
-                    {last.type ? ` (${last.type})` : ""}
-                  </>
+      {webhookHealth && (() => {
+        // The second line per destination: is the thing in Stripe subscribed
+        // to what the code handles, at this host, enabled? "never" above says
+        // nothing arrives; this says why. Compared against the handlers' own
+        // event lists on the server (lib/platform/stripeDestinations.js) —
+        // the docs table used to be the only list, and a person read it.
+        const dest = webhookHealth.destinations || null;
+        const destinationsOk =
+          !dest || (!dest.error && dest.billing?.ok !== false && dest.connect?.ok !== false);
+        const healthy = webhookHealth.healthy && destinationsOk;
+        return (
+          <div
+            className={`rounded-xl border p-4 text-sm ${
+              healthy
+                ? "border-border bg-card text-muted-foreground"
+                : "bg-red-50 dark:bg-red-950/40 border-red-300 dark:border-red-900 text-red-800 dark:text-red-200"
+            }`}
+          >
+            <div className="flex items-start justify-between gap-3 flex-wrap">
+              <div>
+                <span className="font-semibold text-foreground">Stripe webhooks</span>
+                {[
+                  ["billing", "Billing"],
+                  ["connect", "Connect"],
+                ].map(([key, label]) => {
+                  const last = webhookHealth[key];
+                  return (
+                    <span key={key} className="block sm:inline sm:ml-3">
+                      {label}:{" "}
+                      {last ? (
+                        <>
+                          last event {relativeTime(last.at)}
+                          {last.type ? ` (${last.type})` : ""}
+                        </>
+                      ) : (
+                        <span className="font-semibold text-red-700 dark:text-red-300">
+                          never — no event has reached this deployment
+                        </span>
+                      )}
+                    </span>
+                  );
+                })}
+              </div>
+              {dest && (
+                <button
+                  type="button"
+                  onClick={recheckDestinations}
+                  disabled={recheckingDestinations}
+                  className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground disabled:opacity-60"
+                  title="Ask Stripe for the two event destinations again instead of the cached answer"
+                >
+                  <RefreshCw size={12} className={recheckingDestinations ? "animate-spin" : ""} />
+                  {recheckingDestinations ? "Checking…" : "Re-check now"}
+                </button>
+              )}
+            </div>
+            {dest && (
+              <div className="mt-2 space-y-1 text-xs">
+                {dest.error ? (
+                  <div className="font-semibold text-red-700 dark:text-red-300">{dest.error}</div>
                 ) : (
-                  <span className="font-semibold text-red-700 dark:text-red-300">
-                    never — no event has reached this deployment
-                  </span>
+                  [
+                    ["billing", "Billing"],
+                    ["connect", "Connect"],
+                  ].map(([key, label]) => {
+                    const d = dest[key];
+                    if (!d) return null;
+                    return (
+                      <div key={key} className={d.ok ? "text-emerald-700 dark:text-emerald-300" : "font-semibold text-red-700 dark:text-red-300"}>
+                        {/* Red sentences already start with "Billing destination …" —
+                            the server writes the same one into the error row. */}
+                        {d.ok ? `${label}: ${d.summary}` : d.summary}
+                        {d.ok && d.optionalMissing?.length > 0 && (
+                          <span className="font-normal text-muted-foreground">
+                            {" "}— without {d.optionalMissing.join(", ")}, which a "Your account" destination never receives anyway
+                          </span>
+                        )}
+                        {d.ok && d.extra?.length > 0 && (
+                          <span className="font-normal text-muted-foreground">
+                            {" "}· also sends {d.extra.length} the code ignores
+                          </span>
+                        )}
+                        {d.apiVersion && (
+                          <span className="font-normal text-muted-foreground"> · API {d.apiVersion}</span>
+                        )}
+                      </div>
+                    );
+                  })
                 )}
-              </span>
-            );
-          })}
-        </div>
-      )}
+                <div className="text-muted-foreground">
+                  {dest.mode === "live" ? "Live" : dest.mode === "test" ? "Test-mode key — this is not the live account" : "Unknown key mode"}
+                  {dest.at ? ` · checked ${relativeTime(dest.at)}` : ""}
+                  {dest.scopeUnknown && !dest.error ? " · scope (Your account / Connected accounts) could not be read" : ""}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>

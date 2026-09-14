@@ -26,12 +26,27 @@
 // every paying company out in one run. Those are filed as billing_sync_missing
 // and left for a human. Demo companies are skipped: their rows are fixtures.
 //
+// ══ The destinations themselves ════════════════════════════════════════════
+//
+// Drift says the webhooks have stopped; it does not say why. On 2026-09-12
+// the why was a billing destination subscribed to nine events none of which
+// a subscription produces, and the list it should have carried was in a doc.
+// So every run also reads the two event destinations back from Stripe and
+// diffs them against the events the handlers dispatch on
+// (lib/platform/stripeDestinations.js). A destination that is missing an
+// event, disabled, at the wrong host or scoped to connected accounts is
+// filed as `webhook_destination_misconfigured` — once per 24 h per
+// destination, not every run; the stamp lives in the same cached setting the
+// dashboard reads.
+//
 // ══ Cost ═══════════════════════════════════════════════════════════════════
 //
 // 4 invocations a day. One Stripe retrieve per subscription with a
 // stripeSubscriptionId (no list call — the id is known), sequential, so a
 // 200-company book is ~200 reads spread over a few seconds and well inside
 // Stripe's rate limit; one DB write per row that drifted, none otherwise.
+// Plus two list calls (v1 webhook endpoints, v2 event destinations) and one
+// PlatformSetting write for the destination audit.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
@@ -39,6 +54,7 @@ import { requireCronSecret } from "@/lib/security/cronAuth";
 import { db } from "@/lib/db";
 import { recordError } from "@/lib/platform/errorLog";
 import { syncSubscriptionFromStripe } from "@/lib/platform/stripeSync";
+import { auditDestinations } from "@/lib/platform/stripeDestinations";
 
 const BILLING_SYNC_AREA = "billing";
 const DRIFT_CODE = "billing_drift";
@@ -123,7 +139,13 @@ export async function GET(request) {
     }
   }
 
-  return NextResponse.json({ ok: true, ...summary });
+  // Forced (never the ten-minute cache — a cron that reads its own stale
+  // answer has checked nothing) and flagged (this is the one caller that
+  // files the error row). Never throws; a Stripe outage is `error` in the
+  // answer, and the drift loop above has already run regardless.
+  const destinations = await auditDestinations({ force: true, flag: true });
+
+  return NextResponse.json({ ok: true, ...summary, destinations });
 }
 
 const fmt = (v) => (v instanceof Date ? v.toISOString() : v === null || v === undefined ? "∅" : String(v));

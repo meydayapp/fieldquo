@@ -63,15 +63,46 @@ I charge to companies, and what companies charge their clients"*:
 | Route | `https://www.fieldquo.com/api/platform/billing/webhook` | `https://www.fieldquo.com/api/stripe/webhook` |
 | Secret | `STRIPE_BILLING_WEBHOOK_SECRET` | `STRIPE_CONNECT_WEBHOOK_SECRET` |
 | Destination scope | **Your account** | **Your account** — the homeowner's payment is a destination charge created on the platform account (`lib/stripe.js`), so it is a platform event. A "Connected accounts" destination receives none of them; that mistake cost five bookings once. |
-| Events | `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `invoice.payment_succeeded`, `invoice.payment_failed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `subscription_schedule.completed`, `subscription_schedule.released`, `subscription_schedule.canceled`, `charge.refunded`, `charge.dispute.created`, `charge.dispute.updated`, `charge.dispute.closed` | `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `payment_intent.succeeded`, `payment_intent.payment_failed`, `charge.refunded`, `charge.dispute.created`, `charge.dispute.updated`, `charge.dispute.closed`, `account.updated` |
+| Events | **Derived from code; verified on `/platform`.** `BILLING_EVENTS` (`lib/platform/stripeBilling.js`) ∪ `BILLING_ROUTE_EVENTS` (`app/api/platform/billing/webhook/route.js`) — 15 events today | **Derived from code; verified on `/platform`.** `CONNECT_EVENTS` (`app/api/stripe/webhook/route.js`) — 10 events today; `account.updated` is exempt from the check (see below) |
 | Tax | `automatic_tax` on, via `SUBSCRIPTION_TAX` in `lib/platform/stripeBilling.js` (Stripe Tax switched on in the live account) | **Never** — the invoice already carries the tax the company's own settings compute; Stripe Tax here would tax the taxed total again |
+
+**Do not read the event list off a paste.** On 2026-09-12 the live billing
+destination was created with nine events, none of which a subscription
+produces; the list above was a hand-typed table then, a person compared it,
+and zero webhooks arrived for two days. Now the deployment compares for you:
+`lib/platform/stripeDestinations.js` lists the destinations back from Stripe
+(v1 `webhookEndpoints.list` for url / events / status / API version, v2
+`eventDestinations.list` for the "Your account" vs "Connected accounts"
+scope) and diffs each against the constants the handlers export.
+`scripts/check-stripe-destinations.mjs` (`npm run check:stripe-destinations`)
+asserts those constants equal the `case` labels of the switches, both ways, so
+a handler that grows a case without its entry fails the check rather than the
+next customer. Where it shows:
+
+- **`/platform`, the "Stripe webhooks" card** — under the "last event" line,
+  one line per destination: green *"Billing: Destination OK (15 events)"*, or
+  red *"Billing destination is missing: customer.subscription.created, … —
+  edit it in Stripe"* / *"not found at …"* / *"is disabled"* / *"points at
+  fieldquo.com, not www.fieldquo.com"* / *"listens to "Connected accounts",
+  not "Your account""* / *"has 1 duplicate on the same route"*. Cached ten
+  minutes in `PlatformSetting` `stripe_destinations_audit`; **Re-check now**
+  asks Stripe again. The card also says which key mode it read — a test-mode
+  key locally lists the test destinations, which are not the ones that
+  matter.
+- **`/platform/errors`** — the six-hourly `/api/cron/billing-sync` runs the
+  same audit and files `webhook_destination_misconfigured` (area `billing`)
+  for a destination with any of those faults, once per 24 h per destination,
+  not every run.
 
 `account.updated` for a contractor's Express account is a *connected-account*
 event and does not reach a "Your account" destination; that is fine —
 `/api/stripe/connect/status` reads the account directly whenever the payments
-screen opens. A third destination with scope "Connected accounts" pointing at
-the same route would need its own secret, which the route does not hold; not
-done.
+screen opens — and so the audit treats it as optional: a Connect destination
+without it is still green, and says so. A third destination with scope
+"Connected accounts" pointing at the same route would need its own secret,
+which the route does not hold; not done. A destination that IS scoped to
+"Connected accounts" is flagged, because that is the mistake that cost five
+bookings.
 
 **API version on the destination.** The payload shape follows the version
 picked on the destination, not the SDK's pin (`2025-01-27.acacia` in
@@ -298,7 +329,9 @@ as "for development, not for production apps used by real advertisers."
   event has reached this deployment"**. Both webhook routes stamp
   `PlatformSetting` after signature verification. If it says never, the
   event destination in Stripe is pointed elsewhere or its signing secret is
-  not the one in `STRIPE_BILLING_WEBHOOK_SECRET` / `STRIPE_CONNECT_WEBHOOK_SECRET`.
+  not the one in `STRIPE_BILLING_WEBHOOK_SECRET` / `STRIPE_CONNECT_WEBHOOK_SECRET`
+  — and the second line of the same card, the destination audit (§ Stripe
+  live mode above), says which of those it is before you open Stripe.
 - **Rotate three secrets** — they were pasted into a chat transcript:
   Cloudinary API secret, the Neon database password, `BETTER_AUTH_SECRET`.
 - **Resend DNS for `fieldquo.com`**: TXT at `resend._domainkey` with Resend's
