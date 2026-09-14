@@ -326,6 +326,7 @@ import RepNoteUnavailable from "@/app/components/sales/RepNoteUnavailable";
 import DialRegion, { Notice } from "@/app/components/sales/DialRegion";
 import AutodialControl, { useAutodial } from "@/app/components/sales/AutodialControl";
 import { UnloggedCallsGate } from "@/app/components/sales/UnloggedCalls";
+import { CallHistoryStrip, LastTimeLine, useCallHistory } from "@/app/components/sales/CallHistory";
 import { useSalesSearch } from "@/app/components/sales/SalesSearch";
 import { useConsoleSlots } from "@/app/components/sales/consoleSlots";
 import { useTranslation } from "@/app/hooks/useTranslation";
@@ -2554,11 +2555,17 @@ function QueueConsole() {
   useEffect(() => {
     setTab(auto.switchOn ? "disposition" : "script");
   }, [auto.switchOn]);
+  // The lead's call history, read once per lead and after every outcome,
+  // handed to the line above the dialler, the strip under it and the full
+  // list in the Disposition tab — one fetch, three places.
+  const [historyKey, setHistoryKey] = useState(0);
+  const callHistory = useCallHistory({ prospectId: current?.id || null, refreshKey: historyKey });
   const worked = useCallback(() => {
     // The flag first, the reload second: the dialler arms against the
     // reloaded order, never the one that predates the call.
     auto.onWorked();
     load();
+    setHistoryKey((n) => n + 1);
   }, [auto.onWorked, load]);
 
   // ── The pool, split so the screen can lead with what is workable ───────
@@ -2902,6 +2909,11 @@ function QueueConsole() {
             {/* The calling window, one small line above the display. */}
             {current ? <WindowTag compliance={compliance} row={currentRow} /> : null}
             {current ? <RetryTag retry={current.retry || currentRow?.retry || null} /> : null}
+            {/* "Last time (Aug 15): Not now — 'call after the season'" — the
+                owner's line for a lead back in rotation, above the dial so
+                the rep opens with it. lib/sales/calls/history.js decides
+                when there is one. */}
+            {current ? <LastTimeLine loaded={callHistory} /> : null}
 
             <DialerPad
               value={typed}
@@ -2957,6 +2969,10 @@ function QueueConsole() {
               dialRequest={dialRequest}
             />
             {current ? <CapLine compliance={compliance} /> : null}
+            {/* ── What has happened on the phone with this lead ─────────
+                The last three, under the dialler where the rep is looking;
+                the whole list is on the Disposition tab. */}
+            {current ? <CallHistoryStrip loaded={callHistory} limit={3} /> : null}
             <UnloggedCallsGate
               open={Boolean(unloggedGate)}
               count={unloggedGate?.count ?? null}
@@ -3213,6 +3229,8 @@ function QueueConsole() {
               then the claim's own wrap-up (worked / release / lead / DNC) */}
           <div role="tabpanel" id="console-tab-disposition" aria-labelledby="console-tabbtn-disposition" hidden={tab !== "disposition"} className="space-y-4">
             <div ref={setDispositionSlot} data-slot="disposition" />
+            {/* Every call to this lead, in full. */}
+            {current ? <CallHistoryStrip loaded={callHistory} limit={0} /> : null}
             <div ref={setNextStepsSlot} data-slot="next-steps" />
             {!loading && current ? (
               <WrapUp

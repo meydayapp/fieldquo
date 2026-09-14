@@ -483,6 +483,59 @@ section("8. Write it up later: the dialler is freed, the list counts only unlogg
   ok("an unusable zone falls back to UTC rather than throwing", staleAtDayEnd({ dialledAt: new Date("2026-09-13T20:00:00Z"), timeZone: "Mars/Olympus", now: noon }) === true);
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+section("9. Call history: outcome + note + endReason per attempt, and the 'last time' line");
+// ═══════════════════════════════════════════════════════════════════════════
+{
+  const { callHistoryRows, lastTime, HISTORY_SELECT } = await import("@/lib/sales/calls/history");
+  const rows = [
+    { id: "a1", salesRepId: "rep_r", dialledAt: "2026-08-15T14:00:00Z", direction: "out", dialChannel: "browser", providerStatus: "completed", answeredAt: "2026-08-15T14:00:10Z", endedAt: "2026-08-15T14:02:00Z", talkSeconds: 110, hungUpBy: HUNG_UP_BY_PROSPECT, endReason: "prospect_hangup", disposition: "reached_not_interested", dispositionAt: "2026-08-15T14:02:30Z", dispositionAutoLogged: false, dispositionDeferredAt: null, dispositionNote: "call after the season", callbackAt: null },
+    { id: "a2", salesRepId: "rep_r", dialledAt: "2026-09-14T13:40:00Z", direction: "out", dialChannel: "browser", providerStatus: "completed", answeredAt: "2026-09-14T13:40:34Z", endedAt: "2026-09-14T13:40:34Z", talkSeconds: 0, hungUpBy: HUNG_UP_BY_PROSPECT, endReason: "prospect_hangup", disposition: "hung_up", dispositionAt: "2026-09-14T13:40:40Z", dispositionAutoLogged: true, dispositionDeferredAt: null, dispositionNote: null, callbackAt: null },
+    { id: "a3", salesRepId: "rep_other", dialledAt: "2026-09-01T10:00:00Z", direction: "out", dialChannel: "handset", providerStatus: null, answeredAt: null, endedAt: null, talkSeconds: null, hungUpBy: null, endReason: null, disposition: "callback", dispositionAt: "2026-09-01T10:05:00Z", dispositionAutoLogged: false, dispositionDeferredAt: null, dispositionNote: "the other rep's words", callbackAt: "2026-09-03T15:00:00Z" },
+    { id: "a4", salesRepId: "rep_r", dialledAt: "2026-09-14T15:00:00Z", direction: "out", dialChannel: "browser", providerStatus: "completed", answeredAt: "2026-09-14T15:00:05Z", endedAt: "2026-09-14T15:03:00Z", talkSeconds: 175, hungUpBy: HUNG_UP_BY_REP, endReason: "rep_hangup", disposition: null, dispositionAt: null, dispositionAutoLogged: false, dispositionDeferredAt: "2026-09-14T15:03:10Z", dispositionNote: null, callbackAt: null },
+    { id: "bad", salesRepId: "rep_r", dialledAt: "not a date" },
+    null,
+  ];
+  const h = callHistoryRows(rows, { repId: "rep_r" });
+  ok("newest first, broken rows dropped", h.map((r) => r.id).join() === "a4,a2,a3,a1", h.map((r) => r.id));
+  const a1 = h.find((r) => r.id === "a1");
+  ok("each attempt carries outcome + note + endReason + who hung up + talk seconds + when", a1.disposition === "reached_not_interested" && a1.note === "call after the season" && a1.endReason === "prospect_hangup" && a1.hungUpBy === HUNG_UP_BY_PROSPECT && a1.talkSeconds === 110 && a1.dialledAt === "2026-08-15T14:00:00.000Z" && a1.dispositionAt === "2026-08-15T14:02:30.000Z", a1);
+  ok("…and the ended sentence: they hung up · 110 s", a1.ended?.key === "app.salesCall.ended.prospect" && a1.ended.talkSeconds === 110);
+  const a2 = h.find((r) => r.id === "a2");
+  ok("a line-logged outcome is marked autoLogged", a2.autoLogged === true && a2.disposition === "hung_up");
+  const a3 = h.find((r) => r.id === "a3");
+  ok("another rep's attempt is included, marked, with the callback time but WITHOUT their note", a3.mine === false && a3.callbackAt === "2026-09-03T15:00:00.000Z" && a3.note === null);
+  const a4 = h.find((r) => r.id === "a4");
+  ok("a deferred call reads as deferred, not as an outcome", a4.deferred === true && a4.disposition === null && a4.ended?.key === "app.salesCall.ended.rep");
+  ok("garbage in → empty list", callHistoryRows(null).length === 0 && callHistoryRows("x").length === 0);
+  ok("HISTORY_SELECT names every column the shaper reads", ["dispositionNote", "endReason", "hungUpBy", "dispositionAutoLogged", "dispositionDeferredAt", "callbackAt", "talkSeconds", "answeredAt", "endedAt", "providerStatus"].every((k) => HISTORY_SELECT[k] === true));
+
+  // The line above the script, for a returning lead.
+  const now = new Date("2026-09-15T14:00:00Z");
+  const lt = lastTime(callHistoryRows(rows.slice(0, 1), { repId: "rep_r" }), { now, timeZone: "America/Toronto" });
+  ok("a lead back after a month: Last time (Aug 15): Not now — 'call after the season'", lt && lt.dialledAt === "2026-08-15T14:00:00.000Z" && lt.disposition === "reached_not_interested" && lt.note === "call after the season" && lt.autoLogged === false, lt);
+  const today = lastTime(h, { now: new Date("2026-09-14T20:00:00Z"), timeZone: "America/Toronto" });
+  ok("…but the newest write-up being TODAY'S (the 13:40 hang-up) says nothing — no line for a lead rung this morning", today === null, today);
+  const tomorrow = lastTime(h, { now: new Date("2026-09-15T14:00:00Z"), timeZone: "America/Toronto" });
+  ok("…and tomorrow it names today's newest write-up, the line's, marked so", tomorrow && tomorrow.disposition === "hung_up" && tomorrow.autoLogged === true, tomorrow);
+  ok("no written-up call → null", lastTime(callHistoryRows([rows[3]], { repId: "rep_r" }), { now }) === null && lastTime(null) === null);
+
+  const route = source("app/api/sales/calls/history/route.js");
+  ok("the route scopes a prospect through queueWhere and a lead through the rep's own id", /queueWhere\(rep\.id\)/.test(route) && /salesRepId: rep\.id/.test(route) && /select: HISTORY_SELECT/.test(route));
+  const queue = source("app/sales/queue/page.js");
+  ok("the queue reads the history ONCE and draws the line above the dial, the strip under it, the full list in the Disposition tab", /useCallHistory\(\{ prospectId: current\?\.id \|\| null, refreshKey: historyKey \}\)/.test(queue) && /<LastTimeLine loaded=\{callHistory\} \/>/.test(queue) && /<CallHistoryStrip loaded=\{callHistory\} limit=\{3\} \/>/.test(queue) && /<CallHistoryStrip loaded=\{callHistory\} limit=\{0\} \/>/.test(queue));
+  ok("…and re-reads it after every outcome", /setHistoryKey\(\(n\) => n \+ 1\);/.test(between(queue, "const worked = useCallback(() => {", "}, [auto.onWorked, load]);")));
+  const leadPage = source("app/sales/leads/[id]/page.js");
+  ok("the lead page draws the line and the strip", /<LastTimeLine leadId=\{lead\.id\}/.test(leadPage) && /<CallHistoryStrip leadId=\{lead\.id\}/.test(leadPage));
+  const texts = source("app/sales/messages/page.js");
+  ok("the Texts contact panel draws the strip for a lead", /<CallHistoryStrip leadId=\{lead\.id\} limit=\{3\} \/>/.test(texts));
+  const cmp = source("app/components/sales/CallHistory.js");
+  ok("the strip prints the note, the auto mark, the callback and the ended sentence", /row\.note/.test(cmp) && /row\.autoLogged/.test(cmp) && /row\.callbackAt/.test(cmp) && /app\.salesCall\.ended\.withTalk/.test(cmp));
+  const keys = ["title", "none", "loading", "loadFailed", "unlogged", "deferred", "auto", "autoLoggedTitle", "inbound", "anotherRep", "callbackAt", "showAll", "showFewer", "lastTime", "lastTimeWithNote"];
+  const missing = Object.keys(APP_MESSAGES).flatMap((l) => keys.filter((k) => APP_MESSAGES[l][`app.salesCall.history.${k}`] === undefined).map((k) => `${l}:${k}`));
+  ok("the history's sentences exist in every language", missing.length === 0, missing);
+}
+
 console.log(`\ncheck-sales-call-panel: ${passed} passed, ${failed} failed`);
 if (failed) {
   console.log("Failed:");

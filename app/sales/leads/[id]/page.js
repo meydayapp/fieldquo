@@ -51,6 +51,7 @@ import { dialSpace } from "@/lib/sales/dialSpace";
 import { SALES_SMS_TIME_ZONES } from "@/lib/sales/smsWindow";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import DialRegion from "@/app/components/sales/DialRegion";
+import { CallHistoryStrip, LastTimeLine } from "@/app/components/sales/CallHistory";
 import ContactNumbers from "@/app/components/sales/ContactNumbers";
 import OutreachNotice from "../OutreachNotice";
 import SignupLinkSms from "../SignupLinkSms";
@@ -72,6 +73,8 @@ function when(value) {
 export default function SalesLeadPage({ params }) {
   const { id } = use(params);
   const { t, language } = useTranslation();
+
+  const [historyKey, setHistoryKey] = useState(0);
 
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
@@ -429,8 +432,18 @@ export default function SalesLeadPage({ params }) {
           // Without this every lead read "typed in by hand, no script" —
           // including the ones that came straight out of discovery.
           playbookProspectId={lead.prospect?.id || lead.prospectId || null}
-          onWorked={load}
+          onWorked={() => {
+            load();
+            setHistoryKey((n) => n + 1);
+          }}
         />
+
+        {/* ── Every call to this lead ─────────────────────────────────────
+            When, how it ended, how long, what was logged (the line's own
+            marked "auto"), the callback booked, the words — the lead's
+            own attempts and, through its prospect, the pool's. */}
+        <LastTimeLine leadId={lead.id} refreshKey={historyKey} />
+        <CallHistoryStrip leadId={lead.id} refreshKey={historyKey} limit={5} />
 
         {/* ── Where this row stands in the retry pool ─────────────────────
             lib/sales/retryRules.js, through the lead route's `retry`: the
