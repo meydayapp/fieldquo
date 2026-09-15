@@ -99,6 +99,12 @@ export async function GET(request) {
       sellsIn: true,
       commissionPlanId: true,
       commissionPlan: { select: { id: true, name: true } },
+      // "rep" | "influencer". An influencer row is a customer company's
+      // commission ledger (lib/influencers) — listed here so its payouts run
+      // through the same batch flow, shown in its own section because it
+      // has no portal login and its link is the company's referral link.
+      kind: true,
+      influencerOf: { select: { id: true, name: true, referralCode: true }, take: 1 },
       // The count is what makes "deactivate, never delete" legible on the
       // screen: a rep with attributions has history that stops being reachable
       // if the row goes.
@@ -257,6 +263,19 @@ export async function GET(request) {
       // Built from this deployment's own origin, so a preview hands out a
       // preview link instead of quietly pointing testers at production.
       signupLink: signupLinkFor(origin, r.code),
+      kind: r.kind || "rep",
+      // For an influencer: the company whose ledger this is, and the link
+      // they actually hand out (/refer/<code> — the referee gets their month
+      // through it; /signup?sales= would not give them one).
+      influencerOf: r.influencerOf?.[0]
+        ? {
+            companyId: r.influencerOf[0].id,
+            companyName: r.influencerOf[0].name,
+            referralLink: r.influencerOf[0].referralCode
+              ? `${origin}/refer/${r.influencerOf[0].referralCode}`
+              : null,
+          }
+        : null,
       active: r.active,
       invitedAt: r.invitedAt,
       acceptedAt: r.acceptedAt,

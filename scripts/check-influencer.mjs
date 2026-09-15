@@ -273,7 +273,9 @@ section("Wiring");
   if (hasPage) {
     const earnings = read("app/api/influencer/earnings/route.js");
     const payout = read("app/api/influencer/payout/route.js");
-    ok("/api/influencer/earnings scopes every read to the company's own ledger", /influencerRepId/.test(earnings) && /salesRepId: ledgerId/.test(earnings));
+    const gate = read("lib/influencers/gate.js");
+    ok("the company gate resolves the ledger from Company.influencerRepId, never from the request", /influencerRepId/.test(gate) && /where: \{ id: company\.influencerRepId \}/.test(gate) && /kind !== "influencer"/.test(gate));
+    ok("/api/influencer/earnings goes through that gate and scopes every read to the ledger", /influencerOrRefusal\(request\)/.test(earnings) && (earnings.match(/where: \{ salesRepId: ledgerId \}/g) || []).length === 2);
     ok("/api/influencer/payout refuses methods outside the influencer list", /isPayoutMethodFor\(INFLUENCER_KIND/.test(payout) || /isPayoutMethodFor\("influencer"/.test(payout));
     ok("…and writes through the same savePayoutDestination the rep uses", /savePayoutDestination\(/.test(payout));
     ok("the nav row exists and is owner/admin", /app\.nav\.influencer/.test(read("app/components/layout/AdminSidebar.js")) && /"app\.nav\.influencer": \{ role: \["owner", "admin"\] \}/.test(read("lib/permissions/nav.js")));

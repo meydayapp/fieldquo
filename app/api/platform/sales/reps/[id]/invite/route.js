@@ -47,9 +47,20 @@ export async function POST(request, { params }) {
       active: true,
       endedAt: true,
       acceptedAt: true,
+      kind: true,
     },
   });
   if (!rep) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  // An influencer's ledger row is not a login (lib/influencers). Inviting it
+  // would hand a customer a sales-portal password, which canAuthenticate
+  // refuses anyway — refused here too so the console never emails one.
+  if (rep.kind === "influencer") {
+    return NextResponse.json(
+      { error: "This is an influencer's commission ledger, not a sales rep. Influencers use /app, never the sales portal." },
+      { status: 409 },
+    );
+  }
 
   if (rep.acceptedAt) {
     return NextResponse.json(

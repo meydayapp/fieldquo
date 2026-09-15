@@ -655,4 +655,60 @@ export const ARTICLES = {
       { q: "¿La estimación instantánea cuenta como prospecto en mis cifras de marketing?", a: "Sí: crea un prospecto en el tablero, y ese prospecto cuenta en el costo combinado por prospecto de Gasto en marketing." },
     ],
   },
+  "influencer-programme": {
+    title: "Programa de influencers",
+    summary:
+      "Si FieldQuo te inscribió como influencer, tu enlace de recomendación paga una comisión por cada empresa que trae — tres hitos, las mismas reglas que un representante de ventas de FieldQuo — en lugar de un mes gratis.",
+    updated: "2026-09-15",
+    intro: [
+      "**Influencer** es una fila de la barra lateral que solo existe para una empresa que FieldQuo ha inscrito en el programa de influencers. Te registraste con un código de influencer, o FieldQuo convirtió tu cuenta. Aun así recibiste la prueba normal como cualquier empresa. Lo que cambia es lo que gana tu enlace: en lugar del mes gratis del recomendador, FieldQuo te paga una comisión por cada empresa que se registra con él y se queda.",
+    ],
+    sections: [
+      {
+        id: "overview",
+        heading: "Qué muestra la página",
+        blocks: [
+          { p: "**Tu enlace** con **Copiar enlace**: es el enlace de recomendación de tu empresa, el mismo que aparece en Recomienda y gana. **Tu plan de comisiones** enumera los tres importes que ganas por empresa y cuándo se alcanza cada uno. **Empresas que llegaron por tu enlace** enumera cada empresa cuyo registro se te acreditó, con una etiqueta: **Registrada**, **En prueba**, **Pagando** o **Se fue**. Debajo, **Tus ganancias** — total, pagado, pendiente de pago y esta semana — con el avance de hitos de cada empresa y cada semana cerrada y cómo se pagó. Por último, **Cómo se te paga**." },
+        ],
+      },
+      {
+        id: "how-the-commission-works",
+        heading: "Cómo funciona la comisión",
+        blocks: [
+          { table: {
+            head: ["Hito", "Cuándo se gana"],
+            rows: [
+              ["Activación", "La empresa conecta los pagos y puede cobrar con tarjeta."],
+              ["Primer pago", "La empresa paga su primera factura de FieldQuo; una factura de prueba de $0 no genera nada."],
+              ["Retención", "La empresa sigue suscrita después del periodo de retención del plan, contado desde el día en que empezó su suscripción, prueba incluida."],
+            ],
+          } },
+          { p: "Quien se registra con tu enlace recibe igualmente su propio mes gratis adicional, exactamente como con cualquier enlace de recomendación. Tú no recibes además un mes: un enlace, una recompensa. No puedes ganar por una empresa registrada con tu propio correo, y una empresa ya acreditada a otra persona sigue siendo suya." },
+        ],
+      },
+      {
+        id: "how-you-get-paid",
+        heading: "Cómo se te paga",
+        blocks: [
+          { steps: [
+            "Abre **Influencer** y baja hasta **Cómo se te paga**.",
+            "Elige **PayPal**, **Interac e-Transfer**, **Wise** o **Transferencia bancaria**, e introduce la dirección o los datos de cuenta que pide ese método.",
+            "Pulsa **Guardar**. Se muestra la fecha en que confirmaste los datos, para saber cuándo se revisaron por última vez.",
+          ] },
+          { note: "FieldQuo cierra la comisión de cada semana el lunes y la paga por el método registrado. Una semana cerrada y no pagada lo dice; nada en esta página es una transferencia en curso." },
+        ],
+      },
+      {
+        id: "who-can-see-it",
+        heading: "Quién puede verla",
+        blocks: [
+          { p: "Solo propietarios y administradores, y solo en una empresa inscrita. Los demás no ven la fila." },
+        ],
+      },
+    ],
+    faq: [
+      { q: "Alguien se registró con mi enlace pero no aparece en la lista, ¿por qué?", a: "La lista son las empresas cuyo registro se te acreditó. Una empresa registrada con tu propio correo, o ya acreditada a otra persona, no aparece." },
+      { q: "Gané un hito pero no ha llegado dinero, ¿por qué?", a: "Las semanas se cierran el lunes y se pagan a mano después. Comprueba que hay un método de pago registrado en Cómo se te paga; sin él, no hay adónde enviarlo." },
+    ],
+  },
 };

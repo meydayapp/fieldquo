@@ -68,7 +68,20 @@ const FALLBACK = {
   currency: null,
 };
 
-export default function CompanyPreferencesProvider({ children, initialCurrency = null }) {
+/**
+ * @param initialInfluencer  whether this company is enrolled in the influencer
+ *                           programme, resolved by AppLayout from
+ *                           Company.influencerAt + influencerRepId. Carried
+ *                           here beside the currency because it is the same
+ *                           kind of fact — a company-level truth the shell
+ *                           needs on its first paint — and a second provider
+ *                           for one boolean would be a second query for it.
+ */
+export default function CompanyPreferencesProvider({
+  children,
+  initialCurrency = null,
+  initialInfluencer = false,
+}) {
   const [prefs, setPrefs] = useState({
     ...FALLBACK,
     currency: initialCurrency || null,
@@ -100,11 +113,12 @@ export default function CompanyPreferencesProvider({ children, initialCurrency =
   const value = useMemo(
     () => ({
       ...prefs,
+      isInfluencer: Boolean(initialInfluencer),
       formatDate: (v) => formatCompanyDate(v, prefs.dateFormat),
       formatDateTime: (v) => formatCompanyDateTime(v, prefs.dateFormat),
       money: moneyFormatter(prefs.currency, "en"),
     }),
-    [prefs],
+    [prefs, initialInfluencer],
   );
 
   return (

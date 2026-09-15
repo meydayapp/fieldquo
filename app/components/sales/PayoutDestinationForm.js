@@ -40,8 +40,18 @@ import { useTranslation } from "@/app/hooks/useTranslation";
  *                        first-run screen that scrolls is one people abandon.
  * @param onSaved         called with the saved view, so /sales/welcome can tick
  *                        its step off without re-reading the route.
+ * @param endpoint        the route this form reads and writes. The rep's own
+ *                        by default; /app/influencer passes its company-gated
+ *                        twin (app/api/influencer/payout/route.js), which
+ *                        answers in the same shape with a shorter method list.
+ *                        The methods still travel down in the answer, so this
+ *                        form never decides what to offer.
  */
-export default function PayoutDestinationForm({ showEngagement = true, onSaved }) {
+export default function PayoutDestinationForm({
+  showEngagement = true,
+  onSaved,
+  endpoint = "/api/sales/payout",
+}) {
   const { t } = useTranslation();
   const [data, setData] = useState(null);
   const [method, setMethod] = useState("");
@@ -58,7 +68,7 @@ export default function PayoutDestinationForm({ showEngagement = true, onSaved }
   // it re-reads loses whatever the rep had half-typed.
   const load = useCallback(async () => {
     try {
-      const json = await fetchJson("/api/sales/payout");
+      const json = await fetchJson(endpoint);
       setData(json);
       setMethod(json.payoutMethod || "");
       setHandle(json.payoutHandle || "");
@@ -73,7 +83,7 @@ export default function PayoutDestinationForm({ showEngagement = true, onSaved }
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [endpoint]);
 
   useEffect(() => {
     load();
@@ -85,7 +95,7 @@ export default function PayoutDestinationForm({ showEngagement = true, onSaved }
     setError("");
     setSaved(false);
     try {
-      const json = await fetchJson("/api/sales/payout", {
+      const json = await fetchJson(endpoint, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ payoutMethod: method, payoutHandle: handle.trim() }),

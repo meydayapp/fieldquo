@@ -111,6 +111,7 @@ import Link from "next/link";
 import {
   AlertCircle,
   Archive,
+  Handshake,
   ArrowRightLeft,
   Check,
   ChevronDown,
@@ -321,12 +322,19 @@ export default function PlatformSalesRepsPage() {
   // archived rep (the payouts table, a bookmark) unfolds it, because a link
   // that lands on nothing is worse than a list that is one section longer.
   const [showArchived, setShowArchived] = useState(false);
-  const activeReps = useMemo(() => reps.filter((r) => r.active), [reps]);
+  // Three sections, not two. Influencers (kind "influencer" — a customer
+  // company's commission ledger, lib/influencers) sit between the reps and
+  // the archive: same ledger, same payout batches, no portal login, and a
+  // link that is the company's own /refer/<code>.
+  const activeReps = useMemo(() => reps.filter((r) => r.active && r.kind !== "influencer"), [reps]);
+  const influencerReps = useMemo(() => reps.filter((r) => r.active && r.kind === "influencer"), [reps]);
   const archivedReps = useMemo(() => reps.filter((r) => !r.active), [reps]);
   useEffect(() => {
     if (openRep && archivedReps.some((r) => r.id === openRep)) setShowArchived(true);
   }, [openRep, archivedReps]);
-  const visibleReps = showArchived ? [...activeReps, ...archivedReps] : activeReps;
+  const visibleReps = showArchived
+    ? [...activeReps, ...influencerReps, ...archivedReps]
+    : [...activeReps, ...influencerReps];
   // The owed strip at the top: the same snapshot /platform/sales/payouts
   // draws. Null until read; absent (not a fabricated zero) when this admin
   // may not read payouts.
@@ -1220,8 +1228,17 @@ export default function PlatformSalesRepsPage() {
             const open = openRep === rep.id;
             const money = rep.money || null;
             const firstArchived = !rep.active && (idx === 0 || visibleReps[idx - 1].active);
+            const isInfluencerRow = rep.kind === "influencer";
+            const firstInfluencer =
+              rep.active && isInfluencerRow && (idx === 0 || visibleReps[idx - 1].kind !== "influencer");
             return (
               <Fragment key={rep.id}>
+              {firstInfluencer ? (
+                <h2 className="pt-4 text-sm font-semibold text-muted-foreground flex items-center gap-2">
+                  <Handshake size={14} /> Influencers ({influencerReps.length})
+                  <span className="font-normal">— customer companies paid a commission on their referral link; same ledger and payout batches, no portal login</span>
+                </h2>
+              ) : null}
               {firstArchived ? (
                 <h2 className="pt-4 text-sm font-semibold text-muted-foreground flex items-center gap-2">
                   <Archive size={14} /> Archived ({archivedReps.length})
@@ -1252,8 +1269,24 @@ export default function PlatformSalesRepsPage() {
                   <span className="min-w-0 flex-1 space-y-1">
                     <span className="flex items-start justify-between gap-3 flex-wrap">
                       <span className="min-w-0">
-                        <span className="block font-medium text-foreground">{rep.name}</span>
+                        <span className="block font-medium text-foreground">
+                          {rep.name}
+                          {isInfluencerRow ? (
+                            <span className="ml-2 align-middle text-[11px] uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
+                              influencer
+                            </span>
+                          ) : null}
+                        </span>
                         <span className="block text-xs text-muted-foreground break-all">{rep.email}</span>
+                        {isInfluencerRow && rep.influencerOf ? (
+                          <Link
+                            href={`/platform/companies/${rep.influencerOf.companyId}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="block text-xs text-muted-foreground underline underline-offset-2"
+                          >
+                            Company: {rep.influencerOf.companyName}
+                          </Link>
+                        ) : null}
                       </span>
                       <span className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
                         {/* Signups on this rep's link waiting for a look —
@@ -1490,18 +1523,22 @@ export default function PlatformSalesRepsPage() {
 
                 <div>
                   <label htmlFor={`link-${rep.id}`} className={LABEL}>
-                    Signup link
+                    {isInfluencerRow ? "Referral link" : "Signup link"}
                   </label>
                   <div className="flex flex-wrap gap-2">
+                    {/* An influencer hands out the COMPANY's referral link:
+                        the referee gets their month through it, and the
+                        attribution lands on this ledger. The ?sales= slug is
+                        never given to them. */}
                     <input
                       id={`link-${rep.id}`}
                       readOnly
-                      value={rep.signupLink || ""}
+                      value={(isInfluencerRow ? rep.influencerOf?.referralLink : rep.signupLink) || ""}
                       className={`${FIELD} flex-1 font-mono`}
                     />
                     <button
-                      onClick={() => copy(rep.signupLink || "", rep.id)}
-                      disabled={!rep.signupLink}
+                      onClick={() => copy((isInfluencerRow ? rep.influencerOf?.referralLink : rep.signupLink) || "", rep.id)}
+                      disabled={!(isInfluencerRow ? rep.influencerOf?.referralLink : rep.signupLink)}
                       className={BTN_QUIET}
                     >
                       {copied === rep.id ? <Check size={14} /> : <Copy size={14} />}
@@ -1842,7 +1879,7 @@ export default function PlatformSalesRepsPage() {
                     {/* Only rendered when it would actually work: the route
                         refuses a resend for a rep who has already set a
                         password, or one who is deactivated. */}
-                    {rep.active && !rep.acceptedAt && (
+                    {rep.active && !rep.acceptedAt && !isInfluencerRow && (
                       <button onClick={() => resend(rep)} disabled={busy} className={BTN_QUIET}>
                         <Mail size={13} /> Resend invite
                       </button>

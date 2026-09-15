@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 14 September 2026 (chat unread: both stores count unread with a grouped query over every message instead of a slice of the oldest 200, the thread reads its newest 500, a read is stamped with the last message shown rather than the clock, and opening a room re-reads the list and the /sales Team badge at once; StaffRoomMember.lastOpenedAt carries the "is looking" fact for the DM push; check:staff-chat §10–11 and check:company-chat §10 execute it against the fake database.)
+Last updated: 15 September 2026 (influencer programme: an influencer promo code enrols the company — kind "influencer" SalesRep ledger, Company.influencerAt/influencerRepId — and their /refer/<code> writes a SalesAttribution instead of the referrer month, paid by the existing commission engine and weekly batches; /app/influencer shows the rep's own EarningsPanel and PayoutDestinationForm against company-gated twins of the rep routes, with PayPal/Interac/Wise/bank transfer and no Upwork; /platform/companies/[id] enrols an existing company; check:influencer executes the money path against the scripted client.)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -9,6 +9,61 @@ it exists to answer.
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
+
+## The influencer programme: a company whose link pays a commission, not a month (15 September 2026)
+
+The owner's brief, verbatim: "the influencer that signs up becomes like a
+sales rep. They get the same trial as a regular company (1 free month), but
+when someone uses their referral link, instead of the influencer getting a
+free month like a regular company, they get one of the commission plans I
+have, with the same rules."
+
+**Shape.** An influencer is a COMPANY. Redeeming an influencer promo code
+(now carrying `PlatformPromoCode.commissionPlanId`, defaulting to 0 free
+months on /platform/promo-codes) enrols it: a `SalesRep` row of
+`kind: "influencer"` — email = the owner's, on the code's plan, engagement
+stated as freelancer, never a password — and `Company.influencerAt` /
+`influencerRepId` pointing at it. `lib/influencers/index.js` is the whole of
+it; `enrolInfluencer()` is the one path, and /platform/companies/[id] calls
+the same function to convert an existing company.
+
+**Money.** `lib/referrals/index.js` branches in two places: at signup the
+referee's month is granted as before and, in the same transaction, a
+`SalesAttribution` with source `influencer_link` is written through the same
+`captureAttributionWithin()` a rep's link uses — self-dealing, already
+attributed and inactive ledger refused by the same decision; and
+`grantReferrerCredit()` returns null for an influencer referrer, so one link
+can never earn both. `lib/sales/commission.js` and the payout batch know
+nothing about influencers and need to know nothing.
+
+**Screens.** /app/influencer (owner/admin, rail row present only on an
+enrolled company): the link, the plan's three amounts, every attributed
+company with signed up / on trial / paying / churned, the rep's own
+`EarningsPanel` and `PayoutDestinationForm` pointed at `/api/influencer/*`
+(same shapes, company-gated, keyed on `influencerRepId` read fresh — the body
+names no rep), methods PayPal / Interac / Wise / bank transfer and the PUT
+refuses Upwork. /platform/sales/reps lists influencers in their own section
+with the company's /refer link instead of a ?sales= slug, and refuses to
+invite one. Help: "Influencer programme" in en/fr/es.
+
+**Executed.** `scripts/check-influencer.mjs` (88 assertions) runs redemption,
+enrolment, the referral, the refusal of the referrer month, self-dealing, the
+/sales refusal and the method lists against the scripted client, which grew
+`equals`/`mode: "insensitive"`, nested relation filters and the sales models
+to stop lying about those reads.
+
+### Still owed here
+
+- A company that referred others BEFORE being converted keeps nothing for
+  those referrals if the referee had not paid yet: the attribution is written
+  only at signup, and the referrer month is refused from conversion onward.
+  Decision for the owner: leave as is, or move pre-conversion referrals onto
+  the ledger by hand.
+- No email to the influencer when a milestone lands or a week is paid; the
+  rep gets none either today.
+- Payout batches for influencers run through /platform/sales/payouts with
+  the kind badge on the reps list only — the payouts table itself does not
+  yet say "influencer" on a row.
 
 ## Chat unread counts that clear: a count, not a slice; the last message shown, not the clock (14 September 2026)
 

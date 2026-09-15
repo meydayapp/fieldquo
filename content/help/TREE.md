@@ -70,7 +70,7 @@ callbacks, the crew inbox, team chat, How You Compare, the KPI dashboard,
 
 <!-- tree:start -->
 
-_Generated 2026-09-14 — 319 articles in the tree; written: en 319, fr 319, es 319; “Only in FieldQuo”: 34._
+_Generated 2026-09-15 — 320 articles in the tree; written: en 320, fr 320, es 320; “Only in FieldQuo”: 34._
 
 ### getting-started (23)
 
@@ -258,7 +258,7 @@ _Generated 2026-09-14 — 319 articles in the tree; written: en 319, fr 319, es 
 | `the-manager-log-book` — The manager's log book | ✓ | ✓ | ✓ | manager-log | hr_compliance |  |
 | `hr-and-compliance` — HR & compliance overview | ✓ | ✓ | ✓ |  | hr_compliance |  |
 
-### marketing-and-website (20)
+### marketing-and-website (21)
 
 | Article | en | fr | es | Screen | Feature | Only |
 |---|:-:|:-:|:-:|---|---|:-:|
@@ -281,6 +281,7 @@ _Generated 2026-09-14 — 319 articles in the tree; written: en 319, fr 319, es 
 | `connect-meta-ads` — Connect your Meta ad account | ✓ | ✓ | ✓ | settings-meta-ads | marketing_spend |  |
 | `ask-for-reviews-automatically` — Ask for reviews automatically | ✓ | ✓ | ✓ | settings-reviews | review_requests |  |
 | `refer-another-business` — Refer another business, earn a free month | ✓ | ✓ | ✓ | refer | referrals |  |
+| `influencer-programme` — Influencer programme | ✓ | ✓ | ✓ | influencer | referrals |  |
 | `instant-estimates-as-marketing` — The instant estimate as a lead magnet | ✓ | ✓ | ✓ |  | instant_quotes |  |
 
 ### messages (18)

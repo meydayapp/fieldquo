@@ -80,7 +80,15 @@ function rungNote(state, t) {
   return null;
 }
 
-export default function EarningsPanel() {
+/**
+ * @param endpoint  where the earnings come from. The rep's own route by
+ *                  default; /app/influencer passes its company-gated twin,
+ *                  which answers in the same shape (see
+ *                  app/api/influencer/earnings/route.js). One panel, two
+ *                  readers — the alternative was a second copy of this
+ *                  file, which is AGENTS.md failure class #4.
+ */
+export default function EarningsPanel({ endpoint = "/api/sales/earnings" }) {
   const { t } = useTranslation();
   const [data, setData] = useState(null);
   // A flag rather than the sentence itself: the sentence is now a translation,
@@ -92,7 +100,7 @@ export default function EarningsPanel() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetchJson("/api/sales/earnings");
+        const res = await fetchJson(endpoint);
         if (!cancelled) setData(res);
       } catch {
         // Named, not silent. Unlike the tour, a rep who cannot see their pay
@@ -104,7 +112,7 @@ export default function EarningsPanel() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [endpoint]);
 
   if (failed) {
     return (

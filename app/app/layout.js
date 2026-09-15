@@ -17,6 +17,7 @@ import CompanyPreferencesProvider from "@/app/providers/CompanyPreferencesProvid
 import { LanguageProvider } from "@/app/providers/LanguageProvider";
 import { FeatureProvider } from "@/app/providers/FeatureProvider";
 import { PermissionProvider } from "@/app/providers/PermissionProvider";
+import { isInfluencer } from "@/lib/influencers";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { getCurrentMember } from "@/lib/currentMember";
@@ -112,7 +113,9 @@ async function getCompanyShell() {
 
     return await db.company.findUnique({
       where: { id: member.companyId },
-      select: { name: true, currency: true },
+      // influencerAt/influencerRepId: whether the Influencer row belongs in
+      // the rail. Both, because lib/influencers' isInfluencer() needs both.
+      select: { name: true, currency: true, influencerAt: true, influencerRepId: true },
     });
   } catch (err) {
     console.error("[AppLayout] couldn't load the company shell:", err);
@@ -444,7 +447,10 @@ export default async function AppLayout({ children }) {
           in Settings got English back on any browser that had previously visited
           the marketing site. */}
       <LanguageProvider initialLanguage={language} fromAccount={Boolean(language)}>
-      <CompanyPreferencesProvider initialCurrency={company?.currency || null}>
+      <CompanyPreferencesProvider
+        initialCurrency={company?.currency || null}
+        initialInfluencer={isInfluencer(company)}
+      >
       {/* Wraps `children` as well as the rail, because the SETTINGS sidebar is
           rendered by a nested layout further down the tree and needs the same
           map. Resolving it twice would be two more queries for the same answer. */}

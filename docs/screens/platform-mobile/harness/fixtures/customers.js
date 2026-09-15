@@ -1510,6 +1510,21 @@ export default function answer({ method, path, url, body }) {
       if (sub === "activity") return companyActivity(id);
       if (sub === "dispute-evidence") return disputeEvidence(id);
       if (sub === "extend-trial") return { ok: true, trialEndsAt: ahead(Number(body?.days) || 14) };
+      // The influencer programme panel. Nobody in the fixture is enrolled;
+      // the panel offers the plans to a superadmin and refuses for the rest.
+      if (sub === "influencer") {
+        if (method === "POST") return json({ error: "Only a superadmin can enrol a company as an influencer." }, 403);
+        return {
+          enrolled: false,
+          influencerAt: null,
+          ledgerId: null,
+          ledgerActive: null,
+          plan: null,
+          referredCount: 0,
+          referralCode: null,
+          plans: [{ id: "cplan_std", name: "Standard", activationCents: 2000, firstPaymentCents: 4000, retentionCents: 6500 }],
+        };
+      }
       if (sub === "impersonate") return { success: true, redirect: "/app", expiresAt: new Date(NOW + 30 * 60000).toISOString() };
     }
   }

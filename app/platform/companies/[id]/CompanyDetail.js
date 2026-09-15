@@ -37,6 +37,7 @@ import CompanyHistory from "./CompanyHistory";
 import CompanyActivity from "./CompanyActivity";
 import CompanyHealth from "./CompanyHealth";
 import CompanyActions from "./CompanyActions";
+import CompanyInfluencer from "./CompanyInfluencer";
 import CompanyDisputeEvidence from "./CompanyDisputeEvidence";
 import PlatformWriteGate, {
   usePlatformAdmin,
@@ -196,6 +197,12 @@ export default function CompanyDetail({ companyId }) {
             >
               {company.onboardingStatus}
             </span>
+            {/* Both columns, the same test lib/influencers makes. */}
+            {company.influencerAt && company.influencerRepId ? (
+              <span className="text-xs px-2.5 py-1 rounded-full border bg-muted text-muted-foreground border-border">
+                Influencer
+              </span>
+            ) : null}
           </div>
           <p className="text-sm text-muted-foreground mt-1">
             Joined {formatDate(company.createdAt)} · /{company.slug}
@@ -644,6 +651,10 @@ export default function CompanyDetail({ companyId }) {
         trialEndsAt={company.trialEndsAt}
         onDone={load}
       />
+
+      {/* The influencer programme: standing, plan, referred count, and the
+          superadmin's enrol control. */}
+      <CompanyInfluencer companyId={companyId} onDone={load} />
 
       {/* The case FieldQuo can make if they charge back — assembled on demand,
           never submitted. Sits after the support actions because it is the

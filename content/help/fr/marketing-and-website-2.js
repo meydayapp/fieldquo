@@ -654,4 +654,60 @@ export const ARTICLES = {
       { q: "L'estimation instantanée compte-t-elle comme prospect dans mes chiffres marketing ?", a: "Oui — elle crée un prospect sur le tableau, et ce prospect compte dans le coût moyen par prospect de Dépenses marketing." },
     ],
   },
+  "influencer-programme": {
+    title: "Programme influenceur",
+    summary:
+      "Si FieldQuo vous a inscrit comme influenceur, votre lien de parrainage rapporte une commission sur chaque entreprise qu'il amène — trois jalons, les mêmes règles qu'un représentant FieldQuo — au lieu d'un mois gratuit.",
+    updated: "2026-09-15",
+    intro: [
+      "**Influenceur** est une ligne de la barre latérale qui n'existe que pour une entreprise que FieldQuo a inscrite au programme influenceur. Vous vous êtes inscrit avec un code influenceur, ou FieldQuo a converti votre compte. Vous avez quand même eu l'essai ordinaire comme n'importe quelle entreprise. Ce qui change, c'est ce que rapporte votre lien : au lieu du mois gratuit du parrain, FieldQuo vous verse une commission sur chaque entreprise qui s'inscrit par ce lien et qui reste.",
+    ],
+    sections: [
+      {
+        id: "overview",
+        heading: "Ce que montre la page",
+        blocks: [
+          { p: "**Votre lien** avec **Copier le lien** — c'est le lien de parrainage de votre entreprise, le même que sous Parrainage. **Votre plan de commission** liste les trois montants que vous gagnez par entreprise et le moment où chacun est atteint. **Entreprises venues par votre lien** liste chaque entreprise dont l'inscription vous a été créditée, avec un badge : **Inscrite**, **En essai**, **Payante** ou **Partie**. En dessous, **Vos gains** — cumul, payé, en attente de versement et cette semaine — avec la progression des jalons de chaque entreprise et chaque semaine clôturée et comment elle a été payée. Enfin, **Comment vous êtes payé**." },
+        ],
+      },
+      {
+        id: "how-the-commission-works",
+        heading: "Comment fonctionne la commission",
+        blocks: [
+          { table: {
+            head: ["Jalon", "Quand il est gagné"],
+            rows: [
+              ["Activation", "L'entreprise connecte les paiements et peut accepter une carte."],
+              ["Premier paiement", "L'entreprise paie sa première facture FieldQuo — une facture d'essai à 0 $ ne rapporte rien."],
+              ["Fidélisation", "L'entreprise est toujours abonnée après la période de fidélisation du plan, comptée depuis le jour où son abonnement a commencé, essai inclus."],
+            ],
+          } },
+          { p: "La personne qui s'inscrit par votre lien reçoit quand même son propre mois gratuit supplémentaire, exactement comme avec n'importe quel lien de parrainage. Vous ne recevez pas de mois en plus : un lien, une récompense. Vous ne pouvez pas gagner sur une entreprise enregistrée avec votre propre adresse courriel, et une entreprise déjà créditée à quelqu'un d'autre reste la sienne." },
+        ],
+      },
+      {
+        id: "how-you-get-paid",
+        heading: "Comment vous êtes payé",
+        blocks: [
+          { steps: [
+            "Ouvrez **Influenceur** et descendez jusqu'à **Comment vous êtes payé**.",
+            "Choisissez **PayPal**, **Virement Interac**, **Wise** ou **Virement bancaire**, et saisissez l'adresse ou les coordonnées demandées par ce moyen.",
+            "Appuyez sur **Enregistrer**. La date à laquelle vous avez confirmé les coordonnées s'affiche, pour savoir quand elles ont été vérifiées pour la dernière fois.",
+          ] },
+          { note: "FieldQuo clôture la commission de chaque semaine le lundi et la verse par le moyen enregistré. Une semaine clôturée mais non payée le dit — rien sur cette page n'est un virement en cours." },
+        ],
+      },
+      {
+        id: "who-can-see-it",
+        heading: "Qui peut la voir",
+        blocks: [
+          { p: "Les propriétaires et les administrateurs seulement, et seulement dans une entreprise inscrite. Les autres ne voient pas la ligne." },
+        ],
+      },
+    ],
+    faq: [
+      { q: "Quelqu'un s'est inscrit par mon lien mais n'apparaît pas dans la liste — pourquoi ?", a: "La liste contient les entreprises dont l'inscription vous a été créditée. Une entreprise enregistrée avec votre propre courriel, ou déjà créditée à quelqu'un d'autre, n'y figure pas." },
+      { q: "J'ai gagné un jalon mais aucun argent n'est arrivé — pourquoi ?", a: "Les semaines se clôturent le lundi et sont payées à la main ensuite. Vérifiez qu'un moyen de paiement est enregistré sous Comment vous êtes payé ; sans lui, il n'y a nulle part où l'envoyer." },
+    ],
+  },
 };

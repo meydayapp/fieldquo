@@ -533,9 +533,12 @@ section("9. Only the four sanctioned doors exist");
 // lead_link joined on 2026-09-11 — the one rep-side door, gated by a claim
 // (the email the company registered with, and the lead predating the signup)
 // that scripts/check-sales-lead-link.mjs executes branch by branch. Counted
-// here so a fifth door cannot appear without somebody editing this line.
-ok("there are exactly four sources", ATTRIBUTION_SOURCES.length === 4);
-ok("link, manual, admin and lead_link", ["link", "manual", "admin", "lead_link"].every((s) => ATTRIBUTION_SOURCES.includes(s)));
+// here so a sixth door cannot appear without somebody editing this line.
+// Five since 2026-09-15: influencer_link is the door an influencer company's
+// /refer/<code> comes through (lib/influencers, executed by
+// scripts/check-influencer.mjs). Same decision, its own name.
+ok("there are exactly five sources", ATTRIBUTION_SOURCES.length === 5);
+ok("link, manual, admin, lead_link and influencer_link", ["link", "manual", "admin", "lead_link", "influencer_link"].every((s) => ATTRIBUTION_SOURCES.includes(s)));
 {
   // The claim gate, at the decision: a lead_link with no claim, a claim whose
   // email is not the company's, or a claim whose lead came after the signup

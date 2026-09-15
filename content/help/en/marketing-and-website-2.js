@@ -658,4 +658,60 @@ export const ARTICLES = {
       { q: "Does the instant estimate count as a lead in my marketing numbers?", a: "Yes — it creates a lead on the board, and that lead counts in the blended cost per lead on Marketing spend." },
     ],
   },
+  "influencer-programme": {
+    title: "Influencer programme",
+    summary:
+      "If FieldQuo enrolled you as an influencer, your referral link pays a commission on every company it brings in — three milestones, the same rules as a FieldQuo sales rep — instead of a free month.",
+    updated: "2026-09-15",
+    intro: [
+      "**Influencer** is a row in the sidebar that exists only for a company FieldQuo has enrolled in the influencer programme. You signed up with an influencer code, or FieldQuo converted your account. You still got the ordinary trial like any company. What changed is what your link earns: instead of the referrer's free month, FieldQuo pays you a commission on every company that signs up through it and stays.",
+    ],
+    sections: [
+      {
+        id: "overview",
+        heading: "What the page shows",
+        blocks: [
+          { p: "**Your link** with **Copy link** — it is your company's referral link, the same one under Refer & Earn. **Your commission plan** lists the three amounts you earn per company and when each is reached. **Companies from your link** lists every company whose signup was credited to you with a badge: **Signed up**, **On trial**, **Paying** or **Churned**. Below that, **Your earnings** — lifetime, paid, awaiting payout and this week — with each company's milestone progress and each closed week and how it was paid. Last, **How you get paid**." },
+        ],
+      },
+      {
+        id: "how-the-commission-works",
+        heading: "How the commission works",
+        blocks: [
+          { table: {
+            head: ["Milestone", "When it is earned"],
+            rows: [
+              ["Activation", "The company connects payments and can take a card."],
+              ["First payment", "The company pays its first FieldQuo invoice — a $0 trial invoice earns nothing."],
+              ["Retention", "The company is still subscribed after the plan's retention period, counted from the day its subscription started, trial included."],
+            ],
+          } },
+          { p: "The person who signs up through your link still gets their own extra free month, exactly as they would through any referral link. You do not get a month as well: one link, one reward. You cannot earn on a company registered with your own email address, and a company that was already credited to somebody else stays theirs." },
+        ],
+      },
+      {
+        id: "how-you-get-paid",
+        heading: "How you get paid",
+        blocks: [
+          { steps: [
+            "Open **Influencer** and scroll to **How you get paid**.",
+            "Choose **PayPal**, **Interac e-Transfer**, **Wise** or **Bank transfer**, and enter the address or account details the method asks for.",
+            "Press **Save**. The date you confirmed the details is shown, so you can tell when they were last checked.",
+          ] },
+          { note: "FieldQuo closes each week's commission on Monday and pays it by the method on file. A closed week that has not been paid says so — nothing on this page is a transfer in flight." },
+        ],
+      },
+      {
+        id: "who-can-see-it",
+        heading: "Who can see it",
+        blocks: [
+          { p: "Owners and administrators only, and only on an enrolled company. Everyone else does not see the row." },
+        ],
+      },
+    ],
+    faq: [
+      { q: "Somebody signed up through my link but is not in the list — why?", a: "The list is companies whose signup was credited to you. A company registered with your own email, or one already credited to somebody else, is not." },
+      { q: "I earned a milestone but no money has arrived — why?", a: "Weeks close on Monday and are paid by hand afterwards. Check that a payout method is on file under How you get paid; without one, there is nowhere to send it." },
+    ],
+  },
 };

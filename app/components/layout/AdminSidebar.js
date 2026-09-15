@@ -8,6 +8,7 @@ import { usePathname } from "next/navigation";
 import { useSession, signOut } from "@/lib/auth-client";
 import { useImpersonation } from "@/app/hooks/useImpersonation";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import TrialBadge from "@/app/components/layout/TrialBadge";
 import NavDrawer from "@/app/components/layout/NavDrawer";
 import {
@@ -32,6 +33,7 @@ import {
   CalendarSync,
   Wallet,
   Gift,
+  Handshake,
   Sparkles,
   Compass,
   Gauge,
@@ -276,9 +278,24 @@ export const NAV_GROUPS = [
       // else in this group is about.
       { key: "app.nav.messages", href: "/app/messages", icon: MessageCircle, helpArticle: "messages" },
       { key: "app.nav.refer", href: "/app/settings/refer", icon: Gift, helpArticle: "refer" },
+      // Only for a company enrolled in the influencer programme — filtered
+      // out below on the shell's own `isInfluencer` (resolved server-side by
+      // AppLayout, so the first paint is right), not by a fetch. Declared
+      // here rather than appended at render time so check-sidebar and the
+      // help centre see it as a row like any other.
+      { key: "app.nav.influencer", href: "/app/influencer", icon: Handshake, helpArticle: "influencer" },
     ],
   },
 ];
+
+/** Rows that exist only for an enrolled influencer company. */
+const INFLUENCER_ONLY = new Set(["app.nav.influencer"]);
+function dropInfluencerRows(groups, isInfluencer) {
+  if (isInfluencer) return groups;
+  return groups
+    .map((g) => ({ ...g, items: g.items.filter((i) => !INFLUENCER_ONLY.has(i.key)) }))
+    .filter((g) => g.items.length > 0);
+}
 
 // The floating "+" popup — quick-create shortcuts.
 const QUICK_ADD_ITEMS = [
@@ -360,9 +377,18 @@ export default function AdminSidebar() {
   // no business on it. Collapsing them into a single predicate would make the
   // reason a row vanished unrecoverable the next time someone asks why.
   const caller = usePermissions();
+  // Whether this company is an influencer (Company.influencerAt +
+  // influencerRepId), handed down by AppLayout with the currency so the row
+  // is present or absent on the first paint. Cosmetic like the feature
+  // filter: /api/influencer refuses a company that is not enrolled.
+  const { isInfluencer } = useCompanyPreferences();
   const navGroups = useMemo(
-    () => filterNavGroupsByPermission(filterNavGroups(NAV_GROUPS, featureFlags), caller),
-    [featureFlags, caller],
+    () =>
+      filterNavGroupsByPermission(
+        dropInfluencerRows(filterNavGroups(NAV_GROUPS, featureFlags), isInfluencer),
+        caller,
+      ),
+    [featureFlags, caller, isInfluencer],
   );
   const bottomItems = useMemo(
     () => filterNavItemsByPermission(filterNavItems(BOTTOM_ITEMS, featureFlags), caller),
@@ -374,8 +400,12 @@ export default function AdminSidebar() {
   const searchCorpus = useMemo(
     // Filtered by permission too, or typing "payroll" would name a screen the
     // member cannot open — reopening by search the leak the nav filter closes.
-    () => filterNavGroupsByPermission(filterNavGroups(SEARCH_CORPUS, featureFlags), caller),
-    [featureFlags, caller],
+    () =>
+      filterNavGroupsByPermission(
+        dropInfluencerRows(filterNavGroups(SEARCH_CORPUS, featureFlags), isInfluencer),
+        caller,
+      ),
+    [featureFlags, caller, isInfluencer],
   );
   // filterNavItemsByPermission, not just filterNavItems. This list ran through
   // the FEATURE-FLAG filter alone, so "app.quickAdd.quote" — which has been in

@@ -57,6 +57,8 @@ export const SCREENS = [
   { slug: "crew-inbox", nav: "app.nav.crewInbox", href: "/app/crew-inbox", page: "app/app/crew-inbox/page.js" },
   { slug: "messages", nav: "app.nav.messages", href: "/app/messages", page: "app/app/messages/page.js", scene: "messages-open" },
   { slug: "refer", nav: "app.nav.refer", href: "/app/settings/refer", page: "app/app/settings/refer/page.js", settings: true },
+  // Present only for a company enrolled in the influencer programme.
+  { slug: "influencer", nav: "app.nav.influencer", href: "/app/influencer", page: "app/app/influencer/page.js" },
   // Bottom of the rail
   { slug: "help", nav: "app.nav.help", href: "/app/help", page: "app/app/help/page.js" },
   { slug: "plan", nav: "app.nav.plan", href: "/app/settings/account-billing", page: "app/app/settings/account-billing/page.js", settings: true },
