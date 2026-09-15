@@ -24,14 +24,24 @@ export default function PromoCodesPage() {
   const [busyId, setBusyId] = useState(null);
   const [creating, setCreating] = useState(false);
   const [copied, setCopied] = useState("");
+  // An influencer code defaults to ZERO free months: since 2026-09-15 an
+  // influencer gets the same trial as any company, and what the code carries
+  // instead is a commission plan (see the select below). A tester code keeps
+  // its three. Switching Type swaps the default rather than leaving whatever
+  // the previous type had, because "3 free months" on an influencer code is
+  // the exact thing the owner asked to stop doing.
   const [form, setForm] = useState({
     label: "",
     notes: "",
     kind: "influencer",
-    rewardMonths: 3,
+    rewardMonths: 0,
     maxRedemptions: 1,
     expiresAt: "",
+    commissionPlanId: "",
   });
+  // Active commission plans, for the influencer select. Null until loaded;
+  // an empty list is a real answer ("make a plan first") and is said so.
+  const [plans, setPlans] = useState(null);
 
   // Minting a code is superadmin-only in the route (an explicit role check —
   // "Minting free months is a superadmin action, like adding a platform
@@ -55,6 +65,9 @@ export default function PromoCodesPage() {
   }
   useEffect(() => {
     load();
+    fetchJson("/api/platform/sales/plans")
+      .then((d) => setPlans((d?.plans || []).filter((p) => p.active)))
+      .catch(() => setPlans([]));
   }, []);
 
   // Both are money. `Number(x) || 3` silently turned a cleared field into three
@@ -62,11 +75,16 @@ export default function PromoCodesPage() {
   // told about, on the two fields that decide what the code is worth.
   const months = Number(form.rewardMonths);
   const redemptions = Number(form.maxRedemptions);
-  const monthsValid = Number.isInteger(months) && months >= 1 && months <= 24;
+  const isInfluencer = form.kind === "influencer";
+  // 0 is legal on an influencer code (the ordinary trial, nothing extra); a
+  // tester code still needs at least one month or it grants nothing at all.
+  const monthsValid =
+    Number.isInteger(months) && months >= (isInfluencer ? 0 : 1) && months <= 24;
   const redemptionsValid = Number.isInteger(redemptions) && redemptions >= 1;
   const labelValid = form.label.trim().length > 0;
+  const planValid = !isInfluencer || Boolean(form.commissionPlanId);
   const canGenerate =
-    isSuperadmin && labelValid && monthsValid && redemptionsValid && !creating;
+    isSuperadmin && labelValid && monthsValid && redemptionsValid && planValid && !creating;
 
   async function generate(e) {
     e.preventDefault();
@@ -81,6 +99,7 @@ export default function PromoCodesPage() {
           rewardMonths: months,
           maxRedemptions: redemptions,
           expiresAt: form.expiresAt || null,
+          commissionPlanId: isInfluencer ? form.commissionPlanId : null,
         }),
       });
       setForm((f) => ({ ...f, label: "", notes: "" }));
@@ -165,23 +184,57 @@ export default function PromoCodesPage() {
             <span className="block text-xs font-medium text-muted-foreground mb-1">Type</span>
             <select
               value={form.kind}
-              onChange={(e) => setForm({ ...form, kind: e.target.value })}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  kind: e.target.value,
+                  rewardMonths: e.target.value === "influencer" ? 0 : 3,
+                })
+              }
               className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
             >
               <option value="influencer">Influencer</option>
               <option value="tester">Tester</option>
             </select>
           </label>
+          {isInfluencer && (
+            <label className="block">
+              <span className="block text-xs font-medium text-muted-foreground mb-1">Commission plan</span>
+              <select
+                value={form.commissionPlanId}
+                onChange={(e) => setForm({ ...form, commissionPlanId: e.target.value })}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+              >
+                <option value="">{plans === null ? "Loading plans…" : "Choose a plan"}</option>
+                {(plans || []).map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} — ${p.dollars?.activation} / ${p.dollars?.firstPayment} / ${p.dollars?.retention}
+                  </option>
+                ))}
+              </select>
+              <span className="block text-[11px] text-muted-foreground mt-1">
+                {plans && plans.length === 0
+                  ? "No active plan. Make one on /platform/sales/plans first."
+                  : "What the influencer earns per company their link brings in — activation / first payment / retention, the same rules as a sales rep."}
+              </span>
+            </label>
+          )}
           <label className="block">
             <span className="block text-xs font-medium text-muted-foreground mb-1">Free months</span>
             <input
               type="number"
-              min="1"
+              min={isInfluencer ? "0" : "1"}
               max="24"
               value={form.rewardMonths}
               onChange={(e) => setForm({ ...form, rewardMonths: e.target.value })}
               className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
             />
+            {isInfluencer && (
+              <span className="block text-[11px] text-muted-foreground mt-1">
+                0 on purpose: an influencer gets the ordinary trial like any company. Their
+                reward is the commission plan, paid on the companies their link brings in.
+              </span>
+            )}
           </label>
           <label className="block">
             <span className="block text-xs font-medium text-muted-foreground mb-1">Max redemptions</span>
@@ -233,10 +286,15 @@ export default function PromoCodesPage() {
           )}
           {labelValid && !monthsValid && (
             <span className="text-xs text-muted-foreground">
-              Free months must be a whole number from 1 to 24.
+              Free months must be a whole number from {isInfluencer ? 0 : 1} to 24.
             </span>
           )}
-          {labelValid && monthsValid && !redemptionsValid && (
+          {labelValid && monthsValid && !planValid && (
+            <span className="text-xs text-muted-foreground">
+              Pick the commission plan this influencer earns under.
+            </span>
+          )}
+          {labelValid && monthsValid && planValid && !redemptionsValid && (
             <span className="text-xs text-muted-foreground">
               Max redemptions must be a whole number, 1 or more.
             </span>
@@ -290,7 +348,10 @@ export default function PromoCodesPage() {
                       {!c.active && (
                         <span className="font-semibold text-foreground">Revoked · </span>
                       )}
-                      {c.rewardMonths} free months · {c.redeemedCount}/{c.maxRedemptions} used
+                      {c.rewardMonths} free months
+                      {c.commissionPlan ? ` · ${c.commissionPlan} plan` : ""}
+                      {" · "}
+                      {c.redeemedCount}/{c.maxRedemptions} used
                       {c.expiresAt && ` · expires ${new Date(c.expiresAt).toLocaleDateString()}`}
                     </p>
                   </div>

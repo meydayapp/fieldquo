@@ -45,6 +45,18 @@ export const rows = {
   marketingCampaign: [],
   marketingSubscriber: [],
   marketingCampaignDelivery: [],
+  // The influencer programme (check-influencer.mjs): a promo redemption
+  // enrols a company, a referral on their link writes a SalesAttribution,
+  // and the referrer credit is refused. All three are writes whose ORDER and
+  // presence is the claim, which reading lib/referrals cannot settle.
+  salesRep: [],
+  salesCommissionPlan: [],
+  salesAttribution: [],
+  salesAttributionTouch: [],
+  referralCredit: [],
+  referralInvite: [],
+  platformPromoCode: [],
+  platformPromoRedemption: [],
   // The three rosters/plans getOnboardingStatus() counts. Added so
   // check-onboarding-solo.mjs can execute the real function instead of reading
   // it: "a one-person company can finish onboarding" is a claim about a step
@@ -190,6 +202,14 @@ export function resetDbStub() {
   rows.salesSignupProgress = [];
   rows.platformErrorLog = [];
   rows.platformSetting = [];
+  rows.salesRep = [];
+  rows.salesCommissionPlan = [];
+  rows.salesAttribution = [];
+  rows.salesAttributionTouch = [];
+  rows.referralCredit = [];
+  rows.referralInvite = [];
+  rows.platformPromoCode = [];
+  rows.platformPromoRedemption = [];
   writes.length = 0;
   reads.length = 0;
   failNext.model = null;
@@ -240,6 +260,19 @@ function matches(row, where = {}) {
     // other way, which is the one thing a stub must not do.
     if (value === null) return row[key] === null || row[key] === undefined;
     if (value && typeof value === "object" && !Array.isArray(value)) {
+      // `{ equals: x, mode: "insensitive" }` — how every code lookup in
+      // lib/referrals and lib/sales/attribution reads a slug typed off a
+      // card. Before this the operator fell through to the `return true`
+      // below and matched EVERY row, so a check asking "does this referral
+      // code resolve to its owner" got the first company in the fixture.
+      if ("equals" in value) {
+        const a = row[key];
+        const b = value.equals;
+        if (value.mode === "insensitive" && typeof a === "string" && typeof b === "string") {
+          return a.toLowerCase() === b.toLowerCase();
+        }
+        return a === b;
+      }
       if ("in" in value) return value.in.includes(row[key]);
       // Postgres semantics: NOT IN over a NULL is NULL, i.e. false.
       if ("notIn" in value) return row[key] != null && !value.notIn.includes(row[key]);
@@ -261,6 +294,14 @@ function matches(row, where = {}) {
       if ("lte" in value) { const d = cmp(row[key], value.lte); return d !== null && d <= 0; }
       if ("gt" in value) { const d = cmp(row[key], value.gt); return d !== null && d > 0; }
       if ("gte" in value) { const d = cmp(row[key], value.gte); return d !== null && d >= 0; }
+      // A relation filter — `user: { email: { equals } }` on a Member read —
+      // against a fixture row that carries the relation inline. Recursed only
+      // when the row HAS the nested object; a row without it keeps the
+      // lenient answer below, which is what every older check was written
+      // against.
+      if (row[key] && typeof row[key] === "object" && !Array.isArray(row[key])) {
+        return matches(row[key], value);
+      }
       return true;
     }
     return row[key] === value;
@@ -516,6 +557,18 @@ export const db = new Proxy(
     analyticsDaily: model("analyticsDaily"),
     platformErrorLog: model("platformErrorLog"),
     platformSetting: model("platformSetting"),
+    salesRep: model("salesRep"),
+    salesCommissionPlan: model("salesCommissionPlan"),
+    // companyId @unique — the lock lib/sales/attribution.js's race retry
+    // depends on. Modelled so a second attribution for one company is refused
+    // the way Postgres refuses it.
+    salesAttribution: uniqueCreateModel("salesAttribution", ["companyId"]),
+    salesAttributionTouch: model("salesAttributionTouch"),
+    referralCredit: model("referralCredit"),
+    referralInvite: model("referralInvite"),
+    platformPromoCode: model("platformPromoCode"),
+    // A company redeems at most one promo, ever (schema: companyId @unique).
+    platformPromoRedemption: uniqueCreateModel("platformPromoRedemption", ["companyId"]),
     marketingCampaignDelivery: uniqueCreateModel("marketingCampaignDelivery", [
       "campaignId",
       "subscriberId",

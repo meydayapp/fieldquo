@@ -42,6 +42,7 @@ export async function POST(request) {
     where: { email: String(email).toLowerCase().trim() },
     select: {
       id: true,
+      kind: true,
       passwordHash: true,
       active: true,
       endedAt: true,

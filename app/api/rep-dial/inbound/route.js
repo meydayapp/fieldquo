@@ -287,6 +287,7 @@ async function repToTell(candidateIds) {
           active: true,
           endedAt: true,
           acceptedAt: true,
+          kind: true,
           passwordHash: true,
         },
       })

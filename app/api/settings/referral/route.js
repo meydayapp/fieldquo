@@ -5,38 +5,13 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { getAppOrigin } from "@/lib/appUrl";
-import { referralCodeFor, REFEREE_BONUS_MONTHS } from "@/lib/referrals";
+import { ensureReferralCode, REFEREE_BONUS_MONTHS } from "@/lib/referrals";
 import { isBillingAdmin, BILLING_ADMIN_ERROR } from "@/lib/billing/billingAdmin";
 
-// Plain company name, no random suffix: this becomes /refer/sunsetinc, which
-// gets read aloud, typed off a business card and printed on a van. A suffix
-// like "sunsetinc-k3f9a" is unshareable in exactly those situations. Collisions
-// fall back to a suffix in the retry loop below.
-function generateCode(companyName, attempt = 0) {
-  const base = referralCodeFor(companyName);
-  return attempt === 0
-    ? base
-    : `${base}${Math.random().toString(36).slice(2, 5)}`;
-}
-
-async function getOrCreateReferralCode(company) {
-  if (company.referralCode) return company.referralCode;
-
-  // Small retry loop in the unlikely event of a collision on the unique code.
-  for (let attempt = 0; attempt < 5; attempt++) {
-    const code = generateCode(company.name, attempt);
-    try {
-      const updated = await db.company.update({
-        where: { id: company.id },
-        data: { referralCode: code },
-      });
-      return updated.referralCode;
-    } catch (err) {
-      if (err.code !== "P2002") throw err; // not a unique-constraint collision, rethrow
-    }
-  }
-  throw new Error("Could not generate a unique referral code");
-}
+// The code itself is minted by lib/referrals' ensureReferralCode — it used
+// to live here, and moved so that an influencer enrolment can mint the same
+// shape of code inside its own transaction rather than waiting for the
+// company to open this page.
 
 // Owner/admin only, matching the POST on /invite next door.
 //
@@ -62,7 +37,7 @@ export async function GET(request) {
     where: { id: member.companyId },
   });
 
-  // A support session never MINTS the code. getOrCreateReferralCode writes a
+  // A support session never MINTS the code. ensureReferralCode writes a
   // row, and the impersonation gate in getCurrentMember only blocks non-GET
   // methods — so a platform admin merely opening this page used to create a
   // referral code inside a customer's tenant. That is exactly the "view
@@ -71,7 +46,7 @@ export async function GET(request) {
   // copy, which is the truth.
   const referralCode = member.impersonation
     ? company?.referralCode || null
-    : await getOrCreateReferralCode(company);
+    : await ensureReferralCode(company);
 
   // Guarded on referralCode being a real string. `where: { referredByCode:
   // null }` does not mean "nobody" to Prisma — it matches every company that

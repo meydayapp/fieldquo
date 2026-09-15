@@ -9,6 +9,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
 import { generatePromoCode } from "@/lib/platform/promoCodes";
+import { resolvePlanAssignment } from "@/lib/sales/commissionPlanServer";
 
 export async function GET(request) {
   const admin = await getCurrentPlatformAdmin(request);
@@ -22,6 +23,7 @@ export async function GET(request) {
       redemptions: {
         select: { companyId: true, redeemedAt: true, monthsGranted: true },
       },
+      commissionPlan: { select: { id: true, name: true } },
     },
   });
 
@@ -44,6 +46,8 @@ export async function GET(request) {
       notes: c.notes,
       kind: c.kind,
       rewardMonths: c.rewardMonths,
+      commissionPlanId: c.commissionPlanId || null,
+      commissionPlan: c.commissionPlan?.name || null,
       maxRedemptions: c.maxRedemptions,
       redeemedCount: c.redeemedCount,
       active: c.active,
@@ -72,7 +76,7 @@ export async function POST(request) {
   }
 
   const body = await request.json().catch(() => ({}));
-  const { label, notes, kind, rewardMonths, maxRedemptions, expiresAt } = body;
+  const { label, notes, kind, rewardMonths, maxRedemptions, expiresAt, commissionPlanId } = body;
 
   // ── The label is the point of the feature ────────────────────────────────
   //
@@ -96,6 +100,25 @@ export async function POST(request) {
     );
   }
 
+  // An influencer code is a commission plan with a link on it. Without the
+  // plan the redeemer would be enrolled as an influencer earning nothing —
+  // lib/sales/commission.js pays no plan as $0 — so it is required here, and
+  // must be a plan that is still offered. resolvePlanAssignment is the same
+  // validator the rep console uses, so a retired plan is refused with the
+  // same sentence in both places.
+  let planId = null;
+  if ((kind === "tester" ? "tester" : "influencer") === "influencer") {
+    const resolved = await resolvePlanAssignment({ db, planId: commissionPlanId ?? null });
+    if (resolved.error) return NextResponse.json({ error: resolved.error }, { status: 400 });
+    if (!resolved.commissionPlanId) {
+      return NextResponse.json(
+        { error: "Pick the commission plan this influencer earns under." },
+        { status: 400 },
+      );
+    }
+    planId = resolved.commissionPlanId;
+  }
+
   const promo = await generatePromoCode({
     adminId: admin.id,
     label: trimmedLabel,
@@ -104,6 +127,7 @@ export async function POST(request) {
     rewardMonths,
     maxRedemptions,
     expiresAt: expiresAt || null,
+    commissionPlanId: planId,
   });
 
   await db.platformAuditLog.create({
@@ -116,6 +140,7 @@ export async function POST(request) {
         kind: promo.kind,
         rewardMonths: promo.rewardMonths,
         maxRedemptions: promo.maxRedemptions,
+        commissionPlanId: promo.commissionPlanId || null,
       },
     },
   });

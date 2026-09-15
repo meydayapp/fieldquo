@@ -605,6 +605,12 @@ model PlatformPromoCode {
   label            String? // who this was given to (influencer handle, tester name)
   notes            String?
   kind             String    @default("influencer") // "influencer" | "tester"
+  /// Influencer codes only: the SalesCommissionPlan the redeeming company
+  /// earns under, copied onto their SalesRep row at redemption. Null on a
+  /// tester code, and on the influencer codes minted before 2026-09-15,
+  /// which were pure free-months codes and stay that way.
+  commissionPlanId String?
+  commissionPlan   SalesCommissionPlan? @relation(fields: [commissionPlanId], references: [id])
   rewardMonths     Int       @default(3)
   maxRedemptions   Int       @default(1)
   redeemedCount    Int       @default(0)
@@ -1308,6 +1314,32 @@ model Company {
   // redeeming (see lib/referrals/grantCredit.js).
   referredAt     DateTime?
 
+  // ── The influencer programme ─────────────────────────────────────────────
+  //
+  // An influencer is an ORDINARY COMPANY that signed up through an influencer
+  // promo link (or was converted by a superadmin). They get the same trial as
+  // anyone. What changes is what their referral link earns them: instead of
+  // the referrer's free month, every company that arrives on /refer/<code>
+  // is attributed to `influencerRep` — a SalesRep row of kind "influencer"
+  // that exists only to carry their commission ledger — and the sales
+  // commission engine pays activation / first payment / retention under the
+  // plan on that row, by the same rules a rep is paid. See lib/influencers.
+  //
+  // Both columns rather than one: `influencerAt` is the flag and the date
+  // it was set; `influencerRepId` is the ledger. A company with the date and
+  // no rep is a half-enrolment nothing should read as an influencer, which
+  // is why lib/influencers/index.js's isInfluencer() requires both.
+  //
+  // Indexed, not @unique. One ledger per company is the rule, and it holds
+  // because SalesRep.email is unique and enrolment refuses a second row for
+  // the same owner — but `prisma db push` treats adding a unique constraint
+  // to a live table as possible data loss, and this repo never passes the
+  // flag that overrides that. The relation is therefore to-many on the
+  // SalesRep side and nothing reads it as a list.
+  influencerAt    DateTime?
+  influencerRepId String?
+  influencerRep   SalesRep? @relation("InfluencerLedger", fields: [influencerRepId], references: [id], onDelete: SetNull)
+
   referralInvitesSent ReferralInvite[] @relation("ReferralInvitesSent")
   referralCredits     ReferralCredit[] @relation("ReferralCreditsEarned")
 
@@ -1853,6 +1885,7 @@ model Company {
   // Instant payouts the company requested from Settings → Payments.
   instantPayouts        InstantPayout[]
   connectFeeRecoveries  ConnectFeeRecovery[]
+  @@index([influencerRepId])
 }
 
 /// Configuration for the bio-link page at /l/<slug> — the single link an
@@ -9741,6 +9774,16 @@ model SalesRep {
   id           String  @id @default(cuid())
   email        String  @unique
   name         String
+  /// "rep" | "influencer". A rep is FieldQuo staff who signs into /sales; an
+  /// influencer is a customer company's commission ledger (Company.influencerRepId)
+  /// and never signs into the sales portal — lib/sales/invite.js's
+  /// canAuthenticate() refuses the kind outright, on top of the row never
+  /// carrying a password or an accepted invite. Same table rather than a
+  /// second ledger because the money side (attribution → SalesCommissionEntry
+  /// → SalesPayoutBatch) is identical and forking it would be the copy that
+  /// rots. Free text like every other `kind` in this schema; the vocabulary
+  /// is REP_KINDS in lib/influencers/index.js.
+  kind         String  @default("rep")
   /// Null until the invite is accepted. A rep exists — and can be attributed
   /// to — from the moment they are added, the same way a PendingTeamProfile
   /// holds a seat before anyone clicks a link.
@@ -9932,6 +9975,11 @@ model SalesRep {
   manager   SalesRep?  @relation("SalesRepReports", fields: [managerId], references: [id], onDelete: SetNull)
   reports   SalesRep[] @relation("SalesRepReports")
 
+  /// The company this ledger belongs to, when kind is "influencer". A list
+  /// only because the FK is not @unique (see Company.influencerRepId); one
+  /// element, ever.
+  influencerOf      Company[] @relation("InfluencerLedger")
+
   attributions      SalesAttribution[]
   touches           SalesAttributionTouch[]
   commissionEntries SalesCommissionEntry[]
@@ -9997,6 +10045,8 @@ model SalesCommissionPlan {
 
   createdAt DateTime @default(now())
   reps      SalesRep[]
+  /// Influencer promo codes that hand this plan to whoever redeems them.
+  promoCodes PlatformPromoCode[]
 }
 
 /// Which rep brought a company in. One row per company, ever.

@@ -655,8 +655,9 @@ for (const capability of SETTINGS_CAPABILITIES) {
 // allowed to make any. The mint must sit behind an impersonation branch.
 {
   const src = read("app/api/settings/referral/route.js");
-  // lastIndexOf: the first occurrence is the function's own declaration.
-  const mint = src.lastIndexOf("getOrCreateReferralCode(company)");
+  // The minter moved to lib/referrals (ensureReferralCode) so the influencer
+  // enrolment can call it too; this route now holds only the call.
+  const mint = src.lastIndexOf("ensureReferralCode(company)");
   const branch = src.indexOf("member.impersonation");
   ok(branch !== -1 && branch < mint,
     "opening Refer & Earn under impersonation no longer mints a referral code");

@@ -20,6 +20,7 @@ import { seedDefaultTemplates } from "@/lib/email/seedDefaultTemplates";
 import { getAppOrigin, isInternalPath } from "@/lib/appUrl";
 import { applySignupReferral, REFEREE_BONUS_MONTHS } from "@/lib/referrals";
 import { redeemPromoCode } from "@/lib/platform/promoCodes";
+import { enrolInfluencer } from "@/lib/influencers";
 import { captureSalesAttribution, isAttributionMiss } from "@/lib/sales/attribution";
 import { isSupported, DEFAULT_LANGUAGE } from "@/app/i18n/languages";
 import { currencyForCountry } from "@/lib/currency";
@@ -339,6 +340,43 @@ export async function POST(request) {
     promo === null
       ? await applySignupReferral({ company, code: referralCode })
       : null;
+
+  // ── An influencer code makes this company an influencer ──────────────────
+  //
+  // A promo code of kind "influencer" carrying a commission plan enrols the
+  // company: a kind "influencer" SalesRep ledger, the company stamped, their
+  // referral code minted (lib/influencers). Their own trial is whatever the
+  // code granted — for a code minted with 0 reward months, the ordinary one.
+  // Best-effort like everything else on this page: a refused enrolment (the
+  // owner's email is already a staff rep's, the plan was retired) is on
+  // /platform/errors with the reason, and the signup carries on as an
+  // ordinary company. Nothing is reported to the browser; the programme's
+  // terms are FieldQuo's conversation with the influencer, not a banner.
+  if (promo?.ok && promo.kind === "influencer" && promo.commissionPlanId) {
+    await enrolInfluencer({
+      companyId: company.id,
+      commissionPlanId: promo.commissionPlanId,
+      via: `promo:${promo.code}`,
+    });
+  }
+
+  // A referral that landed on an INFLUENCER's link wrote a SalesAttribution
+  // (or was refused by decideAttribution) inside applySignupReferral. A miss
+  // is logged the way a rep's own link miss is logged below — the printed
+  // link being wrong for a month is the failure a silent no-op hides.
+  if (referral?.attribution && isAttributionMiss(referral.attribution.outcome)) {
+    await recordError({
+      area: "sales_attribution",
+      code: referral.attribution.outcome,
+      message: `Influencer referral did not attribute: ${referral.attribution.outcome}`,
+      companyId: company.id,
+      detail: {
+        detail: referral.attribution.detail,
+        salesRepId: referral.attribution.salesRepId,
+        source: "influencer_link",
+      },
+    }).catch(() => {});
+  }
 
   // ── Which FieldQuo rep brought this company in ──────────────────────────
   //
