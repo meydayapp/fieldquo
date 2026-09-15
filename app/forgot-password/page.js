@@ -27,7 +27,7 @@
 // one-sentence error below is the second half of the same guarantee.
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 // requestPasswordReset, not forgetPassword: both are exported from
 // lib/auth-client.js and they are the same function, but the real endpoint in
@@ -52,6 +52,12 @@ export default function ForgotPasswordPage() {
   const { t } = useTranslation();
 
   const [email, setEmail] = useState("");
+  // ?email= from the signup form's "sign in instead, or reset your password"
+  // — the same address they just typed, so the reset goes where they meant.
+  useEffect(() => {
+    const fromUrl = String(new URLSearchParams(window.location.search).get("email") || "").trim();
+    if (fromUrl) setEmail((current) => current || fromUrl);
+  }, []);
   const [sent, setSent] = useState(false);
   const [resent, setResent] = useState(false);
   const [error, setError] = useState("");

@@ -36,7 +36,13 @@ export default function LoginPage() {
   // boundary on this route — the same pattern the quote pages use.
   const [next, setNext] = useState("/app");
   useEffect(() => {
-    setNext(safeNext(new URLSearchParams(window.location.search).get("next")));
+    const params = new URLSearchParams(window.location.search);
+    setNext(safeNext(params.get("next")));
+    // ?email= arrives from the signup form's "this email already has a login
+    // — sign in instead". An address is not a secret, and typing it a second
+    // time is the moment people mistype it.
+    const email = String(params.get("email") || "").trim();
+    if (email) setForm((f) => (f.email ? f : { ...f, email }));
   }, []);
 
   const handleSubmit = async (e) => {

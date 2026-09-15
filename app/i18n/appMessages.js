@@ -5961,6 +5961,13 @@ const en = {
   "app.auth.verify.resending": "Sending…",
   "app.auth.verify.resentTitle": "Check your inbox",
   "app.auth.verify.resentBody": "If that address still needs confirming, we’ve sent it a new link.",
+  "app.auth.verifyBanner.body": "Confirm your email address — we sent a link to {email}. Until it’s confirmed, a password reset can’t reach you.",
+  "app.auth.verifyBanner.resend": "Send the link again",
+  "app.auth.verifyBanner.sent": "Sent. Check {email} — the link works for 24 hours.",
+  "app.auth.verifyBanner.later": "Later",
+  "app.signup.error.loginExists": "This email already has a FieldQuo login.",
+  "app.signup.error.loginExistsSignIn": "Sign in instead",
+  "app.signup.error.loginExistsReset": "Forgot the password? Reset it",
 
   // ── The onboarding tour (app/components/tours.js) ────────────────────────
   //
@@ -16354,6 +16361,13 @@ const fr = {
   "app.auth.verify.resending": "Envoi…",
   "app.auth.verify.resentTitle": "Vérifiez vos courriels",
   "app.auth.verify.resentBody": "Si cette adresse doit encore être confirmée, on lui a envoyé un nouveau lien.",
+  "app.auth.verifyBanner.body": "Confirmez votre adresse courriel — nous avons envoyé un lien à {email}. Tant qu’elle n’est pas confirmée, une réinitialisation de mot de passe ne peut pas vous joindre.",
+  "app.auth.verifyBanner.resend": "Renvoyer le lien",
+  "app.auth.verifyBanner.sent": "Envoyé. Vérifiez {email} — le lien est valide 24 heures.",
+  "app.auth.verifyBanner.later": "Plus tard",
+  "app.signup.error.loginExists": "Ce courriel a déjà un accès FieldQuo.",
+  "app.signup.error.loginExistsSignIn": "Se connecter plutôt",
+  "app.signup.error.loginExistsReset": "Mot de passe oublié ? Le réinitialiser",
 
   // ── The onboarding tour (app/components/tours.js) ────────────────────────
   // See the English block's comment for the shape. Terms here match what the
@@ -25279,6 +25293,13 @@ const es = {
   "app.auth.verify.resending": "Enviando…",
   "app.auth.verify.resentTitle": "Revisa tu correo",
   "app.auth.verify.resentBody": "Si esa dirección todavía necesita confirmarse, le hemos enviado un enlace nuevo.",
+  "app.auth.verifyBanner.body": "Confirma tu correo — enviamos un enlace a {email}. Hasta que esté confirmado, un restablecimiento de contraseña no puede llegarte.",
+  "app.auth.verifyBanner.resend": "Reenviar el enlace",
+  "app.auth.verifyBanner.sent": "Enviado. Revisa {email} — el enlace vale 24 horas.",
+  "app.auth.verifyBanner.later": "Más tarde",
+  "app.signup.error.loginExists": "Este correo ya tiene un acceso a FieldQuo.",
+  "app.signup.error.loginExistsSignIn": "Iniciar sesión",
+  "app.signup.error.loginExistsReset": "¿Olvidaste la contraseña? Restablécela",
 
   // ── The onboarding tour (app/components/tours.js) ────────────────────────
   // See the English block's comment for the shape. Terms match what the
@@ -35900,6 +35921,13 @@ const uk = {
   "app.auth.verify.resending": "Надсилаємо…",
   "app.auth.verify.resentTitle": "Перевірте пошту",
   "app.auth.verify.resentBody": "Якщо цю адресу ще треба підтвердити, ми надіслали на неї нове посилання.",
+  "app.auth.verifyBanner.body": "Підтвердьте свою електронну адресу — ми надіслали посилання на {email}. Поки вона не підтверджена, скидання пароля не зможе до вас дійти.",
+  "app.auth.verifyBanner.resend": "Надіслати посилання ще раз",
+  "app.auth.verifyBanner.sent": "Надіслано. Перевірте {email} — посилання дійсне 24 години.",
+  "app.auth.verifyBanner.later": "Пізніше",
+  "app.signup.error.loginExists": "Ця електронна адреса вже має вхід у FieldQuo.",
+  "app.signup.error.loginExistsSignIn": "Увійти натомість",
+  "app.signup.error.loginExistsReset": "Забули пароль? Скинути його",
 
   // ── The onboarding tour (app/components/tours.js) ────────────────────────
   // See the English block's comment for the shape. Terms match the actual
@@ -44487,6 +44515,13 @@ const pa = {
   "app.auth.verify.resending": "ਭੇਜਿਆ ਜਾ ਰਿਹਾ ਹੈ…",
   "app.auth.verify.resentTitle": "ਆਪਣਾ ਇਨਬਾਕਸ ਦੇਖੋ",
   "app.auth.verify.resentBody": "ਜੇ ਉਸ ਪਤੇ ਦੀ ਪੁਸ਼ਟੀ ਹੋਣੀ ਬਾਕੀ ਹੈ, ਤਾਂ ਅਸੀਂ ਉਸ ਉੱਤੇ ਨਵਾਂ ਲਿੰਕ ਭੇਜ ਦਿੱਤਾ ਹੈ।",
+  "app.auth.verifyBanner.body": "ਆਪਣਾ ਈਮੇਲ ਪਤਾ ਪੁਸ਼ਟੀ ਕਰੋ — ਅਸੀਂ {email} ’ਤੇ ਲਿੰਕ ਭੇਜਿਆ ਹੈ। ਜਦ ਤੱਕ ਪੁਸ਼ਟੀ ਨਹੀਂ ਹੁੰਦੀ, ਪਾਸਵਰਡ ਰੀਸੈੱਟ ਤੁਹਾਡੇ ਤੱਕ ਨਹੀਂ ਪਹੁੰਚ ਸਕਦਾ।",
+  "app.auth.verifyBanner.resend": "ਲਿੰਕ ਦੁਬਾਰਾ ਭੇਜੋ",
+  "app.auth.verifyBanner.sent": "ਭੇਜ ਦਿੱਤਾ। {email} ਦੇਖੋ — ਲਿੰਕ 24 ਘੰਟੇ ਚੱਲਦਾ ਹੈ।",
+  "app.auth.verifyBanner.later": "ਬਾਅਦ ਵਿੱਚ",
+  "app.signup.error.loginExists": "ਇਸ ਈਮੇਲ ਦਾ FieldQuo ਲੌਗਇਨ ਪਹਿਲਾਂ ਹੀ ਹੈ।",
+  "app.signup.error.loginExistsSignIn": "ਇਸ ਦੀ ਬਜਾਏ ਸਾਈਨ ਇਨ ਕਰੋ",
+  "app.signup.error.loginExistsReset": "ਪਾਸਵਰਡ ਭੁੱਲ ਗਏ? ਰੀਸੈੱਟ ਕਰੋ",
 
   // ── The onboarding tour (app/components/tours.js) ────────────────────────
   // See the English block's comment for the shape. Terms match the actual
@@ -53067,6 +53102,13 @@ const tl = {
   "app.auth.verify.resending": "Ipinapadala…",
   "app.auth.verify.resentTitle": "Tingnan ang inbox mo",
   "app.auth.verify.resentBody": "Kung kailangan pang kumpirmahin ang address na iyon, pinadalhan namin ito ng bagong link.",
+  "app.auth.verifyBanner.body": "Kumpirmahin ang iyong email — nagpadala kami ng link sa {email}. Hangga’t hindi ito kumpirmado, hindi makakarating sa iyo ang pag-reset ng password.",
+  "app.auth.verifyBanner.resend": "Ipadala muli ang link",
+  "app.auth.verifyBanner.sent": "Naipadala. Tingnan ang {email} — 24 oras ang bisa ng link.",
+  "app.auth.verifyBanner.later": "Mamaya",
+  "app.signup.error.loginExists": "May FieldQuo login na ang email na ito.",
+  "app.signup.error.loginExistsSignIn": "Mag-sign in na lang",
+  "app.signup.error.loginExistsReset": "Nakalimutan ang password? I-reset ito",
 
   // ── The onboarding tour (app/components/tours.js) ────────────────────────
   // See the English block's comment for the shape. Terms match the actual
@@ -62788,6 +62830,13 @@ const de = {
   "app.auth.verify.resending": "Wird gesendet…",
   "app.auth.verify.resentTitle": "Sehen Sie in Ihrem Posteingang nach",
   "app.auth.verify.resentBody": "Falls diese Adresse noch bestätigt werden muss, haben wir ihr einen neuen Link gesendet.",
+  "app.auth.verifyBanner.body": "Bestätigen Sie Ihre E-Mail-Adresse — wir haben einen Link an {email} gesendet. Bis dahin kann Sie eine Passwort-Zurücksetzung nicht erreichen.",
+  "app.auth.verifyBanner.resend": "Link erneut senden",
+  "app.auth.verifyBanner.sent": "Gesendet. Prüfen Sie {email} — der Link gilt 24 Stunden.",
+  "app.auth.verifyBanner.later": "Später",
+  "app.signup.error.loginExists": "Für diese E-Mail gibt es bereits einen FieldQuo-Zugang.",
+  "app.signup.error.loginExistsSignIn": "Stattdessen anmelden",
+  "app.signup.error.loginExistsReset": "Passwort vergessen? Zurücksetzen",
   "app.tour.skip": "Überspringen",
   "app.tour.stepCount": "{n} von {total}",
   "app.tour.welcome.leadsTitle": "Anfragen landen hier",
@@ -72733,6 +72782,13 @@ const zh = {
   "app.auth.verify.resending": "发送中…",
   "app.auth.verify.resentTitle": "去邮箱查收",
   "app.auth.verify.resentBody": "如果这个邮箱还没确认，我们已经把新链接发过去了。",
+  "app.auth.verifyBanner.body": "请确认您的电子邮箱——我们已向 {email} 发送了链接。确认之前，密码重置邮件无法送达您。",
+  "app.auth.verifyBanner.resend": "重新发送链接",
+  "app.auth.verifyBanner.sent": "已发送。请查看 {email}——链接 24 小时内有效。",
+  "app.auth.verifyBanner.later": "稍后",
+  "app.signup.error.loginExists": "此邮箱已有 FieldQuo 登录账户。",
+  "app.signup.error.loginExistsSignIn": "改为登录",
+  "app.signup.error.loginExistsReset": "忘记密码？重置",
   "app.tour.skip": "跳过",
   "app.tour.stepCount": "第 {n} 步，共 {total} 步",
   "app.tour.welcome.leadsTitle": "潜在客户都落在这里",
@@ -82756,6 +82812,13 @@ const it = {
   "app.auth.verify.resending": "Invio…",
   "app.auth.verify.resentTitle": "Controlli la sua posta",
   "app.auth.verify.resentBody": "Se quell'indirizzo ha ancora bisogno di conferma, gli abbiamo inviato un nuovo link.",
+  "app.auth.verifyBanner.body": "Conferma il tuo indirizzo email — abbiamo inviato un link a {email}. Finché non è confermato, un ripristino della password non può raggiungerti.",
+  "app.auth.verifyBanner.resend": "Invia di nuovo il link",
+  "app.auth.verifyBanner.sent": "Inviato. Controlla {email} — il link vale 24 ore.",
+  "app.auth.verifyBanner.later": "Più tardi",
+  "app.signup.error.loginExists": "Questa email ha già un accesso FieldQuo.",
+  "app.signup.error.loginExistsSignIn": "Accedi invece",
+  "app.signup.error.loginExistsReset": "Password dimenticata? Reimpostala",
 
   // ── Il tour di avvio ────────────────────────────────────────────────────
   "app.tour.skip": "Salta",

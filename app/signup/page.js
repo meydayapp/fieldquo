@@ -378,7 +378,7 @@ function CompanyFields({ form, setForm, fieldErrors, t = englishOnly }) {
  * Presentational only. The submit handler, the validators and the step machine
  * all stay in SignupPage, so nothing about what gets POSTed passes through here.
  */
-export function AccountFields({ form, setForm, fieldErrors, t = englishOnly }) {
+export function AccountFields({ form, setForm, fieldErrors, existingLogin = null, t = englishOnly }) {
   return (
     <>
       <div className="grid grid-cols-2 gap-3">
@@ -427,7 +427,36 @@ export function AccountFields({ form, setForm, fieldErrors, t = englishOnly }) {
           placeholder="you@company.com"
           className={fieldClass(Boolean(fieldErrors.email))}
         />
-        {fieldErrors.email && <p className={FIELD_ERROR}>{fieldErrors.email}</p>}
+        {existingLogin && existingLogin === form.email.trim().toLowerCase() ? (
+          // ── "User already exists", said usefully ──────────────────────
+          // Better Auth's own sentence is what a company that lost its
+          // confirmation email read when it tried to sign up again, and
+          // concluded the signup had failed. The login is there; the door
+          // is Sign in. The email travels on the query so the login form
+          // opens with it filled — an address, not a secret.
+          <div
+            className="mt-2 rounded-lg border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 px-3 py-2 text-sm text-amber-950 dark:text-amber-100"
+            data-signup-login-exists
+          >
+            <p className="break-words">{t("app.signup.error.loginExists")}</p>
+            <p className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+              <Link
+                href={`/login?email=${encodeURIComponent(existingLogin)}`}
+                className="font-medium underline underline-offset-2"
+              >
+                {t("app.signup.error.loginExistsSignIn")}
+              </Link>
+              <Link
+                href={`/forgot-password?email=${encodeURIComponent(existingLogin)}`}
+                className="underline underline-offset-2"
+              >
+                {t("app.signup.error.loginExistsReset")}
+              </Link>
+            </p>
+          </div>
+        ) : (
+          fieldErrors.email && <p className={FIELD_ERROR}>{fieldErrors.email}</p>
+        )}
       </div>
 
       <CompanyFields form={form} setForm={setForm} fieldErrors={fieldErrors} t={t} />
@@ -787,6 +816,9 @@ export default function SignupPage() {
 
   // add this state alongside your other useState calls
   const [fieldErrors, setFieldErrors] = useState({});
+  // The address Better Auth refused as already registered — AccountFields
+  // turns it into "sign in instead" under the email field.
+  const [existingLogin, setExistingLogin] = useState(null);
 
   const selectedPlan = plans.find((p) => p.id === selectedPlanId);
 
@@ -1329,6 +1361,18 @@ export default function SignupPage() {
       });
 
       if (result?.error) {
+        // A login already on this address is not a failure to create one —
+        // it is the wrong door. Better Auth says "User already exists"
+        // (USER_ALREADY_EXISTS), which has no "email" in it, so it used to
+        // land in the general banner untranslated and read as a crash.
+        if (
+          result.error.code === "USER_ALREADY_EXISTS" ||
+          /already exists/i.test(result.error.message || "")
+        ) {
+          setExistingLogin(form.email.trim().toLowerCase());
+          setFieldErrors({ email: t("app.signup.error.loginExists") });
+          return;
+        }
         // Surface Better Auth's own message on the specific field when possible,
         // otherwise fall back to the general error banner.
         const message =
@@ -1822,6 +1866,7 @@ export default function SignupPage() {
               form={form}
               setForm={setForm}
               fieldErrors={fieldErrors}
+              existingLogin={existingLogin}
               t={t}
             />
 

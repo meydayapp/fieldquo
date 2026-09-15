@@ -110,5 +110,29 @@ console.log("\nRate limiting — reset is a weapon pointed at a third party");
 // on FieldQuo's sending reputation.
 t("both endpoints are rate limited beyond the default", /customRules/.test(AUTH));
 
+console.log("\nThe unconfirmed address is named inside the app, and the wrong door says where the right one is");
+// Signup does not require confirmation (lib/auth.js). Until 2026-09-14 nothing
+// after the one 24-hour email ever mentioned the address again, and a company
+// that lost that email and tried to sign up a second time read Better Auth's
+// raw "User already exists" as the signup having failed.
+{
+  const BANNER = code("../app/components/layout/EmailVerifyBanner.js");
+  const LAYOUT = read("../app/app/layout.js");
+  const SIGNUP = code("../app/signup/page.js");
+  const { APP_MESSAGES } = await import("../app/i18n/appMessages.js");
+  t("the banner is mounted in the /app layout, beside the billing banner", /<EmailVerifyBanner \/>/.test(LAYOUT) && /<BillingBanner \/>/.test(LAYOUT));
+  t("…and shows only for a session whose user.emailVerified is false", /user\.emailVerified === false/.test(BANNER));
+  t("…with the resend on it, through the one client name (never a raw fetch)", /sendVerificationEmail\(\{ email: user\.email \}\)/.test(BANNER) && !/fetch\("\/api\/auth/.test(BANNER));
+  t("…hidden during a read-only support session", /\/api\/impersonation\/status/.test(BANNER) && /impersonating !== false/.test(BANNER));
+  t("…and 'Later' is per browser session, never permanent", /sessionStorage\.setItem\(LATER_KEY/.test(BANNER) && !/localStorage/.test(BANNER));
+  t("signup turns USER_ALREADY_EXISTS into the sign-in door, not a banner", /USER_ALREADY_EXISTS/.test(SIGNUP) && /data-signup-login-exists/.test(SIGNUP));
+  t("…linking to /login and /forgot-password with the address filled", /\/login\?email=\$\{encodeURIComponent\(existingLogin\)\}/.test(SIGNUP) && /\/forgot-password\?email=\$\{encodeURIComponent\(existingLogin\)\}/.test(SIGNUP));
+  t("…and both pages read ?email into the field", /params\.get\("email"\)/.test(LOGIN) && /get\("email"\)/.test(FORGOT));
+  const KEYS = ["app.auth.verifyBanner.body", "app.auth.verifyBanner.resend", "app.auth.verifyBanner.sent", "app.auth.verifyBanner.later", "app.signup.error.loginExists", "app.signup.error.loginExistsSignIn", "app.signup.error.loginExistsReset"];
+  for (const lang of Object.keys(APP_MESSAGES)) {
+    t(`${lang}: the seven sentences exist, and the two that name the address carry {email}`, KEYS.every((k) => typeof APP_MESSAGES[lang][k] === "string" && APP_MESSAGES[lang][k].length > 0) && /\{email\}/.test(APP_MESSAGES[lang]["app.auth.verifyBanner.body"]) && /\{email\}/.test(APP_MESSAGES[lang]["app.auth.verifyBanner.sent"]));
+  }
+}
+
 console.log(fail ? `\n${fail} FAILED\n` : "\nALL PASS — a locked-out contractor can get back in\n");
 process.exit(fail ? 1 : 0);

@@ -5,6 +5,7 @@ import AdminSidebar from "@/app/components/layout/AdminSidebar";
 import MobileTabBar from "@/app/components/layout/MobileTabBar";
 import ImpersonationBanner from "@/app/components/ImpersonationBanner";
 import BillingBanner from "@/app/components/layout/BillingBanner";
+import EmailVerifyBanner from "@/app/components/layout/EmailVerifyBanner";
 import SeatSharingBanner from "@/app/components/layout/SeatSharingBanner";
 import AccountLocked from "@/app/components/layout/AccountLocked";
 import SetupIncomplete from "@/app/components/layout/SetupIncomplete";
@@ -419,6 +420,11 @@ export default async function AppLayout({ children }) {
           billing — a warning you have to go and find is one nobody sees until
           they're locked out. */}
       <BillingBanner />
+      {/* Renders nothing for a confirmed login, which is most of them. An
+          unconfirmed address is the one a password reset would go to, and
+          the signup email expires in a day — this is the reminder, with the
+          resend on it. A nudge, never a gate; see the file. */}
+      <EmailVerifyBanner />
       {/* Renders nothing unless the seat-sharing guard has actually recorded
           something, which is the case for almost every company. Below the
           billing banner deliberately: a card that failed is urgent and costs
