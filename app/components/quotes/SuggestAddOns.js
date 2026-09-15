@@ -76,6 +76,10 @@ export default function SuggestAddOns({
   quoteId,
   readOnly = false,
   onProcessNotes,
+  // Appends text to the quote's INTERNAL "Notes for review" (Quote.reviewNotes
+  // — never the client-facing notes). The deep read's findings are for the
+  // estimator to check on site, so this is the only box they may land in.
+  onReviewNotes,
   autoReview = false,
 }) {
   const { t, language } = useTranslation();
@@ -464,10 +468,32 @@ export default function SuggestAddOns({
             </div>
           )}
 
-          {/* ── What the model saw in the photographs ──────────────────────
-              Rendered at all for the first time. The notes were being
-              generated and dropped, so a review of a quote with photos paid to
-              send them and told the estimator nothing.
+          {/* ── The photographs are NOT part of the free review ────────────
+              Since 2026-09-15 the review reads the quote's text only; the
+              paid deep read below is the one thing that looks at a picture.
+              A quote that carries photos is told so here — a count, which is
+              a fact about the quote, never a read of it — and pointed at the
+              deep read. Reviews stored before the change still carry
+              photoNotes/photosRead and render in the block after this one;
+              new reviews never set those. */}
+          {!(review.photosRead > 0) && review.photosAttached > 0 && (
+            <div className="border border-border rounded-lg px-4 py-3" data-photos-not-read>
+              <p className="text-sm font-medium text-foreground flex items-center gap-1.5">
+                <Camera size={14} className="text-muted-foreground" />
+                {review.photosAttached === 1
+                  ? t("app.quoteReview.photosNotReadOne")
+                  : t("app.quoteReview.photosNotReadMany", { count: review.photosAttached })}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1.5">
+                {t("app.quoteReview.photosNotReadHint", {
+                  price: formatAppMoney(VISION_PASS_CENTS / 100, CREDIT_CURRENCY, language),
+                })}
+              </p>
+            </div>
+          )}
+
+          {/* ── What the model saw in the photographs (reviews stored before
+              2026-09-15 only) ─────────────────────────────────────────────
 
               Shown whenever photos were READ, including when there is nothing
               to report. "We looked at 3 photos and found nothing the quote
@@ -536,16 +562,14 @@ export default function SuggestAddOns({
       )}
 
       {/* ── The PAID deep photo read ──────────────────────────────────────
-          A separate, higher-detail pass over the same photos "What the
-          photos show" above reads for free — up to 8 of them at full
-          resolution instead of the quick, flat-rate check. Shown whenever
-          there's a quote to run it against, independent of whether the free
-          review above has been run at all: an estimator may want the deep
-          read on its own, without re-running the wording/pricing checks.
-          Never merges into the free photoNotes panel — it costs real AI
-          credit each run and every past read stays on record (see the
-          Quote.aiVisionPasses schema comment), so it gets its own history
-          rather than being folded into a panel that overwrites on refresh. */}
+          The only pass that looks at a photograph — up to 8 of them at full
+          resolution. Shown whenever there's a quote to run it against,
+          independent of whether the free review above has been run at all:
+          an estimator may want the deep read on its own, without re-running
+          the wording/pricing checks. It costs real AI credit each run and
+          every past read stays on record (see the Quote.aiVisionPasses
+          schema comment), so it gets its own history rather than a panel
+          that overwrites on refresh. */}
       {(visionPasses.length > 0 || !readOnly) && (
         <div className="mt-5 border border-border rounded-lg px-4 py-3">
           <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -635,19 +659,50 @@ export default function SuggestAddOns({
                     )}
                   </p>
                   {p.notes?.length > 0 ? (
-                    <ul className="mt-1.5 space-y-1.5">
-                      {p.notes.map((n, j) => (
-                        <li
-                          key={j}
-                          className="text-xs text-foreground flex gap-2 leading-relaxed"
+                    <>
+                      <ul className="mt-1.5 space-y-1.5">
+                        {p.notes.map((n, j) => (
+                          <li
+                            key={j}
+                            className="text-xs text-foreground flex gap-2 leading-relaxed"
+                          >
+                            <span className="text-muted-foreground/60 shrink-0">
+                              —
+                            </span>
+                            <span>{n}</span>
+                          </li>
+                        ))}
+                      </ul>
+                      {/* The same "Use this" the suggested what-happens-next
+                          has — but into the INTERNAL notes for review, never
+                          the client's notes: these are things to check on
+                          site. Appends; never replaces what is already
+                          written there. */}
+                      {onReviewNotes && !readOnly && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onReviewNotes(
+                              [
+                                t("app.deepRead.notesHeading", {
+                                  when: p.at
+                                    ? new Date(p.at).toLocaleDateString(language || "en", {
+                                        day: "numeric",
+                                        month: "short",
+                                      })
+                                    : "",
+                                }),
+                                ...p.notes.map((n) => `— ${n}`),
+                              ].join("\n"),
+                            )
+                          }
+                          className="mt-2.5 text-xs font-semibold text-foreground underline"
+                          data-deep-read-to-notes
                         >
-                          <span className="text-muted-foreground/60 shrink-0">
-                            —
-                          </span>
-                          <span>{n}</span>
-                        </li>
-                      ))}
-                    </ul>
+                          {t("app.deepRead.addToNotes")}
+                        </button>
+                      )}
+                    </>
                   ) : (
                     <p className="text-xs text-muted-foreground mt-1.5">
                       {t("app.deepRead.nothingFound")}

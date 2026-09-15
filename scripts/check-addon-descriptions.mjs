@@ -256,6 +256,23 @@ section("E. The review sees the detail, and names a line without one");
   ok(finding?.severity === "low", "…at low severity: it never blocks readiness on its own", finding?.severity);
   const many = completenessChecks(base, Array.from({ length: 6 }, (_, i) => ({ description: `Line ${i + 1}`, amount: 1 })));
   ok(/and 3 more/.test(many.find((c) => c.id === "no_detail").detail), "…and six bare lines name three and count the rest");
+
+  // ── Holistic (2026-09-15): the paragraph under the name carries the line ──
+  // The client reads "Cabinet Refinishing" over the catalogue's scope
+  // paragraph and inclusions; a bare line inside such a group is not "only
+  // the name". Both group shapes — the builder's draft and the stored row —
+  // and a custom group with no paragraph at all, which is still flagged.
+  const refinish = [{ description: "Cabinet Refinishing", amount: 4200 }];
+  const draftShape = completenessChecks({ ...base, scopeGroups: [{ categoryKey: "cabinet_refinishing", lineItems: refinish }] }, refinish);
+  ok(!draftShape.some((c) => c.id === "no_detail"), "a bare line under a service with a scope paragraph (builder draft shape) is NOT flagged", draftShape.map((c) => c.id));
+  const rowShape = completenessChecks({ ...base, scopeGroups: [{ category: { key: "cabinet_refinishing", companySettings: [] }, lineItems: refinish }] }, refinish);
+  ok(!rowShape.some((c) => c.id === "no_detail"), "…nor in the stored-row shape reviewQuote loads", rowShape.map((c) => c.id));
+  const overridden = completenessChecks({ ...base, scopeGroups: [{ categoryKey: "made_up_trade", override: { scopeDescription: "We do the thing, per door." }, lineItems: refinish }] }, refinish);
+  ok(!overridden.some((c) => c.id === "no_detail"), "…and a company's own saved scope paragraph counts the same as the catalogue's");
+  const custom = [{ description: "Misc site work", amount: 300 }];
+  const noParagraph = completenessChecks({ ...base, scopeGroups: [{ categoryKey: "made_up_trade", lineItems: custom }] }, custom);
+  const still = noParagraph.find((c) => c.id === "no_detail");
+  ok(still && /no scope paragraph above it/.test(still.detail), "a bare line with NO paragraph above it is still flagged, and the finding says why", still?.detail);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

@@ -992,6 +992,23 @@ export function QuoteBuilderForm({
     return rateOverridesIn(categories, categoryId);
   }
 
+  // This company's saved WORDING for a service — the scope paragraph and the
+  // "what's included" list Settings > Services edits — as the sparse patch
+  // resolveServiceContent takes. Null when they sit on the catalogue's
+  // defaults. Used twice: the group card shows the paragraph the client will
+  // read under the service, and the readiness checks judge bare lines
+  // against it (lib/quotes/completeness.js groupScopeParagraph).
+  function wordingOverrideFor(categoryId) {
+    const cat = categories.find((c) => c.id === categoryId);
+    const o = cat?.contentOverrides;
+    if (!o) return null;
+    return {
+      scopeDescription: o.scopeDescription ?? null,
+      includedItems: o.includedItems ?? null,
+      processSteps: o.processSteps ?? null,
+    };
+  }
+
   // The shape itself lives in lib/quotes/builderPayload.js, because the phone-
   // call prefill below needs exactly the same one and a second copy of "what a
   // new group looks like" is the duplication that rots.
@@ -1888,6 +1905,8 @@ export function QuoteBuilderForm({
             showIndex={scopeGroups.length > 1}
             subtotal={groupTotal(group)}
             onRemove={locked ? null : () => removeScopeGroup(group.tempId)}
+            wordingOverride={wordingOverrideFor(group.categoryId)}
+            t={t}
           >
             {!group.persisted && isUnitPriced(group.categoryKey) && (
               <UnitPricingFields
@@ -2146,7 +2165,10 @@ export function QuoteBuilderForm({
           clientPhotos,
           discount,
           subtotal,
-          scopeGroups,
+          // Each group with the company's saved wording beside it, so the
+          // "no description" check reads the document the way the client
+          // does — a name over a scope paragraph is not a bare name.
+          scopeGroups: scopeGroups.map((g) => ({ ...g, override: wordingOverrideFor(g.categoryId) })),
           client: selectedClient,
         }}
         readinessItems={scopeGroups.flatMap((g) =>
@@ -2302,6 +2324,12 @@ export function QuoteBuilderForm({
           quoteId={quoteId}
           readOnly={["accepted", "declined"].includes(start.status)}
           onProcessNotes={setProcessNotes}
+          // The deep read's findings land in the internal notes for review —
+          // appended under what is there, so a phone draft's own note and two
+          // reads on different days all survive together.
+          onReviewNotes={(text) =>
+            setReviewNotes((current) => (current?.trim() ? `${current.trimEnd()}\n\n${text}` : text))
+          }
           autoReview={autoReview}
         />
       )}

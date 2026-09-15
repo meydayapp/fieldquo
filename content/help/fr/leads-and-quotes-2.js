@@ -14,10 +14,10 @@ export const ARTICLES = {
     title: "Révision IA de la soumission",
     summary:
       "Avant l'envoi, FieldQuo vérifie ce qui manque à la soumission, situe le prix par rapport aux soumissions que vous avez déjà gagnées et propose des formulations plus claires — il suggère, il ne modifie jamais.",
-    updated: "2026-09-12",
+    updated: "2026-09-15",
     intro: [
       "Une soumission qui reste sans réponse est rarement trop chère. Plus souvent, elle n'a pas de date d'expiration, contient une ligne que le client ne peut pas juger, ou ne dit rien de ce qui se passe après le oui. La révision IA lit une soumission enregistrée et vous le dit avant le client.",
-      "Elle a deux moitiés. Les vérifications, la comparaison de prix et les suggestions de suppléments sont calculées à partir de vos propres données et ne coûtent rien. La rédaction — une formulation plus claire, un brouillon de la section « ce qui se passe ensuite », une note sur ce qu'une photo montre — est la partie écrite par un modèle. Si le modèle n'est pas disponible, vous avez quand même la première moitié.",
+      "Elle a deux moitiés. Les vérifications, la comparaison de prix et les suggestions de suppléments sont calculées à partir de vos propres données et ne coûtent rien. La rédaction — une formulation plus claire, un brouillon de la section « ce qui se passe ensuite », — est la partie écrite par un modèle. Elle ne lit que le texte de la soumission ; les photos d'une soumission sont lues par la [[the-ai-deep-photo-read|lecture approfondie des photos]], payante, jamais par la révision gratuite. Si le modèle n'est pas disponible, vous avez quand même la première moitié.",
     ],
     sections: [
       {
@@ -36,9 +36,10 @@ export const ARTICLES = {
           { bullets: [
             "**Un indice sur 100**, suivi du nombre de points à corriger. C'est un décompte pondéré de ce qui manque, pas une probabilité de gagner — une soumission complète affiche « Nothing obvious missing — this one's ready to send. »",
             "**Les vérifications**, chacune avec sa gravité : pas de date d'expiration, déjà expirée, client sans adresse courriel, aucune ligne, tout le chantier sur une seule ligne, des lignes que le client ne comprendra pas (« Labour — $2,400 »), des lignes sans description sous le nom, rien sur ce qui se passe ensuite, aucune photo, et un rabais de plus de 20 %.",
+            "**Lignes sans description** est jugé comme le client lit le document : un service imprime son paragraphe de portée et sa liste « ce qui est inclus » sous son nom (**Paramètres → Services**, et affiché replié sur chaque carte de service dans l'éditeur), donc « Cabinet Refinishing » au-dessus de ce paragraphe est une ligne claire. Seule une ligne nue sans paragraphe au-dessus — un groupe personnalisé, ou un service sans texte — est signalée.",
             "**Price check** — dans la norme de ce que vous gagnez habituellement, **above your usual** ou **below your usual**, par rapport à la médiane de vos soumissions acceptées pour les mêmes services. Elle ne se prononce qu'à partir de 5 soumissions acceptées comparables ; avant, elle le dit et attend.",
             "**Clearer wording** — l'original barré et une réécriture en langage courant pour toute ligne qu'un propriétaire ne comprendrait pas. Seules les lignes dont le nom ne dit rien en reçoivent une ; une ligne dont le paragraphe de portée explique déjà le travail est laissée telle quelle.",
-            "**What the photos show** — n'apparaît que si la soumission porte des photos. La révision gratuite en lit jusqu'à 4 en basse résolution et liste les points à vérifier sur place que la soumission ne mentionne pas. « Rien dans les 3 photos que la soumission ne couvre déjà » est une vraie réponse, et elle est affichée comme telle.",
+            "**Photos jointes — non lues par cette révision** — apparaît quand la soumission porte des photos, avec leur nombre. La révision gratuite ne les regarde jamais ; la ligne nomme la [[the-ai-deep-photo-read|lecture approfondie des photos]] et son prix comme ce qui les lit.",
             "**Suggested “what happens next”** — un court brouillon sur le calendrier, l'accès, l'échéancier de paiement et la garantie, proposé seulement si la soumission n'a pas encore de notes de déroulement. Tout ce que le modèle devrait deviner est laissé entre [crochets] pour que vous le remplissiez.",
           ] },
         ],
@@ -64,7 +65,7 @@ export const ARTICLES = {
           { bullets: [
             "Elle compare avec **votre propre historique seulement** — le panneau le dit sous la vérification de prix — et exige au moins 5 soumissions acceptées du même genre avant de qualifier un prix de haut ou de bas.",
             "Elle **ne change jamais un chiffre**. Aucun prix suggéré, aucun total réécrit ; le modèle voit les prix pour écrire sur la clarté, pas pour faire de l'arithmétique.",
-            "Elle **n'énonce jamais une mesure, un matériau ou une marque d'après une photo**, et le texte à l'intérieur d'une photo est traité comme une partie de l'image, jamais comme une instruction.",
+            "Elle **ne regarde jamais une photo**. Depuis septembre 2026, la révision ne lit que le texte ; ce que montrent les images est le travail de la lecture approfondie payante, donc rien ici ne coûte de jetons d'image ni ne décrit une image que le modèle n'a jamais vue.",
             "Chaque exécution compte dans l'allocation mensuelle FieldQuo AI de votre entreprise. Si l'allocation est épuisée, le bouton le dit et nomme le jour où elle se renouvelle, plutôt que de rendre une demi-révision.",
             "Si le modèle est injoignable, les vérifications, la comparaison de prix et les suppléments tirés de l'historique reviennent quand même ; seule la rédaction manque.",
           ] },
@@ -95,10 +96,10 @@ export const ARTICLES = {
   "the-ai-deep-photo-read": {
     title: "La lecture approfondie des photos par l'IA",
     summary:
-      "Un examen payant et plus poussé des photos d'une soumission — jusqu'à 8, en pleine résolution — qui liste ce qu'un coup d'œil rapide manque, pour vérification sur place.",
-    updated: "2026-09-12",
+      "La seule chose qui lit les photos d'une soumission — jusqu'à 8, en pleine résolution, payée à chaque exécution — et qui liste ce qu'il faut vérifier sur place.",
+    updated: "2026-09-15",
     intro: [
-      "Chaque [[ai-quote-review|révision IA de la soumission]] jette déjà un œil gratuit aux photos, à la plus basse résolution offerte par le modèle. C'est assez pour reconnaître une pièce, pas une fissure capillaire dans une porte de MDF ni un dégât d'eau au bas d'un caisson d'armoire. La lecture approfondie est l'autre bout du compromis : vous la demandez, vous la payez, et le modèle lit les photos en pleine résolution.",
+      "La [[ai-quote-review|révision IA de la soumission]], gratuite, lit le texte d'une soumission et ne regarde jamais ses photos. La lecture approfondie est ce qui le fait : vous la demandez, vous la payez, et le modèle lit jusqu'à 8 photos en pleine résolution — assez pour voir une fissure capillaire dans une porte de MDF ou un dégât d'eau au bas d'un caisson d'armoire — et liste ce qu'il faut vérifier sur place.",
     ],
     sections: [
       {
@@ -107,12 +108,12 @@ export const ARTICLES = {
         blocks: [
           { p: "La carte **Deep photo read** (affichée en anglais pour l'instant) se trouve sous la révision, sur la page de modification de la soumission. Elle fonctionne seule — pas besoin de lancer la révision gratuite d'abord — et chaque lecture passée reste sur la soumission avec sa date, le nombre de photos lues et son coût, parce que chacune est de l'argent déjà dépensé." },
           { table: {
-            head: ["Ce qui diffère", "Vérification gratuite (dans la révision)", "Lecture approfondie"],
+            head: ["Ce qui diffère", "Révision IA (gratuite)", "Lecture approfondie"],
             rows: [
-              ["Photos lues", "Jusqu'à 4", "Jusqu'à 8"],
-              ["Résolution", "Basse — tarif fixe", "Haute — plein détail"],
+              ["Photos lues", "Aucune — texte seulement", "Jusqu'à 8"],
+              ["Résolution", "—", "Haute — plein détail"],
               ["Coût", "Compris dans la révision", "0,25 $ US de crédit IA par exécution"],
-              ["Ce qu'elle rend", "De courtes notes à vérifier sur place", "De courtes notes à vérifier sur place, d'un examen plus serré"],
+              ["Ce qu'elle rend", "Vérifications, comparaison de prix, formulation, suppléments", "De courtes notes à vérifier sur place"],
             ],
           } },
         ],
@@ -126,6 +127,7 @@ export const ARTICLES = {
             "Ouvrez la soumission, appuyez sur **Modifier** et trouvez la carte **Deep photo read**. La pastille à côté du titre dit si le solde couvre une lecture.",
             "Appuyez sur **Run deep read**. La lecture prend quelques secondes ; les notes apparaissent sur une carte datée en dessous. Appuyez sur **Run again** pour une autre passe après avoir ajouté des photos.",
             "Parcourez les notes sur place. Chacune est volontairement prudente — « looks like », « check » — parce que le modèle a vu un angle d'un instant.",
+            "Appuyez sur **Ajouter aux notes à réviser** sous une lecture pour placer ses constats, datés, dans les notes internes de la soumission (la case ambre que le client ne voit jamais). Le même geste que **Use this** sur le « ce qui se passe ensuite » suggéré — sauf que ceci va dans vos notes, jamais sur le document.",
           ] },
           { figure: "live:app-settings-ai-credit", caption: "Paramètres → Crédit IA — la carte Crédit image IA indique ce que coûte une lecture approfondie et combien le solde en couvre." },
           { note: "Une soumission sans photos refuse la lecture — il n'y a rien à regarder, et rien n'est facturé. Si la lecture ne peut pas s'exécuter pour toute autre raison, le crédit est remboursé et la carte dit que rien n'a été facturé." },
@@ -139,7 +141,7 @@ export const ARTICLES = {
           { bullets: [
             "Si le solde est insuffisant, le bouton ouvre une fenêtre de recharge qui nomme le prix, le solde et le manque au cent près. Rien n'est facturé au retour — vous appuyez de nouveau sur le bouton quand vous êtes prêt.",
             "Les recharges ponctuelles sont de 10 $ US, 30 $ US, 50 $ US et 100 $ US. Un forfait mensuel sur le même solde coûte moins cher par crédit, et le crédit inutilisé est reporté.",
-            "La vérification gratuite dans la révision n'est pas facturée et continue de tourner, que vous achetiez du crédit ou non.",
+            "La révision gratuite n'est pas facturée et continue de tourner, que vous achetiez du crédit ou non — elle ne lit simplement jamais les photos.",
           ] },
         ],
       },
@@ -180,7 +182,7 @@ export const ARTICLES = {
     title: "Suppléments optionnels que le client peut accepter",
     summary:
       "Des options supplémentaires au bas de la soumission, chacune avec son prix, que le client coche sur la page d'approbation — le total se met à jour, et c'est le serveur qui calcule.",
-    updated: "2026-09-12",
+    updated: "2026-09-15",
     intro: [
       "Le revenu le moins cher à gagner, c'est le supplément que le client ajoute lui-même pendant qu'il est déjà en train de dire oui. Des pare-feuilles sur une toiture, des charnières à fermeture douce sur un chantier d'armoires, le corridor quand on peint les chambres. FieldQuo les place au bas de la soumission comme des cases à cocher avec un prix, et le total approuvé comprend ce qui a été coché.",
       "Le navigateur du client n'envoie jamais que les identifiants des cases cochées. Les montants restent sur le serveur et y sont additionnés, si bien que personne ne peut transformer une page web en chantier moins cher.",
@@ -268,7 +270,7 @@ export const ARTICLES = {
     title: "Options bon, mieux, meilleur",
     summary:
       "Trois soumissions liées à trois prix pour un même chantier. La tarification et la numérotation existent en coulisses ; l'écran pour bâtir un trio n'existe pas encore — aujourd'hui, vous bâtissez les trois vous-même.",
-    updated: "2026-09-12",
+    updated: "2026-09-15",
     intro: [
       "Offrir un même chantier à trois prix — une version de base, une recommandée et une haut de gamme — est une façon connue de faire passer la conversation de « oui ou non » à « laquelle ». FieldQuo en a les fondations, et cette page dit honnêtement quelle part vous pouvez atteindre aujourd'hui.",
     ],
@@ -321,7 +323,7 @@ export const ARTICLES = {
     title: "Coût et marge sur une soumission",
     summary:
       "Ce que le chantier vous coûte — main-d'œuvre, matériaux, frais généraux — et ce qui reste, calculé à côté du prix pendant que vous soumissionnez. Interne, et jamais montré au client.",
-    updated: "2026-09-12",
+    updated: "2026-09-15",
     intro: [
       "Un écran de soumission montre un prix. Le panneau **Coût et marge** montre ce que ce prix vous coûte à livrer et ce qui reste, et son propre titre dit ce qu'il est : « interne — jamais montré au client ». C'est la différence entre soumissionner un chantier et savoir si vous le voulez.",
       "Les matériaux viennent de recettes — ce qu'un litre d'apprêt vous coûte et combien en mange une cuisine de 24 portes —, la main-d'œuvre des heures au taux que vous payez, les frais généraux de ce que vous avez dit à FieldQuo dépenser chaque mois. La pastille de marge est le but : verte, ambre ou rouge avant d'appuyer sur Envoyer.",
@@ -397,7 +399,7 @@ export const ARTICLES = {
     title: "Le prix de rentabilité",
     summary:
       "Le prix le plus bas auquel un chantier peut sortir tout en couvrant l'entreprise — vos vrais frais généraux mensuels divisés par le nombre de chantiers que vous pouvez prendre — et où ce chiffre apparaît sur une soumission.",
-    updated: "2026-09-12",
+    updated: "2026-09-15",
     intro: [
       "Chaque entrepreneur a un chiffre qu'il n'a jamais pu calculer : sous quel prix un chantier me fait-il perdre de l'argent avant même la première heure travaillée ? FieldQuo le calcule à partir de vos propres coûts fixes, salaires, dettes et équipements, et l'affiche sous **Paramètres → Frais généraux** comme **Votre prix minimum**.",
       "Ce n'est pas une règle du pouce et ce n'est pas une moyenne de l'industrie. C'est votre loyer, votre camion et votre salaire de bureau, divisés par les chantiers que vous avez dit pouvoir faire en une semaine.",
@@ -491,7 +493,7 @@ export const ARTICLES = {
     title: "Envoyer une soumission",
     summary:
       "Un bouton envoie la soumission par courriel au nom de votre entreprise, dans la langue du client, avec le PDF joint et un lien d'approbation — et consigne qu'elle est partie.",
-    updated: "2026-09-12",
+    updated: "2026-09-15",
     intro: [
       "L'envoi est un bouton, et il fait exactement une chose : il envoie un courriel au client. Le statut passe à **Envoyée** seulement une fois que le service de courriel a accepté le message, si bien que « Envoyée par courriel le 3 juillet » sur une soumission est un fait, pas une intention.",
       "Le courriel porte la substance de la soumission — le total, le bouton d'approbation, ce qui est inclus, le déroulement des travaux — parce qu'un propriétaire lit trois soumissions côte à côte dans la même boîte, et qu'un simple lien perd contre une lettre.",
@@ -576,7 +578,7 @@ export const ARTICLES = {
     title: "Le PDF de soumission",
     summary:
       "Le PDF joint à chaque courriel de soumission porte votre logo, votre couleur de marque et votre nom — rien n'y dit FieldQuo — et ses sections se réordonnent ou se retirent sous Paramètres → Modèles PDF.",
-    updated: "2026-09-12",
+    updated: "2026-09-15",
     intro: [
       "Chaque soumission part deux fois : comme page web sur laquelle le client approuve, et comme PDF qu'il peut enregistrer, imprimer et tendre à son conjoint. Les deux sont bâtis des mêmes sections et des mêmes couleurs mesurées, si bien que le PDF ressemble à la page et que les deux ont l'air de venir de vous.",
     ],
@@ -655,7 +657,7 @@ export const ARTICLES = {
     title: "Les statuts d'une soumission, et ce que chacun veut dire",
     summary:
       "Brouillon, Envoyée, Acceptée et Refusée — ce qui met une soumission dans chacun, ce que chacun débloque, et les insignes qui accompagnent le statut dans la liste des soumissions.",
-    updated: "2026-09-12",
+    updated: "2026-09-15",
     intro: [
       "Une soumission a exactement quatre statuts, et les pastilles en haut de la liste les comptent. L'insigne à côté d'une soumission est une promesse sur ce qui lui est arrivé — **Envoyée** veut dire qu'un courriel a été accepté, **Acceptée** que le client a signé ou que vous avez consigné son oui —, donc rien ici ne change tout seul.",
     ],
@@ -726,7 +728,7 @@ export const ARTICLES = {
     title: "Combien de temps une soumission reste valide",
     summary:
       "Chaque nouvelle soumission part avec une date Valide jusqu'au fixée à 30 jours ; vous pouvez la déplacer ou l'effacer. Passé la date, le client ne peut plus approuver en ligne, la liste la signale en rouge, et rien d'autre ne change tout seul.",
-    updated: "2026-09-12",
+    updated: "2026-09-15",
     intro: [
       "Une soumission qui n'expire jamais est une soumission sans raison de répondre aujourd'hui. Elle vous laisse aussi tenir un prix quand le coût des matériaux bouge. Le constructeur s'ouvre donc avec une date d'expiration déjà remplie — 30 jours à partir d'aujourd'hui — et la révision se plaint si vous l'effacez.",
     ],
@@ -786,7 +788,7 @@ export const ARTICLES = {
     title: "Une soumission garde sa langue",
     summary:
       "Vous choisissez la langue de rédaction d'une soumission à sa création, et elle la garde pour la vie — le PDF, la page d'approbation et le courriel d'accompagnement la suivent, et rien n'est traduit automatiquement au moment de l'envoi.",
-    updated: "2026-09-12",
+    updated: "2026-09-15",
     intro: [
       "Deux langues sont en jeu, et elles sont distinctes. La première est celle dans laquelle vous travaillez — l'application elle-même, réglée sous **Paramètres → Langue**. La seconde est celle que le client lit : la soumission, la facture, les courriels. Un atelier de Gatineau peut travailler en anglais et soumissionner en français ; une équipe hispanophone peut envoyer une soumission en anglais à un client anglophone.",
       "Une règle mérite d'être dite clairement, parce qu'elle sonne comme une limite alors qu'elle est la partie rassurante : une soumission garde la langue dans laquelle elle a été créée. Un document signé dira toujours ce qu'il disait au moment de la signature. Rien n'est retraduit dans le dos du client.",
@@ -861,7 +863,7 @@ export const ARTICLES = {
     title: "Approbation et signature en ligne",
     summary:
       "Le client ouvre le lien sur son téléphone, lit, coche les suppléments, tape son nom, trace une signature et approuve — et FieldQuo conserve la signature avec une empreinte exacte de ce qu'il a accepté.",
-    updated: "2026-09-12",
+    updated: "2026-09-15",
     intro: [
       "Pas d'impression, pas de numérisation, pas de trajet à l'autre bout de la ville pour cueillir une signature. Le courriel de soumission porte un lien ; le client lit la soumission sur son téléphone et dit oui là. L'approbation est une confirmation en deux étapes avec signature, pas un simple bouton — une tape accidentelle en plein soleil ne devrait pas créer un contrat.",
       "La signature n'est pas décorative. Elle est conservée avec le nom du client, l'heure, son adresse sur le réseau, le navigateur utilisé et une empreinte du contenu tarifé qu'il a signé, si bien que « ils ont signé » et « on l'a modifiée après » ne peuvent jamais se confondre.",
@@ -952,7 +954,7 @@ export const ARTICLES = {
     title: "Les acomptes sur les soumissions",
     summary:
       "Un acompte, c'est une ligne de vos conditions de paiement qui s'imprime sur chaque soumission en carte de pourcentage — et, avec un échéancier de paiement activé, une demande de facture qui part toute seule dès que le client approuve.",
-    updated: "2026-09-12",
+    updated: "2026-09-15",
     intro: [
       "Un propriétaire qui vient d'approuver un chantier s'attend à ce qu'on lui demande un acompte ; un entrepreneur qui doit penser à le demander l'oublie souvent. FieldQuo imprime votre acompte sur la soumission pour que le client y consente en signant, et — si vous activez l'échéancier de paiement — le demande automatiquement à l'approbation.",
       "Deux réglages font cela, et ils vivent l'un au-dessus de l'autre sous **Paramètres → Profil de l'entreprise**. Le premier ne fait qu'imprimer. Le second imprime et facture.",

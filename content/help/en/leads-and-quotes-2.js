@@ -18,10 +18,10 @@ export const ARTICLES = {
     title: "AI quote review",
     summary:
       "Before a quote goes out, FieldQuo checks what is missing, how the price sits against the quotes you have already won, and whether any line needs plainer words — and suggests, never edits.",
-    updated: "2026-09-12",
+    updated: "2026-09-15",
     intro: [
       "A quote that goes unanswered is rarely too expensive. More often it has no expiry date, one line the client cannot judge, or nothing about what happens after they say yes. The AI quote review reads a saved quote and tells you those things before the client does.",
-      "It is two halves. The checks, the price comparison and the add-on suggestions are worked out from your own data and cost nothing. The writing — plainer wording for a line, a draft of the what-happens-next section, a note on what a photo shows — is the part a model writes. If the model is unavailable, you still get the first half.",
+      "It is two halves. The checks, the price comparison and the add-on suggestions are worked out from your own data and cost nothing. The writing — plainer wording for a line, a draft of the what-happens-next section — is the part a model writes. It reads the quote’s text only; the photos on a quote are read by the paid [[the-ai-deep-photo-read|deep photo read]], never by the free review. If the model is unavailable, you still get the first half.",
     ],
     sections: [
       {
@@ -40,9 +40,10 @@ export const ARTICLES = {
           { bullets: [
             "**A readiness figure out of 100**, followed by how many things are worth fixing. It is a weighted count of what is missing, not a probability of winning — a quote with nothing missing reads “Nothing obvious missing — this one's ready to send.”",
             "**The checks**, each with a severity: no expiry date, already expired, client has no email address, no line items, the whole job on one line, lines the client will not understand (“Labour — $2,400”), lines with no description under the name, nothing about what happens next, no photos, and a discount over 20%.",
+            "**Lines with no description** is judged the way the client reads the document: a service prints its scope paragraph and “what’s included” list under its name (**Settings → Services**, and shown folded on each service card in the editor), so “Cabinet Refinishing” over that paragraph is a clear line. Only a bare line with no paragraph above it — a custom group, or a service with no wording — is flagged.",
             "**Price check** — in line with what you usually win at, **above your usual** or **below your usual**, against the median of your accepted quotes for the same services. It only speaks once you have at least 5 comparable accepted quotes; before that it says so and waits.",
             "**Clearer wording** — a struck-through original and a plain-language rewrite for any line a homeowner would not understand. Only lines whose name says nothing get one; a line whose scope paragraph already explains the work is left alone.",
-            "**What the photos show** — appears only when the quote carries photos. The free review reads up to 4 of them at low resolution and lists things to check on site that the quote does not mention. “Nothing in the 3 photos that the quote doesn't already cover” is a real answer, and it is shown as one.",
+            "**Photos attached — not read by this review** — appears when the quote carries photos, with their count. The free review never looks at them; the line names the [[the-ai-deep-photo-read|deep photo read]] and its price as the thing that does.",
             "**Suggested “what happens next”** — a short draft of timing, access, payment schedule and warranty, offered only when the quote has no process notes yet. Anything the model would have to guess is left in [square brackets] for you to fill in.",
           ] },
         ],
@@ -68,7 +69,7 @@ export const ARTICLES = {
           { bullets: [
             "It compares against **your own history only** — the panel says so under the price check — and needs at least 5 accepted quotes of the same kind before it will call a price high or low.",
             "It **never changes a number**. No suggested price, no rewritten total; the model is shown the prices so it can write about clarity, not do arithmetic on them.",
-            "It **never states a measurement, a material or a brand from a photo**, and writing inside a photograph is treated as part of the picture, never as an instruction.",
+            "It **never looks at a photograph**. Since September 2026 the review is text-only; what the pictures show is the paid deep read’s job, so nothing here ever costs image tokens or describes a picture the model never saw.",
             "Each run counts against your company's monthly FieldQuo AI allowance. If the allowance is used up, the button says so and names the day it resets, rather than returning half a review.",
             "If the model cannot be reached, the checks, the price comparison and the history-based add-ons still come back; only the writing is missing.",
           ] },
@@ -99,10 +100,10 @@ export const ARTICLES = {
   "the-ai-deep-photo-read": {
     title: "The AI deep photo read",
     summary:
-      "A paid, closer look at the photos on a quote — up to 8 of them at full resolution — that lists what a quick glance misses, for you to check on site.",
-    updated: "2026-09-12",
+      "The one thing that reads the photos on a quote — up to 8 of them at full resolution, paid per run — and lists what to check on site.",
+    updated: "2026-09-15",
     intro: [
-      "Every [[ai-quote-review|AI quote review]] already glances at a quote's photos for free, at the lowest resolution the model offers. That is enough to notice a room, not a hairline crack in an MDF door or water damage at the bottom of a cabinet box. The deep photo read is the other end of that trade: you ask for it, you pay for it, and the model reads the photos at full resolution.",
+      "The free [[ai-quote-review|AI quote review]] reads the text of a quote and never looks at its photos. The deep photo read is what does: you ask for it, you pay for it, and the model reads up to 8 photos at full resolution — enough to see a hairline crack in an MDF door or water damage at the bottom of a cabinet box — and lists what to check on site.",
     ],
     sections: [
       {
@@ -111,12 +112,12 @@ export const ARTICLES = {
         blocks: [
           { p: "The **Deep photo read** card sits under the review on the quote's edit page. It runs on its own — you do not have to run the free review first — and every past read stays on the quote with its date, how many photos were read and what it cost, because each one is money already spent." },
           { table: {
-            head: ["What differs", "Free check (in the review)", "Deep photo read"],
+            head: ["What differs", "AI quote review (free)", "Deep photo read"],
             rows: [
-              ["Photos read", "Up to 4", "Up to 8"],
-              ["Resolution", "Low — flat-rate", "High — full detail"],
+              ["Photos read", "None — text only", "Up to 8"],
+              ["Resolution", "—", "High — full detail"],
               ["Cost", "Part of the review", "US$0.25 of AI credit per run"],
-              ["What it returns", "Short notes to check on site", "Short notes to check on site, from a closer look"],
+              ["What it returns", "Checks, price comparison, wording, add-ons", "Short notes to check on site"],
             ],
           } },
         ],
@@ -130,6 +131,7 @@ export const ARTICLES = {
             "Open the quote, press **Edit**, and find the **Deep photo read** card. The pill beside the title says whether the balance covers one read.",
             "Press **Run deep read**. The read takes a few seconds; the notes appear on a dated card underneath. Press **Run again** for another pass after adding photos.",
             "Walk the notes on site. Each is hedged on purpose — “looks like”, “check” — because the model saw one angle of one moment.",
+            "Press **Add to notes for review** under a read to put its findings into the quote’s internal notes (the amber box the client never sees), dated. The same one-press move as **Use this** on the suggested what-happens-next — except this goes to your notes, never to the document.",
           ] },
           { figure: "live:app-settings-ai-credit", caption: "Settings → AI credit — the AI image credit card names what a deep read costs and how many the balance covers." },
           { note: "A quote with no photos refuses the read — there is nothing to look at, and nothing is charged. If the read cannot run for any other reason, the credit is refunded and the card says nothing was charged." },
@@ -143,7 +145,7 @@ export const ARTICLES = {
           { bullets: [
             "If the balance is short, the button opens a top-up dialog that names the price, the balance and the shortfall to the cent. Nothing is charged on the way back — you press the button again when you are ready.",
             "One-time top-ups are US$10, US$30, US$50 and US$100. A monthly plan on the same balance is cheaper per credit, and unused credit rolls over.",
-            "The free check in the review is not charged and keeps running whether or not you ever buy credit.",
+            "The free review is not charged and keeps running whether or not you ever buy credit — it just never reads the photos.",
           ] },
         ],
       },
@@ -184,7 +186,7 @@ export const ARTICLES = {
     title: "Upsell add-ons the client can accept",
     summary:
       "Optional extras at the bottom of the quote, each with its own price, that the client ticks on the approval page — the total updates, and the server does the pricing.",
-    updated: "2026-09-12",
+    updated: "2026-09-15",
     intro: [
       "The cheapest revenue in the business is an extra the client adds themselves while they are already saying yes. Gutter guards on a roof, soft-close hinges on a cabinet job, the hallway when the bedrooms are being painted. FieldQuo puts those at the bottom of the quote as tick boxes with a price, and the approved total includes whatever was ticked.",
       "The client's browser only ever sends the ids of the boxes they ticked. The amounts stay on the server and are re-added there, so nobody can edit a web page into a cheaper job.",
@@ -272,7 +274,7 @@ export const ARTICLES = {
     title: "Good, better, best options",
     summary:
       "Three linked quotes at three prices for one job. The pricing and the numbering exist behind the scenes; the screen to build a trio does not yet — so today you build the three yourself.",
-    updated: "2026-09-12",
+    updated: "2026-09-15",
     intro: [
       "Offering one job at three price points — a basic, a recommended and a premium version — is a well-known way to move the conversation from “yes or no” to “which one”. FieldQuo has the groundwork for it, and this page is honest about how much of it you can reach today.",
     ],
@@ -325,7 +327,7 @@ export const ARTICLES = {
     title: "Cost and margin on a quote",
     summary:
       "What the job costs you — labour, materials, overhead — and what is left, worked out beside the price while you quote. Internal, and never shown to the client.",
-    updated: "2026-09-12",
+    updated: "2026-09-15",
     intro: [
       "A quote screen shows a price. The **Cost & margin** panel shows what that price costs you to deliver and what is left over, and it says in its own heading what it is: “internal — never shown to the client”. It is the difference between quoting a job and knowing whether you want it.",
       "Materials come from recipes — what a litre of primer costs you and how much of it a 24-door kitchen eats — labour from hours at the rate you pay, overhead from what you told FieldQuo you spend each month. The margin badge is the point: green, amber or red before you press Send.",
@@ -401,7 +403,7 @@ export const ARTICLES = {
     title: "The break-even price",
     summary:
       "The lowest price a job can go out at and still cover the business — your real monthly overhead divided by how many jobs you can take on — and where that figure shows up on a quote.",
-    updated: "2026-09-12",
+    updated: "2026-09-15",
     intro: [
       "Every contractor has a number they have never been able to work out: below what price does a job lose me money before a single hour is worked? FieldQuo works it out from your own fixed costs, salaries, debt and equipment, and shows it on **Settings → Overhead** as **Your minimum price**.",
       "It is not a rule of thumb and it is not an industry average. It is your rent, your truck and your office wage, divided by the jobs you said you can do in a week.",
@@ -495,7 +497,7 @@ export const ARTICLES = {
     title: "Send a quote",
     summary:
       "One button emails the quote from your company's name, in the client's language, with the PDF attached and an approval link — and records that it went.",
-    updated: "2026-09-12",
+    updated: "2026-09-15",
     intro: [
       "Sending is one button, and it does exactly one thing: it emails the client. The status changes to **Sent** only after the email service has accepted the message, so **Emailed 3 July** on a quote is a fact, not an intention.",
       "The email carries the substance of the quote — the total, the approve button, what is included, how the work runs — because a homeowner reads three quotes side by side in the same inbox, and a bare link loses to a letter.",
@@ -580,7 +582,7 @@ export const ARTICLES = {
     title: "The quote PDF",
     summary:
       "The PDF attached to every quote email carries your logo, your brand colour and your name — nothing on it says FieldQuo — and its sections can be reordered or dropped under Settings → PDF Templates.",
-    updated: "2026-09-12",
+    updated: "2026-09-15",
     intro: [
       "Every quote goes out twice: as a web page the client approves on, and as a PDF they can save, print and hand to a spouse. The two are built from the same sections and the same measured colours, so the PDF looks like the page and both look like they came from you.",
     ],
@@ -659,7 +661,7 @@ export const ARTICLES = {
     title: "Quote statuses, and what each one means",
     summary:
       "Draft, Sent, Approved and Declined — what puts a quote in each, what each unlocks, and the badges that sit beside the status on the Quotes list.",
-    updated: "2026-09-12",
+    updated: "2026-09-15",
     intro: [
       "A quote has exactly four statuses, and the chips across the top of the Quotes list count them. The badge beside a quote is a promise about what happened to it — **Sent** means an email was accepted, **Approved** means the client signed or you recorded their yes — so nothing here changes on its own.",
     ],
@@ -730,7 +732,7 @@ export const ARTICLES = {
     title: "How long a quote stays valid",
     summary:
       "Every new quote starts with a Valid until date 30 days out; you can move or clear it. After the date the client can no longer approve online, the list flags it in red, and nothing else changes on its own.",
-    updated: "2026-09-12",
+    updated: "2026-09-15",
     intro: [
       "A quote that never expires is a quote with no reason to answer today. It also leaves you holding a price when material costs move. So the builder opens with an expiry date already filled in — 30 days from today — and the review complains if you clear it.",
     ],
@@ -790,7 +792,7 @@ export const ARTICLES = {
     title: "A quote keeps its language",
     summary:
       "You pick the language a quote is written in when you create it, and it stays in that language for life — the PDF, the approval page and the covering email all follow it, and nothing is machine-translated at send time.",
-    updated: "2026-09-12",
+    updated: "2026-09-15",
     intro: [
       "Two languages are in play and they are separate. The first is the one you work in — the app itself, set on **Settings → Language**. The second is the one the client reads: the quote, the invoice, the emails. A Gatineau shop can work in English and quote in French; a Spanish-speaking crew can send an English quote to an English-speaking client.",
       "One rule is worth stating plainly because it sounds like a limitation and is actually the reassuring part: a quote keeps the language it was created in. A signed document will always say what it said when it was signed. Nothing is re-translated behind the client's back.",
@@ -865,7 +867,7 @@ export const ARTICLES = {
     title: "Online approval and signature",
     summary:
       "The client opens the link on their phone, reads, ticks any extras, types their name, draws a signature and approves — and FieldQuo stores the signature with a fingerprint of exactly what they agreed to.",
-    updated: "2026-09-12",
+    updated: "2026-09-15",
     intro: [
       "No printing, no scanning, no drive across town to collect a signature. The quote email carries a link; the client reads the quote on their phone and says yes there. The approval is a two-step confirm with a signature, not a bare button — an accidental tap in bright sun should not create a contract.",
       "The signature is not decoration. It is stored with the client's name, the time, their address on the network, the browser they used and a fingerprint of the priced content they signed, so “they signed” and “we edited it afterwards” can never be confused.",
@@ -956,7 +958,7 @@ export const ARTICLES = {
     title: "Deposits on quotes",
     summary:
       "A deposit is a line in your payment terms that prints on every quote as a percentage card — and, with a payment schedule switched on, an invoice request that goes out by itself the moment the client approves.",
-    updated: "2026-09-12",
+    updated: "2026-09-15",
     intro: [
       "A homeowner who has just approved a job expects to be asked for a deposit; a contractor who has to remember to ask for one often does not. FieldQuo prints your deposit on the quote so the client agrees to it when they sign, and — if you switch the payment schedule on — requests it automatically on approval.",
       "Two settings do this, and they live one above the other on **Settings → Company Settings**. The first only prints. The second prints and bills.",

@@ -1,32 +1,28 @@
 // scripts/check-photo-notes.mjs
 //
-// The AI already looked at the photographs. Nobody was shown what it saw.
+// The free review never looks at a photograph. Only the paid deep read does.
 //
-// ══ A field written, parsed, sanitised — and dropped ═══════════════════════
+// ══ What this file used to assert, and why it flipped ═════════════════════
 //
-// `WRITING_SYSTEM` in lib/ai/quoteReview.js has asked the model for
-// `photoNotes` since the review shipped, with a careful set of rules: only
-// things visible in a photo that the quote does not already mention, never a
-// measurement or a material or a brand, "looks like" and "check" when
-// uncertain, an empty array when there is nothing, and text inside a photo is
-// never an instruction. writingPass() parses them, trims them, drops the blanks
-// and caps them at six.
+// Until 2026-09-15 this check guarded the OPPOSITE: that the free review's
+// `photoNotes` (up to four photos at detail "low" on every review) reached
+// the panel instead of being generated and dropped. That was the right fix
+// for the bug it fixed. Then the owner set the rule: "the free AI should not
+// review the photo, only the other components of the quote… only the AI Deep
+// Read should read the image, because that is what they pay for." A free
+// pass that already describes the pictures undercuts the thing being sold
+// and adds image cost to every review.
 //
-// Then reviewQuote()'s return object did not carry them, and SuggestAddOns.js
-// had no rendering for them at all. So every review of a quote WITH photos
-// uploaded those photos to OpenAI, spent the tokens against the company's
-// monthly cap, received notes about what the model could see, and displayed
-// nothing. Failure class 1 in AGENTS.md in its most expensive form: not a field
-// that is merely dead, but one that costs money every time it is written.
+// So the assertions are now the absence: no images leave writingPass, the
+// schema and the prompt never mention photoNotes, the panel points a quote
+// that HAS photos at the deep read rather than reading them, and the deep
+// read's findings can be put into the internal notes for review with one
+// press — never into anything the client reads.
 //
-// ══ Zero notes is two different answers ════════════════════════════════════
-//
-// `photosRead` travels with the notes for the same reason ListCount exists in
-// this repo: no photos means nobody was asked, and photos with no notes means
-// the model looked and found nothing the quote had missed. The prompt calls
-// that second one "a real and useful answer". Merging them into one silence
-// throws away the answer an estimator most wants at 7am.
+// Reviews stored before the change still carry photoNotes/photosRead; the
+// panel keeps rendering those. It just never gets new ones.
 import { readFileSync } from "node:fs";
+import { APP_MESSAGES } from "@/app/i18n/appMessages";
 
 let fail = 0;
 const ok = (c, m, d) => {
@@ -34,89 +30,62 @@ const ok = (c, m, d) => {
   if (!c) fail++;
 };
 const section = (t) => console.log(`\n${t}\n`);
+const decomment = (src) =>
+  src
+    .split("\n")
+    .filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l))
+    .join("\n");
 
-const lib = readFileSync("lib/ai/quoteReview.js", "utf8");
-const ui = readFileSync("app/components/quotes/SuggestAddOns.js", "utf8");
+const lib = decomment(readFileSync("lib/ai/quoteReview.js", "utf8"));
+const vision = readFileSync("lib/ai/visionPass.js", "utf8");
+const ui = decomment(readFileSync("app/components/quotes/SuggestAddOns.js", "utf8"));
+const builder = decomment(readFileSync("app/components/quotes/builder/QuoteBuilder.js", "utf8"));
 const provider = readFileSync("lib/ai/provider.js", "utf8");
 
-section("1. The notes reach the caller");
+section("1. The free review is text-only");
 
-// The prompt asks for them AND the schema requires them — since the migration
-// to complete()'s schema mode, "photoNotes" is enforced at the vendor with
-// `strict: true` rather than only requested in English. Both are asserted:
-// dropping either one is how the field goes missing again.
-ok(/"photoNotes"/.test(lib), "the prompt still asks for them");
-ok(/photoNotes: \{\s*\n?\s*type: "array"/.test(lib), "…and WRITING_SCHEMA declares it as an array of strings");
-ok(/required: \[[^\]]*"photoNotes"[^\]]*\]/.test(lib), "…and lists it in `required`, so the vendor cannot omit it");
-// The trim/filter is the part a schema CANNOT express — minLength is outside
-// the strict subset — so a model returning [""] would still put a blank bullet
-// on the panel without it.
-ok(/parsed\.photoNotes\.map\(\(n\) => n\.trim\(\)\)\.filter\(Boolean\)/.test(lib), "writingPass still trims and drops blank notes");
-// The whole bug, in one assertion.
-ok(/photoNotes: writing\.photoNotes \|\| \[\],/.test(lib), "reviewQuote RETURNS them — this is the line that was missing");
-ok(/photosRead: writing\.photosRead/.test(lib), "…with the number of photos actually read");
-ok(/photosRead: photos\.length,/.test(lib), "…which writingPass reports from the photos it truly sent");
+ok(!/images:\s*photos/.test(lib), "writingPass sends no images to complete()");
+ok(!/photoNotes/.test(lib), "…and neither the schema nor the prompt mentions photoNotes");
+ok(!/required: \[[^\]]*"photoNotes"/.test(lib), "…so the vendor is never asked for them");
+ok(/You are given TEXT ONLY/.test(readFileSync("lib/ai/quoteReview.js", "utf8")), "…and the prompt says so, so the model cannot invent a note about a picture it never saw");
+ok(/photosAttached: photosFromQuote\(quote\)\.length/.test(lib), "the review still COUNTS the quote's photos (a fact about the quote, not a read of it)");
+ok(!/photosRead: /.test(lib), "…and never reports a photosRead of its own");
 
-section("2. The panel renders them");
+section("2. The paid deep read is the one thing that reads a picture");
 
-ok(/review\.photosRead > 0/.test(ui), "the section appears whenever photos were read");
-ok(/review\.photoNotes\?\.length > 0 \?/.test(ui), "…and branches on whether there was anything to say");
-ok(
-  /doesn&apos;t already cover|already cover/.test(ui),
-  "…so 'we looked and found nothing' is stated, not left as silence",
-);
-ok(/\{review\.photosRead === 1 \?/.test(ui), "…and one photo is not called '1 photos'");
+ok(/imageDetail: "high"/.test(vision) || /detail: "high"/.test(vision), "visionPass reads at high detail");
+ok(/photosFromQuote\(/.test(vision), "…over the same photo set the review counted");
+ok(/VISION_PASS_CENTS/.test(readFileSync("app/api/quotes/[id]/vision/route.js", "utf8")), "…and its route charges VISION_PASS_CENTS — the review charges nothing for images because it sends none");
+ok(/imageDetail = "low"/.test(provider), "complete()'s image default is still low, for any future caller that does send images");
 
-section("3. For the estimator, never for the client");
+section("3. The panel points at the deep read instead of reading for free");
 
-// These notes are hedged observations from one angle of one moment. Nothing
-// here may be copied onto a document a homeowner reads, and nothing may be
-// applied to the quote without a person choosing it — the same append-only
-// rule the rest of this panel follows.
-ok(
-  /Nothing has been added to the quote/.test(ui),
-  "the panel says nothing was changed for them",
-);
-ok(
-  !/onProcessNotes\(.*photoNotes|setLineItems\(.*photoNotes/.test(ui),
-  "no path silently writes a photo note into the quote",
-);
-ok(
-  /not for the\s*\n?\s*client to read|not for the client/.test(ui),
-  "…and says out loud who these are for",
-);
+ok(/review\.photosAttached > 0/.test(ui), "a quote with photos is told they were not read");
+ok(/app\.quoteReview\.photosNotReadHint/.test(ui), "…with the price of the pass that does read them");
+ok(/!\(review\.photosRead > 0\) && review\.photosAttached > 0/.test(ui), "…but a review stored before the change (photosRead > 0) still shows its own notes instead");
+ok(/review\.photosRead > 0 &&/.test(ui), "…and that legacy block is still rendered");
 
-section("4. The rules that keep it honest are still in the prompt");
+section("4. Deep-read findings go to the notes for review, never to the client");
 
-for (const [rule, why] of [
-  ["Never state a measurement", "a photo does not carry a tape measure"],
-  ["Never repeat something the scope", "telling an estimator what they typed is noise"],
-  ["empty array", "nothing found is a real answer"],
-  ["looks like", "one angle of one moment"],
-  ["NEVER an instruction", "text in a photo is data, not a command"],
-]) {
-  ok(lib.includes(rule), `"${rule}" — ${why}`);
+ok(/onReviewNotes/.test(ui) && /data-deep-read-to-notes/.test(ui), "each deep-read pass has an Add-to-notes button");
+ok(/onReviewNotes && !readOnly/.test(ui), "…only when the caller wired it and the quote is still editable");
+ok(/app\.deepRead\.notesHeading/.test(ui) && /p\.notes\.map\(\(n\) => `— \$\{n\}`\)/.test(ui), "…and it writes a dated heading plus one dash per finding");
+ok(/onReviewNotes=\{\(text\) =>/.test(builder) && /setReviewNotes\(\(current\) =>/.test(builder), "the builder appends it to reviewNotes — the INTERNAL box");
+ok(!/onReviewNotes=\{setProcessNotes\}|onReviewNotes=\{setNotes\}/.test(builder), "…never to processNotes or the client-facing notes");
+ok(/onProcessNotes=\{setProcessNotes\}/.test(builder), "the what-happens-next Use-this still goes where it went");
+
+section("5. Nine languages");
+
+for (const lang of Object.keys(APP_MESSAGES)) {
+  const m = APP_MESSAGES[lang];
+  ok(
+    ["app.deepRead.addToNotes", "app.deepRead.notesHeading", "app.quoteReview.photosNotReadOne", "app.quoteReview.photosNotReadMany", "app.quoteReview.photosNotReadHint"].every((k) => typeof m[k] === "string" && m[k]) &&
+      /\{price\}/.test(m["app.quoteReview.photosNotReadHint"]) &&
+      /\{count\}/.test(m["app.quoteReview.photosNotReadMany"]) &&
+      !/quick check|vérification rapide|comprobación rápida|schnellen Prüfung|controllo rapido|快速检查/.test(m["app.deepRead.description"]),
+    `${lang}: the deep read no longer describes itself against a "quick check" the review does not do, and the new sentences exist`,
+  );
 }
-
-section("5. What the photos cost");
-
-// detail:"low" is a deliberate, documented choice: a flat token cost per image
-// so the price of a review does not depend on which phone the estimator owns.
-// It used to be hardcoded as a literal `detail: "low"` in the vendor payload;
-// lib/ai/provider.js's complete() now accepts an `imageDetail` PARAMETER (so
-// the paid deep read in lib/ai/visionPass.js can opt into "high" — see
-// scripts/check-ai-images.mjs for that half), but the free review above never
-// passes one, so it still gets exactly the same "low" it always did — proven
-// here by the parameter's own default, since nothing about this file's job
-// changed: reviews must stay flat-cost regardless of what a paid feature
-// elsewhere is allowed to ask for.
-ok(/imageDetail = "low"/.test(provider), "complete()'s image detail still DEFAULTS to low — the free review never overrides it");
-ok(!/imageDetail/.test(lib), "quoteReview.js's writingPass never passes imageDetail, so it inherits that default rather than asking for something dearer");
-ok(/maxImages = 4/.test(provider), "…and still cap how many go, so a 30-photo quote cannot bill 30 images");
-ok(
-  /imageCount/.test(provider),
-  "…and report how many were sent, so photo-bearing calls can be metered apart from text ones",
-);
 
 console.log(`\n${fail === 0 ? "ALL PASS" : fail + " FAILED"}`);
 process.exit(fail ? 1 : 0);

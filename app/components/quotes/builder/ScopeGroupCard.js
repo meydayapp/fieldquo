@@ -23,7 +23,9 @@
 // decides whether the client is told to drop a service or discount the lot.
 "use client";
 
-import { Trash2 } from "lucide-react";
+import { useState } from "react";
+import Link from "next/link";
+import { ChevronDown, Trash2 } from "lucide-react";
 import { resolveServiceContent } from "@/lib/documents/serviceContent";
 
 const money = (n) =>
@@ -45,11 +47,24 @@ export default function ScopeGroupCard({
   showIndex,
   subtotal,
   onRemove,
+  // The company's saved wording for this service (Settings > Services), or
+  // null for the catalogue's defaults — see wordingOverrideFor in the builder.
+  wordingOverride = null,
+  t = null,
   children,
 }) {
   // Same resolver as the PDF and the client-facing page, so the colour here is
-  // the colour the client eventually sees against this work.
-  const accent = resolveServiceContent(group.categoryKey).accent;
+  // the colour the client eventually sees against this work — and, since
+  // 2026-09-15, the WORDS too. The estimator used to see only the name and
+  // the lines on this card while the client got a scope paragraph and a
+  // "what's included" list under that name; the review's "no description"
+  // finding read as nonsense against a document that plainly had one. The
+  // paragraph is shown here, folded, so what the client reads is in front of
+  // the person writing it.
+  const content = resolveServiceContent(group.categoryKey, wordingOverride, group.takeoff || null);
+  const accent = content.accent;
+  const [showWording, setShowWording] = useState(false);
+  const hasWording = Boolean(content.description) || (content.included || []).length > 0;
 
   return (
     <div
@@ -98,6 +113,48 @@ export default function ScopeGroupCard({
           )}
         </div>
       </div>
+
+      {/* What the client reads under this service's name — the same
+          paragraph and list the PDF prints, resolved the same way. Folded by
+          default: the estimator is here to price, not to reread the
+          catalogue, but one tap shows why the review no longer calls a bare
+          line "only a name". Edited in Settings > Services, never here — a
+          quote-by-quote rewrite of a service's scope would put two different
+          descriptions of the same trade in front of two clients. */}
+      {hasWording && t && (
+        <div className="px-5 pt-3 -mb-1" data-group-wording>
+          <button
+            type="button"
+            onClick={() => setShowWording((v) => !v)}
+            className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+            aria-expanded={showWording}
+          >
+            <ChevronDown size={13} className={`transition-transform ${showWording ? "rotate-180" : ""}`} />
+            {t("app.quoteNew.groupWordingToggle")}
+          </button>
+          {showWording && (
+            <div className="mt-2 rounded-lg bg-muted/40 px-3 py-2.5 text-xs text-foreground space-y-2">
+              {content.description && <p className="leading-relaxed">{content.description}</p>}
+              {(content.included || []).length > 0 && (
+                <ul className="space-y-1">
+                  {content.included.map((line, i) => (
+                    <li key={i} className="flex gap-2">
+                      <span className="text-muted-foreground/60 shrink-0">✓</span>
+                      <span>{line}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <p className="text-[11px] text-muted-foreground/80">
+                {t("app.quoteNew.groupWordingWhere")}{" "}
+                <Link href="/app/settings/services" className="underline">
+                  {t("app.quoteNew.groupWordingLink")}
+                </Link>
+              </p>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="p-5 space-y-4">{children}</div>
     </div>

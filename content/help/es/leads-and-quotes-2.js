@@ -14,10 +14,10 @@ export const ARTICLES = {
     title: "Revisión del presupuesto con IA",
     summary:
       "Antes de enviarlo, FieldQuo revisa qué le falta al presupuesto, cómo queda el precio frente a los presupuestos que ya ganó y si alguna línea necesita palabras más claras — sugiere, nunca edita.",
-    updated: "2026-09-12",
+    updated: "2026-09-15",
     intro: [
       "Un presupuesto que queda sin respuesta rara vez es demasiado caro. Más a menudo no tiene fecha de vencimiento, tiene una línea que el cliente no puede juzgar, o no dice nada de lo que pasa después del sí. La revisión con IA lee un presupuesto guardado y se lo dice a usted antes que al cliente.",
-      "Son dos mitades. Las comprobaciones, la comparación de precio y las sugerencias de extras se calculan con sus propios datos y no cuestan nada. La redacción — palabras más claras para una línea, un borrador de la sección «qué pasa después», una nota sobre lo que muestra una foto — es la parte que escribe un modelo. Si el modelo no está disponible, usted igual recibe la primera mitad.",
+      "Son dos mitades. Las comprobaciones, la comparación de precio y las sugerencias de extras se calculan con sus propios datos y no cuestan nada. La redacción — palabras más claras para una línea, un borrador de la sección «qué pasa después», — es la parte que escribe un modelo. Solo lee el texto del presupuesto; las fotos de un presupuesto las lee la [[the-ai-deep-photo-read|lectura profunda de fotos]], de pago, nunca la revisión gratuita. Si el modelo no está disponible, usted igual recibe la primera mitad.",
     ],
     sections: [
       {
@@ -36,9 +36,10 @@ export const ARTICLES = {
           { bullets: [
             "**Un índice sobre 100**, seguido de cuántas cosas vale la pena corregir. Es un recuento ponderado de lo que falta, no una probabilidad de ganar — un presupuesto sin faltantes dice «Nothing obvious missing — this one's ready to send.»",
             "**Las comprobaciones**, cada una con su gravedad: sin fecha de vencimiento, ya vencido, cliente sin correo, sin líneas, todo el trabajo en una sola línea, líneas que el cliente no entenderá («Labour — $2,400»), líneas sin descripción bajo el nombre, nada sobre qué pasa después, sin fotos, y un descuento mayor al 20 %.",
+            "**Líneas sin descripción** se juzga como el cliente lee el documento: un servicio imprime su párrafo de alcance y su lista de «qué incluye» bajo su nombre (**Configuración → Servicios**, y se muestra plegado en cada tarjeta de servicio del editor), así que «Cabinet Refinishing» sobre ese párrafo es una línea clara. Solo se señala una línea desnuda sin párrafo encima — un grupo personalizado, o un servicio sin texto.",
             "**Price check** — dentro de lo que usted suele ganar, **above your usual** o **below your usual**, frente a la mediana de sus presupuestos aceptados para los mismos servicios. Solo habla a partir de 5 presupuestos aceptados comparables; antes de eso lo dice y espera.",
             "**Clearer wording** — el original tachado y una reescritura en lenguaje llano para cualquier línea que un propietario no entendería. Solo la reciben las líneas cuyo nombre no dice nada; una línea cuyo párrafo de alcance ya explica el trabajo se deja como está.",
-            "**What the photos show** — aparece solo cuando el presupuesto lleva fotos. La revisión gratuita lee hasta 4 en baja resolución y lista cosas que comprobar en obra que el presupuesto no menciona. «Nada en las 3 fotos que el presupuesto no cubra ya» es una respuesta real, y se muestra como tal.",
+            "**Fotos adjuntas — no leídas por esta revisión** — aparece cuando el presupuesto lleva fotos, con su número. La revisión gratuita nunca las mira; la línea nombra la [[the-ai-deep-photo-read|lectura profunda de fotos]] y su precio como lo que sí las lee.",
             "**Suggested “what happens next”** — un borrador corto sobre plazos, acceso, calendario de pagos y garantía, ofrecido solo cuando el presupuesto aún no tiene notas de proceso. Todo lo que el modelo tendría que adivinar queda entre [corchetes] para que usted lo complete.",
           ] },
         ],
@@ -64,7 +65,7 @@ export const ARTICLES = {
           { bullets: [
             "Compara con **su propio historial únicamente** — el panel lo dice bajo la comprobación de precio — y exige al menos 5 presupuestos aceptados del mismo tipo antes de llamar alto o bajo a un precio.",
             "**Nunca cambia un número**. Sin precio sugerido, sin total reescrito; el modelo ve los precios para escribir sobre claridad, no para hacer aritmética con ellos.",
-            "**Nunca afirma una medida, un material ni una marca a partir de una foto**, y el texto dentro de una fotografía se trata como parte de la imagen, nunca como una instrucción.",
+            "**Nunca mira una fotografía**. Desde septiembre de 2026 la revisión es solo de texto; lo que muestran las imágenes es trabajo de la lectura profunda de pago, así que nada aquí gasta tokens de imagen ni describe una imagen que el modelo nunca vio.",
             "Cada ejecución cuenta contra la asignación mensual de FieldQuo AI de su empresa. Si la asignación se agota, el botón lo dice y nombra el día en que se renueva, en lugar de devolver media revisión.",
             "Si no se puede llegar al modelo, las comprobaciones, la comparación de precio y los extras basados en el historial igual vuelven; solo falta la redacción.",
           ] },
@@ -95,10 +96,10 @@ export const ARTICLES = {
   "the-ai-deep-photo-read": {
     title: "La lectura profunda de fotos con IA",
     summary:
-      "Un examen de pago y más detallado de las fotos de un presupuesto — hasta 8, a resolución completa — que lista lo que un vistazo rápido pasa por alto, para que usted lo compruebe en obra.",
-    updated: "2026-09-12",
+      "Lo único que lee las fotos de un presupuesto — hasta 8, a resolución completa, pagado por ejecución — y lista qué comprobar en obra.",
+    updated: "2026-09-15",
     intro: [
-      "Cada [[ai-quote-review|revisión del presupuesto con IA]] ya echa un vistazo gratuito a las fotos, a la resolución más baja que ofrece el modelo. Eso alcanza para reconocer una habitación, no una fisura capilar en una puerta de MDF ni un daño por agua en la base de un gabinete. La lectura profunda es el otro extremo de ese compromiso: usted la pide, usted la paga, y el modelo lee las fotos a resolución completa.",
+      "La [[ai-quote-review|revisión del presupuesto con IA]], gratuita, lee el texto de un presupuesto y nunca mira sus fotos. La lectura profunda es lo que sí lo hace: usted la pide, usted la paga, y el modelo lee hasta 8 fotos a resolución completa — suficiente para ver una fisura capilar en una puerta de MDF o un daño por agua en la base de un gabinete — y lista qué comprobar en obra.",
     ],
     sections: [
       {
@@ -107,12 +108,12 @@ export const ARTICLES = {
         blocks: [
           { p: "La tarjeta **Deep photo read** (se muestra en inglés por ahora) está debajo de la revisión, en la página de edición del presupuesto. Funciona sola — no hace falta ejecutar la revisión gratuita primero — y cada lectura pasada queda en el presupuesto con su fecha, cuántas fotos se leyeron y cuánto costó, porque cada una es dinero ya gastado." },
           { table: {
-            head: ["Qué cambia", "Comprobación gratuita (en la revisión)", "Lectura profunda"],
+            head: ["Qué cambia", "Revisión con IA (gratuita)", "Lectura profunda"],
             rows: [
-              ["Fotos leídas", "Hasta 4", "Hasta 8"],
-              ["Resolución", "Baja — tarifa plana", "Alta — detalle completo"],
+              ["Fotos leídas", "Ninguna — solo texto", "Hasta 8"],
+              ["Resolución", "—", "Alta — detalle completo"],
               ["Costo", "Incluido en la revisión", "US$0.25 de crédito de IA por ejecución"],
-              ["Qué devuelve", "Notas cortas para comprobar en obra", "Notas cortas para comprobar en obra, de un examen más cercano"],
+              ["Qué devuelve", "Comprobaciones, comparación de precio, redacción, extras", "Notas cortas para comprobar en obra"],
             ],
           } },
         ],
@@ -126,6 +127,7 @@ export const ARTICLES = {
             "Abra el presupuesto, pulse **Editar** y busque la tarjeta **Deep photo read**. La pastilla junto al título dice si el saldo cubre una lectura.",
             "Pulse **Run deep read**. La lectura tarda unos segundos; las notas aparecen en una tarjeta fechada debajo. Pulse **Run again** para otra pasada después de agregar fotos.",
             "Recorra las notas en obra. Cada una es cautelosa a propósito — «looks like», «check» — porque el modelo vio un ángulo de un momento.",
+            "Pulse **Añadir a las notas para revisar** bajo una lectura para poner sus hallazgos, con fecha, en las notas internas del presupuesto (la caja ámbar que el cliente nunca ve). El mismo gesto que **Use this** en el «qué pasa después» sugerido — salvo que esto va a sus notas, nunca al documento.",
           ] },
           { figure: "live:app-settings-ai-credit", caption: "Configuración → Crédito de IA — la tarjeta Crédito de imágenes con IA indica cuánto cuesta una lectura profunda y cuántas cubre el saldo." },
           { note: "Un presupuesto sin fotos rechaza la lectura — no hay nada que mirar, y no se cobra nada. Si la lectura no puede ejecutarse por cualquier otro motivo, el crédito se reembolsa y la tarjeta dice que no se cobró nada." },
@@ -139,7 +141,7 @@ export const ARTICLES = {
           { bullets: [
             "Si el saldo no alcanza, el botón abre un diálogo de recarga que nombra el precio, el saldo y el faltante al centavo. No se cobra nada al volver — usted pulsa el botón de nuevo cuando esté listo.",
             "Las recargas únicas son de US$10, US$30, US$50 y US$100. Un plan mensual sobre el mismo saldo cuesta menos por crédito, y el crédito sin usar se acumula.",
-            "La comprobación gratuita de la revisión no se cobra y sigue funcionando compre usted crédito o no.",
+            "La revisión gratuita no se cobra y sigue funcionando compre usted crédito o no — solo que nunca lee las fotos.",
           ] },
         ],
       },
@@ -180,7 +182,7 @@ export const ARTICLES = {
     title: "Extras opcionales que el cliente puede aceptar",
     summary:
       "Extras opcionales al pie del presupuesto, cada uno con su precio, que el cliente marca en la página de aprobación — el total se actualiza, y el servidor es quien calcula.",
-    updated: "2026-09-12",
+    updated: "2026-09-15",
     intro: [
       "El ingreso más barato del negocio es el extra que el cliente agrega por su cuenta mientras ya está diciendo que sí. Protectores de canaletas en un techo, bisagras de cierre suave en un trabajo de gabinetes, el pasillo cuando se pintan los dormitorios. FieldQuo los pone al pie del presupuesto como casillas con precio, y el total aprobado incluye lo que se haya marcado.",
       "El navegador del cliente solo envía los identificadores de las casillas marcadas. Los montos quedan en el servidor y ahí se suman, así que nadie puede convertir una página web en un trabajo más barato.",
@@ -268,7 +270,7 @@ export const ARTICLES = {
     title: "Opciones bueno, mejor, el mejor",
     summary:
       "Tres presupuestos vinculados a tres precios para un mismo trabajo. La valoración y la numeración existen tras bambalinas; la pantalla para armar un trío todavía no — así que hoy usted arma los tres por su cuenta.",
-    updated: "2026-09-12",
+    updated: "2026-09-15",
     intro: [
       "Ofrecer un mismo trabajo a tres precios — una versión básica, una recomendada y una premium — es una forma conocida de llevar la conversación de «sí o no» a «cuál». FieldQuo tiene los cimientos, y esta página dice con honestidad cuánto de eso puede usar hoy.",
     ],
@@ -321,7 +323,7 @@ export const ARTICLES = {
     title: "Costo y margen en un presupuesto",
     summary:
       "Lo que el trabajo le cuesta — mano de obra, materiales, gastos generales — y lo que queda, calculado junto al precio mientras usted presupuesta. Interno, y nunca mostrado al cliente.",
-    updated: "2026-09-12",
+    updated: "2026-09-15",
     intro: [
       "Una pantalla de presupuesto muestra un precio. El panel **Costo y margen** muestra lo que ese precio le cuesta entregar y lo que sobra, y su propio encabezado dice lo que es: «interno — nunca se muestra al cliente». Es la diferencia entre presupuestar un trabajo y saber si lo quiere.",
       "Los materiales salen de recetas — lo que le cuesta un litro de imprimación y cuánto consume una cocina de 24 puertas —, la mano de obra de las horas a la tarifa que usted paga, los gastos generales de lo que le dijo a FieldQuo que gasta cada mes. La pastilla de margen es el objetivo: verde, ámbar o roja antes de pulsar Enviar.",
@@ -397,7 +399,7 @@ export const ARTICLES = {
     title: "El precio de equilibrio",
     summary:
       "El precio más bajo al que puede salir un trabajo y aun así cubrir el negocio — sus gastos generales mensuales reales divididos por cuántos trabajos puede asumir — y dónde aparece esa cifra en un presupuesto.",
-    updated: "2026-09-12",
+    updated: "2026-09-15",
     intro: [
       "Todo contratista tiene un número que nunca ha podido calcular: ¿por debajo de qué precio un trabajo me hace perder dinero antes de trabajar una sola hora? FieldQuo lo calcula a partir de sus propios costos fijos, salarios, deudas y equipos, y lo muestra en **Configuración → Gastos generales** como **Tu precio mínimo**.",
       "No es una regla de dedo ni un promedio de la industria. Es su alquiler, su camioneta y su sueldo de oficina, divididos por los trabajos que usted dijo que puede hacer en una semana.",
@@ -491,7 +493,7 @@ export const ARTICLES = {
     title: "Enviar un presupuesto",
     summary:
       "Un botón envía el presupuesto por correo a nombre de su empresa, en el idioma del cliente, con el PDF adjunto y un enlace de aprobación — y registra que salió.",
-    updated: "2026-09-12",
+    updated: "2026-09-15",
     intro: [
       "Enviar es un botón, y hace exactamente una cosa: le manda un correo al cliente. El estado pasa a **Enviada** solo después de que el servicio de correo aceptó el mensaje, así que «Enviada por correo el 3 de julio» en un presupuesto es un hecho, no una intención.",
       "El correo lleva la sustancia del presupuesto — el total, el botón de aprobación, qué incluye, cómo se realiza el trabajo — porque un propietario lee tres presupuestos lado a lado en la misma bandeja, y un enlace pelado pierde contra una carta.",
@@ -576,7 +578,7 @@ export const ARTICLES = {
     title: "El PDF del presupuesto",
     summary:
       "El PDF adjunto a cada correo de presupuesto lleva su logotipo, su color de marca y su nombre — nada en él dice FieldQuo — y sus secciones se pueden reordenar o quitar en Configuración → Plantillas PDF.",
-    updated: "2026-09-12",
+    updated: "2026-09-15",
     intro: [
       "Cada presupuesto sale dos veces: como página web en la que el cliente aprueba, y como PDF que puede guardar, imprimir y pasarle a su pareja. Los dos se construyen con las mismas secciones y los mismos colores medidos, así que el PDF se ve como la página y ambos parecen venir de usted.",
     ],
@@ -655,7 +657,7 @@ export const ARTICLES = {
     title: "Los estados de un presupuesto, y qué significa cada uno",
     summary:
       "Borrador, Enviada, Aprobada y Rechazada — qué pone un presupuesto en cada uno, qué desbloquea cada uno, y las insignias que acompañan al estado en la lista de presupuestos.",
-    updated: "2026-09-12",
+    updated: "2026-09-15",
     intro: [
       "Un presupuesto tiene exactamente cuatro estados, y las pastillas en la parte superior de la lista los cuentan. La insignia junto a un presupuesto es una promesa sobre lo que le pasó — **Enviada** significa que un correo fue aceptado, **Aprobada** que el cliente firmó o que usted registró su sí —, así que nada aquí cambia por sí solo.",
     ],
@@ -726,7 +728,7 @@ export const ARTICLES = {
     title: "Cuánto tiempo sigue válido un presupuesto",
     summary:
       "Cada presupuesto nuevo empieza con una fecha Válida hasta a 30 días; usted puede moverla o borrarla. Pasada la fecha, el cliente ya no puede aprobar en línea, la lista lo marca en rojo, y nada más cambia por sí solo.",
-    updated: "2026-09-12",
+    updated: "2026-09-15",
     intro: [
       "Un presupuesto que nunca vence es un presupuesto sin motivo para responder hoy. También lo deja a usted sosteniendo un precio cuando el costo de los materiales se mueve. Por eso el constructor abre con una fecha de vencimiento ya rellenada — 30 días desde hoy — y la revisión se queja si usted la borra.",
     ],
@@ -786,7 +788,7 @@ export const ARTICLES = {
     title: "Un presupuesto conserva su idioma",
     summary:
       "Usted elige el idioma en que se escribe un presupuesto al crearlo, y lo conserva de por vida — el PDF, la página de aprobación y el correo que lo acompaña lo siguen, y nada se traduce automáticamente al enviar.",
-    updated: "2026-09-12",
+    updated: "2026-09-15",
     intro: [
       "Hay dos idiomas en juego y son distintos. El primero es en el que usted trabaja — la aplicación misma, definido en **Configuración → Idioma**. El segundo es el que lee el cliente: el presupuesto, la factura, los correos. Un taller de Gatineau puede trabajar en inglés y presupuestar en francés; una cuadrilla hispanohablante puede enviar un presupuesto en inglés a un cliente angloparlante.",
       "Una regla merece decirse con claridad porque suena a limitación y en realidad es la parte tranquilizadora: un presupuesto conserva el idioma en el que se creó. Un documento firmado siempre dirá lo que decía cuando se firmó. Nada se vuelve a traducir a espaldas del cliente.",
@@ -861,7 +863,7 @@ export const ARTICLES = {
     title: "Aprobación y firma en línea",
     summary:
       "El cliente abre el enlace en su teléfono, lee, marca los extras, escribe su nombre, dibuja una firma y aprueba — y FieldQuo guarda la firma con una huella exacta de lo que aceptó.",
-    updated: "2026-09-12",
+    updated: "2026-09-15",
     intro: [
       "Sin imprimir, sin escanear, sin cruzar la ciudad para recoger una firma. El correo del presupuesto lleva un enlace; el cliente lee el presupuesto en su teléfono y dice que sí ahí mismo. La aprobación es una confirmación en dos pasos con firma, no un botón pelado — un toque accidental a pleno sol no debería crear un contrato.",
       "La firma no es decoración. Se guarda con el nombre del cliente, la hora, su dirección en la red, el navegador que usó y una huella del contenido valorado que firmó, así que «firmaron» y «lo editamos después» nunca pueden confundirse.",
@@ -952,7 +954,7 @@ export const ARTICLES = {
     title: "Anticipos en los presupuestos",
     summary:
       "Un anticipo es una línea de sus condiciones de pago que se imprime en cada presupuesto como tarjeta de porcentaje — y, con un calendario de pagos activado, una solicitud de factura que sale sola en el momento en que el cliente aprueba.",
-    updated: "2026-09-12",
+    updated: "2026-09-15",
     intro: [
       "Un propietario que acaba de aprobar un trabajo espera que le pidan un anticipo; un contratista que tiene que acordarse de pedirlo, a menudo no lo hace. FieldQuo imprime su anticipo en el presupuesto para que el cliente lo acepte al firmar, y — si usted activa el calendario de pagos — lo solicita automáticamente al aprobar.",
       "Dos ajustes hacen esto, y están uno encima del otro en **Configuración → Configuración de la empresa**. El primero solo imprime. El segundo imprime y factura.",
