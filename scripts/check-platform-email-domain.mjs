@@ -83,6 +83,30 @@ for (const file of ["lib/email/platformSender.js", "lib/email/resend.js", "app/a
   );
 }
 
+// ── 4. Production never sends from the sandbox (2026-09-15) ────────────────
+//
+// Every failure path in getPlatformFrom used to return onboarding@resend.dev,
+// which Resend refuses for anyone but the account owner. The error log had six
+// days of it — one send per burst, on a cold lambda whose listDomains call hit
+// the rate limit. With a key present the fallback is the last persisted
+// sender, else the verified apex; the sandbox is only for a machine with no
+// key. The function is matched in comment-stripped source; the apex helper is
+// executed.
+{
+  const sender = read("lib/email/platformSender.js");
+  const { apexFrom, PLATFORM_SENDER_SETTING } = await import("@/lib/email/platformSender");
+  ok("apexFrom() is FieldQuo at the verified apex", apexFrom() === "FieldQuo <quotes@fieldquo.com>", apexFrom());
+  ok("the persisted sender has a fixed PlatformSetting key", PLATFORM_SENDER_SETTING === "platform_sender");
+  const sandboxReturns = (sender.match(/return SANDBOX_FROM;/g) || []).length;
+  ok("SANDBOX_FROM is returned exactly once — for a missing RESEND_API_KEY — and nowhere else", sandboxReturns === 1 && /if \(!process\.env\.RESEND_API_KEY\) return SANDBOX_FROM;/.test(sender), sandboxReturns);
+  ok("a discovery failure returns the last-known sender, never the sandbox", /catch \(err\) \{[\s\S]*?return lastKnown;/.test(sender) && /const lastKnown = persisted\?\.from \|\| apexFrom\(\);/.test(sender));
+  ok("…and so do 'no verified domain' and 'every domain claimed'", (sender.match(/return lastKnown;/g) || []).length === 3);
+  ok("a cold instance reads the persisted row before calling Resend", /const persisted = await readPersisted\(\);[\s\S]*?await listDomains\(\)/.test(sender));
+  ok("a successful discovery is persisted", /await writePersisted\(from\);/.test(sender));
+  ok("a failure is written to the error log as sender_discovery_failed", /code: "sender_discovery_failed"/.test(sender));
+  ok("invalidating the sender also drops the persisted row", /invalidatePlatformSender[\s\S]*?platformSetting\.deleteMany/.test(sender));
+}
+
 if (failures.length) {
   console.error(`check:platform-email-domain FAILED — ${failures.length} problem(s):`);
   for (const f of failures) console.error(`  ✗ ${f}`);
