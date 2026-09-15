@@ -237,7 +237,6 @@ export async function GET(request) {
         doNotContactReason: true,
         // Who holds the row, for the list's "claimed by Daniel" and for the
         // Assign / Unassign controls to say whose it is.
-        assignedRep: { select: { id: true, name: true } },
         territory: { select: { id: true, name: true } },
         campaign: { select: { id: true, name: true } },
         technologies: { where: { isCompetitor: true }, select: { technologyCode: true } },
@@ -265,6 +264,18 @@ export async function GET(request) {
     orderBy: { name: "asc" },
     select: { id: true, name: true, sellsIn: true },
   });
+  // Prospect.assignedRepId is a plain column — there is NO `assignedRep`
+  // relation on the model (the schema says why by the field). d8559598
+  // selected one anyway and Prisma refused the whole findMany, which was
+  // the 500 on /platform/sales/prospects on 2026-09-15. Holders are named
+  // through one lookup by id instead; a deactivated rep still names a live
+  // claim, so this reads every rep, not `reps` above.
+  const holderIds = [...new Set(rows.map((p) => p.assignedRepId).filter(Boolean))];
+  const holders = holderIds.length
+    ? new Map(
+        (await db.salesRep.findMany({ where: { id: { in: holderIds } }, select: { id: true, name: true } })).map((r) => [r.id, r]),
+      )
+    : new Map();
 
   return NextResponse.json({
     prospects: rows.map((p) => ({
@@ -295,7 +306,10 @@ export async function GET(request) {
       claim: claimState(p, { repId: null, now }),
       // The holder by name, only while the claim is live or worked — a
       // lapsed lease's old holder is history the detail screen can show.
-      holder: p.assignedRep && p.assignedRepId && (p.claimExpiresAt === null || p.claimExpiresAt > now) ? { id: p.assignedRep.id, name: p.assignedRep.name } : null,
+      holder:
+        p.assignedRepId && holders.has(p.assignedRepId) && (p.claimExpiresAt === null || p.claimExpiresAt > now)
+          ? { id: p.assignedRepId, name: holders.get(p.assignedRepId).name }
+          : null,
       contact: contactability(p),
     })),
     reps: reps.map((r) => ({ id: r.id, name: r.name, sellsIn: sellsInOf(r) })),

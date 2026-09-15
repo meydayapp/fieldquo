@@ -174,7 +174,10 @@ function scriptedDb({ prospects, claims = [], attempts = [], reps = [], admins =
             out.callAttempts = state.attempts.filter((a) => a.prospectId === p.id && matches(a, select.callAttempts.where));
           }
           if (select?.leads) out.leads = p.leads || [];
-          if (select?.assignedRep) out.assignedRep = p.assignedRepId ? { name: repName(p.assignedRepId) } : null;
+          // There is no assignedRep relation on Prospect; a select asking for
+          // one is exactly the 500 of 2026-09-15. Refuse it here the way
+          // Prisma does, so the scripted db can no longer hide it.
+          if (select?.assignedRep) throw new Error("Unknown field `assignedRep` for select statement on model `Prospect`");
           return out;
         });
       },
@@ -192,6 +195,13 @@ function scriptedDb({ prospects, claims = [], attempts = [], reps = [], admins =
           }
         }
         return { count };
+      },
+    },
+    salesRep: {
+      async findMany({ where, select }) {
+        state.log.push("salesRep.findMany");
+        const ids = where?.id?.in || null;
+        return state.reps.filter((r) => !ids || ids.includes(r.id)).map((r) => ({ id: r.id, name: r.name }));
       },
     },
     salesQueueClaim: {
@@ -585,7 +595,8 @@ section("7. Source: one selection, two routes, two screens, the catalogue");
   ok("…gated on isSuperadmin, never a guess", /isSuperadmin/.test(repsPage) && /usePlatformAdmin\(\)/.test(repsPage));
   ok("the prospects screen has checkboxes, Assign to rep, Unassign — through the shared gate", /usePlatformAdmin\(\)/.test(prospectsPage) && /<PlatformWriteGate/.test(prospectsPage) && /type="checkbox"/.test(prospectsPage) && /assignTicked\("unassign"\)/.test(prospectsPage) && /assignTicked\("assign"\)/.test(prospectsPage) && /\/api\/platform\/sales\/reps\/\$\{rep\.id\}\/\$\{action\}/.test(prospectsPage));
   ok("…and prints each refusal", /refused/.test(prospectsPage));
-  ok("the prospects list route carries the active reps and the holder's name", /reps:/.test(prospectsRoute) && /holder/.test(prospectsRoute) && /assignedRep: \{ select: \{ (id: true, )?name: true/.test(prospectsRoute));
+  ok("the prospects list route carries the active reps and the holder's name — by id lookup, never a relation select Prospect does not have", /reps:/.test(prospectsRoute) && /holder/.test(prospectsRoute) && /holders\.get\(p\.assignedRepId\)/.test(prospectsRoute) && !/assignedRep: \{ select/.test(prospectsRoute));
+  ok("…and neither does lib/sales/assignLeads.js: withHolderNames resolves the name after the read", !/assignedRep: \{ select/.test(read("lib/sales/assignLeads.js")) && /export async function withHolderNames/.test(read("lib/sales/assignLeads.js")));
   ok("the sales queue GET carries adminAssigned for the Today line", /adminAssigned/.test(salesRoute) && /adminAssignedSummary\(\{ db, salesRepId: rep\.id, now \}\)/.test(salesRoute));
   ok("the Today screen prints it", /adminAssigned\.latest/.test(decomment(read("app/sales/page.js"))));
   ok("the day-end sweep and the closed release both ask autoReleaseProtected", (qb.match(/autoReleaseProtected\(/g) || []).length >= 3);
