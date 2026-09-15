@@ -16,9 +16,9 @@
 //      rep's SHIFT ends (SHIFT_HOURS from their first Available today, read
 //      from the ledger; the claim instant when there is none) is NOT
 //      claimed; one that opens later in the shift is.
-//   3. The caps: one press takes at most QUEUE_BATCH_MAX; the day takes at
-//      most QUEUE_DAILY_CLAIM_CAP, counted from a fixture claim log and not
-//      from what the rep currently holds.
+//   3. The cap: one press takes at most QUEUE_BATCH_MAX. The day has NO
+//      ceiling (removed 2026-09-14): a fixture claim log with hundreds of
+//      rows already taken today changes nothing about the next press.
 //   4. Atomicity: with a scripted db in which another rep takes some of the
 //      chosen rows between the read and the write, the winners counted are
 //      exactly the rows the write matched — never the rows that were asked
@@ -45,7 +45,6 @@ import {
   CLAIM_OPENS_WITHIN_MS,
   QUEUE_BATCH_MAX,
   opensWithin,
-  QUEUE_DAILY_CLAIM_CAP,
   RELEASE_DEPRIORITISE_DAYS,
   RELEASE_REASONS,
   SHIFT_HOURS,
@@ -293,7 +292,7 @@ const researched = (over = {}) =>
 section("0. The numbers are the owner's, and the reasons are keys");
 
 ok("QUEUE_BATCH_MAX is 25 — one press or one top-up, the owner's number of 2026-09-11", QUEUE_BATCH_MAX === 25, QUEUE_BATCH_MAX);
-ok("QUEUE_DAILY_CLAIM_CAP is 250 — 200 calls a day plus room for no-answers and redials", QUEUE_DAILY_CLAIM_CAP === 250);
+ok("there is no daily claim ceiling — the owner removed the 250 on 2026-09-14", !("daily_cap" in BATCH_REASON_KEYS) && !/export const QUEUE_DAILY_CLAIM_CAP/.test(read("lib/sales/queueBatch.js")));
 ok("SHIFT_HOURS is 7 — the owner's shift, lunch and break inside it", SHIFT_HOURS === 7);
 ok("released rows sort last for 7 days", RELEASE_DEPRIORITISE_DAYS === 7);
 ok("the scan is bounded, so a huge pool cannot time the request out", CANDIDATE_SCAN >= 200 && CANDIDATE_SCAN <= 1000);
@@ -500,7 +499,7 @@ async function run() {
     ok("…sharing one batchId", new Set(logged.map((c) => c.batchId)).size === 1 && r.batchId === logged[0].batchId);
     ok("the write rode a transaction", db.state.log.includes("$transaction"));
     ok("the pool ran short, and the response says so by key", r.reason === "pool_empty" && r.reasonKey === BATCH_REASON_KEYS.pool_empty, r);
-    ok("remainingToday came down by what was claimed", r.remainingToday === QUEUE_DAILY_CLAIM_CAP - 3, r.remainingToday);
+    ok("no remainingToday in the result — there is nothing to count down from", !("remainingToday" in r));
   }
 
   // ── The language rule: a Quebec row is not offered to a rep without French ─
@@ -545,11 +544,11 @@ async function run() {
     }
   }
 
-  // ── The daily cap, from the log ───────────────────────────────────────────
+  // ── No daily ceiling, whatever the log says ───────────────────────────────
   {
     seq = 0;
     const pool = Array.from({ length: 120 }, () => researched());
-    const claims = Array.from({ length: QUEUE_DAILY_CLAIM_CAP - 10 }, (_, i) => ({
+    const claims = Array.from({ length: 400 }, (_, i) => ({
       id: `old${i}`,
       salesRepId: "rep_a",
       prospectId: `gone${i}`,
@@ -557,22 +556,21 @@ async function run() {
       mode: "batch",
       localDate: "2026-09-11",
       repTimeZone: ZONE,
-      // Released already — and STILL counted. That is the point of the log.
+      // Released already. The log still records them; it just stops nothing.
       releasedAt: new Date(NOW.getTime() - 60 * 60 * 1000),
       releaseReason: "rest",
       workedAt: null,
     }));
     const db = scriptedDb({ prospects: pool, claims });
     const r = await claimBatch({ db, rep: REP, tradeKey: "electrical", timeZone: ZONE, now: NOW });
-    ok(`${QUEUE_DAILY_CLAIM_CAP - 10} taken today (and released) → only 10 more, not 100`, r.claimed === 10, r.claimed);
-    ok("…and the cap is the log's count, not the rep's current holdings", db.state.claims.filter((c) => c.salesRepId === "rep_a").length === QUEUE_DAILY_CLAIM_CAP);
+    ok("400 taken today (and released) → still a full batch of QUEUE_BATCH_MAX", r.claimed === QUEUE_BATCH_MAX && r.reason === null, { claimed: r.claimed, reason: r.reason });
+    ok("…and the log keeps every row: 400 old plus the new batch", db.state.claims.filter((c) => c.salesRepId === "rep_a").length === 400 + QUEUE_BATCH_MAX);
     const again = await claimBatch({ db, rep: REP, tradeKey: "electrical", timeZone: ZONE, now: NOW });
-    ok(`at ${QUEUE_DAILY_CLAIM_CAP} the next press claims nothing and says daily_cap`, again.claimed === 0 && again.reason === "daily_cap" && again.reasonKey === BATCH_REASON_KEYS.daily_cap, again);
-    ok("…without touching the pool", db.state.log.filter((l) => l === "prospect.updateMany").length === 1);
+    ok("the next press takes the next batch too — the pool, not the day, is what runs out", again.claimed === QUEUE_BATCH_MAX && again.reason === null, again.reason);
     const yesterday = claims.map((c) => ({ ...c, localDate: "2026-09-10" }));
     const db2 = scriptedDb({ prospects: pool.map((p) => ({ ...p })), claims: yesterday });
     const fresh = await claimBatch({ db2, db: db2, rep: REP, tradeKey: "electrical", timeZone: ZONE, now: NOW });
-    ok("yesterday's claims do not count against today: a full batch", fresh.claimed === QUEUE_BATCH_MAX, fresh.claimed);
+    ok("yesterday's claims change nothing either: a full batch", fresh.claimed === QUEUE_BATCH_MAX, fresh.claimed);
     ok("a pool of 120 eligible rows gives exactly QUEUE_BATCH_MAX, no shortfall reason", fresh.claimed === QUEUE_BATCH_MAX && fresh.reason === null, fresh.reason);
   }
 
@@ -746,9 +744,6 @@ async function run() {
     ok("a top-up a minute later takes nothing it already holds", again.claimedIds.every((id) => !r.claimedIds.includes(id)), again.claimedIds);
     ok("…and the held set is the union with no duplicate", (() => { const held = db.state.prospects.filter((p) => p.assignedRepId === "rep_a").map((p) => p.id); return new Set(held).size === held.length && held.includes("bc1") && held.includes("bc2"); })());
 
-    const capped = await claimBatch({ db: scriptedDb({ prospects: pool, claims: Array.from({ length: QUEUE_DAILY_CLAIM_CAP }, (_, i) => ({ id: `k${i}`, salesRepId: "rep_a", prospectId: `x${i}`, claimedAt: LATE, localDate: "2026-09-11", mode: "batch", releasedAt: null })) }), rep: english, tradeKey: "electrical", timeZone: ZONE, now: LATE });
-    ok("the daily cap refuses a top-up like any press", capped.claimed === 0 && capped.reason === "daily_cap", capped.reason);
-
     const shut = await claimBatch({ db: scriptedDb({ prospects: [researched({ id: "on9", country: "CA", province: "ON" }), researched({ id: "ns9", country: "CA", province: "NS" })] }), rep: english, tradeKey: "electrical", timeZone: ZONE, now: LATE });
     ok("nothing open now → none_open_now, by key", shut.claimed === 0 && shut.reason === "none_open_now" && shut.reasonKey === BATCH_REASON_KEYS.none_open_now, shut);
     ok("…carrying the EARLIEST next opening from the readiness the selection computed", typeof shut.nextOpensAt === "string" && new Date(shut.nextOpensAt).getTime() > LATE.getTime() && new Date(shut.nextOpensAt).getTime() - LATE.getTime() < 13 * 60 * 60 * 1000, shut.nextOpensAt);
@@ -788,7 +783,7 @@ async function run() {
     ok("…and the batch tells the console the threshold and the interval", /topUpBelow: QUEUE_TOP_UP_BELOW,/.test(route) && /topUpIntervalMs: QUEUE_TOP_UP_MIN_INTERVAL_MS,/.test(route));
     const page = decomment(read("app/sales/queue/page.js"));
     ok("the console tops up under the threshold, at most once an interval, posting only the flag", /act\("claim_batch", \{ auto: true \}\)/.test(page) && /if \(openHeld >= topUpBelow\) return;/.test(page) && /if \(nowMs - lastTopUp\.current < topUpInterval\) return;/.test(page));
-    ok("…never while a press is in flight, and never past the cap", /if \(loading \|\| fetching \|\| busy \|\| !data \|\| !tradeKey\) return;/.test(page) && /if \(!\(remainingToday > 0\)\) return;/.test(page));
+    ok("…never while a press is in flight, and never gated on a daily count", /if \(loading \|\| fetching \|\| busy \|\| !data \|\| !tradeKey\) return;/.test(page) && !/remainingToday/.test(page));
     // A DUE RETRY has an outcome and is still open work — lib/sales/retryRules.js
     // said "try again" and the time has come — so it counts, and only it.
     ok("…and openHeld counts rows callable now with no outcome (or a due retry), not marked worked", /item\.window\?\.callableNow && \(!item\.lastOutcome \|\| item\.retry\?\.due\) && item\.claim\?\.state !== "mine_worked"/.test(page));
@@ -889,8 +884,7 @@ section("6. Source: the route, the gate, the cron, the screen, the sticky fix");
   ok("…and claim_batch delegates to claimBatch with the trade and the browser's zone — nothing else", /claimBatch\(\{ db, rep, tradeKey, timeZone, now, policyContext \}\)/.test(route));
   ok("the trade filter is inside the updateMany's WHERE inside the transaction", /\$transaction\(async \(tx\) => \{[\s\S]*?tx\.prospect\.updateMany\(\{\s*where: \{ id: \{ in: picked\.ids \}, \.\.\.claimCandidateWhere\(\{ tradeKey, now: at, rep \}\) \}/.test(lib));
   ok("winners are read back by rep AND instant, so a row already held from an earlier claim is not counted twice", /where: \{ id: \{ in: picked\.ids \}, assignedRepId: rep\.id, assignedAt: at \}/.test(lib));
-  ok("the single claim is logged and counted against the same cap", /logSingleClaim\(\{ db, rep, prospectId: candidate\.id, timeZone, now: at \}\)/.test(route) && /takenToday >= QUEUE_DAILY_CLAIM_CAP/.test(route));
-  ok("the single claim's cap refusal is by key, with the cap as a value", /reasonKey: "app\.salesQueue\.batchReason\.dailyCap"/.test(route));
+  ok("the single claim is logged, and refused by no daily count", /logSingleClaim\(\{ db, rep, prospectId: candidate\.id, timeZone, now: at \}\)/.test(route) && !/QUEUE_DAILY_CLAIM_CAP|daily_cap|dailyCap/.test(route));
   ok("research is asked for after every successful claim, batch and single, behind a typeof guard", /typeof fn !== "function"/.test(route) && (route.match(/queueResearchFor\(/g) || []).length >= 3 && /priority: "claimed"/.test(route));
   ok("…and never awaited on the response path", /Promise\.resolve\(\)\s*\.then\(\(\) => fn\(/.test(route));
   ok("the route's Prospect list read is still scoped through queueWhere", /const claimedRows = await db\.prospect\.findMany\(\{\s*where: queueWhere\(rep\.id/.test(route));
@@ -918,7 +912,7 @@ section("6. Source: the route, the gate, the cron, the screen, the sticky fix");
 
   // The screen.
   ok("the button says the server's number, never a typed 100", /t\("app\.salesQueue\.claimBatch", \{ count: batchSize \}\)/.test(page) && !/claimBatch", \{ count: 100/.test(page));
-  ok("…and batchSize is min(server max, what is left of the day)", /const batchSize = Math\.min\(data\?\.batch\?\.max \?\? 0, remainingToday\)/.test(page));
+  ok("…and batchSize is the server's max, with no daily count to shrink it", /const batchSize = data\?\.batch\?\.max \?\? 0;/.test(page));
   // ── Two panes, not three (2026-09-14) ─────────────────────────────────
   // The left rail (trade picker + claim buttons, "Yours to work" + Release)
   // and the phone's drawer are gone; the Leads tab is the one place all of
@@ -950,7 +944,7 @@ section("6. Source: the route, the gate, the cron, the screen, the sticky fix");
     ok(`${lang}: textSignupLink keeps its {business} slot`, String(APP_MESSAGES[lang]["app.salesQueue.textSignupLink"]).includes("{business}"));
   }
   ok("the browser sends its zone with every request, and never a number", /timeZone: browserTimeZone\(\)/.test(page) && /search\.set\("timeZone", zone\)/.test(page) && !/max:\s*\d/.test(page));
-  ok("at the cap the button is replaced by the sentence, not greyed", /remainingToday > 0 \? \(/.test(page) && /app\.salesQueue\.batchReason\.dailyCap/.test(page));
+  ok("no ceiling sentence anywhere on the screen, in any language", !/dailyCap|claimsRemainingCount/.test(page) && Object.keys(APP_MESSAGES).every((lang) => !("app.salesQueue.batchReason.dailyCap" in APP_MESSAGES[lang]) && !/\{cap\}|\{remaining\}/.test(String(APP_MESSAGES[lang]["app.salesQueue.claimBatchNote"]))));
   ok("a row prints researched / researching / not researched as three sentences", /rowResearched/.test(page) && /rowResearching/.test(page) && /rowNotResearched/.test(page));
   ok("…and the window's opening or closing, on the REP's clock from the server's strings", /rowWindowOpensAt/.test(page) && /rowWindowClosesAt/.test(page) && /w\.opensAtLocal/.test(page) && /w\.closesAtLocal/.test(page) && !/hhmmIn\(/.test(page));
   ok("the route reads the shift from the ledger and groups by window", /shiftStartFor\(\{ db, salesRepId: rep\.id, timeZone: zone, now \}\)/.test(route) && /groupByWindow\(/.test(route) && /queue\.windows = \{/.test(route));

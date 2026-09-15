@@ -241,4 +241,4 @@ export const NOTES = [
 ];
 
 export const ME = { id: "r1", name: "Daniel Roy", email: "daniel@fieldquo.com", code: "DAN1", signups: { today: 1, thisWeek: 4, total: 27 } };
-export const BADGES = { callsToday: 24, dayCap: 250, texts: 3, team: 1, voicemail: 2 };
+export const BADGES = { callsToday: 24, texts: 3, team: 1, voicemail: 2 };

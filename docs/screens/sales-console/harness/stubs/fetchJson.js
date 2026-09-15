@@ -27,7 +27,7 @@ function queueBody(prospectId) {
     queue: { items, empty, emptyReason: empty ? "nothing_claimed" : null, emptyText: empty ? "You have nothing claimed in Electrical. 62 are free to claim — press the button." : null, windows: { repZone: "America/New_York", language: "en", groups: empty ? [] : shut ? (state.topped ? [{ key: "now", kind: "now", count: 3, ids: ["t1", "t2", "t3"] }, ...GROUPS_SHUT.slice(1)] : GROUPS_SHUT) : GROUPS } },
     current: cur,
     claimHours: 48,
-    batch: { max: 25, topUpBelow: 5, topUpIntervalMs: 60000, dailyCap: 250, takenToday: 11, remainingToday: 239, timeZone: "America/New_York", result: null },
+    batch: { max: 25, topUpBelow: 5, topUpIntervalMs: 60000, takenToday: 11, timeZone: "America/New_York", result: null },
     // A fixed clock, so the window the console recomputes is the fixture's
     // and not the machine's: 2:00 pm Central for the day scenario, 9:20 pm
     // Eastern for the shut one.

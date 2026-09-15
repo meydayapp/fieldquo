@@ -207,12 +207,10 @@ function assignSentence(res, rep, panel) {
   const parts = [`Assigned ${plural(res.assigned, `${trade} lead`.trim())}${where}${lang} to ${rep.name}`];
   if (res.skippedForLanguage > 0) parts.push(`${res.skippedForLanguage} not offered (language)`);
   if (res.skippedForWindow > 0) parts.push(`${res.skippedForWindow} left — window shut for the rest of their shift`);
-  if (res.reason === "daily_cap") parts.push(`${rep.name} is at the daily ceiling`);
-  else if (res.reason === "none_open_now") parts.push(`none open now${res.nextOpensAt ? ` — next window opens ${new Date(res.nextOpensAt).toISOString().slice(11, 16)} UTC` : ""}`);
+  if (res.reason === "none_open_now") parts.push(`none open now${res.nextOpensAt ? ` — next window opens ${new Date(res.nextOpensAt).toISOString().slice(11, 16)} UTC` : ""}`);
   else if (res.reason === "partial_open") parts.push(`the rest open later${res.nextOpensAt ? ` (${new Date(res.nextOpensAt).toISOString().slice(11, 16)} UTC)` : ""}`);
   else if (res.reason === "pool_empty") parts.push("the pool for this trade is empty");
   else if (res.reason === "contended") parts.push("every row was taken by another rep first");
-  if (Number.isFinite(res.remainingToday)) parts.push(`${res.remainingToday} claims left today`);
   return parts.join(" · ");
 }
 
@@ -2051,7 +2049,6 @@ function AssignPanel({ rep, assign, draft, onDraft, onAssign, busy, result }) {
   }
   const trades = assign.trades || [];
   const picked = trades.find((t) => t.key === d.tradeKey) || null;
-  const nothingLeft = (assign.remainingToday ?? 0) <= 0;
   const poolEmpty = picked ? picked.available === 0 : false;
   const provinces = assign.provinces || [];
   const ca = provinces.filter((p) => p.country === "CA");
@@ -2147,18 +2144,16 @@ function AssignPanel({ rep, assign, draft, onDraft, onAssign, busy, result }) {
         <button
           type="button"
           onClick={onAssign}
-          disabled={busy || !d.tradeKey || nothingLeft || poolEmpty}
+          disabled={busy || !d.tradeKey || poolEmpty}
           className={BTN_PRIMARY}
           data-assign-button
         >
           <ListPlus size={13} /> Assign
         </button>
         <span className="text-xs text-muted-foreground">
-          {nothingLeft
-            ? `${rep.name} is at the daily ceiling of ${assign.dailyCap} claims; tomorrow starts fresh.`
-            : poolEmpty
-              ? `Nothing in ${rep.name}'s pool for ${picked?.label || "that trade"} — the language rule and other reps' claims already counted.`
-              : `${assign.remainingToday} of ${assign.dailyCap} claims left today.`}
+          {poolEmpty
+            ? `Nothing in ${rep.name}'s pool for ${picked?.label || "that trade"} — the language rule and other reps' claims already counted.`
+            : `${rep.name} has claimed ${assign.takenToday ?? 0} today. No daily ceiling.`}
         </span>
       </div>
       {result ? (

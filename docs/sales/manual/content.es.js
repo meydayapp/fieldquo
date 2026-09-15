@@ -117,7 +117,7 @@ export const MANUAL = {
           ["{{app.salesPortal.navPay}}", "Ganancias, cada semana cerrada y cómo se pagó, destino de pago.", "10"],
           ["{{app.salesPortal.navSettings}}", "Idioma del portal, idiomas en los que vendes, notificaciones del navegador, tu perfil.", "10"],
         ] } },
-        { p: "Debajo de la lista está {{app.salesPortal.callsToday}} con un conteo sobre 250 y una barra, y la frase {{app.salesPortal.motto}} En un teléfono, las primeras cinco entradas son una barra de pestañas inferior y el resto está en un cajón." },
+        { p: "Debajo de la lista está {{app.salesPortal.callsToday}} con el conteo del día, y la frase {{app.salesPortal.motto}} En un teléfono, las primeras cinco entradas son una barra de pestañas inferior y el resto está en un cajón." },
         { tryIt: [
           "Inicia sesión en fieldquo.com/sales. Cierra sesión ({{app.salesPortal.signOut}}, arriba a la derecha) y vuelve a entrar, para saber dónde están ambos.",
           "Abre {{app.salesPortal.navSettings}}, define el idioma del portal y marca los idiomas en los que puedes vender. Mira cómo la barra lateral cambia de idioma en cuanto guardas.",
@@ -195,7 +195,7 @@ export const MANUAL = {
           why: "Las devoluciones de llamada solo suenan contigo mientras estás Disponible, y el marcado automático solo corre entonces. No puedes irte a un descanso desde dentro de una llamada — termínala y regístrala primero. Tu primer «Disponible» del día también arranca tu reloj de turno de siete horas, que la cola usa para decidir qué leads todavía se pueden alcanzar hoy.",
         } },
         { h: "Llamadas hoy" },
-        { p: "Bajo la barra lateral: {{app.salesPortal.callsToday}} y una cifra como 42 / 250. El 250 es el tope diario de reservas; el número de la izquierda es cada llamada que marcaste hoy, contestada o no. Nadie espera 250 — la cuenta del dueño es de unas doscientas llamadas en un turno de siete horas, con margen." },
+        { p: "Bajo la barra lateral: {{app.salesPortal.callsToday}} y una cifra como 42 — cada llamada que marcaste hoy, contestada o no. No hay tope diario, ni de llamadas ni de reservas; el día lo acotan tu turno y las ventanas de llamada, nada más." },
         { h: "El Marcador" },
         { p: "Parece un teléfono porque lo es: las llamadas salen por tu navegador, desde tu propio número de FieldQuo, con tus auriculares. La pantalla muestra {{app.salesQueue.dialingLabel}} y el número elegido; cuando un negocio tiene más de uno, {{app.salesDial.whichNumber}} te deja elegir." },
         { list: [
@@ -256,7 +256,7 @@ export const MANUAL = {
       n: 4,
       id: "claiming",
       title: "Reservar leads",
-      intro: "No navegas por la bolsa; tomas los siguientes veinticinco que se pueden llamar ahora mismo. El lote se recarga solo, devuelve lo que se cerró y se limita a 250 por día.",
+      intro: "No navegas por la bolsa; tomas los siguientes veinticinco que se pueden llamar ahora mismo. El lote se recarga solo, devuelve lo que se cerró y nunca se agota por tu lado — solo la bolsa puede agotarse.",
       blocks: [
         { h: "Por qué existe la reserva" },
         { p: "Las palabras de la propia cola: {{app.salesQueue.claimHint}} Una reserva te guarda ese negocio durante 48 horas; una vez que de verdad hablaste con ellos, {{app.salesQueue.markWorked}} lo hace tuyo para siempre — {{app.salesQueue.markWorkedNote}}" },
@@ -264,7 +264,7 @@ export const MANUAL = {
         { screen: {
           doThis: ["Abre la pestaña {{app.salesQueue.tabLeads}}. Bajo {{app.salesQueue.tradePickerLabel}} elige un oficio — uno, y quédate en él.", "Pulsa {{app.salesQueue.claimBatch|count=25}}. No hay botón de uno en uno; el lote es la reclamación."],
           youllSee: "Un resumen como {{app.salesQueue.batchSummary|claimed=25;researched=19;waiting=6}} Luego tu lista, agrupada: {{app.salesQueue.windowGroup.now}}, un grupo por hora de apertura ({{app.salesQueue.windowGroup.opensAt|time=11:00;zone=PT}}), y {{app.salesQueue.windowGroup.later}}. La primera fila se abre en la consola.",
-          why: "{{app.salesQueue.claimBatchNote|threshold=5;remaining=225 reservas restantes;cap=250}} «Primero los que cierran antes» significa que un taller de Terranova a las 8 p. m. de su hora va antes que un taller de Vancouver a la hora del almuerzo — el lote está ordenado por a quién perderías primero.",
+          why: "{{app.salesQueue.claimBatchNote|threshold=5}} «Primero los que cierran antes» significa que un taller de Terranova a las 8 p. m. de su hora va antes que un taller de Vancouver a la hora del almuerzo — el lote está ordenado por a quién perderías primero.",
         } },
         { p: "Cada oficio del selector muestra conteos, no nombres: {{app.salesQueue.tradeOption|label=Techado;claimed=25 reservados;free=340 libres}}. Un oficio con {{app.salesQueue.tradeGroupEmpty}} no tiene nada abierto ahora mismo." },
         { h: "Lo que el lote puede decirte en su lugar" },
@@ -273,7 +273,6 @@ export const MANUAL = {
           ["{{app.salesQueue.batchReason.noneOpenNow|time=8:00;zone=ET}}", "Nada en este oficio se puede llamar en este minuto. Elige otro oficio o espera."],
           ["{{app.salesQueue.batchSkippedForWindow|count=12}}", "Esos doce abren solo después de que termine tu turno. Se quedan en la bolsa para mañana."],
           ["{{app.salesQueue.batchSkippedForLanguage|count=4}}", "Leads de Quebec que no puedes tomar. Capítulo 1."],
-          ["{{app.salesQueue.batchReason.dailyCap|cap=250}}", "250 reservas hoy, devueltas o no. Mañana empieza de cero."],
           ["{{app.salesQueue.batchReason.poolEmpty}}", "El descubrimiento tiene que encontrar más negocios en ese oficio."],
           ["{{app.salesQueue.batchReason.contended}}", "Dos representantes pulsaron a la vez; la base de datos se los dio a uno. Pulsa otra vez."],
         ] } },
@@ -752,7 +751,7 @@ export const MANUAL = {
           { term: "Reserva", def: "Tener un lead para que ningún otro representante lo llame — 48 horas, reiniciadas con cada llamada, hechas permanentes por una conversación real ({{app.salesQueue.markWorked}})." },
           { term: "Franja de llamada", def: "Las horas en que un lead puede llamarse legalmente, en su propia zona horaria, fijadas por su provincia o estado — o por la regla de cortesía de FieldQuo (8:00–20:00) donde la ley no fija ninguna. Distinta de la franja de mensajes (8:00–21:00 todos los días)." },
           { term: "Etiquetas de zona", def: "{{app.salesQueue.zoneAll}} · ET · CT · MT · PT (· AT · NT) encima de tu lista. Filtran la lista y el recorrido por zona horaria." },
-          { term: "Límite", def: "El tope de un estado sobre las llamadas al mismo negocio sobre el mismo asunto en 24 horas — tres, en Oklahoma, Florida y Maryland. Contado por negocio llamado, entre todos los representantes. No es lo mismo que el tope diario de 250 reservas." },
+          { term: "Límite", def: "El tope de un estado sobre las llamadas al mismo negocio sobre el mismo asunto en 24 horas — tres, en Oklahoma, Florida y Maryland. Contado por negocio llamado, entre todos los representantes. No hay tope sobre cuántas reservas puede tomar un representante en un día." },
           { term: "Resultado", def: "Lo que registras cuando termina una llamada — uno de diez. Cada uno le hace algo a la reserva y al lead." },
           { term: "Devolución de llamada", def: "El resultado {{app.salesCall.disposition.callback.label}}, con una hora dentro de 60 días. Retiene la reserva, cae en tu calendario y en la pestaña Tareas." },
           { term: "Borrador de seguimiento", def: "Un mensaje corto que el producto escribe para una empresa que se registró con tu enlace — en el día 1, el día 7 y cerca del día 60 — a partir del estado real de la empresa. Tú lo lees, lo editas y lo envías. Nada se envía solo." },

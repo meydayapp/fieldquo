@@ -117,7 +117,7 @@ export const MANUAL = {
           ["{{app.salesPortal.navPay}}", "Gains, chaque semaine clôturée et comment elle a été payée, destination de versement.", "10"],
           ["{{app.salesPortal.navSettings}}", "Langue du portail, langues dans lesquelles vous vendez, notifications du navigateur, votre profil.", "10"],
         ] } },
-        { p: "Sous la liste se trouve {{app.salesPortal.callsToday}} avec un compte sur 250 et une barre, et la phrase {{app.salesPortal.motto}} Sur un téléphone, les cinq premières entrées forment une barre d'onglets en bas et le reste est dans un tiroir." },
+        { p: "Sous la liste se trouve {{app.salesPortal.callsToday}} avec le compte de la journée, et la phrase {{app.salesPortal.motto}} Sur un téléphone, les cinq premières entrées forment une barre d'onglets en bas et le reste est dans un tiroir." },
         { tryIt: [
           "Connectez-vous à fieldquo.com/sales. Déconnectez-vous ({{app.salesPortal.signOut}}, en haut à droite) et reconnectez-vous, pour savoir où sont les deux.",
           "Ouvrez {{app.salesPortal.navSettings}}, réglez la langue du portail, et cochez les langues dans lesquelles vous pouvez vendre. Regardez la barre latérale changer de langue dès l'enregistrement.",
@@ -195,7 +195,7 @@ export const MANUAL = {
           why: "Les rappels ne sonnent chez vous que lorsque vous êtes Disponible, et la composition automatique ne tourne qu'à ce moment-là. Vous ne pouvez pas partir en pause depuis un appel — terminez-le et consignez-le d'abord. Votre premier « Disponible » de la journée lance aussi votre horloge de quart de sept heures, que la file utilise pour décider quels leads peuvent encore être joints aujourd'hui.",
         } },
         { h: "Appels aujourd'hui" },
-        { p: "Sous la barre latérale : {{app.salesPortal.callsToday}} et un chiffre comme 42 / 250. Le 250 est le plafond quotidien de réservations ; le nombre de gauche, c'est chaque appel que vous avez composé aujourd'hui, répondu ou non. Personne n'attend 250 — le calcul du propriétaire, c'est environ deux cents appels dans un quart de sept heures, avec de la marge." },
+        { p: "Sous la barre latérale : {{app.salesPortal.callsToday}} et un chiffre comme 42 — chaque appel que vous avez composé aujourd'hui, répondu ou non. Il n'y a pas de plafond quotidien, ni sur les appels ni sur les réservations ; la journée est bornée par votre quart et par les plages d'appel, rien d'autre." },
         { h: "Le Composeur" },
         { p: "Il ressemble à un téléphone parce que c'en est un : les appels partent par votre navigateur, depuis votre propre numéro FieldQuo, avec votre casque. L'afficheur montre {{app.salesQueue.dialingLabel}} et le numéro choisi ; quand une entreprise en a plusieurs, {{app.salesDial.whichNumber}} vous laisse choisir." },
         { list: [
@@ -256,7 +256,7 @@ export const MANUAL = {
       n: 4,
       id: "claiming",
       title: "Réserver des leads",
-      intro: "Vous ne parcourez pas le vivier ; vous prenez les vingt-cinq suivants qu'on peut appeler tout de suite. Le lot se remplit tout seul, remet ce qui s'est refermé, et se plafonne à 250 par jour.",
+      intro: "Vous ne parcourez pas le vivier ; vous prenez les vingt-cinq suivants qu'on peut appeler tout de suite. Le lot se remplit tout seul, remet ce qui s'est refermé, et ne s'épuise jamais de votre côté — seul le vivier le peut.",
       blocks: [
         { h: "Pourquoi la réservation existe" },
         { p: "Les mots de la file elle-même : {{app.salesQueue.claimHint}} Une réservation vous garde cette entreprise 48 heures ; une fois que vous leur avez vraiment parlé, {{app.salesQueue.markWorked}} la rend à vous pour de bon — {{app.salesQueue.markWorkedNote}}" },
@@ -264,7 +264,7 @@ export const MANUAL = {
         { screen: {
           doThis: ["Ouvrez l'onglet {{app.salesQueue.tabLeads}}. Sous {{app.salesQueue.tradePickerLabel}}, choisissez un métier — un seul, et restez-y.", "Appuyez sur {{app.salesQueue.claimBatch|count=25}}. Il n'y a pas de bouton « un à la fois » ; le lot est la réclamation."],
           youllSee: "Un résumé comme {{app.salesQueue.batchSummary|claimed=25;researched=19;waiting=6}} Puis votre liste, groupée : {{app.salesQueue.windowGroup.now}}, un groupe par heure d'ouverture ({{app.salesQueue.windowGroup.opensAt|time=11:00;zone=PT}}), et {{app.salesQueue.windowGroup.later}}. La première ligne s'ouvre dans la console.",
-          why: "{{app.salesQueue.claimBatchNote|threshold=5;remaining=225 réservations restantes;cap=250}} « Ceux qui ferment le plus tôt d'abord » veut dire qu'un atelier de Terre-Neuve à 20 h chez eux passe avant un atelier de Vancouver à l'heure du dîner — le lot est trié selon qui vous perdriez en premier.",
+          why: "{{app.salesQueue.claimBatchNote|threshold=5}} « Ceux qui ferment le plus tôt d'abord » veut dire qu'un atelier de Terre-Neuve à 20 h chez eux passe avant un atelier de Vancouver à l'heure du dîner — le lot est trié selon qui vous perdriez en premier.",
         } },
         { p: "Chaque métier du sélecteur montre des décomptes, pas des noms : {{app.salesQueue.tradeOption|label=Toiture;claimed=25 réservés;free=340 libres}}. Un métier à {{app.salesQueue.tradeGroupEmpty}} n'a rien d'ouvert en ce moment." },
         { h: "Ce que le lot peut vous dire à la place" },
@@ -273,7 +273,6 @@ export const MANUAL = {
           ["{{app.salesQueue.batchReason.noneOpenNow|time=8:00;zone=ET}}", "Rien dans ce métier ne peut être appelé à cette minute. Choisissez un autre métier ou attendez."],
           ["{{app.salesQueue.batchSkippedForWindow|count=12}}", "Ces douze-là n'ouvrent qu'après la fin de votre quart. Ils restent dans le vivier pour demain."],
           ["{{app.salesQueue.batchSkippedForLanguage|count=4}}", "Des leads du Québec que vous ne pouvez pas prendre. Chapitre 1."],
-          ["{{app.salesQueue.batchReason.dailyCap|cap=250}}", "250 réservations aujourd'hui, remises ou non. Demain repart de zéro."],
           ["{{app.salesQueue.batchReason.poolEmpty}}", "La découverte doit trouver d'autres entreprises dans ce métier."],
           ["{{app.salesQueue.batchReason.contended}}", "Deux représentants ont appuyé en même temps ; la base de données les a donnés à un seul. Réessayez."],
         ] } },
@@ -752,7 +751,7 @@ export const MANUAL = {
           { term: "Réservation", def: "Détenir un lead pour qu'aucun autre représentant ne l'appelle — 48 heures, redémarrées à chaque appel, rendues définitives par une vraie conversation ({{app.salesQueue.markWorked}})." },
           { term: "Plage d'appel", def: "Les heures où un lead peut légalement être appelé, dans son propre fuseau horaire, fixées par sa province ou son État — ou par la règle de courtoisie de FieldQuo (8 h à 20 h) là où la loi n'en fixe aucune. Distincte de la plage d'envoi des textos (8 h à 21 h tous les jours)." },
           { term: "Pastilles de fuseau", def: "{{app.salesQueue.zoneAll}} · ET · CT · MT · PT (· AT · NT) au-dessus de votre liste. Filtrent la liste et le parcours par fuseau horaire." },
-          { term: "Plafond", def: "La limite d'un État sur les appels à la même entreprise sur le même sujet en 24 heures — trois, en Oklahoma, en Floride et au Maryland. Compté par entreprise appelée, tous représentants confondus. Différent du plafond quotidien de 250 réservations." },
+          { term: "Plafond", def: "La limite d'un État sur les appels à la même entreprise sur le même sujet en 24 heures — trois, en Oklahoma, en Floride et au Maryland. Compté par entreprise appelée, tous représentants confondus. Il n'y a aucun plafond sur le nombre de réservations qu'un représentant peut prendre dans une journée." },
           { term: "Résultat (issue)", def: "L'issue que vous consignez à la fin d'un appel — l'une des dix. Chacune fait quelque chose à la réservation et au lead." },
           { term: "Rappel", def: "L'issue {{app.salesCall.disposition.callback.label}}, avec une heure dans les 60 jours. Retient la réservation, s'inscrit dans votre agenda et dans l'onglet Tâches." },
           { term: "Brouillon de suivi", def: "Un court texto que le produit rédige pour une entreprise inscrite avec votre lien — au jour 1, au jour 7 et près du jour 60 — à partir de l'état réel de l'entreprise. Vous le lisez, le modifiez et l'envoyez. Rien ne s'envoie tout seul." },

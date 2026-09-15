@@ -40,7 +40,7 @@ import {
   lastKnownZoneFor,
   poolCountsFor,
 } from "@/lib/sales/assignLeads";
-import { QUEUE_DAILY_CLAIM_CAP, localDateIn } from "@/lib/sales/queueBatch";
+import { localDateIn } from "@/lib/sales/queueBatch";
 
 async function superadminOrRefusal(request) {
   const admin = await getCurrentPlatformAdmin(request);
@@ -87,8 +87,9 @@ export async function GET(request, { params }) {
     rep: { id: rep.id, name: rep.name, active: rep.active },
     trades,
     ...assignOptionsFor(rep),
+    // Today's tally, as a fact. There is no daily ceiling to hold it
+    // against (lib/sales/queueBatch.js at SHIFT_HOURS).
     takenToday,
-    remainingToday: Math.max(0, QUEUE_DAILY_CLAIM_CAP - takenToday),
     // The zone the rep's day is judged in — their last claim's, or UTC
     // when they have never claimed. Said so the screen can say it.
     timeZone: zone,

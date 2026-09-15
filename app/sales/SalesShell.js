@@ -43,11 +43,11 @@
 // and the body beside them. Below lg nothing changed: SalesMobileTabBar's bar
 // and drawer carry the list exactly as before.
 //
-// The sidebar's foot is "Calls today N / 250" — dials this rep placed since
-// their local day started, against the day's ceiling
-// (QUEUE_DAILY_CLAIM_CAP; the batch itself rolls in 25s) — and a motto. Both numbers come from
-// /api/sales/badges, the one request this chrome makes for its digits; a
-// count that could not be read is null there and draws nothing here.
+// The sidebar's foot is "Calls today N" — dials this rep placed since their
+// local day started (no ceiling: the owner removed the 250 on 2026-09-14) —
+// and a motto. The number comes from /api/sales/badges, the one request this
+// chrome makes for its digits; a count that could not be read is null there
+// and draws nothing here.
 //
 // Breakpoint: lg, not md. The amendment said "md+", but the mobile bar,
 // the drawer, the tour, --fq-tab-bar-height and four check scripts all switch
@@ -469,10 +469,10 @@ export default function SalesShell({ children }) {
     { href: "/sales/settings", label: t("app.salesPortal.navSettings") },
   ];
 
+  // The count alone. It was "24 / 250" over a progress bar until the owner
+  // removed the daily ceiling (2026-09-14); a bar filling towards a number
+  // that stops nothing would be a limit drawn where none exists.
   const callsToday = Number.isFinite(badges?.callsToday) ? badges.callsToday : null;
-  const batchMax = Number.isFinite(badges?.dayCap) ? badges.dayCap : null;
-  const progress =
-    callsToday !== null && batchMax ? Math.max(0, Math.min(100, Math.round((callsToday / batchMax) * 100))) : 0;
 
   return (
     // ── Presence is held above every screen ──────────────────────────────
@@ -617,7 +617,7 @@ export default function SalesShell({ children }) {
           })}
         </nav>
 
-        {/* ── The foot: calls today against the batch, and the motto ────── */}
+        {/* ── The foot: calls today, and the motto ─────────────────────── */}
         <div className="border-t border-sidebar-border p-3 space-y-2" data-sales-calls-today>
           {callsToday !== null ? (
             <>
@@ -626,18 +626,8 @@ export default function SalesShell({ children }) {
                   <span className="text-xs text-sidebar-muted-foreground">{t("app.salesPortal.callsToday")}</span>
                 ) : null}
                 <span className="text-sm font-semibold tabular-nums" title={collapsed ? t("app.salesPortal.callsToday") : undefined}>
-                  {batchMax ? `${callsToday} / ${batchMax}` : callsToday}
+                  {callsToday}
                 </span>
-              </div>
-              <div
-                className="h-1.5 rounded-full bg-sidebar-accent overflow-hidden"
-                role="progressbar"
-                aria-valuemin={0}
-                aria-valuemax={batchMax || 100}
-                aria-valuenow={callsToday}
-                aria-label={t("app.salesPortal.callsToday")}
-              >
-                <div className="h-full bg-sidebar-primary" style={{ width: `${progress}%` }} />
               </div>
             </>
           ) : null}

@@ -210,8 +210,8 @@
 // first gives back the rep's untouched rows whose window is shut for the
 // rest of the shift (releaseClosedUntouched, reason "closed" — never a row
 // with an attempt or a callback) and then claims from what is open at THAT
-// moment. The day's ceiling is QUEUE_DAILY_CLAIM_CAP (250) per rep, counted
-// from the claim log, and it refuses a top-up the same as a press. Every one
+// moment. There is no daily ceiling — the owner removed the 250 on
+// 2026-09-14 — so a top-up is refused only by the pool. Every one
 // of those decisions is lib/sales/queueBatch.js's; the button sends only the
 // trade, the browser's time zone and the auto flag. "Just one" keeps the
 // single-claim path. "Release the rest" still gives back every held row
@@ -747,7 +747,7 @@ const ZONE_CHIP_ORDER = ["ET", "CT", "MT", "PT", "AT", "NT"];
  * opens, on the rep's clock with the acronym; without a time it says only
  * that nothing is open.
  */
-function batchReasonText(t, result, cap) {
+function batchReasonText(t, result) {
   if (result?.reason === "none_open_now") {
     return result.nextOpensAtLocal
       ? t("app.salesQueue.batchReason.noneOpenNow", { time: result.nextOpensAtLocal, zone: result.nextOpensAtZone || "" })
@@ -758,13 +758,13 @@ function batchReasonText(t, result, cap) {
       ? t("app.salesQueue.batchReason.partialOpen", { open: result.openNow ?? result.claimed, time: result.nextOpensAtLocal, zone: result.nextOpensAtZone || "" })
       : t("app.salesQueue.batchReason.partialOpenNoTime", { open: result.openNow ?? result.claimed });
   }
-  return t(result.reasonKey, { cap });
+  return t(result.reasonKey);
 }
 
 /**
  * What a top-up says. "Added 25 leads open now (PT)" with the zones of the
- * rows it added, read off the reloaded list; at the cap or with nothing
- * open, the server's reason; released dead rows appended when any were.
+ * rows it added, read off the reloaded list; with nothing open, the
+ * server's reason; released dead rows appended when any were.
  */
 function topUpToast(t, body) {
   const result = body?.batch?.result || {};
@@ -775,7 +775,7 @@ function topUpToast(t, body) {
   if (added.length > 0) {
     text = t("app.salesQueue.topUpToast", { count: added.length, zones: zones.join(", ") || "—" });
   } else if (result.reasonKey) {
-    text = batchReasonText(t, result, body?.batch?.dailyCap ?? 0);
+    text = batchReasonText(t, result);
   } else {
     text = t("app.salesQueue.topUpNothing");
   }
@@ -839,13 +839,13 @@ function ZoneChips({ t, zones, zoneFilter, onZone, total }) {
  * rows means the same readiness pass the claim itself makes, so it is not
  * cheap and is not faked.
  */
-function NoneOpenNow({ t, total, tradeKey, remainingToday, batchSize, busy, act, batchResult }) {
+function NoneOpenNow({ t, total, tradeKey, batchSize, busy, act, batchResult }) {
   return (
     <div className="rounded-lg border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 p-3 space-y-2" data-none-open-now>
       <p className="text-sm font-semibold text-amber-900 dark:text-amber-100 break-words">
         {t("app.salesQueue.allOutsideWindow", { count: total })}
       </p>
-      {tradeKey && remainingToday > 0 ? (
+      {tradeKey ? (
         <button
           type="button"
           className={`${BTN} bg-primary text-primary-foreground w-full`}
@@ -857,13 +857,11 @@ function NoneOpenNow({ t, total, tradeKey, remainingToday, batchSize, busy, act,
           {t("app.salesQueue.claimBatch", { count: batchSize })}
         </button>
       ) : (
-        <p className="text-xs text-amber-900 dark:text-amber-200 break-words">
-          {remainingToday > 0 ? t("app.salesQueue.claimHint") : t("app.salesQueue.batchReason.dailyCap", { cap: 0 })}
-        </p>
+        <p className="text-xs text-amber-900 dark:text-amber-200 break-words">{t("app.salesQueue.claimHint")}</p>
       )}
       {batchResult?.reason === "none_open_now" || batchResult?.reason === "partial_open" ? (
         <p className="text-xs text-amber-900 dark:text-amber-200 break-words" data-none-open-now-result>
-          {batchReasonText(t, batchResult, 0)}
+          {batchReasonText(t, batchResult)}
         </p>
       ) : null}
     </div>
@@ -1655,7 +1653,7 @@ function TasksTab({ t, current, language }) {
  * every row, a Set means only those. Drawn by the rail, the drawer and the
  * Leads tab — one renderer, three places.
  */
-function QueueList({ t, loading, data, items, groups, itemById, current, visibleIds, query, select, wide = false, zones = [], zoneFilter = "", setZoneFilter, noneOpenNow = false, tradeKey = "", remainingToday = 0, batchSize = 0, busy = "", act, batchResult = null, openHeld = 0, closedHeld = 0, topUpBelow = QUEUE_TOP_UP_BELOW }) {
+function QueueList({ t, loading, data, items, groups, itemById, current, visibleIds, query, select, wide = false, zones = [], zoneFilter = "", setZoneFilter, noneOpenNow = false, tradeKey = "", batchSize = 0, busy = "", act, batchResult = null, openHeld = 0, closedHeld = 0, topUpBelow = QUEUE_TOP_UP_BELOW }) {
   if (loading) {
     return (
       <p className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -1703,7 +1701,7 @@ function QueueList({ t, loading, data, items, groups, itemById, current, visible
         <ZoneChips t={t} zones={zones} zoneFilter={zoneFilter} onZone={(z) => setZoneFilter?.(z)} total={items.length} />
       ) : null}
       {noneOpenNow ? (
-        <NoneOpenNow t={t} total={items.length} tradeKey={tradeKey} remainingToday={remainingToday} batchSize={batchSize} busy={busy} act={act} batchResult={batchResult} />
+        <NoneOpenNow t={t} total={items.length} tradeKey={tradeKey} batchSize={batchSize} busy={busy} act={act} batchResult={batchResult} />
       ) : null}
 
       {items.length > 0 && visibleIds && visibleIds.size === 0 ? (
@@ -1901,7 +1899,7 @@ function LeadsPanel(props) {
  * until 2026-09-14; the owner wanted a single claim control, and the batch
  * is it. Drawn once, at the top of the Leads tab.
  */
-function ClaimCard({ t, data, tradeKey, setQuery, stocked, empties, remainingToday, batchSize, batchResult, busy, act }) {
+function ClaimCard({ t, data, tradeKey, setQuery, stocked, empties, batchSize, batchResult, busy, act }) {
   return (
     <section className="space-y-3" data-tour="sales-queue-claim" data-claim-card>
       <label className="block text-sm font-medium text-foreground" htmlFor="q-trade">
@@ -1975,36 +1973,28 @@ function ClaimCard({ t, data, tradeKey, setQuery, stocked, empties, remainingTod
       </select>
       {tradeKey ? (
         <div className="space-y-2">
-          {/* ── The day, in one press ──────────────────────────────────
+          {/* ── The next batch, in one press ───────────────────────────
               The number is the SERVER's (batch.max), never typed here,
-              so the label and the cap cannot drift apart. At the daily
-              ceiling the button is not rendered greyed — it is replaced
-              by the sentence saying why, which is the rule this screen
-              follows for every control. */}
-          {remainingToday > 0 ? (
-            <button
-              type="button"
-              className={`${BTN} bg-primary text-primary-foreground w-full md:w-auto md:min-w-[16rem]`}
-              disabled={Boolean(busy)}
-              onClick={() => act("claim_batch")}
-              data-claim-batch
-            >
-              {busy === "claim_batch" ? (
-                <Loader2 className="animate-spin" size={16} />
-              ) : (
-                <Plus size={16} />
-              )}
-              {t("app.salesQueue.claimBatch", { count: batchSize })}
-            </button>
-          ) : (
-            <p className="text-sm text-foreground break-words">
-              {t("app.salesQueue.batchReason.dailyCap", { cap: data?.batch?.dailyCap ?? 0 })}
-            </p>
-          )}
+              so the label and the batch cannot drift apart. The button is
+              always here while a trade is chosen: there is no daily
+              ceiling (lib/sales/queueBatch.js at SHIFT_HOURS), so the only
+              thing that can make a press come back short is the pool. */}
+          <button
+            type="button"
+            className={`${BTN} bg-primary text-primary-foreground w-full md:w-auto md:min-w-[16rem]`}
+            disabled={Boolean(busy)}
+            onClick={() => act("claim_batch")}
+            data-claim-batch
+          >
+            {busy === "claim_batch" ? (
+              <Loader2 className="animate-spin" size={16} />
+            ) : (
+              <Plus size={16} />
+            )}
+            {t("app.salesQueue.claimBatch", { count: batchSize })}
+          </button>
           <p className="text-xs text-muted-foreground break-words">
             {t("app.salesQueue.claimBatchNote", {
-              remaining: t("app.salesQueue.claimsRemainingCount", { value: remainingToday }),
-              cap: data?.batch?.dailyCap ?? 0,
               threshold: Number.isFinite(data?.batch?.topUpBelow) ? data.batch.topUpBelow : QUEUE_TOP_UP_BELOW,
             })}
           </p>
@@ -2065,7 +2055,7 @@ function ClaimCard({ t, data, tradeKey, setQuery, stocked, empties, remainingTod
           ) : null}
           {batchResult.reasonKey && !(batchResult.opensSoon > 0 && batchResult.openNow === 0) ? (
             <p className="text-xs text-muted-foreground break-words">
-              {batchReasonText(t, batchResult, data?.batch?.dailyCap ?? 0)}
+              {batchReasonText(t, batchResult)}
             </p>
           ) : null}
         </div>
@@ -2587,12 +2577,8 @@ function QueueConsole() {
 
 
 
-  // The batch ceilings are the server's. `batchSize` is what the button says
-  // it will do: never more than what is left of the day.
-  const remainingToday = Number.isFinite(data?.batch?.remainingToday)
-    ? data.batch.remainingToday
-    : 0;
-  const batchSize = Math.min(data?.batch?.max ?? 0, remainingToday);
+  // The batch size is the server's: what the button says it will do.
+  const batchSize = data?.batch?.max ?? 0;
   const batchResult = data?.batch?.result || null;
   // Rows the rep has not dialled yet — what "Release the rest" would give
   // back. The server decides again at press time; this only sizes the label.
@@ -2760,9 +2746,6 @@ function QueueConsole() {
   useEffect(() => {
     if (loading || fetching || busy || !data || !tradeKey) return;
     if (openHeld >= topUpBelow) return;
-    // At the cap the top-up would be refused; say so once rather than ask
-    // every minute. The Leads tab's own cap sentence stands.
-    if (!(remainingToday > 0)) return;
     const nowMs = Date.now();
     if (nowMs - lastTopUp.current < topUpInterval) return;
     lastTopUp.current = nowMs;
@@ -2770,7 +2753,7 @@ function QueueConsole() {
     // `act` is a plain function of this render; `tick` re-runs the check
     // every thirty seconds so a window closing under the rep is noticed.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [openHeld, loading, fetching, busy, tradeKey, remainingToday, topUpBelow, topUpInterval, tick, data?.serverNow]);
+  }, [openHeld, loading, fetching, busy, tradeKey, topUpBelow, topUpInterval, tick, data?.serverNow]);
   const panelProps = {
     t,
     loading,
@@ -2789,7 +2772,6 @@ function QueueConsole() {
     setQuery,
     stocked,
     empties,
-    remainingToday,
     batchSize,
     batchResult,
     zones,
@@ -2993,8 +2975,8 @@ function QueueConsole() {
                 dials. */}
             <AutodialControl
               auto={auto}
-              claimLabel={tradeKey && remainingToday > 0 ? t("app.salesQueue.claimBatch", { count: batchSize }) : null}
-              onClaim={tradeKey && remainingToday > 0 ? () => act("claim_batch") : null}
+              claimLabel={tradeKey ? t("app.salesQueue.claimBatch", { count: batchSize }) : null}
+              onClaim={tradeKey ? () => act("claim_batch") : null}
               busy={Boolean(busy)}
               compact
             />

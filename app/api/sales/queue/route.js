@@ -52,7 +52,6 @@ import {
 import { salesCallReadiness } from "@/lib/sales/callingRules";
 import {
   QUEUE_BATCH_MAX,
-  QUEUE_DAILY_CLAIM_CAP,
   QUEUE_TOP_UP_BELOW,
   QUEUE_TOP_UP_MIN_INTERVAL_MS,
   SHIFT_HOURS,
@@ -654,17 +653,16 @@ async function queueBody(rep, { tradeKey = null, prospectId = null, timeZone = n
     queue,
     current,
     claimHours: CLAIM_HOURS,
-    // The two ceilings, and where today stands against the daily one. Sent so
-    // the button can say "Claim the next 100" with the server's number, and
-    // so a rep at 150 reads why the button is gone rather than a dead one.
+    // The one ceiling (per press) and today's tally. Sent so the button can
+    // say "Claim the next 25" with the server's number. There is no daily
+    // ceiling — see lib/sales/queueBatch.js at SHIFT_HOURS — so nothing here
+    // ever tells the screen to take the button away.
     batch: {
       max: QUEUE_BATCH_MAX,
       // The console tops up below this many open rows, at most this often.
       topUpBelow: QUEUE_TOP_UP_BELOW,
       topUpIntervalMs: QUEUE_TOP_UP_MIN_INTERVAL_MS,
-      dailyCap: QUEUE_DAILY_CLAIM_CAP,
       takenToday,
-      remainingToday: Math.max(0, QUEUE_DAILY_CLAIM_CAP - takenToday),
       timeZone: zone,
       // The result of the press that produced this response, when there was
       // one: how many were claimed, how many came researched, how many are
@@ -739,8 +737,6 @@ export async function POST(request) {
     // the claim is one transaction whose updateMany carries the candidate
     // WHERE (unassigned or lapsed), and the winners are read back by rep
     // and instant — the second tab's press matches nothing already taken.
-    // The daily cap is counted from the claim log inside claimBatch, so a
-    // top-up at the cap is refused with daily_cap like any press.
     const auto = body.auto === true;
     // Read once for the release and the claim, so both judge a row by the
     // same override rows — see lib/sales/windowOverrides.js.
@@ -786,20 +782,6 @@ export async function POST(request) {
 
   if (action === "claim") {
     const tradeKey = body.tradeKey.trim();
-
-    // The same ceiling the batch is held to, from the same log. A rep at the
-    // cap is told so rather than handed a dead button; the sentence is a key
-    // so a Spanish console says it in Spanish.
-    const takenToday = await claimsTakenToday({ db, salesRepId: rep.id, timeZone: usableTimeZone(timeZone, now), now });
-    if (takenToday >= QUEUE_DAILY_CLAIM_CAP) {
-      return NextResponse.json({
-        claimed: null,
-        reason: "daily_cap",
-        reasonKey: "app.salesQueue.batchReason.dailyCap",
-        reasonParams: { cap: QUEUE_DAILY_CLAIM_CAP },
-        message: `You have claimed ${QUEUE_DAILY_CLAIM_CAP} today, which is the daily ceiling. Tomorrow's day starts fresh.`,
-      });
-    }
 
     for (let attempt = 0; attempt < CLAIM_ATTEMPTS; attempt++) {
       // One clock per attempt, used by BOTH the read and the write below. A

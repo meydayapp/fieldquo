@@ -15,8 +15,8 @@
 //      the same instant they hand the same rep the same rows in the same
 //      order. The console's narrowing (province, language) only ever
 //      shrinks that set.
-//   2. Caps. `count` is held to QUEUE_BATCH_MAX and to what is left of the
-//      rep's daily cap; a rep at the ceiling gets daily_cap and no write.
+//   2. Caps. `count` is held to QUEUE_BATCH_MAX and to nothing else: a rep
+//      with 300 claims in today's log is handed the next batch like anyone.
 //   3. Refusals, per row: do-not-contact, needs review, no trade, held by
 //      another rep (naming them), worked by another rep, already the rep's,
 //      the language rule both ways, exhausted, a scheduled retry — each the
@@ -60,7 +60,6 @@ import {
 import {
   CLAIM_OPENS_WITHIN_MS,
   QUEUE_BATCH_MAX,
-  QUEUE_DAILY_CLAIM_CAP,
   RELEASE_REASONS,
   assignFilterWhere,
   autoReleaseProtected,
@@ -374,13 +373,11 @@ section("2. Caps");
   const pool = Array.from({ length: 60 }, (_, i) => researched({ id: `o${i}` }));
   const big = await assignBatchToRep({ db: scriptedDb({ prospects: pool, admins: [ADMIN] }), rep: RACHEL, admin: ADMIN, tradeKey: "flooring", count: 500, now: NOW, notify: recordingNotify() });
   ok("count is capped at QUEUE_BATCH_MAX", big.assigned === QUEUE_BATCH_MAX, big.assigned);
-  const nearCap = Array.from({ length: QUEUE_DAILY_CLAIM_CAP - 4 }, (_, i) => ({ id: `k${i}`, salesRepId: "rep_r", prospectId: `x${i}`, claimedAt: NOW, localDate: "2026-09-11", mode: "batch", releasedAt: null, workedAt: null }));
-  const four = await assignBatchToRep({ db: scriptedDb({ prospects: pool, claims: nearCap, admins: [ADMIN] }), rep: RACHEL, admin: ADMIN, tradeKey: "flooring", count: 25, now: NOW, notify: recordingNotify() });
-  ok("…and at what is left of the rep's daily cap, counted from the claim log", four.assigned === 4 && four.remainingToday === 0, { assigned: four.assigned, left: four.remainingToday });
-  const atCap = Array.from({ length: QUEUE_DAILY_CLAIM_CAP }, (_, i) => ({ id: `k${i}`, salesRepId: "rep_r", prospectId: `x${i}`, claimedAt: NOW, localDate: "2026-09-11", mode: "batch", releasedAt: null, workedAt: null }));
-  const db = scriptedDb({ prospects: pool, claims: atCap, admins: [ADMIN] });
-  const none = await assignBatchToRep({ db, rep: RACHEL, admin: ADMIN, tradeKey: "flooring", count: 25, now: NOW, notify: recordingNotify() });
-  ok("a rep at the ceiling gets daily_cap, no write and no audit row", none.assigned === 0 && none.reason === "daily_cap" && !db.state.log.includes("prospect.updateMany") && db.state.audit.length === 0, none.reason);
+  // No daily ceiling (2026-09-14): 300 claims already in today's log and
+  // the console still hands over the full 25, with nothing left unsaid.
+  const heavyDay = Array.from({ length: 300 }, (_, i) => ({ id: `k${i}`, salesRepId: "rep_r", prospectId: `x${i}`, claimedAt: NOW, localDate: "2026-09-11", mode: "batch", releasedAt: null, workedAt: null }));
+  const full = await assignBatchToRep({ db: scriptedDb({ prospects: pool, claims: heavyDay, admins: [ADMIN] }), rep: RACHEL, admin: ADMIN, tradeKey: "flooring", count: 25, now: NOW, notify: recordingNotify() });
+  ok("…and to nothing else: 300 claims in today's log, the next 25 are still assigned", full.assigned === 25 && full.reason === null && !("remainingToday" in full), { assigned: full.assigned, reason: full.reason });
   ok("assignRequest: zero or garbage counts are refused; 25.9 rounds down; 'count' above the max is trimmed", Boolean(assignRequest({ rep: RACHEL, tradeKey: "flooring", count: 0 }).error) && Boolean(assignRequest({ rep: RACHEL, tradeKey: "flooring", count: "x" }).error) && assignRequest({ rep: RACHEL, tradeKey: "flooring", count: 25.9 }).count === 25 && assignRequest({ rep: RACHEL, tradeKey: "flooring", count: 999 }).count === QUEUE_BATCH_MAX);
   const empty = await assignBatchToRep({ db: scriptedDb({ prospects: [], admins: [ADMIN] }), rep: RACHEL, admin: ADMIN, tradeKey: "flooring", now: NOW, notify: recordingNotify() });
   ok("an empty pool says pool_empty by key", empty.reason === "pool_empty" && empty.reasonKey === "app.salesQueue.batchReason.poolEmpty");
@@ -447,8 +444,8 @@ section("3. Hand-picked rows, refused row by row");
   ok("a row another rep took between the read and the write is refused as such, and the other is assigned", race.assignedIds.join(",") === "qc" && /just now/.test(race.refused.find((x) => x.id === "fine")?.reason || ""), race);
   ok("no ids → refused", Boolean((await assignProspectsToRep({ db: scriptedDb({ prospects: [] }), rep: RACHEL, admin: ADMIN, ids: [], now: NOW })).error));
   ok("an inactive rep → refused", /deactivated/.test((await assignProspectsToRep({ db: scriptedDb({ prospects: [] }), rep: { ...RACHEL, active: false }, admin: ADMIN, ids: ["x"], now: NOW })).error || ""));
-  const capped = await assignProspectsToRep({ db: scriptedDb({ prospects: rows, reps, admins: [ADMIN], claims: Array.from({ length: QUEUE_DAILY_CLAIM_CAP - 1 }, (_, i) => ({ id: `k${i}`, salesRepId: "rep_r", prospectId: `x${i}`, claimedAt: NOW, localDate: "2026-09-11", mode: "batch", releasedAt: null, workedAt: null })) }), rep: RACHEL, admin: ADMIN, ids: ["fine", "lapsed"], now: NOW, notify: recordingNotify() });
-  ok("the daily cap holds for hand-picked rows too: one room left → one assigned, the other refused with the ceiling", capped.assigned === 1 && /daily ceiling/.test(capped.refused[0]?.reason || ""), capped);
+  const heavy = await assignProspectsToRep({ db: scriptedDb({ prospects: rows, reps, admins: [ADMIN], claims: Array.from({ length: 300 }, (_, i) => ({ id: `k${i}`, salesRepId: "rep_r", prospectId: `x${i}`, claimedAt: NOW, localDate: "2026-09-11", mode: "batch", releasedAt: null, workedAt: null })) }), rep: RACHEL, admin: ADMIN, ids: ["fine", "lapsed"], now: NOW, notify: recordingNotify() });
+  ok("hand-picked rows have no daily ceiling either: 300 claims today, both still assigned, nothing refused for a cap", heavy.assigned === 2 && heavy.refused.length === 0 && !("remainingToday" in heavy), heavy);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -510,7 +507,7 @@ section("5. The rep hears: adminAssignedSummary, and the sentences exist");
     }
   }
   const options = assignOptionsFor(RACHEL);
-  ok("the panel's options: the rep's own languages, the province table, both ceilings", options.languages.join(",") === "en,fr" && options.provinces.length > 60 && options.batchMax === QUEUE_BATCH_MAX && options.dailyCap === QUEUE_DAILY_CLAIM_CAP);
+  ok("the panel's options: the rep's own languages, the province table, the batch max and no daily ceiling", options.languages.join(",") === "en,fr" && options.provinces.length > 60 && options.batchMax === QUEUE_BATCH_MAX && !("dailyCap" in options));
   ok("…an unset sellsIn reads as English only, the safe default", assignOptionsFor({ id: "x", sellsIn: [] }).languages.join(",") === "en");
   const counts = await poolCountsFor({ db: scriptedDb({ prospects: [prospect({ id: "q", province: "QC" }), prospect({ id: "o" }), prospect({ id: "h", assignedRepId: "rep_d", assignedAt: NOW, claimExpiresAt: expires })] }), rep: DANIEL, now: NOW });
   const flooring = counts.find((c) => c.key === "flooring");

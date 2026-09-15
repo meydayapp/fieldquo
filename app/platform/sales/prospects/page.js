@@ -245,9 +245,7 @@ export default function PlatformProspectsPage() {
       setAssignOutcome({
         text:
           action === "assign"
-            ? `Assigned ${done} of ${ids.length} to ${rep.name}${refused.length ? ` · ${refused.length} refused` : ""}${
-                Number.isFinite(res.remainingToday) ? ` · ${res.remainingToday} claims left today` : ""
-              }.`
+            ? `Assigned ${done} of ${ids.length} to ${rep.name}${refused.length ? ` · ${refused.length} refused` : ""}.`
             : `Took ${done} of ${ids.length} back from ${rep.name}${refused.length ? ` · ${refused.length} refused` : ""}.`,
         refused,
       });

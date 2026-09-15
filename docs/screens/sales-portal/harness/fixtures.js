@@ -27,7 +27,7 @@ export const ME = {
 };
 // drafts / draftsDemo (2026-09-14): lib/sales/checkin/waiting.js's count —
 // the same three the texts harness's demoSend scenario lists.
-export const BADGES = { callsToday: 24, dayCap: 250, texts: 3, team: 1, voicemail: 2, drafts: 3, draftsDemo: 1 };
+export const BADGES = { callsToday: 24, texts: 3, team: 1, voicemail: 2, drafts: 3, draftsDemo: 1 };
 
 // ── Today ─────────────────────────────────────────────────────────────────
 // A reply is waiting (the top rung), 7 rows claimed of which 5 are callable
@@ -56,7 +56,7 @@ export const QUEUE = {
   ], empty: false, emptyReason: null, emptyText: null, windows: { repZone: "America/Toronto", language: "en", groups: [] } },
   current: null,
   claimHours: 48,
-  batch: { max: 25, topUpBelow: 5, topUpIntervalMs: 60000, dailyCap: 250, takenToday: 11, remainingToday: 239, timeZone: "America/Toronto", result: null },
+  batch: { max: 25, topUpBelow: 5, topUpIntervalMs: 60000, takenToday: 11, timeZone: "America/Toronto", result: null },
   serverNow: T("2026-09-12T14:00:00Z"),
 };
 

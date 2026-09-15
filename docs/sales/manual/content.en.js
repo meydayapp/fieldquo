@@ -133,7 +133,7 @@ export const MANUAL = {
           ["{{app.salesPortal.navPay}}", "Earnings, each closed week and how it was paid, payout destination.", "10"],
           ["{{app.salesPortal.navSettings}}", "Portal language, languages you sell in, browser notifications, your profile.", "10"],
         ] } },
-        { p: "Under the list sits {{app.salesPortal.callsToday}} with a count out of 250 and a bar, and the line {{app.salesPortal.motto}} On a phone the first five entries are a bottom tab bar and the rest are in a drawer." },
+        { p: "Under the list sits {{app.salesPortal.callsToday}} with the day’s count, and the line {{app.salesPortal.motto}} On a phone the first five entries are a bottom tab bar and the rest are in a drawer." },
         { tryIt: [
           "Sign in at fieldquo.com/sales. Sign out ({{app.salesPortal.signOut}}, top right) and sign in again, so you know where both are.",
           "Open {{app.salesPortal.navSettings}}, set your portal language, and tick the languages you can sell in. Watch the sidebar change language the moment you save.",
@@ -211,7 +211,7 @@ export const MANUAL = {
           why: "Callbacks only ring you while you are Available, and auto-dial only runs then. You cannot go on a break from inside a call — finish and write it up first. Your first Available of the day also starts your seven-hour shift clock, which the queue uses to decide which leads can still be reached today.",
         } },
         { h: "Calls today" },
-        { p: "Under the sidebar: {{app.salesPortal.callsToday}} and a figure such as 42 / 250. The 250 is the daily ceiling on claims; the left-hand number is every call you dialled today, answered or not. Nobody expects 250 — the owner's arithmetic is about two hundred dials in a seven-hour shift, with room." },
+        { p: "Under the sidebar: {{app.salesPortal.callsToday}} and a figure such as 42 — every call you dialled today, answered or not. There is no daily ceiling on calls or on claims; the day is bounded by your shift and by the calling windows, nothing else." },
         { h: "The Dialer" },
         { p: "It looks like a phone because it is one: calls go out through your browser, from your own FieldQuo number, with your headset. The display shows {{app.salesQueue.dialingLabel}} and the chosen number; when a business has more than one, {{app.salesDial.whichNumber}} lets you pick." },
         { list: [
@@ -272,7 +272,7 @@ export const MANUAL = {
       n: 4,
       id: "claiming",
       title: "Claiming leads",
-      intro: "You do not browse the pool; you take the next twenty-five that can be rung right now. The batch tops itself up, gives back what has gone quiet, and caps itself at 250 a day.",
+      intro: "You do not browse the pool; you take the next twenty-five that can be rung right now. The batch tops itself up, gives back what has gone quiet, and never runs out on your side — only the pool can.",
       blocks: [
         { h: "Why claiming exists" },
         { p: "The queue's own words: {{app.salesQueue.claimHint}} A claim holds that business for you for 48 hours; once you have actually spoken to them, {{app.salesQueue.markWorked}} makes it yours for good — {{app.salesQueue.markWorkedNote}}" },
@@ -280,7 +280,7 @@ export const MANUAL = {
         { screen: {
           doThis: ["Open the {{app.salesQueue.tabLeads}} tab. Under {{app.salesQueue.tradePickerLabel}} pick one trade — one, and stay on it.", "Press {{app.salesQueue.claimBatch|count=25}}. There is no one-at-a-time button; the batch is the claim."],
           youllSee: "A summary such as {{app.salesQueue.batchSummary|claimed=25;researched=19;waiting=6}} Then your list, grouped: {{app.salesQueue.windowGroup.now}}, one group per opening time ({{app.salesQueue.windowGroup.opensAt|time=11:00;zone=PT}}), and {{app.salesQueue.windowGroup.later}}. The first row opens in the console.",
-          why: "{{app.salesQueue.claimBatchNote|threshold=5;remaining=225 claims left;cap=250}} “Closing soonest first” means a Newfoundland shop at 8 pm their time comes before a Vancouver shop at lunch — the batch is ordered by who you would lose first.",
+          why: "{{app.salesQueue.claimBatchNote|threshold=5}} “Closing soonest first” means a Newfoundland shop at 8 pm their time comes before a Vancouver shop at lunch — the batch is ordered by who you would lose first.",
         } },
         { p: "Each trade in the picker shows counts, not names: {{app.salesQueue.tradeOption|label=Roofing;claimed=25 claimed;free=340 free}}. A trade with {{app.salesQueue.tradeGroupEmpty}} has nothing open right now." },
         { h: "What the batch may tell you instead" },
@@ -289,7 +289,6 @@ export const MANUAL = {
           ["{{app.salesQueue.batchReason.noneOpenNow|time=8:00 AM;zone=ET}}", "Nothing in this trade can be rung this minute. Pick another trade or wait."],
           ["{{app.salesQueue.batchSkippedForWindow|count=12}}", "Those twelve open only after your shift ends. They stay in the pool for tomorrow."],
           ["{{app.salesQueue.batchSkippedForLanguage|count=4}}", "Quebec leads you cannot take. Chapter 1."],
-          ["{{app.salesQueue.batchReason.dailyCap|cap=250}}", "250 claims today, released or not. Tomorrow starts fresh."],
           ["{{app.salesQueue.batchReason.poolEmpty}}", "Discovery has to find more businesses in that trade."],
           ["{{app.salesQueue.batchReason.contended}}", "Two reps pressed at once; the database gave them to one. Press again."],
         ] } },
@@ -768,7 +767,7 @@ export const MANUAL = {
           { term: "Claim", def: "Holding a lead so no other rep rings it — 48 hours, restarted by each call, made permanent by a real conversation ({{app.salesQueue.markWorked}})." },
           { term: "Calling window", def: "The hours a lead may legally be rung, in the lead's own time zone, set by their province or state — or by FieldQuo's courtesy rule (08:00–20:00) where the law sets none. Distinct from the texting window (08:00–21:00 every day)." },
           { term: "Zone chips", def: "{{app.salesQueue.zoneAll}} · ET · CT · MT · PT (· AT · NT) above your list. Filter the list and the walk by time zone." },
-          { term: "Cap", def: "A state's limit on calls to the same business on the same subject in 24 hours — three, in Oklahoma, Florida and Maryland. Counted per called business, across all reps. Not the same as the 250 daily claim ceiling." },
+          { term: "Cap", def: "A state's limit on calls to the same business on the same subject in 24 hours — three, in Oklahoma, Florida and Maryland. Counted per called business, across all reps. There is no ceiling on how many claims a rep may take in a day." },
           { term: "Disposition", def: "The outcome you record when a call ends — one of ten. Each does something to the claim and the lead." },
           { term: "Callback", def: "The disposition {{app.salesCall.disposition.callback.label}}, with a time within 60 days. Holds the claim, lands on your calendar and in the Tasks tab." },
           { term: "Check-in draft", def: "A short text the product writes for a company that signed up on your link — at day 1, day 7 and near day 60 — from the company's real state. You read, edit and send it. Nothing sends itself." },
