@@ -220,7 +220,7 @@ export default function PlatformSignupOriginsPage() {
                 <div className="text-xs text-muted-foreground flex flex-wrap gap-x-3 gap-y-1">
                   <span>
                     via {o.viaLabel}
-                    {o.rep ? ` — ${o.rep.name} (${o.rep.code})` : ""}
+                    {o.rep ? ` — ${o.rep.name} (${o.rep.code})${o.rep.agency ? ` · ${o.rep.agency.name}` : ""}` : ""}
                     {!o.rep && o.via === "sales_link" ? " — code did not attribute" : ""}
                     {o.referralCode ? ` · code ${o.referralCode}` : ""}
                   </span>

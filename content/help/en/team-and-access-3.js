@@ -222,4 +222,87 @@ export const ARTICLES = {
       { q: "Why does a person show “—” under Onboarding?", a: "No checklist was ever started for them. Start one from their HR file if you want one." },
     ],
   },
+  // ── The sales-portal agency tier (lib/sales/agency.js) ───────────────────
+  // Written for the call-centre agencies FieldQuo hires and the reps who work
+  // for one — the one public, translated place their portal can point at.
+  // Every fact is read from lib/sales/agency.js, lib/sales/payouts.js and
+  // app/sales/agency/page.js on the day it was written.
+  "agencies-and-call-centres": {
+    title: "Agencies and call centres",
+    summary:
+      "How a call-centre agency works in the FieldQuo sales portal: adding its own reps, each with their own signup link, the pooled weekly payout with a per-employee breakdown, the team floor, and what the agency's reps see and do not see.",
+    updated: "2026-09-16",
+    intro: [
+      "FieldQuo sells through its own sales reps, through freelancers, and through **call-centre agencies**. An agency is one account in the sales portal that adds its own people, watches only its own team, and is paid — as one business — for everything its people bring in. This article is for the person running that account, and for the reps who work under it.",
+      "If you are a FieldQuo rep or a freelancer with your own contract, nothing here changes for you: your link, your pay screen and your floor are your own.",
+    ],
+    sections: [
+      {
+        id: "what-an-agency-account-is",
+        heading: "What an agency account is",
+        blocks: [
+          { p: "An agency signs into the sales portal like any rep. What is different is a row in the sidebar called **My team**, and the fact that the agency is the **payee**: the commission its reps earn is pooled into the agency's weekly batch and paid to the agency's own bank, PayPal, Interac or Wise details — never to the individual rep." },
+          { bullets: [
+            "**FieldQuo creates the agency account**, with the commission plan you agreed. Every rep the agency adds earns under that plan; the agency cannot pick a different one.",
+            "**The agency adds its reps** from My team. It types a name, an email and the languages the person sells in. Nothing else is asked, because nothing else is the agency's to decide.",
+            "**FieldQuo assigns each rep a phone number and a work mailbox.** Until both are there the rep can sign in but cannot call or send, and the row on My team says which half is still missing.",
+          ] },
+        ],
+      },
+      {
+        id: "adding-a-rep",
+        heading: "Adding a rep",
+        blocks: [
+          { steps: [
+            "Open **My team** in the sidebar and fill in **Add a rep**: the person's name, the email they will sign in with, and the languages they sell in.",
+            "Press **Send invitation**. The rep gets an emailed link that works once and expires in seven days, and chooses their own password. If the email does not go out, the row shows **Resend invite**.",
+            "FieldQuo is told the moment the rep is added, and assigns the phone number and the work mailbox. The row reads **Waiting for FieldQuo to assign** until both are there.",
+          ] },
+          { note: "Each rep gets their own signup link — **Copy link** on their row. A company that signs up through it is credited to that rep, which is what makes the best salespeople on a team visible, even though the money is paid to the agency." },
+        ],
+      },
+      {
+        id: "pay",
+        heading: "How the agency is paid",
+        blocks: [
+          { p: "Every Monday FieldQuo closes the previous week into payout batches — one per **payee**. For an agency that means one batch that gathers every employee's entries and the agency's own, under the agency's name. The agency's **Pay** screen shows the pooled totals, each closed week with how and when it was paid, and a **By employee** table: what each rep's link earned, what has been paid, what is closed and waiting, and what is still open this week." },
+          { p: "The agency sets where the money goes on the same Pay screen. The options are PayPal, Interac e-Transfer, Wise and bank transfer." },
+          { warning: "A rep who works for an agency has **no Pay screen**. If they open one they read: “Your commission is paid to <the agency>; ask them about pay.” Their entries still exist and still carry their name — they are simply paid through the agency." },
+        ],
+      },
+      {
+        id: "the-team-floor",
+        heading: "The team floor",
+        blocks: [
+          { p: "Below the team list, **Team floor** shows the agency's own reps live: who is available, on a call, writing a call up, paused and why, and for how long — with each rep's dials today, reported reach rate, calls not yet written up and time on calls, and the day's outcomes by trade. It refreshes every fifteen seconds and shows nobody outside the team." },
+          { p: "Every state on the floor is one the rep declared from their own status picker. Nothing is observed from a phone line." },
+        ],
+      },
+      {
+        id: "deactivating-a-rep",
+        heading: "Deactivating and reactivating a rep",
+        blocks: [
+          { p: "**Deactivate** on a rep's row closes their door at once — their link stops crediting new signups, and what they earned stays on the record. Deactivated is never deleted." },
+          { p: "If the rep still holds prospects or open leads, the button first asks what happens to them: release the prospects back to the pool, or move everything to another rep on the team. Open leads are never released — a lead has to have a rep — so you choose who takes them. **Reactivate** brings a rep back with the same link." },
+        ],
+      },
+      {
+        id: "what-the-agency-cannot-do",
+        heading: "What the agency cannot do",
+        blocks: [
+          { bullets: [
+            "Choose a rep's **type** — every rep it adds is an agency employee. It cannot make one a freelancer or a FieldQuo employee, or move one onto another commission plan.",
+            "Assign **phone numbers or work mailboxes** — those are FieldQuo's, and FieldQuo is flagged to do it each time a rep is added.",
+            "See **other teams**, FieldQuo's inbound line, or the do-not-contact list. The floor and the results are the agency's own reps only.",
+            "Change **who a company is credited to**. Attribution is recorded at signup and corrected only by a FieldQuo superadmin.",
+          ] },
+        ],
+      },
+    ],
+    faq: [
+      { q: "A rep on my team says they cannot see their pay. Is something broken?", a: "No. Reps who work for an agency are paid through the agency, so the Pay row is not in their sidebar and the pay routes refuse them by design. Their earnings appear on your Pay screen under By employee." },
+      { q: "I added a rep an hour ago and they still cannot call.", a: "FieldQuo has to assign their phone number and work mailbox; the row on My team says which is still missing. FieldQuo is told the moment you add someone." },
+      { q: "Can I move a rep's leads to a FieldQuo rep who is not on my team?", a: "No. Work moves only inside your team. Ask FieldQuo if a lead needs to go elsewhere." },
+    ],
+  },
 };

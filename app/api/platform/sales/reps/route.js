@@ -45,6 +45,7 @@ import { queueCountsFor } from "@/lib/sales/reassign";
 import { sellsInOf } from "@/lib/sales/leadLanguage";
 import { repMoney } from "@/lib/sales/payoutAdmin";
 import { SIGNUP_FLAG_LABELS, needsReview } from "@/lib/platform/signupFlags";
+import { AGENCY_KIND, agencyTeam, isAgency, isAgencyEmployee, setupComplete } from "@/lib/sales/agency";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -105,10 +106,17 @@ export async function GET(request) {
       // has no portal login and its link is the company's referral link.
       kind: true,
       influencerOf: { select: { id: true, name: true, referralCode: true }, take: 1 },
+      // The agency tier (lib/sales/agency.js): an employee's manager is the
+      // agency it works for, and setupRequestedAt is the owner's flag that
+      // the platform still owes the row a number and a work mailbox. The
+      // number count is what decides the flag, beside workEmail.
+      managerId: true,
+      manager: { select: { id: true, name: true, kind: true } },
+      setupRequestedAt: true,
       // The count is what makes "deactivate, never delete" legible on the
       // screen: a rep with attributions has history that stops being reachable
       // if the row goes.
-      _count: { select: { attributions: true } },
+      _count: { select: { attributions: true, phoneNumbers: true } },
     },
     orderBy: [{ active: "desc" }, { name: "asc" }],
   });
@@ -188,6 +196,29 @@ export async function GET(request) {
   for (const e of ledgerEntries) {
     if (!entriesByRep.has(e.salesRepId)) entriesByRep.set(e.salesRepId, []);
     entriesByRep.get(e.salesRepId).push(e);
+  }
+  // An agency's figures are the POOL — its own entries and every employee's
+  // — because that is what closes into its batch and what it is paid. Each
+  // employee's card keeps its own figures beside it, so the owner sees both
+  // the team's total and who earned it.
+  const employeesOf = new Map();
+  for (const r of reps) {
+    if (isAgencyEmployee(r, r.manager)) {
+      if (!employeesOf.has(r.managerId)) employeesOf.set(r.managerId, []);
+      employeesOf.get(r.managerId).push(r.id);
+    }
+  }
+  const moneyFor = (r) => {
+    const own = entriesByRep.get(r.id) || [];
+    if (!isAgency(r)) return repMoney(own, ledgerBatches);
+    const pooled = [...own, ...(employeesOf.get(r.id) || []).flatMap((id) => entriesByRep.get(id) || [])];
+    return repMoney(pooled, ledgerBatches);
+  };
+  // The per-employee results the agency sees on /sales/agency, from the
+  // same function, so the two screens cannot disagree about an employee.
+  const teamByAgency = new Map();
+  for (const r of reps) {
+    if (isAgency(r)) teamByAgency.set(r.id, await agencyTeam({ agencyId: r.id, origin: getAppOrigin(request), now: new Date() }));
   }
 
   // ── The companies each rep brought in, with where their signup came from ─
@@ -306,7 +337,16 @@ export async function GET(request) {
       // held = leased + worked; untouched + dialled = leased. openLeads are
       // SalesLeads not converted and not lost. See lib/sales/reassign.js.
       queue: queueCounts.get(r.id) || null,
-      money: repMoney(entriesByRep.get(r.id) || [], ledgerBatches),
+      money: moneyFor(r),
+      // The agency tier. `agency` names the call centre an employee works
+      // for; `needsSetup` is the owner's flag while a number or the work
+      // mailbox is still missing; `team` is the agency's own view of its
+      // employees, so the owner reads exactly what the agency reads.
+      agency: isAgencyEmployee(r, r.manager) ? { id: r.manager.id, name: r.manager.name } : null,
+      setupRequestedAt: r.setupRequestedAt || null,
+      hasNumber: (r._count?.phoneNumbers || 0) > 0,
+      needsSetup: Boolean(r.setupRequestedAt) && !setupComplete({ workEmail: r.workEmail, numberCount: r._count?.phoneNumbers }),
+      team: teamByAgency.get(r.id) || null,
       sending: {
         canSend: sending[i].canSend,
         blockers: sending[i].blockers,
@@ -356,6 +396,20 @@ export async function POST(request) {
   const badMailbox = workEmailProblem(workEmail, email);
   if (badMailbox) return NextResponse.json({ error: badMailbox }, { status: 400 });
 
+  // ── The type ────────────────────────────────────────────────────────────
+  //
+  // "rep" (the default) or "agency" — a call-centre account that adds its own
+  // reps and is paid for what they earn (lib/sales/agency.js). An agency has
+  // no engagement of its own: it is a business FieldQuo pays by invoice, not
+  // a freelancer or an employee, and the column is the employees'. Its plan
+  // is REQUIRED, because every employee it adds inherits it and an agency
+  // whose reps all earn $0 is the failure the plan sentence below describes,
+  // multiplied by the team.
+  const kind = body.kind === undefined || body.kind === null || body.kind === "" ? "rep" : String(body.kind);
+  if (kind !== "rep" && kind !== AGENCY_KIND) {
+    return NextResponse.json({ error: `kind must be "rep" or "${AGENCY_KIND}".` }, { status: 400 });
+  }
+
   const engagement =
     body.engagement === undefined || body.engagement === null || body.engagement === ""
       ? null
@@ -363,6 +417,18 @@ export async function POST(request) {
   if (engagement !== null && !isEngagement(engagement)) {
     return NextResponse.json(
       { error: `engagement must be one of ${ENGAGEMENTS.map((e) => e.key).join(", ")}, or left unset.` },
+      { status: 400 },
+    );
+  }
+  if (kind === AGENCY_KIND && engagement !== null) {
+    return NextResponse.json(
+      { error: "An agency has no engagement of its own — freelancer or employee is a fact about a person. Leave it unset." },
+      { status: 400 },
+    );
+  }
+  if (engagement === "agency") {
+    return NextResponse.json(
+      { error: "\"Agency employee\" is set by the agency adding the rep from its own portal, never here. Add the agency, and it adds its people." },
       { status: 400 },
     );
   }
@@ -378,6 +444,12 @@ export async function POST(request) {
   });
   if (assignment.error) {
     return NextResponse.json({ error: assignment.error }, { status: 400 });
+  }
+  if (kind === AGENCY_KIND && !assignment.commissionPlanId) {
+    return NextResponse.json(
+      { error: "An agency needs a commission plan: every rep it adds earns under it, and without one the whole team earns $0." },
+      { status: 400 },
+    );
   }
 
   const existing = await db.salesRep.findUnique({ where: { email } });
@@ -420,6 +492,7 @@ export async function POST(request) {
     try {
       rep = await db.salesRep.create({
         data: {
+          kind,
           // Stated at set-up when the superadmin knows it; null otherwise, and
           // the Pay screen keeps saying so until somebody says.
           engagement,
@@ -438,6 +511,7 @@ export async function POST(request) {
           workEmail: true,
           code: true,
           active: true,
+          kind: true,
           commissionPlanId: true,
         },
       });
@@ -499,6 +573,7 @@ export async function POST(request) {
         salesRepId: rep.id,
         email: rep.email,
         code: rep.code,
+        kind: rep.kind,
         // Recorded because it decides who a prospect ends up talking to, and
         // because "who assigned this mailbox" is the question asked after a
         // reply lands in the wrong inbox.

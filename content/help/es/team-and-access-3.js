@@ -222,4 +222,83 @@ export const ARTICLES = {
       { q: "¿Por qué una persona muestra «—» bajo Incorporación?", a: "Nunca se le inició una lista. Inicie una desde su expediente si la quiere." },
     ],
   },
+  // ── El nivel «agencia» del portal de ventas (lib/sales/agency.js) ─────────
+  "agencies-and-call-centres": {
+    title: "Agencias y centros de llamadas",
+    summary:
+      "Cómo funciona una agencia de centro de llamadas en el portal de ventas de FieldQuo: añadir sus propios representantes, cada uno con su enlace de registro, el pago semanal agrupado con el desglose por empleado, la sala del equipo, y lo que los representantes de la agencia ven y no ven.",
+    updated: "2026-09-16",
+    intro: [
+      "FieldQuo vende a través de sus propios representantes, de autónomos y de **agencias de centro de llamadas**. Una agencia es una cuenta del portal de ventas que añade a su propia gente, vigila solo a su propio equipo y cobra — como una sola empresa — por todo lo que su gente consigue. Este artículo es para la persona que gestiona esa cuenta y para los representantes que trabajan bajo ella.",
+      "Si eres representante de FieldQuo o autónomo con tu propio contrato, nada de esto cambia para ti: tu enlace, tu pantalla de pagos y tu sala son tuyos.",
+    ],
+    sections: [
+      {
+        id: "what-an-agency-account-is",
+        heading: "Qué es una cuenta de agencia",
+        blocks: [
+          { p: "Una agencia inicia sesión en el portal de ventas como cualquier representante. Lo que cambia es una fila en la barra lateral llamada **Mi equipo**, y el hecho de que la agencia es el **beneficiario**: la comisión que ganan sus representantes se agrupa en el lote semanal de la agencia y se paga a los datos bancarios, PayPal, Interac o Wise de la propia agencia — nunca al representante individual." },
+          { bullets: [
+            "**FieldQuo crea la cuenta de la agencia**, con el plan de comisiones acordado. Cada representante que la agencia añade gana según ese plan; la agencia no puede elegir otro.",
+            "**La agencia añade a sus representantes** desde Mi equipo. Escribe un nombre, un correo y los idiomas en que la persona vende. No se pide nada más, porque nada más le corresponde decidir a la agencia.",
+            "**FieldQuo asigna a cada representante un número de teléfono y un buzón de trabajo.** Hasta que ambos estén, el representante puede iniciar sesión pero no llamar ni enviar, y la fila en Mi equipo dice qué mitad falta todavía.",
+          ] },
+        ],
+      },
+      {
+        id: "adding-a-rep",
+        heading: "Añadir un representante",
+        blocks: [
+          { steps: [
+            "Abre **Mi equipo** en la barra lateral y rellena **Añadir un representante**: el nombre de la persona, el correo con el que iniciará sesión y los idiomas en que vende.",
+            "Pulsa **Enviar invitación**. El representante recibe un enlace por correo que funciona una vez y caduca a los siete días, y elige su propia contraseña. Si el correo no sale, la fila muestra **Reenviar invitación**.",
+            "FieldQuo es avisado en cuanto se añade al representante, y asigna el número de teléfono y el buzón de trabajo. La fila dice **Esperando que FieldQuo asigne** hasta que ambos estén.",
+          ] },
+          { note: "Cada representante tiene su propio enlace de registro — **Copiar enlace** en su fila. Una empresa que se registra por él se acredita a ese representante, y eso es lo que hace visibles a los mejores vendedores de un equipo, aunque el dinero se pague a la agencia." },
+        ],
+      },
+      {
+        id: "pay",
+        heading: "Cómo cobra la agencia",
+        blocks: [
+          { p: "Cada lunes FieldQuo cierra la semana anterior en lotes de pago — uno por **beneficiario**. Para una agencia eso es un solo lote que reúne las entradas de cada empleado y las de la propia agencia, bajo el nombre de la agencia. La pantalla **Pagos** de la agencia muestra los totales agrupados, cada semana cerrada con cómo y cuándo se pagó, y una tabla **Por empleado**: lo que ganó el enlace de cada representante, lo pagado, lo cerrado y pendiente, y lo aún abierto esta semana." },
+          { p: "La agencia indica adónde va el dinero en esa misma pantalla de Pagos. Las opciones son PayPal, Interac e-Transfer, Wise y transferencia bancaria." },
+          { warning: "Un representante que trabaja para una agencia **no tiene pantalla de Pagos**. Si abre una, lee: «Tu comisión se paga a <la agencia>; pregúntales a ellos por tu pago.» Sus entradas siguen existiendo y siguen llevando su nombre — simplemente se pagan a través de la agencia." },
+        ],
+      },
+      {
+        id: "the-team-floor",
+        heading: "La sala del equipo",
+        blocks: [
+          { p: "Debajo de la lista del equipo, **Sala del equipo** muestra en vivo a los representantes de la agencia: quién está disponible, en llamada, registrando una llamada, en pausa y por qué, y desde cuándo — con las marcaciones de hoy de cada uno, su tasa de contacto declarada, las llamadas sin registrar y el tiempo en llamadas, además de los resultados del día por oficio. Se actualiza cada quince segundos y no muestra a nadie fuera del equipo." },
+          { p: "Cada estado de la sala lo declaró el representante desde su propio selector de estado. Nada se observa desde una línea telefónica." },
+        ],
+      },
+      {
+        id: "deactivating-a-rep",
+        heading: "Desactivar y reactivar un representante",
+        blocks: [
+          { p: "**Desactivar** en la fila de un representante cierra su puerta de inmediato — su enlace deja de acreditar registros nuevos, y lo que ganó queda en el registro. Desactivado nunca es borrado." },
+          { p: "Si el representante aún tiene prospectos o leads abiertos, el botón pregunta primero qué pasa con ellos: devolver los prospectos al grupo común, o pasar todo a otro representante del equipo. Los leads abiertos nunca se liberan — un lead debe tener un representante — así que eliges quién los toma. **Reactivar** devuelve al representante con el mismo enlace." },
+        ],
+      },
+      {
+        id: "what-the-agency-cannot-do",
+        heading: "Lo que la agencia no puede hacer",
+        blocks: [
+          { bullets: [
+            "Elegir el **tipo** de un representante — cada representante que añade es empleado de la agencia. No puede convertirlo en autónomo ni en empleado de FieldQuo, ni pasarlo a otro plan de comisiones.",
+            "Asignar **números de teléfono o buzones de trabajo** — eso es de FieldQuo, que es avisado cada vez que se añade un representante.",
+            "Ver **otros equipos**, la línea entrante de FieldQuo o la lista de no contactar. La sala y los resultados son solo de los representantes de la agencia.",
+            "Cambiar **a quién se acredita una empresa**. La atribución se registra al inscribirse y solo la corrige un superadministrador de FieldQuo.",
+          ] },
+        ],
+      },
+    ],
+    faq: [
+      { q: "Un representante de mi equipo dice que no ve su pago. ¿Hay algo roto?", a: "No. Los representantes que trabajan para una agencia cobran a través de la agencia, así que la fila Pagos no está en su barra lateral y las rutas de pago los rechazan a propósito. Sus ganancias aparecen en tu pantalla de Pagos bajo Por empleado." },
+      { q: "Añadí un representante hace una hora y todavía no puede llamar.", a: "FieldQuo tiene que asignar su número de teléfono y su buzón de trabajo; la fila en Mi equipo dice qué falta todavía. FieldQuo es avisado en cuanto añades a alguien." },
+      { q: "¿Puedo pasar los leads de un representante a un representante de FieldQuo que no está en mi equipo?", a: "No. El trabajo solo se mueve dentro de tu equipo. Pide a FieldQuo si un lead debe ir a otro sitio." },
+    ],
+  },
 };

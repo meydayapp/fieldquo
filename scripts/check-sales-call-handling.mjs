@@ -1011,7 +1011,9 @@ ok("it refuses BEFORE it reads anybody's activity", (() => {
   // demo guard sitting before the spend.
   const body = fnBody("app/api/platform/sales/floor/route.js", "export async function GET(");
   const gate = body.indexOf('admin.role !== "superadmin"');
-  const read = body.indexOf("db.salesRep.findMany");
+  // The reads moved into lib/sales/calls/floorBoard.js on 2026-09-16 so the
+  // agency's team board draws from the same function; the call is the read.
+  const read = body.indexOf("floorBoard(");
   return gate !== -1 && read !== -1 && gate < read;
 })());
 ok("the floor board writes nothing at all — the console views and does not edit", (() => {

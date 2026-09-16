@@ -111,6 +111,7 @@ import Link from "next/link";
 import {
   AlertCircle,
   Archive,
+  Building2,
   Handshake,
   ArrowRightLeft,
   Check,
@@ -274,7 +275,25 @@ const BLANK = {
   // rep is one today: a default is what makes the first employee silently
   // wrong. See SalesRep.engagement in the schema.
   engagement: "",
+  // "" | "employee" | "freelancer" | "agency". The first two are the
+  // engagement above by another name — one control, not two. "agency" is a
+  // different KIND of row (lib/sales/agency.js): a call-centre account that
+  // adds its own reps and is paid for what they earn.
+  type: "",
 };
+
+/** What the Type picker offers: the two engagements, and the agency kind. */
+const REP_TYPES = [
+  { key: "", label: "Not decided yet", help: "A FieldQuo rep; freelancer or employee is set later on their card." },
+  { key: "employee", label: "FieldQuo employee", help: "On payroll. Paid leave accrues; FieldQuo withholds." },
+  { key: "freelancer", label: "Freelancer", help: "Invoices for commission. No leave, nothing withheld." },
+  {
+    key: "agency",
+    label: "Agency / call centre",
+    help:
+      "A call-centre account. It signs into the sales portal, adds its own reps under My team (each with their own link), sees only its team's floor, and is the payee for everything its reps earn — pooled into one weekly batch with a per-employee breakdown. Its reps never see a Pay screen. You are flagged on the errors page each time it adds one, because the number and the work mailbox are yours to assign.",
+  },
+];
 
 export default function PlatformSalesRepsPage() {
   const [reps, setReps] = useState([]);
@@ -326,15 +345,32 @@ export default function PlatformSalesRepsPage() {
   // company's commission ledger, lib/influencers) sit between the reps and
   // the archive: same ledger, same payout batches, no portal login, and a
   // link that is the company's own /refer/<code>.
-  const activeReps = useMemo(() => reps.filter((r) => r.active && r.kind !== "influencer"), [reps]);
+  // Four sections. Agencies (kind "agency", lib/sales/agency.js) sit after
+  // FieldQuo's own reps, each followed by its employees — the rows whose
+  // `agency` names it — so the owner reads a call centre as one block: the
+  // account that is paid, then the people whose links earn it. An employee
+  // is never listed among the plain reps, active or archived; it belongs to
+  // its agency's block whichever state it is in.
+  const activeReps = useMemo(() => reps.filter((r) => r.active && r.kind !== "influencer" && r.kind !== "agency" && !r.agency), [reps]);
+  const agencyReps = useMemo(() => reps.filter((r) => r.kind === "agency"), [reps]);
+  const agencyBlocks = useMemo(
+    () =>
+      agencyReps.flatMap((a) => [
+        a,
+        ...reps
+          .filter((r) => r.agency?.id === a.id)
+          .sort((x, y) => Number(y.active) - Number(x.active) || String(x.name).localeCompare(String(y.name))),
+      ]),
+    [agencyReps, reps],
+  );
   const influencerReps = useMemo(() => reps.filter((r) => r.active && r.kind === "influencer"), [reps]);
-  const archivedReps = useMemo(() => reps.filter((r) => !r.active), [reps]);
+  const archivedReps = useMemo(() => reps.filter((r) => !r.active && r.kind !== "agency" && !r.agency), [reps]);
   useEffect(() => {
     if (openRep && archivedReps.some((r) => r.id === openRep)) setShowArchived(true);
   }, [openRep, archivedReps]);
   const visibleReps = showArchived
-    ? [...activeReps, ...influencerReps, ...archivedReps]
-    : [...activeReps, ...influencerReps];
+    ? [...activeReps, ...agencyBlocks, ...influencerReps, ...archivedReps]
+    : [...activeReps, ...agencyBlocks, ...influencerReps];
   // The owed strip at the top: the same snapshot /platform/sales/payouts
   // draws. Null until read; absent (not a fabricated zero) when this admin
   // may not read payouts.
@@ -440,7 +476,10 @@ export default function PlatformSalesRepsPage() {
           // the state rather than the empty box is what keeps the two apart on
           // this side too.
           commissionPlanId: draft.commissionPlanId || null,
-          engagement: draft.engagement || null,
+          // One picker, two columns: the agency is a KIND with no engagement
+          // of its own; the other two are engagements on a plain rep.
+          kind: draft.type === "agency" ? "agency" : "rep",
+          engagement: draft.type === "agency" || !draft.type ? null : draft.type,
         }),
       });
       setDraft(null);
@@ -1132,27 +1171,39 @@ export default function PlatformSalesRepsPage() {
             ) : null}
           </div>
           <div>
-            <label htmlFor="rep-engagement" className={LABEL}>
-              Freelancer or employee
+            <label htmlFor="rep-type" className={LABEL}>
+              Type
             </label>
             <select
-              id="rep-engagement"
-              value={draft.engagement}
-              onChange={(e) => setDraft({ ...draft, engagement: e.target.value })}
+              id="rep-type"
+              value={draft.type}
+              onChange={(e) => setDraft({ ...draft, type: e.target.value })}
               className={FIELD}
+              data-rep-type
             >
-              <option value="">Not decided yet</option>
-              {ENGAGEMENTS.map((e) => (
-                <option key={e.key} value={e.key}>
-                  {e.label}
+              {REP_TYPES.map((k) => (
+                <option key={k.key} value={k.key}>
+                  {k.label}
                 </option>
               ))}
             </select>
             <p className={HELP}>
-              Decides whether paid leave accrues and whether FieldQuo withholds
-              anything. Until it is set, the rep&apos;s Pay screen says nobody has
-              decided — it is never guessed from the payout method.
+              {REP_TYPES.find((k) => k.key === draft.type)?.help}
+              {draft.type !== "agency" ? (
+                <>
+                  {" "}
+                  Freelancer or employee decides whether paid leave accrues and
+                  whether FieldQuo withholds anything. Until it is set, the
+                  rep&apos;s Pay screen says nobody has decided — it is never
+                  guessed from the payout method.
+                </>
+              ) : null}
             </p>
+            {draft.type === "agency" && !draft.commissionPlanId ? (
+              <p className="mt-1 text-xs text-amber-700 dark:text-amber-300" data-agency-needs-plan>
+                An agency needs a commission plan: every rep it adds earns under it.
+              </p>
+            ) : null}
           </div>
 
           <p className="text-xs text-muted-foreground">
@@ -1169,7 +1220,8 @@ export default function PlatformSalesRepsPage() {
                 !draft.email.trim() ||
                 !draft.code.trim() ||
                 Boolean(draftCodeProblem) ||
-                Boolean(draftMailboxProblem)
+                Boolean(draftMailboxProblem) ||
+                (draft.type === "agency" && !draft.commissionPlanId)
               }
               className={BTN_PRIMARY}
             >
@@ -1231,8 +1283,17 @@ export default function PlatformSalesRepsPage() {
             const isInfluencerRow = rep.kind === "influencer";
             const firstInfluencer =
               rep.active && isInfluencerRow && (idx === 0 || visibleReps[idx - 1].kind !== "influencer");
+            const isAgencyRow = rep.kind === "agency";
+            const isEmployeeRow = Boolean(rep.agency);
+            const firstAgency = isAgencyRow && !visibleReps.slice(0, idx).some((r) => r.kind === "agency");
             return (
               <Fragment key={rep.id}>
+              {firstAgency ? (
+                <h2 className="pt-4 text-sm font-semibold text-muted-foreground flex items-center gap-2" data-agencies-heading>
+                  <Building2 size={14} /> Agencies ({agencyReps.length})
+                  <span className="font-normal">— call centres paid for what their reps earn; each agency, then its people, with their own links and results</span>
+                </h2>
+              ) : null}
               {firstInfluencer ? (
                 <h2 className="pt-4 text-sm font-semibold text-muted-foreground flex items-center gap-2">
                   <Handshake size={14} /> Influencers ({influencerReps.length})
@@ -1247,9 +1308,10 @@ export default function PlatformSalesRepsPage() {
               ) : null}
               <div
                 id={`rep-${rep.id}`}
-                className={`${CARD} space-y-3`}
+                className={`${CARD} space-y-3${isEmployeeRow ? " ml-4 sm:ml-8 border-l-4" : ""}`}
                 data-rep-card={rep.id}
                 data-open={open ? "true" : "false"}
+                data-agency-employee={isEmployeeRow ? rep.agency.id : undefined}
               >
                 {/* ── The collapsed row ──────────────────────────────────
                     A button, so the keyboard opens it; aria-expanded says
@@ -1274,6 +1336,33 @@ export default function PlatformSalesRepsPage() {
                           {isInfluencerRow ? (
                             <span className="ml-2 align-middle text-[11px] uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
                               influencer
+                            </span>
+                          ) : null}
+                          {isAgencyRow ? (
+                            <span className="ml-2 align-middle text-[11px] uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground" data-agency-chip>
+                              agency
+                            </span>
+                          ) : null}
+                          {isEmployeeRow ? (
+                            <span className="ml-2 align-middle text-[11px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground" data-via-agency>
+                              via {rep.agency.name}
+                            </span>
+                          ) : null}
+                          {!rep.active && isEmployeeRow ? (
+                            <span className="ml-2 align-middle text-[11px] uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
+                              deactivated
+                            </span>
+                          ) : null}
+                          {/* The owner's flag (SalesRep.setupRequestedAt):
+                              the agency added this person and the platform
+                              still owes them a number, a mailbox, or both.
+                              Named, not "not set up". */}
+                          {rep.needsSetup ? (
+                            <span
+                              className="ml-2 align-middle text-[11px] font-medium px-1.5 py-0.5 rounded-full border bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-900"
+                              data-needs-setup={rep.id}
+                            >
+                              Needs {!rep.hasNumber && !rep.workEmail ? "number & work mailbox" : !rep.hasNumber ? "number" : "work mailbox"}
                             </span>
                           ) : null}
                         </span>
@@ -1343,6 +1432,63 @@ export default function PlatformSalesRepsPage() {
 
                 {open ? (
                 <div id={`rep-panel-${rep.id}`} className="space-y-3 border-t border-border pt-3" data-rep-panel={rep.id}>
+                {/* ── The agency's team, as the agency sees it ──────────
+                    The owner's words: "I should see the results of each
+                    employee the same way the agency does." Same rows, same
+                    function (lib/sales/agency.js agencyTeam) as /sales/agency;
+                    each employee's own card follows below with the full
+                    controls. */}
+                {isAgencyRow ? (
+                  <div className="space-y-2" data-agency-team={rep.id}>
+                    <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                      Team — {(rep.team || []).length} {(rep.team || []).length === 1 ? "rep" : "reps"}
+                    </div>
+                    {(rep.team || []).length === 0 ? (
+                      <p className="text-sm text-muted-foreground">
+                        The agency has not added anyone yet. It adds reps from My team in its own portal; you are flagged on the errors page each time, to assign the number and the work mailbox.
+                      </p>
+                    ) : (
+                      <div className="overflow-x-auto rounded-lg border border-border">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="text-left text-xs text-muted-foreground">
+                              <th className="px-3 py-2">Rep</th>
+                              <th className="px-3 py-2">Set-up</th>
+                              <th className="px-3 py-2 text-right">Calls today</th>
+                              <th className="px-3 py-2 text-right">Calls this week</th>
+                              <th className="px-3 py-2 text-right">Signups (wk / all)</th>
+                              <th className="px-3 py-2 text-right">Earned</th>
+                              <th className="px-3 py-2 text-right">Open</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {rep.team.map((m) => (
+                              <tr key={m.id} className="border-t border-border" data-team-row={m.id}>
+                                <td className="px-3 py-2">
+                                  <a href={`#rep-${m.id}`} className="underline underline-offset-2 text-foreground">{m.name}</a>
+                                  {!m.active ? <span className="ml-1 text-xs text-muted-foreground">(deactivated)</span> : null}
+                                  {m.inviteState !== "accepted" ? <span className="ml-1 text-xs text-muted-foreground">({m.inviteState === "expired" ? "invite expired" : "invited"})</span> : null}
+                                </td>
+                                <td className="px-3 py-2 text-xs">
+                                  {m.needsSetup
+                                    ? `Needs ${!m.hasNumber && !m.hasWorkEmail ? "number & mailbox" : !m.hasNumber ? "number" : "mailbox"}`
+                                    : m.hasNumber && m.hasWorkEmail
+                                      ? "Number & mailbox"
+                                      : `${m.hasNumber ? "Number" : "No number"}, ${m.hasWorkEmail ? "mailbox" : "no mailbox"}`}
+                                </td>
+                                <td className="px-3 py-2 text-right tabular-nums">{m.calls ? m.calls.today : "—"}</td>
+                                <td className="px-3 py-2 text-right tabular-nums">{m.calls ? m.calls.thisWeek : "—"}</td>
+                                <td className="px-3 py-2 text-right tabular-nums">{m.signups.thisWeek} / {m.signups.total}</td>
+                                <td className="px-3 py-2 text-right tabular-nums">{centsToMoney(m.earned.lifetimeCents)}</td>
+                                <td className="px-3 py-2 text-right tabular-nums">{centsToMoney(m.earned.openCents)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                ) : null}
                 <div className="grid gap-3 sm:grid-cols-2 text-sm">
                   <div>
                     <div className="text-xs uppercase tracking-wide text-muted-foreground">
@@ -1681,7 +1827,15 @@ export default function PlatformSalesRepsPage() {
                 </div>
                 <div>
                   <div className={LABEL}>Freelancer or employee</div>
-                  {rep.id in engagementDraft && isSuperadmin ? (
+                  {isAgencyRow ? (
+                    <p className="text-sm text-muted-foreground">
+                      An agency — a business paid by invoice for what its reps earn. It has no engagement of its own; its reps are agency employees.
+                    </p>
+                  ) : isEmployeeRow ? (
+                    <p className="text-sm text-muted-foreground">
+                      Agency employee of {rep.agency.name}. Set by the agency when it added them; their commission is paid to the agency and they see no Pay screen.
+                    </p>
+                  ) : rep.id in engagementDraft && isSuperadmin ? (
                     <div className="flex flex-wrap gap-2">
                       <select
                         aria-label={`Engagement for ${rep.name}`}
@@ -1692,7 +1846,9 @@ export default function PlatformSalesRepsPage() {
                         className={`${FIELD} flex-1`}
                       >
                         <option value="">Not decided yet</option>
-                        {ENGAGEMENTS.map((e) => (
+                        {/* "Agency employee" is set by the agency, with the
+                            manager, in one write — never picked here. */}
+                        {ENGAGEMENTS.filter((e) => e.key !== "agency").map((e) => (
                           <option key={e.key} value={e.key}>
                             {e.label}
                           </option>
@@ -1739,7 +1895,7 @@ export default function PlatformSalesRepsPage() {
                       ) : null}
                     </div>
                   )}
-                  {!rep.engagement ? (
+                  {!rep.engagement && !isAgencyRow && !isEmployeeRow ? (
                     <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
                       Nobody has said whether this rep is a freelancer or an
                       employee. Their Pay screen shows this same sentence until

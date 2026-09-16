@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 15 September 2026 (influencer programme: an influencer promo code enrols the company — kind "influencer" SalesRep ledger, Company.influencerAt/influencerRepId — and their /refer/<code> writes a SalesAttribution instead of the referrer month, paid by the existing commission engine and weekly batches; /app/influencer shows the rep's own EarningsPanel and PayoutDestinationForm against company-gated twins of the rep routes, with PayPal/Interac/Wise/bank transfer and no Upwork; /platform/companies/[id] enrols an existing company; check:influencer executes the money path against the scripted client.)
+Last updated: 16 September 2026 (the call-centre agency tier: a SalesRep of kind "agency" signs into /sales, adds its own reps from /sales/agency — kind rep, engagement "agency", managerId the agency, the agency's plan, all forced server-side — sees only its team's results and floor (lib/sales/team.js's visibleRepIds has its first caller), and is the PAYEE: the Monday cron closes one batch per payee through payeeGroups/closeWeekForRep earnerIds, the agency's Pay shows the pool with a By employee table, an employee's Pay row is gone and the pay routes refuse them by name; /platform/sales/reps has a Type picker (FieldQuo employee / freelancer / agency), an Agencies section with employees nested, "Needs number & work mailbox" until both are assigned, and the same per-employee table the agency sees; the platform PATCH and the agency share lib/sales/repActivation.js; PlatformAuditLog gained actorSalesRepId; check:sales-agency executes the money path, the forced values and the floor scope; help article agencies-and-call-centres in en/fr/es.)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -9,6 +9,44 @@ it exists to answer.
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
+
+## Agencies and call centres: one account that adds its reps, sees its floor, and is paid for all of them (16 September 2026)
+
+The owner's brief is quoted in full at the top of lib/sales/agency.js. The
+shape: the agency is a SalesRep of kind "agency"; its employees are ordinary
+"rep" rows with engagement "agency" and managerId = the agency. Attribution
+and commission are unchanged — each employee's link writes the employee's own
+rows, so "who are the best salespeople" is still answerable — and only the
+payee changes: lib/sales/payouts.js closeWeekForRep gathers the group's
+entries into one batch under the agency (app/api/cron/sales-payouts closes
+one batch per payee via payeeGroups). The agency's /sales/pay is the pool
+with a By employee split; an employee has no Pay row and /api/sales/earnings
+and /api/sales/payout refuse them with "Your commission is paid to <agency>".
+/sales/agency: add a rep (name, email, languages — nothing else is the
+agency's to choose), deactivate/reactivate through lib/sales/repActivation.js
+(the platform's own gate and hand-off, extracted; work moves only inside the
+team), resend an invite, and the team floor through lib/sales/calls/
+floorBoard.js narrowed by repViewer/visibleRepIds. The platform: a Type
+picker on the invite form, agencies listed with employees nested, "Needs
+number & work mailbox" while SalesRep.setupRequestedAt is set and either is
+missing (cleared by the mailbox PATCH and the number assignment), the
+agency's card pooled and carrying the same team table the agency sees, batch
+cards saying "agency" with a line per earner, the audit log naming the agency
+as actor (PlatformAuditLog.actorSalesRepId; platformAdminId is nullable now).
+
+### Still owed here
+
+- A deactivated agency's employees keep their rows active. Deactivating the
+  agency itself does not cascade; the owner decides whether it should.
+- The agency's employees' presence on FieldQuo's own /platform/sales/floor
+  is unchanged (they are reps); the platform board does not group them by
+  agency yet.
+- The help article sits in the public help centre under Team & access, the
+  one translated place the portal could point at. If the owner would rather
+  keep the sales tier out of the contractor help centre, it moves to
+  docs/sales/manual.
+- No email to the agency when a week is paid; the push goes to the agency
+  account like any rep's.
 
 ## The influencer programme: a company whose link pays a commission, not a month (15 September 2026)
 

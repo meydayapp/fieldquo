@@ -674,7 +674,10 @@ section("10. The column itself");
   // decided yet" while the row said freelancer.
   ok("…and the list RESPONSE carries engagement, not just the select", /engagement: r\.engagement \|\| null,/.test(create) && /accruesPaidLeave: Boolean\(r\.accruesPaidLeave\),/.test(create));
   const page = src("app/platform/sales/reps/page.js");
-  ok("the reps screen offers the choice at invite", /id="rep-engagement"/.test(page));
+  // Since 2026-09-16 the invite form asks ONE question — Type: not decided /
+  // FieldQuo employee / freelancer / agency — and maps the first three onto
+  // engagement, the fourth onto kind "agency" (lib/sales/agency.js).
+  ok("the reps screen offers the choice at invite", /id="rep-type"/.test(page) && /key: "employee"/.test(page) && /key: "freelancer"/.test(page) && /engagement: draft\.type === "agency" \|\| !draft\.type \? null : draft\.type/.test(page));
   ok("…and per rep, with a Set/Change control", /Engagement for \$\{rep\.name\}/.test(page) && /rep\.engagement \? "Change" : "Set"/.test(page));
   ok("…and says out loud when nobody has decided", /Nobody has said whether this rep is a freelancer or an/.test(page));
 }
@@ -726,7 +729,10 @@ section("10. The column itself");
   ok("the list SELECTS the rep's payout method, handle and confirmation", /payoutMethod: true/.test(list) && /payoutHandle: true/.test(list) && /payoutConfirmedAt: true/.test(list));
   ok("…and its RESPONSE carries them", /payoutMethod: r\.payoutMethod \|\| null/.test(list) && /payoutHandle: r\.payoutHandle \|\| null/.test(list) && /payoutConfirmedAt: r\.payoutConfirmedAt/.test(list));
   // 2026-09-13: deactivated reps sat in the one list with the active ones.
-  ok("deactivated reps are drawn apart, under Archived, folded by default", /const activeReps = useMemo\(\(\) => reps\.filter\(\(r\) => r\.active && r\.kind !== "influencer"\)/.test(page) && /const archivedReps = useMemo\(\(\) => reps\.filter\(\(r\) => !r\.active\)/.test(page) && /useState\(false\)/.test(page.slice(page.indexOf("showArchived"), page.indexOf("showArchived") + 80)) && /Archived \(\{archivedReps\.length\}\)/.test(page) && /Show archived \(\$\{archivedReps\.length\}\)/.test(page));
+  // The agency tier (2026-09-16) keeps an agency's employees inside the
+  // agency's own block whichever state they are in, so the plain active and
+  // archived lists exclude agencies and their employees.
+  ok("deactivated reps are drawn apart, under Archived, folded by default", /const activeReps = useMemo\(\(\) => reps\.filter\(\(r\) => r\.active && r\.kind !== "influencer" && r\.kind !== "agency" && !r\.agency\)/.test(page) && /const archivedReps = useMemo\(\(\) => reps\.filter\(\(r\) => !r\.active && r\.kind !== "agency" && !r\.agency\)/.test(page) && /useState\(false\)/.test(page.slice(page.indexOf("showArchived"), page.indexOf("showArchived") + 80)) && /Archived \(\{archivedReps\.length\}\)/.test(page) && /Show archived \(\$\{archivedReps\.length\}\)/.test(page));
   ok("…and a hash link to an archived rep unfolds the section", /archivedReps\.some\(\(r\) => r\.id === openRep\)\) setShowArchived\(true\)/.test(page));
   ok("the rep card shows them by the method's own label, and absence as absence", /Payout details/.test(page) && /payoutMethod\(rep\.payoutMethod\)\?\.label/.test(page) && /Not provided — the rep sets it under Pay/.test(page) && /Never confirmed by the rep/.test(page));
 }

@@ -15,19 +15,17 @@
 // has no sales permission, and adding one would imply the map has a scoping
 // concept it does not have.
 //
-// ══ Why there is no team-lead version of this yet ═════════════════════════
+// ══ The team-lead version exists now, and it is the agency's ═══════════════
 //
-// The column arrived and the tier did not. `SalesRep.managerId` landed on
-// 2026-09-03, so "my reps" is now COMPUTABLE — but nothing computes it: no
-// query reads the reporting line, and no screen sets one, so every SalesRep in
-// the database currently has a null manager. The scope function that would do
-// the narrowing is written and tested, lib/sales/team.js's visibleRepIds(),
-// and it still has no caller.
-//
-// Wiring it up here before there is a way to fill the column in would ship a
-// board that shows a team lead an empty team and calls it their floor — worse
-// than no board, and the exact failure AGENTS.md's rule is about. So this stays
-// superadmin-only until the org chart can actually be edited.
+// This header said, until 2026-09-16, that `SalesRep.managerId` had no
+// writer and so a team-scoped board would show an empty team and call it a
+// floor. The column's first writer is lib/sales/agency.js: a call-centre
+// agency adds its own reps with itself as their manager, and
+// /api/sales/agency/floor draws THIS board narrowed to that team through
+// lib/sales/team.js's visibleRepIds(). The reads live in
+// lib/sales/calls/floorBoard.js so the two routes cannot drift; this one
+// asks with no scope and adds FieldQuo's own inbound line and number pool,
+// which are nobody else's business.
 //
 // ══ Nothing here is invented when the tables are absent ═══════════════════
 //
@@ -37,32 +35,18 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
 import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
 import { getAppOrigin } from "@/lib/appUrl";
-import {
-  callStoreState,
-  inboundCalls,
-  presenceFor,
-  salesCallerNumbers,
-} from "@/lib/sales/calls/store";
+import { inboundCalls, salesCallerNumbers } from "@/lib/sales/calls/store";
 import {
   inboundWebhookUrl,
   salesVoiceInboundState,
 } from "@/lib/sales/calls/inboundRouting";
-import { NOT_TRACKED_CALLS, campaignCallRows, teamCallRows } from "@/lib/sales/calls/reporting";
-import { PAUSE_REASONS, REP_STATES, STATE_ORDER } from "@/lib/sales/calls/agentState";
+import { floorBoard } from "@/lib/sales/calls/floorBoard";
 import { TEAM_LEAD_CANNOT_SEE } from "@/lib/sales/team";
 import { dialModeState } from "@/lib/sales/calls/dialMode";
 import { inboundHandling } from "@/lib/sales/calls/inboundMatch";
 import { salesAgentRow } from "@/lib/platform/salesAgent";
-import { DISCOVERY_TRADES } from "@/lib/sales/discovery/trades";
-
-/** How far back the day's figures run. UTC, matching bucketSignups. */
-function dayBounds(now) {
-  const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-  return { from, to: now };
-}
 
 export async function GET(request) {
   const admin = await getCurrentPlatformAdmin(request);
@@ -75,38 +59,29 @@ export async function GET(request) {
   }
 
   const now = new Date();
-  const { from, to } = dayBounds(now);
-  const store = callStoreState();
-
-  const reps = await db.salesRep.findMany({
-    where: { active: true },
-    select: { id: true, name: true, active: true },
-    orderBy: { name: "asc" },
-  });
-  const repIds = reps.map((r) => r.id);
+  const board = await floorBoard({ repIds: null, now });
+  const { store, period, reps, states, pauseReasons, campaigns, anyLive, notTracked, serverNow } = board;
+  const { from } = period;
 
   if (!store.ready) {
     return NextResponse.json({
       store,
-      period: { from, to },
-      // The reps are real and are returned. The COLUMNS are what is missing,
-      // and the screen renders the names with the reason beside them rather
-      // than an empty table that reads as "nobody works here".
-      reps: reps.map((r) => ({ id: r.id, name: r.name, active: r.active, presence: null, stats: null })),
-      states: STATE_ORDER.map((code) => ({ code, ...REP_STATES[code] })),
-      pauseReasons: Object.values(PAUSE_REASONS),
+      period,
+      reps,
+      states,
+      pauseReasons,
       campaigns: null,
       inbound: null,
       salesVoice: null,
       inboundCalls: null,
       dialMode: dialModeState(),
-      notTracked: NOT_TRACKED_CALLS,
+      notTracked,
       teamLeadCannotSee: TEAM_LEAD_CANNOT_SEE,
-      serverNow: now.toISOString(),
+      serverNow,
     });
   }
 
-  // Read apart from `attempts` below, and by DIRECTION rather than by rep,
+  // Read apart from the board, and by DIRECTION rather than by rep,
   // because an inbound call that matched nobody carries a null salesRepId and
   // the `salesRepId: { in: repIds }` query cannot see it. A stranger ringing
   // FieldQuo's sales line is exactly the row worth noticing, and it would have
@@ -115,52 +90,19 @@ export async function GET(request) {
   // `undefined` on failure rather than [], so the screen can tell "nobody rang
   // today" from "we could not look" — the two are the same empty array and
   // different facts.
-  const [attempts, activity, presence, agent, inbound, voiceNumbers] = await Promise.all([
-    db.salesCallAttempt.findMany({
-      where: { salesRepId: { in: repIds }, dialledAt: { gte: from } },
-      orderBy: { dialledAt: "desc" },
-      include: {
-        // The trade is what a campaign report groups by here. Read through the
-        // prospect rather than copied onto the attempt: a trade is a fact about
-        // the business, and freezing it onto every call would make a
-        // reclassification invisible in yesterday's report and present in
-        // today's, for the same prospect.
-        prospect: { select: { tradeKey: true } },
-      },
-    }),
-    db.salesRepActivity.findMany({
-      where: { salesRepId: { in: repIds }, startedAt: { gte: from } },
-      orderBy: { startedAt: "asc" },
-    }),
-    presenceFor(repIds, { now }),
+  const [agent, inbound, voiceNumbers] = await Promise.all([
     salesAgentRow().catch(() => null),
     inboundCalls({ from, to: now }).catch(() => undefined),
     salesCallerNumbers().catch(() => undefined),
   ]);
 
-  const rows = teamCallRows({ reps, attempts, activity, presence, from, to, now });
-
-  const grouped = attempts.map((a) => ({
-    ...a,
-    groupKey: a.prospect?.tradeKey || null,
-    groupLabel: a.prospect?.tradeKey
-      ? DISCOVERY_TRADES[a.prospect.tradeKey]?.label || a.prospect.tradeKey
-      : null,
-  }));
-
-  // Is anybody actually reachable behind the inbound agent? Computed from the
-  // same presence rows the board is drawn from, so the two cannot disagree.
-  const anyLive = presence
-    ? presence.some((p) => p.presence?.everSeen && !p.presence.stale && REP_STATES[p.presence.state]?.live)
-    : null;
-
   return NextResponse.json({
     store,
-    period: { from, to },
-    reps: rows,
-    states: STATE_ORDER.map((code) => ({ code, ...REP_STATES[code] })),
-    pauseReasons: Object.values(PAUSE_REASONS),
-    campaigns: campaignCallRows({ attempts: grouped, from, to }),
+    period,
+    reps,
+    states,
+    pauseReasons,
+    campaigns,
     inbound: inboundHandling({
       agentEnabled: Boolean(agent?.enabled),
       canTransfer: Boolean(process.env.FIELDQUO_SALES_TRANSFER_TO),
@@ -201,8 +143,8 @@ export async function GET(request) {
             voicemailSeconds: Number.isFinite(row.voicemailSeconds) ? row.voicemailSeconds : null,
           })),
     dialMode: dialModeState(),
-    notTracked: NOT_TRACKED_CALLS,
+    notTracked,
     teamLeadCannotSee: TEAM_LEAD_CANNOT_SEE,
-    serverNow: now.toISOString(),
+    serverNow,
   });
 }

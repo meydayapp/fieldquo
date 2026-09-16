@@ -222,4 +222,83 @@ export const ARTICLES = {
       { q: "Pourquoi une personne affiche-t-elle « — » sous Intégration ?", a: "Aucune liste n'a jamais été lancée pour elle. Lancez-en une depuis son dossier RH si vous en voulez une." },
     ],
   },
+  // ── Le palier « agence » du portail des ventes (lib/sales/agency.js) ──────
+  "agencies-and-call-centres": {
+    title: "Agences et centres d'appels",
+    summary:
+      "Comment une agence de centre d'appels fonctionne dans le portail des ventes FieldQuo : ajouter ses propres représentants, chacun avec son lien d'inscription, le versement hebdomadaire regroupé avec la répartition par employé, le plateau de l'équipe, et ce que les représentants de l'agence voient et ne voient pas.",
+    updated: "2026-09-16",
+    intro: [
+      "FieldQuo vend par ses propres représentants, par des travailleurs autonomes et par des **agences de centre d'appels**. Une agence est un compte du portail des ventes qui ajoute ses propres personnes, ne surveille que sa propre équipe, et est payée — comme une seule entreprise — pour tout ce que ses gens apportent. Cet article s'adresse à la personne qui gère ce compte, et aux représentants qui travaillent sous elle.",
+      "Si vous êtes un représentant FieldQuo ou un travailleur autonome avec votre propre contrat, rien ici ne change pour vous : votre lien, votre écran de paie et votre plateau sont les vôtres.",
+    ],
+    sections: [
+      {
+        id: "what-an-agency-account-is",
+        heading: "Ce qu'est un compte d'agence",
+        blocks: [
+          { p: "Une agence se connecte au portail des ventes comme n'importe quel représentant. Ce qui diffère, c'est une ligne dans la barre latérale nommée **Mon équipe**, et le fait que l'agence est le **bénéficiaire** : la commission gagnée par ses représentants est regroupée dans le lot hebdomadaire de l'agence et versée aux coordonnées bancaires, PayPal, Interac ou Wise de l'agence — jamais au représentant lui-même." },
+          { bullets: [
+            "**FieldQuo crée le compte de l'agence**, avec le plan de commission convenu. Chaque représentant ajouté par l'agence gagne selon ce plan ; l'agence ne peut pas en choisir un autre.",
+            "**L'agence ajoute ses représentants** depuis Mon équipe. Elle saisit un nom, un courriel et les langues dans lesquelles la personne vend. Rien d'autre n'est demandé, parce que rien d'autre ne relève de l'agence.",
+            "**FieldQuo attribue à chaque représentant un numéro de téléphone et une boîte de travail.** Tant que les deux ne sont pas en place, le représentant peut se connecter mais ni appeler ni envoyer, et la ligne dans Mon équipe indique quelle moitié manque encore.",
+          ] },
+        ],
+      },
+      {
+        id: "adding-a-rep",
+        heading: "Ajouter un représentant",
+        blocks: [
+          { steps: [
+            "Ouvrez **Mon équipe** dans la barre latérale et remplissez **Ajouter un représentant** : le nom de la personne, le courriel avec lequel elle se connectera, et les langues dans lesquelles elle vend.",
+            "Appuyez sur **Envoyer l'invitation**. Le représentant reçoit un lien par courriel qui fonctionne une fois et expire au bout de sept jours, et choisit son propre mot de passe. Si le courriel ne part pas, la ligne affiche **Renvoyer l'invitation**.",
+            "FieldQuo est averti dès que le représentant est ajouté, et attribue le numéro de téléphone et la boîte de travail. La ligne indique **En attente de l'attribution par FieldQuo** tant que les deux ne sont pas là.",
+          ] },
+          { note: "Chaque représentant a son propre lien d'inscription — **Copier le lien** sur sa ligne. Une entreprise qui s'inscrit par ce lien est créditée à ce représentant, ce qui rend visibles les meilleurs vendeurs d'une équipe, même si l'argent est versé à l'agence." },
+        ],
+      },
+      {
+        id: "pay",
+        heading: "Comment l'agence est payée",
+        blocks: [
+          { p: "Chaque lundi, FieldQuo clôture la semaine précédente en lots de paiement — un par **bénéficiaire**. Pour une agence, c'est un seul lot qui rassemble les écritures de chaque employé et celles de l'agence, sous le nom de l'agence. L'écran **Paie** de l'agence montre les totaux regroupés, chaque semaine clôturée avec la façon et la date de paiement, et un tableau **Par employé** : ce que le lien de chaque représentant a rapporté, ce qui a été payé, ce qui est clôturé et en attente, et ce qui est encore ouvert cette semaine." },
+          { p: "L'agence indique où l'argent est envoyé sur ce même écran Paie. Les options sont PayPal, Virement Interac, Wise et virement bancaire." },
+          { warning: "Un représentant qui travaille pour une agence n'a **pas d'écran Paie**. S'il en ouvre un, il lit : « Votre commission est versée à <l'agence> ; adressez-vous à eux pour votre paie. » Ses écritures existent toujours et portent toujours son nom — elles sont simplement payées par l'agence." },
+        ],
+      },
+      {
+        id: "the-team-floor",
+        heading: "Le plateau de l'équipe",
+        blocks: [
+          { p: "Sous la liste de l'équipe, **Plateau de l'équipe** montre en direct les représentants de l'agence : qui est disponible, en appel, en train de consigner un appel, en pause et pourquoi, et depuis combien de temps — avec, pour chacun, les appels du jour, le taux de joignabilité déclaré, les appels non encore consignés et le temps en appel, ainsi que les résultats du jour par métier. Il s'actualise toutes les quinze secondes et ne montre personne hors de l'équipe." },
+          { p: "Chaque état du plateau est déclaré par le représentant depuis son propre sélecteur de statut. Rien n'est observé depuis une ligne téléphonique." },
+        ],
+      },
+      {
+        id: "deactivating-a-rep",
+        heading: "Désactiver et réactiver un représentant",
+        blocks: [
+          { p: "**Désactiver** sur la ligne d'un représentant ferme sa porte immédiatement — son lien cesse de créditer de nouvelles inscriptions, et ce qu'il a gagné reste au dossier. Désactivé n'est jamais supprimé." },
+          { p: "Si le représentant détient encore des prospects ou des pistes ouvertes, le bouton demande d'abord ce qu'il en advient : remettre les prospects dans le bassin, ou tout transférer à un autre représentant de l'équipe. Les pistes ouvertes ne sont jamais libérées — une piste doit avoir un représentant — vous choisissez donc qui les reprend. **Réactiver** ramène un représentant avec le même lien." },
+        ],
+      },
+      {
+        id: "what-the-agency-cannot-do",
+        heading: "Ce que l'agence ne peut pas faire",
+        blocks: [
+          { bullets: [
+            "Choisir le **type** d'un représentant — chaque représentant ajouté est un employé de l'agence. Elle ne peut pas en faire un travailleur autonome ou un employé FieldQuo, ni le placer sur un autre plan de commission.",
+            "Attribuer des **numéros de téléphone ou des boîtes de travail** — c'est à FieldQuo, qui est averti à chaque ajout de représentant.",
+            "Voir **les autres équipes**, la ligne entrante de FieldQuo, ou la liste des personnes à ne pas contacter. Le plateau et les résultats ne concernent que les représentants de l'agence.",
+            "Changer **à qui une entreprise est créditée**. L'attribution est enregistrée à l'inscription et corrigée uniquement par un superadministrateur FieldQuo.",
+          ] },
+        ],
+      },
+    ],
+    faq: [
+      { q: "Un représentant de mon équipe dit qu'il ne voit pas sa paie. Y a-t-il un problème ?", a: "Non. Les représentants qui travaillent pour une agence sont payés par l'agence, donc la ligne Paie n'est pas dans leur barre latérale et les routes de paie les refusent volontairement. Leurs gains apparaissent sur votre écran Paie sous Par employé." },
+      { q: "J'ai ajouté un représentant il y a une heure et il ne peut toujours pas appeler.", a: "FieldQuo doit attribuer son numéro de téléphone et sa boîte de travail ; la ligne dans Mon équipe indique ce qui manque encore. FieldQuo est averti dès que vous ajoutez quelqu'un." },
+      { q: "Puis-je transférer les pistes d'un représentant à un représentant FieldQuo qui n'est pas dans mon équipe ?", a: "Non. Le travail ne se transfère qu'au sein de votre équipe. Demandez à FieldQuo si une piste doit aller ailleurs." },
+    ],
+  },
 };
