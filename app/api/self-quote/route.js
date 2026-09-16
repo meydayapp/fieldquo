@@ -110,6 +110,11 @@ export async function POST(request) {
       { status: 400 },
     );
   }
+  // The job address is required (2026-09-15). The form says so first; this is
+  // the rule, so a request posted around the form is held to it too.
+  if (!String(address || "").trim()) {
+    return NextResponse.json({ error: "The job address is required." }, { status: 400 });
+  }
 
   // ── The address a quote will be sent to ─────────────────────────────────
   //

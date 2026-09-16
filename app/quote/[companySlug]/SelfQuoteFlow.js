@@ -149,6 +149,10 @@ export default function SelfQuoteFlow({ companySlug, embedded = false }) {
     if (!contact.email.trim() && !contact.phone.trim()) {
       return setError(copy.errContact);
     }
+    // The address is required (owner, 2026-09-15): a quote is priced for a
+    // place — travel, jurisdiction, tax — and a request without one is a
+    // phone call before it can be a quote.
+    if (!contact.address.trim()) return setError(copy.errAddress);
 
     setSubmitting(true);
     try {
@@ -593,6 +597,7 @@ export default function SelfQuoteFlow({ companySlug, embedded = false }) {
                     }))
                   }
                   placeholder={copy.addressPlaceholder}
+                  required
                   className="w-full border border-black/15 rounded-lg px-3 py-2.5 text-sm"
                 />
                 <MediaUploader

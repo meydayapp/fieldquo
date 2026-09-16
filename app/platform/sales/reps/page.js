@@ -2030,8 +2030,8 @@ function QueuePanel({ rep, panel, isSuperadmin, busy, moveTarget, onPickTarget, 
           </div>
           {(panel.frenchHeld ?? 0) > 0 ? (
             <p className="text-xs text-amber-700 dark:text-amber-300">
-              {plural(panel.frenchHeld, "held prospect")} {panel.frenchHeld === 1 ? "is" : "are"} in Quebec
-              and can only go to a rep who sells in French, so reps without French are greyed. Tick
+              {plural(panel.frenchHeld, "held prospect")} {panel.frenchHeld === 1 ? "is" : "are"} in Quebec{" "}
+              and can only go to a rep who sells in French, so reps without French are greyed. Tick{" "}
               Français under &quot;Sells in&quot; on their card to make them eligible.
             </p>
           ) : null}

@@ -47,6 +47,7 @@ import {
   Loader2,
   Plus,
   RefreshCw,
+  Trash2,
   Wrench,
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
@@ -87,6 +88,7 @@ export default function SalesDemoPage() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
   const [confirmReset, setConfirmReset] = useState(null);
+  const [confirmRemove, setConfirmRemove] = useState(null);
   const [password, setPassword] = useState("");
   const [replacing, setReplacing] = useState(false);
   const [trade, setTrade] = useState("");
@@ -114,6 +116,7 @@ export default function SalesDemoPage() {
         body: JSON.stringify(body),
       });
       setConfirmReset(null);
+      setConfirmRemove(null);
       setData(next);
       return next;
     } catch (err) {
@@ -359,6 +362,46 @@ export default function SalesDemoPage() {
                     </button>
                     <p className="text-xs text-muted-foreground break-words">{t("app.salesCal.demoResetBody")}</p>
                   </div>
+                )}
+
+                {/* Remove: retire with nothing in its place, so the trade goes
+                    back on the "add a demo" list. Same two presses as Reset,
+                    same "kept, retired" truth — nothing is deleted. */}
+                {confirmRemove === company.id ? (
+                  <div className="space-y-2">
+                    <p className="text-sm text-amber-900 dark:text-amber-200 break-words">
+                      {t("app.salesCal.demoRemoveConfirm", { company: company.name })}
+                    </p>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <button
+                        type="button"
+                        disabled={Boolean(busy)}
+                        onClick={() => act({ action: "retire", companyId: company.id }, `retire:${company.id}`)}
+                        className={`${BTN} bg-red-600 text-white flex-1`}
+                        data-demo-remove-confirm
+                      >
+                        {busy === `retire:${company.id}` ? <Loader2 className="animate-spin" size={16} /> : <Trash2 size={16} />}
+                        {t("app.salesCal.demoRemoveYes")}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmRemove(null)}
+                        className={`${BTN} border border-border text-foreground flex-1`}
+                      >
+                        {t("app.salesCal.demoResetNo")}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={Boolean(busy)}
+                    onClick={() => setConfirmRemove(company.id)}
+                    className="text-xs text-muted-foreground underline underline-offset-2 self-start"
+                    data-demo-remove
+                  >
+                    {t("app.salesCal.demoRemoveButton")}
+                  </button>
                 )}
               </article>
             ))}

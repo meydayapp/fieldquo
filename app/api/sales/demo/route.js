@@ -58,8 +58,7 @@ import {
   ensureRepDemoLogin,
   openRepDemo,
   repDemoState,
-  resetRepDemo,
-} from "@/lib/sales/repDemo";
+  resetRepDemo, retireRepDemo } from "@/lib/sales/repDemo";
 import { INDUSTRIES } from "@/lib/demo/industries";
 import { materialiseDemoCheckIn } from "@/lib/sales/checkin/materialise";
 
@@ -152,6 +151,13 @@ export async function POST(request) {
       });
     }
 
+    if (action === "retire") {
+      const companyId = String(body?.companyId ?? "").trim();
+      if (!companyId) return bad("companyId is required.");
+      const result = await retireRepDemo({ rep: row, companyId });
+      if (!result.ok) return bad(result.error, result.status);
+      return NextResponse.json({ ok: true, retiredId: result.retired.id, ...(await fullState(rep.id)) });
+    }
     if (action === "login") {
       const result = await ensureRepDemoLogin({ rep: row, password: body?.password });
       if (!result.ok) return bad(result.error, result.status);
@@ -167,5 +173,5 @@ export async function POST(request) {
     return bad(err?.message || "That did not work.", err?.status || 500);
   }
 
-  return bad('Expected "create", "open", "reset" or "login".');
+  return bad('Expected "create", "open", "reset", "retire" or "login".');
 }
