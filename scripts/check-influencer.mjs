@@ -24,6 +24,7 @@ import {
   REP_KINDS,
   decideEnrolment,
   enrolInfluencer,
+  unenrolInfluencer,
   influencerRepCode,
   isInfluencer,
   isInfluencerRep,
@@ -202,6 +203,59 @@ section("Referral through an influencer's link");
   writes.length = 0;
   const second = await applySignupReferral({ company: stored, code });
   ok("a repeated signup on the same code does not write a second attribution", rows.salesAttribution.filter((a) => a.companyId === "c_new").length === 1 && second?.attribution?.outcome === "already_attributed", second?.attribution?.outcome);
+}
+
+// ── 5b. Stop influencer status, and start it again ─────────────────────────
+section("Unenrol: back to a regular company; re-enrol: the same ledger comes back");
+{
+  fresh();
+  const dan = company("c_dan", "Reno Dan", "dan@example.com");
+  rows.company.push(dan);
+  await enrolInfluencer({ companyId: dan.id, commissionPlanId: PLAN.id, via: "check" });
+  const ledger = rows.salesRep[0];
+  const code = rows.company[0].referralCode;
+  // One referral earned while enrolled — it must survive the stop.
+  const first = company("c_first", "First Floors", "first@example.com");
+  rows.company.push(first);
+  await applySignupReferral({ company: first, code });
+  ok("setup: one attribution on the ledger", rows.salesAttribution.filter((a) => a.salesRepId === ledger.id).length === 1);
+
+  const stopped = await unenrolInfluencer({ companyId: dan.id, via: "check" });
+  ok("unenrol succeeds and names the ledger", stopped.ok === true && stopped.ledgerId === ledger.id, stopped);
+  const c = rows.company.find((x) => x.id === "c_dan");
+  ok("the company's influencer columns are cleared", !isInfluencer(c) && c.influencerAt === null && c.influencerRepId === null, c);
+  ok("…its referral code is kept, so the link a follower has still works", c.referralCode === code);
+  ok("the ledger row is deactivated, never deleted", rows.salesRep.length === 1 && rows.salesRep[0].active === false, rows.salesRep[0]);
+  ok("…and the attribution already earned stays written", rows.salesAttribution.filter((a) => a.salesRepId === ledger.id).length === 1);
+  ok("unenrolling twice is refused as not_influencer, and logged", (await unenrolInfluencer({ companyId: dan.id, via: "check" })).reason === "not_influencer" && rows.platformErrorLog.some((e) => e.code === "not_influencer"));
+
+  // A referral AFTER the stop earns the ordinary referrer month again.
+  const later = company("c_later", "Later Landscaping", "later@example.com");
+  rows.company.push(later);
+  const result = await applySignupReferral({ company: later, code });
+  ok("a referral after unenrol still applies for the referee", result && result.referrer?.id === dan.id, result);
+  ok("…writes NO attribution — the ledger is closed", !rows.salesAttribution.some((a) => a.companyId === "c_later"));
+  const credit = await grantReferrerCredit({ paidCompanyId: "c_later", paidAmountCents: 12900, currency: "usd" });
+  ok("…and the referrer month is granted again once they pay", credit !== null && rows.referralCredit.some((r) => r.role === "referrer" && r.companyId === "c_dan"), credit);
+
+  // Re-enrol under another plan: the SAME row comes back, active, on the new plan.
+  const OTHER = { ...PLAN, id: "plan_other", name: "Other plan" };
+  rows.salesCommissionPlan.push(OTHER);
+  const again = await enrolInfluencer({ companyId: dan.id, commissionPlanId: OTHER.id, via: "check" });
+  ok("re-enrolment succeeds by reactivation, not a second ledger", again.ok === true && again.reactivated === true && rows.salesRep.length === 1, again);
+  ok("…the row is active again on the newly chosen plan", rows.salesRep[0].active === true && rows.salesRep[0].commissionPlanId === OTHER.id);
+  ok("…and the company points at it again", isInfluencer(rows.company.find((x) => x.id === "c_dan")) && rows.company.find((x) => x.id === "c_dan").influencerRepId === ledger.id);
+  ok("a rep's login on the owner's email is still a refusal", decideEnrolment({ company: company("c_x", "X", "x@example.com"), ownerEmail: "x@example.com", plan: PLAN, emailTakenBy: { id: "rep_x", kind: "rep" } }).reason === "email_taken");
+}
+
+section("The reps page cannot flip an influencer ledger alone");
+{
+  const route = readFileSync(join(ROOT, "app/api/platform/sales/reps/[id]/route.js"), "utf8");
+  ok("PATCH { active } on a kind influencer row answers 409 and points at the company page", /existing\.kind === INFLUENCER_KIND && typeof active === "boolean"/.test(route) && /status: 409/.test(route));
+  const panel = readFileSync(join(ROOT, "app/platform/companies/[id]/CompanyInfluencer.js"), "utf8");
+  ok("the company page has Stop influencer status behind a confirm that says what happens", /data-influencer-stop\b/.test(panel) && /data-influencer-stop-confirm/.test(panel) && /earns them the\s+free month again/.test(panel) && /never deleted/.test(panel));
+  const api = readFileSync(join(ROOT, "app/api/platform/companies/[id]/influencer/route.js"), "utf8");
+  ok("DELETE on the platform influencer route unenrols, superadmin only, audited", /export async function DELETE/.test(api) && /unenrolInfluencer\(/.test(api) && /influencer_unenrolled/.test(api));
 }
 
 // ── 6. The influencer cannot refer themselves ──────────────────────────────

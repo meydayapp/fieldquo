@@ -705,6 +705,14 @@ export const ARTICLES = {
           { p: "Solo propietarios y administradores, y solo en una empresa inscrita. Los demás no ven la fila." },
         ],
       },
+      {
+        id: "starting-and-stopping",
+        heading: "Cómo empieza, y cómo termina",
+        blocks: [
+          { p: "Una empresa se convierte en influencer de dos maneras: registrándose con un enlace de influencer que FieldQuo le dio, o — si ya tiene cuenta — porque FieldQuo la inscribe desde su lado. Una empresa existente no puede inscribirse sola abriendo un enlace de registro de influencer; el formulario solo dice que ese correo ya tiene acceso y remite a Iniciar sesión." },
+          { p: "FieldQuo también puede terminar el estatus. Desde ese momento la empresa vuelve a las reglas ordinarias de referidos — su enlace le gana el mes gratis, no comisión. Todo lo ya ganado se paga igual en el lote semanal normal, y el enlace de referido sigue funcionando. Si el estatus se reactiva más tarde, vuelve el mismo registro de ganancias bajo el plan que se elija entonces." },
+        ],
+      },
     ],
     faq: [
       { q: "Alguien se registró con mi enlace pero no aparece en la lista, ¿por qué?", a: "La lista son las empresas cuyo registro se te acreditó. Una empresa registrada con tu propio correo, o ya acreditada a otra persona, no aparece." },

@@ -38,6 +38,22 @@ export default function CompanyInfluencer({ companyId, onDone }) {
     load();
   }, [load]);
 
+  const [confirmStop, setConfirmStop] = useState(false);
+  async function stop() {
+    setBusy(true);
+    setError("");
+    try {
+      const json = await fetchJson(`/api/platform/companies/${companyId}/influencer`, { method: "DELETE" });
+      setData((d) => ({ ...(d || {}), ...json }));
+      setConfirmStop(false);
+      onDone?.();
+    } catch (e) {
+      setError(e.message || "Could not stop the influencer status.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function enrol() {
     setBusy(true);
     setError("");
@@ -104,6 +120,60 @@ export default function CompanyInfluencer({ companyId, onDone }) {
               {data.ledgerActive === false ? " · ledger deactivated" : ""}
             </dd>
           </div>
+          {/* The reverse of enrolment, on the same page as enrolment, so the
+              company row and the ledger row are always changed together.
+              The confirm sentence says exactly what happens — a "deactivate"
+              that silently kept the company flagged would leave them earning
+              neither commission nor the free month. */}
+          <div className="sm:col-span-3">
+            <PlatformWriteGate
+              status={roleStatus}
+              allowed={isSuperadmin}
+              error={roleError}
+              action="Stopping a company's influencer status"
+              who="superadmin"
+            >
+              {!confirmStop ? (
+                <button
+                  type="button"
+                  onClick={() => setConfirmStop(true)}
+                  className="min-h-[44px] lg:min-h-0 inline-flex items-center gap-1.5 border border-border rounded-full px-4 py-2 text-xs font-bold"
+                  data-influencer-stop
+                >
+                  Stop influencer status
+                </button>
+              ) : (
+                <div className="rounded-lg border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 p-3 text-sm space-y-2">
+                  <p className="text-foreground">
+                    This company goes back to the ordinary referral rules from now: their link earns them the
+                    free month again, not commission. The ledger is deactivated, never deleted — everything already
+                    earned is still paid in the normal batch — and the referral link keeps working. Re-enrolling
+                    later reactivates the same ledger under whichever plan you choose then.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={stop}
+                      disabled={busy}
+                      className="min-h-[44px] lg:min-h-0 inline-flex items-center gap-1.5 bg-inverted text-inverted-foreground rounded-full px-4 py-2 text-xs font-bold disabled:opacity-50"
+                      data-influencer-stop-confirm
+                    >
+                      {busy ? <Loader2 size={13} className="animate-spin" /> : null}
+                      Yes, stop it
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmStop(false)}
+                      disabled={busy}
+                      className="min-h-[44px] lg:min-h-0 inline-flex items-center rounded-full px-4 py-2 text-xs font-bold border border-border"
+                    >
+                      Keep it
+                    </button>
+                  </div>
+                </div>
+              )}
+            </PlatformWriteGate>
+          </div>
         </dl>
       ) : null}
 
@@ -150,7 +220,8 @@ export default function CompanyInfluencer({ companyId, onDone }) {
             ) : (
               <p className="text-xs text-muted-foreground mt-2">
                 Their referral code is minted if they have none, and their link starts earning under
-                this plan from the next signup. Earlier referrals are not moved.
+                this plan from the next signup. Earlier referrals are not moved. A company that was an
+                influencer before gets its old ledger back under this plan, with everything it earned.
               </p>
             )}
           </PlatformWriteGate>

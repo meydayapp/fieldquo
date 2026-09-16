@@ -708,6 +708,14 @@ export const ARTICLES = {
           { p: "Owners and administrators only, and only on an enrolled company. Everyone else does not see the row." },
         ],
       },
+      {
+        id: "starting-and-stopping",
+        heading: "How it starts, and how it stops",
+        blocks: [
+          { p: "A company becomes an influencer in one of two ways: by signing up with an influencer link FieldQuo gave them, or — for a company that already has an account — by FieldQuo enrolling it from its own side. An existing company cannot enrol itself by opening an influencer signup link; the signup form simply says the email already has a login and points to Sign in." },
+          { p: "FieldQuo can also stop the status. From that moment the company is under the ordinary referral rules again — their link earns them the free month, not commission. Everything already earned is still paid in the normal weekly batch, and the referral link keeps working. If the status is started again later, the same earnings record comes back under whichever plan is chosen then." },
+        ],
+      },
     ],
     faq: [
       { q: "Somebody signed up through my link but is not in the list — why?", a: "The list is companies whose signup was credited to you. A company registered with your own email, or one already credited to somebody else, is not." },

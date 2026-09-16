@@ -49,6 +49,7 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { INFLUENCER_KIND } from "@/lib/influencers";
 import { ENGAGEMENTS, isEngagement } from "@/lib/sales/payoutDetails";
 import { db } from "@/lib/db";
 import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
@@ -130,6 +131,7 @@ export async function PATCH(request, { params }) {
       workEmail: true,
       commissionPlanId: true,
       sellsIn: true,
+      kind: true,
     },
   });
   if (!existing) {
@@ -138,6 +140,25 @@ export async function PATCH(request, { params }) {
 
   const body = await request.json().catch(() => ({}));
   const { active } = body;
+
+  // An influencer's ledger row is not deactivated here. Its `active` is the
+  // COMPANY's influencer standing, and the two are cleared or restored
+  // together on /platform/companies/[id] (lib/influencers unenrolInfluencer /
+  // enrolInfluencer) — flipping the row alone would leave a company flagged
+  // influencer with a dead ledger, earning neither commission nor the free
+  // month. Point at the one place that keeps both in step.
+  if (existing.kind === INFLUENCER_KIND && typeof active === "boolean" && active !== existing.active) {
+    const company = await db.company.findFirst({ where: { influencerRepId: existing.id }, select: { id: true } });
+    return NextResponse.json(
+      {
+        error: active
+          ? "This is an influencer ledger. Re-enrol the company on its platform page to reactivate it."
+          : "This is an influencer ledger. Stop the influencer status on the company's platform page — that deactivates the ledger and returns the company to the ordinary referral rules together.",
+        companyId: company?.id || null,
+      },
+      { status: 409 },
+    );
+  }
   // `undefined` means "this request isn't about the mailbox". `null` and `""`
   // both mean "clear it", which is a real thing to want — a mailbox is closed
   // when somebody leaves, and leaving a dead address on the row would keep

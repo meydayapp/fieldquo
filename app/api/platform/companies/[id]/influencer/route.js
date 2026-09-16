@@ -19,7 +19,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
-import { enrolInfluencer, isInfluencer } from "@/lib/influencers";
+import { enrolInfluencer, isInfluencer, unenrolInfluencer } from "@/lib/influencers";
 import { resolvePlanAssignment } from "@/lib/sales/commissionPlanServer";
 
 const REFUSALS = {
@@ -122,4 +122,36 @@ export async function POST(request, { params }) {
 
   const fresh = await standing(id);
   return NextResponse.json(fresh, { status: 201 });
+}
+
+// DELETE — stop influencer status. The company goes back to the ordinary
+// referral rules from now; the ledger is deactivated, never deleted, so what
+// it has already earned is still paid; the referral link keeps working.
+// Superadmin only, same as enrolment, and audited beside it.
+export async function DELETE(request, { params }) {
+  const { id } = await params;
+  const admin = await getCurrentPlatformAdmin(request);
+  if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (admin.role !== "superadmin") {
+    return NextResponse.json(
+      { error: "Only a superadmin can stop a company's influencer status." },
+      { status: 403 },
+    );
+  }
+  const out = await unenrolInfluencer({ companyId: id, via: `platform:${admin.id}` });
+  if (!out.ok) {
+    const status = out.reason === "unknown_company" ? 404 : 409;
+    const message =
+      out.reason === "not_influencer" ? "This company is not an influencer." : REFUSALS[out.reason] || REFUSALS.error;
+    return NextResponse.json({ error: message, reason: out.reason }, { status });
+  }
+  await db.platformAuditLog.create({
+    data: {
+      platformAdminId: admin.id,
+      action: "influencer_unenrolled",
+      details: { companyId: id, ledgerId: out.ledgerId },
+    },
+  });
+  const fresh = await standing(id);
+  return NextResponse.json(fresh);
 }

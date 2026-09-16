@@ -704,6 +704,14 @@ export const ARTICLES = {
           { p: "Les propriétaires et les administrateurs seulement, et seulement dans une entreprise inscrite. Les autres ne voient pas la ligne." },
         ],
       },
+      {
+        id: "starting-and-stopping",
+        heading: "Comment ça commence, et comment ça s'arrête",
+        blocks: [
+          { p: "Une entreprise devient influenceuse de deux façons : en s'inscrivant avec un lien influenceur remis par FieldQuo, ou — pour une entreprise qui a déjà un compte — en étant inscrite par FieldQuo de son côté. Une entreprise existante ne peut pas s'inscrire elle-même en ouvrant un lien d'inscription influenceur ; le formulaire dit simplement que le courriel a déjà un accès et renvoie vers la connexion." },
+          { p: "FieldQuo peut aussi mettre fin au statut. Dès cet instant, l'entreprise revient aux règles ordinaires de parrainage — son lien lui rapporte le mois gratuit, pas une commission. Tout ce qui a déjà été gagné est quand même payé dans le lot hebdomadaire normal, et le lien de parrainage continue de fonctionner. Si le statut est relancé plus tard, le même relevé de gains revient, sous le plan choisi à ce moment-là." },
+        ],
+      },
     ],
     faq: [
       { q: "Quelqu'un s'est inscrit par mon lien mais n'apparaît pas dans la liste — pourquoi ?", a: "La liste contient les entreprises dont l'inscription vous a été créditée. Une entreprise enregistrée avec votre propre courriel, ou déjà créditée à quelqu'un d'autre, n'y figure pas." },
