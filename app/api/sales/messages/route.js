@@ -104,6 +104,26 @@ import { findSuppressions } from "@/lib/sales/suppression";
 import { loadContactNumbers } from "@/lib/sales/contact/resolve";
 import { db } from "@/lib/db";
 import { materialiseCheckInsForRep, materialiseDemoCheckIn } from "@/lib/sales/checkin/materialise";
+
+// ── Where the seconds go, said in the response ─────────────────────────────
+// The owner measured 10+ s to open a thread. From a warm machine every query
+// in this file answers in well under a second, so the time is somewhere this
+// file cannot see — a cold function, a sleeping database, the network. A
+// Server-Timing header and one log line per request put the server's own
+// number beside the browser's, so the next report can say which it was.
+function timed(t0, label, body) {
+  const ms = Date.now() - t0;
+  console.log(`[sales/messages] ${label} ${ms}ms`);
+  return NextResponse.json(body, { headers: { "Server-Timing": `app;dur=${ms}` } });
+}
+const MATERIALISE_EVERY_MS = 10 * 60 * 1000;
+const materialisedAt = new Map();
+function shouldMaterialise(repId) {
+  const last = materialisedAt.get(repId) || 0;
+  if (Date.now() - last < MATERIALISE_EVERY_MS) return false;
+  materialisedAt.set(repId, Date.now());
+  return true;
+}
 import { ruleDraft } from "@/lib/sales/checkin/draft";
 import { CHECKIN_REASONS, REASON_CODES, checkinHeadlineKey } from "@/lib/sales/checkin/signals";
 import { signupLinkFor } from "@/lib/sales/repStats";
@@ -162,6 +182,7 @@ export async function GET(request) {
 
   const url = new URL(request.url);
   const withE164 = normalisePhone(url.searchParams.get("with"));
+  const t0 = Date.now();
 
   if (!withE164) {
     // ── The backlog first, so "Drafts due" is true when it renders ────────
@@ -176,8 +197,15 @@ export async function GET(request) {
     // list still drawn from what IS on record.
     let backlogError = null;
     try {
-      await materialiseCheckInsForRep({ salesRepId: rep.id });
-      await materialiseDemoCheckIn({ salesRepId: rep.id });
+      // …but not on EVERY list load. The snapshot is reads-then-inserts over
+      // every attributed company and cost ~0.6 s before a single conversation
+      // was read (measured 2026-09-15). The daily cron and the Companies page
+      // write the same rows; here it runs at most once per rep every ten
+      // minutes per instance, the cadence a draft can actually change at.
+      if (shouldMaterialise(rep.id)) {
+        await materialiseCheckInsForRep({ salesRepId: rep.id });
+        await materialiseDemoCheckIn({ salesRepId: rep.id });
+      }
     } catch (err) {
       backlogError = "Check-ins for your companies could not be written, so \"Drafts due\" may be missing one.";
       console.error("[sales messages] backlog unwritable:", err?.message);
@@ -312,7 +340,7 @@ export async function GET(request) {
         });
       }
     }
-    return NextResponse.json({
+    return timed(t0, `list rep=${rep.id} conversations=${conversations.length}`, {
       conversations,
       readStateError,
       draftsError: draftsError || backlogError,
@@ -502,7 +530,7 @@ export async function GET(request) {
     return { e164, lastAt, count };
   });
 
-  return NextResponse.json({
+  return timed(t0, `thread rep=${rep.id} with=${withE164} messages=${threadMessages.length}`, {
     with: withE164,
     numbers: numberRows,
     messages: threadMessages,

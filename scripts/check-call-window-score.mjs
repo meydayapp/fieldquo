@@ -169,6 +169,10 @@ section("4. The batch top-up: the same key, and never over a shut window or a ca
     ],
     shiftEnd,
     want: 25,
+    // The fixture's clock, not the wall clock: an opensAt built from a
+    // September 2026 'now' is in the past once the calendar moves on, and
+    // 'opens within the hour' would then be true for every shut row.
+    now,
   });
   ok("selectBatch: the best hour outranks the row that shuts sooner and is researched", picked.ids[0] === "best_hour", picked.ids);
   ok("…an unscored row goes last, after the scored ones", picked.ids.join() === "best_hour,shuts_soon,unscored", picked.ids);
@@ -179,16 +183,27 @@ section("4. The batch top-up: the same key, and never over a shut window or a ca
     ],
     shiftEnd,
     want: 25,
+    // The fixture's clock, not the wall clock: an opensAt built from a
+    // September 2026 'now' is in the past once the calendar moves on, and
+    // 'opens within the hour' would then be true for every shut row.
+    now,
   });
   ok("…a due retry still goes first", due.ids[0] === "due_retry", due.ids);
   const shut = selectBatch({
     candidates: [
       cand("ordinary_open", { windowScore: 11 }),
-      cand("shut_but_scored", { windowScore: 34, readiness: { decision: CALL_REFUSED, blockers: [{ code: "outside_window" }], opensAt: new Date(now.getTime() + 3600 * 1000) } }),
+      // Opens in three hours — past the one-hour pre-claim rule of 2026-09-14
+      // (queueBatch.js CLAIM_OPENS_WITHIN_MS). At exactly +60 min the row IS
+      // claimable, which is what this fixture used to assert against.
+      cand("shut_but_scored", { windowScore: 34, readiness: { decision: CALL_REFUSED, blockers: [{ code: "outside_window" }], opensAt: new Date(now.getTime() + 3 * 3600 * 1000) } }),
       cand("cap_held", { windowScore: 34, readiness: { decision: CALL_REFUSED, blockers: [{ code: "call_cap_reached" }] } }),
     ],
     shiftEnd,
     want: 25,
+    // The fixture's clock, not the wall clock: an opensAt built from a
+    // September 2026 'now' is in the past once the calendar moves on, and
+    // 'opens within the hour' would then be true for every shut row.
+    now,
   });
   ok("a shut window is never taken, whatever the score", !shut.ids.includes("shut_but_scored"));
   ok("a jurisdiction cap holds the row out of the batch, whatever the score", !shut.ids.includes("cap_held") && shut.ids.join() === "ordinary_open", shut.ids);

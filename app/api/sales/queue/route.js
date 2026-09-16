@@ -239,7 +239,7 @@ async function queueBody(rep, { tradeKey = null, prospectId = null, timeZone = n
   const shiftStart = await shiftStartFor({ db, salesRepId: rep.id, timeZone: zone, now });
   const shiftEnd = shiftEndFrom({ shiftStart, now });
   const grouped = groupByWindow(
-    inClaimOrder.map((p) => ({ id: p.id, country: p.country, province: p.province, timeZone: p.leads?.[0]?.timeZone || null })),
+    inClaimOrder.map((p) => ({ id: p.id, country: p.country, province: p.province, timeZone: p.leads?.[0]?.timeZone || null, name: p.businessName })),
     { repZone: zone, shiftEnd, now, language: lang, policyContext },
   );
   // ── Then the retry pool re-orders those groups ─────────────────────────
@@ -290,19 +290,31 @@ async function queueBody(rep, { tradeKey = null, prospectId = null, timeZone = n
   // Per-trade counts, so the rep can pick a queue and see there is something in
   // it. Counts only — a count is not a list, and nothing here lets a rep read a
   // prospect they have not claimed.
-  const trades = await Promise.all(
-    discoveryTradeKeys().map(async (key) => {
-      const [mine, available] = await Promise.all([
-        db.prospect.count({ where: { ...queueWhere(rep.id, { now }), tradeKey: key } }),
-        // THIS rep's pool, not the pool: a Quebec row an anglophone rep
-        // cannot be handed is not "available" to them, and a count that
-        // said 900 beside a button that claimed 12 would be the dead
-        // control in numbers. The campaigns console counts without a rep.
-        db.prospect.count({ where: claimCandidateWhere({ tradeKey: key, now, rep }) }),
-      ]);
-      return { key, label: DISCOVERY_TRADES[key].label, claimed: mine, available };
-    }),
-  );
+  // Two GROUP BYs, not 78 COUNTs. This used to count "mine" and "available"
+  // per trade — 39 trades × 2 = 78 queries over a 560,000-row table on every
+  // load, through a five-connection pool, and it was the largest single
+  // cost of the 12-second queue the owner reported on 2026-09-15 (1.7 s
+  // measured from a warm machine; worse on a cold lambda). The same WHERE
+  // grouped by tradeKey answers all 39 at once; the counts were checked
+  // equal to the per-trade ones, trade for trade, before the switch.
+  //
+  // "Available" is THIS rep's pool, not the pool: a Quebec row an anglophone
+  // rep cannot be handed is not "available" to them, and a count that said
+  // 900 beside a button that claimed 12 would be the dead control in
+  // numbers. The campaigns console counts without a rep.
+  const { tradeKey: _anyTrade, ...candidateWhere } = claimCandidateWhere({ tradeKey: null, now, rep });
+  const tradeKeys = discoveryTradeKeys();
+  const [mineByTrade, availableByTrade] = await Promise.all([
+    db.prospect.groupBy({ by: ["tradeKey"], where: queueWhere(rep.id, { now }), _count: { _all: true } }),
+    db.prospect.groupBy({ by: ["tradeKey"], where: { ...candidateWhere, tradeKey: { in: tradeKeys } }, _count: { _all: true } }),
+  ]);
+  const countOf = (rows, key) => rows.find((r) => r.tradeKey === key)?._count?._all || 0;
+  const trades = tradeKeys.map((key) => ({
+    key,
+    label: DISCOVERY_TRADES[key].label,
+    claimed: countOf(mineByTrade, key),
+    available: countOf(availableByTrade, key),
+  }));
 
   const availableToClaim =
     tradeKey && DISCOVERY_TRADES[tradeKey]
@@ -687,7 +699,15 @@ export async function GET(request) {
   const timeZone = (url.searchParams.get("timeZone") || "").trim().slice(0, 64);
   const language = (url.searchParams.get("language") || "").trim().slice(0, 8);
 
-  return NextResponse.json(await queueBody(rep, { tradeKey, prospectId, timeZone, language }));
+  // Server-Timing + one log line: the owner measured 12 s from the browser
+  // and every query here answers in under two seconds from a warm machine.
+  // The server's own number beside the browser's is what tells a cold
+  // function from a slow query on the next report.
+  const t0 = Date.now();
+  const body = await queueBody(rep, { tradeKey, prospectId, timeZone, language });
+  const ms = Date.now() - t0;
+  console.log(`[sales/queue] GET rep=${rep.id} trade=${tradeKey || "-"} items=${body?.queue?.items?.length ?? 0} ${ms}ms`);
+  return NextResponse.json(body, { headers: { "Server-Timing": `app;dur=${ms}` } });
 }
 
 export async function POST(request) {
