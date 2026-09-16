@@ -70,7 +70,7 @@ callbacks, the crew inbox, team chat, How You Compare, the KPI dashboard,
 
 <!-- tree:start -->
 
-_Generated 2026-09-16 — 321 articles in the tree; written: en 321, fr 321, es 321; “Only in FieldQuo”: 34._
+_Generated 2026-09-16 — 320 articles in the tree; written: en 320, fr 320, es 320; “Only in FieldQuo”: 34._
 
 ### getting-started (23)
 
@@ -227,7 +227,7 @@ _Generated 2026-09-16 — 321 articles in the tree; written: en 321, fr 321, es 
 | `referrals-from-clients` — Referrals from clients | ✓ | ✓ | ✓ |  |  |  |
 | `duplicate-clients` — Duplicate clients | ✓ | ✓ | ✓ |  | clients |  |
 
-### team-and-access (27)
+### team-and-access (26)
 
 | Article | en | fr | es | Screen | Feature | Only |
 |---|:-:|:-:|:-:|---|---|:-:|
@@ -257,7 +257,6 @@ _Generated 2026-09-16 — 321 articles in the tree; written: en 321, fr 321, es 
 | `company-policies` — Company policies and acknowledgements | ✓ | ✓ | ✓ | settings-policies | hr_compliance |  |
 | `the-manager-log-book` — The manager's log book | ✓ | ✓ | ✓ | manager-log | hr_compliance |  |
 | `hr-and-compliance` — HR & compliance overview | ✓ | ✓ | ✓ |  | hr_compliance |  |
-| `agencies-and-call-centres` — Agencies and call centres | ✓ | ✓ | ✓ |  |  |  |
 
 ### marketing-and-website (21)
 

@@ -802,5 +802,32 @@ export const MANUAL = {
         { figure: "public-help", caption: "fieldquo.com/resources/help — the Help Center as it is today: guides being added, the contact link, the contractor glossary." },
       ],
     },
+    // ── 13 ─────────────────────────────────────────────────────────────
+    {
+      n: 13,
+      id: "agencies",
+      title: "Working through an agency",
+      intro:
+        "Some reps work for a call-centre agency FieldQuo has hired rather than for FieldQuo directly. If that is you, or if you run the agency, this chapter says what is different. Everything else in this manual applies unchanged.",
+      blocks: [
+        { h: "What is different for an agency's rep" },
+        { p: "You sign in, claim, call and text exactly as any rep does, and you have **your own signup link** — every company you bring in is credited to you by name, and the agency and FieldQuo both see it. What you do not have is a Pay screen: your commission is earned under the agency's plan and paid to the agency, which pays you on the terms you agreed with them. If you open Pay you will see a sentence saying so, naming the agency." },
+        { p: "Your phone number and your work mailbox are assigned by FieldQuo, not by the agency. Until both are there you can sign in and learn the console but you cannot dial or send; the row on the agency's My team screen says which is still missing." },
+        { h: "What the agency account does" },
+        { bullets: [
+          "**Adds its reps** from **My team**: a name, an email and the languages they sell in. Nothing else is asked — kind, plan and manager are fixed by FieldQuo.",
+          "**Sees its team and only its team**: each rep's link, calls today and this week, signups and earnings, and a team floor — who is signed in, on a break, on a call — scoped to the agency's own people.",
+          "**Is the payee**: every rep's commission is pooled into one weekly batch under the agency, with a **By employee** breakdown, and paid to the agency's own PayPal, Interac, Wise or bank details.",
+          "**Deactivates, reactivates and re-invites** its own reps, with the same hand-off rule as FieldQuo's console: a rep who holds leads must release them or hand them to another rep on the team first.",
+        ] },
+        { warn: ["An agency can only move work inside its own team, and can only see its own team. Anything about another rep, another agency or FieldQuo's own floor is not on its screens."] },
+        { h: "If the agency is deactivated" },
+        { p: "FieldQuo deactivating an agency deactivates every rep under it in the same action, with the same hand-off for each: leads are released or moved, and a rep who cannot be handed off blocks the whole change and is named. Reactivating an agency does not reactivate its people — that is decided per person." },
+        { tryIt: [
+          "If you are an agency's rep: open **Pay** once, read the sentence, and note who to ask about your money.",
+          "If you run the agency: open **My team**, add one rep, and watch for the row to show that a number and a mailbox are still to come from FieldQuo.",
+        ] },
+      ],
+    },
   ],
 };

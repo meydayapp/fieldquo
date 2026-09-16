@@ -61,6 +61,7 @@ import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
 import { normaliseWorkEmail, workEmailProblem } from "@/lib/sales/repAdmin";
 import { resolvePlanAssignment } from "@/lib/sales/commissionPlanServer";
 import { activationAuditRows, changeRepActive } from "@/lib/sales/repActivation";
+import { deactivationGate, queueCountsFor } from "@/lib/sales/reassign";
 import { AGENCY_ENGAGEMENT, AGENCY_KIND, clearSetupIfComplete } from "@/lib/sales/agency";
 import { parseSellsIn, sellsInOf } from "@/lib/sales/leadLanguage";
 
@@ -268,6 +269,42 @@ export async function PATCH(request, { params }) {
   let gateCounts = null;
   let updated;
   const now = new Date();
+  // ── Deactivating an AGENCY deactivates its employees (owner, 2026-09-16) ──
+  //
+  // The employees are the agency's; with the agency gone they have nobody to
+  // be paid through and no one to answer to, so they go with it. Each one is
+  // put through the SAME gate and hand-off as the agency (changeRepActive):
+  // a held lead is released or moved exactly as the body says. Every
+  // employee is judged BEFORE anything is written, so a refusal names the
+  // employee and leaves the whole team, agency included, as it was.
+  // Reactivating an agency does not reactivate its employees — that is a
+  // decision per person, made on their row.
+  let cascaded = [];
+  if (active === false && existing.kind === AGENCY_KIND) {
+    const employees = await db.salesRep.findMany({
+      where: { managerId: existing.id, engagement: AGENCY_ENGAGEMENT, active: true },
+      select: { id: true, name: true, email: true, sellsIn: true, active: true },
+      orderBy: { name: "asc" },
+    });
+    const counts = employees.length ? await queueCountsFor({ db, repIds: employees.map((e) => e.id), now }) : new Map();
+    for (const e of employees) {
+      const c = counts.get(e.id) || { leased: 0, openLeads: 0, worked: 0 };
+      const gate = deactivationGate({ leased: c.leased, openLeads: c.openLeads, worked: c.worked, handoff: body.handoff });
+      if (!gate.ok) {
+        return NextResponse.json(
+          { error: `${e.name} (an employee of this agency): ${gate.error}`, counts: gate.counts, employeeId: e.id },
+          { status: gate.status },
+        );
+      }
+    }
+    for (const e of employees) {
+      const flip = await changeRepActive({ db, existing: e, active: false, handoff: body.handoff, select: SELECT, now });
+      if (!flip.ok) {
+        return NextResponse.json({ error: `${e.name} (an employee of this agency): ${flip.error}`, employeeId: e.id }, { status: flip.status });
+      }
+      cascaded.push(flip);
+    }
+  }
   if (typeof active === "boolean") {
     const flip = await changeRepActive({
       db,
@@ -302,6 +339,11 @@ export async function PATCH(request, { params }) {
   // read it; a mailbox assignment decides who a prospect ends up talking to and
   // deserves to be findable on its own.
   const actions = typeof active === "boolean" ? activationAuditRows({ updated, handled, toRep, gateCounts, active }) : [];
+  for (const flip of cascaded) {
+    for (const row of activationAuditRows({ updated: flip.updated, handled: flip.handled, toRep: flip.toRep, gateCounts: flip.gateCounts, active: false })) {
+      actions.push({ ...row, details: { ...row.details, cascadedFromAgencyId: existing.id } });
+    }
+  }
   if (touchesMailbox && workEmail !== existing.workEmail) {
     actions.push({
       action: "sales_rep_work_mailbox_set",

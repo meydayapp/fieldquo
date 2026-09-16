@@ -403,5 +403,16 @@ section("12. Wiring");
   ok("the signup-origin attribution names the agency beside the rep", /agency:/.test(origin) && /manager: \{ select: \{ id: true, kind: true, name: true \} \}/.test(origin));
 }
 
+section("Deactivating an agency deactivates its employees (owner, 2026-09-16)");
+{
+  const route = decomment(read("app/api/platform/sales/reps/[id]/route.js"));
+  ok("the platform PATCH cascades: an agency going inactive reads its active employees first", /active === false && existing\.kind === AGENCY_KIND/.test(route) && /managerId: existing\.id, engagement: AGENCY_ENGAGEMENT, active: true/.test(route));
+  ok("…every employee is judged by the deactivation gate BEFORE anything is written, with the same hand-off", /for \(const e of employees\) \{[\s\S]*?deactivationGate\(\{ leased: c\.leased, openLeads: c\.openLeads, worked: c\.worked, handoff: body\.handoff \}\)/.test(route));
+  ok("…a refusal names the employee and stops the whole change", /an employee of this agency\): \$\{gate\.error\}/.test(route));
+  ok("…and each employee goes through changeRepActive with the same hand-off, audited as cascaded from the agency", /changeRepActive\(\{ db, existing: e, active: false, handoff: body\.handoff/.test(route) && /cascadedFromAgencyId: existing\.id/.test(route));
+  ok("reactivating an agency does not touch its employees (the cascade is inside `active === false`)", !/active === true && existing\.kind === AGENCY_KIND/.test(route));
+  ok("the write-up lives in the sales manual, chapter 13, in three languages — not the contractor help centre", ["en", "fr", "es"].every((l) => /n: 13,\s*id: "agencies"/.test(read(`docs/sales/manual/content.${l}.js`))) && !/agencies-and-call-centres/.test(read("lib/help/tree.js")));
+}
+
 console.log(`\n${failures.length ? "FAILED" : "PASSED"} — ${pass} passed, ${failures.length} failed`);
 if (failures.length) process.exit(1);

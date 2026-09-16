@@ -786,5 +786,32 @@ export const MANUAL = {
         { figure: "public-help", caption: "fieldquo.com/resources/help — el Centro de ayuda tal como está hoy: guías en proceso, el enlace de contacto, el glosario del contratista." },
       ],
     },
+    // ── 13 ─────────────────────────────────────────────────────────────
+    {
+      n: 13,
+      id: "agencies",
+      title: "Trabajar a través de una agencia",
+      intro:
+        "Algunos representantes trabajan para una agencia de centro de llamadas contratada por FieldQuo en lugar de para FieldQuo directamente. Si es tu caso, o si diriges la agencia, este capítulo dice qué cambia. Todo lo demás de este manual aplica igual.",
+      blocks: [
+        { h: "Qué cambia para el representante de una agencia" },
+        { p: "Inicias sesión, reservas, llamas y envías mensajes exactamente como cualquier representante, y tienes **tu propio enlace de registro** — cada empresa que traes se te acredita por nombre, y tanto la agencia como FieldQuo lo ven. Lo que no tienes es una pantalla de Pago: tu comisión se gana bajo el plan de la agencia y se paga a la agencia, que te paga según lo acordado con ella. Si abres Pago verás una frase que lo dice, nombrando a la agencia." },
+        { p: "Tu número de teléfono y tu correo de trabajo los asigna FieldQuo, no la agencia. Hasta que ambos estén, puedes iniciar sesión y aprender la consola pero no marcar ni enviar; la fila en la pantalla Mi equipo de la agencia dice cuál falta." },
+        { h: "Qué hace la cuenta de la agencia" },
+        { bullets: [
+          "**Añade a sus representantes** desde **Mi equipo**: un nombre, un correo y los idiomas en que venden. No se pide nada más — el tipo, el plan y el gestor los fija FieldQuo.",
+          "**Ve a su equipo y solo a su equipo**: el enlace de cada uno, las llamadas de hoy y de la semana, los registros y las ganancias, y un piso de ventas del equipo — quién está conectado, en pausa, en llamada — limitado a la gente de la agencia.",
+          "**Es quien cobra**: la comisión de cada representante se agrupa en un solo lote semanal a nombre de la agencia, con un desglose **Por empleado**, y se paga a los datos de PayPal, Interac, Wise o bancarios de la agencia.",
+          "**Desactiva, reactiva y reinvita** a sus propios representantes, con la misma regla de traspaso que la consola de FieldQuo: un representante que tiene leads debe liberarlos o pasarlos a otro representante del equipo primero.",
+        ] },
+        { warn: ["Una agencia solo puede mover trabajo dentro de su propio equipo, y solo ve a su propio equipo. Nada sobre otro representante, otra agencia o el piso de FieldQuo aparece en sus pantallas."] },
+        { h: "Si la agencia se desactiva" },
+        { p: "Cuando FieldQuo desactiva una agencia, cada representante bajo ella se desactiva en la misma acción, con el mismo traspaso para cada uno: los leads se liberan o se mueven, y un representante que no puede traspasarse bloquea todo el cambio y se nombra. Reactivar una agencia no reactiva a su gente — eso se decide persona por persona." },
+        { tryIt: [
+          "Si eres representante de una agencia: abre **Pago** una vez, lee la frase y anota a quién preguntar por tu dinero.",
+          "Si diriges la agencia: abre **Mi equipo**, añade un representante y observa que la fila indique que un número y un correo vendrán de FieldQuo.",
+        ] },
+      ],
+    },
   ],
 };

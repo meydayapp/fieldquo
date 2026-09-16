@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 16 September 2026 (the call-centre agency tier: a SalesRep of kind "agency" signs into /sales, adds its own reps from /sales/agency — kind rep, engagement "agency", managerId the agency, the agency's plan, all forced server-side — sees only its team's results and floor (lib/sales/team.js's visibleRepIds has its first caller), and is the PAYEE: the Monday cron closes one batch per payee through payeeGroups/closeWeekForRep earnerIds, the agency's Pay shows the pool with a By employee table, an employee's Pay row is gone and the pay routes refuse them by name; /platform/sales/reps has a Type picker (FieldQuo employee / freelancer / agency), an Agencies section with employees nested, "Needs number & work mailbox" until both are assigned, and the same per-employee table the agency sees; the platform PATCH and the agency share lib/sales/repActivation.js; PlatformAuditLog gained actorSalesRepId; check:sales-agency executes the money path, the forced values and the floor scope; help article agencies-and-call-centres in en/fr/es.)
+Last updated: 16 September 2026 (the call-centre agency tier: a SalesRep of kind "agency" signs into /sales, adds its own reps from /sales/agency — kind rep, engagement "agency", managerId the agency, the agency's plan, all forced server-side — sees only its team's results and floor (lib/sales/team.js's visibleRepIds has its first caller), and is the PAYEE: the Monday cron closes one batch per payee through payeeGroups/closeWeekForRep earnerIds, the agency's Pay shows the pool with a By employee table, an employee's Pay row is gone and the pay routes refuse them by name; /platform/sales/reps has a Type picker (FieldQuo employee / freelancer / agency), an Agencies section with employees nested, "Needs number & work mailbox" until both are assigned, and the same per-employee table the agency sees; the platform PATCH and the agency share lib/sales/repActivation.js; PlatformAuditLog gained actorSalesRepId; check:sales-agency executes the money path, the forced values and the floor scope; the write-up is sales-manual chapter 13 in en/fr/es.)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -41,10 +41,7 @@ as actor (PlatformAuditLog.actorSalesRepId; platformAdminId is nullable now).
 - The agency's employees' presence on FieldQuo's own /platform/sales/floor
   is unchanged (they are reps); the platform board does not group them by
   agency yet.
-- The help article sits in the public help centre under Team & access, the
-  one translated place the portal could point at. If the owner would rather
-  keep the sales tier out of the contractor help centre, it moves to
-  docs/sales/manual.
+- The agency write-up is chapter 13 of the sales manual (docs/sales/manual), not the public help centre: the owner (2026-09-16) — "we don't need to disclose that FieldQuo sells through call centres; that doesn't seem relevant." Deactivating an agency cascades to its employees with the same hand-off, per the owner the same day.
 - No email to the agency when a week is paid; the push goes to the agency
   account like any rep's.
 

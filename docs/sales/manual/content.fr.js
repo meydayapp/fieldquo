@@ -786,5 +786,32 @@ export const MANUAL = {
         { figure: "public-help", caption: "fieldquo.com/resources/help — le Centre d'aide tel qu'il est aujourd'hui : guides en cours d'ajout, le lien de contact, le glossaire de l'entrepreneur." },
       ],
     },
+    // ── 13 ─────────────────────────────────────────────────────────────
+    {
+      n: 13,
+      id: "agencies",
+      title: "Travailler par l'intermédiaire d'une agence",
+      intro:
+        "Certains représentants travaillent pour une agence de centre d'appels engagée par FieldQuo plutôt que pour FieldQuo directement. Si c'est votre cas, ou si vous dirigez l'agence, ce chapitre dit ce qui change. Tout le reste de ce manuel s'applique tel quel.",
+      blocks: [
+        { h: "Ce qui change pour le représentant d'une agence" },
+        { p: "Vous vous connectez, réservez, appelez et textez exactement comme n'importe quel représentant, et vous avez **votre propre lien d'inscription** — chaque entreprise que vous amenez vous est créditée nommément, et l'agence comme FieldQuo le voient. Ce que vous n'avez pas, c'est un écran Paie : votre commission est gagnée selon le plan de l'agence et versée à l'agence, qui vous paie selon les conditions convenues avec elle. Si vous ouvrez Paie, une phrase le dit, en nommant l'agence." },
+        { p: "Votre numéro de téléphone et votre boîte courriel de travail sont attribués par FieldQuo, pas par l'agence. Tant que les deux n'y sont pas, vous pouvez vous connecter et apprendre la console, mais ni composer ni envoyer ; la ligne sur l'écran Mon équipe de l'agence dit ce qui manque encore." },
+        { h: "Ce que fait le compte de l'agence" },
+        { bullets: [
+          "**Ajoute ses représentants** depuis **Mon équipe** : un nom, un courriel et les langues dans lesquelles ils vendent. Rien d'autre n'est demandé — le type, le plan et le gestionnaire sont fixés par FieldQuo.",
+          "**Voit son équipe et seulement son équipe** : le lien de chacun, les appels du jour et de la semaine, les inscriptions et les gains, et un plancher d'équipe — qui est connecté, en pause, en appel — limité aux gens de l'agence.",
+          "**Est le bénéficiaire** : la commission de chaque représentant est regroupée dans un seul lot hebdomadaire au nom de l'agence, avec un détail **Par employé**, et versée aux coordonnées PayPal, Interac, Wise ou bancaires de l'agence.",
+          "**Désactive, réactive et réinvite** ses propres représentants, avec la même règle de passation que la console de FieldQuo : un représentant qui détient des leads doit d'abord les libérer ou les remettre à un autre représentant de l'équipe.",
+        ] },
+        { warn: ["Une agence ne peut déplacer du travail qu'à l'intérieur de sa propre équipe, et ne voit que sa propre équipe. Rien sur un autre représentant, une autre agence ou le plancher de FieldQuo n'apparaît sur ses écrans."] },
+        { h: "Si l'agence est désactivée" },
+        { p: "Quand FieldQuo désactive une agence, chaque représentant qui en dépend est désactivé dans la même action, avec la même passation pour chacun : les leads sont libérés ou déplacés, et un représentant qui ne peut pas être passé bloque tout le changement et est nommé. Réactiver une agence ne réactive pas ses gens — cela se décide personne par personne." },
+        { tryIt: [
+          "Si vous êtes le représentant d'une agence : ouvrez **Paie** une fois, lisez la phrase, et notez à qui demander pour votre argent.",
+          "Si vous dirigez l'agence : ouvrez **Mon équipe**, ajoutez un représentant, et observez la ligne indiquer qu'un numéro et une boîte courriel viendront de FieldQuo.",
+        ] },
+      ],
+    },
   ],
 };
