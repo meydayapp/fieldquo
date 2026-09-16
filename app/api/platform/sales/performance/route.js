@@ -73,6 +73,8 @@ export async function GET(request) {
         active: true,
         acceptedAt: true,
         endedAt: true,
+        engagement: true,
+        manager: { select: { id: true, kind: true, name: true } },
         // Loaded because a rep with no plan earns no ledger rows at all
         // (earnMilestone refuses to invent an amount), which makes their
         // companies invisible to the payment stages of the funnel. The funnel

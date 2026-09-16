@@ -141,6 +141,7 @@ export default function PlatformSalesFunnelPage() {
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <h2 className="text-base font-semibold text-foreground">
                   {f.rep.name} {f.rep.code ? <span className="text-xs font-normal text-muted-foreground">· {f.rep.code}</span> : null}
+                  {f.rep.agency ? <span className="text-xs font-normal text-muted-foreground"> · {f.rep.agency.name}</span> : null}
                   {!f.rep.active ? <span className="ml-2 text-xs font-normal text-muted-foreground">left</span> : null}
                 </h2>
                 <span className="text-xs text-muted-foreground">{f.monthKey}{f.monthKey === data.currentMonth ? " · so far" : ""}</span>

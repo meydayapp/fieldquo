@@ -414,5 +414,25 @@ section("Deactivating an agency deactivates its employees (owner, 2026-09-16)");
   ok("the write-up lives in the sales manual, chapter 13, in three languages — not the contractor help centre", ["en", "fr", "es"].every((l) => /n: 13,\s*id: "agencies"/.test(read(`docs/sales/manual/content.${l}.js`))) && !/agencies-and-call-centres/.test(read("lib/help/tree.js")));
 }
 
+section("The funnel, the performance dashboard and the floor name the agency beside its reps");
+{
+  const { agencyOf } = await import("@/lib/sales/agencyLabel");
+  ok("agencyOf: an agency employee → { id, name } of the agency", JSON.stringify(agencyOf({ engagement: "agency", manager: { id: "ag", kind: "agency", name: "Northline Contact" } })) === JSON.stringify({ id: "ag", name: "Northline Contact" }));
+  ok("…a freelancer, a FieldQuo rep, a team-lead report → null", agencyOf({ engagement: "freelancer" }) === null && agencyOf({ engagement: "agency", manager: { id: "m", kind: "rep", name: "Lead" } }) === null);
+  for (const [file, needle] of [
+    ["lib/sales/funnelData.js", /manager: \{ select: \{ id: true, kind: true, name: true \} \}[\s\S]*agency: agencyOf\(rep\)/],
+    ["app/api/platform/sales/performance/route.js", /manager: \{ select: \{ id: true, kind: true, name: true \} \}/],
+    ["lib/sales/performance.js", /agency: agencyOf\(rep\)/],
+    ["lib/sales/calls/floorBoard.js", /manager: \{ select: \{ id: true, kind: true, name: true \} \}/],
+    ["lib/sales/calls/reporting.js", /agency: agencyOf\(rep\)/],
+    ["lib/sales/funnelStages.js", /agency: rep\.agency \|\| null/],
+    ["app/platform/sales/funnel/page.js", /f\.rep\.agency \? /],
+    ["app/platform/sales/performance/page.js", /rep\.agency \? /],
+    ["app/platform/sales/floor/page.js", /rep\.agency \? /],
+  ]) {
+    ok(`${file} carries the agency`, needle.test(decomment(read(file))));
+  }
+}
+
 console.log(`\n${failures.length ? "FAILED" : "PASSED"} — ${pass} passed, ${failures.length} failed`);
 if (failures.length) process.exit(1);

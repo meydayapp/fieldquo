@@ -191,7 +191,10 @@ export default function SalesFloorPage() {
                 <div key={rep.id} className={`rounded-xl border p-4 space-y-2 ${tone}`}>
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="font-semibold break-words">{rep.name}</p>
+                      <p className="font-semibold break-words">
+                        {rep.name}
+                        {rep.agency ? <span className="text-xs font-normal text-muted-foreground"> · {rep.agency.name}</span> : null}
+                      </p>
                       <p className="text-sm flex items-center gap-1.5">
                         <Icon size={14} className="shrink-0" />
                         {declared
