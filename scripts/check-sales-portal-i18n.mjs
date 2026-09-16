@@ -171,6 +171,12 @@ const NO_TAB = [
   "app/sales/invite/[token]/page.js",
   "app/sales/welcome/page.js",
   "app/sales/SalesShell.js",
+  // The agency's screen (lib/sales/agency.js). Its rail row is built from a
+  // constant for ONE kind of account (lib/sales/portalTabs.js portalTabsFor)
+  // rather than written into the shell's literal — a tour step pointing at a
+  // row most reps do not have would ring nothing — so §1's parse never sees
+  // it. It is held to §3 all the same: an agency reads it in its language.
+  "app/sales/agency/page.js",
 ];
 
 // ── What a bare literal is, and what it is not ────────────────────────────

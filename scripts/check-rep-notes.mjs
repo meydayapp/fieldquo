@@ -244,32 +244,44 @@ ok(
   { MANAGER_TIER_LIVE },
 );
 ok(
-  "the tier cannot be claimed live while nothing sets a manager — no route or screen writes managerId on a SalesRep",
+  "the tier is not claimed live by the reporting line's first writer — managerId is set only by the agency tier, and no notes route or screen reads it",
   (() => {
     if (MANAGER_TIER_LIVE) return false;
-    const scan = (abs) => {
-      if (!existsSync(abs)) return false;
+    // Until 2026-09-16 this asserted that NOTHING under the sales trees
+    // mentioned managerId, because nothing set one. lib/sales/agency.js now
+    // does — a call-centre agency adds its reps with itself as their manager
+    // — and that is a reporting line for PAY and the FLOOR, not for notes:
+    // lib/sales/team.js's TEAM_LEAD_NOTE_VISIBILITY_FROM is still null, so
+    // canReadTeamNote refuses everything. What keeps the notes tier off is
+    // therefore two things, both asserted: the notes routes and screens read
+    // no managerId, and the only writers of the column are the agency module
+    // and the platform's own rep routes that display it.
+    const mentions = (abs) => {
+      if (!existsSync(abs)) return [];
+      const out = [];
       for (const entry of readdirSync(abs, { withFileTypes: true })) {
         const child = join(abs, entry.name);
-        if (entry.isDirectory()) {
-          if (scan(child)) return true;
-        } else if (
-          /\.jsx?$/.test(entry.name) &&
-          // Decommented. Three files under these trees DISCUSS managerId in
-          // their headers — explaining that the column exists and that nothing
-          // fills it — and a check that failed on the prose explaining the gap
-          // would be a check arguing with its own documentation.
-          /managerId/.test(decomment(readFileSync(child, "utf8")))
-        ) {
-          return true;
-        }
+        if (entry.isDirectory()) out.push(...mentions(child));
+        else if (/\.jsx?$/.test(entry.name) && /managerId/.test(decomment(readFileSync(child, "utf8")))) out.push(child.slice(ROOT.length + 1));
       }
-      return false;
+      return out;
     };
-    for (const dir of ["app/api/platform/sales", "app/platform/sales", "app/api/sales", "app/sales"]) {
-      if (scan(join(ROOT, dir))) return false;
-    }
-    return true;
+    const notesTrees = ["app/api/sales/notes", "app/api/platform/sales/notes", "app/sales/notes", "app/platform/sales/notes"];
+    if (notesTrees.some((dir) => mentions(join(ROOT, dir)).length > 0)) return false;
+    // The writers: any file under lib/ or app/ that assigns managerId in a
+    // Prisma data block must be one of the declared two.
+    const writers = [];
+    const scanWriters = (abs) => {
+      if (!existsSync(abs)) return;
+      for (const entry of readdirSync(abs, { withFileTypes: true })) {
+        const child = join(abs, entry.name);
+        if (entry.isDirectory()) scanWriters(child);
+        else if (/\.jsx?$/.test(entry.name) && /\bmanagerId:(?!\s*true\b)[^,}\n]+/.test(decomment(readFileSync(child, "utf8")))) writers.push(child.slice(ROOT.length + 1));
+      }
+    };
+    for (const dir of ["lib/sales", "app/api/sales", "app/api/platform/sales", "app/sales", "app/platform/sales"]) scanWriters(join(ROOT, dir));
+    const allowed = new Set(["lib/sales/agency.js"]);
+    return writers.every((w) => allowed.has(w));
   })(),
 );
 ok(

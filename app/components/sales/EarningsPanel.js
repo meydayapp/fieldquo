@@ -181,6 +181,52 @@ export default function EarningsPanel({ endpoint = "/api/sales/earnings" }) {
             </p>
           )}
 
+          {/* ── By employee — the agency's view only ─────────────────────
+              /api/sales/earnings adds `byEmployee` for a call-centre agency
+              (lib/sales/agency.js agencyEarnings): every employee's link,
+              with what it earned, what was paid through the agency's
+              batches, what is closed and waiting, and what is still open.
+              Each column is summed from the same rows as the totals above,
+              so the table always adds up to the figure it sits under. */}
+          {Array.isArray(data.byEmployee) && data.byEmployee.length > 0 ? (
+            <div className="space-y-2" data-by-employee>
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                {t("app.salesPay.byEmployeeHeading")}
+              </h3>
+              <div className="overflow-x-auto rounded-lg border border-border">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-xs text-muted-foreground">
+                      <th className="px-3 py-2">{t("app.salesPay.byEmployeeName")}</th>
+                      <th className="px-3 py-2 text-right">{t("app.salesPay.byEmployeeSignups")}</th>
+                      <th className="px-3 py-2 text-right">{t("app.salesPay.statLifetime")}</th>
+                      <th className="px-3 py-2 text-right">{t("app.salesPay.statPaid")}</th>
+                      <th className="px-3 py-2 text-right">{t("app.salesPay.statAwaiting")}</th>
+                      <th className="px-3 py-2 text-right">{t("app.salesPay.statThisWeek")}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.byEmployee.map((row) => (
+                      <tr key={row.salesRepId} className="border-t border-border" data-employee-row={row.salesRepId}>
+                        <td className="px-3 py-2 text-foreground">
+                          {row.isAgency ? t("app.salesPay.byEmployeeOwnLink") : row.name || row.salesRepId}
+                          {row.active === false ? (
+                            <span className="ml-2 text-xs text-muted-foreground">{t("app.salesAgency.inactive")}</span>
+                          ) : null}
+                        </td>
+                        <td className="px-3 py-2 text-right tabular-nums">{row.signups}</td>
+                        <td className="px-3 py-2 text-right tabular-nums">{centsToMoney(row.earnedCents)}</td>
+                        <td className="px-3 py-2 text-right tabular-nums">{centsToMoney(row.paidCents)}</td>
+                        <td className="px-3 py-2 text-right tabular-nums">{centsToMoney(row.awaitingCents)}</td>
+                        <td className="px-3 py-2 text-right tabular-nums">{centsToMoney(row.openCents)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : null}
+
           {/* ── Which company is at which stage ──────────────────────────── */}
           <div className="space-y-2">
             <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">

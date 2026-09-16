@@ -811,8 +811,12 @@ function walk(dir, out = []) {
 //    `action:`, or after a ternary's `?` / `:`. Reading every string in the
 //    span picked up "suspended" out of the CONDITION
 //    `onboardingStatus === "suspended"` and reported it as an action.
-const AUDIT_FILES = [...walk("app/api"), ...walk("lib")].filter((f) =>
-  read(f).includes("platformAuditLog.create"),
+// 4. (2026-09-16) A file that BUILDS the rows a writer spreads counts as a
+//    writer: lib/sales/repActivation.js's activationAuditRows() names the
+//    deactivation actions and two routes write what it returns. Recognised
+//    by the exported `…AuditRows` function rather than by listing the file.
+const AUDIT_FILES = [...walk("app/api"), ...walk("lib")].filter(
+  (f) => read(f).includes("platformAuditLog.create") || /export function \w+AuditRows\(/.test(read(f)),
 );
 const written = new Set();
 for (const file of AUDIT_FILES) {

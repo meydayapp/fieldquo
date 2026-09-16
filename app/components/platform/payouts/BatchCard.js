@@ -86,6 +86,11 @@ export default function BatchCard({ batch, canMarkPaid, onChanged, showRep = fal
         <div className="min-w-0">
           <div className="text-sm font-medium text-foreground">
             {showRep && batch.repName ? <span>{batch.repName} · </span> : null}
+            {batch.isAgency ? (
+              <span className="mr-1 align-middle text-[11px] uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground" data-batch-agency>
+                agency
+              </span>
+            ) : null}
             {day(batch.periodStart)} – {day(batch.periodEnd)}
           </div>
           <div className="text-xs text-muted-foreground flex items-center gap-1">
@@ -122,6 +127,26 @@ export default function BatchCard({ batch, canMarkPaid, onChanged, showRep = fal
           Was {centsToMoney(batch.closedCents)} when it closed. The ledger moved since — the figure above is
           what its rows sum to now, and is the one to pay.
         </p>
+      ) : null}
+
+      {/* The payee is a call-centre agency: the batch is one transfer to the
+          agency, and these are the employees whose links earned it. Drawn
+          only when there is more than one earner or the payee is an agency —
+          for an ordinary rep the one line would repeat the total. */}
+      {batch.isAgency || (batch.byEarner || []).length > 1 ? (
+        <ul className="text-xs text-muted-foreground space-y-0.5" data-batch-earners>
+          {(batch.byEarner || []).map((line) => (
+            <li key={line.salesRepId} className="flex justify-between gap-3">
+              <span className="min-w-0 break-words">
+                {line.salesRepId === batch.salesRepId ? `${line.name || batch.repName || "The agency"} (own link)` : line.name || line.salesRepId}
+                {" · "}
+                {line.entryCount} {line.entryCount === 1 ? "entry" : "entries"}
+              </span>
+              <span className="tabular-nums shrink-0">{centsToMoney(line.cents)}</span>
+            </li>
+          ))}
+          {batch.isAgency && (batch.byEarner || []).length === 0 ? <li>No entries in this batch.</li> : null}
+        </ul>
       ) : null}
 
       {paid ? <ProofLines batch={batch} /> : null}

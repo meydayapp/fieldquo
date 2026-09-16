@@ -17,7 +17,7 @@ tenancy, so it carries no information.
 
 | Entity | Pointed at by | From |
 |---|---:|---|
-| **SalesRep** | 25 | Company, PlatformSmsNumber, PushSubscription, SalesAttribution, SalesAttributionTouch, SalesCallAttempt, SalesCallTransfer, SalesCheckIn, SalesCommissionEntry, SalesContactNumber +15 |
+| **SalesRep** | 26 | Company, PlatformAuditLog, PlatformSmsNumber, PushSubscription, SalesAttribution, SalesAttributionTouch, SalesCallAttempt, SalesCallTransfer, SalesCheckIn, SalesCommissionEntry +16 |
 | **Worker** | 20 | AvailabilityRequest, LeaveBalance, LeaveRequest, LocationStamp, OnboardingRun, PayRunLine, Payout, PolicyAcknowledgement, SafetyIncident, Salary +10 |
 | **Job** | 18 | AssetUseLog, ChangeOrder, CompanyChatRoom, Invoice, JobDailyLog, JobDocument, JobMaterial, JobPaymentStage, JobPhoto, JobSubcontractor +8 |
 | **Prospect** | 15 | PlatformVoiceCall, ProspectCapability, ProspectCorrection, ProspectEvidence, ProspectInference, ProspectOpportunity, ProspectScore, ProspectTalkingPoint, ProspectTechnology, SalesCallAttempt +5 |
@@ -133,7 +133,7 @@ tenancy, so it carries no information.
 | `Payout` | Worker | — |
 | `Plan` | — | Subscription |
 | `PlatformAdmin` | — | DemoBooking, DemoHostAvailability, PlatformAuditLog, PlatformSmsNumber, PushSubscription, SalesJurisdictionOverride, SalesTelemarketerRegistration, SignupOrigin, StaffMessage, StaffRoom, StaffRoomMember, SupportTicket, SupportTicketNote |
-| `PlatformAuditLog` | PlatformAdmin | — |
+| `PlatformAuditLog` | PlatformAdmin, SalesRep | — |
 | `PlatformPromoCode` | SalesCommissionPlan | PlatformPromoRedemption |
 | `PlatformPromoRedemption` | PlatformPromoCode | — |
 | `PlatformSmsNumber` | PlatformAdmin, SalesRep | — |
@@ -180,7 +180,7 @@ tenancy, so it carries no information.
 | `SalesPlaybookAssignment` | Prospect, SalesPlaybookExperiment | — |
 | `SalesPlaybookExperiment` | SalesPlaybook | SalesPlaybookAssignment |
 | `SalesQueueClaim` | Prospect, SalesRep | — |
-| `SalesRep` | SalesCommissionPlan | Company, PlatformSmsNumber, PushSubscription, SalesAttribution, SalesAttributionTouch, SalesCallAttempt, SalesCallTransfer, SalesCheckIn, SalesCommissionEntry, SalesContactNumber, SalesEvent, SalesLead, SalesLeadLinkEvent, SalesPayoutBatch, SalesQueueClaim, SalesRepActivity, SalesRepNote, SalesSmsMessage, SalesThread, SignupOrigin, StaffMessage, StaffRoom, StaffRoomMember, SupportTicket, SupportTicketNote |
+| `SalesRep` | SalesCommissionPlan | Company, PlatformAuditLog, PlatformSmsNumber, PushSubscription, SalesAttribution, SalesAttributionTouch, SalesCallAttempt, SalesCallTransfer, SalesCheckIn, SalesCommissionEntry, SalesContactNumber, SalesEvent, SalesLead, SalesLeadLinkEvent, SalesPayoutBatch, SalesQueueClaim, SalesRepActivity, SalesRepNote, SalesSmsMessage, SalesThread, SignupOrigin, StaffMessage, StaffRoom, StaffRoomMember, SupportTicket, SupportTicketNote |
 | `SalesRepActivity` | SalesRep | — |
 | `SalesRepNote` | Prospect, SalesLead, SalesRep, SalesThread | — |
 | `SalesSmsMessage` | SalesCheckIn, SalesLead, SalesRep | SalesCheckIn |

@@ -436,8 +436,18 @@ model PlatformVoiceCall {
 
 model PlatformAuditLog {
   id              String        @id @default(cuid())
-  platformAdminId String
-  platformAdmin   PlatformAdmin @relation(fields: [platformAdminId], references: [id])
+  /// Optional since 2026-09-16: a call-centre agency (SalesRep kind "agency",
+  /// lib/sales/agency.js) adds, deactivates and re-invites its own reps from
+  /// /sales/agency, and those acts belong in THIS log beside the platform's
+  /// — one search for "sales_rep_deactivated" must find both. A row names
+  /// exactly one actor: platformAdminId for FieldQuo staff, actorSalesRepId
+  /// for an agency. Neither is a delete: the column was NOT NULL and is now
+  /// nullable, which drops nothing.
+  platformAdminId String?
+  platformAdmin   PlatformAdmin? @relation(fields: [platformAdminId], references: [id])
+  /// The agency account that acted, when the actor is not FieldQuo staff.
+  actorSalesRepId String?
+  actorSalesRep   SalesRep?     @relation("SalesRepAuditActions", fields: [actorSalesRepId], references: [id], onDelete: SetNull)
   action          String
   targetCompanyId String?
   details         Json?
@@ -9783,7 +9793,19 @@ model SalesRep {
   /// → SalesPayoutBatch) is identical and forking it would be the copy that
   /// rots. Free text like every other `kind` in this schema; the vocabulary
   /// is REP_KINDS in lib/influencers/index.js.
+  ///
+  /// "agency" (2026-09-16): a call-centre account the owner hires. It signs
+  /// into /sales, creates its own reps (each an ordinary "rep" row whose
+  /// `managerId` is the agency and whose engagement is "agency"), sees only
+  /// its team's floor and stats, and is the PAYEE for every commission its
+  /// reps earn — lib/sales/agency.js payeeIdFor(). The reps keep their own
+  /// unique links and ledgers so the best of them can be told apart; they
+  /// never see a payout page, because the agency is paid, not them.
   kind         String  @default("rep")
+  /// Set when an agency adds this rep: the platform still assigns the phone
+  /// number and the work mailbox, and /platform/sales/reps lists the row as
+  /// needing them until both are there. Cleared by that assignment.
+  setupRequestedAt DateTime?
   /// Null until the invite is accepted. A rep exists — and can be attributed
   /// to — from the moment they are added, the same way a PendingTeamProfile
   /// holds a seat before anyone clicks a link.
@@ -10021,6 +10043,7 @@ model SalesRep {
   staffMessages StaffMessage[]
   ownedStaffRooms StaffRoom[]
   queueClaims    SalesQueueClaim[]
+  auditActions   PlatformAuditLog[] @relation("SalesRepAuditActions")
 }
 
 /// What a rep earns, per milestone. A row rather than constants so the numbers

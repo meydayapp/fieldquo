@@ -94,7 +94,7 @@ function fresh() {
 
 // ── 1. Vocabulary ──────────────────────────────────────────────────────────
 section("Vocabulary");
-ok("REP_KINDS is rep + influencer", REP_KINDS.join() === "rep,influencer");
+ok("REP_KINDS is rep + influencer + agency", REP_KINDS.join() === "rep,influencer,agency");
 ok("the attribution source is registered beside the others", ATTRIBUTION_SOURCES.includes(INFLUENCER_SOURCE));
 ok("isInfluencer needs BOTH columns", !isInfluencer({ influencerAt: NOW }) && !isInfluencer({ influencerRepId: "x" }) && isInfluencer({ influencerAt: NOW, influencerRepId: "x" }));
 ok("the ledger code is prefixed so it cannot collide with a staff rep's", influencerRepCode("Dan").startsWith("inf-") && /^[a-z0-9][a-z0-9-]{1,30}$/.test(influencerRepCode("Dan", 1)));

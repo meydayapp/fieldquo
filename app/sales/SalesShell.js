@@ -95,6 +95,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { AGENCY_TEAM_HREF, portalTabsFor } from "@/lib/sales/portalTabs";
 
 /**
  * The icon for each row, by href. A separate map rather than a field on the
@@ -119,6 +120,10 @@ const TAB_ICONS = {
   "/sales/voicemail": Voicemail,
   "/sales/pay": Wallet,
   "/sales/settings": Settings,
+  // The agency's row — the literal, equal to lib/sales/portalTabs.js's
+  // AGENCY_TEAM_HREF (scripts/check-sales-agency.mjs holds the two together),
+  // so scripts/check-sales-home.mjs can see the screen is reachable from here.
+  "/sales/agency": Building2,
 };
 
 /** Which badge each row wears, by href → field of /api/sales/badges. */
@@ -397,7 +402,7 @@ export default function SalesShell({ children }) {
   // the href/label pairs, which is why it stays an array literal in this file
   // rather than moving to a module: it is the single source of "what the
   // portal HAS", and everything that names a tab is checked against it.
-  const tabs = [
+  const allTabs = [
     // ── Every tab is a key now, and that reversed a decision ──────
     //
     // Seven of these were English LITERALS on purpose, and the reason
@@ -468,6 +473,19 @@ export default function SalesShell({ children }) {
     // is near the end — set once, changed rarely.
     { href: "/sales/settings", label: t("app.salesPortal.navSettings") },
   ];
+  // ── The agency tier changes two rows, and only after /api/sales/me ──
+  //
+  // A call-centre agency's employee has no Pay row: their commission is paid
+  // to the agency, and the routes behind the screen refuse them
+  // (lib/sales/agency.js). The agency account gets a My team row the twelve
+  // check scripts that parse the literal above never see — it is built from
+  // a constant, on purpose, because it exists for one kind of account and a
+  // tour step pointing at a row most reps do not have would ring nothing.
+  // Until `me` has answered, the list is the ordinary one; a rep's rail must
+  // not flicker a row in and out on every load.
+  const tabs = portalTabsFor(allTabs, me, {
+    teamLabel: t("app.salesPortal.navAgencyTeam"),
+  });
 
   // The count alone. It was "24 / 250" over a progress bar until the owner
   // removed the daily ceiling (2026-09-14); a bar filling towards a number

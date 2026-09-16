@@ -31,6 +31,7 @@ import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
 import { getAppOrigin } from "@/lib/appUrl";
 import { SALES_VOICE_PURPOSES } from "@/lib/sales/calls/store";
 import { assignmentProblem } from "@/lib/sales/numbers";
+import { clearSetupIfComplete } from "@/lib/sales/agency";
 import { twilioConfigured } from "@/lib/sms/twilioClient";
 import { crewSignatureConfigured, sharedTestLineE164 } from "@/lib/crew/capability";
 import { listSmsCapableNumbers, inboundWebhookUrl } from "@/lib/crew/line";
@@ -296,7 +297,11 @@ export async function POST(request) {
         details: { e164, salesRepId, platformAdminId },
       },
     });
-    return NextResponse.json({ ok: true });
+    // A call-centre agency's employee was flagged as needing a number and a
+    // work mailbox (SalesRep.setupRequestedAt). The number has just arrived;
+    // if the mailbox is there too, the flag comes off — re-read, not assumed.
+    const setupCleared = salesRepId ? await clearSetupIfComplete(salesRepId) : false;
+    return NextResponse.json({ ok: true, setupCleared });
   }
 
   if (action === "release") {

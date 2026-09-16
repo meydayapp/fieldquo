@@ -452,7 +452,14 @@ section("4. deactivationGate — pure");
 section("5. The routes — release reused, attribution untouched, audit wired");
 // ═══════════════════════════════════════════════════════════════════════════
 {
-  const repRoute = decomment(read("app/api/platform/sales/reps/[id]/route.js"));
+  // The deactivation gate, the hand-off and the transaction moved out of the
+  // route into lib/sales/repActivation.js on 2026-09-16, so a call-centre
+  // agency's own button (lib/sales/agency.js) runs the same lines. "The rep
+  // route" below is therefore the route AND its writer, read together —
+  // and the route is held to reaching the writer rather than re-growing one.
+  const repRouteOnly = decomment(read("app/api/platform/sales/reps/[id]/route.js"));
+  const repRoute = repRouteOnly + "\n" + decomment(read("lib/sales/repActivation.js"));
+  ok("the rep route flips `active` through lib/sales/repActivation.js", /changeRepActive\(\{/.test(repRouteOnly) && !/deactivationGate\(/.test(repRouteOnly) && !/\$transaction\(/.test(repRouteOnly));
   const queueRoute = decomment(read("app/api/platform/sales/reps/[id]/queue/route.js"));
   const listRoute = decomment(read("app/api/platform/sales/reps/route.js"));
   const reassign = decomment(read("lib/sales/reassign.js"));
@@ -461,7 +468,7 @@ section("5. The routes — release reused, attribution untouched, audit wired");
   ok("the queue route imports releaseUntouched from queueBatch",
     /import \{[^}]*\breleaseUntouched\b[^}]*\} from "@\/lib\/sales\/queueBatch"/.test(queueRoute));
   ok("the rep route imports releaseUntouched from queueBatch",
-    /import \{[^}]*\breleaseUntouched\b[^}]*\} from "@\/lib\/sales\/queueBatch"/.test(repRoute));
+    /import \{[^}]*\breleaseUntouched\b[^}]*\} from "(?:@\/lib\/sales\/queueBatch|\.\/queueBatch)"/.test(repRoute));
   ok("the queue route calls it with reason admin", /releaseUntouched\(\{[^}]*reason: "admin"/.test(queueRoute));
   ok("…and 'release all' is the same call with includeDialled", /includeDialled/.test(queueRoute) && !/action === "release_all"[^;]*prospect\.updateMany/.test(queueRoute));
   for (const [name, src] of [["queue route", queueRoute], ["rep route", repRoute], ["reassign.js", reassign]]) {
@@ -481,7 +488,7 @@ section("5. The routes — release reused, attribution untouched, audit wired");
   ok("the rep route gates active:false through deactivationGate", /deactivationGate\(/.test(repRoute) && /active === false/.test(repRoute));
   ok("…refusing with the gate's status and counts", /status: gate\.status/.test(repRoute) && /counts: gate\.counts/.test(repRoute));
   ok("…counting fresh from the database on the request", /queueCountsFor\(\{ db, repIds: \[existing\.id\]/.test(repRoute));
-  ok("…and the hand-off and the rep update ride one $transaction", /db\.\$transaction\(\s*async \(tx\) => \{\s*handled = await performHandoff\(\{ tx/.test(repRoute));
+  ok("…and the hand-off and the rep update ride one $transaction", /db\.\$transaction\(\s*async \(tx\) => \{\s*handled = await performHandoff\(\{ db, tx/.test(repRoute));
   ok("…with the target refused when inactive", /Work can only be moved to an active rep/.test(repRoute));
   ok("the rep route still has no DELETE", !/export async function DELETE/.test(repRoute));
 

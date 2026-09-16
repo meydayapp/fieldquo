@@ -13,6 +13,7 @@ import { NextResponse } from "next/server";
 import { requireSalesRep } from "@/lib/sales/gate";
 import { getAppOrigin } from "@/lib/appUrl";
 import { repSignupStats, signupLinkFor } from "@/lib/sales/repStats";
+import { agencyOf, isAgency, isAgencyEmployee } from "@/lib/sales/agency";
 
 export async function GET(request) {
   const { rep, refusal } = await requireSalesRep(request);
@@ -34,6 +35,15 @@ export async function GET(request) {
     workEmail: rep.workEmail || null,
     code: rep.code,
     signupLink: signupLinkFor(getAppOrigin(request), rep.code),
+    // The agency tier (lib/sales/agency.js). `agency` is the call centre this
+    // rep works for, so the shell can drop the Pay row and the Pay screen can
+    // say who is paid; `isAgency` is the account that manages a team, so the
+    // shell can draw the My team row. Both decided from the row read by the
+    // gate in this request, never remembered.
+    kind: rep.kind || "rep",
+    isAgency: isAgency(rep),
+    agencyEmployee: isAgencyEmployee(rep),
+    agency: agencyOf(rep),
     signups: {
       today: stats.today,
       thisWeek: stats.thisWeek,

@@ -145,6 +145,15 @@ export const rows = {
   // which is exactly how an un-recorded drift would pass.
   platformErrorLog: [],
   platformSetting: [],
+  // The agency tier (check-sales-agency.mjs): the weekly close gathers three
+  // employees' entries into ONE batch under the agency, and an employee's
+  // own entries keep their salesRepId. Both are claims about which rows a
+  // transaction writes and reads back, which reading lib/sales/payouts.js
+  // cannot settle. SalesPayoutBatch is unique on (salesRepId, periodStart)
+  // and the closer relies on that P2002 for idempotence.
+  salesCommissionEntry: [],
+  salesPayoutBatch: [],
+  salesLead: [],
 };
 
 /** Every write the product attempted, in order: { model, action, data }. */
@@ -210,6 +219,9 @@ export function resetDbStub() {
   rows.referralInvite = [];
   rows.platformPromoCode = [];
   rows.platformPromoRedemption = [];
+  rows.salesCommissionEntry = [];
+  rows.salesPayoutBatch = [];
+  rows.salesLead = [];
   writes.length = 0;
   reads.length = 0;
   failNext.model = null;
@@ -404,6 +416,23 @@ function model(name) {
       reads.push({ model: name, action: "count", args });
       return rows[name].filter((r) => matches(r, args.where)).length;
     },
+    // Prisma's groupBy, for the one shape the product uses so far —
+    // `by: [field]` with `_count: { _all: true }` (lib/sales/reassign.js's
+    // open-lead count). Answered honestly for that shape and refused for any
+    // other, rather than returning [] and letting a count pass as zero.
+    groupBy: async (args = {}) => {
+      reads.push({ model: name, action: "groupBy", args });
+      const by = Array.isArray(args.by) ? args.by : [];
+      if (by.length !== 1 || !args._count?._all) {
+        throw new Error(`dbStub: ${name}.groupBy supports by:[one field] with _count._all only`);
+      }
+      const field = by[0];
+      const buckets = new Map();
+      for (const r of rows[name].filter((row) => matches(row, args.where))) {
+        buckets.set(r[field], (buckets.get(r[field]) || 0) + 1);
+      }
+      return [...buckets.entries()].map(([value, n]) => ({ [field]: value, _count: { _all: n } }));
+    },
     create: async ({ data } = {}) => {
       maybeFailCreate(name);
       writes.push({ model: name, action: "create", data });
@@ -573,6 +602,10 @@ export const db = new Proxy(
       "campaignId",
       "subscriberId",
     ]),
+    salesCommissionEntry: model("salesCommissionEntry"),
+    // @@unique([salesRepId, periodStart]) — the closer's idempotence.
+    salesPayoutBatch: uniqueCreateModel("salesPayoutBatch", ["salesRepId", "periodStart"]),
+    salesLead: model("salesLead"),
     // Prisma's interactive transaction, modelled as "run the callback with
     // this same client". It does NOT roll back — nothing here can — and that
     // is stated rather than implied: a check must not read a passing run as

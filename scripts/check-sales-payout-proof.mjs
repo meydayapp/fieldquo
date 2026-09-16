@@ -48,15 +48,25 @@ const section = (t) => console.log(`\n${t}`);
 // the source assertions below), `orderBy` is ignored.
 function fakePrisma(tables) {
   const writes = [];
-  const match = (row, where = {}) =>
+  const match = (row, where = {}, name = null) =>
     Object.entries(where).every(([k, v]) => {
+      // repPayouts reads "the rep's own entries OR entries in a batch under
+      // the rep's id" (2026-09-16, the agency tier: an agency's batch gathers
+      // its employees' entries). Modelled here rather than waved through —
+      // a fake that answered [] to an OR would report every rep's accruing
+      // figure as $0 and this file would pass on the bug.
+      if (k === "OR" && Array.isArray(v)) return v.some((branch) => match(row, branch, name));
+      if (k === "payoutBatch" && name === "salesCommissionEntry" && v && typeof v === "object") {
+        const batch = tables.salesPayoutBatch.find((b) => b.id === row.payoutBatchId);
+        return Boolean(batch) && match(batch, v, "salesPayoutBatch");
+      }
       if (v && typeof v === "object" && !(v instanceof Date) && "in" in v) return v.in.includes(row[k]);
       return row[k] === v;
     });
   const model = (name) => ({
-    findUnique: async ({ where }) => tables[name].find((r) => match(r, where)) || null,
-    findFirst: async ({ where } = {}) => tables[name].find((r) => match(r, where || {})) || null,
-    findMany: async ({ where } = {}) => tables[name].filter((r) => match(r, where || {})),
+    findUnique: async ({ where }) => tables[name].find((r) => match(r, where, name)) || null,
+    findFirst: async ({ where } = {}) => tables[name].find((r) => match(r, where || {}, name)) || null,
+    findMany: async ({ where } = {}) => tables[name].filter((r) => match(r, where || {}, name)),
     update: async ({ where, data }) => {
       const row = tables[name].find((r) => match(r, where));
       if (!row) throw new Error(`${name}.update: no row`);
@@ -364,7 +374,13 @@ section("7. The reps accordion, and the per-rep figures");
   })());
 
   const page = decomment(read("app/platform/sales/reps/page.js"));
-  ok("the reps route hands each rep its money", /money: repMoney\(/.test(decomment(read("app/api/platform/sales/reps/route.js"))));
+  // Through moneyFor() since the agency tier: an agency's figures are the
+  // pool of its employees' entries and its own; everyone else's are repMoney
+  // over their own rows, as before.
+  ok("the reps route hands each rep its money", (() => {
+    const src = decomment(read("app/api/platform/sales/reps/route.js"));
+    return /money: moneyFor\(r\)/.test(src) && /const moneyFor = \(r\) => \{[\s\S]*?repMoney\(own, ledgerBatches\)[\s\S]*?repMoney\(pooled, ledgerBatches\)/.test(src);
+  })());
   ok("each rep is a toggle button with aria-expanded", /aria-expanded=\{open\}/.test(page) && /data-rep-toggle=\{rep\.id\}/.test(page));
   ok("…and the panel is rendered only when open", /\{open \? \(\s*<div id=\{`rep-panel-\$\{rep\.id\}`\}/.test(page));
   ok("the open rep is read from the URL hash", /window\.location\.hash/.test(page) && /\^#rep-/.test(page));

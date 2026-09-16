@@ -242,7 +242,8 @@ export default function AuditLogPage() {
                     </div>
 
                     <div className="text-xs text-muted-foreground mt-0.5">
-                      {row.platformAdmin?.email || "unknown staff"}
+                      {row.platformAdmin?.email ||
+                        (row.actorSalesRep ? `${row.actorSalesRep.name} (agency, ${row.actorSalesRep.email})` : "unknown staff")}
                       {row.platformAdmin?.role && (
                         <span className="text-muted-foreground">
                           {" "}

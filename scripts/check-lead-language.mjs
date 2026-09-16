@@ -341,8 +341,12 @@ section("9. Every hand-out path carries the rule — source");
   ok("…refuses with 409 and the code", /code: moved\.code, cannot: moved\.cannot/.test(qroute) && /\{ status: 409 \}/.test(qroute));
   ok("…and hands the picker the French count", /handoffTargets\(\{ db, admin, excludeRepId: rep\.id, frenchHeld: queue\.french \}\)/.test(qroute));
   const patch = decomment(read("app/api/platform/sales/reps/[id]/route.js"));
-  ok("the deactivation hand-off refuses an ineligible target before the transaction", /frenchHeldCount\(\{/.test(patch) && /code: "language"/.test(patch));
-  ok("…with the release mode narrowed to the lead-bearing prospects", /onlyWithOpenLead: handoff\.prospects === "release"/.test(patch));
+  // The hand-off's language rule lives in lib/sales/repActivation.js since
+  // 2026-09-16 (the agency tier flips its own reps through the same writer);
+  // the route reaches it through changeRepActive and passes the 409 on.
+  const activation = decomment(read("lib/sales/repActivation.js"));
+  ok("the deactivation hand-off refuses an ineligible target before the transaction", /frenchHeldCount\(\{/.test(activation) && /code: "language"/.test(activation) && /changeRepActive\(\{/.test(patch) && /flip\.code/.test(patch));
+  ok("…with the release mode narrowed to the lead-bearing prospects", /onlyWithOpenLead: handoff\.prospects === "release"/.test(activation));
   const page = decomment(read("app/platform/sales/reps/page.js"));
   ok("both console pickers grey an ineligible rep and say why", (page.match(/disabled=\{t\.eligible === false\}/g) || []).length === 2 && (page.match(/— no French/g) || []).length === 2);
   ok("…and the panel explains the greying", /reps without French are greyed/.test(page));
@@ -380,7 +384,7 @@ section("10. The column round-trips");
   ok("the platform PATCH accepts sellsIn", /const touchesSellsIn = "sellsIn" in body;/.test(patch));
   ok("…validates it through parseSellsIn", /parseSellsIn\(body\)/.test(patch));
   ok("…writes it", /\.\.\.\(touchesSellsIn \? \{ sellsIn \} : \{\}\)/.test(patch));
-  ok("…selects it back", /sellsIn: true,\s*commissionPlan:/.test(patch));
+  ok("…selects it back", /sellsIn: true,\s*setupRequestedAt: true,\s*commissionPlan:/.test(patch));
   ok("…returns it through the same normaliser", /sellsIn: sellsInOf\(updated\)/.test(patch));
   ok("…and audits the change", /sales_rep_sells_in_set/.test(patch));
   ok("the audit catalogue knows the action", /sales_rep_sells_in_set:/.test(read("lib/platform/auditActions.js")));

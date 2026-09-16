@@ -20,6 +20,7 @@ import { requireCronSecret } from "@/lib/security/cronAuth";
 import { db } from "@/lib/db";
 import { recordError } from "@/lib/platform/errorLog";
 import { closeWeekForRep, previousWeekBounds } from "@/lib/sales/payouts";
+import { payeeGroups } from "@/lib/sales/agency";
 
 export async function GET(request) {
   const denied = requireCronSecret(request);
@@ -31,17 +32,24 @@ export async function GET(request) {
   // left last Wednesday still earned what they earned before Wednesday, and a
   // filter on `active` here would quietly withhold it — the same reasoning
   // that keeps endedAt out of the retention milestone.
-  const reps = await db.salesRep.findMany({ select: { id: true } });
+  //
+  // One batch per PAYEE, not per rep (2026-09-16): a call-centre agency's
+  // employees close into the agency's batch — lib/sales/agency.js
+  // payeeGroups — and everyone else into their own. The rows are read with
+  // their manager so the grouping is decided from the database now.
+  const reps = await db.salesRep.findMany({ select: { id: true, kind: true, engagement: true, managerId: true } });
+  const groups = payeeGroups(reps);
 
-  const counts = { considered: reps.length, closed: 0, empty: 0, failed: 0 };
+  const counts = { considered: reps.length, payees: groups.size, closed: 0, empty: 0, failed: 0 };
   const batches = [];
 
-  for (const rep of reps) {
+  for (const [payeeId, earnerIds] of groups) {
+    const rep = { id: payeeId };
     try {
-      const batch = await closeWeekForRep({ salesRepId: rep.id, start, end });
+      const batch = await closeWeekForRep({ salesRepId: payeeId, start, end, earnerIds });
       if (batch) {
         counts.closed += 1;
-        batches.push({ salesRepId: rep.id, batchId: batch.id, cents: batch.totalCentsAtClose });
+        batches.push({ salesRepId: payeeId, earners: earnerIds.length, batchId: batch.id, cents: batch.totalCentsAtClose });
       } else {
         // Nothing owed. No batch is created on purpose — an empty batch reads
         // as "we paid you nothing" and is indistinguishable from a bug when

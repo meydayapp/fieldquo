@@ -32,12 +32,13 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireOutreachRep } from "@/lib/sales/outreachGate";
+import { agencyEmployeeRefusal } from "@/lib/sales/agency";
 import { savePayoutDestination } from "@/lib/sales/payoutWrite";
 import {
   ENGAGEMENTS,
-  PAYOUT_METHODS,
-  isPayoutMethod,
+  isPayoutMethodFor,
   payoutMethod,
+  payoutMethodsFor,
   payoutReadiness,
   payoutAgeDays,
 } from "@/lib/sales/payoutDetails";
@@ -52,7 +53,7 @@ const SELECT = {
 };
 
 /** The shape both verbs answer with, so the screen never has two readings. */
-function view(rep) {
+function view(rep, kind = "rep") {
   const readiness = payoutReadiness(rep);
   return {
     engagement: rep.engagement || null,
@@ -77,7 +78,10 @@ function view(rep) {
     adminProblems: readiness.problems.filter((p) => p.code === "no_engagement"),
     // The vocabulary travels with the answer so the form cannot drift from the
     // validator that will judge it.
-    methods: PAYOUT_METHODS,
+    // By KIND (payoutMethodsFor): an agency is a business paid by invoice
+    // and gets no Upwork option, the same as an influencer. The write below
+    // refuses the same set, so a hidden option is a removed one.
+    methods: payoutMethodsFor(kind),
     engagements: ENGAGEMENTS,
   };
 }
@@ -85,15 +89,22 @@ function view(rep) {
 export async function GET(request) {
   const { rep, refusal } = await requireOutreachRep(request);
   if (refusal) return NextResponse.json(refusal.body, { status: refusal.status });
+  // A call-centre agency's employee has no payout destination to set: their
+  // commission is paid to the agency (lib/sales/agency.js), and a form that
+  // saved a bank account nobody would ever send to is a dead control.
+  const employee = agencyEmployeeRefusal(rep);
+  if (employee) return NextResponse.json(employee.body, { status: employee.status });
 
   const row = await db.salesRep.findUnique({ where: { id: rep.id }, select: SELECT });
   if (!row) return NextResponse.json({ error: "No such rep." }, { status: 404 });
-  return NextResponse.json(view(row));
+  return NextResponse.json(view(row, rep.kind));
 }
 
 export async function PUT(request) {
   const { rep, refusal } = await requireOutreachRep(request);
   if (refusal) return NextResponse.json(refusal.body, { status: refusal.status });
+  const employee = agencyEmployeeRefusal(rep);
+  if (employee) return NextResponse.json(employee.body, { status: employee.status });
 
   let body = null;
   try {
@@ -105,11 +116,11 @@ export async function PUT(request) {
   const method = String(body?.payoutMethod ?? "").trim();
   const handle = String(body?.payoutHandle ?? "").trim();
 
-  if (!isPayoutMethod(method)) {
+  if (!isPayoutMethodFor(rep.kind, method)) {
     return NextResponse.json(
       {
         error: "Choose one of the payout methods.",
-        allowed: PAYOUT_METHODS.map((m) => m.key),
+        allowed: payoutMethodsFor(rep.kind).map((m) => m.key),
       },
       { status: 400 },
     );
@@ -140,5 +151,5 @@ export async function PUT(request) {
   // engagement and accruesPaidLeave are not in that set. See the header.
   const row = await savePayoutDestination({ salesRepId: rep.id, method, handle });
 
-  return NextResponse.json(view(row));
+  return NextResponse.json(view(row, rep.kind));
 }

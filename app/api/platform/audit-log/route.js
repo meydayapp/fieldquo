@@ -42,6 +42,9 @@ export async function GET(request) {
       where,
       include: {
         platformAdmin: { select: { id: true, email: true, role: true } },
+        // The other actor a row can have: a call-centre agency acting on its
+        // own reps from /sales/agency (lib/sales/agency.js). Never both.
+        actorSalesRep: { select: { id: true, name: true, email: true } },
       },
       orderBy: { createdAt: "desc" },
       skip: (page - 1) * PAGE_SIZE,

@@ -857,6 +857,29 @@ const LIB_FORBIDDEN_WRITE_BY_DESIGN = {
     "writer refuses to coerce. Its own file for the reason preferenceWrite.js " +
     "gives — one writer per file, so the index-located fence sees it. Column " +
     "asserted below.",
+  "lib/sales/agency.js":
+    "The call-centre agency tier (2026-09-16; the file's header quotes the " +
+    "owner's brief). An AGENCY account — kind \"agency\", a business FieldQuo " +
+    "pays by invoice — writes SalesRep rows that are never its OWN: it " +
+    "creates its employees with the kind (rep), engagement (agency), manager " +
+    "(itself) and plan (its own) FORCED, so nothing it types can put a rep on " +
+    "richer terms than the owner agreed with it; it flips `active` on an " +
+    "employee through lib/sales/repActivation.js under the platform's own " +
+    "hand-off gate; it rotates an unaccepted employee's invite token; and the " +
+    "PLATFORM's routes clear `setupRequestedAt` through it. Every WHERE names " +
+    "the employee's id AND the agency as manager, read fresh. It never " +
+    "touches commissionPlanId, engagement, kind or managerId on an existing " +
+    "row, never the agency's own row, and the pay an employee earns goes to " +
+    "the agency either way — reactivating one's own employee is not the " +
+    "self-dealing this list guards against. scripts/check-sales-agency.mjs " +
+    "executes the forced values and the refusals against the recorded writes.",
+  "lib/sales/repActivation.js":
+    "changeRepActive(). The deactivation gate, hand-off and `active`/`endedAt` " +
+    "flip that app/api/platform/sales/reps/[id]/route.js held until 2026-09-16, " +
+    "moved here so the agency's button (lib/sales/agency.js above) runs the " +
+    "same lines. Reached from /api/sales only through agency.js, which scopes " +
+    "the row to the agency's own team before calling it; it decides nothing " +
+    "about who may call it, on purpose — the callers do.",
   "lib/sales/sellsInWrite.js":
     "saveRepSellsIn(). Writes ONLY SalesRep.sellsIn — " +
     "SELLS_IN_WRITES_ON_SALES_REP — the languages a rep says they can sell " +

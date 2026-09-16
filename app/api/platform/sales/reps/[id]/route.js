@@ -46,6 +46,11 @@
 // rep's own button and the hourly cron. The hand-off and the deactivation
 // ride one transaction: there is no instant at which the rep is gone and the
 // work is still theirs. A rep with nothing held deactivates exactly as before.
+//
+// Since 2026-09-16 the gate, the hand-off and the transaction live in
+// lib/sales/repActivation.js, because a call-centre agency deactivates its
+// own employees from /sales/agency under the same rules. This file keeps the
+// superadmin check and the edits only a superadmin makes.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
@@ -55,56 +60,9 @@ import { db } from "@/lib/db";
 import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
 import { normaliseWorkEmail, workEmailProblem } from "@/lib/sales/repAdmin";
 import { resolvePlanAssignment } from "@/lib/sales/commissionPlanServer";
-import { releaseUntouched } from "@/lib/sales/queueBatch";
-import { deactivationGate, frenchHeldCount, openLeadWhere, queueCountsFor, reassignHeld } from "@/lib/sales/reassign";
-import { parseSellsIn, repSellsFrench, sellsInOf } from "@/lib/sales/leadLanguage";
-
-/**
- * The hand-off the gate approved, written on the transaction the rep update
- * is about to ride. Returns what happened, for the audit row.
- *
- * "release" gives every lease back (untouched AND dialled — the rep is
- * leaving, so a place in their list is not a thing to keep) and moves the
- * open leads, with the worked prospects those leads sit on, to the target.
- * "move" hands everything to the target. Neither touches SalesAttribution.
- */
-async function performHandoff({ tx, rep, toRep, handoff, now }) {
-  if (handoff.prospects === "release") {
-    // A prospect with an open lead on it follows the lead to the target
-    // rather than going back to the pool: a lead is a conversation in
-    // progress, and its prospect back in the pool would be dialled cold by
-    // whoever claimed it next. Everything else on a lease is released.
-    const leadProspects = toRep
-      ? await tx.salesLead.findMany({
-          where: { ...openLeadWhere(rep.id), prospectId: { not: null } },
-          select: { prospectId: true },
-        })
-      : [];
-    const withLead = new Set(leadProspects.map((l) => l.prospectId));
-    const leased = await tx.prospect.findMany({
-      where: { assignedRepId: rep.id, claimExpiresAt: { not: null } },
-      select: { id: true },
-    });
-    const released = await releaseUntouched({
-      db,
-      tx,
-      rep,
-      reason: "admin",
-      includeDialled: true,
-      onlyIds: leased.map((p) => p.id).filter((id) => !withLead.has(id)),
-      now,
-    });
-    let moved = null;
-    if (toRep) {
-      moved = await reassignHeld({ db, tx, fromRep: rep, toRep, now, onlyProspectIds: [...withLead] });
-      if (moved.error) throw new Error(moved.error);
-    }
-    return { mode: "release", released: released.released, releasedIds: released.releasedIds, moved };
-  }
-  const moved = await reassignHeld({ db, tx, fromRep: rep, toRep, now });
-  if (moved.error) throw new Error(moved.error);
-  return { mode: "move", released: 0, releasedIds: [], moved };
-}
+import { activationAuditRows, changeRepActive } from "@/lib/sales/repActivation";
+import { AGENCY_ENGAGEMENT, AGENCY_KIND, clearSetupIfComplete } from "@/lib/sales/agency";
+import { parseSellsIn, sellsInOf } from "@/lib/sales/leadLanguage";
 
 export async function PATCH(request, { params }) {
   // Next 16: `params` is a Promise; reading it synchronously gives undefined.
@@ -132,6 +90,8 @@ export async function PATCH(request, { params }) {
       commissionPlanId: true,
       sellsIn: true,
       kind: true,
+      managerId: true,
+      manager: { select: { id: true, kind: true } },
     },
   });
   if (!existing) {
@@ -184,6 +144,23 @@ export async function PATCH(request, { params }) {
   if (touchesEngagement && engagement !== null && !isEngagement(engagement)) {
     return NextResponse.json(
       { error: `engagement must be one of ${ENGAGEMENTS.map((e) => e.key).join(", ")}, or null.` },
+      { status: 400 },
+    );
+  }
+  // "Agency employee" is a fact about the reporting line, not a label: it
+  // means "paid through the manager", and a rep whose manager is not an
+  // agency has nobody to be paid through. lib/sales/agency.js sets it with
+  // the manager in the same write; here it may only be set on a row that
+  // already reports to an agency, and an agency's own row never carries one.
+  if (touchesEngagement && engagement === AGENCY_ENGAGEMENT && existing.manager?.kind !== AGENCY_KIND) {
+    return NextResponse.json(
+      { error: "Only a rep who reports to an agency can be an agency employee. The agency adds its own people from its portal." },
+      { status: 400 },
+    );
+  }
+  if (touchesEngagement && existing.kind === AGENCY_KIND && engagement !== null) {
+    return NextResponse.json(
+      { error: "An agency has no engagement of its own — freelancer or employee is a fact about a person." },
       { status: 400 },
     );
   }
@@ -246,192 +223,85 @@ export async function PATCH(request, { params }) {
     }
   }
 
-  // ── The deactivation gate ────────────────────────────────────────────────
+  // The other columns this request carries ride the SAME update as the
+  // flag, so a deactivation with a mailbox edit is one write, not two.
+  const extraData = {
+    ...(touchesMailbox ? { workEmail } : {}),
+    ...(assignment ? { commissionPlanId: assignment.commissionPlanId } : {}),
+    // A freelancer never accrues paid leave through FieldQuo; an employee
+    // may, but that is a separate decision (see the schema comment), so
+    // moving to freelancer clears the flag and moving to employee leaves it
+    // for the superadmin to set — never inferred.
+    ...(touchesEngagement
+      ? { engagement, ...(engagement !== "employee" ? { accruesPaidLeave: false } : {}) }
+      : {}),
+    ...(touchesSellsIn ? { sellsIn } : {}),
+  };
+  const SELECT = {
+    id: true,
+    name: true,
+    email: true,
+    workEmail: true,
+    code: true,
+    active: true,
+    endedAt: true,
+    acceptedAt: true,
+    commissionPlanId: true,
+    engagement: true,
+    accruesPaidLeave: true,
+    // Selected AND returned: the engagement column was once selected here
+    // and dropped from a response map, and the save read as a failure.
+    sellsIn: true,
+    setupRequestedAt: true,
+    commissionPlan: { select: { id: true, name: true } },
+  };
+
+  // ── The flag, through the shared writer ─────────────────────────────────
   //
-  // Counted fresh from the database on this request, never from what the
-  // screen said a moment ago: a rep can claim a batch between the console
-  // loading and the button being pressed.
-  let handoff = null;
+  // lib/sales/repActivation.js holds the gate, the hand-off and the
+  // transaction, because a call-centre agency closes its own employees'
+  // doors from /sales/agency with the same rules — see that file's header.
+  // This route keeps what is the superadmin's alone: who may call it, and
+  // the mailbox / plan / engagement / languages edits beside the flag.
+  let handled = null;
   let toRep = null;
   let gateCounts = null;
-  if (active === false) {
-    const now = new Date();
-    const counts = (await queueCountsFor({ db, repIds: [existing.id], now })).get(existing.id);
-    const gate = deactivationGate({
-      leased: counts.leased,
-      openLeads: counts.openLeads,
-      worked: counts.worked,
+  let updated;
+  const now = new Date();
+  if (typeof active === "boolean") {
+    const flip = await changeRepActive({
+      db,
+      existing,
+      active,
       handoff: body.handoff,
+      extraData,
+      select: SELECT,
+      now,
     });
-    gateCounts = gate.counts;
-    if (!gate.ok) {
-      return NextResponse.json({ error: gate.error, counts: gate.counts }, { status: gate.status });
+    if (!flip.ok) {
+      return NextResponse.json(
+        { error: flip.error, ...(flip.code ? { code: flip.code, cannot: flip.cannot } : {}), ...(flip.counts ? { counts: flip.counts } : {}) },
+        { status: flip.status },
+      );
     }
-    handoff = gate.handoff;
-    if (handoff?.toRepId) {
-      if (handoff.toRepId === existing.id) {
-        return NextResponse.json(
-          { error: "The work cannot be moved to the rep being deactivated.", counts: gate.counts },
-          { status: 400 },
-        );
-      }
-      toRep = await db.salesRep.findUnique({
-        where: { id: handoff.toRepId },
-        select: { id: true, name: true, email: true, active: true, sellsIn: true },
-      });
-      if (!toRep) {
-        return NextResponse.json({ error: "That rep does not exist.", counts: gate.counts }, { status: 404 });
-      }
-      if (!toRep.active) {
-        return NextResponse.json(
-          { error: "That rep is deactivated. Work can only be moved to an active rep.", counts: gate.counts },
-          { status: 409 },
-        );
-      }
-      // The language rule, judged BEFORE the transaction opens so it is a
-      // 409 with a sentence rather than a thrown error inside performHandoff.
-      // "move" carries every held row; "release" carries only the prospects
-      // an open lead sits on — the same set performHandoff moves.
-      if (!repSellsFrench(toRep)) {
-        const cannot = await frenchHeldCount({
-          db,
-          salesRepId: existing.id,
-          now,
-          onlyWithOpenLead: handoff.prospects === "release",
-        });
-        if (cannot > 0) {
-          return NextResponse.json(
-            {
-              error: `${cannot} of the prospect${cannot === 1 ? " that would move is" : "s that would move are"} in Quebec and can only go to a rep who sells in French. ${toRep.name} has no French in their languages — set it on their card, or choose a rep who has.`,
-              code: "language",
-              cannot,
-              counts: gate.counts,
-            },
-            { status: 409 },
-          );
-        }
-      }
-    }
+    ({ updated, handled, toRep, gateCounts } = flip);
+  } else {
+    updated = await db.salesRep.update({ where: { id: _params.id }, data: extraData, select: SELECT });
   }
 
-  const writeRep = (client) => client.salesRep.update({
-    where: { id: _params.id },
-    data: {
-      ...(typeof active === "boolean"
-        ? {
-            active,
-            // Only ever set alongside active: false, and cleared on the way
-            // back. Leaving a stale endedAt on a reactivated rep would make
-            // canAuthenticate refuse them forever — it treats endedAt as final,
-            // on purpose.
-            endedAt: active ? null : new Date(),
-          }
-        : {}),
-      ...(touchesMailbox ? { workEmail } : {}),
-      ...(assignment ? { commissionPlanId: assignment.commissionPlanId } : {}),
-      // A freelancer never accrues paid leave through FieldQuo; an employee
-      // may, but that is a separate decision (see the schema comment), so
-      // moving to freelancer clears the flag and moving to employee leaves it
-      // for the superadmin to set — never inferred.
-      ...(touchesEngagement
-        ? { engagement, ...(engagement !== "employee" ? { accruesPaidLeave: false } : {}) }
-        : {}),
-      ...(touchesSellsIn ? { sellsIn } : {}),
-    },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      workEmail: true,
-      code: true,
-      active: true,
-      endedAt: true,
-      acceptedAt: true,
-      commissionPlanId: true,
-      engagement: true,
-      accruesPaidLeave: true,
-      // Selected AND returned: the engagement column was once selected here
-      // and dropped from a response map, and the save read as a failure.
-      sellsIn: true,
-      commissionPlan: { select: { id: true, name: true } },
-    },
-  });
-
-  // With a hand-off, the release/move and the deactivation are one
-  // transaction: either the work has a new home AND the door is shut, or
-  // neither. Without one, the update is the plain write it always was.
-  let handled = null;
-  const now = new Date();
-  const updated = handoff
-    ? await db.$transaction(
-        async (tx) => {
-          handled = await performHandoff({ tx, rep: existing, toRep, handoff, now });
-          return writeRep(tx);
-        },
-        // A hundred-row hand-off is a dozen statements; Prisma's five-second
-        // default is for one or two, and a Neon connection that has just
-        // woken can spend most of it on the first.
-        { timeout: 20000 },
-      )
-    : await writeRep(db);
+  // An agency's employee was flagged as needing a number and a work mailbox
+  // (SalesRep.setupRequestedAt). The mailbox may have just arrived; if the
+  // number is there too, the flag comes off — read fresh, never assumed.
+  if (touchesMailbox) {
+    const cleared = await clearSetupIfComplete(updated.id);
+    if (cleared) updated = { ...updated, setupRequestedAt: null };
+  }
 
   // One row per thing that changed, rather than one row saying "edited". The
   // deactivation actions already had their own vocabulary and other screens
   // read it; a mailbox assignment decides who a prospect ends up talking to and
   // deserves to be findable on its own.
-  const actions = [];
-  // The hand-off first, so the log reads in the order it happened: the work
-  // moved, then the door closed. Same two actions the queue route writes for
-  // a release or a move on a rep who stays, so one search finds both.
-  if (handled?.mode === "release") {
-    actions.push({
-      action: "sales_rep_queue_released",
-      details: {
-        salesRepId: updated.id,
-        email: updated.email,
-        scope: "all_held",
-        onDeactivation: true,
-        released: handled.released,
-        prospectIds: handled.releasedIds,
-        ...(handled.moved
-          ? {
-              leadsMovedTo: toRep.id,
-              leadsMovedToEmail: toRep.email,
-              leads: handled.moved.leads,
-              workedProspectsMoved: handled.moved.worked,
-            }
-          : {}),
-      },
-    });
-  }
-  if (handled?.mode === "move") {
-    actions.push({
-      action: "sales_rep_queue_reassigned",
-      details: {
-        fromSalesRepId: updated.id,
-        fromEmail: updated.email,
-        toSalesRepId: toRep.id,
-        toEmail: toRep.email,
-        onDeactivation: true,
-        prospects: handled.moved.prospects,
-        leases: handled.moved.leases,
-        worked: handled.moved.worked,
-        leads: handled.moved.leads,
-        batchId: handled.moved.batchId,
-        attributionsMoved: 0,
-      },
-    });
-  }
-  if (typeof active === "boolean") {
-    actions.push({
-      action: active ? "sales_rep_reactivated" : "sales_rep_deactivated",
-      details: {
-        salesRepId: updated.id,
-        email: updated.email,
-        ...(gateCounts ? { heldAtDeactivation: gateCounts } : {}),
-      },
-    });
-  }
+  const actions = typeof active === "boolean" ? activationAuditRows({ updated, handled, toRep, gateCounts, active }) : [];
   if (touchesMailbox && workEmail !== existing.workEmail) {
     actions.push({
       action: "sales_rep_work_mailbox_set",

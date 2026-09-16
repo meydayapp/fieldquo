@@ -34,11 +34,35 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireSalesRep } from "@/lib/sales/gate";
 import { earningsView } from "@/lib/sales/earnings";
+import { agencyEarnings, agencyEmployeeRefusal, isAgency } from "@/lib/sales/agency";
 
 export async function GET(request) {
   const { rep, refusal } = await requireSalesRep(request);
   if (refusal) {
     return NextResponse.json(refusal.body, { status: refusal.status });
+  }
+
+  // ── The agency tier (lib/sales/agency.js) ───────────────────────────────
+  //
+  // An employee of a call-centre agency is refused with the agency's name:
+  // their entries are real and stay under their id, but the money goes to
+  // the agency, and a screen that showed them a figure "awaiting payout"
+  // would be promising a transfer that will never reach them.
+  const employee = agencyEmployeeRefusal(rep);
+  if (employee) return NextResponse.json(employee.body, { status: employee.status });
+
+  // The agency itself sees the pool: every employee's entries and its own,
+  // the batches under its own id, and the split by employee.
+  if (isAgency(rep)) {
+    const [pooled, payout] = await Promise.all([
+      agencyEarnings({ agency: rep }),
+      db.salesRep.findUnique({ where: { id: rep.id }, select: { payoutMethod: true, payoutHandle: true } }),
+    ]);
+    return NextResponse.json({
+      ...pooled,
+      agency: { id: rep.id, name: rep.name },
+      payoutReady: Boolean(payout?.payoutMethod && payout?.payoutHandle),
+    });
   }
 
   const [entries, batches, payout] = await Promise.all([
