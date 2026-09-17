@@ -39,6 +39,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { fetchJson } from "@/lib/fetchJson";
+import { currentRepId, readLead, sessionStore, writeLead } from "@/lib/sales/queueCache";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import CallPlaybook from "./CallPlaybook";
 import { rememberScriptLanguage, rememberedScriptLanguage } from "@/lib/sales/scriptLanguageMemory";
@@ -102,8 +103,33 @@ export default function PlaybookMount({
 
   const loadPlaybook = useCallback(async () => {
     if (!scriptProspectId) return;
-    setPlaybookLoading(true);
+    // ── The script the tab already holds, first ──────────────────────
+    //
+    // The queue page files every playbook it fetches or reads ahead under
+    // the lead (lib/sales/queueCache.js), per rep, per tab. When there is
+    // one it goes on screen at once and the read below replaces it — the
+    // owner's "open a claimed lead with zero network wait". A script does
+    // not change between two reads a minute apart; a habit (the remembered
+    // language) is honoured the same way, from the cached copy when there
+    // is one.
+    const store = sessionStore();
+    const cachedEntry = readLead(store, { prospectId: scriptProspectId });
+    const cachedDefault = cachedEntry?.playbook?.default || null;
+    if (cachedDefault) {
+      setPlaybook(cachedDefault);
+      const habit = rememberedScriptLanguage(cachedDefault?.scriptLanguage);
+      const cachedHabit = habit ? cachedEntry?.playbook?.[habit] || null : null;
+      if (cachedHabit) {
+        setPlaybook(cachedHabit);
+        setScriptLanguage(habit);
+      }
+    }
+    setPlaybookLoading(!cachedDefault);
     setPlaybookError("");
+    const keep = (language, body) => {
+      const repId = currentRepId(store);
+      if (repId && body) writeLead(store, { repId, prospectId: scriptProspectId }, { playbook: { [language || "default"]: body } });
+    };
     try {
       // The first read is the default language. If this rep chose another
       // language for leads of this kind before (remembered per rep, per
@@ -111,13 +137,19 @@ export default function PlaybookMount({
       // the same read is made again in that language, under the default
       // that is already on screen. Two reads only when there is a habit.
       const first = await fetchJson(playbookUrl(null));
-      setPlaybook(first);
+      keep(null, first);
       const remembered = rememberedScriptLanguage(first?.scriptLanguage);
       if (remembered && remembered !== first?.scriptLanguage?.current && first?.scriptLanguage?.available?.includes(remembered)) {
         setScriptLanguage(remembered);
+        // The default stays on screen only when nothing better is there:
+        // with the habit's cached copy already drawn, replacing it with
+        // the default for the length of one request would flash.
+        if (!cachedEntry?.playbook?.[remembered]) setPlaybook(first);
         setScriptLanguageLoading(true);
         try {
-          setPlaybook(await fetchJson(playbookUrl(remembered)));
+          const habit = await fetchJson(playbookUrl(remembered));
+          keep(remembered, habit);
+          setPlaybook(habit);
         } catch {
           // The default is on screen and is a true script; a habit that
           // could not be honoured is not a failure of the panel.
@@ -125,6 +157,7 @@ export default function PlaybookMount({
           setScriptLanguageLoading(false);
         }
       } else {
+        setPlaybook(first);
         setScriptLanguage(null);
       }
     } catch (err) {
@@ -154,6 +187,8 @@ export default function PlaybookMount({
         const next = await fetchJson(playbookUrl(language));
         setPlaybook(next);
         rememberScriptLanguage(next?.scriptLanguage, language);
+        const repId = currentRepId(sessionStore());
+        if (repId && next) writeLead(sessionStore(), { repId, prospectId: scriptProspectId }, { playbook: { [language]: next } });
       } catch (err) {
         setPlaybookError(err?.message || t("app.salesCall.playbookFetchFailed"));
       } finally {

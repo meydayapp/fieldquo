@@ -23,6 +23,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { History, Loader2 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
+import { currentRepId, readLead, sessionStore, writeLead } from "@/lib/sales/queueCache";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
 function browserTimeZone() {
@@ -50,14 +51,24 @@ export function useCallHistory({ prospectId = null, leadId = null, refreshKey = 
       setData(null);
       return;
     }
+    // The tab's copy first, when the queue page filed one for this
+    // prospect (lib/sales/queueCache.js): drawn at once, replaced by the
+    // read below. Every outcome bumps refreshKey and comes back through
+    // here, so the cached history is never older than the last call.
+    const store = prospectId ? sessionStore() : null;
+    const cached = prospectId ? readLead(store, { prospectId })?.history || null : null;
+    if (cached) setData(cached);
     const q = new URLSearchParams();
     if (prospectId) q.set("prospectId", prospectId);
     if (leadId) q.set("leadId", leadId);
     const zone = browserTimeZone();
     if (zone) q.set("timeZone", zone);
     try {
-      setData(await fetchJson(`/api/sales/calls/history?${q.toString()}`));
+      const body = await fetchJson(`/api/sales/calls/history?${q.toString()}`);
+      setData(body);
       setError("");
+      const repId = prospectId ? currentRepId(store) : null;
+      if (repId && body) writeLead(store, { repId, prospectId }, { history: body });
     } catch (err) {
       setError(err?.message || "");
     }

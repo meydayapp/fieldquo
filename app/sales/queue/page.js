@@ -304,6 +304,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
+import { prefetchTargets, readLead, readSnapshot, sessionStore, writeLead, writeSnapshot } from "@/lib/sales/queueCache";
 import ContactNumbers from "@/app/components/sales/ContactNumbers";
 import DialerPad, { typedToE164 } from "@/app/components/sales/DialerPad";
 import QueueLeadEditor from "@/app/components/sales/QueueLeadEditor";
@@ -1816,8 +1817,46 @@ function QueueList({ t, loading, data, items, groups, itemById, current, visible
  * `wide` on QueueList is what lays the groups out in columns — the tab is
  * wide enough for them; the rail never was.
  */
+/**
+ * What went back to the pool today without a press — one line per sweep,
+ * the names behind a disclosure. lib/sales/queueGivenBack.js says why this
+ * exists: a shorter list with no sentence beside it is a list that
+ * "disappeared". Every time and reason is the server's; nothing here
+ * decides anything. Drawn only when there is something to say, or when the
+ * log could not be read — "nothing went back" is never inferred from a
+ * failed read.
+ */
+function GivenBackStrip({ t, givenBack }) {
+  const events = Array.isArray(givenBack?.events) ? givenBack.events : [];
+  if (!givenBack || (events.length === 0 && !givenBack.readError)) return null;
+  return (
+    <section className="rounded-md border border-border bg-muted/40 p-2 space-y-1" data-given-back>
+      <p className="text-xs font-semibold text-foreground flex items-center gap-1">
+        <Undo2 size={13} aria-hidden="true" /> {t("app.salesQueue.givenBack.title")}
+      </p>
+      {givenBack.readError ? (
+        <p className="text-xs text-muted-foreground break-words">{t("app.salesQueue.givenBack.unreadable")}</p>
+      ) : null}
+      {events.map((e) => (
+        <details key={`${e.reason}:${e.at}`} className="text-xs text-foreground" data-given-back-event={e.reason}>
+          <summary className="cursor-pointer break-words">
+            {t("app.salesQueue.givenBack.line", {
+              count: t("app.salesQueue.prospectCount", { value: e.count }),
+              time: e.atLocal || e.at,
+              zone: e.zone || "",
+              why: e.whyKey ? t(e.whyKey) : e.reason,
+            })}
+          </summary>
+          <p className="mt-1 text-muted-foreground break-words">{e.names.join(" · ")}</p>
+        </details>
+      ))}
+      <p className="text-xs text-muted-foreground break-words">{t("app.salesQueue.givenBack.note")}</p>
+    </section>
+  );
+}
+
 function LeadsPanel(props) {
-  const { t, loading, items, untouchedCount, busy, act } = props;
+  const { t, loading, items, untouchedCount, busy, act, refreshing = false, givenBack = null } = props;
   const worked = items.length - untouchedCount;
   return (
     <div className="space-y-3" data-leads-panel>
@@ -1827,10 +1866,18 @@ function LeadsPanel(props) {
           <h3 className="text-sm font-semibold text-foreground">{t("app.salesQueue.yoursToWork")}</h3>
           {loading ? (
             <Loader2 className="animate-spin text-muted-foreground" size={15} />
+          ) : refreshing ? (
+            // The list on screen is the tab's last payload (lib/sales/
+            // queueCache.js); the real one is on its way. Said, so a row
+            // that changes under the rep a second later is not a surprise.
+            <span className="text-xs text-muted-foreground flex items-center gap-1" data-queue-refreshing>
+              <Loader2 className="animate-spin" size={12} aria-hidden="true" /> {t("app.salesQueue.refreshing")}
+            </span>
           ) : (
             <span className="text-xs text-muted-foreground">{t("app.salesQueue.claimedCount", { value: items.length })}</span>
           )}
         </div>
+        {!loading ? <GivenBackStrip t={t} givenBack={givenBack} /> : null}
         <QueueList {...props} wide />
         {/* ── Give back what was never dialled ──────────────────────────
             Every row with no call attempt since it was claimed. The server
@@ -2085,6 +2132,13 @@ function QueueConsole() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [fetching, setFetching] = useState(false);
+  // `data` is the tab's last payload (sessionStorage — lib/sales/queueCache.js)
+  // rather than the server's answer to THIS load. Cleared by the first
+  // fresh payload. `detailPending` is the narrower case: the list came from
+  // the snapshot but the named row's detail is not cached, so the detail
+  // column waits rather than drawing the "pick a row" state for a beat.
+  const [fromSnapshot, setFromSnapshot] = useState(false);
+  const [detailPending, setDetailPending] = useState(false);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [dncOpen, setDncOpen] = useState(false);
@@ -2119,6 +2173,59 @@ function QueueConsole() {
     [params, pathname, router],
   );
 
+  /**
+   * A fresh payload from the server: shown, clocked, and kept for the next
+   * paint. Every path that gets one — the load, every action — comes
+   * through here, so the snapshot is never older than the last thing the
+   * rep did, and the current row's detail is filed under its prospect for
+   * the next time it is opened.
+   */
+  const applyPayload = useCallback(
+    (body) => {
+      stampClock(body);
+      setData(body);
+      setFromSnapshot(false);
+      setDetailPending(false);
+      const store = sessionStore();
+      writeSnapshot(store, body, { tradeKey });
+      if (body?.rep?.id && body?.current?.id) {
+        writeLead(store, { repId: body.rep.id, prospectId: body.current.id }, { current: body.current });
+      }
+    },
+    [tradeKey, stampClock],
+  );
+
+  // ── Draw first, ask second ─────────────────────────────────────────────
+  //
+  // The owner: "it takes time for them to reload, even the ones that have
+  // been claimed." Before the first request leaves, the tab's last payload
+  // for this rep and trade is put on screen (lib/sales/queueCache.js says
+  // what may be shown and for how long). The URL's row, when it is not the
+  // snapshot's current one, is taken from the per-lead cache when it is
+  // there. The clock is NOT stamped from a snapshot — its serverNow is old
+  // — so every window re-evaluation runs on the browser's clock until the
+  // fresh payload lands. Once, on mount: after that every payload is live.
+  const snapshotTried = useRef(false);
+  useEffect(() => {
+    if (snapshotTried.current) return;
+    snapshotTried.current = true;
+    const store = sessionStore();
+    const snap = readSnapshot(store, { tradeKey, prospectId });
+    if (!snap) return;
+    let body = snap.body;
+    if (!snap.currentMatches) {
+      const lead = readLead(store, { prospectId });
+      if (lead?.current?.id === prospectId) body = { ...body, current: lead.current };
+      else setDetailPending(true);
+    }
+    setData(body);
+    setLoading(false);
+    setFromSnapshot(true);
+    // Mount only, on purpose: the trade and the row at mount are the ones
+    // the snapshot is read for; later changes go through load().
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const load = useCallback(async () => {
     setFetching(true);
     setError("");
@@ -2132,8 +2239,7 @@ function QueueConsole() {
       // clock in the rep's words, and it cannot read either off the session.
       if (language) search.set("language", language);
       const body = await fetchJson(`/api/sales/queue?${search.toString()}`);
-      stampClock(body);
-      setData(body);
+      applyPayload(body);
     } catch (err) {
       setError(err?.message || t("app.salesQueue.queueLoadFailed"));
     } finally {
@@ -2143,11 +2249,12 @@ function QueueConsole() {
       // spinner.
       setLoading(false);
       setFetching(false);
+      setDetailPending(false);
     }
     // `t` and `language` only change when the rep changes language; reloading
     // the queue at that moment costs one request and keeps the fallback
     // sentence — and every server-formatted time — honest.
-  }, [tradeKey, prospectId, stampClock, t, language]);
+  }, [tradeKey, prospectId, applyPayload, t, language]);
 
   useEffect(() => {
     load();
@@ -2214,8 +2321,7 @@ function QueueConsole() {
         // the server named one, so the sentence is in the rep's language.
         setError(body.reasonKey ? t(body.reasonKey, body.reasonParams || {}) : body.message);
       } else {
-        stampClock(body);
-        setData(body);
+        applyPayload(body);
         // A top-up says what it did in a quiet toast rather than a banner:
         // the rep did not press anything. Every number is the server's.
         // Through notify(), not a toast of this page's own: with the tab in
@@ -2247,6 +2353,9 @@ function QueueConsole() {
   }
 
   const current = data?.current || null;
+  // The detail column's own "still loading": the first load, or a snapshot
+  // list whose named row has no cached detail yet.
+  const detailLoading = loading || (detailPending && !current);
   const tradeLabels = useMemo(
     () => Object.fromEntries((data?.trades || []).map((trade) => [trade.key, trade.label])),
     [data?.trades],
@@ -2309,6 +2418,16 @@ function QueueConsole() {
   const noneOpenNow = items.length > 0 && !items.some((item) => item.window?.callableNow);
 
   function select(id) {
+    // The row's detail from the per-lead cache, drawn before the request
+    // leaves — the zero-wait open the owner asked for. When it is not
+    // there, the detail column waits (detailPending) rather than flashing
+    // the empty state; load() replaces either with the server's answer.
+    const lead = readLead(sessionStore(), { repId: data?.rep?.id || null, prospectId: id });
+    if (lead?.current?.id === id) {
+      setData((d) => (d ? { ...d, current: lead.current } : d));
+    } else if (data?.current?.id !== id) {
+      setDetailPending(true);
+    }
     setQuery({ prospectId: id });
   }
 
@@ -2520,6 +2639,64 @@ function QueueConsole() {
       })),
     [walkItems],
   );
+
+  // ── Read ahead: the next rows in dial order, before the rep gets there ──
+  //
+  // lib/sales/queueCache.js prefetchTargets: the LEAD_PREFETCH_AHEAD rows
+  // after the current one that have no fresh entry. Each costs the server
+  // `?only=current` (one row's detail, not the list), the playbook and the
+  // call history, run one after another rather than all at once so a
+  // rep's read-ahead never crowds out a colleague's dial. Only from live
+  // data — a snapshot's order may be stale — and only while the tab is
+  // visible. Best effort: a failure here changes nothing on screen.
+  useEffect(() => {
+    if (fromSnapshot || !data?.rep?.id) return;
+    if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+    const store = sessionStore();
+    const repId = data.rep.id;
+    const targets = prefetchTargets({
+      order,
+      currentId: current?.id || null,
+      cached: (id) => {
+        const lead = readLead(store, { repId, prospectId: id });
+        return Boolean(lead?.current && lead?.playbook?.default && lead?.history);
+      },
+    });
+    if (targets.length === 0) return undefined;
+    let cancelled = false;
+    const zone = browserTimeZone();
+    (async () => {
+      for (const id of targets) {
+        if (cancelled) return;
+        const have = readLead(store, { repId, prospectId: id }) || {};
+        const q = new URLSearchParams({ prospectId: id });
+        if (zone) q.set("timeZone", zone);
+        if (language) q.set("language", language);
+        try {
+          if (!have.current) {
+            const body = await fetchJson(`/api/sales/queue?${q.toString()}&only=current`);
+            if (cancelled) return;
+            if (body?.current?.id === id) writeLead(store, { repId, prospectId: id }, { current: body.current });
+          }
+          if (!have.playbook?.default) {
+            const playbook = await fetchJson(`/api/sales/playbook?prospectId=${encodeURIComponent(id)}`);
+            if (cancelled) return;
+            if (playbook) writeLead(store, { repId, prospectId: id }, { playbook: { default: playbook } });
+          }
+          if (!have.history) {
+            const history = await fetchJson(`/api/sales/calls/history?${q.toString()}`);
+            if (cancelled) return;
+            if (history) writeLead(store, { repId, prospectId: id }, { history });
+          }
+        } catch {
+          // Read-ahead is best effort; the row loads on open as it always did.
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [data?.rep?.id, current?.id, order, fromSnapshot, language]);
   const groups = useMemo(() => {
     const served = data?.queue?.windows?.groups;
     if (Array.isArray(served) && served.length) return served;
@@ -2757,6 +2934,8 @@ function QueueConsole() {
   const panelProps = {
     t,
     loading,
+    refreshing: fromSnapshot && fetching,
+    givenBack: data?.givenBack || null,
     data,
     items,
     groups,
@@ -3089,7 +3268,7 @@ function QueueConsole() {
                 </button>
               </div>
             ) : null}
-            {!loading && !current ? (
+            {!detailLoading && !current ? (
               <div className="space-y-1">
                 <p className="text-sm font-medium text-foreground">{t("app.salesQueue.paneEmptyTitle")}</p>
                 <p className="text-sm text-muted-foreground break-words">{t("app.salesQueue.paneEmptyBody")}</p>
@@ -3129,7 +3308,7 @@ function QueueConsole() {
           {/* Contact: the person, their numbers with Dial, the published
               email, the add-number control, and the call history at the foot */}
           <div role="tabpanel" id="console-tab-contact" aria-labelledby="console-tabbtn-contact" hidden={tab !== "contact"} className="space-y-4" data-console-card="contact">
-            {!loading && !current ? (
+            {!detailLoading && !current ? (
               <p className="text-sm text-muted-foreground">{t("app.salesQueue.pickOrClaim")}</p>
             ) : null}
             {!loading && current ? (
@@ -3179,7 +3358,7 @@ function QueueConsole() {
           <div role="tabpanel" id="console-tab-script" aria-labelledby="console-tabbtn-script" hidden={tab !== "script"} className="space-y-3">
             {/* CallPanel portals the playbook here (layout="console"). */}
             <div ref={setScriptSlot} data-slot="script" />
-            {!current && !loading ? (
+            {!current && !detailLoading ? (
               <p className="text-sm text-muted-foreground">{t("app.salesQueue.pickOrClaim")}</p>
             ) : null}
           </div>
@@ -3187,7 +3366,7 @@ function QueueConsole() {
           {/* Research: the three layers, in the same order every time */}
           <div role="tabpanel" id="console-tab-research" aria-labelledby="console-tabbtn-research" hidden={tab !== "research"} className="space-y-4" data-tour="sales-queue-research">
             {!loading && current ? <ResearchLayers t={t} current={current} /> : null}
-            {!current && !loading ? (
+            {!current && !detailLoading ? (
               <p className="text-sm text-muted-foreground">{t("app.salesQueue.pickOrClaim")}</p>
             ) : null}
           </div>
