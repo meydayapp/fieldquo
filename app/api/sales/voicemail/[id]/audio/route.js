@@ -25,6 +25,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireOutreachRep } from "@/lib/sales/outreachGate";
 import { ownsVoicemail } from "@/lib/sales/calls/voicemail";
+import { queueWhere } from "@/lib/sales/prospectView";
 import { recordError } from "@/lib/platform/errorLog";
 
 /** Twilio serves the media with an `.mp3` suffix on the recording resource. */
@@ -47,6 +48,9 @@ export async function GET(request, { params }) {
       salesRepId: true,
       direction: true,
       fromE164: true,
+      toE164: true,
+      prospectId: true,
+      leadId: true,
       voicemailUrl: true,
       voicemailSeconds: true,
     },
@@ -60,7 +64,50 @@ export async function GET(request, { params }) {
 
   // One answer for "no such message" and "not yours". A different status for
   // each would let anybody enumerate which attempt ids carry a voicemail.
-  if (!ownsVoicemail({ ...attempt, ourE164: attempt?.fromE164 }, { salesRepId: rep.id, ourNumbers })) {
+  let owns = ownsVoicemail({ ...attempt, ourE164: attempt?.fromE164 }, { salesRepId: rep.id, ourNumbers });
+  // A third owner: the rep who HOLDS the business that left it. The call
+  // history on a prospect card links here (lib/sales/calls/history.js), and
+  // that card is only shown to the rep whose queue the prospect is in — the
+  // same claim this re-checks rather than trusts. A message from a business
+  // is for whoever is working that business, which the two rules above
+  // cannot say when the number rung was somebody else's.
+  if (!owns && attempt && attempt.direction === "in" && attempt.voicemailUrl) {
+    const caller = attempt.toE164 || null;
+    const [held, lead] = await Promise.all([
+      db.prospect
+        .findFirst({
+          // AND, not a spread: queueWhere carries its own OR (the claim
+          // window) and a second OR key would silently replace it.
+          where: {
+            AND: [
+              queueWhere(rep.id),
+              {
+                OR: [
+                  ...(attempt.prospectId ? [{ id: attempt.prospectId }] : []),
+                  ...(caller ? [{ phoneE164: caller }] : []),
+                ],
+              },
+            ],
+          },
+          select: { id: true },
+        })
+        .catch(() => null),
+      db.salesLead
+        .findFirst({
+          where: {
+            salesRepId: rep.id,
+            OR: [
+              ...(attempt.leadId ? [{ id: attempt.leadId }] : []),
+              ...(caller ? [{ phone: caller }] : []),
+            ],
+          },
+          select: { id: true },
+        })
+        .catch(() => null),
+    ]);
+    owns = Boolean(held || lead);
+  }
+  if (!owns) {
     return NextResponse.json({ error: "No such message." }, { status: 404 });
   }
 

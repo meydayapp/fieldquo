@@ -33,8 +33,11 @@
 //               from the same read markers /sales/messages uses.
 //   team        unread messages across the staff rooms the rep is in.
 //   voicemail   voicemails left for this rep since the start of their local
-//               day. There is no "heard" marker on a voicemail row, so this
-//               is NOT "unheard" — the sidebar's title says "today".
+//               day, PLUS missed calls (rang, nobody answered, no message —
+//               lib/sales/calls/missed.js) in the same window, because the
+//               Voicemail tab shows both. There is no "heard" marker on
+//               either row, so this is NOT "unheard" — the sidebar's title
+//               says "today".
 //   drafts      check-in and follow-up drafts waiting for the rep to press
 //               Send — lib/sales/checkin/waiting.js's one definition, the
 //               same count the Today card and the texts banner show.
@@ -50,6 +53,7 @@ import { threadReadStates } from "@/lib/sales/messages/readState";
 import { roomsFor } from "@/lib/staff/store";
 import { staffRoomList } from "@/lib/staff/rooms";
 import { voicemailWhere } from "@/lib/sales/calls/voicemail";
+import { missedWhere } from "@/lib/sales/calls/missed";
 import { unloggedWhere } from "@/lib/sales/calls/store";
 import { waitingDraftsFor } from "@/lib/sales/checkin/waiting";
 
@@ -103,12 +107,19 @@ export async function GET(request) {
         where: { assignedRepId: rep.id, active: true },
         select: { e164: true },
       });
-      return db.salesCallAttempt.count({
-        where: {
-          ...voicemailWhere({ salesRepId: rep.id, ourNumbers: assigned.map((n) => n.e164) }),
-          dialledAt: { gte: dayStart },
-        },
-      });
+      // Messages AND missed calls, because the Voicemail tab lists both and
+      // a badge that counted only one would say "nothing new" over a missed
+      // call from the contractor the rep just hung up on.
+      const ourNumbers = assigned.map((n) => n.e164);
+      const [messages, missed] = await Promise.all([
+        db.salesCallAttempt.count({
+          where: { ...voicemailWhere({ salesRepId: rep.id, ourNumbers }), dialledAt: { gte: dayStart } },
+        }),
+        db.salesCallAttempt.count({
+          where: { ...missedWhere({ salesRepId: rep.id, ourNumbers }), dialledAt: { gte: dayStart } },
+        }),
+      ]);
+      return messages + missed;
     }),
     // Calls with no outcome — every day's, not today's. The Queue badge
     // and the Today card; the same WHERE the unlogged list reads.

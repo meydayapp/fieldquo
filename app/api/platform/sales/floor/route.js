@@ -37,7 +37,11 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
 import { getAppOrigin } from "@/lib/appUrl";
-import { inboundCalls, salesCallerNumbers } from "@/lib/sales/calls/store";
+import { db } from "@/lib/db";
+import { inboundCalls, salesCallerNumbers, SALES_VOICE_PURPOSES } from "@/lib/sales/calls/store";
+import { inboundOutcome } from "@/lib/sales/calls/missed";
+import { salesNumberWebhookAudit } from "@/lib/voice/numberAudit";
+import { INBOUND_WEBHOOK_PATH } from "@/lib/sales/calls/inboundRouting";
 import {
   inboundWebhookUrl,
   salesVoiceInboundState,
@@ -90,11 +94,35 @@ export async function GET(request) {
   // `undefined` on failure rather than [], so the screen can tell "nobody rang
   // today" from "we could not look" — the two are the same empty array and
   // different facts.
-  const [agent, inbound, voiceNumbers] = await Promise.all([
+  const [agent, inbound, voiceNumbers, numberRows] = await Promise.all([
     salesAgentRow().catch(() => null),
     inboundCalls({ from, to: now }).catch(() => undefined),
     salesCallerNumbers().catch(() => undefined),
+    // Every active sales number WITH its stored voice URL, for the webhook
+    // audit — salesCallerNumbers() deliberately returns only the ones that
+    // carry one, and a number with none is exactly what the audit must show.
+    db.platformSmsNumber
+      .findMany({
+        where: { purpose: { in: SALES_VOICE_PURPOSES }, active: true },
+        select: { e164: true, purpose: true, voiceUrl: true, assignedRep: { select: { name: true } } },
+        orderBy: { e164: "asc" },
+      })
+      .catch(() => undefined),
   ]);
+  const origin = getAppOrigin(request);
+  // inboundCalls() lives in store.js, which the call-outcome work is editing
+  // concurrently, so the two columns the outcome needs are read beside it
+  // rather than added to its select. One query for the page's hundred rows.
+  const outcomeCols = new Map();
+  if (Array.isArray(inbound) && inbound.length) {
+    const extra = await db.salesCallAttempt
+      .findMany({
+        where: { id: { in: inbound.map((r) => r.id) } },
+        select: { id: true, answeredAt: true, missedAt: true },
+      })
+      .catch(() => []);
+    for (const row of extra) outcomeCols.set(row.id, row);
+  }
 
   return NextResponse.json({
     store,
@@ -117,8 +145,23 @@ export async function GET(request) {
       lookupFailed: voiceNumbers === undefined,
       transferConfigured: Boolean(process.env.FIELDQUO_SALES_TRANSFER_TO),
       anyLive,
-      webhookUrl: inboundWebhookUrl(getAppOrigin(request)),
+      webhookUrl: inboundWebhookUrl(origin),
     }),
+    // Per number: does its voice URL point at THIS deployment. null when the
+    // rows could not be read, which the page says rather than showing zero.
+    numberAudit:
+      numberRows === undefined
+        ? null
+        : salesNumberWebhookAudit({
+            numbers: numberRows.map((n) => ({
+              e164: n.e164,
+              purpose: n.purpose,
+              voiceUrl: n.voiceUrl,
+              assignedRepName: n.assignedRep?.name || null,
+            })),
+            origin,
+            inboundPath: INBOUND_WEBHOOK_PATH,
+          }),
     inboundCalls:
       inbound === undefined
         ? null
@@ -134,6 +177,10 @@ export async function GET(request) {
             matchedBy: row.matchedBy,
             disposition: row.disposition,
             providerStatus: row.providerStatus,
+            // "answered" | "voicemail" | "missed" | "open" — the one word the
+            // floor needs. lib/sales/calls/missed.js.
+            outcome: inboundOutcome({ ...row, ...(outcomeCols.get(row.id) || {}), direction: "in" }),
+            missedAt: outcomeCols.get(row.id)?.missedAt || null,
             talkSeconds: row.talkSeconds,
             // Null means no recording stage ran. Zero seconds means one did
             // and nobody spoke — somebody who heard the beep and thought

@@ -56,6 +56,7 @@ import {
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { describeDuration } from "@/lib/sales/calls/agentState";
+import { INBOUND_WEBHOOK_PATH as INBOUND_PATH } from "@/lib/sales/calls/inboundRouting";
 
 const CARD = "rounded-xl border border-border bg-card p-4 space-y-3";
 const BTN =
@@ -325,6 +326,74 @@ export default function SalesFloorPage() {
                 <p className="text-sm text-muted-foreground break-words">{data.salesVoice.text}</p>
               ) : null}
 
+              {/* Per number: where its voice webhook points, against the
+                  host THIS deployment answers on. A number bought from a
+                  different origin keeps ringing that origin, and Twilio's
+                  signature check on the inbound route fails against the
+                  wrong host — silently, until 2026-09-17. The inbound
+                  processing region is deliberately shown as "not recorded":
+                  we store nothing about it, and the only honest answer is
+                  the console path and the API call written beside it. */}
+              {data.numberAudit === null ? (
+                <p className="text-xs text-muted-foreground">
+                  Couldn&rsquo;t read the sales numbers&rsquo; voice URLs just now.
+                </p>
+              ) : data.numberAudit && data.numberAudit.lines.length ? (
+                <div className="space-y-2">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-left text-xs text-muted-foreground">
+                          <th className="py-1 pr-3 font-medium">Number</th>
+                          <th className="py-1 pr-3 font-medium">Owner</th>
+                          <th className="py-1 pr-3 font-medium">Voice webhook host</th>
+                          <th className="py-1 pr-3 font-medium">This app</th>
+                          <th className="py-1 font-medium">Inbound region</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {data.numberAudit.lines.map((n) => (
+                          <tr key={n.e164} className="border-t border-border">
+                            <td className="py-1.5 pr-3 whitespace-nowrap tabular-nums">{n.e164}</td>
+                            <td className="py-1.5 pr-3 break-words">
+                              {n.assignedRepName || <span className="text-muted-foreground">pool</span>}
+                            </td>
+                            <td className="py-1.5 pr-3 break-words">
+                              {n.host || <span className="text-muted-foreground">none stored</span>}
+                            </td>
+                            <td className="py-1.5 pr-3 break-words">
+                              {n.pointsHere ? (
+                                <span className="text-emerald-700 dark:text-emerald-300">points here</span>
+                              ) : n.state === "origin_unknown" ? (
+                                <span className="text-muted-foreground">app origin unknown</span>
+                              ) : (
+                                <span className="text-amber-800 dark:text-amber-200">
+                                  {n.state === "no_voice_url"
+                                    ? "no voice URL — rings out"
+                                    : n.state === "wrong_path"
+                                      ? `wrong path, expected ${INBOUND_PATH}`
+                                      : `expected ${n.expectedHost}`}
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-1.5 break-words text-muted-foreground">
+                              {n.region || "not recorded — Twilio Console → Phone Numbers → the number → Regional tab"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <p className="text-xs text-muted-foreground break-words">
+                    Each number also needs its <em>call status changes</em> callback pointed at{" "}
+                    <code className="text-xs">{data.salesVoice?.webhookUrl}?stage=status</code> (Twilio Console →
+                    the number → Voice Configuration → &ldquo;Call status changes&rdquo;), or a caller who hangs
+                    up while it rings is recorded as missed only by the sweep, minutes late. Numbers bought from
+                    now on get it at purchase.
+                  </p>
+                </div>
+              ) : null}
+
               {/* Today's callbacks. Rendered from the row list rather than a
                   count, because the useful thing is WHICH business rang and
                   whether it landed on anybody. `null` is "we could not look"
@@ -345,6 +414,7 @@ export default function SalesFloorPage() {
                         <th className="py-1 pr-3 font-medium">Rang back</th>
                         <th className="py-1 pr-3 font-medium">Who</th>
                         <th className="py-1 pr-3 font-medium">Filed for</th>
+                        <th className="py-1 pr-3 font-medium">Ended</th>
                         <th className="py-1 pr-3 font-medium">Outcome</th>
                         <th className="py-1 font-medium">Message</th>
                       </tr>
@@ -366,6 +436,20 @@ export default function SalesFloorPage() {
                               <span className="text-muted-foreground">
                                 nobody — this number has not been dialled from that line
                               </span>
+                            )}
+                          </td>
+                          {/* The carrier's account, in one word. "missed" is
+                              the one that used to be indistinguishable from
+                              "open" — lib/sales/calls/missed.js. */}
+                          <td className="py-1.5 pr-3 break-words">
+                            {c.outcome === "missed" ? (
+                              <span className="text-amber-800 dark:text-amber-200">missed — no message</span>
+                            ) : c.outcome === "voicemail" ? (
+                              "voicemail"
+                            ) : c.outcome === "answered" ? (
+                              "answered"
+                            ) : (
+                              <span className="text-muted-foreground">still open</span>
                             )}
                           </td>
                           <td className="py-1.5 pr-3 break-words text-muted-foreground">

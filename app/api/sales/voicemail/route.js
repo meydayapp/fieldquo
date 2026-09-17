@@ -13,6 +13,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireOutreachRep } from "@/lib/sales/outreachGate";
 import { voicemailWhere, voicemailView } from "@/lib/sales/calls/voicemail";
+import { missedWhere, missedView } from "@/lib/sales/calls/missed";
 
 /** How many to show. A rep works the recent ones; the rest are history. */
 const LIMIT = 50;
@@ -50,7 +51,33 @@ export async function GET(request) {
     },
   });
 
+  // The same screen, the other outcome: rang, nobody picked up, no message.
+  // Listed beside the voicemails rather than on a screen of its own because
+  // the question a rep is answering is "who tried to reach me" — see
+  // lib/sales/calls/missed.js for why this record exists at all.
+  const missedRows = await db.salesCallAttempt.findMany({
+    where: missedWhere({ salesRepId: rep.id, ourNumbers }),
+    orderBy: { dialledAt: "desc" },
+    take: LIMIT,
+    select: {
+      id: true,
+      salesRepId: true,
+      direction: true,
+      toE164: true,
+      fromE164: true,
+      dialledAt: true,
+      missedAt: true,
+      providerStatus: true,
+      disposition: true,
+      prospectId: true,
+      leadId: true,
+      prospect: { select: { businessName: true } },
+      lead: { select: { businessName: true } },
+    },
+  });
+
   return NextResponse.json({
+    missed: missedRows.map(missedView),
     // `contactE164` is not a column — an inbound attempt records the caller in
     // `toE164`. Mapped here so the view helper reads one name for it.
     voicemails: rows.map((r) => voicemailView({ ...r, contactE164: r.toE164, ourE164: r.fromE164 })),

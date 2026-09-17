@@ -131,6 +131,18 @@ export function CallHistoryStrip({ prospectId = null, leadId = null, refreshKey 
               {row.direction === "in" ? <span className="rounded-full bg-muted px-1.5 text-[10px] uppercase tracking-wide">{t("app.salesCall.history.inbound")}</span> : null}
               {!row.mine ? <span className="rounded-full bg-muted px-1.5 text-[10px] uppercase tracking-wide">{t("app.salesCall.history.anotherRep")}</span> : null}
               {ended ? <span className="text-muted-foreground">· {ended}</span> : null}
+              {/* The two inbound outcomes that used to be invisible here.
+                  The audio is FieldQuo's own URL, never the provider's —
+                  lib/sales/calls/voicemail.js. */}
+              {row.voicemail ? (
+                <span className="text-foreground">
+                  · {typeof row.voicemail.seconds === "number" ? t("app.salesCall.history.voicemailSeconds", { seconds: row.voicemail.seconds }) : t("app.salesCall.history.voicemail")}{" "}
+                  <a href={row.voicemail.href} target="_blank" rel="noopener" className="underline font-medium" data-call-history-voicemail={row.id}>
+                    {t("app.salesCall.history.play")}
+                  </a>
+                </span>
+              ) : null}
+              {row.missed ? <span className="text-amber-900 dark:text-amber-200" data-call-history-missed={row.id}>· {t("app.salesCall.history.missed")}</span> : null}
               <span className={row.disposition ? "font-medium text-foreground" : "text-amber-900 dark:text-amber-200"}>· {outcomeText(t, row)}</span>
               {row.autoLogged ? (
                 <span className="rounded-full border border-border px-1.5 text-[10px] uppercase tracking-wide text-muted-foreground" title={t("app.salesCall.history.autoLoggedTitle")}>

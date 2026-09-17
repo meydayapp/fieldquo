@@ -71,6 +71,7 @@ import { handlerStatus } from "@/lib/sales/pipeline/registry";
 import { topUpResearchBacklog } from "@/lib/sales/pipeline/research";
 import { SUGGEST_CRON_SLICE, suggestTradesBatch } from "@/lib/sales/discovery/suggestTradesBatch";
 import { runTradeSuggestAiSlice } from "@/lib/sales/discovery/suggestTradesAiApproval";
+import { sweepMissedInbound } from "@/lib/sales/calls/missed";
 
 // Same reasoning as grace-warning's BATCH: the query is driven by `status`,
 // not a cursor, so leftovers are picked up by the next tick and nothing is
@@ -162,6 +163,19 @@ export async function GET(request) {
     limit: Math.max(0, BATCH - discovery.considered),
   });
   result.discovery = discovery;
+
+  // Inbound calls nobody answered and nobody left a message on, old enough
+  // that no TwiML can still be running for them: mark missed, push the rep.
+  // Here because this is the one sales cron that runs every minute; the
+  // number's own status callback does the same work seconds after the hang
+  // up when it is configured, and this is the net for when it is not.
+  // lib/sales/calls/missed.js. Its own try: a failure here must not stop the
+  // pipeline, and a pipeline failure must not stop this.
+  try {
+    result.missedCalls = await sweepMissedInbound({ now, client: db, log: (line) => console.error(line) });
+  } catch (err) {
+    result.missedCalls = { error: err?.message || String(err) };
+  }
 
   // ── Then the backlog: websites nobody has read, a slice per run ──────────
   //

@@ -57,15 +57,51 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 // The stub is deliberately USELESS: every store function below is called with
 // an explicit `client`, so if one of them ever ignored the argument and
 // reached for the module-level db, it would throw here rather than pass.
+//
+// Since 2026-09-17 the stub has a second mode: when `globalThis.__inboundDb`
+// is set (section 18, which drives the ROUTE itself), the module-level `db`
+// delegates to that in-memory client, so the shipped route runs unmodified
+// against scripted rows. Unset — every other section — it throws exactly as
+// before, so the store's "uses the client argument" property still holds.
+//
+// `@/lib/notify/push` is replaced the same way: the real one would look up
+// subscriptions and hand them to web-push. The stub records every payload
+// (title, body, tag, recipients) on `globalThis.__pushes`, rendering the copy
+// through the real APP_MESSAGES so a missing key fails here.
 const DB_HOOKS = `
 export async function resolve(specifier, context, nextResolve) {
   if (specifier === "@/lib/db") return { url: "fq-stub:inbound-db", shortCircuit: true };
+  if (specifier === "@/lib/notify/push") return { url: "fq-stub:inbound-push", shortCircuit: true };
+  if (specifier === "next/server") return { url: "fq-stub:inbound-next", shortCircuit: true };
   return nextResolve(specifier, context);
 }
 export async function load(url, context, nextLoad) {
   if (url === "fq-stub:inbound-db")
     return { format: "module", shortCircuit: true, source:
-      "export const db = new Proxy({}, { get(_t, m) { throw new Error('the module-level db was used instead of the client argument: ' + String(m)); } });" };
+      "export const db = new Proxy({}, { get(_t, m) { if (globalThis.__inboundDb) return globalThis.__inboundDb[m]; throw new Error('the module-level db was used instead of the client argument: ' + String(m)); } });" };
+  if (url === "fq-stub:inbound-next")
+    // next/server has no bare-node entry; the route only needs a Response
+    // with a status, headers and a text body, which the standard Response is.
+    return { format: "module", shortCircuit: true, source:
+      "export class NextResponse extends Response { static json(body, init) { return new NextResponse(JSON.stringify(body), { ...init, headers: { 'content-type': 'application/json', ...(init?.headers || {}) } }); } }" };
+  if (url === "fq-stub:inbound-push")
+    return { format: "module", shortCircuit: true, source: \`
+      import { APP_MESSAGES } from "@/app/i18n/appMessages";
+      export async function appSentence(language, key, params = {}) {
+        const dict = APP_MESSAGES[String(language || "en").toLowerCase()] || {};
+        let raw = dict[key] ?? APP_MESSAGES.en[key];
+        if (raw == null) throw new Error("missing app message: " + key);
+        for (const [k, v] of Object.entries(params || {})) raw = String(raw).split("{" + k + "}").join(String(v ?? ""));
+        return String(raw);
+      }
+      export async function pushToReps({ salesRepIds, payload }) {
+        globalThis.__pushes = globalThis.__pushes || [];
+        const p = typeof payload === "function" ? await payload("en") : payload;
+        globalThis.__pushes.push({ salesRepIds: [...salesRepIds], ...p });
+        return { sent: salesRepIds.length, failed: 0, disabled: 0 };
+      }
+      export function pushConfigured() { return true; }
+    \` };
   return nextLoad(url, context);
 }
 `;
@@ -175,12 +211,27 @@ ok("the inbound webhook route is on disk", existsSync(join(ROOT, ROUTE)));
     (() => {
       // Ordering, not presence. A verification that runs after the lookup is
       // not a gate — the same property check-sales-call-handling asserts about
-      // the floor board's role check.
+      // the floor board's role check. Since 2026-09-17 every read lives in
+      // handle(), which POST reaches only past the refusal; the one write
+      // before it is the refusal's own error-log row, which is the point.
       const verify = body.indexOf("verifyTwilioWebhook");
       const refuse = body.indexOf("status: 403");
-      const readDb = body.search(/salesVoiceNumber\(|db\.\w+\.find/);
-      return verify !== -1 && refuse !== -1 && readDb !== -1 && verify < refuse && refuse < readDb;
+      const dispatch = body.indexOf("handle(request, params)");
+      const readsInPost = body.search(/salesVoiceNumber\(|db\.\w+\.find/);
+      const handleReads = fnBody(ROUTE, "async function handle(").search(/salesVoiceNumber\(|db\.\w+\.find/);
+      return (
+        verify !== -1 && refuse !== -1 && dispatch !== -1 && verify < refuse && refuse < dispatch &&
+        readsInPost === -1 && handleReads !== -1
+      );
     })(),
+  );
+  ok(
+    "…and a refused request is written to the error log with what Twilio sent",
+    /code: "signature_rejected"/.test(body) && /callSid: params\?\.CallSid/.test(body),
+  );
+  ok(
+    "a throw anywhere in the handler is logged with the CallSid and answered with TwiML, never a 500",
+    /code: "webhook_threw"/.test(body) && /return speak\(/.test(body) && !/status: 500/.test(body),
   );
   ok(
     "the verifier is the shared one, not a second copy of the HMAC dance",
@@ -188,9 +239,16 @@ ok("the inbound webhook route is on disk", existsSync(join(ROOT, ROUTE)));
   );
   ok(
     "the second leg is behind the same signature check",
-    // The stage branch must sit AFTER the verification, or a stranger could
-    // post a DialCallStatus for any attempt id they liked.
-    body.indexOf("verifyTwilioWebhook") < body.indexOf('"after-dial"'),
+    // The stage branches live in handle(), which only POST calls, and POST
+    // calls it after the refusal — or a stranger could post a DialCallStatus
+    // for any attempt id they liked.
+    (() => {
+      const handle = fnBody(ROUTE, "async function handle(");
+      const src = source(ROUTE);
+      const callers = [...src.matchAll(/await handle\(request, params\)/g)].length;
+      return /"after-dial"/.test(handle) && /"status"/.test(handle) && callers === 1 &&
+        body.indexOf("verifyTwilioWebhook") < body.indexOf("handle(request, params)");
+    })(),
   );
 }
 
@@ -271,10 +329,22 @@ ok("the action vocabulary is closed and complete", INBOUND_ACTIONS.length === 4 
 }
 
 {
+  // THE bug of 2026-09-17. This block used to assert the opposite — that no
+  // transfer destination meant a message — and production has never had one
+  // set, so every ring-back went to the beep while the rep sat in the
+  // console. The browsers ring whether or not a desk phone exists.
   const noDest = inboundPlan({ numberRung: OUR_NUMBER, transferTo: null, anyRepLive: true });
-  ok("no transfer destination means a message, not a dead line", noDest.action === INBOUND_MESSAGE);
+  ok("no transfer destination still CONNECTS — the browsers ring without a desk phone", noDest.action === INBOUND_CONNECT, noDest.action);
   ok("…and the call is still recorded", noDest.recordAttempt === true);
-  ok("…and the reason is machine-readable", noDest.reason === "no_transfer_destination");
+  ok("…and the reason says the floor was live, not that a desk was set", noDest.reason === "floor_live", noDest.reason);
+  ok("…and no transfer number is invented", noDest.transferTo === null);
+  const noDestUnknown = inboundPlan({ numberRung: OUR_NUMBER, transferTo: null, anyRepLive: null });
+  ok("…an unreadable floor with no desk phone is rung too", noDestUnknown.action === INBOUND_CONNECT && noDestUnknown.reason === "presence_unknown", noDestUnknown.reason);
+  const noDestEmpty = inboundPlan({ numberRung: OUR_NUMBER, transferTo: null, anyRepLive: false });
+  ok("…and only an EMPTY floor takes a message without ringing", noDestEmpty.action === INBOUND_MESSAGE && noDestEmpty.reason === "floor_empty");
+  const emptyButOwned = inboundPlan({ numberRung: OUR_NUMBER, transferTo: null, anyRepLive: false, ringable: 1 });
+  ok("…unless the ring plan found a browser anyway (the number's owner, or the rep who just dialled them)", emptyButOwned.action === INBOUND_CONNECT && emptyButOwned.reason === "floor_empty_ringable" && emptyButOwned.floorEmpty === true, emptyButOwned.reason);
+  ok("…and a live floor does not claim to be empty", inboundPlan({ numberRung: OUR_NUMBER, transferTo: null, anyRepLive: true, ringable: 1 }).floorEmpty === false);
 }
 
 {
@@ -303,8 +373,10 @@ ok("the action vocabulary is closed and complete", INBOUND_ACTIONS.length === 4 
 
 ok(
   "a destination that is not E.164 is not dialled",
-  inboundPlan({ numberRung: OUR_NUMBER, transferTo: "the office", anyRepLive: true }).action ===
-    INBOUND_MESSAGE,
+  (() => {
+    const p = inboundPlan({ numberRung: OUR_NUMBER, transferTo: "the office", anyRepLive: true });
+    return p.action === INBOUND_CONNECT && p.transferTo === null;
+  })(),
 );
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -521,7 +593,7 @@ ok(
 section("8. Nothing in the request chooses who gets dialled");
 
 {
-  const body = fnBody(ROUTE, "export async function POST(");
+  const body = fnBody(ROUTE, "async function handle(");
   ok(
     "the transfer destination comes from the environment",
     /process\.env\.FIELDQUO_SALES_TRANSFER_TO/.test(body),
@@ -933,7 +1005,7 @@ section("13. The match may put a card on a screen and nothing more");
 }
 
 {
-  const body = fnBody(ROUTE, "export async function POST(");
+  const body = fnBody(ROUTE, "async function handle(");
   ok(
     "the rep who rang them wins over the claim holder",
     /repToTell\(\[lastOut\?\.salesRepId, match\.salesRepId\]\)/.test(body),
@@ -1060,10 +1132,10 @@ section("15. What a superadmin is told about the pool");
     salesVoiceInboundState({ numbers: [], lookupFailed: true }).state === "unknown",
   );
   ok(
-    "numbers held with no transfer destination says the call is logged and nothing more",
+    "numbers held with no transfer destination says the browsers ring and names the missing variable",
     (() => {
-      const s = salesVoiceInboundState({ numbers: [OUR_NUMBER.e164], transferConfigured: false });
-      return s.state === "logged_only" && /FIELDQUO_SALES_TRANSFER_TO/.test(s.text);
+      const s = salesVoiceInboundState({ numbers: [OUR_NUMBER.e164], transferConfigured: false, anyLive: true });
+      return s.state === "connects" && /browser/.test(s.text) && /FIELDQUO_SALES_TRANSFER_TO/.test(s.text) && !/Nobody can be put through/.test(s.text);
     })(),
   );
   ok(
@@ -1120,10 +1192,20 @@ section("16. Twilio is answered with a document, never with an error");
   // The only non-200 in the file is the 403 for an unsigned request, which
   // Twilio itself never sees.
   const statuses = [...src.matchAll(/status:\s*(\d{3})/g)].map((m) => m[1]);
+  // 204 is the status-callback acknowledgement (`?stage=status`): Twilio is
+  // not waiting for TwiML there, and an empty 2xx is what it expects.
   ok(
-    "every answer is a 200 except the unsigned refusal",
-    statuses.every((s) => s === "200" || s === "403"),
+    "every answer is a 200 except the unsigned refusal and the status-callback ack",
+    statuses.every((s) => s === "200" || s === "403" || s === "204"),
     statuses,
+  );
+  ok(
+    "…and the 204s are all inside the status stage",
+    (() => {
+      const stage = fnBody(ROUTE, "async function statusStage(");
+      const inStage = [...stage.matchAll(/status:\s*204/g)].length;
+      return inStage > 0 && inStage === statuses.filter((s) => s === "204").length;
+    })(),
   );
   ok(
     "a failure to record the call does not drop it",
@@ -1137,7 +1219,397 @@ section("16. Twilio is answered with a document, never with an error");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-section("17. This check runs in check:all");
+section("17. The route itself, executed: every ring-back ends in one of three records");
+
+// ── Why the route is now RUN and not only read ───────────────────────────
+//
+// The header above says the route "imports next/server and the Twilio SDK,
+// and standing those up here would test the harness". Both import cleanly
+// under bare node, and on 2026-09-17 the thing that was wrong was not in any
+// pure function: it was the ORDER of two checks inside POST — the plan's
+// action was consulted before the ring plan existed — which no pure test
+// could see and section 3 had asserted as correct. So the shipped handler is
+// driven here with signed Twilio-shaped requests against an in-memory
+// client, and the assertions are about what ended up in the rows and what
+// was pushed. The four cases the owner named: rep answers; rep absent →
+// voicemail; rep absent, caller hangs up first → missed-call row + push;
+// bad signature → error-log row.
+
+process.env.TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN || "check-sales-inbound-token";
+process.env.NEXT_PUBLIC_APP_URL = "https://www.fieldquo.com";
+delete process.env.FIELDQUO_SALES_TRANSFER_TO;
+
+const twilio = (await import("twilio")).default;
+const { POST } = await import("@/app/api/rep-dial/inbound/route");
+const { sweepMissedInbound, MISSED_SWEEP_AFTER_SECONDS, inboundOutcome } = await import("@/lib/sales/calls/missed");
+const { HISTORY_SELECT, callHistoryRows } = await import("@/lib/sales/calls/history");
+const { MAX_QUEUE_ROUNDS, maxHoldSeconds } = await import("@/lib/sales/calls/queue");
+
+/** A small Prisma-shaped in-memory client: the models the route touches. */
+function memoryDb(seed = {}) {
+  let n = 0;
+  const tables = {
+    salesCallAttempt: [...(seed.salesCallAttempt || [])],
+    salesRepActivity: [...(seed.salesRepActivity || [])],
+    salesRep: [...(seed.salesRep || [])],
+    platformSmsNumber: [...(seed.platformSmsNumber || [])],
+    prospect: [...(seed.prospect || [])],
+    salesLead: [...(seed.salesLead || [])],
+    platformErrorLog: [],
+    salesSuppression: [],
+    salesCallTransfer: [],
+  };
+  const relations = {
+    salesCallAttempt: { salesRep: ["salesRep", "salesRepId"], prospect: ["prospect", "prospectId"], lead: ["salesLead", "leadId"] },
+    platformSmsNumber: { assignedRep: ["salesRep", "assignedRepId"] },
+  };
+  function matchValue(actual, cond) {
+    if (cond === null) return actual === null || actual === undefined;
+    if (cond instanceof Date) return actual instanceof Date && actual.getTime() === cond.getTime();
+    if (typeof cond !== "object") return actual === cond;
+    if (Array.isArray(cond.in)) return cond.in.includes(actual);
+    if ("not" in cond) return cond.not === null ? actual !== null && actual !== undefined : actual !== cond.not;
+    const t = actual instanceof Date ? actual.getTime() : actual;
+    const v = (x) => (x instanceof Date ? x.getTime() : x);
+    if ("gte" in cond && !(t >= v(cond.gte))) return false;
+    if ("gt" in cond && !(t > v(cond.gt))) return false;
+    if ("lte" in cond && !(t <= v(cond.lte))) return false;
+    if ("lt" in cond && !(t < v(cond.lt))) return false;
+    return true;
+  }
+  function matches(row, where = {}) {
+    for (const [k, cond] of Object.entries(where)) {
+      if (k === "OR") { if (!cond.some((w) => matches(row, w))) return false; continue; }
+      if (k === "AND") { if (!cond.every((w) => matches(row, w))) return false; continue; }
+      if (cond && typeof cond === "object" && !Array.isArray(cond) && !(cond instanceof Date) && !("in" in cond) && !("not" in cond) && !("gte" in cond) && !("gt" in cond) && !("lte" in cond) && !("lt" in cond)) {
+        continue; // a nested relation filter: not modelled, and not used by the route
+      }
+      if (!matchValue(row[k], cond)) return false;
+    }
+    return true;
+  }
+  function project(model, row, select) {
+    if (!row) return null;
+    const out = { ...row };
+    const rel = relations[model] || {};
+    for (const [field, [table, key]] of Object.entries(rel)) {
+      if (select && select[field]) out[field] = tables[table].find((r) => r.id === row[key]) || null;
+      else delete out[field];
+    }
+    return out;
+  }
+  function sortBy(rows, orderBy) {
+    if (!orderBy) return rows;
+    const [[k, dir]] = Object.entries(orderBy);
+    return [...rows].sort((a, b) => (a[k] < b[k] ? -1 : a[k] > b[k] ? 1 : 0) * (dir === "desc" ? -1 : 1));
+  }
+  const api = {};
+  for (const model of Object.keys(tables)) {
+    api[model] = {
+      findMany: async ({ where = {}, orderBy, take, select } = {}) => {
+        let rows = sortBy(tables[model].filter((r) => matches(r, where)), orderBy);
+        if (take) rows = rows.slice(0, take);
+        return rows.map((r) => project(model, r, select));
+      },
+      findFirst: async ({ where = {}, orderBy, select } = {}) =>
+        project(model, sortBy(tables[model].filter((r) => matches(r, where)), orderBy)[0] || null, select),
+      findUnique: async ({ where = {}, select } = {}) =>
+        project(model, tables[model].find((r) => matches(r, where)) || null, select),
+      count: async ({ where = {} } = {}) => tables[model].filter((r) => matches(r, where)).length,
+      create: async ({ data }) => {
+        const row = { id: `${model}_${++n}`, createdAt: new Date(), ...data };
+        tables[model].push(row);
+        return { ...row };
+      },
+      upsert: async ({ where, create }) => {
+        const existing = tables[model].find((r) => matches(r, where));
+        if (existing) return { ...existing };
+        const row = { id: `${model}_${++n}`, createdAt: new Date(), ...create };
+        tables[model].push(row);
+        return { ...row };
+      },
+      updateMany: async ({ where = {}, data }) => {
+        let count = 0;
+        for (const r of tables[model]) if (matches(r, where)) { Object.assign(r, data); count++; }
+        return { count };
+      },
+    };
+  }
+  api.$tables = tables;
+  return api;
+}
+
+const ORIGIN = "https://www.fieldquo.com";
+function signedRequest(path, params, { badSignature = false } = {}) {
+  const url = `${ORIGIN}${path}`;
+  const sig = badSignature ? "not-the-signature" : twilio.getExpectedTwilioSignature(process.env.TWILIO_AUTH_TOKEN, url, params);
+  return new Request(url, {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded", "x-twilio-signature": sig },
+    body: new URLSearchParams(params).toString(),
+  });
+}
+async function post(path, params, opts) {
+  const res = await POST(signedRequest(path, params, opts));
+  return { status: res.status, body: await res.text() };
+}
+const attr = (xml, tag, name) => {
+  const m = new RegExp(`<${tag}[^>]*\\s${name}="([^"]*)"`).exec(xml);
+  return m ? m[1].replace(/&amp;/g, "&") : null;
+};
+
+const REP = { id: "rep_owner", name: "Favor", active: true, endedAt: null, acceptedAt: NOW, kind: "rep", passwordHash: "x", language: "en", sellsIn: [], lastSeenAt: NOW };
+const OTHER = { id: "rep_other", name: "Daniel", active: true, endedAt: null, acceptedAt: NOW, kind: "rep", passwordHash: "x", language: "fr", sellsIn: [], lastSeenAt: NOW };
+const LINE = { id: "num_1", e164: TEAM_NUMBER.e164, purpose: "sales", active: true, voiceUrl: `${ORIGIN}/api/rep-dial/inbound`, assignedRepId: REP.id, assignedAdminId: null };
+const POOL_LINE = { id: "num_2", e164: OUR_NUMBER.e164, purpose: "sales_voice", active: true, voiceUrl: `${ORIGIN}/api/rep-dial/inbound`, assignedRepId: null, assignedAdminId: null };
+const BUSINESS = { id: "pr_1", businessName: "Benchmark Painting", phoneE164: CALLER, assignedRepId: REP.id, province: "ON" };
+const available = (repId, at = new Date()) => ({ id: `act_${repId}`, salesRepId: repId, state: "available", startedAt: new Date(at.getTime() - 60_000), endedAt: null, heartbeatAt: at });
+const NEW_CALL = (sid) => ({ CallSid: sid, To: TEAM_NUMBER.e164, From: CALLER, CallStatus: "ringing", Direction: "inbound" });
+
+function scenario(seed) {
+  globalThis.__pushes = [];
+  const client = memoryDb(seed);
+  globalThis.__inboundDb = client;
+  return client;
+}
+const pushes = () => globalThis.__pushes || [];
+
+// ── A. The rep answers ───────────────────────────────────────────────────
+{
+  const client = scenario({
+    salesRep: [REP, OTHER],
+    platformSmsNumber: [LINE],
+    prospect: [BUSINESS],
+    salesRepActivity: [available(REP.id)],
+  });
+  const first = await post("/api/rep-dial/inbound", NEW_CALL("CA_answer"));
+  const dialAction = attr(first.body, "Dial", "action");
+  const row = client.$tables.salesCallAttempt[0];
+  ok("A. a ring-back to an owned number rings a browser client", first.status === 200 && /<Client>/.test(first.body), first.body);
+  ok("A. …the owner's, first", new RegExp(`<Client>[^<]*${REP.id}`).test(first.body));
+  ok("A. …WITHOUT any transfer number configured", !process.env.FIELDQUO_SALES_TRANSFER_TO && /<Dial/.test(first.body));
+  ok("A. …and the attempt row is written before anybody answers", row && row.direction === "in" && row.providerCallSid === "CA_answer" && row.salesRepId === REP.id);
+  ok("A. …with the caller as the other party and our line as ours", row?.toE164 === CALLER && row?.fromE164 === TEAM_NUMBER.e164);
+  ok("A. …and the rep's browser is pushed 'Incoming call' with the business name", pushes().some((p) => p.salesRepIds.includes(REP.id) && p.title === "Incoming call" && p.body === "Benchmark Painting"), pushes());
+  const after = new URL(dialAction);
+  const answered = await post(after.pathname + after.search, { CallSid: "CA_answer", DialCallStatus: "completed", DialCallDuration: "42" });
+  ok("A. the after-dial callback records the answer", answered.status === 200 && row.answeredAt instanceof Date && row.talkSeconds === 42);
+  ok("A. …and the outcome reads 'answered'", inboundOutcome(row) === "answered");
+  const status = await post("/api/rep-dial/inbound?stage=status", { CallSid: "CA_answer", CallStatus: "completed", CallDuration: "42" });
+  ok("A. the number's status callback is a 204 and does not turn an answered call into a miss", status.status === 204 && !row.missedAt && inboundOutcome(row) === "answered");
+  ok("A. …and pushes nothing more", !pushes().some((p) => p.title === "Missed call"));
+}
+
+// ── B. The rep is absent and the caller leaves a message ────────────────
+{
+  const client = scenario({
+    salesRep: [REP, OTHER],
+    platformSmsNumber: [POOL_LINE],
+    prospect: [BUSINESS],
+    // The rep rang them two hours ago and has been gone since; the floor
+    // is empty.
+    salesCallAttempt: [{ id: "out_1", direction: "out", salesRepId: REP.id, toE164: CALLER, fromE164: OUR_NUMBER.e164, dialledAt: new Date(Date.now() - 2 * 3600e3), dialChannel: "browser" }],
+    salesRepActivity: [],
+  });
+  const params = { ...NEW_CALL("CA_vm"), To: OUR_NUMBER.e164 };
+  const first = await post("/api/rep-dial/inbound", params);
+  const row = client.$tables.salesCallAttempt.find((r) => r.providerCallSid === "CA_vm");
+  ok("B. an empty floor is not rung; the caller is offered a message", first.status === 200 && !/<Dial/.test(first.body) && /<Record/.test(first.body), first.body);
+  ok("B. …and the row is filed to the rep who rang them", row?.salesRepId === REP.id);
+  const recAction = attr(first.body, "Record", "action");
+  ok("B. …with the recording callback carrying the attempt id", recAction && recAction.includes(`attemptId=${row.id}`), recAction);
+  const u = new URL(recAction);
+  const left = await post(u.pathname + u.search, { CallSid: "CA_vm", RecordingUrl: "https://api.twilio.com/2010-04-01/Accounts/AC1/Recordings/RE1", RecordingDuration: "12" });
+  ok("B. the message is attached to the row", left.status === 200 && row.voicemailUrl?.endsWith("/RE1") && row.voicemailSeconds === 12);
+  ok("B. …the outcome reads 'voicemail'", inboundOutcome(row) === "voicemail");
+  await new Promise((r) => setTimeout(r, 10));
+  const vmPush = pushes().find((p) => p.title === "New voicemail");
+  ok("B. …and the rep is pushed 'New voicemail' naming the business and the length", Boolean(vmPush) && vmPush.salesRepIds.includes(REP.id) && /Benchmark Painting/.test(vmPush.body) && /12/.test(vmPush.body), vmPush);
+  const again = await post(u.pathname + u.search, { CallSid: "CA_vm", RecordingUrl: "https://api.twilio.com/2010-04-01/Accounts/AC1/Recordings/RE1", RecordingDuration: "12" });
+  await new Promise((r) => setTimeout(r, 10));
+  ok("B. a Twilio retry of the recording callback does not push twice", again.status === 200 && pushes().filter((p) => p.title === "New voicemail").length === 1);
+  await post("/api/rep-dial/inbound?stage=status", { CallSid: "CA_vm", CallStatus: "completed" });
+  ok("B. the status callback after a voicemail marks nothing missed", !row.missedAt && inboundOutcome(row) === "voicemail" && !pushes().some((p) => p.title === "Missed call"));
+  const hist = callHistoryRows([{ ...row, direction: "in" }], { repId: REP.id })[0];
+  ok("B. the rep's call history shows the message with a FieldQuo-served link", hist.voicemail && hist.voicemail.seconds === 12 && hist.voicemail.href === `/api/sales/voicemail/${row.id}/audio` && hist.missed === false, hist);
+  ok("B. …and HISTORY_SELECT reads the columns it renders", HISTORY_SELECT.voicemailUrl === true && HISTORY_SELECT.voicemailSeconds === true && HISTORY_SELECT.missedAt === true);
+}
+
+// ── B2. The floor is live but nobody can be rung: hold, then a message ──
+{
+  const client = scenario({
+    salesRep: [REP, OTHER],
+    platformSmsNumber: [POOL_LINE],
+    prospect: [BUSINESS],
+    salesCallAttempt: [{ id: "out_1", direction: "out", salesRepId: REP.id, toE164: CALLER, fromE164: OUR_NUMBER.e164, dialledAt: new Date(Date.now() - 2 * 3600e3), dialChannel: "browser" }],
+    // Somebody is on the floor (paused, live) but nobody is available.
+    salesRepActivity: [{ ...available(OTHER.id), state: "paused" }],
+  });
+  const first = await post("/api/rep-dial/inbound", { ...NEW_CALL("CA_queue"), To: OUR_NUMBER.e164 });
+  const row = client.$tables.salesCallAttempt.find((r) => r.providerCallSid === "CA_queue");
+  ok("B2. nobody reachable on a live floor goes to the queue, not the beep", /<Redirect[^>]*>[^<]*stage=queue/.test(first.body), first.body);
+  ok("B2. …and the rep the call is filed to is still pushed 'Incoming call'", pushes().some((p) => p.title === "Incoming call" && p.salesRepIds.includes(REP.id)), pushes());
+  const last = await post(`/api/rep-dial/inbound?stage=queue&round=${MAX_QUEUE_ROUNDS}&attemptId=${row.id}`, { CallSid: "CA_queue", To: OUR_NUMBER.e164, From: CALLER });
+  ok("B2. …and when the rounds run out the caller is offered a message", /<Record/.test(last.body) && attr(last.body, "Record", "action").includes(`attemptId=${row.id}`), last.body);
+}
+
+// ── B3. The rep who rang them is on another call: held for her, and told ─
+{
+  const client = scenario({
+    salesRep: [REP, OTHER],
+    platformSmsNumber: [POOL_LINE],
+    prospect: [BUSINESS],
+    salesCallAttempt: [{ id: "out_1", direction: "out", salesRepId: REP.id, toE164: CALLER, fromE164: OUR_NUMBER.e164, dialledAt: new Date(Date.now() - 2 * 60e3), dialChannel: "browser" }],
+    salesRepActivity: [{ ...available(REP.id), state: "on_call" }],
+  });
+  const first = await post("/api/rep-dial/inbound", { ...NEW_CALL("CA_hold"), To: OUR_NUMBER.e164 });
+  ok("B3. a rep on another call is not rung; the caller is held", !/<Dial/.test(first.body) && /stage=queue/.test(first.body), first.body);
+  const p = pushes().find((x) => x.salesRepIds.includes(REP.id));
+  ok("B3. …and she is told, by name, that they are ringing back and holding", Boolean(p) && p.title === "Incoming call" && /Benchmark Painting is ringing back/.test(p.body) && /holding for you/.test(p.body), p);
+  // Her call ends; the next queue round re-plans and rings her.
+  client.$tables.salesRepActivity[0].state = "after_call";
+  const row = client.$tables.salesCallAttempt.find((r) => r.providerCallSid === "CA_hold");
+  const next = await post(`/api/rep-dial/inbound?stage=queue&round=1&attemptId=${row.id}`, { CallSid: "CA_hold", To: OUR_NUMBER.e164, From: CALLER });
+  ok("B3. …and the moment she is writing up, the next round rings her", new RegExp(`<Client>[^<]*${REP.id}`).test(next.body), next.body);
+}
+
+// ── C. The rep is absent and the caller hangs up before the beep ────────
+{
+  const client = scenario({
+    salesRep: [REP, OTHER],
+    platformSmsNumber: [LINE],
+    prospect: [BUSINESS],
+    salesRepActivity: [],
+  });
+  const first = await post("/api/rep-dial/inbound", NEW_CALL("CA_hangup"));
+  const row = client.$tables.salesCallAttempt.find((r) => r.providerCallSid === "CA_hangup");
+  ok("C. the owner's browser is rung even with nobody marked available", /<Client>/.test(first.body) && row, first.body);
+  const action = attr(first.body, "Dial", "action") || "";
+  ok("C. …and the dial's action says the floor read empty", /floor=empty/.test(action), action);
+  {
+    // Had the owner's browser rung out instead, an empty floor is not held:
+    // straight to the message, no four rounds of "still trying".
+    const probe = scenario({ salesRep: [REP, OTHER], platformSmsNumber: [LINE], prospect: [BUSINESS], salesRepActivity: [] });
+    const r1 = await post("/api/rep-dial/inbound", NEW_CALL("CA_ringout"));
+    const u = new URL(attr(r1.body, "Dial", "action"));
+    const r2 = await post(u.pathname + u.search, { CallSid: "CA_ringout", DialCallStatus: "no-answer" });
+    ok("C. a ring-out on an empty floor goes straight to the beep, not the hold queue", /<Record/.test(r2.body) && !/stage=queue/.test(r2.body), r2.body);
+    ok("C. …and the ring-out is recorded on the row", probe.$tables.salesCallAttempt.find((r) => r.providerCallSid === "CA_ringout")?.providerStatus === "no-answer");
+    globalThis.__inboundDb = client;
+    globalThis.__pushes = globalThis.__pushes.filter((p) => p.salesRepIds && p.title !== "Incoming call");
+  }
+  // No after-dial, no after-voicemail: the caller hung up while it rang and
+  // Twilio requests neither. Only the number's status callback arrives.
+  const status = await post("/api/rep-dial/inbound?stage=status", { CallSid: "CA_hangup", CallStatus: "completed", CallDuration: "8" });
+  ok("C. the status callback marks the call missed", status.status === 204 && row.missedAt instanceof Date && row.providerStatus === "completed" && row.endedAt instanceof Date);
+  ok("C. …the outcome reads 'missed'", inboundOutcome(row) === "missed");
+  await new Promise((r) => setTimeout(r, 10));
+  const missedPush = pushes().find((p) => p.title === "Missed call");
+  ok("C. …and the rep is pushed 'Missed call from Benchmark Painting, just now'", Boolean(missedPush) && missedPush.salesRepIds.includes(REP.id) && missedPush.body === "Missed call from Benchmark Painting, just now" && missedPush.url === "/sales/voicemail", missedPush);
+  const retry = await post("/api/rep-dial/inbound?stage=status", { CallSid: "CA_hangup", CallStatus: "completed", CallDuration: "8" });
+  await new Promise((r) => setTimeout(r, 10));
+  ok("C. a Twilio retry of the status callback pushes nothing twice", retry.status === 204 && pushes().filter((p) => p.title === "Missed call").length === 1);
+  const hist = callHistoryRows([{ ...row, direction: "in" }], { repId: REP.id })[0];
+  ok("C. the rep's call history says so", hist.missed === true && hist.voicemail === null);
+  ok("C. a status for a CallSid we never wrote is logged, not dropped", (await post("/api/rep-dial/inbound?stage=status", { CallSid: "CA_stranger", CallStatus: "completed" })).status === 204 && client.$tables.platformErrorLog.some((e) => e.code === "status_for_unknown_call" && e.detail?.callSid === "CA_stranger"));
+  ok("C. a non-final status is acknowledged and changes nothing", (await post("/api/rep-dial/inbound?stage=status", { CallSid: "CA_hangup", CallStatus: "ringing" })).status === 204);
+}
+
+// ── C2. The same, for a number whose status callback is not set: the sweep ─
+{
+  const old = new Date(Date.now() - (MISSED_SWEEP_AFTER_SECONDS + 30) * 1000);
+  const young = new Date(Date.now() - 30 * 1000);
+  const client = scenario({
+    salesRep: [REP, OTHER],
+    platformSmsNumber: [LINE],
+    prospect: [BUSINESS],
+    salesCallAttempt: [
+      { id: "in_old", direction: "in", salesRepId: REP.id, prospectId: BUSINESS.id, toE164: CALLER, fromE164: TEAM_NUMBER.e164, dialledAt: old, providerCallSid: "CA_old", answeredAt: null, voicemailUrl: null, missedAt: null, endedAt: null },
+      { id: "in_young", direction: "in", salesRepId: REP.id, toE164: CALLER, fromE164: TEAM_NUMBER.e164, dialledAt: young, providerCallSid: "CA_young", answeredAt: null, voicemailUrl: null, missedAt: null, endedAt: null },
+      { id: "in_vm", direction: "in", salesRepId: REP.id, toE164: CALLER, fromE164: TEAM_NUMBER.e164, dialledAt: old, providerCallSid: "CA_oldvm", answeredAt: null, voicemailUrl: "https://api.twilio.com/x/RE9", voicemailSeconds: 3, missedAt: null, endedAt: null },
+      { id: "in_ans", direction: "in", salesRepId: REP.id, toE164: CALLER, fromE164: TEAM_NUMBER.e164, dialledAt: old, providerCallSid: "CA_oldans", answeredAt: old, voicemailUrl: null, missedAt: null, endedAt: null },
+      { id: "out_old", direction: "out", salesRepId: REP.id, toE164: CALLER, fromE164: TEAM_NUMBER.e164, dialledAt: old, providerCallSid: "CA_oldout", answeredAt: null, voicemailUrl: null, missedAt: null, endedAt: null },
+    ],
+  });
+  const res = await sweepMissedInbound({ client, now: new Date() });
+  const t = client.$tables.salesCallAttempt;
+  ok("C2. the sweep marks the old, unanswered, messageless inbound row and only that one", res.marked === 1 && t.find((r) => r.id === "in_old").missedAt instanceof Date, res);
+  ok("C2. …a row still young enough to be on hold is left alone", !t.find((r) => r.id === "in_young").missedAt);
+  ok("C2. …a voicemail is not a miss", !t.find((r) => r.id === "in_vm").missedAt);
+  ok("C2. …an answered call is not a miss", !t.find((r) => r.id === "in_ans").missedAt);
+  ok("C2. …and an outbound row is never touched", !t.find((r) => r.id === "out_old").missedAt);
+  ok("C2. …the sweep invents no carrier status", t.find((r) => r.id === "in_old").providerStatus === undefined || t.find((r) => r.id === "in_old").providerStatus === null);
+  const p = pushes().find((x) => x.title === "Missed call");
+  ok("C2. …and pushes the rep once, with how long ago", Boolean(p) && /Benchmark Painting/.test(p.body) && /min ago/.test(p.body), p);
+  const second = await sweepMissedInbound({ client, now: new Date() });
+  ok("C2. a second sweep finds nothing to do", second.marked === 0 && pushes().filter((x) => x.title === "Missed call").length === 1);
+  ok("C2. the sweep threshold is derived from the queue's own limits, not a guess", MISSED_SWEEP_AFTER_SECONDS >= maxHoldSeconds() + 120 && MISSED_SWEEP_AFTER_SECONDS < 15 * 60);
+}
+
+// ── D. A request that fails the signature check ────────────────────────
+{
+  const client = scenario({ salesRep: [REP], platformSmsNumber: [LINE] });
+  const res = await post("/api/rep-dial/inbound", NEW_CALL("CA_forged"), { badSignature: true });
+  const logged = client.$tables.platformErrorLog.find((e) => e.code === "signature_rejected");
+  ok("D. an unsigned request is refused with 403", res.status === 403);
+  ok("D. …writes no attempt row", client.$tables.salesCallAttempt.length === 0);
+  ok("D. …rings nobody and pushes nobody", pushes().length === 0);
+  ok("D. …and is written to the platform error log with the CallSid, the URL and whether a token was set", Boolean(logged) && logged.area === "sales_inbound" && logged.detail?.callSid === "CA_forged" && /rep-dial\/inbound/.test(logged.detail?.url || "") && logged.detail?.authTokenSet === true, logged);
+}
+
+// ── E. The handler throws ───────────────────────────────────────────────
+{
+  const client = scenario({ salesRep: [REP], platformSmsNumber: [LINE], prospect: [BUSINESS] });
+  // A synchronous throw from the client: the `.catch` the route hangs on the
+  // promise never attaches, so the exception reaches POST's own try.
+  client.salesRep.findMany = () => { throw new Error("connection reset"); };
+  const res = await post("/api/rep-dial/inbound", NEW_CALL("CA_boom"));
+  const logged = client.$tables.platformErrorLog.find((e) => e.code === "webhook_threw");
+  ok("E. a throw inside the handler is still a 200 with spoken TwiML", res.status === 200 && /<Say/.test(res.body) && /<Hangup/.test(res.body), res);
+  ok("E. …and is logged with the CallSid and the stack", Boolean(logged) && logged.detail?.callSid === "CA_boom" && /connection reset/.test(logged.message), logged);
+}
+
+delete globalThis.__inboundDb;
+
+// ── The purchase path sets the status callback, and the audit reads hosts ─
+{
+  const src = source("lib/crew/platformNumber.js");
+  ok("a sales number is bought with its status callback pointed at ?stage=status", /statusCallback,\s*statusCallbackMethod: "POST"/.test(src) && /\?stage=status/.test(src));
+  const { salesNumberWebhookAudit } = await import("@/lib/voice/numberAudit");
+  const audit = salesNumberWebhookAudit({
+    origin: "https://www.fieldquo.com",
+    numbers: [
+      { e164: "+15550000001", purpose: "sales", voiceUrl: "https://www.fieldquo.com/api/rep-dial/inbound" },
+      { e164: "+15550000002", purpose: "sales", voiceUrl: "https://fieldquo-git-preview.vercel.app/api/rep-dial/inbound" },
+      { e164: "+15550000003", purpose: "sales", voiceUrl: "https://www.fieldquo.com/api/sms/inbound" },
+      { e164: "+15550000004", purpose: "sales", voiceUrl: null },
+      { e164: "+15550000005", purpose: "sales", voiceUrl: "not a url" },
+    ],
+  });
+  const st = Object.fromEntries(audit.lines.map((l) => [l.e164, l.state]));
+  ok("the audit says which numbers point at THIS host", st["+15550000001"] === "points_here" && st["+15550000002"] === "wrong_host" && st["+15550000003"] === "wrong_path" && st["+15550000004"] === "no_voice_url" && st["+15550000005"] === "unparseable", st);
+  ok("…counts them honestly", audit.counts.held === 5 && audit.counts.pointsHere === 1 && audit.counts.wrong === 3 && audit.counts.noVoiceUrl === 1, audit.counts);
+  ok("…and does not invent an inbound region it never stored", audit.lines.every((l) => l.region === null && l.regionSource === "not_recorded"));
+  ok("…and an unknown origin is its own state, not a mismatch", salesNumberWebhookAudit({ origin: null, numbers: [{ e164: "+1", voiceUrl: "https://x/api/rep-dial/inbound" }] }).lines[0].state === "origin_unknown");
+}
+
+// ── The copy exists in every language the portal speaks ─────────────────
+{
+  const { APP_MESSAGES } = await import("@/app/i18n/appMessages");
+  const keys = [
+    "app.notify.missedCall.title", "app.notify.missedCall.body", "app.notify.ago.justNow", "app.notify.ago.minutes",
+    "app.notify.voicemail.title", "app.notify.voicemail.body", "app.notify.voicemail.bodyNoLength", "app.notify.ringingBack.body",
+    "app.salesDial.missedCalls", "app.salesDial.missedIntro", "app.salesDial.noMissedCalls", "app.salesDial.missedNotLogged", "app.salesDial.missedLogged", "app.salesDial.hungUpWhileRinging",
+    "app.salesCall.history.voicemail", "app.salesCall.history.voicemailSeconds", "app.salesCall.history.play", "app.salesCall.history.missed",
+  ];
+  const langs = Object.keys(APP_MESSAGES);
+  const missing = langs.flatMap((l) => keys.filter((k) => typeof APP_MESSAGES[l][k] !== "string" || !APP_MESSAGES[l][k].trim()).map((k) => `${l}:${k}`));
+  ok(`every new rep-facing string exists in all ${langs.length} languages`, langs.length === 9 && missing.length === 0, missing);
+  ok("…and the placeholders survive translation", langs.every((l) => /\{who\}/.test(APP_MESSAGES[l]["app.notify.missedCall.body"]) && /\{ago\}/.test(APP_MESSAGES[l]["app.notify.missedCall.body"]) && /\{minutes\}/.test(APP_MESSAGES[l]["app.notify.ago.minutes"]) && /\{seconds\}/.test(APP_MESSAGES[l]["app.notify.voicemail.body"])));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("18. This check runs in check:all");
 
 {
   const pkg = read("package.json");
