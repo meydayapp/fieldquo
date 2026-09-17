@@ -39,6 +39,7 @@ export const runtime = "nodejs";
 
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
+import { agencyOf } from "@/lib/sales/agencyLabel";
 import { db } from "@/lib/db";
 import { requireCallingRep } from "@/lib/sales/calls/gate";
 import { getAppOrigin } from "@/lib/appUrl";
@@ -86,14 +87,22 @@ const bad = (error, status = 400) => NextResponse.json({ error }, { status });
  */
 async function freeTargetsFor(repId) {
   const reps = await db.salesRep
-    .findMany({ where: { active: true }, select: { id: true, name: true } })
+    .findMany({
+      where: { active: true },
+      select: { id: true, name: true, kind: true, engagement: true, managerId: true, manager: { select: { id: true, kind: true, name: true } } },
+    })
     .catch(() => []);
   const presence = await presenceFor(reps.map((r) => r.id)).catch(() => null);
+  const me = reps.find((r) => r.id === repId) || null;
+  // An agency employee's own agency; an agency account's own id; null for
+  // FieldQuo's reps and freelancers. Teammates first — lib/sales/agencyLabel.
+  const ownAgencyId = me ? (me.kind === "agency" ? me.id : agencyOf(me)?.id || null) : null;
   return transferTargets({
-    reps,
+    reps: reps.map((r) => ({ id: r.id, name: r.name, agency: r.kind === "agency" ? { id: r.id, name: r.name } : agencyOf(r) })),
     presence,
     excludeRepId: repId,
     transferTo: normalisePhone(process.env.FIELDQUO_SALES_TRANSFER_TO),
+    ownAgencyId,
   });
 }
 

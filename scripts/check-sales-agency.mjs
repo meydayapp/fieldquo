@@ -434,5 +434,24 @@ section("The funnel, the performance dashboard and the floor name the agency bes
   }
 }
 
+section("Warm/cold transfer targets: teammates first, everyone labelled");
+{
+  const { transferTargets } = await import("@/lib/sales/calls/transfer");
+  const now = new Date();
+  const presence = ["me", "mate", "fq", "other"].map((id, i) => ({ salesRepId: id, presence: { state: "available", stale: false, lastSeenAt: new Date(now.getTime() - 1000 * (i + 1)).toISOString() } }));
+  const reps = [
+    { id: "me", name: "Me", agency: { id: "ag1", name: "Northline" } },
+    { id: "mate", name: "Teammate", agency: { id: "ag1", name: "Northline" } },
+    { id: "fq", name: "FieldQuo Rep", agency: null },
+    { id: "other", name: "Other Agency Rep", agency: { id: "ag2", name: "Southline" } },
+  ];
+  const targets = transferTargets({ reps, presence, excludeRepId: "me", ownAgencyId: "ag1", now }).filter((t) => t.kind === "client");
+  ok("the transferring rep's teammate is listed first, labelled your team", targets[0]?.salesRepId === "mate" && targets[0]?.team === "mine" && /your team/.test(targets[0]?.why || ""), targets.map((t) => [t.salesRepId, t.team]));
+  ok("…then FieldQuo's own reps, then other agencies', each labelled", targets[1]?.team === "fieldquo" && /FieldQuo/.test(targets[1].why) && targets[2]?.team === "agency" && /Southline/.test(targets[2].why));
+  ok("a FieldQuo rep (no agency) sees the longest-idle order with labels and no 'your team'", !transferTargets({ reps, presence, excludeRepId: "fq", now }).some((t) => t.team === "mine"));
+  const route = decomment(read("app/api/sales/calls/transfer/route.js"));
+  ok("the route reads each rep's manager and passes ownAgencyId", /manager: \{ select: \{ id: true, kind: true, name: true \} \}/.test(route) && /ownAgencyId,/.test(route));
+}
+
 console.log(`\n${failures.length ? "FAILED" : "PASSED"} — ${pass} passed, ${failures.length} failed`);
 if (failures.length) process.exit(1);
