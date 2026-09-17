@@ -244,7 +244,7 @@ export default function CallPanel({
   // The rep's own language, not the prospect's. Everything on this panel is
   // read by the person holding the phone; the words they SAY come from the
   // playbook, which is a separate catalogue in a separate language.
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const [config, setConfig] = useState(null);
   const [mic, setMic] = useState(null);
   const [error, setError] = useState("");
@@ -676,6 +676,25 @@ export default function CallPanel({
     setMuted(next);
   }
 
+  // "You rang {number}" for a call this rep placed; "They called you back
+  // from {number} at {time}" for one they received. The server no longer
+  // hands an inbound row to this panel (pendingAttempt is outbound-only),
+  // but the sentence is chosen by the row's direction rather than by that
+  // assumption, so a row that reaches here by any other path is never
+  // described as a call the rep made.
+  function whatHappenedBody(row) {
+    if (row?.direction === "in") {
+      let time = "";
+      try {
+        time = new Intl.DateTimeFormat(language || undefined, { hour: "2-digit", minute: "2-digit" }).format(new Date(row.dialledAt));
+      } catch {
+        time = String(row.dialledAt || "");
+      }
+      return t("app.salesCall.whatHappenedBodyInbound", { number: row.toE164, time });
+    }
+    return t("app.salesCall.whatHappenedBody", { number: row?.toE164 });
+  }
+
   async function saveOutcome() {
     if (!pending || !draft.choice) return;
     // The fold is pure (outcomeChoices.js): the six buttons become one of the
@@ -903,7 +922,7 @@ export default function CallPanel({
                         outcome: t(`app.salesCall.disposition.${pending.override}.label`),
                         number: pending.toE164,
                       })
-                    : t("app.salesCall.whatHappenedBody", { number: pending.toE164 })}
+                    : whatHappenedBody(pending)}
                 </p>
               </div>
 
@@ -974,7 +993,7 @@ export default function CallPanel({
         open={Boolean(sheetOpen && pending && !startedAt)}
         onLater={later}
         title={t("app.salesCall.whatHappened")}
-        body={pending ? t("app.salesCall.whatHappenedBody", { number: pending.toE164 }) : ""}
+        body={pending ? whatHappenedBody(pending) : ""}
       >
         <OutcomeForm t={t} draft={draft} setDraft={setDraft} busy={busy} onSave={saveOutcome} onLater={later} error={formError} autoFocus />
       </OutcomeSheet>

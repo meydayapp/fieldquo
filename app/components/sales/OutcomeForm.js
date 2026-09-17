@@ -31,13 +31,15 @@
 
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { Loader2, X } from "lucide-react";
+import { AlertTriangle, Loader2, X } from "lucide-react";
 import {
+  CALL_BACK_DEFAULT_WHEN,
   CHOICE_CALL_BACK,
   CHOICE_NO_CALLBACKS,
   CHOICE_WRONG_OR_NOT_BUSINESS,
   OUTCOME_CHOICES,
   OUTCOME_NOTE_MAX,
+  WHEN_IN_AN_HOUR,
   WHEN_LATER_TODAY,
   WHEN_PICK,
   WHEN_TOMORROW,
@@ -95,11 +97,18 @@ function ChoiceButton({ t, choice, selected, onPick, big }) {
  * @param setDraft  React setter for it.
  * @param onSave    called with no arguments; CallPanel folds and posts.
  * @param onLater   when given, a "Write it up later" button is drawn.
- * @param error     the sentence to print under the buttons, or "".
+ * @param error     the refusal to print under the buttons, boxed, or "".
  */
 export default function OutcomeForm({ t, draft, setDraft, busy, onSave, onLater = null, error = "", autoFocus = false }) {
   const patch = (p) => setDraft((d) => ({ ...d, ...p }));
-  const pick = (key) => patch({ choice: key === draft.choice ? "" : key });
+  // Pressing "Call back" pre-selects a time (outcomeChoices.js
+  // CALL_BACK_DEFAULT_WHEN) so Save works on the next press; any other
+  // choice clears it, so a time picked for a callback is never carried
+  // into an outcome the fold would silently ignore it on.
+  const pick = (key) => {
+    const next = key === draft.choice ? "" : key;
+    patch({ choice: next, whenKind: next === CHOICE_CALL_BACK ? CALL_BACK_DEFAULT_WHEN : null });
+  };
   const primary = OUTCOME_CHOICES.filter((c) => c.primary);
   const more = OUTCOME_CHOICES.filter((c) => !c.primary);
   const chosen = OUTCOME_CHOICES.find((c) => c.key === draft.choice) || null;
@@ -131,14 +140,41 @@ export default function OutcomeForm({ t, draft, setDraft, busy, onSave, onLater 
         </div>
       ) : null}
 
+      {/* ── The refusal, where the eyes are ───────────────────────────────
+          Directly under the buttons the rep just pressed, boxed, with an
+          icon, in the amber the pending panel uses. It was a line of small
+          text under the note field: a rep pressed Call back, pressed Save,
+          and reported that "nothing happens" — the sentence was on screen
+          and not in her field of view. data-outcome-refusal is what
+          scripts/check-sales-call-panel.mjs asserts on. */}
+      {error ? (
+        <div
+          className="flex gap-2 rounded-lg border-2 border-amber-500 bg-amber-100 dark:bg-amber-900/50 dark:border-amber-500 px-3 py-2.5 text-sm font-semibold text-amber-950 dark:text-amber-50 break-words"
+          role="alert"
+          aria-live="assertive"
+          data-outcome-refusal
+        >
+          <AlertTriangle size={18} className="shrink-0 mt-0.5" aria-hidden="true" />
+          <span>{error}</span>
+        </div>
+      ) : null}
+
       {chosen ? <p className="text-xs text-muted-foreground break-words">{t(choiceHintKey(chosen.key))}</p> : null}
+
+      {/* "No call-backs" needs their words. Said under the button BEFORE the
+          press, not only as the refusal after it. */}
+      {draft.choice === CHOICE_NO_CALLBACKS && !draft.note.trim() ? (
+        <p className="text-sm font-medium text-amber-900 dark:text-amber-200 break-words" data-outcome-needs-words>
+          {t("app.salesCall.choice.no_callbacks.beforePress")}
+        </p>
+      ) : null}
 
       {/* ── Call back: when, or who ─────────────────────────────────────── */}
       {draft.choice === CHOICE_CALL_BACK ? (
         <div className="space-y-2" data-outcome-callback>
           <p className="text-sm font-medium">{t("app.salesCall.choice.call_back.when")}</p>
           <div className="flex flex-wrap gap-2">
-            {[WHEN_LATER_TODAY, WHEN_TOMORROW, WHEN_PICK].map((k) => (
+            {[WHEN_IN_AN_HOUR, WHEN_LATER_TODAY, WHEN_TOMORROW, WHEN_PICK].map((k) => (
               <button
                 key={k}
                 type="button"
@@ -201,12 +237,6 @@ export default function OutcomeForm({ t, draft, setDraft, busy, onSave, onLater 
           data-outcome-note
         />
       </label>
-
-      {error ? (
-        <p className="text-sm text-amber-900 dark:text-amber-200 break-words" role="alert">
-          {error}
-        </p>
-      ) : null}
 
       <div className="flex gap-2">
         <button
