@@ -69,6 +69,26 @@
 // changed. The name IncomingCallDock stays, because the shell, the checks
 // and five headers know it by that name.
 //
+// ══ 2026-09-17: the write-up happens HERE, once ═══════════════════════════
+//
+// An answered callback used to be written up nowhere in particular. The
+// inbound row had no outcome, GET /api/sales/calls picked it as the newest
+// unwritten attempt of the day, and CallPanel drew "What happened on that
+// call? You rang {number}" over the Call button — for a call the rep did not
+// place, with a "Write it up later" the server refused because defer was
+// outbound-only. A rep was stuck on it for the afternoon.
+//
+// Now pendingAttempt is outbound-only and the question is asked in the
+// drawer the moment the answered call ends: "They called you back from
+// {number} at {time}", the same six buttons (OutcomeForm), Save posts the
+// same `disposition`, "later" posts `defer` — which now takes an inbound
+// row — and the call goes to the unlogged list. Asked ONCE: `askedRef` holds
+// the attempt ids this dock has already asked about, and a row with an
+// outcome or a deferral is not on any list. A call the server could not
+// match (no attempt id) has nothing to ask about here; the day-end cron
+// writes the line's verdict on whatever it attributed (store.js
+// autoLogStale, dispositions.js dayEndOutcome).
+//
 // ══ Tokens expire ═════════════════════════════════════════════════════════
 //
 // A Voice access token is short-lived. A dock that registered once and never
@@ -83,7 +103,9 @@ import { fetchJson } from "@/lib/fetchJson";
 import { notify } from "@/lib/notify/browser";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { STATE_AFTER_CALL, STATE_ON_CALL } from "@/lib/sales/calls/agentState";
+import { foldChoice } from "@/lib/sales/calls/outcomeChoices";
 import TransferControl from "./TransferControl";
+import OutcomeForm, { EMPTY_DRAFT } from "./OutcomeForm";
 import { useRepPresence } from "./RepStatus";
 import { useConsoleSlots } from "./consoleSlots";
 
@@ -118,7 +140,7 @@ function pretty(e164, t) {
 }
 
 export default function IncomingCallDock() {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   // For the Device's "incoming" handler, which is bound once: the current
   // t without re-binding the Device every time the language changes.
   const tRef = useRef(t);
@@ -143,6 +165,23 @@ export default function IncomingCallDock() {
   const [down, setDown] = useState(false);
   const [answeredAt, setAnsweredAt] = useState(null);
   const [, setTick] = useState(0);
+  // ── The write-up of the call that just ended ─────────────────────────
+  //
+  // `writeUp` is the ended call the drawer is asking about: the attempt the
+  // server matched at pick-up, the number, the business, when it rang.
+  // `loggedRef` carries those facts from answer() to the disconnect handler
+  // — which is bound at ring time and cannot read state — and `askedRef` is
+  // the set of attempt ids already asked, so a reconnecting SDK firing
+  // `disconnect` twice, or a second answer() on the same call, never asks
+  // twice.
+  const [writeUp, setWriteUp] = useState(null);
+  const [draft, setDraft] = useState(EMPTY_DRAFT);
+  const [formError, setFormError] = useState("");
+  const [busy, setBusy] = useState("");
+  const loggedRef = useRef(null);
+  const askedRef = useRef(new Set());
+  // `later` (below) as the Device's once-bound `incoming` handler reads it.
+  const laterRef = useRef(null);
   const slots = useConsoleSlots();
   const liveCallNode = slots?.liveCallNode || null;
   const deviceRef = useRef(null);
@@ -298,10 +337,15 @@ export default function IncomingCallDock() {
         device.on("incoming", (call) => {
           if (cancelled) return;
           const from = call?.parameters?.From || null;
+          // A second contractor ringing while the last call's write-up is
+          // still open: that write-up is "later" — deferred to the unlogged
+          // list, exactly as Esc would — not lost under the new drawer.
+          laterRef.current?.();
           setIncoming({
             call,
             from,
             to: call?.parameters?.To || null,
+            rangAt: Date.now(),
           });
           setWho(null);
           // Non-blocking, and never trusted for anything but the label: the
@@ -355,6 +399,15 @@ export default function IncomingCallDock() {
             // they press Available. Soft — the row is commentary on a call
             // that has already happened.
             if (wasLive) presenceRef.current.postState({ state: STATE_AFTER_CALL });
+            // And the write-up itself, in place, once (see the header).
+            const logged = loggedRef.current;
+            loggedRef.current = null;
+            if (wasLive && logged?.attemptId && !askedRef.current.has(logged.attemptId)) {
+              askedRef.current.add(logged.attemptId);
+              setDraft(EMPTY_DRAFT);
+              setFormError("");
+              setWriteUp({ ...logged, endedAt: Date.now() });
+            }
           });
         });
 
@@ -459,6 +512,16 @@ export default function IncomingCallDock() {
         attemptId: body?.transferable ? body.attemptId || null : null,
         note: body?.transferable ? "" : t("app.salesDial.callLegNotRecorded"),
       });
+      // For the write-up when it ends — the matched attempt whether or not
+      // it is transferable; an outcome needs a row, not a second leg.
+      if (body?.attemptId) {
+        loggedRef.current = {
+          attemptId: body.attemptId,
+          from: incoming?.from || null,
+          businessName: who?.businessName || null,
+          rangAt: incoming?.rangAt || Date.now(),
+        };
+      }
       // The automatic transition an answered callback makes. The attempt id
       // is the one the server just matched, so the ledger row points at the
       // call rather than at nothing.
@@ -506,6 +569,90 @@ export default function IncomingCallDock() {
     setAnswered(null);
     presenceRef.current.setCallUp(false);
   }
+
+  // ── Saving and deferring the write-up ────────────────────────────────
+  //
+  // The same two posts CallPanel makes, against the same route, for the
+  // same reason it makes them: the fold is pure (outcomeChoices.js) and
+  // nothing here names a code. `later` is read through `laterRef` by the
+  // Device's `incoming` handler, which is bound once.
+  const later = useCallback(async () => {
+    const row = writeUp;
+    if (!row?.attemptId) return;
+    setWriteUp(null);
+    setDraft(EMPTY_DRAFT);
+    setFormError("");
+    try {
+      await fetchJson("/api/sales/calls", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "defer", attemptId: row.attemptId }),
+      });
+      await presenceRef.current.refresh?.();
+    } catch {
+      // A defer the server refused (already logged, already deferred) leaves
+      // the row exactly where it was: on the unlogged list or written up.
+      // Nothing to put back on screen.
+    }
+  }, [writeUp]);
+  useEffect(() => {
+    laterRef.current = later;
+  }, [later]);
+
+  async function saveWriteUp() {
+    const row = writeUp;
+    if (!row?.attemptId || !draft.choice) return;
+    const fold = foldChoice({
+      key: draft.choice,
+      note: draft.note,
+      whenKind: draft.whenKind,
+      whenAt: draft.whenAt ? new Date(draft.whenAt) : null,
+      notOwner: draft.notOwner,
+      interested: draft.interested,
+      which: draft.which,
+      now: new Date(),
+    });
+    if (!fold.ok) {
+      setFormError(t(fold.reasonKey));
+      return;
+    }
+    setBusy("disposition");
+    setFormError("");
+    try {
+      await fetchJson("/api/sales/calls", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "disposition",
+          attemptId: row.attemptId,
+          disposition: fold.code,
+          note: fold.note,
+          callbackAt: fold.callbackAt ? fold.callbackAt.toISOString() : null,
+        }),
+      });
+      setWriteUp(null);
+      setDraft(EMPTY_DRAFT);
+      await presenceRef.current.refresh?.();
+    } catch (err) {
+      setFormError(err?.message || t("app.salesCall.outcomeSaveFailed"));
+    } finally {
+      setBusy("");
+    }
+  }
+
+  // Esc is "later" while the write-up is up — the same rule OutcomeSheet
+  // keeps: this never traps the rep.
+  useEffect(() => {
+    if (!writeUp) return undefined;
+    const onKey = (e) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        laterRef.current?.();
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [writeUp]);
 
   // ── The slide ──────────────────────────────────────────────────────────
   //
@@ -604,7 +751,17 @@ export default function IncomingCallDock() {
   // light — a permanent "ready to receive calls" badge on every screen is
   // noise, and the errors below are the only quiet state worth interrupting
   // for.
-  if (!mounted && !live && !error && !audioWarning) return null;
+  if (!mounted && !live && !error && !audioWarning && !writeUp) return null;
+
+  let writeUpTime = "";
+  if (writeUp) {
+    try {
+      writeUpTime = new Intl.DateTimeFormat(language || undefined, { hour: "2-digit", minute: "2-digit" }).format(new Date(writeUp.rangAt));
+    } catch {
+      writeUpTime = "";
+    }
+  }
+  const writeUpNumber = writeUp ? pretty(writeUp.from, t) : "";
 
   return (
     <>
@@ -685,6 +842,33 @@ export default function IncomingCallDock() {
             {!live ? (
               <p className="mt-2 text-xs text-muted-foreground">{t("app.salesDial.decliningNotice")}</p>
             ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      {/* ── The write-up of the call that just ended ──────────────────────
+          Same place as the drawer, same width, drawn while no call is
+          ringing (a new ring defers this one — see `incoming`). Inbound
+          wording, by design and by check: "They called you back from …". */}
+      {writeUp && !incoming ? (
+        <div
+          className="fixed inset-x-0 top-0 lg:top-[61px] lg:left-[var(--fq-sales-rail,220px)] z-[70]"
+          data-inbound-write-up={writeUp.attemptId}
+          role="dialog"
+          aria-modal="false"
+          aria-label={t("app.salesCall.whatHappened")}
+        >
+          <div className="bg-card border-b border-border shadow-lg px-4 sm:px-6 py-4">
+            <div className="rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 p-4 space-y-3 max-w-3xl">
+              <div>
+                <p className="font-semibold text-amber-900 dark:text-amber-100">{t("app.salesCall.whatHappened")}</p>
+                <p className="text-xs text-amber-900 dark:text-amber-200 break-words">
+                  {writeUp.businessName ? `${writeUp.businessName} · ` : ""}
+                  {t("app.salesCall.whatHappenedBodyInbound", { number: writeUpNumber, time: writeUpTime })}
+                </p>
+              </div>
+              <OutcomeForm t={t} draft={draft} setDraft={setDraft} busy={busy} onSave={saveWriteUp} onLater={later} error={formError} autoFocus />
+            </div>
           </div>
         </div>
       ) : null}

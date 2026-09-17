@@ -57,6 +57,11 @@ import {
   partitionForRelease,
   releaseDayEnded,
   releaseUntouched,
+  repOnShift,
+  spokenFor,
+  claimStale,
+  writeClaimBatch,
+  ON_SHIFT_DIAL_GRACE_MS,
   selectBatch,
   shiftEndFrom,
   shiftStartFor,
@@ -231,7 +236,7 @@ function scriptedDb({ prospects, claims = [], attempts = [], tasks = [], activit
             const out = { ...c };
             if (select?.prospect) {
               const p = state.prospects.find((x) => x.id === c.prospectId) || null;
-              out.prospect = p ? { assignedRepId: p.assignedRepId, claimExpiresAt: p.claimExpiresAt } : null;
+              out.prospect = p ? { assignedRepId: p.assignedRepId, assignedAt: p.assignedAt ?? null, claimExpiresAt: p.claimExpiresAt } : null;
             }
             return out;
           });
@@ -244,6 +249,16 @@ function scriptedDb({ prospects, claims = [], attempts = [], tasks = [], activit
         state.log.push("salesRepActivity.findFirst");
         const rows = state.activity.filter((a) => matches(a, where));
         if (orderBy?.startedAt === "asc") rows.sort((a, b) => a.startedAt - b.startedAt);
+        if (orderBy?.startedAt === "desc") rows.sort((a, b) => b.startedAt - a.startedAt);
+        return rows[0] || null;
+      },
+    },
+    // The dial log, read by the day-end sweep for "did they dial in the last hour".
+    salesCallAttempt: {
+      async findFirst({ where, orderBy }) {
+        state.log.push("salesCallAttempt.findFirst");
+        const rows = state.attempts.filter((a) => matches(a, where));
+        if (orderBy?.dialledAt === "desc") rows.sort((a, b) => b.dialledAt - a.dialledAt);
         return rows[0] || null;
       },
     },
@@ -868,6 +883,130 @@ async function runRelease() {
     const before = await releaseDayEnded({ db: earlier, now: new Date("2026-09-12T02:00:00Z") }); // 22:00 Friday Toronto
     ok("at 22:00 Friday Toronto nothing is due yet — the day has not ended", before.released === 0 && before.reps === 0, before);
   }
+  // ── 2026-09-17: a promise keeps the row, on every release path ────────────
+  section("5b. A callback promised or a text sent keeps the row — and a rep still working keeps them all");
+  {
+    const claimedAt = new Date(NOW.getTime() - 3 * 60 * 60 * 1000);
+    const lease = new Date(NOW.getTime() + DAY);
+    const soon = new Date(NOW.getTime() + 2 * 60 * 60 * 1000);
+    const gone = new Date(NOW.getTime() - 2 * 60 * 60 * 1000);
+    ok("spokenFor: a callback still ahead", spokenFor({ attempts: [{ dialledAt: gone, callbackAt: soon }], now: NOW }) === "callback");
+    ok("spokenFor: a callback that came and went is not a promise", spokenFor({ attempts: [{ dialledAt: gone, callbackAt: gone }], now: NOW }) === null);
+    ok("spokenFor: a text sent", spokenFor({ attempts: [], texted: true, now: NOW }) === "texted");
+    ok("spokenFor: nothing", spokenFor({ attempts: [{ dialledAt: gone }], now: NOW }) === null);
+    const rows = [
+      // Untouched since THIS claim, but a callback booked on an earlier lease is still ahead.
+      { id: "k1", assignedAt: claimedAt, claimExpiresAt: lease, attempts: [{ dialledAt: new Date(claimedAt.getTime() - DAY), callbackAt: soon }] },
+      // Untouched, texted.
+      { id: "k2", assignedAt: claimedAt, claimExpiresAt: lease, attempts: [], texted: true },
+      // Untouched, callback in the past: released.
+      { id: "k3", assignedAt: claimedAt, claimExpiresAt: lease, attempts: [{ dialledAt: new Date(claimedAt.getTime() - DAY), callbackAt: gone }] },
+      // Dialled since the claim.
+      { id: "k4", assignedAt: claimedAt, claimExpiresAt: lease, attempts: [{ dialledAt: NOW }] },
+    ];
+    const p = partitionForRelease(rows, { now: NOW });
+    ok("an open callback keeps an otherwise untouched row", p.keep.includes("k1") && p.kept.k1 === "callback", p);
+    ok("a text sent keeps an otherwise untouched row", p.keep.includes("k2") && p.kept.k2 === "texted", p);
+    ok("a callback that has passed does not", p.release.includes("k3"), p);
+    ok("a dial since the claim keeps, and says so", p.keep.includes("k4") && p.kept.k4 === "dialled", p);
+
+    // Through releaseUntouched: the callback rides on the attempt row; `texted` on the prospect for the scripted db.
+    const pool = [
+      researched({ id: "r1", assignedRepId: "rep_a", assignedAt: claimedAt, claimExpiresAt: lease }),
+      researched({ id: "r2", assignedRepId: "rep_a", assignedAt: claimedAt, claimExpiresAt: lease, texted: true }),
+      researched({ id: "r3", assignedRepId: "rep_a", assignedAt: claimedAt, claimExpiresAt: lease }),
+    ];
+    const claims = ["r1", "r2", "r3"].map((id, i) => ({ id: `kq${i}`, salesRepId: "rep_a", prospectId: id, claimedAt, mode: "batch", localDate: "2026-09-11", repTimeZone: ZONE, releasedAt: null, releaseReason: null, workedAt: null }));
+    const attempts = [{ prospectId: "r1", salesRepId: "rep_a", dialledAt: new Date(claimedAt.getTime() - DAY), callbackAt: soon }];
+    const db = scriptedDb({ prospects: pool, claims, attempts });
+    const r = await releaseUntouched({ db, rep: REP, reason: "rest", now: NOW });
+    ok("Release the rest keeps the callback row and the texted row; only the bare row goes back", r.released === 1 && r.releasedIds.join(",") === "r3" && r.kept === 2, r);
+    ok("…and the two kept rows still belong to the rep", db.state.prospects.filter((x) => x.assignedRepId === "rep_a").map((x) => x.id).join(",") === "r1,r2");
+    ok("the day_end path is the same function, so it keeps them too", (await releaseUntouched({ db: scriptedDb({ prospects: pool, claims, attempts }), rep: REP, reason: "day_end", onlyIds: ["r1", "r2", "r3"], now: NOW })).released === 1);
+    ok("the console's includeDialled is the one path that widens past a promise — its own decision", (await releaseUntouched({ db: scriptedDb({ prospects: pool, claims, attempts }), rep: REP, reason: "admin", includeDialled: true, now: NOW })).released === 3);
+  }
+  {
+    // ── repOnShift, pure ──
+    const beat = (minsAgo) => new Date(NOW.getTime() - minsAgo * 60 * 1000);
+    ok("available, heartbeat 2 min ago → on shift", repOnShift({ activity: { state: "available", startedAt: beat(120), heartbeatAt: beat(2), endedAt: null }, now: NOW }) === true);
+    ok("on a call, heartbeat 10 min ago → on shift", repOnShift({ activity: { state: "on_call", startedAt: beat(12), heartbeatAt: beat(10), endedAt: null }, now: NOW }) === true);
+    ok("available but not heard from for 40 min (lid closed) → off", repOnShift({ activity: { state: "available", startedAt: beat(300), heartbeatAt: beat(40), endedAt: null }, now: NOW }) === false);
+    ok("…unless they dialled within the hour", repOnShift({ activity: { state: "available", startedAt: beat(300), heartbeatAt: beat(40), endedAt: null }, lastDialAt: beat(30), now: NOW }) === true);
+    ok("offline → off, whatever the heartbeat", repOnShift({ activity: { state: "offline", startedAt: beat(1), heartbeatAt: beat(1), endedAt: null }, now: NOW }) === false);
+    ok("no presence row and no dial → off", repOnShift({ activity: null, now: NOW }) === false);
+    ok("a dial 61 minutes ago is not 'within the hour'", repOnShift({ activity: null, lastDialAt: beat(61), now: NOW }) === false && ON_SHIFT_DIAL_GRACE_MS === 60 * 60 * 1000);
+
+    // ── The sweep on a Karachi rep at their midnight, still dialling ──
+    // Umar's 2026-09-17: claimed 23:35 PKT, the sweep at 00:05 PKT, dials until 01:00.
+    const claimedAt = new Date("2026-09-17T18:35:00Z"); // 23:35 Karachi
+    const tick = new Date("2026-09-17T19:05:00Z"); // 00:05 Karachi, next local date
+    const lease = new Date(claimedAt.getTime() + 2 * DAY);
+    const pool = [
+      researched({ id: "u1", assignedRepId: "rep_k", assignedAt: claimedAt, claimExpiresAt: lease }),
+      researched({ id: "u2", assignedRepId: "rep_k", assignedAt: claimedAt, claimExpiresAt: lease }),
+    ];
+    const claim = (id) => ({ id: `uk${id}`, salesRepId: "rep_k", prospectId: id, claimedAt, mode: "batch", localDate: "2026-09-17", repTimeZone: "Asia/Karachi", releasedAt: null, releaseReason: null, workedAt: null });
+    const claims = [claim("u1"), claim("u2")];
+    // Presence: available, heartbeat a minute ago.
+    const activity = [{ salesRepId: "rep_k", state: "available", startedAt: new Date("2026-09-17T16:00:00Z"), heartbeatAt: new Date(tick.getTime() - 60_000), endedAt: null }];
+    const working = scriptedDb({ prospects: pool, claims, activity });
+    const c1 = await releaseDayEnded({ db: working, now: tick });
+    ok("the date has turned in Karachi but the rep is Available and heard from: nothing is released", c1.released === 0 && c1.onShift === 2 && c1.reps === 0, c1);
+    ok("…the rows still belong to the rep", working.state.prospects.every((x) => x.assignedRepId === "rep_k"));
+    // Presence stale (lid closed 40 min ago) but a dial 20 minutes ago.
+    const dialling = scriptedDb({
+      prospects: pool, claims,
+      activity: [{ ...activity[0], heartbeatAt: new Date(tick.getTime() - 40 * 60_000) }],
+      attempts: [{ prospectId: "zz", salesRepId: "rep_k", dialledAt: new Date(tick.getTime() - 20 * 60_000) }],
+    });
+    const c2 = await releaseDayEnded({ db: dialling, now: tick });
+    ok("a stale presence row with a dial twenty minutes ago is still a working rep", c2.released === 0 && c2.onShift === 2, c2);
+    // Off shift: offline row, no dials.
+    const offline = scriptedDb({ prospects: pool, claims, activity: [{ ...activity[0], state: "offline" }] });
+    const c3 = await releaseDayEnded({ db: offline, now: tick });
+    ok("the same rep offline: both rows go back as day_end", c3.released === 2 && c3.onShift === 0 && offline.state.claims.every((c) => c.releaseReason === "day_end"), c3);
+    // No presence at all (a client that never posted a state) → released, as before.
+    const silent = scriptedDb({ prospects: pool, claims });
+    ok("no presence row at all: the sweep behaves as it always did", (await releaseDayEnded({ db: silent, now: tick })).released === 2);
+  }
+  {
+    // ── A stale claim row must not decide a fresh lease's fate ──
+    const oldClaim = new Date("2026-09-14T22:48:00Z");
+    const reclaim = new Date("2026-09-17T19:06:00Z");
+    const tick = new Date("2026-09-17T20:05:00Z");
+    ok("claimStale: a lease taken after the claim row", claimStale({ claimedAt: oldClaim, assignedAt: reclaim }) === true);
+    ok("claimStale: the same instant written twice is not stale", claimStale({ claimedAt: reclaim, assignedAt: new Date(reclaim.getTime() + 10) }) === false);
+    ok("claimStale: nothing to compare is not stale", claimStale({ claimedAt: reclaim, assignedAt: null }) === false);
+    const pool = [researched({ id: "st1", assignedRepId: "rep_k", assignedAt: reclaim, claimExpiresAt: new Date(reclaim.getTime() + 2 * DAY) })];
+    const claims = [
+      { id: "old", salesRepId: "rep_k", prospectId: "st1", claimedAt: oldClaim, mode: "batch", localDate: "2026-09-15", repTimeZone: "Asia/Karachi", releasedAt: null, releaseReason: null, workedAt: null },
+      { id: "new", salesRepId: "rep_k", prospectId: "st1", claimedAt: reclaim, mode: "batch", localDate: "2026-09-18", repTimeZone: "Asia/Karachi", releasedAt: null, releaseReason: null, workedAt: null },
+    ];
+    const db = scriptedDb({ prospects: pool, claims, activity: [{ salesRepId: "rep_k", state: "offline", startedAt: tick, heartbeatAt: null, endedAt: null }] });
+    const c = await releaseDayEnded({ db, now: tick });
+    ok("the old row (its date long past) is closed as lapsed, not used to release the fresh lease", db.state.claims.find((x) => x.id === "old").releaseReason === "lapsed" && c.lapsed === 1, c);
+    ok("…the fresh lease (local date 09-18, today) is untouched", db.state.prospects[0].assignedRepId === "rep_k" && db.state.claims.find((x) => x.id === "new").releasedAt === null && c.released === 0, c);
+  }
+  {
+    // ── writeClaimBatch closes the rep's stale open row at claim time ──
+    const oldClaim = new Date("2026-09-14T22:48:00Z");
+    const at = new Date("2026-09-17T19:06:00Z");
+    const pool = [researched({ id: "w1", assignedRepId: null, assignedAt: null, claimExpiresAt: null })];
+    const claims = [{ id: "stale", salesRepId: "rep_a", prospectId: "w1", claimedAt: oldClaim, mode: "batch", localDate: "2026-09-15", repTimeZone: ZONE, releasedAt: null, releaseReason: null, workedAt: null }];
+    const db = scriptedDb({ prospects: pool, claims });
+    const won = await writeClaimBatch({ db, rep: REP, tradeKey: "electrical", picked: { ids: ["w1"] }, at, zone: ZONE, batchId: "b1" });
+    ok("the row is won", won.join(",") === "w1");
+    const rows = db.state.claims.filter((c) => c.prospectId === "w1");
+    ok("the stale open row is closed as lapsed at the claim instant, and a fresh row is written", rows.length === 2 && rows.find((c) => c.id === "stale").releaseReason === "lapsed" && rows.find((c) => c.id === "stale").releasedAt === at && rows.some((c) => c.id !== "stale" && c.releasedAt === null), rows);
+  }
+  {
+    // ── shiftEndFrom never sits in the past ──
+    const start = new Date(NOW.getTime() - 8 * 60 * 60 * 1000); // eight hours in
+    const end = shiftEndFrom({ shiftStart: start, now: NOW });
+    ok("eight hours into a seven-hour shift the horizon is the hour ahead, not an hour ago", end.getTime() === NOW.getTime() + CLAIM_OPENS_WITHIN_MS, end);
+    const fresh = new Date(NOW.getTime() - 60 * 60 * 1000);
+    ok("one hour in, the end is still start + SHIFT_HOURS", shiftEndFrom({ shiftStart: fresh, now: NOW }).getTime() === fresh.getTime() + SHIFT_HOURS * 60 * 60 * 1000);
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -887,11 +1026,17 @@ section("6. Source: the route, the gate, the cron, the screen, the sticky fix");
   ok("the single claim is logged, and refused by no daily count", /logSingleClaim\(\{ db, rep, prospectId: candidate\.id, timeZone, now: at \}\)/.test(route) && !/QUEUE_DAILY_CLAIM_CAP|daily_cap|dailyCap/.test(route));
   ok("research is asked for after every successful claim, batch and single, behind a typeof guard", /typeof fn !== "function"/.test(route) && (route.match(/queueResearchFor\(/g) || []).length >= 3 && /priority: "claimed"/.test(route));
   ok("…and never awaited on the response path", /Promise\.resolve\(\)\s*\.then\(\(\) => fn\(/.test(route));
-  ok("the route's Prospect list read is still scoped through queueWhere", /const claimedRows = await db\.prospect\.findMany\(\{\s*where: queueWhere\(rep\.id/.test(route));
+  // Since 2026-09-17 the list read leaves in a Promise.all with the other
+  // rep-level reads (the route's "Phase one"); it is still the one
+  // prospect.findMany whose WHERE is queueWhere(rep.id, …) and whose select
+  // is QUEUE_SELECT.
+  const listRead = route.match(/db\.prospect\.findMany\(\{\s*where: queueWhere\(rep\.id, \{ now \}\),\s*orderBy: \[\{ assignedAt: "asc" \}\],\s*select: QUEUE_SELECT,\s*\}\)/);
+  ok("the route's Prospect list read is still scoped through queueWhere", Boolean(listRead));
+  ok("…and lands in `claimedRows` — the destructured Promise.all names it", /const \[policyContext, retryRules, claimedRows, /.test(route));
   // The held list is EVERYTHING the rep holds. It used to be narrowed to the
   // picked trade, so claiming a second trade made the first one vanish from
   // the screen — the owner's "sometimes the leads briefly disappear".
-  ok("…and NOT narrowed to the picked trade — the picker chooses what to claim, never what to hide", !/const claimedRows = await db\.prospect\.findMany\(\{[\s\S]{0,400}?tradeKey \}/.test(route));
+  ok("…and NOT narrowed to the picked trade — the picker chooses what to claim, never what to hide", Boolean(listRead) && !/tradeKey/.test(listRead[0]));
   ok("the day's list is ordered by the claim log's (claimedAt, position)", /orderBy: \[\{ claimedAt: "asc" \}, \{ position: "asc" \}\]/.test(route));
   ok("\"researching…\" is read from the pipeline's own task table, never inferred", /db\.salesPipelineTask\.findMany\(\{\s*where: \{ prospectId: \{ in: ids \}, status: \{ in: \["queued", "claimed"\] \}/.test(route));
   ok("the response carries the ordered ids for the autodialler", /claimedIds: won/.test(lib) && /result: batch/.test(route));

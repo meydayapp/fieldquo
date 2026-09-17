@@ -11548,8 +11548,11 @@ model SalesQueueClaim {
 
   /// Set when the row went back to the pool from this claim, with why:
   /// "rep" (put back by hand), "rest" (Release the rest), "day_end" (the
-  /// hourly cron, the rep's local day over with no attempt), "lapsed" (the
-  /// 48-hour lease expired before anybody looked). Only "rep", "rest" and
+  /// hourly cron, the rep's local day over AND the rep off the floor, with
+  /// no attempt), "lapsed" (the 48-hour lease expired before anybody looked,
+  /// or this row was superseded by a newer lease on the same prospect by
+  /// the same rep), "closed" (the top-up's closed-window release), "admin"
+  /// and "reassigned" (the platform console). Only "rep", "rest" and
   /// "day_end" de-prioritise the row for this rep.
   releasedAt    DateTime?
   releaseReason String?

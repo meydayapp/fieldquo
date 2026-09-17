@@ -1,12 +1,89 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 17 September 2026 (a ring-back to a sales number now ends in exactly one of three records — answered, voicemail, or MISSED — and each one tells the rep. The cause of the 17 September report: `inboundPlan()` returned "take a message" whenever `FIELDQUO_SALES_TRANSFER_TO` was unset, which it always has been in production, so no browser was ever rung and the check locked that in; the browsers now ring with or without a desk phone. The rep who dialled the caller is rung when available or after_call, held for when on_call (pushed "X is ringing back"), and rung on the evidence of a dial in the last 30 minutes even with no presence row (lib/sales/calls/inboundDistribution.js lastCallerVerdict). `SalesCallAttempt.missedAt` + lib/sales/calls/missed.js: written by the number's `?stage=status` callback (set at purchase from now on; the six held numbers need it set in the Twilio console) and by a per-minute sweep in the sales-pipeline cron; pushes "Missed call from X, just now" and "New voicemail from X, 12 seconds"; shown on /sales/voicemail under Missed calls, in the call history on the queue card and lead page ("left a voicemail · Play", audio proxied through FieldQuo), and on the platform floor with an Outcome column and a per-number voice-webhook-host audit. A refused signature and a thrown handler are now written to /platform/errors with the CallSid. check:sales-inbound-call drives the real route against signed requests for all four cases; check:inbound-distribution carries the exact timeline.)
+Last updated: 17 September 2026 (a ring-back to a sales number now ends in exactly one of three records — answered, voicemail, or MISSED — and each one tells the rep. The cause of the 17 September report: `inboundPlan()` returned "take a message" whenever `FIELDQUO_SALES_TRANSFER_TO` was unset, which it always has been in production, so no browser was ever rung and the check locked that in; the browsers now ring with or without a desk phone. The rep who dialled the caller is rung when available or after_call, held for when on_call (pushed "X is ringing back"), and rung on the evidence of a dial in the last 30 minutes even with no presence row (lib/sales/calls/inboundDistribution.js lastCallerVerdict). `SalesCallAttempt.missedAt` + lib/sales/calls/missed.js: written by the number's `?stage=status` callback (set at purchase from now on; the six held numbers need it set in the Twilio console) and by a per-minute sweep in the sales-pipeline cron; pushes "Missed call from X, just now" and "New voicemail from X, 12 seconds"; shown on /sales/voicemail under Missed calls, in the call history on the queue card and lead page ("left a voicemail · Play", audio proxied through FieldQuo), and on the platform floor with an Outcome column and a per-number voice-webhook-host audit. A refused signature and a thrown handler are now written to /platform/errors with the CallSid. check:sales-inbound-call drives the real route against signed requests for all four cases; check:inbound-distribution carries the exact timeline. Also today: the queue: the day-end sweep no longer takes rows from a rep who is still dialling, a texted or callback-promised lead is never given back automatically, the "Given back today" strip names what went back and why, and the console draws from the tab's last payload before its first request — see the section below))
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
 it exists to answer.
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
+
+---
+
+## "Her leads disappear": the day-end sweep read midnight as the end of an overseas rep's shift; and the queue now draws before it asks (17 September 2026)
+
+Two reports from the floor, both answered from production first.
+
+**(A) The disappearances.** The claim log for the three days to 2026-09-17:
+341 rows released — 287 `day_end`, 49 `rest` (Daniel's own presses), 5
+`lapsed`, 0 `closed`. Every `day_end` fired at the rep's local calendar
+midnight, and the reps ring North America from Karachi (UTC+5), Lagos (UTC+1)
+and Paris (UTC+2), where midnight is the middle of the shift: 9 of Muhammad
+Umar's rows went back thirty minutes after he claimed them (dials continued
+for another hour); 50 of Favor Saddic's two hours after hers, with her
+presence row still Available; 50 of Muhammad Ali's and 22 of Rachel's the
+same way. A second defect on top: five of Umar's rows were released twice in
+one pass because the row's OLD claim entry (from a lease that had lapsed and
+been re-taken) was still open and its date decided the fresh lease's fate.
+
+Fixed in `lib/sales/queueBatch.js`: `releaseDayEnded` now asks `repStillWorking`
+(presence not offline and heard from within PRESENCE_STALE_MINUTES, or a dial
+within the hour — `repOnShift`, pure) and holds a working rep's rows back
+(`onShift` count in the cron's response); a claim row older than its
+prospect's lease (`claimStale`) is closed as `lapsed` and never used; and
+`writeClaimBatch` closes the rep's stale open row at claim time. On every
+release path (`partitionForRelease`, so `rest`, `day_end` and `closed`
+agree): a lead with a callback still ahead or a text sent by the rep
+(`spokenFor`, `textedByRep`) is kept; only the console's `includeDialled`
+widens past it. `shiftEndFrom` never sits in the past — a rep in hour eight
+of a seven-hour shift had every shut row judged "opens after the shift".
+No `closed` release was found firing on a row that reopens within the shift;
+`releaseClosedUntouched` was verified against `queueWindows.js` and left
+alone bar the promise rule.
+
+Made visible: `lib/sales/queueGivenBack.js` groups the day's automatic
+give-backs (day_end, closed, lapsed, admin, reassigned — never the rep's own
+two) per sweep with the names, in the rep's clock since their local
+midnight; `GET /api/sales/queue` carries `givenBack`; the queue's Leads panel
+draws the "Given back today" strip (`data-given-back`) in nine languages, with
+"could not be read" said rather than "nothing". `repClock` printed midnight
+as "24:05" (ICU's `hour12: false`); now `hourCycle: "h23"`.
+
+**(B) "It takes time for them to reload."** `GET /api/sales/queue` measured
+from the Vercel log (47 unique requests, 2026-09-17 19:20–21:46 UTC): p50
+1236 ms, p90 2167 ms, max 2598 ms, and ≈1 s even for `items=1`. Measured
+against production from a workstation: Prisma's `_count` on the list read
+was 450 ms of a 550 ms query; the 560k-row available-per-trade GROUP BY
+≈550 ms; the window-override read ≈240 ms; and ten reads ran one after
+another. The route now runs the nine rep-level reads in one `Promise.all`,
+the per-row reads (two GROUP BYs in place of `_count`, and the named
+current row) in a second, memoises the overrides, the retry rules and the
+available counts for 60 s per warm function (`lib/sales/queueCache.js
+queueMemo` — never a rep's own rows), and logs the phases
+(`phase1= phase2= order= current=`) in the log line and the Server-Timing
+header. Same workstation, same 78-row queue: 280–300 ms warm, ≈980 ms with a
+cold memo. `?only=current` answers one row's detail through the same
+`buildCurrent`.
+
+Client: the queue page draws the tab's last payload (sessionStorage, per rep
+and trade, 30 min) before its first request with a "Refreshing…" hint, and
+keeps one entry per lead (`current`, playbook per language, call history —
+40 entries, 30 min) that `select()`, `PlaybookMount` and `useCallHistory`
+draw first and the server's answer replaces; the next two rows in dial
+order are read ahead (`prefetchTargets`). `app/sales/queue/loading.js`
+exists now, so the route is partially prefetched from the nav and the
+transition back to the queue is immediate rather than blocked on the page
+function. Checks: `check:queue-cache` (new, 98 assertions),
+`check:sales-batch-claim` (+33).
+
+### Still owed here
+
+- The measured after-numbers from production (Server-Timing / the phase log
+  line) belong in the commit that follows the deploy, once reps have loaded
+  the queue on the new build; the local numbers above are from a
+  workstation with ≈60 ms to Neon.
+- A lead opened out of dial order for the first time still costs one
+  request; only the next two rows and anything opened before are held.
 
 ---
 

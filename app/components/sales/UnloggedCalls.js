@@ -150,9 +150,14 @@ export function UnloggedCallsList({ onCountChange = null, compact = false }) {
             <div className="flex items-center gap-3">
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-medium text-foreground">{row.businessName || row.toE164}</span>
-                <span className="block text-xs text-muted-foreground break-words">
-                  {whenLabel(row.dialledAt, language)}
-                  {row.businessName ? ` · ${row.toE164}` : ""}
+                <span className="block text-xs text-muted-foreground break-words" data-unlogged-direction={row.direction === "in" ? "in" : "out"}>
+                  {/* By direction. An inbound row is one THEY placed: "They
+                      called you back from … at …", never "You rang" — the
+                      2026-09-17 mistake, in the panel, that this list now
+                      carries instead. */}
+                  {row.direction === "in"
+                    ? t("app.salesCall.calledYouBack", { number: row.toE164, time: whenLabel(row.dialledAt, language) })
+                    : `${whenLabel(row.dialledAt, language)}${row.businessName ? ` · ${row.toE164}` : ""}`}
                   {ended ? ` · ${ended}` : ""}
                 </span>
               </span>

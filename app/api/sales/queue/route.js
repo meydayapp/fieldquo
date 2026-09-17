@@ -85,6 +85,9 @@ import { openTriageThreads } from "@/lib/sales/messages/triageStore";
 import { loadContactNumbers, pickContactNumber } from "@/lib/sales/contact/resolve";
 import { adminAssignedSummary } from "@/lib/sales/assignLeads";
 import { loadMergedAnalysis } from "@/lib/sales/discovery/mergedReads";
+import { loadGivenBack } from "@/lib/sales/queueGivenBack";
+import { queueMemo } from "@/lib/sales/queueCache";
+import { languageWhereFor } from "@/lib/sales/leadLanguage";
 
 const ACTIONS = ["claim", "claim_batch", "release", "release_rest", "worked", "do_not_contact"];
 const MAX_REASON = 300;
@@ -122,7 +125,12 @@ const QUEUE_SELECT = {
   retryBlock: true,
   exhaustedAt: true,
   recycledAt: true,
-  _count: { select: { capabilities: true, opportunities: true } },
+  // NOT `_count: { capabilities, opportunities }`. Prisma answers that with
+  // a correlated count per row that cost 450 ms of a 550 ms list read on
+  // 2026-09-17 (measured against production: 36 ms without it, 448 with).
+  // The same two numbers come from two GROUP BYs over the ids below, in
+  // parallel with the other per-row reads, and are put back on the row as
+  // `_count` so isResearched() reads what it always read.
   leads: {
     where: { timeZone: { not: null } },
     orderBy: { updatedAt: "desc" },
@@ -152,8 +160,361 @@ function queueResearchFor(prospectIds) {
     });
 }
 
-async function queueBody(rep, { tradeKey = null, prospectId = null, timeZone = null, language = null, batch = null } = {}) {
+/**
+ * The current row's payload — what the console draws beside the list — from
+ * its full read. Factored out so the same object is built for the list's
+ * response and for the browser's prefetch of the next rows in dial order
+ * (`?only=current`, below), and cannot drift between the two.
+ */
+async function buildCurrent({ rep, full, zone, lang, now, policyContext, retryRules }) {
+  // A survivor's analysis is the union of its own and its merged-from
+  // rows' (lib/sales/discovery/mergedReads.js — own row per code wins,
+  // evidence appended). Written back onto `full` so every read below —
+  // the view, the brief, the owner quote — sees one set.
+  const analysis = await loadMergedAnalysis(db, full);
+  Object.assign(full, {
+    capabilities: analysis.capabilities,
+    technologies: analysis.technologies,
+    inferences: analysis.inferences,
+    evidence: analysis.evidence,
+  });
+
+  const [rules, signatures, suppression, contactRows, ours, myLead, history, briefTask, converted, checkIns, openTriage] = await Promise.all([
+    db.confidenceRule.findMany(),
+    db.technologySignature.findMany({ select: { code: true, name: true } }),
+    // ── The list, read for the one prospect that gets a dial control ──
+    //
+    // A rep who marks do-not-contact writes BOTH the row flag and a
+    // SalesSuppression, so the flag alone covered anything a REP had done.
+    // A contractor who texts STOP writes only the suppression, and this
+    // screen never read it — so somebody who said stop by text still saw a
+    // live Call button and a live handset `tel:` link.
+    //
+    // The API route refuses the browser call, but the handset link is an
+    // <a href="tel:"> that reaches no server at all. A gate that lives only
+    // in the route cannot cover it: the refusal has to be decided where the
+    // control is drawn, which is here.
+    //
+    // Fails CLOSED. If the list cannot be read we do not know whether they
+    // said stop, and "we could not check" is not permission to ring.
+    full?.phoneE164
+      ? checkSuppression(db, { channel: "phone", phone: full.phoneE164 }).catch(() => ({
+          suppressed: true,
+          reason: "The do-not-contact list could not be read, so no dial control is offered.",
+        }))
+      : Promise.resolve(null),
+    // Extra numbers a rep was given on the phone. Read here rather than
+    // behind a second fetch for the same reason the suppression verdict is:
+    // this is the screen where the Call button is drawn, and a picker that
+    // arrived a beat later would let a rep press the listing number while
+    // the cell they were told to use was still loading.
+    loadContactNumbers({ prospectId: full.id }),
+    ownNumbers().catch(() => []),
+    // The rep's OWN lead for this business, when they have carried it
+    // across. This is what "update and make changes to the lead" edits —
+    // see the note beside `lead` in the payload below for why a rep
+    // corrects their lead rather than the discovered row.
+    db.salesLead.findFirst({
+      where: { prospectId: full.id, salesRepId: rep.id },
+      select: {
+        id: true, businessName: true, contactName: true, email: true, phone: true,
+        timeZone: true, country: true, province: true, status: true, notes: true,
+      },
+    }),
+    // ── The console's "Call history" card ───────────────────────────
+    // This rep's attempts on this business, newest first, capped: the
+    // card shows five and links to the lead page for the rest. Scoped
+    // to the rep the way `lastOutcome` on the rows is — another rep's
+    // calls on a row they later released are theirs to read, not ours.
+    db.salesCallAttempt
+      .findMany({
+        where: { prospectId: full.id, salesRepId: rep.id },
+        orderBy: { dialledAt: "desc" },
+        take: 5,
+        select: {
+          id: true, direction: true, dialledAt: true, answeredAt: true, endedAt: true,
+          talkSeconds: true, disposition: true, callbackAt: true, dialChannel: true,
+        },
+      })
+      .catch(() => []),
+    // ── The research brief's phrasing, if the pipeline wrote one ──
+    // The brief itself is composed from the rows below on every read
+    // (composeBrief) so it cannot disagree with them; only the model's
+    // sentences are cached, on the task that produced them. The newest
+    // finished task wins. None → the card says "no description yet",
+    // never a sentence somebody has to disown on the phone.
+    db.salesPipelineTask
+      .findFirst({
+        where: { prospectId: full.id, kind: "GENERATE_RESEARCH_BRIEF", status: "done" },
+        orderBy: { claimedAt: "desc" },
+        select: { payload: true },
+      })
+      .catch(() => null),
+    // "Existing customer": a lead on this business that has converted
+    // into a company on the platform. A count, never the company — the
+    // console shows the rep a tag, not another tenant's record.
+    db.salesLead
+      .count({ where: { prospectId: full.id, convertedCompanyId: { not: null } } })
+      .catch(() => 0),
+    // Check-in drafts due for this business, by the number we hold.
+    full.phoneE164
+      ? openCheckIns({ salesRepId: rep.id, toE164: full.phoneE164 }).catch(() => [])
+      : Promise.resolve([]),
+    // Their latest text was a roadblock or a question and nobody has
+    // written back: the Tasks tab's third list. Null when the read failed
+    // — absence, not an empty list — so the tab can say it could not look.
+    full.phoneE164
+      ? openTriageThreads({ salesRepId: rep.id, e164: full.phoneE164 }).then((r) => r.items).catch(() => null)
+      : Promise.resolve([]),
+  ]);
+  const signatureNames = Object.fromEntries(signatures.map((s) => [s.code, s.name]));
+
+  // Which numbers may be rung, and which may be texted — they are not the
+  // same list, because a landline takes a call and silently swallows a
+  // text. Computed on both channels here so the screen never has to work
+  // out reach for itself.
+  const blocked = Boolean(full.doNotContactAt) || Boolean(suppression?.suppressed);
+  const numberArgs = {
+    target: { phoneE164: full.phoneE164 },
+    rows: contactRows,
+    ourNumbers: ours,
+    blocked,
+    blockedReason: suppression?.reason || null,
+  };
+  const voice = pickContactNumber({ ...numberArgs, channel: CHANNEL_VOICE });
+  const text = pickContactNumber({ ...numberArgs, channel: CHANNEL_TEXT });
+  const attempts24h = await attemptsLast24h(full.phoneE164 || voice.choices[0]?.e164 || null, { now }).catch(
+    () => null,
+  );
+
+  return {
+    ...prospectView({
+      // The listing number OR the best one a rep recorded. contactability()
+      // asks "is there a number to ring", and once somebody has told us the
+      // owner's cell the answer is yes even when discovery found nothing —
+      // leaving it null would draw "no sales number yet" over a number the
+      // rep wrote down ten seconds ago, which is the dead control inverted.
+      //
+      // It does NOT write back: Prospect.phoneE164 is the dedupe key every
+      // discovery run matches on, and a call is not a reason to re-point it.
+      prospect: { ...full, phoneE164: full.phoneE164 || voice.choices[0]?.e164 || null },
+      capabilities: full.capabilities,
+      technologies: full.technologies.map((t) => ({
+        ...t,
+        name: signatureNames[t.technologyCode] || t.technologyCode,
+      })),
+      inferences: full.inferences,
+      opportunities: full.opportunities,
+      evidence: full.evidence,
+      scores: full.scores,
+      rules,
+      capabilityNames: Object.fromEntries(
+        full.opportunities.map((o) => [o.capabilityCode, o.capability?.name || o.capabilityCode]),
+      ),
+      repId: rep.id,
+      suppression,
+      now,
+    }),
+    tradeLabel: full.tradeKey ? DISCOVERY_TRADES[full.tradeKey]?.label || full.tradeKey : null,
+    territory: full.territory,
+    websiteUrl: full.websiteUrl,
+    phoneE164: full.phoneE164 || voice.choices[0]?.e164 || null,
+    // ── The numbers, and the reasons some of them are not offered ──────
+    //
+    // `refused` travels with `choices` deliberately. A rep who was given a
+    // number and cannot see it anywhere will type it into a note and phone
+    // it off their own handset, which is a call nothing records and no
+    // calling window governs — so a refused number is SHOWN, with why.
+    numbers: {
+      stored: contactRows.map((r) => ({
+        id: r.id, e164: r.e164, kind: r.kind, label: r.label,
+        canCall: r.canCall, canText: r.canText, preferred: r.preferred,
+        note: r.note, createdAt: r.createdAt,
+      })),
+      voice: { choices: voice.choices, refused: voice.refused, reason: voice.code },
+      text: { choices: text.choices, refused: text.refused, reason: text.code },
+    },
+    // The rep's own lead for this business, or null when they have not
+    // carried it across yet. Null is a real state the screen acts on — it
+    // offers to create one — rather than a gap it papers over.
+    lead: myLead,
+    // ── Whether this may be dialled, and where the screen re-asks ──────
+    //
+    // `compliance` is the answer at the moment this response was built, so
+    // the API is honest to anything that reads it. `callingContext` is what
+    // the SCREEN needs to ask the same question again a minute later,
+    // because a decision computed at 19:59 and rendered until midnight is
+    // exactly the dead control AGENTS.md forbids, wearing a live coat.
+    //
+    // attemptsLast24h IS passed now. Until 2026-09-11 this comment said
+    // "nothing records a call attempt yet" — untrue since the dial route
+    // began writing SalesCallAttempt and counting through
+    // lib/sales/calls/store.js — and the console printed a stale amber
+    // paragraph telling reps to count Oklahoma's cap by hand. The count
+    // is for the number the dial would ring (the listing number or the
+    // server's first choice), the same one the dial route counts, and it
+    // rides in callingContext so the screen's thirty-second re-ask
+    // passes it too. Null only when the store is absent.
+    compliance: salesCallReadiness({
+      prospect: full,
+      timeZone: full.leads[0]?.timeZone || null,
+      now,
+      attemptsLast24h: attempts24h,
+      windowPolicy: windowPolicyFor(full, policyContext),
+    }),
+    callingContext: {
+      country: full.country,
+      province: full.province,
+      timeZone: full.leads[0]?.timeZone || null,
+      attemptsLast24h: attempts24h,
+      // The console's override for this state, RESOLVED here — the
+      // registration hold included — and re-passed by the screen on
+      // every re-ask. The browser never resolves it itself: it holds no
+      // override rows and no certificate list, and a client-side copy of
+      // the hold is the second copy this feature refuses to have.
+      windowPolicy: publicWindowPolicy(windowPolicyFor(full, policyContext)),
+    },
+    // ── What the console's Company card reads, beyond prospectView ──
+    brief: (() => {
+      const cached = briefTask?.payload?.brief || null;
+      const phrasing = cached?.phrasing && typeof cached.phrasing === "object" ? cached.phrasing : null;
+      const brief = composeBrief({
+        prospect: full,
+        capabilities: full.capabilities,
+        technologies: full.technologies,
+        inferences: full.inferences,
+        opportunities: full.opportunities,
+        score: full.scores[0] || null,
+        phrasing,
+      });
+      // The inferred owner, with the sentence it was read from. The
+      // Contact card shows the name with its confidence word and, on
+      // request, the quote — a rep who says "is that Dave?" should be
+      // able to see the words that made us think so.
+      const ownerRow = full.inferences.find((i) => i?.kind === "owner_name" && i?.value);
+      const evidenceById = new Map(full.evidence.map((e) => [e.id, e]));
+      const ownerQuote = ownerRow
+        ? (Array.isArray(ownerRow.evidenceIds) ? ownerRow.evidenceIds : [])
+            .map((id) => evidenceById.get(id))
+            .map((e) => e?.rawValue || e?.normalizedValue || null)
+            .find(Boolean) || null
+        : null;
+      return {
+        owner: ownerRow ? { name: String(ownerRow.value).trim(), quote: ownerQuote, source: ownerRow.source || null } : null,
+        // The model's sentence about THIS business, or null. `opening`
+        // always has a value (a plain fallback built from rows), but the
+        // card wants the DESCRIPTION, and a fallback is not one — so
+        // only a phrased opening is offered as the description.
+        description: brief.phrased && phrasing?.opening ? brief.opening : null,
+        generatedAt: cached?.generatedAt || null,
+        crawled: brief.crawled,
+        talkingPoints: brief.talkingPoints,
+      };
+    })(),
+    // The pool's state for the Dialer card — the same object the row
+    // carries, read from the same columns.
+    retry: retryViewFor(full, { repZone: zone, language: lang, now, rules: retryRules }),
+    history: history.map((a) => ({
+      id: a.id,
+      direction: a.direction,
+      dialledAt: a.dialledAt?.toISOString?.() || null,
+      answered: Boolean(a.answeredAt),
+      talkSeconds: Number.isFinite(a.talkSeconds) ? a.talkSeconds : null,
+      disposition: a.disposition || null,
+      callbackAt: a.callbackAt?.toISOString?.() || null,
+      channel: a.dialChannel || null,
+    })),
+    existingCustomer: converted > 0,
+    openTriage: openTriage
+      ? openTriage.map((o) => ({
+          e164: o.e164,
+          kind: o.kind,
+          reason: o.reason,
+          body: o.body,
+          sentAt: o.sentAt?.toISOString?.() || o.sentAt || null,
+        }))
+      : null,
+    checkIns: checkIns.map((c) => ({
+      id: c.id,
+      scheduledFor: c.scheduledFor?.toISOString?.() || null,
+      draftText: c.draftText,
+      origin: c.origin,
+    })),
+  };
+}
+
+/**
+ * The one prospect that gets a dial control, read in full. Re-read through
+ * queueWhere so a prospect id belonging to another rep resolves to nothing
+ * rather than to a 403 that confirms it exists.
+ */
+function readCurrentFull(rep, id, now) {
+  return db.prospect.findFirst({
+    where: { id, ...queueWhere(rep.id, { now }) },
+    include: {
+      capabilities: true,
+      technologies: true,
+      inferences: true,
+      opportunities: { include: { capability: { select: { code: true, name: true } } } },
+      scores: { orderBy: { computedAt: "desc" }, take: 1 },
+      evidence: { orderBy: { observedAt: "desc" }, take: 400 },
+      territory: { select: { id: true, name: true } },
+      // The calling window is stated in the PROSPECT's local time, and the
+      // only place anybody has ever written one down is SalesLead.timeZone —
+      // set by the rep who had them on the phone, from the texting screen.
+      // Read across every rep's lead rather than this rep's: a time zone is a
+      // fact about the business, not about who owns the row, and a split
+      // state such as Florida cannot be resolved without one.
+      leads: {
+        where: { timeZone: { not: null } },
+        orderBy: { updatedAt: "desc" },
+        take: 1,
+        select: { timeZone: true },
+      },
+    },
+  });
+}
+
+/**
+ * The per-request loads that are the same for every rep — the calling-window
+ * overrides, the retry rules — and the one that is the same for every rep
+ * with the same language rule: the AVAILABLE count per trade, a GROUP BY
+ * over 560,000 rows. Each memoised for sixty seconds in the function's own
+ * memory (lib/sales/queueCache.js says what may be cached and what must
+ * not). The rep's own rows are never read through here.
+ */
+function cachedPolicyContext(now) {
+  return queueMemo.get("policyContext", () => loadWindowPolicyContext({ now }));
+}
+function cachedRetryRules() {
+  return queueMemo.get("retryRules", () => loadRetryRules({ db }));
+}
+function cachedAvailableByTrade(rep, now) {
+  // The candidate WHERE differs per rep only by the language fragment
+  // (lib/sales/leadLanguage.js): an anglophone rep and a bilingual one see
+  // different pools; two anglophones see the same one.
+  const langKey = JSON.stringify(languageWhereFor(rep) ?? null);
+  return queueMemo.get(`availableByTrade:${langKey}`, () => {
+    const { tradeKey: _anyTrade, ...candidateWhere } = claimCandidateWhere({ tradeKey: null, now, rep });
+    return db.prospect.groupBy({
+      by: ["tradeKey"],
+      where: { ...candidateWhere, tradeKey: { in: discoveryTradeKeys() } },
+      _count: { _all: true },
+    });
+  });
+}
+
+async function queueBody(rep, { tradeKey = null, prospectId = null, timeZone = null, language = null, batch = null, timing = null } = {}) {
   const now = new Date();
+  const mark = (() => {
+    let last = Date.now();
+    return (label) => {
+      if (!timing) return;
+      const t = Date.now();
+      timing[label] = (timing[label] || 0) + (t - last);
+      last = t;
+    };
+  })();
   // The rep's zone and language, for every time this response prints. Both
   // come from the browser with the request — the zone the way the batch
   // claim reads it, the language the way the portal renders it — because
@@ -161,27 +522,56 @@ async function queueBody(rep, { tradeKey = null, prospectId = null, timeZone = n
   // its language column is a stated preference that may be null.
   const zone = repZoneFrom(timeZone, now);
   const lang = repLanguageOrNull(language) || "en";
-  // The platform console's calling-window overrides, read once for the whole
-  // response so the list grouping, the current row's decision and what the
-  // browser re-asks with all see the same rows. lib/sales/windowPolicy.js.
-  const policyContext = await loadWindowPolicyContext({ now });
-  // The retry rule table for this response — the platform's overrides over
-  // the code defaults, read once so every row's "Retry N of M" agrees.
-  const retryRules = await loadRetryRules({ db });
 
+  // ── Phase one: everything that needs only the rep ─────────────────────
+  //
+  // Nine reads that used to run one after another, each a round trip to
+  // Neon. None depends on another, so they leave together. The platform
+  // console's calling-window overrides and the retry rule table are read
+  // through the memo so the list grouping, the current row's decision and
+  // what the browser re-asks with all see the same rows; the rep's own
+  // rows are read fresh.
+  //
   // Everything the rep holds, whatever trade the picker is on. The list used
   // to be narrowed to the picked trade, so a rep who claimed painters and
   // then took a hundred roofers watched the painters vanish — "sometimes the
   // leads briefly disappear", the owner said, and they had not gone anywhere.
   // The trade picker decides what "Claim the next 100" pulls from; it never
   // hides what is already held. Each row carries its own tradeLabel.
-  const claimedRows = await db.prospect.findMany({
-    where: queueWhere(rep.id, { now }),
-    orderBy: [{ assignedAt: "asc" }],
-    select: QUEUE_SELECT,
-  });
+  const [policyContext, retryRules, claimedRows, shiftStart, takenToday, adminAssigned, givenBack, mineByTrade, availableByTrade] =
+    await Promise.all([
+      cachedPolicyContext(now),
+      cachedRetryRules(),
+      db.prospect.findMany({
+        where: queueWhere(rep.id, { now }),
+        orderBy: [{ assignedAt: "asc" }],
+        select: QUEUE_SELECT,
+      }),
+      shiftStartFor({ db, salesRepId: rep.id, timeZone: zone, now }),
+      claimsTakenToday({ db, salesRepId: rep.id, timeZone: zone, now }),
+      // Rows the platform console handed this rep (claim mode "admin") and the
+      // latest such hand-out — who, how many, which trade, where — for the
+      // Today screen's "Emilio assigned you 25 flooring leads" line. Null when
+      // there is none open, and the card draws nothing. lib/sales/assignLeads.js.
+      adminAssignedSummary({ db, salesRepId: rep.id, now }).catch((err) => {
+        console.error("[sales/queue] adminAssignedSummary failed:", err?.message || err);
+        return null;
+      }),
+      // What went back to the pool today without the rep pressing anything,
+      // with the names — lib/sales/queueGivenBack.js says why the screen
+      // carries it.
+      loadGivenBack({ db, rep, repZone: zone, language: lang, now }),
+      // Per-trade counts, so the rep can pick a queue and see there is
+      // something in it. Counts only — a count is not a list, and nothing
+      // here lets a rep read a prospect they have not claimed. Two GROUP BYs,
+      // not 78 COUNTs (the 12-second queue of 2026-09-15); "available" is
+      // memoised per language rule (cachedAvailableByTrade), "mine" is not.
+      db.prospect.groupBy({ by: ["tradeKey"], where: queueWhere(rep.id, { now }), _count: { _all: true } }),
+      cachedAvailableByTrade(rep, now),
+    ]);
+  mark("phase1");
 
-  // ── The day's order, and what each row needs beside its name ────────────
+  // ── Phase two: what each held row needs beside its name ─────────────────
   //
   // A batch is written with ONE assignedAt, so `assignedAt asc` alone leaves a
   // hundred rows in whatever order the database felt like. The claim log
@@ -191,7 +581,12 @@ async function queueBody(rep, { tradeKey = null, prospectId = null, timeZone = n
   // before the log existed) keeps its assignedAt place. That is the order
   // INSIDE a window group; the groups are decided just below.
   const ids = claimedRows.map((p) => p.id);
-  const [openClaims, researching, lastAttempts] = ids.length
+  // The current row's full read starts here too when the browser named it:
+  // the ownership check is in its own WHERE (queueWhere), so it needs
+  // nothing from the ordering, and it is the single slowest read on the
+  // path. Without a named row it waits for the order, below.
+  const namedId = prospectId && ids.includes(prospectId) ? prospectId : null;
+  const [openClaims, researching, lastAttempts, capCounts, oppCounts, namedFull] = ids.length
     ? await Promise.all([
         db.salesQueueClaim.findMany({
           where: { salesRepId: rep.id, prospectId: { in: ids }, releasedAt: null },
@@ -212,8 +607,17 @@ async function queueBody(rep, { tradeKey = null, prospectId = null, timeZone = n
           distinct: ["prospectId"],
           select: { prospectId: true, disposition: true, dialledAt: true },
         }),
+        db.prospectCapability.groupBy({ by: ["prospectId"], where: { prospectId: { in: ids } }, _count: { _all: true } }),
+        db.prospectOpportunity.groupBy({ by: ["prospectId"], where: { prospectId: { in: ids } }, _count: { _all: true } }),
+        namedId ? readCurrentFull(rep, namedId, now) : Promise.resolve(null),
       ])
-    : [[], [], []];
+    : [[], [], [], [], [], null];
+  const capsById = new Map(capCounts.map((r) => [r.prospectId, r._count?._all || 0]));
+  const oppsById = new Map(oppCounts.map((r) => [r.prospectId, r._count?._all || 0]));
+  for (const p of claimedRows) {
+    p._count = { capabilities: capsById.get(p.id) || 0, opportunities: oppsById.get(p.id) || 0 };
+  }
+  mark("phase2");
   const rank = new Map();
   openClaims.forEach((c, i) => {
     if (!rank.has(c.prospectId)) rank.set(c.prospectId, i);
@@ -236,7 +640,6 @@ async function queueBody(rep, { tradeKey = null, prospectId = null, timeZone = n
   // SHIFT_HOURS from the rep's first Available today — so a row the claim
   // took as "opens later in the shift" lands in an "Opens at" group here and
   // never in "Not callable today".
-  const shiftStart = await shiftStartFor({ db, salesRepId: rep.id, timeZone: zone, now });
   const shiftEnd = shiftEndFrom({ shiftStart, now });
   const grouped = groupByWindow(
     inClaimOrder.map((p) => ({ id: p.id, country: p.country, province: p.province, timeZone: p.leads?.[0]?.timeZone || null, name: p.businessName })),
@@ -286,28 +689,13 @@ async function queueBody(rep, { tradeKey = null, prospectId = null, timeZone = n
       ];
     }),
   );
+  mark("order");
 
-  // Per-trade counts, so the rep can pick a queue and see there is something in
-  // it. Counts only — a count is not a list, and nothing here lets a rep read a
-  // prospect they have not claimed.
-  // Two GROUP BYs, not 78 COUNTs. This used to count "mine" and "available"
-  // per trade — 39 trades × 2 = 78 queries over a 560,000-row table on every
-  // load, through a five-connection pool, and it was the largest single
-  // cost of the 12-second queue the owner reported on 2026-09-15 (1.7 s
-  // measured from a warm machine; worse on a cold lambda). The same WHERE
-  // grouped by tradeKey answers all 39 at once; the counts were checked
-  // equal to the per-trade ones, trade for trade, before the switch.
-  //
   // "Available" is THIS rep's pool, not the pool: a Quebec row an anglophone
   // rep cannot be handed is not "available" to them, and a count that said
   // 900 beside a button that claimed 12 would be the dead control in
   // numbers. The campaigns console counts without a rep.
-  const { tradeKey: _anyTrade, ...candidateWhere } = claimCandidateWhere({ tradeKey: null, now, rep });
   const tradeKeys = discoveryTradeKeys();
-  const [mineByTrade, availableByTrade] = await Promise.all([
-    db.prospect.groupBy({ by: ["tradeKey"], where: queueWhere(rep.id, { now }), _count: { _all: true } }),
-    db.prospect.groupBy({ by: ["tradeKey"], where: { ...candidateWhere, tradeKey: { in: tradeKeys } }, _count: { _all: true } }),
-  ]);
   const countOf = (rows, key) => rows.find((r) => r.tradeKey === key)?._count?._all || 0;
   const trades = tradeKeys.map((key) => ({
     key,
@@ -344,322 +732,22 @@ async function queueBody(rep, { tradeKey = null, prospectId = null, timeZone = n
 
   let current = null;
   if (currentId) {
-    const full = await db.prospect.findFirst({
-      where: { id: currentId, ...queueWhere(rep.id, { now }) },
-      include: {
-        capabilities: true,
-        technologies: true,
-        inferences: true,
-        opportunities: { include: { capability: { select: { code: true, name: true } } } },
-        scores: { orderBy: { computedAt: "desc" }, take: 1 },
-        evidence: { orderBy: { observedAt: "desc" }, take: 400 },
-        territory: { select: { id: true, name: true } },
-        // The calling window is stated in the PROSPECT's local time, and the
-        // only place anybody has ever written one down is SalesLead.timeZone —
-        // set by the rep who had them on the phone, from the texting screen.
-        // Read across every rep's lead rather than this rep's: a time zone is a
-        // fact about the business, not about who owns the row, and a split
-        // state such as Florida cannot be resolved without one.
-        leads: {
-          where: { timeZone: { not: null } },
-          orderBy: { updatedAt: "desc" },
-          take: 1,
-          select: { timeZone: true },
-        },
-      },
-    });
+    const full = namedFull && namedFull.id === currentId ? namedFull : await readCurrentFull(rep, currentId, now);
 
     if (full) {
-      // A survivor's analysis is the union of its own and its merged-from
-      // rows' (lib/sales/discovery/mergedReads.js — own row per code wins,
-      // evidence appended). Written back onto `full` so every read below —
-      // the view, the brief, the owner quote — sees one set.
-      const analysis = await loadMergedAnalysis(db, full);
-      Object.assign(full, {
-        capabilities: analysis.capabilities,
-        technologies: analysis.technologies,
-        inferences: analysis.inferences,
-        evidence: analysis.evidence,
-      });
-
-      const [rules, signatures, suppression, contactRows, ours, myLead, history, briefTask, converted, checkIns, openTriage] = await Promise.all([
-        db.confidenceRule.findMany(),
-        db.technologySignature.findMany({ select: { code: true, name: true } }),
-        // ── The list, read for the one prospect that gets a dial control ──
-        //
-        // A rep who marks do-not-contact writes BOTH the row flag and a
-        // SalesSuppression, so the flag alone covered anything a REP had done.
-        // A contractor who texts STOP writes only the suppression, and this
-        // screen never read it — so somebody who said stop by text still saw a
-        // live Call button and a live handset `tel:` link.
-        //
-        // The API route refuses the browser call, but the handset link is an
-        // <a href="tel:"> that reaches no server at all. A gate that lives only
-        // in the route cannot cover it: the refusal has to be decided where the
-        // control is drawn, which is here.
-        //
-        // Fails CLOSED. If the list cannot be read we do not know whether they
-        // said stop, and "we could not check" is not permission to ring.
-        full?.phoneE164
-          ? checkSuppression(db, { channel: "phone", phone: full.phoneE164 }).catch(() => ({
-              suppressed: true,
-              reason: "The do-not-contact list could not be read, so no dial control is offered.",
-            }))
-          : Promise.resolve(null),
-        // Extra numbers a rep was given on the phone. Read here rather than
-        // behind a second fetch for the same reason the suppression verdict is:
-        // this is the screen where the Call button is drawn, and a picker that
-        // arrived a beat later would let a rep press the listing number while
-        // the cell they were told to use was still loading.
-        loadContactNumbers({ prospectId: full.id }),
-        ownNumbers().catch(() => []),
-        // The rep's OWN lead for this business, when they have carried it
-        // across. This is what "update and make changes to the lead" edits —
-        // see the note beside `lead` in the payload below for why a rep
-        // corrects their lead rather than the discovered row.
-        db.salesLead.findFirst({
-          where: { prospectId: full.id, salesRepId: rep.id },
-          select: {
-            id: true, businessName: true, contactName: true, email: true, phone: true,
-            timeZone: true, country: true, province: true, status: true, notes: true,
-          },
-        }),
-        // ── The console's "Call history" card ───────────────────────────
-        // This rep's attempts on this business, newest first, capped: the
-        // card shows five and links to the lead page for the rest. Scoped
-        // to the rep the way `lastOutcome` on the rows is — another rep's
-        // calls on a row they later released are theirs to read, not ours.
-        db.salesCallAttempt
-          .findMany({
-            where: { prospectId: full.id, salesRepId: rep.id },
-            orderBy: { dialledAt: "desc" },
-            take: 5,
-            select: {
-              id: true, direction: true, dialledAt: true, answeredAt: true, endedAt: true,
-              talkSeconds: true, disposition: true, callbackAt: true, dialChannel: true,
-            },
-          })
-          .catch(() => []),
-        // ── The research brief's phrasing, if the pipeline wrote one ──
-        // The brief itself is composed from the rows below on every read
-        // (composeBrief) so it cannot disagree with them; only the model's
-        // sentences are cached, on the task that produced them. The newest
-        // finished task wins. None → the card says "no description yet",
-        // never a sentence somebody has to disown on the phone.
-        db.salesPipelineTask
-          .findFirst({
-            where: { prospectId: full.id, kind: "GENERATE_RESEARCH_BRIEF", status: "done" },
-            orderBy: { claimedAt: "desc" },
-            select: { payload: true },
-          })
-          .catch(() => null),
-        // "Existing customer": a lead on this business that has converted
-        // into a company on the platform. A count, never the company — the
-        // console shows the rep a tag, not another tenant's record.
-        db.salesLead
-          .count({ where: { prospectId: full.id, convertedCompanyId: { not: null } } })
-          .catch(() => 0),
-        // Check-in drafts due for this business, by the number we hold.
-        full.phoneE164
-          ? openCheckIns({ salesRepId: rep.id, toE164: full.phoneE164 }).catch(() => [])
-          : Promise.resolve([]),
-        // Their latest text was a roadblock or a question and nobody has
-        // written back: the Tasks tab's third list. Null when the read failed
-        // — absence, not an empty list — so the tab can say it could not look.
-        full.phoneE164
-          ? openTriageThreads({ salesRepId: rep.id, e164: full.phoneE164 }).then((r) => r.items).catch(() => null)
-          : Promise.resolve([]),
-      ]);
-      const signatureNames = Object.fromEntries(signatures.map((s) => [s.code, s.name]));
-
-      // Which numbers may be rung, and which may be texted — they are not the
-      // same list, because a landline takes a call and silently swallows a
-      // text. Computed on both channels here so the screen never has to work
-      // out reach for itself.
-      const blocked = Boolean(full.doNotContactAt) || Boolean(suppression?.suppressed);
-      const numberArgs = {
-        target: { phoneE164: full.phoneE164 },
-        rows: contactRows,
-        ourNumbers: ours,
-        blocked,
-        blockedReason: suppression?.reason || null,
-      };
-      const voice = pickContactNumber({ ...numberArgs, channel: CHANNEL_VOICE });
-      const text = pickContactNumber({ ...numberArgs, channel: CHANNEL_TEXT });
-      const attempts24h = await attemptsLast24h(full.phoneE164 || voice.choices[0]?.e164 || null, { now }).catch(
-        () => null,
-      );
-
-      current = {
-        ...prospectView({
-          // The listing number OR the best one a rep recorded. contactability()
-          // asks "is there a number to ring", and once somebody has told us the
-          // owner's cell the answer is yes even when discovery found nothing —
-          // leaving it null would draw "no sales number yet" over a number the
-          // rep wrote down ten seconds ago, which is the dead control inverted.
-          //
-          // It does NOT write back: Prospect.phoneE164 is the dedupe key every
-          // discovery run matches on, and a call is not a reason to re-point it.
-          prospect: { ...full, phoneE164: full.phoneE164 || voice.choices[0]?.e164 || null },
-          capabilities: full.capabilities,
-          technologies: full.technologies.map((t) => ({
-            ...t,
-            name: signatureNames[t.technologyCode] || t.technologyCode,
-          })),
-          inferences: full.inferences,
-          opportunities: full.opportunities,
-          evidence: full.evidence,
-          scores: full.scores,
-          rules,
-          capabilityNames: Object.fromEntries(
-            full.opportunities.map((o) => [o.capabilityCode, o.capability?.name || o.capabilityCode]),
-          ),
-          repId: rep.id,
-          suppression,
-          now,
-        }),
-        tradeLabel: full.tradeKey ? DISCOVERY_TRADES[full.tradeKey]?.label || full.tradeKey : null,
-        territory: full.territory,
-        websiteUrl: full.websiteUrl,
-        phoneE164: full.phoneE164 || voice.choices[0]?.e164 || null,
-        // ── The numbers, and the reasons some of them are not offered ──────
-        //
-        // `refused` travels with `choices` deliberately. A rep who was given a
-        // number and cannot see it anywhere will type it into a note and phone
-        // it off their own handset, which is a call nothing records and no
-        // calling window governs — so a refused number is SHOWN, with why.
-        numbers: {
-          stored: contactRows.map((r) => ({
-            id: r.id, e164: r.e164, kind: r.kind, label: r.label,
-            canCall: r.canCall, canText: r.canText, preferred: r.preferred,
-            note: r.note, createdAt: r.createdAt,
-          })),
-          voice: { choices: voice.choices, refused: voice.refused, reason: voice.code },
-          text: { choices: text.choices, refused: text.refused, reason: text.code },
-        },
-        // The rep's own lead for this business, or null when they have not
-        // carried it across yet. Null is a real state the screen acts on — it
-        // offers to create one — rather than a gap it papers over.
-        lead: myLead,
-        // ── Whether this may be dialled, and where the screen re-asks ──────
-        //
-        // `compliance` is the answer at the moment this response was built, so
-        // the API is honest to anything that reads it. `callingContext` is what
-        // the SCREEN needs to ask the same question again a minute later,
-        // because a decision computed at 19:59 and rendered until midnight is
-        // exactly the dead control AGENTS.md forbids, wearing a live coat.
-        //
-        // attemptsLast24h IS passed now. Until 2026-09-11 this comment said
-        // "nothing records a call attempt yet" — untrue since the dial route
-        // began writing SalesCallAttempt and counting through
-        // lib/sales/calls/store.js — and the console printed a stale amber
-        // paragraph telling reps to count Oklahoma's cap by hand. The count
-        // is for the number the dial would ring (the listing number or the
-        // server's first choice), the same one the dial route counts, and it
-        // rides in callingContext so the screen's thirty-second re-ask
-        // passes it too. Null only when the store is absent.
-        compliance: salesCallReadiness({
-          prospect: full,
-          timeZone: full.leads[0]?.timeZone || null,
-          now,
-          attemptsLast24h: attempts24h,
-          windowPolicy: windowPolicyFor(full, policyContext),
-        }),
-        callingContext: {
-          country: full.country,
-          province: full.province,
-          timeZone: full.leads[0]?.timeZone || null,
-          attemptsLast24h: attempts24h,
-          // The console's override for this state, RESOLVED here — the
-          // registration hold included — and re-passed by the screen on
-          // every re-ask. The browser never resolves it itself: it holds no
-          // override rows and no certificate list, and a client-side copy of
-          // the hold is the second copy this feature refuses to have.
-          windowPolicy: publicWindowPolicy(windowPolicyFor(full, policyContext)),
-        },
-        // ── What the console's Company card reads, beyond prospectView ──
-        brief: (() => {
-          const cached = briefTask?.payload?.brief || null;
-          const phrasing = cached?.phrasing && typeof cached.phrasing === "object" ? cached.phrasing : null;
-          const brief = composeBrief({
-            prospect: full,
-            capabilities: full.capabilities,
-            technologies: full.technologies,
-            inferences: full.inferences,
-            opportunities: full.opportunities,
-            score: full.scores[0] || null,
-            phrasing,
-          });
-          // The inferred owner, with the sentence it was read from. The
-          // Contact card shows the name with its confidence word and, on
-          // request, the quote — a rep who says "is that Dave?" should be
-          // able to see the words that made us think so.
-          const ownerRow = full.inferences.find((i) => i?.kind === "owner_name" && i?.value);
-          const evidenceById = new Map(full.evidence.map((e) => [e.id, e]));
-          const ownerQuote = ownerRow
-            ? (Array.isArray(ownerRow.evidenceIds) ? ownerRow.evidenceIds : [])
-                .map((id) => evidenceById.get(id))
-                .map((e) => e?.rawValue || e?.normalizedValue || null)
-                .find(Boolean) || null
-            : null;
-          return {
-            owner: ownerRow ? { name: String(ownerRow.value).trim(), quote: ownerQuote, source: ownerRow.source || null } : null,
-            // The model's sentence about THIS business, or null. `opening`
-            // always has a value (a plain fallback built from rows), but the
-            // card wants the DESCRIPTION, and a fallback is not one — so
-            // only a phrased opening is offered as the description.
-            description: brief.phrased && phrasing?.opening ? brief.opening : null,
-            generatedAt: cached?.generatedAt || null,
-            crawled: brief.crawled,
-            talkingPoints: brief.talkingPoints,
-          };
-        })(),
-        // The pool's state for the Dialer card — the same object the row
-        // carries, read from the same columns.
-        retry: retryViewFor(full, { repZone: zone, language: lang, now, rules: retryRules }),
-        history: history.map((a) => ({
-          id: a.id,
-          direction: a.direction,
-          dialledAt: a.dialledAt?.toISOString?.() || null,
-          answered: Boolean(a.answeredAt),
-          talkSeconds: Number.isFinite(a.talkSeconds) ? a.talkSeconds : null,
-          disposition: a.disposition || null,
-          callbackAt: a.callbackAt?.toISOString?.() || null,
-          channel: a.dialChannel || null,
-        })),
-        existingCustomer: converted > 0,
-        openTriage: openTriage
-          ? openTriage.map((o) => ({
-              e164: o.e164,
-              kind: o.kind,
-              reason: o.reason,
-              body: o.body,
-              sentAt: o.sentAt?.toISOString?.() || o.sentAt || null,
-            }))
-          : null,
-        checkIns: checkIns.map((c) => ({
-          id: c.id,
-          scheduledFor: c.scheduledFor?.toISOString?.() || null,
-          draftText: c.draftText,
-          origin: c.origin,
-        })),
-      };
+      current = await buildCurrent({ rep, full, zone, lang, now, policyContext, retryRules });
     }
   }
 
-  const takenToday = await claimsTakenToday({ db, salesRepId: rep.id, timeZone: zone, now });
-  // Rows the platform console handed this rep (claim mode "admin") and the
-  // latest such hand-out — who, how many, which trade, where — for the
-  // Today screen's "Emilio assigned you 25 flooring leads" line. Null when
-  // there is none open, and the card draws nothing. lib/sales/assignLeads.js.
-  const adminAssigned = await adminAssignedSummary({ db, salesRepId: rep.id, now }).catch((err) => {
-    console.error("[sales/queue] adminAssignedSummary failed:", err?.message || err);
-    return null;
-  });
+  mark("current");
 
   return {
     rep: { id: rep.id, name: rep.name, email: rep.email },
     adminAssigned,
+    // Today's automatic give-backs, with the names, so a shorter list is
+    // explained on the list itself. `events` newest first; `readError` set
+    // when the log could not be read (the screen says so, not "none").
+    givenBack,
     tradeKey: tradeKey || null,
     trades,
     queue,
@@ -699,15 +787,53 @@ export async function GET(request) {
   const timeZone = (url.searchParams.get("timeZone") || "").trim().slice(0, 64);
   const language = (url.searchParams.get("language") || "").trim().slice(0, 8);
 
+  // ── `only=current`: one row's detail, for the browser's read-ahead ────
+  //
+  // The queue page fetches the next rows in dial order before the rep
+  // reaches them (lib/sales/queueCache.js LEAD_PREFETCH_AHEAD) so opening
+  // one costs no request. That read-ahead must not pay for the whole list
+  // again: this answers with `current` alone, through the same ownership
+  // WHERE (readCurrentFull → queueWhere) and the same buildCurrent, so a
+  // prefetched detail is exactly what the full response would have carried.
+  // A prospect this rep does not hold resolves to `current: null`, 200 —
+  // the same silence the full response keeps.
+  if (url.searchParams.get("only") === "current" && prospectId) {
+    const t0 = Date.now();
+    const now = new Date();
+    const zone = repZoneFrom(timeZone, now);
+    const lang = repLanguageOrNull(language) || "en";
+    const [policyContext, retryRules, full] = await Promise.all([
+      cachedPolicyContext(now),
+      cachedRetryRules(),
+      readCurrentFull(rep, prospectId, now),
+    ]);
+    const current = full ? await buildCurrent({ rep, full, zone, lang, now, policyContext, retryRules }) : null;
+    const ms = Date.now() - t0;
+    console.log(`[sales/queue] GET only=current rep=${rep.id} found=${current ? 1 : 0} ${ms}ms`);
+    return NextResponse.json(
+      { rep: { id: rep.id }, current, serverNow: now.toISOString() },
+      { headers: { "Server-Timing": `app;dur=${ms}` } },
+    );
+  }
+
   // Server-Timing + one log line: the owner measured 12 s from the browser
   // and every query here answers in under two seconds from a warm machine.
   // The server's own number beside the browser's is what tells a cold
   // function from a slow query on the next report.
   const t0 = Date.now();
-  const body = await queueBody(rep, { tradeKey, prospectId, timeZone, language });
+  const timing = {};
+  const body = await queueBody(rep, { tradeKey, prospectId, timeZone, language, timing });
   const ms = Date.now() - t0;
-  console.log(`[sales/queue] GET rep=${rep.id} trade=${tradeKey || "-"} items=${body?.queue?.items?.length ?? 0} ${ms}ms`);
-  return NextResponse.json(body, { headers: { "Server-Timing": `app;dur=${ms}` } });
+  // The phases beside the total, so the next slow report names its query:
+  // phase1 = the nine rep-level reads in parallel, phase2 = the per-row
+  // reads (and the named current row), order = the JS grouping, current =
+  // the current row's remaining reads.
+  const phases = Object.entries(timing)
+    .map(([k, v]) => `${k}=${v}`)
+    .join(" ");
+  console.log(`[sales/queue] GET rep=${rep.id} trade=${tradeKey || "-"} items=${body?.queue?.items?.length ?? 0} ${ms}ms ${phases}`);
+  const serverTiming = [`app;dur=${ms}`, ...Object.entries(timing).map(([k, v]) => `${k};dur=${v}`)].join(", ");
+  return NextResponse.json(body, { headers: { "Server-Timing": serverTiming } });
 }
 
 export async function POST(request) {
