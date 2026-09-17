@@ -33,6 +33,9 @@ import { dirname, join } from "node:path";
 
 import {
   AUTO_LOGGED_CODES,
+  INBOUND_DAY_END_CODES,
+  LIVE_AUTO_LOGGED_CODES,
+  dayEndOutcome,
   AUTO_LOG_GRACE_SECONDS,
   AUTO_LOG_MAX_TALK_SECONDS,
   AUTO_LOG_UNDO_SECONDS,
@@ -49,6 +52,9 @@ import {
 } from "@/lib/sales/calls/dispositions";
 import { RETRY_RULES, RETRY_KIND_RETRY, nextAttempt } from "@/lib/sales/retryRules";
 import {
+  CALL_BACK_DEFAULT_WHEN,
+  WHEN_IN_AN_HOUR,
+  WHEN_KINDS,
   CHOICE_CALL_BACK,
   CHOICE_KEYS,
   CHOICE_NOT_NOW,
@@ -128,7 +134,7 @@ ok("planDisposition plans it with no words", planDisposition({ code: "hung_up", 
   const missing = langs.filter((l) => !APP_MESSAGES[l]["app.salesCall.disposition.hung_up.label"] || !APP_MESSAGES[l]["app.salesCall.disposition.hung_up.hint"]);
   ok(`its label and hint exist in all ${langs.length} languages`, missing.length === 0, missing);
 }
-ok("the three line-reported outcomes are exactly no_answer, busy, hung_up", AUTO_LOGGED_CODES.slice().sort().join() === "busy,hung_up,no_answer");
+ok("the line-reported outcomes are the live three (no_answer, busy, hung_up) plus the inbound day-end two (reached, missed)", AUTO_LOGGED_CODES.slice().sort().join() === "busy,hung_up,missed,no_answer,reached" && LIVE_AUTO_LOGGED_CODES.slice().sort().join() === "busy,hung_up,no_answer" && INBOUND_DAY_END_CODES.slice().sort().join() === "hung_up,missed,reached");
 ok("…and every one of them is a real disposition", AUTO_LOGGED_CODES.every(isDisposition));
 ok("…still offered by dispositionOptions() (the picker filters; the vocabulary does not shrink)", dispositionOptions().some((d) => d.code === "hung_up"));
 
@@ -420,7 +426,8 @@ section("8. Write it up later: the dialler is freed, the list counts only unlogg
 
   const defer = between(store, "export async function deferDisposition(", "\nexport ");
   ok("deferDisposition stamps dispositionDeferredAt on the rep's own unlogged row and refuses one with an outcome", /where: \{ id: attemptId, salesRepId \}/.test(defer) && /if \(row\.disposition\) return \{ ok: false/.test(defer) && /data: \{ dispositionDeferredAt: now \}/.test(defer));
-  ok("…gives the retry pool a PROVISIONAL schedule from the line's verdict, else no_answer", /const provisional = autoLogOutcome\(row\)\.code \|\| "no_answer";/.test(defer) && /retryWriteFor\(\{ outcome: provisional/.test(defer));
+  ok("…gives the retry pool a PROVISIONAL schedule from the line's verdict, else no_answer — and the day-end word on an inbound row", /const provisional = row\.direction === "in" \? dayEndOutcome\(row\)\.code : autoLogOutcome\(row\)\.code \|\| "no_answer";/.test(defer) && /retryWriteFor\(\{ outcome: provisional/.test(defer));
+  ok("…and defer takes EITHER direction: the WHERE is id + rep, nothing about direction", /where: \{ id: attemptId, salesRepId \}/.test(defer) && !/direction: "out"/.test(defer) && /direction: true/.test(defer));
   ok("…and never writes lastOutcome for an outcome nobody chose", /const \{ lastOutcome, \.\.\.data \} = retry\.data;/.test(defer));
   ok("…a second defer is a no-op that says so", /if \(row\.dispositionDeferredAt\) return \{ ok: true, deferred: true, already: true/.test(defer));
 
@@ -429,7 +436,10 @@ section("8. Write it up later: the dialler is freed, the list counts only unlogg
 
   // The dialler is freed: GET's pendingAttempt skips a deferred row.
   const pendingExpr = between(route, "pendingAttempt: attempts", "today:");
-  ok("deferring frees the dialler — pendingAttempt skips rows with dispositionDeferredAt", /!a\.disposition && !a\.dispositionDeferredAt/.test(pendingExpr));
+  ok("deferring frees the dialler — pendingAttempt skips rows with dispositionDeferredAt", /!a\.disposition &&\s*!a\.dispositionDeferredAt/.test(pendingExpr));
+  // 2026-09-17: an inbound row held a rep's dialler hostage with "You rang".
+  ok("pendingAttempt EXCLUDES direction \"in\" — only a browser OUTBOUND dial the carrier has finished with holds the dialler", /a\.direction === "out"/.test(pendingExpr) && /a\.dialChannel === "browser"/.test(pendingExpr) && /Boolean\(a\.endedAt\) \|\| PROVIDER_ENDED\.includes\(a\.providerStatus\)/.test(pendingExpr));
+  ok("…and carries the row's direction so the panel's sentence is chosen by the row, not assumed", /direction: row\.direction/.test(pendingExpr) && /function whatHappenedBody\(row\)/.test(panel) && /row\?\.direction === "in"/.test(panel) && /app\.salesCall\.whatHappenedBodyInbound/.test(panel));
   const deferRoute = between(route, 'if (action === "defer")', 'if (action === "autodial")');
   ok("…the route's `defer` goes through deferDisposition and moves the rep to available", /deferDisposition\(\{ salesRepId: rep\.id, attemptId, now \}\)/.test(deferRoute) && /STATE_AVAILABLE/.test(deferRoute));
   const laterFn = between(panel, "const later = useCallback(async () => {", "}, [pending?.id, pending?.override]);");
@@ -438,7 +448,9 @@ section("8. Write it up later: the dialler is freed, the list counts only unlogg
 
   // The list counts only unlogged attempts.
   const whereFn = between(store, "export function unloggedWhere(", "\n}");
-  ok("unloggedWhere is the ONE definition: this rep, outbound, disposition null — nothing about deferral, nothing about today", /salesRepId, direction: "out", disposition: null/.test(whereFn) && !/dispositionDeferredAt/.test(whereFn) && !/dialledAt/.test(whereFn));
+  ok("unloggedWhere is the ONE definition: this rep, disposition null, BOTH directions — nothing about deferral, nothing about today", /salesRepId,\s*disposition: null,/.test(whereFn) && /\{ direction: "out" \}/.test(whereFn) && /direction: "in"/.test(whereFn) && !/dispositionDeferredAt/.test(whereFn) && !/dialledAt/.test(whereFn));
+  ok("…except an inbound row the carrier says ended unanswered (no claim, no answer stamp, terminal status): that is a missed call, not an unwritten one", /\{ answeredAt: \{ not: null \} \}/.test(whereFn) && /\{ answeredByRepId: \{ not: null \} \}/.test(whereFn) && /\{ providerStatus: null \}/.test(whereFn) && /\{ providerStatus: \{ notIn: PROVIDER_ENDED \} \}/.test(whereFn) && !/NOT:/.test(whereFn));
+  ok("…the list carries direction and the row prints \"They called you back\" for an inbound one", /direction: r\.direction/.test(between(store, "export async function unloggedAttempts(", "\nexport ")) && /row\.direction === "in"/.test(source("app/components/sales/UnloggedCalls.js")) && /app\.salesCall\.calledYouBack/.test(source("app/components/sales/UnloggedCalls.js")));
   const list = between(store, "export async function unloggedAttempts(", "\nexport ");
   ok("…the list reads it", /where: unloggedWhere\(salesRepId\)/.test(list));
   const badges = source("app/api/sales/badges/route.js");
@@ -456,15 +468,75 @@ section("8. Write it up later: the dialler is freed, the list counts only unlogg
 
   // Day end.
   const stale = between(store, "export async function autoLogStale(", "\nexport ");
-  ok("autoLogStale reads unlogged outbound rows with a rep, oldest first", /direction: "out", disposition: null, salesRepId: \{ not: null \}/.test(stale) && /orderBy: \{ dialledAt: "asc" \}/.test(stale));
+  ok("autoLogStale reads unlogged rows of BOTH directions with a rep, oldest first", /direction: \{ in: \["out", "in"\] \}, disposition: null, salesRepId: \{ not: null \}/.test(stale) && /orderBy: \{ dialledAt: "asc" \}/.test(stale));
   ok("…uses the rep's day (latest claim's repTimeZone, UTC otherwise) through staleAtDayEnd", /distinct: \["salesRepId"\]/.test(stale) && /staleAtDayEnd\(\{ dialledAt: row\.dialledAt, timeZone: zone, now \}\)/.test(stale));
-  ok("…logs the line's verdict, else no_answer, marked autoLogged, through saveDisposition", /const code = autoLogOutcome\(row\)\.code \|\| "no_answer";/.test(stale) && /saveDisposition\(\{ salesRepId: row\.salesRepId, attemptId: row\.id, code, now, client, autoLogged: true \}\)/.test(stale));
+  ok("…logs dayEndOutcome's word, marked autoLogged, through saveDisposition", /const code = dayEndOutcome\(row\)\.code;/.test(stale) && /saveDisposition\(\{ salesRepId: row\.salesRepId, attemptId: row\.id, code, now, client, autoLogged: true \}\)/.test(stale));
+  // dayEndOutcome, every branch — pure, so executed.
+  const inRow = (over) => ({ direction: "in", dialChannel: "inbound", disposition: null, providerStatus: null, answeredAt: null, answeredByRepId: null, endedAt: null, talkSeconds: null, hungUpBy: null, ...over });
+  ok("outbound, line has a verdict → that verdict", dayEndOutcome(browserRow({ direction: "out", providerStatus: "busy" })).code === "busy");
+  ok("outbound, nothing known → no_answer", dayEndOutcome(browserRow({ direction: "out" })).code === "no_answer" && dayEndOutcome({ direction: "out", dialChannel: "handset", disposition: null }).code === "no_answer");
+  ok("inbound, answered (carrier stamp), 3 minutes → reached, NEVER no_answer", dayEndOutcome(inRow({ answeredAt: "2026-09-17T20:31:20Z", endedAt: "2026-09-17T20:34:20Z", talkSeconds: 180, providerStatus: "completed" })).code === "reached");
+  ok("inbound, answered (a rep's claim, no carrier data) → reached", dayEndOutcome(inRow({ answeredByRepId: "rep_r" })).code === "reached");
+  ok("inbound, answered and dropped inside the threshold → hung_up", dayEndOutcome(inRow({ answeredAt: "2026-09-17T20:31:20Z", endedAt: "2026-09-17T20:31:24Z", talkSeconds: 4, providerStatus: "completed" })).code === "hung_up");
+  ok("inbound, carrier says the desk leg ended unanswered → missed", dayEndOutcome(inRow({ providerStatus: "no-answer", endedAt: "2026-09-17T20:31:40Z" })).code === "missed");
+  ok("inbound, nothing known at all (the 2026-09-17 row) → missed, the line's overwritable guess", dayEndOutcome(inRow()).code === "missed");
+  ok("every day-end word is a real disposition the line may write", ["reached", "missed", "hung_up", "no_answer", "busy"].every((c) => isDisposition(c) && AUTO_LOGGED_CODES.includes(c)) && DISPOSITIONS.reached.reached === true && DISPOSITIONS.missed.reached === false);
+  ok("autoLogOutcome never writes an inbound row live — the dock asks", autoLogOutcome(inRow({ providerStatus: "no-answer" })).code === null && autoLogOutcome(inRow({ providerStatus: "no-answer" })).reason === "inbound");
+  {
+    const langs = Object.keys(APP_MESSAGES);
+    const miss = langs.flatMap((l) => ["reached", "missed"].flatMap((c) => ["label", "hint"].filter((k) => typeof APP_MESSAGES[l][`app.salesCall.disposition.${c}.${k}`] !== "string").map((k) => `${l}:${c}.${k}`)));
+    ok(`reached and missed have a label and a hint in all ${langs.length} languages`, miss.length === 0, miss);
+  }
   ok("…and deletes nothing", !/delete/.test(stale));
   const cron = source("app/api/cron/sales-queue-release/route.js");
   ok("the day-end cron calls it after the release, soft", /await releaseDayEnded\(/.test(cron) && /autoLog = await autoLogStale\(\{ client: db, now/.test(cron) && cron.indexOf("releaseDayEnded(") < cron.indexOf("autoLogStale("));
 
   const schema = readFileSync(join(ROOT, "prisma/schema.prisma"), "utf8");
   ok("dispositionDeferredAt exists on SalesCallAttempt, nullable", /dispositionDeferredAt DateTime\?/.test(between(schema, "model SalesCallAttempt {", "\nmodel ")));
+  // ── 2026-09-17: inbound wording, the refusal you cannot miss, the default time ──
+  {
+    const langs = Object.keys(APP_MESSAGES);
+    const need = ["app.salesCall.whatHappenedBodyInbound", "app.salesCall.calledYouBack", "app.salesCall.choice.call_back.in_an_hour", "app.salesCall.choice.no_callbacks.beforePress"];
+    const miss = langs.flatMap((l) => need.filter((k) => typeof APP_MESSAGES[l][k] !== "string").map((k) => `${l}:${k}`));
+    ok(`the inbound sentence, the in-an-hour chip and the no-call-backs helper exist in all ${langs.length} languages`, langs.length === 9 && miss.length === 0, miss);
+    ok("…and the inbound sentence says they called, with the number and the time, never \"You rang\"", langs.every((l) => /\{number\}/.test(APP_MESSAGES[l]["app.salesCall.whatHappenedBodyInbound"]) && /\{time\}/.test(APP_MESSAGES[l]["app.salesCall.whatHappenedBodyInbound"]) && /\{number\}/.test(APP_MESSAGES[l]["app.salesCall.calledYouBack"]) && /\{time\}/.test(APP_MESSAGES[l]["app.salesCall.calledYouBack"])) && /^They called you back from \{number\} at \{time\}/.test(APP_MESSAGES.en["app.salesCall.whatHappenedBodyInbound"]) && !/You rang/.test(APP_MESSAGES.en["app.salesCall.whatHappenedBodyInbound"]));
+  }
+  const form = source("app/components/sales/OutcomeForm.js");
+  ok("Call back has a default time: pressing it pre-selects CALL_BACK_DEFAULT_WHEN, and the fold accepts that chip on its own", CALL_BACK_DEFAULT_WHEN === WHEN_IN_AN_HOUR && WHEN_KINDS.includes(CALL_BACK_DEFAULT_WHEN) && /whenKind: next === CHOICE_CALL_BACK \? CALL_BACK_DEFAULT_WHEN : null/.test(form) && foldChoice({ key: CHOICE_CALL_BACK, whenKind: CALL_BACK_DEFAULT_WHEN, now: T0 }).code === "callback");
+  ok("…in an hour is one hour on", callbackTimeFor(WHEN_IN_AN_HOUR, { now: T0 }).getTime() === T0.getTime() + 60 * 60 * 1000);
+  ok("…and the fold itself still refuses Call back with no time and no tick — the default is the form's, not an invented hour", foldChoice({ key: CHOICE_CALL_BACK, now: T0 }).ok === false);
+  ok("…the chip is drawn first among the four", /\[WHEN_IN_AN_HOUR, WHEN_LATER_TODAY, WHEN_TOMORROW, WHEN_PICK\]\.map/.test(form));
+  const refusal = between(form, "{error ? (", ") : null}");
+  ok("the refusal is a boxed alert with data-outcome-refusal, drawn under the buttons and above the note field", /data-outcome-refusal/.test(refusal) && /role="alert"/.test(refusal) && /aria-live="assertive"/.test(refusal) && /AlertTriangle/.test(refusal) && /border-2 border-amber-500/.test(refusal) && form.indexOf("data-outcome-refusal") < form.indexOf("data-outcome-note") && form.indexOf("data-outcome-more") < form.indexOf("data-outcome-refusal"));
+  ok("No call-backs says it needs their words BEFORE the press", /data-outcome-needs-words/.test(form) && /draft\.choice === CHOICE_NO_CALLBACKS && !draft\.note\.trim\(\)/.test(form) && /app\.salesCall\.choice\.no_callbacks\.beforePress/.test(form));
+  // The dock asks in place, once.
+  const dock = source("app/components/sales/IncomingCallDock.js");
+  ok("the inbound dock writes up an answered callback in place: the same OutcomeForm, the same fold, the same disposition and defer actions", /<OutcomeForm /.test(dock) && /foldChoice\(/.test(dock) && /action: "disposition"/.test(dock) && /action: "defer"/.test(dock) && /data-inbound-write-up/.test(dock));
+  ok("…with the inbound sentence, never \"You rang\"", /app\.salesCall\.whatHappenedBodyInbound/.test(dock) && !/app\.salesCall\.whatHappenedBody"/.test(dock));
+  ok("…asked once per attempt (askedRef), only after a call that was live, only with a matched attempt", /askedRef\.current\.has\(logged\.attemptId\)/.test(dock) && /askedRef\.current\.add\(logged\.attemptId\)/.test(dock) && /wasLive && logged\?\.attemptId/.test(dock));
+  ok("…and a new ring while it is open defers it rather than losing it", /laterRef\.current\?\.\(\);/.test(between(dock, 'device.on("incoming"', "setIncoming({")));
+
+  // ── 2026-09-17: the call-backs a rep promised, and the button that keeps them ──
+  {
+    const promised = between(store, "export async function promisedCallbacks(", "\n}");
+    ok("promisedCallbacks reads the rep's own callback outcomes with a time, soonest first", /where: \{ salesRepId, callbackAt: \{ not: null \}, disposition: "callback" \}/.test(promised) && /orderBy: \{ callbackAt: "asc" \}/.test(promised));
+    ok("…a promise is kept by a LATER OUTBOUND dial to the same number, and dropped by a later closing outcome or a do-not-contact", /after\.some\(\(a\) => a\.direction === "out"\)/.test(promised) && /CLOSED\.has\(a\.disposition\)/.test(promised) && /doNotContactAt\) continue/.test(promised));
+    ok("…and says per row whether the console can still dial it (`held`: this rep's, not merged, claim not lapsed)", /assignedRepId === salesRepId/.test(promised) && /mergedIntoId === null/.test(promised) && /claimExpiresAt > at/.test(promised) && /held,/.test(promised));
+    const cbRoute = source("app/api/sales/calls/callbacks/route.js");
+    ok("GET /api/sales/calls/callbacks is the rep-gated read of it", /requireCallingRep\(request\)/.test(cbRoute) && /promisedCallbacks\(\{ salesRepId: rep\.id, now \}\)/.test(cbRoute) && /due:/.test(cbRoute));
+    const strip = source("app/components/sales/CallbacksStrip.js");
+    ok("the strip reads that route, flags due rows, and draws Call now ONLY on a held prospect — a lead links to its page, anything else says why there is no button", /fetchJson\("\/api\/sales\/calls\/callbacks"\)/.test(strip) && /data-callback-due=\{row\.due/.test(strip) && /row\.held && row\.prospectId \?/.test(strip) && /data-callback-call-now/.test(strip) && /data-callback-open-lead/.test(strip) && /data-callback-no-button/.test(strip) && !/fetchJson\("\/api\/sales\/calls", \{/.test(strip));
+    const queue = source("app/sales/queue/page.js");
+    const callNowFn = between(queue, "const callNow = useCallback(", "const onDialKey");
+    ok("the queue's Call now is the queue's own dial path: current business → dialNumber, else select() then dialNumber once it is current — never a second dialler", /dialNumber\(e164\)/.test(callNowFn) && /select\(prospectId\)/.test(callNowFn) && /current\?\.id === callNowPending\.prospectId/.test(callNowFn) && /dialNumber\(callNowPending\.e164\)/.test(callNowFn) && !/\/api\/sales\/calls/.test(callNowFn));
+    ok("…a business that did not load as current is refused in words and the list re-read", /setError\(t\("app\.salesCall\.callbacks\.notHeld"\)\)/.test(callNowFn) && /setCallbacksKey\(\(n\) => n \+ 1\)/.test(callNowFn));
+    ok("…the strip is drawn in the dialler column and re-read after every outcome (worked)", /<CallbacksStrip/.test(queue) && /onCallNow=\{callNow\}/.test(queue) && /setCallbacksKey\(\(n\) => n \+ 1\);\s*\}, \[auto\.onWorked, load\]\);/.test(queue));
+    ok("…and the Tasks tab's rows carry the same Call now, with the attempt's own number when the list knows it", /data-task-call-now/.test(queue) && /const known = \(promised\.items \|\| \[\]\)\.find\(\(r\) => r\.id === a\.id\)/.test(queue) && /callNow\(\{ id: a\.id, prospectId: current\.id, toE164: e164 \}\)/.test(queue));
+    const cbKeys = ["title", "dueCount", "loading", "loadFailed", "tryAgain", "callNow", "loadAndCall", "openLead", "notHeld", "noRecord"];
+    const cbMissing = Object.keys(APP_MESSAGES).flatMap((l) => cbKeys.filter((k) => typeof APP_MESSAGES[l][`app.salesCall.callbacks.${k}`] !== "string").map((k) => `${l}:${k}`));
+    ok("the strip's sentences exist in every language", cbMissing.length === 0, cbMissing);
+  }
+
   const keys = ["title", "count", "todayLine", "gateBody", "gateBodyNoCount", "none", "writeThemUp", "writeUp", "close", "stay", "signOutAnyway", "releaseAnyway", "loading", "loadFailed", "tryAgain"];
   const missing = Object.keys(APP_MESSAGES).flatMap((l) => keys.filter((k) => APP_MESSAGES[l][`app.salesCall.unlogged.${k}`] === undefined).map((k) => `${l}:${k}`));
   ok("the list's sentences exist in every language", missing.length === 0, missing);

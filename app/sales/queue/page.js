@@ -326,6 +326,7 @@ import RepNoteUnavailable from "@/app/components/sales/RepNoteUnavailable";
 import DialRegion, { Notice } from "@/app/components/sales/DialRegion";
 import AutodialControl, { useAutodial } from "@/app/components/sales/AutodialControl";
 import { UnloggedCallsGate } from "@/app/components/sales/UnloggedCalls";
+import CallbacksStrip, { usePromisedCallbacks } from "@/app/components/sales/CallbacksStrip";
 import { CallHistoryStrip, LastTimeLine, useCallHistory } from "@/app/components/sales/CallHistory";
 import { useSalesSearch } from "@/app/components/sales/SalesSearch";
 import { useConsoleSlots } from "@/app/components/sales/consoleSlots";
@@ -1556,7 +1557,7 @@ function WrapUp({ t, current, busy, act, carryToLead, dncOpen, setDncOpen, dncRe
  * read, no second endpoint. Nothing else is a "task" here, and the tab says
  * so rather than listing the calendar's whole day.
  */
-function TasksTab({ t, current, language }) {
+function TasksTab({ t, current, language, onCallNow = null, dialling = null }) {
   const now = Date.now();
   const callbacks = (Array.isArray(current.history) ? current.history : [])
     .filter((a) => a.callbackAt)
@@ -1604,12 +1605,27 @@ function TasksTab({ t, current, language }) {
             {callbacks.map((a) => {
               const due = new Date(a.callbackAt).getTime() < now;
               return (
-                <li key={a.id} className={`flex items-start gap-2 rounded-lg border p-2.5 text-sm ${due ? TONE_CLASS.gap : "border-border bg-card text-foreground"}`}>
+                <li key={a.id} className={`flex items-start gap-2 rounded-lg border p-2.5 text-sm ${due ? TONE_CLASS.gap : "border-border bg-card text-foreground"}`} data-task-callback={a.id}>
                   <CalendarClock size={15} className="mt-0.5 shrink-0" aria-hidden="true" />
-                  <span className="min-w-0 break-words">
+                  <span className="min-w-0 flex-1 break-words">
                     {t("app.salesQueue.tasksCallbackAt", { when: whenText(a.callbackAt, language) })}
                     {due ? <span className="block text-xs">{t("app.salesQueue.tasksOverdue")}</span> : null}
                   </span>
+                  {/* The promise, kept from here: this business is already
+                      on screen, so the press is the queue's own Call —
+                      callNow → dialNumber → CallPanel, one path. Drawn only
+                      when the host can dial (a callable record). */}
+                  {onCallNow ? (
+                    <button
+                      type="button"
+                      className="inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3 rounded-lg bg-emerald-600 text-white text-sm font-semibold shrink-0 disabled:opacity-60"
+                      onClick={() => onCallNow(a)}
+                      disabled={Boolean(dialling)}
+                      data-task-call-now={a.id}
+                    >
+                      <Phone size={14} aria-hidden="true" /> {t("app.salesCall.callbacks.callNow")}
+                    </button>
+                  ) : null}
                 </li>
               );
             })}
@@ -2354,6 +2370,10 @@ function QueueConsole() {
   // there is still no `tel:` in this file.
   const [typed, setTyped] = useState("");
   const [typedError, setTypedError] = useState("");
+  // The rep's promised call-backs (CallbacksStrip.js), re-read on every
+  // outcome. Declared here because callNow's effect below bumps it.
+  const [callbacksKey, setCallbacksKey] = useState(0);
+  const promised = usePromisedCallbacks({ refreshKey: callbacksKey });
   useEffect(() => {
     setTyped(chosenNumber?.e164 || "");
     setTypedError("");
@@ -2381,6 +2401,52 @@ function QueueConsole() {
     setTypedError("");
     setDialRequest({ token: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}` });
   }, []);
+  // ── "Call now" on a promised call-back ──────────────────────────────
+  //
+  // The rep-wide list (CallbacksStrip) and the Tasks tab both end here.
+  // The business is loaded into the console FIRST — select() moves the
+  // URL, load() re-reads the queue, `current` becomes that prospect — and
+  // only once it is on screen does dialNumber() put its number in the
+  // display and press the same Call the queue's button presses. A row
+  // that never becomes current (the claim lapsed between the list's read
+  // and the press; the route's `held` was true a moment ago) is refused
+  // in words rather than left spinning.
+  const [callNowPending, setCallNowPending] = useState(null);
+  const callNow = useCallback(
+    (row) => {
+      const e164 = row?.toE164 || null;
+      const prospectId = row?.prospectId || null;
+      if (!prospectId || !e164) return;
+      if (current?.id === prospectId) {
+        dialNumber(e164);
+        return;
+      }
+      setCallNowPending({ id: row.id, prospectId, e164 });
+      select(prospectId);
+    },
+    // `select` is a plain function of this render over setQuery; `current`
+    // is what decides whether a load is needed at all.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [current?.id, dialNumber],
+  );
+  useEffect(() => {
+    if (!callNowPending) return undefined;
+    if (current?.id === callNowPending.prospectId) {
+      setCallNowPending(null);
+      dialNumber(callNowPending.e164);
+      return undefined;
+    }
+    // The load finished on a different business: the row is not this
+    // rep's to dial any more. Said, and the list re-read so the button
+    // goes with it.
+    if (!fetching && prospectId === callNowPending.prospectId) {
+      setCallNowPending(null);
+      setError(t("app.salesCall.callbacks.notHeld"));
+      setCallbacksKey((n) => n + 1);
+    }
+    return undefined;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [callNowPending, current?.id, fetching, prospectId]);
   const onDialKey = useCallback((key) => {
     const call = liveCallRef.current;
     // DTMF only while a call is up AND the SDK offers it — feature-detected,
@@ -2556,6 +2622,8 @@ function QueueConsole() {
     auto.onWorked();
     load();
     setHistoryKey((n) => n + 1);
+    // A call-back just promised appears; one just kept disappears.
+    setCallbacksKey((n) => n + 1);
   }, [auto.onWorked, load]);
 
   // ── The pool, split so the screen can lead with what is workable ───────
@@ -2868,6 +2936,17 @@ function QueueConsole() {
               re-judged every thirty seconds by `tick`), so it disappears
               the moment the window opens and the button turns on. */}
           <PreOpenBanner t={t} compliance={compliance} clock={clock} />
+          {/* ── The call-backs this rep promised ─────────────────────────
+              Rep-wide, due ones first, with the button that keeps them.
+              Nothing drawn when nothing is promised. */}
+          <CallbacksStrip
+            items={promised.items}
+            error={promised.error}
+            onRetry={promised.reload}
+            onCallNow={callNow}
+            dialling={callNowPending?.id || null}
+            currentProspectId={current?.id || null}
+          />
           {/* ── The Dialer: a phone's, and nothing else ──────────────────
               Window line · number display with × · round keypad · the
               green Call · the cap line · Auto-dial. The Call button IS
@@ -3233,7 +3312,26 @@ function QueueConsole() {
 
           {/* Tasks: callbacks promised and check-in drafts due */}
           <div role="tabpanel" id="console-tab-tasks" aria-labelledby="console-tabbtn-tasks" hidden={tab !== "tasks"} className="space-y-3">
-            {!loading && current ? <TasksTab t={t} current={current} language={language} /> : (
+            {!loading && current ? (
+              <TasksTab
+                t={t}
+                current={current}
+                language={language}
+                dialling={callNowPending?.id || null}
+                // The attempt's own number when the list knows it, else the
+                // number the Dialer would ring for this business. No button
+                // when there is nothing to ring.
+                onCallNow={
+                  current.contact?.callable === false
+                    ? null
+                    : (a) => {
+                        const known = (promised.items || []).find((r) => r.id === a.id);
+                        const e164 = known?.toE164 || chosenNumber?.e164 || current.phoneE164 || null;
+                        if (e164) callNow({ id: a.id, prospectId: current.id, toE164: e164 });
+                      }
+                }
+              />
+            ) : (
               <p className="text-sm text-muted-foreground">{t("app.salesQueue.pickOrClaim")}</p>
             )}
           </div>
