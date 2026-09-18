@@ -27,6 +27,7 @@ import {
   PITCH_BANDS,
   ROOF_LABOUR_DEFAULTS,
 } from "@/lib/pricing/roofLabour";
+import { steepnessTier } from "@/lib/measure/roofMeasurement";
 import { paverLabour, paverCrewDays } from "@/lib/pricing/paverLabour";
 import {
   insulationTakeoff,
@@ -187,16 +188,63 @@ check("dump runs step, they do not slide", () => {
 
 /* ── Reference-calculator parity on the part it can express ────────────── */
 
-check("pitch bands reproduce the reference calculator exactly", () => {
+check("pitch bands keep the reference calculator's factors on Xactimate's boundaries", () => {
+  // Factors are the reference calculator's. Boundaries are Xactimate's
+  // (STEEP 7–9/12, STEEP> 10–12/12, STEEP>> above) and the public estimator's
+  // steepnessTier() — docs/research/ROOFING-RATES-2026.md §1 and §6. A 6/12
+  // is walkable; the old 1.3 at 6/12 surcharged the commonest roof in Ottawa.
   assert.equal(pitchBand(3).factor, 1.0);
   assert.equal(pitchBand(5).factor, 1.0);
-  assert.equal(pitchBand(6).factor, 1.3);
-  assert.equal(pitchBand(8).factor, 1.3);
-  assert.equal(pitchBand(9).factor, 1.6);
+  assert.equal(pitchBand(6).factor, 1.0, "6/12 is walkable — Xactimate steep starts at 7/12");
+  assert.equal(pitchBand(7).factor, 1.3);
+  assert.equal(pitchBand(9).factor, 1.3);
+  assert.equal(pitchBand(10).factor, 1.6);
   assert.equal(pitchBand(12).factor, 1.6);
   // And the two bands it has no opinion about.
   assert.equal(pitchBand(1).factor, 0.9);
   assert.equal(pitchBand(13).factor, 2.0);
+});
+
+check("the builder's bands agree with the public estimator's tiers", () => {
+  // The homeowner's instant price and the office builder must not disagree
+  // about which roofs are steep. steepnessTier() is the public side.
+  for (const [rise, tier] of [[4, "standard"], [6, "standard"], [7, "moderate"], [9, "moderate"], [10, "steep"], [12, "steep"], [13, "very_steep"]]) {
+    const band = pitchBand(rise).key;
+    const expected = { standard: "walkable", moderate: "moderate", steep: "steep", very_steep: "very_steep" }[tier];
+    assert.equal(band, expected, `${rise}/12: builder ${band}, public ${tier}`);
+    assert.equal(steepnessTier(rise), tier);
+  }
+});
+
+check("the 2026 calibration defaults are the ones the research doc argues for", () => {
+  // docs/research/ROOFING-RATES-2026.md — the recommended set. Change these
+  // numbers there first, with the evidence, then here.
+  assert.equal(ROOF_LABOUR_DEFAULTS.installPerSquare, 1.4);
+  assert.equal(ROOF_LABOUR_DEFAULTS.underlaymentPerSquare, 0.2);
+  assert.equal(ROOF_LABOUR_DEFAULTS.tearOffFirstLayerPerSquare, 0.5, "one-layer strip measures 0.3–0.6 h/sq in the field");
+  assert.equal(ROOF_LABOUR_DEFAULTS.tearOffAdditionalLayerPerSquare, 0.3);
+  assert.equal(ROOF_LABOUR_DEFAULTS.mobilisationHours, 3.5);
+  assert.deepEqual(PITCH_BANDS.map((b) => b.maxRise), [2, 6, 9, 12, Infinity]);
+  assert.deepEqual(PITCH_BANDS.map((b) => b.factor), [0.9, 1.0, 1.3, 1.6, 2.0]);
+
+  // 917 Littlerock St, Ottawa — the roof the calibration was done on. Solar-
+  // measured hip, 31.16 sq at 6/12, one layer, the linears the prefill wrote.
+  // Before: 127.72 h (4.1 h/sq), 8.5 days for two. After: 100.2 h (3.2 h/sq)
+  // at the architectural factor, 6.7 days for two and 3.5 for four — a nine-
+  // man crew did a 3,150 sqft north-east house in one day in 2024, which is
+  // ~2.6 h/sq, so this is still the slow side of real and on purpose.
+  const r = roofLabour({
+    squares: 31.16, pitchRise: 6, layers: 1, storeys: "one",
+    iceWaterFt: 421, dripEdgeFt: 211, starterFt: 211, valleyFt: 41,
+    ridgeHipFt: 163, ridgeVentFt: 51,
+  });
+  assert.equal(r.pitch.factor, 1.0);
+  assert.ok(r.hoursPerSquare >= 3.0 && r.hoursPerSquare <= 3.4, `917 Littlerock: ${r.hoursPerSquare} h/sq`);
+  assert.ok(r.hours < 110, `917 Littlerock: ${r.hours} h — was 127.72 before the calibration`);
+  const two = roofCrewDays(r.hours, { crewSize: 2 });
+  assert.ok(two.days >= 6 && two.days <= 7, `two-man crew: ${two.days} days`);
+  const four = roofCrewDays(r.hours, { crewSize: 4 });
+  assert.ok(four.days >= 3 && four.days <= 4, `four-man crew: ${four.days} days`);
 });
 
 check("field work agrees with the reference within 20%", () => {

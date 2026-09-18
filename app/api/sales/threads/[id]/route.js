@@ -55,6 +55,8 @@ const THREAD_SELECT = {
       prospectId: true,
       convertedCompanyId: true,
       prospect: { select: { email: true, tradeKey: true, city: true, province: true } },
+      // A second address the rep saved on the lead — part of the closed set.
+      contactEmails: { select: { email: true } },
     },
   },
   messages: {

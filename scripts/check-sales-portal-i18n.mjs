@@ -94,6 +94,9 @@ const FINISHED = [
       "app/components/sales/ContactNumbers.js",
       "app/components/sales/DialRegion.js",
       "app/components/sales/TransferControl.js",
+      // The "Send {business} the intro email?" pop-up the console opens
+      // after a no-answer or a voicemail (2026-09-18).
+      "app/components/sales/IntroEmailPrompt.js",
     ],
   },
   {

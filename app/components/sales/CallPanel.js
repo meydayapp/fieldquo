@@ -125,6 +125,8 @@ import {
 import { OUTCOME_CHOICES, choiceLabelKey, foldChoice } from "@/lib/sales/calls/outcomeChoices";
 import { ALREADY_ON_A_CALL } from "@/lib/sales/calls/liveCall";
 import OutcomeForm, { EMPTY_DRAFT, OutcomeSheet, draftStarted } from "./OutcomeForm";
+import IntroEmailPrompt from "./IntroEmailPrompt";
+import { asksIntroEmail } from "@/lib/sales/outreach/introLink";
 import PlaybookMount from "./PlaybookMount";
 import PublishedEmail from "./PublishedEmail";
 import TransferControl from "./TransferControl";
@@ -279,6 +281,26 @@ export default function CallPanel({
   // What the line logged by itself, while the "change" strip is up:
   // `{ attemptId, code, toE164, dialledAt, until }`.
   const [autoLogged, setAutoLogged] = useState(null);
+  // ── "Send {business} the intro email?" ───────────────────────────────
+  //
+  // `{ leadId, prospectId, attemptId, businessName, then }` while the
+  // pop-up is open (IntroEmailPrompt.js), null otherwise. Opened from
+  // exactly two places — the line auto-logging no_answer, and the rep
+  // saving a voicemail — and from nowhere else; asksIntroEmail() is the
+  // table (lib/sales/outreach/introLink.js). `then` is the onWorked the
+  // queue is waiting on: it is held until the pop-up closes, because the
+  // autodialler arms on onWorked and a next dial ringing under a dialog
+  // about the previous business is the wrong order of events.
+  const [introPrompt, setIntroPrompt] = useState(null);
+  const offerIntroEmail = useCallback((attemptId, then) => {
+    setIntroPrompt({ leadId: leadId || null, prospectId: leadId ? null : prospectId || null, attemptId: attemptId || null, businessName: businessName || null, then });
+  }, [leadId, prospectId, businessName]);
+  const closeIntroPrompt = useCallback(() => {
+    setIntroPrompt((p) => {
+      p?.then?.();
+      return null;
+    });
+  }, []);
   // A refused dial press flashes the form so the rep sees what to press.
   const [flash, setFlash] = useState(0);
   const formRef = useRef(null);
@@ -672,6 +694,12 @@ export default function CallPanel({
         // path keeps, for the same reason (see saveOutcome).
         await presenceRef.current.refresh();
         await load();
+        // A call that rang out is the moment for the written version. The
+        // pop-up holds onWorked until it closes — see introPrompt.
+        if (asksIntroEmail(body.code)) {
+          offerIntroEmail(attemptId, () => onWorked?.());
+          return;
+        }
         onWorked?.();
         return;
       }
@@ -824,6 +852,12 @@ export default function CallPanel({
       // coming.
       await presenceRef.current.refresh();
       await load();
+      // A voicemail left is the moment for the written version. The pop-up
+      // holds onWorked until it closes — see introPrompt.
+      if (asksIntroEmail(fold.code)) {
+        offerIntroEmail(pending.id, () => onWorked?.());
+        return;
+      }
       onWorked?.();
     } catch (err) {
       setFormError(err?.message || t("app.salesCall.outcomeSaveFailed"));
@@ -1223,6 +1257,11 @@ export default function CallPanel({
         slot={slots?.script || null}
         onData={onPlaybookData}
       />
+
+      {/* ── "Send {business} the intro email?" ──────────────────────────────
+          After a no-answer or a voicemail, and nothing else. A portal, so it
+          draws over whichever slot the form is in. */}
+      <IntroEmailPrompt target={introPrompt} onClose={closeIntroPrompt} />
     </div>
   );
 }

@@ -88,6 +88,32 @@ and the thread (`lib/sales/emailRecipients.js`): the lead's address, the
 prospect's, whoever wrote in, whoever they copied, the rep's own mailbox. An
 address outside it is refused by name.
 
+### 0c. The intro email — "we tried calling you"
+
+After an outbound call the line logs as `no_answer`, or a `voicemail` the rep
+saves, the console asks "Send {business} the intro email?". The email is fixed
+wording in EN/FR/ES (`lib/sales/outreach/introEmail.js`): the pitch in eight
+points, a quote at phone width, the rep's signup link, and two buttons —
+"Ask {rep} to call me back", "Book a 15-minute demo" — plus a one-click
+unsubscribe in the footer. It goes through the same `deliverOutreach` as
+every other rep send (suppression list, readiness, filed on the lead's
+thread, copy in Sent), and one `SalesIntroEmail` row records the send.
+
+The two buttons land on `/i/<token>` — a sealed token (AES-GCM under
+`META_TOKEN_ENCRYPTION_KEY`, the same key the mailbox password uses) with a
+30-day expiry. The page shows one button; the POST behind it is single-use
+per kind. A call-back request writes a `SalesEvent` on the rep's calendar at
+the next business hour where the prospect is and pushes the rep; a demo
+request is stamped and pushed (there is no per-rep public booking page); an
+unsubscribe writes the do-not-contact list for the email channel. The rep's
+Today shows the unhandled requests as two counters; the lead page shows each
+email and its requests, with "Mark as handled".
+
+Guards: the same address is not sent a second intro inside 14 days, by any
+rep; a typed address is saved on the lead first (`SalesContactEmail`) and is
+never saved from a test account. `npm run check:sales-intro-email` executes
+all of it.
+
 ### Never destructive
 
 `lib/sales/mailbox/` never deletes, moves, expunges or flags \Deleted on the

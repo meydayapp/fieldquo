@@ -56,6 +56,7 @@ import ContactNumbers from "@/app/components/sales/ContactNumbers";
 import OutreachNotice from "../OutreachNotice";
 import EmailComposer from "../../threads/EmailComposer";
 import SignupLinkSms from "../SignupLinkSms";
+import IntroEmailPrompt from "@/app/components/sales/IntroEmailPrompt";
 import SignupProgress from "@/app/components/sales/SignupProgress";
 
 // Matches the console's fields — 44px tall and 16px text, so a phone does not
@@ -77,6 +78,10 @@ export default function SalesLeadPage({ params }) {
   const router = useRouter();
 
   const [historyKey, setHistoryKey] = useState(0);
+  // "Send the intro email" from here, without a call in front of it — the
+  // same pop-up the console opens after a no-answer (IntroEmailPrompt.js).
+  const [introTarget, setIntroTarget] = useState(null);
+  const [introBusy, setIntroBusy] = useState("");
 
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
@@ -765,6 +770,81 @@ export default function SalesLeadPage({ params }) {
         >
           {t("app.salesLeads.saveNotes")}
         </button>
+      </div>
+
+      {/* ── The intro email ───────────────────────────────────────────────
+          Every "we tried calling you" email sent to this lead, what each
+          asked for (the two buttons), and whether the rep has dealt with
+          it — the lead's timeline entry for lib/sales/outreach/introRequests.js.
+          The button sends one from here; the pop-up decides what it may offer. */}
+      <div className="rounded-lg border border-border bg-card p-4 space-y-3" data-intro-emails={Array.isArray(data.introEmails) ? data.introEmails.length : undefined}>
+        <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+          <Mail size={15} className="text-muted-foreground" />
+          {t("app.salesIntro.lead.title")}
+        </h2>
+        {Array.isArray(data.introEmails) && data.introEmails.length > 0 ? (
+          <ul className="space-y-2">
+            {data.introEmails.map((row) => (
+              <li key={row.id} className="rounded-lg border border-border px-3 py-2 text-sm space-y-1" data-intro-email-row={row.id}>
+                <p className="text-foreground break-words">
+                  {t("app.salesIntro.lead.sentTo", { email: row.toAddress, when: when(row.sentAt) })}
+                  {row.threadId ? (
+                    <>
+                      {" · "}
+                      <Link href={`/sales/threads?open=${encodeURIComponent(row.threadId)}`} className="underline underline-offset-2">
+                        {t("app.salesIntro.lead.openThread")}
+                      </Link>
+                    </>
+                  ) : null}
+                </p>
+                {row.callbackRequestedAt ? (
+                  <p className="text-foreground font-medium break-words" data-intro-request="callback">
+                    {t("app.salesIntro.lead.callbackAsked", { when: when(row.callbackRequestedAt) })}
+                  </p>
+                ) : null}
+                {row.demoRequestedAt ? (
+                  <p className="text-foreground font-medium break-words" data-intro-request="demo">
+                    {t("app.salesIntro.lead.demoAsked", { when: when(row.demoRequestedAt) })}
+                  </p>
+                ) : null}
+                {(row.callbackRequestedAt || row.demoRequestedAt) && row.handledAt ? (
+                  <p className="text-xs text-muted-foreground">{t("app.salesIntro.lead.handledOn", { when: when(row.handledAt) })}</p>
+                ) : null}
+                {(row.callbackRequestedAt || row.demoRequestedAt) && !row.handledAt ? (
+                  <button
+                    type="button"
+                    disabled={introBusy === row.id}
+                    className="inline-flex items-center gap-2 min-h-[40px] text-sm font-semibold px-3 rounded-lg border border-border disabled:opacity-50"
+                    onClick={async () => {
+                      setIntroBusy(row.id);
+                      try {
+                        await fetchJson("/api/sales/intro-email/requests", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ introEmailId: row.id }) });
+                        await load();
+                      } catch (err) {
+                        setError(err?.message || "");
+                      } finally {
+                        setIntroBusy("");
+                      }
+                    }}
+                    data-intro-mark-handled
+                  >
+                    {introBusy === row.id ? <Loader2 size={14} className="animate-spin" /> : null}
+                    {t("app.salesIntro.lead.markHandled")}
+                  </button>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        <button
+          type="button"
+          className="inline-flex items-center gap-2 min-h-[44px] text-sm font-semibold px-3 rounded-lg border border-border"
+          onClick={() => setIntroTarget({ leadId: lead.id, prospectId: null, attemptId: null, businessName: lead.businessName })}
+          data-intro-email-open
+        >
+          <Mail size={15} /> {t("app.salesIntro.lead.send")}
+        </button>
+        <IntroEmailPrompt target={introTarget} onClose={() => setIntroTarget(null)} onSent={() => load()} />
       </div>
 
       {/* ── The signup link, by text ────────────────────────────────────────

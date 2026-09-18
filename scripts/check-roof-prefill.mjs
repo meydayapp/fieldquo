@@ -55,6 +55,7 @@ import { dirname, join } from "node:path";
 import {
   roofLinears,
   takeoffPatch,
+  ICE_WATER_EAVE_COURSES,
   summarise,
   ventilation,
   roofShape,
@@ -285,7 +286,11 @@ section("5. What the patch fills, and the one field it refuses to");
   const p = takeoffPatch(g);
   ok("drip edge runs the whole outline", p.dripEdgeFt === g.perimeterFt, p.dripEdgeFt);
   ok("starter runs the whole outline too", p.starterFt === g.perimeterFt, p.starterFt);
-  ok("ice & water covers the eaves and the valleys", p.iceWaterFt === g.eaveFt + g.valleyFt, p.iceWaterFt);
+  // Two courses at the eave — 6 ft of membrane, the OBC 9.26.5.1 answer for
+  // any overhang past a foot — and one up the valley. The field is feet of
+  // membrane laid, not feet of eave. docs/research/ROOFING-RATES-2026.md §4.
+  ok("ice & water lays two courses at the eaves and one up the valleys", p.iceWaterFt === 2 * g.eaveFt + g.valleyFt, p.iceWaterFt);
+  ok("…and says so in a named constant", ICE_WATER_EAVE_COURSES === 2);
   ok("ridge & hip cap caps both", p.ridgeHipFt === g.ridgeFt + g.hipFt, p.ridgeHipFt);
   ok("ridge vent runs the ridge only — hips are not vented", p.ridgeVentFt === g.ridgeFt, p.ridgeVentFt);
   // The refusal is the point. Step flashing is roof meeting WALL, and a roof

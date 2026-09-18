@@ -153,6 +153,110 @@ document for both.
   satelliteImageUrl }`.
 - **Checks**: scripts/check-instant-paving.mjs (104), paving cases in
   check-instant-takeoff / check-instant-quote-exits / check-instant-scope.
+## The "we tried calling you" email: one pop-up after a no-answer, two buttons the prospect can press (18 September 2026)
+
+**Deployed.** The owner approved one design; a rep who hears a voicemail
+greeting sends it in two presses and never retypes it.
+
+- **The pop-up.** When the line auto-logs an outbound call as `no_answer`,
+  or the rep saves a `voicemail` outcome (console or the unlogged list), an
+  AlertDialog asks "Send {business} the intro email?" with the address it
+  would go to — the lead's, the prospect's crawled one, or one saved on the
+  lead — editable, plus a typed address that is saved on the lead first
+  (`SalesContactEmail`, through `lib/sales/contact/record.js`, never on a
+  test account). Language chips EN/FR/ES, defaulting the way the call script
+  does (Quebec → fr). Refused in place of Send, with the reason: no address,
+  suppressed, mailbox not connected, links unmintable, or an intro already
+  sent to that address in 14 days. The table of outcomes that ask is
+  `INTRO_EMAIL_ASK_CODES` in `lib/sales/outreach/introLink.js` — no_answer
+  and voicemail, nothing reached, never text_instead. The queue's
+  autodialler is held until the pop-up closes.
+- **The email** (`lib/sales/outreach/introEmail.js`): fixed wording per
+  language, no model; subject "Tried to reach you at {business} — one free
+  month, no card needed"; greeting by first name; the gap sentence; eight
+  points; a real quote at phone width (`public/product/email/quote-phone.*.png`,
+  shot from the app-guide harness at 390px); the rep's signup link with a
+  progress token (the same `SalesSignupProgress` row the texted link uses);
+  "Ask {rep} to call me back" and "Book a 15-minute demo"; sign-off with the
+  rep's assigned sales line; CASL footer with the mailing address,
+  "You're receiving this because we called your business today",
+  a one-click unsubscribe and the "Ref:" line a reply files by. Tables and
+  inline styles for Outlook; a plain-text part with everything. Colours
+  through `lib/documents/theme.js` pairs, measured in the check. Sent
+  through `deliverOutreach` (a `build` parameter — the suppression and
+  readiness checks and the filing are unchanged), filed on the lead's
+  thread, one `SalesIntroEmail` row per send.
+- **The links** (`/i/<token>`, `app/api/intro-link/[token]`): AES-GCM
+  sealed tokens carrying the row, lead, rep, kind and a 30-day expiry —
+  opaque in the URL, refused on any tamper. GET renders one button in the
+  email's language; POST acts, once per kind (a WHERE on null). `callback`
+  → a `SalesEvent` of type callback at the next business hour in the lead's
+  zone (an hour on, and said so, when the zone is unknown) + a push to the
+  rep + "{rep} will call you back — reply to the email if a different time
+  suits". `demo` → there is no per-rep public booking page (the public
+  /demo is FieldQuo's own, hosted by platform admins), so it is a demo
+  REQUEST stamped on the row + a push; the page prints the rep's number.
+  `unsubscribe` → the do-not-contact list, email channel, source form.
+- **Today and the lead page.** Two counters — "{n} call-back requests from
+  emails", "{n} demo requests" — with the rows behind them, from
+  `/api/sales/intro-email/requests`; unhandled means the rep has not
+  pressed "Mark as handled" AND has not dialled the lead since. The lead
+  page lists every intro email sent, what it asked for, and can send one
+  without a call in front of it.
+- **Checks.** `check:sales-intro-email` renders the three languages,
+  measures contrast, drives the tokens (round-trip, flipped byte, wrong
+  key, expiry, replay), the 14-day guard, next-business-hour, the trigger
+  table against CallPanel, the request stamps and counters against a fake
+  client, and the nine-language keys.
+## The roofing model against the market: three defaults moved, every line given a verdict (18 September 2026)
+
+**Deployed.** The owner asked, on the 917 Littlerock St estimate (Solar-
+measured hip, 31.2 squares, 6/12, $21,044 with 3-tab, 127.7 crew-hours, 8.5
+days for two): is the work reflective of the size, is the production rate
+right, is the price right — and go find real quotes. The answer, with every
+figure cited, is `docs/research/ROOFING-RATES-2026.md`: 23 real posted quotes
+and invoices (RedFlagDeals, Bogleheads, Garage Journal, Houzz, Ottawa and NY
+roofers; Reddit is unreachable from the agent environment), the per-square
+guides for Ottawa/Toronto/Montreal and the US north-east, crew production
+statements from roofers, and the code text for ventilation and eave
+protection.
+
+Three defaults moved, all in seed tables — no company override touched:
+
+- **6/12 is walkable.** `PITCH_BANDS` in `lib/pricing/roofLabour.js` used to
+  start "moderate" (×1.3 labour, +10% sell) at 6/12. Xactimate charges steep
+  from 7/12, piece-rate payroll runs standard to 6/12, and our own public
+  `steepnessTier()` already read 6/12 as standard — the homeowner's instant
+  price and the office builder disagreed about the commonest roof in Ottawa.
+  Bands are now ≤6 / 7–9 / 10–12 / >12; factors and keys unchanged.
+- **Tear-off 0.7 → 0.5 h/sq** (additional layer 0.45 → 0.3). Every measured
+  strip is 0.27–0.60.
+- **Ice & water prefills two courses at the eave** (`ICE_WATER_EAVE_COURSES`
+  in `lib/measure/roofGeometry.js`). OBC 9.26.5.1's 900 mm past the inner
+  wall face is not reachable with one 36" course on any overhang over a foot;
+  Ottawa roofers lay 6 ft; real quotes say so.
+
+917 Littlerock after: 3-tab $19,796 ($635/sq), architectural $24,470
+($785/sq) — inside the Ottawa guides' $16k–$22k / $20k–$33.6k bands for a
+house this size and above Cossette's "from $630/sq" instant figure, which is
+where a hip with 163 ft of cap and 41 ft of valley belongs; **100.2 crew-
+hours, 6.7 days for two, 3.5 for four** (a nine-man crew did a 3,150 sq ft
+north-east house in a day in 2024, ~2.6 h/sq, so this is still the slow side
+of real). Ventilation was already computed off the footprint, not the sloped
+surface, and stands. Everything else — per-square rates, per-foot details,
+penetrations, storeys, crew curve — is in range and was left alone, with the
+market figure beside each in the doc's verdict tables.
+
+Left for a product decision, named in the doc: 3-tab at $400/sq stacks above
+Ottawa's 3-tab guides on a product BP is discontinuing; waste is a flat 10%
+where a hip wastes 15–20% and the geometry already knows the shape; cedar's
+sell is under every Ontario figure with a null material cost by design.
+
+`check:trade-labour` pins the new bands, their agreement with the public
+tiers, the constants and the 917 Littlerock after-numbers;
+`check:roof-prefill` pins the two-course rule. `check:takeoff-render` was
+failing on main because the pay-cycle card gained `useTranslation()` and the
+harness rendered it outside a `LanguageProvider`; wrapped.
 
 ---
 
@@ -10580,9 +10684,11 @@ they set the pattern.
      returns the already-sloped surface. `slopedAreaSqft()` is the one place
      area and pitch meet, for a footprint typed off a survey, and its output
      matches the published pitch-multiplier table exactly (12/12 → 1.414).
-  4. **The pitch bands are the industry ones, unchanged** (walkable 1.0,
-     6–8/12 1.3, 9/12+ 1.6), with a low-slope and a >12/12 band added where
-     that table is silent. Nothing familiar was moved under anyone.
+  4. **The pitch bands keep the industry factors** (walkable 1.0, moderate
+     1.3, steep 1.6), with a low-slope and a >12/12 band added where that
+     table is silent. The boundaries moved once, on 18 September 2026, to
+     Xactimate's (moderate from 7/12, steep from 10/12) — see the roofing
+     calibration section and `docs/research/ROOFING-RATES-2026.md`.
   5. **Crew size is not free division.** A lone roofer and a crowded roof both
      cost hours; the curve is editable and can be flattened back to plain
      division.
