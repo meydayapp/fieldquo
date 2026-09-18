@@ -4,6 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { computeInvoiceState } from "@/lib/invoices/computeInvoiceState";
+import { invoiceSendAsk } from "@/lib/invoices/sendAsk";
 import { familyPayments, familyMembers } from "@/lib/invoices/family";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { levelOrRefusal } from "@/lib/permissions/apiGate";
@@ -81,6 +82,18 @@ export async function GET(request, { params }) {
     invoice.amountPaid = shown.amountPaid;
     invoice.amountDue = shown.amountDue;
     invoice.amountRefunded = shown.amountRefunded;
+  }
+
+  // What the Send button would ask for — the next uncovered stage of the
+  // job's schedule, or the balance — so the page says it before the press.
+  // The same function the send route decides by (lib/invoices/sendAsk.js).
+  {
+    const stages = await db.jobPaymentStage.findMany({
+      where: { companyId: member.companyId, invoiceId: invoice.id },
+      select: { id: true, seq: true, label: true, amountCents: true, status: true },
+    });
+    const ask = invoiceSendAsk({ totalCents: Math.round(Number(invoice.total) * 100), paidCents: Math.round(invoice.amountPaid * 100), stages });
+    invoice.sendAsk = { kind: ask.kind, requested: ask.requestCents / 100, collected: ask.collectedCents / 100, stage: ask.stage ? { label: ask.stage.label, index: ask.stage.index, count: ask.stage.count } : null };
   }
 
   // ── The chase trail, family-wide, on the payload the page already loads ──
