@@ -84,7 +84,7 @@ import {
 } from "@/lib/costing/quoteCosting";
 import { isUnitPriced } from "@/app/data/cabinetPricing";
 import { fieldsForCategory } from "@/app/data/quoteIntakeFields";
-import { isLotMeasureTrade, wantsSiteImage as tradeWantsSiteImage } from "@/lib/measure/lotTakeoff";
+import { isLotMeasureTrade } from "@/lib/measure/lotTakeoff";
 import { getPriceBook } from "@/app/data/tradePriceBooks";
 import {
   estimateCabinetDoorCost,
@@ -752,7 +752,6 @@ export function QuoteBuilderForm({
   // ── Scope ────────────────────────────────────────────────────────────────
   const [scopeGroups, setScopeGroups] = useState(start.groups || []);
   const [reasonsOpen, setReasonsOpen] = useState({});
-  const [siteImage, setSiteImage] = useState(null);
 
   // ── Terms & content ──────────────────────────────────────────────────────
   const [notes, setNotes] = useState(start.notes || "");
@@ -1115,13 +1114,22 @@ export function QuoteBuilderForm({
   // the traced lawn's outline in lat/lng, for the document. Merged, so a
   // later patch (the save route's captured still) is not thrown away by an
   // earlier one.
+  //
+  // `patch` may be a FUNCTION of the current takeoff. Two effects on a paving
+  // group write its takeoff in the same commit — the designer's traced totals
+  // and the panel's still frame — and each closes over the takeoff of the
+  // render that scheduled it, so whichever ran second replaced the first
+  // with a stale copy. A function of the previous value composes instead.
   function updateTakeoff(groupTempId, patch) {
     setScopeGroups((prev) =>
-      prev.map((g) =>
-        g.tempId === groupTempId
-          ? { ...g, takeoff: { ...(g.takeoff || {}), ...patch } }
-          : g,
-      ),
+      prev.map((g) => {
+        if (g.tempId !== groupTempId) return g;
+        const current = g.takeoff || {};
+        return {
+          ...g,
+          takeoff: typeof patch === "function" ? patch(current) : { ...current, ...patch },
+        };
+      }),
     );
   }
 
@@ -1274,38 +1282,13 @@ export function QuoteBuilderForm({
     return groupSubtotal(g, rateOverridesFor(g.categoryId));
   }
 
-  // Trades whose takeoff or intake can draw on an aerial photo — paving and
-  // the landscaping trades, listed in lib/measure/lotTakeoff.js. Fetched once
-  // per client and only when a scope group that can use it is on the quote —
-  // geocoding every client the moment they are selected would bill Google for
-  // quotes that never go near a map.
-  const wantsSiteImage = scopeGroups.some(
-    (g) => !g.persisted && tradeWantsSiteImage(g.categoryKey),
-  );
-
-  useEffect(() => {
-    const address = selectedClient?.address;
-    if (!wantsSiteImage || !address) {
-      setSiteImage(null);
-      return;
-    }
-    let cancelled = false;
-    fetch(`/api/measure/satellite?address=${encodeURIComponent(address)}`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (cancelled) return;
-        // A failure here is not worth a toast: the designer works on a blank
-        // grid, and an address that will not geocode is the client's, not
-        // something the estimator can fix from this screen.
-        setSiteImage(data?.ok ? data : null);
-      })
-      .catch(() => {
-        if (!cancelled) setSiteImage(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedClient?.address, wantsSiteImage]);
+  // The aerial still for paving and the landscaping trades used to be
+  // fetched here, once per client. It now belongs to each measuring panel
+  // (PavingTakeoff, LotAreaMeasure) through useSatelliteStill.js: the still
+  // is taken from the address the estimator chose for THAT takeoff — the job
+  // site, which is often not the billing address — at the zoom they chose,
+  // and both are stored on the takeoff. The client's address is passed down
+  // as the default; nothing is geocoded until a panel that can use it mounts.
 
   const subtotal = round2(
     scopeGroups.reduce((sum, g) => sum + groupTotal(g), 0),
@@ -2023,8 +2006,6 @@ export function QuoteBuilderForm({
               hasTakeoff(group.categoryKey) &&
               group.takeoff && (
                 <TradeTakeoff
-                  siteImageUrl={siteImage?.image?.url || ""}
-                  siteImageScale={siteImage?.scale || null}
                   siteAddress={selectedClient?.address || ""}
                   categoryKey={group.categoryKey}
                   takeoff={group.takeoff}
@@ -2033,7 +2014,9 @@ export function QuoteBuilderForm({
                     rateOverridesFor(group.categoryId),
                   )}
                   onChange={(next) =>
-                    updatePricing(group.tempId, { takeoff: next })
+                    typeof next === "function"
+                      ? updateTakeoff(group.tempId, next)
+                      : updatePricing(group.tempId, { takeoff: next })
                   }
                 />
               )}
@@ -2055,13 +2038,11 @@ export function QuoteBuilderForm({
                       onIntakeChange={(patch) =>
                         updateIntakeValues(group.tempId, patch)
                       }
-                      imageUrl={siteImage?.image?.url || ""}
-                      imageScale={siteImage?.scale || null}
-                      // The still's centre and the address, so the traced
-                      // outline lands on the takeoff in lat/lng and the
-                      // client's document prints it (see LotAreaMeasure).
-                      siteLocation={siteImage?.location || null}
-                      siteAddress={siteImage?.formattedAddress || selectedClient?.address || ""}
+                      // The group's takeoff carries the still's address and
+                      // frame (and the traced outline in lat/lng, for the
+                      // client's document — see LotAreaMeasure).
+                      takeoff={group.takeoff || null}
+                      siteAddress={selectedClient?.address || ""}
                       onTakeoffChange={(patch) => updateTakeoff(group.tempId, patch)}
                     />
                   )}

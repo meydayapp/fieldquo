@@ -418,16 +418,22 @@ section("8. The address handed to the Solar API is one Google resolved");
 
 {
   const t = decomment(read("app/components/quotes/builder/TradeTakeoff.js"));
-  ok("the measure panel imports the shared address picker", /import AddressAutocomplete from "@\/app\/components\/AddressAutocomplete"/.test(t));
-  ok("…and renders it", /<AddressAutocomplete/.test(t));
+  // The picker is wrapped ONCE, in MeasureAddressField (shared with the
+  // paving and landscaping panels since 2026-09-18); the roof panel renders
+  // the wrapper, and the wrapper renders the picker.
+  const field = decomment(read("app/components/quotes/builder/MeasureAddressField.js"));
+  const roofPanel = t.slice(t.indexOf("function RoofMeasurePanel("), t.indexOf("function RoofingTakeoff("));
+  ok("the shared field imports the shared address picker", /import AddressAutocomplete from "@\/app\/components\/AddressAutocomplete"/.test(field));
+  ok("…and renders it", /<AddressAutocomplete/.test(field));
+  ok("the measure panel renders the shared field", /<MeasureAddressField/.test(roofPanel));
   ok(
     "…rather than constructing a second Places autocomplete of its own",
-    !/new\s+window\.google\.maps\.places\.Autocomplete/.test(t) && !/useLoadScript/.test(t),
+    !/new\s+window\.google\.maps\.places\.Autocomplete/.test(t) && !/useLoadScript/.test(t) && !/useLoadScript/.test(field),
   );
-  ok("picking a suggestion measures it", /onPlaceSelected=\{[\s\S]{0,220}measure\(picked\)/.test(t));
+  ok("picking a suggestion measures it", /onPlaceSelected=\{[\s\S]{0,220}onMeasure\?\.\(picked\)/.test(field) && /onMeasure=\{\(picked\) => measure\(picked\)\}/.test(roofPanel));
   ok(
     "…and measures the FORMATTED address, not what was half-typed",
-    /const picked = place\?\.address \|\| ""/.test(t) && /measure\(picked\)/.test(t),
+    /const picked = place\?\.address \|\| ""/.test(field) && /measure\(picked\)/.test(roofPanel),
   );
   ok(
     "measure() takes the address to use rather than only reading state",

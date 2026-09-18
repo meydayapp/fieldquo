@@ -417,10 +417,15 @@ section("8. The panel, and the satellite still that is actually saved");
   // The bare <input> this used to assert is gone, and deliberately: the string
   // typed here is geocoded and handed to Google Solar, so it is now the shared
   // Places picker and the address measured is the one Google resolved. See
-  // scripts/check-roof-materials.mjs section 8, which owns that rule.
-  ok("there is an address input", /<AddressAutocomplete[\s\S]{0,200}value=\{address\}/.test(panel));
+  // scripts/check-roof-materials.mjs section 8, which owns that rule. Since
+  // 2026-09-18 the picker is wrapped once, in MeasureAddressField, which the
+  // paving and landscaping panels render too (check-measure-framing.mjs).
+  ok("there is an address input", /<MeasureAddressField[\s\S]{0,200}value=\{address\}/.test(panel));
   ok("…typed into by the estimator", /onChange=\{setAddress\}/.test(panel));
-  ok("…seeded from the client's address, not gated on it", /useState\(defaultAddress\)/.test(panel));
+  ok(
+    "…seeded from the takeoff's own address, else the client's, not gated on either",
+    /useState\(takeoff\.measureAddress \|\| defaultAddress\)/.test(panel),
+  );
   ok("the takeoff renders the panel unconditionally", /<RoofMeasurePanel/.test(t));
   ok(
     "…with no siteAddress guard in front of it",
@@ -435,7 +440,7 @@ section("8. The panel, and the satellite still that is actually saved");
   ok("picking a suggestion measures it", /measure\(picked\)/.test(panel));
 
   // Fault 1, on the screen: an implausible reading must not be written in.
-  ok("an untrustworthy result is not applied", /if \(data\.trustworthy !== false\) apply\(data\)/.test(panel));
+  ok("an untrustworthy result is not applied", /if \(data\.trustworthy !== false\) apply\(data(, data\.still)?\)/.test(panel));
   ok("…but is still offered, with the image, to the person who can judge", /Use it anyway/.test(panel));
   ok("the warnings are rendered", /result\.warnings \|\| \[\]/.test(panel));
   ok("a widened search says so", /result\.searchWidened/.test(panel));

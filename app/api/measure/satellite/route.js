@@ -93,8 +93,21 @@ export async function GET(request) {
       height: searchParams.get("height"),
     });
     if (!req) return fail("bad_request");
+    // The pin on the address, for the roof still only — see satelliteProxyPath.
+    const marker = searchParams.get("marker") === "1";
 
-    const image = await fetchSatelliteImage(req);
+    // ── What each of these costs ────────────────────────────────────────
+    //
+    // Google bills Static Maps PER STILL, and a still is identified by
+    // (lat, lng, zoom, size, scale, marker) — the exact query string of this
+    // request. The browser caches the bytes for a day (below), so REDRAWING on
+    // the same still is free; but every − or + the estimator taps on a measure
+    // panel is a NEW query string, and therefore one more billed still, and so
+    // is "re-centre" when it lands on a zoom the browser has not seen this
+    // session. The measure panels re-project the drawing rather than
+    // dropping it precisely so that a zoom step is never repeated to recover
+    // work — the tap costs a still; it must not cost the outline as well.
+    const image = await fetchSatelliteImage({ ...req, marker });
     if (!image.ok) return fail(image.reason);
 
     // The scale travels with the image as headers as well as in the JSON call,
@@ -126,6 +139,7 @@ export async function GET(request) {
     scale: searchParams.get("scale") ?? undefined,
     width: searchParams.get("width") ?? undefined,
     height: searchParams.get("height") ?? undefined,
+    marker: searchParams.get("marker") === "1",
   });
 
   if (!result.ok) {

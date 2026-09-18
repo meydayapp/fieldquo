@@ -50,7 +50,7 @@ import {
   codeMinimumR,
   CLIMATE_ZONES,
 } from "@/lib/pricing/insulation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { DRIVEWAY_LABELS } from "@/lib/pricing/tradeScope";
 import { useTranslation } from "@/app/hooks/useTranslation";
 // The one address picker in this codebase, not a second one. It already
@@ -59,6 +59,11 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 // submit whatever form it was sitting in — none of which is worth writing
 // twice (AGENTS.md failure class #4).
 import AddressAutocomplete from "@/app/components/AddressAutocomplete";
+import MeasureAddressField from "./MeasureAddressField";
+import MeasureZoomControls from "./MeasureZoomControls";
+import { useSatelliteStill, useFollowClientAddress, placementOf, LEGACY_LOT_ZOOM } from "./useSatelliteStill";
+import { asShapes } from "./PolygonMeasure";
+import { DEFAULT_ZOOM, DEFAULT_ROOF_ZOOM, reprojectDrawing, stillFrame } from "@/lib/measure/imageScale";
 
 /** Complexity tiles — the whole rate grid moves with the selection. */
 function ComplexityPicker({ value, book, onChange }) {
@@ -1500,10 +1505,82 @@ const PAVING_SURFACES = [
   ["drivewaySqft", "app.paver.surfaceDriveway", "drivewayPricePerSqft", true],
 ];
 
-function PavingTakeoff({ takeoff, book, onChange, siteImageUrl, siteImageScale }) {
+function PavingTakeoff({ takeoff, book, onChange, siteAddress = "" }) {
   const money = useCompanyMoney();
   const { t } = useTranslation();
   const level = takeoff.complexityLevel || "standard";
+
+  // ── The still this takeoff is traced on ──────────────────────────────
+  //
+  // Its own, from its own address — the driveway being paved is not always
+  // the address on the invoice (see MeasureAddressField). Stored on the
+  // takeoff as `measureAddress` and `measureFrame` so reopening the quote
+  // puts the drawing back on the exact picture it was traced on; a takeoff
+  // with a drawing and no frame predates the frame and was traced at the old
+  // default zoom (LEGACY_LOT_ZOOM), so that is what is fetched for it.
+  const [address, setAddress] = useState(takeoff.measureAddress || siteAddress || "");
+  const still = useSatelliteStill({
+    frame: takeoff.measureFrame,
+    address: takeoff.measureAddress || siteAddress,
+    auto: true,
+    initialZoom: asShapes(takeoff.paverDesign?.shapes).length ? LEGACY_LOT_ZOOM : DEFAULT_ZOOM,
+  });
+  // Every write below is a FUNCTION of the takeoff as it is when the write
+  // lands, not a copy of the one this render closed over: the designer emits
+  // its totals in an effect of its own in the same commit as the frame sync
+  // below, and a frame written over a stale copy dropped the square footage
+  // it had just filled in (QuoteBuilder's updateTakeoff composes functions).
+  const takeoffRef = useRef(takeoff);
+  takeoffRef.current = takeoff;
+  const write = (patch) => onChange((prev) => ({ ...(prev || {}), ...patch }));
+
+  // The frame on screen is the frame on the takeoff. Runs after the first
+  // automatic fetch (no old placement, nothing to re-project) and is a no-op
+  // after a measure or zoom, which write the frame themselves beside the
+  // re-projected drawing.
+  const frameKey = JSON.stringify(still.still?.frame || null);
+  useEffect(() => {
+    const cur = still.still;
+    if (!cur?.frame) return;
+    const t0 = takeoffRef.current;
+    const sameFrame = JSON.stringify(t0.measureFrame || null) === frameKey;
+    const addr = cur.formattedAddress || t0.measureAddress || "";
+    if (sameFrame && (t0.measureAddress || "") === addr) return;
+    write({ measureFrame: cur.frame, measureAddress: addr, ...(sameFrame ? {} : { measureImage: null }) });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [frameKey]);
+
+  // The drawing follows the ground, not the picture: a new still (another
+  // address, another zoom) gets the same outline re-projected through
+  // lat/lng, never dropped. A re-projection that cannot be done (no still
+  // before) leaves the drawing exactly as it is.
+  function adoptStill(next, from) {
+    const design = takeoffRef.current.paverDesign || null;
+    const moved = design && from ? reprojectDrawing(design, from, placementOf(next)) : null;
+    write({
+      measureFrame: next.frame,
+      measureAddress: next.formattedAddress || address,
+      // A copy captured at the old frame is the wrong picture now; the save
+      // route captures the new one (lib/measure/measureImages.js).
+      measureImage: null,
+      ...(moved ? { paverDesign: moved } : {}),
+    });
+  }
+  async function measureAt(query) {
+    const from = still.placement;
+    const next = await still.measure(query, DEFAULT_ZOOM);
+    if (next) adoptStill(next, from);
+  }
+  function zoomTo(z) {
+    const moved = still.reframe(z);
+    if (moved) adoptStill(moved.still, moved.from);
+  }
+  // A different client picked while the box still held the old one's address.
+  useFollowClientAddress(siteAddress, address, (next) => {
+    setAddress(next);
+    measureAt(next);
+  });
+  const zoom = still.still?.frame?.zoom ?? null;
   // The hours come from the same tier and access answers the estimator has
   // already given above — see lib/pricing/paverLabour.js for why the panel does
   // not ask "how hard is this?" a second time in different words.
@@ -1539,13 +1616,31 @@ function PavingTakeoff({ takeoff, book, onChange, siteImageUrl, siteImageScale }
           restores the shapes instead of a flat number nobody can recount. The
           three boxes below stay editable: an estimator who measured on site
           with a tape should not have to draw it to type it. */}
+      <MeasureAddressField
+        value={address}
+        onChange={setAddress}
+        onMeasure={measureAt}
+        defaultAddress={siteAddress}
+        busy={still.busy}
+        measuredAt={still.still?.formattedAddress || ""}
+        error={still.error ? t("app.measure.unavailable", "Satellite imagery is unavailable for this address. Enter the numbers below.") : ""}
+      />
+      {zoom !== null && (
+        <MeasureZoomControls
+          zoom={zoom}
+          onZoom={zoomTo}
+          onRecentre={zoom !== DEFAULT_ZOOM ? () => zoomTo(DEFAULT_ZOOM) : null}
+          groundWidthFeet={still.still?.scale?.groundWidthFeet}
+          busy={still.busy}
+        />
+      )}
       <PaverDesigner
         takeoff={takeoff}
         onChange={onChange}
         design={takeoff.paverDesign || null}
         onDesignChange={(paverDesign) => set({ paverDesign })}
-        imageUrl={siteImageUrl || ""}
-        imageScale={siteImageScale || null}
+        imageUrl={still.still?.image?.url || ""}
+        imageScale={still.still?.scale || null}
       />
 
       <div className="grid gap-2 sm:grid-cols-3">
@@ -1921,11 +2016,29 @@ function SnowRemovalTakeoff({ takeoff, book, onChange }) {
 function RoofMeasurePanel({ takeoff, book, onApply, defaultAddress = "" }) {
   const money = useCompanyMoney();
   const { t } = useTranslation();
-  const [address, setAddress] = useState(defaultAddress);
+  const [address, setAddress] = useState(takeoff.measureAddress || defaultAddress);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
   const [before, setBefore] = useState(null);
+
+  // The still, through the keyless proxy, at the frame the roof route fitted
+  // to the roof (roofMeasurement.js roofStillFrame) or the one the takeoff
+  // stored. Zooming it is arithmetic (useSatelliteStill.reframe) — it never
+  // re-runs Solar, which is the billed call; each new zoom is one more billed
+  // still and nothing else. `auto` is off: the roof measurement waits for
+  // the button, as it always has.
+  const still = useSatelliteStill({
+    frame: takeoff.measureFrame,
+    address: takeoff.measureAddress || defaultAddress,
+    marker: true,
+    defaultZoom: DEFAULT_ROOF_ZOOM,
+  });
+  const frame = still.still?.frame || null;
+  // The zoom the route settled on for this roof — where "re-centre" goes
+  // back to — and whether that was a step out from the default.
+  const fitted = result?.still || null;
+  const fittedZoom = stillFrame(fitted)?.zoom ?? stillFrame(takeoff.measureFrame)?.zoom ?? DEFAULT_ROOF_ZOOM;
 
   // The patch a result would write, and what it is worth. Recomputed rather
   // than stored: the price book can change under a measurement that is still
@@ -1970,6 +2083,15 @@ function RoofMeasurePanel({ takeoff, book, onApply, defaultAddress = "" }) {
     try {
       const res = await fetch(`/api/measure/roof?address=${encodeURIComponent(query)}`);
       const data = await res.json().catch(() => null);
+      // The still goes up whether or not the roof was found or the numbers
+      // were trusted — on a miss it is what the estimator judges by.
+      if (data?.still) {
+        still.adopt(data.still, {
+          formattedAddress: data.formattedAddress || query,
+          location: data.location,
+          precise: data.precise ?? null,
+        });
+      }
       if (!res.ok || !data?.ok) {
         // Named, not swallowed: an estimator who clicked a button and saw
         // nothing happen has no way to tell "no coverage here" from "broken".
@@ -1980,11 +2102,11 @@ function RoofMeasurePanel({ takeoff, book, onApply, defaultAddress = "" }) {
               "Roof measuring is unavailable. Enter the area below.",
             ),
         );
-        setResult(data?.satelliteImageUrl ? data : null);
+        setResult(data?.satelliteImageUrl || data?.still ? data : null);
         return;
       }
       setResult(data);
-      if (data.trustworthy !== false) apply(data);
+      if (data.trustworthy !== false) apply(data, data.still);
     } catch {
       setError(
         t(
@@ -1997,23 +2119,53 @@ function RoofMeasurePanel({ takeoff, book, onApply, defaultAddress = "" }) {
     }
   }
 
-  function apply(data) {
+  // `frameNow` is passed by measure() because the hook's state has not
+  // committed by the time the fresh result is applied; "Use it anyway" reads
+  // the committed one.
+  function apply(data, frameNow = frame) {
     const p = data.linear ? takeoffPatch(data.linear) : {};
     setBefore(takeoff);
+    const f = stillFrame(frameNow || data.still);
     onApply({
       ...takeoff,
       areaSqft: Math.round(num(data.areaSqft)),
       pitchRise: num(data.predominantPitch?.rise),
       ...p,
       measuredFrom: "satellite",
-      measuredAddress: data.formattedAddress || String(address).trim(),
-      // The still this roof was read from, so the quote the client
-      // receives prints it beside "Roof measured from satellite". The save
-      // route captures our own copy (lib/measure/measureImages.js); only
-      // that copy ever prints.
-      ...(data.satelliteImageUrl ? { measureImage: { sourceUrl: data.satelliteImageUrl } } : {}),
+      measureAddress: data.formattedAddress || String(address).trim(),
+      // The still this roof was read from, as the REQUEST (`measureFrame`):
+      // the save route builds the Google URL from it server-side and
+      // captures our own copy (lib/measure/measureImages.js); only that copy
+      // ever prints, and a copy captured at an earlier frame is dropped here
+      // so the new one is taken. The keyed URL is the fallback for a server
+      // that returned no frame.
+      ...(f
+        ? { measureFrame: f, measureImage: null }
+        : data.satelliteImageUrl
+          ? { measureImage: { sourceUrl: data.satelliteImageUrl } }
+          : {}),
     });
   }
+
+  // − / + and re-centre. The takeoff follows only once it carries this
+  // measurement; a result that was refused (not trusted, not applied) is
+  // looked at at any zoom without being stored.
+  function zoomTo(z) {
+    const moved = still.reframe(z);
+    if (!moved) return;
+    if (takeoff.measuredFrom === "satellite" && takeoff.measureFrame) {
+      onApply({ ...takeoff, measureFrame: moved.still.frame, measureImage: null });
+    }
+  }
+  const zoomNote =
+    fitted && frame && frame.zoom === fitted.zoom
+      ? fitted.fits === false
+        ? t("app.measure.stillClips", "Even the widest view clips this roof.")
+        : fitted.zoomedOutToFit
+          ? t("app.measure.zoomedOutToFit", "Zoomed out to fit the roof")
+          : ""
+      : "";
+  const imageSrc = still.still?.image?.url || result?.satelliteImageUrl || "";
 
   const changed = before
     ? Object.keys({ areaSqft: 0, pitchRise: 0, ...(patch || {}) }).filter(
@@ -2023,79 +2175,47 @@ function RoofMeasurePanel({ takeoff, book, onApply, defaultAddress = "" }) {
 
   return (
     <div className="rounded-lg border border-border p-3 space-y-2.5">
-      <div className="flex flex-wrap items-end gap-2">
-        <div className="min-w-0 flex-1">
-          <label className="text-xs text-muted-foreground">
-            {t("app.roof.measureFromAddress", "Measure the roof from an address")}
-          </label>
-          {/* ── Places, not free text ──────────────────────────────────────
-              The address typed here is geocoded and handed to Google's Solar
-              API, and the whole failure this panel was built around is that
-              endpoint answering confidently about the wrong building. A typed
-              string resolves to whatever the geocoder makes of it; a picked
-              suggestion is Google's own canonical address, which geocodes to a
-              rooftop.
-
-              The picked address is what gets measured — the FORMATTED string,
-              not the letters the estimator stopped typing. Coordinates are
-              deliberately NOT passed through instead: measureRoof() sets
-              `precise` from the geocoder's location_type, Places returns no
-              such field, and the warning that says "the pin may not be on a
-              building" would quietly become a guess.
-
-              Picking a suggestion measures immediately. Enter no longer does,
-              because AddressAutocomplete's capture handler suppresses the
-              Enter that CHOOSES a suggestion and a bubble-phase handler here
-              would still fire — measuring the half-typed string underneath. */}
-          <AddressAutocomplete
-            value={address}
-            onChange={setAddress}
-            onPlaceSelected={(place) => {
-              const picked = place?.address || "";
-              if (!picked) return;
-              setAddress(picked);
-              measure(picked);
-            }}
-            placeholder={t(
-              "app.roof.addressPlaceholder",
-              "Start typing the roof's address",
-            )}
-            className={inputClass}
-          />
-        </div>
-        <button
-          type="button"
-          onClick={() => measure()}
-          disabled={busy || !address.trim()}
-          className="shrink-0 rounded border border-border px-3 py-2 text-xs hover:bg-muted disabled:opacity-50"
-        >
-          {busy
-            ? t("app.roof.measuring", "Measuring…")
-            : t("app.roof.measureButton", "Measure from satellite")}
-        </button>
-      </div>
-      {defaultAddress && address.trim() !== defaultAddress.trim() && (
-        <button
-          type="button"
-          onClick={() => setAddress(defaultAddress)}
-          className="text-[11px] text-muted-foreground underline"
-        >
-          {t("app.roof.useClientAddress", "Use the client's address ({address})", {
-            address: defaultAddress,
-          })}
-        </button>
-      )}
-
-      {error && <p className="text-xs text-muted-foreground">{error}</p>}
+      {/* The address, the button and the way back to the client's address —
+          the shared field (MeasureAddressField), which is where the reasons
+          for "Places, not free text" and "Enter does not measure" now live.
+          A picked suggestion measures immediately; the picked string is what
+          is measured. */}
+      <MeasureAddressField
+        value={address}
+        onChange={setAddress}
+        onMeasure={(picked) => measure(picked)}
+        defaultAddress={defaultAddress}
+        busy={busy}
+        measuredAt={
+          result?.formattedAddress ||
+          (takeoff.measuredFrom === "satellite" ? takeoff.measureAddress || "" : "")
+        }
+        error={error}
+        label={t("app.roof.measureFromAddress", "Measure the roof from an address")}
+        placeholder={t("app.roof.addressPlaceholder", "Start typing the roof's address")}
+        buttonLabel={t("app.roof.measureButton", "Measure from satellite")}
+      />
 
       {/* The image goes up whether or not the numbers were trusted — on a bad
-          reading it is the evidence the estimator judges it by. */}
-      {result?.satelliteImageUrl && (
+          reading it is the evidence the estimator judges it by. object-contain,
+          not cover: the whole 640×640 frame is the point, and the roof's
+          edges are at the edges of it. */}
+      {imageSrc && (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={result.satelliteImageUrl}
-          alt={result.formattedAddress || address}
-          className="w-full max-h-48 rounded-lg border border-border object-cover"
+          src={imageSrc}
+          alt={result?.formattedAddress || address}
+          className="w-full max-h-96 rounded-lg border border-border bg-muted object-contain"
+        />
+      )}
+      {frame && (
+        <MeasureZoomControls
+          zoom={frame.zoom}
+          onZoom={zoomTo}
+          onRecentre={frame.zoom !== fittedZoom ? () => zoomTo(fittedZoom) : null}
+          groundWidthFeet={still.still?.scale?.groundWidthFeet}
+          busy={busy}
+          note={zoomNote}
         />
       )}
 
@@ -2696,6 +2816,7 @@ function GutterMeasurePanel({ takeoff, workType, onApply, defaultAddress = "" })
           {/* Places, not free text — same reasoning as RoofMeasurePanel: the
               picked suggestion is Google's canonical address and geocodes to
               a rooftop; a half-typed string geocodes to whatever. */}
+          {/* address-jurisdiction: none — where to point the satellite, not who to bill; no Client and no tax jurisdiction come from it. */}
           <AddressAutocomplete
             value={address}
             onChange={setAddress}
@@ -3492,20 +3613,13 @@ export default function TradeTakeoff({
   takeoff,
   book,
   onChange,
-  // An aerial tile of the client's address, when the page has one. Optional:
-  // the designer draws on a blank grid without it, so a quote for a client
-  // whose address failed to geocode still measures.
-  siteImageUrl = "",
-  // What that tile measures: the scale object /api/measure/satellite returns
-  // beside the URL (feet per pixel, zoom, pixel size). Carried separately
-  // because a URL is not a scale — the permanent Cloudinary copy of a still
-  // has no parameters in it at all — and without this the designer had to
-  // ask the estimator to draw a reference line on an image whose resolution
-  // the route already knew.
-  siteImageScale = null,
-  // The client's address, for the trades that measure off it rather than draw
-  // on it. Separate from siteImageUrl because a roof is measured by Google's
-  // 3-D model, not by tracing a photo — there is nothing to show.
+  // The client's address: the DEFAULT for the trades that measure from an
+  // address (roof, gutters, paving), each of which has its own field to type
+  // over it, because the job site is often not the billing address. The
+  // aerial still itself is no longer passed down from the page — each
+  // measuring panel fetches its own from the address it was given, at the
+  // zoom the estimator chose, and stores both on its takeoff
+  // (useSatelliteStill.js).
   siteAddress = "",
 }) {
   const Component = TAKEOFFS[categoryKey];
@@ -3516,8 +3630,6 @@ export default function TradeTakeoff({
         takeoff={takeoff}
         book={book}
         onChange={onChange}
-        siteImageUrl={siteImageUrl}
-        siteImageScale={siteImageScale}
         siteAddress={siteAddress}
       />
     </div>
