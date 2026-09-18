@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 18 September 2026 (the builder's three measure panels — roof, paving, landscaping — share one "measure from this address" field and −/+ zoom with the drawing re-projected through lat/lng; the lot still defaults to zoom 18 and the roof still to 19 at 640×640, stepping out automatically when Solar's roof would clip; the document prints "Measured at {address}" under the still in eight languages; see the section below. Earlier the same day: the sales portal's Conversations page is a real inbox on each rep's own Namecheap mailbox, connected by the owner from the rep's card — IMAP sync every minute, SMTP sends with the copy in Sent, read state mirrored both ways, drafts, templates, keyboard shortcuts, and the company pane kept; `lib/sales/mailbox/`, `docs/SALES-OUTREACH.md` §0; see the section below)
+Last updated: 18 September 2026 (the public instant estimate speaks the visitor's language — EN/FR/ES pills, one copy table, the document created in the pick; both public flows ask "when do you need this done?" plus the trade's own question and a note; a company service area that says, never blocks; the estimate becomes a branded report page + PDF + email; paving traced on the satellite map; one measure-address field for the builder's roof / paving / landscaping stills with zoom; see the section below)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -10,6 +10,98 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## The instant estimate in the visitor's language, "when do you need this done?" on both public flows, a service area that says rather than blocks, the report the estimate becomes, and paving traced on the map (18 September 2026)
+
+**Language** (app/instant-quote/[companySlug]/InstantQuoteFlow.js): three
+pills — English / Français / Español — at the top of the form. Every string
+on the page comes from one table, lib/i18n/instantQuoteCopy.js (section
+titles, field labels and options, the junk-removal items and job types, the
+"still needed" list, the panel, the confirmation, the server's refusals and
+measure-failure sentences), plus the lawn / gutter / "doesn't look right"
+tables it defers to. Switching re-fetches the payload (`GET
+/api/instant-quote/[slug]?lang=`) because chips, budget bands, lawn cards and
+junk items are labelled server-side (loadCompanyInstantTrades takes
+`{ language }`). Resolution on first paint: `?lang=` on the link → what this
+browser chose here before (localStorage, per company) → the browser's own
+language when it is one of the three → the company's. The pick is posted on
+/measure and /request, VALIDATED to the three (instantQuoteLanguage — the
+route used to store whatever string arrived), and becomes the draft's
+`Quote.language`, the lead's language and the email's (non-negotiable #6).
+Spanish added where the server only had en/fr: lockedEstimateMessage,
+gatedMessage, budgetBands ("Menos de"), the estimate email, the financing
+CTA. The owner dropped the "…in 60 seconds" headline; the hero stays "Get an
+instant estimate" in three languages. A one-trade company has that trade
+picked on arrival.
+
+**"When do you need this done?"** (lib/leads/tradeQuestions.js, pure): two
+ladders — `urgent` (today / this week / next few weeks / just planning) for
+plumbing, electrical, HVAC, appliance repair, locksmith, garage door,
+restoration, pest control…; `project` (as soon as possible / within a month /
+this season / next year) for everything else — each option mapped onto the
+scorer's four LeadRequest.timeline keys, the tapped option stored as
+`whenNeeded` so the card prints "Within a month" rather than "Within 2
+weeks". Required on the instant estimate AND the booking page (BookingFlow.js
+step 3, after the service chips; the confirm route refuses a POST without
+it). Trade questions from a small table keyed by topic with aliases for the
+estimator's keys and the catalogue's (roofing: active leak; gutters: gutter
+guards; painting: interior/exterior/both — dropped on the instant form where
+the estimator already prices scope; plumbing: water shut off; electrical:
+power out; hvac_repair: system down; appliance_repair: which appliance), and
+a free-text note always present. Stored: on the draft (estimateData.homeowner
+as keys + reviewNotes as staff lines in the company's language), on the lead
+(timeline + intake whenNeeded/answers/notes, rendered with labels on the lead
+card), on the booking (prepended to Booking.notes AND Appointment.notes —
+bookings have no intake column and create no LeadRequest), and the AI review's
+writing pass receives them as `homeownerSaid`. NOT_ASKED_BY_SOURCE no longer
+lists instant_quote for timeline. Found on the way: the PAID booking path
+created its Appointment with no notes at all (lib/booking/settleBookingFee.js).
+
+**Service area** (lib/company/serviceArea.js, pure; Company.serviceRadiusKm +
+Company.servicePostalPrefixes, additive, pushed): radius km around the base
+coordinates the company already has (backfilled on read) and/or postal-code
+prefixes; inside if ANY evaluable test passes, `null` when nothing could be
+evaluated — and null renders NOTHING. Settings › Company "Service area" card
+with the live "We serve within {n} km of {city}" line. Public `GET
+/api/service-area/[slug]?address=` geocodes server-side and never returns the
+base coordinates. Both public flows print one honest line under an outside
+address and never block; the server re-checks on submit; the lead carries
+`outsideServiceArea: true` (badge on the lead card and drawer); the booking's
+notes carry the staff line. A `Number(null) → 0` trap that measured a missing
+pin from the Gulf of Guinea was caught by the check and fixed.
+
+REPORT_PLACEHOLDER
+
+**Paving traced on the map** — see "Paving is an instant trade measured by
+tracing, and every trace prints" below (agent/paving): `area_polygon` is the
+generic traced measure, paving prices per sq ft from the paving book's three
+surfaces, the outline is saved on the draft and printed on the PDF and the
+client page; landscaping was NOT added because no per-area landscaping price
+book exists to price from.
+
+**Builder stills and zoom** — see the builder section below (agent/builder):
+one MeasureAddressField for roof / paving / landscaping, − / + zoom with the
+drawing re-projected through lat/lng, roof still at zoom 19 / 640×640 and lot
+stills at 18, automatic step-out to fit a Solar roof, "Measured at …" printed
+in eight languages.
+
+**Checks**: check:instant-quote-copy (134 — every key in three tables ×
+en/fr/es with no English left in fr/es, every instant trade and junk item
+named, the payload localised over the db stub, the routes validating the
+posted language, the form free of `fr ?`, contrast of the lit pill and the
+button on five hostile brands), check:service-area (85), check:booking-
+questions (33), check-lead-intake (118), check-instant-exits, check-instant-
+scope, check-instant-quote-draft, check-instant-quote-services.
+Screenshots at 375 and 1280 in en/fr/es for truefinish-cabinets-inc-qbaf.
+
+### Still owed here
+
+- The measurement summary the "doesn't look right" form posts to STAFF is
+  still in the estimator's units and English (measurementSummaryText) — a
+  staff string, left as is.
+- Bookings still do not create a LeadRequest, so a booked visit's "when"
+  answer lives in the appointment's notes and never on the lead board.
+- Older instant-quote leads with no timeline predate the question and will
+  show "Not stated".
 ## Paving is an instant trade measured by tracing, and every trace prints (18 September 2026)
 
 **Owner:** "the ability to measure should also be enabled for instant quotes."
