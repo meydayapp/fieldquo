@@ -1513,12 +1513,6 @@ model Company {
   serviceRadiusKm       Int?
   servicePostalPrefixes String[] @default([])
   discoverable Boolean  @default(false)
-  /// The company's service area: how far from the base address (latitude/
-  /// longitude above) they will drive, in km, and optionally the postal-code
-  /// prefixes they cover. Read by lib/company/serviceArea.js; both public
-  /// flows say — never block — when an address falls outside it.
-  serviceRadiusKm       Int?
-  servicePostalPrefixes String[] @default([])
 
   taxIdName         String? // e.g. "GST"
   taxIdNumber       String?
