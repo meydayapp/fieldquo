@@ -34,7 +34,8 @@
 // It is a labelled region with a live announcement instead, which is the right
 // pattern for a persistent helper.
 //
-// z-[60] for the card and the ring, one below IncomingCallDock's z-[70], and
+// z-[60] for the card and the ring, below IncomingCallDock's in-call strip
+// (z-[70]) and its ring dialog (z-[80]), and
 // that ordering is deliberate: a contractor ringing back is the most important
 // thing that can happen to a rep, and it must cover the walkthrough rather than
 // fight it for the bottom of a phone screen. Above SalesMobileTabBar's drawer

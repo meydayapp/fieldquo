@@ -62,10 +62,16 @@ import {
   defaultScriptLanguage,
   normalizeScriptLanguage,
   validateCallScript,
+  pitchWordCount,
   validationRetryNote,
+  CALL_SCRIPT_REASON_LINE,
+  CALL_SCRIPT_OPENER_BANS,
+  CALL_SCRIPT_INPUT_LIMITS,
 } from "@/lib/sales/intel/callScript";
 import { MAX_CHARS_PER_PAGE, MAX_EXCERPT_CHARS, integerInWords, ratingInWords, selectPageExcerpts } from "@/lib/sales/intel/pageExcerpts";
 import { ASK_TIME_GUARDS, HARD_MAX_WORDS, MAX_WORDS, askTimeGuardHit, hasFiniteVerb, lintSentence, longSentences, voiceLint, voiceRetryNote, wordCount } from "@/lib/sales/scriptVoice";
+import { BANNED_MOVES, bannedMovesIn } from "@/lib/sales/playbook/bannedMoves";
+import { objectionsForProspect, seedObjections } from "@/lib/sales/playbook/objections";
 import { generateCallScript } from "@/lib/sales/pipeline/handlers/generateCallScript";
 import { ON_DEMAND_PER_HOUR, ON_DEMAND_REF_PREFIX, scriptRowStale } from "@/lib/sales/scriptOnDemand";
 import { rememberScriptLanguage, rememberedScriptLanguage, scriptLanguageKey } from "@/lib/sales/scriptLanguageMemory";
@@ -154,8 +160,13 @@ const goodReply = () => ({
   // (2026-09-17, lib/sales/playbook/recordingDisclosure.js); a reply
   // without it is woven on validation, so the fixture carries it verbatim.
   opener: "Hi — is this the owner of Richmond Rolloff Container Service? This is Sam from FieldQuo — quick heads-up, this call may be recorded. I had a look at your website before calling.",
+  // Version 3: the line for whoever else picks up.
+  ifSomeoneElseAnswers: "No problem, it's Sam from FieldQuo. Is it the owner who prices the bins, or is that you? When's he easiest to catch, first thing or the end of the day?",
   whatWeSaw: ["There is a contact form on the site.", "There is no way to book a bin online.", "Quotes are by phone only."],
-  whyThemNow: "Homeowners who want a bin this weekend book with whoever lets them do it without a call. Your site asks them to phone. That is the gap worth a conversation.",
+  // Version 3: the pitch is sixty to a hundred and ten words — Gong's
+  // thirty-seven-second burst. The v2 fixture's three sentences were the
+  // under-twenty-five-second pitch the data says halves the odds.
+  whyThemNow: "Homeowners who want a bin this weekend book with whoever lets them do it without a call. Your site asks them to phone, so the ones who look at nine at night wait until the morning, and some of them have already rung somebody else by then. We put a way to book on the site you've already got, and the slot lands in your calendar with the address on it. That's the gap I'd like fifteen minutes to show you.",
   threeQuestions: ["How do most bin requests reach you today?", "Who answers when the phone rings on a Saturday?", "Do you read your reviews anywhere?"],
   objections: [
     { they: "We already use Jobber.", you: "That is fine — the question is whether a homeowner can book without calling you." },
@@ -349,8 +360,18 @@ section("2. What the model is shown, and what it may answer");
   ok(`a list line past ${CALL_SCRIPT_LIMITS.sentence} characters is refused`, validateCallScript({ ...goodReply(), whatWeSaw: ["x".repeat(400)] }).problems.includes("too_long"));
   // 17 of the first 73 paid scripts were thrown away here: a three-sentence
   // whyThemNow is longer than one line, and the prompt asked for three.
-  ok(`a spoken paragraph may run to ${CALL_SCRIPT_LIMITS.paragraph}`, validateCallScript({ ...goodReply(), whyThemNow: "Word ".repeat(120).trim() }).ok);
-  ok("…but not past it", validateCallScript({ ...goodReply(), whyThemNow: "x".repeat(CALL_SCRIPT_LIMITS.paragraph + 1) }).problems.includes("too_long"));
+  ok(`a spoken paragraph may run to ${CALL_SCRIPT_LIMITS.paragraph}`, validateCallScript({ ...goodReply(), closeAsk: "Word ".repeat(120).trim() }).ok);
+  ok("…but not past it", validateCallScript({ ...goodReply(), closeAsk: "x".repeat(CALL_SCRIPT_LIMITS.paragraph + 1) }).problems.includes("too_long"));
+  // ── Version 3: the pitch has a floor, and the opener has to say FieldQuo ──
+  ok(`a pitch under ${CALL_SCRIPT_LIMITS.pitchWords.min} words is refused as pitch_length`, validateCallScript({ ...goodReply(), whyThemNow: "Your site asks them to phone. That is the gap worth a conversation." }).problems.includes("pitch_length"));
+  ok(`…and one over ${CALL_SCRIPT_LIMITS.pitchWords.max}`, validateCallScript({ ...goodReply(), whyThemNow: "Word ".repeat(CALL_SCRIPT_LIMITS.pitchWords.max + 1).trim() }).problems.includes("pitch_length"));
+  ok("…the fixture's pitch is inside the band", pitchWordCount(goodReply().whyThemNow) >= CALL_SCRIPT_LIMITS.pitchWords.min && pitchWordCount(goodReply().whyThemNow) <= CALL_SCRIPT_LIMITS.pitchWords.max, pitchWordCount(goodReply().whyThemNow));
+  ok("…and the stored v2 script for a real prospect would have been refused on it", pitchWordCount("More booked jobs come from letting a homeowner pick a visit slot on your site the moment they want you. Your site invites contact with a Get a Quote prompt but it does not let someone lock a diary slot there and then, so leads can slip away.") < CALL_SCRIPT_LIMITS.pitchWords.min);
+  ok("an opener with no FieldQuo in it is refused as no_company", validateCallScript({ ...goodReply(), opener: "Hi — is that SE-ME Roofing? My name's Muhammad and I went through your website." }).problems.includes("no_company"));
+  ok("…which is the first live v2 opener, word for word", validateCallScript({ ...goodReply(), opener: "Hi — is that SE-ME Roofing? My name's Muhammad and I went through your website. I noticed you say you're fully licensed and insured and that can help bring in more clients who need a roofer they can trust. Do you have a few minutes so I can show you how?" }).problems.includes("no_company"));
+  ok("…and the retry note says so in words", /has to say FieldQuo/.test(validationRetryNote(validateCallScript({ ...goodReply(), opener: "Hi, Sam here." }))));
+  ok("ifSomeoneElseAnswers is validated as a spoken paragraph — a digit in it refuses the script", validateCallScript({ ...goodReply(), ifSomeoneElseAnswers: "Is Mike about? He said 5pm." }).problems.includes("digits"));
+  ok("…and a v2-shaped reply with none is still readable by the fixtures", validateCallScript({ ...goodReply(), ifSomeoneElseAnswers: undefined }).ok);
   ok("an objection's answer is a paragraph; what they say is a line",
     validateCallScript({ ...goodReply(), objections: [{ they: "No.", you: "Word ".repeat(100).trim() }, goodReply().objections[1]] }).ok &&
     !validateCallScript({ ...goodReply(), objections: [{ they: "Word ".repeat(100).trim(), you: "Fine." }, goodReply().objections[1]] }).ok);
@@ -513,7 +534,8 @@ section("4. The route reads it and the screen draws it above the rules — only 
   ok("…drawn only when the route returned one", /\{data\.callScript \? \(\s*layout === "console" \? \(\s*<ConsoleScript script=\{data\.callScript\}[\s\S]{0,120}<AiScript script=\{data\.callScript\}/.test(draw));
   ok("…above the stages", draw.indexOf("<AiScript") < draw.indexOf("{stage ? ("));
   ok("…and the stages and the objection rail still render below", draw.indexOf("{stage ? (") > 0 && /ifTheyPushBack/.test(draw) && /objectionsToShow/.test(draw));
-  ok("…every section of the shape is printed", ["opener", "whatWeSaw", "whyThemNow", "threeQuestions", "objections", "closeAsk", "doNotSay"].every((k) => new RegExp(`script\\.${k}`).test(draw)));
+  ok("…every section of the shape is printed", ["opener", "ifSomeoneElseAnswers", "whatWeSaw", "whyThemNow", "threeQuestions", "objections", "closeAsk", "doNotSay"].every((k) => new RegExp(`script\\.${k}`).test(draw)));
+  ok("…the gatekeeper line only when the script has one — a v2 row draws nothing for it", /\{script\.ifSomeoneElseAnswers \? \(/.test(draw) && /text: script\.ifSomeoneElseAnswers \|\| null/.test(draw));
   ok("…the crawl date sentence, and the no-crawl sentence", /aiScriptGenerated"/.test(draw) && /aiScriptGeneratedNoCrawl/.test(draw));
   ok("…headings are keyed, sentences are not", /t\("app\.salesCall\.aiScriptOpener"\)/.test(draw) && /\{script\.opener\}/.test(draw));
   ok("…and the block says the rules below are the same on every call", /aiScriptRulesBelow/.test(draw));
@@ -549,7 +571,13 @@ section("5. What it costs — from a real prompt, at the model's price");
   ok("the model has a checked price", hasKnownPricing(model));
   console.log(`  prompt ${prompt.length} chars ≈ ${promptTokens} tokens; completion ≈ ${completionTokens} tokens; ${model} at $${perM("in")}/M in, $${perM("out")}/M out`);
   console.log(`  ≈ $${perScript.toFixed(5)} per script; × 4,000 claims a day (100 per rep × 40 reps) ≈ $${perDay.toFixed(2)} a day`);
-  ok("the prompt stays under two thousand tokens", promptTokens < 2000, promptTokens);
+  // Three thousand, not two: version 3's instructions (2026-09-17) are
+  // about eight hundred tokens longer than version 2's — the opener's four
+  // beats, the pitch's shape, the objection shape, the gatekeeper line, the
+  // bans by name — and that is the owner's ask ("better AI instructions").
+  // Measured: 2,524 tokens, a tenth of a cent a script, $4.45 a day at four
+  // thousand claims. The dollar bounds below are unchanged and still hold.
+  ok("the prompt stays under three thousand tokens", promptTokens < 3000, promptTokens);
   ok("a script costs well under a cent", perScript < 0.01, perScript);
   ok("four thousand a day is under ten dollars", perDay < 10, perDay);
 }
@@ -588,10 +616,10 @@ const MODEL_OPENER =
   "Is this a good time?";
 
 {
-  ok("the prompt version moved to 2", CALL_SCRIPT_VERSION === "2");
+  ok("the prompt version moved to 3 (2026-09-17: the shape the call data favours — see the file header)", CALL_SCRIPT_VERSION === "3");
   const inputs = callScriptInputs(fixtureInputs());
-  ok("…and the version is inside the hashed inputs, so every stored v1 script regenerates on its next open",
-    inputs.version === "2" && callScriptInputHash(inputs) !== callScriptInputHash({ ...inputs, version: "1" }));
+  ok("…and the version is inside the hashed inputs, so every stored v2 script regenerates on its next open",
+    inputs.version === "3" && callScriptInputHash(inputs) !== callScriptInputHash({ ...inputs, version: "2" }));
   ok("a stored v1 script is not current, whatever its hash",
     !callScriptCurrent({ inputHash: callScriptInputHash(inputs), promptVersion: "1" }, { inputHash: callScriptInputHash(inputs) }));
 
@@ -678,7 +706,7 @@ const MODEL_OPENER =
   const cited = {
     ...goodReply(),
     opener: "Hi — is that Richmond Rolloff? My name's Dana and I'm from FieldQuo. I saw on your site that it's family owned and run by Mike and Dana Sousa.",
-    whyThemNow: "You do same-day bin delivery, and the site still asks people to phone for it. That's the gap I wanted to show you.",
+    whyThemNow: "You do same-day bin delivery, and the site still asks people to phone for it. So the homeowner who finds you at nine at night waits until the morning, and by then a few of them have already rung somebody else. We put a way to book on the site you've already got, and the delivery slot lands in your calendar with the address on it. That's the gap I'd like fifteen minutes to show you.",
     citations: [
       { field: "opener", quote: "Family owned since 1998, Richmond Rolloff is run by Mike and Dana Sousa", sourceUrl: "https://x.example/about-us" },
       { field: "whyThemNow", quote: "Same-day bin delivery", sourceUrl: "https://x.example/services" },
@@ -706,7 +734,7 @@ const MODEL_OPENER =
     ok("a first draft that fails the lint is asked for once more", prompts.length === 2 && res.done === true, res);
     ok("…with the failing sentences quoted back", /YOUR PREVIOUS DRAFT DID NOT SOUND LIKE A PERSON/.test(prompts[1]) && /rather than/.test(prompts[1]));
     ok("…both calls metered, the retry under its own ref", db.__rows.platformAiUsage.length === 2 && db.__rows.platformAiUsage[1].ref === "v2-a:retry", db.__rows.platformAiUsage.map((u) => u.ref));
-    ok("…the second draft stored, with its citations and version 2", db.__rows.prospectCallScript[0]?.script.citations.length === 2 && db.__rows.prospectCallScript[0].promptVersion === "2");
+    ok("…the second draft stored, with its citations and the current version", db.__rows.prospectCallScript[0]?.script.citations.length === 2 && db.__rows.prospectCallScript[0].promptVersion === CALL_SCRIPT_VERSION);
     ok("…and the note says it was the second draft and what it cites", /second draft/.test(res.note) && /cites 2 detail/.test(res.note), res.note);
   }
   {
@@ -765,8 +793,11 @@ const MODEL_OPENER =
   const perScript = micros / 1_000_000;
   const plain = Math.ceil((prompt.length + 400) / 4);
   console.log(`  v2 prompt with the site read: ${richPrompt.length} chars ≈ ${promptTokens} tokens (v1-shaped prompt ≈ ${plain}; the page text adds ≈ ${promptTokens - plain}); ≈ $${perScript.toFixed(5)} per script, $${(perScript * 2).toFixed(5)} when the lint asks for a second draft`);
-  console.log(`  regenerating every stored script once at the new version: 101 rows × $${perScript.toFixed(5)} ≈ $${(perScript * 101).toFixed(2)} (up to $${(perScript * 101 * 2).toFixed(2)} if every one needs the retry)`);
-  ok("the v2 prompt with the site read stays under four thousand tokens", promptTokens < 4000, promptTokens);
+  console.log(`  regenerating every stored script once at the new version: 603 rows × $${perScript.toFixed(5)} ≈ $${(perScript * 603).toFixed(2)} (up to $${(perScript * 603 * 2).toFixed(2)} if every one needs the retry)`);
+  // Five thousand at version 3 (see section 5): 4,211 measured, still
+  // $0.0014 a script. The six hundred stored rows that regenerate at the
+  // new version are under a dollar even if every one needs the retry.
+  ok("the prompt with the site read stays under five thousand tokens", promptTokens < 5000, promptTokens);
   ok("…and a script still costs well under a cent", perScript < 0.01, perScript);
 }
 
@@ -832,14 +863,14 @@ section("8. Three languages — English, French, Spanish");
 
   // ── Citations across languages: the quote is verbatim, the overlap is not pretended ─
   const material = [{ url: "https://x.example/about", text: "Family owned since 1998, Richmond Rolloff is run by Mike and Dana Sousa. We answer the phone ourselves." }];
-  const frScript = { ...goodReply(), opener: "Bonjour — c'est bien Richmond Rolloff? Je m'appelle Dana et je suis chez FieldQuo — petite précision, cet appel peut être enregistré. J'ai vu sur votre site que c'est une entreprise familiale.", whyThemNow: "Vous répondez au téléphone vous-mêmes, et le site demande encore aux gens d'appeler. C'est ça que je veux vous montrer.", closeAsk: "Est-ce que je peux vous montrer ça en quinze minutes? Qu'est-ce qui vous convient le mieux, le matin ou l'après-midi?", threeQuestions: ["Comment les demandes arrivent-elles aujourd'hui?", "Qui répond quand vous êtes sur un chantier?", "Est-ce que vous lisez vos avis quelque part?"], objections: [{ they: "On utilise déjà Jobber.", you: "C'est correct. La question, c'est si un client peut réserver sans vous appeler." }, { they: "Envoyez-moi un courriel.", you: "Avec plaisir. Qu'est-ce qui vaudrait la peine d'être ouvert?" }], whatWeSaw: ["Il y a un formulaire de contact sur le site.", "Il n'y a pas de façon de réserver en ligne."], doNotSay: ["Ne parlez pas de leurs avis — rien n'a été regardé."], citations: [{ field: "opener", quote: "Family owned since 1998", sourceUrl: "https://x.example/about" }, { field: "whyThemNow", quote: "We answer the phone ourselves", sourceUrl: "https://x.example/about" }] };
+  const frScript = { ...goodReply(), opener: "Bonjour — c'est bien Richmond Rolloff? Je m'appelle Dana et je suis chez FieldQuo — petite précision, cet appel peut être enregistré. J'ai vu sur votre site que c'est une entreprise familiale.", whyThemNow: "Vous répondez au téléphone vous-mêmes, et le site demande encore aux gens d'appeler. Le client qui regarde votre site à neuf heures le soir attend donc au lendemain, et pendant ce temps-là il a souvent déjà appelé quelqu'un d'autre. Avec nous, il réserve son conteneur directement sur le site que vous avez déjà, et le rendez-vous tombe dans votre calendrier avec l'adresse. C'est ça que je veux vous montrer en quinze minutes.", ifSomeoneElseAnswers: "Pas de problème, c'est Dana de FieldQuo. Est-ce que c'est le propriétaire qui fait les prix, ou c'est vous? Il est plus facile à joindre le matin ou en fin de journée?", closeAsk: "Est-ce que je peux vous montrer ça en quinze minutes? Qu'est-ce qui vous convient le mieux, le matin ou l'après-midi?", threeQuestions: ["Comment les demandes arrivent-elles aujourd'hui?", "Qui répond quand vous êtes sur un chantier?", "Est-ce que vous lisez vos avis quelque part?"], objections: [{ they: "On utilise déjà Jobber.", you: "C'est correct. La question, c'est si un client peut réserver sans vous appeler." }, { they: "Envoyez-moi un courriel.", you: "Avec plaisir. Qu'est-ce qui vaudrait la peine d'être ouvert?" }], whatWeSaw: ["Il y a un formulaire de contact sur le site.", "Il n'y a pas de façon de réserver en ligne."], doNotSay: ["Ne parlez pas de leurs avis — rien n'a été regardé."], citations: [{ field: "opener", quote: "Family owned since 1998", sourceUrl: "https://x.example/about" }, { field: "whyThemNow", quote: "We answer the phone ourselves", sourceUrl: "https://x.example/about" }] };
   const frLint = voiceLint(frScript, { sources: material, language: "fr" });
   ok("a French script citing English words verbatim passes — the quote is the site's, unchanged", frLint.ok, frLint.findings);
   ok("…a translated quote — not in the material — still fails", voiceLint({ ...frScript, citations: [{ field: "opener", quote: "entreprise familiale depuis 1998", sourceUrl: "x" }, frScript.citations[1]] }, { sources: material, language: "fr" }).problems.includes("citation_not_in_source"));
   ok("…and no citation at all still fails", voiceLint({ ...frScript, citations: [] }, { sources: material, language: "fr" }).problems.includes("no_citation"));
   ok("in English the shared-word half still applies (the French script read as English fails on it)", !voiceLint(frScript, { sources: material, language: "en" }).ok);
 
-  const esScript = { ...goodReply(), opener: "Hola, ¿hablo con Richmond Rolloff? Me llamo Dana y soy de FieldQuo. Vi en su sitio que es un negocio familiar.", whyThemNow: "Ustedes contestan el teléfono personalmente, y el sitio todavía le pide a la gente que llame. Eso es lo que quiero mostrarle.", closeAsk: "¿Le puedo mostrar en quince minutos cómo funciona para un negocio como el suyo? ¿Qué le conviene más, las mañanas o las tardes?", threeQuestions: ["¿Cómo le llegan los pedidos hoy?", "¿Quién contesta cuando usted está en una obra?", "¿Lee sus reseñas en algún lado?"], objections: [{ they: "Ya usamos Jobber.", you: "Está bien. La pregunta es si un cliente puede reservar sin llamarle." }, { they: "Mándeme un correo.", you: "Con gusto. ¿Qué haría que valiera la pena abrirlo?" }], whatWeSaw: ["Hay un formulario de contacto en el sitio.", "No hay forma de reservar en línea."], doNotSay: ["No mencione sus reseñas: nadie las revisó."], citations: [{ field: "opener", quote: "Family owned since 1998", sourceUrl: "https://x.example/about" }, { field: "whyThemNow", quote: "We answer the phone ourselves", sourceUrl: "https://x.example/about" }] };
+  const esScript = { ...goodReply(), opener: "Hola, ¿hablo con Richmond Rolloff? Me llamo Dana y soy de FieldQuo. Vi en su sitio que es un negocio familiar.", whyThemNow: "Ustedes contestan el teléfono personalmente, y el sitio todavía le pide a la gente que llame. El cliente que mira su sitio a las nueve de la noche espera hasta la mañana, y para entonces muchas veces ya llamó a otra persona. Con nosotros reserva el contenedor directamente en el sitio que ya tienen, y la cita cae en su calendario con la dirección. Eso es lo que quiero mostrarle en quince minutos.", ifSomeoneElseAnswers: "No hay problema, soy Dana de FieldQuo. ¿Es el dueño quien pone los precios, o es usted? ¿Cuándo es más fácil encontrarlo, a primera hora o al final del día?", closeAsk: "¿Le puedo mostrar en quince minutos cómo funciona para un negocio como el suyo? ¿Qué le conviene más, las mañanas o las tardes?", threeQuestions: ["¿Cómo le llegan los pedidos hoy?", "¿Quién contesta cuando usted está en una obra?", "¿Lee sus reseñas en algún lado?"], objections: [{ they: "Ya usamos Jobber.", you: "Está bien. La pregunta es si un cliente puede reservar sin llamarle." }, { they: "Mándeme un correo.", you: "Con gusto. ¿Qué haría que valiera la pena abrirlo?" }], whatWeSaw: ["Hay un formulario de contacto en el sitio.", "No hay forma de reservar en línea."], doNotSay: ["No mencione sus reseñas: nadie las revisó."], citations: [{ field: "opener", quote: "Family owned since 1998", sourceUrl: "https://x.example/about" }, { field: "whyThemNow", quote: "We answer the phone ourselves", sourceUrl: "https://x.example/about" }] };
   const esLint = voiceLint(esScript, { sources: material, language: "es" });
   ok("a Spanish script passes the Spanish lint the same way", esLint.ok, esLint.findings);
 
@@ -927,6 +958,88 @@ section("8. Three languages — English, French, Spanish");
     }
     ok("the rules-below sentence no longer says the script is English", !/aiScriptRulesBelow": "Written in English/.test(catalogue));
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("9. Version 3 — the shape the call data favours (2026-09-17)");
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// docs/sales/RESEARCH-cold-calling-2026.md reads Gong's 100k- and 300M-call
+// analyses, Cognism's guides and SurveySensum's questions piece against the
+// v2 prompt and lists what changed. This section pins the changes: the
+// example carries the four beats, the prompt states each new rule, the
+// validator holds the pitch to the band and the opener to the company name,
+// and the voice lint refuses a banned move in a generated sentence.
+{
+  const inputs = callScriptInputs(fixtureInputs());
+  const prompt = callScriptPrompt(inputs);
+  const ex = CALL_SCRIPT_STYLE_EXAMPLE;
+
+  // ── The example: the owner's register, the data's shape ────────────────
+  ok("the example still says the owner's sentence — name, FieldQuo, the recording aside in the same breath", /My name's Daniel and I'm from FieldQuo — quick heads-up, this call may be recorded\./.test(ex));
+  ok("…owns that it is a cold call (Gong's permission opener, Cognism's 'well-researched' line)", /this is a cold call, but I've read your website/.test(ex));
+  ok(`…states the reason with "${CALL_SCRIPT_REASON_LINE}" on a detail from the site`, ex.includes(CALL_SCRIPT_REASON_LINE) && /promises a same-day quote/.test(ex));
+  ok("…asks for thirty seconds and hands the decision back", /Can I take thirty seconds/.test(ex) && /then you tell me if it's worth talking\?$/.test(ex));
+  ok("…and makes no banned move — the bad-time question, the time promise, the yes/no opener", bannedMovesIn(ex).length === 0, bannedMovesIn(ex));
+  ok("…every sentence under thirty words with a verb in it", voiceLint({ opener: ex }).ok && longSentences({ opener: ex }).length === 0, longSentences({ opener: ex }));
+  ok("…and it says FieldQuo, so it passes its own company rule", validateCallScript({ ...goodReply(), opener: ex }).ok);
+  ok("…in under seventy words after the business's name", wordCount(ex.replace(/^Hi — is that South County Electric, LLC\? /, "")) < 70, wordCount(ex));
+
+  // ── The prompt states each rule the data added ─────────────────────────
+  for (const [what, re] of [
+    ["the four beats of the opener, in order", /First: is that the business, the rep's first name, FieldQuo[\s\S]*Second: own it — this is a cold call[\s\S]*Third: "The reason I'm calling is[\s\S]*Fourth: ask for thirty seconds/],
+    ["the opener bans, by name", new RegExp(CALL_SCRIPT_OPENER_BANS.map((b) => b.replace(/'/g, "'")).join("[\\s\\S]*"))],
+    ["no 'how are you'", /Do not ask how they are/],
+    ["the pitch band in words, and why", new RegExp(`Between ${CALL_SCRIPT_LIMITS.pitchWords.min} and ${CALL_SCRIPT_LIMITS.pitchWords.max} words`)],
+    ["…said in one go, about thirty-five seconds", /said without stopping: that is about thirty-five seconds/],
+    ["problem language in the trade's own words", /the evening at the kitchen table, the enquiry that went cold while they were on a roof/],
+    ["sell the fifteen minutes, not the product", /It ends by selling the fifteen minutes, not the product/],
+    ["leading questions with the answers in them, after the pitch", /asked AFTER the pitch[\s\S]*leading question with two or three answers in it/],
+    ["never an open 'how do you…'", /Never an open "how do you…"/],
+    ["the objection shape: acknowledge, clarify, answer, check, next step", /acknowledge what they said in one clause; where the objection is vague, one short clarifying question; the library's answer; a check that it landed/],
+    ["the two commonest brush-offs always written", /"I'm busy" and "not interested"/],
+    ["never 'I'll be quick, I promise'", /Never "I'll be quick, I promise"/],
+    ["the close sells the meeting: cost, get, do", /what it costs him \(fifteen minutes on a screen, nothing to set up\), what he gets[\s\S]*what he has to do/],
+    ["…and gets the invite sent while they are still on the phone", /Have you got your calendar handy\? I'll send the invite while we're on the phone\./],
+    ["the gatekeeper line: apprentice, office, spouse", /- ifSomeoneElseAnswers:[\s\S]*the apprentice with the phone on speaker in the van, the office, the spouse who does the paperwork/],
+    ["…asks by first name when inferred, never claims he is expecting the call", /ask for the owner by first name when WHAT WE INFERRED gives one[\s\S]*Never say the owner is expecting the call, never say you're following up on an email/],
+    ["…and treats the person who writes the quotes as the right person", /If the person who answered writes the quotes up, they are the right person/],
+    ["we and our for the product, I for the ask", /Say we and our for what FieldQuo does[\s\S]*Say I for what the rep asks/],
+    ["no buzzwords, with the list", /No buzzwords, ever: not all-in-one, not platform, not solution, not seamless, not game-changer, not single source of truth/],
+    ["no other customer, no counts", /No other customer, no "contractors like you", no counts of anybody/],
+    ["no promise about the rep's own time", /No promise about the rep's own time/],
+    ["FieldQuo required in the opener", /An opener that does not say FieldQuo is refused/],
+    ["the job of the call, in the system prompt", /earn fifteen minutes on a screen\. Not to close, not to price, not to run a discovery session/.test(CALL_SCRIPT_SYSTEM) ? /./ : /never/],
+  ]) {
+    ok(`the prompt states ${what}`, re.test(prompt), what);
+  }
+  ok("the schema requires the gatekeeper line and stays strict", callScriptSchema().required.includes("ifSomeoneElseAnswers") && assertStrictSchema(callScriptSchema()).ok);
+
+  // ── The two brush-offs reach the model whatever the library's order ────
+  {
+    const library = objectionsForProspect({ objections: seedObjections(), index: {} });
+    const shown = callScriptInputs({ ...fixtureInputs(), objections: library }).objections;
+    ok(`the model is shown ${CALL_SCRIPT_INPUT_LIMITS.objections} objections from a library of ${library.length}`, shown.length === CALL_SCRIPT_INPUT_LIMITS.objections, shown.length);
+    ok("…'I'm busy' and 'not interested' first, though 'not interested' is priority fifty on the rep's panel", /^I'm busy/.test(shown[0]) && /^Not interested/.test(shown[1]), shown.slice(0, 2));
+    ok("…and the library's own order after them", /^We already use/.test(shown[2]), shown[2]);
+    ok("…without either being shown twice", shown.filter((l) => /^Not interested/.test(l)).length === 1);
+    ok("…and a library without them is simply shown in its own order", callScriptInputs({ ...fixtureInputs() }).objections.length === 2);
+  }
+
+  // ── Rule 8: the voice lint runs the banned-moves table over the script ──
+  const badTime = voiceLint({ ...goodReply(), opener: "Hi — is that Richmond Rolloff? My name's Sam and I'm from FieldQuo. Did I catch you at a bad time?" });
+  ok("a generated opener that asks 'did I catch you at a bad time' fails the voice lint on banned_move", badTime.problems.includes("banned_move"), badTime.problems);
+  ok("…with the move named on the finding", badTime.findings.some((f) => f.problems.includes("banned_move") && f.moves?.includes("bad-time question")), badTime.findings);
+  ok("…and quoted back on the retry with the move in brackets", /bad-time question/.test(voiceRetryNote(badTime)) && /No banned move/.test(voiceRetryNote(badTime)));
+  ok("a pitch built on buzzwords fails the same way", voiceLint({ ...goodReply(), whyThemNow: `${goodReply().whyThemNow} We're an all-in-one platform.` }).findings.some((f) => f.moves?.includes("buzzword")));
+  ok("a time promise in an objection answer fails", voiceLint({ ...goodReply(), objections: [{ they: "I'm busy.", you: "I'll be quick, I promise." }, goodReply().objections[1]] }).problems.includes("banned_move"));
+  ok("…but the PROSPECT's sentence is exempt — 'are you busy?' is something a rep is told", voiceLint({ ...goodReply(), objections: [{ they: "Are you busy? Did I catch you at a bad time?", you: "Not at all, and I'll say why I rang in one sentence." }, goodReply().objections[1]] }).ok);
+  ok("…and so is doNotSay, which may quote a banned line as a don't", voiceLint({ ...goodReply(), doNotSay: ["Never say 'did I catch you at a bad time'."] }).ok);
+  ok("the fixture itself makes no banned move", voiceLint(goodReply()).ok, voiceLint(goodReply()).findings);
+  ok("the gatekeeper line is a spoken field — a fragment in it is refused", voiceLint({ ...goodReply(), ifSomeoneElseAnswers: "The owner, first thing." }).problems.includes("no_finite_verb"));
+  ok("the buzzword move is in the shared table with Gong's number", BANNED_MOVES.some((b) => b.move === "buzzword" && /5\.5%/.test(b.why) && /16%/.test(b.why)));
+  ok("…and 'seamless' alone is not in it — it is a business's name", bannedMovesIn("Hi — is that Liberty Seamless Gutters?").length === 0 && bannedMovesIn("It all works seamlessly.").includes("buzzword"));
+  ok("the bad-time entry now carries Gong's 2.15% against 11.18%", BANNED_MOVES.some((b) => b.move === "bad-time question" && /2\.15%/.test(b.why) && /11\.18%/.test(b.why)));
 }
 
 console.log(`\n${pass} checks, ${failures.length} failure(s).`);

@@ -91,6 +91,69 @@ the Calling windows page. Until then the picker shows "A phone" only if
 
 ---
 
+---
+
+## The cold-call scripts against the call data: prompt version 3, four objections, a real gatekeeper (17 September 2026)
+
+**What**: the owner handed over Gong's cold-call research (100k calls, 2019;
+300M, 2024), Cognism's script, objection and gatekeeper guides, the Close
+template and SurveySensum's questions piece, and asked that the scripts —
+and above all the model prompt — reflect what the data says.
+`docs/sales/RESEARCH-cold-calling-2026.md` reads every source with
+page/section references, says what is a measurement and what is opinion,
+what survives the trip to a contractor's van, where it contradicts the
+playbook, and the sixteen decisions taken. `docs/sales/SCRIPT-PRINCIPLES.md`
+§16 carries the decisions against the textbook sections.
+
+**The prompt** (`lib/sales/intel/callScript.js`, `CALL_SCRIPT_VERSION` 3 —
+every stored script regenerates on its next open, ~600 rows at under a cent):
+the example opener keeps the owner's sentence and adds the data's shape —
+own that it is a cold call (Gong's permission opener, 11.18% against 2.15%
+for "bad time"), "the reason I'm calling is…" on a cited detail (2.1x),
+thirty seconds asked for with the decision handed back; `whyThemNow` is a
+60–110-word pitch validated by word count (Gong's thirty-seven-second burst;
+the first live v2 scripts wrote forty-five words); questions are leading
+with the answers in them, after the pitch; objections follow acknowledge →
+clarify → answer → check → next step and always include "I'm busy" and "not
+interested" (`CALL_SCRIPT_ALWAYS_OBJECTIONS`, shown to the model whatever
+the panel's priority); the close asks for the calendar and sends the invite
+on the line; a new `ifSomeoneElseAnswers` field for the apprentice, the
+office or the spouse, drawn on both call layouts under a heading in nine
+languages; "we/our" for the product, "I" for the ask; buzzwords banned by
+name; the opener must say FieldQuo (`no_company` — the first live v2 script
+had dropped it). `scriptVoice.js` rule 8 runs `bannedMovesIn` over every
+spoken sentence of a generated script, the prospect's own lines and
+`doNotSay` excepted, and quotes the move on the retry.
+
+**The seeds**: `CLOSE_ASK` gains "Have you got your calendar handy? I'll
+send the invite while we're on the phone" (the call panel's next-step form
+does exactly that); four playbook fingerprints retired in `seedHistory.js`
+so "refresh the built-ins" reaches live rows. Four objections added —
+`IM_BUSY_RIGHT_NOW`, `WRONG_PERSON`, `IS_THIS_A_SALES_CALL`,
+`NEVER_HEARD_OF_YOU` — in the owner's register, with Cognism's "I promise
+I'll be quick" and "this isn't a sales call" refused by name. The gatekeeper
+moment now asks "is that the owner, or is that you?", has lines for the
+apprentice (get the owner's name, honestly) and for the office or the spouse
+(are you the one typing the quotes up?), and notes Gong's −39%. A `buzzword`
+banned move (5.5% vs 16% for problem language; "seamless" alone excluded —
+it is in business names). "How've you been?" is neither adopted nor banned,
+with the reason written down.
+
+**Not done, flagged**: the twenty older objection answers are still in the
+expanded register ("I am not going to") while the prompt bans it; the QA
+scorecard (`lib/sales/calls/qa.js`, another agent's) should move its talk
+band to ~0.45–0.65 for cold calls, measure the longest rep burst, time the
+reason, count objections handled, and read the calendar question — §8 of
+the research doc. `check:playbook-voice` has one pre-existing failure on
+`origin/main` (the leads route's email copy), not from this change.
+
+- Checks: `check:call-script` (368, was 317: §9 pins the example's four
+  beats, every new rule in the prompt, the pitch band, `no_company`, rule 8
+  with the `they`/`doNotSay` exemptions, the always-shown objections);
+  `check:playbook-copy` (735, was 646: twenty-four seeds, the buzzword
+  detector fired at Gong's own sentence, the calendar close, the gatekeeper's
+  three people, the research doc's figures by value). Token bounds raised
+  to 3,000 / 5,000 with the measured cost beside them.
 ## Google Places corroborates every claimed lead: website, phone and trading status confirmed or contradicted in words (18 September 2026)
 
 DRAIN KINGS (Chatsworth, from the CSLB C-36 register) read "Website: none on
@@ -2419,7 +2482,8 @@ as history) and approved the fourth: TWO columns. `/sales/queue` now is:
   sentence the model did not write) and the Contact tab the inferred owner
   with the sentence it was read from, the last five attempts, and the
   callbacks and check-in drafts due (Tasks).
-- **The incoming call** is a drawer from under the top bar
+- **The incoming call** is a drawer from under the top bar — *superseded
+  2026-09-17 by an alert dialog; see "The incoming call is an alert dialog"*
   (`IncomingCallDock.js`, name kept): business · number · "Claimed by you"
   from the same matcher the webhook runs (`/api/sales/calls/caller`), Pick up,
   Decline; translateY, reduced motion honoured. Picked up, the call's controls
@@ -13568,3 +13632,92 @@ number on two records he tested with earlier — "Urban Valet Cleaners
 Corporate Offices" (NY) and "ACME LOCK & SAFE" (CA) — which he removes by
 hand; nothing was deleted here. `check:sales-retry-pool`'s "retry_but_shut"
 assertion fails on main before this work and still does; not touched.
+
+## The incoming call is an alert dialog (17 September 2026, late)
+
+**The owner rang his own number back and never saw a way to pick up.** The
+2026-09-11 top drawer slid in under the top bar and, on the screen he was
+on, read as part of the page. His instruction, superseding the drawer: an
+incoming call must appear as an **alert dialog** — shadcn's alert-dialog
+shape, "like a dialog if they are available": centred over a scrim, cannot
+be dismissed by clicking outside, focus trapped, two clear actions.
+
+**One modal primitive, not two copies.** `app/components/AlertDialog.js` —
+scrim, centred card, `aria-modal`, `aria-labelledby` / `aria-describedby`
+from props, focus to `initialFocusRef` (else the first focusable), Tab and
+Shift+Tab wrapped inside the card (measured per keypress, not cached),
+focus returned on close, portalled to `document.body`. `onEscape` and
+`onScrim` are both optional and both default to NOTHING — the safe
+direction, so a ring cannot become dismissable the day somebody forgets to
+opt out. `AvailableReminder.js` now renders through it with its own
+decisions as props (OK for Escape and the scrim, the bottom-sheet placement
+it shipped with) and lost its private copy of the trap.
+
+**The ring.** `IncomingCallDock.js` (name kept — five headers and the checks
+know it) renders `<AlertDialog role="alertdialog">`: labelled "Incoming
+call", described by the caller line (business from `/api/sales/calls/
+caller` · number, then "Claimed by you · Rang your number (405) 555-0999"),
+a ring clock ("Ringing for 12s", `app.salesDial.ringingFor`, nine
+languages), **Pick up** focused the moment the card opens (Enter answers)
+and **Decline**, both 52px, full width on a phone inside 16px gutters,
+row-reversed from `sm` with Pick up on the right. No Escape, no click-
+outside: Decline is a button with a name. `z-[80]`, above the tour
+(`z-[60]`) and the Off reminder (`z-[65]`); the reminder closes itself when
+a ring lands because `shouldRemind()` answers no on `inboundRinging`
+(verified in the harness: reminder up, `__ring()`, one `aria-modal` left,
+focus on Pick up). The slide state (`mounted` / `down` / `SLIDE_MS`) is
+gone. Everything after Pick up is byte-for-byte the previous flow: the
+call is drawn in the Dialer card's live-call slot when the console is
+open; on any other screen it collapses to a fixed strip under the top bar
+(`data-incoming-live-strip`, `z-[70]`, not a modal — a rep on a call must
+keep the page usable and must always be able to hang up); the answered
+POST, the transfer control, the ledger transitions, the in-place write-up
+("They called you back from…", once per attempt) are untouched. Ring sound
+and browser notification as before: the Voice SDK plays the incoming tone,
+`notify()` with `quietWhenFocused` covers a background tab.
+
+**Where the dialog may send the rep (the owner's addition, same night).**
+Beside Pick up and Decline, links that work while it rings AND after
+pick-up — **Open the company** and **Notes** — plus the city. Decided on
+the server: `lib/sales/calls/callerLinks.js` (pure) takes the matcher's
+answer and the rows the caller route read and returns `open`, `notes`,
+`save`, `city`, `province`; `/api/sales/calls/caller` now selects the
+claim's three terms (`assignedRepId`, `mergedIntoId`, `claimExpiresAt` —
+queueWhere's) and the place, and answers with those. A rep holding a LIVE
+claim gets the console (`/sales/queue?prospectId=…`, and `&tab=notes` —
+the console reads `?tab=` for any PANEL_TABS key, over the autodial
+default); their own SalesLead gets the lead page and `#lead-notes` (an id
+on its notes block); a business another rep holds gets its name, "Held by
+<rep>" and NO link (a lapsed or merged claim of their own too); a number
+that matched nobody prints "Not one of your leads" and **Save as a new
+lead** → `/sales/leads?new=1&phone=…`, which opens the add form with the
+number in it (read from `window.location` on mount — no Suspense boundary
+over a static page). `unknown` (withheld) and `ambiguous` get nothing.
+The dock draws only hrefs it was given, never one composed from an id, in
+the dialog and again in the live controls, so the links outlive Pick up on
+the strip and in the Dialer slot. Nine languages under
+`app.salesDial.caller*`. `check-sales-mobile.mjs` §6b executes
+`callerLinks()` against every case above plus hostile rows, and holds the
+route, the dock, the console's `?tab=`, the lead anchor and the leads
+prefill.
+
+**Harness and checks.** The portal harness has `scene=incoming-call`,
+`incoming-call-held` and `incoming-call-unknown` (the stubbed Device rings
+on any page with one of three numbers; `/api/sales/calls/caller` answers
+with links, no link, or the save link, and the scene throws if the wrong
+one is drawn) and `scene=reminder-then-ring` with `?presence=offline`; the
+mobile shooter has the three `today-incoming-call*` frames, shot at 375
+and 768 into `docs/screens/sales-mobile/after/` beside re-shot `queue-ring`
+and `queue-ring-answered` (audit: no sideways scroll, no small primary). The
+console harness's ring scenes read `data-incoming-dialog` (was
+`data-incoming-drawer`). The two harness CSS compilers scan
+`process.cwd()` rather than a hardcoded main-checkout path — that path
+compiled a dialog with no `z-[80]` rule from a worktree. `check-sales-
+mobile.mjs` holds the dialog (role, labels, focus, no onEscape / onScrim,
+the primitive's inert defaults, 16px gutters, ≥ 44px buttons, the ring
+clock, the strip, no slide left over); `check-sales-available-reminder.mjs`
+follows the trap into the primitive and the z-order to `z-[80]`;
+`check-inbound-answer`, `check-inbound-transfer`, `check-sales-call-panel`,
+`check-sales-autodial`, `check-browser-notifications`, `check-tour-anchor`,
+`check-sales-portal-i18n` and `check-sales-call-handling` pass unchanged.
+`check:dock`'s five `MeShell.js` failures pre-date this and are not touched.

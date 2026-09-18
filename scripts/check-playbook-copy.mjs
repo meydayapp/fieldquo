@@ -210,6 +210,12 @@ const FIRES = {
   ],
   flattery: ["I love what you've done with the website — you do beautiful work."],
   "foreclosing exit line": [RETIRED.opener, RETIRED.close, RETIRED_OBJECTION.competitor],
+  // Added 2026-09-17 from Gong's 300M-call data: buzzword pitches book at
+  // 5.5%, problem language at 16%. The sentence is Gong's own example set.
+  buzzword: [
+    "We're an all-in-one platform that streamlines your workflow — a single source of truth that will revolutionize how you quote.",
+    "It works seamlessly with everything, end-to-end.",
+  ],
 };
 const BANNED = BANNED_MOVES.map((b) => ({ ...b, fires: FIRES[b.move] }));
 
@@ -300,6 +306,12 @@ section("The detectors recognise the sentences they retired");
     "If I don't hear anything I'll try you again in a couple of weeks.",
     "I'd rather hear that now than fifteen minutes in.",
     "What works better for you, mornings or afternoons? I'll send the invite and a reminder the night before.",
+    // The close since 2026-09-17: Gong's calendar question and the invite
+    // sent while they are still on the phone. A yes/no question, in a CLOSE,
+    // after the alternative choice — not an opener a word can end.
+    "What works better for you, mornings or afternoons? Have you got your calendar handy? I'll send the invite while we're on the phone, and a reminder the night before.",
+    // Business names are not buzzwords.
+    "Hi — is that Liberty Seamless Gutters?",
   ];
   for (const s of shouldPass) {
     ok(
@@ -392,12 +404,25 @@ const OBJECTION_BANNED = [
 
 {
   const seeds = seedObjections();
-  // Twenty, because the owner asked for the twenty most common and the eight
-  // that shipped first were all objections to the PITCH — none of them answered
-  // the ones that end a call before the pitch happens. The number is asserted
-  // rather than left loose so that dropping one is a decision somebody has to
-  // make here, in front of the reason it was added.
-  ok("there are twenty objection seeds to sweep", seeds.length === 20, seeds.length);
+  // Twenty-four. Twenty because the owner asked for the twenty most common
+  // and the eight that shipped first were all objections to the PITCH — none
+  // of them answered the ones that end a call before the pitch happens. Four
+  // more on 2026-09-17 from the call data (Gong's top five are 74% of all
+  // objections; Cognism's commonest is "I'm busy"): I'm busy, wrong person,
+  // is this a sales call, never heard of you. The number is asserted rather
+  // than left loose so that dropping one is a decision somebody has to make
+  // here, in front of the reason it was added.
+  ok("there are twenty-four objection seeds to sweep", seeds.length === 24, seeds.length);
+  for (const code of ["IM_BUSY_RIGHT_NOW", "WRONG_PERSON", "IS_THIS_A_SALES_CALL", "NEVER_HEARD_OF_YOU"]) {
+    ok(`the call data's missing objection ${code} is in the library`, seeds.some((o) => o.code === code));
+  }
+  // Two moves the sources recommend for these, refused by name.
+  ok("the busy answer makes no promise about the rep's own time (Cognism's \"I'll be really quick, I promise\")", !/\bpromise\b|\bquick\b/i.test(seeds.find((o) => o.code === "IM_BUSY_RIGHT_NOW")?.response || "x"));
+  ok("…and asks for a specific time with the two options in it", /first thing[^.]*or the end of the day/i.test(seeds.find((o) => o.code === "IM_BUSY_RIGHT_NOW")?.response || ""));
+  ok("the sales-call answer says it IS one (Cognism's \"this is not a sales call\" is a lie)", /^Fair question — it is\./.test(seeds.find((o) => o.code === "IS_THIS_A_SALES_CALL")?.response || ""));
+  ok("the wrong-person answer asks whether the person who answered writes the quotes up", /is that actually you in the office/i.test(seeds.find((o) => o.code === "WRONG_PERSON")?.response || ""));
+  ok("…and asks for the owner's name rather than inventing familiarity", /tell me his name/i.test(seeds.find((o) => o.code === "WRONG_PERSON")?.response || ""));
+  ok("the never-heard-of-you answer concedes small and new, and names no other customer", /small and we're new/i.test(seeds.find((o) => o.code === "NEVER_HEARD_OF_YOU")?.response || "") && !/customers|other contractors/i.test(seeds.find((o) => o.code === "NEVER_HEARD_OF_YOU")?.response || "x"));
   ok("every objection code is distinct", new Set(seeds.map((o) => o.code)).size === seeds.length);
 
   // Self-test first, exactly as the script detectors are self-tested: a
@@ -638,6 +663,19 @@ section("The moments either side of the call");
     "…and it says outright that it has not spoken to him",
     gate.lines.some((l) => /\bnot spoken to him before\b/i.test(l.text)),
   );
+  // Who answers the phone at a plumbing company (2026-09-17): the apprentice,
+  // the office, the spouse — and two of the three may be the person who
+  // types the quotes up, which makes them the user and not a gatekeeper.
+  ok("the gatekeeper opening asks who handles the quotes, with 'you' as one of the answers", /is that the owner, or is that you\?$/.test(gate.lines[0]?.text || ""), gate.lines[0]?.text);
+  ok("there is a line for the apprentice, and it asks for the owner's name", gate.lines.some((l) => /apprentice/i.test(l.label) && /what's his name/i.test(l.text)));
+  ok("there is a line for the office or the spouse, and it asks whether they write the quotes up", gate.lines.some((l) => /office|spouse/i.test(l.label) && /is it you typing it up/i.test(l.text)));
+  ok("…and neither pitches the product", !gate.lines.some((l) => PITCH_WORDS.some((w) => new RegExp(`\\b${w}\\b`, "i").test(l.text))));
+  ok("the notes carry Gong's gatekeeper number and the mobile-first advice", gate.notes.some((n) => /two-fifths/.test(n) && /mobile/.test(n)));
+  ok("…and say the office may be the user", gate.notes.some((n) => /that is the user/i.test(n)));
+  ok("nothing here says 'guv' — the audience is Ontario and New York, not Peckham", !gate.lines.some((l) => /\bguv\b/i.test(l.text)));
+  const vmNotes = moments.find((m) => m.key === "voicemail").notes;
+  ok("the voicemail notes say one or two, then stop, with Gong's connect and reply figures", vmNotes.some((n) => /One or two, then stop/.test(n) && /quarter/.test(n) && /doubles/.test(n)));
+  ok("…and that the sixth dial is the next name", vmNotes.some((n) => /fifth dial/.test(n)));
 
   // ── The close is an alternative choice, not a demand ────────────────────
   const ask = moments.find((m) => m.key === "ask_for_the_business").lines[0].text;
@@ -1127,6 +1165,12 @@ const KEEPS_DOOR_OPEN =
     const close = sayOf(p, "close");
     ok(`${p.key}: the close is written`, close.trim().length > 0);
     ok(`${p.key}: the close proposes the booking as a choice of halves of the day`, PROPOSES_BOOKING.test(close), close.slice(0, 90));
+    // Gong (100k calls): "do you have your calendar handy?" is the closing
+    // question that secures next steps, and the invite goes while they are
+    // still on the line — it is harder to decline an invitation already
+    // accepted. The product keeps it: NextSteps.js books and sends the .ics
+    // from the call panel.
+    ok(`${p.key}: the close asks for the calendar and sends the invite while they are on the phone`, /calendar handy\?/i.test(close) && /send the invite while we're on the phone/i.test(close), close.slice(0, 160));
     ok(`${p.key}: the close names no weekday — the rep reads the slot off the calendar`, !DAY.test(close), close.match(DAY)?.[0]);
     ok(
       `${p.key}: the close does not invite a refusal`,
@@ -1432,6 +1476,29 @@ section("The written reasoning exists and still matches");
   }
   ok("the doc names this check as the enforcement", doc.includes("scripts/check-playbook-copy.mjs"));
   ok("the source file points at the doc", read("lib/sales/playbook/defaults.js").length > 0);
+  ok("…and the principles doc points at the 2026 call-data reading", /RESEARCH-cold-calling-2026\.md/.test(doc));
+
+  // The 2026 reading of the call data, with the numbers a future editor will
+  // argue with. Each figure is asserted by its value so a rewrite that drops
+  // the evidence under a decision is visible here.
+  const research = read("docs/sales/RESEARCH-cold-calling-2026.md");
+  ok("docs/sales/RESEARCH-cold-calling-2026.md exists and is substantial", research.length > 20000, research.length);
+  for (const [what, re] of [
+    ["Gong's four openers: 2.15 / 7.6 / 11.18 / 11.24", /2\.15%[\s\S]*7\.6%[\s\S]*11\.18%[\s\S]*11\.24%/],
+    ["the 2019 how've-you-been 6.6x and the reason-for-call 2.1x", /6\.6x[\s\S]*2\.1x/i],
+    ["the 55:45 talk ratio and the thirty-seven-second burst", /55:45[\s\S]*37 seconds/],
+    ["the pitch language: 5.5 / 12 / 16", /5\.5%[\s\S]*12%[\s\S]*16%/],
+    ["the objection shares: 17 / 16 / 13 / 11 and 74", /17%[\s\S]*16%[\s\S]*13%[\s\S]*11%[\s\S]*74%/],
+    ["the gatekeeper's 39%", /39%/],
+    ["the voicemail figures: 28% and the doubled reply rate", /28%/],
+    ["Cognism's 4.82% and 83 seconds", /4\.82%[\s\S]*83 seconds/],
+    ["the five-dial cliff", /5 dials|five dials|fifth dial/i],
+    ["a gatekeeper section", /## .*[Gg]atekeeper/],
+    ["a decisions table", /## .*[Dd]ecisions/],
+    ["what was refused, by name", /following up on an email[\s\S]*refused/i],
+  ]) {
+    ok(`the research doc carries ${what}`, re.test(research));
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
