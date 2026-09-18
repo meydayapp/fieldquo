@@ -26,10 +26,20 @@
 //
 // The write is gated the way the registration write is, and PlatformWriteGate
 // says so before a support admin fills in a form the route would refuse.
+//
+// ══ The test lines, on this screen because this is where the window lives ═
+//
+// The owner (2026-09-17) needs to test the dialler outside calling hours on
+// his own mobile. Not a per-account bypass — the law protects the stranger
+// whose phone rings, whoever pressed the button — but a short list of phones
+// FieldQuo ITSELF owns (lib/sales/testLines.js): a dial to one is exempt from
+// the window, the cap and the retry hold for every rep, never from
+// do-not-contact, and is recorded as a test and left out of every count. The
+// list is edited in the TestLinesCard below, superadmin-only, audit-logged.
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertCircle, Loader2, Lock, Save, ShieldAlert } from "lucide-react";
+import { AlertCircle, Loader2, Lock, Phone, Save, ShieldAlert, X } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import PlatformWriteGate, { usePlatformAdmin } from "@/app/components/platform/PlatformWriteGate";
 
@@ -195,6 +205,8 @@ export default function PlatformSalesWindowsPage() {
         {null}
       </PlatformWriteGate>
 
+      <TestLinesCard canEdit={isSuperadmin} />
+
       {loading ? (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Loader2 size={16} className="animate-spin" /> Loading…
@@ -330,5 +342,168 @@ export default function PlatformSalesWindowsPage() {
         </>
       )}
     </div>
+  );
+}
+
+/**
+ * The phones FieldQuo owns for testing the dialler at any hour.
+ *
+ * Its own load and its own save, against /api/platform/sales/test-lines,
+ * rather than folded into the jurisdiction payload: the list is one row and
+ * a different kind of fact from a per-state mode, and a save here must not
+ * re-send forty jurisdictions. A number that fails the route's normaliser
+ * comes back as a refusal naming it, never saved short.
+ */
+function TestLinesCard({ canEdit }) {
+  const [data, setData] = useState(null);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [draft, setDraft] = useState("");
+
+  const load = useCallback(async () => {
+    setError("");
+    try {
+      setData(await fetchJson("/api/platform/sales/test-lines"));
+    } catch (err) {
+      setError(err.message);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const numbers = data?.numbers || [];
+  const max = data?.max || 10;
+
+  async function save(next) {
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const body = await fetchJson("/api/platform/sales/test-lines", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ numbers: next }),
+      });
+      setData(body);
+      setDraft("");
+      setNotice(
+        body.numbers.length
+          ? `${body.numbers.length} test line${body.numbers.length === 1 ? "" : "s"} on the list. Every rep may ring ${body.numbers.length === 1 ? "it" : "them"} at any hour; the dials are recorded as tests and counted nowhere.`
+          : "The list is empty. Every number is judged by its calling window.",
+      );
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function add(e) {
+    e.preventDefault();
+    const value = draft.trim();
+    if (!value) return;
+    if (
+      !confirm(
+        `Add ${value} as a test line?\n\nEvery rep will be able to ring it outside every calling window. Only a phone FieldQuo itself owns belongs here — never a customer's, never a prospect's. This is logged with your name.`,
+      )
+    ) {
+      return;
+    }
+    save([...numbers, value]);
+  }
+
+  function remove(n) {
+    save(numbers.filter((x) => x !== n));
+  }
+
+  return (
+    <section className="bg-card border border-border rounded-xl p-4 space-y-3" data-test-lines>
+      <div className="flex items-start gap-2">
+        <Phone size={16} className="shrink-0 mt-0.5 text-muted-foreground" aria-hidden="true" />
+        <div className="min-w-0">
+          <h2 className="font-semibold text-foreground">Test lines — FieldQuo&apos;s own phones</h2>
+          <p className="text-sm text-muted-foreground mt-1 max-w-3xl">
+            A number here may be rung by any rep at any hour: the calling window, the 24-hour cap and
+            the retry pool&apos;s hold are not applied, because the phone is ours. Do-not-contact and the
+            suppression list still apply. Every dial to one is recorded with jurisdiction{" "}
+            <code className="text-xs">test</code> and left out of the floor board, the funnel, the badge
+            counts, the agency view and the growth model. Nothing about anybody&apos;s account changes — to
+            test from your own rep login, add your own mobile here.
+          </p>
+        </div>
+      </div>
+
+      {error && (
+        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-lg p-3 flex items-start gap-2 text-sm text-red-700 dark:text-red-300">
+          <AlertCircle size={16} className="shrink-0 mt-0.5" /> {error}
+        </div>
+      )}
+      {notice && (
+        <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 rounded-lg p-3 text-sm text-emerald-800 dark:text-emerald-300">
+          {notice}
+        </div>
+      )}
+
+      {!data && !error ? (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 size={16} className="animate-spin" /> Loading…
+        </div>
+      ) : (
+        <>
+          {numbers.length ? (
+            <ul className="flex flex-wrap gap-2" data-test-lines-list>
+              {numbers.map((n) => (
+                <li key={n} className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-3 py-1.5 text-sm font-mono text-foreground">
+                  {n}
+                  {canEdit ? (
+                    <button
+                      type="button"
+                      onClick={() => remove(n)}
+                      disabled={busy}
+                      aria-label={`Remove ${n} from the test lines`}
+                      className="inline-flex items-center justify-center min-h-[28px] min-w-[28px] -mr-1 rounded-full hover:bg-background disabled:opacity-60"
+                    >
+                      <X size={14} aria-hidden="true" />
+                    </button>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-muted-foreground" data-test-lines-empty>
+              No test lines. Every number is judged by its calling window.
+            </p>
+          )}
+
+          {canEdit && numbers.length < max ? (
+            <form onSubmit={add} className="flex flex-col sm:flex-row gap-2 sm:items-center">
+              <input
+                type="tel"
+                inputMode="tel"
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                disabled={busy}
+                placeholder="+14165550100"
+                aria-label="A phone FieldQuo owns, in E.164"
+                className="w-full sm:max-w-xs text-sm rounded-md border border-border bg-background px-3 min-h-[44px] font-mono"
+              />
+              <button
+                type="submit"
+                disabled={busy || !draft.trim()}
+                className="min-h-[44px] inline-flex items-center justify-center gap-1.5 bg-inverted text-inverted-foreground text-sm font-semibold px-4 rounded-lg disabled:opacity-60"
+              >
+                {busy ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                Add test line
+              </button>
+            </form>
+          ) : canEdit ? (
+            <p className="text-xs text-muted-foreground">At most {max} test lines. Remove one to add another.</p>
+          ) : null}
+        </>
+      )}
+    </section>
   );
 }
