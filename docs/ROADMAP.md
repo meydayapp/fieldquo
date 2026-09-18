@@ -91,8 +91,6 @@ the Calling windows page. Until then the picker shows "A phone" only if
 
 ---
 
----
-
 ## The cold-call scripts against the call data: prompt version 3, four objections, a real gatekeeper (17 September 2026)
 
 **What**: the owner handed over Gong's cold-call research (100k calls, 2019;
@@ -154,6 +152,9 @@ the research doc. `check:playbook-voice` has one pre-existing failure on
   detector fired at Gong's own sentence, the calendar close, the gatekeeper's
   three people, the research doc's figures by value). Token bounds raised
   to 3,000 / 5,000 with the measured cost beside them.
+
+---
+
 ## Google Places corroborates every claimed lead: website, phone and trading status confirmed or contradicted in words (18 September 2026)
 
 DRAIN KINGS (Chatsworth, from the CSLB C-36 register) read "Website: none on
