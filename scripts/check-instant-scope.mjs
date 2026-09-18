@@ -142,7 +142,9 @@ console.log("\nCabinet refinishing derives from the company's own book too");
   ok("INSTANT_ESTIMATE_DEFAULTS.cabinet_refinishing still equals the code book",
     INSTANT_ESTIMATE_DEFAULTS.cabinet_refinishing.perDoor === TRADE_PRICE_BOOKS.cabinet_refinishing.perDoor
       && INSTANT_ESTIMATE_DEFAULTS.cabinet_refinishing.minCharge === TRADE_PRICE_BOOKS.cabinet_refinishing.minimumTotal);
-  ok("the derivable trades are exactly the two", DERIVED_SEED_TRADES.sort().join(",") === "cabinet_refinishing,painting", DERIVED_SEED_TRADES);
+  // Three since 2026-09-18: paving reads its three surfaces out of the paving
+  // book the same way (scripts/check-instant-paving.mjs has the derivation).
+  ok("the derivable trades are exactly the three", DERIVED_SEED_TRADES.sort().join(",") === "cabinet_refinishing,painting,paving", DERIVED_SEED_TRADES);
   ok("the category with the service OFF contributes no book", deriveInstantSeed("cabinet_refinishing", seedInputsFor("cabinet_refinishing", [])) === null);
 }
 

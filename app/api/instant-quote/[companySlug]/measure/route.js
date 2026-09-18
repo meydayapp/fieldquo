@@ -21,6 +21,8 @@ import { financingOffer } from "@/lib/estimate/financing";
 import { gutterEstimateCopy } from "@/lib/i18n/gutterEstimateCopy";
 import { lawnEstimateCopy } from "@/lib/i18n/lawnEstimateCopy";
 import { lawnPublicView } from "@/lib/estimate/lawnPublicView";
+import { INSTANT_ESTIMATE_TRADES } from "@/lib/estimate/instantEstimate";
+import { isPolygonMeasure } from "@/lib/estimate/tracedArea";
 
 export async function POST(request, { params }) {
   const { companySlug } = await params;
@@ -103,6 +105,12 @@ export async function POST(request, { params }) {
     footprintSqft: m.footprintSqft ?? null,
     satelliteImageUrl: m.satelliteImageUrl ?? null,
     formattedAddress: m.formattedAddress ?? null,
+    // A traced trade (lawn_polygon, area_polygon): the outline the area was
+    // computed from, back to the browser that drew it — so the panel can
+    // show the shape it priced beside the still. Vertices are not a rate.
+    ...(isPolygonMeasure(INSTANT_ESTIMATE_TRADES[trade]?.measure) && {
+      polygon: Array.isArray(m.vertices) ? m.vertices : null,
+    }),
     // Gutters: the run, the count and the imagery date — facts, not rates —
     // plus the two sentences the range is shown under, in the company's
     // language (lib/i18n/gutterEstimateCopy.js). Absent for every other trade.

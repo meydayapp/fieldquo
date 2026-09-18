@@ -10,6 +10,60 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## Paving is an instant trade measured by tracing, and every trace prints (18 September 2026)
+
+**Owner:** "the ability to measure should also be enabled for instant quotes."
+Lawn mowing already traced on the public form; paving is the second trade
+to, under a GENERIC measure key, and the trace itself now reaches the
+document for both.
+
+- **`area_polygon`** (lib/estimate/tracedArea.js) — a drawn outline on the
+  satellite map, any trade. `lawn_polygon` is unchanged for mowing; both go
+  through one `measureTracedArea`: vertices normalised, area recomputed
+  server-side (lib/measure/lotArea.js), `{ areaSqft, vertices, source:
+  "traced", basis: "traced", estimated: false, satelliteImageUrl }` — an
+  outline still, amber for a paved surface, green for a lawn. `/measure`
+  returns `polygon` in the measurement view for a traced trade;
+  `/request`'s snapshot already kept `vertices`.
+- **Paving** (`INSTANT_ESTIMATE_TRADES.paving`, `measure: "area_polygon"`,
+  `hasMaterials: true`): materials are the paving book's three SURFACES —
+  patio, walkway, driveway — at the standard tier, derived in
+  lib/estimate/instantSeed.js (driveway carries the book's paver upcharge
+  exactly as buildPaving adds it); drift notice + one button like painting.
+  Paver grade and the moderate/high tiers are deliberately not public
+  knobs (cost-side allowance; reviewer's call). `minCharge` seeds 0 — the
+  book records no source publishes one — and `assumesMinSqft` (500) is
+  said back on any smaller trace. `TRADE_LABELS.paving`, catalogue
+  `paving.instantTrade = "paving", primary: true`, phone shape blocked
+  NEEDS_MAP, settings copy and review-screen source label in nine
+  languages.
+- **The draft**: paving writes a real builder takeoff — the traced area in
+  `drivewaySqft` / `patioSqft` / `walkwaySqft` for the paver engine,
+  `measuredAreaSqft` (the caption's read finally has a writer), the outline
+  under `traced.vertices`, `intakeValues.squareFootage`. Lawn MOWING now
+  lands as `takeoff.lawn` + `lotSize` like lawn care and the builder's
+  tracer; before it was `{ areaSqft }` intake and no takeoff, so the shape
+  never printed.
+- **The document**: lib/documentSections/traceOutline.js projects the
+  vertices (equirectangular about the shape's centre, north up) into a
+  72×48 box; ScopeGroupsSection draws it as an `<Svg><Polygon>` beside the
+  caption, the public quote route serves `outline` and /q/[token] draws the
+  same points. In `ruleColor(theme)` so a white brand draws ink. Prints
+  even when the still was never captured. Rendered and eyeballed on a blue
+  and a white brand.
+- **Not added: landscaping.** No `landscaping_design` price book exists, so
+  there is no per-area rate to price from; a trade that renders and cannot
+  price is the dead control AGENTS.md forbids.
+- **Browser contract (InstantQuoteFlow, wired by the coordinator):** a trade
+  with `measure: "area_polygon"` renders LawnMap, posts `polygon` exactly as
+  `lawn_polygon` does, counts as `fromImagery` (the "doesn't look right"
+  control), and the measurement view is `{ areaSqft, polygon,
+  satelliteImageUrl }`.
+- **Checks**: scripts/check-instant-paving.mjs (104), paving cases in
+  check-instant-takeoff / check-instant-quote-exits / check-instant-scope.
+
+---
+
 ## Conversations is the rep's real mailbox: connected by the owner, synced both ways, answered from the portal (18 September 2026)
 
 **Deployed.** The owner bought each rep a Namecheap Private Email inbox and

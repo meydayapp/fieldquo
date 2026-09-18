@@ -68,7 +68,7 @@ const TEXT_FIELDS = {
 // the estimator becomes offerable here automatically. The filter is on how the
 // job is MEASURED: a band can carry typed numbers, so manual_area / manual_units
 // / stair_count all work. roof_address needs a satellite lookup per visitor,
-// lawn_polygon needs a drawable map and item_picker needs the junk taxonomy —
+// lawn_polygon / area_polygon need a drawable map and item_picker needs the junk taxonomy —
 // none of which is a tap on a full-screen card, and faking them here would be
 // the dead control this codebase gets swept for. Those three stay on
 // /instant-quote, and the builder says so rather than offering a trade that

@@ -43,6 +43,7 @@ import {
 import { parsePaymentSchedule } from "@/lib/documents/paymentSchedule";
 // Pure apart from the Cloudinary-URL test; imports no PDF engine either.
 import { measureEvidence } from "@/lib/measure/measureImages";
+import { traceOutline } from "@/lib/documentSections/traceOutline";
 
 const num = (v) => Number(v ?? 0);
 
@@ -319,6 +320,11 @@ function present(quote) {
         // sq ft" — the same evidence the PDF prints, so the page and the
         // attachment stay one document. Null for a group with none.
         measure: measureEvidence(g.takeoff, g.category?.key, docLanguage),
+        // The traced shape as points in a small box, drawn beside the
+        // caption — the same projection the PDF draws
+        // (lib/documentSections/traceOutline.js). Geometry, not a rate;
+        // null for a group nobody traced.
+        outline: traceOutline(g.takeoff),
         lineItems: (Array.isArray(g.lineItems) ? g.lineItems : []).map(
           (li) => ({
             description: li.description || "",
