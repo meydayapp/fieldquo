@@ -45,6 +45,7 @@ import { ownNumbers } from "@/lib/sales/calls/store";
 import { CHANNEL_TEXT } from "@/lib/sales/contact/numbers";
 import { loadContactNumbers, pickContactNumber } from "@/lib/sales/contact/resolve";
 import { markAgreedOnCall } from "@/lib/sales/agreedOnCall";
+import { suggestZoneForNumber } from "@/lib/sales/areaCodeZone";
 
 /** The only columns this route reads, so both handlers see the same lead. */
 const LEAD_SELECT = {
@@ -170,6 +171,20 @@ export async function GET(request) {
   const contactNumberId = new URL(request.url).searchParams.get("contactNumberId") || "";
   const { chosen } = await textTargetFor(lead, contactNumberId);
 
+  const sms = await salesSmsStatus({
+    rep,
+    lead: chosen.ok ? { ...lead, phone: chosen.e164 } : lead,
+    origin: getAppOrigin(request),
+    purpose: "signup_link",
+  });
+  // The zone the area code suggests — ONLY when nothing on the record
+  // states or derives one (the readiness's own verdict) and the code sits
+  // in a single zone. The panel pre-selects it under a sentence that says
+  // where it came from; the rep confirms by sending, and the send writes it
+  // as stated. lib/sales/areaCodeZone.js says why this never decides a send.
+  const zoneBlocker = sms.blockers.find((b) => b.code === "time_zone_unknown") || null;
+  const suggested = zoneBlocker && !zoneBlocker.candidates?.length && chosen.ok ? suggestZoneForNumber(chosen.e164) : null;
+
   return NextResponse.json({
     lead,
     // The readiness is computed against the CHOSEN number. Handing
@@ -177,12 +192,8 @@ export async function GET(request) {
     // would put a different number in the preview than in the message — and
     // the suppression read, the +1 rule and the unusable-number blocker would
     // all be answering about a number nobody was going to text.
-    sms: await salesSmsStatus({
-      rep,
-      lead: chosen.ok ? { ...lead, phone: chosen.e164 } : lead,
-      origin: getAppOrigin(request),
-      purpose: "signup_link",
-    }),
+    sms,
+    suggestedTimeZone: suggested?.timeZone ? suggested : null,
     // The picker, and what was refused with the reason. A rep who was given a
     // number and cannot see it in the list will phone it off their own handset
     // — lib/sales/contact/numbers.js says so — so the refusals are shown, not

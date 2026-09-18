@@ -388,7 +388,11 @@ export default function SalesShell({ children }) {
   // /sales/messages joined the wide set when it became a three-pane chat
   // client: a 280px room list, the thread, and a 340px contact bar do not
   // fit in 1024px without the thread — the pane a rep reads — going below
-  // 400px.
+  // 400px. Since 2026-09-18 it has NO cap either, for the queue's reason
+  // below: a rep on a 1600px screen had the thread — the pane with the
+  // composer in it — squeezed to ~300px inside a centred band, with dead
+  // space either side. The thread takes what the sidebar leaves, and the
+  // contact bar gives way below 1400px (ChatLayout contextColumnFrom).
   //
   // /sales/queue has NO cap since 2026-09-14. The owner, on a 2000px screen:
   // the console sat in a centred 1080px band with dead space either side,
@@ -398,7 +402,7 @@ export default function SalesShell({ children }) {
   // 360px dialler beside one flexible card wants every pixel the sidebar
   // leaves, and the card takes all of it (flex-1 min-w-0 in the page).
   const container = `${
-    pathname.startsWith("/sales/queue") ? "max-w-none" : pathname.startsWith("/sales/messages") ? "max-w-7xl" : "max-w-5xl"
+    pathname.startsWith("/sales/queue") || pathname.startsWith("/sales/messages") ? "max-w-none" : "max-w-5xl"
   } mx-auto px-4 sm:px-6`;
 
   // ── The one list of what the portal has ─────────────────────────────────

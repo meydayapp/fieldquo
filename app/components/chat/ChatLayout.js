@@ -41,7 +41,19 @@ export const PANE_CONTEXT = "context";
  *                  the caller wires both to the same setter.
  * @param height    a Tailwind height class for the whole frame. The caller
  *                  knows what chrome sits above it; this component does not.
+ * @param contextColumnFrom  "lg" (default) or "wide": the viewport width
+ *                  from which the context bar is a third COLUMN rather than
+ *                  a sheet over the thread. The sales texts screen passes
+ *                  "wide" (1400px): with a 220px sidebar, a 280px list and
+ *                  a 340px bar, a 1280px window left the thread ~390px —
+ *                  the owner's rep saw a composer squeezed into a column
+ *                  with its own scrollbar and no Send in sight. The caller's
+ *                  own "is it wide" media query must use the same width
+ *                  (CONTEXT_COLUMN_MIN_WIDTH), or the header's Contact
+ *                  toggle and the layout disagree about what a press does.
  */
+export const CONTEXT_COLUMN_MIN_WIDTH = { lg: 1024, wide: 1400 };
+
 export default function ChatLayout({
   list,
   thread,
@@ -50,10 +62,14 @@ export default function ChatLayout({
   onCloseContext = null,
   height = "h-[70vh]",
   className = "",
+  contextColumnFrom = "lg",
   ...rest
 }) {
   const { t } = useTranslation();
   const showContext = Boolean(context);
+  // Static class strings — Tailwind sees only what is written out.
+  const columnClass = contextColumnFrom === "wide" ? "hidden min-[1400px]:flex" : "hidden lg:flex";
+  const sheetClass = contextColumnFrom === "wide" ? "min-[1400px]:hidden" : "lg:hidden";
 
   // Esc closes the sheet on a phone — the one gesture every overlay honours.
   useEffect(() => {
@@ -81,9 +97,12 @@ export default function ChatLayout({
       </aside>
 
       {/* ── Thread ────────────────────────────────────────────────────────── */}
+      {/* The thread takes every pixel the list and the bar leave — and
+          never less than a phone's width from md up, which is what makes
+          the bar give way (see contextColumnFrom) rather than the thread. */}
       <section
         data-chat-pane="thread"
-        className={`${pane === PANE_THREAD ? "flex" : "hidden"} md:flex min-w-0 flex-1 flex-col min-h-0`}
+        className={`${pane === PANE_THREAD ? "flex" : "hidden"} md:flex min-w-0 md:min-w-[360px] flex-1 flex-col min-h-0`}
       >
         {thread}
       </section>
@@ -93,13 +112,13 @@ export default function ChatLayout({
         <>
           <aside
             data-chat-pane="context"
-            className="hidden lg:flex w-[340px] shrink-0 flex-col border-l border-border bg-card min-h-0"
+            className={`${columnClass} w-[340px] shrink-0 flex-col border-l border-border bg-card min-h-0`}
           >
             {context}
           </aside>
           {pane === PANE_CONTEXT ? (
             <div
-              className="absolute inset-0 z-20 flex flex-col bg-card lg:hidden"
+              className={`absolute inset-0 z-20 flex flex-col bg-card ${sheetClass}`}
               role="dialog"
               aria-modal="true"
               aria-label={t("app.chat.contextSheet")}

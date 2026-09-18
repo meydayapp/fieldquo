@@ -132,6 +132,9 @@ import { threadTriage } from "@/lib/sales/messages/triage";
 import { lastReviewOf } from "@/lib/sales/conversationAudit";
 import { resolveBusiness } from "@/lib/sales/messages/businessResolve";
 import { mergeReadStates } from "@/lib/sales/messages/business";
+import { START_REFUSALS, resolveNumberHolder } from "@/lib/sales/messages/startThread";
+import { suggestZoneForNumber } from "@/lib/sales/areaCodeZone";
+import { SALES_SMS_TIME_ZONES } from "@/lib/sales/smsWindow";
 
 /**
  * The `!` catalogue for one conversation.
@@ -162,6 +165,17 @@ function cannedFor({ rep, lead, origin }) {
     text: ruleDraft({ primary: { code }, facts }, { repName: rep?.name }),
   }));
   const link = rep?.code ? signupLinkFor(origin, rep.code) : null;
+  // "As discussed" — the first-message option for a company that said
+  // "text me instead" on the call: the rep's name, the business, and an
+  // open sentence the rep finishes. Offered whether or not the rep has a
+  // link, because it is about the call, not the signup.
+  entries.unshift({
+    id: "discussed",
+    group: "sales",
+    titleKey: "app.salesText.cannedDiscussedTitle",
+    title: "As discussed on the call",
+    text: `Hi${facts.companyName ? ` ${facts.companyName}` : ""}, it is ${String(rep?.name || "").trim() || "FieldQuo"} from FieldQuo — thanks for taking my call. As discussed, `,
+  });
   if (link) {
     entries.unshift({
       id: "signup",
@@ -445,6 +459,33 @@ export async function GET(request) {
         .catch(() => null)
     : null;
 
+  // ── Whose number this is, when it is not on a lead of the rep's ─────────
+  //
+  // A ?thread= link from the ring dialog, or a number typed into the URL,
+  // lands here with no lead. The screen must not print a disabled box with
+  // no sentence (AGENTS.md's rule): it says WHY — another rep holds it
+  // (with their name), or nobody does, in which case it offers to save it
+  // as a lead or open the thread on a new one. Read-only; the same lookup
+  // startTextThread makes before it writes. Null when the lookup failed,
+  // so "we could not tell" is not drawn as "nobody's".
+  const holder = lead
+    ? null
+    : await resolveNumberHolder(db, { e164: withE164, salesRepId: rep.id })
+        .then((h) => (h.kind === "other" ? { kind: "other", name: h.holderName || null } : { kind: "none" }))
+        .catch(() => null);
+
+  // ── The zone the area code suggests — a suggestion, never the decision ──
+  //
+  // Only when nothing on the lead states or derives one (the readiness's
+  // own verdict, so this cannot disagree with it): the select on the screen
+  // is pre-filled with it and the rep confirms by sending, which writes it
+  // on the lead as stated. lib/sales/areaCodeZone.js says why this never
+  // reaches the send path itself. Null for a split code (807, 250…), and
+  // the screen then asks with an empty select as before.
+  const zoneBlocker = (readiness?.blockers || []).find((b) => b.code === "time_zone_unknown") || null;
+  const suggestedTimeZone =
+    zoneBlocker && lead && !zoneBlocker.candidates?.length ? suggestZoneForNumber(withE164) : null;
+
   // Both reads fail soft and fail DISTINGUISHABLY. A missing SalesCheckIn
   // table — this deployment's Neon project is at its size limit and the table
   // could not be created — must show as "we could not look", never as "you
@@ -557,6 +598,14 @@ export async function GET(request) {
     draftCompany: draftCompany ? { id: draftCompany.id, name: draftCompany.name, isDemo: draftCompany.isDemo } : null,
     demo: demoThread,
     timeZone,
+    holder,
+    // For the composer's zone row, when the readiness asks for one: the
+    // closed list every zone write is checked against, and the area code's
+    // suggestion (or null). The list is the SAME one the signup panel and
+    // the lead editor use — two lists would let a rep state a zone here
+    // that the send refuses.
+    timeZones: zoneBlocker && lead ? SALES_SMS_TIME_ZONES : null,
+    suggestedTimeZone: suggestedTimeZone?.timeZone ? suggestedTimeZone : null,
     // A demo thread's composer is not a send path — the reply route writes
     // a SalesSmsMessage only after a carrier accepts, and there is no
     // carrier — so free-text replies stay off; the draft's own Send is the
@@ -647,22 +696,6 @@ export async function POST(request) {
   if (!withE164) return NextResponse.json({ error: "Who to?" }, { status: 400 });
   if (!text) return NextResponse.json({ error: "There is nothing to send." }, { status: 400 });
 
-  // The rep must already be IN this conversation. A free-text send to an
-  // arbitrary number would be a cold-contact path with none of the
-  // first-contact rules attached — no signup link, no lead, and no record of
-  // where the number came from.
-  const existing = await salesThread({ salesRepId: rep.id, withE164 });
-  if (!existing.length) {
-    return NextResponse.json(
-      {
-        error:
-          "You have not texted this number before. Start from the lead — the first message carries " +
-          "your signup link and the identification the law wants on a first contact.",
-      },
-      { status: 409 },
-    );
-  }
-
   // The lead by number, else the business's lead when the number is another
   // of theirs (the owner's cell a rep was given on a call) — with THIS
   // number standing in for the lead's own, the way the signup-link route
@@ -673,6 +706,32 @@ export async function POST(request) {
     (await resolveBusiness({ salesRepId: rep.id, withE164, client: db })
       .then((b) => (b?.lead ? { ...b.lead, phone: withE164 } : null))
       .catch(() => null));
+
+  // ── A first contact needs a lead behind it; it no longer needs the link ─
+  //
+  // Until 2026-09-18 this refused EVERY first text — "start from the lead,
+  // the first message carries your signup link" — and a company that said
+  // "text me instead" on the call got the fixed introduction or nothing.
+  // The rule's reason was never the link: it was that a free-text send to
+  // an arbitrary number is a cold-contact path with no lead and no record
+  // of where the number came from. So that is what is checked. The
+  // conversation may be new; the NUMBER may not be a stranger's — it has
+  // to be on a lead this rep holds (the "Text them" press and the New
+  // message picker both put it there through startTextThread, which
+  // records where it came from). What the first message carries is what
+  // every message carries: replySmsBody's footer — FieldQuo, the mailing
+  // address, "Reply STOP to opt out" — the identification and the
+  // unsubscribe CASL s.6 wants, on a first text as on a tenth.
+  const existing = await salesThread({ salesRepId: rep.id, withE164 });
+  if (!existing.length && !lead) {
+    return NextResponse.json(
+      {
+        error: START_REFUSALS.no_lead,
+        code: "no_lead",
+      },
+      { status: 409 },
+    );
+  }
 
   const result = await deliverReplySms({
     rep,

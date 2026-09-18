@@ -26,6 +26,7 @@ const ouelletMessages = [
 
 const canned = [
   { id: "signup", group: "sales", titleKey: "app.salesText.cannedSignupTitle", title: "Signup link", text: "Hi, it is Rachel from FieldQuo. Here is the link to get started: https://www.fieldquo.com/signup?sales=RACH" },
+  { id: "discussed", group: "sales", titleKey: "app.salesText.cannedDiscussedTitle", title: "As discussed on the call", text: "Hi, it is Rachel from FieldQuo — thanks for taking my call. As discussed, " },
   { id: "checkin:all_good", group: "checkin", titleKey: "app.salesCheckin.reason.all_good", title: "Nothing looks wrong", text: "Hi, it is Rachel from FieldQuo, about Melton Electric. How is it going so far - is everything working the way you expected? If anything is not right, just reply here and I will sort it." },
   { id: "checkin:onboarding_unfinished", group: "checkin", titleKey: "app.salesCheckin.reason.onboarding_unfinished", title: "They never finished onboarding", text: "Hi, it is Rachel from FieldQuo, about Melton Electric. I noticed the setup is not finished yet. Happy to walk you through the rest if it helps. How is it going so far - is everything working the way you expected?" },
   { id: "checkin:payment_failing", group: "checkin", titleKey: "app.salesCheckin.reason.payment_failing", title: "Their subscription payment is failing", text: "Hi, it is Rachel from FieldQuo, about Melton Electric. Your card did not go through this month. Let me know if you want a hand sorting it. How is it going so far?" },
@@ -131,7 +132,11 @@ const fresh = baseThread(CP, {
   messages: [],
   lead: { id: "lead-cp", businessName: "", contactName: null, timeZone: null, email: null, status: "new", prospectId: null },
   canSend: false,
-  blockers: [{ code: "time_zone_unknown", title: "We don't know what time it is where this prospect is.", fix: "Say where they are." }],
+  blockers: [{ code: "time_zone_unknown", title: "We don't know what time it is where this prospect is.", fix: "Say where they are.", candidates: [] }],
+  // 2026-09-18: the route hands the zone list and the area code's
+  // suggestion beside a time_zone_unknown blocker on a lead-backed thread.
+  timeZones: [{ value: "America/Toronto", label: "Eastern (Toronto, Ottawa, Montréal, New York)" }, { value: "America/Winnipeg", label: "Central (Winnipeg, Chicago)" }, { value: "America/Vancouver", label: "Pacific (Vancouver, Los Angeles)" }],
+  suggestedTimeZone: { areaCode: "514", timeZone: "America/Toronto" },
 });
 
 const conversations = [
@@ -155,11 +160,17 @@ const signup = {
   messages: [],
   sms: { canSend: false, blockers: [{ code: "time_zone_unknown", title: "We don't know what time it is where this prospect is.", fix: "Say where they are and the window can be checked." }], to: CP, from: "+19185550000", body: null },
   contact: { choices: [{ id: "n-cp", e164: CP, label: null, kind: "unknown" }], refused: [] },
+  suggestedTimeZone: { areaCode: "514", timeZone: "America/Toronto" },
   timeZones: [{ value: "America/Toronto", label: "Eastern (Toronto, Ottawa, Montréal, New York)" }, { value: "America/Winnipeg", label: "Central (Winnipeg, Chicago)" }],
 };
 
 export const FIXTURES = {
-  default: { conversations, threads: { [ME]: melton, [TO]: ouellet, [SL]: sloth, [PP]: park, [SC]: closed, [CP]: fresh, "+15145550134": fresh }, contacts, signup },
+  default: {
+    conversations, threads: { [ME]: melton, [TO]: ouellet, [SL]: sloth, [PP]: park, [SC]: closed, [CP]: fresh, "+15145550134": fresh }, contacts, signup,
+    // Threads on nobody's lead of the rep's (?thread= from the ring dialog):
+    // the route's `holder` — whose it is, or nobody's.
+    holder: { "+18192387263": { kind: "none" }, "+12125550199": { kind: "other", name: "Priya N." } },
+  },
   empty: { conversations: [], threads: {}, contacts: [], signup },
   unreadable: { conversations: conversations.map((c) => ({ ...c, unread: null, openDrafts: null })), readStateError: "Read markers could not be read, so unread counts are not shown.", draftsError: null, threads: { [ME]: melton }, contacts, signup },
 };

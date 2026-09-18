@@ -94,8 +94,12 @@ export default function SignupLinkSms({ leadId, inThread = false, onSent = null 
       );
       setData(next);
       // Stated wins; otherwise the zone the server derived from the province
-      // (the same one the call region prints). The rep can still pick another.
-      setZone(next.lead?.timeZone || next.sms?.timeZone || "");
+      // (the same one the call region prints); otherwise the area code's
+      // SUGGESTION, pre-selected under a sentence that says so — a rep with
+      // a stranger's number typed in was meeting an empty select and a
+      // disabled Send. The rep can still pick another; whichever they send
+      // with is written on the lead as stated (below).
+      setZone(next.lead?.timeZone || next.sms?.timeZone || next.suggestedTimeZone?.timeZone || "");
     } catch (err) {
       setError(err.message);
     }
@@ -375,7 +379,9 @@ export default function SignupLinkSms({ leadId, inThread = false, onSent = null 
               ? t("app.salesLeads.smsZoneDerived", { zone: sms.timeZone })
               : sms.timeZoneSource === "ambiguous"
                 ? t("app.salesLeads.smsZoneAmbiguous")
-                : t("app.salesLeads.smsWhereAreThey")}
+                : data.suggestedTimeZone?.timeZone
+                  ? t("app.salesText.zoneSuggested", { areaCode: data.suggestedTimeZone.areaCode })
+                  : t("app.salesLeads.smsWhereAreThey")}
             <select
               required
               value={zone}

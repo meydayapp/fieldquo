@@ -741,7 +741,11 @@ const codes = (r) => r.blockers.map((b) => b.code);
     ok("…and the saved row becomes the chosen contactNumberId, which re-reads the preview", /setNumberId\(saved\.id\)/.test(panel) && /contactNumberId=\$\{encodeURIComponent\(numberId\)\}/.test(panel));
     const numbersRoute = read("app/api/sales/calls/numbers/route.js");
     ok("the numbers route resolves a leadId to the rep's OWN lead", /if \(leadId\) \{[\s\S]{0,300}?where: \{ id: leadId, salesRepId: repId \}/.test(numbersRoute));
-    ok("…normalises through the suppression list's own function and refuses a do-not-contact record", /const e164 = normalisePhone\(body\.e164/.test(numbersRoute) && /if \(owner\.doNotContactAt\)/.test(numbersRoute));
+    // The write itself is lib/sales/contact/record.js since 2026-09-18 (the
+    // text-thread opener records through the same function); the rule is
+    // read where it lives.
+    const recordLib = read("lib/sales/contact/record.js");
+    ok("…normalises through the suppression list's own function and refuses a do-not-contact record", /await recordContactNumber\(\{/.test(numbersRoute) && /const e164 = normalisePhone\(raw\)/.test(recordLib) && /if \(owner\?\.doNotContactAt\)/.test(recordLib));
     const smsRoute = read("app/api/sales/sms/route.js");
     ok("the SMS route judges the CHOSEN number — readiness and the send both see it as the lead's phone", (smsRoute.match(/lead: chosen\.ok \? \{ \.\.\.lead, phone: chosen\.e164 \} : lead/g) || []).length >= 1 && /lead: \{ \.\.\.lead, phone: chosen\.e164 \}/.test(smsRoute));
     ok("…and the chosen row is re-read by id against this lead, never trusted from the body", /contactNumberId,\s*channel: CHANNEL_TEXT/.test(smsRoute) && /typeof body\.contactNumberId === "string" \? body\.contactNumberId\.trim\(\) : ""/.test(smsRoute));
