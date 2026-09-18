@@ -1858,6 +1858,7 @@ function PavingTakeoff({ takeoff, book, onChange, siteAddress = "" }) {
 
 function SnowRemovalTakeoff({ takeoff, book, onChange }) {
   const money = useCompanyMoney();
+  const { t } = useTranslation();
   const e = book?.extras || {};
   const season = book?.season || {};
   const set = (patch) => onChange({ ...takeoff, ...patch });
@@ -1882,7 +1883,7 @@ function SnowRemovalTakeoff({ takeoff, book, onChange }) {
       {/* The plan is the product. What separates these two is the depth that
           triggers a visit, which is the only part a client actually feels. */}
       <div>
-        <label className="text-xs text-muted-foreground">Plan</label>
+        <label className="text-xs text-muted-foreground">{t("app.snow.plan", "Plan")}</label>
         <div className="mt-1 grid gap-2 sm:grid-cols-2">
           {Object.entries(plans).map(([key, p]) => {
             const active = (takeoff.plan || "basic") === key;
@@ -1902,8 +1903,8 @@ function SnowRemovalTakeoff({ takeoff, book, onChange }) {
                 </span>
                 <span className="mt-0.5 block text-xs text-muted-foreground">
                   {num(p.driveways?.[takeoff.drivewaySize]) > 0
-                    ? `${money(p.driveways[takeoff.drivewaySize])} for the season`
-                    : "No rate set for this driveway"}
+                    ? t("app.snow.forSeason", "{amount} for the season", { amount: money(p.driveways[takeoff.drivewaySize]) })
+                    : t("app.snow.noRateDriveway", "No rate set for this driveway")}
                 </span>
               </button>
             );
@@ -1911,7 +1912,7 @@ function SnowRemovalTakeoff({ takeoff, book, onChange }) {
         </div>
       </div>
 
-      <Field label="Driveway">
+      <Field label={t("app.snow.driveway", "Driveway")}>
         <select
           value={takeoff.drivewaySize || "double"}
           onChange={(ev) => set({ drivewaySize: ev.target.value })}
@@ -1919,8 +1920,8 @@ function SnowRemovalTakeoff({ takeoff, book, onChange }) {
         >
           {Object.entries(drives).map(([key, price]) => (
             <option key={key} value={key}>
-              {DRIVEWAY_LABELS[key] || key}
-              {num(price) > 0 ? ` — ${money(price)}` : " — no rate set"}
+              {DRIVEWAY_LABELS[key] ? t(`app.snow.drivewaySize.${key}`, DRIVEWAY_LABELS[key]) : key}
+              {num(price) > 0 ? ` — ${money(price)}` : ` — ${t("app.snow.noRateSet", "no rate set")}`}
             </option>
           ))}
         </select>
@@ -1928,26 +1929,35 @@ function SnowRemovalTakeoff({ takeoff, book, onChange }) {
 
       {!hasDriveway && (
         <p className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
-          No seasonal rate is set for this size on the {plan.label || "chosen"}{" "}
-          plan, so nothing will be billed for it. Set one in Settings → Services
-          → Snow Removal.
+          {t(
+            "app.snow.noSeasonalRate",
+            "No seasonal rate is set for this size on the {plan} plan, so nothing will be billed for it. Set one in Settings → Services → Snow Removal.",
+            { plan: plan.label || t("app.snow.chosenPlan", "chosen") },
+          )}
         </p>
       )}
 
       <p className="rounded bg-muted px-3 py-2 text-xs text-muted-foreground">
-        Season runs {season.startsLabel} to {season.endsLabel}, covering up to{" "}
-        {num(season.snowfallLimitCm)} cm or {num(season.eventLimit)} events of{" "}
-        {num(season.eventThresholdCm)} cm+, whichever comes first. Past that the
-        overage fee of {money(book?.overageFee)} applies — charged when the
-        season runs long, not quoted up front.
+        {t(
+          "app.snow.seasonRuns",
+          "Season runs {start} to {end}, covering up to {cm} cm or {events} events of {threshold} cm+, whichever comes first. Past that the overage fee of {fee} applies — charged when the season runs long, not quoted up front.",
+          {
+            start: season.startsLabel,
+            end: season.endsLabel,
+            cm: num(season.snowfallLimitCm),
+            events: num(season.eventLimit),
+            threshold: num(season.eventThresholdCm),
+            fee: money(book?.overageFee),
+          },
+        )}
       </p>
 
       <div>
         <OptionRow
           checked={takeoff.shovelling}
           onToggle={(v) => set({ shovelling: v })}
-          label="Walkway and steps"
-          hint={`${money(plan.shovelling)} for the season, on the ${plan.label || "chosen"} plan`}
+          label={t("app.snow.walkway", "Walkway and steps")}
+          hint={t("app.snow.walkwayHint", "{amount} for the season, on the {plan} plan", { amount: money(plan.shovelling), plan: plan.label || t("app.snow.chosenPlan", "chosen") })}
           amount={
             takeoff.shovelling && !shovelBlocked ? num(plan.shovelling) : 0
           }
@@ -1955,8 +1965,8 @@ function SnowRemovalTakeoff({ takeoff, book, onChange }) {
         <OptionRow
           checked={takeoff.salting}
           onToggle={(v) => set({ salting: v })}
-          label="Salting"
-          hint={`${money(e.saltPerApplication)} per application`}
+          label={t("app.snow.salting", "Salting")}
+          hint={t("app.snow.perApplication", "{amount} per application", { amount: money(e.saltPerApplication) })}
           amount={saltAmount}
         >
           <div className="mt-1 w-32">
@@ -1969,38 +1979,40 @@ function SnowRemovalTakeoff({ takeoff, book, onChange }) {
         <OptionRow
           checked={takeoff.newClient}
           onToggle={(v) => set({ newClient: v })}
-          label="New client discount"
-          hint={`−${money(book?.newClientDiscount)}, shown to the client as its own line`}
+          label={t("app.snow.newClient", "New client discount")}
+          hint={t("app.snow.newClientHint", "−{amount}, shown to the client as its own line", { amount: money(book?.newClientDiscount) })}
           amount={0}
         />
       </div>
 
       {shovelBlocked && (
         <p className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
-          Walkway and steps are sold alongside a driveway, not on their own, so
-          this will not be billed until a driveway with a rate is selected
-          above. That is the contract these rates come from, not a software
-          limit — pick a driveway, or change the rule in Settings.
+          {t(
+            "app.snow.shovelBlocked",
+            "Walkway and steps are sold alongside a driveway, not on their own, so this will not be billed until a driveway with a rate is selected above. That is the contract these rates come from, not a software limit — pick a driveway, or change the rule in Settings.",
+          )}
         </p>
       )}
 
-      <Field label="Additional visits beyond the season">
+      <Field label={t("app.snow.extraVisits", "Additional visits beyond the season")}>
         <Num
           value={takeoff.extraVisits}
           onChange={(v) => set({ extraVisits: v })}
         />
         <div className="mt-1 text-xs text-muted-foreground">
           {num(e.perVisitPrice) > 0
-            ? `${money(e.perVisitPrice)} per visit — ${money(visitAmount)}`
-            : "No per-visit rate is set, so these will not be billed."}
+            ? t("app.snow.perVisit", "{amount} per visit — {total}", { amount: money(e.perVisitPrice), total: money(visitAmount) })
+            : t("app.snow.noVisitRate", "No per-visit rate is set, so these will not be billed.")}
         </div>
       </Field>
 
       {noVisitRate && (
         <p className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
-          {num(takeoff.extraVisits)} extra visits are entered but no per-visit
-          rate exists, so they add nothing. Set one in Settings → Services →
-          Snow Removal.
+          {t(
+            "app.snow.extraNoRate",
+            "{n} extra visits are entered but no per-visit rate exists, so they add nothing. Set one in Settings → Services → Snow Removal.",
+            { n: num(takeoff.extraVisits) },
+          )}
         </p>
       )}
     </div>
@@ -2093,7 +2105,7 @@ function RoofMeasurePanel({ takeoff, book, onApply, defaultAddress = "" }) {
   // than stored: the price book can change under a measurement that is still
   // on screen, and a stale dollar figure beside a live one is worse than none.
   const patch = result?.ok && result.linear ? takeoffPatch(result.linear) : null;
-  const report = result?.ok && result.linear ? summarise(result.linear) : null;
+  const report = result?.ok && result.linear ? summarise(result.linear, t) : null;
   const vent = result?.ok ? ventilation(result.footprintSqft, result.predominantPitch?.rise) : null;
 
   const RATE = {
@@ -2298,10 +2310,11 @@ function RoofMeasurePanel({ takeoff, book, onApply, defaultAddress = "" }) {
               the roof that was measured — the pin was the thing that was wrong. */}
           {result.searchWidened && (
             <p>
-              The address pin was not on a building, so {result.buildingsConsidered} nearby roofs were
-              checked and the nearest one big enough to be a house was measured
-              {result.formattedAddress ? ` — ${result.formattedAddress}` : ""}. Check the image is the
-              right roof.
+              {t(
+                "app.roof.searchWidened",
+                "The address pin was not on a building, so {count} nearby roofs were checked and the nearest one big enough to be a house was measured{address}. Check the image is the right roof.",
+                { count: result.buildingsConsidered, address: result.formattedAddress ? ` — ${result.formattedAddress}` : "" },
+              )}
             </p>
           )}
           {(result.warnings || []).map((w) => (
@@ -2586,11 +2599,20 @@ function RoofingTakeoff({ takeoff, book, onChange, siteAddress = "" }) {
         factorNote={
           labour.incomplete
             ? null
-            : `On-roof work ${labour.onRoofHours} h (pitch ×${labour.pitch.factor}, storeys ×${labour.storeyFactor}${
-                labour.materialFactor !== 1
-                  ? `, ${material?.label || "material"} ×${labour.materialFactor}`
-                  : ""
-              }) · set-up, cleanup and dump runs ${labour.fixedHours} h, which do not scale with pitch.`
+            : t(
+                "app.roof.labourNote",
+                "On-roof work {onRoof} h (pitch ×{pitch}, storeys ×{storeys}{material}) · set-up, cleanup and dump runs {fixed} h, which do not scale with pitch.",
+                {
+                  onRoof: labour.onRoofHours,
+                  pitch: labour.pitch.factor,
+                  storeys: labour.storeyFactor,
+                  material:
+                    labour.materialFactor !== 1
+                      ? t("app.roof.labourMaterial", ", {label} ×{factor}", { label: material?.label || t("app.roof.materialField", "Roofing material"), factor: labour.materialFactor })
+                      : "",
+                  fixed: labour.fixedHours,
+                },
+              )
         }
       />
 
@@ -2949,10 +2971,11 @@ function GutterMeasurePanel({ takeoff, workType, onApply, defaultAddress = "" })
           <p className="text-xs text-foreground">{report.headline}</p>
           {result.searchWidened && (
             <p>
-              The address pin was not on a building, so {result.buildingsConsidered} nearby roofs were
-              checked and the nearest one big enough to be a house was measured
-              {result.formattedAddress ? ` — ${result.formattedAddress}` : ""}. Check the image is the
-              right roof.
+              {t(
+                "app.roof.searchWidened",
+                "The address pin was not on a building, so {count} nearby roofs were checked and the nearest one big enough to be a house was measured{address}. Check the image is the right roof.",
+                { count: result.buildingsConsidered, address: result.formattedAddress ? ` — ${result.formattedAddress}` : "" },
+              )}
             </p>
           )}
           {report.measured.map((line) => (
