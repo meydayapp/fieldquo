@@ -440,7 +440,7 @@ export const MANUAL = {
         { h: "Buzón de voz" },
         { p: "{{app.salesPortal.navVoicemail}} en la barra lateral: {{app.salesDial.voicemailIntro}} Muestra {{app.salesDial.yourNumberIs|numbers=tu número}} y cada mensaje con {{app.salesDial.playTheMessage}} y {{app.salesDial.openTheRecord}}. Un mensaje sin palabras se muestra, no se oculta: {{app.salesDial.silentVoicemail}}" },
         { figure: "voicemail", caption: "La página Buzón de voz: mensajes dejados en tu número, cada uno reproducible, cada uno con Abrir la ficha." },
-        { callout: ["Las conversaciones nunca se graban. Grabar una llamada entre dos personas es ley de consentimiento, y no hay ningún interruptor en el producto que lo active. Un mensaje de voz — una persona hablándole a una máquina después de un aviso — es el único audio que FieldQuo conserva, y solo para que puedas reproducirlo."], title: "La grabación está apagada" },
+        { callout: ["Cada llamada se graba desde que el contratista contesta, y se transcribe, para que lo que dijiste pueda leerse contra el guion. El aviso eres tú: la primera línea en tu pantalla dice «Esta llamada puede ser grabada» — dila primero, en cada llamada, en el idioma de la llamada. Un mensaje de voz — una persona hablándole a una máquina después de un aviso — se guarda aparte para que puedas reproducirlo."], title: "Cada llamada se graba — y lo dices tú" },
         { tryIt: [
           "Pide a tu capacitador que llame a tu número de FieldQuo desde su puesto. Mira llegar el cajón; pulsa {{app.salesDial.pickUp}}.",
           "En esa llamada, abre {{app.salesDial.transferThisCall}} y lee los dos botones junto a cada nombre. Pulsa {{app.salesDial.neverMind}}.",
@@ -707,7 +707,7 @@ export const MANUAL = {
           "**STOP significa todos los canales, para todos.** Un «no contactar» dura tres años. No busques otro número, otro correo, otro representante. Solo un superadministrador puede levantarlo, con un motivo por escrito.",
           "**Nunca escribas a un número que no tienes.** El portal rechaza un número que está en el lead de otro representante — «This number belongs to a contractor another rep is working.» — y un primer mensaje solo sale desde el lead, con la presentación fija.",
           "**Quebec es en francés.** Un lead de Quebec te llega solo si marcaste francés bajo {{app.salesSellsIn.heading}}. Si hay uno en tu pantalla, atiende la llamada en francés.",
-          "**La grabación de llamadas está apagada, y no hay interruptor.** Ley de consentimiento. Tampoco grabes nunca una llamada en tu propio dispositivo.",
+          "**Cada llamada se graba, y lo dices tú.** «Esta llamada puede ser grabada» es lo primero que sale de tu boca, en el idioma de la llamada. Nunca grabes una llamada en tu propio dispositivo — el producto ya lo hace, y la tuya sería una segunda copia que nadie aprobó.",
           "**Di tu número de devolución.** {{app.salesCall.callerIdNotice|number=tu número}}",
           "**Ningún precio por debajo del precio regular en un guion ni en una llamada.** La página de precios y las fichas de la competencia son los únicos precios que citas, al precio que figura ahí. El guion no tiene dígitos por esa razón; la línea del propio Guion es «I am not going to discount it.»",
           "**Di las inferencias como impresiones y lo desconocido como desconocido.** {{app.salesQueue.inferenceCaveat|confidence=70 % de confianza;source=Derivado de lo que observamos.}}",

@@ -304,6 +304,10 @@ export default function PlatformSalesRepsPage() {
   const [mailboxDraft, setMailboxDraft] = useState({});
   const [planDraft, setPlanDraft] = useState({});
   const [engagementDraft, setEngagementDraft] = useState({});
+  // rep id → the agency picked in that card's engagement editor when the
+  // draft is "agency". Separate from the draft so switching to and from
+  // "Works for an agency" keeps the pick.
+  const [agencyPick, setAgencyPick] = useState({});
   // rep id → the list being edited in that card's "Sells in" editor.
   const [sellsInDraft, setSellsInDraft] = useState({});
   const [loading, setLoading] = useState(true);
@@ -353,6 +357,10 @@ export default function PlatformSalesRepsPage() {
   // its agency's block whichever state it is in.
   const activeReps = useMemo(() => reps.filter((r) => r.active && r.kind !== "influencer" && r.kind !== "agency" && !r.agency), [reps]);
   const agencyReps = useMemo(() => reps.filter((r) => r.kind === "agency"), [reps]);
+  // What the "Works for an agency" picker offers: active agencies only. A
+  // deactivated one is refused by the server too; hiding it here just saves
+  // the round trip.
+  const activeAgencies = useMemo(() => agencyReps.filter((a) => a.active), [agencyReps]);
   const agencyBlocks = useMemo(
     () =>
       agencyReps.flatMap((a) => [
@@ -816,21 +824,67 @@ export default function PlatformSalesRepsPage() {
   }
 
   /**
-   * Put a rep on a commission plan, or take them off one.
+   * What an engagement choice would change, in a sentence — the one the
+   * confirm() shows before the save, and the one printed under the picker.
+   *
+   * Written from what the server actually does (lib/sales/repEngagement.js
+   * and lib/sales/payouts.js closeWeekForRep): the payee changes from the
+   * next weekly close; batches already closed stay under whoever was paid;
+   * every entry keeps the rep as its earner. Null when nothing would change.
+   */
+  function engagementConsequence(rep, value, agency) {
+    const underAgency = Boolean(rep.agency);
+    if (value === "agency") {
+      if (!agency) return null;
+      if (underAgency && rep.agency.id === agency.id) return null;
+      const planLine =
+        agency.commissionPlanId && agency.commissionPlanId !== rep.commissionPlanId
+          ? ` Their commission plan becomes the agency's (${agency.commissionPlan || "its plan"}), as for every rep the agency adds itself.`
+          : "";
+      return (
+        `From the next weekly close, what ${rep.name}'s link earns is paid to ${agency.name}, pooled into the agency's batch; ` +
+        `${rep.name} loses their Pay screen and sees only ${agency.name}'s team on the floor.` +
+        planLine +
+        ` Batches already closed stay with ${underAgency ? rep.agency.name : rep.name}; every entry keeps ${rep.name} as the earner.` +
+        (rep.workEmail && rep.hasNumber ? "" : " You will be flagged on the errors page to assign the number and the work mailbox.")
+      );
+    }
+    if (underAgency) {
+      const label = ENGAGEMENTS.find((e) => e.key === value)?.label?.toLowerCase() || "not decided";
+      return (
+        `${rep.name} leaves ${rep.agency.name} and is recorded as ${label}. From the next weekly close their commission is paid to them, not to ${rep.agency.name}, and they get their own Pay screen. ` +
+        `Batches already closed stay with ${rep.agency.name}; every entry keeps ${rep.name} as the earner. Their commission plan is kept as it is — change it on this card if the terms differ.`
+      );
+    }
+    return null;
+  }
+
+  /**
+   * Record how a rep is engaged: freelancer, employee, or works for an agency.
    *
    * The same draft-then-Save shape as the mailbox rather than a select that
    * saves on change: this field decides what somebody is paid, and a stray
-   * click on a dropdown is not a decision.
+   * click on a dropdown is not a decision. Into or out of an agency is a
+   * change of PAYEE, so it is confirmed in the sentence above first, and the
+   * server refuses it while the rep has an open payout week — the 409 lands
+   * in the banner with the count and the sum.
    */
   async function saveEngagement(rep) {
     const value = engagementDraft[rep.id] ?? "";
+    const agency = value === "agency" ? activeAgencies.find((a) => a.id === agencyPick[rep.id]) : null;
+    if (value === "agency" && !agency) {
+      setWarning("Pick which agency this rep works for.");
+      return;
+    }
+    const consequence = engagementConsequence(rep, value, agency);
+    if (consequence && !confirm(`${consequence}\n\nContinue?`)) return;
     setBusy(true);
     clearBanners();
     try {
       await fetchJson(`/api/platform/sales/reps/${rep.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ engagement: value || null }),
+        body: JSON.stringify({ engagement: value || null, ...(agency ? { agencyId: agency.id } : {}) }),
       });
       setEngagementDraft((d) => {
         const next = { ...d };
@@ -839,13 +893,45 @@ export default function PlatformSalesRepsPage() {
       });
       const chosen = ENGAGEMENTS.find((e) => e.key === value);
       setNotice(
-        chosen
-          ? `${rep.name} is recorded as ${chosen.label.toLowerCase()}. ${chosen.note}`
-          : `${rep.name}'s engagement is back to "not decided" — their Pay screen will say so.`,
+        agency
+          ? `${rep.name} now works for ${agency.name}. ${consequence}`
+          : chosen
+            ? `${rep.name} is recorded as ${chosen.label.toLowerCase()}. ${rep.agency ? `They no longer work for ${rep.agency.name}. ` : ""}${chosen.note}`
+            : `${rep.name}'s engagement is back to "not decided" — their Pay screen will say so.`,
       );
       await load();
     } catch (err) {
       setError(err.message || "Could not save the engagement.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /**
+   * Turn a rep row into an agency account — for "the account was created
+   * before the agency". The server allows it only for a row the ledger has
+   * never touched (no entry, no batch, nobody reporting to it, reporting to
+   * nobody, a plan assigned); every refusal arrives as a sentence and is
+   * shown as one. There is no way back, and the confirm says so.
+   */
+  async function convertToAgency(rep) {
+    if (
+      !confirm(
+        `Turn ${rep.name} into an agency account? They keep their login, link and signups, lose freelancer/employee, and become the account a call centre is paid through: they get My team in their portal, add their own reps, and are paid what the whole team earns in one weekly batch. This cannot be undone — an agency does not become a rep again.\n\nContinue?`,
+      )
+    )
+      return;
+    setBusy(true);
+    clearBanners();
+    try {
+      await fetchJson(`/api/platform/sales/reps/${rep.id}`, {
+        method: "PATCH",
+        body: { kind: "agency" },
+      });
+      setNotice(`${rep.name} is now an agency. It adds its own reps from My team in its portal; you are flagged on the errors page each time, to assign the number and the work mailbox.`);
+      await load();
+    } catch (err) {
+      setError(err.message || "Could not convert this rep into an agency.");
     } finally {
       setBusy(false);
     }
@@ -1826,68 +1912,107 @@ export default function PlatformSalesRepsPage() {
                   ) : null}
                 </div>
                 <div>
-                  <div className={LABEL}>Freelancer or employee</div>
+                  <div className={LABEL}>Employee, freelancer, or agency</div>
                   {isAgencyRow ? (
                     <p className="text-sm text-muted-foreground">
                       An agency — a business paid by invoice for what its reps earn. It has no engagement of its own; its reps are agency employees.
                     </p>
-                  ) : isEmployeeRow ? (
-                    <p className="text-sm text-muted-foreground">
-                      Agency employee of {rep.agency.name}. Set by the agency when it added them; their commission is paid to the agency and they see no Pay screen.
-                    </p>
                   ) : rep.id in engagementDraft && isSuperadmin ? (
-                    <div className="flex flex-wrap gap-2">
-                      <select
-                        aria-label={`Engagement for ${rep.name}`}
-                        value={engagementDraft[rep.id]}
-                        onChange={(e) =>
-                          setEngagementDraft({ ...engagementDraft, [rep.id]: e.target.value })
-                        }
-                        className={`${FIELD} flex-1`}
-                      >
-                        <option value="">Not decided yet</option>
-                        {/* "Agency employee" is set by the agency, with the
-                            manager, in one write — never picked here. */}
-                        {ENGAGEMENTS.filter((e) => e.key !== "agency").map((e) => (
-                          <option key={e.key} value={e.key}>
-                            {e.label}
+                    <div className="space-y-2" data-engagement-editor={rep.id}>
+                      <div className="flex flex-wrap gap-2">
+                        <select
+                          aria-label={`Engagement for ${rep.name}`}
+                          value={engagementDraft[rep.id]}
+                          onChange={(e) =>
+                            setEngagementDraft({ ...engagementDraft, [rep.id]: e.target.value })
+                          }
+                          className={`${FIELD} flex-1`}
+                        >
+                          <option value="">Not decided yet</option>
+                          <option value="employee">FieldQuo employee</option>
+                          <option value="freelancer">Freelancer</option>
+                          {/* The third choice, since 2026-09-17: a payee
+                              change, confirmed in a sentence before the
+                              save and refused by the server while the rep
+                              has an open payout week. */}
+                          <option value="agency" disabled={activeAgencies.length === 0}>
+                            {activeAgencies.length === 0 ? "Works for an agency (no active agency yet)" : "Works for an agency"}
                           </option>
-                        ))}
-                      </select>
-                      <button
-                        onClick={() => saveEngagement(rep)}
-                        disabled={busy}
-                        className={BTN_PRIMARY}
-                      >
-                        Save
-                      </button>
-                      <button
-                        onClick={() =>
-                          setEngagementDraft((d) => {
-                            const next = { ...d };
-                            delete next[rep.id];
-                            return next;
-                          })
-                        }
-                        className={BTN_QUIET}
-                      >
-                        Cancel
-                      </button>
+                        </select>
+                        {engagementDraft[rep.id] === "agency" ? (
+                          <select
+                            aria-label={`Which agency ${rep.name} works for`}
+                            value={agencyPick[rep.id] || ""}
+                            onChange={(e) => setAgencyPick({ ...agencyPick, [rep.id]: e.target.value })}
+                            className={`${FIELD} flex-1`}
+                            data-agency-picker={rep.id}
+                          >
+                            <option value="">Which agency?</option>
+                            {activeAgencies.map((a) => (
+                              <option key={a.id} value={a.id}>
+                                {a.name}
+                              </option>
+                            ))}
+                          </select>
+                        ) : null}
+                        <button
+                          onClick={() => saveEngagement(rep)}
+                          disabled={busy || (engagementDraft[rep.id] === "agency" && !agencyPick[rep.id])}
+                          className={BTN_PRIMARY}
+                        >
+                          Save
+                        </button>
+                        <button
+                          onClick={() =>
+                            setEngagementDraft((d) => {
+                              const next = { ...d };
+                              delete next[rep.id];
+                              return next;
+                            })
+                          }
+                          className={BTN_QUIET}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                      {(() => {
+                        const value = engagementDraft[rep.id];
+                        const agency = value === "agency" ? activeAgencies.find((a) => a.id === agencyPick[rep.id]) : null;
+                        const sentence = engagementConsequence(rep, value, agency);
+                        const payeeMoves = sentence !== null;
+                        const open = rep.ledger?.openEntries || 0;
+                        return (
+                          <>
+                            {sentence ? (
+                              <p className="text-xs text-muted-foreground" data-engagement-consequence>
+                                {sentence}
+                              </p>
+                            ) : null}
+                            {payeeMoves && open > 0 ? (
+                              <p className="text-xs text-amber-700 dark:text-amber-300" data-open-week-warning>
+                                {rep.name} has {plural(open, "commission entry", "commission entries")} ({centsToMoney(rep.money?.thisWeekCents || 0)}) not yet closed into a payout batch. The server will refuse this change until Monday&apos;s close, so the open week is not split between two payees.
+                              </p>
+                            ) : null}
+                          </>
+                        );
+                      })()}
                     </div>
                   ) : (
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-sm text-foreground">
-                        {ENGAGEMENTS.find((e) => e.key === rep.engagement)?.label ||
-                          "Not decided yet"}
+                        {isEmployeeRow
+                          ? `Works for ${rep.agency.name}`
+                          : ENGAGEMENTS.find((e) => e.key === rep.engagement)?.label || "Not decided yet"}
                       </span>
                       {isSuperadmin ? (
                         <button
-                          onClick={() =>
+                          onClick={() => {
                             setEngagementDraft({
                               ...engagementDraft,
                               [rep.id]: rep.engagement || "",
-                            })
-                          }
+                            });
+                            if (rep.agency) setAgencyPick({ ...agencyPick, [rep.id]: rep.agency.id });
+                          }}
                           className={BTN_QUIET}
                         >
                           {rep.engagement ? "Change" : "Set"}
@@ -1895,12 +2020,43 @@ export default function PlatformSalesRepsPage() {
                       ) : null}
                     </div>
                   )}
+                  {isEmployeeRow && !(rep.id in engagementDraft) ? (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Their commission is paid to {rep.agency.name} and they see no Pay screen. Choosing employee or freelancer above detaches them — from the next weekly close they are paid themselves.
+                    </p>
+                  ) : null}
                   {!rep.engagement && !isAgencyRow && !isEmployeeRow ? (
                     <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
                       Nobody has said whether this rep is a freelancer or an
                       employee. Their Pay screen shows this same sentence until
                       you set it here.
                     </p>
+                  ) : null}
+                  {/* ── Turning this row into an agency ──────────────────
+                      For the account that was created before the agency
+                      was. Offered only while the ledger has never touched
+                      the row; otherwise the sentence says why not, and the
+                      server says the same when asked. */}
+                  {isSuperadmin && rep.kind === "rep" && !isEmployeeRow ? (
+                    <div className="mt-2 text-xs text-muted-foreground" data-convert-to-agency={rep.id}>
+                      {(rep.ledger?.entries || 0) > 0 ? (
+                        <span>
+                          Not convertible into an agency: {rep.name} has earned commission as a person ({plural(rep.ledger.entries, "ledger entry", "ledger entries")}), and that history cannot read as an agency&apos;s. Create the agency as a new account instead.
+                        </span>
+                      ) : (
+                        <span>
+                          Is this account really a call centre?{" "}
+                          {rep.commissionPlanId ? (
+                            <button onClick={() => convertToAgency(rep)} disabled={busy} className="underline underline-offset-2 hover:text-foreground disabled:opacity-50">
+                              Convert it into an agency
+                            </button>
+                          ) : (
+                            <span>Assign a commission plan above first — every rep an agency adds earns under it — then it can be converted into an agency.</span>
+                          )}
+                          {rep.commissionPlanId ? " — it keeps its login, link and signups, adds its own reps under My team, and is paid what the whole team earns. Refused if anyone reports to it or it reports to someone." : ""}
+                        </span>
+                      )}
+                    </div>
                   ) : null}
                 </div>
                 <div>

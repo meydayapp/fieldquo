@@ -325,6 +325,9 @@ export default function SalesLeadPage({ params }) {
         // The console's override, resolved server-side and re-passed — the
         // same fact the queue re-asks with, from the same field.
         windowPolicy: call.callingContext.windowPolicy || null,
+        // One of FieldQuo's own test lines, decided server-side and re-passed
+        // — the queue re-asks with the same field.
+        testLine: call.callingContext.testLine === true,
         // The reader's language, for the ONE string this produces that is a
         // formatted instant rather than a sentence — "It opens at 08:00 on Tue
         // 8 Sep". Everything else travels as a catalogue key; a date cannot,

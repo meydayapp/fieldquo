@@ -624,8 +624,13 @@ for (const field of TUNING_FIELDS) {
   ok("...and committed by the same Save that pushes the greeting",
     /onClick=\{\(\) => save\(saysPayload\(\)\)\}/.test(page) &&
       /const saysPayload = \(\) => \{[\s\S]{0,200}= form;/.test(page));
-  ok("...and that payload drops nothing but the voice",
-    /const \{ voice, \.\.\.rest \} = form;/.test(page));
+  // The spoken language rides the same rule as the voice, for the same
+  // reason: when it is present the PUT reads the provider's voice list to
+  // check the current voice can pronounce it, and an unchanged value on
+  // every greeting edit is a slower Save for no decision. The four tuning
+  // values are still in `rest`, and still on this one Save.
+  ok("...and that payload drops nothing but the voice and the spoken language",
+    /const \{ voice, spokenLanguage, \.\.\.rest \} = form;/.test(page));
   ok("...with the price refusal restated where somebody is changing behaviour",
     /app\.setVoice\.tune\.unchanged/.test(page));
 }

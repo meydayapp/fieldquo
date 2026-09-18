@@ -21,7 +21,9 @@ import {
   sanitiseHeaderText,
 } from "@/lib/sales/outreach";
 import { contactOptedOut } from "@/lib/sales/outreachInbound";
-import { leadCallingContext, leadDialView } from "@/lib/sales/leadDial";
+import { leadCallingContext, leadDialView, leadPhoneE164 } from "@/lib/sales/leadDial";
+import { isTestLine } from "@/lib/sales/testLines";
+import { loadTestLines } from "@/lib/sales/testLinesStore";
 import { windowPolicyForProspect } from "@/lib/sales/windowOverrides";
 import { publicWindowPolicy } from "@/lib/sales/windowPolicy";
 import { isSalesSmsTimeZone } from "@/lib/sales/smsWindow";
@@ -267,6 +269,7 @@ export async function GET(request, { params }) {
     call: leadDialView(lead, {
       optedOut: phoneOptOut,
       windowPolicy: publicWindowPolicy(await windowPolicyForProspect(leadCallingContext(lead))),
+      testLine: isTestLine(leadPhoneE164(lead), await loadTestLines()),
     }),
     // The picker beside the dial. Same shape the queue sends, so
     // app/components/sales/ContactNumbers.js renders one thing on both screens.
@@ -413,6 +416,7 @@ export async function PATCH(request, { params }) {
       ? leadDialView(lead, {
           optedOut: phoneOptOut,
           windowPolicy: publicWindowPolicy(await windowPolicyForProspect(leadCallingContext(lead))),
+          testLine: isTestLine(leadPhoneE164(lead), await loadTestLines()),
         })
       : null,
     numbers: lead ? await contactNumbersFor(lead, { optedOut: phoneOptOut }) : null,

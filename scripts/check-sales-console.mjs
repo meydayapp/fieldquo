@@ -823,7 +823,7 @@ section("7. Six tabs, and all six on a 375px screen");
   ok("typedToE164 agrees with the server's normalisePhone on every input", disagree.length === 0, disagree);
 
   // The cap.
-  ok("the queue route counts attempts for the number the dial rings", /const attempts24h = await attemptsLast24h\(full\.phoneE164 \|\| voice\.choices\[0\]\?\.e164 \|\| null, \{ now \}\)/.test(route));
+  ok("the queue route counts attempts for the number the dial rings", /const dialNumber = full\.phoneE164 \|\| voice\.choices\[0\]\?\.e164 \|\| null;\s*const attempts24h = await attemptsLast24h\(dialNumber, \{ now \}\)/.test(route));
   ok("…and passes the count to salesCallReadiness AND into callingContext", /salesCallReadiness\(\{\s*prospect: full,[\s\S]{0,120}attemptsLast24h: attempts24h,/.test(route) && /callingContext: \{[\s\S]{0,160}attemptsLast24h: attempts24h,/.test(route));
   ok("the console re-passes it on every re-ask", /attemptsLast24h: Number\.isFinite\(ctx\.attemptsLast24h\) \? ctx\.attemptsLast24h : null,/.test(consoleSrc));
   ok("the readiness echoes the cap and the count for the screen's one line", /attemptCap: jurisdiction\?\.maxCallsPer24h \?\? null,/.test(rules));
