@@ -16,6 +16,20 @@
 // and the submit button both follow that setting, so neither can promise
 // something the panel won't do.
 //
+// ── The language is the visitor's ──────────────────────────────────────────
+//
+// Three pills at the top of the form: English, Français, Español. Every string
+// on the page comes from lib/i18n/instantQuoteCopy.js (plus the lawn and
+// "doesn't look right" tables it defers to), so switching re-renders the whole
+// page — and re-fetches the payload, because the trade chips, the budget
+// bands, the lawn cards and the junk-removal items are labelled server-side.
+// The pick is carried on every request after that: the measurement notes,
+// the draft, the lead and the email are created in it and never re-translated
+// (non-negotiable #6). Resolution order on first paint: ?lang= on the link
+// (a contractor's French page links with ?lang=fr), what this browser chose
+// here before (localStorage, per company), the browser's own language when
+// it is one of the three, then the company's.
+//
 // Every price is computed server-side — this component only ever sends an
 // address, a polygon, or a few numbers plus a material key and a band index.
 "use client";
@@ -32,6 +46,15 @@ import BookVisitPanel from "@/app/components/public/BookVisitPanel";
 import LawnCareOffer, { lawnPickTotal, estimateMoneyCents } from "./LawnCareOffer";
 import MeasurementDoubt from "./MeasurementDoubt";
 import { lawnEstimateCopy } from "@/lib/i18n/lawnEstimateCopy";
+import { clientDocCopy } from "@/lib/i18n/clientDocCopy";
+import {
+  INSTANT_QUOTE_LANGUAGES,
+  instantQuoteCopy,
+  instantQuoteLanguage,
+  instantQuoteLocale,
+} from "@/lib/i18n/instantQuoteCopy";
+import { questionsFor, timelineOptionsFor, tradeQuestionCopy } from "@/lib/leads/tradeQuestions";
+import { serviceAreaCopy } from "@/lib/company/serviceArea";
 
 // ── The way out ──────────────────────────────────────────────────────────────
 //
@@ -43,44 +66,47 @@ import { lawnEstimateCopy } from "@/lib/i18n/lawnEstimateCopy";
 // in a different branch. A stranger standing in a driveway with a failed map
 // had nowhere to go. The same sentence appears in three server error messages,
 // so the exit is a component and not a line of JSX someone remembers to paste.
-function RequestQuoteLink({ companySlug, className = "" }) {
+function RequestQuoteLink({ companySlug, t, className = "" }) {
   return (
     <a
       href={`/quote/${companySlug}`}
       className={`inline-block underline text-sm font-medium ${className}`}
     >
-      Request a quote instead →
+      {t.requestQuoteInstead}
     </a>
   );
 }
 
 // Surcharge / intake inputs shown per trade, mirroring the estimator's keys.
+// Labels and options are COPY KEYS resolved through the language table at
+// render (intakeInputs below) — the field keys and option VALUES are the
+// estimator's and never change with the language.
 const INTAKE_INPUTS = {
   roofing: [
-    { key: "tearOffLayers", label: "Existing roof layers to remove", type: "number", placeholder: "0" },
+    { key: "tearOffLayers", label: "tearOffLayers", type: "number", placeholder: "0" },
   ],
   epoxy: [
-    { key: "squareFootage", label: "Floor area (sq ft)", type: "number", required: true },
+    { key: "squareFootage", label: "squareFootageFloor", type: "number", required: true },
     {
       key: "surfaceCondition",
-      label: "Floor condition",
+      label: "surfaceCondition",
       type: "select",
-      options: [["good", "Good"], ["fair", "Fair"], ["poor", "Poor / needs repair"]],
+      options: [["good", "good"], ["fair", "fair"], ["poor", "poor"]],
     },
   ],
   parging: [
-    { key: "squareFootage", label: "Wall area (sq ft)", type: "number", required: true },
+    { key: "squareFootage", label: "squareFootageWall", type: "number", required: true },
     {
       key: "access",
-      label: "Height / access",
+      label: "access",
       type: "select",
-      options: [["ground", "Ground level"], ["second_storey", "Second storey"], ["scaffold", "Needs scaffold"]],
+      options: [["ground", "ground"], ["second_storey", "second_storey"], ["scaffold", "scaffold"]],
     },
     {
       key: "condition",
-      label: "Wall condition",
+      label: "condition",
       type: "select",
-      options: [["new_or_sound", "New / sound masonry"], ["minor_repair", "Minor repair"], ["major_repair", "Major repair"]],
+      options: [["new_or_sound", "new_or_sound"], ["minor_repair", "minor_repair"], ["major_repair", "major_repair"]],
     },
   ],
   // Refinishing shares the manual_units measurement with refacing and does NOT
@@ -88,77 +114,73 @@ const INTAKE_INPUTS = {
   // sprayed as part of the base scope), so that input is deliberately absent
   // rather than rendered as a box that changes no number.
   cabinet_refinishing: [
-    { key: "doorCount", label: "Cabinet doors", type: "number", required: true },
-    { key: "drawerCount", label: "Drawer fronts", type: "number" },
+    { key: "doorCount", label: "doorCount", type: "number", required: true },
+    { key: "drawerCount", label: "drawerCount", type: "number" },
     {
       key: "complexityLevel",
-      label: "Condition of the cabinets",
+      label: "complexityLevel",
       type: "select",
-      options: [
-        ["standard", "Sound — normal wear"],
-        ["moderate", "Some extra prep needed"],
-        ["high", "Heavy grease, damage or peeling"],
-      ],
+      options: [["standard", "standard"], ["moderate", "moderate"], ["high", "high"]],
     },
   ],
   cabinet_refacing: [
-    { key: "doorCount", label: "Cabinet doors", type: "number", required: true },
-    { key: "drawerCount", label: "Drawer fronts", type: "number" },
-    { key: "boxLinearFt", label: "Exposed box sides (linear ft)", type: "number" },
+    { key: "doorCount", label: "doorCount", type: "number", required: true },
+    { key: "drawerCount", label: "drawerCount", type: "number" },
+    { key: "boxLinearFt", label: "boxLinearFt", type: "number" },
   ],
   countertop: [
-    { key: "squareFootage", label: "Countertop area (sq ft)", type: "number", required: true, placeholder: "e.g. 40" },
-    { key: "cutouts", label: "Sink / cooktop cutouts", type: "number", placeholder: "e.g. 1" },
-    { key: "edgeFt", label: "Upgraded edge (linear ft)", type: "number" },
-    { key: "backsplashSqft", label: "Backsplash (sq ft)", type: "number" },
+    { key: "squareFootage", label: "squareFootageCounter", type: "number", required: true, eg: "40" },
+    { key: "cutouts", label: "cutouts", type: "number", eg: "1" },
+    { key: "edgeFt", label: "edgeFt", type: "number" },
+    { key: "backsplashSqft", label: "backsplashSqft", type: "number" },
   ],
   flooring: [
-    { key: "squareFootage", label: "Floor area (sq ft)", type: "number", required: true },
+    { key: "squareFootage", label: "squareFootageFloor", type: "number", required: true },
     {
       key: "surfaceCondition",
-      label: "Subfloor / old floor",
+      label: "subfloor",
       type: "select",
-      options: [["good", "Bare & level"], ["fair", "Some prep"], ["poor", "Tear-out + levelling"]],
+      options: [["good", "bareLevel"], ["fair", "somePrep"], ["poor", "tearOut"]],
     },
   ],
   painting: [
-    { key: "squareFootage", label: "Surface area (sq ft)", type: "number", required: true },
+    { key: "squareFootage", label: "squareFootageSurface", type: "number", required: true },
     // Asked only when the company sells BOTH. The page payload carries the
     // scopes they sell (`trade.scopes`); with one, the server prices that one
     // whatever the form sent, so a question here would be a control whose
     // answer changes nothing. `askedWhen` is read by the input filter below.
     {
       key: "scope",
-      label: "Interior or exterior",
+      label: "scope",
       type: "select",
-      options: [["interior", "Interior"], ["exterior", "Exterior"]],
+      options: [["interior", "interior"], ["exterior", "exterior"]],
       askedWhen: (trade) => !Array.isArray(trade?.scopes) || trade.scopes.length > 1,
     },
     {
       key: "surfaceCondition",
-      label: "Surface condition",
+      label: "surfaceConditionPaint",
       type: "select",
-      options: [["good", "Good"], ["fair", "Fair"], ["poor", "Poor / needs prep"]],
+      options: [["good", "good"], ["fair", "fair"], ["poor", "poorPrep"]],
     },
   ],
   stair: [
-    { key: "treads", label: "Number of steps", type: "number", required: true, placeholder: "e.g. 13" },
-    { key: "railingFt", label: "Railing (linear ft)", type: "number" },
+    { key: "treads", label: "treads", type: "number", required: true, eg: "13" },
+    { key: "railingFt", label: "railingFt", type: "number" },
   ],
 };
 
-// Where each trade's number actually comes from. Only two of these involve
-// imagery; the rest are the homeowner's own figures.
-const MEASURE_SOURCE = {
-  roof_address: "from satellite measurements of your roof",
-  gutter_address: "from aerial measurements of your roofline",
-  lawn_polygon: "from the area you traced on the map",
-  lawn_address: "from your lot and roof data, or the area you traced",
-  manual_area: "from the area you gave us",
-  manual_units: "from the counts you gave us",
-  stair_count: "from the counts you gave us",
-  item_picker: "from the items you picked",
-};
+/** The trade's inputs with their words resolved in the page's language. */
+function intakeInputs(trade, t) {
+  if (!trade) return [];
+  return (INTAKE_INPUTS[trade.trade] || [])
+    .filter((f) => !f.askedWhen || f.askedWhen(trade))
+    .map((f) => ({
+      ...f,
+      labelText: t.inputs[f.label] || f.label,
+      placeholderText: f.eg ? `${t.inputs.egPrefix}${f.eg}` : f.placeholder,
+      optionsText: (f.options || []).map(([v, k]) => [v, t.options[k] || k]),
+    }));
+}
 
 // The trades measured from an ADDRESS rather than from something the
 // homeowner types or draws: roofing and gutters read the same roof model.
@@ -167,20 +189,62 @@ const MEASURE_SOURCE = {
 const byAddress = (measure) =>
   measure === "roof_address" || measure === "gutter_address" || measure === "lawn_address";
 
-// The trades whose figure is read off imagery — roof, eaves, lawn — and so
-// the ones that carry the "this doesn't look right" control under it. A door
-// count the homeowner typed has nothing for a satellite to have got wrong.
-const fromImagery = (measure) => byAddress(measure) || measure === "lawn_polygon";
+// A trade whose figure is the area the homeowner TRACED on the map — the lawn
+// (lawn_polygon) and any trade priced per traced square foot (area_polygon:
+// paving). One predicate, so the map, the payload and the wording agree.
+const byTrace = (measure) => measure === "lawn_polygon" || measure === "area_polygon";
+
+// The trades whose figure is read off imagery — roof, eaves, lawn, a traced
+// area — and so the ones that carry the "this doesn't look right" control
+// under it. A door count the homeowner typed has nothing for a satellite to
+// have got wrong.
+const fromImagery = (measure) => byAddress(measure) || byTrace(measure);
 
 // Money lives in lib/estimate/estimateMoney.js now, shared with the funnel
 // runner. What used to be here was `"$" + Math.round(Number(n) || 0)`, which
 // published a dollar figure for a company billing in euros and turned a
 // missing bound into a confident "$0". See that file for both arguments.
 
-// ── Lawn polygon map ─────────────────────────────────────────────────────────
-// Loads the Google Maps JS API once and lets the homeowner trace their lawn.
-// The vertices go up to the server, which recomputes the area — the browser's
-// live readout is a convenience, never the priced number.
+// ── The language, remembered ─────────────────────────────────────────────────
+const langStorageKey = (slug) => `fq.instantQuote.lang.${slug}`;
+
+function readStoredLanguage(slug) {
+  try {
+    return instantQuoteLanguage(window.localStorage.getItem(langStorageKey(slug)));
+  } catch {
+    return null;
+  }
+}
+
+function storeLanguage(slug, code) {
+  try {
+    window.localStorage.setItem(langStorageKey(slug), code);
+  } catch {
+    // Private mode or storage blocked — the pick still holds for this visit.
+  }
+}
+
+/**
+ * Which language the page opens in. `?lang=` wins (a link from a French page
+ * must open French whatever this browser chose last month), then what this
+ * browser chose here before, then the browser's own language when it is one
+ * of the three, then the company's — which the payload carries.
+ */
+function initialLanguage(slug) {
+  if (typeof window === "undefined") return null;
+  const fromQuery = instantQuoteLanguage(new URLSearchParams(window.location.search).get("lang"));
+  if (fromQuery) return fromQuery;
+  const stored = readStoredLanguage(slug);
+  if (stored) return stored;
+  const browser = instantQuoteLanguage(window.navigator?.language);
+  return browser || null;
+}
+
+// ── Lawn / area polygon map ──────────────────────────────────────────────────
+// Loads the Google Maps JS API once and lets the homeowner trace their lawn
+// (or the area to pave). The vertices go up to the server, which recomputes
+// the area — the browser's live readout is a convenience, never the priced
+// number.
 let mapsLoader = null;
 function loadMaps(key) {
   if (typeof window === "undefined") return Promise.reject(new Error("no window"));
@@ -197,7 +261,9 @@ function loadMaps(key) {
   return mapsLoader;
 }
 
-function LawnMap({ mapsKey, onArea, companySlug, centerAddress = "" }) {
+// `area` is true for a traced area that is not a lawn (paving): the wording
+// says "the area" instead of "your lawn". Same map, same polygon, same server.
+function LawnMap({ mapsKey, onArea, companySlug, centerAddress = "", t, area = false }) {
   const mapRef = useRef(null);
   const searchRef = useRef(null);
   const [ready, setReady] = useState(false);
@@ -222,6 +288,10 @@ function LawnMap({ mapsKey, onArea, companySlug, centerAddress = "" }) {
         if (cancelled || !mapRef.current) return;
         const map = new google.maps.Map(mapRef.current, {
           center: { lat: 45.42, lng: -75.69 },
+          // 18, not 20: a suburban lot fits in the frame, so the homeowner
+          // sees the property's edges before they start tracing (the owner's
+          // complaint about the stills — "I cannot see the edge of the
+          // property"). They can pinch in; the map is live.
           zoom: 18,
           mapTypeId: "satellite",
           tilt: 0,
@@ -265,7 +335,7 @@ function LawnMap({ mapsKey, onArea, companySlug, centerAddress = "" }) {
             geocoder.geocode({ address: searchRef.current.value }, (res, status) => {
               if (status === "OK" && res[0]) {
                 map.setCenter(res[0].geometry.location);
-                map.setZoom(20);
+                map.setZoom(19);
               }
             });
           });
@@ -290,7 +360,7 @@ function LawnMap({ mapsKey, onArea, companySlug, centerAddress = "" }) {
         new window.google.maps.Geocoder().geocode({ address: centerAddress }, (res, status) => {
           if (status === "OK" && res[0]) {
             map.setCenter(res[0].geometry.location);
-            map.setZoom(20);
+            map.setZoom(19);
           }
         });
       } catch {
@@ -305,8 +375,8 @@ function LawnMap({ mapsKey, onArea, companySlug, centerAddress = "" }) {
     // lawn at all, so there is no retry to offer — only the way out.
     return (
       <div className="text-sm rounded-lg bg-amber-50 text-amber-800 border border-amber-200 px-3 py-2">
-        <p>The map couldn&apos;t load, so we can&apos;t measure your lawn here.</p>
-        <RequestQuoteLink companySlug={companySlug} className="mt-1 text-amber-900" />
+        <p>{area ? t.mapFailedArea : t.mapFailed}</p>
+        <RequestQuoteLink companySlug={companySlug} t={t} className="mt-1 text-amber-900" />
       </div>
     );
   }
@@ -315,18 +385,18 @@ function LawnMap({ mapsKey, onArea, companySlug, centerAddress = "" }) {
     <div>
       <input
         ref={searchRef}
-        placeholder="Type your address, press Enter to find it, then trace your lawn"
+        placeholder={area ? t.mapSearchPlaceholderArea : t.mapSearchPlaceholder}
         className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm mb-2"
       />
       <div ref={mapRef} className="w-full h-80 rounded-lg border border-border bg-muted" />
       {!ready && (
         <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-          <Loader2 size={12} className="animate-spin" /> Loading map…
+          <Loader2 size={12} className="animate-spin" /> {t.loadingMap}
         </p>
       )}
       {areaSqft > 0 && (
         <p className="text-sm text-foreground mt-2">
-          Traced area: <strong>{areaSqft.toLocaleString()} sq ft</strong>
+          <strong>{t.tracedArea(areaSqft)}</strong>
         </p>
       )}
     </div>
@@ -345,6 +415,11 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
   // request-a-quote form is a real alternative.
   const [loadErrStatus, setLoadErrStatus] = useState(0);
   const [trade, setTrade] = useState(null);
+
+  // The visitor's language. Null until the first effect resolves it (see
+  // initialLanguage) — the payload's own `language` fills it in when the
+  // browser and the link said nothing, i.e. the company's.
+  const [language, setLanguage] = useState(null);
 
   const [address, setAddress] = useState("");
   // ── Where the job is ──────────────────────────────────────────────────────
@@ -373,6 +448,21 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
   // Whether the "trace your lawn to correct it" map is open.
   const [tracing, setTracing] = useState(false);
 
+  // ── When, and the trade's own questions ──────────────────────────────────
+  //
+  // "When do you need this done?" is required; its options depend on the
+  // trade (lib/leads/tradeQuestions.js). `answers` holds the trade question
+  // keys; `notes` the free text. None of it moves the estimate by a cent —
+  // it is what the company reads before they ring back.
+  const [whenNeeded, setWhenNeeded] = useState(null);
+  const [answers, setAnswers] = useState({});
+  const [notes, setNotes] = useState("");
+
+  // The service-area verdict for the address on the form: null until asked
+  // or when the company has no area, else the route's answer. Only an
+  // explicit `inside: false` ever prints a sentence.
+  const [areaVerdict, setAreaVerdict] = useState(null);
+
   // The live preview, for "range" trades only. Null until the form has enough
   // in it to measure; never populated at all in the other two modes, so there
   // is no state here for a figure the mode says to withhold.
@@ -389,14 +479,45 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
   const [result, setResult] = useState(null);
   const [submitErr, setSubmitErr] = useState("");
 
+  // ── The payload, in the page's language ───────────────────────────────────
+  //
+  // Fetched once per language: the chips, the bands, the lawn cards and the
+  // junk items are labelled server-side, so a switch is a refetch. `language`
+  // being null on the first run means "whatever the company speaks" — the
+  // route answers with that and the state is seeded from the answer.
   useEffect(() => {
-    fetchJson(`/api/instant-quote/${companySlug}`)
-      .then(setData)
+    const wanted = language ?? initialLanguage(companySlug);
+    const ctl = new AbortController();
+    fetchJson(`/api/instant-quote/${companySlug}${wanted ? `?lang=${wanted}` : ""}`, { signal: ctl.signal })
+      .then((payload) => {
+        setData(payload);
+        const resolved = instantQuoteLanguage(payload.language) || "en";
+        if (language !== resolved) setLanguage(resolved);
+        // Keep the chosen trade across a language switch — by KEY, because
+        // the object it came from has just been relabelled. And on the first
+        // load, one trade on offer is picked outright: a chooser with a
+        // single chip is a tap that decides nothing.
+        setTrade((current) =>
+          current
+            ? payload.trades.find((x) => x.trade === current.trade) || null
+            : payload.trades.length === 1
+              ? payload.trades[0]
+              : null,
+        );
+      })
       .catch((e) => {
-        setLoadErr(e.message || "Could not load");
+        if (e?.name === "AbortError") return;
+        setLoadErr(e.message || instantQuoteCopy(wanted || "en").couldNotLoad);
         setLoadErrStatus(e.status || 0);
       });
-  }, [companySlug]);
+    return () => ctl.abort();
+  }, [companySlug, language]);
+
+  function chooseLanguage(code) {
+    if (!instantQuoteLanguage(code) || code === language) return;
+    storeLanguage(companySlug, code);
+    setLanguage(code);
+  }
 
   const brand = data?.company?.brandColor || "#06356b";
   // ── The brand, measured ───────────────────────────────────────────────────
@@ -418,18 +539,21 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
   // colour — a dark brand comes back untouched.
   const theme = useMemo(() => documentTheme({ brandColor: brand }), [brand]);
   const solid = useMemo(() => fillPair(theme), [theme]);
-  const language = data?.language || "en";
-  const fr = language === "fr";
+  const lang = language || instantQuoteLanguage(data?.language) || "en";
+  const t = instantQuoteCopy(lang);
+  const q = tradeQuestionCopy(lang);
+  const uploadCopy = clientDocCopy(lang).selfQuote;
   // The company's currency, not a symbol. Absent until the payload lands;
   // currencyMeta falls back to the default rather than throwing, and no figure
   // is rendered before then anyway.
   const currency = data?.currency;
 
-  function pickTrade(t) {
-    setTrade(t);
+  function pickTrade(next) {
+    setTrade(next);
     setIntake({});
     setAddress("");
     setSiteAddress("");
+    setSiteJurisdiction({});
     setPolygon(null);
     setMaterialKey(null);
     setLawnPick({ programKey: null, addOnKeys: [] });
@@ -437,25 +561,34 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
     setPreview(null);
     setResult(null);
     setSubmitErr("");
+    setWhenNeeded(null);
+    setAnswers({});
+    setAreaVerdict(null);
   }
 
   // What the form still needs. Computed before the effects below because the
   // preview is only worth fetching once the job itself is described — the
   // contact and budget answers don't change the number.
-  const inputs = trade
-    ? (INTAKE_INPUTS[trade.trade] || []).filter((f) => !f.askedWhen || f.askedWhen(trade))
-    : [];
+  const inputs = intakeInputs(trade, t);
   const itemQtyTotal = Array.isArray(intake.items)
     ? intake.items.reduce((s, it) => s + (Number(it.quantity) || 0), 0)
     : 0;
   const jobDescribed = Boolean(
     trade &&
     (!byAddress(trade.measure) || address.trim().length > 4) &&
-    (trade.measure !== "lawn_polygon" || (polygon && polygon.length >= 3)) &&
+    (!byTrace(trade.measure) || (polygon && polygon.length >= 3)) &&
     // Junk: at least one item picked. The access toggles are all optional.
     (trade.measure !== "item_picker" || itemQtyTotal > 0) &&
     inputs.filter((f) => f.required).every((f) => Number(intake[f.key]) > 0),
   );
+
+  // The trade's own questions — minus any whose key the estimator already
+  // asks as an INPUT (painting's scope is priced, so it is asked once, in
+  // the inputs, whatever the company sells). A question asked twice with two
+  // different option lists is a form that contradicts itself.
+  const inputKeys = new Set((INTAKE_INPUTS[trade?.trade] || []).map((f) => f.key));
+  const tradeQuestions = trade ? questionsFor(trade.trade).filter((qq) => !inputKeys.has(qq.key)) : [];
+  const whenOptions = trade ? timelineOptionsFor(trade.trade) : [];
 
   // ── The live preview, and why only one mode gets it ──────────────────────
   //
@@ -481,9 +614,9 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
     const timer = setTimeout(async () => {
       setPreviewing(true);
       try {
-        const payload = { trade: trade.trade, intake };
+        const payload = { trade: trade.trade, intake, language: lang };
         if (byAddress(trade.measure)) payload.address = address;
-        if (trade.measure === "lawn_polygon") payload.polygon = polygon;
+        if (byTrace(trade.measure)) payload.polygon = polygon;
         // The trace is the correction: with one, the server sizes the lawn
         // from it and ignores the parcel arithmetic.
         if (trade.measure === "lawn_address" && polygon) payload.polygon = polygon;
@@ -517,21 +650,67 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
       clearTimeout(timer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [livePreview, companySlug, trade?.trade, address, polygon, JSON.stringify(intake)]);
+  }, [livePreview, companySlug, trade?.trade, address, polygon, JSON.stringify(intake), lang]);
+
+  // ── Inside the company's service area? ───────────────────────────────────
+  //
+  // Asked of whichever address the form carries for this trade — the
+  // measured one or the job site — once typing has settled. The route says
+  // nothing for a company with no area, and nothing when it cannot place the
+  // address; only an explicit "outside" prints the sentence, and it never
+  // blocks the submit. Best-effort: a failed check is silence, not a verdict.
+  //
+  // The verdict is tagged with the address it answered, and the note below
+  // is DERIVED from that match — so a corrected address drops a stale
+  // "outside" on the next keystroke without an effect clearing state.
+  const jobAddress = byAddress(trade?.measure) ? address : siteAddress;
+  const jobPostal = siteJurisdiction.postalCode || "";
+  useEffect(() => {
+    if (!trade || jobAddress.trim().length < 5) return;
+    const asked = jobAddress.trim();
+    const ctl = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        const qs = new URLSearchParams({ address: asked });
+        if (jobPostal) qs.set("postalCode", jobPostal);
+        const res = await fetchJson(`/api/service-area/${companySlug}?${qs}`, { signal: ctl.signal });
+        setAreaVerdict(res && typeof res === "object" ? { ...res, address: asked } : null);
+      } catch {
+        // Silence — see above.
+      }
+    }, 800);
+    return () => {
+      ctl.abort();
+      clearTimeout(timer);
+    };
+  }, [companySlug, trade, jobAddress, jobPostal]);
+  const areaNote = areaVerdict && areaVerdict.address === jobAddress.trim() ? areaVerdict : null;
 
   async function submit() {
     setSubmitting(true);
     setSubmitErr("");
     try {
-      const payload = { trade: trade.trade, intake, materialKey, ...contact };
+      const payload = {
+        trade: trade.trade,
+        intake,
+        materialKey,
+        ...contact,
+        // The language the form was read in — the draft, the lead and the
+        // email are created in it (non-negotiable #6).
+        language: lang,
+        whenNeeded,
+        answers,
+        ...(notes.trim() ? { notes: notes.trim() } : {}),
+      };
       if (byAddress(trade.measure)) payload.address = address;
       else if (siteAddress.trim()) {
         payload.address = siteAddress.trim();
         // Only the pieces Google actually returned. The server normalises the
         // country and ignores anything it doesn't recognise.
-        Object.assign(payload, siteJurisdiction);
+        const { city, province, country } = siteJurisdiction;
+        Object.assign(payload, { city, province, country });
       }
-      if (trade.measure === "lawn_polygon") payload.polygon = polygon;
+      if (byTrace(trade.measure)) payload.polygon = polygon;
       if (trade.measure === "lawn_address") {
         if (polygon) payload.polygon = polygon;
         payload.intake = { ...intake, programKey: lawnPick.programKey, addOnKeys: lawnPick.addOnKeys };
@@ -545,10 +724,18 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
+      // The full report — the page the estimate becomes once the price is
+      // out (app/estimate-report/[token]). When the server made one, the
+      // homeowner goes there; the confirmation below is the fallback for a
+      // draft with no report.
+      if (res?.reportUrl && typeof window !== "undefined") {
+        window.location.assign(res.reportUrl);
+        return;
+      }
       setResult(res);
       if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (err) {
-      setSubmitErr(err.message || "Something went wrong. Please try again.");
+      setSubmitErr(err.message || t.submitFailed);
     } finally {
       setSubmitting(false);
     }
@@ -561,15 +748,16 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
   const budgetBands = trade?.budgetBands || [];
   const needsMaterial = (trade?.materials?.length || 0) > 1;
   const missing = [
-    !trade && "what you need",
-    trade && !jobDescribed && "the job details",
-    needsMaterial && !materialKey && "an option",
-    trade?.measure === "lawn_address" && !lawnPick.programKey && "a program",
-    trade && !byAddress(trade.measure) && siteAddress.trim().length < 5 && "the job address",
-    trade && !contact.name && "your name",
-    trade && !contact.email && !contact.phone && "an email or phone",
-    trade && budgetBands.length > 0 && budgetIndex === null && "your budget",
-    trade && media.length === 0 && "at least one photo",
+    !trade && t.missing.whatYouNeed,
+    trade && !jobDescribed && t.missing.jobDetails,
+    needsMaterial && !materialKey && t.missing.anOption,
+    trade?.measure === "lawn_address" && !lawnPick.programKey && t.missing.aProgram,
+    trade && !byAddress(trade.measure) && siteAddress.trim().length < 5 && t.missing.jobAddress,
+    trade && !whenNeeded && t.missing.whenNeeded,
+    trade && !contact.name && t.missing.yourName,
+    trade && !contact.email && !contact.phone && t.missing.emailOrPhone,
+    trade && budgetBands.length > 0 && budgetIndex === null && t.missing.yourBudget,
+    trade && media.length === 0 && t.missing.onePhoto,
   ].filter(Boolean);
 
   // The promise in the hero and the word on the button both follow the trade's
@@ -579,26 +767,54 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
     ? // Nothing picked yet, and the modes are PER TRADE — a company can gate
       // roofing and show a range for lawns. Promising either one here would be
       // a coin flip, and half of them would be a promise the panel then breaks.
-      "Tell us about the job and add a few photos — we'll get your price to you."
+      t.heroNoTrade
     : display === "gated"
-      ? "Tell us about the job and add a few photos — we'll review it and come back to you with your price."
+      ? t.heroGated
       : display === "range"
-        ? "Tell us about the job and add a few photos — your estimated range appears as you go, and we'll confirm your final price."
-        : "Tell us about the job and add a few photos — you'll see your estimated range as soon as you submit, and we'll confirm your final price.";
-  const submitCta = display === "after_submit" ? "Reveal my estimate" : "Get my estimate";
+        ? t.heroRange
+        : t.heroAfterSubmit;
+  const submitCta = display === "after_submit" ? t.ctaReveal : t.ctaGet;
 
   // The preview only counts while the form still describes the job it was
   // priced for. Derived, not stored: the moment they clear the address, the
   // figure that belonged to it stops being shown, with no extra render.
   const livePreviewShown = livePreview ? preview : null;
 
+  // The pills. Drawn wherever the form is — above the trade chooser, and on
+  // the load/error screens too, since a French speaker staring at an English
+  // error has no other way to ask for French.
+  const languagePills = (
+    <div className="flex items-center gap-1.5 flex-wrap" role="group" aria-label={t.languageLabel}>
+      {INSTANT_QUOTE_LANGUAGES.map((code) => {
+        const on = code === lang;
+        return (
+          <button
+            key={code}
+            type="button"
+            lang={code}
+            aria-pressed={on}
+            onClick={() => chooseLanguage(code)}
+            className={`rounded-full border px-3 min-h-9 text-xs font-semibold ${
+              on ? "border-transparent" : "border-border bg-card text-foreground hover:border-foreground/30"
+            }`}
+            // The lit pill is a fill carrying text: fillPair's measured pair,
+            // with accentText as the edge so a pale brand still has a shape.
+            style={on ? { background: solid.bg, color: solid.fg, borderColor: theme.accentText } : undefined}
+          >
+            {t.languageNames[code]}
+          </button>
+        );
+      })}
+    </div>
+  );
 
   if (loadErr) {
     return (
       <Centered embedded={embedded}>
-        <div className="text-center">
-          <p className="text-red-600 mb-3">{loadErr}</p>
-          {loadErrStatus !== 404 && <RequestQuoteLink companySlug={companySlug} />}
+        <div className="text-center space-y-3">
+          <div className="flex justify-center">{languagePills}</div>
+          <p className="text-red-600">{loadErr}</p>
+          {loadErrStatus !== 404 && <RequestQuoteLink companySlug={companySlug} t={t} />}
         </div>
       </Centered>
     );
@@ -609,9 +825,10 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
   if (!data.trades.length) {
     return (
       <Centered embedded={embedded}>
-        <div className="text-center">
-          <p className="text-muted-foreground mb-3">Instant estimates aren&apos;t available here yet.</p>
-          <RequestQuoteLink companySlug={companySlug} />
+        <div className="text-center space-y-3">
+          <div className="flex justify-center">{languagePills}</div>
+          <p className="text-muted-foreground">{t.notAvailable}</p>
+          <RequestQuoteLink companySlug={companySlug} t={t} />
         </div>
       </Centered>
     );
@@ -627,7 +844,7 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
     // height the snippet started with — EmbedFrame would post that number
     // back, the host would set it, and the frame would grow but never shrink.
     // min-h-0 lets the embed report what it actually is.
-    <div className={embedded ? "min-h-0 bg-muted/30" : "min-h-screen bg-muted/30"}>
+    <div className={embedded ? "min-h-0 bg-muted/30" : "min-h-screen bg-muted/30"} lang={lang}>
       <div className="max-w-5xl mx-auto px-4 py-8">
         {/* Header. Not drawn when embedded: the iframe sits inside the
             company's own website, under the company's own logo, and a second
@@ -649,7 +866,7 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
             )}
             <div>
               <h1 className="text-lg font-bold text-foreground">{data.company.name}</h1>
-              <p className="text-xs text-muted-foreground">Instant estimate</p>
+              <p className="text-xs text-muted-foreground">{t.instantEstimate}</p>
             </div>
           </div>
         )}
@@ -660,7 +877,7 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
             away" and then showing them a gated notice is the same broken
             promise as a button that does nothing. */}
         <div className="text-center max-w-2xl mx-auto mb-8">
-          <h2 className="text-3xl sm:text-4xl font-bold text-foreground">Get an instant estimate</h2>
+          <h2 className="text-3xl sm:text-4xl font-bold text-foreground">{t.heroTitle}</h2>
           <p className="mt-3 text-sm sm:text-base text-muted-foreground">{heroSubhead}</p>
         </div>
 
@@ -680,9 +897,16 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
             trying to type into. */}
         <div className="grid lg:grid-cols-2 gap-8 items-start">
           <div className="space-y-6">
+            {/* The language, first: it is the one control that changes every
+                other word on the page, so it sits above the first question. */}
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <span className="text-xs text-muted-foreground">{t.languageLabel}</span>
+              {languagePills}
+            </div>
+
             {result ? (
               <>
-                <SuccessCard result={result} company={data.company} theme={theme} />
+                <SuccessCard result={result} company={data.company} theme={theme} t={t} />
                 {/* The next step, offered where they are rather than left to a
                     phone call neither side makes. Only when the company can
                     actually take a booking — no active event type, or the visit
@@ -694,29 +918,23 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
                   <BookVisitPanel
                     slug={data.booking.slug}
                     quoteId={result.quoteId}
-                    contact={{ ...contact, address: byAddress(trade?.measure) ? address : siteAddress }}
-                    copy={{
-                      title: fr ? "Souhaitez-vous que nous venions voir\u00a0?" : "Would you like us to come and see it?",
-                      body: fr
-                        ? "R\u00e9servez une visite et nous confirmerons votre prix sur place."
-                        : "Book an in-person visit and we'll confirm your price on site.",
-                      cta: fr ? "R\u00e9server une visite" : "Book a visit",
-                    }}
+                    contact={{ ...contact, address: jobAddress }}
+                    copy={{ title: t.bookTitle, body: t.bookBody, cta: t.bookCta }}
                   />
                 )}
               </>
             ) : (
               <>
-                <Section title="What do you need?" required>
+                <Section title={t.whatDoYouNeed} required>
                   <div className="grid grid-cols-2 gap-2">
-                    {data.trades.map((t) => (
+                    {data.trades.map((tr) => (
                       <button
-                        key={t.trade}
-                        onClick={() => pickTrade(t)}
+                        key={tr.trade}
+                        onClick={() => pickTrade(tr)}
                         // min-h-11: 44px is the floor for a thumb, and picking
                         // the trade is the first thing anyone does here.
                         className={`text-left rounded-lg border px-3 py-2.5 min-h-11 text-sm font-medium ${
-                          trade?.trade === t.trade
+                          trade?.trade === tr.trade
                             ? "border-transparent"
                             : "border-border bg-card text-foreground hover:border-foreground/30"
                         }`}
@@ -724,7 +942,7 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
                         // so a white or pale-yellow brand made the trade the
                         // homeowner just picked the only unreadable one.
                         style={
-                          trade?.trade === t.trade
+                          trade?.trade === tr.trade
                             ? {
                                 background: solid.bg,
                                 color: solid.fg,
@@ -739,31 +957,33 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
                             : undefined
                         }
                       >
-                        {t.label}
+                        {tr.label}
                       </button>
                     ))}
                   </div>
                 </Section>
 
                 {trade && (
-                  <Section title="Tell us about the property">
+                  <Section title={t.aboutProperty}>
                     {byAddress(trade.measure) && (
                       <label className="flex flex-col gap-1">
-                        <span className="text-sm text-muted-foreground flex items-center gap-1"><MapPin size={14} /> Property address</span>
+                        <span className="text-sm text-muted-foreground flex items-center gap-1"><MapPin size={14} /> {t.propertyAddress}</span>
                         <input
                           value={address}
                           onChange={(e) => setAddress(e.target.value)}
-                          placeholder="917 Littlerock St, city, postal code"
+                          placeholder={t.addressPlaceholder}
                           className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
                         />
                       </label>
                     )}
 
-                    {trade.measure === "lawn_polygon" && (
+                    {byTrace(trade.measure) && (
                       <LawnMap
                         mapsKey={data.mapsKey}
                         companySlug={companySlug}
                         onArea={(sqft, path) => setPolygon(path)}
+                        t={t}
+                        area={trade.measure === "area_polygon"}
                       />
                     )}
 
@@ -779,16 +999,17 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
                           aria-expanded={tracing}
                           className="text-sm font-medium underline text-foreground min-h-8"
                         >
-                          {lawnEstimateCopy(language).traceCta}
+                          {lawnEstimateCopy(lang).traceCta}
                         </button>
                         {tracing && (
                           <div className="mt-2">
-                            <p className="text-xs text-muted-foreground mb-2">{lawnEstimateCopy(language).traceHint}</p>
+                            <p className="text-xs text-muted-foreground mb-2">{lawnEstimateCopy(lang).traceHint}</p>
                             <LawnMap
                               mapsKey={data.mapsKey}
                               companySlug={companySlug}
                               centerAddress={address}
                               onArea={(sqft, path) => setPolygon(path)}
+                              t={t}
                             />
                           </div>
                         )}
@@ -801,6 +1022,7 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
                         jobTypes={trade.jobTypes || []}
                         intake={intake}
                         setIntake={setIntake}
+                        t={t}
                       />
                     )}
 
@@ -808,15 +1030,15 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
                       <div className="grid grid-cols-2 gap-3 mt-3">
                         {inputs.map((f) => (
                           <label key={f.key} className="flex flex-col gap-1">
-                            <span className="text-sm text-muted-foreground">{f.label}{f.required ? " *" : ""}</span>
+                            <span className="text-sm text-muted-foreground">{f.labelText}{f.required ? " *" : ""}</span>
                             {f.type === "select" ? (
                               <select
                                 value={intake[f.key] ?? ""}
                                 onChange={(e) => setIntake({ ...intake, [f.key]: e.target.value })}
                                 className="rounded-lg border border-border bg-background px-2 py-2 text-sm"
                               >
-                                <option value="">Select…</option>
-                                {f.options.map(([v, l]) => (
+                                <option value="">{t.select}</option>
+                                {f.optionsText.map(([v, l]) => (
                                   <option key={v} value={v}>{l}</option>
                                 ))}
                               </select>
@@ -824,7 +1046,7 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
                               <input
                                 type="number"
                                 value={intake[f.key] ?? ""}
-                                placeholder={f.placeholder}
+                                placeholder={f.placeholderText}
                                 onChange={(e) => setIntake({ ...intake, [f.key]: e.target.value })}
                                 className="rounded-lg border border-border bg-background px-2 py-2 text-sm"
                               />
@@ -833,6 +1055,10 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
                         ))}
                       </div>
                     )}
+
+                    {/* Only under an address the measurement itself uses; the
+                        job-site section below carries its own. */}
+                    {byAddress(trade.measure) && <OutsideAreaNote verdict={areaNote} company={data.company} lang={lang} />}
                   </Section>
                 )}
 
@@ -840,13 +1066,13 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
                     checkboxes. Names arrive with the page; prices arrive
                     with the measurement, and only in "range" mode. */}
                 {trade?.measure === "lawn_address" && trade.lawn && (
-                  <Section title={fr ? "Votre programme" : "Your program"}>
+                  <Section title={t.yourProgram}>
                     <LawnCareOffer
                       offer={trade.lawn}
                       priced={livePreviewShown?.offer || null}
                       pick={lawnPick}
                       onPick={setLawnPick}
-                      language={language}
+                      language={lang}
                       currency={currency}
                       theme={theme}
                       solid={solid}
@@ -860,7 +1086,7 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
                     before they could pick one. Prices, where the mode allows
                     them at all, appear in the panel and only in the panel. */}
                 {trade?.materials?.length > 1 && (
-                  <Section title="Which option?" required>
+                  <Section title={t.whichOption} required>
                     <div className="space-y-2">
                       {trade.materials.map((m) => {
                         const selected = materialKey === m.key;
@@ -887,13 +1113,77 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
                   </Section>
                 )}
 
+                {/* ── When, and the trade's own question(s) ──────────────
+                    Required, and its options depend on the trade: someone
+                    with a burst pipe answers "today", a roof "this season".
+                    The trade questions under it are the one or two facts
+                    the company wants before driving out. Chips, same as the
+                    budget bands beneath — the same kind of question. */}
+                {trade && whenOptions.length > 0 && (
+                  <Section title={q.whenTitle} required>
+                    <div className="grid grid-cols-2 gap-2">
+                      {whenOptions.map((o) => {
+                        const selected = whenNeeded === o.key;
+                        return (
+                          <button
+                            key={o.key}
+                            type="button"
+                            onClick={() => setWhenNeeded(o.key)}
+                            aria-pressed={selected}
+                            className={`rounded-lg border px-3 py-2 min-h-11 text-sm font-medium text-foreground text-left ${
+                              selected ? "border-transparent" : "border-border hover:border-foreground/30"
+                            }`}
+                            style={selected ? { boxShadow: `0 0 0 2px ${theme.accentText}` } : undefined}
+                          >
+                            {q.timeline[o.key]}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {tradeQuestions.map((qq) => (
+                      <div key={qq.key} className="mt-3">
+                        <p className="text-sm text-muted-foreground mb-1.5">{q.questions[qq.key]}</p>
+                        <div className="flex flex-wrap gap-2">
+                          {qq.options.map((opt) => {
+                            const selected = answers[qq.key] === opt;
+                            return (
+                              <button
+                                key={opt}
+                                type="button"
+                                aria-pressed={selected}
+                                // Tapping the chosen one again clears it — the
+                                // question is optional and a mis-tap needs a
+                                // way back to "didn't say".
+                                onClick={() =>
+                                  setAnswers((a) => {
+                                    const next = { ...a };
+                                    if (selected) delete next[qq.key];
+                                    else next[qq.key] = opt;
+                                    return next;
+                                  })
+                                }
+                                className={`rounded-full border px-3 min-h-10 text-sm font-medium text-foreground ${
+                                  selected ? "border-transparent" : "border-border hover:border-foreground/30"
+                                }`}
+                                style={selected ? { boxShadow: `0 0 0 2px ${theme.accentText}` } : undefined}
+                              >
+                                {q.options[opt] || opt}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </Section>
+                )}
+
                 {/* Budget sits with the contact details, not with the
                     measurements: it's a qualifying question, and nothing picked
                     here moves the estimate by a cent. Asked next to the job
                     itself it reads as "tell us what you'll pay and we'll charge
                     it", which is exactly what a homeowner is afraid of. */}
                 {trade && budgetBands.length > 0 && (
-                  <Section title="Your budget" required>
+                  <Section title={t.yourBudget} required>
                     <div className="grid grid-cols-2 gap-2">
                       {budgetBands.map((b) => {
                         const selected = budgetIndex === b.index;
@@ -917,7 +1207,7 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
                 )}
 
                 {trade && !byAddress(trade.measure) && (
-                  <Section title="Where's the job?" required>
+                  <Section title={t.whereIsJob} required>
                     <AddressAutocomplete
                       value={siteAddress}
                       // Typing after picking invalidates the components that
@@ -930,32 +1220,35 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
                       // address-jurisdiction: keeps city, province, country.
                       // This kept the formatted string alone, so a homeowner
                       // who picked a real suggestion still produced a client
-                      // the tax resolver could say nothing about.
+                      // the tax resolver could say nothing about. The postal
+                      // code rides along for the service-area check only.
                       onPlaceSelected={(place) => {
                         setSiteAddress(place.address);
                         setSiteJurisdiction({
                           city: place.city || "",
                           province: place.province || "",
                           country: place.country || "",
+                          postalCode: place.postalCode || "",
                         });
                       }}
-                      placeholder="Street, city, postal code"
+                      placeholder={t.jobAddressPlaceholder}
                       className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
                     />
+                    <OutsideAreaNote verdict={areaNote} company={data.company} lang={lang} />
                   </Section>
                 )}
 
                 {trade && (
-                  <Section title="Your details" required>
+                  <Section title={t.yourDetails} required>
                     <div className="space-y-3">
                       <input
-                        placeholder="Your name *"
+                        placeholder={t.namePlaceholder}
                         value={contact.name}
                         onChange={(e) => setContact({ ...contact, name: e.target.value })}
                         className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
                       />
                       <input
-                        placeholder="Email"
+                        placeholder={t.emailPlaceholder}
                         type="email"
                         value={contact.email}
                         onChange={(e) => setContact({ ...contact, email: e.target.value })}
@@ -965,7 +1258,7 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
                           so a number typed in a driveway is stored the way staff
                           type it — one shape in the database, not two. */}
                       <input
-                        placeholder="Phone"
+                        placeholder={t.phonePlaceholder}
                         type="tel"
                         inputMode="tel"
                         autoComplete="tel"
@@ -978,11 +1271,40 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
                 )}
 
                 {trade && (
-                  <Section title="Photos" required>
+                  <Section title={t.photos} required>
                     <MediaUploader
                       uploadUrl={`/api/self-quote/${companySlug}/upload`}
                       value={media}
                       onChange={setMedia}
+                      // The uploader's own words, from the self-quote table
+                      // (the same control, the same eight languages) rather
+                      // than the app catalogue: the person uploading is not a
+                      // member of the company.
+                      label={uploadCopy.uploadLabel}
+                      hint={uploadCopy.uploadHint}
+                      documentLabel={uploadCopy.uploadDocumentFallback}
+                      busyLabel={uploadCopy.uploadBusy}
+                      limitLabel={uploadCopy.uploadLimit}
+                      failedLabel={uploadCopy.uploadFailed}
+                      rejectedLabel={uploadCopy.uploadRejected}
+                      removeLabel={uploadCopy.uploadRemove}
+                    />
+                  </Section>
+                )}
+
+                {/* The free-text note — always present, for the thing no
+                    chip could have asked. Capped at the 2000 the server
+                    keeps, so nothing is silently cut after they pressed
+                    submit. */}
+                {trade && (
+                  <Section title={q.notesTitle}>
+                    <textarea
+                      rows={3}
+                      maxLength={2000}
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      placeholder={q.notesPlaceholder}
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm resize-y"
                     />
                   </Section>
                 )}
@@ -1012,7 +1334,7 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
                         form is broken rather than that they missed a field. */}
                     {missing.length > 0 && (
                       <p className="mt-2 text-xs text-muted-foreground text-center">
-                        Still needed: {missing.join(", ")}
+                        {t.stillNeeded(missing.join(", "))}
                       </p>
                     )}
                     {/* Every server-side failure ends here — the address that
@@ -1023,7 +1345,7 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
                     {submitErr && (
                       <div className="mt-2">
                         <p className="text-sm text-red-600">{submitErr}</p>
-                        <RequestQuoteLink companySlug={companySlug} className="mt-1 text-red-700" />
+                        <RequestQuoteLink companySlug={companySlug} t={t} className="mt-1 text-red-700" />
                       </div>
                     )}
                   </div>
@@ -1042,21 +1364,22 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
               previewing={previewing}
               theme={theme}
               solid={solid}
-              language={language}
+              language={lang}
+              t={t}
               currency={currency}
               company={data.company}
               companySlug={companySlug}
               lawnPick={lawnPick}
-              address={byAddress(trade?.measure) ? address : siteAddress}
+              address={jobAddress}
               contact={contact}
             />
           </div>
         </div>
 
-        {/* Only claimed where it's true — the two trades that read imagery. */}
-        {(byAddress(trade?.measure) || trade?.measure === "lawn_polygon") && (
+        {/* Only claimed where it's true — the trades that read imagery. */}
+        {fromImagery(trade?.measure) && (
           <p className="text-center text-xs text-muted-foreground mt-8">
-            Powered by measurements from satellite imagery.
+            {t.poweredBy}
           </p>
         )}
       </div>
@@ -1064,15 +1387,30 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
   );
 }
 
+// The one honest line about the service area, and only for an explicit
+// "outside". `inside: null` is "we could not place the address", and a
+// sentence there would be a guess dressed as a verdict. Never a block: the
+// submit button is untouched.
+function OutsideAreaNote({ verdict, company, lang }) {
+  if (!verdict || verdict.configured !== true || verdict.inside !== false) return null;
+  return (
+    <p className="mt-2 text-xs rounded-lg bg-amber-50 text-amber-900 border border-amber-200 px-3 py-2">
+      {serviceAreaCopy(lang).outside(company.name, verdict.radiusKm || null, verdict.city || "")}
+    </p>
+  );
+}
+
 // The junk-removal measurement: a job type, a list of items with quantities,
 // and the access surcharges. The browser only ever holds item KEYS + counts —
 // no prices; the server reprices from the company's rates (non-negotiable #5).
-function ItemPicker({ items, jobTypes, intake, setIntake }) {
+// Item and job-type labels arrive with the payload, already in the page's
+// language; the fixed strings come from the table.
+function ItemPicker({ items, jobTypes, intake, setIntake, t }) {
   const selected = Array.isArray(intake.items) ? intake.items : [];
   const qtyOf = (key) => selected.find((i) => i.key === key)?.quantity || 0;
-  const setQty = (key, q) => {
+  const setQty = (key, qn) => {
     const next = selected.filter((i) => i.key !== key);
-    if (q > 0) next.push({ key, quantity: q });
+    if (qn > 0) next.push({ key, quantity: qn });
     setIntake({ ...intake, items: next });
   };
   const accepted = items.filter((i) => !i.notAccepted);
@@ -1083,7 +1421,7 @@ function ItemPicker({ items, jobTypes, intake, setIntake }) {
     <div className="space-y-4">
       {jobTypes.length > 0 && (
         <div>
-          <p className="text-sm text-muted-foreground mb-1.5">What kind of job?</p>
+          <p className="text-sm text-muted-foreground mb-1.5">{t.whatKindOfJob}</p>
           <div className="flex flex-wrap gap-2">
             {jobTypes.map((j) => {
               const on = (intake.jobType || "single_items") === j.key;
@@ -1105,12 +1443,12 @@ function ItemPicker({ items, jobTypes, intake, setIntake }) {
       )}
 
       <div>
-        <p className="text-sm text-muted-foreground mb-1.5">What needs to go?</p>
+        <p className="text-sm text-muted-foreground mb-1.5">{t.whatNeedsToGo}</p>
         <div className="max-h-72 overflow-y-auto rounded-lg border border-border divide-y divide-border">
           {accepted.map((it) => (
             <div key={it.key} className="flex items-center justify-between gap-2 px-3 py-2">
               <span className="text-sm text-foreground">{it.label}</span>
-              <Stepper q={qtyOf(it.key)} onChange={(nq) => setQty(it.key, nq)} />
+              <Stepper q={qtyOf(it.key)} onChange={(nq) => setQty(it.key, nq)} t={t} />
             </div>
           ))}
         </div>
@@ -1120,21 +1458,21 @@ function ItemPicker({ items, jobTypes, intake, setIntake }) {
         // Named, not hidden — a homeowner who has a propane tank needs to know
         // now, not when the truck arrives and refuses it.
         <p className="text-xs text-muted-foreground">
-          We can’t take: {refused.map((r) => r.label).join(", ")}.
+          {t.cantTake(refused.map((r) => r.label).join(", "))}
         </p>
       )}
 
       <div className="space-y-2">
-        <p className="text-sm text-muted-foreground">Anything that makes it harder? (optional)</p>
+        <p className="text-sm text-muted-foreground">{t.harder}</p>
         <div className="flex items-center justify-between gap-2">
-          <span className="text-sm text-foreground">Flights of stairs</span>
-          <Stepper q={Number(intake.stairsFlights) || 0} onChange={(nq) => setIntake({ ...intake, stairsFlights: nq })} />
+          <span className="text-sm text-foreground">{t.flightsOfStairs}</span>
+          <Stepper q={Number(intake.stairsFlights) || 0} onChange={(nq) => setIntake({ ...intake, stairsFlights: nq })} t={t} />
         </div>
         {[
-          ["disassembly", "Needs taking apart"],
-          ["demolition", "Small demolition"],
-          ["longCarry", "Long carry to the truck"],
-          ["noElevator", "Upstairs, no elevator"],
+          ["disassembly", t.disassembly],
+          ["demolition", t.demolition],
+          ["longCarry", t.longCarry],
+          ["noElevator", t.noElevator],
         ].map(([k, l]) => (
           <label key={k} className="flex items-center gap-2 text-sm text-foreground">
             <input type="checkbox" checked={!!intake[k]} onChange={() => toggle(k)} />
@@ -1146,7 +1484,7 @@ function ItemPicker({ items, jobTypes, intake, setIntake }) {
   );
 }
 
-function Stepper({ q, onChange }) {
+function Stepper({ q, onChange, t }) {
   return (
     <div className="flex items-center gap-2">
       <button
@@ -1154,7 +1492,7 @@ function Stepper({ q, onChange }) {
         onClick={() => onChange(Math.max(0, q - 1))}
         className="h-7 w-7 rounded-full border border-border text-foreground disabled:opacity-40"
         disabled={q <= 0}
-        aria-label="Fewer"
+        aria-label={t.fewer}
       >
         −
       </button>
@@ -1163,7 +1501,7 @@ function Stepper({ q, onChange }) {
         type="button"
         onClick={() => onChange(q + 1)}
         className="h-7 w-7 rounded-full border border-border text-foreground"
-        aria-label="More"
+        aria-label={t.more}
       >
         +
       </button>
@@ -1200,12 +1538,10 @@ function Section({ title, required = false, children }) {
  * announced "$X,XXX" would be reading out fake money, and a cursor that could
  * select it invites people to try.
  */
-function EstimatePanel({ trade, result, preview, previewing, theme, solid, language, currency, company, companySlug, lawnPick, address, contact }) {
-  const fr = language === "fr";
+function EstimatePanel({ trade, result, preview, previewing, theme, solid, language, t, currency, company, companySlug, lawnPick, address, contact }) {
   const lawnCopy = lawnEstimateCopy(language);
   const isLawn = trade?.measure === "lawn_address";
-  const rangeLabel = isLawn ? lawnCopy.total : fr ? "Fourchette estimée" : "Estimated range";
-  const heading = fr ? "Votre estimation" : "Your estimate";
+  const rangeLabel = isLawn ? lawnCopy.total : t.estimatedRange;
 
   // Lawn care, before submit: the total is the sum of the server's own
   // per-item prices for the program and add-ons picked — the cards carry
@@ -1222,7 +1558,7 @@ function EstimatePanel({ trade, result, preview, previewing, theme, solid, langu
   //
   // A program is a price, not a range: when the two ends are equal the one
   // figure prints to the cent, as the company's card states it.
-  const locale = fr ? "fr-CA" : language === "es" ? "es" : "en-CA";
+  const locale = instantQuoteLocale(language);
   const rangeText = shown
     ? shown.low === shown.high
       ? estimateMoneyCents(Number(shown.low), currency, locale)
@@ -1235,7 +1571,7 @@ function EstimatePanel({ trade, result, preview, previewing, theme, solid, langu
 
   return (
     <div className="rounded-2xl border border-border bg-card p-5">
-      <h2 className="text-base font-bold text-foreground mb-3">{heading}</h2>
+      <h2 className="text-base font-bold text-foreground mb-3">{t.yourEstimate}</h2>
 
       {shown && rangeText ? (
         <div className="rounded-xl border border-border overflow-hidden text-center px-4 py-6">
@@ -1255,9 +1591,7 @@ function EstimatePanel({ trade, result, preview, previewing, theme, solid, langu
               what it is — the floor is a rate. */}
           {shown.minimumApplied && (
             <div className="text-xs text-muted-foreground mt-2 border-t border-border pt-2">
-              {fr
-                ? "Ce projet est sous notre montant minimum de facturation, alors le minimum s’applique."
-                : "This job comes in under our minimum charge, so the minimum applies."}
+              {t.minimumApplied}
             </div>
           )}
         </div>
@@ -1291,15 +1625,7 @@ function EstimatePanel({ trade, result, preview, previewing, theme, solid, langu
             <Loader2 size={18} className="animate-spin mx-auto text-muted-foreground" />
           ) : (
             <p className="text-sm text-muted-foreground">
-              {preview?.refused ||
-                gatedNote ||
-                (trade
-                  ? fr
-                    ? "Complétez le formulaire pour voir votre estimation."
-                    : "Fill in the form and your estimate appears here."
-                  : fr
-                    ? "Choisissez un service pour commencer."
-                    : "Pick a service to get started.")}
+              {preview?.refused || gatedNote || (trade ? t.fillInForm : t.pickService)}
             </p>
           )}
         </div>
@@ -1329,14 +1655,14 @@ function EstimatePanel({ trade, result, preview, previewing, theme, solid, langu
           nobody asked. */}
       {shown && measurement && !isLawn && (
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground mt-3">
-          {measurement.squares != null && <span><strong className="text-foreground">{measurement.squares}</strong> squares</span>}
-          {measurement.areaSqft != null && <span><strong className="text-foreground">{Math.round(measurement.areaSqft).toLocaleString()}</strong> sq ft</span>}
-          {measurement.predominantPitch && <span><strong className="text-foreground">{measurement.predominantPitch.rise}/12</strong> pitch</span>}
-          {measurement.gutterFt != null && <span><strong className="text-foreground">{measurement.gutterFt}</strong> {fr ? "pi de gouttière" : "ft of gutter"}</span>}
-          {measurement.downspouts != null && <span><strong className="text-foreground">{measurement.downspouts}</strong> {fr ? "descentes" : "downspouts"}</span>}
+          {measurement.squares != null && <span><strong className="text-foreground">{measurement.squares}</strong> {t.squares}</span>}
+          {measurement.areaSqft != null && <span><strong className="text-foreground">{Math.round(measurement.areaSqft).toLocaleString(locale)}</strong> {t.sqft}</span>}
+          {measurement.predominantPitch && <span><strong className="text-foreground">{measurement.predominantPitch.rise}/12</strong> {t.pitch}</span>}
+          {measurement.gutterFt != null && <span><strong className="text-foreground">{measurement.gutterFt}</strong> {t.ftOfGutter}</span>}
+          {measurement.downspouts != null && <span><strong className="text-foreground">{measurement.downspouts}</strong> {t.downspouts}</span>}
         </div>
       )}
-      {/* Gutters: the two sentences the server wrote in the company's
+      {/* Gutters: the two sentences the server wrote in the form's
           language — "measured from aerial imagery of your roofline · imagery
           date …" and "an estimate, not a contract". They replace the generic
           disclaimer below for this trade rather than sitting beside it. */}
@@ -1352,7 +1678,7 @@ function EstimatePanel({ trade, result, preview, previewing, theme, solid, langu
           about, and a homeowner who can see it is a shed will fix the address. */}
       {(shown || preview?.refused || (isLawn && measurement?.lawn)) && measurement?.satelliteImageUrl && (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={measurement.satelliteImageUrl} alt="Property" className="w-full rounded-lg border border-border mt-3" />
+        <img src={measurement.satelliteImageUrl} alt={t.propertyAlt} className="w-full rounded-lg border border-border mt-3" />
       )}
 
       {/* "This doesn't look right?" — under every figure read off imagery,
@@ -1380,8 +1706,7 @@ function EstimatePanel({ trade, result, preview, previewing, theme, solid, langu
           is a claim the company would have to defend. */}
       {(shown || locked) && trade && !(shown && measurement?.notes?.length) && (
         <p className="text-xs text-muted-foreground mt-3">
-          This is an estimate {MEASURE_SOURCE[trade.measure] || "based on the details you gave us"}, not a
-          final quote. {company.name} will confirm it before anything is binding.
+          {t.disclaimer(t.measureSource[trade.measure] || t.measureSource.other, company.name)}
         </p>
       )}
 
@@ -1398,14 +1723,14 @@ function EstimatePanel({ trade, result, preview, previewing, theme, solid, langu
               className="inline-block mt-3 border px-4 py-2 min-h-11 rounded-lg text-sm font-semibold leading-7"
               style={{ background: solid.bg, color: solid.fg, borderColor: theme.accentText }}
             >
-              {fr ? "Voir les options de financement" : "See financing options"}
+              {t.seeFinancing}
             </a>
           )}
         </div>
       )}
 
       {result && (
-        <p className="text-xs text-muted-foreground mt-4 text-center">Reference {result.reference}</p>
+        <p className="text-xs text-muted-foreground mt-4 text-center">{t.reference(result.reference)}</p>
       )}
     </div>
   );
@@ -1413,7 +1738,7 @@ function EstimatePanel({ trade, result, preview, previewing, theme, solid, langu
 
 // One short line for the reviewer: what the homeowner was looking at when
 // they said it did not look right. Facts the panel already shows, never a
-// price.
+// price. Staff-facing, so the units stay the estimator's.
 function measurementSummaryText(m, measure, lawnCopy) {
   if (!m) return "";
   if (measure === "lawn_address" && m.lawn) {
@@ -1425,17 +1750,15 @@ function measurementSummaryText(m, measure, lawnCopy) {
   return "";
 }
 
-function SuccessCard({ result, company, theme }) {
+function SuccessCard({ result, company, theme, t }) {
   return (
     <div className="rounded-xl border border-border bg-card p-6 text-center">
       {/* accentText, not the raw brand: this tick is the confirmation that the
           form went through, and on a white or pale brand it was drawn in a
           colour the card already is. */}
       <CheckCircle2 size={40} className="mx-auto mb-3" style={{ color: theme.accentText }} />
-      <h2 className="text-lg font-bold text-foreground mb-1">You&apos;re all set</h2>
-      <p className="text-sm text-muted-foreground mb-4">
-        {company.name} has your details and will confirm your quote shortly.
-      </p>
+      <h2 className="text-lg font-bold text-foreground mb-1">{t.allSet}</h2>
+      <p className="text-sm text-muted-foreground mb-4">{t.hasYourDetails(company.name)}</p>
       {/* The figure itself lives in the panel beside this card and is NOT
           repeated here — two copies of one number on one screen is how they
           drift apart. What belongs here is the case where there is no figure:

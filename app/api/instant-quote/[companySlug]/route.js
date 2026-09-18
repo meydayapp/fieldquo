@@ -11,10 +11,14 @@ import { loadCompanyInstantTrades } from "@/lib/estimate/instantQuoteServer";
 
 export async function GET(request, { params }) {
   const { companySlug } = await params;
-  const data = await loadCompanyInstantTrades(companySlug);
+  // ?lang=fr|es|en — the visitor's pick (the pills on the form, or a link a
+  // contractor put on their French page). Anything else falls back to the
+  // company's language inside loadCompanyInstantTrades.
+  const requested = new URL(request.url).searchParams.get("lang");
+  const data = await loadCompanyInstantTrades(companySlug, { language: requested });
   if (!data) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const { company, trades, booking } = data;
+  const { company, trades, booking, language } = data;
   return NextResponse.json({
     company: {
       name: company.name,
@@ -29,7 +33,15 @@ export async function GET(request, { params }) {
     // Google Maps key for the lawn-polygon map and the roof satellite still.
     // Public by design; should be HTTP-referrer restricted to fieldquo.com.
     mapsKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || null,
-    language: company.defaultLanguage || "en",
+    // The language every label in this payload was built in: the visitor's
+    // when they picked one, else the company's. The page seeds its selector
+    // from it and sends it back on /measure and /request, so the document is
+    // created in the language the form was read in (non-negotiable #6).
+    language,
+    // Whether the company itself is French/Spanish/English — the selector's
+    // default before the visitor touches it, kept apart from `language` so a
+    // ?lang= link does not make a French company look English-by-default.
+    companyLanguage: company.defaultLanguage || "en",
     // The company's currency, so the range on the page is quoted in the money
     // they actually bill in. A currency CODE is not a rate: it says nothing
     // about what anything costs, which is why it can cross to a public

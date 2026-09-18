@@ -11,7 +11,6 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { rateLimit } from "@/lib/rateLimit";
 import { measureForTrade, priceOneMaterial } from "@/lib/estimate/instantQuoteServer";
-import { gutterEstimateCopy } from "@/lib/i18n/gutterEstimateCopy";
 import { lawnEstimateCopy, lawnSourceSentence } from "@/lib/i18n/lawnEstimateCopy";
 import { lawnPublicView } from "@/lib/estimate/lawnPublicView";
 import { publicEstimate, gatedMessage, effectiveVisibility } from "@/lib/estimate/visibility";
@@ -28,6 +27,11 @@ import { buildEstimateEmail } from "@/lib/estimate/estimateEmail";
 import { sendEmail } from "@/lib/email/resend";
 import { resolveSender } from "@/lib/email/companySender";
 import { recordConsent, DISCLOSURE } from "@/lib/voice/outbound";
+import { instantQuoteCopy, instantQuoteLanguage } from "@/lib/i18n/instantQuoteCopy";
+import { measureErrorMessage } from "@/lib/estimate/measureErrorMessage";
+import { cleanTradeAnswers, tradeAnswerLines } from "@/lib/leads/tradeQuestions";
+import { checkServiceArea, serviceAreaConfigured, postalCodeFromAddress } from "@/lib/company/serviceArea";
+import { geocodeAddress } from "@/lib/measure/roofMeasurement";
 
 export async function POST(request, { params }) {
   // The heaviest of the public intakes — it re-measures, re-prices, writes a
@@ -57,6 +61,14 @@ export async function POST(request, { params }) {
       country: true,
       province: true,
       vatRegistered: true,
+      // The service area, for the one honest line the lead carries when the
+      // job is outside it (lib/company/serviceArea.js). city is in the
+      // sentence; latitude/longitude are the base of the radius.
+      city: true,
+      latitude: true,
+      longitude: true,
+      serviceRadiusKm: true,
+      servicePostalPrefixes: true,
     },
   });
   if (!company) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -69,22 +81,39 @@ export async function POST(request, { params }) {
   }
 
   const {
-    trade, address, polygon, intake, materialKey, name, email, phone, language,
+    trade, address, polygon, intake, materialKey, name, email, phone,
     media, budgetBandIndex,
     // The structured halves of `address` when the homeowner picked a Places
     // suggestion. Not trusted — normaliseCountry drops anything that isn't ISO
     // alpha-2 — and absent when they typed the address by hand, which is the
     // honest "we don't know" rather than a guess.
     city, province, country,
+    // "When do you need this done?", the trade's own question(s) and the
+    // free-text note — validated below against lib/leads/tradeQuestions.js.
+    whenNeeded, answers, notes,
   } = body || {};
 
-  if (!trade) return NextResponse.json({ error: "Missing service." }, { status: 400 });
+  // ── The document's language is the visitor's choice ──────────────────────
+  //
+  // The form carries three pills; whichever was lit when they pressed submit
+  // is the language the draft, the lead and the email are created in, and
+  // it never changes afterwards (non-negotiable #6). Validated to the three
+  // the page offers rather than trusted — `language || company.default…`
+  // would have stored whatever string a hand-crafted POST sent — and the
+  // company's language stands in when the browser sent nothing.
+  const language = instantQuoteLanguage(body?.language) || company.defaultLanguage || "en";
+  const t = instantQuoteCopy(language);
+
+  if (!trade) return NextResponse.json({ error: t.missingService }, { status: 400 });
   if (!name || (!email && !phone)) {
-    return NextResponse.json(
-      { error: "Tell us your name and an email or phone so we can send your quote." },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: t.missingContact }, { status: 400 });
   }
+
+  // The "when" question is required on the form; a POST around the form
+  // gets the same refusal the form would have shown. Unknown answers to the
+  // trade questions are dropped, never stored (cleanTradeAnswers).
+  const homeowner = cleanTradeAnswers(trade, { whenNeeded, answers, notes });
+  if (!homeowner.whenNeeded) return NextResponse.json({ error: t.missingWhen }, { status: 400 });
 
   // The address a quote will be sent to. Manny Conto typed
   // `Macksab  1@hotmail.com`; the quote bounced and nobody was told. Refused
@@ -99,11 +128,10 @@ export async function POST(request, { params }) {
     // A gutter measurement the model refused is not a retry: the sentence
     // says to request a quote for an on-site measure, in the language the
     // form is in. Every other miss is the generic line it always was.
-    const refusal =
-      measured.reason === "needs_site_visit"
-        ? (trade === "lawn_care" ? lawnEstimateCopy : gutterEstimateCopy)(language || company.defaultLanguage || "en").needsSiteVisit
-        : "We couldn't measure that. Please try again.";
-    return NextResponse.json({ error: refusal, reason: measured.reason }, { status: 422 });
+    return NextResponse.json(
+      { error: measureErrorMessage(measured.reason, language, trade), reason: measured.reason },
+      { status: 422 },
+    );
   }
 
   const priced = await priceOneMaterial({
@@ -113,10 +141,10 @@ export async function POST(request, { params }) {
     measurement: measured.measurement,
     // The assumptions an estimator writes for the homeowner (gutters) are
     // in the language the email and the confirmation page use.
-    language: language || company.defaultLanguage || "en",
+    language,
   });
   if (!priced.ok) {
-    return NextResponse.json({ error: "That option isn't available. Pick another." }, { status: 422 });
+    return NextResponse.json({ error: t.optionUnavailable }, { status: 422 });
   }
 
   // This whole route is the other side of the submit: it only runs once the
@@ -139,6 +167,29 @@ export async function POST(request, { params }) {
   // its figure was computed at.
   const pricedMeasurement = priced.measurement || measured.measurement;
 
+  // ── Inside the company's service area? ───────────────────────────────────
+  //
+  // Only asked when the company has said where they go; a company with no
+  // area set gets no check and no sentence. A roof measurement already
+  // carries the pin; every other trade's address is geocoded here — one
+  // Google call, only for companies that configured an area. An address
+  // that will not geocode and carries no postal code answers `null`, and
+  // null is written nowhere: "we don't know" must never read as "outside".
+  const jobAddress = address || measured.measurement.formattedAddress || null;
+  let outsideServiceArea = false;
+  if (serviceAreaConfigured(company) && jobAddress) {
+    let point =
+      Number.isFinite(Number(pricedMeasurement?.lat)) && Number.isFinite(Number(pricedMeasurement?.lng))
+        ? { lat: Number(pricedMeasurement.lat), lng: Number(pricedMeasurement.lng) }
+        : null;
+    if (!point) {
+      const hit = await geocodeAddress(jobAddress).catch(() => null);
+      if (hit) point = { lat: hit.lat, lng: hit.lng };
+    }
+    const verdict = checkServiceArea(company, { ...(point || {}), postalCode: postalCodeFromAddress(jobAddress) });
+    outsideServiceArea = verdict.inside === false;
+  }
+
   const draft = await createEstimateDraft({
     company,
     trade,
@@ -154,7 +205,11 @@ export async function POST(request, { params }) {
     city: city || null,
     province: province || null,
     country: normaliseCountry(country),
-    language: language || company.defaultLanguage || "en",
+    language,
+    // What the homeowner said about timing and the trade's own questions,
+    // plus their note — kept on the draft and put in front of the reviewer
+    // (see createEstimateDraft's `homeowner`).
+    homeowner: { ...homeowner, trade, outsideServiceArea },
     // The homeowner's attached photos/videos — re-normalised server-side (https
     // only, count-capped) so the browser can't stash anything but real media URLs.
     media,
@@ -166,7 +221,7 @@ export async function POST(request, { params }) {
     createdVia: "instant_quote",
   });
 
-  const emailLanguage = language || company.defaultLanguage || "en";
+  const emailLanguage = language;
 
   // Whether a booking button belongs in the email at all. Read from the same
   // helper the public page uses rather than re-derived, because an email that
@@ -258,6 +313,10 @@ export async function POST(request, { params }) {
     source: "instant_quote",
     clientPhotos: media,
     budgetBand: scoreKeyForBandIndex(budgetBand?.index),
+    // The scorer's key for the "when" they tapped — the form now asks it, so
+    // NOT_ASKED_BY_SOURCE in lib/leads/qualifiers.js no longer lists this
+    // source for timeline.
+    timeline: homeowner.timeline,
     // ── What the homeowner typed, kept ───────────────────────────────────
     //
     // This route passed no intake at all, so two things were lost.
@@ -288,7 +347,16 @@ export async function POST(request, { params }) {
       // normaliseCountry runs once, on the READ side in convertLead, so there
       // is one place that decides what a country code is.
       country,
-      details: enteredDetails(intake, materialKey),
+      details: {
+        ...enteredDetails(intake, materialKey),
+        // The option actually tapped (the lead card prints its label), the
+        // trade's answers, the note, and the area verdict — only when it is
+        // a real "outside"; `false` is not written, absence is the record.
+        whenNeeded: homeowner.whenNeeded,
+        ...homeowner.answers,
+        ...(homeowner.notes && { notes: homeowner.notes }),
+        ...(outsideServiceArea && { outsideServiceArea: true }),
+      },
     }),
     // NOT a timeline. This form does not ask when they want the work done —
     // see NOT_ASKED_BY_SOURCE in lib/leads/qualifiers.js, which is what stops

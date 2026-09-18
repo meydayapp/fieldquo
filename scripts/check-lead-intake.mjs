@@ -440,8 +440,8 @@ section("5. \"Not stated\" is not said about a question nobody asked");
 
 ok(wasAsked("self_quote", "budget"), "the self-quote form DOES ask about budget — a skip there is a real skip");
 ok(wasAsked("self_quote", "timeline"), "…and about timing");
-ok(!wasAsked("instant_quote", "timeline"), "the instant quote does not ask when they want it done");
-ok(wasAsked("instant_quote", "budget"), "…but it does ask the budget, as a tap on the company's own bands");
+ok(wasAsked("instant_quote", "timeline"), "the instant quote asks when they want it done (lib/leads/tradeQuestions.js)");
+ok(wasAsked("instant_quote", "budget"), "…and the budget, as a tap on the company's own bands");
 ok(!wasAsked("phone_agent", "budget"), "the receptionist may not discuss money");
 ok(!wasAsked("self_quote_kitchen", "budget") && !wasAsked("self_quote_kitchen", "timeline"), "the kitchen designer asks neither");
 ok(!wasAsked("client_portal", "timeline"), "the portal asks neither");
@@ -594,7 +594,7 @@ if (!process.argv.includes("--no-mutate")) {
     [
       "lib/leads/qualifiers.js",
       "every source claims to have asked everything",
-      (s) => s.replace("  instant_quote: [\"timeline\"],", ""),
+      (s) => s.replace("  self_quote_kitchen: [\"budget\", \"timeline\"],", ""),
     ],
   ];
 

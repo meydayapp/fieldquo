@@ -20,7 +20,9 @@ import {
 import { financingOffer } from "@/lib/estimate/financing";
 import { gutterEstimateCopy } from "@/lib/i18n/gutterEstimateCopy";
 import { lawnEstimateCopy } from "@/lib/i18n/lawnEstimateCopy";
+import { measureErrorMessage } from "@/lib/estimate/measureErrorMessage";
 import { lawnPublicView } from "@/lib/estimate/lawnPublicView";
+import { instantQuoteCopy, instantQuoteLanguage, instantTradeLabel } from "@/lib/i18n/instantQuoteCopy";
 
 export async function POST(request, { params }) {
   const { companySlug } = await params;
@@ -38,9 +40,12 @@ export async function POST(request, { params }) {
   }
 
   const { trade, address, polygon, intake } = body || {};
-  if (!trade) return NextResponse.json({ error: "Pick a service first." }, { status: 400 });
-
-  const language = company.defaultLanguage || "en";
+  // The form's language, validated to the three the page offers; the
+  // sentences below (a refusal, the gutter notes, the lawn size) are read
+  // beside the form, so they follow it rather than the company.
+  const language = instantQuoteLanguage(body?.language) || company.defaultLanguage || "en";
+  const t = instantQuoteCopy(language);
+  if (!trade) return NextResponse.json({ error: t.pickServiceFirst }, { status: 400 });
 
   const measured = await measureForTrade(trade, { address, polygon, intake, companyId: company.id });
   if (!measured.ok) {
@@ -88,7 +93,7 @@ export async function POST(request, { params }) {
       `[instant-quote/measure] ${companySlug}/${trade} unavailable (${priced.reason}) — owner fixes it at /app/settings/instant-quotes`,
     );
     return NextResponse.json(
-      { error: `${tradeLabel(trade)} isn't available for an instant estimate right now.` },
+      { error: t.tradeUnavailable(instantTradeLabel(trade, language, tradeLabel(trade))) },
       { status: 422 },
     );
   }
@@ -197,31 +202,4 @@ export async function POST(request, { params }) {
       : undefined;
 
   return NextResponse.json({ measurement: measurementView, options, financing, ...(offer && { offer }) });
-}
-
-function measureErrorMessage(reason, language = "en", trade = null) {
-  switch (reason) {
-    case "needs_site_visit":
-      return (trade === "lawn_care" ? lawnEstimateCopy(language) : gutterEstimateCopy(language)).needsSiteVisit;
-    case "polygon_too_small":
-      return lawnEstimateCopy(language).traceHint;
-    case "no_address":
-      return "Enter the property address to size the lawn.";
-    case "no_linear_geometry":
-      return "We couldn't read the roof edges at that address automatically — request a quote and we'll measure it on site.";
-    case "no_roof_coverage":
-      return "We couldn't measure that roof automatically — check the address, or request a quote and we'll measure it by hand.";
-    case "geocode_failed":
-      return "We couldn't find that address. Try including the city and postal code.";
-    case "no_polygon":
-      return "Trace the area on the map first.";
-    case "no_area":
-      return "Enter the area to get an estimate.";
-    case "no_units":
-      return "Enter how many doors and drawers.";
-    case "no_key":
-      return "Automatic measurement isn't set up yet. Request a quote and we'll measure it by hand.";
-    default:
-      return "We couldn't measure that. Request a quote and we'll follow up.";
-  }
 }

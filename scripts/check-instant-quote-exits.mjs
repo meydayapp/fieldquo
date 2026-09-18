@@ -41,6 +41,7 @@ import {
   readRate,
 } from "@/lib/estimate/instantRateFields";
 import { PRICE_BOOK_FIELDS } from "@/app/data/tradePriceBooks";
+import { INSTANT_QUOTE_COPY } from "@/lib/i18n/instantQuoteCopy";
 
 const ROOT = join(import.meta.dirname, "..");
 const FLOW = join(ROOT, "app/instant-quote/[companySlug]/InstantQuoteFlow.js");
@@ -88,7 +89,11 @@ const exitAt = flowSrc.indexOf("function RequestQuoteLink(");
 const exitComponent = balancedAfter(flowSrc, flowSrc.indexOf(") {", exitAt));
 ok("...renders an anchor to /quote/<slug>", /<a\s[\s\S]*href=\{`\/quote\/\$\{companySlug\}`\}/.test(exitComponent || ""));
 ok("...the route it points at exists on disk", existsSync(QUOTE_PAGE));
-ok("...and the anchor carries visible text", /Request a quote/.test(exitComponent || ""));
+// The text comes from the three-language table now (lib/i18n/
+// instantQuoteCopy.js `requestQuoteInstead`), so the anchor is checked for
+// the key and the table for the sentence in every language.
+ok("...and the anchor carries visible text", /\{t\.requestQuoteInstead\}/.test(exitComponent || ""));
+ok("...in English, French and Spanish", ["en", "fr", "es"].every((c) => /→/.test(INSTANT_QUOTE_COPY[c].requestQuoteInstead)));
 
 // ═══════════════════════════════════════════════════════════════════════════
 console.log("\nEvery failure branch in the flow renders a route out");

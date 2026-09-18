@@ -184,6 +184,7 @@
     "check:instant-takeoff": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-instant-takeoff.mjs",
     "check:instant-quote-draft": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-instant-quote-draft.mjs",
     "check:instant-scope": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-instant-scope.mjs",
+    "check:instant-quote-copy": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-instant-quote-copy.mjs",
     "check:self-quote": "node --import ./scripts/alias-loader.mjs scripts/check-self-quote.mjs",
     "check:voice-spend": "node --import ./scripts/alias-loader.mjs scripts/check-voice-spend.mjs",
     "check:features": "node --import ./scripts/alias-loader.mjs scripts/check-feature-flags.mjs",
