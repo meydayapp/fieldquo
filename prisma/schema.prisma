@@ -11613,6 +11613,105 @@ model Prospect {
   queueClaims         SalesQueueClaim[]
 }
 
+/// A business a scrape or a paid source LISTED that no Prospect row could be
+/// matched to — a prospect-in-waiting — and, for the rows that did match, the
+/// receipt of what was seen and which prospect took it.
+///
+/// ══ Why this is not a Prospect ═══════════════════════════════════════════
+///
+/// The Google Maps scrape (scripts/scrape/maps.mjs) reads a feed of up to
+/// ~120 places per map viewport and opens each one. Most of what it finds
+/// is already a Prospect from a licence register or a directory, and for
+/// those rows the listing is a CORROBORATING source written through the
+/// same never-overwrite fill as the Places API (lib/sales/intel/places.js
+/// planPlacesWrite). The rest — a plumber Google knows and no register does
+/// — cannot become a Prospect on the scraper's say-so: `Prospect` rows enter
+/// through the discovery ingest, carry a source release and a trade a human
+/// confirmed, and are counted by every queue. So an unmatched listing waits
+/// here, with everything the source showed, until a superadmin promotes it
+/// or a later ingest produces the row it matches. Nothing here is ever
+/// deleted; a re-scrape updates `lastSeenAt` and the payload.
+///
+/// ══ Shared with the Apify / BBB path ═════════════════════════════════════
+///
+/// The table was created in the live database by the principal-contacts /
+/// Apify work (its columns down to `updatedAt` are that table's, read back
+/// from information_schema on 2026-09-17 so this block drops nothing). The
+/// scrape's own columns are the delimited block after it, applied with
+/// additive SQL. When the Apify branch lands its model, keep its block and
+/// carry the delimited one across — the matcher in lib/sales/intel/listings.js
+/// reads only the names below.
+model ExternalListing {
+  id String @id @default(cuid())
+
+  /// "maps" (Google Maps, scraped from the owner's Mac), "apify", "bbb".
+  source     String
+  /// The source's own stable id — a Google Place ID (ChIJ…) for maps. One
+  /// row per (source, id): a second sighting of the same place is an update.
+  externalId String
+
+  name        String
+  phoneE164   String?
+  domain      String?
+  websiteUrl  String?
+  addressLine String?
+  city        String?
+  province    String?
+  postalCode  String?
+  country     String?
+  latitude    Decimal? @db.Decimal(9, 6)
+  longitude   Decimal? @db.Decimal(9, 6)
+  /// What the source called the business's kind, verbatim: "Plumber",
+  /// "Roofing contractor". Never overwritten by the trade mapping.
+  category    String?
+  /// As the source printed it ("4.8"); text because sources disagree on
+  /// precision.
+  rating      String?
+  reviewCount Int?
+  /// The whole parsed record: the phone as displayed, plus code, hours,
+  /// star histogram, price bracket, the listing URL, the tile it came from.
+  payload     Json
+  /// The search that surfaced it, for the report and for the next run.
+  keyword     String?
+  location    String?
+  runId       String?
+
+  /// The Prospect this listing was attached to, when the matcher accepted
+  /// one. Null is the prospect-in-waiting state.
+  matchedProspectId String?
+  /// "matched" | "no_confident_match" | "no_candidates" |
+  /// "place_id_conflict" | "already_attached" — the verdict, every sighting.
+  matchVerdict      String?
+  matchedAt         DateTime?
+  fetchedAt         DateTime
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  // ── Maps-scrape columns (additive; scripts/scrape/maps.mjs) ─────────────
+  /// The DISCOVERY_TRADES key the category maps to, or null when none does.
+  tradeKey       String?
+  /// "OPERATIONAL" | "CLOSED_TEMPORARILY" | "CLOSED_PERMANENTLY" — the
+  /// Places API vocabulary, so the Prospect fill reads it unchanged. Null
+  /// when the page said nothing either way.
+  businessStatus String?
+  /// Whether the owner has claimed the listing: the "Own this business?"
+  /// prompt was ABSENT on a fully loaded page. Null when the page was too
+  /// thin to say.
+  claimed        Boolean?
+  /// The score of the accepted candidate, or the top refused one and why —
+  /// what a human reads to confirm or dismiss it.
+  matchResult    Json?
+  lastSeenAt     DateTime  @default(now())
+  // ── end Maps-scrape columns ─────────────────────────────────────────────
+
+  @@unique([source, externalId])
+  @@index([source, phoneE164])
+  @@index([source, domain])
+  @@index([matchedProspectId])
+  @@index([source, keyword, location])
+  @@index([tradeKey, city])
+}
+
 /// One rep taking one prospect, and how that claim ended.
 ///
 /// ══ Why the lease on Prospect is not enough ════════════════════════════════
