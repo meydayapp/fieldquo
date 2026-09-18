@@ -13638,3 +13638,36 @@ follows the trap into the primitive and the z-order to `z-[80]`;
 `check-sales-autodial`, `check-browser-notifications`, `check-tour-anchor`,
 `check-sales-portal-i18n` and `check-sales-call-handling` pass unchanged.
 `check:dock`'s five `MeShell.js` failures pre-date this and are not touched.
+
+## QA pass over the night's sales work (18 September 2026, early)
+
+Every scene the night shipped — the Off reminder, the ring dialog and its
+three caller answers, the drawer's status control, the callbacks strip and
+both "Call now"s, "Given back today", the recording aside, the test-account
+banner and the typed test line, voicemail and missed rows in call history,
+the agency screen, the by-employee pay table, the queue snapshot — walked
+in the two harnesses at 375 and 1280 in EN/FR/ES, with the keyboard through
+both modals, the console read, and the whole sales check family run. The
+write-up, the per-scene table, the ranked remainder and the frames are in
+`docs/sales/QA-2026-09-17.md` and `docs/screens/sales-mobile/qa-2026-09-17/`.
+
+Fixed on the way (copy, layout, harness, stale checks — nothing about
+dialling, recording, transfers or presence): a refused status pick used to
+close the menu and say nothing; the ring's caller line dangled its dot at
+375; the ring toast printed a raw E.164; "Conversaciones" broke mid-word in
+the Spanish tab bar (now hyphenates); Play on a voicemail row was 24×15;
+/sales/agency's buttons were 40px on a phone; `check:sales-test-line`,
+`check:sales-batch-claim` and `check:sales-retry-pool` were red on stale
+assertions. The harnesses were behind the night — no `history`,
+`callbacks`, `test-line`, `unlogged`, `givenBack`, `testAccount`, no
+`POST /api/sales/calls` in the portal stub, no agency page, ring scenes by
+English word — and now carry all of it (`?scene=typed-test`,
+`?testAccount=1`, `?page=agency&agency=1`, `HLANG=fr` on the shooter).
+
+**Still owed, in order** (details and repro in the QA note): the outbound
+Call button stays live under an answered inbound call and places a second
+dial (high — dialling, not touched); the live strip covers the phone's top
+bar for the whole call; Deactivate on /sales/agency is one tap with no
+confirm; "Call now" on a phone dials with nothing visible in the viewport;
+a missed ring-back reads "Not written up"; `check:dock` on `MeShell.js`
+(not sales). /sales is not on the theme allow-list, so no dark pass applies.

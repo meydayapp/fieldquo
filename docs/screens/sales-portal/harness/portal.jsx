@@ -39,6 +39,7 @@ import SalesSettingsPage from "@/app/sales/settings/page";
 import SalesWelcomePage from "@/app/sales/welcome/page";
 import SalesLoginPage from "@/app/sales/login/page";
 import SalesInvitePage from "@/app/sales/invite/[token]/page";
+import SalesAgencyPage from "@/app/sales/agency/page";
 import { seedPlaybooks } from "@/lib/sales/playbook/defaults";
 import { seedObjections } from "@/lib/sales/playbook/objections";
 import { battlecards } from "@/lib/sales/playbook/battlecards";
@@ -81,6 +82,9 @@ const PAGES = {
   threads: ["/sales/threads", <SalesThreadsPage />],
   thread: ["/sales/threads/t1", <SalesThreadPage params={Promise.resolve({ id: "t1" })} />],
   settings: ["/sales/settings", <SalesSettingsPage />],
+  // The agency's own screen; pair it with &agency=1 so the shell draws My
+  // team and the stub answers as an agency account.
+  agency: ["/sales/agency", <SalesAgencyPage />],
   welcome: ["/sales/welcome", <SalesWelcomePage />],
   // The two screens reached without a session: the shell hides its chrome
   // on both, as it ships.

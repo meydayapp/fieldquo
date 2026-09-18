@@ -86,6 +86,13 @@ const pressCall = async () => (await until('[data-console-card="dialer"] [data-c
     await keyIn("4055550142");
     await wait(300);
   }
+  if (scene === "typed-test") {
+    // One of FieldQuo's own test lines typed on a lead's card: the pad's
+    // caveat says "Test line — not saved on this lead" (stubs/fetchJson.js
+    // answers /api/sales/calls/test-line for a number ending 5550006).
+    await keyIn("5005550006");
+    await wait(600);
+  }
   if (scene === "dial-button") {
     (await until('[data-console-card="contact"] [data-dial-number-button="+14055550177"]')).click();
     await until('[data-console-card="dialer"] .font-mono');
@@ -117,8 +124,8 @@ const pressCall = async () => (await until('[data-console-card="dialer"] [data-c
     window.__ring("+19185550123");
     await until('[data-incoming-dialog="open"]');
     await wait(300);
-    const decline = [...document.querySelectorAll('[data-incoming-dialog] button')].find((b) => /Decline/.test(b.textContent));
-    decline.click();
+    // By hook, not by word: the frame is shot in French and Spanish too.
+    (await until('[data-incoming-dialog] [data-incoming-decline]')).click();
     await wait(600);
     if (document.querySelector('[data-incoming-dialog]')) throw new Error("dialog still mounted after decline");
   }
@@ -126,8 +133,7 @@ const pressCall = async () => (await until('[data-console-card="dialer"] [data-c
     window.__ring("+19185550123");
     await until('[data-incoming-dialog="open"]');
     await wait(300);
-    const pick = [...document.querySelectorAll('[data-incoming-dialog] button')].find((b) => /Pick up/.test(b.textContent));
-    pick.click();
+    (await until('[data-incoming-dialog] [data-incoming-pick-up]')).click();
     await until('[data-live-call-slot] [data-inbound-live]');
     await wait(1600);
   }

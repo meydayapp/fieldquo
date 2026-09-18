@@ -189,8 +189,13 @@ export default function SalesMobileTabBar({ tabs, name = null, onSignOut, drawer
                   {/* No truncate: a label that needs two lines gets two,
                       which is legible where a clipped one is not — the same
                       rule the desktop row states. leading-tight keeps two
-                      lines inside the 4rem row. */}
-                  <span className="text-[10px] font-semibold leading-tight text-center break-words max-w-[4.75rem]">
+                      lines inside the 4rem row. hyphens-auto so a single
+                      word wider than the tab — "Conversaciones" is 80px at
+                      375 — breaks at a syllable ("Conversa-ciones") rather
+                      than wherever it runs out ("Conversacione / s");
+                      <html lang> is the rep's language (LanguageProvider),
+                      so the dictionary is the right one. */}
+                  <span className="text-[10px] font-semibold leading-tight text-center break-words hyphens-auto max-w-[4.75rem]">
                     {tab.label}
                   </span>
                 </span>

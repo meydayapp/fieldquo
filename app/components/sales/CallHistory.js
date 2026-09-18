@@ -148,7 +148,11 @@ export function CallHistoryStrip({ prospectId = null, leadId = null, refreshKey 
               {row.voicemail ? (
                 <span className="text-foreground">
                   · {typeof row.voicemail.seconds === "number" ? t("app.salesCall.history.voicemailSeconds", { seconds: row.voicemail.seconds }) : t("app.salesCall.history.voicemail")}{" "}
-                  <a href={row.voicemail.href} target="_blank" rel="noopener" className="underline font-medium" data-call-history-voicemail={row.id}>
+                  {/* A 44px hit area on a 15px word: the padding is taken
+                      back with negative margins so the row's height is the
+                      line's, not the target's (QA 2026-09-17: 24×15 on a
+                      phone). */}
+                  <a href={row.voicemail.href} target="_blank" rel="noopener" className="underline font-medium inline-flex items-center min-h-[44px] -my-3 px-1.5 -mx-1" data-call-history-voicemail={row.id}>
                     {t("app.salesCall.history.play")}
                   </a>
                 </span>

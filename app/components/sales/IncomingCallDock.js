@@ -389,7 +389,7 @@ export default function IncomingCallDock() {
           // business name when the lookup answers — the same tag, so the
           // second replaces the first.
           const ringTag = `sales-ring:${from || "withheld"}`;
-          notify({ title: tRef.current("app.notify.incomingCall.title"), body: from || "", tag: ringTag, url: "/sales/queue", quietWhenFocused: true });
+          notify({ title: tRef.current("app.notify.incomingCall.title"), body: from ? pretty(from, tRef.current) : "", tag: ringTag, url: "/sales/queue", quietWhenFocused: true });
           fetchJson(`/api/sales/calls/caller?from=${encodeURIComponent(from || "")}`)
             .then((body) => {
               if (cancelled) return;
@@ -764,7 +764,13 @@ export default function IncomingCallDock() {
             {t("app.salesDial.onACall")}
           </p>
           <p className="font-semibold text-emerald-900 dark:text-emerald-100 break-words">
-            {business ? `${business} · ${fromText}` : fromText}
+            {business ? (
+              <>
+                {business} <span className="whitespace-nowrap">· {fromText}</span>
+              </>
+            ) : (
+              fromText
+            )}
           </p>
         </div>
         <p className="text-xl font-mono tabular-nums text-emerald-900 dark:text-emerald-100">
@@ -865,7 +871,10 @@ export default function IncomingCallDock() {
                 <p id="fq-incoming-call-caller" className="text-lg font-semibold text-foreground break-words">
                   {business ? (
                     <>
-                      {business} <span className="text-muted-foreground font-normal">· {fromText}</span>
+                      {/* The dot is glued to the number: at 375 "Bright Current
+                          Electrical ·" broke with the dot dangling at the end
+                          of the name's line and the number alone on the next. */}
+                      {business} <span className="text-muted-foreground font-normal whitespace-nowrap">· {fromText}</span>
                     </>
                   ) : (
                     fromText

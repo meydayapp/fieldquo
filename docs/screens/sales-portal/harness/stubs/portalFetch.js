@@ -53,6 +53,43 @@ function leadDetail(id) {
 }
 
 const lang = () => new URLSearchParams(window.location.search).get("lang") || "en";
+const params = () => new URLSearchParams(window.location.search);
+const agency = () => params().get("agency") === "1";
+
+// ── The agency tier (2026-09-17) ──────────────────────────────────────────
+// /api/sales/agency: the team as lib/sales/agency.js agencyTeam() shapes it
+// — one set up and selling, one still to be set up, one deactivated.
+const AGO = (min) => new Date(Date.now() - min * 60000).toISOString();
+const AGENCY = {
+  agency: { id: "r1", name: "Daniel Roy", email: "daniel@fieldquo.com" },
+  team: [
+    { id: "e1", name: "Maria Lopez", email: "maria@northcall.ca", code: "marialopez", signupLink: "https://www.fieldquo.com/signup?sales=marialopez", active: true, endedAt: null, invitedAt: AGO(20000), acceptedAt: AGO(19000), inviteState: "accepted", sellsIn: ["en", "es"], language: "es", lastSeenAt: AGO(3), hasWorkEmail: true, hasNumber: true, setupRequestedAt: AGO(19500), needsSetup: false, calls: { today: 31, thisWeek: 142 }, signups: { today: 1, thisWeek: 3, total: 9 }, earned: { lifetimeCents: 18000, openCents: 4000 }, queue: { prospects: 12, openLeads: 4 } },
+    { id: "e2", name: "Jean-Marc Tremblay", email: "jm@northcall.ca", code: "jmtremblay", signupLink: "https://www.fieldquo.com/signup?sales=jmtremblay", active: true, endedAt: null, invitedAt: AGO(600), acceptedAt: null, inviteState: "pending", sellsIn: ["fr"], language: "fr", lastSeenAt: null, hasWorkEmail: false, hasNumber: false, setupRequestedAt: AGO(600), needsSetup: true, calls: { today: 0, thisWeek: 0 }, signups: { today: 0, thisWeek: 0, total: 0 }, earned: { lifetimeCents: 0, openCents: 0 }, queue: { prospects: 0, openLeads: 0 } },
+    { id: "e3", name: "Priya Nair", email: "priya@northcall.ca", code: "priyanair", signupLink: "https://www.fieldquo.com/signup?sales=priyanair", active: false, endedAt: AGO(4000), invitedAt: AGO(40000), acceptedAt: AGO(39000), inviteState: "accepted", sellsIn: ["en"], language: "en", lastSeenAt: AGO(4100), hasWorkEmail: true, hasNumber: true, setupRequestedAt: null, needsSetup: false, calls: { today: 0, thisWeek: 0 }, signups: { today: 0, thisWeek: 0, total: 4 }, earned: { lifetimeCents: 8000, openCents: 0 }, queue: { prospects: 0, openLeads: 0 } },
+  ],
+  serverNow: new Date().toISOString(),
+};
+// /api/sales/agency/floor: the team's floor, lib/sales/calls/floorBoard.js's
+// shape narrowed to the agency's reps.
+const AGENCY_FLOOR = {
+  store: { ready: true, missing: [] },
+  period: { from: AGO(600), to: new Date().toISOString(), label: "today" },
+  reps: [
+    { id: "e1", name: "Maria Lopez", presence: { state: "on_call", pauseReason: null, forMs: 4 * 60000, stale: false, everSeen: true, everSignedIn: true, lastSeenAt: AGO(0) }, stats: { dials: 31, reportedReachRate: { value: 23, hit: 7, sampleSize: 31 }, dispositions: { pending: 2 }, onCallText: "1h 12m", pausedText: "25m" } },
+    { id: "e2", name: "Jean-Marc Tremblay", presence: { state: "offline", pauseReason: null, forMs: null, stale: false, everSeen: false, everSignedIn: false, lastSeenAt: null }, stats: { dials: 0, reportedReachRate: { value: null, hit: 0, sampleSize: 0 }, dispositions: { pending: 0 }, onCallText: null, pausedText: null } },
+  ],
+  states: [], pauseReasons: [],
+  campaigns: [{ key: "electrical", label: "Electrical", dials: 31, dispositions: { pending: 2 }, reportedReachRate: { value: 23, hit: 7, sampleSize: 31 } }],
+  notTracked: [],
+  serverNow: new Date().toISOString(),
+  scope: { agencyId: "r1", repIds: ["e1", "e2"] },
+};
+// /api/sales/earnings adds this for an agency (agencyEarnings byEmployee).
+const BY_EMPLOYEE = [
+  { salesRepId: "e1", name: "Maria Lopez", active: true, isAgency: false, earnedCents: 18000, paidCents: 12000, awaitingCents: 2000, openCents: 4000, signups: 9 },
+  { salesRepId: "e3", name: "Priya Nair", active: false, isAgency: false, earnedCents: 8000, paidCents: 8000, awaitingCents: 0, openCents: 0, signups: 4 },
+  { salesRepId: "r1", name: "Daniel Roy", active: true, isAgency: true, earnedCents: 10000, paidCents: 6000, awaitingCents: 2000, openCents: 2000, signups: 5 },
+];
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 
@@ -65,7 +102,15 @@ const state = {
 };
 
 function answer(p, u, method, body) {
-  if (p === "/api/sales/me") return ME;
+  // ?agency=1 — the harness rep is a call-centre agency (lib/sales/agency.js):
+  // the shell draws My team, /sales/agency answers, and Pay carries the
+  // by-employee table. ?testAccount=1 — the owner's dialler-testing rep.
+  if (p === "/api/sales/me") return { ...ME, kind: agency() ? "agency" : "rep", isAgency: agency(), agencyEmployee: false, agency: null, testAccount: params().get("testAccount") === "1" };
+  if (p === "/api/sales/agency" && method === "GET") return AGENCY;
+  if (p === "/api/sales/agency" && method === "POST") return { rep: { ...AGENCY.team[0], id: "e-new", name: body?.name || "New rep", email: body?.email || "", inviteState: "pending", signups: { today: 0, thisWeek: 0, total: 0 } }, invite: { sent: true, error: null } };
+  if (p === "/api/sales/agency/floor") return AGENCY_FLOOR;
+  if (p.startsWith("/api/sales/agency/") && p.endsWith("/invite")) return { ok: true, sent: true };
+  if (p.startsWith("/api/sales/agency/")) return { ok: true };
   if (p === "/api/sales/badges") return BADGES;
   if (p === "/api/sales/tour") return { step: 0, dismissed: true, completed: false };
   if (p === "/api/sales/auth/logout") return { ok: true };
@@ -140,7 +185,7 @@ function answer(p, u, method, body) {
     const status = u.searchParams.get("status");
     return { tickets: status ? TICKETS.filter((t) => t.status === status) : TICKETS, counts: TICKET_COUNTS };
   }
-  if (p === "/api/sales/earnings") return EARNINGS;
+  if (p === "/api/sales/earnings") return agency() ? { ...EARNINGS, byEmployee: BY_EMPLOYEE } : EARNINGS;
   if (p === "/api/sales/payout")
     return {
       payoutMethod: "interac", payoutHandle: "daniel.roy@outlook.com", engagement: "freelancer", accruesPaidLeave: false,
@@ -163,6 +208,16 @@ function answer(p, u, method, body) {
       serverNow: new Date().toISOString(),
     };
   if (p === "/api/sales/calls/token") return { token: "tok", expiresInSeconds: 600 };
+  // The shell's presence changes, heartbeats and the inbound write-up all
+  // POST here (RepStatus.js, IncomingCallDock.js). Unanswered, a status
+  // pick showed "Harness has no answer" and the ring's write-up could not
+  // be saved.
+  if (p === "/api/sales/calls" && method === "POST") {
+    if (body?.action === "state" && body.state) state.presence = { ...state.presence, state: body.state, pauseReason: body.pauseReason || null, forMs: 0 };
+    if (body?.action === "state") return { ok: true, presence: state.presence, autodial: state.autodial };
+    if (body?.action === "autodial") { state.autodial = Boolean(body.on); return { autodial: state.autodial }; }
+    return { ok: true };
+  }
   // The ring dialog's caller lookup, by the number that rang — the three
   // shapes lib/sales/calls/callerLinks.js can answer with:
   //   +19185550123  the business this rep holds — console links, city;
@@ -175,6 +230,22 @@ function answer(p, u, method, body) {
     return { outcome: "prospect", businessName: "Bright Current Electrical", city: "Tulsa", province: "OK", holder: { repId: ME.id, name: ME.name, mine: true }, open: { kind: "console", href: "/sales/queue?prospectId=p1" }, notes: { href: "/sales/queue?prospectId=p1&tab=notes" }, save: null };
   }
   if (p === "/api/sales/calls/answered") return { attemptId: "att_harness", transferable: true };
+  // The lead page's call history (app/components/sales/CallHistory.js):
+  // an outbound write-up, and the two inbound outcomes that were invisible
+  // before 2026-09-17 — a voicemail with Play, a missed ring-back.
+  if (p === "/api/sales/calls/history") {
+    const ago = (m) => new Date(Date.now() - m * 60000).toISOString();
+    return {
+      store: { ready: true, missing: [] },
+      history: [
+        { id: "h1", dialledAt: ago(35), direction: "in", channel: "browser", mine: true, ended: null, talkSeconds: null, disposition: null, dispositionAt: null, autoLogged: false, deferred: false, note: null, callbackAt: null, voicemail: { seconds: 22, href: "/api/sales/voicemail/h1/audio" }, missed: false },
+        { id: "h2", dialledAt: ago(50), direction: "in", channel: "browser", mine: true, ended: null, talkSeconds: null, disposition: null, dispositionAt: null, autoLogged: false, deferred: false, note: null, callbackAt: null, voicemail: null, missed: true },
+        { id: "h3", dialledAt: ago(1500), direction: "out", channel: "browser", mine: true, ended: { key: "app.salesCall.ended.prospect", talkSeconds: 252 }, talkSeconds: 252, disposition: "reached_interested", dispositionAt: ago(1495), autoLogged: false, deferred: false, note: "call after the season", callbackAt: new Date(Date.now() + 26 * 3600000).toISOString(), voicemail: null, missed: false },
+      ],
+      lastTime: { dialledAt: ago(1500), disposition: "reached_interested", note: "call after the season" },
+      serverNow: new Date().toISOString(),
+    };
+  }
   // Today's "Calls to write up" card. Empty: the card then says so in words,
   // which is the frame worth keeping; unanswered, every Today frame carried
   // "Harness has no answer" and the shooter flagged the scene as an error.

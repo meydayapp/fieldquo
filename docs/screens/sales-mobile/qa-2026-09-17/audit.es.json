@@ -1,0 +1,4111 @@
+{
+ "today @375": {
+  "file": "today-375.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/harness/portal/portal.html?page=today&lang=es",
+  "vw": 375,
+  "vh": 812,
+  "docW": 375,
+  "docH": 4022,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [
+   {
+    "width": 309,
+    "y": 1972,
+    "inScroller": true,
+    "scrollerFits": true,
+    "caption": "Etapa"
+   }
+  ],
+  "tap": [
+   {
+    "tag": "select",
+    "cls": "border border-border rounded-lg px-3 py-2 min-h-[40px] text-sm bg-card text-foreground disabled:opacity-60",
+    "text": "2026-09 — hasta ahora2026-082026-072026-062026-052026-04",
+    "x": 33,
+    "y": 1680,
+    "w": 219,
+    "h": 40,
+    "right": 252,
+    "inline": false,
+    "primary": false,
+    "type": null
+   }
+  ],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "HoyColaGuionMis leadsConversaciones",
+    "x": 0,
+    "y": 747,
+    "w": 375,
+    "h": 65,
+    "right": 375,
+    "z": "40"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 375,
+   "h": 3965,
+   "right": 375
+  },
+  "smallInputs": [],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Tu día"
+  ],
+  "textLength": 3408,
+  "consoleErrors": [],
+  "tapCount": 1,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "today @1280": {
+  "file": "today-1280.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/harness/portal/portal.html?page=today&lang=es",
+  "vw": 1280,
+  "vh": 900,
+  "docW": 1280,
+  "docH": 3221,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [
+   {
+    "width": 942,
+    "y": 1700,
+    "inScroller": true,
+    "scrollerFits": true,
+    "caption": "Etapa"
+   }
+  ],
+  "tap": [
+   {
+    "tag": "select",
+    "cls": "border border-border rounded-lg px-3 py-2 min-h-[40px] text-sm bg-card text-foreground disabled:opacity-60",
+    "text": "2026-09 — hasta ahora2026-082026-072026-062026-052026-04",
+    "x": 1021,
+    "y": 1456,
+    "w": 200,
+    "h": 40,
+    "right": 1221,
+    "inline": false,
+    "primary": false,
+    "type": null
+   }
+  ],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [],
+  "asides": [
+   {
+    "tag": "aside",
+    "cls": "hidden lg:flex flex-col shrink-0 sticky top-0 h-screen bg-sidebar text-sidebar-foreground border-r border-sidebar-border transition-[width] ",
+    "text": "Portal de ventasHoyColaGuionMis leadsConversacionesSMS33Equipo1NotasCa",
+    "x": 0,
+    "y": 0,
+    "w": 220,
+    "h": 900,
+    "right": 220,
+    "fixed": false
+   }
+  ],
+  "railVisible": false,
+  "mainRect": {
+   "x": 238,
+   "y": 61,
+   "w": 1024,
+   "h": 3160,
+   "right": 1262
+  },
+  "smallInputs": [
+   {
+    "tag": "select",
+    "cls": "border border-border rounded-lg px-3 py-2 min-h-[40px] text-sm bg-card text-foreground disabled:opacity-60",
+    "text": "2026-09 — hasta ahora2026-082026-072026-062026-052026-04",
+    "x": 1021,
+    "y": 1456,
+    "w": 200,
+    "h": 40,
+    "right": 1221,
+    "fontSize": "14px"
+   }
+  ],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Tu día"
+  ],
+  "textLength": 3594,
+  "consoleErrors": [],
+  "tapCount": 1,
+  "truncatedCount": 0,
+  "smallInputCount": 1
+ },
+ "today-incoming-call @375": {
+  "file": "today-incoming-call-375.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/harness/portal/portal.html?page=today&scene=incoming-call&lang=es",
+  "vw": 375,
+  "vh": 812,
+  "docW": 375,
+  "docH": 4022,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [
+   {
+    "width": 309,
+    "y": 1972,
+    "inScroller": true,
+    "scrollerFits": true,
+    "caption": "Etapa"
+   }
+  ],
+  "tap": [
+   {
+    "tag": "select",
+    "cls": "border border-border rounded-lg px-3 py-2 min-h-[40px] text-sm bg-card text-foreground disabled:opacity-60",
+    "text": "2026-09 — hasta ahora2026-082026-072026-062026-052026-04",
+    "x": 33,
+    "y": 1680,
+    "w": 219,
+    "h": 40,
+    "right": 252,
+    "inline": false,
+    "primary": false,
+    "type": null
+   }
+  ],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [
+   {
+    "tag": "div",
+    "cls": "relative w-full sm:max-w-md rounded-2xl bg-card text-foreground shadow-xl p-5 space-y-4",
+    "text": "Llamada entranteSonando desde hace 1 sBright Current Electrical · (918",
+    "x": 16,
+    "y": 216,
+    "w": 343,
+    "h": 380,
+    "right": 359,
+    "tallerThanViewport": false,
+    "scrolls": false
+   }
+  ],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "HoyColaGuionMis leadsConversaciones",
+    "x": 0,
+    "y": 747,
+    "w": 375,
+    "h": 65,
+    "right": 375,
+    "z": "40"
+   },
+   {
+    "tag": "div",
+    "cls": "fq-toast-layer fq-sales-shell",
+    "text": "Llamada entrante — Bright Current Electrical",
+    "x": 16,
+    "y": 666,
+    "w": 343,
+    "h": 66,
+    "right": 359,
+    "z": "120"
+   },
+   {
+    "tag": "div",
+    "cls": "fixed inset-0 z-[80] flex items-center justify-center p-4",
+    "text": "Llamada entranteSonando desde hace 1 sBright Current Electrical · (918",
+    "x": 0,
+    "y": 0,
+    "w": 375,
+    "h": 812,
+    "right": 375,
+    "z": "80"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 375,
+   "h": 3965,
+   "right": 375
+  },
+  "smallInputs": [],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Tu día"
+  ],
+  "textLength": 3749,
+  "consoleErrors": [],
+  "tapCount": 1,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "today-incoming-call @1280": {
+  "file": "today-incoming-call-1280.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/harness/portal/portal.html?page=today&scene=incoming-call&lang=es",
+  "vw": 1280,
+  "vh": 900,
+  "docW": 1280,
+  "docH": 3221,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [
+   {
+    "width": 942,
+    "y": 1700,
+    "inScroller": true,
+    "scrollerFits": true,
+    "caption": "Etapa"
+   }
+  ],
+  "tap": [
+   {
+    "tag": "select",
+    "cls": "border border-border rounded-lg px-3 py-2 min-h-[40px] text-sm bg-card text-foreground disabled:opacity-60",
+    "text": "2026-09 — hasta ahora2026-082026-072026-062026-052026-04",
+    "x": 1021,
+    "y": 1456,
+    "w": 200,
+    "h": 40,
+    "right": 1221,
+    "inline": false,
+    "primary": false,
+    "type": null
+   }
+  ],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [
+   {
+    "tag": "div",
+    "cls": "relative w-full sm:max-w-md rounded-2xl bg-card text-foreground shadow-xl p-5 space-y-4",
+    "text": "Llamada entranteSonando desde hace 1 sBright Current Electrical · (918",
+    "x": 416,
+    "y": 312,
+    "w": 448,
+    "h": 276,
+    "right": 864,
+    "tallerThanViewport": false,
+    "scrolls": false
+   }
+  ],
+  "fixed": [
+   {
+    "tag": "div",
+    "cls": "fq-toast-layer fq-sales-shell",
+    "text": "Llamada entrante — Bright Current Electrical",
+    "x": 872,
+    "y": 810,
+    "w": 384,
+    "h": 66,
+    "right": 1256,
+    "z": "120"
+   },
+   {
+    "tag": "div",
+    "cls": "fixed inset-0 z-[80] flex items-center justify-center p-4",
+    "text": "Llamada entranteSonando desde hace 1 sBright Current Electrical · (918",
+    "x": 0,
+    "y": 0,
+    "w": 1280,
+    "h": 900,
+    "right": 1280,
+    "z": "80"
+   }
+  ],
+  "asides": [
+   {
+    "tag": "aside",
+    "cls": "hidden lg:flex flex-col shrink-0 sticky top-0 h-screen bg-sidebar text-sidebar-foreground border-r border-sidebar-border transition-[width] ",
+    "text": "Portal de ventasHoyColaGuionMis leadsConversacionesSMS33Equipo1NotasCa",
+    "x": 0,
+    "y": 0,
+    "w": 220,
+    "h": 900,
+    "right": 220,
+    "fixed": false
+   }
+  ],
+  "railVisible": false,
+  "mainRect": {
+   "x": 238,
+   "y": 61,
+   "w": 1024,
+   "h": 3160,
+   "right": 1262
+  },
+  "smallInputs": [
+   {
+    "tag": "select",
+    "cls": "border border-border rounded-lg px-3 py-2 min-h-[40px] text-sm bg-card text-foreground disabled:opacity-60",
+    "text": "2026-09 — hasta ahora2026-082026-072026-062026-052026-04",
+    "x": 1021,
+    "y": 1456,
+    "w": 200,
+    "h": 40,
+    "right": 1221,
+    "fontSize": "14px"
+   }
+  ],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Tu día"
+  ],
+  "textLength": 3935,
+  "consoleErrors": [],
+  "tapCount": 1,
+  "truncatedCount": 0,
+  "smallInputCount": 1
+ },
+ "today-incoming-call-held @375": {
+  "file": "today-incoming-call-held-375.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/harness/portal/portal.html?page=today&scene=incoming-call-held&lang=es",
+  "vw": 375,
+  "vh": 812,
+  "docW": 375,
+  "docH": 4022,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [
+   {
+    "width": 309,
+    "y": 1972,
+    "inScroller": true,
+    "scrollerFits": true,
+    "caption": "Etapa"
+   }
+  ],
+  "tap": [
+   {
+    "tag": "select",
+    "cls": "border border-border rounded-lg px-3 py-2 min-h-[40px] text-sm bg-card text-foreground disabled:opacity-60",
+    "text": "2026-09 — hasta ahora2026-082026-072026-062026-052026-04",
+    "x": 33,
+    "y": 1680,
+    "w": 219,
+    "h": 40,
+    "right": 252,
+    "inline": false,
+    "primary": false,
+    "type": null
+   }
+  ],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [
+   {
+    "tag": "div",
+    "cls": "relative w-full sm:max-w-md rounded-2xl bg-card text-foreground shadow-xl p-5 space-y-4",
+    "text": "Llamada entranteSonando desde hace 1 sSooner State Plumbing · (405) 55",
+    "x": 16,
+    "y": 238,
+    "w": 343,
+    "h": 336,
+    "right": 359,
+    "tallerThanViewport": false,
+    "scrolls": false
+   }
+  ],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "HoyColaGuionMis leadsConversaciones",
+    "x": 0,
+    "y": 747,
+    "w": 375,
+    "h": 65,
+    "right": 375,
+    "z": "40"
+   },
+   {
+    "tag": "div",
+    "cls": "fq-toast-layer fq-sales-shell",
+    "text": "Llamada entrante — Sooner State Plumbing",
+    "x": 16,
+    "y": 666,
+    "w": 343,
+    "h": 66,
+    "right": 359,
+    "z": "120"
+   },
+   {
+    "tag": "div",
+    "cls": "fixed inset-0 z-[80] flex items-center justify-center p-4",
+    "text": "Llamada entranteSonando desde hace 1 sSooner State Plumbing · (405) 55",
+    "x": 0,
+    "y": 0,
+    "w": 375,
+    "h": 812,
+    "right": 375,
+    "z": "80"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 375,
+   "h": 3965,
+   "right": 375
+  },
+  "smallInputs": [],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Tu día"
+  ],
+  "textLength": 3725,
+  "consoleErrors": [],
+  "tapCount": 1,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "today-incoming-call-held @1280": {
+  "file": "today-incoming-call-held-1280.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/harness/portal/portal.html?page=today&scene=incoming-call-held&lang=es",
+  "vw": 1280,
+  "vh": 900,
+  "docW": 1280,
+  "docH": 3221,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [
+   {
+    "width": 942,
+    "y": 1700,
+    "inScroller": true,
+    "scrollerFits": true,
+    "caption": "Etapa"
+   }
+  ],
+  "tap": [
+   {
+    "tag": "select",
+    "cls": "border border-border rounded-lg px-3 py-2 min-h-[40px] text-sm bg-card text-foreground disabled:opacity-60",
+    "text": "2026-09 — hasta ahora2026-082026-072026-062026-052026-04",
+    "x": 1021,
+    "y": 1456,
+    "w": 200,
+    "h": 40,
+    "right": 1221,
+    "inline": false,
+    "primary": false,
+    "type": null
+   }
+  ],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [
+   {
+    "tag": "div",
+    "cls": "relative w-full sm:max-w-md rounded-2xl bg-card text-foreground shadow-xl p-5 space-y-4",
+    "text": "Llamada entranteSonando desde hace 1 sSooner State Plumbing · (405) 55",
+    "x": 416,
+    "y": 334,
+    "w": 448,
+    "h": 232,
+    "right": 864,
+    "tallerThanViewport": false,
+    "scrolls": false
+   }
+  ],
+  "fixed": [
+   {
+    "tag": "div",
+    "cls": "fq-toast-layer fq-sales-shell",
+    "text": "Llamada entrante — Sooner State Plumbing",
+    "x": 872,
+    "y": 810,
+    "w": 384,
+    "h": 66,
+    "right": 1256,
+    "z": "120"
+   },
+   {
+    "tag": "div",
+    "cls": "fixed inset-0 z-[80] flex items-center justify-center p-4",
+    "text": "Llamada entranteSonando desde hace 1 sSooner State Plumbing · (405) 55",
+    "x": 0,
+    "y": 0,
+    "w": 1280,
+    "h": 900,
+    "right": 1280,
+    "z": "80"
+   }
+  ],
+  "asides": [
+   {
+    "tag": "aside",
+    "cls": "hidden lg:flex flex-col shrink-0 sticky top-0 h-screen bg-sidebar text-sidebar-foreground border-r border-sidebar-border transition-[width] ",
+    "text": "Portal de ventasHoyColaGuionMis leadsConversacionesSMS33Equipo1NotasCa",
+    "x": 0,
+    "y": 0,
+    "w": 220,
+    "h": 900,
+    "right": 220,
+    "fixed": false
+   }
+  ],
+  "railVisible": false,
+  "mainRect": {
+   "x": 238,
+   "y": 61,
+   "w": 1024,
+   "h": 3160,
+   "right": 1262
+  },
+  "smallInputs": [
+   {
+    "tag": "select",
+    "cls": "border border-border rounded-lg px-3 py-2 min-h-[40px] text-sm bg-card text-foreground disabled:opacity-60",
+    "text": "2026-09 — hasta ahora2026-082026-072026-062026-052026-04",
+    "x": 1021,
+    "y": 1456,
+    "w": 200,
+    "h": 40,
+    "right": 1221,
+    "fontSize": "14px"
+   }
+  ],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Tu día"
+  ],
+  "textLength": 3911,
+  "consoleErrors": [],
+  "tapCount": 1,
+  "truncatedCount": 0,
+  "smallInputCount": 1
+ },
+ "today-incoming-call-unknown @375": {
+  "file": "today-incoming-call-unknown-375.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/harness/portal/portal.html?page=today&scene=incoming-call-unknown&lang=es",
+  "vw": 375,
+  "vh": 812,
+  "docW": 375,
+  "docH": 4022,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [
+   {
+    "width": 309,
+    "y": 1972,
+    "inScroller": true,
+    "scrollerFits": true,
+    "caption": "Etapa"
+   }
+  ],
+  "tap": [
+   {
+    "tag": "select",
+    "cls": "border border-border rounded-lg px-3 py-2 min-h-[40px] text-sm bg-card text-foreground disabled:opacity-60",
+    "text": "2026-09 — hasta ahora2026-082026-072026-062026-052026-04",
+    "x": 33,
+    "y": 1680,
+    "w": 219,
+    "h": 40,
+    "right": 252,
+    "inline": false,
+    "primary": false,
+    "type": null
+   }
+  ],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [
+   {
+    "tag": "div",
+    "cls": "relative w-full sm:max-w-md rounded-2xl bg-card text-foreground shadow-xl p-5 space-y-4",
+    "text": "Llamada entranteSonando desde hace 1 s(212) 555-0199No es uno de tus l",
+    "x": 16,
+    "y": 230,
+    "w": 343,
+    "h": 352,
+    "right": 359,
+    "tallerThanViewport": false,
+    "scrolls": false
+   }
+  ],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "HoyColaGuionMis leadsConversaciones",
+    "x": 0,
+    "y": 747,
+    "w": 375,
+    "h": 65,
+    "right": 375,
+    "z": "40"
+   },
+   {
+    "tag": "div",
+    "cls": "fq-toast-layer fq-sales-shell",
+    "text": "Llamada entrante — (212) 555-0199",
+    "x": 16,
+    "y": 686,
+    "w": 343,
+    "h": 46,
+    "right": 359,
+    "z": "120"
+   },
+   {
+    "tag": "div",
+    "cls": "fixed inset-0 z-[80] flex items-center justify-center p-4",
+    "text": "Llamada entranteSonando desde hace 1 s(212) 555-0199No es uno de tus l",
+    "x": 0,
+    "y": 0,
+    "w": 375,
+    "h": 812,
+    "right": 375,
+    "z": "80"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 375,
+   "h": 3965,
+   "right": 375
+  },
+  "smallInputs": [],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Tu día"
+  ],
+  "textLength": 3705,
+  "consoleErrors": [],
+  "tapCount": 1,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "today-incoming-call-unknown @1280": {
+  "file": "today-incoming-call-unknown-1280.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/harness/portal/portal.html?page=today&scene=incoming-call-unknown&lang=es",
+  "vw": 1280,
+  "vh": 900,
+  "docW": 1280,
+  "docH": 3221,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [
+   {
+    "width": 942,
+    "y": 1700,
+    "inScroller": true,
+    "scrollerFits": true,
+    "caption": "Etapa"
+   }
+  ],
+  "tap": [
+   {
+    "tag": "select",
+    "cls": "border border-border rounded-lg px-3 py-2 min-h-[40px] text-sm bg-card text-foreground disabled:opacity-60",
+    "text": "2026-09 — hasta ahora2026-082026-072026-062026-052026-04",
+    "x": 1021,
+    "y": 1456,
+    "w": 200,
+    "h": 40,
+    "right": 1221,
+    "inline": false,
+    "primary": false,
+    "type": null
+   }
+  ],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [
+   {
+    "tag": "div",
+    "cls": "relative w-full sm:max-w-md rounded-2xl bg-card text-foreground shadow-xl p-5 space-y-4",
+    "text": "Llamada entranteSonando desde hace 1 s(212) 555-0199No es uno de tus l",
+    "x": 416,
+    "y": 320,
+    "w": 448,
+    "h": 260,
+    "right": 864,
+    "tallerThanViewport": false,
+    "scrolls": false
+   }
+  ],
+  "fixed": [
+   {
+    "tag": "div",
+    "cls": "fq-toast-layer fq-sales-shell",
+    "text": "Llamada entrante — (212) 555-0199",
+    "x": 872,
+    "y": 830,
+    "w": 384,
+    "h": 46,
+    "right": 1256,
+    "z": "120"
+   },
+   {
+    "tag": "div",
+    "cls": "fixed inset-0 z-[80] flex items-center justify-center p-4",
+    "text": "Llamada entranteSonando desde hace 1 s(212) 555-0199No es uno de tus l",
+    "x": 0,
+    "y": 0,
+    "w": 1280,
+    "h": 900,
+    "right": 1280,
+    "z": "80"
+   }
+  ],
+  "asides": [
+   {
+    "tag": "aside",
+    "cls": "hidden lg:flex flex-col shrink-0 sticky top-0 h-screen bg-sidebar text-sidebar-foreground border-r border-sidebar-border transition-[width] ",
+    "text": "Portal de ventasHoyColaGuionMis leadsConversacionesSMS33Equipo1NotasCa",
+    "x": 0,
+    "y": 0,
+    "w": 220,
+    "h": 900,
+    "right": 220,
+    "fixed": false
+   }
+  ],
+  "railVisible": false,
+  "mainRect": {
+   "x": 238,
+   "y": 61,
+   "w": 1024,
+   "h": 3160,
+   "right": 1262
+  },
+  "smallInputs": [
+   {
+    "tag": "select",
+    "cls": "border border-border rounded-lg px-3 py-2 min-h-[40px] text-sm bg-card text-foreground disabled:opacity-60",
+    "text": "2026-09 — hasta ahora2026-082026-072026-062026-052026-04",
+    "x": 1021,
+    "y": 1456,
+    "w": 200,
+    "h": 40,
+    "right": 1221,
+    "fontSize": "14px"
+   }
+  ],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Tu día"
+  ],
+  "textLength": 3891,
+  "consoleErrors": [],
+  "tapCount": 1,
+  "truncatedCount": 0,
+  "smallInputCount": 1
+ },
+ "today-status-menu @375": {
+  "file": "today-status-menu-375.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/harness/portal/portal.html?page=today&scene=status-menu&lang=es",
+  "vw": 375,
+  "vh": 812,
+  "docW": 375,
+  "docH": 4022,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [
+   {
+    "width": 309,
+    "y": 1972,
+    "inScroller": true,
+    "scrollerFits": true,
+    "caption": "Etapa"
+   }
+  ],
+  "tap": [
+   {
+    "tag": "select",
+    "cls": "border border-border rounded-lg px-3 py-2 min-h-[40px] text-sm bg-card text-foreground disabled:opacity-60",
+    "text": "2026-09 — hasta ahora2026-082026-072026-062026-052026-04",
+    "x": 33,
+    "y": 1680,
+    "w": 219,
+    "h": 40,
+    "right": 252,
+    "inline": false,
+    "primary": false,
+    "type": null
+   }
+  ],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "HoyColaGuionMis leadsConversaciones",
+    "x": 0,
+    "y": 747,
+    "w": 375,
+    "h": 65,
+    "right": 375,
+    "z": "40"
+   },
+   {
+    "tag": "div",
+    "cls": "lg:hidden fixed inset-0 z-50",
+    "text": "Portal de ventasDisponible · 12m 00sDisponibleDescansoComidaReuniónCap",
+    "x": 0,
+    "y": 0,
+    "w": 375,
+    "h": 812,
+    "right": 375,
+    "z": "50"
+   }
+  ],
+  "asides": [
+   {
+    "tag": "aside",
+    "cls": "absolute left-0 top-0 h-full w-[min(20rem,86vw)] max-w-[86vw] shadow-2xl flex flex-col bg-card text-foreground pt-[env(safe-area-inset-top)]",
+    "text": "Portal de ventasDisponible · 12m 00sDisponibleDescansoComidaReuniónCap",
+    "x": 0,
+    "y": 0,
+    "w": 320,
+    "h": 812,
+    "right": 320,
+    "fixed": false
+   }
+  ],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 375,
+   "h": 3965,
+   "right": 375
+  },
+  "smallInputs": [],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Tu día"
+  ],
+  "textLength": 3629,
+  "consoleErrors": [],
+  "tapCount": 1,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "today-status-menu @1280": {
+  "file": "today-status-menu-1280.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/harness/portal/portal.html?page=today&scene=status-menu&lang=es",
+  "vw": 1280,
+  "vh": 900,
+  "docW": 1280,
+  "docH": 3221,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [
+   {
+    "width": 942,
+    "y": 1700,
+    "inScroller": true,
+    "scrollerFits": true,
+    "caption": "Etapa"
+   }
+  ],
+  "tap": [
+   {
+    "tag": "select",
+    "cls": "border border-border rounded-lg px-3 py-2 min-h-[40px] text-sm bg-card text-foreground disabled:opacity-60",
+    "text": "2026-09 — hasta ahora2026-082026-072026-062026-052026-04",
+    "x": 1021,
+    "y": 1456,
+    "w": 200,
+    "h": 40,
+    "right": 1221,
+    "inline": false,
+    "primary": false,
+    "type": null
+   }
+  ],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [],
+  "asides": [
+   {
+    "tag": "aside",
+    "cls": "hidden lg:flex flex-col shrink-0 sticky top-0 h-screen bg-sidebar text-sidebar-foreground border-r border-sidebar-border transition-[width] ",
+    "text": "Portal de ventasHoyColaGuionMis leadsConversacionesSMS33Equipo1NotasCa",
+    "x": 0,
+    "y": 0,
+    "w": 220,
+    "h": 900,
+    "right": 220,
+    "fixed": false
+   }
+  ],
+  "railVisible": false,
+  "mainRect": {
+   "x": 238,
+   "y": 61,
+   "w": 1024,
+   "h": 3160,
+   "right": 1262
+  },
+  "smallInputs": [
+   {
+    "tag": "select",
+    "cls": "border border-border rounded-lg px-3 py-2 min-h-[40px] text-sm bg-card text-foreground disabled:opacity-60",
+    "text": "2026-09 — hasta ahora2026-082026-072026-062026-052026-04",
+    "x": 1021,
+    "y": 1456,
+    "w": 200,
+    "h": 40,
+    "right": 1221,
+    "fontSize": "14px"
+   }
+  ],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Tu día"
+  ],
+  "textLength": 3648,
+  "consoleErrors": [],
+  "tapCount": 1,
+  "truncatedCount": 0,
+  "smallInputCount": 1
+ },
+ "today-reminder @375": {
+  "file": "today-reminder-375.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/harness/portal/portal.html?page=today&presence=offline&lang=es",
+  "vw": 375,
+  "vh": 812,
+  "docW": 375,
+  "docH": 4022,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [
+   {
+    "width": 309,
+    "y": 1972,
+    "inScroller": true,
+    "scrollerFits": true,
+    "caption": "Etapa"
+   }
+  ],
+  "tap": [
+   {
+    "tag": "select",
+    "cls": "border border-border rounded-lg px-3 py-2 min-h-[40px] text-sm bg-card text-foreground disabled:opacity-60",
+    "text": "2026-09 — hasta ahora2026-082026-072026-062026-052026-04",
+    "x": 33,
+    "y": 1680,
+    "w": 219,
+    "h": 40,
+    "right": 252,
+    "inline": false,
+    "primary": false,
+    "type": null
+   }
+  ],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [
+   {
+    "tag": "div",
+    "cls": "relative w-full sm:max-w-md rounded-2xl bg-card text-foreground shadow-xl p-5 space-y-4",
+    "text": "Apareces como FueraLos contratistas que devuelven la llamada no pueden",
+    "x": 16,
+    "y": 556,
+    "w": 343,
+    "h": 240,
+    "right": 359,
+    "tallerThanViewport": false,
+    "scrolls": false
+   }
+  ],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "HoyColaGuionMis leadsConversaciones",
+    "x": 0,
+    "y": 747,
+    "w": 375,
+    "h": 65,
+    "right": 375,
+    "z": "40"
+   },
+   {
+    "tag": "div",
+    "cls": "fixed inset-0 z-[65] flex items-end sm:items-center sm:justify-center p-4",
+    "text": "Apareces como FueraLos contratistas que devuelven la llamada no pueden",
+    "x": 0,
+    "y": 0,
+    "w": 375,
+    "h": 812,
+    "right": 375,
+    "z": "65"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 375,
+   "h": 3965,
+   "right": 375
+  },
+  "smallInputs": [],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Tu día"
+  ],
+  "textLength": 3545,
+  "consoleErrors": [],
+  "tapCount": 1,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "today-reminder @1280": {
+  "file": "today-reminder-1280.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/harness/portal/portal.html?page=today&presence=offline&lang=es",
+  "vw": 1280,
+  "vh": 900,
+  "docW": 1280,
+  "docH": 3221,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [
+   {
+    "width": 942,
+    "y": 1700,
+    "inScroller": true,
+    "scrollerFits": true,
+    "caption": "Etapa"
+   }
+  ],
+  "tap": [
+   {
+    "tag": "select",
+    "cls": "border border-border rounded-lg px-3 py-2 min-h-[40px] text-sm bg-card text-foreground disabled:opacity-60",
+    "text": "2026-09 — hasta ahora2026-082026-072026-062026-052026-04",
+    "x": 1021,
+    "y": 1456,
+    "w": 200,
+    "h": 40,
+    "right": 1221,
+    "inline": false,
+    "primary": false,
+    "type": null
+   }
+  ],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [
+   {
+    "tag": "div",
+    "cls": "relative w-full sm:max-w-md rounded-2xl bg-card text-foreground shadow-xl p-5 space-y-4",
+    "text": "Apareces como FueraLos contratistas que devuelven la llamada no pueden",
+    "x": 416,
+    "y": 366,
+    "w": 448,
+    "h": 168,
+    "right": 864,
+    "tallerThanViewport": false,
+    "scrolls": false
+   }
+  ],
+  "fixed": [
+   {
+    "tag": "div",
+    "cls": "fixed inset-0 z-[65] flex items-end sm:items-center sm:justify-center p-4",
+    "text": "Apareces como FueraLos contratistas que devuelven la llamada no pueden",
+    "x": 0,
+    "y": 0,
+    "w": 1280,
+    "h": 900,
+    "right": 1280,
+    "z": "65"
+   }
+  ],
+  "asides": [
+   {
+    "tag": "aside",
+    "cls": "hidden lg:flex flex-col shrink-0 sticky top-0 h-screen bg-sidebar text-sidebar-foreground border-r border-sidebar-border transition-[width] ",
+    "text": "Portal de ventasHoyColaGuionMis leadsConversacionesSMS33Equipo1NotasCa",
+    "x": 0,
+    "y": 0,
+    "w": 220,
+    "h": 900,
+    "right": 220,
+    "fixed": false
+   }
+  ],
+  "railVisible": false,
+  "mainRect": {
+   "x": 238,
+   "y": 61,
+   "w": 1024,
+   "h": 3160,
+   "right": 1262
+  },
+  "smallInputs": [
+   {
+    "tag": "select",
+    "cls": "border border-border rounded-lg px-3 py-2 min-h-[40px] text-sm bg-card text-foreground disabled:opacity-60",
+    "text": "2026-09 — hasta ahora2026-082026-072026-062026-052026-04",
+    "x": 1021,
+    "y": 1456,
+    "w": 200,
+    "h": 40,
+    "right": 1221,
+    "fontSize": "14px"
+   }
+  ],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Tu día"
+  ],
+  "textLength": 3726,
+  "consoleErrors": [],
+  "tapCount": 1,
+  "truncatedCount": 0,
+  "smallInputCount": 1
+ },
+ "queue @375": {
+  "file": "queue-375.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/harness/console/console.html?do=1&lang=es",
+  "vw": 375,
+  "vh": 812,
+  "docW": 375,
+  "docH": 5010,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [
+   {
+    "tag": "button",
+    "cls": "text-xs underline text-muted-foreground hover:text-foreground",
+    "text": "Mostrar todas (4)",
+    "x": 33,
+    "y": 1677,
+    "w": 99,
+    "h": 16,
+    "right": 132,
+    "inline": false,
+    "primary": false,
+    "type": "button"
+   }
+  ],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "HoyColaGuionMis leadsConversaciones",
+    "x": 0,
+    "y": 747,
+    "w": 375,
+    "h": 65,
+    "right": 375,
+    "z": "40"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 375,
+   "h": 4953,
+   "right": 375
+  },
+  "smallInputs": [],
+  "scrollers": [
+   {
+    "tag": "div",
+    "cls": "flex gap-0.5 overflow-x-auto -mx-1 px-1",
+    "text": "EmpresaContactoGuionInvestigaciónNotasResultadoTareasLeads11",
+    "x": 29,
+    "y": 1915,
+    "w": 317,
+    "h": 44,
+    "right": 346
+   }
+  ],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "La cola de hoy"
+  ],
+  "textLength": 4831,
+  "consoleErrors": [],
+  "tapCount": 1,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "queue @1280": {
+  "file": "queue-1280.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/harness/console/console.html?do=1&lang=es",
+  "vw": 1280,
+  "vh": 900,
+  "docW": 1280,
+  "docH": 2401,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [
+   {
+    "tag": "button",
+    "cls": "text-xs underline text-muted-foreground hover:text-foreground",
+    "text": "Mostrar todas (4)",
+    "x": 261,
+    "y": 1558,
+    "w": 99,
+    "h": 16,
+    "right": 360,
+    "inline": false,
+    "primary": false,
+    "type": "button"
+   },
+   {
+    "tag": "button",
+    "cls": "min-h-[44px] lg:min-h-[36px] px-3 text-xs font-semibold bg-primary text-primary-foreground disabled:opacity-100",
+    "text": "English",
+    "x": 739,
+    "y": 337,
+    "w": 67,
+    "h": 36,
+    "right": 806,
+    "inline": false,
+    "primary": true,
+    "type": "button"
+   },
+   {
+    "tag": "button",
+    "cls": "min-h-[44px] lg:min-h-[36px] px-3 text-xs font-semibold bg-card text-foreground hover:bg-muted disabled:opacity-100",
+    "text": "Français",
+    "x": 806,
+    "y": 337,
+    "w": 74,
+    "h": 36,
+    "right": 880,
+    "inline": false,
+    "primary": false,
+    "type": "button"
+   },
+   {
+    "tag": "button",
+    "cls": "min-h-[44px] lg:min-h-[36px] px-3 text-xs font-semibold bg-card text-foreground hover:bg-muted disabled:opacity-100",
+    "text": "Español",
+    "x": 880,
+    "y": 337,
+    "w": 71,
+    "h": 36,
+    "right": 951,
+    "inline": false,
+    "primary": false,
+    "type": "button"
+   }
+  ],
+  "tapPrimary": [
+   {
+    "tag": "button",
+    "cls": "min-h-[44px] lg:min-h-[36px] px-3 text-xs font-semibold bg-primary text-primary-foreground disabled:opacity-100",
+    "text": "English",
+    "x": 739,
+    "y": 337,
+    "w": 67,
+    "h": 36,
+    "right": 806,
+    "inline": false,
+    "primary": true,
+    "type": "button"
+   }
+  ],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [],
+  "asides": [
+   {
+    "tag": "aside",
+    "cls": "hidden lg:flex flex-col shrink-0 sticky top-0 h-screen bg-sidebar text-sidebar-foreground border-r border-sidebar-border transition-[width] ",
+    "text": "Portal de ventasHoyColaGuionMis leadsConversacionesSMS3Equipo1NotasCal",
+    "x": 0,
+    "y": 0,
+    "w": 220,
+    "h": 900,
+    "right": 220,
+    "fixed": false
+   }
+  ],
+  "railVisible": false,
+  "mainRect": {
+   "x": 220,
+   "y": 61,
+   "w": 1060,
+   "h": 2340,
+   "right": 1280
+  },
+  "smallInputs": [
+   {
+    "tag": "input",
+    "cls": "w-full min-h-[44px] rounded-lg border border-border bg-background pl-9 pr-3 text-sm text-foreground",
+    "text": "",
+    "x": 244,
+    "y": 8,
+    "w": 448,
+    "h": 44,
+    "right": 692,
+    "fontSize": "14px"
+   }
+  ],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "La cola de hoy"
+  ],
+  "textLength": 5000,
+  "consoleErrors": [],
+  "tapCount": 4,
+  "truncatedCount": 0,
+  "smallInputCount": 1
+ },
+ "queue-ring @375": {
+  "file": "queue-ring-375.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/harness/console/console.html?do=1&scene=ring&lang=es",
+  "vw": 375,
+  "vh": 812,
+  "docW": 375,
+  "docH": 5010,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [
+   {
+    "tag": "button",
+    "cls": "text-xs underline text-muted-foreground hover:text-foreground",
+    "text": "Mostrar todas (4)",
+    "x": 33,
+    "y": 1677,
+    "w": 99,
+    "h": 16,
+    "right": 132,
+    "inline": false,
+    "primary": false,
+    "type": "button"
+   }
+  ],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [
+   {
+    "tag": "div",
+    "cls": "relative w-full sm:max-w-md rounded-2xl bg-card text-foreground shadow-xl p-5 space-y-4",
+    "text": "Llamada entranteSonando desde hace 1 sBright Current Electrical · (918",
+    "x": 16,
+    "y": 216,
+    "w": 343,
+    "h": 380,
+    "right": 359,
+    "tallerThanViewport": false,
+    "scrolls": false
+   }
+  ],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "HoyColaGuionMis leadsConversaciones",
+    "x": 0,
+    "y": 747,
+    "w": 375,
+    "h": 65,
+    "right": 375,
+    "z": "40"
+   },
+   {
+    "tag": "div",
+    "cls": "fq-toast-layer fq-sales-shell",
+    "text": "Llamada entrante — Bright Current Electrical",
+    "x": 16,
+    "y": 666,
+    "w": 343,
+    "h": 66,
+    "right": 359,
+    "z": "120"
+   },
+   {
+    "tag": "div",
+    "cls": "fixed inset-0 z-[80] flex items-center justify-center p-4",
+    "text": "Llamada entranteSonando desde hace 1 sBright Current Electrical · (918",
+    "x": 0,
+    "y": 0,
+    "w": 375,
+    "h": 812,
+    "right": 375,
+    "z": "80"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 375,
+   "h": 4953,
+   "right": 375
+  },
+  "smallInputs": [],
+  "scrollers": [
+   {
+    "tag": "div",
+    "cls": "flex gap-0.5 overflow-x-auto -mx-1 px-1",
+    "text": "EmpresaContactoGuionInvestigaciónNotasResultadoTareasLeads11",
+    "x": 29,
+    "y": 1915,
+    "w": 317,
+    "h": 44,
+    "right": 346
+   }
+  ],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "La cola de hoy"
+  ],
+  "textLength": 5171,
+  "consoleErrors": [],
+  "tapCount": 1,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "queue-ring @1280": {
+  "file": "queue-ring-1280.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/harness/console/console.html?do=1&scene=ring&lang=es",
+  "vw": 1280,
+  "vh": 900,
+  "docW": 1280,
+  "docH": 2401,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [
+   {
+    "tag": "button",
+    "cls": "text-xs underline text-muted-foreground hover:text-foreground",
+    "text": "Mostrar todas (4)",
+    "x": 261,
+    "y": 1558,
+    "w": 99,
+    "h": 16,
+    "right": 360,
+    "inline": false,
+    "primary": false,
+    "type": "button"
+   },
+   {
+    "tag": "button",
+    "cls": "min-h-[44px] lg:min-h-[36px] px-3 text-xs font-semibold bg-primary text-primary-foreground disabled:opacity-100",
+    "text": "English",
+    "x": 739,
+    "y": 337,
+    "w": 67,
+    "h": 36,
+    "right": 806,
+    "inline": false,
+    "primary": true,
+    "type": "button"
+   },
+   {
+    "tag": "button",
+    "cls": "min-h-[44px] lg:min-h-[36px] px-3 text-xs font-semibold bg-card text-foreground hover:bg-muted disabled:opacity-100",
+    "text": "Français",
+    "x": 806,
+    "y": 337,
+    "w": 74,
+    "h": 36,
+    "right": 880,
+    "inline": false,
+    "primary": false,
+    "type": "button"
+   },
+   {
+    "tag": "button",
+    "cls": "min-h-[44px] lg:min-h-[36px] px-3 text-xs font-semibold bg-card text-foreground hover:bg-muted disabled:opacity-100",
+    "text": "Español",
+    "x": 880,
+    "y": 337,
+    "w": 71,
+    "h": 36,
+    "right": 951,
+    "inline": false,
+    "primary": false,
+    "type": "button"
+   }
+  ],
+  "tapPrimary": [
+   {
+    "tag": "button",
+    "cls": "min-h-[44px] lg:min-h-[36px] px-3 text-xs font-semibold bg-primary text-primary-foreground disabled:opacity-100",
+    "text": "English",
+    "x": 739,
+    "y": 337,
+    "w": 67,
+    "h": 36,
+    "right": 806,
+    "inline": false,
+    "primary": true,
+    "type": "button"
+   }
+  ],
+  "truncated": [],
+  "dialogs": [
+   {
+    "tag": "div",
+    "cls": "relative w-full sm:max-w-md rounded-2xl bg-card text-foreground shadow-xl p-5 space-y-4",
+    "text": "Llamada entranteSonando desde hace 1 sBright Current Electrical · (918",
+    "x": 416,
+    "y": 312,
+    "w": 448,
+    "h": 276,
+    "right": 864,
+    "tallerThanViewport": false,
+    "scrolls": false
+   }
+  ],
+  "fixed": [
+   {
+    "tag": "div",
+    "cls": "fq-toast-layer fq-sales-shell",
+    "text": "Llamada entrante — Bright Current Electrical",
+    "x": 872,
+    "y": 810,
+    "w": 384,
+    "h": 66,
+    "right": 1256,
+    "z": "120"
+   },
+   {
+    "tag": "div",
+    "cls": "fixed inset-0 z-[80] flex items-center justify-center p-4",
+    "text": "Llamada entranteSonando desde hace 1 sBright Current Electrical · (918",
+    "x": 0,
+    "y": 0,
+    "w": 1280,
+    "h": 900,
+    "right": 1280,
+    "z": "80"
+   }
+  ],
+  "asides": [
+   {
+    "tag": "aside",
+    "cls": "hidden lg:flex flex-col shrink-0 sticky top-0 h-screen bg-sidebar text-sidebar-foreground border-r border-sidebar-border transition-[width] ",
+    "text": "Portal de ventasHoyColaGuionMis leadsConversacionesSMS3Equipo1NotasCal",
+    "x": 0,
+    "y": 0,
+    "w": 220,
+    "h": 900,
+    "right": 220,
+    "fixed": false
+   }
+  ],
+  "railVisible": false,
+  "mainRect": {
+   "x": 220,
+   "y": 61,
+   "w": 1060,
+   "h": 2340,
+   "right": 1280
+  },
+  "smallInputs": [
+   {
+    "tag": "input",
+    "cls": "w-full min-h-[44px] rounded-lg border border-border bg-background pl-9 pr-3 text-sm text-foreground",
+    "text": "",
+    "x": 244,
+    "y": 8,
+    "w": 448,
+    "h": 44,
+    "right": 692,
+    "fontSize": "14px"
+   }
+  ],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "La cola de hoy"
+  ],
+  "textLength": 5340,
+  "consoleErrors": [],
+  "tapCount": 4,
+  "truncatedCount": 0,
+  "smallInputCount": 1
+ },
+ "queue-ring-answered @375": {
+  "file": "queue-ring-answered-375.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/harness/console/console.html?do=1&scene=ring-answered&lang=es",
+  "vw": 375,
+  "vh": 812,
+  "docW": 375,
+  "docH": 5241,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [
+   {
+    "tag": "button",
+    "cls": "text-xs underline text-muted-foreground hover:text-foreground",
+    "text": "Mostrar todas (4)",
+    "x": 33,
+    "y": 1908,
+    "w": 99,
+    "h": 16,
+    "right": 132,
+    "inline": false,
+    "primary": false,
+    "type": "button"
+   }
+  ],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "HoyColaGuionMis leadsConversaciones",
+    "x": 0,
+    "y": 747,
+    "w": 375,
+    "h": 65,
+    "right": 375,
+    "z": "40"
+   },
+   {
+    "tag": "div",
+    "cls": "fq-toast-layer fq-sales-shell",
+    "text": "Llamada entrante — Bright Current Electrical",
+    "x": 16,
+    "y": 666,
+    "w": 343,
+    "h": 66,
+    "right": 359,
+    "z": "120"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 375,
+   "h": 5184,
+   "right": 375
+  },
+  "smallInputs": [],
+  "scrollers": [
+   {
+    "tag": "div",
+    "cls": "flex gap-0.5 overflow-x-auto -mx-1 px-1",
+    "text": "EmpresaContactoGuionInvestigaciónNotasResultadoTareasLeads11",
+    "x": 29,
+    "y": 2146,
+    "w": 317,
+    "h": 44,
+    "right": 346
+   }
+  ],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "La cola de hoy"
+  ],
+  "textLength": 4984,
+  "consoleErrors": [],
+  "tapCount": 1,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "queue-ring-answered @1280": {
+  "file": "queue-ring-answered-1280.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/harness/console/console.html?do=1&scene=ring-answered&lang=es",
+  "vw": 1280,
+  "vh": 900,
+  "docW": 1280,
+  "docH": 2401,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [
+   {
+    "tag": "button",
+    "cls": "text-xs underline text-muted-foreground hover:text-foreground",
+    "text": "Mostrar todas (4)",
+    "x": 261,
+    "y": 1789,
+    "w": 99,
+    "h": 16,
+    "right": 360,
+    "inline": false,
+    "primary": false,
+    "type": "button"
+   },
+   {
+    "tag": "button",
+    "cls": "min-h-[44px] lg:min-h-[36px] px-3 text-xs font-semibold bg-primary text-primary-foreground disabled:opacity-100",
+    "text": "English",
+    "x": 739,
+    "y": 337,
+    "w": 67,
+    "h": 36,
+    "right": 806,
+    "inline": false,
+    "primary": true,
+    "type": "button"
+   },
+   {
+    "tag": "button",
+    "cls": "min-h-[44px] lg:min-h-[36px] px-3 text-xs font-semibold bg-card text-foreground hover:bg-muted disabled:opacity-100",
+    "text": "Français",
+    "x": 806,
+    "y": 337,
+    "w": 74,
+    "h": 36,
+    "right": 880,
+    "inline": false,
+    "primary": false,
+    "type": "button"
+   },
+   {
+    "tag": "button",
+    "cls": "min-h-[44px] lg:min-h-[36px] px-3 text-xs font-semibold bg-card text-foreground hover:bg-muted disabled:opacity-100",
+    "text": "Español",
+    "x": 880,
+    "y": 337,
+    "w": 71,
+    "h": 36,
+    "right": 951,
+    "inline": false,
+    "primary": false,
+    "type": "button"
+   }
+  ],
+  "tapPrimary": [
+   {
+    "tag": "button",
+    "cls": "min-h-[44px] lg:min-h-[36px] px-3 text-xs font-semibold bg-primary text-primary-foreground disabled:opacity-100",
+    "text": "English",
+    "x": 739,
+    "y": 337,
+    "w": 67,
+    "h": 36,
+    "right": 806,
+    "inline": false,
+    "primary": true,
+    "type": "button"
+   }
+  ],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "div",
+    "cls": "fq-toast-layer fq-sales-shell",
+    "text": "Llamada entrante — Bright Current Electrical",
+    "x": 872,
+    "y": 810,
+    "w": 384,
+    "h": 66,
+    "right": 1256,
+    "z": "120"
+   }
+  ],
+  "asides": [
+   {
+    "tag": "aside",
+    "cls": "hidden lg:flex flex-col shrink-0 sticky top-0 h-screen bg-sidebar text-sidebar-foreground border-r border-sidebar-border transition-[width] ",
+    "text": "Portal de ventasHoyColaGuionMis leadsConversacionesSMS3Equipo1NotasCal",
+    "x": 0,
+    "y": 0,
+    "w": 220,
+    "h": 900,
+    "right": 220,
+    "fixed": false
+   }
+  ],
+  "railVisible": false,
+  "mainRect": {
+   "x": 220,
+   "y": 61,
+   "w": 1060,
+   "h": 2340,
+   "right": 1280
+  },
+  "smallInputs": [
+   {
+    "tag": "input",
+    "cls": "w-full min-h-[44px] rounded-lg border border-border bg-background pl-9 pr-3 text-sm text-foreground",
+    "text": "",
+    "x": 244,
+    "y": 8,
+    "w": 448,
+    "h": 44,
+    "right": 692,
+    "fontSize": "14px"
+   }
+  ],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "La cola de hoy"
+  ],
+  "textLength": 5153,
+  "consoleErrors": [],
+  "tapCount": 4,
+  "truncatedCount": 0,
+  "smallInputCount": 1
+ },
+ "queue-typed-test @375": {
+  "file": "queue-typed-test-375.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/harness/console/console.html?do=1&scene=typed-test&lang=es",
+  "vw": 375,
+  "vh": 812,
+  "docW": 375,
+  "docH": 5205,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [
+   {
+    "tag": "button",
+    "cls": "text-xs underline text-muted-foreground hover:text-foreground",
+    "text": "Mostrar todas (4)",
+    "x": 33,
+    "y": 1872,
+    "w": 99,
+    "h": 16,
+    "right": 132,
+    "inline": false,
+    "primary": false,
+    "type": "button"
+   }
+  ],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "HoyColaGuionMis leadsConversaciones",
+    "x": 0,
+    "y": 747,
+    "w": 375,
+    "h": 65,
+    "right": 375,
+    "z": "40"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 375,
+   "h": 5148,
+   "right": 375
+  },
+  "smallInputs": [],
+  "scrollers": [
+   {
+    "tag": "div",
+    "cls": "flex gap-0.5 overflow-x-auto -mx-1 px-1",
+    "text": "EmpresaContactoGuionInvestigaciónNotasResultadoTareasLeads11",
+    "x": 29,
+    "y": 2110,
+    "w": 317,
+    "h": 44,
+    "right": 346
+   }
+  ],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "La cola de hoy"
+  ],
+  "textLength": 5116,
+  "consoleErrors": [],
+  "tapCount": 1,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "queue-typed-test @1280": {
+  "file": "queue-typed-test-1280.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/harness/console/console.html?do=1&scene=typed-test&lang=es",
+  "vw": 1280,
+  "vh": 900,
+  "docW": 1280,
+  "docH": 2401,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [
+   {
+    "tag": "button",
+    "cls": "text-xs underline text-muted-foreground hover:text-foreground",
+    "text": "Mostrar todas (4)",
+    "x": 261,
+    "y": 1772,
+    "w": 99,
+    "h": 16,
+    "right": 360,
+    "inline": false,
+    "primary": false,
+    "type": "button"
+   },
+   {
+    "tag": "button",
+    "cls": "min-h-[44px] lg:min-h-[36px] px-3 text-xs font-semibold bg-primary text-primary-foreground disabled:opacity-100",
+    "text": "English",
+    "x": 739,
+    "y": 337,
+    "w": 67,
+    "h": 36,
+    "right": 806,
+    "inline": false,
+    "primary": true,
+    "type": "button"
+   },
+   {
+    "tag": "button",
+    "cls": "min-h-[44px] lg:min-h-[36px] px-3 text-xs font-semibold bg-card text-foreground hover:bg-muted disabled:opacity-100",
+    "text": "Français",
+    "x": 806,
+    "y": 337,
+    "w": 74,
+    "h": 36,
+    "right": 880,
+    "inline": false,
+    "primary": false,
+    "type": "button"
+   },
+   {
+    "tag": "button",
+    "cls": "min-h-[44px] lg:min-h-[36px] px-3 text-xs font-semibold bg-card text-foreground hover:bg-muted disabled:opacity-100",
+    "text": "Español",
+    "x": 880,
+    "y": 337,
+    "w": 71,
+    "h": 36,
+    "right": 951,
+    "inline": false,
+    "primary": false,
+    "type": "button"
+   }
+  ],
+  "tapPrimary": [
+   {
+    "tag": "button",
+    "cls": "min-h-[44px] lg:min-h-[36px] px-3 text-xs font-semibold bg-primary text-primary-foreground disabled:opacity-100",
+    "text": "English",
+    "x": 739,
+    "y": 337,
+    "w": 67,
+    "h": 36,
+    "right": 806,
+    "inline": false,
+    "primary": true,
+    "type": "button"
+   }
+  ],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [],
+  "asides": [
+   {
+    "tag": "aside",
+    "cls": "hidden lg:flex flex-col shrink-0 sticky top-0 h-screen bg-sidebar text-sidebar-foreground border-r border-sidebar-border transition-[width] ",
+    "text": "Portal de ventasHoyColaGuionMis leadsConversacionesSMS3Equipo1NotasCal",
+    "x": 0,
+    "y": 0,
+    "w": 220,
+    "h": 900,
+    "right": 220,
+    "fixed": false
+   }
+  ],
+  "railVisible": false,
+  "mainRect": {
+   "x": 220,
+   "y": 61,
+   "w": 1060,
+   "h": 2340,
+   "right": 1280
+  },
+  "smallInputs": [
+   {
+    "tag": "input",
+    "cls": "w-full min-h-[44px] rounded-lg border border-border bg-background pl-9 pr-3 text-sm text-foreground",
+    "text": "",
+    "x": 244,
+    "y": 8,
+    "w": 448,
+    "h": 44,
+    "right": 692,
+    "fontSize": "14px"
+   }
+  ],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "La cola de hoy"
+  ],
+  "textLength": 5285,
+  "consoleErrors": [],
+  "tapCount": 4,
+  "truncatedCount": 0,
+  "smallInputCount": 1
+ },
+ "queue-test-account @375": {
+  "file": "queue-test-account-375.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/harness/console/console.html?do=1&scene=typed&testAccount=1&lang=es",
+  "vw": 375,
+  "vh": 812,
+  "docW": 375,
+  "docH": 5099,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [
+   {
+    "tag": "button",
+    "cls": "text-xs underline text-muted-foreground hover:text-foreground",
+    "text": "Mostrar todas (4)",
+    "x": 33,
+    "y": 1766,
+    "w": 99,
+    "h": 16,
+    "right": 132,
+    "inline": false,
+    "primary": false,
+    "type": "button"
+   }
+  ],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "HoyColaGuionMis leadsConversaciones",
+    "x": 0,
+    "y": 747,
+    "w": 375,
+    "h": 65,
+    "right": 375,
+    "z": "40"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 102,
+   "w": 375,
+   "h": 4997,
+   "right": 375
+  },
+  "smallInputs": [],
+  "scrollers": [
+   {
+    "tag": "div",
+    "cls": "flex gap-0.5 overflow-x-auto -mx-1 px-1",
+    "text": "EmpresaContactoGuionInvestigaciónNotasResultadoTareasLeads11",
+    "x": 29,
+    "y": 2004,
+    "w": 317,
+    "h": 44,
+    "right": 346
+   }
+  ],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "La cola de hoy"
+  ],
+  "textLength": 5008,
+  "consoleErrors": [],
+  "tapCount": 1,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "queue-test-account @1280": {
+  "file": "queue-test-account-1280.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/harness/console/console.html?do=1&scene=typed&testAccount=1&lang=es",
+  "vw": 1280,
+  "vh": 900,
+  "docW": 1280,
+  "docH": 2430,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [
+   {
+    "tag": "button",
+    "cls": "text-xs underline text-muted-foreground hover:text-foreground",
+    "text": "Mostrar todas (4)",
+    "x": 261,
+    "y": 1631,
+    "w": 99,
+    "h": 16,
+    "right": 360,
+    "inline": false,
+    "primary": false,
+    "type": "button"
+   },
+   {
+    "tag": "button",
+    "cls": "min-h-[44px] lg:min-h-[36px] px-3 text-xs font-semibold bg-primary text-primary-foreground disabled:opacity-100",
+    "text": "English",
+    "x": 739,
+    "y": 366,
+    "w": 67,
+    "h": 36,
+    "right": 806,
+    "inline": false,
+    "primary": true,
+    "type": "button"
+   },
+   {
+    "tag": "button",
+    "cls": "min-h-[44px] lg:min-h-[36px] px-3 text-xs font-semibold bg-card text-foreground hover:bg-muted disabled:opacity-100",
+    "text": "Français",
+    "x": 806,
+    "y": 366,
+    "w": 74,
+    "h": 36,
+    "right": 880,
+    "inline": false,
+    "primary": false,
+    "type": "button"
+   },
+   {
+    "tag": "button",
+    "cls": "min-h-[44px] lg:min-h-[36px] px-3 text-xs font-semibold bg-card text-foreground hover:bg-muted disabled:opacity-100",
+    "text": "Español",
+    "x": 880,
+    "y": 366,
+    "w": 71,
+    "h": 36,
+    "right": 951,
+    "inline": false,
+    "primary": false,
+    "type": "button"
+   }
+  ],
+  "tapPrimary": [
+   {
+    "tag": "button",
+    "cls": "min-h-[44px] lg:min-h-[36px] px-3 text-xs font-semibold bg-primary text-primary-foreground disabled:opacity-100",
+    "text": "English",
+    "x": 739,
+    "y": 366,
+    "w": 67,
+    "h": 36,
+    "right": 806,
+    "inline": false,
+    "primary": true,
+    "type": "button"
+   }
+  ],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [],
+  "asides": [
+   {
+    "tag": "aside",
+    "cls": "hidden lg:flex flex-col shrink-0 sticky top-0 h-screen bg-sidebar text-sidebar-foreground border-r border-sidebar-border transition-[width] ",
+    "text": "Portal de ventasHoyColaGuionMis leadsConversacionesSMS3Equipo1NotasCal",
+    "x": 0,
+    "y": 0,
+    "w": 220,
+    "h": 900,
+    "right": 220,
+    "fixed": false
+   }
+  ],
+  "railVisible": false,
+  "mainRect": {
+   "x": 220,
+   "y": 90,
+   "w": 1060,
+   "h": 2340,
+   "right": 1280
+  },
+  "smallInputs": [
+   {
+    "tag": "input",
+    "cls": "w-full min-h-[44px] rounded-lg border border-border bg-background pl-9 pr-3 text-sm text-foreground",
+    "text": "",
+    "x": 244,
+    "y": 8,
+    "w": 448,
+    "h": 44,
+    "right": 692,
+    "fontSize": "14px"
+   }
+  ],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "La cola de hoy"
+  ],
+  "textLength": 5177,
+  "consoleErrors": [],
+  "tapCount": 4,
+  "truncatedCount": 0,
+  "smallInputCount": 1
+ },
+ "queue-tab-tasks @375": {
+  "file": "queue-tab-tasks-375.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/harness/console/console.html?do=1&scene=tab-tasks&lang=es",
+  "vw": 375,
+  "vh": 812,
+  "docW": 375,
+  "docH": 2522,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [
+   {
+    "tag": "button",
+    "cls": "text-xs underline text-muted-foreground hover:text-foreground",
+    "text": "Mostrar todas (4)",
+    "x": 33,
+    "y": 1677,
+    "w": 99,
+    "h": 16,
+    "right": 132,
+    "inline": false,
+    "primary": false,
+    "type": "button"
+   }
+  ],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "HoyColaGuionMis leadsConversaciones",
+    "x": 0,
+    "y": 747,
+    "w": 375,
+    "h": 65,
+    "right": 375,
+    "z": "40"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 375,
+   "h": 2465,
+   "right": 375
+  },
+  "smallInputs": [],
+  "scrollers": [
+   {
+    "tag": "div",
+    "cls": "flex gap-0.5 overflow-x-auto -mx-1 px-1",
+    "text": "EmpresaContactoGuionInvestigaciónNotasResultadoTareasLeads11",
+    "x": 29,
+    "y": 1915,
+    "w": 317,
+    "h": 44,
+    "right": 346
+   }
+  ],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "La cola de hoy"
+  ],
+  "textLength": 1931,
+  "consoleErrors": [],
+  "tapCount": 1,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "queue-tab-tasks @1280": {
+  "file": "queue-tab-tasks-1280.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/harness/console/console.html?do=1&scene=tab-tasks&lang=es",
+  "vw": 1280,
+  "vh": 900,
+  "docW": 1280,
+  "docH": 989,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [
+   {
+    "tag": "button",
+    "cls": "text-xs underline text-muted-foreground hover:text-foreground",
+    "text": "Mostrar todas (4)",
+    "x": 261,
+    "y": 1558,
+    "w": 99,
+    "h": 16,
+    "right": 360,
+    "inline": false,
+    "primary": false,
+    "type": "button"
+   }
+  ],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [],
+  "asides": [
+   {
+    "tag": "aside",
+    "cls": "hidden lg:flex flex-col shrink-0 sticky top-0 h-screen bg-sidebar text-sidebar-foreground border-r border-sidebar-border transition-[width] ",
+    "text": "Portal de ventasHoyColaGuionMis leadsConversacionesSMS3Equipo1NotasCal",
+    "x": 0,
+    "y": 0,
+    "w": 220,
+    "h": 900,
+    "right": 220,
+    "fixed": false
+   }
+  ],
+  "railVisible": false,
+  "mainRect": {
+   "x": 220,
+   "y": 61,
+   "w": 1060,
+   "h": 928,
+   "right": 1280
+  },
+  "smallInputs": [
+   {
+    "tag": "input",
+    "cls": "w-full min-h-[44px] rounded-lg border border-border bg-background pl-9 pr-3 text-sm text-foreground",
+    "text": "",
+    "x": 244,
+    "y": 8,
+    "w": 448,
+    "h": 44,
+    "right": 692,
+    "fontSize": "14px"
+   }
+  ],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "La cola de hoy"
+  ],
+  "textLength": 2100,
+  "consoleErrors": [],
+  "tapCount": 1,
+  "truncatedCount": 0,
+  "smallInputCount": 1
+ },
+ "queue-tab-leads @375": {
+  "file": "queue-tab-leads-375.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/harness/console/console.html?do=1&scene=tab-leads&lang=es",
+  "vw": 375,
+  "vh": 812,
+  "docW": 375,
+  "docH": 4330,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [
+   {
+    "tag": "button",
+    "cls": "text-xs underline text-muted-foreground hover:text-foreground",
+    "text": "Mostrar todas (4)",
+    "x": 33,
+    "y": 1677,
+    "w": 99,
+    "h": 16,
+    "right": 132,
+    "inline": false,
+    "primary": false,
+    "type": "button"
+   }
+  ],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "HoyColaGuionMis leadsConversaciones",
+    "x": 0,
+    "y": 747,
+    "w": 375,
+    "h": 65,
+    "right": 375,
+    "z": "40"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 375,
+   "h": 4273,
+   "right": 375
+  },
+  "smallInputs": [],
+  "scrollers": [
+   {
+    "tag": "div",
+    "cls": "flex gap-0.5 overflow-x-auto -mx-1 px-1",
+    "text": "EmpresaContactoGuionInvestigaciónNotasResultadoTareasLeads11",
+    "x": 29,
+    "y": 1915,
+    "w": 317,
+    "h": 44,
+    "right": 346
+   }
+  ],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "La cola de hoy"
+  ],
+  "textLength": 4244,
+  "consoleErrors": [],
+  "tapCount": 1,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "queue-tab-leads @1280": {
+  "file": "queue-tab-leads-1280.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/harness/console/console.html?do=1&scene=tab-leads&lang=es",
+  "vw": 1280,
+  "vh": 900,
+  "docW": 1280,
+  "docH": 2151,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [
+   {
+    "tag": "button",
+    "cls": "text-xs underline text-muted-foreground hover:text-foreground",
+    "text": "Mostrar todas (4)",
+    "x": 261,
+    "y": 1558,
+    "w": 99,
+    "h": 16,
+    "right": 360,
+    "inline": false,
+    "primary": false,
+    "type": "button"
+   },
+   {
+    "tag": "summary",
+    "cls": "cursor-pointer break-words",
+    "text": "2 leads volvieron al grupo a las 1:05 PM (ET): su ventana de llamadas ",
+    "x": 646,
+    "y": 492,
+    "w": 584,
+    "h": 32,
+    "right": 1230,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "button",
+    "cls": "inline-flex items-center gap-1.5 min-h-[44px] lg:min-h-[36px] py-2 px-2.5 rounded-full border text-xs font-semibold border-primary bg-primar",
+    "text": "Todos11",
+    "x": 637,
+    "y": 609,
+    "w": 79,
+    "h": 36,
+    "right": 716,
+    "inline": false,
+    "primary": true,
+    "type": "button"
+   },
+   {
+    "tag": "button",
+    "cls": "inline-flex items-center gap-1.5 min-h-[44px] lg:min-h-[36px] py-2 px-2.5 rounded-full border text-xs font-semibold border-border bg-card te",
+    "text": "ET1",
+    "x": 722,
+    "y": 609,
+    "w": 51,
+    "h": 36,
+    "right": 774,
+    "inline": false,
+    "primary": false,
+    "type": "button"
+   },
+   {
+    "tag": "button",
+    "cls": "inline-flex items-center gap-1.5 min-h-[44px] lg:min-h-[36px] py-2 px-2.5 rounded-full border text-xs font-semibold border-border bg-card te",
+    "text": "CT6",
+    "x": 780,
+    "y": 609,
+    "w": 52,
+    "h": 36,
+    "right": 832,
+    "inline": false,
+    "primary": false,
+    "type": "button"
+   },
+   {
+    "tag": "button",
+    "cls": "inline-flex items-center gap-1.5 min-h-[44px] lg:min-h-[36px] py-2 px-2.5 rounded-full border text-xs font-semibold border-border bg-card te",
+    "text": "MT1",
+    "x": 838,
+    "y": 609,
+    "w": 54,
+    "h": 36,
+    "right": 892,
+    "inline": false,
+    "primary": false,
+    "type": "button"
+   },
+   {
+    "tag": "button",
+    "cls": "inline-flex items-center gap-1.5 min-h-[44px] lg:min-h-[36px] py-2 px-2.5 rounded-full border text-xs font-semibold border-border bg-card te",
+    "text": "PT3",
+    "x": 898,
+    "y": 609,
+    "w": 52,
+    "h": 36,
+    "right": 950,
+    "inline": false,
+    "primary": false,
+    "type": "button"
+   }
+  ],
+  "tapPrimary": [
+   {
+    "tag": "button",
+    "cls": "inline-flex items-center gap-1.5 min-h-[44px] lg:min-h-[36px] py-2 px-2.5 rounded-full border text-xs font-semibold border-primary bg-primar",
+    "text": "Todos11",
+    "x": 637,
+    "y": 609,
+    "w": 79,
+    "h": 36,
+    "right": 716,
+    "inline": false,
+    "primary": true,
+    "type": "button"
+   }
+  ],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [],
+  "asides": [
+   {
+    "tag": "aside",
+    "cls": "hidden lg:flex flex-col shrink-0 sticky top-0 h-screen bg-sidebar text-sidebar-foreground border-r border-sidebar-border transition-[width] ",
+    "text": "Portal de ventasHoyColaGuionMis leadsConversacionesSMS3Equipo1NotasCal",
+    "x": 0,
+    "y": 0,
+    "w": 220,
+    "h": 900,
+    "right": 220,
+    "fixed": false
+   }
+  ],
+  "railVisible": false,
+  "mainRect": {
+   "x": 220,
+   "y": 61,
+   "w": 1060,
+   "h": 2090,
+   "right": 1280
+  },
+  "smallInputs": [
+   {
+    "tag": "input",
+    "cls": "w-full min-h-[44px] rounded-lg border border-border bg-background pl-9 pr-3 text-sm text-foreground",
+    "text": "",
+    "x": 244,
+    "y": 8,
+    "w": 448,
+    "h": 44,
+    "right": 692,
+    "fontSize": "14px"
+   }
+  ],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "La cola de hoy"
+  ],
+  "textLength": 4413,
+  "consoleErrors": [],
+  "tapCount": 7,
+  "truncatedCount": 0,
+  "smallInputCount": 1
+ },
+ "queue-tab-disposition @375": {
+  "file": "queue-tab-disposition-375.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/harness/console/console.html?do=1&scene=tab-disposition&lang=es",
+  "vw": 375,
+  "vh": 812,
+  "docW": 375,
+  "docH": 3456,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [
+   {
+    "tag": "button",
+    "cls": "text-xs underline text-muted-foreground hover:text-foreground",
+    "text": "Mostrar todas (4)",
+    "x": 33,
+    "y": 1677,
+    "w": 99,
+    "h": 16,
+    "right": 132,
+    "inline": false,
+    "primary": false,
+    "type": "button"
+   }
+  ],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "HoyColaGuionMis leadsConversaciones",
+    "x": 0,
+    "y": 747,
+    "w": 375,
+    "h": 65,
+    "right": 375,
+    "z": "40"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 375,
+   "h": 3399,
+   "right": 375
+  },
+  "smallInputs": [],
+  "scrollers": [
+   {
+    "tag": "div",
+    "cls": "flex gap-0.5 overflow-x-auto -mx-1 px-1",
+    "text": "EmpresaContactoGuionInvestigaciónNotasResultadoTareasLeads11",
+    "x": 29,
+    "y": 1915,
+    "w": 317,
+    "h": 44,
+    "right": 346
+   }
+  ],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "La cola de hoy"
+  ],
+  "textLength": 3066,
+  "consoleErrors": [],
+  "tapCount": 1,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "queue-tab-disposition @1280": {
+  "file": "queue-tab-disposition-1280.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/harness/console/console.html?do=1&scene=tab-disposition&lang=es",
+  "vw": 1280,
+  "vh": 900,
+  "docW": 1280,
+  "docH": 1245,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [
+   {
+    "tag": "button",
+    "cls": "text-xs underline text-muted-foreground hover:text-foreground",
+    "text": "Mostrar todas (4)",
+    "x": 261,
+    "y": 1558,
+    "w": 99,
+    "h": 16,
+    "right": 360,
+    "inline": false,
+    "primary": false,
+    "type": "button"
+   }
+  ],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [],
+  "asides": [
+   {
+    "tag": "aside",
+    "cls": "hidden lg:flex flex-col shrink-0 sticky top-0 h-screen bg-sidebar text-sidebar-foreground border-r border-sidebar-border transition-[width] ",
+    "text": "Portal de ventasHoyColaGuionMis leadsConversacionesSMS3Equipo1NotasCal",
+    "x": 0,
+    "y": 0,
+    "w": 220,
+    "h": 900,
+    "right": 220,
+    "fixed": false
+   }
+  ],
+  "railVisible": false,
+  "mainRect": {
+   "x": 220,
+   "y": 61,
+   "w": 1060,
+   "h": 1184,
+   "right": 1280
+  },
+  "smallInputs": [
+   {
+    "tag": "input",
+    "cls": "w-full min-h-[44px] rounded-lg border border-border bg-background pl-9 pr-3 text-sm text-foreground",
+    "text": "",
+    "x": 244,
+    "y": 8,
+    "w": 448,
+    "h": 44,
+    "right": 692,
+    "fontSize": "14px"
+   }
+  ],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "La cola de hoy"
+  ],
+  "textLength": 3235,
+  "consoleErrors": [],
+  "tapCount": 1,
+  "truncatedCount": 0,
+  "smallInputCount": 1
+ },
+ "pay @375": {
+  "file": "pay-375.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/harness/portal/portal.html?page=pay&lang=es",
+  "vw": 375,
+  "vh": 812,
+  "docW": 375,
+  "docH": 2929,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 29,
+    "y": 1719,
+    "w": 13,
+    "h": 122,
+    "right": 42,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 29,
+    "y": 1879,
+    "w": 13,
+    "h": 82,
+    "right": 42,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 29,
+    "y": 1999,
+    "w": 13,
+    "h": 62,
+    "right": 42,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 29,
+    "y": 2099,
+    "w": 13,
+    "h": 122,
+    "right": 42,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 29,
+    "y": 2259,
+    "w": 13,
+    "h": 82,
+    "right": 42,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   }
+  ],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "HoyColaGuionMis leadsConversaciones",
+    "x": 0,
+    "y": 747,
+    "w": 375,
+    "h": 65,
+    "right": 375,
+    "z": "40"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 375,
+   "h": 2872,
+   "right": 375
+  },
+  "smallInputs": [],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Tu pago"
+  ],
+  "textLength": 2583,
+  "consoleErrors": [],
+  "tapCount": 5,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "pay @1280": {
+  "file": "pay-1280.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/harness/portal/portal.html?page=pay&lang=es",
+  "vw": 1280,
+  "vh": 900,
+  "docW": 1280,
+  "docH": 2111,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 275,
+    "y": 1232,
+    "w": 13,
+    "h": 62,
+    "right": 288,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 275,
+    "y": 1332,
+    "w": 13,
+    "h": 62,
+    "right": 288,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 275,
+    "y": 1432,
+    "w": 13,
+    "h": 42,
+    "right": 288,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 275,
+    "y": 1512,
+    "w": 13,
+    "h": 62,
+    "right": 288,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 275,
+    "y": 1612,
+    "w": 13,
+    "h": 62,
+    "right": 288,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   }
+  ],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [],
+  "asides": [
+   {
+    "tag": "aside",
+    "cls": "hidden lg:flex flex-col shrink-0 sticky top-0 h-screen bg-sidebar text-sidebar-foreground border-r border-sidebar-border transition-[width] ",
+    "text": "Portal de ventasHoyColaGuionMis leadsConversacionesSMS33Equipo1NotasCa",
+    "x": 0,
+    "y": 0,
+    "w": 220,
+    "h": 900,
+    "right": 220,
+    "fixed": false
+   }
+  ],
+  "railVisible": false,
+  "mainRect": {
+   "x": 238,
+   "y": 61,
+   "w": 1024,
+   "h": 2050,
+   "right": 1262
+  },
+  "smallInputs": [
+   {
+    "tag": "input",
+    "cls": "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground",
+    "text": "",
+    "x": 262,
+    "y": 1739,
+    "w": 672,
+    "h": 38,
+    "right": 934,
+    "fontSize": "14px"
+   }
+  ],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Tu pago"
+  ],
+  "textLength": 2769,
+  "consoleErrors": [],
+  "tapCount": 5,
+  "truncatedCount": 0,
+  "smallInputCount": 1
+ },
+ "pay-agency @375": {
+  "file": "pay-agency-375.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/harness/portal/portal.html?page=pay&agency=1&scroll=%5Bdata-by-employee%5D&lang=es",
+  "vw": 375,
+  "vh": 812,
+  "docW": 375,
+  "docH": 3182,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [
+   {
+    "width": 520,
+    "y": 792,
+    "inScroller": true,
+    "scrollerFits": true,
+    "caption": "Empleado"
+   }
+  ],
+  "tap": [
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 29,
+    "y": 1972,
+    "w": 13,
+    "h": 122,
+    "right": 42,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 29,
+    "y": 2132,
+    "w": 13,
+    "h": 82,
+    "right": 42,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 29,
+    "y": 2252,
+    "w": 13,
+    "h": 62,
+    "right": 42,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 29,
+    "y": 2352,
+    "w": 13,
+    "h": 122,
+    "right": 42,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 29,
+    "y": 2512,
+    "w": 13,
+    "h": 82,
+    "right": 42,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   }
+  ],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "HoyColaGuionMis leadsConversaciones",
+    "x": 0,
+    "y": 1442,
+    "w": 375,
+    "h": 65,
+    "right": 375,
+    "z": "40"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 375,
+   "h": 3125,
+   "right": 375
+  },
+  "smallInputs": [],
+  "scrollers": [
+   {
+    "tag": "div",
+    "cls": "overflow-x-auto rounded-lg border border-border",
+    "text": "EmpleadoEmpresasGanado en totalPagado a tiCerrado, aún sin pagarEsta s",
+    "x": 16,
+    "y": 791,
+    "w": 343,
+    "h": 233,
+    "right": 359
+   }
+  ],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Tu pago"
+  ],
+  "textLength": 2765,
+  "consoleErrors": [],
+  "tapCount": 5,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "pay-agency @1280": {
+  "file": "pay-agency-1280.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/harness/portal/portal.html?page=pay&agency=1&scroll=%5Bdata-by-employee%5D&lang=es",
+  "vw": 1280,
+  "vh": 900,
+  "docW": 1280,
+  "docH": 2312,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [
+   {
+    "width": 670,
+    "y": 441,
+    "inScroller": true,
+    "scrollerFits": true,
+    "caption": "Empleado"
+   }
+  ],
+  "tap": [
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 275,
+    "y": 1433,
+    "w": 13,
+    "h": 62,
+    "right": 288,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 275,
+    "y": 1533,
+    "w": 13,
+    "h": 62,
+    "right": 288,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 275,
+    "y": 1633,
+    "w": 13,
+    "h": 42,
+    "right": 288,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 275,
+    "y": 1713,
+    "w": 13,
+    "h": 62,
+    "right": 288,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 shrink-0",
+    "text": "",
+    "x": 275,
+    "y": 1813,
+    "w": 13,
+    "h": 62,
+    "right": 288,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   }
+  ],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [],
+  "asides": [
+   {
+    "tag": "aside",
+    "cls": "hidden lg:flex flex-col shrink-0 sticky top-0 h-screen bg-sidebar text-sidebar-foreground border-r border-sidebar-border transition-[width] ",
+    "text": "Portal de ventasHoyColaGuionMis leadsConversacionesSMS33Equipo1NotasCa",
+    "x": 0,
+    "y": 344,
+    "w": 220,
+    "h": 900,
+    "right": 220,
+    "fixed": false
+   }
+  ],
+  "railVisible": false,
+  "mainRect": {
+   "x": 238,
+   "y": 61,
+   "w": 1024,
+   "h": 2251,
+   "right": 1262
+  },
+  "smallInputs": [
+   {
+    "tag": "input",
+    "cls": "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground",
+    "text": "",
+    "x": 262,
+    "y": 1940,
+    "w": 672,
+    "h": 38,
+    "right": 934,
+    "fontSize": "14px"
+   }
+  ],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Tu pago"
+  ],
+  "textLength": 2961,
+  "consoleErrors": [],
+  "tapCount": 5,
+  "truncatedCount": 0,
+  "smallInputCount": 1
+ },
+ "agency @375": {
+  "file": "agency-375.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/harness/portal/portal.html?page=agency&agency=1&lang=es",
+  "vw": 375,
+  "vh": 812,
+  "docW": 375,
+  "docH": 2576,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [
+   {
+    "width": 309,
+    "y": 2398,
+    "inScroller": true,
+    "scrollerFits": true,
+    "caption": "Oficio"
+   }
+  ],
+  "tap": [
+   {
+    "tag": "input",
+    "cls": "",
+    "text": "",
+    "x": 42,
+    "y": 464,
+    "w": 13,
+    "h": 13,
+    "right": 55,
+    "inline": false,
+    "primary": false,
+    "type": "checkbox"
+   },
+   {
+    "tag": "input",
+    "cls": "",
+    "text": "",
+    "x": 134,
+    "y": 464,
+    "w": 13,
+    "h": 13,
+    "right": 147,
+    "inline": false,
+    "primary": false,
+    "type": "checkbox"
+   },
+   {
+    "tag": "input",
+    "cls": "",
+    "text": "",
+    "x": 233,
+    "y": 464,
+    "w": 13,
+    "h": 13,
+    "right": 246,
+    "inline": false,
+    "primary": false,
+    "type": "checkbox"
+   },
+   {
+    "tag": "input",
+    "cls": "",
+    "text": "",
+    "x": 42,
+    "y": 502,
+    "w": 13,
+    "h": 13,
+    "right": 55,
+    "inline": false,
+    "primary": false,
+    "type": "checkbox"
+   },
+   {
+    "tag": "input",
+    "cls": "",
+    "text": "",
+    "x": 161,
+    "y": 502,
+    "w": 13,
+    "h": 13,
+    "right": 174,
+    "inline": false,
+    "primary": false,
+    "type": "checkbox"
+   },
+   {
+    "tag": "input",
+    "cls": "",
+    "text": "",
+    "x": 241,
+    "y": 502,
+    "w": 13,
+    "h": 13,
+    "right": 254,
+    "inline": false,
+    "primary": false,
+    "type": "checkbox"
+   },
+   {
+    "tag": "input",
+    "cls": "",
+    "text": "",
+    "x": 42,
+    "y": 540,
+    "w": 13,
+    "h": 13,
+    "right": 55,
+    "inline": false,
+    "primary": false,
+    "type": "checkbox"
+   },
+   {
+    "tag": "input",
+    "cls": "",
+    "text": "",
+    "x": 141,
+    "y": 540,
+    "w": 13,
+    "h": 13,
+    "right": 154,
+    "inline": false,
+    "primary": false,
+    "type": "checkbox"
+   }
+  ],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "HoyColaGuionMis leadsConversaciones",
+    "x": 0,
+    "y": 747,
+    "w": 375,
+    "h": 65,
+    "right": 375,
+    "z": "40"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 375,
+   "h": 2519,
+   "right": 375
+  },
+  "smallInputs": [],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Mi equipo"
+  ],
+  "textLength": 1878,
+  "consoleErrors": [],
+  "tapCount": 8,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "agency @1280": {
+  "file": "agency-1280.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/harness/portal/portal.html?page=agency&agency=1&lang=es",
+  "vw": 1280,
+  "vh": 900,
+  "docW": 1280,
+  "docH": 1826,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [
+   {
+    "width": 862,
+    "y": 1720,
+    "inScroller": true,
+    "scrollerFits": true,
+    "caption": "Oficio"
+   }
+  ],
+  "tap": [
+   {
+    "tag": "input",
+    "cls": "",
+    "text": "",
+    "x": 288,
+    "y": 357,
+    "w": 13,
+    "h": 13,
+    "right": 301,
+    "inline": false,
+    "primary": false,
+    "type": "checkbox"
+   },
+   {
+    "tag": "input",
+    "cls": "",
+    "text": "",
+    "x": 380,
+    "y": 357,
+    "w": 13,
+    "h": 13,
+    "right": 393,
+    "inline": false,
+    "primary": false,
+    "type": "checkbox"
+   },
+   {
+    "tag": "input",
+    "cls": "",
+    "text": "",
+    "x": 479,
+    "y": 357,
+    "w": 13,
+    "h": 13,
+    "right": 492,
+    "inline": false,
+    "primary": false,
+    "type": "checkbox"
+   },
+   {
+    "tag": "input",
+    "cls": "",
+    "text": "",
+    "x": 575,
+    "y": 357,
+    "w": 13,
+    "h": 13,
+    "right": 588,
+    "inline": false,
+    "primary": false,
+    "type": "checkbox"
+   },
+   {
+    "tag": "input",
+    "cls": "",
+    "text": "",
+    "x": 693,
+    "y": 357,
+    "w": 13,
+    "h": 13,
+    "right": 706,
+    "inline": false,
+    "primary": false,
+    "type": "checkbox"
+   },
+   {
+    "tag": "input",
+    "cls": "",
+    "text": "",
+    "x": 774,
+    "y": 357,
+    "w": 13,
+    "h": 13,
+    "right": 787,
+    "inline": false,
+    "primary": false,
+    "type": "checkbox"
+   },
+   {
+    "tag": "input",
+    "cls": "",
+    "text": "",
+    "x": 870,
+    "y": 357,
+    "w": 13,
+    "h": 13,
+    "right": 883,
+    "inline": false,
+    "primary": false,
+    "type": "checkbox"
+   },
+   {
+    "tag": "input",
+    "cls": "",
+    "text": "",
+    "x": 968,
+    "y": 357,
+    "w": 13,
+    "h": 13,
+    "right": 981,
+    "inline": false,
+    "primary": false,
+    "type": "checkbox"
+   },
+   {
+    "tag": "button",
+    "cls": "inline-flex items-center gap-1.5 min-h-[44px] lg:min-h-[40px] px-3 py-2 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-n",
+    "text": "Enviar invitación",
+    "x": 279,
+    "y": 434,
+    "w": 132,
+    "h": 40,
+    "right": 411,
+    "inline": false,
+    "primary": true,
+    "type": "submit"
+   },
+   {
+    "tag": "button",
+    "cls": "inline-flex items-center gap-1.5 min-h-[44px] lg:min-h-[40px] px-3 py-2 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-n",
+    "text": "Copiar enlace",
+    "x": 279,
+    "y": 724,
+    "w": 137,
+    "h": 40,
+    "right": 416,
+    "inline": false,
+    "primary": false,
+    "type": "button"
+   },
+   {
+    "tag": "button",
+    "cls": "inline-flex items-center gap-1.5 min-h-[44px] lg:min-h-[40px] px-3 py-2 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-n",
+    "text": "Desactivar",
+    "x": 279,
+    "y": 772,
+    "w": 96,
+    "h": 40,
+    "right": 375,
+    "inline": false,
+    "primary": false,
+    "type": "button"
+   },
+   {
+    "tag": "button",
+    "cls": "inline-flex items-center gap-1.5 min-h-[44px] lg:min-h-[40px] px-3 py-2 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-n",
+    "text": "Copiar enlace",
+    "x": 279,
+    "y": 1006,
+    "w": 137,
+    "h": 40,
+    "right": 416,
+    "inline": false,
+    "primary": false,
+    "type": "button"
+   }
+  ],
+  "tapPrimary": [
+   {
+    "tag": "button",
+    "cls": "inline-flex items-center gap-1.5 min-h-[44px] lg:min-h-[40px] px-3 py-2 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-n",
+    "text": "Enviar invitación",
+    "x": 279,
+    "y": 434,
+    "w": 132,
+    "h": 40,
+    "right": 411,
+    "inline": false,
+    "primary": true,
+    "type": "submit"
+   }
+  ],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [],
+  "asides": [
+   {
+    "tag": "aside",
+    "cls": "hidden lg:flex flex-col shrink-0 sticky top-0 h-screen bg-sidebar text-sidebar-foreground border-r border-sidebar-border transition-[width] ",
+    "text": "Portal de ventasHoyColaGuionMis leadsConversacionesSMS33Equipo1NotasCa",
+    "x": 0,
+    "y": 0,
+    "w": 220,
+    "h": 900,
+    "right": 220,
+    "fixed": false
+   }
+  ],
+  "railVisible": false,
+  "mainRect": {
+   "x": 238,
+   "y": 61,
+   "w": 1024,
+   "h": 1765,
+   "right": 1262
+  },
+  "smallInputs": [
+   {
+    "tag": "input",
+    "cls": "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground",
+    "text": "",
+    "x": 279,
+    "y": 274,
+    "w": 425,
+    "h": 38,
+    "right": 704,
+    "fontSize": "14px"
+   },
+   {
+    "tag": "input",
+    "cls": "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground",
+    "text": "",
+    "x": 716,
+    "y": 274,
+    "w": 425,
+    "h": 38,
+    "right": 1141,
+    "fontSize": "14px"
+   },
+   {
+    "tag": "input",
+    "cls": "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground sm:max-w-md font-mono text-xs",
+    "text": "",
+    "x": 279,
+    "y": 682,
+    "w": 862,
+    "h": 34,
+    "right": 1141,
+    "fontSize": "12px"
+   },
+   {
+    "tag": "input",
+    "cls": "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground sm:max-w-md font-mono text-xs",
+    "text": "",
+    "x": 279,
+    "y": 964,
+    "w": 862,
+    "h": 34,
+    "right": 1141,
+    "fontSize": "12px"
+   }
+  ],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Mi equipo"
+  ],
+  "textLength": 2074,
+  "consoleErrors": [],
+  "tapCount": 17,
+  "truncatedCount": 0,
+  "smallInputCount": 5
+ },
+ "lead @375": {
+  "file": "lead-375.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/harness/portal/portal.html?page=lead&lang=es",
+  "vw": 375,
+  "vh": 812,
+  "docW": 375,
+  "docH": 3707,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [
+   {
+    "tag": "a",
+    "cls": "text-sm text-muted-foreground flex items-center gap-1",
+    "text": "Mis leads",
+    "x": 16,
+    "y": 81,
+    "w": 343,
+    "h": 20,
+    "right": 359,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "summary",
+    "cls": "cursor-pointer",
+    "text": "Lo que dice realmente Oklahoma",
+    "x": 33,
+    "y": 1130,
+    "w": 309,
+    "h": 16,
+    "right": 342,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 h-5 w-5 shrink-0",
+    "text": "",
+    "x": 46,
+    "y": 1511,
+    "w": 20,
+    "h": 20,
+    "right": 66,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "summary",
+    "cls": "cursor-pointer text-xs text-muted-foreground flex items-center gap-1.5",
+    "text": "Dónde están: OK, US",
+    "x": 33,
+    "y": 1716,
+    "w": 309,
+    "h": 16,
+    "right": 342,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "select",
+    "cls": "mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground",
+    "text": "Elige su zona horaria…",
+    "x": 33,
+    "y": 2655,
+    "w": 309,
+    "h": 38,
+    "right": 342,
+    "inline": false,
+    "primary": false,
+    "type": null
+   }
+  ],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "HoyColaGuionMis leadsConversaciones",
+    "x": 0,
+    "y": 747,
+    "w": 375,
+    "h": 65,
+    "right": 375,
+    "z": "40"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 375,
+   "h": 3650,
+   "right": 375
+  },
+  "smallInputs": [],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Bright Current Electrical"
+  ],
+  "textLength": 3284,
+  "consoleErrors": [],
+  "tapCount": 5,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "lead @1280": {
+  "file": "lead-1280.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/harness/portal/portal.html?page=lead&lang=es",
+  "vw": 1280,
+  "vh": 900,
+  "docW": 1280,
+  "docH": 2768,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [
+   {
+    "tag": "a",
+    "cls": "text-sm text-muted-foreground flex items-center gap-1",
+    "text": "Mis leads",
+    "x": 262,
+    "y": 93,
+    "w": 976,
+    "h": 20,
+    "right": 1238,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "summary",
+    "cls": "cursor-pointer",
+    "text": "Lo que dice realmente Oklahoma",
+    "x": 279,
+    "y": 784,
+    "w": 942,
+    "h": 16,
+    "right": 1221,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "input",
+    "cls": "mt-1 h-5 w-5 shrink-0",
+    "text": "",
+    "x": 292,
+    "y": 1037,
+    "w": 20,
+    "h": 20,
+    "right": 312,
+    "inline": false,
+    "primary": false,
+    "type": "radio"
+   },
+   {
+    "tag": "summary",
+    "cls": "cursor-pointer text-xs text-muted-foreground flex items-center gap-1.5",
+    "text": "Dónde están: OK, US",
+    "x": 279,
+    "y": 1210,
+    "w": 942,
+    "h": 16,
+    "right": 1221,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "select",
+    "cls": "mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground",
+    "text": "Elige su zona horaria…",
+    "x": 279,
+    "y": 1970,
+    "w": 942,
+    "h": 37,
+    "right": 1221,
+    "inline": false,
+    "primary": false,
+    "type": null
+   }
+  ],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [],
+  "asides": [
+   {
+    "tag": "aside",
+    "cls": "hidden lg:flex flex-col shrink-0 sticky top-0 h-screen bg-sidebar text-sidebar-foreground border-r border-sidebar-border transition-[width] ",
+    "text": "Portal de ventasHoyColaGuionMis leadsConversacionesSMS33Equipo1NotasCa",
+    "x": 0,
+    "y": 0,
+    "w": 220,
+    "h": 900,
+    "right": 220,
+    "fixed": false
+   }
+  ],
+  "railVisible": false,
+  "mainRect": {
+   "x": 238,
+   "y": 61,
+   "w": 1024,
+   "h": 2707,
+   "right": 1262
+  },
+  "smallInputs": [
+   {
+    "tag": "textarea",
+    "cls": "w-full rounded-md border border-border bg-background px-3 py-2 text-sm",
+    "text": "Owner, two vans. Demo booked for Tuesday 3 pm; wants the invoice side ",
+    "x": 279,
+    "y": 1616,
+    "w": 942,
+    "h": 78,
+    "right": 1221,
+    "fontSize": "14px"
+   },
+   {
+    "tag": "select",
+    "cls": "mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground",
+    "text": "Elige su zona horaria…",
+    "x": 279,
+    "y": 1970,
+    "w": 942,
+    "h": 37,
+    "right": 1221,
+    "fontSize": "14px"
+   },
+   {
+    "tag": "input",
+    "cls": "w-full rounded-md border border-border bg-background px-3 py-2 text-sm",
+    "text": "",
+    "x": 279,
+    "y": 2429,
+    "w": 942,
+    "h": 38,
+    "right": 1221,
+    "fontSize": "14px"
+   },
+   {
+    "tag": "textarea",
+    "cls": "w-full rounded-md border border-border bg-background px-3 py-2 text-sm",
+    "text": "",
+    "x": 279,
+    "y": 2479,
+    "w": 942,
+    "h": 178,
+    "right": 1221,
+    "fontSize": "14px"
+   }
+  ],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Bright Current Electrical"
+  ],
+  "textLength": 3470,
+  "consoleErrors": [],
+  "tapCount": 5,
+  "truncatedCount": 0,
+  "smallInputCount": 4
+ }
+}
