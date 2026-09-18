@@ -26,7 +26,8 @@ tell that one is still there.
 | Neil Rackham's SPIN, as carried by Saylor ch.10 | Situation questions sparingly; implication questions with a number attached; benefits beat advantages, and only after investigation. |
 | Robert Cialdini, *Influence* | What is honestly available to a stranger in ninety seconds, and what is counterfeit. |
 | Seth Godin, *This Is Marketing* | Frequency, locality, tension-not-fear, and the arithmetic that licenses outbound at all. |
-| Cognism's cold-calling scripts (Frida Ottosson) | The permission-based opener; the gatekeeper's brevity; 70% prospect / 30% rep. One move refused — see §5a. |
+| Cognism's cold-calling scripts (Frida Ottosson) | The permission-based opener; the gatekeeper's brevity; 70% prospect / 30% rep — which §16 now confines to the demo. One move refused — see §5a. |
+| Gong's cold-call data (100k calls, 2019; 300M, 2024) and Cognism's objection and gatekeeper guides | The measured openers, the reason-for-call lift, the 55:45 talk ratio and the thirty-seven-second burst, the objection shares, the gatekeeper's cost. Read in full in `docs/sales/RESEARCH-cold-calling-2026.md`; the decisions are §16. |
 | Close, *Best practices for training an AI sales agent* | Define the escalation boundary explicitly; review the reasoning, not only the output. One piece of advice refused — see §5a. |
 | The owner's twenty TrueFinish conversations | How these buyers actually behave, with the outcomes known. |
 
@@ -603,3 +604,58 @@ answer mid-call, they get tuned independently of the words, and a refresh that
 skipped a row because somebody added a cue would fail exactly the people who
 use the library most. Stage order **is** included — the same sentences in a
 different order are a different script.
+
+## 16. The call data, read against the books — 2026-09-17
+
+The owner handed over Gong's cold-call research and Cognism's guides and
+asked that the scripts, and above all the model prompt, reflect what the
+data says. The full reading — each source, what is a measurement and what
+is an opinion, and what survives the trip from a SaaS buyer's desk to a
+contractor's van — is `docs/sales/RESEARCH-cold-calling-2026.md`. What it
+settled, against the sections above:
+
+- **§5 stands, with a number on it.** The permission-based opener is the
+  measured best across 300M calls (11.18%) and "did I catch you at a bad
+  time?" the measured worst (2.15%). Saylor and Gong agree from opposite
+  ends. Gong's 2019 "how've you been?" (6.6x) is not adopted and not
+  banned: their larger set ranks permission higher, and the phrase claims an
+  acquaintance a stranger does not have.
+- **§5a stands for the rules playbook; the AI script states the reason in
+  the opener.** Stating the reason is 2.1x in Gong's data. The rules script
+  keeps the owner's shape — the reason inside the first minute, on the
+  contractor's own answer, which is the strongest reading of §3's
+  twenty-page condition. The per-prospect script has a cited detail the
+  rules script does not, and that is the one thing that makes stating the
+  reason early work — so it says "the reason I'm calling is…" on that
+  detail, then asks for thirty seconds and hands the decision back.
+- **§7 is sharpened, and one sentence in it is withdrawn.** "The prospect
+  should be doing about seventy per cent of the talking" was Cognism's
+  guidance. Gong's measurement on 100k calls is that successful *cold* calls
+  have the rep at 55%, in bursts of about thirty-seven seconds, and that the
+  number of questions makes no difference to whether the meeting is booked.
+  The 70/30 rule is kept for the fifteen minutes. The survey shape stays:
+  every question is a leading one with its answers in it (Saylor's ladder,
+  Gong's "limit open-ended questions", SurveySensum's closed-first), and the
+  open how/why questions wait for the demo.
+- **§9 gains a measurement.** Problem language books at 16%, social proof
+  at 12%, buzzwords at 5.5%. Social proof was already barred by
+  non-negotiable 8; buzzwords are now a banned move in `bannedMoves.js`.
+- **§13 gains a close.** "Do you have your calendar handy?" is the closing
+  question Gong's data names, and the invite goes while the contractor is
+  still on the line. `CLOSE_ASK` says so, and the call panel can do it.
+- **§14's scope grows.** The generated script is now swept with the
+  banned-moves table before it is stored (rule 8 in `scriptVoice.js`), the
+  opener must name FieldQuo, and the pitch is held to a word band — the
+  first live version-2 scripts wrote a forty-five-word pitch, which is the
+  under-twenty-five-second burst the data says halves the odds.
+- **A gatekeeper section exists now.** Cognism's definition includes
+  spouses and relatives; Gong puts a gatekeeper at −39%. At one to twenty
+  people the person who answers is often the one who types the quotes up,
+  and the moment now sorts the apprentice from the office before asking to
+  be handed on. Four objections were added for the brush-offs that end most
+  cold calls before the pitch: I'm busy, wrong person, is this a sales call,
+  never heard of you.
+- **Refused, by name, from the new sources:** "is now a bad time?"; "say
+  the prospect's name a lot"; peer case studies; "I promise I'll be quick";
+  "this actually is not a sales call"; "following up on an email" and the
+  invented football match. Each is in the research doc with the reason.
