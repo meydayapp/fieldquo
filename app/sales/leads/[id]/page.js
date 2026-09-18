@@ -328,6 +328,8 @@ export default function SalesLeadPage({ params }) {
         // One of FieldQuo's own test lines, decided server-side and re-passed
         // — the queue re-asks with the same field.
         testLine: call.callingContext.testLine === true,
+        // The rep is a test account, off the rep row the lead route read.
+        testAccount: call.callingContext.testAccount === true,
         // The reader's language, for the ONE string this produces that is a
         // formatted instant rather than a sentence — "It opens at 08:00 on Tue
         // 8 Sep". Everything else travels as a catalogue key; a date cannot,

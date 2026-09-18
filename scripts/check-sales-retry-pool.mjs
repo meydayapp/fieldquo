@@ -611,7 +611,7 @@ section("9. The screens, the words, the platform lever");
   const route = decomment(read("app/api/sales/queue/route.js"));
   ok("the queue route selects the pool columns", /attemptCount: true,\s*nextAttemptAt: true,\s*lastOutcome: true,\s*retryBlock: true,\s*exhaustedAt: true/.test(route));
   ok("…regroups the held list through regroupForRetry", /regroupForRetry\(grouped, retries/.test(route));
-  ok("…and puts `retry` on every row and on the current prospect", /retry: retries\[p\.id\]/.test(route) && /retry: testLine \? null : retryViewFor\(full/.test(route));
+  ok("…and puts `retry` on every row and on the current prospect", /retry: retries\[p\.id\]/.test(route) && /retry: testLine \|\| testAccount \? null : retryViewFor\(full/.test(route));
   const page = decomment(read("app/sales/queue/page.js"));
   ok("the console prints the three retry sentences", /app\.salesQueue\.retry\.next/.test(page) && /app\.salesQueue\.retry\.due/.test(page) && /app\.salesQueue\.retry\.exhausted/.test(page));
   ok("…on the Dialer card (RetryTag) and on the row", /<RetryTag retry=/.test(page) && /meta\.retry\]/.test(page));

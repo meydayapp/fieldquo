@@ -245,7 +245,9 @@ section("6. ringPlan rings only French reps for a Quebec caller");
   const owner = ringPlan({ assignedRepId: "anglo", presence: rows, needsFrench: true, frenchRepIds: ["franco"], now: NOW });
   ok("the number's OWNER is filtered too when they have no French", !owner.targets.some((t) => t.salesRepId === "anglo"), owner.targets);
   const last = ringPlan({ presence: rows, lastCalledBy: "anglo", needsFrench: true, frenchRepIds: ["franco"], now: NOW });
-  ok("…and so is the rep who rang them last", !last.targets.some((t) => t.salesRepId === "anglo"));
+  // The last caller passes the rule (2026-09-17): the rep who just spoke to
+  // this contractor is not a stranger to them, whatever the line says.
+  ok("…but the rep who rang them last is rung regardless", last.targets.some((t) => t.salesRepId === "anglo"), last.targets);
   const nobody = ringPlan({ presence: [fresh("anglo")], needsFrench: true, frenchRepIds: [], transferTo: null, now: NOW });
   ok("no French rep live → no targets (the route falls through to the queue/voicemail)", nobody.targets.length === 0);
   ok("…with its own reason, so the log says why", nobody.reason === "nobody_french", nobody.reason);
@@ -354,11 +356,13 @@ section("9. Every hand-out path carries the rule — source");
   const inbound = decomment(read("app/api/rep-dial/inbound/route.js"));
   ok("the inbound route reads reps WITH sellsIn", (inbound.match(/select: \{ id: true, sellsIn: true \}/g) || []).length === 2);
   ok("…and the matched prospect's province", /select: \{ id: true, businessName: true, assignedRepId: true, province: true \}/.test(inbound));
-  ok("…decides French by area code OR matched row", /inboundNeedsFrench\(caller\) \|\| \(matchedProspect \? requiredLanguageFor\(matchedProspect\) === "fr" : false\)/.test(inbound));
-  ok("…and passes both to ringPlan at both call sites", (inbound.match(/needsFrench/g) || []).length >= 3 && (inbound.match(/frenchRepIds/g) || []).length >= 3);
-  ok("the hold queue re-judges it every round from the caller's number", /needsFrench: inboundNeedsFrench\(callerNumber\)/.test(inbound));
+  // 2026-09-17, the owner: inbound is not gated by language at all — "the
+  // French and English rule is for the leads only." The rule lives in the
+  // queue's claim; the ring plan is handed no language argument.
+  ok("the inbound route passes no language rule to ringPlan", !/needsFrench|frenchRepIds|needsEnglish|englishRepIds/.test(inbound));
+  ok("…and does not import the lead-language helpers", !/inboundNeedsFrench|repSellsFrench|repSellsEnglish/.test(inbound));
   const dist = decomment(read("lib/sales/calls/inboundDistribution.js"));
-  ok("ringPlan filters inside pushRep, the one function every step uses", /const pushRep = \(salesRepId, why\) => \{[\s\S]*?if \(!mayRing\(salesRepId\)\) return;/.test(dist));
+  ok("ringPlan filters inside pushRep, the one function every step uses — the last caller alone may pass", /const pushRep = \(salesRepId, why, \{ pastLanguageRule = false \} = \{\}\) => \{[\s\S]*?if \(!pastLanguageRule && !mayRing\(salesRepId\)\) return;/.test(dist));
 
   // Discovery is untouched: the rule binds hand-outs, never what is banked.
   for (const f of ["lib/sales/discovery/ingest.js", "lib/sales/discovery/rbq/provider.js"]) {

@@ -306,7 +306,7 @@ import {
 import { fetchJson } from "@/lib/fetchJson";
 import { prefetchTargets, readLead, readSnapshot, sessionStore, writeLead, writeSnapshot } from "@/lib/sales/queueCache";
 import ContactNumbers from "@/app/components/sales/ContactNumbers";
-import DialerPad, { typedToE164 } from "@/app/components/sales/DialerPad";
+import DialerPad, { formatE164ForReading, typedToE164 } from "@/app/components/sales/DialerPad";
 import QueueLeadEditor from "@/app/components/sales/QueueLeadEditor";
 import SignupLinkSms from "@/app/sales/leads/SignupLinkSms";
 import SignupProgress from "@/app/components/sales/SignupProgress";
@@ -1311,8 +1311,16 @@ function ResearchLayers({ t, current }) {
                 {/* A row with no textKey is one whose value is the
                     PROSPECT'S OWN — their phone number, their address,
                     the register's name for them. Those are printed
-                    verbatim; translating data is inventing it. */}
-                {f.textKey ? t(f.textKey, f.text, f.params || {}) : f.text}
+                    verbatim; translating data is inventing it. A row with
+                    `parts` is several recorded findings — the Google
+                    check's "confirms the phone; lists a website the
+                    register did not" — each its own key with the data
+                    (a number, a domain) as a value. */}
+                {Array.isArray(f.parts) && f.parts.length
+                  ? f.parts.map((part) => t(part.key, part.text, part.params || {})).join("; ")
+                  : f.textKey
+                    ? t(f.textKey, f.text, f.params || {})
+                    : f.text}
               </span>
             </li>
           ))}
@@ -2502,6 +2510,37 @@ function QueueConsole() {
   const typedE164 = typedToE164(typed);
   const storedForTyped =
     typedE164 ? (currentNumbers?.voice?.choices || []).find((c) => c.e164 === typedE164) || null : null;
+  // ── Is the typed number a test dial? Asked, never decided ──────────────
+  //
+  // A typed number that is one of FieldQuo's own test lines, or any number
+  // typed by a test account, is NOT saved on the record and is judged as a
+  // test — the owner rang his own mobile from a New York lead's card and
+  // was shown "New York's rule" and offered to file his number as theirs.
+  // This screen holds no list and no flag of its own: it asks
+  // /api/sales/calls/test-line about the one number, and re-passes the
+  // answer into the same readiness the server re-runs on the press. A stale
+  // or missing answer changes a sentence here, never what rings.
+  const typedUnsaved = Boolean(typedE164 && !storedForTyped);
+  const [typedJudgement, setTypedJudgement] = useState(null);
+  useEffect(() => {
+    if (!typedUnsaved) return undefined;
+    let cancelled = false;
+    fetchJson(`/api/sales/calls/test-line?e164=${encodeURIComponent(typedE164)}`)
+      .then((body) => {
+        if (!cancelled && body?.e164 === typedE164) setTypedJudgement(body);
+      })
+      .catch(() => {
+        /* no answer is "not a test": the ordinary path, which the server re-checks */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [typedE164, typedUnsaved]);
+  const typedIsTestLine = typedUnsaved && typedJudgement?.e164 === typedE164 && typedJudgement.testLine === true;
+  const testAccount = data?.rep?.testAccount === true;
+  // What the Call button names when the number is not one of the record's:
+  // the number itself, as read aloud. For a stored number, today's label.
+  const callLabel = typedUnsaved ? formatE164ForReading(typedE164) : null;
   // The live outbound call, for DTMF. Set by CallPanel through onLiveCall;
   // never used to start or end a call.
   const liveCallRef = useRef(null);
@@ -2622,6 +2661,15 @@ function QueueConsole() {
       load();
       return { ok: true, phoneE164: e164, contactNumberId: saved.id };
     } catch (err) {
+      // The numbers route REFUSED to store it because it is a test dial —
+      // one of FieldQuo's own test lines, or this is a test account. That
+      // is not a failure of the press: the number rings UNSAVED, sent as
+      // `typedE164`, and the dial route judges it again for itself (and
+      // refuses it for anybody who is neither). The record stays untouched.
+      if (err?.code === "test_line" || err?.code === "test_account") {
+        setTypedError("");
+        return { ok: true, phoneE164: e164, contactNumberId: null, typedE164: e164 };
+      }
       const error = err?.message || t("app.salesQueue.typedNumberNotSaved");
       setTypedError(error);
       return { ok: false, error };
@@ -2649,8 +2697,14 @@ function QueueConsole() {
       windowPolicy: ctx.windowPolicy || null,
       // One of FieldQuo's own test lines, decided on the server against the
       // platform setting and re-passed as-is — the same discipline as the
-      // override above. Only the literal true counts.
-      testLine: ctx.testLine === true,
+      // override above. Only the literal true counts. OR the number typed
+      // into the pad, judged by the server about that number (above): a
+      // test line typed over a New York lead is judged as a test BEFORE the
+      // lead's jurisdiction is consulted, so the screen never prints "New
+      // York's rule" over a dial that is exempt from it.
+      testLine: ctx.testLine === true || typedIsTestLine,
+      // The rep is a test account, off the rep row the queue route read.
+      testAccount: ctx.testAccount === true,
         // The reader's language, for the ONE string this produces that is a
         // formatted instant rather than a sentence — "It opens at 08:00 on Tue
         // 8 Sep". Everything else travels as a catalogue key; a date cannot,
@@ -2658,7 +2712,7 @@ function QueueConsole() {
       language,
     });
     // `tick` is here to re-run this every thirty seconds; it is not read.
-  }, [current, clock, tick, language]);
+  }, [current, clock, tick, language, typedIsTestLine]);
 
   // The chosen number, not the listing's. dialHref is still the only producer
   // of a tel: target and still refuses anything but an `allowed` decision —
@@ -3170,8 +3224,12 @@ function QueueConsole() {
               disabled={!current || current.contact?.callable === false}
               error={typedError}
               typedNote={
-                current && typedE164 && !storedForTyped
-                  ? t("app.salesQueue.typedNumberNote", { business: current.businessName })
+                current && typedUnsaved
+                  ? typedIsTestLine
+                    ? t("app.salesQueue.typedTestLineNote")
+                    : testAccount
+                      ? t("app.salesQueue.typedTestAccountNote")
+                      : t("app.salesQueue.typedNumberNote", { business: current.businessName })
                   : ""
               }
             />
@@ -3200,6 +3258,9 @@ function QueueConsole() {
                       // For a typed number beforeDial supplies the id.
                       contactNumberId: storedForTyped?.id || chosenNumber?.id || null,
                       businessName: current.businessName,
+                      // "Call +1 613 555 0100" for a number the record does
+                      // not carry; null keeps "Call DRAIN KINGS" for a stored one.
+                      callLabel,
                     }
                   : null
               }

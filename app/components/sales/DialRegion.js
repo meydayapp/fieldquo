@@ -49,6 +49,7 @@
 // chooses an icon, and the mount carries no href.
 "use client";
 
+import { useCallback, useState } from "react";
 import { Ban, CircleHelp, Clock, PhoneOff, ShieldAlert } from "lucide-react";
 import { CALL_ALLOWED, CALL_REFUSED } from "@/lib/sales/callingRules";
 import {
@@ -330,7 +331,28 @@ export default function DialRegion({
   // stop. `target` is what the screen would have dialled, so a lead with no
   // linked business still reaches the mount and reads its "no script for a
   // typed-in lead" sentence rather than an empty tab.
-  const dialRendered = space.state === DIAL_READY && space.href && target;
+  // ── A live call outlives the window ────────────────────────────────────
+  //
+  // The calling window is a rule about STARTING a call. On 2026-09-17 at
+  // 23:00 Pacific the window shut while the owner was mid-call: the
+  // thirty-second tick re-read the decision, `space.state` flipped to
+  // refused, the CallPanel unmounted, and its unmount cleanup — "leaving the
+  // screen must not leave a call up" — hung up on a live customer. So the
+  // target the call was placed on is frozen here the moment the SDK reports
+  // a call, and the panel stays mounted on it until the call ends, whatever
+  // the window says in the meantime. The button to START another call is
+  // still governed by the server on every press.
+  const [liveTarget, setLiveTarget] = useState(null);
+  const handleLiveCall = useCallback(
+    (call) => {
+      setLiveTarget(call ? { target, href: space.href } : null);
+      onLiveCall?.(call);
+    },
+    [target, space.href, onLiveCall],
+  );
+  const dialRendered = (space.state === DIAL_READY && space.href && target) || Boolean(liveTarget);
+  const dialTarget = liveTarget?.target || target;
+  const dialHref = space.href || liveTarget?.href || null;
   const playbookWithoutDial =
     !dialRendered &&
     Boolean(target) &&
@@ -348,22 +370,23 @@ export default function DialRegion({
 
   return (
     <>
-      {space.state === DIAL_READY && space.href && target ? (
+      {dialRendered && dialTarget ? (
         <>
           <CallPanel
-            prospectId={target.prospectId || null}
+            prospectId={dialTarget.prospectId || null}
             playbookProspectId={playbookProspectId}
-            leadId={target.leadId || null}
-            phoneE164={target.phoneE164}
-            contactNumberId={target.contactNumberId || null}
-            businessName={target.businessName}
-            fallbackHref={space.href}
+            leadId={dialTarget.leadId || null}
+            phoneE164={dialTarget.phoneE164}
+            contactNumberId={dialTarget.contactNumberId || null}
+            businessName={dialTarget.businessName}
+            callLabel={dialTarget.callLabel || null}
+            fallbackHref={dialHref}
             onWorked={onWorked}
             autoDial={autoDial}
             onAutoDialResult={onAutoDialResult}
             slots={slots}
             beforeDial={beforeDial}
-            onLiveCall={onLiveCall}
+            onLiveCall={handleLiveCall}
             dialRequest={dialRequest}
           />
           {compact ? (

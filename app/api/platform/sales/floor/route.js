@@ -38,14 +38,13 @@ import { NextResponse } from "next/server";
 import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
 import { getAppOrigin } from "@/lib/appUrl";
 import { db } from "@/lib/db";
-import { inboundCalls, salesCallerNumbers, SALES_VOICE_PURPOSES } from "@/lib/sales/calls/store";
+import { inboundCalls, salesCallerNumbers } from "@/lib/sales/calls/store";
 import { inboundOutcome } from "@/lib/sales/calls/missed";
-import { salesNumberWebhookAudit } from "@/lib/voice/numberAudit";
-import { INBOUND_WEBHOOK_PATH } from "@/lib/sales/calls/inboundRouting";
 import {
   inboundWebhookUrl,
   salesVoiceInboundState,
 } from "@/lib/sales/calls/inboundRouting";
+import { readSalesNumberConfig } from "@/lib/sales/calls/numberConfig";
 import { floorBoard } from "@/lib/sales/calls/floorBoard";
 import { TEAM_LEAD_CANNOT_SEE } from "@/lib/sales/team";
 import { dialModeState } from "@/lib/sales/calls/dialMode";
@@ -63,8 +62,10 @@ export async function GET(request) {
   }
 
   const now = new Date();
-  const board = await floorBoard({ repIds: null, now });
-  const { store, period, reps, states, pauseReasons, campaigns, anyLive, notTracked, serverNow } = board;
+  // withCosts: this is the one caller that may see what FieldQuo pays for
+  // the day's calls — lib/sales/calls/floorBoard.js.
+  const board = await floorBoard({ repIds: null, now, withCosts: true });
+  const { store, period, reps, states, pauseReasons, campaigns, anyLive, notTracked, serverNow, dialler, connect, cost } = board;
   const { from } = period;
 
   if (!store.ready) {
@@ -94,22 +95,17 @@ export async function GET(request) {
   // `undefined` on failure rather than [], so the screen can tell "nobody rang
   // today" from "we could not look" — the two are the same empty array and
   // different facts.
-  const [agent, inbound, voiceNumbers, numberRows] = await Promise.all([
+  const origin = getAppOrigin(request);
+  const [agent, inbound, voiceNumbers, numberConfig] = await Promise.all([
     salesAgentRow().catch(() => null),
     inboundCalls({ from, to: now }).catch(() => undefined),
     salesCallerNumbers().catch(() => undefined),
-    // Every active sales number WITH its stored voice URL, for the webhook
-    // audit — salesCallerNumbers() deliberately returns only the ones that
-    // carry one, and a number with none is exactly what the audit must show.
-    db.platformSmsNumber
-      .findMany({
-        where: { purpose: { in: SALES_VOICE_PURPOSES }, active: true },
-        select: { e164: true, purpose: true, voiceUrl: true, assignedRep: { select: { name: true } } },
-        orderBy: { e164: "asc" },
-      })
-      .catch(() => undefined),
+    // The numbers' configuration AT TWILIO, cached for ten minutes: the
+    // board polls every fifteen seconds and the carrier's number list does
+    // not change between polls. Only the count of misconfigured numbers
+    // reaches this screen; the table is on /platform/crew-lines.
+    cachedNumberConfig(origin, now).catch(() => null),
   ]);
-  const origin = getAppOrigin(request);
   // inboundCalls() lives in store.js, which the call-outcome work is editing
   // concurrently, so the two columns the outcome needs are read beside it
   // rather than added to its select. One query for the page's hundred rows.
@@ -146,22 +142,18 @@ export async function GET(request) {
       transferConfigured: Boolean(process.env.FIELDQUO_SALES_TRANSFER_TO),
       anyLive,
       webhookUrl: inboundWebhookUrl(origin),
+      misconfigured: numberConfig && !numberConfig.twilioError ? numberConfig.counts.misconfigured : null,
+      configUnknown: !numberConfig || Boolean(numberConfig.twilioError),
     }),
-    // Per number: does its voice URL point at THIS deployment. null when the
-    // rows could not be read, which the page says rather than showing zero.
-    numberAudit:
-      numberRows === undefined
-        ? null
-        : salesNumberWebhookAudit({
-            numbers: numberRows.map((n) => ({
-              e164: n.e164,
-              purpose: n.purpose,
-              voiceUrl: n.voiceUrl,
-              assignedRepName: n.assignedRep?.name || null,
-            })),
-            origin,
-            inboundPath: INBOUND_WEBHOOK_PATH,
-          }),
+    // The per-number table left this screen on 2026-09-17; the link is to
+    // where it went. Said as a path rather than rebuilt here.
+    numberConfigHref: "/platform/crew-lines#sales-number-configuration",
+    // The dialler's numbers, the three rates and today's cost — the four
+    // entries the "does not show" list used to refuse, with their
+    // definitions. lib/sales/calls/reporting.js, conversation.js, costs.js.
+    dialler,
+    connect,
+    cost,
     inboundCalls:
       inbound === undefined
         ? null
@@ -194,4 +186,21 @@ export async function GET(request) {
     teamLeadCannotSee: TEAM_LEAD_CANNOT_SEE,
     serverNow,
   });
+}
+
+// ── The Twilio number list, cached per instance ───────────────────────────
+//
+// Ten minutes. A misconfigured number stays misconfigured for longer than
+// that, and the crew-lines page reads it fresh on every load for anyone who
+// has just fixed one and wants to see the tick.
+const NUMBER_CONFIG_TTL_MS = 10 * 60 * 1000;
+let numberConfigCache = { origin: null, at: 0, value: null };
+async function cachedNumberConfig(origin, now) {
+  if (numberConfigCache.value && numberConfigCache.origin === origin && now.getTime() - numberConfigCache.at < NUMBER_CONFIG_TTL_MS) {
+    return numberConfigCache.value;
+  }
+  const value = await readSalesNumberConfig({ origin });
+  // A failed ask is not cached: the next poll tries again.
+  if (!value.twilioError) numberConfigCache = { origin, at: now.getTime(), value };
+  return value;
 }

@@ -524,9 +524,25 @@ export async function POST(request) {
     //
     // Asked BEFORE the number is chosen, so the choice cannot change the
     // answer, and so a rep is never told "pick a different one".
+    // ── A number typed into the dial pad that is not on the record ───────
+    //
+    // The console's ordinary path saves a typed number onto the record first
+    // (POST /api/sales/calls/numbers) and dials it by the id handed back, so
+    // this route still never rings a number the browser named. The ONE
+    // exception is a TEST dial: a typed number that is one of FieldQuo's own
+    // test lines, or any number typed by a test account. Neither is saved on
+    // the record — the owner, 2026-09-17, after his own mobile was offered
+    // to DRAIN KINGS's contact list: "it is the number that is being called,
+    // right?" — so the numbers route refuses to store it and the screen
+    // sends it here as `typedE164` instead. It is judged below, AFTER
+    // do-not-contact and the suppression read (it is on `everyNumber`), and
+    // refused outright for anybody who is neither: for them the toll-fraud
+    // argument above stands unchanged, and the browser's own step would
+    // have saved it first anyway.
+    const typedE164 = typeof body.typedE164 === "string" ? normalisePhone(body.typedE164) : null;
     const everyNumber = [
       ...new Set(
-        [target.phoneE164, ...contactRows.map((r) => r.e164)].map(normalisePhone).filter(Boolean),
+        [target.phoneE164, ...contactRows.map((r) => r.e164), typedE164].map(normalisePhone).filter(Boolean),
       ),
     ];
     //
@@ -551,14 +567,47 @@ export async function POST(request) {
       );
     }
 
-    const chosen = pickContactNumber({
-      target,
-      rows: contactRows,
-      contactNumberId:
-        typeof body.contactNumberId === "string" ? body.contactNumberId.trim() : "",
-      channel: CHANNEL_VOICE,
-      ourNumbers: ours,
-    });
+    // ── Test dial? ────────────────────────────────────────────────────────
+    //
+    // Two facts, both read here and now: the rep row's flag (the gate
+    // selected it in this request) and the platform's test-line list. A
+    // dial by a test account is judged exactly like a dial to a test line —
+    // lib/sales/callingRules.js has ONE path for both — and the row this
+    // dial writes carries jurisdictionCode "test", which every count
+    // excludes. Neither steps past the do-not-contact and suppression
+    // refusals above; both are asked first, on purpose.
+    const testLines = await loadTestLines();
+    const testAccount = rep.testAccount === true;
+
+    const typedIsStored =
+      Boolean(typedE164) &&
+      (normalisePhone(target.phoneE164) === typedE164 || contactRows.some((r) => normalisePhone(r.e164) === typedE164));
+    let chosen;
+    if (typedE164 && !typedIsStored) {
+      if (!testAccount && !isTestLine(typedE164, testLines)) {
+        return NextResponse.json(
+          {
+            error: "That number is not one of this record's stored numbers. Save it on the record first — the Call button does that on its own.",
+            reason: "not_on_this_record",
+          },
+          { status: 409 },
+        );
+      }
+      // Not saved on the record, by design (see above). The attempt row still
+      // names the prospect or lead the rep was looking at, so the transcript
+      // and the QA know which script was on screen; the record's own number
+      // list is untouched.
+      chosen = { ok: true, e164: typedE164, numberId: null, choice: null, typed: true };
+    } else {
+      chosen = pickContactNumber({
+        target,
+        rows: contactRows,
+        contactNumberId:
+          typeof body.contactNumberId === "string" ? body.contactNumberId.trim() : "",
+        channel: CHANNEL_VOICE,
+        ourNumbers: ours,
+      });
+    }
     if (!chosen.ok) {
       return NextResponse.json(
         { error: chosen.error, reason: chosen.code, choices: chosen.choices, refused: chosen.refused },
@@ -589,7 +638,7 @@ export async function POST(request) {
     // do-not-contact and suppression reads above, which a test line never
     // steps past. Read fresh here, like the override: a setting edited a
     // minute ago binds this dial, and a screen's earlier answer does not.
-    const testLine = isTestLine(dialTo, await loadTestLines());
+    const testLine = isTestLine(dialTo, testLines);
 
     const readiness = salesCallReadiness({
       prospect: { country: target.country, province: target.province },
@@ -603,8 +652,9 @@ export async function POST(request) {
       windowPolicy: await windowPolicyForProspect({ country: target.country, province: target.province }, { now }),
       // The row this dial writes then carries jurisdictionCode "test"
       // (recordDial freezes readiness.jurisdiction.code), which is what
-      // every count excludes on.
+      // every count excludes on. Same row, same code, for a test account.
       testLine,
+      testAccount,
     });
 
     if (readiness.decision !== CALL_ALLOWED) {
@@ -617,6 +667,9 @@ export async function POST(request) {
     }
 
     const channel = body.channel === "browser" ? "browser" : "handset";
+    // Who pressed. Two words accepted; anything else is "not recorded",
+    // never silently "manual" — see SalesCallAttempt.dialSource.
+    const source = body.source === "autodial" || body.source === "manual" ? body.source : null;
 
     let plan = null;
     if (channel === "browser") {
@@ -645,6 +698,7 @@ export async function POST(request) {
       toE164: dialTo,
       fromE164: plan?.callerId || null,
       dialChannel: channel,
+      dialSource: source,
       readiness,
       now,
     });
@@ -674,6 +728,9 @@ export async function POST(request) {
       // digits the rep has to recognise.
       contactNumberId: chosen.numberId,
       contactLabel: chosen.choice?.label || null,
+      // A typed test number the record does not carry — the screen says
+      // "not saved on this lead" from this, not from what it assumed.
+      typedNotSaved: chosen.typed === true,
       compliance: readiness,
       attemptsLast24h: attempts24h,
       serverNow: now.toISOString(),

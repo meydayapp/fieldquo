@@ -44,6 +44,7 @@ import { searchLocalNumbers } from "@/lib/voice/numberSearch";
 import { auditCrewLines } from "@/lib/crew/lineAudit";
 import { sharedLineAdvice } from "@/lib/crew/sharedLineAdvice";
 import { describeFailure, describeVendorFailure } from "@/lib/platform/diagnostics";
+import { readSalesNumberConfig } from "@/lib/sales/calls/numberConfig";
 
 export async function GET(request) {
   const admin = await getCurrentPlatformAdmin(request);
@@ -125,6 +126,13 @@ export async function GET(request) {
     },
   });
 
+  // The sales numbers' configuration AT TWILIO — voice URL and status
+  // callback — for the "Sales number configuration" section. Its own read
+  // rather than a re-use of `numbers` above, which is SMS-capable numbers
+  // only and would miss every call-only sales_voice line. null is "could
+  // not read", which the page says rather than showing an empty table.
+  const salesNumberConfig = await readSalesNumberConfig({ origin: getAppOrigin(request) }).catch(() => null);
+
   const audit = auditCrewLines({
     numbers,
     rows,
@@ -171,6 +179,7 @@ export async function GET(request) {
       }),
     },
     numbersError,
+    salesNumberConfig,
     ...audit,
   });
 }

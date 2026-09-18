@@ -71,6 +71,119 @@ the research doc. `check:playbook-voice` has one pre-existing failure on
   detector fired at Gong's own sentence, the calendar close, the gatekeeper's
   three people, the research doc's figures by value). Token bounds raised
   to 3,000 / 5,000 with the measured cost beside them.
+## Google Places corroborates every claimed lead: website, phone and trading status confirmed or contradicted in words (18 September 2026)
+
+DRAIN KINGS (Chatsworth, from the CSLB C-36 register) read "Website: none on
+record — nothing has crawled this business" while drainkingslosangeles.com was
+the first Google result. Zero of 321,668 prospects carried a `googlePlaceId`.
+
+**What runs now**
+
+- `lib/sales/intel/places.js` — Places Text Search (New), a twelve-field mask
+  (Enterprise SKU, US$35 / 1,000, 1,000 a month free; pricing page read
+  2026-09-17). A listing is attached only when the NAME overlaps ≥ 0.6 after
+  suffix stripping and stemming AND the PLACE agrees — a strong signal (postal
+  code, street number + street, pin within 1 km) or a weak one (city, within
+  5 km) when the name carries a distinctive token. Anything weaker is
+  `no_confident_match` with the top candidate for a human. Blanks only are
+  filled; Google's values sit in `placesResult` beside the record's; a
+  different Google phone becomes a `SalesContactNumber`; every field is a
+  `ProspectEvidence` row (google / google_field). `placesResult.confirmations`
+  records confirmed vs contradicted per field — "Google confirms the phone;
+  Google lists a website the register did not" — and the rep card prints it
+  as a "Google check" row in nine languages; the brief carries it as a fact
+  sourced to Google, a PERMANENTLY CLOSED listing first (flagged, never
+  suppressed). A row that gains a website has `CRAWL_WEBSITE` queued directly
+  (forced, claimed lane) so the whole chain re-runs through the script.
+- `POST /api/platform/sales/prospects/enrich` (superadmin, 300 s): `held`,
+  `ids[]`, or `queue` — the pool is refused without `confirm: true` and
+  answers with its size and projected cost. The rep's claim route asks Google
+  after the response (`after()`) for never-checked rows the rep holds.
+- `lib/sales/intel/placesSweep.js` — the standing job: 25 lookups per rep per
+  clock hour, in queue order, from `/api/cron/sales-pipeline`; the counter is
+  on `/platform/sales/prospects` ("Google check: 24/25 this hour for Favor ·
+  next window 23:00") beside the verdict tallies, this month's requests and
+  spend, and "Check Google" on every prospect. Every request is metered into
+  `PlatformCostDaily` (`google_places`) and is the fifth line on
+  `/platform/costs`.
+- `scripts/check-places-enrich.mjs` — 93 executed checks; the generic-name
+  rule and the never-overwrite guard were mutation-tested.
+
+**The held batch, run 2026-09-18 03:03 UTC** — 138 held, 19 skipped as
+do-not-contact, 119 requests (US$4.17 at list price, inside Google's free
+thousand): 82 matched, 23 no confident match, 12 no results, 2 duplicate
+listings (two held rows share one Place ID — a dedupe signal for the Review
+folder), 1 permanently closed (Surface Magic, LLC). Phone confirmed 70,
+contradicted 12; website confirmed 62, contradicted 9 (4 gained a website the
+register lacked, crawls queued — Drain Kings among them). Ratings gained 76.
+
+### Still owed here
+
+- The pool: 321,000 claimable rows unchecked, roughly US$11,200 at list price.
+  Projected on the panel; runs only on the owner's yes (`confirm: true`).
+- A Google website that DIFFERS from the record's is recorded beside it and
+  never crawled — the record's URL keeps the crawl. Whether a superadmin may
+  swap them is a product decision.
+- 19 held prospects are do-not-contact and still held; the check skips them,
+  the queue should probably release them.
+- `duplicate_place` sets no `possibleDuplicateOfId`; the Review folder does
+  not yet read the Places verdict.
+
+---
+
+## What the floor costs, printed: cost per conversation, cost per signup, and the dialler's own numbers (18 September 2026)
+
+The owner reviewed `/platform/sales/floor`'s "What this board deliberately does
+not show" list and found three of its five entries stale — the dialler, voicemail
+and the transcript all existed by then — and asked for the fourth, cost per
+conversation, because he pays it.
+
+**Shipped**
+
+- `lib/sales/calls/conversation.js` — a CONVERSATION is a connected browser
+  call on which the contractor's transcript track carries
+  `CONVERSATION_MIN_CONTRACTOR_WORDS` (20) or more words. Three rates side by
+  side, each labelled: the carrier's answer rate, the transcript's conversation
+  rate (denominator = connected calls whose transcript exists; "not yet known"
+  is split into recorded-and-waiting vs never-recorded), and the rep's reported
+  reach rate.
+- `diallerStats()` in `lib/sales/calls/reporting.js` — autodial vs manual
+  presses (`SalesCallAttempt.dialSource`, sent by `CallPanel.place()`; null on
+  older rows reads as "unrecorded", never "manual"), answered / rang out /
+  abandoned (rep hung up before answer) / open, dials per floor hour with
+  pauses excluded, median time between calls with breaks over 30 min left out.
+- `lib/sales/calls/costs.js` — per call: Twilio price over EVERY leg (browser
+  + PSTN, fetched from the Calls resource by `reconcileCarrierPrices()` in the
+  every-minute cron once Twilio has priced it; `providerPriceCheckedAt` stops a
+  row being asked about hourly for ever) + recording at $0.0025/min ×
+  `recordingSeconds` + transcription (`PlatformAiUsage` ref `transcript:<sid>`)
+  + QA scoring (ref prefix `qa:<attemptId>` or `SalesCallQa.costMicros`). A
+  part that is not known is named, per call and per period, and a quotient
+  with an unknown part is printed as a floor.
+- `PlatformCostDaily` + `lib/platform/costs/` — Twilio Usage Records
+  (calls-outbound, calls-inbound, calls-client, recordings, recordingstorage,
+  transcriptions, phonenumbers, sms-outbound, sms-inbound, totalprice) pulled
+  hourly for the last three days, upserted by (day, provider, category);
+  `/platform/costs` (superadmin; sidebar under FieldQuo's own systems) by
+  day / week / month with totals per provider, cost per conversation, cost
+  per signup (sales-side and all-in) per rep and per agency, every figure
+  with its source and as-of. "Pull this period from Twilio now" on the page.
+- The floor board's inbound block is one true paragraph; the per-number
+  webhook table moved to `/platform/crew-lines#sales-number-configuration`,
+  read LIVE from Twilio (`lib/sales/calls/numberConfig.js`: voice URL and
+  status callback per number, ✓ or the fault), with a warning line on the
+  floor only when a number is misconfigured.
+- `scripts/check-sales-costs.mjs` (in `check:all`).
+
+### Still owed here
+
+- Retell's number rent is printed as unknown with the count held — no Retell
+  usage API is wired. Retell calls with no `providerCostCents` are counted, not
+  summed.
+- Cost per signup attributes every `PlatformAiUsage` row to the sales side;
+  a per-campaign split would need `campaignId` joined to attribution.
+- The Twilio account total covers tenants' crew-line texts too; the
+  sales-side figure uses the store's per-call composition for that reason.
 
 ---
 
@@ -13385,3 +13498,53 @@ his handset) — so he adds it on the Calling windows page. Inbound rows from
 a test line (a ring-back) are written by `app/api/rep-dial/inbound`, which
 was out of scope, and carry no mark; the floor board's "came in today"
 still counts one.
+
+**3. The test ACCOUNT, and a typed test number that is never saved (17
+September 2026, later the same evening).** The owner, told exactly why the
+per-account bypass had been refused, reaffirmed it: his own rep account
+tests the dialler at all hours. Built as a FLAG on the row, never an email:
+`SalesRep.testAccount Boolean @default(false)` (added to production with
+`ADD COLUMN IF NOT EXISTS` — the `migrate diff` against the live database
+carried four DROPs belonging to siblings' in-flight schema, so no `db
+push`). One path, not two: `salesCallReadiness({ testLine, testAccount })`
+returns the same shape with `jurisdiction.code = "test"` and a `testMode`
+of `line` or `account`; the umbrella `testLine: true` stays so the queue's
+grouping, the retry pool and every count need no second edit. The account
+caveat has its own words (`app.salesDial.unenforced.testAccount.*`, nine
+languages) and says do-not-contact still applies — the dial route reads
+the flag off the rep row AFTER the do-not-contact and suppression reads.
+All four rep gates select it fresh per request; the queue route passes it
+for the current pane, the list (`groupByWindow({ testAccount })` → every
+row callable now, unscored, unheld) and `rep.testAccount`; the lead route
+through `leadDialView`; the screens re-pass the literal true. Portal: one
+persistent amber line under the top bar from `/api/sales/me`
+(`app.salesPortal.testAccountBanner`). Console: the rep card's "Test
+account" block — superadmin-only, a confirm, `PATCH { testAccount }`,
+audit `sales_rep_test_account_set` with before/after; refused (409) for an
+agency, an influencer ledger and any rep with a commission entry ("a test
+account earns nothing"), and the card withholds the control with the
+reason in those states. Inbound left alone. **Daniel's row is NOT flipped**
+— the owner flips it on his card. His live test the same night ("it is
+the number that is being called, right?") added the typed-number rule: a
+number typed into the pad that is a test line, or typed by a test account,
+is NEVER saved on the record — `POST /api/sales/calls/numbers` refuses it
+with code `test_line` / `test_account`, the pad rings it unsaved as
+`typedE164`, and `POST /api/sales/calls` accepts `typedE164` ONLY for those
+two cases (everybody else: 409 `not_on_this_record`, so the no-number-on-
+the-wire rule holds for whom it was written), judged after suppression
+(the typed number is on `everyNumber`); the attempt still names the
+prospect on screen. The pad asks `GET /api/sales/calls/test-line?e164=`
+(one number in, one boolean out, list never returned) so the readiness is
+judged as a test BEFORE the lead's jurisdiction — no "New York's rule"
+over an exempt dial — and says "Test line — not saved on this lead,
+calling window not applied" under the field; the Call button names the
+NUMBER ("Call +1 613 555 0100", `formatE164ForReading`) when it is not a
+stored one. `check-sales-test-line.mjs` grew to 169 assertions (sections 6
+and 7); `check-sales-console`, `check-free-dial`, `check-queue-windows`
+and `check-sales-retry-pool` were updated for the new shapes. Found while
+verifying: the test-line list in production is still EMPTY, and Daniel's
+handset (+1 819 238 7263, by his own dials) sits as a stored contact
+number on two records he tested with earlier — "Urban Valet Cleaners
+Corporate Offices" (NY) and "ACME LOCK & SAFE" (CA) — which he removes by
+hand; nothing was deleted here. `check:sales-retry-pool`'s "retry_but_shut"
+assertion fails on main before this work and still does; not touched.
