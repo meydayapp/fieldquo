@@ -44,6 +44,7 @@ import {
   GripVertical,
   AlertTriangle,
   Trash2,
+  MapPinOff,
 } from "lucide-react";
 
 import { useTranslation } from "@/app/hooks/useTranslation";
@@ -64,6 +65,8 @@ import {
   humaniseKey,
 } from "@/lib/leads/intakeShape";
 import { wasAsked } from "@/lib/leads/qualifiers";
+import { serviceAreaCopy } from "@/lib/company/serviceArea";
+import { tradeQuestionCopy, whenNeededLabel } from "@/lib/leads/tradeQuestions";
 import { summarisePotential } from "@/lib/leads/potentialValue";
 import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
 
@@ -107,6 +110,67 @@ const TIMELINE_LABEL_KEY = {
   "1_3_months": "app.leads.tl13Months",
   exploring: "app.leads.tlExploring",
 };
+
+// ── What the public flows put in `intake` and how it reads on the board ────
+//
+// The booking page and the instant estimate store three things beside the
+// funnel's own answers (lib/leads/tradeQuestions.js, lib/company/serviceArea.js):
+//
+//   whenNeeded          the ladder option actually tapped ("within_month"),
+//                       finer than the scorer's `timeline` it was folded to
+//   activeLeak, scope…  the trade's one or two questions, by key
+//   outsideServiceArea  true when the address fell outside the company's area
+//
+// All three are keys, not sentences, so the generic "humanise the key" row
+// would print "active leak: yes" at staff. They are rendered through the same
+// copy tables the homeowner saw the question in, in the STAFF's language —
+// "Active leak: Yes" — and the area flag is a badge, not a row.
+const TRADE_ANSWER_KEYS = new Set(Object.keys(tradeQuestionCopy("en").questions));
+const INTAKE_KEYS_HANDLED_ELSEWHERE = new Set(["outsideServiceArea"]);
+
+/** "Within a month" — the tapped option, or null when the intake carries none. */
+function whenNeededOf(lead, language) {
+  const key = lead?.intake?.whenNeeded;
+  return typeof key === "string" ? whenNeededLabel(key, language) : null;
+}
+
+/**
+ * The label and value for one intake row, or null to drop the row. Trade
+ * answers and the timeline resolve through their copy tables; anything else
+ * falls back to the generic humanised key.
+ */
+function intakeRow([key, value], language) {
+  if (INTAKE_KEYS_HANDLED_ELSEWHERE.has(key)) return null;
+  const copy = tradeQuestionCopy(language);
+  if (key === "whenNeeded") {
+    const label = whenNeededLabel(value, language);
+    return label ? { label: copy.whenLabel, value: label, raw: false } : null;
+  }
+  if (TRADE_ANSWER_KEYS.has(key)) {
+    // The question with its trailing "?" (and French's space before it)
+    // removed reads as a label — the same trim tradeAnswerLines applies to
+    // the quote's notes, so the board and the quote say the same thing.
+    const label = (copy.questions[key] || key).replace(/\s* ?[?¿]+\s*$/u, "").replace(/^¿/, "");
+    const shown = typeof value === "string" ? copy.options[value] || formatIntakeValue(value) : formatIntakeValue(value);
+    return { label, value: shown, raw: false };
+  }
+  return { label: humaniseKey(key), value: formatIntakeValue(value), raw: true };
+}
+
+/** "Outside usual service area" — the flag the public flow set on the lead. */
+function OutsideAreaBadge({ language, size = "sm" }) {
+  const text = serviceAreaCopy(language).outsideBadge;
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 font-medium ${
+        size === "lg" ? "text-xs px-2.5 py-1" : "text-[11px] px-2 py-0.5"
+      }`}
+    >
+      <MapPinOff size={size === "lg" ? 13 : 11} aria-hidden="true" />
+      {text}
+    </span>
+  );
+}
 
 function initials(name) {
   return String(name || "")
@@ -746,8 +810,14 @@ function DraggableLeadCard({ lead, tone, onOpen, t, disabled }) {
 }
 
 function LeadCard({ lead, tone, onOpen, t, dragHandle }) {
+  const { language } = useTranslation();
   const budgetKey = BUDGET_LABEL_KEY[lead.budgetBand];
   const timelineKey = TIMELINE_LABEL_KEY[lead.timeline];
+  // The option the homeowner actually tapped beats the scorer's bucket it was
+  // folded into: "Within a month" is what they said, "Within 2 weeks" is how
+  // it was scored.
+  const whenNeeded = whenNeededOf(lead, language);
+  const outsideArea = lead.intake?.outsideServiceArea === true;
   // Counted by kind, not by array length. The badge next to a film icon used to
   // be `clientPhotos.length`, which was fine while the array could only hold
   // photos and clips — now that a client can attach a PDF plan, that same number
@@ -779,13 +849,14 @@ function LeadCard({ lead, tone, onOpen, t, dragHandle }) {
             instruction: book the on-site visit. */}
         {lead.callbackRequestedAt && <CallbackBadge lead={lead} t={t} />}
 
-        {(budgetKey || timelineKey) && (
+        {(budgetKey || timelineKey || whenNeeded || outsideArea) && (
           <div className="mt-2 flex flex-wrap gap-1.5">
-            {timelineKey && (
+            {(whenNeeded || timelineKey) && (
               <span className="text-[11px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-                {t(timelineKey)}
+                {whenNeeded || t(timelineKey)}
               </span>
             )}
+            {outsideArea && <OutsideAreaBadge language={language} />}
             {budgetKey && lead.budgetBand !== "unsure" && (
               <span className="text-[11px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
                 {t(budgetKey)}
@@ -843,6 +914,7 @@ function LeadCard({ lead, tone, onOpen, t, dragHandle }) {
 }
 
 function LeadDrawer({ leadId, assignees, onClose, onPatched, t }) {
+  const { language } = useTranslation();
   const [lead, setLead] = useState(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
@@ -958,7 +1030,11 @@ function LeadDrawer({ leadId, assignees, onClose, onPatched, t }) {
   // from a Places pick printed its address on the contact line AND then three
   // more rows — "city: Ottawa", "province: ON" — under "What they told us",
   // which is not a thing anybody told us. See lib/leads/intakeShape.js.
-  const intakeEntries = leadIntakeDetails(lead?.intake);
+  // …and then through the copy tables, so a trade answer prints as the
+  // question it answered. See intakeRow.
+  const intakeEntries = leadIntakeDetails(lead?.intake)
+    .map((entry) => ({ key: entry[0], ...intakeRow(entry, language) }))
+    .filter((row) => row.label);
   const addressLine = leadAddressLine(lead?.intake);
 
   return (
@@ -1013,6 +1089,11 @@ function LeadDrawer({ leadId, assignees, onClose, onPatched, t }) {
               {lead.callbackRequestedAt && (
                 <div className="mt-2">
                   <CallbackBadge lead={lead} t={t} detail />
+                </div>
+              )}
+              {lead.intake?.outsideServiceArea === true && (
+                <div className="mt-2">
+                  <OutsideAreaBadge language={language} size="lg" />
                 </div>
               )}
               <div className="mt-1 text-xs text-muted-foreground">
@@ -1148,14 +1229,18 @@ function LeadDrawer({ leadId, assignees, onClose, onPatched, t }) {
               <div>
                 <div className="text-xs font-semibold text-foreground mb-1">{t("app.leads.details")}</div>
                 <dl className="text-xs">
-                  {intakeEntries.map(([k, v]) => (
-                    <div key={k} className="flex justify-between gap-3 py-0.5 border-b border-border/50">
-                      <dt className="text-muted-foreground capitalize">{humaniseKey(k)}</dt>
+                  {intakeEntries.map((row) => (
+                    <div key={row.key} className="flex justify-between gap-3 py-0.5 border-b border-border/50">
+                      {/* `capitalize` only on the humanised keys: a label from
+                          the copy table is already a sentence, and Tailwind's
+                          capitalize would turn "Is there an active leak" into
+                          "Is There An Active Leak". */}
+                      <dt className={`text-muted-foreground ${row.raw ? "capitalize" : ""}`}>{row.label}</dt>
                       {/* formatIntakeValue, not String(v): the junk-removal
                           picker stores [{key, quantity}] and the funnels store
                           arrays of chosen labels, both of which printed
                           "[object Object]" at the estimator. */}
-                      <dd className="text-foreground text-right">{formatIntakeValue(v)}</dd>
+                      <dd className="text-foreground text-right">{row.value}</dd>
                     </div>
                   ))}
                 </dl>

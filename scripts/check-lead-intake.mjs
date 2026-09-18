@@ -434,6 +434,59 @@ async function convertOnce(intake, { email = "homeowner@example.com" } = {}) {
   ok(client.address === "88 Elm Ave", "a phone lead's spoken address converts too");
 }
 
+// ── The trade answers reach the draft quote ───────────────────────────────
+//
+// The booking page and the instant estimate store "when do you need this"
+// and the trade's one or two questions in `intake` (lib/leads/tradeQuestions.js,
+// keys `whenNeeded`, `activeLeak`, `scope`, …). A roofer opening the draft
+// has to see "Active leak: Yes" in its notes, in the company's language —
+// otherwise the one answer that decides whether the van goes today lives on
+// the lead board and nowhere the quote is written.
+{
+  resetDbStub();
+  rows.company = [{ id: "co1", defaultLanguage: "fr" }];
+  rows.serviceCategory = [{ id: "cat-roof", key: "roofing_service", label: "Roofing" }];
+  const lead = {
+    id: "lead2",
+    companyId: "co1",
+    name: "Marc Tremblay",
+    email: "marc@example.com",
+    phone: null,
+    categoryId: "cat-roof",
+    message: "Water coming through the bedroom ceiling.",
+    budgetBand: null,
+    timeline: "asap",
+    clientPhotos: [],
+    intake: buildLeadIntake({
+      address: "12 Main St",
+      details: { whenNeeded: "today", activeLeak: "yes", outsideServiceArea: true },
+    }),
+    language: "en",
+    quoteId: null,
+  };
+  rows.leadRequest = [lead];
+  await convertLeadToQuote({ lead, member: { userId: "u1" }, company: { id: "co1", defaultLanguage: "fr" } });
+  const quote = writes.find((w) => w.model === "quote" && w.action === "create")?.data || null;
+  ok(Boolean(quote), "converting a booking-page lead created a quote");
+  const notes = String(quote?.notes || "");
+  ok(/Délai souhaité: Aujourd'hui/.test(notes), "the tapped 'when' option is on the draft, in the COMPANY's language", notes);
+  ok(/Y a-t-il une fuite active: Oui/.test(notes), "…and the trade question with its answer, as a label", notes);
+  ok(!/Timeline:/.test(notes), "the scorer's coarser Timeline line is not printed beside it", notes);
+  ok(/Water coming through/.test(notes), "the homeowner's own message still follows", notes);
+  ok(!/outsideServiceArea/.test(notes), "the service-area flag is a badge on the board, not a line on the quote", notes);
+  ok(quote?.language === "en", "the quote itself keeps the HOMEOWNER's language — the notes are for the estimator");
+
+  // The same lead with no category: no trade lines, and the scorer's timeline
+  // is back — nothing invented, nothing lost.
+  resetDbStub();
+  rows.company = [{ id: "co1", defaultLanguage: "en" }];
+  const bare = { ...lead, id: "lead3", categoryId: null, email: "marc2@example.com", intake: buildLeadIntake({ address: "12 Main St" }) };
+  rows.leadRequest = [bare];
+  await convertLeadToQuote({ lead: bare, member: { userId: "u1" }, company: { id: "co1", defaultLanguage: "en" } });
+  const bareNotes = String(writes.find((w) => w.model === "quote" && w.action === "create")?.data?.notes || "");
+  ok(/Timeline: /.test(bareNotes) && !/When needed/.test(bareNotes), "a lead with no trade answers gets the scorer's Timeline line and no invented answer", bareNotes);
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 section("5. \"Not stated\" is not said about a question nobody asked");
 // ═══════════════════════════════════════════════════════════════════════════
