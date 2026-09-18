@@ -19,7 +19,7 @@ export default function SalesTeamPage() {
   // is shared with /platform and must not carry a sales-only data-tour.
   return (
     <div data-tour="sales-team">
-      <StaffChat heading={t("app.salesNotes.teamHeading")} />
+      <StaffChat heading={t("app.salesNotes.teamHeading")} height="fq-sales-fill" />
     </div>
   );
 }

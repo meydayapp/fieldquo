@@ -412,7 +412,11 @@ const SEND_ROUTE = "app/api/sales/checkins/[id]/send/route.js";
   // carrier starts in an event handler.
   const page = decomment(read("app/sales/messages/page.js"));
   ok("the screen sets no interval", !/setInterval\s*\(/.test(page));
-  ok("the screen sets no timeout", !/setTimeout\s*\(/.test(page));
+  // One setTimeout is allowed: the context pane's "Write a text" focuses
+  // the box a tick after the phone sheet closes. It focuses; it sends
+  // nothing — held to that by the assertion after it.
+  const timeouts = [...page.matchAll(/setTimeout\s*\(/g)];
+  ok("the screen sets no timeout, except the one that moves focus", timeouts.length === 1 && /document\.getElementById\("reply"\)/.test(page.slice(timeouts[0].index, timeouts[0].index + 400)) && !/fetchJson/.test(page.slice(timeouts[0].index, timeouts[0].index + 400)), timeouts.length);
 
   // The send URL appears, and only inside an onSend handler.
   ok("the screen knows the send route", /checkins\/\$\{[^}]+\}\/send/.test(page), "send URL");
@@ -704,15 +708,34 @@ section("4. Suppression — the screen offers nothing and the server refuses");
   ok("the compose box exists in the other half", /<Composer/.test(otherwiseHalf) && /textareaId="reply"/.test(otherwiseHalf));
   ok("…wired to the one send function", /onSend=\{send\}/.test(otherwiseHalf));
   ok("…as does the manual follow-up control", /app\.salesText\.parkOpen/.test(otherwiseHalf));
-  ok("an EMPTY thread gets the signup-link panel, not a free-text box",
-    /\(thread\.messages \|\| \[\]\)\.length === 0 && thread\.lead \? \(/.test(otherwiseHalf) && /<SignupLinkSms leadId=\{thread\.lead\.id\} inThread/.test(otherwiseHalf));
-  ok("…and that panel is the lead screen's own component", /import SignupLinkSms from "\.\.\/leads\/SignupLinkSms"/.test(page));
-  // The empty-thread branch, on its own: the introduction and NOTHING that
-  // takes free text. A composer beside the panel would post a first contact
-  // into the reply route's 409.
-  const emptyAt = otherwiseHalf.indexOf("length === 0 && thread.lead ? (");
-  const emptyBranch = emptyAt >= 0 ? otherwiseHalf.slice(emptyAt, otherwiseHalf.indexOf(") : ", emptyAt + 10)) : "";
-  ok("the empty-thread branch holds no free-text box", emptyBranch.length > 0 && !/<Composer/.test(emptyBranch) && !/<textarea/.test(emptyBranch), emptyBranch.slice(0, 80));
+  // ── The first message is the rep's to pick (2026-09-18) ──────────────
+  //
+  // Until then an EMPTY thread got the signup-link panel and NOTHING that
+  // took free text — the reply route refused a first contact. A company
+  // that said "text me instead" needs a free-form first message, so the
+  // route's rule is now "a lead behind the number" (asserted below on the
+  // route) and the screen offers three: the signup link (the same panel,
+  // capped and scrollable so its Send is never clipped), "as discussed"
+  // and write-your-own (the ordinary composer, pre-focused). A number on
+  // NOBODY's lead of the rep's gets the reason printed, never a box.
+  ok("an empty thread on the rep's lead is a first contact", /const firstContact = Boolean\(\s*thread && thread\.lead && !\(thread\.messages \|\| \[\]\)\.length && !thread\.company && !thread\.draftCompany && !demoThread,?\s*\)/.test(page));
+  ok("…with a picker of three, one of them write-your-own", /data-first-contact-picker=\{firstKind\}/.test(otherwiseHalf) && /\["own", PenLine/.test(otherwiseHalf) && /\["discussed", MessageSquare/.test(otherwiseHalf) && /\["signup", ExternalLink/.test(otherwiseHalf));
+  ok("…the signup pick is the lead screen's own panel, in a capped scroller", /firstContact && firstKind === "signup" \? \(/.test(otherwiseHalf) && /max-h-\[70%\] shrink-0 overflow-y-auto[^>]*data-first-contact="signup"/.test(otherwiseHalf) && /<SignupLinkSms leadId=\{thread\.lead\.id\} inThread/.test(otherwiseHalf) && /import SignupLinkSms from "\.\.\/leads\/SignupLinkSms"/.test(page));
+  ok("…and the other two picks are the ONE composer, wired to the one send", /autoFocus=\{firstContact\}/.test(otherwiseHalf) && (otherwiseHalf.match(/<Composer/g) || []).length === 1);
+  ok("?compose=own opens on write-your-own, and the choice never survives into the URL", /composeParam === "own" \|\| composeParam === "discussed" \? composeParam : "signup"/.test(page) && /next\.delete\("compose"\)/.test(page));
+  ok("\"as discussed\" loads the server's canned sentence into the box", /const entry = \(thread\?\.canned \|\| \[\]\)\.find\(\(c\) => c\.id === "discussed"\)/.test(page));
+  // The no-lead branch: the reason, and the two ways in — never a box.
+  const noLeadAt = otherwiseHalf.indexOf("length === 0 && !thread.lead ? (");
+  const noLeadBranch = noLeadAt >= 0 ? otherwiseHalf.slice(noLeadAt, otherwiseHalf.indexOf(") : (", noLeadAt + 10)) : "";
+  ok("a thread on nobody's lead of the rep's prints the reason and holds no box", noLeadBranch.length > 0 && !/<Composer/.test(noLeadBranch) && !/<textarea/.test(noLeadBranch) && /app\.salesText\.noLeadHeldBy/.test(noLeadBranch) && /app\.salesText\.noLeadNobody/.test(noLeadBranch), noLeadBranch.slice(0, 80));
+  ok("…another rep's number says whose, from the server's holder read", /thread\.holder\?\.kind === "other"/.test(noLeadBranch) && /thread\.holder\.name/.test(noLeadBranch));
+  ok("the save-as-lead href comes from the import-free builder, never callerLinks (which reaches lib/db)", /from "@\/lib\/sales\/calls\/callerHrefs"/.test(page) && !/callerLinks/.test(page) && !/^import/m.test(read("lib/sales/calls/callerHrefs.js")));
+  ok("…nobody's offers \"Text this number now\" (startTextThread's door) and \"Save as a new lead\" (the leads page's ?new=1&phone= door)", /onClick=\{claimAndCompose\}/.test(noLeadBranch) && /href=\{newLeadHref\(openWith\)\}/.test(noLeadBranch) && /fetchJson\("\/api\/sales\/messages\/start", \{ method: "POST", body: \{ phone: openWith \} \}\)/.test(page));
+  // The zone row: the readiness's own blocker answered in place, written
+  // by Send through the lead route (never a second zone list here).
+  ok("the time-zone blocker is answered by a row above the box, over the server's list", /const zoneAsked = Boolean\(zoneBlocker && thread\?\.lead\?\.id && Array\.isArray\(thread\?\.timeZones\)\)/.test(page) && /data-thread-zone-select/.test(otherwiseHalf) && /\(thread\.timeZones \|\| \[\]\)\.map/.test(otherwiseHalf));
+  ok("…pre-filled with the area code's suggestion, said as a suggestion", /setZoneChoice\(\(current\) => current \|\| thread\?\.suggestedTimeZone\?\.timeZone \|\| ""\)/.test(page) && /app\.salesText\.zoneSuggested/.test(otherwiseHalf));
+  ok("…and Send writes it on the lead BEFORE the text goes", (() => { const fn = page.slice(page.indexOf("async function send()")); const z = fn.indexOf("method: \"PATCH\",\n          body: { timeZone: zoneChoice }"); const p = fn.indexOf("fetchJson(\"/api/sales/messages\", {"); return z > 0 && p > z; })());
 
   // And the draft's own send button is withheld the same way — for a
   // suppressed thread only. A demo thread KEEPS its Send (the send path
@@ -722,6 +745,28 @@ section("4. Suppression — the screen offers nothing and the server refuses");
   const draftUi = decomment(read("app/sales/messages/CheckInDraft.js"));
   ok("…and the draft withholds the button rather than disabling it",
     /canSend \? \(/.test(draftUi) && /app\.salesText\.sendNow/.test(draftUi));
+}
+
+{
+  // ── The reply route's first-contact rule: a lead, not the link ────────
+  //
+  // Executed on the source, since the handler reaches the database: the
+  // refusal fires only when the thread is empty AND no lead of the rep's
+  // stands behind the number, after the lead lookup, with the one sentence
+  // START_REFUSALS names — and the first text still goes through
+  // deliverReplySms, whose body is replySmsBody's (the footer on every
+  // message; asserted in check-sales-sms.mjs).
+  const route = decomment(read("app/api/sales/messages/route.js"));
+  const post = functionSource(route, "POST");
+  ok("the reply route exports POST", post !== null);
+  const leadAt = post.indexOf("const lead =");
+  const refuseAt = post.indexOf("if (!existing.length && !lead) {");
+  ok("a first text is refused only with no lead behind the number, decided AFTER the lead lookup", leadAt > 0 && refuseAt > leadAt, { leadAt, refuseAt });
+  ok("…with START_REFUSALS.no_lead and its code, as a 409", /error: START_REFUSALS\.no_lead,\s*code: "no_lead",/.test(post) && /\{ status: 409 \}/.test(post.slice(refuseAt, refuseAt + 400)));
+  ok("…and the old \"you have not texted this number before\" refusal is gone", !/not texted this number before/.test(route));
+  const { START_REFUSALS: refusals } = await import("@/lib/sales/messages/startThread");
+  ok("the sentence says what to do: save it as a lead", /Save it as a lead first/.test(refusals.no_lead));
+  ok("a first text to a lead's number is delivered through deliverReplySms, whose body carries the footer", post.indexOf("await deliverReplySms({") > refuseAt);
 }
 
 {
@@ -1051,7 +1096,7 @@ section("12. The four groups, executed");
   ok("…and draws the sent demo check-ins as the thread's messages", /sentDemoCheckIns\(/.test(route) && /messages: threadMessages/.test(route));
   ok("…and keeps the demo thread in the list after its send", /sentDemoByThread\(/.test(route));
   ok("…and does not offer the signup link to a company that already signed up",
-    /thread\.company \|\| thread\.draftCompany\) \? \(/.test(page) && page.indexOf("thread.draftCompany) ? (") < page.indexOf("&& thread.lead ? ("));
+    /thread\.company \|\| thread\.draftCompany\) \? \(/.test(page) && page.indexOf("thread.draftCompany) ? (") < page.indexOf("&& !thread.lead ? (") && /!thread\.company && !thread\.draftCompany && !demoThread/.test(page));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1148,7 +1193,8 @@ section("14. New text to a number: Canada and the US, nobody else's, no duplicat
 
   const route = decomment(read("app/api/sales/messages/start/route.js"));
   ok("the start route exports POST behind requireOutreachRep", /export async function POST/.test(route) && /requireOutreachRep\(request\)/.test(route));
-  ok("…decides through startTextThread and writes nothing itself", /startTextThread\(db, \{ rep, raw \}\)/.test(route) && !/\bdb\.[a-zA-Z]+\./.test(route));
+  ok("…decides through startTextThread and writes nothing itself", /startTextThread\(db, \{ rep, raw, leadId \}\)/.test(route) && !/\bdb\.[a-zA-Z]+\./.test(route));
+  ok("…and the leadId hint is an id off the body, re-read against the rep inside startTextThread", /const leadId = typeof body\?\.leadId === "string"/.test(route) && /where: \{ id: leadId, salesRepId: rep\.id \}/.test(read("lib/sales/messages/startThread.js")));
   ok("…and sends nothing", !/sendSms|deliver/.test(route));
   const lib = decomment(read("lib/sales/messages/startThread.js"));
   ok("the lead is created through the shared create", /createSalesLead\(client/.test(lib) && !/salesLead\.create/.test(lib));

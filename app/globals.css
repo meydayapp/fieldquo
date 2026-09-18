@@ -347,6 +347,49 @@
   }
 }
 
+/* ── What sits ABOVE a sales screen, and the height that leaves it ────────
+ *
+ * The owner, 2026-09-18: "it should be flexible, not fixed, because of
+ * different resolutions and screen sizes". Three screens each hard-coded
+ * the shell's chrome — the texts client subtracted 11.5rem from the
+ * viewport, the queue's sticky dialler sat at top-[77px], the incoming-
+ * call strip at top-[61px] — and each guess drifted from the others and
+ * from the header (61px, content-sized: a 44px sign-out in py-2 and a
+ * border). On a 900px window the texts frame stopped 90px short of the
+ * bottom; on a phone the same subtraction ignored the test-account
+ * banner. So the chrome is measured once and read everywhere:
+ *
+ *   --fq-top-bar      everything between the top of the viewport and
+ *                     <main> — the lg header, the phone's top bar, the
+ *                     test-account banner when one is drawn. WRITTEN by
+ *                     SalesShell from a ResizeObserver on the column
+ *                     (main.top − column.top), never declared, so a taller
+ *                     font, a second banner or a folded rail cannot put it
+ *                     out of date. 0 until the shell has measured, which
+ *                     is one frame after mount.
+ *   --fq-main-pad-y   <main>'s vertical padding, both edges, in the same
+ *                     rem the shell uses (pt-6 pb-6 / sm: pt-8 pb-8; the
+ *                     tab-bar term is separate).
+ *   .fq-sales-fill    the height a screen has between the chrome and the
+ *                     bottom bar — the one rule for a screen that scrolls
+ *                     INSIDE itself (Texts, Team). dvh, not vh: on a phone
+ *                     the browser's own bars come and go, and a frame
+ *                     sized in vh puts its composer under them.
+ *
+ * Every screen that used to carry its own calc() reads these instead. */
+.fq-sales-shell {
+  --fq-top-bar: 0px;
+  --fq-main-pad-y: 3rem;
+}
+@media (min-width: 40rem) {
+  .fq-sales-shell {
+    --fq-main-pad-y: 4rem;
+  }
+}
+.fq-sales-fill {
+  height: calc(100dvh - var(--fq-top-bar) - var(--fq-tab-bar-height) - var(--fq-main-pad-y));
+}
+
 /* ── The toast layer (app/components/ToastLayer.js) ─────────────────────────
  *
  * Rendered through a portal at document.body, so it is outside every shell's

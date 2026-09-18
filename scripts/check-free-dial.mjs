@@ -540,6 +540,9 @@ ok(
 section("6. Recording a number, and what that route may never write");
 
 const numbersRoute = decomment(read("app/api/sales/calls/numbers/route.js"));
+// The POST's write lives in lib/sales/contact/record.js (shared with the
+// text-thread opener since 2026-09-18); the PATCH still writes in the route.
+const recordLib = decomment(read("lib/sales/contact/record.js"));
 ok("the recording route rides the calling gate", /requireCallingRep\(request\)/.test(numbersRoute));
 ok("…and returns its refusal verbatim", /if \(refusal\)/.test(numbersRoute));
 ok(
@@ -552,9 +555,15 @@ ok(
   !REP_CALL_WRITES.includes("salesAttribution") && !REP_CALL_WRITES.includes("salesCommissionEntry"),
 );
 {
+  // The POST's write lives in lib/sales/contact/record.js (shared with the
+  // text-thread opener since 2026-09-18); the PATCH still writes here. Both
+  // files are held to the same table.
   const writes = [
     ...numbersRoute.matchAll(
       /\bdb\.(\w+)\.(create|createMany|update|updateMany|upsert|delete|deleteMany)\b/g,
+    ),
+    ...recordLib.matchAll(
+      /\bclient\.(\w+)\.(create|createMany|update|updateMany|upsert|delete|deleteMany)\b/g,
     ),
   ];
   ok("the route does write something", writes.length > 0, writes.length);
@@ -577,25 +586,27 @@ ok(
   "the record it hangs a number on is re-read scoped to this rep",
   /queueWhere\(repId\)/.test(numbersRoute) && /salesRepId: repId/.test(numbersRoute),
 );
+// The POST's write is lib/sales/contact/record.js (recordLib, read above)
+// since 2026-09-18; the route forwards the body and the rules live there.
 ok(
   "the number is normalised with the same function the suppression list keys on",
-  /normalisePhone\(body\.e164/.test(numbersRoute),
+  /e164: body\.e164 \?\? body\.number \?\? body\.phone/.test(numbersRoute) && /const e164 = normalisePhone\(raw\)/.test(recordLib),
 );
 ok(
   "…and a number that will not normalise is refused rather than stored",
-  /if \(!e164\)/.test(numbersRoute),
+  /if \(!e164\) return \{ ok: false, status: 400, code: "unreadable"/.test(recordLib),
 );
 ok(
   "canCall and canText stay three-valued — an unanswered question is not a no",
-  /function tristate\(/.test(numbersRoute) && /return null;/.test(numbersRoute),
+  /function tristate\(/.test(recordLib) && /return null;/.test(recordLib) && /canCall: tristate\(canCall\)/.test(recordLib) && /import \{[^}]*tristate[^}]*\} from "@\/lib\/sales\/contact\/record"/.test(numbersRoute),
 );
 ok(
   "a business that asked us to stop gets no new numbers",
-  /owner\.doNotContactAt/.test(numbersRoute),
+  /owner\?\.doNotContactAt/.test(recordLib),
 );
 ok(
   "the rep who wrote it down comes from the gate, never from the body",
-  /addedBySalesRepId: rep\.id/.test(numbersRoute) && !/body\.addedBySalesRepId/.test(numbersRoute),
+  /addedBySalesRepId: rep\.id/.test(recordLib) && !/body\.addedBySalesRepId/.test(numbersRoute) && /rep,\s*e164: body/.test(numbersRoute),
 );
 ok(
   "a PATCH finds the row inside the already-scoped set, not by id alone",

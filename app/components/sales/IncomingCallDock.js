@@ -924,15 +924,21 @@ export default function IncomingCallDock() {
       </AlertDialog>
 
       {/* ── The live call, when there is no Dialer card to draw it in ─────
-          A fixed strip under the top bar (61px from lg up, 0 below it where
-          the phone chrome's own bar is sticky and the strip sits over it),
-          full width of the body beside the rail. NOT a modal: the rep is on
-          a call and must keep the page — the lead, the notes — usable, and
-          must always be able to hang up. z-[70]: above the tour's card
-          (z-[60]), the Off reminder (z-[65]) and the nav drawer (z-50). */}
+          A fixed strip under the top bar (the header's measured height,
+          --fq-top-bar, from lg up; 0 below it where the phone chrome's own
+          bar is sticky and the strip sits over it), full width of the body
+          beside the rail. NOT a modal: the rep is on a call and must keep
+          the page — the lead, the notes — usable, and must always be able
+          to hang up. z-[70]: above the tour's card (z-[60]), the Off
+          reminder (z-[65]) and the nav drawer (z-50).
+          Never taller than what is under the bar, and scrolling inside
+          itself past that: a fixed strip is outside the page's scroll, so
+          on a short window (1280×600 with the browser's own chrome) a
+          write-up form taller than the viewport had its Save below the
+          fold with nothing that could reach it. */}
       {live && !liveCallNode ? (
         <div
-          className="fixed inset-x-0 top-0 lg:top-[61px] lg:left-[var(--fq-sales-rail,220px)] z-[70]"
+          className="fixed inset-x-0 top-0 lg:top-[var(--fq-top-bar,61px)] lg:left-[var(--fq-sales-rail,220px)] z-[70] max-h-[100dvh] lg:max-h-[calc(100dvh-var(--fq-top-bar,61px))] overflow-y-auto"
           data-incoming-live-strip
           role="region"
           aria-label={t("app.salesDial.onACall")}
@@ -947,7 +953,7 @@ export default function IncomingCallDock() {
           wording, by design and by check: "They called you back from …". */}
       {writeUp && !incoming ? (
         <div
-          className="fixed inset-x-0 top-0 lg:top-[61px] lg:left-[var(--fq-sales-rail,220px)] z-[70]"
+          className="fixed inset-x-0 top-0 lg:top-[var(--fq-top-bar,61px)] lg:left-[var(--fq-sales-rail,220px)] z-[70] max-h-[100dvh] lg:max-h-[calc(100dvh-var(--fq-top-bar,61px))] overflow-y-auto"
           data-inbound-write-up={writeUp.attemptId}
           role="dialog"
           aria-modal="false"
@@ -971,7 +977,7 @@ export default function IncomingCallDock() {
       {/* The quiet-state notices: a lost registration, a missing headset.
           Small, at the top, where the live strip would be. */}
       {!incoming && (audioWarning || error) ? (
-        <div className="fixed inset-x-0 top-0 lg:top-[61px] lg:left-[var(--fq-sales-rail,220px)] z-[65] px-4 sm:px-6 pt-2 pointer-events-none">
+        <div className="fixed inset-x-0 top-0 lg:top-[var(--fq-top-bar,61px)] lg:left-[var(--fq-sales-rail,220px)] z-[65] px-4 sm:px-6 pt-2 pointer-events-none">
           <div className="pointer-events-auto rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-950/60 dark:border-amber-800 p-3 text-sm text-amber-900 dark:text-amber-200 flex gap-2 max-w-xl">
             {audioWarning ? (
               <Headphones size={16} className="shrink-0 mt-0.5" aria-hidden="true" />

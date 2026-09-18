@@ -24,7 +24,11 @@ export async function fetchJson(url, options = {}) {
     // (the demo send below) would never reach the screen.
     if (!withE164) return { conversations: fx.conversations.map((c) => ({ ...c })), readStateError: fx.readStateError || null, draftsError: fx.draftsError || null, waiting: fx.waiting ? { ...fx.waiting, items: [...fx.waiting.items] } : null };
     const thread = fx.threads[withE164];
-    if (!thread) throw new Error("No such thread in fixtures: " + withE164);
+    // A number no fixture names: the real route answers an EMPTY thread
+    // with no lead (a ?thread= link from the ring dialog or a pasted
+    // number), never a 404 — so the stub does the same, and the screen's
+    // "nobody's lead" state is what the frame shows.
+    if (!thread) return { with: withE164, numbers: [{ e164: withE164, lastAt: null, count: 0 }], messages: [], lead: null, company: null, draftCompany: null, demo: false, timeZone: null, canSend: false, suppressed: false, blockers: [{ code: "time_zone_unknown", title: "We don't know what time it is where this prospect is.", fix: "Say where they are." }], checkIns: [], checkInError: null, suggestion: null, readState: null, triage: null, canned: [], window: { known: false, open: false, until: null, timeZone: null }, warnings: [], calls: [], suppressions: [], contact: { trade: null, city: null, province: null, score: null, repName: "Rachel K.", numbers: [], emailThreads: [], pastCheckIns: [] }, ...(fx.holder && fx.holder[withE164] ? { holder: fx.holder[withE164] } : {}) };
     return { ...thread, messages: [...(thread.messages || [])], checkIns: thread.checkIns ? [...thread.checkIns] : thread.checkIns };
   }
   if (u.pathname === "/api/sales/messages" && method === "POST") {
