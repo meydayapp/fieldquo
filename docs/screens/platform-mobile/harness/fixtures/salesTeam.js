@@ -6,6 +6,7 @@
 //   /api/platform/sales/payouts?period=                      → /platform/sales/payouts (and the owed strip on reps)
 //   /api/platform/sales/floor                                → /platform/sales/floor
 //   /api/platform/sales/performance?preset=                  → /platform/sales/performance
+//   /api/platform/sales/call-quality (+ /[attemptId])         → /platform/sales/call-quality (and the quality section on performance)
 //   /api/platform/growth                                     → /platform/growth
 //   /api/platform/sales/notes (+ /[id])                      → /platform/sales/notes
 //   /api/platform/sales/campaigns (+ /[id], /registrations)  → /platform/sales/campaigns, /[id]
@@ -585,6 +586,166 @@ const ACQUISITIONS = [
   ["cmp_magog_paint", "Peinture Magog-Orford", "rep_hugo", 120, "signup_link", "canceled", "Starter", false],
 ];
 
+// ── Recorded calls and their scorecards ─────────────────────────────────────
+//
+// Invented rows in the shape lib/sales/performanceLoad.js selects. The
+// builders the route uses (lib/sales/performanceReport.js buildCallActivity,
+// lib/sales/callQuality.js buildCallQuality) reach lib/sales/performance.js,
+// whose repStats/commission imports touch @/lib/db, so — like the
+// performance builder above them — they are PORTED HERE IN MINIATURE:
+// qualitySummaryPort() below is lib/sales/callQuality.js qualitySummary()
+// with the same three-counts rule and the same human-pass override, and the
+// calls section reuses repStats() from the floor fixture.
+const DISCLOSURE = "This call may be recorded.";
+const qaOf = (overall, { reviewer = null, disclosure = true, banned = [], ratio = 0.46, permission = true, skipped = null } = {}) =>
+  skipped
+    ? { overall: null, reviewerOverall: null, reviewedAt: null, skippedReason: skipped, deterministic: { disclosure: { said: false, index: null, at: null }, bannedMoves: [], talk: { ratio: null } }, scores: null }
+    : {
+        overall,
+        reviewerOverall: reviewer ? reviewer.overall : null,
+        reviewedAt: reviewer ? ISO(NOW - 26 * HOUR) : null,
+        reviewerName: reviewer ? reviewer.name : null,
+        reviewerKind: reviewer ? "platform" : null,
+        reviewerNote: reviewer ? reviewer.note : null,
+        skippedReason: null,
+        deterministic: { disclosure: { said: disclosure, index: disclosure ? 0 : null, at: disclosure ? 0 : null }, bannedMoves: banned.map((move, i) => ({ index: 6 + i, start: 41 + i * 9, move, text: "" })), talk: { repSeconds: Math.round(300 * ratio), contractorSeconds: Math.round(300 * (1 - ratio)), unknownSeconds: 0, ratio } },
+        scores: { permissionAsk: { asked: permission, phrasedForYes: permission, evidence: permission ? "Can I give you thirty seconds on why I called?" : "" }, bannedMoves: [], candour: { met: true, evidence: "I know I'm catching you out of nowhere" }, pivot: { delivered: true, afterContractorAnswer: true, evidence: "that's exactly why I'm calling" }, discovery: { questionCount: 3, turnaroundAsked: true, evidence: "quote in their hands" }, objections: [], nextStep: { offered: overall > 60, dated: overall > 75, evidence: overall > 60 ? "Thursday morning" : "" }, closeAsk: { met: overall > 60, evidence: "" }, identityCheck: { met: true, evidence: "" }, rubric: [] },
+        coaching: ["Ask the turnaround question before the pitch, not after it.", "Let the contractor finish the answer about evenings — you spoke over the number.", "Put a day on the walkthrough before you hang up."],
+        language: "en",
+      };
+const ATTEMPT_ROWS = [
+  // rep, days ago, channel, answered, talk s, disposition, recording, qa
+  ["rep_ana", 1, "browser", true, 312, "reached_interested", true, qaOf(84)],
+  ["rep_ana", 2, "browser", true, 96, "reached_not_interested", true, qaOf(58, { banned: ["apology"] })],
+  ["rep_ana", 3, "browser", false, null, "no_answer", false, null],
+  ["rep_ana", 4, "browser", true, 401, "reached_interested", true, qaOf(71, { reviewer: { overall: 55, name: "FieldQuo", note: "Pivot came before he had described his day." } })],
+  ["rep_ana", 5, "handset", null, null, "voicemail", false, null],
+  ["rep_ana", 6, "browser", true, 12, "wrong_number", true, qaOf(null, { skipped: "too_short" })],
+  ["rep_ana", 40, "browser", true, 250, "reached_interested", true, qaOf(62)],
+  ["rep_carla", 1, "browser", true, 540, "reached_interested", true, qaOf(91)],
+  ["rep_carla", 1, "browser", true, 33, "reached_not_interested", true, qaOf(39, { disclosure: false, banned: ["bad-time question", "time-limit promise"], ratio: 0.81, permission: false })],
+  ["rep_carla", 2, "browser", true, 188, "callback", true, null],
+  ["rep_carla", 3, "browser", true, 240, "reached_interested", true, qaOf(null, { skipped: "ai_failed:ai_unavailable" })],
+  ["rep_carla", 35, "browser", true, 300, "reached_interested", true, qaOf(80)],
+  ["rep_farid", 2, "browser", true, 150, "reached_interested", true, qaOf(67)],
+  ["rep_farid", 2, "handset", null, null, "no_answer", false, null],
+  ["rep_gita", 1, "browser", false, null, "no_answer", false, null],
+  ["rep_gita", 3, "browser", true, 275, "reached_interested", true, qaOf(76)],
+  ["rep_ben", 8, "browser", true, 45, "reached_not_interested", true, qaOf(null, { skipped: "speakers_unknown" })],
+].map(([salesRepId, daysAgo, dialChannel, answered, talkSeconds, disposition, recorded, qa], i) => ({
+  id: `att_fx_${i + 1}`,
+  salesRepId,
+  direction: "out",
+  dialChannel,
+  dialledAt: new Date(NOW - daysAgo * DAY - 10 * HOUR),
+  answeredAt: answered ? new Date(NOW - daysAgo * DAY - 10 * HOUR + 12_000) : null,
+  talkSeconds,
+  holdSeconds: null,
+  providerCostCents: dialChannel === "browser" ? 1.4 : null,
+  disposition,
+  callbackAt: disposition === "callback" ? new Date(NOW + 2 * DAY) : null,
+  toE164: `+1514555${String(1000 + i).slice(-4)}`,
+  recordingUrl: recorded ? `https://api.twilio.com/2010-04-01/Accounts/AC.../Recordings/RE${i + 1}` : null,
+  recordingSeconds: recorded ? talkSeconds : null,
+  transcribedAt: recorded ? new Date(NOW - daysAgo * DAY - 9 * HOUR) : null,
+  jurisdictionCode: "CA-QC",
+  qa,
+}));
+const QA_BUSINESS = { rep_ana: "Toiture Rive-Sud Beauchemin & Fils", rep_carla: "Sunbelt Residential Painting", rep_farid: "Plomberie Gatineau-Aylmer", rep_gita: "Surrey Kitchen Cabinet Refacing", rep_ben: "Mississauga Heating & Cooling" };
+const effective = (qa) => (qa && Number.isFinite(qa.reviewerOverall) ? qa.reviewerOverall : qa && Number.isFinite(qa.overall) ? qa.overall : null);
+const stateOf = (a) => (!a.transcribedAt ? "awaiting_transcript" : !a.qa ? "awaiting_score" : effective(a.qa) === null ? (String(a.qa.skippedReason).startsWith("ai_failed") ? "score_failed" : "unscorable") : "scored");
+function qaQueueRow(a) {
+  const rep = REP_ROWS.find((r) => r.id === a.salesRepId);
+  return {
+    id: a.id, dialledAt: ISO(a.dialledAt), answeredAt: a.answeredAt ? ISO(a.answeredAt) : null, talkSeconds: a.talkSeconds, recordingSeconds: a.recordingSeconds, disposition: a.disposition,
+    rep: rep ? { id: rep.id, name: rep.name } : null, business: { id: `p_${a.id}`, name: QA_BUSINESS[a.salesRepId] || "—", city: "Longueuil", province: "QC" },
+    playbookKey: "COMPETITIVE_DISPLACEMENT", transcribed: Boolean(a.transcribedAt), transcriptError: null, state: stateOf(a),
+    overall: a.qa?.overall ?? null, reviewerOverall: a.qa?.reviewerOverall ?? null, effectiveOverall: effective(a.qa), reviewedAt: a.qa?.reviewedAt || null, reviewerName: a.qa?.reviewerName || null, reviewerKind: a.qa?.reviewerKind || null,
+    skippedReason: a.qa?.skippedReason || null, disclosureSaid: a.qa?.deterministic?.disclosure?.said ?? null, bannedMoves: a.qa?.deterministic?.bannedMoves?.length || 0, talkRatio: a.qa?.deterministic?.talk?.ratio ?? null,
+  };
+}
+function callQualityQueuePayload(repId) {
+  const rank = (r) => (r.reviewedAt ? 3 : r.effectiveOverall !== null ? 0 : r.state.startsWith("awaiting") ? 1 : 2);
+  const rows = ATTEMPT_ROWS.filter((a) => a.recordingUrl && (!repId || a.salesRepId === repId)).map(qaQueueRow)
+    .sort((x, y) => rank(x) - rank(y) || (x.effectiveOverall ?? Infinity) - (y.effectiveOverall ?? Infinity) || y.dialledAt.localeCompare(x.dialledAt));
+  return { rows, model: "gpt-5-mini", serverNow: ISO(NOW) };
+}
+function callQualityDetailPayload(id) {
+  const a = ATTEMPT_ROWS.find((x) => x.id === id && x.recordingUrl);
+  if (!a) return new Response(JSON.stringify({ error: "No such recorded call." }), { status: 404, headers: { "Content-Type": "application/json" } });
+  const row = qaQueueRow(a);
+  const lines = [
+    ["rep", 0, 7, `Hi — is that ${row.business.name}? Ana-Sophie here, from FieldQuo — ${DISCLOSURE} I know I'm catching you out of nowhere, and you've never heard of me. Can I give you thirty seconds on why I called?`],
+    ["contractor", 7, 10, "Go on."],
+    ["rep", 10, 18, "When you go out and look at a job, are you usually able to give them a price while you're standing there, or does it get put together back at the house afterwards?"],
+    ["contractor", 18, 34, "Back at the house. Evenings, mostly. My wife types them up."],
+    ["rep", 34, 41, "If that's how it goes, that's exactly why I'm calling. Can I ask you three things about how the work comes in?"],
+    ["contractor", 41, 44, "Quick, I'm on a roof."],
+    ["rep", 44, 50, a.qa?.deterministic?.bannedMoves?.length ? "Sorry to bother you — I'll only take two minutes, promise." : "How many of you are on the tools at the moment — you and a crew, or you and a couple of subs?"],
+    ["contractor", 50, 62, "Me and three lads. Busy — it's all referrals now."],
+    ["rep", 62, 71, "When someone reaches out today, how long is it usually before they've actually got a quote in their hands — same day, a couple of days, a week?"],
+    ["contractor", 71, 88, "Couple of days. A week when it's busy, honestly."],
+    ["rep", 88, 100, "I can show you in fifteen minutes how it works for a business like yours. What works better for you, mornings or afternoons? I'll send the invite and a reminder the night before."],
+    ["contractor", 100, 106, "Thursday morning, early."],
+  ].map(([speaker, start, end, text], index) => ({ index, speaker, start, end, text, disclosure: index === 0 && Boolean(a.qa?.deterministic?.disclosure?.said), bannedMoves: index === 6 ? (a.qa?.deterministic?.bannedMoves || []).map((b) => b.move) : [], cited: index === 0 ? ["permissionAsk", "candour"] : index === 8 ? ["discovery"] : index === 10 ? ["nextStep", "closeAsk"] : [] }));
+  const qa = a.qa
+    ? { ...a.qa, scoredAt: ISO(a.dialledAt.getTime() + HOUR), playbookKey: "COMPETITIVE_DISPLACEMENT", playbookVersion: "1", playbookMatched: true, model: "gpt-5-mini", costMicros: 1016, skippedReasonText: a.qa.skippedReason === "too_short" ? "The call ended inside twenty seconds — before an opener could have been read." : a.qa.skippedReason === "speakers_unknown" ? "The recording is one mixed track, so the rep's lines cannot be told from the contractor's." : String(a.qa.skippedReason || "").startsWith("ai_failed") ? "The model call failed: ai_unavailable" : null }
+    : null;
+  return { call: { ...row, playbookVersion: "1", repLanguage: "fr", transcript: lines, qa }, audioHref: `/api/platform/sales/recording/${id}/audio` };
+}
+
+// PORT of lib/sales/callQuality.js qualitySummary() — see the header above.
+function qualitySummaryPort(attempts) {
+  const recordedRows = attempts.filter((a) => a.recordingUrl);
+  const scoredRows = recordedRows.filter((a) => effective(a.qa) !== null);
+  const failedOf = (qa) => String(qa?.skippedReason || "").startsWith("ai_failed");
+  const unscorable = recordedRows.filter((a) => a.qa && effective(a.qa) === null && a.qa.skippedReason && !failedOf(a.qa)).length;
+  const failed = recordedRows.filter((a) => a.qa && effective(a.qa) === null && failedOf(a.qa)).length;
+  const modelScored = scoredRows.filter((a) => a.qa?.deterministic && a.qa?.scores);
+  const mean = (v) => (v.length ? Math.round((v.reduce((x, y) => x + y, 0) / v.length) * 10) / 10 : null);
+  return {
+    recorded: recordedRows.length, scored: scoredRows.length, notYetScored: recordedRows.length - scoredRows.length - unscorable - failed, unscorable, failed,
+    reviewed: scoredRows.filter((a) => a.qa?.reviewedAt).length,
+    averageOverall: mean(scoredRows.map((a) => effective(a.qa))),
+    disclosureSaid: rate(modelScored.filter((a) => a.qa.deterministic.disclosure?.said).length, modelScored.length),
+    permissionAsked: rate(modelScored.filter((a) => a.qa.scores.permissionAsk?.asked).length, modelScored.length),
+    bannedMoveRate: rate(modelScored.filter((a) => (a.qa.deterministic.bannedMoves?.length || 0) > 0).length, modelScored.length),
+    meanTalkRatio: mean(modelScored.map((a) => a.qa.deterministic.talk?.ratio).filter((r) => typeof r === "number")),
+  };
+}
+function callSectionsPort(fromIso, toIso) {
+  const from = new Date(`${fromIso}T00:00:00.000Z`);
+  const to = new Date(`${toIso}T23:59:59.999Z`);
+  const span = to - from;
+  const inPeriod = (a, lo, hi) => a.dialledAt >= lo && a.dialledAt <= hi;
+  const now = ATTEMPT_ROWS.filter((a) => inPeriod(a, from, to));
+  const before = ATTEMPT_ROWS.filter((a) => inPeriod(a, new Date(from - span - 1), new Date(from - 1)));
+  const trend = (a, b) => (a.averageOverall !== null && b.averageOverall !== null ? Math.round((a.averageOverall - b.averageOverall) * 10) / 10 : null);
+  const repIds = [...new Set(ATTEMPT_ROWS.map((a) => a.salesRepId))];
+  const qualityRows = repIds.map((id) => {
+    const r = REP_ROWS.find((x) => x.id === id);
+    const s = qualitySummaryPort(now.filter((a) => a.salesRepId === id));
+    const p = qualitySummaryPort(before.filter((a) => a.salesRepId === id));
+    return { id, name: r?.name || id, agency: null, active: Boolean(r?.active), ...s, previousAverageOverall: p.averageOverall, previousScored: p.scored, trend: trend(s, p) };
+  }).sort((x, y) => y.scored - x.scored || x.name.localeCompare(y.name));
+  const total = qualitySummaryPort(now);
+  const totalBefore = qualitySummaryPort(before);
+  const callRows = repIds.map((id) => {
+    const r = REP_ROWS.find((x) => x.id === id);
+    const mine = now.filter((a) => a.salesRepId === id);
+    const bridged = mine.filter((a) => a.dialChannel === "browser").length;
+    const connected = mine.filter((a) => a.answeredAt).length;
+    const talk = mine.filter((a) => Number.isFinite(a.talkSeconds) && a.talkSeconds > 0);
+    const base = repStats(id);
+    return { id, name: r?.name || id, agency: null, active: Boolean(r?.active), presence: null, stats: { ...base, dials: mine.length, measured: { ...base.measured, total: mine.length, bridged, connected, carrierAnswerRate: rate(connected, bridged), measuredOf: talk.length, talkMs: talk.length ? talk.reduce((n, a) => n + a.talkSeconds, 0) * 1000 : null }, callbacks: { booked: mine.filter((a) => a.callbackAt).length, upcoming: [], overdue: [] } } };
+  }).sort((x, y) => y.stats.dials - x.stats.dials || x.name.localeCompare(y.name));
+  const totalStats = { ...repStats("rep_ana"), dials: now.length, measured: { total: now.length, bridged: now.filter((a) => a.dialChannel === "browser").length, connected: now.filter((a) => a.answeredAt).length, carrierAnswerRate: rate(now.filter((a) => a.answeredAt).length, now.filter((a) => a.dialChannel === "browser").length), measuredOf: now.filter((a) => a.talkSeconds > 0).length, talkMs: now.filter((a) => a.talkSeconds > 0).reduce((n, a) => n + a.talkSeconds, 0) * 1000, holdMs: null, holdOf: 0, costCents: null, costOf: 0 }, callbacks: { booked: now.filter((a) => a.callbackAt).length, upcoming: [], overdue: [] } };
+  return {
+    calls: { reps: callRows, agencies: [], total: totalStats, notTracked: NOT_TRACKED_CALLS },
+    callQuality: { period: { from, to }, previous: { from: new Date(from - span - 1), to: new Date(from - 1) }, total: { ...total, previousAverageOverall: totalBefore.averageOverall, previousScored: totalBefore.scored, trend: trend(total, totalBefore) }, reps: qualityRows, agencies: [] },
+  };
+}
+
 function performancePayload(preset) {
   const scale = { thisMonth: 1, lastMonth: 0.8, thisQuarter: 2.4, yearToDate: 5.5, lastYear: 0.6 }[preset] || 1;
   const from = { thisMonth: "2026-09-01", lastMonth: "2026-08-01", thisQuarter: "2026-07-01", yearToDate: "2026-01-01", lastYear: "2025-01-01" }[preset] || "2026-09-01";
@@ -646,9 +807,12 @@ function performancePayload(preset) {
       incompleteReason: blind > 0 ? `${blind} attributed ${blind === 1 ? "company is" : "companies are"} invisible to the payment stages: the rep who brought them in has no commission plan, so no ledger row was ever written. Assign a plan and the stages fill in from the next milestone onwards.` : null,
     },
     pipeline: leadsOf(allLeads),
+    // The two call sections: the real builders on the invented rows above.
+    // The period is the preset's; the previous period (for the trend) is the
+    // same span before it, which is where the 35- and 40-day-old rows land.
+    ...callSectionsPort(from, to),
     notTracked: [
       { key: "costPerAcquisition", label: "Cost per acquisition", reason: "Nothing in this database holds what a rep costs. SalesCommissionPlan is what FieldQuo pays PER SALE, not salary, tooling or the hours behind an unsold call — so a CAC built from it would be the commission figure wearing a different name." },
-      { key: "callsAndTalkTime", label: "Calls made, talk time, connect rate", reason: "The sales floor board has today's calls; this report does not fold receptionist minutes into a person's day." },
       { key: "timeToClose", label: "Time from first touch to signup", reason: "SalesLead.createdAt is when a REP TYPED the lead in, which is usually after the first conversation and sometimes days after it. Measuring from a data-entry timestamp would produce a number that improves when reps get slower at paperwork." },
       { key: "pipelineValue", label: "Pipeline value", reason: "A SalesLead carries no deal size, and it could not: what a contractor will pay is their plan price, which is not chosen until signup." },
     ],
@@ -1109,6 +1273,17 @@ export default function answer({ method, path, url, body }) {
   // ── Floor, performance, growth ──────────────────────────────────────────
   if (path === "/api/platform/sales/floor") return floorPayload();
   if (path === "/api/platform/sales/performance") return performancePayload(url.searchParams.get("preset") || "thisMonth");
+  if (path === "/api/platform/sales/call-quality") return callQualityQueuePayload(url.searchParams.get("repId") || null);
+  m = /^\/api\/platform\/sales\/call-quality\/([^/]+)$/.exec(path);
+  if (m) {
+    if (method === "POST") {
+      const a = ATTEMPT_ROWS.find((x) => x.id === m[1]);
+      if (a) a.qa = { ...(a.qa || qaOf(null, { skipped: "not_scored" })), reviewerOverall: Number(body?.overall), reviewedAt: ISO(NOW), reviewerName: "FieldQuo", reviewerKind: "platform", reviewerNote: body?.note || null };
+      return { ok: true, qa: a?.qa || null };
+    }
+    return callQualityDetailPayload(m[1]);
+  }
+  if ((path === "/api/platform/sales/recordings/qa" || path === "/api/platform/sales/recordings/transcribe") && method === "POST") return { attempted: 2, done: 2, results: [] };
   if (path === "/api/platform/growth") return growthPayload();
 
   // ── Notes ───────────────────────────────────────────────────────────────

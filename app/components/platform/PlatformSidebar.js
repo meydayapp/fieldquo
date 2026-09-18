@@ -131,6 +131,7 @@ import {
   ListChecks,
   Headphones,
   TrendingUp,
+  ClipboardCheck,
   NotebookPen,
   GitBranch,
   SlidersHorizontal,
@@ -282,6 +283,10 @@ const GROUPS = [
       // the other is a period you read.
       { label: "Sales floor", href: "/platform/sales/floor", icon: Headphones },
       { label: "Sales performance", href: "/platform/sales/performance", icon: TrendingUp },
+      // The review queue behind the performance page's "Call quality"
+      // section: the recording, the flagged transcript, the scorecard, and
+      // the owner's own pass — lib/sales/calls/qaQueue.js.
+      { label: "Call quality", href: "/platform/sales/call-quality", icon: ClipboardCheck },
       // Per rep per month, dial to retained-at-60-days, with the owner's
       // bands and the ramp — the screen performance's "what did they sell"
       // does not answer, which is "how many calls did that take".
