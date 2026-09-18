@@ -1,12 +1,69 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 17 September 2026 (a ring-back to a sales number now ends in exactly one of three records — answered, voicemail, or MISSED — and each one tells the rep. The cause of the 17 September report: `inboundPlan()` returned "take a message" whenever `FIELDQUO_SALES_TRANSFER_TO` was unset, which it always has been in production, so no browser was ever rung and the check locked that in; the browsers now ring with or without a desk phone. The rep who dialled the caller is rung when available or after_call, held for when on_call (pushed "X is ringing back"), and rung on the evidence of a dial in the last 30 minutes even with no presence row (lib/sales/calls/inboundDistribution.js lastCallerVerdict). `SalesCallAttempt.missedAt` + lib/sales/calls/missed.js: written by the number's `?stage=status` callback (set at purchase from now on; the six held numbers need it set in the Twilio console) and by a per-minute sweep in the sales-pipeline cron; pushes "Missed call from X, just now" and "New voicemail from X, 12 seconds"; shown on /sales/voicemail under Missed calls, in the call history on the queue card and lead page ("left a voicemail · Play", audio proxied through FieldQuo), and on the platform floor with an Outcome column and a per-number voice-webhook-host audit. A refused signature and a thrown handler are now written to /platform/errors with the CallSid. check:sales-inbound-call drives the real route against signed requests for all four cases; check:inbound-distribution carries the exact timeline. Also today: the queue: the day-end sweep no longer takes rows from a rep who is still dialling, a texted or callback-promised lead is never given back automatically, the "Given back today" strip names what went back and why, and the console draws from the tab's last payload before its first request — see the section below))
+Last updated: 18 September 2026 (a traced patio or lawn is measured the moment it is closed: the satellite still carries its own ground resolution — 156543.03 · cos(lat) / 2^zoom / scale — and the canvas now uses it instead of asking for a reference line first; the line stays for uploaded photos and overrides when drawn. The drawing surface is one shared component, PolygonMeasure.js, with PaverDesigner as the paver layer and the new LotAreaMeasure as the landscaping layer writing Lot Size and the new Edging intake field for landscaping_design, lawn_care, lawn_mowing and irrigation. lib/measure/imageScale.js holds the pure maths; check:polygon-scale executes a 10 m square at 45.42°N to within 1 % — see the section below)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
 it exists to answer.
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
+
+---
+
+## The satellite still measures itself: no reference line first, one canvas for pavers and lawns (18 September 2026)
+
+The paver designer asked the estimator to draw a line along a garage door
+and type its length before a traced patio had an area — on a Google Static
+Maps tile whose metres per pixel the serving route already computed
+(`156543.03 · cos(lat) / 2^zoom / scale`, the `scale=2` retina parameter
+halving the pixel) and returned as JSON beside the URL. QuoteBuilder kept
+the URL and dropped the scale; the maths sat in `lib/measure/satellite.js`
+behind the server-side geocoder import, out of reach of a "use client"
+canvas.
+
+- **`lib/measure/imageScale.js`** — the pure maths, no server imports;
+  `satellite.js` re-exports it so the route sees no change. New on top:
+  `parseStaticMapUrl` / `imageScaleFromUrl` (centre, zoom, scale, size read
+  back off a proxy or Google URL; a Cloudinary copy or an uploaded photo
+  returns null and gets the manual line), `canvasFeetPerUnit` (image
+  pixels → viewBox units under the `slice` fit the canvas has always used —
+  kept because saved paver drawings are in those units), `resolveScale` (a
+  reference line with a typed length beats the automatic scale; a button
+  clears it back), `measurePolygonPixels` / `measureShape` (the engine's
+  shoelace, reported in m² and sq ft). The decoded image size is an ASPECT
+  correction for a guessed size, not a resize correction — a uniform resize
+  cancels out of the mapping, which a surviving mutation proved.
+- **`app/components/quotes/builder/PolygonMeasure.js`** — the one canvas:
+  drawing, keyboard path, scale bar (automatic in green with zoom and
+  latitude named; amber "scale not set" only when neither source exists),
+  shape list, and `usePolygonMeasure` so the parent owns the numbers in the
+  same render. **PaverDesigner** is now the paver layer on it; nothing of
+  the tracing code is duplicated.
+- **`app/components/quotes/builder/LotAreaMeasure.js`** +
+  **`lib/measure/lotTakeoff.js`** — the landscaping layer. One traced
+  surface; `lotIntakePatch` writes `lotSize` (whole sq ft) and `edgingFt`
+  (tenths) into the intake fields the trade's form actually shows —
+  `edgingFt` is new on `landscaping_design` and `lawn_care` only, since a
+  mowing contract has no edging line. The drawing persists under
+  `intakeValues.lotDrawing` (no schema change), the way the paver drawing
+  persists under `takeoff.paverDesign`. QuoteBuilder fetches the aerial for
+  `SITE_IMAGE_TRADES`, not a hardcoded `"paving"`, and hands
+  `siteImageScale` down through TradeTakeoff.
+- **`scripts/check-polygon-scale.mjs`** (`check:polygon-scale`, in
+  `check:all`): a 10 m square at 45.42°N zoom 20 scale 2, drawn in the
+  pixels those imply, returns 100 m² = 1076.4 sq ft and 40 m within 1 %;
+  fewer than three points, NaN vertices, zoom 0, lat 89.9 and a missing
+  scale (Google's default of 1, not ours of 2) return null or a reason,
+  never NaN; every trade offered the canvas has a box for its answer; the
+  scale object provably reaches the designer. Nine mutations caught.
+
+### Still owed here
+
+- The lawn canvas has no per-shape layer choice (lawn vs bed) because no
+  intake field records the distinction; adding one is a product decision.
+- Nothing prices `lotSize` or `edgingFt` in the builder — the landscaping
+  trades quote by line item. The numbers are shown, saved and read back;
+  a landscaping price book would be the next step, not this one.
 
 ---
 
