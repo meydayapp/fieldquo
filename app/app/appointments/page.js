@@ -32,6 +32,12 @@ import { can } from "@/lib/permissions";
 import { navRowAllowed } from "@/lib/permissions/nav";
 import { hasLevel } from "@/lib/permissions/enforce";
 import { mayMoveVisit } from "@/lib/jobs/visitStatus";
+import {
+  aboutLabel,
+  aboutHref,
+  clientMismatch,
+  prefillLocation,
+} from "@/lib/schedule/appointmentAbout";
 import EntryActions from "@/app/components/schedule/EntryActions";
 import { useSession } from "@/lib/auth-client";
 
@@ -824,6 +830,18 @@ export default function AppointmentsPage() {
                 {/* A visit's job title, a booking's event type. Both were
                     carried by the feed and rendered by nothing — so a day of
                     job visits read as a list of surnames. */}
+                {/* What a hand-booked appointment is about — the quote, job or
+                    invoice the office linked it to — in the same words the
+                    details panel and the client's letters use. Rendered here
+                    beside the client so a dispatcher reading the day sees
+                    "Job: Kitchen repaint" without opening the row; the link
+                    itself is in the panel, because a link inside this
+                    toggle button would be a button inside a button. */}
+                {aboutText(aboutLabel(appt), t) && (
+                  <div className="text-sm text-muted-foreground mt-0.5 truncate">
+                    {aboutText(aboutLabel(appt), t)}
+                  </div>
+                )}
                 {appt.title && (
                   <div className="text-sm text-muted-foreground mt-0.5 truncate">
                     {appt.title}
@@ -1019,6 +1037,8 @@ export default function AppointmentsPage() {
       {showForm && (
         <NewAppointmentModal
           members={members}
+          canAssign={canAssign}
+          myUserId={myUserId}
           onClose={() => setShowForm(false)}
           onCreated={(appt) => {
             setAppointments((prev) => [appt, ...prev]);
@@ -1181,18 +1201,17 @@ function AppointmentDetails({ appt, panelId, canOpenClient, t }) {
             {t("app.appts.openClient")}
           </Link>
         )}
-        {/* The quote an on-site measure was scheduled from — the same door a
-            visit's "Open job" is, for the same reason: the row on the
-            calendar is where the day is read, and the quote is where the
-            visit's reason lives. Only an appointment with quoteId has one
-            (lib/quotes/siteVisit.js); every other row draws nothing here. */}
-        {appt.quote?.id && (
+        {/* The record the appointment is about — the quote a measure was
+            scheduled from, or the job or invoice the office linked by hand
+            — the same door a visit's "Open job" is, for the same reason: the
+            row on the calendar is where the day is read, and the record is
+            where the visit's reason lives. Every other row draws nothing. */}
+        {aboutHref(aboutLabel(appt)) && (
           <Link
-            href={`/app/quotes/${appt.quote.id}`}
+            href={aboutHref(aboutLabel(appt))}
             className="inline-block text-sm font-medium underline underline-offset-2"
           >
-            {t("app.appts.openQuote", "Open quote")}
-            {appt.quote.quoteNumber ? ` ${appt.quote.quoteNumber}` : ""}
+            {t("app.appts.openAbout", { label: aboutText(aboutLabel(appt), t) })}
           </Link>
         )}
       </div>
@@ -1285,10 +1304,271 @@ function TeamSchedule({ team, basis }) {
   );
 }
 
-function NewAppointmentModal({ members, onClose, onCreated }) {
+/**
+ * "Quote Q-2026-0007" / "Job: Kitchen repaint" / "Invoice INV-0088" — the
+ * words for a linked record, from aboutLabel(). One function for the picker,
+ * the card and the details panel, so a record is never named two ways on
+ * one screen.
+ */
+function aboutText(label, t) {
+  if (!label) return "";
+  if (label.kind === "job") return t("app.appts.aboutJob", { title: label.title || "" });
+  if (label.kind === "invoice") return t("app.appts.aboutInvoice", { ref: label.ref || "" });
+  return t("app.appts.aboutQuote", { ref: label.ref || "" });
+}
+
+/** A row of the lookup route, as the label aboutLabel() would build for it. */
+function recordLabel(kind, row) {
+  return aboutLabel({ [kind]: row });
+}
+
+/**
+ * The type-ahead over the company's clients. Name, phone, email or street —
+ * GET /api/clients?q= searches all four — with "New client" as the LAST
+ * option, never the first: the spouse ringing three times must not become
+ * three clients, which is exactly what the old free-text name field did.
+ */
+function ClientPicker({ value, onPick, t }) {
+  const [q, setQ] = useState("");
+  const [rows, setRows] = useState(null);
+  const [searching, setSearching] = useState(false);
+
+  useEffect(() => {
+    const term = q.trim();
+    if (term.length < 2) {
+      setRows(null);
+      return undefined;
+    }
+    let live = true;
+    setSearching(true);
+    const handle = setTimeout(() => {
+      fetchJson(`/api/clients?q=${encodeURIComponent(term)}`)
+        .then((list) => live && setRows(Array.isArray(list) ? list.slice(0, 8) : []))
+        .catch(() => live && setRows([]))
+        .finally(() => live && setSearching(false));
+    }, 250);
+    return () => {
+      live = false;
+      clearTimeout(handle);
+    };
+  }, [q]);
+
+  if (value) {
+    return (
+      <div className="flex items-center justify-between gap-2 border rounded px-3 py-2 text-sm mt-1">
+        <span className="min-w-0 truncate">
+          <span className="font-medium">{value.name}</span>
+          {value.isNew ? (
+            <span className="text-muted-foreground"> · {t("app.appts.newClientTag", "new")}</span>
+          ) : value.phone ? (
+            <span className="text-muted-foreground"> · {value.phone}</span>
+          ) : null}
+        </span>
+        <button
+          type="button"
+          onClick={() => onPick(null)}
+          className="text-sm underline underline-offset-2 shrink-0 min-h-[44px]"
+        >
+          {t("app.appts.clientChange", "Change")}
+        </button>
+      </div>
+    );
+  }
+
+  const term = q.trim();
+  return (
+    <div className="mt-1">
+      <input
+        autoFocus
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        className="w-full border rounded px-3 py-2 text-sm"
+        placeholder={t("app.appts.clientSearch", "Search by name, phone, email or address")}
+        aria-label={t("app.appts.client", "Client")}
+      />
+      {term.length >= 2 && (
+        <ul className="border rounded mt-1 divide-y divide-border max-h-56 overflow-y-auto">
+          {searching && rows === null && (
+            <li className="px-3 py-2 text-sm text-muted-foreground">{t("app.appts.searching", "Searching…")}</li>
+          )}
+          {(rows || []).map((c) => (
+            <li key={c.id}>
+              <button
+                type="button"
+                onClick={() => onPick({ id: c.id, name: c.name, phone: c.phone || "", address: c.address || "" })}
+                className="w-full text-left px-3 py-2 text-sm hover:bg-muted min-h-[44px]"
+              >
+                <span className="font-medium">{c.name}</span>
+                {(c.phone || c.address) && (
+                  <span className="block text-xs text-muted-foreground truncate">
+                    {[c.phone, c.address].filter(Boolean).join(" · ")}
+                  </span>
+                )}
+              </button>
+            </li>
+          ))}
+          {rows !== null && (
+            <li>
+              <button
+                type="button"
+                onClick={() => onPick({ id: null, name: term, phone: "", isNew: true })}
+                className="w-full text-left px-3 py-2 text-sm hover:bg-muted min-h-[44px]"
+              >
+                <Plus size={12} className="inline mr-1" />
+                {t("app.appts.newClient", { name: term })}
+              </button>
+            </li>
+          )}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/**
+ * What the appointment is about. The stage's suggestion first, one click;
+ * the client's other open records grouped under it; a wider search for
+ * anything in the company. See lib/schedule/appointmentAbout.js for why the
+ * stage picks, and why a record in another client's name is a warning here
+ * and not a refusal.
+ */
+function AboutPicker({ client, value, onPick, t }) {
+  const [open, setOpen] = useState(null);
+  const [suggested, setSuggested] = useState(null);
+  const [q, setQ] = useState("");
+  const [found, setFound] = useState(null);
+
+  useEffect(() => {
+    if (!client?.id) {
+      setOpen(null);
+      setSuggested(null);
+      return undefined;
+    }
+    let live = true;
+    fetchJson(`/api/appointments/about?clientId=${encodeURIComponent(client.id)}`)
+      .then((d) => {
+        if (!live) return;
+        setOpen(d.open || { quotes: [], jobs: [], invoices: [] });
+        setSuggested(d.suggested || null);
+      })
+      .catch(() => live && setOpen({ quotes: [], jobs: [], invoices: [] }));
+    return () => {
+      live = false;
+    };
+  }, [client?.id]);
+
+  useEffect(() => {
+    const term = q.trim();
+    if (term.length < 2) {
+      setFound(null);
+      return undefined;
+    }
+    let live = true;
+    const handle = setTimeout(() => {
+      fetchJson(`/api/appointments/about?q=${encodeURIComponent(term)}`)
+        .then((d) => live && setFound(d.search || { quotes: [], jobs: [], invoices: [] }))
+        .catch(() => live && setFound({ quotes: [], jobs: [], invoices: [] }));
+    }, 250);
+    return () => {
+      live = false;
+      clearTimeout(handle);
+    };
+  }, [q]);
+
+  const rowsOf = (lists) =>
+    !lists
+      ? []
+      : [
+          ...(lists.invoices || []).map((r) => ({ kind: "invoice", row: r })),
+          ...(lists.jobs || []).map((r) => ({ kind: "job", row: r })),
+          ...(lists.quotes || []).map((r) => ({ kind: "quote", row: r })),
+        ];
+
+  const option = ({ kind, row }, tag = null) => {
+    const label = recordLabel(kind, row);
+    const chosen = value?.kind === kind && value?.id === row.id;
+    return (
+      <li key={`${kind}:${row.id}`}>
+        <button
+          type="button"
+          onClick={() => onPick({ kind, id: row.id, record: row, label })}
+          aria-pressed={chosen}
+          className={`w-full text-left px-3 py-2 text-sm min-h-[44px] hover:bg-muted ${
+            chosen ? "bg-muted font-medium" : ""
+          }`}
+        >
+          {aboutText(label, t)}
+          {tag && <span className="ml-2 text-xs text-muted-foreground">{tag}</span>}
+          {row.client?.name && row.client.id !== client?.id && (
+            <span className="block text-xs text-muted-foreground">{row.client.name}</span>
+          )}
+        </button>
+      </li>
+    );
+  };
+
+  const openRows = rowsOf(open);
+  const first = suggested
+    ? openRows.find((r) => r.kind === suggested.kind && r.row.id === suggested.id)
+    : null;
+  const rest = openRows.filter((r) => r !== first);
+
+  return (
+    <div className="mt-1 space-y-2">
+      {value ? (
+        <div className="flex items-center justify-between gap-2 border rounded px-3 py-2 text-sm">
+          <span className="min-w-0 truncate font-medium">{aboutText(value.label, t)}</span>
+          <button
+            type="button"
+            onClick={() => onPick(null)}
+            className="text-sm underline underline-offset-2 shrink-0 min-h-[44px]"
+          >
+            {t("app.appts.aboutClear", "No link")}
+          </button>
+        </div>
+      ) : (
+        <>
+          {client?.id && open && openRows.length === 0 && (
+            <p className="text-xs text-muted-foreground">
+              {t("app.appts.aboutNone", "Nothing open for this client — a link is optional.")}
+            </p>
+          )}
+          {openRows.length > 0 && (
+            <ul className="border rounded divide-y divide-border">
+              {first && option(first, t("app.appts.aboutSuggested", "Suggested"))}
+              {rest.map((r) => option(r))}
+            </ul>
+          )}
+        </>
+      )}
+      <input
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        className="w-full border rounded px-3 py-2 text-sm"
+        placeholder={t("app.appts.aboutSearch", "Search any quote, job or invoice")}
+      />
+      {found && (
+        <ul className="border rounded divide-y divide-border max-h-56 overflow-y-auto">
+          {rowsOf(found).length === 0 ? (
+            <li className="px-3 py-2 text-sm text-muted-foreground">{t("app.appts.aboutNoMatch", "No match.")}</li>
+          ) : (
+            rowsOf(found).map((r) => option(r))
+          )}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function NewAppointmentModal({ members, canAssign, myUserId, onClose, onCreated }) {
   const { t } = useTranslation();
+  // The person who rang: an existing client, or a name to create one with.
+  const [client, setClient] = useState(null);
+  // The record it is about, and whether the office has answered the
+  // "keep both?" question for a record in somebody else's name.
+  const [about, setAbout] = useState(null);
+  const [mismatchKept, setMismatchKept] = useState(false);
   const [form, setForm] = useState({
-    clientName: "",
     clientPhone: "",
     scheduledAt: "",
     location: "",
@@ -1297,13 +1577,47 @@ function NewAppointmentModal({ members, onClose, onCreated }) {
   });
   const [saving, setSaving] = useState(false);
 
+  const mismatch = about
+    ? clientMismatch({ record: about.record, appointmentClient: client })
+    : { mismatch: false };
+  const askingMismatch = mismatch.mismatch && !mismatchKept;
+
+  const pickAboutRecord = (next) => {
+    setAbout(next);
+    setMismatchKept(false);
+    // Where it happens, from the record, when the office typed nothing yet —
+    // the same rule the server applies (prefillLocation), shown here so the
+    // field is not blank on screen and full in the database.
+    if (next && !form.location.trim()) {
+      const where = prefillLocation({ typed: "", record: next.record, client });
+      if (where) setForm((f) => ({ ...f, location: where }));
+    }
+  };
+
+  const pickClient = (next) => {
+    setClient(next);
+    // A different person may be at a different stage: the suggestion is
+    // re-fetched for them, and a record picked for the previous one is let go.
+    setAbout(null);
+    setMismatchKept(false);
+    if (next && !next.isNew && !form.location.trim() && next.address) {
+      setForm((f) => ({ ...f, location: next.address }));
+    }
+  };
+
   const submit = async (e) => {
     e.preventDefault();
+    if (!client || askingMismatch) return;
     setSaving(true);
+    const body = {
+      ...form,
+      ...(client.id ? { clientId: client.id } : { clientName: client.name }),
+      ...(about && { [`${about.kind}Id`]: about.id }),
+    };
     const res = await fetch("/api/appointments", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
+      body: JSON.stringify(body),
     });
     setSaving(false);
     if (res.ok) {
@@ -1313,6 +1627,14 @@ function NewAppointmentModal({ members, onClose, onCreated }) {
       await reportResponseError(res);
     }
   };
+
+  // Who the assign control may offer. The server accepts exactly one
+  // assignment from a caller without appointment:assign — their own name —
+  // so that is all the select lists for them; the whole team would be a
+  // dropdown of 403s, the dead control AGENTS.md opens with.
+  const assignable = canAssign
+    ? members
+    : members.filter((m) => m.userId === myUserId);
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
@@ -1333,14 +1655,62 @@ function NewAppointmentModal({ members, onClose, onCreated }) {
 
         <form onSubmit={submit} className="space-y-3">
           <div>
-            <label className="text-sm text-muted-foreground">{t("app.appts.clientName")}</label>
-            <input
-              required
-              value={form.clientName}
-              onChange={(e) => setForm({ ...form, clientName: e.target.value })}
-              className="w-full border rounded px-3 py-2 text-sm mt-1"
-            />
+            <label className="text-sm text-muted-foreground">{t("app.appts.client", "Client")}</label>
+            <ClientPicker value={client} onPick={pickClient} t={t} />
           </div>
+
+          {client?.isNew && (
+            <div>
+              <label className="text-sm text-muted-foreground">{t("app.field.phone")}</label>
+              <input
+                value={form.clientPhone}
+                onChange={(e) => setForm({ ...form, clientPhone: e.target.value })}
+                className="w-full border rounded px-3 py-2 text-sm mt-1"
+                inputMode="tel"
+              />
+            </div>
+          )}
+
+          {client && (
+            <div>
+              <label className="text-sm text-muted-foreground">
+                {t("app.appts.aboutOptional", "About (a quote, job or invoice — optional)")}
+              </label>
+              <AboutPicker client={client} value={about} onPick={pickAboutRecord} t={t} />
+              {mismatch.mismatch && (
+                <div
+                  role="alert"
+                  className="mt-2 rounded border border-amber-300 bg-amber-50 dark:bg-amber-950/40 dark:border-amber-700 px-3 py-2 text-sm text-amber-800 dark:text-amber-200"
+                >
+                  <p>
+                    {t("app.appts.mismatch", {
+                      kind: t(`app.appts.kind.${about.kind}`),
+                      recordClient: mismatch.recordClientName || t("app.appts.anotherClient", "another client"),
+                      caller: client.name,
+                    })}
+                  </p>
+                  {askingMismatch && (
+                    <div className="flex gap-3 mt-1">
+                      <button
+                        type="button"
+                        onClick={() => setMismatchKept(true)}
+                        className="font-semibold underline underline-offset-2 min-h-[44px]"
+                      >
+                        {t("app.appts.mismatchKeep", "Keep both")}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => pickAboutRecord(null)}
+                        className="underline underline-offset-2 min-h-[44px]"
+                      >
+                        {t("app.appts.mismatchChange", "Pick another")}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           <div>
             <label className="text-sm text-muted-foreground">{t("app.appts.dateTime")}</label>
@@ -1386,7 +1756,7 @@ function NewAppointmentModal({ members, onClose, onCreated }) {
               className="w-full border rounded px-3 py-2 text-sm mt-1 bg-card"
             >
               <option value="">{t("app.appts.unassigned")}</option>
-              {members.map((m) => (
+              {assignable.map((m) => (
                 <option key={m.userId} value={m.userId}>
                   {personOptionLabel(m, m.user.name)}
                 </option>
@@ -1396,7 +1766,7 @@ function NewAppointmentModal({ members, onClose, onCreated }) {
 
           <button
             type="submit"
-            disabled={saving}
+            disabled={saving || !client || askingMismatch}
             className="inline-flex items-center justify-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-5 py-2.5 rounded-lg disabled:opacity-60 w-full mt-2"
           >
             {saving ? t("app.appts.creating", "Creating…") : t("app.appts.create", "Create Appointment")}

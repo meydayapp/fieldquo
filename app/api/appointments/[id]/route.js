@@ -20,6 +20,8 @@ import { getAppOrigin } from "@/lib/appUrl";
 import { visitManagePath } from "@/lib/booking/manageVisit";
 import { recordSiteVisit } from "@/lib/quotes/siteVisitActivity";
 import { siteVisitVerbForStatus } from "@/lib/quotes/siteVisit";
+import { pickAbout, aboutLabel } from "@/lib/schedule/appointmentAbout";
+import { loadAboutRecord } from "@/lib/schedule/aboutRecord";
 
 // ── The list route was scoped; this one was not ────────────────────────────
 //
@@ -64,7 +66,13 @@ export async function GET(request, { params }) {
 
   const appt = await db.appointment.findFirst({
     where: { id: _params.id, companyId: member.companyId },
-    include: { client: true, assignedTo: { select: { id: true, name: true } } },
+    include: {
+      client: true,
+      assignedTo: { select: { id: true, name: true } },
+      quote: { select: { id: true, quoteNumber: true } },
+      job: { select: { id: true, title: true } },
+      invoice: { select: { id: true, invoiceNumber: true } },
+    },
   });
 
   if (!appt) return NextResponse.json(NOT_FOUND, { status: 404 });
@@ -105,6 +113,8 @@ export async function PATCH(request, { params }) {
     include: {
       client: { select: { id: true, name: true, email: true, language: true, address: true } },
       quote: { select: { id: true, language: true, quoteNumber: true } },
+      job: { select: { id: true, title: true, quote: { select: { language: true } } } },
+      invoice: { select: { id: true, invoiceNumber: true, language: true } },
       company: true,
       booking: {
         select: {
@@ -246,6 +256,36 @@ export async function PATCH(request, { params }) {
     }
   }
 
+  // ── Relinking what it is about ───────────────────────────────────────────
+  //
+  // `quoteId` / `jobId` / `invoiceId` in the body, one at most, each proved
+  // to be this company's the way the create route proves it; an explicit
+  // null on any of them clears the link. Writing one clears the other two —
+  // an appointment is about one thing. The client is NOT changed: a link to
+  // a record in somebody else's name was warned about in the dialog, and
+  // the row keeps the caller it was booked under.
+  let aboutChange = null;
+  if ("quoteId" in body || "jobId" in body || "invoiceId" in body) {
+    const picked = pickAbout(body);
+    if (picked.error) {
+      return NextResponse.json({ error: picked.error }, { status: 400 });
+    }
+    if (picked.about) {
+      const record = await loadAboutRecord(db, member.companyId, picked.about);
+      if (!record) {
+        return NextResponse.json(
+          { error: `That ${picked.about.kind} isn't on this account.` },
+          { status: 404 },
+        );
+      }
+    }
+    aboutChange = {
+      quoteId: picked.about?.kind === "quote" ? picked.about.id : null,
+      jobId: picked.about?.kind === "job" ? picked.about.id : null,
+      invoiceId: picked.about?.kind === "invoice" ? picked.about.id : null,
+    };
+  }
+
   // ── Moving it: the booking page's own arithmetic, with an override ───────
   //
   // `scheduledAt` used to be written as posted. It is now held to the same
@@ -311,6 +351,7 @@ export async function PATCH(request, { params }) {
     data: {
       ...(plan && { scheduledAt: plan.start }),
       ...(body.location !== undefined && { location: body.location }),
+      ...(aboutChange || {}),
       ...(body.status && { status: body.status }),
       ...(cancelReason !== undefined && { cancelReason }),
       ...("assignedToId" in body && {
@@ -321,7 +362,13 @@ export async function PATCH(request, { params }) {
             : existing.status,
       }),
     },
-    include: { client: true, assignedTo: { select: { id: true, name: true } } },
+    include: {
+      client: true,
+      assignedTo: { select: { id: true, name: true } },
+      quote: { select: { id: true, quoteNumber: true } },
+      job: { select: { id: true, title: true } },
+      invoice: { select: { id: true, invoiceNumber: true } },
+    },
   });
 
   // ── The booking behind it moves with it ──────────────────────────────────
@@ -366,6 +413,11 @@ export async function PATCH(request, { params }) {
       company: existing.company,
       client: existing.client,
       quote: existing.quote,
+      // The job or invoice it is about, named in the letter the way the
+      // calendar card names it. From the row as saved, so a relink and a
+      // move in one request tell the client about the record it is now for.
+      about: aboutLabel(updated),
+      document: existing.invoice || existing.job?.quote || null,
       eventTypeName: existing.booking?.eventType?.name || null,
       location: existing.location || existing.client?.address || null,
     };
