@@ -42,6 +42,11 @@ import {
   noAnswerSay,
   RING_SECONDS,
   MAX_RING_TARGETS,
+  RECENT_CALLER_MINUTES,
+  LAST_CALLER_RING,
+  LAST_CALLER_HOLD,
+  LAST_CALLER_SKIP,
+  lastCallerVerdict,
 } from "@/lib/sales/calls/inboundDistribution";
 import { PRESENCE_STALE_MINUTES, livePresence, STATE_AVAILABLE } from "@/lib/sales/calls/agentState";
 import { inboundNeedsFrench } from "@/lib/sales/leadLanguage";
@@ -130,6 +135,76 @@ section("2. The order, which is the whole design");
   ok("a stale rep is skipped rather than rung", !staleOnly.targets.some((x) => x.salesRepId === "a"), staleOnly.targets);
   ok("…and the transfer number catches the call", staleOnly.targets[0]?.kind === "number");
   ok("the transfer number is always last", ringPlan({ presence: [fresh("a")], transferTo: "+15551234567", now: NOW }).targets.at(-1).kind === "number");
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("2b. The rep who rang them: the 2026-09-17 timeline, exactly");
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// 20:29:10Z  Favor dials Benchmark Painting from the console (browser leg,
+//            CallSid on the row). She never pressed "Available": no
+//            SalesRepActivity row exists for her at all.
+// 20:31:02Z  She hangs up.
+// 20:31:15Z  Benchmark rings the number back. Daniel is paused; Rachel, the
+//            number's owner, is offline.
+//
+// The plan that shipped that evening never reached ringPlan (the transfer
+// gate in inboundPlan fired first), and had it reached it, `reachable()`
+// would have skipped Favor — no row, "never seen". Both fixed; this is the
+// fixture for the second half, in the owner's words: available OR
+// after_call rings her first, on_call holds the caller for her, paused /
+// offline / stale are excluded, and the dial itself is evidence.
+
+{
+  const T = new Date("2026-09-17T20:31:15Z");
+  const dialledAt = new Date("2026-09-17T20:29:10Z");
+  const at = (state, minsAgo = 1) => ({
+    salesRepId: "favor",
+    presence: livePresence(
+      { state, startedAt: new Date(T - minsAgo * 60000), heartbeatAt: new Date(T - 5000), endedAt: null },
+      T,
+      { portalSeenAt: new Date(T - 5000) },
+    ),
+  });
+  const none = { salesRepId: "favor", presence: livePresence(null, T, { portalSeenAt: null }) };
+  const daniel = { salesRepId: "daniel", presence: livePresence({ state: "paused", startedAt: new Date(T - 3 * 3600e3), heartbeatAt: new Date(T - 5000), endedAt: null }, T, {}) };
+  const plan = (favor, extra = {}) => ringPlan({ assignedRepId: "rachel", presence: [favor, daniel], lastCalledBy: "favor", lastCalledAt: dialledAt, now: T, ...extra });
+
+  const asItWas = plan(none);
+  ok("with NO presence row, the rep who dialled two minutes ago is rung anyway", asItWas.targets.some((x) => x.salesRepId === "favor"), asItWas.targets);
+  ok("…after the number's owner", asItWas.targets[0]?.salesRepId === "rachel" && asItWas.targets[1]?.salesRepId === "favor");
+  ok("…because of the dial, and the plan says so", asItWas.targets.find((x) => x.salesRepId === "favor")?.why === "they rang this contractor minutes ago");
+  ok("…and Daniel, paused, is not rung", !asItWas.targets.some((x) => x.salesRepId === "daniel"));
+  ok("…and nobody is being held for", asItWas.holdFor === null);
+
+  ok("after_call rings her first", plan(at("after_call")).targets.some((x) => x.salesRepId === "favor"));
+  ok("available rings her", plan(at("available")).targets.some((x) => x.salesRepId === "favor"));
+  ok("…on the strength of presence when the dial is old", (() => { const p = plan(at("after_call"), { lastCalledAt: new Date(T - 2 * 3600e3) }); return p.targets.some((x) => x.salesRepId === "favor") && p.targets.find((x) => x.salesRepId === "favor").why === "they rang this contractor last"; })());
+
+  const busy = plan(at("on_call"), { assignedRepId: null });
+  ok("on_call does NOT ring her", !busy.targets.some((x) => x.salesRepId === "favor"), busy.targets);
+  ok("…the caller is HELD for her instead", busy.holdFor?.salesRepId === "favor", busy.holdFor);
+  ok("…and with nobody else to ring the reason says so", busy.targets.length === 0 && busy.reason === "held_for_last_caller", busy.reason);
+  ok("…but somebody available still takes the call while she is busy", (() => { const p = ringPlan({ presence: [at("on_call"), { salesRepId: "eve", presence: livePresence({ state: "available", startedAt: new Date(T - 60000), heartbeatAt: T, endedAt: null }, T, {}) }], lastCalledBy: "favor", lastCalledAt: dialledAt, now: T }); return p.targets[0]?.salesRepId === "eve" && p.holdFor?.salesRepId === "favor"; })());
+
+  const oldDial = new Date(T - 2 * 3600e3);
+  ok("paused is excluded when the dial is old", !plan(at("paused"), { lastCalledAt: oldDial }).targets.some((x) => x.salesRepId === "favor"));
+  ok("offline is excluded when the dial is old", !plan({ salesRepId: "favor", presence: livePresence({ state: "available", startedAt: new Date(T - 3600e3), heartbeatAt: new Date(T - 3000e3), endedAt: new Date(T - 3000e3) }, T, {}) }, { lastCalledAt: oldDial }).targets.some((x) => x.salesRepId === "favor"));
+  ok("stale is excluded even in after_call", (() => {
+    const r = { salesRepId: "favor", presence: livePresence({ state: "after_call", startedAt: new Date(T - 40 * 60000), heartbeatAt: new Date(T - 40 * 60000), endedAt: null }, T, {}) };
+    return r.presence.stale === true && !plan(r, { lastCalledAt: oldDial }).targets.some((x) => x.salesRepId === "favor");
+  })());
+
+  // The dial is evidence, but a statement made AFTER it wins.
+  const pausedAfter = { salesRepId: "favor", presence: livePresence({ state: "paused", startedAt: new Date("2026-09-17T20:30:30Z"), heartbeatAt: new Date(T - 5000), endedAt: null }, T, {}) };
+  ok("a pause declared after the dial is respected", !plan(pausedAfter).targets.some((x) => x.salesRepId === "favor"), lastCallerVerdict(pausedAfter.presence, { lastCalledAt: dialledAt, now: T }));
+  const pausedBefore = { salesRepId: "favor", presence: livePresence({ state: "paused", startedAt: new Date("2026-09-17T20:00:00Z"), heartbeatAt: new Date(T - 5000), endedAt: null }, T, {}) };
+  ok("…a pause declared BEFORE a dial she then made from the console is not", plan(pausedBefore).targets.some((x) => x.salesRepId === "favor"));
+  const offAfter = { salesRepId: "favor", presence: livePresence({ state: "available", startedAt: new Date("2026-09-17T20:00:00Z"), heartbeatAt: new Date("2026-09-17T20:30:40Z"), endedAt: new Date("2026-09-17T20:30:40Z") }, T, {}) };
+  ok("signing out after the dial is respected", !plan(offAfter).targets.some((x) => x.salesRepId === "favor"));
+
+  ok("the verdict vocabulary is closed", lastCallerVerdict(null, {}) === LAST_CALLER_SKIP && LAST_CALLER_RING === "ring" && LAST_CALLER_HOLD === "hold");
+  ok("the dial window is minutes, not a shift", RECENT_CALLER_MINUTES >= 10 && RECENT_CALLER_MINUTES <= 60);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

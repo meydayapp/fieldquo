@@ -55,7 +55,7 @@ import {
   saveDisposition,
   setRepState,
 } from "@/lib/sales/calls/store";
-import { dispositionOptions } from "@/lib/sales/calls/dispositions";
+import { PROVIDER_ENDED, dispositionOptions } from "@/lib/sales/calls/dispositions";
 import {
   PAUSE_REASONS,
   PAUSE_REASON_ORDER,
@@ -251,12 +251,32 @@ export async function GET(request) {
       ? (() => {
           // A deferred call is unlogged but does not hold the dialler — that
           // is what "later" means. It is on the unlogged list instead.
-          const row = attempts.find((a) => !a.disposition && !a.dispositionDeferredAt);
+          //
+          // ONLY A BROWSER DIAL THE CARRIER HAS FINISHED WITH holds it. On
+          // 2026-09-17 a rep dialled a contractor, the contractor rang back,
+          // and the two inbound rows that wrote — direction "in", no outcome
+          // — were the newest attempts of her day, so this picked one and
+          // the panel drew "What happened on that call? You rang …" over the
+          // Call button, for a call she had not placed, with a "later" the
+          // server refused because defer was outbound-only. An inbound row
+          // is asked about in the dock the moment the call ends
+          // (IncomingCallDock.js) and on the unlogged list after that; a
+          // handset row has nothing the carrier can report and goes to the
+          // same list. Neither is ever a reason the next call cannot start.
+          const row = attempts.find(
+            (a) =>
+              !a.disposition &&
+              !a.dispositionDeferredAt &&
+              a.direction === "out" &&
+              a.dialChannel === "browser" &&
+              (Boolean(a.endedAt) || PROVIDER_ENDED.includes(a.providerStatus)),
+          );
           return row
             ? {
                 id: row.id,
                 toE164: row.toE164,
                 dialledAt: row.dialledAt,
+                direction: row.direction,
                 prospectId: row.prospectId,
                 // What the line knows, so the panel can ask for the auto-log
                 // at once for a call that ended while nobody was looking,

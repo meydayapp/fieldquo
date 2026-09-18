@@ -20,6 +20,14 @@
 // hour for every zone and once a day would be up to 23 hours late for most
 // of them.
 //
+// Due is not released while the rep is still working. The floor rings North
+// America from Karachi, Lagos and Paris, where the local date turns in the
+// middle of the shift, and until 2026-09-17 this sweep took rows out from
+// under reps who were mid-dial — "her leads disappear". A rep whose presence
+// row is not offline and has been heard from lately, or who dialled within
+// the hour, keeps their rows until the next pass (lib/sales/queueBatch.js
+// repOnShift). The response's `onShift` counts the rows so held back.
+//
 // ══ What is released, and what is kept ════════════════════════════════════
 //
 // lib/sales/queueBatch.js's releaseUntouched() is the ONE definition of

@@ -33,18 +33,38 @@ export async function GET(request) {
   }
 
   const or = [];
+  const phones = new Set();
   if (prospectId) {
-    const p = await db.prospect.findFirst({ where: { id: prospectId, ...queueWhere(rep.id) }, select: { id: true } });
-    if (p) or.push({ prospectId: p.id });
+    const p = await db.prospect.findFirst({
+      where: { id: prospectId, ...queueWhere(rep.id) },
+      select: { id: true, phoneE164: true },
+    });
+    if (p) {
+      or.push({ prospectId: p.id });
+      if (p.phoneE164) phones.add(p.phoneE164);
+    }
   }
   if (leadId) {
-    const l = await db.salesLead.findFirst({ where: { id: leadId, salesRepId: rep.id }, select: { id: true, prospectId: true } });
+    const l = await db.salesLead.findFirst({
+      where: { id: leadId, salesRepId: rep.id },
+      select: { id: true, prospectId: true, phone: true },
+    });
     if (l) {
       or.push({ leadId: l.id });
       if (l.prospectId && !prospectId) or.push({ prospectId: l.prospectId });
+      if (l.phone) phones.add(l.phone);
     }
   }
   if (!or.length) return NextResponse.json({ store, history: [], lastTime: null, serverNow: now.toISOString() });
+  // Inbound rows by the CALLER'S NUMBER as well as by record. The inbound
+  // route attaches a ring-back to a prospect only when the caller ID matches
+  // exactly one — dedupe flags duplicates rather than merging them, so a
+  // business held three times matches nobody (inboundMatch.js) and its
+  // callback was filed with prospectId null. That is correct for
+  // attribution and wrong for THIS screen: the rep looking at the business
+  // is the person the call was for. toE164 is always the other party on an
+  // inbound row (the schema's own note), so the phone is the join.
+  if (phones.size) or.push({ direction: "in", toE164: { in: [...phones] } });
 
   const rows = await db.salesCallAttempt.findMany({
     where: { OR: or },

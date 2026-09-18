@@ -126,6 +126,13 @@ import {
   transferStoreState,
 } from "@/lib/sales/calls/store";
 import { callerConferenceTwiml } from "@/lib/sales/calls/transferRest";
+import {
+  assignedRepForNumber,
+  isEndedStatus,
+  markMissed,
+  notifyMissed,
+  notifyVoicemail,
+} from "@/lib/sales/calls/missed";
 
 /**
  * "Incoming call — Desert Sun Painting": a Web Push to every rep the plan is
@@ -411,6 +418,17 @@ async function afterDial(request, params) {
     // behaviour is the honest one here, and it still says something true.
     return speak(result.say);
   }
+
+  // The floor said it was empty and the one browser we rang anyway did not
+  // pick up. Holding them for four rounds of "still trying" on a floor
+  // that has already said nobody is there is the queue's promise broken
+  // the other way round — so straight to the message. `floor=empty` is
+  // written into this URL by the main branch from the plan's verdict at
+  // the moment of the call, not re-derived here.
+  if (new URL(request.url).searchParams.get("floor") === "empty") {
+    return takeMessage(result.say, { origin: getAppOrigin(request), attemptId });
+  }
+
   const round = Number(new URL(request.url).searchParams.get("round"));
   return toQueue({
     origin: getAppOrigin(request),
@@ -481,10 +499,18 @@ async function queueStage(request, params) {
   // The caller's number is the attempt row's OTHER party (toE164 — see the
   // direction note in this function's header), else Twilio's From.
   const callerNumber = attempt?.toE164 || normalisePhone(params.From) || null;
+  // Re-read each round rather than carried on the row: the row's salesRepId
+  // may have come from a lead match rather than a dial, and only a DIAL is
+  // the evidence RECENT_CALLER_MINUTES rests on.
+  const lastOut =
+    attempt && callerNumber && ourNumber
+      ? await lastOutboundBetween({ contactE164: callerNumber, ourE164: ourNumber }).catch(() => null)
+      : null;
   const ring = ringPlan({
     assignedRepId: numberRung?.assignedRepId || null,
     presence,
     lastCalledBy: attempt?.salesRepId || null,
+    lastCalledAt: lastOut?.salesRepId && lastOut.salesRepId === attempt?.salesRepId ? lastOut.dialledAt : null,
     transferTo: normalisePhone(process.env.FIELDQUO_SALES_TRANSFER_TO),
     needsFrench: inboundNeedsFrench(callerNumber),
     frenchRepIds: (reps || []).filter(repSellsFrench).map((r) => r.id),
@@ -567,7 +593,26 @@ async function afterVoicemail(request, params) {
   const seconds = Number(params.RecordingDuration);
 
   if (attemptId && callStoreState().ready) {
-    await recordVoicemail({
+    // Read BEFORE the write, for two reasons: the push needs the rep and the
+    // business name, and a Twilio retry of this callback carries the same
+    // RecordingUrl — a row that already holds it has already been pushed
+    // for, and must not be pushed for twice.
+    const before = await db.salesCallAttempt
+      .findFirst({
+        where: { id: attemptId, direction: "in" },
+        select: {
+          id: true,
+          salesRepId: true,
+          toE164: true,
+          fromE164: true,
+          dialledAt: true,
+          voicemailUrl: true,
+          prospect: { select: { businessName: true } },
+          lead: { select: { businessName: true } },
+        },
+      })
+      .catch(() => null);
+    const written = await recordVoicemail({
       attemptId,
       url,
       seconds: Number.isFinite(seconds) ? seconds : null,
@@ -576,9 +621,22 @@ async function afterVoicemail(request, params) {
         area: "sales_inbound",
         code: "voicemail_write_failed",
         message: `A contractor left a message on attempt ${attemptId} and it could not be attached: ${err?.message}`,
-        detail: { recordingUrl: url },
+        detail: { recordingUrl: url, callSid: params.CallSid || null },
       }).catch(() => {});
+      return null;
     });
+    // The push that was missing. Fire-and-forget like pushRing(): Twilio is
+    // waiting for the TwiML below. Only for a message that actually landed,
+    // and only the first time it did.
+    if (written?.updated && url && before && before.voicemailUrl !== url) {
+      void assignedRepForNumber(before.fromE164).then((assignedRepId) =>
+        notifyVoicemail({
+          attempt: before,
+          assignedRepId,
+          seconds: Number.isFinite(seconds) ? seconds : null,
+        }),
+      );
+    }
   } else if (url) {
     // Nowhere to put it. Recorded as lost rather than swallowed — somebody
     // spoke into this and a human should know the message exists.
@@ -599,16 +657,135 @@ async function afterVoicemail(request, params) {
   return xml(twiml);
 }
 
+/**
+ * The number's status callback: Twilio telling us the PARENT call ended.
+ *
+ * ── The only signal for a caller who hangs up ───────────────────────────
+ *
+ * Every other stage in this file is an `action` URL on a verb, and Twilio
+ * requests none of them when the CALLER hangs up — "if the initial caller
+ * hangs up, the Twilio session ends" (the <Dial> reference). A contractor who
+ * rang back, heard ringing for eight seconds and gave up produced an attempt
+ * row and then nothing, ever. This stage is the one request Twilio makes
+ * regardless of what TwiML was running, and it is set as the number's
+ * `statusCallback` at purchase (lib/crew/platformNumber.js) — for numbers
+ * bought before that, by hand in the console.
+ *
+ * Only a terminal status does anything. `ringing` and `in-progress` are
+ * acknowledged and ignored: the after-dial stage already records an answer
+ * with better information than this callback carries.
+ *
+ * A 204 rather than TwiML: this is not a call asking what to do next.
+ */
+async function statusStage(params) {
+  const status = typeof params.CallStatus === "string" ? params.CallStatus : null;
+  const callSid = typeof params.CallSid === "string" ? params.CallSid : null;
+  if (!isEndedStatus(status) || !callSid) return new NextResponse(null, { status: 204 });
+  if (!callStoreState().ready) {
+    await recordError({
+      area: "sales_inbound",
+      code: "status_before_store",
+      message: `A final status (${status}) arrived for ${callSid} and SalesCallAttempt is not there to hold it.`,
+      detail: { callSid, status },
+    }).catch(() => {});
+    return new NextResponse(null, { status: 204 });
+  }
+  const res = await markMissed({ providerCallSid: callSid, providerStatus: status }).catch(async (err) => {
+    await recordError({
+      area: "sales_inbound",
+      code: "missed_write_failed",
+      message: `Could not record the end of inbound call ${callSid} (${status}): ${err?.message}`,
+      detail: { callSid, status },
+    }).catch(() => {});
+    return null;
+  });
+  if (res && !res.ok && res.reason === "no_attempt") {
+    // A call ended that we never wrote a row for. Either the main branch
+    // refused it (not our number, store down — both already logged) or it is
+    // an outbound leg, whose own status callback is /api/rep-dial/status.
+    // Logged at the lowest useful volume: once per CallSid, by construction.
+    await recordError({
+      area: "sales_inbound",
+      code: "status_for_unknown_call",
+      message: `A final status (${status}) arrived for ${callSid}, which has no inbound attempt row.`,
+      detail: { callSid, status, to: params.To || null, from: params.From || null },
+    }).catch(() => {});
+  }
+  if (res?.marked) {
+    void assignedRepForNumber(res.attempt.fromE164).then((assignedRepId) =>
+      notifyMissed({ attempt: res.attempt, assignedRepId }),
+    );
+  }
+  return new NextResponse(null, { status: 204 });
+}
+
 export async function POST(request) {
   const { ok, params } = await verifyTwilioWebhook(request);
   if (!ok) {
     // 403 with no body, exactly as the bridge and status siblings answer. An
     // unsigned request is not a caller to explain ourselves to.
+    //
+    // But it IS written down. A refused webhook used to leave no trace at
+    // all, so a number whose voice URL pointed at a domain whose host header
+    // did not match the signed URL — the exact failure a domain move or a
+    // preview deployment produces — would refuse every real call from Twilio
+    // silently, and the only symptom would be a rep saying a client rang and
+    // nothing happened. The CallSid is the handle the owner needs to find the
+    // call in Twilio's own log; the URL is what the signature was checked
+    // against, which is the thing that is usually wrong.
+    await recordError({
+      area: "sales_inbound",
+      code: "signature_rejected",
+      message: `A request to the sales inbound webhook failed Twilio signature verification${
+        params?.CallSid ? ` (CallSid ${params.CallSid})` : ""
+      }.`,
+      detail: {
+        callSid: params?.CallSid || null,
+        callStatus: params?.CallStatus || null,
+        to: params?.To || null,
+        from: params?.From || null,
+        stage: new URL(request.url).searchParams.get("stage") || null,
+        url: request.url,
+        host: request.headers.get("host") || null,
+        forwardedProto: request.headers.get("x-forwarded-proto") || null,
+        signaturePresent: Boolean(request.headers.get("x-twilio-signature")),
+        authTokenSet: Boolean(process.env.TWILIO_AUTH_TOKEN),
+      },
+    }).catch(() => {});
     return new NextResponse("Forbidden", { status: 403 });
   }
 
+  try {
+    return await handle(request, params);
+  } catch (err) {
+    // Never a 500 to Twilio: it plays "an application error has occurred"
+    // to a contractor who was given this number by a salesperson. The
+    // failure goes to /platform/errors WITH the CallSid, and the caller
+    // hears a true sentence. Before this, a throw anywhere below reached
+    // Next's default handler and was recorded nowhere we look.
+    await recordError({
+      area: "sales_inbound",
+      code: "webhook_threw",
+      message: `The sales inbound webhook threw${params?.CallSid ? ` on CallSid ${params.CallSid}` : ""}: ${err?.message}`,
+      detail: {
+        callSid: params?.CallSid || null,
+        stage: new URL(request.url).searchParams.get("stage") || null,
+        to: params?.To || null,
+        from: params?.From || null,
+        stack: String(err?.stack || "").split("\n").slice(0, 5).join("\n"),
+      },
+    }).catch(() => {});
+    return speak([
+      "Thanks for calling back.",
+      "We are not able to take your call at the moment. Please try again shortly.",
+    ]);
+  }
+}
+
+async function handle(request, params) {
   const url = new URL(request.url);
   const stage = url.searchParams.get("stage");
+  if (stage === "status") return statusStage(params);
   if (stage === "after-dial") return afterDial(request, params);
   // Two stages that did not exist. `queue` holds a caller instead of dropping
   // them; `after-voicemail` had a <Record> pointing at it and no handler, so
@@ -719,6 +896,17 @@ export async function POST(request) {
   // claim holder is telling somebody their prospect rang — never authority to
   // give them anything.
   const rep = await repToTell([lastOut?.salesRepId, match.salesRepId]);
+  const ring = ringPlan({
+    assignedRepId: numberRung.assignedRepId || null,
+    presence: presenceRows,
+    lastCalledBy: lastOut?.salesRepId || null,
+    lastCalledAt: lastOut?.dialledAt || null,
+    transferTo: normalisePhone(process.env.FIELDQUO_SALES_TRANSFER_TO),
+    needsFrench,
+    frenchRepIds,
+    needsEnglish,
+    englishRepIds,
+  });
 
   const plan = inboundPlan({
     numberRung,
@@ -729,6 +917,9 @@ export async function POST(request) {
     anyRepLive: anyRepLive(presenceRows),
     transferTo: normalisePhone(process.env.FIELDQUO_SALES_TRANSFER_TO),
     suppressed: Boolean(suppression?.suppressed),
+    // How many browsers the ring plan can reach. An empty floor with one
+    // of these still rings — see inboundPlan().
+    ringable: ring.targets.filter((t) => t.kind === "client").length,
   });
 
   // ── The row, before anything is answered ────────────────────────────────
@@ -775,16 +966,6 @@ export async function POST(request) {
   // ringPlan answers the WHERE: the number's owner first, then whoever rang
   // this caller last, then whoever is genuinely available, then the transfer
   // number. See lib/sales/calls/inboundDistribution.js.
-  const ring = ringPlan({
-    assignedRepId: numberRung.assignedRepId || null,
-    presence: presenceRows,
-    lastCalledBy: lastOut?.salesRepId || null,
-    transferTo: normalisePhone(process.env.FIELDQUO_SALES_TRANSFER_TO),
-    needsFrench,
-    frenchRepIds,
-    needsEnglish,
-    englishRepIds,
-  });
 
   const origin = getAppOrigin(request);
 
@@ -812,6 +993,44 @@ export async function POST(request) {
   // out. Never an empty <Dial>, which rings for twenty seconds and then hangs
   // up without a word.
   if (ring.targets.length === 0) {
+    // The rep who rang them is on another call: the caller is held for
+    // her (the queue re-plans every round and rings her when it ends), and
+    // she is told now, by name, that they are waiting. Not the generic
+    // "Incoming call" — she cannot take it yet, and a notice that says
+    // what is true is one she can act on when she hangs up.
+    if (ring.holdFor?.salesRepId) {
+      const who =
+        (matchedProspect && matchedProspect.businessName) ||
+        (match.salesLeadId && leads.find((l) => l.id === match.salesLeadId)?.businessName) ||
+        caller ||
+        "";
+      void pushToReps({
+        salesRepIds: [ring.holdFor.salesRepId],
+        payload: async (language) => ({
+          title: await appSentence(language, "app.notify.incomingCall.title"),
+          body: await appSentence(language, "app.notify.ringingBack.body", { who }),
+          tag: `sales-ring:${caller || "withheld"}`,
+          url: "/sales/queue",
+        }),
+      });
+      return toQueue({ origin, attemptId: attempt?.id || null, round: 0 });
+    }
+    // Nobody to ring, so nobody's browser will show the dock — but the rep
+    // this call is filed to still gets the push, so a closed laptop on a
+    // phone can open the console while the caller holds. The queue re-reads
+    // presence every round and will ring them the moment they are seen.
+    if (rep?.id) {
+      pushRing(
+        { targets: [{ kind: "client", salesRepId: rep.id }] },
+        {
+          callerLabel:
+            (matchedProspect && matchedProspect.businessName) ||
+            (match.salesLeadId && leads.find((l) => l.id === match.salesLeadId)?.businessName) ||
+            null,
+          callerNumber: caller,
+        },
+      );
+    }
     return toQueue({ origin, attemptId: attempt?.id || null, round: 0 });
   }
   const twiml = new twilio.twiml.VoiceResponse();
@@ -829,9 +1048,9 @@ export async function POST(request) {
     // Twilio echoes the URL it was given, and a body parameter would be
     // whatever the leg happened to carry. Same rule /api/rep-dial/status
     // states for the outbound direction.
-    action: attempt
-      ? `${origin}/api/rep-dial/inbound?stage=after-dial&attemptId=${encodeURIComponent(attempt.id)}`
-      : `${origin}/api/rep-dial/inbound?stage=after-dial`,
+    action: `${origin}/api/rep-dial/inbound?stage=after-dial${
+      attempt ? `&attemptId=${encodeURIComponent(attempt.id)}` : ""
+    }${plan.floorEmpty ? "&floor=empty" : ""}`,
     method: "POST",
     // No `record`. See lib/sales/calls/inboundRouting.js — recording a
     // two-party call is consent law rather than an attribute, and its absence

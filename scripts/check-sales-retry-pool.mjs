@@ -153,7 +153,7 @@ ok("the platform table is the rules in order, with the words", (() => {
   const t = retryRuleTable();
   return t.length === RETRY_RULE_ORDER.length && t.every((r, i) => r.code === RETRY_RULE_ORDER[i] && r.why === RETRY_RULES[r.code].why);
 })());
-ok("…every row says whether it is editable and what the default is", retryRuleTable().every((r) => typeof r.editable === "boolean" && r.source === "default" && r.defaults && r.defaults.delayMinutes === RETRY_RULES[r.code].delayMinutes) && retryRuleTable().filter((r) => r.editable).map((r) => r.code).join() === "no_answer,busy,hung_up,voicemail,gatekeeper,reached_not_interested");
+ok("…every row says whether it is editable and what the default is", retryRuleTable().every((r) => typeof r.editable === "boolean" && r.source === "default" && r.defaults && r.defaults.delayMinutes === RETRY_RULES[r.code].delayMinutes) && retryRuleTable().filter((r) => r.editable).map((r) => r.code).join() === "no_answer,busy,hung_up,reached,missed,voicemail,gatekeeper,reached_not_interested");
 
 // ═══════════════════════════════════════════════════════════════════════════
 section("1b. The platform override: rows win, bad cells fall back, nothing else is editable");

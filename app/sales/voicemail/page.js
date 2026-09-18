@@ -79,6 +79,7 @@ export default function SalesVoicemailPage() {
     return <p className="text-sm text-muted-foreground">{t("app.salesDial.voicemailLoading")}</p>;
 
   const list = data?.voicemails || [];
+  const missed = data?.missed || [];
 
   return (
     <div className="space-y-6 max-w-3xl" data-tour="sales-voicemail">
@@ -152,6 +153,56 @@ export default function SalesVoicemailPage() {
           </li>
         ))}
       </ul>
+
+      {/* ── Missed calls ──────────────────────────────────────────────────
+          The other way a ring-back ends: nobody picked up and nothing was
+          said. Rendered on this screen because "who tried to reach me" is
+          one question, and hidden nowhere — an empty list says so in words.
+          Server-side rule and the reason it exists: lib/sales/calls/missed.js. */}
+      <section className="space-y-3" data-tour="sales-missed-calls">
+        <header className="space-y-1">
+          <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
+            <PhoneMissed size={16} aria-hidden="true" />
+            {t("app.salesDial.missedCalls")}
+          </h2>
+          <p className="text-sm text-muted-foreground">{t("app.salesDial.missedIntro")}</p>
+        </header>
+        {missed.length === 0 && !error ? (
+          <p className="text-sm text-muted-foreground">{t("app.salesDial.noMissedCalls")}</p>
+        ) : null}
+        <ul className="space-y-2">
+          {missed.map((m) => (
+            <li key={m.id} className="rounded-xl border border-border p-4 space-y-1">
+              <div className="flex items-baseline justify-between gap-3 flex-wrap">
+                <div className="min-w-0">
+                  <div className="font-semibold text-foreground break-words">
+                    {m.businessName || pretty(m.fromE164, t)}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {m.businessName ? `${pretty(m.fromE164, t)} · ` : ""}
+                    {when(m.at)}
+                    {` · ${t("app.salesDial.hungUpWhileRinging")}`}
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-muted-foreground">
+                    {m.logged ? t("app.salesDial.missedLogged") : t("app.salesDial.missedNotLogged")}
+                  </span>
+                  {m.href ? (
+                    <Link href={m.href} className="text-sm font-medium text-primary hover:underline">
+                      {t("app.salesDial.openTheRecord")}
+                    </Link>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">
+                      {t("app.salesDial.notMatchedToBusiness")}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </section>
     </div>
   );
 }
