@@ -72,6 +72,7 @@ import { topUpResearchBacklog } from "@/lib/sales/pipeline/research";
 import { SUGGEST_CRON_SLICE, suggestTradesBatch } from "@/lib/sales/discovery/suggestTradesBatch";
 import { runTradeSuggestAiSlice } from "@/lib/sales/discovery/suggestTradesAiApproval";
 import { sweepMissedInbound } from "@/lib/sales/calls/missed";
+import { sweepQueuedPlaces } from "@/lib/sales/intel/placesSweep";
 
 // Same reasoning as grace-warning's BATCH: the query is driven by `status`,
 // not a cursor, so leftovers are picked up by the next tick and nothing is
@@ -225,6 +226,24 @@ export async function GET(request) {
     suggestions = { error: err?.message || String(err) };
   }
   result.suggestions = suggestions;
+
+  // ── Then Google Places, through what reps hold, in their queue order ────
+  //
+  // The standing job the owner sized: 25 lookups per rep per clock hour,
+  // taken in the order the rep will dial, never a row checked in the last
+  // 90 days (lib/sales/intel/placesSweep.js). A tick takes at most
+  // SWEEP_PER_TICK across every rep — a few seconds of HTTP, metered at list
+  // price into PlatformCostDaily — and the hour's allowance, not this tick,
+  // is what bounds the spend. Its own try/catch, for the backlog's reason.
+  // The pool is NOT here: nobody holds those rows, and the owner has not
+  // said yes to the number.
+  let places;
+  try {
+    places = await sweepQueuedPlaces({ db, now });
+  } catch (err) {
+    places = { error: err?.message || String(err) };
+  }
+  result.places = places;
 
   // ── Then the PAID pass, only while an approval row says so ──────────────
   //

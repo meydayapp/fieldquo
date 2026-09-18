@@ -1311,8 +1311,16 @@ function ResearchLayers({ t, current }) {
                 {/* A row with no textKey is one whose value is the
                     PROSPECT'S OWN — their phone number, their address,
                     the register's name for them. Those are printed
-                    verbatim; translating data is inventing it. */}
-                {f.textKey ? t(f.textKey, f.text, f.params || {}) : f.text}
+                    verbatim; translating data is inventing it. A row with
+                    `parts` is several recorded findings — the Google
+                    check's "confirms the phone; lists a website the
+                    register did not" — each its own key with the data
+                    (a number, a domain) as a value. */}
+                {Array.isArray(f.parts) && f.parts.length
+                  ? f.parts.map((part) => t(part.key, part.text, part.params || {})).join("; ")
+                  : f.textKey
+                    ? t(f.textKey, f.text, f.params || {})
+                    : f.text}
               </span>
             </li>
           ))}

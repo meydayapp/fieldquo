@@ -129,6 +129,23 @@ export async function GET(request, { params }) {
       // and a page that grouped and labelled these itself would be a second
       // opinion about whether an authorisation is a trade.
       sourceCategoriesView: sourceCategoryView(prospect),
+      // ── What Google Places said, beside the record's own values ──────
+      // The columns the card prints side by side, verbatim, and the stored
+      // check. Google's values are in `places.result`; the record's are here
+      // so a conflict is two lines a person compares, never a merge.
+      addressLine: prospect.addressLine,
+      city: prospect.city,
+      websiteUrl: prospect.websiteUrl,
+      domain: prospect.domain,
+      phoneE164: prospect.phoneE164,
+      rating: prospect.googleRating === null ? null : Number(prospect.googleRating),
+      reviewCount: prospect.googleReviewCount,
+      businessStatus: prospect.businessStatus,
+      places: {
+        checkedAt: prospect.placesCheckedAt,
+        verdict: prospect.placesVerdict,
+        result: prospect.placesResult,
+      },
       assignedRep: rep,
       assignedAt: prospect.assignedAt,
       claimExpiresAt: prospect.claimExpiresAt,

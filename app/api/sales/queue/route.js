@@ -36,8 +36,10 @@
 // claims tasks the way it does.
 export const runtime = "nodejs";
 
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { db } from "@/lib/db";
+import { enrichProspects } from "@/lib/sales/intel/places";
+import { recordError, errorDetail } from "@/lib/platform/errorLog";
 import { checkSuppression } from "@/lib/sales/suppression";
 import { requireQueueRep } from "@/lib/sales/queueGate";
 import { DISCOVERY_TRADES, discoveryTradeKeys } from "@/lib/sales/discovery/trades";
@@ -152,7 +154,7 @@ function repZoneFrom(value, now) {
  * reason the claim fails — a rep with a hundred unresearched rows still has
  * a hundred rows.
  */
-function queueResearchFor(prospectIds) {
+function queueResearchFor(prospectIds, rep = null) {
   const fn = pipelineProgress.ensureResearchQueued;
   if (typeof fn !== "function" || !Array.isArray(prospectIds) || prospectIds.length === 0) return;
   Promise.resolve()
@@ -160,6 +162,52 @@ function queueResearchFor(prospectIds) {
     .catch((err) => {
       console.error("[sales/queue] ensureResearchQueued failed:", err?.message || err);
     });
+  checkGoogleFor(prospectIds, rep);
+}
+
+/**
+ * Ask Google Places about the rows just claimed that nobody has asked about
+ * before — after the response, never on its path.
+ *
+ * `after()` rather than a dangling promise: a hundred Places requests take
+ * tens of seconds, and a promise the handler does not await is killed with
+ * the invocation once the response is sent. `after()` keeps the function
+ * alive for the route's maxDuration. Never-checked rows only — the 90-day
+ * window is lib/sales/intel/places.js's, and a re-ask is the console's
+ * "Check Google", not a claim's. A row that gains a website here queues its
+ * own crawl in the claimed lane (checkPlaces → ensureResearchQueued), so
+ * the research asked for above is not waited on and not duplicated: the
+ * plan is idempotent per stage.
+ */
+function checkGoogleFor(prospectIds, rep) {
+  if (!rep?.id) return;
+  after(async () => {
+    try {
+      // Scoped to the rep's own held rows, like every Prospect read in this
+      // file: a claim that lost its race is not this rep's to enrich.
+      const never = await db.prospect.findMany({
+        where: { ...queueWhere(rep.id, { now: new Date() }), id: { in: prospectIds }, placesCheckedAt: null },
+        select: { id: true },
+      });
+      if (!never.length) return;
+      const report = await enrichProspects({ db, ids: never.map((r) => r.id) });
+      if (report.stopped) {
+        await recordError({
+          area: "places",
+          code: report.stopped.code,
+          message: `Places check at claim time stopped: ${report.stopped.message}`,
+          detail: { prospectIds: prospectIds.slice(0, 50) },
+        });
+      }
+    } catch (err) {
+      await recordError({
+        area: "places",
+        code: "claim_check_threw",
+        message: `Places check at claim time threw: ${err?.message || err}`,
+        detail: errorDetail(err, { prospectIds: prospectIds.slice(0, 50) }),
+      });
+    }
+  });
 }
 
 /**
@@ -946,7 +994,7 @@ export async function POST(request) {
         result.opensSoonAtZone = zoneAcronym(zone, { at: now });
       }
     }
-    if (result.claimed > 0) queueResearchFor(result.claimedIds);
+    if (result.claimed > 0) queueResearchFor(result.claimedIds, rep);
     return NextResponse.json(
       await queueBody(rep, {
         tradeKey,
@@ -1002,7 +1050,7 @@ export async function POST(request) {
         // Logged after the lease is won, never before: a log row for a claim
         // that lost the race would count against the day's cap for nothing.
         await logSingleClaim({ db, rep, prospectId: candidate.id, timeZone, now: at });
-        queueResearchFor([candidate.id]);
+        queueResearchFor([candidate.id], rep);
         return NextResponse.json(
           await queueBody(rep, { tradeKey, prospectId: candidate.id, timeZone, language }),
         );
