@@ -884,10 +884,13 @@ export default function SignupPage() {
   const forCurrency = plans.filter(
     (p) => !planCurrency || !p.currency || p.currency === planCurrency,
   );
-  const ladderRows = forCurrency.filter((p) => p.tierKey);
-  // An unlisted plan the link asked for is shown beside the ladder — it has no
-  // tierKey by design (it is not a rung anyone else can climb to).
+  // An unlisted plan the link asked for is shown beside the ladder. A bespoke
+  // rate has no tierKey by design (it is not a rung anyone else can climb to);
+  // a custom SIZE ("custom-20", from the pricing page's fifth card) has one,
+  // so it can be resolved by currency like a rung — and is excluded from the
+  // ladder rows here so it renders once, after them, not twice.
   const unlistedRows = forCurrency.filter((p) => p.unlisted);
+  const ladderRows = forCurrency.filter((p) => p.tierKey && !p.unlisted);
   const visiblePlans = [
     ...(ladderRows.length > 0 ? ladderRows : forCurrency.filter((p) => !p.unlisted)),
     ...unlistedRows,
@@ -1253,10 +1256,15 @@ export default function SignupPage() {
     // The wished-for plan id rides along so an UNLISTED plan (private, sent by
     // link — a bespoke rate or the owner's live test) comes back for this
     // visitor; the pricing page never asks and never sees it.
+    // A custom size (?tier=custom-20) rides along the same way: the route
+    // finds-or-creates that size's rows and returns them unlisted, one per
+    // currency, for the address step to choose between.
     fetch(
       wantedRef.current.planId
         ? `/api/marketing/plans?plan=${encodeURIComponent(wantedRef.current.planId)}`
-        : "/api/marketing/plans",
+        : /^custom-\d+$/.test(wantedRef.current.tier || "")
+          ? `/api/marketing/plans?tier=${encodeURIComponent(wantedRef.current.tier)}`
+          : "/api/marketing/plans",
     )
       .then((r) => r.json())
       .then((data) => {
@@ -2191,35 +2199,45 @@ export default function SignupPage() {
                   />
                 ))}
 
-                {/* ── There is no fifth card any more ────────────────────────
+                {/* ── The fifth card points at the stepper ───────────────────
                     This used to be a "Custom" card: type a headcount, get a
                     price at $45/licence (calculatePricing). The owner retired
-                    that pricing model 2026-08-31 — the four tiers above ARE
-                    the pricing now. Scale tops out at 10 seats + 15 crew, and
-                    the ladder has no self-serve answer above that (there is no
-                    function from a raw headcount to a tier — see
-                    lib/pricing/ladder.js tierFor, which needs a seats/crew
-                    split a plain number can't supply). Rather than invent a
-                    price for that gap, this names it and points at a human,
-                    the same way the page already does two states up for a
-                    country the ladder has no currency for. */}
-                <div className="text-left border border-dashed border-border rounded-2xl p-6 flex flex-col justify-center bg-card">
-                  <h3 className="text-lg font-semibold text-foreground">
-                    {t("app.signup.plan.moreTitle", "Need more than Scale?")}
-                  </h3>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {t(
-                      "app.signup.plan.moreBody",
-                      "Scale covers up to 10 seats and 15 crew. For a bigger team, we'll work out a plan by hand.",
-                    )}
-                  </p>
-                  <Link
-                    href="/contact"
-                    className="mt-4 text-sm font-semibold underline underline-offset-2 self-start"
-                  >
-                    {t("app.signup.contactUs", "Contact us")}
-                  </Link>
-                </div>
+                    that pricing model 2026-08-31, and on 2026-09-18 asked for
+                    a self-serve size above Scale: seats past ten at the
+                    ladder's own per-seat step, crew = seats + 5, never more
+                    than a hundred people (lib/pricing/ladder.js customTier).
+                    The stepper that builds it lives on /pricing; its buy
+                    button comes back here as ?tier=custom-N, which the plan
+                    feed above turns into a real row in this currency. So this
+                    card names the option and sends them to the stepper,
+                    rather than duplicating the control — and it is not shown
+                    while a custom size is already on the page. A hundred
+                    people is still a conversation, and /contact stays for it. */}
+                {!visiblePlans.some((p) => /^custom-\d+$/.test(p.tierKey || "")) && (
+                  <div className="text-left border border-dashed border-border rounded-2xl p-6 flex flex-col justify-center bg-card">
+                    <h3 className="text-lg font-semibold text-foreground">
+                      {t("app.signup.plan.moreTitle", "Need more than Scale?")}
+                    </h3>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {t(
+                        "app.signup.plan.moreBody",
+                        "Scale covers up to 10 seats and 15 crew. Need more? Build a custom plan — every seat you add brings a crew member with it, up to 100 people.",
+                      )}
+                    </p>
+                    <Link
+                      href="/pricing#custom"
+                      className="mt-4 text-sm font-semibold underline underline-offset-2 self-start"
+                    >
+                      {t("app.signup.plan.buildCustom", "Build a custom plan")}
+                    </Link>
+                    <Link
+                      href="/contact"
+                      className="mt-2 text-xs text-muted-foreground underline underline-offset-2 self-start"
+                    >
+                      {t("app.signup.contactUs", "Contact us")}
+                    </Link>
+                  </div>
+                )}
               </div>
             )}
 

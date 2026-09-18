@@ -59,7 +59,7 @@ import {
   allAddOns,
   withholdReason,
 } from "@/lib/marketing/competitors";
-import { SEAT_LADDER, SUPPORTED_CURRENCIES } from "@/lib/pricing/ladder";
+import { SEAT_LADDER, SUPPORTED_CURRENCIES, customTier, CUSTOM_SEAT_PRICE, CUSTOM_MAX_SEATS, CUSTOM_CREW_GAP, MAX_COMPANY_PEOPLE } from "@/lib/pricing/ladder";
 import { LanguageProvider } from "@/app/providers/LanguageProvider";
 import { addOnStack } from "@/app/(marketing)/compare/addOns";
 import { renderAsOf } from "@/app/(marketing)/compare/asOf";
@@ -417,15 +417,34 @@ async function main() {
   // one combined blob would let each half excuse the other.
   const html = await renderPage(ladderRows);
   const count = (needle) => html.split(needle).length - 1;
-  ok("eight rows produce four cards", count("rounded-2xl") === 4, count("rounded-2xl"));
-  ok("four buy buttons, one per rung", count('href="/signup?tier=') === 4, count('href="/signup?tier='));
+  // Four rung cards, and the fifth card — "Need more people?" — priced from
+  // the Scale row the page is already showing (lib/pricing/ladder.js
+  // customTier), opening at twenty seats.
+  ok("eight rows produce four rung cards and the fifth card", count("rounded-2xl") === 5 && count('id="custom"') === 1, count("rounded-2xl"));
+  ok("five buy buttons: one per rung, and the fifth card's by SIZE",
+    count('href="/signup?tier=') === 5 && count('href="/signup?tier=custom-20"') === 1, count('href="/signup?tier='));
+  {
+    const twenty = customTier(20);
+    ok("the fifth card opens at twenty seats and says the row's price: $619 a month",
+      html.includes(">Custom · 20 seats · 25 crew<") && html.includes(`$${twenty.price}`), twenty.price);
+    // The fixture's Scale row carries no annual price, so the card must not
+    // invent a year; with one, it says the year at the same ratio.
+    ok("...with no year while Scale has no annual price", !html.includes("a year, billed yearly"));
+    const withYear = await renderPage(ladderRows.map((r) => (r.tierKey === "scale" ? { ...r, priceAnnual: r.priceMonthly * 10 } : r)));
+    ok("...and $6,190 a year once Scale is sold yearly", withYear.includes("6,190") && withYear.includes("a year, billed yearly"));
+    ok("...names the per-seat step and the cap in words: 47 seats, 52 crew, 100 people",
+      html.includes(`$${CUSTOM_SEAT_PRICE}`) && html.includes(`${CUSTOM_MAX_SEATS} seats`) && html.includes(`${CUSTOM_MAX_SEATS + CUSTOM_CREW_GAP} crew`) && html.includes(`${MAX_COMPANY_PEOPLE} people`));
+    ok("...offers the quick picks 15 / 20 / 30 / 40", ["15", "20", "30", "40"].every((n) => new RegExp(`aria-pressed="(true|false)"[^>]*>${n}<`).test(html)));
+    ok("...and no fifth card without a Scale row to price from",
+      !(await renderPage(ladderRows.filter((r) => r.tierKey !== "scale"))).includes('id="custom"'));
+  }
   ok("Solo is rendered once", count(">Solo<") === 1, count(">Solo<"));
   ok("Scale is rendered once", count(">Scale<") === 1, count(">Scale<"));
   ok("no rendered link is bound to a currency row", !/href="\/signup\?plan=(solo|crew|shop|scale)-/.test(html));
   ok("the page says 1 seat", html.includes("1 seat"));
   ok("...and 5 crew members included", html.includes("5 crew members included"));
   ok("...and never 6 employee accounts", !html.includes("6 employee accounts"));
-  ok("...nor 25, Scale's own sum", !html.includes("25 "), html.includes("25 "));
+  ok("...nor 25, Scale's own sum, as a headcount", !/\b25 (employee|people|team|users)/.test(html));
 
   // The private rate, through the whole page rather than through partitionPlans
   // on its own — the filter being correct is worth nothing if the page skips it.
@@ -581,6 +600,11 @@ async function main() {
   {
     const allowed = new Set([
       ...SEAT_LADDER.map((t) => t.price),
+      // The fifth card: the per-seat step and the size it opens at, both
+      // from customTier() — the function the server prices the row with.
+      CUSTOM_SEAT_PRICE,
+      customTier(20).price,
+      customTier(20).priceAnnual,
       // The processing-fee sentence: its dollar parts (the 30¢ on a card,
       // the 40¢ and the $5 cap on bank debit) come from the ONE rate table
       // the checkout charges from — lib/stripe/processingFee.js — so they

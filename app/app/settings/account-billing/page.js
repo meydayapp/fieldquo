@@ -12,6 +12,8 @@ import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
 
 import CancelFlow from "./CancelFlow";
 import ResumePlanButton from "@/app/components/billing/ResumePlanButton";
+import CustomSeatPicker, { pickedTier } from "@/app/components/billing/CustomSeatPicker";
+import { customSeatsFromTierKey } from "@/lib/pricing/ladder";
 import {
   annualPriceOf,
   annualSaving,
@@ -115,6 +117,15 @@ function AccountBillingScreen() {
   // `cancellingPending` is the "Keep my current plan" request in flight.
   const [confirming, setConfirming] = useState(null);
   const [cancellingPending, setCancellingPending] = useState(false);
+  // ── The fifth card ───────────────────────────────────────────────────────
+  //
+  // `customOffer` is what /api/settings/plans says a custom plan costs in this
+  // company's currency (range, Scale's base, per-seat amounts); null means
+  // the currency has no Scale row and no card is drawn. `customSeats` is the
+  // stepper, seeded from the size the company is already on so a company on
+  // "Custom · 20 seats" opens the card at 20, not at the default.
+  const [customOffer, setCustomOffer] = useState(null);
+  const [customSeats, setCustomSeats] = useState(20);
   // ── Which cadence an upgrade is bought on ────────────────────────────────
   //
   // null until the subscription loads, then seeded from what the company is
@@ -192,6 +203,9 @@ function AccountBillingScreen() {
       const body = planRes.ok ? await planRes.json() : null;
       const planList = Array.isArray(body) ? body : body?.plans;
       setPlans(Array.isArray(planList) ? planList : []);
+      setCustomOffer(body && !Array.isArray(body) && body.custom ? body.custom : null);
+      const onCustom = customSeatsFromTierKey(sub?.plan?.tierKey);
+      if (onCustom) setCustomSeats(onCustom);
       if (!planRes.ok) {
         setPlanCurrency(undefined);
         setError(
@@ -322,6 +336,10 @@ function AccountBillingScreen() {
     setError("");
     setBusyPlanId(planId);
     try {
+      // A custom size has no row yet on this side — its id is "custom:20"
+      // and the body carries the SEAT COUNT, never a price; the server
+      // prices and finds-or-creates the row (AGENTS.md non-negotiable #5).
+      const custom = /^custom:(\d+)$/.exec(String(planId));
       const res = await fetch("/api/platform/billing/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -329,7 +347,11 @@ function AccountBillingScreen() {
         // the plan's own priceAnnual and refuses rather than falling back —
         // "1 year commitment" on screen with a monthly charge on the card is
         // the failure this whole path exists to prevent.
-        body: JSON.stringify({ planId, interval: billingInterval || "month" }),
+        body: JSON.stringify(
+          custom
+            ? { customSeats: Number(custom[1]), interval: billingInterval || "month" }
+            : { planId, interval: billingInterval || "month" },
+        ),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || t("app.billing.checkoutFailed", "Could not start checkout"));
@@ -689,7 +711,10 @@ function AccountBillingScreen() {
           )}
         </div>
         <div className="grid sm:grid-cols-3 gap-4">
-          {plans.map((plan) => {
+          {/* A custom size the company is on comes back in the list (the
+              route includes the current plan's row); the fifth card below
+              represents every custom size, so the row is not drawn twice. */}
+          {plans.filter((plan) => !customSeatsFromTierKey(plan.tierKey)).map((plan) => {
             // ── "Current plan" is the tier AND the cadence ────────────────
             //
             // Their own tier with the switch flipped to the year is a real
@@ -781,6 +806,108 @@ function AccountBillingScreen() {
               </div>
             );
           })}
+          {/* ── The fifth card: "Need more people?" ─────────────────────
+              A stepper, not a list of thirty-seven rows. The figures come from
+              customTier() in lib/pricing/ladder.js against the offer the
+              server sent, so the card says what the row will cost; the
+              button posts the seat count and the server prices it again.
+              Rendered only with an offer — no Scale row in this currency, no
+              card. */}
+          {customOffer && (() => {
+            const tier = pickedTier(customOffer, customSeats);
+            const onCustomSize = customSeatsFromTierKey(subscription?.plan?.tierKey);
+            const sameSize = tier && onCustomSize === tier.seats;
+            const isCurrent = sameSize && (subscription?.billingInterval || "month") === billingInterval;
+            const yearly = tier && billingInterval === "year" ? tier.priceAnnual : null;
+            const unsellable = billingInterval === "year" && (!tier || tier.priceAnnual === null);
+            const virtual = tier
+              ? {
+                  id: `custom:${tier.seats}`,
+                  name: tier.name,
+                  tierKey: tier.tierKey,
+                  seats: tier.seats,
+                  crewSeats: tier.crewSeats,
+                  priceMonthly: tier.price,
+                  priceAnnual: tier.priceAnnual,
+                  sortOrder: tier.sortOrder,
+                }
+              : null;
+            return (
+              <div className={`border rounded-xl p-4 ${isCurrent ? "border-inverted" : "border-border"}`}>
+                <h3 className="font-semibold text-foreground">
+                  {t("app.billing.custom.title", "Need more people?")}
+                </h3>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {t("app.billing.custom.body", "Past {baseSeats} seats, add as many as you need — every seat brings a crew member with it.", {
+                    baseSeats: customOffer.baseSeats,
+                  })}
+                </p>
+                <CustomSeatPicker
+                  offer={customOffer}
+                  seats={customSeats}
+                  onChange={setCustomSeats}
+                  idPrefix="billing-custom"
+                  labels={{
+                    seats: t("app.billing.custom.seats", "Seats"),
+                    quickPicks: t("app.billing.custom.quickPicks", "Quick picks"),
+                    fewer: t("app.billing.custom.fewer", "One seat fewer"),
+                    more: t("app.billing.custom.more", "One seat more"),
+                  }}
+                />
+                {tier && (
+                  <>
+                    <p className="text-2xl font-bold text-foreground mt-3">
+                      {money(yearly !== null ? yearly : tier.price)}
+                      <span className="text-sm font-normal text-muted-foreground">
+                        {yearly !== null
+                          ? t("app.billing.perYearShort", "/yr")
+                          : t("app.billing.perMonthShort", "/mo")}
+                      </span>
+                    </p>
+                    {yearly !== null && (
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {t("app.billing.perMonthEquivalent", "{amount} a month", { amount: money(yearly / 12) })}
+                      </p>
+                    )}
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {t("app.billing.seatsWithCrew", { seats: tier.seats, crew: tier.crewSeats })}
+                    </p>
+                  </>
+                )}
+                {unsellable && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {t("app.billing.monthlyOnly", "This plan is billed monthly only.")}
+                  </p>
+                )}
+                <p className="text-xs text-muted-foreground mt-1">
+                  {t("app.billing.custom.cap", "Up to {maxSeats} seats and {maxCrew} crew — {maxPeople} people in all.", {
+                    maxSeats: customOffer.maxSeats,
+                    maxCrew: customOffer.maxSeats + customOffer.crewGap,
+                    maxPeople: customOffer.maxPeople,
+                  })}
+                </p>
+                <button
+                  onClick={() => virtual && handleChoosePlan(virtual)}
+                  disabled={!virtual || isCurrent || unsellable || busyPlanId === virtual?.id}
+                  className={`w-full mt-3 py-2 rounded-full text-sm font-semibold disabled:opacity-60 ${
+                    isCurrent || unsellable
+                      ? "bg-muted text-muted-foreground"
+                      : "bg-inverted text-inverted-foreground"
+                  }`}
+                >
+                  {isCurrent
+                    ? t("app.billing.currentPlan", "Current plan")
+                    : unsellable
+                      ? t("app.billing.noAnnual", "Not sold yearly")
+                      : busyPlanId === virtual?.id
+                        ? t("app.billing.redirecting", "Redirecting...")
+                        : sameSize
+                          ? t("app.billing.switchToYearly", "Switch to yearly")
+                          : t("app.billing.choosePlan", "Choose plan")}
+                </button>
+              </div>
+            );
+          })()}
           {/* Two different empty states, because they have two different
               causes and only one of them is actionable by the person reading
               it. "No plans configured yet" in front of somebody whose address

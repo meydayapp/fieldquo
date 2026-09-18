@@ -23,6 +23,9 @@ export const state = {
   products: [],
   // What products.search answers with. Empty = nothing found, so create runs.
   productSearchHits: [],
+  // Prices minted through prices.create, found again by lookup_key — the
+  // extra-seat Price of a custom plan (stripeBilling.js ensureExtraSeatPrice).
+  prices: [],
   nextId: 1,
 };
 
@@ -32,6 +35,7 @@ export function resetStripeStub() {
   state.schedules.clear();
   state.products.length = 0;
   state.productSearchHits = [];
+  state.prices.length = 0;
   state.nextId = 1;
 }
 
@@ -146,9 +150,26 @@ export const stripe = {
       return product;
     },
   },
+  prices: {
+    list: async (params) => {
+      record("prices.list", params);
+      const keys = params?.lookup_keys || [];
+      return { data: state.prices.filter((p) => p.active !== false && keys.includes(p.lookup_key)) };
+    },
+    create: async (params) => {
+      record("prices.create", params);
+      // transfer_lookup_key: the key moves off any Price that held it, as
+      // Stripe does — so a re-minted amount is the only one answering.
+      if (params.transfer_lookup_key) {
+        for (const p of state.prices) if (p.lookup_key === params.lookup_key) p.lookup_key = null;
+      }
+      const price = { id: id("price"), active: true, ...params };
+      state.prices.push(price);
+      return price;
+    },
+  },
   customers: unscripted("customers"),
   checkout: unscripted("checkout"),
-  prices: unscripted("prices"),
   billingPortal: unscripted("billingPortal"),
   webhooks: unscripted("webhooks"),
 };
