@@ -27,8 +27,18 @@
 // connection, opening one search and one profile every few seconds, is a
 // person reading BBB — which is what this is: a batch tool for the leads
 // reps are dialling this week, never the pool, run at the pace of a hand.
-// Nothing here retries a challenge, rotates anything, or hides. On the
-// first challenge it STOPS and says how many it did.
+// Nothing here solves a challenge, rotates anything, or hides.
+//
+// When a challenge does come up in a visible window, the script waits: it
+// says so on the terminal, leaves the page where it is, and carries on with
+// the same prospect once a person has ticked the box and pressed Enter. The
+// persistent profile below only earns Cloudflare's trust if a human is
+// allowed to pass the check once — closing the window on sight, as this
+// used to, meant the profile never got the chance, and every run ended on
+// the first prospect. A second challenge within a few prospects of a passed
+// one means the profile is not being trusted today, and no number of hands
+// will change that: the run stops, as it always did. Headless has no window
+// to solve anything in, so it stops on the first challenge, unchanged.
 //
 // ══ Direct to the database, the way every scripts/check-*.mjs runs ════════
 //
@@ -51,6 +61,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import readline from "node:readline";
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 
@@ -79,6 +90,44 @@ const PAUSE_MIN_MS = 3000;
 const PAUSE_MAX_MS = 5000;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const pause = () => sleep(PAUSE_MIN_MS + Math.random() * (PAUSE_MAX_MS - PAUSE_MIN_MS));
+/**
+ * How many prospects a passed challenge has to hold before a second one is
+ * read as the profile not being trusted, rather than as a one-off check.
+ */
+const CHALLENGE_GRACE = 5;
+const HAND_SOLVE_PROMPT = "Cloudflare is asking you to verify in the Chrome window — solve it, then press Enter here (or q to stop)";
+
+/**
+ * The next line typed at the terminal; null once stdin has nothing more to
+ * say. One interface for the whole run, opened on the first ask: an
+ * interface per prompt swallows whatever stdin had buffered when it opened,
+ * and the second prompt reads an empty stream as "stop". A line that
+ * arrives while nobody is asking — an Enter pressed idly while pages were
+ * loading — is not an answer to a prompt that had not been printed yet, so
+ * it is dropped rather than queued.
+ */
+let stdin = null;
+const readLine = () => {
+  if (!stdin) {
+    stdin = { rl: readline.createInterface({ input: process.stdin }), waiting: null, ended: false };
+    const answer = (value) => {
+      const w = stdin.waiting;
+      stdin.waiting = null;
+      w?.(value);
+    };
+    stdin.rl.on("line", answer);
+    stdin.rl.on("close", () => {
+      stdin.ended = true;
+      answer(null);
+    });
+  }
+  if (stdin.ended) return Promise.resolve(null);
+  return new Promise((resolve) => {
+    stdin.waiting = resolve;
+  });
+};
+/** Let go of the keyboard, or a finished run would sit there waiting for it. */
+const releaseStdin = () => stdin?.rl.close();
 
 function looksChallenged(html, title) {
   return /just a moment|cf-mitigated|challenge-platform|cf-chl|attention required/i.test(`${title}\n${String(html).slice(0, 5000)}`);
@@ -204,28 +253,61 @@ async function main() {
   }
   const applyRow = NO_DB ? null : (await import("@/lib/sales/intel/bbbApply")).applyBbbRow;
   const out = fs.createWriteStream(OUT, { flags: "a" });
-  const summary = { visited: 0, matched: 0, noMatch: 0, refusedByServer: 0, alreadyKnown: 0, peopleAdded: 0, challenged: false, errors: 0 };
+  const summary = { visited: 0, matched: 0, noMatch: 0, refusedByServer: 0, alreadyKnown: 0, peopleAdded: 0, challengesPassed: 0, challenged: false, errors: 0 };
   const browser = await openChrome();
   const started = Date.now();
-  try {
-    for (const p of todo) {
-      const search = await browser.open(p.searchUrl);
-      if (looksChallenged(search.html, search.title)) {
+  /** Index of the prospect whose challenge a person last passed, for the grace rule above. */
+  let lastPassedAt = null;
+  /**
+   * Open a URL and hand back a page that is not a challenge — or null, with
+   * the run marked stopped and the reason printed. The page is re-navigated
+   * rather than re-read after Enter: Cloudflare lands the solved check on
+   * the original URL itself, but a person can press Enter before that
+   * redirect has finished, and `open` is the one primitive that waits.
+   */
+  const openClear = async (url, i, p, what) => {
+    let page = await browser.open(url);
+    let asked = false;
+    while (looksChallenged(page.html, page.title)) {
+      const soonAfterPass = lastPassedAt !== null && i - lastPassedAt <= CHALLENGE_GRACE;
+      const stop = (why) => {
         summary.challenged = true;
-        process.stdout.write(`\nBBB challenged the browser on the search for "${p.businessName}". Stopping here${HEADLESS ? " — run again WITHOUT --headless and pass the challenge in the window, then --resume" : " — pass the challenge in the window and run again with --resume"}.\n`);
-        break;
+        process.stdout.write(`\nBBB challenged the browser on the ${what} for "${p.businessName}". Stopping here${why}.\n`);
+      };
+      if (HEADLESS) {
+        stop(" — run again WITHOUT --headless and pass the challenge in the window, then --resume");
+        return null;
       }
+      if (soonAfterPass) {
+        stop(` — a second challenge ${i - lastPassedAt} prospect${i - lastPassedAt === 1 ? "" : "s"} after the one you passed means BBB is not trusting this profile today; run again later with --resume`);
+        return null;
+      }
+      process.stdout.write(`\n${HAND_SOLVE_PROMPT}\n`);
+      const answer = await readLine();
+      if (answer === null || answer.trim().toLowerCase() === "q") {
+        stop(" — pass the challenge in the window and run again with --resume");
+        return null;
+      }
+      asked = true;
+      page = await browser.open(url);
+    }
+    if (asked) {
+      summary.challengesPassed += 1;
+      lastPassedAt = i;
+    }
+    return page;
+  };
+  try {
+    for (const [i, p] of todo.entries()) {
+      const search = await openClear(p.searchUrl, i, p, "search");
+      if (!search) break;
       const results = parseBbbSearch(search.html);
       const m = matchListings(p, results.map(searchResultAsListing));
       let record;
       if (m.verdict === "matched" && m.listing?.externalId) {
         await pause();
-        const page = await browser.open(m.listing.externalId);
-        if (looksChallenged(page.html, page.title)) {
-          summary.challenged = true;
-          process.stdout.write(`\nBBB challenged the browser on the profile for "${p.businessName}". Stopping here.\n`);
-          break;
-        }
+        const page = await openClear(m.listing.externalId, i, p, "profile");
+        if (!page) break;
         const profile = parseBbbProfile(page.html, { url: m.listing.externalId });
         record = { prospectId: p.id, businessName: p.businessName, at: new Date().toISOString(), profile, score: m.score, searchUrl: p.searchUrl };
       } else {
@@ -256,12 +338,13 @@ async function main() {
     }
   } finally {
     browser.close();
+    releaseStdin();
     await new Promise((r) => out.end(r));
     await db?.$disconnect?.();
   }
   const mins = ((Date.now() - started) / 60000).toFixed(1);
   process.stdout.write(
-    `\nDone in ${mins} min: ${summary.visited} visited, ${summary.matched} matched, ${summary.noMatch} no match, ${summary.refusedByServer} refused by the server's re-match, ${summary.alreadyKnown} already known, ${summary.peopleAdded} people added${summary.errors ? `, ${summary.errors} errors` : ""}${summary.challenged ? " — STOPPED on a challenge" : ""}.\nResults: ${OUT}${NO_DB ? " — upload it on /platform/sales/prospects → Upload BBB results." : ""}\n`,
+    `\nDone in ${mins} min: ${summary.visited} visited, ${summary.matched} matched, ${summary.noMatch} no match, ${summary.refusedByServer} refused by the server's re-match, ${summary.alreadyKnown} already known, ${summary.peopleAdded} people added${summary.errors ? `, ${summary.errors} errors` : ""}${summary.challengesPassed ? `, ${summary.challengesPassed} challenge${summary.challengesPassed === 1 ? "" : "s"} passed by hand` : ""}${summary.challenged ? " — STOPPED on a challenge" : ""}.\nResults: ${OUT}${NO_DB ? " — upload it on /platform/sales/prospects → Upload BBB results." : ""}\n`,
   );
   if (summary.challenged) process.exitCode = 3;
 }
