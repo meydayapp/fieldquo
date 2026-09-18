@@ -10133,6 +10133,10 @@ model SalesRep {
   /// Numbers this rep wrote down. SetNull rather than Cascade on the other
   /// side: a rep leaving must not delete the number a contractor gave us.
   contactNumbers SalesContactNumber[]
+  /// Addresses this rep wrote down. Same SetNull as contactNumbers.
+  contactEmails  SalesContactEmail[]
+  /// Intro emails this rep sent after a no-answer. See SalesIntroEmail.
+  introEmails    SalesIntroEmail[]
   staffRooms StaffRoomMember[]
   staffMessages StaffMessage[]
   ownedStaffRooms StaffRoom[]
@@ -10626,6 +10630,11 @@ model SalesLead {
   contactNumbers SalesContactNumber[]
   /// Every time convertedCompanyId was set or cleared, and why. See the model.
   linkEvents     SalesLeadLinkEvent[]
+  /// The "we tried calling you" emails sent to this lead, and what they asked
+  /// for afterwards. See SalesIntroEmail.
+  introEmails    SalesIntroEmail[]
+  /// Other addresses a rep was given for this lead. See SalesContactEmail.
+  contactEmails  SalesContactEmail[]
 }
 
 /// A lead's link to a company being set or cleared, append-only.
@@ -11403,6 +11412,101 @@ model SalesEmailDraft {
 
   @@index([salesRepId, updatedAt])
   @@index([threadId])
+}
+
+/// The "we tried calling you" email, one row per send.
+///
+/// ══ Why a row beside the SalesMessage the send already writes ═══════════
+///
+/// The message row is the copy of what went out, filed on the lead's thread
+/// like any other email. This row is what the email DOES afterwards: the two
+/// buttons in it ("call me back", "book a demo") land here, single-use per
+/// kind, and the Today counters and the lead page read the requests off it.
+/// It is also the 14-day guard — the same address is not sent a second intro
+/// inside two weeks, whichever rep rang — which a scan of message subjects
+/// could not answer reliably (a rep may edit a subject; this row cannot).
+///
+/// ══ Requests are stamped, never deleted ═════════════════════════════════
+///
+/// callbackRequestedAt / demoRequestedAt are set ONCE by the public link
+/// route (app/api/intro-link/[token]) and only from a POST the prospect
+/// pressed a button for — never from the GET a mail scanner prefetches.
+/// handledAt is the rep's: "I've dealt with it". A callback request also
+/// writes a SalesEvent on the rep's calendar (callbackEventId), at the next
+/// business hour where the prospect is, which is the mechanism the rep's own
+/// "Schedule a call back" uses.
+model SalesIntroEmail {
+  id String @id @default(cuid())
+
+  salesRepId String
+  salesRep   SalesRep @relation(fields: [salesRepId], references: [id], onDelete: Cascade)
+
+  leadId String
+  lead   SalesLead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  /// The attempt whose no-answer or voicemail prompted the send, when the
+  /// pop-up had one. Loose pointer, no relation: the attempt row's own
+  /// history does not depend on this table existing.
+  attemptId String?
+
+  /// Where it went, lowercased. One of the lead's own addresses — the lead's,
+  /// the prospect's, or one the rep typed and saved on the lead first.
+  toAddress String
+  /// "en" | "fr" | "es" — the language the fixed wording was sent in. Fixed
+  /// at send: the links' thank-you pages answer in it.
+  language String @default("en")
+
+  /// The filed copy. Nullable only because the thread and message are written
+  /// in the sender's transaction and this row after it; a row with neither
+  /// means the send was accepted and the filing failed, which the error log
+  /// carries.
+  threadId  String?
+  messageId String?
+
+  sentAt DateTime @default(now())
+  /// The two links stop working after this. Thirty days from the send.
+  expiresAt DateTime
+
+  callbackRequestedAt DateTime?
+  callbackEventId     String?
+  demoRequestedAt     DateTime?
+  /// The rep pressed "handled" on the request(s). One stamp for both kinds:
+  /// a rep who rang them back has answered the demo ask on the same call.
+  handledAt DateTime?
+
+  @@index([salesRepId, sentAt])
+  @@index([leadId])
+  @@index([toAddress, sentAt])
+}
+
+/// An email address a rep was given for a lead, beside the one on the lead.
+///
+/// The email counterpart of SalesContactNumber, and smaller on purpose: a
+/// lead carries ONE `email` column, and "send it to my other address" needed
+/// somewhere to go that was still ON THE RECORD — lib/sales/emailRecipients.js
+/// only lets a message go to an address the lead's rows already hold, and
+/// that rule is what keeps the portal from being a tool for emailing anyone.
+/// Written by lib/sales/contact/record.js recordContactEmail, which refuses a
+/// do-not-contact business and a test account the way the number writer does.
+model SalesContactEmail {
+  id String @id @default(cuid())
+
+  salesLeadId String
+  salesLead   SalesLead @relation(fields: [salesLeadId], references: [id], onDelete: Cascade)
+
+  /// Lowercased, trimmed, checked with the same isPlausibleEmail the lead's
+  /// own column is.
+  email String
+
+  /// Who wrote it down. SetNull: the address outlives the rep.
+  addedBySalesRepId String?
+  addedBy           SalesRep? @relation(fields: [addedBySalesRepId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  /// One row per address per lead. The database refuses the duplicate.
+  @@unique([salesLeadId, email])
+  @@index([salesLeadId])
 }
 
 /// One received email at the Resend Receiving door, whatever became of it.
