@@ -303,6 +303,22 @@ async function runScene(scene) {
     await wait(300);
     return;
   }
+  if (scene === "takeoff-measure") {
+    // The roofing and gutter cards: type the house's address and press
+    // "Measure from satellite"; the fixture answers with the measurement and
+    // the still (fixtures/takeoffs.js), and the frame is the card after it.
+    const input = document.querySelector("[data-takeoff-frame] input[placeholder]");
+    if (!input) throw new Error("scene: no address input on the takeoff card");
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
+    setter.call(input, "42 Windermere Dr, Kanata, ON K2K 1S8");
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await wait(100);
+    const btn = [...document.querySelectorAll("[data-takeoff-frame] button")].find((b) => /sat.l+ite/i.test(b.textContent));
+    if (!btn) throw new Error("scene: no measure button on the takeoff card");
+    btn.click();
+    await wait(1200);
+    return;
+  }
   if (scene === "funnel-start") {
     await clickButton("Start");
     await wait(400);

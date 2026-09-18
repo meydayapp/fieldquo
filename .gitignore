@@ -65,3 +65,9 @@ scratch/
 # The help centre copies its figures and search index here at build time
 # (scripts/build-help-content.mjs); the sources live under docs/screens.
 public/help/
+
+# The intro email's per-trade harness frames (1200px, 21MB across three
+# languages) are reproducible from docs/screens/app-guide/harness — the
+# cropped assets under public/product/email/ are what ships. See
+# scripts/build-intro-screenshots.mjs.
+docs/screens/intro-email/

@@ -105,10 +105,16 @@ for (const screen of SCREENS) {
   n++;
   if (only.length && !only.includes(screen.slug)) continue;
   for (const lang of LANGS) {
-    const dir = join(ROOT, "docs/screens/app-guide", lang);
+    // A row may name its own folder (`out`) — the intro email's per-trade
+    // frames live under docs/screens/intro-email/, unnumbered, so they do
+    // not renumber the guide's chapter when one is added.
+    const dir = screen.out ? join(ROOT, screen.out, lang) : join(ROOT, "docs/screens/app-guide", lang);
     mkdirSync(dir, { recursive: true });
-    const file = join(dir, `${String(n).padStart(2, "0")}-${screen.slug}.png`);
-    const url = `${ORIGIN}/guide.html?page=${screen.slug}&lang=${lang}`;
+    const file = join(dir, screen.out ? `${screen.slug}.png` : `${String(n).padStart(2, "0")}-${screen.slug}.png`);
+    // HARNESS_MAPS_KEY rides in on the query string for the frames that
+    // draw a live satellite still (fixtures/takeoffs.js). Never stored.
+    const mapsKey = process.env.HARNESS_MAPS_KEY ? `&mapsKey=${encodeURIComponent(process.env.HARNESS_MAPS_KEY)}` : "";
+    const url = `${ORIGIN}/guide.html?page=${screen.slug}&lang=${lang}${mapsKey}`;
     const t0 = Date.now();
     exceptions = [];
     const WIDTH = screen.width || DEFAULT_WIDTH;

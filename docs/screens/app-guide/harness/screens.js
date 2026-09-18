@@ -11,6 +11,33 @@
 // `href` is what usePathname() returns inside the harness so the sidebar
 // highlights the row being photographed. `page` is the module the harness
 // bundles. `settings` rows render inside the settings sub-shell as well.
+// ── The intro email's per-trade frames ─────────────────────────────────────
+//
+// One quote card per trade for lib/sales/outreach/introScreenshots.js: the
+// real TradeTakeoff (or LotAreaMeasure) seeded from fixtures/takeoffs.js,
+// photographed at 1200 wide into docs/screens/intro-email/<lang>/ and then
+// cropped into public/product/email/ by scripts/build-intro-screenshots.mjs.
+// `chapter` keeps them out of the guide's "Every screen" walk; `out` keeps
+// them unnumbered. Roofing and gutters run the measure scene so the frame
+// carries the satellite still.
+const INTRO_TAKEOFF_TRADES = [
+  "roofing_service", "paving", "gutter_services", "siding", "insulation", "interior_painting",
+  "exterior_painting", "stairs", "countertop", "garage_door", "flooring", "driveway_sealing",
+  "home_inspection", "snow_removal", "landscaping_design", "lawn_care", "lawn_mowing", "irrigation",
+];
+export const INTRO_FRAMES = INTRO_TAKEOFF_TRADES.map((trade) => ({
+  slug: `intro-${trade}`,
+  href: "/app/quotes/new",
+  page: "docs/screens/app-guide/harness/TakeoffFrame.jsx",
+  props: { trade },
+  mode: "public",
+  width: 1200,
+  height: 1000,
+  chapter: "intro-email",
+  out: "docs/screens/intro-email",
+  ...(trade === "roofing_service" || trade === "gutter_services" ? { scene: "takeoff-measure" } : {}),
+}));
+
 export const SCREENS = [
   // ── The main rail ──────────────────────────────────────────────────────
   { slug: "home", nav: "app.nav.home", href: "/app", page: "app/app/page.js" },
@@ -200,4 +227,5 @@ export const SCREENS = [
   // A quote still out with the client — the page with Send again, Follow up
   // and Get approved on it (Q-1042 above is approved and converted).
   { slug: "quote-detail-sent", href: "/app/quotes", page: "app/app/quotes/[id]/page.js", params: { id: "q_1044" }, chapter: "help" },
+  ...INTRO_FRAMES,
 ];
