@@ -35,6 +35,8 @@ import {
 } from "@/lib/leads/tradeQuestions";
 import { serviceAreaCopy } from "@/lib/company/serviceArea";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { useLanguageContext } from "@/app/providers/LanguageProvider";
+import { BOOKING_LANGUAGES, BOOKING_LANGUAGE_NAMES, bookingLanguage, bookingLangStorageKey } from "@/lib/i18n/bookingLanguages";
 import SlotCalendar from "@/app/components/public/SlotCalendar";
 import AddressField from "./AddressField";
 import {
@@ -128,7 +130,46 @@ export default function BookingFlow({
   // to WRITE rather than recognise, and a question you can't read is a question
   // you skip.
   const { t, language } = useTranslation();
+  const { changeLanguage } = useLanguageContext();
   const [company, setCompany] = useState(null);
+
+  // ── The booker's language ────────────────────────────────────────────
+  //
+  // Three pills in the header, the same arrangement the instant estimate
+  // has (lib/i18n/instantQuoteCopy.js). Resolution on first paint: `?lang=`
+  // on the link (a contractor's French page links with ?lang=fr), what this
+  // browser chose here before (localStorage, per company), the shell's own
+  // language when it is one of the three, else the COMPANY's language once
+  // the payload arrives — which is what a first-time booker used to get
+  // whatever they read. The choice is posted with the booking and carried
+  // onto the client, the confirmation letter and the manage page.
+  const [languageChosen, setLanguageChosen] = useState(false);
+  function chooseLanguage(code) {
+    const lang = bookingLanguage(code);
+    if (!lang) return;
+    changeLanguage(lang);
+    setLanguageChosen(true);
+    try {
+      window.localStorage.setItem(bookingLangStorageKey(companySlug), lang);
+    } catch {
+      // Private mode or storage blocked — the pick still holds for this visit.
+    }
+  }
+  useEffect(() => {
+    let stored = null;
+    try {
+      stored = bookingLanguage(window.localStorage.getItem(bookingLangStorageKey(companySlug)));
+    } catch {
+      stored = null;
+    }
+    const fromQuery = bookingLanguage(new URLSearchParams(window.location.search).get("lang"));
+    const first = fromQuery || stored;
+    if (first) {
+      changeLanguage(first);
+      setLanguageChosen(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companySlug]);
   const [loadError, setLoadError] = useState("");
   const [loading, setLoading] = useState(true);
 
@@ -264,6 +305,12 @@ export default function BookingFlow({
         if (cancelled) return;
         if (!res.ok) throw new Error(data?.error || "Booking page not found.");
         setCompany(data);
+        // Nothing chosen on the link or before, and the shell is not in one
+        // of the three: the company's own language, said by the payload.
+        if (!languageChosen && !bookingLanguage(language)) {
+          const theirs = bookingLanguage(data?.defaultLanguage);
+          if (theirs) changeLanguage(theirs);
+        }
 
         // The estimator list. Best-effort — if it fails or is empty, Step 1
         // falls back to the plain service menu below.
@@ -587,7 +634,7 @@ export default function BookingFlow({
     return (
       <Shell theme={theme}>
         {/* No header inside an embed — the host page is the company's own. */}
-        {!embedded && <Header company={company} theme={theme} solid={solid} />}
+        {!embedded && <Header company={company} theme={theme} solid={solid} language={bookingLanguage(language) || "en"} onLanguage={chooseLanguage} />}
         <div className="text-center py-6">
           <h2 className="text-lg font-bold" style={{ color: theme.ink }}>
             One more step
@@ -667,7 +714,7 @@ export default function BookingFlow({
     return (
       <Shell theme={theme}>
         {/* No header inside an embed — the host page is the company's own. */}
-        {!embedded && <Header company={company} theme={theme} solid={solid} />}
+        {!embedded && <Header company={company} theme={theme} solid={solid} language={bookingLanguage(language) || "en"} onLanguage={chooseLanguage} />}
         <div className="text-center py-8">
           <div
             className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4"
@@ -715,7 +762,7 @@ export default function BookingFlow({
     // and email field stretched across 672px looks worse, not better.
     <Shell theme={theme} wide={showingCalendar}>
       {/* No header inside an embed — the host page is the company's own. */}
-      {!embedded && <Header company={company} theme={theme} solid={solid} />}
+      {!embedded && <Header company={company} theme={theme} solid={solid} language={bookingLanguage(language) || "en"} onLanguage={chooseLanguage} />}
 
       {/* Step 1 — pick your estimator (member-first), or the service menu */}
       {!eventType && (
@@ -1308,7 +1355,7 @@ function Shell({ children, theme, wide = false }) {
   );
 }
 
-function Header({ company, theme, solid }) {
+function Header({ company, theme, solid, language = "en", onLanguage = null }) {
   return (
     <div className="flex items-center gap-3 mb-5 pb-4 border-b" style={{ borderColor: theme.borderSoft }}>
       {company.logoUrl ? (
@@ -1326,10 +1373,33 @@ function Header({ company, theme, solid }) {
           <Building2 size={16} style={{ color: solid.fg }} />
         </div>
       )}
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <div className="font-bold truncate" style={{ color: theme.ink }}>{company.name}</div>
         <div className="text-xs" style={{ color: theme.inkMuted }}>Book an appointment</div>
       </div>
+      {/* The three pills. The lit one is fillPair's measured pair — a pale
+          brand keeps a shape through the accent edge. Names in their own
+          language, never translated, so a francophone finds "Français". */}
+      {onLanguage ? (
+        <div className="flex items-center gap-1 shrink-0" role="group" aria-label="Language" data-booking-language={language}>
+          {BOOKING_LANGUAGES.map((code) => {
+            const on = code === language;
+            return (
+              <button
+                key={code}
+                type="button"
+                lang={code}
+                aria-pressed={on}
+                onClick={() => onLanguage(code)}
+                className="rounded-full border px-2.5 min-h-8 text-[11px] font-semibold"
+                style={on ? { background: solid.bg, color: solid.fg, borderColor: theme.accentText } : { borderColor: theme.border, color: theme.ink, background: theme.paper }}
+              >
+                {BOOKING_LANGUAGE_NAMES[code]}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
     </div>
   );
 }
