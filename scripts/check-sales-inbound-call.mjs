@@ -390,7 +390,9 @@ section("4. Recording is on wherever two people are connected, and off where nob
 for (const [label, plan, expected] of [
   ["a number we do not hold", inboundPlan({ numberRung: null }), false],
   ["an unrecordable deployment", inboundPlan({ numberRung: OUR_NUMBER, storeReady: false }), false],
-  ["a message", inboundPlan({ numberRung: OUR_NUMBER, transferTo: null }), false],
+  // No desk number no longer means a message: browsers ring (2026-09-17),
+  // and two people connected is a recorded call.
+  ["no desk number, browsers ring", inboundPlan({ numberRung: OUR_NUMBER, transferTo: null }), true],
   ["an empty floor", inboundPlan({ numberRung: OUR_NUMBER, transferTo: DESK, anyRepLive: false }), false],
   ["a transfer", inboundPlan({ numberRung: OUR_NUMBER, transferTo: DESK, anyRepLive: true }), true],
 ]) {
