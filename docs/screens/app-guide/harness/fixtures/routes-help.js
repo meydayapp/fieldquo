@@ -23,6 +23,7 @@ import { publicIntakeFields } from "@/app/data/quoteIntakeFields";
 import { budgetBands } from "@/lib/estimate/budgetBands";
 import { sanitiseFunnelSteps } from "@/app/data/funnelBlocks";
 import { parsePaymentSchedule } from "@/lib/documents/paymentSchedule";
+import { GUTTER_MEASUREMENT, ROOF_MEASUREMENT } from "./takeoffs.js";
 import { JOB_PHOTOS as JOB_PHOTO_URLS } from "./public.js";
 
 const [MARC, JULIE, SAM, , LEO, ANA] = PEOPLE;
@@ -62,6 +63,14 @@ const COMPANY_PUBLIC = {
 // attached still unpicked. (company.js's Q-1042 is the accepted quote the
 // back office shows; this is the same document a week earlier.)
 export const QUOTE_TOKEN = "qt_8f2c1a7d4e";
+
+// ── /api/measure/* — what the roofing and gutter takeoff cards ask ─────────
+// Answered for the intro email's per-trade frames (TakeoffFrame.jsx). The
+// measurement is fixed; the still is a live tile when a key was given.
+const MEASURE_ROUTES = [
+  { path: "/api/measure/roof", reply: () => ROOF_MEASUREMENT },
+  { path: "/api/measure/gutters", reply: () => GUTTER_MEASUREMENT },
+];
 const ADD_ONS = [
   { id: "ao1", description: "Under-cabinet LED lighting", detail: "Warm white strip under every upper run, hard-wired to a wall switch", amount: 640, taxable: true, selected: false },
   { id: "ao2", description: "Pull-out waste and recycling", detail: "Two-bin unit in the base beside the sink", amount: 385, taxable: true, selected: false },
@@ -881,6 +890,7 @@ const CREW_JOB = {
 const crewOr = (mine, theirs) => (ctx) => (isCrew(ctx) ? mine(ctx) : theirs(ctx));
 
 export const ROUTES_HELP = [
+  ...MEASURE_ROUTES,
   // ── The crew's phone: the same routes, Léo's answers ────────────────────
   { path: "/api/settings/members/self/role", reply: crewOr(() => ({ assignableRoles: [], canGrantAccess: false, yourRole: "employee", role: "employee" }), () => ({ assignableRoles: ["admin", "supervisor", "employee"], canGrantAccess: true, yourRole: "owner", role: "owner" })) },
   { path: "/api/analytics/overview", reply: crewOr(forbidden, (ctx) => ctx.next()) },

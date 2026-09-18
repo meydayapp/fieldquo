@@ -86,6 +86,16 @@ export default function IntroEmailPrompt({ target, onClose, onSent = null }) {
     fetchJson(`/api/sales/intro-email?${q}`)
       .then((body) => {
         if (cancelled) return;
+        // No address anywhere on the record — nothing to send to, so the
+        // question is not asked (owner, 2026-09-18: "if we don't have an
+        // email address we cannot send an email"). The lead page keeps its
+        // own Send control with the typed field for the rep who heard an
+        // address on the voicemail.
+        const known = Array.isArray(body?.candidates) ? body.candidates.filter((c) => c?.address) : [];
+        if (known.length === 0) {
+          onClose?.({ skipped: "no_address" });
+          return;
+        }
         setOffer(body);
         setChoice(body?.defaultAddress || TYPED);
         setLanguage(INTRO_EMAIL_LANGUAGES.includes(body?.defaultLanguage) ? body.defaultLanguage : "en");
@@ -101,6 +111,9 @@ export default function IntroEmailPrompt({ target, onClose, onSent = null }) {
   }, [open, target?.leadId, target?.prospectId, target?.attemptId]);
 
   if (!open) return null;
+  // Nothing drawn until the offer is read: a dialog that appears and then
+  // vanishes because the record had no address is a flicker, not a prompt.
+  if (!offer && !loadError) return null;
 
   const business = target.businessName || offer?.businessName || "";
   const address = choice === TYPED ? typed.trim() : choice;

@@ -93,7 +93,13 @@ address outside it is refused by name.
 After an outbound call the line logs as `no_answer`, or a `voicemail` the rep
 saves, the console asks "Send {business} the intro email?". The email is fixed
 wording in EN/FR/ES (`lib/sales/outreach/introEmail.js`): the pitch in eight
-points, a quote at phone width, the rep's signup link, and two buttons —
+points, a paragraph on the AI, a picture of the prospect's own trade
+(`lib/sales/outreach/introScreenshots.js` — the roofing card with the
+satellite still, the paving designer with the driveway traced, eighteen
+builder cards in all, the quote on a phone for every other trade; rebuilt
+with `node docs/screens/app-guide/harness/shoot.mjs` on the `intro-*` rows
+with `HARNESS_MAPS_KEY` set, then `node scripts/build-intro-screenshots.mjs`),
+the rep's signup link, and two buttons —
 "Ask {rep} to call me back", "Book a 15-minute demo" — plus a one-click
 unsubscribe in the footer. It goes through the same `deliverOutreach` as
 every other rep send (suppression list, readiness, filed on the lead's

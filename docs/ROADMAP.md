@@ -264,8 +264,25 @@ greeting sends it in two presses and never retypes it.
 - **The email** (`lib/sales/outreach/introEmail.js`): fixed wording per
   language, no model; subject "Tried to reach you at {business} — one free
   month, no card needed"; greeting by first name; the gap sentence; eight
-  points; a real quote at phone width (`public/product/email/quote-phone.*.png`,
-  shot from the app-guide harness at 390px); the rep's signup link with a
+  points; one paragraph on the AI (the owner's addition — it reviews each
+  quote, suggests the add-ons, reads the replies, points at the quotes
+  worth chasing); a picture of the PROSPECT'S TRADE — the owner's rule,
+  "a plumber gets the plumbing quote, the roofing one has the little
+  satellite image, paving has the polygons": `lib/sales/outreach/
+  introScreenshots.js` maps every catalogue trade to a frame, eighteen
+  trades get their own builder card (the roofing card after "Measure from
+  satellite", the paving designer with the driveway traced, gutters,
+  siding, insulation, painting, stairs, countertop, garage door, flooring,
+  driveway sealing, home inspection, snow removal, and the four landscaping
+  trades' lot outline) photographed from the real product by the app-guide
+  harness (`TakeoffFrame.jsx`, `fixtures/takeoffs.js`, the `takeoff-measure`
+  scene, a live Google still keyed by `HARNESS_MAPS_KEY` at capture time,
+  nothing stored) and cropped by `scripts/build-intro-screenshots.mjs` into
+  `public/product/email/quote-<trade>.<lang>.png`; every other trade —
+  cabinets, plumbing, electrical, HVAC, the cleaning trades, which quote as
+  line items and have no card — gets the quote as the homeowner sees it on
+  their phone (`quote-phone.*.png`, shot at 390px), with an alt text and a
+  caption that name the trade in the email's language; the rep's signup link with a
   progress token (the same `SalesSignupProgress` row the texted link uses);
   "Ask {rep} to call me back" and "Book a 15-minute demo"; sign-off with the
   rep's assigned sales line; CASL footer with the mailing address,

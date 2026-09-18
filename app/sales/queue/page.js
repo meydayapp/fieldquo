@@ -1154,7 +1154,23 @@ function CompanyCard({ t, current, row, compliance, numbers, onDial = null }) {
             <span className="text-muted-foreground italic">{t("app.salesQueue.fieldNone")}</span>
           )}
         </dd>
+        {/* ── Who to ask for — on the Company tab as well as Research ──────
+            The owner, 2026-09-18: the principal's name and role sat only
+            under Research; a rep opening the company saw the phone and
+            nothing about who answers it. The same fact row, same control
+            (the typed name, the BBB link), drawn here too so "who to
+            contact" is beside "how to contact". */}
       </dl>
+      {(() => {
+        const who = (current.facts || []).find((f) => f.key === "whoToAskFor");
+        if (!who) return null;
+        // The component prints its own label; a list so its <li> is valid.
+        return (
+          <ul className="space-y-1" data-company-who-to-ask-for>
+            <WhoToAskFor key={`company:${current.id}`} t={t} fact={who} prospectId={current.id} />
+          </ul>
+        );
+      })()}
 
       {/* Tags: each one is a flag the server set on this row. */}
       <div className="flex flex-wrap gap-1.5" data-company-tags>

@@ -126,9 +126,13 @@ for (const language of INTRO_EMAIL_LANGUAGES) {
   ok(`${language}: the business is in the subject`, email.subject.includes("Érable Design Cabinetry"));
   ok(`${language}: the rep's number is in the sign-off`, email.text.includes(REP.phone) && email.html.includes(REP.phone));
   ok(`${language}: the screenshot has alt text`, /<img [^>]*alt="[^"]{10,}"/.test(email.html));
-  ok(`${language}: the screenshot has an explicit width`, /<img [^>]*width="300"/.test(email.html));
+  ok(`${language}: the screenshot has an explicit width`, /<img [^>]*width="(300|520)"/.test(email.html));
   ok(`${language}: tables, not flex`, /<table role="presentation"/.test(email.html) && !/display:\s*flex/.test(email.html));
   ok(`${language}: the trade phrase landed`, email.text.includes(introTradePhrase("cabinets", language)));
+  // The owner's AI paragraph: one paragraph, at most two sentences, after
+  // the eight points and before the screenshot — in both parts.
+  ok(`${language}: the AI paragraph is one paragraph of at most two sentences`, typeof INTRO_COPY[language].ai === "string" && (INTRO_COPY[language].ai.match(/[.!?](\s|$)/g) || []).length <= 2, INTRO_COPY[language].ai);
+  ok(`${language}: the AI paragraph sits after the points and before the screenshot`, email.text.indexOf(INTRO_COPY[language].ai) > email.text.lastIndexOf("\n- ") && email.text.indexOf(INTRO_COPY[language].ai) < email.text.indexOf(LINKS.screenshotUrl) && email.html.includes(INTRO_COPY[language].ai.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")));
   ok(`${language}: html lang attribute matches`, email.html.includes(`<html lang="${language}">`));
 }
 
@@ -514,9 +518,48 @@ ok("salesIntroEmail and salesContactEmail are on REP_OUTREACH_WRITES", REP_OUTRE
   const outreach = decomment(read("scripts/check-sales-outreach.mjs"));
   ok("the outreach write scan covers the intro routes and lib", /app\/api\/sales\/intro-email\/route\.js/.test(outreach) && /lib\/sales\/outreach\/introSend\.js/.test(outreach));
 }
-ok("the screenshot assets exist in the three languages", INTRO_EMAIL_LANGUAGES.every((l) => { try { return statSyncSize(`public/product/email/quote-phone.${l}.png`) > 10_000; } catch { return false; } }));
 function statSyncSize(p) {
   return readFileSync(join(ROOT, p)).length;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("9. The picture is the prospect's trade");
+// ═══════════════════════════════════════════════════════════════════════════
+
+const { INTRO_FRAMES, INTRO_FRAME_FALLBACK, INTRO_SCREENSHOT_BY_TRADE, INTRO_TAKEOFF_FRAMES, catalogueKeyForDiscovery, introScreenshotFor } = await import("@/lib/sales/outreach/introScreenshots");
+const { TRADE_CATALOG } = await import("@/lib/trades/catalog");
+const { TAKEOFF_TRADES } = await import("@/lib/pricing/takeoffTrades");
+const { LOT_MEASURE_TRADES } = await import("@/lib/measure/lotTakeoff");
+{
+  const catalogue = Object.keys(TRADE_CATALOG);
+  const undecided = catalogue.filter((k) => !Object.hasOwn(INTRO_SCREENSHOT_BY_TRADE, k));
+  ok("every catalogue trade is decided in the table — none defaulted by omission", undecided.length === 0, undecided);
+  const unknown = Object.keys(INTRO_SCREENSHOT_BY_TRADE).filter((k) => !Object.hasOwn(TRADE_CATALOG, k));
+  ok("the table names no trade the catalogue lacks", unknown.length === 0, unknown);
+  ok("every trade with a takeoff card in the builder has its own frame", TAKEOFF_TRADES.every((k) => INTRO_TAKEOFF_FRAMES.includes(k)), TAKEOFF_TRADES.filter((k) => !INTRO_TAKEOFF_FRAMES.includes(k)));
+  ok("every landscaping trade that draws on the still has its own frame", LOT_MEASURE_TRADES.every((k) => INTRO_TAKEOFF_FRAMES.includes(k)));
+  ok("every discovery trade resolves to a catalogue key or the fallback", Object.keys(DISCOVERY_TRADES).every((k) => catalogueKeyForDiscovery(k) === null || Object.hasOwn(INTRO_SCREENSHOT_BY_TRADE, catalogueKeyForDiscovery(k))));
+  const files = [];
+  for (const frame of INTRO_FRAMES) for (const l of INTRO_EMAIL_LANGUAGES) {
+    const p = `public/product/email/quote-${frame}.${l}.png`;
+    let size = 0;
+    try { size = statSyncSize(p); } catch { size = 0; }
+    if (size < 4_000) files.push(p);
+  }
+  ok(`every frame the table can name is on disk in three languages (${INTRO_FRAMES.length} frames)`, files.length === 0, files.slice(0, 6));
+  const roof = introScreenshotFor("roofing", "fr", "de toiture");
+  ok("a roofing prospect gets the roofing card, in French, with the trade in the alt", roof.frame === "roofing_service" && roof.path === "/product/email/quote-roofing_service.fr.png" && /toiture/.test(roof.alt) && roof.kind === "takeoff", roof);
+  ok("a paving prospect gets the traced driveway", introScreenshotFor("paving", "en").frame === "paving");
+  ok("a cabinet prospect gets the quote on a phone — the owner's 'great' one", introScreenshotFor("cabinets", "en").frame === INTRO_FRAME_FALLBACK);
+  ok("a plumbing prospect gets the quote, said as the quote in the alt", introScreenshotFor("plumbing", "es").kind === "quote" && /cotización/i.test(introScreenshotFor("plumbing", "es").alt));
+  ok("a catalogue key is accepted directly", introScreenshotFor("gutter_services", "en").frame === "gutter_services");
+  ok("no trade, or junk, is the fallback — never a throw", introScreenshotFor(null, "en").frame === INTRO_FRAME_FALLBACK && introScreenshotFor("__proto__", "en").frame === INTRO_FRAME_FALLBACK && introScreenshotFor("constructor", "fr").frame === INTRO_FRAME_FALLBACK);
+  ok("an unknown language falls back to English paths", introScreenshotFor("roofing", "de").path.endsWith(".en.png"));
+  // The rendered email carries the trade's frame and its alt, and the caption names the trade.
+  const roofEmail = buildIntroEmail({ language: "en", rep: REP, business: "Acme Roofing", tradeKey: "roofing", ...LINKS, screenshotUrl: "https://app.fieldquo.com/product/email/quote-roofing_service.en.png", screenshotAlt: introScreenshotFor("roofing", "en", "roofing").alt });
+  ok("a builder frame is shown at card width with the trade in its alt and caption", /width="520"/.test(roofEmail.html) && /alt="A roofing quote in FieldQuo/.test(roofEmail.html) && /A roofing quote being built in FieldQuo/.test(roofEmail.text));
+  const phoneEmail = buildIntroEmail({ language: "en", rep: REP, business: "Acme", tradeKey: "cabinets", ...LINKS });
+  ok("the phone frame is shown at phone width with the quote caption", /width="300"/.test(phoneEmail.html) && /on their phone/.test(phoneEmail.text));
 }
 
 console.log(`\n${pass} passed, ${failures.length} failed`);
