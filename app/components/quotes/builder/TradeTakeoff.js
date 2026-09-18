@@ -41,6 +41,7 @@ import LabourPanel from "./LabourPanel";
 import { hasTakeoff } from "@/lib/pricing/takeoffTrades";
 import { pitchBand, roofLabour, roofCrewDays } from "@/lib/pricing/roofLabour";
 import { takeoffPatch, summarise, ventilation } from "@/lib/measure/roofGeometry";
+import { gutterTakeoffPatch, summariseGutters } from "@/lib/measure/gutterMeasurement";
 import { paverLabour, paverCrewDays } from "@/lib/pricing/paverLabour";
 import {
   insulationTakeoff,
@@ -2602,6 +2603,248 @@ const GUTTER_WORK_HINTS = {
   guard_only: "Guard fitted over runs that are already clear",
 };
 
+/* ── Gutters: measure from an address ──────────────────────────────────── */
+
+/**
+ * The satellite measurement panel above the gutter takeoff.
+ *
+ * The same Google Solar roof model RoofMeasurePanel reads, read for its edges
+ * instead of its area (lib/measure/gutterMeasurement.js): the eave total is
+ * the gutter run, the downspouts follow a stated rule, and the imagery date
+ * is said out loud. Same two rules as the roofing panel — nothing is applied
+ * silently (every field written is listed with its old value and Undo puts
+ * it back), and an implausible measurement is not applied at all. A
+ * competitor's tool told the owner 917 Littlerock St had 7 ft of gutter and
+ * priced it; here that comes back as a sentence, not a number.
+ *
+ * Which downspout field gets the count depends on the work type at the moment
+ * of measuring — an install sells new downspouts, a cleaning flushes the old
+ * ones — so the panel reads the form's work type and the patch is built from
+ * it (gutterTakeoffPatch). Change the work type and re-measure.
+ */
+function GutterMeasurePanel({ takeoff, workType, onApply, defaultAddress = "" }) {
+  const { t } = useTranslation();
+  const [address, setAddress] = useState(defaultAddress);
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState("");
+  const [before, setBefore] = useState(null);
+
+  const report = result?.ok ? summariseGutters(result) : null;
+
+  const LABEL = {
+    gutterFt: t("app.gutter.run", "Gutter run"),
+    downspoutsInstalled: t("app.gutter.downspoutsInstalled", "Downspouts installed"),
+    downspoutsFlushed: t("app.gutter.downspoutsFlushed", "Downspouts flushed"),
+  };
+
+  async function measure(override) {
+    const query = String(override ?? address).trim();
+    if (!query) return;
+    setBusy(true);
+    setError("");
+    setResult(null);
+    try {
+      const res = await fetch(`/api/measure/gutters?address=${encodeURIComponent(query)}`);
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.ok) {
+        setError(
+          data?.message ||
+            t("app.gutter.measureUnavailable", "Satellite measuring is unavailable. Enter the run below."),
+        );
+        setResult(data?.satelliteImageUrl ? data : null);
+        return;
+      }
+      setResult(data);
+      if (data.trustworthy !== false) apply(data);
+    } catch {
+      setError(t("app.gutter.measureUnavailable", "Satellite measuring is unavailable. Enter the run below."));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function apply(data) {
+    const p = gutterTakeoffPatch(data, workType, data.formattedAddress || String(address).trim());
+    if (!p) return;
+    setBefore(takeoff);
+    onApply({ ...takeoff, ...p });
+  }
+
+  const changed = before
+    ? ["gutterFt", "downspoutsInstalled", "downspoutsFlushed"].filter(
+        (k) => num(before[k]) !== num(takeoff[k]),
+      )
+    : [];
+
+  const severe = (result?.flags || []).filter((f) => f.severe);
+  const mild = (result?.flags || []).filter((f) => !f.severe);
+
+  return (
+    <div className="rounded-lg border border-border p-3 space-y-2.5">
+      <div className="flex flex-wrap items-end gap-2">
+        <div className="min-w-0 flex-1">
+          <label className="text-xs text-muted-foreground">
+            {t("app.gutter.measureFromAddress", "Measure the gutter run from an address")}
+          </label>
+          {/* Places, not free text — same reasoning as RoofMeasurePanel: the
+              picked suggestion is Google's canonical address and geocodes to
+              a rooftop; a half-typed string geocodes to whatever. */}
+          <AddressAutocomplete
+            value={address}
+            onChange={setAddress}
+            onPlaceSelected={(place) => {
+              const picked = place?.address || "";
+              if (!picked) return;
+              setAddress(picked);
+              measure(picked);
+            }}
+            placeholder={t("app.roof.addressPlaceholder", "Start typing the roof's address")}
+            className={inputClass}
+          />
+        </div>
+        <button
+          type="button"
+          onClick={() => measure()}
+          disabled={busy || !address.trim()}
+          className="shrink-0 rounded border border-border px-3 py-2 text-xs hover:bg-muted disabled:opacity-50"
+        >
+          {busy
+            ? t("app.roof.measuring", "Measuring…")
+            : t("app.roof.measureButton", "Measure from satellite")}
+        </button>
+      </div>
+      {defaultAddress && address.trim() !== defaultAddress.trim() && (
+        <button
+          type="button"
+          onClick={() => setAddress(defaultAddress)}
+          className="text-[11px] text-muted-foreground underline"
+        >
+          {t("app.roof.useClientAddress", "Use the client's address ({address})", { address: defaultAddress })}
+        </button>
+      )}
+
+      {error && <p className="text-xs text-muted-foreground">{error}</p>}
+
+      {/* The image goes up whether or not the numbers were trusted — on a bad
+          reading it is the evidence the estimator judges it by. */}
+      {result?.satelliteImageUrl && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={result.satelliteImageUrl}
+          alt={result.formattedAddress || address}
+          className="w-full max-h-48 rounded-lg border border-border object-cover"
+        />
+      )}
+
+      {result?.ok && result.trustworthy === false && (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-2.5 space-y-1.5">
+          <p className="text-xs font-medium">
+            {t("app.gutter.notApplied", "This does not look like a house, so nothing was filled in.")}
+          </p>
+          {severe.map((f) => (
+            <p key={f.code} className="text-[11px] text-foreground">
+              {f.text}
+            </p>
+          ))}
+          {mild.map((f) => (
+            <p key={f.code} className="text-[11px] text-muted-foreground">
+              {f.text}
+            </p>
+          ))}
+          <p className="text-[11px] text-muted-foreground">
+            {t("app.gutter.rawReading", "It read {ft} ft of gutter and {n} downspouts.", {
+              ft: result.gutterFt,
+              n: result.downspouts,
+            })}
+          </p>
+          <button
+            type="button"
+            onClick={() => apply(result)}
+            className="rounded border border-border bg-background px-2 py-1 text-[11px] hover:bg-muted"
+          >
+            {t("app.roof.useItAnyway", "Use it anyway")}
+          </button>
+        </div>
+      )}
+
+      {result?.ok && result.trustworthy !== false && report && (
+        <div className="space-y-2 text-[11px] text-muted-foreground">
+          <p className="text-xs text-foreground">{report.headline}</p>
+          {result.searchWidened && (
+            <p>
+              The address pin was not on a building, so {result.buildingsConsidered} nearby roofs were
+              checked and the nearest one big enough to be a house was measured
+              {result.formattedAddress ? ` — ${result.formattedAddress}` : ""}. Check the image is the
+              right roof.
+            </p>
+          )}
+          {report.measured.map((line) => (
+            <p key={line}>{line}</p>
+          ))}
+          {/* Flags that did not stop the fill — old imagery, a street pin —
+              still go on the screen, in amber, and travel on the takeoff so
+              the quote review carries them. */}
+          {mild.length > 0 && (
+            <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-2 space-y-1">
+              {mild.map((f) => (
+                <p key={f.code} className="text-foreground">
+                  {f.text}
+                </p>
+              ))}
+            </div>
+          )}
+
+          {changed.length > 0 && (
+            <div className="rounded-lg border border-border p-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-medium text-foreground">
+                  {t("app.roof.filledIn", "Filled in {count} fields", { count: changed.length })}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onApply(before);
+                    setBefore(null);
+                  }}
+                  className="shrink-0 rounded border border-border px-2 py-0.5 text-[11px] hover:bg-muted"
+                >
+                  {t("app.roof.undo", "Undo")}
+                </button>
+              </div>
+              <ul className="mt-1 grid gap-x-4 sm:grid-cols-2">
+                {changed.map((k) => (
+                  <li key={k} className="flex justify-between gap-2 tabular-nums">
+                    <span>{LABEL[k] || k}</span>
+                    <span>
+                      {num(before[k]) ? `${num(before[k])} → ` : ""}
+                      {num(takeoff[k])}
+                      {k === "gutterFt" ? " ft" : ""}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <div>
+            <p className="text-foreground">
+              {t("app.roof.stillNeedsYou", "Still needs you — none of this is visible from above:")}
+            </p>
+            <ul className="ml-3 list-disc">
+              {report.cannotKnow.map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </ul>
+          </div>
+
+          <p>{report.derived[0]}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /**
  * The gutter takeoff.
  *
@@ -2615,7 +2858,7 @@ const GUTTER_WORK_HINTS = {
  * the install half of the job (the cleaning rates are published per storey and
  * already contain the height), and exactly one of the two minimums applies.
  */
-function GutterTakeoff({ takeoff, book, onChange }) {
+function GutterTakeoff({ takeoff, book, onChange, siteAddress = "" }) {
   const money = useCompanyMoney();
   const set = (patch) => onChange({ ...takeoff, ...patch });
 
@@ -2661,6 +2904,13 @@ function GutterTakeoff({ takeoff, book, onChange }) {
 
   return (
     <div className="space-y-3">
+      <GutterMeasurePanel
+        takeoff={takeoff}
+        workType={workType}
+        onApply={onChange}
+        defaultAddress={siteAddress}
+      />
+
       <div>
         <label className="text-xs text-muted-foreground">
           What is this job?
@@ -2702,11 +2952,22 @@ function GutterTakeoff({ takeoff, book, onChange }) {
           <Num
             value={takeoff.gutterFt}
             step={5}
-            onChange={(v) => set({ gutterFt: v })}
+            // A hand edit is a hand measurement: the satellite provenance and
+            // its flags come off, or the review would carry a "7 ft" flag
+            // against a number the estimator has already corrected.
+            onChange={(v) =>
+              set({ gutterFt: v, measuredFrom: "manual", measuredFlags: [], measuredImagery: null })
+            }
             suffix="ft"
           />
           <p className="mt-0.5 text-[11px] text-muted-foreground">
-            {workType === "guard_only"
+            {takeoff.measuredFrom === "satellite" && takeoff.measuredImagery?.date
+              ? `Measured from satellite — imagery ${takeoff.measuredImagery.date}${
+                  takeoff.measuredImagery.quality
+                    ? ` (${String(takeoff.measuredImagery.quality).toLowerCase()} quality)`
+                    : ""
+                }`
+              : workType === "guard_only"
               ? "Recorded for the file — the guard is priced on its own footage below"
               : workType === "repair"
                 ? "Recorded for the file — a repair is priced by the section below"
