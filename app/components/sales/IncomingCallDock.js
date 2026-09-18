@@ -424,7 +424,7 @@ export default function IncomingCallDock() {
             setAnswered(null);
             callRef.current = null;
             presenceRef.current.setInboundRinging(false);
-            presenceRef.current.setCallUp(false);
+            presenceRef.current.setInboundLive(false);
             // The call ended: the rep is writing it up, on the ledger, until
             // they press Available. Soft — the row is commentary on a call
             // that has already happened.
@@ -512,7 +512,7 @@ export default function IncomingCallDock() {
       setAnsweredAt(Date.now());
       setError("");
       presenceRef.current.setInboundRinging(false);
-      presenceRef.current.setCallUp(true);
+      presenceRef.current.setInboundLive(true);
     } catch (err) {
       setError(err?.message || t("app.salesDial.couldNotPickUp"));
       return;
@@ -597,7 +597,7 @@ export default function IncomingCallDock() {
     setLive(false);
     setAnsweredAt(null);
     setAnswered(null);
-    presenceRef.current.setCallUp(false);
+    presenceRef.current.setInboundLive(false);
   }
 
   // ── Saving and deferring the write-up ────────────────────────────────

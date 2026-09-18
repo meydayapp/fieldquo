@@ -136,6 +136,17 @@ const pressCall = async () => (await until('[data-console-card="dialer"] [data-c
     (await until('[data-incoming-dialog] [data-incoming-pick-up]')).click();
     await until('[data-live-call-slot] [data-inbound-live]');
     await wait(1600);
+    // QA 2026-09-17, finding 1: the outbound Call under the live card was
+    // still live and a press placed a second dial. The scene now fails if
+    // the button is enabled, or if a press on it reaches the wire.
+    const callBtn = await until('[data-console-card="dialer"] [data-call-button]');
+    if (!callBtn.disabled) throw new Error("outbound Call is enabled under a live inbound call");
+    if (!document.querySelector('[data-call-on-another-call]')) throw new Error("no 'on a call' sentence above the disabled Call");
+    const dialsBefore = (window.__harnessCalls || []).filter((c) => c.method === "POST" && c.url === "/api/sales/calls" && c.body?.action === "dial").length;
+    callBtn.click();
+    await wait(400);
+    const dialsAfter = (window.__harnessCalls || []).filter((c) => c.method === "POST" && c.url === "/api/sales/calls" && c.body?.action === "dial").length;
+    if (dialsAfter !== dialsBefore) throw new Error("a press on the outbound Call dialled during a live inbound call");
   }
   if (scene === "maximized") {
     await click('[data-console-maximize]');

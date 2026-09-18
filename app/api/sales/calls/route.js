@@ -51,6 +51,7 @@ import {
   recordCallEnd,
   currentActivity,
   heartbeat,
+  liveCallFor,
   ownNumbers,
   recordDial,
   salesCallerNumbers,
@@ -58,6 +59,7 @@ import {
   setRepState,
 } from "@/lib/sales/calls/store";
 import { PROVIDER_ENDED, dispositionOptions } from "@/lib/sales/calls/dispositions";
+import { ALREADY_ON_A_CALL } from "@/lib/sales/calls/liveCall";
 import {
   PAUSE_REASONS,
   PAUSE_REASON_ORDER,
@@ -448,6 +450,29 @@ export async function POST(request) {
   }
 
   if (action === "dial") {
+    // ── Never a second call over a live one ───────────────────────────────
+    //
+    // The screen refuses this too (CallPanel reads the provider's
+    // `callLive`), but a rep with the queue open in two tabs has one tab
+    // that does not know, and on 2026-09-17 QA pressed Call under a live
+    // inbound call and got a second attempt, a second bridge and a second
+    // write-up. Read fresh, here, before the target is even resolved: the
+    // refusal is about the rep, not the number. Both channels — a handset
+    // dial from a stale tab would still write the row and open the form.
+    // lib/sales/calls/liveCall.js says what "live" means and why it lapses
+    // after fifteen minutes.
+    const live = await liveCallFor(rep.id, { now });
+    if (live) {
+      return NextResponse.json(
+        {
+          error: "You're on a call. Hang up before you dial the next one.",
+          code: ALREADY_ON_A_CALL,
+          liveCall: live,
+        },
+        { status: 409 },
+      );
+    }
+
     const target = await targetFor(rep.id, {
       prospectId: typeof body.prospectId === "string" ? body.prospectId.trim() : "",
       leadId: typeof body.leadId === "string" ? body.leadId.trim() : "",

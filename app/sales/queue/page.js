@@ -963,7 +963,16 @@ function PreOpenBanner({ t, compliance, clock }) {
  * string, the jurisdiction is the rule's, the cap is the rule's. Nothing is
  * derived here from an IANA id.
  */
-function WindowTag({ compliance, row }) {
+/**
+ * `notApplied`: the dial under this chip is a test — a test line typed, or
+ * the owner's test account, whose every dial the gate exempts — and the
+ * pad's caveat says "calling window not applied". Both were true side by
+ * side and read as a contradiction (QA 2026-09-17: "Window closes 9:00 PM ·
+ * Oklahoma's rule" over "…window not applied"). The chip is still the
+ * lead's window, so it stays; it gains "· not applied to you" so the two
+ * sentences agree.
+ */
+function WindowTag({ compliance, row, notApplied = false }) {
   const { t } = useTranslation();
   if (!compliance) return null;
   const w = row?.window || null;
@@ -995,6 +1004,7 @@ function WindowTag({ compliance, row }) {
       ),
     );
   }
+  if (notApplied) parts.push(t("app.salesQueue.windowTagNotApplied"));
   const open = compliance.decision === CALL_ALLOWED;
   return (
     <div className="space-y-1">
@@ -1003,6 +1013,7 @@ function WindowTag({ compliance, row }) {
           open ? TONE_CLASS.has : compliance.decision === CALL_REFUSED ? TONE_CLASS.gap : TONE_CLASS.unknown
         }`}
         data-window-tag={open ? "open" : "closed"}
+        data-window-not-applied={notApplied ? "1" : undefined}
       >
         <Clock size={12} aria-hidden="true" />
         <span className="break-words">{parts.join(" · ")}</span>
@@ -2575,6 +2586,17 @@ function QueueConsole() {
   // and the press; the route's `held` was true a moment ago) is refused
   // in words rather than left spinning.
   const [callNowPending, setCallNowPending] = useState(null);
+  // On a phone the Callbacks strip and the Tasks tab sit above the Dialer,
+  // so "Call now" dialled with nothing visible changing (QA 2026-09-17).
+  // The Dialer card is scrolled to the top of the viewport as the dial is
+  // pressed — the same card whose Call button the press goes to.
+  const showDialer = useCallback(() => {
+    try {
+      document.querySelector('[data-console-card="dialer"]')?.scrollIntoView({ block: "start", behavior: "smooth" });
+    } catch {
+      /* an old browser; the dial still went */
+    }
+  }, []);
   const callNow = useCallback(
     (row) => {
       const e164 = row?.toE164 || null;
@@ -2582,6 +2604,7 @@ function QueueConsole() {
       if (!prospectId || !e164) return;
       if (current?.id === prospectId) {
         dialNumber(e164);
+        showDialer();
         return;
       }
       setCallNowPending({ id: row.id, prospectId, e164 });
@@ -2590,13 +2613,14 @@ function QueueConsole() {
     // `select` is a plain function of this render over setQuery; `current`
     // is what decides whether a load is needed at all.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [current?.id, dialNumber],
+    [current?.id, dialNumber, showDialer],
   );
   useEffect(() => {
     if (!callNowPending) return undefined;
     if (current?.id === callNowPending.prospectId) {
       setCallNowPending(null);
       dialNumber(callNowPending.e164);
+      showDialer();
       return undefined;
     }
     // The load finished on a different business: the row is not this
@@ -3213,7 +3237,7 @@ function QueueConsole() {
             </div>
 
             {/* The calling window, one small line above the display. */}
-            {current ? <WindowTag compliance={compliance} row={currentRow} /> : null}
+            {current ? <WindowTag compliance={compliance} row={currentRow} notApplied={testAccount || (typedUnsaved && typedIsTestLine)} /> : null}
             {current ? <RetryTag retry={current.retry || currentRow?.retry || null} /> : null}
             {/* "Last time (Aug 15): Not now — 'call after the season'" — the
                 owner's line for a lead back in rotation, above the dial so

@@ -367,6 +367,12 @@ section("6. The test account: same path, same mark, its own words");
   ok("…judges readiness as a test for the typed line and the account", /testLine: ctx\.testLine === true \|\| typedIsTestLine,/.test(queuePage) && /testAccount: ctx\.testAccount === true,/.test(queuePage));
   ok("…says \"not saved on this lead\" under the pad for either", /t\("app\.salesQueue\.typedTestLineNote"\)/.test(queuePage) && /t\("app\.salesQueue\.typedTestAccountNote"\)/.test(queuePage));
   ok("…and names the NUMBER on the Call button when it is not a stored one", /const callLabel = typedUnsaved \? formatE164ForReading\(typedE164\) : null;/.test(queuePage) && /callLabel,\s*\}/.test(queuePage));
+  // QA 2026-09-17, finding 6: "Window closes 9:00 PM · Oklahoma's rule" sat
+  // over "…calling window not applied". The chip keeps the lead's window and
+  // gains "· not applied to you" — for a test line typed, and for a test
+  // account on every dial, which is exactly when the gate exempts it.
+  ok("the window chip says \"not applied to you\" beside the test caveat — a typed test line, or a test account on every dial", /<WindowTag compliance=\{compliance\} row=\{currentRow\} notApplied=\{testAccount \|\| \(typedUnsaved && typedIsTestLine\)\} \/>/.test(queuePage) && /if \(notApplied\) parts\.push\(t\("app\.salesQueue\.windowTagNotApplied"\)\);/.test(queuePage) && /data-window-not-applied=\{notApplied \? "1" : undefined\}/.test(queuePage));
+  ok("…in every language", ["en", "fr", "es", "uk", "pa", "tl", "de", "zh", "it"].every((l) => typeof APP_MESSAGES[l]["app.salesQueue.windowTagNotApplied"] === "string" && APP_MESSAGES[l]["app.salesQueue.windowTagNotApplied"].length > 0));
   const panel = decomment(read("app/components/sales/CallPanel.js"));
   ok("CallPanel prints callLabel before the business on the button and the on-call line, and sends typedE164 only when set", (panel.match(/name: callLabel \|\| businessName \|\| phoneE164/g) || []).length === 2 && /\.\.\.\(dialTarget\.typedE164 \? \{ typedE164: dialTarget\.typedE164 \} : \{\}\),/.test(panel));
   // `dialTarget` since d2f99b2b: the target the panel is pinned to for the

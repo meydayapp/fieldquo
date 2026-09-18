@@ -121,7 +121,37 @@ export default function SalesAgencyPage() {
     }
   }
 
+  /** What the listing says this rep holds — the server's counts, from the same query the gate judges by. Null when the route sent none. */
+  function heldWork(m) {
+    const q = m?.queue;
+    if (!q || typeof q !== "object") return null;
+    const leased = Number.isFinite(q.leased) ? q.leased : 0;
+    const openLeads = Number.isFinite(q.openLeads) ? q.openLeads : 0;
+    return leased > 0 || openLeads > 0 ? { leased, openLeads, worked: Number.isFinite(q.worked) ? q.worked : 0 } : null;
+  }
+
   async function setActive(m, active, chosen = null) {
+    if (!active && !chosen) {
+      // ── Before the tap lands ────────────────────────────────────────
+      //
+      // Deactivate was one tap with no word (QA 2026-09-17): reversible,
+      // but a thumb on a phone stopped an employee's sign-in and their
+      // link's crediting with nothing asked. Two cases, both said first:
+      //
+      //   the rep holds work → the hand-off panel opens straight away,
+      //     on the counts the listing already carries, rather than after
+      //     a PATCH the server was always going to refuse with 409. The
+      //     server still judges (setAgencyRepActive re-reads the counts);
+      //     this is the screen not pretending the button could succeed.
+      //   the rep holds nothing → the platform's own pattern: one confirm
+      //     sentence naming what changes and what does not.
+      const held = heldWork(m);
+      if (held) {
+        setHandoff({ repId: m.id, counts: held, mode: "release", toRepId: "" });
+        return;
+      }
+      if (!window.confirm(t("app.salesAgency.confirmDeactivate", { name: m.name }))) return;
+    }
     setBusy(true);
     setNotice("");
     try {
@@ -307,6 +337,13 @@ export default function SalesAgencyPage() {
                   </button>
                 </div>
 
+                {/* Said before the tap, from the listing's own counts: the
+                    tap opens the hand-off rather than deactivating. */}
+                {m.active && heldWork(m) ? (
+                  <p className="text-xs text-muted-foreground break-words" data-holds-work={m.id}>
+                    {t("app.salesAgency.holdsWork", { name: m.name, prospects: heldWork(m).leased, leads: heldWork(m).openLeads })}
+                  </p>
+                ) : null}
                 <div className="flex flex-wrap gap-2">
                   {m.active ? (
                     <button type="button" onClick={() => setActive(m, false)} disabled={busy} className={BTN_QUIET} data-deactivate={m.id}>

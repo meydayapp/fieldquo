@@ -86,9 +86,23 @@ function endedText(t, row) {
   return typeof row.ended.talkSeconds === "number" ? t("app.salesCall.ended.withTalk", { ended, seconds: row.ended.talkSeconds }) : ended;
 }
 
+/**
+ * An inbound call nobody answered — it went to voicemail, or rang out — has
+ * nothing for the rep to write: the day-end cron logs it as `missed`
+ * (dayEndOutcome), and unloggedWhere() keeps it off the unlogged list for
+ * the same reason. Until the cron reaches it the row carried "Not written
+ * up" in amber, which reads as a to-do (QA 2026-09-17). The row already
+ * says what it was — the voicemail line, or "rang, nobody picked up" — so
+ * there is no outcome sentence at all, and the missed line is quiet.
+ */
+function nothingToWriteUp(row) {
+  return row.direction === "in" && !row.answered && !row.disposition && Boolean(row.missed || row.voicemail);
+}
+
 function outcomeText(t, row) {
   if (row.disposition) return t(`app.salesCall.disposition.${row.disposition}.label`);
   if (row.deferred) return t("app.salesCall.history.deferred");
+  if (nothingToWriteUp(row)) return "";
   return t("app.salesCall.history.unlogged");
 }
 
@@ -137,7 +151,7 @@ export function CallHistoryStrip({ prospectId = null, leadId = null, refreshKey 
         {rows.map((row) => {
           const ended = endedText(t, row);
           return (
-            <li key={row.id} className={compact ? "flex flex-wrap items-center gap-x-1.5" : "px-2.5 py-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5"} data-call-history-row={row.id} data-call-history-outcome={row.disposition || (row.deferred ? "deferred" : "unlogged")}>
+            <li key={row.id} className={compact ? "flex flex-wrap items-center gap-x-1.5" : "px-2.5 py-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5"} data-call-history-row={row.id} data-call-history-outcome={row.disposition || (row.deferred ? "deferred" : nothingToWriteUp(row) ? (row.voicemail ? "voicemail" : "missed") : "unlogged")}>
               <span className="tabular-nums text-muted-foreground">{fmtWhen(row.dialledAt, language)}</span>
               {row.direction === "in" ? <span className="rounded-full bg-muted px-1.5 text-[10px] uppercase tracking-wide">{t("app.salesCall.history.inbound")}</span> : null}
               {!row.mine ? <span className="rounded-full bg-muted px-1.5 text-[10px] uppercase tracking-wide">{t("app.salesCall.history.anotherRep")}</span> : null}
@@ -157,8 +171,10 @@ export function CallHistoryStrip({ prospectId = null, leadId = null, refreshKey 
                   </a>
                 </span>
               ) : null}
-              {row.missed ? <span className="text-amber-900 dark:text-amber-200" data-call-history-missed={row.id}>· {t("app.salesCall.history.missed")}</span> : null}
-              <span className={row.disposition ? "font-medium text-foreground" : "text-amber-900 dark:text-amber-200"}>· {outcomeText(t, row)}</span>
+              {row.missed ? <span className="text-muted-foreground" data-call-history-missed={row.id}>· {t("app.salesCall.history.missed")}</span> : null}
+              {outcomeText(t, row) ? (
+                <span className={row.disposition ? "font-medium text-foreground" : "text-amber-900 dark:text-amber-200"}>· {outcomeText(t, row)}</span>
+              ) : null}
               {row.autoLogged ? (
                 <span className="rounded-full border border-border px-1.5 text-[10px] uppercase tracking-wide text-muted-foreground" title={t("app.salesCall.history.autoLoggedTitle")}>
                   {t("app.salesCall.history.auto")}

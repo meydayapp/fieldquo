@@ -13969,10 +13969,37 @@ assertions. The harnesses were behind the night — no `history`,
 English word — and now carry all of it (`?scene=typed-test`,
 `?testAccount=1`, `?page=agency&agency=1`, `HLANG=fr` on the shooter).
 
-**Still owed, in order** (details and repro in the QA note): the outbound
-Call button stays live under an answered inbound call and places a second
-dial (high — dialling, not touched); the live strip covers the phone's top
-bar for the whole call; Deactivate on /sales/agency is one tap with no
-confirm; "Call now" on a phone dials with nothing visible in the viewport;
-a missed ring-back reads "Not written up"; `check:dock` on `MeShell.js`
-(not sales). /sales is not on the theme allow-list, so no dark pass applies.
+**Fixed the same day (18 September, the ranked remainder):**
+
+- **No second dial over a live call.** RepPresenceProvider holds the
+  outbound call (CallPanel, `setCallUp`) and the inbound call (the dock,
+  `setInboundLive`) as two flags and derives `callLive`; CallPanel refuses
+  on it from every press path — the thumb, the Dial button beside a
+  number, "Call now", the autodialler's token — with "You're on a call.
+  Hang up before you dial the next one." above a disabled button, and the
+  autodialler halts on it as it already did on `callUp`. The server refuses
+  too: `POST /api/sales/calls` dial asks `liveCallFor()` before the target
+  is resolved and answers 409 `already_on_a_call` while the rep has an
+  attempt the carrier says is live (outbound: queued/initiated/ringing/
+  in-progress, no `endedAt`, no `hungUpBy`; inbound: answered by this rep,
+  not ended) inside the last fifteen minutes — `lib/sales/calls/liveCall.js`
+  says why the window is finite. The harness's `ring-answered` scene now
+  fails if the button is enabled or a press reaches the wire.
+- **Deactivate on /sales/agency confirms.** A rep who holds work: the
+  listing's own counts print "holds 12 prospects and 4 open leads —
+  deactivating asks where they go first" under the card, and the tap opens
+  the hand-off panel on those counts with no PATCH. A rep who holds
+  nothing: one confirm sentence naming what changes (sign-in, the link) and
+  what stays (what they earned; reactivation). The platform's pattern.
+- **A missed ring-back or a voicemail is not a to-do.** CallHistory prints
+  no "Not written up" for an unanswered inbound row — the row already says
+  what it was — and the missed line is muted, not amber.
+- **The window chip agrees with the test caveat.** "Window closes 9:00 PM ·
+  Oklahoma's rule · not applied to you" for a typed test line and, on every
+  dial, for a test account.
+- **"Call now" scrolls the Dialer into view** as the dial is pressed.
+
+**Still owed:** the live strip covers the phone's top bar for the whole
+call (product decision — the comment says it is deliberate); `check:dock`
+on `MeShell.js` (not sales). /sales is not on the theme allow-list, so no
+dark pass applies.

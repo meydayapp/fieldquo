@@ -406,6 +406,24 @@ section("12. Wiring");
   ok("the signup-origin attribution names the agency beside the rep", /agency:/.test(origin) && /manager: \{ select: \{ id: true, kind: true, name: true \} \}/.test(origin));
 }
 
+section("Deactivate is never one tap (QA 2026-09-17, finding 3)");
+{
+  const page = decomment(read("app/sales/agency/page.js"));
+  const fn = page.slice(page.indexOf("async function setActive(m, active, chosen = null) {"), page.indexOf("async function resend(m)"));
+  ok("heldWork() reads the listing's own counts — leased and openLeads — and is null when the rep holds nothing", /function heldWork\(m\)/.test(page) && /leased > 0 \|\| openLeads > 0 \? \{/.test(page));
+  ok("a first tap on a rep who holds work opens the hand-off on those counts, with no PATCH", /if \(!active && !chosen\) \{[\s\S]*?const held = heldWork\(m\);\s*if \(held\) \{\s*setHandoff\(\{ repId: m\.id, counts: held, mode: "release", toRepId: "" \}\);\s*return;/.test(fn));
+  ok("…a rep who holds nothing gets the confirm sentence, and a No does nothing", /if \(!window\.confirm\(t\("app\.salesAgency\.confirmDeactivate", \{ name: m\.name \}\)\)\) return;/.test(fn));
+  ok("…both before setBusy — nothing is posted on a refused tap", fn.indexOf("window.confirm(") < fn.indexOf("setBusy(true)") && fn.indexOf("const held = heldWork(m)") < fn.indexOf("setBusy(true)"));
+  ok("…and the hand-off's own confirm button (chosen set) is not asked twice", /if \(!active && !chosen\)/.test(fn));
+  ok("the held-work line is printed under the card before the tap", /data-holds-work=\{m\.id\}/.test(page) && /app\.salesAgency\.holdsWork/.test(page));
+  ok("reactivate is still one tap — it takes nothing away", !/active && !window\.confirm/.test(fn));
+  const LANGS = ["en", "fr", "es", "uk", "pa", "tl", "de", "zh", "it"];
+  ok("the confirm sentence names the rep in every language, and the held-work line its counts", LANGS.every((l) => APP_MESSAGES[l]["app.salesAgency.confirmDeactivate"]?.includes("{name}") && ["{name}", "{prospects}", "{leads}"].every((p) => APP_MESSAGES[l]["app.salesAgency.holdsWork"]?.includes(p))));
+  ok("…and says what stays: what they earned", /earned/.test(APP_MESSAGES.en["app.salesAgency.confirmDeactivate"]) && /reactivate/.test(APP_MESSAGES.en["app.salesAgency.confirmDeactivate"]));
+  const route = decomment(read("app/api/sales/agency/route.js"));
+  ok("the listing carries the counts the screen reads (queue: leased, openLeads)", /queue: queue\.get\(m\.id\) \|\| null/.test(route));
+}
+
 section("Deactivating an agency deactivates its employees (owner, 2026-09-16)");
 {
   const route = decomment(read("app/api/platform/sales/reps/[id]/route.js"));

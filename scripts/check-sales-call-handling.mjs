@@ -130,6 +130,8 @@ import { anyRepLive, repIsLive } from "@/lib/sales/calls/inboundRouting";
 import { REQUIRED_MODELS, callStoreState, presenceFor } from "@/lib/sales/calls/store";
 import { CLAIM_HOURS } from "@/lib/sales/prospectView";
 import { CALL_ALLOWED, CALL_REFUSED, CALL_UNKNOWN } from "@/lib/sales/callingRules";
+import { ALREADY_ON_A_CALL, LIVE_CALL_WINDOW_MINUTES, LIVE_PROVIDER_STATUSES, isLiveCall, liveCallAmong } from "@/lib/sales/calls/liveCall";
+import { HUNG_UP_BY_PROSPECT, HUNG_UP_BY_REP, PROVIDER_ENDED } from "@/lib/sales/calls/dispositions";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -1339,6 +1341,57 @@ ok("if the model lands, the queue route must count the cap — asserted, not rem
   const body = fnBody("app/api/sales/calls/route.js", "export async function POST(");
   return /attemptsLast24h/.test(body);
 })());
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("11. Never a second dial over a live call — the server half (QA 2026-09-17, finding 1)");
+//
+// lib/sales/calls/liveCall.js is pure and is driven here with every shape the
+// status webhook, the inbound webhook, the answered route and the panel's
+// `ended` post can leave a row in. The route's refusal is asserted
+// structurally: before the target is resolved, before the row is written.
+{
+  const NOW = new Date("2026-09-17T23:51:00Z");
+  const ago = (min) => new Date(NOW.getTime() - min * 60 * 1000);
+  const me = "rep_me";
+  const out = (over) => ({ id: "a", salesRepId: me, answeredByRepId: null, direction: "out", dialChannel: "browser", dialledAt: ago(2), endedAt: null, hungUpBy: null, providerStatus: "in-progress", ...over });
+  const inb = (over) => ({ id: "b", salesRepId: me, answeredByRepId: me, direction: "in", dialChannel: "inbound", dialledAt: ago(2), endedAt: null, hungUpBy: null, providerStatus: null, ...over });
+
+  ok("an outbound browser call the carrier says is in progress is live", isLiveCall(out(), { repId: me, now: NOW }) === true);
+  for (const st of LIVE_PROVIDER_STATUSES) ok(`…so is "${st}"`, isLiveCall(out({ providerStatus: st }), { repId: me, now: NOW }) === true);
+  for (const st of PROVIDER_ENDED) ok(`…but not "${st}"`, isLiveCall(out({ providerStatus: st }), { repId: me, now: NOW }) === false);
+  ok("…nor one with no status yet — a dial whose bridge never ran must not lock the rep out", isLiveCall(out({ providerStatus: null }), { repId: me, now: NOW }) === false);
+  ok("…nor one the panel's `ended` post already accounted for (hungUpBy), whatever the carrier has said so far", isLiveCall(out({ hungUpBy: HUNG_UP_BY_REP }), { repId: me, now: NOW }) === false && isLiveCall(out({ hungUpBy: HUNG_UP_BY_PROSPECT }), { repId: me, now: NOW }) === false);
+  ok("…nor one with an endedAt", isLiveCall(out({ endedAt: ago(1) }), { repId: me, now: NOW }) === false);
+  ok("…nor a handset dial — nothing reports on it", isLiveCall(out({ dialChannel: "handset" }), { repId: me, now: NOW }) === false);
+  ok("…nor another rep's", isLiveCall(out({ salesRepId: "rep_other" }), { repId: me, now: NOW }) === false);
+  ok(`…nor one older than ${LIVE_CALL_WINDOW_MINUTES} minutes, however stuck its status`, isLiveCall(out({ dialledAt: ago(LIVE_CALL_WINDOW_MINUTES + 1) }), { repId: me, now: NOW }) === false && isLiveCall(out({ dialledAt: ago(LIVE_CALL_WINDOW_MINUTES - 1) }), { repId: me, now: NOW }) === true);
+  ok("…nor one dialled in the future (a clock the server does not trust)", isLiveCall(out({ dialledAt: new Date(NOW.getTime() + 60_000) }), { repId: me, now: NOW }) === false);
+
+  ok("an inbound call this rep answered and the carrier has not ended is live", isLiveCall(inb(), { repId: me, now: NOW }) === true);
+  ok("…not one nobody has answered yet (still ringing — the dock's own flag covers that)", isLiveCall(inb({ answeredByRepId: null }), { repId: me, now: NOW }) === false);
+  ok("…not one another rep answered, even when the caller match filed it under this rep", isLiveCall(inb({ answeredByRepId: "rep_other" }), { repId: me, now: NOW }) === false);
+  ok("…not one the carrier ended (endedAt from the Dial action)", isLiveCall(inb({ endedAt: ago(1) }), { repId: me, now: NOW }) === false);
+  ok("…not one markMissed() closed with a terminal status and no end stamp", isLiveCall(inb({ providerStatus: "no-answer" }), { repId: me, now: NOW }) === false);
+  ok("…and the inbound row does not need a live provider status: the inbound leg has no per-status webhook", isLiveCall(inb({ providerStatus: "ringing" }), { repId: me, now: NOW }) === true);
+
+  ok("garbage rows are never live", [null, undefined, "x", 4, {}, { dialledAt: "not a date" }, out({ dialledAt: null })].every((r) => isLiveCall(r, { repId: me, now: NOW }) === false));
+  ok("no repId → never live", isLiveCall(out(), { now: NOW }) === false);
+
+  const picked = liveCallAmong([out({ id: "older", dialledAt: ago(9) }), inb({ id: "newer", dialledAt: ago(1) }), out({ id: "ended", providerStatus: "completed" })], { repId: me, now: NOW });
+  ok("liveCallAmong names the NEWEST live row, with its direction and a time", picked && picked.id === "newer" && picked.direction === "in" && picked.dialledAt === ago(1).toISOString(), picked);
+  ok("…null when nothing is live, and for a non-array", liveCallAmong([out({ providerStatus: "completed" })], { repId: me, now: NOW }) === null && liveCallAmong(null, { repId: me, now: NOW }) === null);
+
+  const store = fnBody("lib/sales/calls/store.js", "export async function liveCallFor(");
+  ok("liveCallFor reads this rep's rows either way round — dialled by them or answered by them — inside the window, not yet ended, and hands them to the pure verdict", /OR: \[\{ salesRepId \}, \{ answeredByRepId: salesRepId \}\]/.test(store) && /LIVE_CALL_WINDOW_MINUTES \* 60 \* 1000/.test(store) && /endedAt: null/.test(store) && /return liveCallAmong\(rows, \{ repId: salesRepId, now \}\)/.test(store));
+  ok("…selecting every column the verdict reads", ["salesRepId", "answeredByRepId", "direction", "dialChannel", "dialledAt", "endedAt", "hungUpBy", "providerStatus"].every((k) => new RegExp(`${k}: true`).test(store)));
+
+  const body = fnBody("app/api/sales/calls/route.js", "export async function POST(");
+  const dial = body.slice(body.indexOf('if (action === "dial")'));
+  const guard = dial.indexOf("await liveCallFor(rep.id, { now })");
+  ok("POST dial asks liveCallFor before the target is resolved and before the row is written", guard !== -1 && guard < dial.indexOf("targetFor(rep.id") && guard < dial.indexOf("recordDial("));
+  ok("…and refuses with 409 already_on_a_call", /code: ALREADY_ON_A_CALL/.test(dial.slice(guard, guard + 600)) && /\{ status: 409 \}/.test(dial.slice(guard, guard + 600)) && ALREADY_ON_A_CALL === "already_on_a_call");
+  ok("…for BOTH channels — the refusal is above the channel read", guard < dial.indexOf('body.channel === "browser"'));
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 console.log(`\n${pass} passed, ${failures.length} failed`);

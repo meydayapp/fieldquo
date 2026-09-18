@@ -608,6 +608,60 @@ section("9. Call history: outcome + note + endReason per attempt, and the 'last 
   ok("the history's sentences exist in every language", missing.length === 0, missing);
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+section("10. Never a second dial over a live inbound call (QA 2026-09-17, finding 1)");
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// The presence provider holds the outbound call (CallPanel) and the inbound
+// call (IncomingCallDock) as two flags and derives `callLive`; CallPanel
+// refuses on it from every press path and says so above a disabled button.
+// The server half — the route's 409 — is check-sales-call-handling's.
+{
+  const provider = source("app/components/sales/RepStatus.js");
+  ok("the provider keeps the two calls as two flags and derives callLive", /const \[outboundUp, setCallUp\] = useState\(false\);/.test(provider) && /const \[inboundLive, setInboundLive\] = useState\(false\);/.test(provider) && /const callLive = outboundUp \|\| inboundLive;/.test(provider));
+  const value = between(provider, "const value = useMemo(", "return <Ctx.Provider");
+  ok("…and exposes callLive, callUp (the older name for the same fact), inboundLive and both setters", /callLive,\s*callUp: callLive,\s*inboundLive,/.test(value) && /setCallUp,\s*setInboundLive,/.test(value));
+  const detached = between(provider, "const DETACHED = Object.freeze({", "});");
+  ok("…the detached shape carries them too, inert", /callLive: false/.test(detached) && /inboundLive: false/.test(detached) && /setInboundLive: noop/.test(detached));
+  const dock = source("app/components/sales/IncomingCallDock.js");
+  ok("the dock reports through setInboundLive — true on answer, false on disconnect and hang-up — and never touches the panel's flag", /setInboundLive\(true\)/.test(between(dock, "async function answer()", "function decline()")) && (dock.match(/setInboundLive\(false\)/g) || []).length >= 2 && !/setCallUp\(/.test(dock));
+
+  const panel = source("app/components/sales/CallPanel.js");
+  ok("CallPanel derives onAnotherCall = callLive && !startedAt", /const onAnotherCall = presence\.callLive === true && !startedAt;/.test(panel));
+  const place = between(panel, "async function place(channel", "const autoDialSeen");
+  ok("place() refuses — through the ref, with the sentence — before anything is posted", (() => {
+    const guard = place.indexOf("presenceRef.current.callLive === true");
+    const post = place.indexOf('fetchJson("/api/sales/calls"');
+    return guard !== -1 && post !== -1 && guard < post && /setError\(t\("app\.salesCall\.onACall"\)\);\s*return false;/.test(place.slice(guard, post));
+  })());
+  ok("…and the server's 409 already_on_a_call is printed in the rep's language", /err\?\.data\?\.code === ALREADY_ON_A_CALL\s*\? t\("app\.salesCall\.onACall"\)/.test(place));
+  const auto = between(panel, "const autoDialSeen = useRef(null);", "const dialRequestSeen");
+  ok("the autodialler's press reports not_idle on it rather than dialling", /\|\| onAnotherCall\) \{\s*onAutoDialResult\?\.\(\{ token, ok: false, reason: "not_idle" \}\);/.test(auto));
+  const req = between(panel, "const dialRequestSeen = useRef(null);", "function hangUp()");
+  ok("the Dial button's press (and Call now's) is refused, and the sentence above the button is brought into view", /if \(onAnotherCall\) \{[\s\S]*?data-call-on-another-call[\s\S]*?return;\s*\}/.test(req) && req.indexOf("if (onAnotherCall)") < req.indexOf("if (busy || startedAt || pending)"));
+  const buttons = between(panel, "{!startedAt && !pending ? (", "{into(");
+  ok("both Call buttons are disabled while another call is live", (buttons.match(/disabled=\{Boolean\(busy\) \|\| onAnotherCall\}/g) || []).length === 2);
+  ok("…and the sentence is printed above them, only then", /\{onAnotherCall \? \([\s\S]*?data-call-on-another-call[\s\S]*?app\.salesCall\.onACall/.test(buttons));
+  const missing = Object.keys(APP_MESSAGES).filter((l) => typeof APP_MESSAGES[l]["app.salesCall.onACall"] !== "string" || !APP_MESSAGES[l]["app.salesCall.onACall"]);
+  ok("the sentence exists in every language", missing.length === 0, missing);
+  ok("…and is not the English in the complete languages", ["fr", "es", "de", "zh", "it"].every((l) => APP_MESSAGES[l]["app.salesCall.onACall"] !== APP_MESSAGES.en["app.salesCall.onACall"]));
+  const control = source("app/components/sales/AutodialControl.js");
+  ok("the autodialler still reads the provider's flag, so a countdown halts on an answered inbound call", /callUp/.test(between(control, "export function useAutodial(", "const nowMs")));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("11. A missed ring-back or a voicemail is not a to-do (QA 2026-09-17, finding 5)");
+// ═══════════════════════════════════════════════════════════════════════════
+{
+  const cmp = source("app/components/sales/CallHistory.js");
+  ok("nothingToWriteUp: inbound, unanswered, no outcome, and missed or a voicemail", /function nothingToWriteUp\(row\) \{\s*return row\.direction === "in" && !row\.answered && !row\.disposition && Boolean\(row\.missed \|\| row\.voicemail\);/.test(cmp));
+  const outcome = between(cmp, "function outcomeText(t, row) {", 'return t("app.salesCall.history.unlogged");');
+  ok("outcomeText says nothing for it — 'Not written up' is kept for calls somebody had", /if \(nothingToWriteUp\(row\)\) return "";/.test(outcome) && outcome.indexOf("nothingToWriteUp") > outcome.indexOf("history.deferred"));
+  ok("…and the outcome span is not drawn at all when the sentence is empty", /\{outcomeText\(t, row\) \? \(/.test(cmp));
+  ok("the missed line is quiet, not amber", /data-call-history-missed=\{row\.id\}/.test(cmp) && /className="text-muted-foreground" data-call-history-missed/.test(cmp));
+  ok("the row's outcome hook names it: missed or voicemail, never unlogged", /nothingToWriteUp\(row\) \? \(row\.voicemail \? "voicemail" : "missed"\) : "unlogged"/.test(cmp));
+}
+
 console.log(`\ncheck-sales-call-panel: ${passed} passed, ${failed} failed`);
 if (failed) {
   console.log("Failed:");

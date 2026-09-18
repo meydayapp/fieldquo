@@ -26,12 +26,23 @@
 // ══ Three things flow through one context ═════════════════════════════════
 //
 //   presence          the open activity row, as livePresence() describes it.
-//   callUp / ringing  what the phone is doing, reported by the two components
-//                     that hold a Twilio call — CallPanel (outbound) and
-//                     IncomingCallDock (inbound). The autodialler reads them
-//                     so it can never start a call over one, or over one that
-//                     is arriving. They are facts about THIS browser, not
-//                     about the row, which is why they are not in `presence`.
+//   callLive / ringing what the phone is doing, reported by the two components
+//                     that hold a Twilio call — CallPanel (outbound, through
+//                     setCallUp) and IncomingCallDock (inbound, through
+//                     setInboundLive). Held as TWO flags and derived into one:
+//                     `callLive` is true while either is up, and it is the
+//                     one every reader asks — the autodialler so it never
+//                     starts a call over one, the Off reminder so it never
+//                     opens over one, and CallPanel so the outbound Call is
+//                     refused while an inbound call is live (QA 2026-09-17:
+//                     it was not, and a press placed a second dial). Two
+//                     flags rather than one shared boolean because the dock's
+//                     hang-up clearing a flag the panel had set would read as
+//                     "no call" during the panel's own call. `callUp` is the
+//                     older name for the same derived fact and is kept for
+//                     the readers that use it. They are facts about THIS
+//                     browser, not about the row, which is why they are not
+//                     in `presence`.
 //   autodial          the persisted switch, read here so the queue does not
 //                     have to load the whole call console to know it.
 //
@@ -82,7 +93,9 @@ const DETACHED = Object.freeze({
   autodial: false,
   loading: false,
   error: "",
+  callLive: false,
   callUp: false,
+  inboundLive: false,
   inboundRinging: false,
   availablePresses: 0,
   refresh: async () => null,
@@ -90,6 +103,7 @@ const DETACHED = Object.freeze({
   postState: async () => ({ ok: false, error: "not mounted" }),
   setAutodial: async () => ({ ok: false, error: "not mounted" }),
   setCallUp: noop,
+  setInboundLive: noop,
   setInboundRinging: noop,
 });
 
@@ -106,7 +120,11 @@ export function RepPresenceProvider({ children }) {
   const [autodial, setAutodialState] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [callUp, setCallUp] = useState(false);
+  // The outbound call CallPanel holds, and the inbound call the dock holds.
+  // See the header: two sources, one derived `callLive`.
+  const [outboundUp, setCallUp] = useState(false);
+  const [inboundLive, setInboundLive] = useState(false);
+  const callLive = outboundUp || inboundLive;
   const [inboundRinging, setInboundRinging] = useState(false);
   // Counts the rep's own presses of Available. The queue's autodialler resumes
   // on THIS number changing and on nothing else — a presence row that says
@@ -227,7 +245,9 @@ export function RepPresenceProvider({ children }) {
       autodial,
       loading,
       error,
-      callUp,
+      callLive,
+      callUp: callLive,
+      inboundLive,
       inboundRinging,
       availablePresses,
       refresh,
@@ -235,6 +255,7 @@ export function RepPresenceProvider({ children }) {
       postState,
       setAutodial,
       setCallUp,
+      setInboundLive,
       setInboundRinging,
     }),
     [
@@ -244,7 +265,8 @@ export function RepPresenceProvider({ children }) {
       autodial,
       loading,
       error,
-      callUp,
+      callLive,
+      inboundLive,
       inboundRinging,
       availablePresses,
       refresh,

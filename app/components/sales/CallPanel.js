@@ -122,6 +122,7 @@ import {
   PROVIDER_ENDED,
 } from "@/lib/sales/calls/dispositions";
 import { OUTCOME_CHOICES, choiceLabelKey, foldChoice } from "@/lib/sales/calls/outcomeChoices";
+import { ALREADY_ON_A_CALL } from "@/lib/sales/calls/liveCall";
 import OutcomeForm, { EMPTY_DRAFT, OutcomeSheet, draftStarted } from "./OutcomeForm";
 import PlaybookMount from "./PlaybookMount";
 import PublishedEmail from "./PublishedEmail";
@@ -376,6 +377,17 @@ export default function CallPanel({
   // `tick` is read so the timer re-renders; the value itself is not used.
   void tick;
 
+  // A call THIS panel is not holding — the answered inbound call in
+  // IncomingCallDock, reported through the provider. While it is up the
+  // Call button is disabled and says so, and every press path below
+  // refuses: the thumb, the Dial button beside a number, the autodialler.
+  // 83144544 deliberately kept the inbound call out of this panel's own
+  // state so it could not hold the dialler hostage; that left nothing
+  // telling the panel a call was up, and QA (2026-09-17) placed a second
+  // dial under a live one. The panel's own call sets `startedAt` and hides
+  // the button, so `callLive && !startedAt` is exactly "somebody else's".
+  const onAnotherCall = presence.callLive === true && !startedAt;
+
 
   // `source` is who pressed: "manual" for a thumb, "autodial" for the
   // countdown in lib/sales/autodial.js. Recorded on the attempt
@@ -387,6 +399,13 @@ export default function CallPanel({
     // rendered in these states, so this guard exists for the autodialler's
     // press, which arrives on a timer rather than from a thumb.
     if (busy || startedAt || pending) return false;
+    // Read through the ref, not the render: the autodialler's press arrives
+    // on a timer and a countdown that ended a beat after Pick up must see
+    // the answered call, not the render it was armed in.
+    if (presenceRef.current.callLive === true) {
+      setError(t("app.salesCall.onACall"));
+      return false;
+    }
     setBusy("dial");
     setError("");
     try {
@@ -523,7 +542,12 @@ export default function CallPanel({
       setError(
         Array.isArray(blockers) && blockers.length
           ? blockers.map((b) => b.title).join(" ")
-          : err?.message || t("app.salesCall.dialFailed"),
+          : // The server's own "you're on a call" (a stale tab's dial, the
+            // browser's flag not knowing) in the rep's language, not the
+            // route's English.
+            err?.data?.code === ALREADY_ON_A_CALL
+            ? t("app.salesCall.onACall")
+            : err?.message || t("app.salesCall.dialFailed"),
       );
       return false;
     } finally {
@@ -547,7 +571,7 @@ export default function CallPanel({
     // dialler must never do. Not idle now means not dialled, reported back.
     autoDialSeen.current = autoDial.token;
     const token = autoDial.token;
-    if (!browserReady || busy || startedAt || pending) {
+    if (!browserReady || busy || startedAt || pending || onAnotherCall) {
       onAutoDialResult?.({ token, ok: false, reason: "not_idle" });
       return;
     }
@@ -561,6 +585,18 @@ export default function CallPanel({
   useEffect(() => {
     if (!dialRequest?.token || dialRequestSeen.current === dialRequest.token) return;
     dialRequestSeen.current = dialRequest.token;
+    if (onAnotherCall) {
+      // The Dial button beside a number, or a call-back's "Call now", while
+      // an inbound call is live: refused, and the sentence already printed
+      // above the disabled button is brought into view rather than printed
+      // a second time in the error box.
+      try {
+        document.querySelector("[data-call-on-another-call]")?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+      } catch {
+        /* an old browser; the sentence is on the card regardless */
+      }
+      return;
+    }
     if (busy || startedAt || pending) {
       // Said with what to press, and the form is flashed and scrolled to —
       // the refusal alone, on a tab without the form, was the floor's
@@ -1022,11 +1058,19 @@ export default function CallPanel({
       {/* ── The call button ─────────────────────────────────────────────── */}
       {!startedAt && !pending ? (
         <div className="space-y-2">
+          {/* Said above the button it disables, and only while it is true.
+              A greyed button with no sentence is the control that "appears
+              to work and doesn't" — the rep would blame the microphone. */}
+          {onAnotherCall ? (
+            <p className="text-sm text-amber-900 dark:text-amber-200 break-words text-center" role="status" data-call-on-another-call>
+              {t("app.salesCall.onACall")}
+            </p>
+          ) : null}
           {browserReady ? (
             <button
               type="button"
               className={`${BTN} ${callClass} w-full`}
-              disabled={Boolean(busy)}
+              disabled={Boolean(busy) || onAnotherCall}
               onClick={() => place("browser")}
               data-call-button
             >
@@ -1043,7 +1087,7 @@ export default function CallPanel({
             <button
               type="button"
               className={`${BTN} ${callClass} w-full`}
-              disabled={Boolean(busy)}
+              disabled={Boolean(busy) || onAnotherCall}
               onClick={() => place("handset")}
               data-call-button
             >
