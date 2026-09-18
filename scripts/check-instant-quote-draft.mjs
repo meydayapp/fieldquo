@@ -60,6 +60,7 @@ import fs from "node:fs";
 import { createEstimateDraft } from "@/lib/estimate/createEstimateQuote";
 import { measureForTrade, priceOneMaterial } from "@/lib/estimate/instantQuoteServer";
 import { taxStatement } from "@/lib/tax/documentTax";
+import { FALLBACK_LABOUR_RATE, FALLBACK_OVERHEAD_PCT } from "@/lib/costing/quoteCosting";
 import { rows, writes, resetDbStub } from "@/lib/db";
 
 let pass = 0;
@@ -267,6 +268,38 @@ const NO_TAX_CO = {
     "…priced against this draft's own subtotal, frozen",
     Number(row?.price) === 5250,
     row?.price,
+  );
+
+  // ── The hours are COSTED, on the builder's own assumptions ──────────────
+  //
+  // Owner, on the demo accounts: "the estimate reviews doesn't seem to have
+  // the same costing and labour being applied". They didn't. This call passed
+  // `costing: {}`, normaliseQuoteCosting reads an absent rate as 0, and the
+  // row persisted 71.76 real hours at $0.00 — labour cost nothing, overhead
+  // 0%, a margin fattened by the whole wage bill, and "0" in the rate box
+  // when the editor opened it. A hand-built quote opens at
+  // FALLBACK_LABOUR_RATE / FALLBACK_OVERHEAD_PCT (QuoteBuilder.js) and the
+  // derive-on-read path recomputes on the same two, so the instant path must
+  // land on them as well. Executed, not read: the rate has to reach the row.
+  ok(
+    "…the labour rate is the builder's fallback, not 0",
+    Number(row?.labourRate) === FALLBACK_LABOUR_RATE,
+    row?.labourRate,
+  );
+  ok(
+    "…so the labour COST is hours × that rate, not $0",
+    Math.abs(Number(row?.labourCost) - Number(row?.labourHours) * FALLBACK_LABOUR_RATE) < 0.011,
+    `${row?.labourCost} vs ${row?.labourHours} × ${FALLBACK_LABOUR_RATE}`,
+  );
+  ok(
+    "…and overhead is the builder's fallback percentage, not 0",
+    Number(row?.overheadPct) === FALLBACK_OVERHEAD_PCT,
+    row?.overheadPct,
+  );
+  ok(
+    "…no crew is invented for a job nobody has been assigned to",
+    Array.isArray(row?.crew) && row.crew.length === 0,
+    row?.crew,
   );
 }
 
