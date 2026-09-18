@@ -504,7 +504,7 @@ section("5. The queue: never for ever, never in silence, never instead of the vo
   ok("a ring nobody took holds rather than ringing the same desk again", justRang.action === "hold", justRang);
   ok(
     "…and the first such hold says the phone rang out",
-    /did not pick up|Nobody picked up/i.test(queueStep({ round: 0, reachableNow: 5, justRang: true }).say.join(" ")),
+    /isn.t picking up|Nobody picked up/i.test(queueStep({ round: 0, reachableNow: 5, justRang: true }).say.join(" ")),
   );
   ok("…which is the same sentence requeueSay writes", requeueSay({ repName: "Daniel" }).join(" ").includes("Daniel"));
   ok("requeueSay never prints undefined", !/undefined|null/.test(requeueSay({}).join(" ")));
