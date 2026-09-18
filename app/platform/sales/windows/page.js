@@ -39,7 +39,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertCircle, Loader2, Lock, Phone, Save, ShieldAlert, X } from "lucide-react";
+import { AlertCircle, Loader2, Lock, Phone, PhoneForwarded, Save, ShieldAlert, X } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import PlatformWriteGate, { usePlatformAdmin } from "@/app/components/platform/PlatformWriteGate";
 
@@ -206,6 +206,8 @@ export default function PlatformSalesWindowsPage() {
       </PlatformWriteGate>
 
       <TestLinesCard canEdit={isSuperadmin} />
+
+      <TransferNumbersCard canEdit={isSuperadmin} />
 
       {loading ? (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -501,6 +503,201 @@ function TestLinesCard({ canEdit }) {
             </form>
           ) : canEdit ? (
             <p className="text-xs text-muted-foreground">At most {max} test lines. Remove one to add another.</p>
+          ) : null}
+        </>
+      )}
+    </section>
+  );
+}
+
+/**
+ * The phones a live caller may be handed to.
+ *
+ * The same shape as TestLinesCard and next to it on purpose: both are short
+ * lists of FieldQuo's own phones, both are superadmin-only and audited, and
+ * both are read on a live call. The difference is what a number here DOES —
+ * every rep's transfer picker offers it, by label, and a press places an
+ * outbound leg to it on FieldQuo's account (lib/sales/transferNumbers.js).
+ * The rep never sees the number; this card is the only screen that shows it.
+ *
+ * FIELDQUO_SALES_TRANSFER_TO is shown, not edited: it is a deployment
+ * variable, and a control that pretended to change one would be the dead
+ * button AGENTS.md forbids. It sits behind the list as one more entry.
+ */
+function TransferNumbersCard({ canEdit }) {
+  const [data, setData] = useState(null);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [draftLabel, setDraftLabel] = useState("");
+  const [draftNumber, setDraftNumber] = useState("");
+
+  const load = useCallback(async () => {
+    setError("");
+    try {
+      setData(await fetchJson("/api/platform/sales/transfer-numbers"));
+    } catch (err) {
+      setError(err.message);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const numbers = data?.numbers || [];
+  const max = data?.max || 10;
+  const maxLabel = data?.maxLabel || 40;
+  const standing = data?.standing || null;
+  const standingOnList = Boolean(standing && numbers.some((n) => n.e164 === standing.e164));
+
+  async function save(next) {
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const body = await fetchJson("/api/platform/sales/transfer-numbers", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ numbers: next.map(({ e164, label }) => ({ e164, label })) }),
+      });
+      setData(body);
+      setDraftLabel("");
+      setDraftNumber("");
+      setNotice(
+        body.numbers.length
+          ? `${body.numbers.length} phone${body.numbers.length === 1 ? "" : "s"} on the list. Every rep's transfer picker offers ${body.numbers.length === 1 ? "it" : "them"} by label under "A phone".`
+          : "The list is empty. The transfer picker offers no phone" + (body.standing ? " but the standing number from the environment." : "."),
+      );
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function add(e) {
+    e.preventDefault();
+    const label = draftLabel.trim();
+    const e164 = draftNumber.trim();
+    if (!label || !e164) return;
+    if (
+      !confirm(
+        `Add "${label}" (${e164}) as a transfer phone?\n\nEvery rep will be able to hand a live caller to it, and the call is placed on FieldQuo's account. Only a phone FieldQuo itself trusts belongs here — the owner's mobile, an office line — never a customer's, never a prospect's. This is logged with your name.`,
+      )
+    ) {
+      return;
+    }
+    save([...numbers, { e164, label }]);
+  }
+
+  function remove(entry) {
+    save(numbers.filter((x) => x.e164 !== entry.e164));
+  }
+
+  return (
+    <section className="bg-card border border-border rounded-xl p-4 space-y-3" data-transfer-numbers>
+      <div className="flex items-start gap-2">
+        <PhoneForwarded size={16} className="shrink-0 mt-0.5 text-muted-foreground" aria-hidden="true" />
+        <div className="min-w-0">
+          <h2 className="font-semibold text-foreground">Transfer phones — where a live caller can be handed</h2>
+          <p className="text-sm text-muted-foreground mt-1 max-w-3xl">
+            A phone here appears in every rep&apos;s transfer picker, by its label, under &ldquo;A phone&rdquo;
+            — warm (the rep speaks to it first) or cold (straight through). The rep never sees or types the
+            number: the picker sends back an id and the server dials what is on this list. A phone that does
+            not answer within {data?.ringSeconds || "the ring timeout"}{data?.ringSeconds ? " seconds" : ""} hands the
+            caller back to the rep. A phone&apos;s own voicemail counts as an answer, and the picker says so.
+          </p>
+        </div>
+      </div>
+
+      {error && (
+        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-lg p-3 flex items-start gap-2 text-sm text-red-700 dark:text-red-300">
+          <AlertCircle size={16} className="shrink-0 mt-0.5" /> {error}
+        </div>
+      )}
+      {notice && (
+        <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 rounded-lg p-3 text-sm text-emerald-800 dark:text-emerald-300">
+          {notice}
+        </div>
+      )}
+
+      {!data && !error ? (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 size={16} className="animate-spin" /> Loading…
+        </div>
+      ) : (
+        <>
+          {numbers.length ? (
+            <ul className="flex flex-wrap gap-2" data-transfer-numbers-list>
+              {numbers.map((n) => (
+                <li key={n.e164} className="inline-flex items-center gap-2 rounded-full border border-border bg-muted px-3 py-1.5 text-sm text-foreground">
+                  <span className="font-medium">{n.label}</span>
+                  <span className="font-mono text-xs text-muted-foreground">{n.e164}</span>
+                  {canEdit ? (
+                    <button
+                      type="button"
+                      onClick={() => remove(n)}
+                      disabled={busy}
+                      aria-label={`Remove ${n.label} (${n.e164}) from the transfer phones`}
+                      className="inline-flex items-center justify-center min-h-[28px] min-w-[28px] -mr-1 rounded-full hover:bg-background disabled:opacity-60"
+                    >
+                      <X size={14} aria-hidden="true" />
+                    </button>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-muted-foreground" data-transfer-numbers-empty>
+              No transfer phones. The picker offers reps and the hold queue only
+              {standing ? ", plus the standing number below" : ""}.
+            </p>
+          )}
+
+          {standing ? (
+            <p className="text-xs text-muted-foreground" data-transfer-standing>
+              <code className="text-xs">FIELDQUO_SALES_TRANSFER_TO</code> is set to{" "}
+              <span className="font-mono">{standing.e164}</span>
+              {standingOnList
+                ? " — already on the list above under its own label, so it is offered once."
+                : ` — offered after the list as “${standing.label}”. It is a deployment variable and cannot be edited here; add it above to give it a name.`}
+            </p>
+          ) : null}
+
+          {canEdit && numbers.length < max ? (
+            <form onSubmit={add} className="flex flex-col sm:flex-row gap-2 sm:items-center">
+              <input
+                type="text"
+                value={draftLabel}
+                onChange={(e) => setDraftLabel(e.target.value)}
+                disabled={busy}
+                maxLength={maxLabel}
+                placeholder="Emilio’s mobile"
+                aria-label="What the rep sees on the button"
+                className="w-full sm:max-w-xs text-sm rounded-md border border-border bg-background px-3 min-h-[44px]"
+              />
+              <input
+                type="tel"
+                inputMode="tel"
+                value={draftNumber}
+                onChange={(e) => setDraftNumber(e.target.value)}
+                disabled={busy}
+                placeholder="+14165550100"
+                aria-label="The phone, in E.164"
+                className="w-full sm:max-w-xs text-sm rounded-md border border-border bg-background px-3 min-h-[44px] font-mono"
+              />
+              <button
+                type="submit"
+                disabled={busy || !draftLabel.trim() || !draftNumber.trim()}
+                className="min-h-[44px] inline-flex items-center justify-center gap-1.5 bg-inverted text-inverted-foreground text-sm font-semibold px-4 rounded-lg disabled:opacity-60"
+              >
+                {busy ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                Add transfer phone
+              </button>
+            </form>
+          ) : canEdit ? (
+            <p className="text-xs text-muted-foreground">At most {max} transfer phones. Remove one to add another.</p>
           ) : null}
         </>
       )}

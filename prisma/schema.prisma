@@ -14102,16 +14102,25 @@ model SalesCallTransfer {
   fromRep   SalesRep @relation("SalesTransfersFrom", fields: [fromRepId], references: [id])
 
   /// Who it was handed to, when the target was a rep. Null when the target was
-  /// the standing transfer number — a real phone somebody carries, which is
-  /// not a SalesRep row and must not be invented as one.
+  /// a phone — the standing transfer number or an entry of the superadmin's
+  /// allow-list (lib/sales/transferNumbers.js) — a real phone somebody
+  /// carries, which is not a SalesRep row and must not be invented as one.
+  /// Also null on a queue transfer: the caller was parked for whoever comes
+  /// free, and "who" is answered by the attempt row's later history.
   toRepId String?
   toRep   SalesRep? @relation("SalesTransfersTo", fields: [toRepId], references: [id], onDelete: SetNull)
 
-  /// The number dialled, when the target was a phone rather than a rep. E.164.
+  /// The number dialled, when the target was a phone rather than a rep. E.164,
+  /// copied from the allow-list by the server — never from the browser.
   toE164 String?
 
-  /// "warm" | "cold". The rep chooses; there is no default, because the two
-  /// sound completely different to the person on hold.
+  /// "warm" | "cold" | "queue". The rep chooses warm or cold for a person;
+  /// there is no default, because the two sound completely different to the
+  /// person on hold. "queue" is written by the server when the destination
+  /// is the hold queue (lib/sales/calls/transfer.js TRANSFER_QUEUE): the
+  /// caller is parked for the next free rep and the transferring rep is
+  /// released, so neither word applies. On such a row toRepId and toE164 are
+  /// both null and conferenceName names a room that was never created.
   kind String
 
   /// A TRANSFER_STATES value from lib/sales/calls/transfer.js.

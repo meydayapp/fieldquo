@@ -598,6 +598,15 @@ export default function SalesHomePage() {
       {/* ── The rep's funnel this month — its own card, its own fetch ──────── */}
       <MyFunnelCard />
 
+      {/* ── The rep's own scorecards — the page fetches; this is the door ──── */}
+      <section className={CARD} data-call-quality-card>
+        <h2 className="text-base font-semibold text-foreground">{t("app.salesMyCallQa.title")}</h2>
+        <p className="mt-1 text-sm text-muted-foreground">{t("app.salesMyCallQa.cardIntro")}</p>
+        <Link href="/sales/call-quality" className={`${BTN} border border-border text-foreground w-full mt-3`}>
+          {t("app.salesMyCallQa.open")}
+        </Link>
+      </section>
+
       {/* ── What contractors use most — gated at 150 /app views by the route ── */}
       <ProductUsageCard />
 

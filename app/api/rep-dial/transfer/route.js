@@ -61,6 +61,7 @@ import { getAppOrigin } from "@/lib/appUrl";
 import { recordError } from "@/lib/platform/errorLog";
 import {
   advanceTransfer,
+  latestTransferFor,
   openTransferFor,
   transferById,
   transferStoreState,
@@ -130,7 +131,14 @@ export async function POST(request) {
   // ── The transferring rep's own leg ──────────────────────────────────────
   if (stage === "rep-leg") {
     const attemptId = url.searchParams.get("attemptId");
-    const transfer = attemptId ? await openTransferFor(attemptId) : null;
+    // The open one first. Failing that, the newest of any state: a QUEUE
+    // transfer has usually reached `completed` by the time this leg arrives,
+    // and repLegPlan owes the rep one sentence rather than a silent hangup.
+    // For an ordinary call end the newest row is closed and the plan is the
+    // same empty document it always was.
+    const transfer = attemptId
+      ? (await openTransferFor(attemptId)) || (await latestTransferFor(attemptId))
+      : null;
     const plan = repLegPlan({ transfer });
     return joinResponse({
       plan,
