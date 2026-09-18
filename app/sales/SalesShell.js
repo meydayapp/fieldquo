@@ -61,6 +61,8 @@ import Link from "next/link";
 
 import IncomingCallDock from "@/app/components/sales/IncomingCallDock";
 import { RepPresenceProvider, RepStatusPicker } from "@/app/components/sales/RepStatus";
+import AvailableReminder from "@/app/components/sales/AvailableReminder";
+import { clearReminderDismissed } from "@/lib/sales/availableReminder";
 import SalesMobileTabBar from "@/app/components/sales/SalesMobileTabBar";
 import SalesTour from "@/app/components/sales/SalesTour";
 import { fetchJson } from "@/lib/fetchJson";
@@ -220,6 +222,10 @@ export default function SalesShell({ children }) {
   const [unloggedGate, setUnloggedGate] = useState(null);
   async function signOutNow() {
     await fetch("/api/sales/auth/logout", { method: "POST" });
+    // The "You're shown as Off" reminder is dismissed per browser session;
+    // a sign-out ends the session it was dismissed in, whatever the tab's
+    // storage thinks (lib/sales/availableReminder.js).
+    clearReminderDismissed();
     window.location.href = "/sales/login";
   }
   async function signOut() {
@@ -728,6 +734,12 @@ export default function SalesShell({ children }) {
           dialler screen would ring only while somebody happened to be looking
           at it — see the component's header. */}
       <IncomingCallDock />
+      {/* "You're shown as Off" — the reminder a rep who signed in without
+          pressing Available sees once per session, with Go available and OK
+          (app/components/sales/AvailableReminder.js). Mounted here, under the
+          provider, so it reads the same presence object the picker and the
+          dock do, and hides itself the moment either reports a call. */}
+      <AvailableReminder />
       {/* Mounted beside the drawer, and below it: the tour needs the rows above
           to point at, so it belongs to the chrome rather than to any one
           screen, and a rep should be able to follow it from wherever they are.

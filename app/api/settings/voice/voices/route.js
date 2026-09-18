@@ -24,9 +24,16 @@ import { voiceConfigured, listVoices } from "@/lib/voice/retell";
 import {
   pickableVoices,
   pickDefaultVoice,
+  splitByLocales,
   DEFAULT_VOICE_ID,
   DEFAULT_VOICE_ID_FR,
 } from "@/lib/voice/voices";
+import {
+  isSpokenLanguage,
+  resolveSpokenLanguage,
+  spokenLocales,
+  primaryLanguage,
+} from "@/lib/voice/agentLanguage";
 
 export async function GET(request) {
   // memberOrRefusalPlain returns a PLAIN object, not a Response — the "plain"
@@ -79,14 +86,26 @@ export async function GET(request) {
     // nothing passed it.
     db.voiceAgent.findUnique({
       where: { companyId: member.companyId },
-      select: { voice: true },
+      select: { voice: true, spokenLanguage: true },
     }),
   ]);
-  // Spanish is a language a company can actually be set to, and the shortlist
-  // has a voice for it — so this is no longer a French-or-English question.
-  const language = ["fr", "es"].includes(company?.defaultLanguage)
-    ? company.defaultLanguage
-    : "en";
+
+  // ── Which language(s) the voice has to speak ─────────────────────────────
+  //
+  // `?language=` is the selector value the screen is SHOWING, which may not
+  // be saved yet: the owner picks "Bilingual English & French" and the list
+  // has to re-filter before they press Save, or they pick a voice the save
+  // then refuses. Absent, the stored setting; absent that, the company's
+  // language — the same fallback provision.js runs.
+  const asked = new URL(request.url).searchParams.get("language");
+  const speaks = resolveSpokenLanguage(
+    isSpokenLanguage(asked) ? asked : agent?.spokenLanguage,
+    company?.defaultLanguage,
+  );
+  const locales = spokenLocales(speaks, company?.defaultLanguage || "en");
+  // The default voice is picked for the PRIMARY language — the one Retell
+  // falls back to — which is the company's own when it is in the pair.
+  const language = primaryLanguage(speaks, company?.defaultLanguage || "en");
 
   let raw = null;
   try {
@@ -98,10 +117,20 @@ export async function GET(request) {
     return NextResponse.json({ voices: [], reason: "unavailable" });
   }
 
-  const voices = pickableVoices(raw, { language, keep: agent?.voice || null });
+  // Filtered to what can pronounce every locale the agent will speak. The
+  // ones that cannot travel separately, with the locale they lack, so the
+  // screen can say why a voice is not on the list — and can warn when the
+  // one answering today is among them.
+  const { voices, excluded } = splitByLocales(
+    pickableVoices(raw, { language, keep: agent?.voice || null }),
+    locales,
+  );
 
   return NextResponse.json({
     voices,
+    excluded: excluded.map((v) => ({ id: v.id, name: v.name, missing: v.missing })),
+    // What the list was filtered for, so a stale response is recognisable.
+    language: speaks,
     // What answers the phone when nothing is chosen, so the screen can label it
     // rather than showing a blank select and leaving the reader to guess.
     //

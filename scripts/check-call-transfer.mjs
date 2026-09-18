@@ -779,9 +779,13 @@ section("8. The routes actually use it");
   // mutation that put the first look straight back to a voicemail, because the
   // no-answer path further down still called it.
   ok("…on the first look that finds nobody", (() => {
+    // The branch may first tell the rep the caller is holding for her
+    // (lib/sales/calls/inboundDistribution.js's holdFor), but it ends in the
+    // queue and never in a <Dial>: scoped to the branch, up to the next dial.
     const at = inbound.indexOf("ring.targets.length === 0");
     if (at === -1) return false;
-    return /^\s*\)?\s*\{\s*return toQueue\(/.test(inbound.slice(at + "ring.targets.length === 0".length, at + 120));
+    const branch = inbound.slice(at, inbound.indexOf("twiml.dial(", at));
+    return /return toQueue\(/.test(branch);
   })());
   ok("…and after a ring nobody took", /afterRing: true/.test(inbound));
   ok("the queue re-reads presence every round", /presenceFor\(/.test(inbound) && /queueStep\(\{/.test(inbound));
@@ -789,7 +793,10 @@ section("8. The routes actually use it");
   ok("the after-voicemail stage exists at last", /stage === "after-voicemail"/.test(inbound));
   ok("…and writes the recording to the row", /recordVoicemail\(/.test(inbound));
   ok("…and an orphaned message is reported rather than dropped", /voicemail_orphaned/.test(inbound));
-  ok("the conversation itself is still never recorded", !/record:\s*true/.test(inbound) && !/recordingStatusCallback/.test(inbound));
+  // 2026-09-17: the conversation IS recorded — lib/sales/calls/recording.js
+  // hands every <Dial> its attributes; scripts/check-sales-recording.mjs
+  // counts them. The voicemail <Record> above is the other audio.
+  ok("the conversation is recorded on every <Dial> in the route", (inbound.match(/\.\.\.dialRecordingAttrs\(/g) || []).length === inbound.split("twiml.dial(").length - 1);
 
   const store = source("lib/sales/calls/store.js");
   ok("something reads the voicemail columns", /voicemailUrl: true/.test(store));

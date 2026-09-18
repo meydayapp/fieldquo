@@ -66,6 +66,74 @@ Check: `npm run check:custom-fields`.
   order.
 - The document-templates preview (`/api/settings/document-templates/[id]/
   preview`) renders sample data and shows no custom line.
+## The receptionist's language is its own setting, and it can be bilingual (17 September 2026)
+
+**Owner's question**: the voice can be changed on /app/settings/voice; can the
+AI answer in another language, and what about a caller in Ottawa–Gatineau who
+speaks both?
+
+**What was true**: the phone followed `Company.defaultLanguage` — fr → fr-CA,
+es → es-419, everything else → en-US — with nothing on the screen saying so.
+A Ukrainian, Punjabi or Tagalog account got an English receptionist silently.
+
+**What is true now** (`lib/voice/agentLanguage.js` is the one rule):
+
+- **A selector on Settings › Voice**, above the voice: English / Français /
+  Español / Bilingual English & French / Bilingual English & Spanish. Stored
+  on `VoiceAgent.spokenLanguage`; null means "follow the account language",
+  which is exactly the old behaviour, so nobody who never opens it hears a
+  change. Saving re-provisions the agent through the same PUT and the same
+  `provisionAgent` as a voice change.
+- **Bilingual** provisions Retell with `language: ["fr-CA","en-US"]` (the
+  company's own language first — Retell falls back to the first locale when
+  it cannot tell which language a reply is in), never the deprecated `multi`
+  scalar, which the docs now say expands to a fixed ten-language set with
+  es-ES and fr-FR in it. The greeting is one line in both ("Bonjour, hello —
+  merci d'avoir appelé X. Comment puis-je vous aider? How can I help?"), the
+  LANGUAGE section of the prompt says the greeting is the only bilingual
+  line, to carry on in whichever language the caller answers in and switch
+  when they switch, gives a worked date in each language, and gives the
+  recorded-call notice and the "are you a person?" answer in both. Today's
+  date in the prompt and every slot label from `check_availability` /
+  `book_visit` are written in each locale the agent speaks (`availability.js`
+  `speak()` — it was en-CA for everybody, including French agents).
+- **Voices are filtered by what they can pronounce.** Retell's /list-voices
+  carries no language field, so `lib/voice/voices.js` holds the per-provider
+  table from Retell's language-support page; `/api/settings/voice/voices?
+  language=` returns `voices` and `excluded` (with the missing locale), the
+  picker says which voices are not offered and why, warns when the chosen
+  voice cannot speak the chosen language, and the PUT refuses that
+  combination by name. All three shortlisted Cartesia voices cover en/fr/es,
+  so the picker is never empty.
+- **The limitation is on the screen**: when the account language is one the
+  receptionist cannot speak (uk, pa, tl, de, it) the card says "Your account
+  is in Українська. The receptionist can't speak it yet, so it answers in
+  English unless you pick another language here." Punjabi is also absent from
+  Retell's enum entirely; Ukrainian and Filipino are in it but
+  `lib/voice/prompt.js` has no text for them, and a locale with no prompt is
+  English words in a Ukrainian accent.
+- **Cost**: none. Retell's pricing page lists no multilingual surcharge; the
+  documented cost is accuracy ("the multilingual pipeline … is less accurate
+  per language than single-language models"), and the bilingual hints say so.
+
+`npm run check:voice-language` asserts all of it (sections 6–10).
+
+### Still owed here
+
+- Retell's dashboard greys out voice/language combinations per VOICE and
+  pinned model; the API exposes neither, so the filter is per provider. An
+  ElevenLabs voice pinned to `eleven_flash_v2` (English only) would pass the
+  filter and fail at Retell — visible as a failed push, not silent, and no
+  company is on such a voice today.
+- The tool routes' `say` hints (`app/api/voice/tools/[tool]/route.js`) are
+  English; the model rephrases them in the call's language and the labels
+  inside them are now localised, but a French-only agent is still handed an
+  English sentence to translate.
+- Not verified against the live API from this machine: RETELL_API_KEY is
+  Encrypted in Vercel and not in any local .env, so the array form was read
+  from the create-agent reference (spec revision 2026-09-14), not exercised.
+  The first bilingual save in production is the proof; the settings PUT
+  reports `live: false` with the provider's message if Retell refuses it.
 
 ---
 
@@ -13067,3 +13135,63 @@ article `conversation-audit`; sales manual chapter 9 "Who can read what"
 and a bullet in the rules, EN/ES/FR: *"The owner can read any staff
 conversation and any rep–prospect conversation; you are told when they
 have."*
+
+## The Off reminder, and a test line the owner can ring at midnight (17 September 2026)
+
+**Two owner asks, one evening.** A live rep signed in, dialled all evening and
+never pressed Available; between the sign-in and the first dial she had no
+presence row, and `inboundRouting` routes a ring-back on that row — the
+contractor who rang back reached nobody. And the owner wanted to test the
+dialler outside calling hours on his own mobile, from his own rep account
+(`emilio.daniel.boves@gmail.com`, SalesRep "Daniel").
+
+**1. "You're shown as Off."** `app/components/sales/AvailableReminder.js`,
+mounted once in `SalesShell` under the presence provider. After sign-in,
+when the rep's state is offline or there is no row, a modal:
+*"You're shown as Off. Contractors who ring back can't reach you until
+you're Available."* — **Go available** (the picker's own `available` choice
+through `setStatus`, so the autodialler's press counter moves) and **OK**
+(dismissed for this browser session; the login page and sign-out clear the
+flag, so the next sign-in asks again). `role="dialog" aria-modal="true"`,
+focus trapped between the two buttons, Escape is OK, focus returns. Never
+while a call is up or a contractor is ringing, never before presence has
+loaded, never when the tables are absent. The decision is
+`lib/sales/availableReminder.js`'s `shouldRemind()`, a total function whose
+full truth table (448 rows) `check-sales-available-reminder.mjs` executes.
+Nine languages under `app.salesStatus.reminder.*`.
+
+**2. A test-line allowlist, not a per-account bypass.** The law protects
+the stranger whose phone rings, whoever pressed the button — so the
+exemption is on the NUMBER. `lib/sales/testLines.js` (pure) +
+`testLinesStore.js` (one `PlatformSetting`, key `sales.testLines`, a JSON
+array of E.164, at most 10). Edited on **/platform/sales/windows** ("Test
+lines — FieldQuo's own phones"), superadmin-only PUT at
+`/api/platform/sales/test-lines`, audit action `sales_test_lines_updated`
+with the list before and after. A dial to a listed number is
+`salesCallReadiness({ testLine: true })` → allowed at any hour, over any cap,
+in any state, with `jurisdiction.code = "test"`, no name / window / citation
+(so no screen prints a law for it) and one caveat beside the Call button in
+nine languages (`app.salesDial.unenforced.testLine.*`). Judged in the dial
+route AFTER do-not-contact and the suppression read, about the number that
+will actually ring; the queue and lead routes decide it server-side and the
+screens re-pass `testLine: ctx.testLine === true`; the queue's window
+grouping puts it in "Callable now" with no best-time score and the retry
+pool's regroup never holds it. **Nothing was added to `SalesCallAttempt`**
+(under a pending change elsewhere): the row's `jurisdictionCode` is
+`"test"`, and every count of work excludes it — `repCallStats`,
+`teamCallRows`, `campaignCallRows` (pure), the floor board, the funnel, the
+agency week, the badge's calls-today, the cap count, and all seven Prisma
+counts plus both raw-SQL counts in the growth model. The where fragment is
+`null OR not "test"` because Prisma's bare `not` on a nullable column drops
+the NULL rows (measured: 113 rows, 5 null, `not` returned 108).
+`check-sales-test-line.mjs` executes the reader against hostile JSON, the
+rules at 03:00 Oklahoma / over Florida's cap / under Arizona's prohibition /
+with no location, the grouping, the regroup, the counts with a test row
+beside a real one, and greps every count site; it also asserts no file
+under `lib/` or `app/` names the owner's account. **The list ships EMPTY** —
+the owner's mobile is nowhere in the codebase or the database (SalesRep has
+no phone column; `+17166383616` is a Twilio number assigned to Daniel, not
+his handset) — so he adds it on the Calling windows page. Inbound rows from
+a test line (a ring-back) are written by `app/api/rep-dial/inbound`, which
+was out of scope, and carry no mark; the floor board's "came in today"
+still counts one.

@@ -135,7 +135,7 @@ could cost you the meeting is the only honest move you have.
 
 **Open** — *Say who is calling, where from, and why now — inside the first ten seconds, because that is how long a contractor on a ladder gives you.*
 
-> Hi — is that {businessName}? {repName} here, from FieldQuo. I know I'm catching you out of nowhere, and you've never heard of me. Can I give you thirty seconds on why I called?
+> Hi — is that {businessName}? {repName} here, from FieldQuo — this call may be recorded. I know I'm catching you out of nowhere, and you've never heard of me. Can I give you thirty seconds on why I called?
 
 > - Thanks. Quick question before I do — when you go out and look at a job, are you usually able to give them a price while you're standing there, or does it get put together back at the house afterwards?
 
@@ -185,7 +185,7 @@ could cost you the meeting is the only honest move you have.
 
 **Open** — *Say who is calling, where from, and why now — inside the first ten seconds, because that is how long a contractor on a ladder gives you.*
 
-> Hi — is that {businessName}? {repName} here, from FieldQuo. I know I'm catching you out of nowhere, and you've never heard of me. Can I give you thirty seconds on why I called?
+> Hi — is that {businessName}? {repName} here, from FieldQuo — this call may be recorded. I know I'm catching you out of nowhere, and you've never heard of me. Can I give you thirty seconds on why I called?
 
 > - Thanks. One question before I do — when somebody who's never met you goes looking to see whether you're any good, is there somewhere you'd send them, or is it whatever comes up when they search your name?
 
@@ -236,7 +236,7 @@ could cost you the meeting is the only honest move you have.
 
 **Open** — *Say who is calling, where from, and why now — inside the first ten seconds, because that is how long a contractor on a ladder gives you.*
 
-> Hi — is that {businessName}? {repName} here, from FieldQuo. I know I'm catching you out of nowhere, and you've never heard of me. Can I give you thirty seconds on why I called?
+> Hi — is that {businessName}? {repName} here, from FieldQuo — this call may be recorded. I know I'm catching you out of nowhere, and you've never heard of me. Can I give you thirty seconds on why I called?
 
 > - Thanks. One question first — when somebody's on your site at nine at night and wants you, can they put themselves in your diary there and then, or does it hang on them remembering to ring in the morning?
 
@@ -286,7 +286,7 @@ could cost you the meeting is the only honest move you have.
 
 **Open** — *Say who is calling, where from, and why now — inside the first ten seconds, because that is how long a contractor on a ladder gives you.*
 
-> Hi — is that {businessName}? {repName} here, from FieldQuo. I know I'm catching you out of nowhere, and you've never heard of me. Can I give you thirty seconds on why I called?
+> Hi — is that {businessName}? {repName} here, from FieldQuo — this call may be recorded. I know I'm catching you out of nowhere, and you've never heard of me. Can I give you thirty seconds on why I called?
 
 > - Thanks. One question before I do — when an enquiry comes in, does it usually arrive with enough on it to price, or are you writing back to ask the same few things before you can even start?
 
