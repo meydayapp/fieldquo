@@ -1,12 +1,76 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 17 September 2026 (lawn care: a `lawn_care` instant trade selling PROGRAMS and add-ons priced by lawn-size band from the address — parcel − roof − driveway where Gatineau publishes lots, the minimum band labelled as such everywhere else, the trace as the correction; "This doesn't look right → Call us / Request a call back" under every imagery-measured figure, flagging the lead with `callbackRequestedAt` and the draft for an on-site visit; the estimator traces the lawn in the builder, picks programs as lines, and the traced outline is drawn on a captured satellite still that the PDF and the client page print with "Lawn measured: 1,850 sq ft" — roof and gutter stills ride the same rail; see the section below)
+Last updated: 17 September 2026 (the cold-call scripts read against Gong's 100k/300M-call data and Cognism's guides — the AI call-script prompt is version 3: an opener that owns the cold call and states the reason on a cited detail, a thirty-five-second pitch held to a word band, leading questions after it, Cognism's objection shape with the two commonest brush-offs always written, a per-prospect gatekeeper line, the invite sent while they are on the phone; the generated script is swept for banned moves; four objections added, the gatekeeper moment rewritten for the apprentice, the office and the spouse, `CLOSE_ASK` asks for the calendar; `docs/sales/RESEARCH-cold-calling-2026.md` has every number and what was refused — see the section below)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
 it exists to answer.
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
+
+---
+
+## The cold-call scripts against the call data: prompt version 3, four objections, a real gatekeeper (17 September 2026)
+
+**What**: the owner handed over Gong's cold-call research (100k calls, 2019;
+300M, 2024), Cognism's script, objection and gatekeeper guides, the Close
+template and SurveySensum's questions piece, and asked that the scripts —
+and above all the model prompt — reflect what the data says.
+`docs/sales/RESEARCH-cold-calling-2026.md` reads every source with
+page/section references, says what is a measurement and what is opinion,
+what survives the trip to a contractor's van, where it contradicts the
+playbook, and the sixteen decisions taken. `docs/sales/SCRIPT-PRINCIPLES.md`
+§16 carries the decisions against the textbook sections.
+
+**The prompt** (`lib/sales/intel/callScript.js`, `CALL_SCRIPT_VERSION` 3 —
+every stored script regenerates on its next open, ~600 rows at under a cent):
+the example opener keeps the owner's sentence and adds the data's shape —
+own that it is a cold call (Gong's permission opener, 11.18% against 2.15%
+for "bad time"), "the reason I'm calling is…" on a cited detail (2.1x),
+thirty seconds asked for with the decision handed back; `whyThemNow` is a
+60–110-word pitch validated by word count (Gong's thirty-seven-second burst;
+the first live v2 scripts wrote forty-five words); questions are leading
+with the answers in them, after the pitch; objections follow acknowledge →
+clarify → answer → check → next step and always include "I'm busy" and "not
+interested" (`CALL_SCRIPT_ALWAYS_OBJECTIONS`, shown to the model whatever
+the panel's priority); the close asks for the calendar and sends the invite
+on the line; a new `ifSomeoneElseAnswers` field for the apprentice, the
+office or the spouse, drawn on both call layouts under a heading in nine
+languages; "we/our" for the product, "I" for the ask; buzzwords banned by
+name; the opener must say FieldQuo (`no_company` — the first live v2 script
+had dropped it). `scriptVoice.js` rule 8 runs `bannedMovesIn` over every
+spoken sentence of a generated script, the prospect's own lines and
+`doNotSay` excepted, and quotes the move on the retry.
+
+**The seeds**: `CLOSE_ASK` gains "Have you got your calendar handy? I'll
+send the invite while we're on the phone" (the call panel's next-step form
+does exactly that); four playbook fingerprints retired in `seedHistory.js`
+so "refresh the built-ins" reaches live rows. Four objections added —
+`IM_BUSY_RIGHT_NOW`, `WRONG_PERSON`, `IS_THIS_A_SALES_CALL`,
+`NEVER_HEARD_OF_YOU` — in the owner's register, with Cognism's "I promise
+I'll be quick" and "this isn't a sales call" refused by name. The gatekeeper
+moment now asks "is that the owner, or is that you?", has lines for the
+apprentice (get the owner's name, honestly) and for the office or the spouse
+(are you the one typing the quotes up?), and notes Gong's −39%. A `buzzword`
+banned move (5.5% vs 16% for problem language; "seamless" alone excluded —
+it is in business names). "How've you been?" is neither adopted nor banned,
+with the reason written down.
+
+**Not done, flagged**: the twenty older objection answers are still in the
+expanded register ("I am not going to") while the prompt bans it; the QA
+scorecard (`lib/sales/calls/qa.js`, another agent's) should move its talk
+band to ~0.45–0.65 for cold calls, measure the longest rep burst, time the
+reason, count objections handled, and read the calendar question — §8 of
+the research doc. `check:playbook-voice` has one pre-existing failure on
+`origin/main` (the leads route's email copy), not from this change.
+
+- Checks: `check:call-script` (368, was 317: §9 pins the example's four
+  beats, every new rule in the prompt, the pitch band, `no_company`, rule 8
+  with the `they`/`doNotSay` exemptions, the always-shown objections);
+  `check:playbook-copy` (735, was 646: twenty-four seeds, the buzzword
+  detector fired at Gong's own sentence, the calendar close, the gatekeeper's
+  three people, the research doc's figures by value). Token bounds raised
+  to 3,000 / 5,000 with the measured cost beside them.
 
 ---
 
