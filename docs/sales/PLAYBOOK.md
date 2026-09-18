@@ -79,6 +79,25 @@ Three things are doing the work, and each is worth knowing by name:
    say doesn't apply." A pivot that only works on the expected answer is no
    pivot at all.
 
+**What the call data says about this opener.** Gong measured four openers
+across 300 million calls: "did I catch you at a bad time?" books 2.15% of
+the time, "how's it going?" 7.6%, a permission-based opener 11.18%. The one
+above *is* the permission-based opener — own that it is a cold call, then ask
+for thirty seconds. Their older set has "how've you been?" at 6.6 times the
+baseline; it is not scripted here because the permission opener measured
+higher in the larger set and because it claims an acquaintance you do not
+have. Stating the reason for the call is 2.1 times more successful, and
+the pivot states it inside the first minute on his own words. The full
+reading, with what was refused, is in `docs/sales/RESEARCH-cold-calling-2026.md`.
+
+**The AI script's opener** on a claimed prospect goes one step further,
+because it has a detail from the contractor's own site that the rules script
+does not: it says it is a cold call, then "the reason I'm calling is…" on
+that detail, then asks for thirty seconds and hands the decision back. The
+example every generated script is held to:
+
+> Hi — is that South County Electric, LLC? My name's Daniel and I'm from FieldQuo — quick heads-up, this call may be recorded. I'll be straight with you, this is a cold call, but I've read your website. The reason I'm calling is your site promises a same-day quote, and I wanted to ask how it gets to the customer. Can I take thirty seconds on why, and then you tell me if it's worth talking?
+
 **Never say any of these.** Each one is a named failure, not a matter of taste:
 
 | Don't say | Why |
@@ -92,6 +111,9 @@ Three things are doing the work, and each is worth knowing by name:
 | "Most of our customers are painters like you" | We never quote one contractor's business to another. Ever. |
 | "I love what you've done with the site" | Flattery works even when it is false and even when he knows you want something. That is exactly why it is off the table. |
 | "Tell me to go away and I will" | See §1. |
+| "An all-in-one platform", "seamlessly", "streamline" | A pitch built on buzzwords books at 5.5% in Gong's data; the same pitch in the contractor's own words at 16%. |
+| "I'll be really quick, I promise" | Cognism recommends it for the busy prospect. It is the time promise above with a promise on top. |
+| "This isn't a sales call" | It is. A rep who opens with a lie has nothing left to be believed about. |
 
 ## 3. Discovery — a survey, not an interrogation
 
@@ -101,9 +123,20 @@ about his business.** So every question below states a guess with two options
 in it, and the cheapest possible reply is a correction.
 
 Ask permission before asking. Say out loud that you are not asking about money.
-Then shut up: the prospect should be doing about seventy per cent of the
-talking. The twelve-question block pasted at five prospects correlates with
-silence; the two conversations that became the biggest wins were dialogue.
+Then do not interrogate: every question has its answers in it, so a one-word
+correction is a full reply, and the open "how do you…" questions wait for the
+fifteen minutes. The twelve-question block pasted at five prospects correlates
+with silence; the two conversations that became the biggest wins were dialogue.
+
+**On the talk ratio.** The seventy-thirty rule — the prospect talks
+seventy per cent — is for the demo, not the cold call. On a cold call the
+rep carries the conversation: Gong's successful cold calls have the rep
+talking about fifty-five per cent of the time, in bursts of up to about
+thirty-five seconds, and the number of questions asked makes no measurable
+difference to whether the meeting gets booked. So once he has said yes to the
+thirty seconds, say the *What we do* stage in one go — do not stop after one
+sentence to check he is still there. Under twenty-five seconds of talking
+halves the odds.
 
 And when you get to the pain, **ask him for the number.** Never bring one of
 your own. "In a normal month, how many quotes go out later than you meant them
@@ -177,9 +210,9 @@ could cost you the meeting is the only honest move you have.
 
 > So here's what I'd like. Give me fifteen minutes and I can show you in fifteen minutes how it works for a business like yours: a quote with your name on it next to the one you send now, and what the review says before it goes out. Nothing to set up on your side. You just watch.
 
-**Wrap up** — *Confirm what was agreed, in their words, and get off the phone. A call that runs long after the agreement is a call that reopens it.*
+**Wrap up** — *Confirm what was agreed, in their words, and get off the phone. A call that runs long after the agreement is a call that reopens it.* The calendar question is Gong's: it is the one question their data names as securing the next step, and the invite goes while he is still on the line because an invitation already accepted is harder to decline than one unanswered. The next-step form on the call screen books it and sends it.
 
-> What works better for you, mornings or afternoons? I'll send the invite and a reminder the night before. And if the day falls apart — it's a job site, it happens — tell me and we'll move it rather than drop it. If I don't hear anything I'll try you again in a couple of weeks.
+> What works better for you, mornings or afternoons? Have you got your calendar handy? I'll send the invite while we're on the phone, and a reminder the night before. And if the day falls apart — it's a job site, it happens — tell me and we'll move it rather than drop it. If I don't hear anything I'll try you again in a couple of weeks.
 
 ### Online presence — no website  `ONLINE_PRESENCE`
 
@@ -230,7 +263,7 @@ could cost you the meeting is the only honest move you have.
 
 **Wrap up** — *Confirm what was agreed, in their words, and get off the phone. A call that runs long after the agreement is a call that reopens it.*
 
-> What works better for you, mornings or afternoons? I'll send the invite and a reminder the night before. Three photos to this number whenever you get a minute. If the photos don't happen before then, that's fine — I'll call anyway and we'll use what's on your phone.
+> What works better for you, mornings or afternoons? Have you got your calendar handy? I'll send the invite while we're on the phone, and a reminder the night before. Three photos to this number whenever you get a minute. If the photos don't happen before then, that's fine — I'll call anyway and we'll use what's on your phone.
 
 ### Booking gap — a website with no way to book  `BOOKING_GAP`
 
@@ -280,7 +313,7 @@ could cost you the meeting is the only honest move you have.
 
 **Wrap up** — *Confirm what was agreed, in their words, and get off the phone. A call that runs long after the agreement is a call that reopens it.*
 
-> What works better for you, mornings or afternoons? I'll send the invite and a reminder the night before. If the day goes wrong, message me and we'll find another one — and if I don't hear back I'll try you again after month end.
+> What works better for you, mornings or afternoons? Have you got your calendar handy? I'll send the invite while we're on the phone, and a reminder the night before. If the day goes wrong, message me and we'll find another one — and if I don't hear back I'll try you again after month end.
 
 ### Quote automation — enquiries arrive as email  `QUOTE_AUTOMATION`
 
@@ -330,7 +363,7 @@ could cost you the meeting is the only honest move you have.
 
 **Wrap up** — *Confirm what was agreed, in their words, and get off the phone. A call that runs long after the agreement is a call that reopens it.*
 
-> What works better for you, mornings or afternoons? I'll send the invite and a reminder the night before. Send me the four questions whenever they come to you, a text is fine. If they don't arrive I'll bring my guess at them and you can cross them out — and if the day moves, I'll find you the week after.
+> What works better for you, mornings or afternoons? Have you got your calendar handy? I'll send the invite while we're on the phone, and a reminder the night before. Send me the four questions whenever they come to you, a text is fine. If they don't arrive I'll bring my guess at them and you can cross them out — and if the day moves, I'll find you the week after.
 
 ## 5. Either side of the call
 
@@ -338,13 +371,28 @@ could cost you the meeting is the only honest move you have.
 
 *Somebody who is not the person you called for has picked up.*
 
+Who answers the phone at a plumbing company is not a receptionist. It is the
+apprentice with the phone on speaker in the van, or the office — which is
+usually the spouse or a bookkeeper — or the owner's partner at home. Two of
+those three may be the person who types the quotes up in the evening, which
+makes them the user this product is for and not a gatekeeper at all. The
+lines sort the three before you ask to be handed on.
+
 **Opening**
 
-> Morning — it's {repName} from FieldQuo. Is {businessName}'s guv about?
+> Morning — it's {repName} from FieldQuo. Who's the best person to talk to about how the quotes go out — is that the owner, or is that you?
 
 **If they ask what it is regarding**
 
-> It's about how quotes go out of the business. I've not spoken to him before — I read your website this morning and rang off the back of it. Is he the one who prices the work, or is that somebody else?
+> It's about how a quote gets from the driveway to the customer. I've not spoken to him before — I read your website this morning and rang off the back of it. Is he the one who prices the work, or is that somebody else?
+
+**The apprentice, or somebody in the van**
+
+> No problem. When's he easiest to catch — first thing before you're on site, or the end of the day? And what's his name, so I'm not asking for the boss next time?
+
+**The office, or the spouse who does the paperwork**
+
+> Then you might be the one I should be talking to. When a quote goes out, is it you typing it up, or does it land on him in the evening?
 
 **If he is not there**
 
@@ -354,8 +402,10 @@ could cost you the meeting is the only honest move you have.
 
 > Do both if you can: put my name down, and tell me when he's about. I'd rather catch him than have him ring a number he doesn't know.
 
+- Whoever picks up at a business this size is often the person who types the quotes up — the spouse, the office, the bookkeeper. That is not a gatekeeper, that is the user. The fourth line finds out before you ask to be handed on.
 - Never say he is expecting your call, or that you are following up an email. There is no email, and the person who finds out is the person you needed.
-- The receptionist cannot buy anything and does not want to hear why it is good. Give them a name, a subject and a time, and get off.
+- The apprentice cannot buy anything and does not want to hear why it is good. Give them a name, a subject and a time, and get off — and get HIS name, so the next call asks for him and not for the boss.
+- A gatekeeper cuts the odds of a meeting by about two-fifths in Gong's data. Where the listing carries a mobile, dial that. Where it does not, the first and last slots the calling window allows are when an owner-operator answers his own phone.
 - The second line is doing real work: it finds out whether the person you have been asking for is even the right one. Write down what they say.
 
 ### The beep
@@ -368,6 +418,8 @@ could cost you the meeting is the only honest move you have.
 
 - Say the number twice and slow the second one down. Somebody writing it down misses the first three digits of the first.
 - Leave one on the first attempt, not the fourth. Four unexplained missed calls from a number nobody knows is how you get blocked.
+- One or two, then stop leaving them. In Gong's data a voicemail cuts the next dial's connect rate by about a quarter and roughly doubles the reply rate on the email — so after the second, the email carries the sequence and the dials stay silent.
+- After the fifth dial the odds of connecting fall away. The sixth dial is the next name on the list, not this one again.
 - The last sentence is the one that matters: the next contact happens either way, so there is nothing for them to decide right now.
 
 ### The text, same day
@@ -461,10 +513,16 @@ could cost you the meeting is the only honest move you have.
 - Waiting is a real answer and gets a real date. A rep who treats it as a loss argues, and arguing at the close is how a maybe becomes a no.
 - Do not discount to get the yes. Saylor's own figure: forty per cent of buyers ask for a concession only because they had to ask, and half of sellers give one on the first request.
 
-## 6. The twenty objections
+## 6. The twenty-four objections
 
 Every one has the same shape: **restate what he said → welcome it → answer →
-one small thing he can actually do.** None of them ends the sequence.
+one small thing he can actually do.** None of them ends the sequence. The
+data says plan for two of them before the meeting: the median booked cold
+call in Gong's set is under five minutes and gets through at least two
+objections, and the top five — not interested, a hang-up, no budget, not
+made for us, not my responsibility — are three-quarters of everything you
+will hear. The last four below are the ones that end a call before the pitch
+has happened, and they are the ones a rep needs word-perfect.
 
 The single exception is "not interested", where the offer to take him off the
 list is a real switch and not a form of words: it is permanent, and it stops
@@ -590,6 +648,48 @@ disposition.
 *You will hear it as:* quickbooks, my accountant, bookkeeper, sage, xero, does the books
 
 > So the person who does your books has a system already, and you are not about to move them off it. Agreed, and you should not — that is their tool, not yours. Here is the limit before you find it yourself: there is no live link that pushes invoices into it as they go out. What there is is an export of the invoices and the job costs in a shape a bookkeeper can take, so month end stops being you reading numbers down a phone. Send me one month you have already closed and I will show you exactly what they would receive, and they can tell you whether that is useful or not.
+
+### 21. I'm busy / I'm on a job right now
+
+*You will hear it as:* i'm busy, on a job, in the middle of, on site, up a ladder, can't talk, driving, not a good time
+
+Cognism's answer is "I will be really quick — I promise!". Do not say it; it
+is the time promise from §2 with a promise on top. Validate, give him one
+sentence of reason so the callback is a decision and not a favour, and get a
+time with the two options in it.
+
+> So you're in the middle of something, and I've landed on top of it. Fair — you're on a job and I'm not, and I'm not going to squeeze this in now. One sentence so you know what it's about, and then a time: it's about how a quote gets from the driveway to the customer's phone, and it's fifteen minutes on a screen, not a sales call. When's better — first thing before you're on site, or the end of the day? Give me the time and I'll ring then, not before.
+
+### 22. I'm not the one who deals with that / you want the owner
+
+*You will hear it as:* wrong person, not the right person, not my department, you want the owner, speak to the boss, i just answer the phone, the apprentice, just the office, not me
+
+At this size the person who "just answers the phone" is often the person who
+types the quotes up. Find that out before you ask to be handed on, and get
+the owner's name so the next call asks for him by it.
+
+> So it lands on somebody else, and I've got the wrong person. Fair, and thanks for saying so instead of letting me carry on. Two quick things, so I don't do this to you twice. Who writes the quotes up and sends them out — is that the owner, or is that actually you in the office? And tell me his name and when he's easiest to catch — first thing, or the end of the day. I'll ring then and ask for him by name, so you're not passing on a message from a stranger.
+
+### 23. Is this a sales call? / What are you selling?
+
+*You will hear it as:* sales call, selling something, is this a pitch, cold call, telemarketer, what are you selling
+
+Cognism's answer is "this actually is not a sales call". It is one. Say so,
+and give him the one question that decides whether it is worth either
+person's minute.
+
+> Fair question — it is. It's a sales call with one question in it, and I'd sooner say so than dress it up. The question is how your quotes get to a customer — same day from the van, or later that night at the table — because that's the whole of what we do, and half the people I ring have it sorted already. If you've got it sorted, tell me how, because then I've learnt something and you've lost a minute. If it's the evenings at the table, that's worth fifteen minutes on a screen and not a minute more on this call. Which is it?
+
+### 24. Never heard of you — who are you?
+
+*You will hear it as:* never heard of, who are you, what's fieldquo, what company, who's this
+
+No case study, no "contractors like you" — we never quote one contractor to
+another, and Gong's data has social proof losing to a plain description of
+the problem anyway. Concede that we are small and new, say what we do in one
+sentence, and ask the one question.
+
+> So you've never heard of us, and there's no reason you should have. We're small and we're new, and I'm not going to pretend otherwise. What we do in a sentence: the quote gets built while you're still standing in the driveway, from your own price list, with your name on it, and the customer approves it from their phone. That's the whole company. Whether it's any use to you turns on one thing, which is how your quotes go out today — same day from the van, or later that night at the table. Tell me which, and I'll tell you straight whether it's worth fifteen minutes.
 
 ## 7. Battlecards — the five they will name
 
@@ -797,9 +897,21 @@ in `docs/sales/SCRIPT-PRINCIPLES.md`. The short version:
   social proof are the two things his own epilogue says warrant boycott.
 - **Barron, *Selling Made Simple*** — the only goal of outreach is the next
   conversation.
-- **Cognism's cold-calling scripts** — the permission-based opener, the
-  gatekeeper's brevity, and the 70/30 talk ratio. Their "I'm just following up
-  on an email" line is deliberately *not* taken: it works and it is a lie.
+- **Cognism's cold-calling scripts, objection guides and gatekeeper
+  piece** — the permission-based opener, the gatekeeper's brevity, the
+  objection shape (listen, clarify, answer, confirm, move on), and the
+  definition of a gatekeeper that includes spouses and relatives. Their
+  70/30 talk ratio is kept for the demo and dropped for the cold call. Their
+  "I'm just following up on an email", "I promise I'll be quick" and "this
+  isn't a sales call" lines are deliberately *not* taken: they work and they
+  are lies.
+- **Gong's cold-call data** (100k calls in 2019, 300M in 2024) — the
+  permission opener at 11.18% against 2.15% for "bad time"; stating the
+  reason at 2.1x; the rep talking 55% of a successful cold call in bursts of
+  about thirty-five seconds; problem language at 16% against buzzwords at
+  5.5%; the top five objections at 74%; a gatekeeper at −39%; "do you have
+  your calendar handy?" and the invite sent before you hang up. Read source
+  by source, with what was refused, in `docs/sales/RESEARCH-cold-calling-2026.md`.
 - **Close's guide to training an AI sales agent** — define the escalation
   boundary explicitly, and review the reasoning rather than only the output.
   Both are built into how the software generates a talking point: it is handed
@@ -813,5 +925,5 @@ in `docs/sales/SCRIPT-PRINCIPLES.md`. The short version:
 
 *Generated from the modules named at the top. `npm run check:playbook-copy` and
 `npm run check:sales-playbook-battlecards` assert that the opener, the
-permission ask, the pivot and every objection label in this file are still the
-ones the software uses.*
+permission ask, the pivot, every close, every gatekeeper line and every
+objection answer in this file are still the ones the software uses.*

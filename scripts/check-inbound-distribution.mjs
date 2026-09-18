@@ -244,8 +244,12 @@ section("3b. A Quebec caller rings only reps with French");
   ok("…the plan says so", fr.needsFrench === true);
   const owner = ringPlan({ assignedRepId: "anglo", presence: rows, needsFrench: true, frenchRepIds: ["franco"], now: NOW });
   ok("the number's owner is skipped when they have no French", !owner.targets.some((t) => t.salesRepId === "anglo") && owner.targets[0]?.salesRepId === "franco", owner.targets);
+  // 2026-09-17: the rep who just spoke to this contractor is not a stranger
+  // to them — the language rule does not apply to the last caller. The
+  // owner, English-only, rang himself from an 819 number and was skipped.
   const last = ringPlan({ presence: rows, lastCalledBy: "anglo", needsFrench: true, frenchRepIds: ["franco"], now: NOW });
-  ok("…and so is whoever rang them last", !last.targets.some((t) => t.salesRepId === "anglo"));
+  ok("…but whoever rang them last IS rung, French or not", last.targets.some((t) => t.salesRepId === "anglo"), last.targets);
+  ok("…named as the last caller, first on the plan", last.targets[0]?.salesRepId === "anglo" && /rang this contractor/.test(last.targets[0].why), last.targets[0]);
   const empty = ringPlan({ presence: [fresh("anglo")], needsFrench: true, frenchRepIds: [], now: NOW });
   ok("no French rep live → an empty plan, so the route holds them and ends at voicemail as it does for nobody free", empty.targets.length === 0);
   ok("…with its own reason, nobody_french, for the log", empty.reason === "nobody_french", empty.reason);
@@ -254,9 +258,13 @@ section("3b. A Quebec caller rings only reps with French");
   ok("without the flag the anglophones ring as before", ringPlan({ presence: rows, frenchRepIds: ["franco"], now: NOW }).targets.length === 3);
   ok("inboundNeedsFrench: 514 yes, 416 no", inboundNeedsFrench("+15145550100") && !inboundNeedsFrench("+14165550100"));
   const route = read("app/api/rep-dial/inbound/route.js");
-  ok("the route reads reps with sellsIn for both the first ring and the hold queue", (route.match(/select: \{ id: true, sellsIn: true \}/g) || []).length === 2);
-  ok("…decides French from the caller's area code OR the matched prospect's province", /inboundNeedsFrench\(caller\) \|\| \(matchedProspect \? requiredLanguageFor\(matchedProspect\) === "fr" : false\)/.test(route));
-  ok("…and passes needsFrench and frenchRepIds to ringPlan", /needsFrench,\s*frenchRepIds,/.test(route) && /needsFrench: inboundNeedsFrench\(callerNumber\)/.test(route));
+  // 2026-09-17, the owner: "any person calling this number should not be
+  // blocked — you don't know if I'm speaking English or French. The French
+  // and English rule is for the leads only." The route sets no language
+  // argument on either ring plan; ringPlan keeps the capability for the
+  // assertions above, and nothing on the inbound path reaches for it.
+  ok("the route sets no language rule on the first ring or the hold queue", !/needsFrench|frenchRepIds|needsEnglish|englishRepIds/.test(route));
+  ok("…and no longer imports the lead-language helpers", !/inboundNeedsFrench|repSellsFrench|repSellsEnglish/.test(route));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

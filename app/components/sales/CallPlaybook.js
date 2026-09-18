@@ -207,6 +207,15 @@ function AiScript({ script, language, switchProps }) {
         <p className="text-base text-foreground break-words mt-1">{script.opener}</p>
       </div>
 
+      {/* Version 3 of the prompt writes a line for the apprentice, the office
+          or the spouse who picks up; a v2 script has none, and draws nothing. */}
+      {script.ifSomeoneElseAnswers ? (
+        <div>
+          <H>{t("app.salesCall.aiScriptIfSomeoneElse")}</H>
+          <p className="text-sm text-foreground break-words mt-1">{script.ifSomeoneElseAnswers}</p>
+        </div>
+      ) : null}
+
       {script.whatWeSaw?.length ? (
         <div>
           <H>{t("app.salesCall.aiScriptWhatWeSaw")}</H>
@@ -318,6 +327,7 @@ function ConsoleScript({ script, stages, language, switchProps }) {
     : null;
   const steps = [
     { key: "open", title: t("app.salesCall.aiScriptOpener"), text: script.opener || null, lines: null },
+    { key: "gate", title: t("app.salesCall.aiScriptIfSomeoneElse"), text: script.ifSomeoneElseAnswers || null, lines: null },
     { key: "saw", title: t("app.salesCall.aiScriptWhatWeSaw"), text: null, lines: script.whatWeSaw?.length ? script.whatWeSaw : null },
     { key: "why", title: t("app.salesCall.aiScriptWhyNow"), text: script.whyThemNow || null, lines: null },
     { key: "questions", title: t("app.salesCall.aiScriptQuestions"), text: null, lines: script.threeQuestions?.length ? script.threeQuestions : null, ordered: true },

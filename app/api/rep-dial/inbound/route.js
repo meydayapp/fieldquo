@@ -89,13 +89,6 @@ import twilio from "twilio";
 import { db } from "@/lib/db";
 import { verifyTwilioWebhook } from "@/lib/sms/verifyTwilioWebhook";
 import { ringPlan } from "@/lib/sales/calls/inboundDistribution";
-import {
-  inboundNeedsFrench,
-  inboundNeedsEnglish,
-  repSellsFrench,
-  repSellsEnglish,
-  requiredLanguageFor,
-} from "@/lib/sales/leadLanguage";
 import { getAppOrigin } from "@/lib/appUrl";
 import { recordError } from "@/lib/platform/errorLog";
 import { dialRecordingAttrs } from "@/lib/sales/calls/recording";
@@ -511,10 +504,7 @@ async function queueStage(request, params) {
     lastCalledBy: attempt?.salesRepId || null,
     lastCalledAt: lastOut?.salesRepId && lastOut.salesRepId === attempt?.salesRepId ? lastOut.dialledAt : null,
     transferTo: normalisePhone(process.env.FIELDQUO_SALES_TRANSFER_TO),
-    needsFrench: inboundNeedsFrench(callerNumber),
-    frenchRepIds: (reps || []).filter(repSellsFrench).map((r) => r.id),
-    needsEnglish: inboundNeedsEnglish(callerNumber),
-    englishRepIds: (reps || []).filter(repSellsEnglish).map((r) => r.id),
+    // No language rule on inbound — see the first-ring block above.
   });
 
   const step = queueStep({
@@ -522,7 +512,12 @@ async function queueStage(request, params) {
     reachableNow: ring.targets.length,
     justRang,
     holdMusicUrl: holdMusicUrl(),
-    repName: attempt?.salesRep?.name || null,
+    // The name is spoken only when that rep was on the ring plan: "X isn't
+    // picking up" about a rep the plan never rang is a lie (queue.js).
+    repName:
+      attempt?.salesRep?.name && ring.targets.some((t) => t.salesRepId === attempt.salesRepId)
+        ? attempt.salesRep.name
+        : null,
     maxRounds: MAX_QUEUE_ROUNDS,
   });
 
@@ -877,18 +872,18 @@ async function handle(request, params) {
   const presenceRows = activeReps ? await presenceFor(activeReps.map((r) => r.id)).catch(() => null) : null;
 
   const match = matchInboundCaller({ fromE164: params.From, prospects, leads });
-  // French, by either signal: the caller's area code, or the row they
-  // matched sitting in Quebec — lib/sales/leadLanguage.js, the same rule
-  // the queue claims with.
   const matchedProspect = match.prospectId ? prospects.find((p) => p.id === match.prospectId) : null;
-  const needsFrench =
-    inboundNeedsFrench(caller) || (matchedProspect ? requiredLanguageFor(matchedProspect) === "fr" : false);
-  const frenchRepIds = (activeReps || []).filter(repSellsFrench).map((r) => r.id);
-  // And English, by the same two signals, for the other direction of the rule.
-  const needsEnglish =
-    !needsFrench &&
-    (inboundNeedsEnglish(caller) || (matchedProspect ? requiredLanguageFor(matchedProspect) === "en" : false));
-  const englishRepIds = (activeReps || []).filter(repSellsEnglish).map((r) => r.id);
+  // ── No language rule on the way IN (owner, 2026-09-17) ──────────────────
+  //
+  // "Any person calling this number should not be blocked — you don't know
+  // if I'm speaking English or French. The French and English rule is for
+  // the leads only." An area code is where a phone was issued, not what its
+  // owner speaks, and a contractor ringing back is ringing a number they
+  // already talked to. So the rule lib/sales/leadLanguage.js applies to the
+  // QUEUE — which rep is handed which lead to dial — stays off the inbound
+  // plan: every reachable rep is rung. ringPlan still accepts the language
+  // arguments (scripts/check-inbound-distribution.mjs exercises them) and
+  // this route simply never sets them.
 
   // The rep who rang them from THIS number wins over the rep who happens to
   // hold the claim: the contractor is ringing back the number on their screen,
@@ -903,10 +898,6 @@ async function handle(request, params) {
     lastCalledBy: lastOut?.salesRepId || null,
     lastCalledAt: lastOut?.dialledAt || null,
     transferTo: normalisePhone(process.env.FIELDQUO_SALES_TRANSFER_TO),
-    needsFrench,
-    frenchRepIds,
-    needsEnglish,
-    englishRepIds,
   });
 
   const plan = inboundPlan({

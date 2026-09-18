@@ -1,12 +1,133 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 18 September 2026 (costs, end to end: `/platform/costs` — Twilio Usage Records pulled hourly into `PlatformCostDaily`, OpenAI by area from both AI ledgers, Retell per call, sales calls composed part by part with unknowns printed as unknown, cost per conversation and cost per signup per rep and per agency; the floor board prints the dialler's statistics, the three reach rates (carrier / transcript / reported) and today's cost per conversation instead of refusing them, its inbound block is one paragraph with the per-number table moved to Crew lines and read live from Twilio; see the section below)
+Last updated: 17 September 2026 (the cold-call scripts read against Gong's 100k/300M-call data and Cognism's guides — the AI call-script prompt is version 3: an opener that owns the cold call and states the reason on a cited detail, a thirty-five-second pitch held to a word band, leading questions after it, Cognism's objection shape with the two commonest brush-offs always written, a per-prospect gatekeeper line, the invite sent while they are on the phone; the generated script is swept for banned moves; four objections added, the gatekeeper moment rewritten for the apprentice, the office and the spouse, `CLOSE_ASK` asks for the calendar; `docs/sales/RESEARCH-cold-calling-2026.md` has every number and what was refused — see the section below)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
 it exists to answer.
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
+
+---
+
+## The cold-call scripts against the call data: prompt version 3, four objections, a real gatekeeper (17 September 2026)
+
+**What**: the owner handed over Gong's cold-call research (100k calls, 2019;
+300M, 2024), Cognism's script, objection and gatekeeper guides, the Close
+template and SurveySensum's questions piece, and asked that the scripts —
+and above all the model prompt — reflect what the data says.
+`docs/sales/RESEARCH-cold-calling-2026.md` reads every source with
+page/section references, says what is a measurement and what is opinion,
+what survives the trip to a contractor's van, where it contradicts the
+playbook, and the sixteen decisions taken. `docs/sales/SCRIPT-PRINCIPLES.md`
+§16 carries the decisions against the textbook sections.
+
+**The prompt** (`lib/sales/intel/callScript.js`, `CALL_SCRIPT_VERSION` 3 —
+every stored script regenerates on its next open, ~600 rows at under a cent):
+the example opener keeps the owner's sentence and adds the data's shape —
+own that it is a cold call (Gong's permission opener, 11.18% against 2.15%
+for "bad time"), "the reason I'm calling is…" on a cited detail (2.1x),
+thirty seconds asked for with the decision handed back; `whyThemNow` is a
+60–110-word pitch validated by word count (Gong's thirty-seven-second burst;
+the first live v2 scripts wrote forty-five words); questions are leading
+with the answers in them, after the pitch; objections follow acknowledge →
+clarify → answer → check → next step and always include "I'm busy" and "not
+interested" (`CALL_SCRIPT_ALWAYS_OBJECTIONS`, shown to the model whatever
+the panel's priority); the close asks for the calendar and sends the invite
+on the line; a new `ifSomeoneElseAnswers` field for the apprentice, the
+office or the spouse, drawn on both call layouts under a heading in nine
+languages; "we/our" for the product, "I" for the ask; buzzwords banned by
+name; the opener must say FieldQuo (`no_company` — the first live v2 script
+had dropped it). `scriptVoice.js` rule 8 runs `bannedMovesIn` over every
+spoken sentence of a generated script, the prospect's own lines and
+`doNotSay` excepted, and quotes the move on the retry.
+
+**The seeds**: `CLOSE_ASK` gains "Have you got your calendar handy? I'll
+send the invite while we're on the phone" (the call panel's next-step form
+does exactly that); four playbook fingerprints retired in `seedHistory.js`
+so "refresh the built-ins" reaches live rows. Four objections added —
+`IM_BUSY_RIGHT_NOW`, `WRONG_PERSON`, `IS_THIS_A_SALES_CALL`,
+`NEVER_HEARD_OF_YOU` — in the owner's register, with Cognism's "I promise
+I'll be quick" and "this isn't a sales call" refused by name. The gatekeeper
+moment now asks "is that the owner, or is that you?", has lines for the
+apprentice (get the owner's name, honestly) and for the office or the spouse
+(are you the one typing the quotes up?), and notes Gong's −39%. A `buzzword`
+banned move (5.5% vs 16% for problem language; "seamless" alone excluded —
+it is in business names). "How've you been?" is neither adopted nor banned,
+with the reason written down.
+
+**Not done, flagged**: the twenty older objection answers are still in the
+expanded register ("I am not going to") while the prompt bans it; the QA
+scorecard (`lib/sales/calls/qa.js`, another agent's) should move its talk
+band to ~0.45–0.65 for cold calls, measure the longest rep burst, time the
+reason, count objections handled, and read the calendar question — §8 of
+the research doc. `check:playbook-voice` has one pre-existing failure on
+`origin/main` (the leads route's email copy), not from this change.
+
+- Checks: `check:call-script` (368, was 317: §9 pins the example's four
+  beats, every new rule in the prompt, the pitch band, `no_company`, rule 8
+  with the `they`/`doNotSay` exemptions, the always-shown objections);
+  `check:playbook-copy` (735, was 646: twenty-four seeds, the buzzword
+  detector fired at Gong's own sentence, the calendar close, the gatekeeper's
+  three people, the research doc's figures by value). Token bounds raised
+  to 3,000 / 5,000 with the measured cost beside them.
+## Google Places corroborates every claimed lead: website, phone and trading status confirmed or contradicted in words (18 September 2026)
+
+DRAIN KINGS (Chatsworth, from the CSLB C-36 register) read "Website: none on
+record — nothing has crawled this business" while drainkingslosangeles.com was
+the first Google result. Zero of 321,668 prospects carried a `googlePlaceId`.
+
+**What runs now**
+
+- `lib/sales/intel/places.js` — Places Text Search (New), a twelve-field mask
+  (Enterprise SKU, US$35 / 1,000, 1,000 a month free; pricing page read
+  2026-09-17). A listing is attached only when the NAME overlaps ≥ 0.6 after
+  suffix stripping and stemming AND the PLACE agrees — a strong signal (postal
+  code, street number + street, pin within 1 km) or a weak one (city, within
+  5 km) when the name carries a distinctive token. Anything weaker is
+  `no_confident_match` with the top candidate for a human. Blanks only are
+  filled; Google's values sit in `placesResult` beside the record's; a
+  different Google phone becomes a `SalesContactNumber`; every field is a
+  `ProspectEvidence` row (google / google_field). `placesResult.confirmations`
+  records confirmed vs contradicted per field — "Google confirms the phone;
+  Google lists a website the register did not" — and the rep card prints it
+  as a "Google check" row in nine languages; the brief carries it as a fact
+  sourced to Google, a PERMANENTLY CLOSED listing first (flagged, never
+  suppressed). A row that gains a website has `CRAWL_WEBSITE` queued directly
+  (forced, claimed lane) so the whole chain re-runs through the script.
+- `POST /api/platform/sales/prospects/enrich` (superadmin, 300 s): `held`,
+  `ids[]`, or `queue` — the pool is refused without `confirm: true` and
+  answers with its size and projected cost. The rep's claim route asks Google
+  after the response (`after()`) for never-checked rows the rep holds.
+- `lib/sales/intel/placesSweep.js` — the standing job: 25 lookups per rep per
+  clock hour, in queue order, from `/api/cron/sales-pipeline`; the counter is
+  on `/platform/sales/prospects` ("Google check: 24/25 this hour for Favor ·
+  next window 23:00") beside the verdict tallies, this month's requests and
+  spend, and "Check Google" on every prospect. Every request is metered into
+  `PlatformCostDaily` (`google_places`) and is the fifth line on
+  `/platform/costs`.
+- `scripts/check-places-enrich.mjs` — 93 executed checks; the generic-name
+  rule and the never-overwrite guard were mutation-tested.
+
+**The held batch, run 2026-09-18 03:03 UTC** — 138 held, 19 skipped as
+do-not-contact, 119 requests (US$4.17 at list price, inside Google's free
+thousand): 82 matched, 23 no confident match, 12 no results, 2 duplicate
+listings (two held rows share one Place ID — a dedupe signal for the Review
+folder), 1 permanently closed (Surface Magic, LLC). Phone confirmed 70,
+contradicted 12; website confirmed 62, contradicted 9 (4 gained a website the
+register lacked, crawls queued — Drain Kings among them). Ratings gained 76.
+
+### Still owed here
+
+- The pool: 321,000 claimable rows unchecked, roughly US$11,200 at list price.
+  Projected on the panel; runs only on the owner's yes (`confirm: true`).
+- A Google website that DIFFERS from the record's is recorded beside it and
+  never crawled — the record's URL keeps the crawl. Whether a superadmin may
+  swap them is a product decision.
+- 19 held prospects are do-not-contact and still held; the check skips them,
+  the queue should probably release them.
+- `duplicate_place` sets no `possibleDuplicateOfId`; the Review folder does
+  not yet read the Places verdict.
 
 ---
 
