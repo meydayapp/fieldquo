@@ -25,6 +25,11 @@ import {
 import AddressAutocomplete from "@/app/components/AddressAutocomplete";
 import { formatPhoneInput } from "@/lib/validation";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import {
+  useCustomFields,
+  CustomFieldInputs,
+  CustomFieldsPanel,
+} from "@/app/components/customFields/CustomFieldsBox";
 import { reportResponseError, showError } from "@/lib/clientErrors";
 import { formatAddress } from "@/lib/format/address";
 import { useHasLevel } from "@/app/providers/PermissionProvider";
@@ -61,6 +66,9 @@ export default function ClientDetailPage() {
   // them at all (Crew). Same functions the API asks — see the Notes section
   // of lib/permissions/enforce.js.
   const canEditNotes = useHasLevel("notes", "view_edit_all");
+  // The company's own extra boxes for a client. Loaded with the record so the
+  // edit modal opens with the current answers, saved after the PATCH.
+  const cf = useCustomFields("client", id);
   const canCreateQuote = useHasLevel("quotes", "view_create_edit");
   const canCreateJob = useHasLevel("jobs", "view_create_edit");
   // The equipment panel reads serial numbers, install dates and a service
@@ -124,6 +132,7 @@ export default function ClientDetailPage() {
 
   async function handleSave(e) {
     e.preventDefault();
+    if (!cf.validate()) return;
     setSaving(true);
     setError("");
     try {
@@ -138,6 +147,13 @@ export default function ClientDetailPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || t("app.clientDetail.saveError"));
+      // The record saved; the extra boxes save against it. A refusal here
+      // keeps the modal open with the box's own error under it.
+      try {
+        await cf.save(id);
+      } catch (err) {
+        throw new Error(`${t("app.customFields.saveError")} ${err.message || ""}`.trim());
+      }
       setEditing(false);
       await load();
     } catch (err) {
@@ -270,6 +286,13 @@ export default function ClientDetailPage() {
               })}
           <span className="text-muted-foreground">· {t("app.clientDetail.docsEmails")}</span>
         </div>
+        <CustomFieldsPanel
+          entityType="client"
+          entityId={id}
+          fields={cf.fields}
+          variant="rows"
+          className="pt-2 border-t border-border"
+        />
         {client.notes && (
           <p className="text-sm text-muted-foreground pt-2 border-t border-border">
             {client.notes}
@@ -535,6 +558,8 @@ export default function ClientDetailPage() {
                 companyDefault={companyLanguage}
                 hint={t("app.clientDetail.langHint")}
               />
+
+              <CustomFieldInputs cf={cf} />
 
               <button
                 type="submit"

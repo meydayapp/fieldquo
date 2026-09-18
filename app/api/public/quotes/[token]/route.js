@@ -14,6 +14,7 @@ import { db } from "@/lib/db";
 import { getAppOrigin } from "@/lib/appUrl";
 import { formatMoney } from "@/lib/currency";
 import { attachServiceSettings } from "@/lib/documents/loadServiceSettings";
+import { loadDocumentCustomFields } from "@/lib/customFields/values";
 import { onQuoteAccepted, onQuoteDeclined } from "@/lib/quotes/quoteLifecycle";
 import { notifyEvent } from "@/lib/notifications/notify";
 import { recordActivity } from "@/lib/activity/log";
@@ -113,6 +114,10 @@ async function loadQuote(token) {
     quote.companyId,
     quote.scopeGroups,
   );
+  // The company's own boxes flagged for the document. Attached here for the
+  // same reason as the scope wording above: present() and the approved PDF
+  // read the same object, so the page and the attachment agree.
+  quote.customFields = await loadDocumentCustomFields(db, quote.companyId, "quote", quote.id);
 
   return quote;
 }
@@ -246,6 +251,9 @@ function present(quote) {
     notes: quote.notes,
     processNotes: quote.processNotes,
     validUntil: quote.validUntil,
+    // Only definitions the company flagged showOnDocuments, with an answer —
+    // never the whole set. See lib/customFields/values.js.
+    customFields: Array.isArray(quote.customFields) ? quote.customFields : [],
     sentAt: quote.sentAt,
     subtotal: num(quote.subtotal),
     discount: num(quote.discount),

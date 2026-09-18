@@ -7,6 +7,7 @@ import { familyPayments, refreshFamilyLedger } from "@/lib/invoices/family";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { renderDocumentPdfBuffer } from "@/app/admin/lib/pdf/renderDocumentPdf";
+import { loadDocumentCustomFields } from "@/lib/customFields/values";
 import { getDefaultSections } from "@/app/admin/lib/pdf/defaultSections";
 import { usableSections } from "@/lib/documents/templateKind";
 import { resolveDocumentLanguage } from "@/lib/i18n/resolveLanguage";
@@ -88,6 +89,10 @@ export async function POST(request, { params }) {
     template?.sections || getDefaultSections("invoice_pdf"),
   ).sections;
 
+  // The company's own boxes flagged for the document — the PO-number case.
+  // Keyed by the invoice family, so an amended version prints the same one.
+  const customFields = await loadDocumentCustomFields(db, member.companyId, "invoice", invoice.id);
+
   const pdfBuffer = await renderDocumentPdfBuffer({
     sections,
     // Written-in language, fixed at creation. Falls back to the
@@ -99,6 +104,7 @@ export async function POST(request, { params }) {
     // rather than pretending it has structure it doesn't.
     data: {
       ...invoice,
+      customFields,
       client: invoice.client,
       scopeGroups:
         Array.isArray(invoice.lineItems) && invoice.lineItems.length

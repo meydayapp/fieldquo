@@ -6,8 +6,16 @@ import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
 
-const ENTITY_TYPES = ["client", "property", "quote", "job", "invoice", "team"];
-const FIELD_TYPES = ["text", "number", "date", "checkbox", "dropdown"];
+import {
+  ENTITY_TYPES as ALL_ENTITY_TYPES,
+  FIELD_TYPES,
+  DOCUMENT_ENTITY_TYPES,
+} from "@/lib/customFields/validate";
+
+// "property" is in the enum and has no record to land on (no Property model —
+// see the settings page header). Existing definitions stay listable and
+// deletable; new ones are refused so a box is never defined for nowhere.
+const ENTITY_TYPES = ALL_ENTITY_TYPES.filter((e) => e !== "property");
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -35,13 +43,21 @@ export async function POST(request) {
   }
 
   const body = await request.json();
-  const { entityType, label, fieldType, options, required } = body;
+  const { entityType, label, fieldType, options, required, showOnDocuments } = body;
 
-  if (!label || !ENTITY_TYPES.includes(entityType)) {
+  if (!label || typeof label !== "string" || !label.trim() || !ENTITY_TYPES.includes(entityType)) {
     return NextResponse.json(
       { error: "label and a valid entityType are required" },
       { status: 400 },
     );
+  }
+  // A dropdown with nothing to pick is a box nobody can fill.
+  const cleanOptions =
+    fieldType === "dropdown"
+      ? [...new Set((Array.isArray(options) ? options : []).map((o) => String(o ?? "").trim()).filter(Boolean))]
+      : null;
+  if (fieldType === "dropdown" && cleanOptions.length === 0) {
+    return NextResponse.json({ error: "A dropdown needs at least one option" }, { status: 400 });
   }
 
   const count = await db.customField.count({
@@ -52,10 +68,13 @@ export async function POST(request) {
     data: {
       companyId: member.companyId,
       entityType,
-      label,
+      label: label.trim().slice(0, 80),
       fieldType: FIELD_TYPES.includes(fieldType) ? fieldType : "text",
-      options: fieldType === "dropdown" ? (options ?? []) : null,
+      options: cleanOptions,
       required: !!required,
+      // Only a quote or invoice has a client-facing document to show it on;
+      // for anything else the flag is meaningless and stays false.
+      showOnDocuments: DOCUMENT_ENTITY_TYPES.includes(entityType) && showOnDocuments === true,
       sortOrder: count,
     },
   });

@@ -748,6 +748,16 @@ model CustomField {
   fieldType  CustomFieldType       @default(text)
   options    Json? // string[] — only used when fieldType is "dropdown"
   required   Boolean               @default(false)
+  // Whether the answer is PRINTED on the client-facing document (quote /
+  // invoice PDF, web view, email) as a "label: value" line in its header.
+  //
+  // Off by default, and only ever consulted for quote and invoice fields: a
+  // custom field is by construction something the company wanted a box for,
+  // and most of those boxes — a gate code, a crew note, a source — are theirs,
+  // not the homeowner's. The one that IS the homeowner's is a PO number on an
+  // invoice, whose whole point is to be on the invoice. That is the case this
+  // flag exists for, and it is a deliberate choice per field, never inferred.
+  showOnDocuments Boolean          @default(false)
   sortOrder  Int                   @default(0)
   createdAt  DateTime              @default(now())
 
@@ -755,9 +765,16 @@ model CustomField {
 }
 
 // Polymorphic on purpose — entityId points at whichever table entityType
-// implies (Client.id, Quote.id, Job.id, Invoice.id, Member.id). Not wired up
-// to any of those forms yet (see note 2 above); the model just exists so the
-// data has somewhere to live once that integration happens.
+// implies (Client.id, Property.id, Quote.id, Job.id, Invoice.id, Member.id).
+// Tenant scoping is by way of the definition: a value can only be read or
+// written through a CustomField that belongs to the caller's company, and the
+// entity itself is looked up in that company before a value is written — see
+// lib/customFields/values.js, the ONE writer and reader of this table.
+//
+// `value` is a string whatever the field's type: a number is its decimal
+// text, a date is YYYY-MM-DD, a checkbox is "true"/"false", a dropdown is the
+// chosen option's text. lib/customFields/validate.js normalises on the way
+// in and parses on the way out, so the column never has to know the type.
 model CustomFieldValue {
   id            String      @id @default(cuid())
   customFieldId String

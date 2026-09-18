@@ -64,6 +64,8 @@ import {
   humaniseKey,
 } from "@/lib/leads/intakeShape";
 import { wasAsked } from "@/lib/leads/qualifiers";
+import { summarisePotential } from "@/lib/leads/potentialValue";
+import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
 
 const COLUMNS = [
   { key: "new", labelKey: "app.status.new", tone: "border-blue-200 dark:border-blue-900" },
@@ -194,6 +196,17 @@ export default function LeadsPage() {
     if (l.temperature) a[l.temperature] = (a[l.temperature] || 0) + 1;
     return a;
   }, {});
+
+  // ── What the board is worth ─────────────────────────────────────────────
+  //
+  // `potential` is attached per lead by GET /api/leads, and only for a member
+  // whose pricing toggle is on — a payload with no `potential` on any lead is
+  // a member who may not see money, and the strip stays off rather than
+  // summing a column of nulls into a confident "$0". The sums themselves are
+  // lib/leads/potentialValue.js, which also says why nothing is weighted.
+  const money = useCompanyMoney();
+  const showsMoney = (leads ?? []).some((l) => l.potential !== undefined);
+  const potential = useMemo(() => summarisePotential(leads ?? []), [leads]);
 
   // ── Drag-to-move ────────────────────────────────────────────────────────
   //
@@ -388,6 +401,10 @@ export default function LeadsPage() {
         </button>
       </div>
 
+      {showsMoney && (leads ?? []).length > 0 && (
+        <PotentialStrip potential={potential} money={money} t={t} />
+      )}
+
       {boardError && (
         <div className="flex items-start gap-2 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-lg px-3 py-2 text-sm text-red-700 dark:text-red-300">
           <AlertTriangle size={15} className="shrink-0 mt-0.5" />
@@ -552,6 +569,85 @@ function CallbackBadge({ lead, t, detail = false }) {
   );
 }
 
+// "≈ $4,200 · from quote Q-0031" — the figure and, always, where it came
+// from. A lead with no basis renders NOTHING here rather than a dash or a
+// zero: the strip above counts those, and a chip that said "$0" would be the
+// padded-absence failure AGENTS.md names. Absent entirely for a member whose
+// pricing toggle is off (the API attaches no `potential` for them).
+function PotentialChip({ potential, t }) {
+  const money = useCompanyMoney();
+  if (!potential || potential.amount == null || potential.basis === "unknown") return null;
+  const basis =
+    potential.basis === "quote"
+      ? t("app.leads.potential.fromQuote", { number: potential.quoteNumber || "" })
+      : potential.basis === "estimate"
+        ? t("app.leads.potential.fromEstimate")
+        : t("app.leads.potential.fromAverage", { service: potential.service || "" });
+  const hint =
+    potential.basis === "average"
+      ? t("app.leads.potential.fromAverageHint", {
+          count: potential.sample ?? 0,
+          service: potential.service || "",
+        })
+      : undefined;
+  return (
+    <div className="mt-2 text-xs text-foreground" title={hint}>
+      <span className="font-semibold">≈ {money(potential.amount)}</span>
+      <span className="text-muted-foreground"> · {basis}</span>
+    </div>
+  );
+}
+
+// The summary strip: open potential first, then one cell per stage. "Not
+// weighted" is printed rather than implied because the number a sales tool
+// usually shows here IS weighted, and a reader who assumes that would
+// discount a figure that has already been left undiscounted on purpose.
+function PotentialStrip({ potential, money, t }) {
+  const { open, byStage, withoutFigure } = potential;
+  return (
+    <div className="bg-card border border-border rounded-xl px-4 py-3" data-tour="leads-potential">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <div className="flex items-baseline gap-2">
+          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            {t("app.leads.potential.title")}
+          </span>
+          <span className="text-lg font-bold text-foreground" title={t("app.leads.potential.openHint")}>
+            ≈ {money(open.total)}
+          </span>
+          <span className="text-xs text-muted-foreground">
+            {t("app.leads.potential.open")} · {t("app.leads.potential.notWeighted")}
+          </span>
+        </div>
+        {withoutFigure > 0 && (
+          <span className="text-xs text-muted-foreground">
+            {t("app.leads.potential.noFigure", { count: withoutFigure })}
+          </span>
+        )}
+      </div>
+      <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-2">
+        {COLUMNS.map((col) => {
+          const cell = byStage[col.key];
+          if (!cell) return null;
+          return (
+            <div key={col.key} className={`rounded-lg border ${col.tone} px-3 py-2`}>
+              <div className="text-[11px] font-semibold text-muted-foreground">{t(col.labelKey)}</div>
+              <div className="text-sm font-semibold text-foreground">
+                {cell.withFigure > 0 ? `≈ ${money(cell.total)}` : "—"}
+              </div>
+              <div className="text-[11px] text-muted-foreground">
+                {t("app.leads.potential.withFigure", {
+                  withFigure: cell.withFigure,
+                  count: cell.count,
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function TempBadge({ temperature, score, t, size = "sm" }) {
   if (!temperature) return null;
   const cfg = TEMPS[temperature] || TEMPS.cold;
@@ -701,6 +797,8 @@ function LeadCard({ lead, tone, onOpen, t, dragHandle }) {
         {lead.category?.label && (
           <div className="mt-2 text-xs text-muted-foreground">{lead.category.label}</div>
         )}
+
+        <PotentialChip potential={lead.potential} t={t} />
 
         <div className="mt-3 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
           <span className="flex items-center gap-2">

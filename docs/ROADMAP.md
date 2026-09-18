@@ -66,6 +66,62 @@ gutters entry in TRADE_FIELD_CATEGORY / gutter_services intake fields
 (check-voice-quote-intake reports `gutters` unmapped — pre-existing from the
 gutter work); the owner's pasted Weed Man descriptions did not reach this
 session, so the seed descriptions are FieldQuo's own words in en/fr/es.
+## Leads carry a potential value, and custom fields reach the records they were defined for (17 September 2026)
+
+**Leads.** `lib/leads/potentialValue.js` (pure) gives every lead an amount
+AND a basis, in strict order: "quote" (a quote exists and a human priced or
+confirmed it — `acceptedTotal ?? total`), "estimate" (an auto-estimated draft
+still `needsReview`: the midpoint of `estimateData.range`), "average" (the
+mean of this company's ACCEPTED quotes carrying a scope group — or, for
+older quotes, a `quoteType` — in the lead's service category; company's own
+history only, non-negotiable #8), else "unknown" with `amount: null`. A
+stated budget band is deliberately not a figure. `GET /api/leads` attaches
+`potential` per lead only when `canSeeMoney(full)` — the pricing toggle that
+already hides quote totals — and strips the quote's money back off the row;
+`lib/leads/wonAverages.js` is the one bounded query. The board prints
+"≈ $X · from quote Q-0031 / from instant estimate / your average for
+Painting" on the card (nothing for "unknown", never $0) and a strip on top:
+open (new + contacted) total, one cell per stage with "3 of 5 with a
+figure", "4 leads with no figure" (CLDR plurals), and "not weighted" — the
+pipeline has no stage probabilities and the sales side refuses to invent
+them (`lib/sales/intel/leadScore.js`). Nine languages.
+Check: `npm run check:lead-potential`.
+
+**Custom fields.** The settings page had said nothing rendered these and
+hidden its Add control. Now: `lib/customFields/validate.js` (pure) is the
+type rule for an answer — text ≤500 chars, number canonicalised, date
+YYYY-MM-DD and real, checkbox "true"/"false", dropdown must be an option,
+required means required, unknown field id refused; `lib/customFields/
+values.js` is the ONE reader/writer of `CustomFieldValue`, tenant-scoped
+twice (definitions by companyId, and the entity looked up in the company
+before any read or write — a foreign id is 404). Invoices key on the
+FAMILY ROOT so an amended invoice keeps its PO number; "team" is the Worker
+row. `/api/custom-fields/values` (GET/PUT) is gated by the record's own
+grid dial. `app/components/customFields/CustomFieldsBox.js` gives forms a
+hook (`useCustomFields`) + inputs; the form validates before its own save
+and saves the answers against the saved id after — wired into new/edit
+client, new/edit job, the quote builder, new/edit invoice and the worker
+card; read-only panels on the client, job, quote, invoice and person-file
+pages. `CustomField.showOnDocuments` (new column, default false, only
+meaningful on quote/invoice, toggleable from the list) prints the answer as
+a "PO number · 4471" line on the PDF Details panel, both emails (html +
+text), `/q/<token>` and the portal invoice — one formatter,
+`lib/documentSections/customFacts.js`, plus `customYes`/`customNo` in
+`documentLabels`. **Property**: there is no Property model and never was;
+new property definitions are refused, existing ones are listed with a
+sentence saying they have nowhere to appear and can be deleted.
+`app.setCustomFields.purpose` is back in the present tense in nine
+languages, in the same commit as the wiring.
+Check: `npm run check:custom-fields`.
+
+### Still owed here
+
+- Custom field values are not searchable or filterable on any list, and are
+  not exported with a client/job export.
+- Reordering definitions (`sortOrder`) has no control; they list in creation
+  order.
+- The document-templates preview (`/api/settings/document-templates/[id]/
+  preview`) renders sample data and shows no custom line.
 ## Three gaps the owner hit in /app: the client's furnace on the job page, an Add button on Vehicles, and a clock the owner can use (17 September 2026)
 
 **What**:

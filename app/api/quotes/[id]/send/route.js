@@ -49,6 +49,7 @@ import { attachServiceSettings } from "@/lib/documents/loadServiceSettings";
 import { resolveSender } from "@/lib/email/companySender";
 import { SANDBOX_ADDRESS } from "@/lib/email/platformSender";
 import { buildQuoteEmail } from "@/lib/email/quoteEmail";
+import { loadDocumentCustomFields } from "@/lib/customFields/values";
 import { resolveClientLanguage } from "@/lib/i18n/clientLanguage";
 import { taxStatement, taxSendRefusal } from "@/lib/tax/documentTax";
 import {
@@ -257,8 +258,12 @@ export async function POST(request, { params }) {
     }),
   );
 
+  // The company's own boxes flagged for the document, on the email and the
+  // attached PDF alike — the two must never disagree about a PO number.
+  const customFields = await loadDocumentCustomFields(db, member.companyId, "quote", quote.id);
+
   const { subject, html, text } = buildQuoteEmail({
-    quote,
+    quote: { ...quote, customFields },
     client: quote.client,
     company: company || {},
     url,
@@ -297,7 +302,7 @@ export async function POST(request, { params }) {
         client: quote.client,
         company: fullCompany,
       }),
-      data: { ...quote, client: quote.client, scopeGroups },
+      data: { ...quote, client: quote.client, scopeGroups, customFields },
       company: fullCompany,
     });
     if (pdfBuffer?.length) {
