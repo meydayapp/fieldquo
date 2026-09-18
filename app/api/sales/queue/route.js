@@ -294,6 +294,10 @@ async function buildCurrent({ rep, full, zone, lang, now, policyContext, retryRu
   // server against the setting and RE-PASSED by the screen in
   // callingContext; the browser holds no list and decides nothing.
   const testLine = isTestLine(dialNumber, testLines);
+  // A test account (SalesRep.testAccount), off the rep row the gate read in
+  // this request. Judged on the same path as a test line and re-passed by
+  // the screen the same way.
+  const testAccount = rep.testAccount === true;
 
   return {
     ...prospectView({
@@ -370,6 +374,7 @@ async function buildCurrent({ rep, full, zone, lang, now, policyContext, retryRu
       attemptsLast24h: attempts24h,
       windowPolicy: windowPolicyFor(full, policyContext),
       testLine,
+      testAccount,
     }),
     callingContext: {
       country: full.country,
@@ -377,6 +382,7 @@ async function buildCurrent({ rep, full, zone, lang, now, policyContext, retryRu
       timeZone: full.leads[0]?.timeZone || null,
       attemptsLast24h: attempts24h,
       testLine,
+      testAccount,
       // The console's override for this state, RESOLVED here — the
       // registration hold included — and re-passed by the screen on
       // every re-ask. The browser never resolves it itself: it holds no
@@ -427,7 +433,7 @@ async function buildCurrent({ rep, full, zone, lang, now, policyContext, retryRu
     // business too soon, and the regroup ignores it for our own desk
     // (lib/sales/retryPool.js). Printing it beside a live button would be
     // a number nothing honours.
-    retry: testLine ? null : retryViewFor(full, { repZone: zone, language: lang, now, rules: retryRules }),
+    retry: testLine || testAccount ? null : retryViewFor(full, { repZone: zone, language: lang, now, rules: retryRules }),
     history: history.map((a) => ({
       id: a.id,
       direction: a.direction,
@@ -670,7 +676,9 @@ async function queueBody(rep, { tradeKey = null, prospectId = null, timeZone = n
       // number, and the current pane re-judges the one the dial will ring.
       testLine: isTestLine(p.phoneE164, testLines),
     })),
-    { repZone: zone, shiftEnd, now, language: lang, policyContext },
+    // A test account's whole list is callable now — the same answer, from the
+    // same path, a test line gets per row.
+    { repZone: zone, shiftEnd, now, language: lang, policyContext, testAccount: rep.testAccount === true },
   );
   // ── Then the retry pool re-orders those groups ─────────────────────────
   //
@@ -773,7 +781,9 @@ async function queueBody(rep, { tradeKey = null, prospectId = null, timeZone = n
   mark("current");
 
   return {
-    rep: { id: rep.id, name: rep.name, email: rep.email },
+    // `testAccount` so the dial pad can say "not saved on this lead" about a
+    // typed number before the press; the dial route decides for itself.
+    rep: { id: rep.id, name: rep.name, email: rep.email, testAccount: rep.testAccount === true },
     adminAssigned,
     // Today's automatic give-backs, with the names, so a shorter list is
     // explained on the list itself. `events` newest first; `readError` set

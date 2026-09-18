@@ -710,6 +710,22 @@ export default function SalesShell({ children }) {
             list of rows at the top of the drawer. Passed as a node so the bar
             never names a status. */}
         <SalesMobileTabBar tabs={tabs} name={me?.name || null} onSignOut={signOut} drawerExtra={<RepStatusPicker layout="list" />} />
+        {/* ── Test account ─────────────────────────────────────────────
+            One thin line on every screen, for a rep whose SalesRep.testAccount
+            a superadmin set: their dials are not held to the calling window
+            and are counted nowhere. Persistent, not dismissable, and drawn
+            from /api/sales/me's fresh read — a rep should never discover
+            from a stat that their morning did not count. Between the chrome
+            and <main>, so it is in normal flow under both top bars. */}
+        {me?.testAccount === true ? (
+          <div
+            role="status"
+            data-test-account-banner
+            className="border-b border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 px-4 sm:px-6 py-1.5 text-xs font-medium text-amber-900 dark:text-amber-200 text-center"
+          >
+            {t("app.salesPortal.testAccountBanner")}
+          </div>
+        ) : null}
         <UnloggedCallsGate
           open={Boolean(unloggedGate)}
           count={unloggedGate?.count ?? null}

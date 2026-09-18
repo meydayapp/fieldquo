@@ -527,7 +527,11 @@ ok(
   // screen, asked a row early. The playbook re-reads the prospect through
   // queueWhere() and 404s a row the rep does not hold; the history is the
   // rep's own attempts through requireCallingRep. Nothing unclaimed.
-  const ALLOWED = ["/api/sales/queue", "/api/sales/notes", "/api/sales/leads", "/api/sales/calls/numbers", "/api/sales/calls/unlogged", "/api/sales/playbook", "/api/sales/calls/history"];
+  // /api/sales/calls/test-line joined on 2026-09-17: "is the number I just
+  // typed one of FieldQuo's own test lines?" — one number in, one boolean
+  // out, behind requireCallingRep, advisory to a sentence; the dial route
+  // re-judges it. Nothing about another rep's rows or an unclaimed prospect.
+  const ALLOWED = ["/api/sales/queue", "/api/sales/notes", "/api/sales/leads", "/api/sales/calls/numbers", "/api/sales/calls/unlogged", "/api/sales/playbook", "/api/sales/calls/history", "/api/sales/calls/test-line"];
   const called = [...new Set([...consoleSrc.matchAll(/["'`](\/api\/[A-Za-z0-9/_-]+)/g)].map((m) => m[1]))];
   const unexpected = called.filter((u) => !ALLOWED.some((a) => u === a || u.startsWith(`${a}/`)));
   ok(
@@ -797,7 +801,12 @@ section("7. Six tabs, and all six on a 375px screen");
   ok("…a stored number is dialled by its id, with no save", /if \(stored\) return \{ ok: true, phoneE164: e164, contactNumberId: stored\.id \|\| null \};/.test(before));
   ok("…anything else is saved on THIS record through the numbers route", /fetchJson\("\/api\/sales\/calls\/numbers", \{\s*method: "POST"[\s\S]{0,200}prospectId: current\.id,\s*e164,/.test(before));
   ok("…and dialled by the id the route handed back, never by the number", /contactNumberId: saved\.id/.test(before) && !/contactNumberId: e164/.test(before));
-  ok("…a refusal from the route ends the press with its own sentence", /catch \(err\) \{[\s\S]{0,120}return \{ ok: false, error \};/.test(before));
+  // One refusal is not the end of the press: the numbers route saying "this
+  // is a test line / a test account — not saved" (code test_line or
+  // test_account), which the pad turns into an UNSAVED dial of the number
+  // itself, re-judged by the dial route. Every other refusal ends it.
+  ok("…a refusal from the route ends the press with its own sentence", /catch \(err\) \{[\s\S]{0,900}return \{ ok: false, error \};/.test(before));
+  ok("…except the numbers route's own \"test dial, not saved\" code, which rings the number unsaved", /if \(err\?\.code === "test_line" \|\| err\?\.code === "test_account"\) \{\s*setTypedError\(""\);\s*return \{ ok: true, phoneE164: e164, contactNumberId: null, typedE164: e164 \};/.test(before));
 
   const place = (() => {
     const at = panel.indexOf("async function place(");
@@ -806,7 +815,7 @@ section("7. Six tabs, and all six on a 375px screen");
   ok("CallPanel awaits beforeDial BEFORE the dial POST", /const pre = await beforeDial\(\);/.test(place) && place.indexOf("await beforeDial()") < place.indexOf('fetchJson("/api/sales/calls"'));
   ok("…and a refused pre-check returns false with no request", /if \(!pre\?\.ok\) \{[\s\S]{0,120}return false;/.test(place));
   ok("…and dials the id the pre-check resolved", /contactNumberId: dialTarget\.contactNumberId/.test(place));
-  ok("the dial route checks suppression for every number on the record, the new one included", /\[target\.phoneE164, \.\.\.contactRows\.map\(\(r\) => r\.e164\)\]/.test(dialRoute) && /firstSuppression\(db, \{ channel: "phone", phones: everyNumber \}\)/.test(dialRoute));
+  ok("the dial route checks suppression for every number on the record, the new one included — and the typed one", /\[target\.phoneE164, \.\.\.contactRows\.map\(\(r\) => r\.e164\), typedE164\]/.test(dialRoute) && /firstSuppression\(db, \{ channel: "phone", phones: everyNumber \}\)/.test(dialRoute));
   ok("a Dial button beside a number goes through the same place(), consumed once", /dialRequestSeen\.current === dialRequest\.token\) return;/.test(panel) && /place\(browserReady \? "browser" : "handset"\)/.test(panel));
 
   const keyHandler = (() => {

@@ -27,11 +27,11 @@
 
 import { Delete, X } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
-import { cleanDialInput, typedToE164 } from "@/lib/sales/typedNumber";
+import { cleanDialInput, formatE164ForReading, typedToE164 } from "@/lib/sales/typedNumber";
 
 // Re-exported so the console imports its pre-check from the pad it belongs
 // to; the module itself lives in lib so a check can run it under node.
-export { typedToE164, cleanDialInput };
+export { typedToE164, cleanDialInput, formatE164ForReading };
 
 /** The twelve keys, in phone order. Letters are the ones a keypad carries. */
 export const DIAL_KEYS = Object.freeze([

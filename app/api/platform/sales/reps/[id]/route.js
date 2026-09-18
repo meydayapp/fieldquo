@@ -109,7 +109,10 @@ export async function PATCH(request, { params }) {
       managerId: true,
       payoutMethod: true,
       setupRequestedAt: true,
-      _count: { select: { phoneNumbers: true } },
+      testAccount: true,
+      // The ledger count decides the test-account refusal below: a row that
+      // has earned cannot become a test account. Read fresh, here.
+      _count: { select: { phoneNumbers: true, commissionEntries: true } },
       manager: { select: { id: true, kind: true, name: true } },
     },
   });
@@ -242,9 +245,51 @@ export async function PATCH(request, { params }) {
     sellsIn = parsed.sellsIn;
   }
 
-  if (typeof active !== "boolean" && !touchesMailbox && !touchesPlan && !touchesEngagement && !touchesSellsIn && !touchesKind) {
+  // ── Test account (owner, 2026-09-17) ────────────────────────────────────
+  //
+  // The calling window is not applied to this rep's dials, and every dial
+  // is recorded as a test and counted nowhere — lib/sales/callingRules.js
+  // judges a test account on the same path as a test line, and every count
+  // excludes the row it writes. Two refusals, both on rows read fresh here:
+  // an agency is a payee, not a person at a keypad; and a rep with a
+  // commission entry has earned, while a test account earns nothing — the
+  // two facts cannot sit on one row without one of them being untrue. The
+  // flag is set on the row, never keyed on an email:
+  // scripts/check-sales-test-line.mjs asserts no file names the owner's.
+  const touchesTestAccount = "testAccount" in body;
+  if (touchesTestAccount && typeof body.testAccount !== "boolean") {
+    return NextResponse.json({ error: "testAccount must be true or false" }, { status: 400 });
+  }
+  if (touchesTestAccount && body.testAccount === true && existing.testAccount !== true) {
+    if (existing.kind === AGENCY_KIND) {
+      return NextResponse.json(
+        { error: "An agency cannot be a test account. The flag belongs on the person who dials, not on the payee.", code: "test_account_agency" },
+        { status: 409 },
+      );
+    }
+    if (existing.kind === INFLUENCER_KIND) {
+      return NextResponse.json(
+        { error: "An influencer ledger has no dialler. There is nothing here for a test account to exempt.", code: "test_account_influencer" },
+        { status: 409 },
+      );
+    }
+    if ((existing._count?.commissionEntries || 0) > 0) {
+      return NextResponse.json(
+        {
+          error:
+            `${existing.name} has ${existing._count.commissionEntries} commission ${existing._count.commissionEntries === 1 ? "entry" : "entries"}. ` +
+            "A test account earns nothing, and a row that has earned cannot become one — invite a separate account to test with.",
+          code: "test_account_has_earned",
+          counts: { commissionEntries: existing._count.commissionEntries },
+        },
+        { status: 409 },
+      );
+    }
+  }
+
+  if (typeof active !== "boolean" && !touchesMailbox && !touchesPlan && !touchesEngagement && !touchesSellsIn && !touchesKind && !touchesTestAccount) {
     return NextResponse.json(
-      { error: "Send active (true/false), workEmail, commissionPlanId, engagement (with agencyId for an agency), sellsIn, or kind." },
+      { error: "Send active (true/false), workEmail, commissionPlanId, engagement (with agencyId for an agency), sellsIn, kind, or testAccount." },
       { status: 400 },
     );
   }
@@ -296,6 +341,7 @@ export async function PATCH(request, { params }) {
     ...(transition && !transition.unchanged ? transition.data : {}),
     ...(conversion && !conversion.unchanged ? conversion.data : {}),
     ...(touchesSellsIn ? { sellsIn } : {}),
+    ...(touchesTestAccount ? { testAccount: body.testAccount } : {}),
   };
   const SELECT = {
     id: true,
@@ -314,6 +360,7 @@ export async function PATCH(request, { params }) {
     sellsIn: true,
     setupRequestedAt: true,
     kind: true,
+    testAccount: true,
     managerId: true,
     manager: { select: { id: true, kind: true, name: true } },
     commissionPlan: { select: { id: true, name: true } },
@@ -450,6 +497,15 @@ export async function PATCH(request, { params }) {
         details: { salesRepId: updated.id, email: updated.email, from: before, to: after },
       });
     }
+  }
+  if (touchesTestAccount && updated.testAccount !== existing.testAccount) {
+    // Its own row, because "why did this rep's dials stop counting" and
+    // "who let this account ring at 03:00" are both answered from the audit
+    // log, and neither should have to be inferred from an "edited" entry.
+    actions.push({
+      action: "sales_rep_test_account_set",
+      details: { salesRepId: updated.id, email: updated.email, from: existing.testAccount === true, to: updated.testAccount === true },
+    });
   }
   for (const entry of actions) {
     await db.platformAuditLog.create({

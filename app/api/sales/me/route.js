@@ -44,6 +44,9 @@ export async function GET(request) {
     isAgency: isAgency(rep),
     agencyEmployee: isAgencyEmployee(rep),
     agency: agencyOf(rep),
+    // A test account (SalesRep.testAccount): the shell draws its banner from
+    // this, off the row the gate read in this request.
+    testAccount: rep.testAccount === true,
     signups: {
       today: stats.today,
       thisWeek: stats.thisWeek,

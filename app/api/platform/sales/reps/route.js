@@ -113,6 +113,8 @@ export async function GET(request) {
       managerId: true,
       manager: { select: { id: true, name: true, kind: true } },
       setupRequestedAt: true,
+      // The owner's dialler-testing flag. Selected AND mapped below.
+      testAccount: true,
       // The count is what makes "deactivate, never delete" legible on the
       // screen: a rep with attributions has history that stops being reachable
       // if the row goes.
@@ -354,6 +356,9 @@ export async function GET(request) {
       // employees, so the owner reads exactly what the agency reads.
       agency: isAgencyEmployee(r, r.manager) ? { id: r.manager.id, name: r.manager.name } : null,
       setupRequestedAt: r.setupRequestedAt || null,
+      // The calling window is not applied to this rep's dials; every one is
+      // a test and counted nowhere. The card's toggle reads and writes it.
+      testAccount: r.testAccount === true,
       hasNumber: (r._count?.phoneNumbers || 0) > 0,
       needsSetup: Boolean(r.setupRequestedAt) && !setupComplete({ workEmail: r.workEmail, numberCount: r._count?.phoneNumbers }),
       team: teamByAgency.get(r.id) || null,
