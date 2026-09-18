@@ -28,6 +28,7 @@ import { documentTheme, fillPair, washPair, neutralPair } from "@/lib/documents/
 import { contrastRatio } from "@/lib/brand/colour";
 import { canvasPointToLatLng, imageScale } from "@/lib/measure/imageScale";
 import { ESTIMATE_REPORT_SECTIONS } from "@/lib/estimate/report/sections";
+import { buildEstimateReportEmail, estimateReportEmailPalette } from "@/lib/estimate/report/email";
 import { SECTION_META, sectionsForType } from "@/lib/documentSections/sectionMeta";
 
 let fail = 0;
@@ -326,7 +327,70 @@ console.log("\nMap overlay");
   ok(satelliteOutline({ ...m, vertices: [{ lat: "x" }, {}, null, POLY[0], POLY[1], POLY[2]] })?.points.length === 3, "junk vertices dropped, real ones kept");
 }
 
-// ── 8. PDF sections registered ──────────────────────────────────────────────
+// ── 8. The emailed copy carries the report ──────────────────────────────────
+console.log("\nEmail");
+{
+  const unescape = (h) => h.replace(/&amp;/g, "&").replace(/&#039;/g, "'").replace(/&quot;/g, '"');
+  for (const language of LANGS) {
+    const quote = quoteFor("roofing", language);
+    quote.estimateData.measurement.vertices = POLY;
+    const report = buildEstimateReportModel({ quote, company: COMPANY, options: OPTIONS, website: WEBSITE, urls: URLS, emailed: true });
+    const { subject, html, text } = buildEstimateReportEmail({ report, company: COMPANY });
+    const h = unescape(html);
+    const cards = report.options.cards;
+    const still = quote.estimateData.measurement.satelliteImageUrl;
+    const missing = [];
+    for (const card of cards) {
+      if (!h.includes(card.label)) missing.push(`html: ${card.label}`);
+      if (!h.includes(card.startingAt)) missing.push(`html: ${card.startingAt}`);
+      if (!text.includes(card.label)) missing.push(`text: ${card.label}`);
+      if (!text.includes(card.startingAt)) missing.push(`text: ${card.startingAt}`);
+    }
+    for (const [what, needle] of [
+      ["address", "917 Littlerock St, Ottawa, ON"],
+      ["map still", still],
+      ["book URL", URLS.book],
+      ["callback URL", `${URLS.report}#callback`],
+      ["website URL", WEBSITE.url],
+      ["report URL", URLS.report],
+      ["report id", "Q-2026-0042"],
+    ]) {
+      if (!h.includes(needle)) missing.push(`html: ${what}`);
+      if (!text.includes(needle)) missing.push(`text: ${what}`);
+    }
+    ok(missing.length === 0, `${language}: HTML and text carry both options, both figures, the address, the still and every button URL`, missing);
+    ok(subject === report.email.subject && subject.includes("Acme Roofing"), `${language}: subject is the model's`);
+    ok(/<table role="presentation"/.test(html) && !/<div class=|display:flex|<style/.test(html), `${language}: tables-based, no flex, no stylesheet`);
+    ok(h.includes(report.title.text) && h.includes(report.questions.title) && h.includes(report.measurement.title) && h.includes(report.notes.nextTitle) && report.notes.disclaimers.every((d) => h.includes(d)), `${language}: title, three sections, next steps and both disclaimers present`);
+    ok(!/undefined|NaN|\[object/.test(h) && !/undefined|NaN|\[object/.test(text), `${language}: nothing unrendered`);
+    // The gate: same cards, no figure.
+    const gated = buildEstimateReportModel({ quote, company: COMPANY, options: { ...OPTIONS, visibility: "gated" }, website: WEBSITE, urls: URLS });
+    const g = unescape(buildEstimateReportEmail({ report: gated, company: COMPANY }).html);
+    ok(cards.every((c) => g.includes(c.label)) && !cards.some((c) => g.includes(c.startingAt)), `${language}: a gated trade's email shows the cards without figures`);
+    // The buttons follow the model: no calendar, no website → one button.
+    const bare = buildEstimateReportModel({ quote, company: COMPANY, options: OPTIONS, website: { kind: "none", url: null }, urls: { report: URLS.report, book: null, callbackApi: URLS.callbackApi } });
+    const b = buildEstimateReportEmail({ report: bare, company: COMPANY });
+    ok(!b.html.includes(URLS.book) && !b.html.includes(WEBSITE.url) && b.html.includes(`${URLS.report}#callback`) && !b.text.includes(URLS.book), `${language}: no calendar and no website → only the call-back button, in HTML and text`);
+  }
+  // A hostile client name cannot break out of the markup.
+  const nasty = quoteFor("roofing", "en");
+  nasty.client.name = '<img src=x onerror=alert(1)>"';
+  const nh = buildEstimateReportEmail({ report: buildEstimateReportModel({ quote: nasty, company: COMPANY, options: OPTIONS, website: WEBSITE, urls: URLS }), company: COMPANY }).html;
+  ok(!nh.includes("<img src=x") && nh.includes("&lt;img src=x"), "a hostile client name is escaped in the email");
+  // Contrast: every pair the email puts text on, on the hostile brands.
+  for (const brand of ["#ffffff", "#c0c0c0", "#fefcdd", "#ffff00", "#000000"]) {
+    const pal = estimateReportEmailPalette({ brandColor: brand });
+    const under = pal.pairs.filter((p) => p.ratio < 4.5);
+    ok(under.length === 0, `${brand}: every email text pair ≥ 4.5:1 (${pal.pairs.map((p) => p.ratio.toFixed(2)).join(" / ")})`, under.map((p) => p.name));
+    // The palette is what the markup uses, not a separate list: the fill
+    // and wash hexes appear in the HTML built for that brand.
+    const rep = buildEstimateReportModel({ quote: quoteFor("roofing", "en"), company: { ...COMPANY, brandColor: brand }, options: OPTIONS, website: WEBSITE, urls: URLS });
+    const hh = buildEstimateReportEmail({ report: rep, company: { ...COMPANY, brandColor: brand } }).html;
+    ok(hh.includes(`bgcolor="${pal.fill.bg}"`) && hh.includes(`color:${pal.fill.fg}`) && hh.includes(`bgcolor="${pal.wash.bg}"`), `${brand}: the measured fill and wash are the ones in the markup`);
+  }
+}
+
+// ── 9. PDF sections registered ──────────────────────────────────────────────
 console.log("\nPDF sections");
 {
   const reg = readFileSync(new URL("../lib/documentSections/registry.js", import.meta.url), "utf8");
