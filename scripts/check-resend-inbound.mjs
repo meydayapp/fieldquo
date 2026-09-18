@@ -511,55 +511,22 @@ function fakeWorld({ thread = true } = {}) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-section("8. Readiness — the reply domain is a set of blockers, never a quiet fall-back");
+section("8. Readiness — since 2026-09-18 the mailbox, not the reply domain");
+//
+// The Resend Receiving door stays in the tree as the fallback for a
+// deployment that cannot connect a rep's mailbox, but a rep's readiness is
+// no longer a question about it: lib/sales/outreachReadiness.js asks whether
+// the rep's SalesMailbox is connected (lib/sales/mailbox/), and
+// scripts/check-sales-mailbox.mjs executes those blockers. What this section
+// keeps is the one property that must survive the change — the door's
+// readiness inputs are gone from the pure function, not silently ignored.
 
-const READY = {
-  repEmail: "emilio@fieldquo.com",
-  senderDomainVerified: true,
-  replyAddressing: "plus",
-  mailingAddress: "1 Rue Example, Montréal QC H1A 1A1",
-  inboundSecretSet: false,
-  replyDomain: "reply.fieldquo.com",
-  replyDomainReceiving: true,
-  resendWebhookSecretSet: true,
-};
 {
-  const v = outreachReadiness(READY);
-  ok("domain receiving + webhook secret: can send, inbound configured, no warning", v.canSend && v.inboundConfigured && v.warnings.length === 0 && v.replyDomain === "reply.fieldquo.com", v);
-}
-{
-  const v = outreachReadiness({ ...READY, replyDomainReceiving: false });
-  ok("domain not receiving in Resend BLOCKS", !v.canSend && v.blockers.some((b) => b.code === "reply_domain_not_receiving"), v.blockers.map((b) => b.code));
-  ok("...naming the Receiving toggle and the MX record", /Receiving/.test(v.blockers.find((b) => b.code === "reply_domain_not_receiving").fix) && /MX/.test(v.blockers.find((b) => b.code === "reply_domain_not_receiving").fix));
-  ok("...and the sender is handed NO reply domain", v.replyDomain === null);
-}
-{
-  const v = outreachReadiness({ ...READY, resendWebhookSecretSet: false });
-  ok("domain set with no webhook secret BLOCKS (replies would reach Resend and nobody)", !v.canSend && v.blockers.some((b) => b.code === "reply_domain_without_webhook"));
-  ok("...naming the variable", /RESEND_INBOUND_WEBHOOK_SECRET/.test(v.blockers.find((b) => b.code === "reply_domain_without_webhook").fix));
-}
-{
-  const v = outreachReadiness({ ...READY, replyDomain: "reply.fieldquo.com/inbound" });
-  ok("a reply domain that is not a domain BLOCKS", !v.canSend && v.blockers.some((b) => b.code === "reply_domain_invalid"));
-}
-{
-  const v = outreachReadiness({ ...READY, replyDomainReceiving: null });
-  ok("'could not ask Resend' is a warning, not a refusal", v.canSend && v.warnings.some((w) => w.code === "reply_domain_unknown"));
-  ok("...that says replies would bounce if it is wrong", /bounce/.test(v.warnings.find((w) => w.code === "reply_domain_unknown").fix));
-}
-{
-  const v = outreachReadiness({ ...READY, replyDomain: undefined, replyDomainReceiving: null, resendWebhookSecretSet: false });
-  ok("no reply domain and no forwarder secret: sends, warns 'Replies are not being filed'", v.canSend && !v.inboundConfigured && v.warnings.some((w) => /Replies are not being filed/.test(w.title)));
-  ok("...naming BOTH doors and their variables", /SALES_REPLY_DOMAIN/.test(v.warnings[0].fix) && /RESEND_INBOUND_WEBHOOK_SECRET/.test(v.warnings[0].fix) && /SALES_INBOUND_SECRET/.test(v.warnings[0].fix));
-  ok("...and stays the warning the older check asserts ('mailbox')", /mailbox/i.test(v.warnings[0].fix));
-}
-{
-  const v = outreachReadiness({ ...READY, replyDomain: undefined, replyDomainReceiving: null, resendWebhookSecretSet: false, inboundSecretSet: true });
-  ok("the generic door alone still counts as configured", v.canSend && v.inboundConfigured && v.warnings.length === 0);
-}
-{
-  const v = outreachReadiness({ ...READY, replyAddressing: undefined });
-  ok("an unset mode with a reply domain is still a blocker, recommending plus", !v.canSend && /"plus"/.test(v.blockers.find((b) => b.code === "reply_addressing_unset").fix) && /SALES_REPLY_DOMAIN/.test(v.blockers.find((b) => b.code === "reply_addressing_unset").fix));
+  const v = outreachReadiness({ repEmail: "emilio@fieldquo.com", mailbox: { address: "emilio@fieldquo.com", status: "connected" }, mailingAddress: "1 Rue Example, Montréal QC H1A 1A1" });
+  ok("a connected mailbox: can send, inbound configured, no warning", v.canSend && v.inboundConfigured && v.warnings.length === 0, v);
+  const none = outreachReadiness({ repEmail: "emilio@fieldquo.com", mailbox: null, mailingAddress: "x" });
+  ok("no mailbox: blocked, the rep is told to ask the owner", !none.canSend && none.blockers.some((b) => b.code === "mailbox_not_connected" && /ask the owner/.test(b.title)));
+  ok("the reply-domain inputs are no longer read by readiness", !/replyDomainReceiving|resendWebhookSecretSet|inboundSecretSet/.test(read("lib/sales/outreachReadiness.js")));
 }
 
 section("8b. The Reply-To on the reply domain");
@@ -598,8 +565,8 @@ section("9. The route: verifies the RAW body before parsing, denies when unset, 
 }
 {
   const sender = read("lib/sales/outreachSender.js");
-  ok("the sender passes readiness.replyDomain into replyToAddress (never the raw env)", /replyToAddress\(\s*sendingAddress,\s*replyToken,\s*readiness\.replyAddressing,\s*readiness\.replyDomain/.test(sender));
-  ok("readiness is asked about receiving and the webhook secret", /replyDomainReceiving/.test(sender) && /RESEND_INBOUND_WEBHOOK_SECRET/.test(sender));
+  ok("the sender no longer builds a Reply-To on the reply domain — mail leaves through the rep's mailbox", !/replyToAddress\(/.test(sender) && /sendFromMailbox\(/.test(sender));
+  ok("the webhook route still reads the reply domain from the one exported reader", /replyDomain\(\)/.test(read("app/api/webhooks/resend-inbound/route.js")));
 }
 {
   const schema = readFileSync(join(ROOT, "prisma/schema.prisma"), "utf8");

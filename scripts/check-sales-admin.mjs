@@ -204,10 +204,8 @@ section("1. A rep with no work mailbox cannot send, and is told why");
 // ═══════════════════════════════════════════════════════════════════════════
 {
   const configured = {
-    senderDomainVerified: true,
-    replyAddressing: "plain",
+    mailbox: { address: "dana@fieldquo.com", status: "connected" },
     mailingAddress: "1 Main St, Ottawa ON",
-    inboundSecretSet: true,
   };
 
   // Everything else about this deployment is perfect. The ONLY thing missing is
@@ -275,13 +273,13 @@ section("1. A rep with no work mailbox cannot send, and is told why");
   ok("deliverOutreach exists as a named function", Boolean(deliver));
   ok(
     "the From header is built from the sending address",
-    /from:\s*`\$\{sanitiseHeaderText\(rep\.name, 120\)\} <\$\{sendingAddress\}>`/.test(deliver),
+    /from:\s*\{\s*name:\s*sanitiseHeaderText\(rep\.name, 120\),\s*address:\s*sendingAddress\s*\}/.test(deliver),
     deliver?.match(/from:[^\n]*/)?.[0],
   );
   ok(
-    "the Reply-To is built from the sending address",
-    /replyToAddress\(sendingAddress,/.test(deliver),
-    deliver?.match(/replyToAddress\([^\n]*/)?.[0],
+    "the mail leaves through the rep's own connected mailbox, never a platform sender",
+    /sendFromMailbox\(mailbox,/.test(deliver) && !/sendEmail\(/.test(deliver),
+    deliver?.match(/sendFromMailbox\([^\n]*/)?.[0],
   );
   ok(
     "the stored copy records what actually went out",
@@ -558,7 +556,7 @@ section("5. The rep's own link and facts are on the admin's screen");
   ok("the screen shows the link", /rep\.signupLink/.test(page));
   ok(
     "…in a selectable field as well as behind a Copy button",
-    /readOnly/.test(page) && /copy\(rep\.signupLink/.test(page),
+    /readOnly/.test(page) && /copy\(\(?[^\n]*rep\.signupLink/.test(page),
   );
   ok(
     "…and the Copy button reports a refusal rather than silently doing nothing",

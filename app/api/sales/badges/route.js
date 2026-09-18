@@ -38,6 +38,9 @@
 //               Voicemail tab shows both. There is no "heard" marker on
 //               either row, so this is NOT "unheard" — the sidebar's title
 //               says "today".
+//   email       unread email conversations — the prospect wrote after the
+//               rep last opened the thread (lib/sales/emailInbox.js), not
+//               archived. The Conversations tab's badge.
 //   drafts      check-in and follow-up drafts waiting for the rep to press
 //               Send — lib/sales/checkin/waiting.js's one definition, the
 //               same count the Today card and the texts banner show.
@@ -57,6 +60,8 @@ import { missedWhere } from "@/lib/sales/calls/missed";
 import { unloggedWhere } from "@/lib/sales/calls/store";
 import { excludingTestDials } from "@/lib/sales/testLines";
 import { waitingDraftsFor } from "@/lib/sales/checkin/waiting";
+import { isUnread } from "@/lib/sales/emailInbox";
+import { threadListWhere } from "@/lib/sales/outreach";
 
 async function counted(fn) {
   try {
@@ -89,7 +94,7 @@ export async function GET(request) {
     console.error("[sales badges]", err?.message || err);
   }
 
-  const [callsToday, texts, team, voicemail, unlogged] = await Promise.all([
+  const [callsToday, texts, team, voicemail, unlogged, email] = await Promise.all([
     counted(() =>
       // Dials PLACED today, less any to FieldQuo's own test lines
       // (lib/sales/testLines.js) — a test at midnight is not a call made.
@@ -127,6 +132,18 @@ export async function GET(request) {
     // Calls with no outcome — every day's, not today's. The Queue badge
     // and the Today card; the same WHERE the unlogged list reads.
     counted(() => db.salesCallAttempt.count({ where: unloggedWhere(rep.id) })),
+    // Unread email conversations in the inbox (not archived): the prospect
+    // wrote after the rep last opened the thread — lib/sales/emailInbox.js's
+    // isUnread, the same definition the list draws bold from. Counted in JS
+    // over two timestamps per thread because Prisma cannot compare two
+    // columns in a WHERE; a rep's threads are hundreds, not millions.
+    counted(async () => {
+      const rows = await db.salesThread.findMany({
+        where: { ...threadListWhere(rep.id), archivedAt: null, lastInboundAt: { not: null } },
+        select: { lastInboundAt: true, readAt: true },
+      });
+      return rows.filter(isUnread).length;
+    }),
   ]);
 
   return NextResponse.json({
@@ -136,6 +153,7 @@ export async function GET(request) {
     team,
     voicemail,
     unlogged,
+    email,
     drafts,
     draftsDemo,
     serverNow: now.toISOString(),

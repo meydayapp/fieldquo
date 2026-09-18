@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 18 September 2026 ("text me instead": a first text the rep writes, "Text them" beside every Call button, the outcome that opens the composer, the thread pane no longer squeezed — `app/components/sales/TextThem.js`, `lib/sales/messages/startThread.js`, `docs/screens/sales-texting/`; see the section below)
+Last updated: 18 September 2026 (the sales portal's Conversations page is a real inbox on each rep's own Namecheap mailbox, connected by the owner from the rep's card — IMAP sync every minute, SMTP sends with the copy in Sent, read state mirrored both ways, drafts, templates, keyboard shortcuts, and the company pane kept; `lib/sales/mailbox/`, `docs/SALES-OUTREACH.md` §0; see the section below)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -10,6 +10,56 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## Conversations is the rep's real mailbox: connected by the owner, synced both ways, answered from the portal (18 September 2026)
+
+**Deployed.** The owner bought each rep a Namecheap Private Email inbox and
+asked that the portal be a second window onto it, with no configuration step
+for the rep. So:
+
+- **Connection (owner).** `/platform/sales/reps` → the rep's card → *Work
+  mailbox → Connect*: address + password, Namecheap hosts pre-filled, tested
+  on IMAP and SMTP on save, the password sealed under the platform's at-rest
+  key and never returned; Connected / Connection failed / Retry / Disconnect;
+  IMAP result, SMTP result, last sync, last error printed in words.
+  `lib/sales/mailbox/store.js`, `app/api/platform/sales/reps/[id]/mailbox`.
+- **Sync (every minute).** `app/api/cron/sales-mailbox-sync` →
+  `lib/sales/mailbox/sync.js`: INBOX and Sent by UID, threaded by
+  References then subject, matched to the rep's leads (fill blanks, never
+  overwrite), attachments re-hosted, \Seen mirrored both ways, opt-outs
+  honoured, a push for a new reply. Never deletes on the server.
+- **Sending.** `deliverOutreach` now composes once, sends through the rep's
+  SMTP as `Name <rep@fieldquo.com>`, appends the copy to Sent, records the
+  Message-ID; In-Reply-To/References set. Recipients are a closed set from
+  the lead's record (`lib/sales/emailRecipients.js`). Resend is not used for
+  a rep's mail; the Resend Receiving door stays dormant as the fallback.
+- **The inbox (`/sales/threads`).** Three panes from the chat kit: list
+  (search, Inbox/Archived/All, "Your leads" and "Everything else", unread
+  bold, labels: needs a reply / waiting on them / check-in due / stage,
+  draft pencil, attachment clip), thread (latest open, earlier folded,
+  quoted text behind a disclosure, attachments, reply / reply-all / forward
+  inline), the company pane (details, calls, other threads, check-ins, Open
+  lead — as the Texts page has it). Keyboard: j/k, Enter, r/a/f, c, /, e, u,
+  ?, Ctrl+Enter, Esc. Drafts autosave 1.5 s (`SalesEmailDraft` — its own
+  table, never a message that never left). Templates: signup link,
+  follow-up, the engine's check-in drafts, in the prospect's language. Nine
+  languages. `/sales/threads/[id]` redirects into the inbox.
+- **Readiness.** "Replies are not being filed" is gone; the blocker is
+  *"Your mailbox hasn't been connected yet — ask the owner."*
+- **Study.** `docs/sales-intel/ZERO-STUDY.md` — what was taken from Zero
+  and what deliberately was not (OAuth drivers, the self-host stack, paid AI
+  summaries, per-message model calls).
+
+### Still owed here
+
+- IMAP IDLE (instant arrival) needs a process that stays up; the minute
+  cadence is the honest latency on Vercel.
+- Snooze, stars and labels of the rep's own are not built — the labels are
+  facts derived from the rows, and a stored label was a second copy of one.
+- Attaching a NEW file from the rep's computer is not offered; only files
+  already on the thread can be re-sent. A rep's upload path would need its own
+  size/type policy and a decision about where a stranger's file may go.
+- The Texts contact bar still links `/sales/threads/[id]` (another agent's
+  file); the redirect keeps it working.
 ## "Text me instead": the first text is the rep's to write, and Text them stands beside every Call button (18 September 2026)
 
 The owner's report: a company told the rep "text me instead", and the reps
