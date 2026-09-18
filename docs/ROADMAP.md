@@ -155,6 +155,58 @@ the research doc. `check:playbook-voice` has one pre-existing failure on
 
 ---
 
+## Every worked lead names who to ask for: the register's personnel, BBB's principal contact, or the name the rep heard (18 September 2026)
+
+AMS PLUMBING & DRAIN (Lakeside, from the CSLB C-36 register) had no
+person's name anywhere on the card; BBB lists "Principal Contacts". Measured
+first: bbb.org is browser-only (403 `cf-mitigated: challenge` to any
+fetch), CSLB's per-licence page is bot-blocked (302 / 503) but its Data
+Portal publishes a PERSONNEL file (406,161 rows, 244,300 licences), WA and
+OR already carried a principal the ingest dropped, and the RBQ dataset
+carries nobody (24 columns, no répondant).
+
+**What runs now**
+
+- `ProspectPerson` — one row per (prospect, source, name), never
+  overwritten; the card leads with typed › BBB › register, then by role
+  (`lib/sales/intel/people.js`). "Who to ask for" and a "BBB" line on the
+  rep card with a BBB link and a typed field (`POST /api/sales/queue/people`,
+  scoped by `queueWhere`); the brief carries it as a cited fact; the script
+  prompt gets `Ask for: <first name> (<role>)`; the platform prospect page
+  lists every person with its source.
+- `RegisterPersonnel` — the CSLB file, loaded by `npm run cslb:personnel`
+  (28 s); looked up per prospect at claim time and by the cron sweep, 180-day
+  stamp. Ran over the 138 open claims: **27 gained a name (all 27 CSLB rows,
+  32 people)**; the 111 Overture rows have no register to ask.
+- WA/OR principals now travel `record.js → normalise.js → ingest.js` into a
+  ProspectPerson at ingest.
+- BBB by browser on the owner's Mac: `npm run bbb:principal -- --claimed`
+  (`docs/sales/BBB-LOCAL-RUN.md`) — human pace, stops on a challenge,
+  resumable, `--plan`; results through the same server-side re-match
+  (`lib/sales/intel/bbbApply.js`) as the console's "Upload BBB results".
+  Ran once on AMS: matched, 2 people, website, A+, started 2021, Corporation.
+- Bulk vendors on Apify (`lib/sales/intel/apifyRuns.js`): BBB
+  (`jungle_synthesizer/bbb-scraper`) and Google Maps
+  (`compass/crawler-google-places`) per (trade, city) in enrichment order,
+  20 pairs a day a source (setting), 90-day pair dedupe, cost metered from
+  the run's own usage into `PlatformCostDaily` (`apify`), unmatched rows
+  kept in `ExternalListing`. A matched Maps row is written through
+  `planPlacesWrite` — the card cannot tell it from a Places-API lead. Not
+  exercised for real: `APIFY_TOKEN` is unset; the console names it.
+- One order for every pass, `lib/sales/intel/enrichmentOrder.js`: open
+  claims, then the trades being worked in dispatch order, never the pool;
+  `/platform/sales/prospects` prints how far ahead of the dispatcher each
+  pass is per trade. Tier-2 Places lookups stay off until
+  `sales.places.aheadPerHour` is set — a paid request the owner has not sized.
+- `npm run check:who-to-ask-for` — 121 checks: the CSLB parser on the
+  file's own shapes, the BBB parser on saved AMS pages and hostile ones, the
+  matcher on the wrong city / a chain / phone-only, never-overwrite, typed
+  beats fetched, the upload refusal, the order, the pair dedupe, metering.
+
+Write-up: `docs/sales-intel/SOURCE-WHO-TO-ASK-FOR.md`.
+
+---
+
 ## Google Places corroborates every claimed lead: website, phone and trading status confirmed or contradicted in words (18 September 2026)
 
 DRAIN KINGS (Chatsworth, from the CSLB C-36 register) read "Website: none on

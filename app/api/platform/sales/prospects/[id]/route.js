@@ -24,6 +24,7 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { PEOPLE_SOURCES, bbbSearchUrl, whoToAskFor } from "@/lib/sales/intel/people";
 import { db } from "@/lib/db";
 import { superadminOrRefusal } from "@/lib/sales/intel/configAdmin";
 import { DISCOVERY_TRADES } from "@/lib/sales/discovery/trades";
@@ -52,6 +53,9 @@ export async function GET(request, { params }) {
       scores: { orderBy: { computedAt: "desc" }, take: 5 },
       corrections: { orderBy: { correctedAt: "desc" }, take: 20 },
       evidence: { orderBy: { observedAt: "desc" }, take: 400 },
+      // Every named person from every source, with the source — the
+      // console shows them all; the card's rule picks which leads.
+      people: { orderBy: { seenAt: "desc" } },
     },
   });
 
@@ -146,6 +150,30 @@ export async function GET(request, { params }) {
         verdict: prospect.placesVerdict,
         result: prospect.placesResult,
       },
+      // ── Who to ask for, every source ─────────────────────────────────
+      people: prospect.people.map((x) => ({
+        id: x.id,
+        name: x.name,
+        givenName: x.givenName,
+        role: x.role,
+        source: x.source,
+        sourceLabel: PEOPLE_SOURCES[x.source]?.label || x.source,
+        sourceUrl: x.sourceUrl,
+        seenAt: x.seenAt,
+        typedBySalesRepId: x.typedBySalesRepId,
+      })),
+      whoToAskFor: whoToAskFor(prospect.people),
+      bbb: {
+        checkedAt: prospect.bbbCheckedAt,
+        profileUrl: prospect.bbbProfileUrl,
+        rating: prospect.bbbRating,
+        accredited: prospect.bbbAccredited,
+        businessStartedYear: prospect.businessStartedYear,
+        employeeRange: prospect.employeeRange,
+        entityType: prospect.entityType,
+        searchUrl: bbbSearchUrl(prospect),
+      },
+      principalCheckedAt: prospect.principalCheckedAt,
       assignedRep: rep,
       assignedAt: prospect.assignedAt,
       claimExpiresAt: prospect.claimExpiresAt,
