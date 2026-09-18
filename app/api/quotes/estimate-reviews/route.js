@@ -10,8 +10,10 @@ import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { can } from "@/lib/permissions";
-import { redactClient, redactQuoteMoney } from "@/lib/permissions/enforce";
+import { redactClient, redactQuoteMoney, hasLevel } from "@/lib/permissions/enforce";
 import { callRecordingHref } from "@/lib/voice/recording";
+import { estimateReportUrl } from "@/lib/estimate/report/load";
+import { isInstantEstimateQuote } from "@/lib/estimate/report/model";
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -46,6 +48,13 @@ export async function GET(request) {
       // link (see Quote.sourceCallId). Turned into a gated path below.
       sourceCallId: true,
       createdAt: true,
+      // For the "View the report the homeowner got" link — the share token
+      // that reaches /estimate-report/<token>, plus what isInstantEstimateQuote
+      // reads to know the draft came from the public form and not a call.
+      shareToken: true,
+      autoEstimated: true,
+      quoteType: true,
+      createdVia: true,
       client: { select: { name: true, email: true, phone: true, address: true } },
       // Nobody was signed in when the instant-quote flow created this draft,
       // so it lands here with no assignee by construction — see
@@ -74,9 +83,19 @@ export async function GET(request) {
   // redactQuoteMoney rather than a hand-written delete: this route's select is
   // a subset of a Quote, and the next column added to that select should not
   // need a second person to remember this line exists.
-  const redacted = quotes.map(({ sourceCallId, ...q }) => ({
+  // The report link is the share token in a URL, so it takes the same gate
+  // redactShareToken applies to the token itself: view_create_edit on quotes.
+  // Below that level the field is absent, not empty.
+  const mayShare = hasLevel(full, "quotes", "view_create_edit");
+  const redacted = quotes.map(({ sourceCallId, shareToken, autoEstimated, quoteType, createdVia, ...q }) => ({
     ...redactQuoteMoney(full, q),
     client: redactClient(full, q.client),
+    // Null until the report has been published (the token is minted then), so
+    // the screen offers the link only when there is a page behind it.
+    reportUrl:
+      mayShare && shareToken && isInstantEstimateQuote({ ...q, autoEstimated, quoteType, createdVia })
+        ? estimateReportUrl(shareToken, request)
+        : null,
     // The id is swapped for the path that plays it, so the browser never holds
     // a raw call id it could go hunting with either. /api/voice/calls/[id]/recording
     // re-checks the session, the tenant and the permission before it streams
