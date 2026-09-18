@@ -13373,9 +13373,12 @@ model SalesCallAttempt {
   // voicemail columns above stay separate: a voicemail is one person and a
   // machine, and a row can hold both.
 
-  /// Twilio's RecordingSid. @unique so a retried recordingStatusCallback
-  /// lands on the row it already wrote rather than a second one.
-  recordingSid String? @unique
+  /// Twilio's RecordingSid. Indexed, not @unique: adding a unique constraint
+  /// is a `db push` this repo refuses to force through (the flag it demands is
+  /// the one that once dropped a live column), so the once-only rule lives in
+  /// recordCallRecording's `NOT { recordingSid }` guard instead — a retried
+  /// recordingStatusCallback updates zero rows.
+  recordingSid String?
   /// Twilio's RecordingUrl without an extension. NEVER put in an <audio src>:
   /// app/api/platform/sales/recording/[id]/audio proxies it with credentials,
   /// for the same reason voicemailUrl is proxied.
@@ -13613,6 +13616,7 @@ model SalesCallAttempt {
   @@index([toE164, dialledAt])
   @@index([salesRepId, dialledAt])
   @@index([prospectId, dialledAt])
+  @@index([recordingSid])
   @@index([disposition])
   /// The inbound webhook's lookup ("who last rang this number from ours") and
   /// the floor board's ("what came in today"). Both are direction-first.
