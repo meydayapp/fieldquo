@@ -47,6 +47,8 @@ const MEASURE_COPY = {
     "Gutter run and downspouts measured automatically from the address (Google roof model); priced per foot and per downspout with a low–high range.",
   lawn_polygon:
     "Homeowner traces the lawn on a satellite map; area computed from the outline.",
+  area_polygon:
+    "Homeowner traces the area on a satellite map (a driveway, a patio, a walkway); area computed from the outline and priced per sq ft.",
   lawn_address:
     "Lawn sized from the address — the lot boundary minus the roof and a driveway allowance where the city publishes parcels (Gatineau), otherwise your minimum band, always labelled as an estimate — and the homeowner can trace the lawn to correct it. Programs and add-ons priced by lawn-size band.",
   manual_area: "Homeowner enters the area and picks options.",

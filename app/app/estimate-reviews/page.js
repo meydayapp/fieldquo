@@ -40,6 +40,8 @@ import {
 const SOURCE_LABEL = {
   google_solar: ["app.reviews.source.satellite", "Measured from satellite"],
   lawn_polygon: ["app.reviews.source.lawn", "Lawn traced on map"],
+  // The generic trace (paving): the same drawing, not a lawn.
+  area_polygon: ["app.reviews.source.area", "Area traced on map"],
   // Lawn care's three sources (lib/measure/lawnEstimate.js). The minimum
   // band is named as such: a reviewer must know the figure was never
   // measured before standing behind it.

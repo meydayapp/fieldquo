@@ -522,9 +522,9 @@ export default function QuoteApproval({ token }) {
                       "Lawn measured: 1,850 sq ft" — in the same place the
                       PDF prints it. Served by the public route through
                       measureEvidence, never the takeoff itself. */}
-                  {g.measure && (g.measure.imageUrl || g.measure.caption) && (
+                  {(g.measure?.imageUrl || g.measure?.caption || g.outline) && (
                     <div className="mb-3 border-b border-black/5 pb-3">
-                      {g.measure.imageUrl && (
+                      {g.measure?.imageUrl && (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={g.measure.imageUrl}
@@ -532,9 +532,33 @@ export default function QuoteApproval({ token }) {
                           className="w-full max-w-sm rounded-md border border-black/10 mb-1.5"
                         />
                       )}
-                      {g.measure.caption && (
-                        <p className="text-xs font-semibold text-[#2d2520]">{g.measure.caption}</p>
-                      )}
+                      {/* The outline that was traced, beside its area — the
+                          same points the PDF draws, so the page and the
+                          attachment show one shape. Prints when the still
+                          above could not be captured, too. */}
+                      <div className="flex items-center gap-2">
+                        {g.outline && (
+                          <svg
+                            width={g.outline.width}
+                            height={g.outline.height}
+                            viewBox={`0 0 ${g.outline.width} ${g.outline.height}`}
+                            aria-hidden="true"
+                            className="shrink-0"
+                          >
+                            <polygon
+                              points={g.outline.pointsAttr}
+                              fill={rule}
+                              fillOpacity={0.18}
+                              stroke={rule}
+                              strokeWidth={1.2}
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                        )}
+                        {g.measure?.caption && (
+                          <p className="text-xs font-semibold text-[#2d2520]">{g.measure.caption}</p>
+                        )}
+                      </div>
                     </div>
                   )}
 

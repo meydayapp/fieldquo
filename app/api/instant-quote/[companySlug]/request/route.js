@@ -539,6 +539,9 @@ function sanitiseMeasurement(m) {
     source: m.source ?? null,
     estimated: m.estimated ?? null,
     minSqft: m.minSqft ?? null,
+    // Also the outline of a lawn_polygon / area_polygon trace (lib/estimate/
+    // tracedArea.js): the shape the price was computed from, saved on the
+    // draft and drawn on the document (lib/documentSections/traceOutline.js).
     vertices: Array.isArray(m.vertices) ? m.vertices : null,
     parcel: m.parcel
       ? { areaSqft: m.parcel.areaSqft ?? null, lotNumber: m.parcel.lotNumber ?? null, vertices: Array.isArray(m.parcel.vertices) ? m.parcel.vertices : null }
