@@ -25,6 +25,7 @@
 // The phone number and the work mailbox are FieldQuo's to assign; the row
 // says so until both are there.
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { Building2, Copy, Loader2, RefreshCw } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { useTranslation } from "@/app/hooks/useTranslation";
@@ -190,6 +191,18 @@ export default function SalesAgencyPage() {
           <Building2 size={20} aria-hidden="true" /> {t("app.salesAgency.title")}
         </h1>
         <p className="text-sm text-muted-foreground">{t("app.salesAgency.intro")}</p>
+        {/* The two screens the owner said the agency should have the way he
+            has them: the team's performance page and its call-quality
+            review queue — both scoped by the routes behind them, fresh. */}
+        <p className="text-sm">
+          <Link href="/sales/agency/performance" className="underline text-foreground">
+            {t("app.salesAgencyPerf.title")}
+          </Link>
+          {" · "}
+          <Link href="/sales/agency/call-quality" className="underline text-foreground">
+            {t("app.salesCallQa.title")}
+          </Link>
+        </p>
       </header>
 
       {failed === "load" ? (

@@ -53,6 +53,54 @@ import { PERIOD_PRESETS } from "@/lib/analytics/periodPresets";
 import { statusMeta } from "@/lib/platform/subscriptionStatus";
 import { centsOrNull, UNKNOWN } from "@/lib/platform/metricFormat";
 import { centsToMoney } from "@/lib/sales/money";
+import CallPerformanceSections from "@/app/components/sales/CallPerformanceSections";
+
+/**
+ * The words for the two call sections. Literals, because this console is
+ * English-only (the header says why); the agency's page hands the same
+ * component t() results. Functions where a count goes inside the sentence.
+ */
+const CALL_LABELS = {
+  callsHeading: "Calls",
+  callsIntro:
+    "What the floor did on the phone in this period — the same figures the sales floor board draws, read through the same functions, so the two screens cannot disagree. Placed calls only; a contractor ringing back is counted separately on the floor.",
+  callsNote:
+    "\"Connected\" and talk minutes are the carrier's own report and exist only for browser dials — a call placed from a rep's own handset is neither timed nor answered as far as FieldQuo knows, which is why each figure says how many calls it was measured over. \"Conversation\" is the transcript's: the contractor said twenty or more words, with the calls whose transcript is not in yet counted beside it rather than in the denominator. \"Reached\" is what the rep reported, and is labelled as the self-report it is.",
+  rep: "Rep",
+  dials: "Dials",
+  connected: "Connected",
+  talkMinutes: "Talk minutes",
+  answerRate: "Answered (carrier)",
+  conversationRate: "Conversation (transcript)",
+  notYetKnown: (n) => `${n} not yet known`,
+  reachRate: "Reached (reported)",
+  callbacks: "Callbacks promised",
+  everyone: "Everyone",
+  noCalls: "No calls in this period.",
+  ofBridged: (n) => `of ${n} bridged`,
+  overCalls: (n) => `over ${n} ${n === 1 ? "call" : "calls"}`,
+  agencyOf: (n) => `agency · ${n} ${n === 1 ? "rep" : "reps"}`,
+  belowFloor: (remaining) => `${remaining} more before this is a percentage`,
+  qualityHeading: "Call quality",
+  qualityIntro:
+    "How the recorded calls measured against the playbook the rep was reading — the disclosure, the identity check inside twenty seconds, the permission ask, the banned moves, the pivot, discovery, objections, the next step and the close, scored in lib/sales/calls/qa.js. Where the owner has listened and written a score, that number replaces the model's.",
+  qualityNote:
+    "Three counts travel with every average: scored, recorded, and not yet scored. An average over four calls out of forty is a different fact from one over thirty-eight, and the page never shows one without the other two. Unscorable is a recording with no conversation in it (nobody answered, or one mixed track); failed is a model call that did not come back, and can be retried from the review queue.",
+  averageOverall: "Average score",
+  counts: "Scored / recorded / not yet",
+  scored: "Scored",
+  recorded: "Recorded",
+  notYetScored: "Not yet scored",
+  unscorable: "Unscorable",
+  failed: "Scoring failed",
+  reviewed: "Reviewed by a person",
+  disclosureSaid: "Disclosure said",
+  permissionAsked: "Permission asked",
+  bannedMoveRate: "Made a banned move",
+  talkRatio: "Rep talk share",
+  noTrend: "no previous period to compare",
+  vsPrevious: "vs previous period",
+};
 
 const FIELD =
   "w-full border border-border rounded-lg px-3 py-2.5 min-h-[44px] text-base bg-card text-foreground disabled:opacity-60";
@@ -343,6 +391,15 @@ export default function SalesPerformancePage() {
               </div>
             </div>
           </section>
+
+          {/* ── 2b. What they did on the phone, and how well ─────────────── */}
+          <CallPerformanceSections
+            calls={report.calls}
+            callQuality={report.callQuality}
+            labels={CALL_LABELS}
+            repHref={(id) => `/platform/sales/call-quality?repId=${encodeURIComponent(id)}`}
+            qualityHref={(id) => (id ? `/platform/sales/call-quality?repId=${encodeURIComponent(id)}` : "/platform/sales/call-quality")}
+          />
 
           {/* ── 3. What happened to the companies they brought in ─────────── */}
           <section className="space-y-2">

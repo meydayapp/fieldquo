@@ -362,7 +362,8 @@ tenancy, so it carries no information.
 | `SalaryComponent` | — | WorkerSalaryComponent |
 | `SalesAttribution` | SalesRep | Company |
 | `SalesAttributionTouch` | SalesRep | — |
-| `SalesCallAttempt` | Prospect, SalesLead, SalesRep | SalesCallTransfer |
+| `SalesCallAttempt` | Prospect, SalesCallQa, SalesLead, SalesRep | SalesCallQa, SalesCallTransfer |
+| `SalesCallQa` | SalesCallAttempt | SalesCallAttempt |
 | `SalesCallTransfer` | SalesCallAttempt, SalesRep | — |
 | `SalesCheckIn` | SalesLead, SalesRep, SalesSmsMessage | SalesSmsMessage |
 | `SalesCommissionEntry` | SalesPayoutBatch, SalesRep | — |
