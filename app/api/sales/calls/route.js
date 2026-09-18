@@ -38,6 +38,8 @@ import { requireCallingRep } from "@/lib/sales/calls/gate";
 import { queueWhere } from "@/lib/sales/prospectView";
 import { salesCallReadiness, CALL_ALLOWED } from "@/lib/sales/callingRules";
 import { windowPolicyForProspect } from "@/lib/sales/windowOverrides";
+import { isTestLine } from "@/lib/sales/testLines";
+import { loadTestLines } from "@/lib/sales/testLinesStore";
 import { twilioConfigured } from "@/lib/sms/twilioClient";
 import { getAppOrigin } from "@/lib/appUrl";
 import {
@@ -578,6 +580,17 @@ export async function POST(request) {
     // `unenforced` while the table sits there full of rows.
     const attempts24h = await attemptsLast24h(dialTo, { now });
 
+    // ── One of our own phones? ────────────────────────────────────────────
+    //
+    // lib/sales/testLines.js: a number FieldQuo itself owns, on the platform
+    // setting, is exempt from the window, the cap and the retry hold for
+    // EVERY rep — nobody's evening is being interrupted but ours. Judged
+    // about `dialTo`, the number that will actually ring, and AFTER the
+    // do-not-contact and suppression reads above, which a test line never
+    // steps past. Read fresh here, like the override: a setting edited a
+    // minute ago binds this dial, and a screen's earlier answer does not.
+    const testLine = isTestLine(dialTo, await loadTestLines());
+
     const readiness = salesCallReadiness({
       prospect: { country: target.country, province: target.province },
       timeZone: target.timeZone,
@@ -588,6 +601,10 @@ export async function POST(request) {
       // suppression read. The resolver holds any override at enforce where a
       // registration is outstanding; this route sees only the mode that binds.
       windowPolicy: await windowPolicyForProspect({ country: target.country, province: target.province }, { now }),
+      // The row this dial writes then carries jurisdictionCode "test"
+      // (recordDial freezes readiness.jurisdiction.code), which is what
+      // every count excludes on.
+      testLine,
     });
 
     if (readiness.decision !== CALL_ALLOWED) {

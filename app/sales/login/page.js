@@ -12,6 +12,7 @@
 import { useState } from "react";
 import { BadgeDollarSign, Loader2 } from "lucide-react";
 import { errorText, fetchJson } from "@/lib/fetchJson";
+import { clearReminderDismissed } from "@/lib/sales/availableReminder";
 import { AUTH_REFUSAL_KEYS } from "@/lib/sales/authRefusals";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
@@ -32,6 +33,11 @@ export default function SalesLoginPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
+      // A sign-in is what the "You're shown as Off" reminder is for, and
+      // its OK is remembered in this tab's sessionStorage — which survives
+      // a sign-out and a sign-in. Cleared here so the next portal load asks
+      // again (lib/sales/availableReminder.js).
+      clearReminderDismissed();
       // A full navigation rather than a router push: the session lives in an
       // httpOnly cookie the client can't see, and the portal's own layout
       // fetches identity on mount. A soft navigation would render the shell

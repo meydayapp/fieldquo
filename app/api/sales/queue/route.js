@@ -68,6 +68,8 @@ import {
 } from "@/lib/sales/queueBatch";
 import { groupByWindow, repClock, zoneAcronym } from "@/lib/sales/queueWindows";
 import { loadRetryRules, regroupForRetry, retryViewFor } from "@/lib/sales/retryPool";
+import { isTestLine } from "@/lib/sales/testLines";
+import { loadTestLines } from "@/lib/sales/testLinesStore";
 import { repLanguageOrNull } from "@/lib/sales/repLanguage";
 import { requiredLanguageFor } from "@/lib/sales/leadLanguage";
 // Namespace import, not a named one: the pipeline is growing
@@ -166,7 +168,7 @@ function queueResearchFor(prospectIds) {
  * response and for the browser's prefetch of the next rows in dial order
  * (`?only=current`, below), and cannot drift between the two.
  */
-async function buildCurrent({ rep, full, zone, lang, now, policyContext, retryRules }) {
+async function buildCurrent({ rep, full, zone, lang, now, policyContext, retryRules, testLines = [] }) {
   // A survivor's analysis is the union of its own and its merged-from
   // rows' (lib/sales/discovery/mergedReads.js — own row per code wins,
   // evidence appended). Written back onto `full` so every read below —
@@ -283,9 +285,15 @@ async function buildCurrent({ rep, full, zone, lang, now, policyContext, retryRu
   };
   const voice = pickContactNumber({ ...numberArgs, channel: CHANNEL_VOICE });
   const text = pickContactNumber({ ...numberArgs, channel: CHANNEL_TEXT });
-  const attempts24h = await attemptsLast24h(full.phoneE164 || voice.choices[0]?.e164 || null, { now }).catch(
-    () => null,
-  );
+  // The number the dial would ring — the listing's or the server's first
+  // choice — judged once here for the cap AND for the test list, so the two
+  // can never be asked about different numbers.
+  const dialNumber = full.phoneE164 || voice.choices[0]?.e164 || null;
+  const attempts24h = await attemptsLast24h(dialNumber, { now }).catch(() => null);
+  // One of FieldQuo's own phones (lib/sales/testLines.js). Decided on the
+  // server against the setting and RE-PASSED by the screen in
+  // callingContext; the browser holds no list and decides nothing.
+  const testLine = isTestLine(dialNumber, testLines);
 
   return {
     ...prospectView({
@@ -361,12 +369,14 @@ async function buildCurrent({ rep, full, zone, lang, now, policyContext, retryRu
       now,
       attemptsLast24h: attempts24h,
       windowPolicy: windowPolicyFor(full, policyContext),
+      testLine,
     }),
     callingContext: {
       country: full.country,
       province: full.province,
       timeZone: full.leads[0]?.timeZone || null,
       attemptsLast24h: attempts24h,
+      testLine,
       // The console's override for this state, RESOLVED here — the
       // registration hold included — and re-passed by the screen on
       // every re-ask. The browser never resolves it itself: it holds no
@@ -413,7 +423,11 @@ async function buildCurrent({ rep, full, zone, lang, now, policyContext, retryRu
     })(),
     // The pool's state for the Dialer card — the same object the row
     // carries, read from the same columns.
-    retry: retryViewFor(full, { repZone: zone, language: lang, now, rules: retryRules }),
+    // Null for a test line: the pool's "next at 14:30" is about not ringing a
+    // business too soon, and the regroup ignores it for our own desk
+    // (lib/sales/retryPool.js). Printing it beside a live button would be
+    // a number nothing honours.
+    retry: testLine ? null : retryViewFor(full, { repZone: zone, language: lang, now, rules: retryRules }),
     history: history.map((a) => ({
       id: a.id,
       direction: a.direction,
@@ -489,6 +503,9 @@ function cachedPolicyContext(now) {
 function cachedRetryRules() {
   return queueMemo.get("retryRules", () => loadRetryRules({ db }));
 }
+function cachedTestLines() {
+  return queueMemo.get("testLines", () => loadTestLines());
+}
 function cachedAvailableByTrade(rep, now) {
   // The candidate WHERE differs per rep only by the language fragment
   // (lib/sales/leadLanguage.js): an anglophone rep and a bilingual one see
@@ -538,10 +555,11 @@ async function queueBody(rep, { tradeKey = null, prospectId = null, timeZone = n
   // leads briefly disappear", the owner said, and they had not gone anywhere.
   // The trade picker decides what "Claim the next 100" pulls from; it never
   // hides what is already held. Each row carries its own tradeLabel.
-  const [policyContext, retryRules, claimedRows, shiftStart, takenToday, adminAssigned, givenBack, mineByTrade, availableByTrade] =
+  const [policyContext, retryRules, testLines, claimedRows, shiftStart, takenToday, adminAssigned, givenBack, mineByTrade, availableByTrade] =
     await Promise.all([
       cachedPolicyContext(now),
       cachedRetryRules(),
+      cachedTestLines(),
       db.prospect.findMany({
         where: queueWhere(rep.id, { now }),
         orderBy: [{ assignedAt: "asc" }],
@@ -642,7 +660,16 @@ async function queueBody(rep, { tradeKey = null, prospectId = null, timeZone = n
   // never in "Not callable today".
   const shiftEnd = shiftEndFrom({ shiftStart, now });
   const grouped = groupByWindow(
-    inClaimOrder.map((p) => ({ id: p.id, country: p.country, province: p.province, timeZone: p.leads?.[0]?.timeZone || null, name: p.businessName })),
+    inClaimOrder.map((p) => ({
+      id: p.id,
+      country: p.country,
+      province: p.province,
+      timeZone: p.leads?.[0]?.timeZone || null,
+      name: p.businessName,
+      // Judged on the listing number only: the list has not chosen a contact
+      // number, and the current pane re-judges the one the dial will ring.
+      testLine: isTestLine(p.phoneE164, testLines),
+    })),
     { repZone: zone, shiftEnd, now, language: lang, policyContext },
   );
   // ── Then the retry pool re-orders those groups ─────────────────────────
@@ -654,7 +681,11 @@ async function queueBody(rep, { tradeKey = null, prospectId = null, timeZone = n
   // fifteen minutes after it said busy; an exhausted row is "later", with
   // its reason, until the lease lapses and the pool forgets it.
   const retries = Object.fromEntries(
-    inClaimOrder.map((p) => [p.id, retryViewFor(p, { repZone: zone, language: lang, now, rules: retryRules })]),
+    inClaimOrder.map((p) => [
+      p.id,
+      // Nothing for a test line, for the reason buildCurrent gives.
+      grouped.byId[p.id]?.testLine ? null : retryViewFor(p, { repZone: zone, language: lang, now, rules: retryRules }),
+    ]),
   );
   const windows = regroupForRetry(grouped, retries, { shiftEnd, now });
   const byId = new Map(inClaimOrder.map((p) => [p.id, p]));
@@ -735,7 +766,7 @@ async function queueBody(rep, { tradeKey = null, prospectId = null, timeZone = n
     const full = namedFull && namedFull.id === currentId ? namedFull : await readCurrentFull(rep, currentId, now);
 
     if (full) {
-      current = await buildCurrent({ rep, full, zone, lang, now, policyContext, retryRules });
+      current = await buildCurrent({ rep, full, zone, lang, now, policyContext, retryRules, testLines });
     }
   }
 
@@ -802,12 +833,13 @@ export async function GET(request) {
     const now = new Date();
     const zone = repZoneFrom(timeZone, now);
     const lang = repLanguageOrNull(language) || "en";
-    const [policyContext, retryRules, full] = await Promise.all([
+    const [policyContext, retryRules, testLines, full] = await Promise.all([
       cachedPolicyContext(now),
       cachedRetryRules(),
+      cachedTestLines(),
       readCurrentFull(rep, prospectId, now),
     ]);
-    const current = full ? await buildCurrent({ rep, full, zone, lang, now, policyContext, retryRules }) : null;
+    const current = full ? await buildCurrent({ rep, full, zone, lang, now, policyContext, retryRules, testLines }) : null;
     const ms = Date.now() - t0;
     console.log(`[sales/queue] GET only=current rep=${rep.id} found=${current ? 1 : 0} ${ms}ms`);
     return NextResponse.json(

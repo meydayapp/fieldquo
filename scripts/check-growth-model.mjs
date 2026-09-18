@@ -381,7 +381,7 @@ const read = (p) => fs.readFileSync(path.join(ROOT, p), "utf8");
   ok("PUT records who saved", /updatedByAdminId: admin\.id/.test(route));
   const measured = read("lib/platform/growthMeasured.js");
   ok("reached is derived from DISPOSITIONS[].reached, not a hardcoded list", /Object\.entries\(DISPOSITIONS\)[\s\S]{0,80}d\.reached/.test(measured) && !/"reached_interested"/.test(measured));
-  ok("every dial count filters direction \"out\"", (measured.match(/salesCallAttempt\.count\(\{ where: \{ direction: "out"/g) || []).length >= 4);
+  ok("every dial count filters direction \"out\"", (measured.match(/salesCallAttempt\.count\(\{ where: excludingTestDials\(\{ direction: "out"/g) || []).length >= 4);
   ok("demo companies are excluded from every signup and subscription measure", /isDemo: true/.test(measured) && (measured.match(/\.\.\.notDemo/g) || []).length >= 5);
   ok("on-trial is billingStartedAt == null, per the schema's own rule", /billingStartedAt: null, status: "trialing"/.test(measured));
   ok("only FULL months are observed — never the current one", /for \(let i = MONTHS_BACK; i >= 1; i -= 1\)/.test(measured));

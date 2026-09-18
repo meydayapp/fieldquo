@@ -10,6 +10,7 @@
 //   /api/platform/sales/notes (+ /[id])                      → /platform/sales/notes
 //   /api/platform/sales/campaigns (+ /[id], /registrations)  → /platform/sales/campaigns, /[id]
 //   /api/platform/sales/windows                              → /platform/sales/windows
+//   /api/platform/sales/test-lines                           → /platform/sales/windows (the test-lines card)
 //
 // Where a route's shape is produced by a PURE helper in lib/ (the growth
 // projection, the pipeline stage board, the calling-window policy, the
@@ -1137,6 +1138,15 @@ export default function answer({ method, path, url, body }) {
 
   // ── Calling windows ─────────────────────────────────────────────────────
   if (path === "/api/platform/sales/windows") return windowsPayload();
+  // The dialler's test lines (lib/sales/testLines.js): one E.164 on the list.
+  // Not run through the library's normaliser here — it reaches lib/db through
+  // suppressionRules → voice/numbers, which the browser bundle cannot hold —
+  // so the shape is written out; scripts/check-sales-test-line.mjs executes
+  // the normaliser itself. A PUT echoes the list back the way the route does.
+  if (path === "/api/platform/sales/test-lines") {
+    const numbers = method === "PUT" ? (Array.isArray(body?.numbers) ? body.numbers : []) : ["+14165550100"];
+    return { numbers, max: 10, serverNow: NOW };
+  }
 
   return undefined;
 }

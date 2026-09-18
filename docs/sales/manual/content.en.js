@@ -456,7 +456,7 @@ export const MANUAL = {
         { h: "Voicemail" },
         { p: "{{app.salesPortal.navVoicemail}} in the sidebar: {{app.salesDial.voicemailIntro}} It shows {{app.salesDial.yourNumberIs|numbers=your number}} and each message with {{app.salesDial.playTheMessage}} and {{app.salesDial.openTheRecord}}. A message with no words is shown, not hidden: {{app.salesDial.silentVoicemail}}" },
         { figure: "voicemail", caption: "The Voicemail page: messages left on your number, each playable, each with Open the record." },
-        { callout: ["Conversations are never recorded. Recording a two-party call is consent law, and there is no switch in the product that turns it on. A voicemail — one person speaking to a machine after an announcement — is the only audio FieldQuo keeps, and only so you can play it back."], title: "Recording is off" },
+        { callout: ["Every call is recorded from the moment the contractor answers, and transcribed, so what you said can be read against the script. You are the disclosure: the opening line on your screen says “This call may be recorded” — say it first, every call, in the language of the call. A voicemail — one person speaking to a machine after an announcement — is kept separately so you can play it back."], title: "Every call is recorded — you say so" },
         { tryIt: [
           "Ask your trainer to ring your FieldQuo number from their desk. Watch the drawer arrive; press {{app.salesDial.pickUp}}.",
           "On that call, open {{app.salesDial.transferThisCall}} and read the two buttons beside each name. Press {{app.salesDial.neverMind}}.",
@@ -723,7 +723,7 @@ export const MANUAL = {
           "**STOP means every channel, for everyone.** A do-not-contact holds for three years. Do not look for another number, another email, another rep. Only a superadmin can lift it, with a written reason.",
           "**Never text a number you do not hold.** The portal refuses a number on another rep's lead — “This number belongs to a contractor another rep is working.” — and a first text goes only from the lead, with the fixed introduction.",
           "**Quebec is French.** A Quebec lead reaches you only if you ticked French under {{app.salesSellsIn.heading}}. If one is on your screen, take the call in French.",
-          "**Call recording is off, and there is no switch.** Consent law. Never record a call on your own device either.",
+          "**Every call is recorded, and you say so.** “This call may be recorded” is the first thing out of your mouth, in the language of the call. Never record a call on your own device — the product already does, and yours would be a second copy nobody approved.",
           "**Say your callback number.** {{app.salesCall.callerIdNotice|number=your number}}",
           "**No price below the regular price on a script or a call.** The pricing page and the battlecards are the only prices you quote, at the price on them. The script has no digits in it for that reason; the Playbook's own line is “I am not going to discount it.”",
           "**Say inferences as impressions and unknowns as unknowns.** {{app.salesQueue.inferenceCaveat|confidence=70% confident;source=Derived from what we observed.}}",
