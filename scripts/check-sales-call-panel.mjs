@@ -280,7 +280,11 @@ section("5. The panel: the form where the rep is, the grace, the undo");
   ok("the timer stays out of it once the rep has started typing", /if \(draftStarted\(draftRef\.current\)\) return;/.test(timer));
   ok("…posts auto_log after the grace", /action: "auto_log"/.test(timer) && /setTimeout\(ask, Math\.max\(0, Number\(pending\.graceMs\)/.test(timer));
   ok("…asks again while the carrier has not reported, a bounded number of times", /reason === "not_reported" && tries < 5/.test(timer));
-  ok("…and on success clears the pending call, opens the undo strip for AUTO_LOG_UNDO_SECONDS, and frees the dialler (refresh, load, onWorked)", /setAutoLogged\(\{ attemptId, code: body\.code[^}]*until: Date\.now\(\) \+ AUTO_LOG_UNDO_SECONDS \* 1000/.test(timer) && /await presenceRef\.current\.refresh\(\);\s*await load\(\);\s*onWorked\?\.\(\);/.test(timer));
+  // Since 2026-09-18 the intro-email pop-up may sit between load() and
+  // onWorked: a no-answer offers the email, and onWorked is HELD until the
+  // pop-up closes (scripts/check-sales-intro-email.mjs asserts the hold).
+  // The order refresh → load → onWorked is unchanged; the gap is allowed.
+  ok("…and on success clears the pending call, opens the undo strip for AUTO_LOG_UNDO_SECONDS, and frees the dialler (refresh, load, onWorked)", /setAutoLogged\(\{ attemptId, code: body\.code[^}]*until: Date\.now\(\) \+ AUTO_LOG_UNDO_SECONDS \* 1000/.test(timer) && /await presenceRef\.current\.refresh\(\);\s*await load\(\);[\s\S]{0,400}?onWorked\?\.\(\);/.test(timer));
   const load = between(panel, "const load = useCallback(async () => {", "}, []);");
   ok("a call that ended while nobody was looking is asked about on load, at once, browser dials only", /autoAsk: row\.dialChannel === "browser" && \(Boolean\(row\.endedAt\) \|\| PROVIDER_ENDED\.includes\(row\.providerStatus\)\)/.test(load) && /graceMs: 0/.test(load));
 

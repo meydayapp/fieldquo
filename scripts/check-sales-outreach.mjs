@@ -667,6 +667,16 @@ for (const [file, method, required] of ROUTES) {
     // number" path. It writes salesLead and nothing else.
     "lib/sales/leadCreate.js",
     "lib/sales/messages/startThread.js",
+    // The "we tried calling you" email (2026-09-18): its two routes and the
+    // send half. They write salesIntroEmail (on the list, with the reason
+    // beside it) and the lead when a prospect had none; the second address
+    // goes through lib/sales/contact/record.js, which writes through an
+    // injected `client` this `db|tx` scan does not see — its refusals are
+    // executed by scripts/check-sales-intro-email.mjs instead. The request
+    // stamps are the PUBLIC route's, also asserted there.
+    "app/api/sales/intro-email/route.js",
+    "app/api/sales/intro-email/requests/route.js",
+    "lib/sales/outreach/introSend.js",
   ];
   const offenders = [];
   for (const file of files) {

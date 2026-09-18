@@ -29,6 +29,8 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 import { endOfCall } from "@/lib/sales/calls/dispositions";
 import { foldChoice } from "@/lib/sales/calls/outcomeChoices";
 import OutcomeForm, { EMPTY_DRAFT } from "./OutcomeForm";
+import IntroEmailPrompt from "./IntroEmailPrompt";
+import { asksIntroEmail } from "@/lib/sales/outreach/introLink";
 
 const BTN = "inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60";
 
@@ -60,6 +62,10 @@ export function UnloggedCallsList({ onCountChange = null, compact = false }) {
   const [draft, setDraft] = useState(EMPTY_DRAFT);
   const [formError, setFormError] = useState("");
   const [busy, setBusy] = useState("");
+  // "Send {business} the intro email?" after a voicemail written up here —
+  // the same pop-up the console opens (IntroEmailPrompt.js), keyed by the
+  // row's ids, since the list holds no panel to ask.
+  const [introPrompt, setIntroPrompt] = useState(null);
 
   const load = useCallback(async () => {
     try {
@@ -112,6 +118,9 @@ export function UnloggedCallsList({ onCountChange = null, compact = false }) {
       setOpen(null);
       setDraft(EMPTY_DRAFT);
       await load();
+      if (asksIntroEmail(fold.code) && (row.leadId || row.prospectId)) {
+        setIntroPrompt({ leadId: row.leadId || null, prospectId: row.leadId ? null : row.prospectId || null, attemptId: row.id, businessName: row.businessName || null });
+      }
     } catch (err) {
       setFormError(err?.message || t("app.salesCall.outcomeSaveFailed"));
     } finally {
@@ -136,11 +145,21 @@ export function UnloggedCallsList({ onCountChange = null, compact = false }) {
       </p>
     );
   }
+  // The pop-up outlives the row it followed: the list may be empty after
+  // the save (the row left it), and the offer still stands.
+  const prompt = <IntroEmailPrompt target={introPrompt} onClose={() => setIntroPrompt(null)} />;
+
   if (rows.length === 0) {
-    return <p className="text-sm text-muted-foreground break-words" data-unlogged-none>{t("app.salesCall.unlogged.none")}</p>;
+    return (
+      <>
+        <p className="text-sm text-muted-foreground break-words" data-unlogged-none>{t("app.salesCall.unlogged.none")}</p>
+        {prompt}
+      </>
+    );
   }
 
   return (
+    <>
     <ul className="divide-y divide-border/60 rounded-lg border border-border" data-unlogged-list={rows.length}>
       {rows.map((row) => {
         const isOpen = open === row.id;
@@ -181,6 +200,8 @@ export function UnloggedCallsList({ onCountChange = null, compact = false }) {
         );
       })}
     </ul>
+    {prompt}
+    </>
   );
 }
 
