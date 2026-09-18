@@ -1,12 +1,93 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 18 September 2026 (the roofing estimate model was calibrated against the market — 6/12 is walkable, tear-off strips at 0.5 h/sq, ice & water lays two courses at the eave; 917 Littlerock goes from 127.7 to 100.2 crew-hours and the write-up with every source is `docs/research/ROOFING-RATES-2026.md`; see the section below)
+Last updated: 18 September 2026 (the instant-estimate REPORT: after the price is revealed the draft becomes a branded page at /estimate-report/<shareToken>, a PDF through the shared document renderer, and an emailed copy, in the homeowner's language; `lib/estimate/report/publish.js` is the one call the request route makes; see the section below)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
 it exists to answer.
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
+
+---
+
+## The instant estimate becomes a report: a tokenised page, a PDF and an emailed copy, in the homeowner's language (18 September 2026)
+
+**What**: the QuickQuote-style report the owner asked for. Once the range is
+revealed, the draft Quote created by `lib/estimate/createEstimateQuote.js`
+is published as three things that say the same words — the page at
+`/estimate-report/<token>` (app/estimate-report/[token]), the PDF the email
+carries, and the email itself — branded from `lib/documents/theme.js`
+(fillPair for the CALL / EMAIL / WEBSITE tiles and the starting-at figure,
+washPair for the option tiles; measured on white, silver, cream, yellow and
+black in `check:estimate-report`), in the language fixed on the draft
+(non-negotiable #6), for every key of `INSTANT_ESTIMATE_TRADES`.
+
+**One model, three renderings**: `lib/estimate/report/model.js` decides
+every sentence, figure and link (`buildEstimateReportModel`); the page, the
+six PDF sections (`lib/documentSections/Report*Section.js`, registered under
+the `estimate_report_pdf` kind so the template editor never offers them on a
+quote) and `lib/estimate/report/email.js` only lay it out. Copy is
+`lib/i18n/estimateReportCopy.js` (en/fr/es), the trade noun is
+`INSTANT_TRADE_WORDS` from `lib/i18n/instantQuoteCopy.js`.
+
+**Prices are re-computed, never read**: the two option cards (cheapest and
+premium; one card for a one-option trade) come from `priceAllMaterials()`
+against the SAVED measurement — the company's rate card today — never from
+`estimateData.breakdown`. A gated trade shows the options without figures;
+a trade switched off since shows no cards.
+
+**The token is `Quote.shareToken`**, minted by `publishEstimateReport()`
+the way `/api/quotes/[id]/send` mints it, so the report and the later quote
+share one link. The public page 404s anything that is not an instant
+estimate (`isInstantEstimateQuote`: autoEstimated, not `phone_call`, created
+via `instant_quote`).
+
+**The three buttons**: Book an in-person visit → the report's own
+`/estimate-report/<token>/book`, which mounts the same BookingFlow as
+`/book/<slug>` with the draft's contact prefilled and the visit tied by
+`quoteId` (nothing personal in a URL; `/book/<slug>` reads no query string,
+so a prefilled link there would have been a dead promise) — only when
+`canBookVisit()`. Request a call back → a small client form posting to the
+existing `/api/instant-quote/[slug]/callback`. Back to the website → the
+rule in `lib/estimate/report/website.js`: the company's own site; else the
+hosted CompanySite ONLY when published AND tailored (a hand edit, or one
+image that is not a `placeholderImages.js` stock photo, or a photo-library
+upload); else omitted. `Company.instantReportWebsite` ("own" | "fieldquo" |
+"none", null = automatic) overrides it from Settings › Instant Quotes
+("Website link on the estimate report"), where each choice that cannot be
+honoured is disabled with the reason.
+
+**The property map**: the Cloudinary satellite still, with the traced
+outline (`measurement.polygon` or `.vertices`) projected onto it by
+`lib/estimate/report/mapOverlay.js` — the forward Web Mercator of
+imageScale's `canvasPointToLatLng`, round-tripped in the check to 0.000 m —
+drawn as a brand stroke over a white halo. No centre/zoom on the still (a
+path-fitted lawn image) means no overlay, never a guess.
+
+**Staff link**: the estimate-review card shows "View the report the
+homeowner got" (`reportUrl` from `/api/quotes/estimate-reviews`, withheld
+below `quotes: view_create_edit` like the share token).
+
+**Schema**: `Company.instantReportWebsite String?` — ADDITIVE ONLY. Not
+pushed from this branch: the live diff also showed DROPs of a sibling's
+`serviceRadiusKm` / `servicePostalPrefixes` (in the database, not yet in
+origin/main's schema), so the push waits for the merged schema.
+
+### Still owed here
+
+- **Product photographs on the option cards.** The repo holds no image per
+  material and the rate card has no image field, so both cards carry a
+  neutral brand-wash tile with the material's name. The honest next step is
+  an `imageUrl` per material row in Settings › Instant Quotes (uploaded
+  through `/api/upload`), read by `optionCards()` into `card.imageUrl`,
+  which both renderers already draw.
+- **Property type** ("Residential / Commercial") is omitted: nothing on the
+  instant form asks. The row renders the moment `estimateData.propertyType`
+  is written.
+- **The request route's call.** `publishEstimateReport({ quoteId,
+  companyId, request })` is exported and checked; the coordinator wires it
+  into `app/api/instant-quote/[companySlug]/request/route.js` after the
+  range is revealed, and returns `url` to the result screen.
 
 ---
 
