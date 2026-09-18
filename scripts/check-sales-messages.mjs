@@ -1381,34 +1381,41 @@ section("15. Every text sent to a business ends up in its conversation");
       ok("…a text from the lead's OTHER number (a stored contact number) lands on the same lead", rowB?.salesRepId === REP_A && rowB?.leadId === "L1", rowB);
       const list = await salesConversations({ salesRepId: REP_A, client: db });
       ok("…and the two arrive in ONE conversation, needing a reply, with both numbers", list.length === 1 && list[0].unanswered === true && list[0].numbers.length === 2 && list[0].name === "Loop Inc", list);
-      // (c) From a number nobody holds: stored with no rep, never dropped —
-      // and listed to the rep as the floor's, as a stranger's number.
+      // (c) From a number nobody holds, on a line nobody has used and nobody
+      // is assigned: stored with no rep, never dropped — and listed to NO
+      // rep. Until 2026-09-18 it reached "the floor", meaning every rep's
+      // "Needs a reply"; a text for Favor sat in Daniel's list. Nobody's is
+      // the superadmin's to assign (lib/sales/smsAttribution.js rung (d)).
       const STRANGER = "+14165550100";
       const c = await handleSalesInboundSms({ to: SALES, from: STRANGER, body: "who is this?", schedule: noop });
       const rowC = db.messages.find((m) => m.direction === "in" && m.fromE164 === STRANGER);
-      ok("…a text from a number nobody holds is STORED, with no rep and no lead invented", c.action === "stored" && rowC && rowC.salesRepId === null && rowC.leadId === null, rowC);
+      ok("…a text from a number nobody holds is STORED, with no rep and no lead invented", c.action === "stored" && rowC && rowC.salesRepId === null && rowC.leadId === null && rowC.matchedBy === null, rowC);
       const floor = await salesConversations({ salesRepId: REP_A, client: db });
-      const stranger = floor.find((x) => x.e164 === STRANGER);
-      ok("…and reaches the floor: listed to the rep as an unowned conversation named by its number", Boolean(stranger) && stranger.unowned === true && stranger.name === null && stranger.lastDirection === "in", stranger);
-      ok("…while the lead's own conversation is not marked unowned", floor.find((x) => x.name === "Loop Inc")?.unowned === false);
+      ok("…and is in NO rep's list: nobody's is not everybody's", !floor.some((x) => x.e164 === STRANGER), floor.map((x) => x.e164));
+      ok("…while the lead's own conversation is listed and owned", floor.find((x) => x.name === "Loop Inc")?.unowned === false);
       const forB = await salesConversations({ salesRepId: "rep_b", client: db });
-      ok("…rep_b sees the stranger too, and NOT rep_a's conversation", forB.length === 1 && forB[0].e164 === STRANGER, forB.map((x) => x.e164));
+      ok("…rep_b sees neither the stranger nor rep_a's conversation", forB.length === 0, forB.map((x) => x.e164));
+      const threadB = await salesThread({ salesRepId: "rep_b", withE164: STRANGER, client: db });
+      ok("…and cannot open the stranger's thread either", threadB.length === 0, threadB);
       // (d) The rep who texted a number last owns its replies, over the lead's own rep.
       db.messages.push({ id: "mx", direction: "out", salesRepId: "rep_b", leadId: "L9", fromE164: SALES, toE164: SHOP, body: "hello from rep b", sentAt: later(20) });
       await handleSalesInboundSms({ to: SALES, from: SHOP, body: "hey rep b", schedule: noop });
       const rowD = db.messages.filter((m) => m.direction === "in" && m.fromE164 === SHOP).pop();
-      ok("…the rep who texted the number LAST owns the reply, whatever lead carries the number", rowD?.salesRepId === "rep_b" && rowD?.leadId === "L9", rowD);
-      // (e) A reply from the floor claims the stranger's rows for the rep.
-      const claim = await db.salesSmsMessage.updateMany({ where: { direction: "in", salesRepId: null, fromE164: STRANGER }, data: { salesRepId: REP_A } });
+      ok("…the rep who texted the number LAST owns the reply, whatever lead carries the number", rowD?.salesRepId === "rep_b" && rowD?.leadId === "L9" && rowD?.matchedBy === "last_text", rowD);
+      // (e) A reply from a rep who texts the stranger claims the unowned rows.
+      const claim = await db.salesSmsMessage.updateMany({ where: { direction: "in", salesRepId: null, fromE164: STRANGER }, data: { salesRepId: REP_A, matchedBy: "reply_claim" } });
       ok("…and a reply's claim (the updateMany deliverReplySms issues) gives the stranger's rows to the rep who answered", claim.count === 1 && rowC.salesRepId === REP_A, claim);
-      const afterClaim = await salesConversations({ salesRepId: "rep_b", client: db });
-      ok("…after which the other reps no longer see it", !afterClaim.some((x) => x.e164 === STRANGER), afterClaim.map((x) => x.e164));
+      const afterClaim = await salesConversations({ salesRepId: REP_A, client: db });
+      ok("…after which THAT rep lists it", afterClaim.some((x) => x.e164 === STRANGER), afterClaim.map((x) => x.e164));
+      ok("…and nobody else does", !(await salesConversations({ salesRepId: "rep_b", client: db })).some((x) => x.e164 === STRANGER));
     } finally {
       globalThis.__FQ_MSG.db = null;
     }
     const inbound = functionSource(decomment(read("lib/sales/salesSms.js")), "handleSalesInboundSms");
-    ok("…the inbound handler matches leads through leadsOnNumber, never \"most recently updated lead with any phone\"", Boolean(inbound) && /leadsOnNumber\(db, fromE164\)/.test(inbound) && !/phone: \{ not: null \}/.test(inbound));
-    ok("…and asks the stored contact numbers", Boolean(inbound) && /salesContactNumber/.test(inbound));
+    ok("…the inbound handler files through the ladder (resolveInboundSmsAttribution), never \"most recently updated lead with any phone\"", Boolean(inbound) && /resolveInboundSmsAttribution\(/.test(inbound) && !/phone: \{ not: null \}/.test(inbound));
+    const ladder = decomment(read("lib/sales/smsAttribution.js"));
+    ok("…and the ladder asks the stored contact numbers", /salesContactNumber/.test(ladder));
+    ok("…and stores which rung fired", /matchedBy: ownerRepId \? filed\.matchedBy/.test(inbound));
     const matched = await leadsOnNumber(fakeDb({ leads: [LEAD] }), "514 555 0134");
     ok("…leadsOnNumber compares normalised, narrowing on the last four digits", matched.length === 1 && matched[0].id === "L1");
   }
@@ -1425,7 +1432,10 @@ section("15. Every text sent to a business ends up in its conversation");
     const { groupOf } = await import("@/lib/sales/messages/rooms");
     ok("…filed under \"Waiting on them\"", groupOf(list[0]) === "waiting", groupOf(list[0]));
     const conv = functionSource(decomment(read("lib/sales/salesSms.js")), "salesConversations");
-    ok("…because the list query has no direction filter of its own", Boolean(conv) && !/direction: "out"/.test(conv) && /\{ salesRepId \}, \{ salesRepId: null, direction: "in" \}/.test(conv));
+    ok("…because the list query has no direction filter of its own", Boolean(conv) && !/direction: "out"/.test(conv) && /salesRepId: \{ in: visible \}/.test(conv));
+    ok("…and never lists the floor's unowned rows to a rep", Boolean(conv) && !/salesRepId: null/.test(conv));
+    const thr = functionSource(decomment(read("lib/sales/salesSms.js")), "salesThread");
+    ok("…nor does the thread reader", Boolean(thr) && !/salesRepId: null/.test(thr) && /salesRepId: \{ in: visible \}/.test(thr));
   }
 
   // ── The fold itself, on hostile shapes ──────────────────────────────────

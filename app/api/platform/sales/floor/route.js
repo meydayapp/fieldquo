@@ -38,7 +38,8 @@ import { NextResponse } from "next/server";
 import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
 import { getAppOrigin } from "@/lib/appUrl";
 import { db } from "@/lib/db";
-import { inboundCalls, salesCallerNumbers } from "@/lib/sales/calls/store";
+import { inboundCalls, salesCallerNumberRows } from "@/lib/sales/calls/store";
+import { callerNumberFor } from "@/lib/sales/calls/browserDial";
 import { inboundOutcome } from "@/lib/sales/calls/missed";
 import {
   inboundWebhookUrl,
@@ -96,10 +97,10 @@ export async function GET(request) {
   // today" from "we could not look" — the two are the same empty array and
   // different facts.
   const origin = getAppOrigin(request);
-  const [agent, inbound, voiceNumbers, numberConfig] = await Promise.all([
+  const [agent, inbound, numberRows, numberConfig] = await Promise.all([
     salesAgentRow().catch(() => null),
     inboundCalls({ from, to: now }).catch(() => undefined),
-    salesCallerNumbers().catch(() => undefined),
+    salesCallerNumberRows().catch(() => undefined),
     // The numbers' configuration AT TWILIO, cached for ten minutes: the
     // board polls every fifteen seconds and the carrier's number list does
     // not change between polls. Only the count of misconfigured numbers
@@ -109,6 +110,22 @@ export async function GET(request) {
   // inboundCalls() lives in store.js, which the call-outcome work is editing
   // concurrently, so the two columns the outcome needs are read beside it
   // rather than added to its select. One query for the page's hundred rows.
+  const voiceNumbers = numberRows === undefined ? undefined : numberRows.map((r) => r.e164);
+  // ── The line each rep presents, said per rep ─────────────────────────
+  //
+  // The same chooser the dial runs (browserDial.js chooseCallerIdFor), so
+  // the board says what the next dial will do. A rep with no line of their
+  // own and no agency line is shown as having NONE — their dial is refused
+  // rather than made from another rep's number — and the owner assigns one
+  // on /platform/crew-lines. Null when the numbers could not be read, which
+  // is "unknown" and not "none".
+  const agencyOf = new Map(reps.map((r) => [r.id, r.agency?.id || null]));
+  const repLine = (repId) => {
+    if (numberRows === undefined) return null;
+    const agency = agencyOf.get(repId);
+    const chosen = callerNumberFor({ salesRepId: repId, callerNumbers: numberRows, agencyRepIds: agency ? [agency] : [] });
+    return { e164: chosen.e164, rule: chosen.rule };
+  };
   const outcomeCols = new Map();
   if (Array.isArray(inbound) && inbound.length) {
     const extra = await db.salesCallAttempt
@@ -123,7 +140,7 @@ export async function GET(request) {
   return NextResponse.json({
     store,
     period,
-    reps,
+    reps: reps.map((r) => ({ ...r, callerNumber: repLine(r.id) })),
     states,
     pauseReasons,
     campaigns,

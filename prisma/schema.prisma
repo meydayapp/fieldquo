@@ -10870,6 +10870,26 @@ model SalesSmsMessage {
   leadId String?
   lead   SalesLead? @relation(fields: [leadId], references: [id])
 
+  /// The discovered business this text is about, when it is about one and no
+  /// SalesLead exists for it. A rep dialling from the queue is looking at a
+  /// Prospect, not a lead — the Advance Appliance text of 2026-09-18 came
+  /// back from a number NOT on the prospect, two minutes after Favor's call
+  /// to it, and with only `leadId` to hang it on there was nothing to hang it
+  /// on. SetNull for the same reason SalesCallAttempt.prospectId is.
+  prospectId String?
+  prospect   Prospect? @relation(fields: [prospectId], references: [id], onDelete: SetNull)
+
+  /// WHICH RULE filed this inbound text to its rep — a
+  /// lib/sales/smsAttribution.js SMS_MATCHED_BY_* value. Null on every
+  /// outbound row and on an inbound row nobody has been able to file.
+  ///
+  /// Stored for the reason SalesCallAttempt.matchedBy is: an attribution is a
+  /// hint with a strength, and "the rep who last texted this number" is a
+  /// different strength from "the rep who dialled from this line two minutes
+  /// ago and the body names the business". A row that cannot say how it was
+  /// filed cannot be re-filed honestly when a stronger rule arrives.
+  matchedBy String?
+
   /// E.164 both ways. The `from` is stored rather than derived at read time
   /// because FieldQuo's sales number can be released and replaced, and "which
   /// number did this actually go out from" is the question a carrier complaint
@@ -10925,6 +10945,7 @@ model SalesSmsMessage {
 
   @@index([salesRepId, sentAt])
   @@index([leadId, sentAt])
+  @@index([prospectId, sentAt])
   /// The rep inbox reads by the OTHER party's number, because a conversation is
   /// with a person and not with a lead row — one contractor may hold two leads
   /// and a reply belongs to the thread either way.
@@ -11596,6 +11617,9 @@ model Prospect {
   corrections   ProspectCorrection[]
   leads         SalesLead[]
   callAttempts  SalesCallAttempt[]
+  /// Inbound texts filed to this business when no SalesLead carries it —
+  /// see SalesSmsMessage.prospectId.
+  smsMessages   SalesSmsMessage[]
   inboundCalls  PlatformVoiceCall[]
 
   /// One row per (provider, record). The database refuses a second copy of the
@@ -13777,6 +13801,19 @@ model SalesCallAttempt {
   /// would record a caller ID that was never shown. Inbound: the sales_voice
   /// number they rang, which is a fact rather than an inference.
   fromE164 String?
+
+  /// WHY that number was presented, on a browser dial — a
+  /// lib/sales/calls/browserDial.js CALLER_ID_RULE_* value: "assigned" (the
+  /// rep's own line), "agency" (their agency's line), "pool_local" / "pool"
+  /// (an unassigned line, local to the prospect or not). Null on handset and
+  /// inbound rows and on rows written before 2026-09-18.
+  ///
+  /// Added the day twelve of Favor's dials presented Rachel's number: the
+  /// chooser sorted every line FieldQuo held and took the first, and nothing
+  /// on the row could say so. A rule name beside the number is what lets the
+  /// floor board tell "her own line" from "somebody else's" without
+  /// re-deriving the assignment table as it stood at the time.
+  callerIdRule String?
 
   /// "out" | "in". Inbound rows are written by app/api/rep-dial/inbound when a
   /// contractor rings a sales_voice number back, so "how many times have we

@@ -582,6 +582,77 @@ ok("holding no numbers presents nothing rather than inventing one", chooseCaller
 ok("a non-E.164 candidate is never presented", chooseCallerId("+19185551234", ["9185550111"]) === null);
 
 const allowed = { decision: CALL_ALLOWED, jurisdiction: { code: "US-OK" }, windowText: "08:00–20:00", zones: ["America/Chicago"], zoneSource: "derived" };
+
+// ── Whose line — assignment before locality, and never another rep's ────────
+//
+// 2026-09-18: every line FieldQuo held was assigned to a rep, the dial route
+// handed this function a bare list, and Favor's twelve dials that morning
+// presented Rachel's +1 438 line — the lowest in sort order — instead of her
+// own +1 716. Not a cache; the assignment column was never read. Executed on
+// the row shape the dial now hands it.
+const { chooseCallerIdFor, callerNumberFor, CALLER_ID_RULE_ASSIGNED, CALLER_ID_RULE_AGENCY, CALLER_ID_RULE_POOL_LOCAL, CALLER_ID_RULE_POOL } =
+  await import("@/lib/sales/calls/browserDial");
+const FLOOR = [
+  { e164: "+14386099615", assignedRepId: "rachel" },
+  { e164: "+17164532568", assignedRepId: "favor" },
+  { e164: "+17165926480", assignedRepId: "daency" },
+  { e164: "+19185550111", assignedRepId: null },
+  { e164: "+16135550100", assignedRepId: null },
+  { e164: "+15145550100", assignedRepId: null, assignedAdminId: "owner" },
+];
+ok("FAVOR PRESENTS HER OWN LINE, to an 888 number with no local match, whatever sorts first", (() => {
+  const r = chooseCallerIdFor({ prospectE164: "+18884209806", callerNumbers: FLOOR, salesRepId: "favor" });
+  return r.e164 === "+17164532568" && r.rule === CALLER_ID_RULE_ASSIGNED;
+})());
+ok("…and her own line even when a pool line is local to the prospect", chooseCallerIdFor({ prospectE164: "+19185551234", callerNumbers: FLOOR, salesRepId: "favor" }).e164 === "+17164532568");
+ok("a rep with no line presents an UNASSIGNED one, local first", (() => {
+  const r = chooseCallerIdFor({ prospectE164: "+19185551234", callerNumbers: FLOOR, salesRepId: "newbie" });
+  return r.e164 === "+19185550111" && r.rule === CALLER_ID_RULE_POOL_LOCAL;
+})());
+ok("…and a stable pool line otherwise", (() => {
+  const r = chooseCallerIdFor({ prospectE164: "+18884209806", callerNumbers: FLOOR, salesRepId: "newbie" });
+  return r.e164 === "+16135550100" && r.rule === CALLER_ID_RULE_POOL;
+})());
+ok("an admin's line is not in the pool either", chooseCallerIdFor({ prospectE164: "+15145559999", callerNumbers: FLOOR, salesRepId: "newbie" }).e164 !== "+15145550100");
+ok("ANOTHER REP'S LINE IS NEVER BORROWED: with only assigned lines, a rep without one gets nothing", (() => {
+  const r = chooseCallerIdFor({ prospectE164: "+18884209806", callerNumbers: FLOOR.filter((n) => n.assignedRepId), salesRepId: "newbie" });
+  return r.e164 === null && r.rule === null;
+})());
+ok("…and callPlan refuses that dial, saying why", (() => {
+  const r = callPlan({ toE164: "+18884209806", readiness: allowed, callerNumbers: FLOOR.filter((n) => n.assignedRepId), salesRepId: "newbie" });
+  return r.ok === false && /assigned to you|another rep/.test(r.reason);
+})());
+ok("an agency employee with no line presents the AGENCY's line before the pool", (() => {
+  const r = chooseCallerIdFor({ prospectE164: "+19185551234", callerNumbers: FLOOR, salesRepId: "emp", agencyRepIds: ["daency"] });
+  return r.e164 === "+17165926480" && r.rule === CALLER_ID_RULE_AGENCY;
+})());
+ok("…but their own line before the agency's", chooseCallerIdFor({ prospectE164: "+1", callerNumbers: FLOOR, salesRepId: "favor", agencyRepIds: ["daency"] }).rule === CALLER_ID_RULE_ASSIGNED);
+ok("no rep id reads every assigned line as somebody else's", chooseCallerIdFor({ prospectE164: "+19185551234", callerNumbers: FLOOR, salesRepId: null }).e164 === "+19185550111");
+ok("an inactive row is never presented", chooseCallerIdFor({ prospectE164: "+1", callerNumbers: [{ e164: "+17164532568", assignedRepId: "favor", active: false }], salesRepId: "favor" }).e164 === null);
+ok("bare strings still work, as an unassigned pool", chooseCallerId("+19185551234", OURS) === "+19185550111");
+ok("the plan carries the rule so the row can record it", (() => {
+  const r = callPlan({ toE164: "+18884209806", readiness: allowed, callerNumbers: FLOOR, salesRepId: "favor" });
+  return r.ok === true && r.callerId === "+17164532568" && r.callerIdRule === CALLER_ID_RULE_ASSIGNED;
+})());
+ok("the floor board's per-rep answer is the same chooser", callerNumberFor({ salesRepId: "rachel", callerNumbers: FLOOR }).e164 === "+14386099615" && callerNumberFor({ salesRepId: "newbie", callerNumbers: FLOOR.filter((n) => n.assignedRepId) }).e164 === null);
+{
+  const route = read("app/api/sales/calls/route.js").replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/[^\n]*/g, "$1");
+  const post = route.slice(route.indexOf("export async function POST"));
+  ok("the dial route hands callPlan the number ROWS with holders, read at the dial, and the rep", /salesCallerNumberRows\(\)/.test(post) && /salesRepId: rep\.id,\s*agencyRepIds/.test(post));
+  ok("…never the bare list", !/salesCallerNumbers\(/.test(route));
+  ok("…and writes the rule on the attempt", /callerIdRule: plan\?\.callerIdRule/.test(post));
+  const storeSrc = read("lib/sales/calls/store.js").replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/[^\n]*/g, "$1");
+  ok("salesCallerNumberRows selects the holders", /select: \{ e164: true, assignedRepId: true, assignedAdminId: true \}/.test(storeSrc));
+  ok("…and nothing caches it", !/numberRowsCache|callerNumbersCache/.test(storeSrc) && !/cache/i.test(post.slice(post.indexOf("salesCallerNumberRows()") - 400, post.indexOf("salesCallerNumberRows()"))));
+  ok("recordDial stores callerIdRule only beside a number", /callerIdRule: fromE164 && typeof callerIdRule === "string"/.test(storeSrc));
+  const floor = read("app/api/platform/sales/floor/route.js");
+  ok("the floor board says which line each rep presents, through the same chooser", /callerNumberFor\(/.test(floor) && /callerNumber: repLine\(r\.id\)/.test(floor));
+  const floorPage = read("app/platform/sales/floor/page.js");
+  ok("…and prints “No number assigned” rather than staying quiet", /No number assigned/.test(floorPage) && /rep\.callerNumber/.test(floorPage));
+  const schema = read("prisma/schema.prisma");
+  ok("SalesCallAttempt.callerIdRule exists", /callerIdRule String\?/.test(schema));
+}
+
 ok("a refused window cannot be dialled through the browser either",
   callPlan({ toE164: "+19185551234", readiness: { decision: CALL_REFUSED }, callerNumbers: OURS }).ok === false);
 ok("an unknown window cannot be dialled through the browser either",
@@ -615,6 +686,10 @@ ok("there is still no environment variable that decides it", (() => {
   return !/process\.env\.[A-Z_]*RECORD/.test(body);
 })());
 
+ok("readiness with lines held but none the rep's names the assignment, not a purchase", (() => {
+  const r = browserDialReadiness({ twilioConfigured: true, twimlAppSid: "AP1", callerNumbers: [], heldButNotMine: true, origin: "https://x" });
+  return r.ready === false && r.blockedBy.key === "caller_id" && /assigned to you/.test(r.blockedBy.title) && /assigned to another rep/.test(r.blockedBy.fix);
+})());
 ok("readiness names the first missing link", (() => {
   const r = browserDialReadiness({ twilioConfigured: false, twimlAppSid: "AP1", callerNumbers: OURS, origin: "https://x" });
   return r.ready === false && r.blockedBy.key === "twilio";

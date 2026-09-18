@@ -33,12 +33,14 @@ import { fetchJson } from "@/lib/fetchJson";
 import PlatformWriteGate, { usePlatformAdmin } from "@/app/components/platform/PlatformWriteGate";
 import MessageThread from "@/app/sales/messages/MessageThread";
 import { ChatLayout, PANE_LIST, PANE_THREAD, RoomList, initialsOf } from "@/app/components/chat";
+import UnownedTexts from "@/app/components/platform/sales/UnownedTexts";
 
 const NOTICE = {
   headline: "The owner can read any rep's conversations with prospects here. Reps are told.",
   detail:
     "Read-only: nothing here can send, edit or delete. Opening a thread writes an audit-log entry, and the rep sees " +
-    "“Reviewed by the owner on <date>” on that thread in their own portal. Superadmins only — not admin, not support.",
+    "“Reviewed by the owner on <date>” on that thread in their own portal. Superadmins only — not admin, not support. " +
+    "The one write is filing a text nobody could be matched to, below, which is audited under your name.",
 };
 
 function prettyE164(e164) {
@@ -270,6 +272,11 @@ function ConversationsScreen() {
       {error ? (
         <p className="rounded-lg border border-border bg-card p-3 text-sm text-amber-700 dark:text-amber-300">{error}</p>
       ) : null}
+
+      {/* Rung (d) of lib/sales/smsAttribution.js: the texts no rule could
+          file. Here and nowhere else — never in a rep's list. Filing one
+          reloads the rep's conversations so it appears under them. */}
+      <UnownedTexts onAssigned={() => load()} />
 
       <ChatLayout list={list} thread={threadNode} pane={pane} context={null} onCloseContext={() => setPane(PANE_THREAD)} height="h-[calc(100vh-16rem)]" />
     </div>
