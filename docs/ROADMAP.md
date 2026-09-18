@@ -13377,3 +13377,53 @@ his handset) — so he adds it on the Calling windows page. Inbound rows from
 a test line (a ring-back) are written by `app/api/rep-dial/inbound`, which
 was out of scope, and carry no mark; the floor board's "came in today"
 still counts one.
+
+**3. The test ACCOUNT, and a typed test number that is never saved (17
+September 2026, later the same evening).** The owner, told exactly why the
+per-account bypass had been refused, reaffirmed it: his own rep account
+tests the dialler at all hours. Built as a FLAG on the row, never an email:
+`SalesRep.testAccount Boolean @default(false)` (added to production with
+`ADD COLUMN IF NOT EXISTS` — the `migrate diff` against the live database
+carried four DROPs belonging to siblings' in-flight schema, so no `db
+push`). One path, not two: `salesCallReadiness({ testLine, testAccount })`
+returns the same shape with `jurisdiction.code = "test"` and a `testMode`
+of `line` or `account`; the umbrella `testLine: true` stays so the queue's
+grouping, the retry pool and every count need no second edit. The account
+caveat has its own words (`app.salesDial.unenforced.testAccount.*`, nine
+languages) and says do-not-contact still applies — the dial route reads
+the flag off the rep row AFTER the do-not-contact and suppression reads.
+All four rep gates select it fresh per request; the queue route passes it
+for the current pane, the list (`groupByWindow({ testAccount })` → every
+row callable now, unscored, unheld) and `rep.testAccount`; the lead route
+through `leadDialView`; the screens re-pass the literal true. Portal: one
+persistent amber line under the top bar from `/api/sales/me`
+(`app.salesPortal.testAccountBanner`). Console: the rep card's "Test
+account" block — superadmin-only, a confirm, `PATCH { testAccount }`,
+audit `sales_rep_test_account_set` with before/after; refused (409) for an
+agency, an influencer ledger and any rep with a commission entry ("a test
+account earns nothing"), and the card withholds the control with the
+reason in those states. Inbound left alone. **Daniel's row is NOT flipped**
+— the owner flips it on his card. His live test the same night ("it is
+the number that is being called, right?") added the typed-number rule: a
+number typed into the pad that is a test line, or typed by a test account,
+is NEVER saved on the record — `POST /api/sales/calls/numbers` refuses it
+with code `test_line` / `test_account`, the pad rings it unsaved as
+`typedE164`, and `POST /api/sales/calls` accepts `typedE164` ONLY for those
+two cases (everybody else: 409 `not_on_this_record`, so the no-number-on-
+the-wire rule holds for whom it was written), judged after suppression
+(the typed number is on `everyNumber`); the attempt still names the
+prospect on screen. The pad asks `GET /api/sales/calls/test-line?e164=`
+(one number in, one boolean out, list never returned) so the readiness is
+judged as a test BEFORE the lead's jurisdiction — no "New York's rule"
+over an exempt dial — and says "Test line — not saved on this lead,
+calling window not applied" under the field; the Call button names the
+NUMBER ("Call +1 613 555 0100", `formatE164ForReading`) when it is not a
+stored one. `check-sales-test-line.mjs` grew to 169 assertions (sections 6
+and 7); `check-sales-console`, `check-free-dial`, `check-queue-windows`
+and `check-sales-retry-pool` were updated for the new shapes. Found while
+verifying: the test-line list in production is still EMPTY, and Daniel's
+handset (+1 819 238 7263, by his own dials) sits as a stored contact
+number on two records he tested with earlier — "Urban Valet Cleaners
+Corporate Offices" (NY) and "ACME LOCK & SAFE" (CA) — which he removes by
+hand; nothing was deleted here. `check:sales-retry-pool`'s "retry_but_shut"
+assertion fails on main before this work and still does; not touched.

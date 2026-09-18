@@ -357,8 +357,9 @@ const NO_TARGET_BY_DESIGN = {
   // facts drift. The dock returns null while nothing is happening.
   const dock = decomment(read("app/components/sales/IncomingCallDock.js"));
   // `mounted` is the drawer's slide state: true only from a ring until the
-  // slide up has finished. Idle — no ring, no call, no error — is still null.
-  ok("IncomingCallDock still mounts nothing while idle", /if \(!mounted && !live && !error && !audioWarning\) return null;/.test(dock));
+  // slide up has finished. Idle — no ring, no call, no error, no write-up
+  // waiting after a call — is still null.
+  ok("IncomingCallDock still mounts nothing while idle", /if \(!mounted && !live && !error && !audioWarning && !writeUp\) return null;/.test(dock));
 
   // A slug nothing points at is dead decoration. Every data-tour="sales-…"
   // in the portal must be some step's target.

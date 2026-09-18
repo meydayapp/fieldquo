@@ -47,6 +47,8 @@ import { requireCallingRep } from "@/lib/sales/calls/gate";
 import { queueWhere } from "@/lib/sales/prospectView";
 import { normalisePhone } from "@/lib/sales/suppressionRules";
 import { ownNumbers } from "@/lib/sales/calls/store";
+import { isTestLine } from "@/lib/sales/testLines";
+import { loadTestLines } from "@/lib/sales/testLinesStore";
 import {
   CHANNEL_TEXT,
   CHANNEL_VOICE,
@@ -233,6 +235,31 @@ export async function POST(request) {
     return bad(
       "That isn't a number we can dial. Put it in full, with the country code — nothing here " +
         "guesses the missing digits.",
+    );
+  }
+
+  // ── Our own phone, or our own tester: not written onto their record ───
+  //
+  // A number on the test-line list is FieldQuo's (lib/sales/testLines.js),
+  // and a test account (SalesRep.testAccount) is FieldQuo testing. Neither
+  // belongs in a business's contact list: the owner rang his own mobile
+  // from DRAIN KINGS's card on 2026-09-17 and the console offered to file
+  // it as theirs, which would have polluted that record, its suppression
+  // history and every future pick. Refused with a code the dial pad reads
+  // (app/sales/queue/page.js beforeDial) to ring it UNSAVED as `typedE164`,
+  // which the dial route re-judges for itself. The Contact card's add form
+  // shows this sentence as its error, which is the honest outcome there.
+  const testLineHit = isTestLine(e164, await loadTestLines());
+  if (testLineHit || rep.testAccount === true) {
+    return NextResponse.json(
+      {
+        error: testLineHit
+          ? "That is one of FieldQuo's own test lines. It is not saved on this record — a test dial rings it as it is."
+          : "This is a test account. A number it types is not saved on the record — a test dial rings it as it is.",
+        code: testLineHit ? "test_line" : "test_account",
+        e164,
+      },
+      { status: 409 },
     );
   }
 

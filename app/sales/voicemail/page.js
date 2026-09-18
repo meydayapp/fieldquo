@@ -159,7 +159,10 @@ export default function SalesVoicemailPage() {
           said. Rendered on this screen because "who tried to reach me" is
           one question, and hidden nowhere — an empty list says so in words.
           Server-side rule and the reason it exists: lib/sales/calls/missed.js. */}
-      <section className="space-y-3" data-tour="sales-missed-calls">
+      {/* data-sales-missed-calls, not data-tour: no tour step points here
+          (the voicemail step rings the list above), and a sales-* data-tour
+          nothing points at is what check:sales-mobile refuses. */}
+      <section className="space-y-3" data-sales-missed-calls>
         <header className="space-y-1">
           <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
             <PhoneMissed size={16} aria-hidden="true" />
