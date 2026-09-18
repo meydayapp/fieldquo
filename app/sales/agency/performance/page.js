@@ -42,6 +42,8 @@ function callLabelsFor(t) {
     connected: t("app.salesAgencyPerf.connected"),
     talkMinutes: t("app.salesAgencyPerf.talkMinutes"),
     answerRate: t("app.salesAgencyPerf.answerRate"),
+    conversationRate: t("app.salesAgencyPerf.conversationRate"),
+    notYetKnown: (n) => t("app.salesAgencyPerf.notYetKnown", { n }),
     reachRate: t("app.salesAgencyPerf.reachRate"),
     callbacks: t("app.salesAgencyPerf.callbacks"),
     everyone: t("app.salesAgencyPerf.everyone"),

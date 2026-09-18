@@ -59,6 +59,11 @@ function minutes(ms) {
 
 function CallRow({ name, sub, stats, labels, href }) {
   const m = stats?.measured;
+  // "Connected" and the two rates are lib/sales/calls/conversation.js's
+  // connectFigures(), carried on repCallStats as `connect` — the carrier's
+  // answer rate and the transcript's conversation rate, each labelled as
+  // what it is, never a count of our own.
+  const c = stats?.connect;
   return (
     <tr className="border-t border-border">
       <td className={TD}>
@@ -73,15 +78,19 @@ function CallRow({ name, sub, stats, labels, href }) {
       </td>
       <td className={`${TD} tabular-nums`}>{stats?.dials ?? "—"}</td>
       <td className={`${TD} tabular-nums`}>
-        {m ? m.connected : "—"}
-        {m ? <div className="text-xs text-muted-foreground">{labels.ofBridged(m.bridged)}</div> : null}
+        {c ? c.connected : "—"}
+        {c ? <div className="text-xs text-muted-foreground">{labels.ofBridged(c.measured)}</div> : null}
       </td>
       <td className={`${TD} tabular-nums`}>
         {m && m.talkMs !== null ? minutes(m.talkMs) : "—"}
         {m && m.talkMs !== null ? <div className="text-xs text-muted-foreground">{labels.overCalls(m.measuredOf)}</div> : null}
       </td>
       <td className={TD}>
-        <Rate value={m?.carrierAnswerRate} belowFloor={labels.belowFloor} />
+        <Rate value={c?.answerRate} belowFloor={labels.belowFloor} />
+      </td>
+      <td className={TD}>
+        <Rate value={c?.conversationRate} belowFloor={labels.belowFloor} />
+        {c && c.unknown > 0 ? <div className="text-xs text-muted-foreground">{labels.notYetKnown(c.unknown)}</div> : null}
       </td>
       <td className={TD}>
         <Rate value={stats?.reportedReachRate} belowFloor={labels.belowFloor} />
@@ -165,7 +174,7 @@ export default function CallPerformanceSections({ calls, callQuality, labels, re
         <p className="text-sm text-muted-foreground">{labels.callsIntro}</p>
         <div className={`${CARD} p-0 overflow-hidden`}>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[820px] text-sm">
+            <table className="w-full min-w-[920px] text-sm">
               <thead className="bg-muted">
                 <tr>
                   <th className={TH}>{labels.rep}</th>
@@ -173,6 +182,7 @@ export default function CallPerformanceSections({ calls, callQuality, labels, re
                   <th className={TH}>{labels.connected}</th>
                   <th className={TH}>{labels.talkMinutes}</th>
                   <th className={TH}>{labels.answerRate}</th>
+                  <th className={TH}>{labels.conversationRate}</th>
                   <th className={TH}>{labels.reachRate}</th>
                   <th className={TH}>{labels.callbacks}</th>
                 </tr>
@@ -180,7 +190,7 @@ export default function CallPerformanceSections({ calls, callQuality, labels, re
               <tbody>
                 {calls.reps.length === 0 ? (
                   <tr>
-                    <td className={TD} colSpan={7}>
+                    <td className={TD} colSpan={8}>
                       {labels.noCalls}
                     </td>
                   </tr>

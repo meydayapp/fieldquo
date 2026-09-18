@@ -65,12 +65,14 @@ const CALL_LABELS = {
   callsIntro:
     "What the floor did on the phone in this period — the same figures the sales floor board draws, read through the same functions, so the two screens cannot disagree. Placed calls only; a contractor ringing back is counted separately on the floor.",
   callsNote:
-    "\"Connected\" and talk minutes are the carrier's own report and exist only for browser dials — a call placed from a rep's own handset is neither timed nor answered as far as FieldQuo knows, which is why each figure says how many calls it was measured over. \"Reached\" is what the rep reported, and is labelled as the self-report it is.",
+    "\"Connected\" and talk minutes are the carrier's own report and exist only for browser dials — a call placed from a rep's own handset is neither timed nor answered as far as FieldQuo knows, which is why each figure says how many calls it was measured over. \"Conversation\" is the transcript's: the contractor said twenty or more words, with the calls whose transcript is not in yet counted beside it rather than in the denominator. \"Reached\" is what the rep reported, and is labelled as the self-report it is.",
   rep: "Rep",
   dials: "Dials",
   connected: "Connected",
   talkMinutes: "Talk minutes",
-  answerRate: "Carrier answer rate",
+  answerRate: "Answered (carrier)",
+  conversationRate: "Conversation (transcript)",
+  notYetKnown: (n) => `${n} not yet known`,
   reachRate: "Reached (reported)",
   callbacks: "Callbacks promised",
   everyone: "Everyone",

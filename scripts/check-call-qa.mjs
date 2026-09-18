@@ -433,10 +433,11 @@ section("7. The performance report: one scope, every input");
   ok("buildSalesPerformance itself takes the scope, so there is one builder", buildSalesPerformance({ ...inputs, repIds: ["c"] }).reps.length === 1 && buildSalesPerformance({ ...inputs, repIds: ["c"] }).scope.repIds[0] === "c");
   ok("an empty scope is nobody, never everyone", buildPerformanceReport({ ...inputs, repIds: [] }).reps.length === 0);
   const calls = buildCallActivity({ reps, attempts, from: at(1), to: at(30), now: at(15) });
-  ok("call activity reads connected from the carrier's answeredAt (1 of 2 per rep)", calls.reps[0].stats.measured.connected === 1 && calls.reps[0].stats.dials === 2, calls.reps[0].stats.measured);
-  ok("…with the carrier answer rate as an envelope, under the floor", calls.reps[0].stats.measured.carrierAnswerRate.value === null && calls.reps[0].stats.measured.carrierAnswerRate.sampleSize === 1);
+  ok("call activity carries connectFigures() — the store's connected count, never one of its own (1 of 1 bridged per rep)", calls.reps[0].stats.connect.connected === 1 && calls.reps[0].stats.connect.measured === 1 && calls.reps[0].stats.dials === 2, calls.reps[0].stats.connect);
+  ok("…with the carrier's answer rate as an envelope, under the floor", calls.reps[0].stats.connect.answerRate.value === null && calls.reps[0].stats.connect.answerRate.sampleSize === 1);
+  ok("reporting.js's measuredDurations grew no second connected count", !/carrierAnswerRate/.test(decomment(read("lib/sales/calls/reporting.js"))));
   ok("…callbacks promised counted", calls.reps[0].stats.callbacks.booked === 1);
-  ok("…and the calls' own not-tracked list travels with the section", Array.isArray(calls.notTracked) && calls.notTracked.some((n) => n.key === "connectRate"));
+  ok("…and the calls' own not-tracked list travels with the section", Array.isArray(calls.notTracked) && calls.notTracked.some((n) => n.key === "handsetDurations"));
   ok("performance.js's NOT_TRACKED no longer refuses calls", !NOT_TRACKED.some((n) => n.key === "callsAndTalkTime"));
   ok("lib/sales/performance.js still imports no database", ["lib/sales/performance.js", "lib/sales/callQuality.js", "lib/sales/performanceReport.js"].every((f) => !/@\/lib\/db/.test(decomment(read(f)))));
 }
