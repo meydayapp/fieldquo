@@ -326,7 +326,10 @@ const route = decomment(read("app/api/sales/calls/route.js"));
 ok("the countdown is five seconds", AUTODIAL_COUNTDOWN_SECONDS === 5);
 ok("…declared once in lib/sales/autodial.js", /export const AUTODIAL_COUNTDOWN_SECONDS = 5;/.test(lib));
 ok("…and the control imports it rather than typing a number", /AUTODIAL_COUNTDOWN_SECONDS/.test(control) && /AUTODIAL_COUNTDOWN_SECONDS \* 1000/.test(control) && !/\b5000\b/.test(control));
-ok("the dial goes through CallPanel's place(\"browser\") — the manual path", /place\("browser"\)\.then/.test(panel) && /onClick=\{\(\) => place\("browser"\)\}/.test(panel));
+// The dialler's press names itself on the wire since 2026-09-17 —
+// place("browser", "autodial") — so SalesCallAttempt.dialSource can say how
+// many calls the machine placed; the thumb's press stays place("browser").
+ok("the dial goes through CallPanel's place(\"browser\", \"autodial\") — the manual path is the same function", /place\("browser", "autodial"\)\.then/.test(panel) && /onClick=\{\(\) => place\("browser"\)\}/.test(panel));
 ok("there is exactly one device.connect under app/ and it is CallPanel's", (() => {
   const files = [
     "app/components/sales/CallPanel.js",

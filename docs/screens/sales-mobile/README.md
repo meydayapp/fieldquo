@@ -46,3 +46,26 @@ an agenda list of the month's events — every day still opens "new event",
 every event still opens itself. The bottom bar's label has the padding it
 needs. The drawer container moved to `app/components/layout/NavDrawer.js`
 with no change to its markup.
+
+## 2026-09-17 — the drawer's status grid
+
+The owner, from his phone: "the drawer menu of the mobile version of the
+sales platform clogs all the statuses in a grid and stays on top of the
+top menu buttons, not allowing me to see and click on Queue etc."
+
+Reproduced at 375×660 — a 812px phone once Safari's toolbars are counted.
+The drawer's status picker was the pill plus a two-column grid of six 44px
+buttons, always open: 200px before the first nav row, so Texts, Team and
+Notes showed and the other seven sat under "Signed in as" in a scroll box
+nothing suggested was one. With the drawer open the scrim covers the bottom
+bar, which is where Queue lives — so from the owner's seat the drawer was
+all statuses and no way to Queue.
+
+Now `layout="list"` in `app/components/sales/RepStatus.js` is the header's
+own status button, full width, opening the six as one column IN the drawer's
+flow behind one tap (`today-status-menu-375.png`); the status control and
+the rows share one scroll box; and the foot is one row. All ten drawer rows
+fit collapsed at 375×660, 375×812 and 390×844 (`today-drawer-375.png`).
+The header's menu-mode picker is inside `hidden lg:block` and measured
+`display:none` below lg; with the drawer closed every bottom-bar tab
+hit-tests to itself.

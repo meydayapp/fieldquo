@@ -977,6 +977,43 @@ export default function PlatformSalesRepsPage() {
     }
   }
 
+  /**
+   * The owner's dialler-testing flag (SalesRep.testAccount). One PATCH, no
+   * draft: the sentence on the card says exactly what changes, and the
+   * confirm repeats it. The server refuses an agency, an influencer ledger
+   * and any rep with a commission entry; the card does not offer the
+   * control in those states and says why instead.
+   */
+  async function saveTestAccount(rep, on) {
+    if (
+      on &&
+      !confirm(
+        `Make ${rep.name} a test account? The calling window is not applied to their dials — they can ring at any hour — and every dial they place is recorded as a test and counted nowhere: no stat, no funnel, no commission. Do-not-contact still applies.`,
+      )
+    ) {
+      return;
+    }
+    setBusy(true);
+    clearBanners();
+    try {
+      const saved = await fetchJson(`/api/platform/sales/reps/${rep.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ testAccount: on }),
+      });
+      setNotice(
+        saved.testAccount
+          ? `${rep.name} is a test account. Their dials are not held to the calling window and are counted nowhere; their portal says so on every screen.`
+          : `${rep.name} is an ordinary account again. Their dials are held to the calling window and count from now on.`,
+      );
+      await load();
+    } catch (err) {
+      setError(err.message || "Could not change the test-account flag.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function savePlan(rep) {
     const value = planDraft[rep.id] ?? "";
     if (
@@ -1432,6 +1469,14 @@ export default function PlatformSalesRepsPage() {
                           {isEmployeeRow ? (
                             <span className="ml-2 align-middle text-[11px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground" data-via-agency>
                               via {rep.agency.name}
+                            </span>
+                          ) : null}
+                          {rep.testAccount ? (
+                            <span
+                              className="ml-2 align-middle text-[11px] uppercase tracking-wide px-1.5 py-0.5 rounded-full border bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-900"
+                              data-test-account-chip={rep.id}
+                            >
+                              test account
                             </span>
                           ) : null}
                           {!rep.active && isEmployeeRow ? (
@@ -2145,6 +2190,51 @@ export default function PlatformSalesRepsPage() {
                     </p>
                   )}
                 </div>
+
+                {/* ── Test account ──────────────────────────────────────────
+                    The owner's own dialler-testing flag (SalesRep.testAccount,
+                    2026-09-17). Superadmin-only, audited. Not offered for an
+                    agency or a rep who has earned — the server refuses both;
+                    the card says why rather than showing a control that
+                    would fail. */}
+                {!isInfluencerRow ? (
+                  <div data-test-account={rep.id}>
+                    <div className={LABEL}>Test account</div>
+                    <p className="text-sm text-foreground">
+                      {rep.testAccount
+                        ? "Yes — the calling window is not applied to this rep's dials; every dial is recorded as a test and counted nowhere."
+                        : "No — this rep's dials are held to the calling window and count."}
+                    </p>
+                    {isSuperadmin ? (
+                      isAgencyRow ? (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          An agency cannot be a test account — the flag belongs on the person who dials.
+                        </p>
+                      ) : !rep.testAccount && (rep.ledger?.entries || 0) > 0 ? (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Has {rep.ledger.entries} commission {rep.ledger.entries === 1 ? "entry" : "entries"}, so cannot become a
+                          test account — a test account earns nothing. Invite a separate account to test with.
+                        </p>
+                      ) : (
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          <button
+                            onClick={() => saveTestAccount(rep, !rep.testAccount)}
+                            disabled={busy}
+                            className={rep.testAccount ? BTN_QUIET : BTN_PRIMARY}
+                            data-test-account-toggle={rep.id}
+                          >
+                            {rep.testAccount ? "Make it an ordinary account" : "Make this a test account"}
+                          </button>
+                          {!rep.testAccount ? (
+                            <span className="text-xs text-muted-foreground">
+                              Calls at any hour, counted nowhere, earns nothing. Do-not-contact still applies.
+                            </span>
+                          ) : null}
+                        </div>
+                      )
+                    ) : null}
+                  </div>
+                ) : null}
 
                 {/* The sending verdict, from the same function the rep's own
                     portal asks. Never a local guess: two opinions is how the

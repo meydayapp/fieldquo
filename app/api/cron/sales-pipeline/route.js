@@ -72,6 +72,9 @@ import { topUpResearchBacklog } from "@/lib/sales/pipeline/research";
 import { SUGGEST_CRON_SLICE, suggestTradesBatch } from "@/lib/sales/discovery/suggestTradesBatch";
 import { runTradeSuggestAiSlice } from "@/lib/sales/discovery/suggestTradesAiApproval";
 import { sweepMissedInbound } from "@/lib/sales/calls/missed";
+import { sweepQueuedPlaces } from "@/lib/sales/intel/placesSweep";
+import { reconcileCarrierPrices } from "@/lib/sales/calls/costs";
+import { pullTwilioUsageIfStale } from "@/lib/platform/costs/twilioUsage";
 
 // Same reasoning as grace-warning's BATCH: the query is driven by `status`,
 // not a cursor, so leftovers are picked up by the next tick and nothing is
@@ -177,6 +180,23 @@ export async function GET(request) {
     result.missedCalls = { error: err?.message || String(err) };
   }
 
+  // What the calls cost. Twilio prices a call minutes after it ends, so the
+  // status callback lands without a price on most rows; this asks the Calls
+  // resource for the ten most recent unpriced ones a minute, and once an
+  // hour pulls the account's Usage Records into PlatformCostDaily for
+  // /platform/costs. lib/sales/calls/costs.js, lib/platform/costs/twilioUsage.js.
+  // Each in its own try, for the reason the sweep above gives.
+  try {
+    result.carrierPrices = await reconcileCarrierPrices({ now, client: db, limit: 10, log: (line) => console.error(line) });
+  } catch (err) {
+    result.carrierPrices = { error: err?.message || String(err) };
+  }
+  try {
+    result.twilioUsage = await pullTwilioUsageIfStale({ now, client: db });
+  } catch (err) {
+    result.twilioUsage = { error: err?.message || String(err) };
+  }
+
   // ── Then the backlog: websites nobody has read, a slice per run ──────────
   //
   // 42,383 prospects had a website and no crawl when this was added, and only
@@ -225,6 +245,24 @@ export async function GET(request) {
     suggestions = { error: err?.message || String(err) };
   }
   result.suggestions = suggestions;
+
+  // ── Then Google Places, through what reps hold, in their queue order ────
+  //
+  // The standing job the owner sized: 25 lookups per rep per clock hour,
+  // taken in the order the rep will dial, never a row checked in the last
+  // 90 days (lib/sales/intel/placesSweep.js). A tick takes at most
+  // SWEEP_PER_TICK across every rep — a few seconds of HTTP, metered at list
+  // price into PlatformCostDaily — and the hour's allowance, not this tick,
+  // is what bounds the spend. Its own try/catch, for the backlog's reason.
+  // The pool is NOT here: nobody holds those rows, and the owner has not
+  // said yes to the number.
+  let places;
+  try {
+    places = await sweepQueuedPlaces({ db, now });
+  } catch (err) {
+    places = { error: err?.message || String(err) };
+  }
+  result.places = places;
 
   // ── Then the PAID pass, only while an approval row says so ──────────────
   //

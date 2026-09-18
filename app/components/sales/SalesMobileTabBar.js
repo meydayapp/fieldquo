@@ -225,41 +225,55 @@ export default function SalesMobileTabBar({ tabs, name = null, onSignOut, drawer
           </button>
         </div>
 
-        {drawerExtra ? (
-          <div className="px-4 py-3 border-b border-border">{drawerExtra}</div>
-        ) : null}
+        {/* One scroll box for the status control AND the rows, so the
+            control's open list pushes the rows down rather than covering
+            them, and on a viewport too short for everything (Safari's is
+            ~660px on a 812px phone once its toolbars are counted) the
+            whole column scrolls. Only the nav used to scroll, under a
+            fixed 200px status grid — three rows showed and the rest were
+            under the fold; see RepStatus.js on why the grid folded. */}
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          {drawerExtra ? (
+            <div className="px-4 py-3 border-b border-border">{drawerExtra}</div>
+          ) : null}
 
-        <nav className="flex-1 overflow-y-auto py-2">
-          {drawer.map((tab) => {
-            const active = isActiveTab(pathname, tab.href);
-            return (
-              <Link
-                key={tab.href}
-                href={tab.href}
-                aria-current={active ? "page" : undefined}
-                data-sales-tour={tab.href}
-                className={`flex items-center min-h-[44px] px-4 py-2 text-sm font-medium border-l-2 ${
-                  active
-                    ? "border-brand-accent text-foreground bg-muted"
-                    : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted"
-                }`}
-              >
-                {tab.label}
-              </Link>
-            );
-          })}
-        </nav>
+          <nav className="py-2">
+            {drawer.map((tab) => {
+              const active = isActiveTab(pathname, tab.href);
+              return (
+                <Link
+                  key={tab.href}
+                  href={tab.href}
+                  aria-current={active ? "page" : undefined}
+                  data-sales-tour={tab.href}
+                  className={`flex items-center min-h-[44px] px-4 py-2 text-sm font-medium border-l-2 ${
+                    active
+                      ? "border-brand-accent text-foreground bg-muted"
+                      : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted"
+                  }`}
+                >
+                  {tab.label}
+                </Link>
+              );
+            })}
+          </nav>
+        </div>
 
-        <div className="border-t border-border px-4 py-3 space-y-2">
+        {/* The foot, one row: who, and the way out. It was two rows (the
+            name, then the button under it) — 96px the rows above could not
+            have. */}
+        <div className="border-t border-border px-4 py-2 flex items-center justify-between gap-3">
           {name ? (
-            <p className="text-sm text-muted-foreground break-words">
+            <p className="text-sm text-muted-foreground break-words min-w-0">
               {t("app.salesPortal.signedInAs", { name })}
             </p>
-          ) : null}
+          ) : (
+            <span />
+          )}
           <button
             type="button"
             onClick={onSignOut}
-            className="inline-flex items-center gap-2 min-h-[44px] text-sm font-medium text-muted-foreground hover:text-foreground"
+            className="inline-flex items-center gap-2 min-h-[44px] shrink-0 text-sm font-medium text-muted-foreground hover:text-foreground"
           >
             <LogOut size={14} />
             {t("app.salesPortal.signOut")}
