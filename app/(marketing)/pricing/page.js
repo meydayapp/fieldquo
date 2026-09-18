@@ -7,6 +7,7 @@
 // translation lives in React context. Same split as /industries/[slug].
 import { db } from "@/lib/db";
 import { partitionPlans } from "@/lib/platform/sellablePlans";
+import { customOfferFromScale } from "@/lib/billing/customPlan";
 import { marketingMetadata } from "@/lib/marketing/metadata";
 import PricingPlans from "./PricingPlans";
 
@@ -139,5 +140,15 @@ export default async function PricingPage() {
     features: plan.features || null,
   }));
 
-  return <PricingPlans plans={serialised} />;
+  // The fifth card — "Need more people?" — prices itself from the Scale row
+  // this page is already showing, through the same function the server mints
+  // the row with (lib/billing/customPlan.js). No Scale row, no card: a
+  // stepper with no price is a dead control.
+  const scale = plans.find((p) => p.tierKey === "scale") || null;
+  const rawOffer = scale ? customOfferFromScale(scale) : null;
+  const customOffer = rawOffer
+    ? { ...rawOffer, baseMonthly: Number(rawOffer.baseMonthly), baseAnnual: rawOffer.baseAnnual === null ? null : Number(rawOffer.baseAnnual) }
+    : null;
+
+  return <PricingPlans plans={serialised} customOffer={customOffer} />;
 }

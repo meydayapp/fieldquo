@@ -238,13 +238,20 @@ ok("two office and twenty in the field fits Scale",
   fieldquoCost({ officeSeats: 2, fieldCrew: 20 }).fits === true);
 ok("...at the Scale price, not an invented one",
   fieldquoCost({ officeSeats: 2, fieldCrew: 20 }).tierKey === "scale");
-// Twenty-six people is past the whole allowance, and twelve billable people is
-// past the seats however few crew there are. Both are still a conversation.
-ok("twenty-six people fits no rung", fieldquoCost({ officeSeats: 3, fieldCrew: 23 }).fits === false);
-ok("...and so does a twelfth BILLABLE person, whatever the headcount",
-  fieldquoCost({ officeSeats: 12, fieldCrew: 0 }).fits === false);
-ok("...and the ceiling it names is read off SEAT_LADDER",
-  LADDER_CEILING.crew === Math.max(...SEAT_LADDER.map((t) => t.crewSeats)));
+// Twenty-six people is past the four published rungs, and twelve billable
+// people is past Scale's seats however few crew there are. Since the fifth
+// rung (2026-09-18) both are a custom size at the ladder's own per-seat
+// step, named with its counts; past a hundred people is still a conversation.
+ok("twenty-six people is the smallest custom size, priced at Scale + one seat",
+  fieldquoCost({ officeSeats: 3, fieldCrew: 23 }).fits === true && fieldquoCost({ officeSeats: 3, fieldCrew: 23 }).tierKey === "custom-11" &&
+    fieldquoCost({ officeSeats: 3, fieldCrew: 23 }).monthly === 394 && fieldquoCost({ officeSeats: 3, fieldCrew: 23 }).label === "Custom · 11 seats · 16 crew");
+ok("...and so is a twelfth BILLABLE person, whatever the headcount",
+  fieldquoCost({ officeSeats: 12, fieldCrew: 0 }).fits === true && fieldquoCost({ officeSeats: 12, fieldCrew: 0 }).tierKey === "custom-12");
+ok("more than a hundred people fits nothing, and is not silently sold the largest size",
+  fieldquoCost({ officeSeats: 48, fieldCrew: 0 }).fits === false && fieldquoCost({ officeSeats: 10, fieldCrew: 91 }).fits === false);
+ok("...and the ceiling it names is the custom cap, read off the ladder",
+  LADDER_CEILING.seats === 47 && LADDER_CEILING.crew === 52 && LADDER_CEILING.people === 99 &&
+    LADDER_CEILING.seats > Math.max(...SEAT_LADDER.map((t) => t.seats)));
 
 /* ═══════════════════════════════════════════════════════════════════════════
    4. The twenty-technician case the owner described

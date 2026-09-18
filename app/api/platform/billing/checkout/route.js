@@ -25,6 +25,9 @@ import { writeSubscriptionFromStripe } from "@/lib/platform/stripeSync";
 import { isCanceledSubscriptionError, subscriptionStatusFromStripe } from "@/lib/billing/subscriptionFields";
 import { trialDaysAllowed } from "@/lib/billing/trialOnce";
 import { isRetired, RETIRED_PLAN_ERROR } from "@/lib/platform/sellablePlans";
+import { ensureCustomPlan } from "@/lib/billing/customPlan";
+import { currencyForCountry } from "@/lib/pricing/ladder";
+import { resolveCountry } from "@/lib/company/resolveCountry";
 
 // Note: this is called by a COMPANY (upgrading their own plan), not a platform admin —
 // hence getCurrentMember, not getCurrentPlatformAdmin. It lives under /platform/billing
@@ -40,18 +43,24 @@ export async function POST(request) {
     return NextResponse.json({ error: BILLING_ADMIN_ERROR }, { status: 403 });
   }
 
-  const { planId, interval: requestedInterval } = await request.json();
+  const { planId: requestedPlanId, customSeats, interval: requestedInterval } = await request.json();
 
-  // ── There is no self-serve headcount price any more ─────────────────────
+  // ── A headcount is not a price; a seat count is not one either ──────────
   //
   // This used to also accept an `employeeCount` from the Team page's "Add
   // licenses" panel and mint a "Custom (N employees)" Plan on the fly at
   // $45/licence (calculatePricing + findOrCreateCustomPlan) — the pricing
   // model the owner retired 2026-08-31 in favour of the four-tier seat ladder
-  // (lib/pricing/ladder.js: Solo/Crew/Shop/Scale). A seat upgrade is now the
+  // (lib/pricing/ladder.js: Solo/Crew/Shop/Scale). A seat upgrade is the
   // same "choose a tier" flow as any other plan change: pick a planId. See
   // docs/PRICING-CLEANUP.md.
-  if (!planId)
+  //
+  // The fifth card (2026-09-18) sends `customSeats` instead: a SEAT COUNT,
+  // never money (AGENTS.md non-negotiable #5). The row is priced below from
+  // the Scale row of the company's own currency and found-or-created on
+  // (tierKey, currency) — so from there on a custom plan is a Plan row like
+  // any other and the change path needs no special case.
+  if (!requestedPlanId && customSeats === undefined)
     return NextResponse.json(
       { error: "planId is required" },
       { status: 400 },
@@ -60,6 +69,26 @@ export async function POST(request) {
   const company = await db.company.findUnique({
     where: { id: member.companyId },
   });
+
+  let planId = requestedPlanId;
+  if (customSeats !== undefined) {
+    const currency = currencyForCountry(resolveCountry(company).country);
+    if (!currency) {
+      return NextResponse.json(
+        { error: "Add your business address first — the plan is priced in your country's currency." },
+        { status: 400 },
+      );
+    }
+    try {
+      const made = await ensureCustomPlan({ seats: customSeats, currency });
+      planId = made.plan.id;
+    } catch (err) {
+      // Out of range, or no Scale row to price from: the sentence names the
+      // cap in words. Anything else is a real failure and stays one.
+      if (err?.status === 400) return NextResponse.json({ error: err.message }, { status: 400 });
+      throw err;
+    }
+  }
 
   const plan = await db.plan.findUnique({ where: { id: planId } });
 

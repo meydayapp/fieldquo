@@ -36,12 +36,16 @@ import {
   UPGRADE_TIMING,
   CLEAR_PENDING,
 } from "@/lib/platform/planChange";
-import { SEAT_LADDER } from "@/lib/pricing/ladder";
+import { SEAT_LADDER, customTier } from "@/lib/pricing/ladder";
 import {
   schedulePlanChange,
   cancelPendingPlanChange,
   changeSubscriptionPlan,
   syncSubscriptionFromStripeEvent,
+  subscriptionLines,
+  ensureExtraSeatPrice,
+  extraSeatLookupKey,
+  isExtraSeatItem,
 } from "@/lib/platform/stripeBilling";
 import { rows, writes, resetDbStub } from "./fixtures/dbStub.mjs";
 import { calls, state, resetStripeStub } from "./fixtures/stripeStub.mjs";
@@ -134,6 +138,27 @@ console.log("\nRows the ladder does not rank");
     comparePlanRank(P.solo, P.crew) === 1 && "Crew" < "Solo");
   ok("a missing plan does not throw",
     (() => { try { classifyPlanChange({ currentPlan: null, currentInterval: "month", nextPlan: P.solo, nextInterval: "month" }); return true; } catch { return false; } })());
+}
+
+console.log("\nThe fifth rung ranks above Scale, and custom sizes rank by seats");
+{
+  const customRow = (n) => {
+    const t = customTier(n);
+    return { id: `plan_custom_${n}`, name: t.name, tierKey: t.tierKey, sortOrder: t.sortOrder, priceMonthly: t.price, priceAnnual: t.priceAnnual, currency: "CAD" };
+  };
+  const c20 = customRow(20);
+  const c30 = customRow(30);
+  ok("Scale → Custom · 20 seats is an upgrade, taken now",
+    classifyPlanChange({ currentPlan: P.scale, currentInterval: "month", nextPlan: c20, nextInterval: "month" }).kind === "upgrade" && comparePlanRank(P.scale, c20) === 1);
+  ok("Custom · 20 seats → Scale is a downgrade that waits",
+    classifyPlanChange({ currentPlan: c20, currentInterval: "month", nextPlan: P.scale, nextInterval: "month" }).applies === "period_end");
+  ok("Custom 20 → Custom 30 is an upgrade; 30 → 20 a downgrade that waits",
+    classifyPlanChange({ currentPlan: c20, currentInterval: "month", nextPlan: c30, nextInterval: "month" }).kind === "upgrade" &&
+      classifyPlanChange({ currentPlan: c30, currentInterval: "month", nextPlan: c20, nextInterval: "month" }).applies === "period_end");
+  ok("the same custom size on the year is a cadence change",
+    classifyPlanChange({ currentPlan: c20, currentInterval: "month", nextPlan: { ...c20, id: "custom:20" }, nextInterval: "year" }).kind === "cadence");
+  ok("every rung ranks below every custom size, whatever its sortOrder says",
+    TIERS.every((k) => comparePlanRank(P[k], { ...c20, sortOrder: 0 }) === 1));
 }
 
 console.log("\nWhen a scheduled change has LANDED (landedPlanChange)");
@@ -298,6 +323,123 @@ console.log("\nAn upgrade taken while a change is pending");
     order.indexOf("subscriptionSchedules.release") !== -1 && order.indexOf("subscriptionSchedules.release") < order.indexOf("subscriptions.update"));
   ok("the upgrade itself is still immediate and prorated (today's behaviour)",
     only("subscriptions.update")[0]?.args[1]?.proration_behavior === "create_prorations");
+}
+
+// ── Two items at Stripe for a custom size ───────────────────────────────────
+const CUSTOM20 = (() => {
+  const t = customTier(20);
+  return { id: "plan_custom_20", name: t.name, tierKey: t.tierKey, sortOrder: t.sortOrder, priceMonthly: t.price, priceAnnual: t.priceAnnual, currency: "CAD", retiredAt: null };
+})();
+const CUSTOM30 = (() => {
+  const t = customTier(30);
+  return { id: "plan_custom_30", name: t.name, tierKey: t.tierKey, sortOrder: t.sortOrder, priceMonthly: t.price, priceAnnual: t.priceAnnual, currency: "CAD", retiredAt: null };
+})();
+
+console.log("\nsubscriptionLines and the extra-seat Price, executed against the Stripe fake");
+{
+  resetAll();
+  const lines = await subscriptionLines({ plan: P.scale, interval: "month", currency: "cad" });
+  ok("a rung is ONE inline line and touches no Stripe price", lines.length === 1 && lines[0].price_data?.unit_amount === 36900 && calls.length === 0);
+
+  const two = await subscriptionLines({ plan: CUSTOM20, interval: "month", currency: "cad" });
+  ok("a custom size is TWO items: Scale's line, then extra seats × quantity", two.length === 2, two.length);
+  ok("item 1 is Scale's price as inline price_data, named Scale on the invoice",
+    two[0].price_data?.unit_amount === 36900 && two[0].price_data?.product_data?.name === "FieldQuo — Scale" && two[0].quantity === 1, JSON.stringify(two[0]));
+  ok("item 2 is the extra-seat Price by id, quantity 10 (the seats past ten)",
+    typeof two[1].price === "string" && two[1].price.startsWith("price_") && two[1].quantity === 10, JSON.stringify(two[1]));
+  ok("the two sum to the row's $619", two[0].price_data.unit_amount + two[1].quantity * 2500 === 61900);
+  const created = only("prices.create")[0]?.args[0];
+  ok("the Price was minted with lookup_key fq_extra_seat_cad at $25 a month, on the extra-seat Product",
+    created?.lookup_key === "fq_extra_seat_cad" && created.unit_amount === 2500 && created.currency === "cad" && created.recurring?.interval === "month" && created.transfer_lookup_key === true &&
+      only("products.create")[0]?.args[0]?.metadata?.fieldquo === "extra_seat", JSON.stringify(created));
+  ok("the key is per currency and cadence", extraSeatLookupKey("USD") === "fq_extra_seat_usd" && extraSeatLookupKey("cad", "year") === "fq_extra_seat_cad_year");
+
+  calls.length = 0;
+  const again = await subscriptionLines({ plan: CUSTOM30, interval: "month", currency: "cad" });
+  ok("a second custom size finds the same Price by lookup_key — nothing minted twice",
+    again[1].price === two[1].price && again[1].quantity === 20 && only("prices.create").length === 0 && only("prices.list")[0]?.args[0]?.lookup_keys?.[0] === "fq_extra_seat_cad");
+
+  calls.length = 0;
+  const yearly = await subscriptionLines({ plan: CUSTOM20, interval: "year", currency: "cad" });
+  ok("the year is its own Price: $250 a seat a year under fq_extra_seat_cad_year, base $3,690",
+    yearly[0].price_data.unit_amount === 369000 && yearly[0].price_data.recurring.interval === "year" &&
+      only("prices.create")[0]?.args[0]?.lookup_key === "fq_extra_seat_cad_year" && only("prices.create")[0]?.args[0]?.unit_amount === 25000 && yearly[1].price !== two[1].price);
+
+  calls.length = 0;
+  const usd = await subscriptionLines({ plan: { ...CUSTOM20, currency: "USD" }, interval: "month", currency: "usd" });
+  ok("USD is the same number under its own key", only("prices.create")[0]?.args[0]?.lookup_key === "fq_extra_seat_usd" && only("prices.create")[0]?.args[0]?.unit_amount === 2500 && usd[1].price !== two[1].price);
+
+  // A repriced ladder: the key must move to a Price at the new amount.
+  calls.length = 0;
+  const reminted = await ensureExtraSeatPrice({ currency: "cad", interval: "month", unitAmountCents: 3000 });
+  ok("a different per-seat amount re-mints the Price and transfers the key, reusing the Product",
+    reminted !== two[1].price && only("prices.create")[0]?.args[0]?.transfer_lookup_key === true && only("products.create").length === 0 && typeof only("prices.create")[0]?.args[0]?.product === "string");
+  ok("...and the old Price no longer answers to the key", state.prices.filter((p) => p.lookup_key === "fq_extra_seat_cad").length === 1);
+
+  ok("a retired custom row is refused before Stripe is called",
+    await (async () => { calls.length = 0; try { await subscriptionLines({ plan: { ...CUSTOM20, retiredAt: new Date() }, interval: "month", currency: "cad" }); return false; } catch (e) { return /retired/.test(e.message) && calls.length === 0; } })());
+  ok("isExtraSeatItem reads the Price, not the position",
+    isExtraSeatItem({ price: { lookup_key: "fq_extra_seat_cad" } }) && isExtraSeatItem({ price: { metadata: { fieldquo: "extra_seat" } } }) && !isExtraSeatItem({ price: { id: "price_old" } }) && !isExtraSeatItem({ price: "price_x" }));
+}
+
+console.log("\nchangeSubscriptionPlan between Scale and custom sizes (the two-item payload)");
+{
+  // Scale → Custom 20: the base item is re-priced in place and a seat item ADDED.
+  resetAll();
+  state.subscriptions.set("sub_1", liveSub({ metadata: { companyId: "co_1", planId: "plan_scale", billingInterval: "month" } }));
+  rows.subscription = [subRow({ planId: "plan_scale" })];
+  await changeSubscriptionPlan({ subscription: rows.subscription[0], plan: CUSTOM20, interval: "month", currency: "cad" });
+  let items = only("subscriptions.update")[0]?.args[1]?.items || [];
+  ok("Scale → Custom 20 sends two items: the old item re-priced, plus a new seat line × 10",
+    items.length === 2 && items[0].id === "si_1" && items[0].price_data?.unit_amount === 36900 && !items[1].id && items[1].quantity === 10 && typeof items[1].price === "string", JSON.stringify(items));
+  ok("...prorated today, as an upgrade is", only("subscriptions.update")[0]?.args[1]?.proration_behavior === "create_prorations");
+  ok("...and the row moves to the custom plan", rows.subscription[0].planId === "plan_custom_20");
+  const seatPriceId = items[1].price;
+
+  // Custom 20 → Custom 30: the seat item is re-quantified IN PLACE, not duplicated.
+  resetAll();
+  state.subscriptions.set("sub_1", liveSub({
+    items: { data: [
+      { id: "si_seats", quantity: 10, price: { id: seatPriceId, lookup_key: "fq_extra_seat_cad", currency: "cad", recurring: { interval: "month" } } },
+      { id: "si_base", quantity: 1, price: { id: "price_scale", product: "prod_scale", currency: "cad", recurring: { interval: "month" } } },
+    ] },
+    metadata: { companyId: "co_1", planId: "plan_custom_20", billingInterval: "month" },
+  }));
+  rows.subscription = [subRow({ planId: "plan_custom_20" })];
+  await changeSubscriptionPlan({ subscription: rows.subscription[0], plan: CUSTOM30, interval: "month", currency: "cad" });
+  items = only("subscriptions.update")[0]?.args[1]?.items || [];
+  ok("Custom 20 → Custom 30 finds the base item by the Price, not by position (seat line listed first here)",
+    items[0].id === "si_base" && items[0].price_data?.unit_amount === 36900, JSON.stringify(items));
+  ok("...and re-quantifies the existing seat item to 20 rather than adding a second",
+    items.length === 2 && items[1].id === "si_seats" && items[1].quantity === 20 && !items.some((i) => i.deleted), JSON.stringify(items));
+
+  // Custom 20 → Scale: the seat item is DELETED, or Scale would keep billing ten seats.
+  resetAll();
+  state.subscriptions.set("sub_1", liveSub({
+    items: { data: [
+      { id: "si_base", quantity: 1, price: { id: "price_scale", product: "prod_scale", currency: "cad", recurring: { interval: "month" } } },
+      { id: "si_seats", quantity: 10, price: { id: seatPriceId, lookup_key: "fq_extra_seat_cad", currency: "cad", recurring: { interval: "month" } } },
+    ] },
+    metadata: { companyId: "co_1", planId: "plan_custom_20", billingInterval: "month" },
+  }));
+  rows.subscription = [subRow({ planId: "plan_custom_20" })];
+  await changeSubscriptionPlan({ subscription: rows.subscription[0], plan: P.scale, interval: "month", currency: "cad" });
+  items = only("subscriptions.update")[0]?.args[1]?.items || [];
+  ok("Custom 20 → Scale re-prices the base and DELETES the seat item",
+    items.length === 2 && items[0].id === "si_base" && items[1].id === "si_seats" && items[1].deleted === true, JSON.stringify(items));
+  ok("no seat Price was minted for a rung", only("prices.create").length === 0 && only("prices.list").length === 0);
+
+  // A scheduled (deferred) change to a custom size carries both items in phase 2.
+  resetAll();
+  state.subscriptions.set("sub_1", liveSub({ metadata: { companyId: "co_1", planId: "plan_custom_30", billingInterval: "month" } }));
+  rows.subscription = [subRow({ planId: "plan_custom_30" })];
+  await schedulePlanChange({ subscription: rows.subscription[0], plan: CUSTOM20, interval: "month", currency: "cad" });
+  const phases = only("subscriptionSchedules.update")[0]?.args[1]?.phases || [];
+  ok("a deferred Custom 30 → Custom 20 books phase 2 with Scale's price on a Product AND the seat Price × 10",
+    phases[1]?.items?.length === 2 && phases[1].items[0].price_data?.unit_amount === 36900 && typeof phases[1].items[0].price_data?.product === "string" &&
+      typeof phases[1].items[1].price === "string" && phases[1].items[1].quantity === 10, JSON.stringify(phases[1]?.items));
+  ok("...with no proration anywhere", !serialised().includes("create_prorations"));
+  ok("...and the row's planId untouched until it lands", rows.subscription[0].planId === "plan_custom_30" && rows.subscription[0].pendingPlanId === "plan_custom_20");
 }
 
 // ── The webhook ─────────────────────────────────────────────────────────────
@@ -469,6 +611,22 @@ console.log("\nThe payload and the route the button calls");
   ok("...calls cancelPendingPlanChange", /cancelPendingPlanChange\(subscription\)/.test(del));
   const rec = readFileSync("app/api/settings/subscription/reconcile/route.js", "utf8");
   ok("'Check with Stripe' clears a landed change too", /planId === existing\.pendingPlanId \? \{ \.\.\.CLEAR_PENDING \}/.test(rec));
+  // The fifth card: the browser posts a SEAT COUNT, the server prices it.
+  const checkout = readFileSync("app/api/platform/billing/checkout/route.js", "utf8");
+  ok("the checkout route reads customSeats from the body and prices it itself through ensureCustomPlan",
+    /customSeats, interval: requestedInterval \} = await request\.json\(\)/.test(checkout) && /ensureCustomPlan\(\{ seats: customSeats, currency \}\)/.test(checkout));
+  ok("...never a price from the body", !/priceMonthly|unit_amount|amount/.test(checkout.replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "")));
+  const billingPage = readFileSync("app/app/settings/account-billing/page.js", "utf8");
+  ok("the billing page posts customSeats for a custom pick, and a planId for a rung",
+    /\{ customSeats: Number\(custom\[1\]\), interval: billingInterval \|\| "month" \}/.test(billingPage) && /\{ planId, interval: billingInterval \|\| "month" \}/.test(billingPage));
+  ok("...and renders the stepper from the server's offer, not a price of its own", /customOffer/.test(billingPage) && /pickedTier\(customOffer, customSeats\)/.test(billingPage));
+  const plansRoute = readFileSync("app/api/settings/plans/route.js", "utf8");
+  ok("/api/settings/plans sends the custom offer in the company's currency", /customOfferFor\(currency\)/.test(plansRoute) && /custom \}\)/.test(plansRoute));
+  const pricing = readFileSync("app/(marketing)/pricing/PricingPlans.js", "utf8");
+  ok("the public pricing page's fifth card links by SIZE, never by row or price", /\/signup\?tier=\$\{encodeURIComponent\(tier\.tierKey\)\}/.test(pricing));
+  const marketing = readFileSync("app/api/marketing/plans/route.js", "utf8");
+  ok("...and signup's plan feed accepts ?tier=custom-N, minting the size in both currencies",
+    /customSeatsFromTierKey\(query\.get\("tier"\)\)/.test(marketing) && /for \(const currency of SUPPORTED_CURRENCIES\)/.test(marketing));
   const schema = readFileSync("prisma/schema.prisma", "utf8");
   const model = schema.slice(schema.indexOf("model Subscription {"));
   const block = model.slice(0, model.indexOf("\n}"));

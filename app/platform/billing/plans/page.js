@@ -35,7 +35,7 @@ import { count } from "@/app/components/platform/MetricCard";
 import { fetchJson } from "@/lib/fetchJson";
 // planMoney lives in the ladder beside currencyLabel: one place decides how a
 // price is written, and it is executable by check:platform-truth there.
-import { planMoney } from "@/lib/pricing/ladder";
+import { planMoney, isCustomPlan, CUSTOM_SEAT_PRICE, CUSTOM_MIN_SEATS, CUSTOM_MAX_SEATS, MAX_COMPANY_PEOPLE } from "@/lib/pricing/ladder";
 // The card says what THIS says, and nothing else, about whether a plan can be
 // bought. See the note on PlanCard's status line.
 import { planStatus, isRetired } from "@/lib/platform/sellablePlans";
@@ -141,10 +141,14 @@ export default function PlatformPlansPage() {
   // the bespoke "Custom (N employees)" rows are real and still billing people,
   // so they are shown — but they are not the menu, and mixing them into one
   // grid is how somebody edits the wrong "1 Employee".
-  const { ladder, legacy } = useMemo(() => {
+  // Custom sizes ("custom-20") are a third group: derived from Scale, minted
+  // on first use, and repriced from Scale on every use — editing one here is
+  // editing a number the next checkout overwrites, which the note says.
+  const { ladder, custom, legacy } = useMemo(() => {
     const all = Array.isArray(plans) ? plans : [];
     return {
-      ladder: all.filter((p) => p.tierKey),
+      ladder: all.filter((p) => p.tierKey && !isCustomPlan(p)),
+      custom: all.filter((p) => isCustomPlan(p)),
       legacy: all.filter((p) => !p.tierKey),
     };
   }, [plans]);
@@ -598,6 +602,20 @@ export default function PlatformPlansPage() {
                 .
               </>
             }
+          />
+          <Group
+            title="Custom sizes"
+            note={`The fifth card: Scale plus $${CUSTOM_SEAT_PRICE} a seat a month (the same number in CAD and USD, like every rung), ${CUSTOM_MIN_SEATS} to ${CUSTOM_MAX_SEATS} seats, crew = seats + 5, never more than ${MAX_COMPANY_PEOPLE} people. A row appears the first time a company picks that size and is repriced from this currency's Scale row every time one is bought — so reprice Scale, not these. At Stripe each is two items: Scale's price and "Extra seat" × the seats past ten.`}
+            plans={custom}
+            usage={usage}
+            usageKnown={!usageError}
+            canManage={canManage}
+            canRetire={canRetire}
+            busy={busy}
+            onEdit={edit}
+            onRemove={remove}
+            onRetire={setRetired}
+            empty="None yet — nobody has picked a custom size."
           />
           <Group
             title="Legacy and bespoke plans"

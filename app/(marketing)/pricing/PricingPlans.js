@@ -11,7 +11,9 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { CheckCircle2 } from "lucide-react";
+import CustomSeatPicker, { pickedTier } from "@/app/components/billing/CustomSeatPicker";
 import { currencyMeta } from "@/lib/currency";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { numberLocaleFor } from "@/app/i18n/numberLocale";
@@ -349,7 +351,98 @@ export function peopleLines(plan) {
   return lines;
 }
 
-export default function PricingPlans({ plans, asOf = renderAsOf() }) {
+/**
+ * The fifth card: "Need more people? Build a custom plan."
+ *
+ * Scale is the floor and a hundred people the ceiling — the owner's rule,
+ * derived in lib/pricing/ladder.js (customTier) and repeated nowhere else:
+ * the price on this card comes from that function, with the Scale row this
+ * page already renders as its base, so it is the price the row will carry.
+ * The buy link names the SIZE (`?tier=custom-20`), not a row or a price,
+ * exactly as the rung cards do; signup resolves it against the currency it
+ * works out from the address.
+ */
+function CustomPlanCard({ offer, t, price }) {
+  const [seats, setSeats] = useState(20);
+  if (!offer) return null;
+  const tier = pickedTier(offer, seats);
+  const symbol = currencyMeta(offer.currency).symbol;
+  return (
+    <div id="custom" className="mt-6 border border-border rounded-2xl p-8 flex flex-col lg:flex-row lg:items-start gap-8 hover:border-foreground/40 transition-colors">
+      <div className="flex-1">
+        <h3 className="text-lg font-semibold text-foreground">
+          {t("pricing.custom.title", "Need more people? Build a custom plan.")}
+        </h3>
+        <p className="mt-2 text-sm text-muted-foreground">
+          {t(
+            "pricing.custom.body",
+            "Past {baseSeats} seats, add as many as you need. Every seat you add brings a crew member with it, at {seatPrice} a seat a month — the same step as the ladder above.",
+            { baseSeats: offer.baseSeats, seatPrice: `${symbol}${price(offer.seatPriceMonthly)}` },
+          )}
+        </p>
+        <CustomSeatPicker
+          offer={offer}
+          seats={seats}
+          onChange={setSeats}
+          idPrefix="pricing-custom"
+          labels={{
+            seats: t("pricing.custom.seats", "Seats"),
+            quickPicks: t("pricing.custom.quickPicks", "Quick picks"),
+            fewer: t("pricing.custom.fewer", "One seat fewer"),
+            more: t("pricing.custom.more", "One seat more"),
+          }}
+        />
+        <p className="mt-4 text-xs text-muted-foreground">
+          {t(
+            "pricing.custom.cap",
+            "Up to {maxSeats} seats and {maxCrew} crew — {maxPeople} people in all. Bigger than that?",
+            { maxSeats: offer.maxSeats, maxCrew: offer.maxSeats + offer.crewGap, maxPeople: offer.maxPeople },
+          )}{" "}
+          <Link href="/contact" className="underline text-foreground">
+            {t("pricing.custom.contact", "Contact us")}
+          </Link>
+        </p>
+      </div>
+      {tier ? (
+        <div className="lg:w-72 shrink-0 flex flex-col">
+          <p className="text-sm font-medium text-foreground">{tier.name}</p>
+          <ul className="mt-2 space-y-1.5">
+            <li className="flex items-center gap-2 text-sm text-foreground">
+              <CheckCircle2 size={16} className="text-green-600 shrink-0" />
+              {t("pricing.seatsManyIncluded", "{count} seats — quoting, jobs and invoicing", { count: tier.seats })}
+            </li>
+            <li className="flex items-center gap-2 text-sm text-foreground">
+              <CheckCircle2 size={16} className="text-green-600 shrink-0" />
+              {t("pricing.crewIncluded", "{count} crew members included — free", { count: tier.crewSeats })}
+            </li>
+          </ul>
+          <div className="mt-4 flex items-baseline flex-wrap gap-x-1.5">
+            <span className="text-3xl font-bold text-foreground">
+              {symbol}
+              {price(tier.price)}
+            </span>
+            <span className="text-sm text-muted-foreground">{t("pricingPage.perMonth")}</span>
+          </div>
+          {tier.priceAnnual !== null && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              {t("pricing.custom.annual", "or {amount} a year, billed yearly", {
+                amount: `${symbol}${price(tier.priceAnnual)}`,
+              })}
+            </p>
+          )}
+          <Link
+            href={`/signup?tier=${encodeURIComponent(tier.tierKey)}`}
+            className="mt-6 text-center bg-primary text-primary-foreground px-6 py-3 rounded-full text-sm font-semibold transition hover:brightness-110"
+          >
+            {t("nav.signup")}
+          </Link>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+export default function PricingPlans({ plans, customOffer = null, asOf = renderAsOf() }) {
   const { t, language } = useTranslation();
   const locale = numberLocaleFor(language);
 
@@ -483,6 +576,8 @@ export default function PricingPlans({ plans, asOf = renderAsOf() }) {
               );
             })}
           </div>
+
+          <CustomPlanCard offer={customOffer} t={t} price={price} />
 
           <IncludedEverywhere t={t} />
 

@@ -5,6 +5,8 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { partitionPlans, withheldReasons, isRetired } from "@/lib/platform/sellablePlans";
 import { recordError } from "@/lib/platform/errorLog";
+import { ensureCustomPlan } from "@/lib/billing/customPlan";
+import { customSeatsFromTierKey, SUPPORTED_CURRENCIES } from "@/lib/pricing/ladder";
 
 // Public — the signup page needs to show plans without a session. This is
 // deliberately separate from /api/platform/billing/plans (which is platform-admin-
@@ -19,7 +21,30 @@ export async function GET(request) {
   // flagged `unlisted`, with the same money rules as any other row (a plan
   // with no usable price is still withheld). Nothing changes for a request
   // without the parameter, which is every visit to the pricing page.
-  const wantedPlanId = new URL(request.url).searchParams.get("plan") || null;
+  const query = new URL(request.url).searchParams;
+  const wantedPlanId = query.get("plan") || null;
+
+  // ── "/signup?tier=custom-20" from the pricing page's fifth card ─────────
+  //
+  // A custom size is a Plan row that may not exist yet. Asked for by tier,
+  // it is found-or-created here in BOTH currencies — the visitor's address is
+  // three steps away, and resolvePlanSelection on the signup page picks the
+  // row of whichever currency that turns out to be, exactly as it does for a
+  // rung. Bounded: only the thirty-seven sellable sizes are accepted, so a
+  // stranger hammering this with counts cannot mint anything else, and a
+  // count outside the range is simply not asked for. A currency whose ladder
+  // was never seeded is skipped rather than invented.
+  const wantedCustomSeats = customSeatsFromTierKey(query.get("tier"));
+  if (wantedCustomSeats) {
+    for (const currency of SUPPORTED_CURRENCIES) {
+      try {
+        await ensureCustomPlan({ seats: wantedCustomSeats, currency });
+      } catch (err) {
+        if (err?.status !== 400) throw err;
+      }
+    }
+  }
+
   const plans = await db.plan.findMany({
     orderBy: { priceMonthly: "asc" },
     select: {
@@ -136,6 +161,17 @@ export async function GET(request) {
           (p) => p.id === wantedPlanId && p.isPublic === false && Number(p.priceMonthly) > 0,
         )
       : null;
+  // The custom size's rows, one per currency, offered by link like any other
+  // unlisted plan. The signup page chooses between them by address.
+  const customRows = wantedCustomSeats
+    ? withheld.filter(
+        (p) =>
+          p.tierKey === `custom-${wantedCustomSeats}` &&
+          p.isPublic === false &&
+          !isRetired(p) &&
+          Number(p.priceMonthly) > 0,
+      )
+    : [];
 
   // isPublic and retiredAt dropped — both are internal decisions, not plan
   // attributes a visitor has any use for. (stripePriceId is no longer
@@ -146,6 +182,7 @@ export async function GET(request) {
     plans: [
       ...sellable.map(publicShape),
       ...(unlisted ? [{ ...publicShape(unlisted), unlisted: true }] : []),
+      ...customRows.map((p) => ({ ...publicShape(p), unlisted: true })),
     ],
     // The signup page needs to tell "we have no plans configured" apart from
     // "these plans exist but none can be bought right now". They look

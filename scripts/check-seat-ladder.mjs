@@ -37,6 +37,18 @@ import {
   ANNUAL_FREE_MONTHS,
   defaultAnnualPrice,
   annualComparison,
+  customTier,
+  customTierFor,
+  customPlanSplit,
+  customSeatsFromTierKey,
+  customPlanName,
+  customSeatsAllowed,
+  CUSTOM_CREW_GAP,
+  CUSTOM_SEAT_PRICE,
+  CUSTOM_MIN_SEATS,
+  CUSTOM_MAX_SEATS,
+  CUSTOM_QUICK_PICKS,
+  MAX_COMPANY_PEOPLE,
 } from "@/lib/pricing/ladder";
 import { PERMISSION_PRESETS, PRESET_TO_ROLE } from "@/lib/permissions";
 
@@ -102,7 +114,8 @@ const attack = countSeats([
   ...Array.from({ length: 20 }, () => smuggled),
 ]);
 ok("twenty smuggled estimators count as twenty-one seats", attack.seats === 21, attack.seats);
-ok("...and therefore fit no tier", tierFor(attack) === null);
+ok("...and therefore fit no PUBLISHED rung — only a custom size, priced for all twenty-one",
+  tierFor(attack)?.custom === true && tierFor(attack).seats === 21);
 
 console.log("\nWho is NOT billed");
 const roster = [
@@ -126,7 +139,9 @@ ok("1 seat + 2 crew is Solo", tierFor({ seats: 1, crew: 2 })?.tierKey === "solo"
 ok("1 seat + 9 crew is NOT Solo", tierFor({ seats: 1, crew: 9 })?.tierKey !== "solo");
 ok("2 seats + 6 crew is Crew", tierFor({ seats: 2, crew: 6 })?.tierKey === "crew");
 ok("6 + 11 is Shop exactly at the boundary", tierFor({ seats: 6, crew: 11 })?.tierKey === "shop");
-ok("12 seats is a conversation, not the top tier", tierFor({ seats: 12, crew: 4 }) === null);
+ok("12 seats is not the top tier — it is the smallest custom size that holds them",
+  tierFor({ seats: 12, crew: 4 })?.tierKey === "custom-12");
+ok("more than a hundred people is a conversation, not a plan", tierFor({ seats: 48, crew: 0 }) === null && tierFor({ seats: 10, crew: 91 }) === null);
 
 console.log("\nA promotion ends on its date, not when somebody remembers");
 const promo = {
@@ -208,6 +223,72 @@ ok("no annual price means no annual option", none.available === false && none.sa
 // And a badge must never print "Save $0".
 const same = annualComparison({ priceMonthly: 99, priceAnnual: 1188 });
 ok("an annual price equal to twelve months saves nothing, and says so", same.saves === 0);
+
+console.log("\nThe fifth rung — derived from the four, as the owner asked (2026-09-18)");
+{
+  const scale = SEAT_LADDER[3];
+  const shop = SEAT_LADDER[2];
+  ok("crew per seat is the ladder's own gap from Crew upward: five",
+    CUSTOM_CREW_GAP === 5 && SEAT_LADDER.slice(1).every((t) => t.crewSeats - t.seats === CUSTOM_CREW_GAP));
+  ok("a seat costs the Shop → Scale step, per seat: $25",
+    CUSTOM_SEAT_PRICE === 25 && CUSTOM_SEAT_PRICE === (scale.price - shop.price) / (scale.seats - shop.seats));
+  ok("the floor is one seat past Scale: eleven", CUSTOM_MIN_SEATS === 11 && CUSTOM_MIN_SEATS === scale.seats + 1);
+  ok("the cap is a hundred people in all, which is forty-seven seats and fifty-two crew",
+    MAX_COMPANY_PEOPLE === 100 && CUSTOM_MAX_SEATS === 47 && CUSTOM_MAX_SEATS + CUSTOM_MAX_SEATS + CUSTOM_CREW_GAP <= 100 &&
+      (CUSTOM_MAX_SEATS + 1) + (CUSTOM_MAX_SEATS + 1) + CUSTOM_CREW_GAP > 100);
+  ok("the quick picks are 15 / 20 / 30 / 40, all inside the range",
+    JSON.stringify([...CUSTOM_QUICK_PICKS]) === "[15,20,30,40]");
+
+  // The formula, at the three sizes the owner would check by hand.
+  const at = (n) => customTier(n);
+  ok("custom(11) = $369 + $25 × 1 = $394, 11 seats, 16 crew",
+    at(11).price === 394 && at(11).seats === 11 && at(11).crewSeats === 16, JSON.stringify(at(11)));
+  ok("custom(20) = $369 + $25 × 10 = $619, 20 seats, 25 crew — 45 people",
+    at(20).price === 619 && at(20).crewSeats === 25 && at(20).people === 45, JSON.stringify(at(20)));
+  ok("custom(47) = $369 + $25 × 37 = $1,294, 47 seats, 52 crew — 99 people",
+    at(47).price === 1294 && at(47).crewSeats === 52 && at(47).people === 99, JSON.stringify(at(47)));
+  ok("the year keeps the ladder's discount: custom(20) is $6,190 a year (ten months)",
+    at(20).priceAnnual === 6190 && at(20).priceAnnual === defaultAnnualPrice(619));
+  ok("...and follows a repriced Scale row's own ratio, not a constant",
+    customTier(20, { base: { priceMonthly: 400, priceAnnual: 4400 } }).priceAnnual === 7150 &&
+      customTier(20, { base: { priceMonthly: 400, priceAnnual: 4400 } }).price === 650);
+  ok("no annual price on Scale means no annual option on the custom plan, never an invented year",
+    customTier(20, { base: { priceMonthly: 369, priceAnnual: null } }).priceAnnual === null);
+  ok("48 seats is refused, not rounded down to 47", at(48) === null && customSeatsAllowed(48) === false);
+  ok("10 seats is refused — that is Scale, not a custom plan", at(10) === null);
+  ok("a fraction, a word and a negative are refused",
+    at(20.5) === null && customSeatsAllowed("twenty") === false && at(-20) === null);
+  ok("the name every surface prints", customPlanName(20) === "Custom · 20 seats · 25 crew" && at(20).name === customPlanName(20));
+  ok("the tier key round-trips", customSeatsFromTierKey(at(20).tierKey) === 20 && customSeatsFromTierKey("custom-48") === null && customSeatsFromTierKey("scale") === null);
+  ok("a custom size ranks after Scale", at(11).sortOrder === scale.sortOrder + 1);
+
+  // tierFor past Scale: seats need real seats, crew may sit in spare seats.
+  ok("tierFor: 5 seats and 21 crew (26 people) is custom-11 — the crew absorb into seats",
+    tierFor({ seats: 5, crew: 21 })?.tierKey === "custom-11");
+  ok("tierFor: 30 seats and 40 crew (70 people) is custom-33",
+    tierFor({ seats: 30, crew: 40 })?.tierKey === "custom-33" && customTierFor({ seats: 30, crew: 40 }).people >= 70);
+  ok("tierFor: 47 seats and 52 crew is exactly the largest custom size", tierFor({ seats: 47, crew: 52 })?.tierKey === "custom-47");
+  ok("tierFor: 10 seats and 15 crew is still Scale, never a custom size", tierFor({ seats: 10, crew: 15 })?.tierKey === "scale");
+  ok("every custom size tierFor returns fits the people it was asked for",
+    Array.from({ length: 60 }, (_, s) => s).every((seats) =>
+      Array.from({ length: 60 }, (_, c) => c).every((crew) => {
+        const t = tierFor({ seats, crew });
+        if (!t) return seats > 47 || seats + crew > 99;
+        return seats <= t.seats && seats + crew <= t.seats + t.crewSeats;
+      })));
+
+  // The Stripe split of a row: two items that sum to the row's price.
+  const row = { tierKey: "custom-20", priceMonthly: "619.00", priceAnnual: "6190.00" };
+  const split = customPlanSplit(row);
+  ok("a custom row splits into Scale's line plus 10 extra seats at $25",
+    split.extraSeats === 10 && split.base.priceMonthly === 369 && split.extra.month === 25);
+  ok("...and the two sum to the row's price, monthly and yearly",
+    split.base.priceMonthly + split.extraSeats * split.extra.month === 619 &&
+      split.base.priceAnnual + split.extraSeats * split.extra.year === 6190);
+  ok("a row edited below what its seats alone cost cannot be split, and says so",
+    customPlanSplit({ tierKey: "custom-20", priceMonthly: 200 }) === null);
+  ok("a rung has no split", customPlanSplit({ tierKey: "scale", priceMonthly: 369 }) === null);
+}
 
 console.log("\nThe page a customer sees");
 const page = ladderFor({ currency: "CAD", promotion: promo, now: new Date("2026-08-27") });
