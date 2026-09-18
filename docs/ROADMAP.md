@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 17 September 2026 (gutters: the builder measures the gutter run and downspouts from the roof model with sanity flags the review carries; a gutter instant estimate priced per foot and per downspout in the company's currency, seeded from the competitor's four Ottawa/Gatineau points, with EN/FR/ES copy; the estimate email prints the company's currency instead of "CAD"; the paver designer and a shared landscaping canvas measure a traced polygon from the satellite still's own ground resolution — see the two sections below)
+Last updated: 17 September 2026 (gutters: the builder measures the gutter run and downspouts from the roof model with sanity flags the review carries; a gutter instant estimate priced per foot and per downspout in the company's currency, seeded from the competitor's four Ottawa/Gatineau points, with EN/FR/ES copy; the estimate email prints the company's currency instead of "CAD"; the paver designer and a shared landscaping canvas measure a traced polygon from the satellite still's own ground resolution; a quote schedules the estimator's on-site visit as an Appointment with quoteId, confirmed to the client in the quote's language and carried into the job's history — see the three sections below)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -118,6 +118,60 @@ canvas.
 - Nothing prices `lotSize` or `edgingFt` in the builder — the landscaping
   trades quote by line item. The numbers are shown, saved and read back;
   a landscaping price book would be the next step, not this one.
+## A quote schedules the estimator's on-site visit, and the job remembers it (17 September 2026)
+
+The estimator's trip to measure up before a price is final had no home: the
+calendar could book "an appointment" for a client, but nothing tied it to the
+quote it was about, the client heard nothing, and the job that the quote later
+became had no idea anybody had been to the house.
+
+**What it is.** An `Appointment` — the row the booking page has always written
+for a homeowner-booked estimate — with `quoteId` set. That column existed on
+the model and nothing wrote it (the booking flow puts the quote on `Booking`);
+`lib/quotes/siteVisit.js` is the first writer and says why there is no second
+model or second scheduler. No schema change.
+
+- **Scheduling.** `SiteVisitPanel` (app/components/quotes/SiteVisitPanel.js)
+  on the quote detail page and on the builder in EDIT mode only — a new quote
+  has no row to link to until its first save. When / estimator / where /
+  notes, posted through `fetchJson` to the calendar's own
+  `POST /api/appointments` with `quoteId`; the route reads the client off the
+  quote (never from the browser), keeps every assignment and tenancy check
+  it already had, and sits behind `memberOrRefusal`, so an impersonating
+  session is refused the way it is everywhere.
+- **The client is told.** The existing booking-page confirmation
+  (`sendBookingConfirmationEmail`), in the language
+  `lib/i18n/clientLanguage.js` resolves — the quote's, then the client's,
+  then the company's — naming the visit with the new `emailCopy.visit.
+  measureService` ("on-site estimate", eight languages) and citing the quote
+  number. The moved and cancelled letters use the same word through
+  `serviceName({ measure })`. No email on file is reported as "nothing was
+  sent — let them know by phone", never as silence; a demo company's send is
+  simulated and says so.
+- **On the calendar.** Like every Appointment: `GET /api/appointments`
+  carries `quote { id, quoteNumber }`, the row's detail panel has "Open
+  quote", and `/app/appointments?day=YYYY-MM-DD` opens the month on that day
+  — the link every row on the quote carries. Reschedule / complete / cancel
+  on the quote are the calendar's `EntryActions`, same PATCH, same letters.
+- **On the job.** A job's history is `ActivityLog` (there is no job timeline
+  table). `scheduled` is written on creation against the quote and, if the
+  quote already has a job, that job; `completed` / `cancelled` on the PATCH;
+  and `ensureJobForAcceptedQuote` carries every measure already on the quote
+  into the new job's history at conversion (`carrySiteVisitsIntoJob`).
+  Six catalogue keys (named / unassigned × three verbs) in nine languages so
+  a French office reads its own history. `GET /api/jobs/[id]` also returns
+  `quote.appointments`, listed read-only above the crew's visits.
+- **Checked by execution.** `check:site-visit` drives the event builders,
+  the carry ordering, the catalogue placeholders and the letter word, and
+  greps the wiring that has to keep being there.
+
+### Still owed here
+
+- The panel does not geocode the measure's address the way the booking page
+  does, so it joins the travel-time check only through the client's address;
+  a manually booked appointment has never been geocoded either.
+- Whether a PLAIN appointment booked on the calendar should email the client
+  too is a product decision — this only emails when the row is about a quote.
 
 ---
 
