@@ -287,6 +287,28 @@ as actor (PlatformAuditLog.actorSalesRepId; platformAdminId is nullable now).
 - No email to the agency when a week is paid; the push goes to the agency
   account like any rep's.
 
+### Linking an existing rep to an agency from /platform (17 September 2026)
+
+The owner: "in here I should be able to select agency too besides freelancer
+or employee — and how do I link an existing account to an agency in case the
+account was created before the agency?" The rep card's engagement control now
+offers FieldQuo employee / Freelancer / Works for an agency, the third with a
+picker of active agencies; choosing employee or freelancer for a rep under an
+agency detaches them. Both are PAYEE changes (lib/sales/repEngagement.js):
+confirmed in a sentence that says who is paid from the next weekly close, that
+closed batches stay where they are and every entry keeps its earner; refused
+with 409 while the rep has unbatched entries, because closeWeekForRep decides
+the payee at close time and the open week would go to the wrong party. Into an
+agency also aligns the plan to the agency's (audited as a plan change) and
+fires the same number-and-mailbox flag the agency's own add fires, when either
+is still missing. The PATCH validates the agency fresh (exists, active, kind
+"agency"), refuses self, refuses an agency under an agency, and audits
+sales_rep_agency_set / sales_rep_agency_detached / sales_rep_engagement_set.
+A rep row can also be CONVERTED into an agency (`kind: "agency"`), only while
+the ledger has never touched it (no entry, no batch, nobody reporting to it,
+reporting to nobody, a plan assigned, a payout method an agency may use);
+there is no way back. scripts/check-sales-agency.mjs executes every refusal.
+
 ## The influencer programme: a company whose link pays a commission, not a month (15 September 2026)
 
 The owner's brief, verbatim: "the influencer that signs up becomes like a

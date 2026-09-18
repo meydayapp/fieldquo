@@ -338,6 +338,16 @@ export async function GET(request) {
       // SalesLeads not converted and not lost. See lib/sales/reassign.js.
       queue: queueCounts.get(r.id) || null,
       money: moneyFor(r),
+      // The rep's OWN ledger, counted: how many entries are not yet closed
+      // into a batch (the open payout week that refuses a payee change —
+      // lib/sales/repEngagement.js) and how many exist at all (the ledger
+      // that refuses converting the row into an agency). Counts, not sums:
+      // a week whose earning and reversal net to $0 still has two entries
+      // that would move to the wrong payee.
+      ledger: {
+        openEntries: (entriesByRep.get(r.id) || []).filter((e) => !e.payoutBatchId).length,
+        entries: (entriesByRep.get(r.id) || []).length,
+      },
       // The agency tier. `agency` names the call centre an employee works
       // for; `needsSetup` is the owner's flag while a number or the work
       // mailbox is still missing; `team` is the agency's own view of its

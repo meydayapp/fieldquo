@@ -269,7 +269,10 @@ section("7. createAgencyRep — the forced values, the flag, the log");
   const platformPost = decomment(read("app/api/platform/sales/reps/route.js"));
   ok("the platform's create refuses engagement \"agency\" — only the agency sets it", /engagement === "agency"/.test(platformPost) && /kind === AGENCY_KIND && !assignment\.commissionPlanId/.test(platformPost));
   const platformPatch = decomment(read("app/api/platform/sales/reps/[id]/route.js"));
-  ok("the platform's PATCH allows the agency engagement only under an agency manager", /engagement === AGENCY_ENGAGEMENT && existing\.manager\?\.kind !== AGENCY_KIND/.test(platformPatch));
+  // Until 2026-09-17 the PATCH refused engagement "agency" unless the row
+  // already reported to an agency; now it SETS the manager with it, through
+  // lib/sales/repEngagement.js, whose refusals the later section executes.
+  ok("the platform's PATCH decides the agency engagement through resolveEngagementChange (no inline manager test left)", /resolveEngagementChange\(/.test(platformPatch) && !/engagement === AGENCY_ENGAGEMENT && existing\.manager/.test(platformPatch));
 }
 
 // ── 8. The set-up flag clears only when both halves are there ──────────────
@@ -412,6 +415,132 @@ section("Deactivating an agency deactivates its employees (owner, 2026-09-16)");
   ok("…and each employee goes through changeRepActive with the same hand-off, audited as cascaded from the agency", /changeRepActive\(\{ db, existing: e, active: false, handoff: body\.handoff/.test(route) && /cascadedFromAgencyId: existing\.id/.test(route));
   ok("reactivating an agency does not touch its employees (the cascade is inside `active === false`)", !/active === true && existing\.kind === AGENCY_KIND/.test(route));
   ok("the write-up lives in the sales manual, chapter 13, in three languages — not the contractor help centre", ["en", "fr", "es"].every((l) => /n: 13,\s*id: "agencies"/.test(read(`docs/sales/manual/content.${l}.js`))) && !/agencies-and-call-centres/.test(read("lib/help/tree.js")));
+}
+
+section("Linking an existing rep to an agency, and back, from /platform (owner, 2026-09-17)");
+{
+  const { engagementTransition, openWeekRefusal, resolveEngagementChange, agencyConversion, conversionCounts, ENGAGEMENT_EXISTING_SELECT } = await import("@/lib/sales/repEngagement");
+  const AG2 = { id: "ag_2", kind: AGENCY_KIND, name: "Southline Contact", email: "ops@southline.example", commissionPlanId: "plan_b", engagement: null, managerId: null, active: true, commissionPlan: { id: "plan_b", name: "Plan B" } };
+  const DEAD = { ...AG2, id: "ag_dead", name: "Closed Contact", active: false };
+  const solo = { ...FREELANCER, commissionPlanId: "plan_solo", payoutMethod: "paypal", workEmail: null, setupRequestedAt: null, _count: { phoneNumbers: 0 } };
+
+  // ── The pure decision ─────────────────────────────────────────────────
+  const into = engagementTransition({ existing: solo, engagement: "agency", agency: AG2, agencyId: AG2.id, openEntries: [], now: NOW });
+  ok("a freelancer with nothing open goes under an active agency: engagement agency, manager the agency, plan the agency's, leave off", into.ok && into.data.engagement === AGENCY_ENGAGEMENT && into.data.managerId === AG2.id && into.data.commissionPlanId === "plan_b" && into.data.accruesPaidLeave === false, into);
+  ok("…the payee moves from the rep to the agency, and the audit says so with both", into.payee.from === solo.id && into.payee.to === AG2.id && into.audit.some((a) => a.action === "sales_rep_agency_set" && a.details.payeeFrom === solo.id && a.details.payeeTo === AG2.id && a.details.toAgencyName === "Southline Contact"));
+  ok("…the plan change is its own audit row, marked as aligned to the agency", into.audit.some((a) => a.action === "sales_rep_commission_plan_set" && a.details.from === "plan_solo" && a.details.to === "plan_b" && a.details.reason === "aligned_to_agency"));
+  ok("…no number and no mailbox → the owner's set-up flag is stamped and flagSetup is true", into.flagSetup === true && into.data.setupRequestedAt instanceof Date);
+  const readyRep = { ...solo, workEmail: "dana@northline-mail.example", _count: { phoneNumbers: 1 } };
+  const intoReady = engagementTransition({ existing: readyRep, engagement: "agency", agency: AG2, agencyId: AG2.id, openEntries: [] });
+  ok("a rep who already has both is NOT flagged — nothing to assign", intoReady.ok && intoReady.flagSetup === false && !("setupRequestedAt" in intoReady.data));
+  ok("the same plan already → no plan row, no plan write", (() => {
+    const r = engagementTransition({ existing: { ...solo, commissionPlanId: "plan_b" }, engagement: "agency", agency: AG2, agencyId: AG2.id, openEntries: [] });
+    return r.ok && !("commissionPlanId" in r.data) && !r.audit.some((a) => a.action === "sales_rep_commission_plan_set");
+  })());
+
+  // Hostile input, each refused in words and with nothing to write.
+  ok("hostile: a rep as their own agency → 400", (() => {
+    const r = engagementTransition({ existing: solo, engagement: "agency", agency: { ...solo, kind: "rep" }, agencyId: solo.id, openEntries: [] });
+    return !r.ok && r.status === 400 && /own agency/.test(r.error) && !r.data;
+  })());
+  ok("hostile: an inactive agency → 409, naming it", (() => {
+    const r = engagementTransition({ existing: solo, engagement: "agency", agency: DEAD, agencyId: DEAD.id, openEntries: [] });
+    return !r.ok && r.status === 409 && /Closed Contact/.test(r.error) && /deactivated/.test(r.error);
+  })());
+  ok("hostile: an agency under an agency → 400", (() => {
+    const r = engagementTransition({ existing: { ...AGENCY }, engagement: "agency", agency: AG2, agencyId: AG2.id, openEntries: [] });
+    return !r.ok && r.status === 400 && /cannot work for another agency/.test(r.error);
+  })());
+  ok("hostile: an agency given freelancer/employee → 400", !engagementTransition({ existing: { ...AGENCY }, engagement: "freelancer", openEntries: [] }).ok);
+  ok("hostile: a plain rep (not an agency) as the manager → 400, 'never through another rep'", (() => {
+    const r = engagementTransition({ existing: solo, engagement: "agency", agency: { id: "lead", kind: "rep", name: "Lead Rep", active: true }, agencyId: "lead", openEntries: [] });
+    return !r.ok && r.status === 400 && /not an agency/.test(r.error);
+  })());
+  ok("hostile: an agency id nobody has → 404; no id at all → 400", engagementTransition({ existing: solo, engagement: "agency", agency: null, agencyId: "nope", openEntries: [] }).status === 404 && engagementTransition({ existing: solo, engagement: "agency", agency: null, agencyId: null, openEntries: [] }).status === 400);
+  ok("hostile: an influencer ledger → 400", engagementTransition({ existing: { ...solo, kind: "influencer" }, engagement: "agency", agency: AG2, agencyId: AG2.id, openEntries: [] }).status === 400);
+  ok("hostile: an engagement that is not one → 400", engagementTransition({ existing: solo, engagement: "contractor", openEntries: [] }).status === 400);
+
+  // The open payout week.
+  const openWeek = [{ id: "o1", amountCents: 2000 }, { id: "o2", amountCents: -500 }];
+  const split = engagementTransition({ existing: solo, engagement: "agency", agency: AG2, agencyId: AG2.id, openEntries: openWeek });
+  ok("an open payout week (unbatched entries) refuses the move INTO an agency: 409, the count, the sum, both payees, Monday", !split.ok && split.status === 409 && split.code === "open_payout_week" && split.counts.openEntries === 2 && split.counts.openCents === 1500 && /2 commission entries \(\$15\.00\)/.test(split.error) && /Southline Contact/.test(split.error) && /Dana Solo was the payee/.test(split.error) && /Monday/.test(split.error), split);
+  const emp = { ...EMP("e1", "Ann Lee"), commissionPlanId: "plan_a", payoutMethod: null, setupRequestedAt: null };
+  const out = engagementTransition({ existing: emp, engagement: "freelancer", openEntries: openWeek });
+  ok("…and the move OUT of an agency, naming the agency as the payee it was earned under", !out.ok && out.status === 409 && /Northline Contact was the payee/.test(out.error) && /to Ann Lee at the next weekly close/.test(out.error), out);
+  ok("a reversal-only week (net negative) is still an open week", openWeekRefusal({ rep: solo, openEntries: [{ amountCents: -300 }], payeeFromName: "a", payeeToName: "b" })?.counts.openCents === -300 && /−\$3\.00/.test(openWeekRefusal({ rep: solo, openEntries: [{ amountCents: -300 }], payeeFromName: "a", payeeToName: "b" }).error));
+  ok("no open entries → no refusal", openWeekRefusal({ rep: solo, openEntries: [], payeeFromName: "a", payeeToName: "b" }) === null && openWeekRefusal({ rep: solo, openEntries: null, payeeFromName: "a", payeeToName: "b" }) === null);
+  ok("freelancer → employee never meets the open-week rule (no money moves)", (() => {
+    const r = engagementTransition({ existing: solo, engagement: "employee", openEntries: openWeek });
+    return r.ok && r.data.engagement === "employee" && !("managerId" in r.data) && !("accruesPaidLeave" in r.data) && r.audit.length === 1 && r.audit[0].action === "sales_rep_engagement_set";
+  })());
+  ok("…to freelancer clears paid leave; the same value again is unchanged", engagementTransition({ existing: { ...solo, engagement: "employee" }, engagement: "freelancer", openEntries: [] }).data.accruesPaidLeave === false && engagementTransition({ existing: solo, engagement: "freelancer", openEntries: openWeek }).unchanged === true);
+
+  // Out of an agency, cleanly.
+  const detach = engagementTransition({ existing: emp, engagement: "employee", openEntries: [] });
+  ok("an employee with nothing open leaves the agency: managerId null, engagement set, plan KEPT", detach.ok && detach.data.managerId === null && detach.data.engagement === "employee" && !("commissionPlanId" in detach.data), detach);
+  ok("…the payee moves from the agency to the rep, in a sales_rep_agency_detached row plus the engagement row", detach.payee.from === AGENCY.id && detach.payee.to === "e1" && detach.audit.some((a) => a.action === "sales_rep_agency_detached" && a.details.fromAgencyId === AGENCY.id && a.details.commissionPlanIdKept === "plan_a") && detach.audit.some((a) => a.action === "sales_rep_engagement_set" && a.details.from === "agency" && a.details.to === "employee"));
+  ok("…to 'not decided' (null) also detaches", engagementTransition({ existing: emp, engagement: null, openEntries: [] }).data.managerId === null);
+  ok("the same agency again is unchanged; a DIFFERENT agency moves the payee (and meets the open-week rule)", engagementTransition({ existing: emp, engagement: "agency", agency: { ...AGENCY, commissionPlan: null }, agencyId: AGENCY.id, openEntries: openWeek }).unchanged === true && engagementTransition({ existing: emp, engagement: "agency", agency: AG2, agencyId: AG2.id, openEntries: openWeek }).status === 409 && engagementTransition({ existing: emp, engagement: "agency", agency: AG2, agencyId: AG2.id, openEntries: [] }).data.managerId === AG2.id);
+  ok("a rep under a team lead (a rep, not an agency) keeps that line on a plain change", (() => {
+    const led = { ...solo, managerId: "lead", manager: { id: "lead", kind: "rep", name: "Lead" } };
+    const r = engagementTransition({ existing: led, engagement: "employee", openEntries: [] });
+    return r.ok && !("managerId" in r.data);
+  })());
+
+  // ── The fresh reads behind the decision ────────────────────────────────
+  fresh();
+  rows.salesRep.push({ ...AG2, _count: { phoneNumbers: 0 } }, { ...DEAD, _count: { phoneNumbers: 0 } });
+  const soloRow = rows.salesRep.find((r) => r.id === FREELANCER.id);
+  Object.assign(soloRow, { commissionPlanId: "plan_solo", payoutMethod: "paypal", workEmail: null, setupRequestedAt: null, _count: { phoneNumbers: 0 } });
+  const r1 = await resolveEngagementChange({ existing: soloRow, engagement: "agency", agencyId: AG2.id, now: NOW });
+  ok("resolveEngagementChange reads the agency and the open entries fresh and decides", r1.ok && r1.agency?.id === AG2.id && r1.data.managerId === AG2.id && reads.some((x) => x.model === "salesCommissionEntry" && x.args.where.salesRepId === FREELANCER.id && x.args.where.payoutBatchId === null));
+  rows.salesCommissionEntry.push({ id: "open1", salesRepId: FREELANCER.id, amountCents: 900, payoutBatchId: null, occurredAt: NOW });
+  ok("…and refuses once an unbatched entry exists in the database", (await resolveEngagementChange({ existing: soloRow, engagement: "agency", agencyId: AG2.id })).status === 409);
+  rows.salesCommissionEntry[rows.salesCommissionEntry.length - 1].payoutBatchId = "b_old";
+  ok("…a batched entry is not an open week", (await resolveEngagementChange({ existing: soloRow, engagement: "agency", agencyId: AG2.id })).ok === true);
+  ok("…the dead agency is read as dead", (await resolveEngagementChange({ existing: soloRow, engagement: "agency", agencyId: DEAD.id })).status === 409);
+  ok("…the agency id is never trusted to be an agency: an employee's id → 'not an agency'", /not an agency/.test((await resolveEngagementChange({ existing: soloRow, engagement: "agency", agencyId: "e1" })).error || ""));
+  ok("…the rep's own id → own agency, without a read for it", (await resolveEngagementChange({ existing: soloRow, engagement: "agency", agencyId: FREELANCER.id })).status === 400);
+  ok("the select the route reads with carries everything the decision judges", ["kind", "engagement", "managerId", "commissionPlanId", "payoutMethod", "workEmail", "setupRequestedAt"].every((k) => ENGAGEMENT_EXISTING_SELECT[k] === true) && ENGAGEMENT_EXISTING_SELECT.manager.select.kind === true && ENGAGEMENT_EXISTING_SELECT._count.select.phoneNumbers === true);
+
+  // ── Converting a rep row into an agency ────────────────────────────────
+  const blank = { ...solo, engagement: "freelancer", managerId: null, manager: null };
+  const conv = agencyConversion({ existing: blank, counts: { entries: 0, batches: 0, reports: 0 } });
+  ok("a blank-slate rep with a plan becomes an agency: kind agency, engagement null, manager null, its plan kept", conv.ok && conv.data.kind === AGENCY_KIND && conv.data.engagement === null && conv.data.managerId === null && conv.data.commissionPlanId === "plan_solo" && conv.audit[0].action === "sales_rep_converted_to_agency", conv);
+  ok("…a plan named in the request replaces the row's", agencyConversion({ existing: blank, counts: {}, commissionPlanId: "plan_b" }).data.commissionPlanId === "plan_b");
+  ok("refused with earned commission (entries) — in words, with the counts", (() => {
+    const r = agencyConversion({ existing: blank, counts: { entries: 3, batches: 1, reports: 0 } });
+    return !r.ok && r.status === 409 && r.code === "has_commission" && /3 ledger entries, 1 payout batch/.test(r.error) && /new account/.test(r.error);
+  })());
+  ok("refused with a batch and no entries (a batch is money too)", agencyConversion({ existing: blank, counts: { entries: 0, batches: 1, reports: 0 } }).code === "has_commission");
+  ok("refused with reps reporting to it", agencyConversion({ existing: blank, counts: { entries: 0, batches: 0, reports: 2 } }).code === "has_reports");
+  ok("refused while it works for an agency (an agency cannot be under an agency), naming the way out", (() => {
+    const r = agencyConversion({ existing: { ...EMP("e1", "Ann Lee"), commissionPlanId: "plan_a", payoutMethod: null }, counts: {} });
+    return r.code === "has_manager" && /cannot be under an agency/.test(r.error) && /freelancer or employee first/.test(r.error);
+  })());
+  ok("refused while it reports to a team lead", agencyConversion({ existing: { ...blank, managerId: "lead", manager: { id: "lead", kind: "rep", name: "Lead" } }, counts: {} }).code === "has_manager");
+  ok("refused without a plan", agencyConversion({ existing: { ...blank, commissionPlanId: null }, counts: {} }).status === 400);
+  ok("refused on Upwork (an agency cannot be paid through it); PayPal is fine", agencyConversion({ existing: { ...blank, payoutMethod: "upwork" }, counts: {} }).code === "payout_method" && agencyConversion({ existing: { ...blank, payoutMethod: "paypal" }, counts: {} }).ok);
+  ok("an influencer ledger and an agency are refused / unchanged", agencyConversion({ existing: { ...blank, kind: "influencer" }, counts: {} }).status === 400 && agencyConversion({ existing: { ...AGENCY }, counts: {} }).unchanged === true);
+  rows.salesCommissionEntry.push({ id: "e1_earned", salesRepId: "e1", amountCents: 100, payoutBatchId: null });
+  rows.salesPayoutBatch.push({ id: "b_ag", salesRepId: AGENCY.id, status: "ready" });
+  const c = await conversionCounts(AGENCY.id);
+  ok("conversionCounts reads entries, batches and reports fresh (the agency: 0 entries, 1 batch, 3 reports)", c.entries === 0 && c.batches === 1 && c.reports === 3, c);
+  ok("…and a rep with one entry", (await conversionCounts("e1")).entries === 1 && (await conversionCounts(null)).entries === 0);
+
+  // ── The route and the screen ────────────────────────────────────────────
+  const route = decomment(read("app/api/platform/sales/reps/[id]/route.js"));
+  ok("PATCH /api/platform/sales/reps/[id] decides the engagement through resolveEngagementChange with the body's agencyId", /resolveEngagementChange\(\{[\s\S]*?agencyId: body\.agencyId/.test(route) && /transition\.data/.test(route) && /transition\.audit/.test(route));
+  ok("…kind may only become agency, through agencyConversion over fresh counts", /body\.kind !== AGENCY_KIND/.test(route) && /conversionCounts\(existing\.id\)/.test(route) && /agencyConversion\(\{ existing, counts/.test(route));
+  ok("…and fires the owner's number-and-mailbox line when the rep still needs one", /code: "agency_rep_needs_setup"/.test(route) && /transition\.flagSetup/.test(route));
+  const repsPage = decomment(read("app/platform/sales/reps/page.js"));
+  ok("the rep card offers employee / freelancer / works for an agency, with an agency picker of active agencies", /value="agency"/.test(repsPage) && /data-agency-picker/.test(repsPage) && /activeAgencies\.map/.test(repsPage) && /agencyReps\.filter\(\(a\) => a\.active\)/.test(repsPage));
+  ok("…confirms the consequence in a sentence that says who is paid from the next close and that batches and earners stay", /From the next weekly close/.test(repsPage) && /Batches already closed stay with/.test(repsPage) && /keeps \$\{rep\.name\} as the earner/.test(repsPage) && /confirm\(`\$\{consequence\}/.test(repsPage));
+  ok("…warns about the open week before the server refuses it", /data-open-week-warning/.test(repsPage) && /rep\.ledger\?\.openEntries/.test(repsPage));
+  ok("…an employee's card is editable (Change), and says detaching pays them from the next close", /Works for \$\{rep\.agency\.name\}/.test(repsPage) && /detaches them/.test(repsPage));
+  ok("…and offers the conversion only for a rep row with no ledger and a plan, in words otherwise", /data-convert-to-agency/.test(repsPage) && /kind: "agency"/.test(repsPage) && /Not convertible into an agency/.test(repsPage) && /Assign a commission plan above first/.test(repsPage));
+  const listRoute = decomment(read("app/api/platform/sales/reps/route.js"));
+  ok("the list route returns the ledger counts the card reads", /ledger: \{[\s\S]*?openEntries:[\s\S]*?entries:/.test(listRoute));
 }
 
 section("The funnel, the performance dashboard and the floor name the agency beside its reps");
