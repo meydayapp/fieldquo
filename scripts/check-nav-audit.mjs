@@ -39,6 +39,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { APP_MESSAGES } from "../app/i18n/appMessages.js";
 import { NAV_REQUIREMENTS } from "../lib/permissions/nav.js";
+import { ME_TABS } from "../lib/me/tabs.js";
 import {
   SETTINGS_ROW_CAPABILITY,
   SETTINGS_SIDEBAR_CHROME_KEYS,
@@ -260,6 +261,8 @@ const DRILL_INS = {
   "/app/me/policies": "the policies to read and sign — a row on the employee home's More tab, the home banner, and the target of a policy notification",
   "/app/me/notes": "notes from managers awaiting acknowledgement — reached from the note notification and the home banner",
   "/app/me/tax-forms": "the TD1 / W-4 form — opened from a checklist item, never browsed to: it is a thing you fill in once",
+  "/app/me/requests": "the person's own shift and availability requests — a row on the employee home's More tab (app/app/me/more/page.js), with the pending count as its badge",
+  "/app/me/availability": "when the person can work, or be booked — a row on the employee home's More tab",
   "/app/subcontractors/[id]": "one subcontractor — opened from the Subcontractors list and from a job's own \"Subs on this job\" panel",
   "/app/subcontractors/new": "opened from the Subcontractors list page's own Add button",
 };
@@ -274,7 +277,12 @@ function walkPages(dir, out = []) {
   return out;
 }
 const allAppRoutes = walkPages("app/app").map((d) => d.replace(/^app/, ""));
-const linkedRoutes = new Set([...adminItems, ...settingsItems].map((i) => i.href));
+// The employee home is its own surface with its own nav — the tab bar
+// lib/me/tabs.js draws (Home, Schedule, Earnings / Team, Messages, More).
+// A page a tab reaches is reached, the same as a sidebar row; the pages
+// under More are named as drill-ins below, because More IS the row.
+const meTabItems = Object.values(ME_TABS).flat();
+const linkedRoutes = new Set([...adminItems, ...settingsItems, ...meTabItems].map((i) => i.href));
 const unexplained = allAppRoutes.filter(
   (r) => !linkedRoutes.has(r) && !(r in DRILL_INS),
 );

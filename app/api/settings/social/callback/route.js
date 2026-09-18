@@ -127,7 +127,11 @@ export async function GET(request) {
     await recordError({
       area: "social_connect",
       code: `pages_empty_${why}`,
-      message: `Facebook & Instagram connect for company ${member.companyId} returned no Page (${why}).`,
+      // The company rides in the `companyId` field, which the errors console
+      // links to a name — never in the sentence, where an id is a string a
+      // person cannot act on.
+      message: `Facebook & Instagram connect returned no Page (${why}).`,
+      companyId: member.companyId,
       detail: {
         configUsed: Boolean(metaPagesConfigId()),
         debugOk: Boolean(debug?.ok),

@@ -245,7 +245,10 @@ section("4. The email the crawler read reaches the lead");
 
   const leads = decomment(read("app/api/sales/leads/route.js"));
   ok("the lead-from-prospect path reads the prospect's email", /email: true,/.test(leads.slice(leads.indexOf("db.prospect.findUnique"), leads.indexOf("db.prospect.findUnique") + 600)));
-  ok("…copies it only when the rep typed none", /email: email \|\| source\?\.email \|\| null/.test(leads));
+  // The rule moved with the create into lib/sales/leadCreate.js
+  // (createSalesLead), which the route now calls; the expression is the same.
+  const leadCreate = decomment(read("lib/sales/leadCreate.js"));
+  ok("…copies it only when the rep typed none", /email: email \|\| source\?\.email \|\| null/.test(leadCreate) && /createSalesLead\(db, \{/.test(leads));
   ok("…and fills an existing lead only where email is null — a typed address is never overwritten", /where: \{ id: existing\.id, salesRepId: rep\.id, email: null \}/.test(leads));
 
   const view = prospectView({
@@ -324,7 +327,10 @@ section("5. Three next steps — demo, sent to sign up, walkthrough — and the 
   ok("…with the .ics built server-side from the event", /buildIcs\(\{/.test(invite) && /attachments: \[\{ filename: `fieldquo-\$\{noun\}\.ics`/.test(invite));
   ok("…only for a demo or a walkthrough", /INVITABLE = new Set\(\["demo", "walkthrough"\]\)/.test(invite));
   ok("…and refuses, saying so, when the lead has no email", /noEmail: true/.test(invite));
-  ok("deliverOutreach carries the attachment into the send and nowhere else", /\.\.\.\(Array\.isArray\(attachments\) && attachments\.length \? \{ attachments \} : \{\}\)/.test(decomment(read("lib/sales/outreachSender.js"))));
+  // sendFromMailbox takes the list as it is now (an empty array is no
+  // attachment to nodemailer), so the send carries it plainly — once.
+  const senderSrc = decomment(read("lib/sales/outreachSender.js"));
+  ok("deliverOutreach carries the attachment into the send and nowhere else", (senderSrc.match(/^\s+attachments,$/gm) || []).length === 1 && /attachments = \[\],/.test(senderSrc));
 
   const lead = decomment(read("app/api/sales/leads/[id]/route.js"));
   ok("the lead route puts the company's onboarding progress and the gate on linkedCompany", /onboarding: onboardingProgress\(onboarding\)/.test(lead) && /walkthrough: \{ allowed: walkthrough\.allowed/.test(lead));

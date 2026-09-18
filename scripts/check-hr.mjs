@@ -320,10 +320,13 @@ section("7. Two companies in one database: nothing crosses");
   ok("ownWorker returns company A's own", (await ownWorker(db, managerA, "wa"))?.id === "wa");
   ok("canManageHr: supervisor yes, employee no", canManageHr(managerA) && !canManageHr(memberA));
 
-  const rowsA = await loadCompliance(db, "A");
+  // The check's own clock, not the wall clock: the seed's licence expires
+  // three days after NOW, and a real date drifting past it turned "due
+  // soon" into "expired" on 2026-09-16 with nothing in the code changed.
+  const rowsA = await loadCompliance(db, "A", { asOf: NOW });
   ok("loadCompliance for A lists only Ana", rowsA.map((r) => r.name).join() === "Ana");
   ok("Ana's licence is due soon, and her policy pending", rowsA[0].documents.dueSoon === 1 && rowsA[0].policies.pending === 1 && rowsA[0].notes.pending === 0);
-  const rowsB = await loadCompliance(db, "B");
+  const rowsB = await loadCompliance(db, "B", { asOf: NOW });
   ok("loadCompliance for B lists only Bob, expired + unverified + a write-up pending", rowsB.length === 1 && rowsB[0].documents.expired === 1 && rowsB[0].documents.unverified === 1 && rowsB[0].notes.pending === 1);
   ok("the pure aggregator never mixes rows across companies either", complianceRows({ workers: seed.worker.filter((w) => w.companyId === "A"), documents: seed.workerDocument, runs: [], policies: seed.companyPolicy, acknowledgements: [], notes: seed.workerNote, asOf: NOW }).every((r) => r.workerId === "wa"));
 

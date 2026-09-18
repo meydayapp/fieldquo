@@ -666,7 +666,11 @@ section("10. The column itself");
   const admin = src("app/api/platform/sales/reps/[id]/route.js");
   ok("the platform rep PATCH accepts `engagement`", /const touchesEngagement = "engagement" in body;/.test(admin));
   ok("…validates it against ENGAGEMENTS", /isEngagement\(engagement\)/.test(admin) && /import \{ ENGAGEMENTS, isEngagement \} from "@\/lib\/sales\/payoutDetails"/.test(admin));
-  ok("…and clears accruesPaidLeave when the rep is not an employee", /engagement !== "employee" \? \{ accruesPaidLeave: false \}/.test(admin));
+  // The clearing moved out of the route into lib/sales/repEngagement.js
+  // (resolveEngagementChange) when the agency tier was added, so the one
+  // rule serves the platform PATCH and the agency conversion alike.
+  const engagement = src("lib/sales/repEngagement.js");
+  ok("…and clears accruesPaidLeave when the rep is not an employee", /target !== "employee" \? \{ accruesPaidLeave: false \}/.test(engagement) && /resolveEngagementChange/.test(admin));
   const create = src("app/api/platform/sales/reps/route.js");
   ok("the platform rep POST accepts `engagement` at set-up and refuses a bad value", /isEngagement\(engagement\)/.test(create) && /engagement,/.test(create));
   // The select read it and the response map dropped it: the owner set

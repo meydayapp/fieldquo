@@ -82,6 +82,23 @@ const ok = (name, cond, got) => {
 // gets read in review, rather than it passing silently.
 // ───────────────────────────────────────────────────────────────────────────
 const GLOBAL_BY_DESIGN = {
+  "app/api/instant-quote/[companySlug]/callback/route.js": {
+    leadRequest:
+      "The homeowner's call-back request from the instant-estimate report. The " +
+      "quote is read FIRST with { id: quoteId, companyId: company.id } (the " +
+      "company resolved from the slug in the URL), and `existing` is that " +
+      "quote's own lead relation — so both updates key off a row already " +
+      "proved to belong to this tenant, never an id the browser named.",
+    quote:
+      "Same row: the update stamps callbackRequestedAt on the quote loaded " +
+      "by { id, companyId } three lines above; the id is the scoped read's.",
+  },
+  "app/api/sales/support/[id]/route.js": {
+    supportTicket:
+      "The sales portal has no tenant — a rep's ticket is scoped by " +
+      "salesRepId from the gate's session, and the update keys off ticket.id " +
+      "from that scoped findFirst. SupportTicket carries no companyId at all.",
+  },
   "app/api/cron/appointment-reminders/route.js": {
     appointment:
       "A cron sweeps every tenant by design — it is authenticated by CRON_SECRET, " +
@@ -424,6 +441,18 @@ const PLATFORM_MAY_WRITE = {
     "Jennifer (lib/ai/jennifer/) is FieldQuo's own assistant answering for " +
     "itself; this is the human half of the same conversation, not an edit to " +
     "anything the company wrote.",
+  voiceAutoTopup:
+    "Switching a company's automatic phone-credit top-up OFF when a superadmin " +
+    "locks the account for terms (companies/[id]/cancel-subscription) — a " +
+    "locked company must never be charged again by a cron. Billing state, the " +
+    "same family as `subscription`: the prepaid balance is left exactly as it " +
+    "is and nothing the company wrote is touched. The one write is " +
+    "enabled=false with the reason stamped.",
+  supportTicket:
+    "A SALES REP's ticket to FieldQuo (SalesRep.supportTickets) — FieldQuo's own " +
+    "support queue, the same shape as `feedback`: status moved by " +
+    "compare-and-set and the row bumped when an operator answers. No tenant " +
+    "owns a SupportTicket; there is no companyId on it to scope by.",
 };
 
 const platformWrites = [];

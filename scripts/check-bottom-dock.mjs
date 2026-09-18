@@ -71,6 +71,11 @@ const ALLOWED = [
     reason: "IS the tab bar — it defines --fq-tab-bar-height rather than reading it",
   },
   {
+    path: "app/components/me/MeShell.js",
+    reason:
+      "IS the employee home's tab bar (MeTabBar) — the same chrome as MobileTabBar at the same height, drawn in its place under /app/me, so the launchers' --fq-tab-bar-height term already clears it",
+  },
+  {
     path: "app/components/jennifer/JenniferPanel.js",
     reason: "the launcher and the panel; checked below for reading both variables",
   },

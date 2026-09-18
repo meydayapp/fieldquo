@@ -13,12 +13,13 @@
 // the row shows what is on file and says who can change it, rather than
 // offering fields that would not save.
 import { useRouter } from "next/navigation";
-import { CalendarClock, ClipboardList, Clock, Inbox, LifeBuoy, LogOut, Settings, User, Users, Bell, Calendar } from "lucide-react";
+import { CalendarClock, ClipboardCheck, ClipboardList, Clock, FileBadge, Inbox, LifeBuoy, LogOut, ScrollText, Settings, User, Users, Bell, Calendar } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { usePermissions } from "@/app/providers/PermissionProvider";
 import { signOut } from "@/lib/auth-client";
 import { helpPath } from "@/lib/help/urls";
 import { meTabSetFor } from "@/lib/me/tabs";
+import { HR_MORE_LINKS } from "@/lib/me/moreLinks";
 import MeShell from "@/app/components/me/MeShell";
 import { BigRow, MeLoad, PersonAvatar, RowList, useMeData } from "@/app/components/me/bits";
 
@@ -30,7 +31,13 @@ export default function MeMorePage() {
   const caller = usePermissions();
   const manager = meTabSetFor(caller) === "manager";
   const { data, errorKey, loading, reload } = useMeData("/api/me/home");
+  // The HR rows' counts — policies to sign, checklist items open, documents
+  // about to lapse (lib/me/moreLinks.js `badge` names). Its own read so a
+  // failed count never costs the page; with no Worker behind this login
+  // the rows are not drawn at all rather than drawn to pages that 404.
+  const hr = useMeData("/api/hr/me/summary");
   const helpLang = HELP_LANGS.has(language) ? language : "en";
+  const HR_ICONS = { ClipboardCheck, ScrollText, FileBadge };
 
   async function logout() {
     await signOut({
@@ -65,6 +72,16 @@ export default function MeMorePage() {
               <BigRow icon={Users} title={t("app.me.tab.team")} href="/app/me/team" />
               {!manager ? <BigRow icon={Clock} title={t("app.me.tab.earnings")} href="/app/me/earnings" /> : null}
             </RowList>
+
+            {/* ── The HR file: onboarding, policies, documents ────────
+                Drawn only for a login with a Worker row behind it. */}
+            {hr.data?.hasWorker ? (
+              <RowList>
+                {HR_MORE_LINKS.map((l) => (
+                  <BigRow key={l.href} icon={HR_ICONS[l.icon] || ClipboardList} title={t(l.labelKey)} href={l.href} badge={hr.data[l.badge] || 0} />
+                ))}
+              </RowList>
+            ) : null}
 
             {manager ? (
               <RowList>

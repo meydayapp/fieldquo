@@ -829,6 +829,11 @@ for (const file of AUDIT_FILES) {
     for (const lit of seg.matchAll(/(?:^|[?:])\s*"([a-z_]+)"/g)) written.add(lit[1]);
     from = src.indexOf("action:", from + 1);
   }
+  // A file's own small helper — `sliceAudit(db, adminId, "name", details)`
+  // in lib/sales/discovery/suggestTradesAiApproval.js — passes the action
+  // as an argument and writes it as the `action` shorthand, which the
+  // `action:` scan above cannot see. The helper's calls are read too.
+  for (const call of src.matchAll(/\w+Audit\(\s*db,\s*\w+,\s*"([a-z_]+)"/g)) written.add(call[1]);
 }
 const writeSites = AUDIT_FILES.length;
 

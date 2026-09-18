@@ -893,6 +893,17 @@ const LIB_FORBIDDEN_WRITE_BY_DESIGN = {
     "app/i18n/languages.js. Its own file for preferenceWrite.js's reason — " +
     "one writer per file, so the index-located fence sees it. Column " +
     "asserted below.",
+  "lib/sales/mailbox/store.js":
+    "connectMailbox(). Writes SalesRep.workEmail — the address the rep SENDS " +
+    "from — in the same transaction that upserts the SalesMailbox whose " +
+    "IMAP and SMTP just passed a live test with that address. Reached only " +
+    "from the PLATFORM's mailbox route (the owner connects a rep's mailbox " +
+    "from the rep's card; app/api/sales/threads imports the store for its " +
+    "two READS, mailboxState and publicMailboxFor, and never calls " +
+    "connectMailbox). Not the escalation REP_FORBIDDEN_WRITES guards: " +
+    "workEmail cannot change what is owed, who a company is credited to, " +
+    "whether a batch pays, or whether the rep can sign in tomorrow — and an " +
+    "address another rep already holds is refused before the write.",
   "lib/sales/demoHoursWrite.js":
     "saveRepDemoHours(). Writes ONLY SalesRep.timeZone and SalesRep.demoHours " +
     "— DEMO_HOURS_WRITES_ON_SALES_REP — the hours a prospect may book fifteen " +

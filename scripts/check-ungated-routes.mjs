@@ -857,8 +857,10 @@ const PAGE_GUARDS = [
     // Ordered pairs of [anchor that must open the guard, control it guards].
     guards: [
       ["{canManageFunnels && (", 'data-tour="funnels-new"'],
-      ["{canManageFunnels && showNew && (", "Describe it and let AI build it"],
-      ["{canManageFunnels && (", 'title="Delete"'],
+      // The two controls went through the catalogue; the anchors are their
+      // keys now, which is what the page prints in every language.
+      ["{canManageFunnels && showNew && (", 't("app.funnels.aiTitle")'],
+      ["{canManageFunnels && (", 'title={t("app.action.delete")}'],
     ],
     // The same lesson as section 6's mutation: count the call that OPENS the
     // panel, not the decoration on the button that makes it.
