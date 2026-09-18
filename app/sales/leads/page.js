@@ -57,6 +57,27 @@ export default function SalesLeadsPage() {
     load();
   }, [load]);
 
+  // ── "Save as a new lead", from the incoming-call dialog ──────────────
+  //
+  // A number that rang and matched nobody arrives here as ?new=1&phone=…
+  // (lib/sales/calls/callerLinks.js newLeadHref): the form opens with the
+  // number in it and nothing else, and the rep types the name they just
+  // heard. Read from window.location on mount rather than useSearchParams,
+  // which would need a Suspense boundary over a page that is otherwise
+  // static; the params are read once and never written back.
+  useEffect(() => {
+    let sp;
+    try {
+      sp = new URLSearchParams(window.location.search);
+    } catch {
+      return;
+    }
+    if (sp.get("new") !== "1") return;
+    const phone = (sp.get("phone") || "").trim().slice(0, 32);
+    setForm((prev) => ({ ...prev, phone: phone || prev.phone }));
+    setAdding(true);
+  }, []);
+
   async function addLead(event) {
     event.preventDefault();
     setSaving(true);

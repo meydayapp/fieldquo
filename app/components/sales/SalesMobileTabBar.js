@@ -203,8 +203,9 @@ export default function SalesMobileTabBar({ tabs, name = null, onSignOut, drawer
       {/* ── Drawer ─────────────────────────────────────────────────────────
           Everything the bar does not carry, in the shell's order, plus who is
           signed in and the way out. z-50: above both bars. The tour's card is
-          z-[60] so it can sit beside a row in here; IncomingCallDock is
-          z-[70] so a contractor ringing back still covers everything. */}
+          z-[60] so it can sit beside a row in here; IncomingCallDock's ring
+          dialog is z-[80] (its in-call strip z-[70]) so a contractor ringing
+          back still covers everything. */}
       <NavDrawer open={open} onClose={() => setOpen(false)} label={t("app.salesPortal.title")} surface="card" safeArea>
         <div className="h-14 flex items-center justify-between gap-2 px-3 border-b border-border">
           <span className="inline-flex items-center gap-2 min-w-0">

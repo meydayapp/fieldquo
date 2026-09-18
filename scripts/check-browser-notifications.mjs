@@ -184,7 +184,7 @@ stubWindow({ focused: true });
 ok("quietWhenFocused: a focused tab gets nothing (the caller draws its own notice)", browser.notify({ title: "Ring", quietWhenFocused: true }) === "none" && toastEvents.length === 0 && constructed.length === 0);
 stubWindow({ focused: false, permission: "granted", enabled: true });
 ok("…and a background tab still gets the system notification", browser.notify({ title: "Ring", quietWhenFocused: true }) === "system" && constructed.length === 1);
-ok("the incoming-call drawer uses it, being its own in-tab notice", /quietWhenFocused: true/.test(decomment(read("app/components/sales/IncomingCallDock.js"))));
+ok("the incoming-call dialog uses it, being its own in-tab notice", /quietWhenFocused: true/.test(decomment(read("app/components/sales/IncomingCallDock.js"))));
 stubWindow({ focused: true });
 ok("no title → nothing at all", browser.notify({}) === "none" && toastEvents.length === 0);
 ok("permissionState() reads the browser's answer", browser.permissionState() === "granted");

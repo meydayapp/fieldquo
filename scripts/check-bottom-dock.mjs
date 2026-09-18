@@ -111,7 +111,7 @@ const ALLOWED = [
   },
   {
     path: "app/components/sales/IncomingCallDock.js",
-    reason: "the ringing-call dock; check-sales-mobile.mjs asserts it sits above the tab bar",
+    reason: "the ringing-call dialog and in-call strip; check-sales-mobile.mjs asserts both sit above the tab bar",
   },
 ];
 

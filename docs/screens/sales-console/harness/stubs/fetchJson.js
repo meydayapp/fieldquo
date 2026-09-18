@@ -93,7 +93,7 @@ export async function fetchJson(url, options = {}) {
     return { presence: state.presence, store: { ready: true }, choices: STATUS_CHOICES, autodial: state.autodial };
   }
   if (p === "/api/sales/calls/answered") return { attemptId: "in1", transferable: true };
-  if (p === "/api/sales/calls/caller") return { outcome: "prospect", businessName: "Bright Current Electrical", holder: { repId: "r1", name: "Daniel Roy", mine: true } };
+  if (p === "/api/sales/calls/caller") return { outcome: "prospect", businessName: "Bright Current Electrical", city: "Tulsa", province: "OK", holder: { repId: "r1", name: "Daniel Roy", mine: true }, open: { kind: "console", href: "/sales/queue?prospectId=p1" }, notes: { href: "/sales/queue?prospectId=p1&tab=notes" }, save: null };
   if (p.startsWith("/api/sales/calls/transfer")) return { available: false, reason: "No other rep is reachable right now.", targets: [], transfer: null };
   if (p === "/api/sales/calls/numbers") {
     if (String(body?.e164 || "").replace(/\D/g, "").endsWith("0666")) { const e = new Error("This business asked not to be contacted, so no further numbers are recorded for them."); throw e; }

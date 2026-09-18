@@ -379,10 +379,18 @@ comes down as you work.
 A contractor who calls the number you rang them from reaches a real person, and
 usually you.
 
-**You answer in the browser.** A dock appears on whatever portal screen you are
-on, showing the caller's number and two buttons: Pick up and Decline. It is
+**You answer in the browser.** A dialog opens in the middle of whatever portal
+screen you are on, over a dimmed page: the business, its city and the number,
+how long it has been ringing, and two buttons — **Pick up** (already focused;
+Enter answers) and **Decline**. Clicking outside it or pressing Escape does
+nothing; the only ways out are the two buttons or the caller giving up. It is
 mounted once and rings everywhere, so you do not have to be sitting on the
-queue.
+queue. Under the caller line, **Open the company** and **Notes** take you to
+that business's queue card (or the lead page, if it is a lead you typed in)
+while it is still ringing and after you pick up — the strip keeps the same
+links. A business another rep holds shows their name and no link. A number
+nobody holds says "Not one of your leads" with **Save as a new lead**, which
+opens the add form with the number already in it.
 
 **The ring order**, in this order:
 
