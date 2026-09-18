@@ -259,11 +259,6 @@ function ContactDetails({ detail }) {
             <ExternalLink size={15} aria-hidden="true" /> {t("app.salesText.actionOpenLead")}
           </Link>
         ) : null}
-        {lead?.prospectId ? (
-          <Link href={`/sales/queue?prospect=${encodeURIComponent(lead.prospectId)}`} className={`${BTN} border border-border text-foreground w-full`}>
-            <ExternalLink size={15} aria-hidden="true" /> {t("app.salesText.openProspect")}
-          </Link>
-        ) : null}
         {lead?.phone ? (
           <Link href={`/sales/messages?leadId=${encodeURIComponent(lead.id)}`} className={`${BTN} border border-border text-foreground w-full`}>
             {t("app.salesInbox.thread.openTexts")}
@@ -694,7 +689,14 @@ function SalesInboxScreen() {
     const room = (th) => ({
       id: th.id,
       title: th.lead?.contactName || th.lead?.businessName || th.counterpart || t("app.salesNotes.threadThem"),
-      subtitle: [th.subject, th.last?.snippet].filter(Boolean).join(" — "),
+      // Two lines under the name, the way Zero draws a row: the subject,
+      // then the last message's first words. Each line truncates on its own.
+      subtitle: (
+        <span className="block min-w-0">
+          <span className="block truncate">{th.subject}</span>
+          {th.last?.snippet ? <span className="block truncate text-muted-foreground/80">{th.last.snippet}</span> : null}
+        </span>
+      ),
       time: th.lastMessageAt,
       unread: th.labels?.unread ? 1 : 0,
       initials: initialsOf(th.lead?.contactName || th.lead?.businessName || th.counterpart || "?"),
@@ -718,9 +720,6 @@ function SalesInboxScreen() {
           {t("app.salesNotes.threadsHeading")}
           {Number.isFinite(list?.unread) && list.unread > 0 ? <span className="rounded-full bg-primary/10 px-2 text-xs text-primary">{list.unread}</span> : null}
         </h1>
-        <button type="button" onClick={() => setKeysOpen(true)} aria-label={t("app.salesInbox.keys.title")} title={t("app.salesInbox.keys.title")} className="hidden h-9 w-9 place-items-center rounded-lg text-muted-foreground hover:bg-muted md:grid">
-          <Keyboard size={15} aria-hidden="true" />
-        </button>
         <button type="button" onClick={startCompose} className={`${ACTION} bg-inverted text-inverted-foreground border-transparent`}>
           <PencilLine size={13} aria-hidden="true" /> {t("app.salesInbox.newEmail")}
         </button>
@@ -741,7 +740,8 @@ function SalesInboxScreen() {
           </button>
         ) : null}
       </label>
-      <div role="tablist" className="mt-2 flex gap-1">
+      <div className="mt-2 flex items-center gap-1">
+        <div role="tablist" className="flex min-w-0 flex-1 gap-1">
         {FOLDERS.map((f) => (
           <button
             key={f}
@@ -754,6 +754,10 @@ function SalesInboxScreen() {
             {t(`app.salesInbox.folder.${f}`)}
           </button>
         ))}
+        </div>
+        <button type="button" onClick={() => setKeysOpen(true)} aria-label={t("app.salesInbox.keys.title")} title={t("app.salesInbox.keys.title")} className="hidden h-8 w-8 shrink-0 place-items-center rounded-lg text-muted-foreground hover:bg-muted md:grid">
+          <Keyboard size={14} aria-hidden="true" />
+        </button>
       </div>
     </div>
   );
