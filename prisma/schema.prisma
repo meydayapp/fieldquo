@@ -10014,6 +10014,24 @@ model SalesRep {
   /// console's Move, and the inbound ring plan.
   sellsIn String[] @default([])
 
+  /// A TEST ACCOUNT: the calling window, the 24-hour cap and the retry hold
+  /// are not applied to this rep's dials, and every dial they place is
+  /// recorded with jurisdictionCode "test" — the same mark a dial to one of
+  /// FieldQuo's own test lines carries (lib/sales/testLines.js) — so every
+  /// count, stat, funnel and commission leaves it out through the exclusion
+  /// that already exists. Do-not-contact and the suppression list still bind:
+  /// a test account may ring at any hour, never somebody who said stop.
+  ///
+  /// The owner's decision, 2026-09-17, reaffirmed after being told the
+  /// window protects the person called: his own rep account tests the
+  /// dialler at every hour and must not be held to it. Set by a superadmin
+  /// on /platform/sales/reps, audited (sales_rep_test_account_set), refused
+  /// for an agency and for any rep with a commission entry — a test account
+  /// earns nothing, and a row that has earned cannot become one. A flag on
+  /// the row, never a hard-coded email: scripts/check-sales-test-line.mjs
+  /// asserts no file names the owner's account.
+  testAccount Boolean @default(false)
+
   createdAt DateTime @default(now())
 
   /// The last time this rep was seen IN THE PORTAL. Stamped by
