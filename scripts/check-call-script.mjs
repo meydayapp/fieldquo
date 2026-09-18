@@ -150,7 +150,10 @@ const fixtureInputs = () => ({
 });
 
 const goodReply = () => ({
-  opener: "Hi — is this the owner of Richmond Rolloff Container Service? I had a look at your website before calling.",
+  // The recording aside rides inside the sentence that says who the rep is
+  // (2026-09-17, lib/sales/playbook/recordingDisclosure.js); a reply
+  // without it is woven on validation, so the fixture carries it verbatim.
+  opener: "Hi — is this the owner of Richmond Rolloff Container Service? This is Sam from FieldQuo — quick heads-up, this call may be recorded. I had a look at your website before calling.",
   whatWeSaw: ["There is a contact form on the site.", "There is no way to book a bin online.", "Quotes are by phone only."],
   whyThemNow: "Homeowners who want a bin this weekend book with whoever lets them do it without a call. Your site asks them to phone. That is the gap worth a conversation.",
   threeQuestions: ["How do most bin requests reach you today?", "Who answers when the phone rings on a Saturday?", "Do you read your reviews anywhere?"],
@@ -496,7 +499,8 @@ section("4. The route reads it and the screen draws it above the rules — only 
   const code = decomment(route);
   ok("the route reads the stored scripts — every language's row in one read", /db\.prospectCallScript\.findMany\(/.test(code));
   ok("…guarded on the client having the model", /typeof db\.prospectCallScript\?\.findMany === "function"/.test(code));
-  ok("…returns the shown one as callScript, null when absent", /callScript: shapeScript\(shown\)/.test(code) && /return row\?\.script\s*\?/.test(code) && /: null;/.test(code));
+  ok("…returns the shown one as callScript, null when absent", /callScript: shapeScript\(shown\)/.test(code) && /if \(!row\?\.script\) return null;/.test(code));
+  ok("…with the recording aside woven into a stored opener as it is read", /opener: weaveDisclosure\(row\.script\.opener, row\.language\)/.test(code));
   ok("…with the crawl date the screen prints", /crawledAt: row\.crawledAt/.test(code));
   ok("…writes nothing of its own", ![...code.matchAll(/\bdb\.(\w+)\.(create|update|upsert|delete)\w*\(/g)].length);
   ok("…and still names no vendor", !/lib\/ai\/provider|openai/i.test(code));
@@ -828,7 +832,7 @@ section("8. Three languages — English, French, Spanish");
 
   // ── Citations across languages: the quote is verbatim, the overlap is not pretended ─
   const material = [{ url: "https://x.example/about", text: "Family owned since 1998, Richmond Rolloff is run by Mike and Dana Sousa. We answer the phone ourselves." }];
-  const frScript = { ...goodReply(), opener: "Bonjour — c'est bien Richmond Rolloff? Je m'appelle Dana et je suis chez FieldQuo. J'ai vu sur votre site que c'est une entreprise familiale.", whyThemNow: "Vous répondez au téléphone vous-mêmes, et le site demande encore aux gens d'appeler. C'est ça que je veux vous montrer.", closeAsk: "Est-ce que je peux vous montrer ça en quinze minutes? Qu'est-ce qui vous convient le mieux, le matin ou l'après-midi?", threeQuestions: ["Comment les demandes arrivent-elles aujourd'hui?", "Qui répond quand vous êtes sur un chantier?", "Est-ce que vous lisez vos avis quelque part?"], objections: [{ they: "On utilise déjà Jobber.", you: "C'est correct. La question, c'est si un client peut réserver sans vous appeler." }, { they: "Envoyez-moi un courriel.", you: "Avec plaisir. Qu'est-ce qui vaudrait la peine d'être ouvert?" }], whatWeSaw: ["Il y a un formulaire de contact sur le site.", "Il n'y a pas de façon de réserver en ligne."], doNotSay: ["Ne parlez pas de leurs avis — rien n'a été regardé."], citations: [{ field: "opener", quote: "Family owned since 1998", sourceUrl: "https://x.example/about" }, { field: "whyThemNow", quote: "We answer the phone ourselves", sourceUrl: "https://x.example/about" }] };
+  const frScript = { ...goodReply(), opener: "Bonjour — c'est bien Richmond Rolloff? Je m'appelle Dana et je suis chez FieldQuo — petite précision, cet appel peut être enregistré. J'ai vu sur votre site que c'est une entreprise familiale.", whyThemNow: "Vous répondez au téléphone vous-mêmes, et le site demande encore aux gens d'appeler. C'est ça que je veux vous montrer.", closeAsk: "Est-ce que je peux vous montrer ça en quinze minutes? Qu'est-ce qui vous convient le mieux, le matin ou l'après-midi?", threeQuestions: ["Comment les demandes arrivent-elles aujourd'hui?", "Qui répond quand vous êtes sur un chantier?", "Est-ce que vous lisez vos avis quelque part?"], objections: [{ they: "On utilise déjà Jobber.", you: "C'est correct. La question, c'est si un client peut réserver sans vous appeler." }, { they: "Envoyez-moi un courriel.", you: "Avec plaisir. Qu'est-ce qui vaudrait la peine d'être ouvert?" }], whatWeSaw: ["Il y a un formulaire de contact sur le site.", "Il n'y a pas de façon de réserver en ligne."], doNotSay: ["Ne parlez pas de leurs avis — rien n'a été regardé."], citations: [{ field: "opener", quote: "Family owned since 1998", sourceUrl: "https://x.example/about" }, { field: "whyThemNow", quote: "We answer the phone ourselves", sourceUrl: "https://x.example/about" }] };
   const frLint = voiceLint(frScript, { sources: material, language: "fr" });
   ok("a French script citing English words verbatim passes — the quote is the site's, unchanged", frLint.ok, frLint.findings);
   ok("…a translated quote — not in the material — still fails", voiceLint({ ...frScript, citations: [{ field: "opener", quote: "entreprise familiale depuis 1998", sourceUrl: "x" }, frScript.citations[1]] }, { sources: material, language: "fr" }).problems.includes("citation_not_in_source"));

@@ -88,12 +88,23 @@ import { db } from "@/lib/db";
 import { requireQueueRep } from "@/lib/sales/queueGate";
 import { queueWhere } from "@/lib/sales/prospectView";
 import { assembleProspectPlaybook } from "@/lib/sales/playbook/assemble";
+import { weaveDisclosure } from "@/lib/sales/playbook/recordingDisclosure";
 
 /** The response shape of one stored row. */
 function shapeScript(row) {
-  return row?.script
-    ? { ...row.script, language: row.language, generatedAt: row.generatedAt, crawledAt: row.crawledAt, model: row.model, version: row.promptVersion }
-    : null;
+  if (!row?.script) return null;
+  return {
+    ...row.script,
+    // Scripts written before 2026-09-17 have no recording aside in their
+    // opener; it is woven in as the row is read rather than by regenerating
+    // every stored script (lib/sales/playbook/recordingDisclosure.js).
+    opener: weaveDisclosure(row.script.opener, row.language),
+    language: row.language,
+    generatedAt: row.generatedAt,
+    crawledAt: row.crawledAt,
+    model: row.model,
+    version: row.promptVersion,
+  };
 }
 
 export async function GET(request) {
