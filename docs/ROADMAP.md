@@ -1,12 +1,72 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 18 September 2026 (costs, end to end: `/platform/costs` — Twilio Usage Records pulled hourly into `PlatformCostDaily`, OpenAI by area from both AI ledgers, Retell per call, sales calls composed part by part with unknowns printed as unknown, cost per conversation and cost per signup per rep and per agency; the floor board prints the dialler's statistics, the three reach rates (carrier / transcript / reported) and today's cost per conversation instead of refusing them, its inbound block is one paragraph with the per-number table moved to Crew lines and read live from Twilio; see the section below)
+Last updated: 18 September 2026 (Google Places corroborates every claimed lead — `lib/sales/intel/places.js`, `POST /api/platform/sales/prospects/enrich`, the per-rep hourly sweep in the sales cron; the 138 held prospects were checked: 82 matched, 23 unconfirmed, 12 not found, 2 duplicate listings, 1 permanently closed, 4 websites gained, US$4.17 at list price; see the section below)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
 it exists to answer.
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
+
+---
+
+## Google Places corroborates every claimed lead: website, phone and trading status confirmed or contradicted in words (18 September 2026)
+
+DRAIN KINGS (Chatsworth, from the CSLB C-36 register) read "Website: none on
+record — nothing has crawled this business" while drainkingslosangeles.com was
+the first Google result. Zero of 321,668 prospects carried a `googlePlaceId`.
+
+**What runs now**
+
+- `lib/sales/intel/places.js` — Places Text Search (New), a twelve-field mask
+  (Enterprise SKU, US$35 / 1,000, 1,000 a month free; pricing page read
+  2026-09-17). A listing is attached only when the NAME overlaps ≥ 0.6 after
+  suffix stripping and stemming AND the PLACE agrees — a strong signal (postal
+  code, street number + street, pin within 1 km) or a weak one (city, within
+  5 km) when the name carries a distinctive token. Anything weaker is
+  `no_confident_match` with the top candidate for a human. Blanks only are
+  filled; Google's values sit in `placesResult` beside the record's; a
+  different Google phone becomes a `SalesContactNumber`; every field is a
+  `ProspectEvidence` row (google / google_field). `placesResult.confirmations`
+  records confirmed vs contradicted per field — "Google confirms the phone;
+  Google lists a website the register did not" — and the rep card prints it
+  as a "Google check" row in nine languages; the brief carries it as a fact
+  sourced to Google, a PERMANENTLY CLOSED listing first (flagged, never
+  suppressed). A row that gains a website has `CRAWL_WEBSITE` queued directly
+  (forced, claimed lane) so the whole chain re-runs through the script.
+- `POST /api/platform/sales/prospects/enrich` (superadmin, 300 s): `held`,
+  `ids[]`, or `queue` — the pool is refused without `confirm: true` and
+  answers with its size and projected cost. The rep's claim route asks Google
+  after the response (`after()`) for never-checked rows the rep holds.
+- `lib/sales/intel/placesSweep.js` — the standing job: 25 lookups per rep per
+  clock hour, in queue order, from `/api/cron/sales-pipeline`; the counter is
+  on `/platform/sales/prospects` ("Google check: 24/25 this hour for Favor ·
+  next window 23:00") beside the verdict tallies, this month's requests and
+  spend, and "Check Google" on every prospect. Every request is metered into
+  `PlatformCostDaily` (`google_places`) and is the fifth line on
+  `/platform/costs`.
+- `scripts/check-places-enrich.mjs` — 93 executed checks; the generic-name
+  rule and the never-overwrite guard were mutation-tested.
+
+**The held batch, run 2026-09-18 03:03 UTC** — 138 held, 19 skipped as
+do-not-contact, 119 requests (US$4.17 at list price, inside Google's free
+thousand): 82 matched, 23 no confident match, 12 no results, 2 duplicate
+listings (two held rows share one Place ID — a dedupe signal for the Review
+folder), 1 permanently closed (Surface Magic, LLC). Phone confirmed 70,
+contradicted 12; website confirmed 62, contradicted 9 (4 gained a website the
+register lacked, crawls queued — Drain Kings among them). Ratings gained 76.
+
+### Still owed here
+
+- The pool: 321,000 claimable rows unchecked, roughly US$11,200 at list price.
+  Projected on the panel; runs only on the owner's yes (`confirm: true`).
+- A Google website that DIFFERS from the record's is recorded beside it and
+  never crawled — the record's URL keeps the crawl. Whether a superadmin may
+  swap them is a product decision.
+- 19 held prospects are do-not-contact and still held; the check skips them,
+  the queue should probably release them.
+- `duplicate_place` sets no `possibleDuplicateOfId`; the Review folder does
+  not yet read the Places verdict.
 
 ---
 
