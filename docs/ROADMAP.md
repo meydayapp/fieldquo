@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 18 September 2026 (the public instant estimate speaks the visitor's language — EN/FR/ES pills, one copy table, the document created in the pick; both public flows ask "when do you need this done?" plus the trade's own question and a note; a company service area that says, never blocks; the estimate becomes a branded report page + PDF + email; paving traced on the satellite map; one measure-address field for the builder's roof / paving / landscaping stills with zoom; see the section below)
+Last updated: 18 September 2026 (the fifth plan — "Need more people? Build a custom plan": seats past Scale at the ladder's own $25/seat step, crew = seats + 5, never more than 100 people, a Plan row per size minted on first use and billed at Stripe as Scale + "Extra seat" × quantity, steppers on /pricing and Account & Billing; and BBB's employee band → the plan it likely fits on the rep card, the pitch and the script prompt; see the section below)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -9,6 +9,62 @@ it exists to answer.
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
+
+
+## The fifth plan, and BBB's headcount as a plan on the rep card (18 September 2026)
+
+**The rule, derived not typed** (`lib/pricing/ladder.js`): the owner asked for
+"need more staff → create a custom; the minimum is the current max (Scale);
+add more seats, kind of doubling; no more than 100 total employees; use the
+current plan logic for crew per seat." So: crew = seats + 5 (the ladder's
+constant gap from Crew upward); $25 a seat a month (the Shop → Scale step per
+seat); custom(seats) = $369 + $25 × (seats − 10); eleven to forty-seven seats
+(47 + 52 crew = 99 people; the forty-eighth is refused, not rounded). The year
+keeps Scale's own ratio. `tierFor()` returns the custom size past Scale and
+null only past a hundred people; `seatCheck`'s next-tier and the /cost and
+/savings calculators follow it. `check:seat-ladder` executes the formula at
+11 / 20 / 47, the cap, 48+, and every seats × crew pair under sixty.
+
+**A row per size** (`lib/billing/customPlan.js`): "Custom · 20 seats · 25
+crew", tierKey `custom-20`, one per currency, `isPublic: false`, found-or-
+created on the `(tierKey, currency)` unique and repriced from that currency's
+Scale row on every use — reprice Scale, not these (the platform plans page
+says so in its new "Custom sizes" group). Every reader of Plan.seats /
+crewSeats / name / priceMonthly — seat enforcement, statements, the company
+page, sales knowledge — prints it with no special case.
+
+**Stripe** (`lib/platform/stripeBilling.js` `subscriptionLines`): a rung is
+one inline line as before; a custom size is two items — Scale's price as
+`price_data` and an "Extra seat" Price × the seats past ten. The Price is
+minted idempotently on first use with lookup_key `fq_extra_seat_<cur>` /
+`_year`, re-minted with the key transferred if the per-seat amount changes;
+nothing is created by hand in the live account. `changeSubscriptionPlan`
+finds the base item by the Price's key (never position), re-quantifies an
+existing seat line, adds one for rung → custom and deletes it for custom →
+rung; `schedulePlanChange` books both items in phase 2. `check:plan-change`
+runs all of it against the Stripe fake: Scale ↔ Custom 20, Custom 20 ↔
+Custom 30, the payload shapes, the lookup-key idempotence.
+
+**Surfaces**: /pricing's fifth card and Account & Billing's fifth card share
+`app/components/billing/CustomSeatPicker.js` (stepper, quick picks 15 / 20 /
+30 / 40, live monthly and yearly price from `customTier()`); the browser
+posts `customSeats` — a count, never money — and `/api/platform/billing/
+checkout` prices and finds-or-creates the row before the ordinary change
+path. The pricing card links `/signup?tier=custom-20`; `/api/marketing/
+plans?tier=custom-N` mints the size in both currencies and signup picks the
+row by address; signup's "Need more than Scale?" card points at the stepper.
+Nine languages in both catalogues.
+
+**BBB's band → likely plan** (`lib/sales/intel/planFit.js`, pure): the band's
+upper bound split one seat in three (rounded down, never below one — the
+owner's "6–10 → Crew"), the rest crew, chosen by `tierFor()`; above Scale
+"a custom plan, about N seats"; a band straddling the cap says both halves;
+past it, a conversation. Every sentence says "per BBB" and "self-reported".
+It is a "Likely plan" fact row on the card, a BBB-sourced line in the
+brief's `known` (so the script prompt's WHAT WE KNOW carries it), a line in
+the prompt's talking points, and the pitch layer's first line on the queue.
+`check:plan-fit` maps every band BBB uses (1, 2–5, 6–10, 11–50, 51–200,
+201+) and asserts unknown says nothing.
 
 ## The instant estimate in the visitor's language, "when do you need this done?" on both public flows, a service area that says rather than blocks, the report the estimate becomes, and paving traced on the map (18 September 2026)
 

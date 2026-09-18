@@ -501,8 +501,16 @@ ok("neither checkout builder consults it", () => {
   ]) {
     const b = body(src, fn);
     assert.ok(!/stripePriceId/.test(b), `${fn} reads stripePriceId again`);
-    assert.match(b, /recurringLine\(/, `${fn} no longer builds its line from the plan`);
+    // Through subscriptionLines — one recurringLine for a rung, two items
+    // for a custom size — which is itself built on recurringLine.
+    assert.match(b, /subscriptionLines\(\{ plan, interval, currency \}\)/, `${fn} no longer builds its line from the plan`);
   }
+});
+
+ok("subscriptionLines is built on the shared line builder, so every path is one rule", () => {
+  const b = body(code("lib/platform/stripeBilling.js"), "export async function subscriptionLines(");
+  assert.match(b, /return \[recurringLine\(\{ plan, interval, currency \}\)\]/);
+  assert.match(b, /const base = recurringLine\(/);
 });
 
 ok("the shared line builder prices from the plan and refuses rather than falls back", () => {

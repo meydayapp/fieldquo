@@ -33,6 +33,9 @@ import { loadDocumentCustomFields } from "@/lib/customFields/values";
 import { resolveClientLanguage } from "@/lib/i18n/clientLanguage";
 import { taxStatement, taxSendRefusal } from "@/lib/tax/documentTax";
 import { taskForSentInvoice } from "@/lib/tasks/autoCreate";
+import { familyPayments } from "@/lib/invoices/family";
+import { computeInvoiceState } from "@/lib/invoices/computeInvoiceState";
+import { invoiceSendAsk } from "@/lib/invoices/sendAsk";
 import {
   loadEnforceableMember,
   requireLevel,
@@ -140,6 +143,27 @@ export async function POST(request, { params }) {
   );
   if (refusal) return NextResponse.json(refusal, { status: 409 });
 
+  // ── What this send asks for ──────────────────────────────────────────
+  //
+  // The stage the money received has not covered yet, when the job has a
+  // payment schedule; the balance when it has none; a refusal when it is all
+  // collected. lib/invoices/sendAsk.js says why the button and the 06:10
+  // cron must agree on this. Payments are read family-wide, as the detail
+  // page reads them, so a v2 does not forget what was paid on v1.
+  const payments = await familyPayments(db, invoice.id);
+  const money = computeInvoiceState({ total: invoice.total, payments, priorStatus: invoice.status });
+  const stages = await db.jobPaymentStage.findMany({
+    where: { companyId: member.companyId, invoiceId: invoice.id },
+    select: { id: true, seq: true, label: true, amountCents: true, status: true },
+  });
+  const ask = invoiceSendAsk({ totalCents: Math.round(Number(invoice.total) * 100), paidCents: Math.round(money.amountPaid * 100), stages });
+  if (ask.kind === "nothing_owed") {
+    return NextResponse.json(
+      { error: "Everything on this invoice has been collected, so there is nothing to ask the client for.", code: "nothing_owed", ask },
+      { status: 409 },
+    );
+  }
+
   const token = await ensurePortalToken(db, invoice.clientId, member.companyId);
   if (!token) {
     return NextResponse.json(
@@ -163,9 +187,15 @@ export async function POST(request, { params }) {
     client: invoice.client,
     company: company || {},
     // Deep-link to the invoice itself (the page with the Pay button), not the
-    // portal home — one click to pay instead of hunting through a list.
-    url: portalInvoiceUrl(token, invoice.id, request),
+    // portal home — one click to pay instead of hunting through a list. With
+    // `?stage=<id>` when a stage is asked for, so the portal's Pay button
+    // takes THAT amount (app/api/portal/[token]/pay/route.js re-derives it
+    // from the row and requires the row to be `requested`, which the write
+    // below makes it).
+    url: portalInvoiceUrl(token, invoice.id, request) + (ask.stage ? `?stage=${ask.stage.id}` : ""),
     canTakeCard,
+    requestAmount: ask.requestCents / 100,
+    note: ask.stage ? ask.stage.label : null,
     language: resolveClientLanguage({
       document: invoice,
       client: invoice.client,
@@ -213,6 +243,17 @@ export async function POST(request, { params }) {
     select: { status: true, sentAt: true, sentToEmail: true },
   });
 
+  // The stage asked for is marked requested, exactly as the cron marks it
+  // (lib/paymentSchedule/run.js requestStagePayment), so the portal link
+  // takes its amount and the cron does not ask for it a second time. Only a
+  // pending stage changes: one already requested keeps its first stamp.
+  if (ask.stage && ask.stage.status === "pending") {
+    await db.jobPaymentStage.updateMany({
+      where: { id: ask.stage.id, companyId: member.companyId, status: "pending" },
+      data: { status: "requested", requestedAt: new Date() },
+    });
+  }
+
   // Usage count — see lib/analytics/product/server.js.
   await recordFeatureUse("invoice_sent", { companyId: member.companyId, memberId: member.id });
 
@@ -220,8 +261,10 @@ export async function POST(request, { params }) {
     action: "invoice.sent",
     entityType: "invoice",
     entityId: invoice.id,
-    summary: `Sent invoice ${invoice.invoiceNumber} to ${to}`,
-    metadata: { to, total: invoice.total },
+    summary: ask.stage
+      ? `Sent invoice ${invoice.invoiceNumber} to ${to}, asking for ${ask.stage.label} (${(ask.requestCents / 100).toFixed(2)})`
+      : `Sent invoice ${invoice.invoiceNumber} to ${to}`,
+    metadata: { to, total: invoice.total, requested: ask.requestCents / 100, collected: ask.collectedCents / 100, stage: ask.stage ? ask.stage.label : null },
   });
 
   // A chase-it reminder a week out. After the send, never before: a task
@@ -238,5 +281,8 @@ export async function POST(request, { params }) {
     to,
     messageId: result?.id || null,
     simulated: result?.simulated === true,
+    // What was asked for, so the screen can say "asked for Deposit: $1,500"
+    // rather than "sent".
+    ask: { kind: ask.kind, requested: ask.requestCents / 100, collected: ask.collectedCents / 100, remaining: ask.remainingCents / 100, stage: ask.stage ? { label: ask.stage.label, index: ask.stage.index, count: ask.stage.count } : null },
   });
 }

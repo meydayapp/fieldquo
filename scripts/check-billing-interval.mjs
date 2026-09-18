@@ -142,7 +142,8 @@ ok("...and that same plan still sells monthly",
 ok("the subscription route sends it to the screen", /billingInterval: true/.test(subRoute));
 ok("the page seeds the switch from what they're on",
   /isBillingInterval\(sub\?\.billingInterval\)/.test(page));
-ok("...and posts it back", /JSON\.stringify\(\{ planId, interval: billingInterval/.test(page));
+// Either shape carries the cadence: a rung by planId, a custom size by seat count.
+ok("...and posts it back", /\{ planId, interval: billingInterval \|\| "month" \}/.test(page) && /\{ customSeats: Number\(custom\[1\]\), interval: billingInterval \|\| "month" \}/.test(page));
 // A toggle whose other half cannot be bought is a control that appears to work.
 ok("the switch hides when nothing on offer has an annual price",
   /plans\.some\(\(p\) => annualPriceOf\(p\) !== null\)/.test(page));

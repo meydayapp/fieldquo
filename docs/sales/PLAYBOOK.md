@@ -533,121 +533,121 @@ disposition.
 
 *You will hear it as:* already use, we have jobber, we use jobber, housecall, servicetitan, we're on
 
-> So you have already got that solved, and it works. Good — that is the right order to solve it in, and I am not going to tell you your scheduler is broken. Two things it may not be doing. Whose name the homeowner sees: with us the quote, the invoice, the booking page and every email between them carry yours and none of them carry ours. And what happens before the quote goes out — every one gets read back to you, free, every time: what you have left off it, and whether the price is above or below what you have actually been winning at. Your own accepted and declined jobs, not other contractors' numbers — yours do not go anywhere either. Does the one you use now do that? Give me fifteen minutes and I will show you how it works for a business like yours — a quote with your name on it, review and all, next to the last one you sent. Then tell me what is wrong with it.
+> So you've already got that solved, and it works. Good — that's the right order to solve it in, and I'm not here to tell you your scheduler's broken. Two things it may not be doing, and you tell me. First, whose name the homeowner sees. With us the quote, the invoice, the booking page and every email between them carry your name, and none of them carry ours. Second, what happens before a quote goes out. Every one gets read back to you, free, every time: what you've left off it, and whether the price sits above or below what you've actually been winning at. That's your own accepted and declined jobs, not other contractors' numbers, and yours don't go anywhere either. Does the one you use now do that? Give me fifteen minutes and I'll show you how it works for a business like yours. That's a quote with your name on it, review and all, next to the last one you sent. Then tell me what's wrong with it.
 
 ### 2. That sounds expensive / we can't afford another subscription
 
 *You will hear it as:* expensive, too much, can't afford, cannot afford, cost, another subscription
 
-> So what you are saying is you are not sure it pays for itself. That is the right question and I would rather you put it now than three months in. I am not going to discount it, because the number that decides this is not ours — it is what one quote you never got round to sending is worth to you, and what a quote priced under what you usually win at costs you when it is accepted too fast. The second one you cannot see without something reading your own history back to you, which is the part that is free and runs on every quote. You are the only one who knows your average job. Tell me roughly what that is and I will do the arithmetic with your figure instead of mine, in writing, so you can read it when you are not standing on somebody's drive.
+> So you're not sure it pays for itself. That's the right question, and I'd sooner you put it now than three months in. I'm not going to discount it, because the number that decides this isn't ours. It's what one quote you never got round to sending is worth to you. And it's what a quote priced under your usual win rate costs you when it's accepted too fast. You can't see the second one without something reading your own history back to you, and that part is free and runs on every quote. You're the only one who knows your average job. Tell me roughly what that is and I'll do the arithmetic with your figure, not mine, in writing. Then you can read it when you're not standing on somebody's drive.
 
 ### 3. I don't have time to learn new software
 
 *You will hear it as:* no time, too busy, learn, set up, switch
 
-> So it is the changeover you are weighing, not the thing itself. That is the honest reason most people stay where they are and it is the one I would want answered too. Nothing has to move at once — the next quote goes out of the new one and everything else stays exactly where it is until you decide otherwise. If you want the old records brought across, that is a paid job we do for you, not an import screen we hand you. Rather than argue about how long it takes: give me fifteen minutes and one job you have already done, and I will show you how it would really run for you. Then you tell me whether that was the effort you were picturing.
+> So it's the changeover you're weighing, not the thing itself. That's the honest reason most people stay where they are, and I'd want it answered too. Nothing has to move at once. The next quote goes out of the new one, and everything else stays exactly where it is until you decide otherwise. If you want the old records brought across, that's a paid job we do for you, not an import screen we hand you. Let's not argue about how long it takes. Give me fifteen minutes and one job you've already done, and I'll show you how it would really run for you. Then you tell me whether that was the effort you were picturing.
 
 ### 4. All my work is word of mouth, I don't need a website
 
 *You will hear it as:* word of mouth, referral, don't need a website, do not need a website, busy enough
 
-> So the work comes from people who already know you. That is the best kind there is and I am not going to argue it down. The narrow thing word of mouth cannot do is answer at nine at night: your customer gives your name to a neighbour, the neighbour looks you up on their phone, finds nothing, and rings the second name instead. You would never hear about that one, which is exactly why it is worth a look rather than a shrug. Give me fifteen minutes and three photos of a job you are proud of, and I will show you what that neighbour would have found — then tell me what is wrong with it.
+> So the work comes from people who already know you. That's the best kind there is, and I'm not going to argue it down. The one thing word of mouth can't do is answer at nine at night. Your customer gives your name to a neighbour. The neighbour looks you up on their phone, finds nothing, and rings the second name instead. You'd never hear about that one, and that's exactly why it's worth a look. Give me fifteen minutes and three photos of a job you're proud of, and I'll show you what that neighbour would have found. Then tell me what's wrong with it.
 
 ### 5. People need to talk to me before I can book anything
 
 *You will hear it as:* need to talk, every job is different, can't just book, site visit
 
-> So what you are saying is a job like yours cannot be priced without seeing it. Agreed — nobody is booking a kitchen off a form, and if I told you otherwise you would be right not to believe the rest of it. What gets booked is the visit, not the job: they pick from hours you have already said you will accept, it lands in your calendar with the address and their photos already attached, and the four texts to arrange it never happen. Tell me the hours you would genuinely accept, and give me fifteen minutes — I will show you how it works inside those hours, and you look at it before anybody else can.
+> So a job like yours can't be priced without seeing it. Agreed — nobody's booking a kitchen off a form, and if I told you otherwise you'd be right not to believe the rest. What gets booked is the visit, not the job. They pick from hours you've already said you'll accept. It lands in your calendar with the address and their photos already on it, and the four texts to arrange it never happen. Tell me the hours you'd genuinely accept, and give me fifteen minutes. I'll show you how it works inside those hours, and you look at it before anybody else can.
 
 ### 6. My email address is on the site, that works fine
 
 *You will hear it as:* email works, they email me, my email is on there, inbox
 
-> So the address on the site is doing the job. For the people who write to you it is — the question is what happens between them writing and you answering. It works right up until you are on a roof, and then it is an email you will answer tonight, and tonight you are doing invoices. A form asks the four things you always end up asking anyway, and what lands is a job in a list with the answers already on it rather than a note in an inbox. You keep the address either way — anyone who would rather just email you still can. Tell me the four things you always end up asking, and give me fifteen minutes — I will show you how it works with your questions, not ours.
+> So the address on the site is doing the job. For the people who write to you, it is. The question is what happens between them writing and you answering. It works right up until you're on a roof. Then it's an email you'll answer tonight, and tonight you're doing invoices. A form asks the four things you always end up asking anyway. What lands is a job in a list with the answers already on it, not a note in an inbox. You keep the address either way, and anyone who'd sooner just email you still can. Tell me the four things you always end up asking, and give me fifteen minutes. I'll show you how it works with your questions, not ours.
 
 ### 7. Just send me some information
 
 *You will hear it as:* send me, email me something, send information, brochure
 
-> So you want to see something in writing before you spend any more time on the phone. Fair — I would want the same, and I will send it. I would rather send the one that is about your problem than the one that is about all of them, so which is it more: the quotes going out, or the money coming back in? That is in your inbox today either way. The reason I would still like fifteen minutes on top is that a document read at eleven at night answers no questions back. What works better for you, mornings or afternoons?
+> So you want to see something in writing before you spend any more time on the phone. Fair — I'd want the same, and I'll send it. I'd sooner send the one about your problem than the one about all of them. So tell me which it is more: the quotes going out, or the money coming back in? That's in your inbox today either way. The reason I'd still like fifteen minutes on top is that a document read at eleven at night answers no questions back. What works better for you, mornings or afternoons?
 
 ### 8. Not interested
 
 *You will hear it as:* not interested, no thanks, we're fine, we are fine
 
-> Understood, and I am not going to talk you round. One thing before you get on, and it is a question rather than a pitch: when a quote goes out, is that you at the kitchen table at nine at night? If it is not, then this really is not for you and I would rather say so than keep ringing. If it is, that is the whole of what I called about, and it is worth one more conversation rather than none. And if you would rather we did not ring at all, tell me now and I will put you on the do-not-call list today — that is a switch in here rather than a form of words: it is permanent, and it stops the email and the texts as well.
+> Understood, and I'm not going to talk you round. One thing before you get on, and it's a question, not a pitch. When a quote goes out, is that you at the kitchen table at nine at night? If it isn't, then this really isn't for you, and I'd sooner say so than keep ringing. If it is, that's the whole of what I called about, and it's worth one more conversation. And if you'd sooner we didn't ring at all, tell me now and I'll put you on the do-not-call list today. That's a switch in here, not a form of words: it's permanent, and it stops the email and the texts as well.
 
 ### 9. I'd have to ask my wife / my partner / the boss
 
 *You will hear it as:* ask my wife, ask the wife, my partner, my husband, the boss, not my call, speak to my
 
-> So it is not only your decision, and whoever else is in it has not heard any of this. That is normal at this size and it is the right way round. What I would not do is ask you to sell it for me — my description of it arriving second hand at teatime is the worst version either of you could get. Two ways round it: fifteen minutes with both of you on the phone, or fifteen minutes with you now and I will send over what we looked at, so what they are looking at is the thing itself. Tell me which of those is easier this week.
+> So it's not only your decision, and whoever else is in it hasn't heard any of this. That's normal at this size, and it's the right way round. What I won't do is ask you to sell it for me. My description of it, arriving second hand at teatime, is the worst version either of you could get. Two ways round it. Fifteen minutes with both of you on the phone, or fifteen minutes with you now and I'll send over what we looked at, so they see the thing itself. Tell me which of those is easier this week.
 
 ### 10. Ring me after the season / in the new year
 
 *You will hear it as:* call me back, ring me next, after the summer, after christmas, new year, busy season, try me later, not right now
 
-> So the timing is wrong rather than the thing itself. Fair — the middle of a season is a bad week to change anything and I am not going to pretend otherwise. Two things though. The part that would take an afternoon is fifteen minutes on a screen, not an afternoon of yours. And the month you are describing is the month the quotes go out late, which is the thing I called about — so waiting for it to be quiet means testing it in the week it matters least. Tell me the month you would want it working by and I will work backwards from that. Give me a date and it goes in my diary for that day rather than me ringing you at random.
+> So the timing's wrong, not the thing itself. Fair — the middle of a season is a bad week to change anything, and I'm not going to pretend otherwise. Two things though. The part that'd take an afternoon is fifteen minutes on a screen, not an afternoon of yours. And the month you're describing is the month the quotes go out late, which is what I called about. So waiting for it to go quiet means testing it in the week it matters least. Tell me the month you'd want it working by and I'll work backwards from that. Give me a date and it goes in my diary for that day, so I'm not ringing you at random.
 
 ### 11. Where did you get my number?
 
 *You will hear it as:* where did you get, how did you get my number, who gave you, how do you have my, who gave my
 
-> So you want to know how I got hold of you before anything else. That is a fair thing to ask and you are owed a straight answer rather than a deflection. It came off your own public business listing — the one a homeowner would find searching for you — and that is recorded against your name here, so I can tell you which page it was on. Nobody sold it to us and nobody passed it on; there is no traded list of contractors behind this call. If that bothers you it is a reasonable thing to be bothered by and I would rather know. Give me the thirty seconds I asked for and you can decide on the reason I called rather than on how I found you.
+> So you want to know how I got hold of you before anything else. That's a fair thing to ask, and you're owed a straight answer. It came off your own public business listing, the one a homeowner would find searching for you. It's recorded against your name here, so I can tell you which page it was on. Nobody sold it to us and nobody passed it on. There's no traded list of contractors behind this call. If that bothers you, that's reasonable, and I'd sooner know. Give me the thirty seconds I asked for, and then you can decide on the reason I called, not on how I found you.
 
 ### 12. It's just me — I'm too small for something like that
 
 *You will hear it as:* just me, one man, one-man, only me, too small, on my own, sole trader, small outfit
 
-> So it is you, and there is nobody to hand any of it to. That is the case this was built for rather than the exception to it — the whole of the office job lands on the person who is also on the tools, which is why the evenings go the way they do. It starts at one seat, and anybody who ever works with you in a van is carried at no charge rather than billed per head, so taking somebody on does not become a reason to leave. Give me fifteen minutes and one job you have already done, and I will show you how it would really run for one person. Then you tell me whether that is more work than what you do now or less.
+> So it's you, and there's nobody to hand any of it to. That's the case this was built for, not the exception to it. The whole office job lands on the person who's also on the tools, and that's why the evenings go the way they do. It starts at one seat. Anybody who ever works with you in a van is carried at no charge, not billed per head, so taking somebody on doesn't become a reason to leave. Give me fifteen minutes and one job you've already done, and I'll show you how it would really run for one person. Then you tell me whether that's more work than what you do now, or less.
 
 ### 13. I've got more work than I can handle already
 
 *You will hear it as:* more work than, booked out, turning work away, don't need more work, do not need more work, plenty of work, flat out
 
-> So the problem is not finding work. Good — then half of what I could say is irrelevant and I will leave it out rather than talk you into a problem you do not have. The part that still applies when you are flat out is the other end of it: the quotes that go out late because you were on a roof, and the ones priced from memory because there was no evening left to check them against what you have actually been winning at. Being busy is when both of those cost the most, not the least. Tell me roughly how many quotes are sitting waiting on you right now and I will tell you straight whether this is worth a conversation in the middle of a season.
+> So the problem isn't finding work. Good — then half of what I could say is irrelevant, and I'll leave it out. I'm not going to talk you into a problem you don't have. The part that still applies when you're flat out is the other end of it. The quotes that go out late because you were on a roof. And the ones priced from memory because there was no evening left to check them against what you've actually been winning at. Being busy is when both of those cost the most, not the least. Tell me roughly how many quotes are sitting waiting on you right now. Then I'll tell you straight whether this is worth a conversation in the middle of a season.
 
 ### 14. We tried one of these before and it didn't stick
 
 *You will hear it as:* tried one, we had one, didn't stick, did not stick, gave up on, wasted money, tried that before
 
-> So you have paid for one of these before and it did not survive a real week. That is worth more than a fresh opinion and I would rather hear it than talk over it. What usually kills them is the setting up: somebody hands over an empty system and your own prices have to be typed into it before it can do anything at all, and that never happens in July. Tell me which one it was and where it fell over. If we do the same thing at the same point I will say so and you should not buy it; if we do not, I will show you the part that is different and you can judge it against the one that failed.
+> So you've paid for one of these before, and it didn't survive a real week. That's worth more than a fresh opinion, and I'd sooner hear it than talk over it. What usually kills them is the setting up. Somebody hands over an empty system, and your own prices have to be typed into it before it does anything at all. That never happens in July. Tell me which one it was and where it fell over. If we do the same thing at the same point, I'll say so and you shouldn't buy it. If we don't, I'll show you the part that's different, and you can judge it against the one that failed.
 
 ### 15. Pen and paper works fine / it's all in a spreadsheet
 
 *You will hear it as:* pen and paper, paper, spreadsheet, excel, notebook, in my head, word document
 
-> So the notebook works, and it has worked for years. Agreed, and I am not going to tell you it is broken, because for the job in front of you it is not. Two things it cannot do. It cannot hand a homeowner something with your name and your colours on it while you are still standing in their kitchen. And it cannot tell you that the price you have just written is under what you have been winning at, because that needs your own history read back to you. Give me fifteen minutes and one job out of the book — a real one, your own numbers — and I will show you it next to what you would have sent, and you say which one you would rather a customer opened.
+> So the notebook works, and it's worked for years. Agreed, and I'm not going to tell you it's broken, because for the job in front of you it isn't. Two things it can't do. It can't hand a homeowner something with your name and your colours on it while you're still standing in their kitchen. And it can't tell you the price you've just written is under what you've been winning at, because that needs your own history read back to you. Give me fifteen minutes and one job out of the book — a real one, your own numbers. I'll show you it next to what you'd have sent, and you say which one you'd sooner a customer opened.
 
 ### 16. Let me think about it
 
 *You will hear it as:* think about it, let me think, need to think, have a think, sleep on it, get back to you
 
-> Understood, and a decision like this should not be made on a phone call anyway. The reason I would rather not leave it there is what thinking about it turns into: in three weeks the thing you are weighing up is my description of it rather than the thing itself. So let me take the deciding out of it. Give me fifteen minutes and I will show you how it works for a business like yours — a real quote with your name on it, at no cost and with nothing attached to it — and you can think about that instead of about me. Tell me which day next week I should keep clear of, and I will ring you on a different one.
+> Understood, and a decision like this shouldn't be made on a phone call anyway. The reason I'd sooner not leave it there is what thinking about it turns into. In three weeks the thing you're weighing up is my description of it, not the thing itself. So let me take the deciding out of it. Give me fifteen minutes and I'll show you how it works for a business like yours. That's a real quote with your name on it, at no cost, with nothing attached. Then you can think about that instead of about me. Tell me which day next week I should keep clear of, and I'll ring you on a different one.
 
 ### 17. Just tell me what it costs
 
 *You will hear it as:* what does it cost, how much is it, tell me the price, what's the price, what is the price, how much
 
-> Fair, and I am not going to dodge it — a price you have to ring somebody for is its own answer. It is ninety-nine dollars a month for one person who prices work, and everybody else in a van is carried at no charge rather than billed per head. Every feature is in every plan, so there is no cheaper one that turns out not to do the thing you wanted. What I cannot tell you from here is whether it is worth ninety-nine dollars to you, because that turns on how many quotes a month go out of your hands. Tell me roughly what that number is and I will do that arithmetic with you rather than at you.
+> Fair, and I'm not going to dodge it. A price you have to ring somebody for is its own answer. It's ninety-nine dollars a month for one person who prices work. Everybody else in a van is carried at no charge, not billed per head. Every feature is in every plan, so there's no cheaper one that turns out not to do the thing you wanted. What I can't tell you from here is whether it's worth ninety-nine dollars to you. That turns on how many quotes a month go out of your hands. Tell me roughly what that number is and I'll do that arithmetic with you, not at you.
 
 ### 18. Am I tied into a contract?
 
 *You will hear it as:* tied in, contract, locked in, how long am i, commitment, notice period
 
-> So the worry is being stuck with it rather than the thing itself. That is the right worry, and a year signed up front is how most of this is sold, which is why people end up paying for software they stopped opening. There is no year to sign here: you pay month to month and you leave at the end of one. Said against my own interest, since you will find it out anyway — that also means there is nothing holding you in if it turns out to be no good, so it is on us to be worth the next month every month. Give me one month with it and if it has not paid for itself, stop it.
+> So the worry is being stuck with it, not the thing itself. That's the right worry. A year signed up front is how most of this is sold, and it's why people end up paying for software they stopped opening. There's no year to sign here. You pay month to month, and you leave at the end of one. I'll say this against my own interest, since you'll find it out anyway: that also means there's nothing holding you in if it turns out to be no good. So it's on us to be worth the next month, every month. Give me one month with it, and if it hasn't paid for itself, stop it.
 
 ### 19. Who owns my customer list? Is my data safe?
 
 *You will hear it as:* my data, who owns, is it safe, customer list, security, privacy, gdpr
 
-> So the thing you want settled first is where your customer list ends up. That is the right question to ask first and most people ask it last. Your clients, your prices and your quotes are yours: they are not pooled, they are not shown to another contractor, and nothing you put in is used to price somebody else's job. The one place your own history gets read is the review that runs on your own quotes, and it reads only yours. If you want it all back, or gone, that is a written request we act on rather than a button that quietly does half of it. Tell me what you would need to see in writing and I will send exactly that.
+> So the thing you want settled first is where your customer list ends up. That's the right question to ask first, and most people ask it last. Your clients, your prices and your quotes are yours. They're not pooled, they're not shown to another contractor, and nothing you put in is used to price somebody else's job. The one place your own history gets read is the review that runs on your own quotes, and it reads only yours. If you want it all back, or gone, that's a written request we act on, not a button that quietly does half of it. Tell me what you'd need to see in writing and I'll send exactly that.
 
 ### 20. My bookkeeper uses QuickBooks / Sage / Xero
 
 *You will hear it as:* quickbooks, my accountant, bookkeeper, sage, xero, does the books
 
-> So the person who does your books has a system already, and you are not about to move them off it. Agreed, and you should not — that is their tool, not yours. Here is the limit before you find it yourself: there is no live link that pushes invoices into it as they go out. What there is is an export of the invoices and the job costs in a shape a bookkeeper can take, so month end stops being you reading numbers down a phone. Send me one month you have already closed and I will show you exactly what they would receive, and they can tell you whether that is useful or not.
+> So the person who does your books has a system already, and you're not about to move them off it. Agreed, and you shouldn't — that's their tool, not yours. Here's the limit before you find it yourself: there's no live link that pushes invoices into it as they go out. What there is, is an export of the invoices and the job costs in a shape a bookkeeper can take. So month end stops being you reading numbers down a phone. Send me one month you've already closed and I'll show you exactly what they'd receive. Then they can tell you whether that's useful or not.
 
 ### 21. I'm busy / I'm on a job right now
 

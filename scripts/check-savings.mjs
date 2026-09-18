@@ -686,8 +686,14 @@ for (const tier of SEAT_LADDER) {
 {
   const over = { seats: LADDER_CEILING.seats + 1, crew: 0 };
   ok(
-    "a business past the ladder is not silently sold the top plan",
-    subscriptionCost(over).fits === false && tierFor(over) === null,
+    "a business past the ladder — past a hundred people — is not silently sold the largest size",
+    subscriptionCost(over).fits === false && tierFor(over) === null && LADDER_CEILING.seats === 47,
+  );
+  // Past the four rungs but under the cap is the fifth rung, named with its counts.
+  const custom = subscriptionCost({ seats: 12, crew: 4 });
+  ok(
+    "twelve seats is a custom size at the ladder's per-seat step, not a refusal",
+    custom.fits === true && custom.tierKey === "custom-12" && custom.label === "Custom · 12 seats · 17 crew",
   );
   const result = estimateSavings({
     ...over,

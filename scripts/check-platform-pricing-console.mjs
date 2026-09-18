@@ -139,17 +139,20 @@ ok("the per-licence pricing model is gone, not just unused", () => {
   );
 });
 
-ok("the find-or-create-a-custom-plan helper is gone, not just unreachable", () => {
-  // It existed for exactly one job — minting a "Custom (N employees)" Plan
-  // from calculatePricing() output — and that job no longer exists. An
-  // operator negotiating a genuine one-off rate now uses the console's own
-  // "New plan" form (POST /api/platform/billing/plans), which writes a Plan
-  // row directly and was always independent of this helper.
-  assert.ok(
-    !fs.existsSync(path.join(process.cwd(), "lib/billing/customPlan.js")),
-    "lib/billing/customPlan.js should be deleted now that nothing mints a " +
-      "Custom plan from a headcount automatically",
-  );
+ok("the find-or-create-a-custom-plan helper never prices from a headcount", () => {
+  // The old helper existed for exactly one job — minting a "Custom (N
+  // employees)" Plan from calculatePricing() output — and that job no
+  // longer exists; it was deleted. The file is back under the same name
+  // (2026-09-18) for a different job: the fifth rung, a SEAT COUNT priced
+  // from the Scale row through customTier() in lib/pricing/ladder.js. What
+  // must stay gone is the headcount price: no calculatePricing, no
+  // employeeCount, no per-licence rate — and the browser's number is a seat
+  // count the server ranges, never an amount.
+  const src = code("lib/billing/customPlan.js");
+  assert.ok(!/calculatePricing|employeeCount|perLicense|licence/i.test(src.replace(/\/\/.*$/gm, "")), "customPlan.js prices from a headcount again");
+  assert.match(src, /customTier\(n, \{ base: scale \}\)/, "the row is priced through the ladder's customTier from the Scale row");
+  assert.match(src, /where: \{ tierKey_currency: \{ tierKey: tier\.tierKey, currency \} \}/, "found-or-created on the (tierKey, currency) unique");
+  assert.match(src, /isPublic: false/, "a custom size is off the menu");
 });
 
 ok("the seeder does not re-assert SEAT_LADDER over an existing row", () => {
@@ -781,7 +784,8 @@ ok("recurringLine — every Stripe line that sells a plan — throws on a retire
   for (const builder of ["createTrialCheckoutSession", "createBillingCheckoutSession", "changeSubscriptionPlan", "schedulePlanChange"]) {
     const b = src.slice(src.indexOf(`export async function ${builder}(`));
     const end = b.indexOf("\nexport ");
-    assert.match(b.slice(0, end > 0 ? end : undefined), /recurringLine\(\{/, `${builder} does not build its line through recurringLine`);
+    // Through subscriptionLines, which builds every base line with recurringLine.
+    assert.match(b.slice(0, end > 0 ? end : undefined), /subscriptionLines\(\{/, `${builder} does not build its line through subscriptionLines`);
   }
 });
 

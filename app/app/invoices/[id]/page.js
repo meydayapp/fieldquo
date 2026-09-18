@@ -141,6 +141,9 @@ export default function InvoiceDetailPage() {
   const [error, setError] = useState("");
   const [sending, setSending] = useState(false);
   const [justSent, setJustSent] = useState("");
+  // What the send asked for — a stage or the balance — so the banner says
+  // "asked for Deposit: $1,500" and not merely "emailed".
+  const [justSentAsk, setJustSentAsk] = useState(null);
   // See the same pair on the quote page: a demo's send writes every field a
   // real one does, so this flag is the only thing that keeps the banner honest.
   const [justSentSimulated, setJustSentSimulated] = useState(false);
@@ -277,9 +280,13 @@ export default function InvoiceDetailPage() {
         setTaxBlocked(data);
         return;
       }
+      if (res.status === 409 && data?.code === "nothing_owed") {
+        throw new Error(t("app.invoiceDetail.sendNothingOwed"));
+      }
       if (!res.ok)
         throw new Error(data?.error || t("app.invoiceDetail.sendError"));
       setJustSent(data.to);
+      setJustSentAsk(data.ask || null);
       setJustSentSimulated(data.simulated === true);
       setTimeout(() => setJustSent(""), 6000);
       await refresh();
@@ -482,6 +489,7 @@ export default function InvoiceDetailPage() {
           <span>
             {t("app.invoiceDetail.emailedTo")}{" "}
             <span className="font-medium">{justSent}</span>.
+            {justSentAsk?.stage ? <> {t("app.invoiceDetail.sentAskedFor", { label: justSentAsk.stage.label, amount: money(justSentAsk.requested) })}</> : null}
             {justSentSimulated && <> {t("app.demo.notEmailed")}</>}
           </span>
         </div>
@@ -623,6 +631,16 @@ export default function InvoiceDetailPage() {
               >
                 <Trash2 size={16} />
               </button>
+            )}
+            {/* Which money Send asks for — the next uncovered stage of the
+                job's schedule, or the balance — said before the press. The
+                figure comes from the same function the route decides by
+                (lib/invoices/sendAsk.js); absent when money is hidden from
+                this role. */}
+            {owing && !historical && invoice.sendAsk?.kind === "stage" && (
+              <p className="basis-full text-xs text-muted-foreground" data-send-ask="stage">
+                {t("app.invoiceDetail.sendAskStage", { label: invoice.sendAsk.stage.label, index: invoice.sendAsk.stage.index, count: invoice.sendAsk.stage.count, amount: money(invoice.sendAsk.requested), collected: money(invoice.sendAsk.collected) })}
+              </p>
             )}
           </div>
         )}

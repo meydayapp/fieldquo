@@ -193,8 +193,11 @@ export async function POST(request) {
   // (lib/pricing/ladder.js isBillableSeat) — that split isn't knowable from a
   // single number, so guessing it would be padding absent data with a default
   // (AGENTS.md). A real Plan row, chosen on the signup page, is required
-  // instead. A company that needs more than Scale (10 seats + 15 crew) has no
-  // self-serve price — see docs/PRICING-CLEANUP.md for that gap.
+  // instead. A company that needs more than Scale (10 seats + 15 crew) picks
+  // a SEAT COUNT on the pricing page's fifth card; /api/marketing/plans turns
+  // "?tier=custom-20" into a real row per currency (lib/billing/customPlan.js)
+  // and it arrives here as an ordinary planId — priced by the server, never
+  // by the browser.
   if (!planId) {
     return NextResponse.json(
       { error: "planId is required" },

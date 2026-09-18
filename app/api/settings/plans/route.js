@@ -19,6 +19,7 @@ import { resolveCountry } from "@/lib/company/resolveCountry";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { isBillingAdmin, BILLING_ADMIN_ERROR } from "@/lib/billing/billingAdmin";
+import { customOfferFor } from "@/lib/billing/customPlan";
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -95,5 +96,10 @@ export async function GET(request) {
 
   // `currency: null` is reported so the screen can say WHY the ladder is
   // missing instead of rendering an empty list, which reads as an outage.
-  return NextResponse.json({ plans, currency });
+  // The fifth card prices itself from this — the range, Scale's base and the
+  // per-seat amounts in the company's currency — so the stepper never posts
+  // a price back, only a seat count. Null when the currency has no Scale row,
+  // and the page then renders no stepper rather than a dead one.
+  const custom = currency ? await customOfferFor(currency) : null;
+  return NextResponse.json({ plans, currency, custom });
 }

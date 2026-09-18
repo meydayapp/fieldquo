@@ -34,6 +34,7 @@ import { Loader2 } from "lucide-react";
 import RepLanguageChoice from "@/app/components/sales/RepLanguageChoice";
 import RepSellsInChoice from "@/app/components/sales/RepSellsInChoice";
 import BrowserNotifications from "@/app/components/notifications/BrowserNotifications";
+import RepDemoHours from "@/app/components/sales/RepDemoHours";
 import { fetchJson } from "@/lib/fetchJson";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
@@ -100,6 +101,12 @@ export default function SalesSettingsPage() {
           block /app and /platform mount; the endpoint is this surface's. */}
       <section className="border-t border-border pt-8">
         <BrowserNotifications endpoint="/api/sales/push-subscription" />
+      </section>
+
+      {/* The rep's public demo page — the link the intro email's demo button
+          lands on, the zone, the bookable hours. lib/sales/demoBooking/. */}
+      <section className="border-t border-border pt-8">
+        <RepDemoHours />
       </section>
 
       <section className="border-t border-border pt-8 space-y-3" data-rep-profile>

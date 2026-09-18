@@ -252,7 +252,7 @@ export default function PaverDesigner({
   // precision the method does not have.
   //
   // `measuredAreaSqft` is the TRACED total, beside the three boxes: the boxes
-  // can be typed over, and the document's "Area measured: N sq ft" caption
+  // can be typed over, and the document's "Paving area measured: N sq ft" caption
   // (lib/measure/measureImages.js measureCaption) must only ever claim what
   // was actually drawn. 0 when nothing is traced, which the caption reads as
   // "no measurement" and prints nothing.

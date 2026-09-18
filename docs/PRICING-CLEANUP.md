@@ -111,6 +111,23 @@ needs twelve seats is a conversation, and silently seating them on Scale
 would bill them for ten and leave two people locked out with no
 explanation"*).
 
+> **Superseded 2026-09-18 — the fifth rung.** The owner asked for a
+> self-serve size above Scale: "the minimum is the current max (Scale); let
+> them add more seats, kind of doubling; no more than 100 total employees;
+> use the current plan logic to determine how many more crew per seat."
+> `lib/pricing/ladder.js` now derives it from the four rungs — crew = seats
+> + 5 (the ladder's constant gap from Crew up), $25 a seat a month (the
+> Shop → Scale step per seat), so custom(seats) = $369 + $25 × (seats − 10),
+> eleven to forty-seven seats (47 + 52 crew = 99 people). `tierFor()` returns
+> the custom size past Scale and null only past a hundred people. A size is a
+> Plan row ("Custom · 20 seats · 25 crew", tierKey `custom-20`, one per
+> currency, private), minted on first use by `lib/billing/customPlan.js` —
+> back under the name this document records deleting, for a different job —
+> and billed at Stripe as Scale's line plus an "Extra seat" Price
+> (lookup_key `fq_extra_seat_<currency>[_year]`) × the seats past ten. The
+> stepper is on /pricing and on Account & Billing; signup's card below now
+> points at it. The paragraphs that follow describe the gap as it stood.
+
 The good news: the rest of the app already treats this correctly.
 `lib/pricing/seatLimit.js`'s `seatLimitMessage()` already says *"Talk to us
 about a plan that fits"* when `nextTier` is null, and the Team page already

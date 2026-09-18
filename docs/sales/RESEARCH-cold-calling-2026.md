@@ -542,11 +542,14 @@ call against the playbook. Given the above:
 
 ## 9. What was not done, and why
 
-- The twenty existing objection responses are written without contractions
+- ~~The twenty existing objection responses are written without contractions
   ("I am not going to") while the model prompt and the four new answers use
-  the owner's spoken register. They are fed to the model as the library it
-  paraphrases from. A register rewrite of all twenty is a separate change
-  with twenty fingerprints to retire; flagged, not done.
+  the owner's spoken register.~~ **Done 2026-09-18.** All twenty were
+  rewritten in the spoken register — contractions, a sentence under thirty
+  words, no "rather than" — in the acknowledge → clarify → answer → confirm
+  shape, substance unchanged; the twenty outgoing fingerprints are in
+  `seedHistory.js` and `refreshBuiltIns` was run against production (20
+  updated, 0 kept back).
 - No experiment row is seeded. Experiments are created in the platform
   console with a written hypothesis (`experiments.js`); D16 is the one to
   create.

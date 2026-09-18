@@ -103,11 +103,25 @@ ok("legacy plans allow anyone", seatCheck({ roster: [owner, admin], plan: LEGACY
 ok("...and say why", seatCheck({ roster: [owner], plan: LEGACY }).reason === "no_seat_limit");
 ok("no plan at all allows anyone", seatCheck({ roster: [owner], plan: null, incoming: admin }).allowed === true);
 
-console.log("\nThe top of the ladder is a conversation, not a button");
+console.log("\nPast the top of the ladder is a custom size — and past a hundred people, a conversation");
 const huge = Array.from({ length: 12 }, () => admin);
 const beyond = seatCheck({ roster: huge, plan: SOLO, incoming: admin });
-ok("no tier fits thirteen seats", beyond.nextTier === null);
-ok("...so the message asks them to talk to us", /[Tt]alk to us/.test(seatLimitMessage(beyond)));
+ok("thirteen seats fits no rung, so the next tier is the smallest custom size: 13 seats",
+  beyond.nextTier?.custom === true && beyond.nextTier.seats === 13 && beyond.nextTier.crewSeats === 18);
+ok("...and the message names it with its count",
+  /custom plan at 13 seats/i.test(seatLimitMessage(beyond)) && /13 seats and 18 crew/.test(seatLimitMessage(beyond)));
+const CUSTOM20 = { tierKey: "custom-20", seats: 20, crewSeats: 25 };
+const twenty = Array.from({ length: 20 }, () => admin);
+const onCustom = seatCheck({ roster: twenty, plan: CUSTOM20, incoming: admin });
+ok("a company on Custom · 20 seats is refused its twenty-first seat", onCustom.allowed === false && onCustom.reason === "seat_limit");
+ok("...told it is on its Custom plan with 20 seats", /Your Custom plan includes 20 seats/.test(seatLimitMessage(onCustom)));
+ok("...and offered the next size up", onCustom.nextTier?.tierKey === "custom-21");
+ok("...while its twenty-fifth crew member still fits",
+  seatCheck({ roster: [...twenty, ...Array.from({ length: 24 }, () => crew)], plan: CUSTOM20, incoming: crew }).allowed === true);
+const hundred = Array.from({ length: 48 }, () => admin);
+const tooBig = seatCheck({ roster: hundred, plan: CUSTOM20, incoming: admin });
+ok("forty-nine seats fits nothing FieldQuo sells", tooBig.nextTier === null);
+ok("...so the message asks them to talk to us", /[Tt]alk to us/.test(seatLimitMessage(tooBig)));
 
 console.log("\nBoth server doors are gated, not just the screen");
 import { readFileSync } from "node:fs";

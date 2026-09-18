@@ -1438,6 +1438,15 @@ function ResearchLayers({ t, current }) {
       {/* ── Layer 3: recommendations ───────────────────────────────── */}
       <div className="space-y-3 border-t border-border pt-4">
         <LayerHeader layer="recommendation" />
+        {/* The plan BBB's employee band most likely fits — the number the
+            pitch is sized on. The sentence carries its own caveat (per BBB,
+            self-reported); this is the only line on the card that names a
+            price. Absent when BBB gave no band. */}
+        {current.planFit?.sentence ? (
+          <p className="text-sm text-foreground break-words" data-plan-fit={current.planFit.kind}>
+            <strong>{t("app.salesQueue.likelyPlan", "Likely plan")}:</strong> {current.planFit.sentence}
+          </p>
+        ) : null}
         {current.opportunities.length === 0 ? (
           <p className="text-sm text-muted-foreground">{t("app.salesQueue.noRecommendations")}</p>
         ) : (

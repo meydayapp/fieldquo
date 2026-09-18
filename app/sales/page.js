@@ -348,7 +348,7 @@ export default function SalesHomePage() {
           buttons in the intro email, pressed. Each row opens the lead, where
           the request sits on the timeline with "Mark as handled"; a dial to
           the lead after the request counts as handled by itself. */}
-      <section className={CARD} data-intro-requests={Number.isFinite(introRequests.data?.callbacks) ? introRequests.data.callbacks + introRequests.data.demos : undefined}>
+      <section className={CARD} data-intro-requests={Number.isFinite(introRequests.data?.callbacks) ? introRequests.data.callbacks + introRequests.data.demos + (introRequests.data.demoBookings || 0) : undefined}>
         <div className="flex items-center gap-2">
           <Phone size={16} className="text-muted-foreground shrink-0" />
           <h2 className="text-base font-semibold text-foreground">{t("app.salesIntro.today.title")}</h2>
@@ -361,13 +361,21 @@ export default function SalesHomePage() {
           </p>
         ) : !Number.isFinite(introRequests.data?.callbacks) ? (
           <p className="text-sm text-muted-foreground">{notLoaded}</p>
-        ) : introRequests.data.callbacks + introRequests.data.demos === 0 ? (
+        ) : introRequests.data.callbacks + introRequests.data.demos + (introRequests.data.demoBookings || 0) === 0 ? (
           <p className="text-sm text-muted-foreground break-words">{t("app.salesIntro.today.none")}</p>
         ) : (
           <>
-            <div className="grid grid-cols-2 gap-4">
+            {/* "{n} demo bookings" once the rep's page has real bookings; the
+                older "{n} demo requests" stays only while a lead pressed the
+                button and chose no slot. */}
+            <div className={`grid gap-4 ${introRequests.data.demoBookings > 0 && introRequests.data.demos > 0 ? "grid-cols-3" : "grid-cols-2"}`}>
               <Figure value={introRequests.data.callbacks} label={t("app.salesIntro.today.callbacks", { value: introRequests.data.callbacks })} loading={false} notLoadedLabel={notLoaded} />
-              <Figure value={introRequests.data.demos} label={t("app.salesIntro.today.demos", { value: introRequests.data.demos })} loading={false} notLoadedLabel={notLoaded} />
+              {introRequests.data.demoBookings > 0 ? (
+                <Figure value={introRequests.data.demoBookings} label={t("app.salesIntro.today.demoBookings", { value: introRequests.data.demoBookings })} loading={false} notLoadedLabel={notLoaded} />
+              ) : null}
+              {introRequests.data.demos > 0 || !(introRequests.data.demoBookings > 0) ? (
+                <Figure value={introRequests.data.demos} label={t("app.salesIntro.today.demos", { value: introRequests.data.demos })} loading={false} notLoadedLabel={notLoaded} />
+              ) : null}
             </div>
             <ul className="divide-y divide-border/60 rounded-lg border border-border" data-intro-requests-list>
               {introRequests.data.items.map((item) => (
@@ -375,7 +383,7 @@ export default function SalesHomePage() {
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-medium text-foreground">{item.businessName || t("app.salesToday.checkinsUnnamed")}</span>
                     <span className="block truncate text-xs text-muted-foreground">
-                      {t(`app.salesIntro.today.kind.${item.kind}`)} · {new Date(item.requestedAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}
+                      {t(`app.salesIntro.today.kind.${item.kind}`)} · {new Date(item.at || item.requestedAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}
                     </span>
                   </span>
                   <Link href={`/sales/leads/${encodeURIComponent(item.leadId)}`} className={`${BTN} shrink-0 border border-border text-foreground px-3`}>
