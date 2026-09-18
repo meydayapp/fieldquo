@@ -11,6 +11,24 @@ import { effectiveBookingFeeCents, feeHoldCutoff } from "@/lib/booking/fee";
 import { createBookingFeeCheckoutSession } from "@/lib/stripe";
 import { getAppOrigin } from "@/lib/appUrl";
 import { normaliseCountry } from "@/lib/tax/jurisdictions";
+import { cleanTradeAnswers, tradeAnswerLines } from "@/lib/leads/tradeQuestions";
+import {
+  checkServiceArea,
+  postalCodeFromAddress,
+  serviceAreaCopy,
+} from "@/lib/company/serviceArea";
+import { isSupported } from "@/app/i18n/languages";
+
+// The one refusal this route makes in the visitor's own language: the "when
+// do you need this done?" question is required, and a homeowner reading the
+// page in French should not be told so in English. Three languages, the same
+// three lib/leads/tradeQuestions.js carries; anything else falls back to
+// English, which is what the rest of the page is in.
+const WHEN_REQUIRED = {
+  en: "Please tell us when you need this done.",
+  fr: "Veuillez nous dire quand vous en avez besoin.",
+  es: "Por favor, indíquenos cuándo necesita hacer esto.",
+};
 
 // Public — confirms a booking, re-validates the slot is still free (race condition guard)
 export async function POST(request, { params }) {
@@ -43,6 +61,15 @@ export async function POST(request, { params }) {
     // internet can post to.
     notes,
     serviceKey,
+    // "When do you need this done?" (required) and the trade's own question(s)
+    // (optional). Validated below against lib/leads/tradeQuestions.js for the
+    // service actually chosen — the browser posts option KEYS, and any key
+    // not on that table for that trade is dropped, not stored.
+    whenNeeded,
+    answers,
+    // The language the visitor is reading the page in, for the one refusal
+    // below. Checked against the supported list; never stored.
+    language: postedLanguage,
     city, province, country,
   } =
     body;
@@ -82,10 +109,6 @@ export async function POST(request, { params }) {
       { status: 404 },
     );
 
-  // Capped and trimmed. `notes` is prose a stranger typed; the length is what
-  // stops a booking row becoming a place to store a novel.
-  const cleanNotes =
-    typeof notes === "string" && notes.trim() ? notes.trim().slice(0, 2000) : null;
   // Only a key this company actually offers. An arbitrary string here would put
   // a service they do not sell onto their own calendar.
   const cleanServiceKey =
@@ -99,6 +122,30 @@ export async function POST(request, { params }) {
         ? serviceKey.trim()
         : null
       : null;
+
+  // ── When, and what the trade asked ──────────────────────────────────────
+  //
+  // Validated for the service that survived the check above: a plumbing
+  // booking is measured against the urgent ladder, an unpicked service against
+  // the planned-work one, exactly as the page rendered them. `cleaned.notes`
+  // is the homeowner's own free text, trimmed and capped at 2000 by the same
+  // helper — the length is what stops a booking row becoming a place to store
+  // a novel.
+  const cleaned = cleanTradeAnswers(cleanServiceKey || "", { whenNeeded, answers, notes });
+  if (!cleaned.whenNeeded) {
+    // Required. The page disables the button until it is answered, so this
+    // is reached by a hand-crafted POST or a stale tab — refused rather than
+    // stored as "didn't say", because the calendar entry this creates is one
+    // the crew plans a day around.
+    const lang =
+      typeof postedLanguage === "string" && isSupported(postedLanguage)
+        ? postedLanguage.toLowerCase()
+        : company.defaultLanguage || "en";
+    return NextResponse.json(
+      { error: WHEN_REQUIRED[lang] || WHEN_REQUIRED.en },
+      { status: 400 },
+    );
+  }
 
   const start = new Date(startTime);
   const end = new Date(start.getTime() + eventType.durationMinutes * 60000);
@@ -235,6 +282,43 @@ export async function POST(request, { params }) {
     const hit = await geocodeAddress(visitAddress);
     if (hit) visitPoint = { lat: hit.lat, lng: hit.lng };
   }
+
+  // ── The notes the crew reads ────────────────────────────────────────────
+  //
+  // Booking has no intake column, so these lines ARE the record of what the
+  // homeowner answered: "When needed: This week", "Is the water currently
+  // shut off: Yes", then a blank line, then their own words. In the company's
+  // language (the crew's, not the visitor's — the visitor already read the
+  // question in theirs). Written to BOTH Booking.notes and Appointment.notes:
+  // Appointment.notes is what /app/appointments and the team schedule render,
+  // and a note reachable only through the Booking row is a note nobody working
+  // that day will ever see. The paid path copies it across when the
+  // appointment is created on settlement (lib/booking/settleBookingFee.js).
+  //
+  // First line, when it applies: the service-area badge. Evaluated on the
+  // server against the geocoded pin and the address's postal code, never
+  // trusted from the browser — and only for a site visit, since a call has
+  // nowhere to drive to. `inside === null` (nothing configured, or the
+  // address could not be placed) says nothing: "we don't know" is not
+  // "outside". The booking goes through either way; the company decides.
+  const staffLanguage = company.defaultLanguage || "en";
+  const staffLines = [];
+  if (chosenMode === "visit" && visitAddress) {
+    const area = checkServiceArea(company, {
+      ...(visitPoint || {}),
+      postalCode: postalCodeFromAddress(visitAddress),
+    });
+    if (area.inside === false) staffLines.push(serviceAreaCopy(staffLanguage).outsideBadge);
+  }
+  staffLines.push(
+    ...tradeAnswerLines(
+      cleanServiceKey || "",
+      { whenNeeded: cleaned.whenNeeded, answers: cleaned.answers },
+      staffLanguage,
+    ),
+  );
+  const cleanNotes =
+    [staffLines.join("\n"), cleaned.notes].filter(Boolean).join("\n\n") || null;
 
   // ── Paid visit vs free booking ──────────────────────────────────────────
   //

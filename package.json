@@ -10,6 +10,7 @@
     "check:help-centre": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-help-centre.mjs",
     "check:purchasing": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-purchasing.mjs",
     "check:trade-catalog": "node --import ./scripts/alias-loader.mjs scripts/check-trade-catalog.mjs",
+    "check:booking-questions": "node --import ./scripts/alias-loader.mjs scripts/check-booking-questions.mjs",
     "check:service-rate-inheritance": "node --import ./scripts/alias-loader.mjs scripts/check-service-rate-inheritance.mjs",
     "check:kitchen-access": "node --import ./scripts/alias-loader.mjs scripts/check-kitchen-access.mjs",
     "check:quote-duplicate": "node --import ./scripts/alias-loader.mjs scripts/check-quote-duplicate.mjs",
