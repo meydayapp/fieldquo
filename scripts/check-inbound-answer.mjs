@@ -96,11 +96,18 @@ section("1. The token actually permits receiving");
 section("2. Something is listening, on every screen");
 // ═══════════════════════════════════════════════════════════════════════════
 
+// 2026-09-18: the Device is CallSession's — built, registered and its
+// token refreshed there, mounted once in SalesShell. The dock subscribes to
+// its `incoming` event and draws the ring; the microphone warning and the
+// Device error are the session's, printed by the dock.
 {
   const dock = read("app/components/sales/IncomingCallDock.js");
   const dockCode = decomment(dock);
-  ok("the dock registers the device", /await device\.register\(\)/.test(dockCode));
-  ok("…and handles the incoming event", /device\.on\("incoming"/.test(dockCode));
+  const session = read("app/components/sales/CallSession.js");
+  const sessionCode = decomment(session);
+  ok("the session registers the device", /await device\.register\(\)/.test(sessionCode));
+  ok("…and forwards the incoming event", /device\.on\("incoming"/.test(sessionCode) && /incomingHandlers\.current/.test(sessionCode));
+  ok("…the dock subscribes to it", /sessionRef\.current\.onIncoming\(/.test(dockCode));
   ok("…with a way to answer", /call\.accept\(\)/.test(dockCode));
 
   // reject() hands the call back to Twilio so the ring plan's NEXT target gets
@@ -113,10 +120,10 @@ section("2. Something is listening, on every screen");
   // English catalogue value to them, which is where they now live.
   ok("…and says so to the rep", /app\.salesDial\.decliningNotice/.test(dock));
 
-  // A token expires. A dock that registered once and never refreshed works for
-  // an hour and then goes quiet with nothing on screen saying so.
-  ok("the token is refreshed before it expires", /device\.on\("tokenWillExpire"/.test(dockCode));
-  ok("…by updating in place", /device\.updateToken\(/.test(dockCode));
+  // A token expires. A device that registered once and never refreshed works
+  // for an hour and then goes quiet with nothing on screen saying so.
+  ok("the token is refreshed before it expires", /device\.on\("tokenWillExpire"/.test(sessionCode));
+  ok("…by updating in place", /device\.updateToken\(/.test(sessionCode));
   // The owner saw "AccessTokenExpired (20104)" on the queue page: the error
   // handler recovered from 20101 (invalid) but not from 20104 (expired), and
   // a backgrounded tab had throttled both refresh timers. Every spelling of
@@ -124,25 +131,26 @@ section("2. Something is listening, on every screen");
   {
     // Read from the source rather than imported: the file is a "use client"
     // component with JSX, which bare Node cannot load.
-    const setLine = /TOKEN_ERROR_CODES = new Set\(\[([^\]]*)\]\)/.exec(dockCode);
+    const setLine = /TOKEN_ERROR_CODES = new Set\(\[([^\]]*)\]\)/.exec(sessionCode);
     const codes = setLine ? setLine[1].split(",").map((n) => Number(n.trim())) : [];
     ok("every token refusal Twilio can send is recoverable: 20101, 20104, 31204, 31205", [20101, 20104, 31204, 31205].every((c) => codes.includes(c)));
-    ok("…and the error handler consults that set, not a hand-typed pair", /TOKEN_ERROR_CODES\.has\(err\?\.code\)/.test(dockCode));
-    ok("the token is refreshed the moment the tab becomes visible again", /document\.addEventListener\("visibilitychange", onVisible\)/.test(dockCode) && /visibilityState === "visible"\) refresh\("visible"\)/.test(dockCode));
-    ok("…and that listener is removed on teardown", /removeEventListener\("visibilitychange", onVisible\)/.test(dockCode));
+    ok("…and the error handler consults that set, not a hand-typed pair", /TOKEN_ERROR_CODES\.has\(err\?\.code\)/.test(sessionCode));
+    ok("the token is refreshed the moment the tab becomes visible again", /document\.addEventListener\("visibilitychange", onVisible\)/.test(sessionCode) && /visibilityState === "visible"\) refresh\("visible"\)/.test(sessionCode));
+    ok("…and that listener is removed on teardown", /removeEventListener\("visibilitychange", onVisible\)/.test(sessionCode));
   }
 
   // Registered is not the same as being rung. Who is rung is decided
   // server-side from presence; a client that also had an opinion is how a
   // paused rep's laptop starts ringing.
   ok("the client keeps no opinion about who should be rung",
-    !/STATE_AVAILABLE|reachable\(|presenceOf\(/.test(dockCode));
+    !/STATE_AVAILABLE|reachable\(|presenceOf\(/.test(sessionCode) && !/STATE_AVAILABLE|reachable\(|presenceOf\(/.test(dockCode));
 
-  ok("a missing microphone is reported, not swallowed", /availableInputDevices/.test(dockCode));
-  ok("…in words about a headset", /headset/i.test(dock));
+  ok("a missing microphone is reported, not swallowed", /availableInputDevices/.test(sessionCode));
+  ok("…in words about a headset", /noMicrophone/.test(session) || /headset/i.test(session), "the session raises the mic warning");
 
   const shell = read("app/sales/SalesShell.js");
   ok("the dock is mounted in the portal shell", /<IncomingCallDock \/>/.test(shell));
+  ok("…under the one Device provider", /<CallSessionProvider>/.test(shell));
   // The point of mounting it in the shell: a call does not arrive on a page.
   ok("…so it is not tied to one screen", /wherever they are in the portal/.test(shell));
 }
@@ -153,13 +161,17 @@ section("3. Exactly one registered client per rep");
 
 {
   const panel = read("app/components/sales/CallPanel.js");
-  // The bug enabling the grant would otherwise introduce.
   const panelCode = decomment(panel);
-  ok("the outbound path does NOT register a second client",
-    !/await device\.register\(\)/.test(panelCode), "CallPanel still calls register()");
-  ok("…and says why, so it is not put back", /One registered client per rep/.test(panel));
-  ok("the outbound path still connects", /device\.connect\(/.test(panelCode));
-  ok("…and still tears its device down", /device\.destroy\(\)/.test(panelCode));
+  const session = read("app/components/sales/CallSession.js");
+  const sessionCode = decomment(session);
+  // The outbound path used to build a SECOND Device per call. It connects on
+  // the session's ONE registered Device now, so there is no second client to
+  // register — the bug the grant could have introduced cannot exist.
+  ok("the outbound path builds no Device of its own", !/new Device\(/.test(panelCode), "CallPanel still constructs a Device");
+  ok("…and registers no second client", !/\.register\(\)/.test(panelCode), "CallPanel still calls register()");
+  ok("the session is the one registered client, and says why", /One registered client per rep/.test(session) || /a second registered client on this rep's identity/.test(panel));
+  ok("the outbound path connects through the session", /connectOutbound\(/.test(panelCode) && /device\.connect\(/.test(sessionCode));
+  ok("…and the session tears the Device down only with the shell", /device\?\.destroy\?\.\(\)/.test(sessionCode));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

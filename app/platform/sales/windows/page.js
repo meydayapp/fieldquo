@@ -605,7 +605,7 @@ function TransferNumbersCard({ canEdit }) {
             A phone here appears in every rep&apos;s transfer picker, by its label, under &ldquo;A phone&rdquo;
             — warm (the rep speaks to it first) or cold (straight through). The rep never sees or types the
             number: the picker sends back an id and the server dials what is on this list. A phone that does
-            not answer within {data?.ringSeconds || "the ring timeout"}{data?.ringSeconds ? " seconds" : ""} hands the
+            not answer within {data?.ringSeconds || "the ring timeout"}{data?.ringSeconds ? " seconds" : ""} hands the{" "}
             caller back to the rep. A phone&apos;s own voicemail counts as an answer, and the picker says so.
           </p>
         </div>

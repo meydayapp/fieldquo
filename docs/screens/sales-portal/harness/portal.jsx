@@ -15,10 +15,11 @@
 //
 // Nothing is drawn here that a rep could not reach: every screen is the
 // shipped component, and every scene is a click on a shipped control.
-import React from "react";
+import React, { useSyncExternalStore } from "react";
 import { createRoot } from "react-dom/client";
 import "./stubs/portalFetch.js";
 import SalesShell from "@/app/sales/SalesShell";
+import SalesQueuePage from "@/app/sales/queue/page";
 import SalesHomePage from "@/app/sales/page";
 import SalesLeadsPage from "@/app/sales/leads/page";
 import SalesLeadPage from "@/app/sales/leads/[id]/page";
@@ -66,6 +67,11 @@ function PlaybookPage() {
 
 const PAGES = {
   today: ["/sales", <SalesHomePage />],
+  // The queue, inside this harness too (2026-09-18) — so a call placed on
+  // it can be followed to every other page below without the shell
+  // remounting. Its routes are answered by the console harness's own
+  // fixtures (stubs/portalFetch.js delegates to them).
+  queue: ["/sales/queue", <SalesQueuePage />],
   leads: ["/sales/leads", <SalesLeadsPage />],
   lead: ["/sales/leads/l2", <SalesLeadPage params={Promise.resolve({ id: "l2" })} />],
   companies: ["/sales/companies", <SalesPortalPage />],
@@ -94,7 +100,32 @@ const PAGES = {
 const [path, element] = PAGES[page] || PAGES.today;
 window.__harnessPath = path;
 window.__harnessParams = page === "note" ? { id: "n1" } : page === "lead" ? { id: "l2" } : page === "thread" ? { id: "t1" } : page === "invite" ? { token: "tok_harness" } : {};
-createRoot(document.getElementById("root")).render(<SalesShell>{element}</SalesShell>);
+
+// ── The page under the shell, by pathname ─────────────────────────────
+// The App Router keeps the layout (SalesShell, its providers, the call they
+// hold) mounted and swaps the page; this does the same. The pathname is the
+// navigation stub's store: a push() from a shipped control — Text them,
+// Email them, a rail link — or window.__harnessNavigate() from a scene
+// moves it, and the page under the shell changes without the shell
+// remounting. A path no fixture page answers keeps the page the frame
+// opened with.
+const BY_PATH = Object.fromEntries(Object.values(PAGES).map(([p, el]) => [p, el]));
+const pathListeners = new Set();
+const subscribePath = (l) => { pathListeners.add(l); return () => pathListeners.delete(l); };
+const readPath = () => window.__harnessPath || path;
+// The navigation stub notifies its own readers; this store is told through
+// the same window hook so one push moves both.
+const origNavigate = window.__harnessNavigate;
+window.__harnessNavigate = (p) => { origNavigate?.(p); pathListeners.forEach((l) => l()); };
+// A push() from a page component goes through the stub's go(), which sets
+// window.__harnessPath; poll it so the router sees pushes made by shipped
+// controls, not only by the scene driver.
+setInterval(() => { pathListeners.forEach((l) => l()); }, 100);
+function PageRouter({ initial }) {
+  const current = useSyncExternalStore(subscribePath, readPath, () => path);
+  return BY_PATH[current] || initial;
+}
+createRoot(document.getElementById("root")).render(<SalesShell><PageRouter initial={element} /></SalesShell>);
 
 // ── Scene driver ─────────────────────────────────────────────────────────
 const scene = params.get("scene") || "";
@@ -193,6 +224,78 @@ const settled = async () => {
       (await until("[data-new-text-form] button[type=submit]")).click();
       await until("[data-first-contact], [data-first-contact-picker], [data-first-contact-refusal]");
       await settled();
+    }
+  }
+  // ── The call survives navigation (2026-09-18) ───────────────────────
+  // ?page=queue&scene=call-navigate:<page> — press the queue's Call, then
+  // move to another /sales page THROUGH THE ROUTER (the shell stays
+  // mounted, the page under it changes), and prove: the stubbed Call was
+  // never disconnected, the live strip is on the new page with Hang up,
+  // Mute, Transfer, Text them and Email, and Hang up from the strip ends
+  // the call and asks for the write-up right there. `text-them` navigates
+  // the way the owner's rep did — by pressing Text them on the live call.
+  if (page === "queue" && scene.startsWith("call-navigate:")) {
+    const to = scene.slice("call-navigate:".length);
+    await until('[data-console-card="dialer"] [data-call-button]', 150);
+    (await until('[data-console-card="dialer"] [data-call-button]')).click();
+    await until('[data-live-call-slot] [data-live-call="out"]');
+    const callObj = window.__outboundCall;
+    if (!callObj) throw new Error("scene: no outbound Call object after the press");
+    let disconnected = false;
+    callObj.on("disconnect", () => { disconnected = true; });
+    await wait(1200);
+    if (to === "text-them") {
+      (await until('[data-live-call-slot] [data-live-call="out"] [data-text-them="chip"] [data-text-them-button]')).click();
+      await until('[data-live-call-strip="out"]', 100);
+    } else if (to === "email") {
+      (await until('[data-live-call-slot] [data-live-call="out"] [data-email-them-button]')).click();
+      await until('[data-live-call-strip="out"]', 100);
+    } else if (to === "back") {
+      // Away to Texts and back to the queue: the call must land back in
+      // the Dialer card's slot, still up, with the same clock running.
+      window.__harnessNavigate(PAGES.messages[0]);
+      await until('[data-live-call-strip="out"]', 100);
+      await settled();
+      if (disconnected) throw new Error("scene: the call was disconnected by leaving the queue");
+      // Long enough that the clock reads several seconds — the proof it is
+      // the same call and not one restarted on return.
+      await wait(3200);
+      window.__harnessNavigate(PAGES.queue[0]);
+      await until('[data-console-card="dialer"] [data-live-call-slot] [data-live-call="out"]', 150);
+      await settled();
+      if (disconnected) throw new Error("scene: the call was disconnected by coming back to the queue");
+      if (document.querySelector('[data-live-call-strip="out"]')) throw new Error("scene: the strip is still up with the Dialer card on screen");
+      if (document.querySelector('[data-console-card="dialer"] [data-call-button]')) throw new Error("scene: the Call button is back under a live call");
+      const clockText = document.querySelector("[data-live-call-clock]")?.textContent || "";
+      if (!/^0:(0[3-9]|[1-5]\d)$/.test(clockText)) throw new Error(`scene: the clock did not carry on across the navigation (${clockText})`);
+      document.documentElement.setAttribute("data-harness-done", "1");
+      return;
+    } else {
+      const target = PAGES[to];
+      if (!target) throw new Error(`scene: no page named ${to}`);
+      window.__harnessNavigate(target[0]);
+      // The lead page registers a live-call slot of its own, so the call
+      // draws inline there; every other page gets the strip.
+      await until(to === "lead" ? '[data-live-call-slot] [data-live-call="out"]' : '[data-live-call-strip="out"]', 100);
+    }
+    await settled();
+    if (disconnected) throw new Error(`scene: the call was disconnected by navigating to ${to}`);
+    if (document.querySelector('[data-console-card="dialer"]')) throw new Error("scene: the queue is still on the screen — the page did not change");
+    const strip = document.querySelector(to === "lead" ? '[data-live-call-slot] [data-live-call="out"]' : '[data-live-call-strip="out"]');
+    const wanted = ["[data-live-call-hang-up]", "[data-live-call-mute]", '[data-text-them="chip"]', "[data-email-them-button]", "[data-live-call-clock]"];
+    if (to !== "lead") wanted.push("[data-live-call-back]");
+    for (const sel of wanted) {
+      if (!strip.querySelector(sel)) throw new Error(`scene: the strip on ${to} has no ${sel}`);
+    }
+    if (params.get("hangup") === "1") {
+      strip.querySelector("[data-live-call-hang-up]").click();
+      await wait(300);
+      if (!disconnected) throw new Error("scene: Hang up on the strip did not end the call");
+      if (document.querySelector('[data-live-call-strip="out"]')) throw new Error("scene: the strip is still up after Hang up");
+      await until("[data-outbound-write-up]", 50);
+      const ended = (window.__harnessCalls || []).some((c) => c.method === "POST" && c.url === "/api/sales/calls" && c.body?.action === "ended" && c.body?.hungUpBy === "rep");
+      if (!ended) throw new Error("scene: the hang-up was not posted as the rep's");
+      await wait(300);
     }
   }
   if (page === "leads" && scene === "adding") {

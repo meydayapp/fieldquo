@@ -50,6 +50,8 @@ import {
   normaliseTwilioUsage,
   rowKey,
   summariseTwilio,
+  splitTwilioSides,
+  TWILIO_SALES_ONLY_CATEGORIES,
 } from "@/lib/platform/costs/dailyLedger";
 import { salesNumberConfigAudit } from "@/lib/sales/calls/numberConfig";
 import { salesVoiceInboundState } from "@/lib/sales/calls/inboundRouting";
@@ -325,6 +327,45 @@ section("6. Wiring — the properties that cannot be executed here");
   ok("every block of the summary carries a source and an as-of", (summary.match(/source: /g) || []).length >= 5 && (summary.match(/asOf: /g) || []).length >= 5);
   const pkg = JSON.parse(read("package.json"));
   ok("the script is registered and in check:all", typeof pkg.scripts["check:sales-costs"] === "string" && /check:sales-costs/.test(pkg.scripts["check:all"]));
+}
+
+// ── Sales side, tenant side ────────────────────────────────────────────────
+{
+  const summary = {
+    lines: [
+      { category: "calls-outbound", cents: 1000, count: 40 },
+      { category: "recordings", cents: 100, count: 40 },
+      { category: "sms-outbound", cents: 400, count: 100 },
+      { category: "sms-inbound", cents: 50, count: 10 },
+      { category: "phonenumbers", cents: 600, count: 6 },
+      { category: "lookups", cents: 30, count: 3 },
+    ],
+    linesCents: 2180,
+    totalCents: 2200,
+    otherCents: 20,
+  };
+  const split = splitTwilioSides(summary, { salesSmsOut: 25, salesSmsIn: 10, salesNumbers: 4, tenantNumbers: 2 });
+  ok("calls and recordings are the sales floor's entirely", split.sales.lines.find((l) => l.category === "calls-outbound").cents === 1000 && split.tenants.lines.find((l) => l.category === "calls-outbound").cents === 0);
+  ok("texts out split by count: 25 of Twilio's 100 are sales", split.sales.lines.find((l) => l.category === "sms-outbound").cents === 100 && split.tenants.lines.find((l) => l.category === "sms-outbound").cents === 300);
+  ok("texts in: all ten are sales, so nothing for tenants", split.tenants.lines.find((l) => l.category === "sms-inbound").cents === 0);
+  ok("number rent by numbers held: 4 of 6", split.sales.lines.find((l) => l.category === "phonenumbers").cents === 400 && split.tenants.lines.find((l) => l.category === "phonenumbers").cents === 200);
+  ok("a category the split does not name, and Twilio's 'other', are not attributed", split.unattributed.lines.map((l) => l.category).sort().join(",") === "lookups,other" && split.unattributed.cents === 50);
+  ok("the three sides add up to Twilio's total", Math.round((split.sales.cents + split.tenants.cents + split.unattributed.cents) * 100) / 100 === 2200, [split.sales.cents, split.tenants.cents, split.unattributed.cents]);
+  const blind = splitTwilioSides(summary, { salesSmsOut: null, salesSmsIn: 10, salesNumbers: null, tenantNumbers: null });
+  ok("with no count to split by, texts and rent are left unattributed rather than guessed", blind.unattributed.lines.some((l) => l.category === "sms-outbound") && blind.unattributed.lines.some((l) => l.category === "phonenumbers"));
+  const over = splitTwilioSides({ lines: [{ category: "sms-outbound", cents: 100, count: 10 }], otherCents: null }, { salesSmsOut: 50 });
+  ok("more store texts than Twilio counted caps the sales share at all of it", over.sales.cents === 100 && over.tenants.cents === 0);
+  ok("the sales-only list has no sms and no phonenumbers in it", !TWILIO_SALES_ONLY_CATEGORIES.some((c) => /sms|phonenumbers/.test(c)));
+  ok("the split explains its method in words", /never spread/.test(split.method));
+
+  const { retellRent, RETELL_NUMBER_RENT_CENTS_PER_MONTH } = await import("@/lib/platform/costs/summary");
+  ok("Retell's list price is US$2.00 a number a month", RETELL_NUMBER_RENT_CENTS_PER_MONTH === 200);
+  const month = retellRent(5, new Date("2026-09-01T00:00:00Z"), new Date("2026-10-01T00:00:00Z"));
+  ok("five numbers for thirty days is about US$10 (prorated over an average month)", month.monthlyCents === 1000 && Math.abs(month.cents - 985.6) < 1, month);
+  ok("…and the statement names the source and that it is not the invoice", /retellai\.com\/pricing/.test(month.statement) && /not Retell's invoice/.test(month.statement));
+  ok("an unknown count is an unknown rent, never zero", retellRent(null, new Date(), new Date()).cents === null);
+  const page = read("app/platform/costs/page.js");
+  ok("the page prints the rent figure and the two Twilio sides", /data\.retell\.rent\.cents === null \? UNKNOWN : money\(data\.retell\.rent\.cents\)/.test(page) && /data-twilio-sides/.test(page) && /sides\.tenants\.cents/.test(page));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

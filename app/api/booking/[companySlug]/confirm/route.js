@@ -18,6 +18,7 @@ import {
   serviceAreaCopy,
 } from "@/lib/company/serviceArea";
 import { isSupported } from "@/app/i18n/languages";
+import { bookingLanguage } from "@/lib/i18n/bookingLanguages";
 
 // The one refusal this route makes in the visitor's own language: the "when
 // do you need this done?" question is required, and a homeowner reading the
@@ -67,8 +68,11 @@ export async function POST(request, { params }) {
     // not on that table for that trade is dropped, not stored.
     whenNeeded,
     answers,
-    // The language the visitor is reading the page in, for the one refusal
-    // below. Checked against the supported list; never stored.
+    // The language the visitor read the page in — the three pills. Used for
+    // the one refusal below in any supported language, and STORED when it
+    // is one of the three the letter is written in: on the booking, on a
+    // client who had not stated one, and so on the confirmation email and
+    // the manage page (lib/i18n/bookingLanguages.js).
     language: postedLanguage,
     city, province, country,
   } =
@@ -189,10 +193,22 @@ export async function POST(request, { params }) {
   const visitAddress =
     typeof address === "string" && address.trim() ? address.trim() : null;
 
+  // The booker's own language, when it is one the letter is written in.
+  // A first-time booker used to get the company's language on everything
+  // that followed; now the language they chose on the form follows them.
+  const bookerLanguage = bookingLanguage(postedLanguage);
+
   // Create/find client record for this company
   let client = await db.client.findFirst({
     where: { companyId: company.id, email: bookingEmail },
   });
+  if (client && bookerLanguage && !client.language) {
+    // A client on record with no stated language has just stated one. A
+    // language already on the row is not overwritten: the office may have
+    // set it from a conversation, and a pill pressed by whoever is holding
+    // the phone today is the weaker statement.
+    client = await db.client.update({ where: { id: client.id }, data: { language: bookerLanguage } });
+  }
   if (!client) {
     client = await db.client.create({
       data: {
@@ -200,6 +216,7 @@ export async function POST(request, { params }) {
         name: clientName,
         email: bookingEmail,
         phone: clientPhone || null,
+        ...(bookerLanguage ? { language: bookerLanguage } : {}),
         // ── Why the address lands here at all ────────────────────────────
         //
         // This route created a client with a name, an email and a phone
@@ -348,6 +365,7 @@ export async function POST(request, { params }) {
         clientName,
         clientEmail: bookingEmail,
         clientPhone: clientPhone || null,
+        language: bookerLanguage,
         startTime: start,
         endTime: end,
         mode: chosenMode,
@@ -433,6 +451,7 @@ export async function POST(request, { params }) {
       clientName,
       clientEmail: bookingEmail,
       clientPhone: clientPhone || null,
+      language: bookerLanguage,
       startTime: start,
       endTime: end,
       mode: chosenMode,

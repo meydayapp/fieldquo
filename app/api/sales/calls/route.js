@@ -620,20 +620,27 @@ export async function POST(request) {
       (normalisePhone(target.phoneE164) === typedE164 || contactRows.some((r) => normalisePhone(r.e164) === typedE164));
     let chosen;
     if (typedE164 && !typedIsStored) {
-      if (!testAccount && !isTestLine(typedE164, testLines)) {
-        return NextResponse.json(
-          {
-            error: "That number is not one of this record's stored numbers. Save it on the record first — the Call button does that on its own.",
-            reason: "not_on_this_record",
-          },
-          { status: 409 },
-        );
-      }
-      // Not saved on the record, by design (see above). The attempt row still
-      // names the prospect or lead the rep was looking at, so the transcript
-      // and the QA know which script was on screen; the record's own number
-      // list is untouched.
-      chosen = { ok: true, e164: typedE164, numberId: null, choice: null, typed: true };
+      // ── A typed number is dialled UNSAVED, and asked about afterwards ────
+      //
+      // The number is NOT written onto the record here. The owner, 2026-09-17,
+      // rang his own mobile from a New York lead's card and the console filed
+      // it as that lead's number — "it may be a different company". So a typed
+      // number the record does not carry rings unsaved; the attempt still
+      // names the record the rep was looking at (history and the 24h cap need
+      // a row), and the outcome form asks ONCE whether the number belongs on
+      // this record, saving it on a yes through the same door
+      // (lib/sales/contact/record.js) and nothing on a no. A test dial — one
+      // of FieldQuo's own test lines, or any dial by a test account — is
+      // never saved and never asked about; `askToSave` is false for it.
+      //
+      // Suppression and the calling window still bind: typedE164 is on
+      // `everyNumber` above, so a do-not-contact business refuses the whole
+      // dial, and readiness below judges the number by the record's own
+      // jurisdiction. The toll-fraud shape is unchanged from the old path —
+      // a rep could always type a number and dial it; only WHEN it is
+      // persisted changed.
+      const isTest = testAccount || isTestLine(typedE164, testLines);
+      chosen = { ok: true, e164: typedE164, numberId: null, choice: null, typed: true, askToSave: !isTest };
     } else {
       chosen = pickContactNumber({
         target,
@@ -771,9 +778,13 @@ export async function POST(request) {
       // digits the rep has to recognise.
       contactNumberId: chosen.numberId,
       contactLabel: chosen.choice?.label || null,
-      // A typed test number the record does not carry — the screen says
-      // "not saved on this lead" from this, not from what it assumed.
+      // A typed number the record does not carry — the screen says "not
+      // saved on this lead" from this, not from what it assumed.
       typedNotSaved: chosen.typed === true,
+      // …and whether to ASK, after the call, if it belongs on this record.
+      // False for a stored number and for a test dial (never saved, never
+      // asked). The outcome form reads this to draw the one question.
+      askToSave: chosen.askToSave === true,
       compliance: readiness,
       attemptsLast24h: attempts24h,
       serverNow: now.toISOString(),

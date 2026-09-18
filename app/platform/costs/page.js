@@ -277,7 +277,7 @@ export default function PlatformCostsPage() {
                 <h2 className="text-base font-semibold text-foreground">Twilio</h2>
                 <p className="text-xs text-muted-foreground break-words">
                   Source: {data.twilio.source}. Last pulled {when(data.twilio.lastPullAt)}; oldest row in this
-                  period read {when(data.twilio.fetchedAt)}. {data.twilio.daysCovered} of the period&rsquo;s days have a row.
+                  period read {when(data.twilio.fetchedAt)}. {data.twilio.daysCovered} of the period&rsquo;s days have a row.{" "}
                   The every-minute cron pulls the last three days once an hour.
                 </p>
               </div>
@@ -331,6 +331,48 @@ export default function PlatformCostsPage() {
                 </table>
               </div>
             )}
+            {/* ── Whose money: the sales floor's, or the tenants' ─────────
+                One account, two businesses. Split from what the ledger and
+                the store tag (lib/platform/costs/dailyLedger.js
+                splitTwilioSides), each line saying how; what cannot be split
+                is listed as not attributed, never spread. */}
+            {data.twilio.sides && data.twilio.lines.length > 0 ? (
+              <div className="space-y-2" data-twilio-sides>
+                <h3 className="text-sm font-semibold text-foreground">Sales floor and tenants, apart</h3>
+                <dl className="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-[auto_1fr]">
+                  <dt className="text-muted-foreground">Sales floor</dt>
+                  <dd className="tabular-nums">
+                    {money(data.twilio.sides.sales.cents)}{" "}
+                    <span className="text-xs text-muted-foreground">
+                      {data.twilio.sides.sales.lines.map((l) => `${l.category} ${money(l.cents)}`).join(" · ")}
+                    </span>
+                  </dd>
+                  <dt className="text-muted-foreground">Tenants&rsquo; crew and client texts</dt>
+                  <dd className="tabular-nums">
+                    {money(data.twilio.sides.tenants.cents)}{" "}
+                    <span className="text-xs text-muted-foreground">
+                      {data.twilio.sides.tenants.lines.filter((l) => l.cents !== 0).map((l) => `${l.category} ${money(l.cents)} (${l.how})`).join(" · ")}
+                    </span>
+                  </dd>
+                  {data.twilio.sides.unattributed.cents !== 0 || data.twilio.sides.unattributed.lines.length > 0 ? (
+                    <>
+                      <dt className="text-muted-foreground">Not attributed</dt>
+                      <dd className="tabular-nums">
+                        {money(data.twilio.sides.unattributed.cents)}{" "}
+                        <span className="text-xs text-muted-foreground">
+                          {data.twilio.sides.unattributed.lines.map((l) => `${l.category} ${money(l.cents)} — ${l.how}`).join(" · ")}
+                        </span>
+                      </dd>
+                    </>
+                  ) : null}
+                </dl>
+                <p className="text-xs text-muted-foreground break-words">
+                  {data.twilio.sides.method} Counts this period: {n(data.twilio.sides.counts.salesSmsOut)} sales texts out,{" "}
+                  {n(data.twilio.sides.counts.salesSmsIn)} in; {n(data.twilio.sides.counts.salesNumbers)} sales numbers and{" "}
+                  {n(data.twilio.sides.counts.tenantNumbers)} crew lines held.
+                </p>
+              </div>
+            ) : null}
           </section>
 
           {/* ── OpenAI ─────────────────────────────────────────────────── */}
@@ -395,7 +437,11 @@ export default function PlatformCostsPage() {
               </dd>
               <dt className="text-muted-foreground">Number rent</dt>
               <dd className="tabular-nums">
-                {UNKNOWN} <span className="text-xs text-muted-foreground">{n(data.retell.numbersHeld)} numbers held</span>
+                {data.retell.rent.cents === null ? UNKNOWN : money(data.retell.rent.cents)}{" "}
+                <span className="text-xs text-muted-foreground">
+                  {n(data.retell.numbersHeld)} numbers held
+                  {data.retell.rent.monthlyCents != null ? ` · ${money(data.retell.rent.monthlyCents)} a month at list price` : ""}
+                </span>
               </dd>
               <dt className="text-muted-foreground">Margin on tenants&rsquo; calls</dt>
               <dd className="text-xs text-muted-foreground">

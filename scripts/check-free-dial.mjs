@@ -658,7 +658,9 @@ const panel = decomment(read("app/components/sales/CallPanel.js"));
 // OUT.
 const placeBody = (() => {
   const at = panel.indexOf("async function place(");
-  const end = panel.indexOf("function hangUp(", at);
+  // place() is followed by the autodialler's effect since the call moved to
+  // CallSession and hangUp() left this file.
+  const end = panel.indexOf("const autoDialSeen = useRef(null);", at);
   return at >= 0 && end > at ? panel.slice(at, end) : "";
 })();
 ok("place() was found in the call panel", placeBody.length > 400, placeBody.length);
@@ -669,16 +671,15 @@ ok("place() was found in the call panel", placeBody.length > 400, placeBody.leng
 const dialPayload = placeBody.match(/body: JSON\.stringify\(\{([\s\S]*?)\n\s*\}\),/)?.[1] || "";
 ok("the dial payload was found", dialPayload.length > 40, dialPayload);
 ok("the call panel sends the id", /contactNumberId/.test(dialPayload), dialPayload);
-// ONE exception since 2026-09-17, and it is the whole of it: `typedE164`, a
-// number typed into the pad that the numbers route refused to STORE because
-// it is a test dial (one of FieldQuo's own test lines, or a test account).
-// It goes on the wire only when set, and app/api/sales/calls accepts it only
-// for those two cases — a rep who is neither is refused not_on_this_record,
-// so the toll-fraud argument stands for everybody it was written about.
-// scripts/check-sales-test-line.mjs holds the route to that.
+// ONE exception, and it is the whole of it: `typedE164`, a number typed into
+// the pad that is not on the record. Since 2026-09-18 it is dialled UNSAVED
+// for everyone (a typed number may be a different company), and the outcome
+// form asks afterwards whether to save it; it goes on the wire only when set.
+// The claim here is unchanged: the panel names a number to the dial route
+// only through this one field, never a `phone`/`e164` of its own.
 const payloadLessTyped = dialPayload.replace(/\.\.\.\(dialTarget\.typedE164 \? \{ typedE164: dialTarget\.typedE164 \} : \{\}\),/, "");
 ok(
-  "…and puts no phone number on the wire at all — save the typed TEST number, only when set",
+  "…and puts no phone number on the wire at all — only the typed number, only when set",
   payloadLessTyped !== dialPayload && !/phone/i.test(payloadLessTyped) && !/e164/i.test(payloadLessTyped) && !/\+\d/.test(payloadLessTyped),
   dialPayload,
 );

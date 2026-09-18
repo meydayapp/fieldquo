@@ -5890,6 +5890,13 @@ model Booking {
   clientName    String
   clientEmail   String
   clientPhone   String?
+  /// The language the booker read the public form in — the three pills on
+  /// app/book/[companySlug]. Null for a booking taken over the phone or made
+  /// before the pills existed. Read by lib/booking/finalizeBooking.js (the
+  /// confirmation letter) and lib/booking/manageVisit.js (the manage page)
+  /// between the quote's fixed language and the company default, and
+  /// written onto the Client row when the client had not yet stated one.
+  language      String?
   startTime     DateTime
   endTime       DateTime
   // Which of the company's offered modes the client picked: call | visit | video.

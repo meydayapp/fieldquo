@@ -60,6 +60,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 
 import IncomingCallDock from "@/app/components/sales/IncomingCallDock";
+import { CallSessionProvider } from "@/app/components/sales/CallSession";
+import LiveCallStrip from "@/app/components/sales/LiveCallStrip";
 import { RepPresenceProvider, RepStatusPicker } from "@/app/components/sales/RepStatus";
 import AvailableReminder from "@/app/components/sales/AvailableReminder";
 import { clearReminderDismissed } from "@/lib/sales/availableReminder";
@@ -549,6 +551,14 @@ export default function SalesShell({ children }) {
     <RepPresenceProvider>
     <SalesSearchProvider>
     <ConsoleSlotsProvider>
+    {/* CallSessionProvider holds the ONE Twilio Device and whichever call is
+        up on it, outbound or inbound (app/components/sales/CallSession.js).
+        Under the presence provider because it reports the call into it,
+        and under the slots provider because the strip draws into the
+        Dialer card's slot. It wraps the whole chrome so that no page
+        change inside the portal can unmount it — that is the fix for the
+        call dropping when a rep pressed Text them mid-call. */}
+    <CallSessionProvider>
     {/* fq-sales-shell sets --fq-tab-bar-height for everything inside it below
         lg — the one place the bottom bar's footprint is declared, exactly as
         .fq-app-shell does for /app. See the "bottom dock" section of
@@ -798,6 +808,12 @@ export default function SalesShell({ children }) {
           dialler screen would ring only while somebody happened to be looking
           at it — see the component's header. */}
       <IncomingCallDock />
+      {/* The live call — Hang up, Mute, Transfer, Text them, Email — on
+          every page, drawn once (app/components/sales/LiveCallStrip.js):
+          into the queue's Dialer card when it is on screen, as a strip
+          under the top bar everywhere else. And the write-up of an
+          outbound call that ended on a page with no dialler. */}
+      <LiveCallStrip />
       {/* "You're shown as Off" — the reminder a rep who signed in without
           pressing Available sees once per session, with Go available and OK
           (app/components/sales/AvailableReminder.js). Mounted here, under the
@@ -819,6 +835,7 @@ export default function SalesShell({ children }) {
           which used to cover the queue's own toast. */}
       <ToastLayer surface="sales" />
     </div>
+    </CallSessionProvider>
     </ConsoleSlotsProvider>
     </SalesSearchProvider>
     </RepPresenceProvider>

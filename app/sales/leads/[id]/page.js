@@ -51,6 +51,7 @@ import { dialSpace } from "@/lib/sales/dialSpace";
 import { SALES_SMS_TIME_ZONES } from "@/lib/sales/smsWindow";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import DialRegion from "@/app/components/sales/DialRegion";
+import { useConsoleSlots } from "@/app/components/sales/consoleSlots";
 import { CallHistoryStrip, LastTimeLine } from "@/app/components/sales/CallHistory";
 import ContactNumbers from "@/app/components/sales/ContactNumbers";
 import OutreachNotice from "../OutreachNotice";
@@ -105,6 +106,19 @@ export default function SalesLeadPage({ params }) {
   // server's time. Same reason the queue carries one: a laptop set to the
   // wrong zone would silently move a legal call an hour.
   const [clock, setClock] = useState(null);
+
+  // The live-call slot, registered with the shell's LiveCallStrip
+  // (consoleSlots.js) while this screen is mounted and released when it is
+  // not — a released slot is what sends the call to the fixed strip.
+  const consoleSlots = useConsoleSlots();
+  const setLiveCallNode = consoleSlots?.setLiveCallNode;
+  const liveCallSlotRef = useCallback(
+    (node) => {
+      setLiveCallNode?.(node || null);
+    },
+    [setLiveCallNode],
+  );
+  useEffect(() => () => setLiveCallNode?.(null), [setLiveCallNode]);
 
   const load = useCallback(async () => {
     setError("");
@@ -401,6 +415,13 @@ export default function SalesLeadPage({ params }) {
             <span className="text-xs text-muted-foreground tabular-nums">{call.phoneE164}</span>
           ) : null}
         </div>
+
+        {/* Where the live call is drawn on this screen — the same slot the
+            queue's Dialer card registers (consoleSlots.js), so the shell's
+            LiveCallStrip draws the call's controls here, above the Call
+            button, rather than as a strip under the top bar. Empty until a
+            call is up. */}
+        <div ref={liveCallSlotRef} data-live-call-slot />
 
         <DialRegion
           space={space}

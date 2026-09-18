@@ -523,16 +523,20 @@ section("8. One transfer control, rendered by both screens");
   ok("…and says so when nobody is free rather than showing an empty picker",
     /app\.salesDial\.nobodyElseFree/.test(control));
 
+  // 2026-09-18: the live call's controls — Transfer included — are drawn
+  // once by LiveCallStrip, for BOTH directions, on every page. CallPanel
+  // holds no Call and draws no on-call block; the dock reports the answered
+  // call into the session, which the strip reads.
   const panel = read("app/components/sales/CallPanel.js");
-  ok("the outbound dialler renders the shared control", /<TransferControl/.test(panel));
+  const strip = read("app/components/sales/LiveCallStrip.js");
+  ok("the live-call strip renders the shared control", /<TransferControl/.test(strip));
+  ok("…and imports it rather than copying it", /from "\.\/TransferControl"/.test(strip));
   // The copy that rots is the one nobody looks at — AGENTS.md failure class 4.
-  ok("…and no longer carries a picker of its own",
-    !/action: "start"/.test(panel), "CallPanel still posts its own transfer");
+  ok("CallPanel carries no picker of its own", !/action: "start"/.test(panel) && !/<TransferControl/.test(panel), "CallPanel still posts its own transfer");
   ok("…and no longer holds transfer state", !/setShowTransfer/.test(panel));
 
   const dock = read("app/components/sales/IncomingCallDock.js");
-  ok("the inbound dock renders the SAME control", /<TransferControl/.test(dock));
-  ok("…and imports it rather than copying it", /from "\.\/TransferControl"/.test(dock));
+  ok("the inbound dock draws no transfer control of its own — the strip does", !/<TransferControl/.test(dock));
   ok("the dock tells the server who answered, on the accept", /\/api\/sales\/calls\/answered/.test(dock));
   ok("…with the SID the SDK gave it", /call\?\.parameters\?\.CallSid/.test(dock));
   // The click IS the user gesture browsers require before audio plays, so
@@ -540,9 +544,10 @@ section("8. One transfer control, rendered by both screens");
   ok("…after the call is accepted, never before",
     dock.indexOf("call.accept()") < dock.indexOf("/api/sales/calls/answered"),
     "the dock waits on the server before picking up");
-  ok("the dock renders no transfer control until the server names the call",
-    /attemptId=\{answered\?\.attemptId \|\| null\}/.test(dock));
-  ok("…and says why when it cannot be handed on", /answered\?\.note/.test(dock));
+  ok("the strip renders no transfer control until the server names the call",
+    /attemptId=\{live\.attemptId \|\| null\}/.test(strip));
+  ok("…the dock reports the matched attempt into the session for the strip to read", /attemptId: answered\?\.attemptId \|\| null/.test(dock));
+  ok("…and says why when it cannot be handed on", /answered\?\.note/.test(dock) && /live\.transferNote/.test(strip));
   ok("the attempt is forgotten when the call ends", /setAnswered\(null\)/.test(dock));
   // Who is rung is decided server-side from presence. A client with an opinion
   // is how a paused rep's laptop starts ringing.
