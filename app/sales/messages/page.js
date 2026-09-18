@@ -1745,7 +1745,13 @@ function SalesMessagesScreen() {
         // thread's composer IS the signup-link panel from the lead screen —
         // the same component, the same /api/sales/sms route, the same
         // refusals — and the ordinary composer appears once a text exists.
-        <div className="border-t border-border" data-first-contact>
+        // The panel is taller than the message list above it on an empty
+        // thread, and the layout box is overflow-hidden at a fixed height —
+        // so without its own scroll the bottom of the panel, where "Send the
+        // text" is, was cut off and nothing on the screen scrolled (a rep
+        // reported "no option to send"). It scrolls itself, capped so the
+        // thread header stays visible.
+        <div className="border-t border-border min-h-0 max-h-[78%] overflow-y-auto shrink-0" data-first-contact>
           <SignupLinkSms leadId={thread.lead.id} inThread onSent={() => loadThread(openWith, { quiet: true }).then(loadList)} />
         </div>
       ) : thread && (thread.messages || []).length === 0 ? (
