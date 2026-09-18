@@ -13654,6 +13654,10 @@ model SalesCallAttempt {
   /// at the same handover and both of them are worth seeing.
   transfers SalesCallTransfer[]
 
+  /// The call-quality scorecard, once the transcript has been scored —
+  /// lib/sales/calls/qa.js. One per attempt; absent until scored.
+  qa SalesCallQa?
+
   // ── What was said, so an experiment can be read afterwards ────────────
   //
   // SalesPlaybookExperiment and SalesPlaybookAssignment already store which
@@ -13769,6 +13773,76 @@ model SalesCallTransfer {
   @@index([attemptId, startedAt])
   @@index([state, startedAt])
   @@index([fromRepId, startedAt])
+}
+
+/// How a recorded sales call measured against the playbook the rep was
+/// reading — lib/sales/calls/qa.js.
+///
+/// One row per attempt (attemptId unique), written once the transcript is in
+/// and REWRITTEN only when a superadmin asks for a rescore. The deterministic
+/// half (`deterministic`: disclosure said, banned moves matched by regex on
+/// the rep's lines, talk ratio from the segments, what was said inside the
+/// first twenty seconds) is computed in code and never asked of a model. The
+/// fuzzy half (`scores`: permission ask, candour, pivot, discovery,
+/// objections, next step, close) is one structured model call in schema
+/// mode. `overall` is a weighted rubric over both — the weights are in
+/// qa.js's OVERALL_WEIGHTS so the number can be recomputed from the parts.
+///
+/// `overall` is null with a `skippedReason` when the call held no
+/// conversation to score (nobody answered, or the contractor never spoke).
+/// That row exists so the reconcile stops re-trying it and so the counts on
+/// the performance page can say "unscorable" instead of "not yet scored".
+///
+/// The human pass — reviewerOverall / reviewerNote — OVERRIDES the model's
+/// overall wherever a figure is shown (lib/sales/callQuality.js
+/// effectiveOverall): the owner listening to the call is the authority, the
+/// model is the first read. `reviewerKind` says which door the reviewer came
+/// through: "platform" (a PlatformAdmin id) or "agency" (a SalesRep of kind
+/// agency reviewing its own employee) — two tables, so the id alone would be
+/// ambiguous.
+model SalesCallQa {
+  id        String           @id @default(cuid())
+  attemptId String           @unique
+  attempt   SalesCallAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+
+  scoredAt   DateTime
+  /// The model that wrote `scores` and `coaching`. Null when skipped.
+  model      String?
+  /// FieldQuo's own spend on this scorecard, in micro-dollars — the same
+  /// figure recorded to PlatformAiUsage under ref `qa:<attemptId>`.
+  costMicros Int?
+
+  /// What the rep had on screen, copied off the attempt at scoring time.
+  /// `playbookMatched` is false when the stored playbook's version had moved
+  /// on by the time this ran — the comparison was then against the current
+  /// text, and the scorecard says so.
+  playbookKey     String?
+  playbookVersion String?
+  playbookMatched Boolean @default(false)
+
+  /// The language the coaching sentences were written in — the rep's portal
+  /// language at scoring time, "en" when they had not chosen one.
+  language String @default("en")
+
+  deterministic Json
+  scores        Json?
+  coaching      Json?
+  overall       Int?
+  skippedReason String?
+
+  reviewerId      String?
+  reviewerKind    String?
+  reviewerName    String?
+  reviewedAt      DateTime?
+  reviewerOverall Int?
+  reviewerNote    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([overall])
+  @@index([reviewedAt])
+  @@index([scoredAt])
 }
 
 /// What a rep is doing right now, and the log of what they were doing.
