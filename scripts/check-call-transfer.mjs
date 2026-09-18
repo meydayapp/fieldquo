@@ -13,6 +13,11 @@
 //   2. A QUEUE. One glance at a presence table decided the whole call: nobody
 //      free, voicemail, goodbye — while a rep four seconds from hanging up
 //      would have taken it.
+//   3. SOMEWHERE TO HAND A CALL WHEN THE FLOOR IS EMPTY. 2026-09-17, 23:20
+//      ET: the owner pressed Transfer with every other rep offline and got
+//      "Nobody else is free right now" — true, and no way out. Section 1b:
+//      a phone from a superadmin's allow-list (never a number the browser
+//      sent) and the hold queue itself are transfer targets.
 //
 // ══ What this executes, rather than reads ═════════════════════════════════
 //
@@ -47,8 +52,10 @@ import { getExpectedTwilioSignature } from "twilio/lib/webhooks/webhooks.js";
 import {
   TRANSFER_WARM,
   TRANSFER_COLD,
+  TRANSFER_QUEUE,
   TRANSFER_KINDS,
   TRANSFER_RING_SECONDS,
+  QUEUE_TARGET_KEY,
   TRANSFER_STATES,
   XFER_RINGING,
   XFER_TALKING,
@@ -64,11 +71,25 @@ import {
   onParticipantJoin,
   onParticipantLeave,
   onTargetEnded,
+  publicTarget,
+  queueTransferActions,
   repLegPlan,
   startTransferPlan,
   targetLegPlan,
   transferTargets,
 } from "@/lib/sales/calls/transfer";
+import {
+  MAX_TRANSFER_LABEL_CHARS,
+  MAX_TRANSFER_NUMBERS,
+  STANDING_TRANSFER_LABEL,
+  TRANSFER_NUMBERS_SETTING_KEY,
+  normaliseTransferNumbers,
+  rejectedTransferNumbers,
+  standingTransferEntry,
+  transferNumberEntries,
+  transferNumberId,
+} from "@/lib/sales/transferNumbers";
+import { AUDIT_ACTIONS } from "@/lib/platform/auditActions";
 import {
   MAX_QUEUE_ROUNDS,
   QUIET_PAUSE_SECONDS,
@@ -212,6 +233,159 @@ section("1. Who a rep may hand a caller to");
   // empty picker, so an empty list has to be reachable and honest.
   ok("nobody free produces an empty list, not a padded one", transferTargets({ reps: REPS, presence: null, excludeRepId: "daniel", now: NOW }).length === 0);
   ok("neither does a rep id Twilio could not carry", transferTargets({ reps: [{ id: "not a cuid!", name: "x" }], presence: [fresh("not a cuid!")], excludeRepId: "daniel", now: NOW }).length === 0);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("1b. A phone FieldQuo trusts, and the queue — when the floor is empty");
+// ═══════════════════════════════════════════════════════════════════════════
+
+{
+  // ── The allow-list, against hostile input ────────────────────────────
+  const OWNER = "+16135550142";
+  const OFFICE = "+14165550100";
+  const list = normaliseTransferNumbers([
+    { e164: "+1 (613) 555-0142", label: "  Emilio's   mobile " },
+    { e164: OFFICE, label: "Ottawa office" },
+    { e164: "555-1234", label: "not a number" },
+    { e164: OWNER, label: "a duplicate, differently spelled" },
+    { e164: "+15145550199", label: "" },
+    { e164: "+15145550198" },
+    "+15145550197",
+    null,
+    { label: "no number at all" },
+  ]);
+  ok("a number is normalised to E.164 and its label single-spaced and trimmed", list[0]?.e164 === OWNER && list[0]?.label === "Emilio's mobile", list[0]);
+  ok("a number that cannot be dialled is dropped", !list.some((e) => e.label === "not a number"));
+  ok("a duplicate collapses onto the first label", list.filter((e) => e.e164 === OWNER).length === 1 && list[0].label === "Emilio's mobile");
+  ok("an entry without a label is dropped — a button with no name is a dead control", !list.some((e) => e.e164 === "+15145550199" || e.e164 === "+15145550198"));
+  ok("a bare string, null and a label with no number are all dropped", list.length === 2, list);
+  ok("the list is capped", normaliseTransferNumbers(Array.from({ length: 14 }, (_, i) => ({ e164: `+1613555${String(100 + i)}`, label: `line ${i}` }))).length === MAX_TRANSFER_NUMBERS);
+  ok("…at ten", MAX_TRANSFER_NUMBERS === 10);
+  ok("an overlong label is cut", normaliseTransferNumbers([{ e164: OWNER, label: "x".repeat(200) }])[0].label.length === MAX_TRANSFER_LABEL_CHARS);
+  ok("the { numbers } wrapper is accepted", normaliseTransferNumbers({ numbers: [{ e164: OWNER, label: "a" }] }).length === 1);
+  ok("garbage is an empty list, never a throw", normaliseTransferNumbers("nope").length === 0 && normaliseTransferNumbers(undefined).length === 0 && normaliseTransferNumbers(42).length === 0);
+  ok("the setting key is the one the store reads", TRANSFER_NUMBERS_SETTING_KEY === "sales.transferNumbers");
+
+  const rejected = rejectedTransferNumbers([
+    { e164: OWNER, label: "ok" },
+    { e164: "banana", label: "bad" },
+    { e164: OFFICE, label: "   " },
+    { e164: "+1 613 555 0142", label: "dup" },
+  ]);
+  ok("the console is told which entry would be dropped and why", rejected.length === 3 && rejected.map((r) => r.reason).join("|") === "not a number that can be dialled|needs a label|already on the list", rejected);
+  ok("…by position, so the refusal can name it", rejected.map((r) => r.index).join() === "1,2,3");
+
+  // ── The id is opaque and stable ──────────────────────────────────────
+  const id = transferNumberId(OWNER);
+  ok("an entry's id carries no digit run from the number", typeof id === "string" && !/6135550142|5550142/.test(id), id);
+  ok("…is the same for two spellings of one number", transferNumberId("+1 (613) 555-0142") === id);
+  ok("…differs between numbers", transferNumberId(OFFICE) !== id);
+  ok("…and is null for a number that cannot be dialled", transferNumberId("banana") === null);
+  ok("the id survives the normaliser", list[0].id === id);
+
+  // ── The env var is one entry of the list ─────────────────────────────
+  const standing = standingTransferEntry(OWNER);
+  ok("FIELDQUO_SALES_TRANSFER_TO becomes an entry with the label it always had", standing?.e164 === OWNER && standing?.label === STANDING_TRANSFER_LABEL && standing?.standing === true);
+  ok("…and nothing when unset or not E.164", standingTransferEntry(undefined) === null && standingTransferEntry("555-1234") === null);
+  const merged = transferNumberEntries({ list: normaliseTransferNumbers([{ e164: OFFICE, label: "Ottawa office" }]), standing });
+  ok("the standing number follows the list", merged.map((e) => e.e164).join() === `${OFFICE},${OWNER}`);
+  ok("…and is offered once when it is already on the list under its own label", transferNumberEntries({ list, standing }).length === 2 && transferNumberEntries({ list, standing })[0].label === "Emilio's mobile");
+
+  // ── As targets ───────────────────────────────────────────────────────
+  const targets = transferTargets({
+    reps: REPS,
+    presence: [fresh("maria")],
+    excludeRepId: "daniel",
+    transferTo: OWNER,
+    transferNumbers: list,
+    queue: true,
+    now: NOW,
+  });
+  ok("a free rep, then every phone, then the queue", targets.map((t) => t.kind).join() === "client,number,number,queue", targets.map((t) => t.kind));
+  const phone = targets.find((t) => t.kind === "number");
+  ok("a phone target is keyed on the opaque id, not the number", phone?.key === `number:${id}` && !phone.key.includes("613"), phone?.key);
+  ok("…prints the label", phone?.name === "Emilio's mobile" && /^phone · Emilio's mobile$/.test(phone?.why), phone);
+  ok("…and carries the number for the server only", phone?.value === OWNER);
+  ok("the standing number, already on the list, is not offered twice", targets.filter((t) => t.kind === "number").length === 2);
+  ok("with no list the standing number is still there, labelled as before", transferTargets({ reps: REPS, presence: [], excludeRepId: "daniel", transferTo: OWNER, now: NOW })[0]?.name === STANDING_TRANSFER_LABEL);
+  ok("the queue is offered only when asked for", !transferTargets({ reps: REPS, presence: [fresh("maria")], excludeRepId: "daniel", transferNumbers: list, now: NOW }).some((t) => t.kind === "queue"));
+  ok("…and is the one thing left on an empty floor with an empty list", (() => {
+    const only = transferTargets({ reps: REPS, presence: [], excludeRepId: "daniel", queue: true, now: NOW });
+    return only.length === 1 && only[0].kind === "queue" && only[0].key === QUEUE_TARGET_KEY;
+  })());
+  ok("the queue's why names the release and the voicemail — the two things a rep must know", /released/.test(targets.at(-1).why) && /voicemail/.test(targets.at(-1).why));
+
+  // What the browser is allowed to see.
+  const shown = targets.map(publicTarget);
+  ok("the public shape has no value on any target", shown.every((t) => !("value" in t)) && JSON.stringify(shown).includes("613") === false, shown);
+  ok("…but keeps key, kind, name and why", shown.every((t) => "key" in t && "kind" in t && "name" in t && "why" in t));
+  ok("publicTarget of nothing is nothing", publicTarget(null) === null);
+
+  // ── The plan: the number is the list's, never the body's ─────────────
+  const attempt = { id: "a1", direction: "out", providerCallSid: "CAcaller", repCallSid: "CArep", fromE164: "+16135550142" };
+  const toPhone = startTransferPlan({ kind: TRANSFER_WARM, targetKey: `number:${id}`, targets, attempt });
+  ok("a warm transfer to a listed phone is allowed", toPhone.ok === true, toPhone.reason);
+  ok("…and dials the LIST's number", toPhone.target?.value === OWNER && toPhone.target?.kind === "number");
+  ok("…through the conference like a rep, with the same ring bound", toPhone.moveLeg === "caller" && toPhone.ringSeconds === TRANSFER_RING_SECONDS && toPhone.queue === false);
+  ok("cold to a phone is allowed the same way", startTransferPlan({ kind: TRANSFER_COLD, targetKey: `number:${id}`, targets, attempt }).ok === true);
+  ok("a number the browser typed into the key is refused", startTransferPlan({ kind: TRANSFER_WARM, targetKey: "number:+19005550100", targets, attempt }).ok === false);
+  ok("an id for a number that is not on the list is refused", startTransferPlan({ kind: TRANSFER_WARM, targetKey: `number:${transferNumberId("+19005550100")}`, targets, attempt }).ok === false);
+  ok("a phone target still needs the rep's own leg — the caller has to be able to come back", startTransferPlan({ kind: TRANSFER_WARM, targetKey: `number:${id}`, targets, attempt: { ...attempt, repCallSid: null } }).ok === false);
+
+  // ── The plan: the queue ──────────────────────────────────────────────
+  const parked = startTransferPlan({ kind: "queue", targetKey: QUEUE_TARGET_KEY, targets, attempt });
+  ok("the queue is a transfer target", parked.ok === true, parked.reason);
+  ok("…whose kind is written by the server", parked.kind === TRANSFER_QUEUE);
+  ok("…with no leg to move, no ring and the queue flag", parked.moveLeg === null && parked.ringSeconds === 0 && parked.queue === true);
+  ok("…whatever the browser called it", startTransferPlan({ kind: TRANSFER_WARM, targetKey: QUEUE_TARGET_KEY, targets, attempt }).kind === TRANSFER_QUEUE);
+  ok("…and without the rep's own leg, because the caller is not coming back to this rep", startTransferPlan({ kind: "queue", targetKey: QUEUE_TARGET_KEY, targets, attempt: { ...attempt, repCallSid: null } }).ok === true);
+  ok("but the queue is not a kind for a person", startTransferPlan({ kind: "queue", targetKey: "rep:maria", targets, attempt }).ok === false);
+  ok("…and is not offered as one of the two kinds", !TRANSFER_KINDS.includes(TRANSFER_QUEUE));
+  ok("the queue still needs the caller's leg", startTransferPlan({ kind: "queue", targetKey: QUEUE_TARGET_KEY, targets, attempt: { ...attempt, providerCallSid: null } }).ok === false);
+  ok("the queue action is the one the rescue path already uses, marked parked", (() => {
+    const a = queueTransferActions();
+    return a.length === 1 && a[0].type === "callerToQueue" && a[0].parked === true;
+  })());
+
+  // ── What the transferring rep's leg hears after parking a caller ─────
+  const queued = transferRow({ kind: TRANSFER_QUEUE, toRepId: null, targetCallSid: null });
+  ok("while the row is open, the rep's leg is released with a sentence, not joined", (() => {
+    const p = repLegPlan({ transfer: queued });
+    return p.join === false && p.conferenceName === null && /released/.test(p.say.join(" "));
+  })());
+  ok("…and the same once the row is completed, which is when the leg usually arrives", (() => {
+    const p = repLegPlan({ transfer: { ...queued, state: XFER_COMPLETED } });
+    return p.join === false && /released/.test(p.say.join(" "));
+  })());
+  ok("a FAILED queue transfer says nothing — the caller never moved and this is the ordinary end", repLegPlan({ transfer: { ...queued, state: XFER_FAILED } }).say.length === 0);
+  ok("the screen has words for a parked caller", /on hold for the next free rep/.test(describeTransfer({ ...queued, state: XFER_COMPLETED })) && /released/.test(describeTransfer({ ...queued, state: XFER_COMPLETED })));
+  ok("…and for a park that failed, saying the rep is still on with them", /still on with them/.test(describeTransfer({ ...queued, state: XFER_FAILED, failureReason: "x" })));
+
+  // ── A phone leg through the state machine ────────────────────────────
+  //
+  // The machine keys on CallSids, not on what kind of leg they are — a phone
+  // that rings out must hand the caller back exactly as a browser that does.
+  const phoneRow = transferRow({ toRepId: null, toE164: OWNER });
+  const rangOut = onTargetEnded({ transfer: phoneRow, callStatus: "no-answer", repLegUp: true });
+  ok("a warm consult to a phone that rings out returns the caller to the rep", rangOut.state === XFER_RETURNED && types(rangOut).join() === "unhold:rep,unhold:caller", rangOut);
+  ok("…saying nobody answered", /nobody answered/.test(rangOut.reason));
+  ok("a busy phone too", onTargetEnded({ transfer: phoneRow, callStatus: "busy", repLegUp: true }).state === XFER_RETURNED);
+  const picked = onParticipantJoin({ transfer: phoneRow, callSid: "CAtarget", repLegUp: true });
+  ok("a phone that answers a warm consult puts the rep on with it, caller still held", picked.state === XFER_TALKING && types(picked).join() === "unhold:rep");
+  const hungUpOnConsult = onTargetEnded({ transfer: { ...phoneRow, state: XFER_TALKING }, callStatus: "completed", repLegUp: true });
+  ok("…and a phone that hangs up during the consult hands the caller back", hungUpOnConsult.state === XFER_RETURNED && /before the caller was joined/.test(hungUpOnConsult.reason));
+  const coldPhone = onParticipantJoin({ transfer: { ...phoneRow, kind: TRANSFER_COLD }, callSid: "CAtarget" });
+  ok("a cold transfer to a phone completes on its pick-up, caller off hold before the rep is dropped", coldPhone.state === XFER_COMPLETED && types(coldPhone).join() === "endOnExit:target,unhold:caller,hangup:rep");
+  ok("the standing-number transfer of old is the same row shape and still returns on no answer", onTargetEnded({ transfer: transferRow({ toRepId: null, toE164: "+15551234567" }), callStatus: "no-answer" }).state === XFER_RETURNED);
+
+  // ── A parked caller's first words ────────────────────────────────────
+  const first = queueStep({ round: 0, reachableNow: 0, parked: true });
+  ok("a parked caller is asked to hold, not told everyone is on another call", /please hold/i.test(first.say[0]) && !/another call/i.test(first.say.join(" ")), first.say);
+  ok("…and still hears that we keep trying", /keep trying/i.test(first.say.join(" ")));
+  ok("the wording is the only difference: same action, same bound, same pause", first.action === "hold" && first.pauseSeconds === queueStep({ round: 0, reachableNow: 0 }).pauseSeconds && first.nextRound === 1);
+  ok("later rounds are identical parked or not", JSON.stringify(queueStep({ round: 1, reachableNow: 0, parked: true })) === JSON.stringify(queueStep({ round: 1, reachableNow: 0 })));
+  ok("a parked caller with a free rep is rung at once", queueStep({ round: 0, reachableNow: 1, parked: true }).action === "ring");
+  ok("and the cap still ends in the voicemail", queueStep({ round: MAX_QUEUE_ROUNDS, reachableNow: 0, parked: true }).action === "voicemail");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -772,6 +946,57 @@ section("8. The routes actually use it");
   ok("…the caller on an outbound call", /moveCallerToConference\(/.test(repRoute));
   ok("…and the rep on an inbound one", /moveRepToConference\(/.test(repRoute));
   ok("a second transfer on one call is refused rather than started", /already being transferred/i.test(read("app/api/sales/calls/transfer/route.js")));
+
+  // ── The allow-list and the queue, in the route ───────────────────────
+  ok("the phones come from the setting, read in the request", /loadTransferNumbers\(\)/.test(repRoute) && /transferNumbers,/.test(repRoute));
+  ok("…the standing env number still beside them", /transferTo: normalisePhone\(process\.env\.FIELDQUO_SALES_TRANSFER_TO\)/.test(repRoute));
+  ok("…and the queue is asked for", /queue: true,/.test(repRoute));
+  ok("no number is read from the body", !/body\.(e164|number|phone|to|toE164|value)\b/.test(repRoute));
+  ok("the number written on the row is the plan's target — the list's", /toE164: plan\.target\.kind === "number" \? plan\.target\.value : null/.test(repRoute));
+  ok("the GET strips the number before it leaves", /targets: targets\.map\(publicTarget\)/.test(repRoute) && !/toE164: transfer\.toE164/.test(repRoute));
+  ok("a queue transfer parks through the one action the rescue path uses", /if \(plan\.queue\)/.test(repRoute) && /actions: queueTransferActions\(\)/.test(repRoute));
+  ok("…moves the row to completed only after the caller moved", (() => {
+    const at = repRoute.indexOf("if (plan.queue)");
+    const branch = repRoute.slice(at, repRoute.indexOf("return NextResponse.json", at));
+    return branch.indexOf("applyTransferActions(") < branch.indexOf("toState: XFER_COMPLETED");
+  })());
+  ok("…and a park that fails leaves the rep on with the caller and says so", /could not be put on hold\. You are still on with them/.test(read("app/api/sales/calls/transfer/route.js")));
+
+  const rest = source("lib/sales/calls/transferRest.js");
+  ok("a parked caller's queue URL is marked, a rescued one's is not", /if \(action\.parked\) query\.set\("parked", "1"\)/.test(rest));
+  ok("the inbound queue stage reads the mark and hands it to the step", (() => {
+    const inb = source("app/api/rep-dial/inbound/route.js");
+    return /searchParams\.get\("parked"\) === "1"/.test(inb) && /parked,\s*maxRounds: MAX_QUEUE_ROUNDS/.test(inb);
+  })());
+  ok("the rep-leg stage falls back to the newest transfer, so a parked caller's rep hears the sentence", /\(await openTransferFor\(attemptId\)\) \|\| \(await latestTransferFor\(attemptId\)\)/.test(webhook));
+
+  // ── The console ──────────────────────────────────────────────────────
+  const platformRoute = source("app/api/platform/sales/transfer-numbers/route.js");
+  ok("the platform route reads for any admin and writes for a superadmin only", /getCurrentPlatformAdmin\(request\)/.test(platformRoute) && /superadminOrRefusal\(request\)/.test(platformRoute) && /export async function PUT/.test(platformRoute) && !/export async function DELETE/.test(platformRoute));
+  ok("…refuses an entry the normaliser would drop rather than saving short", /rejectedTransferNumbers\(body\.numbers\)/.test(platformRoute) && /rejected\.length/.test(platformRoute));
+  ok("…caps the list", /body\.numbers\.length > MAX_TRANSFER_NUMBERS/.test(platformRoute));
+  ok("…and logs the list before and after", /action: "sales_transfer_numbers_updated"/.test(platformRoute) && /details: \{ before, after \}/.test(platformRoute));
+  ok("the audit action has wording, and is danger", Boolean(AUDIT_ACTIONS.sales_transfer_numbers_updated) && AUDIT_ACTIONS.sales_transfer_numbers_updated.tone === "danger");
+  const page = source("app/platform/sales/windows/page.js");
+  ok("the Calling windows page carries the card beside the test lines", /<TransferNumbersCard canEdit=\{isSuperadmin\} \/>/.test(page) && page.indexOf("<TestLinesCard") < page.indexOf("<TransferNumbersCard"));
+  ok("…fetches and saves through the route", (page.match(/"\/api\/platform\/sales\/transfer-numbers"/g) || []).length === 2);
+  ok("…asks before adding and says whose phone belongs here", /Only a phone FieldQuo itself trusts belongs here/.test(read("app/platform/sales/windows/page.js")));
+  ok("…and shows the env number without pretending to edit it", /cannot be edited here/.test(read("app/platform/sales/windows/page.js")));
+  const storeMod = source("lib/sales/transferNumbersStore.js");
+  ok("a failed read is an empty list — no phone is guessed", /return \[\];/.test(storeMod) && /no phone is offered/.test(read("lib/sales/transferNumbersStore.js")));
+
+  // ── The picker ───────────────────────────────────────────────────────
+  const control = source("app/components/sales/TransferControl.js");
+  ok("the picker renders three groups", ["team", "phone", "queue"].every((g) => control.includes(`data-transfer-group="${g}"`)));
+  ok("…the long 'nobody is free' sentence only when there is no team AND no phone", /phones\.length === 0 \? t\("app\.salesDial\.nobodyElseFree"\) : t\("app\.salesDial\.groupTeamEmpty"\)/.test(control));
+  ok("…the queue as one button sending kind queue", /beginTransfer\("queue", queue\.key\)/.test(control));
+  ok("…a phone by its label, never target.value", !/target\.value/.test(control));
+  ok("…and warns that a phone's voicemail answers", /app\.salesDial\.phoneVoicemailNotice/.test(control));
+  ok("no input a rep could type a number into", !/type="tel"/.test(control) && !/inputMode/.test(control));
+  const messages = read("app/i18n/appMessages.js");
+  for (const key of ["groupYourTeam", "groupTeamEmpty", "groupPhone", "groupQueue", "queueTarget", "queueTargetWhy", "phoneVoicemailNotice", "aColleague"]) {
+    ok(`app.salesDial.${key} exists in all nine languages`, (messages.match(new RegExp(`"app\\.salesDial\\.${key}":`, "g")) || []).length === 9);
+  }
 
   const inbound = source("app/api/rep-dial/inbound/route.js");
   ok("the inbound route holds a caller instead of dropping them", /stage === "queue"/.test(inbound) && /toQueue\(/.test(inbound));

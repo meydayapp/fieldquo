@@ -31,8 +31,25 @@
 // The server rebuilds it from presence read in the request that acts on it, so
 // a picker left open for ten minutes cannot hand a caller to somebody who has
 // gone home. Nothing here decides who is reachable.
+//
+// ══ Three groups, and the empty sentence is per group ═════════════════════
+//
+// 2026-09-17, 23:20 ET: the owner pressed Transfer with every other rep
+// offline and got one sentence — "Nobody else is free right now" — and no
+// way to hand the call anywhere. The list now has three kinds of
+// destination (lib/sales/calls/transfer.js): a colleague's browser, a phone
+// FieldQuo trusts from the superadmin's allow-list, and the hold queue. They
+// render as three groups so that an empty floor is said in ONE line under
+// "Your team" while the phones and the queue stay pressable underneath. The
+// long sentence about presence going stale is kept for the case it was
+// written for — no team AND no phone — because that is when a rep wonders
+// whether the feature is broken.
+//
+// A phone target carries no number. `name` is the superadmin's label and
+// `key` an opaque id; the server resolves it against its own list. There is
+// nothing here a rep could type a number into, on purpose.
 import { useCallback, useEffect, useState } from "react";
-import { Loader2, PhoneForwarded, X } from "lucide-react";
+import { Loader2, Phone, PhoneForwarded, X } from "lucide-react";
 
 import { fetchJson } from "@/lib/fetchJson";
 import { useTranslation } from "@/app/hooks/useTranslation";
@@ -235,47 +252,112 @@ export default function TransferControl({ attemptId = null, active = false, onEr
             <X size={16} />
           </button>
         </div>
-        {(xfer?.targets || []).length === 0 ? (
-          /* Said, not hidden. A rep who presses transfer and sees an empty box
-             assumes the feature is broken; the truth is that everyone else is
-             on a call. */
-          <p className={`text-xs ${skin.soft}`}>{t("app.salesDial.nobodyElseFree")}</p>
-        ) : (
-          <ul className="space-y-2">
-            {xfer.targets.map((target) => (
-              <li key={target.key} className="space-y-1">
-                <p className={`text-sm ${skin.strong} break-words`}>
-                  {target.name || target.value}{" "}
-                  <span className={`text-xs ${skin.faint}`}>— {target.why}</span>
-                </p>
-                <div className="flex gap-2">
-                  {/* Two buttons rather than a mode switch, because the two
-                      sound completely different to the person on hold and a
-                      rep should not have to remember which way a toggle was
-                      left. */}
+        {(() => {
+          const all = xfer?.targets || [];
+          const team = all.filter((x) => x.kind === "client");
+          const phones = all.filter((x) => x.kind === "number");
+          const queue = all.find((x) => x.kind === "queue") || null;
+          const heading = (label) => (
+            <p className={`text-[11px] font-semibold uppercase tracking-wide ${skin.faint}`}>{label}</p>
+          );
+          const pair = (target) => (
+            <div className="flex gap-2">
+              {/* Two buttons rather than a mode switch, because the two
+                  sound completely different to the person on hold and a
+                  rep should not have to remember which way a toggle was
+                  left. */}
+              <button
+                type="button"
+                className={`${BTN} bg-primary text-primary-foreground flex-1`}
+                disabled={Boolean(busy)}
+                onClick={() => beginTransfer("warm", target.key)}
+              >
+                {busy === `warm:${target.key}` ? <Loader2 className="animate-spin" size={16} /> : null}
+                {t("app.salesDial.speakFirst")}
+              </button>
+              <button
+                type="button"
+                className={`${BTN} ${skin.outline} flex-1`}
+                disabled={Boolean(busy)}
+                onClick={() => beginTransfer("cold", target.key)}
+              >
+                {busy === `cold:${target.key}` ? <Loader2 className="animate-spin" size={16} /> : null}
+                {t("app.salesDial.straightThrough")}
+              </button>
+            </div>
+          );
+          return (
+            <div className="space-y-3">
+              {/* ── Your team ── */}
+              <div className="space-y-2" data-transfer-group="team">
+                {heading(t("app.salesDial.groupYourTeam"))}
+                {team.length === 0 ? (
+                  /* Said, not hidden. One line when a phone is still on offer;
+                     the fuller sentence about presence going stale only when
+                     there is no phone either — that is when a rep wonders
+                     whether the feature is broken. */
+                  <p className={`text-xs ${skin.soft}`}>
+                    {phones.length === 0 ? t("app.salesDial.nobodyElseFree") : t("app.salesDial.groupTeamEmpty")}
+                  </p>
+                ) : (
+                  <ul className="space-y-2">
+                    {team.map((target) => (
+                      <li key={target.key} className="space-y-1">
+                        <p className={`text-sm ${skin.strong} break-words`}>
+                          {target.name || t("app.salesDial.aColleague")}{" "}
+                          <span className={`text-xs ${skin.faint}`}>— {target.why}</span>
+                        </p>
+                        {pair(target)}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              {/* ── A phone ── */}
+              {phones.length > 0 ? (
+                <div className="space-y-2" data-transfer-group="phone">
+                  {heading(t("app.salesDial.groupPhone"))}
+                  <ul className="space-y-2">
+                    {phones.map((target) => (
+                      <li key={target.key} className="space-y-1">
+                        <p className={`text-sm ${skin.strong} break-words`}>
+                          <Phone size={12} className="inline-block align-[-1px] mr-1" aria-hidden="true" />
+                          {target.name}
+                        </p>
+                        {pair(target)}
+                      </li>
+                    ))}
+                  </ul>
+                  {/* A phone's own voicemail answers, and on a cold transfer
+                      the caller lands in it. Said here rather than learned
+                      the hard way. */}
+                  <p className={`text-xs ${skin.faint}`}>{t("app.salesDial.phoneVoicemailNotice")}</p>
+                </div>
+              ) : null}
+
+              {/* ── The queue ── */}
+              {queue ? (
+                <div className="space-y-2" data-transfer-group="queue">
+                  {heading(t("app.salesDial.groupQueue"))}
+                  <p className={`text-xs ${skin.soft}`}>{t("app.salesDial.queueTargetWhy")}</p>
+                  {/* One button. The queue has no warm or cold — the rep is
+                      released the instant they press it, and the server
+                      writes kind "queue" whatever is sent. */}
                   <button
                     type="button"
-                    className={`${BTN} bg-primary text-primary-foreground flex-1`}
+                    className={`${BTN} ${skin.outline} w-full`}
                     disabled={Boolean(busy)}
-                    onClick={() => beginTransfer("warm", target.key)}
+                    onClick={() => beginTransfer("queue", queue.key)}
                   >
-                    {busy === `warm:${target.key}` ? <Loader2 className="animate-spin" size={16} /> : null}
-                    {t("app.salesDial.speakFirst")}
-                  </button>
-                  <button
-                    type="button"
-                    className={`${BTN} ${skin.outline} flex-1`}
-                    disabled={Boolean(busy)}
-                    onClick={() => beginTransfer("cold", target.key)}
-                  >
-                    {busy === `cold:${target.key}` ? <Loader2 className="animate-spin" size={16} /> : null}
-                    {t("app.salesDial.straightThrough")}
+                    {busy === `queue:${queue.key}` ? <Loader2 className="animate-spin" size={16} /> : null}
+                    {t("app.salesDial.queueTarget")}
                   </button>
                 </div>
-              </li>
-            ))}
-          </ul>
-        )}
+              ) : null}
+            </div>
+          );
+        })()}
         <p className={`text-xs ${skin.faint}`}>{t("app.salesDial.transferHoldNotice")}</p>
       </div>
     );

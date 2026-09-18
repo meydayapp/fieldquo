@@ -1,12 +1,93 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 17 September 2026 (the cold-call scripts read against Gong's 100k/300M-call data and Cognism's guides — the AI call-script prompt is version 3: an opener that owns the cold call and states the reason on a cited detail, a thirty-five-second pitch held to a word band, leading questions after it, Cognism's objection shape with the two commonest brush-offs always written, a per-prospect gatekeeper line, the invite sent while they are on the phone; the generated script is swept for banned moves; four objections added, the gatekeeper moment rewritten for the apprentice, the office and the spouse, `CLOSE_ASK` asks for the calendar; `docs/sales/RESEARCH-cold-calling-2026.md` has every number and what was refused — see the section below)
+Last updated: 18 September 2026 (a live caller can be handed to a phone FieldQuo trusts or parked in the hold queue when the floor is empty — `lib/sales/transferNumbers.js`, the "Transfer phones" card on /platform/sales/windows, `kind: "number"` and `kind: "queue"` targets in `lib/sales/calls/transfer.js`; see the section below)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
 it exists to answer.
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
+
+---
+
+## Transfer when nobody else is free: a phone FieldQuo trusts, or the hold queue (18 September 2026)
+
+**The owner, 23:20 ET on a live call, every other rep offline:** pressed
+Transfer and got *"Nobody else is free right now"*. Correct — and a dead end.
+docs/sales-intel/OMNILEADS-STUDY.md gap #4 named both halves of what was
+missing, and both are now transfer targets beside a free colleague.
+
+**1. Phones, from a superadmin's allow-list — never a typed number.**
+`lib/sales/transferNumbers.js` (pure) + `transferNumbersStore.js` (one
+`PlatformSetting`, key `sales.transferNumbers`, a JSON array of
+`{ e164, label }`, at most 10, labels ≤ 40 chars, normalised E.164,
+duplicates collapsed, an entry without a label or a dialable number
+REFUSED by name rather than saved short). Edited on **/platform/sales/windows**
+("Transfer phones — where a live caller can be handed"), directly under the
+test-lines card and built the same way; superadmin-only PUT at
+`/api/platform/sales/transfer-numbers`, audit action
+`sales_transfer_numbers_updated` (danger) with the list before and after.
+`FIELDQUO_SALES_TRANSFER_TO` keeps working as one entry of the list —
+labelled "the standing transfer number", offered after the list, once — and
+the card shows it without pretending to edit it. **The number never makes
+the round trip:** a phone target's key is `number:<opaque id>` (FNV-1a of the
+E.164), the picker prints the label, `publicTarget()` strips `value` out of
+the GET, and `startTransferPlan` resolves the id against the list read in
+the acting request — a key the browser invented, or an id for a number not
+on the list, is refused exactly like a rep who went home. Warm and cold both
+work: the target leg is the same REST call `dialTransferTarget` already
+placed, to an E.164 instead of `client:`, with the same status callback, so
+a phone that rings out or is busy reaches `onTargetEnded` and hands the
+caller back (`returned`) exactly as a browser does. One honest caveat, said
+on the picker: a phone's own voicemail counts as an answer (no machine
+detection — billed per call, not approved). Speak first if unsure.
+
+**2. The queue as a destination.** A `kind: "queue"` target, always last,
+one button — *"Put them on hold for the next free rep"*. The plan writes
+`kind: "queue"` on the row itself (`TRANSFER_QUEUE`, deliberately NOT in
+`TRANSFER_KINDS`: a person is warm or cold, the queue is one press), needs
+no rep leg, moves no leg into a conference and places no target. The route
+applies the one action the rescue path already had — `callerToQueue`, now
+carrying `parked=1` — then moves the row to `completed`; a park that fails
+leaves the rep on with the caller and says so. The caller lands in
+`lib/sales/calls/queue.js` on their own attempt row: round zero says *"Please
+hold while I find the next free person for you"* instead of "everyone is on
+another call" (the only difference `parked` makes — same bound, same hold,
+same voicemail), every free rep is rung each round like an inbound ring-back,
+and the voicemail is filed on the attempt the transferring rep holds. The rep
+is released without the route naming their leg: outbound, the bridge's
+`<Dial>` ends when its child is redirected and the rep reaches
+`?stage=rep-leg`, which now falls back to `latestTransferFor` so a
+`completed` queue row still speaks *"The caller is on hold for the next free
+rep. You are released."*; inbound, the rep is the child and ends with the
+`<Dial>`.
+
+**3. The picker** (`TransferControl.js`) is three groups — **Your team**
+(one line when empty; the long presence-goes-stale sentence only when there
+is no phone either), **A phone** (labels, warm / cold, the voicemail
+caveat), **The queue** — under `app.salesDial.group*`, `queueTarget*`,
+`phoneVoicemailNotice`, `aColleague`, in nine languages.
+
+**Checks.** `check-call-transfer.mjs` gained section 1b (345 checks, from
+241): the normaliser against a bare string, null, a duplicate spelled two
+ways, a blank label, an 11th entry and a 200-char label; the opaque id; the
+env merge; the target order `client,number,number,queue`; the public shape
+carrying no digit of the number; a body-typed `number:+1…` key and an
+unlisted id refused; the queue plan with and without a rep leg; the rep-leg
+sentence on `ringing` and `completed` and silence on `failed`; a phone leg
+through no-answer / busy / consult-then-hang-up / cold pick-up; the parked
+caller's first words; and greps on the rep route, the platform route, the
+audit table, the page, transferRest, the inbound stage and the picker. Five
+mutations (key carries the number; `publicTarget` keeps `value`; `queue`
+accepted as a person's kind; the route forgets `queue: true`; the row moved
+to `completed` before the caller) each failed the script and were restored
+from `cp` backups. `transferTargets` keeps its oldest contract — nobody free
+means an empty list — by taking the queue as an opt-in the route passes;
+130 inbound-transfer and 198 agency checks are unchanged.
+
+**The list ships EMPTY**, like the test lines: the owner adds his mobile on
+the Calling windows page. Until then the picker shows "A phone" only if
+`FIELDQUO_SALES_TRANSFER_TO` is set, and the queue always.
 
 ---
 
@@ -71,6 +152,9 @@ the research doc. `check:playbook-voice` has one pre-existing failure on
   detector fired at Gong's own sentence, the calendar close, the gatekeeper's
   three people, the research doc's figures by value). Token bounds raised
   to 3,000 / 5,000 with the measured cost beside them.
+
+---
+
 ## Google Places corroborates every claimed lead: website, phone and trading status confirmed or contradicted in words (18 September 2026)
 
 DRAIN KINGS (Chatsworth, from the CSLB C-36 register) read "Website: none on

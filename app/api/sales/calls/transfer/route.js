@@ -27,6 +27,16 @@
 // there is no request shape in which one rep can put another rep's call on
 // hold.
 //
+// ══ NO NUMBER ARRIVES FROM THE BROWSER EITHER ═════════════════════════════
+//
+// A phone target is a label and an opaque id on the screen. The id is
+// resolved against lib/sales/transferNumbers.js's allow-list, read from the
+// PlatformSetting in THIS request, and the E.164 that gets dialled is the
+// list's, never the body's. `publicTarget` strips the number out of the GET
+// so it does not even make the trip out. A transfer leg is an outbound call
+// on FieldQuo's account; a typed destination would be toll fraud with a
+// friendlier name.
+//
 // ══ Guard, then act, in that order ════════════════════════════════════════
 //
 // Every state change is a conditional update — `advanceTransfer` matches on
@@ -60,12 +70,17 @@ import {
   describeTransfer,
   onCancel,
   onComplete,
+  publicTarget,
+  queueTransferActions,
   startTransferPlan,
   transferTargets,
   MOVE_REP,
   TRANSFER_KINDS,
+  TRANSFER_QUEUE,
+  XFER_COMPLETED,
   XFER_FAILED,
 } from "@/lib/sales/calls/transfer";
+import { loadTransferNumbers } from "@/lib/sales/transferNumbersStore";
 import {
   applyTransferActions,
   dialTransferTarget,
@@ -92,7 +107,12 @@ async function freeTargetsFor(repId) {
       select: { id: true, name: true, kind: true, engagement: true, managerId: true, manager: { select: { id: true, kind: true, name: true } } },
     })
     .catch(() => []);
-  const presence = await presenceFor(reps.map((r) => r.id)).catch(() => null);
+  const [presence, transferNumbers] = await Promise.all([
+    presenceFor(reps.map((r) => r.id)).catch(() => null),
+    // The allow-list, read now. A failed read is an empty list and the
+    // picker says "no phone", never a number remembered from last time.
+    loadTransferNumbers(),
+  ]);
   const me = reps.find((r) => r.id === repId) || null;
   // An agency employee's own agency; an agency account's own id; null for
   // FieldQuo's reps and freelancers. Teammates first — lib/sales/agencyLabel.
@@ -102,8 +122,26 @@ async function freeTargetsFor(repId) {
     presence,
     excludeRepId: repId,
     transferTo: normalisePhone(process.env.FIELDQUO_SALES_TRANSFER_TO),
+    transferNumbers,
+    // The hold queue is always a destination from here: a caller can be
+    // parked on their attempt row whoever is or is not free.
+    queue: true,
     ownAgencyId,
   });
+}
+
+/**
+ * The name the rep's screen prints for the transfer's destination.
+ *
+ * A rep by name; a phone by its LABEL, looked up on the list by number and
+ * never printed as the number; the queue by nothing, because
+ * describeTransfer has its own words for it.
+ */
+function targetNameFor(transfer, targets) {
+  if (!transfer) return null;
+  if (transfer.toRepId) return targets.find((t) => t.salesRepId === transfer.toRepId)?.name || null;
+  if (transfer.toE164) return targets.find((t) => t.kind === "number" && t.value === transfer.toE164)?.name || "a phone";
+  return null;
 }
 
 /**
@@ -172,19 +210,18 @@ export async function GET(request) {
     // the rep presses anything. `transferable` false with a reason beats a
     // button that refuses.
     transferable: Boolean(attempt?.providerCallSid && attempt?.repCallSid),
-    targets,
+    // Labels and keys only. What the carrier dials stays here.
+    targets: targets.map(publicTarget),
     transfer: transfer
       ? {
           id: transfer.id,
           kind: transfer.kind,
           state: transfer.state,
           toRepId: transfer.toRepId,
-          toE164: transfer.toE164,
+          // Whether it went to a phone, not which phone.
+          toPhone: Boolean(transfer.toE164),
           failureReason: transfer.failureReason,
-          describe: describeTransfer(transfer, {
-            targetName:
-              targets.find((t) => t.salesRepId === transfer.toRepId)?.name || transfer.toE164 || null,
-          }),
+          describe: describeTransfer(transfer, { targetName: targetNameFor(transfer, targets) }),
         }
       : null,
   });
@@ -226,7 +263,7 @@ export async function POST(request) {
 
     const targets = await freeTargetsFor(rep.id);
     const plan = startTransferPlan({
-      kind: TRANSFER_KINDS.includes(body.kind) ? body.kind : null,
+      kind: TRANSFER_KINDS.includes(body.kind) || body.kind === TRANSFER_QUEUE ? body.kind : null,
       targetKey: typeof body.targetKey === "string" ? body.targetKey : null,
       targets,
       attempt,
@@ -234,7 +271,10 @@ export async function POST(request) {
     if (!plan.ok) return bad(plan.reason, 409);
 
     // The id is minted here so the conference can be named from it in the same
-    // write. See the note on startTransfer.
+    // write. See the note on startTransfer. A queue transfer has no
+    // conference and never will, but the row keeps the column's shape — the
+    // name is derived, costs nothing, and a nullable column for one kind is a
+    // schema change nobody asked for.
     const id = randomUUID();
     const conferenceName = conferenceNameFor(id);
     if (!conferenceName) return bad("That transfer could not be named.", 500);
@@ -244,6 +284,8 @@ export async function POST(request) {
       attemptId: attempt.id,
       fromRepId: rep.id,
       toRepId: plan.target.salesRepId || null,
+      // The number is the LIST's — plan.target came out of freeTargetsFor
+      // above, in this request. Nothing from `body` is on this line.
       toE164: plan.target.kind === "number" ? plan.target.value : null,
       kind: plan.kind,
       conferenceName,
@@ -251,6 +293,60 @@ export async function POST(request) {
       repCallSid: plan.repCallSid,
     });
     if (!created.ok) return bad(created.error, 503);
+
+    // ── The queue: park the caller, release the rep, and that is the end ──
+    //
+    // No conference, no target leg. The caller's leg is redirected into the
+    // hold queue (lib/sales/calls/queue.js) with `parked=1`, where they are
+    // held, re-offered to whoever is free each round and reach the voicemail
+    // if nobody comes free — the attempt row they are held on names this
+    // rep, so the message is filed against them. The rep's own leg is not
+    // touched here: on an outbound call the bridge's <Dial> ends the moment
+    // its child is redirected and the rep arrives at ?stage=rep-leg, where
+    // repLegPlan hangs them up with one sentence; on an inbound call the rep
+    // is the child and ends with the <Dial>. The row goes straight to
+    // `completed` — there is nobody to ring and nothing to wait for — and a
+    // failure leaves the rep exactly where they were, on with the caller.
+    if (plan.queue) {
+      const applied = await applyTransferActions({
+        actions: queueTransferActions(),
+        transfer: created.transfer,
+        origin,
+      });
+      if (!applied.ok) {
+        await advanceTransfer({
+          id,
+          fromState: "ringing",
+          toState: XFER_FAILED,
+          failureReason: "the caller could not be moved into the queue",
+          endedAt: new Date(),
+        });
+        await recordError({
+          area: "sales_dial",
+          code: "transfer_queue_failed",
+          message: `A transfer on attempt ${attempt.id} could not park the caller: ${applied.failed.map((f) => f.error).join("; ")}`,
+        }).catch(() => {});
+        return bad("The caller could not be put on hold. You are still on with them.", 502);
+      }
+      await advanceTransfer({
+        id,
+        fromState: "ringing",
+        toState: XFER_COMPLETED,
+        answeredAt: new Date(),
+        endedAt: new Date(),
+      });
+      return NextResponse.json({
+        ok: true,
+        transfer: {
+          id,
+          kind: TRANSFER_QUEUE,
+          state: XFER_COMPLETED,
+          toRepId: null,
+          toPhone: false,
+          describe: describeTransfer({ id, kind: TRANSFER_QUEUE, state: XFER_COMPLETED }),
+        },
+      });
+    }
 
     // ── One leg is redirected and the other follows on its own ───────────
     //
@@ -333,10 +429,12 @@ export async function POST(request) {
         kind: plan.kind,
         state: "ringing",
         toRepId: plan.target.salesRepId || null,
-        toE164: plan.target.kind === "number" ? plan.target.value : null,
+        toPhone: plan.target.kind === "number",
         describe: describeTransfer(
           { id, kind: plan.kind, state: "ringing" },
-          { targetName: plan.target.name || plan.target.value },
+          // The label, never the number — a client's `value` is an identity
+          // string and a phone's is the E.164, and neither belongs on screen.
+          { targetName: plan.target.name || null },
         ),
       },
     });
