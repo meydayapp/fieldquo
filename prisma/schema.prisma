@@ -8518,7 +8518,29 @@ model VoiceAgent {
 
   name     String  @default("Receptionist")
   voice    String?
+  /// LEGACY — written by nothing and read by nothing since the feature shipped,
+  /// so every row holds the default "en" whatever the company speaks, which is
+  /// why it cannot be reused as the setting below: a French shop's row says
+  /// "en" and never meant it. Kept because dropping a column with data needs
+  /// `prisma db push --accept-data-loss`, which this repo forbids in
+  /// automation; drop it by hand when convenient. `spokenLanguage` replaces it.
   language String  @default("en")
+
+  /// ── Which language(s) the receptionist speaks ──────────────────────────
+  ///
+  /// "en" | "fr" | "es" | "en-fr" | "en-es" — the values in
+  /// lib/voice/agentLanguage.js's SPOKEN_LANGUAGE_VALUES — or null for "follow
+  /// the company's language" (fr → French, es → Spanish, anything else →
+  /// English, exactly what the phone did before this column existed).
+  ///
+  /// Its own column rather than Company.defaultLanguage because the two are
+  /// allowed to disagree: an Ottawa shop run in English with half its callers
+  /// in Gatineau wants a bilingual phone and an English back office. A pair
+  /// provisions Retell with an array of two locales (never the deprecated
+  /// `multi`), a bilingual greeting, and a prompt that follows the caller —
+  /// see lib/voice/prompt.js. The PUT route refuses anything outside the list;
+  /// resolveSpokenLanguage() is the read-side gate.
+  spokenLanguage String?
 
   /// What it says when it picks up. Company-authored, because this is the first
   /// thing a stranger hears from the business.

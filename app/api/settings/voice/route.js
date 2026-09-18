@@ -15,7 +15,17 @@ import { memberOrRefusalPlain } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
 import { recordActivity } from "@/lib/activity/log";
 import { voiceConfigured, listVoices } from "@/lib/voice/retell";
-import { pickableVoices, validateVoiceChoice } from "@/lib/voice/voices";
+import { pickableVoices, validateVoiceChoice, splitByLocales } from "@/lib/voice/voices";
+// Which language(s) the receptionist speaks — its own setting, independent of
+// the company's language, with the values and the fallback rule in one file
+// shared with provision.js, prompt.js and the settings card.
+import {
+  SPOKEN_LANGUAGE_VALUES,
+  isSpokenLanguage,
+  resolveSpokenLanguage,
+  receptionistSpeaks,
+  spokenLocales,
+} from "@/lib/voice/agentLanguage";
 import { provisionAgent, attachmentFailed } from "@/lib/voice/provision";
 import { quoteTopicsForCompany, photoDestination } from "@/lib/voice/quoteQuestions";
 import { greetingNamesAnotherBusiness } from "@/lib/voice/prompt";
@@ -370,6 +380,25 @@ export async function GET(request) {
       settings: TUNING_SETTINGS,
       fields: TUNING_FIELDS,
     },
+    // ── Which language(s) it speaks ──────────────────────────────────────
+    //
+    // Also outside `agent`, for the same reason as tuning: a company with no
+    // row still has a phone that speaks SOMETHING, and `value` is what.
+    //
+    //   value     the resolved setting the phone actually runs — never null
+    //   chosen    whether the company picked it, or it is following the
+    //             company language; the screen says which
+    //   company   the company's own language, so the card can say "your
+    //             account is in Ukrainian; the receptionist can't speak that
+    //             yet, so it answers in English" when that is the case —
+    //             `spoken` is false exactly then
+    language: {
+      value: resolveSpokenLanguage(agent?.spokenLanguage, company?.defaultLanguage),
+      chosen: isSpokenLanguage(agent?.spokenLanguage),
+      options: SPOKEN_LANGUAGE_VALUES,
+      company: company?.defaultLanguage || "en",
+      spoken: receptionistSpeaks(company?.defaultLanguage || "en"),
+    },
     number: number
       ? {
           e164: number.e164,
@@ -571,6 +600,59 @@ export async function PUT(request) {
   // provider does not know fails /create-agent outright, which does not give
   // the company a worse voice, it leaves their receptionist unprovisioned. A
   // refusal here is visible; that is not.
+  // ── Which language(s) it speaks ──────────────────────────────────────────
+  //
+  // REFUSED rather than coerced, like tuning: an unrecognised value would
+  // resolve back to the company language at read time, so storing it would
+  // show a selection the phone is not applying. `null` (or "") is a real
+  // answer — "follow the company's language" — and clears the column.
+  //
+  // Read before the voice, because the voice is validated against the
+  // language it will have to speak, whichever of the two this save changes.
+  let spokenLanguage;
+  if (body.spokenLanguage !== undefined) {
+    if (body.spokenLanguage === null || body.spokenLanguage === "") {
+      spokenLanguage = null;
+    } else if (isSpokenLanguage(body.spokenLanguage)) {
+      spokenLanguage = body.spokenLanguage;
+    } else {
+      return NextResponse.json(
+        {
+          error: "That isn't a language the receptionist can speak.",
+          errorKey: "app.setVoice.language.rejected",
+        },
+        { status: 400 },
+      );
+    }
+    data.spokenLanguage = spokenLanguage;
+  }
+
+  // The row as it stands, for the two checks below that need what is saved
+  // today: the voice answering now (`keep`), and the language it speaks when
+  // this save does not change it.
+  const current =
+    body.voice !== undefined || body.spokenLanguage !== undefined
+      ? await db.voiceAgent.findUnique({
+          where: { companyId: member.companyId },
+          select: { voice: true, spokenLanguage: true },
+        })
+      : null;
+  const company =
+    body.voice !== undefined || body.spokenLanguage !== undefined
+      ? await db.company.findUnique({
+          where: { id: member.companyId },
+          select: { defaultLanguage: true },
+        })
+      : null;
+  // The locale(s) the agent will speak AFTER this save.
+  const willSpeak = spokenLocales(
+    resolveSpokenLanguage(
+      spokenLanguage === undefined ? current?.spokenLanguage : spokenLanguage,
+      company?.defaultLanguage,
+    ),
+    company?.defaultLanguage || "en",
+  );
+
   if (body.voice !== undefined) {
     let available = [];
     if (voiceConfigured()) {
@@ -581,12 +663,13 @@ export async function PUT(request) {
       // would have that voice refused as "not one the provider offers" — on a
       // save where they changed the greeting and never touched the voice at
       // all. The provider does offer it. We simply stopped recommending it.
-      const current = await db.voiceAgent.findUnique({
-        where: { companyId: member.companyId },
-        select: { voice: true },
-      });
+      //
+      // And only the voices that can PRONOUNCE what the agent will speak. A
+      // voice with no French on a bilingual English–French agent is a
+      // combination Retell's own dashboard greys out; accepting it here would
+      // save a screen the phone cannot run. See splitByLocales.
       available = Array.isArray(raw)
-        ? pickableVoices(raw, { keep: current?.voice || null })
+        ? splitByLocales(pickableVoices(raw, { keep: current?.voice || null }), willSpeak).voices
         : [];
     }
     // With no reachable provider the only safe move is to accept CLEARING the
@@ -600,6 +683,27 @@ export async function PUT(request) {
       );
     }
     data.voice = choice.voice;
+  } else if (body.spokenLanguage !== undefined && current?.voice && voiceConfigured()) {
+    // ── A language change on a voice that cannot speak it ─────────────────
+    //
+    // The save did not touch the voice, so the check above did not run — but
+    // the voice answering today still has to pronounce the new language. Told
+    // rather than silently moved off it: the picker on the screen already
+    // offers the compatible ones, and the standard voice, for exactly this.
+    const raw = await listVoices().catch(() => null);
+    const mine = Array.isArray(raw)
+      ? pickableVoices(raw, { keep: current.voice }).find((v) => v.id === current.voice)
+      : null;
+    if (mine && !splitByLocales([mine], willSpeak).voices.length) {
+      return NextResponse.json(
+        {
+          error: `${mine.name} can't speak that language. Pick a different voice — or the standard one — and save again.`,
+          errorKey: "app.setVoice.language.voiceCannot",
+          errorParams: { name: mine.name },
+        },
+        { status: 400 },
+      );
+    }
   }
 
   // ── How it sounds ────────────────────────────────────────────────────────
