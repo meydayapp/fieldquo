@@ -99,6 +99,8 @@ import {
 } from "@/lib/fleet/access";
 import { loadFleet } from "@/lib/fleet/load";
 import { PERMISSION_PRESETS } from "@/lib/permissions";
+import { parseAssetBody, MAX_LIFE_MONTHS, assetAddedActivity } from "@/lib/assets/create";
+import { assetCharge } from "@/lib/accounting/depreciation";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -1098,6 +1100,113 @@ ok(
     ROW_BODY.indexOf('warranty.state === "expired"') <
       ROW_BODY.indexOf("app.equipment.badgeExpired"),
 );
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("10. Adding a van from the fleet screen — the register's rules, one relaxation");
+// ═══════════════════════════════════════════════════════════════════════════
+
+// The owner saw no Add button on /app/fleet. POST /api/fleet now creates the
+// Asset and the fleet record together through lib/assets/create.js — the
+// SAME parser Settings → Overhead uses — so every rule the register applies
+// applies here, executed against hostile input. The one relaxation is the
+// price: blank is allowed on this door only, stored as 0, and reported by
+// its own reason so no screen calls an unpriced van "fully written down".
+
+const good = { name: "Transit", cost: "42000", usefulLifeMonths: "60", inServiceDate: "2026-01-10" };
+
+{
+  const r = parseAssetBody(good);
+  ok("a complete body parses on the register's own door", !r.error && r.data.cost === 42000 && r.data.usefulLifeMonths === 60, r);
+}
+{
+  const r = parseAssetBody({ ...good, cost: "" });
+  ok("the register REFUSES a blank cost (unchanged)", !!r.error, r);
+  const r0 = parseAssetBody({ ...good, cost: 0 });
+  ok("…and a zero", !!r0.error, r0);
+}
+{
+  const r = parseAssetBody({ ...good, cost: "" }, { costOptional: true });
+  ok("the fleet door lets a blank cost through as 0", !r.error && r.data.cost === 0, r);
+  const r2 = parseAssetBody({ ...good, cost: null }, { costOptional: true });
+  ok("…and null", !r2.error && r2.data.cost === 0, r2);
+  const neg = parseAssetBody({ ...good, cost: "-5" }, { costOptional: true });
+  ok("…but a NEGATIVE cost is still refused — optional is not 'anything'", !!neg.error, neg);
+  const junk = parseAssetBody({ ...good, cost: "lots" }, { costOptional: true });
+  ok("…and junk is refused, not read as blank", !!junk.error, junk);
+}
+{
+  // Every other register rule survives the relaxation.
+  ok("no name is refused", !!parseAssetBody({ ...good, name: "  " }, { costOptional: true }).error);
+  ok("salvage above cost is refused", !!parseAssetBody({ ...good, salvageValue: "50000" }, { costOptional: true }).error);
+  ok("salvage equal to cost is refused", !!parseAssetBody({ ...good, salvageValue: "42000" }, { costOptional: true }).error);
+  ok("negative salvage is refused", !!parseAssetBody({ ...good, salvageValue: "-1" }, { costOptional: true }).error);
+  ok("a blank cost with a zero salvage is fine (nothing to compare)", !parseAssetBody({ ...good, cost: "", salvageValue: "" }, { costOptional: true }).error);
+  for (const life of ["", "0", "-1", "601", "12.5", "abc", null]) {
+    ok(`life ${JSON.stringify(life)} is refused — never defaulted`, !!parseAssetBody({ ...good, usefulLifeMonths: life }, { costOptional: true }).error);
+  }
+  ok(`life ${MAX_LIFE_MONTHS} is the ceiling and passes`, !parseAssetBody({ ...good, usefulLifeMonths: String(MAX_LIFE_MONTHS) }).error);
+  ok("a blank in-service date on CREATE is today (the register's reading)", parseAssetBody({ ...good, inServiceDate: "" }).data.inServiceDate instanceof Date);
+  ok("junk in-service date is refused", !!parseAssetBody({ ...good, inServiceDate: "spring" }).error);
+  ok("an unrecognised category is null, never the browser's string", parseAssetBody({ ...good, category: "hovercraft" }).data.category === null);
+  ok("a recognised category is kept", parseAssetBody({ ...good, category: "vehicle" }).data.category === "vehicle");
+}
+{
+  // PATCH mode: what is absent is left alone, and the salvage rule reads the
+  // row for whichever half the request did not send.
+  const r = parseAssetBody({ cost: "30000" }, { partial: true, existing: { cost: 40000, salvageValue: 35000 } });
+  ok("lowering the cost below the row's salvage is refused", !!r.error, r);
+  const r2 = parseAssetBody({ cost: "30000" }, { partial: true, existing: { cost: 40000, salvageValue: 1000 } });
+  ok("lowering it above the salvage passes and touches only cost", !r2.error && Object.keys(r2.data).join() === "cost", r2);
+  const r3 = parseAssetBody({}, { partial: true, existing: { cost: 1 } });
+  ok("an empty PATCH is 'nothing to change'", !!r3.error, r3);
+  const r4 = parseAssetBody({ inServiceDate: "" }, { partial: true, existing: { cost: 1 } });
+  ok("a blank in-service date on PATCH is refused, not read as today", !!r4.error, r4);
+  const r5 = parseAssetBody({ cost: "" }, { partial: true, existing: { cost: 1 } });
+  ok("a blank cost on PATCH is refused — the relaxation is create-only", !!r5.error, r5);
+}
+{
+  // The reason an unpriced van reports. Never "fully_depreciated".
+  const unpriced = { cost: 0, salvageValue: 0, usefulLifeMonths: 60, inServiceDate: at(-30) };
+  const c = assetCharge(unpriced, NOW);
+  ok("an unpriced van charges nothing", c.monthly === 0 && c.chargeable === false, c);
+  ok("…and says 'no_cost_recorded', not 'fully_depreciated'", c.reason === "no_cost_recorded", c.reason);
+  ok("…with a book value of nothing, not of the salvage", c.bookValue === 0, c.bookValue);
+  const salvaged = assetCharge({ cost: 1000, salvageValue: 1000, usefulLifeMonths: 60, inServiceDate: at(-30) }, NOW);
+  ok("a genuinely fully-salvaged item still says 'fully_depreciated'", salvaged.reason === "fully_depreciated", salvaged.reason);
+  const incomplete = assetCharge({ cost: 0, usefulLifeMonths: null, inServiceDate: at(-30) }, NOW);
+  ok("no life still reads 'incomplete' first", incomplete.reason === "incomplete", incomplete.reason);
+}
+{
+  const a = assetAddedActivity({ id: "a1", name: "Transit", cost: 0, usefulLifeMonths: 60, debtId: null }, { via: "fleet" });
+  ok("the trail row for an unpriced van says so", /no purchase price/.test(a.summary) && a.metadata.costRecorded === false && a.metadata.via === "fleet", a);
+  const b = assetAddedActivity({ id: "a2", name: "Transit", cost: 42000, usefulLifeMonths: 60, debtId: null });
+  ok("…and a priced one carries the figure", /42000/.test(b.summary) && b.metadata.costRecorded === true, b);
+}
+{
+  // The screen: the Add button is always drawn for a cost-basis writer and
+  // only with a waiting register row for anybody else; the form offers "a
+  // new one" only to the writer; the card never prints $0 for "not recorded".
+  const page = readFileSync(join(ROOT, "app/app/fleet/page.js"), "utf8");
+  ok(
+    "the fleet page's Add button is gated on canManageAssets OR a waiting register row",
+    /data\?\.canEdit && \(attachable\.length > 0 \|\| data\.canManageAssets\) && !adding/.test(page),
+  );
+  ok("the fleet page no longer sends a cost-basis writer to Settings → Overhead to add a van", !/href="\/app\/settings\/overhead"/.test(page));
+  const form = readFileSync(join(ROOT, "app/components/fleet/VehicleForm.js"), "utf8");
+  ok("the form offers 'a new one' only behind canManageAssets", /\{canManageAssets && \(\s*<option value="new">/.test(form));
+  ok("the form's 'ask an owner' branch survives for a member without the register", /creating && attachable\.length === 0 && !canManageAssets/.test(form));
+  ok("the form sends newAsset and never a cost it invented", /newAsset: \{ \.\.\.newAsset, name: newAsset\.name\.trim\(\) \}/.test(form) && !/cost: (60|5|10)000/.test(form));
+  const card = readFileSync(join(ROOT, "app/components/fleet/VehicleCard.js"), "utf8");
+  ok("the card prints 'Not recorded' rather than money(0) for an unpriced van", /Number\(row\.asset\.cost\) > 0\s*\?\s*money\(row\.asset\.cost\)/.test(card));
+  ok("the card offers 'Add what it cost' — the door that keeps optional from being permanent", /<AddCostForm assetId=\{row\.asset\.id\}/.test(card) && /fetch\(`\/api\/assets\/\$\{assetId\}`/.test(card));
+  ok("the card names the new reason", /no_cost_recorded:/.test(card));
+  const route = readFileSync(join(ROOT, "app/api/fleet/route.js"), "utf8");
+  ok("POST /api/fleet holds the register's write gate on the new-asset path", /requireCostBasisWrite\(full, "fixedCosts"\)/.test(route));
+  ok("…pins the category to vehicle", /category: "vehicle" \}, \{ costOptional: true \}/.test(route));
+  ok("…and writes both rows in one transaction", /db\.\$transaction\(async \(tx\) =>/.test(route) && /createAssetRow\(tx,/.test(route));
+  const assets = readFileSync(join(ROOT, "app/api/assets/route.js"), "utf8");
+  ok("the register's own POST never passes costOptional", /parseAssetBody\(body\)/.test(assets) && !/costOptional/.test(assets));
+}
 
 console.log(
   fails.length

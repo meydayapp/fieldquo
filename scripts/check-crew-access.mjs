@@ -442,7 +442,13 @@ for (const dir of API_DIRS) {
         // they cannot disagree about who may type in a past job. It asks the
         // grid four times; the assertion below reads that file directly, so
         // this exemption cannot outlive the gate it stands for.
-        /pastJobsGate\(/.test(body);
+        /pastJobsGate\(/.test(body) ||
+        // jobs/[id]/equipment is the CLIENT's installed kit, gated on the
+        // clientsProperties ladder through lib/equipment/access.js — the same
+        // gate the client page's equipment routes use, so a crew member at
+        // name_address_only is refused on both doors. The assertion below
+        // reads that file, so this exemption cannot outlive the gate.
+        /requireEquipment(Read|Write)\(/.test(body);
       ok(`${label} asks the grid`, asks);
     }
   }
@@ -462,6 +468,28 @@ for (const dir of API_DIRS) {
   }
   ok("...and for the pricing toggle", /requireToggle\(full, "showPricing"/.test(gate));
   ok("...and refuses with the shared shape rather than a 500", /permissionErrorResponse\(err\)/.test(gate));
+}
+
+// The equipment gate the exemption above points at: both wrappers must ask
+// the grid, on the clientsProperties ladder, at or above full_view.
+{
+  const gate = readFileSync(join(ROOT, "lib/equipment/access.js"), "utf8");
+  ok(
+    "the equipment read gate asks the grid on clientsProperties",
+    /requireLevel\(member, EQUIPMENT_CATEGORY, EQUIPMENT_READ_LEVEL/.test(gate) &&
+      /EQUIPMENT_CATEGORY = "clientsProperties"/.test(gate) &&
+      /EQUIPMENT_READ_LEVEL = "full_view"/.test(gate),
+  );
+  ok(
+    "...and the write gate asks for full_edit",
+    /requireLevel\(member, EQUIPMENT_CATEGORY, EQUIPMENT_WRITE_LEVEL/.test(gate) &&
+      /EQUIPMENT_WRITE_LEVEL = "full_edit"/.test(gate),
+  );
+  const route = readFileSync(join(ROOT, "app/api/jobs/[id]/equipment/route.js"), "utf8");
+  ok(
+    "...and the job equipment route ALSO narrows the job to assignedJobWhere",
+    /assignedJobWhere\(full\)/.test(route),
+  );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

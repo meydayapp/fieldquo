@@ -42,6 +42,7 @@ import { recordStampIfPresent } from "@/lib/location/stamps";
 import { entryHours, openBreak } from "@/lib/timeclock/entryHours";
 import { BREAK_KINDS } from "@/lib/shifts/coverage";
 import { recordActivity } from "@/lib/activity/log";
+import { canSelfEnrol } from "@/lib/timeclock/selfEnrol";
 
 // ── Every punch leaves a row in the activity trail ──────────────────────────
 //
@@ -135,6 +136,11 @@ export async function GET(request) {
   if (!worker) {
     return NextResponse.json({
       worker: null,
+      // Whether the screen may offer "Set yourself up to clock in" — answered
+      // by the server, since it is a permission, and a button drawn on a
+      // guess is the dead control AGENTS.md forbids. See
+      // lib/timeclock/selfEnrol.js for who, and why it costs no seat.
+      canSelfEnrol: canSelfEnrol(member),
       open: null,
       today: [],
       todayHours: 0,

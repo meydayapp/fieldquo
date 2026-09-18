@@ -10,6 +10,13 @@
 //                        control that removes the double count, so it has to
 //                        be reachable after the fact; almost nobody enters the
 //                        asset and the loan in the same sitting.
+//   PATCH  cost, salvageValue, usefulLifeMonths, inServiceDate
+//                      — the cost basis itself, through the same parser the
+//                        create uses (lib/assets/create.js, partial mode).
+//                        Exists because the fleet screen may add a van with
+//                        NO purchase price; without a door to add the price
+//                        afterwards that blank would be permanent, and
+//                        "optional" would have been a dead end.
 //   DELETE             — for the row typed with a wrong figure. A register with
 //                        no way to remove a mis-typed $600,000 truck would
 //                        silently raise the price floor on every quote written
@@ -26,36 +33,8 @@ import {
 } from "@/lib/permissions/enforce";
 import { requireCostBasisWrite } from "@/lib/permissions/costBasis";
 import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
-import { assetCharge } from "@/lib/accounting/depreciation";
 import { recordActivity } from "@/lib/activity/log";
-import { isAssetCategory } from "@/lib/costing/assetLifeSuggestions";
-
-const SELECT = {
-  id: true,
-  name: true,
-  cost: true,
-  salvageValue: true,
-  inServiceDate: true,
-  usefulLifeMonths: true,
-  disposedOn: true,
-  active: true,
-  debtId: true,
-  notes: true,
-  category: true,
-  debt: { select: { id: true, name: true, monthlyPayment: true } },
-};
-
-function withCharge(row, asOf) {
-  const charge = assetCharge(row, asOf);
-  return {
-    ...row,
-    monthlyDepreciation: Math.round(charge.monthly * 100) / 100,
-    accumulatedDepreciation: Math.round(charge.accumulated * 100) / 100,
-    bookValue: Math.round(charge.bookValue * 100) / 100,
-    chargeable: charge.chargeable,
-    chargeReason: charge.reason,
-  };
-}
+import { ASSET_SELECT as SELECT, withCharge, parseAssetBody } from "@/lib/assets/create";
 
 export async function PATCH(request, { params }) {
   // Next 16: `params` is a Promise; reading it synchronously gives undefined.
@@ -73,12 +52,23 @@ export async function PATCH(request, { params }) {
 
   const existing = await db.asset.findFirst({
     where: { id: _params.id, companyId: member.companyId },
-    select: { id: true, name: true },
+    select: { id: true, name: true, cost: true, salvageValue: true },
   });
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const body = await request.json().catch(() => ({}));
   const data = {};
+
+  // The cost basis, validated against the row's REAL resulting state: a PATCH
+  // that only lowers the cost is checked against the salvage value already on
+  // the row, so the two can never cross one field at a time.
+  const costKeys = ["cost", "salvageValue", "usefulLifeMonths", "inServiceDate", "name", "notes"];
+  if (costKeys.some((k) => body?.[k] !== undefined)) {
+    const picked = Object.fromEntries(costKeys.filter((k) => body[k] !== undefined).map((k) => [k, body[k]]));
+    const parsed = parseAssetBody(picked, { partial: true, existing });
+    if (parsed.error) return NextResponse.json({ error: parsed.error }, { status: 400 });
+    Object.assign(data, parsed.data);
+  }
 
   if (body?.debtId !== undefined) {
     const debtId = body.debtId || null;
@@ -105,7 +95,9 @@ export async function PATCH(request, { params }) {
   if (body?.active !== undefined) data.active = !!body.active;
 
   if (body?.category !== undefined) {
-    data.category = body.category && isAssetCategory(body.category) ? body.category : null;
+    const parsed = parseAssetBody({ category: body.category }, { partial: true, existing });
+    if (parsed.error) return NextResponse.json({ error: parsed.error }, { status: 400 });
+    data.category = parsed.data.category;
   }
 
   if (Object.keys(data).length === 0)
@@ -125,6 +117,8 @@ export async function PATCH(request, { params }) {
     metadata: {
       disposedOn: data.disposedOn === undefined ? undefined : data.disposedOn,
       linkedToDebt: data.debtId === undefined ? undefined : !!data.debtId,
+      cost: data.cost === undefined ? undefined : data.cost,
+      usefulLifeMonths: data.usefulLifeMonths === undefined ? undefined : data.usefulLifeMonths,
     },
   });
 

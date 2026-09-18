@@ -26,14 +26,9 @@ import {
   permissionErrorResponse,
 } from "@/lib/permissions/enforce";
 import { requireEquipmentRead, requireEquipmentWrite } from "@/lib/equipment/access";
-import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
 import { warrantyTally } from "@/lib/equipment/warranty";
-import {
-  EQUIPMENT_SELECT,
-  decorateEquipment,
-  parseEquipmentBody,
-} from "@/lib/equipment/payload";
-import { recordActivity } from "@/lib/activity/log";
+import { EQUIPMENT_SELECT, decorateEquipment } from "@/lib/equipment/payload";
+import { createClientEquipment } from "@/lib/equipment/create";
 
 // Next 16: params is a Promise.
 export async function GET(request, { params }) {
@@ -93,39 +88,16 @@ export async function POST(request, { params }) {
   if (!client) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const body = await request.json().catch(() => ({}));
-  const parsed = parseEquipmentBody(body, { creating: true });
-  if (parsed.error) return NextResponse.json({ error: parsed.error }, { status: 400 });
-
-  // The job that installed it has to be ours. Proved through the shared table
-  // as `jobId` — same model, same rule, since the column holds a Job id.
-  const installedByJobId = parsed.data.installedByJobId || null;
-  const badLink = await ownedIdsRefusal(NextResponse, db, member.companyId, {
-    jobId: installedByJobId,
+  // Parse, prove the installing job is ours, write, log — shared with the
+  // job page's "Record what we installed" door. See lib/equipment/create.js.
+  const { created, response: refusal } = await createClientEquipment({
+    db,
+    NextResponse,
+    member,
+    client,
+    body,
   });
-  if (badLink) return badLink;
+  if (refusal) return refusal;
 
-  const created = await db.clientEquipment.create({
-    data: {
-      companyId: member.companyId,
-      clientId: client.id,
-      ...parsed.data,
-    },
-    select: EQUIPMENT_SELECT,
-  });
-
-  await recordActivity(member, {
-    action: "client.equipment_added",
-    entityType: "client",
-    entityId: client.id,
-    summary: `Added equipment ${created.name} for ${client.name}`,
-    metadata: {
-      equipmentId: created.id,
-      // Logged as a boolean, not a date: what the trail needs to record is
-      // whether anybody stated a warranty at all, since that is the fact
-      // deciding whether this row is ever worth a phone call.
-      warrantyRecorded: created.warrantyEndsAt !== null,
-    },
-  });
-
-  return NextResponse.json(decorateEquipment(created, new Date()), { status: 201 });
+  return NextResponse.json(created, { status: 201 });
 }

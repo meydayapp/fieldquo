@@ -4,19 +4,28 @@
 //
 // Adding a van to the fleet screen, or editing one already on it.
 //
-// ══ What "add" means here, and what it does not ════════════════════════════
+// ══ What "add" means here ══════════════════════════════════════════════════
 //
-// It attaches a fleet record to an Asset that is ALREADY in the company's
-// register. It does not create the asset: an Asset carries a cost and a useful
-// life, it feeds depreciation into the company's overhead, and it moves the
-// price floor on every quote written afterwards. Creating one from a screen
-// about plates and insurance dates would be a money change made somewhere
-// nobody is watching for money changes.
+// Two things, and the form says which it is doing:
 //
-// So when there is no un-recorded vehicle left in the register, the picker
-// says so, and — only for someone who may actually write the cost basis — it
-// links to where a vehicle gets added. For everyone else it names who to ask.
-// Neither branch draws a button that leads to a refusal.
+//   * Attach a fleet record to an Asset ALREADY in the register — the only
+//     thing this form did until the owner opened /app/fleet, saw no Add
+//     button, and did not know vans are born in Settings → Overhead.
+//   * Create the Asset AND the fleet record together — offered only to a
+//     member who may write the cost basis (`canManageAssets`, answered by the
+//     server), because an Asset feeds depreciation into overhead and moves
+//     the price floor. The server holds the same gate; this flag only decides
+//     what is drawn. POST /api/fleet writes both in one transaction through
+//     the register's own parser (lib/assets/create.js).
+//
+// The purchase price is optional on the second path — a van whose invoice
+// nobody can find still has an insurance date — and the form says what a
+// blank means: nothing toward overhead until the price is added.
+//
+// A member who may edit vans but not the cost basis keeps the old shape: the
+// picker over un-recorded register rows, and when there are none, the
+// sentence naming who to ask. Neither branch draws a button that leads to a
+// refusal.
 //
 // ══ Empty fields ══════════════════════════════════════════════════════════
 //
@@ -30,6 +39,7 @@ import { X } from "lucide-react";
 import Link from "next/link";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { reportResponseError } from "@/lib/clientErrors";
+import { suggestedLifeMonths } from "@/lib/costing/assetLifeSuggestions";
 
 const inputClass =
   "w-full border border-border rounded-lg px-3 py-2.5 text-sm bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-ring/10";
@@ -76,12 +86,28 @@ export default function VehicleForm({
   onCancel,
 }) {
   const { t } = useTranslation();
-  const [assetId, setAssetId] = useState(attachable[0]?.assetId || "");
+  const creating = mode === "create";
+  // "new" creates the asset too; otherwise the value is a register asset id.
+  // A cost-basis writer starts on "new" when nothing is waiting to be
+  // attached, and on the first waiting row otherwise — the register row is
+  // the more likely intent when one exists.
+  const [assetId, setAssetId] = useState(
+    attachable[0]?.assetId || (canManageAssets ? "new" : ""),
+  );
   const [values, setValues] = useState(() => formValuesFrom(vehicle));
+  const [newAsset, setNewAsset] = useState(() => ({
+    name: "",
+    cost: "",
+    // The register's own suggestion for a vehicle, pre-filled and editable —
+    // the same pattern Settings → Overhead uses. Never applied silently: it
+    // is a form field the person can change before saving.
+    usefulLifeMonths: String(suggestedLifeMonths("vehicle") ?? ""),
+    inServiceDate: "",
+  }));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  const creating = mode === "create";
+  const addingNew = creating && canManageAssets && assetId === "new";
 
   async function submit(e) {
     e.preventDefault();
@@ -90,12 +116,21 @@ export default function VehicleForm({
       setError(t("app.fleet.pickVehicle", "Pick which vehicle this is."));
       return;
     }
+    if (addingNew && !newAsset.name.trim()) {
+      setError(t("app.fleet.newNameRequired", "Give the vehicle a name — the van, the pickup."));
+      return;
+    }
     setSaving(true);
     try {
+      const payload = !creating
+        ? values
+        : addingNew
+          ? { newAsset: { ...newAsset, name: newAsset.name.trim() }, ...values }
+          : { assetId, ...values };
       const res = await fetch(creating ? "/api/fleet" : `/api/fleet/${vehicle.id}`, {
         method: creating ? "POST" : "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(creating ? { assetId, ...values } : values),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) {
         const message = await reportResponseError(
@@ -111,7 +146,8 @@ export default function VehicleForm({
     }
   }
 
-  if (creating && attachable.length === 0) {
+  // Nothing in the register to attach, and no authority to add to it.
+  if (creating && attachable.length === 0 && !canManageAssets) {
     return (
       <div className="border border-border rounded-xl p-4 space-y-2">
         <p className="text-sm font-semibold text-foreground">
@@ -175,6 +211,9 @@ export default function VehicleForm({
             value={assetId}
             onChange={(e) => setAssetId(e.target.value)}
           >
+            {canManageAssets && (
+              <option value="new">{t("app.fleet.newVehicleOption", "A new one — not in the register yet")}</option>
+            )}
             {attachable.map((row) => (
               <option key={row.assetId} value={row.assetId}>
                 {row.asset?.name || row.assetId}
@@ -182,6 +221,64 @@ export default function VehicleForm({
             ))}
           </select>
         </label>
+      )}
+
+      {/* The register half, drawn only when the asset is being created here.
+          These four fields are the cost basis; everything below the rule is
+          the fleet record. */}
+      {addingNew && (
+        <div className="space-y-3 rounded-lg border border-border p-3">
+          <p className="text-xs text-muted-foreground">
+            {t(
+              "app.fleet.newVehicleHint",
+              "This also adds the vehicle to the asset register (Settings → Overhead), where its cost is spread over its life.",
+            )}
+          </p>
+          <input
+            className={inputClass}
+            placeholder={t("app.fleet.newName", "Name — the van, the pickup")}
+            value={newAsset.name}
+            onChange={(e) => setNewAsset({ ...newAsset, name: e.target.value })}
+          />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <label className="block text-xs text-muted-foreground">
+              {t("app.fleet.newCost", "What it cost (optional)")}
+              <input
+                className={`${inputClass} mt-1`}
+                inputMode="decimal"
+                placeholder={t("app.fleet.newCostPlaceholder", "Leave blank if you don't know")}
+                value={newAsset.cost}
+                onChange={(e) => setNewAsset({ ...newAsset, cost: e.target.value })}
+              />
+            </label>
+            <label className="block text-xs text-muted-foreground">
+              {t("app.fleet.newLife", "Useful life (months)")}
+              <input
+                className={`${inputClass} mt-1`}
+                inputMode="numeric"
+                value={newAsset.usefulLifeMonths}
+                onChange={(e) => setNewAsset({ ...newAsset, usefulLifeMonths: e.target.value })}
+              />
+            </label>
+          </div>
+          <label className="block text-xs text-muted-foreground">
+            {t("app.fleet.newInService", "In service since (blank = today)")}
+            <input
+              type="date"
+              className={`${inputClass} mt-1`}
+              value={newAsset.inServiceDate}
+              onChange={(e) => setNewAsset({ ...newAsset, inServiceDate: e.target.value })}
+            />
+          </label>
+          {/* Said before saving: a blank price is not a free van, it is an
+              unpriced one, and the register will say so until it is filled in. */}
+          <p className="text-xs text-muted-foreground">
+            {t(
+              "app.fleet.newCostBlankHint",
+              "With no price it counts nothing toward overhead and shows as \"no purchase price recorded\" until one is added. The life is the register's usual starting point for a vehicle — change it if you know better.",
+            )}
+          </p>
+        </div>
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

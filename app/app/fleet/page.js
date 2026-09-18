@@ -94,13 +94,18 @@ export default function FleetPage() {
             )}
           </p>
         </div>
-        {data?.canEdit && attachable.length > 0 && !adding && (
+        {/* Always drawn for a cost-basis writer — the form creates the asset
+            too (VehicleForm's header). For a member who may edit vans but not
+            the register, only when a register row is waiting to be attached,
+            exactly as before: a button that leads to "ask an owner" is a
+            dead control. */}
+        {data?.canEdit && (attachable.length > 0 || data.canManageAssets) && !adding && (
           <button
             type="button"
             onClick={() => setAdding(true)}
             className="inline-flex items-center gap-1.5 border border-border rounded-full px-4 py-2 text-sm font-semibold min-h-[44px] shrink-0"
           >
-            <Plus size={14} /> {t("app.fleet.add", "Add")}
+            <Plus size={14} /> {t("app.fleet.addVehicle", "Add a vehicle")}
           </button>
         )}
       </div>
@@ -173,14 +178,17 @@ export default function FleetPage() {
                 "A van shows up here once it's in the asset register — that's the row carrying what it cost and how it depreciates.",
               )}
             </p>
-            {/* Only for someone the register would actually accept. */}
-            {data?.canManageAssets && (
-              <a
-                href="/app/settings/overhead"
-                className="inline-block text-sm font-semibold underline text-foreground"
+            {/* Only for someone the register would actually accept — and
+                the form above now adds it to the register itself, so the
+                empty state opens that rather than sending them to Settings. */}
+            {data?.canManageAssets && !adding && (
+              <button
+                type="button"
+                onClick={() => setAdding(true)}
+                className="inline-flex items-center gap-1.5 border border-border rounded-full px-4 py-2 text-sm font-semibold min-h-[44px]"
               >
-                {t("app.fleet.goToRegister", "Add a vehicle to the register")}
-              </a>
+                <Plus size={14} /> {t("app.fleet.addVehicle", "Add a vehicle")}
+              </button>
             )}
           </div>
         }
