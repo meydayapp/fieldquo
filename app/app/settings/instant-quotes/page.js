@@ -36,6 +36,7 @@ import {
   PAINTING_SCOPE_CATEGORY,
 } from "@/lib/estimate/instantSeed";
 import { categoryLabel } from "@/lib/trades/catalog";
+import LawnCareEditor from "./LawnCareEditor";
 
 // How each trade measures — copy shown to the owner so they know what the
 // homeowner will be asked for.
@@ -46,6 +47,8 @@ const MEASURE_COPY = {
     "Gutter run and downspouts measured automatically from the address (Google roof model); priced per foot and per downspout with a low–high range.",
   lawn_polygon:
     "Homeowner traces the lawn on a satellite map; area computed from the outline.",
+  lawn_address:
+    "Lawn sized from the address — the lot boundary minus the roof and a driveway allowance where the city publishes parcels (Gatineau), otherwise your minimum band, always labelled as an estimate — and the homeowner can trace the lawn to correct it. Programs and add-ons priced by lawn-size band.",
   manual_area: "Homeowner enters the area and picks options.",
   manual_units: "Homeowner enters counts (doors, drawers).",
   item_picker:
@@ -838,6 +841,12 @@ function TradeCard({ trade, canEdit, onSaved }) {
           t={t}
         />
 
+        {/* Lawn-care programs, included services and add-ons, priced by
+            lawn-size band — its own form, in its own file. */}
+        {trade.trade === "lawn_care" && (
+          <LawnCareEditor config={config} patch={patch} currency={currency} isDefaults={trade.isDefaults} />
+        )}
+
         {/* Lawn size tiers */}
         {trade.trade === "lawn_mowing" && (
           <div>
@@ -1216,16 +1225,22 @@ function TradeCard({ trade, canEdit, onSaved }) {
 
         {/* Shared knobs */}
         <div className="flex flex-wrap gap-4 pt-1">
-          <NumField
-            label={t("app.setInstantQuotes.rangeWidth", "Range width (±)")}
-            suffix="%"
-            width="w-20"
-            value={Math.round((Number(config.rangeBandPct) || 0) * 100)}
-            onChange={(v) => patch({ rangeBandPct: (v === "" ? 0 : v) / 100 })}
-          />
+          {/* A lawn-care program has a price, not a range, and its floor is
+              its minimum lawn size — so neither shared knob applies there,
+              and a box that changed nothing would be the dead control this
+              screen is swept for. */}
+          {trade.trade !== "lawn_care" && (
+            <NumField
+              label={t("app.setInstantQuotes.rangeWidth", "Range width (±)")}
+              suffix="%"
+              width="w-20"
+              value={Math.round((Number(config.rangeBandPct) || 0) * 100)}
+              onChange={(v) => patch({ rangeBandPct: (v === "" ? 0 : v) / 100 })}
+            />
+          )}
           {/* Junk's minimum lives in its own rate card (in cents); the shared
               dollar minCharge would be a second, conflicting control. */}
-          {trade.trade !== "junk_removal" && (
+          {trade.trade !== "junk_removal" && trade.trade !== "lawn_care" && (
             <NumField
               label={t("app.setInstantQuotes.minimumCharge", "Minimum charge")}
               prefix="$"

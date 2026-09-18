@@ -43,6 +43,7 @@ const cases = {
   lawn_mowing: ["lawn_mowing", null, { areaSqft: 6000 }],
   junk_removal: ["junk_removal", null, { items: [{ key: "sofa", qty: 1 }], jobType: "single_items" }],
   gutters: ["gutter_services", null, { gutterFt: 184, downspouts: 6, trustworthy: true, imagery: { date: "2024-07-29", year: 2024, quality: "HIGH" }, basis: "eave", flags: [] }],
+  lawn_care: ["lawn_care", null, { areaSqft: 1850, source: "traced", basis: "traced", estimated: false, minSqft: 1500, vertices: [{ lat: 45.4487, lng: -75.6375 }, { lat: 45.4488, lng: -75.6375 }, { lat: 45.4488, lng: -75.6373 }], programKey: "fall_tune_up", addOnKeys: ["aeration_fall"] }],
 };
 for (const trade of Object.keys(INSTANT_ESTIMATE_TRADES)) {
   const c = cases[trade];

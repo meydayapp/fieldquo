@@ -5471,6 +5471,17 @@ model LeadRequest {
   budgetBand    String?
   timeline      String?
 
+  /// The homeowner pressed "This doesn't look right → Request a call back"
+  /// under a measured instant estimate (roof, gutters, lawn) and gave a
+  /// number. Set on the lead the estimate created, or on a lead created for
+  /// the request when there was no estimate yet. The preferred time and the
+  /// note live in `intake` (callbackPreferredTime, callbackNote), where the
+  /// lead screen already prints what the homeowner told us; this column is
+  /// the FLAG — it is what the board sorts and badges on, and what tells an
+  /// estimator to book the on-site visit rather than ring about the price.
+  /// Null on every lead that never asked.
+  callbackRequestedAt DateTime?
+
   // The language the homeowner filled the form in, fixed at creation.
   //
   // The public self-quote form offers the company's send languages and posted

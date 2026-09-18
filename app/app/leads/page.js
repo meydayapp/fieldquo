@@ -30,6 +30,7 @@ import {
   Inbox,
   Mail,
   Phone,
+  PhoneCall,
   PhoneOff,
   Film,
   Paperclip,
@@ -546,6 +547,28 @@ export default function LeadsPage() {
   );
 }
 
+// "Call back requested · afternoon" — set by the public instant estimate's
+// "this doesn't look right" control (app/api/instant-quote/[slug]/callback).
+// The preferred time and the note ride in the intake; the flag is the column.
+function CallbackBadge({ lead, t, detail = false }) {
+  const when = lead.intake?.callbackPreferredTime;
+  const whenLabel = when
+    ? t(`app.leads.callbackTime.${when}`, { morning: "morning", afternoon: "afternoon", evening: "evening", anytime: "any time" }[when] || when)
+    : null;
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200 font-semibold ${
+        detail ? "text-xs px-2.5 py-1" : "mt-2 text-[11px] px-2 py-0.5"
+      }`}
+    >
+      <PhoneCall size={detail ? 13 : 11} />
+      {t("app.leads.callbackRequested", "Call back requested — measurement disputed")}
+      {whenLabel ? ` · ${whenLabel}` : ""}
+      {detail && lead.intake?.callbackNote ? `: ${lead.intake.callbackNote}` : ""}
+    </span>
+  );
+}
+
 // "≈ $4,200 · from quote Q-0031" — the figure and, always, where it came
 // from. A lead with no basis renders NOTHING here rather than a dash or a
 // zero: the strip above counts those, and a chip that said "$0" would be the
@@ -751,6 +774,10 @@ function LeadCard({ lead, tone, onOpen, t, dragHandle }) {
           <span className="font-medium text-foreground">{lead.name}</span>
           <TempBadge temperature={lead.temperature} score={lead.score} t={t} />
         </div>
+        {/* The homeowner pressed "this doesn't look right" under a measured
+            estimate and asked to be rung. Not a temperature — an
+            instruction: book the on-site visit. */}
+        {lead.callbackRequestedAt && <CallbackBadge lead={lead} t={t} />}
 
         {(budgetKey || timelineKey) && (
           <div className="mt-2 flex flex-wrap gap-1.5">
@@ -983,6 +1010,11 @@ function LeadDrawer({ leadId, assignees, onClose, onPatched, t }) {
                 <h2 className="text-lg font-bold text-foreground">{lead.name}</h2>
                 <TempBadge temperature={lead.temperature} score={lead.score} t={t} size="lg" />
               </div>
+              {lead.callbackRequestedAt && (
+                <div className="mt-2">
+                  <CallbackBadge lead={lead} t={t} detail />
+                </div>
+              )}
               <div className="mt-1 text-xs text-muted-foreground">
                 {new Date(lead.createdAt).toLocaleString()}
                 {lead.source && ` · ${lead.source}`}

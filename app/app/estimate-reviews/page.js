@@ -40,6 +40,12 @@ import {
 const SOURCE_LABEL = {
   google_solar: ["app.reviews.source.satellite", "Measured from satellite"],
   lawn_polygon: ["app.reviews.source.lawn", "Lawn traced on map"],
+  // Lawn care's three sources (lib/measure/lawnEstimate.js). The minimum
+  // band is named as such: a reviewer must know the figure was never
+  // measured before standing behind it.
+  traced: ["app.reviews.source.lawn", "Lawn traced on map"],
+  parcel_gatineau: ["app.reviews.source.lawnParcel", "Lawn estimated from the lot (Gatineau parcel − roof − driveway)"],
+  minimum: ["app.reviews.source.lawnMinimum", "Lawn NOT measured — minimum pricing band"],
   manual: ["app.reviews.source.manual", "Homeowner-entered"],
   phone_call: ["app.reviews.source.phoneCall", "Taken from a phone call"],
 };

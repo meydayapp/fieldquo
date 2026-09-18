@@ -24,6 +24,7 @@ import {
   requireCost,
 } from "./costingWrite";
 import { syncTakeoffAddOns } from "@/lib/quotes/takeoffAddOns";
+import { withCapturedMeasureImages } from "@/lib/measure/measureImages";
 import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
 import { requireCreatedVia } from "@/lib/quotes/createdVia";
 
@@ -110,7 +111,7 @@ export async function POST(request) {
     // problem. Clamped rather than rejected so a weird client doesn't fail the
     // save of a real quote.
     composeSeconds,
-    scopeGroups,
+    scopeGroups: rawScopeGroups,
     subtotal,
     discount,
     tax,
@@ -170,6 +171,15 @@ export async function POST(request) {
     // same way reassigning an appointment is.
     assignedToId,
   } = body;
+
+  // The satellite still behind a measured group, captured to Cloudinary
+  // before anything is written — outside any transaction, because it is a
+  // network round trip and best-effort (lib/measure/measureImages.js). A
+  // roof panel or a lawn trace hands in a Static Maps `sourceUrl`; the
+  // document prints only our copy.
+  const scopeGroups = Array.isArray(rawScopeGroups)
+    ? await withCapturedMeasureImages(rawScopeGroups, { companyId: member.companyId })
+    : rawScopeGroups;
 
   // Scoped before it is trusted. findFirst with the companyId in the WHERE, so
   // an id from another tenant resolves to nothing rather than to their call.

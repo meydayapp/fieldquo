@@ -248,6 +248,9 @@ const PROBE = {
   // minimum, so the probe proves the per-foot and per-downspout rates price
   // and not merely that the floor does.
   gutters: { gutterFt: 150, downspouts: 5, trustworthy: true },
+  // One step above the minimum band, so the per-1,000 increment is proved
+  // and not only the base. scripts/check-lawn-care.mjs has the rest.
+  lawn_care: { areaSqft: 1850, trustworthy: true },
 };
 
 ok("every wired trade has a probe here", Object.keys(INSTANT_ESTIMATE_TRADES).every((t) => PROBE[t]), Object.keys(INSTANT_ESTIMATE_TRADES).filter((t) => !PROBE[t]));

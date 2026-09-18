@@ -493,6 +493,7 @@
     "check:polygon-scale": "node --import ./scripts/alias-loader.mjs scripts/check-polygon-scale.mjs",
     "check:roof-materials": "node --import ./scripts/alias-loader.mjs scripts/check-roof-materials.mjs",
     "check:gutter-measure": "node --import ./scripts/alias-loader.mjs scripts/check-gutter-measure.mjs",
+    "check:lawn-care": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-lawn-care.mjs",
     "check:gutter-instant": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-gutter-instant.mjs",
     "check:sales-milestones": "node --import ./scripts/alias-loader.mjs scripts/check-sales-milestones.mjs",
     "check:staff-chat": "node --import ./scripts/alias-loader.mjs scripts/check-staff-chat.mjs",

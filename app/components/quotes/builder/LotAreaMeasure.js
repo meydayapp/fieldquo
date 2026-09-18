@@ -21,6 +21,19 @@
 // the paver drawing lives in `takeoff.paverDesign`: the intake JSON is already
 // a column that round-trips verbatim, so reopening the quote restores the
 // outline rather than a flat number nobody can recount. No schema change.
+//
+// ── What the CLIENT sees of it ─────────────────────────────────────────────
+//
+// The drawing is in viewBox units and means nothing off this canvas. So the
+// traced outline is ALSO written onto the group's takeoff as lat/lng
+// vertices (`takeoff.lawn`, through canvasShapeToLatLng — the still's
+// centre and zoom are known, so the inverse projection is exact), and the
+// save route draws those vertices on a fresh satellite still, captures it,
+// and the quote the client receives prints it with "Lawn measured: 1,850 sq
+// ft" (lib/measure/measureImages.js). The vertices also let the server
+// recompute the area from the outline itself, the way it does for the
+// public polygon — the canvas figure is what the group was priced on and is
+// what prints; the recompute sits beside it as a check.
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef } from "react";
@@ -30,7 +43,8 @@ import {
   LOT_EDGE_FIELD,
   lotIntakePatch,
 } from "@/lib/measure/lotTakeoff";
-import PolygonMeasure, { blankDrawing, usePolygonMeasure } from "./PolygonMeasure";
+import { canvasShapeToLatLng } from "@/lib/measure/imageScale";
+import PolygonMeasure, { blankDrawing, usePolygonMeasure, VIEW_W, VIEW_H } from "./PolygonMeasure";
 
 // One layer. Lawn, bed and yard are all "the area being worked", and offering
 // a choice between them would invent a distinction no intake field records.
@@ -57,6 +71,11 @@ const numOf = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
  * @param {Function} p.onIntakeChange (patch) → merges into intakeValues
  * @param {string}   p.imageUrl
  * @param {object}   [p.imageScale]
+ * @param {{lat:number,lng:number}} [p.siteLocation]  the still's centre — with
+ *                                    it, the outline is written to the takeoff
+ *                                    in lat/lng for the document
+ * @param {string}   [p.siteAddress]
+ * @param {Function} [p.onTakeoffChange] (patch) → merges into the group's takeoff
  */
 export default function LotAreaMeasure({
   intakeValues = {},
@@ -64,6 +83,9 @@ export default function LotAreaMeasure({
   onIntakeChange,
   imageUrl = "",
   imageScale = null,
+  siteLocation = null,
+  siteAddress = "",
+  onTakeoffChange,
 }) {
   const { t } = useTranslation();
 
@@ -87,7 +109,7 @@ export default function LotAreaMeasure({
   );
 
   const measure = usePolygonMeasure({ doc, imageUrl, imageScale, layers: LAYERS });
-  const { totals, fpp } = measure;
+  const { totals, fpp, natural, scaleSource } = measure;
 
   const hasEdgeField = fields.some((f) => f?.key === LOT_EDGE_FIELD);
   const hasAreaField = fields.some((f) => f?.key === LOT_AREA_FIELD);
@@ -108,6 +130,53 @@ export default function LotAreaMeasure({
     lastEmit.current = key;
     if (Object.keys(emitted).length) onIntakeChange?.(emitted);
   }, [emitted, onIntakeChange]);
+
+  /* ── Emit the outline onto the takeoff, for the document ────────────── */
+
+  // Only with a satellite still whose centre and zoom are known (the
+  // automatic scale): a drawing over a manual reference line has no
+  // coordinates to give. The largest closed shape is the lawn; the canvas
+  // area is the figure the group is priced on and is what is written.
+  const lawnTakeoff = useMemo(() => {
+    if (!onTakeoffChange) return undefined;
+    const closed = (measure.measured || []).filter((x) => x?.m?.ok && Array.isArray(x.shape?.points) && x.shape.points.length >= 3);
+    if (!closed.length || !fpp) return null;
+    if (scaleSource !== "auto" || !siteLocation || !imageScale) return null;
+    const largest = closed.sort((a, b) => (b.m.areaSqFt || 0) - (a.m.areaSqFt || 0))[0];
+    const vertices = canvasShapeToLatLng(largest.shape.points, {
+      center: siteLocation,
+      scaleInfo: imageScale,
+      naturalWidth: natural?.width,
+      naturalHeight: natural?.height,
+      viewWidth: VIEW_W,
+      viewHeight: VIEW_H,
+    });
+    if (!vertices) return null;
+    return {
+      areaSqft: Math.round(totals.areaSqFt),
+      perimeterFt: Math.round(totals.perimeterFt * 10) / 10,
+      source: "traced_builder",
+      basis: "traced",
+      estimated: false,
+      vertices: vertices.map((v) => ({ lat: Math.round(v.lat * 1e7) / 1e7, lng: Math.round(v.lng * 1e7) / 1e7 })),
+      address: siteAddress || "",
+    };
+  }, [fpp, scaleSource, siteLocation, imageScale, natural, totals, measure.measured, siteAddress, onTakeoffChange]);
+
+  const lastTakeoff = useRef(undefined);
+  useEffect(() => {
+    if (lawnTakeoff === undefined) return;
+    const key = JSON.stringify(lawnTakeoff);
+    if (key === lastTakeoff.current) return;
+    // First render with nothing drawn writes nothing: a group whose takeoff
+    // was never touched must not gain `{ lawn: null }` on the way past.
+    if (lastTakeoff.current === undefined && lawnTakeoff === null) {
+      lastTakeoff.current = key;
+      return;
+    }
+    lastTakeoff.current = key;
+    onTakeoffChange?.({ lawn: lawnTakeoff, measureImage: null });
+  }, [lawnTakeoff, onTakeoffChange]);
 
   // A form with no box for the area cannot be filled from here. Not rendering
   // is the honest answer — a canvas whose numbers go nowhere is the dead

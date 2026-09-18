@@ -30,6 +30,7 @@ import {
   requireCost,
 } from "../costingWrite";
 import { syncTakeoffAddOns } from "@/lib/quotes/takeoffAddOns";
+import { withCapturedMeasureImages } from "@/lib/measure/measureImages";
 import { canUseKitchenDesigner } from "@/lib/kitchen/access";
 import {
   parseExpectedVersion,
@@ -217,7 +218,7 @@ export async function PATCH(request, { params }) {
     reviewNotes,
     processNotes,
     validUntil,
-    scopeGroups,
+    scopeGroups: rawScopeGroups,
     clientPhotos,
     // The internal cost estimate. See the note below on why `undefined` and an
     // empty object have to mean different things here.
@@ -227,6 +228,15 @@ export async function PATCH(request, { params }) {
     // unassign a quote a colleague is already carrying.
     assignedToId,
   } = body;
+
+  // The satellite still behind a measured group, captured to Cloudinary
+  // before anything is written — outside any transaction, because it is a
+  // network round trip and best-effort (lib/measure/measureImages.js). A
+  // roof panel or a lawn trace hands in a Static Maps `sourceUrl`; the
+  // document prints only our copy.
+  const scopeGroups = Array.isArray(rawScopeGroups)
+    ? await withCapturedMeasureImages(rawScopeGroups, { companyId: member.companyId })
+    : rawScopeGroups;
 
   // The version the browser is editing FROM. Absent means this caller doesn't
   // participate and the save behaves exactly as it did before the guard

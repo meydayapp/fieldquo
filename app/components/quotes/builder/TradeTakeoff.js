@@ -2007,6 +2007,11 @@ function RoofMeasurePanel({ takeoff, book, onApply, defaultAddress = "" }) {
       ...p,
       measuredFrom: "satellite",
       measuredAddress: data.formattedAddress || String(address).trim(),
+      // The still this roof was read from, so the quote the client
+      // receives prints it beside "Roof measured from satellite". The save
+      // route captures our own copy (lib/measure/measureImages.js); only
+      // that copy ever prints.
+      ...(data.satelliteImageUrl ? { measureImage: { sourceUrl: data.satelliteImageUrl } } : {}),
     });
   }
 

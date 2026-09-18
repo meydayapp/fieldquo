@@ -975,6 +975,26 @@ export default function QuoteDetailPage() {
       {/* The estimator's trip to measure up. Withheld on a past job entered
           after the fact for the same reason Send is: nobody is going to a
           house about a job that was done last year. */}
+      {/* The homeowner pressed "this doesn't look right" under the instant
+          estimate's measurement and asked to be rung — set by the public
+          callback route on estimateData. Placed directly above the visit
+          panel because that is the action: measure it on site, then price. */}
+      {quote.estimateData?.callback?.requestedAt && (
+        <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+          <PhoneCall size={16} className="mt-0.5 shrink-0" />
+          <div>
+            <div className="font-semibold">
+              {t("app.quoteDetail.callbackRequested", "The homeowner says the measurement doesn't look right and asked for a call back")}
+              {quote.estimateData.callback.preferredTime ? ` · ${quote.estimateData.callback.preferredTime}` : ""}
+              {quote.estimateData.callback.phone ? ` · ${quote.estimateData.callback.phone}` : ""}
+            </div>
+            {quote.estimateData.callback.note && <div className="mt-0.5">{quote.estimateData.callback.note}</div>}
+            <div className="mt-0.5 text-xs opacity-80">
+              {t("app.quoteDetail.callbackHint", "Book the on-site visit below and confirm the measurement before pricing.")}
+            </div>
+          </div>
+        </div>
+      )}
       {!quote.historicalImportedAt && (
         <SiteVisitPanel quoteId={id} quote={quote} />
       )}
