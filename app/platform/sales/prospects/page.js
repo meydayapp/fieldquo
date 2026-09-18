@@ -64,6 +64,7 @@ import { fetchJson } from "@/lib/fetchJson";
 import { LAYER_HEADINGS, SOURCE_CATEGORY_HEADING } from "@/lib/sales/prospectView";
 import PlatformWriteGate, { usePlatformAdmin } from "@/app/components/platform/PlatformWriteGate";
 import DuplicateGroup from "@/app/components/platform/DuplicateGroup";
+import GooglePlacesPanel, { GooglePlacesCard } from "@/app/components/platform/GooglePlacesPanel";
 import { FRENCH } from "@/lib/sales/leadLanguage";
 
 const BTN =
@@ -609,6 +610,7 @@ export default function PlatformProspectsPage() {
 
       {!loading && data ? (
         <>
+          {isSuperadmin ? <GooglePlacesPanel /> : null}
           {isSuperadmin ? (
             <AssignBar
               reps={data.reps || []}
@@ -944,6 +946,9 @@ function ProspectDetail({ detail, onSelect = null, onChanged = null }) {
           not persist.
         </p>
       </section>
+
+      {/* ── What Google Places said, beside what the record says ──────── */}
+      <GooglePlacesCard prospect={p} onChanged={onChanged} />
 
       {/* ── Layer 1 ─────────────────────────────────────────────────────── */}
       <section className={CARD}>
