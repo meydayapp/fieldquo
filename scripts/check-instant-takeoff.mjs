@@ -42,6 +42,7 @@ const cases = {
   parging: ["parging", null, { areaSqft: 300, condition: "minor_repair", access: "ground" }],
   lawn_mowing: ["lawn_mowing", null, { areaSqft: 6000 }],
   junk_removal: ["junk_removal", null, { items: [{ key: "sofa", qty: 1 }], jobType: "single_items" }],
+  gutters: ["gutter_services", null, { gutterFt: 184, downspouts: 6, trustworthy: true, imagery: { date: "2024-07-29", year: 2024, quality: "HIGH" }, basis: "eave", flags: [] }],
 };
 for (const trade of Object.keys(INSTANT_ESTIMATE_TRADES)) {
   const c = cases[trade];
@@ -86,6 +87,10 @@ console.log("\n3. Takeoff trades with no productivity figure still get their tak
   const st = costingInputsForInstantTrade("stair", null, cases.stair[2], { categoryKey: "stairs" });
   ok(st.takeoff.sections[0].treads === 13 && st.takeoff.sections[0].handrailFt === 14, "stairs: treads and railing feet", st.takeoff);
   ok(buildTradeLineItems("stairs", st.takeoff, null).length >= 2, "…and the book builds tread and railing lines");
+  const g = costingInputsForInstantTrade("gutters", null, cases.gutters[2], { categoryKey: "gutter_services" });
+  ok(g.takeoff.workType === "replacement" && g.takeoff.gutterFt === 184 && g.takeoff.downspoutsInstalled === 6, "gutters: a replacement of 184 ft with 6 downspouts", g.takeoff);
+  const gl = buildTradeLineItems("gutter_services", g.takeoff, null);
+  ok(gl.some((l) => l.quantity === 184) && gl.some((l) => l.quantity === 6), "…and the gutter book prices the run and the downspouts", gl.map((l) => [l.description, l.quantity]));
 }
 
 console.log("\n4. Nothing invented\n");

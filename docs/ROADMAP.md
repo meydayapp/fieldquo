@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 17 September 2026 (a ring-back to a sales number now ends in exactly one of three records — answered, voicemail, or MISSED — and each one tells the rep. The cause of the 17 September report: `inboundPlan()` returned "take a message" whenever `FIELDQUO_SALES_TRANSFER_TO` was unset, which it always has been in production, so no browser was ever rung and the check locked that in; the browsers now ring with or without a desk phone. The rep who dialled the caller is rung when available or after_call, held for when on_call (pushed "X is ringing back"), and rung on the evidence of a dial in the last 30 minutes even with no presence row (lib/sales/calls/inboundDistribution.js lastCallerVerdict). `SalesCallAttempt.missedAt` + lib/sales/calls/missed.js: written by the number's `?stage=status` callback (set at purchase from now on; the six held numbers need it set in the Twilio console) and by a per-minute sweep in the sales-pipeline cron; pushes "Missed call from X, just now" and "New voicemail from X, 12 seconds"; shown on /sales/voicemail under Missed calls, in the call history on the queue card and lead page ("left a voicemail · Play", audio proxied through FieldQuo), and on the platform floor with an Outcome column and a per-number voice-webhook-host audit. A refused signature and a thrown handler are now written to /platform/errors with the CallSid. check:sales-inbound-call drives the real route against signed requests for all four cases; check:inbound-distribution carries the exact timeline. Also today: the queue: the day-end sweep no longer takes rows from a rep who is still dialling, a texted or callback-promised lead is never given back automatically, the "Given back today" strip names what went back and why, and the console draws from the tab's last payload before its first request — see the section below))
+Last updated: 17 September 2026 (gutters: the builder measures the gutter run and downspouts from the roof model with sanity flags the review carries; a gutter instant estimate priced per foot and per downspout in the company's currency, seeded from the competitor's four Ottawa/Gatineau points, with EN/FR/ES copy; the estimate email prints the company's currency instead of "CAD" — see the section below)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -9,6 +9,61 @@ it exists to answer.
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
+
+## Gutters measured from the roof model, priced by the foot and the downspout, and refused in words when the building is not a house (17 September 2026)
+
+**What**: the gutter takeoff in the builder has "Measure from satellite",
+reading the same Google Solar model the roofing takeoff reads
+(lib/measure/gutterMeasurement.js): the gutter run is the EAVE total
+roofGeometry already derives (the perimeter on a flat roof, where the facet
+azimuths are placeholders), downspouts are one per 35 ft rounded up, at least
+one per eave run, never more than one per 20 ft. The imagery date and quality
+are said the way the roofing panel says them. Filled fields are listed with
+Undo; "still needs you" names storeys, internal drains, discharge and fascia.
+Sanity flags — under 40 ft, over 600 ft, a roof over 8,000 sqft, a pin off the
+building, a street-interpolated address, imagery older than five years, more
+downspouts than one per 20 ft — are sentences on the panel, stored on the
+takeoff (`measuredFlags`, `measuredImagery`), and re-read by
+lib/quotes/completeness.js (`gutter_measure_flagged`, high when severe) so the
+review sees "7 ft of gutter is not a house — book an on-site measure" on the
+stored row, not just whoever clicked.
+
+Measured against the competitor the owner checked (real API, 2026-09-17;
+responses recorded as scripts/fixtures/solar-gutter-references.json):
+204 Avro Cir 190 ft / 6 (theirs 184 / 6); 250 First Ave 150 ft / 5 (theirs
+144 / 5 — a flat roof, hence the perimeter rule); 917 Littlerock St 106 ft / 5
+from the HOUSE 36 m off the pin, 2018 imagery flagged (theirs: 7 ft / 4 from
+the shed, priced); 418 Bd Gréber refused — 15,730 sqft single flat facet,
+street pin (theirs: 79 ft / 18 downspouts, CA$8,173–13,622).
+
+**Instant estimate** (`gutters`, measure `gutter_address`): per-foot low/high +
+per-downspout low/high + minimum low/high, six price-book boxes on Settings →
+Instant Quotes, currency from the company, seeded from the competitor's four
+points (least squares on per-foot + per-downspout; a fixed base fits only with
+a negative per-foot rate, so there is none): 10–11/ft, 410–700 per downspout,
+1,000–1,250 minimum. The public form shows the range under "Measured from
+aerial imagery of your roofline · imagery date …" and "An estimate from
+aerial measurements, not a contract — final price confirmed on site" in
+EN/FR/ES (lib/i18n/gutterEstimateCopy.js); an untrustworthy measurement is a
+sentence and a satellite still, never a price. The draft's scope group
+carries the builder's own gutter takeoff (replacement, run, downspouts,
+flags). The estimate email now prints the company's currency (it said "CAD"
+and "$" for everyone) and carries the gutter sentences.
+
+**Checks**: check:gutter-measure (the four fixtures and hostile input),
+check:gutter-instant (0 / 7 / 184 / 2,000 ft, no imagery, swapped columns,
+every rate box proved live), check:instant-exits, check:instant-takeoff and
+check:estimate-email extended.
+
+### Still owed here
+
+- A refused gutter measurement on the public form ends at a sentence; the
+  request is not captured as a lead-without-figure. Product decision: does the
+  owner want a "measure on site" lead from that form, and with what promise?
+- Storeys: the instant range's two ends stand in for one/two storeys. Street
+  View or the building's height from Solar's DSM could set it; not attempted.
+- Corners and end caps are not counted or priced; a cut-up roof under-prices
+  by the mitres.
 
 ## "Her leads disappear": the day-end sweep read midnight as the end of an overseas rep's shift; and the queue now draws before it asks (17 September 2026)
 

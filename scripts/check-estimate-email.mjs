@@ -38,6 +38,19 @@ ok("shows the range", /\$4,200/.test(ranged.html) && /\$5,500/.test(ranged.html)
 ok("labelled Estimated range", /Estimated range/.test(ranged.html));
 ok("uses first name only", /Hi Sam,/.test(ranged.html) && !/Hi Sam Rivera/.test(ranged.html));
 
+console.log("\nThe figure is in the COMPANY's currency, never a hard-coded CAD");
+const usd = buildEstimateEmail({ company: { ...company("#2563EB"), currency: "USD" }, contact: { name: "Sam" }, estimate: { low: 4200, high: 5500 }, visibility: "range" });
+ok("USD company: US$ figure and a USD caption", /US\$4,200/.test(usd.html) && /USD · before tax/.test(usd.html) && !/CAD/.test(usd.html), usd.html.match(/[A-Z]{3} · before tax/)?.[0]);
+ok("no currency on the row: CAD, as before", /CAD · before tax/.test(ranged.html) && /\$4,200/.test(ranged.html));
+const frq = buildEstimateEmail({ company: company("#2563EB"), contact: { name: "Sam" }, estimate: { low: 4200, high: 5500 }, visibility: "range", language: "fr" });
+ok("French groups the digits the French way", /4\u00a0200|4 200/.test(frq.html), frq.html.match(/4.200/)?.[0]);
+
+console.log("\nNotes under the range: the gutter sentences, only where there is a range");
+const noted = buildEstimateEmail({ company: company("#2563EB"), contact: { name: "Sam" }, estimate: { low: 4200, high: 5500 }, visibility: "range", notes: ["Measured from aerial imagery of your roofline · imagery date 2024-07-29", "An estimate from aerial measurements, not a contract — final price confirmed on site.", "", 42] });
+ok("both sentences appear, the blank and the number do not", /imagery date 2024-07-29/.test(noted.html) && /not a contract/.test(noted.html) && !/>42</.test(noted.html));
+const notedGated = buildEstimateEmail({ company: company("#2563EB"), contact: { name: "Sam" }, estimate: { low: 4200, high: 5500 }, visibility: "gated", notes: ["Measured from aerial imagery of your roofline · imagery date 2024-07-29"] });
+ok("a gated email carries no note — there is no figure for it to sit under", !/imagery date/.test(notedGated.html));
+
 console.log("\nRange but no valid estimate -> falls back to gated (no $0)");
 const bad = buildEstimateEmail({ company: company("#2563EB"), contact: {}, estimate: { low: 0, high: 0 }, visibility: "range" });
 ok("no $0 shown", !/\$0\b/.test(bad.html));
