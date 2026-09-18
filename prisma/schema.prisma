@@ -10090,6 +10090,20 @@ model SalesRep {
   /// up, nothing ringing, and the calling gate to answer allowed for that row.
   autodial Boolean @default(false)
 
+  /// The zone this rep's own hours are read in — the public demo page
+  /// (app/demo/[repCode]) offers 15-minute slots from `demoHours` evaluated
+  /// here. Null until the rep states one on /sales/settings; until then the
+  /// page reads the hours in FieldQuo's own zone (lib/demo/slots.js DEMO_TZ)
+  /// and the settings card says so, rather than guessing from an IP.
+  timeZone String?
+
+  /// The hours a prospect may book a demo in: [{ dayOfWeek, startTime,
+  /// endTime }] in `timeZone`, the DemoHostAvailability shape minus the zone.
+  /// Null means the rep has not said, and lib/sales/demoBooking/slots.js
+  /// offers Monday–Friday 09:00–17:00 — a stated default the settings card
+  /// prints, not an inference. An empty array means "nothing bookable".
+  demoHours Json?
+
   /// Who this rep reports to. The org chart lib/sales/team.js derives its
   /// team-lead tier from — there is deliberately no `tier` column, because a
   /// rep IS a team lead exactly when somebody reports to them, and a stored
@@ -11487,6 +11501,11 @@ model SalesIntroEmail {
   callbackRequestedAt DateTime?
   callbackEventId     String?
   demoRequestedAt     DateTime?
+  /// The SalesEvent (type "demo") the prospect booked on the rep's public
+  /// demo page, when they chose a slot. Null with demoRequestedAt set is the
+  /// older shape — a request with no time — which Today still counts as a
+  /// request; a booking is counted as a booking.
+  demoEventId         String?
   /// The rep pressed "handled" on the request(s). One stamp for both kinds:
   /// a rep who rang them back has answered the demo ask on the same call.
   handledAt DateTime?

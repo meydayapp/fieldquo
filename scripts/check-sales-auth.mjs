@@ -118,6 +118,7 @@ const { PAYOUT_WRITES_ON_SALES_REP } = await import("@/lib/sales/payoutWrite");
 const { PREFERENCE_WRITES_ON_SALES_REP } = await import("@/lib/sales/preferenceWrite");
 const { AUTODIAL_WRITES_ON_SALES_REP } = await import("@/lib/sales/autodialWrite");
 const { SELLS_IN_WRITES_ON_SALES_REP } = await import("@/lib/sales/sellsInWrite");
+const { DEMO_HOURS_WRITES_ON_SALES_REP } = await import("@/lib/sales/demoHoursWrite");
 
 let pass = 0;
 const failures = [];
@@ -892,6 +893,16 @@ const LIB_FORBIDDEN_WRITE_BY_DESIGN = {
     "app/i18n/languages.js. Its own file for preferenceWrite.js's reason — " +
     "one writer per file, so the index-located fence sees it. Column " +
     "asserted below.",
+  "lib/sales/demoHoursWrite.js":
+    "saveRepDemoHours(). Writes ONLY SalesRep.timeZone and SalesRep.demoHours " +
+    "— DEMO_HOURS_WRITES_ON_SALES_REP — the hours a prospect may book fifteen " +
+    "minutes of the rep's day on app/demo/[repCode], and the zone they are " +
+    "read in. Neither can change what is owed, who a company is credited to, " +
+    "whether a batch pays, or whether the rep can sign in tomorrow; the worst " +
+    "a false value achieves is a calendar nobody can book. Both are judged by " +
+    "lib/sales/demoBooking/slots.js (parseDemoHours, usableTimeZone) before " +
+    "the writer sees them. Its own file for preferenceWrite.js's reason. " +
+    "Columns asserted below.",
 };
 
 const stray = [];
@@ -1216,6 +1227,43 @@ function objectKeys(src, from) {
       !/db\.salesRep\.update/.test(sellRoute),
   );
   ok("…behind the outreach gate, like the language route", /requireOutreachRep\(request\)/.test(sellRoute));
+}
+
+// ── The demo-page hours, fenced the same way ───────────────────────────────
+{
+  const demoSrc = decomment(read("lib/sales/demoHoursWrite.js"));
+  const columns = DEMO_HOURS_WRITES_ON_SALES_REP;
+  ok(
+    "the demo-hours writer names its two columns as data",
+    Array.isArray(columns) && columns.length === 2 && columns.includes("timeZone") && columns.includes("demoHours"),
+    columns,
+  );
+  ok(
+    "…and the file makes exactly one write",
+    (demoSrc.match(/salesRep\.(update|updateMany|upsert|create|delete|deleteMany)\(/g) || []).length === 1,
+    (demoSrc.match(/salesRep\.\w+\(/g) || []),
+  );
+  const upd = demoSrc.indexOf("salesRep.update(");
+  const dataAt = demoSrc.indexOf("data: {", upd);
+  ok("the update's data block was located", upd > 0 && dataAt > upd, { upd, dataAt });
+  const written = objectKeys(demoSrc, demoSrc.indexOf("{", dataAt));
+  ok(
+    "the writer sets EXACTLY the two demo-hours columns and nothing else",
+    written.length === columns.length && written.every((k) => columns.includes(k)),
+    written,
+  );
+  ok("…and takes the rep id from the caller's gate, never a request body", /salesRepId is required/.test(demoSrc));
+  ok("…and refuses anything but a list or null for the hours", /demoHours must be a list or null/.test(demoSrc));
+  ok("…and writes no audit row, like the language writer", !/recordError/.test(demoSrc));
+  const demoRoute = decomment(read("app/api/sales/demo-hours/route.js"));
+  ok(
+    "the demo-hours route validates through parseDemoHours and usableTimeZone and reaches the writer only through saveRepDemoHours",
+    /parseDemoHours\(body\.demoHours\)/.test(demoRoute) &&
+      /usableTimeZone\(body\.timeZone\)/.test(demoRoute) &&
+      /saveRepDemoHours\(\{ salesRepId: rep\.id, timeZone, demoHours \}\)/.test(demoRoute) &&
+      !/db\.salesRep\.update/.test(demoRoute),
+  );
+  ok("…behind the outreach gate, like the language route", /requireOutreachRep\(request\)/.test(demoRoute));
 }
 
 ok(
