@@ -131,6 +131,7 @@ const TAB_ICONS = {
 /** Which badge each row wears, by href → field of /api/sales/badges. */
 const TAB_BADGES = {
   "/sales/queue": "unlogged",
+  "/sales/threads": "email",
   "/sales/messages": "texts",
   "/sales/team": "team",
   "/sales/voicemail": "voicemail",
@@ -437,7 +438,7 @@ export default function SalesShell({ children }) {
   // 360px dialler beside one flexible card wants every pixel the sidebar
   // leaves, and the card takes all of it (flex-1 min-w-0 in the page).
   const container = `${
-    pathname.startsWith("/sales/queue") || pathname.startsWith("/sales/messages") ? "max-w-none" : "max-w-5xl"
+    pathname.startsWith("/sales/queue") || pathname.startsWith("/sales/messages") || pathname.startsWith("/sales/threads") ? "max-w-none" : "max-w-5xl"
   } mx-auto px-4 sm:px-6`;
 
   // ── The one list of what the portal has ─────────────────────────────────

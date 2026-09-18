@@ -1,21 +1,131 @@
-# Sales outreach — a rep's own mailbox, and FieldQuo's copy of the thread
+# Sales outreach — a rep's own mailbox, and FieldQuo's window onto it
 
-What this covers: a sales rep composing an email to a prospect inside the sales
-portal, that email going out **from the rep's own real mailbox**, and the
-prospect's reply coming back to that mailbox **and** being filed against the
-prospect inside FieldQuo.
+What this covers: a sales rep reading and answering their work email inside
+the sales portal (`/sales/threads`), that email going out **from the rep's own
+real mailbox**, and every reply landing in that mailbox **and** in FieldQuo,
+filed against the lead.
 
-The owner asked for both halves — "it should be both" — so neither is the
-source of truth for the other. The rep keeps a normal mailbox they can search,
-forward and reply from on their phone; FieldQuo keeps the conversation attached
-to the lead, next to the pipeline and the attribution.
+**Since 2026-09-18 the live path is §0 — the mailbox connection.** The owner
+bought each rep a Namecheap Private Email inbox and decided the portal should
+be a second window onto it: the rep keeps using privateemail.com on their
+phone, and what they read or send in either place shows in both. §1–§5b below
+describe the earlier design (Resend sending with a Resend-received reply
+domain); that code stays in the tree as the fallback for a deployment that
+cannot connect a mailbox, and nothing a rep does today goes through it.
 
-Nothing in here sends automatically. There is no cron, no sequence and no drip.
-Mail leaves only when a rep presses Send on something they typed.
+Nothing in here sends automatically. There is no cron that sends, no sequence
+and no drip. Mail leaves only when a rep presses Send on something they typed.
+(The one cron, `sales-mailbox-sync`, READS.)
 
 ---
 
-## 1. What has to be configured before it works
+## 0. The mailbox connection — the path that is live
+
+### What the owner does (once per rep)
+
+On `/platform/sales/reps`, on the rep's card, **Work mailbox → Connect** (or
+**Change**): the mailbox address and its Namecheap password, in one form. The
+Namecheap hosts are pre-filled — `mail.privateemail.com`, IMAP 993 (SSL), SMTP
+465 (SSL), username = the address, "Master or Application password" (Namecheap's
+own setup page) — and only appear behind *Server settings* if they need
+changing. **Test and save** tests IMAP and SMTP with the password, seals it,
+and writes `SalesRep.workEmail` and the `SalesMailbox` row together
+(`lib/sales/mailbox/store.js`). A failed test still saves, as *Connection
+failed*, with the IMAP and SMTP lines in words and a **Retry** — the one
+failure Retry cannot fix is a wrong password, and its sentence says so.
+**Disconnect** erases the password and stops the sync; nothing in the mailbox
+or in FieldQuo is deleted.
+
+The rep does nothing. Their Conversations page either works or says *"Your
+mailbox hasn't been connected yet — ask the owner."*
+
+The card prints, per rep: Connected / Connection failed / Not connected, the
+IMAP and SMTP results, the last sync (when, how many new), and the last error
+— in words, from the row, never assumed.
+
+### What syncs, and how
+
+`app/api/cron/sales-mailbox-sync` runs every minute (`vercel.json`), and for
+each connected mailbox `lib/sales/mailbox/sync.js`:
+
+- pulls every message above the last stored UID in **INBOX** and in the
+  server's **\Sent** folder (learnt on connect; Namecheap's is `Sent`), at most
+  40 per folder per tick, parses it (mailparser), stores it as a `SalesMessage`
+  with its Message-ID / In-Reply-To / References, its folder and UID, and
+  whether the server held it as \Seen;
+- threads by **References first** (any id in the chain we hold), then by the
+  same counterpart + normalised subject within 14 days, else a new
+  `SalesThread`;
+- matches the counterpart address to one of the rep's leads (the lead's own
+  address, then the prospect row's; two leads at one address match nobody) and
+  fills `SalesThread.leadId` — a lead created later claims its earlier mail on
+  the next tick; a thread with no lead shows under **Everything else**;
+- re-hosts attachments to Cloudinary (`sales-mailbox/<mailboxId>`), up to
+  25 MB each, and stores a "couldn't be stored" entry by name otherwise;
+- mirrors read state **both ways**: a message \Seen on the server (read on
+  the phone) is read here; a thread opened in the portal marks its messages
+  \Seen on the server (`lib/sales/mailbox/readMirror.js`);
+- honours an opt-out in a synced reply exactly as the Resend door did, keyed
+  on the lead's address, in the same transaction;
+- pushes *"New email from …"* to the rep for a new unseen inbound message —
+  never during a first sync, which is backfill.
+
+Polling by UID rather than IMAP IDLE: IDLE needs a socket that stays open and
+a Vercel function does not keep one. A minute is the honest latency.
+
+### What sending does
+
+A send from the portal — new, reply, reply-all, forward — composes the message
+once (nodemailer), sends it through the rep's SMTP as `Name <rep@fieldquo.com>`,
+appends the same bytes to the mailbox's Sent folder so the phone shows it, and
+records the `SalesMessage` with the Message-ID it minted, which is how the next
+sync recognises the appended copy as ours. In-Reply-To / References are set
+from the answered message so the prospect's client threads it. The CASL footer
+and the "Ref:" line stay (`lib/sales/outreach.js`).
+
+Recipients are a **closed set** computed on the server from the lead's record
+and the thread (`lib/sales/emailRecipients.js`): the lead's address, the
+prospect's, whoever wrote in, whoever they copied, the rep's own mailbox. An
+address outside it is refused by name.
+
+### Never destructive
+
+`lib/sales/mailbox/` never deletes, moves, expunges or flags \Deleted on the
+server, and `scripts/check-sales-mailbox.mjs` asserts by scanning the directory
+that the words never appear. The portal's two writes to the server are \Seen
+on a read message and the append of a portal send to Sent.
+
+### Security notes
+
+- The password is sealed with the platform's at-rest key
+  (`META_TOKEN_ENCRYPTION_KEY`, AES-256-GCM — `lib/meta/tokenCrypto.js`, reused
+  on purpose: one key to rotate) in the request that receives it; the
+  plaintext is not kept, logged or returned. No route selects the column
+  (the check script scans every route under `/api`); `MAILBOX_PUBLIC_SELECT`
+  is the only shape that leaves `lib/sales/mailbox/store.js`. imapflow and
+  nodemailer are constructed with `logger: false` so no LOGIN line reaches a
+  Vercel log. Connecting is refused while the key is unset.
+- It is opened only by the sync and the send, on the server, for one session.
+- Revoking clears the column. There is no "show password".
+- Superadmin only for connect / retry / disconnect
+  (`app/api/platform/sales/reps/[id]/mailbox`). An admin sees the status.
+- Bodies are stored and rendered as text; a prospect's `<script>` is four
+  characters on a screen.
+
+### Checks
+
+`npm run check:sales-mailbox` — MIME fixtures (multipart, HTML-only, quoted
+reply, attachments, headerless), threading, matching, the credential
+round-trip, SMTP mocked, the sync against a fake IMAP and a fake database
+(first sync files and announces nothing; a redelivered UID files nothing; our
+own appended send is not filed twice; a message read on the phone is read
+here; a lead created later claims its thread; a UIDVALIDITY change restarts
+without duplicates), the inbox arithmetic, the recipient set, formatting and
+quoting, drafts, readiness.
+
+---
+
+## 1. (Earlier design) What had to be configured before it worked
 
 Six settings. Three of them BLOCK sending until they are set, and the portal
 says which one is missing instead of rendering a compose box that would fail —
@@ -33,9 +143,10 @@ mailboxes; §5 is for a mailbox that can POST to a URL).
 | `RESEND_INBOUND_WEBHOOK_SECRET` | Vercel env, from Resend | **Yes, when `SALES_REPLY_DOMAIN` is set** | The signing secret of the `email.received` webhook — §5b |
 | `SALES_INBOUND_SECRET` | Vercel env | No — but replies are not filed without it (or §5b) | The shared secret on the generic inbound endpoint — §5 |
 
-Without either inbound door the compose box still renders, with the notice
-*"Replies are not being filed: no inbound path is configured"* above it — on
-the rep's compose screens and on each rep's card in `/platform/sales/reps`.
+(Superseded by §0. With the mailbox connected none of the Resend variables
+above are consulted for a rep's mail; `lib/sales/outreachReadiness.js` asks
+only whether the rep's work mailbox is connected and whether
+`SALES_MAILING_ADDRESS` is set.)
 
 ---
 

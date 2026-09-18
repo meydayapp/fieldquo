@@ -135,6 +135,10 @@
     {
       "path": "/api/cron/availability-apply",
       "schedule": "0 5 * * *"
+    },
+    {
+      "path": "/api/cron/sales-mailbox-sync",
+      "schedule": "* * * * *"
     }
   ]
 }

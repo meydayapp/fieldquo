@@ -123,6 +123,7 @@ import {
   ListPlus,
   Loader2,
   Mail,
+  RefreshCw,
   MessagesSquare,
   Phone,
   Plus,
@@ -790,20 +791,41 @@ export default function PlatformSalesRepsPage() {
     }
   }
 
+  /**
+   * The owner connects (or changes) a rep's work mailbox: the address and
+   * its password in one step. The route tests IMAP and SMTP with them, seals
+   * the password, and writes SalesRep.workEmail and the SalesMailbox row
+   * together (lib/sales/mailbox/store.js). A failed test still saves — as
+   * "error", with both results in words — so the card shows what failed
+   * and offers Retry. The password leaves this component in the request
+   * body and nowhere else: it is not kept in state after the call.
+   */
   async function saveMailbox(rep) {
-    const value = mailboxDraft[rep.id] ?? "";
+    const draftRow = mailboxDraft[rep.id] || {};
+    const value = String(draftRow.address ?? "");
     const problem = workEmailProblem(value, rep.email);
     if (problem) {
       setError(problem);
       return;
     }
+    if (!String(draftRow.password || "")) {
+      setError("Enter the mailbox password — the connection is tested with it before anything is saved.");
+      return;
+    }
     setBusy(true);
     clearBanners();
     try {
-      await fetchJson(`/api/platform/sales/reps/${rep.id}`, {
-        method: "PATCH",
+      const data = await fetchJson(`/api/platform/sales/reps/${rep.id}/mailbox`, {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ workEmail: value }),
+        body: JSON.stringify({
+          workEmail: value,
+          password: draftRow.password,
+          imapHost: draftRow.imapHost,
+          imapPort: draftRow.imapPort,
+          smtpHost: draftRow.smtpHost,
+          smtpPort: draftRow.smtpPort,
+        }),
       });
       setMailboxDraft((d) => {
         const next = { ...d };
@@ -811,10 +833,34 @@ export default function PlatformSalesRepsPage() {
         return next;
       });
       setNotice(
-        value
-          ? `${rep.name} now sends from ${value.trim().toLowerCase()}.`
-          : `${rep.name}'s work mailbox was cleared. They can't send until another one is set.`,
+        data.tested
+          ? `${rep.name}'s mailbox ${value.trim().toLowerCase()} is connected: IMAP and SMTP both answered, and it syncs from now on.`
+          : `${rep.name}'s mailbox was saved but the connection test failed — the IMAP and SMTP lines on the card say why. Fix it and press Retry.`,
       );
+      await load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /** Re-test with the stored password, or disconnect. */
+  async function mailboxAction(rep, action) {
+    setBusy(true);
+    clearBanners();
+    try {
+      if (action === "retry") {
+        const data = await fetchJson(`/api/platform/sales/reps/${rep.id}/mailbox`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ retry: true }),
+        });
+        setNotice(data.tested ? `${rep.name}'s mailbox answered on both IMAP and SMTP.` : `${rep.name}'s mailbox still fails — see the two lines on the card.`);
+      } else {
+        await fetchJson(`/api/platform/sales/reps/${rep.id}/mailbox`, { method: "DELETE" });
+        setNotice(`${rep.name}'s mailbox was disconnected. The password is gone; the conversations stay. Their portal now says the mailbox isn't connected.`);
+      }
       await load();
     } catch (err) {
       setError(err.message);
@@ -1831,52 +1877,70 @@ export default function PlatformSalesRepsPage() {
                 <div>
                   <div className={LABEL}>Work mailbox</div>
                   {editingMailbox && isSuperadmin ? (
-                    <div className="flex flex-wrap gap-2">
-                      <input
-                        aria-label={`Work mailbox for ${rep.name}`}
-                        type="email"
-                        value={mailboxDraft[rep.id]}
-                        onChange={(e) =>
-                          setMailboxDraft({ ...mailboxDraft, [rep.id]: e.target.value })
-                        }
-                        placeholder="dana@fieldquo.com"
-                        className={`${FIELD} flex-1`}
-                      />
-                      <button
-                        onClick={() => saveMailbox(rep)}
-                        disabled={busy}
-                        className={BTN_PRIMARY}
-                      >
-                        Save
-                      </button>
-                      <button
-                        onClick={() =>
-                          setMailboxDraft((d) => {
-                            const next = { ...d };
-                            delete next[rep.id];
-                            return next;
-                          })
-                        }
-                        className={BTN_QUIET}
-                      >
-                        Cancel
-                      </button>
-                    </div>
+                    <MailboxConnectForm
+                      rep={rep}
+                      draft={mailboxDraft[rep.id]}
+                      busy={busy}
+                      onChange={(patch) => setMailboxDraft({ ...mailboxDraft, [rep.id]: { ...mailboxDraft[rep.id], ...patch } })}
+                      onSave={() => saveMailbox(rep)}
+                      onCancel={() =>
+                        setMailboxDraft((d) => {
+                          const next = { ...d };
+                          delete next[rep.id];
+                          return next;
+                        })
+                      }
+                    />
                   ) : (
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-sm text-foreground break-all">
-                        {rep.workEmail || "Not assigned"}
-                      </span>
-                      {isSuperadmin ? (
-                        <button
-                          onClick={() =>
-                            setMailboxDraft({ ...mailboxDraft, [rep.id]: rep.workEmail || "" })
-                          }
-                          className={BTN_QUIET}
-                        >
-                          <Mail size={13} /> {rep.workEmail ? "Change" : "Assign"}
-                        </button>
-                      ) : null}
+                    <div className="space-y-1.5">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm text-foreground break-all">
+                          {rep.workEmail || "Not assigned"}
+                        </span>
+                        <MailboxStatusChip mailbox={rep.mailbox} />
+                        {isSuperadmin ? (
+                          <button
+                            onClick={() =>
+                              setMailboxDraft({
+                                ...mailboxDraft,
+                                [rep.id]: {
+                                  address: rep.workEmail || "",
+                                  password: "",
+                                  imapHost: rep.mailbox?.imapHost || "mail.privateemail.com",
+                                  imapPort: rep.mailbox?.imapPort || 993,
+                                  smtpHost: rep.mailbox?.smtpHost || "mail.privateemail.com",
+                                  smtpPort: rep.mailbox?.smtpPort || 465,
+                                  advanced: false,
+                                },
+                              })
+                            }
+                            className={BTN_QUIET}
+                          >
+                            <Mail size={13} /> {rep.mailbox?.status === "connected" ? "Change" : rep.workEmail ? "Connect" : "Assign"}
+                          </button>
+                        ) : null}
+                        {isSuperadmin && rep.mailbox && rep.mailbox.status !== "revoked" ? (
+                          <>
+                            {rep.mailbox.status !== "connected" ? (
+                              <button onClick={() => mailboxAction(rep, "retry")} disabled={busy} className={BTN_QUIET}>
+                                <RefreshCw size={13} /> Retry
+                              </button>
+                            ) : null}
+                            <button
+                              onClick={() => {
+                                if (window.confirm(`Disconnect ${rep.workEmail}? The stored password is erased and the portal stops syncing; nothing in the mailbox or in FieldQuo is deleted.`)) {
+                                  mailboxAction(rep, "revoke");
+                                }
+                              }}
+                              disabled={busy}
+                              className={BTN_QUIET}
+                            >
+                              Disconnect
+                            </button>
+                          </>
+                        ) : null}
+                      </div>
+                      <MailboxStatusLines mailbox={rep.mailbox} />
                     </div>
                   )}
                 </div>
@@ -2616,6 +2680,138 @@ function AssignPanel({ rep, assign, draft, onDraft, onAssign, busy, result }) {
  * "Daniel holds 37 prospects and 12 open leads. Release them, or move them
  * to: [picker] — then deactivate." One confirm does both, in one transaction.
  */
+// ═══════════════════════════════════════════════════════════════════════════
+// The work mailbox: connected by the owner, in one step
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// The owner: "I don't need the sales rep having to do the configuration" and
+// "the connection should happen AT THE MOMENT he adds/changes the work
+// mailbox on the rep's card". So the address and the password are one form,
+// the Namecheap hosts are pre-filled (mail.privateemail.com, 993 / 465 —
+// Namecheap's own setup page), the route tests both on save, and the card
+// prints the two results in words. The password field is write-only: it is
+// never read back from the server, because the server never returns it.
+
+/** "connected" / "error" / "revoked" / nothing, as a chip. */
+function MailboxStatusChip({ mailbox }) {
+  if (!mailbox) return <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">Not connected</span>;
+  if (mailbox.status === "connected") {
+    return <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-200">Connected</span>;
+  }
+  if (mailbox.status === "revoked") return <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">Disconnected</span>;
+  return <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-900 dark:bg-amber-900/40 dark:text-amber-200">Connection failed</span>;
+}
+
+/** Connected / last sync / last error, in words — the diagnostics line. */
+function MailboxStatusLines({ mailbox }) {
+  if (!mailbox || mailbox.status === "revoked") {
+    return (
+      <p className="text-xs text-muted-foreground">
+        {mailbox?.status === "revoked"
+          ? `Disconnected ${mailbox.revokedAt ? new Date(mailbox.revokedAt).toLocaleString() : ""}. Their Conversations page says the mailbox isn't connected until you connect it again.`
+          : "Nothing syncs and nothing sends for this rep until the mailbox is connected here — address and password, tested on save. Their Conversations page says so too."}
+      </p>
+    );
+  }
+  const when = (v) => (v ? new Date(v).toLocaleString() : null);
+  return (
+    <div className="space-y-0.5 text-xs text-muted-foreground">
+      <p>
+        <span className="font-medium text-foreground">IMAP:</span> {mailbox.imapResult || "not tested yet"}
+      </p>
+      <p>
+        <span className="font-medium text-foreground">SMTP:</span> {mailbox.smtpResult || "not tested yet"}
+      </p>
+      <p>
+        <span className="font-medium text-foreground">Last sync:</span>{" "}
+        {mailbox.lastSyncAt
+          ? `${when(mailbox.lastSyncAt)} — ${Number.isFinite(mailbox.lastSyncCount) ? `${mailbox.lastSyncCount} new message${mailbox.lastSyncCount === 1 ? "" : "s"}` : "ran"}`
+          : "never — the cron runs every minute and will pick it up"}
+      </p>
+      {mailbox.lastError ? (
+        <p className="text-amber-900 dark:text-amber-200">
+          <span className="font-medium">Last error{mailbox.lastErrorAt ? ` (${when(mailbox.lastErrorAt)})` : ""}:</span> {mailbox.lastError}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function MailboxConnectForm({ rep, draft, busy, onChange, onSave, onCancel }) {
+  const d = draft || {};
+  return (
+    <div className="space-y-2 rounded-lg border border-border p-3">
+      <div className="grid gap-2 sm:grid-cols-2">
+        <div>
+          <label htmlFor={`mailbox-address-${rep.id}`} className={LABEL}>
+            Mailbox address
+          </label>
+          <input
+            id={`mailbox-address-${rep.id}`}
+            type="email"
+            autoComplete="off"
+            value={d.address ?? ""}
+            onChange={(e) => onChange({ address: e.target.value })}
+            placeholder="dana@fieldquo.com"
+            className={FIELD}
+          />
+        </div>
+        <div>
+          <label htmlFor={`mailbox-password-${rep.id}`} className={LABEL}>
+            Mailbox password
+          </label>
+          <input
+            id={`mailbox-password-${rep.id}`}
+            type="password"
+            autoComplete="new-password"
+            value={d.password ?? ""}
+            onChange={(e) => onChange({ password: e.target.value })}
+            className={FIELD}
+          />
+        </div>
+      </div>
+      <p className={HELP}>
+        The Namecheap Private Email password for this address (a master password or an app password
+        — Namecheap allows either). It is tested against IMAP and SMTP before anything is saved, stored
+        encrypted, and never shown again — not here, not to the rep. From then on the portal is a
+        second window onto the same mailbox: the rep keeps using privateemail.com too, and what they
+        read or send in either place shows in both.
+      </p>
+      <button type="button" onClick={() => onChange({ advanced: !d.advanced })} className="text-xs text-muted-foreground underline">
+        {d.advanced ? "Hide server settings" : "Server settings (Namecheap defaults are filled in)"}
+      </button>
+      {d.advanced ? (
+        <div className="grid gap-2 sm:grid-cols-4">
+          <label className="text-xs text-muted-foreground">
+            IMAP host
+            <input value={d.imapHost ?? ""} onChange={(e) => onChange({ imapHost: e.target.value })} className={FIELD} />
+          </label>
+          <label className="text-xs text-muted-foreground">
+            IMAP port (SSL)
+            <input value={d.imapPort ?? ""} onChange={(e) => onChange({ imapPort: e.target.value })} className={FIELD} inputMode="numeric" />
+          </label>
+          <label className="text-xs text-muted-foreground">
+            SMTP host
+            <input value={d.smtpHost ?? ""} onChange={(e) => onChange({ smtpHost: e.target.value })} className={FIELD} />
+          </label>
+          <label className="text-xs text-muted-foreground">
+            SMTP port (SSL)
+            <input value={d.smtpPort ?? ""} onChange={(e) => onChange({ smtpPort: e.target.value })} className={FIELD} inputMode="numeric" />
+          </label>
+        </div>
+      ) : null}
+      <div className="flex flex-wrap gap-2">
+        <button type="button" onClick={onSave} disabled={busy} className={BTN_PRIMARY}>
+          {busy ? <Loader2 size={13} className="animate-spin" /> : <Mail size={13} />} Test and save
+        </button>
+        <button type="button" onClick={onCancel} className={BTN_QUIET}>
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function DeactivatePanel({ rep, state, busy, onChange, onConfirm, onCancel }) {
   const { counts, targets } = state;
   const heldSentence = `${rep.name} holds ${plural(counts.leased, "leased prospect")}${counts.worked > 0 ? ` (and ${plural(counts.worked, "worked one")})` : ""} and ${plural(counts.openLeads, "open lead")}.`;

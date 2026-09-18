@@ -396,7 +396,9 @@ ok(
 {
   for (const [screen, route] of [
     ["app/sales/leads/[id]/page.js", "app/api/sales/leads/[id]/route.js"],
-    ["app/sales/threads/[id]/page.js", "app/api/sales/threads/[id]/route.js"],
+    // The thread screen became the inbox on 2026-09-18; /sales/threads/[id]
+    // redirects into it, so the reader of the route's sentence is the inbox.
+    ["app/sales/threads/page.js", "app/api/sales/threads/[id]/route.js"],
   ]) {
     const src = codeOnly(read(screen));
     ok(`${route} sends optedOutReason`, codeOnly(read(route)).includes("optedOutReason"));

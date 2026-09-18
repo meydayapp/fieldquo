@@ -699,28 +699,29 @@ for (const [file, method, required] of ROUTES) {
 
 // ═══════════════════════════════════════════════════════════════════════════
 section("9. Readiness — the compose box exists only when sending works");
+//
+// Since 2026-09-18 a rep's mail goes through the mailbox the owner connected
+// (lib/sales/mailbox/), so readiness is three questions — a work mailbox, a
+// connected SalesMailbox row, the CASL address — and none of them is a
+// vendor status call. scripts/check-sales-mailbox.mjs executes every blocker;
+// this section keeps the shape every screen depends on.
 
 const READY = {
   repEmail: "emilio@fieldquo.com",
-  senderDomainVerified: true,
-  replyAddressing: "plain",
+  mailbox: { address: "emilio@fieldquo.com", status: "connected" },
   mailingAddress: ADDRESS,
-  inboundSecretSet: true,
 };
 ok("fully configured: can send, nothing to say", outreachReadiness(READY).canSend && outreachReadiness(READY).warnings.length === 0);
 
 const blocked = [
-  ["an unverified sender domain", { ...READY, senderDomainVerified: false }, "sender_domain_unverified"],
-  ["an unset reply mode", { ...READY, replyAddressing: undefined }, "reply_addressing_unset"],
-  ["an invented reply mode", { ...READY, replyAddressing: "clever" }, "reply_addressing_unset"],
-  ["no mailing address", { ...READY, mailingAddress: "" }, "mailing_address_unset"],
-  ["a whitespace mailing address", { ...READY, mailingAddress: "   " }, "mailing_address_unset"],
-  // An ABSENT work mailbox is its own blocker now, not "invalid". The two
-  // are different things to go and fix — one is a mailbox nobody has bought
-  // yet and is assigned in the platform console, the other is a typo — and
-  // outreachReadiness names them separately so the console can say which.
-  // This line asserted the older, vaguer code; a check that proves the wrong
-  // behaviour is worse than no check.
+  ["no connected mailbox", { ...READY, mailbox: null }, "mailbox_not_connected"],
+  ["a mailbox whose test failed", { ...READY, mailbox: { address: "emilio@fieldquo.com", status: "error", lastError: "refused" } }, "mailbox_error"],
+  ["a revoked mailbox", { ...READY, mailbox: { address: "emilio@fieldquo.com", status: "revoked" } }, "mailbox_not_connected"],
+  ["no mailing address", { ...READY, mailingAddress: "" }, "mailing_address_missing"],
+  ["a whitespace mailing address", { ...READY, mailingAddress: "   " }, "mailing_address_missing"],
+  // An ABSENT work mailbox is its own blocker, not "invalid". The two are
+  // different things to go and fix and outreachReadiness names them
+  // separately so the console can say which.
   ["a rep with no work mailbox", { ...READY, repEmail: "" }, "no_work_mailbox"],
   ["a rep with an injected email", { ...READY, repEmail: "a@b.com\r\nBcc: x@y.com" }, "rep_email_invalid"],
 ];
@@ -730,19 +731,16 @@ for (const [label, input, code] of blocked) {
   ok(`  ...naming ${code}`, verdict.blockers.some((b) => b.code === code));
   ok(`  ...with a fix a person can act on`, verdict.blockers.every((b) => b.fix && b.fix.length > 30));
 }
-ok("nothing configured at all reports every blocker at once", outreachReadiness({}).blockers.length >= 3);
+ok("nothing configured at all reports every blocker at once", outreachReadiness({}).blockers.length >= 2);
 
 {
-  // The honest "waiting on mail forwarding setup" state the brief asked for:
-  // outbound still works, and the screen says replies are not being filed.
-  const v = outreachReadiness({ ...READY, inboundSecretSet: false });
-  ok("a missing inbound secret does NOT block sending", v.canSend);
-  ok("...but is warned about", v.warnings.some((w) => w.code === "inbound_not_configured"));
-  ok("...in words that say replies still reach the rep's mailbox", /mailbox/i.test(v.warnings.find((w) => w.code === "inbound_not_configured").fix));
-}
-{
-  const v = outreachReadiness({ ...READY, senderDomainVerified: null });
-  ok("'we could not ask Resend' is a warning, not a refusal", v.canSend && v.warnings.some((w) => w.code === "sender_domain_unknown"));
+  // The rep was promised no configuration step, so every mailbox blocker
+  // is addressed to the OWNER and the rep-facing title says "ask the owner".
+  const v = outreachReadiness({ ...READY, mailbox: null });
+  ok("the not-connected sentence tells the rep to ask the owner", /ask the owner/.test(v.blockers[0].title));
+  ok("...and names where the owner does it", /Sales reps/.test(v.blockers[0].fix));
+  ok("a connected mailbox means replies are filed (inbound configured)", outreachReadiness(READY).inboundConfigured === true);
+  ok("no mailbox means they are not", v.inboundConfigured === false);
 }
 
 {
@@ -755,6 +753,7 @@ ok("nothing configured at all reports every blocker at once", outreachReadiness(
   ok("...and on the lead actually having an address", Boolean(line) && line.includes("lead.email"));
   ok("the compose form renders only inside that gate", /\{canCompose && \(/.test(page));
   ok("the blockers are shown instead", page.includes("OutreachNotice"));
+  ok("the lead screen draws the SAME composer the inbox draws", /<EmailComposer/.test(page) && /threads\/EmailComposer/.test(page));
 
   // The screens must not import lib/sales/outreach.js: it pulls node:crypto in
   // for the token generator and the timing-safe secret check, neither of which
@@ -765,23 +764,19 @@ ok("nothing configured at all reports every blocker at once", outreachReadiness(
     "app/sales/leads/page.js",
     "app/sales/leads/[id]/page.js",
     "app/sales/threads/page.js",
-    "app/sales/threads/[id]/page.js",
+    "app/sales/threads/EmailComposer.js",
     "app/sales/leads/OutreachNotice.js",
   ];
   const leaked = clientPages.filter((f) => /from "@\/lib\/sales\/outreach"/.test(read(f)));
   ok("no client screen imports the server-only outreach module", leaked.length === 0, leaked);
 
-  const thread = read("app/sales/threads/[id]/page.js");
-  const replyLine = thread.split("\n").find((l) => l.includes("const canReply"));
-  ok("the thread screen gates its reply box the same way", Boolean(replyLine) && replyLine.includes("outreach?.canSend") && replyLine.includes("!optedOut"));
-  ok("a message body is never rendered as markup", !thread.includes("dangerouslySetInnerHTML"));
-  // The thread screen stopped drawing bodies itself and hands them to
-  // MessageThread, the one conversation layout /sales/messages also uses.
-  // This assertion read the screen alone and had been failing since that
-  // move, so the property is followed to where the body is actually drawn.
-  const messageThread = read("app/sales/messages/MessageThread.js");
-  ok("...it hands bodies to MessageThread", /<MessageThread[\s\S]{0,300}body: m\.body/.test(thread));
-  ok("...which renders them as pre-wrapped text, never markup", messageThread.includes("whitespace-pre-wrap") && !messageThread.includes("dangerouslySetInnerHTML"));
+  const inbox = read("app/sales/threads/page.js");
+  const replyLine = inbox.split("\n").find((l) => l.includes("const canReply"));
+  ok("the inbox gates its reply box the same way", Boolean(replyLine) && replyLine.includes("outreach?.canSend") && replyLine.includes("!optedOut"));
+  ok("the reply box renders only inside that gate", /\{canReply && composer \? \(/.test(inbox));
+  ok("a message body is never rendered as markup", !inbox.includes("dangerouslySetInnerHTML") && !read("app/sales/threads/EmailComposer.js").includes("dangerouslySetInnerHTML"));
+  ok("...it is drawn as pre-wrapped text", /whitespace-pre-wrap[^"]*"[^>]*>\s*\{message\.visible\}/.test(inbox));
+  ok("the old thread address redirects into the inbox rather than drawing a second thread screen", /redirect\(`\/sales\/threads\?open=/.test(read("app/sales/threads/[id]/page.js")));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -789,9 +784,12 @@ section("10. Nothing sends by itself");
 
 {
   const sender = read("lib/sales/outreachSender.js");
-  ok("the send path is the only place sendEmail is called for outreach", (sender.match(/sendEmail\(/g) || []).length === 1);
-  ok("a send that Resend refused writes NO message row", /result\?\.error \|\| !result\?\.id[\s\S]{0,600}return \{[\s\S]{0,200}ok: false/.test(sender));
-  ok("a skipped send (no API key) writes no row either", /result\?\.skipped[\s\S]{0,400}return \{[\s\S]{0,200}ok: false/.test(sender));
+  // Since 2026-09-18 the rep's mail leaves through their own mailbox
+  // (lib/sales/mailbox/send.js), so the one send call here is
+  // sendFromMailbox and Resend's sendEmail is not imported at all.
+  ok("the send path is the only place the mailbox is sent through for outreach", (sender.match(/sendFromMailbox\(/g) || []).length === 1 && !/sendEmail\(/.test(sender));
+  ok("a send the mailbox refused writes NO message row", /if \(!sent\.ok\)[\s\S]{0,600}return \{[\s\S]{0,120}ok: false/.test(sender) && sender.indexOf("if (!sent.ok)") < sender.indexOf("salesMessage.create"));
+  ok("the SalesMessage is written only after the send returned ok", sender.indexOf("sendFromMailbox(") < sender.indexOf("$transaction"));
   const deliver = functionBody(sender, "deliverOutreach");
   ok("deliverOutreach re-checks readiness in the same request as the send", (deliver || "").includes("await outreachStatus(rep)"));
   ok("...before it builds the email", (deliver || "").indexOf("outreachStatus(rep)") < (deliver || "").indexOf("buildOutboundEmail"));

@@ -31,6 +31,7 @@
 
 import { use, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   Ban,
@@ -39,7 +40,6 @@ import {
   Mail,
   MapPin,
   RotateCcw,
-  Send,
   LifeBuoy,} from "lucide-react";
 import { errorText, fetchJson } from "@/lib/fetchJson";
 import { jsonBody } from "@/lib/jsonBody";
@@ -54,6 +54,7 @@ import DialRegion from "@/app/components/sales/DialRegion";
 import { CallHistoryStrip, LastTimeLine } from "@/app/components/sales/CallHistory";
 import ContactNumbers from "@/app/components/sales/ContactNumbers";
 import OutreachNotice from "../OutreachNotice";
+import EmailComposer from "../../threads/EmailComposer";
 import SignupLinkSms from "../SignupLinkSms";
 import SignupProgress from "@/app/components/sales/SignupProgress";
 
@@ -73,6 +74,7 @@ function when(value) {
 export default function SalesLeadPage({ params }) {
   const { id } = use(params);
   const { t, language } = useTranslation();
+  const router = useRouter();
 
   const [historyKey, setHistoryKey] = useState(0);
 
@@ -80,8 +82,6 @@ export default function SalesLeadPage({ params }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [notes, setNotes] = useState("");
-  const [subject, setSubject] = useState("");
-  const [message, setMessage] = useState("");
   // The email the rep says the client registered with, and what the server
   // said about it. `verdict` is cleared on every keystroke: a verdict is about
   // ONE address, and a Link button left lit while the field changes underneath
@@ -258,25 +258,6 @@ export default function SalesLeadPage({ params }) {
     }
   }
 
-  async function send(event) {
-    event.preventDefault();
-    setBusy(true);
-    setError("");
-    try {
-      await fetchJson("/api/sales/threads", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: jsonBody({ leadId: id, subject, body: message }, "email"),
-      });
-      setSubject("");
-      setMessage("");
-      await load();
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setBusy(false);
-    }
-  }
 
   if (!lead) {
     return (
@@ -811,7 +792,7 @@ export default function SalesLeadPage({ params }) {
         {lead.threads.map((thread) => (
           <Link
             key={thread.id}
-            href={`/sales/threads/${thread.id}`}
+            href={`/sales/threads?open=${encodeURIComponent(thread.id)}`}
             className="block rounded-lg border border-border px-4 py-3 hover:bg-muted/50"
           >
             <p className="text-sm font-medium text-foreground truncate">{thread.subject}</p>
@@ -862,42 +843,32 @@ export default function SalesLeadPage({ params }) {
       )}
 
       {canCompose && (
-        <form onSubmit={send} className="rounded-lg border border-border bg-card p-4 space-y-3">
-          <div className="text-sm font-semibold text-foreground">
+        <div className="rounded-lg border border-border bg-card overflow-hidden">
+          <div className="px-4 pt-3 text-sm font-semibold text-foreground">
             {t("app.salesLeads.newEmailTo", { email: lead.email })}
           </div>
-          <p className="text-xs text-muted-foreground">
-            {/* `outreach.from` is the WORK mailbox now, not the sign-in
-                address — see lib/sales/outreachSender.js's repSendingAddress.
-                Saying "your own address" over a mailbox a superadmin assigned
-                would be the sentence a rep reads before wondering where a
-                reply went. */}
+          <p className="px-4 pb-1 text-xs text-muted-foreground">
+            {/* `outreach.from` is the WORK mailbox, not the sign-in address —
+                see lib/sales/outreachSender.js's repSendingAddress. */}
             {t("app.salesLeads.composeFooterNote", { from: outreach.from })}
           </p>
-          <input
-            required
-            value={subject}
-            onChange={(e) => setSubject(e.target.value)}
-            placeholder={t("app.salesLeads.subjectPlaceholder")}
-            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+          {/* The same box the inbox draws (app/sales/threads/EmailComposer.js):
+              templates, a draft kept while the rep types, Ctrl+Enter to send.
+              After the send the conversation opens in the inbox. */}
+          <EmailComposer
+            kind="new"
+            leadId={id}
+            recipients={[{ address: lead.email, source: "lead" }]}
+            initialTo={[lead.email]}
+            from={outreach.from}
+            autoFocus={false}
+            onClose={() => load()}
+            onSent={(result) => {
+              if (result?.threadId) router.push(`/sales/threads?open=${encodeURIComponent(result.threadId)}`);
+              else load();
+            }}
           />
-          <textarea
-            required
-            rows={8}
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            placeholder={t("app.salesLeads.bodyPlaceholder")}
-            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-          />
-          <button
-            type="submit"
-            disabled={busy}
-            className="min-h-[44px] text-sm font-semibold px-3 py-2 rounded-lg bg-inverted text-inverted-foreground flex items-center gap-1.5 disabled:opacity-60"
-          >
-            {busy ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
-            {t("app.salesLeads.send")}
-          </button>
-        </form>
+        </div>
       )}
     </div>
   );

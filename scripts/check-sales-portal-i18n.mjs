@@ -109,7 +109,7 @@ const FINISHED = [
       "app/sales/leads/SignupLinkSms.js",
     ],
   },
-  { route: "/sales/threads", files: ["app/sales/threads/page.js", "app/sales/threads/[id]/page.js"] },
+  { route: "/sales/threads", files: ["app/sales/threads/page.js", "app/sales/threads/EmailComposer.js"] },
   {
     route: "/sales/messages",
     files: [

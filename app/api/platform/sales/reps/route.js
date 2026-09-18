@@ -40,6 +40,7 @@ import {
 } from "@/lib/sales/repAdmin";
 import { signupLinkFor } from "@/lib/sales/repStats";
 import { outreachStatus } from "@/lib/sales/outreachSender";
+import { MAILBOX_PUBLIC_SELECT } from "@/lib/sales/mailbox/store";
 import { resolvePlanAssignment } from "@/lib/sales/commissionPlanServer";
 import { queueCountsFor } from "@/lib/sales/reassign";
 import { sellsInOf } from "@/lib/sales/leadLanguage";
@@ -153,9 +154,18 @@ export async function GET(request) {
   // outreachStatus() and not a local "does workEmail exist" test. Two opinions
   // about whether sending works is how a console reports a rep as ready while
   // their compose box refuses to render — the admin would then be looking at a
-  // green tick and the rep at a blocker, and the rep would be right. The
-  // verified-domain lookup behind it is cached for ten minutes across all reps,
-  // so this is one Resend call per page load, not one per rep.
+  // green tick and the rep at a blocker, and the rep would be right. Since
+  // 2026-09-18 the verdict is read from the rep's SalesMailbox row, not from
+  // Resend — one query per rep, no vendor call.
+  const mailboxes = new Map(
+    (
+      await db.salesMailbox.findMany({
+        where: { salesRepId: { in: reps.map((r) => r.id) } },
+        select: { salesRepId: true, ...MAILBOX_PUBLIC_SELECT },
+      })
+    ).map((m) => [m.salesRepId, m]),
+  );
+
   const sending = await Promise.all(
     reps.map((r) =>
       outreachStatus(r).catch((err) => ({
@@ -367,6 +377,11 @@ export async function GET(request) {
         blockers: sending[i].blockers,
         warnings: sending[i].warnings,
       },
+      // The connected work mailbox, in its public shape — connected / last
+      // sync / last error, in words. Never the secret
+      // (lib/sales/mailbox/store.js's MAILBOX_PUBLIC_SELECT is the whole
+      // select). Null when the owner has not connected one.
+      mailbox: mailboxes.get(r.id) || null,
     })),
     salesNumber,
     numberCapabilities: NUMBER_CAPABILITIES,
