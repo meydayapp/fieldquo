@@ -331,13 +331,15 @@ export function RepStatusPicker({ layout = "row" }) {
     : t(`app.salesStatus.state.${state}`, REP_STATES[state]?.label || state);
   const forText = presence?.forMs != null ? describeDuration(presence.forMs) : null;
 
+  /** Returns whether the change took, so the menu knows whether to close. */
   async function pick(choice) {
-    if (busy || choice.code === current?.code) return;
+    if (busy || choice.code === current?.code) return true;
     setBusy(choice.code);
     setRefused("");
     const result = await setStatus(choice);
     if (!result.ok) setRefused(result.error || t("app.salesStatus.changeFailed"));
     setBusy("");
+    return result.ok;
   }
 
   if (layout === "menu" || layout === "list") {
@@ -492,8 +494,12 @@ function StatusMenu({ inline = false, t, state, stateLabel, forText, stale, load
                 disabled={Boolean(busy)}
                 data-status-choice={choice.code}
                 onClick={async () => {
-                  await onPick(choice);
-                  setOpen(false);
+                  // The refusal sentence lives inside this menu, so a
+                  // refused pick keeps it open: closing regardless left the
+                  // rep with a menu that shut, a pill that did not change,
+                  // and no word why (QA, 2026-09-17).
+                  const ok = await onPick(choice);
+                  if (ok !== false) setOpen(false);
                 }}
                 className={`w-full flex items-center gap-2 min-h-[44px] px-3 rounded-md text-left text-sm font-medium disabled:opacity-60 ${
                   active ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-muted"

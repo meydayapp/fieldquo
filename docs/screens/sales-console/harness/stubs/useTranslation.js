@@ -2,6 +2,8 @@
 // interpolation, English catalogue, so the rendered words are the shipped ones.
 import { APP_MESSAGES } from "@/app/i18n/appMessages";
 const lang = (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("lang")) || "en";
+// The real LanguageProvider keeps <html lang> honest; hyphenation reads it.
+if (typeof document !== "undefined") document.documentElement.lang = lang;
 // One stable t, like the real hook's useCallback([language]) — a fresh
 // function per render would re-run every effect that lists t as a dep.
 const t = (key, fallbackOrValues, maybeValues) => {

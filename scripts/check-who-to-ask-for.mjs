@@ -172,11 +172,11 @@ const p2 = planBbbWrite({ prospect: full, profile, existingNumbers: [], now: new
 ok("a full row: NOTHING but the stamp is written, every disagreement is a conflict", Object.keys(p2.data).join() === "bbbCheckedAt" && p2.gained.join() === "contactNumber" && p2.conflicts.includes("bbbRating") && p2.conflicts.includes("domain") && p2.conflicts.includes("phoneE164"), { data: p2.data, gained: p2.gained, conflicts: p2.conflicts });
 ok("a differing phone becomes a second number, never the record's", p2.contactNumber?.e164 === "+16198478330" && p2.contactNumber.label === "BBB profile");
 ok("the second number is not added twice", planBbbWrite({ prospect: full, profile, existingNumbers: ["+16198478330"] }).contactNumber === null);
-ok("the Maps origin changes the evidence detector and nothing on the row", (() => {
+ok("the Maps provenance changes the evidence detector and nothing on the row", (() => {
   const a = planPlacesWrite({ prospect: blank, place: listingAsPlace({ externalId: "pid", name: "AMS PLUMBING & DRAIN", city: "Lakeside", province: "CA", postalCode: "92040", country: "US", phone: "(619) 847-8330", websiteUrl: "https://amsplumbinganddrain.com", rating: "4.8", reviewCount: 12, source: "google_maps" }), now: new Date("2026-09-18T00:00:00Z") });
-  const b = planPlacesWrite({ prospect: blank, place: listingAsPlace({ externalId: "pid", name: "AMS PLUMBING & DRAIN", city: "Lakeside", province: "CA", postalCode: "92040", country: "US", phone: "(619) 847-8330", websiteUrl: "https://amsplumbinganddrain.com", rating: "4.8", reviewCount: 12, source: "google_maps" }), now: new Date("2026-09-18T00:00:00Z"), origin: { detector: "maps.apify", detectorVersion: "1" } });
+  const b = planPlacesWrite({ prospect: blank, place: listingAsPlace({ externalId: "pid", name: "AMS PLUMBING & DRAIN", city: "Lakeside", province: "CA", postalCode: "92040", country: "US", phone: "(619) 847-8330", websiteUrl: "https://amsplumbinganddrain.com", rating: "4.8", reviewCount: 12, source: "google_maps" }), now: new Date("2026-09-18T00:00:00Z"), provenance: { detector: "maps.apify", detectorVersion: "1", via: "maps.apify" } });
   const same = ["googlePlaceId", "domain", "websiteUrl", "googleRating", "googleReviewCount", "placesVerdict"].every((k) => JSON.stringify(a.data[k]) === JSON.stringify(b.data[k]));
-  return same && b.evidence[0].detector.startsWith("maps.apify:") && a.evidence[0].detector.startsWith("places.textSearch:") && b.data.placesResult.origin === "maps.apify";
+  return same && b.evidence[0].detector.startsWith("maps.apify:") && a.evidence[0].detector.startsWith("places.textSearch:") && b.data.placesResult.via === "maps.apify";
 })());
 
 // ── 8. The upload path refuses a wrong profile ───────────────────────────

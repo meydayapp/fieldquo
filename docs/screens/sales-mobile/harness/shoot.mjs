@@ -30,8 +30,11 @@ mkdirSync(DEST, { recursive: true });
 const SIZES = (process.env.SIZES || "375,768").split(",").map(Number);
 const DIMS = { 375: { width: 375, height: 812, mobile: true }, 768: { width: 768, height: 1024, mobile: true }, 1280: { width: 1280, height: 900, mobile: false } };
 
-const portal = (page, extra = "") => `file://${PORTAL}/portal.html?page=${page}${extra}`;
-const queue = (extra = "") => `file://${CONSOLE}/console.html?do=1${extra}`;
+// HLANG=fr|es renders every frame in that catalogue (both harnesses read
+// ?lang=); the default is English. Named HLANG because LANG is the shell's.
+const langQ = process.env.HLANG ? `&lang=${process.env.HLANG}` : "";
+const portal = (page, extra = "") => `file://${PORTAL}/portal.html?page=${page}${extra}${langQ}`;
+const queue = (extra = "") => `file://${CONSOLE}/console.html?do=1${extra}${langQ}`;
 /** Every screen a rep can reach, and the states a phone has to hold. */
 export const FRAMES = {
   today: portal("today"),
@@ -69,6 +72,15 @@ export const FRAMES = {
   "queue-tab-contact": queue("&scene=tab-contact"),
   "queue-tab-disposition": queue("&scene=tab-disposition"),
   "queue-typed": queue("&scene=typed"),
+  // 2026-09-17: a test line typed on a lead's card, the owner's test
+  // account, the Tasks tab's Call now, and the agency's own screens.
+  "queue-typed-test": queue("&scene=typed-test"),
+  "queue-test-account": queue("&scene=typed&testAccount=1"),
+  "queue-tab-tasks": queue("&scene=tab-tasks"),
+  "queue-tab-script": queue("&scene=tab-script"),
+  agency: portal("agency", "&agency=1"),
+  "pay-agency": portal("pay", "&agency=1&scroll=%5Bdata-by-employee%5D"),
+  "today-reminder": portal("today", "&presence=offline"),
 };
 const names = process.env.FRAMES ? process.env.FRAMES.split(",") : Object.keys(FRAMES);
 const auditSource = readFileSync(path.join(ROOT, "docs/screens/platform-mobile/harness/audit.js"), "utf8").replace(/^export /m, "");

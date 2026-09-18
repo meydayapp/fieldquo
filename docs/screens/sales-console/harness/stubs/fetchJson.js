@@ -3,6 +3,13 @@
 import { ITEMS, GROUPS, ITEMS_SHUT, GROUPS_SHUT, TRADES, PLAYBOOK, NOTES, ME, BADGES, currentFor, playbookIn } from "../fixtures.js";
 import { dispositionOptions } from "@/lib/sales/calls/dispositions";
 import { STATUS_CHOICES, STATE_ORDER, REP_STATES, PAUSE_REASON_ORDER, PAUSE_REASONS } from "@/lib/sales/calls/agentState";
+import { weaveDisclosure } from "@/lib/sales/playbook/recordingDisclosure";
+
+// The route weaves the recording aside into every opener as it is read
+// (app/api/sales/playbook/route.js); the fixture's stored script is woven
+// the same way so the frame shows what a rep reads.
+const woven = (body, language) =>
+  body?.callScript?.opener ? { ...body, callScript: { ...body.callScript, opener: weaveDisclosure(body.callScript.opener, language) } } : body;
 
 const state = { autodial: false, pending: null, presence: { state: "available", forMs: 12 * 60000, stale: false, pauseReason: null }, notes: [...NOTES], attempts: 0 };
 const delay = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -21,7 +28,9 @@ function queueBody(prospectId) {
   if (shut && cur) { cur.callingContext = { country: "US", province: "NY", timeZone: "America/New_York", attemptsLast24h: 0 }; cur.compliance = null; }
   if (cur && cur.id === "p1" && state.extraNumbers?.length) cur.numbers.voice.choices = [...cur.numbers.voice.choices, ...state.extraNumbers];
   return {
-    rep: { id: ME.id, name: ME.name, email: ME.email },
+    // ?testAccount=1 — the owner's own dialler-testing rep: the shell's
+    // banner and the pad's "not saved on this lead" caveat (2026-09-17).
+    rep: { id: ME.id, name: ME.name, email: ME.email, testAccount: new URLSearchParams(window.location.search).get("testAccount") === "1" },
     tradeKey: "electrical",
     trades: TRADES,
     queue: { items, empty, emptyReason: empty ? "nothing_claimed" : null, emptyText: empty ? "You have nothing claimed in Electrical. 62 are free to claim — press the button." : null, windows: { repZone: "America/New_York", language: "en", groups: empty ? [] : shut ? (state.topped ? [{ key: "now", kind: "now", count: 3, ids: ["t1", "t2", "t3"] }, ...GROUPS_SHUT.slice(1)] : GROUPS_SHUT) : GROUPS } },
@@ -32,6 +41,51 @@ function queueBody(prospectId) {
     // and not the machine's: 2:00 pm Central for the day scenario, 9:20 pm
     // Eastern for the shut one.
     serverNow: shut ? "2026-09-12T01:20:00.000Z" : "2026-09-11T19:00:00.000Z",
+    // The day's automatic give-backs (lib/sales/queueGivenBack.js): one
+    // closed-window event, so the "Given back today" strip has a row.
+    givenBack: empty
+      ? { since: "2026-09-11T04:00:00.000Z", events: [], readError: null }
+      : {
+          since: "2026-09-11T04:00:00.000Z",
+          readError: null,
+          events: [{ at: "2026-09-11T17:05:00.000Z", atLocal: "1:05 PM", zone: "ET", reason: "closed", whyKey: "app.salesQueue.givenBack.why.closed", count: 2, names: ["Harbor Light Electric", "Redbud Wiring Co."] }],
+        },
+  };
+}
+
+// ── 2026-09-17 surfaces ───────────────────────────────────────────────────
+// What has happened on the phone with a business (CallHistory.js): three
+// outbound rows and the two inbound outcomes that used to be invisible —
+// a voicemail with Play, and a missed ring-back.
+const minsAgo = (m) => new Date(Date.now() - m * 60000).toISOString();
+function historyBody(prospectId) {
+  if (prospectId !== "p1") return { store: { ready: true, missing: [] }, history: [], lastTime: null, serverNow: new Date().toISOString() };
+  return {
+    store: { ready: true, missing: [] },
+    history: [
+      { id: "h1", dialledAt: minsAgo(35), direction: "in", channel: "browser", mine: true, ended: null, talkSeconds: null, disposition: null, dispositionAt: null, autoLogged: false, deferred: false, note: null, callbackAt: null, voicemail: { seconds: 22, href: "/api/sales/voicemail/h1/audio" }, missed: false },
+      { id: "h2", dialledAt: minsAgo(50), direction: "in", channel: "browser", mine: true, ended: null, talkSeconds: null, disposition: null, dispositionAt: null, autoLogged: false, deferred: false, note: null, callbackAt: null, voicemail: null, missed: true },
+      { id: "h3", dialledAt: minsAgo(65), direction: "out", channel: "browser", mine: true, ended: { key: "app.salesCall.ended.prospect", talkSeconds: 252 }, talkSeconds: 252, disposition: "reached_interested", dispositionAt: minsAgo(60), autoLogged: false, deferred: false, note: "call after the season", callbackAt: new Date(Date.now() + 26 * 3600000).toISOString(), voicemail: null, missed: false },
+      { id: "h4", dialledAt: minsAgo(3000), direction: "out", channel: "browser", mine: false, ended: { key: "app.salesCall.ended.noAnswer", talkSeconds: null }, talkSeconds: null, disposition: "no_answer", dispositionAt: minsAgo(2999), autoLogged: true, deferred: false, note: null, callbackAt: null, voicemail: null, missed: false },
+    ],
+    lastTime: { dialledAt: minsAgo(65), disposition: "reached_interested", note: "call after the season" },
+    serverNow: new Date().toISOString(),
+  };
+}
+// The call-backs this rep promised (CallbacksStrip.js): one due on a
+// business still held (Call now), one later on the rep's own lead (a link),
+// one on a typed number (nothing to press).
+function callbacksBody() {
+  return {
+    store: { ready: true, missing: [] },
+    count: 3,
+    due: 1,
+    items: [
+      { id: "cb1", prospectId: "p1", leadId: null, businessName: "South County Electric, LLC", toE164: "+14055550100", callbackAt: minsAgo(20), promisedAt: minsAgo(1500), note: "Dave asked for three o'clock", due: true, held: true },
+      { id: "cb2", prospectId: null, leadId: "lead1", businessName: "Bright Current Electrical", toE164: "+19185550123", callbackAt: new Date(Date.now() + 3 * 3600000).toISOString(), promisedAt: minsAgo(400), note: null, due: false, held: false },
+      { id: "cb3", prospectId: null, leadId: null, businessName: null, toE164: "+14055550142", callbackAt: new Date(Date.now() + 26 * 3600000).toISOString(), promisedAt: minsAgo(90), note: null, due: false, held: false },
+    ],
+    serverNow: new Date().toISOString(),
   };
 }
 
@@ -88,6 +142,15 @@ export async function fetchJson(url, options = {}) {
     return { ok: true };
   }
   if (p === "/api/sales/calls/token") return { token: "tok", expiresInSeconds: 600 };
+  if (p === "/api/sales/calls/history") return historyBody(u.searchParams.get("prospectId") || (u.searchParams.get("leadId") === "lead1" ? "p1" : null));
+  if (p === "/api/sales/calls/callbacks") return callbacksBody();
+  if (p === "/api/sales/calls/unlogged") return { store: { ready: true, missing: [] }, count: 0, items: [], serverNow: new Date().toISOString() };
+  // FieldQuo's own test phones: any number ending 5550006 (Twilio's test
+  // number) is one; the rep is a test account only with ?testAccount=1.
+  if (p === "/api/sales/calls/test-line") {
+    const e164 = u.searchParams.get("e164") || "";
+    return { e164, testLine: /5550006$/.test(e164), testAccount: new URLSearchParams(window.location.search).get("testAccount") === "1" };
+  }
   if (p === "/api/sales/calls/state") {
     if (method === "POST" && body?.state) state.presence = { ...state.presence, state: body.state, pauseReason: body.pauseReason || null, forMs: 0 };
     return { presence: state.presence, store: { ready: true }, choices: STATUS_CHOICES, autodial: state.autodial };
@@ -106,8 +169,8 @@ export async function fetchJson(url, options = {}) {
   // real on-demand generation takes, so the switch's loading state is real.
   if (p === "/api/sales/playbook") {
     const language = u.searchParams.get("language");
-    if (language && language !== "en") { await delay(400); return playbookIn(language); }
-    return PLAYBOOK;
+    if (language && language !== "en") { await delay(400); return woven(playbookIn(language), language); }
+    return woven(PLAYBOOK, "en");
   }
   if (p === "/api/sales/notes" && method === "POST") { state.notes.unshift({ id: "n" + Date.now(), title: body.body.slice(0, 40), body: body.body, updatedAt: new Date().toISOString() }); return { ok: true }; }
   if (p === "/api/sales/leads" && method === "POST") return { lead: { id: "lead1" } };
@@ -131,7 +194,7 @@ export async function fetchJson(url, options = {}) {
   if (p === "/api/sales/events") return { events: [] };
   if (p === "/api/sales/tour") return { step: 0, dismissed: true, completed: false };
   if (p === "/api/sales/badges") return BADGES;
-  if (p === "/api/sales/me") return ME;
+  if (p === "/api/sales/me") return { ...ME, testAccount: new URLSearchParams(window.location.search).get("testAccount") === "1" };
   throw new Error("Harness has no answer for " + method + " " + url);
 }
 
@@ -140,7 +203,7 @@ const realFetch = window.fetch.bind(window);
 window.fetch = async (url, options = {}) => {
   const u = new URL(String(url), "http://harness.local");
   if (u.pathname === "/api/sales/notes") return new Response(JSON.stringify({ notes: state.notes }), { status: 200, headers: { "Content-Type": "application/json" } });
-  if (u.pathname === "/api/sales/me") return new Response(JSON.stringify(ME), { status: 200, headers: { "Content-Type": "application/json" } });
+  if (u.pathname === "/api/sales/me") return new Response(JSON.stringify(await fetchJson(u.pathname, options)), { status: 200, headers: { "Content-Type": "application/json" } });
   if (u.pathname === "/api/sales/badges") return new Response(JSON.stringify(BADGES), { status: 200, headers: { "Content-Type": "application/json" } });
   if (u.pathname === "/api/sales/calls") return new Response(JSON.stringify(await fetchJson(u.pathname + u.search, options)), { status: 200, headers: { "Content-Type": "application/json" } });
   if (u.pathname.startsWith("/api/")) return new Response(JSON.stringify(await fetchJson(u.pathname + u.search, options)), { status: 200, headers: { "Content-Type": "application/json" } });

@@ -544,15 +544,23 @@ section("7. The pool: due retries in, scheduled and exhausted out, due first (db
     ],
     shiftEnd: new Date(now.getTime() + 7 * 3600 * 1000),
     want: 25,
+    now,
   });
   ok("selectBatch: a due retry outranks a row that shuts sooner and is researched", picked.ids[0] === "retry_later_close", picked.ids);
   const later = selectBatch({
     candidates: [
       cand("open_fresh"),
-      cand("retry_but_shut", { retryDue: true, readiness: { decision: "refused", blockers: [{ code: "outside_window" }], opensAt: new Date(now.getTime() + 3600 * 1000) } }),
+      // Opens in TWO hours: since 2026-09-14 the hour before a window counts
+      // (lib/sales/queueBatch.js CLAIM_OPENS_WITHIN_MS), so a row opening in
+      // exactly one hour is taken on purpose; this one is shut for the batch.
+      cand("retry_but_shut", { retryDue: true, readiness: { decision: "refused", blockers: [{ code: "outside_window" }], opensAt: new Date(now.getTime() + 2 * 3600 * 1000) } }),
     ],
     shiftEnd: new Date(now.getTime() + 7 * 3600 * 1000),
     want: 25,
+    // The fixture's clock, not the machine's: selectBatch judges "opens
+    // within the hour" against `now`, and the fixture's opening was hours
+    // behind the real clock — which is why this read as "taken".
+    now,
   });
   ok("…but never a shut window: a due retry whose window is shut is not taken now", later.ids.length === 1 && later.ids[0] === "open_fresh", later.ids);
 }

@@ -88,6 +88,20 @@ const LABELS = {
   speaker: (s) => (s === "rep" ? "REP" : s === "contractor" ? "CONTRACTOR" : "UNKNOWN"),
   yes: "yes",
   no: "no",
+  inScript: "in the script",
+  repsOwnWords: "the rep's own words",
+  reasonAt: "reason said at",
+  reasonLate: "after the first minute",
+  gatekeeper: "Who answered",
+  decisionMaker: "the decision-maker",
+  notDecisionMaker: "not the decision-maker",
+  nameObtained: "name",
+  timeObtained: "time to call back",
+  calendarAsked: "calendar asked for",
+  inviteMade: "invite created on the call",
+  inviteNotMade: "no invite created on the call",
+  pitchBurst: "Longest pitch",
+  burstShort: "under 25 s — a pitch this short halves the odds of a booked call",
 };
 
 export default function CallQualityPage() {

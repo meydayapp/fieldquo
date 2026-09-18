@@ -91,6 +91,20 @@ function reviewLabelsFor(t) {
     speaker: (s) => (s === "rep" ? t("app.salesCallQa.speakerRep") : s === "contractor" ? t("app.salesCallQa.speakerContractor") : t("app.salesCallQa.speakerUnknown")),
     yes: t("app.salesCallQa.yes"),
     no: t("app.salesCallQa.no"),
+    inScript: t("app.salesCallQa.inScript"),
+    repsOwnWords: t("app.salesCallQa.repsOwnWords"),
+    reasonAt: t("app.salesCallQa.reasonAt"),
+    reasonLate: t("app.salesCallQa.reasonLate"),
+    gatekeeper: t("app.salesCallQa.gatekeeper"),
+    decisionMaker: t("app.salesCallQa.decisionMaker"),
+    notDecisionMaker: t("app.salesCallQa.notDecisionMaker"),
+    nameObtained: t("app.salesCallQa.nameObtained"),
+    timeObtained: t("app.salesCallQa.timeObtained"),
+    calendarAsked: t("app.salesCallQa.calendarAsked"),
+    inviteMade: t("app.salesCallQa.inviteMade"),
+    inviteNotMade: t("app.salesCallQa.inviteNotMade"),
+    pitchBurst: t("app.salesCallQa.pitchBurst"),
+    burstShort: t("app.salesCallQa.burstShort"),
   };
 }
 

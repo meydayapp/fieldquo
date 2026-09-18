@@ -13890,6 +13890,26 @@ where the schema says `met`, which would have made two lines unwinnable on
 every call. `check-sales-admin` now asserts the calls entry is GONE from
 NOT_TRACKED and that the figures come through reporting.js.
 
+**Folded in from the cold-calling research (docs/sales/RESEARCH-cold-calling-2026.md,
+Gong's 300M calls), after the first push:** the talk-ratio band is the COLD
+call's, 0.45–0.65 rep (55:45 is the booked shape; a demo would want
+0.35–0.60 and there is no demo scorer); the longest uninterrupted rep
+burst is measured from the segments (an unknown segment breaks the run)
+and flagged under 25 s — reported, not weighted, because the rubric was
+set before the figure existed; the moment the reason for the call was
+said (v3's "The reason I'm calling is" or the pivot's "exactly why I'm
+calling" — never the opener's "why I called", which is the permission
+ask) with a `withinDue` at 60 s; whether the close asked for a calendar
+and whether a `SalesEvent` was created by the rep between the dial and
+ten minutes after the call (`inviteCreated`, null when the call has no
+end to bound the window); a gatekeeper read from the model (first speaker
+the decision-maker; if not, name and time obtained); and on every banned
+move, whether the phrase was in the STORED playbook's lines (`source:
+"script"` — the script is wrong) or the rep's own words (`"rep"`). All on
+the review screen in nine languages. Not folded in: objections-handled as
+a floor norm (≥ 2) is visible per call but not rolled up — the count on
+this floor is too small to say what the norm is here yet.
+
 **What remains.** Coaching is written in the rep's portal language but the
 rubric line names on the rep's own page are the catalogue's, so a rep with
 no language set reads English coaching under translated headings — by
@@ -13903,3 +13923,108 @@ pivot landed, in seconds) is stored beyond the disclosure's timestamp. The
 agency review is audit-logged under `call_qa_reviewed` with
 `actorSalesRepId`; `lib/platform/auditActions.js` carries no label for it
 yet, so it prints raw on the audit screen until one is added.
+
+## Google Maps, read from the Mac: the compass actor rebuilt as a home-machine batch tool (18 September 2026)
+
+**What.** `scripts/scrape/maps.mjs` — modelled on Apify's
+`compass/crawler-google-places` (readme read 2026-09-17) and built to the
+owner's decision: it runs on **his Mac**, from his home IP, in the
+installed Chrome (`playwright-core`, `channel: "chrome"`, its own profile
+under `~/Library/Application Support/fieldquo-scrape`), visible by
+default, at a human pace (2–6 s jittered, uneven wheel scrolls, a
+drifting mouse — `scripts/scrape/lib/pace.mjs`). No proxies, no cloud.
+Inputs: `--term/--location/--country` (repeatable), or `--from-order
+--pairs N` (open claims' trade × city, most held first — the stand-in
+for `enrichmentOrder.js` until it lands), `--max-per-term`, `--headless`,
+`--plan`, `--resume`, `--lang en|fr|es`, `--dry`. Run-book:
+`docs/sales/SCRAPE-LOCAL-RUN.md`.
+
+**Mechanics, from the actor's FAQ.** A small location is one search
+(`"plumber in Lakeside, CA"`); a broad one is **tiled** into map
+viewports (`scripts/scrape/lib/geo.mjs`: bounds from a static table, the
+geocoder, or the map's own URL; `--zoom 14` ≈ 7 km viewports), each
+searched by URL, the feed scrolled until Google's own **"You've reached
+the end of the list."** sentence or the ~120-place boundary — a tile
+that hits the boundary without the sentence is saturated and is split
+into four at the next zoom. Dedupe across tiles and terms by place id.
+Each place opened once and read by its stable anchors
+(`scripts/scrape/lib/mapsParse.mjs`: `data-item-id` address / phone /
+authority / plus code, the rating's aria-label, the histogram's
+`tr[aria-label]`, the hours' `data-value`): title, category, address,
+phone, website, plus code, coordinates, rating, count, star
+distribution, hours, closed banner, price bracket. Reviews, reviewer
+names and images are not read. **`claimed` is never inferred from
+absence**: signed out, Maps rendered "Own this business?" on none of 22
+panels, so it is `false` when seen and `null` otherwise. A challenge
+page (`/sorry/`, "unusual traffic", reCAPTCHA) stops the run; the
+consent wall is answered once with "Reject all"; the JSONL log under
+`runs/<id>/events.jsonl` makes `--resume` skip every place and tile
+already done.
+
+**The write** — `lib/sales/intel/listings.js`, the inverse of
+`places.js`: a listing looks for its Prospect. Candidates by place id,
+phone, domain, and distinctive name words in the city / postal code /
+12 km; each scored with the **same** `scoreCandidate` the Places check
+uses, plus two identity signals (same E.164 or same domain with a
+distinctive word shared — measured on the first run, "PSI Plumbing
+Services" and "K2 Plumbing" answer one number and share only "plumbing";
+they are two brands and the second is refused, not attached). A match
+writes through `planPlacesWrite` (now taking a `provenance` so the
+evidence says `maps.scrape:*` and a second number is labelled "Google
+Maps listing"): blanks only, conflicts recorded, a differing phone as a
+`SalesContactNumber`, a closed banner as a flag, a gained website queues
+the crawl chain. Unmatched → `ExternalListing` (the Apify work's live
+table, read back column for column; this adds `tradeKey`,
+`businessStatus`, `claimed`, `matchResult`, `lastSeenAt` by additive
+SQL — the diff showed that branch's unlanded tables as DROPs, so nothing
+was pushed). Metered as `local_scrape / google-maps` at $0 with units =
+places; `/platform/costs` has the line beside Google Places.
+
+**First live run.** "plumber" in "Lakeside, CA", max 20, visible Chrome
+from this Mac: the feed ended at 111 places; 20 opened; 11 matched (6
+gained a website, 11 a rating and place id, 1 a second number, 8 a pin),
+3 refused with a reason, 5 no row and lead-like, 1 conflict refused.
+AMS PLUMBING & DRAIN was not among the 111 and a name search finds only
+"AMS Plumbing and HVAC" (a 315 number) — Google has no listing for it.
+`check:maps-scrape` (128 checks: parser over saved panels in headless
+Chrome, matcher over hostile rows, tiling, never-overwrite, dedupe, log
+replay, pacing bounds, walls) is in `check:all`.
+
+**Still owed.** `enrichmentOrder.js` to replace `enrichmentPairs()`;
+a `/platform/sales` view of `ExternalListing` prospects-in-waiting with
+a "promote to prospect" a superadmin presses; French/Spanish end-of-list
+sentences confirmed against a live `hl=fr` page (they are Google's
+strings as published, not yet observed).
+
+## QA pass over the night's sales work (18 September 2026, early)
+
+Every scene the night shipped — the Off reminder, the ring dialog and its
+three caller answers, the drawer's status control, the callbacks strip and
+both "Call now"s, "Given back today", the recording aside, the test-account
+banner and the typed test line, voicemail and missed rows in call history,
+the agency screen, the by-employee pay table, the queue snapshot — walked
+in the two harnesses at 375 and 1280 in EN/FR/ES, with the keyboard through
+both modals, the console read, and the whole sales check family run. The
+write-up, the per-scene table, the ranked remainder and the frames are in
+`docs/sales/QA-2026-09-17.md` and `docs/screens/sales-mobile/qa-2026-09-17/`.
+
+Fixed on the way (copy, layout, harness, stale checks — nothing about
+dialling, recording, transfers or presence): a refused status pick used to
+close the menu and say nothing; the ring's caller line dangled its dot at
+375; the ring toast printed a raw E.164; "Conversaciones" broke mid-word in
+the Spanish tab bar (now hyphenates); Play on a voicemail row was 24×15;
+/sales/agency's buttons were 40px on a phone; `check:sales-test-line`,
+`check:sales-batch-claim` and `check:sales-retry-pool` were red on stale
+assertions. The harnesses were behind the night — no `history`,
+`callbacks`, `test-line`, `unlogged`, `givenBack`, `testAccount`, no
+`POST /api/sales/calls` in the portal stub, no agency page, ring scenes by
+English word — and now carry all of it (`?scene=typed-test`,
+`?testAccount=1`, `?page=agency&agency=1`, `HLANG=fr` on the shooter).
+
+**Still owed, in order** (details and repro in the QA note): the outbound
+Call button stays live under an answered inbound call and places a second
+dial (high — dialling, not touched); the live strip covers the phone's top
+bar for the whole call; Deactivate on /sales/agency is one tap with no
+confirm; "Call now" on a phone dials with nothing visible in the viewport;
+a missed ring-back reads "Not written up"; `check:dock` on `MeShell.js`
+(not sales). /sales is not on the theme allow-list, so no dark pass applies.

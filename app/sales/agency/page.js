@@ -33,8 +33,10 @@ import { centsToMoney } from "@/lib/sales/money";
 import { describeDuration } from "@/lib/sales/calls/agentState";
 import { LANGUAGES } from "@/app/i18n/languages";
 
+// 44px on a phone, the portal's rule since the 2026-09-13 audit
+// (docs/screens/sales-mobile/README.md); the denser 40px from lg up.
 const BTN =
-  "inline-flex items-center gap-1.5 min-h-[40px] px-3 py-2 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed";
+  "inline-flex items-center gap-1.5 min-h-[44px] lg:min-h-[40px] px-3 py-2 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed";
 const BTN_PRIMARY = `${BTN} bg-primary text-primary-foreground`;
 const BTN_QUIET = `${BTN} border border-border text-foreground`;
 const FIELD =

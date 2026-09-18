@@ -369,7 +369,9 @@ section("6. The test account: same path, same mark, its own words");
   ok("…and names the NUMBER on the Call button when it is not a stored one", /const callLabel = typedUnsaved \? formatE164ForReading\(typedE164\) : null;/.test(queuePage) && /callLabel,\s*\}/.test(queuePage));
   const panel = decomment(read("app/components/sales/CallPanel.js"));
   ok("CallPanel prints callLabel before the business on the button and the on-call line, and sends typedE164 only when set", (panel.match(/name: callLabel \|\| businessName \|\| phoneE164/g) || []).length === 2 && /\.\.\.\(dialTarget\.typedE164 \? \{ typedE164: dialTarget\.typedE164 \} : \{\}\),/.test(panel));
-  ok("DialRegion passes target.callLabel through", /callLabel=\{target\.callLabel \|\| null\}/.test(decomment(read("app/components/sales/DialRegion.js"))));
+  // `dialTarget` since d2f99b2b: the target the panel is pinned to for the
+  // life of the call it placed, which is `target` until a call is up.
+  ok("DialRegion passes dialTarget.callLabel through", /callLabel=\{dialTarget\.callLabel \|\| null\}/.test(decomment(read("app/components/sales/DialRegion.js"))));
   const judge = decomment(read("app/api/sales/calls/test-line/route.js"));
   ok("the judge route is GET only, behind the calling gate, answers about ONE number and never returns the list", /export async function GET/.test(judge) && !/export async function (POST|PUT|PATCH|DELETE)/.test(judge) && /requireCallingRep\(request\)/.test(judge) && /testLine: isTestLine\(e164, await loadTestLines\(\)\)/.test(judge) && !/testLines:/.test(judge));
 

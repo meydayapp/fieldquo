@@ -5,5 +5,7 @@
 import React from "react";
 const lang = (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("lang")) || "en";
 const ctx = { language: lang, changeLanguage: () => {}, stated: null };
+// The real provider keeps <html lang> honest; hyphenation reads it.
+if (typeof document !== "undefined") document.documentElement.lang = lang;
 export function LanguageProvider({ children }) { return React.createElement(React.Fragment, null, children); }
 export function useLanguageContext() { return ctx; }

@@ -83,6 +83,7 @@ function Scorecard({ call, labels }) {
               {(d.bannedMoves || []).map((b, i) => (
                 <li key={`d${i}`}>
                   {b.move} — “{b.text}”
+                  {b.source ? <span className="text-muted-foreground"> ({b.source === "script" ? labels.inScript : labels.repsOwnWords})</span> : null}
                 </li>
               ))}
               {(s?.bannedMoves || []).map((b, i) => (
@@ -97,6 +98,29 @@ function Scorecard({ call, labels }) {
         <dd>
           <Yes value={s ? s.pivot?.delivered : null} labels={labels} />
           {s?.pivot?.delivered ? <span className="text-xs text-muted-foreground"> {s.pivot.afterContractorAnswer ? labels.afterAnswer : labels.beforeAnswer}</span> : null}
+          {d.reason?.said ? (
+            <span className="text-xs text-muted-foreground">
+              {" "}
+              · {labels.reasonAt} {stamp(d.reason.at)}
+              {d.reason.withinDue ? "" : ` (${labels.reasonLate})`}
+            </span>
+          ) : null}
+        </dd>
+        <dt className="text-muted-foreground">{labels.gatekeeper}</dt>
+        <dd>
+          {!s?.gatekeeper ? (
+            "—"
+          ) : s.gatekeeper.firstSpeakerDecisionMaker ? (
+            <span>{labels.decisionMaker}</span>
+          ) : (
+            <span>
+              {labels.notDecisionMaker}
+              <span className="text-xs text-muted-foreground">
+                {" "}
+                · {labels.nameObtained}: <Yes value={s.gatekeeper.nameObtained} labels={labels} /> · {labels.timeObtained}: <Yes value={s.gatekeeper.timeObtained} labels={labels} />
+              </span>
+            </span>
+          )}
         </dd>
         <dt className="text-muted-foreground">{labels.discovery}</dt>
         <dd>
@@ -130,11 +154,21 @@ function Scorecard({ call, labels }) {
         <dt className="text-muted-foreground">{labels.closeAsk}</dt>
         <dd>
           <Yes value={s ? s.closeAsk?.met : null} labels={labels} />
+          <span className="text-xs text-muted-foreground">
+            {" "}
+            · {labels.calendarAsked}: <Yes value={d.calendarAsked ?? null} labels={labels} />
+            {d.inviteCreated === null || d.inviteCreated === undefined ? "" : ` · ${d.inviteCreated ? labels.inviteMade : labels.inviteNotMade}`}
+          </span>
         </dd>
         <dt className="text-muted-foreground">{labels.talkRatio}</dt>
         <dd className="tabular-nums">
           {typeof d.talk?.ratio === "number" ? `${Math.round(d.talk.ratio * 100)}%` : "—"}
           {d.talk ? <span className="text-xs text-muted-foreground"> {labels.talkSplit(Math.round(d.talk.repSeconds), Math.round(d.talk.contractorSeconds))}</span> : null}
+        </dd>
+        <dt className="text-muted-foreground">{labels.pitchBurst}</dt>
+        <dd className="tabular-nums">
+          {typeof d.talk?.longestRepBurstSeconds === "number" ? `${Math.round(d.talk.longestRepBurstSeconds)} s` : "—"}
+          {d.talk?.burstTooShort ? <span className="text-xs text-red-700 dark:text-red-300"> {labels.burstShort}</span> : null}
         </dd>
       </dl>
       {Array.isArray(qa.coaching) && qa.coaching.length ? (

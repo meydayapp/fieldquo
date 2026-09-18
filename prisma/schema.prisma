@@ -11909,11 +11909,36 @@ model ExternalListing {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // ── Maps-scrape columns (scripts/scrape/maps.mjs, lib/sales/intel/listings.js) ──
+  //
+  // The local scrape lands its rows here too, under source "google_maps",
+  // so a place Apify fetched and a place the Mac read are one row. These
+  // are the few fields a platform screen will filter on; the rest of what
+  // the panel showed (hours, histogram, plus code, price) is in `payload`.
+  /// The DISCOVERY_TRADES key the category maps to, or null when none does.
+  tradeKey       String?
+  /// "OPERATIONAL" | "CLOSED_TEMPORARILY" | "CLOSED_PERMANENTLY" — the
+  /// Places API vocabulary, so the Prospect fill reads it unchanged. Null
+  /// when the page said nothing either way.
+  businessStatus String?
+  /// False when Google's "Own this business?" prompt was on the page — the
+  /// listing is unclaimed. Null otherwise: signed out, Maps rendered the
+  /// prompt on none of the first live run's 22 panels, so absence proves
+  /// nothing and is never read as "claimed".
+  claimed        Boolean?
+  /// The score of the accepted candidate, or the top refused one and why —
+  /// what a human reads to confirm or dismiss it.
+  matchResult    Json?
+  /// The last sighting. A re-scrape updates this and the payload; it never
+  /// clears matchedProspectId.
+  lastSeenAt     DateTime @default(now())
+
   @@unique([source, externalId])
   @@index([source, phoneE164])
   @@index([source, domain])
   @@index([matchedProspectId])
   @@index([source, keyword, location])
+  @@index([tradeKey, city])
 }
 
 /// One Apify actor run — a (keyword, location, country) pair sent to a

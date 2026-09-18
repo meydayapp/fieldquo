@@ -1032,7 +1032,7 @@ section("6. Source: the route, the gate, the cron, the screen, the sticky fix");
   // is QUEUE_SELECT.
   const listRead = route.match(/db\.prospect\.findMany\(\{\s*where: queueWhere\(rep\.id, \{ now \}\),\s*orderBy: \[\{ assignedAt: "asc" \}\],\s*select: QUEUE_SELECT,\s*\}\)/);
   ok("the route's Prospect list read is still scoped through queueWhere", Boolean(listRead));
-  ok("…and lands in `claimedRows` — the destructured Promise.all names it", /const \[policyContext, retryRules, claimedRows, /.test(route));
+  ok("…and lands in `claimedRows` — the destructured Promise.all names it", /const \[policyContext, retryRules, testLines, claimedRows, /.test(route));
   // The held list is EVERYTHING the rep holds. It used to be narrowed to the
   // picked trade, so claiming a second trade made the first one vanish from
   // the screen — the owner's "sometimes the leads briefly disappear".
