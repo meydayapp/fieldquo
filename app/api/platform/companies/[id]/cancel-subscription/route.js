@@ -112,7 +112,22 @@ export async function POST(request, { params }) {
   }
 
   const now = new Date();
+  // A terms lock also switches automatic phone-credit top-up off in the same
+  // step: a locked company must never be charged again by a cron. Their
+  // prepaid balance is left exactly as it is — unspent, not refunded, not
+  // taken — and the number-rent cron releases the numbers (lib/voice/
+  // spendGate.js reads the "terms" access reason). No row → nothing to do.
+  const topupOff =
+    mode === "terms"
+      ? [
+          db.voiceAutoTopup.updateMany({
+            where: { companyId: id, enabled: true },
+            data: { enabled: false, disabledAt: now, disabledReason: "terms_lock" },
+          }),
+        ]
+      : [];
   await db.$transaction([
+    ...topupOff,
     db.subscription.update({
       where: { companyId: id },
       data: {
@@ -151,6 +166,6 @@ export async function POST(request, { params }) {
         ? "full access until the period end, then thirty days read-only"
         : mode === "now"
           ? "thirty days read-only from now, then locked"
-          : "locked now — no read-only window",
+          : "locked now — no read-only window; automatic top-up switched off; numbers released by the rent run; prepaid balance left as it is",
   });
 }
