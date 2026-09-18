@@ -743,8 +743,8 @@ section("7. Six tabs, and all six on a 375px screen");
     !/max-w-/.test(consoleSrc.slice(consoleSrc.indexOf("data-sales-console"), consoleSrc.indexOf("data-dialer-column"))),
   );
   ok(
-    "the Dialer column is fixed-width and the tabbed card takes the rest (flex-1 min-w-0)",
-    /lg:w-\[3[4-8]0px\] lg:shrink-0/.test(consoleSrc) && /min-w-0 flex-1 \$\{COLUMN_ORDER\.panel\}/.test(consoleSrc),
+    "the Dialer column is a third of the row between 300 and 360 (the owner, 2026-09-18: flexible, not fixed) and the tabbed card takes the rest (flex-1 min-w-0)",
+    /lg:w-\[clamp\(300px,33%,360px\)\] lg:shrink-0/.test(consoleSrc) && /min-w-0 flex-1 \$\{COLUMN_ORDER\.panel\}/.test(consoleSrc),
   );
 }
 

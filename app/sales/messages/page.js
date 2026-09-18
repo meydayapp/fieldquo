@@ -177,9 +177,14 @@ const ACTION =
   "inline-flex items-center gap-1.5 min-h-[44px] lg:min-h-[36px] whitespace-nowrap rounded-md border border-border bg-card px-2.5 text-xs font-medium text-foreground hover:bg-muted disabled:opacity-60";
 const TAG = "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold";
 
-/** The frame's height: the viewport minus the shell's chrome above and below. */
-const FRAME_HEIGHT =
-  "h-[calc(100dvh-var(--fq-tab-bar-height)-7rem)] lg:h-[calc(100dvh-11.5rem)]";
+// The frame's height: what the shell leaves between its chrome and the
+// bottom bar, MEASURED by the shell (--fq-top-bar) rather than guessed
+// here. The guess this replaced — 7rem below lg, 11.5rem from lg — stopped
+// the frame 90px short of the bottom of a 900px window and ignored the
+// test-account banner on a phone. globals.css, "chrome above a sales
+// screen". ChatLayout keeps its own floor under this, so a very short
+// window scrolls the page rather than crushing the composer.
+const FRAME_HEIGHT = "fq-sales-fill";
 
 const GROUP_TITLE_KEY = {
   [GROUP_NEEDS_REPLY]: "app.salesText.groupNeedsReply",

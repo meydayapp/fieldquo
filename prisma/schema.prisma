@@ -10095,6 +10095,7 @@ model SalesRep {
   leads             SalesLead[]
   leadLinkEvents    SalesLeadLinkEvent[]
   threads           SalesThread[]
+  emailDrafts       SalesEmailDraft[]
   smsMessages       SalesSmsMessage[]
   callAttempts      SalesCallAttempt[]
   /// The number this rep calls from, when one has been bought for them.
@@ -10600,6 +10601,7 @@ model SalesLead {
   updatedAt DateTime @updatedAt
 
   threads      SalesThread[]
+  emailDrafts  SalesEmailDraft[]
   smsMessages  SalesSmsMessage[]
   callAttempts SalesCallAttempt[]
   inboundCalls PlatformVoiceCall[]
@@ -11100,12 +11102,33 @@ model SalesThread {
   replyToken String @unique
 
   lastMessageAt DateTime @default(now())
-  createdAt     DateTime @default(now())
+
+  /// When the prospect last wrote (an inbound message filed here). Only moves
+  /// forward. Null until they have. With `readAt` it is the whole definition
+  /// of "unread": a thread is unread when the prospect wrote after the rep
+  /// last opened it. Kept on the thread rather than derived from the messages
+  /// so the inbox list and the sidebar badge count it without loading bodies.
+  lastInboundAt DateTime?
+
+  /// The instant the rep last opened this thread in the portal. A thread is
+  /// one rep's (salesRepId), so the read marker can live here rather than in
+  /// a per-viewer table the way SalesSmsThreadRead does for the SHARED sales
+  /// number. Null: never opened.
+  readAt DateTime?
+
+  /// Archived by the rep (the inbox's `e`). Hidden from the inbox, never
+  /// deleted, and cleared the moment the prospect writes again — an answer
+  /// to an archived conversation is still an answer.
+  archivedAt DateTime?
+
+  createdAt DateTime @default(now())
 
   messages SalesMessage[]
+  drafts   SalesEmailDraft[]
+  repNotes SalesRepNote[]
 
   @@index([salesRepId, lastMessageAt])
-  repNotes SalesRepNote[]
+  @@index([salesRepId, archivedAt, lastMessageAt])
 }
 
 model SalesMessage {
@@ -11145,6 +11168,21 @@ model SalesMessage {
   /// rather than showing nothing where the prospect sent something.
   attachments Json?
 
+  /// Who else the message went to, comma-separated, verbatim. Null for a
+  /// message with one recipient. Outbound: the Cc the rep chose (reply-all);
+  /// inbound: the Cc the prospect's client reported. Read back by reply-all so
+  /// the next message goes to the same room.
+  ccAddresses String?
+
+  /// Inbound only: how the row was matched to its thread. "token" — the
+  /// reply token in the address we put there (the rule
+  /// lib/sales/outreachInbound.js's header states). "sender" — no token
+  /// arrived, and the From matched exactly one of the rep's leads by address
+  /// (the fallback the same file describes, and its limits). Null on
+  /// outbound rows and on inbound rows written before the column existed,
+  /// all of which were filed by token.
+  filedBy String?
+
   /// When the message actually happened, from the provider's own header where
   /// there is one — not when we wrote the row.
   sentAt DateTime @default(now())
@@ -11152,6 +11190,63 @@ model SalesMessage {
   createdAt DateTime @default(now())
 
   @@index([threadId, sentAt])
+}
+
+/// An email a rep has started and not sent.
+///
+/// ══ Why this is its own table and not a SalesMessage with no sentAt ═══════
+///
+/// A SalesMessage row is the record that mail LEFT (outbound) or ARRIVED
+/// (inbound); lib/sales/outreachSender.js writes one only after Resend has
+/// returned an id, precisely so that no row ever says "sent" for mail that
+/// never left. Every reader of the table — the thread's lastMessageAt, the
+/// inbox's message count, the opt-out scan over inbound bodies, the console's
+/// conversation audit, four check scripts — assumes that. A draft stored as a
+/// message would have to be filtered out of every one of those, and the one
+/// that forgot would show a rep's half-typed sentence as a sent email. A
+/// separate table means nothing needs a `sentAt: { not: null }` it can omit.
+///
+/// A draft that starts a NEW conversation has no thread yet (threadId null,
+/// leadId set); a reply or forward has both. Deleted when sent or discarded —
+/// the one delete in the outreach paths, and it deletes a draft, never a
+/// message or a thread.
+model SalesEmailDraft {
+  id String @id @default(cuid())
+
+  salesRepId String
+  salesRep   SalesRep @relation(fields: [salesRepId], references: [id], onDelete: Cascade)
+
+  leadId String
+  lead   SalesLead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  threadId String?
+  thread   SalesThread? @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  /// "new" | "reply" | "replyAll" | "forward"
+  kind String @default("new")
+
+  /// The recipients the rep chose, comma-separated. Validated at SEND, never
+  /// at save: a draft may hold anything, but only an address on the lead's
+  /// record goes out (lib/sales/emailRecipients.js).
+  toAddresses String?
+  ccAddresses String?
+  subject     String?
+  body        String  @default("")
+
+  /// For a reply or forward: the message being answered or passed on, so
+  /// the send can quote it from the stored copy rather than from the browser.
+  quotedMessageId String?
+
+  /// Attachments the rep picked from the thread — [{ url, filename, mimeType,
+  /// bytes }] in the SalesMessage.attachments shape, always files FieldQuo
+  /// already hosts. Nothing is uploaded from a draft.
+  attachments Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([salesRepId, updatedAt])
+  @@index([threadId])
 }
 
 /// One received email at the Resend Receiving door, whatever became of it.
