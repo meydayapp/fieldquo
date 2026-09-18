@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 17 September 2026 (gutters: the builder measures the gutter run and downspouts from the roof model with sanity flags the review carries; a gutter instant estimate priced per foot and per downspout in the company's currency, seeded from the competitor's four Ottawa/Gatineau points, with EN/FR/ES copy; the estimate email prints the company's currency instead of "CAD" — see the section below)
+Last updated: 17 September 2026 (gutters: the builder measures the gutter run and downspouts from the roof model with sanity flags the review carries; a gutter instant estimate priced per foot and per downspout in the company's currency, seeded from the competitor's four Ottawa/Gatineau points, with EN/FR/ES copy; the estimate email prints the company's currency instead of "CAD"; the paver designer and a shared landscaping canvas measure a traced polygon from the satellite still's own ground resolution — see the two sections below)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -64,6 +64,62 @@ check:estimate-email extended.
   View or the building's height from Solar's DSM could set it; not attempted.
 - Corners and end caps are not counted or priced; a cut-up roof under-prices
   by the mitres.
+## The satellite still measures itself: no reference line first, one canvas for pavers and lawns (18 September 2026)
+
+The paver designer asked the estimator to draw a line along a garage door
+and type its length before a traced patio had an area — on a Google Static
+Maps tile whose metres per pixel the serving route already computed
+(`156543.03 · cos(lat) / 2^zoom / scale`, the `scale=2` retina parameter
+halving the pixel) and returned as JSON beside the URL. QuoteBuilder kept
+the URL and dropped the scale; the maths sat in `lib/measure/satellite.js`
+behind the server-side geocoder import, out of reach of a "use client"
+canvas.
+
+- **`lib/measure/imageScale.js`** — the pure maths, no server imports;
+  `satellite.js` re-exports it so the route sees no change. New on top:
+  `parseStaticMapUrl` / `imageScaleFromUrl` (centre, zoom, scale, size read
+  back off a proxy or Google URL; a Cloudinary copy or an uploaded photo
+  returns null and gets the manual line), `canvasFeetPerUnit` (image
+  pixels → viewBox units under the `slice` fit the canvas has always used —
+  kept because saved paver drawings are in those units), `resolveScale` (a
+  reference line with a typed length beats the automatic scale; a button
+  clears it back), `measurePolygonPixels` / `measureShape` (the engine's
+  shoelace, reported in m² and sq ft). The decoded image size is an ASPECT
+  correction for a guessed size, not a resize correction — a uniform resize
+  cancels out of the mapping, which a surviving mutation proved.
+- **`app/components/quotes/builder/PolygonMeasure.js`** — the one canvas:
+  drawing, keyboard path, scale bar (automatic in green with zoom and
+  latitude named; amber "scale not set" only when neither source exists),
+  shape list, and `usePolygonMeasure` so the parent owns the numbers in the
+  same render. **PaverDesigner** is now the paver layer on it; nothing of
+  the tracing code is duplicated.
+- **`app/components/quotes/builder/LotAreaMeasure.js`** +
+  **`lib/measure/lotTakeoff.js`** — the landscaping layer. One traced
+  surface; `lotIntakePatch` writes `lotSize` (whole sq ft) and `edgingFt`
+  (tenths) into the intake fields the trade's form actually shows —
+  `edgingFt` is new on `landscaping_design` and `lawn_care` only, since a
+  mowing contract has no edging line. The drawing persists under
+  `intakeValues.lotDrawing` (no schema change), the way the paver drawing
+  persists under `takeoff.paverDesign`. QuoteBuilder fetches the aerial for
+  `SITE_IMAGE_TRADES`, not a hardcoded `"paving"`, and hands
+  `siteImageScale` down through TradeTakeoff.
+- **`scripts/check-polygon-scale.mjs`** (`check:polygon-scale`, in
+  `check:all`): a 10 m square at 45.42°N zoom 20 scale 2, drawn in the
+  pixels those imply, returns 100 m² = 1076.4 sq ft and 40 m within 1 %;
+  fewer than three points, NaN vertices, zoom 0, lat 89.9 and a missing
+  scale (Google's default of 1, not ours of 2) return null or a reason,
+  never NaN; every trade offered the canvas has a box for its answer; the
+  scale object provably reaches the designer. Nine mutations caught.
+
+### Still owed here
+
+- The lawn canvas has no per-shape layer choice (lawn vs bed) because no
+  intake field records the distinction; adding one is a product decision.
+- Nothing prices `lotSize` or `edgingFt` in the builder — the landscaping
+  trades quote by line item. The numbers are shown, saved and read back;
+  a landscaping price book would be the next step, not this one.
+
+---
 
 ## "Her leads disappear": the day-end sweep read midnight as the end of an overseas rep's shift; and the queue now draws before it asks (17 September 2026)
 

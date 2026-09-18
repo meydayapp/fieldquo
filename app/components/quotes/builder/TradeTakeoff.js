@@ -1500,7 +1500,7 @@ const PAVING_SURFACES = [
   ["drivewaySqft", "app.paver.surfaceDriveway", "drivewayPricePerSqft", true],
 ];
 
-function PavingTakeoff({ takeoff, book, onChange, siteImageUrl }) {
+function PavingTakeoff({ takeoff, book, onChange, siteImageUrl, siteImageScale }) {
   const money = useCompanyMoney();
   const { t } = useTranslation();
   const level = takeoff.complexityLevel || "standard";
@@ -1545,6 +1545,7 @@ function PavingTakeoff({ takeoff, book, onChange, siteImageUrl }) {
         design={takeoff.paverDesign || null}
         onDesignChange={(paverDesign) => set({ paverDesign })}
         imageUrl={siteImageUrl || ""}
+        imageScale={siteImageScale || null}
       />
 
       <div className="grid gap-2 sm:grid-cols-3">
@@ -3490,6 +3491,13 @@ export default function TradeTakeoff({
   // the designer draws on a blank grid without it, so a quote for a client
   // whose address failed to geocode still measures.
   siteImageUrl = "",
+  // What that tile measures: the scale object /api/measure/satellite returns
+  // beside the URL (feet per pixel, zoom, pixel size). Carried separately
+  // because a URL is not a scale — the permanent Cloudinary copy of a still
+  // has no parameters in it at all — and without this the designer had to
+  // ask the estimator to draw a reference line on an image whose resolution
+  // the route already knew.
+  siteImageScale = null,
   // The client's address, for the trades that measure off it rather than draw
   // on it. Separate from siteImageUrl because a roof is measured by Google's
   // 3-D model, not by tracing a photo — there is nothing to show.
@@ -3504,6 +3512,7 @@ export default function TradeTakeoff({
         book={book}
         onChange={onChange}
         siteImageUrl={siteImageUrl}
+        siteImageScale={siteImageScale}
         siteAddress={siteAddress}
       />
     </div>

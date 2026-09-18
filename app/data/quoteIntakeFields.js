@@ -767,6 +767,10 @@ export const INTAKE_FIELDS = {
   // ── Landscaping / outdoor ──
   landscaping_design: [
     { key: "lotSize", label: "Lot Size (sqft)", type: "number" },
+    // Filled by the outline of the area traced on the aerial photo
+    // (lib/measure/lotTakeoff.js), or typed. Bed and lawn edging is bought by
+    // the linear foot, and the trace already knows the length.
+    { key: "edgingFt", label: "Edging / Border (linear ft)", type: "number" },
     {
       key: "terrain",
       label: "Terrain",
@@ -778,6 +782,7 @@ export const INTAKE_FIELDS = {
   ],
   lawn_care: [
     { key: "lotSize", label: "Lot Size (sqft)", type: "number" },
+    { key: "edgingFt", label: "Edging (linear ft)", type: "number" },
     {
       key: "frequency",
       label: "Frequency",
