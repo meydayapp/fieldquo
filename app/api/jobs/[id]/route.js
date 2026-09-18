@@ -26,6 +26,9 @@ import {
   settleGuardedWrite,
 } from "@/lib/concurrency/staleWrite";
 import { geocodeJob, normaliseSiteAddress, siteAddressChanged } from "@/lib/geo/geocodeJob";
+import { withWarranty } from "@/lib/equipment/warranty";
+import { warrantyLinkVerdict } from "@/lib/equipment/installed";
+import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
 import { syncJobRoom } from "@/lib/company/chat/store";
 
 // Next 16: params is a Promise.
@@ -107,11 +110,37 @@ export async function GET(request, { params }) {
       // Both directions of a callback: what this job was a return FOR, and
       // what returns THIS job has already spawned.
       originalJob: { select: { id: true, title: true, completedAt: true } },
-      callbackJobs: { select: { id: true, title: true, status: true, callbackReason: true, createdAt: true } },
+      callbackJobs: {
+        select: {
+          id: true,
+          title: true,
+          status: true,
+          callbackReason: true,
+          createdAt: true,
+          warrantyEquipment: { select: { id: true, name: true } },
+        },
+      },
+      // The client's equipment a WARRANTY callback is about — see
+      // Job.warrantyEquipmentId. The warranty state is computed below on the
+      // server, by the one function every equipment screen uses, so the
+      // banner can never read a blank date as "expired".
+      warrantyEquipment: {
+        select: {
+          id: true,
+          clientId: true,
+          name: true,
+          manufacturer: true,
+          modelNumber: true,
+          warrantyEndsAt: true,
+        },
+      },
     },
   });
 
   if (!job) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (job.warrantyEquipment) {
+    job.warrantyEquipment = withWarranty(job.warrantyEquipment, { asOf: new Date() });
+  }
 
   // ── The job is a crew member's door onto the client record ──────────────
   //
@@ -155,7 +184,32 @@ export async function PATCH(request, { params }) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const body = await request.json();
-  const { title, status, recurring, recurrenceRule, archived, startDate, endDate, siteAddress } = body;
+  const { title, status, recurring, recurrenceRule, archived, startDate, endDate, siteAddress, warrantyEquipmentId } = body;
+
+  // ── Which equipment a warranty callback is about ──────────────────────────
+  //
+  // Only a warranty callback may carry one, and only the same client's row —
+  // lib/equipment/installed.js holds both rules so the job page's picker and
+  // this refusal cannot disagree. `null` clears it; absent leaves it alone.
+  // Proved as the company's first (lib/tenant/ownedIds.js) so the verdict
+  // never sees another tenant's row, then narrowed to the job's client.
+  if (warrantyEquipmentId !== undefined && warrantyEquipmentId !== null && warrantyEquipmentId !== "") {
+    if (typeof warrantyEquipmentId !== "string") {
+      return NextResponse.json({ error: "That equipment record wasn't found." }, { status: 404 });
+    }
+    const badEquipment = await ownedIdsRefusal(NextResponse, db, member.companyId, {
+      clientEquipmentId: warrantyEquipmentId,
+    });
+    if (badEquipment) return badEquipment;
+    const equipment = await db.clientEquipment.findFirst({
+      where: { id: warrantyEquipmentId, companyId: member.companyId },
+      select: { id: true, clientId: true },
+    });
+    const verdict = warrantyLinkVerdict({ job: existing, equipment });
+    if (!verdict.ok) return NextResponse.json({ error: verdict.error }, { status: verdict.status });
+  }
+  const nextWarrantyEquipmentId =
+    warrantyEquipmentId === undefined ? undefined : warrantyEquipmentId || null;
 
   // The site address is geocoded ONLY when it changes — the edit form sends
   // every field on every save, and a Google call per save of an unrelated
@@ -245,6 +299,7 @@ export async function PATCH(request, { params }) {
         ...(recurrenceRule !== undefined && { recurrenceRule }),
         ...(startDate !== undefined && { startDate: nextStart }),
         ...(endDate !== undefined && { endDate: nextEnd }),
+        ...(nextWarrantyEquipmentId !== undefined && { warrantyEquipmentId: nextWarrantyEquipmentId }),
         // Archiving is a separate axis from status — see Job.archivedAt. A job
         // can be archived whatever state the work is in, and unarchiving is
         // just as available, because nothing was destroyed.

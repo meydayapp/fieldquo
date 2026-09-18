@@ -75,6 +75,8 @@ export default function TimeClockPage() {
   // The explanation renders only in that state — once permission is granted
   // there is nothing to warn about, and once refused there is nothing to ask.
   const [locationState, setLocationState] = useState("unavailable");
+  const [enrolling, setEnrolling] = useState(false);
+  const [enrolError, setEnrolError] = useState("");
 
   // ── A failed load must not read as "you're clocked out" ──────────────
   //
@@ -112,6 +114,28 @@ export default function TimeClockPage() {
   useEffect(() => {
     load().finally(() => setLoading(false));
   }, [load]);
+
+  // The one write this screen makes that is not a punch. On success the
+  // whole payload is re-read, so the clock draws itself from the row the
+  // server now has rather than from a guess about it.
+  const selfEnrol = useCallback(async () => {
+    setEnrolling(true);
+    setEnrolError("");
+    try {
+      const res = await fetch("/api/time-clock/enrol", { method: "POST" });
+      if (!res.ok) {
+        const message = await reportResponseError(
+          res,
+          t("app.clock.selfEnrolFailed", "Couldn't set you up."),
+        );
+        setEnrolError(message || t("app.clock.selfEnrolFailed", "Couldn't set you up."));
+        return;
+      }
+      await load();
+    } finally {
+      setEnrolling(false);
+    }
+  }, [load, t]);
 
   useEffect(() => {
     let cancelled = false;
@@ -211,13 +235,51 @@ export default function TimeClockPage() {
   }
 
   // Not linked to a worker record — say so plainly instead of a dead button.
+  //
+  // Unless the person IS the admin they would be asking. An owner, admin or
+  // supervisor (the authority that adds anybody under Team → Workers) is
+  // offered "Set yourself up to clock in", which creates their own Worker row
+  // through the same path invite acceptance uses — no pay rate, no seat; see
+  // lib/timeclock/selfEnrol.js. `canSelfEnrol` comes from the server.
   if (data && data.worker === null) {
     return (
       <div className="max-w-md mx-auto p-4 sm:p-6">
         <div className="rounded-2xl border border-border bg-card p-6 text-center">
           <Clock className="mx-auto mb-3 text-muted-foreground" size={28} />
           <h1 className="text-lg font-bold text-foreground">{t("app.clock.title")}</h1>
-          <p className="mt-2 text-sm text-muted-foreground">{t("app.clock.notWorker")}</p>
+          {data.canSelfEnrol ? (
+            <>
+              <p className="mt-2 text-sm text-muted-foreground">
+                {t(
+                  "app.clock.selfEnrolIntro",
+                  "You don't have a worker record yet, so there's nothing for your hours to land on. You can create your own.",
+                )}
+              </p>
+              <p className="mt-2 text-xs text-muted-foreground">
+                {t(
+                  "app.clock.selfEnrolTerms",
+                  "This creates your worker record, linked to your login, with no pay rate — whoever runs payroll sets that under Team → Workers. It doesn't use a seat: you're already a member.",
+                )}
+              </p>
+              {enrolError && (
+                <p role="alert" className="mt-2 text-sm text-red-700 dark:text-red-300">
+                  {enrolError}
+                </p>
+              )}
+              <button
+                type="button"
+                onClick={selfEnrol}
+                disabled={enrolling}
+                className="mt-4 w-full bg-inverted text-inverted-foreground rounded-xl py-3 text-sm font-semibold disabled:opacity-60 min-h-[48px]"
+              >
+                {enrolling
+                  ? t("app.clock.selfEnrolling", "Setting you up…")
+                  : t("app.clock.selfEnrol", "Set yourself up to clock in")}
+              </button>
+            </>
+          ) : (
+            <p className="mt-2 text-sm text-muted-foreground">{t("app.clock.notWorker")}</p>
+          )}
         </div>
       </div>
     );

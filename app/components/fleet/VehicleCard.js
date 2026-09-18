@@ -66,6 +66,9 @@ const ASSET_REASON_FALLBACK = {
   disposed: "Sold or written off",
   inactive: "Not in use",
   incomplete: "Missing details",
+  // A van added from this screen with the price left blank — see
+  // lib/assets/create.js. Its own reason, never "fully written down".
+  no_cost_recorded: "No purchase price recorded",
 };
 
 export default function VehicleCard({
@@ -311,7 +314,13 @@ export default function VehicleCard({
             {canSeeCost && row.asset && (
               <>
                 <dt className="text-muted-foreground">{t("app.fleet.cost", "Cost")}</dt>
-                <dd className="text-foreground text-right">{money(row.asset.cost)}</dd>
+                <dd className="text-foreground text-right">
+                  {/* A 0 here is "not recorded", not free — the fleet door
+                      lets a van in without a price. Never printed as $0. */}
+                  {Number(row.asset.cost) > 0
+                    ? money(row.asset.cost)
+                    : t("app.fleet.notRecorded", "Not recorded")}
+                </dd>
                 <dt className="text-muted-foreground">
                   {t("app.fleet.bookValue", "Book value now")}
                 </dt>
@@ -333,6 +342,14 @@ export default function VehicleCard({
               </>
             )}
           </dl>
+
+          {/* The door that keeps "price optional" from being a dead end: a
+              cost-basis writer can add what the van cost right here, through
+              the register's own PATCH, and the charge starts on the next
+              read. Drawn only for an unpriced row. */}
+          {canSeeCost && canManageAssets && row.asset && !(Number(row.asset.cost) > 0) && (
+            <AddCostForm assetId={row.asset.id} onSaved={onChanged} />
+          )}
 
           {canEdit && !editing && (
             <div className="flex flex-wrap gap-2">
@@ -423,5 +440,62 @@ export default function VehicleCard({
         </div>
       )}
     </div>
+  );
+}
+
+function AddCostForm({ assetId, onSaved }) {
+  const { t } = useTranslation();
+  const [cost, setCost] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  async function submit(e) {
+    e.preventDefault();
+    setError("");
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/assets/${assetId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cost }),
+      });
+      if (!res.ok) {
+        const message = await reportResponseError(res, t("app.fleet.saveFailed", "Couldn't save that."));
+        setError(message || t("app.fleet.saveFailed", "Couldn't save that."));
+        return;
+      }
+      // The asset route answers with the asset, not the fleet; hand back
+      // nothing so the page re-reads the whole fleet (its own contract).
+      onSaved?.(null);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <form onSubmit={submit} className="flex flex-wrap items-end gap-2 rounded-lg border border-border p-3">
+      <label className="block text-xs text-muted-foreground flex-1 min-w-[10rem]">
+        {t("app.fleet.addCost", "Add what it cost")}
+        <input
+          className="w-full border border-border rounded-lg px-3 py-2.5 text-sm bg-card text-foreground mt-1"
+          inputMode="decimal"
+          value={cost}
+          onChange={(e) => setCost(e.target.value)}
+          required
+        />
+      </label>
+      <button
+        type="submit"
+        disabled={saving}
+        className="bg-inverted text-inverted-foreground rounded-lg px-4 py-2.5 text-sm font-semibold disabled:opacity-60 min-h-[44px]"
+      >
+        {saving ? t("app.action.saving", "Saving…") : t("app.action.save", "Save")}
+      </button>
+      {error && (
+        <p role="alert" className="w-full text-sm text-red-700 dark:text-red-300">
+          {error}
+        </p>
+      )}
+    </form>
   );
 }

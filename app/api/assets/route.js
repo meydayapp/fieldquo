@@ -35,46 +35,14 @@ import {
   requireCostBasisWrite,
 } from "@/lib/permissions/costBasis";
 import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
-import { assetCharge } from "@/lib/accounting/depreciation";
 import { recordActivity } from "@/lib/activity/log";
-import { isAssetCategory } from "@/lib/costing/assetLifeSuggestions";
-
-const SELECT = {
-  id: true,
-  name: true,
-  cost: true,
-  salvageValue: true,
-  inServiceDate: true,
-  usefulLifeMonths: true,
-  disposedOn: true,
-  active: true,
-  debtId: true,
-  notes: true,
-  category: true,
-  debt: { select: { id: true, name: true, monthlyPayment: true } },
-};
-
-/**
- * The row plus what it currently charges.
- *
- * Computed here rather than left to the browser: the same maths already
- * decides the company's price floor on the server, and a second copy in
- * client JavaScript is the copy that drifts — the screen would then disagree
- * with the number it is explaining.
- */
-function withCharge(row, asOf) {
-  const charge = assetCharge(row, asOf);
-  return {
-    ...row,
-    monthlyDepreciation: Math.round(charge.monthly * 100) / 100,
-    accumulatedDepreciation: Math.round(charge.accumulated * 100) / 100,
-    bookValue: Math.round(charge.bookValue * 100) / 100,
-    chargeable: charge.chargeable,
-    // Why the charge is what it is. A $0 with no reason beside it reads as a
-    // broken screen; "sold in March" reads as an answer.
-    chargeReason: charge.reason,
-  };
-}
+import {
+  ASSET_SELECT,
+  withCharge,
+  parseAssetBody,
+  createAssetRow,
+  assetAddedActivity,
+} from "@/lib/assets/create";
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -90,7 +58,7 @@ export async function GET(request) {
 
   const rows = await db.asset.findMany({
     where: { companyId: member.companyId },
-    select: SELECT,
+    select: ASSET_SELECT,
     orderBy: { createdAt: "desc" },
   });
 
@@ -115,93 +83,23 @@ export async function POST(request) {
   }
 
   const body = await request.json().catch(() => ({}));
-  const name = typeof body?.name === "string" ? body.name.trim() : "";
-  const cost = Number(body?.cost);
-  const salvageValue = body?.salvageValue === "" || body?.salvageValue == null
-    ? 0
-    : Number(body.salvageValue);
-  const usefulLifeMonths = Number(body?.usefulLifeMonths);
-  const debtId = body?.debtId || null;
-
-  if (!name) {
-    return NextResponse.json(
-      { error: "Give the asset a name — the truck, the trailer, the spray rig." },
-      { status: 400 },
-    );
-  }
-  // `> 0`: a zero-cost asset depreciates nothing and would sit in the register
-  // changing no number on the screen it was entered from — a row that appears
-  // to work and doesn't.
-  if (!Number.isFinite(cost) || cost <= 0) {
-    return NextResponse.json(
-      { error: "Enter what it cost, greater than zero." },
-      { status: 400 },
-    );
-  }
-  if (!Number.isFinite(salvageValue) || salvageValue < 0) {
-    return NextResponse.json(
-      { error: "Salvage value can't be negative." },
-      { status: 400 },
-    );
-  }
-  // Refused rather than clamped. A salvage value above cost means the item
-  // appreciates, the depreciable base would be negative, and a negative charge
-  // would LOWER the company's price floor. The library floors it at zero as a
-  // last defence; the person typing it deserves to be told instead.
-  if (salvageValue >= cost) {
-    return NextResponse.json(
-      { error: "Salvage value has to be less than what it cost — otherwise there's nothing to depreciate." },
-      { status: 400 },
-    );
-  }
-  // No default life. Inventing five years for a blank field is padding absent
-  // data with a default, and the output is a price floor (AGENTS.md #5).
-  // 600 months is fifty years, past which this is a building, not equipment.
-  if (!Number.isInteger(usefulLifeMonths) || usefulLifeMonths < 1 || usefulLifeMonths > 600) {
-    return NextResponse.json(
-      { error: "How many months will you get out of it? Between 1 and 600." },
-      { status: 400 },
-    );
-  }
-
-  const inServiceDate = body?.inServiceDate ? new Date(body.inServiceDate) : new Date();
-  if (Number.isNaN(inServiceDate.getTime())) {
-    return NextResponse.json({ error: "That in-service date isn't a date." }, { status: 400 });
-  }
+  // The rules — a cost above zero, salvage below it, a life between 1 and
+  // 600 months, no invented life — live in lib/assets/create.js, shared with
+  // the fleet screen's own "Add a vehicle" door. The register never relaxes
+  // the cost rule: see that file's header for the one door that does.
+  const parsed = parseAssetBody(body);
+  if (parsed.error) return NextResponse.json({ error: parsed.error }, { status: 400 });
 
   // The linked loan has to be OURS. Without this a hand-written POST could
   // point an asset at another tenant's Debt row, and the response below
   // includes that debt's name and payment.
+  const { debtId } = parsed.data;
   const badLink = await ownedIdsRefusal(NextResponse, db, member.companyId, { debtId });
   if (badLink) return badLink;
 
-  const created = await db.asset.create({
-    data: {
-      companyId: member.companyId,
-      name,
-      cost,
-      salvageValue,
-      usefulLifeMonths,
-      inServiceDate,
-      debtId,
-      notes: typeof body?.notes === "string" ? body.notes.trim() || null : null,
-      // A recognised key or null — never whatever string the browser sent.
-      // lib/costing/assetLifeSuggestions.js is the ONLY place that offers a
-      // life-months SUGGESTION for a category, and it never writes
-      // usefulLifeMonths itself; the form above already required the person
-      // to type or accept one before this request could be sent.
-      category: isAssetCategory(body?.category) ? body.category : null,
-    },
-    select: SELECT,
-  });
+  const created = await createAssetRow(db, { companyId: member.companyId, data: parsed.data });
 
-  await recordActivity(member, {
-    action: "settings.asset_added",
-    entityType: "settings",
-    entityId: created.id,
-    summary: `Added asset ${name} at $${cost} over ${usefulLifeMonths} months`,
-    metadata: { name, cost, usefulLifeMonths, linkedToDebt: !!debtId },
-  });
+  await recordActivity(member, assetAddedActivity(created));
 
   return NextResponse.json(withCharge(created, new Date()), { status: 201 });
 }

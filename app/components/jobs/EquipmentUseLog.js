@@ -1,6 +1,6 @@
 // app/components/jobs/EquipmentUseLog.js
 //
-// Which of the company's equipment was on this job, logged as fast as
+// Which of the COMPANY's equipment was on this job, logged as fast as
 // ticking a materials box — see app/api/jobs/[id]/asset-use/route.js for why
 // this is gated the same way (jobs:view_only, not the asset register's
 // stricter cost-basis gate): saying "the compressor came along today" is not
@@ -11,6 +11,12 @@
 // represents (if any lands on this job at all) shows on JobCosting's own
 // panel, which is the one place that already knows whether the company's
 // overhead is absorbing it.
+//
+// Titled "Company equipment used", not "Equipment used": the owner opened
+// this panel looking for the furnace he had just installed at the client's
+// house and its warranty, which is a different table (ClientEquipment) and
+// the panel beside this one — app/components/jobs/InstalledEquipment.js.
+// The word "Company" in the title is what keeps the two apart on a phone.
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
@@ -80,7 +86,7 @@ export default function EquipmentUseLog({ jobId }) {
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
           <Wrench size={15} />
-          {t("app.jobEquipment.title", "Equipment used")}
+          {t("app.jobEquipment.title", "Company equipment used")}
         </h3>
         {!adding && data.assets.length > 0 && (
           <button

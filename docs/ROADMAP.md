@@ -1,12 +1,82 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 17 September 2026 (gutters: the builder measures the gutter run and downspouts from the roof model with sanity flags the review carries; a gutter instant estimate priced per foot and per downspout in the company's currency, seeded from the competitor's four Ottawa/Gatineau points, with EN/FR/ES copy; the estimate email prints the company's currency instead of "CAD"; the paver designer and a shared landscaping canvas measure a traced polygon from the satellite still's own ground resolution; a quote schedules the estimator's on-site visit as an Appointment with quoteId, confirmed to the client in the quote's language and carried into the job's history — see the three sections below)
+Last updated: 17 September 2026 (three back-office gaps the owner hit: the job page carries the CLIENT's installed equipment and its warranty beside the company's own kit, and a warranty callback names the piece it is about; /app/fleet has an always-visible "Add a vehicle" that creates the register row and the fleet record in one transaction, price optional and said so; the owner, admins and supervisors can set THEMSELVES up to clock in — see the section below, then gutters / paver canvas / site visits)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
 it exists to answer.
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
+
+---
+
+## Three gaps the owner hit in /app: the client's furnace on the job page, an Add button on Vehicles, and a clock the owner can use (17 September 2026)
+
+**What**:
+
+1. **"Installed at this site" on the job page.** The panel that was titled
+   "Equipment used" logs the COMPANY's own assets (AssetUseLog — that is why
+   the demo Ram 3500 appeared); the owner opened it looking for the furnace he
+   had just put in and its warranty, which is `ClientEquipment`. The job page
+   now carries both: the first is retitled **"Company equipment used"** in all
+   nine languages, and beside it **"Installed at this site"**
+   (app/components/jobs/InstalledEquipment.js) lists the client's kit at the
+   job's address with the server-computed warranty state (null = "unknown",
+   never "expired"), rows at the client's other addresses under their own
+   heading, and **"Record what we installed"** — a form that creates the
+   ClientEquipment row with `installedByJobId` pinned to the job, `installedAt`
+   starting as the job's completion date (then end date, then blank — never
+   today), and a warranty LENGTH picker (don't know / 1 / 2 / 5 / 10 years /
+   a date) counted from the install date (lib/equipment/installed.js). Both
+   the client route and the new `GET/POST /api/jobs/[id]/equipment` write
+   through lib/equipment/create.js. A crew member at `name_address_only` is
+   refused by the route and the panel draws nothing. **Warranty callbacks**:
+   `Job.warrantyEquipmentId` (new column, SetNull) — chosen on the New Job
+   form when the reason is "warranty", or from the job page's panel
+   afterwards; the callback banner then says "About: Furnace — Covered until
+   …" with a link to the client record. Refused for any other reason and for
+   another client's row (`warrantyLinkVerdict`).
+2. **/app/fleet "Add a vehicle".** Always visible for a cost-basis writer
+   (`canManageAssets`, answered by the server); the form offers "A new one —
+   not in the register yet" and creates the Asset (category pinned to
+   `vehicle`) and the VehicleDetail in ONE transaction through the register's
+   own parser, now shared as lib/assets/create.js (`parseAssetBody`,
+   `createAssetRow`) — /api/assets POST and PATCH use the same file. The
+   purchase price is optional on this door only: blank is stored as 0 and
+   reported as a new depreciation reason `no_cost_recorded` (never "fully
+   depreciated"), the card prints "Not recorded" rather than $0, and offers
+   **"Add what it cost"** (PATCH /api/assets/[id] now accepts the cost basis
+   in partial mode) so the blank is never permanent. A member who may edit
+   vans but not the register sees exactly what they saw before.
+3. **/app/clock for the owner.** An owner, admin or supervisor with no Worker
+   row is offered **"Set yourself up to clock in"**, with the terms said first:
+   the row is created through lib/team/ensureWorker.js (linked by userId, name
+   from the user, type employee, NO pay rate — payroll sets that under Team →
+   Workers) and it uses no seat, because seats are counted off members
+   (lib/pricing/ladder.js), proved with the real `countSeats`. A login already
+   linked to a worker at another company is refused (409). Employees keep
+   today's sentence. `POST /api/time-clock/enrol`; `GET /api/time-clock`
+   answers `canSelfEnrol` so the button is never drawn on a guess.
+
+**Checks**: check:installed-equipment (new — 64 assertions: the length →
+date rule incl. leap day, the never-today default, site partition, the
+warranty-only link rule, the pinned write path against a two-tenant fake db,
+and the two panels' titles), check:equipment-fleet §10 (the register's rules
+through the fleet door, the one relaxation, `no_cost_recorded`, the screen's
+gating), check:clock-self-enrol (new — 37 assertions), check:crew-access
+taught the equipment gate, check:depreciation still 175/175.
+
+### Still owed here
+
+- The job page's "Installed at this site" lists and creates; editing a row or
+  logging a service visit still happens on the client page (linked from each
+  row). A "Log a service visit" button on the job panel is the obvious next
+  step.
+- `de`, `zh` and `it` are recorded as complete in check:app-catalogue but
+  carry 29 absent keys from an earlier session (app.fleet.doc*,
+  app.setExpenses.vehicle*, app.fleet.costPerKm* …). Not this session's; this
+  session's keys are in all nine. check:time-clock-job's fixture lacks
+  `timeEntry.breaks` and crashes on main too.
 
 ---
 

@@ -4433,6 +4433,18 @@ model Job {
   /// without the other.
   callbackReason String?
 
+  /// WHICH piece of the client's installed equipment a WARRANTY callback is
+  /// about — the furnace, the unit — so the job page can say "covered until
+  /// 2029" beside the work rather than leaving whoever books it to open the
+  /// client record and guess. Optional even on a warranty callback: the
+  /// company may never have recorded the kit. Only meaningful when
+  /// `callbackReason` is "warranty"; the API refuses it for any other reason,
+  /// because a rework job "about" a water heater says nothing a person meant.
+  /// SetNull: deleting the equipment record must not delete the job that
+  /// went back for it. See lib/equipment/installed.js.
+  warrantyEquipmentId String?
+  warrantyEquipment   ClientEquipment? @relation("WarrantyCallbackEquipment", fields: [warrantyEquipmentId], references: [id], onDelete: SetNull)
+
   /// Scope changes agreed after the original quote was accepted. See
   /// ChangeOrder's own header for why this is a deliberate log a person
   /// writes, never inferred from a quote or invoice edit.
@@ -4497,6 +4509,8 @@ model Job {
   /// cron, the job-completed follow-up rule and the completion tasks all
   /// skip rows with this set.
   historicalImportedAt DateTime?
+
+  @@index([warrantyEquipmentId])
 }
 
 /// The client-facing satisfaction survey: one rating (1–5), one optional
@@ -12879,6 +12893,10 @@ model ClientEquipment {
   updatedAt DateTime @updatedAt
 
   services ClientEquipmentService[]
+
+  /// Warranty callback jobs booked against this piece of kit — see
+  /// Job.warrantyEquipmentId.
+  warrantyCallbackJobs Job[] @relation("WarrantyCallbackEquipment")
 
   @@index([companyId, clientId])
   @@index([companyId, warrantyEndsAt])
