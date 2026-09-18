@@ -381,7 +381,11 @@ section("6. The test account: same path, same mark, its own words");
   ok("the window chip says \"not applied to you\" beside the test caveat — a typed test line, or a test account on every dial", /<WindowTag compliance=\{compliance\} row=\{currentRow\} notApplied=\{testAccount \|\| \(typedUnsaved && typedIsTestLine\)\} \/>/.test(queuePage) && /if \(notApplied\) parts\.push\(t\("app\.salesQueue\.windowTagNotApplied"\)\);/.test(queuePage) && /data-window-not-applied=\{notApplied \? "1" : undefined\}/.test(queuePage));
   ok("…in every language", ["en", "fr", "es", "uk", "pa", "tl", "de", "zh", "it"].every((l) => typeof APP_MESSAGES[l]["app.salesQueue.windowTagNotApplied"] === "string" && APP_MESSAGES[l]["app.salesQueue.windowTagNotApplied"].length > 0));
   const panel = decomment(read("app/components/sales/CallPanel.js"));
-  ok("CallPanel prints callLabel before the business on the button and the on-call line, and sends typedE164 only when set", (panel.match(/name: callLabel \|\| businessName \|\| phoneE164/g) || []).length === 2 && /\.\.\.\(dialTarget\.typedE164 \? \{ typedE164: dialTarget\.typedE164 \} : \{\}\),/.test(panel));
+  const session = decomment(read("app/components/sales/CallSession.js"));
+  // 2026-09-18: the Call button names callLabel in CallPanel; the on-call
+  // line is the strip's, and it reads `live.label`, which the session maps
+  // from the call's own target — callLabel before the business.
+  ok("the Call button names callLabel before the business, the on-call line reads the session's callLabel, and typedE164 is sent only when set", /name: callLabel \|\| businessName \|\| phoneE164/.test(panel) && /label: outbound\.target\.callLabel \|\| outbound\.target\.businessName \|\| outbound\.to/.test(session) && /callLabel: target\?\.callLabel \|\| null/.test(session) && /\.\.\.\(dialTarget\.typedE164 \? \{ typedE164: dialTarget\.typedE164 \} : \{\}\),/.test(panel));
   // `dialTarget` since d2f99b2b: the target the panel is pinned to for the
   // life of the call it placed, which is `target` until a call is up.
   ok("DialRegion passes dialTarget.callLabel through", /callLabel=\{dialTarget\.callLabel \|\| null\}/.test(decomment(read("app/components/sales/DialRegion.js"))));

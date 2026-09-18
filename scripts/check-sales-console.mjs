@@ -826,8 +826,12 @@ section("7. Six tabs, and all six on a 375px screen");
     const at = consoleSrc.indexOf("const onDialKey = useCallback(");
     return at >= 0 ? consoleSrc.slice(at, consoleSrc.indexOf("\n  }, [", at)) : "";
   })();
-  ok("DTMF only while a call is up AND the SDK offers sendDigits; otherwise the key types", /if \(call && typeof call\.sendDigits === "function"\) \{\s*call\.sendDigits\(key\);\s*return;/.test(keyHandler) && /setTyped\(/.test(keyHandler));
-  ok("…and the live call reaches the page only through CallPanel's onLiveCall", /onLiveCall\?\.\(call\)/.test(panel) && /onLiveCall\?\.\(null\)/.test(panel));
+  const callSessionSrc = codeOnly(read("app/components/sales/CallSession.js"));
+  // 2026-09-18: the live call is the shell's (CallSession); the keypad sends
+  // DTMF through the session's sendDigits, which feature-detects the SDK and
+  // answers false when there is no call — the key then types.
+  ok("DTMF only while a call is up AND the session can send; otherwise the key types", /if \(sendDigitsRef\.current\(key\)\) return;/.test(keyHandler) && /setTyped\(/.test(keyHandler) && /if \(!call \|\| typeof call\.sendDigits !== "function"\) return false;/.test(callSessionSrc));
+  ok("…and the page reads the live call off the session, never holding a Call itself", /const callSession = useCallSession\(\);/.test(consoleSrc) && /const liveCallUp = Boolean\(callSession\.live\)/.test(consoleSrc) && !/onLiveCall/.test(consoleSrc));
 
   // The client pre-check and the server's normaliser must agree, on hostile
   // input as well as on numbers. Run, not read.

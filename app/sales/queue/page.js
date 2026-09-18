@@ -332,6 +332,7 @@ import CallbacksStrip, { usePromisedCallbacks } from "@/app/components/sales/Cal
 import { CallHistoryStrip, LastTimeLine, useCallHistory } from "@/app/components/sales/CallHistory";
 import { useSalesSearch } from "@/app/components/sales/SalesSearch";
 import { useConsoleSlots } from "@/app/components/sales/consoleSlots";
+import { useCallSession } from "@/app/components/sales/CallSession";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { notify } from "@/lib/notify/browser";
 
@@ -2586,14 +2587,13 @@ function QueueConsole() {
   // What the Call button names when the number is not one of the record's:
   // the number itself, as read aloud. For a stored number, today's label.
   const callLabel = typedUnsaved ? formatE164ForReading(typedE164) : null;
-  // The live outbound call, for DTMF. Set by CallPanel through onLiveCall;
-  // never used to start or end a call.
-  const liveCallRef = useRef(null);
-  const [liveCallUp, setLiveCallUp] = useState(false);
-  const onLiveCall = useCallback((call) => {
-    liveCallRef.current = call || null;
-    setLiveCallUp(Boolean(call));
-  }, []);
+  // The live call, for DTMF — whichever direction, read off the shell's
+  // session (CallSession.js). Never used to start or end a call: the
+  // keypad sends tones through `sendDigits`, and that is all it can do.
+  const callSession = useCallSession();
+  const liveCallUp = Boolean(callSession.live);
+  const sendDigitsRef = useRef(callSession.sendDigits);
+  sendDigitsRef.current = callSession.sendDigits;
   // A Dial button beside a number on the Company or Contact card: the
   // number goes into the display and the press goes to CallPanel — the
   // same place("browser"), the same beforeDial, the same gate. This is the
@@ -2664,14 +2664,11 @@ function QueueConsole() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [callNowPending, current?.id, fetching, prospectId]);
   const onDialKey = useCallback((key) => {
-    const call = liveCallRef.current;
-    // DTMF only while a call is up AND the SDK offers it — feature-detected,
-    // so a Call object without sendDigits (a handset dial, an older SDK)
-    // falls through to typing rather than throwing on a keypad press.
-    if (call && typeof call.sendDigits === "function") {
-      call.sendDigits(key);
-      return;
-    }
+    // DTMF only while a call is up AND the SDK offers it — the session
+    // feature-detects sendDigits and answers false for a Call object
+    // without it (a handset dial, an older SDK), so the press falls
+    // through to typing rather than throwing.
+    if (sendDigitsRef.current(key)) return;
     setTyped((v) => (v + key).slice(0, 24));
     setTypedError("");
   }, []);
@@ -3069,8 +3066,8 @@ function QueueConsole() {
     () => ({ script: scriptSlot, disposition: dispositionSlot, nextSteps: nextStepsSlot, contact: contactSlot }),
     [scriptSlot, dispositionSlot, nextStepsSlot, contactSlot],
   );
-  // Where an ANSWERED inbound call is drawn — the Dialer card's live-call
-  // slot, registered with the shell's IncomingCallDock (consoleSlots.js).
+  // Where the live call is drawn — the Dialer card's live-call slot,
+  // registered with the shell's LiveCallStrip (consoleSlots.js).
   const consoleSlots = useConsoleSlots();
   const setLiveCallNode = consoleSlots?.setLiveCallNode;
   const liveCallSlotRef = useCallback(
@@ -3302,8 +3299,10 @@ function QueueConsole() {
               }
             />
 
-            {/* Where an answered inbound call is drawn (consoleSlots.js).
-                Empty until IncomingCallDock portals into it. */}
+            {/* Where the live call is drawn, outbound or inbound
+                (consoleSlots.js). Empty until LiveCallStrip portals the
+                call's controls into it — the clock, Mute, Hang up,
+                Transfer, Text them, Email — in place of the Call button. */}
             <div ref={liveCallSlotRef} data-live-call-slot />
 
             {/* ── The Call button, or the reason there is not one ────────
@@ -3338,7 +3337,6 @@ function QueueConsole() {
               slots={slots}
               compact
               beforeDial={beforeDial}
-              onLiveCall={onLiveCall}
               dialRequest={dialRequest}
             />
             {current ? <CapLine compliance={compliance} /> : null}

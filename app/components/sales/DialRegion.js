@@ -49,7 +49,7 @@
 // chooses an icon, and the mount carries no href.
 "use client";
 
-import { useCallback, useState } from "react";
+import { useEffect, useState } from "react";
 import { Ban, CircleHelp, Clock, PhoneOff, ShieldAlert } from "lucide-react";
 import { CALL_ALLOWED, CALL_REFUSED } from "@/lib/sales/callingRules";
 import {
@@ -62,6 +62,7 @@ import {
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { weekdayName } from "@/lib/format/localeDate";
 import CallPanel from "./CallPanel";
+import { useCallSession } from "./CallSession";
 import CallConsolePreview from "./CallConsolePreview";
 import PlaybookMount from "./PlaybookMount";
 import TextThemButton from "./TextThem";
@@ -283,11 +284,11 @@ export default function DialRegion({
   // two". The DECISION is unchanged and the sentences are the same
   // sentences; only where they sit. False on the lead screen.
   compact = false,
-  // Passed straight through to CallPanel — see its header for both. This
-  // file decides nothing about a typed number either.
+  // Passed straight through to CallPanel — see its header for all three.
+  // This file decides nothing about a typed number either.
   beforeDial = null,
-  onLiveCall = null,
   dialRequest = null,
+  writeUpExtra = null,
 }) {
   const { t } = useTranslation();
 
@@ -338,19 +339,23 @@ export default function DialRegion({
   // 23:00 Pacific the window shut while the owner was mid-call: the
   // thirty-second tick re-read the decision, `space.state` flipped to
   // refused, the CallPanel unmounted, and its unmount cleanup — "leaving the
-  // screen must not leave a call up" — hung up on a live customer. So the
-  // target the call was placed on is frozen here the moment the SDK reports
-  // a call, and the panel stays mounted on it until the call ends, whatever
-  // the window says in the meantime. The button to START another call is
-  // still governed by the server on every press.
+  // screen must not leave a call up" — hung up on a live customer. The call
+  // is the shell's now (CallSession.js) and no unmount ends it, so this is
+  // no longer what keeps the customer on the line; it is what keeps the
+  // SCREEN honest — the target the call was placed on stays up, with its
+  // script and its write-up, until the call ends, whatever the window says
+  // in the meantime. The button to START another call is still governed
+  // by the server on every press.
+  const session = useCallSession();
+  const outboundUp = Boolean(session.outbound);
   const [liveTarget, setLiveTarget] = useState(null);
-  const handleLiveCall = useCallback(
-    (call) => {
-      setLiveTarget(call ? { target, href: space.href } : null);
-      onLiveCall?.(call);
-    },
-    [target, space.href, onLiveCall],
-  );
+  useEffect(() => {
+    if (outboundUp && !liveTarget && target) setLiveTarget({ target, href: space.href });
+    if (!outboundUp && liveTarget) setLiveTarget(null);
+    // Frozen on the transition to "up" and released on the transition to
+    // "down"; the target while it is up is exactly what must not change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [outboundUp]);
   const dialRendered = (space.state === DIAL_READY && space.href && target) || Boolean(liveTarget);
   const dialTarget = liveTarget?.target || target;
   const dialHref = space.href || liveTarget?.href || null;
@@ -387,8 +392,8 @@ export default function DialRegion({
             onAutoDialResult={onAutoDialResult}
             slots={slots}
             beforeDial={beforeDial}
-            onLiveCall={handleLiveCall}
             dialRequest={dialRequest}
+            writeUpExtra={writeUpExtra}
           />
           {compact ? (
             // Folded shut because a rep dialling their fortieth electrician

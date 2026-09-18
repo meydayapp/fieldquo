@@ -118,14 +118,24 @@
 // writes the line's verdict on whatever it attributed (store.js
 // autoLogStale, dispositions.js dayEndOutcome).
 //
-// ══ Tokens expire ═════════════════════════════════════════════════════════
+// ══ 2026-09-18: the Device is the shell's, and so is the live strip ═══════
 //
-// A Voice access token is short-lived. A dock that registered once and never
-// refreshed would work for an hour and then go quiet with no error anywhere —
-// the worst shape a bug can take, because the screen still says you are signed
-// in. `tokenWillExpire` re-fetches and updates in place.
+// The Twilio Device used to be built and registered HERE — and a second one
+// was built per outbound call in CallPanel. There is one now, in
+// CallSession.js (mounted once in SalesShell), registered there, its token
+// refreshed there; this dock subscribes to its `incoming` event through
+// session.onIncoming() and draws the ring. Everything about the ring —
+// the alert dialog, Pick up, Decline, the caller lookup, the answered
+// attempt, the write-up when it ends — is still this file's.
+//
+// What LEFT this file is the drawing of the live call. Its controls (the
+// clock, Hang up, Transfer, the links, and now Mute, Text them and Email)
+// are LiveCallStrip's, which draws an inbound and an outbound call as one
+// shape — into the Dialer card's slot on the queue, as a fixed strip on
+// every other page. The dock reports the answered call into the session
+// (setInbound) with the facts the strip needs; the Call object stays here
+// so `disconnect` is still handled once, from one place.
 import { useCallback, useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import Link from "next/link";
 import { Phone, PhoneOff, AlertTriangle, Headphones, PhoneIncoming, Building2, NotebookPen, UserPlus } from "lucide-react";
 
@@ -135,25 +145,14 @@ import { notify } from "@/lib/notify/browser";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { STATE_AFTER_CALL, STATE_ON_CALL } from "@/lib/sales/calls/agentState";
 import { foldChoice } from "@/lib/sales/calls/outcomeChoices";
-import TransferControl from "./TransferControl";
 import TextThemButton from "./TextThem";
 import OutcomeForm, { EMPTY_DRAFT } from "./OutcomeForm";
 import { useRepPresence } from "./RepStatus";
-import { useConsoleSlots } from "./consoleSlots";
+import { useCallSession, TOKEN_ERROR_CODES } from "./CallSession";
 
-/**
- * Twilio's codes for a token it will not accept — all recoverable by minting
- * a new one. 20101 invalid · 20104 expired · 31204/31205 the same two as the
- * signalling layer reports them.
- */
-export const TOKEN_ERROR_CODES = new Set([20101, 20104, 31204, 31205]);
-
-/** "4:12" — the live call's clock. */
-function clock(ms) {
-  if (!Number.isFinite(ms) || ms < 0) return "0:00";
-  const total = Math.floor(ms / 1000);
-  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
-}
+// The token-refusal set lives with the Device now (CallSession.js); kept
+// exported from here for anything that imported it by this name.
+export { TOKEN_ERROR_CODES };
 
 /**
  * Digits → something a person can read. Never throws on a short string.
@@ -176,9 +175,7 @@ export default function IncomingCallDock() {
   tRef.current = t;
   const [incoming, setIncoming] = useState(null);
   const [live, setLive] = useState(false);
-  const [error, setError] = useState("");
-  const [ready, setReady] = useState(false);
-  const [audioWarning, setAudioWarning] = useState("");
+  const [ownError, setOwnError] = useState("");
   // Which logged call this is, once the server has confirmed it. Null until
   // then, and the transfer control renders nothing on a null — a rep must
   // never be shown a Transfer button over a call the server could not
@@ -189,8 +186,8 @@ export default function IncomingCallDock() {
   // until then rather than a guess.
   const [who, setWho] = useState(null);
   const [answeredAt, setAnsweredAt] = useState(null);
-  // One tick a second drives both clocks: "Ringing for 12s" while the
-  // dialog is up, "4:12" once the call is.
+  // One tick a second drives the ring clock, "Ringing for 12s", while the
+  // dialog is up. The call's own clock is the strip's.
   const [, setTick] = useState(0);
   // Pick up takes focus the moment the card opens (AlertDialog's
   // initialFocusRef): Enter answers, and a rep who was typing a note is not
@@ -211,26 +208,30 @@ export default function IncomingCallDock() {
   const [busy, setBusy] = useState("");
   const loggedRef = useRef(null);
   const askedRef = useRef(new Set());
-  // `later` (below) as the Device's once-bound `incoming` handler reads it.
+  // `later` (below) as the once-bound `incoming` handler reads it.
   const laterRef = useRef(null);
-  const slots = useConsoleSlots();
-  const liveCallNode = slots?.liveCallNode || null;
-  const deviceRef = useRef(null);
   const callRef = useRef(null);
-  // The registration effect below must NOT re-run when the rep switches
-  // language — tearing down a registered Device would drop a call in progress
-  // and unregister the browser — so the translator is read through a ref
-  // instead of being added to that effect's dependencies.
-  const sayRef = useRef(t);
-  sayRef.current = t;
+  // ── The shell's Device, and the strip that draws the call ────────────
+  //
+  // `ready`, the Device's own error and the headset warning are the
+  // session's facts; this dock prints them in its quiet-state notice and
+  // adds its own (a pick-up that failed). `error` below is the merged line,
+  // so the "mounts nothing while idle" rule reads the same as it always did.
+  const session = useCallSession();
+  const sessionRef = useRef(session);
+  sessionRef.current = session;
+  const ready = session.ready;
+  const audioWarning = session.audioWarning;
+  const error = ownError || session.deviceError;
+  const setError = setOwnError;
   // ── What the rest of the portal is told ──────────────────────────────
   //
   // The queue's autodialler must never start a call over one that is ringing
   // or up, so the dock reports both into the shared presence context, and
   // posts the ledger's two automatic transitions for an inbound call: on_call
   // when the rep answers, after_call when it ends. Read through a ref for the
-  // same reason `t` is — the registration effect must not re-run when the
-  // context object changes, because tearing down the Device drops the call.
+  // same reason `t` is — the ring's handlers are bound once and must not
+  // close over a stale context object.
   const presence = useRepPresence();
   const presenceRef = useRef(presence);
   presenceRef.current = presence;
@@ -241,245 +242,97 @@ export default function IncomingCallDock() {
   // both sides' hang-ups and this must be written once from one place.
   const liveRef = useRef(false);
 
-  // The token AND how long it lasts. The lifetime is read from the server's
-  // own answer rather than imported: lib/sales/calls/browserDial.js exports
-  // TOKEN_TTL_SECONDS, but it also imports lib/voice/numberSearch, which drags
-  // `pg` and `dns` into whatever bundles it — a client component importing it
-  // broke the build once already. The route has always sent `expiresInSeconds`
-  // for exactly this, and reading it there keeps the refresh correct if the
-  // TTL is ever changed server-side.
-  const fetchToken = useCallback(async () => {
-    const body = await fetchJson("/api/sales/calls/token", { method: "POST" });
-    return { token: body?.token || null, ttl: Number(body?.expiresInSeconds) || 0 };
-  }, []);
-
+  // ── The ring, from the shell's Device ────────────────────────────────
+  //
+  // Subscribed once. The handler reads everything through refs — `t`,
+  // presence, `later` — because it is bound at mount and a Call's own
+  // `cancel`/`disconnect` handlers are bound at ring time; neither may
+  // close over a render. Unsubscribing on unmount stops the ring reaching
+  // a dock that is gone; it does NOT touch the Device or a call in
+  // progress, which are the session's.
   useEffect(() => {
     let cancelled = false;
-    let device = null;
-    let refreshTimer = null;
-    let onVisible = null;
-
-    /** Re-mint and re-register. Used when Twilio has already refused a token. */
-    const refreshAndRegister = async () => {
-      if (cancelled || !device) return false;
-      try {
-        const { token: fresh } = await fetchToken();
-        if (!fresh || cancelled) return false;
-        device.updateToken(fresh);
-        await device.register();
-        setError("");
-        return true;
-      } catch {
-        return false;
-      }
-    };
-
-    (async () => {
-      try {
-        const { token, ttl } = await fetchToken();
-        if (!token || cancelled) return;
-
-        const { Device } = await import("@twilio/voice-sdk");
-        device = new Device(token, {
-          logLevel: "error",
-          // opus first for quality, pcmu kept so a network that mangles opus
-          // still carries the call rather than failing to connect at all.
-          codecPreferences: ["opus", "pcmu"],
-        });
-        deviceRef.current = device;
-
-        device.on("registered", () => {
-          if (!cancelled) setReady(true);
-        });
-        device.on("error", async (err) => {
-          // A refused token is RECOVERABLE, and treating it as fatal is what
-          // leaves a rep with a dock that cannot ring and no idea why — so a
-          // fresh token is fetched and the device re-registered before
-          // anything is said. Twilio has four spellings of "bad token" and
-          // the owner met the one this list lacked: 20104 AccessTokenExpired
-          // ("the Access Token provided to the Twilio API has expired"),
-          // shown on the queue page after a tab sat in the background long
-          // enough for both refresh timers to be throttled. 20101 invalid,
-          // 20104 expired, 31204/31205 the signalling layer's versions.
-          if (TOKEN_ERROR_CODES.has(err?.code)) {
-            const ok = await refreshAndRegister();
-            if (ok) return;
-          }
-          // Shown rather than swallowed: a dock that is silently unregistered
-          // looks exactly like a quiet afternoon.
-          if (!cancelled) setError(err?.message || sayRef.current("app.salesDial.connectionDropped"));
-        });
-        // ── Keeping the token alive, three ways ──────────────────────────
-        //
-        // A sales access token lives TEN MINUTES (TOKEN_TTL_SECONDS). That
-        // length was chosen for an outbound call — long enough to cover one
-        // already in progress — and it is fine for CallPanel, which mints a
-        // token, places a call and throws the Device away.
-        //
-        // This dock is different: it registers when the portal opens and sits
-        // there all day. So the token has to be replaced roughly every ten
-        // minutes, for hours, and any single missed refresh ends with Twilio
-        // rejecting it — error 20101, "unable to validate your Access Token",
-        // which is what the owner hit. One event listener is not enough to
-        // hang that on:
-        //
-        //   1. `tokenWillExpire` — the SDK's own warning, ~3 minutes out. The
-        //      normal path.
-        //   2. A timer at half the TTL. A backgrounded tab throttles timers
-        //      and can swallow the SDK's own, so this is the belt to that
-        //      brace. Refreshing early is free; the token is replaced, not
-        //      accumulated.
-        //   3. The error itself. If a token does expire anyway, 20101 is
-        //      recoverable — fetch a new one and register again, rather than
-        //      leaving a dead dock on screen that looks like a quiet afternoon.
-        const refresh = async (why) => {
-          try {
-            const { token: fresh } = await fetchToken();
-            if (!fresh || cancelled) return false;
-            device.updateToken(fresh);
-            setError("");
-            return true;
-          } catch {
-            if (!cancelled) {
-              setError(
-                why === "expired"
-                  ? sayRef.current("app.salesDial.connectionExpiredReload")
-                  : sayRef.current("app.salesDial.connectionRefreshFailed"),
-              );
-            }
-            return false;
-          }
-        };
-
-        device.on("tokenWillExpire", () => refresh("warning"));
-        // Half the lifetime the SERVER reported, floored at a minute so a
-        // misconfigured TTL cannot turn this into a request loop.
-        const everyMs = Math.max(60, Math.floor((ttl || 600) / 2)) * 1000;
-        refreshTimer = setInterval(() => refresh("timer"), everyMs);
-        //   4. Coming back to the tab. A backgrounded tab throttles BOTH the
-        //      SDK's warning and the timer above — that is how a ten-minute
-        //      token was found expired — so the moment the tab is visible
-        //      again the token is replaced without waiting for either.
-        onVisible = () => {
-          if (document.visibilityState === "visible") refresh("visible");
-        };
-        document.addEventListener("visibilitychange", onVisible);
-
-        device.on("incoming", (call) => {
+    const unsubscribe = sessionRef.current.onIncoming((call) => {
+      if (cancelled) return;
+      const from = call?.parameters?.From || null;
+      // A second contractor ringing while the last call's write-up is
+      // still open: that write-up is "later" — deferred to the unlogged
+      // list, exactly as Esc would — not lost under the new dialog.
+      laterRef.current?.();
+      setIncoming({
+        call,
+        from,
+        to: call?.parameters?.To || null,
+        rangAt: Date.now(),
+      });
+      setWho(null);
+      // Non-blocking, and never trusted for anything but the label: the
+      // buttons work whether or not this ever answers.
+      // The in-tab half of browser notifications: with the portal in a
+      // background tab this is a system notification, so the rep sees
+      // the ring without watching the tab (lib/notify/browser.js). With
+      // the tab focused the dialog itself IS the notice, so notify() is
+      // told to stay quiet rather than draw a toast that says the same
+      // thing under it. Sent once with the number, then again with the
+      // business name when the lookup answers — the same tag, so the
+      // second replaces the first.
+      const ringTag = `sales-ring:${from || "withheld"}`;
+      notify({ title: tRef.current("app.notify.incomingCall.title"), body: from ? pretty(from, tRef.current) : "", tag: ringTag, url: "/sales/queue", quietWhenFocused: true });
+      fetchJson(`/api/sales/calls/caller?from=${encodeURIComponent(from || "")}`)
+        .then((body) => {
           if (cancelled) return;
-          const from = call?.parameters?.From || null;
-          // A second contractor ringing while the last call's write-up is
-          // still open: that write-up is "later" — deferred to the unlogged
-          // list, exactly as Esc would — not lost under the new dialog.
-          laterRef.current?.();
-          setIncoming({
-            call,
-            from,
-            to: call?.parameters?.To || null,
-            rangAt: Date.now(),
-          });
-          setWho(null);
-          // Non-blocking, and never trusted for anything but the label: the
-          // buttons work whether or not this ever answers.
-          // The in-tab half of browser notifications: with the portal in a
-          // background tab this is a system notification, so the rep sees
-          // the ring without watching the tab (lib/notify/browser.js). With
-          // the tab focused the dialog itself IS the notice, so notify() is
-          // told to stay quiet rather than draw a toast that says the same
-          // thing under it. Sent once with the number, then again with the
-          // business name when the lookup answers — the same tag, so the
-          // second replaces the first.
-          const ringTag = `sales-ring:${from || "withheld"}`;
-          notify({ title: tRef.current("app.notify.incomingCall.title"), body: from ? pretty(from, tRef.current) : "", tag: ringTag, url: "/sales/queue", quietWhenFocused: true });
-          fetchJson(`/api/sales/calls/caller?from=${encodeURIComponent(from || "")}`)
-            .then((body) => {
-              if (cancelled) return;
-              setWho(body || null);
-              if (body?.businessName) {
-                notify({ title: tRef.current("app.notify.incomingCall.title"), body: body.businessName, tag: ringTag, url: "/sales/queue", quietWhenFocused: true });
-              }
-            })
-            .catch(() => {
-              /* the number alone is still an honest label */
-            });
-          // Ringing. The autodialler's countdown is cancelled by this — a
-          // contractor ringing back outranks the next cold row.
-          presenceRef.current.setInboundRinging(true);
-          call.on("cancel", () => {
-            // They hung up before anybody answered.
-            setIncoming(null);
-            setLive(false);
-            setAnswered(null);
-            setAnsweredAt(null);
-            callRef.current = null;
-            presenceRef.current.setInboundRinging(false);
-          });
-          call.on("disconnect", () => {
-            const wasLive = liveRef.current;
-            liveRef.current = false;
-            setIncoming(null);
-            setLive(false);
-            setAnsweredAt(null);
-            // Nothing about the last call belongs on the screen of the next
-            // one — least of all an attempt id a transfer would act on.
-            setAnswered(null);
-            callRef.current = null;
-            presenceRef.current.setInboundRinging(false);
-            presenceRef.current.setInboundLive(false);
-            // The call ended: the rep is writing it up, on the ledger, until
-            // they press Available. Soft — the row is commentary on a call
-            // that has already happened.
-            if (wasLive) presenceRef.current.postState({ state: STATE_AFTER_CALL });
-            // And the write-up itself, in place, once (see the header).
-            const logged = loggedRef.current;
-            loggedRef.current = null;
-            if (wasLive && logged?.attemptId && !askedRef.current.has(logged.attemptId)) {
-              askedRef.current.add(logged.attemptId);
-              setDraft(EMPTY_DRAFT);
-              setFormError("");
-              setWriteUp({ ...logged, endedAt: Date.now() });
-            }
-          });
-        });
-
-        await device.register();
-
-        // ── The headset ────────────────────────────────────────────────────
-        //
-        // Asked for AFTER registering, so a missing microphone delays nothing:
-        // the browser can be reachable before it can talk, and a rep with no
-        // headset plugged in should still see the call arrive and be told what
-        // is wrong, rather than have the dock refuse to start.
-        try {
-          const inputs = device.audio?.availableInputDevices;
-          if (inputs && inputs.size === 0) {
-            setAudioWarning(sayRef.current("app.salesDial.noMicrophone"));
+          setWho(body || null);
+          if (body?.businessName) {
+            notify({ title: tRef.current("app.notify.incomingCall.title"), body: body.businessName, tag: ringTag, url: "/sales/queue", quietWhenFocused: true });
           }
-        } catch {
-          /* the SDK has no audio helper in this browser; the call still works */
+        })
+        .catch(() => {
+          /* the number alone is still an honest label */
+        });
+      // Ringing. The autodialler's countdown is cancelled by this — a
+      // contractor ringing back outranks the next cold row.
+      presenceRef.current.setInboundRinging(true);
+      call.on("cancel", () => {
+        // They hung up before anybody answered.
+        setIncoming(null);
+        setLive(false);
+        setAnswered(null);
+        setAnsweredAt(null);
+        callRef.current = null;
+        presenceRef.current.setInboundRinging(false);
+      });
+      call.on("disconnect", () => {
+        const wasLive = liveRef.current;
+        liveRef.current = false;
+        setIncoming(null);
+        setLive(false);
+        setAnsweredAt(null);
+        // Nothing about the last call belongs on the screen of the next
+        // one — least of all an attempt id a transfer would act on.
+        setAnswered(null);
+        callRef.current = null;
+        presenceRef.current.setInboundRinging(false);
+        presenceRef.current.setInboundLive(false);
+        // The call ended: the rep is writing it up, on the ledger, until
+        // they press Available. Soft — the row is commentary on a call
+        // that has already happened.
+        if (wasLive) presenceRef.current.postState({ state: STATE_AFTER_CALL });
+        // And the write-up itself, in place, once (see the header).
+        const logged = loggedRef.current;
+        loggedRef.current = null;
+        if (wasLive && logged?.attemptId && !askedRef.current.has(logged.attemptId)) {
+          askedRef.current.add(logged.attemptId);
+          setDraft(EMPTY_DRAFT);
+          setFormError("");
+          setWriteUp({ ...logged, endedAt: Date.now() });
         }
-      } catch (err) {
-        if (!cancelled) setError(err?.message || sayRef.current("app.salesDial.connectionStartFailed"));
-      }
-    })();
-
+      });
+    });
     return () => {
       cancelled = true;
-      if (refreshTimer) clearInterval(refreshTimer);
-      if (onVisible) document.removeEventListener("visibilitychange", onVisible);
-      try {
-        callRef.current?.disconnect?.();
-      } catch {
-        /* already gone */
-      }
-      try {
-        device?.destroy?.();
-      } catch {
-        /* already gone */
-      }
-      deviceRef.current = null;
+      unsubscribe();
     };
-  }, [fetchToken]);
+  }, []);
 
   /**
    * Which CallSid the SDK is holding for this incoming call.
@@ -514,6 +367,9 @@ export default function IncomingCallDock() {
       setError("");
       presenceRef.current.setInboundRinging(false);
       presenceRef.current.setInboundLive(true);
+      // The strip draws it from here on — the effect below keeps the
+      // session's copy current as the caller lookup and the matched
+      // attempt land.
     } catch (err) {
       setError(err?.message || t("app.salesDial.couldNotPickUp"));
       return;
@@ -600,6 +456,36 @@ export default function IncomingCallDock() {
     setAnswered(null);
     presenceRef.current.setInboundLive(false);
   }
+
+  // ── What the strip is told ───────────────────────────────────────────
+  //
+  // The answered call, as LiveCallStrip draws it: the number, the business
+  // and links the caller lookup named, the matched attempt (for Transfer)
+  // and the server's note when there is none, and this dock's own hangUp
+  // so the strip's button clears this state exactly as the one here did.
+  // Null the moment the call is not live, so nothing about the last call
+  // is on the strip of the next one.
+  const { setInbound } = session;
+  useEffect(() => {
+    if (!live) {
+      setInbound(null);
+      return;
+    }
+    setInbound({
+      call: callRef.current,
+      from: incoming?.from || null,
+      answeredAt,
+      businessName: who?.businessName || null,
+      attemptId: answered?.attemptId || null,
+      note: answered?.note || "",
+      links: who ? { open: who.open || null, notes: who.notes || null, save: who.save || null } : null,
+      text: who?.text || null,
+      hangUp,
+    });
+    // `hangUp` is a plain function of this render; the facts above are
+    // what change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [live, incoming?.from, answeredAt, who, answered, setInbound]);
 
   // ── Saving and deferring the write-up ────────────────────────────────
   //
@@ -695,13 +581,6 @@ export default function IncomingCallDock() {
     return () => clearInterval(id);
   }, [ringing]);
 
-  // The call clock, once a second while the call is up.
-  useEffect(() => {
-    if (!answeredAt || !live) return undefined;
-    const id = setInterval(() => setTick((n) => n + 1), 1000);
-    return () => clearInterval(id);
-  }, [answeredAt, live]);
-
   const fromText = incoming ? pretty(incoming.from, t) : "";
   const business = who?.businessName || null;
   const holderText = who?.holder
@@ -724,7 +603,8 @@ export default function IncomingCallDock() {
 
   /**
    * Where the rep may go from here — drawn under the caller line in the
-   * dialog and again in the live controls, so the links outlive Pick up.
+   * dialog; LiveCallStrip draws the same server links once the call is up,
+   * so they outlive Pick up.
    * Every href comes from the server (see the header); a caller the server
    * matched to nobody gets the save link, one it matched to somebody else's
    * claim gets nothing here (the holder line says who).
@@ -763,71 +643,6 @@ export default function IncomingCallDock() {
     </div>
   ) : null;
 
-  /**
-   * The live call's controls — one renderer, drawn either in the Dialer
-   * card's slot or in the live strip. Hang up, the transfer control, and the
-   * server's note about whether the call was matched.
-   */
-  const liveControls = live ? (
-    <div
-      className="rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 p-4 space-y-3"
-      data-inbound-live
-    >
-      <div className="flex items-baseline justify-between gap-2">
-        <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-wider text-emerald-900/80 dark:text-emerald-200/80">
-            {t("app.salesDial.onACall")}
-          </p>
-          <p className="font-semibold text-emerald-900 dark:text-emerald-100 break-words">
-            {business ? (
-              <>
-                {business} <span className="whitespace-nowrap">· {fromText}</span>
-              </>
-            ) : (
-              fromText
-            )}
-          </p>
-        </div>
-        <p className="text-xl font-mono tabular-nums text-emerald-900 dark:text-emerald-100">
-          {clock(answeredAt ? Date.now() - answeredAt : 0)}
-        </p>
-      </div>
-      {callerLinks}
-      {audioWarning ? (
-        <p className="text-xs text-amber-700 dark:text-amber-300 flex gap-1.5">
-          <Headphones size={13} className="shrink-0 mt-0.5" aria-hidden="true" />
-          {audioWarning}
-        </p>
-      ) : null}
-      {error ? <p className="text-xs text-amber-700 dark:text-amber-300">{error}</p> : null}
-      <button
-        type="button"
-        onClick={hangUp}
-        className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-red-600 text-white min-h-[44px] px-4 py-2.5 text-sm font-semibold"
-      >
-        <PhoneOff size={16} aria-hidden="true" /> {t("app.salesDial.hangUp")}
-      </button>
-      {/* ── Handing them to somebody else ─────────────────────────────
-          The SAME control the outbound dialler renders, imported rather
-          than copied: two pickers over one state machine is AGENTS.md
-          failure class 4 aimed at a live call, and the copy that rots
-          would be this one, because inbound calls are rarer.
-
-          `attemptId` is null until /api/sales/calls/answered has said
-          which logged call this is, and it stays null when the server
-          says the call has no rep leg to hand back from — so the control
-          renders nothing at all rather than a button that would refuse.
-          The reason is said below instead. */}
-      <TransferControl
-        attemptId={answered?.attemptId || null}
-        active={live}
-        onError={setError}
-        tone="dock"
-      />
-      {answered?.note ? <p className="text-xs text-muted-foreground">{answered.note}</p> : null}
-    </div>
-  ) : null;
-
   // Nothing to say when nothing is happening. The dialog is not a status
   // light — a permanent "ready to receive calls" badge on every screen is
   // noise, and the errors below are the only quiet state worth interrupting
@@ -846,8 +661,8 @@ export default function IncomingCallDock() {
 
   return (
     <>
-      {/* The answered call, in the Dialer card when the console is open. */}
-      {live && liveCallNode ? createPortal(liveControls, liveCallNode) : null}
+      {/* The answered call is LiveCallStrip's to draw — in the Dialer card
+          when the console is open, as a strip everywhere else. */}
 
       {/* ── The ring: an alert dialog ─────────────────────────────────────
           Centred over a scrim at every width (a full-width card inside the
@@ -937,30 +752,6 @@ export default function IncomingCallDock() {
           </>
         ) : null}
       </AlertDialog>
-
-      {/* ── The live call, when there is no Dialer card to draw it in ─────
-          A fixed strip under the top bar (the header's measured height,
-          --fq-top-bar, from lg up; 0 below it where the phone chrome's own
-          bar is sticky and the strip sits over it), full width of the body
-          beside the rail. NOT a modal: the rep is on a call and must keep
-          the page — the lead, the notes — usable, and must always be able
-          to hang up. z-[70]: above the tour's card (z-[60]), the Off
-          reminder (z-[65]) and the nav drawer (z-50).
-          Never taller than what is under the bar, and scrolling inside
-          itself past that: a fixed strip is outside the page's scroll, so
-          on a short window (1280×600 with the browser's own chrome) a
-          write-up form taller than the viewport had its Save below the
-          fold with nothing that could reach it. */}
-      {live && !liveCallNode ? (
-        <div
-          className="fixed inset-x-0 top-0 lg:top-[var(--fq-top-bar,61px)] lg:left-[var(--fq-sales-rail,220px)] z-[70] max-h-[100dvh] lg:max-h-[calc(100dvh-var(--fq-top-bar,61px))] overflow-y-auto"
-          data-incoming-live-strip
-          role="region"
-          aria-label={t("app.salesDial.onACall")}
-        >
-          <div className="bg-card border-b border-border shadow-lg px-4 sm:px-6 py-4">{liveControls}</div>
-        </div>
-      ) : null}
 
       {/* ── The write-up of the call that just ended ──────────────────────
           Same place as the live strip, same width, drawn while no call is

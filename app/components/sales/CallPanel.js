@@ -2,6 +2,30 @@
 //
 // The call, from the rep's side: press, talk, hang up, say what happened.
 //
+// ══ 2026-09-18: the call itself is not held here any more ═════════════════
+//
+// This panel used to construct a Twilio Device per call, hold the Call
+// object in a ref, and disconnect it in its unmount cleanup — "leaving the
+// screen must not leave a call up". That cleanup is what hung up on a
+// customer who had just said "text me": Text them navigates to
+// /sales/messages, the queue page unmounts, this panel unmounts, the
+// customer is gone. The call is owned by CallSession.js now, mounted once
+// in SalesShell, and it survives every navigation inside the portal. The
+// cleanup is deleted, not moved: nothing on a page may end a call, because
+// a page is exactly the thing that goes away.
+//
+// What is left here is the VIEW and the PRESS. The press — readiness, the
+// typed number, the autodialler's guards, the dial POST — is still decided
+// here, and once the server has written the attempt the browser leg is
+// placed through session.connectOutbound(). The on-call block (clock, Mute,
+// Hang up, Transfer, Text them, Email) is LiveCallStrip's, drawn into the
+// Dialer card's slot on the queue and as a strip everywhere else; this
+// panel draws nothing while a call is up except the pieces that are its
+// own — the playbook, the next steps, the published email. The write-up
+// after the call (pending, the draft, the auto-log timer, the pop-up) is
+// the session's state too, drawn here through OutboundWriteUp.js when this
+// panel is on the screen and by the strip when it is not.
+//
 // ══ Two ways to place it, and the screen never offers a broken one ════════
 //
 // In-browser is the intended path — the rep talks through their headset and
@@ -40,8 +64,9 @@
 // ONLY into the tab, which is how a rep on the Script tab came to see the
 // refusal ("the last one is not written up yet") and nothing to press.
 //
-// There IS a pop-up now (OutcomeForm.js's OutcomeSheet), and it does not
-// contradict the paragraph above: it opens only after the carrier has
+// There IS a pop-up (OutcomeForm.js's OutcomeSheet, drawn by LiveCallStrip
+// so it can open on any page), and it does not contradict the paragraph
+// above: it opens only after the carrier has
 // reported the call ENDED and the server has said it was answered — the
 // auto-log reply, "talked" or the rep's own hang-up on a connected call —
 // never on connect, never over a live call, never for a call nobody
@@ -55,7 +80,7 @@
 // A prospect who picks up and puts the phone down, or a line nobody answers,
 // is an outcome the carrier has already reported. Asking the rep to type it
 // after every one — and holding the next dial until they did — stopped the
-// floor on 2026-09-14. So when a browser call ends, this panel waits
+// floor on 2026-09-14. So when a browser call ends, CallSession waits
 // AUTO_LOG_GRACE_SECONDS for the rep to start an outcome, then asks the
 // server to log what the row says (lib/sales/calls/dispositions.js
 // autoLogOutcome: who hung up, how long they talked, or the terminal status
@@ -63,21 +88,17 @@
 // and a busy tone are written by themselves, marked autoLogged, and a
 // fifteen-second strip says so with a "change" that reopens the form. A
 // conversation — ten seconds or more, or the rep's own Hang up — is never
-// logged for the rep. Who hung up is posted from here at `disconnect`,
+// logged for the rep. Who hung up is posted by the session at `disconnect`,
 // because Twilio's "completed" says nothing about which side dropped.
 //
-// ══ Transfer lives in TransferControl, not here ═══════════════════════════
+// ══ Transfer lives in TransferControl, drawn by the strip ═════════════════
 //
 // It used to be written out in this file, which is why it only ever worked on
 // an outbound call: a rep who ANSWERED a callback in IncomingCallDock had no
-// way to hand it to anybody. The control is now
-// app/components/sales/TransferControl.js and both screens render it —
+// way to hand it to anybody. The control is app/components/sales/
+// TransferControl.js and LiveCallStrip renders it for both directions —
 // extracted rather than copied, because two pickers over one state machine is
 // AGENTS.md failure class 4 pointed at a live call.
-//
-// Nothing about the behaviour moved with it: the same three states, the same
-// polling, the same rule that it renders nothing at all when the server says
-// this call cannot be transferred.
 //
 // ══ The playbook loads WITH the prospect, never on the press ══════════════
 //
@@ -101,49 +122,21 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useRouter } from "next/navigation";
-import {
-  AlertCircle,
-  CircleHelp,
-  Loader2,
-  Mic,
-  MicOff,
-  Phone,
-  PhoneOff,
-  ShieldAlert,
-} from "lucide-react";
+import { AlertCircle, CircleHelp, Loader2, Phone, ShieldAlert } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { useTranslation } from "@/app/hooks/useTranslation";
-import { STATE_AFTER_CALL } from "@/lib/sales/calls/agentState";
-import {
-  AUTO_LOG_GRACE_SECONDS,
-  AUTO_LOG_UNDO_SECONDS,
-  HUNG_UP_BY_PROSPECT,
-  HUNG_UP_BY_REP,
-  PROVIDER_ENDED,
-} from "@/lib/sales/calls/dispositions";
-import { OUTCOME_CHOICES, choiceLabelKey, foldChoice } from "@/lib/sales/calls/outcomeChoices";
 import { ALREADY_ON_A_CALL } from "@/lib/sales/calls/liveCall";
-import OutcomeForm, { EMPTY_DRAFT, OutcomeSheet, draftStarted } from "./OutcomeForm";
-import IntroEmailPrompt from "./IntroEmailPrompt";
-import { asksIntroEmail } from "@/lib/sales/outreach/introLink";
+import { EMPTY_DRAFT } from "./OutcomeForm";
 import PlaybookMount from "./PlaybookMount";
 import PublishedEmail from "./PublishedEmail";
-import TransferControl from "./TransferControl";
 import NextSteps from "./NextSteps";
-import TextThemButton, { openTextThread } from "./TextThem";
+import TextThemButton from "./TextThem";
 import { useRepPresence } from "./RepStatus";
+import { useCallSessionView } from "./CallSession";
+import { AutoLoggedStrip, NoCallToLog, OutboundWriteUpCard } from "./OutboundWriteUp";
 
 const BTN =
   "inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60";
-/** "4:12". A call timer, so seconds are never dropped. */
-function clock(ms) {
-  if (!Number.isFinite(ms) || ms < 0) return "0:00";
-  const total = Math.floor(ms / 1000);
-  const m = Math.floor(total / 60);
-  const s = total % 60;
-  return `${m}:${String(s).padStart(2, "0")}`;
-}
 
 /**
  * What the browser will say about the microphone, before we ask for it.
@@ -221,12 +214,11 @@ export default function CallPanel({
   // is rendered THROUGH A PORTAL into it instead of inline below the dial;
   // when it is null (the lead screen, an older console) the piece renders
   // where it always did. The state machine is untouched by this: the
-  // disposition form still reads `pending` from this component's state and
-  // still writes through saveOutcome(), the playbook is still fetched with
+  // disposition form still reads `pending` from the session and still
+  // writes through its saveOutcome(), the playbook is still fetched with
   // the prospect (PlaybookMount, which takes `script`). Only the DOM
-  // position moves. A second copy of the
-  // form in the console would be AGENTS.md failure class 4 with a live call
-  // behind it.
+  // position moves. A second copy of the form with its own state would be
+  // AGENTS.md failure class 4 with a live call behind it.
   slots = null,
   // ── A number the rep typed, resolved before the press rings anything ──
   //
@@ -247,73 +239,26 @@ export default function CallPanel({
   // function, same beforeDial, same gate; consumed once; refused with the
   // panel's own sentence when a call is up or an outcome is unlogged.
   dialRequest = null,
-  // Told the live Call object when a call goes up, and null when it ends —
-  // the console's keypad sends DTMF through it while a call is up. Never
-  // used to place or end a call; those stay here.
-  onLiveCall = null,
+  // A question the screen wants asked beside the write-up — the console's
+  // "Was +1 … {business}'s number?" for a typed number. Drawn in the Dialer
+  // column's copy of the form only.
+  writeUpExtra = null,
 }) {
   // The rep's own language, not the prospect's. Everything on this panel is
   // read by the person holding the phone; the words they SAY come from the
   // playbook, which is a separate catalogue in a separate language.
   const { t, language } = useTranslation();
-  const router = useRouter();
   const [config, setConfig] = useState(null);
   const [mic, setMic] = useState(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
 
-  // The live call: the attempt row it belongs to, when it started, and the
-  // Twilio connection object when there is one.
-  const [attempt, setAttempt] = useState(null);
-  const [startedAt, setStartedAt] = useState(null);
-  const [muted, setMuted] = useState(false);
-  const [tick, setTick] = useState(0);
-
-  // Written up, or waiting to be. `draft` is what the rep has pressed and
-  // typed in the outcome form — OutcomeForm.js's shape, shared by the three
-  // copies of the form (Dialer column, Disposition tab, pop-up).
-  const [pending, setPending] = useState(null);
-  const [draft, setDraft] = useState(EMPTY_DRAFT);
-  const [formError, setFormError] = useState("");
-  // The pop-up. Opened only by the auto-log reply saying "answered, ask the
-  // rep"; closed by a save, by "later", or by the pending call going away.
-  const [sheetOpen, setSheetOpen] = useState(false);
-  // What the line logged by itself, while the "change" strip is up:
-  // `{ attemptId, code, toE164, dialledAt, until }`.
-  const [autoLogged, setAutoLogged] = useState(null);
-  // ── "Send {business} the intro email?" ───────────────────────────────
-  //
-  // `{ leadId, prospectId, attemptId, businessName, then }` while the
-  // pop-up is open (IntroEmailPrompt.js), null otherwise. Opened from
-  // exactly two places — the line auto-logging no_answer, and the rep
-  // saving a voicemail — and from nowhere else; asksIntroEmail() is the
-  // table (lib/sales/outreach/introLink.js). `then` is the onWorked the
-  // queue is waiting on: it is held until the pop-up closes, because the
-  // autodialler arms on onWorked and a next dial ringing under a dialog
-  // about the previous business is the wrong order of events.
-  const [introPrompt, setIntroPrompt] = useState(null);
-  const offerIntroEmail = useCallback((attemptId, then) => {
-    setIntroPrompt({ leadId: leadId || null, prospectId: leadId ? null : prospectId || null, attemptId: attemptId || null, businessName: businessName || null, then });
-  }, [leadId, prospectId, businessName]);
-  const closeIntroPrompt = useCallback(() => {
-    setIntroPrompt((p) => {
-      p?.then?.();
-      return null;
-    });
-  }, []);
   // A refused dial press flashes the form so the rep sees what to press.
   const [flash, setFlash] = useState(0);
   const formRef = useRef(null);
-  // Who ended the current call, known only here: "rep" is set by hangUp()
-  // before it disconnects; anything else at `disconnect` is the far end.
-  const hungUpByRef = useRef(null);
-  // The outcome the rep has started, readable from a timer without closing
-  // over a stale render.
-  const draftRef = useRef(draft);
-  draftRef.current = draft;
   // The "Schedule a call back" calendar entry — and the demo, the sign-up and
   // the walkthrough beside it — live in NextSteps.js, separate from the
-  // disposition callback above (which is how a LOGGED call records the time
+  // disposition callback (which is how a LOGGED call records the time
   // agreed). They put the promise on the rep's own /sales/calendar with the
   // contact already filled from who they're on the phone with, so it survives
   // past the call whether or not the call gets dispositioned.
@@ -324,83 +269,62 @@ export default function CallPanel({
   const [playbookProspect, setPlaybookProspect] = useState(null);
   const onPlaybookData = useCallback((body) => setPlaybookProspect(body?.prospect || null), []);
 
-  const deviceRef = useRef(null);
-  const callRef = useRef(null);
-
-  // The portal-wide presence: the dialler reads `callUp` off it, and the two
-  // automatic ledger transitions this panel makes (hangup → after_call, and
-  // the re-read after the server moves the rep on dial and on disposition)
-  // go through it. Read through a ref inside the SDK's event handlers, which
-  // are bound once per call and would otherwise close over a stale object.
+  // The portal-wide presence: the dialler reads `callUp` off it, and the
+  // re-read after the server moves the rep on dial goes through it. Read
+  // through a ref inside handlers that outlive a render.
   const presence = useRepPresence();
   const presenceRef = useRef(presence);
   presenceRef.current = presence;
 
+  // ── The call, and its write-up, are the shell's ───────────────────────
+  //
+  // This registers the panel as the VIEW: the session calls `onWorked`
+  // after an outcome is written and `reload` to re-read this panel's
+  // config, and LiveCallStrip leaves the write-up to this panel while it
+  // is mounted. Everything below reads the session's state through
+  // `session`; nothing below holds a Call object.
+  const sessionRef = useRef(null);
   const load = useCallback(async () => {
     try {
       const body = await fetchJson("/api/sales/calls");
       setConfig(body);
-      const row = body?.pendingAttempt || null;
-      // A call that ended while nobody was looking (a reload, a closed
-      // laptop) is asked about at once rather than after the grace: the
-      // grace exists so a rep who is reaching for the picker is not raced,
-      // and nobody reaches for a picker on a page that just mounted. Only a
-      // browser dial the carrier has finished with can be answered.
-      setPending(
-        row
-          ? {
-              ...row,
-              autoAsk: row.dialChannel === "browser" && (Boolean(row.endedAt) || PROVIDER_ENDED.includes(row.providerStatus)),
-              graceMs: 0,
-            }
-          : null,
-      );
+      // The server's word on an unlogged call goes to the session, which
+      // decides whether it is news (CallSession adoptPending).
+      sessionRef.current?.adoptPending(body?.pendingAttempt || null);
     } catch (err) {
       setError(err?.message || t("app.salesCall.loadSetupFailed"));
     }
   }, []);
+  const session = useCallSessionView({ onWorked, reload: load });
+  sessionRef.current = session;
+  const { outbound, pending, autoLogged, setPending, setDraft, setFormError } = session;
+  // When the session's outbound call started, or null. Any live call —
+  // this one, or an inbound one — hides the Call button; the strip in the
+  // Dialer card's slot is what the rep sees instead.
+  const startedAt = outbound?.startedAt || null;
 
   useEffect(() => {
     load();
     micState().then(setMic);
   }, [load]);
 
-  // The call timer. A counter rather than a clock — the elapsed time is
-  // computed from startedAt on every render so a paused tab does not lose
-  // seconds the way an incrementing counter would.
-  useEffect(() => {
-    if (!startedAt) return undefined;
-    const id = setInterval(() => setTick((n) => n + 1), 1000);
-    return () => clearInterval(id);
-  }, [startedAt]);
-
   // The heartbeat used to be here, which meant it beat only on the screens
   // that render this panel — a rep reading notes went stale in fifteen
   // minutes and dropped off the inbound ring plan. It is in
   // RepPresenceProvider now, once, for every /sales screen.
 
-  useEffect(
-    () => () => {
-      // Leaving the screen must not leave a call up. The rep would still be
-      // connected with nothing on screen to hang up with.
-      try {
-        callRef.current?.disconnect?.();
-        deviceRef.current?.destroy?.();
-      } catch {
-        /* the SDK throws on a device already torn down; nothing to do */
-      }
-    },
-    [],
-  );
+  // There is deliberately NO unmount cleanup here. There was one — "leaving
+  // the screen must not leave a call up" — and it disconnected the Call
+  // object and destroyed the Device when this panel unmounted. It is what
+  // hung up on a customer who had said "text me": Text them navigates, the
+  // page unmounts, the panel unmounts. The call lives in CallSession under
+  // the shell now and outlives every page; the strip is on every page, so a
+  // rep is never connected with nothing on screen to hang up with.
 
   const browserReady = Boolean(
     config?.store?.ready && config?.dial?.ready !== false && mic !== "denied",
   );
   const blocked = config?.dial?.blockedBy || null;
-
-  const elapsed = startedAt ? Date.now() - startedAt : 0;
-  // `tick` is read so the timer re-renders; the value itself is not used.
-  void tick;
 
   // A call THIS panel is not holding — the answered inbound call in
   // IncomingCallDock, reported through the provider. While it is up the
@@ -409,10 +333,10 @@ export default function CallPanel({
   // 83144544 deliberately kept the inbound call out of this panel's own
   // state so it could not hold the dialler hostage; that left nothing
   // telling the panel a call was up, and QA (2026-09-17) placed a second
-  // dial under a live one. The panel's own call sets `startedAt` and hides
-  // the button, so `callLive && !startedAt` is exactly "somebody else's".
+  // dial under a live one. The session's outbound call sets `startedAt` and
+  // hides the button, so `callLive && !startedAt` is exactly "somebody
+  // else's".
   const onAnotherCall = presence.callLive === true && !startedAt;
-
 
   // `source` is who pressed: "manual" for a thumb, "autodial" for the
   // countdown in lib/sales/autodial.js. Recorded on the attempt
@@ -474,7 +398,6 @@ export default function CallPanel({
           source,
         }),
       });
-      setAttempt(body);
       // The server moved the rep to on_call; the header should say so now
       // rather than at the next beat.
       presenceRef.current.refresh();
@@ -485,79 +408,35 @@ export default function CallPanel({
         // scripts/check-sales-calling-window.mjs asserts none appears under
         // app/sales.
         if (fallbackHref) window.location.href = fallbackHref;
-        setPending({ id: body.attemptId, toE164: body.to, dialledAt: body.serverNow });
-        setAttempt(null);
-        return true;
-      }
-
-      const { Device } = await import("@twilio/voice-sdk");
-      const tokenBody = await fetchJson("/api/sales/calls/token", { method: "POST" });
-
-      const device = new Device(tokenBody.token, { logLevel: "error" });
-      deviceRef.current = device;
-      // NOT registered, deliberately. register() is what makes a client
-      // RECEIVE calls, and connect() does not need it. Since the access token
-      // began granting incomingAllow, registering here would put a SECOND
-      // client on this rep's identity — Twilio rings every registered client,
-      // this one has no `incoming` handler, and a contractor ringing back
-      // while a rep happened to be on an outbound call would be answered by a
-      // Device that does nothing with it. One registered client per rep, and
-      // it is the portal-wide dock in IncomingCallDock.js.
-
-      // The destination is NOT sent. The bridge reads it off the attempt row
-      // the server just wrote, after the gate cleared — see the bridge route's
-      // header. All the browser gets to say is which attempt this is.
-      const call = await device.connect({ params: { attemptId: body.attemptId } });
-      callRef.current = call;
-      setStartedAt(Date.now());
-      setMuted(false);
-      presenceRef.current.setCallUp(true);
-      onLiveCall?.(call);
-
-      hungUpByRef.current = null;
-      call.on("disconnect", () => {
-        callRef.current = null;
-        onLiveCall?.(null);
-        setStartedAt(null);
-        // Who dropped. The Hang up button set "rep" before disconnecting;
-        // a disconnect nobody here asked for is the far end. Posted, not
-        // awaited — the write-up must not wait on it, and a lost report
-        // reads as "ask the rep", never as a hang-up.
-        const hungUpBy = hungUpByRef.current === HUNG_UP_BY_REP ? HUNG_UP_BY_REP : HUNG_UP_BY_PROSPECT;
-        hungUpByRef.current = null;
-        fetchJson("/api/sales/calls", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "ended", attemptId: body.attemptId, hungUpBy }),
-        }).catch(() => {});
+        setDraft(EMPTY_DRAFT);
+        setFormError("");
         setPending({
           id: body.attemptId,
           toE164: body.to,
           dialledAt: body.serverNow,
-          dialChannel: "browser",
-          hungUpBy,
-          // The line may log this one — after the grace, and only if the
-          // rep has not started. The rep's own hang-up is never auto-logged
-          // (the server refuses it too); asking would be a wasted round trip.
-          autoAsk: hungUpBy !== HUNG_UP_BY_REP,
-          graceMs: AUTO_LOG_GRACE_SECONDS * 1000,
+          direction: "out",
+          prospectId: prospectId || null,
+          leadId: leadId || null,
+          businessName: businessName || null,
         });
-        setAttempt(null);
-        try {
-          device.destroy();
-        } catch {
-          /* already gone */
-        }
-        deviceRef.current = null;
-        presenceRef.current.setCallUp(false);
-        // The one automatic transition only this handler can make: the call
-        // has ended and the outcome has not been logged. On the ledger this
-        // is what separates time on the phone from time writing it up. Soft
-        // — the disposition below moves the rep on regardless.
-        presenceRef.current.postState({ state: STATE_AFTER_CALL, callAttemptId: body.attemptId });
-      });
-      call.on("error", (err) => {
-        setError(err?.message || t("app.salesCall.callDropped"));
+        return true;
+      }
+
+      // The browser leg, on the shell's one Device. Who this call is with
+      // travels with it so the strip can name them on every page and the
+      // write-up can find the record afterwards. No Device is built here
+      // and nothing here registers one: the dock's registered client is the
+      // session's, and a second registered client on this rep's identity
+      // would be rung by Twilio too and answer nothing.
+      await sessionRef.current.connectOutbound({
+        attempt: body,
+        target: {
+          prospectId: prospectId || null,
+          leadId: leadId || null,
+          businessName: businessName || null,
+          callLabel: callLabel || null,
+          phoneE164: dialTarget.phoneE164 || phoneE164,
+        },
       });
       return true;
     } catch (err) {
@@ -642,263 +521,11 @@ export default function CallPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dialRequest?.token]);
 
-  function hangUp() {
-    // Before the disconnect, so the handler it fires reads "rep". The far
-    // end dropping and the rep pressing the button in the same instant is
-    // filed as the rep's — they pressed it.
-    hungUpByRef.current = HUNG_UP_BY_REP;
-    try {
-      callRef.current?.disconnect?.();
-    } catch {
-      /* the disconnect handler does the rest */
-    }
-  }
-
-  // ── The line logs what it knows, after the grace ─────────────────────
-  //
-  // One timer per pending attempt. It asks the server once the grace has
-  // passed, and only if the rep has not started typing — a code or a note
-  // in the form means the rep is answering and the line stays out of it.
-  // "not_reported" (the carrier's completed event is still in flight) is
-  // asked again a few times; every other refusal leaves the form up.
-  const autoAskSeen = useRef(null);
-  useEffect(() => {
-    if (!pending?.autoAsk || !pending.id) return undefined;
-    if (autoAskSeen.current === pending.id) return undefined;
-    autoAskSeen.current = pending.id;
-    const attemptId = pending.id;
-    const toE164 = pending.toE164;
-    const dialledAt = pending.dialledAt;
-    let cancelled = false;
-    let timer = null;
-    let tries = 0;
-    const ask = async () => {
-      if (cancelled) return;
-      if (draftStarted(draftRef.current)) return;
-      tries += 1;
-      let body = null;
-      try {
-        body = await fetchJson("/api/sales/calls", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "auto_log", attemptId }),
-        });
-      } catch {
-        return; // the form is still there; the rep can log it
-      }
-      if (cancelled) return;
-      if (body?.ok && body.code) {
-        setPending((p) => (p?.id === attemptId ? null : p));
-        setAutoLogged({ attemptId, code: body.code, toE164, dialledAt, until: Date.now() + AUTO_LOG_UNDO_SECONDS * 1000 });
-        // The server moved the rep to available; the same order the typed
-        // path keeps, for the same reason (see saveOutcome).
-        await presenceRef.current.refresh();
-        await load();
-        // A call that rang out is the moment for the written version. The
-        // pop-up holds onWorked until it closes — see introPrompt.
-        if (asksIntroEmail(body.code)) {
-          offerIntroEmail(attemptId, () => onWorked?.());
-          return;
-        }
-        onWorked?.();
-        return;
-      }
-      if (body?.reason === "not_reported" && tries < 5) {
-        timer = setTimeout(ask, 3000);
-        return;
-      }
-      // The server's word that the call was ANSWERED and the rep has to say
-      // what happened: a conversation ("talked"), or the rep's own hang-up on
-      // a connected call (talkSeconds is a number only when it connected).
-      // This — and nothing else — opens the pop-up. A call nobody answered
-      // never reaches here with a code of null and a number of seconds.
-      if ((body?.reason === "talked" || body?.reason === "rep_hung_up") && typeof body?.talkSeconds === "number") {
-        setSheetOpen(true);
-      }
-    };
-    timer = setTimeout(ask, Math.max(0, Number(pending.graceMs) || 0));
-    return () => {
-      cancelled = true;
-      if (timer) clearTimeout(timer);
-    };
-    // `load` and `onWorked` are read when the answer lands; keying on them
-    // would re-arm the timer on every parent render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pending?.id, pending?.autoAsk]);
-
   useEffect(() => {
     if (!flash) return undefined;
     const id = setTimeout(() => setFlash(0), 2500);
     return () => clearTimeout(id);
   }, [flash]);
-
-  // The strip goes away by itself. A rep who wants to change it after
-  // fifteen seconds still can — the row is in today's list — but the strip
-  // in the dial space would otherwise sit over the Call button.
-  useEffect(() => {
-    if (!autoLogged) return undefined;
-    const ms = autoLogged.until - Date.now();
-    if (ms <= 0) {
-      setAutoLogged(null);
-      return undefined;
-    }
-    const id = setTimeout(() => setAutoLogged(null), ms);
-    return () => clearTimeout(id);
-  }, [autoLogged]);
-
-  /** "Change": the line's outcome comes back up as the rep's to overwrite. */
-  function changeAutoLogged() {
-    if (!autoLogged) return;
-    setPending({ id: autoLogged.attemptId, toE164: autoLogged.toE164, dialledAt: autoLogged.dialledAt, override: autoLogged.code, autoAsk: false });
-    setAutoLogged(null);
-    setDraft(EMPTY_DRAFT);
-    setFormError("");
-    setError("");
-  }
-
-  function toggleMute() {
-    const call = callRef.current;
-    if (!call) return;
-    const next = !muted;
-    call.mute(next);
-    setMuted(next);
-  }
-
-  // "You rang {number}" for a call this rep placed; "They called you back
-  // from {number} at {time}" for one they received. The server no longer
-  // hands an inbound row to this panel (pendingAttempt is outbound-only),
-  // but the sentence is chosen by the row's direction rather than by that
-  // assumption, so a row that reaches here by any other path is never
-  // described as a call the rep made.
-  function whatHappenedBody(row) {
-    if (row?.direction === "in") {
-      let time = "";
-      try {
-        time = new Intl.DateTimeFormat(language || undefined, { hour: "2-digit", minute: "2-digit" }).format(new Date(row.dialledAt));
-      } catch {
-        time = String(row.dialledAt || "");
-      }
-      return t("app.salesCall.whatHappenedBodyInbound", { number: row.toE164, time });
-    }
-    return t("app.salesCall.whatHappenedBody", { number: row?.toE164 });
-  }
-
-  async function saveOutcome() {
-    if (!pending || !draft.choice) return;
-    // The fold is pure (outcomeChoices.js): the six buttons become one of the
-    // table's codes, or a refusal with the sentence to print. Nothing here
-    // names a code.
-    const fold = foldChoice({
-      key: draft.choice,
-      note: draft.note,
-      whenKind: draft.whenKind,
-      whenAt: draft.whenAt ? new Date(draft.whenAt) : null,
-      notOwner: draft.notOwner,
-      interested: draft.interested,
-      which: draft.which,
-      now: new Date(),
-    });
-    if (!fold.ok) {
-      setFormError(t(fold.reasonKey));
-      return;
-    }
-    setBusy("disposition");
-    setError("");
-    setFormError("");
-    try {
-      await fetchJson("/api/sales/calls", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "disposition",
-          attemptId: pending.id,
-          disposition: fold.code,
-          note: fold.note,
-          callbackAt: fold.callbackAt ? fold.callbackAt.toISOString() : null,
-        }),
-      });
-      setPending(null);
-      setDraft(EMPTY_DRAFT);
-      setSheetOpen(false);
-      // ── "They asked to be texted instead" opens the composer ──────────
-      //
-      // The outcome's retry rule schedules no re-dial (lib/sales/retryRules.js
-      // text_instead); the next touch is a text, and it is the rep's to
-      // write NOW, while the call is fresh. Same door as the Text them
-      // button (TextThem.js openTextThread): the thread on the number that
-      // was rung, the lead behind it, the blank box focused. A refusal
-      // here — the number is on the do-not-contact list, or another rep's
-      // — is printed as the form's error; the outcome is already saved.
-      if (fold.code === "text_instead") {
-        try {
-          const { href } = await openTextThread({
-            e164: pending.toE164 || phoneE164,
-            leadId: leadId || null,
-            prospectId: leadId ? null : prospectId || null,
-          });
-          await presenceRef.current.refresh();
-          await load();
-          onWorked?.();
-          router.push(href);
-          return;
-        } catch (err) {
-          setFormError(err?.message || t("app.salesText.newOpenFailed"));
-        }
-      }
-      // The server moved the rep back to available. Awaited BEFORE onWorked,
-      // because the queue's autodialler arms on onWorked and reads the state
-      // through the same context — armed against a row still saying on_call
-      // it would stop with "not available" and wait for a press that is not
-      // coming.
-      await presenceRef.current.refresh();
-      await load();
-      // A voicemail left is the moment for the written version. The pop-up
-      // holds onWorked until it closes — see introPrompt.
-      if (asksIntroEmail(fold.code)) {
-        offerIntroEmail(pending.id, () => onWorked?.());
-        return;
-      }
-      onWorked?.();
-    } catch (err) {
-      setFormError(err?.message || t("app.salesCall.outcomeSaveFailed"));
-    } finally {
-      setBusy("");
-    }
-  }
-
-  // ── "Write it up later" ─────────────────────────────────────────────
-  //
-  // The call goes to the rep's unlogged list (UnloggedCalls.js: the Today
-  // card, the Queue badge, the log-out gate) and the dialler is freed —
-  // the server's `defer` stops holding it in pendingAttempt and gives the
-  // retry pool a provisional schedule. Not a dismiss: a pop-up closed with
-  // Esc IS this, so the rep is never left with a form they have to find.
-  const later = useCallback(async () => {
-    setSheetOpen(false);
-    const row = pending;
-    if (!row?.id || row.override) return;
-    setBusy("defer");
-    try {
-      await fetchJson("/api/sales/calls", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "defer", attemptId: row.id }),
-      });
-      setPending((p) => (p?.id === row.id ? null : p));
-      setDraft(EMPTY_DRAFT);
-      setFormError("");
-      await presenceRef.current.refresh();
-      await load();
-      onWorked?.();
-    } catch (err) {
-      // The form is still in the Dialer column; the sentence says why.
-      setFormError(err?.message || t("app.salesCall.deferFailed"));
-    } finally {
-      setBusy("");
-    }
-    // `load` and `onWorked` are read when the reply lands.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pending?.id, pending?.override]);
 
   /** Draw `node` in the console's slot when it has one, inline otherwise. */
   const into = (slot, node) => (slot ? createPortal(node, slot) : node);
@@ -977,171 +604,30 @@ export default function CallPanel({
         <PublishedEmail email={playbookProspect?.email || null} source={playbookProspect?.emailSource || null} />,
       )}
 
-      {/* ── On a call ───────────────────────────────────────────────────── */}
-      {startedAt ? (
-        <div className="rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 p-4 space-y-3">
-          <div className="flex items-baseline justify-between gap-2">
-            <p className="font-semibold text-emerald-900 dark:text-emerald-100 break-words">
-              {t("app.salesCall.onCallWith", { name: callLabel || businessName || phoneE164 })}
-            </p>
-            <p className="text-xl font-mono tabular-nums text-emerald-900 dark:text-emerald-100">
-              {clock(elapsed)}
-            </p>
-          </div>
-          {attempt?.callerId ? (
-            <p className="text-xs text-emerald-900 dark:text-emerald-200 break-words">
-              {t("app.salesCall.callerIdNotice", { number: attempt.callerId })}
-            </p>
-          ) : null}
-          <div className="flex gap-2">
-            <button
-              type="button"
-              className={`${BTN} border border-emerald-400 text-emerald-900 dark:text-emerald-100 flex-1`}
-              onClick={toggleMute}
-            >
-              {muted ? <MicOff size={16} /> : <Mic size={16} />}
-              {muted ? t("app.salesCall.unmute") : t("app.salesCall.mute")}
-            </button>
-            <button
-              type="button"
-              className={`${BTN} bg-red-600 text-white flex-1`}
-              onClick={hangUp}
-            >
-              <PhoneOff size={16} /> {t("app.salesCall.hangUp")}
-            </button>
-          </div>
-
-          {/* ── Handing them to somebody else ──────────────────────────────
-              The same control the inbound dock renders, extracted rather than
-              copied: two pickers over one state machine is AGENTS.md failure
-              class 4 aimed at a live call. It renders nothing at all when the
-              server says this call cannot be transferred. */}
-          <TransferControl attemptId={attempt?.attemptId || null} active={Boolean(startedAt)} onError={setError} tone="call" />
-
-          {/* "They'd rather text" — mid-call, the thread on THIS number
-              with the blank box, without hanging up: the call stays up
-              (nothing here ends it), the rep types while they talk. */}
-          <TextThemButton
-            e164={phoneE164}
-            leadId={leadId || null}
-            prospectId={leadId ? null : prospectId || null}
-            variant="chip"
-            label={t("app.salesText.ratherText")}
-          />
-        </div>
-      ) : null}
+      {/* ── On a call ─────────────────────────────────────────────────────
+          Nothing here. The on-call block — clock, Mute, Hang up, Transfer,
+          Text them, Email — is LiveCallStrip's, drawn into the Dialer card's
+          slot (the queue registers one above this panel) or as a strip on
+          any other page. This panel holds no Call object to draw. */}
 
       {/* ── An unlogged call, which outranks starting another ─────────────
           Drawn HERE, in the Dialer column where the Call button was, and
           again in the console's Disposition tab when it has one. One form,
-          one state, two places — see the header. */}
+          one state (the session's), two places — see the header. */}
       {!startedAt && pending
         ? both(slots?.disposition || null, (inline) => (
-            <div
-              className={`rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 p-4 space-y-3 ${flash ? "ring-2 ring-amber-500 animate-pulse" : ""}`}
-              data-call-disposition={inline ? "dialer" : "tab"}
-              ref={inline ? formRef : null}
-            >
-              <div>
-                <p className="font-semibold text-amber-900 dark:text-amber-100">
-                  {t("app.salesCall.whatHappened")}
-                </p>
-                <p className="text-xs text-amber-900 dark:text-amber-200 break-words">
-                  {pending.override
-                    ? t("app.salesCall.changeAutoLoggedBody", {
-                        outcome: t(`app.salesCall.disposition.${pending.override}.label`),
-                        number: pending.toE164,
-                      })
-                    : whatHappenedBody(pending)}
-                </p>
-              </div>
-
-              {/* The six buttons, over the one shared draft. Every press
-                  folds to a real code in lib/sales/calls/outcomeChoices.js;
-                  this screen has no say in which. */}
-              <OutcomeForm t={t} draft={draft} setDraft={setDraft} busy={busy} onSave={saveOutcome} onLater={pending.override ? null : later} error={formError} />
-
-              {/* After the call, beside the write-up: the same control the
-                  Call button had, so "text me instead" is one press whether
-                  or not the rep logs it as the outcome. Drawn in the Dialer
-                  column only — the tab's copy of the form is the same
-                  state, and two presses for one thread is noise. */}
-              {inline ? (
-                <TextThemButton
-                  e164={pending.toE164 || phoneE164}
-                  leadId={leadId || null}
-                  prospectId={leadId ? null : prospectId || null}
-                  variant="chip"
-                  label={t("app.salesText.textThem")}
-                />
-              ) : null}
-
-              {pending.autoAsk && pending.dialChannel === "browser" ? (
-                <p className="text-xs text-amber-900 dark:text-amber-200 break-words">
-                  {t("app.salesCall.autoLogPending")}
-                </p>
-              ) : null}
-            </div>
+            <OutboundWriteUpCard t={t} language={language} session={session} inline={inline} flash={flash} formRef={formRef} extra={writeUpExtra} />
           ))
         : slots?.disposition
-          ? createPortal(
-              // The console's Disposition tab, with no call to write up: say so,
-              // and list what a written-up call will ask for. A blank tab reads
-              // as a broken one.
-              <div className="rounded-lg border border-dashed border-border bg-muted p-3 text-sm text-muted-foreground space-y-2" data-call-disposition-empty>
-                <p className="font-semibold text-foreground">{t("app.salesCall.noCallToLog")}</p>
-                <p className="break-words">{t("app.salesCall.noCallToLogBody")}</p>
-                {/* What the buttons offer — not the line's three, which a
-                    rep never picks (outcomeChoices.js). */}
-                <ul className="flex flex-wrap gap-1.5">
-                  {OUTCOME_CHOICES.map((c) => (
-                    <li key={c.key} className="rounded-full border border-border bg-card px-2.5 py-1 text-xs text-foreground">
-                      {t(choiceLabelKey(c.key))}
-                    </li>
-                  ))}
-                </ul>
-              </div>,
-              slots.disposition,
-            )
+          ? createPortal(<NoCallToLog t={t} />, slots.disposition)
           : null}
 
       {/* ── What the line logged by itself, with fifteen seconds to change it ── */}
-      {autoLogged && !pending && !startedAt
-        ? both(slots?.disposition || null, () => (
-            <div
-              className="rounded-lg border border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 p-3 text-sm text-emerald-900 dark:text-emerald-100 flex items-center justify-between gap-3"
-              data-call-auto-logged={autoLogged.code}
-              role="status"
-            >
-              <p className="break-words min-w-0">
-                {t("app.salesCall.autoLoggedAs", {
-                  outcome: t(`app.salesCall.disposition.${autoLogged.code}.label`),
-                })}
-              </p>
-              <button
-                type="button"
-                className="shrink-0 min-h-[36px] px-3 rounded-lg border border-emerald-400 font-semibold"
-                onClick={changeAutoLogged}
-                data-call-auto-logged-change
-              >
-                {t("app.salesCall.autoLoggedChange")}
-              </button>
-            </div>
-          ))
-        : null}
+      {autoLogged && !pending && !startedAt ? both(slots?.disposition || null, () => <AutoLoggedStrip t={t} session={session} />) : null}
 
-      {/* ── The pop-up, after an answered call has ended ─────────────────
-          Same draft, same save. Opened only by the auto-log reply — see the
-          header and the timer above. */}
-      <OutcomeSheet
-        t={t}
-        open={Boolean(sheetOpen && pending && !startedAt)}
-        onLater={later}
-        title={t("app.salesCall.whatHappened")}
-        body={pending ? whatHappenedBody(pending) : ""}
-      >
-        <OutcomeForm t={t} draft={draft} setDraft={setDraft} busy={busy} onSave={saveOutcome} onLater={later} error={formError} autoFocus />
-      </OutcomeSheet>
+      {/* The pop-up after an answered call, and the intro-email prompt, are
+          LiveCallStrip's: portals to <body> that open on whichever page the
+          rep is on, from the same session state this panel reads. */}
 
       {/* ── The call button ─────────────────────────────────────────────── */}
       {!startedAt && !pending ? (
@@ -1258,10 +744,6 @@ export default function CallPanel({
         onData={onPlaybookData}
       />
 
-      {/* ── "Send {business} the intro email?" ──────────────────────────────
-          After a no-answer or a voicemail, and nothing else. A portal, so it
-          draws over whichever slot the form is in. */}
-      <IntroEmailPrompt target={introPrompt} onClose={closeIntroPrompt} />
     </div>
   );
 }

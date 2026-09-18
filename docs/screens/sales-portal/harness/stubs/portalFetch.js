@@ -14,6 +14,12 @@ import { STATUS_CHOICES, STATE_ORDER, REP_STATES, PAUSE_REASON_ORDER, PAUSE_REAS
 // the rows here are the rows those frames show.
 import { fetchJson as messagesFetch } from "../../../sales-messages/harness/stubs/fetchJson.js";
 import { fetchJson as staffFetch } from "../../../team-chat/harness/staffFetch.js";
+// The queue console's own fixtures (2026-09-18), for the queue page this
+// harness now carries and for the shell's Device: the dial, the token, the
+// attempt, the playbook, the typed-number judgement. Its module also
+// patches window.fetch on import; the patch below is installed after it
+// and answers every /api/ call itself, so that one is never reached.
+import { fetchJson as consoleFetch } from "../../../sales-console/harness/stubs/fetchJson.js";
 // The rep's own funnel card on Today (69a79204): built through the pure
 // stage helpers the route uses, over a month of invented dials.
 import { stageCounts, buildRepFunnel, monthKeyOf, shiftMonth } from "@/lib/sales/funnelStages";
@@ -118,6 +124,10 @@ function answer(p, u, method, body) {
   if (p === "/api/sales/tour") return { step: 0, dismissed: true, completed: false };
   if (p === "/api/sales/auth/logout") return { ok: true };
   if (p === "/api/sales/queue") return QUEUE;
+  // POST: a prospect carried across as the rep's lead (Text them, Email
+  // them on a live call) — Bright Current, which has an address, so the
+  // composer has somebody to write to.
+  if (p === "/api/sales/leads" && method === "POST") return { lead: leadDetail("l2").lead, alreadyExisted: true };
   if (p === "/api/sales/leads") return { leads: LEADS, counts: LEAD_COUNTS, outreach: OUTREACH };
   // No link texted from this lead yet: the progress panel draws nothing on a
   // 404, which is the state the lead detail is captured in.
@@ -255,6 +265,9 @@ function answer(p, u, method, body) {
   // which is the frame worth keeping; unanswered, every Today frame carried
   // "Harness has no answer" and the shooter flagged the scene as an error.
   if (p === "/api/sales/calls/unlogged") return { store: { ready: true, missing: [] }, count: 0, items: [], serverNow: new Date().toISOString() };
+  // Today's "asked to be called back / booked a demo" card, off the intro
+  // email's two buttons (lib/sales/outreach/introRequests.js). Empty.
+  if (p === "/api/sales/intro-email/requests") return { callbacks: 0, demos: 0, items: [] };
   if (p === "/api/sales/calls/state") {
     if (method === "POST" && body?.state) state.presence = { ...state.presence, state: body.state, pauseReason: body.pauseReason || null, forMs: 0 };
     return { presence: state.presence, store: { ready: true }, choices: STATUS_CHOICES, autodial: state.autodial };
@@ -264,15 +277,29 @@ function answer(p, u, method, body) {
 
 // Texts and Team: the other harnesses' fetchJson-level stubs, wrapped back
 // into a Response so the shipped lib/fetchJson in this bundle can unwrap it.
+// The routes the queue console's fixtures answer better than this file's:
+// the queue itself, the dial and its token, the playbook, the numbers a
+// rep types. The shell's presence and state reads stay here.
+const CONSOLE_ROUTES = /^\/api\/sales\/(queue|playbook|calls\/(token|history|callbacks|test-line|numbers|caller|answered|transfer)|sms)(\/|$)/;
 async function delegated(p, url, options) {
   // /api/sales/checkins/* too: the Today card's waiting list and the
   // draft's own send are answered by the texts fixtures, so the card and
   // the thread show the same three drafts.
-  const stub = p.startsWith("/api/sales/messages") || p.startsWith("/api/sales/checkins") ? messagesFetch : p.startsWith("/api/staff/") ? staffFetch : null;
+  const method = (options.method || "GET").toUpperCase();
+  const stub =
+    p.startsWith("/api/sales/messages") || p.startsWith("/api/sales/checkins")
+      ? messagesFetch
+      : p.startsWith("/api/staff/")
+        ? staffFetch
+        : CONSOLE_ROUTES.test(p) || (p === "/api/sales/calls" && method === "POST" && /"action":"(dial|ended|auto_log|disposition|defer)"/.test(String(options.body || "")))
+          ? consoleFetch
+          : null;
   if (!stub) return null;
   try {
     let body = options.body;
-    if (typeof body === "string") { try { body = JSON.parse(body); } catch {} }
+    // The texts and team stubs take a parsed body; the console's parses
+    // the string itself, as the shipped fetchJson would hand it.
+    if (stub !== consoleFetch && typeof body === "string") { try { body = JSON.parse(body); } catch {} }
     return json(await stub(url, { ...options, body }));
   } catch (err) {
     return json({ error: String(err?.message || err) }, 400);
