@@ -61,6 +61,7 @@ import {
   CHOICE_NO_CALLBACKS,
   CHOICE_SENT_LINK,
   CHOICE_VOICEMAIL,
+  CHOICE_TEXT_INSTEAD,
   CHOICE_WRONG_OR_NOT_BUSINESS,
   MORE_CHOICE_KEYS,
   OFFERED_CODES,
@@ -311,9 +312,26 @@ section("5. The panel: the form where the rep is, the grace, the undo");
 // ═══════════════════════════════════════════════════════════════════════════
 section("6. The owner's six buttons — presentation over the vocabulary");
 // ═══════════════════════════════════════════════════════════════════════════
-ok("exactly four primary, in the owner's order: Sent the link, Call back, Not now, Left a voicemail", PRIMARY_CHOICE_KEYS.join() === [CHOICE_SENT_LINK, CHOICE_CALL_BACK, CHOICE_NOT_NOW, CHOICE_VOICEMAIL].join());
+// Five primary since 2026-09-18: "Text me instead" joined the owner's four
+// (a company that would rather text was the answer the reps were hearing
+// and had no button for). The four keep their order and their keys.
+ok("five primary, in the owner's order: Sent the link, Call back, Not now, Left a voicemail — then Text me instead", PRIMARY_CHOICE_KEYS.join() === [CHOICE_SENT_LINK, CHOICE_CALL_BACK, CHOICE_NOT_NOW, CHOICE_VOICEMAIL, CHOICE_TEXT_INSTEAD].join());
 ok("exactly two under More: Requested no call-backs, Wrong number / not a business", MORE_CHOICE_KEYS.join() === [CHOICE_NO_CALLBACKS, CHOICE_WRONG_OR_NOT_BUSINESS].join());
-ok("keys 1–4 on the primary four, none on More", OUTCOME_CHOICES.filter((c) => c.primary).map((c) => c.hotkey).join() === "1,2,3,4" && OUTCOME_CHOICES.filter((c) => !c.primary).every((c) => c.hotkey === null));
+ok("keys 1–5 on the primary five, none on More", OUTCOME_CHOICES.filter((c) => c.primary).map((c) => c.hotkey).join() === "1,2,3,4,5" && OUTCOME_CHOICES.filter((c) => !c.primary).every((c) => c.hotkey === null));
+{
+  // "Text me instead" — the code, its rule, and what the panel does on save.
+  const f = foldChoice({ key: CHOICE_TEXT_INSTEAD, note: "prefers text" });
+  ok("Text me instead → text_instead, note kept, no callback", f.ok && f.code === "text_instead" && f.note === "prefers text" && f.callbackAt === null, f);
+  ok("text_instead is reached, HOLDS the claim, marks the lead contacted, suppresses nothing", DISPOSITIONS.text_instead.reached === true && DISPOSITIONS.text_instead.claim === "hold" && DISPOSITIONS.text_instead.leadStatus === "contacted" && DISPOSITIONS.text_instead.doNotContact === false);
+  ok("…and its retry rule is FINAL — no re-dial for somebody who asked to be texted", RETRY_RULES.text_instead?.kind === "final" && RETRY_RULES.text_instead.delayMinutes === null);
+  ok("…and it is in the picker's order, after callback", DISPOSITION_ORDER.indexOf("text_instead") === DISPOSITION_ORDER.indexOf("callback") + 1);
+  const panelSrc = source("app/components/sales/CallPanel.js");
+  ok("the call panel opens the composer on save — the Text them door, then the thread", /if \(fold\.code === "text_instead"\) \{/.test(panelSrc) && /await openTextThread\(\{\s*e164: pending\.toE164 \|\| phoneE164,/.test(panelSrc) && /router\.push\(href\)/.test(panelSrc));
+  ok("…AFTER the outcome is saved, never instead of it", panelSrc.indexOf('if (fold.code === "text_instead") {') > panelSrc.indexOf('action: "disposition",'));
+  const langs = Object.keys(APP_MESSAGES);
+  const missingKeys = langs.flatMap((l) => ["app.salesCall.choice.text_instead.label", "app.salesCall.choice.text_instead.hint", "app.salesCall.disposition.text_instead.label", "app.salesCall.disposition.text_instead.hint", "app.salesText.textThem", "app.salesText.textThemNamed", "app.salesText.ratherText", "app.salesDial.callerTextThem"].filter((k) => !APP_MESSAGES[l][k]).map((k) => `${l}:${k}`));
+  ok("the button, the outcome and the Text them control exist in every language", missingKeys.length === 0, missingKeys);
+}
 {
   const cov = choiceCoverage();
   ok("every code a button can become is a real disposition", cov.unknown.length === 0, cov.unknown);

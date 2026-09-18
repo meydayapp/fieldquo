@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 18 September 2026 (a live caller can be handed to a phone FieldQuo trusts or parked in the hold queue when the floor is empty — `lib/sales/transferNumbers.js`, the "Transfer phones" card on /platform/sales/windows, `kind: "number"` and `kind: "queue"` targets in `lib/sales/calls/transfer.js`; see the section below)
+Last updated: 18 September 2026 ("text me instead": a first text the rep writes, "Text them" beside every Call button, the outcome that opens the composer, the thread pane no longer squeezed — `app/components/sales/TextThem.js`, `lib/sales/messages/startThread.js`, `docs/screens/sales-texting/`; see the section below)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -9,6 +9,81 @@ it exists to answer.
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
+
+## "Text me instead": the first text is the rep's to write, and Text them stands beside every Call button (18 September 2026)
+
+The owner's report: a company told the rep "text me instead", and the reps
+"find it a bit hard to send a new text — maybe it's not linked". Then, live,
+a rep on a 1600px screen with "no options to send the text or any text".
+The friction was measured in the harness before and after —
+`docs/screens/sales-texting/` (README, `before/`, `after/`, `record.json`
+with every sentence).
+
+- **What was a bug.** The signup-link panel under an empty thread was
+  taller than the space left inside the fixed-height, overflow-hidden chat
+  frame, so "Send the text" sat below a fold nothing scrolled; the middle
+  pane was ~300px between the list, the 340px contact bar and a centred
+  band. The composer (textarea + Send) is now the last flex item, drawn
+  whole, with whatever grows above it in its own capped scroller;
+  `/sales/messages` has no width cap (like the queue) and the contact bar
+  is a column only from 1400px (`ChatLayout contextColumnFrom="wide"`), a
+  sheet below. "Open lead" was drawn twice; the contact pane now offers
+  "Write a text" that focuses the box.
+- **What was a rule, and which half of it changed.** The reply route
+  refused EVERY first text — "start from the lead, the first message
+  carries your signup link". The rule's reason was never the link: it was a
+  free-text send to a stranger's number with no lead and no record of
+  where it came from. So the rule is now "the number must be on a lead you
+  hold" (`START_REFUSALS.no_lead`), and every message, first or tenth,
+  carries `replySmsBody`'s footer — FieldQuo, the mailing address, "Reply
+  STOP to opt out". An empty thread on a lead opens on a picker: *Write
+  your own* / *As discussed on the call* / *Signup link* (the fixed
+  introduction, unchanged). `?compose=own` opens on the blank box.
+- **Rules that still stop a rep, printed where the box would be.** The
+  do-not-contact list; a number another rep holds a lead or claim on (with
+  their name — the thread GET carries `holder`); Canada/US only; the
+  08:00–21:00 texting window in the prospect's zone; the mailing address
+  unset. A number on nobody's lead offers "Text this number now" (a lead
+  with the number alone, the New message path) and "Save as a new lead".
+- **The time zone.** Answered in a row above the box when the readiness
+  asks, over the same closed list the lead editor writes, pre-filled with
+  the area code's suggestion (`lib/sales/areaCodeZone.js`: 419 codes, 31
+  split ones refuse to suggest) and written on the lead by Send as stated.
+  The signup panel pre-fills the same. `lib/sales/leadTimeZone.js` still
+  never consults the area code — a suggestion the rep confirms is not a
+  decision, and a NY lead with no stated zone derives without asking, as
+  before.
+- **"Text them"** (`app/components/sales/TextThem.js`): the Dialer card,
+  the lead page, the call panel idle / live ("They'd rather text") / after
+  the call, the no-dial states (a closed calling window is not a closed
+  texting window), the ring dialog and the live strip. It makes the lead
+  from a prospect (`POST /api/sales/leads`), then
+  `POST /api/sales/messages/start` with the leadId; `startTextThread`
+  re-reads the lead against the rep, records a number the lead does not
+  carry through `lib/sales/contact/record.js` — the numbers route's write,
+  moved out so both doors share it — and leaves a test line or a test
+  account's number off the record.
+- **The outcome** "They asked to be texted instead" (`text_instead`, a
+  fifth primary button, hotkey 5): reached, claim held, lead contacted, a
+  FINAL retry rule (no re-dial), and the call panel opens the composer on
+  save. Nine languages.
+- **Replies** were already right: an inbound to the sales number is filed
+  to the rep who last texted it, pushed (`pushToReps`, every reply but a
+  STOP) and counted in the sidebar badge; an unowned reply is listed to
+  every rep and claimed by the first to answer. Nothing changed there.
+- Checks: `check:sales-text-them` (startTextThread over a scriptable
+  client — the hint, the write, the test line, another rep's claim, the
+  STOP list first), `check:area-code-zone`, and the rewritten sections of
+  `check:sales-messages`, `check:sales-call-panel`, `check:chat-kit`,
+  `check:free-dial`, `check:sales-test-line`, `check:sales-sms`.
+
+### Still owed here
+
+- `check:sales-server-copy` and `check:sales-portal-i18n` fail on `main`
+  before this work: `app.salesIntel.*` (whoToAskFor, bbb, people.openBbb)
+  exist in en/fr/es only. Not this change's; the six languages need them.
+- The queue's "Text the signup link to X" card stays as the owner placed
+  it; the Text them button under the Call button is the free-text door.
 
 ## Transfer when nobody else is free: a phone FieldQuo trusts, or the hold queue (18 September 2026)
 

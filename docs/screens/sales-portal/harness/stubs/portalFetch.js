@@ -228,9 +228,11 @@ function answer(p, u, method, body) {
   //   +12125550199  nobody we hold — "Not one of your leads", the save link.
   if (p === "/api/sales/calls/caller") {
     const from = u.searchParams.get("from") || "";
-    if (from === "+14055550777") return { outcome: "prospect", businessName: "Sooner State Plumbing", city: "Norman", province: "OK", holder: { repId: "r9", name: "Priya Nair", mine: false }, open: null, notes: null, save: null };
-    if (from === "+12125550199") return { outcome: "none", businessName: null, city: null, province: null, holder: null, open: null, notes: null, save: { href: "/sales/leads?new=1&phone=%2B12125550199" } };
-    return { outcome: "prospect", businessName: "Bright Current Electrical", city: "Tulsa", province: "OK", holder: { repId: ME.id, name: ME.name, mine: true }, open: { kind: "console", href: "/sales/queue?prospectId=p1" }, notes: { href: "/sales/queue?prospectId=p1&tab=notes" }, save: null };
+    // `text` (2026-09-18): the ids the dock's "They'd rather text" hands to
+    // /api/sales/messages/start — the rep's own record only.
+    if (from === "+14055550777") return { outcome: "prospect", businessName: "Sooner State Plumbing", city: "Norman", province: "OK", holder: { repId: "r9", name: "Priya Nair", mine: false }, open: null, notes: null, save: null, text: null };
+    if (from === "+12125550199") return { outcome: "none", businessName: null, city: null, province: null, holder: null, open: null, notes: null, save: { href: "/sales/leads?new=1&phone=%2B12125550199" }, text: { leadId: null, prospectId: null } };
+    return { outcome: "prospect", businessName: "Bright Current Electrical", city: "Tulsa", province: "OK", holder: { repId: ME.id, name: ME.name, mine: true }, open: { kind: "console", href: "/sales/queue?prospectId=p1" }, notes: { href: "/sales/queue?prospectId=p1&tab=notes" }, save: null, text: { leadId: null, prospectId: "p1" } };
   }
   if (p === "/api/sales/calls/answered") return { attemptId: "att_harness", transferable: true };
   // The lead page's call history (app/components/sales/CallHistory.js):

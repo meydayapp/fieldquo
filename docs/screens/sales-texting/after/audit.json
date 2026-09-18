@@ -1,0 +1,1059 @@
+{
+ "messages-new @375": {
+  "file": "messages-new-375.png",
+  "url": "file:///tmp/fq-tx-portal-after/portal.html?page=messages&scene=typed-open",
+  "vw": 375,
+  "vh": 812,
+  "docW": 375,
+  "docH": 812,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [
+   {
+    "tag": "select",
+    "cls": "mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground",
+    "text": "Pick their time zone…",
+    "x": 33,
+    "y": 504,
+    "w": 309,
+    "h": 38,
+    "right": 342,
+    "inline": false,
+    "primary": false,
+    "type": null
+   }
+  ],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 747,
+    "w": 375,
+    "h": 65,
+    "right": 375,
+    "z": "40"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 375,
+   "h": 748,
+   "right": 375
+  },
+  "smallInputs": [],
+  "scrollers": [
+   {
+    "tag": "div",
+    "cls": "mt-2 -mx-3 flex gap-1.5 overflow-x-auto px-3 pb-0.5 [&>*]:shrink-0",
+    "text": "Call Open lead Schedule check-inMark done Contact",
+    "x": 17,
+    "y": 161,
+    "w": 341,
+    "h": 46,
+    "right": 358
+   },
+   {
+    "tag": "div",
+    "cls": "mt-1.5 -mx-3 flex gap-1.5 overflow-x-auto px-3 pb-1 [&>*]:shrink-0",
+    "text": "Write your own As discussed on the call Signup link",
+    "x": 17,
+    "y": 247,
+    "w": 341,
+    "h": 48,
+    "right": 358
+   }
+  ],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Texts"
+  ],
+  "textLength": 1013,
+  "consoleErrors": [],
+  "tapCount": 1,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "messages-new @1280": {
+  "file": "messages-new-1280.png",
+  "url": "file:///tmp/fq-tx-portal-after/portal.html?page=messages&scene=typed-open",
+  "vw": 1280,
+  "vh": 900,
+  "docW": 1280,
+  "docH": 900,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [
+   {
+    "tag": "button",
+    "cls": "inline-flex items-center gap-1.5 min-h-[44px] lg:min-h-[36px] whitespace-nowrap rounded-md border border-border bg-card px-2.5 text-xs font-",
+    "text": "New message",
+    "x": 391,
+    "y": 104,
+    "w": 121,
+    "h": 36,
+    "right": 512,
+    "inline": false,
+    "primary": false,
+    "type": "button"
+   },
+   {
+    "tag": "button",
+    "cls": "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold min-h-[44px] lg:min-h-[36px] px-2.5 transition-colors moti",
+    "text": "Roadblocks1",
+    "x": 257,
+    "y": 148,
+    "w": 113,
+    "h": 36,
+    "right": 370,
+    "inline": false,
+    "primary": false,
+    "type": "button"
+   },
+   {
+    "tag": "button",
+    "cls": "flex w-full items-center gap-1.5 px-3 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground hover:text-fo",
+    "text": "Needs a reply44 unread",
+    "x": 245,
+    "y": 199,
+    "w": 279,
+    "h": 32,
+    "right": 524,
+    "inline": false,
+    "primary": false,
+    "type": "button"
+   },
+   {
+    "tag": "button",
+    "cls": "flex w-full items-center gap-1.5 px-3 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground hover:text-fo",
+    "text": "Waiting on them1",
+    "x": 245,
+    "y": 429,
+    "w": 279,
+    "h": 32,
+    "right": 524,
+    "inline": false,
+    "primary": false,
+    "type": "button"
+   },
+   {
+    "tag": "button",
+    "cls": "flex w-full items-center gap-1.5 px-3 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground hover:text-fo",
+    "text": "Drafts due1",
+    "x": 245,
+    "y": 527,
+    "w": 279,
+    "h": 32,
+    "right": 524,
+    "inline": false,
+    "primary": false,
+    "type": "button"
+   },
+   {
+    "tag": "button",
+    "cls": "flex w-full items-center gap-1.5 px-3 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground hover:text-fo",
+    "text": "Done2",
+    "x": 245,
+    "y": 625,
+    "w": 279,
+    "h": 32,
+    "right": 524,
+    "inline": false,
+    "primary": false,
+    "type": "button"
+   },
+   {
+    "tag": "a",
+    "cls": "inline-flex items-center gap-1.5 min-h-[44px] lg:min-h-[36px] whitespace-nowrap rounded-md border border-border bg-card px-2.5 text-xs font-",
+    "text": "Call",
+    "x": 537,
+    "y": 149,
+    "w": 63,
+    "h": 36,
+    "right": 600,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "a",
+    "cls": "inline-flex items-center gap-1.5 min-h-[44px] lg:min-h-[36px] whitespace-nowrap rounded-md border border-border bg-card px-2.5 text-xs font-",
+    "text": "Open lead",
+    "x": 606,
+    "y": 149,
+    "w": 100,
+    "h": 36,
+    "right": 706,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "button",
+    "cls": "inline-flex items-center gap-1.5 min-h-[44px] lg:min-h-[36px] whitespace-nowrap rounded-md border border-border bg-card px-2.5 text-xs font-",
+    "text": "Schedule check-in",
+    "x": 712,
+    "y": 149,
+    "w": 148,
+    "h": 36,
+    "right": 860,
+    "inline": false,
+    "primary": false,
+    "type": "button"
+   },
+   {
+    "tag": "button",
+    "cls": "inline-flex items-center gap-1.5 min-h-[44px] lg:min-h-[36px] whitespace-nowrap rounded-md border border-border bg-card px-2.5 text-xs font-",
+    "text": "Mark done",
+    "x": 866,
+    "y": 149,
+    "w": 102,
+    "h": 36,
+    "right": 968,
+    "inline": false,
+    "primary": false,
+    "type": "button"
+   },
+   {
+    "tag": "button",
+    "cls": "inline-flex items-center gap-1.5 min-h-[44px] lg:min-h-[36px] whitespace-nowrap rounded-md border border-border bg-card px-2.5 text-xs font-",
+    "text": "Contact",
+    "x": 974,
+    "y": 149,
+    "w": 87,
+    "h": 36,
+    "right": 1061,
+    "inline": false,
+    "primary": false,
+    "type": "button"
+   },
+   {
+    "tag": "button",
+    "cls": "inline-flex items-center gap-1.5 min-h-[44px] lg:min-h-[36px] whitespace-nowrap rounded-md border border-border bg-card px-2.5 text-xs font-",
+    "text": "Write your own",
+    "x": 537,
+    "y": 372,
+    "w": 128,
+    "h": 36,
+    "right": 665,
+    "inline": false,
+    "primary": false,
+    "type": "button"
+   }
+  ],
+  "tapPrimary": [
+   {
+    "tag": "button",
+    "cls": "inline-flex items-center gap-1.5 min-h-[44px] lg:min-h-[36px] whitespace-nowrap rounded-md border border-border bg-card px-2.5 text-xs font-",
+    "text": "Signup link",
+    "x": 857,
+    "y": 372,
+    "w": 105,
+    "h": 36,
+    "right": 962,
+    "inline": false,
+    "primary": true,
+    "type": "button"
+   }
+  ],
+  "truncated": [
+   {
+    "tag": "span",
+    "cls": "min-w-0 flex-1 truncate text-xs text-foreground",
+    "text": "she does the books",
+    "x": 305,
+    "y": 265,
+    "w": 106,
+    "h": 16,
+    "right": 411
+   },
+   {
+    "tag": "span",
+    "cls": "min-w-0 flex-1 truncate text-xs text-foreground",
+    "text": "Le lien dit que mon courriel est déjà utilisé, je peux pas passer l'ét",
+    "x": 305,
+    "y": 329,
+    "w": 82,
+    "h": 16,
+    "right": 387
+   },
+   {
+    "tag": "span",
+    "cls": "truncate text-sm font-medium text-foreground",
+    "text": "Park Place Installations",
+    "x": 305,
+    "y": 471,
+    "w": 147,
+    "h": 20,
+    "right": 452
+   },
+   {
+    "tag": "span",
+    "cls": "min-w-0 flex-1 truncate text-xs text-muted-foreground",
+    "text": "You: Hi, Rachel from FieldQuo. No rush, text back when you're off the ",
+    "x": 305,
+    "y": 493,
+    "w": 207,
+    "h": 16,
+    "right": 512
+   }
+  ],
+  "dialogs": [],
+  "fixed": [],
+  "asides": [
+   {
+    "tag": "aside",
+    "cls": "hidden lg:flex flex-col shrink-0 sticky top-0 h-screen bg-sidebar text-sidebar-foreground border-r border-sidebar-border transition-[width] ",
+    "text": "Sales portalTodayQueuePlaybookMy leadsConversationsTexts33Team1NotesCa",
+    "x": 0,
+    "y": 0,
+    "w": 220,
+    "h": 900,
+    "right": 220,
+    "fixed": false
+   },
+   {
+    "tag": "aside",
+    "cls": "hidden md:flex w-full md:w-[280px] md:shrink-0 flex-col border-r border-border bg-card min-h-0",
+    "text": "Texts New messageRoadblocks1Needs a reply44 unreadMESMSMelton Electric",
+    "x": 245,
+    "y": 94,
+    "w": 280,
+    "h": 714,
+    "right": 525,
+    "fixed": false
+   }
+  ],
+  "railVisible": false,
+  "mainRect": {
+   "x": 220,
+   "y": 61,
+   "w": 1060,
+   "h": 780,
+   "right": 1280
+  },
+  "smallInputs": [
+   {
+    "tag": "select",
+    "cls": "mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground",
+    "text": "Pick their time zone…",
+    "x": 541,
+    "y": 569,
+    "w": 698,
+    "h": 37,
+    "right": 1239,
+    "fontSize": "14px"
+   }
+  ],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Texts"
+  ],
+  "textLength": 1735,
+  "consoleErrors": [],
+  "tapCount": 15,
+  "truncatedCount": 4,
+  "smallInputCount": 1
+ },
+ "messages-compose-own @375": {
+  "file": "messages-compose-own-375.png",
+  "url": "file:///tmp/fq-tx-portal-after/portal.html?page=messages&thread=%2B15145550148&compose=own",
+  "vw": 375,
+  "vh": 812,
+  "docW": 375,
+  "docH": 812,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [
+   {
+    "tag": "select",
+    "cls": "w-full min-h-[40px] rounded-md border border-border bg-card px-2 text-sm text-foreground",
+    "text": "Pick their time zone…Eastern (Toronto, Ottawa, Montréal, New York)Cent",
+    "x": 29,
+    "y": 457,
+    "w": 317,
+    "h": 40,
+    "right": 346,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "button",
+    "cls": "inline-flex items-center gap-1.5 min-h-[44px] lg:min-h-[36px] whitespace-nowrap rounded-md border border-border bg-card px-2.5 text-xs font-",
+    "text": "Park a follow-up for later",
+    "x": 29,
+    "y": 590,
+    "w": 35,
+    "h": 44,
+    "right": 64,
+    "inline": false,
+    "primary": false,
+    "type": "button"
+   },
+   {
+    "tag": "button",
+    "cls": "ml-1 inline-flex min-h-[40px] items-center justify-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-sm font-semibold text-primary-foreg",
+    "text": "Send it",
+    "x": 250,
+    "y": 592,
+    "w": 96,
+    "h": 40,
+    "right": 346,
+    "inline": false,
+    "primary": true,
+    "type": "button"
+   }
+  ],
+  "tapPrimary": [
+   {
+    "tag": "button",
+    "cls": "ml-1 inline-flex min-h-[40px] items-center justify-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-sm font-semibold text-primary-foreg",
+    "text": "Send it",
+    "x": 250,
+    "y": 592,
+    "w": 96,
+    "h": 40,
+    "right": 346,
+    "inline": false,
+    "primary": true,
+    "type": "button"
+   }
+  ],
+  "truncated": [],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 747,
+    "w": 375,
+    "h": 65,
+    "right": 375,
+    "z": "40"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 375,
+   "h": 748,
+   "right": 375
+  },
+  "smallInputs": [],
+  "scrollers": [
+   {
+    "tag": "div",
+    "cls": "mt-2 -mx-3 flex gap-1.5 overflow-x-auto px-3 pb-0.5 [&>*]:shrink-0",
+    "text": "Call Open lead Schedule check-inMark done Contact",
+    "x": 17,
+    "y": 161,
+    "w": 341,
+    "h": 46,
+    "right": 358
+   },
+   {
+    "tag": "div",
+    "cls": "mt-1.5 -mx-3 flex gap-1.5 overflow-x-auto px-3 pb-1 [&>*]:shrink-0",
+    "text": "Write your own As discussed on the call Signup link",
+    "x": 17,
+    "y": 342,
+    "w": 341,
+    "h": 48,
+    "right": 358
+   }
+  ],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Texts"
+  ],
+  "textLength": 923,
+  "consoleErrors": [],
+  "tapCount": 3,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "messages-compose-own @1280": {
+  "file": "messages-compose-own-1280.png",
+  "url": "file:///tmp/fq-tx-portal-after/portal.html?page=messages&thread=%2B15145550148&compose=own",
+  "vw": 1280,
+  "vh": 900,
+  "docW": 1280,
+  "docH": 900,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [
+   {
+    "tag": "button",
+    "cls": "inline-flex items-center gap-1.5 min-h-[44px] lg:min-h-[36px] whitespace-nowrap rounded-md border border-border bg-card px-2.5 text-xs font-",
+    "text": "New message",
+    "x": 391,
+    "y": 104,
+    "w": 121,
+    "h": 36,
+    "right": 512,
+    "inline": false,
+    "primary": false,
+    "type": "button"
+   },
+   {
+    "tag": "button",
+    "cls": "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold min-h-[44px] lg:min-h-[36px] px-2.5 transition-colors moti",
+    "text": "Roadblocks1",
+    "x": 257,
+    "y": 148,
+    "w": 113,
+    "h": 36,
+    "right": 370,
+    "inline": false,
+    "primary": false,
+    "type": "button"
+   },
+   {
+    "tag": "button",
+    "cls": "flex w-full items-center gap-1.5 px-3 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground hover:text-fo",
+    "text": "Needs a reply44 unread",
+    "x": 245,
+    "y": 199,
+    "w": 279,
+    "h": 32,
+    "right": 524,
+    "inline": false,
+    "primary": false,
+    "type": "button"
+   },
+   {
+    "tag": "button",
+    "cls": "flex w-full items-center gap-1.5 px-3 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground hover:text-fo",
+    "text": "Waiting on them1",
+    "x": 245,
+    "y": 429,
+    "w": 279,
+    "h": 32,
+    "right": 524,
+    "inline": false,
+    "primary": false,
+    "type": "button"
+   },
+   {
+    "tag": "button",
+    "cls": "flex w-full items-center gap-1.5 px-3 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground hover:text-fo",
+    "text": "Drafts due1",
+    "x": 245,
+    "y": 527,
+    "w": 279,
+    "h": 32,
+    "right": 524,
+    "inline": false,
+    "primary": false,
+    "type": "button"
+   },
+   {
+    "tag": "button",
+    "cls": "flex w-full items-center gap-1.5 px-3 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground hover:text-fo",
+    "text": "Done2",
+    "x": 245,
+    "y": 625,
+    "w": 279,
+    "h": 32,
+    "right": 524,
+    "inline": false,
+    "primary": false,
+    "type": "button"
+   },
+   {
+    "tag": "a",
+    "cls": "inline-flex items-center gap-1.5 min-h-[44px] lg:min-h-[36px] whitespace-nowrap rounded-md border border-border bg-card px-2.5 text-xs font-",
+    "text": "Call",
+    "x": 537,
+    "y": 149,
+    "w": 63,
+    "h": 36,
+    "right": 600,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "a",
+    "cls": "inline-flex items-center gap-1.5 min-h-[44px] lg:min-h-[36px] whitespace-nowrap rounded-md border border-border bg-card px-2.5 text-xs font-",
+    "text": "Open lead",
+    "x": 606,
+    "y": 149,
+    "w": 100,
+    "h": 36,
+    "right": 706,
+    "inline": false,
+    "primary": false,
+    "type": null
+   },
+   {
+    "tag": "button",
+    "cls": "inline-flex items-center gap-1.5 min-h-[44px] lg:min-h-[36px] whitespace-nowrap rounded-md border border-border bg-card px-2.5 text-xs font-",
+    "text": "Schedule check-in",
+    "x": 712,
+    "y": 149,
+    "w": 148,
+    "h": 36,
+    "right": 860,
+    "inline": false,
+    "primary": false,
+    "type": "button"
+   },
+   {
+    "tag": "button",
+    "cls": "inline-flex items-center gap-1.5 min-h-[44px] lg:min-h-[36px] whitespace-nowrap rounded-md border border-border bg-card px-2.5 text-xs font-",
+    "text": "Mark done",
+    "x": 866,
+    "y": 149,
+    "w": 102,
+    "h": 36,
+    "right": 968,
+    "inline": false,
+    "primary": false,
+    "type": "button"
+   },
+   {
+    "tag": "button",
+    "cls": "inline-flex items-center gap-1.5 min-h-[44px] lg:min-h-[36px] whitespace-nowrap rounded-md border border-border bg-card px-2.5 text-xs font-",
+    "text": "Contact",
+    "x": 974,
+    "y": 149,
+    "w": 87,
+    "h": 36,
+    "right": 1061,
+    "inline": false,
+    "primary": false,
+    "type": "button"
+   },
+   {
+    "tag": "button",
+    "cls": "inline-flex items-center gap-1.5 min-h-[44px] lg:min-h-[36px] whitespace-nowrap rounded-md border border-border bg-card px-2.5 text-xs font-",
+    "text": "Write your own",
+    "x": 537,
+    "y": 495,
+    "w": 128,
+    "h": 36,
+    "right": 665,
+    "inline": false,
+    "primary": true,
+    "type": "button"
+   }
+  ],
+  "tapPrimary": [
+   {
+    "tag": "button",
+    "cls": "inline-flex items-center gap-1.5 min-h-[44px] lg:min-h-[36px] whitespace-nowrap rounded-md border border-border bg-card px-2.5 text-xs font-",
+    "text": "Write your own",
+    "x": 537,
+    "y": 495,
+    "w": 128,
+    "h": 36,
+    "right": 665,
+    "inline": false,
+    "primary": true,
+    "type": "button"
+   },
+   {
+    "tag": "button",
+    "cls": "ml-1 inline-flex min-h-[40px] items-center justify-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-sm font-semibold text-primary-foreg",
+    "text": "Send it",
+    "x": 1147,
+    "y": 719,
+    "w": 96,
+    "h": 40,
+    "right": 1243,
+    "inline": false,
+    "primary": true,
+    "type": "button"
+   }
+  ],
+  "truncated": [
+   {
+    "tag": "span",
+    "cls": "min-w-0 flex-1 truncate text-xs text-foreground",
+    "text": "she does the books",
+    "x": 305,
+    "y": 265,
+    "w": 106,
+    "h": 16,
+    "right": 411
+   },
+   {
+    "tag": "span",
+    "cls": "min-w-0 flex-1 truncate text-xs text-foreground",
+    "text": "Le lien dit que mon courriel est déjà utilisé, je peux pas passer l'ét",
+    "x": 305,
+    "y": 329,
+    "w": 82,
+    "h": 16,
+    "right": 387
+   },
+   {
+    "tag": "span",
+    "cls": "truncate text-sm font-medium text-foreground",
+    "text": "Park Place Installations",
+    "x": 305,
+    "y": 471,
+    "w": 147,
+    "h": 20,
+    "right": 452
+   },
+   {
+    "tag": "span",
+    "cls": "min-w-0 flex-1 truncate text-xs text-muted-foreground",
+    "text": "You: Hi, Rachel from FieldQuo. No rush, text back when you're off the ",
+    "x": 305,
+    "y": 493,
+    "w": 207,
+    "h": 16,
+    "right": 512
+   }
+  ],
+  "dialogs": [],
+  "fixed": [],
+  "asides": [
+   {
+    "tag": "aside",
+    "cls": "hidden lg:flex flex-col shrink-0 sticky top-0 h-screen bg-sidebar text-sidebar-foreground border-r border-sidebar-border transition-[width] ",
+    "text": "Sales portalTodayQueuePlaybookMy leadsConversationsTexts33Team1NotesCa",
+    "x": 0,
+    "y": 0,
+    "w": 220,
+    "h": 900,
+    "right": 220,
+    "fixed": false
+   },
+   {
+    "tag": "aside",
+    "cls": "hidden md:flex w-full md:w-[280px] md:shrink-0 flex-col border-r border-border bg-card min-h-0",
+    "text": "Texts New messageRoadblocks1Needs a reply44 unreadMESMSMelton Electric",
+    "x": 245,
+    "y": 94,
+    "w": 280,
+    "h": 714,
+    "right": 525,
+    "fixed": false
+   }
+  ],
+  "railVisible": false,
+  "mainRect": {
+   "x": 220,
+   "y": 61,
+   "w": 1060,
+   "h": 780,
+   "right": 1280
+  },
+  "smallInputs": [
+   {
+    "tag": "select",
+    "cls": "w-full min-h-[40px] rounded-md border border-border bg-card px-2 text-sm text-foreground",
+    "text": "Pick their time zone…Eastern (Toronto, Ottawa, Montréal, New York)Cent",
+    "x": 537,
+    "y": 586,
+    "w": 706,
+    "h": 40,
+    "right": 1243,
+    "fontSize": "14px"
+   }
+  ],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Texts"
+  ],
+  "textLength": 1715,
+  "consoleErrors": [],
+  "tapCount": 17,
+  "truncatedCount": 4,
+  "smallInputCount": 1
+ },
+ "messages @375": {
+  "file": "messages-375.png",
+  "url": "file:///tmp/fq-tx-portal-after/portal.html?page=messages",
+  "vw": 375,
+  "vh": 812,
+  "docW": 375,
+  "docH": 812,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [],
+  "tapPrimary": [],
+  "truncated": [
+   {
+    "tag": "span",
+    "cls": "min-w-0 flex-1 truncate text-xs text-foreground",
+    "text": "Le lien dit que mon courriel est déjà utilisé, je peux pas passer l'ét",
+    "x": 77,
+    "y": 345,
+    "w": 143,
+    "h": 16,
+    "right": 220
+   },
+   {
+    "tag": "span",
+    "cls": "min-w-0 flex-1 truncate text-xs text-muted-foreground",
+    "text": "You: Hi, Rachel from FieldQuo. No rush, text back when you're off the ",
+    "x": 77,
+    "y": 521,
+    "w": 268,
+    "h": 16,
+    "right": 345
+   }
+  ],
+  "dialogs": [],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 747,
+    "w": 375,
+    "h": 65,
+    "right": 375,
+    "z": "40"
+   }
+  ],
+  "asides": [
+   {
+    "tag": "aside",
+    "cls": "flex md:flex w-full md:w-[280px] md:shrink-0 flex-col border-r border-border bg-card min-h-0",
+    "text": "Texts New messageRoadblocks1Needs a reply44 unreadMESMSMelton Electric",
+    "x": 17,
+    "y": 82,
+    "w": 341,
+    "h": 634,
+    "right": 358,
+    "fixed": false
+   }
+  ],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 375,
+   "h": 748,
+   "right": 375
+  },
+  "smallInputs": [],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Texts"
+  ],
+  "textLength": 593,
+  "consoleErrors": [],
+  "tapCount": 0,
+  "truncatedCount": 2,
+  "smallInputCount": 0
+ },
+ "messages @1280": {
+  "file": "messages-1280.png",
+  "url": "file:///tmp/fq-tx-portal-after/portal.html?page=messages",
+  "vw": 1280,
+  "vh": 900,
+  "docW": 1280,
+  "docH": 900,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [],
+  "tap": [
+   {
+    "tag": "button",
+    "cls": "inline-flex items-center gap-1.5 min-h-[44px] lg:min-h-[36px] whitespace-nowrap rounded-md border border-border bg-card px-2.5 text-xs font-",
+    "text": "New message",
+    "x": 391,
+    "y": 104,
+    "w": 121,
+    "h": 36,
+    "right": 512,
+    "inline": false,
+    "primary": false,
+    "type": "button"
+   },
+   {
+    "tag": "button",
+    "cls": "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold min-h-[44px] lg:min-h-[36px] px-2.5 transition-colors moti",
+    "text": "Roadblocks1",
+    "x": 257,
+    "y": 148,
+    "w": 113,
+    "h": 36,
+    "right": 370,
+    "inline": false,
+    "primary": false,
+    "type": "button"
+   },
+   {
+    "tag": "button",
+    "cls": "flex w-full items-center gap-1.5 px-3 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground hover:text-fo",
+    "text": "Needs a reply44 unread",
+    "x": 245,
+    "y": 199,
+    "w": 279,
+    "h": 32,
+    "right": 524,
+    "inline": false,
+    "primary": false,
+    "type": "button"
+   },
+   {
+    "tag": "button",
+    "cls": "flex w-full items-center gap-1.5 px-3 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground hover:text-fo",
+    "text": "Waiting on them1",
+    "x": 245,
+    "y": 429,
+    "w": 279,
+    "h": 32,
+    "right": 524,
+    "inline": false,
+    "primary": false,
+    "type": "button"
+   },
+   {
+    "tag": "button",
+    "cls": "flex w-full items-center gap-1.5 px-3 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground hover:text-fo",
+    "text": "Drafts due1",
+    "x": 245,
+    "y": 527,
+    "w": 279,
+    "h": 32,
+    "right": 524,
+    "inline": false,
+    "primary": false,
+    "type": "button"
+   },
+   {
+    "tag": "button",
+    "cls": "flex w-full items-center gap-1.5 px-3 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground hover:text-fo",
+    "text": "Done2",
+    "x": 245,
+    "y": 625,
+    "w": 279,
+    "h": 32,
+    "right": 524,
+    "inline": false,
+    "primary": false,
+    "type": "button"
+   }
+  ],
+  "tapPrimary": [],
+  "truncated": [
+   {
+    "tag": "span",
+    "cls": "min-w-0 flex-1 truncate text-xs text-foreground",
+    "text": "she does the books",
+    "x": 305,
+    "y": 265,
+    "w": 106,
+    "h": 16,
+    "right": 411
+   },
+   {
+    "tag": "span",
+    "cls": "min-w-0 flex-1 truncate text-xs text-foreground",
+    "text": "Le lien dit que mon courriel est déjà utilisé, je peux pas passer l'ét",
+    "x": 305,
+    "y": 329,
+    "w": 82,
+    "h": 16,
+    "right": 387
+   },
+   {
+    "tag": "span",
+    "cls": "truncate text-sm font-medium text-foreground",
+    "text": "Park Place Installations",
+    "x": 305,
+    "y": 471,
+    "w": 147,
+    "h": 20,
+    "right": 452
+   },
+   {
+    "tag": "span",
+    "cls": "min-w-0 flex-1 truncate text-xs text-muted-foreground",
+    "text": "You: Hi, Rachel from FieldQuo. No rush, text back when you're off the ",
+    "x": 305,
+    "y": 493,
+    "w": 207,
+    "h": 16,
+    "right": 512
+   }
+  ],
+  "dialogs": [],
+  "fixed": [],
+  "asides": [
+   {
+    "tag": "aside",
+    "cls": "hidden lg:flex flex-col shrink-0 sticky top-0 h-screen bg-sidebar text-sidebar-foreground border-r border-sidebar-border transition-[width] ",
+    "text": "Sales portalTodayQueuePlaybookMy leadsConversationsTexts33Team1NotesCa",
+    "x": 0,
+    "y": 0,
+    "w": 220,
+    "h": 900,
+    "right": 220,
+    "fixed": false
+   },
+   {
+    "tag": "aside",
+    "cls": "flex md:flex w-full md:w-[280px] md:shrink-0 flex-col border-r border-border bg-card min-h-0",
+    "text": "Texts New messageRoadblocks1Needs a reply44 unreadMESMSMelton Electric",
+    "x": 245,
+    "y": 94,
+    "w": 280,
+    "h": 714,
+    "right": 525,
+    "fixed": false
+   }
+  ],
+  "railVisible": false,
+  "mainRect": {
+   "x": 220,
+   "y": 61,
+   "w": 1060,
+   "h": 780,
+   "right": 1280
+  },
+  "smallInputs": [],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Texts"
+  ],
+  "textLength": 999,
+  "consoleErrors": [],
+  "tapCount": 6,
+  "truncatedCount": 4,
+  "smallInputCount": 0
+ }
+}

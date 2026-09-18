@@ -725,14 +725,18 @@ section("7. Six tabs, and all six on a 375px screen");
   // thing on the page. The queue's container has no max-width now; the
   // reading screens keep 5xl and the chat client 7xl.
   const containerLine = shell.match(/const container = `[\s\S]*?mx-auto px-4 sm:px-6`;/)?.[0] || "";
+  // The texts screen joined the uncapped set on 2026-09-18: a rep on a
+  // 1600px screen had the thread — the pane with the composer — squeezed
+  // to ~300px inside the centred 7xl band. Both working surfaces take what
+  // the sidebar leaves; the reading screens keep their measure.
   ok(
-    "the queue container has no max-width cap — the two panes fill what the sidebar leaves",
-    /pathname\.startsWith\("\/sales\/queue"\) \? "max-w-none"/.test(containerLine) && !/max-w-(?:[2-7]xl|screen-\w+|\[)[^"]*"\s*:\s*pathname\.startsWith\("\/sales\/messages"\)/.test(containerLine),
+    "the queue and the texts containers have no max-width cap — the panes fill what the sidebar leaves",
+    /pathname\.startsWith\("\/sales\/queue"\) \|\| pathname\.startsWith\("\/sales\/messages"\) \? "max-w-none"/.test(containerLine),
     containerLine.slice(0, 200),
   );
   ok(
-    "…the reading screens keep their measure (5xl) and the chat client its 7xl",
-    /"max-w-7xl"/.test(containerLine) && /"max-w-5xl"/.test(containerLine) && /\/sales\/messages/.test(containerLine),
+    "…the reading screens keep their measure (5xl)",
+    /"max-w-5xl"/.test(containerLine) && !/"max-w-7xl"/.test(containerLine),
   );
   ok(
     "…and nothing in the page re-caps it: no max-w on the console root or its panes",

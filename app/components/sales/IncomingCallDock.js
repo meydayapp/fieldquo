@@ -136,6 +136,7 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 import { STATE_AFTER_CALL, STATE_ON_CALL } from "@/lib/sales/calls/agentState";
 import { foldChoice } from "@/lib/sales/calls/outcomeChoices";
 import TransferControl from "./TransferControl";
+import TextThemButton from "./TextThem";
 import OutcomeForm, { EMPTY_DRAFT } from "./OutcomeForm";
 import { useRepPresence } from "./RepStatus";
 import { useConsoleSlots } from "./consoleSlots";
@@ -744,6 +745,20 @@ export default function IncomingCallDock() {
         <Link href={who.save.href} className={LINK} data-incoming-save-lead>
           <UserPlus size={15} aria-hidden="true" /> {t("app.salesDial.callerSaveAsLead")}
         </Link>
+      ) : null}
+      {/* "They'd rather text": the thread on the number that is ringing,
+          with the blank composer — the same control every Call button has
+          (TextThem.js). The ids come from the server's `text`; a number
+          another rep holds gets the refusal printed under the link, from
+          the server, never a silent press. */}
+      {incoming?.from ? (
+        <TextThemButton
+          e164={incoming.from}
+          leadId={who.text?.leadId || null}
+          prospectId={who.text?.prospectId || null}
+          variant="link"
+          label={t("app.salesDial.callerTextThem")}
+        />
       ) : null}
     </div>
   ) : null;

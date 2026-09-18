@@ -119,6 +119,13 @@ const pressCall = async () => (await until('[data-console-card="dialer"] [data-c
     window.__ring("+19185550123");
     await until('[data-incoming-dialog="open"]');
     await wait(500);
+    // 2026-09-18: "They'd rather text" stands in the dialog's link row.
+    if (!document.querySelector('[data-incoming-dialog] [data-text-them="link"]')) throw new Error("scene: the ring dialog has no Text them control");
+  }
+  // 2026-09-18: the Dialer card's Text them, beside the Call button.
+  if (scene === "text-them") {
+    await until('[data-console-card="dialer"] [data-text-them="button"]');
+    await wait(300);
   }
   if (scene === "ring-closed") {
     window.__ring("+19185550123");

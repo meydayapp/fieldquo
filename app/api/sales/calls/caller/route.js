@@ -80,5 +80,21 @@ export async function GET(request) {
   }
 
   const { open, notes, save, city, province } = callerLinks({ match, prospects, leads, repId: rep.id, now: new Date() });
-  return NextResponse.json({ outcome: match.outcome, businessName, city, province, holder, open, notes, save });
+
+  // ── "They'd rather text" ──────────────────────────────────────────────
+  //
+  // The dock's Text them control (app/components/sales/TextThem.js) hands
+  // these to /api/sales/messages/start, which re-reads them against the
+  // rep. The rep's OWN lead on this number, else the prospect their claim
+  // is on (start makes the lead from it); nothing for a number somebody
+  // else holds — start refuses that with the holder's name, and the dock
+  // prints it — and nothing for a stranger's number, which start opens on
+  // a lead made from the number alone.
+  const myLead = leads.find((l) => l.salesRepId === rep.id) || null;
+  const text = holder?.mine
+    ? { leadId: myLead?.id || (match.outcome === MATCH_LEAD ? match.salesLeadId : null) || null, prospectId: match.outcome === MATCH_PROSPECT ? match.prospectId : null }
+    : holder
+      ? null
+      : { leadId: myLead?.id || null, prospectId: null };
+  return NextResponse.json({ outcome: match.outcome, businessName, city, province, holder, open, notes, save, text });
 }
