@@ -22,10 +22,21 @@ export async function POST(request) {
   const body = await request.json().catch(() => null);
   const raw = typeof body?.phone === "string" ? body.phone : "";
   if (!raw.trim()) return NextResponse.json({ error: "Type a phone number." }, { status: 400 });
+  // "Text them" from a Call button names the lead the number belongs to (or
+  // is to be recorded on). An id, re-read against the rep inside
+  // startTextThread — never a number to save and never a lead to trust.
+  const leadId = typeof body?.leadId === "string" ? body.leadId.trim() || null : null;
 
-  const result = await startTextThread(db, { rep, raw });
+  const result = await startTextThread(db, { rep, raw, leadId });
   if (!result.ok) {
     return NextResponse.json({ error: result.error, code: result.code }, { status: result.status });
   }
-  return NextResponse.json({ ok: true, with: result.e164, leadId: result.leadId, created: result.created });
+  return NextResponse.json({
+    ok: true,
+    with: result.e164,
+    leadId: result.leadId,
+    created: result.created,
+    recorded: result.recorded === true,
+    unsaved: result.unsaved || null,
+  });
 }
