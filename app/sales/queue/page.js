@@ -2144,6 +2144,11 @@ function QueueConsole() {
   // The whole working state, in the URL. See the routing note in the header.
   const tradeKey = params.get("trade") || "";
   const prospectId = params.get("prospectId") || "";
+  // `?tab=notes` from the incoming-call dialog's Notes link
+  // (lib/sales/calls/callerLinks.js consoleHref): the panel opens on that
+  // tab instead of Script. Only a key the panel has; anything else is
+  // ignored rather than opening an empty pane.
+  const tabParam = PANEL_TABS.some((entry) => entry.key === params.get("tab")) ? params.get("tab") : "";
 
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -2836,8 +2841,11 @@ function QueueConsole() {
   }, [current?.id, space.state, compliance?.decision]);
   const auto = useAutodial({ order, currentId: current?.id || null, readiness, select, clockOffsetMs });
   useEffect(() => {
-    setTab(auto.switchOn ? "disposition" : "script");
-  }, [auto.switchOn]);
+    // A tab named in the URL wins over the autodial default — it was asked
+    // for by name. Once the rep clicks another tab that choice is theirs;
+    // this only re-runs when the switch or the URL's tab changes.
+    setTab(tabParam || (auto.switchOn ? "disposition" : "script"));
+  }, [auto.switchOn, tabParam]);
   // The lead's call history, read once per lead and after every outcome,
   // handed to the line above the dialler, the strip under it and the full
   // list in the Disposition tab — one fetch, three places.

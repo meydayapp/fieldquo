@@ -69,6 +69,23 @@
 // itself when a ring lands, because shouldRemind() answers no while
 // inboundRinging is true.
 //
+// ══ 2026-09-17, the owner's addition: where the dialog may send the rep ═══
+//
+// Beside Pick up and Decline, two links that work while it rings AND after
+// pick-up: "Open the company" (the queue card when the rep holds the claim,
+// the lead page when it is their own lead) and "Notes" (that card's Notes
+// tab, or the lead page's notes block). The dialog also prints the city.
+// A number that matched nobody prints "Not one of your leads" and "Save as
+// a new lead" — the leads screen with the form open and the number in it.
+// A business held by another rep prints its name and "Held by <rep>" with
+// NO link. All of that is decided by the server (/api/sales/calls/caller →
+// lib/sales/calls/callerLinks.js) against the session's rep: this file
+// draws an href it was given or nothing, and never composes one from an
+// id, because the pages behind those hrefs are rep-scoped and a link that
+// opened a 404 is the dead-control class AGENTS.md leads with. The links
+// are ordinary <Link>s: the shell owns this dock, so the ring survives the
+// navigation and the dialog is still up on the page it opened.
+//
 // Pick up closes the dialog, and the live call is drawn in the queue's Dialer
 // card — through the slot lib consoleSlots.js describes — so an answered
 // callback sits exactly where an outbound call would. On any other screen
@@ -109,7 +126,8 @@
 // in. `tokenWillExpire` re-fetches and updates in place.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Phone, PhoneOff, AlertTriangle, Headphones, PhoneIncoming } from "lucide-react";
+import Link from "next/link";
+import { Phone, PhoneOff, AlertTriangle, Headphones, PhoneIncoming, Building2, NotebookPen, UserPlus } from "lucide-react";
 
 import AlertDialog from "@/app/components/AlertDialog";
 import { fetchJson } from "@/lib/fetchJson";
@@ -689,9 +707,46 @@ export default function IncomingCallDock() {
     ? who.holder.mine
       ? t("app.salesDial.callerClaimedByYou")
       : t("app.salesDial.callerClaimedBy", { name: who.holder.name || t("app.salesDial.anotherRep") })
-    : who && who.outcome
-      ? t("app.salesDial.callerUnclaimed")
-      : "";
+    : who?.outcome === "none"
+      ? // Looked, and this number belongs to nobody we hold — said in those
+        // words, beside the save link. `unknown` (no number to look up)
+        // and `ambiguous` stay silent rather than confidently wrong.
+        t("app.salesDial.callerNotALead")
+      : who && who.outcome
+        ? t("app.salesDial.callerUnclaimed")
+        : "";
+
+  // The place, from the row the server matched — never inferred from the
+  // number's area code.
+  const placeText = [who?.city, who?.province].filter(Boolean).join(", ");
+  const LINK = "inline-flex items-center gap-1.5 min-h-[44px] px-2 -mx-2 rounded-lg text-sm font-semibold text-brand-accent-text underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-card";
+
+  /**
+   * Where the rep may go from here — drawn under the caller line in the
+   * dialog and again in the live controls, so the links outlive Pick up.
+   * Every href comes from the server (see the header); a caller the server
+   * matched to nobody gets the save link, one it matched to somebody else's
+   * claim gets nothing here (the holder line says who).
+   */
+  const callerLinks = who ? (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-0" data-incoming-links>
+      {who.open?.href ? (
+        <Link href={who.open.href} className={LINK} data-incoming-open-company={who.open.kind}>
+          <Building2 size={15} aria-hidden="true" /> {t("app.salesDial.callerOpenCompany")}
+        </Link>
+      ) : null}
+      {who.notes?.href ? (
+        <Link href={who.notes.href} className={LINK} data-incoming-notes>
+          <NotebookPen size={15} aria-hidden="true" /> {t("app.salesDial.callerNotes")}
+        </Link>
+      ) : null}
+      {who.save?.href ? (
+        <Link href={who.save.href} className={LINK} data-incoming-save-lead>
+          <UserPlus size={15} aria-hidden="true" /> {t("app.salesDial.callerSaveAsLead")}
+        </Link>
+      ) : null}
+    </div>
+  ) : null;
 
   /**
    * The live call's controls — one renderer, drawn either in the Dialer
@@ -716,6 +771,7 @@ export default function IncomingCallDock() {
           {clock(answeredAt ? Date.now() - answeredAt : 0)}
         </p>
       </div>
+      {callerLinks}
       {audioWarning ? (
         <p className="text-xs text-amber-700 dark:text-amber-300 flex gap-1.5">
           <Headphones size={13} className="shrink-0 mt-0.5" aria-hidden="true" />
@@ -815,11 +871,12 @@ export default function IncomingCallDock() {
                     fromText
                   )}
                 </p>
-                <p className="text-xs text-muted-foreground break-words">
-                  {[holderText, incoming.to ? t("app.salesDial.rangYourNumber", { number: pretty(incoming.to, t) }) : ""]
+                <p className="text-xs text-muted-foreground break-words" data-incoming-context>
+                  {[placeText, holderText, incoming.to ? t("app.salesDial.rangYourNumber", { number: pretty(incoming.to, t) }) : ""]
                     .filter(Boolean)
                     .join(" · ")}
                 </p>
+                {callerLinks}
                 {audioWarning ? (
                   <p className="text-xs text-amber-700 dark:text-amber-300 flex gap-1.5">
                     <Headphones size={13} className="shrink-0 mt-0.5" aria-hidden="true" />
@@ -829,10 +886,10 @@ export default function IncomingCallDock() {
                 {error ? <p className="text-xs text-amber-700 dark:text-amber-300">{error}</p> : null}
               </div>
             </div>
-            {/* Pick up is FIRST in the DOM (focus lands on it, Tab wraps
-                from Decline back to it) and drawn on the right from sm up
-                by row-reverse, where a primary action sits. Both ≥ 44px:
-                a phone in a driveway. */}
+            {/* Pick up has focus on open (initialFocusRef) and is drawn on
+                the right from sm up by row-reverse, where a primary action
+                sits; Tab goes Pick up → Decline → the links above → back.
+                Both ≥ 44px: a phone in a driveway. */}
             <div className="flex flex-col sm:flex-row-reverse gap-2">
               <button
                 ref={pickUpRef}

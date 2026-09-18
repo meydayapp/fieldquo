@@ -57,6 +57,8 @@ import {
 import { SALES_TOUR_STEPS } from "@/app/sales/tourSteps";
 import { APP_MESSAGES } from "@/app/i18n/appMessages";
 import { LANGUAGES } from "@/app/i18n/languages";
+import { callerLinks, consoleHref, leadHref, newLeadHref, holdsLiveClaim } from "@/lib/sales/calls/callerLinks";
+import { matchInboundCaller } from "@/lib/sales/calls/inboundMatch";
 
 // process.cwd(), not import.meta.url: esbuild's cjs output has no
 // import.meta, and this runs from the repo root like check:auth-pages does.
@@ -461,6 +463,89 @@ section("6. Every screen clears the bar");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+section("6b. Where the ring dialog may send the rep — callerLinks(), executed");
+
+// The owner's addition to the dialog (2026-09-17): "Open the company" and
+// "Notes" beside Pick up / Decline, "Save as a new lead" for a number that
+// matched nobody, no link at all for a business another rep holds. Decided
+// server-side in lib/sales/calls/callerLinks.js from the rows the caller
+// route read; every case that matters is run here rather than reasoned
+// about.
+{
+  const ME = "rep_me";
+  const OTHER = "rep_other";
+  const now = new Date("2026-09-17T23:00:00Z");
+  const soon = new Date(now.getTime() + 3600e3).toISOString();
+  const ago = new Date(now.getTime() - 3600e3).toISOString();
+  const run = ({ prospects = [], leads = [], from = "+19185550123", repId = ME } = {}) =>
+    callerLinks({ match: matchInboundCaller({ fromE164: from, prospects, leads }), prospects, leads, repId, now });
+
+  const held = { id: "p1", businessName: "Bright Current", assignedRepId: ME, mergedIntoId: null, claimExpiresAt: soon, city: "Tulsa", province: "OK" };
+  let out = run({ prospects: [held] });
+  ok("the rep's own live claim → the console card and its Notes tab, with the city", out.open?.kind === "console" && out.open.href === "/sales/queue?prospectId=p1" && out.notes?.href === "/sales/queue?prospectId=p1&tab=notes" && out.save === null && out.city === "Tulsa" && out.province === "OK", out);
+  ok("…a claim with no expiry is live too", run({ prospects: [{ ...held, claimExpiresAt: null }] }).open?.kind === "console");
+  ok("a claim that LAPSED an hour ago → no console link (the queue would not load it)", run({ prospects: [{ ...held, claimExpiresAt: ago }] }).open === null);
+  ok("a prospect merged into a survivor → no link", run({ prospects: [{ ...held, mergedIntoId: "p0" }] }).open === null);
+  out = run({ prospects: [{ ...held, assignedRepId: OTHER }] });
+  ok("a business ANOTHER rep holds → the city, and no link of any kind", out.open === null && out.notes === null && out.save === null && out.city === "Tulsa", out);
+  ok("…even when that other rep's claim has lapsed — it is still not this rep's", run({ prospects: [{ ...held, assignedRepId: OTHER, claimExpiresAt: ago }] }).open === null);
+  out = run({ prospects: [{ ...held, assignedRepId: OTHER }], leads: [{ id: "l1", businessName: "Bright Current", salesRepId: ME, prospectId: "p1", province: "OK" }] });
+  ok("…but this rep's OWN lead on that number → the lead page and its notes block", out.open?.kind === "lead" && out.open.href === "/sales/leads/l1" && out.notes?.href === "/sales/leads/l1#lead-notes", out);
+  out = run({ prospects: [{ ...held, assignedRepId: null, claimExpiresAt: null }] });
+  ok("an unclaimed prospect with no lead of the rep's → nothing (the console lists own claims only)", out.open === null && out.notes === null && out.save === null);
+
+  out = run({ leads: [{ id: "l2", businessName: "Typed In Ltd", salesRepId: ME, prospectId: null, province: "NY" }] });
+  ok("a lead the rep typed in → the lead page, its province", out.open?.kind === "lead" && out.open.href === "/sales/leads/l2" && out.notes?.href === "/sales/leads/l2#lead-notes" && out.province === "NY" && out.city === null, out);
+  ok("somebody else's lead → no link", run({ leads: [{ id: "l3", businessName: "Theirs", salesRepId: OTHER, prospectId: null }] }).open === null);
+  ok("two reps' leads on one number (ambiguous) → nothing", (() => { const o = run({ leads: [{ id: "l4", salesRepId: ME }, { id: "l5", salesRepId: OTHER }] }); return o.open === null && o.save === null; })());
+  ok("two prospects on one number (ambiguous) → nothing, not the first one", (() => { const o = run({ prospects: [held, { ...held, id: "p2" }] }); return o.open === null && o.notes === null && o.save === null; })());
+
+  out = run({});
+  ok("a number that matched NOBODY → the new-lead form with the number filled in, nothing else", out.open === null && out.notes === null && out.save?.href === "/sales/leads?new=1&phone=%2B19185550123", out);
+  out = run({ from: "" });
+  ok("a WITHHELD number (unknown, not none) → no save link: nothing to fill in", out.save === null && out.open === null);
+  ok("a number the normaliser cannot read → nothing", run({ from: "not a number" }).save === null);
+  ok("no rep → nothing, whatever matched", callerLinks({ match: matchInboundCaller({ fromE164: "+19185550123", prospects: [held] }), prospects: [held], repId: null, now }).open === null);
+  ok("no match at all → nothing, not a throw", (() => { try { const o = callerLinks({ match: null, repId: ME }); return o.open === null && o.save === null; } catch { return false; } })());
+  ok("hostile rows (nulls, strings, missing ids) never throw", (() => {
+    try {
+      callerLinks({ match: matchInboundCaller({ fromE164: "+19185550123", prospects: [null, "x", {}], leads: [null, 3] }), prospects: [null, "x", {}], leads: [null, 3], repId: ME, now });
+      callerLinks({ match: { outcome: "prospect", prospectId: "p1" }, prospects: "nope", leads: undefined, repId: ME, now });
+      return true;
+    } catch { return false; }
+  })());
+  ok("holdsLiveClaim reads an unparseable expiry as live rather than throwing", holdsLiveClaim({ assignedRepId: ME, claimExpiresAt: "garbage" }, ME, now) === true);
+  ok("the hrefs are built by one helper each, and the id is URL-encoded", consoleHref("a b", "notes") === "/sales/queue?prospectId=a+b&tab=notes" && leadHref("a/b", "lead-notes") === "/sales/leads/a%2Fb#lead-notes" && newLeadHref("+1 2") === "/sales/leads?new=1&phone=%2B1+2");
+
+  // The route returns what the pure function decided — never an id the
+  // browser could turn into a link by itself.
+  const route = decomment(read("app/api/sales/calls/caller/route.js"));
+  ok("the caller route selects the claim's three terms and the place, and answers with callerLinks()", /mergedIntoId: true, claimExpiresAt: true, city: true, province: true/.test(route) && /callerLinks\(\{ match, prospects, leads, repId: rep\.id, now: new Date\(\) \}\)/.test(route) && /open, notes, save/.test(route));
+  ok("…and never returns prospectId or salesLeadId bare", !/prospectId: match|salesLeadId: match|match\.prospectId|match\.salesLeadId/.test(route.slice(route.indexOf("NextResponse.json({ outcome"))));
+
+  // The dialog and the strip draw only hrefs they were given.
+  const dock = decomment(read("app/components/sales/IncomingCallDock.js"));
+  ok("the dialog draws Open the company / Notes / Save as a new lead from the server's hrefs, each behind a hook", /who\.open\?\.href \?/.test(dock) && /who\.notes\?\.href \?/.test(dock) && /who\.save\?\.href \?/.test(dock) && /data-incoming-open-company=\{who\.open\.kind\}/.test(dock) && /data-incoming-notes/.test(dock) && /data-incoming-save-lead/.test(dock));
+  ok("…never composing an href from an id", !/\/sales\/queue\?prospectId=\$\{|\/sales\/leads\/\$\{/.test(dock));
+  ok("…in the dialog AND in the live controls (the strip and the Dialer slot)", (dock.match(/\{callerLinks\}/g) || []).length === 2 && /data-inbound-live[\s\S]*?\{callerLinks\}/.test(dock) && /data-incoming-context[\s\S]*?\{callerLinks\}/.test(dock));
+  ok("…the city on the context line, and \"Not one of your leads\" only on none", /placeText, holderText/.test(dock) && /who\?\.outcome === "none"/.test(dock) && /app\.salesDial\.callerNotALead/.test(dock));
+  ok("…links are ≥ 44px targets", /min-h-\[44px\][^"]*text-brand-accent-text/.test(dock));
+
+  // The pages behind the hrefs.
+  const queue = decomment(read("app/sales/queue/page.js"));
+  ok("the console reads ?tab= (only a PANEL_TABS key) and opens on it over the autodial default", /PANEL_TABS\.some\(\(entry\) => entry\.key === params\.get\("tab"\)\)/.test(queue) && /setTab\(tabParam \|\| \(auto\.switchOn \? "disposition" : "script"\)\)/.test(queue));
+  const leadPage = decomment(read("app/sales/leads/[id]/page.js"));
+  ok("the lead page's notes block carries id=\"lead-notes\"", /id="lead-notes"/.test(leadPage));
+  const leadsPage = decomment(read("app/sales/leads/page.js"));
+  ok("the leads screen opens the add form with the number from ?new=1&phone=", /sp\.get\("new"\) !== "1"\) return;/.test(leadsPage) && /phone: phone \|\| prev\.phone/.test(leadsPage) && /setAdding\(true\)/.test(leadsPage));
+
+  for (const key of ["app.salesDial.callerOpenCompany", "app.salesDial.callerNotes", "app.salesDial.callerNotALead", "app.salesDial.callerSaveAsLead", "app.salesDial.ringingFor"]) {
+    ok(key + " in every catalogue language", LANGUAGES.every((l) => typeof APP_MESSAGES[l.code]?.[key] === "string" && APP_MESSAGES[l.code][key].trim().length > 0));
+  }
+  const shoot = read("docs/screens/sales-mobile/harness/shoot.mjs");
+  ok("the mobile shooter frames the three cases", /"today-incoming-call"/.test(shoot) && /"today-incoming-call-held"/.test(shoot) && /"today-incoming-call-unknown"/.test(shoot));
+}
+
 section("7. Wired in");
 // ═══════════════════════════════════════════════════════════════════════════
 

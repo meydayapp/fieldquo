@@ -13472,12 +13472,39 @@ POST, the transfer control, the ledger transitions, the in-place write-up
 and browser notification as before: the Voice SDK plays the incoming tone,
 `notify()` with `quietWhenFocused` covers a background tab.
 
-**Harness and checks.** The portal harness has `scene=incoming-call` (the
-stubbed Device rings on any page; `/api/sales/calls/caller` and `/answered`
-answered) and `scene=reminder-then-ring` with `?presence=offline`; the
-mobile shooter has a `today-incoming-call` frame, shot at 375 and 768 into
-`docs/screens/sales-mobile/after/` beside re-shot `queue-ring` and
-`queue-ring-answered` (audit: no sideways scroll, no small primary). The
+**Where the dialog may send the rep (the owner's addition, same night).**
+Beside Pick up and Decline, links that work while it rings AND after
+pick-up — **Open the company** and **Notes** — plus the city. Decided on
+the server: `lib/sales/calls/callerLinks.js` (pure) takes the matcher's
+answer and the rows the caller route read and returns `open`, `notes`,
+`save`, `city`, `province`; `/api/sales/calls/caller` now selects the
+claim's three terms (`assignedRepId`, `mergedIntoId`, `claimExpiresAt` —
+queueWhere's) and the place, and answers with those. A rep holding a LIVE
+claim gets the console (`/sales/queue?prospectId=…`, and `&tab=notes` —
+the console reads `?tab=` for any PANEL_TABS key, over the autodial
+default); their own SalesLead gets the lead page and `#lead-notes` (an id
+on its notes block); a business another rep holds gets its name, "Held by
+<rep>" and NO link (a lapsed or merged claim of their own too); a number
+that matched nobody prints "Not one of your leads" and **Save as a new
+lead** → `/sales/leads?new=1&phone=…`, which opens the add form with the
+number in it (read from `window.location` on mount — no Suspense boundary
+over a static page). `unknown` (withheld) and `ambiguous` get nothing.
+The dock draws only hrefs it was given, never one composed from an id, in
+the dialog and again in the live controls, so the links outlive Pick up on
+the strip and in the Dialer slot. Nine languages under
+`app.salesDial.caller*`. `check-sales-mobile.mjs` §6b executes
+`callerLinks()` against every case above plus hostile rows, and holds the
+route, the dock, the console's `?tab=`, the lead anchor and the leads
+prefill.
+
+**Harness and checks.** The portal harness has `scene=incoming-call`,
+`incoming-call-held` and `incoming-call-unknown` (the stubbed Device rings
+on any page with one of three numbers; `/api/sales/calls/caller` answers
+with links, no link, or the save link, and the scene throws if the wrong
+one is drawn) and `scene=reminder-then-ring` with `?presence=offline`; the
+mobile shooter has the three `today-incoming-call*` frames, shot at 375
+and 768 into `docs/screens/sales-mobile/after/` beside re-shot `queue-ring`
+and `queue-ring-answered` (audit: no sideways scroll, no small primary). The
 console harness's ring scenes read `data-incoming-dialog` (was
 `data-incoming-drawer`). The two harness CSS compilers scan
 `process.cwd()` rather than a hardcoded main-checkout path — that path

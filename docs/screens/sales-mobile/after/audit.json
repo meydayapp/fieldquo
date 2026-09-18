@@ -4244,11 +4244,11 @@
    {
     "tag": "div",
     "cls": "relative w-full sm:max-w-md rounded-2xl bg-card text-foreground shadow-xl p-5 space-y-4",
-    "text": "Incoming callRinging for 0sBright Current Electrical · (918) 555-0123C",
+    "text": "Incoming callRinging for 0sBright Current Electrical · (918) 555-0123T",
     "x": 16,
-    "y": 246,
+    "y": 224,
     "w": 343,
-    "h": 320,
+    "h": 364,
     "right": 359,
     "tallerThanViewport": false,
     "scrolls": false
@@ -4280,7 +4280,7 @@
    {
     "tag": "div",
     "cls": "fixed inset-0 z-[80] flex items-center justify-center p-4",
-    "text": "Incoming callRinging for 0sBright Current Electrical · (918) 555-0123C",
+    "text": "Incoming callRinging for 0sBright Current Electrical · (918) 555-0123T",
     "x": 0,
     "y": 0,
     "w": 375,
@@ -4316,7 +4316,7 @@
   "headings": [
    "Today’s queue"
   ],
-  "textLength": 4211,
+  "textLength": 4246,
   "consoleErrors": [],
   "tapCount": 0,
   "truncatedCount": 0,
@@ -4340,11 +4340,11 @@
    {
     "tag": "div",
     "cls": "relative w-full sm:max-w-md rounded-2xl bg-card text-foreground shadow-xl p-5 space-y-4",
-    "text": "Incoming callRinging for 1sBright Current Electrical · (918) 555-0123C",
+    "text": "Incoming callRinging for 1sBright Current Electrical · (918) 555-0123T",
     "x": 160,
-    "y": 404,
+    "y": 374,
     "w": 448,
-    "h": 216,
+    "h": 276,
     "right": 608,
     "tallerThanViewport": false,
     "scrolls": false
@@ -4376,7 +4376,7 @@
    {
     "tag": "div",
     "cls": "fixed inset-0 z-[80] flex items-center justify-center p-4",
-    "text": "Incoming callRinging for 1sBright Current Electrical · (918) 555-0123C",
+    "text": "Incoming callRinging for 1sBright Current Electrical · (918) 555-0123T",
     "x": 0,
     "y": 0,
     "w": 768,
@@ -4401,7 +4401,7 @@
   "headings": [
    "Today’s queue"
   ],
-  "textLength": 4211,
+  "textLength": 4246,
   "consoleErrors": [],
   "tapCount": 0,
   "truncatedCount": 0,
@@ -4413,7 +4413,7 @@
   "vw": 375,
   "vh": 812,
   "docW": 375,
-  "docH": 4532,
+  "docH": 4588,
   "scrollsSideways": false,
   "overflow": [],
   "clipped": [],
@@ -4452,7 +4452,7 @@
    "x": 0,
    "y": 57,
    "w": 375,
-   "h": 4475,
+   "h": 4531,
    "right": 375
   },
   "smallInputs": [],
@@ -4462,7 +4462,7 @@
     "cls": "flex gap-0.5 overflow-x-auto -mx-1 px-1",
     "text": "CompanyContactScriptResearchNotesDispositionTasksLeads11",
     "x": 29,
-    "y": 1461,
+    "y": 1517,
     "w": 317,
     "h": 44,
     "right": 346
@@ -4473,7 +4473,7 @@
   "headings": [
    "Today’s queue"
   ],
-  "textLength": 4062,
+  "textLength": 4085,
   "consoleErrors": [],
   "tapCount": 0,
   "truncatedCount": 0,
@@ -4485,7 +4485,7 @@
   "vw": 768,
   "vh": 1024,
   "docW": 768,
-  "docH": 3580,
+  "docH": 3636,
   "scrollsSideways": false,
   "overflow": [],
   "clipped": [],
@@ -4524,7 +4524,7 @@
    "x": 0,
    "y": 57,
    "w": 768,
-   "h": 3523,
+   "h": 3579,
    "right": 768
   },
   "smallInputs": [],
@@ -4534,7 +4534,7 @@
   "headings": [
    "Today’s queue"
   ],
-  "textLength": 4062,
+  "textLength": 4085,
   "consoleErrors": [],
   "tapCount": 0,
   "truncatedCount": 0,
@@ -5233,11 +5233,11 @@
    {
     "tag": "div",
     "cls": "relative w-full sm:max-w-md rounded-2xl bg-card text-foreground shadow-xl p-5 space-y-4",
-    "text": "Incoming callRinging for 1sBright Current Electrical · (918) 555-0123C",
+    "text": "Incoming callRinging for 1sBright Current Electrical · (918) 555-0123T",
     "x": 16,
-    "y": 246,
+    "y": 224,
     "w": 343,
-    "h": 320,
+    "h": 364,
     "right": 359,
     "tallerThanViewport": false,
     "scrolls": false
@@ -5269,7 +5269,7 @@
    {
     "tag": "div",
     "cls": "fixed inset-0 z-[80] flex items-center justify-center p-4",
-    "text": "Incoming callRinging for 1sBright Current Electrical · (918) 555-0123C",
+    "text": "Incoming callRinging for 1sBright Current Electrical · (918) 555-0123T",
     "x": 0,
     "y": 0,
     "w": 375,
@@ -5294,7 +5294,7 @@
   "headings": [
    "Your day"
   ],
-  "textLength": 3320,
+  "textLength": 3355,
   "consoleErrors": [],
   "tapCount": 1,
   "truncatedCount": 0,
@@ -5340,11 +5340,11 @@
    {
     "tag": "div",
     "cls": "relative w-full sm:max-w-md rounded-2xl bg-card text-foreground shadow-xl p-5 space-y-4",
-    "text": "Incoming callRinging for 1sBright Current Electrical · (918) 555-0123C",
+    "text": "Incoming callRinging for 1sBright Current Electrical · (918) 555-0123T",
     "x": 160,
-    "y": 404,
+    "y": 374,
     "w": 448,
-    "h": 216,
+    "h": 276,
     "right": 608,
     "tallerThanViewport": false,
     "scrolls": false
@@ -5376,7 +5376,7 @@
    {
     "tag": "div",
     "cls": "fixed inset-0 z-[80] flex items-center justify-center p-4",
-    "text": "Incoming callRinging for 1sBright Current Electrical · (918) 555-0123C",
+    "text": "Incoming callRinging for 1sBright Current Electrical · (918) 555-0123T",
     "x": 0,
     "y": 0,
     "w": 768,
@@ -5413,7 +5413,459 @@
   "headings": [
    "Your day"
   ],
-  "textLength": 3320,
+  "textLength": 3355,
+  "consoleErrors": [],
+  "tapCount": 1,
+  "truncatedCount": 0,
+  "smallInputCount": 1
+ },
+ "today-incoming-call-held @375": {
+  "file": "today-incoming-call-held-375.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/harness/portal-after/portal.html?page=today&scene=incoming-call-held",
+  "vw": 375,
+  "vh": 812,
+  "docW": 375,
+  "docH": 3827,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [
+   {
+    "width": 309,
+    "y": 1904,
+    "inScroller": true,
+    "scrollerFits": true,
+    "caption": "Stage"
+   }
+  ],
+  "tap": [
+   {
+    "tag": "select",
+    "cls": "border border-border rounded-lg px-3 py-2 min-h-[40px] text-sm bg-card text-foreground disabled:opacity-60",
+    "text": "2026-09 — so far2026-082026-072026-062026-052026-04",
+    "x": 167,
+    "y": 1628,
+    "w": 175,
+    "h": 40,
+    "right": 342,
+    "inline": false,
+    "primary": false,
+    "type": null
+   }
+  ],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [
+   {
+    "tag": "div",
+    "cls": "relative w-full sm:max-w-md rounded-2xl bg-card text-foreground shadow-xl p-5 space-y-4",
+    "text": "Incoming callRinging for 1sSooner State Plumbing · (405) 555-0777Norma",
+    "x": 16,
+    "y": 246,
+    "w": 343,
+    "h": 320,
+    "right": 359,
+    "tallerThanViewport": false,
+    "scrolls": false
+   }
+  ],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 747,
+    "w": 375,
+    "h": 65,
+    "right": 375,
+    "z": "40"
+   },
+   {
+    "tag": "div",
+    "cls": "fq-toast-layer fq-sales-shell",
+    "text": "Incoming call — Sooner State Plumbing",
+    "x": 16,
+    "y": 666,
+    "w": 343,
+    "h": 66,
+    "right": 359,
+    "z": "120"
+   },
+   {
+    "tag": "div",
+    "cls": "fixed inset-0 z-[80] flex items-center justify-center p-4",
+    "text": "Incoming callRinging for 1sSooner State Plumbing · (405) 555-0777Norma",
+    "x": 0,
+    "y": 0,
+    "w": 375,
+    "h": 812,
+    "right": 375,
+    "z": "80"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 375,
+   "h": 3770,
+   "right": 375
+  },
+  "smallInputs": [],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Your day"
+  ],
+  "textLength": 3329,
+  "consoleErrors": [],
+  "tapCount": 1,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "today-incoming-call-held @768": {
+  "file": "today-incoming-call-held-768.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/harness/portal-after/portal.html?page=today&scene=incoming-call-held",
+  "vw": 768,
+  "vh": 1024,
+  "docW": 768,
+  "docH": 3297,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [
+   {
+    "width": 686,
+    "y": 1712,
+    "inScroller": true,
+    "scrollerFits": true,
+    "caption": "Stage"
+   }
+  ],
+  "tap": [
+   {
+    "tag": "select",
+    "cls": "border border-border rounded-lg px-3 py-2 min-h-[40px] text-sm bg-card text-foreground disabled:opacity-60",
+    "text": "2026-09 — so far2026-082026-072026-062026-052026-04",
+    "x": 566,
+    "y": 1468,
+    "w": 161,
+    "h": 40,
+    "right": 727,
+    "inline": false,
+    "primary": false,
+    "type": null
+   }
+  ],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [
+   {
+    "tag": "div",
+    "cls": "relative w-full sm:max-w-md rounded-2xl bg-card text-foreground shadow-xl p-5 space-y-4",
+    "text": "Incoming callRinging for 1sSooner State Plumbing · (405) 555-0777Norma",
+    "x": 160,
+    "y": 396,
+    "w": 448,
+    "h": 232,
+    "right": 608,
+    "tallerThanViewport": false,
+    "scrolls": false
+   }
+  ],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 959,
+    "w": 768,
+    "h": 65,
+    "right": 768,
+    "z": "40"
+   },
+   {
+    "tag": "div",
+    "cls": "fq-toast-layer fq-sales-shell",
+    "text": "Incoming call — Sooner State Plumbing",
+    "x": 176,
+    "y": 898,
+    "w": 416,
+    "h": 46,
+    "right": 592,
+    "z": "120"
+   },
+   {
+    "tag": "div",
+    "cls": "fixed inset-0 z-[80] flex items-center justify-center p-4",
+    "text": "Incoming callRinging for 1sSooner State Plumbing · (405) 555-0777Norma",
+    "x": 0,
+    "y": 0,
+    "w": 768,
+    "h": 1024,
+    "right": 768,
+    "z": "80"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 768,
+   "h": 3240,
+   "right": 768
+  },
+  "smallInputs": [
+   {
+    "tag": "select",
+    "cls": "border border-border rounded-lg px-3 py-2 min-h-[40px] text-sm bg-card text-foreground disabled:opacity-60",
+    "text": "2026-09 — so far2026-082026-072026-062026-052026-04",
+    "x": 566,
+    "y": 1468,
+    "w": 161,
+    "h": 40,
+    "right": 727,
+    "fontSize": "14px"
+   }
+  ],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Your day"
+  ],
+  "textLength": 3329,
+  "consoleErrors": [],
+  "tapCount": 1,
+  "truncatedCount": 0,
+  "smallInputCount": 1
+ },
+ "today-incoming-call-unknown @375": {
+  "file": "today-incoming-call-unknown-375.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/harness/portal-after/portal.html?page=today&scene=incoming-call-unknown",
+  "vw": 375,
+  "vh": 812,
+  "docW": 375,
+  "docH": 3827,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [
+   {
+    "width": 309,
+    "y": 1904,
+    "inScroller": true,
+    "scrollerFits": true,
+    "caption": "Stage"
+   }
+  ],
+  "tap": [
+   {
+    "tag": "select",
+    "cls": "border border-border rounded-lg px-3 py-2 min-h-[40px] text-sm bg-card text-foreground disabled:opacity-60",
+    "text": "2026-09 — so far2026-082026-072026-062026-052026-04",
+    "x": 167,
+    "y": 1628,
+    "w": 175,
+    "h": 40,
+    "right": 342,
+    "inline": false,
+    "primary": false,
+    "type": null
+   }
+  ],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [
+   {
+    "tag": "div",
+    "cls": "relative w-full sm:max-w-md rounded-2xl bg-card text-foreground shadow-xl p-5 space-y-4",
+    "text": "Incoming callRinging for 1s(212) 555-0199Not one of your leads · Rang ",
+    "x": 16,
+    "y": 238,
+    "w": 343,
+    "h": 336,
+    "right": 359,
+    "tallerThanViewport": false,
+    "scrolls": false
+   }
+  ],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 747,
+    "w": 375,
+    "h": 65,
+    "right": 375,
+    "z": "40"
+   },
+   {
+    "tag": "div",
+    "cls": "fq-toast-layer fq-sales-shell",
+    "text": "Incoming call — +12125550199",
+    "x": 16,
+    "y": 686,
+    "w": 343,
+    "h": 46,
+    "right": 359,
+    "z": "120"
+   },
+   {
+    "tag": "div",
+    "cls": "fixed inset-0 z-[80] flex items-center justify-center p-4",
+    "text": "Incoming callRinging for 1s(212) 555-0199Not one of your leads · Rang ",
+    "x": 0,
+    "y": 0,
+    "w": 375,
+    "h": 812,
+    "right": 375,
+    "z": "80"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 375,
+   "h": 3770,
+   "right": 375
+  },
+  "smallInputs": [],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Your day"
+  ],
+  "textLength": 3305,
+  "consoleErrors": [],
+  "tapCount": 1,
+  "truncatedCount": 0,
+  "smallInputCount": 0
+ },
+ "today-incoming-call-unknown @768": {
+  "file": "today-incoming-call-unknown-768.png",
+  "url": "file:///private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/harness/portal-after/portal.html?page=today&scene=incoming-call-unknown",
+  "vw": 768,
+  "vh": 1024,
+  "docW": 768,
+  "docH": 3297,
+  "scrollsSideways": false,
+  "overflow": [],
+  "clipped": [],
+  "tables": [
+   {
+    "width": 686,
+    "y": 1712,
+    "inScroller": true,
+    "scrollerFits": true,
+    "caption": "Stage"
+   }
+  ],
+  "tap": [
+   {
+    "tag": "select",
+    "cls": "border border-border rounded-lg px-3 py-2 min-h-[40px] text-sm bg-card text-foreground disabled:opacity-60",
+    "text": "2026-09 — so far2026-082026-072026-062026-052026-04",
+    "x": 566,
+    "y": 1468,
+    "w": 161,
+    "h": 40,
+    "right": 727,
+    "inline": false,
+    "primary": false,
+    "type": null
+   }
+  ],
+  "tapPrimary": [],
+  "truncated": [],
+  "dialogs": [
+   {
+    "tag": "div",
+    "cls": "relative w-full sm:max-w-md rounded-2xl bg-card text-foreground shadow-xl p-5 space-y-4",
+    "text": "Incoming callRinging for 1s(212) 555-0199Not one of your leads · Rang ",
+    "x": 160,
+    "y": 382,
+    "w": 448,
+    "h": 260,
+    "right": 608,
+    "tallerThanViewport": false,
+    "scrolls": false
+   }
+  ],
+  "fixed": [
+   {
+    "tag": "nav",
+    "cls": "lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl pb-[env(saf",
+    "text": "TodayQueuePlaybookMy leadsConversations",
+    "x": 0,
+    "y": 959,
+    "w": 768,
+    "h": 65,
+    "right": 768,
+    "z": "40"
+   },
+   {
+    "tag": "div",
+    "cls": "fq-toast-layer fq-sales-shell",
+    "text": "Incoming call — +12125550199",
+    "x": 176,
+    "y": 898,
+    "w": 416,
+    "h": 46,
+    "right": 592,
+    "z": "120"
+   },
+   {
+    "tag": "div",
+    "cls": "fixed inset-0 z-[80] flex items-center justify-center p-4",
+    "text": "Incoming callRinging for 1s(212) 555-0199Not one of your leads · Rang ",
+    "x": 0,
+    "y": 0,
+    "w": 768,
+    "h": 1024,
+    "right": 768,
+    "z": "80"
+   }
+  ],
+  "asides": [],
+  "railVisible": false,
+  "mainRect": {
+   "x": 0,
+   "y": 57,
+   "w": 768,
+   "h": 3240,
+   "right": 768
+  },
+  "smallInputs": [
+   {
+    "tag": "select",
+    "cls": "border border-border rounded-lg px-3 py-2 min-h-[40px] text-sm bg-card text-foreground disabled:opacity-60",
+    "text": "2026-09 — so far2026-082026-072026-062026-052026-04",
+    "x": 566,
+    "y": 1468,
+    "w": 161,
+    "h": 40,
+    "right": 727,
+    "fontSize": "14px"
+   }
+  ],
+  "scrollers": [],
+  "unanswered": [],
+  "sceneError": null,
+  "headings": [
+   "Your day"
+  ],
+  "textLength": 3305,
   "consoleErrors": [],
   "tapCount": 1,
   "truncatedCount": 0,

@@ -80,7 +80,12 @@ full-width card inside 16px gutters, Pick up (52px, focused) above Decline
 (52px), the ring clock top-right, Escape and the scrim inert. Answered on
 the queue the call sits in the Dialer card as before
 (`queue-ring-answered-375.png`); on any other screen it collapses to a
-strip under the top bar. Scenes: `portal.html?page=today&scene=incoming-
-call` on any page, and `&presence=offline&scene=reminder-then-ring` for
-the reminder closing under a ring; the shooter's frame is
-`today-incoming-call`.
+strip under the top bar. Under the caller line: Open the company · Notes
+for a business the rep holds (`today-incoming-call-375.png`), the name
+and "Held by …" with no link for another rep's
+(`today-incoming-call-held-375.png`), "Not one of your leads · Save as a
+new lead" for a number nobody holds (`today-incoming-call-unknown-375.png`).
+Scenes: `portal.html?page=today&scene=incoming-call` (`-held`, `-unknown`)
+on any page, and `&presence=offline&scene=reminder-then-ring` for the
+reminder closing under a ring; the shooter's frames are the three
+`today-incoming-call*`.

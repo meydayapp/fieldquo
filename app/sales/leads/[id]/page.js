@@ -767,7 +767,9 @@ export default function SalesLeadPage({ params }) {
         )}
       </div>
 
-      <div className="rounded-lg border border-border bg-card p-4 space-y-2">
+      {/* id="lead-notes": the incoming-call dialog's Notes link lands here
+          (lib/sales/calls/callerLinks.js leadHref(id, "lead-notes")). */}
+      <div id="lead-notes" className="rounded-lg border border-border bg-card p-4 space-y-2 scroll-mt-20">
         <label className="text-sm font-semibold text-foreground">{t("app.salesLeads.notes")}</label>
         <textarea
           rows={3}
