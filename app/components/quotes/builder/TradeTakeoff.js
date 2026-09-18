@@ -50,7 +50,7 @@ import {
   codeMinimumR,
   CLIMATE_ZONES,
 } from "@/lib/pricing/insulation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { DRIVEWAY_LABELS } from "@/lib/pricing/tradeScope";
 import { useTranslation } from "@/app/hooks/useTranslation";
 // The one address picker in this codebase, not a second one. It already
@@ -63,7 +63,8 @@ import MeasureAddressField from "./MeasureAddressField";
 import MeasureZoomControls from "./MeasureZoomControls";
 import { useSatelliteStill, useFollowClientAddress, placementOf, LEGACY_LOT_ZOOM } from "./useSatelliteStill";
 import { asShapes } from "./PolygonMeasure";
-import { DEFAULT_ZOOM, DEFAULT_ROOF_ZOOM, reprojectDrawing, stillFrame } from "@/lib/measure/imageScale";
+import { DEFAULT_ZOOM, DEFAULT_ROOF_ZOOM, canvasShapeToLatLng, reprojectDrawing, stillFrame } from "@/lib/measure/imageScale";
+import { sphericalPolygonAreaSqft } from "@/lib/measure/lotArea";
 
 /** Complexity tiles — the whole rate grid moves with the selection. */
 function ComplexityPicker({ value, book, onChange }) {
@@ -1581,6 +1582,54 @@ function PavingTakeoff({ takeoff, book, onChange, siteAddress = "" }) {
     measureAt(next);
   });
   const zoom = still.still?.frame?.zoom ?? null;
+
+  // ── The outline onto the takeoff, for the document ───────────────────
+  //
+  // The document prints the shape the estimator drew — the outline still
+  // and the small drawing beside the caption (lib/measure/measureImages.js,
+  // lib/documentSections/traceOutline.js) — from `traced.vertices`, the
+  // way the lot tracer writes `lawn.vertices`. The largest closed shape is
+  // the outline; the area is the designer's traced total (measuredAreaSqft),
+  // which is what the group was priced on. Only with a satellite still whose
+  // centre and zoom are known: a drawing over a manual reference line has
+  // no coordinates to give, and then the bare frame prints instead. A
+  // takeoff with nothing drawn is left exactly as it is — the first render
+  // must not gain `traced: null` on the way past.
+  const placement = still.placement;
+  const shapesKey = JSON.stringify(takeoff.paverDesign?.shapes || null);
+  const tracedNext = useMemo(() => {
+    const shapes = asShapes(takeoff.paverDesign?.shapes).filter((sh) => Array.isArray(sh?.points) && sh.points.length >= 3);
+    if (!shapes.length || !placement) return null;
+    let best = null;
+    for (const sh of shapes) {
+      const vertices = canvasShapeToLatLng(sh.points, placement);
+      if (!vertices) continue;
+      const area = sphericalPolygonAreaSqft(vertices);
+      if (!best || area > best.area) best = { vertices, area };
+    }
+    if (!best) return null;
+    return {
+      areaSqft: Math.round(num(takeoff.measuredAreaSqft) || best.area),
+      source: "traced_builder",
+      basis: "traced",
+      vertices: best.vertices.map((v) => ({ lat: Math.round(v.lat * 1e7) / 1e7, lng: Math.round(v.lng * 1e7) / 1e7 })),
+      address: takeoff.measureAddress || address || "",
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shapesKey, placement, takeoff.measuredAreaSqft, takeoff.measureAddress, address]);
+  const lastTraced = useRef(undefined);
+  useEffect(() => {
+    const key = JSON.stringify(tracedNext);
+    if (key === lastTraced.current) return;
+    if (lastTraced.current === undefined && tracedNext === null) {
+      lastTraced.current = key;
+      return;
+    }
+    lastTraced.current = key;
+    write({ traced: tracedNext });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tracedNext]);
+
   // The hours come from the same tier and access answers the estimator has
   // already given above — see lib/pricing/paverLabour.js for why the panel does
   // not ask "how hard is this?" a second time in different words.

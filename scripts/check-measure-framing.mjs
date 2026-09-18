@@ -300,6 +300,7 @@ section("5. MeasureAddressField is the one address input on the three measure pa
 section("6. measureImages: a stored frame becomes the document's still only when something was measured");
 {
   const { measureImageSource, measureEvidence, takeoffMeasureAddress } = await import("@/lib/measure/measureImages");
+  const { measureDocCopy } = await import("@/lib/i18n/measureDocCopy");
   const frame = { lat: LAT, lng: LNG, zoom: 19, scale: 2, width: 640, height: 640, marker: true };
 
   const roof = { measuredFrom: "satellite", areaSqft: 2163, pitchRise: 6, measureAddress: "12 Main St, Ottawa", measureFrame: frame };
@@ -326,6 +327,32 @@ section("6. measureImages: a stored frame becomes the document's still only when
   ok("no address → no address line", measureEvidence({ ...roof, measureAddress: "" }, "roofing_service", "en").measuredAt === null);
   ok("nothing measured and no still → no evidence at all, address or not", measureEvidence({ measureAddress: "12 Main St" }, "paving", "en") === null);
   ok("German prints German", measureEvidence(roof, "roofing_service", "de").measuredAt === "Vermessen an: 12 Main St, Ottawa");
+
+  // ── The paving outline prints like the lawn's ────────────────────────
+  //
+  // The builder's paving panel writes `traced.vertices` from the largest
+  // shape drawn (TradeTakeoff.js PavingTakeoff), the instant draft writes
+  // them too, and the document prints the outline still, the caption and
+  // the address from them — never a bare frame while an outline exists.
+  const ring = [{ lat: LAT, lng: LNG }, { lat: LAT + 0.0002, lng: LNG }, { lat: LAT + 0.0002, lng: LNG + 0.0003 }, { lat: LAT, lng: LNG + 0.0003 }];
+  const drive = { drivewaySqft: 640, measuredAreaSqft: 640, measureAddress: "12 Main St", measureFrame: { ...frame, marker: false }, traced: { areaSqft: 640, basis: "traced", vertices: ring, address: "12 Main St" } };
+  const outlineStill = measureImageSource(drive, "paving");
+  ok("a paving takeoff with an outline prints the OUTLINE still, not the bare frame", Boolean(outlineStill?.sourceUrl) && /path=/.test(outlineStill.sourceUrl) && !/zoom=19/.test(outlineStill.sourceUrl), outlineStill);
+  ok("…and with no outline falls back to the frame", /zoom=19/.test(measureImageSource({ ...drive, traced: undefined }, "paving").sourceUrl));
+  ok("…and with an outline but nothing measured prints nothing (the boxes were typed over)", measureImageSource({ ...drive, measuredAreaSqft: 0 }, "paving") === null);
+  for (const [lang, caption, at] of [["en", "Paving area measured: 640 sq ft", "Measured at 12 Main St"], ["fr", measureDocCopy("fr").paving(640), "Mesuré à l'adresse : 12 Main St"], ["es", "Superficie de pavimento medida: 640 pies²", "Medido en: 12 Main St"]]) {
+    const e = measureEvidence(drive, "paving", lang);
+    ok(`${lang}: the paving caption names paving and the address line follows`, e?.caption === caption && /pavage|Paving|pavimento/.test(e?.caption || "") && e?.measuredAt === at, e);
+  }
+  ok("the instant draft's address (traced.address, no measureAddress) prints the address line", measureEvidence({ ...drive, measureAddress: undefined }, "paving", "en").measuredAt === "Measured at 12 Main St");
+  const { traceOutline } = await import("@/lib/documentSections/traceOutline");
+  ok("the small outline drawing is built from traced.vertices", traceOutline(drive)?.points?.length === 4);
+  const panel = read("app/components/quotes/builder/TradeTakeoff.js");
+  const pavingSrc = panel.slice(panel.indexOf("function PavingTakeoff("), panel.indexOf("function SnowRemovalTakeoff("));
+  ok("PavingTakeoff writes traced.vertices through canvasShapeToLatLng from the still's placement", /canvasShapeToLatLng\(sh\.points, placement\)/.test(pavingSrc) && /write\(\{ traced: tracedNext \}\)/.test(pavingSrc));
+  ok("…with source traced_builder and the designer's measured total as the area", /source: "traced_builder"/.test(pavingSrc) && /takeoff\.measuredAreaSqft\) \|\| best\.area/.test(pavingSrc));
+  const section = read("lib/documentSections/ScopeGroupsSection.js");
+  ok("the PDF section survives an outline with no evidence (evidence?.measuredAt)", /evidence\?\.measuredAt \? \(/.test(section) && !/\{evidence\.measuredAt \? \(/.test(section));
 }
 
 console.log(`\n${pass} passed, ${failures.length} failed`);

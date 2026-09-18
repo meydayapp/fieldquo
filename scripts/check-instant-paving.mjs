@@ -293,8 +293,8 @@ section("The document prints the trace: caption and a drawn outline");
 {
   const measured = (await measureForTrade("paving", { polygon: SQUARE_100M2 })).measurement;
   const { takeoff } = costingInputsForInstantTrade("paving", "patio", measured, { categoryKey: "paving" });
-  ok("the paving caption reads the area", measureCaption(takeoff, "paving", "en") === `Area measured: ${measured.areaSqft.toLocaleString("en-CA")} sq ft`, measureCaption(takeoff, "paving", "en"));
-  ok("…in French and Spanish too", /Surface mesurée/.test(measureCaption(takeoff, "paving", "fr")) && /Superficie medida/.test(measureCaption(takeoff, "paving", "es")));
+  ok("the paving caption reads the area", measureCaption(takeoff, "paving", "en") === `Paving area measured: ${measured.areaSqft.toLocaleString("en-CA")} sq ft`, measureCaption(takeoff, "paving", "en"));
+  ok("…in French and Spanish too", /Surface de pavage mesurée/.test(measureCaption(takeoff, "paving", "fr")) && /Superficie de pavimento medida/.test(measureCaption(takeoff, "paving", "es")));
   const ev = measureEvidence(takeoff, "paving", "en");
   ok("measureEvidence carries the caption with no captured still", ev && ev.caption && ev.imageUrl === null, ev);
 
