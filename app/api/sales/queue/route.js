@@ -188,7 +188,7 @@ function checkGoogleFor(prospectIds, rep) {
       // file: a claim that lost its race is not this rep's to enrich.
       const held = await db.prospect.findMany({
         where: { ...queueWhere(rep.id, { now: new Date() }), id: { in: prospectIds } },
-        select: { id: true, placesCheckedAt: true },
+        select: { id: true },
       });
       // Who to ask for, from the register, before Google: a table read
       // per row (lib/sales/intel/registerPeople.js), no money, and the
@@ -199,7 +199,10 @@ function checkGoogleFor(prospectIds, rep) {
           recordError({ area: "people", code: "claim_lookup_threw", message: `Register people lookup at claim time threw: ${err?.message || err}`, detail: { prospectIds: prospectIds.slice(0, 50) } }),
         );
       }
-      const never = held.filter((r) => !r.placesCheckedAt);
+      const never = await db.prospect.findMany({
+        where: { ...queueWhere(rep.id, { now: new Date() }), id: { in: prospectIds }, placesCheckedAt: null },
+        select: { id: true },
+      });
       if (!never.length) return;
       const report = await enrichProspects({ db, ids: never.map((r) => r.id) });
       if (report.stopped) {
