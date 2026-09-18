@@ -138,6 +138,33 @@ const settled = async () => {
     visible().click();
     await wait(200);
   }
+  if (scene === "reminder-then-ring") {
+    // The Off reminder is up (?presence=offline), then a contractor rings:
+    // the reminder must close and the ring dialog be the only modal.
+    await until("[data-available-reminder]");
+    window.__ring("+19185550123");
+    await until('[data-incoming-dialog="open"] [data-incoming-pick-up]');
+    await wait(300);
+    if (document.querySelector("[data-available-reminder]")) throw new Error("scene: the Off reminder stayed open under a ring");
+  }
+  if (scene === "incoming-call" || scene === "incoming-call-held" || scene === "incoming-call-unknown") {
+    // A contractor ringing back, on whatever page the frame is: the stubbed
+    // Twilio Device (stubs/twilio.js) fires `incoming` and the dock draws
+    // its alert dialog over the page. Fired after the page has settled so the
+    // Off reminder, if it was up, is already the thing a ring closes. Three
+    // numbers, three answers from the stubbed caller lookup (portalFetch.js):
+    // the rep's own claim (links), another rep's (no link), nobody's (save).
+    if (typeof window.__ring !== "function") throw new Error("scene: no stubbed Device to ring");
+    const from = scene === "incoming-call-held" ? "+14055550777" : scene === "incoming-call-unknown" ? "+12125550199" : "+19185550123";
+    window.__ring(from);
+    await until('[data-incoming-dialog="open"] [data-incoming-pick-up]');
+    // Long enough for the caller lookup to answer and the ring clock to tick.
+    await wait(1200);
+    const links = document.querySelector("[data-incoming-links]");
+    if (scene === "incoming-call" && !(links?.querySelector("[data-incoming-open-company]") && links?.querySelector("[data-incoming-notes]"))) throw new Error("scene: the held business has no Open / Notes links");
+    if (scene === "incoming-call-held" && links?.querySelector("a")) throw new Error("scene: a business held by another rep was linked");
+    if (scene === "incoming-call-unknown" && !links?.querySelector("[data-incoming-save-lead]")) throw new Error("scene: an unmatched number has no save link");
+  }
   if (page === "support" && scene === "open-ticket") {
     // The first ticket's header row is a button; pressing it opens the thread.
     const btn = [...document.querySelectorAll("button")].find((b) => /Invoices not arriving/.test(b.textContent));

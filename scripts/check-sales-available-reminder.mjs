@@ -127,18 +127,24 @@ section("3. Source: the modal, the shell, the sign-in and the sign-out");
 
 {
   const modal = decomment(read("app/components/sales/AvailableReminder.js"));
-  ok("it is a dialog, modal, labelled and described by its own text", /role="dialog"/.test(modal) && /aria-modal="true"/.test(modal) && /aria-labelledby="fq-available-reminder-title"/.test(modal) && /id="fq-available-reminder-title"/.test(modal) && /aria-describedby="fq-available-reminder-body"/.test(modal) && /id="fq-available-reminder-body"/.test(modal));
+  // 2026-09-17: the mechanics moved to app/components/AlertDialog.js — the
+  // one modal primitive, shared with the incoming-call ring — and this file
+  // passes its own decisions as props. The assertions below follow the code:
+  // the aria wiring and the trap are held to the primitive, the choice of
+  // what Escape and the scrim do to this file.
+  const dialog = decomment(read("app/components/AlertDialog.js"));
+  ok("it is a dialog, modal, labelled and described by its own text", /<AlertDialog/.test(modal) && /role="dialog"/.test(modal) && /labelledBy="fq-available-reminder-title"/.test(modal) && /id="fq-available-reminder-title"/.test(modal) && /describedBy="fq-available-reminder-body"/.test(modal) && /id="fq-available-reminder-body"/.test(modal) && /aria-modal="true"/.test(dialog) && /aria-labelledby=\{labelledBy\}/.test(dialog) && /aria-describedby=\{describedBy\}/.test(dialog));
   ok("the decision is shouldRemind() and nothing local", /const open = shouldRemind\(\{/.test(modal) && !/presence\?\.state === STATE_OFFLINE/.test(modal));
   ok("…fed the provider's facts: loading, store.ready, presence.state, callUp, inboundRinging", /storeReady: store\?\.ready === true,/.test(modal) && /state: presence\?\.state \?\? null,/.test(modal) && /callUp,\s*inboundRinging,/.test(modal));
-  ok("Escape is OK — the same dismiss", /if \(e\.key === "Escape"\) \{\s*e\.preventDefault\(\);\s*dismiss\(\);/.test(modal));
-  ok("Tab is trapped between the two buttons, both ways", /if \(e\.shiftKey && document\.activeElement === first\)/.test(modal) && /else if \(!e\.shiftKey && document\.activeElement === last\)/.test(modal));
-  ok("focus lands on Go available on open and returns afterwards", /primaryRef\.current\?\.focus\(\);/.test(modal) && /returnTo\.current = /.test(modal) && /back\.focus\(\)/.test(modal));
+  ok("Escape is OK — the same dismiss, and so is the scrim", /onEscape=\{dismiss\}/.test(modal) && /onScrim=\{dismiss\}/.test(modal) && /if \(e\.key === "Escape"\) \{[\s\S]*?e\.preventDefault\(\);\s*escapeRef\.current\?\.\(\);/.test(dialog) && /onClick=\{onScrim\}/.test(dialog));
+  ok("Tab is trapped inside the card, both ways", /if \(e\.shiftKey && document\.activeElement === first\)/.test(dialog) && /else if \(!e\.shiftKey && document\.activeElement === last\)/.test(dialog));
+  ok("focus lands on Go available on open and returns afterwards", /initialFocusRef=\{primaryRef\}/.test(modal) && /ref=\{primaryRef\}/.test(modal) && /primary\?\.focus\?\.\(\);/.test(dialog) && /returnTo\.current = /.test(dialog) && /back\.focus\(\)/.test(dialog));
   ok("Go available is the picker's own choice through setStatus — no state typed here, no fetch of its own", /\(choices \|\| \[\]\)\.find\(\(c\) => c\.state === STATE_AVAILABLE\)/.test(modal) && /await setStatus\(choice\)/.test(modal) && !/action: "state"/.test(modal) && !/fetch\(/.test(modal));
   ok("a refused press is said and the modal stays", /setRefused\(result\.error \|\| t\("app\.salesStatus\.changeFailed"\)\)/.test(modal) && /role="alert"/.test(modal));
   ok("OK writes the session flag through the helper, never a key of its own", /writeReminderDismissed\(\)/.test(modal) && !/sessionStorage\./.test(modal));
   ok("the two buttons carry hooks a test can find, 44px tall", /data-reminder-go-available/.test(modal) && /data-reminder-ok/.test(modal) && /min-h-\[44px\]/.test(modal));
   ok("Go available is first in the DOM and the row is reversed from sm up", /data-reminder-go-available[\s\S]*data-reminder-ok/.test(modal) && /sm:flex-row-reverse/.test(modal));
-  ok("it sits above the tour and below the incoming-call dock", /z-\[65\]/.test(modal) && /z-\[60\]/.test(read("app/components/sales/SalesTour.js")) && /z-\[70\]/.test(read("app/components/sales/IncomingCallDock.js")));
+  ok("it sits above the tour and below the incoming-call dialog", /zClass="z-\[65\]"/.test(modal) && /z-\[60\]/.test(read("app/components/sales/SalesTour.js")) && /zClass="z-\[80\]"/.test(read("app/components/sales/IncomingCallDock.js")));
 
   const shell = decomment(read("app/sales/SalesShell.js"));
   const iProvider = shell.indexOf("<RepPresenceProvider>");

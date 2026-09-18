@@ -1,9 +1,9 @@
 // app/api/sales/calls/caller/route.js
 //
-// "Who is ringing?" — the sentence the incoming-call drawer prints beside the
-// number while the phone is still ringing.
+// "Who is ringing?" — the sentence the incoming-call dialog prints beside the
+// number while the phone is still ringing, and where it may send the rep.
 //
-// GET ?from=+1613… → { outcome, businessName, holder }
+// GET ?from=+1613… → { outcome, businessName, city, province, holder, open, notes, save }
 //   outcome       lib/sales/calls/inboundMatch.js's answer — prospect, lead,
 //                 ambiguous, none, unknown. The SAME matcher the inbound
 //                 webhook runs, on the same two reads, so the drawer never
@@ -13,6 +13,15 @@
 //   holder        { repId, name, mine } for the rep whose claim or lead this
 //                 is, or null when nobody holds it. `mine` is decided here
 //                 against the session's rep, never by the browser.
+//   city/province the matched prospect's, or the lead's province; null when
+//                 the row has none. Printed, never inferred from the number.
+//   open / notes  { kind, href } / { href } — the console card (the rep
+//                 holds a live claim) or the lead page (their own lead), or
+//                 null when this rep may not open it: held by somebody else,
+//                 lapsed, merged, ambiguous. lib/sales/calls/callerLinks.js
+//                 decides; the pages re-check scope on their own reads.
+//   save          { href } — the new-lead form with the number filled in,
+//                 only when the number matched nobody (`none`, not `unknown`).
 //
 // Read-only. The answer is a label; whether the call is offered to this rep
 // was decided by ringPlan() before this browser rang, and nothing here can
@@ -25,6 +34,7 @@ import { db } from "@/lib/db";
 import { requireSalesRep } from "@/lib/sales/gate";
 import { normalisePhone } from "@/lib/sales/suppressionRules";
 import { matchInboundCaller, MATCH_LEAD, MATCH_PROSPECT } from "@/lib/sales/calls/inboundMatch";
+import { callerLinks } from "@/lib/sales/calls/callerLinks";
 
 export async function GET(request) {
   const { rep, refusal } = await requireSalesRep(request);
@@ -38,7 +48,8 @@ export async function GET(request) {
       ? db.prospect
           .findMany({
             where: { phoneE164: caller },
-            select: { id: true, businessName: true, assignedRepId: true, province: true },
+            // The claim's three terms (queueWhere) and the place, for the links.
+            select: { id: true, businessName: true, assignedRepId: true, mergedIntoId: true, claimExpiresAt: true, city: true, province: true },
             take: 5,
           })
           .catch(() => [])
@@ -47,7 +58,7 @@ export async function GET(request) {
       ? db.salesLead
           .findMany({
             where: { phone: caller },
-            select: { id: true, businessName: true, salesRepId: true, prospectId: true },
+            select: { id: true, businessName: true, salesRepId: true, prospectId: true, province: true },
             take: 5,
           })
           .catch(() => [])
@@ -68,5 +79,6 @@ export async function GET(request) {
     if (row) holder = { repId: row.id, name: row.name || null, mine: row.id === rep.id };
   }
 
-  return NextResponse.json({ outcome: match.outcome, businessName, holder });
+  const { open, notes, save, city, province } = callerLinks({ match, prospects, leads, repId: rep.id, now: new Date() });
+  return NextResponse.json({ outcome: match.outcome, businessName, city, province, holder, open, notes, save });
 }

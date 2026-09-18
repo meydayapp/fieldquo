@@ -27,20 +27,24 @@
 // everything), not when the tables are absent (Go available would post into
 // a 503), and not once OK has been pressed this session.
 //
-// ══ Accessible, and the only modal in this chrome ═════════════════════════
+// ══ Accessible, through the shared primitive ══════════════════════════════
 //
 // role="dialog" aria-modal="true", labelled by its own heading; focus moves
-// to the primary button on open and is trapped between the two buttons
-// (Tab wraps, Shift+Tab wraps); Escape is OK; the backdrop is a button
-// that is also OK. Focus returns to whatever had it. z-[65]: above the
-// tour's card (z-[60]) — a first-run rep should read this before the
-// walkthrough — and below the incoming-call dock (z-[70]), which never
-// coincides with it because a ring hides this anyway.
+// to the primary button on open and is trapped inside the card (Tab wraps,
+// Shift+Tab wraps); Escape is OK; the backdrop is a button that is also OK.
+// Focus returns to whatever had it. All of that is app/components/
+// AlertDialog.js — the same primitive the incoming-call ring is drawn with
+// since 2026-09-17 — and this file passes only its own decisions: OK for
+// both Escape and the scrim, the bottom-sheet placement it shipped with.
+// z-[65]: above the tour's card (z-[60]) — a first-run rep should read this
+// before the walkthrough — and below the incoming-call dialog (z-[80]).
+// The two never coincide: shouldRemind() answers no while a contractor is
+// ringing, so a ring landing over this closes it.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { Loader2, PhoneOff } from "lucide-react";
 
+import AlertDialog from "@/app/components/AlertDialog";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { STATE_AVAILABLE } from "@/lib/sales/calls/agentState";
 import { readReminderDismissed, shouldRemind, writeReminderDismissed } from "@/lib/sales/availableReminder";
@@ -59,8 +63,6 @@ export default function AvailableReminder() {
   const [busy, setBusy] = useState(false);
   const [refused, setRefused] = useState("");
   const primaryRef = useRef(null);
-  const lastRef = useRef(null);
-  const returnTo = useRef(null);
 
   const open = shouldRemind({
     mounted,
@@ -76,37 +78,6 @@ export default function AvailableReminder() {
     writeReminderDismissed();
     setDismissed(true);
   }, []);
-
-  // Focus in, trap, Escape, focus back.
-  useEffect(() => {
-    if (!open) return undefined;
-    returnTo.current = typeof document !== "undefined" ? document.activeElement : null;
-    primaryRef.current?.focus();
-    const onKey = (e) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        dismiss();
-        return;
-      }
-      if (e.key !== "Tab") return;
-      const first = primaryRef.current;
-      const last = lastRef.current;
-      if (!first || !last) return;
-      if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault();
-        last.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault();
-        first.focus();
-      }
-    };
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      const back = returnTo.current;
-      if (back && typeof back.focus === "function") back.focus();
-    };
-  }, [open, dismiss]);
 
   async function goAvailable() {
     const choice = (choices || []).find((c) => c.state === STATE_AVAILABLE);
@@ -127,18 +98,21 @@ export default function AvailableReminder() {
     setRefused(result.error || t("app.salesStatus.changeFailed"));
   }
 
-  if (!open || typeof document === "undefined") return null;
-
-  return createPortal(
-    <div className="fixed inset-0 z-[65] flex items-end sm:items-center sm:justify-center p-4" data-available-reminder>
-      <button type="button" className="absolute inset-0 bg-black/40" aria-label={t("app.salesStatus.reminder.ok")} onClick={dismiss} tabIndex={-1} />
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="fq-available-reminder-title"
-        aria-describedby="fq-available-reminder-body"
-        className="relative w-full sm:max-w-md rounded-2xl bg-card text-foreground shadow-xl p-5 space-y-4"
-      >
+  return (
+    <AlertDialog
+      open={open}
+      role="dialog"
+      labelledBy="fq-available-reminder-title"
+      describedBy="fq-available-reminder-body"
+      initialFocusRef={primaryRef}
+      onEscape={dismiss}
+      onScrim={dismiss}
+      scrimLabel={t("app.salesStatus.reminder.ok")}
+      placement="sheet"
+      zClass="z-[65]"
+      wrapperProps={{ "data-available-reminder": "" }}
+    >
+      <>
         <div className="flex items-start gap-3">
           <span className="shrink-0 mt-0.5 inline-flex h-9 w-9 items-center justify-center rounded-full bg-muted text-muted-foreground" aria-hidden="true">
             <PhoneOff size={18} />
@@ -172,12 +146,11 @@ export default function AvailableReminder() {
             {busy ? <Loader2 size={14} className="animate-spin" aria-hidden="true" /> : null}
             {t("app.salesStatus.reminder.goAvailable")}
           </button>
-          <button ref={lastRef} type="button" className={`${BTN} border border-border bg-card text-foreground`} onClick={dismiss} data-reminder-ok>
+          <button type="button" className={`${BTN} border border-border bg-card text-foreground`} onClick={dismiss} data-reminder-ok>
             {t("app.salesStatus.reminder.ok")}
           </button>
         </div>
-      </div>
-    </div>,
-    document.body,
+      </>
+    </AlertDialog>
   );
 }

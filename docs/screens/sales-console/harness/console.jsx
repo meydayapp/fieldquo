@@ -110,23 +110,23 @@ const pressCall = async () => (await until('[data-console-card="dialer"] [data-c
   }
   if (scene === "ring") {
     window.__ring("+19185550123");
-    await until('[data-incoming-drawer="open"]');
+    await until('[data-incoming-dialog="open"]');
     await wait(500);
   }
   if (scene === "ring-closed") {
     window.__ring("+19185550123");
-    await until('[data-incoming-drawer="open"]');
+    await until('[data-incoming-dialog="open"]');
     await wait(300);
-    const decline = [...document.querySelectorAll('[data-incoming-drawer] button')].find((b) => /Decline/.test(b.textContent));
+    const decline = [...document.querySelectorAll('[data-incoming-dialog] button')].find((b) => /Decline/.test(b.textContent));
     decline.click();
     await wait(600);
-    if (document.querySelector('[data-incoming-drawer]')) throw new Error("drawer still mounted after decline");
+    if (document.querySelector('[data-incoming-dialog]')) throw new Error("dialog still mounted after decline");
   }
   if (scene === "ring-answered") {
     window.__ring("+19185550123");
-    await until('[data-incoming-drawer="open"]');
+    await until('[data-incoming-dialog="open"]');
     await wait(300);
-    const pick = [...document.querySelectorAll('[data-incoming-drawer] button')].find((b) => /Pick up/.test(b.textContent));
+    const pick = [...document.querySelectorAll('[data-incoming-dialog] button')].find((b) => /Pick up/.test(b.textContent));
     pick.click();
     await until('[data-live-call-slot] [data-inbound-live]');
     await wait(1600);
