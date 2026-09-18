@@ -138,6 +138,26 @@ const settled = async () => {
     visible().click();
     await wait(200);
   }
+  if (scene === "reminder-then-ring") {
+    // The Off reminder is up (?presence=offline), then a contractor rings:
+    // the reminder must close and the ring dialog be the only modal.
+    await until("[data-available-reminder]");
+    window.__ring("+19185550123");
+    await until('[data-incoming-dialog="open"] [data-incoming-pick-up]');
+    await wait(300);
+    if (document.querySelector("[data-available-reminder]")) throw new Error("scene: the Off reminder stayed open under a ring");
+  }
+  if (scene === "incoming-call") {
+    // A contractor ringing back, on whatever page the frame is: the stubbed
+    // Twilio Device (stubs/twilio.js) fires `incoming` and the dock draws
+    // its alert dialog over the page. Fired after the page has settled so the
+    // Off reminder, if it was up, is already the thing a ring closes.
+    if (typeof window.__ring !== "function") throw new Error("scene: no stubbed Device to ring");
+    window.__ring("+19185550123");
+    await until('[data-incoming-dialog="open"] [data-incoming-pick-up]');
+    // Long enough for the caller lookup to answer and the ring clock to tick.
+    await wait(1200);
+  }
   if (page === "support" && scene === "open-ticket") {
     // The first ticket's header row is a button; pressing it opens the thread.
     const btn = [...document.querySelectorAll("button")].find((b) => /Invoices not arriving/.test(b.textContent));

@@ -56,8 +56,11 @@ const lang = () => new URLSearchParams(window.location.search).get("lang") || "e
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 
+// ?presence=offline starts the rep shown as Off, which is what opens the
+// "You're shown as Off" reminder — the scene a ring has to close.
+const startState = new URLSearchParams(window.location.search).get("presence") || "available";
 const state = {
-  presence: { state: "available", forMs: 12 * 60000, stale: false, pauseReason: null },
+  presence: { state: startState, forMs: 12 * 60000, stale: false, pauseReason: null },
   autodial: false,
 };
 
@@ -160,6 +163,10 @@ function answer(p, u, method, body) {
       serverNow: new Date().toISOString(),
     };
   if (p === "/api/sales/calls/token") return { token: "tok", expiresInSeconds: 600 };
+  // The ring dialog's caller lookup (scene=incoming-call): the business the
+  // inbound matcher names, held by this rep — the "they rang you back" case.
+  if (p === "/api/sales/calls/caller") return { outcome: "prospect", businessName: "Bright Current Electrical", holder: { repId: ME.id, name: ME.name, mine: true } };
+  if (p === "/api/sales/calls/answered") return { attemptId: "att_harness", transferable: true };
   // Today's "Calls to write up" card. Empty: the card then says so in words,
   // which is the frame worth keeping; unanswered, every Today frame carried
   // "Harness has no answer" and the shooter flagged the scene as an error.

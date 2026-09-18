@@ -69,3 +69,18 @@ fit collapsed at 375×660, 375×812 and 390×844 (`today-drawer-375.png`).
 The header's menu-mode picker is inside `hidden lg:block` and measured
 `display:none` below lg; with the drawer closed every bottom-bar tab
 hit-tests to itself.
+
+## 2026-09-17 — the ring is an alert dialog
+
+The owner rang his own number back and never saw a way to pick up: the
+top drawer read as part of the page. Now a ring is a centred alert dialog
+over a scrim (`app/components/AlertDialog.js`, shared with the Off
+reminder) — `today-incoming-call-375.png`, `queue-ring-375.png`: a
+full-width card inside 16px gutters, Pick up (52px, focused) above Decline
+(52px), the ring clock top-right, Escape and the scrim inert. Answered on
+the queue the call sits in the Dialer card as before
+(`queue-ring-answered-375.png`); on any other screen it collapses to a
+strip under the top bar. Scenes: `portal.html?page=today&scene=incoming-
+call` on any page, and `&presence=offline&scene=reminder-then-ring` for
+the reminder closing under a ring; the shooter's frame is
+`today-incoming-call`.

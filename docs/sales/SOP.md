@@ -379,10 +379,12 @@ comes down as you work.
 A contractor who calls the number you rang them from reaches a real person, and
 usually you.
 
-**You answer in the browser.** A dock appears on whatever portal screen you are
-on, showing the caller's number and two buttons: Pick up and Decline. It is
-mounted once and rings everywhere, so you do not have to be sitting on the
-queue.
+**You answer in the browser.** A dialog opens in the middle of whatever portal
+screen you are on, over a dimmed page: the business and the number, how long
+it has been ringing, and two buttons — **Pick up** (already focused; Enter
+answers) and **Decline**. Clicking outside it or pressing Escape does nothing;
+the only ways out are the two buttons or the caller giving up. It is mounted
+once and rings everywhere, so you do not have to be sitting on the queue.
 
 **The ring order**, in this order:
 

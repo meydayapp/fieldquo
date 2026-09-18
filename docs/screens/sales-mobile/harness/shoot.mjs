@@ -37,6 +37,7 @@ export const FRAMES = {
   today: portal("today"),
   "today-drawer": portal("today", "&scene=drawer"),
   "today-status-menu": portal("today", "&scene=status-menu"),
+  "today-incoming-call": portal("today", "&scene=incoming-call"),
   leads: portal("leads"),
   lead: portal("lead"),
   companies: portal("companies"),

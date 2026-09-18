@@ -356,10 +356,11 @@ const NO_TARGET_BY_DESIGN = {
   // The reasons behind the two exemptions are facts about the components, and
   // facts drift. The dock returns null while nothing is happening.
   const dock = decomment(read("app/components/sales/IncomingCallDock.js"));
-  // `mounted` is the drawer's slide state: true only from a ring until the
-  // slide up has finished. Idle — no ring, no call, no error, no write-up
-  // waiting after a call — is still null.
-  ok("IncomingCallDock still mounts nothing while idle", /if \(!mounted && !live && !error && !audioWarning && !writeUp\) return null;/.test(dock));
+  // Idle — no ring, no call, no error, no write-up waiting after a call —
+  // is still null. (Until 2026-09-17 the first term was `mounted`, the
+  // drawer's slide state; the ring is an alert dialog now, with no slide,
+  // so `incoming` itself is the term.)
+  ok("IncomingCallDock still mounts nothing while idle", /if \(!incoming && !live && !error && !audioWarning && !writeUp\) return null;/.test(dock));
 
   // A slug nothing points at is dead decoration. Every data-tour="sales-…"
   // in the portal must be some step's target.
@@ -396,7 +397,7 @@ section("5. Drawer-only steps say how to open the drawer; bar steps do not");
   ok("…only when the tour opened it", /openedDrawer\.current = true;/.test(tour));
   ok("the card sits above the drawer", /fixed z-\[60\] rounded-xl/.test(tour));
   ok("…and the ring does too", /border-white z-\[60\]/.test(tour));
-  ok("…and the incoming-call dock above both", /z-\[70\]/.test(decomment(read("app/components/sales/IncomingCallDock.js"))));
+  ok("…and the incoming-call dialog above both, its in-call strip too", /zClass="z-\[80\]"/.test(decomment(read("app/components/sales/IncomingCallDock.js"))) && /z-\[70\]/.test(decomment(read("app/components/sales/IncomingCallDock.js"))));
   ok("the card's viewport stops at the tab bar", /window\.innerHeight - tabBarHeight\(\)/.test(tour));
   ok("…measured from the bar itself", /querySelector\("\[data-sales-tabbar\]"\)/.test(tour));
 }
@@ -424,12 +425,26 @@ section("6. Every screen clears the bar");
     /<main\s+className=\{`\$\{container\} w-full pt-6 sm:pt-8 pb-\[calc\(var\(--fq-tab-bar-height\)\+1\.5rem\)\] sm:pb-\[calc\(var\(--fq-tab-bar-height\)\+2rem\)\]`\}/.test(shellCode),
   );
   ok("the tour's launcher rides above the bar", /bottom-\[calc\(var\(--fq-tab-bar-height\)\+1rem\)\] left-4/.test(decomment(read("app/components/sales/SalesTour.js"))));
-  // The incoming call is a drawer from the TOP now (2026-09-11) — under
-  // the top bar from lg, at the top edge below it — so it never meets the
-  // bottom bar at all. What is held onto: it is fixed, full width, and
-  // slides on transform, never pushing the page.
-  ok("the incoming-call drawer is fixed at the top, under the lg top bar", /fixed inset-x-0 top-0 lg:top-\[61px\]/.test(decomment(read("app/components/sales/IncomingCallDock.js"))));
-  ok("…and slides on a transform, with reduced motion honoured", /-translate-y-full/.test(decomment(read("app/components/sales/IncomingCallDock.js"))) && /motion-reduce:transition-none/.test(decomment(read("app/components/sales/IncomingCallDock.js"))));
+  // The incoming call is an ALERT DIALOG since 2026-09-17 (the owner rang
+  // his own number back and never saw a way to pick up under the 2026-09-11
+  // top drawer): centred over a scrim through app/components/AlertDialog.js,
+  // a full-width card inside 16px gutters on a phone, Pick up focused,
+  // Escape and the scrim inert — so it never meets the bottom bar either.
+  // The live call with no Dialer card to draw into, and the write-up after
+  // it, are still a fixed strip under the lg top bar, never pushing the page.
+  {
+    const dockSrc = decomment(read("app/components/sales/IncomingCallDock.js"));
+    const dialog = decomment(read("app/components/AlertDialog.js"));
+    const ringJsx = dockSrc.slice(dockSrc.indexOf("<AlertDialog"), dockSrc.indexOf("</AlertDialog>"));
+    ok("the ring is drawn through the shared AlertDialog, role=alertdialog, labelled and described, Pick up focused first", /<AlertDialog\s+open=\{ringing\}\s+role="alertdialog"/.test(dockSrc) && /labelledBy="fq-incoming-call-title"/.test(dockSrc) && /id="fq-incoming-call-title"/.test(dockSrc) && /describedBy="fq-incoming-call-caller"/.test(dockSrc) && /id="fq-incoming-call-caller"/.test(dockSrc) && /initialFocusRef=\{pickUpRef\}/.test(dockSrc) && /ref=\{pickUpRef\}[\s\S]*?data-incoming-pick-up/.test(dockSrc));
+    ok("…with no onEscape and no onScrim — a ring cannot be dismissed by accident", ringJsx.length > 0 && !/onEscape=/.test(ringJsx) && !/onScrim=/.test(ringJsx));
+    ok("…and the primitive's defaults are the safe direction: Escape and the scrim do nothing unless told", /escapeRef\.current\?\.\(\);/.test(dialog) && /onScrim \? \(/.test(dialog) && /aria-hidden="true"/.test(dialog));
+    ok("…centred at every width, inside the wrapper's 16px gutters, a full-width card", /placement="center"/.test(dockSrc) && /items-center justify-center/.test(dialog) && /p-4/.test(dialog) && /relative w-full sm:max-w-md/.test(dialog));
+    ok("…Pick up and Decline are ≥ 44px and carry hooks", /min-h-\[52px\][^"]*"\s*data-incoming-pick-up/.test(dockSrc) && /min-h-\[52px\][^"]*"\s*data-incoming-decline/.test(dockSrc));
+    ok("…with a ring clock in the catalogue's words", /data-incoming-ring-clock/.test(dockSrc) && /app\.salesDial\.ringingFor/.test(dockSrc));
+    ok("the live call with no card, and the write-up, are a fixed strip under the lg top bar", /data-incoming-live-strip/.test(dockSrc) && (dockSrc.match(/fixed inset-x-0 top-0 lg:top-\[61px\]/g) || []).length >= 2);
+    ok("…and no slide is left over", !/-translate-y-full|SLIDE_MS|setMounted\(/.test(dockSrc));
+  }
 
   // Every page under app/sales renders inside that <main>, except the two the
   // shell is chromeless for. None of them may pin its own element to the
