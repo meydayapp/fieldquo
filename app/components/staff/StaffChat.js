@@ -342,7 +342,15 @@ function handleFor(m) {
 
 // ═══════════════════════════════════════════════════════════════════════════
 
-export default function StaffChat({ heading = "Team" }) {
+/**
+ * @param height  the frame's height class. The caller knows what chrome sits
+ *                above and below it, this component does not: /sales passes
+ *                the shell's measured fill (fq-sales-fill, globals.css), and
+ *                the default is /platform's own subtraction. On a phone the
+ *                default ignored the sales tab bar and put the composer
+ *                under it.
+ */
+export default function StaffChat({ heading = "Team", height = "h-[calc(100vh-9rem)]" }) {
   const { t, language } = useTranslation();
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
@@ -887,7 +895,7 @@ export default function StaffChat({ heading = "Team" }) {
           setContext(null);
           setPane(PANE_THREAD);
         }}
-        height="h-[calc(100vh-9rem)]"
+        height={height}
         context={
           context === "members" && openId ? (
             <MembersBar

@@ -304,7 +304,7 @@ section("6. The components: every string is translated, nothing sends itself");
   ok("every spinner honours prefers-reduced-motion", [...thread.matchAll(/animate-spin[^"']*/g), ...[...composer.matchAll(/animate-spin[^"']*/g)]].every((m) => m[0].includes("motion-reduce:animate-none")));
 
   const layout = decomment(read(`${dir}/ChatLayout.js`));
-  ok("the list is 280 wide from md, the context bar 340 from lg", /md:w-\[280px\]/.test(layout) && /lg:flex w-\[340px\]/.test(layout));
+  ok("the list wants 280 from md and gives way to 240, never a fixed width; the context bar is 340", /md:basis-\[280px\] md:min-w-\[240px\] md:shrink/.test(layout) && !/md:w-\[280px\]/.test(layout) && /w-\[340px\]/.test(layout));
   ok("below md exactly one pane shows", /pane === PANE_LIST \? "flex" : "hidden"/.test(layout) && /pane === PANE_THREAD \? "flex" : "hidden"/.test(layout));
   ok("…and the context bar is a sheet there", /context-sheet/.test(layout) && /lg:hidden/.test(layout));
 
