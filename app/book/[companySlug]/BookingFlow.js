@@ -28,6 +28,12 @@ import { formatPhoneInput } from "@/lib/validation";
 import { fetchJson } from "@/lib/fetchJson";
 import { navigateTop } from "@/lib/embed/handoff";
 import { clientDocCopy } from "@/lib/i18n/clientDocCopy";
+import {
+  timelineOptionsFor,
+  questionsFor,
+  tradeQuestionCopy,
+} from "@/lib/leads/tradeQuestions";
+import { serviceAreaCopy } from "@/lib/company/serviceArea";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import SlotCalendar from "@/app/components/public/SlotCalendar";
 import AddressField from "./AddressField";
@@ -121,7 +127,7 @@ export default function BookingFlow({
   // direction to start in: they are the only fields on the page a homeowner has
   // to WRITE rather than recognise, and a question you can't read is a question
   // you skip.
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const [company, setCompany] = useState(null);
   const [loadError, setLoadError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -154,8 +160,10 @@ export default function BookingFlow({
   // and rang the person to find out what they had booked.
   //
   // Both OPTIONAL, and optional here means the submit button never looks at
-  // them. Name and email are the only hard requirements this flow has ever had
-  // and a third one would cost more bookings than an unanswered question does.
+  // them. Name and email were the only hard requirements this flow had, and
+  // the one deliberate addition since is "when do you need this done?" below
+  // — a single tap, and the answer that decides whether the company moves its
+  // day around. Nothing else typed on this form is required.
   //
   // `serviceKey` holds a key from `company.services` — the company's own
   // enabled categories, handed over by the booking GET. Nothing else is ever
@@ -164,6 +172,48 @@ export default function BookingFlow({
   // would be a picker that silently records nothing.
   const [notes, setNotes] = useState("");
   const [serviceKey, setServiceKey] = useState(null);
+
+  // ── When, and the one thing the trade needs to know ─────────────────────
+  //
+  // "When do you need this done?" is the one REQUIRED question on this form
+  // beyond name and email. The owner asked for it: a plumber opening the
+  // calendar to "Tuesday 2pm, kitchen sink" still has to ring to learn whether
+  // the kitchen is under water today or a renovation next spring, and that is
+  // the difference between moving the day around and not.
+  //
+  // The ladder depends on the service (lib/leads/tradeQuestions.js): the
+  // trades people call when something has broken get "today / this week",
+  // the trades people plan get "as soon as possible / this season". No
+  // service picked, or "not sure", is the planned-work ladder —
+  // timelineOptionsFor("") returns it. `answers` holds the trade's own
+  // optional question(s), keyed by question key. Both are validated again on
+  // the server against the same table; nothing typed here is trusted.
+  const [whenNeeded, setWhenNeeded] = useState(null);
+  const [answers, setAnswers] = useState({});
+  // The service the trade questions are keyed on: a real category key, or ""
+  // for untouched / "not sure" — the sentinel never reaches the table.
+  const tradeKey = serviceKey && serviceKey !== SERVICE_UNSURE ? serviceKey : "";
+  const tradeCopy = tradeQuestionCopy(language);
+  const whenOptions = timelineOptionsFor(tradeKey);
+  const tradeQuestions = questionsFor(tradeKey);
+
+  // Changing the service changes the questions. An answer to a question that
+  // is no longer asked must not ride along to the server — and a "when" from
+  // the other ladder is not an answer to this ladder's question, so it is
+  // cleared too and the visitor picks again from the options they can see.
+  function chooseService(key) {
+    setServiceKey(key);
+    const nextTrade = key && key !== SERVICE_UNSURE ? key : "";
+    const asked = new Set(questionsFor(nextTrade).map((q) => q.key));
+    setAnswers((prev) => {
+      const kept = {};
+      for (const [k, v] of Object.entries(prev)) if (asked.has(k)) kept[k] = v;
+      return kept;
+    });
+    if (whenNeeded && !timelineOptionsFor(nextTrade).some((o) => o.key === whenNeeded)) {
+      setWhenNeeded(null);
+    }
+  }
 
   // ── The visit address ────────────────────────────────────────────────────
   //
@@ -187,6 +237,16 @@ export default function BookingFlow({
   // than showing times that ignore travel until they touch the field.
   const [geoAddress, setGeoAddress] = useState(prefill?.address || "");
   const [travelInfo, setTravelInfo] = useState(null);
+  // The last "outside the area" verdict, tagged with the address it was for:
+  // { address, radiusKm, city }. Rendered only while `geoAddress` still IS
+  // that address and this is a visit, so a corrected address drops the line
+  // by derivation rather than by an effect clearing state — and nothing is
+  // stored for "inside", "unknown", "not configured" or "the check failed":
+  // only `inside === false` is something honest to say. Never a gate; the
+  // company confirms whether they can come, the form does not decide.
+  const [areaVerdict, setAreaVerdict] = useState(null);
+  const areaNote =
+    mode === "visit" && areaVerdict && areaVerdict.address === geoAddress ? areaVerdict : null;
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [confirmed, setConfirmed] = useState(null);
@@ -311,6 +371,35 @@ export default function BookingFlow({
     return () => clearTimeout(timer);
   }, [address]);
 
+  // Is that address somewhere this company goes? Runs on the same settled
+  // address the slot query runs on — a picked suggestion sets geoAddress at
+  // once, a typed one after the debounce — so it never fires per keystroke.
+  // A call or video consult carries no address and gets no check. A fetch
+  // failure or a non-JSON body says nothing: "we couldn't check" must never
+  // render as "outside".
+  useEffect(() => {
+    if (mode !== "visit" || geoAddress.length <= 5) return undefined;
+    let cancelled = false;
+    const address = geoAddress;
+    (async () => {
+      try {
+        const res = await fetch(
+          `/api/service-area/${companySlug}?address=${encodeURIComponent(address)}`,
+        );
+        const data = await res.json().catch(() => null);
+        if (cancelled || !res.ok || !data) return;
+        if (data.configured === true && data.inside === false) {
+          setAreaVerdict({ address, radiusKm: data.radiusKm ?? null, city: data.city || "" });
+        }
+      } catch {
+        /* say nothing — "we couldn't check" is not "outside" */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [companySlug, geoAddress, mode]);
+
   // Answering SlotCalendar's question: what is free between these two dates?
   //
   // It asks a month at a time, and it decides the range — the grid has to know
@@ -371,6 +460,15 @@ export default function BookingFlow({
           // an empty string is a value, and the server would have to guess what
           // it meant. Absence of a statement is not a statement.
           ...(notes.trim() ? { notes: notes.trim() } : {}),
+          // Required (the button is disabled until it is answered) and
+          // re-validated server-side against the ladder for `serviceKey`.
+          whenNeeded,
+          // The trade question(s), keyed by question key; {} when the trade
+          // asks none or the visitor skipped them. Answers are option keys,
+          // never free text — the server drops anything off the table.
+          answers,
+          // So a refusal comes back in the language the visitor is reading.
+          language,
           // SERVICE_UNSURE never goes over the wire: "I don't know" is a thing
           // the visitor told this form, not a service the company sells.
           ...(serviceKey && serviceKey !== SERVICE_UNSURE ? { serviceKey } : {}),
@@ -871,6 +969,14 @@ export default function BookingFlow({
                     ? "We couldn't place that address, so all times are shown. Double-check it before you book."
                     : "Optional — it lets us hide times we couldn't get to you on time."}
               </p>
+              {/* One honest line, in the visitor's language, and no gate: the
+                  request still goes through and the company answers it. */}
+              {areaNote && (
+                <p className="text-xs mt-1.5 flex items-start gap-1.5" style={{ color: theme.ink }}>
+                  <AlertCircle size={13} className="shrink-0 mt-0.5" style={{ color: theme.inkMuted }} />
+                  <span>{serviceAreaCopy(language).outside(company.name, areaNote.radiusKm, areaNote.city)}</span>
+                </p>
+              )}
             </div>
           )}
 
@@ -1016,7 +1122,7 @@ export default function BookingFlow({
                         // Tapping the chosen one again clears it. A mis-tap on a
                         // phone must be undoable, and there is no other way back
                         // to "didn't say".
-                        onClick={() => setServiceKey(on ? null : svc.key)}
+                        onClick={() => chooseService(on ? null : svc.key)}
                         aria-pressed={on}
                         className="inline-flex items-center px-3.5 min-h-10 rounded-lg border text-sm font-medium transition-colors border-[var(--bd)] hover:border-[var(--bd-hover)]"
                         style={{
@@ -1033,6 +1139,92 @@ export default function BookingFlow({
                 </div>
               </div>
             )}
+
+            {/* ── When do you need this done? ───────────────────────────────
+                Required — see the state comment above. Same chip row as the
+                service picker and the "How would you like to meet?" row, and
+                placed AFTER the service picker because the options depend on
+                it. A group, not a fieldset: the surrounding <div> already
+                spaces the form and a fieldset's default border is one more
+                thing to undo. */}
+            <div role="group" aria-labelledby="booking-when-title">
+              <span
+                id="booking-when-title"
+                className="block text-sm font-medium mb-1"
+                style={{ color: theme.ink }}
+              >
+                {tradeCopy.whenTitle}
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {whenOptions.map((opt) => {
+                  const on = whenNeeded === opt.key;
+                  return (
+                    <button
+                      key={opt.key}
+                      type="button"
+                      onClick={() => setWhenNeeded(opt.key)}
+                      aria-pressed={on}
+                      className="inline-flex items-center px-3.5 min-h-10 rounded-lg border text-sm font-medium transition-colors border-[var(--bd)] hover:border-[var(--bd-hover)]"
+                      style={{
+                        "--bd": on ? solid.bg : theme.border,
+                        "--bd-hover": on ? solid.bg : theme.accentRule,
+                        backgroundColor: on ? solid.bg : theme.paper,
+                        color: on ? solid.fg : theme.ink,
+                      }}
+                    >
+                      {tradeCopy.timeline[opt.key] || opt.key}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* The trade's own question(s), when it has any — "Is there an
+                active leak?" for a roofer, "Is the water shut off?" for a
+                plumber. Optional: tapping the chosen answer again clears it,
+                the same undo the service chips offer. The rows change with the
+                service chip; chooseService() drops answers to questions no
+                longer on screen. */}
+            {tradeQuestions.map((q) => (
+              <div key={q.key} role="group" aria-labelledby={`booking-q-${q.key}`}>
+                <span
+                  id={`booking-q-${q.key}`}
+                  className="block text-sm font-medium mb-1"
+                  style={{ color: theme.ink }}
+                >
+                  {tradeCopy.questions[q.key] || q.key}
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {q.options.map((optKey) => {
+                    const on = answers[q.key] === optKey;
+                    return (
+                      <button
+                        key={optKey}
+                        type="button"
+                        onClick={() =>
+                          setAnswers((prev) => {
+                            const next = { ...prev };
+                            if (on) delete next[q.key];
+                            else next[q.key] = optKey;
+                            return next;
+                          })
+                        }
+                        aria-pressed={on}
+                        className="inline-flex items-center px-3.5 min-h-10 rounded-lg border text-sm font-medium transition-colors border-[var(--bd)] hover:border-[var(--bd-hover)]"
+                        style={{
+                          "--bd": on ? solid.bg : theme.border,
+                          "--bd-hover": on ? solid.bg : theme.accentRule,
+                          backgroundColor: on ? solid.bg : theme.paper,
+                          color: on ? solid.fg : theme.ink,
+                        }}
+                      >
+                        {tradeCopy.options[optKey] || optKey}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
 
             {/* The one field that tells the estimator what to bring. Capped at
                 the same 2000 the server caps at, so the browser can't offer
@@ -1069,7 +1261,7 @@ export default function BookingFlow({
 
           <button
             type="submit"
-            disabled={submitting || !form.name.trim() || !form.email.trim()}
+            disabled={submitting || !form.name.trim() || !form.email.trim() || !whenNeeded}
             className="mt-5 w-full inline-flex items-center justify-center gap-2 min-h-12 rounded-full text-sm font-bold disabled:opacity-50"
             style={{ backgroundColor: solid.bg, color: solid.fg }}
           >
