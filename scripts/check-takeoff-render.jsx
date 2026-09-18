@@ -180,6 +180,38 @@ for (const key of Object.keys(TRADE_PRICE_BOOKS)) {
   }
 }
 
+// The countertop footer once printed "Supplier cost $$4,000.00": a literal
+// "$" typed in front of a value useCompanyMoney() had already formatted, so
+// the one internal figure on the card carried two signs while the client
+// column beside it carried one. A length check cannot see that. This renders
+// the card with a cost in it and reads the footer back.
+try {
+  const book = getPriceBook("countertop");
+  const base = createTradeConfig("countertop");
+  const items = base.items.map((it, i) =>
+    i === 0 ? { ...it, enabled: true, supplierCost: 4000 } : it,
+  );
+  const html = renderToStaticMarkup(
+    <LanguageProvider initialLanguage="en">
+      <TradeTakeoff
+        categoryKey="countertop"
+        takeoff={{ ...base, items }}
+        book={book}
+        onChange={() => {}}
+      />
+    </LanguageProvider>,
+  );
+  const footer = html.match(/Supplier cost[^<]*internal only/);
+  if (!footer) throw new Error("footer line not rendered");
+  if (/\$\$/.test(footer[0]))
+    throw new Error(`currency sign doubled: ${footer[0]}`);
+  if (!/Supplier cost \$4,000\.00 · internal only/.test(footer[0]))
+    throw new Error(`unexpected footer: ${footer[0]}`);
+  pass += 1;
+} catch (err) {
+  fails.push(`countertop footer: ${err.message}`);
+}
+
 // ── The quote builder, in BOTH modes ───────────────────────────────────────
 //
 // /app/quotes/new and /app/quotes/[id]/edit are the same component now. That is

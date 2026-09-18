@@ -470,7 +470,7 @@ function CountertopTakeoff({ takeoff, book, onChange }) {
 
       <div className="flex justify-between text-sm">
         <span className="text-muted-foreground">
-          Supplier cost $
+          Supplier cost{" "}
           {money(
             items.reduce(
               (s, i) => s + (i.enabled ? num(i.supplierCost) : 0),
