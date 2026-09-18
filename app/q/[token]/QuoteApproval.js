@@ -535,6 +535,12 @@ export default function QuoteApproval({ token }) {
                       {g.measure.caption && (
                         <p className="text-xs font-semibold text-[#2d2520]">{g.measure.caption}</p>
                       )}
+                      {/* "Measured at 12 Main St" — the job site, which is
+                          often not the address on the header. /80 for the
+                          same reason the scope sentence above uses it. */}
+                      {g.measure.measuredAt && (
+                        <p className="text-[11px] text-[#2d2520]/80">{g.measure.measuredAt}</p>
+                      )}
                     </div>
                   )}
 

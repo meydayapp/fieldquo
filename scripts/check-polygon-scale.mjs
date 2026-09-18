@@ -357,10 +357,17 @@ section("6. Wiring (source, decommented): the scale object travels with the URL"
   const paver = decomment(read("app/components/quotes/builder/PaverDesigner.js"));
   const canvas = decomment(read("app/components/quotes/builder/PolygonMeasure.js"));
 
-  ok("QuoteBuilder hands TradeTakeoff siteImageScale from the route's response", /siteImageScale=\{siteImage\?\.scale/.test(builder));
-  ok("TradeTakeoff accepts siteImageScale", /siteImageScale\s*=\s*null/.test(takeoff));
-  ok("…and passes it to every takeoff component", /siteImageScale=\{siteImageScale\}/.test(takeoff));
-  ok("PavingTakeoff hands PaverDesigner imageScale", /imageScale=\{siteImageScale/.test(takeoff));
+  // Since 2026-09-18 the still is the PANEL's, not the page's: PavingTakeoff
+  // holds it through useSatelliteStill (from the takeoff's own address, at the
+  // zoom the estimator chose) and hands the designer the scale object the
+  // route returned beside the URL — scripts/check-measure-framing.mjs owns
+  // the address field and zoom controls; this holds the scale wiring.
+  const hook = decomment(read("app/components/quotes/builder/useSatelliteStill.js"));
+  ok("QuoteBuilder no longer fetches the still for the page", !/\/api\/measure\/satellite/.test(builder));
+  ok("…and hands TradeTakeoff the client's address as the default", /siteAddress=\{selectedClient\?\.address/.test(builder));
+  ok("useSatelliteStill keeps the route's scale object beside the URL", /scale:\s*data\.scale/.test(hook) && /image:\s*data\.image/.test(hook));
+  ok("PavingTakeoff holds its own still through the hook", /useSatelliteStill\(\{/.test(takeoff));
+  ok("PavingTakeoff hands PaverDesigner imageScale from it", /imageScale=\{still\.still\?\.scale/.test(takeoff));
   ok("PaverDesigner accepts imageScale", /imageScale\s*=\s*null/.test(paver));
   ok("…and gives it to the shared hook", /usePolygonMeasure\(\{[\s\S]*?imageScale[\s\S]*?\}\)/.test(paver));
   ok("the hook parses the URL when no scale object came", /imageScaleFromUrl\(imageUrl\)/.test(canvas));
@@ -393,7 +400,8 @@ section("7. Shared component: PaverDesigner and LotAreaMeasure both use PolygonM
   ok("QuoteBuilder renders LotAreaMeasure for the landscaping trades", /isLotMeasureTrade\(group\.categoryKey\)\s*&&\s*\(\s*<LotAreaMeasure/.test(builder));
   ok("…above the intake form whose boxes it fills", builder.indexOf("<LotAreaMeasure") < builder.indexOf("<IntakeFields"));
   ok("…writing several intake values at once", /updateIntakeValues\(group\.tempId, patch\)/.test(builder));
-  ok("the site image is fetched for the trades lotTakeoff lists, not a hardcoded 'paving'", /tradeWantsSiteImage\(g\.categoryKey\)/.test(builder) && !/g\.categoryKey === "paving"/.test(builder));
+  ok("LotAreaMeasure holds its own still through the hook, from the takeoff's address", /useSatelliteStill\(\{/.test(lot) && /takeoff\?\.measureAddress \|\| siteAddress/.test(lot));
+  ok("…and hands the canvas that still's scale", /imageScale = still\.still\?\.scale/.test(lot));
 
   const pkg = JSON.parse(read("package.json"));
   ok("check:polygon-scale is a script", typeof pkg.scripts?.["check:polygon-scale"] === "string");

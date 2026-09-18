@@ -22,6 +22,13 @@
 // a column that round-trips verbatim, so reopening the quote restores the
 // outline rather than a flat number nobody can recount. No schema change.
 //
+// The still it is traced on is this panel's own (useSatelliteStill.js), from
+// the address the estimator chose — the yard being landscaped is not always
+// the address on the invoice — at the zoom they chose, and the takeoff
+// stores both (`measureAddress`, `measureFrame`) so the drawing reopens on
+// the same picture. A zoom change re-projects the outline through lat/lng
+// (reprojectDrawing) rather than dropping it.
+//
 // ── What the CLIENT sees of it ─────────────────────────────────────────────
 //
 // The drawing is in viewBox units and means nothing off this canvas. So the
@@ -36,15 +43,18 @@
 // what prints; the recompute sits beside it as a check.
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import {
   LOT_AREA_FIELD,
   LOT_EDGE_FIELD,
   lotIntakePatch,
 } from "@/lib/measure/lotTakeoff";
-import { canvasShapeToLatLng } from "@/lib/measure/imageScale";
-import PolygonMeasure, { blankDrawing, usePolygonMeasure, VIEW_W, VIEW_H } from "./PolygonMeasure";
+import { canvasShapeToLatLng, reprojectDrawing, DEFAULT_ZOOM } from "@/lib/measure/imageScale";
+import PolygonMeasure, { asShapes, blankDrawing, usePolygonMeasure, VIEW_W, VIEW_H } from "./PolygonMeasure";
+import MeasureAddressField from "./MeasureAddressField";
+import MeasureZoomControls from "./MeasureZoomControls";
+import { useSatelliteStill, useFollowClientAddress, placementOf, LEGACY_LOT_ZOOM } from "./useSatelliteStill";
 
 // One layer. Lawn, bed and yard are all "the area being worked", and offering
 // a choice between them would invent a distinction no intake field records.
@@ -69,21 +79,17 @@ const numOf = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
  *                                    of the two boxes exist decides what is
  *                                    written (lotIntakePatch)
  * @param {Function} p.onIntakeChange (patch) → merges into intakeValues
- * @param {string}   p.imageUrl
- * @param {object}   [p.imageScale]
- * @param {{lat:number,lng:number}} [p.siteLocation]  the still's centre — with
- *                                    it, the outline is written to the takeoff
- *                                    in lat/lng for the document
- * @param {string}   [p.siteAddress]
+ * @param {object}   [p.takeoff]      the group's takeoff — carries the still's
+ *                                    address and frame, and receives the
+ *                                    outline in lat/lng for the document
+ * @param {string}   [p.siteAddress]  the client's address, the default
  * @param {Function} [p.onTakeoffChange] (patch) → merges into the group's takeoff
  */
 export default function LotAreaMeasure({
   intakeValues = {},
   fields = [],
   onIntakeChange,
-  imageUrl = "",
-  imageScale = null,
-  siteLocation = null,
+  takeoff = null,
   siteAddress = "",
   onTakeoffChange,
 }) {
@@ -94,6 +100,42 @@ export default function LotAreaMeasure({
     () => ({ ...blankDrawing(), ...(stored && typeof stored === "object" ? stored : {}) }),
     [stored],
   );
+
+  /* ── The still ─────────────────────────────────────────────────────── */
+
+  // A drawing with no stored frame predates frames and was traced at the
+  // old default zoom — see LEGACY_LOT_ZOOM for why fetching it at today's
+  // default would measure it sixteen times too small.
+  const [address, setAddress] = useState(takeoff?.measureAddress || siteAddress || "");
+  const still = useSatelliteStill({
+    frame: takeoff?.measureFrame || null,
+    address: takeoff?.measureAddress || siteAddress,
+    auto: true,
+    initialZoom: asShapes(stored?.shapes).length ? LEGACY_LOT_ZOOM : DEFAULT_ZOOM,
+  });
+  const imageUrl = still.still?.image?.url || "";
+  const imageScale = still.still?.scale || null;
+  const siteLocation = still.still?.location || null;
+  const measuredAddress = still.still?.formattedAddress || takeoff?.measureAddress || "";
+
+  // The frame on screen is the frame on the takeoff — after the first
+  // automatic fetch; a measure or zoom writes it itself, beside the
+  // re-projected drawing, and this is then a no-op. The latest takeoff is
+  // read through a ref because the outline effect below writes the takeoff
+  // too, and a frame written over a stale copy would drop it.
+  const takeoffRef = useRef(takeoff);
+  takeoffRef.current = takeoff;
+  const frameKey = JSON.stringify(still.still?.frame || null);
+  useEffect(() => {
+    const cur = still.still;
+    if (!cur?.frame || !onTakeoffChange) return;
+    const t0 = takeoffRef.current || {};
+    const sameFrame = JSON.stringify(t0.measureFrame || null) === frameKey;
+    const addr = cur.formattedAddress || t0.measureAddress || "";
+    if (sameFrame && (t0.measureAddress || "") === addr) return;
+    onTakeoffChange({ measureFrame: cur.frame, measureAddress: addr });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [frameKey]);
 
   // One update path, same signature as the paver designer's: a partial
   // drawing, or a function of the current drawing returning one.
@@ -110,6 +152,31 @@ export default function LotAreaMeasure({
 
   const measure = usePolygonMeasure({ doc, imageUrl, imageScale, layers: LAYERS });
   const { totals, fpp, natural, scaleSource } = measure;
+
+  // The outline follows the ground, not the picture: a new still (another
+  // address, another zoom) gets the same outline re-projected through
+  // lat/lng, never dropped. Written in one patch with the frame, so the
+  // drawing and the picture it is on change together.
+  function adoptStill(next, from) {
+    const moved = from ? reprojectDrawing(doc, from, placementOf(next)) : null;
+    if (moved) onIntakeChange?.({ [LOT_DRAWING_KEY]: moved });
+    onTakeoffChange?.({ measureFrame: next.frame, measureAddress: next.formattedAddress || address });
+  }
+  async function measureAt(query) {
+    const from = still.placement;
+    const next = await still.measure(query, DEFAULT_ZOOM);
+    if (next) adoptStill(next, from);
+  }
+  function zoomTo(z) {
+    const moved = still.reframe(z);
+    if (moved) adoptStill(moved.still, moved.from);
+  }
+  // A different client picked while the box still held the old one's address.
+  useFollowClientAddress(siteAddress, address, (next) => {
+    setAddress(next);
+    measureAt(next);
+  });
+  const zoom = still.still?.frame?.zoom ?? null;
 
   const hasEdgeField = fields.some((f) => f?.key === LOT_EDGE_FIELD);
   const hasAreaField = fields.some((f) => f?.key === LOT_AREA_FIELD);
@@ -159,9 +226,9 @@ export default function LotAreaMeasure({
       basis: "traced",
       estimated: false,
       vertices: vertices.map((v) => ({ lat: Math.round(v.lat * 1e7) / 1e7, lng: Math.round(v.lng * 1e7) / 1e7 })),
-      address: siteAddress || "",
+      address: measuredAddress || "",
     };
-  }, [fpp, scaleSource, siteLocation, imageScale, natural, totals, measure.measured, siteAddress, onTakeoffChange]);
+  }, [fpp, scaleSource, siteLocation, imageScale, natural, totals, measure.measured, measuredAddress, onTakeoffChange]);
 
   const lastTakeoff = useRef(undefined);
   useEffect(() => {
@@ -188,6 +255,24 @@ export default function LotAreaMeasure({
 
   return (
     <div className="space-y-3">
+      <MeasureAddressField
+        value={address}
+        onChange={setAddress}
+        onMeasure={measureAt}
+        defaultAddress={siteAddress}
+        busy={still.busy}
+        measuredAt={still.still?.formattedAddress || ""}
+        error={still.error ? t("app.measure.unavailable", "Satellite imagery is unavailable for this address. Enter the numbers below.") : ""}
+      />
+      {zoom !== null && (
+        <MeasureZoomControls
+          zoom={zoom}
+          onZoom={zoomTo}
+          onRecentre={zoom !== DEFAULT_ZOOM ? () => zoomTo(DEFAULT_ZOOM) : null}
+          groundWidthFeet={still.still?.scale?.groundWidthFeet}
+          busy={still.busy}
+        />
+      )}
       <PolygonMeasure
         doc={doc}
         update={update}

@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 18 September 2026 (the sales portal's Conversations page is a real inbox on each rep's own Namecheap mailbox, connected by the owner from the rep's card — IMAP sync every minute, SMTP sends with the copy in Sent, read state mirrored both ways, drafts, templates, keyboard shortcuts, and the company pane kept; `lib/sales/mailbox/`, `docs/SALES-OUTREACH.md` §0; see the section below)
+Last updated: 18 September 2026 (the builder's three measure panels — roof, paving, landscaping — share one "measure from this address" field and −/+ zoom with the drawing re-projected through lat/lng; the lot still defaults to zoom 18 and the roof still to 19 at 640×640, stepping out automatically when Solar's roof would clip; the document prints "Measured at {address}" under the still in eight languages; see the section below. Earlier the same day: the sales portal's Conversations page is a real inbox on each rep's own Namecheap mailbox, connected by the owner from the rep's card — IMAP sync every minute, SMTP sends with the copy in Sent, read state mirrored both ways, drafts, templates, keyboard shortcuts, and the company pane kept; `lib/sales/mailbox/`, `docs/SALES-OUTREACH.md` §0; see the section below)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -832,6 +832,67 @@ check:estimate-email extended.
   View or the building's height from Solar's DSM could set it; not attempted.
 - Corners and end caps are not counted or priced; a cut-up roof under-prices
   by the mitres.
+## One address field and a zoom on every measure panel, the still framed to show the whole property (18 September 2026)
+
+**What the owner said**: "zoom out a bit so we can see all the property —
+the roof doesn't have all the edges; I cannot see the edge of the property,
+more important for paving and landscaping." And: paving and landscaping
+should get the roof panel's "measure from an address" — the job site is
+often not the billing address — through one component, not three copies.
+
+**What changed**
+
+- `app/components/quotes/builder/MeasureAddressField.js` — the one address
+  field (Google Places through `AddressAutocomplete`, defaulted to the
+  client's address, "Measure from this address", "Use the client's address"
+  way back, "Measured at …" once fetched). Rendered by `RoofMeasurePanel`
+  (whose own input it replaced), `PavingTakeoff` and `LotAreaMeasure`.
+- `MeasureZoomControls.js` — − / +, the frame's width in feet, "Re-centre on
+  the address", and the fit note. `useSatelliteStill.js` — the still now
+  belongs to each TAKEOFF, not the page: fetched from the takeoff's own
+  address, stored on it as `measureAddress` and `measureFrame` (the six
+  numbers `stillFrame()` vouches for plus the marker flag) so a reopened
+  quote rebuilds the exact still its drawing was traced on with no geocode.
+  A drawing saved before this with no frame is fetched at the old zoom 20
+  (`LEGACY_LOT_ZOOM`) so it is not measured sixteen times too small.
+- A zoom step re-projects the drawing through lat/lng
+  (`lib/measure/imageScale.js` `latLngToCanvasPoint`, `reprojectDrawing`) —
+  the ground does not move, so the outline must not; the manual reference
+  line moves with it and keeps its typed length. Zooming is arithmetic; the
+  only cost is the one billed still per tap, said in the route.
+- Defaults: `DEFAULT_ZOOM` 20 → 18 for the lot still (886 ft across at
+  45°N instead of 222), `DEFAULT_ROOF_ZOOM` 19 at 640×640 (was 20 at
+  640×400, which clipped the eaves). `roofMeasurement.js roofStillFrame()`
+  steps the roof still out (`zoomToFitBox`) when Solar's bounding box would
+  not fit, down to MIN_ZOOM, and the panel says "Zoomed out to fit the roof".
+- The document: `measureEvidence` carries `measuredAt` — "Measured at 12
+  Main St" from `clientDocCopy.measuredAt` in all eight languages (uk, pa,
+  tl, de, it translated in this change, unreviewed like the rest of those
+  blocks) — printed under the caption on the PDF
+  (`ScopeGroupsSection`) and the public quote page. `measureImages.js`
+  builds the Google source URL from the stored frame on save (roof once
+  measured; paving once something is traced — `PaverDesigner` now emits
+  `measuredAreaSqft`, which the paving caption always read and nothing
+  wrote); the lot trades keep the outline still from vertices.
+
+**Proved** (`scripts/check-measure-framing.mjs`, in `check:all`): m/px at
+18/19/20 doubles per step; a square traced at 19 re-projected to 18 keeps
+every lat/lng vertex to 1e-9° at half the pixel side and round-trips to
+1e-6 units; a 90 m barn at 20 steps out to 19, a 5 km box stops at 15 and
+says it does not fit; the three panels render the shared field and no
+second address input remains in the roof panel; a typed-over roof and an
+untraced paving takeoff print no still from their frame.
+
+### Still owed here
+
+- The paving still on the document is the bare photo with the caption, not
+  the traced outlines drawn on it the way the lawn still is; drawing the
+  paver surfaces on a Static Maps `path` is the next step.
+- Gutters keep their own address input and `sourceUrl`; moving them onto
+  the shared field is mechanical and was left out of scope.
+- The panels do not pan. "Re-centre" is the way back to the address at the
+  default zoom; a still centred off the address would need a drag.
+
 ## The satellite still measures itself: no reference line first, one canvas for pavers and lawns (18 September 2026)
 
 The paver designer asked the estimator to draw a line along a garage door

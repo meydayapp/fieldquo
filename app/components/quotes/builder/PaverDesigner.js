@@ -250,14 +250,22 @@ export default function PaverDesigner({
   // Whole square feet. A shape traced over a satellite tile is not accurate to
   // a hundredth of a foot, and a quote line reading "437.26 sqft" claims a
   // precision the method does not have.
+  //
+  // `measuredAreaSqft` is the TRACED total, beside the three boxes: the boxes
+  // can be typed over, and the document's "Area measured: N sq ft" caption
+  // (lib/measure/measureImages.js measureCaption) must only ever claim what
+  // was actually drawn. 0 when nothing is traced, which the caption reads as
+  // "no measurement" and prints nothing.
   const emitted = useMemo(
-    () =>
-      Object.fromEntries(
+    () => ({
+      ...Object.fromEntries(
         SURFACES.map((s) => [
           s.takeoffKey,
           Math.round(totals.bySurface[s.key]),
         ]),
       ),
+      measuredAreaSqft: Math.round(totals.areaSqFt),
+    }),
     [totals],
   );
 
@@ -268,13 +276,19 @@ export default function PaverDesigner({
   // The guard is what makes it safe to depend on `onChange` and `takeoff`: the
   // parent's own re-render re-runs this effect, and the key check turns that
   // into a no-op instead of a loop.
-  const lastEmit = useRef("0|0|0");
+  const lastEmit = useRef("0|0|0|0");
 
+  //
+  // A function of the takeoff as it is when the write lands, not a spread of
+  // the prop: PavingTakeoff writes the still's frame onto the same takeoff in
+  // an effect of its own, in the same commit as this one, and two spreads of
+  // the same stale prop meant the second write silently undid the first.
+  // TradeTakeoff's onChange (QuoteBuilder.updateTakeoff) composes functions.
   useEffect(() => {
-    const key = SURFACES.map((s) => emitted[s.takeoffKey]).join("|");
+    const key = [...SURFACES.map((s) => emitted[s.takeoffKey]), emitted.measuredAreaSqft].join("|");
     if (key === lastEmit.current) return;
     lastEmit.current = key;
-    onChange?.({ ...(takeoff || {}), ...emitted });
+    onChange?.((prev) => ({ ...(prev || takeoff || {}), ...emitted }));
   }, [emitted, onChange, takeoff]);
 
   /* ── Materials ─────────────────────────────────────────────────────── */
