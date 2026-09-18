@@ -18,6 +18,10 @@ import {
   bookingToCalendarEntry,
 } from "@/lib/schedule/jobVisits";
 import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
+import { sendBookingConfirmationEmail } from "@/app/admin/lib/email/templates";
+import { resolveClientLanguage } from "@/lib/i18n/clientLanguage";
+import { serviceName } from "@/lib/schedule/clientNotice";
+import { recordSiteVisit } from "@/lib/quotes/siteVisitActivity";
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -49,6 +53,10 @@ export async function GET(request) {
     include: {
       client: true,
       assignedTo: { select: { id: true, name: true } },
+      // The quote an on-site measure was scheduled from (lib/quotes/siteVisit.js),
+      // so the row can link back to it the way a visit links to its job. Null
+      // on every other appointment; the number is what the link is labelled.
+      quote: { select: { id: true, quoteNumber: true } },
       // For the real finish time. An Appointment has no duration of its own,
       // so one created from a booking is the only kind we can say anything
       // definite about — and the travel check stays silent rather than
@@ -227,14 +235,45 @@ export async function POST(request) {
 
   const body = await request.json();
   const {
-    clientId,
     clientName,
     clientPhone,
     scheduledAt,
     location,
     requiresSupervisor,
     assignedToId,
+    quoteId,
+    notes,
   } = body;
+  let { clientId } = body;
+
+  // ── An on-site measure, scheduled from a quote ───────────────────────────
+  //
+  // The quote page posts `quoteId` and nothing else identifies the client:
+  // the client IS the quote's client, read from the row rather than trusted
+  // from the browser, so a quote id and a client id from two different
+  // customers cannot be stapled together. Scoped to the company for the
+  // same reason every lookup here is. See lib/quotes/siteVisit.js for why
+  // this is an Appointment and not a model of its own.
+  let quote = null;
+  if (quoteId !== undefined && quoteId !== null) {
+    if (typeof quoteId !== "string" || !quoteId) {
+      return NextResponse.json({ error: "quoteId must be a quote's id." }, { status: 400 });
+    }
+    quote = await db.quote.findFirst({
+      where: { id: quoteId, companyId: member.companyId },
+      select: { id: true, clientId: true, quoteNumber: true, language: true },
+    });
+    if (!quote) {
+      return NextResponse.json({ error: "That quote isn't on this account." }, { status: 404 });
+    }
+    if (clientId && clientId !== quote.clientId) {
+      return NextResponse.json(
+        { error: "That quote belongs to a different client." },
+        { status: 400 },
+      );
+    }
+    clientId = quote.clientId;
+  }
 
   // Either identifies a client. `clientId` is the precise form and is now
   // accepted — it was not, which meant a caller holding an id had no way to
@@ -244,6 +283,11 @@ export async function POST(request) {
       { error: "Give a client (clientId or clientName) and a time." },
       { status: 400 },
     );
+  }
+
+  const when = new Date(scheduledAt);
+  if (Number.isNaN(when.getTime())) {
+    return NextResponse.json({ error: "That isn't a date and time." }, { status: 400 });
   }
 
   // Reassigning to someone else requires appointment:assign — creating your own unassigned appt doesn't
@@ -378,23 +422,90 @@ export async function POST(request) {
     data: {
       companyId: member.companyId,
       clientId: client.id,
-      scheduledAt: new Date(scheduledAt),
-      location: location || null,
+      scheduledAt: when,
+      // A measure goes to the client's address unless the office typed
+      // another; the calendar already falls back to client.address when this
+      // is null, so storing it is what makes the CONFIRMATION letter carry
+      // the same street the crew will drive to.
+      location: location || (quote ? client.address || null : null),
       requiresSupervisor: !!requiresSupervisor,
       status:
         requiresSupervisor && !assignedToId ? "needs_supervisor" : "scheduled",
+      notes: typeof notes === "string" && notes.trim() ? notes.trim().slice(0, 2000) : null,
       createdById: member.userId,
       assignedToId: assignedToId || null,
+      ...(quote && { quoteId: quote.id }),
     },
-    include: { client: true, assignedTo: { select: { id: true, name: true } } },
+    include: {
+      client: true,
+      assignedTo: { select: { id: true, name: true } },
+      quote: { select: { id: true, quoteNumber: true } },
+    },
   });
+
+  // ── The client is told, in the quote's language ──────────────────────────
+  //
+  // Only for a measure scheduled from a quote. A plain appointment booked on
+  // the calendar has emailed nobody since the product began, and whether it
+  // should is a product decision this route does not take on its own. A
+  // measure is different: it is about a document the client already holds,
+  // the letter can cite it, and the language is fixed by non-negotiable #6 —
+  // lib/i18n/clientLanguage.js: the quote's language, then the client's,
+  // then the company's. The letter is the SAME confirmation the booking page
+  // sends (app/admin/lib/email/templates.js), with the measure named the
+  // way lib/schedule/clientNotice.js names it in the moved and cancelled
+  // letters, so all three read as one visit.
+  //
+  // `notice` says what happened, honestly: no address on file is "nothing
+  // was sent", not silence, because the office is about to tell the
+  // homeowner "you'll get a confirmation".
+  const notice = { sent: false, language: null, to: null, simulated: false };
+  if (quote) {
+    const company = await db.company.findUnique({ where: { id: member.companyId } });
+    const language = resolveClientLanguage({ document: quote, client, company });
+    notice.language = language;
+    const to = String(client.email || "").trim();
+    if (to && company) {
+      notice.to = to;
+      const result = await sendBookingConfirmationEmail({
+        to,
+        company,
+        companyName: company.name,
+        clientName: client.name || "",
+        eventTypeName: serviceName({ language, measure: true }),
+        startTime: appointment.scheduledAt,
+        location: appointment.location || client.address || null,
+        timezone: company.timezone,
+        arrivalWindowMinutes: company.arrivalWindowMinutes || 0,
+        quoteNumber: quote.quoteNumber,
+        language,
+      }).catch((err) => {
+        console.error("[appointments] measure confirmation failed:", err?.message);
+        return { error: err?.message || "send failed" };
+      });
+      notice.sent = Boolean(result && !result.error && !result.skipped);
+      notice.simulated = Boolean(result?.simulated);
+    }
+
+    // Written against the quote now and against its job too if one already
+    // exists — and carried into the job at conversion otherwise
+    // (lib/jobs/createJobFromQuote.js).
+    await recordSiteVisit(member, "scheduled", {
+      appointment,
+      quote,
+      timeZone: company?.timezone || null,
+    });
+  }
 
   // Redacted like the list and like /api/appointments/[id]. Booking an
   // appointment against an existing client is allowed at name_address_only —
   // reading that client's phone number back out of the 201 is not, and "you
   // created it so you may see it" is not true here: the client already existed.
-  return NextResponse.json(
-    { ...appointment, client: redactClient(full, appointment.client) },
-    { status: 201 },
-  );
+  const out = { ...appointment, client: redactClient(full, appointment.client), notice };
+  // The address the letter went to is the client's email, which the redaction
+  // just decided whether this member may read. The notice follows the same
+  // verdict: "sent" survives, the address does not.
+  if (notice.to && !out.client?.email) notice.to = null;
+
+  return NextResponse.json(out, { status: 201 });
 }

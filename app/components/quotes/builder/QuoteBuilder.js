@@ -71,6 +71,7 @@ import LineItemsTable from "./LineItemsTable";
 import CostMarginPanel from "./CostMarginPanel";
 import QuoteTotalsBar from "./QuoteTotalsBar";
 import ClientPicker from "./ClientPicker";
+import SiteVisitPanel from "@/app/components/quotes/SiteVisitPanel";
 
 import { estimateQuoteCost } from "@/lib/costing/estimateJobCost";
 import {
@@ -1811,6 +1812,15 @@ export function QuoteBuilderForm({
         creating={creatingClient}
         error={error}
       />
+
+      {/* The estimator's measure, scheduled against THIS quote row — so only
+          on an edit, where the row exists. On a new quote the first save is
+          what creates the thing a visit would link to, and the detail page
+          the save lands on carries the same panel. The payload is the one
+          the edit load already fetched; nothing is read twice. */}
+      {isEdit && start.quote && (
+        <SiteVisitPanel quoteId={quoteId} quote={start.quote} />
+      )}
 
       {/* Who's working this quote. Defaults to whoever saves it — the select
           opens on "(unassigned)" and the server resolves that to the caller

@@ -1,12 +1,69 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 17 September 2026 (a ring-back to a sales number now ends in exactly one of three records — answered, voicemail, or MISSED — and each one tells the rep. The cause of the 17 September report: `inboundPlan()` returned "take a message" whenever `FIELDQUO_SALES_TRANSFER_TO` was unset, which it always has been in production, so no browser was ever rung and the check locked that in; the browsers now ring with or without a desk phone. The rep who dialled the caller is rung when available or after_call, held for when on_call (pushed "X is ringing back"), and rung on the evidence of a dial in the last 30 minutes even with no presence row (lib/sales/calls/inboundDistribution.js lastCallerVerdict). `SalesCallAttempt.missedAt` + lib/sales/calls/missed.js: written by the number's `?stage=status` callback (set at purchase from now on; the six held numbers need it set in the Twilio console) and by a per-minute sweep in the sales-pipeline cron; pushes "Missed call from X, just now" and "New voicemail from X, 12 seconds"; shown on /sales/voicemail under Missed calls, in the call history on the queue card and lead page ("left a voicemail · Play", audio proxied through FieldQuo), and on the platform floor with an Outcome column and a per-number voice-webhook-host audit. A refused signature and a thrown handler are now written to /platform/errors with the CallSid. check:sales-inbound-call drives the real route against signed requests for all four cases; check:inbound-distribution carries the exact timeline. Also today: the queue: the day-end sweep no longer takes rows from a rep who is still dialling, a texted or callback-promised lead is never given back automatically, the "Given back today" strip names what went back and why, and the console draws from the tab's last payload before its first request — see the section below))
+Last updated: 17 September 2026 (a quote can schedule the estimator's on-site visit: "Schedule an on-site visit" on the quote page and the builder (edit) writes an Appointment with `quoteId` through the calendar's own POST /api/appointments, the client gets the booking-page confirmation letter in the quote's language naming it an "on-site estimate", the row is on the team calendar with "Open quote" and the quote shows date / estimator / status with the calendar's reschedule-complete-cancel actions, and the measure reaches the job: scheduled / completed / cancelled ActivityLog rows on the quote and on its job, carried at conversion by ensureJobForAcceptedQuote and listed read-only above the crew's visits on the job page — lib/quotes/siteVisit.js, check:site-visit. No schema change: Appointment.quoteId existed and nothing wrote it. Earlier today: a ring-back to a sales number ends in exactly one of three records — see the inbound-callbacks section — and the queue: the day-end sweep no longer takes rows from a rep who is still dialling — see the section below)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
 it exists to answer.
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
+
+---
+
+## A quote schedules the estimator's on-site visit, and the job remembers it (17 September 2026)
+
+The estimator's trip to measure up before a price is final had no home: the
+calendar could book "an appointment" for a client, but nothing tied it to the
+quote it was about, the client heard nothing, and the job that the quote later
+became had no idea anybody had been to the house.
+
+**What it is.** An `Appointment` — the row the booking page has always written
+for a homeowner-booked estimate — with `quoteId` set. That column existed on
+the model and nothing wrote it (the booking flow puts the quote on `Booking`);
+`lib/quotes/siteVisit.js` is the first writer and says why there is no second
+model or second scheduler. No schema change.
+
+- **Scheduling.** `SiteVisitPanel` (app/components/quotes/SiteVisitPanel.js)
+  on the quote detail page and on the builder in EDIT mode only — a new quote
+  has no row to link to until its first save. When / estimator / where /
+  notes, posted through `fetchJson` to the calendar's own
+  `POST /api/appointments` with `quoteId`; the route reads the client off the
+  quote (never from the browser), keeps every assignment and tenancy check
+  it already had, and sits behind `memberOrRefusal`, so an impersonating
+  session is refused the way it is everywhere.
+- **The client is told.** The existing booking-page confirmation
+  (`sendBookingConfirmationEmail`), in the language
+  `lib/i18n/clientLanguage.js` resolves — the quote's, then the client's,
+  then the company's — naming the visit with the new `emailCopy.visit.
+  measureService` ("on-site estimate", eight languages) and citing the quote
+  number. The moved and cancelled letters use the same word through
+  `serviceName({ measure })`. No email on file is reported as "nothing was
+  sent — let them know by phone", never as silence; a demo company's send is
+  simulated and says so.
+- **On the calendar.** Like every Appointment: `GET /api/appointments`
+  carries `quote { id, quoteNumber }`, the row's detail panel has "Open
+  quote", and `/app/appointments?day=YYYY-MM-DD` opens the month on that day
+  — the link every row on the quote carries. Reschedule / complete / cancel
+  on the quote are the calendar's `EntryActions`, same PATCH, same letters.
+- **On the job.** A job's history is `ActivityLog` (there is no job timeline
+  table). `scheduled` is written on creation against the quote and, if the
+  quote already has a job, that job; `completed` / `cancelled` on the PATCH;
+  and `ensureJobForAcceptedQuote` carries every measure already on the quote
+  into the new job's history at conversion (`carrySiteVisitsIntoJob`).
+  Six catalogue keys (named / unassigned × three verbs) in nine languages so
+  a French office reads its own history. `GET /api/jobs/[id]` also returns
+  `quote.appointments`, listed read-only above the crew's visits.
+- **Checked by execution.** `check:site-visit` drives the event builders,
+  the carry ordering, the catalogue placeholders and the letter word, and
+  greps the wiring that has to keep being there.
+
+### Still owed here
+
+- The panel does not geocode the measure's address the way the booking page
+  does, so it joins the travel-time check only through the client's address;
+  a manually booked appointment has never been geocoded either.
+- Whether a PLAIN appointment booked on the calendar should email the client
+  too is a product decision — this only emails when the row is about a quote.
 
 ---
 

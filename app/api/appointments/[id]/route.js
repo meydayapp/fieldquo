@@ -18,6 +18,8 @@ import { travelMinutes, hasPoint } from "@/lib/booking/travel";
 import { serverMapsKey } from "@/lib/measure/roofMeasurement";
 import { getAppOrigin } from "@/lib/appUrl";
 import { visitManagePath } from "@/lib/booking/manageVisit";
+import { recordSiteVisit } from "@/lib/quotes/siteVisitActivity";
+import { siteVisitVerbForStatus } from "@/lib/quotes/siteVisit";
 
 // ── The list route was scoped; this one was not ────────────────────────────
 //
@@ -102,7 +104,7 @@ export async function PATCH(request, { params }) {
     where: { id: _params.id, companyId: member.companyId },
     include: {
       client: { select: { id: true, name: true, email: true, language: true, address: true } },
-      quote: { select: { language: true, quoteNumber: true } },
+      quote: { select: { id: true, language: true, quoteNumber: true } },
       company: true,
       booking: {
         select: {
@@ -385,6 +387,22 @@ export async function PATCH(request, { params }) {
         });
     notice.sent = result.sent;
     notice.language = result.language;
+  }
+
+  // ── A measure's completion or cancellation is job history ────────────────
+  //
+  // Only for an appointment scheduled from a quote (Appointment.quoteId).
+  // Written against the quote, and against the job when the quote has
+  // already become one; a job created later gets the row carried at
+  // conversion instead (lib/jobs/createJobFromQuote.js). The row is what was
+  // just saved, so the cancel reason on it is the one the office typed.
+  const verb = existing.quote ? siteVisitVerbForStatus(existing.status, updated.status) : null;
+  if (verb) {
+    await recordSiteVisit(member, verb, {
+      appointment: updated,
+      quote: existing.quote,
+      timeZone: existing.company?.timezone || null,
+    });
   }
 
   // Redacted on the way out too. The calendar writes this response straight
