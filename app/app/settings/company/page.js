@@ -34,6 +34,11 @@ import {
   ReadOnlyField,
 } from "@/app/components/settings/PermissionNotice";
 import { groupHours, hasBusinessHours } from "@/lib/company/businessHours";
+import {
+  serviceAreaSentence,
+  normalisePostalPrefixes,
+  cleanRadiusKm,
+} from "@/lib/company/serviceArea";
 
 function industryLabel(slug) {
   return INDUSTRIES.find((i) => i.slug === slug)?.label || slug;
@@ -158,12 +163,65 @@ const WEBSITE_PLACEHOLDER = "https://yourcompany.com";
 // twenty-odd checkboxes and selects that accept a click, change on screen, and
 // then meet a Save button that 403s. A definition list can't lie about that.
 //
+// The service area as the form currently holds it, in the shape the rule
+// module reads. The radius and prefixes are the FORM's values, not the saved
+// ones, so the preview line answers "what will this save as" while the owner
+// is still typing; the coordinates are whatever the last save or Places pick
+// produced, because that is the only thing the radius can be measured from.
+function serviceAreaOfForm(form) {
+  return {
+    serviceRadiusKm: form.serviceRadiusKm,
+    servicePostalPrefixes: normalisePostalPrefixes(form.servicePostalPrefixes),
+    latitude: form.latitude,
+    longitude: form.longitude,
+    city: form.city,
+  };
+}
+
+// The one line a client will read — "We serve within 25 km of Ottawa." —
+// straight from the same function the public pages print it with, so the
+// preview cannot say something the booking page will not. Shared by the
+// editable card and the read-only one.
+//
+// Three honest states and no fourth: the sentence; "no area set"; and, when
+// a radius is typed but the base has never been placed on the map, the note
+// that says so — because serviceAreaSentence() returns nothing for that
+// radius, and a card that showed "25" in the box beside a blank preview would
+// read as broken rather than as "not located yet".
+function ServiceAreaPreview({ t, language, form }) {
+  const area = serviceAreaOfForm(form);
+  const sentence = serviceAreaSentence(area, language);
+  const hasBase =
+    Number.isFinite(Number(form.latitude)) && Number.isFinite(Number(form.longitude));
+  const needsGeocode = Boolean(cleanRadiusKm(form.serviceRadiusKm)) && !hasBase;
+  return (
+    <div className="space-y-2">
+      {sentence ? (
+        <p className="text-sm text-foreground bg-muted border border-border rounded-lg px-4 py-3">
+          {sentence}
+        </p>
+      ) : (
+        !needsGeocode && (
+          <p className="text-sm text-muted-foreground">{t("app.setCompany.serviceAreaNone")}</p>
+        )
+      )}
+      {needsGeocode && (
+        <p className="flex items-start gap-2 text-sm text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-lg px-3 py-2">
+          <Info size={15} className="shrink-0 mt-0.5" />
+          <span>{t("app.setCompany.serviceAreaNeedsGeocode")}</span>
+        </p>
+      )}
+    </div>
+  );
+}
+
 // Written as a separate component rather than as `readOnly` threaded through
 // forty inputs, because the two renderings differ in WHAT they show, not just
 // in whether it's editable — and a shared component with a boolean would have
 // hidden that.
 function CompanyReadOnly({
   t,
+  language,
   form,
   slug,
   industries,
@@ -241,6 +299,23 @@ function CompanyReadOnly({
             </div>
           </div>
         )}
+      </SectionCard>
+
+      <SectionCard
+        title={t("app.setCompany.serviceAreaTitle")}
+        description={t("app.setCompany.serviceAreaDesc")}
+      >
+        <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <ReadOnlyField
+            label={t("app.setCompany.serviceRadius")}
+            value={form.serviceRadiusKm === "" ? "" : String(form.serviceRadiusKm)}
+          />
+          <ReadOnlyField
+            label={t("app.setCompany.servicePrefixes")}
+            value={form.servicePostalPrefixes}
+          />
+        </dl>
+        <ServiceAreaPreview t={t} language={language} form={form} />
       </SectionCard>
 
       {/* The one the owner named: opening hours as text, not as checkboxes. */}
@@ -481,7 +556,7 @@ function CompanyReadOnly({
 }
 
 export default function CompanySettingsPage() {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const access = useSettingsAccess();
   const canEdit = access.canChange("user:manage");
   const [loading, setLoading] = useState(true);
@@ -587,6 +662,14 @@ export default function CompanySettingsPage() {
           country: data?.country || "CA",
           latitude: data?.latitude ?? null,
           longitude: data?.longitude ?? null,
+          // The service area. "" in the radius box is "no radius" and saves
+          // as null — see payload(). The prefixes are held as the comma list
+          // the owner types and normalised on the way out; after a save the
+          // normalised list comes back in and replaces what was typed.
+          serviceRadiusKm: data?.serviceRadiusKm ?? "",
+          servicePostalPrefixes: Array.isArray(data?.servicePostalPrefixes)
+            ? data.servicePostalPrefixes.join(", ")
+            : "",
           taxIdName: data?.taxIdName || "",
           taxIdNumber: data?.taxIdNumber || "",
           taxRegistrationDismissed: Boolean(data?.taxRegistrationDismissedAt),
@@ -733,6 +816,13 @@ export default function CompanySettingsPage() {
       servesAbroad: form.servesAbroad,
       businessHours: form.businessHours,
       shareAnonymizedPricing: form.shareAnonymizedPricing,
+      // null, not "" and not 0: an emptied radius box must CLEAR the column.
+      // The server refuses anything that is not a positive whole number, so
+      // a typo is an error on screen rather than a silently dropped radius.
+      serviceRadiusKm: form.serviceRadiusKm === "" ? null : form.serviceRadiusKm,
+      // Normalised here AND on the server (same function): an emptied field
+      // sends [] and clears the list, "k1a, k2p" sends ["K1A", "K2P"].
+      servicePostalPrefixes: normalisePostalPrefixes(form.servicePostalPrefixes),
     };
   }
 
@@ -746,6 +836,24 @@ export default function CompanySettingsPage() {
         body: JSON.stringify(payload()),
       });
       if (res.ok) {
+        // The row as saved, read back for the fields whose stored value can
+        // differ from what was typed: the prefixes come back normalised, and
+        // saving a radius for an address that had never been geocoded makes
+        // the server look it up — the coordinates that arrive here are what
+        // turn the "place your address on the map first" note into the
+        // sentence. Anything else on the form is left as the owner has it.
+        const data = await res.json().catch(() => null);
+        if (data && typeof data === "object") {
+          setForm((prev) => ({
+            ...prev,
+            serviceRadiusKm: data.serviceRadiusKm ?? "",
+            servicePostalPrefixes: Array.isArray(data.servicePostalPrefixes)
+              ? data.servicePostalPrefixes.join(", ")
+              : prev.servicePostalPrefixes,
+            latitude: data.latitude ?? null,
+            longitude: data.longitude ?? null,
+          }));
+        }
         setSaved(true);
         setTimeout(() => setSaved(false), 2500);
       } else {
@@ -842,6 +950,7 @@ export default function CompanySettingsPage() {
     return (
       <CompanyReadOnly
         t={t}
+        language={language}
         form={form}
         slug={slug}
         industries={industries}
@@ -1203,6 +1312,53 @@ export default function CompanySettingsPage() {
         </div>
 
         <MiniMap lat={form.latitude} lng={form.longitude} />
+      </SectionCard>
+
+      {/* Service area — where they will drive to. Read by lib/company/
+          serviceArea.js for the booking page and the instant estimate: an
+          address outside it still submits, with one honest line, and the
+          lead carries a badge. Deliberately a radius around the address in
+          the card above (plus optional postal prefixes), not a map to draw
+          on — the minimum that answers "is this address inside?" honestly. */}
+      <SectionCard
+        title={t("app.setCompany.serviceAreaTitle")}
+        description={t("app.setCompany.serviceAreaDesc")}
+      >
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="text-sm font-medium text-foreground block mb-1">
+              {t("app.setCompany.serviceRadius")}
+            </label>
+            <input
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={2000}
+              step={1}
+              className={inputClass}
+              value={form.serviceRadiusKm}
+              onChange={(e) => set("serviceRadiusKm", e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              {t("app.setCompany.serviceRadiusHint")}
+            </p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-foreground block mb-1">
+              {t("app.setCompany.servicePrefixes")}
+            </label>
+            <input
+              className={inputClass}
+              value={form.servicePostalPrefixes}
+              onChange={(e) => set("servicePostalPrefixes", e.target.value)}
+              placeholder="K1A, K2P"
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              {t("app.setCompany.servicePrefixesHint")}
+            </p>
+          </div>
+        </div>
+        <ServiceAreaPreview t={t} language={language} form={form} />
       </SectionCard>
 
       {/* Opening hours — the PUBLIC ones.

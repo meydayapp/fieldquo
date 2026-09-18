@@ -11,6 +11,7 @@ import { clampWindow } from "@/lib/booking/arrivalWindow";
 import { currencyForCountry } from "@/lib/currency";
 import { containsMarkupCharacters } from "@/lib/security/rejectMarkupCharacters";
 import { sanitisePaymentMethods } from "@/lib/payments/paymentMethodOptions";
+import { cleanRadiusKm, normalisePostalPrefixes } from "@/lib/company/serviceArea";
 
 /**
  * Coordinates for a stored address that has none.
@@ -70,6 +71,12 @@ export async function GET(request) {
       servesAbroad: true,
       latitude: true,
       longitude: true,
+      // The service area — Settings › Company's "Service area" card writes
+      // both (see the PATCH) and lib/company/serviceArea.js reads them for
+      // the two public flows. The radius only means something once the base
+      // above has coordinates, which is why the card shows the geocode note.
+      serviceRadiusKm: true,
+      servicePostalPrefixes: true,
       website: true,
       logoUrl: true,
       logoPublicId: true,
@@ -243,6 +250,8 @@ export async function PATCH(request) {
     refundCutoffHours,
     sitePublished,
     offerFinancing,
+    serviceRadiusKm,
+    servicePostalPrefixes,
   } = body;
 
   // This field reaches a `<script type="application/ld+json">` on the
@@ -271,6 +280,43 @@ export async function PATCH(request) {
         { status: 400 },
       );
     }
+  }
+
+  // The service area. The radius is cleaned by the same helper the public
+  // rule reads with (whole km, 1–2000), so what is stored is what will be
+  // evaluated; "" and null both CLEAR it, because a field the owner emptied
+  // has to save as "no radius" — a control that appears to clear and does
+  // not is the failure AGENTS.md is about. The prefixes are normalised on the
+  // way in ("k1a, K1A 0B1" → ["K1A", "K1A0B1"]) and the normalised list is
+  // what the response carries back, so the form shows what was kept. A body
+  // that sends something other than a list or a string is refused rather
+  // than quietly clearing the list — "cleared" and "malformed" must not look
+  // the same.
+  let cleanPrefixes;
+  if (servicePostalPrefixes !== undefined) {
+    if (
+      servicePostalPrefixes !== null &&
+      !Array.isArray(servicePostalPrefixes) &&
+      typeof servicePostalPrefixes !== "string"
+    ) {
+      return NextResponse.json(
+        { error: "servicePostalPrefixes must be a list of postal-code prefixes." },
+        { status: 400 },
+      );
+    }
+    cleanPrefixes = normalisePostalPrefixes(servicePostalPrefixes);
+  }
+  let cleanRadius;
+  if (serviceRadiusKm !== undefined) {
+    // A radius that is not a positive number is a typo, not "no area": refused
+    // so the owner sees it, rather than cleaned to null and silently dropped.
+    if (serviceRadiusKm !== null && serviceRadiusKm !== "" && cleanRadiusKm(serviceRadiusKm) === null) {
+      return NextResponse.json(
+        { error: "Enter the service radius as a whole number of kilometres, 1 or more." },
+        { status: 400 },
+      );
+    }
+    cleanRadius = { value: cleanRadiusKm(serviceRadiusKm) }; // boxed: null clears
   }
 
   // Validated before anything is written, so a bad cancellation window can't
@@ -478,8 +524,23 @@ export async function PATCH(request) {
       ...(offerFinancing !== undefined && {
         offerFinancing: Boolean(offerFinancing),
       }),
+      ...(cleanRadius !== undefined && { serviceRadiusKm: cleanRadius.value }),
+      ...(cleanPrefixes !== undefined && { servicePostalPrefixes: cleanPrefixes }),
     },
   });
+
+  // A radius is a circle around the base, and a base with no coordinates is
+  // no circle: serviceAreaConfigured() says "not configured" until the
+  // address has been geocoded. Saving a radius therefore geocodes the address
+  // when nothing else on this request did — the same one-time backfill the
+  // GET runs — so the owner's next look at the card says "We serve within
+  // 25 km of Ottawa" and not "geocode your address first" for an address
+  // that is right there on the page. Silent on failure, like the GET: the
+  // card then shows the honest note, which is what it should.
+  const withCoords =
+    cleanRadius?.value && (updated.latitude == null || updated.longitude == null)
+      ? await backfillCoordinates(member.companyId, updated)
+      : updated;
 
   // Record which fields changed — enough for support to answer "who changed
   // the tax rate / branding / hours", without dumping full before/after values.
@@ -491,5 +552,5 @@ export async function PATCH(request) {
     metadata: { fields: changed },
   });
 
-  return NextResponse.json(updated);
+  return NextResponse.json(withCoords);
 }

@@ -1504,6 +1504,14 @@ model Company {
   country      String?  @default("CA")
   latitude     Decimal? @db.Decimal(9, 6)
   longitude    Decimal? @db.Decimal(9, 6)
+  /// The company's service area — where they will drive to. A radius in km
+  /// around the base coordinates above, and/or postal-code prefixes for a
+  /// company whose area is a list of towns rather than a circle. Null / []
+  /// means "never said", which renders as nothing: no invented area. The
+  /// rule that reads both is lib/company/serviceArea.js; deliberately NOT
+  /// SalesTerritory, which is the reps' map of who prospects where.
+  serviceRadiusKm       Int?
+  servicePostalPrefixes String[] @default([])
   discoverable Boolean  @default(false)
   /// The company's service area: how far from the base address (latitude/
   /// longitude above) they will drive, in km, and optionally the postal-code
