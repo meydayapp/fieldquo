@@ -357,6 +357,7 @@ export default function DialRegion({
             phoneE164={target.phoneE164}
             contactNumberId={target.contactNumberId || null}
             businessName={target.businessName}
+            callLabel={target.callLabel || null}
             fallbackHref={space.href}
             onWorked={onWorked}
             autoDial={autoDial}

@@ -188,6 +188,12 @@ export default function CallPanel({
   // Twilio account. lib/sales/contact/resolve.js carries the whole argument.
   contactNumberId = null,
   businessName,
+  // What the Call button and the on-call line NAME. Null means the business;
+  // the console passes the number itself, read aloud, when the number that
+  // will ring is not one of the record's stored ones — "Call +1 613 555
+  // 0100", never "Call DRAIN KINGS", because it is the number that is being
+  // called. `businessName` stays the business for NextSteps' booking.
+  callLabel = null,
   fallbackHref,
   onWorked,
   // ── The autodialler's press ──────────────────────────────────────────
@@ -371,7 +377,12 @@ export default function CallPanel({
   void tick;
 
 
-  async function place(channel) {
+  // `source` is who pressed: "manual" for a thumb, "autodial" for the
+  // countdown in lib/sales/autodial.js. Recorded on the attempt
+  // (SalesCallAttempt.dialSource) so the floor board can say how many calls
+  // the dialler placed against how many a rep did; it changes nothing about
+  // the call.
+  async function place(channel, source = "manual") {
     // Never two at once, and never over a call. The Call button is not
     // rendered in these states, so this guard exists for the autodialler's
     // press, which arrives on a timer rather than from a thumb.
@@ -389,7 +400,15 @@ export default function CallPanel({
           setError(pre?.error || t("app.salesCall.dialFailed"));
           return false;
         }
-        dialTarget = { phoneE164: pre.phoneE164 || phoneE164, contactNumberId: pre.contactNumberId || null };
+        dialTarget = {
+          phoneE164: pre.phoneE164 || phoneE164,
+          contactNumberId: pre.contactNumberId || null,
+          // A typed number the numbers route refused to store because it is
+          // a test dial (a test line, or a test account). Sent as the number
+          // itself, which the dial route accepts ONLY for those two cases
+          // and re-judges for itself — see its `typedE164`.
+          typedE164: pre.typedE164 || null,
+        };
       }
       const body = await fetchJson("/api/sales/calls", {
         method: "POST",
@@ -406,7 +425,9 @@ export default function CallPanel({
           // falls back to its OWN best choice rather than to a null it has to
           // interpret.
           ...(dialTarget.contactNumberId ? { contactNumberId: dialTarget.contactNumberId } : {}),
+          ...(dialTarget.typedE164 ? { typedE164: dialTarget.typedE164 } : {}),
           channel,
+          source,
         }),
       });
       setAttempt(body);
@@ -530,7 +551,7 @@ export default function CallPanel({
       onAutoDialResult?.({ token, ok: false, reason: "not_idle" });
       return;
     }
-    place("browser").then((ok) => onAutoDialResult?.({ token, ok: ok === true, reason: ok ? null : "refused" }));
+    place("browser", "autodial").then((ok) => onAutoDialResult?.({ token, ok: ok === true, reason: ok ? null : "refused" }));
     // `place` is a plain function of this render; the guards above are what
     // matter, and they are read from the same render the token arrived in.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -863,7 +884,7 @@ export default function CallPanel({
         <div className="rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 p-4 space-y-3">
           <div className="flex items-baseline justify-between gap-2">
             <p className="font-semibold text-emerald-900 dark:text-emerald-100 break-words">
-              {t("app.salesCall.onCallWith", { name: businessName || phoneE164 })}
+              {t("app.salesCall.onCallWith", { name: callLabel || businessName || phoneE164 })}
             </p>
             <p className="text-xl font-mono tabular-nums text-emerald-900 dark:text-emerald-100">
               {clock(elapsed)}
@@ -1014,7 +1035,7 @@ export default function CallPanel({
               ) : (
                 <Phone size={16} />
               )}
-              {t("app.salesCall.callName", { name: businessName || phoneE164 })}
+              {t("app.salesCall.callName", { name: callLabel || businessName || phoneE164 })}
             </button>
           ) : null}
 

@@ -123,7 +123,19 @@ const settled = async () => {
     await wait(300);
   }
   if (scene === "status-menu") {
-    (await until('[data-tour="sales-status"] button')).click();
+    // The picker is in the header from lg up and in the drawer below it, and
+    // the header is display:none on a phone — so below lg the drawer is
+    // opened first and the drawer's copy of the button is the one pressed.
+    // Clicking the first match blindly pressed the hidden header button and
+    // the 375 frame showed nothing open.
+    const visible = () =>
+      [...document.querySelectorAll('[data-tour="sales-status"] button')].find((b) => b.getClientRects().length > 0);
+    if (!visible()) {
+      (await until('[data-tour-open="sales-nav"]')).click();
+      await until('[data-nav-drawer] [data-tour="sales-status"]');
+      await wait(300);
+    }
+    visible().click();
     await wait(200);
   }
   if (page === "support" && scene === "open-ticket") {

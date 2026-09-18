@@ -658,9 +658,17 @@ ok("place() was found in the call panel", placeBody.length > 400, placeBody.leng
 const dialPayload = placeBody.match(/body: JSON\.stringify\(\{([\s\S]*?)\n\s*\}\),/)?.[1] || "";
 ok("the dial payload was found", dialPayload.length > 40, dialPayload);
 ok("the call panel sends the id", /contactNumberId/.test(dialPayload), dialPayload);
+// ONE exception since 2026-09-17, and it is the whole of it: `typedE164`, a
+// number typed into the pad that the numbers route refused to STORE because
+// it is a test dial (one of FieldQuo's own test lines, or a test account).
+// It goes on the wire only when set, and app/api/sales/calls accepts it only
+// for those two cases — a rep who is neither is refused not_on_this_record,
+// so the toll-fraud argument stands for everybody it was written about.
+// scripts/check-sales-test-line.mjs holds the route to that.
+const payloadLessTyped = dialPayload.replace(/\.\.\.\(dialTarget\.typedE164 \? \{ typedE164: dialTarget\.typedE164 \} : \{\}\),/, "");
 ok(
-  "…and puts no phone number on the wire at all",
-  !/phone/i.test(dialPayload) && !/e164/i.test(dialPayload) && !/\+\d/.test(dialPayload),
+  "…and puts no phone number on the wire at all — save the typed TEST number, only when set",
+  payloadLessTyped !== dialPayload && !/phone/i.test(payloadLessTyped) && !/e164/i.test(payloadLessTyped) && !/\+\d/.test(payloadLessTyped),
   dialPayload,
 );
 const picker = decomment(read("app/components/sales/ContactNumbers.js"));

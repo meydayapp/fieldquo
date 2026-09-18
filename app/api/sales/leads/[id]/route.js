@@ -270,6 +270,7 @@ export async function GET(request, { params }) {
       optedOut: phoneOptOut,
       windowPolicy: publicWindowPolicy(await windowPolicyForProspect(leadCallingContext(lead))),
       testLine: isTestLine(leadPhoneE164(lead), await loadTestLines()),
+      testAccount: rep.testAccount === true,
     }),
     // The picker beside the dial. Same shape the queue sends, so
     // app/components/sales/ContactNumbers.js renders one thing on both screens.
@@ -417,6 +418,7 @@ export async function PATCH(request, { params }) {
           optedOut: phoneOptOut,
           windowPolicy: publicWindowPolicy(await windowPolicyForProspect(leadCallingContext(lead))),
           testLine: isTestLine(leadPhoneE164(lead), await loadTestLines()),
+          testAccount: rep.testAccount === true,
         })
       : null,
     numbers: lead ? await contactNumbersFor(lead, { optedOut: phoneOptOut }) : null,

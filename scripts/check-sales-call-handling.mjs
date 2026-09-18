@@ -873,9 +873,17 @@ ok("attempts group by the key the caller attached", (() => {
 })());
 
 ok("what cannot be measured is named, with the missing input each time",
-  NOT_TRACKED_CALLS.length >= 4 && NOT_TRACKED_CALLS.every((e) => e.reason.length > 60));
+  NOT_TRACKED_CALLS.length >= 1 && NOT_TRACKED_CALLS.every((e) => e.reason.length > 60));
 ok("recording is NOT on that list any more — it is tracked, since 2026-09-17",
   !NOT_TRACKED_CALLS.some((e) => e.key === "recording"));
+// The owner's review of 2026-09-17: the dialler exists (lib/sales/autodial.js),
+// voicemail exists (lib/sales/calls/voicemail.js), the transcript gives a
+// conversation rate (lib/sales/calls/conversation.js) and the cost is
+// composed (lib/sales/calls/costs.js). Each is SHOWN now, so none may be
+// listed as not shown — scripts/check-sales-costs.mjs executes the four.
+ok("nor are the dialler, connect rate, voicemail or cost per conversation — they are shown, since 2026-09-17",
+  !NOT_TRACKED_CALLS.some((e) => ["abandonRate", "connectRate", "voicemail", "costPerConversation"].includes(e.key)));
+ok("the one that remains is the handset's", NOT_TRACKED_CALLS.some((e) => e.key === "handsetDurations"));
 
 // ═══════════════════════════════════════════════════════════════════════════
 section("10. Structural — the properties that cannot be executed here");
