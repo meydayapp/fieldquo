@@ -12,6 +12,9 @@ import {
   permissionErrorResponse,
 } from "@/lib/permissions/enforce";
 import { isValidLeadStatus, canSetLeadStatus, isValidLostReason } from "@/lib/leads/pipeline";
+import { canSeeMoney } from "@/lib/permissions/enforce";
+import { potentialValueForLead } from "@/lib/leads/potentialValue";
+import { loadWonAverages } from "@/lib/leads/wonAverages";
 
 // Authed — the pipeline view for staff
 export async function GET(request) {
@@ -66,9 +69,54 @@ export async function GET(request) {
     include: {
       category: { select: { label: true } },
       assignedTo: { select: { id: true, name: true } },
-      quote: { select: { id: true, quoteNumber: true, status: true } },
+      quote: {
+        select: {
+          id: true,
+          quoteNumber: true,
+          status: true,
+          // What the quote is worth and whether a human has confirmed it —
+          // read by potentialValueForLead below, and stripped again before
+          // the response so the board never carries a quote's money to
+          // someone whose pricing toggle is off.
+          total: true,
+          acceptedTotal: true,
+          autoEstimated: true,
+          needsReview: true,
+          estimateData: true,
+        },
+      },
     },
     orderBy,
+  });
+
+  // ── What each lead is probably worth ─────────────────────────────────────
+  //
+  // Computed here rather than in the browser because the "average" basis
+  // needs this company's won-quote history, which the board has no business
+  // downloading. Only a member who may see prices gets a figure at all: the
+  // pricing toggle hides quote totals everywhere else (redactQuoteMoney), and
+  // a lead chip that said "≈ $12,000 · from quote" would hand that same
+  // total to someone the toggle exists to keep it from.
+  const showMoney = canSeeMoney(full);
+  const averages = showMoney
+    ? await loadWonAverages(
+        db,
+        member.companyId,
+        // Every category on the board, not only the unquoted leads': a lead
+        // whose draft is still $0 falls back to the average too.
+        leads.map((l) => l.categoryId),
+      )
+    : {};
+  const withPotential = leads.map((l) => {
+    const { quote, ...rest } = l;
+    const publicQuote = quote
+      ? { id: quote.id, quoteNumber: quote.quoteNumber, status: quote.status }
+      : quote;
+    return {
+      ...rest,
+      quote: publicQuote,
+      ...(showMoney && { potential: potentialValueForLead(l, { averages }) }),
+    };
   });
 
   // ── Who has asked not to be called ──────────────────────────────────────
@@ -104,7 +152,7 @@ export async function GET(request) {
   return NextResponse.json(
     redactLeads(
       full,
-      leads.map((l) => ({
+      withPotential.map((l) => ({
         ...l,
         doNotCall: Boolean(l.phone && blocked.has(l.phone)),
       })),
