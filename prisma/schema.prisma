@@ -11694,9 +11694,10 @@ model ExternalListing {
   /// Places API vocabulary, so the Prospect fill reads it unchanged. Null
   /// when the page said nothing either way.
   businessStatus String?
-  /// Whether the owner has claimed the listing: the "Own this business?"
-  /// prompt was ABSENT on a fully loaded page. Null when the page was too
-  /// thin to say.
+  /// False when Google's "Own this business?" prompt was on the page — the
+  /// listing is unclaimed. Null otherwise: signed out, Maps rendered the
+  /// prompt on none of the first live run's 22 panels, so absence proves
+  /// nothing and is never read as "claimed".
   claimed        Boolean?
   /// The score of the accepted candidate, or the top refused one and why —
   /// what a human reads to confirm or dismiss it.

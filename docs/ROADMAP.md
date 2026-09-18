@@ -13638,3 +13638,75 @@ follows the trap into the primitive and the z-order to `z-[80]`;
 `check-sales-autodial`, `check-browser-notifications`, `check-tour-anchor`,
 `check-sales-portal-i18n` and `check-sales-call-handling` pass unchanged.
 `check:dock`'s five `MeShell.js` failures pre-date this and are not touched.
+
+## Google Maps, read from the Mac: the compass actor rebuilt as a home-machine batch tool (18 September 2026)
+
+**What.** `scripts/scrape/maps.mjs` — modelled on Apify's
+`compass/crawler-google-places` (readme read 2026-09-17) and built to the
+owner's decision: it runs on **his Mac**, from his home IP, in the
+installed Chrome (`playwright-core`, `channel: "chrome"`, its own profile
+under `~/Library/Application Support/fieldquo-scrape`), visible by
+default, at a human pace (2–6 s jittered, uneven wheel scrolls, a
+drifting mouse — `scripts/scrape/lib/pace.mjs`). No proxies, no cloud.
+Inputs: `--term/--location/--country` (repeatable), or `--from-order
+--pairs N` (open claims' trade × city, most held first — the stand-in
+for `enrichmentOrder.js` until it lands), `--max-per-term`, `--headless`,
+`--plan`, `--resume`, `--lang en|fr|es`, `--dry`. Run-book:
+`docs/sales/SCRAPE-LOCAL-RUN.md`.
+
+**Mechanics, from the actor's FAQ.** A small location is one search
+(`"plumber in Lakeside, CA"`); a broad one is **tiled** into map
+viewports (`scripts/scrape/lib/geo.mjs`: bounds from a static table, the
+geocoder, or the map's own URL; `--zoom 14` ≈ 7 km viewports), each
+searched by URL, the feed scrolled until Google's own **"You've reached
+the end of the list."** sentence or the ~120-place boundary — a tile
+that hits the boundary without the sentence is saturated and is split
+into four at the next zoom. Dedupe across tiles and terms by place id.
+Each place opened once and read by its stable anchors
+(`scripts/scrape/lib/mapsParse.mjs`: `data-item-id` address / phone /
+authority / plus code, the rating's aria-label, the histogram's
+`tr[aria-label]`, the hours' `data-value`): title, category, address,
+phone, website, plus code, coordinates, rating, count, star
+distribution, hours, closed banner, price bracket. Reviews, reviewer
+names and images are not read. **`claimed` is never inferred from
+absence**: signed out, Maps rendered "Own this business?" on none of 22
+panels, so it is `false` when seen and `null` otherwise. A challenge
+page (`/sorry/`, "unusual traffic", reCAPTCHA) stops the run; the
+consent wall is answered once with "Reject all"; the JSONL log under
+`runs/<id>/events.jsonl` makes `--resume` skip every place and tile
+already done.
+
+**The write** — `lib/sales/intel/listings.js`, the inverse of
+`places.js`: a listing looks for its Prospect. Candidates by place id,
+phone, domain, and distinctive name words in the city / postal code /
+12 km; each scored with the **same** `scoreCandidate` the Places check
+uses, plus two identity signals (same E.164 or same domain with a
+distinctive word shared — measured on the first run, "PSI Plumbing
+Services" and "K2 Plumbing" answer one number and share only "plumbing";
+they are two brands and the second is refused, not attached). A match
+writes through `planPlacesWrite` (now taking a `provenance` so the
+evidence says `maps.scrape:*` and a second number is labelled "Google
+Maps listing"): blanks only, conflicts recorded, a differing phone as a
+`SalesContactNumber`, a closed banner as a flag, a gained website queues
+the crawl chain. Unmatched → `ExternalListing` (the Apify work's live
+table, read back column for column; this adds `tradeKey`,
+`businessStatus`, `claimed`, `matchResult`, `lastSeenAt` by additive
+SQL — the diff showed that branch's unlanded tables as DROPs, so nothing
+was pushed). Metered as `local_scrape / google-maps` at $0 with units =
+places; `/platform/costs` has the line beside Google Places.
+
+**First live run.** "plumber" in "Lakeside, CA", max 20, visible Chrome
+from this Mac: the feed ended at 111 places; 20 opened; 11 matched (6
+gained a website, 11 a rating and place id, 1 a second number, 8 a pin),
+3 refused with a reason, 5 no row and lead-like, 1 conflict refused.
+AMS PLUMBING & DRAIN was not among the 111 and a name search finds only
+"AMS Plumbing and HVAC" (a 315 number) — Google has no listing for it.
+`check:maps-scrape` (128 checks: parser over saved panels in headless
+Chrome, matcher over hostile rows, tiling, never-overwrite, dedupe, log
+replay, pacing bounds, walls) is in `check:all`.
+
+**Still owed.** `enrichmentOrder.js` to replace `enrichmentPairs()`;
+a `/platform/sales` view of `ExternalListing` prospects-in-waiting with
+a "promote to prospect" a superadmin presses; French/Spanish end-of-list
+sentences confirmed against a live `hl=fr` page (they are Google's
+strings as published, not yet observed).
