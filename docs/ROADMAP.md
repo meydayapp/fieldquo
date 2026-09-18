@@ -13722,3 +13722,132 @@ follows the trap into the primitive and the z-order to `z-[80]`;
 `check-sales-autodial`, `check-browser-notifications`, `check-tour-anchor`,
 `check-sales-portal-i18n` and `check-sales-call-handling` pass unchanged.
 `check:dock`'s five `MeShell.js` failures pre-date this and are not touched.
+
+## Call QA: every recorded sales call is scored against the playbook the rep was reading, and the agency sees its team the way the owner sees everyone (17 September 2026)
+
+The owner's question was "what about the QA aspects of a call centre with
+Sales performance?", and the first honest answer was that the performance
+page still refused to print calls at all — `NOT_TRACKED.callsAndTalkTime`
+said "there is no human calling path yet", three days after
+`SalesCallAttempt` and the browser dialler shipped. That entry is gone and
+the figures are on the page, read through the floor board's own
+`repCallStats` / `teamCallRows` (never a second count): dials, connected
+(the carrier's `answeredAt`, now `measured.connected` with a
+`carrierAnswerRate` that stays the CARRIER's, per `NOT_TRACKED_CALLS`),
+talk minutes with the count they were measured over, reported reach rate,
+callbacks promised — per rep, per agency (one summary over the union of its
+employees' rows, not a mean of means) and for the floor. `pipelineValue`
+stays refused and now says why `lib/leads/potentialValue.js` (a tenant's
+homeowner leads) is a different figure.
+
+**The scorecard — `lib/sales/calls/qa.js`, one `SalesCallQa` row per
+attempt.** Two halves, and the model is never asked what code can answer.
+Deterministic (`analyseTranscript`, pure): the recording disclosure
+(`carriesDisclosure` on the rep's lines, the same function that asserts it
+is in the OPENER, in EN/FR/ES); who was named inside Saylor's twenty
+seconds (FieldQuo, the rep's first name, the business); the banned moves
+(`bannedMoves.js`'s own patterns over the rep's lines only — the same words
+on the contractor's line are not the rep's move); the talk ratio from the
+segments; the turnaround question's own words. The model (one `complete()`
+in schema mode, strict, `sales_call_qa`): permission asked and phrased for
+a yes, the candour line, the pivot and whether it came after the contractor
+described their day, discovery questions counted (not question marks),
+each objection with what the rep said and whether it was the library's
+answer, a next step and whether it was dated, the close ask, the fuzzy
+banned moves a regex misses, and three coaching sentences in the rep's
+portal language (`SalesRep.language`, "en" when unset). The prompt carries
+the playbook's actual stage lines by `playbookKey` (and says so when its
+`version` has moved on since the call — `playbookMatched`), the shared
+spine, the turnaround question in the call's language, the objection
+library, and the transcript between fences the system prompt names as
+evidence, never instruction. **The overall is a rubric in code**
+(`OVERALL_WEIGHTS`, sums to 100, the lines stored on the row so a rep can
+see where the points went) — a model asked for a number gives a different
+one each run. Unscorable calls (nobody spoke, one mixed track, under
+twenty seconds) are written with a `skippedReason` and no overall, so the
+reconcile stops offering them; a failed model call is `ai_failed:<reason>`
+on the row and in the error log. Metered on FieldQuo's own budget:
+`checkPlatformAiBudget` before, `recordPlatformAiUsage` after under
+`qa:<attemptId>` (a rescore of a PAID row gets a suffixed ref, so the
+second bill is not hidden under the first's idempotency key). **Cost: about
+$0.001 a call** on gpt-5-mini (≈3,200 prompt tokens for the playbook, the
+objection library and a five-minute transcript, ≈600 completion — ~1,016
+micros; the check asserts the band). Runs on the transcript's success path
+inside the webhook's existing `after()`, never able to fail the
+transcription; `scoreMissing()` and `POST /api/platform/sales/recordings/qa`
+are the reconcile.
+
+**The human pass wins.** `reviewerOverall` / `reviewerNote` with
+`reviewerId` + `reviewerKind` ("platform" | "agency" — two tables, the id
+alone is ambiguous) + `reviewerName`; `lib/sales/callQuality.js
+effectiveOverall()` is what every rollup and every screen reads, so the
+moment a review lands the performance page shows the human number. A review
+on an unscored call creates the row (`not_scored`) with the deterministic
+half computed.
+
+**Surfaces.** `/platform/sales/performance` gained "Calls" and "Call
+quality" (`app/components/sales/CallPerformanceSections.js`): average
+(effective) score, disclosure-said, permission-asked, banned-move rate and
+talk share as `rate()` envelopes under the floor, trend against the same
+span before, and **scored / recorded / not yet scored as three numbers,
+never collapsed**, with unscorable and failed as their own counts. Rows link
+to `/platform/sales/call-quality` — the review queue: unreviewed and
+lowest-scored first, the audio through the existing proxy, the transcript
+with the disclosure line, the banned-move lines and the model's cited lines
+marked, the scorecard, and the pass; plus "Transcribe the missing ones"
+(the transcribe reconcile had no caller until now), "Score the missing
+ones" and "Retry the failed ones". The rep's own `/sales/call-quality`
+("Your call quality", linked from Today): their scores, rubric lines and
+coaching, the reviewer's note — never a transcript, never audio (the
+recordings decision stands), never another rep's row.
+
+**The agency, per the owner's addition** ("the agency should be able to see
+the QA and stats of its employees the same way I see everyone's, and the
+sales floor for its team"): `/sales/agency/performance` is the SAME report
+— `lib/sales/performanceLoad.js` (one loader, lifted out of the platform
+route) → `lib/sales/performanceReport.js` → `buildSalesPerformance({ repIds
+})` (the one builder, scoped once to every input: headline, rep table,
+funnel, pipeline, calls, quality). `/sales/agency/call-quality` is the same
+review component with the agency's routes; the pass records `reviewerKind:
+"agency"` and the agency's name, which the platform sees as "reviewed by
+Northline Contact". The agency plays its employees' recordings through
+`/api/sales/agency/recording/[id]/audio`, gated by `agencyCanHear()` —
+team membership read fresh on THAT request from `agencyTeamIds()` →
+`visibleRepIds(repViewer(…))`, the floor route's own fragment; an
+out-of-scope, off-team or unrecorded call is 404, never a 403 that confirms
+a row. Both screens are linked from `/sales/agency`, in nine languages
+(`app.salesAgencyPerf.*`, `app.salesCallQa.*`, `app.salesMyCallQa.*` — 153
+keys × 9), and held to `check-sales-portal-i18n`.
+
+**Checks.** `scripts/check-call-qa.mjs` (163 assertions): the rubric sums
+to 100 and the schema is strict-shaped; the deterministic half on synthetic
+transcripts (disclosure present/absent/French, the banned move on the rep's
+line and the same words on the contractor's, the 20-second window, the
+talk-ratio arithmetic, three skip reasons, hostile input); the overall's
+arithmetic; `scoreAttempt` end to end with the model stubbed — budget
+BEFORE, meter AFTER with the ref, a refused budget spending nothing, an
+unscorable call calling no model, a failed model leaving `ai_failed:` and a
+log line, a forced rescore's suffixed ref, the cost band; the hook's order
+in `transcribe.js`; the rollups' three numbers, the human-pass override,
+the test-dial exclusion, the trend; the one-scope report; the queue order,
+the flagged transcript, the review validation; and the agency's scope
+proven by moving a rep off the team between two reads (queue, detail,
+hearing, review all close; the platform still sees it). It caught one real
+bug before it shipped: `overallFrom` read `candour.said` / `closeAsk.asked`
+where the schema says `met`, which would have made two lines unwinnable on
+every call. `check-sales-admin` now asserts the calls entry is GONE from
+NOT_TRACKED and that the figures come through reporting.js.
+
+**What remains.** Coaching is written in the rep's portal language but the
+rubric line names on the rep's own page are the catalogue's, so a rep with
+no language set reads English coaching under translated headings — by
+design (null means "follow the browser"), noted so nobody reads it as a
+bug. Objections are judged against the whole active library, not the
+prospect-filtered subset the rep actually saw (`objectionsForProspect` needs
+the prospect index, which is not on the attempt) — the model is told which
+library answer matches, so the effect is only that a filtered-out objection
+can still be credited as "library answer". No per-stage timing (when the
+pivot landed, in seconds) is stored beyond the disclosure's timestamp. The
+agency review is audit-logged under `call_qa_reviewed` with
+`actorSalesRepId`; `lib/platform/auditActions.js` carries no label for it
+yet, so it prints raw on the audit screen until one is added.

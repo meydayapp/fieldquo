@@ -550,7 +550,9 @@ section("The funnel, the performance dashboard and the floor name the agency bes
   ok("…a freelancer, a FieldQuo rep, a team-lead report → null", agencyOf({ engagement: "freelancer" }) === null && agencyOf({ engagement: "agency", manager: { id: "m", kind: "rep", name: "Lead" } }) === null);
   for (const [file, needle] of [
     ["lib/sales/funnelData.js", /manager: \{ select: \{ id: true, kind: true, name: true \} \}[\s\S]*agency: agencyOf\(rep\)/],
-    ["app/api/platform/sales/performance/route.js", /manager: \{ select: \{ id: true, kind: true, name: true \} \}/],
+    // The reads moved out of the route into one loader on 2026-09-17, when
+    // the agency got the same page for its own team.
+    ["lib/sales/performanceLoad.js", /manager: \{ select: \{ id: true, kind: true, name: true \} \}/],
     ["lib/sales/performance.js", /agency: agencyOf\(rep\)/],
     ["lib/sales/calls/floorBoard.js", /manager: \{ select: \{ id: true, kind: true, name: true \} \}/],
     ["lib/sales/calls/reporting.js", /agency: agencyOf\(rep\)/],

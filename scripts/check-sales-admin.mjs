@@ -853,7 +853,19 @@ section("11. What the dashboard refuses to print");
   }
   const keys = NOT_TRACKED.map((n) => n.key);
   ok("cost per acquisition is refused — nothing holds what a rep costs", keys.includes("costPerAcquisition"));
-  ok("call and talk-time metrics are refused — there is no human calling path", keys.includes("callsAndTalkTime"));
+  // Reversed on 2026-09-17. "Calls made, talk time, connect rate" was
+  // refused with the reason "there is no human calling path"; there has
+  // been one since 2026-09-14 (SalesCallAttempt, browser dials), so the
+  // entry is gone and the figures are on the page — through the floor
+  // board's own functions, never a second count. A dashboard that kept
+  // refusing a number it now had would be the stale claim this section
+  // exists to catch, pointing the other way.
+  ok("call and talk-time metrics are NO LONGER refused — SalesCallAttempt exists", !keys.includes("callsAndTalkTime"));
+  ok("…and no remaining reason still claims there is no human calling path", !NOT_TRACKED.some((n) => /no human calling path/i.test(n.reason)));
+  const perfReport = read("lib/sales/performanceReport.js");
+  ok("the call figures come from reporting.js's own functions", /teamCallRows\(/.test(perfReport) && /repCallStats\(/.test(perfReport));
+  ok("…and the dashboard draws them", /CallPerformanceSections/.test(read(FILES.perfPage)) && /report\.calls/.test(read(FILES.perfPage)));
+  ok("pipeline value stays refused, and names the tenant-side figure as a different thing", keys.includes("pipelineValue") && /potentialValue/.test(NOT_TRACKED.find((n) => n.key === "pipelineValue").reason));
 
   const page = read(FILES.perfPage);
   ok("the dashboard renders the list", /report\.notTracked\.map/.test(page));

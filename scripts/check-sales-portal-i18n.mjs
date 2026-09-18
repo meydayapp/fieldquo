@@ -181,6 +181,17 @@ const NO_TAB = [
   // row most reps do not have would ring nothing — so §1's parse never sees
   // it. It is held to §3 all the same: an agency reads it in its language.
   "app/sales/agency/page.js",
+  // The agency's performance page and review queue, and the rep's own
+  // scorecards (2026-09-17) — reached from links, not tabs, so §1 never
+  // sees them; held to §3 like the agency page. The two components under
+  // them are shared with /platform and carry no prose of their own: every
+  // word arrives through `labels`, built from t() here and from literals
+  // on the console, so the same regex that guards a page guards them.
+  "app/sales/agency/performance/page.js",
+  "app/sales/agency/call-quality/page.js",
+  "app/sales/call-quality/page.js",
+  "app/components/sales/CallPerformanceSections.js",
+  "app/components/sales/CallQualityReview.js",
 ];
 
 // ── What a bare literal is, and what it is not ────────────────────────────

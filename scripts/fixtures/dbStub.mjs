@@ -123,6 +123,11 @@ export const rows = {
   prospect: [],
   salesQueueClaim: [],
   salesCallAttempt: [],
+  // The call-quality scorecard (lib/sales/calls/qa.js, qaQueue.js): one row
+  // per attempt, upserted by the scorer and updated by the human pass.
+  // check-call-qa.mjs reads `writes` to prove the budget check ran before
+  // the model and the meter after it.
+  salesCallQa: [],
   salesRepActivity: [],
   platformAuditLog: [],
   // The platform's retry-rule overrides (check-sales-retry-pool) and the
@@ -205,6 +210,7 @@ export function resetDbStub() {
   rows.prospect = [];
   rows.salesQueueClaim = [];
   rows.salesCallAttempt = [];
+  rows.salesCallQa = [];
   rows.salesRepActivity = [];
   rows.platformAuditLog = [];
   rows.salesRetryRule = [];
@@ -578,6 +584,7 @@ export const db = new Proxy(
     prospect: model("prospect"),
     salesQueueClaim: model("salesQueueClaim"),
     salesCallAttempt: model("salesCallAttempt"),
+    salesCallQa: model("salesCallQa"),
     salesRepActivity: model("salesRepActivity"),
     platformAuditLog: model("platformAuditLog"),
     salesRetryRule: model("salesRetryRule"),
