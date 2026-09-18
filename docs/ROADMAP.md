@@ -1,12 +1,73 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 18 September 2026 (a live caller can be handed to a phone FieldQuo trusts or parked in the hold queue when the floor is empty — `lib/sales/transferNumbers.js`, the "Transfer phones" card on /platform/sales/windows, `kind: "number"` and `kind: "queue"` targets in `lib/sales/calls/transfer.js`; see the section below)
+Last updated: 18 September 2026 (an inbound text is filed by a four-rung ladder with the rule stored on the row, nobody's goes to the superadmin's conversations page and never into every rep's list, and a browser dial presents the rep's own assigned line — `lib/sales/smsAttribution.js`, `chooseCallerIdFor` in `lib/sales/calls/browserDial.js`; see the section below)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
 it exists to answer.
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
+
+---
+
+## Whose text is it, and whose line: the SMS attribution ladder, and a dial that presents the rep's own number (18 September 2026)
+
+**What broke.** 12:25 UTC: Favor rang Advance Appliance (+1 888 420 9806)
+from +1 438 609 9615 and left a voicemail. 12:27: the office texted that line
+back from a cell on no record — "Hi, this is Charlotte at Advance Appliance…".
+`handleSalesInboundSms` looked for the last text we sent that cell, a lead on
+it, a stored contact number, found nothing, and filed the row to nobody. The
+conversation list then read "nobody" as "everybody": every unowned inbound
+text was listed to every rep who could text as "Needs a reply", so the owner
+found it in Daniel's Texts. And +1 438 609 9615 is Rachel's line, not Favor's:
+`lib/sales/numbers.js`'s `callerIdForRep` ("a rep with an assigned number
+presents it, always") existed and nothing called it; the dial route handed
+`chooseCallerId` a bare list of every line, and with no 888 area code to match
+it took `sort()[0]` — +1 438 before +1 716. Not a cache. Twelve of her dials
+that morning presented Rachel's number.
+
+**The ladder** — `lib/sales/smsAttribution.js`, `attributeInboundSms` pure,
+`resolveInboundSmsAttribution` the reads, `attributeSmsMessage` the ONE writer:
+
+1. the number itself: the last text we sent it, a lead carrying it, a claimed
+   prospect carrying it, a stored contact number;
+2. the line it arrived on: the rep who last called or texted from it in 24 h;
+   the business is that rep's recent call whose name the body contains
+   (token overlap, normalised), else one in the sender's area code under two
+   hours old, else none — never guessed;
+3. the line's `assignedRepId`;
+4. nobody — listed on /platform/sales/conversations under "Nobody's texts"
+   with "nobody's — assign" and a rep picker (superadmin, `chat:audit`),
+   filed through the same writer with `matchedBy: "manual"` and an audit row.
+
+`SalesSmsMessage.matchedBy` records the rung; `prospectId` lets a text be
+filed to a Prospect with no lead. `salesConversations` and `salesThread` read
+only the rep's rows (an agency's team's too, `smsVisibleRepIds`) — never
+`salesRepId: null`. The Advance Appliance row was repaired through the ladder
+replayed at its own arrival time: nobody → Favor + Advance Appliance,
+`line_business_name`, audited (`sales_sms_attributed`).
+
+**The dial** — `chooseCallerIdFor` in `lib/sales/calls/browserDial.js`: the
+rep's own assigned line, then the agency's (`lib/sales/calls/callerLine.js`),
+then an unassigned pool line (local first), then a refusal that says so.
+Another rep's line is never borrowed. `salesCallerNumberRows` is read fresh
+per dial; `SalesCallAttempt.callerIdRule` records why; the floor board prints
+each rep's line or "No number assigned".
+
+Checks: `check:sales-sms` §12 (the ladder on hostile rows, end to end),
+`check:sales-call-handling` (the order), `check:inbound-distribution` (one
+`assignedRepId` column behind the dial, the ladder and the inbound ring),
+`check:sales-messages` §5 (nobody's is not everybody's).
+
+### Still owed here
+
+- A rep-facing hint on the call panel saying "presenting your line" /
+  "the agency's line" — the route returns `callerNumber { e164, rule }`;
+  the panel still prints the digits alone.
+- The two pre-existing failures this session did not touch:
+  `check:sales-reply-triage` ("narrows every bucket") on the messages page,
+  and `check:interconnections` (the committed graph is 12 models behind the
+  schema; regenerating it is a shared-file change another agent owns today).
 
 ---
 
