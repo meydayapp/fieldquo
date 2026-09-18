@@ -77,6 +77,7 @@ import TaxUnresolvedModal from "@/app/components/tax/TaxUnresolvedModal";
 import { planRequiredFrom } from "@/lib/signup/planRequired";
 import LifecycleBanners from "./LifecycleBanners";
 import JobPanel from "./JobPanel";
+import { SiteVisitRows } from "@/app/components/quotes/SiteVisitPanel";
 import CostPanel from "./CostPanel";
 
 
@@ -1363,6 +1364,20 @@ export default function InvoiceDetailPage() {
               </div>
             ))}
           </div>
+        </section>
+      )}
+
+      {/* Appointments booked by hand ABOUT this invoice on the calendar
+          (Appointment.invoiceId) — a call to chase it, a visit to settle it.
+          Same rows the quote page draws for its measures; read-only here,
+          edited on the calendar. Only when there is one: a heading over
+          nothing would claim a call that never happened. */}
+      {invoice.appointments?.length > 0 && (
+        <section className="bg-card border border-border rounded-xl p-5 mb-6">
+          <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+            {t("app.appts.aboutThisRecord", "Appointments about this")}
+          </div>
+          <SiteVisitRows visits={invoice.appointments} />
         </section>
       )}
 

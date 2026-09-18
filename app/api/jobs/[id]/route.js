@@ -75,6 +75,22 @@ export async function GET(request, { params }) {
           },
         },
       },
+      // Appointments booked BY HAND about this job (Appointment.jobId): a
+      // call, a walk-through, a meeting — not a JobVisit, which is the crew's
+      // trip. Same row shape SiteVisitRows already draws for the quote's
+      // measures, so the job page lists both with one component.
+      appointments: {
+        orderBy: { scheduledAt: "asc" },
+        select: {
+          id: true,
+          scheduledAt: true,
+          status: true,
+          location: true,
+          cancelReason: true,
+          assignedToId: true,
+          assignedTo: { select: { id: true, name: true } },
+        },
+      },
       visits: {
         orderBy: { scheduledAt: "asc" },
         include: {

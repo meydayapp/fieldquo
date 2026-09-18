@@ -1,9 +1,12 @@
 // scripts/check-onboarding-seat-guard.mjs
 //
 // The owner's account showed 1/1 seats used and 0/5 crew seats, and the
-// onboarding dashboard's "Add Employee" popup still let them pick Estimator,
-// Dispatcher or Manager — every one of them a seat — as if the seat had never
-// been spoken for.
+// dashboard's "Add Employee" popup still let them pick Estimator, Dispatcher
+// or Manager — every one of them a seat — as if the seat had never been
+// spoken for. (The popup sat on the onboarding card then; since 2026-09-18 it
+// sits on the "Additional set-up steps" card beside the "Invite your team"
+// row — same component, same route, same guard. Assertion 4 pins where it is
+// hosted, so a future move cannot leave the guard on a popup nothing opens.)
 //
 // ══ What was actually wrong ═════════════════════════════════════════════════
 //
@@ -29,6 +32,9 @@
 //     checkUserLimit() — and refuses with 402 when it says no. This is the
 //     part that matters: hiding an option in the popup is not access control,
 //     and a hostile or stale client can still POST directly.
+//  4. The popup is reachable: the set-up steps card imports it and opens it
+//     from the team row, and the onboarding card no longer does. A guard on a
+//     popup no screen renders is a guard on nothing.
 //
 // Comments are stripped before any regex touches route or component source,
 // and every regex is scoped to the specific function/block it claims to
@@ -130,6 +136,16 @@ ok("each <option> is actually disabled when its preset doesn't fit — not just 
   /disabled=\{!eligibility\[key\]\}/.test(selectBlock));
 ok("a preset that no longer fits is not left silently selected",
   /eligibility\[f\.preset\]/.test(modal) && /PRESET_KEYS\.find\(\(key\)\s*=>\s*eligibility\[key\]\)/.test(modal));
+
+console.log("\nWhere the popup is opened from — app/components/dashboard/SetupSteps.js");
+const setupCard = codeOf("../app/components/dashboard/SetupSteps.js");
+ok("the set-up steps card imports the popup",
+  /import AddEmployeeModal from ["']@\/app\/components\/team\/AddEmployeeModal["']/.test(setupCard));
+ok("...and renders it behind the team row's button",
+  /setShowAddEmployee\(true\)/.test(setupCard) && /<AddEmployeeModal/.test(setupCard));
+const onboardingCard = codeOf("../app/components/dashboard/OnboardingProgress.js");
+ok("the onboarding card no longer hosts it (the row moved, and the popup with it)",
+  !/AddEmployeeModal/.test(onboardingCard));
 
 console.log("\nSERVER enforcement — POST /api/team/quick-add — hiding the option is not the fix");
 const quickAdd = codeOf("../app/api/team/quick-add/route.js");

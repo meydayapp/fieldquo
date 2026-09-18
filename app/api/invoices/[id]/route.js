@@ -53,6 +53,21 @@ export async function GET(request, { params }) {
       payments: { orderBy: { date: "desc" } },
       versions: { orderBy: { version: "desc" } },
       parentInvoice: true,
+      // Appointments booked by hand about this invoice (Appointment.invoiceId)
+      // — a call to chase it, a visit to settle it. Listed on the page the
+      // same way the quote page lists its measures.
+      appointments: {
+        orderBy: { scheduledAt: "asc" },
+        select: {
+          id: true,
+          scheduledAt: true,
+          status: true,
+          location: true,
+          cancelReason: true,
+          assignedToId: true,
+          assignedTo: { select: { id: true, name: true } },
+        },
+      },
     },
   });
 

@@ -190,18 +190,18 @@ export const ARTICLES = {
             "**Choose the services you offer** → Services & Pricing. Done when at least one quote type is turned on.",
             "**Set your pricing for at least one service** → Services & Pricing. Done when one turned-on quote type has a rate.",
             "**Connect Stripe to accept client payments** → Payments. Done when Stripe reports charges enabled. See [[connect-stripe-and-get-verified|Connect Stripe and get verified]].",
-            "**Invite your team** → Manage Team. Done when somebody other than you has been brought in. This row is left out entirely if you have told Manage Team you work alone.",
             "**Add your tax registration number** → Company Settings. Done when the number is entered, or when you have said your business is not registered for it.",
           ] },
-          { note: "The rows are only ever removed, never dismissed. If you cannot finish one — a solo shop with the team row — say so on the screen the row points at, and the row stops applying." },
+          { note: "The rows are only ever removed, never dismissed. If you cannot finish one — a business with no tax registration — say so on the screen the row points at, and the row stops applying." },
         ],
       },
       {
         id: "additional-set-up-steps",
         heading: "The “Additional set-up steps” card",
         blocks: [
-          { p: "Ten more rows, shown to owners, administrators, dispatchers and managers, each with a **Done, hide** button. A row also vanishes on its own once the database says it is done. The card opens by itself while three or more rows remain, and folds once fewer are left." },
+          { p: "Eleven more rows, shown to owners, administrators, dispatchers and managers, each with a **Done, hide** button. A row also vanishes on its own once the database says it is done. The card opens by itself while three or more rows remain, and folds once fewer are left." },
           { bullets: [
+            "**Invite your team** — the one row you can finish without leaving the dashboard: its **Add Employee** button opens the same quick form the Team page uses, and the row goes the moment somebody other than you is on the roster or has an invitation pending. It is left out entirely if you have told Manage Team you work alone, or if your plan has no seat left. [[invite-a-team-member|Invite a team member]].",
             "**Enter your overhead** — fixed costs, salaries, debt and assets, so a job's break-even price can be worked out. [[overhead-and-your-minimum-price|Overhead]].",
             "**Set up your payment schedule** — a deposit and progress stages on Company Settings. [[deposits-and-payment-schedules|Payment schedules]].",
             "**Review the job process on your quotes** — the wording under each quote type on Services & Pricing.",
@@ -240,7 +240,7 @@ export const ARTICLES = {
     faq: [
       { q: "Can I hide the first card?", a: "No. Its rows are removed when they are done, or when you tell the screen they point at that the item does not apply — for example, that you work alone." },
       { q: "I hid a step by mistake.", a: "Hiding is per company and there is no undo button. The screen the step pointed at is still in the Settings menu; the work is the same." },
-      { q: "Why is there no “invite your team” row for me?", a: "Because you told Manage Team you work alone. The row comes back, already ticked, the day somebody is invited." },
+      { q: "Why is there no “invite your team” row for me?", a: "Because you told Manage Team you work alone, or because your plan has no seat left to put anybody in. It is on the second card, not the first, and once somebody is invited it is simply done." },
     ],
   },
 

@@ -191,6 +191,30 @@ function aboutQuoteLine(quoteNumber, copy) {
   return ref ? [esc(copy.aboutQuote(ref))] : [];
 }
 
+/**
+ * The same sentence for whatever a hand-booked appointment is about —
+ * "About your job: Kitchen repaint." / "About your invoice INV-0088." — from
+ * the label lib/schedule/appointmentAbout.js aboutLabel() builds, so the
+ * letter names the record exactly the way the calendar card does. A quote
+ * label goes through aboutQuoteLine, so the older `quoteNumber` argument and
+ * this one can never print two sentences about the same estimate: the label
+ * wins when both are given, because it is the newer, more specific fact.
+ *
+ * @param {{ kind: string, ref?: string, title?: string } | null} about
+ */
+function aboutLine({ about, quoteNumber }, copy) {
+  if (about?.kind === "job") {
+    const title = String(about.title ?? "").trim();
+    return title ? [esc(copy.aboutJob(title))] : [];
+  }
+  if (about?.kind === "invoice") {
+    const ref = String(about.ref ?? "").trim();
+    return ref ? [esc(copy.aboutInvoice(ref))] : [];
+  }
+  if (about?.kind === "quote") return aboutQuoteLine(about.ref, copy);
+  return aboutQuoteLine(quoteNumber, copy);
+}
+
 /** "the $120.00 visit fee" — or nothing at all when no fee was taken. */
 function feeAmount(cents, currency) {
   const n = Number(cents) || 0;
@@ -231,6 +255,7 @@ export function buildBookingConfirmationEmail({
   arrivalWindowMinutes,
   manageUrl,
   quoteNumber,
+  about = null,
   language = "en",
 }) {
   const copy = visitCopy(language);
@@ -251,7 +276,7 @@ export function buildBookingConfirmationEmail({
     intro: [
       esc(copy.greeting(clientName)),
       esc(copy.confirmedIntro(eventTypeName, companyName)),
-      ...aboutQuoteLine(quoteNumber, copy),
+      ...aboutLine({ about, quoteNumber }, copy),
     ],
     rows: [
       { label: copy.when, value: when },
@@ -314,6 +339,7 @@ export function buildVisitCancelledEmails({
   timezone,
   refund = {},
   quoteNumber,
+  about = null,
   language = "en",
   initiatedBy = "client",
 }) {
@@ -346,7 +372,7 @@ export function buildVisitCancelledEmails({
           ? copy.cancelledByOffice(eventTypeName, companyName)
           : copy.cancelledByYou(eventTypeName, companyName),
       ),
-      ...aboutQuoteLine(quoteNumber, copy),
+      ...aboutLine({ about, quoteNumber }, copy),
       ...(feeLine ? [esc(feeLine)] : []),
     ],
     rows: [
@@ -455,6 +481,7 @@ export function buildVisitRescheduledEmails({
   arrivalWindowMinutes,
   manageUrl,
   quoteNumber,
+  about = null,
   language = "en",
   initiatedBy = "client",
 }) {
@@ -476,7 +503,7 @@ export function buildVisitRescheduledEmails({
           ? copy.movedByOffice(eventTypeName, companyName)
           : copy.movedByYou(eventTypeName, companyName),
       ),
-      ...aboutQuoteLine(quoteNumber, copy),
+      ...aboutLine({ about, quoteNumber }, copy),
     ],
     rows: [
       { label: copy.newTime, value: clientWhen },

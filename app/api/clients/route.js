@@ -34,6 +34,10 @@ export async function GET(request) {
           { name: { contains: q, mode: "insensitive" } },
           { email: { contains: q, mode: "insensitive" } },
           { phone: { contains: q } },
+          // The street too: the office booking "the Maple Street job" knows
+          // the address before the surname. Same field the calendar's
+          // client picker types into (app/app/appointments/page.js).
+          { address: { contains: q, mode: "insensitive" } },
         ],
       }),
     },

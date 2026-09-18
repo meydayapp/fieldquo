@@ -19,14 +19,14 @@ tenancy, so it carries no information.
 |---|---:|---|
 | **SalesRep** | 30 | Company, PlatformAuditLog, PlatformSmsNumber, PushSubscription, SalesAttribution, SalesAttributionTouch, SalesCallAttempt, SalesCallTransfer, SalesCheckIn, SalesCommissionEntry +20 |
 | **Worker** | 20 | AvailabilityRequest, LeaveBalance, LeaveRequest, LocationStamp, OnboardingRun, PayRunLine, Payout, PolicyAcknowledgement, SafetyIncident, Salary +10 |
-| **Job** | 18 | AssetUseLog, ChangeOrder, CompanyChatRoom, Invoice, JobDailyLog, JobDocument, JobMaterial, JobPaymentStage, JobPhoto, JobSubcontractor +8 |
+| **Job** | 19 | Appointment, AssetUseLog, ChangeOrder, CompanyChatRoom, Invoice, JobDailyLog, JobDocument, JobMaterial, JobPaymentStage, JobPhoto +9 |
 | **Prospect** | 17 | PlatformVoiceCall, ProspectCapability, ProspectCorrection, ProspectEvidence, ProspectInference, ProspectOpportunity, ProspectPerson, ProspectScore, ProspectTalkingPoint, ProspectTechnology +7 |
 | **PlatformAdmin** | 13 | DemoBooking, DemoHostAvailability, PlatformAuditLog, PlatformSmsNumber, PushSubscription, SalesJurisdictionOverride, SalesTelemarketerRegistration, SignupOrigin, StaffMessage, StaffRoom +3 |
 | **SalesLead** | 12 | PlatformVoiceCall, SalesCallAttempt, SalesCheckIn, SalesContactEmail, SalesContactNumber, SalesEmailDraft, SalesEvent, SalesIntroEmail, SalesLeadLinkEvent, SalesRepNote +2 |
 | **Client** | 11 | Appointment, ClientEquipment, Invoice, Job, MessageThread, PamphletStop, Quote, ReferralLink, SatisfactionResponse, ServicePlan +1 |
 | **Quote** | 11 | Appointment, Booking, Invoice, Job, JobPaymentStage, LeadRequest, QuoteAddOn, QuoteCosting, QuoteImport, QuoteScopeGroup +1 |
 | **Member** | 8 | AssetUseLog, CompanyChatMember, CompanyChatMessage, JobPhotoComment, JobPhotoMention, NotificationDelivery, SafetyIncident, ShoutOut |
-| **Invoice** | 6 | ChangeOrder, InvoiceCosting, JobPaymentStage, Payment, ServicePlanOccurrence, Task |
+| **Invoice** | 7 | Appointment, ChangeOrder, InvoiceCosting, JobPaymentStage, Payment, ServicePlanOccurrence, Task |
 | **ServiceCategory** | 5 | CompanyServiceCategory, JobChecklistTemplate, LeadRequest, QuickAddItem, QuoteScopeGroup |
 | **Asset** | 3 | AssetDocument, AssetUseLog, Expense |
 | **CompanyChatRoom** | 3 | CompanyChatMember, CompanyChatMessage, Job |
@@ -45,7 +45,7 @@ tenancy, so it carries no information.
 | `AiCreditBundle` | — | Company |
 | `AiEmployee` | — | AiEmployeeSource, Company |
 | `AiEmployeeSource` | AiEmployee | — |
-| `Appointment` | Booking, Client, Quote | Booking |
+| `Appointment` | Booking, Client, Invoice, Job, Quote | Booking |
 | `Asset` | Debt | AssetDocument, AssetUseLog, Expense |
 | `AssetDocument` | Asset | — |
 | `AssetUseLog` | Asset, Job, Member | — |
@@ -81,11 +81,11 @@ tenancy, so it carries no information.
 | `FunnelEvent` | Funnel | — |
 | `FunnelResponse` | Funnel | — |
 | `Invitation` | Organization | — |
-| `Invoice` | Client, InvoiceCosting, Job, Quote, ServicePlanOccurrence | ChangeOrder, InvoiceCosting, JobPaymentStage, Payment, ServicePlanOccurrence, Task |
+| `Invoice` | Client, InvoiceCosting, Job, Quote, ServicePlanOccurrence | Appointment, ChangeOrder, InvoiceCosting, JobPaymentStage, Payment, ServicePlanOccurrence, Task |
 | `InvoiceCosting` | Invoice | Invoice |
 | `JenniferConversation` | — | JenniferMessage |
 | `JenniferMessage` | JenniferConversation | — |
-| `Job` | Client, ClientEquipment, CompanyChatRoom, Quote, SatisfactionResponse | AssetUseLog, ChangeOrder, CompanyChatRoom, Invoice, JobDailyLog, JobDocument, JobMaterial, JobPaymentStage, JobPhoto, JobSubcontractor, JobVisit, LocationStamp, MarketingDesign, SafetyIncident, SatisfactionResponse, Shift, Task, TimeEntry |
+| `Job` | Client, ClientEquipment, CompanyChatRoom, Quote, SatisfactionResponse | Appointment, AssetUseLog, ChangeOrder, CompanyChatRoom, Invoice, JobDailyLog, JobDocument, JobMaterial, JobPaymentStage, JobPhoto, JobSubcontractor, JobVisit, LocationStamp, MarketingDesign, SafetyIncident, SatisfactionResponse, Shift, Task, TimeEntry |
 | `JobChecklistTemplate` | ServiceCategory | — |
 | `JobDailyLog` | Job | — |
 | `JobDocument` | Job | — |

@@ -12,15 +12,28 @@
 // Collapsed by default once fewer than three remain: a card with one line in
 // it, open all day on the dashboard, is a nag; three or more is a list worth
 // seeing. The reader can open or close it either way.
-import { useEffect, useState } from "react";
+//
+// One row — "Invite your team" — is done in place. It came here from the
+// onboarding card at the owner's ask ("it can be marked as done without
+// leaving the window"), and the quick Add Employee popup came with it: the
+// row carries a button that opens the popup, and when the popup reports an
+// addition the list is re-read from the server rather than the row being
+// struck off locally. The rule is "removed when the database says so", and
+// a refetch is how this card asks the database; a local splice would be the
+// card deciding for itself.
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, ChevronDown } from "lucide-react";
+import { ArrowRight, ChevronDown, UserPlus } from "lucide-react";
 import { CARD } from "@/app/components/dashboard/surface";
+import AddEmployeeModal from "@/app/components/team/AddEmployeeModal";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { reportResponseError } from "@/lib/clientErrors";
 import { remainingSteps } from "@/lib/setupSteps";
 
 const COLLAPSE_BELOW = 3;
+
+/** The one step the card can finish itself, through the popup. */
+const INLINE_ADD_EMPLOYEE_KEY = "team";
 
 export default function SetupSteps() {
   const { t } = useTranslation();
@@ -29,10 +42,13 @@ export default function SetupSteps() {
   const [open, setOpen] = useState(null);
   const [error, setError] = useState("");
   const [hiding, setHiding] = useState("");
+  const [showAddEmployee, setShowAddEmployee] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-    fetch("/api/setup-steps", { cache: "no-store" })
+  // no-store on every read, the refetch included: the refetch exists
+  // precisely because the roster just changed, and a cached copy would show
+  // the row the contractor is watching disappear.
+  const load = useCallback((isCancelled = () => false) => {
+    return fetch("/api/setup-steps", { cache: "no-store" })
       .then(async (res) => {
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
@@ -41,7 +57,7 @@ export default function SetupSteps() {
         return data;
       })
       .then((data) => {
-        if (cancelled) return;
+        if (isCancelled()) return;
         const remaining = remainingSteps(data?.steps);
         setSteps(remaining);
         // Decided once, from the first load — reopening on every dismissal
@@ -49,14 +65,19 @@ export default function SetupSteps() {
         setOpen((prev) => (prev === null ? remaining.length >= COLLAPSE_BELOW : prev));
       })
       .catch((err) => {
-        if (cancelled) return;
+        if (isCancelled()) return;
         console.error(err);
         setError(err.message);
       });
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    load(() => cancelled);
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [load]);
 
   async function hide(key) {
     setHiding(key);
@@ -135,6 +156,16 @@ export default function SetupSteps() {
                 <span className="truncate">{t(step.titleKey, step.title)}</span>
                 <ArrowRight size={14} aria-hidden="true" className="shrink-0 text-muted-foreground" />
               </Link>
+              {step.key === INLINE_ADD_EMPLOYEE_KEY && (
+                <button
+                  type="button"
+                  onClick={() => setShowAddEmployee(true)}
+                  className="flex items-center gap-1 shrink-0 text-xs font-semibold text-foreground border border-border rounded-full px-3 min-h-9"
+                >
+                  <UserPlus size={13} aria-hidden="true" />{" "}
+                  {t("app.onboarding.addEmployee", "Add Employee")}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => hide(step.key)}
@@ -146,6 +177,18 @@ export default function SetupSteps() {
             </li>
           ))}
         </ul>
+      )}
+
+      {showAddEmployee && (
+        <AddEmployeeModal
+          onClose={() => setShowAddEmployee(false)}
+          onAdded={() => {
+            setShowAddEmployee(false);
+            // Re-read, not splice: the server measures the roster, and the
+            // row leaves when it says so (see the header).
+            load();
+          }}
+        />
       )}
     </section>
   );

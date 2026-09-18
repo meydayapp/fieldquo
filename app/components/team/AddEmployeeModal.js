@@ -1,6 +1,9 @@
 // app/components/team/AddEmployeeModal.js
 //
-// The onboarding card's quick "Add Employee" popup. It is the short version of
+// The dashboard's quick "Add Employee" popup — opened from the "Invite your
+// team" row of the Additional set-up steps card (it sat on the onboarding
+// card until 2026-09-18; the row moved because it is the one step done in
+// place, and the popup went with it). It is the short version of
 // /app/settings/team/new, not a different feature — so the two agree on what
 // an access role IS (the presets in lib/permissions.js) and on the shape of
 // what they post: one `name`, an address picked from Google Places, a

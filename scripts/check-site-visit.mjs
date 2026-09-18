@@ -206,10 +206,15 @@ ok(serviceName({ language: "fr" }) === "visite", "and a bare appointment still g
 section("7. Wiring");
 
 const post = read("app/api/appointments/route.js");
-ok(/quoteId/.test(post) && /quoteId: quote\.id/.test(post), "POST /api/appointments writes Appointment.quoteId from the verified quote");
+// The column is written through the one generic spread that also writes
+// jobId and invoiceId (lib/schedule/appointmentAbout.js pickAbout) — the
+// quote is still proved company-owned first, by loadAboutRecord.
+ok(/\[`\$\{about\.kind\}Id`\]: about\.id/.test(post) && /loadAboutRecord\(db, member\.companyId, about\)/.test(post), "POST /api/appointments writes Appointment.quoteId from the verified quote");
 ok(/clientId = quote\.clientId/.test(post), "the client is the quote's client, read from the row, not from the browser");
 ok(/sendBookingConfirmationEmail\(/.test(post), "the client gets the EXISTING booking confirmation letter");
-ok(/resolveClientLanguage\(\{ document: quote/.test(post), "in the quote's language, by lib/i18n/clientLanguage.js");
+// `document` is the quote when the appointment is about one (an invoice's
+// own language, or a job's quote's, otherwise) — the same resolver.
+ok(/aboutRecord\.quote \|\| null : aboutRecord;\s*const language = resolveClientLanguage\(\{ document, client, company \}\)/.test(post), "in the quote's language, by lib/i18n/clientLanguage.js");
 ok(/recordSiteVisit\(member, "scheduled"/.test(post), "and the scheduling is history on the quote (and its job)");
 ok(/memberOrRefusal\(request\)/.test(post), "behind memberOrRefusal, so an impersonating session is refused on POST");
 
@@ -239,7 +244,9 @@ ok(/appointments\?day=/.test(panel), "each row links to its day on the calendar"
 
 const calendar = read("app/app/appointments/page.js");
 ok(/landingDayFrom\(useSearchParams\(\)\)/.test(calendar) && /useState\(landingDay\)/.test(calendar), "the calendar opens on ?day=");
-ok(/appt\.quote\?\.id/.test(calendar) && /app\.appts\.openQuote/.test(calendar), "a measure on the calendar links back to its quote");
+// Through aboutHref(aboutLabel(appt)), which resolves a quote-linked row to
+// /app/quotes/<id> — the same door a job- or invoice-linked row now has.
+ok(/aboutHref\(aboutLabel\(appt\)\)/.test(calendar) && /app\.appts\.openAbout/.test(calendar), "a measure on the calendar links back to its quote");
 const getRoute = post.split("export async function POST")[0];
 ok(/quote: \{ select: \{ id: true, quoteNumber: true \} \}/.test(getRoute), "GET /api/appointments carries the quote so that link has something to point at");
 

@@ -3241,6 +3241,9 @@ model Invoice {
   /// chase button and the send button all refuse rows with this set.
   historicalImportedAt DateTime?
 
+  /// Appointments booked by hand about this invoice (Appointment.invoiceId).
+  appointments Appointment[]
+
   @@index([companyId, jobId])
 }
 
@@ -3969,6 +3972,19 @@ model Appointment {
   client             Client            @relation(fields: [clientId], references: [id])
   quoteId            String?
   quote              Quote?            @relation(fields: [quoteId], references: [id])
+  /// What the appointment is ABOUT, when it was booked by hand. `quoteId` was
+  /// only ever set by the quote page's site-visit flow; the office booking a
+  /// call on the calendar had nowhere to say "this is for the Smith kitchen
+  /// job". At most one of the three is meant to be set — the stage decides
+  /// which (lib/schedule/appointmentAbout.js): a quote before it is accepted,
+  /// the job while it is open, the invoice once the job is done and unpaid.
+  /// Nullable and unenforced by the database on purpose: a linked record's
+  /// client may differ from `clientId` (the husband rang about the wife's
+  /// job) and that is warned about, never refused.
+  jobId              String?
+  job                Job?              @relation(fields: [jobId], references: [id])
+  invoiceId          String?
+  invoice            Invoice?          @relation(fields: [invoiceId], references: [id])
   scheduledAt        DateTime
   location           String?
   requiresSupervisor Boolean           @default(false)
@@ -4000,6 +4016,8 @@ model Appointment {
   latitude  Decimal? @db.Decimal(9, 6)
   longitude Decimal? @db.Decimal(9, 6)
 
+  @@index([jobId])
+  @@index([invoiceId])
 }
 
 /// A prospect's booked FieldQuo product-demo slot (30 min, 6–10pm ET). This is
@@ -4372,6 +4390,9 @@ model Job {
   endDate   DateTime?
 
   visits      JobVisit[]
+  /// Appointments booked by hand about this job (Appointment.jobId) — a call
+  /// or a meeting, not a JobVisit, which is a trip to the address by the crew.
+  appointments Appointment[]
   timeEntries TimeEntry[]
   shifts      Shift[]
   /// When the job was actually finished, and when we asked for a review.

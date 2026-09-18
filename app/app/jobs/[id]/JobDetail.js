@@ -754,6 +754,20 @@ export default function JobDetail({ jobId }) {
           </div>
         )}
 
+        {/* Appointments booked by hand ABOUT this job on the calendar
+            (Appointment.jobId) — the husband's call about the kitchen, a
+            walk-through — as opposed to the crew's visits below. Same rows
+            as the measures above: one component, one way of describing an
+            appointment. Read-only here for the same reason. */}
+        {job.appointments?.length > 0 && (
+          <div className="mb-4 pb-4 border-b border-border">
+            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+              {t("app.appts.aboutThisRecord", "Appointments about this")}
+            </div>
+            <SiteVisitRows visits={job.appointments} />
+          </div>
+        )}
+
         {!job.visits?.length ? (
           <p className="text-sm text-muted-foreground">
             {t("app.job.noVisits")}

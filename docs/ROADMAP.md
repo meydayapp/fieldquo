@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 18 September 2026 (the fifth plan — "Need more people? Build a custom plan": seats past Scale at the ladder's own $25/seat step, crew = seats + 5, never more than 100 people, a Plan row per size minted on first use and billed at Stripe as Scale + "Extra seat" × quantity, steppers on /pricing and Account & Billing; and BBB's employee band → the plan it likely fits on the rep card, the pitch and the script prompt; see the section below)
+Last updated: 18 September 2026 ("Invite your team" moved from the onboarding card to the Additional set-up steps card, popup and all — see the section below; and the fifth plan — "Need more people? Build a custom plan": seats past Scale at the ladder's own $25/seat step, crew = seats + 5, never more than 100 people, a Plan row per size minted on first use and billed at Stripe as Scale + "Extra seat" × quantity, steppers on /pricing and Account & Billing; and BBB's employee band → the plan it likely fits on the rep card, the pitch and the script prompt; see the section below)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -10,6 +10,45 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+
+## "Invite your team" is a set-up step, not an onboarding step (18 September 2026)
+
+The owner: "the on-boarding steps have add employee. That should be moved to
+the additional steps as it can be marked as done without leaving the window."
+
+**Shipped.** The distinction the two dashboard cards now keep: the onboarding
+card ("Finish setting up FieldQuo") is a list of things that need their own
+page — logo, address, services, a price, Stripe, the tax number — and every
+row is a link. Adding an employee is a popup, done in place, so it is on the
+"Additional set-up steps" card. `lib/onboarding.js` no longer emits a `team`
+step or reads the roster, the pending invites or the plan (`plan`, `seatsUsed`
+and `seatsRemaining` left the response with it; the card's subtitle, which
+printed the licence count to explain that row, now always says "a few steps
+left"). Its count is six at most; a company complete before is complete still,
+and one that was incomplete only because of the team row is complete now.
+
+`lib/setupSteps.js` gains the `team` row, first in the list, measured exactly
+as the onboarding step was (a second active member or a pending invitation —
+`lib/setupStepsSnapshot.js` runs the three reads that moved). It obeys the
+card's rule — removed when done, never ticked — and adds a third way off the
+card, `applies: false`, for the two facts the old step honoured: "It's just
+me — no crew right now" (Company.worksAloneAt, still ticked in Team Settings,
+still never cleared on hire) while the owner is the only person on the
+roster, and a plan with no seat left. An absent or malformed signal applies,
+so a failed read can never remove the row. The card
+(`app/components/dashboard/SetupSteps.js`) hosts the same `AddEmployeeModal`
+beside the row, and when the popup reports an addition it re-reads
+`GET /api/setup-steps` rather than splicing the row itself. The row links to
+`/app/settings/team`, which now renders `<BackToHome />` like every other
+target page. Catalogue key `app.setup.step.team` (the nine strings are the
+existing `app.onboarding.step.team` values, verbatim).
+
+`check:setup-steps` executes the row's four signals and every applies/done
+combination; `check:onboarding-solo` now proves the roster and the claim
+change nothing on the onboarding side and that the claim is read where it
+moved to; `check:onboarding-seat-guard` pins where the popup is hosted, so
+the seat guard cannot end up on a popup nothing opens. Help content
+(en/fr/es, "Getting started" and "Team and access") describes the new home.
 
 ## The fifth plan, and BBB's headcount as a plan on the rep card (18 September 2026)
 
@@ -14733,3 +14772,38 @@ English word — and now carry all of it (`?scene=typed-test`,
 call (product decision — the comment says it is deliberate); `check:dock`
 on `MeShell.js` (not sales). /sales is not on the theme allow-list, so no
 dark pass applies.
+
+## A hand-booked appointment says what it is about, and who really rang (18 September 2026)
+
+The owner's case: "maybe the husband called and not the wife (client)". The
+calendar's New appointment dialog took a typed name and phone and created a
+Client every time, and the row had nowhere to say it concerned the Smiths'
+kitchen job — `Appointment.quoteId` was only ever set by the quote page.
+
+- **Schema, additive.** `Appointment.jobId` and `Appointment.invoiceId`
+  beside `quoteId`, relations and indexes, applied to the live database by
+  SQL (the live `Booking.language` column is not in the schema, so a push
+  would have dropped it).
+- **The client is picked, not typed.** Type-ahead over the company's clients
+  (`GET /api/clients?q=` now searches the street too); "New client: …" is
+  the last option, never the first.
+- **The stage picks what it is about.** `lib/schedule/appointmentAbout.js`
+  (pure): an unpaid invoice outranks an open job outranks an unaccepted
+  quote; the suggestion is first, one click, the client's other open records
+  under it, and a search for any record in the company
+  (`GET /api/appointments/about`). Nothing open → the link is optional.
+- **A mismatch warns, never blocks.** "This job is for Mary Smith — you're
+  booking under John Smith. Keep both?" The appointment keeps the caller; the
+  record keeps its client.
+- **Read everywhere it was written.** The calendar card says "Job: Kitchen
+  repaint" / "Invoice INV-0088" / "Quote Q-1042" and the panel links to it;
+  the job and invoice pages list the appointments about them with the same
+  `SiteVisitRows` the quote page already used; the location is prefilled from
+  the record's site; the confirmation, moved and cancelled letters name the
+  record (`aboutJob` / `aboutInvoice` in all eight email languages, in the
+  document's language). `POST` and `PATCH /api/appointments` prove the id is
+  the caller's company's and answer 404 otherwise.
+- **The create form's assign select** now offers only the caller's own name to
+  a role without `appointment:assign` (employee) — the whole team was a list
+  of 403s. Nine app languages. `check:appointment-about` executes the pure
+  module against hostile input and is in `check:all`.

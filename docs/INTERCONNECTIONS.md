@@ -248,7 +248,7 @@ tenancy, so it carries no information.
 | `AiCreditBundle` | — | Company |
 | `AiEmployee` | — | AiEmployeeSource, Company |
 | `AiEmployeeSource` | AiEmployee | — |
-| `Appointment` | Booking, Client, Quote | Booking |
+| `Appointment` | Booking, Client, Invoice, Job, Quote | Booking |
 | `Asset` | Debt | AssetDocument, AssetUseLog, Expense |
 | `AssetDocument` | Asset | — |
 | `AssetUseLog` | Asset, Job, Member | — |
@@ -284,11 +284,11 @@ tenancy, so it carries no information.
 | `FunnelEvent` | Funnel | — |
 | `FunnelResponse` | Funnel | — |
 | `Invitation` | Organization | — |
-| `Invoice` | Client, InvoiceCosting, Job, Quote, ServicePlanOccurrence | ChangeOrder, InvoiceCosting, JobPaymentStage, Payment, ServicePlanOccurrence, Task |
+| `Invoice` | Client, InvoiceCosting, Job, Quote, ServicePlanOccurrence | Appointment, ChangeOrder, InvoiceCosting, JobPaymentStage, Payment, ServicePlanOccurrence, Task |
 | `InvoiceCosting` | Invoice | Invoice |
 | `JenniferConversation` | — | JenniferMessage |
 | `JenniferMessage` | JenniferConversation | — |
-| `Job` | Client, ClientEquipment, CompanyChatRoom, Quote, SatisfactionResponse | AssetUseLog, ChangeOrder, CompanyChatRoom, Invoice, JobDailyLog, JobDocument, JobMaterial, JobPaymentStage, JobPhoto, JobSubcontractor, JobVisit, LocationStamp, MarketingDesign, SafetyIncident, SatisfactionResponse, Shift, Task, TimeEntry |
+| `Job` | Client, ClientEquipment, CompanyChatRoom, Quote, SatisfactionResponse | Appointment, AssetUseLog, ChangeOrder, CompanyChatRoom, Invoice, JobDailyLog, JobDocument, JobMaterial, JobPaymentStage, JobPhoto, JobSubcontractor, JobVisit, LocationStamp, MarketingDesign, SafetyIncident, SatisfactionResponse, Shift, Task, TimeEntry |
 | `JobChecklistTemplate` | ServiceCategory | — |
 | `JobDailyLog` | Job | — |
 | `JobDocument` | Job | — |
