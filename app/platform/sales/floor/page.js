@@ -94,6 +94,12 @@ const STATE_ICON = {
   offline: CircleHelp,
 };
 
+function prettyLine(e164) {
+  const d = String(e164 || "").replace(/\D/g, "");
+  if (d.length === 11 && d.startsWith("1")) return `+1 ${d.slice(1, 4)} ${d.slice(4, 7)} ${d.slice(7)}`;
+  return e164 || "";
+}
+
 export default function SalesFloorPage() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -232,6 +238,25 @@ export default function SalesFloorPage() {
                         <p className="text-xs break-words">
                           There is no record of this account opening the portal.
                         </p>
+                      ) : null}
+                      {/* The line their next dial presents. "None" is the
+                          case that used to be silent: the dial borrowed the
+                          lowest-sorting line, which was another rep's. */}
+                      {rep.callerNumber ? (
+                        rep.callerNumber.e164 ? (
+                          <p className="text-xs break-words tabular-nums">
+                            Calls from {prettyLine(rep.callerNumber.e164)}
+                            {rep.callerNumber.rule === "assigned"
+                              ? " — their line"
+                              : rep.callerNumber.rule === "agency"
+                                ? " — the agency's line"
+                                : " — a pool line"}
+                          </p>
+                        ) : (
+                          <p className="text-xs break-words font-medium">
+                            No number assigned — their browser dials are refused rather than made from another rep's line.
+                          </p>
+                        )
                       ) : null}
                       {/* Said, not shaded. A dashed box a supervisor has to
                           decode is not as good as a sentence. */}

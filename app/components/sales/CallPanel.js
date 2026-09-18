@@ -101,6 +101,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
 import {
   AlertCircle,
   CircleHelp,
@@ -128,6 +129,7 @@ import PlaybookMount from "./PlaybookMount";
 import PublishedEmail from "./PublishedEmail";
 import TransferControl from "./TransferControl";
 import NextSteps from "./NextSteps";
+import TextThemButton, { openTextThread } from "./TextThem";
 import { useRepPresence } from "./RepStatus";
 
 const BTN =
@@ -252,6 +254,7 @@ export default function CallPanel({
   // read by the person holding the phone; the words they SAY come from the
   // playbook, which is a separate catalogue in a separate language.
   const { t, language } = useTranslation();
+  const router = useRouter();
   const [config, setConfig] = useState(null);
   const [mic, setMic] = useState(null);
   const [error, setError] = useState("");
@@ -789,6 +792,31 @@ export default function CallPanel({
       setPending(null);
       setDraft(EMPTY_DRAFT);
       setSheetOpen(false);
+      // ── "They asked to be texted instead" opens the composer ──────────
+      //
+      // The outcome's retry rule schedules no re-dial (lib/sales/retryRules.js
+      // text_instead); the next touch is a text, and it is the rep's to
+      // write NOW, while the call is fresh. Same door as the Text them
+      // button (TextThem.js openTextThread): the thread on the number that
+      // was rung, the lead behind it, the blank box focused. A refusal
+      // here — the number is on the do-not-contact list, or another rep's
+      // — is printed as the form's error; the outcome is already saved.
+      if (fold.code === "text_instead") {
+        try {
+          const { href } = await openTextThread({
+            e164: pending.toE164 || phoneE164,
+            leadId: leadId || null,
+            prospectId: leadId ? null : prospectId || null,
+          });
+          await presenceRef.current.refresh();
+          await load();
+          onWorked?.();
+          router.push(href);
+          return;
+        } catch (err) {
+          setFormError(err?.message || t("app.salesText.newOpenFailed"));
+        }
+      }
       // The server moved the rep back to available. Awaited BEFORE onWorked,
       // because the queue's autodialler arms on onWorked and reads the state
       // through the same context — armed against a row still saying on_call
@@ -955,6 +983,17 @@ export default function CallPanel({
               class 4 aimed at a live call. It renders nothing at all when the
               server says this call cannot be transferred. */}
           <TransferControl attemptId={attempt?.attemptId || null} active={Boolean(startedAt)} onError={setError} tone="call" />
+
+          {/* "They'd rather text" — mid-call, the thread on THIS number
+              with the blank box, without hanging up: the call stays up
+              (nothing here ends it), the rep types while they talk. */}
+          <TextThemButton
+            e164={phoneE164}
+            leadId={leadId || null}
+            prospectId={leadId ? null : prospectId || null}
+            variant="chip"
+            label={t("app.salesText.ratherText")}
+          />
         </div>
       ) : null}
 
@@ -987,6 +1026,21 @@ export default function CallPanel({
                   folds to a real code in lib/sales/calls/outcomeChoices.js;
                   this screen has no say in which. */}
               <OutcomeForm t={t} draft={draft} setDraft={setDraft} busy={busy} onSave={saveOutcome} onLater={pending.override ? null : later} error={formError} />
+
+              {/* After the call, beside the write-up: the same control the
+                  Call button had, so "text me instead" is one press whether
+                  or not the rep logs it as the outcome. Drawn in the Dialer
+                  column only — the tab's copy of the form is the same
+                  state, and two presses for one thread is noise. */}
+              {inline ? (
+                <TextThemButton
+                  e164={pending.toE164 || phoneE164}
+                  leadId={leadId || null}
+                  prospectId={leadId ? null : prospectId || null}
+                  variant="chip"
+                  label={t("app.salesText.textThem")}
+                />
+              ) : null}
 
               {pending.autoAsk && pending.dialChannel === "browser" ? (
                 <p className="text-xs text-amber-900 dark:text-amber-200 break-words">
@@ -1099,6 +1153,19 @@ export default function CallPanel({
               {t("app.salesCall.callFromYourPhone", { phone: phoneE164 })}
             </button>
           ) : null}
+
+          {/* ── Text them, beside the Call button ─────────────────────────
+              The press that was missing when a company said "text me
+              instead" (TextThem.js says what it does). The number is the
+              one the Call button would ring — a typed number included,
+              which the server records on the lead the way the dial pad
+              does, or leaves off the record when it is a test line. */}
+          <TextThemButton
+            e164={phoneE164}
+            leadId={leadId || null}
+            prospectId={leadId ? null : prospectId || null}
+            businessName={callLabel ? null : businessName || null}
+          />
 
           {/* Why the good path is not on offer. Never silent: a rep who does
               not know the browser refused the microphone will assume the

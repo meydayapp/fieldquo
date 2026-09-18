@@ -7,10 +7,23 @@ const listeners = new Set();
 const notify = () => listeners.forEach((l) => l());
 const subscribe = (l) => { listeners.add(l); return () => listeners.delete(l); };
 const snapshot = () => window.location.search;
+// An app path ("/sales/messages?thread=…") cannot be written into a
+// file:// document's history (origin null → SecurityError, and the page's
+// URL sync threw on every thread open). The harness keeps its own
+// pathname and takes the QUERY the page wrote, merged over the harness's
+// own params (page=, scene=, lang=) so the frame's identity survives.
+function local(url) {
+  const target = new URL(String(url), window.location.href);
+  if (!/^\//.test(String(url))) return url;
+  const next = new URLSearchParams(window.location.search);
+  for (const k of ["thread", "with", "to", "compose", "filter", "prospectId", "tab"]) next.delete(k);
+  target.searchParams.forEach((v, k) => next.set(k, v));
+  return `${window.location.pathname}?${next.toString()}`;
+}
 export function useRouter() {
   return {
-    push: (url) => { window.history.pushState({}, "", url); notify(); },
-    replace: (url) => { window.history.replaceState({}, "", url); notify(); },
+    push: (url) => { window.history.pushState({}, "", local(url)); notify(); },
+    replace: (url) => { window.history.replaceState({}, "", local(url)); notify(); },
     back: () => {}, refresh: () => {}, prefetch: () => {},
   };
 }

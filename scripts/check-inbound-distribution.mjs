@@ -321,6 +321,14 @@ section("5. The route uses it, and never dials into an empty plan");
     "the number lookup selects its assignment, or the owner is never found",
     /assignedRepId: true/.test(store.slice(store.indexOf("export async function salesVoiceNumber"), store.indexOf("export async function salesCallerNumbers"))),
   );
+  // The same column is the SMS ladder's rung (c) — a text arriving on a
+  // line nobody used today goes to the line's assigned rep — and the dial's
+  // first rung: a rep presents the line assigned to them. One table, three
+  // readers; a second "owner" column anywhere would let them disagree.
+  const ladder = read("lib/sales/smsAttribution.js");
+  ok("the SMS ladder's line-owner rung reads PlatformSmsNumber.assignedRepId", /platformSmsNumber\.findFirst\(\{ where: \{ e164: line, active: true \}, select: \{ assignedRepId: true \} \}\)/.test(ladder));
+  const dial = read("lib/sales/calls/browserDial.js");
+  ok("…and the dial's chooser presents the line whose assignedRepId is the rep", /n\.assignedRepId === salesRepId/.test(dial));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

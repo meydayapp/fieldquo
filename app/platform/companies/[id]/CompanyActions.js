@@ -20,7 +20,7 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, Gift, ShieldAlert, RefreshCw } from "lucide-react";
+import { Loader2, Gift, ShieldAlert, RefreshCw, Ban } from "lucide-react";
 import PlatformWriteGate, {
   usePlatformAdmin,
 } from "@/app/components/platform/PlatformWriteGate";
@@ -123,6 +123,47 @@ export default function CompanyActions({ companyId, companyName, trialEndsAt, on
     const d = typeof v === "string" && /^\d{4}-\d{2}-\d{2}T/.test(v) ? new Date(v) : null;
     return d && !Number.isNaN(d.getTime()) ? d.toLocaleString() : String(v);
   };
+
+  // ── Cancel the subscription ─────────────────────────────────────────────
+  //
+  // Three modes, three different acts (the route's header): at the period
+  // end (kind, default), now (thirty days read-only), or for a terms breach
+  // (locked at once, no read-only window). The confirm sentence names the
+  // consequence for the mode chosen, because "cancel" alone hides which of
+  // the three the owner is about to do.
+  const [cancelMode, setCancelMode] = useState("period_end");
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelBusy, setCancelBusy] = useState(false);
+  const [cancelResult, setCancelResult] = useState(null);
+  const [cancelError, setCancelError] = useState("");
+  const CANCEL_CONSEQUENCE = {
+    period_end: "They keep full access until the date they paid to, then thirty days read-only.",
+    now: "Nothing more is charged. Read-only for thirty days from now, then locked.",
+    terms: "Locked immediately — no read-only window. The locked screen says FieldQuo ended it, with your reason.",
+  };
+
+  async function cancelSubscription() {
+    if (!window.confirm(`Cancel ${companyName}'s subscription? ${CANCEL_CONSEQUENCE[cancelMode]}`)) return;
+    setCancelBusy(true);
+    setCancelError("");
+    setCancelResult(null);
+    try {
+      const res = await fetch(`/api/platform/companies/${companyId}/cancel-subscription`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: cancelMode, reason: cancelReason }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || `Failed (${res.status})`);
+      setCancelResult(json);
+      setCancelReason("");
+      onDone?.();
+    } catch (e) {
+      setCancelError(e.message);
+    } finally {
+      setCancelBusy(false);
+    }
+  }
 
   return (
     <div className="bg-card border border-border rounded-xl p-5">
@@ -284,6 +325,70 @@ export default function CompanyActions({ companyId, companyName, trialEndsAt, on
               </ul>
             )}
           </div>
+        )}
+      </div>
+
+      <div className="rounded-lg border border-red-300 dark:border-red-900 p-4 mt-3" data-cancel-subscription>
+        <div className="flex items-center gap-2 mb-3">
+          <Ban size={15} className="text-red-700 dark:text-red-300" />
+          <span className="text-sm font-semibold text-foreground">Cancel the subscription</span>
+          <span className="text-xs text-muted-foreground">· FieldQuo ends it — from here, not the Stripe dashboard</span>
+        </div>
+        <PlatformWriteGate
+          status={roleStatus}
+          allowed={canExtend}
+          error={roleError}
+          action="Cancelling a subscription"
+          who="superadmin"
+        >
+          <div className="space-y-2">
+            {[
+              ["period_end", "At the end of the paid period"],
+              ["now", "Now — thirty days read-only, then locked"],
+              ["terms", "Terms breach — locked immediately"],
+            ].map(([value, label]) => (
+              <label key={value} className="flex items-start gap-2 text-sm text-foreground min-h-[44px] lg:min-h-0">
+                <input
+                  type="radio"
+                  name="cancel-mode"
+                  value={value}
+                  checked={cancelMode === value}
+                  onChange={() => setCancelMode(value)}
+                  className="mt-1"
+                />
+                <span>
+                  {label}
+                  <span className="block text-xs text-muted-foreground">{CANCEL_CONSEQUENCE[value]}</span>
+                </span>
+              </label>
+            ))}
+            <label className="block text-xs text-muted-foreground">
+              Reason — goes in the audit log{cancelMode === "terms" ? " and on the locked screen" : ""}
+              <input
+                type="text"
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                placeholder={cancelMode === "terms" ? "e.g. Sent unsolicited texts through FieldQuo after a warning" : "e.g. Asked to stop by email on Sep 18"}
+                className="mt-1 block w-full min-h-[44px] rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground"
+              />
+            </label>
+            <button
+              onClick={cancelSubscription}
+              disabled={cancelBusy || cancelReason.trim().length < 3}
+              className="min-h-[44px] lg:min-h-0 inline-flex items-center gap-1.5 rounded-full bg-red-700 px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
+            >
+              {cancelBusy ? <Loader2 size={13} className="animate-spin" /> : <Ban size={13} />}
+              {cancelMode === "terms" ? "Cancel and lock now" : cancelMode === "now" ? "Cancel now" : "Cancel at period end"}
+            </button>
+          </div>
+        </PlatformWriteGate>
+        {cancelError && <p className="mt-2 text-xs text-red-700 dark:text-red-300 break-words">{cancelError}</p>}
+        {cancelResult && (
+          <p className="mt-2 text-xs text-emerald-800 dark:text-emerald-300 break-words">
+            Done — Stripe says {cancelResult.stripeStatus}
+            {cancelResult.currentPeriodEnd ? ` · period ends ${new Date(cancelResult.currentPeriodEnd).toLocaleDateString()}` : ""}
+            {" · "}{cancelResult.access}.
+          </p>
         )}
       </div>
     </div>

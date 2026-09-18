@@ -64,6 +64,7 @@ import { weekdayName } from "@/lib/format/localeDate";
 import CallPanel from "./CallPanel";
 import CallConsolePreview from "./CallConsolePreview";
 import PlaybookMount from "./PlaybookMount";
+import TextThemButton from "./TextThem";
 
 // ══ Resolving what the server composed ═════════════════════════════════════
 //
@@ -544,6 +545,22 @@ export default function DialRegion({
           the reason CallPanel gives: on the lead screen the notices above
           are what a thumb reaches for first, and on the console the slot
           decides where it is drawn anyway. */}
+      {/* ── Text them, when there is no Call button ───────────────────
+          The calling window and the texting window are different rules
+          (lib/sales/smsWindow.js vs callingRules.js): a call refused at
+          21:30 their time may still be a text that is allowed, and the
+          composer judges that for itself. So the control the ready state
+          draws inside CallPanel is drawn here for every state that has a
+          number and is not a hard stop — a do-not-contact business gets
+          nothing, the same as the dial. */}
+      {playbookWithoutDial && target.phoneE164 && space.state !== DIAL_NO_NUMBER ? (
+        <TextThemButton
+          e164={target.phoneE164}
+          leadId={target.leadId || null}
+          prospectId={target.leadId ? null : target.prospectId || null}
+          businessName={target.callLabel ? null : target.businessName || null}
+        />
+      ) : null}
       {playbookWithoutDial ? (
         <PlaybookMount
           prospectId={target.prospectId || null}

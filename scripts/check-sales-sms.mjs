@@ -178,6 +178,14 @@ const store = {
   suppressionEvents: [],
   smsMessages: [],
   leads: new Map(),
+  // The ladder's other reads (lib/sales/smsAttribution.js): the calls placed
+  // FROM a line, the prospects on a number, the audit rows an attribution
+  // writes. Empty by default so every earlier section sees the fake it was
+  // written against.
+  callAttempts: [],
+  prospects: [],
+  auditRows: [],
+  reps: new Map(),
 };
 
 function resetStore() {
@@ -189,7 +197,30 @@ function resetStore() {
   store.suppressionEvents.length = 0;
   store.smsMessages.length = 0;
   store.leads.clear();
+  store.callAttempts.length = 0;
+  store.prospects.length = 0;
+  store.auditRows.length = 0;
+  store.reps.clear();
 }
+
+/** A Prisma-ish `where` for the few shapes the ladder's reads use. */
+function whereHit(row, where) {
+  if (!where) return true;
+  for (const [k, v] of Object.entries(where)) {
+    const actual = row[k];
+    if (v && typeof v === "object" && !(v instanceof Date)) {
+      if ("in" in v && !v.in.includes(actual)) return false;
+      if ("not" in v && (v.not === null ? actual == null : actual === v.not)) return false;
+      if ("contains" in v && !String(actual || "").includes(v.contains)) return false;
+      if ("gte" in v && !(new Date(actual) >= new Date(v.gte))) return false;
+      if ("lte" in v && !(new Date(actual) <= new Date(v.lte))) return false;
+      continue;
+    }
+    if (actual !== v) return false;
+  }
+  return true;
+}
+const newestFirst = (rows, field) => [...rows].sort((a, b) => new Date(b[field]) - new Date(a[field]));
 
 let nextId = 1;
 const id = () => `fake_${nextId++}`;
@@ -222,6 +253,26 @@ const fakeDb = {
       );
       return match || null;
     },
+    findMany: async ({ where }) => store.numbers.filter((n) => whereHit(n, where)),
+  },
+
+  // The ladder's reads. Each answers the one query shape the module makes.
+  salesCallAttempt: {
+    findMany: async ({ where, take }) =>
+      newestFirst(store.callAttempts.filter((c) => whereHit(c, where)), "dialledAt")
+        .slice(0, take || 999)
+        .map((c) => ({ ...c, prospect: store.prospects.find((p) => p.id === c.prospectId) || null, lead: store.leads.get(c.leadId) || null })),
+  },
+  prospect: {
+    findMany: async ({ where, take }) => store.prospects.filter((p) => whereHit(p, where)).slice(0, take || 999),
+    findUnique: async ({ where }) => store.prospects.find((p) => p.id === where.id) || null,
+  },
+  salesRep: {
+    findUnique: async ({ where }) => store.reps.get(where.id) || null,
+    findMany: async ({ where }) => [...store.reps.values()].filter((r) => whereHit(r, where)),
+  },
+  platformAuditLog: {
+    create: async ({ data }) => { const row = { id: id(), createdAt: new Date(), ...data }; store.auditRows.push(row); return row; },
   },
 
   salesSuppression: {
@@ -257,10 +308,10 @@ const fakeDb = {
       store.smsMessages.push(row);
       return row;
     },
-    findMany: async ({ where }) =>
-      store.smsMessages.filter(
-        (m) => m.leadId === where.leadId && m.salesRepId === where.salesRepId,
-      ),
+    findMany: async ({ where, take }) =>
+      newestFirst(store.smsMessages.filter((m) => whereHit(m, where)), "sentAt")
+        .slice(0, take || 999)
+        .map((m) => ({ ...m, lead: store.leads.get(m.leadId) || null, prospect: store.prospects.find((p) => p.id === m.prospectId) || null })),
     // The inbound path looks for the last message SENT to this number, so it
     // can file a reply against the rep who asked the question.
     findFirst: async ({ where }) =>
@@ -271,6 +322,8 @@ const fakeDb = {
             (where.direction === undefined || m.direction === where.direction),
         )
         .sort((a, b) => new Date(b.sentAt) - new Date(a.sentAt))[0] || null,
+    findUnique: async ({ where }) => store.smsMessages.find((m) => m.id === where.id) || null,
+    update: async ({ where, data }) => { const m = store.smsMessages.find((r) => r.id === where.id); if (!m) throw new Error("no row"); Object.assign(m, data); return m; },
   },
 
   salesLead: {
@@ -1133,6 +1186,174 @@ section("11. The texting window's clock is the call window's clock");
   ok("the panel prefills the derived zone and says where it came from", /next\.sms\?\.timeZone/.test(panel) && /smsZoneDerived/.test(panel));
   ok("…and writes a zone to the lead only when the rep chose a different one", /zone !== \(data\?\.sms\?\.timeZone \|\| ""\)/.test(panel));
   ok("the area code is still never consulted", !/areaCode|nanp/i.test(read("lib/sales/leadTimeZone.js")));
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+section("12. Whose text is it — the attribution ladder, on hostile rows");
+// ════════════════════════════════════════════════════════════════════════════
+//
+// lib/sales/smsAttribution.js. The Advance Appliance text of 2026-09-18 —
+// from a number on no record, on a line one rep had used two minutes
+// earlier to ring the business the body names — was filed to nobody, and
+// "nobody" was rendered as everybody. Each rung is executed here on the row
+// shapes that break a naive version: two reps on one line, a body with no
+// business name, an area-code match that is too old, a stale line use.
+
+{
+  const {
+    attributeInboundSms, bodyNamesBusiness, nameTokens, resolveInboundSmsAttribution, attributeSmsMessage,
+    smsVisibleRepIds, unownedInboundTexts, LINE_USE_WINDOW_MS, AREA_CODE_WINDOW_MS, SMS_MATCHED_BY,
+  } = await import("@/lib/sales/smsAttribution");
+  const { salesConversations } = await import("@/lib/sales/salesSms");
+
+  // ── The name matcher ───────────────────────────────────────────────────
+  ok("tokens drop punctuation, case and corporate noise", nameTokens("Advance Appliance, Inc.").join() === "advance,appliance", nameTokens("Advance Appliance, Inc."));
+  ok("“Charlotte at Advance Appliance and I received your Voicemail” names Advance Appliance", bodyNamesBusiness("Hi, this is Charlotte at Advance Appliance and I received your Voicemail.", ["Advance Appliance"]) === true);
+  ok("…and the body with only half the name does not", bodyNamesBusiness("we sell every appliance", ["Advance Appliance"]) === false);
+  ok("“the best time to call is 3” does not name Best Plumbing", bodyNamesBusiness("the best time to call is 3", ["Best Plumbing"]) === false);
+  ok("a one-word name needs four letters — “abc” in a body is not ABC Ltd", bodyNamesBusiness("abc, call me", ["ABC Ltd"]) === false && bodyNamesBusiness("this is Rooftopia", ["Rooftopia Inc"]) === true);
+  ok("a long name matches on most of its words", bodyNamesBusiness("Hi from Smith Brothers Roofing", ["Smith Brothers Roofing and Siding"]) === true);
+  ok("noise alone never matches", bodyNamesBusiness("the and of inc", ["The Company Inc"]) === false);
+  ok("accents fold: “Toitures Réal” is named by “toitures real”", bodyNamesBusiness("c'est toitures real ici", ["Toitures Réal"]) === true);
+
+  // ── Rung (a): the number itself, in order of strength ─────────────────
+  const T = new Date("2026-09-18T12:27:20Z");
+  const min = (n) => new Date(T.getTime() - n * 60_000);
+  const nobody = attributeInboundSms({ fromE164: "+19149357510", body: "hi", now: T });
+  ok("nothing known → nobody, matchedBy null, no id invented", nobody.salesRepId === null && nobody.leadId === null && nobody.prospectId === null && nobody.matchedBy === null, nobody);
+  const lastText = attributeInboundSms({ fromE164: "+19149357510", body: "hi", now: T, lastOut: { salesRepId: "daniel", leadId: "L1" }, leads: [{ id: "L2", salesRepId: "rachel" }], lineUses: [{ salesRepId: "favor", at: min(2), toE164: "+18884209806" }], lineOwnerRepId: "rachel" });
+  ok("the last text we sent the number beats every other rung", lastText.salesRepId === "daniel" && lastText.leadId === "L1" && lastText.matchedBy === "last_text", lastText);
+  const leadPhone = attributeInboundSms({ fromE164: "+19149357510", body: "hi", now: T, leads: [{ id: "L2", salesRepId: "rachel", prospectId: "P2" }], lineUses: [{ salesRepId: "favor", at: min(2), toE164: "+18884209806" }] });
+  ok("a lead carrying the number beats the line", leadPhone.salesRepId === "rachel" && leadPhone.leadId === "L2" && leadPhone.prospectId === "P2" && leadPhone.matchedBy === "lead_phone", leadPhone);
+  const converted = attributeInboundSms({ fromE164: "+1", body: "", now: T, leads: [{ id: "cold", salesRepId: "a" }, { id: "won", salesRepId: "b", convertedCompanyId: "co" }] });
+  ok("…a converted lead on the number wins over a cold one", converted.leadId === "won" && converted.salesRepId === "b", converted);
+  const prospectPhone = attributeInboundSms({ fromE164: "+18884209806", body: "hi", now: T, prospects: [{ id: "P1", assignedRepId: "favor", businessName: "Advance Appliance" }] });
+  ok("a claimed prospect carrying the number is rung (a) too", prospectPhone.salesRepId === "favor" && prospectPhone.prospectId === "P1" && prospectPhone.matchedBy === "prospect_phone", prospectPhone);
+  const twoProspects = attributeInboundSms({ fromE164: "+18884209806", body: "hi", now: T, prospects: [{ id: "P1", assignedRepId: "favor" }, { id: "P1dup", assignedRepId: "favor" }], lineOwnerRepId: "rachel" });
+  ok("two prospects on one number (flagged duplicates) are not picked between — the ladder falls through", twoProspects.matchedBy === "line_owner" && twoProspects.prospectId === null, twoProspects);
+  const contact = attributeInboundSms({ fromE164: "+1", body: "", now: T, contactLead: { id: "L5", salesRepId: "umar", prospectId: "P5" } });
+  ok("a stored contact number files to its lead", contact.salesRepId === "umar" && contact.leadId === "L5" && contact.matchedBy === "contact_number", contact);
+
+  // ── Rung (b): the line — THE Advance Appliance case ───────────────────
+  const favorUses = [
+    // Favor's dials from +1 438 609 9615 that morning, newest first as the
+    // read returns them; the Advance Appliance call is not the newest.
+    { salesRepId: "favor", at: min(0.15), toE164: "+15165995555", prospectId: "P-other", prospect: { id: "P-other", businessName: "Long Island Plumbing" } },
+    { salesRepId: "favor", at: min(2), toE164: "+18884209806", prospectId: "P-adv", prospect: { id: "P-adv", businessName: "Advance Appliance", tradingNames: [] } },
+    { salesRepId: "favor", at: min(9), toE164: "+15164336302", prospectId: "P-3", prospect: { id: "P-3", businessName: "Nassau Roofing" } },
+  ];
+  const adv = attributeInboundSms({ fromE164: "+19149357510", body: "Hi, this is Charlotte at Advance Appliance and I received your Voicemail.", now: T, lineUses: favorUses, lineOwnerRepId: "rachel" });
+  ok("ADVANCE APPLIANCE: filed to the rep who used the line, and to the business the body names — not the newest call", adv.salesRepId === "favor" && adv.prospectId === "P-adv" && adv.matchedBy === "line_business_name", adv);
+  ok("…and not to the line's owner, who never rang them", adv.salesRepId !== "rachel");
+  const noName = attributeInboundSms({ fromE164: "+19149357510", body: "Got your voicemail, call back tomorrow", now: T, lineUses: favorUses, lineOwnerRepId: "rachel" });
+  ok("no business name and no area-code match → the rep alone, business left null rather than guessed", noName.salesRepId === "favor" && noName.prospectId === null && noName.leadId === null && noName.matchedBy === "line_recent_rep", noName);
+  const areaCode = attributeInboundSms({ fromE164: "+15165550000", body: "call back tomorrow", now: T, lineUses: favorUses });
+  ok("no name, but the sender's area code matches a call under two hours old → that business", areaCode.salesRepId === "favor" && areaCode.prospectId === "P-other" && areaCode.matchedBy === "line_area_code", areaCode);
+  const staleArea = attributeInboundSms({ fromE164: "+15165550000", body: "call back", now: T, lineUses: [{ salesRepId: "favor", at: new Date(T.getTime() - AREA_CODE_WINDOW_MS - 60_000), toE164: "+15165995555", prospectId: "P-other", prospect: { id: "P-other", businessName: "Long Island Plumbing" } }] });
+  ok("…an area-code match older than two hours names the rep only", staleArea.salesRepId === "favor" && staleArea.prospectId === null && staleArea.matchedBy === "line_recent_rep", staleArea);
+  const namedBeatsArea = attributeInboundSms({ fromE164: "+15165550000", body: "Nassau Roofing here", now: T, lineUses: favorUses });
+  ok("a named business beats an area-code match", namedBeatsArea.prospectId === "P-3" && namedBeatsArea.matchedBy === "line_business_name", namedBeatsArea);
+  const twoReps = attributeInboundSms({
+    fromE164: "+19149357510", body: "this is Advance Appliance",
+    now: T,
+    lineUses: [
+      { salesRepId: "daniel", at: min(1), toE164: "+12125550000", prospectId: "P-d", prospect: { id: "P-d", businessName: "Manhattan Tile" } },
+      { salesRepId: "favor", at: min(2), toE164: "+18884209806", prospectId: "P-adv", prospect: { id: "P-adv", businessName: "Advance Appliance" } },
+    ],
+  });
+  ok("TWO REPS ON ONE LINE: the most recent user is the rep, and the other rep's business is never attached to them", twoReps.salesRepId === "daniel" && twoReps.prospectId === null && twoReps.matchedBy === "line_recent_rep", twoReps);
+  const stale = attributeInboundSms({ fromE164: "+19149357510", body: "Advance Appliance", now: T, lineUses: [{ salesRepId: "favor", at: new Date(T.getTime() - LINE_USE_WINDOW_MS - 1000), toE164: "+18884209806", prospectId: "P-adv", prospect: { id: "P-adv", businessName: "Advance Appliance" } }], lineOwnerRepId: "rachel" });
+  ok("a line use older than 24 h does not count, even when the body names the business — the owner rung answers", stale.salesRepId === "rachel" && stale.matchedBy === "line_owner", stale);
+  const future = attributeInboundSms({ fromE164: "+1", body: "x", now: T, lineUses: [{ salesRepId: "favor", at: new Date(T.getTime() + 60_000), toE164: "+1" }] });
+  ok("a use AFTER the text (a replay with the wrong clock) does not count", future.salesRepId === null, future);
+  const textUse = attributeInboundSms({ fromE164: "+1", body: "yes please", now: T, lineUses: [{ salesRepId: "ali", at: min(30), toE164: "+15145550100", leadId: "L7", lead: { id: "L7", businessName: "Loop Inc", prospectId: "P7" } }] });
+  ok("an outbound TEXT from the line counts as a use, same as a call", textUse.salesRepId === "ali" && textUse.matchedBy === "line_recent_rep", textUse);
+  const textNamed = attributeInboundSms({ fromE164: "+1", body: "Loop Inc here, yes please", now: T, lineUses: [{ salesRepId: "ali", at: min(30), toE164: "+15145550100", leadId: "L7", lead: { id: "L7", businessName: "Loop Inc", prospectId: "P7" } }] });
+  ok("…and names its lead, carrying the lead's prospect", textNamed.leadId === "L7" && textNamed.prospectId === "P7" && textNamed.matchedBy === "line_business_name", textNamed);
+
+  // ── Rung (c) and (d) ──────────────────────────────────────────────────
+  const owner = attributeInboundSms({ fromE164: "+1", body: "x", now: T, lineOwnerRepId: "rachel" });
+  ok("a line nobody used today files to its assigned rep", owner.salesRepId === "rachel" && owner.matchedBy === "line_owner" && owner.prospectId === null, owner);
+  ok("every matchedBy the ladder can return is in the published list", [lastText, leadPhone, prospectPhone, contact, adv, noName, areaCode, owner].every((r) => SMS_MATCHED_BY.includes(r.matchedBy)));
+
+  // ── The reads, then the webhook end to end ────────────────────────────
+  resetStore();
+  const LINE = "+14386099615";
+  store.numbers.push({ e164: LINE, purpose: "sales", active: true, voiceUrl: "https://x/api/rep-dial/inbound", assignedRepId: "rachel", createdAt: new Date(0) });
+  store.prospects.push({ id: "P-adv", businessName: "Advance Appliance", phoneE164: "+18884209806", assignedRepId: "favor", mergedIntoId: null, tradingNames: [] });
+  store.callAttempts.push(
+    { id: "c1", direction: "out", salesRepId: "favor", fromE164: LINE, toE164: "+18884209806", prospectId: "P-adv", leadId: null, dialledAt: min(2) },
+    { id: "c2", direction: "out", salesRepId: "favor", fromE164: LINE, toE164: "+15165995555", prospectId: null, leadId: null, dialledAt: min(0.15) },
+  );
+  const resolved = await resolveInboundSmsAttribution({ fromE164: "+19149357510", toE164: LINE, body: "Hi, this is Charlotte at Advance Appliance and I received your Voicemail.", now: T });
+  ok("resolveInboundSmsAttribution reads the calls from the line and the prospect on them", resolved.salesRepId === "favor" && resolved.prospectId === "P-adv" && resolved.matchedBy === "line_business_name", resolved);
+  const stored = await handleSalesInboundSms({ to: LINE, from: "+1 (914) 935-7510", body: "Hi, this is Charlotte at Advance Appliance and I received your Voicemail." });
+  const row = store.smsMessages.find((m) => m.id === stored.messageId);
+  ok("…and the webhook STORES the row filed to Favor, to Advance Appliance, with the rule on it", stored.action === "stored" && row?.salesRepId === "favor" && row?.prospectId === "P-adv" && row?.leadId === null && row?.matchedBy === "line_business_name", row);
+  const mystery = await handleSalesInboundSms({ to: LINE, from: "+16135550142", body: "who is this" });
+  const mrow = store.smsMessages.find((m) => m.id === mystery.messageId);
+  ok("a text naming nobody on a used line goes to the line's most recent user, business null", mrow?.salesRepId === "favor" && mrow?.prospectId === null && mrow?.matchedBy === "line_recent_rep", mrow);
+  store.callAttempts.length = 0;
+  const idle = await handleSalesInboundSms({ to: LINE, from: "+16135550143", body: "who is this" });
+  const irow = store.smsMessages.find((m) => m.id === idle.messageId);
+  ok("on an idle line the assigned rep gets it", irow?.salesRepId === "rachel" && irow?.matchedBy === "line_owner", irow);
+  store.numbers[0].assignedRepId = null;
+  const none = await handleSalesInboundSms({ to: LINE, from: "+16135550144", body: "who is this" });
+  const nrow = store.smsMessages.find((m) => m.id === none.messageId);
+  ok("an idle, unassigned line: stored to NOBODY, never dropped, matchedBy null", none.action === "stored" && nrow && nrow.salesRepId === null && nrow.matchedBy === null, nrow);
+
+  // ── Nobody's is not everybody's ───────────────────────────────────────
+  store.reps.set("favor", { id: "favor", kind: "rep" });
+  store.reps.set("daniel", { id: "daniel", kind: "rep" });
+  const daniels = await salesConversations({ salesRepId: "daniel" });
+  ok("Daniel's Texts list holds NONE of these — not Favor's, not the unowned one", daniels.length === 0, daniels.map((c) => c.e164));
+  const favors = await salesConversations({ salesRepId: "favor" });
+  ok("Favor's holds her two, named Advance Appliance where the prospect was filed", favors.length === 2 && favors.some((c) => c.name === "Advance Appliance"), favors.map((c) => [c.e164, c.name]));
+  ok("…and the unowned row is in nobody's", !favors.some((c) => c.e164 === "+16135550144"));
+  const unowned = await unownedInboundTexts({});
+  ok("the superadmin's list is exactly the unowned rows, naming the line", unowned.length === 1 && unowned[0].id === nrow.id && "lineHolder" in unowned[0], unowned);
+
+  // ── The one writer ────────────────────────────────────────────────────
+  const refuseRule = await attributeSmsMessage({ messageId: nrow.id, salesRepId: "favor", matchedBy: "made_up" });
+  ok("attributeSmsMessage refuses a rule it does not publish", refuseRule.ok === false);
+  const refuseOut = await attributeSmsMessage({ messageId: (store.smsMessages.push({ id: "out1", direction: "out", salesRepId: "favor", fromE164: LINE, toE164: "+1", body: "x", sentAt: T }), "out1"), salesRepId: "daniel", matchedBy: "manual" });
+  ok("…and refuses to file an outbound row", refuseOut.ok === false);
+  const filed = await attributeSmsMessage({ messageId: nrow.id, salesRepId: "favor", matchedBy: "manual", by: { platformAdminId: "owner" }, notify: false });
+  ok("a manual filing writes the row: rep, rule, and the before/after", filed.ok === true && nrow.salesRepId === "favor" && nrow.matchedBy === "manual" && filed.before.salesRepId === null && filed.after.salesRepId === "favor", filed);
+  ok("…and an audit row under the admin's name, in the same transaction", store.auditRows.length === 1 && store.auditRows[0].action === "sales_sms_attributed" && store.auditRows[0].platformAdminId === "owner" && store.auditRows[0].details.messageId === nrow.id, store.auditRows[0]);
+  const again = await attributeSmsMessage({ messageId: nrow.id, salesRepId: "daniel", matchedBy: "manual", notify: false });
+  ok("a filed row is not silently re-filed", again.ok === false && nrow.salesRepId === "favor", again);
+  const replaced = await attributeSmsMessage({ messageId: nrow.id, salesRepId: "daniel", matchedBy: "manual", replace: true, by: { platformAdminId: "owner" }, notify: false });
+  ok("…unless told to replace, and then the audit row carries the previous owner", replaced.ok === true && replaced.before.salesRepId === "favor" && store.auditRows[1].details.before.salesRepId === "favor", replaced);
+  ok("…after which it is in Daniel's list and nobody else's", (await salesConversations({ salesRepId: "daniel" })).some((c) => c.e164 === "+16135550144") && !(await salesConversations({ salesRepId: "favor" })).some((c) => c.e164 === "+16135550144"));
+
+  // ── An agency sees its team; nobody else sees anybody else ────────────
+  store.reps.set("agency", { id: "agency", kind: "agency" });
+  store.reps.set("emp", { id: "emp", kind: "rep", managerId: "agency", engagement: "agency" });
+  store.reps.set("lead", { id: "lead", kind: "rep" });
+  store.reps.set("report", { id: "report", kind: "rep", managerId: "lead" });
+  ok("an agency's visible reps are itself and its employees", (await smsVisibleRepIds("agency")).join() === "agency,emp");
+  ok("an employee sees only themself", (await smsVisibleRepIds("emp")).join() === "emp");
+  ok("a team lead who is not an agency sees only themself", (await smsVisibleRepIds("lead")).join() === "lead");
+  ok("an unknown rep id narrows to itself rather than widening", (await smsVisibleRepIds("ghost")).join() === "ghost");
+
+  // ── The surfaces ──────────────────────────────────────────────────────
+  const listFn = functionSource(stripComments(read("lib/sales/salesSms.js")), "salesConversations");
+  ok("salesConversations never lists `salesRepId: null` rows", Boolean(listFn) && !/salesRepId: null/.test(listFn));
+  const threadFn = functionSource(stripComments(read("lib/sales/salesSms.js")), "salesThread");
+  ok("salesThread never reads them either", Boolean(threadFn) && !/salesRepId: null/.test(threadFn));
+  const page = stripComments(read("app/platform/sales/conversations/page.js"));
+  ok("the superadmin conversations page mounts the unowned list", /<UnownedTexts/.test(page));
+  const panel = stripComments(read("app/components/platform/sales/UnownedTexts.js"));
+  ok("…which says “nobody's — assign” and posts to the unowned route", /nobody&rsquo;s — assign/.test(panel) && /\/api\/platform\/sales\/conversations\/unowned/.test(panel) && /method: "POST"/.test(panel));
+  const route = stripComments(read("app/api/platform/sales/conversations/unowned/route.js"));
+  ok("the assign route is superadmin-only (chat:audit) and goes through attributeSmsMessage with matchedBy manual and the admin's id", /requireAuditor\(request, "chat:audit"\)/.test(route) && /attributeSmsMessage\(/.test(route) && /SMS_MATCHED_BY_MANUAL/.test(route) && /platformAdminId: viewer\.id/.test(route));
+  ok("…and never a raw update", !/salesSmsMessage\.update/.test(route));
+  const inboundFn = functionSource(stripComments(read("lib/sales/salesSms.js")), "handleSalesInboundSms");
+  ok("the webhook pushes only the rep the row was filed to", Boolean(inboundFn) && /salesRepIds: \[ownerRepId\]/.test(inboundFn));
+  const schema = read("prisma/schema.prisma");
+  const smsModel = schema.slice(schema.indexOf("model SalesSmsMessage {"), schema.indexOf("model SalesSmsMessage {") + 6000);
+  ok("SalesSmsMessage carries prospectId and matchedBy, and both are read", /prospectId String\?/.test(smsModel) && /matchedBy String\?/.test(smsModel) && /prospectId: true/.test(listFn) && /matchedBy/.test(stripComments(read("lib/sales/smsAttribution.js"))));
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);

@@ -156,7 +156,10 @@ export async function fetchJson(url, options = {}) {
     return { presence: state.presence, store: { ready: true }, choices: STATUS_CHOICES, autodial: state.autodial };
   }
   if (p === "/api/sales/calls/answered") return { attemptId: "in1", transferable: true };
-  if (p === "/api/sales/calls/caller") return { outcome: "prospect", businessName: "Bright Current Electrical", city: "Tulsa", province: "OK", holder: { repId: "r1", name: "Daniel Roy", mine: true }, open: { kind: "console", href: "/sales/queue?prospectId=p1" }, notes: { href: "/sales/queue?prospectId=p1&tab=notes" }, save: null };
+  if (p === "/api/sales/calls/caller") return { outcome: "prospect", businessName: "Bright Current Electrical", city: "Tulsa", province: "OK", holder: { repId: "r1", name: "Daniel Roy", mine: true }, open: { kind: "console", href: "/sales/queue?prospectId=p1" }, notes: { href: "/sales/queue?prospectId=p1&tab=notes" }, save: null, text: { leadId: null, prospectId: "p1" } };
+  // "Text them" (2026-09-18): the opener answers the thread's number; the
+  // harness has no Texts screen to land on, so the press ends at the push.
+  if (p === "/api/sales/messages/start" && method === "POST") return { ok: true, with: options?.body ? JSON.parse(options.body).phone : "", leadId: "lead1", created: false, recorded: true, unsaved: null };
   if (p.startsWith("/api/sales/calls/transfer")) return { available: false, reason: "No other rep is reachable right now.", targets: [], transfer: null };
   if (p === "/api/sales/calls/numbers") {
     if (String(body?.e164 || "").replace(/\D/g, "").endsWith("0666")) { const e = new Error("This business asked not to be contacted, so no further numbers are recorded for them."); throw e; }

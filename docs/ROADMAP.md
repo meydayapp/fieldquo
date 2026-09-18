@@ -60,6 +60,155 @@ for the rep. So:
   size/type policy and a decision about where a stranger's file may go.
 - The Texts contact bar still links `/sales/threads/[id]` (another agent's
   file); the redirect keeps it working.
+## "Text me instead": the first text is the rep's to write, and Text them stands beside every Call button (18 September 2026)
+
+The owner's report: a company told the rep "text me instead", and the reps
+"find it a bit hard to send a new text — maybe it's not linked". Then, live,
+a rep on a 1600px screen with "no options to send the text or any text".
+The friction was measured in the harness before and after —
+`docs/screens/sales-texting/` (README, `before/`, `after/`, `record.json`
+with every sentence).
+
+- **What was a bug.** The signup-link panel under an empty thread was
+  taller than the space left inside the fixed-height, overflow-hidden chat
+  frame, so "Send the text" sat below a fold nothing scrolled; the middle
+  pane was ~300px between the list, the 340px contact bar and a centred
+  band. The composer (textarea + Send) is now the last flex item, drawn
+  whole, with whatever grows above it in its own capped scroller;
+  `/sales/messages` has no width cap (like the queue) and the contact bar
+  is a column only from 1400px (`ChatLayout contextColumnFrom="wide"`), a
+  sheet below. "Open lead" was drawn twice; the contact pane now offers
+  "Write a text" that focuses the box.
+- **What was a rule, and which half of it changed.** The reply route
+  refused EVERY first text — "start from the lead, the first message
+  carries your signup link". The rule's reason was never the link: it was a
+  free-text send to a stranger's number with no lead and no record of
+  where it came from. So the rule is now "the number must be on a lead you
+  hold" (`START_REFUSALS.no_lead`), and every message, first or tenth,
+  carries `replySmsBody`'s footer — FieldQuo, the mailing address, "Reply
+  STOP to opt out". An empty thread on a lead opens on a picker: *Write
+  your own* / *As discussed on the call* / *Signup link* (the fixed
+  introduction, unchanged). `?compose=own` opens on the blank box.
+- **Rules that still stop a rep, printed where the box would be.** The
+  do-not-contact list; a number another rep holds a lead or claim on (with
+  their name — the thread GET carries `holder`); Canada/US only; the
+  08:00–21:00 texting window in the prospect's zone; the mailing address
+  unset. A number on nobody's lead offers "Text this number now" (a lead
+  with the number alone, the New message path) and "Save as a new lead".
+- **The time zone.** Answered in a row above the box when the readiness
+  asks, over the same closed list the lead editor writes, pre-filled with
+  the area code's suggestion (`lib/sales/areaCodeZone.js`: 419 codes, 31
+  split ones refuse to suggest) and written on the lead by Send as stated.
+  The signup panel pre-fills the same. `lib/sales/leadTimeZone.js` still
+  never consults the area code — a suggestion the rep confirms is not a
+  decision, and a NY lead with no stated zone derives without asking, as
+  before.
+- **"Text them"** (`app/components/sales/TextThem.js`): the Dialer card,
+  the lead page, the call panel idle / live ("They'd rather text") / after
+  the call, the no-dial states (a closed calling window is not a closed
+  texting window), the ring dialog and the live strip. It makes the lead
+  from a prospect (`POST /api/sales/leads`), then
+  `POST /api/sales/messages/start` with the leadId; `startTextThread`
+  re-reads the lead against the rep, records a number the lead does not
+  carry through `lib/sales/contact/record.js` — the numbers route's write,
+  moved out so both doors share it — and leaves a test line or a test
+  account's number off the record.
+- **The outcome** "They asked to be texted instead" (`text_instead`, a
+  fifth primary button, hotkey 5): reached, claim held, lead contacted, a
+  FINAL retry rule (no re-dial), and the call panel opens the composer on
+  save. Nine languages.
+- **Replies** were already right: an inbound to the sales number is filed
+  to the rep who last texted it, pushed (`pushToReps`, every reply but a
+  STOP) and counted in the sidebar badge; an unowned reply is listed to
+  every rep and claimed by the first to answer. Nothing changed there.
+- **Follow-up drafts for a link that went nowhere**
+  (`lib/sales/checkin/linkNoSignup.js`, the owner's addition the same
+  day): day 2 "any questions about the link I sent?", day 5 "happy to walk
+  you through it in fifteen minutes — mornings or afternoons?", and a last
+  nudge six hours before the claim lapses (or day 9 when nothing lapses),
+  counted from `SalesSignupProgress.linkSentAt`; drafts the rep reviews and
+  sends, never auto-sent, in the lead's language, the footer appended by
+  the send. Stopped — and the open drafts dismissed — on a signup
+  (`completedAt`, or a card on the token), any inbound reply after the
+  link, a STOP (nothing written for a suppressed number; an unreadable
+  list skips the pass), a released or reassigned claim, a lead no longer
+  the rep's, or an opened link (unfinishedSignup.js takes over). One open
+  draft per thread — day 5 dismisses an unsent day 2. Under "Drafts due"
+  as "Link follow-up", the draft's own line says "Link sent Tue 15 Sep —
+  no signup, no reply" (openCheckIns hands the day; nine languages).
+  `check:sales-link-no-signup` executes every stop condition over a
+  scriptable client.
+- Checks: `check:sales-text-them` (startTextThread over a scriptable
+  client — the hint, the write, the test line, another rep's claim, the
+  STOP list first), `check:area-code-zone`, and the rewritten sections of
+  `check:sales-messages`, `check:sales-call-panel`, `check:chat-kit`,
+  `check:free-dial`, `check:sales-test-line`, `check:sales-sms`.
+
+### Still owed here
+
+- `check:sales-server-copy` and `check:sales-portal-i18n` fail on `main`
+  before this work: `app.salesIntel.*` (whoToAskFor, bbb, people.openBbb)
+  exist in en/fr/es only. Not this change's; the six languages need them.
+- The queue's "Text the signup link to X" card stays as the owner placed
+  it; the Text them button under the Call button is the free-text door.
+## Whose text is it, and whose line: the SMS attribution ladder, and a dial that presents the rep's own number (18 September 2026)
+
+**What broke.** 12:25 UTC: Favor rang Advance Appliance (+1 888 420 9806)
+from +1 438 609 9615 and left a voicemail. 12:27: the office texted that line
+back from a cell on no record — "Hi, this is Charlotte at Advance Appliance…".
+`handleSalesInboundSms` looked for the last text we sent that cell, a lead on
+it, a stored contact number, found nothing, and filed the row to nobody. The
+conversation list then read "nobody" as "everybody": every unowned inbound
+text was listed to every rep who could text as "Needs a reply", so the owner
+found it in Daniel's Texts. And +1 438 609 9615 is Rachel's line, not Favor's:
+`lib/sales/numbers.js`'s `callerIdForRep` ("a rep with an assigned number
+presents it, always") existed and nothing called it; the dial route handed
+`chooseCallerId` a bare list of every line, and with no 888 area code to match
+it took `sort()[0]` — +1 438 before +1 716. Not a cache. Twelve of her dials
+that morning presented Rachel's number.
+
+**The ladder** — `lib/sales/smsAttribution.js`, `attributeInboundSms` pure,
+`resolveInboundSmsAttribution` the reads, `attributeSmsMessage` the ONE writer:
+
+1. the number itself: the last text we sent it, a lead carrying it, a claimed
+   prospect carrying it, a stored contact number;
+2. the line it arrived on: the rep who last called or texted from it in 24 h;
+   the business is that rep's recent call whose name the body contains
+   (token overlap, normalised), else one in the sender's area code under two
+   hours old, else none — never guessed;
+3. the line's `assignedRepId`;
+4. nobody — listed on /platform/sales/conversations under "Nobody's texts"
+   with "nobody's — assign" and a rep picker (superadmin, `chat:audit`),
+   filed through the same writer with `matchedBy: "manual"` and an audit row.
+
+`SalesSmsMessage.matchedBy` records the rung; `prospectId` lets a text be
+filed to a Prospect with no lead. `salesConversations` and `salesThread` read
+only the rep's rows (an agency's team's too, `smsVisibleRepIds`) — never
+`salesRepId: null`. The Advance Appliance row was repaired through the ladder
+replayed at its own arrival time: nobody → Favor + Advance Appliance,
+`line_business_name`, audited (`sales_sms_attributed`).
+
+**The dial** — `chooseCallerIdFor` in `lib/sales/calls/browserDial.js`: the
+rep's own assigned line, then the agency's (`lib/sales/calls/callerLine.js`),
+then an unassigned pool line (local first), then a refusal that says so.
+Another rep's line is never borrowed. `salesCallerNumberRows` is read fresh
+per dial; `SalesCallAttempt.callerIdRule` records why; the floor board prints
+each rep's line or "No number assigned".
+
+Checks: `check:sales-sms` §12 (the ladder on hostile rows, end to end),
+`check:sales-call-handling` (the order), `check:inbound-distribution` (one
+`assignedRepId` column behind the dial, the ladder and the inbound ring),
+`check:sales-messages` §5 (nobody's is not everybody's).
+
+### Still owed here
+
+- A rep-facing hint on the call panel saying "presenting your line" /
+  "the agency's line" — the route returns `callerNumber { e164, rule }`;
+  the panel still prints the digits alone.
+- The two pre-existing failures this session did not touch:
+  `check:sales-reply-triage` ("narrows every bucket") on the messages page,
+  and `check:interconnections` (the committed graph is 12 models behind the
+  schema; regenerating it is a shared-file change another agent owns today).
 
 ---
 

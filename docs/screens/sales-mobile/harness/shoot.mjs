@@ -78,6 +78,12 @@ export const FRAMES = {
   "queue-test-account": queue("&scene=typed&testAccount=1"),
   "queue-tab-tasks": queue("&scene=tab-tasks"),
   "queue-tab-script": queue("&scene=tab-script"),
+  // 2026-09-18: "Text them" beside the Call button, and the ring dialog's
+  // "They'd rather text"; the Texts screen's first-message picker on a
+  // fresh thread, opened blank from a Text them press.
+  "queue-text-them": queue("&scene=text-them"),
+  "messages-new": portal("messages", "&scene=typed-open"),
+  "messages-compose-own": portal("messages", "&thread=%2B15145550148&compose=own"),
   agency: portal("agency", "&agency=1"),
   "pay-agency": portal("pay", "&agency=1&scroll=%5Bdata-by-employee%5D"),
   "today-reminder": portal("today", "&presence=offline"),
