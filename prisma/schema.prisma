@@ -10014,6 +10014,24 @@ model SalesRep {
   /// console's Move, and the inbound ring plan.
   sellsIn String[] @default([])
 
+  /// A TEST ACCOUNT: the calling window, the 24-hour cap and the retry hold
+  /// are not applied to this rep's dials, and every dial they place is
+  /// recorded with jurisdictionCode "test" — the same mark a dial to one of
+  /// FieldQuo's own test lines carries (lib/sales/testLines.js) — so every
+  /// count, stat, funnel and commission leaves it out through the exclusion
+  /// that already exists. Do-not-contact and the suppression list still bind:
+  /// a test account may ring at any hour, never somebody who said stop.
+  ///
+  /// The owner's decision, 2026-09-17, reaffirmed after being told the
+  /// window protects the person called: his own rep account tests the
+  /// dialler at every hour and must not be held to it. Set by a superadmin
+  /// on /platform/sales/reps, audited (sales_rep_test_account_set), refused
+  /// for an agency and for any rep with a commission entry — a test account
+  /// earns nothing, and a row that has earned cannot become one. A flag on
+  /// the row, never a hard-coded email: scripts/check-sales-test-line.mjs
+  /// asserts no file names the owner's account.
+  testAccount Boolean @default(false)
+
   createdAt DateTime @default(now())
 
   /// The last time this rep was seen IN THE PORTAL. Stamped by
@@ -11501,6 +11519,42 @@ model Prospect {
   /// Hash of the crawled content, so an unchanged site is not re-analysed.
   contentHash              String?
 
+  // ── Google Places, as a CORROBORATING source ───────────────────────────
+  //
+  // The licence registers publish no website column (RBQ) or a sparse one
+  // (CSLB), so a rep was handed "Website: none on record — nothing has
+  // crawled this business" for a contractor whose site is the first Google
+  // result. lib/sales/intel/places.js asks Places Text Search for the
+  // business by name and address, and ATTACHES a listing only when the
+  // match rule passes — name tokens overlap AND the address agrees or the
+  // pin is within a few km of the register's geocode. Anything weaker is
+  // stored as a verdict with the top candidate's name for a human to
+  // confirm, and never as the business's own website.
+  //
+  // Fills blanks only: `domain`, `websiteUrl`, `googleRating`,
+  // `googleReviewCount`, `businessStatus`, `latitude`/`longitude`, and
+  // `phoneE164` are written when null. A value already on the row — the
+  // register's, or one a human typed — is never replaced; Google's own
+  // value sits beside it in `placesResult`, where the console shows the
+  // two side by side. A Places phone that differs from the record's is
+  // added as a SalesContactNumber, never over the top of it.
+
+  /// When Places was last asked about this row. Null: never. The enrich
+  /// route skips a row checked within PLACES_RECHECK_DAYS, which is what
+  /// makes "check the held leads" idempotent and bounded in cost.
+  placesCheckedAt DateTime?
+  /// "matched" | "no_confident_match" | "no_results" | "duplicate_place"
+  /// (another prospect already carries this Place ID) | "error". Written
+  /// on every check, so "not checked" and "checked, nothing found" are
+  /// different rows.
+  placesVerdict   String?
+  /// What Places said, verbatim enough to audit: the place id, name,
+  /// address, website, phone, rating, count, status, hours, pin, the match
+  /// score and the reason — for a match; the top candidate and why it was
+  /// refused — for no_confident_match. JSON rather than nine columns
+  /// because every field is Google's, read only beside the row's own.
+  placesResult    Json?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -11543,6 +11597,8 @@ model Prospect {
   @@index([suggestedTradeKey])
   /// The cron slice's "rows not yet suggested" scan.
   @@index([suggestedAt])
+  /// The enrich route's "held rows never checked, or checked long ago" scan.
+  @@index([placesCheckedAt])
   /// "The rows merged into this one" — the survivor's duplicate panel, and
   /// the read-path union of their evidence (lib/sales/discovery/mergedReads.js).
   @@index([mergedIntoId])
