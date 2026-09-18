@@ -7,12 +7,16 @@
 // ══ What is EXECUTED ═══════════════════════════════════════════════════════
 //
 //   1. stepsFor() against fixtures. A snapshot with nothing in it leaves all
-//      ten steps undone; each signal, set on its own, flips exactly ITS step
-//      and no other; a dismissed key hides its step and an unknown key is
-//      dropped; a done step is removed from what the card shows; an absent or
-//      null signal (the import column before `prisma generate`) is NOT done;
-//      a signal that throws is not done. The owner's rule — removed when
+//      eleven steps undone; each signal, set on its own, flips exactly ITS
+//      step and no other; a dismissed key hides its step and an unknown key
+//      is dropped; a done step is removed from what the card shows; an absent
+//      or null signal (the import column before `prisma generate`) is NOT
+//      done; a signal that throws is not done. The owner's rule — removed when
 //      measured, never ticked — lives in these assertions.
+//      The team row (moved here from onboarding on 2026-09-18) adds a third
+//      way off the card, `applies`: "it's just me" while the owner is the only
+//      person on the roster, or a plan with no seat left. An absent signal
+//      APPLIES — a row must never vanish because a read did not run.
 //   2. withSetupParam(): the query lands BEFORE the fragment, or both halves
 //      of every link die at once (see the function's comment).
 //
@@ -28,7 +32,10 @@
 //      (scripts/check-ungated-routes.mjs, check-tenant-scope.mjs); what this
 //      file asserts is that THESE two files go through them.
 //   6. The dashboard draws the card behind the same gate, under the
-//      onboarding card.
+//      onboarding card — and hosts the Add Employee popup on the team row,
+//      re-reading the list from the server when the popup reports an
+//      addition rather than striking the row off itself. The onboarding card
+//      no longer carries the row or the popup.
 //   7. Every app.setup.* key the card, the link and the step titles ask for
 //      exists in all nine language blocks.
 //
@@ -65,6 +72,7 @@ const stripComments = (s) =>
 console.log("\n1. stepsFor(), executed\n");
 
 const EXPECTED_KEYS = [
+  "team",
   "overhead",
   "payment_schedule",
   "quote_process",
@@ -77,7 +85,7 @@ const EXPECTED_KEYS = [
   "import_jobs",
 ];
 ok(
-  "the ten steps, in the owner's order",
+  "the team row, then the ten in the owner's order",
   JSON.stringify(SETUP_STEP_KEYS) === JSON.stringify(EXPECTED_KEYS),
   SETUP_STEP_KEYS.join(","),
 );
@@ -100,14 +108,22 @@ const EMPTY = {
   editedEmailTemplates: 0,
   quoteEmailSectionsOn: false,
   historicalImports: 0,
+  // The owner alone on the roster, nothing pending, an ordinary plan, no
+  // "it's just me" claim: the team row is undone and applies.
+  activeMembers: 1,
+  pendingInvites: 0,
+  seatLimit: 6,
+  worksAlone: false,
 };
+const TOTAL = EXPECTED_KEYS.length;
 
 {
   const steps = stepsFor(EMPTY);
-  ok("an empty company has all ten steps undone", steps.every((s) => !s.done && !s.dismissed));
-  ok("…and all ten on the card", remainingSteps(steps).length === 10);
+  ok("an empty company has all eleven steps undone", steps.every((s) => !s.done && !s.dismissed && s.applies === true));
+  ok("…and all eleven on the card", remainingSteps(steps).length === TOTAL);
   ok("a snapshot with NOTHING in it (every signal absent) is also all-undone", stepsFor({}).every((s) => !s.done));
-  ok("a null snapshot does not throw", (() => { try { return stepsFor(undefined).length === 10; } catch { return false; } })());
+  ok("…and every step APPLIES — absence never removes a row", stepsFor({}).every((s) => s.applies === true));
+  ok("a null snapshot does not throw", (() => { try { return stepsFor(undefined).length === TOTAL && stepsFor(null).length === TOTAL; } catch { return false; } })());
 }
 
 // Each signal on its own flips exactly one step. The table is the contract:
@@ -132,6 +148,8 @@ const FLIPS = [
   ["editedEmailTemplates", 1, "emails"],
   ["quoteEmailSectionsOn", true, "emails"],
   ["historicalImports", 3, "import_jobs"],
+  ["activeMembers", 2, "team"],
+  ["pendingInvites", 1, "team"],
 ];
 for (const [field, value, expectKey] of FLIPS) {
   const steps = stepsFor({ ...EMPTY, [field]: value });
@@ -166,6 +184,14 @@ for (const [field, value, expectKey] of FLIPS) {
   s = stepsFor({ ...EMPTY, aiCreditCents: "lots" });
   ok("a non-numeric signal is not done", !s.find((x) => x.key === "ai_credits").done);
 
+  // The team row: the owner alone is not a team, however many seats the
+  // plan has; a deactivated member is counted by the snapshot's own query
+  // (active: true), so here it simply is not in activeMembers.
+  s = stepsFor({ ...EMPTY, activeMembers: 1, pendingInvites: 0, seatLimit: 20 });
+  ok("one member and no invites is not a team, whatever the plan allows", !s.find((x) => x.key === "team").done);
+  s = stepsFor({ ...EMPTY, activeMembers: 0, pendingInvites: 0 });
+  ok("no members at all (a read that returned nothing) is not done", !s.find((x) => x.key === "team").done);
+
   // A signal that throws inside doneWhen must land as "not done", not crash
   // the route. Simulated with a getter that throws.
   const hostile = { ...EMPTY };
@@ -173,7 +199,7 @@ for (const [field, value, expectKey] of FLIPS) {
   let threw = false;
   let hostileSteps = [];
   try { hostileSteps = stepsFor(hostile); } catch { threw = true; }
-  ok("a throwing signal does not take the card down", !threw && hostileSteps.length === 10);
+  ok("a throwing signal does not take the card down", !threw && hostileSteps.length === TOTAL);
   ok("…and its step is not done", !hostileSteps.find((x) => x.key === "payment_schedule")?.done);
 }
 
@@ -186,10 +212,61 @@ for (const [field, value, expectKey] of FLIPS) {
   ok("a done step is still returned, flagged done", overhead && overhead.done === true);
   const shown = remainingSteps(steps).map((s) => s.key);
   ok("the card shows neither the dismissed nor the done step", !shown.includes("emails") && !shown.includes("overhead"));
-  ok("…and shows the other eight", shown.length === 8, shown.length);
+  ok("…and shows the other nine", shown.length === TOTAL - 2, shown.length);
   ok("normaliseDismissed drops unknown keys and duplicates", JSON.stringify(normaliseDismissed(["emails", "bogus", "emails", 7, null])) === JSON.stringify(["emails"]));
   ok("normaliseDismissed of garbage is []", normaliseDismissed("emails").length === 0 && normaliseDismissed(null).length === 0);
-  ok("done beats dismissed: a step both done and dismissed is simply gone", remainingSteps(stepsFor({ ...EMPTY, dismissed: ["overhead"], overheadDebts: 1 })).length === 9);
+  ok("done beats dismissed: a step both done and dismissed is simply gone", remainingSteps(stepsFor({ ...EMPTY, dismissed: ["overhead"], overheadDebts: 1 })).length === TOTAL - 1);
+  ok("…and \"team\" is a key the dismiss route accepts", normaliseDismissed(["team"]).length === 1);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+console.log("\n1b. The team row: applies, or does not — the onboarding step's own rules\n");
+
+// The third way off the card. Executed, because every one of these used to be
+// a branch in lib/onboarding.js that a one-person shop depended on, and a
+// regex over the source passes on the version that forgets the claim.
+{
+  const team = (snap) => stepsFor({ ...EMPTY, ...snap }).find((x) => x.key === "team");
+  const shown = (snap) => remainingSteps(stepsFor({ ...EMPTY, ...snap })).some((x) => x.key === "team");
+
+  // "It's just me — no crew right now", ticked in Team Settings.
+  let t = team({ worksAlone: true, activeMembers: 1 });
+  ok("worksAlone with only the owner on the roster: the row does not apply", t.applies === false && t.done === false && t.dismissed === false);
+  ok("…and is off the card", !shown({ worksAlone: true, activeMembers: 1 }));
+  ok("…without taking any other row with it", remainingSteps(stepsFor({ ...EMPTY, worksAlone: true })).length === TOTAL - 1);
+  // The roster is the fact, the checkbox is the claim: an invite makes the
+  // claim stop applying, and the row is then simply done.
+  t = team({ worksAlone: true, activeMembers: 2 });
+  ok("worksAlone but a second member: the row applies, and is done", t.applies === true && t.done === true);
+  t = team({ worksAlone: true, activeMembers: 1, pendingInvites: 1 });
+  ok("worksAlone but a pending invitation: the seat is spoken for, so the same", t.applies === true && t.done === true);
+  ok("…off the card either way", !shown({ worksAlone: true, activeMembers: 2 }) && !shown({ worksAlone: true, pendingInvites: 1 }));
+
+  // No seat left to put anybody in.
+  t = team({ seatLimit: 1, activeMembers: 1 });
+  ok("a one-seat plan with the owner in it: nowhere to put anybody, does not apply", t.applies === false && !shown({ seatLimit: 1, activeMembers: 1 }));
+  t = team({ seatLimit: 6, activeMembers: 1 });
+  ok("a six-headcount plan with one used: applies", t.applies === true && shown({ seatLimit: 6, activeMembers: 1 }));
+  t = team({ seatLimit: null, activeMembers: 1 });
+  ok("no cap (legacy unlimited plan): applies", t.applies === true);
+  t = team({ seatLimit: 2, activeMembers: 2 });
+  ok("a full plan with two people in it is DONE, not merely inapplicable", t.done === true);
+
+  // Absence is not a statement, in either direction.
+  t = team({ worksAlone: undefined, seatLimit: undefined, activeMembers: undefined, pendingInvites: undefined });
+  ok("every team signal absent: not done, and applies", t.done === false && t.applies === true);
+  t = team({ worksAlone: "yes", seatLimit: "many" });
+  ok("garbage signals: not done, and applies", t.done === false && t.applies === true);
+  const hostile = { ...EMPTY };
+  Object.defineProperty(hostile, "worksAlone", { get() { throw new Error("boom"); } });
+  let threw = false;
+  let hs = null;
+  try { hs = stepsFor(hostile).find((x) => x.key === "team"); } catch { threw = true; }
+  ok("a throwing applies-signal does not take the card down, and the row applies", !threw && hs?.applies === true);
+
+  // A hand-hidden team row stays hidden — the hide button is the honest
+  // answer for "I have a crew but they are not going to use FieldQuo".
+  ok("dismissed applies to the team row like any other", !shown({ dismissed: ["team"] }));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -279,7 +356,12 @@ console.log("\n5. The routes: gated, tenant-scoped, additive\n");
 
   const snap = stripComments(source("lib/setupStepsSnapshot.js"));
   const scoped = (snap.match(/where: \{ companyId/g) || []).length + (snap.match(/some: \{ companyId, active: true \}/g) || []).length + (snap.match(/where: \{ id: companyId \}/g) || []).length;
-  ok("every read in the snapshot is tenant-scoped", scoped >= 12, scoped);
+  ok("every read in the snapshot is tenant-scoped", scoped >= 15, scoped);
+  ok("the snapshot reads the team signals the onboarding step used to (active members, pending invites, plan cap, the works-alone claim)",
+    /db\.member\.count\(\{ where: \{ companyId, active: true \} \}\)/.test(snap) &&
+      /db\.pendingTeamProfile\.count\(\{ where: \{ companyId \} \}\)/.test(snap) &&
+      /seatLimit: subscription\?\.plan\?\.maxUsers \?\? null/.test(snap) &&
+      /worksAloneAt: true/.test(snap) && /worksAlone: Boolean\(company\.worksAloneAt\)/.test(snap));
   ok("the import column is read on its own, under try/catch, and reports null (not 0) when absent", /historicalImportedAt: \{ not: null \}/.test(snap) && /return null;/.test(snap));
   ok("the pure file never imports the database", !/@\/lib\/db/.test(source("lib/setupSteps.js")));
 
@@ -300,7 +382,24 @@ console.log("\n6. The dashboard draws the card behind the same gate\n");
 
   const card = stripComments(source("app/components/dashboard/SetupSteps.js"));
   ok("the card shows only what remainingSteps() returns — no tick state", /remainingSteps\(data\?\.steps\)/.test(card) && !/CheckCircle|line-through/.test(card));
-  ok("a row is removed locally only after the server confirmed the dismissal", /if \(!res\.ok\) \{[\s\S]*?return;[\s\S]*?\}\s*setSteps\(\(prev\)/.test(card));
+  const hideFn = card.slice(card.indexOf("async function hide("), card.indexOf("if (error) {"));
+  ok("a row is removed locally only after the server confirmed the dismissal", /if \(!res\.ok\) \{[\s\S]*?return;[\s\S]*?\}\s*setSteps\(\(prev\)/.test(hideFn));
+
+  // The team row's popup. The owner's ask was that this step be finishable
+  // without leaving the window; the card must actually offer that, and must
+  // let the server — not a local splice — take the row away afterwards.
+  ok("the card imports the same Add Employee popup the onboarding card used to", /import AddEmployeeModal from "@\/app\/components\/team\/AddEmployeeModal"/.test(card));
+  ok("…and opens it from the team row only", /step\.key === INLINE_ADD_EMPLOYEE_KEY && \(/.test(card) && /INLINE_ADD_EMPLOYEE_KEY = "team"/.test(card) && /onClick=\{\(\) => setShowAddEmployee\(true\)\}/.test(card));
+  ok("…the row keeps its link to the Team page beside the button", /href=\{step\.href\}/.test(card));
+  const onAdded = card.slice(card.indexOf("onAdded={() => {"), card.indexOf("/>", card.indexOf("onAdded={() => {")));
+  ok("when the popup reports an addition the list is RE-READ from the server, not spliced", /load\(\);/.test(onAdded) && !/setSteps\(/.test(onAdded));
+  ok("…with cache: no-store, the same as the first load", /fetch\("\/api\/setup-steps", \{ cache: "no-store" \}\)/.test(card));
+
+  const onboardingCard = stripComments(source("app/components/dashboard/OnboardingProgress.js"));
+  ok("the onboarding card no longer hosts the popup", !/AddEmployeeModal/.test(onboardingCard) && !/onEmployeeAdded/.test(onboardingCard));
+  ok("…nor a team row", !/"team"/.test(onboardingCard));
+  ok("…and the dashboard no longer wires an onEmployeeAdded refetch into it", !/onEmployeeAdded/.test(page));
+  ok("lib/onboarding.js does not emit a team step", !/key: "team"/.test(stripComments(source("lib/onboarding.js"))));
   ok("the card renders nothing when nothing is left", /if \(!steps \|\| steps\.length === 0\) return null;/.test(card));
   ok("collapsed by default under three", /COLLAPSE_BELOW = 3/.test(card) && /remaining\.length >= COLLAPSE_BELOW/.test(card));
   ok("no typed currency symbol on the card", !/\$\{?\s*[a-z]/.test(card.replace(/\$\{/g, "")) && !card.includes("\"$\""));
@@ -317,7 +416,7 @@ console.log("\n7. Every app.setup.* key exists in all nine languages\n");
   for (const file of ["app/components/dashboard/SetupSteps.js", "app/components/BackToHome.js"]) {
     for (const m of source(file).matchAll(/t\(\s*"(app\.[A-Za-z0-9_.]+)"/g)) wanted.add(m[1]);
   }
-  ok("the card and link ask for at least seven catalogue keys", wanted.size >= 17, wanted.size);
+  ok("the card and link ask for at least eighteen catalogue keys", wanted.size >= 18, wanted.size);
   const langs = Object.keys(APP_MESSAGES);
   ok("nine language blocks", langs.length === 9, langs.join(","));
   for (const key of wanted) {

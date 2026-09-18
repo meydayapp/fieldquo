@@ -504,20 +504,12 @@ export default function DashboardPage() {
           Onboarding status unavailable: {onboardingError}
         </div>
       )}
-      {/* Onboarding checklist — only shown while incomplete */}
-      <OnboardingProgress
-        status={onboarding}
-        onEmployeeAdded={() => {
-          // no-store, same as the first load: this refetch exists precisely
-          // because the numbers just changed, and a cached copy would show the
-          // count the contractor is trying to watch move.
-          fetch("/api/onboarding-status", { cache: "no-store" })
-            .then((r) => (r.ok ? r.json() : null))
-            .then((data) => data && setOnboarding(data));
-        }}
-      />
+      {/* Onboarding checklist — only shown while incomplete. Every row is a
+          link to a page; the one row that was done in place (Add Employee)
+          lives on the set-up card below now, popup and all. */}
+      <OnboardingProgress status={onboarding} />
 
-      {/* The ten things worth doing after onboarding — each row removed the
+      {/* The eleven things worth doing after onboarding — each row removed the
           moment the database says it is done, or hidden by hand. Fetches and
           gates itself; renders nothing when nothing is left. */}
       {canManageSetup && <SetupSteps />}

@@ -191,18 +191,18 @@ export const ARTICLES = {
             "**Choose the services you offer** → Services et tarifs. Faite quand au moins un type de soumission est activé.",
             "**Set your pricing for at least one service** → Services et tarifs. Faite quand un type de soumission activé a un tarif.",
             "**Connect Stripe to accept client payments** → Paiements. Faite quand Stripe confirme que les paiements sont activés. Voir [[connect-stripe-and-get-verified|Connecter Stripe et faire vérifier votre compte]].",
-            "**Invite your team** → Gérer l'équipe. Faite quand quelqu'un d'autre que vous a été ajouté. Cette ligne est absente si vous avez dit à Gérer l'équipe que vous travaillez seul.",
             "**Add your tax registration number** → Profil de l'entreprise. Faite quand le numéro est saisi, ou quand vous avez indiqué que votre entreprise n'est pas inscrite.",
           ] },
-          { note: "Les lignes ne sont jamais masquées, seulement retirées. Si vous ne pouvez pas en terminer une — un atelier solo avec la ligne de l'équipe — dites-le sur l'écran vers lequel la ligne pointe, et la ligne cesse de s'appliquer." },
+          { note: "Les lignes ne sont jamais masquées, seulement retirées. Si vous ne pouvez pas en terminer une — une entreprise sans numéro de taxe — dites-le sur l'écran vers lequel la ligne pointe, et la ligne cesse de s'appliquer." },
         ],
       },
       {
         id: "additional-set-up-steps",
         heading: "La carte « Étapes de configuration supplémentaires »",
         blocks: [
-          { p: "Dix lignes de plus, montrées aux propriétaires, administrateurs, répartiteurs et gestionnaires, chacune avec un bouton **Fait, masquer**. Une ligne disparaît aussi d'elle-même dès que la base de données dit qu'elle est faite. La carte s'ouvre seule tant qu'il reste trois lignes ou plus, et se replie quand il en reste moins." },
+          { p: "Onze lignes de plus, montrées aux propriétaires, administrateurs, répartiteurs et gestionnaires, chacune avec un bouton **Fait, masquer**. Une ligne disparaît aussi d'elle-même dès que la base de données dit qu'elle est faite. La carte s'ouvre seule tant qu'il reste trois lignes ou plus, et se replie quand il en reste moins." },
           { bullets: [
+            "**Invitez votre équipe** — la seule ligne que vous pouvez terminer sans quitter le tableau de bord : son bouton **Ajouter un employé** ouvre le même formulaire rapide que la page Équipe, et la ligne disparaît dès que quelqu'un d'autre que vous est dans l'effectif ou a une invitation en attente. Elle est absente si vous avez dit à Gérer l'équipe que vous travaillez seul, ou si votre forfait n'a plus de siège libre. [[invite-a-team-member|Inviter un membre de l'équipe]].",
             "**Saisissez vos frais généraux** — coûts fixes, salaires, dettes et actifs, pour que le prix plancher d'un chantier puisse être calculé. [[overhead-and-your-minimum-price|Frais généraux]].",
             "**Configurez votre échéancier de paiement** — un acompte et des étapes de paiement sur le Profil de l'entreprise. [[deposits-and-payment-schedules|Échéanciers de paiement]].",
             "**Vérifiez le déroulement des travaux sur vos soumissions** — le texte sous chaque type de soumission dans Services et tarifs.",
@@ -241,7 +241,7 @@ export const ARTICLES = {
     faq: [
       { q: "Puis-je masquer la première carte?", a: "Non. Ses lignes sont retirées quand elles sont faites, ou quand vous indiquez sur l'écran visé que l'élément ne s'applique pas — par exemple, que vous travaillez seul." },
       { q: "J'ai masqué une étape par erreur.", a: "Le masquage vaut pour l'entreprise et il n'y a pas de bouton pour revenir en arrière. L'écran visé par l'étape est toujours dans le menu Paramètres; le travail est le même." },
-      { q: "Pourquoi n'ai-je pas de ligne « invitez votre équipe »?", a: "Parce que vous avez dit à Gérer l'équipe que vous travaillez seul. La ligne revient, déjà cochée, le jour où quelqu'un est invité." },
+      { q: "Pourquoi n'ai-je pas de ligne « invitez votre équipe »?", a: "Parce que vous avez dit à Gérer l'équipe que vous travaillez seul, ou parce que votre forfait n'a plus de siège libre. Elle est sur la deuxième carte, pas la première, et dès que quelqu'un est invité elle est simplement faite." },
     ],
   },
 

@@ -191,18 +191,18 @@ export const ARTICLES = {
             "**Choose the services you offer** → Servicios y precios. Hecha cuando al menos un tipo de presupuesto está activado.",
             "**Set your pricing for at least one service** → Servicios y precios. Hecha cuando un tipo de presupuesto activado tiene una tarifa.",
             "**Connect Stripe to accept client payments** → Pagos. Hecha cuando Stripe confirma que los cobros están habilitados. Vea [[connect-stripe-and-get-verified|Conectar Stripe y verificarse]].",
-            "**Invite your team** → Gestionar equipo. Hecha cuando alguien más que usted ha sido incorporado. Esta fila no aparece si le dijo a Gestionar equipo que trabaja solo.",
             "**Add your tax registration number** → Configuración de la empresa. Hecha cuando el número está ingresado, o cuando indicó que su empresa no está registrada para ello.",
           ] },
-          { note: "Las filas solo se retiran, nunca se descartan. Si no puede terminar una — un taller de una sola persona con la fila del equipo — dígalo en la pantalla a la que apunta la fila, y la fila deja de aplicar." },
+          { note: "Las filas solo se retiran, nunca se descartan. Si no puede terminar una — una empresa sin número de registro fiscal — dígalo en la pantalla a la que apunta la fila, y la fila deja de aplicar." },
         ],
       },
       {
         id: "additional-set-up-steps",
         heading: "La tarjeta «Pasos de configuración adicionales»",
         blocks: [
-          { p: "Diez filas más, mostradas a propietarios, administradores, despachadores y gerentes, cada una con un botón **Hecho, ocultar**. Una fila también desaparece sola cuando la base de datos dice que está hecha. La tarjeta se abre sola mientras quedan tres filas o más, y se pliega cuando quedan menos." },
+          { p: "Once filas más, mostradas a propietarios, administradores, despachadores y gerentes, cada una con un botón **Hecho, ocultar**. Una fila también desaparece sola cuando la base de datos dice que está hecha. La tarjeta se abre sola mientras quedan tres filas o más, y se pliega cuando quedan menos." },
           { bullets: [
+            "**Invita a tu equipo** — la única fila que puede terminar sin salir del panel: su botón **Añadir empleado** abre el mismo formulario rápido que usa la página Equipo, y la fila desaparece en cuanto alguien más que usted está en la lista o tiene una invitación pendiente. No aparece si le dijo a Gestionar equipo que trabaja solo, o si a su plan no le queda ninguna licencia libre. [[invite-a-team-member|Invitar a un miembro del equipo]].",
             "**Ingresa tus gastos generales** — costos fijos, salarios, deudas y activos, para poder calcular el precio de equilibrio de un trabajo. [[overhead-and-your-minimum-price|Gastos generales]].",
             "**Configura tu calendario de pagos** — un anticipo y etapas de pago en la Configuración de la empresa. [[deposits-and-payment-schedules|Calendarios de pago]].",
             "**Revisa el proceso del trabajo en tus cotizaciones** — el texto bajo cada tipo de presupuesto en Servicios y precios.",
@@ -241,7 +241,7 @@ export const ARTICLES = {
     faq: [
       { q: "¿Puedo ocultar la primera tarjeta?", a: "No. Sus filas se retiran cuando están hechas, o cuando usted indica en la pantalla a la que apuntan que el punto no aplica — por ejemplo, que trabaja solo." },
       { q: "Oculté un paso por error.", a: "Ocultar vale para toda la empresa y no hay botón para deshacerlo. La pantalla a la que apuntaba el paso sigue en el menú de Configuración; el trabajo es el mismo." },
-      { q: "¿Por qué no tengo la fila «invita a tu equipo»?", a: "Porque le dijo a Gestionar equipo que trabaja solo. La fila vuelve, ya marcada, el día en que alguien es invitado." },
+      { q: "¿Por qué no tengo la fila «invita a tu equipo»?", a: "Porque le dijo a Gestionar equipo que trabaja solo, o porque a su plan no le queda ninguna licencia libre. Está en la segunda tarjeta, no en la primera, y en cuanto alguien es invitado queda simplemente hecha." },
     ],
   },
 

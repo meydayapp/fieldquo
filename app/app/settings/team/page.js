@@ -8,6 +8,7 @@ import { formatCompanyDate } from "@/lib/format/companyDate";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import SeatCapUpgradeNotice from "@/app/components/SeatCapUpgradeNotice";
+import BackToHome from "@/app/components/BackToHome";
 import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
 import AccessEditor, {
   emptyPermissionValues,
@@ -532,6 +533,10 @@ export default function TeamOverviewPage() {
           <p className="text-sm text-muted-foreground mt-1 max-w-lg">
             {t("app.setTeam.subtitle")}
           </p>
+          {/* "Back to home" when the reader came from the dashboard's set-up
+              card (?from=setup); nothing otherwise. Every page that card
+              links to renders this, and check-setup-steps greps for it. */}
+          <BackToHome />
         </div>
         {/* ── Read-only, not hidden ──────────────────────────────────────
             Seeing who is on the team is reasonable for anyone on it — the roster
@@ -713,19 +718,21 @@ export default function TeamOverviewPage() {
 
         {/* ── "It's just me — no crew right now" ──────────────────────────
             A statement about the business, recorded beside the roster it is
-            about — not a dismiss button on the onboarding card. Ticking it
-            drops "Invite your team" from the setup checklist, which is
-            otherwise the one step a one-person shop can never tick: it needs
-            a second person, and `complete` needs every step, so a solo
-            contractor carried that card forever.
+            about — not a dismiss button on the dashboard. Ticking it drops
+            "Invite your team" from the dashboard's "Additional set-up steps"
+            card (lib/setupSteps.js, where the row moved from the onboarding
+            checklist on 2026-09-18), which is otherwise the one row a
+            one-person shop can never finish: it needs a second person. Back
+            when the row was on the onboarding card, `complete` needed every
+            step, so a solo contractor carried that card forever.
 
             Hidden once anyone else is on the roster, the same way the tax
             checkbox hides once a number is entered: there is nothing to
             declare the absence of, and a ticked "it's just me" beside a list
             of three people is a contradiction the screen shouldn't be able to
-            show. lib/onboarding.js reaches the same conclusion server-side, so
-            an owner who hires and never comes back here still gets the step
-            back — the roster is the fact, this is only the claim.
+            show. lib/setupSteps.js reaches the same conclusion server-side,
+            so an owner who hires and never comes back here has the row
+            measured as done — the roster is the fact, this is only the claim.
 
             Gated on user:manage, which is what the PATCH enforces. */}
         {/* `anyoneElse` is derived from seat counts, so a failed read made it

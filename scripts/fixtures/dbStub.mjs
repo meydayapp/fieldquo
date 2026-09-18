@@ -57,11 +57,12 @@ export const rows = {
   referralInvite: [],
   platformPromoCode: [],
   platformPromoRedemption: [],
-  // The three rosters/plans getOnboardingStatus() counts. Added so
-  // check-onboarding-solo.mjs can execute the real function instead of reading
-  // it: "a one-person company can finish onboarding" is a claim about a step
-  // ARRAY that gets built from five queries, and every previous attempt to
-  // assert that by regex would have passed on the version that couldn't.
+  // The rosters getOnboardingStatus() used to count for its team step (moved
+  // to lib/setupSteps.js on 2026-09-18). Kept so check-onboarding-solo.mjs
+  // can execute the real function against a roster and prove the roster no
+  // longer changes the answer: "a one-person company can finish onboarding"
+  // is a claim about a step ARRAY, and every previous attempt to assert it by
+  // regex would have passed on the version that couldn't.
   member: [],
   pendingTeamProfile: [],
   // "Was this helpful?" votes from the public help centre
