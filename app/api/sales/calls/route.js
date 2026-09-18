@@ -54,7 +54,7 @@ import {
   liveCallFor,
   ownNumbers,
   recordDial,
-  salesCallerNumbers,
+  salesCallerNumberRows,
   saveDisposition,
   setRepState,
 } from "@/lib/sales/calls/store";
@@ -75,7 +75,8 @@ import { normalisePhone } from "@/lib/sales/suppressionRules";
 import { firstSuppression } from "@/lib/sales/suppression";
 import { loadContactNumbers, pickContactNumber } from "@/lib/sales/contact/resolve";
 import { CHANNEL_VOICE } from "@/lib/sales/contact/numbers";
-import { TWIML_APP_ENV, browserDialReadiness, callPlan } from "@/lib/sales/calls/browserDial";
+import { TWIML_APP_ENV, browserDialReadiness, callPlan, callerNumberFor } from "@/lib/sales/calls/browserDial";
+import { agencyLineHoldersFor } from "@/lib/sales/calls/callerLine";
 import { repCallStats } from "@/lib/sales/calls/reporting";
 import { saveRepAutodial } from "@/lib/sales/autodialWrite";
 
@@ -187,11 +188,17 @@ export async function GET(request) {
   const store = callStoreState();
   const mode = dialModeState();
 
-  const [numbers, open, repRow] = await Promise.all([
-    salesCallerNumbers().catch(() => []),
+  const [numberRows, open, repRow, agencyIds] = await Promise.all([
+    salesCallerNumberRows().catch(() => []),
     currentActivity(rep.id).catch(() => null),
     db.salesRep.findUnique({ where: { id: rep.id }, select: { autodial: true } }),
+    agencyLineHoldersFor(rep.id).catch(() => []),
   ]);
+  // The line THIS rep would present — their own, their agency's, or a pool
+  // line — and not "any line FieldQuo holds". Readiness used to be told the
+  // whole list, so a rep with no number of their own read as ready and was
+  // then dialled out on somebody else's (lib/sales/calls/browserDial.js).
+  const mine = callerNumberFor({ salesRepId: rep.id, callerNumbers: numberRows, agencyRepIds: agencyIds });
 
   // Today's own numbers. A rep sees their own and nobody else's — the
   // leaderboard, when it exists, is a separate decision with its own
@@ -221,7 +228,8 @@ export async function GET(request) {
     dial: browserDialReadiness({
       twilioConfigured: twilioConfigured(),
       twimlAppSid: process.env.TWILIO_SALES_TWIML_APP_SID || null,
-      callerNumbers: numbers,
+      callerNumbers: mine.e164 ? [mine.e164] : [],
+      heldButNotMine: !mine.e164 && numberRows.length > 0,
       // The browser answers this, not the server. Null here means "not asked
       // yet", which the screen replaces with the real answer before it decides
       // whether to render a call button.
@@ -229,6 +237,9 @@ export async function GET(request) {
       origin: getAppOrigin(request),
     }),
     twimlAppVar: TWIML_APP_ENV,
+    // The number the rep will present and why — so the panel can print
+    // "your line" or "the team's line" rather than ten digits.
+    callerNumber: mine.e164 ? { e164: mine.e164, rule: mine.rule } : null,
     dispositions: dispositionOptions(),
     states: STATE_ORDER.map((code) => ({ code, ...REP_STATES[code] })),
     pauseReasons: PAUSE_REASON_ORDER.map((code) => PAUSE_REASONS[code]),
@@ -698,11 +709,16 @@ export async function POST(request) {
 
     let plan = null;
     if (channel === "browser") {
-      const callerNumbers = await salesCallerNumbers();
+      // Read at the moment of the dial, holders included — the assignment
+      // table decides whose line this rep presents, and it is read fresh
+      // for the same reason the suppression list is.
+      const [callerNumbers, agencyIds] = await Promise.all([salesCallerNumberRows(), agencyLineHoldersFor(rep.id).catch(() => [])]);
       plan = callPlan({
         toE164: dialTo,
         readiness,
         callerNumbers,
+        salesRepId: rep.id,
+        agencyRepIds: agencyIds,
         // `ours` was read at the top of this branch and is the same list
         // pickContactNumber() already refused against. Read once and used
         // twice on purpose: two reads a few lines apart could disagree, and
@@ -722,6 +738,7 @@ export async function POST(request) {
       // land here or the free dial would ring the listing anyway.
       toE164: dialTo,
       fromE164: plan?.callerId || null,
+      callerIdRule: plan?.callerIdRule || null,
       dialChannel: channel,
       dialSource: source,
       readiness,
@@ -747,6 +764,7 @@ export async function POST(request) {
       // Canada's Telemarketing Rules require identifying with a callback
       // number, and a rep who cannot see the one being presented cannot say it.
       callerId: plan?.callerId || null,
+      callerIdRule: plan?.callerIdRule || null,
       to: dialTo,
       // Which stored number this was, and what the rep called it. Sent back so
       // the screen can say "ringing the owner's cell" rather than printing ten
