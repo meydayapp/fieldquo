@@ -130,6 +130,9 @@ const DETACHED = Object.freeze({
   later: async () => {},
   changeAutoLogged: noop,
   openTextFor: async () => {},
+  numberSaveError: "",
+  saveTypedNumber: async () => {},
+  dismissNumberQuestion: noop,
 });
 
 const Ctx = createContext(DETACHED);
@@ -489,6 +492,7 @@ export function CallSessionProvider({ children }) {
       // whether to ask afterwards whether it was theirs (never for a test
       // line or a test account — those are never saved).
       typedNotSaved: attempt.typedNotSaved === true,
+      askToSave: attempt.askToSave === true,
       target: {
         prospectId: target?.prospectId || null,
         leadId: target?.leadId || null,
@@ -527,6 +531,12 @@ export function CallSessionProvider({ children }) {
         prospectId: placed.target.prospectId,
         leadId: placed.target.leadId,
         businessName: placed.target.businessName,
+        // "Was +1 … {business}'s number?" — asked once, after the call, for a
+        // typed number the record does not carry and that is not a test dial.
+        // `saved` flips when the rep presses "Save it on this lead" so the
+        // question is not asked twice; `answered` when either button is
+        // pressed. Null when there is nothing to ask.
+        numberQuestion: placed.askToSave ? { e164: placed.to, businessName: placed.target.businessName, answered: false, saved: false } : null,
         // The line may log this one — after the grace, and only if the rep
         // has not started. The rep's own hang-up is never auto-logged (the
         // server refuses it too); asking would be a wasted round trip.
@@ -701,6 +711,47 @@ export function CallSessionProvider({ children }) {
     setDraft(EMPTY_DRAFT);
     setFormError("");
   }, [autoLogged]);
+
+  // ── "Was +1 … {business}'s number?" ──────────────────────────────────
+  //
+  // Yes saves it on the record the call was filed against, through the SAME
+  // door a typed dial used to take on the press (POST /api/sales/calls/
+  // numbers → lib/sales/contact/record.js): the do-not-contact refusal, the
+  // test-line guard and the dedupe are all there. No saves nothing. Either
+  // way the question is marked answered so it is asked once. A refusal is
+  // printed on the question, not swallowed — a save that silently did
+  // nothing is the dead control AGENTS.md opens with.
+  const [numberSaveError, setNumberSaveError] = useState("");
+  const saveTypedNumber = useCallback(async () => {
+    const row = pendingRef.current;
+    const q = row?.numberQuestion;
+    if (!q || q.answered || !q.e164 || (!row.prospectId && !row.leadId)) return;
+    setNumberSaveError("");
+    try {
+      await fetchJson("/api/sales/calls/numbers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...(row.prospectId ? { prospectId: row.prospectId } : { leadId: row.leadId }),
+          e164: q.e164,
+          kind: "unknown",
+          label: tRef.current("app.salesQueue.typedNumberLabel"),
+          canCall: true,
+        }),
+      });
+      setPending((p) => (p?.id === row.id ? { ...p, numberQuestion: { ...q, answered: true, saved: true } } : p));
+      reloadView();
+    } catch (err) {
+      setNumberSaveError(err?.message || tRef.current("app.salesQueue.typedNumberNotSaved"));
+    }
+  }, [reloadView]);
+  const dismissNumberQuestion = useCallback(() => {
+    const row = pendingRef.current;
+    const q = row?.numberQuestion;
+    if (!q) return;
+    setNumberSaveError("");
+    setPending((p) => (p?.id === row.id ? { ...p, numberQuestion: { ...q, answered: true } } : p));
+  }, []);
 
   const closeIntroPrompt = useCallback(() => {
     setIntroPrompt((p) => {
@@ -924,6 +975,9 @@ export function CallSessionProvider({ children }) {
       later,
       changeAutoLogged,
       openTextFor,
+      numberSaveError,
+      saveTypedNumber,
+      dismissNumberQuestion,
     }),
     [
       ready,
@@ -955,6 +1009,9 @@ export function CallSessionProvider({ children }) {
       later,
       changeAutoLogged,
       openTextFor,
+      numberSaveError,
+      saveTypedNumber,
+      dismissNumberQuestion,
     ],
   );
 

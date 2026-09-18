@@ -78,6 +78,9 @@ export const FRAMES = {
   // 2026-09-17: a test line typed on a lead's card, the owner's test
   // account, the Tasks tab's Call now, and the agency's own screens.
   "queue-typed-test": queue("&scene=typed-test"),
+  // 2026-09-18: a typed number the record does not carry, dialled unsaved,
+  // then "Was +1 … the business's number?" after the rep hangs up.
+  "queue-number-question": queue("&scene=typed-number-question"),
   "queue-test-account": queue("&scene=typed&testAccount=1"),
   "queue-tab-tasks": queue("&scene=tab-tasks"),
   "queue-tab-script": queue("&scene=tab-script"),

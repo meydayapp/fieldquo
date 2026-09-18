@@ -2686,50 +2686,18 @@ function QueueConsole() {
     const stored = (currentNumbers?.voice?.choices || []).find((c) => c.e164 === e164);
     if (stored) return { ok: true, phoneE164: e164, contactNumberId: stored.id || null };
     if (!current?.id) return { ok: false, error: t("app.salesQueue.pickOrClaim") };
-    // Not one of the record's numbers: saved on THIS record first, through
-    // the route "they gave us another number" posts to — same
-    // normalisation, same refusals (a suppressed business, a number that
-    // will not normalise, a record that is not ours) — and dialled by the
-    // id the route hands back. The dial route then re-reads the record's
-    // numbers and checks suppression for every one of them, this one
-    // included, before anything rings.
-    try {
-      const body = await fetchJson("/api/sales/calls/numbers", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prospectId: current.id,
-          e164,
-          kind: "unknown",
-          label: t("app.salesQueue.typedNumberLabel"),
-          canCall: true,
-        }),
-      });
-      const saved = (body?.numbers || []).find((n) => typedToE164(n.e164) === e164) || null;
-      if (!saved?.id) {
-        const error = t("app.salesQueue.typedNumberNotSaved");
-        setTypedError(error);
-        return { ok: false, error };
-      }
-      setTypedError("");
-      // The list under the field and the Contact card learn the new number.
-      load();
-      return { ok: true, phoneE164: e164, contactNumberId: saved.id };
-    } catch (err) {
-      // The numbers route REFUSED to store it because it is a test dial —
-      // one of FieldQuo's own test lines, or this is a test account. That
-      // is not a failure of the press: the number rings UNSAVED, sent as
-      // `typedE164`, and the dial route judges it again for itself (and
-      // refuses it for anybody who is neither). The record stays untouched.
-      if (err?.code === "test_line" || err?.code === "test_account") {
-        setTypedError("");
-        return { ok: true, phoneE164: e164, contactNumberId: null, typedE164: e164 };
-      }
-      const error = err?.message || t("app.salesQueue.typedNumberNotSaved");
-      setTypedError(error);
-      return { ok: false, error };
-    }
-  }, [typed, currentNumbers, current?.id, t, load]);
+    // Not one of the record's numbers: rung UNSAVED, as `typedE164`. It is NOT
+    // written onto the record on the press — the owner rang his own mobile
+    // from a New York lead's card and the console filed it as that lead's
+    // ("it may be a different company", 2026-09-17). The dial route records
+    // the attempt against this record (history and the cap need a row),
+    // checks suppression for the typed number alongside the record's own,
+    // and — for a real business number, not a test dial — asks after the
+    // call whether it belongs here. The save happens then, on a yes, through
+    // the same door this used to post to; nothing is persisted now.
+    setTypedError("");
+    return { ok: true, phoneE164: e164, contactNumberId: null, typedE164: e164 };
+  }, [typed, currentNumbers, current?.id, t]);
 
   const compliance = useMemo(() => {
     if (!current) return null;
@@ -3463,7 +3431,12 @@ function QueueConsole() {
             </button>
           </div>
 
-          {/* Company: the business, with Edit and Dial beside each number */}
+          {/* Company: the business, with "Add what you learned" and Dial
+              beside each number. The button never EDITS the discovered
+              record — it opens a box for the facts the rep picked up on the
+              call, kept beside the source's own data with the rep's name
+              (QueueLeadEditor writes the rep's lead, never the Prospect).
+              It read "Edit", which promised something it does not do. */}
           <div role="tabpanel" id="console-tab-company" aria-labelledby="console-tabbtn-company" hidden={tab !== "company"} className="space-y-3" data-console-card="company">
             {current ? (
               <div className="flex justify-end">
@@ -3474,7 +3447,7 @@ function QueueConsole() {
                   aria-expanded={editing}
                   data-company-edit
                 >
-                  <Pencil size={14} /> {editing ? t("app.salesQueue.editClose") : t("app.salesQueue.edit")}
+                  <Pencil size={14} /> {editing ? t("app.salesQueue.addLearnedClose") : t("app.salesQueue.addLearned")}
                 </button>
               </div>
             ) : null}
@@ -3501,7 +3474,10 @@ function QueueConsole() {
                 component's header argues that split at length. Behind
                 Edit, in this tab, because it is this tab's record. */}
             {!loading && current && editing ? (
-              <div className="border-t border-border pt-3">
+              <div className="border-t border-border pt-3 space-y-2">
+                {/* Says plainly that the source's record is not touched —
+                    the reason this is not an "Edit". */}
+                <p className="text-xs text-muted-foreground break-words">{t("app.salesQueue.addLearnedHelp")}</p>
                 <QueueLeadEditor
                   prospectId={current.id}
                   businessName={current.businessName}

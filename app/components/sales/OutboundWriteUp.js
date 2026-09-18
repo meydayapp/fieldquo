@@ -36,11 +36,67 @@ export function whatHappenedBody(t, language, row) {
 }
 
 /**
+ * "Was +1 … {business}'s number?" — the one question a typed dial asks after
+ * the call, in the inline copy of the write-up, above the outcome buttons.
+ *
+ * The number was rung UNSAVED (a typed number may be a different company);
+ * this is where the rep says whether it belongs on the record. Yes saves it
+ * through the session (the same door a stored number takes); No saves
+ * nothing. Asked once — the session marks it answered — and never for a test
+ * dial, because the server sets no question for one. A save refusal is
+ * printed here, not swallowed.
+ */
+function NumberQuestion({ t, session }) {
+  const { pending, saveTypedNumber, dismissNumberQuestion, numberSaveError } = session;
+  const q = pending?.numberQuestion;
+  if (!q || q.answered) {
+    // A saved number gets a one-line confirmation while the write-up is up,
+    // so the press does not vanish into nothing.
+    if (q?.answered && q.saved) {
+      return <p className="text-xs text-emerald-800 dark:text-emerald-300 break-words" data-number-saved>{t("app.salesQueue.typedNumberSaved")}</p>;
+    }
+    return null;
+  }
+  return (
+    <div className="rounded-lg border border-amber-300 dark:border-amber-800 bg-amber-100/60 dark:bg-amber-900/30 p-3 space-y-2" data-number-question>
+      <p className="text-sm font-medium text-amber-900 dark:text-amber-100 break-words">
+        {q.businessName
+          ? t("app.salesQueue.numberQuestionNamed", { number: q.e164, business: q.businessName })
+          : t("app.salesQueue.numberQuestion", { number: q.e164 })}
+      </p>
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={saveTypedNumber}
+          className="inline-flex items-center justify-center min-h-[40px] px-3 rounded-lg text-sm font-semibold bg-amber-600 text-white"
+          data-number-question-save
+        >
+          {t("app.salesQueue.numberQuestionSave")}
+        </button>
+        <button
+          type="button"
+          onClick={dismissNumberQuestion}
+          className="inline-flex items-center justify-center min-h-[40px] px-3 rounded-lg text-sm font-semibold border border-amber-400 text-amber-900 dark:text-amber-100"
+          data-number-question-dismiss
+        >
+          {t("app.salesQueue.numberQuestionNo")}
+        </button>
+      </div>
+      {numberSaveError ? (
+        <p className="text-xs text-red-700 dark:text-red-300 break-words" role="alert" data-number-question-error>
+          {numberSaveError}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/**
  * The write-up card. `inline` marks the copy that carries the scroll ref
  * and the Text them chip — the Dialer column, or the strip; the tab's copy
  * is the same state and two presses for one thread is noise.
  */
-export function OutboundWriteUpCard({ t, language, session, inline = true, flash = 0, formRef = null, extra = null }) {
+export function OutboundWriteUpCard({ t, language, session, inline = true, flash = 0, formRef = null }) {
   const { pending, draft, setDraft, busy, saveOutcome, later, formError } = session;
   if (!pending) return null;
   return (
@@ -61,10 +117,9 @@ export function OutboundWriteUpCard({ t, language, session, inline = true, flash
         </p>
       </div>
 
-      {/* Anything the screen wants asked beside the outcome — the typed
-          number question — before the six buttons, and in the inline copy
-          only. */}
-      {inline ? extra : null}
+      {/* "Was +1 … {business}'s number?" — the typed-number question, in the
+          inline copy only, above the outcome buttons. */}
+      {inline ? <NumberQuestion t={t} session={session} /> : null}
 
       {/* The six buttons, over the one shared draft. Every press folds to a
           real code in lib/sales/calls/outcomeChoices.js; this screen has no

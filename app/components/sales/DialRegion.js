@@ -288,7 +288,6 @@ export default function DialRegion({
   // This file decides nothing about a typed number either.
   beforeDial = null,
   dialRequest = null,
-  writeUpExtra = null,
 }) {
   const { t } = useTranslation();
 
@@ -393,7 +392,6 @@ export default function DialRegion({
             slots={slots}
             beforeDial={beforeDial}
             dialRequest={dialRequest}
-            writeUpExtra={writeUpExtra}
           />
           {compact ? (
             // Folded shut because a rep dialling their fortieth electrician

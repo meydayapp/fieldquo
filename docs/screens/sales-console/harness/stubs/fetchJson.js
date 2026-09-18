@@ -136,7 +136,14 @@ export async function fetchJson(url, options = {}) {
     };
   }
   if (p === "/api/sales/calls" && method === "POST") {
-    if (body.action === "dial") { state.attempts += 1; return { attemptId: "att" + state.attempts, to: "+14055550100", callerId: "+14055550999", serverNow: new Date().toISOString() }; }
+    if (body.action === "dial") {
+      state.attempts += 1;
+      // A typed number the record does not carry rings unsaved, and the
+      // server flags askToSave so the outcome form asks whether to keep it
+      // (2026-09-18). typedE164 arrives only for such a dial.
+      const to = body.typedE164 || "+14055550100";
+      return { attemptId: "att" + state.attempts, to, callerId: "+14055550999", serverNow: new Date().toISOString(), typedNotSaved: Boolean(body.typedE164), askToSave: Boolean(body.typedE164) };
+    }
     if (body.action === "disposition") { state.pending = null; return { ok: true }; }
     if (body.action === "autodial") { state.autodial = Boolean(body.on); return { autodial: state.autodial }; }
     return { ok: true };

@@ -239,10 +239,6 @@ export default function CallPanel({
   // function, same beforeDial, same gate; consumed once; refused with the
   // panel's own sentence when a call is up or an outcome is unlogged.
   dialRequest = null,
-  // A question the screen wants asked beside the write-up — the console's
-  // "Was +1 … {business}'s number?" for a typed number. Drawn in the Dialer
-  // column's copy of the form only.
-  writeUpExtra = null,
 }) {
   // The rep's own language, not the prospect's. Everything on this panel is
   // read by the person holding the phone; the words they SAY come from the
@@ -616,7 +612,7 @@ export default function CallPanel({
           one state (the session's), two places — see the header. */}
       {!startedAt && pending
         ? both(slots?.disposition || null, (inline) => (
-            <OutboundWriteUpCard t={t} language={language} session={session} inline={inline} flash={flash} formRef={formRef} extra={writeUpExtra} />
+            <OutboundWriteUpCard t={t} language={language} session={session} inline={inline} flash={flash} formRef={formRef} />
           ))
         : slots?.disposition
           ? createPortal(<NoCallToLog t={t} />, slots.disposition)

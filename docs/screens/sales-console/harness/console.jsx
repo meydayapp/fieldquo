@@ -111,6 +111,19 @@ const pressCall = async () => (await until('[data-console-card="dialer"] [data-c
     (await until('[data-dial-key="1"]')).click();
     await wait(1500);
   }
+  // 2026-09-18: a typed number the record does not carry is dialled unsaved;
+  // after the rep hangs up, the write-up asks "Was +1 … the business's
+  // number?" with Save it on this lead / No — someone else.
+  if (scene === "typed-number-question") {
+    await keyIn("4055550142");
+    await pressCall();
+    const slot = await until('[data-console-card="dialer"] [data-live-call-slot] [data-live-call="out"]');
+    await wait(1200);
+    (await until('[data-live-call-slot] [data-live-call-hang-up]')).click();
+    await until('[data-number-question]');
+    if (!document.querySelector('[data-number-question-save]') || !document.querySelector('[data-number-question-dismiss]')) throw new Error("scene: the number question has no Save / No buttons");
+    await wait(400);
+  }
   if (scene.startsWith("tab-")) {
     await click(`[data-console-tab="${scene.slice(4)}"]`);
     await wait(200);

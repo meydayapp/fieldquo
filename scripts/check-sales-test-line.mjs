@@ -354,8 +354,13 @@ section("6. The test account: same path, same mark, its own words");
   ok("…and never decides it from the request body or an email", !/body\.testAccount/.test(dial) && !/testAccount\s*=\s*[^;]*rep\.email/.test(dial));
   const iTyped = dial.indexOf("const typedE164 = typeof body.typedE164");
   ok("typedE164 is normalised, put on everyNumber for the suppression read, and judged after it", iTyped > 0 && iTyped < iSupp && /contactRows\.map\(\(r\) => r\.e164\), typedE164\]/.test(dial) && dial.indexOf("if (typedE164 && !typedIsStored)") > iSupp);
-  ok("…accepted ONLY for a test account or a test line — everybody else is refused not_on_this_record", /if \(!testAccount && !isTestLine\(typedE164, testLines\)\) \{[\s\S]{0,400}?reason: "not_on_this_record"/.test(dial));
-  ok("…and rings unsaved: chosen carries typed: true and no numberId, and the response says typedNotSaved", /chosen = \{ ok: true, e164: typedE164, numberId: null, choice: null, typed: true \};/.test(dial) && /typedNotSaved: chosen\.typed === true,/.test(dial));
+  // 2026-09-18: a typed number the record does not carry rings UNSAVED for
+  // EVERYONE, not only for a test dial — the owner rang his own mobile from a
+  // lead's card and it was filed as that lead's. A test dial is distinguished
+  // only by `askToSave`: false for it (never saved, never asked), true for a
+  // real number (asked after the call).
+  ok("…rung unsaved for everyone: chosen carries typed: true, no numberId, and askToSave off for a test dial", /const isTest = testAccount \|\| isTestLine\(typedE164, testLines\);/.test(dial) && /chosen = \{ ok: true, e164: typedE164, numberId: null, choice: null, typed: true, askToSave: !isTest \};/.test(dial));
+  ok("…the response says typedNotSaved, and askToSave only for a non-test typed number", /typedNotSaved: chosen\.typed === true,/.test(dial) && /askToSave: chosen\.askToSave === true,/.test(dial));
   ok("…the attempt row still names the prospect or lead on screen", /prospectId: target\.prospectId,\s*leadId: target\.leadId,/.test(dial));
 
   // The write moved out of the route into lib/sales/contact/record.js on
@@ -369,7 +374,16 @@ section("6. The test account: same path, same mark, its own words");
   ok("the shared write refuses to store a test line or a test account's number, with that code", /const testLineHit = isTestLine\(e164, await loadTestLines\(\{ client \}\)\);/.test(record) && /if \(testLineHit \|\| rep\?\.testAccount === true\)/.test(record) && /const code = testLineHit \? "test_line" : "test_account";/.test(record) && /status: 409, code, error: RECORD_REFUSALS\[code\], e164/.test(record));
   ok("…BEFORE anything is written", record.indexOf("const testLineHit") < record.indexOf("salesContactNumber.create"));
   const queuePage = decomment(read("app/sales/queue/page.js"));
-  ok("the dial pad turns that refusal into an unsaved typedE164 dial, and only that refusal", /if \(err\?\.code === "test_line" \|\| err\?\.code === "test_account"\) \{\s*setTypedError\(""\);\s*return \{ ok: true, phoneE164: e164, contactNumberId: null, typedE164: e164 \};/.test(queuePage));
+  // 2026-09-18: the dial pad no longer saves first and no longer special-
+  // cases the test refusal — a typed number that is not on the record is
+  // simply dialled unsaved as typedE164, and the server decides whether to
+  // ask about it afterwards.
+  const beforeDialBody = (() => {
+    const a = queuePage.indexOf("const beforeDial = useCallback");
+    const b = queuePage.indexOf("const compliance = useMemo", a);
+    return a >= 0 && b > a ? queuePage.slice(a, b) : "";
+  })();
+  ok("the dial pad dials a typed non-stored number unsaved, saving nothing on the press", /return \{ ok: true, phoneE164: e164, contactNumberId: null, typedE164: e164 \};/.test(beforeDialBody) && !/"\/api\/sales\/calls\/numbers"/.test(beforeDialBody));
   ok("…asks the server whether the typed number is a test line, never decides it", /fetchJson\(`\/api\/sales\/calls\/test-line\?e164=\$\{encodeURIComponent\(typedE164\)\}`\)/.test(queuePage) && !/loadTestLines|isTestLine\(/.test(queuePage));
   ok("…judges readiness as a test for the typed line and the account", /testLine: ctx\.testLine === true \|\| typedIsTestLine,/.test(queuePage) && /testAccount: ctx\.testAccount === true,/.test(queuePage));
   ok("…says \"not saved on this lead\" under the pad for either", /t\("app\.salesQueue\.typedTestLineNote"\)/.test(queuePage) && /t\("app\.salesQueue\.typedTestAccountNote"\)/.test(queuePage));
