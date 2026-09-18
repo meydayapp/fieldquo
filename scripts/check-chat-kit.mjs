@@ -304,7 +304,15 @@ section("6. The components: every string is translated, nothing sends itself");
   ok("every spinner honours prefers-reduced-motion", [...thread.matchAll(/animate-spin[^"']*/g), ...[...composer.matchAll(/animate-spin[^"']*/g)]].every((m) => m[0].includes("motion-reduce:animate-none")));
 
   const layout = decomment(read(`${dir}/ChatLayout.js`));
-  ok("the list wants 280 from md and gives way to 240, never a fixed width; the context bar is 340", /md:basis-\[280px\] md:min-w-\[240px\] md:shrink/.test(layout) && !/md:w-\[280px\]/.test(layout) && /w-\[340px\]/.test(layout));
+  // The bar's column breakpoint is a prop since 2026-09-18 (contextColumnFrom:
+  // "lg" by default, "wide" = 1400px for the sales texts screen, whose thread
+  // was squeezed to ~300px between a 220px sidebar, the list and the bar).
+  // Both strings are written out, because Tailwind sees only what is written.
+  // The list is a flex-basis with a floor since the same day (the owner:
+  // "flexible, not fixed"): it wants 280 and gives way to 240.
+  ok("the list wants 280 from md and gives way to 240, never a fixed width; the context bar is 340 from lg (or 1400 when asked)", /md:basis-\[280px\] md:min-w-\[240px\] md:shrink/.test(layout) && !/md:w-\[280px\]/.test(layout) && /"hidden lg:flex"/.test(layout) && /"hidden min-\[1400px\]:flex"/.test(layout) && /\$\{columnClass\} w-\[340px\]/.test(layout));
+  ok("…and the sheet hides at the same width the column appears", /"min-\[1400px\]:hidden" : "lg:hidden"/.test(layout) && /CONTEXT_COLUMN_MIN_WIDTH = \{ lg: 1024, wide: 1400 \}/.test(layout));
+  ok("the texts screen asks for the wide breakpoint and measures it with the same constant", /contextColumnFrom="wide"/.test(read("app/sales/messages/page.js")) && /CONTEXT_COLUMN_MIN_WIDTH\.wide/.test(read("app/sales/messages/page.js")));
   ok("below md exactly one pane shows", /pane === PANE_LIST \? "flex" : "hidden"/.test(layout) && /pane === PANE_THREAD \? "flex" : "hidden"/.test(layout));
   ok("…and the context bar is a sheet there", /context-sheet/.test(layout) && /lg:hidden/.test(layout));
 

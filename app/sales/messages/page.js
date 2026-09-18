@@ -37,6 +37,34 @@
 // reason is printed instead. That is courtesy, not enforcement — the two
 // checkins routes and the reply route each refuse it again on their own.
 //
+// ══ The first message is the rep's to choose (2026-09-18) ═════════════════
+//
+// A company told the rep "text me instead", and the only first text on
+// offer was the fixed signup-link introduction — "The wording is fixed" —
+// so a rep with something else to say had nowhere to say it. An empty
+// thread on a lead now opens with a picker above the box: the signup link
+// (the fixed introduction, SignupLinkSms, as before), "as discussed" (the
+// composer pre-filled with an open sentence the rep finishes), or write
+// your own (a blank composer). The two free-text options post to the same
+// reply route every later message uses, which appends the compliance
+// footer — FieldQuo, the mailing address, "Reply STOP to opt out" — and
+// runs every gate (the do-not-contact list, the window in their zone). The
+// route's first-contact refusal is now "no lead behind this number", not
+// "no signup link" — its POST says why. ?compose=own opens on write-your-
+// own: the "Text them" control beside every Call button and the "they'd
+// rather text" outcome link here with it.
+//
+// ══ The composer is pinned, never clipped ══════════════════════════════════
+//
+// The frame is a fixed height with overflow hidden (ChatLayout), and the
+// footer under the scroller does not shrink. On a 900px window the signup
+// panel — a preview, a zone select, a paragraph — was taller than what the
+// header and an empty thread left, so "Send the text" sat below the fold
+// of a box nothing scrolled: the owner's rep had "no options to send the
+// text or any text". The box and its Send are now the LAST flex item, drawn
+// whole; everything above them that can grow (the signup panel, the zone
+// row, the blockers) sits in its own capped scroller — never the textarea.
+//
 // ══ The demo thread keeps its Send ═════════════════════════════════════════
 //
 // It used to lose it — "nothing is ever sent from a demo" — and the owner,
@@ -88,6 +116,8 @@ import {
   MessageSquare,
   MessageSquarePlus,
   MonitorPlay,
+  PenLine,
+  UserPlus,
   OctagonAlert,
   PencilLine,
   Phone,
@@ -109,7 +139,9 @@ import {
   PANE_LIST,
   PANE_THREAD,
   PANE_CONTEXT,
+  CONTEXT_COLUMN_MIN_WIDTH,
 } from "@/app/components/chat";
+import { newLeadHref } from "@/lib/sales/calls/callerHrefs";
 import { layoutThread } from "@/lib/chat/threadLayout";
 import {
   GROUP_DONE,
@@ -268,11 +300,16 @@ function prettyE164(e164) {
   return m ? `+1 ${m[1]} ${m[2]} ${m[3]}` : s;
 }
 
-/** Does the viewport have room for the context bar as a column? */
+/**
+ * Does the viewport have room for the context bar as a column? The SAME
+ * width ChatLayout draws the column from (contextColumnFrom="wide"), read
+ * off its constant — the header's Contact press opens a sheet below it and
+ * toggles the column above it, and the two must agree on where "it" is.
+ */
 function useWide() {
   const [wide, setWide] = useState(false);
   useEffect(() => {
-    const mq = window.matchMedia("(min-width: 1024px)");
+    const mq = window.matchMedia(`(min-width: ${CONTEXT_COLUMN_MIN_WIDTH.wide}px)`);
     const update = () => setWide(mq.matches);
     update();
     mq.addEventListener("change", update);
@@ -437,7 +474,7 @@ function Field({ label, children, mono = false }) {
   );
 }
 
-function ContactDetails({ thread, openWith }) {
+function ContactDetails({ thread, openWith, onCompose = null }) {
   const { t } = useTranslation();
   const lead = thread?.lead;
   const contact = thread?.contact || {};
@@ -471,10 +508,15 @@ function ContactDetails({ thread, openWith }) {
       {lead?.id ? <CallHistoryStrip leadId={lead.id} limit={3} /> : null}
 
       <div className="flex flex-col gap-2">
-        {lead ? (
-          <Link href={`/sales/leads/${lead.id}`} className={`${BTN} border border-border text-foreground w-full`}>
-            <ExternalLink size={15} aria-hidden="true" /> {t("app.salesText.actionOpenLead")}
-          </Link>
+        {/* "Open lead" is in the thread header's action row, one press
+            away on every width; it was here too, and the owner's rep saw
+            it twice. What this pane offers instead is the thing the rep
+            came for: the box — focused, and on a phone the sheet closes
+            to reveal it. */}
+        {onCompose && !thread?.suppressed ? (
+          <button type="button" onClick={onCompose} className={`${BTN} bg-primary text-primary-foreground w-full`} data-context-compose>
+            <PenLine size={15} aria-hidden="true" /> {t("app.salesText.contextWriteText")}
+          </button>
         ) : null}
         {lead?.prospectId ? (
           <Link
@@ -880,6 +922,17 @@ function SalesMessagesScreen() {
   const [pane, setPane] = useState(openWith ? PANE_THREAD : PANE_LIST);
   // The New message picker, drawn in the thread pane while it is open.
   const [composing, setComposing] = useState(false);
+  // Which first message an empty thread opens on — see the header. From
+  // ?compose= when a control elsewhere chose (own | discussed), else the
+  // signup link; the picker changes it, and it resets with the thread.
+  const composeParam = params.get("compose") || "";
+  const [firstKind, setFirstKind] = useState(() => (composeParam === "own" || composeParam === "discussed" ? composeParam : "signup"));
+  // The zone the rep picked in the composer's zone row, when the server
+  // asked for one. "" until they (or the area-code suggestion) set it.
+  const [zoneChoice, setZoneChoice] = useState("");
+  // "Text this number now" on a thread with no lead — startTextThread's
+  // own path, the same one the New message picker's typed number takes.
+  const [claiming, setClaiming] = useState(false);
   const toLeadId = params.get("to") || "";
   const [showContext, setShowContext] = useState(true);
   const [contextTab, setContextTab] = useState("details");
@@ -975,7 +1028,7 @@ function SalesMessagesScreen() {
       try {
         const data = await fetchJson(`/api/sales/messages/contacts?leadId=${encodeURIComponent(toLeadId)}`);
         if (cancelled) return;
-        if (data.with) openThread(data.with);
+        if (data.with) openThread(data.with, { compose: composeParam });
         else setError(t("app.salesText.newNoNumber"));
       } catch (err) {
         if (!cancelled) setError(err?.message || t("app.salesText.newOpenFailed"));
@@ -1003,10 +1056,13 @@ function SalesMessagesScreen() {
     else next.delete("thread");
     next.delete("with");
     if (openWith) next.delete("to");
+    // The first-message choice rode in on the link; it is state now, and a
+    // reload of a thread that has since been texted must not re-apply it.
+    next.delete("compose");
     router.replace(`/sales/messages${next.toString() ? `?${next}` : ""}`);
   }, [openWith, params, router]);
 
-  const openThread = useCallback((e164) => {
+  const openThread = useCallback((e164, { compose = null } = {}) => {
     setOpenWith(e164);
     setThread(null);
     setInFlight([]);
@@ -1014,6 +1070,8 @@ function SalesMessagesScreen() {
     setLoadedDraftId(null);
     setParking(false);
     setComposing(false);
+    setZoneChoice("");
+    setFirstKind(compose === "own" || compose === "discussed" ? compose : "signup");
     setPane(PANE_THREAD);
   }, []);
 
@@ -1089,6 +1147,30 @@ function SalesMessagesScreen() {
   const blockers = thread?.blockers || [];
   const smsWindow = thread?.window || null;
   const pendingDraft = (thread?.checkIns || [])[0] || null;
+  // An empty thread on one of the rep's leads: the first message is theirs
+  // to pick (see the header). Not a signed-up company's — that branch has
+  // its own sentence — and not a demo's.
+  const firstContact = Boolean(
+    thread && thread.lead && !(thread.messages || []).length && !thread.company && !thread.draftCompany && !demoThread,
+  );
+  // The server asked where they are. The row above the box answers it —
+  // pre-filled with the area code's suggestion when there is one, and with
+  // nothing when the code straddles two clocks or the state does.
+  const zoneBlocker = blockers.find((b) => b.code === "time_zone_unknown") || null;
+  const zoneAsked = Boolean(zoneBlocker && thread?.lead?.id && Array.isArray(thread?.timeZones));
+  useEffect(() => {
+    if (!zoneAsked) return;
+    setZoneChoice((current) => current || thread?.suggestedTimeZone?.timeZone || "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [zoneAsked, thread?.suggestedTimeZone?.timeZone, openWith]);
+  // ?compose=discussed arrived before the thread (and its canned sentence)
+  // did: fill the box once the thread is here, and only into an empty box.
+  useEffect(() => {
+    if (!firstContact || firstKind !== "discussed") return;
+    const entry = (thread?.canned || []).find((c) => c.id === "discussed");
+    if (entry?.text) setText((current) => current || entry.text);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [firstContact, firstKind, thread?.canned]);
 
   const rows = useMemo(() => {
     if (!thread) return [];
@@ -1191,6 +1273,38 @@ function SalesMessagesScreen() {
     [loadThread, openWith, t],
   );
 
+  /** The picker above an empty thread's box: which first message. */
+  function pickFirst(kind) {
+    setFirstKind(kind);
+    if (kind === "discussed") {
+      const entry = (thread?.canned || []).find((c) => c.id === "discussed");
+      setText(entry?.text || "");
+    } else if (kind === "own") {
+      setText("");
+    }
+  }
+
+  /**
+   * A thread with no lead behind it, and the rep wants to text it anyway:
+   * the same door the New message picker's typed number goes through —
+   * startTextThread decides (the list, another rep's claim, Canada/US) and
+   * makes a lead with only the number on it when nobody holds one.
+   */
+  async function claimAndCompose() {
+    setClaiming(true);
+    setError("");
+    try {
+      await fetchJson("/api/sales/messages/start", { method: "POST", body: { phone: openWith } });
+      setFirstKind("own");
+      await loadThread(openWith);
+      await loadList();
+    } catch (err) {
+      setError(err?.message || t("app.salesText.newOpenFailed"));
+    } finally {
+      setClaiming(false);
+    }
+  }
+
   async function send() {
     const words = text.trim();
     if (!words) return;
@@ -1227,6 +1341,18 @@ function SalesMessagesScreen() {
     ]);
     setText("");
     try {
+      // The zone first, when the server asked for one and the rep answered
+      // in the row above the box: written on the lead as STATED — the rep
+      // confirmed it by pressing Send — through the lead route's own
+      // validation, so the send that follows is judged in it. A suggestion
+      // the rep did not touch is still their answer: it was on the screen,
+      // pre-selected, under a sentence saying where it came from.
+      if (zoneAsked && zoneChoice && thread?.lead?.id) {
+        await fetchJson(`/api/sales/leads/${encodeURIComponent(thread.lead.id)}`, {
+          method: "PATCH",
+          body: { timeZone: zoneChoice },
+        });
+      }
       const next = await fetchJson("/api/sales/messages", {
         method: "POST",
         body: { to: openWith, text: words },
@@ -1238,6 +1364,9 @@ function SalesMessagesScreen() {
       // `previous` rather than the one-letter name it had: this file now calls
       // t() for its copy, and a state updater called `t` shadows it.
       setThread((previous) => ({ ...previous, messages: next.messages }));
+      // A first text changes what the thread IS (a lead's zone written, the
+      // picker gone, the window now judged): re-read rather than patch.
+      if (zoneAsked || !(thread?.messages || []).length) await loadThread(openWith, { quiet: true });
       await loadList();
     } catch (err) {
       // The server's own sentence, not a rewrite of it. It names the blocker —
@@ -1312,7 +1441,9 @@ function SalesMessagesScreen() {
           : t("app.salesText.draftWaitingHint")}
       </span>
     );
-  } else if (softBlocker) {
+  } else if (softBlocker && !(zoneAsked && softBlocker.code === "time_zone_unknown")) {
+    // (A time_zone_unknown blocker is answered by the zone row above the
+    // box rather than repeated here as a sentence with no control.)
     hint = (
       <span className="inline-flex items-start gap-1.5 text-amber-900 dark:text-amber-200">
         <AlertCircle size={13} className="mt-0.5 shrink-0" aria-hidden="true" />
@@ -1741,30 +1872,123 @@ function SalesMessagesScreen() {
         <div className="border-t border-border bg-muted px-4 py-3 text-sm text-muted-foreground break-words" data-first-contact="signed-up">
           {t("app.salesText.firstContactSignedUp")}
         </div>
-      ) : thread && (thread.messages || []).length === 0 && thread.lead ? (
-        // ── An empty thread: the first text is the introduction ──────────
+      ) : thread && (thread.messages || []).length === 0 && !thread.lead ? (
+        // ── A number on nobody's lead of the rep's ───────────────────────
         //
-        // The reply route refuses a first contact by design (its POST: a
-        // free-text send to a number never texted is a cold-contact path
-        // with none of the first-contact rules attached). So an empty
-        // thread's composer IS the signup-link panel from the lead screen —
-        // the same component, the same /api/sales/sms route, the same
-        // refusals — and the ordinary composer appears once a text exists.
-        // The panel is taller than the message list above it on an empty
-        // thread, and the layout box is overflow-hidden at a fixed height —
-        // so without its own scroll the bottom of the panel, where "Send the
-        // text" is, was cut off and nothing on the screen scrolled (a rep
-        // reported "no option to send"). It scrolls itself, capped so the
-        // thread header stays visible.
-        <div className="border-t border-border min-h-0 max-h-[78%] overflow-y-auto shrink-0" data-first-contact>
-          <SignupLinkSms leadId={thread.lead.id} inThread onSent={() => loadThread(openWith, { quiet: true }).then(loadList)} />
-        </div>
-      ) : thread && (thread.messages || []).length === 0 ? (
-        <div className="border-t border-border bg-muted px-4 py-3 text-sm text-muted-foreground break-words" data-first-contact>
-          {t("app.salesText.firstContactNoLead")}
+        // A ?thread= link from the ring dialog, a pasted number, a number a
+        // colleague holds. The send route would refuse it (its POST: no
+        // lead, no first text) — so the reason is printed here, under where
+        // the box would be, never a disabled box with no sentence. Another
+        // rep's number says whose; nobody's offers the two ways in: open
+        // the thread on a new lead made from the number (the New message
+        // picker's own path), or save it as a lead with a name first.
+        <div className="border-t border-border bg-muted px-4 py-3 space-y-2" data-first-contact="no-lead" data-first-contact-refusal={thread.holder?.kind || "unknown"}>
+          <p className="flex items-start gap-2 text-sm text-foreground break-words">
+            <AlertCircle size={16} className="mt-0.5 shrink-0 text-amber-700 dark:text-amber-400" aria-hidden="true" />
+            <span>
+              {thread.holder?.kind === "other"
+                ? thread.holder.name
+                  ? t("app.salesText.noLeadHeldBy", { name: thread.holder.name })
+                  : t("app.salesText.noLeadHeldByOther")
+                : thread.holder?.kind === "none"
+                  ? t("app.salesText.noLeadNobody")
+                  : t("app.salesText.firstContactNoLead")}
+            </span>
+          </p>
+          {thread.holder?.kind === "none" ? (
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={claiming}
+                onClick={claimAndCompose}
+                className={`${BTN} bg-primary text-primary-foreground`}
+                data-first-contact-claim
+              >
+                {claiming ? <Loader2 size={16} className="animate-spin motion-reduce:animate-none" aria-hidden="true" /> : <PenLine size={16} aria-hidden="true" />}
+                {t("app.salesText.noLeadTextNow")}
+              </button>
+              <Link href={newLeadHref(openWith)} className={`${BTN} border border-border text-foreground`} data-first-contact-save-lead>
+                <UserPlus size={16} aria-hidden="true" /> {t("app.salesText.noLeadSaveAsLead")}
+              </Link>
+            </div>
+          ) : null}
         </div>
       ) : (
         <>
+          {/* ── The first message: the rep's pick ─────────────────────────
+              Three ways in, above the box, on an empty thread — the header
+              says why. The choice changes what the box holds, not what the
+              server checks. */}
+          {firstContact ? (
+            <div className="border-t border-border px-3 pt-2 pb-1" data-first-contact-picker={firstKind}>
+              <p className="text-xs font-semibold text-foreground">{t("app.salesText.firstPickTitle")}</p>
+              <div className="mt-1.5 -mx-3 flex gap-1.5 overflow-x-auto px-3 pb-1 [&>*]:shrink-0" role="radiogroup" aria-label={t("app.salesText.firstPickTitle")}>
+                {[
+                  ["own", PenLine, t("app.salesText.firstPickOwn")],
+                  ["discussed", MessageSquare, t("app.salesText.firstPickDiscussed")],
+                  ["signup", ExternalLink, t("app.salesText.firstPickSignup")],
+                ].map(([kind, Icon, label]) => (
+                  <button
+                    key={kind}
+                    type="button"
+                    role="radio"
+                    aria-checked={firstKind === kind}
+                    onClick={() => pickFirst(kind)}
+                    className={`${ACTION} ${firstKind === kind ? "border-brand-accent bg-brand-accent/10 text-foreground" : ""}`}
+                    data-first-pick={kind}
+                  >
+                    <Icon size={13} aria-hidden="true" /> {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          {firstContact && firstKind === "signup" ? (
+            // ── The fixed introduction, in its own capped scroller ────────
+            // The lead screen's own panel (the exact message, every
+            // blocker, the number picker, Send), the same /api/sales/sms
+            // route and refusals. Capped and scrollable, so its Send is
+            // always reachable — see "The composer is pinned" above.
+            <div className="min-h-0 max-h-[70%] shrink-0 overflow-y-auto border-t border-border" data-first-contact="signup">
+              <SignupLinkSms leadId={thread.lead.id} inThread onSent={() => loadThread(openWith, { quiet: true }).then(loadList)} />
+            </div>
+          ) : (
+          <>
+          {/* ── Where they are, when the server asked ─────────────────────
+              The readiness's time_zone_unknown blocker, answered in place:
+              one select over the same closed list the lead editor writes,
+              pre-filled with the area code's suggestion when the code sits
+              in one zone (said as a suggestion, with its caveat), empty
+              when it does not. Written on the lead by Send — see send(). */}
+          {zoneAsked ? (
+            <div className="border-t border-border bg-amber-50 dark:bg-amber-950/30 px-3 py-2 space-y-1.5" data-thread-zone={thread.suggestedTimeZone?.timeZone ? "suggested" : "asked"}>
+              <p className="text-xs text-amber-900 dark:text-amber-200 break-words">
+                {zoneBlocker.candidates?.length
+                  ? t("app.salesText.zoneAskSplit", { zones: zoneBlocker.candidates.join(" / ") })
+                  : thread.suggestedTimeZone?.timeZone
+                    ? t("app.salesText.zoneSuggested", { areaCode: thread.suggestedTimeZone.areaCode })
+                    : t("app.salesText.zoneAsk")}
+              </p>
+              <label className="block">
+                <span className="sr-only">{t("app.salesLeads.smsWhereAreThey")}</span>
+                <select
+                  value={zoneChoice}
+                  onChange={(e) => setZoneChoice(e.target.value)}
+                  className="w-full min-h-[40px] rounded-md border border-border bg-card px-2 text-sm text-foreground"
+                  data-thread-zone-select
+                >
+                  <option value="">{t("app.salesLeads.smsPickTimeZone")}</option>
+                  {(thread.timeZones || []).map((z) => (
+                    <option key={z.value} value={z.value}>
+                      {z.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          ) : null}
+
           {/* ── A follow-up the rep invents from the conversation ──────── */}
           {parking ? (
             <div className="border-t border-border px-3 py-3 space-y-2" data-park-form>
@@ -1841,6 +2065,10 @@ function SalesMessagesScreen() {
             onSend={send}
             busy={busy}
             disabled={!thread}
+            // The rep came here to write: the box has the caret before they
+            // reach for it. Only on a first message — a thread they are
+            // reading must not steal focus on every refresh.
+            autoFocus={firstContact}
             hint={hint}
             onHintAccept={
               pendingDraft
@@ -1878,6 +2106,8 @@ function SalesMessagesScreen() {
             // something untrue about what goes over the wire.
             footer={t("app.salesText.caslFooterNote", { optOut: "Reply STOP to opt out" })}
           />
+          </>
+          )}
         </>
       )}
     </>
@@ -1900,7 +2130,23 @@ function SalesMessagesScreen() {
         activeTab={contextTab}
         onTab={setContextTab}
       >
-        {contextTab === "details" ? <ContactDetails thread={thread} openWith={openWith} /> : null}
+        {contextTab === "details" ? (
+          <ContactDetails
+            thread={thread}
+            openWith={openWith}
+            onCompose={() => {
+              // Back to the thread on a phone (the sheet covers it), then
+              // the caret into the box. The signup panel has no textarea;
+              // its Send is the control there, so the pane scrolls to it.
+              setPane(PANE_THREAD);
+              setTimeout(() => {
+                const box = document.getElementById("reply");
+                if (box) box.focus();
+                else document.querySelector('[data-first-contact="signup"]')?.scrollIntoView({ block: "end" });
+              }, 50);
+            }}
+          />
+        ) : null}
         {contextTab === "channels" ? <ContactChannels thread={thread} openWith={openWith} /> : null}
         {contextTab === "history" ? <ContactHistory thread={thread} /> : null}
       </ContextBar>
@@ -1910,6 +2156,7 @@ function SalesMessagesScreen() {
     <div data-tour="sales-texts">
       <ChatLayout
         height={FRAME_HEIGHT}
+        contextColumnFrom="wide"
         pane={pane}
         onCloseContext={() => setPane(PANE_THREAD)}
         list={listPane}

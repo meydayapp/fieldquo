@@ -47,23 +47,19 @@ import { requireCallingRep } from "@/lib/sales/calls/gate";
 import { queueWhere } from "@/lib/sales/prospectView";
 import { normalisePhone } from "@/lib/sales/suppressionRules";
 import { ownNumbers } from "@/lib/sales/calls/store";
-import { isTestLine } from "@/lib/sales/testLines";
-import { loadTestLines } from "@/lib/sales/testLinesStore";
 import {
   CHANNEL_TEXT,
   CHANNEL_VOICE,
   KINDS,
-  KIND_UNKNOWN,
   isKind,
 } from "@/lib/sales/contact/numbers";
+import { MAX_LABEL, MAX_NOTE, recordContactNumber, tristate } from "@/lib/sales/contact/record";
 import {
   contactNumberStoreReady,
   loadContactNumbers,
   pickContactNumber,
 } from "@/lib/sales/contact/resolve";
 
-const MAX_LABEL = 80;
-const MAX_NOTE = 500;
 
 const bad = (error, status = 400) => NextResponse.json({ error }, { status });
 
@@ -125,19 +121,6 @@ function idsFrom(source) {
     prospectId: typeof source?.prospectId === "string" ? source.prospectId.trim() : "",
     leadId: typeof source?.leadId === "string" ? source.leadId.trim() : "",
   };
-}
-
-/**
- * A three-valued flag off the wire.
- *
- * `undefined` and `null` both mean "nobody said", and that is NOT false —
- * AGENTS.md failure class #5. Only a real boolean becomes a real boolean, so a
- * form that leaves the question blank stores a null and lib/sales/contact/
- * numbers.js falls back to what the KIND implies.
- */
-function tristate(value) {
-  if (value === true || value === false) return value;
-  return null;
 }
 
 const unavailable = () =>
@@ -217,111 +200,34 @@ export async function POST(request) {
   if (!owner) return bad("That record is not yours to work.", 404);
   if (!contactNumberStoreReady(db)) return unavailable();
 
-  // Refused rather than stored. A business that asked us to stop must not
-  // acquire a new dialable number on our side — offering their cell because it
-  // arrived later would be the same call they refused.
-  if (owner.doNotContactAt) {
-    return bad(
-      "This business asked not to be contacted, so no further numbers are recorded for them.",
-      409,
-    );
-  }
-
-  // Normalised through the SAME function the suppression list, the calling gate
-  // and Twilio key on. A number stored in any other shape is a number no
-  // suppression row can ever match — it would look clean forever.
-  const e164 = normalisePhone(body.e164 ?? body.number ?? body.phone);
-  if (!e164) {
-    return bad(
-      "That isn't a number we can dial. Put it in full, with the country code — nothing here " +
-        "guesses the missing digits.",
-    );
-  }
-
-  // ── Our own phone, or our own tester: not written onto their record ───
+  // ── The write itself is lib/sales/contact/record.js ──────────────────
   //
-  // A number on the test-line list is FieldQuo's (lib/sales/testLines.js),
-  // and a test account (SalesRep.testAccount) is FieldQuo testing. Neither
-  // belongs in a business's contact list: the owner rang his own mobile
-  // from DRAIN KINGS's card on 2026-09-17 and the console offered to file
-  // it as theirs, which would have polluted that record, its suppression
-  // history and every future pick. Refused with a code the dial pad reads
-  // (app/sales/queue/page.js beforeDial) to ring it UNSAVED as `typedE164`,
-  // which the dial route re-judges for itself. The Contact card's add form
-  // shows this sentence as its error, which is the honest outcome there.
-  const testLineHit = isTestLine(e164, await loadTestLines());
-  if (testLineHit || rep.testAccount === true) {
-    return NextResponse.json(
-      {
-        error: testLineHit
-          ? "That is one of FieldQuo's own test lines. It is not saved on this record — a test dial rings it as it is."
-          : "This is a test account. A number it types is not saved on the record — a test dial rings it as it is.",
-        code: testLineHit ? "test_line" : "test_account",
-        e164,
-      },
-      { status: 409 },
-    );
-  }
-
-  const kind = isKind(body.kind) ? body.kind : KIND_UNKNOWN;
-  const data = {
-    prospectId: owner.prospectId,
-    salesLeadId: owner.salesLeadId,
-    e164,
-    kind,
-    label: typeof body.label === "string" ? body.label.trim().slice(0, MAX_LABEL) || null : null,
-    canCall: tristate(body.canCall),
-    canText: tristate(body.canText),
-    preferred: body.preferred === true,
-    addedBySalesRepId: rep.id,
-    note: typeof body.note === "string" ? body.note.trim().slice(0, MAX_NOTE) || null : null,
-  };
-
-  // ── The same number twice, which is the ordinary case ───────────────────
-  //
-  // A rep is on the phone while typing. They will re-enter a number that is
-  // already on the record — because they forgot, or because they are
-  // correcting what they were told the first time. Two identical rows would be
-  // two indistinguishable entries in the dial picker, so the second write
-  // UPDATES the first rather than adding to it, and the response says which
-  // happened. The database's own unique constraint is the backstop for the
-  // race, not the read below.
-  const existing = (
-    await loadContactNumbers({
-      prospectId: owner.prospectId,
-      salesLeadId: owner.salesLeadId,
-    })
-  ).find((r) => normalisePhone(r.e164) === e164);
-
-  let updated = false;
-  if (existing) {
-    await db.salesContactNumber.updateMany({
-      where: { id: existing.id },
-      data: { ...data, prospectId: undefined, salesLeadId: undefined },
-    });
-    updated = true;
-  } else {
-    try {
-      await db.salesContactNumber.create({ data });
-    } catch (err) {
-      // P2002 means another tab won the race a moment ago. That is the same
-      // outcome the rep asked for, so it is a success with the second write
-      // folded into the first rather than an error they cannot act on.
-      if (err?.code !== "P2002") throw err;
-      const race = (
-        await loadContactNumbers({
-          prospectId: owner.prospectId,
-          salesLeadId: owner.salesLeadId,
-        })
-      ).find((r) => normalisePhone(r.e164) === e164);
-      if (!race) throw err;
-      await db.salesContactNumber.updateMany({
-        where: { id: race.id },
-        data: { ...data, prospectId: undefined, salesLeadId: undefined },
-      });
-      updated = true;
+  // Every rule this handler used to hold inline — a do-not-contact business
+  // refused, the number normalised through the suppression list's own
+  // function, FieldQuo's own test lines and test accounts never written onto
+  // a business's record, a duplicate folded into the row it already has —
+  // lives there now, because "Text them" (lib/sales/messages/startThread.js)
+  // records a number through the same door. The refusal shapes are
+  // unchanged: the dial pad still reads `code: "test_line"` /
+  // `"test_account"` off a 409 to ring the number UNSAVED as `typedE164`.
+  const written = await recordContactNumber({
+    owner,
+    rep,
+    e164: body.e164 ?? body.number ?? body.phone,
+    kind: body.kind,
+    label: body.label,
+    canCall: body.canCall,
+    canText: body.canText,
+    preferred: body.preferred,
+    note: body.note,
+  });
+  if (!written.ok) {
+    if (written.code === "test_line" || written.code === "test_account") {
+      return NextResponse.json({ error: written.error, code: written.code, e164: written.e164 }, { status: written.status });
     }
+    return bad(written.error, written.status);
   }
+  const updated = written.updated;
 
   return NextResponse.json({ ok: true, updated, ...(await view(owner)) }, { status: updated ? 200 : 201 });
 }

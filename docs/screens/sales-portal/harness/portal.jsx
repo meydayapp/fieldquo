@@ -176,6 +176,25 @@ const settled = async () => {
     btn.click();
     await wait(300);
   }
+  // ── Texts (2026-09-18): the New message picker, and a typed number Opened ──
+  // The two presses the owner's reps make when a company says "text me
+  // instead": New message, then type a number and press Open. The typed
+  // scene lands on the fresh thread the stub answers for it, which is where
+  // the first-message composer is.
+  if (page === "messages" && (scene === "new-message" || scene === "typed-open")) {
+    (await until("[data-new-message-button]")).click();
+    await until("[data-new-message]");
+    if (scene === "typed-open") {
+      const input = await until("#new-text-phone");
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set;
+      setter.call(input, "819 345 9008");
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      await wait(100);
+      (await until("[data-new-text-form] button[type=submit]")).click();
+      await until("[data-first-contact], [data-first-contact-picker], [data-first-contact-refusal]");
+      await settled();
+    }
+  }
   if (page === "leads" && scene === "adding") {
     const btn = [...document.querySelectorAll("button")].find((b) => b.textContent.trim().length && /add|ajouter|añadir|agregar/i.test(b.textContent));
     if (btn) { btn.click(); await wait(200); }

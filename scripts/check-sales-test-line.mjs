@@ -358,9 +358,16 @@ section("6. The test account: same path, same mark, its own words");
   ok("…and rings unsaved: chosen carries typed: true and no numberId, and the response says typedNotSaved", /chosen = \{ ok: true, e164: typedE164, numberId: null, choice: null, typed: true \};/.test(dial) && /typedNotSaved: chosen\.typed === true,/.test(dial));
   ok("…the attempt row still names the prospect or lead on screen", /prospectId: target\.prospectId,\s*leadId: target\.leadId,/.test(dial));
 
+  // The write moved out of the route into lib/sales/contact/record.js on
+  // 2026-09-18 so "Text them" could record a number through the same door;
+  // the rule is asserted where it now lives, and the route is held to
+  // calling it and forwarding the code the pad reads.
   const numbers = decomment(read("app/api/sales/calls/numbers/route.js"));
-  ok("the numbers route refuses to store a test line or a test account's number, with a code the pad reads", /const testLineHit = isTestLine\(e164, await loadTestLines\(\)\);/.test(numbers) && /if \(testLineHit \|\| rep\.testAccount === true\)/.test(numbers) && /code: testLineHit \? "test_line" : "test_account"/.test(numbers) && /status: 409/.test(numbers.slice(numbers.indexOf("const testLineHit"), numbers.indexOf("const testLineHit") + 900)));
-  ok("…BEFORE anything is written", numbers.indexOf("const testLineHit") < numbers.indexOf("db.salesContactNumber.create"));
+  const record = decomment(read("lib/sales/contact/record.js"));
+  ok("the numbers route records through the shared write", /await recordContactNumber\(\{/.test(numbers) && /import \{[^}]*recordContactNumber[^}]*\} from "@\/lib\/sales\/contact\/record"/.test(numbers));
+  ok("…and forwards a test-line / test-account refusal with the code the pad reads", /written\.code === "test_line" \|\| written\.code === "test_account"/.test(numbers) && /code: written\.code, e164: written\.e164/.test(numbers));
+  ok("the shared write refuses to store a test line or a test account's number, with that code", /const testLineHit = isTestLine\(e164, await loadTestLines\(\{ client \}\)\);/.test(record) && /if \(testLineHit \|\| rep\?\.testAccount === true\)/.test(record) && /const code = testLineHit \? "test_line" : "test_account";/.test(record) && /status: 409, code, error: RECORD_REFUSALS\[code\], e164/.test(record));
+  ok("…BEFORE anything is written", record.indexOf("const testLineHit") < record.indexOf("salesContactNumber.create"));
   const queuePage = decomment(read("app/sales/queue/page.js"));
   ok("the dial pad turns that refusal into an unsaved typedE164 dial, and only that refusal", /if \(err\?\.code === "test_line" \|\| err\?\.code === "test_account"\) \{\s*setTypedError\(""\);\s*return \{ ok: true, phoneE164: e164, contactNumberId: null, typedE164: e164 \};/.test(queuePage));
   ok("…asks the server whether the typed number is a test line, never decides it", /fetchJson\(`\/api\/sales\/calls\/test-line\?e164=\$\{encodeURIComponent\(typedE164\)\}`\)/.test(queuePage) && !/loadTestLines|isTestLine\(/.test(queuePage));
