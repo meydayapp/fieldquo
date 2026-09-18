@@ -426,6 +426,19 @@ function ReviewCard({ q, canApprove, busy, onApprove, onAssignToMe, currentUserI
           className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
         >{t("app.reviews.openQuote")}<ExternalLink size={13} />
         </Link>
+        {/* The branded report the homeowner was emailed after their price was
+            revealed — the staff copy of it, so the reviewer sees exactly what
+            the customer is holding. Present only once the report exists; the
+            API withholds it below view_create_edit. */}
+        {q.reportUrl && (
+          <a
+            href={q.reportUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+          >{t("app.reviews.viewReport", "View the report the homeowner got")}<ExternalLink size={13} />
+          </a>
+        )}
         {!canApprove && (
           <span className="text-xs text-muted-foreground">{t("app.reviews.supervisorOnly")}</span>
         )}

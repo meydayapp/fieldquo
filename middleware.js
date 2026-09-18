@@ -136,6 +136,10 @@ const SUBDOMAIN_PASSTHROUGH = [
   // is silent and badly timed: the rewrite would send a 404 to someone trying
   // to cancel, at the exact moment the alternative is not turning up.
   "/visit",
+  // The instant-estimate report (/estimate-report/<token>). Same class as
+  // /q: a homeowner opening the link from their email on the contractor's
+  // subdomain must get the report, not that tenant's marketing site.
+  "/estimate-report",
 ];
 
 // The sales portal's own unauthenticated doors, and the complete list of them.

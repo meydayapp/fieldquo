@@ -1288,6 +1288,7 @@ export default function InstantQuotesSettingsPage() {
   const [trades, setTrades] = useState(null);
   const [canEdit, setCanEdit] = useState(false);
   const [financing, setFinancing] = useState(null);
+  const [reportWebsite, setReportWebsite] = useState(null);
   const [live, setLive] = useState({ count: 0, slug: null });
   const [mismatches, setMismatches] = useState(null);
   const [showOtherTrades, setShowOtherTrades] = useState(false);
@@ -1300,6 +1301,7 @@ export default function InstantQuotesSettingsPage() {
       setMismatches(data.mismatches || null);
       setCanEdit(Boolean(data.canEdit));
       setFinancing(data.financing || { enabled: false });
+      setReportWebsite(data.reportWebsite || null);
       setLive({
         count: data.liveTradeCount || 0,
         slug: data.companySlug || null,
@@ -1605,7 +1607,142 @@ export default function InstantQuotesSettingsPage() {
       {financing && (
         <FinancingCard financing={financing} canEdit={canEdit} onSaved={load} />
       )}
+
+      {reportWebsite && (
+        <ReportWebsiteCard reportWebsite={reportWebsite} canEdit={canEdit} onSaved={load} />
+      )}
     </div>
+  );
+}
+
+/**
+ * Where the estimate REPORT's "Website" tile and "Back to the website" button
+ * send a homeowner.
+ *
+ * The automatic rule (lib/estimate/report/website.js) prefers the company's
+ * own website, falls back to the FieldQuo-hosted site only when it is
+ * published and carries something of theirs, and otherwise shows no link at
+ * all. This card shows what that rule picks TODAY and lets an owner override
+ * it. A choice that cannot be honoured — "my website" with none on record,
+ * "FieldQuo site" with nothing published — is offered disabled with the
+ * reason beside it, rather than saved and silently resolved to no link.
+ */
+function ReportWebsiteCard({ reportWebsite, canEdit, onSaved }) {
+  const { t } = useTranslation();
+  const [choice, setChoice] = useState(reportWebsite.setting || "auto");
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  const auto = reportWebsite.automatic || { kind: "none", url: null };
+  const autoText =
+    auto.kind === "own"
+      ? t("app.setInstantQuotes.reportSiteAutoOwn", "Right now: your own website ({url})", { url: auto.url })
+      : auto.kind === "fieldquo"
+        ? t("app.setInstantQuotes.reportSiteAutoHosted", "Right now: your FieldQuo website ({url})", { url: auto.url })
+        : t("app.setInstantQuotes.reportSiteAutoNone", "Right now: no website link — add your website under Company, or publish and personalise your FieldQuo site.");
+
+  const options = [
+    {
+      key: "auto",
+      label: t("app.setInstantQuotes.reportSiteAuto", "Automatic"),
+      hint: autoText,
+      disabled: false,
+    },
+    {
+      key: "own",
+      label: t("app.setInstantQuotes.reportSiteOwn", "My own website"),
+      hint: reportWebsite.ownUrl
+        ? reportWebsite.ownUrl
+        : t("app.setInstantQuotes.reportSiteOwnMissing", "No website on record — add it under Settings › Company."),
+      disabled: !reportWebsite.ownUrl,
+    },
+    {
+      key: "fieldquo",
+      label: t("app.setInstantQuotes.reportSiteHosted", "My FieldQuo website"),
+      hint: !reportWebsite.hostedUrl
+        ? t("app.setInstantQuotes.reportSiteHostedUnpublished", "Not published yet — publish it from Settings › Website.")
+        : reportWebsite.hostedTailored
+          ? reportWebsite.hostedUrl
+          : t("app.setInstantQuotes.reportSiteHostedStock", "{url} — still showing stock photos; homeowners will see them.", { url: reportWebsite.hostedUrl }),
+      disabled: !reportWebsite.hostedUrl,
+    },
+    {
+      key: "none",
+      label: t("app.setInstantQuotes.reportSiteNone", "No website link"),
+      hint: t("app.setInstantQuotes.reportSiteNoneHint", "The report shows Call and Email only."),
+      disabled: false,
+    },
+  ];
+
+  async function save() {
+    setSaving(true);
+    setSaved(false);
+    try {
+      await fetchJson("/api/settings/instant-quote", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ instantReportWebsite: choice === "auto" ? null : choice }),
+      });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+      onSaved?.();
+    } catch (err) {
+      showError(err.message || t("app.setInstantQuotes.couldNotSave", "Could not save"));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <section className="mt-4 rounded-xl border border-border bg-card p-5">
+      <h3 className="text-base font-semibold text-foreground">
+        {t("app.setInstantQuotes.reportSiteTitle", "Website link on the estimate report")}
+      </h3>
+      <p className="text-xs text-muted-foreground mt-1 max-w-md">
+        {t(
+          "app.setInstantQuotes.reportSiteIntro",
+          "After a homeowner sees their price they get a branded report with Call, Email and Website tiles. This decides where the Website tile and the \"Back to the website\" button go.",
+        )}
+      </p>
+      <div className="mt-3 space-y-2">
+        {options.map((o) => (
+          <label
+            key={o.key}
+            className={`flex items-start gap-3 rounded-lg border border-border px-3 py-2 ${o.disabled ? "opacity-60" : "cursor-pointer"}`}
+          >
+            <input
+              type="radio"
+              name="reportWebsite"
+              value={o.key}
+              checked={choice === o.key}
+              disabled={!canEdit || o.disabled}
+              onChange={() => setChoice(o.key)}
+              className="mt-1"
+            />
+            <span className="min-w-0">
+              <span className="block text-sm text-foreground">{o.label}</span>
+              <span className="block text-xs text-muted-foreground break-words">{o.hint}</span>
+            </span>
+          </label>
+        ))}
+      </div>
+      {canEdit && (
+        <div className="mt-4 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => save()}
+            disabled={saving}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-inverted text-inverted-foreground text-sm font-semibold disabled:opacity-50"
+          >
+            {saving ? <Loader2 size={14} className="animate-spin" /> : null}{" "}
+            {t("app.action.save")}
+          </button>
+          {saved && (
+            <span className="text-sm text-emerald-600 dark:text-emerald-400">{t("app.action.saved")}</span>
+          )}
+        </div>
+      )}
+    </section>
   );
 }
 

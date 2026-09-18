@@ -1763,6 +1763,15 @@ model Company {
   /// provider hand-off; otherwise it's a plain "ask us".
   financing Json?
 
+  /// Which website the instant-estimate REPORT's "Website" tile and "Back to
+  /// the website" button send a homeowner to. "own" = Company.website,
+  /// "fieldquo" = the hosted CompanySite, "none" = no link at all. NULL is the
+  /// automatic rule in lib/estimate/report/website.js: the company's own site
+  /// when one is on record, else the hosted site ONLY when it is published
+  /// and carries something of theirs (a hand edit, an own photo), else
+  /// nothing — a homeowner is never sent to a page of stock photos.
+  instantReportWebsite String?
+
   isDemo Boolean @default(false)
 
   // ── Account standing (seat-sharing guard) ────────────────────────────────

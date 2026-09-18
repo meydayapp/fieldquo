@@ -35,6 +35,13 @@ import {
   catalogueMismatches,
 } from "@/lib/trades/catalog";
 import { normaliseFinancing } from "@/lib/estimate/financing";
+import {
+  reportWebsiteChoice,
+  resolveReportWebsite,
+  ownWebsiteUrl,
+  hostedSiteUrl,
+  siteIsTailored,
+} from "@/lib/estimate/report/website";
 import { reprovisionIfLive } from "@/lib/voice/provision";
 import { getAppOrigin } from "@/lib/appUrl";
 import {
@@ -79,7 +86,16 @@ export async function GET(request) {
     db.instantQuoteConfig.findMany({ where: { companyId: member.companyId } }),
     db.company.findUnique({
       where: { id: member.companyId },
-      select: { financing: true, slug: true },
+      select: {
+        financing: true,
+        slug: true,
+        // For the report's website rule — see lib/estimate/report/website.js.
+        website: true,
+        instantReportWebsite: true,
+        site: {
+          select: { subdomain: true, published: true, blocks: true, pages: true, handEditedAt: true, photoLibrary: true },
+        },
+      },
     }),
     // What the company says it SELLS. This screen used to render every wired
     // estimator with no reference to it, which is how a cabinet painter came to
@@ -270,6 +286,17 @@ export async function GET(request) {
     companySlug: company?.slug || null,
     // Company-level, not per-trade — one financing offer for the business.
     financing: normaliseFinancing(company?.financing),
+    // Where the estimate REPORT's website tile sends a homeowner: the saved
+    // choice (null = automatic), what the automatic rule would pick today,
+    // and the two candidate URLs so the screen can say what each choice
+    // means rather than offering "FieldQuo site" to a company with none.
+    reportWebsite: {
+      setting: reportWebsiteChoice(company?.instantReportWebsite),
+      automatic: resolveReportWebsite({ company: { website: company?.website, instantReportWebsite: null }, site: company?.site }),
+      ownUrl: ownWebsiteUrl(company),
+      hostedUrl: hostedSiteUrl(company?.site),
+      hostedTailored: siteIsTailored(company?.site),
+    },
   });
 }
 
@@ -318,6 +345,27 @@ export async function PUT(request) {
       },
     });
     return NextResponse.json({ ok: true, financing });
+  }
+
+  // ── The report's website link ────────────────────────────────────────────
+  //
+  // Same shape as the financing save: a `{ instantReportWebsite }` payload
+  // updates the company and returns. "auto" (or null) clears the override.
+  if (body && body.instantReportWebsite !== undefined) {
+    const choice = reportWebsiteChoice(body.instantReportWebsite);
+    await db.company.update({
+      where: { id: member.companyId },
+      data: { instantReportWebsite: choice },
+    });
+    await recordActivity(member, {
+      action: "settings.instant_report_website_updated",
+      entityType: "settings",
+      summary: choice
+        ? `Estimate report website link set to "${choice}"`
+        : "Estimate report website link set to automatic",
+      metadata: { choice },
+    });
+    return NextResponse.json({ ok: true, instantReportWebsite: choice });
   }
 
   const { trade, enabled, config } = body || {};
