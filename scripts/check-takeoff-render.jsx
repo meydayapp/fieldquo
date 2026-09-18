@@ -698,7 +698,15 @@ try {
 // The pay-cycle card renders before its fetch resolves and after it fails —
 // both are the states a settings page is actually in most of the time.
 try {
-  const html = renderToStaticMarkup(<PayCycleCard />);
+  // Inside a LanguageProvider since b11b6643, when the card started reading
+  // weekday names through useTranslation(); bare, the hook throws before the
+  // null-data branch is reached and the check fails for a reason that has
+  // nothing to do with what it guards.
+  const html = renderToStaticMarkup(
+    <LanguageProvider initialLanguage="en">
+      <PayCycleCard />
+    </LanguageProvider>,
+  );
   // Null data renders nothing, which is correct: a card that flashed defaults
   // before the company's real cadence loaded would show the wrong payday.
   if (html !== "") throw new Error("rendered before data loaded");

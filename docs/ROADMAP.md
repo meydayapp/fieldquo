@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 18 September 2026 (the "we tried calling you" intro email: a pop-up after a no-answer or a voicemail sends the fixed EN/FR/ES email from the rep's mailbox, with the rep's signup link and two single-use buttons — call me back, book a demo — whose presses land on the rep's Today, calendar and lead page; `lib/sales/outreach/intro*.js`, `docs/SALES-OUTREACH.md` §0c; see the section below)
+Last updated: 18 September 2026 (the roofing estimate model was calibrated against the market — 6/12 is walkable, tear-off strips at 0.5 h/sq, ice & water lays two courses at the eave; 917 Littlerock goes from 127.7 to 100.2 crew-hours and the write-up with every source is `docs/research/ROOFING-RATES-2026.md`; see the section below)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -82,6 +82,55 @@ greeting sends it in two presses and never retypes it.
   key, expiry, replay), the 14-day guard, next-business-hour, the trigger
   table against CallPanel, the request stamps and counters against a fake
   client, and the nine-language keys.
+## The roofing model against the market: three defaults moved, every line given a verdict (18 September 2026)
+
+**Deployed.** The owner asked, on the 917 Littlerock St estimate (Solar-
+measured hip, 31.2 squares, 6/12, $21,044 with 3-tab, 127.7 crew-hours, 8.5
+days for two): is the work reflective of the size, is the production rate
+right, is the price right — and go find real quotes. The answer, with every
+figure cited, is `docs/research/ROOFING-RATES-2026.md`: 23 real posted quotes
+and invoices (RedFlagDeals, Bogleheads, Garage Journal, Houzz, Ottawa and NY
+roofers; Reddit is unreachable from the agent environment), the per-square
+guides for Ottawa/Toronto/Montreal and the US north-east, crew production
+statements from roofers, and the code text for ventilation and eave
+protection.
+
+Three defaults moved, all in seed tables — no company override touched:
+
+- **6/12 is walkable.** `PITCH_BANDS` in `lib/pricing/roofLabour.js` used to
+  start "moderate" (×1.3 labour, +10% sell) at 6/12. Xactimate charges steep
+  from 7/12, piece-rate payroll runs standard to 6/12, and our own public
+  `steepnessTier()` already read 6/12 as standard — the homeowner's instant
+  price and the office builder disagreed about the commonest roof in Ottawa.
+  Bands are now ≤6 / 7–9 / 10–12 / >12; factors and keys unchanged.
+- **Tear-off 0.7 → 0.5 h/sq** (additional layer 0.45 → 0.3). Every measured
+  strip is 0.27–0.60.
+- **Ice & water prefills two courses at the eave** (`ICE_WATER_EAVE_COURSES`
+  in `lib/measure/roofGeometry.js`). OBC 9.26.5.1's 900 mm past the inner
+  wall face is not reachable with one 36" course on any overhang over a foot;
+  Ottawa roofers lay 6 ft; real quotes say so.
+
+917 Littlerock after: 3-tab $19,796 ($635/sq), architectural $24,470
+($785/sq) — inside the Ottawa guides' $16k–$22k / $20k–$33.6k bands for a
+house this size and above Cossette's "from $630/sq" instant figure, which is
+where a hip with 163 ft of cap and 41 ft of valley belongs; **100.2 crew-
+hours, 6.7 days for two, 3.5 for four** (a nine-man crew did a 3,150 sq ft
+north-east house in a day in 2024, ~2.6 h/sq, so this is still the slow side
+of real). Ventilation was already computed off the footprint, not the sloped
+surface, and stands. Everything else — per-square rates, per-foot details,
+penetrations, storeys, crew curve — is in range and was left alone, with the
+market figure beside each in the doc's verdict tables.
+
+Left for a product decision, named in the doc: 3-tab at $400/sq stacks above
+Ottawa's 3-tab guides on a product BP is discontinuing; waste is a flat 10%
+where a hip wastes 15–20% and the geometry already knows the shape; cedar's
+sell is under every Ontario figure with a null material cost by design.
+
+`check:trade-labour` pins the new bands, their agreement with the public
+tiers, the constants and the 917 Littlerock after-numbers;
+`check:roof-prefill` pins the two-course rule. `check:takeoff-render` was
+failing on main because the pay-cycle card gained `useTranslation()` and the
+harness rendered it outside a `LanguageProvider`; wrapped.
 
 ---
 
@@ -10448,9 +10497,11 @@ they set the pattern.
      returns the already-sloped surface. `slopedAreaSqft()` is the one place
      area and pitch meet, for a footprint typed off a survey, and its output
      matches the published pitch-multiplier table exactly (12/12 → 1.414).
-  4. **The pitch bands are the industry ones, unchanged** (walkable 1.0,
-     6–8/12 1.3, 9/12+ 1.6), with a low-slope and a >12/12 band added where
-     that table is silent. Nothing familiar was moved under anyone.
+  4. **The pitch bands keep the industry factors** (walkable 1.0, moderate
+     1.3, steep 1.6), with a low-slope and a >12/12 band added where that
+     table is silent. The boundaries moved once, on 18 September 2026, to
+     Xactimate's (moderate from 7/12, steep from 10/12) — see the roofing
+     calibration section and `docs/research/ROOFING-RATES-2026.md`.
   5. **Crew size is not free division.** A lone roofer and a crowded roof both
      cost hours; the curve is editable and can be flattened back to plain
      division.
