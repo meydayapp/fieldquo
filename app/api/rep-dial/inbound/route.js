@@ -522,7 +522,12 @@ async function queueStage(request, params) {
     reachableNow: ring.targets.length,
     justRang,
     holdMusicUrl: holdMusicUrl(),
-    repName: attempt?.salesRep?.name || null,
+    // The name is spoken only when that rep was on the ring plan: "X isn't
+    // picking up" about a rep the plan never rang is a lie (queue.js).
+    repName:
+      attempt?.salesRep?.name && ring.targets.some((t) => t.salesRepId === attempt.salesRepId)
+        ? attempt.salesRep.name
+        : null,
     maxRounds: MAX_QUEUE_ROUNDS,
   });
 

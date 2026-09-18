@@ -244,8 +244,12 @@ section("3b. A Quebec caller rings only reps with French");
   ok("…the plan says so", fr.needsFrench === true);
   const owner = ringPlan({ assignedRepId: "anglo", presence: rows, needsFrench: true, frenchRepIds: ["franco"], now: NOW });
   ok("the number's owner is skipped when they have no French", !owner.targets.some((t) => t.salesRepId === "anglo") && owner.targets[0]?.salesRepId === "franco", owner.targets);
+  // 2026-09-17: the rep who just spoke to this contractor is not a stranger
+  // to them — the language rule does not apply to the last caller. The
+  // owner, English-only, rang himself from an 819 number and was skipped.
   const last = ringPlan({ presence: rows, lastCalledBy: "anglo", needsFrench: true, frenchRepIds: ["franco"], now: NOW });
-  ok("…and so is whoever rang them last", !last.targets.some((t) => t.salesRepId === "anglo"));
+  ok("…but whoever rang them last IS rung, French or not", last.targets.some((t) => t.salesRepId === "anglo"), last.targets);
+  ok("…named as the last caller, first on the plan", last.targets[0]?.salesRepId === "anglo" && /rang this contractor/.test(last.targets[0].why), last.targets[0]);
   const empty = ringPlan({ presence: [fresh("anglo")], needsFrench: true, frenchRepIds: [], now: NOW });
   ok("no French rep live → an empty plan, so the route holds them and ends at voicemail as it does for nobody free", empty.targets.length === 0);
   ok("…with its own reason, nobody_french, for the log", empty.reason === "nobody_french", empty.reason);
