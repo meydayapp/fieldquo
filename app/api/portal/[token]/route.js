@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { computeInvoiceState } from "@/lib/invoices/computeInvoiceState";
 import { latestPerFamily } from "@/lib/invoices/family";
+import { loadDocumentCustomFields } from "@/lib/customFields/values";
 import { resolveClientLanguage } from "@/lib/i18n/resolveLanguage";
 import { taxStatement } from "@/lib/tax/documentTax";
 import { companyBankDebitMethod } from "@/lib/stripe/bankDebit";
@@ -31,6 +32,9 @@ export async function GET(request, { params }) {
       language: true,
       country: true, // resolveDocumentTax's jurisdiction lookup
       province: true, // same
+      // Read by loadDocumentCustomFields below to find the company's own
+      // definitions; the response builds its own object and never forwards it.
+      companyId: true,
       company: {
         select: {
           name: true,
@@ -255,6 +259,18 @@ export async function GET(request, { params }) {
   // Per invoice, because each was raised on its own day with its own decision
   // about tax. `asOf` is the invoice's creation date so a rate change last
   // month cannot re-explain a bill sent before it.
+  // The company's own boxes flagged for the document (a PO number), per
+  // invoice family — the same line the emailed copy and the PDF print. One
+  // query per invoice; the portal lists a handful, never hundreds.
+  const customFieldsByInvoice = new Map(
+    await Promise.all(
+      client.invoices.map(async (invoice) => [
+        invoice.id,
+        await loadDocumentCustomFields(db, client.companyId, "invoice", invoice.id),
+      ]),
+    ),
+  );
+
   const invoices = client.invoices.map((invoice) => {
     const statement = taxStatement({
       taxEnabled: invoice.taxEnabled,
@@ -275,6 +291,8 @@ export async function GET(request, { params }) {
       total: invoice.total,
       amountPaid: invoice.amountPaid,
       dueDate: invoice.dueDate,
+      // Only what the company flagged for the document, with an answer.
+      customFields: customFieldsByInvoice.get(invoice.id) || [],
       lineItems: invoice.lineItems,
       notes: invoice.notes,
       subtotal: invoice.subtotal,

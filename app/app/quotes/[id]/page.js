@@ -109,6 +109,7 @@ import { taxStatement } from "@/lib/tax/documentTax";
 import TaxUnresolvedModal from "@/app/components/tax/TaxUnresolvedModal";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import ClientMediaTile from "@/app/components/ClientMediaTile";
+import { CustomFieldsPanel } from "@/app/components/customFields/CustomFieldsBox";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { documentLabels } from "@/lib/i18n/documentLabels";
 import ImportedByPanel from "./ImportedByPanel";
@@ -1730,6 +1731,10 @@ export default function QuoteDetailPage() {
             </p>
           </Block>
         )}
+
+        {/* The company's own extra boxes, answered ones only; the ones the
+            client's copy prints are marked. Nothing for a company with none. */}
+        <CustomFieldsPanel entityType="quote" entityId={id} variant="section" />
 
         {Array.isArray(quote.clientPhotos) && quote.clientPhotos.length > 0 && (
           <Block title={t("app.quoteDetail.clientMedia")}>

@@ -1,12 +1,71 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 17 September 2026 (gutters: the builder measures the gutter run and downspouts from the roof model with sanity flags the review carries; a gutter instant estimate priced per foot and per downspout in the company's currency, seeded from the competitor's four Ottawa/Gatineau points, with EN/FR/ES copy; the estimate email prints the company's currency instead of "CAD"; the paver designer and a shared landscaping canvas measure a traced polygon from the satellite still's own ground resolution; a quote schedules the estimator's on-site visit as an Appointment with quoteId, confirmed to the client in the quote's language and carried into the job's history — see the three sections below)
+Last updated: 17 September 2026 (leads: every card says what the lead is probably worth and where the number came from — a priced quote, an unreviewed instant estimate's midpoint, or the company's own average won quote for that service — and a strip at the top sums it per stage, counts the leads with no figure and says it is not weighted; custom fields: definitions now render on the client, quote, job, invoice and worker forms, answers show read-only on each record's page, and a quote/invoice field flagged "show on documents" prints on the PDF, the email, /q/<token> and the portal — see the section below)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
 it exists to answer.
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
+
+---
+
+## Leads carry a potential value, and custom fields reach the records they were defined for (17 September 2026)
+
+**Leads.** `lib/leads/potentialValue.js` (pure) gives every lead an amount
+AND a basis, in strict order: "quote" (a quote exists and a human priced or
+confirmed it — `acceptedTotal ?? total`), "estimate" (an auto-estimated draft
+still `needsReview`: the midpoint of `estimateData.range`), "average" (the
+mean of this company's ACCEPTED quotes carrying a scope group — or, for
+older quotes, a `quoteType` — in the lead's service category; company's own
+history only, non-negotiable #8), else "unknown" with `amount: null`. A
+stated budget band is deliberately not a figure. `GET /api/leads` attaches
+`potential` per lead only when `canSeeMoney(full)` — the pricing toggle that
+already hides quote totals — and strips the quote's money back off the row;
+`lib/leads/wonAverages.js` is the one bounded query. The board prints
+"≈ $X · from quote Q-0031 / from instant estimate / your average for
+Painting" on the card (nothing for "unknown", never $0) and a strip on top:
+open (new + contacted) total, one cell per stage with "3 of 5 with a
+figure", "4 leads with no figure" (CLDR plurals), and "not weighted" — the
+pipeline has no stage probabilities and the sales side refuses to invent
+them (`lib/sales/intel/leadScore.js`). Nine languages.
+Check: `npm run check:lead-potential`.
+
+**Custom fields.** The settings page had said nothing rendered these and
+hidden its Add control. Now: `lib/customFields/validate.js` (pure) is the
+type rule for an answer — text ≤500 chars, number canonicalised, date
+YYYY-MM-DD and real, checkbox "true"/"false", dropdown must be an option,
+required means required, unknown field id refused; `lib/customFields/
+values.js` is the ONE reader/writer of `CustomFieldValue`, tenant-scoped
+twice (definitions by companyId, and the entity looked up in the company
+before any read or write — a foreign id is 404). Invoices key on the
+FAMILY ROOT so an amended invoice keeps its PO number; "team" is the Worker
+row. `/api/custom-fields/values` (GET/PUT) is gated by the record's own
+grid dial. `app/components/customFields/CustomFieldsBox.js` gives forms a
+hook (`useCustomFields`) + inputs; the form validates before its own save
+and saves the answers against the saved id after — wired into new/edit
+client, new/edit job, the quote builder, new/edit invoice and the worker
+card; read-only panels on the client, job, quote, invoice and person-file
+pages. `CustomField.showOnDocuments` (new column, default false, only
+meaningful on quote/invoice, toggleable from the list) prints the answer as
+a "PO number · 4471" line on the PDF Details panel, both emails (html +
+text), `/q/<token>` and the portal invoice — one formatter,
+`lib/documentSections/customFacts.js`, plus `customYes`/`customNo` in
+`documentLabels`. **Property**: there is no Property model and never was;
+new property definitions are refused, existing ones are listed with a
+sentence saying they have nowhere to appear and can be deleted.
+`app.setCustomFields.purpose` is back in the present tense in nine
+languages, in the same commit as the wiring.
+Check: `npm run check:custom-fields`.
+
+### Still owed here
+
+- Custom field values are not searchable or filterable on any list, and are
+  not exported with a client/job export.
+- Reordering definitions (`sortOrder`) has no control; they list in creation
+  order.
+- The document-templates preview (`/api/settings/document-templates/[id]/
+  preview`) renders sample data and shows no custom line.
 
 ---
 

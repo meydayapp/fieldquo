@@ -9,6 +9,7 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 import { fetchJson } from "@/lib/fetchJson";
 import { fetchArray } from "@/lib/loadState";
 import { useHasLevel } from "@/app/providers/PermissionProvider";
+import { useCustomFields, CustomFieldInputs } from "@/app/components/customFields/CustomFieldsBox";
 import { CALLBACK_REASONS, CALLBACK_REASON_LABEL_KEYS } from "@/lib/jobs/callbackReasons";
 // The picker's options and their words both come from the module that does the
 // scheduling. Two hand-written lists beside one Set was the bug waiting to
@@ -45,6 +46,9 @@ export default function NewJobPage() {
   const [siteAddress, setSiteAddress] = useState("");
   const [originalJob, setOriginalJob] = useState(null);
   const [callbackReason, setCallbackReason] = useState("");
+  // The company's own extra boxes for a job — saved against the id the POST
+  // creates. Hook stays up here with the rest (scripts/check-job-page-hooks).
+  const cf = useCustomFields("job", null);
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -117,6 +121,7 @@ export default function NewJobPage() {
       setError(t("app.jobNew.selectFrequency"));
       return;
     }
+    if (!cf.validate()) return;
     setSaving(true);
     try {
       // fetchJson, not fetch + res.json(): a 500 from this route returns Next's
@@ -134,6 +139,15 @@ export default function NewJobPage() {
           ...(siteAddress.trim() && { siteAddress: siteAddress.trim() }),
         },
       });
+      // The job exists; its extra boxes save against it. A refusal is named
+      // as the boxes', not the job's, which is already created.
+      try {
+        await cf.save(data.id);
+      } catch (err) {
+        setError(`${t("app.customFields.saveError")} ${err.message || ""}`.trim());
+        setSaving(false);
+        return;
+      }
       router.push(`/app/jobs/${data.id}`);
     } catch (err) {
       // The API gates POST on the job:create permission — name that rather
@@ -313,6 +327,8 @@ export default function NewJobPage() {
             {t("app.jobEdit.siteAddressHint")}
           </p>
         </div>
+
+        <CustomFieldInputs cf={cf} />
 
         <label className="flex items-center gap-2.5 text-sm text-foreground">
           <input

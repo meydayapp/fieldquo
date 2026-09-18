@@ -12,6 +12,7 @@ import { use, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, User } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { CustomFieldsPanel } from "@/app/components/customFields/CustomFieldsBox";
 import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
 import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
 import { fetchList } from "@/lib/loadState";
@@ -67,6 +68,7 @@ function PersonFile({ workerId }) {
                 {[worker.title, worker.email, worker.active === false ? t("app.hr.person.inactive") : null].filter(Boolean).join(" · ")}
               </p>
             </div>
+            <CustomFieldsPanel entityType="team" entityId={workerId} />
             <OnboardingChecklist mode="manager" workerId={workerId} />
             <WorkerDocumentsPanel mode="manager" workerId={workerId} />
             <WorkerNotesPanel workerId={workerId} />

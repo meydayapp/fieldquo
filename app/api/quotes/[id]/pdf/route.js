@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { renderDocumentPdfBuffer } from "@/app/admin/lib/pdf/renderDocumentPdf";
+import { loadDocumentCustomFields } from "@/lib/customFields/values";
 import { getDefaultSections } from "@/app/admin/lib/pdf/defaultSections";
 import { usableSections } from "@/lib/documents/templateKind";
 import { attachServiceSettings } from "@/lib/documents/loadServiceSettings";
@@ -84,6 +85,11 @@ export async function POST(request, { params }) {
     quote.scopeGroups,
   );
 
+  // The company's own boxes flagged for the document (a PO number). Loaded
+  // here, by the ONE reader of CustomFieldValue, so the PDF cannot print an
+  // answer the definition did not flag.
+  const customFields = await loadDocumentCustomFields(db, member.companyId, "quote", quote.id);
+
   const pdfBuffer = await renderDocumentPdfBuffer({
     sections,
     // Client-aware precedence: the quote's own language if set, else the
@@ -92,7 +98,7 @@ export async function POST(request, { params }) {
     language: resolveDocumentLanguage(quote, quote.client, company),
     // `...quote` last would overwrite the enriched scopeGroups with the raw
     // ones — spread first, then the keys that matter.
-    data: { ...quote, client: quote.client, scopeGroups },
+    data: { ...quote, client: quote.client, scopeGroups, customFields },
     company,
   });
 

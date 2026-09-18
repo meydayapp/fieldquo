@@ -26,6 +26,7 @@ import { formatDateOnly, isoDateOnly } from "@/lib/format/companyDate";
 // screen ends up looking and normalising the same way.
 import { formatPhoneInput } from "@/lib/validation";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { useCustomFields, CustomFieldInputs } from "@/app/components/customFields/CustomFieldsBox";
 import { useCompanyMoney } from "@/app/providers/CompanyPreferencesProvider";
 import JobTitleInput from "@/app/components/team/JobTitleInput";
 import { personTitle } from "@/lib/team/personLabel";
@@ -197,9 +198,13 @@ function WorkerRow({ worker, workers = [], attendance = null, reload, onConnect 
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
+  // The company's own extra boxes for a team member (a ticket expiry, say),
+  // keyed by the Worker row — the person, not the login seat.
+  const cf = useCustomFields("team", worker.id);
 
   async function save(e) {
     e.preventDefault();
+    if (!cf.validate()) return;
     setBusy(true);
     setError("");
     try {
@@ -232,6 +237,11 @@ function WorkerRow({ worker, workers = [], attendance = null, reload, onConnect 
               : Number(form.scheduledHoursPerWeek),
         }),
       });
+      try {
+        await cf.save(worker.id);
+      } catch (err) {
+        throw new Error(`${t("app.customFields.saveError")} ${err.message || ""}`.trim());
+      }
       setSaved(true);
       setEditing(false);
       await reload();
@@ -394,6 +404,8 @@ function WorkerRow({ worker, workers = [], attendance = null, reload, onConnect 
             </span>
           </label>
         </div>
+
+        <CustomFieldInputs cf={cf} columns={2} />
 
         <label className="flex items-center gap-2 text-sm text-foreground">
           <input

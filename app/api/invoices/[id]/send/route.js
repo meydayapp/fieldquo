@@ -29,6 +29,7 @@ import { sendEmail, SENDER_SELECT } from "@/lib/email/resend";
 import { resolveSender } from "@/lib/email/companySender";
 import { ensurePortalToken, portalInvoiceUrl } from "@/lib/clientPortal";
 import { buildInvoiceEmail } from "@/lib/email/invoiceEmail";
+import { loadDocumentCustomFields } from "@/lib/customFields/values";
 import { resolveClientLanguage } from "@/lib/i18n/clientLanguage";
 import { taxStatement, taxSendRefusal } from "@/lib/tax/documentTax";
 import { taskForSentInvoice } from "@/lib/tasks/autoCreate";
@@ -154,8 +155,11 @@ export async function POST(request, { params }) {
   );
 
   const { from, replyTo } = await resolveSender(company || {}, member.companyId);
+  // The company's own boxes flagged for the document (a PO number), the same
+  // line the PDF and the portal print.
+  const customFields = await loadDocumentCustomFields(db, member.companyId, "invoice", invoice.id);
   const { subject, html, text } = buildInvoiceEmail({
-    invoice,
+    invoice: { ...invoice, customFields },
     client: invoice.client,
     company: company || {},
     // Deep-link to the invoice itself (the page with the Pay button), not the

@@ -19,6 +19,7 @@ import {
   jobStatusClasses,
 } from "@/lib/jobs/statusLabels";
 import JobCosting from "@/app/components/jobs/JobCosting";
+import { CustomFieldsPanel } from "@/app/components/customFields/CustomFieldsBox";
 import JobMaterials from "@/app/components/jobs/JobMaterials";
 import JobTasks from "@/app/components/jobs/JobTasks";
 import Link from "next/link";
@@ -606,6 +607,14 @@ export default function JobDetail({ jobId }) {
             />
           )}
         </div>
+        {/* The company's own extra boxes (Settings > Custom fields), answered
+            ones only. Renders nothing for a company that defined none. */}
+        <CustomFieldsPanel
+          entityType="job"
+          entityId={job.id}
+          variant="rows"
+          className="mt-4 pt-3 border-t border-border"
+        />
       </div>
 
       {/* Visits */}

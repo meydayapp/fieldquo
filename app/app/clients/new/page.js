@@ -11,6 +11,7 @@ import CountrySelect from "@/app/components/CountrySelect";
 import { formatPhoneInput } from "@/lib/validation";
 import { fetchJson } from "@/lib/fetchJson";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { useCustomFields, CustomFieldInputs } from "@/app/components/customFields/CustomFieldsBox";
 import { useHasLevel } from "@/app/providers/PermissionProvider";
 import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
 
@@ -30,6 +31,9 @@ export default function NewClientPage() {
   // Private notes are a separate grant from adding the client — the Notes
   // dial's write rung. See lib/permissions/enforce.js, Notes.
   const canEditNotes = useHasLevel("notes", "view_edit_all");
+  // The company's own extra boxes for a client (Settings > Custom fields).
+  // No id yet: the answers are saved against the row the POST creates.
+  const cf = useCustomFields("client", null);
   const [form, setForm] = useState({
     type: "individual",
     name: "",
@@ -75,6 +79,9 @@ export default function NewClientPage() {
       setError(t("app.clientNew.nameRequired"));
       return;
     }
+    // A required custom box left blank is caught here, before the client row
+    // exists — otherwise the row would be created and the answers refused.
+    if (!cf.validate()) return;
     setSaving(true);
     try {
       // fetchJson, not fetch + res.json(): the POST route answers a P2022 with
@@ -83,6 +90,17 @@ export default function NewClientPage() {
       // JSON complaint on screen — in Safari, "The string did not match the
       // expected pattern", on a form with no regex in it.
       const data = await fetchJson("/api/clients", { method: "POST", body: form });
+      // The answers hang off the id the POST just minted. A failure here is
+      // shown, and the client already exists — so the message says the
+      // client was saved and the extra boxes were not, rather than implying
+      // the whole form failed.
+      try {
+        await cf.save(data.id);
+      } catch (err) {
+        setError(`${t("app.customFields.saveError")} ${err.message || ""}`.trim());
+        setSaving(false);
+        return;
+      }
       // The clients list links each row to /app/clients/[id]; go straight there.
       router.push(`/app/clients/${data.id}`);
     } catch (err) {
@@ -275,6 +293,8 @@ export default function NewClientPage() {
           onChange={(v) => set("language", v)}
           companyDefault={companyLanguage}
         />
+
+        <CustomFieldInputs cf={cf} />
 
         {canEditNotes && (
           <div>

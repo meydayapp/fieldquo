@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Plus, X, Trash2, Search } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { useCustomFields, CustomFieldInputs } from "@/app/components/customFields/CustomFieldsBox";
 import { useBottomDock } from "@/app/hooks/useBottomDock";
 import MediaUploader from "@/app/components/MediaUploader";
 import InvoiceCostSection from "@/app/components/invoices/InvoiceCostSection";
@@ -36,6 +37,10 @@ export default function NewInvoicePage() {
   const [notes, setNotes] = useState("");
   const [clientPhotos, setClientPhotos] = useState([]);
   const [dueDate, setDueDate] = useState("");
+  // The company's own extra boxes for an invoice (a PO number, say). Saved
+  // against the id the POST creates, BEFORE any send — the PO number has to
+  // be on the row before the PDF that prints it is rendered.
+  const cf = useCustomFields("invoice", null);
   const [taxEnabled, setTaxEnabled] = useState(true);
   const [taxRate, setTaxRate] = useState(0);
   // Set the moment a human edits the box. The resolver seeds the rate and then
@@ -185,6 +190,10 @@ export default function NewInvoicePage() {
       setError(t("app.invoiceNew.addLineItem"));
       return;
     }
+    if (!cf.validate()) {
+      setError(t("app.customFields.fixFirst"));
+      return;
+    }
 
     setSaving(true);
     // try/finally so a rejected fetch (network drop) can't leave setSaving(true)
@@ -221,6 +230,15 @@ export default function NewInvoicePage() {
       }
 
       const invoice = await res.json();
+
+      // The invoice exists; its extra boxes save against it, and before the
+      // send below so a PO number flagged for the document is on the PDF.
+      try {
+        await cf.save(invoice.id);
+      } catch (err) {
+        setError(`${t("app.customFields.saveError")} ${err.message || ""}`.trim());
+        return;
+      }
 
       // Actually send it. The POST above only creates the invoice (as a draft —
       // the route doesn't read `status`); the "Save & Send" button promised an
@@ -440,6 +458,12 @@ export default function NewInvoicePage() {
           className="border border-border rounded-lg px-3 py-2 text-sm"
         />
       </div>
+
+      {cf.hasFields && (
+        <div className="bg-card border border-border rounded-xl p-5">
+          <CustomFieldInputs cf={cf} columns={2} />
+        </div>
+      )}
 
       <div className="bg-card border border-border rounded-xl p-5">
         <h2 className="font-semibold text-foreground mb-2">{t("app.field.notes")}</h2>

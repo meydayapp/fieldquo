@@ -16,6 +16,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Loader2, AlertCircle } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { useCustomFields, CustomFieldInputs } from "@/app/components/customFields/CustomFieldsBox";
 import { validateJobDates } from "@/lib/jobs/validateJobDates";
 import { JOB_STATUSES, jobStatusLabel } from "@/lib/jobs/statusLabels";
 // Same argument as JOB_STATUSES above, one feature along: the rules the cron
@@ -45,6 +46,9 @@ export default function EditJobPage() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [siteAddress, setSiteAddress] = useState("");
+  // The company's own extra boxes for a job, with this job's answers. A hook,
+  // so it sits up here with the others — see the permission note below.
+  const cf = useCustomFields("job", id);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -119,6 +123,7 @@ export default function EditJobPage() {
       setError(t("app.jobNew.selectFrequency"));
       return;
     }
+    if (!cf.validate()) return;
     setSaving(true);
     setError("");
     try {
@@ -147,6 +152,11 @@ export default function EditJobPage() {
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.error || t("app.jobEdit.saveError"));
+      try {
+        await cf.save(id);
+      } catch (err) {
+        throw new Error(`${t("app.customFields.saveError")} ${err.message || ""}`.trim());
+      }
       router.push(`/app/jobs/${id}`);
     } catch (err) {
       setError(err.message);
@@ -277,6 +287,8 @@ export default function EditJobPage() {
             ))}
           </select>
         </div>
+
+        <CustomFieldInputs cf={cf} />
 
         <div>
           <label className="flex items-center gap-2 text-sm text-foreground">

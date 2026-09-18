@@ -63,6 +63,7 @@ import {
 } from "@/lib/invoices/statusPresentation";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import ClientMediaTile from "@/app/components/ClientMediaTile";
+import { CustomFieldsPanel } from "@/app/components/customFields/CustomFieldsBox";
 import BrandTheme from "@/app/components/BrandTheme";
 import { moneyFormatter } from "@/lib/format/money";
 import { paymentMethodLabel } from "@/lib/payments/methodLabels";
@@ -1075,6 +1076,11 @@ export default function InvoiceDetailPage() {
             </p>
           </Block>
         )}
+
+        {/* The company's own extra boxes (a PO number, say), answered ones
+            only; the ones printed on the client's copy are marked. Keyed by
+            the invoice FAMILY, so an amended version keeps its answers. */}
+        <CustomFieldsPanel entityType="invoice" entityId={id} variant="section" />
 
         {Array.isArray(invoice.clientPhotos) &&
           invoice.clientPhotos.length > 0 && (

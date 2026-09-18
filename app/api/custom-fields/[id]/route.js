@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
+import { DOCUMENT_ENTITY_TYPES } from "@/lib/customFields/validate";
 
 export async function PATCH(request, { params }) {
   // Next 16: `params` is a Promise; reading it synchronously gives undefined.
@@ -29,15 +30,19 @@ export async function PATCH(request, { params }) {
   }
 
   const body = await request.json();
-  const { label, options, required, sortOrder } = body;
+  const { label, options, required, sortOrder, showOnDocuments } = body;
 
   const updated = await db.customField.update({
     where: { id: _params.id },
     data: {
-      ...(label !== undefined && { label }),
+      ...(label !== undefined && { label: String(label).trim().slice(0, 80) }),
       ...(options !== undefined && { options }),
-      ...(required !== undefined && { required }),
+      ...(required !== undefined && { required: !!required }),
       ...(sortOrder !== undefined && { sortOrder }),
+      // Only meaningful on a quote or invoice definition — see POST.
+      ...(showOnDocuments !== undefined && {
+        showOnDocuments: DOCUMENT_ENTITY_TYPES.includes(existing.entityType) && showOnDocuments === true,
+      }),
     },
   });
 

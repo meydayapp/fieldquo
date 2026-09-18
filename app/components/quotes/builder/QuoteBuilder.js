@@ -55,6 +55,7 @@ import { readStaleConflict } from "@/lib/concurrency/staleWriteClient";
 import { fetchJson } from "@/lib/fetchJson";
 import { startComposeTimer } from "@/lib/analytics/composeTimer";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { useCustomFields, CustomFieldInputs } from "@/app/components/customFields/CustomFieldsBox";
 import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
 import { usePermissions } from "@/app/providers/PermissionProvider";
 import { hasToggle } from "@/lib/permissions/enforce";
@@ -662,6 +663,12 @@ export function QuoteBuilderForm({
   const boot = bootstrap || {};
   const settingsAccess = useSettingsAccess();
   const start = initial || initialStateFromQuote(null);
+  // The company's own extra boxes for a quote (Settings > Custom fields).
+  // Saved against the quote's id straight after the quote itself saves —
+  // for a new quote, the id the POST just minted. NOT part of `shared`: the
+  // values route validates by the definition's type, and threading them
+  // through PATCH /api/quotes would mean a second copy of that validation.
+  const cf = useCustomFields("quote", quoteId);
 
   const categories = Array.isArray(boot.categories) ? boot.categories : [];
   const products = Array.isArray(boot.products) ? boot.products : [];
@@ -1492,6 +1499,12 @@ export function QuoteBuilderForm({
         return;
       }
     }
+    // A required custom box left blank, or a bad number, is caught before
+    // the quote saves — otherwise the quote would land and the answers not.
+    if (!cf.validate()) {
+      setError(t("app.customFields.fixFirst"));
+      return;
+    }
 
     // ── "Save & send" emails the client the moment it is pressed ──────────
     //
@@ -1626,6 +1639,17 @@ export function QuoteBuilderForm({
     }
 
     const id = quote?.id || quoteId;
+
+    // The quote is saved; its extra boxes save against it. A refusal here is
+    // named as the boxes' — the quote exists and the person stays on the
+    // builder to fix the answer rather than being sent on without it.
+    try {
+      await cf.save(id);
+    } catch (err) {
+      setSaving("");
+      setError(`${t("app.customFields.saveError")} ${err.message || ""}`.trim());
+      return;
+    }
 
     // "Save & Send" used to mean "create it with status: sent" — a Send control
     // that changed a word and emailed nothing. The quote is saved first and then
@@ -1880,6 +1904,14 @@ export function QuoteBuilderForm({
             ))}
         </select>
       </div>
+
+      {/* The company's own extra boxes for a quote. Absent entirely for a
+          company that defined none. */}
+      {cf.hasFields && (
+        <div className="bg-card border border-border rounded-xl p-5">
+          <CustomFieldInputs cf={cf} columns={2} />
+        </div>
+      )}
 
       {/* Language is chosen once, at creation, and baked into the saved quote.
           It is deliberately not a viewer toggle and deliberately not editable

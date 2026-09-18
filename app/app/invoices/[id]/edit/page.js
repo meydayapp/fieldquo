@@ -21,6 +21,7 @@ import { ArrowLeft, Trash2, Plus, Loader2, AlertCircle, History } from "lucide-r
 import MediaUploader from "@/app/components/MediaUploader";
 import InvoiceCostSection from "@/app/components/invoices/InvoiceCostSection";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { useCustomFields, CustomFieldInputs } from "@/app/components/customFields/CustomFieldsBox";
 import {
   useCompanyMoney,
   useCompanyPreferences,
@@ -50,6 +51,10 @@ export default function EditInvoicePage() {
   const [invoice, setInvoice] = useState(null);
   const [lineItems, setLineItems] = useState([]);
   const [notes, setNotes] = useState("");
+  // The company's own extra boxes for an invoice. Keyed server-side by the
+  // invoice FAMILY, so the answers survive the new row a non-draft edit
+  // creates (see PATCH /api/invoices/[id]).
+  const cf = useCustomFields("invoice", id);
   const [clientPhotos, setClientPhotos] = useState([]);
   const [discount, setDiscount] = useState(0);
   const [taxRate, setTaxRate] = useState(0);
@@ -167,6 +172,10 @@ export default function EditInvoicePage() {
       setError(t("app.invoiceEdit.reasonRequired"));
       return;
     }
+    if (!cf.validate()) {
+      setError(t("app.customFields.fixFirst"));
+      return;
+    }
 
     setSaving(true);
     setError("");
@@ -200,6 +209,13 @@ export default function EditInvoicePage() {
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.error || t("app.invoiceEdit.saveError"));
+      // Saved against the id we came from; the family root resolves the same
+      // whether or not the PATCH minted a new version.
+      try {
+        await cf.save(id);
+      } catch (err) {
+        throw new Error(`${t("app.customFields.saveError")} ${err.message || ""}`.trim());
+      }
       // On a non-draft edit the API returns a NEW invoice row, so follow the
       // id it hands back rather than returning to the one we came from.
       router.push(`/app/invoices/${data?.id || id}`);
@@ -401,6 +417,8 @@ export default function EditInvoicePage() {
             />
           </div>
         </div>
+
+        <CustomFieldInputs cf={cf} columns={2} />
 
         <div>
           <label className="block text-sm font-medium text-foreground mb-1">

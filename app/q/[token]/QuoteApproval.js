@@ -31,6 +31,7 @@ import {
 } from "@/lib/documents/theme";
 import SignaturePad from "@/app/components/SignaturePad";
 import { documentLabels, documentFormatters } from "@/lib/i18n/documentLabels";
+import { documentCustomFacts } from "@/lib/documentSections/customFacts";
 import { clientDocCopy } from "@/lib/i18n/clientDocCopy";
 import { monthlyPayment } from "@/lib/financing/monthlyEstimate";
 import { jsonBody } from "@/lib/jsonBody";
@@ -445,6 +446,13 @@ export default function QuoteApproval({ token }) {
               {labels.validUntil} {fmt.date(quote.validUntil)}
             </p>
           )}
+          {/* The company's own boxes flagged for the document, in the same
+              words as the PDF attached to the email that brought them here. */}
+          {documentCustomFacts(quote.customFields, { date: fmt.date, labels }).map(([label, value]) => (
+            <p key={label} className="text-sm mt-1 text-[#2d2520]/60">
+              {label} · <span className="text-[#2d2520]">{value}</span>
+            </p>
+          ))}
         </div>
 
         <div className="px-6 sm:px-8 pb-6 space-y-6">
