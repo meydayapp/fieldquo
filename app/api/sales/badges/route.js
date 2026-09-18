@@ -55,6 +55,7 @@ import { staffRoomList } from "@/lib/staff/rooms";
 import { voicemailWhere } from "@/lib/sales/calls/voicemail";
 import { missedWhere } from "@/lib/sales/calls/missed";
 import { unloggedWhere } from "@/lib/sales/calls/store";
+import { excludingTestDials } from "@/lib/sales/testLines";
 import { waitingDraftsFor } from "@/lib/sales/checkin/waiting";
 
 async function counted(fn) {
@@ -90,7 +91,9 @@ export async function GET(request) {
 
   const [callsToday, texts, team, voicemail, unlogged] = await Promise.all([
     counted(() =>
-      db.salesCallAttempt.count({ where: { salesRepId: rep.id, direction: "out", dialledAt: { gte: dayStart } } }),
+      // Dials PLACED today, less any to FieldQuo's own test lines
+      // (lib/sales/testLines.js) — a test at midnight is not a call made.
+      db.salesCallAttempt.count({ where: excludingTestDials({ salesRepId: rep.id, direction: "out", dialledAt: { gte: dayStart } }) }),
     ),
     counted(async () => {
       const readStates = await threadReadStates({ salesRepId: rep.id });

@@ -171,6 +171,10 @@ const NO_TAB = [
   "app/sales/invite/[token]/page.js",
   "app/sales/welcome/page.js",
   "app/sales/SalesShell.js",
+  // The "You're shown as Off" reminder the shell mounts on every /sales
+  // screen after a sign-in (app/components/sales/AvailableReminder.js). Not a
+  // tab; held to §3 like the shell it belongs to.
+  "app/components/sales/AvailableReminder.js",
   // The agency's screen (lib/sales/agency.js). Its rail row is built from a
   // constant for ONE kind of account (lib/sales/portalTabs.js portalTabsFor)
   // rather than written into the shell's literal — a tour step pointing at a
