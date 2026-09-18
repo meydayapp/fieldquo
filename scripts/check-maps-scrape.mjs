@@ -198,7 +198,7 @@ section("never overwrite");
   ok("an unmatched sighting never writes matchedProspectId on update", !("matchedProspectId" in row.update) && row.create.matchedProspectId === null);
   const matchedRow = listingRow(listing, { verdict: "matched", matchedProspectId: "p-full" });
   ok("a matched sighting sets it", matchedRow.update.matchedProspectId === "p-full" && matchedRow.create.matchedAt instanceof Date);
-  ok("unique on (source, externalId)", matchedRow.where.source_externalId.externalId === "ChIJ6ygisF3xLGURlGgpJkEXbhc" && matchedRow.where.source_externalId.source === "maps");
+  ok("unique on (source, externalId)", matchedRow.where.source_externalId.externalId === "ChIJ6ygisF3xLGURlGgpJkEXbhc" && matchedRow.where.source_externalId.source === "google_maps");
   ok("no id at all → no row", listingRow(normaliseListing({ name: "X" })) === null);
   ok("a CID-only listing keys on the CID", listingRow(normaliseListing({ name: "X", cid: "0x1:0x2" })).where.source_externalId.externalId === "cid:0x1:0x2");
 }
@@ -243,7 +243,7 @@ section("applyListing (fake db)");
 
   writes.length = 0;
   const none = await applyListing({ db: { ...fake, prospect: { findMany: async () => [], findFirst: async () => null } }, raw: { placeId: "ChIJNEWNEWNEWNEWNEWNEWNEWN", name: "Brand New Plumbing", category: "Plumber", phone: "+1 619-555-0123" } });
-  ok("no row → listing kept as a prospect-in-waiting, flagged as lead-like", none.verdict === "no_candidates" && none.newLeadLike && writes.some((w) => w[0] === "listing"));
+  ok("no row → listing kept as a prospect-in-waiting, flagged as lead-like", none.verdict === "no_candidate" && none.newLeadLike && writes.some((w) => w[0] === "listing"));
 
   const meters = [];
   const m = await meterLocalScrape({ db: { platformCostDaily: { upsert: async (a) => (meters.push(a), a) } }, places: 20, now: new Date("2026-09-18T04:00:00Z") });

@@ -101,7 +101,7 @@ fixtures.
    hours in `placesResult`. A closed banner is a flag on the row, never a
    suppression. A gained website queues the crawl chain, as the Places
    path does. An unmatched listing is an `ExternalListing` row (`source`
-   "maps", unique on the place id), a prospect-in-waiting, with the
+   "google_maps", unique on the place id), a prospect-in-waiting, with the
    verdict and the top refused candidate beside it.
 7. **The ledger.** The places parsed are metered onto `PlatformCostDaily`
    as `local_scrape / google-maps`, cents 0, units = places, so

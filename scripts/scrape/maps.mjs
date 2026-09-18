@@ -352,7 +352,7 @@ function tally(summary, write) {
     case "matched": w.matched += 1; break;
     case "already_attached": w.alreadyAttached += 1; break;
     case "no_confident_match": w.noConfidentMatch += 1; break;
-    case "no_candidates": w.noCandidates += 1; break;
+    case "no_candidate": w.noCandidates += 1; break;
     case "place_id_conflict": w.placeIdConflict += 1; break;
     case "duplicate_place": w.duplicatePlace += 1; break;
     case "unnamed": w.unnamed += 1; break;
@@ -369,13 +369,13 @@ function tally(summary, write) {
 }
 
 function verdictMark(v) {
-  return { matched: "✓", already_attached: "=", no_confident_match: "~", no_candidates: "+", place_id_conflict: "!", duplicate_place: "!", error: "✗" }[v] || "·";
+  return { matched: "✓", already_attached: "=", no_confident_match: "~", no_candidate: "+", place_id_conflict: "!", duplicate_place: "!", error: "✗" }[v] || "·";
 }
 
 function describeWrite(w) {
   if (w.verdict === "matched") return `matched ${w.score?.prospectName || w.prospectId}${w.gained?.length ? `, gained ${w.gained.join(", ")}` : ", nothing new"}${w.conflicts?.length ? `, kept the record's ${w.conflicts.join(", ")}` : ""}`;
   if (w.verdict === "already_attached") return "already attached on an earlier run";
-  if (w.verdict === "no_candidates") return `no prospect row${w.newLeadLike ? " — looks like a new lead" : ""}`;
+  if (w.verdict === "no_candidate") return `no prospect row${w.newLeadLike ? " — looks like a new lead" : ""}`;
   if (w.verdict === "no_confident_match") return `refused: ${w.score?.reason} (top: ${w.score?.prospectName})${w.newLeadLike ? " — looks like a new lead" : ""}`;
   if (w.verdict === "place_id_conflict") return `row already carries another place id`;
   if (w.verdict === "duplicate_place") return `another row already carries this place id`;

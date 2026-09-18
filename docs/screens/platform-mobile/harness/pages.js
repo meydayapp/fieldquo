@@ -43,6 +43,7 @@ import FunnelPage from "@/app/platform/sales/funnel/page";
 import SalesNotesPage from "@/app/platform/sales/notes/page";
 import PayoutsPage from "@/app/platform/sales/payouts/page";
 import PerformancePage from "@/app/platform/sales/performance/page";
+import CallQualityPage from "@/app/platform/sales/call-quality/page";
 import CommissionPlansPage from "@/app/platform/sales/plans/page";
 import PlaybooksPage from "@/app/platform/sales/playbooks/page";
 import PlaybookPreviewPage from "@/app/platform/sales/playbooks/preview/page";
@@ -126,6 +127,7 @@ export const PAGES = {
   "/platform/sales/notes": { render: page(SalesNotesPage) },
   "/platform/sales/payouts": { render: page(PayoutsPage) },
   "/platform/sales/performance": { render: page(PerformancePage) },
+  "/platform/sales/call-quality": { render: page(CallQualityPage) },
   "/platform/sales/plans": { render: page(CommissionPlansPage) },
   "/platform/sales/playbooks": { render: page(PlaybooksPage) },
   "/platform/sales/playbooks/preview": { render: page(PlaybookPreviewPage) },

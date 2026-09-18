@@ -11555,9 +11555,38 @@ model Prospect {
   /// because every field is Google's, read only beside the row's own.
   placesResult    Json?
 
+  // ── Who to ask for, and what BBB says about the business ──────────────
+  //
+  // The people themselves are ProspectPerson rows (one per name per source,
+  // never overwritten — lib/sales/intel/people.js). What sits here is the
+  // per-business facts the same sources carry, filled BLANK-ONLY like the
+  // Places columns above, and the stamps that make each lookup idempotent.
+
+  /// When the licence register's personnel file was last consulted for this
+  /// row (lib/sales/intel/registerPeople.js). Re-asked after 180 days, so a
+  /// change of qualifying individual reaches the card within two seasons.
+  principalCheckedAt DateTime?
+  /// The BBB profile that matched this business — the page a rep opens.
+  /// Null means no confident match was made, never "no profile exists".
+  bbbProfileUrl      String?
+  /// BBB's letter grade ("A+" … "F", or "NR"), verbatim.
+  bbbRating          String?
+  /// Three-valued: accredited, not accredited, or null for "BBB not asked".
+  bbbAccredited      Boolean?
+  bbbCheckedAt       DateTime?
+  /// The year the business says it started, from BBB's "Business Started".
+  /// Null: nobody said. Never derived from a licence issue date — a licence
+  /// renewed under a new number is not a business founded that year.
+  businessStartedYear Int?
+  /// BBB's employee band, verbatim ("2-5", "10-19"). A band, never a count.
+  employeeRange      String?
+  /// Corporation | Sole Proprietorship | LLC …, as BBB or the register put it.
+  entityType         String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  people        ProspectPerson[]
   evidence      ProspectEvidence[]
   capabilities  ProspectCapability[]
   technologies  ProspectTechnology[]
@@ -11611,106 +11640,6 @@ model Prospect {
   contactNumbers      SalesContactNumber[]
   /// Every time a rep took this row, and how it left them. See SalesQueueClaim.
   queueClaims         SalesQueueClaim[]
-}
-
-/// A business a scrape or a paid source LISTED that no Prospect row could be
-/// matched to — a prospect-in-waiting — and, for the rows that did match, the
-/// receipt of what was seen and which prospect took it.
-///
-/// ══ Why this is not a Prospect ═══════════════════════════════════════════
-///
-/// The Google Maps scrape (scripts/scrape/maps.mjs) reads a feed of up to
-/// ~120 places per map viewport and opens each one. Most of what it finds
-/// is already a Prospect from a licence register or a directory, and for
-/// those rows the listing is a CORROBORATING source written through the
-/// same never-overwrite fill as the Places API (lib/sales/intel/places.js
-/// planPlacesWrite). The rest — a plumber Google knows and no register does
-/// — cannot become a Prospect on the scraper's say-so: `Prospect` rows enter
-/// through the discovery ingest, carry a source release and a trade a human
-/// confirmed, and are counted by every queue. So an unmatched listing waits
-/// here, with everything the source showed, until a superadmin promotes it
-/// or a later ingest produces the row it matches. Nothing here is ever
-/// deleted; a re-scrape updates `lastSeenAt` and the payload.
-///
-/// ══ Shared with the Apify / BBB path ═════════════════════════════════════
-///
-/// The table was created in the live database by the principal-contacts /
-/// Apify work (its columns down to `updatedAt` are that table's, read back
-/// from information_schema on 2026-09-17 so this block drops nothing). The
-/// scrape's own columns are the delimited block after it, applied with
-/// additive SQL. When the Apify branch lands its model, keep its block and
-/// carry the delimited one across — the matcher in lib/sales/intel/listings.js
-/// reads only the names below.
-model ExternalListing {
-  id String @id @default(cuid())
-
-  /// "maps" (Google Maps, scraped from the owner's Mac), "apify", "bbb".
-  source     String
-  /// The source's own stable id — a Google Place ID (ChIJ…) for maps. One
-  /// row per (source, id): a second sighting of the same place is an update.
-  externalId String
-
-  name        String
-  phoneE164   String?
-  domain      String?
-  websiteUrl  String?
-  addressLine String?
-  city        String?
-  province    String?
-  postalCode  String?
-  country     String?
-  latitude    Decimal? @db.Decimal(9, 6)
-  longitude   Decimal? @db.Decimal(9, 6)
-  /// What the source called the business's kind, verbatim: "Plumber",
-  /// "Roofing contractor". Never overwritten by the trade mapping.
-  category    String?
-  /// As the source printed it ("4.8"); text because sources disagree on
-  /// precision.
-  rating      String?
-  reviewCount Int?
-  /// The whole parsed record: the phone as displayed, plus code, hours,
-  /// star histogram, price bracket, the listing URL, the tile it came from.
-  payload     Json
-  /// The search that surfaced it, for the report and for the next run.
-  keyword     String?
-  location    String?
-  runId       String?
-
-  /// The Prospect this listing was attached to, when the matcher accepted
-  /// one. Null is the prospect-in-waiting state.
-  matchedProspectId String?
-  /// "matched" | "no_confident_match" | "no_candidates" |
-  /// "place_id_conflict" | "already_attached" — the verdict, every sighting.
-  matchVerdict      String?
-  matchedAt         DateTime?
-  fetchedAt         DateTime
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-
-  // ── Maps-scrape columns (additive; scripts/scrape/maps.mjs) ─────────────
-  /// The DISCOVERY_TRADES key the category maps to, or null when none does.
-  tradeKey       String?
-  /// "OPERATIONAL" | "CLOSED_TEMPORARILY" | "CLOSED_PERMANENTLY" — the
-  /// Places API vocabulary, so the Prospect fill reads it unchanged. Null
-  /// when the page said nothing either way.
-  businessStatus String?
-  /// False when Google's "Own this business?" prompt was on the page — the
-  /// listing is unclaimed. Null otherwise: signed out, Maps rendered the
-  /// prompt on none of the first live run's 22 panels, so absence proves
-  /// nothing and is never read as "claimed".
-  claimed        Boolean?
-  /// The score of the accepted candidate, or the top refused one and why —
-  /// what a human reads to confirm or dismiss it.
-  matchResult    Json?
-  lastSeenAt     DateTime  @default(now())
-  // ── end Maps-scrape columns ─────────────────────────────────────────────
-
-  @@unique([source, externalId])
-  @@index([source, phoneE164])
-  @@index([source, domain])
-  @@index([matchedProspectId])
-  @@index([source, keyword, location])
-  @@index([tradeKey, city])
 }
 
 /// One rep taking one prospect, and how that claim ended.
@@ -11837,6 +11766,236 @@ model ProspectEvidence {
   /// this index exists for — equality. It cannot serve a range or a sort, and
   /// nothing asks it to: the one caller is `{ rawValue: address }`.
   @@index([rawValue], type: Hash)
+}
+
+/// A named human at the business — the person a rep asks for by name.
+///
+/// ══ Why a table and not a column on Prospect ═════════════════════════════
+///
+/// The sources disagree and the card must show which said what. CSLB's
+/// personnel file lists a qualifying individual AND the officers; BBB lists
+/// "Principal Contacts" with a title; a rep hears a first name on the phone
+/// and types it. One `ownerName` column would hold whichever wrote last, and
+/// "CSLB lists Maria Sanchez as owner" would be unciteable. So: one row per
+/// (prospect, source, name), never overwritten — a source that changes its
+/// mind adds a row and the older one keeps its `seenAt`. Which row the card
+/// leads with is decided at read time by lib/sales/intel/people.js
+/// (typed beats fetched; BBB's principal beats a register's officer list)
+/// and never by a write.
+model ProspectPerson {
+  id String @id @default(cuid())
+
+  prospectId String
+  prospect   Prospect @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+
+  /// As the source printed it, tidied to "Given Family" order and title case
+  /// — "Alexander Singer", "Maria Sanchez-Lopez". Honorifics ("Mr.") dropped.
+  name      String
+  /// The first name alone, when the source separated it (BBB's schema.org
+  /// givenName, CSLB's fixed-width columns) — what the opener says. Null
+  /// when the source gave one string and splitting it would be a guess.
+  givenName String?
+  /// The role in the source's own words: "Owner", "Responsible Managing
+  /// Officer", "Qualifying Partner", "Répondant". Null when it gave none.
+  role      String?
+  /// cslb_personnel | us_wa_lni | us_or_ccb | bbb | typed | crawl
+  source    String
+  sourceUrl String?
+  /// When the SOURCE said so: the register file's release date, the BBB
+  /// fetch, the moment the rep typed it. Never "now" for a fetched row.
+  seenAt    DateTime
+  /// Set on `typed` rows only — the rep who heard the name. Loose pointer,
+  /// like SalesContactNumber.addedBySalesRepId: a rep leaving must not
+  /// delete the fact that a name was heard.
+  typedBySalesRepId String?
+  /// Lowercased, de-accented, punctuation-free form of `name`, the
+  /// idempotency key: the same name from the same source twice is one row.
+  nameKey   String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([prospectId, source, nameKey])
+  @@index([prospectId])
+}
+
+/// One person on one licence, from a regulator's bulk personnel file.
+///
+/// CSLB's public Data Portal publishes a PERSONNEL file beside the master
+/// licence file — "personnel currently associated with a renewed, or
+/// expired but renewable license … license number, personnel names, titles,
+/// classification(s)". Measured 2026-09-17: 85,812,226 bytes, 406,161 rows,
+/// 244,300 distinct licences. Loaded whole by scripts/cslb-personnel-load.mjs
+/// and looked up here by licence number, because the per-licence detail page
+/// is bot-blocked (GET → 302 to the search form, the form POST → 503 from the
+/// F5 edge, measured the same day) and 85 MB cannot be streamed inside a
+/// Vercel function every hour. A row here is the regulator's statement,
+/// verbatim apart from whitespace; ProspectPerson is what a lookup copied
+/// onto a prospect, with the citation.
+model RegisterPersonnel {
+  id String @id @default(cuid())
+
+  /// The discovery provider key: us_ca_cslb.
+  provider      String
+  licenceNumber String
+  /// "Given Family" order, title case, as loaded.
+  name          String
+  givenName     String?
+  /// CURRENT titles only — a stint with a disassociation date is dropped at
+  /// load, so "Officer" here means officer today. In the file's own words.
+  titles        String[] @default([])
+  /// Classification codes the person qualifies for (C36, B …).
+  classes       String[] @default([])
+  associatedAt  DateTime?
+  /// The file's release: the maximum LastUpdated across every row.
+  release       String?
+  loadedAt      DateTime
+
+  @@unique([provider, licenceNumber, name])
+  @@index([provider, licenceNumber])
+}
+
+/// A business listing a bulk vendor returned that may or may not be one of
+/// our prospects — kept so a later prospect can match against it without
+/// paying the vendor again.
+///
+/// ONE table for BBB and Google Maps rows (the `source` column says which)
+/// rather than BbbListing + MapsListing, because everything that reads it is
+/// source-blind: the matcher compares a name, a phone, a domain and an
+/// address whoever supplied them, and "promote this listing to a prospect"
+/// is the same operation for both. The vendor-specific fields (BBB's letter
+/// grade, Maps' opening hours) live in `payload`, whole, so nothing is lost
+/// and nothing vendor-shaped leaks into the columns.
+model ExternalListing {
+  id String @id @default(cuid())
+
+  /// bbb | google_maps
+  source     String
+  /// The vendor's stable id: the BBB profile URL, the Google place id.
+  externalId String
+
+  name        String
+  phoneE164   String?
+  domain      String?
+  websiteUrl  String?
+  addressLine String?
+  city        String?
+  province    String?
+  postalCode  String?
+  country     String?
+  latitude    Decimal? @db.Decimal(9, 6)
+  longitude   Decimal? @db.Decimal(9, 6)
+  category    String?
+  /// Google's stars as text ("4.7") or BBB's grade ("A+") — text because
+  /// the two are not the same scale and nothing averages them.
+  rating      String?
+  reviewCount Int?
+
+  /// The vendor's row, whole.
+  payload Json
+
+  /// The (keyword, location) pair that returned it, and the run.
+  keyword  String?
+  location String?
+  runId    String?
+
+  /// Set when the matcher attached it to a prospect; the verdict says why
+  /// not otherwise (no_confident_match | no_candidate).
+  matchedProspectId String?
+  matchVerdict      String?
+  matchedAt         DateTime?
+
+  fetchedAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // ── Maps-scrape columns (scripts/scrape/maps.mjs, lib/sales/intel/listings.js) ──
+  //
+  // The local scrape lands its rows here too, under source "google_maps",
+  // so a place Apify fetched and a place the Mac read are one row. These
+  // are the few fields a platform screen will filter on; the rest of what
+  // the panel showed (hours, histogram, plus code, price) is in `payload`.
+  /// The DISCOVERY_TRADES key the category maps to, or null when none does.
+  tradeKey       String?
+  /// "OPERATIONAL" | "CLOSED_TEMPORARILY" | "CLOSED_PERMANENTLY" — the
+  /// Places API vocabulary, so the Prospect fill reads it unchanged. Null
+  /// when the page said nothing either way.
+  businessStatus String?
+  /// False when Google's "Own this business?" prompt was on the page — the
+  /// listing is unclaimed. Null otherwise: signed out, Maps rendered the
+  /// prompt on none of the first live run's 22 panels, so absence proves
+  /// nothing and is never read as "claimed".
+  claimed        Boolean?
+  /// The score of the accepted candidate, or the top refused one and why —
+  /// what a human reads to confirm or dismiss it.
+  matchResult    Json?
+  /// The last sighting. A re-scrape updates this and the payload; it never
+  /// clears matchedProspectId.
+  lastSeenAt     DateTime @default(now())
+
+  @@unique([source, externalId])
+  @@index([source, phoneE164])
+  @@index([source, domain])
+  @@index([matchedProspectId])
+  @@index([source, keyword, location])
+  @@index([tradeKey, city])
+}
+
+/// One Apify actor run — a (keyword, location, country) pair sent to a
+/// bulk scraper — from start to ingest, with what it cost.
+///
+/// Its own table rather than a PlatformCostDaily row alone because a run is
+/// asynchronous: started on one cron tick, finished minutes later, ingested
+/// on a third. The pair dedupe ("not this pair again inside 90 days") and
+/// the daily cap read this table; the money is metered into
+/// PlatformCostDaily when the run's usage is known.
+model ApifyRun {
+  id String @id @default(cuid())
+
+  /// The actor id as Apify names it: jungle_synthesizer/bbb-scraper,
+  /// compass/crawler-google-places.
+  actor   String
+  /// bbb | google_maps — the ExternalListing.source the rows land under.
+  source  String
+  tradeKey String?
+  keyword  String
+  location String
+  country  String
+  /// `${source}|${keyword}|${location}|${country}`, lowercased — the dedupe key.
+  pairKey  String
+
+  apifyRunId String? @unique
+  datasetId  String?
+  /// queued | running | succeeded | failed | ingested | aborted
+  status     String
+  maxItems   Int
+  /// cron | button
+  trigger    String
+
+  startedAt  DateTime
+  finishedAt DateTime?
+  ingestedAt DateTime?
+
+  rowsFetched Int @default(0)
+  matched     Int @default(0)
+  refused     Int @default(0)
+  kept        Int @default(0)
+  /// People and facts the matched rows added — the "what a lead gains".
+  peopleAdded Int @default(0)
+
+  /// What Apify billed for the run, in cents, from the run's own usage
+  /// record when it carried one; else the list price times the rows, and
+  /// `costSource` says which.
+  costCents  Decimal? @db.Decimal(14, 4)
+  costSource String?
+  error      String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([source, pairKey, startedAt])
+  @@index([status])
+  @@index([startedAt])
 }
 
 /// A normalised capability: does this business have online booking, live chat,
@@ -13968,16 +14127,25 @@ model SalesCallTransfer {
   fromRep   SalesRep @relation("SalesTransfersFrom", fields: [fromRepId], references: [id])
 
   /// Who it was handed to, when the target was a rep. Null when the target was
-  /// the standing transfer number — a real phone somebody carries, which is
-  /// not a SalesRep row and must not be invented as one.
+  /// a phone — the standing transfer number or an entry of the superadmin's
+  /// allow-list (lib/sales/transferNumbers.js) — a real phone somebody
+  /// carries, which is not a SalesRep row and must not be invented as one.
+  /// Also null on a queue transfer: the caller was parked for whoever comes
+  /// free, and "who" is answered by the attempt row's later history.
   toRepId String?
   toRep   SalesRep? @relation("SalesTransfersTo", fields: [toRepId], references: [id], onDelete: SetNull)
 
-  /// The number dialled, when the target was a phone rather than a rep. E.164.
+  /// The number dialled, when the target was a phone rather than a rep. E.164,
+  /// copied from the allow-list by the server — never from the browser.
   toE164 String?
 
-  /// "warm" | "cold". The rep chooses; there is no default, because the two
-  /// sound completely different to the person on hold.
+  /// "warm" | "cold" | "queue". The rep chooses warm or cold for a person;
+  /// there is no default, because the two sound completely different to the
+  /// person on hold. "queue" is written by the server when the destination
+  /// is the hold queue (lib/sales/calls/transfer.js TRANSFER_QUEUE): the
+  /// caller is parked for the next free rep and the transferring rep is
+  /// released, so neither word applies. On such a row toRepId and toE164 are
+  /// both null and conferenceName names a room that was never created.
   kind String
 
   /// A TRANSFER_STATES value from lib/sales/calls/transfer.js.

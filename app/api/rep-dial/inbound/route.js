@@ -433,10 +433,12 @@ async function afterDial(request, params) {
 /**
  * The queue: hold them, look again, and take a message when looking runs out.
  *
- * ── Entered by redirect, from three places ──────────────────────────────
+ * ── Entered by redirect, from four places ───────────────────────────────
  *
- * The first look finding nobody, a ring nobody took, and a transfer that
- * stranded its caller (lib/sales/calls/transferRest.js). One implementation,
+ * The first look finding nobody, a ring nobody took, a transfer that
+ * stranded its caller, and a rep who parked the caller here on purpose — a
+ * transfer to the queue (both through lib/sales/calls/transferRest.js's
+ * callerToQueue; the last carries `parked=1`). One implementation,
  * because the promise it keeps — never for ever, never in silence — is only
  * worth anything if there is one place it can be broken.
  *
@@ -456,6 +458,11 @@ async function queueStage(request, params) {
   const roundRaw = Number(url.searchParams.get("round"));
   const round = Number.isFinite(roundRaw) && roundRaw > 0 ? Math.floor(roundRaw) : 0;
   const justRang = url.searchParams.get("after") === "ring";
+  // A rep handed this caller to the queue on purpose (lib/sales/calls/
+  // transfer.js, kind "queue"; the flag is set by transferRest.js's
+  // callerToQueue and by nothing else). Round zero's words change; nothing
+  // about the bound, the hold or the voicemail does.
+  const parked = url.searchParams.get("parked") === "1";
 
   const store = callStoreState();
   const attempt =
@@ -518,6 +525,7 @@ async function queueStage(request, params) {
       attempt?.salesRep?.name && ring.targets.some((t) => t.salesRepId === attempt.salesRepId)
         ? attempt.salesRep.name
         : null,
+    parked,
     maxRounds: MAX_QUEUE_ROUNDS,
   });
 
