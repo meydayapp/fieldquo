@@ -308,47 +308,50 @@ ok(
 );
 
 // ═══════════════════════════════════════════════════════════════════════════
-section("4. Recording is off on every branch, and there is no switch");
+section("4. Recording is on wherever two people are connected, and off where nobody is");
 
-for (const [label, plan] of [
-  ["a number we do not hold", inboundPlan({ numberRung: null })],
-  ["an unrecordable deployment", inboundPlan({ numberRung: OUR_NUMBER, storeReady: false })],
-  ["a message", inboundPlan({ numberRung: OUR_NUMBER, transferTo: null })],
-  ["an empty floor", inboundPlan({ numberRung: OUR_NUMBER, transferTo: DESK, anyRepLive: false })],
-  ["a transfer", inboundPlan({ numberRung: OUR_NUMBER, transferTo: DESK, anyRepLive: true })],
+// 2026-09-17: the owner's decision. The disclosure is in the rep's opening
+// script; the conversation is kept. A plan that connects a caller to a rep
+// says record: true; a plan that plays a message or refuses has no
+// conversation to keep and says false — never a blanket true that would
+// claim a recording of a refusal.
+for (const [label, plan, expected] of [
+  ["a number we do not hold", inboundPlan({ numberRung: null }), false],
+  ["an unrecordable deployment", inboundPlan({ numberRung: OUR_NUMBER, storeReady: false }), false],
+  ["a message", inboundPlan({ numberRung: OUR_NUMBER, transferTo: null }), false],
+  ["an empty floor", inboundPlan({ numberRung: OUR_NUMBER, transferTo: DESK, anyRepLive: false }), false],
+  ["a transfer", inboundPlan({ numberRung: OUR_NUMBER, transferTo: DESK, anyRepLive: true }), true],
 ]) {
-  ok(`${label}: record is false`, plan.record === false, plan.record);
+  ok(`${label}: record is ${expected}`, plan.record === expected, plan.record);
 }
 
 // ── Two different things the word "recording" hides ──────────────────────
 //
-// A CALL RECORDING captures a conversation between two people. It is consent
-// law rather than a feature flag and it stays off — no `record` attribute on
-// any <Dial>, no recordingStatusCallback, no environment variable that turns
-// one on.
+// A CALL RECORDING captures a conversation between two people. Since
+// 2026-09-17 every <Dial> in the route carries the attributes
+// lib/sales/calls/recording.js hands out — dual-channel, from answer, posted
+// to /api/rep-dial/recording — and there is still no environment variable:
+// it is a decision, not a setting.
 //
-// A VOICEMAIL is one person talking to a machine after an announcement, with
-// nobody else on the line whose consent could be at issue. It is the <Record>
-// at the end of the queue, and it IS built now: written to
+// A VOICEMAIL is one person talking to a machine after an announcement. It is
+// the <Record> at the end of the queue, written to
 // SalesCallAttempt.voicemailUrl and played on the superadmin floor board.
-//
-// This section used to forbid both, in one regex, because when it was written
-// neither existed. It was already failing on `main` — the <Record> landed
-// without it being updated — which is exactly the state a check is supposed to
-// make visible. The rule is now stated as the two rules it always was.
 {
   const src = source(ROUTE);
+  const dials = src.split("twiml.dial(").length - 1;
+  ok("the route has <Dial>s to record", dials >= 2, dials);
   ok(
-    "no <Dial> in the route records the conversation",
-    !/record:\s*true/.test(src) && !/recordingStatusCallback/.test(src),
+    "every <Dial> in the route records the conversation",
+    (src.match(/\.\.\.dialRecordingAttrs\(/g) || []).length === dials,
+    (src.match(/\.\.\.dialRecordingAttrs\(/g) || []).length,
   );
   ok(
-    "…and no environment variable can turn one on",
+    "…and no environment variable decides it",
     !/process\.env\.[A-Z_]*RECORD/.test(src),
   );
   ok(
-    "the routing module states the decision rather than exposing a flag",
-    /record: false/.test(source("lib/sales/calls/inboundRouting.js")),
+    "the routing module states the decision on the connecting branch",
+    /record: true/.test(source("lib/sales/calls/inboundRouting.js")),
   );
   // The voicemail half, asserted as strongly as the prohibition above: a
   // <Record> with a stage that exists, and a column something reads.

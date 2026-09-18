@@ -13358,6 +13358,47 @@ model SalesCallAttempt {
   /// stage ran at all.
   voicemailSeconds Int?
 
+  // ── The conversation itself, recorded ──────────────────────────────────
+  //
+  // Reversed on 2026-09-17. Until then no sales call was recorded — the
+  // comment on lib/sales/calls/browserDial.js's callPlan made the consent
+  // argument and these columns did not exist. The owner's decision: record
+  // every sales call so what reps say can be reviewed against the script,
+  // and put the disclosure IN THE SCRIPT — the rep says "this call may be
+  // recorded" in the opening (lib/sales/playbook/defaults.js), which is what
+  // one-party and all-party consent jurisdictions alike ask for. The
+  // voicemail columns above stay separate: a voicemail is one person and a
+  // machine, and a row can hold both.
+
+  /// Twilio's RecordingSid. @unique so a retried recordingStatusCallback
+  /// lands on the row it already wrote rather than a second one.
+  recordingSid String? @unique
+  /// Twilio's RecordingUrl without an extension. NEVER put in an <audio src>:
+  /// app/api/platform/sales/recording/[id]/audio proxies it with credentials,
+  /// for the same reason voicemailUrl is proxied.
+  recordingUrl String?
+  /// Seconds the carrier reports. Null means no recording arrived.
+  recordingSeconds Int?
+  /// 1 or 2. A <Dial> is recorded dual-channel (rep and contractor on separate
+  /// tracks, which is what lets the transcript say who said what); a
+  /// conference — a transferred call — is a single mixed track.
+  recordingChannels Int?
+  recordedAt DateTime?
+
+  /// What was said, as [{ speaker: "rep"|"contractor"|"unknown", start, end,
+  /// text }] ordered by start. Written by lib/sales/calls/transcribe.js from
+  /// the recording, one pass per channel, so a dual-channel call is
+  /// attributed and a mixed one is not — never guessed.
+  transcript Json?
+  /// The same, flattened to "rep: … / contractor: …" lines, for search and
+  /// for the export the owner runs his own analysis on.
+  transcriptText String?
+  transcribedAt DateTime?
+  /// Why there is a recording and no transcript. Null while nothing has been
+  /// tried; the text of the failure afterwards, so "not yet" and "failed"
+  /// are different facts on the platform page.
+  transcriptError String?
+
   /// "browser" | "handset" | "inbound". Which door the call went through, and
   /// therefore whether any of the provider columns below can ever be filled.
   /// Defaulted to handset so a row written by an older path is not silently

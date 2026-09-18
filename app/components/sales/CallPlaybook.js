@@ -56,6 +56,7 @@ import { languageMeta } from "@/app/i18n/languages";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import StayOnTheLine from "@/app/components/sales/StayOnTheLine";
 import TurnaroundQuestion from "@/app/components/sales/TurnaroundQuestion";
+import RecordingDisclosure from "@/app/components/sales/RecordingDisclosure";
 
 const BTN =
   "inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60";
@@ -572,6 +573,9 @@ export default function CallPlaybook({
           </p>
         )}
       </div>
+
+      {/* ── Said first, on every call: the call is recorded ─────────────── */}
+      <RecordingDisclosure language={data.callScript?.language || data.scriptLanguage?.current || data.scriptLanguage?.default || "en"} />
 
       {/* ── The generated script, when the pipeline has written one ───────
           Above the stages, because it is about THIS business and the stages

@@ -52,25 +52,23 @@
 // scripts/check-sales-inbound-call.mjs asserts this file imports no part of
 // the calling-window module.
 //
-// ══ THE CONVERSATION is not recorded. A VOICEMAIL is ══════════════════════
+// ══ THE CONVERSATION is recorded, and so is a VOICEMAIL — differently ═════
 //
-// Two different things that the word "recording" hides, and this header used
-// to say only the first half.
+// Two different things that the word "recording" hides.
 //
-//   A CALL RECORDING captures a conversation between two people. It is consent
-//   law rather than a feature flag — several of the states callingRules.js
-//   enumerates are all-party-consent — and it stays off: no `record` attribute
-//   on any <Dial> in this file, no recordingStatusCallback, and no environment
-//   variable that turns one on. lib/sales/calls/browserDial.js's callPlan makes
-//   the long argument and lib/sales/calls/inboundRouting.js freezes it into the
-//   plan as `record: false`.
+//   A CALL RECORDING captures a conversation between two people. Off until
+//   2026-09-17 on a consent-law argument; on since, by the owner's decision,
+//   with the disclosure carried in the rep's opening script rather than
+//   played by a machine. Every <Dial> in this file carries the attributes
+//   lib/sales/calls/recording.js hands out — dual-channel, from answer, filed
+//   by /api/rep-dial/recording onto SalesCallAttempt.recordingUrl and
+//   transcribed onto .transcript.
 //
 //   A VOICEMAIL is one person talking to a machine after an announcement, with
-//   nobody else on the line. There is no second party whose consent could be
-//   at issue. It is the <Record> at the end of the queue, it is written to
-//   SalesCallAttempt.voicemailUrl, and the superadmin floor board plays it —
-//   which is the half that was missing when those columns were added and
-//   nothing wrote or read them.
+//   nobody else on the line. It is the <Record> at the end of the queue, it is
+//   written to SalesCallAttempt.voicemailUrl, and the superadmin floor board
+//   plays it — which is the half that was missing when those columns were
+//   added and nothing wrote or read them.
 //
 // `transcribe` is off on that <Record>: transcription is a per-minute charge
 // and a rep listening to a ninety-second message is cheaper than transcribing
@@ -100,6 +98,7 @@ import {
 } from "@/lib/sales/leadLanguage";
 import { getAppOrigin } from "@/lib/appUrl";
 import { recordError } from "@/lib/platform/errorLog";
+import { dialRecordingAttrs } from "@/lib/sales/calls/recording";
 import { appSentence, pushToReps } from "@/lib/notify/push";
 import { normalisePhone } from "@/lib/sales/suppressionRules";
 import { checkSuppression } from "@/lib/sales/suppression";
@@ -516,6 +515,8 @@ async function queueStage(request, params) {
         attempt ? `&attemptId=${encodeURIComponent(attempt.id)}` : ""
       }`,
       method: "POST",
+      // The conversation is recorded — lib/sales/calls/recording.js.
+      ...dialRecordingAttrs({ origin, attemptId: attempt?.id || null }),
     });
     // Every target inside ONE <Dial>, in order. A second <Dial> verb only
     // starts after the first gives up entirely, which is a different and much
@@ -833,9 +834,9 @@ export async function POST(request) {
       ? `${origin}/api/rep-dial/inbound?stage=after-dial&attemptId=${encodeURIComponent(attempt.id)}`
       : `${origin}/api/rep-dial/inbound?stage=after-dial`,
     method: "POST",
-    // No `record`. See lib/sales/calls/inboundRouting.js — recording a
-    // two-party call is consent law rather than an attribute, and its absence
-    // here is the decision, not an oversight.
+    // The conversation is recorded, dual-channel, from answer — the decision
+    // and its reasons are in lib/sales/calls/recording.js.
+    ...dialRecordingAttrs({ origin, attemptId: attempt?.id || null }),
   });
   // Every target, in order, inside ONE <Dial>. Twilio rings them in sequence
   // and the first to answer wins — which is what a rep expects when a call
