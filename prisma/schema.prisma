@@ -10096,6 +10096,7 @@ model SalesRep {
   leadLinkEvents    SalesLeadLinkEvent[]
   threads           SalesThread[]
   emailDrafts       SalesEmailDraft[]
+  mailbox           SalesMailbox?
   smsMessages       SalesSmsMessage[]
   callAttempts      SalesCallAttempt[]
   /// The number this rep calls from, when one has been bought for them.
@@ -11089,8 +11090,25 @@ model SalesThread {
   salesRepId String
   salesRep   SalesRep @relation(fields: [salesRepId], references: [id], onDelete: Cascade)
 
-  leadId String
-  lead   SalesLead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  /// Nullable since 2026-09-18, when the rep's whole mailbox started syncing
+  /// in (lib/sales/mailbox/sync.js). A conversation with somebody who is not
+  /// one of the rep's leads — a colleague, a supplier, a stranger — is still
+  /// a conversation in the mailbox, and the inbox shows it under "Everything
+  /// else". It is re-matched on every sync, so a lead created later claims
+  /// its earlier mail. Deleting a lead detaches its threads (SetNull) rather
+  /// than deleting mail the mailbox still holds.
+  leadId String?
+  lead   SalesLead? @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  /// The connected mailbox this thread was synced from, when it was — null
+  /// for threads written by the Resend doors (docs/SALES-OUTREACH.md §5/§5b).
+  mailboxId String?
+  mailbox   SalesMailbox? @relation(fields: [mailboxId], references: [id], onDelete: SetNull)
+
+  /// The other party's address, lowercase — the From of an inbound message,
+  /// the first To of an outbound one. What the lead match runs on, and what
+  /// the "Everything else" row shows as its name.
+  counterpart String?
 
   subject String
 
@@ -11129,6 +11147,7 @@ model SalesThread {
 
   @@index([salesRepId, lastMessageAt])
   @@index([salesRepId, archivedAt, lastMessageAt])
+  @@index([salesRepId, counterpart])
 }
 
 model SalesMessage {
@@ -11183,6 +11202,27 @@ model SalesMessage {
   /// all of which were filed by token.
   filedBy String?
 
+  /// The RFC 5322 Message-ID, angle brackets stripped, for every message that
+  /// came through or went out of a connected mailbox. It is what threads a
+  /// reply (In-Reply-To / References name it) and what stops a message being
+  /// stored twice — our own send appended to Sent comes back on the next sync
+  /// with this id and is recognised. Null on rows the Resend doors wrote.
+  messageId  String?
+  inReplyTo  String?
+  references String?
+
+  /// Where the message sits in the connected mailbox: the IMAP folder and
+  /// the message's UID in it (valid for the folder's UIDVALIDITY, kept on
+  /// SalesMailbox). Read back to mirror a portal read onto the server
+  /// (\\Seen) — never to delete.
+  imapFolder String?
+  imapUid    Int?
+
+  /// Inbound, from a connected mailbox: whether the server held the message
+  /// as \\Seen when it was synced or marked since. A message read on the
+  /// rep's phone is read here too.
+  seen Boolean?
+
   /// When the message actually happened, from the provider's own header where
   /// there is one — not when we wrote the row.
   sentAt DateTime @default(now())
@@ -11190,6 +11230,91 @@ model SalesMessage {
   createdAt DateTime @default(now())
 
   @@index([threadId, sentAt])
+  @@index([messageId])
+}
+
+/// A rep's own work mailbox, connected by the owner so the portal is a
+/// second window onto it.
+///
+/// ══ Why this is the owner's row and not the rep's ═════════════════════════
+///
+/// The owner bought the Namecheap Private Email inboxes and holds their
+/// passwords; he asked that reps never do a configuration step. So the row
+/// is written from the rep's card on /platform/sales/reps, in the same
+/// action that sets SalesRep.workEmail (address + password, tested on save),
+/// and the rep's Conversations page either works or says "ask the owner".
+///
+/// ══ The password ═════════════════════════════════════════════════════════
+///
+/// `secret` is the mailbox password encrypted with the platform's at-rest
+/// key (lib/meta/tokenCrypto.js — AES-256-GCM under META_TOKEN_ENCRYPTION_KEY,
+/// the same key and the same reasons). It is written by the connect route,
+/// read by the sync and the send, never returned by any route, never logged,
+/// and never passed to a client. Revoking clears it.
+///
+/// ══ Two-way, never destructive ═══════════════════════════════════════════
+///
+/// The reps keep using privateemail.com; the portal mirrors it. The sync
+/// pulls INBOX and Sent by UID (UID-based polling — IMAP IDLE needs a
+/// process that stays up, and Vercel functions do not), mirrors \\Seen into
+/// read state and read state back into \\Seen, and appends a portal send to
+/// Sent so the phone shows it. Nothing here ever deletes, moves or expunges
+/// a message on the server.
+model SalesMailbox {
+  id String @id @default(cuid())
+
+  salesRepId String   @unique
+  salesRep   SalesRep @relation(fields: [salesRepId], references: [id], onDelete: Cascade)
+
+  /// The mailbox address — equal to SalesRep.workEmail when connected, and
+  /// the IMAP/SMTP username.
+  address String
+
+  imapHost String @default("mail.privateemail.com")
+  imapPort Int    @default(993)
+  smtpHost String @default("mail.privateemail.com")
+  smtpPort Int    @default(465)
+
+  /// The encrypted password. Null once revoked.
+  secret String?
+
+  /// "connected" — both tests passed and the sync runs;
+  /// "error"     — the last test or sync failed (see lastError); Retry re-tests;
+  /// "revoked"   — the owner disconnected it; the secret is gone.
+  status String @default("error")
+
+  /// The last IMAP and SMTP test results, in words, for the card.
+  imapResult String?
+  smtpResult String?
+
+  /// The names of the folders the server marks \\Sent and \\Drafts, learnt on
+  /// connect (Namecheap: "Sent" and "Drafts"; other servers differ).
+  sentFolder   String?
+  draftsFolder String?
+
+  /// Sync position per folder: the UIDVALIDITY the UIDs belong to, and the
+  /// highest UID stored. A changed UIDVALIDITY resets the position.
+  inboxUidValidity Int?
+  inboxLastUid     Int  @default(0)
+  sentUidValidity  Int?
+  sentLastUid      Int  @default(0)
+
+  lastSyncAt    DateTime?
+  lastSyncCount Int?
+  lastError     String?
+  lastErrorAt   DateTime?
+  /// Held while one sync runs, so two cron ticks do not both pull; a lock
+  /// older than the stale limit in lib/sales/mailbox/sync.js is taken over.
+  syncingSince DateTime?
+
+  connectedAt DateTime  @default(now())
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  threads SalesThread[]
+
+  @@index([status, lastSyncAt])
 }
 
 /// An email a rep has started and not sent.
