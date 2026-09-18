@@ -25,6 +25,10 @@ import { Lock, CreditCard, ShieldCheck } from "lucide-react";
 
 export default function AccountLocked({ reason, companyName }) {
   const cancelled = reason === "canceled" || reason === "canceled_expired";
+  // FieldQuo ended it for a terms breach (lib/billing/access.js "terms").
+  // Said plainly, with no "start again" button: the way back is a
+  // conversation with support, not a card.
+  const terms = reason === "terms";
 
   return (
     <main className="min-h-screen grid place-items-center p-6 bg-background">
@@ -34,11 +38,18 @@ export default function AccountLocked({ reason, companyName }) {
         </div>
 
         <h1 className="text-xl font-bold text-foreground mt-5">
-          {cancelled ? "This subscription was cancelled" : "Your account is locked"}
+          {terms ? "This account was closed by FieldQuo" : cancelled ? "This subscription was cancelled" : "Your account is locked"}
         </h1>
 
         <p className="text-sm text-muted-foreground mt-2">
-          {cancelled ? (
+          {terms ? (
+            <>
+              {companyName ? <strong>{companyName}</strong> : "This account"}&apos;s subscription
+              was ended by FieldQuo for a breach of the terms of service, and access is
+              closed. If you believe this is a mistake, write to support and we will look
+              at it with you.
+            </>
+          ) : cancelled ? (
             <>
               {companyName ? <strong>{companyName}</strong> : "This account"} was
               cancelled, and the thirty days of read-only access have run out.
@@ -63,6 +74,7 @@ export default function AccountLocked({ reason, companyName }) {
           </p>
         </div>
 
+        {!terms ? (
         <Link
           href="/app/settings/account-billing"
           className="mt-6 inline-flex items-center gap-2 px-6 py-3 rounded-full bg-inverted text-inverted-foreground text-sm font-bold"
@@ -70,6 +82,7 @@ export default function AccountLocked({ reason, companyName }) {
           <CreditCard size={16} />
           {cancelled ? "Start my subscription again" : "Update my card"}
         </Link>
+        ) : null}
 
         <p className="text-xs text-muted-foreground mt-5">
           Stuck, or think this is wrong?{" "}

@@ -1003,6 +1003,16 @@ model Subscription {
   /// table and the one nobody remembers to collect.
   cancelReason String?
 
+  /// FieldQuo ended it — a terms breach, not a customer's choice. Set by
+  /// /api/platform/companies/[id]/cancel-subscription in "terms" mode after
+  /// the Stripe subscription is cancelled. lib/billing/access.js reads it
+  /// FIRST: a company locked for its conduct gets no thirty-day read-only
+  /// window (that window exists for people who chose to leave), and the
+  /// locked screen says why in one sentence rather than "your subscription
+  /// was cancelled". Null on every ordinary row.
+  accessLockedAt     DateTime?
+  accessLockedReason String?
+
   /// The `currentPeriodEnd` an advance renewal reminder was already sent for
   /// (`/api/cron/renewal-reminders`, `lib/billing/renewalReminder.js`).
   ///
