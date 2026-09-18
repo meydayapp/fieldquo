@@ -69,7 +69,16 @@ address and never block; the server re-checks on submit; the lead carries
 notes carry the staff line. A `Number(null) → 0` trap that measured a missing
 pin from the Gulf of Guinea was caught by the check and fixed.
 
-REPORT_PLACEHOLDER
+**The report the estimate becomes** — see "After the price is revealed the
+instant estimate becomes a report" below (agent/report): the request route
+now calls `publishEstimateReport({ quoteId, companyId, request })`
+(lib/estimate/report/publish.js) in place of the old confirmation email —
+it mints the share token, renders the PDF through the document sections,
+emails the copy in the form's language and returns the URL; the form sends
+the homeowner to `/estimate-report/<token>` and the lead's intake carries
+`reportUrl`. Company.instantReportWebsite (additive, pushed) chooses the
+website tile's target. lib/estimate/estimateEmail.js is superseded by the
+report email and kept only for its check — delete both together.
 
 **Paving traced on the map** — see "Paving is an instant trade measured by
 tracing, and every trace prints" below (agent/paving): `area_polygon` is the

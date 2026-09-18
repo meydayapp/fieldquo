@@ -112,6 +112,7 @@ for (const trade of Object.keys(INSTANT_ESTIMATE_TRADES)) {
   ok(`${trade}: en/fr/es labels`, row && ["en", "fr", "es"].every((c) => row[c]?.label?.trim()), row);
   ok(`${trade}: en label is the server's TRADE_LABELS entry`, row?.en?.label === TRADE_LABELS[trade], [row?.en?.label, TRADE_LABELS[trade]]);
   ok(`${trade}: fr and es differ from en`, row && row.fr.label !== row.en.label && row.es.label !== row.en.label);
+  ok(`${trade}: a report-title noun in en/fr/es, no English noun inside fr/es`, row && ["en", "fr", "es"].every((c) => row[c]?.noun?.trim()) && row.fr.noun !== row.en.noun && row.es.noun !== row.en.noun);
 }
 ok("an unknown trade falls back to the passed English label, then the key", instantTradeLabel("zzz", "fr", "Zed") === "Zed" && instantTradeLabel("zzz", "fr") === "zzz");
 ok("instantQuoteLanguage accepts fr-CA / ES / es-MX and refuses de, uk, ''", instantQuoteLanguage("fr-CA") === "fr" && instantQuoteLanguage("ES") === "es" && instantQuoteLanguage("es-MX") === "es" && instantQuoteLanguage("de") === null && instantQuoteLanguage("uk") === null && instantQuoteLanguage("") === null);

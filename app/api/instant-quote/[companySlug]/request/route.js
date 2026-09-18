@@ -11,21 +11,16 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { rateLimit } from "@/lib/rateLimit";
 import { measureForTrade, priceOneMaterial } from "@/lib/estimate/instantQuoteServer";
-import { lawnEstimateCopy, lawnSourceSentence } from "@/lib/i18n/lawnEstimateCopy";
 import { lawnPublicView } from "@/lib/estimate/lawnPublicView";
 import { publicEstimate, gatedMessage, effectiveVisibility } from "@/lib/estimate/visibility";
 import { bandForIndex, estimateExceedsBudget, scoreKeyForBandIndex } from "@/lib/estimate/budgetBands";
 import { financingOffer } from "@/lib/estimate/financing";
-import { canBookVisit } from "@/lib/booking/canBookVisit";
-import { getAppOrigin } from "@/lib/appUrl";
 import { createScoredLead } from "@/lib/leads/createLead";
 import { emailRefusal } from "@/lib/validation";
 import { buildLeadIntake } from "@/lib/leads/intakeShape";
 import { createEstimateDraft } from "@/lib/estimate/createEstimateQuote";
 import { normaliseCountry } from "@/lib/tax/jurisdictions";
-import { buildEstimateEmail } from "@/lib/estimate/estimateEmail";
-import { sendEmail } from "@/lib/email/resend";
-import { resolveSender } from "@/lib/email/companySender";
+import { publishEstimateReport } from "@/lib/estimate/report/publish";
 import { recordConsent, DISCLOSURE } from "@/lib/voice/outbound";
 import { instantQuoteCopy, instantQuoteLanguage } from "@/lib/i18n/instantQuoteCopy";
 import { measureErrorMessage } from "@/lib/estimate/measureErrorMessage";
@@ -223,56 +218,23 @@ export async function POST(request, { params }) {
 
   const emailLanguage = language;
 
-  // Whether a booking button belongs in the email at all. Read from the same
-  // helper the public page uses rather than re-derived, because an email that
-  // offers a visit the company cannot take is a dead link with a long life.
-  const bookable = canBookVisit(company) ? { slug: company.bookingSlug || company.slug } : null;
-
-  // ── The white-label confirmation ──────────────────────────────────────────
+  // ── The report: the page, the PDF and the emailed copy ───────────────────
   //
-  // Sent from the company's own domain, in their brand, obeying the same
-  // visibility gate the screen did — a gated trade's email shows no figure
-  // either. Best-effort: a mail hiccup must not fail the request the homeowner
-  // just made, and the on-screen result already confirmed it.
-  if (email) {
-    try {
-      const { subject, html } = buildEstimateEmail({
-        company,
-        contact: { name },
-        estimate: { low: priced.estimate.low, high: priced.estimate.high },
-        visibility,
-        // Moves the company's own financing note up under the figure. Does
-        // nothing at all when they haven't enabled financing.
-        budgetGap,
-        // Only when there is a calendar behind it. loadCompanyInstantTrades
-        // answers the same question for the result screen, so the email and
-        // the page cannot disagree about whether a visit can be booked.
-        bookingUrl: bookable ? `${getAppOrigin(request)}/book/${bookable.slug}` : null,
-        reference: draft.quoteNumber,
-        language: emailLanguage,
-        // Gutters write their assumptions for the homeowner, in emailLanguage
-        // (priceOneMaterial was handed the same language). Every other trade's
-        // assumptions are the estimator's own English notes and stay off the
-        // email, as before.
-        notes:
-          trade === "gutters"
-            ? priced.estimate.assumptions || []
-            : trade === "lawn_care"
-              ? lawnEmailNotes(pricedMeasurement, priced.estimate, emailLanguage)
-              : [],
-      });
-      await sendEmail({
-        // A demo's instant-quote page is a real public URL a stranger can
-        // fill in. The lead is still created; only the letter is simulated.
-        companyId: company.id,
-        to: email,
-        subject,
-        html,
-        ...(await resolveSender(company, company.id)),
-      });
-    } catch (err) {
-      console.error("[instant-quote/request] estimate email failed:", err?.message);
-    }
+  // Once the price is out, the estimate becomes a report (app/estimate-report/
+  // [token]): a branded page at a tokenised public URL, the PDF, and an
+  // emailed copy in the language the form was read in — with the option
+  // cards, the measurement summary, the property still and the three
+  // buttons. publishEstimateReport mints the share token, renders, sends
+  // (to the client email the draft was created with — nothing to send when
+  // the homeowner gave a phone only) and returns the URL; a PDF or mail
+  // hiccup inside it logs and still returns the URL, because the homeowner
+  // is about to be sent to that page and the on-screen result stands. A
+  // failure of the publish itself must not fail the request either.
+  let report = null;
+  try {
+    report = await publishEstimateReport({ quoteId: draft.id, companyId: company.id, request });
+  } catch (err) {
+    console.error("[instant-quote/request] report publish failed:", err?.message);
   }
 
   // ── The lead ──────────────────────────────────────────────────────────────
@@ -356,6 +318,8 @@ export async function POST(request, { params }) {
         ...homeowner.answers,
         ...(homeowner.notes && { notes: homeowner.notes }),
         ...(outsideServiceArea && { outsideServiceArea: true }),
+        // The report the homeowner was sent to, so the lead card links it.
+        ...(report?.url && { reportUrl: report.url }),
       },
     }),
     // NOT a timeline. This form does not ask when they want the work done —
@@ -419,6 +383,10 @@ export async function POST(request, { params }) {
     // attach anything. `reference` stays the human-readable quote number,
     // because that is what a homeowner reads back over the phone.
     quoteId: draft.id,
+    // Where the browser goes next: the report page. Null when the draft is
+    // not one a report can be built for, and the form's own confirmation
+    // stands in.
+    reportUrl: report?.url || null,
     estimate: shown,
     // The measured facts behind the figure — squares, sq ft, pitch, and the
     // satellite still. The single-page form has no earlier round trip to get
@@ -554,16 +522,3 @@ function sanitiseMeasurement(m) {
   };
 }
 
-// The confirmation email's lines for a lawn program, in the email's language:
-// the size and where it came from, then what was bought, priced.
-function lawnEmailNotes(m, estimate, language) {
-  const t = lawnEstimateCopy(language);
-  const view = lawnPublicView(m, language);
-  const notes = [view ? `${t.lawnSizeLabel}: ${view.sizeText}` : null, lawnSourceSentence(m?.source, language)].filter(Boolean);
-  for (const l of Array.isArray(estimate?.lines) ? estimate.lines : []) {
-    const services = (l.services || []).map((s) => s.name).join(", ");
-    notes.push(`${l.name}${services ? ` — ${services}` : ""}`);
-  }
-  notes.push(t.notAContract);
-  return notes;
-}
