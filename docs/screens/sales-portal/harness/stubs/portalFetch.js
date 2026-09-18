@@ -160,6 +160,10 @@ function answer(p, u, method, body) {
       serverNow: new Date().toISOString(),
     };
   if (p === "/api/sales/calls/token") return { token: "tok", expiresInSeconds: 600 };
+  // Today's "Calls to write up" card. Empty: the card then says so in words,
+  // which is the frame worth keeping; unanswered, every Today frame carried
+  // "Harness has no answer" and the shooter flagged the scene as an error.
+  if (p === "/api/sales/calls/unlogged") return { store: { ready: true, missing: [] }, count: 0, items: [], serverNow: new Date().toISOString() };
   if (p === "/api/sales/calls/state") {
     if (method === "POST" && body?.state) state.presence = { ...state.presence, state: body.state, pauseReason: body.pauseReason || null, forMs: 0 };
     return { presence: state.presence, store: { ready: true }, choices: STATUS_CHOICES, autodial: state.autodial };

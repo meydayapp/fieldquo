@@ -283,13 +283,25 @@ const DOT = {
  * The picker.
  *
  * `layout="row"` is the six choices as pills in one row, the current one
- * filled. `layout="list"` is the drawer below lg — the same six as
- * full-width rows, one tap each. `layout="menu"` is the top bar from lg up:
- * one button reading the current state ("Available · for 12m") that opens
- * the same six as a menu underneath — the "Ready to Call" dropdown of the
- * dialler the owner sent, over the same state machine. All three render the
+ * filled. `layout="menu"` is the top bar from lg up: one button reading the
+ * current state ("Available · for 12m") that opens the same six as a menu
+ * underneath — the "Ready to Call" dropdown of the dialler the owner sent,
+ * over the same state machine. `layout="list"` is the drawer below lg: the
+ * SAME button, full width, and the same six — but opened in the drawer's own
+ * flow rather than floating over it, one to a row. All three render the
  * current state and how long it has been that, and all three are the same
  * control: none is a summary of another.
+ *
+ * Why the drawer's copy folds. Until 2026-09-17 it was the pill plus a
+ * two-column grid of six 44px buttons, always open — 200px of chrome at the
+ * top of a 320px-wide panel before the first row of the nav. On a phone in
+ * Safari the viewport is ~660px once the toolbars are counted, so Texts,
+ * Team and Notes were the only rows above the fold and the rest sat under
+ * "Signed in as". The owner: "clogs all the statuses in a grid ... not
+ * allowing me to see and click on Queue etc." A rep changes status a few
+ * times a day and opens the drawer to go somewhere far more often, so the
+ * six live behind one tap, and the tap is the same 44px button the header
+ * carries from lg up.
  *
  * States the picker does not offer — on a call, writing it up, paused for a
  * reason that is not on the list — are printed as what they are, with no
@@ -328,11 +340,10 @@ export function RepStatusPicker({ layout = "row" }) {
     setBusy("");
   }
 
-  const row = layout === "row";
-
-  if (layout === "menu") {
+  if (layout === "menu" || layout === "list") {
     return (
       <StatusMenu
+        inline={layout === "list"}
         t={t}
         state={state}
         stateLabel={stateLabel}
@@ -351,7 +362,7 @@ export function RepStatusPicker({ layout = "row" }) {
   return (
     <div
       data-tour="sales-status"
-      className={row ? "flex items-center gap-2 min-w-0 flex-wrap" : "space-y-2"}
+      className="flex items-center gap-2 min-w-0 flex-wrap"
       aria-label={t("app.salesStatus.pickerAria")}
     >
       {/* What they are now, and for how long. Printed even when a pill is
@@ -371,7 +382,7 @@ export function RepStatusPicker({ layout = "row" }) {
         ) : null}
       </span>
 
-      <div className={row ? "flex items-center gap-1 flex-wrap" : "grid grid-cols-2 gap-1.5"}>
+      <div className="flex items-center gap-1 flex-wrap">
         {choices.map((choice) => {
           const active = current?.code === choice.code;
           return (
@@ -396,7 +407,7 @@ export function RepStatusPicker({ layout = "row" }) {
       </div>
 
       {refused ? (
-        <p className={`text-xs text-amber-900 dark:text-amber-200 break-words ${row ? "basis-full" : ""}`}>
+        <p className="text-xs text-amber-900 dark:text-amber-200 break-words basis-full">
           {refused}
         </p>
       ) : null}
@@ -408,8 +419,14 @@ export function RepStatusPicker({ layout = "row" }) {
  * The menu form of the picker. Module-level, not declared inside the
  * picker's render — a component declared inside another's body is remounted
  * on every render, which drops the open state on each thirty-second tick.
+ *
+ * `inline` is the drawer's form: the button spans the panel and the six
+ * open BELOW it in normal flow, pushing the nav down, instead of as a
+ * floating panel. A floating w-56 menu at the top of a 320px drawer would
+ * cover the first four rows of the nav and be clipped by the drawer's own
+ * scroll box; in flow it is one more thing the drawer scrolls.
  */
-function StatusMenu({ t, state, stateLabel, forText, stale, loading, choices, current, busy, refused, onPick }) {
+function StatusMenu({ inline = false, t, state, stateLabel, forText, stale, loading, choices, current, busy, refused, onPick }) {
   const [open, setOpen] = useState(false);
   const wrap = useRef(null);
 
@@ -438,14 +455,17 @@ function StatusMenu({ t, state, stateLabel, forText, stale, loading, choices, cu
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-        className={`inline-flex items-center gap-2 min-h-[44px] rounded-lg border px-3 text-sm font-medium ${TONE[state] || TONE[STATE_OFFLINE]}`}
+        data-status-toggle
+        className={`inline-flex items-center gap-2 min-h-[44px] rounded-lg border px-3 text-sm font-medium ${
+          inline ? "w-full" : ""
+        } ${TONE[state] || TONE[STATE_OFFLINE]}`}
       >
         {loading ? (
           <Loader2 size={12} className="animate-spin" />
         ) : (
           <span aria-hidden="true" className={`h-2.5 w-2.5 rounded-full ${DOT[state] || DOT[STATE_OFFLINE]}`} />
         )}
-        <span className="break-words">
+        <span className={`break-words ${inline ? "min-w-0 flex-1 text-left" : ""}`}>
           {forText ? t("app.salesStatus.currentFor", { state: stateLabel, duration: forText }) : stateLabel}
         </span>
         {stale ? <span className="opacity-80">{t("app.salesStatus.stale")}</span> : null}
@@ -455,7 +475,11 @@ function StatusMenu({ t, state, stateLabel, forText, stale, loading, choices, cu
       {open ? (
         <div
           role="menu"
-          className="absolute right-0 z-40 mt-1 w-56 rounded-lg border border-border bg-card p-1 shadow-lg"
+          className={
+            inline
+              ? "mt-1 w-full rounded-lg border border-border bg-card p-1"
+              : "absolute right-0 z-40 mt-1 w-56 rounded-lg border border-border bg-card p-1 shadow-lg"
+          }
         >
           {choices.map((choice) => {
             const active = current?.code === choice.code;
