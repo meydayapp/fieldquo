@@ -13754,6 +13754,26 @@ where the schema says `met`, which would have made two lines unwinnable on
 every call. `check-sales-admin` now asserts the calls entry is GONE from
 NOT_TRACKED and that the figures come through reporting.js.
 
+**Folded in from the cold-calling research (docs/sales/RESEARCH-cold-calling-2026.md,
+Gong's 300M calls), after the first push:** the talk-ratio band is the COLD
+call's, 0.45–0.65 rep (55:45 is the booked shape; a demo would want
+0.35–0.60 and there is no demo scorer); the longest uninterrupted rep
+burst is measured from the segments (an unknown segment breaks the run)
+and flagged under 25 s — reported, not weighted, because the rubric was
+set before the figure existed; the moment the reason for the call was
+said (v3's "The reason I'm calling is" or the pivot's "exactly why I'm
+calling" — never the opener's "why I called", which is the permission
+ask) with a `withinDue` at 60 s; whether the close asked for a calendar
+and whether a `SalesEvent` was created by the rep between the dial and
+ten minutes after the call (`inviteCreated`, null when the call has no
+end to bound the window); a gatekeeper read from the model (first speaker
+the decision-maker; if not, name and time obtained); and on every banned
+move, whether the phrase was in the STORED playbook's lines (`source:
+"script"` — the script is wrong) or the rep's own words (`"rep"`). All on
+the review screen in nine languages. Not folded in: objections-handled as
+a floor norm (≥ 2) is visible per call but not rolled up — the count on
+this floor is too small to say what the norm is here yet.
+
 **What remains.** Coaching is written in the rep's portal language but the
 rubric line names on the rep's own page are the catalogue's, so a rep with
 no language set reads English coaching under translated headings — by

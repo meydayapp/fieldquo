@@ -21,7 +21,7 @@ import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { rows, writes, resetDbStub } from "./fixtures/dbStub.mjs";
+import { rows, writes, reads, resetDbStub } from "./fixtures/dbStub.mjs";
 import {
   analyseTranscript,
   overallFrom,
@@ -82,8 +82,8 @@ const GOOD = [
   seg("contractor", 40, 55, "Me and two lads. Busy enough, mostly referrals."),
   seg("rep", 55, 63, "When someone reaches out today, how long is it usually before they've actually got a quote in their hands — same day, a couple of days, a week?"),
   seg("contractor", 63, 80, "Couple of days if I'm honest. Sometimes a week."),
-  seg("rep", 80, 92, "I can show you in fifteen minutes how it works for a business like yours. What works better for you, mornings or afternoons? I'll send the invite."),
-  seg("contractor", 92, 100, "Thursday morning I suppose."),
+  seg("rep", 80, 96, "I can show you in fifteen minutes how it works for a business like yours. Have you got your calendar handy — what works better for you, mornings or afternoons? I'll send the invite."),
+  seg("contractor", 96, 100, "Thursday morning I suppose."),
 ];
 const NO_DISCLOSURE = GOOD.map((s, i) => (i === 0 ? seg("rep", 0, 6, "Hi, is that Dubois Painting? Dana here, from FieldQuo. I know I'm catching you out of nowhere. Can I give you thirty seconds on why I called?") : s));
 const BANNED = [...GOOD, seg("rep", 100, 104, "No problem — I'll leave you alone then, sorry to bother you."), seg("contractor", 104, 106, "Cheers.")];
@@ -123,9 +123,17 @@ section("2. The deterministic half, on synthetic transcripts");
   ok("FieldQuo, the rep's first name and the business are all inside the first 20 s", d.first20.companyNamed && d.first20.repNamed && d.first20.businessNamed, d.first20);
   ok("no banned move on a clean call", d.bannedMoves.length === 0, d.bannedMoves);
   ok("the turnaround question's own words are detected", d.turnaroundKeyword === true);
-  // rep: 6 + 7 + 10 + 8 + 12 = 43 ; contractor: 3 + 14 + 15 + 17 + 8 = 57 → 0.43
-  ok("talk ratio is rep seconds over rep + contractor seconds", d.talk.repSeconds === 43 && d.talk.contractorSeconds === 57 && d.talk.ratio === 0.43, d.talk);
-  ok("…and the ratio sits inside the band", d.talk.ratio >= TALK_RATIO_BAND.min && d.talk.ratio <= TALK_RATIO_BAND.max);
+  // rep: 6 + 7 + 10 + 8 + 16 = 47 ; contractor: 3 + 14 + 15 + 17 + 4 = 53 → 0.47
+  ok("talk ratio is rep seconds over rep + contractor seconds", d.talk.repSeconds === 47 && d.talk.contractorSeconds === 53 && d.talk.ratio === 0.47, d.talk);
+  ok("…and the ratio sits inside the cold-call band (0.45–0.65, Gong's 55:45)", TALK_RATIO_BAND.min === 0.45 && TALK_RATIO_BAND.max === 0.65 && d.talk.ratio >= TALK_RATIO_BAND.min && d.talk.ratio <= TALK_RATIO_BAND.max);
+  ok("the longest uninterrupted rep burst is the longest single run (16 s here) and is flagged under 25 s", d.talk.longestRepBurstSeconds === 16 && d.talk.burstTooShort === true, d.talk);
+  ok("two rep lines in a row sum into one burst", analyseTranscript([seg("rep", 0, 10, "a"), seg("rep", 10, 30, "b"), seg("contractor", 30, 40, "c"), seg("rep", 40, 45, "d")], names).talk.longestRepBurstSeconds === 30);
+  ok("an unknown segment between two rep lines breaks the run", analyseTranscript([seg("rep", 0, 10, "a"), seg("unknown", 10, 12, "?"), seg("rep", 12, 40, "b"), seg("contractor", 40, 60, "c")], names).talk.longestRepBurstSeconds === 28);
+  ok("the reason for the call is found with its time (the pivot at 30 s, inside the first minute)", d.reason.said && d.reason.at === 30 && d.reason.withinDue === true, d.reason);
+  ok("…the opener's own 'why I called' (the permission ask) is NOT the reason", analyseTranscript([seg("rep", 0, 5, "Can I give you thirty seconds on why I called?"), seg("contractor", 5, 30, "ok")], names).reason.said === false);
+  ok("…and the v3 opener's spelling counts too", analyseTranscript([seg("rep", 0, 5, "Hi. The reason I'm calling is your quotes."), seg("contractor", 5, 30, "ok")], names).reason.at === 0);
+  ok("…a reason after the first minute is not withinDue", analyseTranscript([seg("contractor", 0, 70, "…"), seg("rep", 70, 75, "that's exactly why I'm calling")], names).reason.withinDue === false);
+  ok("the close asked for a calendar", d.calendarAsked === true && analyseTranscript(NO_DISCLOSURE.slice(0, 4), names).calendarAsked === false);
   // line 0 has two, line 2 one, line 4 two, line 6 one, line 8 one.
   ok("question marks on the rep's lines are counted", d.repQuestionMarks === 7, d.repQuestionMarks);
 
@@ -212,6 +220,8 @@ const ATTEMPT = (over = {}) => ({
   playbookVersion: "1",
   jurisdictionCode: "CA-ON",
   dialledAt: new Date("2026-09-17T09:55:00Z"),
+  talkSeconds: 100,
+  endedAt: null,
   salesRep: REP,
   prospect: PROSPECT,
   qa: null,
@@ -227,6 +237,7 @@ const MODEL_ANSWER = {
   objections: [],
   nextStep: { offered: true, dated: true, evidence: "Thursday morning" },
   closeAsk: { met: true, evidence: "mornings or afternoons" },
+  gatekeeper: { firstSpeakerDecisionMaker: true, nameObtained: false, timeObtained: false, evidence: "Go on then." },
   coaching: ["Un.", "Deux.", "Trois.", "Quatre — one too many."],
 };
 function harness({ budgetOk = true, modelOk = true } = {}) {
@@ -281,6 +292,7 @@ function harness({ budgetOk = true, modelOk = true } = {}) {
   ok("…the playbook version matched", w.data.playbookMatched === true && w.data.playbookKey === "COMPETITIVE_DISPLACEMENT");
   ok("…the language and the cost recorded", w.data.language === "fr" && Number.isInteger(w.data.costMicros) && w.data.costMicros > 0, w.data.costMicros);
   ok("the per-call cost on gpt-5-mini is about a tenth of a cent (3200 in / 600 out → ≈ 1016 micros)", w.data.costMicros > 500 && w.data.costMicros < 3000, w.data.costMicros);
+  ok("the invite check reads SalesEvent inside the call window: none here → false", w.data.deterministic.inviteCreated === false && reads.some((r) => r.model === "salesEvent" && r.action === "count"));
 
   // Already scored: nothing spent.
   const h2 = harness();
@@ -292,6 +304,18 @@ function harness({ budgetOk = true, modelOk = true } = {}) {
   const h3 = harness();
   const forced = await scoreAttempt("att_1", { ...h3.opts, force: true });
   ok("a forced rescore of a PAID row meters under a suffixed ref", forced.ok && /^qa:att_1:rescore:\d+$/.test(h3.calls.usage.ref), h3.calls.usage?.ref);
+}
+{
+  resetDbStub();
+  rows.salesCallAttempt.push(ATTEMPT({ transcript: BANNED }));
+  rows.salesEvent.push({ id: "ev1", salesRepId: REP.id, createdAt: new Date("2026-09-17T09:58:00Z") });
+  const h = harness();
+  h.opts.loadPlaybooksFn = async () => [{ key: "COMPETITIVE_DISPLACEMENT", name: "CD", version: "1", stages: [{ stageKey: "close", say: "Sorry to bother you — thanks for your time.", prompts: [] }] }];
+  const r = await scoreAttempt("att_1", h.opts);
+  const w = writes.find((x) => x.model === "salesCallQa");
+  ok("a banned move that is IN the stored script is attributed to the script; one that is not, to the rep", r.ok && w.data.deterministic.bannedMoves.find((b) => b.move === "apology")?.source === "script" && w.data.deterministic.bannedMoves.find((b) => b.move === "foreclosing exit line")?.source === "rep", w.data.deterministic.bannedMoves);
+  ok("a SalesEvent created during the call window counts as the invite", w.data.deterministic.inviteCreated === true);
+  ok("…and the schema now carries the gatekeeper read", QA_SCHEMA.required.includes("gatekeeper"));
 }
 {
   resetDbStub();
