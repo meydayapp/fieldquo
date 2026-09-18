@@ -143,6 +143,7 @@ import {
   BookOpenCheck,
   HandCoins,
   Receipt,
+  Coins,
   Trash2,
   Inbox,
   Clock3,
@@ -370,6 +371,12 @@ const GROUPS = [
   {
     label: "FieldQuo's own systems",
     items: [
+      // What FieldQuo PAYS — Twilio, OpenAI, Retell — by day, week and
+      // month, and what it buys: cost per conversation and per signup, per
+      // rep and per agency. First in this group because it is the question
+      // the group exists to answer; the rows below it are one provider each.
+      // Superadmin-only (the API refuses everyone else).
+      { label: "Costs", href: "/platform/costs", icon: Coins },
       { label: "AI usage", href: "/platform/ai-usage", icon: Sparkles },
       // Where fieldquo.com's traffic goes, the signup funnel, which /app
       // screens are used and by how many companies. FieldQuo's own count

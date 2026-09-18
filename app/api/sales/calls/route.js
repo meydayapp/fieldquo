@@ -617,6 +617,9 @@ export async function POST(request) {
     }
 
     const channel = body.channel === "browser" ? "browser" : "handset";
+    // Who pressed. Two words accepted; anything else is "not recorded",
+    // never silently "manual" — see SalesCallAttempt.dialSource.
+    const source = body.source === "autodial" || body.source === "manual" ? body.source : null;
 
     let plan = null;
     if (channel === "browser") {
@@ -645,6 +648,7 @@ export async function POST(request) {
       toE164: dialTo,
       fromE164: plan?.callerId || null,
       dialChannel: channel,
+      dialSource: source,
       readiness,
       now,
     });

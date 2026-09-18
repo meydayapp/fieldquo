@@ -1136,12 +1136,20 @@ section("15. What a superadmin is told about the pool");
     "a failed lookup is NOT the same as holding none",
     salesVoiceInboundState({ numbers: [], lookupFailed: true }).state === "unknown",
   );
+  // Rewritten 2026-09-17 on the owner's verdict: the browsers ring whether
+  // or not a desk phone is set, so the paragraph no longer names
+  // FIELDQUO_SALES_TRANSFER_TO as missing — a fallback nobody uses is not a
+  // fault. scripts/check-sales-costs.mjs asserts the sentence itself.
   ok(
-    "numbers held with no transfer destination says the browsers ring and names the missing variable",
+    "numbers held with no transfer destination says who rings, and does NOT name the transfer variable as missing",
     (() => {
       const s = salesVoiceInboundState({ numbers: [OUR_NUMBER.e164], transferConfigured: false, anyLive: true });
-      return s.state === "connects" && /browser/.test(s.text) && /FIELDQUO_SALES_TRANSFER_TO/.test(s.text) && !/Nobody can be put through/.test(s.text);
+      return s.state === "connects" && /number's owner/.test(s.text) && !/FIELDQUO_SALES_TRANSFER_TO/.test(s.text) && !/Nobody can be put through/.test(s.text);
     })(),
+  );
+  ok(
+    "…and with one set, says a desk phone rings after the browsers",
+    /desk phone rings after the browsers/.test(salesVoiceInboundState({ numbers: [OUR_NUMBER.e164], transferConfigured: true, anyLive: true }).text),
   );
   ok(
     "an empty floor is said out loud rather than shown as working",
@@ -1159,14 +1167,23 @@ section("15. What a superadmin is told about the pool");
       anyLive: true,
     }).state === "connects",
   );
+  // The paste-this-URL sentence left with the per-number table (2026-09-17):
+  // the configuration is read live from Twilio on /platform/crew-lines and a
+  // misconfigured number produces a warning line instead. The URL is still
+  // carried on the answer for that page.
   ok(
-    "every held state names the webhook the owner has to paste into Twilio",
-    salesVoiceInboundState({
-      numbers: [OUR_NUMBER.e164],
-      transferConfigured: true,
-      anyLive: true,
-      webhookUrl: "https://app.fieldquo.com/api/rep-dial/inbound",
-    }).text.includes("/api/rep-dial/inbound"),
+    "the webhook URL travels on the answer, and the paragraph warns only when a number is misconfigured",
+    (() => {
+      const s = salesVoiceInboundState({
+        numbers: [OUR_NUMBER.e164],
+        transferConfigured: true,
+        anyLive: true,
+        webhookUrl: "https://app.fieldquo.com/api/rep-dial/inbound",
+        misconfigured: 0,
+      });
+      const bad = salesVoiceInboundState({ numbers: [OUR_NUMBER.e164], anyLive: true, misconfigured: 1 });
+      return s.webhookUrl === "https://app.fieldquo.com/api/rep-dial/inbound" && s.warning === null && /misconfigured/.test(bad.warning);
+    })(),
   );
   ok(
     "…and does not print a half-built URL when the origin is unknown",

@@ -371,7 +371,12 @@ export default function CallPanel({
   void tick;
 
 
-  async function place(channel) {
+  // `source` is who pressed: "manual" for a thumb, "autodial" for the
+  // countdown in lib/sales/autodial.js. Recorded on the attempt
+  // (SalesCallAttempt.dialSource) so the floor board can say how many calls
+  // the dialler placed against how many a rep did; it changes nothing about
+  // the call.
+  async function place(channel, source = "manual") {
     // Never two at once, and never over a call. The Call button is not
     // rendered in these states, so this guard exists for the autodialler's
     // press, which arrives on a timer rather than from a thumb.
@@ -407,6 +412,7 @@ export default function CallPanel({
           // interpret.
           ...(dialTarget.contactNumberId ? { contactNumberId: dialTarget.contactNumberId } : {}),
           channel,
+          source,
         }),
       });
       setAttempt(body);
@@ -530,7 +536,7 @@ export default function CallPanel({
       onAutoDialResult?.({ token, ok: false, reason: "not_idle" });
       return;
     }
-    place("browser").then((ok) => onAutoDialResult?.({ token, ok: ok === true, reason: ok ? null : "refused" }));
+    place("browser", "autodial").then((ok) => onAutoDialResult?.({ token, ok: ok === true, reason: ok ? null : "refused" }));
     // `place` is a plain function of this render; the guards above are what
     // matter, and they are read from the same render the token arrived in.
     // eslint-disable-next-line react-hooks/exhaustive-deps

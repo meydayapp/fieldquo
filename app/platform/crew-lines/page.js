@@ -267,7 +267,93 @@ export default function CrewLinesPage() {
           ))}
         </div>
       )}
+
+      {/* ── Sales number configuration, read from Twilio ─────────────────
+          Moved here from /platform/sales/floor on 2026-09-17. Every
+          verdict below is what the CARRIER holds for the number — its voice
+          URL and its call-status callback — compared with the origin this
+          deployment answers on. A tick is a tick at Twilio; "not asked" is
+          Twilio being unreachable, never a verdict. lib/sales/calls/numberConfig.js. */}
+      <SalesNumberConfig config={data.salesNumberConfig} />
     </div>
+  );
+}
+
+function SalesNumberConfig({ config }) {
+  const mark = (state) =>
+    state === "ok" ? (
+      <span className="text-emerald-700 dark:text-emerald-300">✓</span>
+    ) : state === "not_asked" || state === "origin_unknown" ? (
+      <span className="text-muted-foreground">not checked</span>
+    ) : (
+      <span className="text-amber-800 dark:text-amber-200">
+        {state === "not_held"
+          ? "not on this Twilio account"
+          : state === "no_voice_url"
+            ? "no voice URL — rings out"
+            : state === "missing"
+              ? "not set — a hang-up while ringing is missed only by the sweep"
+              : state === "wrong_host"
+                ? "points at another host"
+                : state === "wrong_path"
+                  ? "wrong path"
+                  : state}
+      </span>
+    );
+  return (
+    <section id="sales-number-configuration" className="rounded-xl border border-border bg-card p-4 space-y-3 scroll-mt-4">
+      <h2 className="text-base font-semibold text-foreground">Sales number configuration</h2>
+      <p className="text-sm text-muted-foreground">
+        What Twilio holds for each sales number, read live: the voice webhook a contractor ringing
+        back reaches, and the call-status callback that records a hang-up. Expected host:{" "}
+        <code className="text-xs">{config?.expectedHost || "unknown"}</code>.
+        {config?.checkedAt ? ` Read ${new Date(config.checkedAt).toLocaleTimeString()}.` : ""}
+      </p>
+      {!config ? (
+        <p className="text-sm text-muted-foreground">Could not read the sales numbers just now.</p>
+      ) : config.twilioError ? (
+        <p className="text-sm text-amber-800 dark:text-amber-200">{config.twilioError}</p>
+      ) : config.lines.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No sales numbers are held. Buy one above with the purpose set to Sales or Sales voice.</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs text-muted-foreground">
+                <th className="py-1 pr-3 font-medium">Number</th>
+                <th className="py-1 pr-3 font-medium">Owner</th>
+                <th className="py-1 pr-3 font-medium">Voice webhook</th>
+                <th className="py-1 font-medium">Status callback</th>
+              </tr>
+            </thead>
+            <tbody>
+              {config.lines.map((l) => (
+                <tr key={l.e164} className="border-t border-border">
+                  <td className="py-1.5 pr-3 whitespace-nowrap tabular-nums">
+                    {l.e164}
+                    <span className="block text-xs text-muted-foreground">{l.purpose}</span>
+                  </td>
+                  <td className="py-1.5 pr-3 break-words">{l.owner || <span className="text-muted-foreground">pool</span>}</td>
+                  <td className="py-1.5 pr-3 break-words">
+                    {mark(l.voiceState)}
+                    {l.voiceUrl ? <span className="block text-xs text-muted-foreground break-all">{l.voiceUrl}</span> : null}
+                  </td>
+                  <td className="py-1.5 break-words">
+                    {mark(l.statusState)}
+                    {l.statusCallback ? <span className="block text-xs text-muted-foreground break-all">{l.statusCallback}</span> : null}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="text-xs text-muted-foreground mt-2">
+            {config.counts.ok} of {config.counts.held} fully configured
+            {config.counts.misconfigured ? `; ${config.counts.misconfigured} misconfigured` : ""}
+            {config.counts.unknown ? `; ${config.counts.unknown} not checked` : ""}.
+          </p>
+        </div>
+      )}
+    </section>
   );
 }
 

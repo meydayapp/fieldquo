@@ -1,12 +1,68 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 17 September 2026 (lawn care: a `lawn_care` instant trade selling PROGRAMS and add-ons priced by lawn-size band from the address — parcel − roof − driveway where Gatineau publishes lots, the minimum band labelled as such everywhere else, the trace as the correction; "This doesn't look right → Call us / Request a call back" under every imagery-measured figure, flagging the lead with `callbackRequestedAt` and the draft for an on-site visit; the estimator traces the lawn in the builder, picks programs as lines, and the traced outline is drawn on a captured satellite still that the PDF and the client page print with "Lawn measured: 1,850 sq ft" — roof and gutter stills ride the same rail; see the section below)
+Last updated: 18 September 2026 (costs, end to end: `/platform/costs` — Twilio Usage Records pulled hourly into `PlatformCostDaily`, OpenAI by area from both AI ledgers, Retell per call, sales calls composed part by part with unknowns printed as unknown, cost per conversation and cost per signup per rep and per agency; the floor board prints the dialler's statistics, the three reach rates (carrier / transcript / reported) and today's cost per conversation instead of refusing them, its inbound block is one paragraph with the per-number table moved to Crew lines and read live from Twilio; see the section below)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
 it exists to answer.
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
+
+---
+
+## What the floor costs, printed: cost per conversation, cost per signup, and the dialler's own numbers (18 September 2026)
+
+The owner reviewed `/platform/sales/floor`'s "What this board deliberately does
+not show" list and found three of its five entries stale — the dialler, voicemail
+and the transcript all existed by then — and asked for the fourth, cost per
+conversation, because he pays it.
+
+**Shipped**
+
+- `lib/sales/calls/conversation.js` — a CONVERSATION is a connected browser
+  call on which the contractor's transcript track carries
+  `CONVERSATION_MIN_CONTRACTOR_WORDS` (20) or more words. Three rates side by
+  side, each labelled: the carrier's answer rate, the transcript's conversation
+  rate (denominator = connected calls whose transcript exists; "not yet known"
+  is split into recorded-and-waiting vs never-recorded), and the rep's reported
+  reach rate.
+- `diallerStats()` in `lib/sales/calls/reporting.js` — autodial vs manual
+  presses (`SalesCallAttempt.dialSource`, sent by `CallPanel.place()`; null on
+  older rows reads as "unrecorded", never "manual"), answered / rang out /
+  abandoned (rep hung up before answer) / open, dials per floor hour with
+  pauses excluded, median time between calls with breaks over 30 min left out.
+- `lib/sales/calls/costs.js` — per call: Twilio price over EVERY leg (browser
+  + PSTN, fetched from the Calls resource by `reconcileCarrierPrices()` in the
+  every-minute cron once Twilio has priced it; `providerPriceCheckedAt` stops a
+  row being asked about hourly for ever) + recording at $0.0025/min ×
+  `recordingSeconds` + transcription (`PlatformAiUsage` ref `transcript:<sid>`)
+  + QA scoring (ref prefix `qa:<attemptId>` or `SalesCallQa.costMicros`). A
+  part that is not known is named, per call and per period, and a quotient
+  with an unknown part is printed as a floor.
+- `PlatformCostDaily` + `lib/platform/costs/` — Twilio Usage Records
+  (calls-outbound, calls-inbound, calls-client, recordings, recordingstorage,
+  transcriptions, phonenumbers, sms-outbound, sms-inbound, totalprice) pulled
+  hourly for the last three days, upserted by (day, provider, category);
+  `/platform/costs` (superadmin; sidebar under FieldQuo's own systems) by
+  day / week / month with totals per provider, cost per conversation, cost
+  per signup (sales-side and all-in) per rep and per agency, every figure
+  with its source and as-of. "Pull this period from Twilio now" on the page.
+- The floor board's inbound block is one true paragraph; the per-number
+  webhook table moved to `/platform/crew-lines#sales-number-configuration`,
+  read LIVE from Twilio (`lib/sales/calls/numberConfig.js`: voice URL and
+  status callback per number, ✓ or the fault), with a warning line on the
+  floor only when a number is misconfigured.
+- `scripts/check-sales-costs.mjs` (in `check:all`).
+
+### Still owed here
+
+- Retell's number rent is printed as unknown with the count held — no Retell
+  usage API is wired. Retell calls with no `providerCostCents` are counted, not
+  summed.
+- Cost per signup attributes every `PlatformAiUsage` row to the sales side;
+  a per-campaign split would need `campaignId` joined to attribution.
+- The Twilio account total covers tenants' crew-line texts too; the
+  sales-side figure uses the store's per-call composition for that reason.
 
 ---
 

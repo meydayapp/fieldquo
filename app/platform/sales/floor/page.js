@@ -54,9 +54,20 @@ import {
   PhoneCall,
   RefreshCw,
 } from "lucide-react";
+import Link from "next/link";
 import { fetchJson } from "@/lib/fetchJson";
 import { describeDuration } from "@/lib/sales/calls/agentState";
-import { INBOUND_WEBHOOK_PATH as INBOUND_PATH } from "@/lib/sales/calls/inboundRouting";
+
+// Cents → "$0.0412". Four places because a browser leg is $0.004 and two
+// places would print a real cost as nothing. Null prints as the word.
+const money = (cents) => {
+  if (cents === null || cents === undefined || !Number.isFinite(Number(cents))) return "unknown";
+  const d = Number(cents) / 100;
+  return `$${d.toFixed(d < 1 ? 4 : 2)}`;
+};
+// A rate() from lib/sales/performance.js: the percentage, or the fraction
+// while it is below the floor.
+const pct = (r) => (r?.value != null ? `${r.value}%` : `${r?.hit ?? 0} of ${r?.sampleSize ?? 0}`);
 
 const CARD = "rounded-xl border border-border bg-card p-4 space-y-3";
 const BTN =
@@ -243,6 +254,27 @@ export default function SalesFloorPage() {
                         : `${s?.reportedReachRate?.hit ?? 0} of ${s?.reportedReachRate?.sampleSize ?? 0}`}
                     </dd>
 
+                    {/* The other two rates, beside the self-report. The
+                        carrier's counts a voicemail greeting; the transcript's
+                        counts only a contractor who spoke. */}
+                    <dt className="opacity-70">Answered (carrier)</dt>
+                    <dd className="text-right tabular-nums">{s?.connect ? pct(s.connect.answerRate) : "—"}</dd>
+
+                    <dt className="opacity-70">Conversation (transcript)</dt>
+                    <dd className="text-right tabular-nums">
+                      {s?.connect ? pct(s.connect.conversationRate) : "—"}
+                      {s?.connect?.unknown ? <span className="opacity-70"> · {s.connect.unknown} not yet known</span> : null}
+                    </dd>
+
+                    <dt className="opacity-70">Autodial / by hand</dt>
+                    <dd className="text-right tabular-nums">
+                      {s?.dialler ? `${s.dialler.source.autodial} / ${s.dialler.source.manual}` : "—"}
+                      {s?.dialler?.source?.unrecorded ? <span className="opacity-70"> · {s.dialler.source.unrecorded} unrecorded</span> : null}
+                    </dd>
+
+                    <dt className="opacity-70">Dials per floor hour</dt>
+                    <dd className="text-right tabular-nums">{s?.dialler?.perFloorHour ?? "—"}</dd>
+
                     <dt className="opacity-70">Not written up</dt>
                     <dd className="text-right tabular-nums">{s?.dispositions?.pending ?? 0}</dd>
 
@@ -268,6 +300,104 @@ export default function SalesFloorPage() {
               );
             })}
           </section>
+
+          {/* ── The dialler ─────────────────────────────────────────────── */}
+          {data.dialler ? (
+            <section className={CARD}>
+              <h2 className="text-base font-semibold text-foreground">Today&rsquo;s dialler</h2>
+              <p className="text-xs text-muted-foreground break-words">
+                The progressive dialler&rsquo;s own numbers, from the store, test lines excluded. It dials one
+                prospect at a time, for a rep who is free, after a countdown they can cancel — so
+                &ldquo;abandoned&rdquo; here is the rep hanging up before anybody answered, not a machine
+                dropping a homeowner.
+              </p>
+              <dl className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-2 text-sm">
+                <dt className="text-muted-foreground">Dials placed</dt>
+                <dd className="tabular-nums">{data.dialler.placed} <span className="text-xs text-muted-foreground">({data.dialler.browserPlaced} in the browser, {data.dialler.handsetPlaced} by handset)</span></dd>
+                <dt className="text-muted-foreground">Autodial / by hand</dt>
+                <dd className="tabular-nums">
+                  {data.dialler.source.autodial} / {data.dialler.source.manual}
+                  {data.dialler.source.unrecorded ? <span className="text-xs text-muted-foreground"> · {data.dialler.source.unrecorded} before the column existed</span> : null}
+                </dd>
+                <dt className="text-muted-foreground">Answered / rang out</dt>
+                <dd className="tabular-nums">{data.dialler.answered} / {data.dialler.rangOut}{data.dialler.open ? <span className="text-xs text-muted-foreground"> · {data.dialler.open} still open</span> : null}</dd>
+                <dt className="text-muted-foreground">Abandoned (rep hung up before answer)</dt>
+                <dd className="tabular-nums">{data.dialler.abandoned}</dd>
+                <dt className="text-muted-foreground">Dials per floor hour</dt>
+                <dd className="tabular-nums">
+                  {data.dialler.perFloorHour ?? <span className="text-muted-foreground">not enough floor time yet</span>}
+                  {data.dialler.floorMs != null ? <span className="text-xs text-muted-foreground"> · {describeDuration(data.dialler.floorMs)} on the floor, pauses excluded</span> : null}
+                </dd>
+                <dt className="text-muted-foreground">Time between calls (median)</dt>
+                <dd className="tabular-nums">
+                  {data.dialler.gap.medianText ?? <span className="text-muted-foreground">fewer than two dials</span>}
+                  {data.dialler.gap.measuredOf ? <span className="text-xs text-muted-foreground"> · {data.dialler.gap.measuredOf} gaps; breaks over {Math.round(data.dialler.gap.breakMs / 60000)} min left out</span> : null}
+                </dd>
+              </dl>
+            </section>
+          ) : null}
+
+          {/* ── The three rates ─────────────────────────────────────────── */}
+          {data.connect ? (
+            <section className={CARD}>
+              <h2 className="text-base font-semibold text-foreground">Did we reach them? Three answers</h2>
+              <p className="text-xs text-muted-foreground break-words">
+                Each is a different fact and none replaces another. Browser calls only; a handset call
+                is measured by nobody.
+              </p>
+              <dl className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+                <div className="rounded-lg border border-border p-3">
+                  <dt className="text-xs text-muted-foreground break-words">{data.connect.labels.answerRate}</dt>
+                  <dd className="text-2xl font-semibold tabular-nums">{pct(data.connect.answerRate)}</dd>
+                  <p className="text-xs text-muted-foreground">{data.connect.connected} of {data.connect.measured} bridged calls</p>
+                </div>
+                <div className="rounded-lg border border-border p-3">
+                  <dt className="text-xs text-muted-foreground break-words">{data.connect.labels.conversationRate}</dt>
+                  <dd className="text-2xl font-semibold tabular-nums">{pct(data.connect.conversationRate)}</dd>
+                  <p className="text-xs text-muted-foreground">
+                    {data.connect.conversations} of {data.connect.conversations + data.connect.notConversations} transcribed connected calls
+                    {data.connect.awaitingTranscript ? ` · ${data.connect.awaitingTranscript} recorded, transcript not yet known` : ""}
+                    {data.connect.unrecorded ? ` · ${data.connect.unrecorded} connected but never recorded` : ""}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-border p-3">
+                  <dt className="text-xs text-muted-foreground break-words">{data.connect.labels.reportedReachRate}</dt>
+                  <dd className="text-2xl font-semibold tabular-nums">{pct(data.connect.reportedReachRate)}</dd>
+                  <p className="text-xs text-muted-foreground">what the reps logged, all channels</p>
+                </div>
+              </dl>
+            </section>
+          ) : null}
+
+          {/* ── Cost per conversation ───────────────────────────────────── */}
+          {data.cost ? (
+            <section className={CARD}>
+              <div className="flex items-start justify-between gap-3">
+                <h2 className="text-base font-semibold text-foreground">Cost per conversation, today</h2>
+                <Link href="/platform/costs" className="text-sm underline shrink-0">All costs →</Link>
+              </div>
+              <p className="text-3xl font-semibold tabular-nums">
+                {money(data.cost.perConversation.cents)}
+                {data.cost.perConversation.isFloor ? <span className="text-sm font-normal text-muted-foreground"> (a floor)</span> : null}
+              </p>
+              <p className="text-xs text-muted-foreground break-words">{data.cost.perConversation.statement}</p>
+              <p className="text-xs text-muted-foreground break-words">{data.cost.definition}</p>
+              <dl className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1 text-xs">
+                {data.cost.parts.map((p) => (
+                  <div key={p.key} className="min-w-0">
+                    <dt className="text-muted-foreground capitalize">{p.key === "qa" ? "QA scoring" : p.key}</dt>
+                    <dd className="tabular-nums break-words">
+                      {money(p.cents)} <span className="text-muted-foreground">({p.of} of {data.cost.browserCalls}{p.unknown ? `, ${p.unknown} unknown` : ""})</span>
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+              <p className="text-xs text-muted-foreground">
+                {data.cost.browserCalls} browser calls · known total {money(data.cost.knownCents)}
+                {data.cost.unknownCalls ? ` · ${data.cost.unknownCalls} with a part not yet known` : ""}
+              </p>
+            </section>
+          ) : null}
 
           {/* ── Outcomes by trade ──────────────────────────────────────── */}
           <section className={CARD}>
@@ -311,87 +441,35 @@ export default function SalesFloorPage() {
           {/* ── Inbound ────────────────────────────────────────────────── */}
           {data.inbound || data.salesVoice ? (
             <section className={CARD}>
-              <h2 className="text-base font-semibold text-foreground">
-                If a contractor rings the number back
-              </h2>
-              {/* Two paragraphs, never merged. The first is FieldQuo's own
-                  advertised line, answered by the Retell agent; the second is
-                  the pool of local numbers reps dial from, answered by
-                  /api/rep-dial/inbound. They can be in different states and
-                  usually are. */}
-              {data.inbound ? (
-                <p className="text-sm text-muted-foreground break-words">{data.inbound.text}</p>
-              ) : null}
+              <div className="flex items-start justify-between gap-3">
+                <h2 className="text-base font-semibold text-foreground">
+                  If a contractor rings back
+                </h2>
+                <Link href={data.numberConfigHref || "/platform/crew-lines#sales-number-configuration"} className="text-sm underline shrink-0">
+                  Number configuration →
+                </Link>
+              </div>
+              {/* One paragraph, true of the pool of local numbers reps dial
+                  from. The per-number webhook table and the paste-this
+                  instructions left on 2026-09-17: the owner did not need
+                  them on the floor, and the configuration is read live from
+                  Twilio on the page the link goes to. */}
               {data.salesVoice ? (
                 <p className="text-sm text-muted-foreground break-words">{data.salesVoice.text}</p>
               ) : null}
-
-              {/* Per number: where its voice webhook points, against the
-                  host THIS deployment answers on. A number bought from a
-                  different origin keeps ringing that origin, and Twilio's
-                  signature check on the inbound route fails against the
-                  wrong host — silently, until 2026-09-17. The inbound
-                  processing region is deliberately shown as "not recorded":
-                  we store nothing about it, and the only honest answer is
-                  the console path and the API call written beside it. */}
-              {data.numberAudit === null ? (
-                <p className="text-xs text-muted-foreground">
-                  Couldn&rsquo;t read the sales numbers&rsquo; voice URLs just now.
-                </p>
-              ) : data.numberAudit && data.numberAudit.lines.length ? (
-                <div className="space-y-2">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="text-left text-xs text-muted-foreground">
-                          <th className="py-1 pr-3 font-medium">Number</th>
-                          <th className="py-1 pr-3 font-medium">Owner</th>
-                          <th className="py-1 pr-3 font-medium">Voice webhook host</th>
-                          <th className="py-1 pr-3 font-medium">This app</th>
-                          <th className="py-1 font-medium">Inbound region</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {data.numberAudit.lines.map((n) => (
-                          <tr key={n.e164} className="border-t border-border">
-                            <td className="py-1.5 pr-3 whitespace-nowrap tabular-nums">{n.e164}</td>
-                            <td className="py-1.5 pr-3 break-words">
-                              {n.assignedRepName || <span className="text-muted-foreground">pool</span>}
-                            </td>
-                            <td className="py-1.5 pr-3 break-words">
-                              {n.host || <span className="text-muted-foreground">none stored</span>}
-                            </td>
-                            <td className="py-1.5 pr-3 break-words">
-                              {n.pointsHere ? (
-                                <span className="text-emerald-700 dark:text-emerald-300">points here</span>
-                              ) : n.state === "origin_unknown" ? (
-                                <span className="text-muted-foreground">app origin unknown</span>
-                              ) : (
-                                <span className="text-amber-800 dark:text-amber-200">
-                                  {n.state === "no_voice_url"
-                                    ? "no voice URL — rings out"
-                                    : n.state === "wrong_path"
-                                      ? `wrong path, expected ${INBOUND_PATH}`
-                                      : `expected ${n.expectedHost}`}
-                                </span>
-                              )}
-                            </td>
-                            <td className="py-1.5 break-words text-muted-foreground">
-                              {n.region || "not recorded — Twilio Console → Phone Numbers → the number → Regional tab"}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+              {data.salesVoice?.warning ? (
+                <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/40 p-3 text-sm text-amber-900 dark:text-amber-200">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle size={16} className="mt-0.5 shrink-0" />
+                    <p className="break-words">{data.salesVoice.warning}</p>
                   </div>
-                  <p className="text-xs text-muted-foreground break-words">
-                    Each number also needs its <em>call status changes</em> callback pointed at{" "}
-                    <code className="text-xs">{data.salesVoice?.webhookUrl}?stage=status</code> (Twilio Console →
-                    the number → Voice Configuration → &ldquo;Call status changes&rdquo;), or a caller who hangs
-                    up while it rings is recorded as missed only by the sweep, minutes late. Numbers bought from
-                    now on get it at purchase.
-                  </p>
                 </div>
+              ) : null}
+              {/* FieldQuo's advertised line is a different phone system —
+                  the Retell agent — and gets one muted line, only when it is
+                  switched on. Off, it is /platform/sales-agent's problem. */}
+              {data.inbound && data.inbound.answeredBy !== "nobody" ? (
+                <p className="text-xs text-muted-foreground break-words">Advertised line: {data.inbound.text}</p>
               ) : null}
 
               {/* Today's callbacks. Rendered from the row list rather than a
