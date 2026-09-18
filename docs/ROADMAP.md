@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 17 September 2026 (gutters: the builder measures the gutter run and downspouts from the roof model with sanity flags the review carries; a gutter instant estimate priced per foot and per downspout in the company's currency, seeded from the competitor's four Ottawa/Gatineau points, with EN/FR/ES copy; the estimate email prints the company's currency instead of "CAD"; the paver designer and a shared landscaping canvas measure a traced polygon from the satellite still's own ground resolution; a quote schedules the estimator's on-site visit as an Appointment with quoteId, confirmed to the client in the quote's language and carried into the job's history — see the three sections below)
+Last updated: 17 September 2026 (lawn care: a `lawn_care` instant trade selling PROGRAMS and add-ons priced by lawn-size band from the address — parcel − roof − driveway where Gatineau publishes lots, the minimum band labelled as such everywhere else, the trace as the correction; "This doesn't look right → Call us / Request a call back" under every imagery-measured figure, flagging the lead with `callbackRequestedAt` and the draft for an on-site visit; the estimator traces the lawn in the builder, picks programs as lines, and the traced outline is drawn on a captured satellite still that the PDF and the client page print with "Lawn measured: 1,850 sq ft" — roof and gutter stills ride the same rail; see the section below)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -9,6 +9,64 @@ it exists to answer.
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
+
+## Lawn-care programs by lawn-size band, sized from the address, and "this doesn't look right" under every measured figure (17 September 2026)
+
+**What**: a `lawn_care` instant trade (distinct from `lawn_mowing`'s per-visit
+price): the company defines PROGRAMS (each the sum of its included services)
+and ADD-ONS, every price a base for the minimum lawn size plus a step per
+1,000 sq ft (lib/estimate/lawnCare.js; seed from the competitor's observed
+2026 Ottawa/Gatineau card in lib/estimate/lawnCareSeed.js — the per-1,000 step
+is a stated seed estimate, not an observation). The 1,500 sq ft floor is a
+pricing BAND, never presented as a measurement. Text per language (en/fr/es),
+edited on Settings › Instant Quotes (LawnCareEditor.js). Public page: the
+programs as cards with "Best value" on the cheapest per service, included
+services expandable, add-ons as checkboxes, prices to the cent in the
+company's currency; the total is recomputed server-side from KEYS only.
+
+**Lawn size without tracing** (lib/measure/lawnEstimate.js): lawn ≈ parcel −
+roof footprint (Solar, already fetched) − DRIVEWAY_ALLOWANCE_SQFT (700).
+Parcel providers: **Gatineau** (portailgis.gatineau.ca lot layer, verified —
+10 Rue des Ormes: 2,276 − 772 − 700 = 804 sq ft, priced at the band), **Ottawa**
+(none: parcels are Teranet-licensed and token-gated — 204 Avro Cir → minimum
+band, provider says "licensed"), Québec province (none: Infolot is
+captcha-gated). Everywhere else → the minimum band, and the copy says
+"estimated — trace your lawn to correct it". Verdicts like gutters: 35 Rue
+de Villebois (industrial park, 29,143 sq ft roof) is refused
+`needs_site_visit`. `source` (parcel_gatineau / traced / minimum) travels
+onto the draft, the review screen and the takeoff.
+
+**This doesn't look right** (MeasurementDoubt.js) under roof, gutter and lawn
+figures and under a refusal: "Call us" (tel:, hidden with no company phone)
+and "Request a call back" (name, phone, preferred time, note →
+/api/instant-quote/[slug]/callback → the existing lead path, notified as
+lead.created, `LeadRequest.callbackRequestedAt` + intake callback fields;
+the draft's estimateData.callback and reviewNotes, banner above the
+Schedule-an-on-site-visit panel). EN/FR/ES copy in lib/i18n/lawnEstimateCopy.js.
+
+**Estimator side**: a lawn_care scope group traces on LotAreaMeasure; the
+outline is written to `takeoff.lawn` as lat/lng (canvasShapeToLatLng —
+exact Web Mercator inverse, round-trips to 0.03%), LawnProgramPicker prices
+the company's card at the Lot Size (/api/quotes/lawn-care-offer) and writes
+program lines (included services in `detail`) and add-on lines. On save the
+outline is drawn on a Static Maps still and captured to Cloudinary
+(lib/measure/measureImages.js, both quote routes); roof and gutter panels set
+the same `takeoff.measureImage`. The PDF (ScopeGroupsSection) and the client
+page print the still and "Lawn measured: 1,850 sq ft" / "Roof measured from
+satellite…" (lib/i18n/measureDocCopy.js). The public quote route now also
+sends `li.detail`, which the page rendered and the API had never sent.
+
+**Checks**: scripts/check-lawn-care.mjs (231 assertions); lawn_care cases in
+check-instant-takeoff and check-instant-quote-exits.
+
+**Left**: an Ottawa parcel provider needs licensed Teranet/MPAC data (the
+provider slot exists); the paving takeoff's still is not yet carried
+(`measureCaption` reads `measuredAreaSqft` when a producer writes it); a
+gutters entry in TRADE_FIELD_CATEGORY / gutter_services intake fields
+(check-voice-quote-intake reports `gutters` unmapped — pre-existing from the
+gutter work); the owner's pasted Weed Man descriptions did not reach this
+session, so the seed descriptions are FieldQuo's own words in en/fr/es.
+
 
 ## Gutters measured from the roof model, priced by the foot and the downspout, and refused in words when the building is not a house (17 September 2026)
 

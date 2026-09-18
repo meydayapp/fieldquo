@@ -40,6 +40,8 @@ import {
 // module imports @react-pdf/renderer, and a public endpoint a stranger hits
 // on a phone has no business loading a PDF engine to format a percentage.
 import { parsePaymentSchedule } from "@/lib/documents/paymentSchedule";
+// Pure apart from the Cloudinary-URL test; imports no PDF engine either.
+import { measureEvidence } from "@/lib/measure/measureImages";
 
 const num = (v) => Number(v ?? 0);
 
@@ -284,7 +286,10 @@ function present(quote) {
       // sanded-and-sprayed job painted MDF is — and it must not travel any
       // further: a countertop takeoff carries the supplier's cost and the
       // company's markup, which is precisely what this endpoint exists to keep
-      // away from a stranger's browser.
+      // away from a stranger's browser. The ONE projection that does travel
+      // is `measure` below — the captured satellite still and its caption,
+      // through measureEvidence, which reads a fixed handful of fields by
+      // name and never the takeoff itself.
       const content = resolveServiceContent(
         g.category?.key,
         g.companySettings || null,
@@ -302,11 +307,20 @@ function present(quote) {
         // Empty for every trade that has none, so the page renders nothing
         // rather than a heading over a blank panel.
         mayChange: content.mayChange,
+        // The still the price was measured from and "Lawn measured: 1,850
+        // sq ft" — the same evidence the PDF prints, so the page and the
+        // attachment stay one document. Null for a group with none.
+        measure: measureEvidence(g.takeoff, g.category?.key, docLanguage),
         lineItems: (Array.isArray(g.lineItems) ? g.lineItems : []).map(
           (li) => ({
             description: li.description || "",
             quantity: li.quantity ?? 1,
             amount: num(li.amount),
+            // The scope under the line. The page has rendered `li.detail`
+            // since the PDF learned to, and this projection never sent it —
+            // so the printed quote explained a line the web page did not.
+            // A lawn program's included services travel here.
+            detail: typeof li.detail === "string" ? li.detail : "",
           }),
         ),
       };

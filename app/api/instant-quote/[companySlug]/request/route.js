@@ -12,6 +12,8 @@ import { db } from "@/lib/db";
 import { rateLimit } from "@/lib/rateLimit";
 import { measureForTrade, priceOneMaterial } from "@/lib/estimate/instantQuoteServer";
 import { gutterEstimateCopy } from "@/lib/i18n/gutterEstimateCopy";
+import { lawnEstimateCopy, lawnSourceSentence } from "@/lib/i18n/lawnEstimateCopy";
+import { lawnPublicView } from "@/lib/estimate/lawnPublicView";
 import { publicEstimate, gatedMessage, effectiveVisibility } from "@/lib/estimate/visibility";
 import { bandForIndex, estimateExceedsBudget, scoreKeyForBandIndex } from "@/lib/estimate/budgetBands";
 import { financingOffer } from "@/lib/estimate/financing";
@@ -92,14 +94,14 @@ export async function POST(request, { params }) {
   if (badEmail) return NextResponse.json(badEmail, { status: 400 });
 
   // Re-measure and re-price from scratch — the authoritative numbers.
-  const measured = await measureForTrade(trade, { address, polygon, intake });
+  const measured = await measureForTrade(trade, { address, polygon, intake, companyId: company.id });
   if (!measured.ok) {
     // A gutter measurement the model refused is not a retry: the sentence
     // says to request a quote for an on-site measure, in the language the
     // form is in. Every other miss is the generic line it always was.
     const refusal =
       measured.reason === "needs_site_visit"
-        ? gutterEstimateCopy(language || company.defaultLanguage || "en").needsSiteVisit
+        ? (trade === "lawn_care" ? lawnEstimateCopy : gutterEstimateCopy)(language || company.defaultLanguage || "en").needsSiteVisit
         : "We couldn't measure that. Please try again.";
     return NextResponse.json({ error: refusal, reason: measured.reason }, { status: 422 });
   }
@@ -197,7 +199,12 @@ export async function POST(request, { params }) {
         // (priceOneMaterial was handed the same language). Every other trade's
         // assumptions are the estimator's own English notes and stay off the
         // email, as before.
-        notes: trade === "gutters" ? priced.estimate.assumptions || [] : [],
+        notes:
+          trade === "gutters"
+            ? priced.estimate.assumptions || []
+            : trade === "lawn_care"
+              ? lawnEmailNotes(pricedMeasurement, priced.estimate, emailLanguage)
+              : [],
       });
       await sendEmail({
         // A demo's instant-quote page is a real public URL a stranger can
@@ -322,6 +329,9 @@ export async function POST(request, { params }) {
         high: pub.high,
         unit: priced.estimate.unit || null,
         assumptions: priced.estimate.assumptions || [],
+        // Lawn care: the program and add-ons this total is made of, priced
+        // by the server — so the confirmation can list what was bought.
+        ...(trade === "lawn_care" && Array.isArray(priced.estimate.lines) && { lines: priced.estimate.lines }),
       }
     : null;
 
@@ -346,7 +356,12 @@ export async function POST(request, { params }) {
     // satellite still. The single-page form has no earlier round trip to get
     // these from, and a range with nothing behind it invites "where did that
     // come from?" as the first question on the call.
-    measurement: sanitiseMeasurement(pricedMeasurement),
+    measurement: {
+      ...sanitiseMeasurement(pricedMeasurement),
+      // Lawn care: the size and the sentences the panel shows under it, the
+      // same words /measure sent before submit.
+      ...(trade === "lawn_care" && { lawn: lawnPublicView(pricedMeasurement, emailLanguage) }),
+    },
     // The company's own financing offer, same rule as everywhere else: their
     // words or their provider link, never a monthly figure from us.
     financing: financingOffer(company.financing, { language: emailLanguage }),
@@ -374,6 +389,13 @@ function enteredDetails(intake, materialKey) {
       if (typeof v === "number" && Number.isFinite(v)) out[k] = v;
       else if (typeof v === "boolean") out[k] = v;
       else if (typeof v === "string" && v.trim()) out[k] = v.trim().slice(0, 200);
+    }
+    // The lawn add-ons picked — keys the company's own card names, so the
+    // reviewer sees "aeration_fall" beside the program without opening the
+    // quote. Strings only, capped.
+    if (Array.isArray(intake.addOnKeys)) {
+      const keys = intake.addOnKeys.filter((k) => typeof k === "string" && k).slice(0, 24).map((k) => k.slice(0, 60));
+      if (keys.length) out.addOnKeys = keys;
     }
     if (Array.isArray(intake.items)) {
       const items = intake.items
@@ -440,5 +462,37 @@ function sanitiseMeasurement(m) {
     imagery: m.imagery ?? null,
     flags: Array.isArray(m.flags) ? m.flags : null,
     trustworthy: m.trustworthy ?? null,
+    // Lawn care: the size, where it came from (parcel / traced / minimum —
+    // the reviewer must know a minimum-band figure was never measured), the
+    // parcel and roof figures it was derived from, the outline when there
+    // is one, and the pick. Read by costingInputsForInstantTrade for the
+    // takeoff and by the review screen. The parcel's vertices are kept; the
+    // raw provider response is not.
+    source: m.source ?? null,
+    estimated: m.estimated ?? null,
+    minSqft: m.minSqft ?? null,
+    vertices: Array.isArray(m.vertices) ? m.vertices : null,
+    parcel: m.parcel
+      ? { areaSqft: m.parcel.areaSqft ?? null, lotNumber: m.parcel.lotNumber ?? null, vertices: Array.isArray(m.parcel.vertices) ? m.parcel.vertices : null }
+      : null,
+    roof: m.roof ? { footprintSqft: m.roof.footprintSqft ?? null, areaSqft: m.roof.areaSqft ?? null } : null,
+    driveway: m.driveway ?? null,
+    provider: m.provider ? { key: m.provider.key, reason: m.provider.reason ?? null } : null,
+    programKey: m.programKey ?? null,
+    addOnKeys: Array.isArray(m.addOnKeys) ? m.addOnKeys : null,
   };
+}
+
+// The confirmation email's lines for a lawn program, in the email's language:
+// the size and where it came from, then what was bought, priced.
+function lawnEmailNotes(m, estimate, language) {
+  const t = lawnEstimateCopy(language);
+  const view = lawnPublicView(m, language);
+  const notes = [view ? `${t.lawnSizeLabel}: ${view.sizeText}` : null, lawnSourceSentence(m?.source, language)].filter(Boolean);
+  for (const l of Array.isArray(estimate?.lines) ? estimate.lines : []) {
+    const services = (l.services || []).map((s) => s.name).join(", ");
+    notes.push(`${l.name}${services ? ` — ${services}` : ""}`);
+  }
+  notes.push(t.notAContract);
+  return notes;
 }

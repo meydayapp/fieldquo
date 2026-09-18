@@ -509,6 +509,27 @@ export default function QuoteApproval({ token }) {
                     </p>
                   )}
 
+                  {/* The measurement behind the price — the satellite still
+                      with the traced lawn (or the roof, or the eaves) and
+                      "Lawn measured: 1,850 sq ft" — in the same place the
+                      PDF prints it. Served by the public route through
+                      measureEvidence, never the takeoff itself. */}
+                  {g.measure && (g.measure.imageUrl || g.measure.caption) && (
+                    <div className="mb-3 border-b border-black/5 pb-3">
+                      {g.measure.imageUrl && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={g.measure.imageUrl}
+                          alt={g.measure.caption || ""}
+                          className="w-full max-w-sm rounded-md border border-black/10 mb-1.5"
+                        />
+                      )}
+                      {g.measure.caption && (
+                        <p className="text-xs font-semibold text-[#2d2520]">{g.measure.caption}</p>
+                      )}
+                    </div>
+                  )}
+
                   <div className="space-y-1.5">
                     {/* Not g.lineItems directly — a blended subcontractor
                         import's one line repeats the card head above word

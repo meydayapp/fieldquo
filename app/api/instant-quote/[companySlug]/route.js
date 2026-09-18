@@ -21,6 +21,10 @@ export async function GET(request, { params }) {
       slug: company.slug,
       logoUrl: company.logoUrl,
       brandColor: company.brandColor,
+      // For the "Call us" half of the this-doesn't-look-right control under
+      // a measured figure. Null hides the button; a phone number is not a
+      // rate and is on the company's own website already.
+      phone: company.phone || null,
     },
     // Google Maps key for the lawn-polygon map and the roof satellite still.
     // Public by design; should be HTTP-referrer restricted to fieldquo.com.

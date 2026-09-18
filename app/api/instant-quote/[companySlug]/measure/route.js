@@ -19,6 +19,8 @@ import {
 } from "@/lib/estimate/visibility";
 import { financingOffer } from "@/lib/estimate/financing";
 import { gutterEstimateCopy } from "@/lib/i18n/gutterEstimateCopy";
+import { lawnEstimateCopy } from "@/lib/i18n/lawnEstimateCopy";
+import { lawnPublicView } from "@/lib/estimate/lawnPublicView";
 
 export async function POST(request, { params }) {
   const { companySlug } = await params;
@@ -40,7 +42,7 @@ export async function POST(request, { params }) {
 
   const language = company.defaultLanguage || "en";
 
-  const measured = await measureForTrade(trade, { address, polygon, intake });
+  const measured = await measureForTrade(trade, { address, polygon, intake, companyId: company.id });
   if (!measured.ok) {
     // `partial` is stripped to what a stranger may see: the satellite still
     // and the address it resolved to. The measurement's flags say things like
@@ -52,8 +54,14 @@ export async function POST(request, { params }) {
           formattedAddress: measured.partial.formattedAddress ?? null,
         }
       : null;
+    // A refused lawn still says what size it found and why it will not
+    // price it — a homeowner looking at a strip mall under the pin fixes
+    // the address; one looking at their own lawn asks for the call back.
+    if (trade === "lawn_care" && measured.partial?.areaSqft) {
+      partial.lawn = lawnPublicView(measured.partial, language);
+    }
     return NextResponse.json(
-      { error: measureErrorMessage(measured.reason, language), reason: measured.reason, partial },
+      { error: measureErrorMessage(measured.reason, language, trade), reason: measured.reason, partial },
       { status: 422 },
     );
   }
@@ -108,6 +116,11 @@ export async function POST(request, { params }) {
       ],
     }),
   };
+
+  // Lawn care: the estimated size, where it came from and the sentence that
+  // says so — facts, never rates. The PRICED cards travel separately below,
+  // behind the same gate as every other figure.
+  if (trade === "lawn_care") measurementView.lawn = lawnPublicView(m, language);
 
   const financing = financingOffer(company.financing, { language });
 
@@ -174,13 +187,26 @@ export async function POST(request, { params }) {
     return NextResponse.json({ measurement: measurementView, gated: true, message: gatedMessage(language, "prompt"), financing });
   }
 
-  return NextResponse.json({ measurement: measurementView, options, financing });
+  // Lawn care in "range" mode: every program and add-on priced for THIS
+  // lawn, so the cards carry their figures and the panel can total a pick
+  // from the server's own numbers. Only here — the gated branches above
+  // return the measurement and no offer.
+  const offer =
+    trade === "lawn_care" && priced.offer
+      ? { programs: priced.offer.programs, addOns: priced.offer.addOns, lawn: priced.offer.lawn }
+      : undefined;
+
+  return NextResponse.json({ measurement: measurementView, options, financing, ...(offer && { offer }) });
 }
 
-function measureErrorMessage(reason, language = "en") {
+function measureErrorMessage(reason, language = "en", trade = null) {
   switch (reason) {
     case "needs_site_visit":
-      return gutterEstimateCopy(language).needsSiteVisit;
+      return (trade === "lawn_care" ? lawnEstimateCopy(language) : gutterEstimateCopy(language)).needsSiteVisit;
+    case "polygon_too_small":
+      return lawnEstimateCopy(language).traceHint;
+    case "no_address":
+      return "Enter the property address to size the lawn.";
     case "no_linear_geometry":
       return "We couldn't read the roof edges at that address automatically — request a quote and we'll measure it on site.";
     case "no_roof_coverage":

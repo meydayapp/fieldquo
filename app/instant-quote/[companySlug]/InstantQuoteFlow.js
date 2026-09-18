@@ -29,6 +29,9 @@ import { formatPhoneInput } from "@/lib/validation";
 import MediaUploader from "@/app/components/MediaUploader";
 import AddressAutocomplete from "@/app/components/AddressAutocomplete";
 import BookVisitPanel from "@/app/components/public/BookVisitPanel";
+import LawnCareOffer, { lawnPickTotal, estimateMoneyCents } from "./LawnCareOffer";
+import MeasurementDoubt from "./MeasurementDoubt";
+import { lawnEstimateCopy } from "@/lib/i18n/lawnEstimateCopy";
 
 // ── The way out ──────────────────────────────────────────────────────────────
 //
@@ -150,6 +153,7 @@ const MEASURE_SOURCE = {
   roof_address: "from satellite measurements of your roof",
   gutter_address: "from aerial measurements of your roofline",
   lawn_polygon: "from the area you traced on the map",
+  lawn_address: "from your lot and roof data, or the area you traced",
   manual_area: "from the area you gave us",
   manual_units: "from the counts you gave us",
   stair_count: "from the counts you gave us",
@@ -160,7 +164,13 @@ const MEASURE_SOURCE = {
 // homeowner types or draws: roofing and gutters read the same roof model.
 // One predicate, so the address box, the payload and the "where's the job"
 // section cannot disagree about which trades already have an address.
-const byAddress = (measure) => measure === "roof_address" || measure === "gutter_address";
+const byAddress = (measure) =>
+  measure === "roof_address" || measure === "gutter_address" || measure === "lawn_address";
+
+// The trades whose figure is read off imagery — roof, eaves, lawn — and so
+// the ones that carry the "this doesn't look right" control under it. A door
+// count the homeowner typed has nothing for a satellite to have got wrong.
+const fromImagery = (measure) => byAddress(measure) || measure === "lawn_polygon";
 
 // Money lives in lib/estimate/estimateMoney.js now, shared with the funnel
 // runner. What used to be here was `"$" + Math.round(Number(n) || 0)`, which
@@ -187,7 +197,7 @@ function loadMaps(key) {
   return mapsLoader;
 }
 
-function LawnMap({ mapsKey, onArea, companySlug }) {
+function LawnMap({ mapsKey, onArea, companySlug, centerAddress = "" }) {
   const mapRef = useRef(null);
   const searchRef = useRef(null);
   const [ready, setReady] = useState(false);
@@ -269,6 +279,27 @@ function LawnMap({ mapsKey, onArea, companySlug }) {
     };
   }, [mapsKey]);
 
+  // Lawn care already has the address typed above the map (it is the
+  // measurement input), so the map opens on the house rather than on a
+  // city-wide default the homeowner has to search twice for.
+  useEffect(() => {
+    const map = stateRef.current.map;
+    if (!ready || !map || !centerAddress || centerAddress.trim().length < 5) return;
+    const timer = setTimeout(() => {
+      try {
+        new window.google.maps.Geocoder().geocode({ address: centerAddress }, (res, status) => {
+          if (status === "OK" && res[0]) {
+            map.setCenter(res[0].geometry.location);
+            map.setZoom(20);
+          }
+        });
+      } catch {
+        // No geocoder — the search box above the map still works.
+      }
+    }, 700);
+    return () => clearTimeout(timer);
+  }, [ready, centerAddress]);
+
   if (failed) {
     // Terminal for this trade: without a polygon the server cannot measure a
     // lawn at all, so there is no retry to offer — only the way out.
@@ -333,6 +364,14 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
   const [intake, setIntake] = useState({});
   const [polygon, setPolygon] = useState(null);
   const [materialKey, setMaterialKey] = useState(null);
+  // Lawn care: the program and add-ons picked — KEYS, never amounts. Held
+  // apart from `intake` so ticking an add-on does not re-measure the
+  // property: the cards already carry the server's per-item prices and the
+  // panel totals a pick from those; the server reprices from the keys on
+  // submit (#5).
+  const [lawnPick, setLawnPick] = useState({ programKey: null, addOnKeys: [] });
+  // Whether the "trace your lawn to correct it" map is open.
+  const [tracing, setTracing] = useState(false);
 
   // The live preview, for "range" trades only. Null until the form has enough
   // in it to measure; never populated at all in the other two modes, so there
@@ -393,6 +432,8 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
     setSiteAddress("");
     setPolygon(null);
     setMaterialKey(null);
+    setLawnPick({ programKey: null, addOnKeys: [] });
+    setTracing(false);
     setPreview(null);
     setResult(null);
     setSubmitErr("");
@@ -443,6 +484,9 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
         const payload = { trade: trade.trade, intake };
         if (byAddress(trade.measure)) payload.address = address;
         if (trade.measure === "lawn_polygon") payload.polygon = polygon;
+        // The trace is the correction: with one, the server sizes the lawn
+        // from it and ignores the parcel arithmetic.
+        if (trade.measure === "lawn_address" && polygon) payload.polygon = polygon;
         const res = await fetchJson(`/api/instant-quote/${companySlug}/measure`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -488,6 +532,10 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
         Object.assign(payload, siteJurisdiction);
       }
       if (trade.measure === "lawn_polygon") payload.polygon = polygon;
+      if (trade.measure === "lawn_address") {
+        if (polygon) payload.polygon = polygon;
+        payload.intake = { ...intake, programKey: lawnPick.programKey, addOnKeys: lawnPick.addOnKeys };
+      }
       if (media.length) payload.media = media;
       // The index only. The server owns the dollars behind it — a form that
       // posted "budget: 10000" could be edited to say anything (#5).
@@ -516,6 +564,7 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
     !trade && "what you need",
     trade && !jobDescribed && "the job details",
     needsMaterial && !materialKey && "an option",
+    trade?.measure === "lawn_address" && !lawnPick.programKey && "a program",
     trade && !byAddress(trade.measure) && siteAddress.trim().length < 5 && "the job address",
     trade && !contact.name && "your name",
     trade && !contact.email && !contact.phone && "an email or phone",
@@ -718,6 +767,34 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
                       />
                     )}
 
+                    {/* Lawn care is sized from the address without a trace
+                        (parcel − roof − driveway, or the minimum band, and
+                        the panel says which). The trace is offered as the
+                        CORRECTION, closed by default, never required. */}
+                    {trade.measure === "lawn_address" && (
+                      <div className="mt-3">
+                        <button
+                          type="button"
+                          onClick={() => setTracing((v) => !v)}
+                          aria-expanded={tracing}
+                          className="text-sm font-medium underline text-foreground min-h-8"
+                        >
+                          {lawnEstimateCopy(language).traceCta}
+                        </button>
+                        {tracing && (
+                          <div className="mt-2">
+                            <p className="text-xs text-muted-foreground mb-2">{lawnEstimateCopy(language).traceHint}</p>
+                            <LawnMap
+                              mapsKey={data.mapsKey}
+                              companySlug={companySlug}
+                              centerAddress={address}
+                              onArea={(sqft, path) => setPolygon(path)}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     {trade.measure === "item_picker" && (
                       <ItemPicker
                         items={trade.items || []}
@@ -756,6 +833,24 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
                         ))}
                       </div>
                     )}
+                  </Section>
+                )}
+
+                {/* Lawn care: the programs as cards and the add-ons as
+                    checkboxes. Names arrive with the page; prices arrive
+                    with the measurement, and only in "range" mode. */}
+                {trade?.measure === "lawn_address" && trade.lawn && (
+                  <Section title={fr ? "Votre programme" : "Your program"}>
+                    <LawnCareOffer
+                      offer={trade.lawn}
+                      priced={livePreviewShown?.offer || null}
+                      pick={lawnPick}
+                      onPick={setLawnPick}
+                      language={language}
+                      currency={currency}
+                      theme={theme}
+                      solid={solid}
+                    />
                   </Section>
                 )}
 
@@ -950,6 +1045,10 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
               language={language}
               currency={currency}
               company={data.company}
+              companySlug={companySlug}
+              lawnPick={lawnPick}
+              address={byAddress(trade?.measure) ? address : siteAddress}
+              contact={contact}
             />
           </div>
         </div>
@@ -1101,19 +1200,33 @@ function Section({ title, required = false, children }) {
  * announced "$X,XXX" would be reading out fake money, and a cursor that could
  * select it invites people to try.
  */
-function EstimatePanel({ trade, result, preview, previewing, theme, solid, language, currency, company }) {
+function EstimatePanel({ trade, result, preview, previewing, theme, solid, language, currency, company, companySlug, lawnPick, address, contact }) {
   const fr = language === "fr";
-  const rangeLabel = fr ? "Fourchette estimée" : "Estimated range";
+  const lawnCopy = lawnEstimateCopy(language);
+  const isLawn = trade?.measure === "lawn_address";
+  const rangeLabel = isLawn ? lawnCopy.total : fr ? "Fourchette estimée" : "Estimated range";
   const heading = fr ? "Votre estimation" : "Your estimate";
 
-  const shown = result?.estimate || (result ? null : preview?.options?.[0] || null);
+  // Lawn care, before submit: the total is the sum of the server's own
+  // per-item prices for the program and add-ons picked — the cards carry
+  // them — so ticking a box changes the figure without a round trip. After
+  // submit it is the server's total for the keys posted, as for every trade.
+  const lawnLiveTotal = isLawn && !result && preview?.offer ? lawnPickTotal(preview.offer, lawnPick) : null;
+  const shown = result?.estimate
+    || (result ? null : isLawn ? (lawnLiveTotal != null ? { low: lawnLiveTotal, high: lawnLiveTotal } : null) : preview?.options?.[0] || null);
   // The range as ONE string, or null. estimateRange refuses to format a range
   // with a missing end rather than filling it with a zero — so a half-arrived
   // payload draws the "still working it out" state instead of promising a
   // floor of nothing. The locale follows the document language; the CURRENCY is
   // the company's and is not negotiable by the reader's browser.
+  //
+  // A program is a price, not a range: when the two ends are equal the one
+  // figure prints to the cent, as the company's card states it.
+  const locale = fr ? "fr-CA" : language === "es" ? "es" : "en-CA";
   const rangeText = shown
-    ? estimateRange(shown.low, shown.high, currency, fr ? "fr-CA" : "en-CA")
+    ? shown.low === shown.high
+      ? estimateMoneyCents(Number(shown.low), currency, locale)
+      : estimateRange(shown.low, shown.high, currency, locale)
     : null;
   const measurement = result?.measurement || preview?.measurement || null;
   const financing = result?.financing || preview?.financing || null;
@@ -1194,10 +1307,27 @@ function EstimatePanel({ trade, result, preview, previewing, theme, solid, langu
 
       {locked && <p className="text-xs text-muted-foreground mt-3">{trade.lockedMessage.body}</p>}
 
+      {/* Lawn care: the estimated size and the sentence saying where it came
+          from — a parcel, a trace, or the minimum band — beside the figure
+          AND beside the empty state, because "pick a program" needs the size
+          the programs are priced at. Never "measured" for a band. */}
+      {isLawn && measurement?.lawn && (
+        <div className="mt-3 rounded-lg bg-muted/50 px-3 py-2">
+          <div className="text-xs text-muted-foreground">{lawnCopy.lawnSizeLabel}</div>
+          <div className="text-lg font-bold text-foreground">{measurement.lawn.sizeText}</div>
+          {(measurement.lawn.notes || []).map((line) => (
+            <p key={line} className="text-xs text-muted-foreground mt-1">{line}</p>
+          ))}
+        </div>
+      )}
+      {isLawn && !shown && preview?.offer && !result && (
+        <p className="text-xs text-muted-foreground mt-2">{lawnCopy.selectProgram}</p>
+      )}
+
       {/* The measured facts behind the figure. Only ever rendered next to a
           figure that exists, because "22 squares" on its own answers a question
           nobody asked. */}
-      {shown && measurement && (
+      {shown && measurement && !isLawn && (
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground mt-3">
           {measurement.squares != null && <span><strong className="text-foreground">{measurement.squares}</strong> squares</span>}
           {measurement.areaSqft != null && <span><strong className="text-foreground">{Math.round(measurement.areaSqft).toLocaleString()}</strong> sq ft</span>}
@@ -1220,9 +1350,28 @@ function EstimatePanel({ trade, result, preview, previewing, theme, solid, langu
       {/* Shown beside a figure — or beside a REFUSAL, where it is the whole
           explanation: the building under the pin is the one the sentence is
           about, and a homeowner who can see it is a shed will fix the address. */}
-      {(shown || preview?.refused) && measurement?.satelliteImageUrl && (
+      {(shown || preview?.refused || (isLawn && measurement?.lawn)) && measurement?.satelliteImageUrl && (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={measurement.satelliteImageUrl} alt="Property" className="w-full rounded-lg border border-border mt-3" />
+      )}
+
+      {/* "This doesn't look right?" — under every figure read off imagery,
+          and under a refusal. Two humans-in-the-loop: the company's number,
+          and a call-back request that flags the lead for an on-site visit.
+          The estimate itself is untouched. */}
+      {fromImagery(trade?.measure) && (shown || preview?.refused || result) && (
+        <MeasurementDoubt
+          companySlug={companySlug}
+          companyPhone={company.phone || null}
+          language={language}
+          trade={trade.trade}
+          address={address}
+          quoteId={result?.quoteId || null}
+          contact={contact}
+          measurementSummary={measurementSummaryText(measurement, trade.measure, lawnCopy)}
+          theme={theme}
+          solid={solid}
+        />
       )}
 
       {/* Said where a figure is shown OR promised, never on the empty state —
@@ -1260,6 +1409,20 @@ function EstimatePanel({ trade, result, preview, previewing, theme, solid, langu
       )}
     </div>
   );
+}
+
+// One short line for the reviewer: what the homeowner was looking at when
+// they said it did not look right. Facts the panel already shows, never a
+// price.
+function measurementSummaryText(m, measure, lawnCopy) {
+  if (!m) return "";
+  if (measure === "lawn_address" && m.lawn) {
+    return `${lawnCopy.lawnSizeLabel}: ${m.lawn.sizeText}${m.lawn.source ? ` (${m.lawn.source})` : ""}`;
+  }
+  if (measure === "gutter_address") return [m.gutterFt != null && `${m.gutterFt} ft gutter`, m.downspouts != null && `${m.downspouts} downspouts`].filter(Boolean).join(", ");
+  if (measure === "roof_address") return [m.squares != null && `${m.squares} squares`, m.areaSqft != null && `${Math.round(m.areaSqft)} sq ft`, m.predominantPitch && `${m.predominantPitch.rise}/12`].filter(Boolean).join(", ");
+  if (m.areaSqft != null) return `${Math.round(m.areaSqft)} sq ft traced`;
+  return "";
 }
 
 function SuccessCard({ result, company, theme }) {

@@ -67,6 +67,7 @@ import TradeTakeoff, { hasTakeoff } from "./TradeTakeoff";
 import UnitPricingFields from "./UnitPricingFields";
 import IntakeFields from "./IntakeFields";
 import LotAreaMeasure from "./LotAreaMeasure";
+import LawnProgramPicker from "./LawnProgramPicker";
 import TierSelector from "./TierSelector";
 import LineItemsTable from "./LineItemsTable";
 import CostMarginPanel from "./CostMarginPanel";
@@ -106,6 +107,7 @@ import { quoteTotals, round2 } from "@/lib/quotes/totals";
 import { formatAppMoney } from "@/lib/format/money";
 import { defaultValidUntil } from "@/lib/quotes/validUntil";
 import { visibleLineItems } from "@/lib/quotes/scopeGroupDisplay";
+import { splitLawnLines } from "@/lib/quotes/lawnLines";
 import { planRequiredFrom } from "@/lib/signup/planRequired";
 import { LANGUAGES } from "@/app/i18n/languages";
 import { useHasLevel, useHasToggle } from "@/app/providers/PermissionProvider";
@@ -1102,6 +1104,32 @@ export function QuoteBuilderForm({
     );
   }
 
+  // The measured evidence on a group that has no structured takeoff form —
+  // the traced lawn's outline in lat/lng, for the document. Merged, so a
+  // later patch (the save route's captured still) is not thrown away by an
+  // earlier one.
+  function updateTakeoff(groupTempId, patch) {
+    setScopeGroups((prev) =>
+      prev.map((g) =>
+        g.tempId === groupTempId
+          ? { ...g, takeoff: { ...(g.takeoff || {}), ...patch } }
+          : g,
+      ),
+    );
+  }
+
+  // The lawn program picker's lines replace the picker's OWN previous lines
+  // (they carry meta.lawn) and leave anything typed by hand where it is.
+  function replaceLawnLines(groupTempId, lines) {
+    setScopeGroups((prev) =>
+      prev.map((g) =>
+        g.tempId === groupTempId
+          ? { ...g, lineItems: [...lines, ...splitLawnLines(g.lineItems).other] }
+          : g,
+      ),
+    );
+  }
+
   function toggleComplexityReason(groupTempId, reasonId) {
     setScopeGroups((prev) =>
       prev.map((g) => {
@@ -1997,7 +2025,29 @@ export function QuoteBuilderForm({
                       }
                       imageUrl={siteImage?.image?.url || ""}
                       imageScale={siteImage?.scale || null}
+                      // The still's centre and the address, so the traced
+                      // outline lands on the takeoff in lat/lng and the
+                      // client's document prints it (see LotAreaMeasure).
+                      siteLocation={siteImage?.location || null}
+                      siteAddress={siteImage?.formattedAddress || selectedClient?.address || ""}
+                      onTakeoffChange={(patch) => updateTakeoff(group.tempId, patch)}
                     />
+                  )}
+                  {/* Lawn care sells PROGRAMS priced by the lawn's size band
+                      (lib/estimate/lawnCare.js). The picker prices the
+                      company's card at the Lot Size above — traced or typed
+                      — and writes the picks as this group's lines, each
+                      program with its included treatments under it. */}
+                  {group.categoryKey === "lawn_care" && (
+                    <div className="rounded-lg border border-border p-3">
+                      <LawnProgramPicker
+                        areaSqft={group.intakeValues?.lotSize}
+                        language={quoteLanguage || companyLanguage}
+                        currency={companyCurrency}
+                        lineItems={group.lineItems}
+                        onLines={(lines) => replaceLawnLines(group.tempId, lines)}
+                      />
+                    </div>
                   )}
                   <IntakeFields
                     fields={getGroupFields(group)}
