@@ -363,13 +363,15 @@ check(
 );
 check(
   "agent payload sets voice_id unconditionally",
-  // `await` now, because the default is resolved from the provider's live voice
-  // list rather than being a constant — an id typed from memory fails
-  // /create-agent outright and leaves the receptionist unprovisioned. The
-  // assertion is still that voice_id is ALWAYS set, which is what matters:
-  // /create-agent requires it, and an optional spread meant it was usually
-  // absent.
-  /voice_id:\s*await\s+voiceFor\(/.test(provision),
+  // Resolved once, with `await voiceFor(...)`, from the provider's live voice
+  // list rather than a constant — an id typed from memory fails /create-agent
+  // outright and leaves the receptionist unprovisioned — and then set on BOTH
+  // agents from that one `voiceId`, so inbound and outbound cannot resolve to
+  // different voices. The assertion is still that voice_id is ALWAYS set,
+  // which is what matters: /create-agent requires it, and an optional spread
+  // meant it was usually absent.
+  /const voiceId = await voiceFor\(/.test(provision) &&
+    (provision.match(/voice_id:\s*voiceId,/g) || []).length === 2,
   "voice_id is REQUIRED by /create-agent — an optional spread meant it was usually absent.",
 );
 check(

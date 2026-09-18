@@ -46,6 +46,7 @@ import { getAppOrigin } from "@/lib/appUrl";
 import { salesRepIdFromIdentity } from "@/lib/sales/calls/browserDial";
 import { callStoreState, recordRepLeg } from "@/lib/sales/calls/store";
 import { recordError } from "@/lib/platform/errorLog";
+import { dialRecordingAttrs } from "@/lib/sales/calls/recording";
 
 /** How long after the gate cleared a bridge may still happen. */
 export const BRIDGE_WINDOW_SECONDS = 120;
@@ -160,9 +161,11 @@ export async function POST(request) {
     // lib/sales/calls/transfer.js.
     action: `${origin}/api/rep-dial/transfer?stage=rep-leg&attemptId=${encodeURIComponent(attempt.id)}`,
     method: "POST",
-    // No `record`. Recording a two-party call is consent law rather than a
-    // parameter — see lib/sales/calls/browserDial.js's callPlan for the long
-    // version. Its absence here is the decision, not an oversight.
+    // Recorded, dual-channel, from the moment the contractor answers, and
+    // Twilio posts the file to /api/rep-dial/recording with this attempt's
+    // id in the URL. lib/sales/calls/recording.js is the one place that
+    // decides this and says why.
+    ...dialRecordingAttrs({ origin, attemptId: attempt.id }),
   });
   dial.number(
     {

@@ -13078,3 +13078,63 @@ article `conversation-audit`; sales manual chapter 9 "Who can read what"
 and a bullet in the rules, EN/ES/FR: *"The owner can read any staff
 conversation and any rep–prospect conversation; you are told when they
 have."*
+
+## The Off reminder, and a test line the owner can ring at midnight (17 September 2026)
+
+**Two owner asks, one evening.** A live rep signed in, dialled all evening and
+never pressed Available; between the sign-in and the first dial she had no
+presence row, and `inboundRouting` routes a ring-back on that row — the
+contractor who rang back reached nobody. And the owner wanted to test the
+dialler outside calling hours on his own mobile, from his own rep account
+(`emilio.daniel.boves@gmail.com`, SalesRep "Daniel").
+
+**1. "You're shown as Off."** `app/components/sales/AvailableReminder.js`,
+mounted once in `SalesShell` under the presence provider. After sign-in,
+when the rep's state is offline or there is no row, a modal:
+*"You're shown as Off. Contractors who ring back can't reach you until
+you're Available."* — **Go available** (the picker's own `available` choice
+through `setStatus`, so the autodialler's press counter moves) and **OK**
+(dismissed for this browser session; the login page and sign-out clear the
+flag, so the next sign-in asks again). `role="dialog" aria-modal="true"`,
+focus trapped between the two buttons, Escape is OK, focus returns. Never
+while a call is up or a contractor is ringing, never before presence has
+loaded, never when the tables are absent. The decision is
+`lib/sales/availableReminder.js`'s `shouldRemind()`, a total function whose
+full truth table (448 rows) `check-sales-available-reminder.mjs` executes.
+Nine languages under `app.salesStatus.reminder.*`.
+
+**2. A test-line allowlist, not a per-account bypass.** The law protects
+the stranger whose phone rings, whoever pressed the button — so the
+exemption is on the NUMBER. `lib/sales/testLines.js` (pure) +
+`testLinesStore.js` (one `PlatformSetting`, key `sales.testLines`, a JSON
+array of E.164, at most 10). Edited on **/platform/sales/windows** ("Test
+lines — FieldQuo's own phones"), superadmin-only PUT at
+`/api/platform/sales/test-lines`, audit action `sales_test_lines_updated`
+with the list before and after. A dial to a listed number is
+`salesCallReadiness({ testLine: true })` → allowed at any hour, over any cap,
+in any state, with `jurisdiction.code = "test"`, no name / window / citation
+(so no screen prints a law for it) and one caveat beside the Call button in
+nine languages (`app.salesDial.unenforced.testLine.*`). Judged in the dial
+route AFTER do-not-contact and the suppression read, about the number that
+will actually ring; the queue and lead routes decide it server-side and the
+screens re-pass `testLine: ctx.testLine === true`; the queue's window
+grouping puts it in "Callable now" with no best-time score and the retry
+pool's regroup never holds it. **Nothing was added to `SalesCallAttempt`**
+(under a pending change elsewhere): the row's `jurisdictionCode` is
+`"test"`, and every count of work excludes it — `repCallStats`,
+`teamCallRows`, `campaignCallRows` (pure), the floor board, the funnel, the
+agency week, the badge's calls-today, the cap count, and all seven Prisma
+counts plus both raw-SQL counts in the growth model. The where fragment is
+`null OR not "test"` because Prisma's bare `not` on a nullable column drops
+the NULL rows (measured: 113 rows, 5 null, `not` returned 108).
+`check-sales-test-line.mjs` executes the reader against hostile JSON, the
+rules at 03:00 Oklahoma / over Florida's cap / under Arizona's prohibition /
+with no location, the grouping, the regroup, the counts with a test row
+beside a real one, and greps every count site; it also asserts no file
+under `lib/` or `app/` names the owner's account. **The list ships EMPTY** —
+the owner's mobile is nowhere in the codebase or the database (SalesRep has
+no phone column; `+17166383616` is a Twilio number assigned to Daniel, not
+his handset) — so he adds it on the Calling windows page. Inbound rows from
+a test line (a ring-back) are written by `app/api/rep-dial/inbound`, which
+was out of scope, and carry no mark; the floor board's "came in today"
+still counts one.

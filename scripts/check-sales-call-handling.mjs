@@ -596,13 +596,21 @@ ok("a non-E.164 destination is refused",
   callPlan({ toE164: "5145550100", readiness: allowed, callerNumbers: OURS }).ok === false);
 ok("holding no caller numbers refuses the call rather than spoofing one",
   callPlan({ toE164: "+19185551234", readiness: allowed, callerNumbers: [] }).ok === false);
-ok("recording is off on every plan this function can produce", (() => {
+// 2026-09-17: recording is ON. The owner's decision — the disclosure rides
+// in the rep's script, and every connected call is kept so what the rep said
+// can be read against it. A plan that connects two people says so; a
+// refusal has nothing to record and says false.
+ok("recording is on every plan that connects a call", (() => {
   const r = callPlan({ toE164: "+19185551234", readiness: allowed, callerNumbers: OURS });
-  return r.record === false;
+  return r.ok === true && r.record === true;
 })());
-ok("there is no parameter that turns recording on", (() => {
+ok("…and a refused plan records nothing", (() => {
+  const r = callPlan({ toE164: "+19185551234", readiness: null, callerNumbers: OURS });
+  return r.ok === false && r.record === false;
+})());
+ok("there is still no environment variable that decides it", (() => {
   const body = fnBody("lib/sales/calls/browserDial.js", "export function callPlan(");
-  return !/record:\s*(true|record|Boolean)/.test(body);
+  return !/process\.env\.[A-Z_]*RECORD/.test(body);
 })());
 
 ok("readiness names the first missing link", (() => {
@@ -866,8 +874,8 @@ ok("attempts group by the key the caller attached", (() => {
 
 ok("what cannot be measured is named, with the missing input each time",
   NOT_TRACKED_CALLS.length >= 4 && NOT_TRACKED_CALLS.every((e) => e.reason.length > 60));
-ok("recording is on that list, with consent as the reason and not a missing feature",
-  NOT_TRACKED_CALLS.some((e) => e.key === "recording" && /consent/i.test(e.reason)));
+ok("recording is NOT on that list any more — it is tracked, since 2026-09-17",
+  !NOT_TRACKED_CALLS.some((e) => e.key === "recording"));
 
 // ═══════════════════════════════════════════════════════════════════════════
 section("10. Structural — the properties that cannot be executed here");

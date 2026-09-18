@@ -151,11 +151,15 @@ section("1. The server memo");
   const route = decomment(read("app/api/sales/queue/route.js"));
   ok("the route reads the window overrides through the memo", /queueMemo\.get\("policyContext", \(\) => loadWindowPolicyContext\(\{ now \}\)\)/.test(route));
   ok("…and the retry rules", /queueMemo\.get\("retryRules", \(\) => loadRetryRules\(\{ db \}\)\)/.test(route));
+  // The dialler's test-line list (lib/sales/testLines.js): one PlatformSetting
+  // row, the same for every rep, so it is memoised like the overrides — and a
+  // number added on the console reaches the queue within the memo's minute.
+  ok("…and the test-line list", /queueMemo\.get\("testLines", \(\) => loadTestLines\(\)\)/.test(route));
   ok("…and the available-per-trade GROUP BY, keyed by the rep's language rule", /queueMemo\.get\(`availableByTrade:\$\{langKey\}`/.test(route) && /const langKey = JSON\.stringify\(languageWhereFor\(rep\)/.test(route));
-  ok("the rep's OWN rows are never read through the memo", !/queueMemo\.get\([^)]*queueWhere/.test(route) && (route.match(/queueMemo\.get\(/g) || []).length === 3);
+  ok("the rep's OWN rows are never read through the memo", !/queueMemo\.get\([^)]*queueWhere/.test(route) && (route.match(/queueMemo\.get\(/g) || []).length === 4);
   ok("QUEUE_SELECT carries no `_count` — the two GROUP BYs replace it", !/_count: \{ select: \{ capabilities: true, opportunities: true \} \}/.test(route) && /db\.prospectCapability\.groupBy\(\{ by: \["prospectId"\]/.test(route) && /db\.prospectOpportunity\.groupBy\(\{ by: \["prospectId"\]/.test(route));
   ok("…and puts the counts back on the row as `_count` for isResearched()", /p\._count = \{ capabilities: capsById\.get\(p\.id\) \|\| 0, opportunities: oppsById\.get\(p\.id\) \|\| 0 \}/.test(route));
-  ok("the nine rep-level reads leave together", /const \[policyContext, retryRules, claimedRows, shiftStart, takenToday, adminAssigned, givenBack, mineByTrade, availableByTrade\] =\s*await Promise\.all\(/.test(route));
+  ok("the nine rep-level reads leave together", /const \[policyContext, retryRules, testLines, claimedRows, shiftStart, takenToday, adminAssigned, givenBack, mineByTrade, availableByTrade\] =\s*await Promise\.all\(/.test(route));
   ok("the log line and Server-Timing carry the phases", /timing\[label\]/.test(route) && /Server-Timing": serverTiming/.test(route) && /mark\("phase1"\)/.test(route) && /mark\("order"\)/.test(route));
 }
 
@@ -247,7 +251,7 @@ section("3. The per-lead cache and the read-ahead");
   ok("the read-ahead asks `?only=current`, then the playbook, then the history — one row at a time", /only=current/.test(page) && /\/api\/sales\/playbook\?prospectId=/.test(page) && /\/api\/sales\/calls\/history\?/.test(page) && /for \(const id of targets\)/.test(page));
   ok("…and only while the tab is visible", /document\.visibilityState === "hidden"\) return;/.test(page));
   const route = decomment(read("app/api/sales/queue/route.js"));
-  ok("the route answers `only=current` through readCurrentFull + buildCurrent — the same builder as the full response", /url\.searchParams\.get\("only"\) === "current" && prospectId/.test(route) && (route.match(/await buildCurrent\(\{ rep, full, zone, lang, now, policyContext, retryRules \}\)/g) || []).length === 2);
+  ok("the route answers `only=current` through readCurrentFull + buildCurrent — the same builder as the full response", /url\.searchParams\.get\("only"\) === "current" && prospectId/.test(route) && (route.match(/await buildCurrent\(\{ rep, full, zone, lang, now, policyContext, retryRules, testLines \}\)/g) || []).length === 2);
   ok("…scoped through queueWhere like every read of a row", /function readCurrentFull\(rep, id, now\) \{\s*return db\.prospect\.findFirst\(\{\s*where: \{ id, \.\.\.queueWhere\(rep\.id, \{ now \}\) \}/.test(route));
   const playbook = decomment(read("app/components/sales/PlaybookMount.js"));
   ok("PlaybookMount draws the cached script first and still re-reads", /const cachedDefault = cachedEntry\?\.playbook\?\.default \|\| null;/.test(playbook) && /setPlaybookLoading\(!cachedDefault\);/.test(playbook) && /const first = await fetchJson\(playbookUrl\(null\)\);/.test(playbook));

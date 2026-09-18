@@ -85,6 +85,12 @@ import {
 // charges FieldQuo, and a contractor's screen is the wrong place for FieldQuo's
 // own cost of goods.
 import { VOICE_PROVIDERS } from "@/lib/voice/voices";
+// The language selector's values and the "can it speak your language?" rule.
+// No imports in that file, for the same reason as agentTuning.js.
+import { SPOKEN_LANGUAGE_VALUES, isSpokenLanguage } from "@/lib/voice/agentLanguage";
+// For naming the company's language in the limitation sentence — "your account
+// is in Ukrainian" — in that language's own spelling.
+import { LANGUAGES } from "@/app/i18n/languages";
 // Client-safe by construction — lib/validation.js imports nothing, which is
 // why the number helpers live there and not in lib/voice/numbers.js, which
 // pulls in Prisma.
@@ -163,6 +169,11 @@ export default function VoiceSettingsPage() {
     // greeting doesn't post a voice the company never picked, and so that
     // picking "the standard voice" genuinely clears the column.
     voice: "",
+    // The RESOLVED value — what the phone speaks today — never "". A company
+    // that has not chosen still has a phone that speaks something, and the
+    // selector shows that rather than nothing selected. Posted only when it
+    // differs from what the server resolved (see saysPayload).
+    spokenLanguage: "en",
   });
   const [copied, setCopied] = useState(null);
   const [liveWarning, setLiveWarning] = useState(false);
@@ -246,6 +257,7 @@ export default function VoiceSettingsPage() {
       // Adrian" from "nobody has picked, and Adrian is what answers", because
       // only the second one is allowed to change when we change the default.
       voice: d.agent?.voice || "",
+      spokenLanguage: d.language?.value || "en",
       // `d.tuning.values` is never null and never partial — the server
       // normalises it, so a company with no VoiceAgent row at all still gets
       // the four defaults rather than four unselected pickers. `|| ""` is not
@@ -930,8 +942,14 @@ export default function VoiceSettingsPage() {
    * would buy a slower Save for no decision at all.
    */
   const saysPayload = () => {
-    const { voice, ...rest } = form;
-    return voice === (agent?.voice || "") ? rest : { ...rest, voice };
+    const { voice, spokenLanguage, ...rest } = form;
+    const body = voice === (agent?.voice || "") ? rest : { ...rest, voice };
+    // Same rule as the voice: only posted when it changed, so saving a
+    // greeting never writes a language column the company never touched —
+    // which would turn "following your account language" into a choice.
+    return spokenLanguage === (data?.language?.value || "en")
+      ? body
+      : { ...body, spokenLanguage };
   };
 
   return (
@@ -1853,6 +1871,19 @@ export default function VoiceSettingsPage() {
               should be one push to the provider, and a control that saved
               itself would leave a half-applied agent every time somebody
               changed their mind twice. */}
+          {/* Which language(s) it answers in. Above the voice on purpose: the
+              voice list is filtered by the language, so the question has to
+              be answered first. Held in `form` like everything else here and
+              committed by the one Save, which re-provisions the agent the
+              same way a voice change does. */}
+          <LanguagePicker
+            value={form.spokenLanguage}
+            saved={data?.language || null}
+            busy={busy}
+            onPick={(value) => setForm({ ...form, spokenLanguage: value })}
+            t={t}
+          />
+
           <SoundPicker
             settings={data?.tuning?.settings}
             fields={data?.tuning?.fields}
@@ -1869,6 +1900,7 @@ export default function VoiceSettingsPage() {
           <VoicePicker
             value={form.voice}
             saved={agent?.voice || null}
+            language={form.spokenLanguage}
             busy={busy}
             onPick={(id) => setForm({ ...form, voice: id })}
             t={t}
@@ -2703,6 +2735,125 @@ function SoundPicker({ settings, fields, values, busy, onPick, t }) {
 }
 
 /**
+ * Which language(s) the receptionist answers in.
+ *
+ * ── Its own setting, not the account language ─────────────────────────────
+ *
+ * The phone used to follow Company.defaultLanguage, and for most shops that is
+ * right — but an Ottawa painter whose books are in English and whose callers
+ * are half Gatineau wants a bilingual phone and an English back office, and
+ * a Montreal shop run in French loses its English callers to a French-only
+ * greeting. So it is chosen here, and the account language is only what
+ * answers when nobody has chosen.
+ *
+ * ── The limitation is on the screen, not in a comment ─────────────────────
+ *
+ * A company whose account is in Ukrainian, Punjabi or Tagalog has a
+ * receptionist that answers in English, because lib/voice/prompt.js has no
+ * text for those languages and a locale with no prompt behind it is an agent
+ * reading English words in a Punjabi accent. That was true before this
+ * selector existed and nothing on the screen said so. Now the sentence is
+ * here, exactly when it applies — `saved.spoken` is false — and in the
+ * owner's own language.
+ *
+ * ── The bilingual trade is in the words ───────────────────────────────────
+ *
+ * Retell's own guidance: crossing language families routes speech
+ * recognition to a multilingual pipeline "which is less accurate per
+ * language than single-language models". No price difference, an accuracy
+ * one — said in the hint, because a contractor choosing bilingual is choosing
+ * that, and cannot see it from the label.
+ *
+ * `options` comes from the server, so a value the PUT route would refuse
+ * cannot be rendered as a button.
+ */
+function LanguagePicker({ value, saved, busy, onPick, t }) {
+  const options = (saved?.options || SPOKEN_LANGUAGE_VALUES).filter(isSpokenLanguage);
+  if (!options.length) return null;
+
+  const companyName =
+    LANGUAGES.find((l) => l.code === saved?.company)?.nativeName || saved?.company || "";
+  const dirty = Boolean(saved) && value !== saved.value;
+
+  const LABEL = {
+    en: t("app.setVoice.language.en.label", "English"),
+    fr: t("app.setVoice.language.fr.label", "Français"),
+    es: t("app.setVoice.language.es.label", "Español"),
+    "en-fr": t("app.setVoice.language.en-fr.label", "Bilingual English & French"),
+    "en-es": t("app.setVoice.language.en-es.label", "Bilingual English & Spanish"),
+  };
+  const HINT = {
+    en: t("app.setVoice.language.en.hint", "Answers in English. If a caller speaks French or Spanish, it switches to them."),
+    fr: t("app.setVoice.language.fr.hint", "Answers in Canadian French. If a caller speaks English, it switches to them."),
+    es: t("app.setVoice.language.es.hint", "Answers in Latin American Spanish. If a caller speaks English, it switches to them."),
+    "en-fr": t("app.setVoice.language.en-fr.hint", "Opens “Bonjour, hello” and carries on in whichever one the caller uses — Ottawa–Gatineau style. It listens for both at once, which makes it a shade less accurate on names and numbers than one language alone. Costs the same."),
+    "en-es": t("app.setVoice.language.en-es.hint", "Opens “Hello, hola” and carries on in whichever one the caller uses. It listens for both at once, which makes it a shade less accurate on names and numbers than one language alone. Costs the same."),
+  };
+
+  return (
+    <div className="rounded-lg border border-border bg-muted/40 p-4">
+      <p className="text-sm font-medium text-foreground">
+        {t("app.setVoice.language.title", "Which language it answers in")}
+      </p>
+      <p className="text-xs text-muted-foreground mt-0.5">
+        {saved && !saved.chosen
+          ? t("app.setVoice.language.following", "You haven't chosen, so it follows your account language.")
+          : t("app.setVoice.language.hint", "Separate from the language you use FieldQuo in. A caller who speaks something else is followed either way — this is what it answers in first.")}
+      </p>
+
+      {/* The limitation, said only when it applies. */}
+      {saved && !saved.spoken && (
+        <p className="text-xs text-amber-700 dark:text-amber-400 mt-2 flex items-start gap-1.5">
+          <AlertTriangle size={13} className="shrink-0 mt-0.5" />
+          {t(
+            "app.setVoice.language.cannot",
+            "Your account is in {language}. The receptionist can't speak it yet, so it answers in English unless you pick another language here.",
+            { language: companyName },
+          )}
+        </p>
+      )}
+
+      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+        {options.map((option) => {
+          const active = option === value;
+          return (
+            <button
+              key={option}
+              type="button"
+              disabled={busy || active}
+              aria-pressed={active}
+              onClick={() => onPick(option)}
+              className={`text-left rounded-lg border p-3 transition-colors ${
+                active
+                  ? "border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40"
+                  : busy
+                    ? "border-border bg-card opacity-50"
+                    : "border-border bg-card hover:border-foreground/30"
+              }`}
+            >
+              <span className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+                {active && (
+                  <Check size={14} className="shrink-0 text-emerald-700 dark:text-emerald-400" />
+                )}
+                {LABEL[option] || option}
+              </span>
+              <span className="block text-xs text-muted-foreground mt-1">{HINT[option] || ""}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {dirty && (
+        <p className="text-xs text-amber-700 dark:text-amber-400 mt-2 flex items-start gap-1.5">
+          <AlertTriangle size={13} className="shrink-0 mt-0.5" />
+          {t("app.setVoice.voice.unsaved", "Not switched over yet — press Save below and the next caller hears it.")}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
  * The traits the provider reports, as words rather than as enum values.
  *
  * `gender` is a closed pair and is translated. `accent` and `age` are free
@@ -2755,12 +2906,17 @@ function voiceTraits(v, t) {
  * long: without it, opening the picker would pull a hundred mp3s down a
  * driveway connection before anyone pressed anything.
  */
-function VoicePicker({ value, saved, busy, onPick, t }) {
+function VoicePicker({ value, saved, language, busy, onPick, t }) {
   const [open, setOpen] = useState(false);
   // idle → loading → ready | error. `reason` is the server's own word for why
   // a ready list is empty, and the three are NOT interchangeable.
   const [state, setState] = useState("idle");
   const [voices, setVoices] = useState([]);
+  // The voices the provider has that CANNOT speak the language(s) chosen
+  // above, with the locale each lacks. Kept so the screen can say why a voice
+  // is not on the list — a shortlist that shrinks without a word reads as a
+  // voice being retired.
+  const [excluded, setExcluded] = useState([]);
   const [defaultVoiceId, setDefaultVoiceId] = useState(null);
   const [reason, setReason] = useState(null);
   const [forbidden, setForbidden] = useState(false);
@@ -2768,7 +2924,11 @@ function VoicePicker({ value, saved, busy, onPick, t }) {
   const loadVoices = useCallback(async () => {
     setState("loading");
     try {
-      const res = await fetch("/api/settings/voice/voices");
+      // Filtered for the language the selector is SHOWING, saved or not: the
+      // owner picks bilingual and the list has to answer for bilingual before
+      // they press Save, or they choose a voice the save then refuses.
+      const qs = isSpokenLanguage(language) ? `?language=${encodeURIComponent(language)}` : "";
+      const res = await fetch(`/api/settings/voice/voices${qs}`);
       if (res.status === 403) {
         setForbidden(true);
         return;
@@ -2779,6 +2939,7 @@ function VoicePicker({ value, saved, busy, onPick, t }) {
       }
       const d = await res.json();
       setVoices(Array.isArray(d.voices) ? d.voices : []);
+      setExcluded(Array.isArray(d.excluded) ? d.excluded : []);
       setDefaultVoiceId(d.defaultVoiceId || null);
       setReason(d.reason || null);
       setState("ready");
@@ -2787,7 +2948,18 @@ function VoicePicker({ value, saved, busy, onPick, t }) {
       // swallowed: they pressed something, so silence would be a dead control.
       setState("error");
     }
-  }, []);
+  }, [language]);
+
+  // A language change re-filters a list that has already been fetched — or,
+  // when a voice is chosen, fetches it, because that is the one case where
+  // the answer matters before the picker is opened: the chosen voice may not
+  // speak the new language, and the warning below is the only thing standing
+  // between the owner and a refused save. A picker with nothing chosen and
+  // never opened stays unfetched, for the reason the header gives.
+  useEffect(() => {
+    if (state !== "idle" || value) loadVoices();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [language]);
 
   function toggle() {
     const next = !open;
@@ -2797,6 +2969,11 @@ function VoicePicker({ value, saved, busy, onPick, t }) {
 
   // A member the route refuses sees no picker, not an empty one.
   if (forbidden) return null;
+
+  // The voice currently PICKED cannot speak the language currently picked.
+  // The PUT would refuse the save; better to say so here, beside the two
+  // controls that disagree, than after a round trip.
+  const chosenCannot = value ? excluded.find((v) => v.id === value) || null : null;
 
   const byId = (id) => voices.find((v) => v.id === id) || null;
   const defaultName = defaultVoiceId ? byId(defaultVoiceId)?.name || defaultVoiceId : null;
@@ -2837,6 +3014,17 @@ function VoicePicker({ value, saved, busy, onPick, t }) {
         <p className="text-xs text-amber-700 dark:text-amber-400 mt-2 flex items-start gap-1.5">
           <AlertTriangle size={13} className="shrink-0 mt-0.5" />
           {t("app.setVoice.voice.unsaved", "Not switched over yet — press Save below and the next caller hears it.")}
+        </p>
+      )}
+
+      {chosenCannot && (
+        <p className="text-xs text-amber-700 dark:text-amber-400 mt-2 flex items-start gap-1.5">
+          <AlertTriangle size={13} className="shrink-0 mt-0.5" />
+          {t(
+            "app.setVoice.voice.currentCannot",
+            "{name} can't speak the language you picked. Choose another voice below, or the standard one, before you save.",
+            { name: chosenCannot.name },
+          )}
         </p>
       )}
 
@@ -2973,6 +3161,18 @@ function VoicePicker({ value, saved, busy, onPick, t }) {
               <p className="text-xs text-muted-foreground mt-3">
                 {t("app.setVoice.voice.failoverNote", "If the company behind a voice has an outage, only the ones marked “keeps answering in an outage” switch to a backup on their own. The rest go quiet until it's fixed.")}
               </p>
+
+              {/* Why a voice is missing. Retell's language-support page is
+                  per provider; lib/voice/voices.js carries the table. */}
+              {excluded.length > 0 && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  {t(
+                    "app.setVoice.voice.excluded",
+                    "Not offered for the language you picked, because they can't pronounce it: {names}.",
+                    { names: excluded.map((v) => v.name).join(", ") },
+                  )}
+                </p>
+              )}
             </>
           )}
         </div>

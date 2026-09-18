@@ -2647,6 +2647,10 @@ function QueueConsole() {
       // registration hold included) and re-passed as-is. This screen holds
       // no override rows and resolves nothing; absent, it is enforce.
       windowPolicy: ctx.windowPolicy || null,
+      // One of FieldQuo's own test lines, decided on the server against the
+      // platform setting and re-passed as-is — the same discipline as the
+      // override above. Only the literal true counts.
+      testLine: ctx.testLine === true,
         // The reader's language, for the ONE string this produces that is a
         // formatted instant rather than a sentence — "It opens at 08:00 on Tue
         // 8 Sep". Everything else travels as a catalogue key; a date cannot,
