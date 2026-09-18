@@ -12701,6 +12701,64 @@ model PlatformAiBudget {
   @@unique([scope, scopeId])
 }
 
+/// One provider's bill for one category on one day, as the provider reports
+/// it — the ledger behind /platform/costs.
+///
+/// ══ Why it is cached rather than asked live ═══════════════════════════════
+///
+/// Twilio's Usage Records API answers "what did calls-outbound cost on the
+/// 12th" from its own billing, which is the only authority on what FieldQuo
+/// owes. It is also slow, paginated, and revises a day for up to a few days
+/// after it ends. A page that asked it on every load would be a page that
+/// took ten seconds and was rate-limited by lunch. So the sales-pipeline cron
+/// pulls the last few days once an hour and upserts them here by
+/// (day, provider, category); the page reads this table and prints
+/// `fetchedAt` beside every figure, because a cached number without its age
+/// is a number a reader will believe is current.
+///
+/// ══ Cents, four decimal places, in the provider's own currency ════════════
+///
+/// A single browser leg costs $0.004; rounding to whole cents on ten thousand
+/// rows is real money. `currency` is stored rather than assumed — Twilio bills
+/// this account in USD today and the column is what makes that a fact rather
+/// than a convention.
+///
+/// Nothing here is a tenant's data. FieldQuo pays every line of it.
+model PlatformCostDaily {
+  id String @id @default(cuid())
+
+  /// The UTC day the provider filed the usage under.
+  day DateTime @db.Date
+  /// "twilio" today. "retell" and "openai" are derived from their own tables
+  /// (PlatformVoiceCall, VoiceCall, PlatformAiUsage, AiUsage) and are not
+  /// cached here — those tables ARE the ledger for them.
+  provider String
+  /// The provider's own category key, verbatim: "calls-outbound",
+  /// "calls-client", "recordings", "phonenumbers", "sms-outbound", … Never
+  /// renamed on the way in, so a figure can be checked against the invoice.
+  category String
+
+  cents    Decimal  @db.Decimal(14, 4)
+  currency String   @default("USD")
+  /// The usage the money bought — minutes, messages, numbers — with its unit
+  /// as the provider names it. Null when the provider gave no usage figure.
+  units    Decimal? @db.Decimal(14, 4)
+  unit     String?
+  /// How many billable events the usage came from, when reported.
+  count    Int?
+
+  /// Where the figure came from: "twilio_usage_records". Printed beside it.
+  source    String
+  /// When FieldQuo last asked the provider for this row. Printed beside it.
+  fetchedAt DateTime
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([day, provider, category])
+  @@index([provider, day])
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // THE NOTIFICATION FEED — docs/construction/AUDIT-notifications.md §8.1
 // ═══════════════════════════════════════════════════════════════════════════
@@ -13493,6 +13551,23 @@ model SalesCallAttempt {
   /// later. "Rang, nobody answered, no message" is the outcome that most
   /// needs telling somebody, and it was the one outcome with no record.
   missedAt DateTime?
+
+  /// "manual" | "autodial". Whether a rep pressed the Call button or the
+  /// progressive dialler (lib/sales/autodial.js) pressed it for them after
+  /// its countdown. Null on rows written before 2026-09-17 and on every
+  /// inbound row; a report reads null as "not recorded", never as manual.
+  /// Sent by the browser (app/components/sales/CallPanel.js's place()) and
+  /// accepted only as one of the two words — anything else is stored as
+  /// null rather than trusted.
+  dialSource String?
+
+  /// When the carrier's price for this call was last asked for and not
+  /// given. Twilio prices a call after it ends, sometimes minutes after, so
+  /// the status callback usually arrives without one; lib/sales/calls/costs.js
+  /// asks the Calls resource later and stamps this so a row is not asked about
+  /// every minute for ever. Null until the first ask; cleared to nothing when
+  /// a price lands, because providerCostCents is then the answer.
+  providerPriceCheckedAt DateTime?
 
   /// "browser" | "handset" | "inbound". Which door the call went through, and
   /// therefore whether any of the provider columns below can ever be filled.
