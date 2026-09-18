@@ -21,9 +21,12 @@
 // over the thread rather than a third column, because a 340px column on a
 // 375px screen is not a column.
 //
-// The list keeps its width and never squeezes: a room list at 180px shows a
-// title and nothing else, and the subtitle is what tells a rep which
-// conversation needs them.
+// The list wants 280px and gives up to 40 of them when the thread is short
+// of room: a room list at 180px shows a title and nothing else, and the
+// subtitle is what tells a rep which conversation needs them, so 240 is the
+// floor — flex-basis and min-width rather than a fixed width, because a
+// fixed list beside a fixed bar left the thread whatever was left, and on a
+// 1280px window that was ~390px (the owner: "flexible, not fixed").
 import { useEffect } from "react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
@@ -81,9 +84,13 @@ export default function ChatLayout({
     return () => window.removeEventListener("keydown", onKey);
   }, [pane, onCloseContext]);
 
+  // overflow-hidden is the rounded corners' clip and nothing more: every
+  // pane inside is min-h-0 and scrolls itself, so no control can end up
+  // beyond this edge — which is what the floor is for too: below 360px the
+  // page scrolls instead of the panes losing their composer.
   return (
     <div
-      className={`relative flex ${height} min-h-[420px] overflow-hidden rounded-xl border border-border bg-card ${className}`}
+      className={`relative flex ${height} min-h-[360px] overflow-hidden rounded-xl border border-border bg-card ${className}`}
       data-chat-layout
       data-pane={pane}
       {...rest}
@@ -91,7 +98,7 @@ export default function ChatLayout({
       {/* ── Room list ─────────────────────────────────────────────────────── */}
       <aside
         data-chat-pane="list"
-        className={`${pane === PANE_LIST ? "flex" : "hidden"} md:flex w-full md:w-[280px] md:shrink-0 flex-col border-r border-border bg-card min-h-0`}
+        className={`${pane === PANE_LIST ? "flex" : "hidden"} md:flex w-full md:w-auto md:basis-[280px] md:min-w-[240px] md:shrink md:grow-0 flex-col border-r border-border bg-card min-h-0`}
       >
         {list}
       </aside>

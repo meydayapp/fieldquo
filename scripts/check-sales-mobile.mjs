@@ -424,7 +424,7 @@ section("6. Every screen clears the bar");
   ok("the shell wraps the portal in .fq-sales-shell", /className="min-h-screen bg-muted fq-sales-shell(?: [^"]*)?"/.test(shellCode));
   ok(
     "the shell's <main> reserves the bar's height below its content",
-    /<main\s+className=\{`\$\{container\} w-full pt-6 sm:pt-8 pb-\[calc\(var\(--fq-tab-bar-height\)\+1\.5rem\)\] sm:pb-\[calc\(var\(--fq-tab-bar-height\)\+2rem\)\]`\}/.test(shellCode),
+    /<main\s+ref=\{mainRef\}\s+className=\{`\$\{container\} w-full pt-6 sm:pt-8 pb-\[calc\(var\(--fq-tab-bar-height\)\+1\.5rem\)\] sm:pb-\[calc\(var\(--fq-tab-bar-height\)\+2rem\)\]`\}/.test(shellCode),
   );
   ok("the tour's launcher rides above the bar", /bottom-\[calc\(var\(--fq-tab-bar-height\)\+1rem\)\] left-4/.test(decomment(read("app/components/sales/SalesTour.js"))));
   // The incoming call is an ALERT DIALOG since 2026-09-17 (the owner rang
@@ -444,7 +444,7 @@ section("6. Every screen clears the bar");
     ok("…centred at every width, inside the wrapper's 16px gutters, a full-width card", /placement="center"/.test(dockSrc) && /items-center justify-center/.test(dialog) && /p-4/.test(dialog) && /relative w-full sm:max-w-md/.test(dialog));
     ok("…Pick up and Decline are ≥ 44px and carry hooks", /min-h-\[52px\][^"]*"\s*data-incoming-pick-up/.test(dockSrc) && /min-h-\[52px\][^"]*"\s*data-incoming-decline/.test(dockSrc));
     ok("…with a ring clock in the catalogue's words", /data-incoming-ring-clock/.test(dockSrc) && /app\.salesDial\.ringingFor/.test(dockSrc));
-    ok("the live call with no card, and the write-up, are a fixed strip under the lg top bar", /data-incoming-live-strip/.test(dockSrc) && (dockSrc.match(/fixed inset-x-0 top-0 lg:top-\[61px\]/g) || []).length >= 2);
+    ok("the live call with no card, and the write-up, are a fixed strip under the lg top bar", /data-incoming-live-strip/.test(dockSrc) && (dockSrc.match(/fixed inset-x-0 top-0 lg:top-\[var\(--fq-top-bar,61px\)\]/g) || []).length >= 2);
     ok("…and no slide is left over", !/-translate-y-full|SLIDE_MS|setMounted\(/.test(dockSrc));
   }
 

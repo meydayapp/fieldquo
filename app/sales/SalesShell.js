@@ -270,6 +270,41 @@ export default function SalesShell({ children }) {
       return !c;
     });
   }
+
+  // ── The chrome above <main>, measured, as --fq-top-bar ─────────────────
+  //
+  // Everything between the top of the viewport and <main> — the lg header,
+  // the phone's top bar, the test-account banner — is in normal flow inside
+  // `column`, so main.top − column.top IS the chrome's height, whatever is
+  // mounted and whatever the font. Written straight onto the shell node
+  // rather than through state: a re-render of the whole shell for a number
+  // only CSS reads would be the wrong tool, and React leaves a custom
+  // property it never set alone when it reconciles `style`. The observer
+  // watches the column (a banner mounting, a header reflowing, both change
+  // its height) and the window (a resize can wrap the header's row). Read
+  // by .fq-sales-fill, the queue's sticky dialler and the incoming-call
+  // strip — see the "chrome above a sales screen" section of globals.css.
+  const shellRef = useRef(null);
+  const columnRef = useRef(null);
+  const mainRef = useRef(null);
+  useEffect(() => {
+    const shell = shellRef.current;
+    const column = columnRef.current;
+    const main = mainRef.current;
+    if (!shell || !column || !main) return undefined;
+    const measure = () => {
+      const px = Math.max(0, Math.round(main.getBoundingClientRect().top - column.getBoundingClientRect().top));
+      shell.style.setProperty("--fq-top-bar", `${px}px`);
+    };
+    measure();
+    const ro = typeof ResizeObserver === "function" ? new ResizeObserver(measure) : null;
+    ro?.observe(column);
+    window.addEventListener("resize", measure);
+    return () => {
+      ro?.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [chromeless]);
   // The unread-texts count the last read saw (null until one has), and the
   // current t for the poll below — which is bound once per pathname, not
   // once per language.
@@ -519,6 +554,7 @@ export default function SalesShell({ children }) {
         app/globals.css. The tour launcher and the incoming-call drawer read
         the same variable to sit ABOVE the bar rather than under it. */}
     <div
+      ref={shellRef}
       className="min-h-screen bg-muted fq-sales-shell lg:flex lg:items-stretch"
       // The rail's width, for anything fixed beside it — the incoming-call
       // drawer spans the body from this edge. Read as a variable so the
@@ -665,10 +701,13 @@ export default function SalesShell({ children }) {
         </div>
       </aside>
 
-      <div className="min-w-0 flex-1 flex flex-col">
+      <div ref={columnRef} className="min-w-0 flex-1 flex flex-col">
         {/* Hidden below lg: SalesMobileTabBar draws the top bar there, with the
-            same wordmark, and its drawer carries the name and the sign-out. */}
-        <header className="hidden lg:block bg-card border-b border-border sticky top-0 z-30 h-[61px]">
+            same wordmark, and its drawer carries the name and the sign-out.
+            No fixed height: the row is as tall as its 44px controls and py-2
+            make it (61px with the border today), and --fq-top-bar is
+            measured from it rather than the other way round. */}
+        <header className="hidden lg:block bg-card border-b border-border sticky top-0 z-30">
           {/* py-2, not py-4: the sign-out button below is a 44px target, so
               the old padding would have added 24px of dead chrome to the top
               of every screen. Full width, not `container`: the bar spans the
@@ -743,7 +782,11 @@ export default function SalesShell({ children }) {
             inset, through the variable app/globals.css declares — and only the
             ordinary page padding from lg up, where the variable is 0. Every
             screen inherits it, so no page needs its own pb-24 guess. */}
+        {/* The padding here is --fq-main-pad-y in globals.css (3rem, 4rem
+            from sm): change one and the other, or .fq-sales-fill runs the
+            texts client under the tab bar. */}
         <main
+          ref={mainRef}
           className={`${container} w-full pt-6 sm:pt-8 pb-[calc(var(--fq-tab-bar-height)+1.5rem)] sm:pb-[calc(var(--fq-tab-bar-height)+2rem)]`}
         >
           {children}

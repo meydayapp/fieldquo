@@ -3207,8 +3207,15 @@ function QueueConsole() {
         {/* The dialler's column. Bounded sticky — max-h and its own
             scrollbar — so it stays in reach while the tall card scrolls,
             and never covers anything: nothing sits under it in its own
-            column. The section inside is in normal flow. */}
-        <div className={`lg:w-[360px] lg:shrink-0 lg:sticky lg:top-[77px] lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto space-y-4 ${COLUMN_ORDER.dialer}`} data-dialer-column>
+            column. The section inside is in normal flow.
+            Its width is a third of the row, between 300 (the keypad's
+            three 64px keys with their gaps, and the live-call card's two
+            buttons side by side) and 360 — not a fixed 360, which at 1024
+            beside the 220px rail left the tabbed card 380px. Sticky under
+            the header the shell measured (--fq-top-bar), with the ordinary
+            1rem gap, and as tall as the viewport leaves below that: the
+            old top-[77px] / 100vh-6rem were the same two numbers guessed. */}
+        <div className={`lg:w-[clamp(300px,33%,360px)] lg:shrink-0 lg:sticky lg:top-[calc(var(--fq-top-bar)+1rem)] lg:max-h-[calc(100dvh-var(--fq-top-bar)-2rem)] lg:overflow-y-auto space-y-4 ${COLUMN_ORDER.dialer}`} data-dialer-column>
           {/* ── The hour before the window ───────────────────────────────
               A row claimed ahead of its window (CLAIM_OPENS_WITHIN_MS) sits
               in the Dialer with the Call button refused. The owner's
@@ -3399,7 +3406,7 @@ function QueueConsole() {
           // card's width (Tailwind container query), not the viewport — at
           // 1280 beside the Dialer the card is too narrow for a side column
           // and the callouts drop under the steps instead of crushing them.
-          className={`${CARD} @container min-w-0 flex-1 ${COLUMN_ORDER.panel} ${maximized ? "fixed inset-0 z-40 rounded-none overflow-y-auto lg:left-[var(--fq-sales-rail,220px)] lg:top-[61px]" : ""}`}
+          className={`${CARD} @container min-w-0 flex-1 ${COLUMN_ORDER.panel} ${maximized ? "fixed inset-0 z-40 rounded-none overflow-y-auto lg:left-[var(--fq-sales-rail,220px)] lg:top-[var(--fq-top-bar,61px)]" : ""}`}
           data-console-panel={maximized ? "maximized" : "docked"}
         >
           <div className="flex items-center justify-between gap-2">
