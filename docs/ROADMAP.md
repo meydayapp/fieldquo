@@ -1,12 +1,254 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 16 September 2026 (the call-centre agency tier: a SalesRep of kind "agency" signs into /sales, adds its own reps from /sales/agency — kind rep, engagement "agency", managerId the agency, the agency's plan, all forced server-side — sees only its team's results and floor (lib/sales/team.js's visibleRepIds has its first caller), and is the PAYEE: the Monday cron closes one batch per payee through payeeGroups/closeWeekForRep earnerIds, the agency's Pay shows the pool with a By employee table, an employee's Pay row is gone and the pay routes refuse them by name; /platform/sales/reps has a Type picker (FieldQuo employee / freelancer / agency), an Agencies section with employees nested, "Needs number & work mailbox" until both are assigned, and the same per-employee table the agency sees; the platform PATCH and the agency share lib/sales/repActivation.js; PlatformAuditLog gained actorSalesRepId; check:sales-agency executes the money path, the forced values and the floor scope; the write-up is sales-manual chapter 13 in en/fr/es.)
+Last updated: 17 September 2026 (gutters: the builder measures the gutter run and downspouts from the roof model with sanity flags the review carries; a gutter instant estimate priced per foot and per downspout in the company's currency, seeded from the competitor's four Ottawa/Gatineau points, with EN/FR/ES copy; the estimate email prints the company's currency instead of "CAD"; the paver designer and a shared landscaping canvas measure a traced polygon from the satellite still's own ground resolution; a quote schedules the estimator's on-site visit as an Appointment with quoteId, confirmed to the client in the quote's language and carried into the job's history — see the three sections below)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
 it exists to answer.
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
+
+---
+
+## Gutters measured from the roof model, priced by the foot and the downspout, and refused in words when the building is not a house (17 September 2026)
+
+**What**: the gutter takeoff in the builder has "Measure from satellite",
+reading the same Google Solar model the roofing takeoff reads
+(lib/measure/gutterMeasurement.js): the gutter run is the EAVE total
+roofGeometry already derives (the perimeter on a flat roof, where the facet
+azimuths are placeholders), downspouts are one per 35 ft rounded up, at least
+one per eave run, never more than one per 20 ft. The imagery date and quality
+are said the way the roofing panel says them. Filled fields are listed with
+Undo; "still needs you" names storeys, internal drains, discharge and fascia.
+Sanity flags — under 40 ft, over 600 ft, a roof over 8,000 sqft, a pin off the
+building, a street-interpolated address, imagery older than five years, more
+downspouts than one per 20 ft — are sentences on the panel, stored on the
+takeoff (`measuredFlags`, `measuredImagery`), and re-read by
+lib/quotes/completeness.js (`gutter_measure_flagged`, high when severe) so the
+review sees "7 ft of gutter is not a house — book an on-site measure" on the
+stored row, not just whoever clicked.
+
+Measured against the competitor the owner checked (real API, 2026-09-17;
+responses recorded as scripts/fixtures/solar-gutter-references.json):
+204 Avro Cir 190 ft / 6 (theirs 184 / 6); 250 First Ave 150 ft / 5 (theirs
+144 / 5 — a flat roof, hence the perimeter rule); 917 Littlerock St 106 ft / 5
+from the HOUSE 36 m off the pin, 2018 imagery flagged (theirs: 7 ft / 4 from
+the shed, priced); 418 Bd Gréber refused — 15,730 sqft single flat facet,
+street pin (theirs: 79 ft / 18 downspouts, CA$8,173–13,622).
+
+**Instant estimate** (`gutters`, measure `gutter_address`): per-foot low/high +
+per-downspout low/high + minimum low/high, six price-book boxes on Settings →
+Instant Quotes, currency from the company, seeded from the competitor's four
+points (least squares on per-foot + per-downspout; a fixed base fits only with
+a negative per-foot rate, so there is none): 10–11/ft, 410–700 per downspout,
+1,000–1,250 minimum. The public form shows the range under "Measured from
+aerial imagery of your roofline · imagery date …" and "An estimate from
+aerial measurements, not a contract — final price confirmed on site" in
+EN/FR/ES (lib/i18n/gutterEstimateCopy.js); an untrustworthy measurement is a
+sentence and a satellite still, never a price. The draft's scope group
+carries the builder's own gutter takeoff (replacement, run, downspouts,
+flags). The estimate email now prints the company's currency (it said "CAD"
+and "$" for everyone) and carries the gutter sentences.
+
+**Checks**: check:gutter-measure (the four fixtures and hostile input),
+check:gutter-instant (0 / 7 / 184 / 2,000 ft, no imagery, swapped columns,
+every rate box proved live), check:instant-exits, check:instant-takeoff and
+check:estimate-email extended.
+
+### Still owed here
+
+- A refused gutter measurement on the public form ends at a sentence; the
+  request is not captured as a lead-without-figure. Product decision: does the
+  owner want a "measure on site" lead from that form, and with what promise?
+- Storeys: the instant range's two ends stand in for one/two storeys. Street
+  View or the building's height from Solar's DSM could set it; not attempted.
+- Corners and end caps are not counted or priced; a cut-up roof under-prices
+  by the mitres.
+## The satellite still measures itself: no reference line first, one canvas for pavers and lawns (18 September 2026)
+
+The paver designer asked the estimator to draw a line along a garage door
+and type its length before a traced patio had an area — on a Google Static
+Maps tile whose metres per pixel the serving route already computed
+(`156543.03 · cos(lat) / 2^zoom / scale`, the `scale=2` retina parameter
+halving the pixel) and returned as JSON beside the URL. QuoteBuilder kept
+the URL and dropped the scale; the maths sat in `lib/measure/satellite.js`
+behind the server-side geocoder import, out of reach of a "use client"
+canvas.
+
+- **`lib/measure/imageScale.js`** — the pure maths, no server imports;
+  `satellite.js` re-exports it so the route sees no change. New on top:
+  `parseStaticMapUrl` / `imageScaleFromUrl` (centre, zoom, scale, size read
+  back off a proxy or Google URL; a Cloudinary copy or an uploaded photo
+  returns null and gets the manual line), `canvasFeetPerUnit` (image
+  pixels → viewBox units under the `slice` fit the canvas has always used —
+  kept because saved paver drawings are in those units), `resolveScale` (a
+  reference line with a typed length beats the automatic scale; a button
+  clears it back), `measurePolygonPixels` / `measureShape` (the engine's
+  shoelace, reported in m² and sq ft). The decoded image size is an ASPECT
+  correction for a guessed size, not a resize correction — a uniform resize
+  cancels out of the mapping, which a surviving mutation proved.
+- **`app/components/quotes/builder/PolygonMeasure.js`** — the one canvas:
+  drawing, keyboard path, scale bar (automatic in green with zoom and
+  latitude named; amber "scale not set" only when neither source exists),
+  shape list, and `usePolygonMeasure` so the parent owns the numbers in the
+  same render. **PaverDesigner** is now the paver layer on it; nothing of
+  the tracing code is duplicated.
+- **`app/components/quotes/builder/LotAreaMeasure.js`** +
+  **`lib/measure/lotTakeoff.js`** — the landscaping layer. One traced
+  surface; `lotIntakePatch` writes `lotSize` (whole sq ft) and `edgingFt`
+  (tenths) into the intake fields the trade's form actually shows —
+  `edgingFt` is new on `landscaping_design` and `lawn_care` only, since a
+  mowing contract has no edging line. The drawing persists under
+  `intakeValues.lotDrawing` (no schema change), the way the paver drawing
+  persists under `takeoff.paverDesign`. QuoteBuilder fetches the aerial for
+  `SITE_IMAGE_TRADES`, not a hardcoded `"paving"`, and hands
+  `siteImageScale` down through TradeTakeoff.
+- **`scripts/check-polygon-scale.mjs`** (`check:polygon-scale`, in
+  `check:all`): a 10 m square at 45.42°N zoom 20 scale 2, drawn in the
+  pixels those imply, returns 100 m² = 1076.4 sq ft and 40 m within 1 %;
+  fewer than three points, NaN vertices, zoom 0, lat 89.9 and a missing
+  scale (Google's default of 1, not ours of 2) return null or a reason,
+  never NaN; every trade offered the canvas has a box for its answer; the
+  scale object provably reaches the designer. Nine mutations caught.
+
+### Still owed here
+
+- The lawn canvas has no per-shape layer choice (lawn vs bed) because no
+  intake field records the distinction; adding one is a product decision.
+- Nothing prices `lotSize` or `edgingFt` in the builder — the landscaping
+  trades quote by line item. The numbers are shown, saved and read back;
+  a landscaping price book would be the next step, not this one.
+## A quote schedules the estimator's on-site visit, and the job remembers it (17 September 2026)
+
+The estimator's trip to measure up before a price is final had no home: the
+calendar could book "an appointment" for a client, but nothing tied it to the
+quote it was about, the client heard nothing, and the job that the quote later
+became had no idea anybody had been to the house.
+
+**What it is.** An `Appointment` — the row the booking page has always written
+for a homeowner-booked estimate — with `quoteId` set. That column existed on
+the model and nothing wrote it (the booking flow puts the quote on `Booking`);
+`lib/quotes/siteVisit.js` is the first writer and says why there is no second
+model or second scheduler. No schema change.
+
+- **Scheduling.** `SiteVisitPanel` (app/components/quotes/SiteVisitPanel.js)
+  on the quote detail page and on the builder in EDIT mode only — a new quote
+  has no row to link to until its first save. When / estimator / where /
+  notes, posted through `fetchJson` to the calendar's own
+  `POST /api/appointments` with `quoteId`; the route reads the client off the
+  quote (never from the browser), keeps every assignment and tenancy check
+  it already had, and sits behind `memberOrRefusal`, so an impersonating
+  session is refused the way it is everywhere.
+- **The client is told.** The existing booking-page confirmation
+  (`sendBookingConfirmationEmail`), in the language
+  `lib/i18n/clientLanguage.js` resolves — the quote's, then the client's,
+  then the company's — naming the visit with the new `emailCopy.visit.
+  measureService` ("on-site estimate", eight languages) and citing the quote
+  number. The moved and cancelled letters use the same word through
+  `serviceName({ measure })`. No email on file is reported as "nothing was
+  sent — let them know by phone", never as silence; a demo company's send is
+  simulated and says so.
+- **On the calendar.** Like every Appointment: `GET /api/appointments`
+  carries `quote { id, quoteNumber }`, the row's detail panel has "Open
+  quote", and `/app/appointments?day=YYYY-MM-DD` opens the month on that day
+  — the link every row on the quote carries. Reschedule / complete / cancel
+  on the quote are the calendar's `EntryActions`, same PATCH, same letters.
+- **On the job.** A job's history is `ActivityLog` (there is no job timeline
+  table). `scheduled` is written on creation against the quote and, if the
+  quote already has a job, that job; `completed` / `cancelled` on the PATCH;
+  and `ensureJobForAcceptedQuote` carries every measure already on the quote
+  into the new job's history at conversion (`carrySiteVisitsIntoJob`).
+  Six catalogue keys (named / unassigned × three verbs) in nine languages so
+  a French office reads its own history. `GET /api/jobs/[id]` also returns
+  `quote.appointments`, listed read-only above the crew's visits.
+- **Checked by execution.** `check:site-visit` drives the event builders,
+  the carry ordering, the catalogue placeholders and the letter word, and
+  greps the wiring that has to keep being there.
+
+### Still owed here
+
+- The panel does not geocode the measure's address the way the booking page
+  does, so it joins the travel-time check only through the client's address;
+  a manually booked appointment has never been geocoded either.
+- Whether a PLAIN appointment booked on the calendar should email the client
+  too is a product decision — this only emails when the row is about a quote.
+
+---
+
+## "Her leads disappear": the day-end sweep read midnight as the end of an overseas rep's shift; and the queue now draws before it asks (17 September 2026)
+
+Two reports from the floor, both answered from production first.
+
+**(A) The disappearances.** The claim log for the three days to 2026-09-17:
+341 rows released — 287 `day_end`, 49 `rest` (Daniel's own presses), 5
+`lapsed`, 0 `closed`. Every `day_end` fired at the rep's local calendar
+midnight, and the reps ring North America from Karachi (UTC+5), Lagos (UTC+1)
+and Paris (UTC+2), where midnight is the middle of the shift: 9 of Muhammad
+Umar's rows went back thirty minutes after he claimed them (dials continued
+for another hour); 50 of Favor Saddic's two hours after hers, with her
+presence row still Available; 50 of Muhammad Ali's and 22 of Rachel's the
+same way. A second defect on top: five of Umar's rows were released twice in
+one pass because the row's OLD claim entry (from a lease that had lapsed and
+been re-taken) was still open and its date decided the fresh lease's fate.
+
+Fixed in `lib/sales/queueBatch.js`: `releaseDayEnded` now asks `repStillWorking`
+(presence not offline and heard from within PRESENCE_STALE_MINUTES, or a dial
+within the hour — `repOnShift`, pure) and holds a working rep's rows back
+(`onShift` count in the cron's response); a claim row older than its
+prospect's lease (`claimStale`) is closed as `lapsed` and never used; and
+`writeClaimBatch` closes the rep's stale open row at claim time. On every
+release path (`partitionForRelease`, so `rest`, `day_end` and `closed`
+agree): a lead with a callback still ahead or a text sent by the rep
+(`spokenFor`, `textedByRep`) is kept; only the console's `includeDialled`
+widens past it. `shiftEndFrom` never sits in the past — a rep in hour eight
+of a seven-hour shift had every shut row judged "opens after the shift".
+No `closed` release was found firing on a row that reopens within the shift;
+`releaseClosedUntouched` was verified against `queueWindows.js` and left
+alone bar the promise rule.
+
+Made visible: `lib/sales/queueGivenBack.js` groups the day's automatic
+give-backs (day_end, closed, lapsed, admin, reassigned — never the rep's own
+two) per sweep with the names, in the rep's clock since their local
+midnight; `GET /api/sales/queue` carries `givenBack`; the queue's Leads panel
+draws the "Given back today" strip (`data-given-back`) in nine languages, with
+"could not be read" said rather than "nothing". `repClock` printed midnight
+as "24:05" (ICU's `hour12: false`); now `hourCycle: "h23"`.
+
+**(B) "It takes time for them to reload."** `GET /api/sales/queue` measured
+from the Vercel log (47 unique requests, 2026-09-17 19:20–21:46 UTC): p50
+1236 ms, p90 2167 ms, max 2598 ms, and ≈1 s even for `items=1`. Measured
+against production from a workstation: Prisma's `_count` on the list read
+was 450 ms of a 550 ms query; the 560k-row available-per-trade GROUP BY
+≈550 ms; the window-override read ≈240 ms; and ten reads ran one after
+another. The route now runs the nine rep-level reads in one `Promise.all`,
+the per-row reads (two GROUP BYs in place of `_count`, and the named
+current row) in a second, memoises the overrides, the retry rules and the
+available counts for 60 s per warm function (`lib/sales/queueCache.js
+queueMemo` — never a rep's own rows), and logs the phases
+(`phase1= phase2= order= current=`) in the log line and the Server-Timing
+header. Same workstation, same 78-row queue: 280–300 ms warm, ≈980 ms with a
+cold memo. `?only=current` answers one row's detail through the same
+`buildCurrent`.
+
+Client: the queue page draws the tab's last payload (sessionStorage, per rep
+and trade, 30 min) before its first request with a "Refreshing…" hint, and
+keeps one entry per lead (`current`, playbook per language, call history —
+40 entries, 30 min) that `select()`, `PlaybookMount` and `useCallHistory`
+draw first and the server's answer replaces; the next two rows in dial
+order are read ahead (`prefetchTargets`). `app/sales/queue/loading.js`
+exists now, so the route is partially prefetched from the nav and the
+transition back to the queue is immediate rather than blocked on the page
+function. Checks: `check:queue-cache` (new, 98 assertions),
+`check:sales-batch-claim` (+33).
+
+### Still owed here
+
+- The measured after-numbers from production (Server-Timing / the phase log
+  line) belong in the commit that follows the deploy, once reps have loaded
+  the queue on the new build; the local numbers above are from a
+  workstation with ≈60 ms to Neon.
+- A lead opened out of dial order for the first time still costs one
+  request; only the next two rows and anything opened before are held.
 
 ---
 
@@ -44,6 +286,28 @@ as actor (PlatformAuditLog.actorSalesRepId; platformAdminId is nullable now).
 - The agency write-up is chapter 13 of the sales manual (docs/sales/manual), not the public help centre: the owner (2026-09-16) — "we don't need to disclose that FieldQuo sells through call centres; that doesn't seem relevant." Deactivating an agency cascades to its employees with the same hand-off, per the owner the same day.
 - No email to the agency when a week is paid; the push goes to the agency
   account like any rep's.
+
+### Linking an existing rep to an agency from /platform (17 September 2026)
+
+The owner: "in here I should be able to select agency too besides freelancer
+or employee — and how do I link an existing account to an agency in case the
+account was created before the agency?" The rep card's engagement control now
+offers FieldQuo employee / Freelancer / Works for an agency, the third with a
+picker of active agencies; choosing employee or freelancer for a rep under an
+agency detaches them. Both are PAYEE changes (lib/sales/repEngagement.js):
+confirmed in a sentence that says who is paid from the next weekly close, that
+closed batches stay where they are and every entry keeps its earner; refused
+with 409 while the rep has unbatched entries, because closeWeekForRep decides
+the payee at close time and the open week would go to the wrong party. Into an
+agency also aligns the plan to the agency's (audited as a plan change) and
+fires the same number-and-mailbox flag the agency's own add fires, when either
+is still missing. The PATCH validates the agency fresh (exists, active, kind
+"agency"), refuses self, refuses an agency under an agency, and audits
+sales_rep_agency_set / sales_rep_agency_detached / sales_rep_engagement_set.
+A rep row can also be CONVERTED into an agency (`kind: "agency"`), only while
+the ledger has never touched it (no entry, no batch, nobody reporting to it,
+reporting to nobody, a plan assigned, a payout method an agency may use);
+there is no way back. scripts/check-sales-agency.mjs executes every refusal.
 
 ## The influencer programme: a company whose link pays a commission, not a month (15 September 2026)
 

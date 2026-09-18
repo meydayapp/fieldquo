@@ -51,6 +51,18 @@
 // lib/sales/repActivation.js, because a call-centre agency deactivates its
 // own employees from /sales/agency under the same rules. This file keeps the
 // superadmin check and the edits only a superadmin makes.
+//
+// ══ Employee, freelancer, or works for an agency (2026-09-17) ═════════════
+//
+// `engagement: "agency"` with `agencyId` puts an existing rep under an
+// agency — the owner's "link an existing account to an agency in case the
+// account was created before the agency" — with the same consequences the
+// agency's own My team add gives: payee = the agency, no Pay screen, the
+// team's floor, the agency's plan, and the number-and-mailbox flag. Choosing
+// employee or freelancer for a rep under an agency detaches them. Both are
+// payee changes, and both are refused while the rep has an open payout
+// week; `kind: "agency"` converts a blank-slate rep row into an agency. The
+// decisions are lib/sales/repEngagement.js's, over rows read fresh here.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
@@ -63,6 +75,8 @@ import { resolvePlanAssignment } from "@/lib/sales/commissionPlanServer";
 import { activationAuditRows, changeRepActive } from "@/lib/sales/repActivation";
 import { deactivationGate, queueCountsFor } from "@/lib/sales/reassign";
 import { AGENCY_ENGAGEMENT, AGENCY_KIND, clearSetupIfComplete } from "@/lib/sales/agency";
+import { agencyConversion, conversionCounts, resolveEngagementChange } from "@/lib/sales/repEngagement";
+import { recordError } from "@/lib/platform/errorLog";
 import { parseSellsIn, sellsInOf } from "@/lib/sales/leadLanguage";
 
 export async function PATCH(request, { params }) {
@@ -91,8 +105,12 @@ export async function PATCH(request, { params }) {
       commissionPlanId: true,
       sellsIn: true,
       kind: true,
+      engagement: true,
       managerId: true,
-      manager: { select: { id: true, kind: true } },
+      payoutMethod: true,
+      setupRequestedAt: true,
+      _count: { select: { phoneNumbers: true } },
+      manager: { select: { id: true, kind: true, name: true } },
     },
   });
   if (!existing) {
@@ -130,12 +148,23 @@ export async function PATCH(request, { params }) {
   // Same `in` test, same reason: null is "this rep has no plan", which is a
   // real state (and the one that earns them nothing), not a missing field.
   const touchesPlan = "commissionPlanId" in body;
-  // Freelancer or employee. The rep's own Pay screen has said "Nobody has
-  // said whether this rep is a freelancer or an employee" since the column
-  // existed, and the owner looked for the control here and found none: the
-  // column had readers (payout readiness, leave accrual) and no writer. `in`
-  // again: null is a real value — "we have not decided" — and must stay
-  // sendable, so the field can be cleared if it was set wrongly.
+  // Freelancer, employee, or works for an agency. The rep's own Pay screen
+  // has said "Nobody has said whether this rep is a freelancer or an
+  // employee" since the column existed, and the owner looked for the control
+  // here and found none: the column had readers (payout readiness, leave
+  // accrual) and no writer. `in` again: null is a real value — "we have not
+  // decided" — and must stay sendable, so the field can be cleared if it was
+  // set wrongly.
+  //
+  // Since 2026-09-17 the third choice is here too. The owner: "in here I
+  // should be able to select agency too besides freelancer or employee — and
+  // how do I link an existing account to an agency in case the account was
+  // created before the agency?" "Agency" is a payee change, not a label —
+  // lib/sales/repEngagement.js decides it from the agency row and the rep's
+  // unbatched entries, both read fresh: the agency must exist, be active and
+  // be an agency; a rep cannot be their own; an agency cannot be put under
+  // one; and a rep with an open payout week is refused until Monday closes
+  // it, because the entries would otherwise be paid to the wrong party.
   const touchesEngagement = "engagement" in body;
   const engagement = touchesEngagement
     ? body.engagement === null || body.engagement === ""
@@ -148,22 +177,54 @@ export async function PATCH(request, { params }) {
       { status: 400 },
     );
   }
-  // "Agency employee" is a fact about the reporting line, not a label: it
-  // means "paid through the manager", and a rep whose manager is not an
-  // agency has nobody to be paid through. lib/sales/agency.js sets it with
-  // the manager in the same write; here it may only be set on a row that
-  // already reports to an agency, and an agency's own row never carries one.
-  if (touchesEngagement && engagement === AGENCY_ENGAGEMENT && existing.manager?.kind !== AGENCY_KIND) {
-    return NextResponse.json(
-      { error: "Only a rep who reports to an agency can be an agency employee. The agency adds its own people from its portal." },
-      { status: 400 },
-    );
+  let transition = null;
+  if (touchesEngagement) {
+    transition = await resolveEngagementChange({
+      existing,
+      engagement,
+      agencyId: body.agencyId ? String(body.agencyId) : null,
+      now: new Date(),
+    });
+    if (!transition.ok) {
+      return NextResponse.json(
+        { error: transition.error, ...(transition.code ? { code: transition.code } : {}), ...(transition.counts ? { counts: transition.counts } : {}) },
+        { status: transition.status },
+      );
+    }
   }
-  if (touchesEngagement && existing.kind === AGENCY_KIND && engagement !== null) {
-    return NextResponse.json(
-      { error: "An agency has no engagement of its own — freelancer or employee is a fact about a person." },
-      { status: 400 },
-    );
+
+  // ── Converting a rep row into an agency account ─────────────────────────
+  //
+  // "The account was created before the agency": a person hired as a plain
+  // rep who turns out to BE the call centre. Allowed only while the row is a
+  // blank slate for the ledger — no entry, no batch, nobody reporting to it,
+  // reporting to nobody — because a rep's earnings read as a person's and an
+  // agency's as a business's, and one row cannot be both. The pure decision
+  // and every refusal sentence are lib/sales/repEngagement.js's; the counts
+  // are read fresh here. `kind` accepts only "agency": there is no way back.
+  const touchesKind = "kind" in body;
+  let conversion = null;
+  if (touchesKind) {
+    if (body.kind !== AGENCY_KIND) {
+      return NextResponse.json({ error: `kind may only be changed to "${AGENCY_KIND}". An agency does not become a rep again.` }, { status: 400 });
+    }
+    if (touchesEngagement) {
+      return NextResponse.json({ error: "Send kind on its own: an agency has no engagement." }, { status: 400 });
+    }
+    const counts = await conversionCounts(existing.id);
+    let planForAgency;
+    if ("commissionPlanId" in body) {
+      const chosen = await resolvePlanAssignment({ db, planId: body.commissionPlanId ?? null, currentPlanId: existing.commissionPlanId });
+      if (chosen.error) return NextResponse.json({ error: chosen.error }, { status: 400 });
+      planForAgency = chosen.commissionPlanId;
+    }
+    conversion = agencyConversion({ existing, counts, commissionPlanId: planForAgency });
+    if (!conversion.ok) {
+      return NextResponse.json(
+        { error: conversion.error, ...(conversion.code ? { code: conversion.code } : {}), ...(conversion.counts ? { counts: conversion.counts } : {}) },
+        { status: conversion.status },
+      );
+    }
   }
 
   // The languages the rep can SELL in — the owner's control for "who can get
@@ -181,9 +242,9 @@ export async function PATCH(request, { params }) {
     sellsIn = parsed.sellsIn;
   }
 
-  if (typeof active !== "boolean" && !touchesMailbox && !touchesPlan && !touchesEngagement && !touchesSellsIn) {
+  if (typeof active !== "boolean" && !touchesMailbox && !touchesPlan && !touchesEngagement && !touchesSellsIn && !touchesKind) {
     return NextResponse.json(
-      { error: "Send active (true/false), workEmail, commissionPlanId, engagement, or sellsIn." },
+      { error: "Send active (true/false), workEmail, commissionPlanId, engagement (with agencyId for an agency), sellsIn, or kind." },
       { status: 400 },
     );
   }
@@ -213,7 +274,7 @@ export async function PATCH(request, { params }) {
   }
 
   let assignment = null;
-  if (touchesPlan) {
+  if (touchesPlan && !conversion) {
     assignment = await resolvePlanAssignment({
       db,
       planId: body.commissionPlanId ?? null,
@@ -229,13 +290,11 @@ export async function PATCH(request, { params }) {
   const extraData = {
     ...(touchesMailbox ? { workEmail } : {}),
     ...(assignment ? { commissionPlanId: assignment.commissionPlanId } : {}),
-    // A freelancer never accrues paid leave through FieldQuo; an employee
-    // may, but that is a separate decision (see the schema comment), so
-    // moving to freelancer clears the flag and moving to employee leaves it
-    // for the superadmin to set — never inferred.
-    ...(touchesEngagement
-      ? { engagement, ...(engagement !== "employee" ? { accruesPaidLeave: false } : {}) }
-      : {}),
+    // The engagement, the reporting line and (into an agency) the plan and
+    // the set-up flag, decided together by lib/sales/repEngagement.js. An
+    // unchanged transition writes nothing.
+    ...(transition && !transition.unchanged ? transition.data : {}),
+    ...(conversion && !conversion.unchanged ? conversion.data : {}),
     ...(touchesSellsIn ? { sellsIn } : {}),
   };
   const SELECT = {
@@ -254,6 +313,9 @@ export async function PATCH(request, { params }) {
     // and dropped from a response map, and the save read as a failure.
     sellsIn: true,
     setupRequestedAt: true,
+    kind: true,
+    managerId: true,
+    manager: { select: { id: true, kind: true, name: true } },
     commissionPlan: { select: { id: true, name: true } },
   };
 
@@ -372,6 +434,11 @@ export async function PATCH(request, { params }) {
       },
     });
   }
+  // The engagement change's rows — sales_rep_engagement_set, and
+  // sales_rep_agency_set / sales_rep_agency_detached with the payee before
+  // and after — the same vocabulary a payout question is answered from.
+  if (transition && !transition.unchanged) actions.push(...transition.audit);
+  if (conversion && !conversion.unchanged) actions.push(...conversion.audit);
   if (touchesSellsIn) {
     const before = sellsInOf(existing);
     const after = sellsInOf(updated);
@@ -388,6 +455,19 @@ export async function PATCH(request, { params }) {
     await db.platformAuditLog.create({
       data: { platformAdminId: admin.id, ...entry },
     });
+  }
+
+  // The owner's flag, exactly as an agency's own add fires it
+  // (lib/sales/agency.js createAgencyRep): a rep now under an agency still
+  // needs a number or a work mailbox, and the errors page says so. Not fired
+  // when both are already there — there would be nothing to assign.
+  if (transition && !transition.unchanged && transition.flagSetup && transition.agency) {
+    await recordError({
+      area: "sales",
+      code: "agency_rep_needs_setup",
+      message: `${updated.name} (${updated.email}) now works for ${transition.agency.name}. Assign a phone number and a work mailbox on /platform/sales/reps.`,
+      detail: { agencyId: transition.agency.id, salesRepId: updated.id, linkedByPlatformAdminId: admin.id },
+    }).catch(() => {});
   }
 
   // sellsIn through sellsInOf(), as the list route returns it — the response

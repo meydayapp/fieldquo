@@ -3,6 +3,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   Plus,
   MapPin,
@@ -84,6 +85,15 @@ const MODE_BADGES = {
  */
 function mapsHref(address) {
   return `https://maps.google.com/?q=${encodeURIComponent(address)}`;
+}
+
+/** `?day=YYYY-MM-DD` as a dayKey, or "" for anything that isn't one. */
+function landingDayFrom(searchParams) {
+  const day = searchParams?.get("day") || "";
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return "";
+  const [y, m, d] = day.split("-").map(Number);
+  if (!y || m < 1 || m > 12 || d < 1 || d > 31) return "";
+  return day;
 }
 
 /**
@@ -187,11 +197,25 @@ export default function AppointmentsPage() {
   // The month on screen, anchored to its 1st. Separate from the selected day so
   // paging away from a selection doesn't silently drop the filter under the
   // list — the list keeps saying which day it's showing.
+  // ── Landing on a day ─────────────────────────────────────────────────────
+  //
+  // `?day=YYYY-MM-DD` opens the calendar on that month with that day picked —
+  // the link a quote's "See on calendar" carries (SiteVisitPanel). Read
+  // through useSearchParams so the server and the client agree on the first
+  // render (a window read in an initialiser would hydrate to a different
+  // month than it served). The value is the same `dayKey` shape the grid
+  // uses, so anything that isn't one is ignored rather than parsed into
+  // "Invalid Date".
+  const landingDay = landingDayFrom(useSearchParams());
   const [monthAnchor, setMonthAnchor] = useState(() => {
+    if (landingDay) {
+      const [y, m] = landingDay.split("-").map(Number);
+      return new Date(y, m - 1, 1);
+    }
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
-  const [selectedDay, setSelectedDay] = useState(""); // "" = the whole list
+  const [selectedDay, setSelectedDay] = useState(landingDay); // "" = the whole list
   const listRef = useRef(null);
   // Which rows are expanded. A Set rather than one open id: a dispatcher
   // comparing two mornings should not have the first one snap shut when they
@@ -1148,14 +1172,30 @@ function AppointmentDetails({ appt, panelId, canOpenClient, t }) {
           — in the assignee select, or beside it as a name — and that is the
           place it is changed, so a second copy two inches away could only ever
           disagree with the first. */}
-      {clientHref && (
-        <Link
-          href={clientHref}
-          className="inline-block mt-3 text-sm font-medium underline underline-offset-2"
-        >
-          {t("app.appts.openClient")}
-        </Link>
-      )}
+      <div className="flex flex-wrap gap-4 mt-3">
+        {clientHref && (
+          <Link
+            href={clientHref}
+            className="inline-block text-sm font-medium underline underline-offset-2"
+          >
+            {t("app.appts.openClient")}
+          </Link>
+        )}
+        {/* The quote an on-site measure was scheduled from — the same door a
+            visit's "Open job" is, for the same reason: the row on the
+            calendar is where the day is read, and the quote is where the
+            visit's reason lives. Only an appointment with quoteId has one
+            (lib/quotes/siteVisit.js); every other row draws nothing here. */}
+        {appt.quote?.id && (
+          <Link
+            href={`/app/quotes/${appt.quote.id}`}
+            className="inline-block text-sm font-medium underline underline-offset-2"
+          >
+            {t("app.appts.openQuote", "Open quote")}
+            {appt.quote.quoteNumber ? ` ${appt.quote.quoteNumber}` : ""}
+          </Link>
+        )}
+      </div>
     </div>
   );
 }

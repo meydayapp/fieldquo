@@ -66,11 +66,13 @@ import ScopeGroupCard from "./ScopeGroupCard";
 import TradeTakeoff, { hasTakeoff } from "./TradeTakeoff";
 import UnitPricingFields from "./UnitPricingFields";
 import IntakeFields from "./IntakeFields";
+import LotAreaMeasure from "./LotAreaMeasure";
 import TierSelector from "./TierSelector";
 import LineItemsTable from "./LineItemsTable";
 import CostMarginPanel from "./CostMarginPanel";
 import QuoteTotalsBar from "./QuoteTotalsBar";
 import ClientPicker from "./ClientPicker";
+import SiteVisitPanel from "@/app/components/quotes/SiteVisitPanel";
 
 import { estimateQuoteCost } from "@/lib/costing/estimateJobCost";
 import {
@@ -80,6 +82,7 @@ import {
 } from "@/lib/costing/quoteCosting";
 import { isUnitPriced } from "@/app/data/cabinetPricing";
 import { fieldsForCategory } from "@/app/data/quoteIntakeFields";
+import { isLotMeasureTrade, wantsSiteImage as tradeWantsSiteImage } from "@/lib/measure/lotTakeoff";
 import { getPriceBook } from "@/app/data/tradePriceBooks";
 import {
   estimateCabinetDoorCost,
@@ -1086,6 +1089,19 @@ export function QuoteBuilderForm({
     );
   }
 
+  // Several answers at once — the traced lot writes its area and its outline
+  // together, and two separate setState calls would let a render see one
+  // without the other.
+  function updateIntakeValues(groupTempId, patch) {
+    setScopeGroups((prev) =>
+      prev.map((g) =>
+        g.tempId === groupTempId
+          ? { ...g, intakeValues: { ...g.intakeValues, ...patch } }
+          : g,
+      ),
+    );
+  }
+
   function toggleComplexityReason(groupTempId, reasonId) {
     setScopeGroups((prev) =>
       prev.map((g) => {
@@ -1223,12 +1239,13 @@ export function QuoteBuilderForm({
     return groupSubtotal(g, rateOverridesFor(g.categoryId));
   }
 
-  // Trades whose takeoff can draw on an aerial photo. Fetched once per client
-  // and only when a scope group that can use it is on the quote — geocoding
-  // every client the moment they are selected would bill Google for quotes that
-  // never go near a map.
+  // Trades whose takeoff or intake can draw on an aerial photo — paving and
+  // the landscaping trades, listed in lib/measure/lotTakeoff.js. Fetched once
+  // per client and only when a scope group that can use it is on the quote —
+  // geocoding every client the moment they are selected would bill Google for
+  // quotes that never go near a map.
   const wantsSiteImage = scopeGroups.some(
-    (g) => !g.persisted && g.categoryKey === "paving",
+    (g) => !g.persisted && tradeWantsSiteImage(g.categoryKey),
   );
 
   useEffect(() => {
@@ -1812,6 +1829,15 @@ export function QuoteBuilderForm({
         error={error}
       />
 
+      {/* The estimator's measure, scheduled against THIS quote row — so only
+          on an edit, where the row exists. On a new quote the first save is
+          what creates the thing a visit would link to, and the detail page
+          the save lands on carries the same panel. The payload is the one
+          the edit load already fetched; nothing is read twice. */}
+      {isEdit && start.quote && (
+        <SiteVisitPanel quoteId={quoteId} quote={start.quote} />
+      )}
+
       {/* Who's working this quote. Defaults to whoever saves it — the select
           opens on "(unassigned)" and the server resolves that to the caller
           on create, so most people never need to touch this. Reassigning to
@@ -1938,6 +1964,7 @@ export function QuoteBuilderForm({
               group.takeoff && (
                 <TradeTakeoff
                   siteImageUrl={siteImage?.image?.url || ""}
+                  siteImageScale={siteImage?.scale || null}
                   siteAddress={selectedClient?.address || ""}
                   categoryKey={group.categoryKey}
                   takeoff={group.takeoff}
@@ -1955,13 +1982,31 @@ export function QuoteBuilderForm({
               !group.isTiered &&
               !isUnitPriced(group.categoryKey) &&
               !hasTakeoff(group.categoryKey) && (
-                <IntakeFields
-                  fields={getGroupFields(group)}
-                  values={group.intakeValues || {}}
-                  onChange={(key, value) =>
-                    updateIntakeValue(group.tempId, key, value)
-                  }
-                />
+                <>
+                  {/* Trace it rather than guess it: the landscaping trades'
+                      Lot Size and Edging boxes below can be filled from an
+                      outline drawn on the aerial photo. The boxes stay
+                      editable — a number paced on site overrules one traced
+                      from the sky. */}
+                  {isLotMeasureTrade(group.categoryKey) && (
+                    <LotAreaMeasure
+                      intakeValues={group.intakeValues || {}}
+                      fields={getGroupFields(group)}
+                      onIntakeChange={(patch) =>
+                        updateIntakeValues(group.tempId, patch)
+                      }
+                      imageUrl={siteImage?.image?.url || ""}
+                      imageScale={siteImage?.scale || null}
+                    />
+                  )}
+                  <IntakeFields
+                    fields={getGroupFields(group)}
+                    values={group.intakeValues || {}}
+                    onChange={(key, value) =>
+                      updateIntakeValue(group.tempId, key, value)
+                    }
+                  />
+                </>
               )}
 
             {!group.persisted && group.isTiered && (

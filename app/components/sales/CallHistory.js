@@ -23,6 +23,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { History, Loader2 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
+import { currentRepId, readLead, sessionStore, writeLead } from "@/lib/sales/queueCache";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
 function browserTimeZone() {
@@ -50,14 +51,24 @@ export function useCallHistory({ prospectId = null, leadId = null, refreshKey = 
       setData(null);
       return;
     }
+    // The tab's copy first, when the queue page filed one for this
+    // prospect (lib/sales/queueCache.js): drawn at once, replaced by the
+    // read below. Every outcome bumps refreshKey and comes back through
+    // here, so the cached history is never older than the last call.
+    const store = prospectId ? sessionStore() : null;
+    const cached = prospectId ? readLead(store, { prospectId })?.history || null : null;
+    if (cached) setData(cached);
     const q = new URLSearchParams();
     if (prospectId) q.set("prospectId", prospectId);
     if (leadId) q.set("leadId", leadId);
     const zone = browserTimeZone();
     if (zone) q.set("timeZone", zone);
     try {
-      setData(await fetchJson(`/api/sales/calls/history?${q.toString()}`));
+      const body = await fetchJson(`/api/sales/calls/history?${q.toString()}`);
+      setData(body);
       setError("");
+      const repId = prospectId ? currentRepId(store) : null;
+      if (repId && body) writeLead(store, { repId, prospectId }, { history: body });
     } catch (err) {
       setError(err?.message || "");
     }
@@ -131,6 +142,18 @@ export function CallHistoryStrip({ prospectId = null, leadId = null, refreshKey 
               {row.direction === "in" ? <span className="rounded-full bg-muted px-1.5 text-[10px] uppercase tracking-wide">{t("app.salesCall.history.inbound")}</span> : null}
               {!row.mine ? <span className="rounded-full bg-muted px-1.5 text-[10px] uppercase tracking-wide">{t("app.salesCall.history.anotherRep")}</span> : null}
               {ended ? <span className="text-muted-foreground">· {ended}</span> : null}
+              {/* The two inbound outcomes that used to be invisible here.
+                  The audio is FieldQuo's own URL, never the provider's —
+                  lib/sales/calls/voicemail.js. */}
+              {row.voicemail ? (
+                <span className="text-foreground">
+                  · {typeof row.voicemail.seconds === "number" ? t("app.salesCall.history.voicemailSeconds", { seconds: row.voicemail.seconds }) : t("app.salesCall.history.voicemail")}{" "}
+                  <a href={row.voicemail.href} target="_blank" rel="noopener" className="underline font-medium" data-call-history-voicemail={row.id}>
+                    {t("app.salesCall.history.play")}
+                  </a>
+                </span>
+              ) : null}
+              {row.missed ? <span className="text-amber-900 dark:text-amber-200" data-call-history-missed={row.id}>· {t("app.salesCall.history.missed")}</span> : null}
               <span className={row.disposition ? "font-medium text-foreground" : "text-amber-900 dark:text-amber-200"}>· {outcomeText(t, row)}</span>
               {row.autoLogged ? (
                 <span className="rounded-full border border-border px-1.5 text-[10px] uppercase tracking-wide text-muted-foreground" title={t("app.salesCall.history.autoLoggedTitle")}>

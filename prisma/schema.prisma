@@ -11548,8 +11548,11 @@ model SalesQueueClaim {
 
   /// Set when the row went back to the pool from this claim, with why:
   /// "rep" (put back by hand), "rest" (Release the rest), "day_end" (the
-  /// hourly cron, the rep's local day over with no attempt), "lapsed" (the
-  /// 48-hour lease expired before anybody looked). Only "rep", "rest" and
+  /// hourly cron, the rep's local day over AND the rep off the floor, with
+  /// no attempt), "lapsed" (the 48-hour lease expired before anybody looked,
+  /// or this row was superseded by a newer lease on the same prospect by
+  /// the same rep), "closed" (the top-up's closed-window release), "admin"
+  /// and "reassigned" (the platform console). Only "rep", "rest" and
   /// "day_end" de-prioritise the row for this rep.
   releasedAt    DateTime?
   releaseReason String?
@@ -13398,6 +13401,27 @@ model SalesCallAttempt {
   /// tried; the text of the failure afterwards, so "not yet" and "failed"
   /// are different facts on the platform page.
   transcriptError String?
+
+  /// When an INBOUND call ended with nobody picking up and no message left —
+  /// the caller hung up while it rang, while they held in the queue, or at
+  /// the beep. Null on every outbound row, on an answered inbound one, and on
+  /// one that produced a voicemail (voicemailUrl is the record of that).
+  ///
+  /// Written by exactly two paths, both in lib/sales/calls/missed.js: the
+  /// number's status callback (`?stage=status` on app/api/rep-dial/inbound,
+  /// Twilio telling us the parent call ended) and the per-minute sweep for a
+  /// number whose status callback is not pointed at us yet. Both go through
+  /// markMissed(), whose `missedAt: null` guard is what makes the push fire
+  /// once: a Twilio retry or a sweep that overlaps the callback updates zero
+  /// rows and sends nothing.
+  ///
+  /// The reason it exists: on 2026-09-17 a contractor rang a rep back twice
+  /// inside a minute, thirteen seconds after she hung up on them. The first
+  /// call left a message that sat on /sales/voicemail with no push; the
+  /// second left nothing anywhere except an unlogged row she found an hour
+  /// later. "Rang, nobody answered, no message" is the outcome that most
+  /// needs telling somebody, and it was the one outcome with no record.
+  missedAt DateTime?
 
   /// "browser" | "handset" | "inbound". Which door the call went through, and
   /// therefore whether any of the provider columns below can ever be filled.

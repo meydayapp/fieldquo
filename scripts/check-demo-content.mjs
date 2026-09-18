@@ -31,6 +31,8 @@ import { dirname, join } from "node:path";
 
 import { db } from "@/lib/db";
 import { seedDemoCompany, CLIENT_COUNT } from "@/lib/demo/seedContent";
+import { rateFor, unitFor } from "@/lib/demo/seedDemo";
+import { hasPriceBook } from "@/app/data/tradePriceBooks";
 import { INDUSTRIES, INDUSTRY_KEYS } from "@/lib/demo/industries";
 import { PROFILES, PROFILE_KEYS } from "@/lib/demo/profiles";
 import { STAFF, FICTIONAL_PHONE, EXAMPLE_EMAIL, allSeedNames, rng, person, business } from "@/lib/demo/people";
@@ -268,6 +270,39 @@ for (const key of ["hvac", "roofing"]) {
   ok(`${key.padEnd(12)} (USD) never pretends at a Canadian bank-debit rail`, pays.every((p) => p.feeRateLabel !== "acss_debit"));
   const c = await db.company.findUnique({ where: { id: company.id } });
   ok(`${key.padEnd(12)} is in USD with its state's tax`, c.currency === "USD" && c.country === "US" && Number(c.taxRate) > 8);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("2b. The category rows a demo gets are rows a real company could hold");
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// applyIndustry writes CompanyServiceCategory.defaultRate from the preset's
+// headline service. For a trade WITH a price book that put the demo in a
+// state no real tenant reaches — Settings > Services hides the single-rate
+// box for book trades — and the builder then seeded "Roofing — $525.00"
+// under a roof takeoff that had already priced the job. Executed over every
+// preset × category: a book trade gets null, a single-rate trade keeps the
+// headline figure.
+{
+  let bookTrades = 0;
+  let rateTrades = 0;
+  for (const key of INDUSTRY_KEYS) {
+    const preset = INDUSTRIES[key];
+    for (const cat of preset.categories) {
+      const rate = rateFor(preset, cat);
+      const unit = unitFor(preset, cat);
+      if (hasPriceBook(cat)) {
+        bookTrades += 1;
+        ok(`${key}/${cat}: a book trade is seeded with NO default rate`, rate === null && unit === null, { rate, unit });
+      } else {
+        rateTrades += 1;
+        ok(`${key}/${cat}: a single-rate trade keeps the preset's headline rate`, rate === preset.services[0].rate && unit === preset.services[0].unit, { rate, unit });
+      }
+    }
+  }
+  ok("both kinds were actually exercised", bookTrades > 0 && rateTrades > 0, { bookTrades, rateTrades });
+  ok("roofing's roofing_service is a book trade (the reported case)", rateFor(INDUSTRIES.roofing, "roofing_service") === null);
+  ok("roofing's siding is a book trade (the reported case)", rateFor(INDUSTRIES.roofing, "siding") === null);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

@@ -521,7 +521,13 @@ ok(
   // the calls with no outcome first (2026-09-14): a read of the rep's OWN
   // attempts, scoped by requireCallingRep, so still nothing about another
   // rep's rows or an unclaimed prospect.
-  const ALLOWED = ["/api/sales/queue", "/api/sales/notes", "/api/sales/leads", "/api/sales/calls/numbers", "/api/sales/calls/unlogged"];
+  // /api/sales/playbook and /api/sales/calls/history joined on 2026-09-17
+  // for the read-ahead (lib/sales/queueCache.js prefetchTargets): the same
+  // two routes PlaybookMount and useCallHistory already call for the row on
+  // screen, asked a row early. The playbook re-reads the prospect through
+  // queueWhere() and 404s a row the rep does not hold; the history is the
+  // rep's own attempts through requireCallingRep. Nothing unclaimed.
+  const ALLOWED = ["/api/sales/queue", "/api/sales/notes", "/api/sales/leads", "/api/sales/calls/numbers", "/api/sales/calls/unlogged", "/api/sales/playbook", "/api/sales/calls/history"];
   const called = [...new Set([...consoleSrc.matchAll(/["'`](\/api\/[A-Za-z0-9/_-]+)/g)].map((m) => m[1]))];
   const unexpected = called.filter((u) => !ALLOWED.some((a) => u === a || u.startsWith(`${a}/`)));
   ok(

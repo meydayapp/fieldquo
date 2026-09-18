@@ -53,7 +53,25 @@ export async function GET(request, { params }) {
     where: { id: id, companyId: member.companyId, ...assignedJobWhere(full) },
     include: {
       client: true,
-      quote: { select: { id: true, quoteNumber: true } },
+      quote: {
+        select: {
+          id: true,
+          quoteNumber: true,
+          // The estimator's measures, scheduled on the quote before this job
+          // existed (lib/quotes/siteVisit.js). The job page lists them above
+          // the crew's visits so "somebody has already been to the house" is
+          // on the screen the crew reads, not only in the activity log.
+          appointments: {
+            orderBy: { scheduledAt: "asc" },
+            select: {
+              id: true,
+              scheduledAt: true,
+              status: true,
+              assignedTo: { select: { id: true, name: true } },
+            },
+          },
+        },
+      },
       visits: {
         orderBy: { scheduledAt: "asc" },
         include: {

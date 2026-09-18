@@ -36,6 +36,7 @@ import ChangeOrders from "@/app/components/jobs/ChangeOrders";
 import JobDocuments from "@/app/components/jobs/JobDocuments";
 import JobSubcontractors from "@/app/components/jobs/JobSubcontractors";
 import DailyLog from "@/app/components/jobs/DailyLog";
+import { SiteVisitRows } from "@/app/components/quotes/SiteVisitPanel";
 import {
   ArrowLeft,
   Pencil,
@@ -695,6 +696,21 @@ export default function JobDetail({ jobId }) {
             </Link>
           </div>
         </div>
+
+        {/* The estimator's measure, scheduled on the QUOTE before this job
+            existed (lib/quotes/siteVisit.js). Read-only here — it is an
+            Appointment, edited on the calendar or the quote — and above the
+            crew's visits because it happened first. Rendered only when there
+            is one; a heading over nothing would claim a visit that never was. */}
+        {job.quote?.appointments?.length > 0 && (
+          <div className="mb-4 pb-4 border-b border-border">
+            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+              {t("app.siteVisit.onJobHeading", "Estimator's on-site visit")}
+              {job.quote?.quoteNumber ? ` · ${job.quote.quoteNumber}` : ""}
+            </div>
+            <SiteVisitRows visits={job.quote.appointments} />
+          </div>
+        )}
 
         {!job.visits?.length ? (
           <p className="text-sm text-muted-foreground">

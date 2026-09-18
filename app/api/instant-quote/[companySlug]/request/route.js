@@ -11,6 +11,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { rateLimit } from "@/lib/rateLimit";
 import { measureForTrade, priceOneMaterial } from "@/lib/estimate/instantQuoteServer";
+import { gutterEstimateCopy } from "@/lib/i18n/gutterEstimateCopy";
 import { publicEstimate, gatedMessage, effectiveVisibility } from "@/lib/estimate/visibility";
 import { bandForIndex, estimateExceedsBudget, scoreKeyForBandIndex } from "@/lib/estimate/budgetBands";
 import { financingOffer } from "@/lib/estimate/financing";
@@ -38,6 +39,8 @@ export async function POST(request, { params }) {
     select: {
       id: true, name: true, logoUrl: true, brandColor: true, brandColors: true,
       email: true, phone: true, website: true, defaultLanguage: true,
+      // The estimate email prints the figure in the company's currency.
+      currency: true,
       financing: true,
       slug: true, bookingSlug: true, bookingModes: true,
       eventTypes: { where: { active: true }, select: { id: true } },
@@ -91,7 +94,14 @@ export async function POST(request, { params }) {
   // Re-measure and re-price from scratch — the authoritative numbers.
   const measured = await measureForTrade(trade, { address, polygon, intake });
   if (!measured.ok) {
-    return NextResponse.json({ error: "We couldn't measure that. Please try again." }, { status: 422 });
+    // A gutter measurement the model refused is not a retry: the sentence
+    // says to request a quote for an on-site measure, in the language the
+    // form is in. Every other miss is the generic line it always was.
+    const refusal =
+      measured.reason === "needs_site_visit"
+        ? gutterEstimateCopy(language || company.defaultLanguage || "en").needsSiteVisit
+        : "We couldn't measure that. Please try again.";
+    return NextResponse.json({ error: refusal, reason: measured.reason }, { status: 422 });
   }
 
   const priced = await priceOneMaterial({
@@ -99,6 +109,9 @@ export async function POST(request, { params }) {
     trade,
     materialKey,
     measurement: measured.measurement,
+    // The assumptions an estimator writes for the homeowner (gutters) are
+    // in the language the email and the confirmation page use.
+    language: language || company.defaultLanguage || "en",
   });
   if (!priced.ok) {
     return NextResponse.json({ error: "That option isn't available. Pick another." }, { status: 422 });
@@ -180,6 +193,11 @@ export async function POST(request, { params }) {
         bookingUrl: bookable ? `${getAppOrigin(request)}/book/${bookable.slug}` : null,
         reference: draft.quoteNumber,
         language: emailLanguage,
+        // Gutters write their assumptions for the homeowner, in emailLanguage
+        // (priceOneMaterial was handed the same language). Every other trade's
+        // assumptions are the estimator's own English notes and stay off the
+        // email, as before.
+        notes: trade === "gutters" ? priced.estimate.assumptions || [] : [],
       });
       await sendEmail({
         // A demo's instant-quote page is a real public URL a stranger can
@@ -412,5 +430,15 @@ function sanitiseMeasurement(m) {
     satelliteImageUrl: m.satelliteImageUrl ?? null,
     formattedAddress: m.formattedAddress ?? null,
     imageryDate: m.imageryDate ?? null,
+    // Gutters: what the draft's takeoff is built from (costingInputsFor-
+    // InstantTrade reads the run, the count, the basis, the imagery and the
+    // flags) and what the reviewer reads on the row. Facts only — the
+    // measurement never carried a rate.
+    gutterFt: m.gutterFt ?? null,
+    downspouts: m.downspouts ?? null,
+    basis: m.basis ?? null,
+    imagery: m.imagery ?? null,
+    flags: Array.isArray(m.flags) ? m.flags : null,
+    trustworthy: m.trustworthy ?? null,
   };
 }

@@ -116,6 +116,7 @@ import QuoteCostEditor from "@/app/components/quotes/QuoteCostEditor";
 import EmailSectionsPanel from "./EmailSectionsPanel";
 import EmailSectionsBlockedModal from "./EmailSectionsBlockedModal";
 import ImportedCostsPanel from "./ImportedCostsPanel";
+import SiteVisitPanel from "@/app/components/quotes/SiteVisitPanel";
 import { visibleLineItems } from "@/lib/quotes/scopeGroupDisplay";
 import { quoteStatusLabel, quoteStatusClasses } from "@/lib/quotes/statusLabels";
 import { formatAddress } from "@/lib/format/address";
@@ -968,6 +969,13 @@ export default function QuoteDetailPage() {
               />
             )}
         </div>
+      )}
+
+      {/* The estimator's trip to measure up. Withheld on a past job entered
+          after the fact for the same reason Send is: nobody is going to a
+          house about a job that was done last year. */}
+      {!quote.historicalImportedAt && (
+        <SiteVisitPanel quoteId={id} quote={quote} />
       )}
 
       {quote.invoices?.length > 0 && (

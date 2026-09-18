@@ -244,6 +244,10 @@ const PROBE = {
   stair: { treads: 13 },
   lawn_mowing: { areaSqft: 4000 },
   junk_removal: { items: [{ key: "couch", quantity: 2 }], jobType: "single_items" },
+  // A bungalow the roof model would pass: over the 40 ft floor, under the
+  // minimum, so the probe proves the per-foot and per-downspout rates price
+  // and not merely that the floor does.
+  gutters: { gutterFt: 150, downspouts: 5, trustworthy: true },
 };
 
 ok("every wired trade has a probe here", Object.keys(INSTANT_ESTIMATE_TRADES).every((t) => PROBE[t]), Object.keys(INSTANT_ESTIMATE_TRADES).filter((t) => !PROBE[t]));
@@ -464,12 +468,35 @@ ok("no internal:true field reaches the settings screen for any trade", true);
 
 // Trades that price off a materials list or a tier table have their own
 // editors; they must not sprout a second, contradictory set from the book.
+// Gutters price off unit rates and nothing else — no material rows, no tiers
+// — so it is the third trade allowed a block, and every box in it is proved
+// live below rather than assumed.
 for (const trade of Object.keys(INSTANT_ESTIMATE_TRADES)) {
-  if (trade.startsWith("cabinet_")) continue;
+  if (trade.startsWith("cabinet_") || trade === "gutters") continue;
   const got = paths(instantRateFields(trade, INSTANT_ESTIMATE_DEFAULTS[trade]));
   if (got.length) { fail++; console.log(`  ✗ ${trade} grew unit-rate boxes it doesn't price off: ${got}`); }
 }
 ok("no other trade grew a unit-rate block", true);
+
+// Every gutter rate box moves the number, or refuses to price when blanked —
+// a box that does neither is the dead control this codebase is swept for.
+{
+  const seed = INSTANT_ESTIMATE_DEFAULTS.gutters;
+  // A minimum only bites on a job UNDER it, so the two floor boxes are proved
+  // on the smallest run the roof model would pass (40 ft, one downspout);
+  // the rates are proved on the bungalow, where the floor is out of the way.
+  const small = { gutterFt: 40, downspouts: 1, trustworthy: true };
+  for (const field of instantRateFields("gutters", seed)) {
+    const probe = field.path.startsWith("minCharge") ? small : PROBE.gutters;
+    const base = priceOptionsFor({ trade: "gutters", config: seed, measurement: probe }).options[0];
+    const doubled = rateFieldPatch(seed, field.path, readRate(seed, field.path) * 2);
+    const after = priceOptionsFor({ trade: "gutters", config: { ...seed, ...doubled }, measurement: probe });
+    const zeroed = priceOptionsFor({ trade: "gutters", config: { ...seed, ...rateFieldPatch(seed, field.path, 0) }, measurement: probe });
+    const moved = after.ok && (after.options[0].low !== base.low || after.options[0].high !== base.high);
+    const refused = !zeroed.ok;
+    ok(`gutters: "${field.label}" is live (doubling it moves the range, or blanking it refuses)`, moved || refused, { moved, refused });
+  }
+}
 
 ok("the add-ons are grouped, not eleven undifferentiated boxes",
   groupRateFields(refinishFields).map((b) => b.key).join("|") === "|complexityUpchargePerUnit|addOns",

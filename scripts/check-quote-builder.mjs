@@ -42,8 +42,9 @@ import {
   lineItemsFromStored,
   applyLineItemEdit,
   takeoffLinesFor,
+  newScopeGroup,
 } from "@/lib/quotes/builderPayload";
-import { quoteTotals } from "@/lib/quotes/totals";
+import { quoteTotals, round2 } from "@/lib/quotes/totals";
 import { createTradeConfig } from "@/lib/pricing/tradeScope";
 import { TAKEOFF_TRADES, hasTakeoff } from "@/lib/pricing/takeoffTrades";
 import {
@@ -916,6 +917,110 @@ console.log(
     visibleLineItems({ ...base, lineItems: [] }).length,
     0,
   );
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+section("10. A takeoff group opens with NO seeded line — the calculator is the price");
+// ───────────────────────────────────────────────────────────────────────────
+//
+// Owner, on a new roofing quote: the scope group had the roof takeoff (surface,
+// pitch, layers, material per square, linear details, penetrations) AND a
+// line "Roofing — US$525.00" under it. "That line seems redundant because the
+// calculator is taking care of the pricing." It was: newScopeGroup seeded a
+// line at CompanyServiceCategory.defaultRate for every trade that wasn't
+// tiered or unit-priced, takeoff trades included. The $525 was a demo
+// seeder's headline rate written onto a book trade (lib/demo/seedDemo.js —
+// fixed alongside); on a real tenant the same line read "$0.00". Either way
+// it was a second number for work the takeoff had already priced.
+//
+// Executed against the real newScopeGroup with a HOSTILE category — a
+// defaultRate set on a book trade, the state the demo was in — because the
+// fix has to hold whatever the row says, not only when the row is clean.
+{
+  const hostile = (key, unit = "square") => ({
+    id: `cat_${key}`,
+    key,
+    label: key,
+    unit,
+    defaultRate: 525,
+  });
+
+  for (const key of TAKEOFF_TRADES) {
+    const g = newScopeGroup(hostile(key), key, null, { tempId: `t_${key}` });
+    eq(`10a: ${key} opens with no seeded line, even with defaultRate=525 on the row`, g.lineItems, []);
+    ok(`10a: ${key} still carries its takeoff`, g.takeoff && typeof g.takeoff === "object", "");
+  }
+
+  // The calculator prices the group, and the flattened payload carries ONLY
+  // the calculator's lines — no "$525" and no "$0.00" ghost under them.
+  const roof = newScopeGroup(hostile("roofing_service"), "Roofing", null, { tempId: "roof" });
+  roof.takeoff = {
+    ...roof.takeoff,
+    areaSqft: 2800,
+    pitchRise: 6,
+    layers: 1,
+    materialKey: "asphalt_arch",
+    dripEdgeFt: 180,
+    starterFt: 180,
+    ridgeHipFt: 60,
+    ventBoots: 3,
+  };
+  const roofLines = takeoffLinesFor(roof);
+  const roofSum = round2(roofLines.reduce((s, l) => s + Number(l.amount || 0), 0));
+  ok("10b: a filled-in roof takeoff prices to more than nothing", roofSum > 0, String(roofSum));
+  eq("10b: the group subtotal IS the takeoff sum — nothing else is added", groupSubtotal(roof), roofSum);
+  const roofPayload = scopeGroupPayload(roof);
+  eq("10b: the stored lines are exactly the takeoff's", roofPayload.lineItems.length, roofLines.length);
+  ok(
+    "10b: no stored line carries the category's defaultRate",
+    roofPayload.lineItems.every((l) => Number(l.rate) !== 525 && Number(l.amount) !== 525),
+    JSON.stringify(roofPayload.lineItems.map((l) => [l.description, l.amount])),
+  );
+  ok(
+    "10b: no stored line is a bare $0.00 named after the group",
+    !roofPayload.lineItems.some((l) => l.description === "Roofing" && Number(l.amount) === 0),
+    "",
+  );
+  eq("10b: the payload subtotal matches", roofPayload.subtotal, roofSum);
+  // And the document-level total the client sees agrees with it.
+  const totals = quoteTotals({ subtotal: roofPayload.subtotal, discount: 0, taxRate: 0, taxEnabled: false });
+  eq("10b: the quote total is the calculator's figure", totals.total, roofSum);
+
+  // Siding, the other trade the owner named, the same way.
+  const siding = newScopeGroup(hostile("siding"), "Siding", null, { tempId: "sid" });
+  eq("10c: siding opens with no seeded line", siding.lineItems, []);
+
+  // A trade WITHOUT a calculator keeps today's behaviour: one line at the
+  // company's rate (or the catalogue's opening rate), because for those the
+  // line IS the price and there is nothing else to derive it from.
+  const electrical = newScopeGroup(
+    { id: "cat_el", key: "electrical", label: "Electrical", unit: "hour", defaultRate: 110 },
+    "Electrical",
+    null,
+    { tempId: "el" },
+  );
+  eq(
+    "10d: a trade with no calculator still seeds its one priced line",
+    electrical.lineItems,
+    [{ description: "Electrical", quantity: 1, unit: "hour", rate: 110, amount: 110 }],
+  );
+  eq("10d: …and prices from it", groupSubtotal(electrical), 110);
+  const drywall = newScopeGroup(
+    { id: "cat_dw", key: "drywall", label: "Drywall", unit: "flat", defaultRate: null },
+    "Drywall",
+    null,
+    { tempId: "dw" },
+  );
+  eq(
+    "10d: a no-calculator trade with no rate seeds a $0 line for the estimator to fill",
+    drywall.lineItems.length,
+    1,
+  );
+  ok("10d: …and has no takeoff", drywall.takeoff === undefined, "");
+
+  // A takeoff group never loses the ability to hold genuine extras.
+  const withExtra = { ...roof, lineItems: [{ description: "Disposal bin", quantity: 1, unit: "flat", rate: 350, amount: 350 }] };
+  eq("10e: an extra typed under a takeoff group adds to the calculator's figure", groupSubtotal(withExtra), round2(roofSum + 350));
 }
 
 // ───────────────────────────────────────────────────────────────────────────

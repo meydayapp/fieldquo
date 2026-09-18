@@ -86,6 +86,29 @@ export async function GET(request, { params }) {
         },
       },
       assignedTo: { select: { id: true, name: true } },
+      // The on-site measures scheduled from this quote — Appointment rows
+      // with quoteId set (lib/quotes/siteVisit.js). Oldest first, so the
+      // panel reads as the story of the visits; cancelled rows are kept
+      // because a called-off measure is a fact about the quote, the same
+      // reason the calendar keeps them. Only the assignee's name rides
+      // along: the client is already on the quote, redacted below.
+      appointments: {
+        orderBy: { scheduledAt: "asc" },
+        select: {
+          id: true,
+          scheduledAt: true,
+          status: true,
+          location: true,
+          notes: true,
+          cancelReason: true,
+          assignedToId: true,
+          assignedTo: { select: { id: true, name: true } },
+        },
+      },
+      // The job this quote became, if it has. One per quote in practice
+      // (ensureJobForAcceptedQuote's own lock), but the relation is a list —
+      // see that file for why it was left one — so the first is taken.
+      jobs: { select: { id: true, title: true }, take: 1 },
     },
   });
 

@@ -18,6 +18,7 @@ import {
   effectiveVisibility,
 } from "@/lib/estimate/visibility";
 import { financingOffer } from "@/lib/estimate/financing";
+import { gutterEstimateCopy } from "@/lib/i18n/gutterEstimateCopy";
 
 export async function POST(request, { params }) {
   const { companySlug } = await params;
@@ -37,10 +38,22 @@ export async function POST(request, { params }) {
   const { trade, address, polygon, intake } = body || {};
   if (!trade) return NextResponse.json({ error: "Pick a service first." }, { status: 400 });
 
+  const language = company.defaultLanguage || "en";
+
   const measured = await measureForTrade(trade, { address, polygon, intake });
   if (!measured.ok) {
+    // `partial` is stripped to what a stranger may see: the satellite still
+    // and the address it resolved to. The measurement's flags say things like
+    // "15,730 sqft of roof" about a building that may be a neighbour's, and
+    // the wording that goes to the homeowner is the one sentence below.
+    const partial = measured.partial
+      ? {
+          satelliteImageUrl: measured.partial.satelliteImageUrl ?? null,
+          formattedAddress: measured.partial.formattedAddress ?? null,
+        }
+      : null;
     return NextResponse.json(
-      { error: measureErrorMessage(measured.reason), reason: measured.reason, partial: measured.partial || null },
+      { error: measureErrorMessage(measured.reason, language), reason: measured.reason, partial },
       { status: 422 },
     );
   }
@@ -49,6 +62,7 @@ export async function POST(request, { params }) {
     companyId: company.id,
     trade,
     measurement: measured.measurement,
+    language,
   });
   if (!priced.ok) {
     // ── Two audiences, one failure ────────────────────────────────────────
@@ -81,9 +95,20 @@ export async function POST(request, { params }) {
     footprintSqft: m.footprintSqft ?? null,
     satelliteImageUrl: m.satelliteImageUrl ?? null,
     formattedAddress: m.formattedAddress ?? null,
+    // Gutters: the run, the count and the imagery date — facts, not rates —
+    // plus the two sentences the range is shown under, in the company's
+    // language (lib/i18n/gutterEstimateCopy.js). Absent for every other trade.
+    ...(trade === "gutters" && {
+      gutterFt: m.gutterFt ?? null,
+      downspouts: m.downspouts ?? null,
+      imagery: m.imagery ? { date: m.imagery.date ?? null, quality: m.imagery.quality ?? null } : null,
+      notes: [
+        gutterEstimateCopy(language).measuredFrom(m.imagery?.date || null),
+        gutterEstimateCopy(language).notAContract,
+      ],
+    }),
   };
 
-  const language = company.defaultLanguage || "en";
   const financing = financingOffer(company.financing, { language });
 
   // ── The visibility gate ───────────────────────────────────────────────────
@@ -152,8 +177,12 @@ export async function POST(request, { params }) {
   return NextResponse.json({ measurement: measurementView, options, financing });
 }
 
-function measureErrorMessage(reason) {
+function measureErrorMessage(reason, language = "en") {
   switch (reason) {
+    case "needs_site_visit":
+      return gutterEstimateCopy(language).needsSiteVisit;
+    case "no_linear_geometry":
+      return "We couldn't read the roof edges at that address automatically — request a quote and we'll measure it on site.";
     case "no_roof_coverage":
       return "We couldn't measure that roof automatically — check the address, or request a quote and we'll measure it by hand.";
     case "geocode_failed":

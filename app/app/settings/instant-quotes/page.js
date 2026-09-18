@@ -42,6 +42,8 @@ import { categoryLabel } from "@/lib/trades/catalog";
 const MEASURE_COPY = {
   roof_address:
     "Roof measured automatically from the address (Google satellite).",
+  gutter_address:
+    "Gutter run and downspouts measured automatically from the address (Google roof model); priced per foot and per downspout with a low–high range.",
   lawn_polygon:
     "Homeowner traces the lawn on a satellite map; area computed from the outline.",
   manual_area: "Homeowner enters the area and picks options.",

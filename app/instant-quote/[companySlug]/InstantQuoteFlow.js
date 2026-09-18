@@ -148,12 +148,19 @@ const INTAKE_INPUTS = {
 // imagery; the rest are the homeowner's own figures.
 const MEASURE_SOURCE = {
   roof_address: "from satellite measurements of your roof",
+  gutter_address: "from aerial measurements of your roofline",
   lawn_polygon: "from the area you traced on the map",
   manual_area: "from the area you gave us",
   manual_units: "from the counts you gave us",
   stair_count: "from the counts you gave us",
   item_picker: "from the items you picked",
 };
+
+// The trades measured from an ADDRESS rather than from something the
+// homeowner types or draws: roofing and gutters read the same roof model.
+// One predicate, so the address box, the payload and the "where's the job"
+// section cannot disagree about which trades already have an address.
+const byAddress = (measure) => measure === "roof_address" || measure === "gutter_address";
 
 // Money lives in lib/estimate/estimateMoney.js now, shared with the funnel
 // runner. What used to be here was `"$" + Math.round(Number(n) || 0)`, which
@@ -402,7 +409,7 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
     : 0;
   const jobDescribed = Boolean(
     trade &&
-    (trade.measure !== "roof_address" || address.trim().length > 4) &&
+    (!byAddress(trade.measure) || address.trim().length > 4) &&
     (trade.measure !== "lawn_polygon" || (polygon && polygon.length >= 3)) &&
     // Junk: at least one item picked. The access toggles are all optional.
     (trade.measure !== "item_picker" || itemQtyTotal > 0) &&
@@ -434,7 +441,7 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
       setPreviewing(true);
       try {
         const payload = { trade: trade.trade, intake };
-        if (trade.measure === "roof_address") payload.address = address;
+        if (byAddress(trade.measure)) payload.address = address;
         if (trade.measure === "lawn_polygon") payload.polygon = polygon;
         const res = await fetchJson(`/api/instant-quote/${companySlug}/measure`, {
           method: "POST",
@@ -443,11 +450,20 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
           signal: ctl.signal,
         });
         setPreview(res);
-      } catch {
+      } catch (err) {
         // A preview that fails is not an error the homeowner needs to see —
         // they haven't asked for anything yet. The panel keeps its empty state
         // and submitting still works, because /request measures again itself.
-        setPreview(null);
+        //
+        // One exception: a measurement the server REFUSED as not a house
+        // (gutters — a shed, a strip mall, a pin two lots over). That is not a
+        // hiccup, it is the answer, and the sentence the server wrote for it
+        // is the one thing the homeowner should read instead of a range.
+        setPreview(
+          err?.data?.reason === "needs_site_visit"
+            ? { refused: err.message, measurement: err.data?.partial || null }
+            : null,
+        );
       } finally {
         setPreviewing(false);
       }
@@ -464,7 +480,7 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
     setSubmitErr("");
     try {
       const payload = { trade: trade.trade, intake, materialKey, ...contact };
-      if (trade.measure === "roof_address") payload.address = address;
+      if (byAddress(trade.measure)) payload.address = address;
       else if (siteAddress.trim()) {
         payload.address = siteAddress.trim();
         // Only the pieces Google actually returned. The server normalises the
@@ -500,7 +516,7 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
     !trade && "what you need",
     trade && !jobDescribed && "the job details",
     needsMaterial && !materialKey && "an option",
-    trade && trade.measure !== "roof_address" && siteAddress.trim().length < 5 && "the job address",
+    trade && !byAddress(trade.measure) && siteAddress.trim().length < 5 && "the job address",
     trade && !contact.name && "your name",
     trade && !contact.email && !contact.phone && "an email or phone",
     trade && budgetBands.length > 0 && budgetIndex === null && "your budget",
@@ -629,7 +645,7 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
                   <BookVisitPanel
                     slug={data.booking.slug}
                     quoteId={result.quoteId}
-                    contact={{ ...contact, address: trade?.measure === "roof_address" ? address : siteAddress }}
+                    contact={{ ...contact, address: byAddress(trade?.measure) ? address : siteAddress }}
                     copy={{
                       title: fr ? "Souhaitez-vous que nous venions voir\u00a0?" : "Would you like us to come and see it?",
                       body: fr
@@ -682,7 +698,7 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
 
                 {trade && (
                   <Section title="Tell us about the property">
-                    {trade.measure === "roof_address" && (
+                    {byAddress(trade.measure) && (
                       <label className="flex flex-col gap-1">
                         <span className="text-sm text-muted-foreground flex items-center gap-1"><MapPin size={14} /> Property address</span>
                         <input
@@ -805,7 +821,7 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
                   </Section>
                 )}
 
-                {trade && trade.measure !== "roof_address" && (
+                {trade && !byAddress(trade.measure) && (
                   <Section title="Where's the job?" required>
                     <AddressAutocomplete
                       value={siteAddress}
@@ -939,7 +955,7 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
         </div>
 
         {/* Only claimed where it's true — the two trades that read imagery. */}
-        {(trade?.measure === "roof_address" || trade?.measure === "lawn_polygon") && (
+        {(byAddress(trade?.measure) || trade?.measure === "lawn_polygon") && (
           <p className="text-center text-xs text-muted-foreground mt-8">
             Powered by measurements from satellite imagery.
           </p>
@@ -1162,7 +1178,8 @@ function EstimatePanel({ trade, result, preview, previewing, theme, solid, langu
             <Loader2 size={18} className="animate-spin mx-auto text-muted-foreground" />
           ) : (
             <p className="text-sm text-muted-foreground">
-              {gatedNote ||
+              {preview?.refused ||
+                gatedNote ||
                 (trade
                   ? fr
                     ? "Complétez le formulaire pour voir votre estimation."
@@ -1185,9 +1202,25 @@ function EstimatePanel({ trade, result, preview, previewing, theme, solid, langu
           {measurement.squares != null && <span><strong className="text-foreground">{measurement.squares}</strong> squares</span>}
           {measurement.areaSqft != null && <span><strong className="text-foreground">{Math.round(measurement.areaSqft).toLocaleString()}</strong> sq ft</span>}
           {measurement.predominantPitch && <span><strong className="text-foreground">{measurement.predominantPitch.rise}/12</strong> pitch</span>}
+          {measurement.gutterFt != null && <span><strong className="text-foreground">{measurement.gutterFt}</strong> {fr ? "pi de gouttière" : "ft of gutter"}</span>}
+          {measurement.downspouts != null && <span><strong className="text-foreground">{measurement.downspouts}</strong> {fr ? "descentes" : "downspouts"}</span>}
         </div>
       )}
-      {shown && measurement?.satelliteImageUrl && (
+      {/* Gutters: the two sentences the server wrote in the company's
+          language — "measured from aerial imagery of your roofline · imagery
+          date …" and "an estimate, not a contract". They replace the generic
+          disclaimer below for this trade rather than sitting beside it. */}
+      {shown && Array.isArray(measurement?.notes) && measurement.notes.length > 0 && (
+        <div className="mt-3 space-y-1">
+          {measurement.notes.map((line) => (
+            <p key={line} className="text-xs text-muted-foreground">{line}</p>
+          ))}
+        </div>
+      )}
+      {/* Shown beside a figure — or beside a REFUSAL, where it is the whole
+          explanation: the building under the pin is the one the sentence is
+          about, and a homeowner who can see it is a shed will fix the address. */}
+      {(shown || preview?.refused) && measurement?.satelliteImageUrl && (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={measurement.satelliteImageUrl} alt="Property" className="w-full rounded-lg border border-border mt-3" />
       )}
@@ -1196,7 +1229,7 @@ function EstimatePanel({ trade, result, preview, previewing, theme, solid, langu
           disclaiming a number that isn't there yet is noise. Only the roof and
           the lawn are read from imagery; a door count "measured from satellite"
           is a claim the company would have to defend. */}
-      {(shown || locked) && trade && (
+      {(shown || locked) && trade && !(shown && measurement?.notes?.length) && (
         <p className="text-xs text-muted-foreground mt-3">
           This is an estimate {MEASURE_SOURCE[trade.measure] || "based on the details you gave us"}, not a
           final quote. {company.name} will confirm it before anything is binding.
