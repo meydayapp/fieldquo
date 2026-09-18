@@ -14,6 +14,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireOutreachRep } from "@/lib/sales/outreachGate";
 import { outreachStatus } from "@/lib/sales/outreachSender";
+import { introEmailsForLead } from "@/lib/sales/outreach/introRequests";
 import {
   isLeadStatus,
   isPlausibleEmail,
@@ -282,6 +283,9 @@ export async function GET(request, { params }) {
     serverNow: new Date().toISOString(),
     outreach: await outreachStatus(rep),
     retry: await retryFor(lead, request),
+    // The intro emails sent to this lead and what each asked for — the
+    // lead page's timeline entry (lib/sales/outreach/introRequests.js).
+    introEmails: await introEmailsForLead({ salesRepId: rep.id, leadId: lead.id }),
   });
 }
 

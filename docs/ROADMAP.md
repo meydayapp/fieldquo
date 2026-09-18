@@ -1,12 +1,70 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 18 September 2026 (the sales portal's Conversations page is a real inbox on each rep's own Namecheap mailbox, connected by the owner from the rep's card — IMAP sync every minute, SMTP sends with the copy in Sent, read state mirrored both ways, drafts, templates, keyboard shortcuts, and the company pane kept; `lib/sales/mailbox/`, `docs/SALES-OUTREACH.md` §0; see the section below)
+Last updated: 18 September 2026 (the "we tried calling you" intro email: a pop-up after a no-answer or a voicemail sends the fixed EN/FR/ES email from the rep's mailbox, with the rep's signup link and two single-use buttons — call me back, book a demo — whose presses land on the rep's Today, calendar and lead page; `lib/sales/outreach/intro*.js`, `docs/SALES-OUTREACH.md` §0c; see the section below)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
 it exists to answer.
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
+
+---
+
+## The "we tried calling you" email: one pop-up after a no-answer, two buttons the prospect can press (18 September 2026)
+
+**Deployed.** The owner approved one design; a rep who hears a voicemail
+greeting sends it in two presses and never retypes it.
+
+- **The pop-up.** When the line auto-logs an outbound call as `no_answer`,
+  or the rep saves a `voicemail` outcome (console or the unlogged list), an
+  AlertDialog asks "Send {business} the intro email?" with the address it
+  would go to — the lead's, the prospect's crawled one, or one saved on the
+  lead — editable, plus a typed address that is saved on the lead first
+  (`SalesContactEmail`, through `lib/sales/contact/record.js`, never on a
+  test account). Language chips EN/FR/ES, defaulting the way the call script
+  does (Quebec → fr). Refused in place of Send, with the reason: no address,
+  suppressed, mailbox not connected, links unmintable, or an intro already
+  sent to that address in 14 days. The table of outcomes that ask is
+  `INTRO_EMAIL_ASK_CODES` in `lib/sales/outreach/introLink.js` — no_answer
+  and voicemail, nothing reached, never text_instead. The queue's
+  autodialler is held until the pop-up closes.
+- **The email** (`lib/sales/outreach/introEmail.js`): fixed wording per
+  language, no model; subject "Tried to reach you at {business} — one free
+  month, no card needed"; greeting by first name; the gap sentence; eight
+  points; a real quote at phone width (`public/product/email/quote-phone.*.png`,
+  shot from the app-guide harness at 390px); the rep's signup link with a
+  progress token (the same `SalesSignupProgress` row the texted link uses);
+  "Ask {rep} to call me back" and "Book a 15-minute demo"; sign-off with the
+  rep's assigned sales line; CASL footer with the mailing address,
+  "You're receiving this because we called your business today",
+  a one-click unsubscribe and the "Ref:" line a reply files by. Tables and
+  inline styles for Outlook; a plain-text part with everything. Colours
+  through `lib/documents/theme.js` pairs, measured in the check. Sent
+  through `deliverOutreach` (a `build` parameter — the suppression and
+  readiness checks and the filing are unchanged), filed on the lead's
+  thread, one `SalesIntroEmail` row per send.
+- **The links** (`/i/<token>`, `app/api/intro-link/[token]`): AES-GCM
+  sealed tokens carrying the row, lead, rep, kind and a 30-day expiry —
+  opaque in the URL, refused on any tamper. GET renders one button in the
+  email's language; POST acts, once per kind (a WHERE on null). `callback`
+  → a `SalesEvent` of type callback at the next business hour in the lead's
+  zone (an hour on, and said so, when the zone is unknown) + a push to the
+  rep + "{rep} will call you back — reply to the email if a different time
+  suits". `demo` → there is no per-rep public booking page (the public
+  /demo is FieldQuo's own, hosted by platform admins), so it is a demo
+  REQUEST stamped on the row + a push; the page prints the rep's number.
+  `unsubscribe` → the do-not-contact list, email channel, source form.
+- **Today and the lead page.** Two counters — "{n} call-back requests from
+  emails", "{n} demo requests" — with the rows behind them, from
+  `/api/sales/intro-email/requests`; unhandled means the rep has not
+  pressed "Mark as handled" AND has not dialled the lead since. The lead
+  page lists every intro email sent, what it asked for, and can send one
+  without a call in front of it.
+- **Checks.** `check:sales-intro-email` renders the three languages,
+  measures contrast, drives the tokens (round-trip, flipped byte, wrong
+  key, expiry, replay), the 14-day guard, next-business-hour, the trigger
+  table against CallPanel, the request stamps and counters against a fake
+  client, and the nine-language keys.
 
 ---
 

@@ -145,6 +145,8 @@ export async function POST(request) {
       status: true,
       businessName: true,
       prospect: { select: { email: true } },
+      // A second address the rep saved on the lead — part of the closed set.
+      contactEmails: { select: { email: true } },
     },
   });
   if (!lead) return NextResponse.json({ error: "Not found." }, { status: 404 });

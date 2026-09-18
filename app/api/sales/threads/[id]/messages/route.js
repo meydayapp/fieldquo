@@ -67,6 +67,7 @@ export async function POST(request, { params }) {
           status: true,
           businessName: true,
           prospect: { select: { email: true } },
+          contactEmails: { select: { email: true } },
         },
       },
       messages: {

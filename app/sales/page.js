@@ -182,6 +182,9 @@ export default function SalesHomePage() {
   // count is the badge's; the list is UnloggedCalls.js, drawn in place.
   const unlogged = useEndpoint("/api/sales/calls/unlogged", loadFailed);
   const [unloggedOpen, setUnloggedOpen] = useState(false);
+  // What the intro emails asked for: call-back and demo requests nobody has
+  // dealt with yet (lib/sales/outreach/introRequests.js says what counts).
+  const introRequests = useEndpoint("/api/sales/intro-email/requests", loadFailed);
 
   const [copied, setCopied] = useState(false);
 
@@ -336,6 +339,51 @@ export default function SalesHomePage() {
                 {t("app.salesCall.unlogged.writeThemUp")} <ArrowRight size={16} />
               </button>
             )}
+          </>
+        )}
+      </section>
+
+      {/* ── Requests from the intro email ─────────────────────────────────
+          "{n} call-back requests from emails", "{n} demo requests" — the two
+          buttons in the intro email, pressed. Each row opens the lead, where
+          the request sits on the timeline with "Mark as handled"; a dial to
+          the lead after the request counts as handled by itself. */}
+      <section className={CARD} data-intro-requests={Number.isFinite(introRequests.data?.callbacks) ? introRequests.data.callbacks + introRequests.data.demos : undefined}>
+        <div className="flex items-center gap-2">
+          <Phone size={16} className="text-muted-foreground shrink-0" />
+          <h2 className="text-base font-semibold text-foreground">{t("app.salesIntro.today.title")}</h2>
+        </div>
+        {introRequests.error ? (
+          <CardError message={introRequests.error} onRetry={introRequests.reload} retryLabel={tryAgain} />
+        ) : introRequests.loading ? (
+          <p className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 size={16} className="animate-spin" /> {t("app.salesToday.loading")}
+          </p>
+        ) : !Number.isFinite(introRequests.data?.callbacks) ? (
+          <p className="text-sm text-muted-foreground">{notLoaded}</p>
+        ) : introRequests.data.callbacks + introRequests.data.demos === 0 ? (
+          <p className="text-sm text-muted-foreground break-words">{t("app.salesIntro.today.none")}</p>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 gap-4">
+              <Figure value={introRequests.data.callbacks} label={t("app.salesIntro.today.callbacks", { value: introRequests.data.callbacks })} loading={false} notLoadedLabel={notLoaded} />
+              <Figure value={introRequests.data.demos} label={t("app.salesIntro.today.demos", { value: introRequests.data.demos })} loading={false} notLoadedLabel={notLoaded} />
+            </div>
+            <ul className="divide-y divide-border/60 rounded-lg border border-border" data-intro-requests-list>
+              {introRequests.data.items.map((item) => (
+                <li key={`${item.id}:${item.kind}`} className="flex items-center gap-3 px-3 py-2">
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium text-foreground">{item.businessName || t("app.salesToday.checkinsUnnamed")}</span>
+                    <span className="block truncate text-xs text-muted-foreground">
+                      {t(`app.salesIntro.today.kind.${item.kind}`)} · {new Date(item.requestedAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}
+                    </span>
+                  </span>
+                  <Link href={`/sales/leads/${encodeURIComponent(item.leadId)}`} className={`${BTN} shrink-0 border border-border text-foreground px-3`}>
+                    {t("app.salesIntro.today.open")} <ArrowRight size={14} />
+                  </Link>
+                </li>
+              ))}
+            </ul>
           </>
         )}
       </section>
