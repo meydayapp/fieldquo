@@ -26,6 +26,7 @@ import Link from "next/link";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import JobPhotoCurator from "@/app/components/jobs/JobPhotoCurator";
 import EquipmentUseLog from "@/app/components/jobs/EquipmentUseLog";
+import InstalledEquipment from "@/app/components/jobs/InstalledEquipment";
 import JobPhotoTimeline from "@/app/components/jobs/JobPhotoTimeline";
 import SuggestedTasks from "@/app/components/jobs/SuggestedTasks";
 import VisitChecklist from "@/app/components/jobs/VisitChecklist";
@@ -98,7 +99,7 @@ function formatDateOnly(value) {
 }
 
 export default function JobDetail({ jobId }) {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
 
   // Same question the route asks, asked of the same grid. usePermissions()
   // returns null while unresolved, and hasLevel(null) is false — so the button
@@ -482,6 +483,28 @@ export default function JobDetail({ jobId }) {
           <Link href={`/app/jobs/${job.originalJob.id}`} className="underline">
             {job.originalJob.title}
           </Link>
+          {/* Which piece of the client's kit a WARRANTY callback is about, with
+              the cover state the server computed — a blank date arrives as
+              "unknown" and is said so, never as expired. */}
+          {job.warrantyEquipment && (
+            <span className="block mt-1">
+              {t("app.installed.callbackAbout", "About: {name}", { name: job.warrantyEquipment.name })}
+              {" — "}
+              {job.warrantyEquipment.warranty?.state === "unknown"
+                ? t("app.equipment.warrantyUnknown", "Warranty not recorded")
+                : job.warrantyEquipment.warranty?.state === "expired"
+                  ? t("app.equipment.warrantyEnded", "Cover ended {date}", {
+                      date: new Date(job.warrantyEquipment.warranty.endsAt).toLocaleDateString(language),
+                    })
+                  : t("app.equipment.warrantyUntil", "Covered until {date}", {
+                      date: new Date(job.warrantyEquipment.warranty.endsAt).toLocaleDateString(language),
+                    })}
+              {" · "}
+              <Link href={`/app/clients/${job.warrantyEquipment.clientId}`} className="underline">
+                {t("app.installed.openClient", "Open the client record")}
+              </Link>
+            </span>
+          )}
         </div>
       )}
       {job.callbackJobs?.length > 0 && (
@@ -497,6 +520,9 @@ export default function JobDetail({ jobId }) {
                 </Link>
                 {cb.callbackReason && (
                   <span className="text-muted-foreground"> — {callbackReasonLabel(cb.callbackReason, t)}</span>
+                )}
+                {cb.warrantyEquipment && (
+                  <span className="text-muted-foreground"> · {cb.warrantyEquipment.name}</span>
                 )}
               </li>
             ))}
@@ -655,6 +681,13 @@ export default function JobDetail({ jobId }) {
           a job besides materials, and it's just as cheap to tick off. See
           the component's own header for why no dollar figure shows here. */}
       <EquipmentUseLog jobId={job.id} />
+
+      {/* The CLIENT's equipment at this address — the furnace we put in, and
+          its warranty. Deliberately a second panel next to the company's
+          own kit, titled so the two cannot be read as one; the owner opened
+          "Equipment used" looking for this. Draws nothing for a member who
+          may not read client equipment. See the component's header. */}
+      <InstalledEquipment job={job} onJobChanged={load} />
 
       {/* And what has to be DONE on it. Sits beside the buy list because the
           owner named them in one breath — "materials to buy, tasks from the

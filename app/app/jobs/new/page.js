@@ -7,7 +7,7 @@ import Link from "next/link";
 import { ArrowLeft, Search } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { fetchJson } from "@/lib/fetchJson";
-import { fetchArray } from "@/lib/loadState";
+import { fetchArray, fetchList } from "@/lib/loadState";
 import { useHasLevel } from "@/app/providers/PermissionProvider";
 import { useCustomFields, CustomFieldInputs } from "@/app/components/customFields/CustomFieldsBox";
 import { CALLBACK_REASONS, CALLBACK_REASON_LABEL_KEYS } from "@/lib/jobs/callbackReasons";
@@ -49,6 +49,12 @@ export default function NewJobPage() {
   // The company's own extra boxes for a job — saved against the id the POST
   // creates. Hook stays up here with the rest (scripts/check-job-page-hooks).
   const cf = useCustomFields("job", null);
+  // The client's installed equipment, fetched only once "warranty" is picked
+  // and only for the selected client. null = not asked / refused (the crew
+  // preset may not read client equipment, and the picker then stays away
+  // rather than drawing an empty list); [] = asked, and there is none.
+  const [clientEquipment, setClientEquipment] = useState(null);
+  const [warrantyEquipmentId, setWarrantyEquipmentId] = useState("");
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -68,6 +74,23 @@ export default function NewJobPage() {
       // eslint-disable-next-line react-hooks/exhaustive-deps
     })();
   }, [originalJobId]);
+
+  useEffect(() => {
+    if (callbackReason !== "warranty" || !selectedClientId) {
+      setClientEquipment(null);
+      setWarrantyEquipmentId("");
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const result = await fetchList(`/api/clients/${selectedClientId}/equipment`);
+      if (cancelled || result.aborted) return;
+      setClientEquipment(result.ok && Array.isArray(result.data?.equipment) ? result.data.equipment : null);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [callbackReason, selectedClientId]);
 
   // The same rule POST /api/jobs enforces. It refused correctly and this screen
   // did not: QA reached the full form by direct URL, filled it in, and the save
@@ -135,6 +158,9 @@ export default function NewJobPage() {
           recurring,
           recurrenceRule: recurring ? recurrenceRule : null,
           ...(originalJobId && { originalJobId, callbackReason }),
+          // Only ever sent with "warranty" — the effect above clears it the
+          // moment the reason changes, and the API refuses it otherwise.
+          ...(callbackReason === "warranty" && warrantyEquipmentId && { warrantyEquipmentId }),
           // Blank stays blank — null means not asked, never "the client's".
           ...(siteAddress.trim() && { siteAddress: siteAddress.trim() }),
         },
@@ -298,6 +324,30 @@ export default function NewJobPage() {
                 })}
               </select>
             </div>
+            {/* Which of the client's kit the warranty return is about. Shown
+                only with rows to choose from — with none, the job page's own
+                panel is where "record what we installed" lives. Optional:
+                the company may never have written the furnace down. */}
+            {callbackReason === "warranty" && clientEquipment && clientEquipment.length > 0 && (
+              <div>
+                <label className="text-sm font-medium text-foreground block mb-1">
+                  {t("app.installed.whichForCallback", "Which equipment is this warranty callback about?")}
+                </label>
+                <select
+                  className={inputClass}
+                  value={warrantyEquipmentId}
+                  onChange={(e) => setWarrantyEquipmentId(e.target.value)}
+                >
+                  <option value="">{t("app.installed.notChosen", "Not chosen")}</option>
+                  {clientEquipment.map((row) => (
+                    <option key={row.id} value={row.id}>
+                      {row.name}
+                      {row.serialNumber ? ` · ${row.serialNumber}` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
         )}
 

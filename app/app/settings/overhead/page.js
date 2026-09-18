@@ -51,6 +51,8 @@ const ASSET_REASON_FALLBACK = {
   disposed: "Sold or written off — no longer charged.",
   inactive: "Retired from the register — no longer charged.",
   incomplete: "Add what it cost, when it went into service and how long it'll last, and this will start counting.",
+  // A van added from /app/fleet with the price left blank — lib/assets/create.js.
+  no_cost_recorded: "No purchase price recorded — it counts nothing toward overhead until one is added from the Vehicles screen.",
 };
 
 // The utilisation endpoint states its own currency rather than assuming one,
