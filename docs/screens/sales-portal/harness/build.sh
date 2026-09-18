@@ -14,6 +14,7 @@ NODE_PATH=$PWD/node_modules npx esbuild "$H/portal.jsx" --bundle --format=iife -
   --alias:@/app/hooks/useTranslation=./$H/stubs/useTranslation.js \
   --alias:@/app/providers/LanguageProvider=./$H/stubs/languageProvider.js \
   --alias:@twilio/voice-sdk=./$H/stubs/twilio.js \
+  --alias:@/lib/meta/tokenCrypto=./$H/stubs/tokenCrypto.js \
   --define:process.env.NODE_ENV='"development"' \
   --log-level=warning --outfile="$OUT/portal.js"
 cp "$H/css.mjs" ./_css-harness.mjs && node ./_css-harness.mjs "$OUT/app.css"; rm -f ./_css-harness.mjs

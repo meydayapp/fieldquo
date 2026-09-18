@@ -29,6 +29,9 @@ mkdirSync(DEST, { recursive: true });
 
 const SIZES = (process.env.SIZES || "375,768").split(",").map(Number);
 const DIMS = { 375: { width: 375, height: 812, mobile: true }, 768: { width: 768, height: 1024, mobile: true }, 1280: { width: 1280, height: 900, mobile: false } };
+// The navigate scenes press, wait for pages to settle and navigate twice;
+// they need longer than a static frame.
+const OPEN_TIMEOUT_MS = Number(process.env.OPEN_TIMEOUT_MS) || 45000;
 
 // HLANG=fr|es renders every frame in that catalogue (both harnesses read
 // ?lang=); the default is English. Named HLANG because LANG is the shell's.
@@ -75,6 +78,9 @@ export const FRAMES = {
   // 2026-09-17: a test line typed on a lead's card, the owner's test
   // account, the Tasks tab's Call now, and the agency's own screens.
   "queue-typed-test": queue("&scene=typed-test"),
+  // 2026-09-18: a typed number the record does not carry, dialled unsaved,
+  // then "Was +1 … the business's number?" after the rep hangs up.
+  "queue-number-question": queue("&scene=typed-number-question"),
   "queue-test-account": queue("&scene=typed&testAccount=1"),
   "queue-tab-tasks": queue("&scene=tab-tasks"),
   "queue-tab-script": queue("&scene=tab-script"),
@@ -84,6 +90,26 @@ export const FRAMES = {
   "queue-text-them": queue("&scene=text-them"),
   "messages-new": portal("messages", "&scene=typed-open"),
   "messages-compose-own": portal("messages", "&thread=%2B15145550148&compose=own"),
+  // 2026-09-18: the call survives navigation. Placed on the queue (now in
+  // the portal harness, so the shell stays mounted while the page under
+  // it changes), then followed to each page the owner named — through
+  // Text them and Email them on the live call for the first two, through
+  // the router for the rest — with the strip's Hang up, Mute, Transfer,
+  // Text them, Email and "Back to the call screen" asserted on every one,
+  // and the hang-up itself, from the strip, on the Texts page. The scene
+  // FAILS the frame if the stubbed Call is ever disconnected.
+  "queue-call-navigate": portal("queue", "&scene=call-navigate:text-them&hangup=1"),
+  "queue-call-navigate-email": portal("queue", "&scene=call-navigate:email"),
+  "queue-call-navigate-threads": portal("queue", "&scene=call-navigate:threads"),
+  "queue-call-navigate-calendar": portal("queue", "&scene=call-navigate:calendar"),
+  "queue-call-navigate-leads": portal("queue", "&scene=call-navigate:leads"),
+  "queue-call-navigate-lead": portal("queue", "&scene=call-navigate:lead"),
+  "queue-call-navigate-notes": portal("queue", "&scene=call-navigate:notes"),
+  "queue-call-navigate-pay": portal("queue", "&scene=call-navigate:pay"),
+  "queue-call-navigate-team": portal("queue", "&scene=call-navigate:team"),
+  "queue-call-navigate-settings": portal("queue", "&scene=call-navigate:settings"),
+  "queue-call-navigate-today": portal("queue", "&scene=call-navigate:today"),
+  "queue-call-navigate-back": portal("queue", "&scene=call-navigate:back"),
   agency: portal("agency", "&agency=1"),
   "pay-agency": portal("pay", "&agency=1&scroll=%5Bdata-by-employee%5D"),
   "today-reminder": portal("today", "&presence=offline"),
@@ -107,7 +133,7 @@ for (const name of names) {
   for (const size of SIZES) {
     const dims = DIMS[size];
     await chrome.emulate({ width: dims.width, height: dims.height, scale: 1, mobile: dims.mobile });
-    const { sceneError } = await chrome.open(FRAMES[name]);
+    const { sceneError } = await chrome.open(FRAMES[name], { timeoutMs: OPEN_TIMEOUT_MS });
     const audit = await chrome.eval(`(${auditSource})(${dims.width})`);
     audit.consoleErrors = chrome.consoleErrors.slice(0, 5);
     if (sceneError) audit.sceneError = sceneError;

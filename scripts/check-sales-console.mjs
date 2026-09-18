@@ -801,16 +801,15 @@ section("7. Six tabs, and all six on a 375px screen");
     return at >= 0 ? consoleSrc.slice(at, consoleSrc.indexOf("\n  }, [", at)) : "";
   })();
   ok("beforeDial was found", before.length > 200, before.length);
-  ok("…a number that will not normalise is refused with a sentence and no request", /if \(!e164\) \{[\s\S]{0,200}return \{ ok: false, error \};/.test(before) && before.indexOf("if (!e164)") < before.indexOf("/api/sales/calls/numbers"));
+  ok("…a number that will not normalise is refused with a sentence and no request", /if \(!e164\) \{[\s\S]{0,200}return \{ ok: false, error \};/.test(before));
   ok("…a stored number is dialled by its id, with no save", /if \(stored\) return \{ ok: true, phoneE164: e164, contactNumberId: stored\.id \|\| null \};/.test(before));
-  ok("…anything else is saved on THIS record through the numbers route", /fetchJson\("\/api\/sales\/calls\/numbers", \{\s*method: "POST"[\s\S]{0,200}prospectId: current\.id,\s*e164,/.test(before));
-  ok("…and dialled by the id the route handed back, never by the number", /contactNumberId: saved\.id/.test(before) && !/contactNumberId: e164/.test(before));
-  // One refusal is not the end of the press: the numbers route saying "this
-  // is a test line / a test account — not saved" (code test_line or
-  // test_account), which the pad turns into an UNSAVED dial of the number
-  // itself, re-judged by the dial route. Every other refusal ends it.
-  ok("…a refusal from the route ends the press with its own sentence", /catch \(err\) \{[\s\S]{0,900}return \{ ok: false, error \};/.test(before));
-  ok("…except the numbers route's own \"test dial, not saved\" code, which rings the number unsaved", /if \(err\?\.code === "test_line" \|\| err\?\.code === "test_account"\) \{\s*setTypedError\(""\);\s*return \{ ok: true, phoneE164: e164, contactNumberId: null, typedE164: e164 \};/.test(before));
+  // 2026-09-18: a typed number the record does not carry is NOT saved on the
+  // press — it may be a different company. It is dialled UNSAVED as
+  // typedE164; the dial route records the attempt against this record, and
+  // the outcome form asks afterwards whether to save the number here. The
+  // pad posts to the numbers route no more.
+  ok("…a typed non-stored number is dialled unsaved as typedE164, saving nothing", /return \{ ok: true, phoneE164: e164, contactNumberId: null, typedE164: e164 \};/.test(before));
+  ok("…and the pad saves nothing on the press — no numbers POST in beforeDial", !/\/api\/sales\/calls\/numbers/.test(before));
 
   const place = (() => {
     const at = panel.indexOf("async function place(");
@@ -826,8 +825,12 @@ section("7. Six tabs, and all six on a 375px screen");
     const at = consoleSrc.indexOf("const onDialKey = useCallback(");
     return at >= 0 ? consoleSrc.slice(at, consoleSrc.indexOf("\n  }, [", at)) : "";
   })();
-  ok("DTMF only while a call is up AND the SDK offers sendDigits; otherwise the key types", /if \(call && typeof call\.sendDigits === "function"\) \{\s*call\.sendDigits\(key\);\s*return;/.test(keyHandler) && /setTyped\(/.test(keyHandler));
-  ok("…and the live call reaches the page only through CallPanel's onLiveCall", /onLiveCall\?\.\(call\)/.test(panel) && /onLiveCall\?\.\(null\)/.test(panel));
+  const callSessionSrc = codeOnly(read("app/components/sales/CallSession.js"));
+  // 2026-09-18: the live call is the shell's (CallSession); the keypad sends
+  // DTMF through the session's sendDigits, which feature-detects the SDK and
+  // answers false when there is no call — the key then types.
+  ok("DTMF only while a call is up AND the session can send; otherwise the key types", /if \(sendDigitsRef\.current\(key\)\) return;/.test(keyHandler) && /setTyped\(/.test(keyHandler) && /if \(!call \|\| typeof call\.sendDigits !== "function"\) return false;/.test(callSessionSrc));
+  ok("…and the page reads the live call off the session, never holding a Call itself", /const callSession = useCallSession\(\);/.test(consoleSrc) && /const liveCallUp = Boolean\(callSession\.live\)/.test(consoleSrc) && !/onLiveCall/.test(consoleSrc));
 
   // The client pre-check and the server's normaliser must agree, on hostile
   // input as well as on numbers. Run, not read.

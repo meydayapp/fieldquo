@@ -186,17 +186,23 @@ section("4. Text them beside every Call button, and the outcome");
   ok("…printing the server's refusal under the button, never swallowing it", /setError\(err\?\.message \|\| t\("app\.salesText\.newOpenFailed"\)\)/.test(control) && /data-text-them-error/.test(control));
   ok("…and sends nothing itself", !/\/api\/sales\/messages"/.test(control) && !/\/api\/sales\/sms/.test(control));
 
+  // 2026-09-18: the three states, three files. Idle under the Call button is
+  // CallPanel's; after the call beside the write-up is OutboundWriteUp's card;
+  // on the live call is LiveCallStrip's controls, on every page.
   const panel = read("app/components/sales/CallPanel.js");
-  const places = (panel.match(/<TextThemButton/g) || []).length;
-  ok("CallPanel draws it in three states — idle under Call, on the live call, after the call beside the write-up", places === 3 && /data-call-button[\s\S]{0,1600}?<TextThemButton/.test(panel) && /<TransferControl[^>]*tone="call" \/>\s*(\{\/\*[\s\S]*?\*\/\}\s*)?<TextThemButton/.test(panel) && /<OutcomeForm[^>]*onLater=\{pending\.override \? null : later\}[\s\S]{0,700}?\{inline \? \(\s*<TextThemButton/.test(panel), places);
-  ok("…on the number the Call button rings, with the lead when there is one, else the prospect", /e164=\{phoneE164\}\s*leadId=\{leadId \|\| null\}\s*prospectId=\{leadId \? null : prospectId \|\| null\}/.test(panel));
+  const writeup = read("app/components/sales/OutboundWriteUp.js");
+  const strip = read("app/components/sales/LiveCallStrip.js");
+  ok("idle, under the Call button: CallPanel draws Text them on the number the Call button rings", /data-call-button[\s\S]{0,1600}?<TextThemButton/.test(panel) && /e164=\{phoneE164\}\s*leadId=\{leadId \|\| null\}\s*prospectId=\{leadId \? null : prospectId \|\| null\}/.test(panel));
+  ok("after the call, beside the write-up: OutboundWriteUp's card draws it on the number that was rung", /inline && pending\.toE164 \? \(\s*<TextThemButton/.test(writeup) && /e164=\{pending\.toE164\}/.test(writeup));
+  ok("on the live call: LiveCallStrip draws 'They'd rather text' on the caller, on every page", /<TextThemButton\s*e164=\{live\.e164\}[\s\S]{0,200}?label=\{t\("app\.salesText\.ratherText"\)\}/.test(strip));
   const region = read("app/components/sales/DialRegion.js");
   ok("DialRegion draws it when there is no Call button (a closed calling window is not a closed texting window), never on a do-not-contact", /playbookWithoutDial && target\.phoneE164 && space\.state !== DIAL_NO_NUMBER \? \(\s*<TextThemButton/.test(region) && /space\.state !== DIAL_DO_NOT_CONTACT/.test(region.slice(region.indexOf("const playbookWithoutDial"), region.indexOf("const playbookWithoutDial") + 400)));
   const dock = read("app/components/sales/IncomingCallDock.js");
-  ok("the ring dialog and the live strip carry \"They'd rather text\" on the ringing number, with the server's ids", /<TextThemButton\s*e164=\{incoming\.from\}\s*leadId=\{who\.text\?\.leadId \|\| null\}\s*prospectId=\{who\.text\?\.prospectId \|\| null\}\s*variant="link"\s*label=\{t\("app\.salesDial\.callerTextThem"\)\}/.test(dock) && (dock.match(/\{callerLinks\}/g) || []).length === 2);
+  ok("the ring dialog carries \"They'd rather text\" on the ringing number, with the server's ids", /<TextThemButton\s*e164=\{incoming\.from\}\s*leadId=\{who\.text\?\.leadId \|\| null\}\s*prospectId=\{who\.text\?\.prospectId \|\| null\}\s*variant="link"\s*label=\{t\("app\.salesDial\.callerTextThem"\)\}/.test(dock) && (dock.match(/\{callerLinks\}/g) || []).length === 1);
   const caller = read("app/api/sales/calls/caller/route.js");
   ok("…and the caller route hands those ids only for the rep's own record, nothing for a number somebody else holds", /const text = holder\?\.mine\s*\?/.test(caller) && /: holder\s*\? null/.test(caller) && /save, text \}\)/.test(caller));
-  ok("the outcome \"They asked to be texted instead\" opens the composer after the save (asserted in check-sales-call-panel)", /if \(fold\.code === "text_instead"\) \{/.test(panel));
+  const session = read("app/components/sales/CallSession.js");
+  ok("the outcome \"They asked to be texted instead\" opens the composer after the save (asserted in check-sales-call-panel)", /if \(fold\.code === "text_instead"\) \{/.test(session));
   const page = read("app/sales/messages/page.js");
   ok("the thread page reads ?compose= for the first pick and opens write-your-own on it", /composeParam === "own" \|\| composeParam === "discussed" \? composeParam : "signup"/.test(page));
 }

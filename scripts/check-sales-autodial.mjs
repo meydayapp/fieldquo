@@ -317,6 +317,7 @@ section("4. Source: the countdown, the one dial path, and no self-resume");
 
 const control = decomment(read("app/components/sales/AutodialControl.js"));
 const panel = decomment(read("app/components/sales/CallPanel.js"));
+const session = decomment(read("app/components/sales/CallSession.js"));
 const queue = decomment(read("app/sales/queue/page.js"));
 const lib = decomment(read("lib/sales/autodial.js"));
 const status = decomment(read("app/components/sales/RepStatus.js"));
@@ -330,17 +331,19 @@ ok("…and the control imports it rather than typing a number", /AUTODIAL_COUNTD
 // place("browser", "autodial") — so SalesCallAttempt.dialSource can say how
 // many calls the machine placed; the thumb's press stays place("browser").
 ok("the dial goes through CallPanel's place(\"browser\", \"autodial\") — the manual path is the same function", /place\("browser", "autodial"\)\.then/.test(panel) && /onClick=\{\(\) => place\("browser"\)\}/.test(panel));
-ok("there is exactly one device.connect under app/ and it is CallPanel's", (() => {
+ok("there is exactly one device.connect under app/ and it is CallSession's", (() => {
   const files = [
+    "app/components/sales/CallSession.js",
     "app/components/sales/CallPanel.js",
     "app/components/sales/AutodialControl.js",
     "app/components/sales/DialRegion.js",
     "app/components/sales/RepStatus.js",
     "app/components/sales/IncomingCallDock.js",
+    "app/components/sales/LiveCallStrip.js",
     "app/sales/queue/page.js",
   ];
   const hits = files.filter((f) => /device\.connect\(/.test(decomment(read(f))));
-  return hits.length === 1 && hits[0] === "app/components/sales/CallPanel.js";
+  return hits.length === 1 && hits[0] === "app/components/sales/CallSession.js";
 })());
 ok("neither the control nor the queue imports the Twilio SDK or posts a dial of its own", !/@twilio\/voice-sdk|action: "dial"/.test(control) && !/@twilio\/voice-sdk|action: "dial"/.test(queue));
 ok("the panel consumes an autodial token once and refuses when not idle", /autoDialSeen\.current === autoDial\.token\) return;/.test(panel) && /reason: "not_idle"/.test(panel));
@@ -365,7 +368,7 @@ ok("…and a press of Available while already waiting does not start a second cl
 ok("the dialler's clock is the server's, carried by an offset the queue stamps", /clockOffsetMs/.test(control) && /Date\.now\(\) \+ \(Number\(latest\.current\.clockOffsetMs\) \|\| 0\)/.test(control) && /clockOffsetMs = clock \? clock\.serverMs - clock\.localMs : 0/.test(queue) && /useAutodial\(\{[^}]*clockOffsetMs/.test(queue));
 ok("the queue hands the dialler each row's opening instant, null for a row callable now", /opensAt: item\.window\?\.callableNow \? null : item\.window\?\.opensAtIso \|\| null/.test(queue));
 ok("an inbound ring cancels a countdown", /if \(gate\.stop\) \{\s*halt\(gate\.reason/.test(control) && /inboundRinging/.test(control) && /setInboundRinging\(true\)/.test(dock));
-ok("the hangup writes after_call to the ledger, with the attempt", /postState\(\{ state: STATE_AFTER_CALL, callAttemptId: body\.attemptId \}\)/.test(panel));
+ok("the hangup writes after_call to the ledger, with the attempt", /postState\(\{ state: STATE_AFTER_CALL, callAttemptId: placed\.attemptId \}\)/.test(session));
 ok("…and an answered callback writes on_call", /state: STATE_ON_CALL,\s*callAttemptId: body\?\.attemptId/.test(dock));
 ok("the state route attributes the attempt only when this rep owns it", /where: \{ id: body\.callAttemptId\.trim\(\), salesRepId: rep\.id \}/.test(route));
 ok("the autodial action takes a boolean and writes it through the fenced writer, never db.salesRep itself", /typeof body\.on !== "boolean"/.test(route) && /saveRepAutodial\(\{ salesRepId: rep\.id, on: body\.on \}\)/.test(route) && !/db\.salesRep\.update/.test(route) && /data: \{ autodial: on \}/.test(decomment(read("lib/sales/autodialWrite.js"))));

@@ -45,7 +45,7 @@ const pressCall = async () => (await until('[data-console-card="dialer"] [data-c
   }
   if (scene === "call") {
     await pressCall();
-    await until('[data-console-card="dialer"] .font-mono');
+    await until('[data-console-card="dialer"] [data-live-call-slot] [data-live-call="out"]');
     await wait(2200);
   }
   const keyIn = async (digits) => {
@@ -95,7 +95,7 @@ const pressCall = async () => (await until('[data-console-card="dialer"] [data-c
   }
   if (scene === "dial-button") {
     (await until('[data-console-card="contact"] [data-dial-number-button="+14055550177"]')).click();
-    await until('[data-console-card="dialer"] .font-mono');
+    await until('[data-console-card="dialer"] [data-live-call-slot] [data-live-call="out"]');
     await wait(1500);
   }
   if (scene === "typed-refused") {
@@ -107,9 +107,22 @@ const pressCall = async () => (await until('[data-console-card="dialer"] [data-c
   if (scene === "typed-call") {
     await keyIn("4055550142");
     await pressCall();
-    await until('[data-console-card="dialer"] .font-mono');
+    await until('[data-console-card="dialer"] [data-live-call-slot] [data-live-call="out"]');
     (await until('[data-dial-key="1"]')).click();
     await wait(1500);
+  }
+  // 2026-09-18: a typed number the record does not carry is dialled unsaved;
+  // after the rep hangs up, the write-up asks "Was +1 … the business's
+  // number?" with Save it on this lead / No — someone else.
+  if (scene === "typed-number-question") {
+    await keyIn("4055550142");
+    await pressCall();
+    const slot = await until('[data-console-card="dialer"] [data-live-call-slot] [data-live-call="out"]');
+    await wait(1200);
+    (await until('[data-live-call-slot] [data-live-call-hang-up]')).click();
+    await until('[data-number-question]');
+    if (!document.querySelector('[data-number-question-save]') || !document.querySelector('[data-number-question-dismiss]')) throw new Error("scene: the number question has no Save / No buttons");
+    await wait(400);
   }
   if (scene.startsWith("tab-")) {
     await click(`[data-console-tab="${scene.slice(4)}"]`);
@@ -141,11 +154,16 @@ const pressCall = async () => (await until('[data-console-card="dialer"] [data-c
     await until('[data-incoming-dialog="open"]');
     await wait(300);
     (await until('[data-incoming-dialog] [data-incoming-pick-up]')).click();
-    await until('[data-live-call-slot] [data-inbound-live]');
+    // The answered call is LiveCallStrip's now, drawn into the Dialer
+    // card's slot; data-inbound-live rides on data-live-call="in".
+    await until('[data-live-call-slot] [data-live-call="in"]');
     await wait(1600);
-    // QA 2026-09-17, finding 1: the outbound Call under the live card was
-    // still live and a press placed a second dial. The scene now fails if
-    // the button is enabled, or if a press on it reaches the wire.
+    // QA 2026-09-17, finding 1: a second dial was placed under a live
+    // inbound call. The answered call fills the Dialer card's slot with
+    // LiveCallStrip's controls (Hang up and the rest); the outbound Call
+    // button below it stays disabled with the "on a call" sentence, and a
+    // press on it reaches no wire.
+    if (!document.querySelector('[data-live-call-slot] [data-live-call-hang-up]')) throw new Error("the live inbound call has no Hang up in the Dialer card");
     const callBtn = await until('[data-console-card="dialer"] [data-call-button]');
     if (!callBtn.disabled) throw new Error("outbound Call is enabled under a live inbound call");
     if (!document.querySelector('[data-call-on-another-call]')) throw new Error("no 'on a call' sentence above the disabled Call");

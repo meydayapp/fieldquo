@@ -444,8 +444,12 @@ section("6. Every screen clears the bar");
     ok("…centred at every width, inside the wrapper's 16px gutters, a full-width card", /placement="center"/.test(dockSrc) && /items-center justify-center/.test(dialog) && /p-4/.test(dialog) && /relative w-full sm:max-w-md/.test(dialog));
     ok("…Pick up and Decline are ≥ 44px and carry hooks", /min-h-\[52px\][^"]*"\s*data-incoming-pick-up/.test(dockSrc) && /min-h-\[52px\][^"]*"\s*data-incoming-decline/.test(dockSrc));
     ok("…with a ring clock in the catalogue's words", /data-incoming-ring-clock/.test(dockSrc) && /app\.salesDial\.ringingFor/.test(dockSrc));
-    ok("the live call with no card, and the write-up, are a fixed strip under the lg top bar", /data-incoming-live-strip/.test(dockSrc) && (dockSrc.match(/fixed inset-x-0 top-0 lg:top-\[var\(--fq-top-bar,61px\)\]/g) || []).length >= 2);
-    ok("…and no slide is left over", !/-translate-y-full|SLIDE_MS|setMounted\(/.test(dockSrc));
+    // 2026-09-18: the live call and the outbound write-up are LiveCallStrip's
+    // fixed strip, on every page; the dock keeps the ring dialog and the
+    // inbound write-up.
+    const stripSrc = decomment(read("app/components/sales/LiveCallStrip.js"));
+    ok("the live call with no card is a fixed strip under the lg top bar (LiveCallStrip), and the inbound write-up still is (the dock)", /data-live-call-strip/.test(stripSrc) && /fixed inset-x-0 top-0 lg:top-\[var\(--fq-top-bar,61px\)\]/.test(stripSrc) && /fixed inset-x-0 top-0 lg:top-\[var\(--fq-top-bar,61px\)\]/.test(dockSrc));
+    ok("…and no slide is left over", !/-translate-y-full|SLIDE_MS|setMounted\(/.test(dockSrc) && !/-translate-y-full|SLIDE_MS|setMounted\(/.test(stripSrc));
   }
 
   // Every page under app/sales renders inside that <main>, except the two the
@@ -527,7 +531,11 @@ section("6b. Where the ring dialog may send the rep — callerLinks(), executed"
   const dock = decomment(read("app/components/sales/IncomingCallDock.js"));
   ok("the dialog draws Open the company / Notes / Save as a new lead from the server's hrefs, each behind a hook", /who\.open\?\.href \?/.test(dock) && /who\.notes\?\.href \?/.test(dock) && /who\.save\?\.href \?/.test(dock) && /data-incoming-open-company=\{who\.open\.kind\}/.test(dock) && /data-incoming-notes/.test(dock) && /data-incoming-save-lead/.test(dock));
   ok("…never composing an href from an id", !/\/sales\/queue\?prospectId=\$\{|\/sales\/leads\/\$\{/.test(dock));
-  ok("…in the dialog AND in the live controls (the strip and the Dialer slot)", (dock.match(/\{callerLinks\}/g) || []).length === 2 && /data-inbound-live[\s\S]*?\{callerLinks\}/.test(dock) && /data-incoming-context[\s\S]*?\{callerLinks\}/.test(dock));
+  // 2026-09-18: the caller links are drawn under the dialog's caller line
+  // (the dock) and again on the live call by LiveCallStrip, from the
+  // server's links the dock reports into the session.
+  const strip = decomment(read("app/components/sales/LiveCallStrip.js"));
+  ok("…in the dialog (the dock) AND on the live call (LiveCallStrip), from the server's hrefs", /data-incoming-context[\s\S]*?\{callerLinks\}/.test(dock) && /data-incoming-open-company/.test(strip) && /data-incoming-notes/.test(strip) && /data-incoming-save-lead/.test(strip) && /links: who \? \{ open: who\.open \|\| null, notes: who\.notes \|\| null, save: who\.save \|\| null \}/.test(dock));
   ok("…the city on the context line, and \"Not one of your leads\" only on none", /placeText, holderText/.test(dock) && /who\?\.outcome === "none"/.test(dock) && /app\.salesDial\.callerNotALead/.test(dock));
   ok("…links are ≥ 44px targets", /min-h-\[44px\][^"]*text-brand-accent-text/.test(dock));
 

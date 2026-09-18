@@ -263,43 +263,51 @@ section("4. The server: who hung up, and the line's write");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-section("5. The panel: the form where the rep is, the grace, the undo");
+section("5. The call session: the form where the rep is, the grace, the undo");
 // ═══════════════════════════════════════════════════════════════════════════
+// 2026-09-18: the Call object, the disconnect handler, the auto-log timer,
+// the undo strip and the write-up state moved from CallPanel to the
+// shell-level CallSession, so the call survives a page change. The panel is
+// now a VIEW; it renders the write-up through OutboundWriteUp.js. The
+// behaviour asserted here did not change, only the file.
 {
   const panel = source("app/components/sales/CallPanel.js");
-  const hang = between(panel, "function hangUp()", "\n  }");
+  const session = source("app/components/sales/CallSession.js");
+  const writeup = source("app/components/sales/OutboundWriteUp.js");
+  const hang = between(session, "const hangUp = useCallback(() => {", "  }, []);");
   ok("Hang up sets hungUpBy = rep BEFORE it disconnects", (() => {
     const set = hang.indexOf("hungUpByRef.current = HUNG_UP_BY_REP");
     const disc = hang.indexOf("disconnect");
     return set !== -1 && disc !== -1 && set < disc;
   })());
-  const onDisconnect = between(panel, 'call.on("disconnect"', 'call.on("error"');
+  const onDisconnect = between(session, 'call.on("disconnect"', 'call.on("error"');
   ok("`disconnect` posts who hung up: rep if the button was pressed, else prospect", /HUNG_UP_BY_REP \? HUNG_UP_BY_REP : HUNG_UP_BY_PROSPECT/.test(onDisconnect) && /action: "ended"/.test(onDisconnect));
   ok("…and arms the auto-ask with the grace, except for the rep's own hang-up", /autoAsk: hungUpBy !== HUNG_UP_BY_REP/.test(onDisconnect) && /graceMs: AUTO_LOG_GRACE_SECONDS \* 1000/.test(onDisconnect));
-  const timer = between(panel, "const autoAskSeen = useRef(null);", "useEffect(() => {\n    if (!flash)");
+  const timer = between(session, "const autoAskSeen = useRef(null);", "// The strip goes away by itself.");
   ok("the timer stays out of it once the rep has started typing", /if \(draftStarted\(draftRef\.current\)\) return;/.test(timer));
   ok("…posts auto_log after the grace", /action: "auto_log"/.test(timer) && /setTimeout\(ask, Math\.max\(0, Number\(pending\.graceMs\)/.test(timer));
   ok("…asks again while the carrier has not reported, a bounded number of times", /reason === "not_reported" && tries < 5/.test(timer));
-  // Since 2026-09-18 the intro-email pop-up may sit between load() and
+  // Since 2026-09-18 the intro-email pop-up may sit between reloadView() and
   // onWorked: a no-answer offers the email, and onWorked is HELD until the
   // pop-up closes (scripts/check-sales-intro-email.mjs asserts the hold).
-  // The order refresh → load → onWorked is unchanged; the gap is allowed.
-  ok("…and on success clears the pending call, opens the undo strip for AUTO_LOG_UNDO_SECONDS, and frees the dialler (refresh, load, onWorked)", /setAutoLogged\(\{ attemptId, code: body\.code[^}]*until: Date\.now\(\) \+ AUTO_LOG_UNDO_SECONDS \* 1000/.test(timer) && /await presenceRef\.current\.refresh\(\);\s*await load\(\);[\s\S]{0,400}?onWorked\?\.\(\);/.test(timer));
+  ok("…and on success clears the pending call, opens the undo strip for AUTO_LOG_UNDO_SECONDS, and frees the dialler (refresh, reload, onWorked)", /setAutoLogged\(\{ attemptId, code: body\.code[^}]*until: Date\.now\(\) \+ AUTO_LOG_UNDO_SECONDS \* 1000/.test(timer) && /await presenceRef\.current\.refresh\(\);\s*await reloadView\(\);[\s\S]{0,400}?onWorked\(\);/.test(timer));
   const load = between(panel, "const load = useCallback(async () => {", "}, []);");
-  ok("a call that ended while nobody was looking is asked about on load, at once, browser dials only", /autoAsk: row\.dialChannel === "browser" && \(Boolean\(row\.endedAt\) \|\| PROVIDER_ENDED\.includes\(row\.providerStatus\)\)/.test(load) && /graceMs: 0/.test(load));
+  ok("a call that ended while nobody was looking is asked about at once — CallPanel hands the server's row to the session", /adoptPending\(body\?\.pendingAttempt \|\| null\)/.test(load));
+  const adopt = between(session, "const adoptPending = useCallback((row) => {", "}, []);");
+  ok("…the session marks a browser dial the carrier finished with for the immediate ask", /autoAsk: row\.dialChannel === "browser" && \(Boolean\(row\.endedAt\) \|\| PROVIDER_ENDED\.includes\(row\.providerStatus\)\)/.test(adopt) && /graceMs: 0/.test(adopt));
 
-  const change = between(panel, "function changeAutoLogged()", "\n  }");
-  ok("Change reopens the form on the same attempt, marked as an override, and never re-arms the auto-ask", /override: autoLogged\.code/.test(change) && /autoAsk: false/.test(change));
+  const change = between(session, "const changeAutoLogged = useCallback(() => {", "}, [autoLogged]);");
+  ok("Change reopens the form on the same attempt, marked as an override, and never re-arms the auto-ask", /override: row\.code/.test(change) && /autoAsk: false/.test(change));
 
   // The form is drawn in the Dialer column AND the tab — `both()`, not `into()`.
   const form = between(panel, "{!startedAt && pending", "{/* ── What the line logged by itself");
-  ok("the outcome form is rendered through both() — inline in the Dialer column and again in the Disposition slot", /\? both\(slots\?\.disposition \|\| null, \(inline\) =>/.test(form));
-  ok("…the inline copy carries data-call-disposition=\"dialer\" and the scroll ref; the tab copy carries \"tab\"", /data-call-disposition=\{inline \? "dialer" : "tab"\}/.test(form) && /ref=\{inline \? formRef : null\}/.test(form));
+  ok("the outcome form is rendered through both() — inline in the Dialer column and again in the Disposition slot", /\? both\(slots\?\.disposition \|\| null, \(inline\) =>/.test(form) && /<OutboundWriteUpCard /.test(form));
+  ok("…the inline copy carries data-call-disposition=\"dialer\" and the scroll ref; the tab copy carries \"tab\"", /data-call-disposition=\{inline \? "dialer" : "tab"\}/.test(writeup) && /ref=\{inline \? formRef : null\}/.test(writeup));
   const bothFn = between(panel, "const both = (slot, render) =>", "\n  );");
   ok("both() renders inline first and portals a second copy only when the slot exists", /render\(true\)/.test(bothFn) && /slot \? createPortal\(render\(false\), slot\) : null/.test(bothFn));
-  const strip = between(panel, "{autoLogged && !pending && !startedAt", "{/* ── The call button");
-  ok("the undo strip is in both places too, names the outcome, and its button is Change", /both\(slots\?\.disposition \|\| null/.test(strip) && /app\.salesCall\.autoLoggedAs/.test(strip) && /onClick=\{changeAutoLogged\}/.test(strip));
-  ok("the strip auto-dismisses at `until`", /setTimeout\(\(\) => setAutoLogged\(null\), ms\)/.test(panel));
+  const strip = between(panel, "{autoLogged && !pending && !startedAt", "{/* The pop-up after an answered call");
+  ok("the undo strip is in both places too, names the outcome, and its button is Change", /both\(slots\?\.disposition \|\| null/.test(strip) && /<AutoLoggedStrip /.test(strip) && /app\.salesCall\.autoLoggedAs/.test(writeup) && /onClick=\{changeAutoLogged\}/.test(writeup));
+  ok("the strip auto-dismisses at `until`", /setTimeout\(\(\) => setAutoLogged\(null\), ms\)/.test(session));
   ok("the Call button is back once pending is null (the dialler is free)", /\{!startedAt && !pending \? \(/.test(panel));
 
   const refusal = between(panel, "const dialRequestSeen = useRef(null);", "function hangUp()");
@@ -329,9 +337,9 @@ ok("keys 1–5 on the primary five, none on More", OUTCOME_CHOICES.filter((c) =>
   ok("text_instead is reached, HOLDS the claim, marks the lead contacted, suppresses nothing", DISPOSITIONS.text_instead.reached === true && DISPOSITIONS.text_instead.claim === "hold" && DISPOSITIONS.text_instead.leadStatus === "contacted" && DISPOSITIONS.text_instead.doNotContact === false);
   ok("…and its retry rule is FINAL — no re-dial for somebody who asked to be texted", RETRY_RULES.text_instead?.kind === "final" && RETRY_RULES.text_instead.delayMinutes === null);
   ok("…and it is in the picker's order, after callback", DISPOSITION_ORDER.indexOf("text_instead") === DISPOSITION_ORDER.indexOf("callback") + 1);
-  const panelSrc = source("app/components/sales/CallPanel.js");
-  ok("the call panel opens the composer on save — the Text them door, then the thread", /if \(fold\.code === "text_instead"\) \{/.test(panelSrc) && /await openTextThread\(\{\s*e164: pending\.toE164 \|\| phoneE164,/.test(panelSrc) && /router\.push\(href\)/.test(panelSrc));
-  ok("…AFTER the outcome is saved, never instead of it", panelSrc.indexOf('if (fold.code === "text_instead") {') > panelSrc.indexOf('action: "disposition",'));
+  const sessionSrc = source("app/components/sales/CallSession.js");
+  ok("saveOutcome opens the composer on save — the Text them door, then the thread", /if \(fold\.code === "text_instead"\) \{/.test(sessionSrc) && /await openTextThread\(\{\s*e164: row\.toE164,/.test(sessionSrc) && /router\.push\(href\)/.test(sessionSrc));
+  ok("…AFTER the outcome is saved, never instead of it", sessionSrc.indexOf('if (fold.code === "text_instead") {') > sessionSrc.indexOf('action: "disposition",'));
   const langs = Object.keys(APP_MESSAGES);
   const missingKeys = langs.flatMap((l) => ["app.salesCall.choice.text_instead.label", "app.salesCall.choice.text_instead.hint", "app.salesCall.disposition.text_instead.label", "app.salesCall.disposition.text_instead.hint", "app.salesText.textThem", "app.salesText.textThemNamed", "app.salesText.ratherText", "app.salesDial.callerTextThem"].filter((k) => !APP_MESSAGES[l][k]).map((k) => `${l}:${k}`));
   ok("the button, the outcome and the Text them control exist in every language", missingKeys.length === 0, missingKeys);
@@ -414,18 +422,24 @@ section("7. The pop-up: after an answered call ended, never on connect, never a 
 // ═══════════════════════════════════════════════════════════════════════════
 {
   const panel = source("app/components/sales/CallPanel.js");
+  const session = source("app/components/sales/CallSession.js");
+  const liveStrip = source("app/components/sales/LiveCallStrip.js");
+  const writeup = source("app/components/sales/OutboundWriteUp.js");
   const form = source("app/components/sales/OutcomeForm.js");
-  ok("the picker is OutcomeForm, in all three places (Dialer column / tab through both(), and the sheet)", (panel.match(/<OutcomeForm /g) || []).length === 2 && /both\(slots\?\.disposition \|\| null, \(inline\) =>/.test(panel) && /<OutcomeSheet/.test(panel));
-  ok("…and no copy of the panel still renders a <select> of dispositions", !/<select/.test(panel) && !/<select/.test(form));
-  const timer = between(panel, "const autoAskSeen = useRef(null);", "useEffect(() => {\n    if (!flash)");
+  // The panel draws OutcomeForm once (through OutboundWriteUpCard, inline
+  // and portalled via both()); the sheet is LiveCallStrip's, so it can open
+  // on any page. Neither renders a <select>.
+  ok("the picker is OutcomeForm, in all its places (the write-up card, and the sheet on any page)", /<OutcomeForm /.test(writeup) && /both\(slots\?\.disposition \|\| null, \(inline\) =>/.test(panel) && /<OutcomeSheet/.test(liveStrip) && /<OutcomeForm /.test(liveStrip));
+  ok("…and no copy still renders a <select> of dispositions", !/<select/.test(panel) && !/<select/.test(writeup) && !/<select/.test(liveStrip) && !/<select/.test(form));
+  const timer = between(session, "const autoAskSeen = useRef(null);", "// The strip goes away by itself.");
   ok("the sheet opens ONLY from the auto-log reply: reason talked | rep_hung_up AND a numeric talkSeconds (connected)", /\(body\?\.reason === "talked" \|\| body\?\.reason === "rep_hung_up"\) && typeof body\?\.talkSeconds === "number"/.test(timer) && /setSheetOpen\(true\)/.test(timer));
-  ok("…nothing else in the panel opens it", (panel.match(/setSheetOpen\(true\)/g) || []).length === 1);
-  const connect = between(panel, "const call = await device.connect(", 'call.on("disconnect"');
+  ok("…nothing else in the session opens it", (session.match(/setSheetOpen\(true\)/g) || []).length === 1);
+  const connect = between(session, "const call = await device.connect(", 'call.on("disconnect"');
   ok("…not on connect", !/setSheetOpen/.test(connect));
-  const onDisconnect = between(panel, 'call.on("disconnect"', 'call.on("error"');
+  const onDisconnect = between(session, 'call.on("disconnect"', 'call.on("error"');
   ok("…not on disconnect either (the carrier's word comes first)", !/setSheetOpen/.test(onDisconnect));
-  ok("the sheet is closed while a call is up and when nothing is pending", /open=\{Boolean\(sheetOpen && pending && !startedAt\)\}/.test(panel));
-  ok("a save closes it; 'later' closes it first, then defers (section 8)", /setSheetOpen\(false\);/.test(between(panel, "async function saveOutcome()", "const later")) && /const later = useCallback\(async \(\) => \{\s*setSheetOpen\(false\);/.test(panel));
+  ok("the sheet is closed while a call is up and when nothing is pending", /open=\{Boolean\(sheetOpen && pending && !live\)\}/.test(liveStrip));
+  ok("a save closes it; 'later' closes it first, then defers (section 8)", /setSheetOpen\(false\);/.test(between(session, "const saveOutcome = useCallback(async () => {", "// ── \"Write it up later\"")) && /const later = useCallback\(async \(\) => \{\s*setSheetOpen\(false\);/.test(session));
   ok("the timer never auto-logs once the rep has started (draftStarted)", /if \(draftStarted\(draftRef\.current\)\) return;/.test(timer));
 
   const sheet = between(form, "export function OutcomeSheet(", "\n}");
@@ -433,9 +447,9 @@ section("7. The pop-up: after an answered call ended, never on connect, never a 
   ok("1–4 press the primary buttons and M opens More, but never while typing in a field", /OUTCOME_CHOICES\.find\(\(c\) => c\.hotkey === e\.key\)/.test(sheet) && /e\.key === "m" \|\| e\.key === "M"/.test(sheet) && /if \(typing\) return;/.test(sheet));
   ok("the backdrop is a 'later' button, and the dialog is not aria-modal", /data-outcome-backdrop/.test(sheet) && /onClick=\{onLater\}/.test(sheet) && /aria-modal="false"/.test(sheet));
   ok("a phone gets a bottom sheet, a desktop a centred dialog", /items-end sm:items-center sm:justify-center/.test(sheet));
-  ok("the sheet AND the panel copies carry 'Write it up later' — except when the rep is correcting a line-logged outcome", /onLater=\{later\}/.test(between(panel, "<OutcomeSheet", "</OutcomeSheet>")) && /onLater=\{pending\.override \? null : later\}/.test(between(panel, "both(slots?.disposition || null, (inline) =>", "{autoLogged && !pending && !startedAt")));
+  ok("the sheet AND the write-up card carry 'Write it up later' — except when the rep is correcting a line-logged outcome", /onLater=\{later\}/.test(between(liveStrip, "<OutcomeSheet", "</OutcomeSheet>")) && /onLater=\{pending\.override \? null : later\}/.test(writeup));
   ok("the note field is capped at OUTCOME_NOTE_MAX in the form", /maxLength=\{OUTCOME_NOTE_MAX\}/.test(form));
-  ok("the fold, not the screen, names the code: saveOutcome posts fold.code", /disposition: fold\.code/.test(panel) && !/disposition: code/.test(panel));
+  ok("the fold, not the screen, names the code: saveOutcome posts fold.code", /disposition: fold\.code/.test(session) && !/disposition: code/.test(session));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -461,11 +475,13 @@ section("8. Write it up later: the dialler is freed, the list counts only unlogg
   ok("deferring frees the dialler — pendingAttempt skips rows with dispositionDeferredAt", /!a\.disposition &&\s*!a\.dispositionDeferredAt/.test(pendingExpr));
   // 2026-09-17: an inbound row held a rep's dialler hostage with "You rang".
   ok("pendingAttempt EXCLUDES direction \"in\" — only a browser OUTBOUND dial the carrier has finished with holds the dialler", /a\.direction === "out"/.test(pendingExpr) && /a\.dialChannel === "browser"/.test(pendingExpr) && /Boolean\(a\.endedAt\) \|\| PROVIDER_ENDED\.includes\(a\.providerStatus\)/.test(pendingExpr));
-  ok("…and carries the row's direction so the panel's sentence is chosen by the row, not assumed", /direction: row\.direction/.test(pendingExpr) && /function whatHappenedBody\(row\)/.test(panel) && /row\?\.direction === "in"/.test(panel) && /app\.salesCall\.whatHappenedBodyInbound/.test(panel));
+  const writeup = source("app/components/sales/OutboundWriteUp.js");
+  ok("…and carries the row's direction so the write-up sentence is chosen by the row, not assumed", /direction: row\.direction/.test(pendingExpr) && /export function whatHappenedBody\(t, language, row\)/.test(writeup) && /row\?\.direction === "in"/.test(writeup) && /app\.salesCall\.whatHappenedBodyInbound/.test(writeup));
   const deferRoute = between(route, 'if (action === "defer")', 'if (action === "autodial")');
   ok("…the route's `defer` goes through deferDisposition and moves the rep to available", /deferDisposition\(\{ salesRepId: rep\.id, attemptId, now \}\)/.test(deferRoute) && /STATE_AVAILABLE/.test(deferRoute));
-  const laterFn = between(panel, "const later = useCallback(async () => {", "}, [pending?.id, pending?.override]);");
-  ok("…and the panel's 'later' posts defer, clears pending, refreshes presence and re-arms the dialler (load, onWorked)", /action: "defer"/.test(laterFn) && /setPending\(\(p\) => \(p\?\.id === row\.id \? null : p\)\)/.test(laterFn) && /await presenceRef\.current\.refresh\(\);\s*await load\(\);\s*onWorked\?\.\(\);/.test(laterFn));
+  const session = source("app/components/sales/CallSession.js");
+  const laterFn = between(session, "const later = useCallback(async () => {", "}, [onWorked, reloadView]);");
+  ok("…and the session's 'later' posts defer, clears pending, refreshes presence and re-arms the dialler (reload, onWorked)", /action: "defer"/.test(laterFn) && /setPending\(\(p\) => \(p\?\.id === row\.id \? null : p\)\)/.test(laterFn) && /await presenceRef\.current\.refresh\(\);\s*await reloadView\(\);\s*onWorked\(\);/.test(laterFn));
   ok("…but a correction of a line-logged outcome cannot be deferred (nothing to defer)", /if \(!row\?\.id \|\| row\.override\) return;/.test(laterFn));
 
   // The list counts only unlogged attempts.
@@ -536,7 +552,7 @@ section("8. Write it up later: the dialler is freed, the list counts only unlogg
   ok("the inbound dock writes up an answered callback in place: the same OutcomeForm, the same fold, the same disposition and defer actions", /<OutcomeForm /.test(dock) && /foldChoice\(/.test(dock) && /action: "disposition"/.test(dock) && /action: "defer"/.test(dock) && /data-inbound-write-up/.test(dock));
   ok("…with the inbound sentence, never \"You rang\"", /app\.salesCall\.whatHappenedBodyInbound/.test(dock) && !/app\.salesCall\.whatHappenedBody"/.test(dock));
   ok("…asked once per attempt (askedRef), only after a call that was live, only with a matched attempt", /askedRef\.current\.has\(logged\.attemptId\)/.test(dock) && /askedRef\.current\.add\(logged\.attemptId\)/.test(dock) && /wasLive && logged\?\.attemptId/.test(dock));
-  ok("…and a new ring while it is open defers it rather than losing it", /laterRef\.current\?\.\(\);/.test(between(dock, 'device.on("incoming"', "setIncoming({")));
+  ok("…and a new ring while it is open defers it rather than losing it", /laterRef\.current\?\.\(\);/.test(between(dock, "onIncoming((call) =>", "setIncoming({")));
 
   // ── 2026-09-17: the call-backs a rep promised, and the button that keeps them ──
   {

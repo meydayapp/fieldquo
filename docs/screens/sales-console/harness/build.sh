@@ -17,6 +17,7 @@ NODE_PATH=$PWD/node_modules npx esbuild "$H/console.jsx" --bundle --format=iife 
   --alias:@/app/hooks/useTranslation=./$H/stubs/useTranslation.js \
   --alias:@/lib/fetchJson=./$H/stubs/fetchJson.js \
   --alias:@twilio/voice-sdk=./$H/stubs/twilio.js \
+  --alias:@/lib/meta/tokenCrypto=./$H/stubs/tokenCrypto.js \
   --define:process.env.NODE_ENV='"development"' \
   --log-level=warning --outfile="$OUT/console.js"
 if [ -z "$SKIP_CSS" ]; then

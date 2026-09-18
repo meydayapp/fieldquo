@@ -299,14 +299,19 @@ console.log("\n       outcome                  asks?");
 for (const code of Object.keys(DISPOSITIONS)) console.log(`       ${code.padEnd(24)} ${asksIntroEmail(code) ? "YES" : "no"}`);
 console.log("");
 
-const panel = decomment(read("app/components/sales/CallPanel.js"));
-ok("CallPanel imports asksIntroEmail from the table", /asksIntroEmail[\s\S]*from "@\/lib\/sales\/outreach\/introLink"/.test(panel));
-ok("CallPanel opens the pop-up from the auto-log reply (no_answer)", /if \(body\?\.ok && body\.code\) \{[\s\S]*?asksIntroEmail\(body\.code\)[\s\S]*?offerIntroEmail\(attemptId/.test(panel));
-ok("CallPanel opens the pop-up after a saved outcome (voicemail)", /asksIntroEmail\(fold\.code\)[\s\S]*?offerIntroEmail\(pending\.id/.test(panel));
-ok("CallPanel opens it from exactly those two places", (panel.match(/offerIntroEmail\(/g) || []).length === 2, (panel.match(/offerIntroEmail\(/g) || []).length);
-ok("CallPanel never names a code itself", !/"no_answer"|"voicemail"/.test(panel.replace(/app\.salesCall\.disposition\.\$\{[^}]*\}/g, "")));
-ok("the pop-up holds onWorked until it closes", /p\?\.then\?\.\(\)/.test(panel) && /offerIntroEmail\((?:attemptId|pending\.id), \(\) => onWorked\?\.\(\)\)/.test(panel));
-ok("CallPanel renders IntroEmailPrompt", /<IntroEmailPrompt target=\{introPrompt\}/.test(panel));
+// 2026-09-18: the outcome flow and the intro-email pop-up moved from
+// CallPanel to the shell-level CallSession, and IntroEmailPrompt is rendered
+// by LiveCallStrip so it can open on any page. The table and the two
+// openings did not change.
+const session = decomment(read("app/components/sales/CallSession.js"));
+const strip = decomment(read("app/components/sales/LiveCallStrip.js"));
+ok("CallSession imports asksIntroEmail from the table", /asksIntroEmail[\s\S]*from "@\/lib\/sales\/outreach\/introLink"/.test(session));
+ok("CallSession opens the pop-up from the auto-log reply (no_answer)", /if \(body\?\.ok && body\.code\) \{[\s\S]*?asksIntroEmail\(body\.code\)[\s\S]*?setIntroPrompt\(\{/.test(session));
+ok("CallSession opens the pop-up after a saved outcome (voicemail)", /asksIntroEmail\(fold\.code\)[\s\S]*?setIntroPrompt\(\{/.test(session));
+ok("CallSession opens it from exactly those two places", (session.match(/setIntroPrompt\(\{/g) || []).length === 2, (session.match(/setIntroPrompt\(\{/g) || []).length);
+ok("CallSession never names a code itself", !/"no_answer"|"voicemail"/.test(session.replace(/app\.salesCall\.disposition\.\$\{[^}]*\}/g, "")));
+ok("the pop-up holds onWorked until it closes", /p\?\.then\?\.\(\)/.test(session) && /then: \(\) => onWorked\(\)/.test(session));
+ok("LiveCallStrip renders IntroEmailPrompt", /<IntroEmailPrompt target=\{introPrompt\}/.test(strip));
 const unlogged = decomment(read("app/components/sales/UnloggedCalls.js"));
 ok("UnloggedCalls asks the same table after a write-up", /asksIntroEmail\(fold\.code\)/.test(unlogged) && /<IntroEmailPrompt/.test(unlogged));
 const prompt = decomment(read("app/components/sales/IntroEmailPrompt.js"));
