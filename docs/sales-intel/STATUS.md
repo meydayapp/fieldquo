@@ -27,6 +27,7 @@ exit 0, schema pushed and verified, row counts unchanged.
 | Attribution capture, locking, touches, audit | done |
 | Commission ledger + milestones 1, 2, 3 | done |
 | 60-day retention sweep (cron, 09:20 UTC) | done |
+| Who to ask for — CSLB personnel, WA/OR principals, BBB (browser + Apify), typed; one enrichment order | done 2026-09-18 — `docs/sales-intel/SOURCE-WHO-TO-ASK-FOR.md`; Apify needs `APIFY_TOKEN` |
 | Rep outreach — send from own mailbox, replies filed | done |
 | Demo accounts cannot text real people (8 paths) | done |
 | Rep can text their signup link, with STOP handled | done, blocked on a number |

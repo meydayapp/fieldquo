@@ -109,6 +109,14 @@ const scheduled = new Set([...vercel.matchAll(/"path"\s*:\s*"([^"]+)"/g)].map((m
  * exemption without a caller named is just a suppression.
  */
 const EXTERNAL_CALLERS = {
+  "/api/platform/sales/prospects/bbb-batch":
+    "A superadmin opens this GET in the browser and saves the JSON, on the " +
+    "one occasion scripts/bbb-principal.mjs runs on a machine WITHOUT the " +
+    "database (`--no-db --batch file.json`, docs/sales/BBB-LOCAL-RUN.md). The " +
+    "script's normal path reads the same batch through lib/sales/intel/" +
+    "bbbBatch.js directly, and the results come back through " +
+    "/api/platform/sales/prospects/bbb-upload, which the console's 'Upload " +
+    "BBB results' control calls. Superadmin-gated; never reached by a rep.",
   "/api/sms/inbound":
     "Twilio posts here on every inbound SMS to a company number. The URL is " +
     "set in the Twilio console, not in this repo, so no in-app caller can " +

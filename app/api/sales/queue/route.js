@@ -39,6 +39,7 @@ export const runtime = "nodejs";
 import { NextResponse, after } from "next/server";
 import { db } from "@/lib/db";
 import { enrichProspects } from "@/lib/sales/intel/places";
+import { lookupRegisterPeopleFor } from "@/lib/sales/intel/registerPeople";
 import { recordError, errorDetail } from "@/lib/platform/errorLog";
 import { checkSuppression } from "@/lib/sales/suppression";
 import { requireQueueRep } from "@/lib/sales/queueGate";
@@ -185,6 +186,19 @@ function checkGoogleFor(prospectIds, rep) {
     try {
       // Scoped to the rep's own held rows, like every Prospect read in this
       // file: a claim that lost its race is not this rep's to enrich.
+      const held = await db.prospect.findMany({
+        where: { ...queueWhere(rep.id, { now: new Date() }), id: { in: prospectIds } },
+        select: { id: true },
+      });
+      // Who to ask for, from the register, before Google: a table read
+      // per row (lib/sales/intel/registerPeople.js), no money, and the
+      // name is on the card by the time the rep opens it. Its own
+      // skip-if-checked stamp; 180 days.
+      if (held.length) {
+        await lookupRegisterPeopleFor({ db, ids: held.map((r) => r.id) }).catch((err) =>
+          recordError({ area: "people", code: "claim_lookup_threw", message: `Register people lookup at claim time threw: ${err?.message || err}`, detail: { prospectIds: prospectIds.slice(0, 50) } }),
+        );
+      }
       const never = await db.prospect.findMany({
         where: { ...queueWhere(rep.id, { now: new Date() }), id: { in: prospectIds }, placesCheckedAt: null },
         select: { id: true },
@@ -526,6 +540,9 @@ function readCurrentFull(rep, id, now) {
       opportunities: { include: { capability: { select: { code: true, name: true } } } },
       scores: { orderBy: { computedAt: "desc" }, take: 1 },
       evidence: { orderBy: { observedAt: "desc" }, take: 400 },
+      // Who to ask for: every named person from every source, so the view
+      // can lead with the best and list the rest with their sources.
+      people: { orderBy: { seenAt: "desc" } },
       territory: { select: { id: true, name: true } },
       // The calling window is stated in the PROSPECT's local time, and the
       // only place anybody has ever written one down is SalesLead.timeZone —

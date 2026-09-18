@@ -72,7 +72,8 @@ import { topUpResearchBacklog } from "@/lib/sales/pipeline/research";
 import { SUGGEST_CRON_SLICE, suggestTradesBatch } from "@/lib/sales/discovery/suggestTradesBatch";
 import { runTradeSuggestAiSlice } from "@/lib/sales/discovery/suggestTradesAiApproval";
 import { sweepMissedInbound } from "@/lib/sales/calls/missed";
-import { sweepQueuedPlaces } from "@/lib/sales/intel/placesSweep";
+import { sweepQueuedPlaces, sweepRegisterPeople } from "@/lib/sales/intel/placesSweep";
+import { runApifyTick } from "@/lib/sales/intel/apifyRuns";
 import { reconcileCarrierPrices } from "@/lib/sales/calls/costs";
 import { pullTwilioUsageIfStale } from "@/lib/platform/costs/twilioUsage";
 
@@ -263,6 +264,36 @@ export async function GET(request) {
     places = { error: err?.message || String(err) };
   }
   result.places = places;
+
+  // ── Then who to ask for, from the registers, in the same order ─────────
+  //
+  // lib/sales/intel/registerPeople.js: a table read per row against the
+  // CSLB personnel file already loaded, no vendor and no money, so it walks
+  // both tiers of the enrichment order (claimed, then the trades being
+  // worked) at REGISTER_PER_TICK a tick. Its own try/catch, as above.
+  let people;
+  try {
+    people = await sweepRegisterPeople({ db, now });
+  } catch (err) {
+    people = { error: err?.message || String(err) };
+  }
+  result.people = people;
+
+  // ── Then the bulk vendor runs, one tick each ───────────────────────────
+  //
+  // lib/sales/intel/apifyRuns.js: collect the runs that finished since the
+  // last tick, then start what today's cap allows for the pairs the
+  // enrichment order names next. Returns at once when APIFY_TOKEN is unset.
+  // BBB first: it carries the principal contact, which is what the rep
+  // card is short of; Maps second.
+  result.apify = {};
+  for (const source of ["bbb", "google_maps"]) {
+    try {
+      result.apify[source] = await runApifyTick({ db, source, now, trigger: "cron" });
+    } catch (err) {
+      result.apify[source] = { error: err?.message || String(err) };
+    }
+  }
 
   // ── Then the PAID pass, only while an approval row says so ──────────────
   //

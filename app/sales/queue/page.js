@@ -306,6 +306,7 @@ import {
 import { fetchJson } from "@/lib/fetchJson";
 import { prefetchTargets, readLead, readSnapshot, sessionStore, writeLead, writeSnapshot } from "@/lib/sales/queueCache";
 import ContactNumbers from "@/app/components/sales/ContactNumbers";
+import WhoToAskFor from "@/app/components/sales/WhoToAskFor";
 import DialerPad, { formatE164ForReading, typedToE164 } from "@/app/components/sales/DialerPad";
 import QueueLeadEditor from "@/app/components/sales/QueueLeadEditor";
 import SignupLinkSms from "@/app/sales/leads/SignupLinkSms";
@@ -1315,7 +1316,11 @@ function ResearchLayers({ t, current }) {
       <div className="space-y-3">
         <LayerHeader layer="fact" />
         <ul className="space-y-2">
-          {current.facts.map((f) => (
+          {current.facts.map((f) => f.key === "whoToAskFor" ? (
+            // The one fact row with a control: the typed name, and the BBB
+            // link the rep opens by hand (app/components/sales/WhoToAskFor.js).
+            <WhoToAskFor key={`${f.key}:${current.id}`} t={t} fact={f} prospectId={current.id} />
+          ) : (
             <li key={f.key} className="flex flex-col gap-0.5">
               <span className="text-xs text-muted-foreground">{t(f.labelKey, f.label)}</span>
               <span className={`text-sm break-words ${f.known ? "text-foreground" : "text-muted-foreground italic"}`}>
@@ -1332,6 +1337,14 @@ function ResearchLayers({ t, current }) {
                   : f.textKey
                     ? t(f.textKey, f.text, f.params || {})
                     : f.text}
+                {f.key === "bbb" && f.url ? (
+                  <>
+                    {" "}
+                    <a href={f.url} target="_blank" rel="noreferrer noopener" className="underline text-xs">
+                      {t("app.salesIntel.people.openBbb", "Open BBB")}
+                    </a>
+                  </>
+                ) : null}
               </span>
             </li>
           ))}

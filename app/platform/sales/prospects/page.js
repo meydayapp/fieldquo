@@ -65,6 +65,7 @@ import { LAYER_HEADINGS, SOURCE_CATEGORY_HEADING } from "@/lib/sales/prospectVie
 import PlatformWriteGate, { usePlatformAdmin } from "@/app/components/platform/PlatformWriteGate";
 import DuplicateGroup from "@/app/components/platform/DuplicateGroup";
 import GooglePlacesPanel, { GooglePlacesCard } from "@/app/components/platform/GooglePlacesPanel";
+import EnrichmentPanel from "@/app/components/platform/EnrichmentPanel";
 import { FRENCH } from "@/lib/sales/leadLanguage";
 
 const BTN =
@@ -611,6 +612,7 @@ export default function PlatformProspectsPage() {
       {!loading && data ? (
         <>
           {isSuperadmin ? <GooglePlacesPanel /> : null}
+          {isSuperadmin ? <EnrichmentPanel /> : null}
           {isSuperadmin ? (
             <AssignBar
               reps={data.reps || []}
@@ -949,6 +951,42 @@ function ProspectDetail({ detail, onSelect = null, onChanged = null }) {
 
       {/* ── What Google Places said, beside what the record says ──────── */}
       <GooglePlacesCard prospect={p} onChanged={onChanged} />
+
+      {/* ── Who to ask for: every named person, with its source ───────── */}
+      <section className={CARD}>
+        <h3 className="text-sm font-semibold text-foreground">Who to ask for</h3>
+        {p.whoToAskFor ? (
+          <p className="text-sm text-foreground">
+            Leads with <strong>{p.whoToAskFor.name}</strong>{p.whoToAskFor.role ? ` — ${p.whoToAskFor.role}` : ""} (per {p.whoToAskFor.sourceLabel}{p.whoToAskFor.seenAt ? `, ${p.whoToAskFor.seenAt}` : ""}).
+          </p>
+        ) : (
+          <p className="text-sm text-muted-foreground italic">
+            Nobody named yet. Register personnel {p.principalCheckedAt ? `checked ${String(p.principalCheckedAt).slice(0, 10)}` : "not checked"}; BBB {p.bbb?.checkedAt ? `checked ${String(p.bbb.checkedAt).slice(0, 10)}` : "not checked"}.
+          </p>
+        )}
+        {(p.people || []).length ? (
+          <ul className="text-sm space-y-1">
+            {p.people.map((x) => (
+              <li key={x.id} className="flex flex-wrap gap-x-2">
+                <span>{x.name}{x.role ? ` — ${x.role}` : ""}</span>
+                <span className="text-xs text-muted-foreground">
+                  {x.sourceLabel}, {String(x.seenAt).slice(0, 10)}
+                  {x.sourceUrl ? <> · <a href={x.sourceUrl} target="_blank" rel="noreferrer noopener" className="underline">source</a></> : null}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        <p className="text-xs text-muted-foreground">
+          BBB: {p.bbb?.rating ? `rated ${p.bbb.rating}` : "no rating on file"}
+          {p.bbb?.accredited === true ? ", accredited" : p.bbb?.accredited === false ? ", not accredited" : ""}
+          {p.bbb?.businessStartedYear ? ` · started ${p.bbb.businessStartedYear}` : ""}
+          {p.bbb?.employeeRange ? ` · ${p.bbb.employeeRange} employees` : ""}
+          {p.bbb?.entityType ? ` · ${p.bbb.entityType}` : ""}
+          {" · "}
+          <a href={p.bbb?.profileUrl || p.bbb?.searchUrl} target="_blank" rel="noreferrer noopener" className="underline">{p.bbb?.profileUrl ? "profile" : "search BBB"}</a>
+        </p>
+      </section>
 
       {/* ── Layer 1 ─────────────────────────────────────────────────────── */}
       <section className={CARD}>
