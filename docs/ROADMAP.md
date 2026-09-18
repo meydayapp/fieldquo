@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 17 September 2026 (three back-office gaps the owner hit: the job page carries the CLIENT's installed equipment and its warranty beside the company's own kit, and a warranty callback names the piece it is about; /app/fleet has an always-visible "Add a vehicle" that creates the register row and the fleet record in one transaction, price optional and said so; the owner, admins and supervisors can set THEMSELVES up to clock in — see the section below, then gutters / paver canvas / site visits)
+Last updated: 17 September 2026 (three back-office gaps the owner hit: the job page carries the CLIENT's installed equipment and its warranty beside the company's own kit, and a warranty callback names the piece it is about; /app/fleet has an always-visible "Add a vehicle" that creates the register row and the fleet record in one transaction, price optional and said so; the owner, admins and supervisors can set THEMSELVES up to clock in — see the section below, then gutters / paver canvas / site visits; before that: the phone receptionist has its own language selector — English, French, Spanish, bilingual English & French, bilingual English & Spanish — independent of the account language; a bilingual agent is provisioned as two Retell locales, greets in both, follows the caller, hears dates in both, and the voice picker filters to voices that can pronounce the choice; a Ukrainian/Punjabi/Tagalog account is told on the screen that the phone answers in English — see the first section below)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -77,6 +77,77 @@ taught the equipment gate, check:depreciation still 175/175.
   app.setExpenses.vehicle*, app.fleet.costPerKm* …). Not this session's; this
   session's keys are in all nine. check:time-clock-job's fixture lacks
   `timeEntry.breaks` and crashes on main too.
+
+---
+
+## The receptionist's language is its own setting, and it can be bilingual (17 September 2026)
+
+**Owner's question**: the voice can be changed on /app/settings/voice; can the
+AI answer in another language, and what about a caller in Ottawa–Gatineau who
+speaks both?
+
+**What was true**: the phone followed `Company.defaultLanguage` — fr → fr-CA,
+es → es-419, everything else → en-US — with nothing on the screen saying so.
+A Ukrainian, Punjabi or Tagalog account got an English receptionist silently.
+
+**What is true now** (`lib/voice/agentLanguage.js` is the one rule):
+
+- **A selector on Settings › Voice**, above the voice: English / Français /
+  Español / Bilingual English & French / Bilingual English & Spanish. Stored
+  on `VoiceAgent.spokenLanguage`; null means "follow the account language",
+  which is exactly the old behaviour, so nobody who never opens it hears a
+  change. Saving re-provisions the agent through the same PUT and the same
+  `provisionAgent` as a voice change.
+- **Bilingual** provisions Retell with `language: ["fr-CA","en-US"]` (the
+  company's own language first — Retell falls back to the first locale when
+  it cannot tell which language a reply is in), never the deprecated `multi`
+  scalar, which the docs now say expands to a fixed ten-language set with
+  es-ES and fr-FR in it. The greeting is one line in both ("Bonjour, hello —
+  merci d'avoir appelé X. Comment puis-je vous aider? How can I help?"), the
+  LANGUAGE section of the prompt says the greeting is the only bilingual
+  line, to carry on in whichever language the caller answers in and switch
+  when they switch, gives a worked date in each language, and gives the
+  recorded-call notice and the "are you a person?" answer in both. Today's
+  date in the prompt and every slot label from `check_availability` /
+  `book_visit` are written in each locale the agent speaks (`availability.js`
+  `speak()` — it was en-CA for everybody, including French agents).
+- **Voices are filtered by what they can pronounce.** Retell's /list-voices
+  carries no language field, so `lib/voice/voices.js` holds the per-provider
+  table from Retell's language-support page; `/api/settings/voice/voices?
+  language=` returns `voices` and `excluded` (with the missing locale), the
+  picker says which voices are not offered and why, warns when the chosen
+  voice cannot speak the chosen language, and the PUT refuses that
+  combination by name. All three shortlisted Cartesia voices cover en/fr/es,
+  so the picker is never empty.
+- **The limitation is on the screen**: when the account language is one the
+  receptionist cannot speak (uk, pa, tl, de, it) the card says "Your account
+  is in Українська. The receptionist can't speak it yet, so it answers in
+  English unless you pick another language here." Punjabi is also absent from
+  Retell's enum entirely; Ukrainian and Filipino are in it but
+  `lib/voice/prompt.js` has no text for them, and a locale with no prompt is
+  English words in a Ukrainian accent.
+- **Cost**: none. Retell's pricing page lists no multilingual surcharge; the
+  documented cost is accuracy ("the multilingual pipeline … is less accurate
+  per language than single-language models"), and the bilingual hints say so.
+
+`npm run check:voice-language` asserts all of it (sections 6–10).
+
+### Still owed here
+
+- Retell's dashboard greys out voice/language combinations per VOICE and
+  pinned model; the API exposes neither, so the filter is per provider. An
+  ElevenLabs voice pinned to `eleven_flash_v2` (English only) would pass the
+  filter and fail at Retell — visible as a failed push, not silent, and no
+  company is on such a voice today.
+- The tool routes' `say` hints (`app/api/voice/tools/[tool]/route.js`) are
+  English; the model rephrases them in the call's language and the labels
+  inside them are now localised, but a French-only agent is still handed an
+  English sentence to translate.
+- Not verified against the live API from this machine: RETELL_API_KEY is
+  Encrypted in Vercel and not in any local .env, so the array form was read
+  from the create-agent reference (spec revision 2026-09-14), not exercised.
+  The first bilingual save in production is the proof; the settings PUT
+  reports `live: false` with the provider's message if Retell refuses it.
 
 ---
 
