@@ -107,7 +107,28 @@ const sloth = baseThread(SL, {
 const park = baseThread(PP, {
   messages: [
     { id: "p1", direction: "out", body: "Hi, Rachel from FieldQuo. No rush, text back when you're off the job.\n\nFieldQuo, 123 Main St. Reply STOP to opt out", sentAt: ago(24 * 60 + 60), fromE164: "+19185550000", toE164: PP },
+    { id: "p2", direction: "out", body: "Hi Marc, this is Rachel — here is the link to sign up that we talked about: https://www.fieldquo.com/signup?sales=RACH&link=tok1 You can reply to this text if you have any questions.", sentAt: ago(3 * 24 * 60), fromE164: "+19185550000", toE164: PP },
   ],
+  // 2026-09-18: the link went three days ago and nothing came of it — the
+  // day-2 draft of lib/sales/checkin/linkNoSignup.js, with the day the link
+  // went riding in reasonParams (openCheckIns), so the sentence under the
+  // draft says "Link sent Tue — no signup, no reply".
+  checkIns: [{
+    id: "ck-park-link",
+    companyId: null,
+    leadId: "lead-park",
+    toE164: PP,
+    draftText: "Hi Park Place Installations, it is Rachel from FieldQuo. Any questions about the link I sent? Reply here and I will answer.",
+    origin: "engine",
+    reasonCode: "link_no_signup",
+    reasonParams: { sentAt: ago(3 * 24 * 60) },
+    sequence: { kind: "linksent", touchpoint: "d2" },
+    draftSource: "rule",
+    degraded: false,
+    scheduledFor: ago(24 * 60),
+    status: "draft",
+    createdAt: ago(24 * 60),
+  }],
   lead: { id: "lead-park", businessName: "Park Place Installations", contactName: "Marc", timeZone: null, email: null, status: "new", prospectId: null },
   timeZone: null,
   canSend: false,

@@ -71,6 +71,23 @@ with every sentence).
   to the rep who last texted it, pushed (`pushToReps`, every reply but a
   STOP) and counted in the sidebar badge; an unowned reply is listed to
   every rep and claimed by the first to answer. Nothing changed there.
+- **Follow-up drafts for a link that went nowhere**
+  (`lib/sales/checkin/linkNoSignup.js`, the owner's addition the same
+  day): day 2 "any questions about the link I sent?", day 5 "happy to walk
+  you through it in fifteen minutes — mornings or afternoons?", and a last
+  nudge six hours before the claim lapses (or day 9 when nothing lapses),
+  counted from `SalesSignupProgress.linkSentAt`; drafts the rep reviews and
+  sends, never auto-sent, in the lead's language, the footer appended by
+  the send. Stopped — and the open drafts dismissed — on a signup
+  (`completedAt`, or a card on the token), any inbound reply after the
+  link, a STOP (nothing written for a suppressed number; an unreadable
+  list skips the pass), a released or reassigned claim, a lead no longer
+  the rep's, or an opened link (unfinishedSignup.js takes over). One open
+  draft per thread — day 5 dismisses an unsent day 2. Under "Drafts due"
+  as "Link follow-up", the draft's own line says "Link sent Tue 15 Sep —
+  no signup, no reply" (openCheckIns hands the day; nine languages).
+  `check:sales-link-no-signup` executes every stop condition over a
+  scriptable client.
 - Checks: `check:sales-text-them` (startTextThread over a scriptable
   client — the hint, the write, the test line, another rep's claim, the
   STOP list first), `check:area-code-zone`, and the rewritten sections of

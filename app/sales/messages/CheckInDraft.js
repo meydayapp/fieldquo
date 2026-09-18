@@ -97,7 +97,18 @@ export default function CheckInDraft({
   // checkinHeadlineKey() returns null for a code this build does not know, and
   // the English headline is the fallback either way.
   const reasonKey = checkinHeadlineKey(draft.reasonCode);
-  const reason = reasonKey ? t(reasonKey, draft.headline || "") : draft.headline || null;
+  // A link-went-nowhere draft (lib/sales/checkin/linkNoSignup.js) names the
+  // day the link went: "Link sent Tue 15 Sep — no signup, no reply". The
+  // day rides in reasonParams from openCheckIns(); without it (the progress
+  // row could not be read) the sentence is said without the day rather
+  // than with a blank in it.
+  const sentAt = draft.reasonParams?.sentAt ? new Date(draft.reasonParams.sentAt) : null;
+  const reason =
+    draft.reasonCode === "link_no_signup" && !(sentAt && !Number.isNaN(sentAt.getTime()))
+      ? t("app.salesCheckin.reasonLinkNoSignupNoDay")
+      : reasonKey
+        ? t(reasonKey, draft.headline || "", sentAt ? { sent: sentAt.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" }) } : undefined)
+        : draft.headline || null;
 
   // Split rather than interpolated: the moving part is scheduleLabel()'s
   // icon-plus-time markup, which t() would stringify.

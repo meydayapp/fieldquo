@@ -48,6 +48,10 @@ is this branch. The queue-card and ring-dialog frames come from
   no-dial states, the ring dialog and the live strip.
 - **"They asked to be texted instead"** as an outcome: no re-dial, the
   composer opens on save.
+- **Follow-up drafts for a link that went nowhere** (`h-link-no-signup-draft`):
+  day 2 / day 5 / a last nudge before the claim lapses, each a draft the
+  rep sends, stopped on a signup, a reply, a STOP, a released claim or an
+  opened link — `lib/sales/checkin/linkNoSignup.js`.
 
 Rules that still stop a rep, on purpose: a number on the do-not-contact
 list; a number another rep holds a lead or claim on; a number outside
@@ -55,5 +59,5 @@ Canada and the US; the 08:00–21:00 texting window in the prospect's zone;
 FieldQuo's mailing address unset. Each is printed as the server's sentence
 where the box would be.
 
-Checks: `npm run check:sales-text-them`, `check:sales-messages`,
-`check:sales-call-panel`, `check:area-code-zone`.
+Checks: `npm run check:sales-text-them`, `check:sales-link-no-signup`,
+`check:sales-messages`, `check:sales-call-panel`, `check:area-code-zone`.

@@ -28,6 +28,7 @@ const SCENES = {
   "e-thread-compose-own": portal("&thread=%2B15145550148&compose=own"),
   "f-thread-compose-discussed": portal("&thread=%2B15145550148&compose=discussed"),
   "g-thread-url-held-by-other": portal("&thread=%2B12125550199"),
+  "h-link-no-signup-draft": portal("&thread=%2B18195550106"),
 };
 const names = process.env.FRAMES ? process.env.FRAMES.split(",") : Object.keys(SCENES);
 const SIZES = (process.env.SIZES || "375,1280").split(",").map(Number);
