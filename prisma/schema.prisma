@@ -797,6 +797,45 @@ model TaxRate {
   createdAt DateTime @default(now())
 }
 
+/// One row per US ZIP code: the combined general sales-tax rate a delivery
+/// address in that ZIP pays, and where the number came from.
+///
+/// Platform-level, not per company — there is no companyId because the rate
+/// a ZIP pays is a public fact, not a tenant's data. Loaded by
+/// scripts/us-tax-rates-load.mjs (idempotent upsert, monthly) from the
+/// Streamlined Sales Tax member states' own rate and boundary files plus the
+/// Census ZCTA→county crosswalk for the county-surcharge states; every row
+/// names its `source` and the file date it was read from. Read by
+/// lib/tax/usRates.js and nowhere else.
+///
+/// A ZIP is not a jurisdiction. Where a state publishes only ZIP+4 records,
+/// the loader stores the rate most of that ZIP's +4 ranges share and sets
+/// `zipSpansRates` so the document can say the address may sit in a
+/// different district. Never a blended average.
+model UsSalesTaxRate {
+  zip           String   @id
+  state         String
+  county        String?
+  city          String?
+  /// Percent, e.g. 8.875. Sum of the component rates below plus any special
+  /// districts, as the state's rate file composes them.
+  combinedRate  Decimal  @db.Decimal(6, 4)
+  stateRate     Decimal  @db.Decimal(6, 4)
+  countyRate    Decimal? @db.Decimal(6, 4)
+  cityRate      Decimal? @db.Decimal(6, 4)
+  specialRate   Decimal? @db.Decimal(6, 4)
+  zipSpansRates Boolean  @default(false)
+  /// The date the source file says these rates took effect.
+  effectiveFrom DateTime
+  /// Human-readable provenance: publisher, file name, file date.
+  source        String
+  /// Which loader adapter produced it: "sst" | "census_county" | "uniform".
+  sourceKind    String
+  fetchedAt     DateTime
+
+  @@index([state])
+}
+
 model Plan {
   id                String   @id @default(cuid())
   /// No longer unique on its own: one tier exists once per currency, and
@@ -1563,6 +1602,22 @@ model Company {
   /// Only asked of companies in a VAT country; a Canadian or US company never
   /// sees the question and keeps null forever, which costs them nothing.
   vatRegistered Boolean?
+
+  /// Per-state overrides for the automatic US sales-tax rung, keyed by
+  /// two-letter state: `{ "NY": { "mode": "rate", "rate": 8.875 } }`.
+  ///
+  ///   mode "rate"  — this company charges the typed rate on the whole quote
+  ///                  in that state, whatever the tables say. A registration
+  ///                  the tables can't know about (a contractor-retailer, a
+  ///                  separated-contract seller) lives here.
+  ///   mode "none"  — this company collects nothing in that state and says so
+  ///                  on the document. A stated position (no nexus, or the
+  ///                  contractor pays tax at the counter), not an absence.
+  ///
+  /// Absent state → automatic. Sits ABOVE lib/tax/usTaxability.js and the
+  /// ZIP table in the precedence ladder and BELOW a rate typed on the quote
+  /// itself. Written and read by lib/tax/usOverrides.js only.
+  usTaxOverrides Json?
 
   /// Offer clients pay-over-time financing (Affirm) at invoice checkout, on top
   /// of paying by card. Off by default: it's the company's call, it only works
@@ -2376,6 +2431,16 @@ model Client {
   /// edited — the address autocomplete has always returned country and simply
   /// had nowhere to put it.
   country     String?
+  /// ZIP or postal code, as Google Places returns it. The key into
+  /// UsSalesTaxRate for a US client: without it the resolver can only name
+  /// the state rate and says so (lib/tax/usRates.js). Null on rows that
+  /// predate the column; fills in as addresses are re-saved.
+  postalCode  String?
+  /// County (administrative_area_level_2), for the day a state's rate turns on
+  /// it rather than on the ZIP. Not read by the resolver yet — the ZIP table
+  /// already carries the county it resolved to, and a client-typed county
+  /// that disagrees with it would be a second opinion, not data.
+  county      String?
   notes       String?
   // Language this client is written to in. Drives quote/invoice PDFs, emails
   // and the client portal. Null falls back to Company.defaultLanguage.
@@ -2434,6 +2499,15 @@ model Quote {
   tax          Decimal   @default(0) @db.Decimal(12, 2)
   total        Decimal   @default(0) @db.Decimal(12, 2)
   taxEnabled   Boolean   @default(true)
+  /// What the tax line SAID when this quote was written — rate, which part of
+  /// the quote it applied to, the jurisdiction, and the month of the rates
+  /// table — as lib/tax/taxResolution.js records it. `tax` above is the money;
+  /// this is the sentence behind it. Stored so the document keeps explaining
+  /// its own tax after the table moves on (non-negotiable #6), and so an
+  /// invoice raised from the quote inherits the explanation rather than
+  /// re-deriving one from today's rows. Null on rows that predate it and on
+  /// rates a human typed with no jurisdiction behind them.
+  taxResolution Json?
   notes        String?
   // INTERNAL. Never rendered on a client-facing surface — `notes` above is the
   // one the homeowner reads (lib/documentSections/NotesSection.js), and this is
@@ -3104,6 +3178,10 @@ model Invoice {
   /// for every existing row. It does not re-price anything — Invoice.tax holds
   /// a money AMOUNT and nothing reads this to compute one.
   taxEnabled Boolean @default(true)
+  /// Copied from the source quote at creation — see Quote.taxResolution. An
+  /// invoice mirrors its quote's tax exactly (rate, what it applied to, the
+  /// rates month); it never re-resolves against a newer table.
+  taxResolution Json?
 
   dueDate      DateTime?
   startDate    DateTime?
