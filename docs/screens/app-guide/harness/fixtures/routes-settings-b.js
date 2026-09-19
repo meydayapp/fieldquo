@@ -944,10 +944,18 @@ export const ROUTES_SETTINGS_B = [
   {
     path: "/api/settings/follow-up-rules",
     method: "GET",
-    reply: () => [
-      { id: "fr_quote3", companyId: COMPANY.id, name: "Nudge unanswered quotes", triggerEvent: "quote_no_response", delayValue: 3, delayUnit: "days", templateId: "dt_followup_3d", template: { id: "dt_followup_3d", name: "Quote follow-up — 3 days", type: "follow_up_email" }, active: true, createdAt: iso(day(-80)), updatedAt: iso(day(-80)) },
-      { id: "fr_inv7", companyId: COMPANY.id, name: "Overdue invoice reminder", triggerEvent: "invoice_overdue", delayValue: 7, delayUnit: "days", templateId: "dt_payment_reminder", template: { id: "dt_payment_reminder", name: "Payment reminder", type: "follow_up_email" }, active: true, createdAt: iso(day(-80)), updatedAt: iso(day(-80)) },
-    ],
+    // The shape GET answers since the FieldQuo defaults landed: the live
+    // rules (defaults first, no template — the cron renders their built-in
+    // wording) and any default the company deleted, offered for restore.
+    reply: () => ({
+      rules: [
+        { id: "fr_d1", companyId: COMPANY.id, builtInKey: "quote_sent_d1", name: "Day 1 — did the quote arrive?", triggerEvent: "quote_no_response", delayValue: 1, delayUnit: "days", templateId: null, template: null, active: true, deletedAt: null, createdAt: iso(day(-80)), updatedAt: iso(day(-80)) },
+        { id: "fr_d7", companyId: COMPANY.id, builtInKey: "quote_sent_d7", name: "Day 7 — any questions?", triggerEvent: "quote_no_response", delayValue: 7, delayUnit: "days", templateId: null, template: null, active: true, deletedAt: null, createdAt: iso(day(-80)), updatedAt: iso(day(-80)) },
+        { id: "fr_d14", companyId: COMPANY.id, builtInKey: "quote_sent_d14", name: "Day 14 — still here if you want to go ahead", triggerEvent: "quote_no_response", delayValue: 14, delayUnit: "days", templateId: null, template: null, active: false, deletedAt: null, createdAt: iso(day(-80)), updatedAt: iso(day(-80)) },
+        { id: "fr_inv7", companyId: COMPANY.id, builtInKey: null, name: "Overdue invoice reminder", triggerEvent: "invoice_overdue", delayValue: 7, delayUnit: "days", templateId: "dt_payment_reminder", template: { id: "dt_payment_reminder", name: "Payment reminder", type: "follow_up_email" }, active: true, deletedAt: null, createdAt: iso(day(-80)), updatedAt: iso(day(-80)) },
+      ],
+      deletedBuiltIns: [],
+    }),
   },
 
   // Notifications.
