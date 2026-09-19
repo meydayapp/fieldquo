@@ -5,8 +5,10 @@
 
 import { useRef, useEffect } from "react";
 import { useLoadScript } from "@react-google-maps/api";
-
-const libraries = ["places"];
+// Shared with the day map (app/components/schedule/ScheduleMap.js) so the
+// two never load the SDK twice with different options — lib/maps/libraries.js
+// says why that matters.
+import { MAPS_LIBRARIES as libraries } from "@/lib/maps/libraries";
 
 /**
  * Is a Places suggestion list on screen right now?

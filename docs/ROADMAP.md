@@ -1,12 +1,82 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 19 September 2026 (US sales tax on a quote to a US address is the full combined rate on the whole quote, from any company, exactly as a Canadian province's — the ZIP's rate from the states' own Streamlined files, the state's own rule beside it as a hint the contractor may act on in one press, and the record stored on the quote and copied to its invoice — see the section below)
+Last updated: 19 September 2026 (the day on a map: Schedule → Map (`?view=map`) and Settings → Work areas show the day's visits, appointments and bookings as pins numbered 1, 2, 3 PER PERSON in time order, one measured colour per person, grey "?" when unassigned, a list beside the map that keeps every row including the ones with no coordinates; office-booked appointments are geocoded like jobs; a work area can carry a drawn polygon nothing else reads yet — see the section below)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
 it exists to answer.
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
+
+---
+
+## The day on a map: every person's stops numbered 1, 2, 3, on the calendar and on Settings → Work areas (19 September 2026)
+
+The owner: "can the work areas show a map of the city where the jobs are and
+where each staff is being dispatched? And if there are visits scheduled, show
+them on the map with the 1, 2, 3 sequence so the admin/manager can see all
+the jobs; the employee/estimator might see their scheduled visits and crew
+their jobs."
+
+- **Appointments are geocoded like jobs**: `Appointment.geocodedAt`
+  (additive) and `lib/geo/geocodeAppointment.js` — the job wrapper's rules
+  (`resolveJobCoordinates`: the one geocoder, the timeout, APPROXIMATE
+  refused, six decimals, nulls never a guess) applied to `location` or the
+  client's address, on POST and on a PATCH whose location CHANGES. A tried
+  refusal is stamped so it is not retried. The booking flow had written
+  coordinates for years; the office's own calendar bookings never were.
+  Read-only count on 19 Sep: **11 future appointments with an address and no
+  coordinates**, backfilled lazily by the map (cap 8 per load, only over the
+  rows the caller may see).
+- **One feed**: GET /api/appointments' three queries moved to
+  `lib/schedule/feed.js` (`loadScheduleFeed`, optional day range) so
+  `GET /api/schedule/map?day=` reads the SAME scoped, redacted rows — no map
+  rule of its own. Visits now carry their job's coordinates (site pair first,
+  the siteAddress geocode second, both halves or neither). The company's
+  centre comes from `lib/company/coordinates.js`, lifted from the
+  business-info route.
+- **Schedule → Map** (`?view=map`, a Calendar | Map tab pair):
+  `app/components/schedule/DayMapView.js` + `ScheduleMap.js`. Per person 1,
+  2, 3 in time order (never one sequence across the company); colour hashed
+  from the member id, resolved distinct across the day's set, every fill
+  measured ≥ 4.5:1 against its ink (`lib/schedule/mapStops.js`); unassigned
+  grey "?"; coincident stops fanned ~20 m apart for display only; popover
+  with time, person, what (job title / "Site visit · Q-1042" / the about
+  line), client, address, Open; date picker, person filter, legend; the list
+  beside the map in the same order with "No location on the map" on rows
+  that have none; on a phone the list is primary and the map is behind a
+  button and not mounted until shown. Cancelled rows are counted, not drawn.
+- **Who sees what** — the feed's rules, executed as owner / estimator / crew
+  in `check:schedule-map`: owner everyone; estimator own rows + unassigned
+  appointments + unassigned visits on any job (they keep the job board);
+  crew own rows + unassigned visits on their own jobs, client redacted to
+  name and address, and the crew load never geocodes a stranger's row.
+- **Settings → Work areas**: the same map coloured by the assignee's work
+  area, with `WorkArea.polygon Json?` (additive) drawn per area; drawing
+  behind `workarea:assign` (`PUT /api/work-areas/[id]/polygon`, sanitised by
+  `lib/workAreas/polygon.js`), read-only words for everyone else. Google
+  removed DrawingManager at Maps JS 3.65, so drawing is click-to-place
+  corners on an editable polygon, closed on the first corner or the Finish
+  button. **Nothing else reads the polygon** — the schema comment and the
+  page say so.
+- **Cost**: the Maps SDK and the map chunk load only through
+  `next/dynamic` on the map view (and on a phone only once "Show map" is
+  pressed); markers, polygons and the one InfoWindow are diffed, never
+  rebuilt per tick. One dynamic-map load per map view opened.
+- Checks: `check:schedule-map` (158, executes both routes against a
+  scripted database, palette measured, mutation-tested); `check:schedule-
+  union`, `check:team-calendar`, `check:site-visit`, `check:rbac-redaction`
+  followed the queries into the feed. Screenshots:
+  `docs/screens/schedule-map/`.
+
+### Still owed here
+
+- Google's 30-day cache rule: `geocodedAt` is stamped on appointments as on
+  jobs, and the sweep is still the cron nobody has scheduled.
+- The polygon is a picture. Dispatch-by-zone, "outside every zone" flags and
+  drive-time pricing from it are product decisions not taken here.
+- A thirteenth person on one day shares a colour (twelve-slot palette; the
+  check says so).
 
 ---
 
