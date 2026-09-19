@@ -1,0 +1,184 @@
+// scripts/check-stairs-from-steps.mjs
+//
+// A staircase from two answers: how many steps, and what shape.
+//
+//   node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-stairs-from-steps.mjs
+//
+// The owner's rule, verbatim: "Each step tends to have 2 balusters. And most
+// stairs are either in L shape or U shape, with 4 to 5 posts." One pure
+// function (lib/estimate/stairsFromSteps.js) turns that into treads, risers,
+// balusters, posts and handrail feet, and three surfaces read it:
+//
+//   • the instant estimate, which used to price treads and a typed railing
+//     and nothing else — a stair refinish quoted at two-thirds of itself;
+//   • the instant-quote draft's takeoff, which the estimator opens with the
+//     derived counts switched on and a note saying where they came from;
+//   • the builder's staircase form, whose "Fill from step count" writes the
+//     same counts into the same editable boxes.
+//
+// The rule is executed at 1, 14 and 30 steps in every shape, against garbage,
+// and through the instant estimate and the costing; the builder half is JSX
+// and is asserted as text.
+import { readFileSync } from "node:fs";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+
+import {
+  stairsFromSteps,
+  stairShape,
+  stairsDerivationNote,
+  STAIR_SHAPES,
+  DEFAULT_STAIR_SHAPE,
+} from "@/lib/estimate/stairsFromSteps";
+import { computeInstantEstimate, INSTANT_ESTIMATE_DEFAULTS } from "@/lib/estimate/instantEstimate";
+import { costingInputsForInstantTrade } from "@/lib/estimate/instantQuoteCosting";
+import { buildTradeLineItems } from "@/lib/pricing/tradeScope";
+import { measurementRows } from "@/lib/estimate/report/model";
+import { choiceFieldsFor, bandIntake } from "@/app/data/funnelBlocks";
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
+const read = (rel) => readFileSync(join(ROOT, rel), "utf8");
+
+let pass = 0;
+let fail = 0;
+const ok = (name, cond, got) => {
+  if (cond) {
+    pass++;
+    console.log(`  ✓ ${name}`);
+  } else {
+    fail++;
+    console.log(`  ✗ ${name}${got !== undefined ? `  got: ${JSON.stringify(got)}` : ""}`);
+  }
+};
+const section = (t) => console.log(`\n${t}`);
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("1. The rule at 1, 14 and 30 steps × three shapes");
+
+const EXPECT_POSTS = { straight: 2, L: 4, U: 5 };
+const EXPECT_TURNS = { straight: 0, L: 1, U: 2 };
+for (const steps of [1, 14, 30]) {
+  for (const shape of STAIR_SHAPES) {
+    const d = stairsFromSteps({ steps, shape });
+    const rail = Math.round((steps * 11) / 12 + EXPECT_TURNS[shape] * 3);
+    ok(
+      `${steps} steps, ${shape}: ${steps} treads, ${steps} risers, ${2 * steps} balusters, ${EXPECT_POSTS[shape]} posts, ${rail} ft rail`,
+      d &&
+        d.treads === steps &&
+        d.risers === steps &&
+        d.balusters === 2 * steps &&
+        d.posts === EXPECT_POSTS[shape] &&
+        d.handrailFt === rail &&
+        d.shape === shape &&
+        d.railingGiven === false,
+      d,
+    );
+  }
+}
+ok("the default shape is L", DEFAULT_STAIR_SHAPE === "L" && stairsFromSteps({ steps: 14 }).shape === "L");
+ok("a typed railing wins over the estimate", stairsFromSteps({ steps: 14, railingFt: 22 }).handrailFt === 22 && stairsFromSteps({ steps: 14, railingFt: 22 }).railingGiven === true);
+ok("a fractional step count floors", stairsFromSteps({ steps: 14.7 }).treads === 14);
+ok("a string step count parses", stairsFromSteps({ steps: "14" }).treads === 14);
+ok("the note names the steps and the shape", stairsDerivationNote(stairsFromSteps({ steps: 14 })) === "estimated from 14 steps, L-shape");
+ok("...and says 'straight' for a straight run", stairsDerivationNote(stairsFromSteps({ steps: 14, shape: "straight" })) === "estimated from 14 steps, straight");
+
+section("2. Garbage in → nothing");
+for (const bad of [null, undefined, "14", 14, [], {}, { steps: 0 }, { steps: -3 }, { steps: "x" }, { steps: NaN }, { steps: Infinity }, { steps: 201 }, { steps: 1e400 }]) {
+  ok(`${JSON.stringify(bad)} → null`, stairsFromSteps(bad) === null);
+}
+ok("an unknown shape falls to the default, not to a crash", stairsFromSteps({ steps: 5, shape: "spiral" }).shape === "L");
+ok("shape spellings: 'l', 'u-shape', '─' and 'I' resolve", stairShape("l") === "L" && stairShape("u-shape") === "U" && stairShape("─") === "straight" && stairShape("I") === "straight");
+ok("a non-string shape is the default", stairShape(7) === "L" && stairShape(null) === "L" && stairShape({}) === "L");
+ok("a negative railing is ignored, not believed", stairsFromSteps({ steps: 14, railingFt: -5 }).railingGiven === false);
+ok("a railing of '1e400' is ignored", stairsFromSteps({ steps: 14, railingFt: "1e400" }).railingGiven === false);
+ok("the result is a fresh object each call", stairsFromSteps({ steps: 3 }) !== stairsFromSteps({ steps: 3 }));
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("3. The instant estimate for a 14-step L stair carries the four derived lines");
+
+const cfg = { ...INSTANT_ESTIMATE_DEFAULTS.stair, enabled: true };
+const est = computeInstantEstimate({ trade: "stair", measurements: { treads: 14, shape: "L" }, materialKey: "standard", config: cfg });
+ok("it prices", est.ok, est);
+const labels = (est.breakdown || []).map((b) => b.label);
+ok("treads line", labels.some((l) => /^14 treads/.test(l)), labels);
+ok("risers line: 14", labels.includes("14 risers"), labels);
+ok("balusters line: 28", labels.includes("28 balusters"), labels);
+ok("posts line: 4", labels.includes("4 newel posts"), labels);
+ok("handrail line: round(14 × 11 / 12 + 3) = 16 ft", labels.includes("Handrail (16 ft)"), labels);
+ok("the range is still a range", est.low < est.high && est.low <= est.point && est.point <= est.high, est);
+const lines = (est.breakdown || []).map((b) => b.amount);
+ok("the lines add up to the point (before the $10 rounding)", Math.abs(lines.reduce((a, b) => a + b, 0) - est.point) <= 10, { lines, point: est.point });
+ok("the assumption states the derivation", /28 balusters, 4 newel posts and ~16 ft of handrail — estimated from 14 steps, L-shape/.test(est.assumptions?.[0] || ""), est.assumptions);
+ok("the derived counts ride along for the draft", est.derived?.balusters === 28 && est.derived?.posts === 4 && est.derived?.shape === "L");
+const u = computeInstantEstimate({ trade: "stair", measurements: { treads: 14, shape: "U" }, materialKey: "standard", config: cfg });
+ok("a U stair prices one more post and three more feet of rail", u.point > est.point && u.breakdown.some((b) => b.label === "5 newel posts"));
+const typedRail = computeInstantEstimate({ trade: "stair", measurements: { treads: 14, shape: "L", railingFt: 30 }, materialKey: "standard", config: cfg });
+ok("a typed railing replaces the estimated feet and is not called estimated", typedRail.breakdown.some((b) => b.label === "Handrail (30 ft)") && !/ft of handrail/.test(typedRail.assumptions[0]));
+ok("a zeroed post rate drops the posts line rather than billing $0", !computeInstantEstimate({ trade: "stair", measurements: { treads: 14 }, materialKey: "standard", config: { ...cfg, postPrice: 0 } }).breakdown.some((b) => /posts/.test(b.label)));
+ok("no shape at all is L", computeInstantEstimate({ trade: "stair", measurements: { treads: 14 }, materialKey: "standard", config: cfg }).point === est.point);
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("4. The draft's takeoff carries the counts, switched on, with the note");
+
+const costing = costingInputsForInstantTrade("stair", null, { treads: 14, shape: "L" }, { categoryKey: "stairs" });
+const sec = costing.takeoff?.sections?.[0];
+ok("one staircase section", Boolean(sec), costing);
+ok("treads 14, risers 14, balusters 28, posts 4, handrail 16", sec?.treads === 14 && sec?.risers === 14 && sec?.balusters === 28 && sec?.posts === 4 && sec?.handrailFt === 16, sec);
+ok("risers, balusters and posts are switched ON so they price", sec?.paintRisers === true && sec?.paintBalusters === true && sec?.paintPosts === true);
+ok("the note says 'estimated from 14 steps, L-shape' and to adjust after the photos", /estimated from 14 steps, L-shape — adjust after the photos/.test(sec?.notes || ""), sec?.notes);
+ok("the shape is kept on the intake values", costing.intakeValues?.shape === "L");
+const built = buildTradeLineItems("stairs", costing.takeoff, null);
+ok("the book builds five lines from it (treads, risers, balusters, posts, handrail)", built.length === 5, built.map((l) => l.description || l.label || l.name));
+const typed = costingInputsForInstantTrade("stair", null, { treads: 14, shape: "L", railingFt: 20 }, { categoryKey: "stairs" });
+ok("a typed railing is carried as typed and the note does not call it estimated", typed.takeoff.sections[0].handrailFt === 20 && !/and handrail/.test(typed.takeoff.sections[0].notes));
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("5. The report shows the assumed counts");
+
+const rows = measurementRows("stair", { treads: 14, shape: "L" }, "en");
+const byLabel = Object.fromEntries(rows.map((r) => [r.label, r.value]));
+ok("treads", byLabel.Treads === "14", rows);
+ok("shape", byLabel.Shape === "L-shape", rows);
+ok("balusters, marked as assumed", byLabel.Balusters === "28 — assumed from 14 steps, L-shape", rows);
+ok("posts, marked as assumed", byLabel["Newel posts"] === "4 — assumed from 14 steps, L-shape", rows);
+ok("handrail, marked as assumed", byLabel.Handrail === "16 ft — assumed from 14 steps, L-shape", rows);
+const rowsTyped = measurementRows("stair", { treads: 14, shape: "L", railingFt: 20 }, "en");
+ok("a typed handrail is not marked as assumed", rowsTyped.find((r) => r.label === "Handrail")?.value === "20 ft");
+ok("French and Spanish rows exist and are not English", measurementRows("stair", { treads: 14 }, "fr").some((r) => r.label === "Barreaux") && measurementRows("stair", { treads: 14 }, "es").some((r) => r.label === "Balaustres"));
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("6. The intake: funnel step and public form");
+
+const choice = choiceFieldsFor("stair").find((c) => c.key === "shape");
+ok("the funnel step offers the shape as a choice", Boolean(choice) && choice.options.join(",") === "straight,L,U", choice);
+ok("the band's intake carries the step's shape", bandIntake({ assumptions: { shape: "U" } }, { values: { treads: 14 } }).shape === "U");
+const FLOW = read("app/instant-quote/[companySlug]/InstantQuoteFlow.js");
+ok("the public form asks the shape, L preselected", /key: "shape",[\s\S]*?defaultValue: "L"/.test(FLOW));
+ok("...as a select with the three shapes", /\[\["straight", "stairStraight"\], \["L", "stairL"\], \["U", "stairU"\]\]/.test(FLOW));
+const COPY = read("lib/i18n/instantQuoteCopy.js");
+ok("the shape words exist in en, fr and es", (COPY.match(/stairStraight:/g) || []).length === 3 && (COPY.match(/stairShape:/g) || []).length === 3);
+const SERVER = read("lib/estimate/instantQuoteServer.js");
+ok("the server reads the shape through stairShape()", /shape: stairShape\(input\?\.intake\?\.shape\)/.test(SERVER));
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("7. The builder's staircase form fills from the step count and leaves every field editable");
+
+const TAKEOFF = read("app/components/quotes/builder/TradeTakeoff.js");
+ok("a FillFromSteps control exists", /function FillFromSteps\(/.test(TAKEOFF));
+ok("...rendered inside the staircase section", /<FillFromSteps/.test(TAKEOFF));
+ok("...that calls the one rule, not a copy of it", /stairsFromSteps\(\{ steps, shape \}\)/.test(TAKEOFF) && !/balusters: 2 \* /.test(TAKEOFF));
+ok("...offers the three shapes as ─ / L / U", /STAIR_SHAPE_GLYPHS = \{ straight: "─", L: "L", U: "U" \}/.test(TAKEOFF));
+ok("...defaults to L", /useState\(DEFAULT_STAIR_SHAPE\)/.test(TAKEOFF));
+ok("the fill writes every count and switches the opt-in parts on",
+  /treads: d\.treads,\s*risers: d\.risers,\s*balusters: d\.balusters,\s*posts: d\.posts,\s*handrailFt: d\.handrailFt,\s*paintRisers: true,\s*paintBalusters: true,\s*paintPosts: true/.test(TAKEOFF));
+// The fields stay the same editable boxes: the fill goes through set(), which
+// merges into the section the STAIR_ELEMENTS inputs read and write.
+ok("the fill goes through the same set() the inputs use", /onFill=\{\(d\) =>\s*set\(\{/.test(TAKEOFF));
+ok("no field is disabled or read-only after a fill", !/readOnly|disabled=\{filled/.test(TAKEOFF.slice(TAKEOFF.indexOf("function StairSection"), TAKEOFF.indexOf("function StairsTakeoff"))));
+const MSGS = readFileSync(join(ROOT, "app/i18n/appMessages.js"), "utf8");
+for (const key of ["stairsFillTitle", "stairsSteps", "stairsShape", "stairsFill", "stairsFillPreview", "stairsShape_straight", "stairsShape_L", "stairsShape_U"]) {
+  ok(`app.takeoff.${key} is in nine languages`, (MSGS.match(new RegExp(`"app\\.takeoff\\.${key}":`, "g")) || []).length === 9);
+}
+
+console.log(`\n${fail === 0 ? "ALL PASS" : "FAILURES"} — ${pass} passed, ${fail} failed\n`);
+process.exit(fail ? 1 : 0);

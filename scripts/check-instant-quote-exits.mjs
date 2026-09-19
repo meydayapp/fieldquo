@@ -482,11 +482,29 @@ ok("no internal:true field reaches the settings screen for any trade", true);
 // — so it is the third trade allowed a block, and every box in it is proved
 // live below rather than assumed.
 for (const trade of Object.keys(INSTANT_ESTIMATE_TRADES)) {
-  if (trade.startsWith("cabinet_") || trade === "gutters") continue;
+  if (trade.startsWith("cabinet_") || trade === "gutters" || trade === "stair") continue;
   const got = paths(instantRateFields(trade, INSTANT_ESTIMATE_DEFAULTS[trade]));
   if (got.length) { fail++; console.log(`  ✗ ${trade} grew unit-rate boxes it doesn't price off: ${got}`); }
 }
 ok("no other trade grew a unit-rate block", true);
+
+// Stairs: the tread rate is a material row and the railing has its own box;
+// the riser, baluster and post rates are the fourth block, pricing the counts
+// the step count and shape derive (lib/estimate/stairsFromSteps.js). Each
+// is proved live the way the gutter boxes are: doubling it moves the range.
+{
+  const seed = INSTANT_ESTIMATE_DEFAULTS.stair;
+  const fields = instantRateFields("stair", seed);
+  ok("stair offers exactly the three derived-count rates", paths(fields).join(",") === "riserPrice,balusterPrice,postPrice", paths(fields));
+  const probe = { treads: 14, shape: "L" };
+  for (const field of fields) {
+    const base = priceOptionsFor({ trade: "stair", config: seed, measurement: probe }).options[0];
+    const doubled = rateFieldPatch(seed, field.path, readRate(seed, field.path) * 2);
+    const after = priceOptionsFor({ trade: "stair", config: { ...seed, ...doubled }, measurement: probe });
+    const moved = after.ok && (after.options[0].low !== base.low || after.options[0].high !== base.high);
+    ok(`stair: "${field.label}" is live (doubling it moves the range)`, moved, { moved });
+  }
+}
 
 // Every gutter rate box moves the number, or refuses to price when blanked —
 // a box that does neither is the dead control this codebase is swept for.

@@ -21,6 +21,7 @@ import {
   INSTANT_ESTIMATE_TRADES,
   INSTANT_ESTIMATE_DEFAULTS,
 } from "@/lib/estimate/instantEstimate";
+import { STAIR_SHAPES } from "@/lib/estimate/stairsFromSteps";
 
 export const FUNNEL_STEP_KINDS = [
   "intro",
@@ -90,9 +91,12 @@ const BAND_FIELDS = {
     { key: "drawerCount", label: "Drawer fronts", primary: true },
     { key: "boxLinearFt", label: "Box veneer (linear ft)" },
   ],
+  // The shape (straight / L / U) is a step-level choice, not a band number —
+  // see TRADE_CHOICES.stair. Balusters, posts and the handrail are derived
+  // from the two together, so the band needs no box for them.
   stair_count: [
     { key: "treads", label: "Steps", primary: true },
-    { key: "railingFt", label: "Railing (linear ft)" },
+    { key: "railingFt", label: "Railing (linear ft) — leave blank to estimate from the steps" },
   ],
 };
 
@@ -149,6 +153,12 @@ const TRADE_CHOICES = {
   flooring: { surfaceCondition: "prepSurcharge" },
   painting: { scope: "scopeSurcharge", surfaceCondition: "conditionSurcharge" },
   parging: { access: "accessSurcharge", condition: "conditionSurcharge" },
+  // Not a surcharge: the shape — straight / L / U — is what the balusters,
+  // posts and handrail are derived from (lib/estimate/stairsFromSteps.js),
+  // and its vocabulary is that rule's, not a rate map's. An array here is the
+  // options list itself; the default when the owner states nothing is L, the
+  // rule's own default, so the band "14 steps" prices as an L stair.
+  stair: { shape: STAIR_SHAPES },
 };
 
 const CHOICE_LABELS = {
@@ -156,6 +166,7 @@ const CHOICE_LABELS = {
   surfaceCondition: "Surface condition",
   access: "Access",
   condition: "Condition",
+  shape: "Stair shape (straight / L / U — L if unset)",
 };
 
 /**
@@ -171,7 +182,9 @@ export function choiceFieldsFor(trade) {
     .map(([key, sourceKey]) => ({
       key,
       label: CHOICE_LABELS[key] || key,
-      options: Object.keys(INSTANT_ESTIMATE_DEFAULTS[trade]?.[sourceKey] || {}),
+      options: Array.isArray(sourceKey)
+        ? [...sourceKey]
+        : Object.keys(INSTANT_ESTIMATE_DEFAULTS[trade]?.[sourceKey] || {}),
     }))
     .filter((f) => f.options.length > 0);
 }

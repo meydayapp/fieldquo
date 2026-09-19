@@ -39,6 +39,7 @@ import PaverDesigner from "./PaverDesigner";
 import PaintAreas from "./PaintAreas";
 import LabourPanel from "./LabourPanel";
 import { hasTakeoff } from "@/lib/pricing/takeoffTrades";
+import { stairsFromSteps, STAIR_SHAPES, DEFAULT_STAIR_SHAPE } from "@/lib/estimate/stairsFromSteps";
 import { pitchBand, roofLabour, roofCrewDays } from "@/lib/pricing/roofLabour";
 import { takeoffPatch, summarise, ventilation } from "@/lib/measure/roofGeometry";
 import { gutterTakeoffPatch, summariseGutters } from "@/lib/measure/gutterMeasurement";
@@ -161,8 +162,91 @@ const STAIR_ELEMENTS = [
   },
 ];
 
+/* ── Fill from step count ──────────────────────────────────────────────── */
+//
+// The owner's rule, applied on the builder: "Each step tends to have 2
+// balusters. And most stairs are either in L shape or U shape, with 4 to 5
+// posts." An estimator on the phone knows the step count and whether the
+// stair turns long before anyone has counted spindles, so those two answers
+// fill every line — treads, risers, balusters, posts, handrail — and switch
+// the opt-in parts on, because a fill that counted balusters and then billed
+// none of them would be a number typed for nothing. Every field it writes
+// stays the same editable box it was; the rule is a starting point, and the
+// derivation lives in ONE place (lib/estimate/stairsFromSteps.js) so this
+// form and the instant estimate cannot disagree about what 14 steps means.
+const STAIR_SHAPE_GLYPHS = { straight: "─", L: "L", U: "U" };
+
+function FillFromSteps({ onFill, t }) {
+  const [steps, setSteps] = useState("");
+  const [shape, setShape] = useState(DEFAULT_STAIR_SHAPE);
+  const derived = stairsFromSteps({ steps, shape });
+  return (
+    <div className="rounded-md border border-dashed border-border bg-muted/30 p-2 space-y-2">
+      <div className="text-xs font-medium text-muted-foreground">
+        {t("app.takeoff.stairsFillTitle", "Fill from step count")}
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <label className="flex items-center gap-1.5 text-sm">
+          <span className="text-muted-foreground">{t("app.takeoff.stairsSteps", "Steps")}</span>
+          <input
+            type="number"
+            min={1}
+            max={200}
+            inputMode="numeric"
+            value={steps}
+            onChange={(e) => setSteps(e.target.value)}
+            className="w-20 border border-border rounded px-2 py-1.5 text-sm"
+            data-testid="stairs-fill-steps"
+          />
+        </label>
+        <div
+          role="radiogroup"
+          aria-label={t("app.takeoff.stairsShape", "Shape")}
+          className="inline-flex rounded-md border border-border overflow-hidden"
+        >
+          {STAIR_SHAPES.map((key) => (
+            <button
+              key={key}
+              type="button"
+              role="radio"
+              aria-checked={shape === key}
+              title={t(`app.takeoff.stairsShape_${key}`, key)}
+              onClick={() => setShape(key)}
+              className={`min-w-[44px] min-h-[36px] px-3 text-sm font-semibold ${
+                shape === key ? "bg-inverted text-inverted-foreground" : "bg-background text-muted-foreground"
+              }`}
+            >
+              {STAIR_SHAPE_GLYPHS[key]}
+            </button>
+          ))}
+        </div>
+        <button
+          type="button"
+          disabled={!derived}
+          onClick={() => derived && onFill(derived)}
+          className="min-h-[36px] px-3 rounded-md bg-inverted text-inverted-foreground text-sm font-semibold disabled:opacity-50"
+          data-testid="stairs-fill-apply"
+        >
+          {t("app.takeoff.stairsFill", "Fill")}
+        </button>
+      </div>
+      {derived && (
+        <p className="text-xs text-muted-foreground">
+          {t("app.takeoff.stairsFillPreview", {
+            treads: derived.treads,
+            balusters: derived.balusters,
+            posts: derived.posts,
+            handrailFt: derived.handrailFt,
+          })}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function StairSection({ section, index, book, canRemove, onChange, onRemove }) {
   const money = useCompanyMoney();
+  const { t } = useTranslation();
   const level = section.complexityLevel || "standard";
   const rates = book?.complexity?.[level] || {};
   const set = (patch) => onChange({ ...section, ...patch });
@@ -192,6 +276,22 @@ function StairSection({ section, index, book, canRemove, onChange, onRemove }) {
         value={level}
         book={book}
         onChange={(v) => set({ complexityLevel: v })}
+      />
+
+      <FillFromSteps
+        t={t}
+        onFill={(d) =>
+          set({
+            treads: d.treads,
+            risers: d.risers,
+            balusters: d.balusters,
+            posts: d.posts,
+            handrailFt: d.handrailFt,
+            paintRisers: true,
+            paintBalusters: true,
+            paintPosts: true,
+          })
+        }
       />
 
       <div className="space-y-1.5">

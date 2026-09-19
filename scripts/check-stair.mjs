@@ -15,19 +15,29 @@ console.log("\nRegistry + rate key");
 ok("stair registered, stair_count measure, hasMaterials", INSTANT_ESTIMATE_TRADES.stair?.measure === "stair_count" && INSTANT_ESTIMATE_TRADES.stair.hasMaterials);
 ok("defaults price per tread, not per sqft", INSTANT_ESTIMATE_DEFAULTS.stair.materials.every((m) => m.ratePerTread > 0 && m.ratePerSqft === undefined));
 
-console.log("\nPer-tread pricing");
+console.log("\nPer-tread pricing, plus the rest of the staircase from the step count");
+// Treads are one line of five now: the risers, balusters, posts and handrail
+// come from the step count and shape (lib/estimate/stairsFromSteps.js — the
+// owner's "2 balusters a step, 4 to 5 posts") at the seed's own rates. 13
+// steps, L by default: 13 treads × $110 + 13 risers × $25 + 26 balusters × $25
+// + 4 posts × $150 + round(13 × 11 / 12 + 3) = 15 ft × $60.
 const s = stair({ treads: 13 });
 ok("13 treads standard ok, range ordered", s.ok && s.low <= s.point && s.point <= s.high, s);
-ok("13 × $110 = $1430", s.point === 1430, s.point);
+ok("13 steps, L: 1430 + 325 + 650 + 600 + 900 = $3905, rounded to the $10 the range speaks in", s.point === 3910, s.point);
+ok("treads line is 13 × $110 = $1430", s.breakdown[0].amount === 1430, s.breakdown[0]);
+ok("five lines: treads, risers, balusters, posts, handrail", s.breakdown.length === 5, s.breakdown.map((b) => b.label));
+ok("the handrail is estimated from the run when none was typed", /Handrail \(15 ft\)/.test(s.breakdown[4].label), s.breakdown[4]);
 ok("complexity tier changes price (open-riser > standard)", stair({ treads: 13 }, "high").point > s.point);
 ok("more treads cost more", stair({ treads: 20 }).point > stair({ treads: 10 }).point);
+ok("a straight stair has 2 posts, a U has 5", stair({ treads: 13, shape: "U" }).point - stair({ treads: 13, shape: "straight" }).point === 3 * 150 + (Math.round(13 * 11 / 12 + 6) - Math.round(13 * 11 / 12)) * 60);
+ok("the assumption says where the counts came from", /estimated from 13 steps, L-shape/.test(s.assumptions[0]), s.assumptions);
 
-console.log("\nRailing extra");
-const noRail = stair({ treads: 13 }).point;
-const withRail = stair({ treads: 13, railingFt: 12 }).point;
-ok("railing 12ft × $60 = $720 on top", withRail - noRail === 720, { diff: withRail - noRail });
-ok("railing is its own breakdown line", stair({ treads: 13, railingFt: 12 }).breakdown.some((b) => /railing/i.test(b.label)));
-ok("no railing -> single line", stair({ treads: 13 }).breakdown.length === 1);
+console.log("\nRailing typed by the homeowner");
+const derivedRail = stair({ treads: 13 }).breakdown[4].amount;
+const withRail = stair({ treads: 13, railingFt: 12 });
+ok("a typed 12 ft replaces the estimated run: 12 × $60 = $720", withRail.breakdown[4].amount === 720 && derivedRail === 900, { derivedRail, typed: withRail.breakdown[4] });
+ok("railing is its own breakdown line", withRail.breakdown.some((b) => /handrail/i.test(b.label)));
+ok("a zeroed baluster rate drops the line rather than charging $0", stair({ treads: 13 }, "standard", { ...cfg, balusterPrice: 0 }).breakdown.length === 4);
 
 console.log("\nGates & hostile input");
 ok("no config -> needsConfig", stair({ treads: 13 }, "standard", null).needsConfig === true);

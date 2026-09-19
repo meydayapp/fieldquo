@@ -165,6 +165,17 @@ const INTAKE_INPUTS = {
   ],
   stair: [
     { key: "treads", label: "treads", type: "number", required: true, eg: "13" },
+    // Straight / L / U, L preselected: with the step count it derives the
+    // balusters, posts and handrail the range prices
+    // (lib/estimate/stairsFromSteps.js). A homeowner is not asked to count
+    // spindles; they are asked whether the stair turns.
+    {
+      key: "shape",
+      label: "stairShape",
+      type: "select",
+      options: [["straight", "stairStraight"], ["L", "stairL"], ["U", "stairU"]],
+      defaultValue: "L",
+    },
     { key: "railingFt", label: "railingFt", type: "number" },
   ],
 };
@@ -1033,11 +1044,11 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
                             <span className="text-sm text-muted-foreground">{f.labelText}{f.required ? " *" : ""}</span>
                             {f.type === "select" ? (
                               <select
-                                value={intake[f.key] ?? ""}
+                                value={intake[f.key] ?? f.defaultValue ?? ""}
                                 onChange={(e) => setIntake({ ...intake, [f.key]: e.target.value })}
                                 className="rounded-lg border border-border bg-background px-2 py-2 text-sm"
                               >
-                                <option value="">{t.select}</option>
+                                {!f.defaultValue && <option value="">{t.select}</option>}
                                 {f.optionsText.map(([v, l]) => (
                                   <option key={v} value={v}>{l}</option>
                                 ))}
