@@ -22,6 +22,11 @@ import { SCENES } from "./fixtures/index.js";
 
 const params = new URLSearchParams(window.location.search);
 const path = params.get("path") || "/platform";
+// ?theme=dark paints the console in its dark theme (globals.css keys every
+// dark token on the .dark class, the same one the app's ThemeProvider sets),
+// so a frame can be shot in both — the rail's group headings are measured
+// in both themes by check-platform-console.mjs and are shown in both here.
+if (params.get("theme") === "dark") document.documentElement.classList.add("dark");
 const entry = PAGES[path];
 if (!entry) {
   document.documentElement.setAttribute("data-scene-error", `harness: no page for ${path}`);
@@ -67,7 +72,20 @@ const settled = async () => {
     await until('[data-platform-drawer]');
     await wait(300);
   }
-  if (scene && scene !== "drawer") {
+  if (scene === "fold" || scene === "drawer-fold") {
+    // The rail's group headings, folded: Spending and Lead data closed, the
+    // rest open — so a frame shows a folded heading beside open ones. In the
+    // drawer the same headings are pressed after it opens.
+    if (scene === "drawer-fold") {
+      (await until('[data-tour-open="platform-nav"]')).click();
+      await until("[data-platform-drawer]");
+      await wait(300);
+    }
+    const scope = scene === "drawer-fold" ? "[data-platform-drawer] " : "[data-platform-rail] ";
+    for (const key of ["spending", "leadData"]) (await until(`${scope}[data-platform-group="${key}"]`)).click();
+    await wait(300);
+  }
+  if (scene && scene !== "drawer" && scene !== "fold" && scene !== "drawer-fold") {
     const fn = SCENES[path]?.[scene];
     if (!fn) throw new Error(`scene: ${path} has no scene "${scene}"`);
     await fn({ until, wait, settled });

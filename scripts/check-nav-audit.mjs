@@ -90,10 +90,20 @@ function leafItems(block) {
   return out;
 }
 
-/** Every `{ key|label: "...", ..., items: [ ... ] }` group, with its items. */
+/**
+ * Every `{ key|label: "...", ..., items: [ ... ] }` group, with its items.
+ *
+ * Between the name and `items` a group may carry `pinned: true` (the /app
+ * rail) or, since 2026-09-19, a `description: "..."` (the platform console's
+ * one-line "Money coming in" hover text). Either is skipped; a group written
+ * with anything else between the two is NOT matched — its rows then drop out
+ * of the linked set and section 6 names every one of its routes as
+ * unreachable, rather than passing unseen. check-platform-console.mjs pins
+ * the platform group list by name as well.
+ */
 function groups(block, prop = "key") {
   const headers = [
-    ...block.matchAll(new RegExp(`${prop}:\\s*"([^"]+)"\\s*,\\s*(?:pinned:\\s*true\\s*,\\s*)?items:\\s*\\[`, "g")),
+    ...block.matchAll(new RegExp(`${prop}:\\s*"([^"]+)"\\s*,\\s*(?:(?:pinned:\\s*true|description:\\s*"[^"]*")\\s*,\\s*)*items:\\s*\\[`, "g")),
   ];
   const out = [];
   for (let n = 0; n < headers.length; n++) {
