@@ -4114,6 +4114,17 @@ model Appointment {
   /// travel check.
   latitude  Decimal? @db.Decimal(9, 6)
   longitude Decimal? @db.Decimal(9, 6)
+  /// When the pair above was resolved, and by which door. The booking flow
+  /// has always written latitude/longitude from the client's own address
+  /// pick; an appointment the OFFICE typed on the calendar got nothing, so
+  /// the day map showed client bookings and hid the office's own. Now the
+  /// same wrapper that geocodes a job (lib/geo/geocodeAppointment.js) runs
+  /// on create and on a `location` change, with the same refusals — a
+  /// town-centroid result writes nulls, never a guess. Null on every row the
+  /// booking flow placed before this column existed; the map's lazy backfill
+  /// fills those on first sight of the day. Same 30-day retention hook as
+  /// Job.geocodedAt.
+  geocodedAt DateTime?
 
   @@index([jobId])
   @@index([invoiceId])
@@ -4432,6 +4443,14 @@ model WorkArea {
   name        String
   description String?
   createdAt   DateTime @default(now())
+  /// The zone drawn on the map, as `[{ lat, lng }, ...]` — at least three
+  /// vertices, normalised by lib/workAreas/polygon.js. Optional: a work
+  /// area with no polygon is still a work area (a list of people), it is
+  /// simply not drawn — never a guessed circle around anything. Written by
+  /// PUT /api/work-areas/[id]/polygon behind `workarea:assign`. Read ONLY by
+  /// the Settings → Work areas map today: nothing dispatches, filters or
+  /// prices from it yet, and the page says so.
+  polygon     Json?
 
   assignments WorkAreaAssignment[]
   tasks       Task[]
