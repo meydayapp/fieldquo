@@ -1738,21 +1738,26 @@ export function QuoteBuilderForm({
     (l) => l.code === (quoteLanguage || companyLanguage),
   );
 
+  // Keys, not translated strings: OnboardingTour resolves `titleKey`/`bodyKey`
+  // itself (app/components/tours.js is the pattern). Passing `title`/`body`
+  // here made the tour call t(undefined), which crashed the whole builder
+  // the moment the "?" was pressed — the render error reported from
+  // /app/quotes/new on 2026-09-19.
   const TOUR_STEPS = [
     {
       target: "[data-tour='client-picker']",
-      title: t("app.quoteNew.tourClientTitle"),
-      body: t("app.quoteNew.tourClientBody"),
+      titleKey: "app.quoteNew.tourClientTitle",
+      bodyKey: "app.quoteNew.tourClientBody",
     },
     {
       target: "[data-tour='service-picker']",
-      title: t("app.quoteNew.tourServiceTitle"),
-      body: t("app.quoteNew.tourServiceBody"),
+      titleKey: "app.quoteNew.tourServiceTitle",
+      bodyKey: "app.quoteNew.tourServiceBody",
     },
     {
       target: "[data-tour='totals']",
-      title: t("app.quoteNew.tourReviewTitle"),
-      body: t("app.quoteNew.tourReviewBody"),
+      titleKey: "app.quoteNew.tourReviewTitle",
+      bodyKey: "app.quoteNew.tourReviewBody",
     },
   ];
 

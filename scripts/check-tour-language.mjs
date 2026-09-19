@@ -166,6 +166,24 @@ for (const tour of TOURS) {
   }
 }
 ok("every tour step has Spanish copy", missing.length === 0, missing.slice(0, 5).join(", "));
+
+// The quote builder's own tour is not in TOURS — it is declared inline in
+// QuoteBuilder.js — and was the one tour still handing OnboardingTour
+// translated `title`/`body` strings after the tours moved to keys. That made
+// the tour call t(undefined) and crash /app/quotes/new the moment the "?"
+// was pressed (2026-09-19). Read the source: every step must carry
+// titleKey/bodyKey, never title/body, and each key must exist in the catalogue.
+{
+  const src = fs.readFileSync(
+    path.join(path.dirname(fileURLToPath(import.meta.url)), "../app/components/quotes/builder/QuoteBuilder.js"),
+    "utf8",
+  );
+  const block = src.slice(src.indexOf("const TOUR_STEPS = ["), src.indexOf("];", src.indexOf("const TOUR_STEPS = [")));
+  const keys = [...block.matchAll(/(titleKey|bodyKey):\s*"([^"]+)"/g)].map((m) => m[2]);
+  ok("quote builder tour passes keys, not translated strings", !/\b(title|body):\s*t\(/.test(block) && keys.length === 6, block.slice(0, 120));
+  const gone = keys.filter((k) => APP_MESSAGES.en?.[k] === undefined || APP_MESSAGES.es?.[k] === undefined);
+  ok("quote builder tour keys exist in en and es", gone.length === 0, gone.join(", "));
+}
 ok(
   "no tour step's Spanish IS its Ukrainian",
   identicalToUk.length === 0,

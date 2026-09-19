@@ -27,6 +27,9 @@ import { DEFAULT_LANGUAGE } from "@/app/i18n/languages";
 // sites.
 function resolve(dict, key) {
   if (!dict) return undefined;
+  // A missing key is a missing translation, never a crashed page: t(undefined)
+  // used to throw on `.split` and take the whole screen down with it.
+  if (typeof key !== "string" || !key) return undefined;
   if (dict[key] !== undefined) return dict[key]; // flat hit
   return key
     .split(".")
