@@ -72,6 +72,8 @@ model PlatformAdmin {
   pushSubscriptions PushSubscription[]
   /// Flagged signups this admin marked reviewed. See SignupOrigin.
   signupReviews     SignupOrigin[]
+  /// Bills this admin typed in on /platform/costs. See PlatformFixedBill.
+  fixedBillsEntered PlatformFixedBill[] @relation("fixedBillsEntered")
 
   /// When this admin last called the staff chat API. Stamped by
   /// lib/staff/viewer.js, throttled, so the team directory can show a presence
@@ -13645,9 +13647,23 @@ model PlatformCostDaily {
   /// The provider's own category key, verbatim: "calls-outbound",
   /// "calls-client", "recordings", "phonenumbers", "sms-outbound", … Never
   /// renamed on the way in, so a figure can be checked against the invoice.
+  ///
+  /// Since 2026-09-19 three more providers land here, each once a day
+  /// (lib/platform/costs/providerPulls.js):
+  ///   "openai"  the organisation Costs endpoint, billed dollars —
+  ///             category "<project_id>/<line_item>" and one "total" row a day
+  ///   "neon"    the consumption API, category "<project_id>/<metric>" —
+  ///             UNITS (CU-seconds, byte-hours) with cents only where Neon's
+  ///             published plan rate applies; otherwise cents is NULL
+  ///   "stripe"  balance transactions on FieldQuo's own account, category
+  ///             "<reporting_category>/<currency>" — cents is what Stripe kept
   category String
 
-  cents    Decimal  @db.Decimal(14, 4)
+  /// Null means "the units are known and the price is not" — a Neon metric
+  /// on a plan whose per-unit rate is not published. A row is never written
+  /// with 0 to stand in for a price nobody read; the page prints the units
+  /// and says to enter the invoice under Fixed bills.
+  cents    Decimal? @db.Decimal(14, 4)
   currency String   @default("USD")
   /// The usage the money bought — minutes, messages, numbers — with its unit
   /// as the provider names it. Null when the provider gave no usage figure.
@@ -13666,6 +13682,49 @@ model PlatformCostDaily {
 
   @@unique([day, provider, category])
   @@index([provider, day])
+}
+
+/// A bill FieldQuo paid that no API reports — typed in by a superadmin from
+/// the invoice. Vercel, Namecheap, Google Maps, Resend, Retell's monthly
+/// invoice, Neon's when the consumption API cannot price it.
+///
+/// ══ Never estimated, always attributed ═══════════════════════════════════
+///
+/// Every row says who typed it and when, and /platform/costs prints that
+/// beside the figure ("Vercel · September 2026 · $113.18 · entered by Emilio
+/// on 2026-09-19"). A month total that includes one of these says
+/// "includes hand-entered bills". A wrong row is EDITED or VOIDED (voidedAt),
+/// never deleted: the correction is part of the record.
+model PlatformFixedBill {
+  id String @id @default(cuid())
+
+  /// Lower-case provider key: "vercel", "neon", "resend", "google_maps",
+  /// "namecheap", "retell", "openai", "twilio", "stripe", "apify", "other".
+  /// Free text on purpose — a new supplier must not need a schema change.
+  provider String
+  /// The first day of the month the bill is for (UTC). One provider may have
+  /// several rows in a month (two Namecheap renewals); they are summed.
+  periodMonth DateTime @db.Date
+
+  amountCents Int
+  currency    String @default("USD")
+
+  /// The invoice number or the dashboard's own reference, so the figure can
+  /// be found again on the supplier's side.
+  invoiceRef String?
+  note       String?
+
+  enteredById String
+  enteredBy   PlatformAdmin @relation("fixedBillsEntered", fields: [enteredById], references: [id])
+  enteredAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  /// Set instead of deleting. A voided row is kept, printed struck through,
+  /// and excluded from every total.
+  voidedAt DateTime?
+
+  @@index([periodMonth])
+  @@index([provider, periodMonth])
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
