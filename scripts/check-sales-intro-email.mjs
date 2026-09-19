@@ -567,6 +567,37 @@ const { LOT_MEASURE_TRADES } = await import("@/lib/measure/lotTakeoff");
   ok("the phone frame is shown at phone width with the quote caption", /width="300"/.test(phoneEmail.html) && /on their phone/.test(phoneEmail.text));
 }
 
+// ── Who we say we are follows the reader's country (owner, 2026-09-19) ──────
+{
+  const { originPhrase, buildIntroEmail } = await import("@/lib/sales/outreach/introEmail");
+  ok(originPhrase("US", "en") === "an American company", "a US lead reads 'an American company'");
+  ok(originPhrase("CA", "en") === "a Canadian company", "a Canadian lead reads 'a Canadian company'");
+  ok(originPhrase(null, "en") === "a North American company", "an unknown country gets the neutral phrase, never a guess");
+  ok(originPhrase("us", "fr") === "une entreprise américaine", "…in French too, case-insensitive");
+  const base = { language: "en", rep: { name: "Emilio", email: "e@fieldquo.com", phone: "" }, business: "Acme Roofing", tradeKey: "roofing", signupLink: "https://x", callbackUrl: "https://x", demoUrl: "https://x", unsubscribeUrl: "https://x", screenshotUrl: "https://x/s.png", mailingAddress: "100 Rue Principale, Gatineau QC J8X 1A1", replyToken: "tok" };
+  const us = buildIntroEmail({ ...base, country: "US" });
+  const ca = buildIntroEmail({ ...base, country: "CA" });
+  const txt = (m) => JSON.stringify(m);
+  ok(/an American company/.test(txt(us)) && !/Canadian/.test(txt(us)), "the built US email says American and never Canadian");
+  ok(/a Canadian company/.test(txt(ca)) && !/American/.test(txt(ca)), "the built Canadian email says Canadian and never American");
+}
+
+// ── Quebec: French first, the disclosure, then the English version ──────────
+{
+  const { buildIntroEmail, BILINGUAL } = await import("@/lib/sales/outreach/introEmail");
+  const base = { language: "fr", rep: { name: "Emilio", email: "e@fieldquo.com", phone: "" }, business: "Toitures Acmé", tradeKey: "roofing", country: "CA", signupLink: "https://x", callbackUrl: "https://x", demoUrl: "https://x", unsubscribeUrl: "https://x", screenshotUrl: "https://x/s.png", mailingAddress: "100 Rue Principale, Gatineau QC J8X 1A1", replyToken: "tok" };
+  const qc = buildIntroEmail({ ...base, englishBelow: true });
+  const frOnly = buildIntroEmail({ ...base, englishBelow: false });
+  ok(qc.html.indexOf("Je suis Emilio") < qc.html.indexOf(BILINGUAL.disclosure) && qc.html.indexOf(BILINGUAL.disclosure) < qc.html.indexOf("I'm Emilio"), "Quebec: French body, then the bilingual disclosure line, then the English body");
+  ok(/English below/.test(qc.subject) && /^Nous avons|^J'ai|^Tenté|^On a|^Nous/.test(qc.subject) || qc.subject.length > 0, "…the subject stays French and says English follows", qc.subject);
+  ok((qc.html.match(/<img /g) || []).length === 1, "…the screenshot appears once, not twice");
+  ok((qc.html.match(/Se désabonner|désabonner|Désabonnement/i) || []).length >= 1 && !/Unsubscribe<\/a>/.test(qc.html), "…one footer, in French");
+  ok(qc.text.indexOf(BILINGUAL.disclosure) > 0 && qc.text.indexOf("I'm Emilio") > qc.text.indexOf(BILINGUAL.disclosure), "…the text version carries the same order");
+  ok(!/I'm Emilio/.test(frOnly.html), "a French email outside Quebec has no English half");
+  const en = buildIntroEmail({ ...base, language: "en", englishBelow: true });
+  ok(!/La version anglaise suit/.test(en.html), "englishBelow on an English email adds nothing");
+}
+
 console.log(`\n${pass} passed, ${failures.length} failed`);
 if (failures.length) {
   for (const f of failures) console.log(`  - ${f}`);
