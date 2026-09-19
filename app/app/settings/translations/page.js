@@ -200,6 +200,12 @@ export default function TranslationsPage() {
         <p className="text-sm text-muted-foreground mt-1">
           {t("app.translations.subtitle", "The wording clients see on quotes and invoices written in another language. Drafts are generated for you — but nothing here is used with confidence until you've read it.")}
         </p>
+        {/* The owner's rule for this page: presets are FieldQuo's to translate,
+            and they arrive translated. Only what the company added, or renamed
+            since, is theirs to do — so that is all the list holds. */}
+        <p className="text-sm text-foreground mt-2">
+          {t("app.translations.presetsNote", "Built-in services, products and add-ons are already translated; this page is for the ones you added or renamed.")}
+        </p>
       </div>
 
       <div className="flex items-center gap-3 flex-wrap">
@@ -315,7 +321,9 @@ export default function TranslationsPage() {
         <div className="animate-pulse h-72 bg-accent rounded-xl" />
       ) : rows.length === 0 ? (
         <div className="bg-card border border-border rounded-xl p-10 text-center text-sm text-muted-foreground">
-          {t("app.translations.emptyState", "No services yet. Add them under Settings → Products & Services and drafts will appear here.")}
+          {data?.presets > 0
+            ? t("app.translations.emptyStatePresets", "Nothing to translate: your {count} built-in items already carry this language, and you haven't added or renamed any.", { count: data.presets })
+            : t("app.translations.emptyState", "No services yet. Add them under Settings → Products & Services and drafts will appear here.")}
         </div>
       ) : (
         <div className="space-y-3">
@@ -349,6 +357,10 @@ export default function TranslationsPage() {
                   ) : item.missing ? (
                     <span className="inline-flex items-center gap-1.5 text-xs text-amber-700 dark:text-amber-300">
                       <AlertTriangle size={12} /> {t("app.translations.notTranslated", "Not translated")}
+                    </span>
+                  ) : item.renamed ? (
+                    <span className="inline-flex items-center gap-1.5 text-xs text-amber-700 dark:text-amber-300">
+                      <AlertTriangle size={12} /> {t("app.translations.renamedPreset", "Renamed since it was translated — check the wording still fits")}
                     </span>
                   ) : item.reviewed ? (
                     <span className="inline-flex items-center gap-1.5 text-xs text-green-700 dark:text-green-300">

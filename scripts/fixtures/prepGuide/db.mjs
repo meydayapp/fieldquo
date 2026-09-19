@@ -6,7 +6,7 @@
 // esbuild step. Writes are recorded in `writes` so the check can assert on
 // arguments; unscripted models throw by name rather than answering "nothing".
 
-export const rows = { job: [], company: [], client: [], serviceCategory: [], serviceDocument: [], jobDocument: [], member: [], user: [], activityLog: [] };
+export const rows = { job: [], company: [], client: [], serviceCategory: [], serviceDocument: [], jobDocument: [], member: [], user: [], activityLog: [], product: [] };
 export const writes = [];
 export function reset() {
   for (const k of Object.keys(rows)) rows[k] = [];
@@ -128,6 +128,7 @@ export const db = {
   user: model("user"),
   activityLog: model("activityLog"),
   companyServiceCategory: model("companyServiceCategory"),
+  product: model("product"),
 };
 // Anything else the product reaches for is a scripting gap, not an answer.
 export default new Proxy(db, {

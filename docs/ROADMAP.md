@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 19 September 2026 (US sales tax on a quote to a US address is the full combined rate on the whole quote, from any company, exactly as a Canadian province's — the ZIP's rate from the states' own Streamlined files, the state's own rule beside it as a hint the contractor may act on in one press, and the record stored on the quote and copied to its invoice — see the section below)
+Last updated: 19 September 2026 (every job with a start date sends the client a preparation guide before the crew arrives — per trade, in the client's language, with the company's spec sheets, three days before by default — and the built-in add-ons ship translated in every document language so the translations page lists only what the company added or renamed; see the two sections below)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -9,6 +9,94 @@ it exists to answer.
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
+
+## The client preparation guide: what to clear, move and protect before the crew arrives, per trade, in the client's language, N days before the start date (19 September 2026)
+
+The owner asked whether TrueFinish Cabinets' client instructions existed for
+every quote type FieldQuo has, whether a company can attach technical
+documents the way he attaches the Renner coatings sheets, and whether they
+can decide when it goes out — three days by default. Now they can.
+
+**What ships**
+
+- `lib/prepGuide/content.{en,fr,es}.js` — fifty-two guides covering all
+  sixty-nine catalogue keys (`GUIDE_FAMILY` in `content.js`), each a
+  checklist of concrete, tickable items ("Clear all countertops completely —
+  remove everything including small appliances…"), the one warning that
+  stops the job if ignored, what happens on the day, and after-care. Cabinets
+  carry TrueFinish's own list. Nothing asserts a day count, a cure time, a
+  brand or a price — those are the company's to add. The process steps are
+  READ from `lib/documents/serviceContent.js` (with the company's override),
+  so the guide and the quote describe one sequence.
+- `lib/prepGuide/copy.js` — the frame (title, headings, the covering email) in
+  all eight document languages. A client in uk/pa/tl/de/it gets their frame
+  around an English body, the rule serviceContent already applies.
+- Settings → Services: per service, "Preparation guide" with the built-in as
+  the read-only original, "Customise" → a company copy per language
+  (checklist, warning, day-of, after-care, a note), "Reset to original"
+  deletes the copy so a better default reaches them again. Stored on
+  `CompanyServiceCategory.prepGuide` keyed by language.
+- Technical documents (`ServiceDocument`): PDFs through the signed uploader,
+  company-level or per trade, optionally per language; listed on the guide as
+  links and attached to the email while the total stays under 20 MB.
+- One email per JOB: "{Company}: how to prepare for {job} on {date}", from the
+  company sender, guide PDF attached (`lib/prepGuide/renderPdf.js`, the same
+  theme and contrast maths as the quote), the first four items inline.
+  `app/api/cron/prep-guides` at 13:00 UTC sends `Company.prepGuideLeadDays`
+  (default 3, 0 = the morning of) calendar days before `Job.startDate`; never
+  after the start day, never with no date or no email, never twice
+  (`Job.prepGuideSentAt` claimed before the send, released on failure). The
+  job page's card says which applies and offers Send now / Send again, Don't
+  send for this job (`Job.prepGuideSuppressedAt`), and a preview. The sent
+  guide is filed on the job (kind `prep_guide`) and written to its trail.
+- `scripts/check-prep-guide.mjs` (check:all) — 1454 assertions: every trade
+  in three languages, the rule at every boundary, contrast across hostile
+  brands, and the renderer, email, cron and routes executed with fixtures
+  over the seams.
+
+### Still owed here
+
+- The process steps exist in EN and FR only (serviceContent.fr.js covers
+  eight trades); a Spanish guide carries a Spanish checklist over English
+  steps for the other trades, the same gap the Spanish quote has.
+- No SMS version. A homeowner who never opens email gets nothing; the email
+  is the only channel today.
+- Punjabi PDFs render the same mojibake every other document does
+  (lib/documents/pdfFont.js explains why the Gurmukhi face is held out).
+
+---
+
+## Presets ship translated; the translations page lists only what the company added or renamed (19 September 2026)
+
+The owner: "anything in that page should be things that don't yet have
+translations, like custom services." The seeded standard add-ons carried an
+unmarked French and nothing else, so they sat on the page as "drafted, not
+read" in French and "missing" in six other languages.
+
+- `app/data/standardAddOns.i18n.js` — the 24 standard add-ons in es, uk, pa,
+  tl, de and it beside the existing French. `standardAddOnTranslations()`
+  now returns every language, each entry marked `source: "catalogue"` and
+  `of: <English name>` (`lib/products/presetTranslations.js`).
+- The seeder writes all of it at creation. `scripts/backfill-preset-
+  translations.mjs` (dry by default) marked the 35 existing preset rows
+  across the two live companies — 245 language entries — and a second pass
+  plans nothing.
+- `GET /api/settings/translations` leaves a current preset off the list and
+  counts it; a preset the company RENAMED comes back flagged "renamed since
+  it was translated", unreviewed. The page says so in one line at the top.
+- `scripts/check-preset-translations.mjs` (check:all) runs the real route
+  against fixtures: preset hidden, custom shown, renamed shown, backfill
+  idempotent, every name in every language.
+
+### Still owed here
+
+- `ServiceCategory.labelTranslations` is still never written: a scope group's
+  trade label prints in English on a French quote unless the group carries
+  its own label. Sixty-nine labels × seven languages, the same shape as this.
+- The default line-item chips (`app/data/defaultLineItems.js`) are English
+  only; they are never stored as products so the page never lists them, but
+  a chip picked onto a French quote is English until edited.
+
 
 ## The crawler takes a second look: a site read a month ago is read again — for the rows that matter, unchanged costs a crawl and nothing else, changed runs the chain and the brief says so (19 September 2026)
 
