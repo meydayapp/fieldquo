@@ -11,20 +11,22 @@
 //
 // ══ GET reads; POST pulls ═════════════════════════════════════════════════
 //
-// POST { action: "pull", from?, to? } asks Twilio for its Usage Records and
-// writes them — the same call the every-minute cron makes hourly, run now
-// because the owner is looking. This is FieldQuo's own account, so the write
-// is not a tenant's data and AGENTS.md rule 3 does not bite. Bounded to
-// USAGE_MAX_RANGE_DAYS so a typo cannot ask for ten years.
+// POST { action: "pull", provider?, from?, to? } asks a provider for its
+// figures and writes them — the same call the every-minute cron makes
+// (hourly for Twilio, daily for OpenAI, Neon and Stripe), run now because
+// the owner is looking. `provider` defaults to "twilio"; "openai", "neon"
+// and "stripe" go through lib/platform/costs/providerPulls.js, which
+// bounds the range and logs a failure with the provider named. This is
+// FieldQuo's own account, so the write is not a tenant's data and AGENTS.md
+// rule 3 does not bite.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
-import { platformCostSummary, periodBounds } from "@/lib/platform/costs/summary";
+import { platformCostSummary, periodBounds, RANGES } from "@/lib/platform/costs/summary";
 import { pullTwilioUsage } from "@/lib/platform/costs/twilioUsage";
+import { DAILY_PROVIDERS, pullProvider } from "@/lib/platform/costs/providerPulls";
 import { dayDate } from "@/lib/platform/costs/dailyLedger";
-
-const RANGES = ["day", "week", "month", "30d", "90d", "year"];
 
 async function gate(request) {
   const admin = await getCurrentPlatformAdmin(request);
@@ -65,9 +67,12 @@ export async function POST(request) {
   if ((body.from && !from) || (body.to && !to)) {
     return NextResponse.json({ error: "Dates are YYYY-MM-DD" }, { status: 400 });
   }
-  const result = await pullTwilioUsage({ from, to, now });
+  const provider = typeof body.provider === "string" && body.provider ? body.provider : "twilio";
+  if (provider !== "twilio" && !DAILY_PROVIDERS[provider]) return NextResponse.json({ error: "Unknown provider" }, { status: 400 });
+  const result = provider === "twilio" ? await pullTwilioUsage({ from, to, now }) : await pullProvider(provider, { from, to, now });
   if (!result.ok) {
-    return NextResponse.json({ error: `The pull did not run: ${result.reason || result.failed.join(", ")}`, ...result }, { status: 502 });
+    const why = result.reason === "not_configured" ? `waiting for ${result.envVar || "its key"}` : result.reason === "failed" ? result.error : result.reason || (result.failed || []).join(", ");
+    return NextResponse.json({ error: `The ${provider} pull did not run: ${why}`, ...result }, { status: 502 });
   }
   return NextResponse.json(result);
 }

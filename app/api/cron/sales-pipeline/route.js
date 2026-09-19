@@ -77,6 +77,7 @@ import { sweepRecrawls } from "@/lib/sales/pipeline/recrawl";
 import { runApifyTick } from "@/lib/sales/intel/apifyRuns";
 import { reconcileCarrierPrices } from "@/lib/sales/calls/costs";
 import { pullTwilioUsageIfStale } from "@/lib/platform/costs/twilioUsage";
+import { pullDailyProvidersIfStale } from "@/lib/platform/costs/providerPulls";
 
 // Same reasoning as grace-warning's BATCH: the query is driven by `status`,
 // not a cursor, so leftovers are picked up by the next tick and nothing is
@@ -197,6 +198,16 @@ export async function GET(request) {
     result.twilioUsage = await pullTwilioUsageIfStale({ now, client: db });
   } catch (err) {
     result.twilioUsage = { error: err?.message || String(err) };
+  }
+  // The other bills, once a day each: OpenAI's Costs endpoint, Neon's
+  // consumption, Stripe's balance transactions — into the same ledger, for
+  // the same page. One groupBy read a tick when nothing is due; a provider
+  // whose key is not set is skipped, and a failed pull is logged with the
+  // provider named (lib/platform/costs/providerPulls.js).
+  try {
+    result.providerCosts = await pullDailyProvidersIfStale({ now, client: db });
+  } catch (err) {
+    result.providerCosts = { error: err?.message || String(err) };
   }
 
   // ── Then the backlog: websites nobody has read, a slice per run ──────────

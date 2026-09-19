@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 19 September 2026 (two things landed: every job with a start date sends the client a preparation guide before the crew arrives — per trade, in the client's language, with the company's spec sheets, three days before by default — and the built-in add-ons ship translated so the translations page lists only what the company added or renamed; and, from the other branch, every company now chases a sent quote at 1, 7 and 14 days in the client's language from three FieldQuo default follow-up rules — the table had zero rows before — and the quote, invoice, reminder, receipt and deposit emails can be previewed through the real builder and their wording customised per language without the original ever changing; every email template has Blocks and Canvas modes — see the section below)
+Last updated: 19 September 2026 (/platform/costs is now three sections — Sales floor, Companies, Platform itself — each with its total beside last month's, every line saying provider · API-pulled / computed / hand-entered · last pulled; OpenAI's BILLED spend from the organisation Costs endpoint sits beside the computed figure with a reconciliation line, Neon's consumption and Stripe's fees on FieldQuo's own revenue are pulled daily into PlatformCostDaily, and Vercel, Namecheap, Resend, Google Maps and Retell's invoice are hand-entered as PlatformFixedBill rows, attributed and voided-never-deleted; two variables to set: OPENAI_ADMIN_API_KEY and NEON_API_KEY — see the section below)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -9,6 +9,88 @@ it exists to answer.
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
+
+## /platform/costs answers "where does the money go" in three sections, with what OpenAI billed beside what we computed, Neon and Stripe pulled daily, and the invoices no API reports typed in (19 September 2026)
+
+The owner read "OpenAI — FieldQuo's own $20.31" and asked how; it was the sales
+floor's research briefs and nothing on the page said so. The page is now built
+as three businesses (`lib/platform/costs/sections.js`, a pure function over
+the ledgers `summary.js` reads), in this order, each heading carrying this
+period's total and last month's:
+
+1. **Sales floor** — the reps' Twilio calls, recordings, texts and numbers
+   (the sales share of `splitTwilioSides`), the pipeline's AI by area with a
+   count, tokens and what a unit costs ("Research briefs: 16,636 briefs ·
+   12.7M tokens · $8.61 — 5.2¢ per 100"), the sales floor's own Retell line,
+   Google Places, Apify, the Mac scrape at $0. Per rep and per agency live
+   here, as do cost per conversation and per signup.
+2. **Companies** — Retell minutes and rent, crew lines, client and crew
+   texts, the companies' AI — and beside each line what the companies were
+   CHARGED for it, from `VoiceCreditEntry`'s debits by kind, so margin is
+   visible per line and in the heading.
+3. **Platform itself** — Neon, Stripe's fees on FieldQuo's own revenue
+   beside gross subscription charges, Twilio's unattributed remainder, and
+   the hand-entered bills.
+
+Every line carries provider · source kind · as-of. The three totals sum to
+the page total. No line says "FieldQuo's own" without its section.
+
+- **OpenAI, billed** — `lib/platform/costs/openaiCosts.js` reads the
+  organisation Costs endpoint (`GET /v1/organization/costs`, `bucket_width=1d`,
+  `group_by=project_id,line_item`, docs read 2026-09-19 from
+  openai/openai-openapi) with a NEW `OPENAI_ADMIN_API_KEY` — an admin key,
+  distinct from `OPENAI_API_KEY`, read by this module only. Rows land in
+  `PlatformCostDaily` provider `openai`, one per day per project/line plus a
+  `total` row a day (so "no spend" and "never pulled" differ). The page
+  prints computed beside billed with `reconcileOpenai()`'s sentence
+  ("computed $41.20 / billed $43.05 — 4.3% under; price table may be
+  stale"), compared over the days OpenAI has billed only. Without the key
+  the page says "Waiting for OPENAI_ADMIN_API_KEY" — a sentence, not a
+  spinner or a zero.
+- **Neon** — `lib/platform/costs/neonConsumption.js` reads the consumption
+  API (`/api/v2/consumption_history/projects`, daily granularity, sixty days
+  back) with `NEON_API_KEY` (and `NEON_ORG_ID` for an organisation-owned
+  project). Units are stored verbatim; a dollar is attached ONLY where
+  neon.com/pricing publishes the plan's per-unit rate (Launch $0.106/CU-hour
+  and $0.35/GB-month, Scale $0.222 and $0.35, Free $0 — read 2026-09-19) and
+  the response names the plan. Any other plan stores `cents: NULL` (the
+  column is nullable now) and the page prints "units × your plan's rate —
+  enter Neon's invoice under Fixed bills". Data transfer, branches and
+  restores are not in the API, so the invoice is the bill; a hand-entered
+  Neon bill reconciles against the priced lines.
+- **Stripe** — `lib/platform/costs/stripeFees.js` pages the platform
+  account's balance transactions with the key already in Vercel; per day and
+  reporting category, `cents` is what Stripe kept (`fee` per transaction plus
+  Stripe's own `stripe_fee` lines), `units` the gross, so the charge row is
+  "what Stripe kept" beside subscription revenue. Verified against the test
+  account (27 transactions, CAD) in the check.
+- **Fixed bills** — `PlatformFixedBill { provider, periodMonth, amountCents,
+  currency, invoiceRef, note, enteredById, enteredAt, updatedAt, voidedAt }`
+  with a form on the page (superadmin; `/api/platform/costs/fixed-bills`
+  GET/POST/PATCH, no DELETE). Each row prints "Vercel · September 2026 ·
+  $113.18 · entered by Emilio Boves on 2026-09-19", edits say "edited",
+  voids stay struck through. A bill for a provider with no API line IS the
+  line and the section says "includes hand-entered bills"; a bill for a
+  provider that has one (OpenAI's invoice, Retell's) is a reconciliation
+  and is not added twice.
+- **Cron** — `lib/platform/costs/providerPulls.js`: one pull per provider
+  per day from the every-minute sales-pipeline cron (Twilio stays hourly),
+  measured from the ledger's newest `fetchedAt`; first pull thirty days;
+  failures land on /platform/errors as `openai_pull_failed` /
+  `neon_pull_failed` / `stripe_pull_failed`. The page prints "last pulled"
+  per provider with a Pull now for each API-pulled one.
+- **Check** — `scripts/check-platform-costs-providers.mjs`
+  (`check:platform-costs-providers`, in check:all): both parsers against the
+  documented response shapes, Neon's list-price arithmetic, Stripe from the
+  test account or a fixture, fixed bills' validation / statement /
+  proration / round trip through an in-memory client / superadmin gate /
+  never-deleted, the reconciliation sentences, the "waiting for" states,
+  and the three-way split summing to the total.
+
+**Owner: set `OPENAI_ADMIN_API_KEY` (platform.openai.com → Settings →
+Organization → Admin keys) and `NEON_API_KEY` (console.neon.tech → Account
+settings → API keys) in Vercel — `docs/VERCEL.md` has both rows.** Until
+then the page says so on the relevant lines and everything else works.
 
 ## The client preparation guide: what to clear, move and protect before the crew arrives, per trade, in the client's language, N days before the start date (19 September 2026)
 
