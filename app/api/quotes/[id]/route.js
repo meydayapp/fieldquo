@@ -22,6 +22,7 @@ import {
 import {
   onQuoteAccepted,
   onQuoteDeclined,
+  onQuoteSent,
 } from "@/lib/quotes/quoteLifecycle";
 import {
   buildQuoteCostingRow,
@@ -283,10 +284,53 @@ export async function PATCH(request, { params }) {
     );
   }
 
+  // ── Which status moves are real ──────────────────────────────────────────
+  //
+  // The column was written with whatever arrived. Two of the moves a browser
+  // can name are not decisions anyone is entitled to make from here:
+  //
+  //   • Leaving `accepted`. onQuoteAccepted created a job and, with a payment
+  //     schedule, a deposit invoice — records with their own lives now. A
+  //     status flip back would leave both standing against a quote that says
+  //     nobody agreed to them. Cancel the job; the quote stays what it was.
+  //   • Deciding a `draft`. A client cannot accept or decline a quote nobody
+  //     has shown them; the approval page greys these out for a draft and
+  //     the route now says the same thing, because a greyed button is not
+  //     access control.
+  //
+  // One move that IS real and had no door: `declined` → `sent`, the reopen.
+  // A client who said no in June and calls back in September has a quote
+  // that is live again. It clears the decision so a second decline stamps
+  // afresh (stampDecision writes only into a null column), and it does NOT
+  // re-stamp sentAt — the quote was issued when it was issued.
+  const reopening = status === "sent" && existing.status === "declined";
+  if (status !== undefined && status !== existing.status) {
+    if (!["draft", "sent", "accepted", "declined"].includes(status)) {
+      return NextResponse.json({ error: "Unknown quote status." }, { status: 400 });
+    }
+    if (existing.status === "accepted") {
+      return NextResponse.json(
+        {
+          error:
+            "This quote was accepted and a job came from it, so it can't be reopened or declined here. " +
+            "Cancel the job instead; the quote stays as the record of what was agreed.",
+        },
+        { status: 409 },
+      );
+    }
+    if (existing.status === "draft" && (status === "accepted" || status === "declined")) {
+      return NextResponse.json(
+        { error: "Send the quote first — a client can't accept or decline a quote they haven't seen." },
+        { status: 400 },
+      );
+    }
+  }
+
   const scalarData = {
     ...(status !== undefined && {
       status,
-      ...(status === "sent" && { sentAt: new Date() }),
+      ...(status === "sent" && !reopening && { sentAt: new Date() }),
+      ...(reopening && { declinedAt: null, declineReason: null }),
     }),
     ...(subtotal !== undefined && { subtotal }),
     ...(discount !== undefined && { discount }),
@@ -464,6 +508,14 @@ export async function PATCH(request, { params }) {
   // change above has committed, and a hiccup here must not report it as failed.
   if (status !== undefined && status !== existing.status) {
     try {
+      // Named in the summary, not only in the actor column: "marked accepted
+      // by Dana" on the activity feed is the sentence the owner reads when a
+      // job appears that no client clicked for.
+      const actor = await db.user.findUnique({
+        where: { id: member.userId },
+        select: { name: true, email: true },
+      });
+      const by = actor?.name || actor?.email || "a team member";
       if (status === "accepted") {
         const { job, invoice } = await onQuoteAccepted(id, {
           createdById: member.userId,
@@ -472,18 +524,27 @@ export async function PATCH(request, { params }) {
           action: "quote.accepted",
           entityType: "quote",
           entityId: id,
-          summary: `Quote ${existing.quoteNumber} marked accepted${job ? " — job created, ready to schedule" : ""}${invoice ? `, invoice ${invoice.invoiceNumber} drafted` : ""}`,
+          summary: `Quote ${existing.quoteNumber} marked accepted by ${by}${job ? " — job created, ready to schedule" : ""}${invoice ? `, invoice ${invoice.invoiceNumber} drafted` : ""}`,
           metadata: { jobId: job?.id || null, invoiceId: invoice?.id || null },
         });
       } else if (status === "declined") {
         // The reason is optional and free text — a required dropdown collects
         // whatever is nearest the cursor, which is worse than nothing.
-        await onQuoteDeclined(id, { reason: body?.declineReason || null });
+        const reason = typeof body?.declineReason === "string" ? body.declineReason.trim().slice(0, 500) : "";
+        await onQuoteDeclined(id, { reason: reason || null });
         await recordActivity(member, {
           action: "quote.declined",
           entityType: "quote",
           entityId: id,
-          summary: `Quote ${existing.quoteNumber} marked declined`,
+          summary: `Quote ${existing.quoteNumber} marked declined by ${by}${reason ? ` — ${reason}` : ""}`,
+        });
+      } else if (reopening) {
+        await onQuoteSent(id);
+        await recordActivity(member, {
+          action: "quote.reopened",
+          entityType: "quote",
+          entityId: id,
+          summary: `Quote ${existing.quoteNumber} reopened by ${by} — the client is reconsidering`,
         });
       }
     } catch (err) {

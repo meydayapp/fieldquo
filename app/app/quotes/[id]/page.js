@@ -86,6 +86,10 @@ import {
   PhoneOff,
   Download,
   Copy,
+  ThumbsDown,
+  ThumbsUp,
+  RotateCcw,
+  X,
 } from "lucide-react";
 import DeleteConfirmModal from "@/app/components/admin/DeleteConfirmModal";
 import BrandTheme from "@/app/components/BrandTheme";
@@ -215,6 +219,14 @@ export default function QuoteDetailPage() {
   // than flashing and vanishing.
   const caller = usePermissions();
   const canDeleteQuote = hasLevel(caller, "quotes", "view_create_edit_delete");
+  // Recording the client's answer by hand — "they went with somebody else",
+  // "they said yes on the phone" — is the same PATCH the approval page makes,
+  // gated on the same rung it enforces (requireLevel "quotes",
+  // "view_create_edit"). Hidden, not greyed, below it.
+  const canDecide = hasLevel(caller, "quotes", "view_create_edit");
+  // Which decision dialog is open: "declined" | "accepted" | null.
+  const [decision, setDecision] = useState(null);
+  const [declineReason, setDeclineReason] = useState("");
   // Ringing a client about their quote is acting on the quote, so the route
   // takes the level that EDITS one. Rendered away rather than disabled for
   // anyone below it: a 403 arriving behind a visible control is the bug the
@@ -484,15 +496,24 @@ export default function QuoteDetailPage() {
     }
   }
 
-  async function updateStatus(status) {
+  // The one caller of PATCH { status } on this page. "declined" carries the
+  // client's reason when they gave one (free text — see Quote.declineReason
+  // in the schema for why not a dropdown); "sent" from a declined quote is
+  // the reopen; "accepted" runs the same job-and-invoice hooks an online
+  // approval does. The route refuses the moves that are not real (leaving
+  // accepted, deciding a draft) and its sentence is shown as-is.
+  async function updateStatus(status, extra = {}) {
     setActionLoading(true);
+    setError("");
     const res = await fetch(`/api/quotes/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: jsonBody({ status }, "status change"),
+      body: jsonBody({ status, ...extra }, "status change"),
     });
     if (res.ok) {
       setQuote(await res.json());
+      setDecision(null);
+      setDeclineReason("");
     } else {
       // Marking a quote sent or accepted is a status change the whole
       // pipeline depends on. Failing at it silently means the board is wrong
@@ -785,6 +806,49 @@ export default function QuoteDetailPage() {
               <Link2 size={14} /> {t("app.quoteDetail.getApproved")}
             </Link>
           )}
+          {/* ── The client's answer, recorded by hand ──────────────────────
+              A quote that went out and never came back had no way off the
+              board from here: the approval page could record it, behind a
+              button called "Get approved" that nobody looking for "they said
+              no" would press. Only on a SENT quote — a draft nobody has seen
+              cannot be declined, and the route refuses it too. Each opens a
+              dialog; nothing changes until it is confirmed. */}
+          {canDecide && quote.status === "sent" && !quote.historicalImportedAt && (
+            <>
+              <button
+                type="button"
+                onClick={() => setDecision("accepted")}
+                disabled={actionLoading}
+                className="flex items-center gap-1.5 border border-border text-foreground px-4 py-2 rounded-full text-sm font-semibold disabled:opacity-60"
+                data-testid="quote-mark-accepted"
+              >
+                <ThumbsUp size={14} /> {t("app.quoteDetail.markAccepted")}
+              </button>
+              <button
+                type="button"
+                onClick={() => setDecision("declined")}
+                disabled={actionLoading}
+                className="flex items-center gap-1.5 border border-border text-muted-foreground px-4 py-2 rounded-full text-sm font-semibold disabled:opacity-60"
+                data-testid="quote-mark-declined"
+              >
+                <ThumbsDown size={14} /> {t("app.quoteDetail.markDeclined")}
+              </button>
+            </>
+          )}
+          {/* Declined → sent, once, from here. Accepted has no way back: a job
+              and possibly a deposit invoice came from it (the route says so). */}
+          {canDecide && quote.status === "declined" && !quote.historicalImportedAt && (
+            <button
+              type="button"
+              onClick={() => updateStatus("sent")}
+              disabled={actionLoading}
+              className="flex items-center gap-1.5 border border-border text-foreground px-4 py-2 rounded-full text-sm font-semibold disabled:opacity-60"
+              data-testid="quote-reopen"
+            >
+              {actionLoading ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}
+              {t("app.quoteDetail.reopen")}
+            </button>
+          )}
           {quote.status === "accepted" && !quote.invoices?.length && (
             <button
               onClick={handleConvert}
@@ -881,6 +945,35 @@ export default function QuoteDetailPage() {
           clientName={quote.client?.name}
         />
       )}
+
+      {/* Written and read: the reason typed on either door is shown where
+          the quote is, not only on FieldQuo's own console. */}
+      {quote.status === "declined" && (
+        <p className="text-sm text-muted-foreground" data-declined-note>
+          {quote.declineReason
+            ? t("app.quoteDetail.declinedWithReason", { reason: quote.declineReason })
+            : t("app.quoteDetail.declinedNoReason")}
+        </p>
+      )}
+
+      <DecisionDialog
+        kind={decision}
+        quoteNumber={quote.quoteNumber}
+        reason={declineReason}
+        onReason={setDeclineReason}
+        busy={actionLoading}
+        onClose={() => {
+          if (actionLoading) return;
+          setDecision(null);
+          setDeclineReason("");
+        }}
+        onConfirm={() =>
+          decision === "declined"
+            ? updateStatus("declined", declineReason.trim() ? { declineReason: declineReason.trim() } : {})
+            : updateStatus("accepted")
+        }
+        t={t}
+      />
 
       {error && (
         <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-sm rounded-lg px-4 py-3">
@@ -2129,6 +2222,125 @@ function TrailRow({ label, at, detail, tone }) {
         {formatDateTime(when)}
         <span className="text-muted-foreground/60"> · {ago}</span>
       </span>
+    </div>
+  );
+}
+
+// ── The client's answer, confirmed before it lands ──────────────────────────
+//
+// "declined": an optional reason — free text, with three quick picks that
+// fill the box rather than replace it, because the schema's own rule is that a
+// required category collects whatever is nearest the cursor. The picks are the
+// three answers a contractor hears most; "Went with another quote" is the one
+// the win/loss report is built to count.
+//
+// "accepted": states what will happen before it does — a job is created and,
+// where the company runs a payment schedule, a deposit invoice is drafted —
+// because those are the same hooks an online approval fires, and a person
+// pressing this on a phone call should know a job is about to appear.
+//
+// Neither closes itself on confirm; the page closes it when the server has
+// answered, so a refusal arrives with the dialog still tying it to the press
+// (the same rule DeleteConfirmModal follows).
+const DECLINE_QUICK_PICKS = [
+  ["another", "Went with another quote"],
+  ["postponed", "Postponed"],
+  ["price", "Too expensive"],
+];
+
+function DecisionDialog({ kind, quoteNumber, reason, onReason, busy, onClose, onConfirm, t }) {
+  if (!kind) return null;
+  const declined = kind === "declined";
+  return (
+    <div
+      className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
+      onClick={onClose}
+      role="presentation"
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="quote-decision-title"
+        className="bg-card rounded-2xl w-full max-w-md p-6 space-y-4"
+        onClick={(e) => e.stopPropagation()}
+        data-testid={`quote-decision-${kind}`}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <h2 id="quote-decision-title" className="text-lg font-semibold text-foreground">
+            {declined
+              ? t("app.quoteDetail.declineTitle", { number: quoteNumber })
+              : t("app.quoteDetail.acceptTitle", { number: quoteNumber })}
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={busy}
+            aria-label={t("app.action.cancel", "Cancel")}
+            className="p-1 text-muted-foreground"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        {declined ? (
+          <>
+            <p className="text-sm text-muted-foreground">{t("app.quoteDetail.declineBody")}</p>
+            <div className="flex flex-wrap gap-1.5">
+              {DECLINE_QUICK_PICKS.map(([key, english]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => onReason(t(`app.quoteDetail.declinePick_${key}`, english))}
+                  className="min-h-[36px] text-xs font-semibold px-3 rounded-full border border-border text-muted-foreground hover:text-foreground"
+                >
+                  {t(`app.quoteDetail.declinePick_${key}`, english)}
+                </button>
+              ))}
+            </div>
+            <textarea
+              rows={3}
+              maxLength={500}
+              autoFocus
+              value={reason}
+              onChange={(e) => onReason(e.target.value)}
+              placeholder={t("app.quoteDetail.declinePlaceholder")}
+              aria-label={t("app.quoteDetail.declineReasonLabel")}
+              className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-card text-foreground"
+            />
+            <p className="text-xs text-muted-foreground">{t("app.quoteDetail.declineHint")}</p>
+          </>
+        ) : (
+          <p className="text-sm text-muted-foreground">{t("app.quoteDetail.acceptBody")}</p>
+        )}
+
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={busy}
+            className="flex-1 border border-border text-foreground py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
+          >
+            {t("app.action.cancel", "Cancel")}
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={busy}
+            className={`flex-1 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60 ${
+              declined ? "bg-inverted text-inverted-foreground" : "bg-green-600 text-white"
+            }`}
+            data-testid="quote-decision-confirm"
+          >
+            {busy ? (
+              <Loader2 size={14} className="animate-spin inline" />
+            ) : declined ? (
+              t("app.quoteDetail.declineConfirm")
+            ) : (
+              t("app.quoteDetail.acceptConfirm")
+            )}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
