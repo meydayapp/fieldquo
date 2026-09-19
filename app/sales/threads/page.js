@@ -338,13 +338,21 @@ function LeadPicker({ onPick, onClose }) {
   const [leads, setLeads] = useState(null);
   const [error, setError] = useState("");
   useEffect(() => {
+    // Any address on the lead counts — its own, the prospect's, or one the rep
+    // added on the card. A lead reachable only at an address she found
+    // herself used to be missing from this list entirely, and the email she
+    // then wrote from her phone landed in "Everything else".
     fetchJson("/api/sales/leads")
-      .then((d) => setLeads((d.leads || []).filter((l) => l.email)))
+      .then((d) => setLeads((d.leads || []).filter((l) => (l.emails || []).length || l.email)))
       .catch((err) => setError(err.message));
   }, []);
   const shown = useMemo(() => {
     const term = q.trim().toLowerCase();
-    return (leads || []).filter((l) => !term || [l.businessName, l.contactName, l.email].some((v) => String(v || "").toLowerCase().includes(term))).slice(0, 50);
+    const matches = (l) => !term || [l.businessName, l.contactName, l.email, ...(l.emails || [])].some((v) => String(v || "").toLowerCase().includes(term));
+    // An address typed in full puts the lead it belongs to first — "About:"
+    // pre-selected by the address, the rest of the list still there under it.
+    const exact = (l) => (l.emails || []).includes(term) || String(l.email || "").toLowerCase() === term;
+    return (leads || []).filter(matches).sort((a, b) => Number(exact(b)) - Number(exact(a))).slice(0, 50);
   }, [leads, q]);
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -375,7 +383,7 @@ function LeadPicker({ onPick, onClose }) {
             <li key={l.id}>
               <button type="button" onClick={() => onPick(l)} className="flex w-full flex-col items-start rounded-lg px-2 py-2 text-left hover:bg-muted">
                 <span className="text-sm font-medium text-foreground">{l.businessName}</span>
-                <span className="text-xs text-muted-foreground">{[l.contactName, l.email].filter(Boolean).join(" · ")}</span>
+                <span className="text-xs text-muted-foreground">{[l.contactName, ...(l.emails?.length ? l.emails : [l.email])].filter(Boolean).join(" · ")}</span>
               </button>
             </li>
           ))
@@ -828,13 +836,17 @@ function SalesInboxScreen() {
       />
     );
   } else if (composeLead) {
+    // The lead's addresses in the order the server gives them (its own first,
+    // then the prospect's, then the card's). The first is the To; the rest are
+    // offered as chips. A lead opened from ?compose= carries only `email`.
+    const composeAddresses = (composeLead.emails?.length ? composeLead.emails : [composeLead.email]).filter(Boolean);
     threadPane = (
       <div className="flex min-h-0 flex-1 flex-col">
         <header className="flex items-center gap-2 border-b border-border px-3 py-2">
           {mobileBack}
           <div className="min-w-0 flex-1">
             <h2 className="truncate text-sm font-semibold text-foreground">{t("app.salesInbox.compose.newTo", { name: composeLead.businessName })}</h2>
-            <p className="truncate text-xs text-muted-foreground">{composeLead.email}</p>
+            <p className="truncate text-xs text-muted-foreground">{composeAddresses.join(" · ")}</p>
           </div>
         </header>
         <div className="min-h-0 flex-1 overflow-y-auto p-3">
@@ -844,8 +856,8 @@ function SalesInboxScreen() {
           <EmailComposer
             kind="new"
             leadId={composeLead.id}
-            recipients={[{ address: composeLead.email, source: "lead" }]}
-            initialTo={[composeLead.email]}
+            recipients={composeAddresses.map((address, i) => ({ address, source: i === 0 && composeLead.email ? "lead" : "contact" }))}
+            initialTo={composeAddresses.slice(0, 1)}
             from={outreach?.from}
             onClose={() => {
               setComposeLead(null);

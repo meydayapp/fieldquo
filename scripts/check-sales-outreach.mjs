@@ -684,7 +684,7 @@ section("7b. The lead list search and the \"Emailed, no reply\" chip");
   ok("...narrows the widened phone rows with leadMatchesSearch", body.includes("leadMatchesSearch(lead, q)"));
   ok("...and decides the chip with leadEmailedNoReply", body.includes("leadEmailedNoReply(lead)"));
   ok("...asking only for the latest OUTBOUND message per thread", body.includes('direction: "out"'));
-  ok("the prospect's number never reaches the browser", /\(\{ prospect, contactNumbers, introEmails, threads, \.\.\.lead \}\)/.test(body));
+  ok("the prospect's number never reaches the browser", /\(\{ prospect, contactNumbers, contactEmails, introEmails, threads, \.\.\.lead \}\)/.test(body));
   ok("the counts are still the whole book, not the search", body.includes("where: leadListWhere(rep.id),"));
   const PAGE = read("app/sales/leads/page.js");
   ok("the page has a search box", /type="search"/.test(PAGE));

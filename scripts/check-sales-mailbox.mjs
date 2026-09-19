@@ -32,7 +32,7 @@ import path from "node:path";
 import { simpleParser } from "mailparser";
 
 import { normaliseParsedMail, normaliseSubject, cleanMessageId, referencesList } from "../lib/sales/mailbox/parse.js";
-import { chooseThread, matchLead, SUBJECT_MATCH_WINDOW_MS } from "../lib/sales/mailbox/threading.js";
+import { chooseThread, leadAddresses, leadAddressIndex, matchLead, SUBJECT_MATCH_WINDOW_MS } from "../lib/sales/mailbox/threading.js";
 import { sendFromMailbox } from "../lib/sales/mailbox/send.js";
 import { composeMessage, mintMessageId } from "../lib/sales/mailbox/smtp.js";
 import { syncMailbox } from "../lib/sales/mailbox/sync.js";
@@ -179,6 +179,24 @@ section("2. Threading and matching");
   ok("matchLead by the prospect's address when the lead has none", matchLead("rob@plumbing.example", leads) === "l2");
   ok("two leads at one address match nobody", matchLead("dup@x.ca", leads) === null);
   ok("a stranger matches nobody", matchLead("stranger@nowhere.tld", leads) === null);
+
+  // The address the rep found and added on the card counts as the lead's.
+  const withCard = [
+    ...leads,
+    { id: "l5", email: null, prospect: { email: "info@alliance.example" }, contactEmails: [{ email: "Favor@Alliance.example" }, { email: "owner@alliance.example" }] },
+    { id: "l6", email: "six@x.ca", contactEmails: [{ email: "owner@alliance.example" }] },
+  ];
+  ok("leadAddresses lists own, prospect and card addresses, lowercase, once each",
+    JSON.stringify(leadAddresses(withCard[4])) === JSON.stringify(["info@alliance.example", "favor@alliance.example", "owner@alliance.example"]));
+  ok("leadAddresses of a lead with nothing is empty", leadAddresses({}).length === 0 && leadAddresses(null).length === 0);
+  ok("matchLead by an address the rep added on the card", matchLead("favor@alliance.example", withCard) === "l5");
+  ok("...case-insensitively", matchLead("FAVOR@alliance.example", withCard) === "l5");
+  ok("a card address two leads share matches nobody", matchLead("owner@alliance.example", withCard) === null);
+  ok("...and does not poison the leads' other addresses", matchLead("six@x.ca", withCard) === "l6" && matchLead("info@alliance.example", withCard) === "l5");
+  const index = leadAddressIndex(withCard);
+  ok("matchLead accepts the prebuilt index", matchLead("favor@alliance.example", index) === "l5" && matchLead("dup@x.ca", index) === null);
+  ok("the index holds the shared address as null, not missing", index.has("owner@alliance.example") && index.get("owner@alliance.example") === null);
+  ok("garbage leads build an empty index", leadAddressIndex(null).size === 0 && leadAddressIndex([null, 3, {}]).size === 0);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -424,6 +442,44 @@ function fakeImap(server) {
   db.__state.leads.push({ id: "l2", salesRepId: "r1", email: "rob@plumbing.example", prospect: null });
   const fourth = await syncMailbox(db, db.__state.mailboxes[0], deps);
   ok("a lead created later claims its earlier thread", fourth.ok && rob.leadId === "l2");
+
+  // ── A hand-written email to an address the rep added on the card ────────
+  //
+  // Favor's case: the lead's own email is empty, the address she found is a
+  // SalesContactEmail, and she wrote to it from her phone. The Sent copy
+  // must file under the lead, not under "Everything else".
+  db.__state.leads.push({ id: "l3", salesRepId: "r1", email: null, prospect: null, contactEmails: [{ email: "favor@alliance.example" }] });
+  server.Sent.messages.push({
+    uid: 3,
+    flags: new Set(["\\Seen"]),
+    source: SENT_BY_REP
+      .replace("To: Dana <dana@acmepainting.ca>, daniel@fieldquo.com", "To: Favor <Favor@alliance.example>")
+      .replace("Subject: Fwd: Re: Quick question about your quotes", "Subject: A better way to track repair jobs and profitability")
+      .replace("<out1@fieldquo.com>", "<favor1@fieldquo.com>"),
+  });
+  const hand = await syncMailbox(db, db.__state.mailboxes[0], deps);
+  const favor = db.__state.threads.find((t) => t.counterpart === "favor@alliance.example");
+  ok("a hand-written email to a card address files under the lead", hand.ok && hand.filed === 1 && favor?.leadId === "l3", { hand, favor });
+
+  // ── The backfill: an orphan thread claimed once the address is on the card ─
+  //
+  // The thread was filed before the rep recorded the address (or before card
+  // addresses counted at all). Nothing about the thread changes; the next
+  // sync attaches it. Idempotent: a second sync writes nothing more.
+  db.__state.threads.push({ id: "orphan", salesRepId: "r1", leadId: null, counterpart: "owner@bluesky.example", subject: "Hello", lastMessageAt: new Date(), lastInboundAt: null, readAt: null, archivedAt: null });
+  db.__state.leads.push({ id: "l4", salesRepId: "r1", email: "front@bluesky.example", prospect: null, contactEmails: [{ email: "owner@bluesky.example" }] });
+  const claimWrites = () => db.__state.writes.filter((w) => w[0] === "thread" && w[1] === "updateMany" && w[3]?.leadId === "l4").length;
+  const back = await syncMailbox(db, db.__state.mailboxes[0], deps);
+  ok("an orphan thread at a card address is claimed on the next sync", back.ok && db.__state.threads.find((t) => t.id === "orphan")?.leadId === "l4" && back.matched >= 1, back);
+  const writesAfterFirst = claimWrites();
+  await syncMailbox(db, db.__state.mailboxes[0], deps);
+  ok("...and only once — the second sync writes nothing for it", claimWrites() === writesAfterFirst);
+  // Two leads holding one card address: the orphan stays unclaimed.
+  db.__state.threads.push({ id: "orphan2", salesRepId: "r1", leadId: null, counterpart: "shared@dup.example", subject: "Hi", lastMessageAt: new Date(), lastInboundAt: null, readAt: null, archivedAt: null });
+  db.__state.leads.push({ id: "l7", salesRepId: "r1", email: null, prospect: null, contactEmails: [{ email: "shared@dup.example" }] });
+  db.__state.leads.push({ id: "l8", salesRepId: "r1", email: "shared@dup.example", prospect: null });
+  await syncMailbox(db, db.__state.mailboxes[0], deps);
+  ok("an orphan at an address two leads share stays unclaimed", db.__state.threads.find((t) => t.id === "orphan2")?.leadId === null);
 
   // UIDVALIDITY change: the folder restarts; Message-IDs stop duplicates.
   server.INBOX.uidValidity = 2;

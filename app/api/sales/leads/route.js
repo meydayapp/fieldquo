@@ -25,6 +25,7 @@ import { createSalesLead } from "@/lib/sales/leadCreate";
 import { db } from "@/lib/db";
 import { requireOutreachRep } from "@/lib/sales/outreachGate";
 import { outreachStatus } from "@/lib/sales/outreachSender";
+import { leadAddresses } from "@/lib/sales/mailbox/threading";
 import {
   isLeadStatus,
   isPlausibleEmail,
@@ -65,8 +66,12 @@ export async function GET(request) {
       // What the search and the no-reply chip decide on (see leadMatchesSearch
       // and leadEmailedNoReply). Stripped from the payload below: the list
       // shows none of it, and a prospect's number is not the screen's to carry.
-      prospect: { select: { city: true, businessName: true, phoneE164: true } },
+      prospect: { select: { city: true, businessName: true, phoneE164: true, email: true } },
       contactNumbers: { select: { e164: true } },
+      // Every address the lead can be written to — the inbox's "new email"
+      // picker offers all of them, so a lead whose only address is one the
+      // rep added on the card can be picked at all (see leadAddresses()).
+      contactEmails: { select: { email: true } },
       introEmails: { orderBy: { sentAt: "desc" }, take: 1, select: { sentAt: true } },
       threads: {
         orderBy: { lastMessageAt: "desc" },
@@ -90,9 +95,10 @@ export async function GET(request) {
   const leads = rows
     .filter((lead) => !q || leadMatchesSearch(lead, q))
     .filter((lead) => !noReply || leadEmailedNoReply(lead))
-    .map(({ prospect, contactNumbers, introEmails, threads, ...lead }) => ({
+    .map(({ prospect, contactNumbers, contactEmails, introEmails, threads, ...lead }) => ({
       ...lead,
       city: prospect?.city || null,
+      emails: leadAddresses({ email: lead.email, prospect, contactEmails }),
       emailedNoReply: leadEmailedNoReply({ introEmails, threads }),
       threads: threads.slice(0, 1).map(({ id, subject, lastMessageAt }) => ({ id, subject, lastMessageAt })),
     }));
