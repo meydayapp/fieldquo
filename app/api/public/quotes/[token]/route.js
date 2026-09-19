@@ -534,8 +534,11 @@ export async function POST(request, { params }) {
   // signed quote PDF to the client too, so both sides keep the same document.
   // Best-effort: a mail failure must not make the client think their approval
   // didn't register.
+  // The signed PDF comes back out so the job below can file the very
+  // document that was emailed, without rendering it a second time.
+  let signedPdf = null;
   try {
-    await dispatchDecisionEmails(updated, quote, decision, priced, signatureRecord);
+    signedPdf = await dispatchDecisionEmails(updated, quote, decision, priced, signatureRecord);
   } catch (err) {
     console.error("[public quote] notification failed:", err);
   }
@@ -549,7 +552,7 @@ export async function POST(request, { params }) {
       // in the diary" task, and move the lead behind it to won. Shared with the
       // back-office path (PATCH /api/quotes/[id]) so the two can never drift —
       // they used to, and the back office was the one doing nothing.
-      const { job, invoice } = await onQuoteAccepted(updated.id);
+      const { job, invoice } = await onQuoteAccepted(updated.id, { signedPdf });
       await recordActivity(
         { companyId: updated.companyId },
         {
@@ -626,7 +629,8 @@ export async function POST(request, { params }) {
 // always was: a plain internal note to the owners/admins. On an ACCEPTANCE it
 // also renders the approved quote as a PDF and sends that same signed document
 // to both sides — the client keeps a copy of what they agreed to, and the
-// company's copy carries the attachment rather than just a link.
+// company's copy carries the attachment rather than just a link. Returns that
+// PDF (or null) so the job's Documents get the same bytes the emails carried.
 //
 // The PDF engine (@react-pdf/renderer) is imported lazily here, never at module
 // top: the far commoner path through this file is a stranger's GET, which has
@@ -787,6 +791,10 @@ async function dispatchDecisionEmails(updated, quote, decision, priced, signatur
       attachments,
     });
   }
+
+  // Null on a decline, and null when the render failed — the caller's
+  // filing step renders its own copy in that case (lib/jobs/documentAutofile.js).
+  return pdfBuffer;
 }
 
 // Renders the approved quote to a PDF buffer, using the same engine, sections

@@ -46,6 +46,7 @@ import {
   visibleDocuments,
   revisionChains,
 } from "@/lib/jobs/documents";
+import { fileAcceptanceDocuments, AUTOFILE_SOURCES } from "@/lib/jobs/documentAutofile";
 
 const SELECT = {
   id: true,
@@ -58,12 +59,15 @@ const SELECT = {
   uploadedById: true,
   uploadedAt: true,
   updatedAt: true,
+  // Which of the three moments filed it, or null for a hand upload. The
+  // panel says "filed on acceptance" rather than implying somebody chose it.
+  source: true,
 };
 
 async function ownJob(jobId, companyId, member) {
   return db.job.findFirst({
     where: { id: jobId, companyId, ...assignedJobWhere(member) },
-    select: { id: true },
+    select: { id: true, quoteId: true },
   });
 }
 
@@ -80,8 +84,32 @@ export async function GET(request, { params }) {
   );
   if (denied) return denied;
 
-  if (!(await ownJob(id, member.companyId, full)))
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const job = await ownJob(id, member.companyId, full);
+  if (!job) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  // ── The backfill, lazily ─────────────────────────────────────────────────
+  //
+  // A job accepted before autofiling existed has no contract row. Rather
+  // than a mass script rendering 150 PDFs against a scale-to-zero database,
+  // the first person to open THIS job's Documents catches it up: the signed
+  // contract and the quote as sent, only for a quote that is accepted, only
+  // when the job holds neither from any source, and only a contract that
+  // was actually signed (a by-hand acceptance has no signature, and a
+  // backfilled "signed contract" with blank lines would be a claim). Two
+  // reads when there is nothing to do; idempotent by the unique key when
+  // two people open it at once. Never a reason for the list to fail.
+  if (job.quoteId) {
+    try {
+      await fileAcceptanceDocuments({
+        quoteId: job.quoteId,
+        jobId: job.id,
+        source: AUTOFILE_SOURCES.backfill,
+        contractRequiresSignature: true,
+      });
+    } catch (err) {
+      console.error("[job documents] backfill:", err?.message);
+    }
+  }
 
   const rows = await db.jobDocument.findMany({
     where: { jobId: id, companyId: member.companyId },

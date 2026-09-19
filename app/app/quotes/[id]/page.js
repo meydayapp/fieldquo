@@ -122,6 +122,7 @@ import EmailSectionsPanel from "./EmailSectionsPanel";
 import EmailSectionsBlockedModal from "./EmailSectionsBlockedModal";
 import ImportedCostsPanel from "./ImportedCostsPanel";
 import SiteVisitPanel from "@/app/components/quotes/SiteVisitPanel";
+import LinkedJobDocuments from "@/app/components/jobs/LinkedJobDocuments";
 import { visibleLineItems } from "@/lib/quotes/scopeGroupDisplay";
 import { quoteStatusLabel, quoteStatusClasses } from "@/lib/quotes/statusLabels";
 import { formatAddress } from "@/lib/format/address";
@@ -1091,6 +1092,12 @@ export default function QuoteDetailPage() {
       {!quote.historicalImportedAt && (
         <SiteVisitPanel quoteId={id} quote={quote} />
       )}
+
+      {/* What the job this quote became has on file — the quote as sent, the
+          signed contract, each invoice as it went out. Read-only here; the
+          job page is where documents are added. Absent until there is a job,
+          and absent for a member the route withholds money kinds from. */}
+      {quote.jobs?.[0]?.id && <LinkedJobDocuments jobId={quote.jobs[0].id} />}
 
       {quote.invoices?.length > 0 && (
         <div className="bg-blue-50 dark:bg-blue-950/40 border border-blue-100 dark:border-blue-900 rounded-lg px-4 py-3 text-sm text-blue-800 dark:text-blue-300">

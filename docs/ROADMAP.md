@@ -1,12 +1,91 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 19 September 2026 (the Texts thread pane is the dominant area at every size, and a conversation that names a business hangs on its lead — see the section below)
+Last updated: 19 September 2026 (a job is born holding the quote as sent, the signed contract and the homeowner's photos, and collects each invoice as it is sent — see the section below)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
 it exists to answer.
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
+
+---
+
+
+## A job is born holding its documents: the quote as sent, the signed contract, the homeowner's photos — and each invoice as it goes out (19 September 2026)
+
+The owner: "the job should have the original quote, the approved contract and
+invoice as part of the documents", and the quote's pictures "should land in
+the job too". The only writer of a job's Documents was the upload form; the
+signed PDF was rendered once on acceptance, emailed, and existed nowhere
+FieldQuo could show.
+
+- **`lib/jobs/documentAutofile.js`** — `fileAcceptanceDocuments` files two
+  rows the moment the job exists, on BOTH acceptance doors (the client's
+  signature on `/q/[token]` and a staff member's "They approved"; both run
+  `onQuoteAccepted`): the quote AS SENT (new kind `quote`, "Quote Q-0042")
+  and the quote AS SIGNED (kind `contract`, "Signed contract — Q-0042", or
+  "Approved contract — Q-0042" on the unsigned back-office door). The public
+  route hands the PDF it already rendered for the emails through
+  `dispatchDecisionEmails → onQuoteAccepted({ signedPdf })`, so the filed
+  contract is the bytes the client received and nothing renders twice.
+  `fileSentInvoiceDocument` files the invoice after `POST
+  /api/invoices/[id]/send` stamps `sentAt`, only when the invoice has a job
+  (`lib/invoices/jobLink.js`); a re-send is a NEW row with `supersedesId`
+  pointing at the previous one, across the invoice's version family.
+- **Idempotent by the database.** `JobDocument` gained `source`
+  (`acceptance` | `invoice_send` | `backfill`, null for a hand upload),
+  `sourceQuoteId`, `sourceInvoiceId` and `documentHash`, with
+  `@@unique([sourceQuoteId, kind, documentHash])` and the invoice twin. The
+  hash is of CONTENT (`hashQuote`, the signature's own `documentHash`,
+  `hashInvoiceDocument` keyed on `sentAt`), never of PDF bytes. Two
+  acceptances at once: the second create hits P2002 and is counted as filed.
+  Applied to the live database by additive SQL; nothing dropped.
+- **Nothing throws into the signing flow.** Every failure is a
+  `PlatformErrorLog` row, area `job_documents`, and one document fewer; the
+  acceptance, its emails and its activity row go ahead.
+- **`quote` is a money kind.** `MONEY_KINDS` is now quote + contract +
+  invoice: the quote as sent is the rate card for that job, and a crew member
+  the quote page redacts must not read it one tab over.
+- **The strip.** `app/components/jobs/LinkedJobDocuments.js` on the quote
+  page (its job from `quote.jobs[0]`) and the invoice page (`life.job`):
+  read-only, only the three filed kinds, reading the job's own documents
+  route so the gate is the route's, drawn not at all without `canSeeMoney`,
+  linking to `/app/jobs/[id]#documents`. The job panel prints "Filed on
+  acceptance" / "Filed when sent" on system rows.
+- **Photos.** `lib/jobs/photoAutofile.js` carries `Quote.clientPhotos` onto
+  the job as `JobPhoto` rows at stage `start` (the feed's own "Before /
+  start"), caption "From the quote Q-0042 — {the homeowner's caption}" in the
+  office's language, photos only (no videos, no PDFs), our own Cloudinary
+  only (`isUploadedUrl`), idempotent on (job, url) under a row lock, never
+  featured. Same moment, both doors.
+- **Backfill, lazily.** The first GET of a job's Documents (any surface —
+  the job page or either strip) runs `fileAcceptanceDocuments` with source
+  `backfill`: signed contracts only, and never beside a contract the office
+  already uploaded by hand. The first GET of a job's Photos carries the
+  quote's photos. No mass script. Production at ship: 152 accepted quotes
+  with a job, 28 of them signed, all 28 lacking a contract row (the table
+  was empty); 2 quotes with photos whose job holds none of them.
+- **Check:** `scripts/check-job-documents-autofile.mjs` (in `check:all`)
+  executes both helpers against an in-memory client that enforces the
+  uniques, with a fake renderer and uploader: files once, second run no-ops,
+  render and upload failures log without throwing, the race, the unsigned
+  door, the backfill rules, invoice send / retry / re-send / v2, crew sees no
+  money kind, cross-tenant refused, photos carried once, nine languages.
+  222 assertions.
+
+### Still owed here
+
+- The renderer block now exists in FIVE places (quote download, quote send,
+  the public acceptance route, invoice download, and
+  `lib/jobs/documentRenderers.js`). The last one is the shape the first four
+  should share; unifying them is a refactor this work did not take on.
+- A by-hand acceptance recorded before this shipped is NOT backfilled with
+  an "Approved contract" — the brief was signed contracts. Opening the quote
+  page and pressing nothing files the as-sent quote for it; the contract
+  needs a product decision.
+- The invoice PDF's "payments received" on the filed copy is the family
+  ledger at the moment of the send; a payment taken later does not re-file
+  (only a re-send does), which is the intended record of "what they got".
 
 ---
 

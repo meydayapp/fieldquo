@@ -77,6 +77,7 @@ import TaxUnresolvedModal from "@/app/components/tax/TaxUnresolvedModal";
 import { planRequiredFrom } from "@/lib/signup/planRequired";
 import LifecycleBanners from "./LifecycleBanners";
 import JobPanel from "./JobPanel";
+import LinkedJobDocuments from "@/app/components/jobs/LinkedJobDocuments";
 import { SiteVisitRows } from "@/app/components/quotes/SiteVisitPanel";
 import CostPanel from "./CostPanel";
 
@@ -1408,6 +1409,11 @@ export default function InvoiceDetailPage() {
           )
         }
       />
+
+      {/* The job's filed documents — this invoice as it was sent sits here
+          beside the contract it bills against. Same strip as the quote page;
+          absent until a job is linked. */}
+      {life?.job?.id && <LinkedJobDocuments jobId={life.job.id} />}
 
       {/* Estimated vs costed vs actual. Null-safe throughout: absent for a
           reader without job costing, and absent figure by figure where nothing

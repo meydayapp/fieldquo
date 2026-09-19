@@ -13664,6 +13664,27 @@ model JobDocument {
   uploadedAt   DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  /// How the row came to exist. Null for a hand upload through the job page
+  /// — the only writer before autofiling. "acceptance" when the quote's
+  /// approval filed it (both doors: the client's signature and a staff
+  /// member's "They approved"), "invoice_send" when a send did, "backfill"
+  /// when the first view of an older job's Documents caught it up.
+  /// See lib/jobs/documentAutofile.js.
+  source String?
+  /// The quote or invoice the system rendered this row from. Null on a hand
+  /// upload. Not relations: a document outlives what it was made from, and
+  /// deleting an invoice must not delete the record that it was sent.
+  sourceQuoteId   String?
+  sourceInvoiceId String?
+  /// A digest of the CONTENT the row was rendered from — hashQuote() for a
+  /// quote, hashInvoiceDocument() for an invoice — never of the PDF bytes,
+  /// which change on every render. This is the idempotency key: a retried
+  /// acceptance or a double-clicked send matches the unique below and files
+  /// nothing. Postgres treats NULLs as distinct, so hand uploads never collide.
+  documentHash String?
+
+  @@unique([sourceQuoteId, kind, documentHash])
+  @@unique([sourceInvoiceId, kind, documentHash])
   @@index([companyId, jobId])
   @@index([jobId, kind])
 }

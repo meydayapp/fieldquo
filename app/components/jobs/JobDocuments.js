@@ -137,7 +137,7 @@ export default function JobDocuments({ jobId }) {
     : DOCUMENT_KINDS.filter((k) => !MONEY_KINDS.has(k));
 
   return (
-    <div className="bg-card border border-border rounded-xl p-4 sm:p-5">
+    <div id="documents" className="bg-card border border-border rounded-xl p-4 sm:p-5 scroll-mt-4">
       <div className="flex items-center justify-between gap-3 mb-3">
         <h2 className="font-semibold text-foreground flex items-center gap-1.5">
           <FileText size={16} />
@@ -197,6 +197,15 @@ export default function JobDocuments({ jobId }) {
                       {size ? ` · ${size}` : ""}
                       {revs > 1 &&
                         ` · ${t("app.jobDocuments.revision", "Rev {n}", { n: revs })}`}
+                      {/* A row the system filed says so — "filed on acceptance"
+                          rather than implying a person chose to upload it.
+                          Null source is a hand upload and prints nothing. */}
+                      {doc.source === "acceptance" &&
+                        ` · ${t("app.jobDocuments.source.acceptance", "Filed on acceptance")}`}
+                      {doc.source === "invoice_send" &&
+                        ` · ${t("app.jobDocuments.source.invoiceSend", "Filed when sent")}`}
+                      {doc.source === "backfill" &&
+                        ` · ${t("app.jobDocuments.source.backfill", "Filed from the quote")}`}
                     </p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">

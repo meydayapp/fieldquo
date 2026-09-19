@@ -36,6 +36,7 @@ import { taskForSentInvoice } from "@/lib/tasks/autoCreate";
 import { familyPayments } from "@/lib/invoices/family";
 import { computeInvoiceState } from "@/lib/invoices/computeInvoiceState";
 import { invoiceSendAsk } from "@/lib/invoices/sendAsk";
+import { fileSentInvoiceDocument } from "@/lib/jobs/documentAutofile";
 import {
   loadEnforceableMember,
   requireLevel,
@@ -252,6 +253,17 @@ export async function POST(request, { params }) {
       where: { id: ask.stage.id, companyId: member.companyId, status: "pending" },
       data: { status: "requested", requestedAt: new Date() },
     });
+  }
+
+  // The invoice as it just went out, filed on the job it bills for — the
+  // owner's "invoice as part of the documents". After sentAt is stamped,
+  // because that stamp is in the document's key: this send is one row, and
+  // the next send supersedes it (lib/jobs/documentAutofile.js). Only when
+  // the invoice has a job; never a reason for the send to report failure.
+  try {
+    await fileSentInvoiceDocument({ invoiceId: invoice.id, byUserId: member.userId });
+  } catch (err) {
+    console.error("[invoice send] job document:", err?.message);
   }
 
   // Usage count — see lib/analytics/product/server.js.

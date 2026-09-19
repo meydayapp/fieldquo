@@ -30,6 +30,7 @@ import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { assignedJobWhere } from "@/lib/permissions/enforce";
 import { normaliseStage, STAGES } from "@/lib/gallery/stages";
 import { sanitiseAnnotationJson } from "@/lib/jobs/photoAnnotation";
+import { fileQuotePhotosOnJob } from "@/lib/jobs/photoAutofile";
 
 // Same shape at every query site in this file, so GET/POST/PATCH can never
 // disagree about what a "photo" looks like to the caller.
@@ -71,9 +72,22 @@ export async function GET(request, { params }) {
   // OWN job and nobody else's.
   const job = await db.job.findFirst({
     where: { id, companyId: member.companyId, ...assignedJobWhere(full) },
-    select: { id: true },
+    select: { id: true, quoteId: true },
   });
   if (!job) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  // The homeowner's own pictures from the quote, in the "start" group. Filed
+  // on acceptance for every job created from now on; for a job that predates
+  // that, the first view of its Photos catches it up here — idempotent on
+  // (job, url), and never a reason for the list to fail. See
+  // lib/jobs/photoAutofile.js.
+  if (job.quoteId) {
+    try {
+      await fileQuotePhotosOnJob({ quoteId: job.quoteId, jobId: job.id });
+    } catch (err) {
+      console.error("[job photos] carry from quote:", err?.message);
+    }
+  }
 
   const photos = await db.jobPhoto.findMany({
     where: { jobId: id, companyId: member.companyId },

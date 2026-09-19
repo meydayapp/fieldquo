@@ -785,7 +785,7 @@ section("8. a crew member gets the plan and not the contract");
   ok("someone with pricing sees all five", office.documents.length === 5);
   ok("and nothing is reported hidden", office.hiddenCount === 0);
 
-  ok("MONEY_KINDS is exactly contract + invoice", [...MONEY_KINDS].sort().join(",") === "contract,invoice");
+  ok("MONEY_KINDS is exactly contract + invoice + quote", [...MONEY_KINDS].sort().join(",") === "contract,invoice,quote");
   ok(
     "every money kind is a real kind",
     [...MONEY_KINDS].every((k) => DOCUMENT_KINDS.includes(k)),
