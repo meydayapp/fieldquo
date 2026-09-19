@@ -221,19 +221,21 @@ for (const code of Object.keys(US_STATE_BASE_RATES)) {
 }
 
 // Ohio is a Streamlined state with local rates: without a ZIP row the box gets
-// the floor AND the caution; the taxability table then says Ohio does not tax
-// construction, so the document carries a stated zero — not 5.75%, not 7%.
+// the floor — applied, the way a province's rate is — AND the caution that the
+// local part is not known. The state's own rule (a contractor is the consumer
+// of materials) rides beside it as a hint, never as a zero the contractor did
+// not choose: the owner's rule, 2026-09-19.
 const ohio = resolveTaxRate({
   company: { autoApplyLocalTax: true, taxRate: 7, country: "US" },
   taxRates: [],
   client: { name: "Test", province: "OH", country: "US" },
 });
 ok(
-  "an Ohio construction quote charges nothing — a stated zero, not the floor and not the default",
-  ohio.rate === 0 && ohio.source === "us_exempt",
+  "an Ohio quote without a ZIP gets the 5.75% floor in the box, not the 7% default",
+  ohio.rate === 5.75 && ohio.source === "jurisdiction_us",
   JSON.stringify(ohio),
 );
-ok("...and names the floor it would have used", ohio.detail?.rate === 5.75 && ohio.detail?.status === "state_only");
+ok("...with the building-work hint beside it", ohio.detail?.treatment?.hint === "construction" && ohio.detail?.treatment?.applies === "all");
 ok("...with the local-rate caution attached", Boolean(ohio.cautionKey));
 
 // A state with no sales tax must not read as "we don't know".

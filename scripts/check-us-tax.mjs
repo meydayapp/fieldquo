@@ -6,9 +6,12 @@
 //
 //   npm run check:us-tax
 //
-// Every assertion is about the same thing the Canadian check is about: a
-// number a homeowner is billed is either the state's own published figure,
-// applied the way the state's own rules say, or it is not on the document.
+// Every assertion is about the same thing the Canadian check is about: the
+// number in the box is the state's own published figure for the address,
+// applied to the whole quote exactly as a province's rate is (the owner's
+// rule, 2026-09-19: "the contractor can charge the tax, I'm not here to
+// police them"), with the state's own rule beside it as a hint — and a
+// document that said nothing was owed keeps saying it.
 
 import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
@@ -16,7 +19,7 @@ import {
   US_TAXABILITY,
   US_STATES,
   US_JOB_OPTIONS,
-  usJobTreatment,
+  usTaxHint,
   usTaxabilitySummary,
 } from "@/lib/tax/usTaxability";
 import { US_STATE_BASE_RATES, lookupUsRate } from "@/lib/tax/jurisdictions";
@@ -92,17 +95,20 @@ ok("CA exempt", US_TAXABILITY.CA.labour === "exempt");
 ok("FL exempt", US_TAXABILITY.FL.labour === "exempt");
 ok("WA taxable, whole contract", US_TAXABILITY.WA.labour === "taxable" && US_TAXABILITY.WA.applies === "all");
 
-// The per-quote answer, and the stated default when nobody has answered.
-const nyDefault = usJobTreatment("NY", null);
-ok("NY unanswered → the default, marked assumed", nyDefault.assumedAnswer === true && nyDefault.answer === "repair" && nyDefault.applies === "all");
-ok("NY capital improvement → none", usJobTreatment("NY", "capitalImprovement").applies === "none");
-ok("NY garbage answer → the default, still marked assumed", usJobTreatment("NY", "__proto__").assumedAnswer === true);
-ok("TX residential → none", usJobTreatment("TX", "residential").applies === "none");
-ok("TX commercial remodel → all", usJobTreatment("TX", "commercialRemodel").applies === "all");
-ok("AZ modification → 65% share", usJobTreatment("AZ", "modification").applies === "share" && usJobTreatment("AZ", "modification").share === 0.65);
-ok("SD → fixed 2%", usJobTreatment("SD", null).applies === "fixed" && usJobTreatment("SD", null).fixedRate === 2);
-ok("CA never assumed", usJobTreatment("CA", null).assumedAnswer === false);
-ok("unknown state → null", usJobTreatment("ZZ", null) === null && usJobTreatment("constructor", null) === null);
+// The hint: the case in which the state's rule leaves the customer untaxed.
+ok("NY hint names the capital improvement", usTaxHint("NY").reason === "capitalImprovement" && usTaxHint("NY").labour === "depends");
+ok("TX hint names residential work", usTaxHint("TX").reason === "residential");
+ok("OH hint names building work", usTaxHint("OH").reason === "construction");
+ok("CA hint is the generic exempt reason", usTaxHint("CA").reason === "exempt" && usTaxHint("CA").labour === "exempt");
+ok("AZ hint names MRRA", usTaxHint("AZ").reason === "mrra");
+ok("WA has no hint — the rate is the rule", usTaxHint("WA").reason === null && usTaxHint("WA").labour === "taxable");
+ok("HI has no hint", usTaxHint("HI").reason === null);
+ok("SD hints at the excise", usTaxHint("SD").reason === "contractorExcise");
+ok("unknown state → null", usTaxHint("ZZ") === null && usTaxHint("constructor") === null && usTaxHint(null) === null);
+for (const state of US_STATES) {
+  const h = usTaxHint(state);
+  ok(`${state} hint reason has a sentence`, h.reason === null || `app.tax.us.reason.${h.reason}` in APP_MESSAGES.en, h.reason);
+}
 
 /* ── 2. The rate: ZIP hit, ZIP miss, uniform state, wrong-state ZIP ──────── */
 
@@ -132,28 +138,32 @@ for (const key of ["__proto__", "constructor", "toString", "", null, 12, "N Y"])
 ok("a ZIP row with a non-numeric rate is ignored", lookupUsRate("NY", { zipRate: { ...ny, combinedRate: "abc" } }).status === "state_only");
 ok("the month sentence reads the fetch date", usRatesMonth(hit, "en") === "September 2026", usRatesMonth(hit, "en"));
 
-/* ── 3. The resolver: rate × taxability × precedence ────────────────────── */
+/* ── 3. The resolver: the full rate on the whole quote, hint beside it ─── */
 
-section("Resolver — destination-based, below the company's word, above the default");
+section("Resolver — the full combined rate, destination-based, below the company's word");
 
 const canadian = { autoApplyLocalTax: true, taxRate: 13, country: "CA", province: "ON" };
 const nyClient = { name: "Ada", country: "US", province: "NY", usTaxRate: ny };
 
 const r1 = resolveTaxRate({ company: canadian, taxRates: [], client: nyClient });
-ok("a Canadian company quoting NY gets the NY rate", r1.rate === 8.875 && r1.source === "jurisdiction_us", JSON.stringify(r1));
-ok("...marked as an assumed answer (nobody said repair or capital)", r1.assumedAnswer === true);
+ok("a Canadian company quoting NY gets the full NY rate", r1.rate === 8.875 && r1.source === "jurisdiction_us", JSON.stringify(r1));
+ok("...nothing assumed on the contractor's behalf", r1.assumedAnswer === null);
+ok("...and the capital-improvement hint beside it", r1.detail?.treatment?.hint === "capitalImprovement" && r1.detail?.treatment?.applies === "all");
 const r2 = resolveTaxRate({ company: canadian, taxRates: [], client: nyClient, workType: "capitalImprovement" });
-ok("NY capital improvement → stated 0", r2.rate === 0 && r2.source === "us_exempt" && r2.assumedAnswer === false);
+ok("a work-type answer no longer moves the number", r2.rate === 8.875 && r2.source === "jurisdiction_us");
 const r3 = resolveTaxRate({ company: canadian, taxRates: [], client: { name: "B", country: "US", province: "CA" } });
-ok("California → stated 0, no question", r3.rate === 0 && r3.source === "us_exempt" && !r3.assumedAnswer);
+ok("California → the 7.25% floor, applied, with the exempt hint", r3.rate === 7.25 && r3.source === "jurisdiction_us" && r3.detail.treatment.hint === "exempt");
 const r4 = resolveTaxRate({ company: canadian, taxRates: [], client: { name: "C", country: "US", province: "WA" } });
-ok("Washington without a ZIP → the floor, applied, with the caution", r4.rate === 6.5 && r4.source === "jurisdiction_us" && r4.cautionKey);
-const r5 = resolveTaxRate({ company: canadian, taxRates: [], client: { name: "D", country: "US", province: "TX" }, workType: "commercialRemodel" });
-ok("TX commercial without a ZIP → 6.25 floor + caution", r5.rate === 6.25 && r5.cautionKey);
-const r6 = resolveTaxRate({ company: canadian, taxRates: [], client: { name: "E", country: "US", province: "AZ" }, workType: "modification" });
-ok("AZ modification → 65% of the floor", r6.rate === 3.64);
+ok("Washington without a ZIP → the floor, applied, with the caution, no hint", r4.rate === 6.5 && r4.source === "jurisdiction_us" && r4.cautionKey && r4.detail.treatment.hint === null);
+const r5 = resolveTaxRate({ company: canadian, taxRates: [], client: { name: "D", country: "US", province: "TX" } });
+ok("TX without a ZIP → 6.25 floor + caution + residential hint", r5.rate === 6.25 && r5.cautionKey && r5.detail.treatment.hint === "residential");
+const r6 = resolveTaxRate({ company: canadian, taxRates: [], client: { name: "E", country: "US", province: "AZ" } });
+ok("AZ → the full floor, never 65% of it", r6.rate === 5.6);
 const r7 = resolveTaxRate({ company: canadian, taxRates: [], client: { name: "F", country: "US", province: "SD" } });
-ok("SD → 2% excise, not the sales-tax rate", r7.rate === 2);
+ok("SD → the sales-tax floor, the excise is a hint", r7.rate === 4.2 && r7.detail.treatment.hint === "contractorExcise");
+const oh = resolveTaxRate({ company: canadian, taxRates: [], client: { name: "G", country: "US", province: "OH", usTaxRate: { zip: "43215", state: "OH", combinedRate: 8, stateRate: 5.75, fetchedAt: "2026-09-19T00:00:00.000Z" } } });
+ok("Ohio → 8% on the whole quote, building-work hint", oh.rate === 8 && oh.detail.treatment.hint === "construction");
+ok("the US rung never produces a stated zero any more", [r1, r2, r3, r4, r5, r6, r7, oh].every((r) => r.rate > 0 && r.source === "jurisdiction_us"));
 
 // Precedence.
 const named = resolveTaxRate({ company: canadian, taxRates: [{ name: "New York sales tax", rate: 8 }], client: nyClient });
@@ -180,41 +190,45 @@ ok("a 2024 date → unknown, not today's rate", past.source === "unknown_no_data
 // The company-province assumption crosses into the US rung too.
 const usCompany = { autoApplyLocalTax: true, taxRate: 0, country: "US", province: "TX" };
 const assumed = resolveDocumentTax({ company: usCompany, taxRates: [], client: { name: "J" } });
-ok("a US company with a blank client assumes its own state, labelled", assumed.assumed === true && /Texas/.test(assumed.assumedRegion) && assumed.source === "us_exempt");
+ok("a US company with a blank client assumes its own state, labelled", assumed.assumed === true && /Texas/.test(assumed.assumedRegion) && assumed.rate === 6.25);
 
 /* ── 4. The sentences ───────────────────────────────────────────────────── */
 
 section("Sentences — what was applied, in words, and translatable");
 
 const s1 = renderTaxNote(explainTaxSource(r1, nyClient, "en"), t);
-ok("NY sentence names rate, ZIP, split, scope, reason, month, assumption",
-  s1.startsWith("8.875% New York sales tax (ZIP 10001: state 4% + local 4.875%), on the whole quote") &&
-    /repair, maintenance and installation work is taxable in New York/.test(s1) &&
-    /Rates table: September 2026\./.test(s1) &&
-    /Assumed: Repair, maintenance or installation — tap to change\.$/.test(s1),
+ok("NY sentence: rate, ZIP, split, whole quote, month, then the hint",
+  s1.startsWith("8.875% New York sales tax (ZIP 10001: state 4% + local 4.875%), on the whole quote. Rates table: September 2026.") &&
+    /Note: a capital improvement is not taxed in New York/.test(s1) &&
+    /switch tax off on this quote if that applies to you; what you charge is your call\.$/.test(s1),
   s1);
-const s2 = renderTaxNote(explainTaxSource(r2, nyClient, "en"), t);
-ok("NY capital sentence is a stated zero with the reason and the would-be rate",
-  s2.startsWith("No New York sales tax on this quote — a capital improvement is not taxed in New York") && /If this job were taxable: 8.875%/.test(s2), s2);
+const s5 = renderTaxNote(explainTaxSource(r5, { name: "D" }, "en"), t);
+ok("TX sentence says state rate only, whole quote, then the residential hint",
+  /6.25% Texas sales tax — state rate only; county and city rates for this address are not known, on the whole quote\./.test(s5) &&
+    /Note: residential work is not taxed to the customer in Texas/.test(s5), s5);
+const sOh = renderTaxNote(explainTaxSource(oh, { name: "G" }, "en"), t);
+ok("Ohio sentence: 8%, ZIP split, building-work hint", /^8% Ohio sales tax \(ZIP 43215: state 5.75% \+ local 2.25%\), on the whole quote\. Rates table: September 2026\. Note: the contractor pays tax on materials at purchase and construction on real property is not taxed in Ohio/.test(sOh), sOh);
 const s4 = renderTaxNote(explainTaxSource(r4, { name: "C" }, "en"), t);
-ok("the ZIP-miss sentence says state rate only, county and city not known",
-  /6.5% Washington sales tax — state rate only; county and city rates for this address are not known/.test(s4), s4);
-const s7 = renderTaxNote(explainTaxSource(r7, { name: "F" }, "en"), t);
-ok("SD sentence names the contractor's tax, not the sales-tax rate", /2% South Dakota contractor's tax/.test(s7), s7);
-const spanning = resolveTaxRate({ company: canadian, taxRates: [], client: { name: "K", country: "US", province: "WI", usTaxRate: { zip: "53202", state: "WI", combinedRate: 5.9, stateRate: 5, maxRate: 7.9, zipSpansRates: true, effectiveFrom: "2024-12-01T00:00:00.000Z", fetchedAt: "2026-09-19T00:00:00.000Z" } }, workType: "landscaping" });
+ok("a state with no hint gets no note", /on the whole quote\.$/.test(s4) && !/Note:/.test(s4), s4);
+const spanning = resolveTaxRate({ company: canadian, taxRates: [], client: { name: "K", country: "US", province: "WI", usTaxRate: { zip: "53202", state: "WI", combinedRate: 5.9, stateRate: 5, maxRate: 7.9, zipSpansRates: true, effectiveFrom: "2024-12-01T00:00:00.000Z", fetchedAt: "2026-09-19T00:00:00.000Z" } } });
 const sSpan = renderTaxNote(explainTaxSource(spanning, { name: "K" }, "en"), t);
 ok("a ZIP that spans districts says so", /Addresses in ZIP 53202 pay up to 7.9%/.test(sSpan), sSpan);
-ok("no double spaces or trailing space in an assembled note", !/\s{2,}/.test(s1) && s1 === s1.trim());
+ok("no double spaces, no orphan punctuation", [s1, s4, s5, sOh, sSpan].every((x) => !/\s{2,}|\.\s*\./.test(x) && x === x.trim()));
+for (const lang of Object.keys(APP_MESSAGES)) {
+  const tl = (k, p = {}) => String(APP_MESSAGES[lang][k] ?? k).replace(/\{(\w+)\}/g, (_, x) => (p[x] == null ? "" : String(p[x])));
+  const note = renderTaxNote(explainTaxSource(r5, { name: "D" }, lang), tl);
+  ok(`the TX note renders in ${lang} with no raw key`, note.length > 40 && !/app\.tax\./.test(note), note);
+}
 
 // Every key the US sentences can reach exists in every app language.
-const usKeys = Object.keys(APP_MESSAGES.en).filter((k) => k.startsWith("app.tax.us.") || k.startsWith("app.settings.usTax.") || ["app.tax.note.usApplied", "app.tax.note.usNone", "app.tax.note.usCompanyOverride", "app.tax.note.usCompanyNone", "app.tax.caution.usLocalNotIncluded"].includes(k));
-ok("the US keys exist", usKeys.length >= 60, usKeys.length);
+const usKeys = Object.keys(APP_MESSAGES.en).filter((k) => k.startsWith("app.tax.us.") || k.startsWith("app.settings.usTax.") || ["app.tax.note.usApplied", "app.tax.note.usAppliedHint", "app.tax.note.usCompanyOverride", "app.tax.note.usCompanyNone", "app.tax.caution.usLocalNotIncluded"].includes(k));
+ok("the US keys exist", usKeys.length >= 45, usKeys.length);
 for (const lang of Object.keys(APP_MESSAGES)) {
   const missing = usKeys.filter((k) => !(k in APP_MESSAGES[lang]));
   ok(`every US key exists in ${lang}`, missing.length === 0, missing.join(", "));
 }
 for (const option of US_JOB_OPTIONS) {
-  ok(`option ${option} has a label and a reason`, `app.tax.us.option.${option}` in APP_MESSAGES.en && `app.tax.us.reason.${option}` in APP_MESSAGES.en);
+  ok(`kind ${option} has a reason sentence`, `app.tax.us.reason.${option}` in APP_MESSAGES.en);
 }
 for (const row of Object.values(US_TAXABILITY)) {
   if (row.reason) ok(`reason ${row.reason} has a key`, `app.tax.us.reason.${row.reason}` in APP_MESSAGES.en);
@@ -231,9 +245,14 @@ for (const code of docLangs) {
 const rec1 = recordTaxResolution(r1);
 ok("the document sentence for NY", documentTaxSentence(rec1, "en") === "New York sales tax at 8.875% (ZIP 10001). Rates as of September 2026.", documentTaxSentence(rec1, "en"));
 ok("...in French, with a French decimal", /8,875 %/.test(documentTaxSentence(rec1, "fr")) && /septembre 2026/.test(documentTaxSentence(rec1, "fr")), documentTaxSentence(rec1, "fr"));
-ok("the stated-zero sentence for a capital improvement", /capital improvement/.test(documentTaxSentence(recordTaxResolution(r2), "en")));
-ok("the stated-zero sentence for California", /contractor pays tax on materials/.test(documentTaxSentence(recordTaxResolution(r3), "en")));
-ok("AZ prints the real rate on a share, not the blend", documentTaxSentence(recordTaxResolution(r6), "en") === "Arizona sales tax at 5.6% on 65% of the amount.", documentTaxSentence(recordTaxResolution(r6), "en"));
+ok("the document sentence for TX without a ZIP", documentTaxSentence(recordTaxResolution(r5), "en") === "Texas sales tax at 6.25%.");
+ok("the document sentence for Ohio", documentTaxSentence(recordTaxResolution(oh), "en") === "Ohio sales tax at 8% (ZIP 43215). Rates as of September 2026.");
+ok("the hint is the estimator's, never the homeowner's", !/switch tax off|your call/.test(documentTaxSentence(rec1, "en")));
+// Documents written under the earlier rule keep saying what they said.
+const oldExempt = { v: 1, source: "us_exempt", rate: 0, country: "US", region: "NY", label: "New York", applies: "none", answer: "capitalImprovement", precision: "zip", zip: "10001", ratesMonth: "2026-09" };
+ok("a stored us_exempt record still prints its stated zero", /capital improvement/.test(documentTaxSentence(oldExempt, "en")));
+const oldShare = { v: 1, source: "jurisdiction_us", rate: 3.64, baseRate: 5.6, country: "US", region: "AZ", label: "Arizona", applies: "share", share: 0.65, precision: "state_only" };
+ok("a stored share record still prints the real rate on the share", documentTaxSentence(oldShare, "en") === "Arizona sales tax at 5.6% on 65% of the amount.", documentTaxSentence(oldShare, "en"));
 ok("a Canadian record prints no US sentence", documentTaxSentence({ source: "jurisdiction_ca", rate: 13, country: "CA" }, "en") === "");
 ok("a manual record prints no sentence", documentTaxSentence(manualTaxResolution(7), "en") === "");
 
@@ -241,30 +260,33 @@ ok("a manual record prints no sentence", documentTaxSentence(manualTaxResolution
 
 section("Stored record — the document keeps what it said");
 
-ok("the record carries rate, applies, answer, month, ZIP", rec1.rate === 8.875 && rec1.applies === "all" && rec1.answer === "repair" && rec1.ratesMonth === "2026-09" && rec1.zip === "10001");
+ok("the record carries rate, applies (all), month, ZIP, no answer", rec1.rate === 8.875 && rec1.applies === "all" && rec1.answer === null && rec1.assumedAnswer === false && rec1.ratesMonth === "2026-09" && rec1.zip === "10001");
 ok("the record is plain JSON", JSON.parse(JSON.stringify(rec1)).rate === 8.875);
 ok("a company-default result records nothing", recordTaxResolution(off) === null);
 ok("an unknown result records nothing", recordTaxResolution(unknown) === null);
-ok("a stated zero is recognised", resolutionStatesZero(recordTaxResolution(r2)) && resolutionStatesZero(recordTaxResolution(none)) && !resolutionStatesZero(rec1));
+ok("a stated zero is recognised — the company's own, and an older us_exempt record", resolutionStatesZero(recordTaxResolution(none)) && resolutionStatesZero(oldExempt) && !resolutionStatesZero(rec1));
 ok("a matching amount keeps the record", resolutionMatchesAmount(rec1, 88.75, 1000));
 ok("a mismatching amount does not", !resolutionMatchesAmount(rec1, 70, 1000));
 ok("resolutionForDocument keeps the record when the money matches", resolutionForDocument({ resolution: r1, tax: 88.75, taxableBase: 1000, taxEnabled: true }).source === "jurisdiction_us");
 ok("...and records a manual rate when it does not", resolutionForDocument({ resolution: r1, tax: 70, taxableBase: 1000, taxEnabled: true }).source === "manual");
 ok("...and nothing when tax is off", resolutionForDocument({ resolution: r1, tax: 0, taxableBase: 1000, taxEnabled: false }) === null);
 
-// The statement: a stored US zero is "none", a charged line is charged, and
-// a line that should have been charged and was not is still unresolved.
-const stNone = taxStatement({ taxEnabled: true, tax: 0, stored: recordTaxResolution(r2), company: canadian, client: nyClient });
-ok("a stored stated zero → none, never unresolved", stNone.kind === "none");
-ok("...and the send gate lets it through", taxSendRefusal(stNone, { client: nyClient }) === null);
+// The statement: a charged line is charged; a US line with tax on and
+// nothing charged is unresolved (the same hole Canada refuses); the
+// company's own "collect nothing" and an older stated-zero record are "none".
 const stCharged = taxStatement({ taxEnabled: true, tax: 88.75, stored: rec1, company: canadian, client: nyClient });
 ok("a charged line → charged", stCharged.kind === "charged");
 const stHole = taxStatement({ taxEnabled: true, tax: 0, stored: rec1, company: canadian, client: nyClient });
 ok("8.875% owed and nothing charged → unresolved", stHole.kind === "unresolved");
-const stLiveNone = taxStatement({ taxEnabled: true, tax: 0, company: canadian, client: { name: "B", country: "US", province: "CA" } });
-ok("a live California resolution with no record → none", stLiveNone.kind === "none");
-const stStale = taxStatement({ taxEnabled: true, tax: 0, stored: recordTaxResolution(r2), company: { ...canadian, usTaxOverrides: { NY: { mode: "rate", rate: 9 } } }, client: nyClient });
-ok("the record wins over today's settings", stStale.kind === "none");
+const stOff = taxStatement({ taxEnabled: false, tax: 0, stored: null, company: canadian, client: nyClient });
+ok("tax switched off on the quote → off, the one press the hint points at", stOff.kind === "off");
+const stCompanyNone = taxStatement({ taxEnabled: true, tax: 0, stored: recordTaxResolution(none), company: canadian, client: nyClient });
+ok("the company's own 'collect nothing' → none", stCompanyNone.kind === "none");
+ok("...and the send gate lets it through", taxSendRefusal(stCompanyNone, { client: nyClient }) === null);
+const stOld = taxStatement({ taxEnabled: true, tax: 0, stored: oldExempt, company: canadian, client: nyClient });
+ok("an older stored us_exempt record → none, whatever today's rule says", stOld.kind === "none");
+const stLive = taxStatement({ taxEnabled: true, tax: 0, company: canadian, client: { name: "B", country: "US", province: "CA" } });
+ok("a live California resolution with nothing charged → unresolved, not a zero invented for the contractor", stLive.kind === "unresolved");
 
 // An invoice inherits the quote's record verbatim — same object, same sentence.
 const inherited = JSON.parse(JSON.stringify(rec1));

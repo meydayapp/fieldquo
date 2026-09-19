@@ -125,9 +125,6 @@ export async function POST(request) {
     // was read by the edit page and by the public quote route, and written by
     // nothing, so the "Apply tax" checkbox never survived a save.
     taxEnabled,
-    // The builder's answer to the US taxability question, or the EU
-    // renovation flag. Only used to RECORD what the tax line said.
-    taxWorkType,
     notes,
     // Internal, and never on the document. What a caller asked for that the
     // draft could not place — see the Quote.reviewNotes comment in the schema.
@@ -301,7 +298,6 @@ export async function POST(request) {
         company: company || {},
         taxRates,
         client: await attachUsTaxRate(clientRow),
-        workType: typeof taxWorkType === "string" ? taxWorkType : null,
       }),
       tax: tax || 0,
       taxableBase: (Number(subtotal) || 0) - (Number(discount) || 0),

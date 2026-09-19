@@ -77,11 +77,6 @@ export default function QuoteTotalsBar({
   // company's country operates a reduced VAT rate for renovation work. Null
   // everywhere else, including Canada and the US.
   taxVat = null,
-  // { state, question: { options, default }, answer, assumed, onChange } for a
-  // US client in one of the states that tax some jobs and not others
-  // (lib/tax/usTaxability.js). One tap; the assumed default is marked so it
-  // is never mistaken for an answer. Null everywhere else.
-  taxUs = null,
   // ── Where the client is, when the rate could not be worked out ──────────
   //
   // The "not worked out" hint below used to tell everyone to "set the
@@ -243,41 +238,6 @@ export default function QuoteTotalsBar({
                 )}
               </span>
             </label>
-          </div>
-        )}
-
-        {/* The US question: which kind of job, because the state taxes one
-            kind and not the other. Chips, not radios — the options are short
-            and there are up to four. The default is applied until tapped and
-            the note below says "Assumed: …" while it is. */}
-        {taxUs && (
-          <div className="space-y-1.5">
-            <p className="text-sm font-medium text-foreground">
-              {t("app.tax.us.question.title", { state: taxUs.state })}
-            </p>
-            <div className="flex flex-wrap gap-1.5">
-              {taxUs.question.options.map((o) => {
-                const active = taxUs.answer === o.value;
-                return (
-                  <button
-                    key={o.value}
-                    type="button"
-                    aria-pressed={active}
-                    onClick={() => taxUs.onChange(o.value)}
-                    className={
-                      "rounded-full border px-3 py-1 text-xs text-left " +
-                      (active
-                        ? taxUs.assumed
-                          ? "border-amber-400 bg-amber-50 text-amber-900 dark:bg-amber-950/40 dark:text-amber-200"
-                          : "border-primary bg-primary text-primary-foreground"
-                        : "border-border bg-background text-foreground hover:bg-muted")
-                    }
-                  >
-                    {t(`app.tax.us.option.${o.value}`)}
-                  </button>
-                );
-              })}
-            </div>
           </div>
         )}
 

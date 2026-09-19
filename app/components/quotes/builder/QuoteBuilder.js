@@ -1568,10 +1568,6 @@ export function QuoteBuilderForm({
       discount: appliedDiscount,
       tax,
       taxEnabled,
-      // The answer to the US taxability question (or the EU renovation
-      // flag), so the server can record what the tax line said — see
-      // lib/tax/taxResolution.js. Null when nothing was asked.
-      taxWorkType: vatWorkType,
       total,
       notes,
       reviewNotes,
@@ -2341,27 +2337,6 @@ export function QuoteBuilderForm({
         // company's country. Most member states have none, and offering a
         // choice between the standard rate and nothing would be a control that
         // does nothing.
-        // The per-quote US question, only in the sixteen states that tax
-        // some jobs and not others (lib/tax/usTaxability.js). The answer
-        // travels through the same `workType` the VAT picker uses; the two
-        // vocabularies do not overlap. Saved with the quote so the stored
-        // resolution records what was answered.
-        taxUs={
-          taxDetail?.country === "US" && taxDetail?.treatment?.question
-            ? {
-                state: taxDetail.label,
-                question: taxDetail.treatment.question,
-                answer: taxDetail.treatment.answer,
-                assumed: Boolean(taxDetail.treatment.assumedAnswer),
-                onChange: (v) => {
-                  setVatWorkType(v);
-                  // Answering IS choosing a rate — re-arm the resolver, as
-                  // the VAT picker below does.
-                  setTaxRateTouched(false);
-                },
-              }
-            : null
-        }
         taxVat={
           taxDetail?.reducedRate != null
             ? {

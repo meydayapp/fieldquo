@@ -170,8 +170,6 @@ export async function POST(request) {
     // Whether this invoice CLAIMS tax applies. Distinct from `tax` being zero
     // — see the schema note on Invoice.taxEnabled.
     taxEnabled,
-    // The answer to the US taxability question, when the editor asked one.
-    taxWorkType,
     total,
     dueDate,
     notes,
@@ -245,7 +243,6 @@ export async function POST(request) {
           company: companyForTax || {},
           taxRates,
           client: await attachUsTaxRate(clientRow),
-          workType: typeof taxWorkType === "string" ? taxWorkType : null,
         }),
         tax: tax || 0,
         taxableBase,

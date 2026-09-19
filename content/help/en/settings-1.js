@@ -255,7 +255,7 @@ export const ARTICLES = {
     title: "Tax settings",
     summary:
       "Your tax registration number as it prints on documents, the tax rates you create, the VAT question for European companies, and the switch that picks the client's local rate for you.",
-    updated: "2026-09-12",
+    updated: "2026-09-19",
     intro: [
       "**Tax Settings** is a card on **Company Settings** with two halves. The top half is about *you*: the registration number that prints at the foot of every quote and invoice. The bottom half is about the *client*: the rates you create, which one is the default, and whether FieldQuo should pick the rate that matches the client's province instead of always using the default.",
       "The rule behind the whole card is conservative on purpose: every rate a document can carry is one you typed and named. FieldQuo does not work out what you owe, does not register you anywhere and files nothing for you — it prints what you enter.",
@@ -309,10 +309,20 @@ export const ARTICLES = {
           { bullets: [
             "**The automatic switch is off** — your **Default** rate, untouched. The feature is opt-in and this is the door.",
             "**One of your rates names the client's province** — that rate wins. A contractor who typed “HST Ontario 13” is never overruled by a table.",
-            "**No rate matches and the jurisdiction is knowable** — the published rate for a Canadian province is applied. Never for a US state, where a state figure is a floor, not a rate; for an EU country only if you answered **Yes** to the VAT question.",
+            "**No rate matches and the jurisdiction is knowable** — the published rate is applied: a Canadian province's rate, or for a US address the combined state-and-local rate for the client's ZIP from the state's own tables (see below); for an EU country only if you answered **Yes** to the VAT question.",
             "**Everything else** — your default rate, and the quote says so.",
           ] },
           { tip: "Name your rates after provinces before turning the switch on. A rate called “Tax” can never match anything and the switch will fall through to the default every time." },
+        ],
+      },
+      {
+        id: "united-states",
+        heading: "United States sales tax",
+        blocks: [
+          { p: "A quote to a US address — from a company anywhere, a Canadian one included — carries the combined state, county, city and district rate for the client's ZIP, on the whole quote, the same way a Canadian quote carries its province's rate. The rates come from the states' own published tables and the builder names the month they were read; where no ZIP-level table exists for a state, the state rate goes in the box and the builder says *state rate only — county and city rates for this address are not known*, so you can type the address's full rate if you know it." },
+          { p: "Most states do not tax a contractor's work on real property to the customer — the contractor pays tax on materials at the counter — and a few tax some jobs and not others (a repair but not a capital improvement in New York, a commercial remodel but not residential work in Texas, landscaping but not building work in Ohio). FieldQuo does not decide that for you. The rate goes on by default, and the note beside it says when your state's rule points the other way: *residential work is usually not taxed to the customer in Texas — switch tax off on this quote if that applies to you; what you charge is your call.* Switching tax off is one press on the quote, and the document then says no tax was charged." },
+          { p: "The **United States sales tax** part of this card appears once you touch the US — your own address, a US client on file, or a state you have already set. It states the rule above, shows the month of the ZIP rates table, and lets you say, per state, **Charge this rate** (a rate of your own, on the whole quote) or **Collect nothing** (you do not collect there; every quote to that state then says so). A rate you type on a quote itself still wins over all of it." },
+          { note: "What the quote said is what it keeps saying. The rate, the ZIP, the rates-table month and, for older documents, a stated zero are recorded on the quote when it is created and copied to the invoice raised from it; a later change to the tables or to this card changes the next quote, never a sent one." },
         ],
       },
       {
@@ -327,7 +337,8 @@ export const ARTICLES = {
       { q: "Do I have to enter a tax number?", a: "Only if you are registered. A Canadian sole trader under the registration threshold has no GST number to give — tick I don't have one and the dashboard stops asking." },
       { q: "Where does the number appear?", a: "At the foot of every quote and invoice, next to your contact details, as name and number together. If either half is blank, no line prints at all — never an empty label." },
       { q: "Will turning on the automatic switch change my sent quotes?", a: "No. A quote stores its tax as an amount when it is created. The switch affects the next quote you create." },
-      { q: "Why does my quote say the default rate was used?", a: "Because no rate of yours named the client's province and the jurisdiction was not one FieldQuo will fill in — a US address, or an EU one without a VAT answer. Add a rate named for that province, or set the client's province on their record." },
+      { q: "Why does my quote say the default rate was used?", a: "Because no rate of yours named the client's province and the jurisdiction was not one FieldQuo will fill in — a client with no country on file, or an EU one without a VAT answer. Add a rate named for that province or state, or set the client's country and province on their record." },
+      { q: "A US quote shows sales tax but my state doesn't tax my work. Is that a mistake?", a: "No — it is the default. The rate goes on every US quote the way a province's rate goes on a Canadian one, and the note beside it tells you when your state's own rule says the customer is usually not charged. Switch tax off on that quote in one press; what you charge is your call, and the document then says no tax was charged rather than showing a zero. If you never collect in a state, say so once under **United States sales tax** and every quote there starts that way." },
     ],
   },
 

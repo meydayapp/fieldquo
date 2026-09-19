@@ -257,7 +257,7 @@ export const ARTICLES = {
     title: "Configuración de impuestos",
     summary:
       "Su número de registro fiscal tal como se imprime en los documentos, las tasas de impuesto que crea, la pregunta sobre el IVA para las empresas europeas, y el interruptor que elige por usted la tasa local del cliente.",
-    updated: "2026-09-12",
+    updated: "2026-09-19",
     intro: [
       "**Configuración de impuestos** es una tarjeta de **Configuración de la empresa** con dos mitades. La mitad superior trata de *usted*: el número de registro que se imprime al pie de cada presupuesto y factura. La mitad inferior trata del *cliente*: las tasas que crea, cuál es la predeterminada, y si FieldQuo debe elegir la tasa que coincide con la provincia del cliente en lugar de usar siempre la predeterminada.",
       "La regla detrás de toda la tarjeta es conservadora a propósito: cada tasa que un documento puede llevar es una que usted escribió y nombró. FieldQuo no calcula lo que debe, no lo registra en ningún sitio y no presenta nada por usted — imprime lo que usted ingresa.",
@@ -311,10 +311,20 @@ export const ARTICLES = {
           { bullets: [
             "**El interruptor automático está desactivado** — su tasa **Predeterminado**, sin más. La función es opcional y esta es su puerta.",
             "**Una de sus tasas nombra la provincia del cliente** — esa tasa gana. A un contratista que escribió «HST Ontario 13» nunca lo contradice una tabla.",
-            "**Ninguna tasa coincide y la jurisdicción es conocible** — se aplica la tasa publicada de una provincia canadiense. Nunca para un estado de EE. UU., donde la cifra estatal es un piso, no una tasa; para un país de la UE, solo si respondió **Sí** a la pregunta sobre el IVA.",
+            "**Ninguna tasa coincide y la jurisdicción es conocible** — se aplica la tasa publicada: la de una provincia canadiense o, para una dirección de EE. UU., la tasa combinada estatal y local del ZIP del cliente tomada de las tablas del propio estado (vea más abajo); para un país de la UE, solo si respondió **Sí** a la pregunta sobre el IVA.",
             "**Todo lo demás** — su tasa predeterminada, y el presupuesto lo dice.",
           ] },
           { tip: "Nombre sus tasas según las provincias antes de activar el interruptor. Una tasa llamada «Impuesto» nunca puede coincidir con nada y el interruptor caerá en la predeterminada cada vez." },
+        ],
+      },
+      {
+        id: "united-states",
+        heading: "Impuesto sobre las ventas en Estados Unidos",
+        blocks: [
+          { p: "Un presupuesto a una dirección de EE. UU. — de una empresa en cualquier lugar, incluida una canadiense — lleva la tasa combinada estatal, de condado, de ciudad y de distrito del ZIP del cliente, sobre todo el presupuesto, igual que un presupuesto canadiense lleva la tasa de su provincia. Las tasas vienen de las tablas publicadas por los propios estados y el editor nombra el mes en que se leyeron; donde no existe tabla por ZIP para un estado, la tasa estatal va en la casilla y el editor indica *solo la tasa estatal — no se conocen las tasas de condado y ciudad de esta dirección*, para que escriba la tasa completa de la dirección si la conoce." },
+          { p: "La mayoría de los estados no gravan al cliente el trabajo de un contratista sobre bienes inmuebles — el contratista paga el impuesto sobre los materiales al comprarlos — y unos pocos gravan algunos trabajos y otros no (una reparación pero no una mejora permanente en Nueva York, una remodelación comercial pero no residencial en Texas, la jardinería pero no la construcción en Ohio). FieldQuo no lo decide por usted. La tasa se aplica por defecto, y la nota al lado dice cuándo la regla de su estado apunta en otra dirección: *el trabajo residencial normalmente no se grava al cliente en Texas — desactive el impuesto en este presupuesto si eso aplica a su caso; lo que cobra es su decisión.* Desactivar el impuesto es un toque en el presupuesto, y el documento dice entonces que no se cobró impuesto." },
+          { p: "La parte **Impuesto sobre las ventas en Estados Unidos** de esta tarjeta aparece en cuanto toca EE. UU. — su propia dirección, un cliente de EE. UU. en sus fichas, o un estado ya configurado. Enuncia la regla anterior, muestra el mes de la tabla de tasas por ZIP y le permite indicar, estado por estado, **Cobrar esta tasa** (una tasa suya, sobre todo el presupuesto) o **No cobrar nada** (no cobra allí; cada presupuesto a ese estado lo dice entonces). Una tasa que escriba en el propio presupuesto sigue ganando sobre todo esto." },
+          { note: "Lo que dijo el presupuesto es lo que sigue diciendo. La tasa, el ZIP, el mes de la tabla de tasas y, en documentos antiguos, un cero declarado se registran en el presupuesto al crearlo y se copian a la factura que se emite a partir de él; un cambio posterior en las tablas o en esta tarjeta cambia el siguiente presupuesto, nunca uno enviado." },
         ],
       },
       {
@@ -329,7 +339,8 @@ export const ARTICLES = {
       { q: "¿Tengo que ingresar un número fiscal?", a: "Solo si está registrado. Un trabajador autónomo canadiense por debajo del umbral de registro no tiene número de GST que dar — marque No tengo uno y el panel deja de pedirlo." },
       { q: "¿Dónde aparece el número?", a: "Al pie de cada presupuesto y factura, junto a sus datos de contacto, nombre y número juntos. Si cualquiera de las dos mitades está vacía, no se imprime ninguna línea — nunca un rótulo vacío." },
       { q: "¿Activar el interruptor automático cambiará mis presupuestos enviados?", a: "No. Un presupuesto almacena su impuesto como un importe al crearse. El interruptor afecta al próximo presupuesto que cree." },
-      { q: "¿Por qué mi presupuesto dice que se usó la tasa predeterminada?", a: "Porque ninguna de sus tasas nombraba la provincia del cliente y la jurisdicción no era una de las que FieldQuo completa — una dirección de EE. UU., o una de la UE sin respuesta sobre el IVA. Agregue una tasa con el nombre de esa provincia, o defina la provincia del cliente en su ficha." },
+      { q: "¿Por qué mi presupuesto dice que se usó la tasa predeterminada?", a: "Porque ninguna de sus tasas nombraba la provincia del cliente y la jurisdicción no era una de las que FieldQuo completa — un cliente sin país en su ficha, o una dirección de la UE sin respuesta sobre el IVA. Agregue una tasa con el nombre de esa provincia o estado, o defina el país y la provincia del cliente en su ficha." },
+      { q: "Un presupuesto de EE. UU. muestra impuesto sobre las ventas, pero mi estado no grava mi trabajo. ¿Es un error?", a: "No — es el comportamiento predeterminado. La tasa va en cada presupuesto de EE. UU. como la tasa de una provincia va en uno canadiense, y la nota al lado le dice cuándo la regla de su estado indica que normalmente no se cobra al cliente. Desactive el impuesto en ese presupuesto con un toque; lo que cobra es su decisión, y el documento dirá entonces que no se cobró impuesto en lugar de mostrar un cero. Si nunca cobra en un estado, dígalo una vez en **Impuesto sobre las ventas en Estados Unidos** y cada presupuesto a ese estado empezará así." },
     ],
   },
 

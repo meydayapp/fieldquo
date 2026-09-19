@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 19 September 2026 (the crawler takes a second look: a site read more than thirty days ago is crawled again for the rows reps hold and the rows next in dispatch, unchanged stops the chain and moves the "checked" stamps, changed re-runs it and the brief says "website changed since <date>" — see the section below)
+Last updated: 19 September 2026 (US sales tax on a quote to a US address is the full combined rate on the whole quote, from any company, exactly as a Canadian province's — the ZIP's rate from the states' own Streamlined files, the state's own rule beside it as a hint the contractor may act on in one press, and the record stored on the quote and copied to its invoice — see the section below)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -60,63 +60,61 @@ was in that week.
 
 ---
 
-## US sales tax on a quote is automatic, honest about its precision, and stays what it said (19 September 2026)
+## US sales tax on a quote is the full rate on the whole quote, with the state's rule beside it (19 September 2026)
 
-Owner's decision: American companies can sign up, so a quote to a US
-address charges that address's sales tax the way Canada charges by province
-— for any company, a Canadian one quoting a Seattle job included — and the
-tax lives on the document so it holds when the client pays by cash,
-e-transfer, cheque or wire. Full write-up: `docs/US-SALES-TAX.md`.
+Owner's decision, after seeing the first version (which zeroed the tax in
+the states that do not tax construction and asked a one-tap question in
+the states that tax some jobs): "the contractor can charge the tax, I'm
+not here to police them — they are responsible for what they charge. If
+they charge the full tax then the system should allow them to, by default
+— just like how we quote in Canada right now." Full write-up:
+`docs/US-SALES-TAX.md`.
 
-1. **The rate, by ZIP.** `UsSalesTaxRate` — 25,337 ZIPs across the 24
-   Streamlined Sales Tax member states plus Pennsylvania, from the states'
-   own rate and boundary files (streamlinedsalestax.org/ratesandboundry,
-   dated in the file name) and the Census ZCTA→county crosswalk. Loaded by
-   `npm run us-tax:load` (idempotent upsert, never deletes; the boundary
-   files are 300–400 MB each, so it runs monthly from the owner's Mac, not
-   a cron). `lib/tax/usRates.js` hangs the row on the client object; the
-   resolver stays pure and runs in the browser. No row → a state with no
-   local sales tax answers with its rate; anywhere else the state floor is
+1. **The rate, by ZIP, on the whole quote.** `UsSalesTaxRate` — 25,337
+   ZIPs across the 24 Streamlined Sales Tax member states plus
+   Pennsylvania, from the states' own rate and boundary files
+   (streamlinedsalestax.org/ratesandboundry, dated in the file name) and
+   the Census ZCTA→county crosswalk. Loaded by `npm run us-tax:load`
+   (idempotent upsert, never deletes; the boundary files are 300–400 MB
+   each, so it runs monthly from the owner's Mac, not a cron).
+   `lib/tax/usRates.js` hangs the row on the client object; the resolver
+   stays pure and runs in the browser. No row → a state with no local
+   sales tax answers with its rate; anywhere else the state floor is
    applied **with** the sentence "state rate only; county and city not
    known". A ZIP whose +4 ranges span districts stores the lowest and says
-   "addresses in this ZIP pay up to 7.9%".
-2. **Taxability, by state.** `lib/tax/usTaxability.js`: 31 exempt (the
-   contractor pays tax on materials at purchase, labour on real property is
-   not taxed — a stated zero with the reason printed), 4 taxable (WA, HI,
-   NM whole contract; SD's 2% excise), 16 "depends" the builder asks in one
-   tap (capital improvement vs repair, residential vs commercial, building
-   vs landscaping, CT's listed services, AZ's modification vs MRRA). The
-   state's default applies and is printed as "Assumed: … — tap to change"
-   until tapped. Nine rows read from the state publication this month; the
-   rest say they were not re-fetched.
+   "addresses in this ZIP pay up to 7.9%". Destination-based: a Canadian
+   company quoting Seattle gets Washington's rate.
+2. **The state's rule, as a hint.** `lib/tax/usTaxability.js` (51 cited
+   rows: 31 exempt, 4 taxable, 16 depends) no longer changes the number.
+   It names the case in which the state leaves the customer untaxed and
+   the builder prints it: "Note: residential work is not taxed to the
+   customer in Texas; you pay tax on materials when you buy them — switch
+   tax off on this quote if that applies to you; what you charge is your
+   call." Nothing in WA, HI, NM. The one-tap job-kind chips are gone.
 3. **Precedence.** A rate typed on the quote → a company rate named after
    the state → `Company.usTaxOverrides[state]` (Settings → Tax: "charge
-   this rate" / "collect nothing") → the tables → the company default.
+   this rate" / "collect nothing" — the company's own stated zero) → the
+   tables → the company default.
 4. **The record.** `Quote.taxResolution` holds what the line said (rate,
-   ZIP, split, answer, rates month) and is copied verbatim to any invoice
-   raised from the quote; PDF, email, public quote page, portal and office
-   pages print from it, never from today's table. A typed rate is recorded
-   as manual and prints no sentence.
+   ZIP, split, rates month) and is copied verbatim to any invoice raised
+   from the quote; PDF, email, public quote page, portal and office pages
+   print from it, never from today's table. Documents stored under the
+   first version (`us_exempt`) keep printing their stated zero.
 5. **Settings → Tax** shows a US card only to a company that touches the
-   US: the behaviour in one paragraph, the rates-table month, the
-   per-state overrides.
+   US: the rule in one paragraph, the rates-table month, the per-state
+   overrides. The help article `tax-settings` (EN/FR/ES) carries the same.
 
-`scripts/check-us-tax.mjs` (597 assertions) is in `check:all`.
+`scripts/check-us-tax.mjs` (663 assertions) is in `check:all`.
 
 ### Still owed here
 
 - ZIP-level rates for TX, CA, NY, FL, IL, CO, AZ, AL, LA, MO, NM, SC, VA,
   AK, ID and MS: no login-free machine-readable file exists; the floor and
-  its sentence apply. Most of these do not tax a lump-sum contract at all,
-  so the gap reaches a document only for TX commercial remodel, NY repair,
-  NM and AZ modification. A live address lookup (CDTFA's API for CA, the
-  Texas GIS locator) at quote time is the honest next step.
+  its sentence apply and the estimator types the full rate. A live address
+  lookup (CDTFA's API for CA, the Texas GIS locator) at quote time is the
+  honest next step.
 - The taxability rows not re-fetched this month should be read from their
-  publication before a company in that state relies on them.
-- A separated (itemised) contract — TX, FL "retail sale plus installation"
-  — is a per-state override today, not a materials-line split the builder
-  can compute.
-
+  publication before their hint is relied on.
 
 ## Each trade has its own selling points, and every surface says the same three (19 September 2026)
 

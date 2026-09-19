@@ -257,7 +257,7 @@ export const ARTICLES = {
     title: "Paramètres de taxes",
     summary:
       "Votre numéro d'inscription fiscale tel qu'il s'imprime sur les documents, les taux de taxe que vous créez, la question sur la TVA pour les entreprises européennes, et l'interrupteur qui choisit pour vous le taux local du client.",
-    updated: "2026-09-12",
+    updated: "2026-09-19",
     intro: [
       "**Paramètres de taxes** est une carte du **Profil de l'entreprise** en deux moitiés. La moitié du haut parle de *vous* : le numéro d'inscription qui s'imprime au bas de chaque soumission et facture. La moitié du bas parle du *client* : les taux que vous créez, celui qui est par défaut, et si FieldQuo doit choisir le taux qui correspond à la province du client au lieu de toujours prendre le taux par défaut.",
       "La règle derrière toute la carte est prudente à dessein : chaque taux qu'un document peut porter est un taux que vous avez tapé et nommé. FieldQuo ne calcule pas ce que vous devez, ne vous inscrit nulle part et ne produit aucune déclaration pour vous — il imprime ce que vous saisissez.",
@@ -311,10 +311,20 @@ export const ARTICLES = {
           { bullets: [
             "**L'interrupteur automatique est désactivé** — votre taux **Par défaut**, tel quel. La fonction est facultative et voici sa porte.",
             "**L'un de vos taux nomme la province du client** — ce taux l'emporte. Un entrepreneur qui a tapé « TVH Ontario 13 » n'est jamais contredit par une table.",
-            "**Aucun taux ne correspond et le territoire est connaissable** — le taux publié pour une province canadienne est appliqué. Jamais pour un État américain, où un chiffre d'État est un plancher, pas un taux; pour un pays de l'UE, seulement si vous avez répondu **Oui** à la question sur la TVA.",
+            "**Aucun taux ne correspond et le territoire est connaissable** — le taux publié est appliqué : celui d'une province canadienne ou, pour une adresse américaine, le taux combiné État-et-local du ZIP du client tiré des tables de l'État (voir plus bas); pour un pays de l'UE, seulement si vous avez répondu **Oui** à la question sur la TVA.",
             "**Tout le reste** — votre taux par défaut, et la soumission le dit.",
           ] },
           { tip: "Nommez vos taux d'après les provinces avant d'activer l'interrupteur. Un taux appelé « Taxe » ne peut jamais correspondre à rien et l'interrupteur retombera sur le taux par défaut à chaque fois." },
+        ],
+      },
+      {
+        id: "united-states",
+        heading: "Taxe de vente aux États-Unis",
+        blocks: [
+          { p: "Une soumission vers une adresse américaine — d'une entreprise située n'importe où, canadienne comprise — porte le taux combiné d'État, de comté, de ville et de district du ZIP du client, sur l'ensemble de la soumission, exactement comme une soumission canadienne porte le taux de sa province. Les taux viennent des tables publiées par les États eux-mêmes et le générateur nomme le mois où elles ont été lues; là où aucune table par ZIP n'existe pour un État, le taux de l'État va dans la case et le générateur indique *taux de l'État seulement — les taux de comté et de ville de cette adresse ne sont pas connus*, pour que vous puissiez saisir le taux complet de l'adresse si vous le connaissez." },
+          { p: "La plupart des États ne taxent pas au client les travaux d'un entrepreneur sur un bien immobilier — l'entrepreneur paie la taxe sur les matériaux au comptoir — et quelques-uns taxent certains travaux et pas d'autres (une réparation mais pas une amélioration permanente à New York, une rénovation commerciale mais pas résidentielle au Texas, l'aménagement paysager mais pas la construction en Ohio). FieldQuo ne tranche pas pour vous. Le taux s'applique par défaut, et la note à côté dit quand la règle de votre État va dans l'autre sens : *les travaux résidentiels ne sont habituellement pas taxés au client au Texas — désactivez la taxe sur cette soumission si cela s'applique à vous; ce que vous facturez vous appartient.* Désactiver la taxe se fait d'une touche sur la soumission, et le document dit alors qu'aucune taxe n'a été facturée." },
+          { p: "La partie **Taxe de vente aux États-Unis** de cette carte apparaît dès que vous touchez aux États-Unis — votre propre adresse, un client américain dans vos fiches, ou un État déjà réglé. Elle énonce la règle ci-dessus, affiche le mois de la table des taux par ZIP et vous laisse dire, État par État, **Facturer ce taux** (un taux à vous, sur l'ensemble de la soumission) ou **Ne rien percevoir** (vous ne percevez rien là-bas; chaque soumission vers cet État le dit alors). Un taux saisi sur la soumission elle-même l'emporte toujours sur tout cela." },
+          { note: "Ce que la soumission a dit reste ce qu'elle dit. Le taux, le ZIP, le mois de la table des taux et, pour les documents plus anciens, un zéro déclaré sont enregistrés sur la soumission à sa création et copiés sur la facture qui en découle; un changement ultérieur des tables ou de cette carte change la prochaine soumission, jamais une soumission envoyée." },
         ],
       },
       {
@@ -329,7 +339,8 @@ export const ARTICLES = {
       { q: "Dois-je saisir un numéro de taxe?", a: "Seulement si vous êtes inscrit. Un travailleur autonome canadien sous le seuil d'inscription n'a pas de numéro de TPS à donner — cochez Je n'en ai pas et le tableau de bord cesse de le demander." },
       { q: "Où le numéro apparaît-il?", a: "Au bas de chaque soumission et facture, à côté de vos coordonnées, nom et numéro ensemble. Si l'une des deux moitiés est vide, aucune ligne ne s'imprime — jamais un libellé vide." },
       { q: "Activer l'interrupteur automatique changera-t-il mes soumissions envoyées?", a: "Non. Une soumission stocke sa taxe comme un montant à sa création. L'interrupteur agit sur la prochaine soumission que vous créez." },
-      { q: "Pourquoi ma soumission dit-elle que le taux par défaut a été utilisé?", a: "Parce qu'aucun de vos taux ne nommait la province du client et que le territoire n'était pas de ceux que FieldQuo remplit lui-même — une adresse américaine, ou une adresse de l'UE sans réponse à la question sur la TVA. Ajoutez un taux nommé d'après cette province, ou indiquez la province du client dans sa fiche." },
+      { q: "Pourquoi ma soumission dit-elle que le taux par défaut a été utilisé?", a: "Parce qu'aucun de vos taux ne nommait la province du client et que le territoire n'était pas de ceux que FieldQuo remplit lui-même — un client sans pays dans sa fiche, ou une adresse de l'UE sans réponse à la question sur la TVA. Ajoutez un taux nommé d'après cette province ou cet État, ou indiquez le pays et la province du client dans sa fiche." },
+      { q: "Une soumission américaine affiche une taxe de vente, mais mon État ne taxe pas mes travaux. Est-ce une erreur?", a: "Non — c'est le comportement par défaut. Le taux figure sur chaque soumission américaine comme le taux d'une province figure sur une soumission canadienne, et la note à côté vous dit quand la règle de votre État indique que le client n'est habituellement pas taxé. Désactivez la taxe sur cette soumission d'une touche; ce que vous facturez vous appartient, et le document dit alors qu'aucune taxe n'a été facturée plutôt que d'afficher un zéro. Si vous ne percevez jamais rien dans un État, dites-le une fois sous **Taxe de vente aux États-Unis** et chaque soumission vers cet État commence ainsi." },
     ],
   },
 
