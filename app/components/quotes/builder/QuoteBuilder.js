@@ -62,6 +62,7 @@ import { hasToggle } from "@/lib/permissions/enforce";
 
 import QuoteLanguageBar from "@/app/components/quotes/QuoteLanguageBar";
 import SuggestAddOns from "@/app/components/quotes/SuggestAddOns";
+import { applyActualsToDraft } from "@/lib/quotes/applyActuals";
 import ServiceTiles from "./ServiceTiles";
 import ScopeGroupCard from "./ScopeGroupCard";
 import TradeTakeoff, { hasTakeoff } from "./TradeTakeoff";
@@ -319,6 +320,7 @@ export default function QuoteBuilder({ mode = "create", quoteId = null }) {
           membersData,
           recipesData,
           overheadData,
+          forecastData,
         ] = await Promise.all([
           // fetchJson throws on a non-ok/HTML-error response instead of feeding
           // a 404/500 body into a state setter — a failed load surfaces below
@@ -359,6 +361,14 @@ export default function QuoteBuilder({ mode = "create", quoteId = null }) {
           // resolves to the same null.
           fetch("/api/analytics/minimum-price")
             .then((r) => r.json().catch(() => null))
+            .catch(() => null),
+          // The company's own target margin (Settings → Overhead), so the
+          // panel's badge measures against the number the owner chose. The
+          // panel used a private 30 for a year while the setting sat unread;
+          // lib/costing/marginTarget.js is the one definition now. A failed
+          // read falls to the shared default, labelled as such by the review.
+          fetch("/api/settings/forecast")
+            .then((r) => (r.ok ? r.json() : null))
             .catch(() => null),
         ]);
 
@@ -415,6 +425,9 @@ export default function QuoteBuilder({ mode = "create", quoteId = null }) {
                 monthlyFixedCosts: overheadData.monthlyFixedCosts,
                 jobsPerMonth: overheadData.jobsPerMonth,
               }
+            : null,
+          marginTargetPct: Number.isFinite(Number(forecastData?.targetMarginPct))
+            ? Number(forecastData.targetMarginPct)
             : null,
         });
       } catch (e) {
@@ -686,7 +699,9 @@ export function QuoteBuilderForm({
   // edit route already had the authoritative one and dropping it would put the
   // fallback back on screen.
   const companyCurrency = start.currency ?? boot.companyCurrency ?? null;
-  const marginTarget = MARGIN_TARGET_PCT;
+  // The company's own target, or the shared default — the same resolution
+  // the server makes when it freezes the row (companyMarginTarget).
+  const marginTarget = boot.marginTargetPct ?? MARGIN_TARGET_PCT;
 
   // Same question the server asks of the same grid — lib/permissions/enforce.
   // Null means the provider resolved nothing, and the documented convention
@@ -2437,6 +2452,29 @@ export function QuoteBuilderForm({
           quoteId={quoteId}
           readOnly={["accepted", "declined"].includes(start.status)}
           onProcessNotes={setProcessNotes}
+          // The actuals finding's "Apply 18% more hours" — arithmetic in
+          // lib/quotes/applyActuals.js over THIS component's state, through
+          // the same setters the cost panel and the line table use, so the
+          // estimate, the totals bar and the client document all follow.
+          // Refused there for anything but a draft, whatever the panel shows.
+          quoteStatus={start.status || null}
+          onApplyActuals={(finding) => {
+            const r = applyActualsToDraft({
+              status: start.status,
+              scopeGroups,
+              manualLabourHours,
+              manualMaterialCost,
+              estimate,
+              categoryKey: finding.categoryKey,
+              labourPct: finding.labourPct ?? null,
+              materialsPct: finding.materialsPct ?? null,
+            });
+            if (!r.ok) return r;
+            setScopeGroups(r.scopeGroups);
+            setManualLabourHours(r.manualLabourHours);
+            setManualMaterialCost(r.manualMaterialCost);
+            return r;
+          }}
           // The deep read's findings land in the internal notes for review —
           // appended under what is there, so a phone draft's own note and two
           // reads on different days all survive together.

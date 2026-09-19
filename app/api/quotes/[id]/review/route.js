@@ -16,6 +16,33 @@ import { requirePermission } from "@/lib/permissions";
 import { reviewQuote } from "@/lib/ai/quoteReview";
 import { checkAiQuota, recordAiUsage } from "@/lib/ai/usage";
 import { AI_MODEL } from "@/lib/ai/provider";
+import { hasToggle } from "@/lib/permissions/enforce";
+import { canWriteCostBasis } from "@/lib/permissions/costBasis";
+import { redactReview } from "@/lib/quotes/reviewRedaction";
+
+/**
+ * What THIS reader may see of a stored review.
+ *
+ * The margin and the actuals findings carry cost figures and are stripped for
+ * anyone without the jobCosting toggle — the identical gate GET /api/quotes/
+ * [id]/costing applies to the block those findings are about. Applied on
+ * BOTH handlers, per reader, because the review is stored once and read by
+ * whoever opens the quote next (lib/quotes/reviewRedaction.js says why).
+ *
+ * `mayWrite` is the calibration route's own rule for who may press an
+ * "Update my costing" offer, restated here so the panel never draws a button
+ * that would 403: recipes through the cost-basis grid, the rate card for
+ * owners and admins (PATCH /api/settings/service-categories).
+ */
+function forReader(review, member, full) {
+  return redactReview(review, {
+    mayCost: hasToggle(full, "jobCosting"),
+    mayWrite: {
+      recipe: canWriteCostBasis(full, "materialRecipes"),
+      book: ["owner", "admin"].includes(member.role),
+    },
+  });
+}
 
 export async function GET(request, { params }) {
   // Next 16: params is a Promise.
@@ -24,7 +51,7 @@ export async function GET(request, { params }) {
   if (response) return response;
 
   // The stored review talks about this quote's pricing and its gaps.
-  const { response: denied } = await levelOrRefusal(
+  const { full, response: denied } = await levelOrRefusal(
     member,
     "quotes",
     "view_only",
@@ -40,7 +67,7 @@ export async function GET(request, { params }) {
   if (!quote) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   return NextResponse.json({
-    review: quote.aiReview || null,
+    review: forReader(quote.aiReview || null, member, full),
     reviewedAt: quote.aiReviewedAt,
   });
 }
@@ -62,7 +89,7 @@ export async function POST(request, { params }) {
   // The coarse role alone let anybody with a session spend the company's AI
   // quota reviewing a quote they may not be allowed to open. Asked of the grid
   // BEFORE the quota check, so a refusal costs nothing.
-  const { response: denied } = await levelOrRefusal(
+  const { full, response: denied } = await levelOrRefusal(
     member,
     "quotes",
     "view_create_edit",
@@ -112,7 +139,8 @@ export async function POST(request, { params }) {
     await recordFeatureUse("ai_review_run", { companyId: member.companyId, memberId: member.id });
 
     return NextResponse.json({
-      review,
+      // Stored whole; sent as this reader may see it.
+      review: forReader(review, member, full),
       reviewedAt: saved.aiReviewedAt,
       usage: quota.cap
         ? { used: quota.usage.tokens, cap: quota.cap, nearLimit: quota.nearLimit }

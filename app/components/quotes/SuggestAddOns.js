@@ -39,6 +39,7 @@ import {
   AiCreditTopupDialog,
   useAiCreditTopup,
 } from "@/app/components/ai/AiCreditTopupDialog";
+import { resolveParams } from "@/lib/quotes/reviewSentence";
 
 // Whole dollars in the reader's own locale. This was pinned to en-CA/CAD,
 // which printed "CA$1,200" for an American company and "1 200 $CA" for
@@ -81,9 +82,68 @@ export default function SuggestAddOns({
   // estimator to check on site, so this is the only box they may land in.
   onReviewNotes,
   autoReview = false,
+  // ── The actuals finding's one-press adjustment ─────────────────────────
+  //
+  // `onApplyActuals(finding)` is the builder's own state change (lib/quotes/
+  // applyActuals.js through its setters) — the panel never edits a line. It
+  // is offered only on a DRAFT: `quoteStatus` is the row's status, and a
+  // sent or accepted quote gets the sentence saying why, not a hidden
+  // button and not a disabled one.
+  onApplyActuals,
+  quoteStatus = null,
 }) {
   const { t, language } = useTranslation();
   const money = moneyFor(language);
+
+  // ── A finding's sentence, in the reader's language ────────────────────
+  //
+  // Findings carry { key, params } (lib/quotes/reviewSentence.js). Money
+  // params format here, in the reader's locale and the COMPANY's currency
+  // (review.currency) — the stored English `detail` is only the fallback
+  // for a review written before findings carried a key.
+  const findingMoney = (amount, digits) =>
+    Number(amount).toLocaleString(language || "en", {
+      style: "currency",
+      currency: review?.currency || "CAD",
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits,
+    });
+  const sentence = (i18n, fallback = "") => {
+    if (!i18n?.key) return fallback;
+    const parts = Array.isArray(i18n.parts) && i18n.parts.length ? i18n.parts : [i18n];
+    return parts
+      .map((p) => t(p.key, resolveParams(p.params, { translate: (k) => t(k), money: findingMoney })))
+      .join(" ");
+  };
+  const findingTitle = (f) => {
+    if (!f?.titleI18n?.key) return f?.title || "";
+    const params = { ...f.titleI18n.params };
+    if (params.against && typeof params.against === "object") params.against = sentence(params.against);
+    return t(f.titleI18n.key, resolveParams(params, { translate: (k) => t(k), money: findingMoney }));
+  };
+
+  // "Update my costing" — one press per offer, through the server, which
+  // re-reads the rate and refuses if it moved since the review ran.
+  const [calibrating, setCalibrating] = useState("");
+  const [calibrated, setCalibrated] = useState([]);
+  const [calibrateError, setCalibrateError] = useState("");
+  async function applyOffer(offer) {
+    setCalibrateError("");
+    setCalibrating(offer.id);
+    try {
+      await fetchJson(`/api/quotes/${quoteId}/review/calibrate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: jsonBody({ offerId: offer.id }, "calibration offer"),
+      });
+      setCalibrated((prev) => [...prev, offer.id]);
+    } catch (err) {
+      setCalibrateError(err.message);
+    } finally {
+      setCalibrating("");
+    }
+  }
+  const [appliedToDraft, setAppliedToDraft] = useState(false);
   const [addOns, setAddOns] = useState([]);
   const [review, setReview] = useState(null);
   const [reviewedAt, setReviewedAt] = useState(null);
@@ -433,13 +493,165 @@ export default function SuggestAddOns({
                 )}
               </p>
               <p className="text-xs text-muted-foreground mt-1">
-                {review.pricing.detail}
+                {sentence(review.pricing.i18n, review.pricing.detail)}
               </p>
               {/* Said out loud because "compared to the industry" and
                   "compared to your own history" are very different claims,
-                  and only the second one is true here. */}
+                  and only the second one is true here. And which yardstick:
+                  a rate per measured unit, or the total — the sentence says
+                  it in words and the pill says it at a glance. */}
               <p className="text-[11px] text-muted-foreground/70 mt-1.5">
                 {t("app.quoteReview.ownHistoryOnly")}
+                {review.pricing.basis && (
+                  <>
+                    {" · "}
+                    {review.pricing.basis === "per_unit"
+                      ? t("app.quoteReview.comparedPerUnit")
+                      : t("app.quoteReview.comparedOnTotal")}
+                  </>
+                )}
+              </p>
+            </div>
+          )}
+
+          {/* ── INTERNAL: the margin against the target ─────────────────
+              Present only when the route left it in — a reader without job
+              costing never receives `margin` (lib/quotes/reviewRedaction.js),
+              so there is nothing to hide client-side and no branch to get
+              wrong. The card says "internal" in words because it sits on the
+              same screen as things that go to the client. */}
+          {review.margin && (
+            <div className="border border-border rounded-lg px-4 py-3">
+              <p className="text-sm font-medium text-foreground flex items-center gap-1.5">
+                {(() => {
+                  const { Icon, className } = SEVERITY[review.margin.severity] || SEVERITY.low;
+                  return <Icon size={14} className={review.margin.severity ? className : "text-green-600 dark:text-green-400"} />;
+                })()}
+                {findingTitle(review.margin) || t("app.quoteReview.marginCheck")}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {sentence(review.margin.i18n, review.margin.detail)}
+              </p>
+              <p className="text-[11px] text-muted-foreground/70 mt-1.5">
+                {t("app.quoteReview.internalOnly")}
+              </p>
+            </div>
+          )}
+
+          {/* ── INTERNAL: what jobs like this really cost ──────────────── */}
+          {review.actuals && (
+            <div className="border border-border rounded-lg px-4 py-3">
+              <p className="text-sm font-medium text-foreground flex items-center gap-1.5">
+                {(() => {
+                  const { Icon, className } = SEVERITY[review.actuals.severity] || SEVERITY.low;
+                  return <Icon size={14} className={className} />;
+                })()}
+                {t("app.quoteReview.actualsCheck")}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {sentence(review.actuals.i18n, review.actuals.detail)}
+              </p>
+
+              {/* Apply to this quote — drafts only, never automatic. One
+                  press per measured dimension; the builder does the change
+                  through its own setters and shows the new price. */}
+              {(review.actuals.labour || review.actuals.materials) && !readOnly && (
+                <div className="mt-2.5 flex flex-col gap-1.5 items-start">
+                  {quoteStatus !== "draft" ? (
+                    <p className="text-[11px] text-muted-foreground/70">
+                      {t("app.quoteReview.applyDraftOnly")}
+                    </p>
+                  ) : appliedToDraft ? (
+                    <p className="text-xs text-green-700 dark:text-green-400">
+                      {t("app.quoteReview.applied")}
+                    </p>
+                  ) : (
+                    <>
+                      {review.actuals.labour && onApplyActuals && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const r = onApplyActuals({
+                              categoryKey: review.actuals.categoryKey,
+                              labourPct: review.actuals.labour.pct,
+                              materialsPct: null,
+                            });
+                            if (r?.ok) setAppliedToDraft(true);
+                          }}
+                          className="text-xs font-medium underline underline-offset-2 min-h-[44px] text-left"
+                        >
+                          {t(
+                            review.actuals.labour.pct >= 0
+                              ? "app.quoteReview.applyHoursMore"
+                              : "app.quoteReview.applyHoursFewer",
+                            { pct: Math.round(Math.abs(review.actuals.labour.pct)) },
+                          )}
+                        </button>
+                      )}
+                      {review.actuals.materials && onApplyActuals && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const r = onApplyActuals({
+                              categoryKey: review.actuals.categoryKey,
+                              labourPct: null,
+                              materialsPct: review.actuals.materials.pct,
+                            });
+                            if (r?.ok) setAppliedToDraft(true);
+                          }}
+                          className="text-xs font-medium underline underline-offset-2 min-h-[44px] text-left"
+                        >
+                          {t(
+                            review.actuals.materials.pct >= 0
+                              ? "app.quoteReview.applyMaterialsMore"
+                              : "app.quoteReview.applyMaterialsLess",
+                            { pct: Math.round(Math.abs(review.actuals.materials.pct)) },
+                          )}
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* Update my costing — one button per saved rate that can take
+                  the correction, and only for a reader the server says may
+                  write it (`mayApply`, restated per reader by the route). A
+                  rate with nowhere to go draws nothing: the calibration's
+                  own rule. */}
+              {Array.isArray(review.actuals.offers) &&
+                review.actuals.offers.some((o) => o.mayApply) && (
+                  <div className="mt-2 flex flex-col gap-1.5 items-start">
+                    {review.actuals.offers
+                      .filter((o) => o.mayApply)
+                      .map((o) => (
+                        <button
+                          key={o.id}
+                          type="button"
+                          disabled={calibrating === o.id || calibrated.includes(o.id)}
+                          onClick={() => applyOffer(o)}
+                          className="text-xs font-medium underline underline-offset-2 min-h-[44px] text-left disabled:opacity-60 disabled:no-underline"
+                        >
+                          {calibrated.includes(o.id)
+                            ? t("app.quoteReview.updateRateDone")
+                            : t("app.quoteReview.updateRate", {
+                                label: o.name ? `${o.label} · ${o.name}` : o.label,
+                                rate: o.rateLabel
+                                  ? t(`app.jobCosting.calibRate_${o.rateLabel}`, o.rateLabel)
+                                  : o.path,
+                                from: o.from,
+                                to: o.to,
+                              })}
+                        </button>
+                      ))}
+                    {calibrateError && (
+                      <p className="text-xs text-red-700 dark:text-red-300">{calibrateError}</p>
+                    )}
+                  </div>
+                )}
+
+              <p className="text-[11px] text-muted-foreground/70 mt-1.5">
+                {t("app.quoteReview.internalOnly")}
               </p>
             </div>
           )}

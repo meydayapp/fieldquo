@@ -1,12 +1,107 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 19 September 2026 (a job is born holding the quote as sent, the signed contract and the homeowner's photos, and collects each invoice as it is sent — see the section below)
+Last updated: 19 September 2026 (the quote review reads cost and margin: margin against the company's target, a price per unit of measured work, and what closed jobs say the margin really is, with "Apply to this quote" and "Update my costing" — see the section below)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
 it exists to answer.
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
+
+---
+
+
+## The quote review reads cost and margin: against the target, per unit of work, and against what closed jobs really cost (19 September 2026)
+
+The owner: "does the AI also review the cost and margin to help understand
+if something is underpriced?" It did not — the review compared the quote's
+TOTAL to the median accepted total and never saw the Cost & margin block.
+And on that comparison: "if they have a bigger project it is normal to have
+a bigger price … it should be fine as long as the language and explanation
+is clear." Then: "the cost and margin should be compared to actuals from
+previous similarly priced jobs … with the ability to adjust them."
+
+- **`lib/quotes/reviewFindings.js`** — three pure findings, each carrying an
+  English `detail` AND `i18n: { key, params }` (`lib/quotes/reviewSentence.js`)
+  so the panel renders the same record in the reader's language and the
+  stored English is the catalogue's own rendering, never a second sentence.
+  - `marginFinding` — off `loadQuoteCosting`, the IDENTICAL read GET
+    `/api/quotes/[id]/costing` serves, never a second computation. Below
+    target: "Margin below your target — 8% against your 25% target" (high
+    under half the target or negative, medium otherwise), with the why in
+    numbers: "$4,140 of cost against a price of $4,500: 62 hours at $45 an
+    hour is $2,790, materials $980, overhead $370. Interior painting carries
+    the gap: 41 hours and $620 of materials against $2,100 (−17%)."
+    `costIncomplete` appends "And some work has no cost against it, so the
+    real margin is lower still." Nothing costed at save says so instead of a
+    margin. No target set: "against the 20% default … Set your own target
+    in Settings → Overhead."
+  - `priceFinding` — PER UNIT of measured work (`lib/quotes/primaryMeasure.js`:
+    sq ft of wall, treads, doors + drawer fronts, linear ft of gutter, roofing
+    squares, per trade) against the accepted quotes' rates in the same trade
+    and the same unit, MIN_SAMPLE 5: "$3.10 per sq ft of Siding — in line
+    with what you usually win at ($2.95 across 12 accepted jobs)." / "$1.90
+    per sq ft … 36% below your usual $2.95 (12 accepted jobs). A bigger job
+    is not why: this is the rate, not the total. Worth checking the hours."
+    Total-vs-total only when there is no unit on one side, and the sentence
+    says which: "Compared on the total, because this quote has no measured
+    area or count: …" / "…because only 3 of your accepted Siding quotes carry
+    a measured sq ft: …" — the old hedge survives on that path only.
+  - `actualsFinding` — the company's closed jobs in this trade through the
+    REAL roll-up (`buildEstimateAccuracy`, its own floor of 5, its own rules:
+    approved hours only, saved estimates only), applied to this quote's
+    estimate: "Your last 8 painting jobs ran 18% over their estimated hours.
+    At that rate this quote's margin is 14%, not 25%." Labour and materials
+    separately when both signal; "Only 3 closed painting jobs with recorded
+    hours — 5 are needed …, so this is the estimate as costed." when not;
+    "…came in within 5% …, so the costing holds." on target. Same category
+    only — the roll-up's size bands are terciles across all trades, not per
+    trade, so no "similar size" claim is made (it would have been invented).
+- **The target is the company's own, everywhere.** `lib/costing/marginTarget.js`
+  is the one definition (20% default). The builder's badge, `buildQuoteCostingRow`
+  and the derived fallback used a private 30 while Settings → Overhead's
+  "Target margin %" was read by the price floor alone — a setting that saved
+  and changed nothing. `companyMarginTarget` now feeds all three; the row
+  freezes the target it was costed against.
+- **Internal, twice.** The two cost findings are stored with the review and
+  stripped PER READER on both route handlers (`lib/quotes/reviewRedaction.js`)
+  for anyone without the jobCosting toggle — the block's own gate; readiness
+  is computed from the client-safe checks only so the score cannot leak the
+  margin. The writing pass receives `internalCostPicture` (whole percents and
+  line names, no money) under an explicit no-client-text instruction, and
+  `WRITING_SCHEMA` has no field a number could travel in.
+- **Adjust, never automatically.** "Apply 18% more hours to this quote"
+  (`lib/quotes/applyActuals.js`, through the builder's own setters and
+  `applyLineItemEdit`: hours onto the added-hours box, the cost of them
+  spread pro rata across the trade's lines so the totals and the client
+  document follow; drafts only, refused by status). "Update your Siding
+  crew-hours per sq ft so future quotes carry it (0.04 → 0.0472)" — the
+  close-out's own `labourCalibration` / `materialCalibration`
+  (`lib/costing/calibrationInputs.js`, lifted out of the job calibration
+  route) fed the measured factor; a button only where a saved rate has a
+  path, written by `POST /api/quotes/[id]/review/calibrate` from the STORED
+  offer (the browser posts an id), through `lib/pricing/sanitiseRates.js`
+  (lifted out of the settings route) and `sanitiseRecipeOverrides`, refused
+  if the rate moved since, and attributed in the activity log
+  (`quote.costing_calibrated`, from → to).
+- Nine languages for every template (`app.quoteReview.f.*`, `unit_*`).
+
+`scripts/check-quote-price-check.mjs` (`npm run check:quote-price-check`, in
+`check:all`) executes all of it: the margin severities and sentences, the
+default-target and not-costed sentences, the per-unit path and both
+fallbacks with their prefixes, the thresholds, a 4,000 sq ft job at the
+usual rate staying in range, the actuals variants through the real roll-up,
+redaction per reader, the cost picture and the schema, apply-to-draft
+arithmetic and refusals, offers only where a rate has a path, the calibrate
+route's attribution, and all nine catalogues.
+
+### Still owed here
+
+- A "similar size" band per trade, if the roll-up ever grows one — today
+  its bands are terciles of estimated cost across every trade.
+- The builder's own live readiness (`QuoteReadiness`) shows the completeness
+  checks only; the margin finding needs a saved costing and so stays on the
+  review.
 
 ---
 

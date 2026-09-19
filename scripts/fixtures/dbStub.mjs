@@ -37,6 +37,11 @@ export const rows = {
   // company with nothing saved under Settings would be in.
   companyServiceCategory: [],
   materialRecipeSetting: [],
+  // The company's own margin target (Settings → Overhead), read by
+  // companyMarginTarget in lib/costing/quoteCostEstimate.js on every costing
+  // write since 2026-09-19. Empty means "never set", which resolves to the
+  // shared 20% default — the same state a fresh company is in.
+  forecastSettings: [],
   // Marketing campaign sends (app/api/marketing/campaigns/[id]/send) — added
   // so the resumable-send guard can be exercised as real code, not read off
   // the source: "a retry skips whoever already has a delivery row" is a
@@ -569,6 +574,7 @@ export const db = new Proxy(
     company: model("company"),
     companyServiceCategory: model("companyServiceCategory"),
     materialRecipeSetting: model("materialRecipeSetting"),
+    forecastSettings: model("forecastSettings"),
     marketingCampaign: model("marketingCampaign"),
     marketingSubscriber: model("marketingSubscriber"),
     member: model("member"),

@@ -73,6 +73,7 @@ import { memberOrRefusal } from "@/lib/apiMember";
 import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { hasLevel, hasToggle, seesOnlyAssignedJobs } from "@/lib/permissions/enforce";
 import { buildEstimateAccuracy, MIN_SAMPLE } from "@/lib/analytics/estimateAccuracy";
+import { loadEstimateAccuracyJobs } from "@/lib/analytics/estimateAccuracyJobs";
 
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -137,54 +138,15 @@ export async function GET(request) {
 
   const companyId = member.companyId;
 
-  const [company, jobs] = await Promise.all([
+  // The rows, loaded by the same function the AI quote review uses for its
+  // "your last 8 painting jobs ran 18% over" finding — see
+  // lib/analytics/estimateAccuracyJobs.js for the two rules (saved estimate
+  // only; flat queries) that used to be spelled out here.
+  const [company, shaped] = await Promise.all([
     db.company.findUnique({ where: { id: companyId }, select: { currency: true } }),
-    db.job.findMany({
-      where: {
-        companyId,
-        status: "completed",
-        completedAt: { gte: startOfDay(from), lte: endOfDay(to) },
-      },
-      select: {
-        id: true,
-        title: true,
-        completedAt: true,
-        client: { select: { id: true, name: true } },
-        quote: {
-          select: {
-            id: true,
-            // ── The SAVED estimate only ──────────────────────────────────
-            //
-            // quotedCostFor falls back to deriving a cost from the quote's own
-            // scope when no row was saved, and the per-job screen is right to
-            // use it: something beats nothing on one job. A ROLL-UP must not.
-            // A derivation re-costs against TODAY's price book, so a quarter
-            // built partly from derivations measures "what would we think now"
-            // mixed with "what we thought then", and the trend would move when
-            // somebody edited a rate card and touched no job at all.
-            //
-            // Also: one derivation is three queries, and this loads a range.
-            //
-            // So a quote with no saved costing is not comparable, is counted,
-            // and the reason is named — which is a sentence a contractor can
-            // act on ("fill in Cost & margin before you send it").
-            costing: {
-              select: {
-                labourHours: true,
-                labourCost: true,
-                materialTotal: true,
-                unpricedMaterials: true,
-                costIncomplete: true,
-                totalCost: true,
-                updatedAt: true,
-              },
-            },
-            scopeGroups: {
-              select: { category: { select: { key: true, label: true } } },
-            },
-          },
-        },
-      },
+    loadEstimateAccuracyJobs({
+      companyId,
+      where: { completedAt: { gte: startOfDay(from), lte: endOfDay(to) } },
     }),
   ]);
 
@@ -201,68 +163,6 @@ export async function GET(request) {
       { status: 409 },
     );
   }
-
-  const jobIds = jobs.map((j) => j.id);
-
-  // Loaded in two queries rather than as nested relations on the job, because
-  // an `include` here would fan out one row per time entry per expense per job.
-  const [expenses, timeEntries] = jobIds.length
-    ? await Promise.all([
-        db.expense.findMany({
-          where: { companyId, projectId: { in: jobIds } },
-          select: { projectId: true, category: true, amount: true },
-        }),
-        // TimeEntry carries no companyId — it is scoped through the worker,
-        // which is also where the rate lives.
-        db.timeEntry.findMany({
-          where: { jobId: { in: jobIds }, worker: { companyId } },
-          select: {
-            jobId: true,
-            hours: true,
-            status: true,
-            workerId: true,
-            worker: { select: { id: true, name: true, hourlyRate: true } },
-          },
-        }),
-      ])
-    : [[], []];
-
-  const expensesByJob = new Map();
-  for (const e of expenses) {
-    if (!expensesByJob.has(e.projectId)) expensesByJob.set(e.projectId, []);
-    expensesByJob.get(e.projectId).push({ category: e.category, amount: e.amount });
-  }
-  const entriesByJob = new Map();
-  for (const t of timeEntries) {
-    if (!entriesByJob.has(t.jobId)) entriesByJob.set(t.jobId, []);
-    entriesByJob.get(t.jobId).push(t);
-  }
-
-  const shaped = jobs.map((job) => ({
-    id: job.id,
-    title: job.title,
-    completedAt: job.completedAt,
-    clientId: job.client?.id || null,
-    clientName: job.client?.name || null,
-    tradeKeys: (job.quote?.scopeGroups || [])
-      .map((g) => g.category)
-      .filter((c) => c && c.key),
-    // Decimal columns arrive as Prisma Decimal objects; Number() them once here
-    // so the pure builder never has to know what a Decimal is.
-    estimate: job.quote?.costing
-      ? {
-          labourHours: Number(job.quote.costing.labourHours),
-          labourCost: Number(job.quote.costing.labourCost),
-          materialTotal: Number(job.quote.costing.materialTotal),
-          unpricedMaterials: Number(job.quote.costing.unpricedMaterials),
-          costIncomplete: Boolean(job.quote.costing.costIncomplete),
-          totalCost: Number(job.quote.costing.totalCost),
-          at: job.quote.costing.updatedAt || null,
-        }
-      : null,
-    expenses: expensesByJob.get(job.id) || [],
-    timeEntries: entriesByJob.get(job.id) || [],
-  }));
 
   let report;
   try {

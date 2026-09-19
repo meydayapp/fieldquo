@@ -27,9 +27,9 @@ import { db } from "@/lib/db";
 import {
   normaliseQuoteCosting,
   quoteCostSummary,
-  MARGIN_TARGET_PCT,
 } from "@/lib/costing/quoteCosting";
 import { calculateMinimumPrice } from "@/lib/analytics/minimumPrice";
+import { companyMarginTarget } from "@/lib/costing/quoteCostEstimate";
 
 // The SAME gate the invoice cost panel uses, imported rather than reimplemented.
 // "Same permission" written twice is two permissions that agree until one of
@@ -119,9 +119,14 @@ export async function buildQuoteCostingRow({
   const clean = normaliseQuoteCosting(costing);
   if (!clean) return null;
 
-  const [groups, recipeOverridesByCategory] = await Promise.all([
+  // The company's own target rides along with the row, frozen like every
+  // other figure on it: a quote costed at 25% stays "costed against 25%"
+  // after the owner moves the setting to 30. Read server-side for the same
+  // reason as the overhead — it is a fact about the company, not the quote.
+  const [groups, recipeOverridesByCategory, target] = await Promise.all([
     resolveCostingGroups(companyId, scopeGroups),
     recipeOverridesFor(companyId),
+    companyMarginTarget(companyId),
   ]);
 
   // The company's REAL overhead per job, when they have told us their
@@ -149,7 +154,7 @@ export async function buildQuoteCostingRow({
     overheadPct: clean.overheadPct,
     overheadPerJob,
     price,
-    marginTargetPct: MARGIN_TARGET_PCT,
+    marginTargetPct: target.pct,
     recipeOverridesByCategory,
   });
 
@@ -196,7 +201,7 @@ export async function buildQuoteCostingRow({
     // Null when there was no price to have a margin against — the column is
     // nullable for exactly this. 0 would claim the job broke even.
     marginPct: summary.marginPct == null ? null : summary.marginPct,
-    marginTargetPct: MARGIN_TARGET_PCT,
+    marginTargetPct: target.pct,
     signal: summary.signal,
     costIncomplete: summary.costIncomplete,
     blendedRate: summary.blendedRate == null ? null : summary.blendedRate,

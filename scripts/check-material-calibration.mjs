@@ -246,8 +246,12 @@ const before = tradeMaterialsFor("interior_painting", paintTakeoffFixture, null)
 const after = tradeMaterialsFor("interior_painting", paintTakeoffFixture, patched).materials.find((m) => m.materialKey === "wall_interior");
 ok("a saved coverage override changes the gallons paintTakeoff buys (the loop closes for interior paint)", before.qty < after.qty && after.basis.rate === 200, { before: before.qty, after: after.qty });
 ok("...and leaves the other products' coverage alone", readField(getPriceBook("interior_painting", patched), "takeoff.products.ceiling_flat.coverageSqftPerGal") === 350);
-const svc = code("app/api/settings/service-categories/route.js");
+// The sanitiser moved to lib/pricing/sanitiseRates.js on 2026-09-19 so the
+// quote review's "Update my costing" writes through the same one; the
+// settings route imports it rather than keeping a copy.
+const svc = code("lib/pricing/sanitiseRates.js");
 ok("sanitiseRates keeps exactly the PRICE_BOOK_FIELDS paths (so the coverage row is saved, and nothing else new is)", /for \(const field of fields\) \{\s*const value = readPath\(rates, field\.path\);/.test(svc));
+ok("...and the settings route uses that one, not a copy", /import \{ sanitiseRates \} from "@\/lib\/pricing\/sanitiseRates"/.test(code("app/api/settings/service-categories/route.js")));
 
 // The paint calibration through the pure function, with the book as the rate source.
 const paintGroups = [{ categoryKey: "interior_painting", materials: paint.materials }];

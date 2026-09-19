@@ -28,15 +28,10 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { hasToggle } from "@/lib/permissions/enforce";
-import { shapeSavedQuoteCosting } from "@/lib/costing/quoteCosting";
-import {
-  deriveQuoteCosting,
-  QUOTE_COST_SELECT,
-} from "@/lib/costing/quoteCostEstimate";
+import { loadQuoteCosting } from "@/lib/costing/quoteCostEstimate";
 
 export async function GET(request, { params }) {
   // Next 16: `params` is a Promise.
@@ -67,12 +62,6 @@ export async function GET(request, { params }) {
     );
   }
 
-  const quote = await db.quote.findFirst({
-    where: { id, companyId: member.companyId },
-    select: { ...QUOTE_COST_SELECT, costing: true },
-  });
-  if (!quote) return NextResponse.json({ error: "Not found" }, { status: 404 });
-
   // ── Saved wins, always, and nothing is recomputed ────────────────────────
   //
   // Not even partially. Recomputing one field — the overhead, say, because the
@@ -80,14 +69,14 @@ export async function GET(request, { params }) {
   // that changes while nobody touches the quote, sitting next to figures that
   // don't. The row's existence is the flag: once a quote has been costed,
   // today's rate card stops having an opinion about it.
-  if (quote.costing) {
-    return NextResponse.json(shapeSavedQuoteCosting(quote.costing));
-  }
-
-  // Shared with the invoice lifecycle and the job cost view, which used to read
-  // QuoteCosting.totalCost and print "never costed" whenever it was null — so
-  // the same quote showed a full breakdown here and nothing at all there.
-  return NextResponse.json(
-    await deriveQuoteCosting({ companyId: member.companyId, quote }),
-  );
+  //
+  // The read itself lives in lib/costing/quoteCostEstimate.js now, because the
+  // AI review measures the margin off the same object (lib/ai/quoteReview.js)
+  // — two readers of one row, one function, so they cannot disagree.
+  const costing = await loadQuoteCosting({
+    companyId: member.companyId,
+    quoteId: id,
+  });
+  if (!costing) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  return NextResponse.json(costing);
 }
