@@ -19,7 +19,7 @@
 // (`sentMode`), keeps both bodies, and the preview renders the one that would
 // go out.
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Eye, Pencil, RotateCcw, Trash2, Check, Undo2, LayoutList, Brush } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
@@ -166,6 +166,11 @@ function KindCard({ kind, labelKey, languages, originals, copies, tokens, slots,
     setBusy(false);
   }
 
+  // Stable, so the designer's save chain (keyed on its callback's identity —
+  // see app/components/designer/CampaignEditor.js) is not rebuilt on every
+  // keystroke in the slot fields beside it.
+  const onCanvasChange = useCallback((doc) => setDraft((d) => (d ? { ...d, canvas: doc } : d)), []);
+
   const previewCopy = copy && draft ? draft : null;
   const inUse = copy?.active ? "copy" : "original";
 
@@ -279,7 +284,7 @@ function KindCard({ kind, labelKey, languages, originals, copies, tokens, slots,
                       <p className="text-xs text-muted-foreground">{t("app.docEmails.canvasLetterNote")}</p>
                       <EmailCanvasEditor
                         value={draft.canvas}
-                        onChange={(doc) => setDraft((d) => ({ ...d, canvas: doc }))}
+                        onChange={onCanvasChange}
                         mergeFields={tokens.map((token) => ({ token, label: t(TOKEN_LABEL_KEYS[token]) }))}
                       />
                       {/* Subject, closing and signature are still typed. */}
