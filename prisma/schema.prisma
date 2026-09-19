@@ -4018,8 +4018,38 @@ model DocumentTemplate {
   createdAt DateTime             @default(now())
   updatedAt DateTime             @updatedAt
 
+  // ── A company's copy of a document email ─────────────────────────────────
+  //
+  // The quote, invoice, reminder, receipt and deposit-request emails are built
+  // from the document (lib/email/quoteEmail.js, invoiceEmail.js) and are not
+  // templates. What a company may change is the WORDING around the document —
+  // subject, greeting, intro, closing, signature — never the scope, totals,
+  // process or legal lines. A row with `documentKind` set is that copy:
+  // `sections` holds the wording slots (lib/email/documentEmailWording.js),
+  // `language` is the one language the copy is written in (a document keeps
+  // its own language — AGENTS.md non-negotiable 6 — so a French quote never
+  // reads an English copy), and `isDefault` is "Use this": the builder reads
+  // the copy only while it is true, else the original. The original lives in
+  // code and is never written.
+  documentKind String?
+  language     String?
+
+  // ── Blocks or canvas ─────────────────────────────────────────────────────
+  //
+  // A template may hold BOTH a block list (`sections`) and a canvas design
+  // (`canvas`, the designer's fabric document). `sentMode` says which one the
+  // send path renders — written down, never worked out from which half is
+  // empty, because both can be populated and "whichever isn't blank" is not
+  // an answer. Switching modes never clears the other body. See
+  // lib/email/canvasEmail.js for the compile and lib/email/templateBody.js for
+  // the one place that reads this column.
+  sentMode String @default("blocks")
+  canvas   Json?
+
   followUpRules      FollowUpRule[]
   marketingCampaigns MarketingCampaign[]
+
+  @@unique([companyId, documentKind, language])
 }
 
 // A company-configured automation rule: "N days/hours after <triggerEvent>,
@@ -4043,7 +4073,31 @@ model FollowUpRule {
   createdAt    DateTime          @default(now())
   updatedAt    DateTime          @updatedAt
 
+  // ── FieldQuo's own defaults ───────────────────────────────────────────────
+  //
+  // Nothing ever seeded a FollowUpRule: on 2026-09-19 the table had zero rows
+  // across every company, so no client had ever received an automated chase.
+  // lib/followUps/defaults.js now writes three rules per company (1, 7 and 14
+  // days after a quote is sent). `builtInKey` names which one a row is, and
+  // the unique index below is what makes ensureDefaultFollowUps idempotent —
+  // a second run finds the row and leaves it alone rather than counting.
+  //
+  // A built-in rule with no templateId renders the built-in wording in the
+  // CLIENT's language (lib/followUps/defaults.js); pointing it at a company
+  // template makes it behave exactly like a hand-made rule.
+  builtInKey String?
+
+  // A TOMBSTONE, not a delete, for the built-ins. "Delete" on a FieldQuo
+  // default sets this; the cron and the list skip it, and ensure() finds the
+  // row by its key and does NOT re-create it. Chosen over a `disabledBuiltIns`
+  // set on Company because the unique index already carries the idempotency,
+  // and "Reset to default" on a deleted row is then a plain update rather than
+  // a delete-from-set plus an insert. Hand-made rules still hard-delete.
+  deletedAt DateTime?
+
   logs FollowUpLog[]
+
+  @@unique([companyId, builtInKey])
 }
 
 // One row per (rule, entity) send — the cron route's dedupe guard so the
