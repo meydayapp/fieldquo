@@ -15,6 +15,10 @@ const fr = {
     ctaBody:
       "Configurez vos prix, envoyez une soumission, et voyez si ça vous sauve la soirée. C'est tout le test.",
     nearby: "Aussi offert pour les métiers connexes",
+    // The "built for" section — the three selling points from lib/sales/tradeSellingPoints.js.
+    builtFor: "Conçu pour les entreprises de {trade}",
+    builtForNote: "Les trois choses qu'une entreprise de {trade} utilise le plus, dans l'ordre où elles rapportent.",
+    builtForFallback: "Affiché en anglais — cette partie de la page n'est pas encore dans votre langue.",
   },
 
   trades: {

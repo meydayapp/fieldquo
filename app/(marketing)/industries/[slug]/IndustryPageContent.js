@@ -14,6 +14,7 @@ import {
   industryContentFor,
   industryChromeFor,
 } from "@/app/i18n/industries";
+import { TRADE_PITCH_TOP, tradeSellingPoints } from "@/lib/sales/tradeSellingPoints";
 
 export default function IndustryPageContent({ slug, videoId }) {
   const { language } = useTranslation();
@@ -24,6 +25,14 @@ export default function IndustryPageContent({ slug, videoId }) {
 
   const trade = content.label.toLowerCase();
   const fill = (template) => String(template || "").replace("{trade}", trade);
+
+  // The three selling points the sales call and the intro email lead with
+  // for this trade, from the one list (lib/sales/tradeSellingPoints.js) —
+  // in the visitor's language where the list has it (EN / FR / ES), English
+  // otherwise, and the section says so instead of pretending. A slug with
+  // no tradeKey draws no section.
+  const tradeKey = INDUSTRIES.find((i) => i.slug === slug)?.tradeKey || null;
+  const pitch = tradeSellingPoints(tradeKey, language, { limit: TRADE_PITCH_TOP });
 
   return (
     <div>
@@ -119,6 +128,35 @@ export default function IndustryPageContent({ slug, videoId }) {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Built for {trade} — the same three the sales call leads with */}
+      {pitch.points.length > 0 && (
+        <div className="bg-muted border-t border-border">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+            <h2 className="text-2xl sm:text-3xl font-bold text-foreground text-center">
+              {fill(chrome.builtFor)}
+            </h2>
+            <p className="mt-3 text-muted-foreground text-center max-w-2xl mx-auto">
+              {fill(chrome.builtForNote)}
+            </p>
+            <ol className="mt-10 grid gap-4 md:grid-cols-3" data-built-for={tradeKey}>
+              {pitch.points.map((p, i) => (
+                <li key={p.key} className="bg-card border border-border rounded-xl p-6 flex flex-col gap-3" data-point={p.key}>
+                  <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    {i + 1}
+                  </span>
+                  <h3 className="text-lg font-semibold text-foreground">{p.headline}</h3>
+                  <p className="text-sm text-muted-foreground">{p.oneLiner}</p>
+                  <p className="text-sm text-foreground mt-auto">“{p.proof}”</p>
+                </li>
+              ))}
+            </ol>
+            {pitch.fallback && (
+              <p className="mt-6 text-sm text-muted-foreground text-center">{chrome.builtForFallback}</p>
+            )}
           </div>
         </div>
       )}

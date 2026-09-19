@@ -28,6 +28,10 @@ const en = {
     ctaBody:
       "Set up your pricing, send one quote, and see whether it saves you the evening. That's the whole test.",
     nearby: "Also serving nearby trades",
+    // The "built for" section — the three selling points from lib/sales/tradeSellingPoints.js.
+    builtFor: "Built for {trade} businesses",
+    builtForNote: "The three things a {trade} business uses most, in the order they pay off.",
+    builtForFallback: "Shown in English — this part of the page is not in your language yet.",
   },
 
   trades: {

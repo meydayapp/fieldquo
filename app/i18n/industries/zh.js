@@ -17,6 +17,10 @@ const zh = {
     ctaTitle: "下一单{trade}的活就试试看",
     ctaBody: "设好你的价格，发一份报价单，看看它能不能帮你把晚上省下来。就测这一件事。",
     nearby: "相邻工种也在用",
+    // The "built for" section — the three selling points from lib/sales/tradeSellingPoints.js.
+    builtFor: "为{trade}企业而建",
+    builtForNote: "{trade}企业用得最多的三件事，按见效顺序排列。",
+    builtForFallback: "以英文显示——页面这一部分尚未提供您的语言版本。",
   },
 
   trades: {

@@ -87,7 +87,7 @@ async function fullState(repId) {
   const rep = await freshRep(repId);
   return {
     ...(await repDemoState(rep)),
-    industries: Object.entries(INDUSTRIES).map(([key, v]) => ({ key, label: v.label })),
+    industries: Object.entries(INDUSTRIES).map(([key, v]) => ({ key, label: v.label, pitchTrade: v.pitchTrade || null })),
   };
 }
 

@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 19 September 2026 (US sales tax is automatic for a quote to a US address, from any company — the ZIP's combined rate from the states' own Streamlined files, applied only where the state taxes contractor work, the builder's one-tap question in the sixteen states that tax some jobs and not others, the sentence that says exactly what was applied, and the record stored on the quote and copied to its invoice — see the section below)
+Last updated: 19 September 2026 (each trade has its own selling points — one list in `lib/sales/tradeSellingPoints.js`, every key a shipped feature-matrix row, read by the playbook's fit stage, the call screen, the queue's pitch layer, the AI script prompt, the intro email, the demo cards and the marketing industry pages — see the section below)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -67,6 +67,66 @@ e-transfer, cheque or wire. Full write-up: `docs/US-SALES-TAX.md`.
   — is a per-state override today, not a materials-line split the builder
   can compute.
 
+
+## Each trade has its own selling points, and every surface says the same three (19 September 2026)
+
+The owner: "each trade should have the selling points for that, right?
+Electricians should include the self-booking, the paid booking, and
+scheduling, similar to plumbers; while roofers is the selling points for
+them, and painters too." The per-trade argument had lived in five places
+that could not agree. Now it is one table and seven readers.
+
+- **The list.** `lib/sales/tradeSellingPoints.js`: for every one of the
+  thirty-nine `DISCOVERY_TRADES`, an ordered list of `{ key, headline,
+  oneLiner, proof }` in EN / FR / ES, where `key` is a
+  `lib/marketing/featureMatrix.js` row and **must be `shipped`** — a
+  `partial` row (financing, good/better/best, appointment reminders) fails
+  the build. The words are a library per matrix row with a per-trade proof
+  where the generic sentence would be vague ("a roof measured from the
+  satellite in under a minute, no ladder"). No digit, no weekday, no banned
+  move, no promise to build anything.
+- **The research.** `docs/research/trade-selling-points.md`: what each
+  trade's day looks like, its top three administrative pains with a source
+  each, the answers by matrix key, and a **Not yet** table for the pains with
+  no shipped answer — financing (partial), change orders, installed
+  equipment, photo reports and job documents (built, no matrix row), route
+  days, payment schedules.
+- **The readers.** (1) Every default playbook's fit stage carries
+  `TRADE_PITCH_LINE` — "And for your trade, the three that matter most:
+  {tradePitch}" — resolved at render from `Prospect.tradeKey`; the four
+  outgoing fingerprints are retired in `seedHistory.js` and
+  `refreshBuiltIns` run against production. (2) `TradePoints.js` under the
+  AI script, in the console layout and with no script, in the script's
+  language. (3) The queue's "What to pitch" layer, under the evidence-cited
+  recommendations and labelled as not evidence. (4) The AI call-script
+  prompt: a "WHAT WE DO FOR THEIR TRADE" section, and the pitch is told to
+  lead with the first line — inside the hashed inputs, so a stored script
+  regenerates on its next open. (5) The intro email: the trade's three,
+  numbered, between the gap paragraph and the eight points. (6) The demo
+  card: `pitchTrade` on each preset → "What to show them". (7)
+  `/industries/[slug]`: `tradeKey` on `app/data/industries.js` → "Built for
+  {trade} businesses", nine-language chrome, English points with a note
+  outside EN/FR/ES.
+- **Checks.** `scripts/check-trade-selling-points.mjs` in `check:all`
+  (295): every trade ≥ 3, every key shipped, three languages, the owner's
+  four orderings pinned, the electrician's fit line rendered in all four
+  playbooks, the roofer's first point in the assembled prompt, the
+  electrician's first point in the built email in three languages, every
+  surface's read asserted from source.
+
+### Still owed here
+
+- Matrix rows (and feature pages) for change orders, installed equipment,
+  the photo report and job documents — all built, none pitchable until they
+  are on a page. The "Not yet" table in the research doc names each.
+- The snow card picks a driveway size; tracing it on the still, as paving
+  does, would let the snow list carry the satellite sentence.
+- `check:sales-call-playbook` (DialRegion's `dialRendered` regex),
+  `check:feature-pages` (hr_compliance not on a page; Affirm bounds NaN) and
+  `check:prospect-ui` (the platform prospects route reads `db.salesRep` on
+  the stub) fail on `main` before this work and are not touched by it.
+
+---
 
 ## The instant-estimate draft opens in the same editor a hand-built quote does: the owner's seven items on Q-2026-0003 (19 September 2026)
 

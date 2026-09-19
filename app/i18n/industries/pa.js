@@ -20,6 +20,10 @@ const pa = {
     ctaBody:
       "ਆਪਣੀਆਂ ਕੀਮਤਾਂ ਸੈੱਟ ਕਰੋ, ਇੱਕ ਕੋਟ ਭੇਜੋ, ਅਤੇ ਵੇਖੋ ਕਿ ਕੀ ਇਹ ਤੁਹਾਡੀ ਸ਼ਾਮ ਬਚਾਉਂਦਾ ਹੈ। ਬੱਸ ਇਹੀ ਪਰਖ ਹੈ।",
     nearby: "ਨੇੜਲੇ ਕਿੱਤਿਆਂ ਲਈ ਵੀ",
+    // The "built for" section — the three selling points from lib/sales/tradeSellingPoints.js.
+    builtFor: "{trade} ਕਾਰੋਬਾਰਾਂ ਲਈ ਬਣਾਇਆ",
+    builtForNote: "ਉਹ ਤਿੰਨ ਚੀਜ਼ਾਂ ਜੋ {trade} ਕਾਰੋਬਾਰ ਸਭ ਤੋਂ ਵੱਧ ਵਰਤਦਾ ਹੈ, ਲਾਭ ਦੀ ਤਰਤੀਬ ਵਿੱਚ।",
+    builtForFallback: "ਅੰਗਰੇਜ਼ੀ ਵਿੱਚ ਦਿਖਾਇਆ ਗਿਆ — ਪੰਨੇ ਦਾ ਇਹ ਹਿੱਸਾ ਹਾਲੇ ਤੁਹਾਡੀ ਭਾਸ਼ਾ ਵਿੱਚ ਨਹੀਂ ਹੈ।",
   },
 
   trades: {

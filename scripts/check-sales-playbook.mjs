@@ -1020,9 +1020,12 @@ section("Rendering — a hole in a line is shown, never spoken");
 {
   const playbook = PLAYBOOKS.find((p) => p.key === "COMPETITIVE_DISPLACEMENT");
 
+  // A complete prospect has a trade: the fit stage's `{tradePitch}` prompt
+  // (lib/sales/tradeSellingPoints.js) resolves from it, and a prospect
+  // without one is the "hole shown, never spoken" case asserted further down.
   const complete = buildCallScript({
     playbook,
-    prospect: { businessName: "Eco Painting Plus", city: "Ottawa" },
+    prospect: { businessName: "Eco Painting Plus", city: "Ottawa", tradeKey: "painting" },
     index: SCENARIOS.competitor,
     rep: { name: "Daniel" },
     points: [],
@@ -1030,6 +1033,21 @@ section("Rendering — a hole in a line is shown, never spoken");
   });
   ok("a complete script renders nine stages", complete.stages.length === 9, complete.stages.length);
   ok("nothing is left unresolved", complete.unresolvedLines === 0, complete.unresolvedLines);
+  {
+    const fit = complete.stages.find((s) => s.stageKey === "fit");
+    const pitch = fit?.prompts?.find((p) => p.template.includes("{tradePitch}"));
+    ok("the fit stage carries the trade's three selling points, resolved", Boolean(pitch?.text) && /driveway|room/i.test(pitch.text), pitch?.text);
+    const noTrade = buildCallScript({
+      playbook,
+      prospect: { businessName: "Eco Painting Plus", city: "Ottawa" },
+      index: SCENARIOS.competitor,
+      rep: { name: "Daniel" },
+      points: [],
+      objections: [],
+    });
+    const hole = noTrade.stages.find((s) => s.stageKey === "fit")?.prompts?.find((p) => p.template.includes("{tradePitch}"));
+    ok("…and with no trade that one prompt is refused, not read out empty", hole?.refusal === "unresolved" && hole.text === null && noTrade.unresolvedLines === 1, hole);
+  }
   ok(
     "no rendered line still contains a placeholder",
     complete.stages.every((s) => !s.say.text || !s.say.text.includes("{")),

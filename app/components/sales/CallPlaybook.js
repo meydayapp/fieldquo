@@ -56,6 +56,7 @@ import { languageMeta } from "@/app/i18n/languages";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import StayOnTheLine from "@/app/components/sales/StayOnTheLine";
 import TurnaroundQuestion from "@/app/components/sales/TurnaroundQuestion";
+import TradePoints from "@/app/components/sales/TradePoints";
 
 const BTN =
   "inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60";
@@ -177,7 +178,7 @@ function ScriptLanguageSwitch({ scriptLanguage, chosen, loading, onChange }) {
   );
 }
 
-function AiScript({ script, language, switchProps }) {
+function AiScript({ script, language, switchProps, tradeKey = null }) {
   const { t } = useTranslation();
   const crawled = script.crawledAt ? new Date(script.crawledAt) : null;
   const when = crawled && !Number.isNaN(crawled.getTime())
@@ -231,6 +232,9 @@ function AiScript({ script, language, switchProps }) {
         <H>{t("app.salesCall.aiScriptWhyNow")}</H>
         <p className="text-sm text-foreground break-words mt-1">{script.whyThemNow}</p>
       </div>
+      {/* The trade's own three, under the pitch the model wrote from them —
+          in the script's language, with the proof sentence the rep says. */}
+      <TradePoints tradeKey={tradeKey} language={script.language || "en"} />
 
       {script.threeQuestions?.length ? (
         <div>
@@ -319,7 +323,7 @@ function AiScript({ script, language, switchProps }) {
  * Nothing here is written by this file: a missing part is left out, never
  * padded (AGENTS.md failure class 5).
  */
-function ConsoleScript({ script, stages, language, switchProps }) {
+function ConsoleScript({ script, stages, language, switchProps, tradeKey = null }) {
   const { t } = useTranslation();
   const crawled = script.crawledAt ? new Date(script.crawledAt) : null;
   const when = crawled && !Number.isNaN(crawled.getTime())
@@ -450,6 +454,7 @@ function ConsoleScript({ script, stages, language, switchProps }) {
         ) : null}
         {/* The turnaround question, beside the script — see TurnaroundQuestion.js. */}
         <TurnaroundQuestion language={script.language || "en"} compact />
+        <TradePoints tradeKey={tradeKey} language={script.language || "en"} compact />
         {/* After a yes: text the link, stay on the line — in the script's language. */}
         <StayOnTheLine language={script.language || "en"} compact />
       </div>
@@ -589,9 +594,9 @@ export default function CallPlaybook({
           stages below are the whole screen, as they were. */}
       {data.callScript ? (
         layout === "console" ? (
-          <ConsoleScript script={data.callScript} stages={stages} language={language} switchProps={switchProps} />
+          <ConsoleScript script={data.callScript} stages={stages} language={language} switchProps={switchProps} tradeKey={data.prospect?.tradeKey || null} />
         ) : (
-          <AiScript script={data.callScript} language={language} switchProps={switchProps} />
+          <AiScript script={data.callScript} language={language} switchProps={switchProps} tradeKey={data.prospect?.tradeKey || null} />
         )
       ) : switchProps ? (
         // No script in any language yet — the switch still stands, because
@@ -603,6 +608,7 @@ export default function CallPlaybook({
           the language the script would be in. With a script it is drawn
           under that script's close instead. */}
       {!data.callScript ? <TurnaroundQuestion language={data.scriptLanguage?.current || data.scriptLanguage?.default || "en"} /> : null}
+      {!data.callScript ? <TradePoints tradeKey={data.prospect?.tradeKey || null} language={data.scriptLanguage?.current || data.scriptLanguage?.default || "en"} /> : null}
       {!data.callScript ? <StayOnTheLine language={data.scriptLanguage?.current || data.scriptLanguage?.default || "en"} /> : null}
 
       {/* ── One stage, and the rep moves it ──────────────────────────────── */}

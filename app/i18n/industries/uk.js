@@ -15,6 +15,10 @@ const uk = {
     ctaBody:
       "Налаштуйте свої ціни, надішліть один кошторис і подивіться, чи заощадить це вам вечір. Оце і весь тест.",
     nearby: "Також для суміжних галузей",
+    // The "built for" section — the three selling points from lib/sales/tradeSellingPoints.js.
+    builtFor: "Створено для бізнесу у сфері {trade}",
+    builtForNote: "Три речі, якими бізнес у сфері {trade} користується найбільше, у порядку віддачі.",
+    builtForFallback: "Показано англійською — ця частина сторінки ще не перекладена вашою мовою.",
   },
 
   trades: {

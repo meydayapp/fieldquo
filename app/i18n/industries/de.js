@@ -25,6 +25,10 @@ const de = {
     ctaBody:
       "Hinterlegen Sie Ihre Preise, schicken Sie ein Angebot raus und sehen Sie, ob Ihnen das den Abend spart. Mehr ist der Test nicht.",
     nearby: "Auch für benachbarte Gewerke",
+    // The "built for" section — the three selling points from lib/sales/tradeSellingPoints.js.
+    builtFor: "Gebaut für {trade}-Betriebe",
+    builtForNote: "Die drei Dinge, die ein {trade}-Betrieb am meisten nutzt, in der Reihenfolge, in der sie sich auszahlen.",
+    builtForFallback: "Auf Englisch angezeigt — dieser Teil der Seite ist noch nicht in Ihrer Sprache.",
   },
 
   trades: {

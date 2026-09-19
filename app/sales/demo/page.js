@@ -52,6 +52,7 @@ import {
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { TRADE_PITCH_TOP, tradeSellingPoints } from "@/lib/sales/tradeSellingPoints";
 
 /**
  * A translated sentence whose moving parts are MARKUP — a bold company name, a
@@ -82,8 +83,27 @@ const FIELD =
   "w-full border border-border rounded-lg px-3 py-2.5 min-h-[44px] text-base bg-card text-foreground disabled:opacity-60";
 const CARD = "rounded-xl border border-border bg-card p-4 space-y-3";
 
+/** The trade's three, numbered, on a demo card. Nothing when the industry names no trade. */
+function DemoHighlights({ pitchTrade, tradeLabel, language, t }) {
+  const { points } = tradeSellingPoints(pitchTrade, language, { limit: TRADE_PITCH_TOP });
+  if (points.length === 0) return null;
+  return (
+    <div className="rounded-lg border border-border bg-muted p-3 space-y-1" data-demo-highlights={pitchTrade}>
+      <p className="text-xs font-bold uppercase tracking-[0.14em] text-foreground">{t("app.salesCal.demoHighlights")}</p>
+      <p className="text-xs text-muted-foreground break-words">{t("app.salesCal.demoHighlightsNote", { trade: tradeLabel })}</p>
+      <ol className="list-decimal pl-5 space-y-1">
+        {points.map((p) => (
+          <li key={p.key} className="text-sm text-foreground break-words" data-point={p.key}>
+            <strong>{p.headline}</strong> — {p.oneLiner}
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
 export default function SalesDemoPage() {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
@@ -293,6 +313,13 @@ export default function SalesDemoPage() {
                     </span>
                   ) : null}
                 </p>
+
+                {/* What to show them: the trade's three selling points, in the
+                    order the call and the email pitched them, so the demo is
+                    walked in that order too. From lib/sales/tradeSellingPoints.js
+                    in the rep's language where one exists, English otherwise;
+                    an industry with no pitchTrade draws no list. */}
+                <DemoHighlights pitchTrade={company.pitchTrade} tradeLabel={company.tradeLabel} language={language} t={t} />
 
                 {loginExists ? (
                   <>

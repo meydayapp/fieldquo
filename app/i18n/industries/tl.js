@@ -20,6 +20,10 @@ const tl = {
     ctaBody:
       "I-set up ang presyo mo, magpadala ng isang quote, at tingnan kung nakakatipid ka ng isang gabi. Iyon lang ang test.",
     nearby: "Para din sa mga kaugnay na trabaho",
+    // The "built for" section — the three selling points from lib/sales/tradeSellingPoints.js.
+    builtFor: "Ginawa para sa mga negosyong {trade}",
+    builtForNote: "Ang tatlong bagay na pinakaginagamit ng negosyong {trade}, ayon sa pagkakasunod ng kita.",
+    builtForFallback: "Ipinapakita sa Ingles — wala pa sa iyong wika ang bahaging ito ng pahina.",
   },
 
   trades: {

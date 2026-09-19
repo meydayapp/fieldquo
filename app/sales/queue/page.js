@@ -324,6 +324,7 @@ import {
 import { displayTitle } from "@/lib/sales/notes/body";
 import { dispositionFor } from "@/lib/sales/calls/dispositions";
 import RepNoteVisibilityNotice from "@/app/components/sales/RepNoteVisibilityNotice";
+import TradePoints from "@/app/components/sales/TradePoints";
 import RepNoteUnavailable from "@/app/components/sales/RepNoteUnavailable";
 import DialRegion, { Notice } from "@/app/components/sales/DialRegion";
 import AutodialControl, { useAutodial } from "@/app/components/sales/AutodialControl";
@@ -1326,7 +1327,7 @@ function CallHistory({ t, current, language }) {
  * it was. The three-layer discipline the header describes lives in
  * lib/sales/prospectView.js and is only printed here.
  */
-function ResearchLayers({ t, current }) {
+function ResearchLayers({ t, current, language = "en" }) {
   return (
     <>
       {/* ── Layer 1: facts ─────────────────────────────────────────── */}
@@ -1484,6 +1485,11 @@ function ResearchLayers({ t, current }) {
             ))}
           </ol>
         )}
+        {/* The trade's own three, UNDER the evidence-cited recommendations
+            and never among them: what we sell to every business of this
+            trade (lib/sales/tradeSellingPoints.js), in the rep's language
+            where one exists, English otherwise — and the block says which. */}
+        <TradePoints tradeKey={current.tradeKey || null} language={language} />
       </div>
 
       {/* ── What we do not know ────────────────────────────────────── */}
@@ -3560,7 +3566,7 @@ function QueueConsole() {
 
           {/* Research: the three layers, in the same order every time */}
           <div role="tabpanel" id="console-tab-research" aria-labelledby="console-tabbtn-research" hidden={tab !== "research"} className="space-y-4" data-tour="sales-queue-research">
-            {!loading && current ? <ResearchLayers t={t} current={current} /> : null}
+            {!loading && current ? <ResearchLayers t={t} current={current} language={language} /> : null}
             {!current && !detailLoading ? (
               <p className="text-sm text-muted-foreground">{t("app.salesQueue.pickOrClaim")}</p>
             ) : null}
