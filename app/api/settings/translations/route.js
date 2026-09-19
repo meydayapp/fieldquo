@@ -14,6 +14,7 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { translationStatus } from "@/lib/products/presetTranslations";
 import { requirePermission } from "@/lib/permissions";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
@@ -56,9 +57,25 @@ export async function GET(request) {
 
   const sourceLanguage = company?.defaultLanguage || "en";
 
-  const items = products.map((p) => {
+  // ── Presets are already translated; this page is for the rest ────────────
+  //
+  // A seeded standard add-on carries its catalogue translation in every
+  // document language from creation (lib/products/presetTranslations.js —
+  // `source: "catalogue"`, `of: <English name>`). A row whose catalogue
+  // translation is CURRENT is not the company's to translate and is left off
+  // the list; `presets` counts them so the page can say so. A preset the
+  // company RENAMED comes back onto the list flagged, unreviewed: the stored
+  // sentence translates a name the product no longer has.
+  let presets = 0;
+  const items = [];
+  for (const p of products) {
     const entry = p.translations?.[language] || null;
-    return {
+    const status = translationStatus(p, language);
+    if (status.preset) {
+      presets++;
+      continue;
+    }
+    items.push({
       id: p.id,
       type: p.type,
       source: { name: p.name, description: p.description || "" },
@@ -68,21 +85,23 @@ export async function GET(request) {
       },
       // A translated name with an untranslated description still reads as
       // unfinished on a quote, so it counts as missing.
-      missing: !entry?.name || (Boolean(p.description) && !entry?.description),
-      reviewed: Boolean(entry?.reviewed),
+      missing: status.missing,
+      reviewed: status.reviewed,
+      renamed: status.renamed,
       // `reviewedAt` was stamped on every save and read by nothing, anywhere —
       // the written-and-never-read defect AGENTS.md names first. Projected now
       // so the row can say WHEN a human last checked this wording: "reviewed"
       // with no date is the same badge whether that happened this morning or
       // before the price list changed.
-      reviewedAt: entry?.reviewedAt || null,
-    };
-  });
+      reviewedAt: status.reviewedAt,
+    });
+  }
 
   return NextResponse.json({
     language,
     sourceLanguage,
     total: items.length,
+    presets,
     missing: items.filter((i) => i.missing).length,
     unreviewed: items.filter((i) => !i.reviewed && !i.missing).length,
     items,

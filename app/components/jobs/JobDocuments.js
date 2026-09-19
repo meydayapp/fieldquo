@@ -206,6 +206,8 @@ export default function JobDocuments({ jobId }) {
                         ` · ${t("app.jobDocuments.source.invoiceSend", "Filed when sent")}`}
                       {doc.source === "backfill" &&
                         ` · ${t("app.jobDocuments.source.backfill", "Filed from the quote")}`}
+                      {doc.source === "prep_guide" &&
+                        ` · ${t("app.jobDocuments.source.prepGuide", "Filed when sent to the client")}`}
                     </p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
