@@ -324,7 +324,11 @@ check("Crew cannot read a shareToken",
 // redactor fails here.
 console.log("\nThe routes that hand a client back call the redactor\n");
 for (const [label, rel, pattern] of [
-  ["GET /api/appointments (the calendar feed)", "app/api/appointments/route.js", /redactClient\(full, a\.client\)/],
+  // The feed's queries and their redaction moved to lib/schedule/feed.js so
+  // the day map (app/api/schedule/map) reads the same rows; the route calls it.
+  ["GET /api/appointments (the calendar feed)", "lib/schedule/feed.js", /redactClient\(full, a\.client\)/],
+  ["…and the route actually calls that feed", "app/api/appointments/route.js", /loadScheduleFeed\(db, member, full\)/],
+  ["…as does the day map", "app/api/schedule/map/route.js", /loadScheduleFeed\(db, member, full, \{ from, to \}\)/],
   ["POST /api/appointments", "app/api/appointments/route.js", /client: redactClient\(full, appointment\.client\)/],
   ["GET /api/jobs/[id]", "app/api/jobs/[id]/route.js", /client: redactClient\(full, job\.client\)/],
   ["PATCH /api/jobs/[id]", "app/api/jobs/[id]/route.js", /client: redactClient\(full, updated\.client\)/],

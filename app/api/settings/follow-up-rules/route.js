@@ -7,10 +7,22 @@ import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
 import { SUPPORTED_TRIGGERS } from "@/lib/followUps/triggers";
 import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
+import { ensureDefaultFollowUps, BUILT_IN_KEYS } from "@/lib/followUps/defaults";
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
+
+  // A company created before the defaults existed, or one whose signup
+  // seeding hiccuped, gets them the first time anyone opens the page.
+  // Idempotent (keyed on companyId + builtInKey), so this costs one read on
+  // every load and a write only once per company. Best-effort: a seeding
+  // failure must not take the page down.
+  try {
+    await ensureDefaultFollowUps(db, member.companyId);
+  } catch (err) {
+    console.error("[follow-up-rules] default seeding failed:", err?.message);
+  }
 
   const rules = await db.followUpRule.findMany({
     where: { companyId: member.companyId },
@@ -18,7 +30,19 @@ export async function GET(request) {
     orderBy: { createdAt: "asc" },
   });
 
-  return NextResponse.json(rules);
+  // Tombstoned defaults are reported separately, not hidden: the page offers
+  // to restore them, and a list that silently dropped a row would have no
+  // way to say "you deleted the day-7 one".
+  const live = rules.filter((r) => !r.deletedAt);
+  const deleted = rules
+    .filter((r) => r.deletedAt && BUILT_IN_KEYS.includes(r.builtInKey))
+    .map((r) => ({ id: r.id, builtInKey: r.builtInKey, name: r.name, deletedAt: r.deletedAt }));
+
+  // Built-ins first, in FieldQuo's order, then the company's own rules by age.
+  const order = (r) => (r.builtInKey ? BUILT_IN_KEYS.indexOf(r.builtInKey) : BUILT_IN_KEYS.length);
+  live.sort((a, b) => order(a) - order(b) || new Date(a.createdAt) - new Date(b.createdAt));
+
+  return NextResponse.json({ rules: live, deletedBuiltIns: deleted });
 }
 
 export async function POST(request) {

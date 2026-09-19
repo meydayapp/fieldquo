@@ -113,6 +113,7 @@ import { taxStatement } from "@/lib/tax/documentTax";
 import { documentTaxSentence } from "@/lib/tax/documentSentence";
 import TaxUnresolvedModal from "@/app/components/tax/TaxUnresolvedModal";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { formatDuration } from "@/lib/i18n/duration";
 import ClientMediaTile from "@/app/components/ClientMediaTile";
 import { CustomFieldsPanel } from "@/app/components/customFields/CustomFieldsBox";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
@@ -1033,7 +1034,7 @@ export default function QuoteDetailPage() {
         </div>
       )}
 
-      {(quote.sentAt || quote.followUpSentAt) && (
+      {(quote.sentAt || quote.followUpSentAt || quote.automatedFollowUps?.length > 0) && (
         <div className="bg-card border border-border rounded-lg px-4 py-3 space-y-1.5">
           {quote.sentAt && (
             <TrailRow
@@ -1054,6 +1055,20 @@ export default function QuoteDetailPage() {
               at={quote.followUpSentAt}
             />
           )}
+          {/* The cron's chases, one row each, from FollowUpLog — so "day 7"
+              here is the rule that actually fired, not arithmetic on today's
+              date. A hand-sent follow-up is the row above; these are the
+              automated ones (Settings → Follow-ups). */}
+          {(quote.automatedFollowUps || []).map((log, i) => (
+            <TrailRow
+              key={`auto-${i}`}
+              label={t("app.quoteDetail.autoFollowUp", {
+                delay: formatDuration(t, log.rule?.delayValue, log.rule?.delayUnit),
+              })}
+              at={log.sentAt}
+              detail={log.rule?.name || ""}
+            />
+          ))}
           {/* clientDesignAt is reused by the public approval endpoint to
               record when the client decided — see the comment there. */}
           {["accepted", "declined"].includes(quote.status) &&

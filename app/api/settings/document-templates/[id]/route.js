@@ -53,7 +53,33 @@ export async function PATCH(request, { params }) {
   if (!existing)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const { name, subject, sections, theme } = await request.json();
+  const { name, subject, sections, theme, sentMode, canvas } = await request.json();
+
+  // ── Blocks or canvas ──────────────────────────────────────────────────────
+  //
+  // `sentMode` is the statement of which body a send renders; `canvas` is the
+  // designer's document. Both are optional and independent: saving a canvas
+  // does not switch to it, and switching never clears the other body —
+  // "go back to blocks" must be a way out, not a way of losing the drawing.
+  if (sentMode !== undefined && !["blocks", "canvas"].includes(sentMode)) {
+    return NextResponse.json({ error: "sentMode must be blocks or canvas" }, { status: 400 });
+  }
+  if (canvas !== undefined && canvas !== null && (typeof canvas !== "object" || !Array.isArray(canvas.objects))) {
+    return NextResponse.json({ error: "canvas must be the designer's document" }, { status: 400 });
+  }
+  // Switching to a canvas with nothing on it would make the template send an
+  // empty email. Refused here, in front of the person, rather than at 8am by
+  // the cron.
+  if (sentMode === "canvas") {
+    const doc = canvas !== undefined ? canvas : existing.canvas;
+    const drawn = Array.isArray(doc?.objects) ? doc.objects.filter((o) => o?.name !== "clip") : [];
+    if (drawn.length === 0) {
+      return NextResponse.json(
+        { error: "Draw something on the canvas before making it the email — or stay on blocks." },
+        { status: 409 },
+      );
+    }
+  }
 
   // A PDF layout and an email body are two different vocabularies sharing one
   // JSON column. Saving a `heading` block into a quote_pdf produced a template
@@ -80,6 +106,8 @@ export async function PATCH(request, { params }) {
       ...(subject !== undefined && { subject }),
       ...(sections !== undefined && { sections }),
       ...(theme !== undefined && { theme }),
+      ...(sentMode !== undefined && { sentMode }),
+      ...(canvas !== undefined && { canvas }),
     },
   });
 

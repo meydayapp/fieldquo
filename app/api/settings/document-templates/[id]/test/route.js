@@ -10,10 +10,8 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
-import {
-  renderTemplateSections,
-  renderSubject,
-} from "@/lib/email/renderTemplateSections";
+import { renderSubject } from "@/lib/email/renderTemplateSections";
+import { templateBody } from "@/lib/email/templateBody";
 import { sendEmail, SENDER_SELECT } from "@/lib/email/resend";
 import { resolveSender } from "@/lib/email/companySender";
 import { STAGE_INDEX } from "@/app/data/emailTemplateBlocks";
@@ -126,11 +124,15 @@ export async function POST(request, { params }) {
     progressStage: STAGE_INDEX[template.type] ?? 0,
   };
 
-  const sections = Array.isArray(template.sections) ? template.sections : [];
-  const html = renderTemplateSections(sections, mergeData, {
-    company: company || {},
-    theme: template.theme || null,
-  });
+  // The body the template says is sent, so a test of a canvas template is a
+  // test of the canvas and not of blocks nobody will receive.
+  const html = templateBody(template, mergeData, { company: company || {} });
+  if (!html) {
+    return NextResponse.json(
+      { error: "This template's canvas is empty — draw something, or switch it back to blocks, before sending a test." },
+      { status: 400 },
+    );
+  }
 
   const subject = renderSubject(template.subject, mergeData, template.name);
 

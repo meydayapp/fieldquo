@@ -25,6 +25,8 @@ import {
   Monitor,
   Pencil,
   Eye,
+  LayoutList,
+  Brush,
 } from "lucide-react";
 import {
   DndContext,
@@ -50,6 +52,8 @@ import {
   newBlock,
 } from "@/app/data/emailTemplateBlocks";
 import { renderTemplateSections } from "@/lib/email/renderTemplateSections";
+import { compileCanvasEmail } from "@/lib/email/canvasEmail";
+import EmailCanvasEditor from "@/app/components/emailCanvas/EmailCanvasEditor";
 import ReplyToPromptModal from "@/app/components/settings/ReplyToPromptModal";
 import { reportResponseError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
@@ -501,6 +505,15 @@ export default function EmailTemplateEditorPage() {
   const [sections, setSections] = useState([]);
   // Per-template overrides. null = inherit the company's branding.
   const [theme, setTheme] = useState(null);
+  // ── Blocks or canvas ────────────────────────────────────────────────────
+  //
+  // Both bodies live on the row; `sentMode` is the one that goes out
+  // (lib/email/templateBody.js is the only reader). Switching here changes
+  // the statement and the preview, never the other body — "Blocks" brings
+  // the blocks straight back, exactly as they were.
+  const [sentMode, setSentMode] = useState("blocks");
+  const [canvas, setCanvas] = useState(null);
+  const [canvasWarnings, setCanvasWarnings] = useState([]);
   // Company branding, so the preview shows the same header/footer the client
   // will actually receive rather than a generic placeholder.
   const [company, setCompany] = useState({});
@@ -544,6 +557,8 @@ export default function EmailTemplateEditorPage() {
         setSubject(data.subject || "");
         setSections(Array.isArray(data.sections) ? data.sections : []);
         setTheme(data.theme || null);
+        setSentMode(data.sentMode === "canvas" ? "canvas" : "blocks");
+        setCanvas(data.canvas || null);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -572,15 +587,23 @@ export default function EmailTemplateEditorPage() {
 
   // `preview: true` makes links inert so clicking a CTA can't navigate the
   // preview iframe away to the sample-data placeholder URL.
-  const previewHtml = useMemo(
-    () =>
-      renderTemplateSections(sections, previewMergeData, {
-        preview: true,
-        company,
-        theme,
-      }),
-    [sections, previewMergeData, company, theme],
-  );
+  // The preview renders the body that WOULD BE SENT — the same decision
+  // lib/email/templateBody.js makes — so a canvas template is never previewed
+  // from blocks nobody will receive.
+  const previewHtml = useMemo(() => {
+    if (sentMode === "canvas") {
+      const out = compileCanvasEmail(canvas, previewMergeData, { preview: true, company, theme });
+      // Deferred: setState inside useMemo is a render-phase update.
+      queueMicrotask(() => setCanvasWarnings(out.warnings || []));
+      return out.html;
+    }
+    queueMicrotask(() => setCanvasWarnings([]));
+    return renderTemplateSections(sections, previewMergeData, {
+      preview: true,
+      company,
+      theme,
+    });
+  }, [sections, previewMergeData, company, theme, sentMode, canvas]);
 
   // Merge one key into the theme override object, creating it on first edit.
   function updateTheme(key, value) {
@@ -635,7 +658,7 @@ export default function EmailTemplateEditorPage() {
     const res = await fetch(`/api/settings/document-templates/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, subject, sections, theme }),
+      body: JSON.stringify({ name, subject, sections, theme, sentMode, canvas }),
     });
     if (res.ok) {
       setSavedFlash(true);
@@ -660,7 +683,7 @@ export default function EmailTemplateEditorPage() {
     const savedRes = await fetch(`/api/settings/document-templates/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, subject, sections, theme }),
+      body: JSON.stringify({ name, subject, sections, theme, sentMode, canvas }),
     });
     if (!savedRes.ok) {
       const saveErr = await savedRes.json().catch(() => ({}));
@@ -904,7 +927,73 @@ export default function EmailTemplateEditorPage() {
             )}
           </div>
 
-          {/* Merge fields */}
+          {/* Blocks / Canvas */}
+          <div className="bg-card border border-border rounded-xl p-4">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div>
+                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  {t("app.emailModes.title")}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {sentMode === "canvas" ? t("app.emailModes.canvasIsSent") : t("app.emailModes.blocksAreSent")}
+                </p>
+              </div>
+              <div className="inline-flex rounded-lg border border-border overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setSentMode("blocks")}
+                  aria-pressed={sentMode === "blocks"}
+                  className={`px-3 py-1.5 text-sm font-medium inline-flex items-center gap-1.5 ${
+                    sentMode === "blocks" ? "bg-inverted text-inverted-foreground" : "bg-card text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  <LayoutList size={14} /> {t("app.emailModes.blocks")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSentMode("canvas")}
+                  aria-pressed={sentMode === "canvas"}
+                  className={`px-3 py-1.5 text-sm font-medium inline-flex items-center gap-1.5 ${
+                    sentMode === "canvas" ? "bg-inverted text-inverted-foreground" : "bg-card text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  <Brush size={14} /> {t("app.emailModes.canvas")}
+                </button>
+              </div>
+            </div>
+            {sentMode === "blocks" && canvas && (
+              <p className="text-xs text-amber-700 dark:text-amber-300 mt-2">{t("app.emailModes.canvasKept")}</p>
+            )}
+            {sentMode === "canvas" && sections.length > 0 && (
+              <p className="text-xs text-muted-foreground mt-2">{t("app.emailModes.blocksKept")}</p>
+            )}
+          </div>
+
+          {sentMode === "canvas" && (
+            <>
+              <EmailCanvasEditor
+                value={canvas}
+                onChange={setCanvas}
+                mergeFields={MERGE_FIELDS}
+              />
+              {canvasWarnings.length > 0 && (
+                <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-xl p-3">
+                  <div className="text-xs font-semibold text-amber-800 dark:text-amber-300 mb-1">
+                    {t("app.emailModes.warningsTitle")}
+                  </div>
+                  <ul className="text-xs text-amber-800 dark:text-amber-300 space-y-0.5">
+                    {canvasWarnings.map((w, i) => (
+                      <li key={i}>{w.message}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Merge fields — the block editor's. The canvas has its own row,
+              under the artboard, that inserts into the selected layer. */}
+          {sentMode === "blocks" && (
           <div className="bg-card border border-border rounded-xl p-4">
             <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
               {t("app.emailEditor.insertMergeField", "Insert a merge field")}
@@ -928,13 +1017,16 @@ export default function EmailTemplateEditorPage() {
             </div>
           </div>
 
-          {sections.length === 0 && (
+          )}
+
+          {sentMode === "blocks" && sections.length === 0 && (
             <p className="text-sm text-muted-foreground px-1">
               {t("app.emailEditor.noBlocks", "No blocks yet — add one below.")}
             </p>
           )}
 
           {/* Sortable blocks */}
+          {sentMode === "blocks" && (
           <DndContext
             sensors={sensors}
             collisionDetection={closestCenter}
@@ -957,8 +1049,10 @@ export default function EmailTemplateEditorPage() {
               </div>
             </SortableContext>
           </DndContext>
+          )}
 
           {/* Add block */}
+          {sentMode === "blocks" && (
           <div className="relative">
             <button
               onClick={() => setAddOpen((v) => !v)}
@@ -980,6 +1074,7 @@ export default function EmailTemplateEditorPage() {
               </div>
             )}
           </div>
+          )}
 
           {/* Send a test */}
           <div className="bg-card border border-border rounded-xl p-4">

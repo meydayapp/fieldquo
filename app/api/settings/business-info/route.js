@@ -14,42 +14,9 @@ import { sanitisePaymentMethods } from "@/lib/payments/paymentMethodOptions";
 import { cleanRadiusKm, normalisePostalPrefixes } from "@/lib/company/serviceArea";
 import { usRatesTableStatus } from "@/lib/tax/usRates";
 import { normaliseUsOverrides, parseUsOverridesInput } from "@/lib/tax/usOverrides";
-
-/**
- * Coordinates for a stored address that has none.
- *
- * The mini map on Company Settings is gated on latitude/longitude, and those are
- * only written when someone picks an address from the autocomplete. An address
- * that arrived at SIGNUP has neither — so the map said "Enter an address to
- * preview it on the map" while the address fields right above it were filled in,
- * which reads as the page not working.
- *
- * Geocoded once, on read, and persisted so it costs one Google call ever. Silent
- * on failure: no coordinates means no map, which is what the company already had,
- * and a geocoding outage must not stop Company Settings loading.
- */
-async function backfillCoordinates(companyId, company) {
-  if (!company?.address) return company;
-  if (company.latitude != null && company.longitude != null) return company;
-
-  try {
-    const { geocodeAddress } = await import("@/lib/measure/roofMeasurement");
-    const full = [company.address, company.city, company.province, company.postalCode]
-      .filter(Boolean)
-      .join(", ");
-    const hit = await geocodeAddress(full);
-    if (!hit?.lat || !hit?.lng) return company;
-
-    await db.company.update({
-      where: { id: companyId },
-      data: { latitude: hit.lat, longitude: hit.lng },
-    });
-    return { ...company, latitude: hit.lat, longitude: hit.lng };
-  } catch (err) {
-    console.error("[business-info] coordinate backfill failed:", err?.message);
-    return company;
-  }
-}
+// The geocode-if-missing rule moved to lib/company/coordinates.js so the day
+// map could centre on the same address without a second copy of it.
+import { ensureCompanyCoordinates } from "@/lib/company/coordinates";
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -151,7 +118,7 @@ export async function GET(request) {
   });
 
   // One-time geocode so the map works for an address that came from signup.
-  const withCoords = await backfillCoordinates(member.companyId, company);
+  const withCoords = await ensureCompanyCoordinates(db, member.companyId, company);
 
   // Whether Settings → Tax shows the US card at all: a company in the US, or
   // with a US client on file, or that has already said something per state.
@@ -578,7 +545,7 @@ export async function PATCH(request) {
   // card then shows the honest note, which is what it should.
   const withCoords =
     cleanRadius?.value && (updated.latitude == null || updated.longitude == null)
-      ? await backfillCoordinates(member.companyId, updated)
+      ? await ensureCompanyCoordinates(db, member.companyId, updated)
       : updated;
 
   // Record which fields changed — enough for support to answer "who changed

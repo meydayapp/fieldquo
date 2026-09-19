@@ -15,6 +15,8 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronDown,
+  CalendarDays,
+  Map as MapIcon,
   Headset,
   Phone,
   Mail,
@@ -39,6 +41,7 @@ import {
   prefillLocation,
 } from "@/lib/schedule/appointmentAbout";
 import EntryActions from "@/app/components/schedule/EntryActions";
+import DayMapView, { ymdOf } from "@/app/components/schedule/DayMapView";
 import { useSession } from "@/lib/auth-client";
 
 import { useTranslation } from "@/app/hooks/useTranslation";
@@ -212,7 +215,19 @@ export default function AppointmentsPage() {
   // month than it served). The value is the same `dayKey` shape the grid
   // uses, so anything that isn't one is ignored rather than parsed into
   // "Invalid Date".
-  const landingDay = landingDayFrom(useSearchParams());
+  const searchParams = useSearchParams();
+  const landingDay = landingDayFrom(searchParams);
+  // ── The third view: the day on a map ─────────────────────────────────────
+  //
+  // `?view=map` swaps the month grid and the list for DayMapView — the same
+  // rows, numbered per person, on a map beside a list. A URL parameter
+  // rather than local state so "see today on the map" is a link somebody
+  // can send, and so the tab survives a reload. The map day starts on the
+  // picked day when there is one, else today; changing it never touches the
+  // month grid's own selection, because the two views are read at different
+  // moments and a dispatcher flipping between them expects each to stay put.
+  const view = searchParams?.get("view") === "map" ? "map" : "calendar";
+  const [mapDay, setMapDay] = useState(() => landingDay || ymdOf(new Date()));
   const [monthAnchor, setMonthAnchor] = useState(() => {
     if (landingDay) {
       const [y, m] = landingDay.split("-").map(Number);
@@ -398,6 +413,36 @@ export default function AppointmentsPage() {
           <Plus size={16} />{t("app.appts.new")}</button>
       </div>
 
+      {/* Calendar or map. Links, not buttons: the view is in the URL. */}
+      <div role="tablist" aria-label={t("app.map.viewLabel", "View")} className="inline-flex rounded-lg border border-border p-0.5 mb-4">
+        <Link
+          href="/app/appointments"
+          role="tab"
+          aria-selected={view === "calendar"}
+          className={`inline-flex items-center gap-1.5 min-h-[40px] px-3 rounded-md text-sm font-medium ${
+            view === "calendar" ? "bg-inverted text-inverted-foreground" : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <CalendarDays size={14} /> {t("app.map.viewCalendar", "Calendar")}
+        </Link>
+        <Link
+          href={`/app/appointments?view=map&day=${selectedDay || mapDay}`}
+          role="tab"
+          aria-selected={view === "map"}
+          data-tour="appts-map-tab"
+          className={`inline-flex items-center gap-1.5 min-h-[40px] px-3 rounded-md text-sm font-medium ${
+            view === "map" ? "bg-inverted text-inverted-foreground" : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <MapIcon size={14} /> {t("app.map.viewMap", "Map")}
+        </Link>
+      </div>
+
+      {view === "map" && (
+        <DayMapView day={mapDay} onDayChange={setMapDay} />
+      )}
+
+      {view === "map" ? null : (<>
       {/* Above the calendar, not below it, because it governs both surfaces —
           a filter row sitting under the grid it controls reads as belonging to
           the list alone. */}
@@ -1033,6 +1078,7 @@ export default function AppointmentsPage() {
           into one colour-coded stream buries your 8am between two other
           people's. */}
       <TeamSchedule team={team} basis={teamBasis} />
+      </>)}
 
       {showForm && (
         <NewAppointmentModal

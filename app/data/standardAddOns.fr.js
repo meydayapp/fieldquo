@@ -26,6 +26,8 @@
 // Same rules as the English: what is done, per what unit. No price, no brand,
 // no promise about who supplies what beyond what the English already says.
 
+import { STANDARD_ADDONS_I18N } from "@/app/data/standardAddOns.i18n";
+
 export const STANDARD_ADDONS_FR = {
   "New Handles — supply & install": {
     name: "Nouvelles poignées — fourniture et pose",
@@ -133,7 +135,40 @@ export const STANDARD_ADDONS_FR = {
  * when this file has nothing for that name. Null rather than `{}` so the
  * seed and the backfill can tell "no French" from "French, empty".
  */
-export function standardAddOnTranslations(name) {
-  const fr = STANDARD_ADDONS_FR[name];
-  return fr ? { fr: { name: fr.name, description: fr.description } } : null;
+/** The mark on a stored entry that came from these files rather than from a person. */
+export const CATALOGUE_SOURCE = "catalogue";
+
+/** The languages the catalogue covers, French first (this file is the original). */
+export const CATALOGUE_LANGUAGES = Object.freeze(["fr", ...Object.keys(STANDARD_ADDONS_I18N)]);
+
+/**
+ * One stored entry for one language, as the seeder and the backfill write
+ * it. Beside name and description it carries `source: "catalogue"` and
+ * `of: <the English name>` — see lib/products/presetTranslations.js for why
+ * (the translations page hides a current preset and flags a renamed one) —
+ * and `reviewed: true`, because whoever wrote these files did read them.
+ * Null for a name or a language the catalogue does not know.
+ */
+export function catalogueEntry(language, name, at = new Date()) {
+  const table = language === "fr" ? STANDARD_ADDONS_FR : STANDARD_ADDONS_I18N[language];
+  const text = table && Object.prototype.hasOwnProperty.call(table, name) ? table[name] : null;
+  if (!text || !text.name) return null;
+  return {
+    name: text.name,
+    description: text.description || "",
+    reviewed: true,
+    reviewedAt: at instanceof Date ? at.toISOString() : String(at),
+    source: CATALOGUE_SOURCE,
+    of: name,
+  };
+}
+
+/** Every catalogue language for one preset name; null for a name it does not know. */
+export function standardAddOnTranslations(name, at = new Date()) {
+  const out = {};
+  for (const lang of CATALOGUE_LANGUAGES) {
+    const entry = catalogueEntry(lang, name, at);
+    if (entry) out[lang] = entry;
+  }
+  return Object.keys(out).length ? out : null;
 }

@@ -133,14 +133,22 @@ console.log("\nHonesty of the drawn states\n");
 
 ok(
   "cron loads active rules only, so a paused step really is skipped",
-  /findMany\(\{\s*where: \{ active: true \}/.test(cron),
+  // `deletedAt: null` beside it: a deleted FieldQuo default is a tombstone
+  // (FollowUpRule.deletedAt), skipped for a different reason than a pause.
+  /findMany\(\{\s*where: \{ active: true, deletedAt: null \}/.test(cron),
 );
 ok("diagram draws a paused step differently", /border-dashed/.test(diagram));
 ok(
-  "cron skips a rule with no template",
-  /if \(!finder \|\| !rule\.template\)/.test(cron),
+  "cron skips a hand-made rule with no template",
+  // A FieldQuo default (builtInKey) with no template sends its built-in
+  // wording instead — lib/followUps/defaults.js — so the skip is qualified.
+  /if \(!finder \|\| \(!rule\.template && !builtIn\)\)/.test(cron),
 );
 ok("diagram draws a template-less step as broken", /noTemplate/.test(diagram));
+ok(
+  "diagram does NOT draw a FieldQuo default as broken",
+  /const broken = !rule\.template && !rule\.builtInKey/.test(diagram),
+);
 ok(
   "cron skips a client with no email",
   /const to = entity\.client\?\.email;[\s\S]{0,120}skippedNoEmail/.test(cron),

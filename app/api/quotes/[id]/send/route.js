@@ -57,6 +57,7 @@ import {
   quoteEmailSectionGate,
   QUOTE_EMAIL_COMPANY_SELECT,
 } from "@/lib/quotes/emailSections";
+import { loadDocumentWording } from "@/lib/email/documentEmailCopies";
 
 export async function POST(request, { params }) {
   const { id } = await params;
@@ -268,6 +269,14 @@ export async function POST(request, { params }) {
   // attached PDF alike — the two must never disagree about a PO number.
   const customFields = await loadDocumentCustomFields(db, member.companyId, "quote", quote.id);
 
+  // The quote's own language wins — the covering note must match the
+  // document it's carrying. See lib/i18n/clientLanguage.js.
+  const language = resolveClientLanguage({
+    document: quote,
+    client: quote.client,
+    company,
+  });
+
   const { subject, html, text } = buildQuoteEmail({
     quote: { ...quote, customFields },
     client: quote.client,
@@ -275,13 +284,12 @@ export async function POST(request, { params }) {
     url,
     scopeGroups,
     kind: isFollowUp ? "follow_up" : "quote",
-    // The quote's own language wins — the covering note must match the
-    // document it's carrying. See lib/i18n/clientLanguage.js.
-    language: resolveClientLanguage({
-      document: quote,
-      client: quote.client,
-      company,
-    }),
+    language,
+    // The company's own wording for the quote email, in THIS language, when
+    // it has switched one on — else the original (Settings → Email templates
+    // → Document emails). The scope, total and steps below it are the
+    // quote's either way.
+    wording: await loadDocumentWording(db, { companyId: member.companyId, kind: "quote", language }),
   });
 
   // Attach the quote PDF so the client keeps the document itself, not just a

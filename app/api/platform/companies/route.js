@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { ensureDefaultFollowUps } from "@/lib/followUps/defaults";
 import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
 import { incompleteSignupWhere } from "@/lib/signup/abandoned";
 
@@ -94,6 +95,17 @@ export async function POST(request) {
       details: { name, slug },
     },
   });
+
+  // The same defaults a self-serve signup gets (app/api/companies/route.js):
+  // three follow-up rules, so a company FieldQuo created by hand is not the
+  // one company whose quotes are never chased. Creating rows inside a tenant
+  // is what this route already does — it is the company's own birth, not an
+  // edit to anything a customer wrote.
+  try {
+    await ensureDefaultFollowUps(db, company.id);
+  } catch (err) {
+    console.error("[platform companies POST] default follow-up seeding failed", err);
+  }
 
   // Note: this creates the Company record only — the actual owner still needs to
   // complete their own signup (Better Auth account + organization) to log in.

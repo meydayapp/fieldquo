@@ -206,6 +206,8 @@ export default function CrewLinesPage() {
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         <Stat label="Numbers held" value={counts.held} />
         <Stat label="Claimed" value={counts.claimed} />
+        <Stat label="Sales reps" value={counts.sales} />
+        <Stat label="System (outbound From)" value={counts.system} bad={counts.system === 0} />
         <Stat label="Free to lend" value={counts.free} />
         <Stat label="Drifting" value={counts.drifting} bad={counts.drifting > 0} />
         <Stat label="Orphaned" value={counts.orphaned} bad={counts.orphaned > 0} />

@@ -36,10 +36,8 @@ import { planOrRefusal } from "@/lib/signup/planGate";
 import { requirePermission } from "@/lib/permissions";
 import { sendEmail, SENDER_SELECT } from "@/lib/email/resend";
 import { resolveSender } from "@/lib/email/companySender";
-import {
-  renderTemplateSections,
-  renderSubject,
-} from "@/lib/email/renderTemplateSections";
+import { renderSubject } from "@/lib/email/renderTemplateSections";
+import { templateBody } from "@/lib/email/templateBody";
 import { ensureSubscriberToken, unsubscribeHeaders } from "@/lib/marketing/unsubscribe";
 
 export async function POST(request, { params }) {
@@ -178,9 +176,11 @@ export async function sendCampaignEmails({ campaign, companyId, request }) {
         companyPhone: campaign.company?.phone || "",
         companyEmail: campaign.company?.email || "",
       };
-      const html = renderTemplateSections(campaign.template.sections, mergeData, {
+      // Whichever body the template says is sent — blocks or canvas. The
+      // unsubscribe row rides in the shell both modes share, so a canvas
+      // campaign cannot leave it out (lib/email/canvasEmail.js).
+      const html = templateBody(campaign.template, mergeData, {
         company: campaign.company || {},
-        theme: campaign.template.theme || null,
         unsubscribe: { token: unsubscribeToken, request },
       });
       // The campaign name is an internal label; prefer the template's

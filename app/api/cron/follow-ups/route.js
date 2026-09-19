@@ -19,14 +19,16 @@ import { db } from "@/lib/db";
 import { sendEmail } from "@/lib/email/resend";
 import { sendOutcome, reportQuoteNotDelivered } from "@/lib/email/sendFailure";
 import { resolveSender } from "@/lib/email/companySender";
-import {
-  renderTemplateSections,
-  renderSubject,
-} from "@/lib/email/renderTemplateSections";
+import { renderSubject } from "@/lib/email/renderTemplateSections";
 import { getAppOrigin } from "@/lib/appUrl";
 import { ensurePortalToken, portalInvoiceUrl } from "@/lib/clientPortal";
 import { ensureSubscriber, unsubscribeHeaders } from "@/lib/marketing/unsubscribe";
 import { TRIGGER_META } from "@/lib/followUps/triggers";
+import { buildBuiltInFollowUpEmail } from "@/lib/followUps/defaults";
+import { quoteChaseBlocker, gatherQuoteChaseFacts } from "@/lib/followUps/stopConditions";
+import { companyMaySend, quoteTaxReady } from "@/lib/followUps/readiness";
+import { resolveClientLanguage } from "@/lib/i18n/clientLanguage";
+import { templateBody } from "@/lib/email/templateBody";
 
 function cutoffFor(rule) {
   const ms =
@@ -265,8 +267,10 @@ export async function GET(request) {
   const denied = requireCronSecret(request);
   if (denied) return denied;
 
+  // deletedAt: a FieldQuo default the company deleted is a tombstone, not a
+  // paused rule — see the schema comment on FollowUpRule.deletedAt.
   const rules = await db.followUpRule.findMany({
-    where: { active: true },
+    where: { active: true, deletedAt: null },
     include: { template: true },
   });
 
@@ -275,11 +279,37 @@ export async function GET(request) {
   let skippedNoTemplate = 0;
   let skippedNoEmail = 0;
   let skippedUnsubscribed = 0;
+  // Per stop reason, so the response says WHY nothing went out rather than
+  // just that it didn't. Keys are lib/followUps/stopConditions.js's reasons
+  // plus the two readiness gates.
+  const stopped = {};
+  const stop = (reason) => {
+    stopped[reason] = (stopped[reason] || 0) + 1;
+  };
+  // One plan-gate answer per company per run — see lib/followUps/readiness.js.
+  const planCache = new Map();
 
   for (const rule of rules) {
     const finder = FINDERS[rule.triggerEvent];
-    if (!finder || !rule.template) {
+    // A hand-made rule with no template has nothing to send. A FieldQuo
+    // default with no template sends the built-in wording in the client's
+    // language (lib/followUps/defaults.js) — that is the normal state for it.
+    const builtIn = Boolean(rule.builtInKey) && !rule.template;
+    if (!finder || (!rule.template && !builtIn)) {
       if (!rule.template) skippedNoTemplate++;
+      continue;
+    }
+    // The built-in wording is written for a quote. A company that re-pointed
+    // a default at another trigger keeps the trigger but must pick a template.
+    if (builtIn && finder.entityType !== "quote") {
+      skippedNoTemplate++;
+      continue;
+    }
+    // A template whose chosen body is an empty canvas has nothing to send
+    // either — decided once per rule, before any quote is claimed, so an
+    // empty canvas never "uses up" a (rule, quote) pair.
+    if (!builtIn && templateBody(rule.template, {}, { company: {} }) === "") {
+      skippedNoTemplate++;
       continue;
     }
 
@@ -288,6 +318,42 @@ export async function GET(request) {
       const to = entity.client?.email;
       if (!to) {
         skippedNoEmail++;
+        continue;
+      }
+
+      // ── Stop conditions, before the claim ─────────────────────────────────
+      //
+      // Decided by lib/followUps/stopConditions.js so the settings page can
+      // print the same list. Checked BEFORE the FollowUpLog claim on purpose:
+      // every one of these reasons is a state the quote will stay in (accepted,
+      // expired, re-quoted, replied), so there is nothing to "use up", and a
+      // claim here would make a quote that expired on day 6 look, in the log,
+      // like one that was chased.
+      if (finder.entityType === "quote") {
+        const blocker = quoteChaseBlocker({
+          quote: entity,
+          rule,
+          facts: await gatherQuoteChaseFacts(db, entity),
+        });
+        if (blocker) {
+          stop(blocker);
+          continue;
+        }
+      }
+
+      // ── The same two gates the quote's own send route holds ───────────────
+      //
+      // A company that never finished checkout does not get to send from the
+      // cron what it may not send from the button, and a quote the send route
+      // would refuse for an unresolved tax line is not chased either. Neither
+      // is permanent — the company may pay, the client's address may be fixed
+      // — so neither claims the log row.
+      if (!(await companyMaySend(entity.companyId, planCache))) {
+        stop("plan");
+        continue;
+      }
+      if (finder.entityType === "quote" && !(await quoteTaxReady(db, entity, entity.company))) {
+        stop("tax");
         continue;
       }
 
@@ -338,11 +404,40 @@ export async function GET(request) {
         );
       }
       const mergeData = mergeDataFor(finder.entityType, entity, request, portalToken);
-      const html = renderTemplateSections(rule.template.sections, mergeData, {
-        company: entity.company || {},
-        theme: rule.template.theme || null,
-        ...(unsubscribeToken && { unsubscribe: { token: unsubscribeToken, request } }),
-      });
+
+      let subject;
+      let html;
+      let text;
+      if (builtIn) {
+        // The client's language, resolved exactly as the quote email's was:
+        // the quote's own language first. Not the company's, not English.
+        const language = resolveClientLanguage({
+          document: entity,
+          client: entity.client,
+          company: entity.company,
+        });
+        const built = buildBuiltInFollowUpEmail({
+          key: rule.builtInKey,
+          quote: entity,
+          client: entity.client,
+          company: entity.company || {},
+          url: mergeData.quoteUrl,
+          language,
+        });
+        subject = built.subject;
+        html = built.html;
+        text = built.text;
+      } else {
+        // templateBody renders whichever body the template says is sent —
+        // its blocks or its canvas — and nothing else reads that column.
+        html = templateBody(rule.template, mergeData, {
+          company: entity.company || {},
+          ...(unsubscribeToken && { unsubscribe: { token: unsubscribeToken, request } }),
+        });
+        // template.name is the internal label ("Quote follow-up (default)") —
+        // only fall back to it if no client-facing subject is set.
+        subject = renderSubject(rule.template.subject, mergeData, rule.template.name);
+      }
 
       const result = await sendEmail({
         // The quote/invoice's own company. A demo's follow-up cron still runs,
@@ -350,14 +445,9 @@ export async function GET(request) {
         // chases a real homeowner on behalf of a company that doesn't exist.
         companyId: entity.companyId,
         to,
-        // template.name is the internal label ("Quote follow-up (default)") —
-        // only fall back to it if no client-facing subject is set.
-        subject: renderSubject(
-          rule.template.subject,
-          mergeData,
-          rule.template.name,
-        ),
+        subject,
         html,
+        ...(text && { text }),
         // Sends from the company's own verified domain when it has one,
         // otherwise FieldQuo's shared domain under the company's name.
         // Replies go to the company's inbox, falling back to the account
@@ -407,5 +497,13 @@ export async function GET(request) {
     }
   }
 
-  return NextResponse.json({ success: true, sent, failed, skippedNoTemplate, skippedNoEmail, skippedUnsubscribed });
+  return NextResponse.json({
+    success: true,
+    sent,
+    failed,
+    skippedNoTemplate,
+    skippedNoEmail,
+    skippedUnsubscribed,
+    stopped,
+  });
 }

@@ -22,6 +22,7 @@ import { recordSiteVisit } from "@/lib/quotes/siteVisitActivity";
 import { siteVisitVerbForStatus } from "@/lib/quotes/siteVisit";
 import { pickAbout, aboutLabel } from "@/lib/schedule/appointmentAbout";
 import { loadAboutRecord } from "@/lib/schedule/aboutRecord";
+import { geocodeAppointment, locationChanged } from "@/lib/geo/geocodeAppointment";
 
 // ── The list route was scoped; this one was not ────────────────────────────
 //
@@ -370,6 +371,21 @@ export async function PATCH(request, { params }) {
       invoice: { select: { id: true, invoiceNumber: true } },
     },
   });
+
+  // ── One geocode per address CHANGE, after the write has settled ──────────
+  //
+  // The edit form sends every field back, so `location` arriving is not the
+  // same as `location` changing; compared normalised, as the job route
+  // compares siteAddress. The wrapper never throws — a failure leaves nulls
+  // and the map lists the row as having no location.
+  if (body.location !== undefined && locationChanged(existing.location, body.location)) {
+    const coords = await geocodeAppointment(db, updated);
+    Object.assign(updated, {
+      latitude: coords.latitude,
+      longitude: coords.longitude,
+      geocodedAt: coords.geocodedAt,
+    });
+  }
 
   // ── The booking behind it moves with it ──────────────────────────────────
   //
