@@ -23,6 +23,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { resolveDocumentTax } from "@/lib/tax/documentTax";
+import { attachUsTaxRate } from "@/lib/tax/usRates";
 
 // Next 16: params is a Promise.
 export async function GET(request, { params }) {
@@ -35,7 +36,7 @@ export async function GET(request, { params }) {
   // rather than a tax rate.
   const client = await db.client.findFirst({
     where: { id, companyId: member.companyId },
-    select: { id: true, name: true, province: true, country: true },
+    select: { id: true, name: true, address: true, province: true, postalCode: true, country: true },
   });
   if (!client)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -49,6 +50,7 @@ export async function GET(request, { params }) {
         country: true,
         province: true,
         vatRegistered: true,
+        usTaxOverrides: true,
       },
     }),
     db.taxRate.findMany({ where: { companyId: member.companyId } }),
@@ -57,7 +59,7 @@ export async function GET(request, { params }) {
   const result = resolveDocumentTax({
     company: company || {},
     taxRates,
-    client,
+    client: await attachUsTaxRate(client),
   });
 
   return NextResponse.json({

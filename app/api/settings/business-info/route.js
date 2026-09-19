@@ -12,6 +12,8 @@ import { currencyForCountry } from "@/lib/currency";
 import { containsMarkupCharacters } from "@/lib/security/rejectMarkupCharacters";
 import { sanitisePaymentMethods } from "@/lib/payments/paymentMethodOptions";
 import { cleanRadiusKm, normalisePostalPrefixes } from "@/lib/company/serviceArea";
+import { usRatesTableStatus } from "@/lib/tax/usRates";
+import { normaliseUsOverrides, parseUsOverridesInput } from "@/lib/tax/usOverrides";
 
 /**
  * Coordinates for a stored address that has none.
@@ -107,6 +109,8 @@ export async function GET(request) {
       // to the settings form, because "not answered" is what the control has
       // to be able to show.
       vatRegistered: true,
+      // Per-state US overrides — lib/tax/usOverrides.js.
+      usTaxOverrides: true,
       taxRates: {
         select: { id: true, name: true, rate: true, isDefault: true },
         orderBy: { createdAt: "asc" },
@@ -149,7 +153,26 @@ export async function GET(request) {
   // One-time geocode so the map works for an address that came from signup.
   const withCoords = await backfillCoordinates(member.companyId, company);
 
-  return NextResponse.json(withCoords);
+  // Whether Settings → Tax shows the US card at all: a company in the US, or
+  // with a US client on file, or that has already said something per state.
+  // A Canadian company that has never quoted a US address sees nothing new.
+  // The rates-table month is what the card prints as "rates as of".
+  const [usClients, usRatesTable] = await Promise.all([
+    company?.country === "US"
+      ? Promise.resolve(1)
+      : db.client.count({ where: { companyId: member.companyId, country: "US" } }),
+    usRatesTableStatus().catch(() => null),
+  ]);
+  const usOverrides = normaliseUsOverrides(company?.usTaxOverrides);
+
+  return NextResponse.json({
+    ...withCoords,
+    usTaxOverrides: usOverrides,
+    usTaxRelevant: usClients > 0 || Object.keys(usOverrides).length > 0,
+    usRatesTable: usRatesTable
+      ? { fetchedAt: usRatesTable.fetchedAt, rows: usRatesTable.rows, states: usRatesTable.states.length }
+      : null,
+  });
 }
 
 // A year. Not a real policy, just the point past which a number is a typo:
@@ -237,6 +260,7 @@ export async function PATCH(request) {
     worksAlone,
     autoApplyLocalTax,
     vatRegistered,
+    usTaxOverrides,
     currency,
     servesAbroad,
     timezone,
@@ -267,6 +291,17 @@ export async function PATCH(request) {
       { error: "Company name can't contain < or >" },
       { status: 400 },
     );
+  }
+
+  // Per-state US overrides, validated to the closed shape or refused whole —
+  // a bad state code or a 400% rate must not half-save.
+  let cleanUsOverrides;
+  if (usTaxOverrides !== undefined) {
+    try {
+      cleanUsOverrides = parseUsOverridesInput(usTaxOverrides);
+    } catch (err) {
+      return NextResponse.json({ error: err.message }, { status: 400 });
+    }
   }
 
   // Filtered to the known set, never stored raw: whatever lands in this column
@@ -467,6 +502,7 @@ export async function PATCH(request) {
         vatRegistered: vatRegistered === true || vatRegistered === false ? vatRegistered : null,
       }),
       ...(autoApplyLocalTax !== undefined && { autoApplyLocalTax }),
+      ...(cleanUsOverrides !== undefined && { usTaxOverrides: cleanUsOverrides }),
       ...(timezone !== undefined && { timezone }),
       ...(dateFormat !== undefined && { dateFormat }),
       ...(weekStartsOn !== undefined && { weekStartsOn }),

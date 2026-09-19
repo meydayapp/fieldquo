@@ -12,7 +12,7 @@ import MediaUploader from "@/app/components/MediaUploader";
 import InvoiceCostSection from "@/app/components/invoices/InvoiceCostSection";
 import { formatAppMoney } from "@/lib/format/money";
 import { planRequiredFrom } from "@/lib/signup/planRequired";
-import { explainTaxSource } from "@/lib/tax/resolveTaxRate";
+import { explainTaxSource, renderTaxNote } from "@/lib/tax/resolveTaxRate";
 import { resolveDocumentTax } from "@/lib/tax/documentTax";
 
 export default function NewInvoicePage() {
@@ -99,6 +99,8 @@ export default function NewInvoicePage() {
           // Three-state, and `?? null` rather than `|| false`: an unanswered
           // VAT question must not arrive here as "not registered".
           vatRegistered: businessInfo?.vatRegistered ?? null,
+          // The company's per-state US word — lib/tax/usOverrides.js.
+          usTaxOverrides: businessInfo?.usTaxOverrides || null,
         });
       } catch (err) {
         setError(err.message);
@@ -139,7 +141,8 @@ export default function NewInvoicePage() {
       taxConfig.autoApplyLocalTax && selectedClient && !result.assumed
         ? explainTaxSource(result, selectedClient, language)
         : null;
-    setTaxNote(note ? t(note.key, note.params) : "");
+    // The US note is assembled from parts; renderTaxNote knows the shape.
+    setTaxNote(renderTaxNote(note, t));
     setTaxCaution(result.cautionKey ? t(result.cautionKey) : "");
   }, [taxConfig, selectedClient, taxRateTouched, language, t]);
 

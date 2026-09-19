@@ -2,6 +2,8 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
+import { readTaxResolution, resolutionForDocument, resolutionMatchesAmount } from "@/lib/tax/taxResolution";
 import { db } from "@/lib/db";
 import { computeInvoiceState } from "@/lib/invoices/computeInvoiceState";
 import { invoiceSendAsk } from "@/lib/invoices/sendAsk";
@@ -421,6 +423,23 @@ export async function PATCH(request, { params }) {
       // Carried onto the new version. Dropping it would silently re-assert
       // "tax applies" on an invoice that was deliberately raised without any.
       taxEnabled: taxEnabled ?? existing.taxEnabled,
+      // The sentence behind the tax figure travels with it — unless the
+      // amendment changed the figure to one the record no longer explains,
+      // in which case the record becomes "typed by hand" at the new rate
+      // (lib/tax/taxResolution.js) rather than a stale jurisdiction.
+      taxResolution: (() => {
+        const next = resolutionForDocument({
+          resolution: null,
+          tax: tax ?? existing.tax,
+          taxableBase: Number(subtotal ?? existing.subtotal) - Number(discount ?? existing.discount),
+          taxEnabled: taxEnabled ?? existing.taxEnabled,
+        });
+        const kept = readTaxResolution(existing.taxResolution);
+        if ((taxEnabled ?? existing.taxEnabled) === false) return Prisma.DbNull;
+        if (kept && resolutionMatchesAmount(kept, tax ?? existing.tax, Number(subtotal ?? existing.subtotal) - Number(discount ?? existing.discount)))
+          return kept;
+        return next ?? Prisma.DbNull;
+      })(),
       total: total ?? existing.total,
       amountPaid: ledger.amountPaid,
       amountDue: ledger.amountDue,

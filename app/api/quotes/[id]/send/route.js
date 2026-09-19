@@ -52,6 +52,7 @@ import { buildQuoteEmail } from "@/lib/email/quoteEmail";
 import { loadDocumentCustomFields } from "@/lib/customFields/values";
 import { resolveClientLanguage } from "@/lib/i18n/clientLanguage";
 import { taxStatement, taxSendRefusal } from "@/lib/tax/documentTax";
+import { attachUsTaxRate } from "@/lib/tax/usRates";
 import {
   quoteEmailSectionGate,
   QUOTE_EMAIL_COMPANY_SELECT,
@@ -152,6 +153,7 @@ export async function POST(request, { params }) {
       country: true,
       province: true,
       vatRegistered: true,
+      usTaxOverrides: true,
       // Without these the optional sections resolve to "off" for every quote
       // this route sends, silently. buildQuoteEmail refuses to run on a
       // company row that is missing them rather than guessing — see
@@ -218,9 +220,13 @@ export async function POST(request, { params }) {
     taxStatement({
       taxEnabled: quote.taxEnabled,
       tax: quote.tax,
+      // What the line said when the quote was written. A stated US zero
+      // ("no Texas sales tax on residential work") recorded here is a
+      // "none", and must not be refused as an unresolved blank.
+      stored: quote.taxResolution,
       company: company || {},
       taxRates,
-      client: quote.client,
+      client: await attachUsTaxRate(quote.client),
       asOf: quote.createdAt,
     }),
     { client: quote.client },

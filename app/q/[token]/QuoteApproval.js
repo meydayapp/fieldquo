@@ -940,6 +940,14 @@ export default function QuoteApproval({ token }) {
                 )}
               </p>
             )}
+            {/* What a US tax line means, or why there is none — the same
+                sentence the PDF prints, in the document's language, from the
+                record stored when the quote was written. */}
+            {quote.taxSentence && (
+              <p className="text-xs text-[#2d2520]/55 leading-snug pt-1">
+                {quote.taxSentence}
+              </p>
+            )}
           </div>
 
           {/* The headline figure in a filled band in their colour. Previously

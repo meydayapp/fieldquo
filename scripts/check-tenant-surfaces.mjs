@@ -209,8 +209,13 @@ for (const file of BOOK_PAGES) {
   // The four pendingPayment* columns (2026-09-12, bank debit on invoices)
   // are read to build `pendingPayment` / `failedPayment` — a state and
   // Stripe's reason, without the intent id — which ARE forwarded.
+  // taxResolution (2026-09-19, US sales tax) is read to compute `taxKind`
+  // and the `taxSentence` the page prints — the record itself carries the
+  // company's override and the resolver's provenance, which a homeowner
+  // has no use for.
   const COMPUTED_ONLY = new Set([
     "taxEnabled",
+    "taxResolution",
     "createdAt",
     "parentInvoiceId",
     "version",

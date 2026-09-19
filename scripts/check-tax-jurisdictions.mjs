@@ -15,6 +15,7 @@ import {
   VAT_RATES,
   lookupCanadianRate,
   lookupUsStateBase,
+  lookupUsRate,
   lookupVatRate,
   lookupJurisdictionRate,
   normaliseCountry,
@@ -199,38 +200,53 @@ ok(
   JSON.stringify(noCountryClient),
 );
 
-/* ── 4. The United States never presents a state rate as the rate ───────── */
+/* ── 4. The United States: a floor is named as a floor, never as the rate ─ */
 
-section("United States — a base is not a rate");
+section("United States — the floor is applied only with the sentence that says so");
 
 for (const code of Object.keys(US_STATE_BASE_RATES)) {
   const r = lookupUsStateBase(code);
-  ok(`${code} never returns status "known"`, r.status === "base_only", r.status);
-  ok(`${code} exposes no field called "rate"`, r.rate === undefined);
+  ok(`${code} base lookup keeps the base_only status`, r.status === "base_only", r.status);
   ok(`${code} always carries the local-tax caution`, Boolean(r.cautionKey));
+  const rate = lookupUsRate(code);
+  ok(
+    `${code} rate lookup is "known" only where the state has no local tax`,
+    rate.status === (US_STATE_BASE_RATES[code].localTax === "none" ? "known" : "state_only"),
+    rate.status,
+  );
+  ok(
+    `${code} state-only answer carries the caution, a uniform one does not`,
+    rate.status === "state_only" ? Boolean(rate.cautionKey) : rate.cautionKey === null,
+  );
 }
 
+// Ohio is a Streamlined state with local rates: without a ZIP row the box gets
+// the floor AND the caution; the taxability table then says Ohio does not tax
+// construction, so the document carries a stated zero — not 5.75%, not 7%.
 const ohio = resolveTaxRate({
   company: { autoApplyLocalTax: true, taxRate: 7, country: "US" },
   taxRates: [],
   client: { name: "Test", province: "OH", country: "US" },
 });
 ok(
-  "an Ohio client does NOT get Ohio's 5.75% state base in the tax box",
-  ohio.rate === 7 && ohio.rate !== 5.75,
+  "an Ohio construction quote charges nothing — a stated zero, not the floor and not the default",
+  ohio.rate === 0 && ohio.source === "us_exempt",
   JSON.stringify(ohio),
 );
-ok(
-  "...the state figure is offered as guidance instead",
-  ohio.source === "us_state_base_only" && ohio.detail?.stateRate === 5.75,
-);
-ok("...with a caution attached", Boolean(ohio.cautionKey));
+ok("...and names the floor it would have used", ohio.detail?.rate === 5.75 && ohio.detail?.status === "state_only");
+ok("...with the local-rate caution attached", Boolean(ohio.cautionKey));
 
 // A state with no sales tax must not read as "we don't know".
 const oregon = lookupUsStateBase("OR");
 ok(
   "Oregon's 0% is stated as a base with a note, not silently dropped",
   oregon.status === "base_only" && oregon.stateRate === 0 && oregon.note,
+);
+
+// A date before the table's period is unknown, never today's floor.
+ok(
+  "a 2024 date gets unknown, not the 2026 floor",
+  lookupUsRate("TX", { asOf: new Date("2024-05-01") }).status === "unknown",
 );
 
 /* ── 5. Europe — the reduced rate, and the registration gate ────────────── */
@@ -426,7 +442,7 @@ section("Every reachable message has en and fr");
 
 const REACHABLE_SOURCES = [
   "client_province", "jurisdiction_ca", "jurisdiction_vat", "vat_not_registered",
-  "us_state_base_only", "unknown_no_client_country", "unknown_unknown_region",
+  "us_company_override", "us_company_none", "unknown_no_client_country", "unknown_unknown_region",
   "unknown_supplier_country_unknown", "unknown_vat_status_unknown",
   "unknown_unsupported_country", "unknown_no_data_for_date",
 ];

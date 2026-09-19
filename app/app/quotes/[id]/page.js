@@ -110,6 +110,7 @@ import { reportResponseError } from "@/lib/clientErrors";
 import { fetchJson } from "@/lib/fetchJson";
 import { jsonBody } from "@/lib/jsonBody";
 import { taxStatement } from "@/lib/tax/documentTax";
+import { documentTaxSentence } from "@/lib/tax/documentSentence";
 import TaxUnresolvedModal from "@/app/components/tax/TaxUnresolvedModal";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import ClientMediaTile from "@/app/components/ClientMediaTile";
@@ -199,12 +200,16 @@ export default function QuoteDetailPage() {
   const taxLine = taxStatement({
     taxEnabled: quote?.taxEnabled,
     tax: quote?.tax,
+    // What the line said when the quote was written — the office copy reads
+    // the same record the PDF does.
+    stored: quote?.taxResolution || null,
     company,
     taxRates: company?.taxRates,
     client: quote?.client,
     asOf: quote?.createdAt ? new Date(quote.createdAt) : undefined,
     lang: language,
   });
+  const taxSentence = taxLine.kind === "off" ? "" : documentTaxSentence(quote?.taxResolution, language);
   const [loading, setLoading] = useState(true);
   const [showDelete, setShowDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -1918,6 +1923,11 @@ export default function QuoteDetailPage() {
                     : t("app.tax.line.none")
               }
             />
+            {/* The US sentence the client's copy carries, from the stored
+                record (lib/tax/documentSentence.js). */}
+            {taxSentence && (
+              <p className="text-xs text-muted-foreground -mt-1 mb-1">{taxSentence}</p>
+            )}
 
             {/* The headline figure in a filled band in their colour, matching
                 the PDF and the approval page. Everything above it is quiet, so

@@ -73,6 +73,7 @@ import { refundableCents } from "@/lib/invoices/refund";
 import { documentLabels } from "@/lib/i18n/documentLabels";
 import { documentIssueDate } from "@/lib/documents/issueDate";
 import { taxStatement } from "@/lib/tax/documentTax";
+import { documentTaxSentence } from "@/lib/tax/documentSentence";
 import TaxUnresolvedModal from "@/app/components/tax/TaxUnresolvedModal";
 import { planRequiredFrom } from "@/lib/signup/planRequired";
 import LifecycleBanners from "./LifecycleBanners";
@@ -171,12 +172,15 @@ export default function InvoiceDetailPage() {
   const taxLine = taxStatement({
     taxEnabled: invoice?.taxEnabled,
     tax: invoice?.tax,
+    // Inherited from the quote at creation; the office copy reads it too.
+    stored: invoice?.taxResolution || null,
     company,
     taxRates: company?.taxRates,
     client: invoice?.client,
     asOf: invoice?.createdAt ? new Date(invoice.createdAt) : undefined,
     lang: language,
   });
+  const taxSentence = taxLine.kind === "off" ? "" : documentTaxSentence(invoice?.taxResolution, language);
   // The document's own furniture — "Invoice", "Prepared for", "Balance due" —
   // from the catalogue the PDF and the portal use, in the STAFF's language.
   const labels = documentLabels(language);
@@ -1153,6 +1157,9 @@ export default function InvoiceDetailPage() {
                     : t("app.tax.line.none")
               }
             />
+            {taxSentence && (
+              <p className="text-xs text-muted-foreground -mt-1 mb-1">{taxSentence}</p>
+            )}
 
             {/* The headline figure in a filled band in their colour, matching
                 the PDF and the portal. */}

@@ -2,6 +2,8 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
+import { readTaxResolution, resolutionMatchesAmount, manualTaxResolution } from "@/lib/tax/taxResolution";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { can, permissionDenialMessage } from "@/lib/permissions";
@@ -337,6 +339,25 @@ export async function PATCH(request, { params }) {
     ...(tax !== undefined && { tax }),
     ...(total !== undefined && { total }),
     ...(taxEnabled !== undefined && { taxEnabled: Boolean(taxEnabled) }),
+    // An edit never re-resolves the jurisdiction — the quote keeps the rate it
+    // was written with. But if the money on the tax line changed to a figure
+    // the stored record no longer explains, the record must not keep saying
+    // "8.875% New York sales tax" under a 7% figure: it becomes "typed by
+    // hand" at the new rate, or nothing when tax was switched off.
+    ...(tax !== undefined || subtotal !== undefined || discount !== undefined || taxEnabled !== undefined
+      ? (() => {
+          const on = taxEnabled !== undefined ? Boolean(taxEnabled) : existing.taxEnabled !== false;
+          if (!on) return { taxResolution: Prisma.DbNull };
+          const amount = Number(tax !== undefined ? tax : existing.tax) || 0;
+          const base =
+            (Number(subtotal !== undefined ? subtotal : existing.subtotal) || 0) -
+            (Number(discount !== undefined ? discount : existing.discount) || 0);
+          const kept = readTaxResolution(existing.taxResolution);
+          if (kept && resolutionMatchesAmount(kept, amount, base)) return {};
+          if (base <= 0) return {};
+          return { taxResolution: manualTaxResolution((amount / base) * 100) ?? Prisma.DbNull };
+        })()
+      : {}),
     ...(notes !== undefined && { notes }),
     ...(reviewNotes !== undefined && { reviewNotes }),
     ...(processNotes !== undefined && { processNotes }),

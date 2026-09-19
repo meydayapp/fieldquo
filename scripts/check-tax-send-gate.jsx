@@ -155,10 +155,13 @@ ok(
 // And it must not leak across countries.
 const usCompany = { country: "US", province: "TX", taxRate: 0, autoApplyLocalTax: true };
 const usAssumed = resolveDocumentTax({ company: usCompany, client: HALF_CLIENT });
+// Texas is assumed — and Texas says a residential job charges the customer
+// nothing (lib/tax/usTaxability.js), so the outcome is a stated zero from the
+// US rung, labelled as the assumption it is. Never 13% from "ON".
 ok(
   "a US company never inherits a Canadian rate from a client's stray 'ON'",
-  usAssumed.rate === 0 && usAssumed.assumed === false,
-  `${usAssumed.rate} / ${usAssumed.source}`,
+  usAssumed.rate === 0 && usAssumed.source === "us_exempt" && /texas/i.test(usAssumed.assumedRegion || ""),
+  `${usAssumed.rate} / ${usAssumed.source} / ${usAssumed.assumedRegion}`,
 );
 
 section("Layer 3 — nothing to assume from");

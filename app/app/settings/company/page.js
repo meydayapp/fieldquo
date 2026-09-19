@@ -9,6 +9,7 @@ import MiniMap from "@/app/components/MiniMap";
 import BusinessHoursModal from "@/app/components/settings/BusinessHoursModal";
 import { SettingsDrillLink } from "@/app/components/settings/SettingsDrillDown";
 import OpeningHoursEditor from "@/app/components/settings/OpeningHoursEditor";
+import UsTaxCard from "@/app/components/settings/UsTaxCard";
 import PaymentScheduleEditor from "./PaymentScheduleEditor";
 import BackToHome from "@/app/components/BackToHome";
 import { INDUSTRIES } from "@/app/data/industries";
@@ -674,6 +675,11 @@ export default function CompanySettingsPage() {
           taxIdNumber: data?.taxIdNumber || "",
           taxRegistrationDismissed: Boolean(data?.taxRegistrationDismissedAt),
           autoApplyLocalTax: data?.autoApplyLocalTax ?? true,
+          // Per-state US overrides and whether the card is shown at all —
+          // see UsTaxCard and app/api/settings/business-info.
+          usTaxOverrides: data?.usTaxOverrides || {},
+          usTaxRelevant: Boolean(data?.usTaxRelevant),
+          usRatesTable: data?.usRatesTable || null,
           // NOT `?? false`. Three states — see the schema comment on
           // Company.vatRegistered. Collapsing null into false here would make
           // the form claim the company had said it is under the registration
@@ -809,6 +815,7 @@ export default function CompanySettingsPage() {
       taxRegistrationDismissed: form.taxRegistrationDismissed,
       autoApplyLocalTax: form.autoApplyLocalTax,
       vatRegistered: form.vatRegistered,
+      usTaxOverrides: form.usTaxOverrides,
       timezone: form.timezone,
       dateFormat: form.dateFormat,
       weekStartsOn: form.weekStartsOn,
@@ -1663,6 +1670,19 @@ export default function CompanySettingsPage() {
             </span>
           </span>
         </label>
+
+        {/* Only for a company that touches the US: its own address there, a
+            US client on file, or an override already saved. */}
+        {form.usTaxRelevant && (
+          <div className="border-t border-border pt-4">
+            <UsTaxCard
+              overrides={form.usTaxOverrides}
+              onChange={(v) => set("usTaxOverrides", v)}
+              ratesTable={form.usRatesTable}
+              lang={language}
+            />
+          </div>
+        )}
       </SectionCard>
 
       <SectionCard

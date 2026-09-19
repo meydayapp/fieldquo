@@ -808,10 +808,11 @@ model TaxRate {
 /// names its `source` and the file date it was read from. Read by
 /// lib/tax/usRates.js and nowhere else.
 ///
-/// A ZIP is not a jurisdiction. Where a state publishes only ZIP+4 records,
-/// the loader stores the rate most of that ZIP's +4 ranges share and sets
-/// `zipSpansRates` so the document can say the address may sit in a
-/// different district. Never a blended average.
+/// A ZIP is not a jurisdiction. Where a ZIP's +4 ranges fall in different
+/// districts, the loader stores the LOWEST rate (the one the Streamlined
+/// agreement assigns to a 5-digit lookup), the highest in `maxRate`, and sets
+/// `zipSpansRates` so the document can say the address may pay more. Never a
+/// blended average.
 model UsSalesTaxRate {
   zip           String   @id
   state         String
@@ -824,6 +825,11 @@ model UsSalesTaxRate {
   countyRate    Decimal? @db.Decimal(6, 4)
   cityRate      Decimal? @db.Decimal(6, 4)
   specialRate   Decimal? @db.Decimal(6, 4)
+  /// The highest combined rate any ZIP+4 range in this ZIP pays, when the
+  /// state's file shows more than one. `combinedRate` is then the LOWEST — the
+  /// rate the Streamlined agreement tells a 5-digit lookup to apply — and the
+  /// document says the address may pay up to this instead.
+  maxRate       Decimal? @db.Decimal(6, 4)
   zipSpansRates Boolean  @default(false)
   /// The date the source file says these rates took effect.
   effectiveFrom DateTime

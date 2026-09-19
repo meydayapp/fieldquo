@@ -2,6 +2,7 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { attachUsTaxRate, attachUsTaxRates } from "@/lib/tax/usRates";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { recordActivity } from "@/lib/activity/log";
@@ -53,7 +54,13 @@ export async function GET(request) {
   // on email, and narrowing the SELECT would break matching on a field the
   // caller isn't allowed to READ — which is a different question. Fetch
   // whole, redact on the way out.
-  return NextResponse.json(redactClients(full, clients));
+  //
+  // With the ZIP rate row attached first: the quote builder resolves tax in
+  // the browser from the client object it is handed, and the US rung needs
+  // the client's UsSalesTaxRate row to name a local rate. One query for the
+  // list; a client without a ZIP, or in a state the table does not cover,
+  // gets null and the resolver says "state rate only".
+  return NextResponse.json(redactClients(full, await attachUsTaxRates(clients)));
 }
 
 export async function POST(request) {
@@ -80,6 +87,8 @@ export async function POST(request) {
     address,
     city,
     province,
+    postalCode,
+    county,
     country,
     notes,
     language,
@@ -121,6 +130,8 @@ export async function POST(request) {
         address: address || null,
         city: city || null,
         province: province || null,
+        postalCode: postalCode ? String(postalCode).trim() : null,
+        county: county ? String(county).trim() : null,
         // Stored only when it is a real two-letter code. A half-typed "Ca" or
         // a stray "Canada" is dropped rather than saved, because the tax
         // lookup keys on this and a value it cannot parse would read as a
@@ -145,7 +156,9 @@ export async function POST(request) {
       summaryParams: { name: client.name },
     });
 
-    return NextResponse.json(client, { status: 201 });
+    // Same attachment as the list, so a client created from the builder's
+    // "new client" form resolves like one picked from the list.
+    return NextResponse.json(await attachUsTaxRate(client), { status: 201 });
   } catch (err) {
     console.error("[clients POST]", err);
 

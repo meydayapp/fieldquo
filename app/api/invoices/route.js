@@ -2,7 +2,11 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
+import { attachUsTaxRate } from "@/lib/tax/usRates";
+import { resolveDocumentTax } from "@/lib/tax/documentTax";
+import { readTaxResolution, resolutionForDocument, resolutionMatchesAmount } from "@/lib/tax/taxResolution";
 import { computeInvoiceState } from "@/lib/invoices/computeInvoiceState";
 import { allocateInvoiceNumber } from "@/lib/invoices/invoiceNumber";
 import { memberOrRefusal } from "@/lib/apiMember";
@@ -166,6 +170,8 @@ export async function POST(request) {
     // Whether this invoice CLAIMS tax applies. Distinct from `tax` being zero
     // — see the schema note on Invoice.taxEnabled.
     taxEnabled,
+    // The answer to the US taxability question, when the editor asked one.
+    taxWorkType,
     total,
     dueDate,
     notes,
@@ -208,9 +214,45 @@ export async function POST(request) {
   const sourceQuote = quoteId
     ? await db.quote.findFirst({
         where: { id: quoteId, companyId: member.companyId },
-        select: { quoteNumber: true },
+        select: { quoteNumber: true, taxResolution: true },
       })
     : null;
+
+  // ── What the tax line says ──────────────────────────────────────────────
+  //
+  // Raised from a quote: the quote's record, verbatim, as long as the money
+  // still matches it — the invoice mirrors the quote. Raised on its own: the
+  // resolver's answer for this client, recorded now so the invoice keeps
+  // explaining itself after the rates table moves on. A figure the record
+  // does not explain is recorded as typed by hand. See lib/tax/taxResolution.js.
+  const taxableBase = (Number(subtotal) || 0) - (Number(discount) || 0);
+  const inherited = readTaxResolution(sourceQuote?.taxResolution);
+  let taxResolution = null;
+  if (taxEnabled !== false) {
+    if (inherited && resolutionMatchesAmount(inherited, tax || 0, taxableBase)) {
+      taxResolution = inherited;
+    } else {
+      const [companyForTax, taxRates, clientRow] = await Promise.all([
+        db.company.findUnique({
+          where: { id: member.companyId },
+          select: { taxRate: true, autoApplyLocalTax: true, country: true, province: true, vatRegistered: true, usTaxOverrides: true },
+        }),
+        db.taxRate.findMany({ where: { companyId: member.companyId } }),
+        db.client.findFirst({ where: { id: clientId, companyId: member.companyId } }),
+      ]);
+      taxResolution = resolutionForDocument({
+        resolution: resolveDocumentTax({
+          company: companyForTax || {},
+          taxRates,
+          client: await attachUsTaxRate(clientRow),
+          workType: typeof taxWorkType === "string" ? taxWorkType : null,
+        }),
+        tax: tax || 0,
+        taxableBase,
+        taxEnabled,
+      });
+    }
+  }
   const nextNumber = await allocateInvoiceNumber(db, {
     companyId: member.companyId,
     quoteNumber: sourceQuote?.quoteNumber || null,
@@ -255,6 +297,7 @@ export async function POST(request) {
       // decision and must not be read as "unset". Only an absent field falls
       // back to the column default.
       taxEnabled: taxEnabled === undefined ? true : Boolean(taxEnabled),
+      taxResolution: taxResolution ?? Prisma.DbNull,
       total,
       // Seed the balance so list views and emails that read amountDue are
       // correct BEFORE any payment. It was defaulting to 0 (the column default),

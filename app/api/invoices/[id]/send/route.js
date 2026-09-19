@@ -32,6 +32,7 @@ import { buildInvoiceEmail } from "@/lib/email/invoiceEmail";
 import { loadDocumentCustomFields } from "@/lib/customFields/values";
 import { resolveClientLanguage } from "@/lib/i18n/clientLanguage";
 import { taxStatement, taxSendRefusal } from "@/lib/tax/documentTax";
+import { attachUsTaxRate } from "@/lib/tax/usRates";
 import { taskForSentInvoice } from "@/lib/tasks/autoCreate";
 import { familyPayments } from "@/lib/invoices/family";
 import { computeInvoiceState } from "@/lib/invoices/computeInvoiceState";
@@ -115,6 +116,7 @@ export async function POST(request, { params }) {
       country: true,
       province: true,
       vatRegistered: true,
+      usTaxOverrides: true,
     },
   });
 
@@ -135,9 +137,12 @@ export async function POST(request, { params }) {
     taxStatement({
       taxEnabled: invoice.taxEnabled,
       tax: invoice.tax,
+      // Inherited from the quote at creation; a stated zero there is a
+      // "none" here too.
+      stored: invoice.taxResolution,
       company: company || {},
       taxRates,
-      client: invoice.client,
+      client: await attachUsTaxRate(invoice.client),
       asOf: invoice.createdAt,
     }),
     { client: invoice.client },

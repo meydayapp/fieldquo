@@ -8,6 +8,7 @@ import { latestPerFamily } from "@/lib/invoices/family";
 import { loadDocumentCustomFields } from "@/lib/customFields/values";
 import { resolveClientLanguage } from "@/lib/i18n/resolveLanguage";
 import { taxStatement } from "@/lib/tax/documentTax";
+import { documentTaxSentence } from "@/lib/tax/documentSentence";
 import { companyBankDebitMethod } from "@/lib/stripe/bankDebit";
 
 export async function GET(request, { params }) {
@@ -72,6 +73,7 @@ export async function GET(request, { params }) {
           taxRate: true,
           autoApplyLocalTax: true,
           vatRegistered: true,
+          usTaxOverrides: true,
         },
       },
       // Drafts stay in the office, same rule the public quote page already
@@ -147,6 +149,9 @@ export async function GET(request, { params }) {
           discount: true,
           tax: true,
           taxEnabled: true,
+          // What the line said — read below for the kind and the sentence,
+          // never forwarded raw.
+          taxResolution: true,
           createdAt: true,
           // A bank debit on its way, or one that bounced — the portal says
           // so beside the balance (lib/stripe/settleCheckoutSession.js).
@@ -248,6 +253,7 @@ export async function GET(request, { params }) {
     taxRate: _taxRate,
     autoApplyLocalTax: _autoApply,
     vatRegistered: _vatRegistered,
+    usTaxOverrides: _usTaxOverrides,
     ...companyView
   } = client.company || {};
   const onlinePayments = Boolean(stripeAccountId && stripeChargesEnabled);
@@ -275,6 +281,7 @@ export async function GET(request, { params }) {
     const statement = taxStatement({
       taxEnabled: invoice.taxEnabled,
       tax: invoice.tax,
+      stored: invoice.taxResolution || null,
       company: client.company || {},
       client,
       asOf: invoice.createdAt,
@@ -325,6 +332,10 @@ export async function GET(request, { params }) {
         : null,
       taxKind: statement.kind,
       taxAssumedRegion: statement.assumed ? statement.assumedRegion : null,
+      taxSentence:
+        statement.kind === "off"
+          ? ""
+          : documentTaxSentence(invoice.taxResolution, resolveClientLanguage(client, client.company)),
     };
   });
 

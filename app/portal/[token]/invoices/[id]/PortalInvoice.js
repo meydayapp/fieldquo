@@ -315,6 +315,12 @@ export default function PortalInvoice({ token, invoiceId, stageId = null }) {
                 )}
               </p>
             )}
+            {/* The US sentence, inherited from the quote's record. */}
+            {invoice.taxSentence && (
+              <p className="text-xs text-[#2d2520]/55 leading-snug pt-1">
+                {invoice.taxSentence}
+              </p>
+            )}
           </div>
 
           {/* The one figure that matters, in their colour — same treatment as

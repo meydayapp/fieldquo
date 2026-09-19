@@ -27,6 +27,7 @@ import { recordActivity } from "@/lib/activity/log";
 import { ratesForCompany } from "@/lib/kitchen/rates";
 import { kitchenLineItems, getKitchenBreakdown } from "@/lib/kitchen/pricing";
 import { resolveTaxRate } from "@/lib/tax/resolveTaxRate";
+import { attachUsTaxRate } from "@/lib/tax/usRates";
 import {
   KITCHEN_DESIGN_KEY,
   KITCHEN_GROUP_LABEL,
@@ -256,13 +257,16 @@ export async function PUT(request, { params }) {
               taxRate: true,
               country: true,
               vatRegistered: true,
+              usTaxOverrides: true,
             },
           }),
           tx.taxRate.findMany({ where: { companyId: member.companyId } }),
-          tx.client.findUnique({
-            where: { id: quote.clientId },
-            select: { province: true, name: true, country: true },
-          }),
+          tx.client
+            .findUnique({
+              where: { id: quote.clientId },
+              select: { province: true, name: true, address: true, postalCode: true, country: true },
+            })
+            .then(attachUsTaxRate),
         ]);
         effectiveRate =
           Number(resolveTaxRate({ company: company || {}, taxRates, client }).rate || 0) / 100;

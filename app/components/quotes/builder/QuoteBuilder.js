@@ -102,7 +102,7 @@ import {
   newScopeGroup,
 } from "@/lib/quotes/builderPayload";
 import { lineFromProduct, lineFromSuggestion } from "@/lib/quotes/lineDetail";
-import { explainTaxSource } from "@/lib/tax/resolveTaxRate";
+import { explainTaxSource, renderTaxNote } from "@/lib/tax/resolveTaxRate";
 import { jsonBody } from "@/lib/jsonBody";
 import { resolveDocumentTax } from "@/lib/tax/documentTax";
 import { quoteTotals, round2 } from "@/lib/quotes/totals";
@@ -416,6 +416,8 @@ export default function QuoteBuilder({ mode = "create", quoteId = null }) {
             // Three-state, and `?? null` rather than `|| false`: an
             // unanswered VAT question must not arrive here as "not registered".
             vatRegistered: businessInfo?.vatRegistered ?? null,
+            // The company's per-state US word — lib/tax/usOverrides.js.
+            usTaxOverrides: businessInfo?.usTaxOverrides || null,
           },
           overheadPerJob: Number.isFinite(Number(overheadData?.costPerJob))
             ? Number(overheadData.costPerJob)
@@ -979,7 +981,9 @@ export function QuoteBuilderForm({
         : null;
     // explainTaxSource returns a key plus params, never a sentence — it used
     // to hand back hardcoded English that went straight onto a French screen.
-    setTaxNote(note ? t(note.key, note.params) : "");
+    // The US note is several keys assembled in the reader's language;
+    // renderTaxNote knows which shape it was handed.
+    setTaxNote(renderTaxNote(note, t));
     // The jurisdiction's own caveat, where there is one: PST on real property
     // in BC/MB, "state base only" in the US, "you told us you're not VAT
     // registered". Separate from the note because it qualifies the number
@@ -1570,6 +1574,10 @@ export function QuoteBuilderForm({
       discount: appliedDiscount,
       tax,
       taxEnabled,
+      // The answer to the US taxability question (or the EU renovation
+      // flag), so the server can record what the tax line said — see
+      // lib/tax/taxResolution.js. Null when nothing was asked.
+      taxWorkType: vatWorkType,
       total,
       notes,
       reviewNotes,
@@ -2310,6 +2318,27 @@ export function QuoteBuilderForm({
         // company's country. Most member states have none, and offering a
         // choice between the standard rate and nothing would be a control that
         // does nothing.
+        // The per-quote US question, only in the sixteen states that tax
+        // some jobs and not others (lib/tax/usTaxability.js). The answer
+        // travels through the same `workType` the VAT picker uses; the two
+        // vocabularies do not overlap. Saved with the quote so the stored
+        // resolution records what was answered.
+        taxUs={
+          taxDetail?.country === "US" && taxDetail?.treatment?.question
+            ? {
+                state: taxDetail.label,
+                question: taxDetail.treatment.question,
+                answer: taxDetail.treatment.answer,
+                assumed: Boolean(taxDetail.treatment.assumedAnswer),
+                onChange: (v) => {
+                  setVatWorkType(v);
+                  // Answering IS choosing a rate — re-arm the resolver, as
+                  // the VAT picker below does.
+                  setTaxRateTouched(false);
+                },
+              }
+            : null
+        }
         taxVat={
           taxDetail?.reducedRate != null
             ? {

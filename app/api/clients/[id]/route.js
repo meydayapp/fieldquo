@@ -97,6 +97,8 @@ export async function PATCH(request, { params }) {
     address,
     city,
     province,
+    postalCode,
+    county,
     country,
     notes,
     language,
@@ -143,6 +145,11 @@ export async function PATCH(request, { params }) {
       ...(address !== undefined && { address }),
       ...(city !== undefined && { city }),
       ...(province !== undefined && { province }),
+      // The address autocomplete has always returned these; the forms sent
+      // them; this is where they were dropped. The ZIP is the key into the US
+      // rates table (lib/tax/usRates.js).
+      ...(postalCode !== undefined && { postalCode: postalCode ? String(postalCode).trim() : null }),
+      ...(county !== undefined && { county: county ? String(county).trim() : null }),
       // "" clears it (the contractor removing a wrong country), while an
       // unparseable value writes null rather than storing junk the tax lookup
       // would later have to interpret.
@@ -175,6 +182,8 @@ export async function PATCH(request, { params }) {
     ["address", address],
     ["city", city],
     ["province", province],
+    ["postalCode", postalCode],
+    ["county", county],
     ["country", country],
     ["language", language],
   ]

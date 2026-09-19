@@ -21,6 +21,7 @@ import { recordActivity } from "@/lib/activity/log";
 import { buildSignatureRecord } from "@/lib/documents/signatureAudit";
 import { resolveClientLanguage } from "@/lib/i18n/clientLanguage";
 import { taxStatement } from "@/lib/tax/documentTax";
+import { documentTaxSentence } from "@/lib/tax/documentSentence";
 import { usableSections } from "@/lib/documents/templateKind";
 import { financingOffer } from "@/lib/estimate/financing";
 import { financingTerms } from "@/lib/financing/monthlyEstimate";
@@ -94,6 +95,7 @@ async function loadQuote(token) {
           taxRate: true,
           autoApplyLocalTax: true,
           vatRegistered: true,
+          usTaxOverrides: true,
         },
       },
       scopeGroups: {
@@ -208,6 +210,7 @@ function present(quote) {
     taxRate: _taxRate,
     autoApplyLocalTax: _autoApply,
     vatRegistered: _vatRegistered,
+    usTaxOverrides: _usTaxOverrides,
     ...companyPublic
   } = quote.company || {};
 
@@ -221,6 +224,9 @@ function present(quote) {
   const statement = taxStatement({
     taxEnabled: quote.taxEnabled,
     tax: quote.tax,
+    // What the line said when the quote was written; a stated US zero is a
+    // "none" on the homeowner's page too.
+    stored: quote.taxResolution || null,
     company: quote.company || {},
     client: quote.client,
     asOf: quote.createdAt,
@@ -266,6 +272,10 @@ function present(quote) {
     // The province the rate was ASSUMED from, or null. Never presented as
     // determined — see QuoteApproval.
     taxAssumedRegion: statement.assumed ? statement.assumedRegion : null,
+    // The US sentence, already in the document's language: what the rate is
+    // and where it came from, or why nothing is charged. "" elsewhere.
+    taxSentence:
+      statement.kind === "off" ? "" : documentTaxSentence(quote.taxResolution, docLanguage),
     total: num(quote.total),
     // Present once decided, so a client reopening the link sees the figure
     // they actually agreed to rather than the pre-add-on quote total.

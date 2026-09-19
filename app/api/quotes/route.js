@@ -2,8 +2,12 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
+import { attachUsTaxRate } from "@/lib/tax/usRates";
+import { resolveDocumentTax } from "@/lib/tax/documentTax";
+import { resolutionForDocument } from "@/lib/tax/taxResolution";
 import { can, permissionDenialMessage } from "@/lib/permissions";
 import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { getNextQuoteNumber, LIVE_QUOTE_NUMBER_WHERE } from "@/lib/quotes/quoteNumber";
@@ -120,6 +124,9 @@ export async function POST(request) {
     // was read by the edit page and by the public quote route, and written by
     // nothing, so the "Apply tax" checkbox never survived a save.
     taxEnabled,
+    // The builder's answer to the US taxability question, or the EU
+    // renovation flag. Only used to RECORD what the tax line said.
+    taxWorkType,
     notes,
     // Internal, and never on the document. What a caller asked for that the
     // draft could not place — see the Quote.reviewNotes comment in the schema.
@@ -261,10 +268,45 @@ export async function POST(request) {
     }),
     db.company.findUnique({
       where: { id: member.companyId },
-      select: { defaultProcessNotes: true },
+      select: {
+        defaultProcessNotes: true,
+        taxRate: true,
+        autoApplyLocalTax: true,
+        country: true,
+        province: true,
+        vatRegistered: true,
+        usTaxOverrides: true,
+      },
     }),
   ]);
   const quoteNumber = getNextQuoteNumber(lastQuote?.quoteNumber);
+
+  // ── What the tax line says, recorded at creation ─────────────────────────
+  //
+  // The browser sent a money amount; the server re-resolves the client's
+  // jurisdiction with the same resolver the builder used and, when the
+  // amount matches what it explains, records the explanation (rate, ZIP,
+  // what it applied to, the rates month). When the estimator typed a rate
+  // the resolver does not explain, the record says "typed by hand". Nothing
+  // here changes the amount — see lib/tax/taxResolution.js.
+  const taxResolution = await (async () => {
+    if (taxEnabled === false) return null;
+    const [taxRates, clientRow] = await Promise.all([
+      db.taxRate.findMany({ where: { companyId: member.companyId } }),
+      db.client.findFirst({ where: { id: clientId, companyId: member.companyId } }),
+    ]);
+    return resolutionForDocument({
+      resolution: resolveDocumentTax({
+        company: company || {},
+        taxRates,
+        client: await attachUsTaxRate(clientRow),
+        workType: typeof taxWorkType === "string" ? taxWorkType : null,
+      }),
+      tax: tax || 0,
+      taxableBase: (Number(subtotal) || 0) - (Number(discount) || 0),
+      taxEnabled,
+    });
+  })();
 
   try {
     // A costing block from someone without the toggle used to be dropped right
@@ -330,6 +372,7 @@ export async function POST(request) {
       // Default true only when the client didn't say — matching the column's own
       // default. `taxEnabled: false` must not be read as "unset".
       taxEnabled: taxEnabled === undefined ? true : Boolean(taxEnabled),
+      taxResolution: taxResolution ?? Prisma.DbNull,
       total,
       notes: notes || null,
       reviewNotes: reviewNotes || null,
