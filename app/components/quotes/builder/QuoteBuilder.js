@@ -100,6 +100,7 @@ import {
   lineItemsFromStored,
   applyLineItemEdit,
   newScopeGroup,
+  billedUnitsOf,
 } from "@/lib/quotes/builderPayload";
 import { lineFromProduct, lineFromSuggestion } from "@/lib/quotes/lineDetail";
 import { explainTaxSource } from "@/lib/tax/resolveTaxRate";
@@ -170,19 +171,8 @@ function groupFromStored(g, importedIds, fallbackLabel) {
   };
 }
 
-/**
- * How many units a saved group actually bills for.
- *
- * Read off the stored base line rather than the intake, because the intake is
- * exactly what is missing on the groups this is shown for. Used only as
- * context beside the cost-only intake boxes — never to fill them in.
- */
-export function billedUnitsOf(group) {
-  const lines = Array.isArray(group?.lineItems) ? group.lineItems : [];
-  const base = lines.find((l) => l && l.unit === "unit" && l.meta);
-  const n = Number(base?.quantity);
-  return Number.isFinite(n) && n > 0 ? n : 0;
-}
+// billedUnitsOf lives in lib/quotes/builderPayload.js now (pure, so the
+// instant-draft check can execute it against a stored instant group).
 
 /**
  * Everything the form starts from, in one shape, whichever mode it is in.
@@ -1807,6 +1797,31 @@ export function QuoteBuilderForm({
       {isEdit && start.status === "accepted" && (
         <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-xl px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
           {t("app.quoteEdit.acceptedWarning")}
+        </div>
+      )}
+
+      {/* ── The ONE thing an instant-estimate draft shows that a hand-built
+          quote does not ──────────────────────────────────────────────────
+          Everything below this banner is the same editor, the same sections
+          in the same order, the same service card and the same line table a
+          quote an estimator built opens in; the draft's lines were stored in
+          the builder's own shape for exactly that reason (lib/estimate/
+          estimateLines.js). What is different is that nobody here has stood
+          behind the number yet, and that is said here, once, at the top —
+          not by a different-looking screen. Drafts only: once approved and
+          sent it is a quote like any other. */}
+      {isEdit && start.quote?.autoEstimated && start.status === "draft" && (
+        <div
+          className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-xl px-4 py-3 text-sm text-amber-900 dark:text-amber-200 space-y-1"
+          data-auto-estimated-banner
+        >
+          <p className="font-semibold">{t("app.quoteEdit.autoEstimatedTitle")}</p>
+          <p>{t("app.quoteEdit.autoEstimatedBody")}</p>
+          {/* Why the picker below opens on nobody: with more than one person
+              able to write quotes, the draft was left for the review queue to
+              claim rather than handed to a guess. A solo company's one
+              estimator is already named (lib/estimate/soloEstimator.js). */}
+          {!start.assignedTo && <p>{t("app.quoteEdit.autoEstimatedUnassigned")}</p>}
         </div>
       )}
 

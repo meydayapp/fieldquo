@@ -58,6 +58,10 @@
 
 import fs from "node:fs";
 import { createEstimateDraft } from "@/lib/estimate/createEstimateQuote";
+import { soloEstimatorFrom } from "@/lib/estimate/soloEstimator";
+import { lineItemsFromBreakdown, breakdownForRecord } from "@/lib/estimate/estimateLines";
+import { estimateCabinetRefinishing } from "@/lib/estimate/instantEstimate";
+import { billedUnitsOf } from "@/lib/quotes/builderPayload";
 import { measureForTrade, priceOneMaterial } from "@/lib/estimate/instantQuoteServer";
 import { taxStatement } from "@/lib/tax/documentTax";
 import { FALLBACK_LABOUR_RATE, FALLBACK_OVERHEAD_PCT } from "@/lib/costing/quoteCosting";
@@ -336,13 +340,19 @@ const NO_TAX_CO = {
   );
 }
 
-/* ═══════════════ 3. ASSIGNEE — absent and honestly flagged ═══════════════ */
+/* ═══════════════ 3. ASSIGNEE — the hand-built quote's own default ════════ */
 
-section("Nobody signed in means nobody named, and the draft says so honestly");
+section("The assignee defaults the way a hand-built quote's does: the one person who could have written it, or nobody");
 
+// Several people can write quotes: nobody is guessed. The review queue's
+// "assign to me" is where a human decides.
 {
   resetDbStub();
   rows.serviceCategory = [CABINET_CATEGORY];
+  rows.member = [
+    { id: "m1", companyId: NO_TAX_CO.id, userId: "u_owner", role: "owner", active: true },
+    { id: "m2", companyId: NO_TAX_CO.id, userId: "u_estimator", role: "employee", active: true },
+  ];
 
   await createEstimateDraft({
     // Required and deliberately not defaulted — see the parameter's own
@@ -360,12 +370,126 @@ section("Nobody signed in means nobody named, and the draft says so honestly");
   });
 
   const data = lastQuoteWrite();
-  ok("assignedToId is null — never guessed", data?.assignedToId === null, data?.assignedToId);
+  ok("with two estimators, assignedToId is null — never a guess between them", data?.assignedToId === null, data?.assignedToId);
   ok(
     "needsReview is true — the one flag that carries this into the review queue",
     data?.needsReview === true,
     data?.needsReview,
   );
+}
+
+// A one-person shop: the only member who can write quotes IS the estimator —
+// Q-2026-0003's company (one owner) opened its draft on "Unassigned" for no
+// reason anyone could act on. A deactivated second member does not count;
+// neither would a role without quote:create (none exists today — every role
+// holds it — so the deactivated case is the one that can actually happen).
+{
+  resetDbStub();
+  rows.serviceCategory = [CABINET_CATEGORY];
+  rows.member = [
+    { id: "m1", companyId: NO_TAX_CO.id, userId: "u_owner", role: "owner", active: true },
+    { id: "m2", companyId: NO_TAX_CO.id, userId: "u_gone", role: "employee", active: false },
+  ];
+
+  await createEstimateDraft({
+    createdVia: "instant_quote",
+    company: NO_TAX_CO,
+    trade: "cabinet_refinishing",
+    categoryId: CABINET_CATEGORY.id,
+    contact: { ...BASE_CONTACT, email: "solo@test.example" },
+    measurement: { doorCount: 32, drawerCount: 3 },
+    materialKey: null,
+    estimate: cabinetEstimate(5250),
+    source: "manual",
+    language: "en",
+  });
+
+  const data = lastQuoteWrite();
+  ok("a solo company's draft is assigned to its one estimator", data?.assignedToId === "u_owner", data?.assignedToId);
+  ok("…and still needs review — assignment is not approval", data?.needsReview === true, data?.needsReview);
+  ok("createdById stays null — a form created it, not a person", data?.createdById === undefined || data?.createdById === null, data?.createdById);
+}
+
+// The pure rule, executed on its own edges.
+ok("soloEstimatorFrom: one active owner → that owner", soloEstimatorFrom([{ userId: "a", role: "owner", active: true }]) === "a");
+ok("soloEstimatorFrom: two who can write quotes → null", soloEstimatorFrom([{ userId: "a", role: "owner" }, { userId: "b", role: "supervisor" }]) === null);
+ok("soloEstimatorFrom: nobody → null, never invented", soloEstimatorFrom([]) === null);
+ok("soloEstimatorFrom: an inactive second member does not split the decision", soloEstimatorFrom([{ userId: "a", role: "admin", active: true }, { userId: "b", role: "employee", active: false }]) === "a");
+
+/* ═══════ 6. LOOK AND FEEL — the draft's lines are the builder's lines ═══ */
+//
+// Q-2026-0003 opened with "25 doors refinished ×1 @ $4,750" and "10 drawer
+// fronts ×1 @ $1,900": flat one-liners a hand-built quote of the same kitchen
+// never shows — that one reads "Cabinet Refinishing — doors × 25 @ $190" with
+// the complexity meta the quote page explains a price with. Executed: the
+// estimator's own output, through the mapping the draft stores, into the
+// helper the editor counts billed faces with.
+
+section("An instant cabinet draft stores the same line shape a hand-built one does");
+
+{
+  const config = { perDoor: 190, perDrawer: 190, complexityUpchargePerUnit: { standard: 0, moderate: 20, high: 40 }, minCharge: 0, rangeBandPct: 0.15 };
+  const est = estimateCabinetRefinishing({ doorCount: 25, drawerCount: 10, complexityLevel: "standard" }, config);
+  ok("the estimator still prices the kitchen", est.ok && est.point === 6650, est.point);
+  const lines = lineItemsFromBreakdown(est.breakdown, { label: "Cabinet Refinishing" });
+  const doors = lines[0];
+  const drawers = lines[1];
+  ok("the doors line is the builder's: '<service> — doors'", doors?.description === "Cabinet Refinishing — doors", doors?.description);
+  ok("…counted, not a one-liner: 25 doors at the per-door rate", doors?.quantity === 25 && doors?.unit === "door" && doors?.rate === 190 && doors?.amount === 4750, doors);
+  ok("…the drawer fronts likewise", drawers?.quantity === 10 && drawers?.unit === "drawer" && drawers?.rate === 190 && drawers?.amount === 1900, drawers);
+  ok("…each carrying the reasons meta the quote page and the review read", doors?.meta?.complexityLevel === "standard" && doors?.meta?.baseUnitPrice === 190 && Array.isArray(doors?.meta?.complexityReasons), doors?.meta);
+  ok("the editor's billed-faces reminder counts both lines", billedUnitsOf({ lineItems: lines }) === 35, billedUnitsOf({ lineItems: lines }));
+  const record = breakdownForRecord(est.breakdown);
+  ok("what the homeowner saw stays label + amount, with no builder line on it", record.every((b) => !("line" in b) && b.label && Number.isFinite(b.amount)), record);
+  ok("…and the label is still the sentence the public page printed", record[0]?.label === "25 doors refinished", record[0]?.label);
+
+  // A moderate kitchen: the uplift rides on the rate and is named in the meta.
+  const mod = estimateCabinetRefinishing({ doorCount: 10, drawerCount: 0, complexityLevel: "moderate" }, config);
+  const modLine = lineItemsFromBreakdown(mod.breakdown, { label: "Cabinet Refinishing" })[0];
+  ok("a moderate kitchen's rate is base + uplift, and the meta says which", modLine?.rate === 210 && modLine?.meta?.baseUnitPrice === 190 && modLine?.meta?.complexityUpcharge === 20 && modLine?.meta?.complexityLevel === "moderate", modLine);
+
+  // An entry with no `line` (every non-cabinet trade today) is the flat line
+  // it always was — the change is additive.
+  const flat = lineItemsFromBreakdown([{ label: "24 squares of asphalt shingle", amount: 9600 }]);
+  ok("a breakdown entry without a line stays the flat line it was", flat[0]?.description === "24 squares of asphalt shingle" && flat[0]?.quantity === 1 && flat[0]?.rate === 9600 && flat[0]?.amount === 9600, flat[0]);
+}
+
+// Through the draft itself: the stored scope group carries those lines.
+{
+  resetDbStub();
+  rows.serviceCategory = [{ ...CABINET_CATEGORY, label: "Cabinet Refinishing" }];
+  const config = { perDoor: 190, perDrawer: 190, complexityUpchargePerUnit: { standard: 0 }, minCharge: 0, rangeBandPct: 0.15 };
+  const est = estimateCabinetRefinishing({ doorCount: 25, drawerCount: 10 }, config);
+  await createEstimateDraft({
+    createdVia: "instant_quote",
+    company: NO_TAX_CO,
+    trade: "cabinet_refinishing",
+    categoryId: CABINET_CATEGORY.id,
+    contact: { ...BASE_CONTACT, email: "shape@test.example" },
+    measurement: { doorCount: 25, drawerCount: 10 },
+    materialKey: null,
+    estimate: est,
+    source: "manual",
+    language: "en",
+  });
+  const data = lastQuoteWrite();
+  const group = data?.scopeGroups?.create?.[0];
+  ok("the scope group's first line is the counted doors line", group?.lineItems?.[0]?.quantity === 25 && group?.lineItems?.[0]?.unit === "door", group?.lineItems?.[0]);
+  ok("…and the quote's own lineItems mirror the group's", JSON.stringify(data?.lineItems) === JSON.stringify(group?.lineItems));
+  ok("estimateData.breakdown is the homeowner's record, line-free", (data?.estimateData?.breakdown || []).every((b) => !("line" in b)));
+  ok("the group's intake still carries the counts the cost panel reads", group?.intakeValues?.doorCount === 25 && group?.intakeValues?.drawerCount === 10, group?.intakeValues);
+}
+
+// The one visible difference an instant draft is allowed: the banner.
+{
+  const builder = fs.readFileSync("app/components/quotes/builder/QuoteBuilder.js", "utf8");
+  ok("the edit builder shows the auto-estimated banner on a draft, and only there", /isEdit && start\.quote\?\.autoEstimated && start\.status === "draft"/.test(builder) && /data-auto-estimated-banner/.test(builder));
+  ok("…and says why the assignee is empty when it is", /!start\.assignedTo && <p>\{t\("app\.quoteEdit\.autoEstimatedUnassigned"\)\}/.test(builder));
+  const { APP_MESSAGES } = await import("@/app/i18n/appMessages.js");
+  for (const key of ["app.quoteEdit.autoEstimatedTitle", "app.quoteEdit.autoEstimatedBody", "app.quoteEdit.autoEstimatedUnassigned"]) {
+    const missing = Object.keys(APP_MESSAGES).filter((l) => !APP_MESSAGES[l][key]);
+    ok(`${key} exists in every app language`, missing.length === 0, missing);
+  }
 }
 
 /* ═════════ #5 — pricing functions ignore money smuggled into intake ══════ */
