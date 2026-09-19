@@ -55,9 +55,25 @@ import {
   RESEARCH_CHAIN_NO_WEBSITE,
   crawlRetryable,
   ensureResearchQueued,
+  recrawlDue,
   researchKey,
   researchPlan,
 } from "@/lib/sales/pipeline/research";
+import {
+  RECRAWL_PENDING_CEILING,
+  RECRAWL_PER_TICK,
+  planRecrawlTick,
+  recrawlOutcome,
+  recrawlReport,
+  recrawlStatus,
+  sweepRecrawls,
+} from "@/lib/sales/pipeline/recrawl";
+import { MIN_RECRAWL_MS } from "@/lib/sales/crawl/policy";
+import { SWEEP_PER_TICK } from "@/lib/sales/intel/placesSweep";
+import { ENRICHMENT_TIERS } from "@/lib/sales/intel/enrichmentOrder";
+import { shouldAdvance } from "@/lib/sales/pipeline/chain";
+import { SITE_INFERENCE_VERSION } from "@/lib/sales/intel/siteInference";
+import { CALL_SCRIPT_VERSION } from "@/lib/sales/intel/callScript";
 import { ensureResearchQueued as viaProgress } from "@/lib/sales/pipeline/progress";
 import {
   BACKLOG_PENDING_CEILING,
@@ -447,25 +463,28 @@ section("10. The plan — what one prospect still needs, from its rows alone");
   ok("a robots redirect is a statement about the site, not re-crawled",
     !researchPlan({ prospect: site, tasks: [...enriched, redirected], priority: "claimed" }).enqueue.some((s) => s.kind === "CRAWL_WEBSITE"));
 
+  // The clock is pinned nine days after the crawl: these rows are NOT due a
+  // re-crawl, so what they exercise is the rest of the chain.
   const crawled = { ...site, lastCrawledAt: new Date("2026-09-10") };
+  const nineDaysOn = new Date("2026-09-19");
   const done = RESEARCH_CHAIN.map((k) => t(k, "done"));
   ok("a fully researched prospect needs nothing on the backlog lane",
-    researchPlan({ prospect: crawled, tasks: done, priority: "backlog" }).skipped === "complete");
+    researchPlan({ prospect: crawled, tasks: done, priority: "backlog", now: nineDaysOn }).skipped === "complete");
 
   const half = RESEARCH_CHAIN.slice(0, 4).map((k) => t(k, "done"));
-  const resume = researchPlan({ prospect: crawled, tasks: half, priority: "claimed" });
+  const resume = researchPlan({ prospect: crawled, tasks: half, priority: "claimed", now: nineDaysOn });
   ok("a chain that stopped resumes at the first missing stage",
     resume.enqueue[0]?.kind === RESEARCH_CHAIN[4], resume);
 
   const waiting = t("DETECT_TECHNOLOGY", "queued", { payload: { prospectId: "p" } });
-  const promote = researchPlan({ prospect: crawled, tasks: [...half.slice(0, 2), waiting], priority: "claimed" });
+  const promote = researchPlan({ prospect: crawled, tasks: [...half.slice(0, 2), waiting], priority: "claimed", now: nineDaysOn });
   ok("a stage already waiting is promoted, not duplicated",
     promote.enqueue.length === 0 && promote.promote[0] === waiting.id, promote);
   ok("…and on the backlog lane it is left where it is",
-    researchPlan({ prospect: crawled, tasks: [...half.slice(0, 2), waiting], priority: "backlog" }).skipped === "already_queued");
+    researchPlan({ prospect: crawled, tasks: [...half.slice(0, 2), waiting], priority: "backlog", now: nineDaysOn }).skipped === "already_queued");
   const inFlight = t("DETECT_TECHNOLOGY", "claimed");
   ok("a stage in flight this second is left alone",
-    researchPlan({ prospect: crawled, tasks: [...half.slice(0, 2), inFlight], priority: "claimed" }).skipped === "in_flight");
+    researchPlan({ prospect: crawled, tasks: [...half.slice(0, 2), inFlight], priority: "claimed", now: nineDaysOn }).skipped === "in_flight");
 
   ok("do-not-contact queues nothing", researchPlan({ prospect: { ...site, doNotContactAt: new Date() }, tasks: [], priority: "claimed" }).skipped === "do_not_contact");
   ok("an enrich that refused ends the plan",
@@ -479,6 +498,231 @@ section("10. The plan — what one prospect still needs, from its rows alone");
   const derived = researchPlan({ prospect: noSite, tasks: [...enriched, ebusy], priority: "claimed" });
   ok("…unless enrich already routed it to a crawl (a derived RBQ domain), which is then retried",
     derived.enqueue[0]?.kind === "CRAWL_WEBSITE", derived);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("10b. A site read once is read again — for the rows that matter, when due");
+// ═══════════════════════════════════════════════════════════════════════════
+
+{
+  const DAY = 24 * 60 * 60 * 1000;
+  const now = new Date("2026-09-19T12:00:00Z");
+  const t = (kind, status, extra = {}) => ({ id: `${kind}-${status}-${Math.random().toString(36).slice(2, 6)}`, kind, status, lastError: null, payload: null, createdAt: new Date("2026-08-01"), ...extra });
+  const site = { id: "p", websiteUrl: "https://northline.ca/", doNotContactAt: null, campaignId: "c" };
+  const chainDone = RESEARCH_CHAIN.map((k) => t(k, "done"));
+  const stale = { ...site, lastCrawledAt: new Date(now.getTime() - 40 * DAY) };
+  const fresh = { ...site, lastCrawledAt: new Date(now.getTime() - 9 * DAY) };
+
+  // ── recrawlDue, the two clocks ──
+  ok("thirty days is the crawler's own interval", MIN_RECRAWL_MS === 30 * DAY);
+  ok("never crawled is not a re-crawl", recrawlDue({ prospect: site, tasks: [], now }).due === false && recrawlDue({ prospect: site, now }).reason === "never_crawled");
+  ok("crawled nine days ago is not due", recrawlDue({ prospect: fresh, tasks: chainDone, now }).reason === "crawled_recently");
+  const due = recrawlDue({ prospect: stale, tasks: chainDone, now });
+  ok("crawled forty days ago is due", due.due === true && due.reason === "due", due);
+  ok("…and says when it was last read", due.previousCrawledAt?.getTime() === stale.lastCrawledAt.getTime());
+  const refusedLately = [...chainDone, t("CRAWL_WEBSITE", "abandoned", { lastError: "robots_disallowed", createdAt: new Date(now.getTime() - 3 * DAY) })];
+  ok("a crawl TRIED three days ago — refused, so lastCrawledAt never moved — is not tried again", recrawlDue({ prospect: stale, tasks: refusedLately, now }).reason === "tried_recently");
+  ok("…until a month after that try", recrawlDue({ prospect: stale, tasks: refusedLately, now: new Date(now.getTime() + 28 * DAY) }).due === true);
+
+  // ── researchPlan: the lane decides, and `recrawl` overrides ──
+  const held = researchPlan({ prospect: stale, tasks: chainDone, priority: "claimed", now });
+  ok("due + held (claimed lane): a re-crawl is queued", held.enqueue.length === 1 && held.enqueue[0].kind === "CRAWL_WEBSITE", held);
+  ok("…in the claimed lane, ahead of the backlog", held.enqueue[0].payload.priority === "claimed" && held.enqueue[0].notBefore === CLAIMED_NOT_BEFORE);
+  ok("…flagged as a re-crawl, with the date it is re-reading", held.enqueue[0].payload.recrawl === true && held.enqueue[0].payload.previousCrawledAt === stale.lastCrawledAt.toISOString(), held.enqueue[0].payload);
+  ok("…not forced: the crawler's own interval agrees it is due", held.enqueue[0].payload.force === undefined);
+  ok("…under the next research key, beside the crawl it repeats", held.enqueue[0].idempotencyKey === researchKey({ kind: "CRAWL_WEBSITE", prospectId: "p", existing: 1 }));
+  ok("due + backlog lane (not in the order): NOT queued", researchPlan({ prospect: stale, tasks: chainDone, priority: "backlog", now }).skipped === "complete");
+  const nextInTrade = researchPlan({ prospect: stale, tasks: chainDone, priority: "backlog", recrawl: true, now });
+  ok("due + backlog lane, named by the order (recrawl: true): queued, unphrased", nextInTrade.enqueue[0]?.kind === "CRAWL_WEBSITE" && nextInTrade.enqueue[0].payload.phrase === false && nextInTrade.enqueue[0].payload.recrawl === true, nextInTrade);
+  // (The claimed lane still owes these fixtures their tail — no inference
+  // run row — so what is asserted is that no CRAWL is among what it queues.)
+  const noCrawl = (plan) => !plan.enqueue.some((x) => x.kind === "CRAWL_WEBSITE");
+  ok("not due + held: NOT queued", noCrawl(researchPlan({ prospect: fresh, tasks: chainDone, priority: "claimed", now })));
+  ok("held but told not to (recrawl: false): NOT queued", noCrawl(researchPlan({ prospect: stale, tasks: chainDone, priority: "claimed", recrawl: false, now })));
+  const queuedAlready = [...chainDone, t("CRAWL_WEBSITE", "queued", { payload: { prospectId: "p", priority: "claimed", recrawl: true }, createdAt: now })];
+  ok("a re-crawl already waiting is not queued twice", researchPlan({ prospect: stale, tasks: queuedAlready, priority: "claimed", now }).skipped === "already_queued");
+  ok("do-not-contact is never re-crawled", researchPlan({ prospect: { ...stale, doNotContactAt: now }, tasks: chainDone, priority: "claimed", now }).skipped === "do_not_contact");
+  ok("a row with no website and no crawl behind it has nothing to re-read",
+    !researchPlan({ prospect: { ...stale, websiteUrl: null }, tasks: chainDone.filter((x) => x.kind !== "CRAWL_WEBSITE"), priority: "claimed", now }).enqueue.some((x) => x.kind === "CRAWL_WEBSITE"));
+
+  // ── The successor decision: unchanged declines, everything else as before ──
+  ok("a finished stage that declines its successor is not advanced", shouldAdvance({ result: { done: true, advance: false }, task: { attempts: 1 } }) === false);
+  ok("…a finished stage that says nothing is, exactly as before", shouldAdvance({ result: { done: true }, task: { attempts: 1 } }) === true);
+  ok("…and a FAILURE cannot decline its way out of the rule", shouldAdvance({ result: { done: false, retry: false, advance: false }, task: { attempts: 1 } }) === true);
+  const handler = read("lib/sales/pipeline/handlers/crawlWebsite.js");
+  ok("the crawl handler declines only on `unchanged`", /result\.outcome === "unchanged" \? \{ advance: false \}/.test(handler));
+  ok("…and, in the claimed lane, asks the planner for the tail it may still owe — with its own row excluded",
+    /outcome === "unchanged" && taskPriority\(task\) === "claimed"/.test(handler) && /excludeTaskIds: \[task\.id\]/.test(handler) && /recrawl: false/.test(handler));
+  const crawlSite = read("lib/sales/crawl/crawlSite.js");
+  ok("an unchanged crawl moves the inference run's and the script's crawledAt with lastCrawledAt",
+    /if \(!changed\) \{[\s\S]*?\["prospectInferenceRun", "prospectCallScript"\][\s\S]*?crawledAt: now/.test(crawlSite));
+
+  // ── The tick: the order's rows, the cap, the ceiling, the live skip ──
+  ok("the cap is the Places sweep's number", RECRAWL_PER_TICK === SWEEP_PER_TICK);
+  const rows = [];
+  for (let i = 0; i < 30; i += 1) rows.push({ id: `h${i}`, tier: ENRICHMENT_TIERS.CLAIMED, done: false, lastCrawledAt: stale.lastCrawledAt });
+  for (let i = 0; i < 10; i += 1) rows.push({ id: `n${i}`, tier: ENRICHMENT_TIERS.NEXT_IN_TRADE, done: false, lastCrawledAt: stale.lastCrawledAt });
+  rows.push({ id: "never", tier: ENRICHMENT_TIERS.CLAIMED, done: false, lastCrawledAt: null });
+  rows.push({ id: "recent", tier: ENRICHMENT_TIERS.CLAIMED, done: true, lastCrawledAt: fresh.lastCrawledAt });
+  const tick = planRecrawlTick({ rows, live: ["h0", "h1"], pending: 0 });
+  ok("forty due rows, a cap of twenty: twenty taken, held rows first, in order", tick.due === 40 && tick.claimed.length === 20 && tick.nextInTrade.length === 0 && tick.claimed[0] === "h2", tick);
+  ok("…a row with a crawl already queued or running is skipped, not counted against the cap", tick.skipped.live === 2 && !tick.claimed.includes("h0"));
+  ok("…never crawled is not this file's business, and crawled recently is not due", !tick.claimed.includes("never") && !tick.claimed.includes("recent"));
+  const spill = planRecrawlTick({ rows: rows.slice(20), live: [], pending: 0 });
+  ok("with room left after the held rows, the next-in-dispatch rows follow", spill.claimed.length === 10 && spill.nextInTrade.length === 10, spill);
+  ok("the ceiling binds: 195 waiting leaves room for 5", planRecrawlTick({ rows, live: [], pending: RECRAWL_PENDING_CEILING - 5 }).claimed.length === 5);
+  ok("…and at the ceiling nothing is added", planRecrawlTick({ rows, live: [], pending: RECRAWL_PENDING_CEILING }).claimed.length === 0);
+
+  // ── The report: what the last run and the last day found ──
+  const doneAt = (note, status = "done", at = "2026-09-19T11:58:30Z") => ({ status, lastError: note, createdAt: new Date(at), payload: { recrawl: true } });
+  ok("the outcome is read off the note's first word", recrawlOutcome(doneAt("crawled: 6 pages; changed")) === "changed" && recrawlOutcome(doneAt("unchanged: 6 pages; unchanged — evidence not rewritten")) === "unchanged" && recrawlOutcome(doneAt("skipped: crawled_recently")) === "skipped");
+  ok("…a failed row is failed, a queued one is waiting", recrawlOutcome({ status: "failed", lastError: "gave up" }) === "failed" && recrawlOutcome({ status: "queued" }) === "waiting");
+  const report = recrawlReport({
+    tasks: [
+      doneAt("unchanged: 4 pages"), doneAt("unchanged: 5 pages"), doneAt("crawled: 6 pages; changed"), doneAt(null, "failed"), { status: "queued", createdAt: new Date("2026-09-19T11:58:05Z") },
+      doneAt("crawled: 3 pages", "done", "2026-09-19T09:10:00Z"),
+      doneAt("crawled: 3 pages", "done", "2026-09-17T09:10:00Z"),
+    ],
+    now,
+  });
+  ok("the last run is the newest minute anything was queued in", report.lastRun?.at === "2026-09-19T11:58:00.000Z" && report.lastRun.queued === 5, report.lastRun);
+  ok("…with its counts: 2 unchanged, 1 changed, 1 failed, 1 waiting", report.lastRun.unchanged === 2 && report.lastRun.changed === 1 && report.lastRun.failed === 1 && report.lastRun.waiting === 1, report.lastRun);
+  ok("…and the day's line includes the earlier tick but not the one two days ago", report.last24h.queued === 6 && report.last24h.changed === 2, report.last24h);
+  ok("no re-crawl ever: no last run, zeros for the day", recrawlReport({ tasks: [], now }).lastRun === null && recrawlReport({ tasks: [], now }).last24h.queued === 0);
+  ok("the crawl handler's note LEADS with the crawler's outcome word — what the report reads", /note: \[result\.outcome, result\.reason, result\.note\]/.test(handler));
+
+  // ── The cron calls it, once per run, after the drain, inside its own try ──
+  const cron = read("app/api/cron/sales-pipeline/route.js");
+  ok("the cron sweeps re-crawls once per run", (cron.match(/await sweepRecrawls\(\{ db, now \}\)/g) || []).length === 1);
+  ok("…after the drain and inside its own try", cron.indexOf("await drainSalesPipeline(") < cron.indexOf("await sweepRecrawls(") && /try \{\s*recrawl = await sweepRecrawls/.test(cron));
+  const enrichment = read("app/api/platform/sales/prospects/enrichment/route.js");
+  ok("the enrichment console reads the status", /recrawlStatus\(\{ db, now \}\)/.test(enrichment) && /\brecrawl,/.test(enrichment));
+  const panel = read("app/components/platform/EnrichmentPanel.js");
+  ok("…and the panel prints due / unchanged / changed for the last run", /status\.recrawl\.due\.claimed/.test(panel) && /lastRun\.unchanged/.test(panel) && /lastRun\.changed/.test(panel));
+  ok("the claim route's research call is in the claimed lane, which re-crawls by default",
+    /fn\(\{ db, prospectIds, priority: "claimed" \}\)/.test(read("app/api/sales/queue/route.js")));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("10c. sweepRecrawls, executed — the order's rows, one task each, twice is once");
+// ═══════════════════════════════════════════════════════════════════════════
+
+{
+  const DAY = 24 * 60 * 60 * 1000;
+  const now = new Date("2026-09-19T12:00:00Z");
+  const old = new Date(now.getTime() - 45 * DAY);
+  const prospects = new Map();
+  const add = (id, over = {}) => prospects.set(id, { id, tradeKey: "cabinets", status: "discovered", createdAt: new Date("2026-06-01"), websiteUrl: `https://${id}.example/`, lastCrawledAt: old, doNotContactAt: null, mergedIntoId: null, campaignId: null, province: null, assignedRepId: null, ...over });
+  add("held_due");
+  add("held_fresh", { lastCrawledAt: new Date(now.getTime() - 2 * DAY) });
+  add("held_never", { lastCrawledAt: null });
+  add("next_due");
+  add("next_fresh", { lastCrawledAt: new Date(now.getTime() - 2 * DAY) });
+  add("pool_due", { tradeKey: "painting" });
+  const claims = [
+    { prospectId: "held_due", salesRepId: "rep", claimedAt: new Date("2026-09-18T09:00:00Z"), position: 0, releasedAt: null },
+    { prospectId: "held_fresh", salesRepId: "rep", claimedAt: new Date("2026-09-18T09:00:00Z"), position: 1, releasedAt: null },
+    { prospectId: "held_never", salesRepId: "rep", claimedAt: new Date("2026-09-18T09:00:00Z"), position: 2, releasedAt: null },
+  ];
+  const tasks = [];
+  const chainFor = (id) => RESEARCH_CHAIN.forEach((k, i) => tasks.push({ id: `${id}-${k}`, prospectId: id, kind: k, status: "done", idempotencyKey: `first:${k}:${id}`, payload: { prospectId: id }, createdAt: new Date("2026-08-05"), lastError: null }));
+  for (const id of ["held_due", "held_fresh", "next_due", "next_fresh", "pool_due"]) chainFor(id);
+  let seq = 0;
+  // The claimed tail's rows, current unless a test says otherwise: the
+  // inference run and the default-language script, each stamped with the
+  // prospect's own lastCrawledAt so the staleness rule reads them as fresh.
+  const tail = { stale: false };
+  const tailRows = (ids, extra = {}) =>
+    ids.map((id) => prospects.get(id)).filter(Boolean).map((p) => ({
+      prospectId: p.id,
+      crawledAt: tail.stale ? new Date(0) : p.lastCrawledAt,
+      generatedAt: p.lastCrawledAt,
+      ...extra,
+    }));
+  const db = {
+    prospectInferenceRun: { async findMany({ where }) { return tailRows(where.prospectId.in, { promptVersion: SITE_INFERENCE_VERSION }); } },
+    prospectCallScript: { async findMany({ where }) { return tailRows(where.prospectId.in, { promptVersion: CALL_SCRIPT_VERSION, language: "en" }); } },
+    salesQueueClaim: {
+      async findMany({ where }) {
+        const rows = claims.map((c) => ({ ...c, prospect: { tradeKey: prospects.get(c.prospectId).tradeKey, mergedIntoId: null, doNotContactAt: null } }));
+        return where.releasedAt === null ? rows : rows.filter((c) => c.claimedAt >= where.claimedAt.gte);
+      },
+    },
+    prospect: {
+      async findMany({ where, take }) {
+        if (where.id?.in) return where.id.in.map((id) => prospects.get(id)).filter(Boolean).map((p) => ({ ...p }));
+        // loadEnrichmentOrder's two candidate reads per trade: the base
+        // where carries the trade, the second AND term says researched or not.
+        const base = where.AND?.[0] || {};
+        const researched = Boolean(where.AND?.[1]?.lastCrawledAt);
+        const held = new Set(claims.map((c) => c.prospectId));
+        return [...prospects.values()]
+          .filter((p) => p.tradeKey === base.tradeKey && p.status === "discovered" && !held.has(p.id))
+          .filter((p) => (researched ? Boolean(p.lastCrawledAt) : !p.lastCrawledAt))
+          .sort((a, b) => a.createdAt - b.createdAt)
+          .slice(0, take)
+          .map((p) => ({ ...p }));
+      },
+    },
+    salesPipelineTask: {
+      async count({ where }) { return tasks.filter((t) => t.kind === where.kind && where.status.in.includes(t.status) && t.payload?.recrawl === true).length; },
+      async findMany({ where }) {
+        return tasks.filter((t) =>
+          (!where.kind || t.kind === where.kind || where.kind.in?.includes(t.kind)) &&
+          (!where.status || where.status.in.includes(t.status)) &&
+          (!where.prospectId || where.prospectId.in.includes(t.prospectId)) &&
+          (!where.payload || t.payload?.recrawl === true));
+      },
+      async findUnique({ where }) { return tasks.find((t) => t.idempotencyKey === where.idempotencyKey) || null; },
+      async create({ data }) {
+        if (tasks.some((t) => t.idempotencyKey === data.idempotencyKey)) { const e = new Error("dup"); e.code = "P2002"; throw e; }
+        const row = { id: `r${++seq}`, status: "queued", attempts: 0, lastError: null, createdAt: new Date(now.getTime() + seq), notBefore: data.notBefore ?? now, ...data };
+        tasks.push(row);
+        return row;
+      },
+      async updateMany() { return { count: 0 }; },
+    },
+  };
+  const recrawls = () => tasks.filter((t) => t.payload?.recrawl === true);
+
+  const first = await sweepRecrawls({ db, now });
+  ok("two rows in the order are due: the held one and the next-in-dispatch one", first.due === 2, first);
+  ok("…both queued, one task each", first.queued.claimed === 1 && first.queued.nextInTrade === 1 && recrawls().length === 2, first);
+  const heldTask = recrawls().find((t) => t.prospectId === "held_due");
+  const nextTask = recrawls().find((t) => t.prospectId === "next_due");
+  ok("the held row's re-crawl is in the claimed lane, phrased", heldTask?.payload.priority === "claimed" && heldTask.notBefore === CLAIMED_NOT_BEFORE && heldTask.payload.phrase === undefined, heldTask);
+  ok("the next-in-dispatch row's is in the backlog lane, unphrased", nextTask?.payload.priority === "backlog" && nextTask.payload.phrase === false, nextTask);
+  ok("both carry the date they are re-reading", heldTask?.payload.previousCrawledAt === old.toISOString() && nextTask?.payload.previousCrawledAt === old.toISOString());
+  ok("the fresh rows were not touched", !recrawls().some((t) => ["held_fresh", "next_fresh"].includes(t.prospectId)));
+  ok("the never-crawled held row was left to the first-crawl path", !recrawls().some((t) => t.prospectId === "held_never"));
+  ok("the pool row — due, but in a trade nobody is working — was never looked at", !recrawls().some((t) => t.prospectId === "pool_due"));
+
+  const second = await sweepRecrawls({ db, now: new Date(now.getTime() + 60_000) });
+  ok("a second tick queues nothing: both rows have a crawl waiting", second.queued.claimed === 0 && second.queued.nextInTrade === 0 && recrawls().length === 2, second);
+  ok("…and says so: two due, two skipped as live, none of them counted as room", second.due === 2 && second.skipped.live === 2, second);
+
+  // The held crawl runs and comes back unchanged: lastCrawledAt moves, and
+  // the row is off the list until the interval passes again.
+  heldTask.status = "done"; heldTask.lastError = "unchanged: 5 pages; unchanged — evidence not rewritten";
+  prospects.get("held_due").lastCrawledAt = new Date(now.getTime() + 2 * 60_000);
+  const third = await sweepRecrawls({ db, now: new Date(now.getTime() + 3 * 60_000) });
+  ok("after an unchanged re-crawl the row is no longer due", third.due === 1 && recrawls().length === 2, third);
+  ok("…and the planner, asked again for the held row, has nothing to add", (await ensureResearchQueued({ db, prospectIds: ["held_due"], priority: "claimed", now: new Date(now.getTime() + 3 * 60_000) })).queued === 0);
+
+  const status = await recrawlStatus({ db, now: new Date(now.getTime() + 3 * 60_000) });
+  ok("the console reads the same picture: one next-in-dispatch row still due, one waiting", status.due.claimed === 0 && status.due.nextInTrade === 1 && status.waiting === 1, status);
+  ok("…and the last run's tally: 2 queued, 1 unchanged, 1 waiting", status.lastRun?.queued === 2 && status.lastRun.unchanged === 1 && status.lastRun.waiting === 1, status.lastRun);
+
+  // excludeTaskIds: the crawl handler asking from inside its own run, for
+  // a prospect whose tail is stale (the fixture flips it).
+  const running = { id: "running", prospectId: "held_due", kind: "CRAWL_WEBSITE", status: "claimed", idempotencyKey: "run", payload: { prospectId: "held_due", priority: "claimed" }, createdAt: now, lastError: null };
+  tasks.push(running);
+  tail.stale = true;
+  const blocked = await ensureResearchQueued({ db, prospectIds: ["held_due"], priority: "claimed", now });
+  ok("a crawl in flight blocks the planner", blocked.prospects[0].skipped === "in_flight", blocked);
+  const fromInside = await ensureResearchQueued({ db, prospectIds: ["held_due"], priority: "claimed", recrawl: false, excludeTaskIds: ["running"], now });
+  ok("…unless it is the caller, which is then excluded and the tail it owes is queued", fromInside.queued === 1 && fromInside.prospects[0].queued[0] === "INFER_FROM_SITE", fromInside);
+  tail.stale = false;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

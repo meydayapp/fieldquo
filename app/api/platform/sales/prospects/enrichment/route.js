@@ -19,6 +19,7 @@ import { superadminOrRefusal } from "@/lib/sales/intel/configAdmin";
 import { ACTORS, apifyStatus, runApifyTick, setPairsPerDay } from "@/lib/sales/intel/apifyRuns";
 import { apifySpendThisMonth } from "@/lib/sales/intel/apify";
 import { PLACES_AHEAD_SETTING_KEY, enrichmentSweepStatus } from "@/lib/sales/intel/placesSweep";
+import { recrawlStatus } from "@/lib/sales/pipeline/recrawl";
 import { lookupRegisterPeopleFor } from "@/lib/sales/intel/registerPeople";
 import { DISCOVERY_TRADES } from "@/lib/sales/discovery/trades";
 
@@ -26,18 +27,22 @@ export async function GET(request) {
   const { refusal } = await superadminOrRefusal(request);
   if (refusal) return NextResponse.json(refusal.body, { status: refusal.status });
   const now = new Date();
-  const [sweep, bbb, maps, spend, personnel] = await Promise.all([
+  const [sweep, bbb, maps, spend, personnel, recrawl] = await Promise.all([
     enrichmentSweepStatus({ db, now }),
     apifyStatus({ db, source: "bbb", now }),
     apifyStatus({ db, source: "google_maps", now }),
     apifySpendThisMonth({ db, now }),
     db.registerPersonnel.aggregate({ _count: { _all: true }, _max: { release: true, loadedAt: true } }),
+    // The second look at websites: due now in the order, waiting, and what
+    // the last cron tick and the last day found (lib/sales/pipeline/recrawl.js).
+    recrawlStatus({ db, now }),
   ]);
   return NextResponse.json({
     sweep: {
       ...sweep,
       trades: sweep.trades.map((t) => ({ ...t, label: DISCOVERY_TRADES[t.tradeKey]?.label || t.tradeKey })),
     },
+    recrawl,
     apify: { bbb, google_maps: maps, spendThisMonth: spend },
     personnel: { rows: personnel._count._all, release: personnel._max.release, loadedAt: personnel._max.loadedAt },
   });

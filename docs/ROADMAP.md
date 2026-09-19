@@ -1,12 +1,62 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 19 September 2026 (each trade has its own selling points — one list in `lib/sales/tradeSellingPoints.js`, every key a shipped feature-matrix row, read by the playbook's fit stage, the call screen, the queue's pitch layer, the AI script prompt, the intro email, the demo cards and the marketing industry pages — see the section below)
+Last updated: 19 September 2026 (the crawler takes a second look: a site read more than thirty days ago is crawled again for the rows reps hold and the rows next in dispatch, unchanged stops the chain and moves the "checked" stamps, changed re-runs it and the brief says "website changed since <date>" — see the section below)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
 it exists to answer.
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
+
+---
+
+## The crawler takes a second look: a site read a month ago is read again — for the rows that matter, unchanged costs a crawl and nothing else, changed runs the chain and the brief says so (19 September 2026)
+
+The owner: "is the web crawler able to reassess if the website is changed?"
+It could — `recrawlDecision` (30 days) and the content hash were there — but
+nothing ever asked for a second crawl: `research.js` queued CRAWL_WEBSITE only
+while `lastCrawledAt` was null, so every site was read once, in the state it
+was in that week.
+
+- **Who is re-crawled**: the shared enrichment order only — open claims
+  (claimed lane, phrased) and the next-in-dispatch rows of the trades being
+  worked (backlog lane, unphrased). Never the pool. `researchPlan` takes
+  `recrawl` (on by default in the claimed lane) and `recrawlDue()` needs
+  BOTH clocks run out: `lastCrawledAt` older than `MIN_RECRAWL_MS` and no
+  CRAWL_WEBSITE task created inside it — so a refusal is retried monthly,
+  not per call. The task carries `recrawl: true, previousCrawledAt`.
+- **Standing trigger**: `lib/sales/pipeline/recrawl.js` `sweepRecrawls`,
+  once per `/api/cron/sales-pipeline` run after the drain, `RECRAWL_PER_TICK`
+  = 20 (the Places sweep's number), `RECRAWL_PENDING_CEILING` = 200, rows
+  with a live crawl skipped before the planner. The claim route's research
+  call is in the claimed lane, so a just-claimed stale row re-crawls first.
+- **Unchanged**: `crawlWebsite.js` returns `done: true, advance: false` and
+  `chain.js shouldAdvance` honours it — no successor, no re-phrased brief.
+  `crawlSite.js writeCrawl` moves `lastCrawledAt` AND the `crawledAt` on
+  `ProspectInferenceRun` / `ProspectCallScript` in the same transaction, so
+  the 30-day clock restarts, the playbook says "checked <today>", and the
+  staleness rule does not queue a do-nothing tail for ever. In the claimed
+  lane the handler asks `ensureResearchQueued` (its own row excluded via
+  `excludeTaskIds`) for any tail the rep is still owed.
+- **Changed**: the chain runs exactly as on a first crawl (successor keyed
+  to the new task). `composeBrief` gains a `website_changed` fact — "since
+  <previous> — re-read <latest>" — from `loadCrawlHistory` (distinct
+  `page_fetch` observedAt dates; an unchanged crawl writes none), so the
+  script prompt's WHAT WE KNOW carries it, and the rep card prints a
+  "Website changed" fact row (en/fr/es).
+- **Console**: `/platform/sales/prospects` enrichment panel — due now
+  (held / next in dispatch), waiting, and the last run's and last day's
+  unchanged / changed / failed, from the re-crawl tasks' own rows.
+- Checks: `check:pipeline-progress` 198 → 258 (sections 10b/10c: due rules,
+  lanes, the tick's cap and ceiling, the report, the executed sweep twice,
+  `excludeTaskIds`), `check:sales-crawl` 534 → 558 (11b: unchanged declines
+  and moves the stamps; changed chains; the claimed tail), `check:sales-brief`
+  +11 (the fact). Pre-existing, untouched: `check:sales-brief` §11,
+  `check:prospect-ui` §13, `check:sales-call-playbook` (one) fail on main.
+- Production, read-only, 19 Sep: 53,748 prospects crawled, the oldest on
+  2026-09-09; 109 held rows crawled (oldest 09-09 16:08); the enrichment
+  order holds 3,674 rows; **0 are due today** — the first come due
+  2026-10-09.
 
 ---
 

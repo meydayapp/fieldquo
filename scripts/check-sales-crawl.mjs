@@ -108,9 +108,12 @@ function functionSource(src, name) {
 //
 // Faithful to the queries the code under test actually makes, and no wider. It
 // answers findUnique/create/update/updateMany on CrawlHostPolicy, findUnique/
-// update on Prospect, createMany on ProspectEvidence, findMany on
-// SalesSuppression and findUnique on Company — which is the complete list, and
-// a list this file asserts by counting the calls it receives.
+// findMany/update on Prospect, createMany on ProspectEvidence, findMany on
+// SalesSuppression, findUnique on Company, updateMany/findMany on
+// ProspectInferenceRun and ProspectCallScript (the crawledAt stamps an
+// unchanged re-crawl moves), and findUnique/findMany/create/updateMany on
+// SalesPipelineTask (what the chain queues after a crawl, and what the
+// planner reads when an unchanged claimed-lane crawl asks for its tail).
 
 const store = {
   prospects: new Map(),
@@ -119,6 +122,8 @@ const store = {
   suppressions: [],
   companies: new Map(),
   calls: [],
+  tasks: [],
+  stamps: [],
 };
 
 function resetStore() {
@@ -128,6 +133,8 @@ function resetStore() {
   store.suppressions.length = 0;
   store.companies.clear();
   store.calls.length = 0;
+  store.tasks.length = 0;
+  store.stamps.length = 0;
 }
 
 const note = (what) => store.calls.push(what);
@@ -149,6 +156,9 @@ const fakeDb = {
       note(`prospect.findUnique:${where.id}`);
       return store.prospects.get(where.id) || null;
     },
+    async findMany({ where }) {
+      return (where?.id?.in || []).map((id) => store.prospects.get(id)).filter(Boolean);
+    },
     async update({ where, data }) {
       note(`prospect.update:${where.id}`);
       const row = store.prospects.get(where.id);
@@ -163,6 +173,31 @@ const fakeDb = {
       store.evidence.push(...data);
       return { count: data.length };
     },
+  },
+  // The two "as of" rows an unchanged re-crawl re-stamps. Recorded, not
+  // modelled: the check asserts the write and its value, and the planner
+  // reading them back gets "no row" so the tail reads as owed.
+  prospectInferenceRun: {
+    async updateMany({ where, data }) { store.stamps.push({ model: "prospectInferenceRun", where, data }); return { count: 1 }; },
+    async findMany() { return []; },
+  },
+  prospectCallScript: {
+    async updateMany({ where, data }) { store.stamps.push({ model: "prospectCallScript", where, data }); return { count: 1 }; },
+    async findMany() { return []; },
+  },
+  salesPipelineTask: {
+    async findUnique({ where }) { return store.tasks.find((t) => t.idempotencyKey === where.idempotencyKey) || null; },
+    async findMany({ where }) {
+      return store.tasks.filter((t) =>
+        (!where?.prospectId || where.prospectId.in.includes(t.prospectId)) &&
+        (!where?.kind || t.kind === where.kind || where.kind.in?.includes(t.kind)));
+    },
+    async create({ data }) {
+      const row = { id: `task_${store.tasks.length + 1}`, status: "queued", attempts: 0, lastError: null, createdAt: new Date(), ...data };
+      store.tasks.push(row);
+      return row;
+    },
+    async updateMany() { return { count: 0 }; },
   },
   salesSuppression: {
     async findMany({ where }) {
@@ -1393,6 +1428,86 @@ async function main() {
     const refusedTask = await handlerMod.handleCrawlWebsite({ task: { prospectId: "p1" }, payload: {}, db: fakeDb });
     ok("a refusal is not done and not retried", refusedTask.done === false && refusedTask.retry === false, refusedTask);
     ok("…and the reason reaches lastError", /scheme_not_allowed/.test(refusedTask.reason));
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  section("11b. A second look: unchanged stops the chain and moves the stamps; changed runs it");
+
+  {
+    const DAY = 24 * 60 * 60 * 1000;
+    const chained = registry.getHandler("CRAWL_WEBSITE");
+    const successors = () => store.tasks.filter((t) => t.kind !== "CRAWL_WEBSITE").map((t) => t.kind);
+
+    // First crawl, backlog lane, through the registered (chained) handler.
+    seedProspect();
+    const first = await chained({ task: { id: "crawl-1", prospectId: "p1", payload: { prospectId: "p1", priority: "backlog", phrase: false } }, payload: { prospectId: "p1", priority: "backlog", phrase: false }, db: fakeDb, deps: crawlDeps(goodSite()) });
+    ok("a first crawl is done and NOT declined", first.done === true && first.advance === undefined, first);
+    ok("…and the chain queued DETECT_TECHNOLOGY", JSON.stringify(successors()) === JSON.stringify(["DETECT_TECHNOLOGY"]), store.tasks);
+    ok("…and nothing re-stamped the inference run or the script", store.stamps.length === 0);
+    const firstStamp = store.prospects.get("p1").lastCrawledAt;
+    const firstHash = store.prospects.get("p1").contentHash;
+
+    // Forty days pass. The same site, re-read in the backlog lane.
+    store.prospects.get("p1").lastCrawledAt = new Date(firstStamp.getTime() - 40 * DAY);
+    store.hosts.clear();
+    const before = store.evidence.length;
+    const again = await chained({ task: { id: "crawl-2", prospectId: "p1", payload: { prospectId: "p1", priority: "backlog", phrase: false, recrawl: true } }, payload: { prospectId: "p1", priority: "backlog", phrase: false, recrawl: true }, db: fakeDb, deps: crawlDeps(goodSite()) });
+    ok("an unchanged re-crawl is done", again.done === true, again);
+    ok("…and DECLINES its successors", again.advance === false, again);
+    ok("…so the chain queued nothing new", JSON.stringify(successors()) === JSON.stringify(["DETECT_TECHNOLOGY"]), store.tasks.map((t) => t.kind));
+    ok("…the note leads with the outcome word the console counts", /^unchanged\b/.test(again.note), again.note);
+    ok("…no evidence was rewritten", store.evidence.length === before);
+    ok("…the hash is the hash", store.prospects.get("p1").contentHash === firstHash);
+    ok("…lastCrawledAt moved forward — the 30-day clock restarts", store.prospects.get("p1").lastCrawledAt > firstStamp);
+    const moved = store.stamps.map((x) => x.model).sort();
+    ok("…and the inference run's and the call script's crawledAt moved with it", JSON.stringify(moved) === JSON.stringify(["prospectCallScript", "prospectInferenceRun"]), store.stamps);
+    ok("…to the same instant", store.stamps.every((x) => x.where.prospectId === "p1" && x.data.crawledAt.getTime() === store.prospects.get("p1").lastCrawledAt.getTime()));
+    ok("…and the backlog lane asked the planner for nothing", !store.tasks.some((t) => t.kind === "INFER_FROM_SITE"));
+
+    // The same, in the CLAIMED lane: the crawl declines the chain and asks
+    // the planner for the tail a rep is owed — this fixture holds no
+    // inference run, so INFER_FROM_SITE is what it owes. (The host's
+    // politeness row is cleared between re-crawls: each crawlDeps() starts
+    // a fresh virtual clock, and the slot gate would otherwise see the
+    // previous crawl's last request as seconds in the future.)
+    store.prospects.get("p1").lastCrawledAt = new Date(firstStamp.getTime() - 40 * DAY);
+    store.stamps.length = 0;
+    store.hosts.clear();
+    // The first chain finished weeks ago — every backlog stage has a done
+    // row. A stage still waiting would be promoted rather than a tail
+    // queued, and a stage never queued would be queued first; either way
+    // the planner would be right, and neither is this fixture.
+    for (const t of store.tasks) t.status = "done";
+    for (const kind of ["ENRICH_BUSINESS", "ANALYZE_CAPABILITIES", "DETECT_OPPORTUNITIES", "CALCULATE_LEAD_SCORE", "GENERATE_RESEARCH_BRIEF"]) {
+      store.tasks.push({ id: `old-${kind}`, kind, prospectId: "p1", status: "done", payload: { prospectId: "p1" }, idempotencyKey: `old:${kind}`, createdAt: new Date(firstStamp.getTime() - 39 * DAY), lastError: null });
+    }
+    const claimed = await chained({ task: { id: "crawl-3", prospectId: "p1", payload: { prospectId: "p1", priority: "claimed", recrawl: true } }, payload: { prospectId: "p1", priority: "claimed", recrawl: true }, db: fakeDb, deps: crawlDeps(goodSite()) });
+    ok("unchanged in the claimed lane: still done, still declined", claimed.done === true && claimed.advance === false, claimed);
+    ok("…DETECT_TECHNOLOGY was not queued again", store.tasks.filter((t) => t.kind === "DETECT_TECHNOLOGY").length === 1);
+    const tailTask = store.tasks.find((t) => t.kind === "INFER_FROM_SITE");
+    ok("…but the tail the rep is owed was, in the claimed lane", tailTask?.payload?.priority === "claimed", store.tasks.map((t) => [t.kind, t.payload?.priority]));
+    ok("…and only that", store.tasks.filter((t) => t.status === "queued").length === 1, store.tasks.filter((t) => t.status === "queued").map((t) => t.kind));
+
+    // Now the site changes: a new home page. Re-read → crawled → chain.
+    store.prospects.get("p1").lastCrawledAt = new Date(firstStamp.getTime() - 40 * DAY);
+    store.stamps.length = 0;
+    store.hosts.clear();
+    const changedNet = makeNet({
+      "https://northline.ca/robots.txt": { status: 200, body: "User-agent: *\nAllow: /\n" },
+      "https://northline.ca/about": { status: 200, headers: { "content-type": "text/html" }, body: "<title>About</title><p>Since 1998 — now booking online</p>" },
+      "https://northline.ca/services": { status: 200, headers: { "content-type": "text/html" }, body: "<title>Services</title>" },
+      "https://northline.ca/contact": { status: 200, headers: { "content-type": "text/html" }, body: "<title>Contact</title>" },
+      "https://northline.ca/": { status: 200, headers: { "content-type": "text/html" }, body: HOME_HTML.replace("</body>", "<a href=\"https://booking.example/northline\">Book online</a></body>") },
+    });
+    const changed = await chained({ task: { id: "crawl-4", prospectId: "p1", payload: { prospectId: "p1", priority: "backlog", phrase: false, recrawl: true } }, payload: { prospectId: "p1", priority: "backlog", phrase: false, recrawl: true }, db: fakeDb, deps: crawlDeps(changedNet) });
+    ok("a changed site is crawled, not declined", changed.done === true && changed.advance === undefined && /^crawled\b/.test(changed.note), changed);
+    ok("…evidence was written again", store.evidence.length > before);
+    ok("…the hash moved", store.prospects.get("p1").contentHash !== firstHash);
+    ok("…the successor was queued exactly as on a first crawl", store.tasks.filter((t) => t.kind === "DETECT_TECHNOLOGY").length === 2);
+    ok("…under a key naming THIS crawl task, so last month's successor does not dedupe it", store.tasks.some((t) => t.kind === "DETECT_TECHNOLOGY" && t.idempotencyKey === "DETECT_TECHNOLOGY:p1:crawl-4"));
+    ok("…and the stale inference run and script were left for the chain to regenerate", store.stamps.length === 0);
+    ok("…and the two crawls that wrote evidence carry two distinct observedAt values — what the brief reads as \"website changed\"",
+      new Set(store.evidence.filter((e) => e.type === "page_fetch").map((e) => e.observedAt.getTime())).size === 2);
   }
 
   // ══════════════════════════════════════════════════════════════════════════

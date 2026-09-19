@@ -73,6 +73,7 @@ import { SUGGEST_CRON_SLICE, suggestTradesBatch } from "@/lib/sales/discovery/su
 import { runTradeSuggestAiSlice } from "@/lib/sales/discovery/suggestTradesAiApproval";
 import { sweepMissedInbound } from "@/lib/sales/calls/missed";
 import { sweepQueuedPlaces, sweepRegisterPeople } from "@/lib/sales/intel/placesSweep";
+import { sweepRecrawls } from "@/lib/sales/pipeline/recrawl";
 import { runApifyTick } from "@/lib/sales/intel/apifyRuns";
 import { reconcileCarrierPrices } from "@/lib/sales/calls/costs";
 import { pullTwilioUsageIfStale } from "@/lib/platform/costs/twilioUsage";
@@ -278,6 +279,22 @@ export async function GET(request) {
     people = { error: err?.message || String(err) };
   }
   result.people = people;
+
+  // ── Then the websites read more than a month ago, in the same order ────
+  //
+  // lib/sales/pipeline/recrawl.js: the rows reps hold and the rows next in
+  // dispatch whose lastCrawledAt is older than MIN_RECRAWL_MS, up to
+  // RECRAWL_PER_TICK a tick — the Places sweep's number, for the same
+  // reason. Held rows go to the claimed lane, the rest to the backlog; an
+  // unchanged site costs the crawl alone, a changed one runs the chain as
+  // a first crawl does. Never the pool. Its own try/catch, as above.
+  let recrawl;
+  try {
+    recrawl = await sweepRecrawls({ db, now });
+  } catch (err) {
+    recrawl = { error: err?.message || String(err) };
+  }
+  result.recrawl = recrawl;
 
   // ── Then the bulk vendor runs, one tick each ───────────────────────────
   //

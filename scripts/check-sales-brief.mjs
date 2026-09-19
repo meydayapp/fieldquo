@@ -68,6 +68,7 @@ import {
   phrasingPrompt,
   phrasingSlots,
   validatePhrasing,
+  websiteChange,
 } from "@/lib/sales/intel/brief";
 import { OBSERVABLE_CAPABILITY_CODES } from "@/lib/sales/intel/capabilities";
 import { assertStrictSchema, validateAgainstSchema } from "@/lib/ai/jsonSchema";
@@ -680,6 +681,29 @@ const PROSPECT = {
   ok("…the card still renders with no model anywhere near it", typeof brief.opening === "string" && brief.opening.length > 0, brief.opening);
   ok("…and reports itself as unphrased", brief.phrased === false);
   ok("…carrying the composed version", brief.version === BRIEF_VERSION);
+}
+
+{
+  // Re-crawled and changed: the one fact a second look adds. The dates are
+  // the crawls that WROTE evidence (an unchanged re-crawl writes none), so
+  // two of them is "the site changed" and one, or none, says nothing.
+  const first = new Date("2026-08-01T10:00:00Z");
+  const second = new Date("2026-09-15T10:00:00Z");
+  ok("one crawl carries no statement about change", websiteChange([first]) === null && websiteChange([]) === null);
+  ok("the same instant twice is one crawl", websiteChange([first, first]) === null);
+  const change = websiteChange([first, second]);
+  ok("two crawls: changed since the earlier, read at the later", change?.previousAt.getTime() === first.getTime() && change?.changedAt.getTime() === second.getTime(), change);
+  ok("…whichever order they arrive in", websiteChange([second, first])?.previousAt.getTime() === first.getTime());
+  ok("…and a date that will not parse is ignored, not a crash", websiteChange(["not a date", second]) === null);
+  const brief = composeBrief({ prospect: PROSPECT, crawls: [first, second] });
+  const fact = brief.known.find((k) => k.id === "website_changed");
+  ok("the card carries 'website changed since <date>' in KNOWN", fact?.label === "Website changed" && fact.detail === "since 2026-08-01 — re-read 2026-09-15", fact);
+  ok("…sourced to the website, as a fact and not an inference", fact?.source === "website" && fact?.layer === "fact");
+  ok("…and not at all after a single crawl", !composeBrief({ prospect: PROSPECT, crawls: [first] }).known.some((k) => k.id === "website_changed"));
+  ok("…nor as an UNKNOWN row — a site read once says nothing about change", !composeBrief({ prospect: PROSPECT, crawls: [first] }).unknown.some((u) => u.id === "website_changed"));
+  const src = read("lib/sales/pipeline/handlers/generateResearchBrief.js");
+  ok("the brief stage loads the crawl dates beside the rows", /loadCrawlHistory\(prospectId/.test(src) && /crawls \}/.test(src));
+  ok("…and the rep's queue reads the same dates for the card", /loadCrawlHistory\(full\.id/.test(read("app/api/sales/queue/route.js")));
 }
 
 {

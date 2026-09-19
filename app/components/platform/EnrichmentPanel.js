@@ -147,6 +147,20 @@ export default function EnrichmentPanel() {
             <p className="text-xs text-muted-foreground">
               CSLB personnel file: {status.personnel.rows.toLocaleString()} people, release {status.personnel.release || "not loaded"}, loaded {day(status.personnel.loadedAt)} — <code>scripts/cslb-personnel-load.mjs</code>.
             </p>
+            {status.recrawl ? (
+              <p>
+                <strong>Website re-crawl</strong> (sites read over {status.recrawl.intervalDays} days ago, {status.recrawl.perTick} a minute):{" "}
+                due now {status.recrawl.due.claimed} held · {status.recrawl.due.nextInTrade} next in dispatch · {status.recrawl.waiting} waiting.{" "}
+                {status.recrawl.lastRun ? (
+                  <>
+                    Last run {String(status.recrawl.lastRun.at).slice(0, 16).replace("T", " ")} UTC queued {status.recrawl.lastRun.queued}: {status.recrawl.lastRun.unchanged} re-read unchanged, {status.recrawl.lastRun.changed} changed, {status.recrawl.lastRun.failed} failed, {status.recrawl.lastRun.waiting} still waiting.
+                  </>
+                ) : (
+                  "No re-crawl has been queued yet."
+                )}{" "}
+                Last 24 h: {status.recrawl.last24h.unchanged} unchanged, {status.recrawl.last24h.changed} changed, {status.recrawl.last24h.failed} failed.
+              </p>
+            ) : null}
           </div>
 
           <div className="space-y-1">

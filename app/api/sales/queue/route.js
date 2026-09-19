@@ -85,6 +85,7 @@ import { loadWindowPolicyContext } from "@/lib/sales/windowOverrides";
 import { publicWindowPolicy, windowPolicyFor } from "@/lib/sales/windowPolicy";
 import { CHANNEL_TEXT, CHANNEL_VOICE } from "@/lib/sales/contact/numbers";
 import { composeBrief } from "@/lib/sales/intel/brief";
+import { loadCrawlHistory } from "@/lib/sales/intel/db";
 import { openCheckIns } from "@/lib/sales/checkin/store";
 import { openTriageThreads } from "@/lib/sales/messages/triageStore";
 import { loadContactNumbers, pickContactNumber } from "@/lib/sales/contact/resolve";
@@ -154,6 +155,10 @@ function repZoneFrom(value, now) {
  * of the rest of the pool. Never awaited on the response path and never a
  * reason the claim fails — a rep with a hundred unresearched rows still has
  * a hundred rows.
+ *
+ * The claimed lane re-crawls too: a row whose site was read more than
+ * MIN_RECRAWL_MS ago is crawled again first (research.js recrawlDue), so
+ * the script the rep opens describes the site as it is, not as it was.
  */
 function queueResearchFor(prospectIds, rep = null) {
   const fn = pipelineProgress.ensureResearchQueued;
@@ -243,7 +248,7 @@ async function buildCurrent({ rep, full, zone, lang, now, policyContext, retryRu
     evidence: analysis.evidence,
   });
 
-  const [rules, signatures, suppression, contactRows, ours, myLead, history, briefTask, converted, checkIns, openTriage] = await Promise.all([
+  const [rules, signatures, suppression, contactRows, ours, myLead, history, briefTask, converted, checkIns, openTriage, crawls] = await Promise.all([
     db.confidenceRule.findMany(),
     db.technologySignature.findMany({ select: { code: true, name: true } }),
     // ── The list, read for the one prospect that gets a dial control ──
@@ -330,6 +335,11 @@ async function buildCurrent({ rep, full, zone, lang, now, policyContext, retryRu
     full.phoneE164
       ? openTriageThreads({ salesRepId: rep.id, e164: full.phoneE164 }).then((r) => r.items).catch(() => null)
       : Promise.resolve([]),
+    // The crawls that wrote evidence: two dates is "the website changed",
+    // the one fact a re-crawl adds to WHAT WE KNOW (brief.js). Not read
+    // off `full.evidence` — that list is capped at 400 newest rows, and a
+    // long site's previous crawl can fall off the end of it.
+    loadCrawlHistory(full.id, { deps: { db } }).catch(() => []),
   ]);
   const signatureNames = Object.fromEntries(signatures.map((s) => [s.code, s.name]));
 
@@ -387,6 +397,7 @@ async function buildCurrent({ rep, full, zone, lang, now, policyContext, retryRu
       ),
       repId: rep.id,
       suppression,
+      crawls,
       now,
     }),
     tradeLabel: full.tradeKey ? DISCOVERY_TRADES[full.tradeKey]?.label || full.tradeKey : null,
@@ -464,6 +475,7 @@ async function buildCurrent({ rep, full, zone, lang, now, policyContext, retryRu
         opportunities: full.opportunities,
         score: full.scores[0] || null,
         phrasing,
+        crawls,
       });
       // The inferred owner, with the sentence it was read from. The
       // Contact card shows the name with its confidence word and, on
