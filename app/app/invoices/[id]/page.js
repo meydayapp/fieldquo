@@ -1547,7 +1547,7 @@ export default function InvoiceDetailPage() {
         onClose={() => setShowDelete(false)}
         onConfirm={handleDelete}
         title={t("app.invoiceDetail.deleteTitle")}
-        message={t("app.invoiceDetail.deleteMessage")}
+        message={t("app.invoiceDetail.deleteMessage", { number: invoice.invoiceNumber })}
         itemName={invoice.invoiceNumber}
         busy={deleting}
       />

@@ -2132,7 +2132,7 @@ const en = {
   "app.invoiceDetail.record": "Record",
   "app.invoiceDetail.deleteTitle": "Delete Invoice",
   "app.invoiceDetail.deleteError": "Couldn't delete this invoice.",
-  "app.invoiceDetail.deleteMessage": "This invoice and its payment records will be permanently removed.",
+  "app.invoiceDetail.deleteMessage": "Invoice {number} is removed for good. The client's payment link stops working. The quote and job stay where they are.",
 
   // ── Invoice lifecycle banners (app/app/invoices/[id]/LifecycleBanners.js) ─
   //
@@ -13586,7 +13586,7 @@ const fr = {
   "app.invoiceDetail.record": "Enregistrer",
   "app.invoiceDetail.deleteTitle": "Supprimer la facture",
   "app.invoiceDetail.deleteError": "Impossible de supprimer cette facture.",
-  "app.invoiceDetail.deleteMessage": "Cette facture et ses enregistrements de paiement seront supprimés définitivement.",
+  "app.invoiceDetail.deleteMessage": "La facture {number} est supprimée définitivement. Le lien de paiement du client cesse de fonctionner. Le devis et le chantier restent où ils sont.",
 
   // ── Bandeaux de cycle de vie de la facture ───────────────────────────────
   "app.invoiceLifecycle.superseded":
@@ -24420,7 +24420,7 @@ const es = {
   "app.invoiceDetail.record": "Registrar",
   "app.invoiceDetail.deleteTitle": "Eliminar factura",
   "app.invoiceDetail.deleteError": "No se pudo eliminar esta factura.",
-  "app.invoiceDetail.deleteMessage": "Esta factura y sus registros de pago se eliminarán de forma permanente.",
+  "app.invoiceDetail.deleteMessage": "La factura {number} se elimina de forma definitiva. El enlace de pago del cliente deja de funcionar. La cotización y el trabajo se quedan donde están.",
   "app.invoiceEdit.loadError": "No se pudo cargar esta factura.",
   "app.invoiceEdit.reasonRequired": "Indica un motivo para el cambio — se guarda en el historial de versiones.",
   "app.invoiceEdit.saveError": "No se pudieron guardar los cambios.",
@@ -35953,7 +35953,7 @@ const uk = {
   "app.invoiceDetail.record": "Зафіксувати",
   "app.invoiceDetail.deleteTitle": "Видалити рахунок",
   "app.invoiceDetail.deleteError": "Не вдалося видалити цей рахунок.",
-  "app.invoiceDetail.deleteMessage": "Цей рахунок та його платіжні записи буде видалено назавжди.",
+  "app.invoiceDetail.deleteMessage": "Рахунок {number} буде видалено назавжди. Посилання на оплату для клієнта перестане працювати. Кошторис і замовлення залишаться на місці.",
   "app.invoiceEdit.loadError": "Не вдалося завантажити цей рахунок.",
   "app.invoiceEdit.reasonRequired": "Вкажіть причину зміни — вона зберігається в історії версій.",
   "app.invoiceEdit.saveError": "Не вдалося зберегти зміни.",
@@ -45381,7 +45381,7 @@ const pa = {
   "app.invoiceDetail.record": "ਦਰਜ ਕਰੋ",
   "app.invoiceDetail.deleteTitle": "ਇਨਵੌਇਸ ਮਿਟਾਓ",
   "app.invoiceDetail.deleteError": "ਇਹ ਇਨਵੌਇਸ ਮਿਟਾਇਆ ਨਹੀਂ ਜਾ ਸਕਿਆ।",
-  "app.invoiceDetail.deleteMessage": "ਇਹ ਇਨਵੌਇਸ ਅਤੇ ਇਸਦੇ ਭੁਗਤਾਨ ਰਿਕਾਰਡ ਪੱਕੇ ਤੌਰ 'ਤੇ ਹਟਾ ਦਿੱਤੇ ਜਾਣਗੇ।",
+  "app.invoiceDetail.deleteMessage": "ਇਨਵੌਇਸ {number} ਪੱਕੇ ਤੌਰ 'ਤੇ ਹਟਾ ਦਿੱਤਾ ਜਾਵੇਗਾ। ਗਾਹਕ ਦਾ ਭੁਗਤਾਨ ਲਿੰਕ ਕੰਮ ਕਰਨਾ ਬੰਦ ਕਰ ਦੇਵੇਗਾ। ਕੋਟ ਅਤੇ ਜੌਬ ਉੱਥੇ ਹੀ ਰਹਿਣਗੇ।",
   "app.invoiceEdit.loadError": "ਇਹ ਇਨਵੌਇਸ ਲੋਡ ਨਹੀਂ ਹੋ ਸਕੀ।",
   "app.invoiceEdit.reasonRequired": "ਤਬਦੀਲੀ ਦਾ ਕਾਰਨ ਦੱਸੋ — ਇਹ ਵਰਜਨ ਇਤਿਹਾਸ ਵਿੱਚ ਦਰਜ ਹੁੰਦਾ ਹੈ।",
   "app.invoiceEdit.saveError": "ਤਬਦੀਲੀਆਂ ਸੰਭਾਲੀਆਂ ਨਹੀਂ ਜਾ ਸਕੀਆਂ।",
@@ -54789,7 +54789,7 @@ const tl = {
   "app.invoiceDetail.record": "I-record",
   "app.invoiceDetail.deleteTitle": "Burahin ang invoice",
   "app.invoiceDetail.deleteError": "Hindi mabura ang invoice na ito.",
-  "app.invoiceDetail.deleteMessage": "Permanenteng aalisin ang invoice na ito at ang mga rekord ng bayad nito.",
+  "app.invoiceDetail.deleteMessage": "Permanenteng aalisin ang invoice {number}. Hindi na gagana ang payment link ng kliyente. Mananatili ang quote at ang trabaho kung nasaan sila.",
   "app.invoiceEdit.loadError": "Hindi ma-load ang invoice na ito.",
   "app.invoiceEdit.reasonRequired": "Magbigay ng dahilan para sa pagbabago — mapupunta ito sa kasaysayan ng bersyon.",
   "app.invoiceEdit.saveError": "Hindi ma-save ang mga pagbabago.",
@@ -64448,7 +64448,7 @@ const de = {
   "app.invoiceDetail.record": "Erfassen",
   "app.invoiceDetail.deleteTitle": "Rechnung löschen",
   "app.invoiceDetail.deleteError": "Diese Rechnung konnte nicht gelöscht werden.",
-  "app.invoiceDetail.deleteMessage": "Diese Rechnung und ihre Zahlungseinträge werden endgültig entfernt.",
+  "app.invoiceDetail.deleteMessage": "Rechnung {number} wird endgültig entfernt. Der Zahlungslink des Kunden funktioniert nicht mehr. Angebot und Auftrag bleiben, wo sie sind.",
   "app.invoiceLifecycle.superseded": "Dies ist Version {version}. Version {latest} hat sie ersetzt — das ist die, die Ihr Kunde hat.",
   "app.invoiceLifecycle.actionOpenLatest": "Aktuelle Version öffnen",
   "app.invoiceLifecycle.paidNoAmount": "Vollständig bezahlt.",
@@ -75316,7 +75316,7 @@ const zh = {
   "app.invoiceDetail.record": "记录",
   "app.invoiceDetail.deleteTitle": "删除账单",
   "app.invoiceDetail.deleteError": "没能删除这份账单。",
-  "app.invoiceDetail.deleteMessage": "这份账单和它的收款记录会被永久删除。",
+  "app.invoiceDetail.deleteMessage": "账单 {number} 将被永久删除。客户的付款链接将失效。报价和工单保持不变。",
   "app.invoiceLifecycle.superseded": "这是第 {version} 版。第 {latest} 版已经取代它——客户手上的是那一版。",
   "app.invoiceLifecycle.actionOpenLatest": "打开当前版本",
   "app.invoiceLifecycle.paidNoAmount": "已全额付清。",
@@ -86182,7 +86182,7 @@ const it = {
   "app.invoiceDetail.record": "Registra",
   "app.invoiceDetail.deleteTitle": "Elimina fattura",
   "app.invoiceDetail.deleteError": "Non è stato possibile eliminare questa fattura.",
-  "app.invoiceDetail.deleteMessage": "Questa fattura e le registrazioni dei suoi pagamenti saranno rimosse definitivamente.",
+  "app.invoiceDetail.deleteMessage": "La fattura {number} viene rimossa definitivamente. Il link di pagamento del cliente smette di funzionare. Il preventivo e il lavoro restano dove sono.",
 
   // ── Banner del ciclo di vita della fattura ──────────────────────────────
   "app.invoiceLifecycle.superseded":

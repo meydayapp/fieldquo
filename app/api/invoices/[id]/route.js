@@ -28,6 +28,10 @@ import {
   runGuardedWrite,
   settleGuardedWrite,
 } from "@/lib/concurrency/staleWrite";
+import { stripe } from "@/lib/stripe";
+import { formatMoney } from "@/lib/currency";
+import { recordActivity } from "@/lib/activity/log";
+import { invoiceChaseKey, resolveTaskBySource } from "@/lib/tasks/autoCreate";
 
 // Next 16: params is a Promise — same fix as the quotes route.
 export async function GET(request, { params }) {
@@ -465,13 +469,139 @@ export async function DELETE(request, { params }) {
   if (!existing)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  if (existing.status !== "draft") {
+  // ── Any status may go — except one that carries money ─────────────────────
+  //
+  // This refused everything but `draft`, which read to the owner as "the
+  // other ones should also be able to be deleted" — a sent invoice the client
+  // never paid, an overdue one raised by mistake, are paperwork, and paperwork
+  // can be torn up after a confirmation the person cannot press by accident
+  // (the page's DeleteConfirmModal, the same one Jobs uses).
+  //
+  // What cannot go is a RECORD OF MONEY. The rule mirrors Jobs, which keep a
+  // job with logged hours because hours are payroll: an invoice with a Payment
+  // row — paid, partly paid, refunded, disputed — is the company's own ledger
+  // of what a client handed over, and lib/invoices/computeInvoiceState.js's
+  // whole premise is that Payment rows are never deleted. Payment cascades
+  // from Invoice, so deleting the invoice would erase them silently; the
+  // refusal below is what stands between the trash icon and that.
+  //
+  // Counted across the FAMILY (root + every amended version), not this row:
+  // lib/invoices/family.js — the money lives on whichever version the checkout
+  // named, and deleting v2 of an invoice paid on v1 is still deleting the paid
+  // invoice.
+  //
+  // A bank debit on its way (pendingPaymentIntentId — the client authorised
+  // the debit at Checkout; the money clears days later) counts too: no Payment
+  // row exists yet, but the client has already paid from where they stand.
+  const members = await familyMembers(db, existing.id);
+  const memberIds = members.map((m) => m.id);
+  const rows = await db.invoice.findMany({
+    where: { id: { in: memberIds } },
+    select: { id: true, stripeCheckoutUrl: true, pendingPaymentIntentId: true, total: true, amountDue: true },
+  });
+  const payments = await db.payment.findMany({
+    where: { invoiceId: { in: memberIds } },
+    select: { amount: true, kind: true },
+  });
+  const pending = rows.find((r) => r.pendingPaymentIntentId);
+  if (payments.length || pending) {
+    const company = await db.company.findUnique({
+      where: { id: member.companyId },
+      select: { currency: true },
+    });
+    const money = (n) => formatMoney(n, company?.currency);
+    const received = payments
+      .filter((p) => p.kind !== "refund")
+      .reduce((sum, p) => sum + Number(p.amount || 0), 0);
+    const what = payments.length
+      ? `a payment of ${money(received)} recorded`
+      : `a bank payment of ${money(Number(pending.amountDue || pending.total || 0))} on its way`;
     return NextResponse.json(
-      { error: "Only draft invoices can be deleted" },
-      { status: 400 },
+      {
+        error:
+          `This invoice has ${what}, so it can't be deleted — that's a record of money. ` +
+          `It stays on the books; if the money is going back, refund it instead.`,
+      },
+      { status: 409 },
     );
   }
 
-  await db.invoice.delete({ where: { id: id } });
+  // ── An open Stripe Checkout must not outlive the invoice ─────────────────
+  //
+  // The checkout-link and portal pay routes store only the session URL, and a
+  // Checkout page stays payable for 24 hours after it was minted. A client who
+  // still has that link open could pay an invoice that no longer exists — a
+  // Payment row with nowhere to land. The session id is the `cs_…` segment of
+  // Stripe's own URL; expiring one that already completed or expired throws,
+  // and that is fine: nothing is left to pay either way.
+  const sessions = rows
+    .map((m) => m.stripeCheckoutUrl)
+    .map((u) => (u && u.match(/(cs_(?:live|test)_[A-Za-z0-9]+)/) || [])[1])
+    .filter(Boolean);
+  for (const sessionId of new Set(sessions)) {
+    try {
+      await stripe.checkout.sessions.expire(sessionId);
+    } catch (err) {
+      console.warn("[invoice.delete] could not expire checkout session", sessionId, err?.message);
+    }
+  }
+
+  // ── What a deleted invoice leaves behind, decided here rather than by the
+  // schema's defaults ──────────────────────────────────────────────────────
+  //
+  // Payment (none, checked above) and InvoiceCosting cascade. Everything
+  // else pointing at the family is nulled in the same transaction as the
+  // delete, so the outcome is stated in one place instead of read off six
+  // relation attributes:
+  //   • JobPaymentStage.invoiceId — the schedule's stages survive; a pending
+  //     one with no invoice is skipped by the cron as `no_invoice`
+  //     (lib/paymentSchedule/run.js), never a 500.
+  //   • ChangeOrder.invoiceId — the scope change goes back to "not yet billed".
+  //   • Task.invoiceId / Appointment.invoiceId — the to-do and the appointment
+  //     stay; they just no longer open a document that is gone.
+  //   • ServicePlanOccurrence.invoiceId — the occurrence stays as history.
+  // The chase task the send created is closed, the way deleting a job closes
+  // the quote's "schedule this job" task.
+  await db.$transaction(async (tx) => {
+    await tx.jobPaymentStage.updateMany({
+      where: { invoiceId: { in: memberIds } },
+      data: { invoiceId: null },
+    });
+    await tx.changeOrder.updateMany({
+      where: { invoiceId: { in: memberIds } },
+      data: { invoiceId: null },
+    });
+    await tx.task.updateMany({
+      where: { invoiceId: { in: memberIds } },
+      data: { invoiceId: null },
+    });
+    await tx.appointment.updateMany({
+      where: { invoiceId: { in: memberIds } },
+      data: { invoiceId: null },
+    });
+    await tx.servicePlanOccurrence.updateMany({
+      where: { invoiceId: { in: memberIds } },
+      data: { invoiceId: null },
+    });
+    // Versions first, then the root: parentInvoiceId is a self-relation.
+    await tx.invoice.deleteMany({
+      where: { id: { in: memberIds }, parentInvoiceId: { not: null }, companyId: member.companyId },
+    });
+    await tx.invoice.deleteMany({
+      where: { id: { in: memberIds }, companyId: member.companyId },
+    });
+  });
+
+  for (const memberId of memberIds) {
+    await resolveTaskBySource(invoiceChaseKey(memberId));
+  }
+
+  await recordActivity(member, {
+    action: "invoice.deleted",
+    entityType: "invoice",
+    entityId: id,
+    summary: `Deleted invoice ${existing.invoiceNumber || id}`,
+  });
+
   return NextResponse.json({ success: true });
 }
