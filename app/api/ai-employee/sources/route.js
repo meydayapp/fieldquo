@@ -68,9 +68,16 @@ function publicSource(row) {
   };
 }
 
+/**
+ * The row material is filed under. A company may have several employees now
+ * (one per role); the material is the COMPANY'S — its policy applies to the
+ * closer and the receptionist alike — so lib/aiEmployee/respond.js reads it
+ * under companyId, and the employeeId here is bookkeeping: the oldest row,
+ * created as the default receptionist if the company has none yet.
+ */
 async function employeeFor(companyId) {
-  const existing = await db.aiEmployee.findUnique({ where: { companyId } });
-  return existing || db.aiEmployee.create({ data: { companyId } });
+  const existing = await db.aiEmployee.findFirst({ where: { companyId }, orderBy: { createdAt: "asc" } });
+  return existing || db.aiEmployee.create({ data: { companyId, role: "receptionist" } });
 }
 
 export async function GET(request) {
@@ -79,7 +86,9 @@ export async function GET(request) {
 
   const employee = await employeeFor(member.companyId);
   const rows = await db.aiEmployeeSource.findMany({
-    where: { companyId: member.companyId, employeeId: employee.id },
+    // Company-wide — see employeeFor. `employee` is still resolved above so a
+    // first read creates the default row the POST will file under.
+    where: { companyId: member.companyId },
     orderBy: { createdAt: "desc" },
   });
 

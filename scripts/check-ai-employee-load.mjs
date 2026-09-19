@@ -46,7 +46,10 @@ ok(
 );
 ok(
   "a failed load has its own render branch",
-  /if\s*\(\s*loadError\s*\|\|\s*!form\s*\|\|\s*!data\s*\)/.test(page),
+  // `!form` left the guard when the screen gained several employees: the form
+  // follows the SELECTED one and is legitimately null while none is selected,
+  // which is not a failed load. `loadError || !data` is the failure branch.
+  /if\s*\(\s*loadError\s*\|\|\s*!data\s*\)/.test(page),
 );
 ok(
   "the spinner branch is now `loading` alone",

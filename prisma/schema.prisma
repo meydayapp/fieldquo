@@ -2016,9 +2016,10 @@ model Company {
   jobSubcontractors     JobSubcontractor[]
   subcontractorPayments SubcontractorPayment[]
   locationStamps        LocationStamp[]
-  aiEmployee            AiEmployee?
+  aiEmployees           AiEmployee[]
   aiEmployeeSources     AiEmployeeSource[]
   aiEmployeeReplies     AiEmployeeReply[]
+  aiEmployeeProposals   AiEmployeeProposal[]
   // The company's own crew chat — see model CompanyChatRoom.
   chatRooms             CompanyChatRoom[]
   chatMemberships       CompanyChatMember[]
@@ -15758,10 +15759,20 @@ model WhatsAppTemplate {
 // exists for a different job: telling a contractor which version of THEIR OWN
 // words a stored suggestion was written from.
 
-/// One AI employee per company — the role they picked, and how it behaves.
+/// One AI employee per company AND ROLE — a closer and a receptionist can be
+/// hired side by side, each switched on or off on its own.
+///
+/// ── Why the unique moved from companyId to (companyId, role) ──────────────
+///
+/// The owner's ask, 2026-09-19: "a company can have more than one employee
+/// (closer AND receptionist) each on or off independently." The row used to be
+/// one per company. Making it one per (company, role) is the additive version
+/// of that: every read that said `findUnique({ companyId })` now says
+/// "the enabled employee that handles this channel" (lib/aiEmployee/employees.js),
+/// and the settings screen lists the rows rather than editing the one.
 model AiEmployee {
   id        String  @id @default(cuid())
-  companyId String  @unique
+  companyId String
   company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   /// "closer" | "receptionist" | "troubleshooter" | "custom". A PRESET key,
@@ -15795,6 +15806,54 @@ model AiEmployee {
   /// two decisions, and collapsing them into one switch makes the quiet one
   /// impossible to choose.
   autoReplyEnabled Boolean @default(false)
+
+  /// ── Permission mode: the switch above, generalised ──────────────────────
+  ///
+  /// "ask" | "accept_edits" | "auto" — lib/aiEmployee/permission.js. The
+  /// owner's words: "similar to Claude Code: auto, manual, accept edits". The
+  /// mode decides which RISK classes of tool the employee may run without a
+  /// person: `ask` runs nothing alone (every action becomes an
+  /// AiEmployeeProposal), `accept_edits` runs the reversible ones alone,
+  /// `auto` runs reversible and committing ones alone. A `floor` tool — spend
+  /// money, delete, move a confirmed job, send a contract, change settings —
+  /// is NEVER run alone in any mode; that floor is the whole reason the
+  /// vocabulary is three words rather than a boolean.
+  ///
+  /// autoReplyEnabled above is SUPERSEDED by this column and is no longer
+  /// read anywhere (grep it: the settings route writes it only to mirror the
+  /// mode for an old client). Existing rows were migrated once, by SQL, on
+  /// the day this column landed: autoReplyEnabled true → "auto", false → "ask".
+  /// The column stays because dropping it would be a data-loss push.
+  mode String @default("ask")
+
+  /// ── The face and the name a customer sees ───────────────────────────────
+  ///
+  /// displayName is what the disclosure line introduces ("Hi, I'm Sam,
+  /// Northline Painting's AI assistant"); `name` above is what the CONTRACTOR
+  /// calls it on the settings screen and stays private. avatarUrl is one of
+  /// the preset portraits under public/ai-employees or a Cloudinary upload
+  /// through /api/upload; null shows initials. Both front the web-chat widget
+  /// header and the signature on outgoing texts.
+  displayName String?
+  avatarUrl   String?
+
+  /// "formal" | "friendly" | "brief" — a short STYLE paragraph appended to the
+  /// role's prompt (lib/aiEmployee/roles.js voiceLine). Never a capability: a
+  /// friendly receptionist still has no pricing tool.
+  voice String?
+
+  /// ── Channels this employee answers on ───────────────────────────────────
+  ///
+  /// Three switches rather than a list, so an unknown value cannot route a
+  /// channel by accident. A channel is served by AT MOST one enabled employee
+  /// per company — the settings route refuses a save that would give two
+  /// employees the same channel, and lib/aiEmployee/employees.js picks the
+  /// oldest if the data ever disagrees. meta = the Facebook / Instagram /
+  /// WhatsApp inbox; web = the site chat widget; sms = the shared system
+  /// number (greyed out until FieldQuo holds one — lib/sms/systemNumber.js).
+  metaEnabled    Boolean @default(true)
+  webChatEnabled Boolean @default(false)
+  smsEnabled     Boolean @default(false)
 
   /// "professional" | "warm" | "brief". Our own vocabulary, the same reason
   /// VoiceAgent.tuneManner is: an unrecognised value resolves to the default
@@ -15850,7 +15909,80 @@ model AiEmployee {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  sources AiEmployeeSource[]
+  sources   AiEmployeeSource[]
+  proposals AiEmployeeProposal[]
+
+  @@unique([companyId, role])
+  @@index([companyId])
+}
+
+/// An action the employee wanted to take and its mode did not let it take
+/// alone — waiting for a person to Approve, Edit-then-approve, or Decline.
+///
+/// ══ Only executeFor() runs one ═════════════════════════════════════════════
+///
+/// Approving a proposal calls lib/aiEmployee/proposals.js's executeProposal,
+/// which runs the SAME tool implementation through the SAME executeFor() the
+/// live reply uses, with companyId injected from the proposal's own row and
+/// never from the request. There is no second implementation of "book the
+/// slot" for the approve button, so what a person approves is exactly what
+/// the employee would have done — and a proposal from company A can never be
+/// approved by a member of company B, because the route reads it under the
+/// member's companyId and the executor injects that same id.
+///
+/// ══ Stale, never executed ══════════════════════════════════════════════════
+///
+/// `expiresAt` is the moment the action stops making sense — for a booking,
+/// the slot's own start time. A proposal approved after that is marked
+/// "stale" and NOT run: a van sent to a slot that has passed is worse than
+/// no van. Checked at approval time, fresh from the clock, never trusted from
+/// the row's status.
+model AiEmployeeProposal {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  employeeId String
+  employee   AiEmployee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  /// The conversation it came from, and the reply row written alongside.
+  /// Plain columns, not foreign keys — the same reasoning as AiEmployeeReply.
+  threadId String?
+  replyId  String?
+  /// "meta" | "web" | "sms" — which channel the conversation is on, so the
+  /// approve button can say where the customer will hear about it.
+  channel  String  @default("meta")
+
+  /// The tool name (one of lib/aiEmployee/roles.js's AI_EMPLOYEE_TOOLS), the
+  /// EXACT arguments the model supplied (what a person edits before approving),
+  /// and the risk class that made this a proposal rather than an action.
+  tool String
+  args Json
+  risk String
+
+  /// Why — the last few turns of the conversation, so the person deciding can
+  /// read what the customer actually asked for without opening the thread.
+  excerpt String? @db.Text
+
+  /// "pending" | "approved" | "declined" | "stale" | "failed". `approved`
+  /// means executed: the status is written in the same operation as the
+  /// tool's own result, and a tool that threw leaves "failed" with the reason.
+  status String @default("pending")
+
+  /// See the model header. Null means the action does not go stale on its own.
+  expiresAt DateTime?
+
+  /// Who decided, when, and what the tool returned. The result is kept so a
+  /// contractor can see the booking id a "yes" produced.
+  decidedByUserId String?
+  decidedAt       DateTime?
+  result          Json?
+  failureReason   String?
+
+  createdAt DateTime @default(now())
+
+  @@index([companyId, status, createdAt])
+  @@index([threadId])
 }
 
 /// Resource material the contractor uploads: the policy, the troubleshooting

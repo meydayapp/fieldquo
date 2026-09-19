@@ -449,6 +449,45 @@ export default function PlatformCostsPage() {
                 {data.openai.tenants.byFeature.length === 0 ? <tr><td className="py-1 text-muted-foreground">Nothing metered in this period.</td></tr> : null}
               </tbody>
             </table>
+            {/* By tier, then by area. The AI employee runs on the best tier
+                (lib/ai/provider.js); this is where that decision's cost is
+                visible beside everything on the mini. */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <p className="text-xs font-medium text-foreground">Companies&rsquo; AI by tier</p>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <tbody>
+                      {(data.openai.tenants.byTier || []).map((r) => (
+                        <tr key={r.tier} className="border-t border-border">
+                          <td className="py-1 pr-3 break-words">{r.tier}<span className="block text-xs text-muted-foreground">{r.models.join(", ")}</span></td>
+                          <td className="py-1 pr-3 text-right tabular-nums whitespace-nowrap">{microsMoney(r.micros)}</td>
+                          <td className="py-1 text-right tabular-nums text-xs text-muted-foreground whitespace-nowrap">{n(r.calls)} calls</td>
+                        </tr>
+                      ))}
+                      {(data.openai.tenants.byTier || []).length === 0 ? <tr><td className="py-1 text-muted-foreground">Nothing metered.</td></tr> : null}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-foreground">Companies&rsquo; AI by area</p>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <tbody>
+                      {(data.openai.tenants.byArea || []).map((r) => (
+                        <tr key={r.area} className="border-t border-border">
+                          <td className="py-1 pr-3 break-words">{r.area}</td>
+                          <td className="py-1 pr-3 text-right tabular-nums whitespace-nowrap">{microsMoney(r.micros)}</td>
+                          <td className="py-1 text-right tabular-nums text-xs text-muted-foreground whitespace-nowrap">{n(r.calls)} calls</td>
+                        </tr>
+                      ))}
+                      {(data.openai.tenants.byArea || []).length === 0 ? <tr><td className="py-1 text-muted-foreground">Nothing metered.</td></tr> : null}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
           </SectionCard>
 
           {/* ── 3. Platform itself ───────────────────────────────────── */}

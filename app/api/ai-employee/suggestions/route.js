@@ -40,11 +40,12 @@ export async function GET(request) {
     }
   }
 
-  const employee = await db.aiEmployee.findUnique({
+  const employees = await db.aiEmployee.findMany({
     where: { companyId: member.companyId },
     select: { id: true, instructionsFingerprint: true },
   });
-  if (!employee) return NextResponse.json({ suggestions: [], stopped: [] });
+  if (!employees.length) return NextResponse.json({ suggestions: [], stopped: [] });
+  const fingerprintOf = new Map(employees.map((e) => [e.id, e.instructionsFingerprint]));
 
   const [waiting, stopped] = await Promise.all([
     db.aiEmployeeReply.findMany({
@@ -113,8 +114,9 @@ export async function GET(request) {
       // "you have changed the instructions since this was written". The one
       // thing somebody reviewing a stale draft actually needs to know.
       stale:
-        Boolean(employee.instructionsFingerprint) &&
-        r.instructionsFingerprint !== employee.instructionsFingerprint,
+        Boolean(fingerprintOf.get(r.employeeId)) &&
+        r.instructionsFingerprint !== fingerprintOf.get(r.employeeId),
+      employeeId: r.employeeId,
     };
   };
 

@@ -383,6 +383,7 @@ Set only to override. The default is in brackets.
 |---|---|---|
 | `OPENAI_MODEL` | `gpt-5-mini` | Prefer changing the **code** default — a model name isn't a secret |
 | `OPENAI_WRITING_MODEL` | `OPENAI_MODEL` | Separate model for long-form copy |
+| `OPENAI_MODEL_BEST` | `gpt-5.5` | The BEST tier — lib/ai/provider.js's `tier: "best"`. The AI employee's conversations and every tool call that commits or is proposed run on it; drafts and captions elsewhere stay on `OPENAI_MODEL`. Must have a row in lib/ai/usage.js's PRICING or `check:ai-employee` fails |
 | `OPENAI_IMAGE_MODEL` | `gpt-image-1` | Marketing image generation and the paid quote vision pass — lib/ai/provider.js's `generateImage()` |
 | `OPENAI_TRANSCRIBE_MODEL` | `whisper-1` | Sales-call transcripts — lib/ai/provider.js's `transcribeAudio()`. Without the key, recordings are kept and every row on /platform/sales/recordings says transcription failed; the model must return timestamped segments (verbose_json), so a non-Whisper value leaves transcripts with no rep/contractor split |
 | `OPENAI_TRANSCRIBE_MODEL` | `whisper-1` | Sales-call transcripts — lib/ai/provider.js's `transcribeAudio()`. Without the key, recordings are kept and every row on /platform/sales/recordings says transcription failed; the model must return timestamped segments (verbose_json), so a non-Whisper value leaves transcripts with no rep/contractor split |

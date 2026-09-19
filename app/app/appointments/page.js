@@ -855,7 +855,7 @@ export default function AppointmentsPage() {
                       same shape, because a badge that showed on converted
                       bookings and vanished on identical unconverted ones would
                       read as a data problem rather than a rendering one. */}
-                  {appt.booking?.source === "phone_assistant" && (
+                  {(appt.booking?.source === "phone_assistant" || appt.booking?.source === "ai_employee") && (
                     <span className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
                       <Headset size={12} />{t("app.schedule.bookedByAssistant")}</span>
                   )}

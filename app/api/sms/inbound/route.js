@@ -104,6 +104,7 @@ import { sendSms } from "@/lib/sms/twilioClient";
 import { handleSalesInboundSms } from "@/lib/sales/salesSms";
 import { resolveInboundTenants } from "@/lib/sms/clientLine";
 import { recordError } from "@/lib/platform/errorLog";
+import { handleInboundClientSms } from "@/lib/aiEmployee/smsChannel";
 
 function twiml() {
   return new NextResponse(
@@ -175,7 +176,35 @@ export async function POST(request) {
   }
 
   const verdict = classifyInboundSms(body);
-  if (!verdict) return twiml(); // not a keyword — this route isn't an inbox
+  if (!verdict) {
+    // ── Not a keyword: a customer wrote something ─────────────────────────
+    //
+    // This used to be dropped ("this route isn't an inbox"). It is one now:
+    // the text is filed on the holder company's SMS thread in Conversations,
+    // and — when exactly ONE company holds the phone — answered by that
+    // company's AI employee through the same ingest hook Messenger uses.
+    // Several holders file it at each and answer at none
+    // (lib/aiEmployee/smsChannel.js). STOP and START never reach here.
+    //
+    // Awaited, not scheduled: the ingest is the store, and a webhook Twilio
+    // retries must find the MessageSid already filed rather than file it
+    // twice. The model call inside is bounded (four rounds) and Twilio's
+    // timeout is fifteen seconds.
+    await handleInboundClientSms({
+      from,
+      body,
+      messageSid: params.MessageSid || null,
+      companies: tenants.companies,
+    }).catch(async (err) => {
+      await recordError({
+        area: "sms_inbox",
+        message: `Inbound client SMS filing threw: ${err.message}`,
+        companyId: company.id,
+        detail: { to, from, holders: tenants.companies.length },
+      }).catch(() => {});
+    });
+    return twiml();
+  }
 
   // One record per tenant. On a dedicated number that is one company; on the
   // shared line it is every company holding the sender's phone. Each write

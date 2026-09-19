@@ -94,6 +94,100 @@ then the page says so on the relevant lines and everything else works.
 
 ---
 
+## The AI employee: three permission modes with a floor, a proposals inbox, website chat and SMS on the one inbox, real bookings, faces and voices, one employee per role, on the best model (19 September 2026)
+
+The owner's decisions, verbatim where it matters: "the sales closer could
+handle all chats — the Instagram/FB, the website chatbot"; the chatbot "able to
+book and create instant quotes just like the instant quote or self booking,
+similar to Retell"; permissions "similar to Claude Code: auto, manual, accept
+edits… where we warn about them changing the type of permissions"; "it needs a
+final human approval before it is changed"; "for this we need to be able to
+use the best model — and again it's part of the paid services based on the
+tokens that the company has purchased"; "this is only for the company — they
+don't have access to other information, accounts, etc."
+
+**What shipped**
+
+- **Modes** (`lib/aiEmployee/permission.js`): `ask` (default) | `accept_edits`
+  | `auto`, applied to every tool's declared RISK (`TOOL_RISK` in
+  `lib/aiEmployee/tools.js`): reversible / commits / floor. `mayActAlone({
+  mode, risk, tainted })` is the one function; the floor (spend, delete, move a
+  confirmed job, send a contract, change a setting) is never alone in any mode.
+  Every channel turn is `tainted`, so in `accept_edits` a commit asked for by a
+  customer's message is proposed even though the mode would otherwise allow
+  it; only `auto` lets a tainted turn commit, and the auto sentence says so.
+  `AiEmployee.mode` supersedes `autoReplyEnabled` (migrated once by SQL; the
+  column stays because dropping it is a data-loss push).
+- **Proposals** (`AiEmployeeProposal`, `lib/aiEmployee/proposals.js`,
+  `/api/ai-employee/proposals`): tool, exact arguments, risk, conversation
+  excerpt, expiry. Approve / edit-then-approve / decline on the settings page,
+  a badge in notifications (`ai_employee.proposal`). Approving runs the SAME
+  implementation through `runToolForCompany` with the row's companyId; the
+  approval carries the hash of the arguments the person read and a mismatch
+  is refused; a booking past its slot is marked stale, never executed.
+- **Website chat**: `SiteChatWidget` on `/site/*` and `/embed/<slug>/chat`
+  (the snippet is on the settings page), white-label with the employee's face
+  and name and the brand fill at measured contrast. A visitor's message goes
+  through `lib/messaging/ingest.js` on a per-company "web" `MessagingChannel`
+  row (`lib/aiEmployee/ownChannel.js`), so it is in Conversations with a
+  thread number, an unread count and the staff push; a human reply from the
+  inbox reaches the widget through the reply route's `sendOnChannel`. Visitor
+  token only in the browser. Rate-limited per IP and per visitor.
+- **SMS**: `/api/sms/inbound` files a non-keyword text on the holder company's
+  "sms" thread (`lib/aiEmployee/smsChannel.js`); STOP/START are classified
+  first and untouched. Exactly one holder → the employee answers (replies from
+  the system number, opt-out checked before every send). Several holders →
+  filed at each, `shared_line` activity written, no automatic reply. The
+  settings switch is greyed with one sentence until `PlatformSmsNumber`
+  purpose "system" exists.
+- **Tools**: `check_availability` (reversible) and `book_appointment`
+  (commits) through the phone receptionist's `bookableSlots` / `bookSlot` —
+  the self-booking page's `computeAvailableSlots`, Appointment + Booking,
+  `finalizeBooking`'s confirmation email — with a fee returning the booking
+  link instead; `send_instant_quote_link` (reversible, no price in it).
+  Closer: all; receptionist: booking, no quoting; troubleshooter and custom:
+  neither. `bookSlot` takes a `source` so the calendar badges "booked by the
+  AI employee".
+- **Face, name, voice, disclosure**: `displayName`, `avatarUrl` (the four
+  portraits under `public/ai-employees` or an upload), `voice`
+  (formal/friendly/brief — a style paragraph, never a capability). The first
+  reply on every thread opens with "Hi, I'm {name}, {Company}'s AI assistant"
+  in the customer's language, prepended by the responder, not left to the
+  model.
+- **One employee per role**: `@@unique([companyId, role])`; each row has its
+  own on/off switch (consequence sentence, audit row) and its own three
+  channel switches; one employee per channel, refused on conflict. Material
+  is company-wide.
+- **Best model**: `tier: "best"` on `runToolLoop` / `complete`
+  (`OPENAI_MODEL_BEST`, default `gpt-5.5`, documented in `docs/VERCEL.md`);
+  the employee runs on it, metered at its real rate; the check refuses a
+  default with no row in `PRICING`. The settings page states the model, a
+  typical conversation's cost (an estimate from a stated token average, in
+  `lib/ai/usage.js`), the month's tokens, and what happens when the allowance
+  runs out (stop, "someone will reply shortly", handed to a person with the
+  reason, `ai_employee.handoff` notification — never a cheaper model).
+  `/platform/costs` splits tenant AI spend by tier and by area.
+- **Checks**: `scripts/check-ai-employee.mjs` (407) — the whole mode × risk
+  matrix including floor-in-auto, every tool has a risk, proposals execute
+  only through the one executor with the row's companyId, hash binding,
+  stale never runs, web chat draft-in-ask / send-in-auto, SMS greyed without a
+  number, the single-holder rule, roles disjoint and complete, nine languages,
+  the tenant-isolation statements one by one.
+
+### Still owed here
+
+- The token cap is TOKEN-denominated (`lib/ai/usage.js`): a best-model token
+  costs FieldQuo roughly 40× a mini token but consumes the same allowance. A
+  weighted (cost-denominated) allowance is a pricing decision for the owner.
+- `book_appointment` books a free visit; a visit with a fee returns the
+  booking link. Taking the fee in-chat would be a `floor` action (money) and is
+  not built.
+- Web chat is text only; no attachments from the visitor.
+- The Meta inbox still waits on Meta's approval; the mode applies to it the
+  day it lands.
+
+---
+
 ## The platform rail says whose money and whose data each row is: seven folding groups, described on hover (19 September 2026)
 
 The owner: "the side menu seems all bunched up — it's hard to distinguish
