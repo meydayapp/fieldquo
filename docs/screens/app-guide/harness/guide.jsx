@@ -268,6 +268,24 @@ async function runScene(scene) {
     await wait(300);
     return;
   }
+  if (scene === "scroll-totals") {
+    // The builder's terms card — expiry, discount, tax, the total — with the
+    // fixed action bar under it: the frame that shows whether the bar's
+    // buttons and its own total share the width, or cover each other.
+    const el = await until("#quote-valid-until");
+    const card = el.closest(".rounded-xl") || el;
+    window.scrollTo(0, card.getBoundingClientRect().top + window.scrollY - 16);
+    await wait(300);
+    return;
+  }
+  if (scene === "scroll-offered") {
+    // The "Offered" list at the foot of the editor — the client-tickable
+    // extras, pre-filled from the catalogue (lib/quotes/offeredAddOns.js).
+    const el = await until("[data-offered-section]");
+    window.scrollTo(0, el.getBoundingClientRect().top + window.scrollY - 16);
+    await wait(300);
+    return;
+  }
   if (scene === "scroll-visits") {
     const el = await until('[data-tour="job-visits"]');
     window.scrollTo(0, el.getBoundingClientRect().top + window.scrollY - 16);

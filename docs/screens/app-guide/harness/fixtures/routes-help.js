@@ -15,7 +15,7 @@
 // clients" should see one business.
 import { COMPANY, PEOPLE, CLIENT, QUOTE, JOB, INVOICE, day, iso, TODAY } from "./company.js";
 import { EVENT_TYPES, SERVICE_CATEGORIES } from "./routes-settings-a.js";
-import { JOBS, INVOICES, PLANS, TASKS, J_318, INV_2069, INV_2066, Q_1042, Q_1044, LAVOIE, FORTIN, RIVENORD } from "./routes-work.js";
+import { JOBS, INVOICES, PLANS, TASKS, J_318, INV_2069, INV_2066, Q_1042, Q_1044, Q_1045, Q_1046, LAVOIE, FORTIN, RIVENORD } from "./routes-work.js";
 import { PAY_RUNS, PAY_RUN_LINES } from "./routes-money.js";
 import { CAMPAIGNS, PLANS as BILLING_PLANS } from "./routes-grow.js";
 import { W, TIME_ENTRIES, POLICIES, TEAM_REQUESTS, TEAM_BALANCES, INCIDENTS, CLOCK } from "./routes-people.js";
@@ -525,6 +525,76 @@ const QUOTE_1044_DOCUMENT = {
   paymentSchedule: parsePaymentSchedule(COMPANY.paymentTerms),
 };
 
+// ── /app/quotes/q_1046/edit and /app/quotes/q_1045/edit ─────────────────────
+// The two edit screens the owner compared: an instant-estimate draft and a
+// hand-built draft of the SAME service, each in the shape the product now
+// stores — the builder's own lines ("Cabinet Refinishing — doors × 25 @ per-
+// door rate", with the complexity meta), the intake counts, and the offered
+// extras seeded from the catalogue. The instant draft's client is the
+// Q-2026-0003 case: a US address with city, state and country on file and a
+// company default of 0%, so the tax line reads "not worked out" and the hint
+// names the place rather than asking for a country that is set. The only
+// visible difference between the two screens is the auto-estimated banner.
+const CAT_REFINISHING = SERVICE_CATEGORIES.find((c) => c.key === "cabinet_refinishing");
+const REFINISHING_LINES = [
+  { description: "Cabinet Refinishing — doors", quantity: 25, unit: "door", rate: 190, amount: 4750, meta: { baseUnitPrice: 190, complexityLevel: "standard", complexityReasons: [] } },
+  { description: "Cabinet Refinishing — drawer fronts", quantity: 10, unit: "drawer", rate: 190, amount: 1900, meta: { baseUnitPrice: 190, complexityLevel: "standard", complexityReasons: [] } },
+];
+const REFINISHING_GROUP = (id) => ({
+  id, label: null, subtotal: 6650, sortOrder: 0, categoryId: CAT_REFINISHING.id,
+  category: { id: CAT_REFINISHING.id, key: CAT_REFINISHING.key, label: CAT_REFINISHING.label, icon: CAT_REFINISHING.icon },
+  lineItems: REFINISHING_LINES,
+  takeoff: null,
+  intakeValues: { doorCount: 25, drawerCount: 10, complexityLevel: "standard" },
+});
+const OFFERED_FROM_CATALOGUE = (prefix) => [
+  { id: `${prefix}a`, description: "Soft-Close Hinges (25 × door)", detail: "Install soft-close hinges, per door.", amount: 875, taxable: true, sortOrder: 50, source: "catalog", selected: false, selectedAt: null },
+  { id: `${prefix}b`, description: "Two-Tone Finish", detail: "Second colour — additional masking, staging and spray cycles.", amount: 600, taxable: true, sortOrder: 51, source: "catalog", selected: false, selectedAt: null },
+];
+const BRAVO = { id: "cl_bravo", name: "Jonny Bravo", contactName: null, email: "jonny.bravo@example.com", phone: "+1 212 555 0100", address: "5th Ave, New York, NY, USA", city: "New York", province: "NY", country: "US", postalCode: null, county: "New York County", language: "en" };
+const QUOTE_1046_DETAIL = {
+  ...Q_1046,
+  subtotal: 6650, tax: 0, taxTotal: 0, total: 6650, discount: 0, taxEnabled: true, language: "en",
+  acceptedTotal: null, notes: null, processNotes: COMPANY.defaultProcessNotes, clientPhotos: [],
+  historicalImportedAt: null, clientDesignAt: null, sentToEmail: null, followUpSentAt: null, followUpCount: 0,
+  canOpenKitchenDesigner: false, importedGroupIds: [], validUntil: iso(day(29)),
+  createdVia: "instant_quote",
+  clientId: BRAVO.id,
+  client: BRAVO,
+  company: { currency: COMPANY.currency, outboundCallsEnabled: true },
+  invoices: [],
+  appointments: [],
+  jobs: [],
+  scopeGroups: [REFINISHING_GROUP("sg_1046a")],
+  addOns: OFFERED_FROM_CATALOGUE("ao_1046"),
+  reviewNotes: "When needed: Within a month\nActive leak: No",
+};
+const QUOTE_1045_DETAIL = {
+  ...Q_1045,
+  subtotal: 6650, tax: 997.5, taxTotal: 997.5, total: 7647.5, discount: 0, taxEnabled: true,
+  acceptedTotal: null, notes: null, processNotes: COMPANY.defaultProcessNotes, clientPhotos: [],
+  historicalImportedAt: null, clientDesignAt: null, sentToEmail: null, followUpSentAt: null, followUpCount: 0,
+  canOpenKitchenDesigner: false, importedGroupIds: [], validUntil: iso(day(29)),
+  createdVia: "staff",
+  client: { id: FORTIN.id, name: FORTIN.name, contactName: null, email: FORTIN.email, phone: FORTIN.phone, address: FORTIN.address, city: FORTIN.city, province: FORTIN.province, country: FORTIN.country, postalCode: FORTIN.postalCode, language: FORTIN.language },
+  company: { currency: COMPANY.currency, outboundCallsEnabled: true },
+  invoices: [],
+  appointments: [],
+  jobs: [],
+  scopeGroups: [REFINISHING_GROUP("sg_1045a")],
+  addOns: OFFERED_FROM_CATALOGUE("ao_1045"),
+  reviewNotes: null,
+};
+const EDIT_ROUTES = (detail) => [
+  { path: `/api/quotes/${detail.id}`, method: "GET", reply: () => detail },
+  { path: `/api/quotes/${detail.id}/costing`, method: "GET", reply: () => ({ ...QUOTE_COSTING, price: detail.subtotal, saved: false, labourHours: 26.25, labourCost: 1181.25, materialTotal: 612, overhead: 665, estimatedCost: 2458.25, profit: 4191.75, marginPct: 63, crew: [], groups: [] }) },
+  { path: `/api/quotes/${detail.id}/review`, method: "GET", reply: () => ({ review: null, reviewedAt: null }) },
+  { path: `/api/quotes/${detail.id}/add-ons`, method: "GET", reply: () => detail.addOns },
+  { path: `/api/quotes/${detail.id}/vision`, method: "GET", reply: () => ({ passes: [], spend: null }) },
+  { path: `/api/quotes/${detail.id}/email-sections`, method: "GET", reply: () => ({ ...EMAIL_SECTIONS, quoteId: detail.id }) },
+  { path: `/api/quotes/${detail.id}/imports`, method: "GET", reply: () => ({ asSource: [], asImporter: [] }) },
+];
+
 // ── /app/jobs/j_318 ─────────────────────────────────────────────────────────
 // app/api/jobs/[id]: the row with quote, client, visits (assignee, checklist,
 // location stamps), payment stages and change orders. Day one of the
@@ -919,6 +989,8 @@ export const ROUTES_HELP = [
   { path: `/api/quotes/${Q_1044.id}/costing`, method: "GET", reply: forbidden },
   { path: `/api/quotes/${Q_1044.id}/email-sections`, method: "GET", reply: () => ({ ...EMAIL_SECTIONS, quoteId: Q_1044.id }) },
   { path: `/api/quotes/${Q_1044.id}/imports`, method: "GET", reply: () => ({ asSource: [], asImporter: [] }) },
+  ...EDIT_ROUTES(QUOTE_1046_DETAIL),
+  ...EDIT_ROUTES(QUOTE_1045_DETAIL),
   { path: `/api/jobs/${JOB.id}`, method: "GET", reply: crewOr(() => CREW_JOB, () => JOB_DETAIL) },
   { path: `/api/jobs/${JOB.id}/costing`, method: "GET", reply: crewOr(forbidden, () => JOB_COSTING) },
   { path: `/api/jobs/${JOB.id}/subcontractors`, method: "GET", reply: crewOr(forbidden, () => ({ rows: [], roster: [], visits: JOB_DETAIL.visits.map((v) => ({ id: v.id, scheduledAt: v.scheduledAt })), imports: [], canManage: true, canSeeMoney: true })) },

@@ -283,7 +283,9 @@ ok("and says the floor is what produced it", small.minimumApplied === true);
 eq("the breakdown still adds up to what is charged", sum(small), BOOK.minimumTotal);
 eq(
   "with the top-up on a line of its own",
-  small.breakdown.at(-1),
+  // `line` is the builder-shaped row the draft stores for it
+  // (lib/estimate/estimateLines.js); the homeowner's record keeps label + amount.
+  { label: small.breakdown.at(-1)?.label, amount: small.breakdown.at(-1)?.amount },
   { label: "Job minimum adjustment", amount: 2300 },
 );
 // The bug report the flag exists for: two different jobs must not silently
@@ -508,8 +510,15 @@ eq("with the hinges in the total", quoteWrite?.data?.total, 5250 + 32 * 35);
 eq("filed under the refinishing category", quoteWrite?.data?.scopeGroups?.create?.[0]?.categoryId, CATEGORY.id);
 eq(
   "and line items that explain the figure",
+  // The builder's own line shape — "<service> — doors × 32 @ rate" — not the
+  // public page's one-liner (lib/estimate/estimateLines.js).
   quoteWrite?.data?.lineItems?.map((l) => l.description),
-  ["32 doors refinished", "3 drawer fronts", "Soft-close hinges"],
+  ["Cabinet Refinishing — doors", "Cabinet Refinishing — drawer fronts", "Soft-close hinges"],
+);
+eq(
+  "…counted rather than flattened: 32 doors at the per-door rate",
+  quoteWrite?.data?.lineItems?.[0]?.quantity,
+  32,
 );
 eq(
   "the measurement snapshot keeps the door material the caller named",

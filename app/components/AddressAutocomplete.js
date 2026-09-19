@@ -160,10 +160,16 @@ export default function AddressAutocomplete({
         let province = "";
         let postalCode = "";
         let country = "";
+        // administrative_area_level_2 — a US county ("Westchester County"), the
+        // level a US sales-tax rate is set at below the state. Additive like
+        // postalCode; a caller that ignores it loses nothing.
+        let county = "";
         for (const component of place.address_components || []) {
           if (component.types.includes("locality")) city = component.long_name;
           if (component.types.includes("administrative_area_level_1"))
             province = component.short_name;
+          if (component.types.includes("administrative_area_level_2"))
+            county = component.long_name;
           if (component.types.includes("postal_code"))
             postalCode = component.long_name;
           if (component.types.includes("country"))
@@ -195,6 +201,7 @@ export default function AddressAutocomplete({
           city,
           province,
           postalCode,
+          county,
           country,
           lat: typeof lat === "number" ? lat : null,
           lng: typeof lng === "number" ? lng : null,

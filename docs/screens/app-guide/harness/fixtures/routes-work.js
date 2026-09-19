@@ -89,7 +89,7 @@ export const Q_1042 = { ...QUOTE, autoEstimated: false, needsReview: false, assi
 export const Q_1044 = quote("q_1044", "Q-1044", "Kitchen refacing — 22 doors, painted maple", "sent", LAVOIE, 9800, {
   created: day(-5, 14), sent: day(-4, 10), validUntil: day(26),
 });
-const Q_1045 = quote("q_1045", "Q-1045", "Bathroom vanity — walnut, wall-hung", "draft", BENALI, 4850, {
+export const Q_1045 = quote("q_1045", "Q-1045", "Bathroom vanity — walnut, wall-hung", "draft", BENALI, 4850, {
   created: day(-1, 16, 20),
 }, { assignedTo: who(MARC), assignedToId: MARC.userId });
 const Q_1039 = quote("q_1039", "Q-1039", "Walk-in closet — melamine, custom", "declined", HADDAD, 6200, {
@@ -101,7 +101,7 @@ const Q_1039 = quote("q_1039", "Q-1039", "Walk-in closet — melamine, custom", 
 // the receptionist took). /api/quotes/estimate-reviews selects a narrow shape
 // and the review card reads estimateData.{measurement,range,unit,materialKey,
 // budget,breakdown}, reviewNotes, recordingHref and assignedTo.
-const Q_1046 = {
+export const Q_1046 = {
   ...quote("q_1046", "Q-1046", "Instant estimate — kitchen, shaker painted", "draft", BELANGER, 14200, {
     created: day(0, 7, 42),
   }, { autoEstimated: true, needsReview: true, assignedTo: null, assignedToId: null, client: { name: BELANGER.name, email: BELANGER.email, phone: BELANGER.phone, address: `${BELANGER.address}, ${BELANGER.city}` } }),

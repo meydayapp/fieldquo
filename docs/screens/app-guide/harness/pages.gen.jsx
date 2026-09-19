@@ -101,7 +101,8 @@ import P98 from "@/app/app/clients/import/page.js";
 import P99 from "@/app/app/jobs/import/page.js";
 import P100 from "@/app/accept-invitation/[id]/page.js";
 import P101 from "@/app/signup/page.js";
-import P102 from "@/docs/screens/app-guide/harness/TakeoffFrame.jsx";
+import P102 from "@/app/app/quotes/[id]/edit/page.js";
+import P103 from "@/docs/screens/app-guide/harness/TakeoffFrame.jsx";
 export const PAGES = {
   "app/app/page.js": P0,
   "app/app/copilot/page.js": P1,
@@ -205,5 +206,6 @@ export const PAGES = {
   "app/app/jobs/import/page.js": P99,
   "app/accept-invitation/[id]/page.js": P100,
   "app/signup/page.js": P101,
-  "docs/screens/app-guide/harness/TakeoffFrame.jsx": P102,
+  "app/app/quotes/[id]/edit/page.js": P102,
+  "docs/screens/app-guide/harness/TakeoffFrame.jsx": P103,
 };

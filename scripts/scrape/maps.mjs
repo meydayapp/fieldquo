@@ -27,7 +27,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { db } from "@/lib/db";
-import { applyListing, enrichmentPairs, meterLocalScrape, searchTermForTrade } from "@/lib/sales/intel/listings";
+import { applyListing, meterLocalScrape, searchTermForTrade } from "@/lib/sales/intel/listings";
+import { loadEnrichmentOrder, pairsFromRows, ENRICHMENT_TIERS } from "@/lib/sales/intel/enrichmentOrder";
 import { ChallengeError, guardPage, launchBrowser, visit, wander, wheelIn } from "./lib/browser.mjs";
 import { FEED_BOUNDARY, boundsFromMapsUrl, geocodeBounds, planViewports, regionBounds, subdivide, textSearchUrl, tileSearchUrl, DEFAULT_TILE_ZOOM } from "./lib/geo.mjs";
 import { RunLog, emptySummary, latestRunId, newRunId, progressFrom } from "./lib/log.mjs";
@@ -99,6 +100,61 @@ export function pairsFromArgs(args) {
   return dedupePairs(out);
 }
 
+/**
+ * The (term, location) pairs the SHARED enrichment order implies — claimed
+ * leads first, then the next leads in each worked trade in the order the
+ * dispatcher would hand them out (lib/sales/intel/enrichmentOrder.js), so
+ * this sweep runs just ahead of the reps like the Places check and the BBB
+ * batch do. It replaced listings.js's enrichmentPairs stand-in, which read
+ * open claims only and so verified leads AFTER a rep already held them —
+ * the owner's ask on 2026-09-19: "so that the next set of leads they get
+ * have been verified by BBB and Google Places." `held` counts the claimed
+ * rows behind a pair; `ahead` the not-yet-handed-out ones.
+ */
+async function orderedPairs({ limit = 20 } = {}) {
+  // No "already done" stamp: the Places API check stamps placesCheckedAt,
+  // but this sweep reads the whole city feed — it corroborates every held
+  // row in it AND finds the businesses that are not in the pool yet, so a
+  // city whose held leads were API-checked is still worth the search. The
+  // run's own dedupe skips places already opened this run.
+  const order = await loadEnrichmentOrder({ db });
+  const rows = order.rows;
+  const ids = rows.map((r) => r.id);
+  const prospects = ids.length
+    ? await db.prospect.findMany({ where: { id: { in: ids } }, select: { id: true, tradeKey: true, city: true, province: true, country: true } })
+    : [];
+  const byId = new Map(prospects.map((p) => [p.id, p]));
+  const counts = new Map();
+  for (const r of rows) {
+    const p = byId.get(r.id);
+    if (!p?.tradeKey || !p?.city) continue;
+    const k = `${p.tradeKey}|${String(p.city).toLowerCase()}|${String(p.province || "").toLowerCase()}`;
+    const c = counts.get(k) || { held: 0, ahead: 0 };
+    if (r.tier === ENRICHMENT_TIERS.CLAIMED) c.held += 1;
+    else c.ahead += 1;
+    counts.set(k, c);
+  }
+  const out = [];
+  for (const p of pairsFromRows(rows, byId)) {
+    const term = searchTermForTrade(p.tradeKey);
+    if (!term) continue;
+    const city = String(p.city).trim().replace(/\s+/g, " ");
+    const cityLabel = city.toUpperCase() === city ? city.toLowerCase().replace(/\b\p{L}/gu, (ch) => ch.toUpperCase()) : city;
+    const c = counts.get(`${p.tradeKey}|${city.toLowerCase()}|${String(p.province || "").toLowerCase()}`) || { held: 0, ahead: 0 };
+    out.push({
+      term,
+      tradeKey: p.tradeKey,
+      location: [cityLabel, p.province].filter(Boolean).join(", "),
+      country: p.country,
+      held: c.held,
+      ahead: c.ahead,
+      reason: p.tier === ENRICHMENT_TIERS.CLAIMED ? "held" : "next in dispatch",
+    });
+    if (out.length >= Math.max(1, limit)) break;
+  }
+  return out;
+}
+
 function dedupePairs(pairs) {
   const seen = new Set();
   return pairs.filter((p) => {
@@ -117,7 +173,7 @@ function usage() {
   return `Google Maps scrape — runs on this Mac, feeds the prospect tables.
 
   --term "plumber" --location "Lakeside, CA" --country US   (repeatable)
-  --from-order --pairs 20        pairs from the enrichment order (held leads' trade × city)
+  --from-order --pairs 20        pairs from the shared enrichment order (held leads, then next in dispatch)
   --max-per-term 120             places opened per (term, location)
   --headless                     no window (visible by default)
   --plan                         print the pairs and viewport plan, open no browser
@@ -171,7 +227,7 @@ async function main() {
   // Pairs.
   let pairs = pairsFromArgs(args);
   if (args.fromOrder) {
-    const ordered = await enrichmentPairs({ db, limit: args.pairs });
+    const ordered = await orderedPairs({ limit: args.pairs });
     pairs = dedupePairs([...pairs, ...ordered]);
   }
   if (!pairs.length) {
@@ -186,7 +242,7 @@ async function main() {
       const region = regionBounds(p.location);
       const geo = region ? { bounds: region, via: "table" } : await geocodeBounds(p.location, { region: p.country });
       const plan = planViewports({ location: p.location, bounds: geo?.bounds || null, zoom: args.zoom, force: args.mode });
-      const held = p.held ? ` · ${p.held} held` : "";
+      const held = `${p.held ? ` · ${p.held} held` : ""}${p.ahead ? ` · ${p.ahead} next` : ""}`;
       const how = plan.mode === "single" ? `one search "${p.term} in ${p.location}"` : `${plan.tiles.length} viewports at ${args.zoom}z over ${plan.diagonalKm} km`;
       console.log(`  ${p.term.padEnd(28)} ${p.location.padEnd(28)} ${p.country}${held} — ${how}${geo ? ` (bounds via ${geo.via})` : " (no bounds yet — the browser will frame it)"}`);
     }

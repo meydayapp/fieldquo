@@ -28,6 +28,7 @@ import {
   requireCost,
 } from "./costingWrite";
 import { syncTakeoffAddOns } from "@/lib/quotes/takeoffAddOns";
+import { seedCatalogueAddOns } from "@/lib/quotes/offeredAddOns";
 import { withCapturedMeasureImages } from "@/lib/measure/measureImages";
 import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
 import { requireCreatedVia } from "@/lib/quotes/createdVia";
@@ -446,6 +447,20 @@ export async function POST(request) {
       });
     } catch (err) {
       console.error("[quotes POST] takeoff add-ons:", err?.message);
+    }
+    // The trade's extras from Settings > Products & Services, offered on this
+    // quote at the company's own prices and this quote's own counts — once,
+    // at creation, so a hand-built quote opens with the same "Offered" list
+    // an instant draft does (lib/quotes/offeredAddOns.js). Same best-effort
+    // contract as the takeoff rows above.
+    try {
+      await seedCatalogueAddOns(db, {
+        companyId: member.companyId,
+        quoteId: quote.id,
+        scopeGroups: quote.scopeGroups,
+      });
+    } catch (err) {
+      console.error("[quotes POST] catalogue add-ons:", err?.message);
     }
   }
 

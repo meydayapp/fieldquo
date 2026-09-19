@@ -152,6 +152,7 @@ export default function SuggestAddOns({
   const [reviewing, setReviewing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState(null);
+  const [edited, setEdited] = useState(false);
   const [error, setError] = useState("");
   const [dismissed, setDismissed] = useState([]);
 
@@ -165,6 +166,29 @@ export default function SuggestAddOns({
   const [visionSpend, setVisionSpend] = useState(null);
   const [visionRunning, setVisionRunning] = useState(false);
   const [visionError, setVisionError] = useState("");
+  // Per pass: { busy, done, error } for "Add to notes for review". The parent
+  // saves the text (QuoteBuilder posts it to /api/quotes/[id]/review-notes)
+  // and answers ok or not; this is where that answer is shown, because the
+  // box it landed in is nowhere near the button.
+  const [notesState, setNotesState] = useState({});
+  async function addPassToNotes(p, j) {
+    const key = p.at || j;
+    setNotesState((s) => ({ ...s, [key]: { busy: true } }));
+    const text = [
+      t("app.deepRead.notesHeading", {
+        when: p.at
+          ? new Date(p.at).toLocaleDateString(language || "en", { day: "numeric", month: "short" })
+          : "",
+      }),
+      ...p.notes.map((n) => `— ${n}`),
+    ].join("\n");
+    const result = await Promise.resolve(onReviewNotes(text)).catch((err) => ({ ok: false, error: err?.message }));
+    if (result && result.ok === false) {
+      setNotesState((s) => ({ ...s, [key]: { error: result.error || t("app.deepRead.addToNotesFailed") } }));
+    } else {
+      setNotesState((s) => ({ ...s, [key]: { done: true } }));
+    }
+  }
 
   // ── The deep read's own dead end, closed the same way the designer's was ──
   //
@@ -245,6 +269,36 @@ export default function SuggestAddOns({
       setReview(data.review);
       setReviewedAt(data.reviewedAt);
       setDismissed([]);
+      // ── The review's PRICED recommendations join the offered list ──────
+      //
+      // The estimator pressed Review to be told what to offer; making them
+      // press Add on each answer was a second ask for the same thing. A
+      // recommendation with a price — the median this company's own accepted
+      // quotes carried for it (lib/ai/quoteReview.js), never a model's guess
+      // — lands in the list with the review's one-line benefit as its detail
+      // and is saved at once, so it is offered even if nobody scrolls down.
+      // One without a price stays a suggestion with an Add button: an offer
+      // needs a number, and the estimator is the one who has it.
+      const priced = (data.review?.addOns || []).filter(
+        (s) =>
+          Number(s.amount) > 0 &&
+          !addOns.some((a) => a.description.trim().toLowerCase() === s.description.trim().toLowerCase()),
+      );
+      if (priced.length && !readOnly) {
+        const next = [
+          ...addOns,
+          ...priced.map((s) => ({
+            description: s.description,
+            detail: s.detail || "",
+            amount: s.amount,
+            taxable: true,
+            source: s.source === "history" ? "history" : "ai",
+          })),
+        ].slice(0, 8);
+        setAddOns(next);
+        setDismissed(priced.map((s) => s.description));
+        await save(next);
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -296,6 +350,7 @@ export default function SuggestAddOns({
       });
       setAddOns(saved);
       setSavedAt(Date.now());
+      setEdited(false);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -306,11 +361,13 @@ export default function SuggestAddOns({
   function update(i, patch) {
     setAddOns((prev) => prev.map((a, j) => (j === i ? { ...a, ...patch } : a)));
     setSavedAt(null);
+    setEdited(true);
   }
 
   function remove(i) {
     setAddOns((prev) => prev.filter((_, j) => j !== i));
     setSavedAt(null);
+    setEdited(true);
   }
 
   function addBlank() {
@@ -325,6 +382,7 @@ export default function SuggestAddOns({
       },
     ]);
     setSavedAt(null);
+    setEdited(true);
   }
 
   function acceptSuggestion(s) {
@@ -343,6 +401,7 @@ export default function SuggestAddOns({
     ]);
     setDismissed((prev) => [...prev, s.description]);
     setSavedAt(null);
+    setEdited(true);
   }
 
   if (!quoteId) {
@@ -373,7 +432,11 @@ export default function SuggestAddOns({
       ),
   );
 
-  const dirty = addOns.length > 0 && savedAt === null;
+  // Edited since the last load or save. This used to be "there are rows and
+  // nothing has been saved on THIS screen", which read "Unsaved" under a list
+  // that had just been loaded from the database — and now that every quote
+  // opens with its catalogue extras pre-filled, it read that on every open.
+  const dirty = edited;
 
   return (
     <Panel>
@@ -847,9 +910,9 @@ export default function SuggestAddOns({
 
           {visionPasses.length > 0 ? (
             <div className="mt-3 space-y-3">
-              {visionPasses.map((p, i) => (
+              {visionPasses.map((p, j) => (
                 <div
-                  key={p.at || i}
+                  key={p.at || j}
                   className="border border-dashed border-border rounded-lg px-3 py-2.5"
                 >
                   <p className="text-[11px] text-muted-foreground/70">
@@ -891,28 +954,27 @@ export default function SuggestAddOns({
                           site. Appends; never replaces what is already
                           written there. */}
                       {onReviewNotes && !readOnly && (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            onReviewNotes(
-                              [
-                                t("app.deepRead.notesHeading", {
-                                  when: p.at
-                                    ? new Date(p.at).toLocaleDateString(language || "en", {
-                                        day: "numeric",
-                                        month: "short",
-                                      })
-                                    : "",
-                                }),
-                                ...p.notes.map((n) => `— ${n}`),
-                              ].join("\n"),
-                            )
-                          }
-                          className="mt-2.5 text-xs font-semibold text-foreground underline"
-                          data-deep-read-to-notes
-                        >
-                          {t("app.deepRead.addToNotes")}
-                        </button>
+                        <div className="mt-2.5 flex items-center gap-2 flex-wrap">
+                          <button
+                            type="button"
+                            disabled={notesState[p.at || j]?.busy}
+                            onClick={() => addPassToNotes(p, j)}
+                            className="text-xs font-semibold text-foreground underline disabled:opacity-60"
+                            data-deep-read-to-notes
+                          >
+                            {notesState[p.at || j]?.busy ? t("app.deepRead.addingToNotes") : t("app.deepRead.addToNotes")}
+                          </button>
+                          {/* The answer, beside the button that was pressed —
+                              the box it wrote is two screens up. */}
+                          {notesState[p.at || j]?.done && (
+                            <span className="text-xs text-green-700 dark:text-green-400 inline-flex items-center gap-1" data-deep-read-added>
+                              <Check size={12} /> {t("app.deepRead.addedToNotes")}
+                            </span>
+                          )}
+                          {notesState[p.at || j]?.error && (
+                            <span className="text-xs text-red-700 dark:text-red-300">{notesState[p.at || j].error}</span>
+                          )}
+                        </div>
                       )}
                     </>
                   ) : (
@@ -977,7 +1039,7 @@ export default function SuggestAddOns({
         </div>
       )}
 
-      <div className="mt-5">
+      <div className="mt-5" data-offered-section>
         <div className="flex items-center justify-between gap-3">
           <p className="text-sm font-medium text-foreground">
             {t("app.quoteReview.offeredAtBottom")}
@@ -992,6 +1054,13 @@ export default function SuggestAddOns({
             </button>
           )}
         </div>
+        {/* What this list IS, in one line — the owner could not tell whether
+            it was the client's, the AI's or his. It is his: pre-filled from
+            his own catalogue (lib/quotes/offeredAddOns.js) and the review,
+            ticked by the client on their copy. */}
+        <p className="text-xs text-muted-foreground mt-1">
+          {t("app.quoteReview.offeredIntro")}
+        </p>
 
         {addOns.length === 0 ? (
           <p className="text-xs text-muted-foreground mt-2">
@@ -1066,6 +1135,18 @@ export default function SuggestAddOns({
                 {fromTakeoff && (
                   <p className="text-xs text-muted-foreground">
                     {t("app.quoteReview.fromTakeoff")}
+                  </p>
+                )}
+                {/* Where a pre-filled row came from, so "why is this here"
+                    has an answer on the row itself. Removable like any other. */}
+                {a.source === "catalog" && (
+                  <p className="text-xs text-muted-foreground" data-add-on-source="catalog">
+                    {t("app.quoteReview.fromCatalogue")}
+                  </p>
+                )}
+                {(a.source === "history" || a.source === "ai") && (
+                  <p className="text-xs text-muted-foreground" data-add-on-source="review">
+                    {t("app.quoteReview.fromReview")}
                   </p>
                 )}
 

@@ -2440,7 +2440,9 @@ model Client {
   /// ZIP or postal code, as Google Places returns it. The key into
   /// UsSalesTaxRate for a US client: without it the resolver can only name
   /// the state rate and says so (lib/tax/usRates.js). Null on rows that
-  /// predate the column; fills in as addresses are re-saved.
+  /// predate the column; fills in as addresses are re-saved — by the clients
+  /// screen, the builder's quick-add and the public instant estimator alike
+  /// (lib/estimate/createEstimateQuote.js stores the same components).
   postalCode  String?
   /// County (administrative_area_level_2), for the day a state's rate turns on
   /// it rather than on the ZIP. Not read by the resolver yet — the ZIP table

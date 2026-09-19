@@ -58,10 +58,15 @@
 
 import fs from "node:fs";
 import { createEstimateDraft } from "@/lib/estimate/createEstimateQuote";
+import { soloEstimatorFrom } from "@/lib/estimate/soloEstimator";
+import { lineItemsFromBreakdown, breakdownForRecord } from "@/lib/estimate/estimateLines";
+import { estimateCabinetRefinishing } from "@/lib/estimate/instantEstimate";
+import { billedUnitsOf } from "@/lib/quotes/builderPayload";
+import { catalogueAddOnsFor, seedCatalogueAddOns, CATALOGUE_ADD_ON_SOURCE } from "@/lib/quotes/offeredAddOns";
 import { measureForTrade, priceOneMaterial } from "@/lib/estimate/instantQuoteServer";
 import { taxStatement } from "@/lib/tax/documentTax";
 import { FALLBACK_LABOUR_RATE, FALLBACK_OVERHEAD_PCT } from "@/lib/costing/quoteCosting";
-import { rows, writes, resetDbStub } from "@/lib/db";
+import { rows, writes, resetDbStub, db } from "@/lib/db";
 
 let pass = 0;
 let fail = 0;
@@ -336,13 +341,19 @@ const NO_TAX_CO = {
   );
 }
 
-/* ═══════════════ 3. ASSIGNEE — absent and honestly flagged ═══════════════ */
+/* ═══════════════ 3. ASSIGNEE — the hand-built quote's own default ════════ */
 
-section("Nobody signed in means nobody named, and the draft says so honestly");
+section("The assignee defaults the way a hand-built quote's does: the one person who could have written it, or nobody");
 
+// Several people can write quotes: nobody is guessed. The review queue's
+// "assign to me" is where a human decides.
 {
   resetDbStub();
   rows.serviceCategory = [CABINET_CATEGORY];
+  rows.member = [
+    { id: "m1", companyId: NO_TAX_CO.id, userId: "u_owner", role: "owner", active: true },
+    { id: "m2", companyId: NO_TAX_CO.id, userId: "u_estimator", role: "employee", active: true },
+  ];
 
   await createEstimateDraft({
     // Required and deliberately not defaulted — see the parameter's own
@@ -360,12 +371,278 @@ section("Nobody signed in means nobody named, and the draft says so honestly");
   });
 
   const data = lastQuoteWrite();
-  ok("assignedToId is null — never guessed", data?.assignedToId === null, data?.assignedToId);
+  ok("with two estimators, assignedToId is null — never a guess between them", data?.assignedToId === null, data?.assignedToId);
   ok(
     "needsReview is true — the one flag that carries this into the review queue",
     data?.needsReview === true,
     data?.needsReview,
   );
+}
+
+// A one-person shop: the only member who can write quotes IS the estimator —
+// Q-2026-0003's company (one owner) opened its draft on "Unassigned" for no
+// reason anyone could act on. A deactivated second member does not count;
+// neither would a role without quote:create (none exists today — every role
+// holds it — so the deactivated case is the one that can actually happen).
+{
+  resetDbStub();
+  rows.serviceCategory = [CABINET_CATEGORY];
+  rows.member = [
+    { id: "m1", companyId: NO_TAX_CO.id, userId: "u_owner", role: "owner", active: true },
+    { id: "m2", companyId: NO_TAX_CO.id, userId: "u_gone", role: "employee", active: false },
+  ];
+
+  await createEstimateDraft({
+    createdVia: "instant_quote",
+    company: NO_TAX_CO,
+    trade: "cabinet_refinishing",
+    categoryId: CABINET_CATEGORY.id,
+    contact: { ...BASE_CONTACT, email: "solo@test.example" },
+    measurement: { doorCount: 32, drawerCount: 3 },
+    materialKey: null,
+    estimate: cabinetEstimate(5250),
+    source: "manual",
+    language: "en",
+  });
+
+  const data = lastQuoteWrite();
+  ok("a solo company's draft is assigned to its one estimator", data?.assignedToId === "u_owner", data?.assignedToId);
+  ok("…and still needs review — assignment is not approval", data?.needsReview === true, data?.needsReview);
+  ok("createdById stays null — a form created it, not a person", data?.createdById === undefined || data?.createdById === null, data?.createdById);
+}
+
+// The pure rule, executed on its own edges.
+ok("soloEstimatorFrom: one active owner → that owner", soloEstimatorFrom([{ userId: "a", role: "owner", active: true }]) === "a");
+ok("soloEstimatorFrom: two who can write quotes → null", soloEstimatorFrom([{ userId: "a", role: "owner" }, { userId: "b", role: "supervisor" }]) === null);
+ok("soloEstimatorFrom: nobody → null, never invented", soloEstimatorFrom([]) === null);
+ok("soloEstimatorFrom: an inactive second member does not split the decision", soloEstimatorFrom([{ userId: "a", role: "admin", active: true }, { userId: "b", role: "employee", active: false }]) === "a");
+
+/* ═══════ 6. LOOK AND FEEL — the draft's lines are the builder's lines ═══ */
+//
+// Q-2026-0003 opened with "25 doors refinished ×1 @ $4,750" and "10 drawer
+// fronts ×1 @ $1,900": flat one-liners a hand-built quote of the same kitchen
+// never shows — that one reads "Cabinet Refinishing — doors × 25 @ $190" with
+// the complexity meta the quote page explains a price with. Executed: the
+// estimator's own output, through the mapping the draft stores, into the
+// helper the editor counts billed faces with.
+
+section("An instant cabinet draft stores the same line shape a hand-built one does");
+
+{
+  const config = { perDoor: 190, perDrawer: 190, complexityUpchargePerUnit: { standard: 0, moderate: 20, high: 40 }, minCharge: 0, rangeBandPct: 0.15 };
+  const est = estimateCabinetRefinishing({ doorCount: 25, drawerCount: 10, complexityLevel: "standard" }, config);
+  ok("the estimator still prices the kitchen", est.ok && est.point === 6650, est.point);
+  const lines = lineItemsFromBreakdown(est.breakdown, { label: "Cabinet Refinishing" });
+  const doors = lines[0];
+  const drawers = lines[1];
+  ok("the doors line is the builder's: '<service> — doors'", doors?.description === "Cabinet Refinishing — doors", doors?.description);
+  ok("…counted, not a one-liner: 25 doors at the per-door rate", doors?.quantity === 25 && doors?.unit === "door" && doors?.rate === 190 && doors?.amount === 4750, doors);
+  ok("…the drawer fronts likewise", drawers?.quantity === 10 && drawers?.unit === "drawer" && drawers?.rate === 190 && drawers?.amount === 1900, drawers);
+  ok("…each carrying the reasons meta the quote page and the review read", doors?.meta?.complexityLevel === "standard" && doors?.meta?.baseUnitPrice === 190 && Array.isArray(doors?.meta?.complexityReasons), doors?.meta);
+  ok("the editor's billed-faces reminder counts both lines", billedUnitsOf({ lineItems: lines }) === 35, billedUnitsOf({ lineItems: lines }));
+  const record = breakdownForRecord(est.breakdown);
+  ok("what the homeowner saw stays label + amount, with no builder line on it", record.every((b) => !("line" in b) && b.label && Number.isFinite(b.amount)), record);
+  ok("…and the label is still the sentence the public page printed", record[0]?.label === "25 doors refinished", record[0]?.label);
+
+  // A moderate kitchen: the uplift rides on the rate and is named in the meta.
+  const mod = estimateCabinetRefinishing({ doorCount: 10, drawerCount: 0, complexityLevel: "moderate" }, config);
+  const modLine = lineItemsFromBreakdown(mod.breakdown, { label: "Cabinet Refinishing" })[0];
+  ok("a moderate kitchen's rate is base + uplift, and the meta says which", modLine?.rate === 210 && modLine?.meta?.baseUnitPrice === 190 && modLine?.meta?.complexityUpcharge === 20 && modLine?.meta?.complexityLevel === "moderate", modLine);
+
+  // An entry with no `line` (every non-cabinet trade today) is the flat line
+  // it always was — the change is additive.
+  const flat = lineItemsFromBreakdown([{ label: "24 squares of asphalt shingle", amount: 9600 }]);
+  ok("a breakdown entry without a line stays the flat line it was", flat[0]?.description === "24 squares of asphalt shingle" && flat[0]?.quantity === 1 && flat[0]?.rate === 9600 && flat[0]?.amount === 9600, flat[0]);
+}
+
+// Through the draft itself: the stored scope group carries those lines.
+{
+  resetDbStub();
+  rows.serviceCategory = [{ ...CABINET_CATEGORY, label: "Cabinet Refinishing" }];
+  const config = { perDoor: 190, perDrawer: 190, complexityUpchargePerUnit: { standard: 0 }, minCharge: 0, rangeBandPct: 0.15 };
+  const est = estimateCabinetRefinishing({ doorCount: 25, drawerCount: 10 }, config);
+  await createEstimateDraft({
+    createdVia: "instant_quote",
+    company: NO_TAX_CO,
+    trade: "cabinet_refinishing",
+    categoryId: CABINET_CATEGORY.id,
+    contact: { ...BASE_CONTACT, email: "shape@test.example" },
+    measurement: { doorCount: 25, drawerCount: 10 },
+    materialKey: null,
+    estimate: est,
+    source: "manual",
+    language: "en",
+  });
+  const data = lastQuoteWrite();
+  const group = data?.scopeGroups?.create?.[0];
+  ok("the scope group's first line is the counted doors line", group?.lineItems?.[0]?.quantity === 25 && group?.lineItems?.[0]?.unit === "door", group?.lineItems?.[0]);
+  ok("…and the quote's own lineItems mirror the group's", JSON.stringify(data?.lineItems) === JSON.stringify(group?.lineItems));
+  ok("estimateData.breakdown is the homeowner's record, line-free", (data?.estimateData?.breakdown || []).every((b) => !("line" in b)));
+  ok("the group's intake still carries the counts the cost panel reads", group?.intakeValues?.doorCount === 25 && group?.intakeValues?.drawerCount === 10, group?.intakeValues);
+}
+
+// The one visible difference an instant draft is allowed: the banner.
+{
+  const builder = fs.readFileSync("app/components/quotes/builder/QuoteBuilder.js", "utf8");
+  ok("the edit builder shows the auto-estimated banner on a draft, and only there", /isEdit && start\.quote\?\.autoEstimated && start\.status === "draft"/.test(builder) && /data-auto-estimated-banner/.test(builder));
+  ok("…and says why the assignee is empty when it is", /!start\.assignedTo && <p>\{t\("app\.quoteEdit\.autoEstimatedUnassigned"\)\}/.test(builder));
+  const { APP_MESSAGES } = await import("@/app/i18n/appMessages.js");
+  for (const key of ["app.quoteEdit.autoEstimatedTitle", "app.quoteEdit.autoEstimatedBody", "app.quoteEdit.autoEstimatedUnassigned"]) {
+    const missing = Object.keys(APP_MESSAGES).filter((l) => !APP_MESSAGES[l][key]);
+    ok(`${key} exists in every app language`, missing.length === 0, missing);
+  }
+}
+
+/* ═══════ 7. ADDRESS — the client this creates carries what a hand-added one does ═ */
+//
+// Q-2026-0003's client: "5th Ave, New York, NY, USA" with city, province and
+// country — and no postal code, because Google's formatted line had none and
+// the one it returned as a component was never stored. The funnel now posts
+// the postal code and the county; the draft stores them on the client the way
+// app/api/clients does for a hand-added one.
+
+section("The instant funnel's client carries the same address components as a hand-added client");
+
+{
+  resetDbStub();
+  rows.serviceCategory = [CABINET_CATEGORY];
+  await createEstimateDraft({
+    createdVia: "instant_quote",
+    company: NO_TAX_CO,
+    trade: "cabinet_refinishing",
+    categoryId: CABINET_CATEGORY.id,
+    contact: { ...BASE_CONTACT, email: "address@test.example" },
+    measurement: { doorCount: 12, drawerCount: 4 },
+    materialKey: null,
+    estimate: cabinetEstimate(3000),
+    source: "manual",
+    address: "5th Ave, New York, NY, USA",
+    city: "New York",
+    province: "NY",
+    country: "US",
+    postalCode: "10001",
+    county: "New York County",
+    language: "en",
+  });
+  const clientWrite = writes.find((w) => w.model === "client" && w.action === "create")?.data;
+  ok("the client row carries the postal code Google returned", clientWrite?.postalCode === "10001", clientWrite);
+  ok("…and the county (administrative_area_level_2)", clientWrite?.county === "New York County", clientWrite?.county);
+  ok("…beside the city, province and country it already carried", clientWrite?.city === "New York" && clientWrite?.province === "NY" && clientWrite?.country === "US", clientWrite);
+
+  resetDbStub();
+  rows.serviceCategory = [CABINET_CATEGORY];
+  await createEstimateDraft({
+    createdVia: "instant_quote",
+    company: NO_TAX_CO,
+    trade: "cabinet_refinishing",
+    categoryId: CABINET_CATEGORY.id,
+    contact: { ...BASE_CONTACT, email: "typed@test.example" },
+    measurement: { doorCount: 12, drawerCount: 4 },
+    materialKey: null,
+    estimate: cabinetEstimate(3000),
+    source: "manual",
+    address: "somewhere typed by hand",
+    postalCode: "   ",
+    county: 42,
+    language: "en",
+  });
+  const typed = writes.find((w) => w.model === "client" && w.action === "create")?.data;
+  ok("a typed address stores null, never '' and never a non-string", typed?.postalCode === null && typed?.county === null, typed);
+
+  const flow = fs.readFileSync("app/instant-quote/[companySlug]/InstantQuoteFlow.js", "utf8");
+  ok("the public form posts the postal code and county it got from the pick", /const \{ city, province, country, postalCode, county \} = siteJurisdiction;/.test(flow) && /county: place\.county \|\| ""/.test(flow));
+  const route = fs.readFileSync("app/api/instant-quote/[companySlug]/request/route.js", "utf8");
+  ok("…and the request route hands both to the draft", /postalCode: typeof postalCode === "string" \? postalCode : null/.test(route) && /county: typeof county === "string" \? county : null/.test(route));
+  const clientsRoute = fs.readFileSync("app/api/clients/route.js", "utf8");
+  ok("the hand-added client stores the same two through the same cleaner", /postalCode: cleanAddressPart\(postalCode\)/.test(clientsRoute) && /county: cleanAddressPart\(county\)/.test(clientsRoute));
+  const schema = fs.readFileSync("prisma/schema.prisma", "utf8");
+  const clientModel = schema.split("model Client {")[1]?.split("\n}")[0] || "";
+  ok("Client has the two columns", /\n\s+postalCode\s+String\?/.test(clientModel) && /\n\s+county\s+String\?/.test(clientModel));
+}
+
+/* ═══════ 8. OFFERED — the trade's extras, on both kinds of quote ════════ */
+//
+// "Nothing offered yet" under a section the owner could not place. The rows
+// are the client-tickable extras; they are now pre-filled from the company's
+// own Products & Services (the standard add-ons FieldQuo seeds per trade, at
+// the company's prices) when a quote is created — instant OR hand-built —
+// and priced from this quote's own counts. Executed against the stub.
+
+section("The Offered list is pre-filled from the company's own catalogue, priced from its rows and this quote's counts");
+
+const HINGES = { id: "p_hinges", name: "Soft-Close Hinges", description: "Install soft-close hinges, per door.", unit: "door", unitPrice: 35, active: true, categories: [{ id: CABINET_CATEGORY.id }] };
+const SLIDES = { id: "p_slides", name: "Soft-Close Drawer Slides", description: "Per drawer.", unit: "drawer", unitPrice: 45, active: true, categories: [{ id: CABINET_CATEGORY.id }] };
+const TWO_TONE = { id: "p_twotone", name: "Two-Tone Finish", description: "Second colour.", unit: "flat", unitPrice: 600, active: true, categories: [{ id: CABINET_CATEGORY.id }] };
+const HANDLES = { id: "p_handles", name: "New Handles — supply & install", unit: "each", unitPrice: 12, active: true, categories: [{ id: CABINET_CATEGORY.id }] };
+const FLOOR_ONLY = { id: "p_floor", name: "Stair nosing", unit: "flat", unitPrice: 90, active: true, categories: [{ id: "cat_flooring" }] };
+const RETIRED = { id: "p_old", name: "Glass Inserts", unit: "door", unitPrice: 85, active: false, categories: [{ id: CABINET_CATEGORY.id }] };
+const UNPRICED = { id: "p_free", name: "Colour consult", unit: "flat", unitPrice: 0, active: true, categories: [{ id: CABINET_CATEGORY.id }] };
+
+{
+  const rows = catalogueAddOnsFor({
+    groups: [{ categoryId: CABINET_CATEGORY.id, intakeValues: { doorCount: 25, drawerCount: 10 } }],
+    products: [HINGES, SLIDES, TWO_TONE, HANDLES, FLOOR_ONLY, RETIRED, UNPRICED],
+  });
+  const names = rows.map((r) => r.description);
+  ok("per-door hinges are priced at the company's rate × THIS quote's door count", rows.find((r) => r.description.startsWith("Soft-Close Hinges"))?.amount === 875, rows);
+  ok("…and the row says what it counted", names.includes("Soft-Close Hinges (25 × door)"), names);
+  ok("per-drawer slides likewise, × the drawer count", rows.find((r) => r.description.startsWith("Soft-Close Drawer Slides"))?.amount === 450);
+  ok("a flat product is offered as-is", rows.find((r) => r.description === "Two-Tone Finish")?.amount === 600);
+  ok("a per-'each' product this quote cannot count is NOT offered at its unit price", !names.some((n) => n.startsWith("New Handles")), names);
+  ok("another trade's product is not offered on a cabinet quote", !names.includes("Stair nosing"));
+  ok("a retired product is not offered", !names.some((n) => n.startsWith("Glass Inserts")));
+  ok("an unpriced product is not offered — a $0 tick is not an offer", !names.includes("Colour consult"));
+  ok("every row carries the catalogue source and the product's own one-line benefit", rows.every((r) => r.source === CATALOGUE_ADD_ON_SOURCE) && rows[0].detail === "Install soft-close hinges, per door.");
+  ok("…and nothing is offered when the quote has no counts for a per-unit product", catalogueAddOnsFor({ groups: [{ categoryId: CABINET_CATEGORY.id, intakeValues: {} }], products: [HINGES] }).length === 0);
+  const many = Array.from({ length: 12 }, (_, i) => ({ ...TWO_TONE, id: `p${i}`, name: `Extra ${i}` }));
+  ok("capped at the editor's own eight", catalogueAddOnsFor({ groups: [{ categoryId: CABINET_CATEGORY.id }], products: many }).length === 8);
+}
+
+// Through the instant draft: the rows are written for the new quote.
+{
+  resetDbStub();
+  rows.serviceCategory = [{ ...CABINET_CATEGORY, label: "Cabinet Refinishing" }];
+  rows.product = [{ ...HINGES, companyId: NO_TAX_CO.id }, { ...TWO_TONE, companyId: NO_TAX_CO.id }];
+  await createEstimateDraft({
+    createdVia: "instant_quote",
+    company: NO_TAX_CO,
+    trade: "cabinet_refinishing",
+    categoryId: CABINET_CATEGORY.id,
+    contact: { ...BASE_CONTACT, email: "offered@test.example" },
+    measurement: { doorCount: 25, drawerCount: 10 },
+    materialKey: null,
+    estimate: cabinetEstimate(6650),
+    source: "manual",
+    language: "en",
+  });
+  const seeded = writes.find((w) => w.model === "quoteAddOn" && w.action === "createMany")?.data || [];
+  ok("an instant draft is created with the trade's extras offered", seeded.length === 2, seeded);
+  ok("…priced from the company's rows and the homeowner's counts", seeded.find((r) => r.description.startsWith("Soft-Close Hinges"))?.amount === 875 && seeded.find((r) => r.description === "Two-Tone Finish")?.amount === 600, seeded);
+  const quoteId = writes.find((w) => w.model === "quote" && w.action === "create")?.data ? rows.quote.at(-1)?.id : null;
+  ok("…on the draft itself", seeded.every((r) => r.quoteId && r.quoteId === quoteId), { quoteId, seeded });
+
+  // Seeded ONCE: a quote that already offers something is left alone.
+  const again = await seedCatalogueAddOns(db, { companyId: NO_TAX_CO.id, quoteId, scopeGroups: [{ categoryId: CABINET_CATEGORY.id, intakeValues: { doorCount: 25 } }] });
+  ok("re-running the seed on a quote that already offers extras writes nothing", again === 0, again);
+}
+
+// The hand-built path seeds the same rows, the editor keeps the source, and
+// the panel says where they came from.
+{
+  const post = fs.readFileSync("app/api/quotes/route.js", "utf8");
+  ok("POST /api/quotes seeds the same catalogue rows for a hand-built quote", /seedCatalogueAddOns\(db, \{\s*companyId: member\.companyId,\s*quoteId: quote\.id,\s*scopeGroups: quote\.scopeGroups,/.test(post));
+  const put = fs.readFileSync("app/api/quotes/[id]/add-ons/route.js", "utf8");
+  ok("PUT /api/quotes/[id]/add-ons keeps the catalogue source on a re-save", /\["manual", "history", "ai", CATALOGUE_ADD_ON_SOURCE\]\.includes\(a\.source\)/.test(put));
+  const panel = fs.readFileSync("app/components/quotes/SuggestAddOns.js", "utf8");
+  ok("the panel says in one line what the list is and who ticks it", /app\.quoteReview\.offeredIntro/.test(panel));
+  ok("…labels a catalogue row and a review row on the row itself", /data-add-on-source="catalog"/.test(panel) && /data-add-on-source="review"/.test(panel));
+  ok("…and a priced review recommendation joins the list and is saved, an unpriced one stays a suggestion", /Number\(s\.amount\) > 0 &&/.test(panel) && /await save\(next\);/.test(panel));
+  const { APP_MESSAGES } = await import("@/app/i18n/appMessages.js");
+  for (const key of ["app.quoteReview.offeredIntro", "app.quoteReview.fromCatalogue", "app.quoteReview.fromReview"]) {
+    const missing = Object.keys(APP_MESSAGES).filter((l) => !APP_MESSAGES[l][key]);
+    ok(`${key} exists in every app language`, missing.length === 0, missing);
+  }
+  ok("the intro names the client as the one who ticks, and the catalogue as the source", /client/i.test(APP_MESSAGES.en["app.quoteReview.offeredIntro"]) && /Products & Services/.test(APP_MESSAGES.en["app.quoteReview.offeredIntro"]));
 }
 
 /* ═════════ #5 — pricing functions ignore money smuggled into intake ══════ */

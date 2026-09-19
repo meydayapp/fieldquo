@@ -42,6 +42,11 @@ export const rows = {
   // write since 2026-09-19. Empty means "never set", which resolves to the
   // shared 20% default — the same state a fresh company is in.
   forecastSettings: [],
+  // The US ZIP rates table (lib/tax/usRates.js attachUsTaxRate), read by
+  // createEstimateDraft since 2026-09-19 for a US client. Empty means "no
+  // row for that ZIP", which resolves to the state floor with the sentence
+  // saying so — the same state a ZIP the loader has not covered is in.
+  usSalesTaxRate: [],
   // Marketing campaign sends (app/api/marketing/campaigns/[id]/send) — added
   // so the resumable-send guard can be exercised as real code, not read off
   // the source: "a retry skips whoever already has a delivery row" is a
@@ -70,6 +75,11 @@ export const rows = {
   // regex would have passed on the version that couldn't.
   member: [],
   pendingTeamProfile: [],
+  // The company's Products & Services and a quote's offered extras — read
+  // and written by lib/quotes/offeredAddOns.js, which createEstimateDraft
+  // and POST /api/quotes call to seed the "Offered" list at creation.
+  product: [],
+  quoteAddOn: [],
   // "Was this helpful?" votes from the public help centre
   // (app/api/help/feedback). check-help-centre.mjs executes the route and
   // reads the write back to prove the row carries slug/lang/helpful and
@@ -204,6 +214,8 @@ export function resetDbStub() {
   rows.marketingCampaignDelivery = [];
   rows.member = [];
   rows.pendingTeamProfile = [];
+  rows.product = [];
+  rows.quoteAddOn = [];
   rows.subscription = [];
   rows.plan = [];
   rows.messagingChannel = [];
@@ -575,10 +587,13 @@ export const db = new Proxy(
     companyServiceCategory: model("companyServiceCategory"),
     materialRecipeSetting: model("materialRecipeSetting"),
     forecastSettings: model("forecastSettings"),
+    usSalesTaxRate: model("usSalesTaxRate"),
     marketingCampaign: model("marketingCampaign"),
     marketingSubscriber: model("marketingSubscriber"),
     member: model("member"),
     pendingTeamProfile: model("pendingTeamProfile"),
+    product: model("product"),
+    quoteAddOn: model("quoteAddOn"),
     helpFeedback: model("helpFeedback"),
     subscription: model("subscription"),
     plan: model("plan"),

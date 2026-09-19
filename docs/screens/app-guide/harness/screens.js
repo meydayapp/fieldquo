@@ -227,5 +227,15 @@ export const SCREENS = [
   // A quote still out with the client — the page with Send again, Follow up
   // and Get approved on it (Q-1042 above is approved and converted).
   { slug: "quote-detail-sent", href: "/app/quotes", page: "app/app/quotes/[id]/page.js", params: { id: "q_1044" }, chapter: "help" },
+  // The instant draft and the hand-built draft of the same service, in the
+  // editor — the only visible difference is the auto-estimated banner — and
+  // the instant one at phone width, where the totals bar's three buttons and
+  // the total have to share 375px (scripts/check-quote-builder.mjs).
+  { slug: "quote-edit-instant", href: "/app/quotes", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1046" }, height: 680, chapter: "help" },
+  { slug: "quote-edit-manual", href: "/app/quotes", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1045" }, height: 680, chapter: "help" },
+  { slug: "quote-edit-instant-totals", href: "/app/quotes", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1046" }, height: 680, scene: "scroll-totals", chapter: "help" },
+  { slug: "quote-edit-instant-mobile", href: "/app/quotes", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1046" }, width: 375, height: 812, chapter: "help" },
+  { slug: "quote-edit-instant-mobile-totals", href: "/app/quotes", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1046" }, width: 375, height: 812, scene: "scroll-totals", chapter: "help" },
+  { slug: "quote-edit-instant-offered", href: "/app/quotes", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1046" }, height: 680, scene: "scroll-offered", chapter: "help" },
   ...INTRO_FRAMES,
 ];

@@ -442,6 +442,16 @@ export async function POST(request, { params }) {
       notes: cleanNotes,
       createdById: eventType.userId,
       assignedToId: eventType.userId,
+      // ── The estimate this visit is for, on the row the quote page reads ──
+      //
+      // The verified link used to land on the Booking row ONLY (below), and
+      // nothing on the quote page reads Booking: /api/quotes/[id] includes
+      // `appointments` — Appointment.quoteId — so a homeowner who booked a
+      // measure straight after their instant estimate had a visit on the
+      // calendar and a quote page still saying "No visit scheduled yet".
+      // Same verified id on both rows, so the calendar's "about" link, the
+      // quote's site-visit panel and the confirmation letter agree.
+      ...(linkedQuoteId && { quoteId: linkedQuoteId }),
     },
   });
 

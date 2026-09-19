@@ -70,7 +70,10 @@ section("4. Deep-read findings go to the notes for review, never to the client")
 ok(/onReviewNotes/.test(ui) && /data-deep-read-to-notes/.test(ui), "each deep-read pass has an Add-to-notes button");
 ok(/onReviewNotes && !readOnly/.test(ui), "…only when the caller wired it and the quote is still editable");
 ok(/app\.deepRead\.notesHeading/.test(ui) && /p\.notes\.map\(\(n\) => `— \$\{n\}`\)/.test(ui), "…and it writes a dated heading plus one dash per finding");
-ok(/onReviewNotes=\{\(text\) =>/.test(builder) && /setReviewNotes\(\(current\) =>/.test(builder), "the builder appends it to reviewNotes — the INTERNAL box");
+// Since 2026-09-19 the append is SAVED through /api/quotes/[id]/review-notes
+// (scripts/check-review-notes.mjs executes the route); the builder adopts the
+// merged note the server returns into reviewNotes — still the INTERNAL box.
+ok(/onReviewNotes=\{async \(text\) =>/.test(builder) && /review-notes`/.test(builder) && /setReviewNotes\(typeof saved\?\.reviewNotes === "string"/.test(builder), "the builder appends it to reviewNotes — the INTERNAL box — through the append route");
 ok(!/onReviewNotes=\{setProcessNotes\}|onReviewNotes=\{setNotes\}/.test(builder), "…never to processNotes or the client-facing notes");
 ok(/onProcessNotes=\{setProcessNotes\}/.test(builder), "the what-happens-next Use-this still goes where it went");
 

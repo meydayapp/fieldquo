@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 19 September 2026 (the quote review reads cost and margin: margin against the company's target, a price per unit of measured work, and what closed jobs say the margin really is, with "Apply to this quote" and "Update my costing" — see the section below)
+Last updated: 19 September 2026 (the instant-estimate draft opens in the same editor a hand-built quote does — the owner's seven items on Q-2026-0003: the builder's own lines, the auto-estimated banner, the phone action bar, the tax hint that names the place, the homeowner's visit on the quote, the solo estimator as assignee, a deep-read note that saves, and the Offered list pre-filled from the catalogue — see the section below)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -10,6 +10,81 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+
+## The instant-estimate draft opens in the same editor a hand-built quote does: the owner's seven items on Q-2026-0003 (19 September 2026)
+
+The owner walked through instant-quote draft Q-2026-0003 (TrueFinish
+Cabinets, a New York homeowner, 25 doors and 10 drawer fronts) and listed
+seven things. Each was found, fixed and executed in a check; the two edit
+screens are photographed side by side in the harness (rows 124–129).
+
+1. **Look and feel.** The draft stored "25 doors refinished ×1 @ $4,750" —
+   a one-liner nobody could recount — where a hand-built quote of the same
+   kitchen stores "Cabinet Refinishing — doors × 25 @ $190" with the
+   complexity meta. The estimators now emit each breakdown entry as the
+   homeowner's label AND the builder-shaped line (`lib/estimate/
+   estimateLines.js`); `estimateData.breakdown` keeps only what the homeowner
+   saw. `billedUnitsOf` moved to `lib/quotes/builderPayload.js` and counts the
+   door and drawer lines, so the cost-only intake box says "bills 35 units".
+   The one visible difference left is the "Auto-estimated — review before
+   sending" banner at the top of the edit screen, drafts only.
+2. **The action bar.** At 375px an edit's three buttons were wider than the
+   bar and drew over "Total incl. tax $6,650.00", Save & send off the edge.
+   Below sm the total now takes a row of its own and the buttons the next,
+   wrapping (French) rather than clipping; "Save" is the phone label.
+3. **Tax.** The "not worked out" hint asked to "set the client's country and
+   province" for a client with both on file. It now names the place: "No tax
+   rate is known for New York, NY yet — enter the rate, or switch tax off"
+   (`lib/quotes/taxPlace.js`). The instant funnel posts the postal code and
+   the county Google returned, and the client it creates stores them through
+   the same cleaner the clients screen and the builder's quick-add use
+   (`Client.postalCode` / `Client.county`; `formatAddress` prints the code
+   when the formatted line lacks it). The US rate itself is another agent's
+   work (`lib/tax/*`).
+4. **The booked visit.** The confirm route verified the draft's id and wrote
+   it onto the Booking row only; the quote page reads `Appointment.quoteId`.
+   Both booking paths now write it onto the Appointment, and an
+   auto-estimated draft attaches its unlinked visits — the verified booking,
+   or a same-client visit booked within 24 h — on its next read
+   (`lib/quotes/linkInstantVisits.js`). Read-only count in production at the
+   time: 1 (Q-2026-0003's own visit).
+5. **Assignee.** A one-person company's draft opens assigned to its one
+   estimator, the way a hand-built quote defaults to its author
+   (`lib/estimate/soloEstimator.js`); with several it stays unassigned and
+   the banner says why. `createdById` stays null — a form created it.
+6. **"Add to notes for review".** It appended to a textarea two screens up,
+   made no request and lost the text on reload. It now saves at once through
+   `POST /api/quotes/[id]/review-notes` (append-only; hands back `updatedAt`
+   so the builder's next Save is not a stale write), answers beside the
+   button and scrolls the box into view. `scripts/route-stub-hooks.mjs`
+   lets `check:review-notes` execute the handler.
+7. **"Offered".** The client-tickable extras. Pre-filled at creation on both
+   paths from Settings > Products & Services for the trade — hinges at the
+   company's per-door rate × this quote's door count, a two-tone finish flat,
+   never a per-unit price the quote cannot count (`lib/quotes/
+   offeredAddOns.js`) — each row labelled with its source and removable; a
+   priced review recommendation joins the list with the review's one-line
+   benefit; the intro line says the client ticks them on their copy.
+
+Nine languages throughout. Checks: `check:instant-quote-draft` (84),
+`check:site-visit`, `check:quote-builder` (sections 11–12),
+`check:review-notes` (new), `check:call-refinishing`, `check:photo-notes`.
+
+### Still owed here
+
+- Only the cabinet estimators emit builder-shaped lines; roofing, flooring,
+  stairs, countertop and the rest still store the flat label line. Their
+  takeoffs already reach the group, so the editor's cost side is right; the
+  document line is the remaining gap, trade by trade.
+- The instant draft's edit screen re-uses the stored tax figure like any
+  edit; it does not re-resolve. When the US resolver lands, an unresolved
+  draft could re-resolve on open.
+- `check:paid-refusals` has one pre-existing failure on main (the deep-read
+  price formats in the reader's locale, the check expects "en") and
+  `check:destructure-arity` one (`app/api/sales/badges/route.js`); neither
+  gates the build.
+
+---
 
 ## The quote review reads cost and margin: against the target, per unit of work, and against what closed jobs really cost (19 September 2026)
 

@@ -15,6 +15,7 @@ import {
 } from "@/lib/permissions/enforce";
 import { isSupported } from "@/app/i18n/languages";
 import { normaliseCountry } from "@/lib/tax/jurisdictions";
+import { cleanAddressPart } from "@/lib/format/address";
 import { emailRefusal, cleanEmail } from "@/lib/validation";
 
 // Next 16: params is a Promise.
@@ -97,9 +98,9 @@ export async function PATCH(request, { params }) {
     address,
     city,
     province,
+    country,
     postalCode,
     county,
-    country,
     notes,
     language,
   } = body;
@@ -145,15 +146,12 @@ export async function PATCH(request, { params }) {
       ...(address !== undefined && { address }),
       ...(city !== undefined && { city }),
       ...(province !== undefined && { province }),
-      // The address autocomplete has always returned these; the forms sent
-      // them; this is where they were dropped. The ZIP is the key into the US
-      // rates table (lib/tax/usRates.js).
-      ...(postalCode !== undefined && { postalCode: postalCode ? String(postalCode).trim() : null }),
-      ...(county !== undefined && { county: county ? String(county).trim() : null }),
       // "" clears it (the contractor removing a wrong country), while an
       // unparseable value writes null rather than storing junk the tax lookup
       // would later have to interpret.
       ...(country !== undefined && { country: normaliseCountry(country) }),
+      ...(postalCode !== undefined && { postalCode: cleanAddressPart(postalCode) }),
+      ...(county !== undefined && { county: cleanAddressPart(county) }),
       ...(notes !== undefined && { notes }),
       // "" clears it back to the company default; an unsupported code is
       // ignored rather than written, so a stale value from an older client
@@ -182,9 +180,9 @@ export async function PATCH(request, { params }) {
     ["address", address],
     ["city", city],
     ["province", province],
+    ["country", country],
     ["postalCode", postalCode],
     ["county", county],
-    ["country", country],
     ["language", language],
   ]
     .filter(([field, value]) => value !== undefined && value !== existing[field])

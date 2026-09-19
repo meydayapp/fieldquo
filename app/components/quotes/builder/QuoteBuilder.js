@@ -100,6 +100,7 @@ import {
   lineItemsFromStored,
   applyLineItemEdit,
   newScopeGroup,
+  billedUnitsOf,
 } from "@/lib/quotes/builderPayload";
 import { lineFromProduct, lineFromSuggestion } from "@/lib/quotes/lineDetail";
 import { explainTaxSource, renderTaxNote } from "@/lib/tax/resolveTaxRate";
@@ -109,6 +110,7 @@ import { quoteTotals, round2 } from "@/lib/quotes/totals";
 import { formatAppMoney } from "@/lib/format/money";
 import { defaultValidUntil } from "@/lib/quotes/validUntil";
 import { visibleLineItems } from "@/lib/quotes/scopeGroupDisplay";
+import { taxPlaceOf } from "@/lib/quotes/taxPlace";
 import { splitLawnLines } from "@/lib/quotes/lawnLines";
 import { planRequiredFrom } from "@/lib/signup/planRequired";
 import { LANGUAGES } from "@/app/i18n/languages";
@@ -170,19 +172,8 @@ function groupFromStored(g, importedIds, fallbackLabel) {
   };
 }
 
-/**
- * How many units a saved group actually bills for.
- *
- * Read off the stored base line rather than the intake, because the intake is
- * exactly what is missing on the groups this is shown for. Used only as
- * context beside the cost-only intake boxes — never to fill them in.
- */
-export function billedUnitsOf(group) {
-  const lines = Array.isArray(group?.lineItems) ? group.lineItems : [];
-  const base = lines.find((l) => l && l.unit === "unit" && l.meta);
-  const n = Number(base?.quantity);
-  return Number.isFinite(n) && n > 0 ? n : 0;
-}
+// billedUnitsOf lives in lib/quotes/builderPayload.js now (pure, so the
+// instant-draft check can execute it against a stored instant group).
 
 /**
  * Everything the form starts from, in one shape, whichever mode it is in.
@@ -757,6 +748,7 @@ export function QuoteBuilderForm({
     // country the province is inert (see lib/tax/documentTax.js).
     city: "",
     postalCode: "",
+    county: "",
     province: "",
     country: "",
   });
@@ -777,6 +769,8 @@ export function QuoteBuilderForm({
   // because `notes` goes on the PDF the homeowner opens, and one forgotten
   // deletion would put "we couldn't work out what you meant" in front of them.
   const [reviewNotes, setReviewNotes] = useState(start.reviewNotes || "");
+  // So "Add to notes for review" can bring the box it wrote into view.
+  const reviewNotesRef = useRef(null);
   const [processNotes, setProcessNotes] = useState(
     // On a create, the company's default is what the saved quote WILL carry,
     // so the box opens holding it rather than blank — editing it now writes a
@@ -1818,6 +1812,31 @@ export function QuoteBuilderForm({
         </div>
       )}
 
+      {/* ── The ONE thing an instant-estimate draft shows that a hand-built
+          quote does not ──────────────────────────────────────────────────
+          Everything below this banner is the same editor, the same sections
+          in the same order, the same service card and the same line table a
+          quote an estimator built opens in; the draft's lines were stored in
+          the builder's own shape for exactly that reason (lib/estimate/
+          estimateLines.js). What is different is that nobody here has stood
+          behind the number yet, and that is said here, once, at the top —
+          not by a different-looking screen. Drafts only: once approved and
+          sent it is a quote like any other. */}
+      {isEdit && start.quote?.autoEstimated && start.status === "draft" && (
+        <div
+          className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-xl px-4 py-3 text-sm text-amber-900 dark:text-amber-200 space-y-1"
+          data-auto-estimated-banner
+        >
+          <p className="font-semibold">{t("app.quoteEdit.autoEstimatedTitle")}</p>
+          <p>{t("app.quoteEdit.autoEstimatedBody")}</p>
+          {/* Why the picker below opens on nobody: with more than one person
+              able to write quotes, the draft was left for the review queue to
+              claim rather than handed to a guess. A solo company's one
+              estimator is already named (lib/estimate/soloEstimator.js). */}
+          {!start.assignedTo && <p>{t("app.quoteEdit.autoEstimatedUnassigned")}</p>}
+        </div>
+      )}
+
       {/* Said once, plainly, instead of rendering live inputs over a refusal.
           PATCH rejects scopeGroups on a decided quote — the lines below are
           read-only and this save carries everything else. */}
@@ -2259,7 +2278,7 @@ export function QuoteBuilderForm({
           that the client never sees it, and clears to nothing once the
           estimator has dealt with what it says. */}
       {reviewNotes ? (
-        <div className="bg-card border border-amber-300 dark:border-amber-800 rounded-xl p-5">
+        <div ref={reviewNotesRef} className="bg-card border border-amber-300 dark:border-amber-800 rounded-xl p-5">
           <h2 className="font-semibold text-foreground mb-1">
             {t("app.quoteNew.reviewNotes")}
           </h2>
@@ -2313,6 +2332,10 @@ export function QuoteBuilderForm({
         taxNote={taxNote}
         taxCaution={taxCaution}
         taxAssumed={taxAssumed}
+        // The client's place, for the "not worked out" hint — see the prop.
+        // Only a place the record can actually name; a client with no
+        // country still gets the sentence that asks for one.
+        taxPlace={taxPlaceOf(selectedClient)}
         taxSchemeNote={taxSchemeNote}
         // Only where a reduced construction rate actually exists for the
         // company's country. Most member states have none, and offering a
@@ -2391,8 +2414,11 @@ export function QuoteBuilderForm({
         primaryLabel={
           isEdit ? t("app.quoteEdit.saveChanges") : t("app.quoteNew.saveAsDraft")
         }
+        // The one word that fits beside Cancel and Save & send at 375px —
+        // see the bar. "Save changes" beside both is what pushed the row
+        // over the total.
         primaryLabelShort={
-          isEdit ? t("app.quoteEdit.saveChanges") : t("app.quoteNew.saveAsDraftShort")
+          isEdit ? t("app.quoteEdit.saveChangesShort") : t("app.quoteNew.saveAsDraftShort")
         }
         onSaveDraft={() => handleSave("draft")}
         // Sending is offered while the quote is still open. On a decided quote
@@ -2507,9 +2533,30 @@ export function QuoteBuilderForm({
           // The deep read's findings land in the internal notes for review —
           // appended under what is there, so a phone draft's own note and two
           // reads on different days all survive together.
-          onReviewNotes={(text) =>
-            setReviewNotes((current) => (current?.trim() ? `${current.trimEnd()}\n\n${text}` : text))
-          }
+          //
+          // SAVED at once, through the append route, not only put in the box:
+          // the box is two screens up and only exists once it has text, so
+          // the press looked like nothing happened, and a reload before the
+          // builder's own Save lost it. The route hands back the merged note
+          // and the new updatedAt; the second is what keeps the next Save
+          // from being refused as a stale write (see `version`).
+          onReviewNotes={async (text) => {
+            try {
+              const saved = await fetchJson(`/api/quotes/${quoteId}/review-notes`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: jsonBody({ append: text }, "review note"),
+              });
+              setReviewNotes(typeof saved?.reviewNotes === "string" ? saved.reviewNotes : text);
+              if (saved?.updatedAt) setVersion(saved.updatedAt);
+              // Shown, not only stored: scroll the box the text landed in into
+              // view on the next paint, once it exists.
+              setTimeout(() => reviewNotesRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 0);
+              return { ok: true };
+            } catch (err) {
+              return { ok: false, error: err?.message || t("app.quoteEdit.saveError") };
+            }
+          }}
           autoReview={autoReview}
         />
       )}
