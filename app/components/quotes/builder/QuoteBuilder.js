@@ -110,6 +110,7 @@ import { quoteTotals, round2 } from "@/lib/quotes/totals";
 import { formatAppMoney } from "@/lib/format/money";
 import { defaultValidUntil } from "@/lib/quotes/validUntil";
 import { visibleLineItems } from "@/lib/quotes/scopeGroupDisplay";
+import { taxPlaceOf } from "@/lib/quotes/taxPlace";
 import { splitLawnLines } from "@/lib/quotes/lawnLines";
 import { planRequiredFrom } from "@/lib/signup/planRequired";
 import { LANGUAGES } from "@/app/i18n/languages";
@@ -745,6 +746,7 @@ export function QuoteBuilderForm({
     // country the province is inert (see lib/tax/documentTax.js).
     city: "",
     postalCode: "",
+    county: "",
     province: "",
     country: "",
   });
@@ -2320,6 +2322,10 @@ export function QuoteBuilderForm({
         taxNote={taxNote}
         taxCaution={taxCaution}
         taxAssumed={taxAssumed}
+        // The client's place, for the "not worked out" hint — see the prop.
+        // Only a place the record can actually name; a client with no
+        // country still gets the sentence that asks for one.
+        taxPlace={taxPlaceOf(selectedClient)}
         taxSchemeNote={taxSchemeNote}
         // Only where a reduced construction rate actually exists for the
         // company's country. Most member states have none, and offering a

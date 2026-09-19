@@ -257,12 +257,13 @@ export default function ClientPicker({
                 // "unknown" exactly like one with no address at all. Google
                 // returns it as short_name, which is already the ISO alpha-2
                 // the lookup wants.
-                onPlaceSelected={({ address, city, province, postalCode, country }) =>
+                onPlaceSelected={({ address, city, province, postalCode, county, country }) =>
                   onNewClientChange({
                     address,
                     city: city || undefined,
                     province: province || undefined,
                     postalCode: postalCode || undefined,
+                    county: county || undefined,
                     country: country || undefined,
                   })
                 }

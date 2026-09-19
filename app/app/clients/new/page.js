@@ -43,6 +43,10 @@ export default function NewClientPage() {
     address: "",
     city: "",
     province: "",
+    // The rest of what the autocomplete returns, stored so this record matches
+    // one the instant estimator creates. Empty when typed by hand.
+    postalCode: "",
+    county: "",
     // Empty = not set, which is a real answer the tax lookup understands. The
     // company's own country is deliberately NOT used as a seed — see
     // CountrySelect.
@@ -232,13 +236,14 @@ export default function NewClientPage() {
           <AddressAutocomplete
             value={form.address}
             onChange={(v) => set("address", v)}
-            onPlaceSelected={({ address, city, province, postalCode, country }) =>
+            onPlaceSelected={({ address, city, province, postalCode, county, country }) =>
               setForm((prev) => ({
                 ...prev,
                 address,
                 city: city || prev.city,
                 province: province || prev.province,
                 postalCode: postalCode || prev.postalCode,
+                county: county || prev.county,
                 // Google returns short_name here, which is already the
                 // ISO alpha-2 the tax lookup wants. It always did; there was
                 // simply nowhere to put it until Client.country existed.

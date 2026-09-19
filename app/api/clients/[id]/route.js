@@ -15,6 +15,7 @@ import {
 } from "@/lib/permissions/enforce";
 import { isSupported } from "@/app/i18n/languages";
 import { normaliseCountry } from "@/lib/tax/jurisdictions";
+import { cleanAddressPart } from "@/lib/format/address";
 import { emailRefusal, cleanEmail } from "@/lib/validation";
 
 // Next 16: params is a Promise.
@@ -98,6 +99,8 @@ export async function PATCH(request, { params }) {
     city,
     province,
     country,
+    postalCode,
+    county,
     notes,
     language,
   } = body;
@@ -147,6 +150,8 @@ export async function PATCH(request, { params }) {
       // unparseable value writes null rather than storing junk the tax lookup
       // would later have to interpret.
       ...(country !== undefined && { country: normaliseCountry(country) }),
+      ...(postalCode !== undefined && { postalCode: cleanAddressPart(postalCode) }),
+      ...(county !== undefined && { county: cleanAddressPart(county) }),
       ...(notes !== undefined && { notes }),
       // "" clears it back to the company default; an unsupported code is
       // ignored rather than written, so a stale value from an older client
@@ -176,6 +181,8 @@ export async function PATCH(request, { params }) {
     ["city", city],
     ["province", province],
     ["country", country],
+    ["postalCode", postalCode],
+    ["county", county],
     ["language", language],
   ]
     .filter(([field, value]) => value !== undefined && value !== existing[field])

@@ -83,6 +83,11 @@ export async function POST(request, { params }) {
     // alpha-2 — and absent when they typed the address by hand, which is the
     // honest "we don't know" rather than a guess.
     city, province, country,
+    // The rest of the Places components — the postal code and the county
+    // (administrative_area_level_2) — for the client record, so the client
+    // this creates carries what a hand-added one does. Strings, capped and
+    // trimmed on the write; never read for a price.
+    postalCode, county,
     // "When do you need this done?", the trade's own question(s) and the
     // free-text note — validated below against lib/leads/tradeQuestions.js.
     whenNeeded, answers, notes,
@@ -200,6 +205,8 @@ export async function POST(request, { params }) {
     city: city || null,
     province: province || null,
     country: normaliseCountry(country),
+    postalCode: typeof postalCode === "string" ? postalCode : null,
+    county: typeof county === "string" ? county : null,
     language,
     // What the homeowner said about timing and the trade's own questions,
     // plus their note — kept on the draft and put in front of the reviewer

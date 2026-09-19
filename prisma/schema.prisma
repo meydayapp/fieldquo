@@ -2376,6 +2376,16 @@ model Client {
   /// edited — the address autocomplete has always returned country and simply
   /// had nowhere to put it.
   country     String?
+  /// The rest of what Google's autocomplete hands back for the address, kept
+  /// so the record carries the same components whichever door the client
+  /// came in through — the quick-add in the builder, the clients screen or
+  /// the public instant estimator (Q-2026-0003's client had a formatted line
+  /// with no postal code in it, and nothing stored the one Google knew).
+  /// `county` is administrative_area_level_2 — a US county, a UK county —
+  /// which is what a US sales-tax rate hangs off below the state. Null when
+  /// the address was typed by hand: absence stays absence, never inferred.
+  postalCode  String?
+  county      String?
   notes       String?
   // Language this client is written to in. Drives quote/invoice PDFs, emails
   // and the client portal. Null falls back to Company.defaultLanguage.

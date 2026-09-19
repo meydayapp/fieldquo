@@ -77,6 +77,17 @@ export default function QuoteTotalsBar({
   // company's country operates a reduced VAT rate for renovation work. Null
   // everywhere else, including Canada and the US.
   taxVat = null,
+  // ── Where the client is, when the rate could not be worked out ──────────
+  //
+  // The "not worked out" hint below used to tell everyone to "set the
+  // client's country and province" — including the estimator looking at a
+  // New York client whose country and province were BOTH on file (the US
+  // path deliberately applies no rate, see lib/tax/jurisdictions.js). A
+  // sentence asking for something already done reads as the software being
+  // broken. So the builder hands in the place it already knows ("New York,
+  // NY") and the hint names it: no rate is known for THAT place yet. Null
+  // when the address really is missing, and the old sentence is right.
+  taxPlace = null,
   total,
   taxEnabled,
   onTaxToggle,
@@ -295,8 +306,10 @@ export default function QuoteTotalsBar({
             </div>
           )}
           {taxEnabled && Number(tax) === 0 && (
-            <p className="text-xs text-amber-700 dark:text-amber-300 leading-snug">
-              {t("app.tax.line.unresolvedHint")}
+            <p className="text-xs text-amber-700 dark:text-amber-300 leading-snug" data-tax-unresolved-hint>
+              {taxPlace
+                ? t("app.tax.line.unresolvedHintPlace", { place: taxPlace })
+                : t("app.tax.line.unresolvedHint")}
             </p>
           )}
           <div className="flex justify-between font-semibold text-foreground text-base pt-1 border-t border-border mt-1">

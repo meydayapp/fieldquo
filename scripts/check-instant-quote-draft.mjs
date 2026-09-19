@@ -492,6 +492,73 @@ section("An instant cabinet draft stores the same line shape a hand-built one do
   }
 }
 
+/* ═══════ 7. ADDRESS — the client this creates carries what a hand-added one does ═ */
+//
+// Q-2026-0003's client: "5th Ave, New York, NY, USA" with city, province and
+// country — and no postal code, because Google's formatted line had none and
+// the one it returned as a component was never stored. The funnel now posts
+// the postal code and the county; the draft stores them on the client the way
+// app/api/clients does for a hand-added one.
+
+section("The instant funnel's client carries the same address components as a hand-added client");
+
+{
+  resetDbStub();
+  rows.serviceCategory = [CABINET_CATEGORY];
+  await createEstimateDraft({
+    createdVia: "instant_quote",
+    company: NO_TAX_CO,
+    trade: "cabinet_refinishing",
+    categoryId: CABINET_CATEGORY.id,
+    contact: { ...BASE_CONTACT, email: "address@test.example" },
+    measurement: { doorCount: 12, drawerCount: 4 },
+    materialKey: null,
+    estimate: cabinetEstimate(3000),
+    source: "manual",
+    address: "5th Ave, New York, NY, USA",
+    city: "New York",
+    province: "NY",
+    country: "US",
+    postalCode: "10001",
+    county: "New York County",
+    language: "en",
+  });
+  const clientWrite = writes.find((w) => w.model === "client" && w.action === "create")?.data;
+  ok("the client row carries the postal code Google returned", clientWrite?.postalCode === "10001", clientWrite);
+  ok("…and the county (administrative_area_level_2)", clientWrite?.county === "New York County", clientWrite?.county);
+  ok("…beside the city, province and country it already carried", clientWrite?.city === "New York" && clientWrite?.province === "NY" && clientWrite?.country === "US", clientWrite);
+
+  resetDbStub();
+  rows.serviceCategory = [CABINET_CATEGORY];
+  await createEstimateDraft({
+    createdVia: "instant_quote",
+    company: NO_TAX_CO,
+    trade: "cabinet_refinishing",
+    categoryId: CABINET_CATEGORY.id,
+    contact: { ...BASE_CONTACT, email: "typed@test.example" },
+    measurement: { doorCount: 12, drawerCount: 4 },
+    materialKey: null,
+    estimate: cabinetEstimate(3000),
+    source: "manual",
+    address: "somewhere typed by hand",
+    postalCode: "   ",
+    county: 42,
+    language: "en",
+  });
+  const typed = writes.find((w) => w.model === "client" && w.action === "create")?.data;
+  ok("a typed address stores null, never '' and never a non-string", typed?.postalCode === null && typed?.county === null, typed);
+
+  const flow = fs.readFileSync("app/instant-quote/[companySlug]/InstantQuoteFlow.js", "utf8");
+  ok("the public form posts the postal code and county it got from the pick", /const \{ city, province, country, postalCode, county \} = siteJurisdiction;/.test(flow) && /county: place\.county \|\| ""/.test(flow));
+  const route = fs.readFileSync("app/api/instant-quote/[companySlug]/request/route.js", "utf8");
+  ok("…and the request route hands both to the draft", /postalCode: typeof postalCode === "string" \? postalCode : null/.test(route) && /county: typeof county === "string" \? county : null/.test(route));
+  const clientsRoute = fs.readFileSync("app/api/clients/route.js", "utf8");
+  ok("the hand-added client stores the same two through the same cleaner", /postalCode: cleanAddressPart\(postalCode\)/.test(clientsRoute) && /county: cleanAddressPart\(county\)/.test(clientsRoute));
+  const schema = fs.readFileSync("prisma/schema.prisma", "utf8");
+  const clientModel = schema.split("model Client {")[1]?.split("\n}")[0] || "";
+  ok("Client has the two columns", /\n\s+postalCode\s+String\?/.test(clientModel) && /\n\s+county\s+String\?/.test(clientModel));
+}
+
 /* ═════════ #5 — pricing functions ignore money smuggled into intake ══════ */
 
 section("The pricing functions reprice from company config, never from the browser (#5)");

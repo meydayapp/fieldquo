@@ -718,8 +718,8 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
         payload.address = siteAddress.trim();
         // Only the pieces Google actually returned. The server normalises the
         // country and ignores anything it doesn't recognise.
-        const { city, province, country } = siteJurisdiction;
-        Object.assign(payload, { city, province, country });
+        const { city, province, country, postalCode, county } = siteJurisdiction;
+        Object.assign(payload, { city, province, country, postalCode, county });
       }
       if (byTrace(trade.measure)) payload.polygon = polygon;
       if (trade.measure === "lawn_address") {
@@ -1232,7 +1232,8 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
                       // This kept the formatted string alone, so a homeowner
                       // who picked a real suggestion still produced a client
                       // the tax resolver could say nothing about. The postal
-                      // code rides along for the service-area check only.
+                      // code and county go to the client record too, so the
+                      // client this creates carries what a hand-added one does.
                       onPlaceSelected={(place) => {
                         setSiteAddress(place.address);
                         setSiteJurisdiction({
@@ -1240,6 +1241,7 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
                           province: place.province || "",
                           country: place.country || "",
                           postalCode: place.postalCode || "",
+                          county: place.county || "",
                         });
                       }}
                       placeholder={t.jobAddressPlaceholder}

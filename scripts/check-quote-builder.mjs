@@ -56,6 +56,8 @@ import {
   ImportError,
 } from "@/lib/quotes/importQuote";
 import { visibleLineItems } from "@/lib/quotes/scopeGroupDisplay";
+import { taxPlaceOf } from "@/lib/quotes/taxPlace";
+import { APP_MESSAGES } from "@/app/i18n/appMessages.js";
 
 let fail = 0;
 const ok = (name, pass, detail = "") => {
@@ -1021,6 +1023,30 @@ section("10. A takeoff group opens with NO seeded line — the calculator is the
   // A takeoff group never loses the ability to hold genuine extras.
   const withExtra = { ...roof, lineItems: [{ description: "Disposal bin", quantity: 1, unit: "flat", rate: 350, amount: 350 }] };
   eq("10e: an extra typed under a takeoff group adds to the calculator's figure", groupSubtotal(withExtra), round2(roofSum + 350));
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+
+section("11. The tax hint never asks for a country and province already on file");
+
+// Q-2026-0003: client US / NY / New York, company default 0% — tax switched
+// on, nothing charged, and the hint said "set the client's country and
+// province". Both were set. The hint now names the place instead.
+{
+  eq("11a: a US client with city, state and country → 'New York, NY'", taxPlaceOf({ country: "US", province: "NY", city: "New York" }), "New York, NY");
+  eq("11b: no city but a county → the county stands in", taxPlaceOf({ country: "US", province: "NY", county: "Westchester County" }), "Westchester County, NY");
+  eq("11c: province and country only → the province", taxPlaceOf({ country: "CA", province: "QC" }), "QC");
+  eq("11d: no country → null, and the old 'set the country' sentence is right", taxPlaceOf({ province: "ON", city: "Ottawa" }), null);
+  eq("11e: no province → null likewise", taxPlaceOf({ country: "US", city: "Austin" }), null);
+  eq("11f: nothing → null", taxPlaceOf(null), null);
+
+  const bar = read("app/components/quotes/builder/QuoteTotalsBar.js");
+  ok("11g: the totals bar picks the place sentence when it has a place, the generic one otherwise", /taxPlace\s*\?\s*t\("app\.tax\.line\.unresolvedHintPlace", \{ place: taxPlace \}\)\s*:\s*t\("app\.tax\.line\.unresolvedHint"\)/.test(bar), "");
+  const builderSrc = read("app/components/quotes/builder/QuoteBuilder.js");
+  ok("11h: …and the builder hands it the selected client's place", /taxPlace=\{taxPlaceOf\(selectedClient\)\}/.test(builderSrc), "");
+  const missing = Object.keys(APP_MESSAGES).filter((l) => !APP_MESSAGES[l]["app.tax.line.unresolvedHintPlace"]);
+  eq("11i: the sentence exists in every app language", missing, []);
+  ok("11j: …and the English never asks for the country or province", !/country|province/i.test(APP_MESSAGES.en["app.tax.line.unresolvedHintPlace"]), APP_MESSAGES.en["app.tax.line.unresolvedHintPlace"]);
 }
 
 // ───────────────────────────────────────────────────────────────────────────
