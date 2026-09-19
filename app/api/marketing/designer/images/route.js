@@ -15,6 +15,7 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { imageStyleKey, styledPrompt } from "@/lib/ai/imageStyles";
 import { randomUUID } from "node:crypto";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
@@ -51,6 +52,9 @@ export async function POST(request) {
   if (!prompt) {
     return NextResponse.json({ error: "A prompt is required." }, { status: 400 });
   }
+  // The look is a preset, photorealistic unless the person picked another —
+  // lib/ai/imageStyles.js. The browser sends the key; the clause is ours.
+  const style = imageStyleKey(body?.style);
   // The browser sends a URL, never a raw file — the reference photo already
   // lives in Cloudinary (uploaded through /api/upload like any other job
   // photo), and this route resizes and re-fetches it server-side. See
@@ -109,7 +113,7 @@ export async function POST(request) {
     }).catch(() => {});
 
   try {
-    const generated = await generateMarketingImage({ prompt, referencePhotoUrl });
+    const generated = await generateMarketingImage({ prompt: styledPrompt(prompt, style), referencePhotoUrl });
 
     if (!generated?.url) {
       await refund("Refund — image generation failed");

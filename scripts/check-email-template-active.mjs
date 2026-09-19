@@ -80,10 +80,14 @@ for (const [type, meta] of Object.entries(TEMPLATE_TYPE_META)) {
   }
 }
 
+// Both render through templateBody(rule.template) / templateBody(campaign.
+// template) rather than reading `.sections` themselves: the template row may
+// carry a canvas as well as blocks, and lib/email/templateBody.js is the one
+// place that decides which body a send renders (scripts/check-canvas-email.mjs).
 ok("follow_up_email is sent by the follow-up cron, which picks the RULE's template by id",
-  /include: \{ template: true \}/.test(SEND_PATHS.cron) && /rule\.template\.sections/.test(SEND_PATHS.cron) && !/isDefault/.test(SEND_PATHS.cron));
+  /include: \{ template: true \}/.test(SEND_PATHS.cron) && /templateBody\(rule\.template/.test(SEND_PATHS.cron) && !/isDefault/.test(SEND_PATHS.cron));
 ok("marketing/custom are sent by the campaign route, which picks the CAMPAIGN's template by id",
-  /template: true/.test(SEND_PATHS.campaign) && /campaign\.template\.sections/.test(SEND_PATHS.campaign) && !/isDefault/.test(SEND_PATHS.campaign));
+  /template: true/.test(SEND_PATHS.campaign) && /templateBody\(campaign\.template/.test(SEND_PATHS.campaign) && !/isDefault/.test(SEND_PATHS.campaign));
 ok("the quote email is built from the document, never from a DocumentTemplate",
   !/documentTemplate/.test(SEND_PATHS.quoteEmail) && !/renderTemplateSections/.test(SEND_PATHS.quoteEmail));
 ok("the quote SEND route reads a template only for the PDF attachment (quote_pdf), never an email type",

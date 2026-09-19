@@ -491,4 +491,17 @@ ok(/image_generation:\s*"marketing_designer"/.test(SPEND_GATE), "FEATURE_FOR_KIN
 ok(/image_vision:\s*"ai_vision"/.test(SPEND_GATE), "…and image_vision → ai_vision");
 
 console.log(`\n${fail === 0 ? "All" : fail + " of"} checks ${fail === 0 ? "passed" : "failed"}.\n`);
+
+// ── The look is a preset, photorealistic unless picked (owner, 2026-09-19) ──
+{
+  const { styledPrompt, imageStyleKey, DEFAULT_IMAGE_STYLE, STYLE_KEYS } = await import("@/lib/ai/imageStyles");
+  const dflt = styledPrompt("a freshly painted living room");
+  ok(dflt.startsWith("Photorealistic photograph") && dflt.endsWith("living room"), "no style → the photorealistic clause, then the person's words");
+  ok(imageStyleKey("nonsense") === DEFAULT_IMAGE_STYLE && imageStyleKey(undefined) === DEFAULT_IMAGE_STYLE, "an unknown or missing key falls back to photorealistic, never to no style");
+  ok(styledPrompt("x", "lineart").startsWith("Minimal black line art"), "a picked style is honoured");
+  ok(STYLE_KEYS.every((k) => /no text, no logos/.test(styledPrompt("x", k))), "every style forbids text and logos — numbers and names are typed on the design, never generated");
+  const route = readFileSync(new URL("../app/api/marketing/designer/images/route.js", import.meta.url), "utf8");
+  ok(/styledPrompt\(prompt, style\)/.test(route) && /imageStyleKey\(body\?\.style\)/.test(route), "the route applies the style server-side from the key the browser sent");
+}
+
 process.exit(fail ? 1 : 0);

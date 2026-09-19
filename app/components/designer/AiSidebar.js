@@ -72,6 +72,7 @@
 // to make a before/after (the job-post composer on the designer index is).
 // Every one of them is a fact about this build, not a technique.
 import { useCallback, useRef, useState } from "react";
+import { DEFAULT_IMAGE_STYLE, STYLE_KEYS } from "@/lib/ai/imageStyles";
 import { AlertTriangle, ImagePlus, Loader, X } from "lucide-react";
 
 import { useTranslation } from "@/app/hooks/useTranslation";
@@ -104,6 +105,8 @@ export function AiSidebar({ editor, activeTool, onChangeActiveTool }) {
   const { status, loading, refresh } = useAiImageStatus(active);
 
   const [value, setValue] = useState("");
+  // Photorealistic unless they pick another — lib/ai/imageStyles.js.
+  const [style, setStyle] = useState(DEFAULT_IMAGE_STYLE);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   // The photo the generation is built FROM, or null for an unconditioned
@@ -190,7 +193,7 @@ export function AiSidebar({ editor, activeTool, onChangeActiveTool }) {
         headers: { "Content-Type": "application/json" },
         // referencePhotoUrl, when attached, is what routes this at the vendor
         // to images.edit instead of images.generate — see the route.
-        body: JSON.stringify({ prompt: value, referencePhotoUrl: reference || undefined }),
+        body: JSON.stringify({ prompt: value, style, referencePhotoUrl: reference || undefined }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -353,6 +356,23 @@ export function AiSidebar({ editor, activeTool, onChangeActiveTool }) {
                   ))}
                 </div>
               )}
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="ai-image-style">{t("app.aiImage.styleLabel")}</Label>
+              <select
+                id="ai-image-style"
+                disabled={!status?.allowed || submitting}
+                value={style}
+                onChange={(e) => setStyle(e.target.value)}
+                className="w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground"
+              >
+                {STYLE_KEYS.map((k) => (
+                  <option key={k} value={k}>
+                    {t(`app.aiImage.style.${k}`)}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="space-y-1.5">

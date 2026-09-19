@@ -25,6 +25,7 @@ import DeleteConfirmModal from "@/app/components/admin/DeleteConfirmModal";
 import { reportResponseError, showError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import BackToHome from "@/app/components/BackToHome";
+import DocumentEmails from "./DocumentEmails";
 
 const GROUPS = ["Automated", "Marketing", "Custom"];
 
@@ -178,10 +179,7 @@ export default function EmailTemplatesPage() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">{t("app.emailTemplates.title", "Email Templates")}</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {t(
-              "app.emailTemplates.whatSends",
-              "A follow-up rule or a campaign picks one of these by name — that is what decides which template goes out. The quote, receipt and instructions emails are built from the document itself, in the client's language, and don't use a template.",
-            )}
+            {t("app.emailTemplates.whatSends")}
           </p>
           {seedMsg && <p className="text-xs text-muted-foreground mt-2">{seedMsg}</p>}
           <BackToHome />
@@ -194,6 +192,11 @@ export default function EmailTemplatesPage() {
           <Sparkles size={14} /> {seeding ? t("app.emailTemplates.adding", "Adding…") : t("app.emailTemplates.addDefaults", "Add default templates")}
         </button>
       </div>
+
+      {/* The document emails first: the ones every client gets, and the ones
+          the owner could not see until now. Their copies live in their own
+          API and never appear in the list below. */}
+      <DocumentEmails />
 
       {GROUPS.map((group, i) => {
         const typesInGroup = emailTypes.filter(([, meta]) => meta.group === group);
