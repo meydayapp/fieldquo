@@ -37,6 +37,25 @@ import {
   SKIP_REASONS,
 } from "../lib/aiEmployee/decide.js";
 import {
+  MODES,
+  RISKS,
+  mayActAlone,
+  modeOf,
+  argsHash,
+  MODE_SENTENCE_KEY,
+  MODE_SENTENCE_EN,
+  FLOOR_LIST_KEYS,
+} from "../lib/aiEmployee/permission.js";
+import { AI_EMPLOYEE_VOICES, voiceLine, disclosureLine, DISCLOSURE_LANGUAGES } from "../lib/aiEmployee/roles.js";
+import { CHANNELS, pickEmployee, channelConflicts } from "../lib/aiEmployee/employees.js";
+import { WEB_CHAT_LANGUAGES, webChatCopy } from "../lib/aiEmployee/webChatCopy.js";
+import { AI_BEST_MODEL, tierForModel, modelForTier } from "../lib/ai/provider.js";
+import { hasKnownPricing, typicalConversationCostCents, pricingFor } from "../lib/ai/usage.js";
+import { MESSAGING_PLATFORMS, META_PLATFORMS, OWN_PLATFORMS, SOURCE_FOR_PLATFORM } from "../lib/messaging/platforms.js";
+import { CONVERSATION_SOURCES } from "../lib/attribution/conversationOutcome.js";
+import { NOTIFICATION_TYPES } from "../lib/notifications/catalog.js";
+import { hrefFor } from "../lib/notifications/render.js";
+import {
   attachmentTally,
   claimsMedia,
   mediaClaimRefusal,
@@ -58,7 +77,7 @@ const read = (p) => fs.readFileSync(path.join(ROOT, p), "utf8");
 const code = (p) =>
   read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "").replace(/^\s*\*.*$/gm, "");
 
-const ON = { enabled: true, role: "closer", autoReplyEnabled: true, maxRepliesPerThread: 3 };
+const ON = { enabled: true, role: "closer", mode: "auto", maxRepliesPerThread: 3 };
 const INBOUND = { direction: "in", body: "how much to paint a bedroom?" };
 const OPEN = { status: "open" };
 const OKQ = { allowed: true };
@@ -104,12 +123,308 @@ ok("with no AI configured it refuses rather than pretending", say({ aiConfigured
 }
 ok("every skip reason is a declared one", SKIP_REASONS.length === new Set(SKIP_REASONS).size && SKIP_REASONS.includes(SKIP.NO_CREDIT));
 
-// ── Suggest is the default; auto is a deliberate act ───────────────────────
-ok("an employee that never touched the switch is SUGGEST", sendMode({ enabled: true }) === MODE_SUGGEST);
-ok("...and so is one whose column is null", sendMode({ enabled: true, autoReplyEnabled: null }) === MODE_SUGGEST);
-ok("...and one whose column is a truthy non-true value", sendMode({ autoReplyEnabled: 1 }) === MODE_SUGGEST);
-ok("only an explicit true is AUTO", sendMode({ autoReplyEnabled: true }) === MODE_AUTO);
-ok("the mode travels with every decision", say().mode === MODE_AUTO && say({ employee: { ...ON, autoReplyEnabled: false } }).mode === MODE_SUGGEST);
+// ── Ask is the default; auto is a deliberate act ───────────────────────────
+ok("an employee that never touched the switch is ASK", sendMode({ enabled: true }) === MODE_SUGGEST && MODE_SUGGEST === "ask");
+ok("...and so is one whose column is null", sendMode({ enabled: true, mode: null }) === "ask");
+ok("...and one whose column is a value nobody declared", sendMode({ mode: "yolo" }) === "ask");
+// The OLD boolean is no longer read. A row that still says autoReplyEnabled:
+// true but mode "ask" (the migration wrote mode from it once) is ASK.
+ok("the superseded boolean is not consulted", sendMode({ autoReplyEnabled: true, mode: "ask" }) === "ask");
+ok("only a declared value is AUTO", sendMode({ mode: "auto" }) === MODE_AUTO);
+ok("the mode travels with every decision", say().mode === MODE_AUTO && say({ employee: { ...ON, mode: "ask" } }).mode === "ask");
+
+// ══════════════════════════════════════════════════════════════════════════
+// Permission modes: three words, three risks, one floor
+// ══════════════════════════════════════════════════════════════════════════
+ok("three modes, in order", MODES.join(",") === "ask,accept_edits,auto");
+ok("three risks, in order", RISKS.join(",") === "reversible,commits,floor");
+// The whole matrix, executed. Tainted (every channel turn) first.
+const M = (mode, risk, tainted = true) => mayActAlone({ mode, risk, tainted });
+ok("ask: nothing alone", !M("ask", "reversible") && !M("ask", "commits") && !M("ask", "floor"));
+ok("accept_edits: reversible alone", M("accept_edits", "reversible"));
+ok("accept_edits: a tainted commit is proposed", !M("accept_edits", "commits"));
+ok("accept_edits: an untainted commit would run alone", M("accept_edits", "commits", false));
+ok("accept_edits: floor never", !M("accept_edits", "floor") && !M("accept_edits", "floor", false));
+ok("auto: reversible and commits alone", M("auto", "reversible") && M("auto", "commits"));
+// THE row. If this ever flips, "auto" has come to mean "spend the company's money".
+ok("auto: floor NEVER, tainted or not", !M("auto", "floor") && !M("auto", "floor", false));
+ok("an unknown mode is ask", !M("root", "reversible"));
+ok("an unknown risk is floor", !M("auto", "unclassified"));
+ok("tainted defaults to true", mayActAlone({ mode: "accept_edits", risk: "commits" }) === false);
+ok("modeOf refuses to invent a mode", modeOf({ mode: "sudo" }) === "ask" && modeOf(null) === "ask");
+
+// The sentences: one per mode, in every language, and English equal to the file's.
+{
+  const { APP_MESSAGES } = await import("../app/i18n/appMessages.js");
+  const LANGS = Object.keys(APP_MESSAGES);
+  ok("nine languages in the catalogue", LANGS.length === 9, LANGS);
+  for (const mode of MODES) {
+    const key = MODE_SENTENCE_KEY[mode];
+    ok(`${mode}: has a sentence key`, typeof key === "string");
+    ok(`${mode}: English sentence is the permission file's`, APP_MESSAGES.en[key] === MODE_SENTENCE_EN[mode]);
+    for (const lang of LANGS) {
+      ok(`${lang}: ${mode} sentence present`, typeof APP_MESSAGES[lang][key] === "string" && APP_MESSAGES[lang][key].length > 20);
+      ok(`${lang}: ${mode} label present`, typeof APP_MESSAGES[lang][`app.aiEmployee.mode.${mode}`] === "string");
+    }
+  }
+  // The auto sentence says, in words, that customers' messages can book.
+  ok("auto sentence says customers' messages can book the calendar", /Customers' messages can book your calendar directly/.test(MODE_SENTENCE_EN.auto));
+  ok("every sentence says money is never spent without you", MODES.every((m) => /Money is never spent/.test(MODE_SENTENCE_EN[m])));
+  ok("five floor items, each with a word in every language",
+    FLOOR_LIST_KEYS.length === 5 && LANGS.every((lang) => FLOOR_LIST_KEYS.every((k) => typeof APP_MESSAGES[lang][k] === "string")));
+  for (const lang of LANGS) {
+    ok(`${lang}: the on/off switch states its consequence`,
+      typeof APP_MESSAGES[lang]["app.aiEmployee.enabledOffSentence"] === "string" && typeof APP_MESSAGES[lang]["app.aiEmployee.enabledOnSentence"] === "string");
+    ok(`${lang}: the SMS channel has its no-number sentence`, typeof APP_MESSAGES[lang]["app.aiEmployee.smsUnavailable"] === "string");
+    for (const c of CHANNELS) ok(`${lang}: channel ${c} has a label`, typeof APP_MESSAGES[lang][`app.aiEmployee.channel.${c}`] === "string");
+    for (const v of AI_EMPLOYEE_VOICES) ok(`${lang}: voice ${v} has a label`, typeof APP_MESSAGES[lang][`app.aiEmployee.voice.${v}`] === "string");
+  }
+}
+
+// ── Every tool has a risk, declared beside the tool ────────────────────────
+{
+  const { TOOL_RISK, riskOf, proposalExpiry } = await import("../lib/aiEmployee/tools.js");
+  for (const t of AI_EMPLOYEE_TOOLS) ok(`${t}: has a risk class`, RISKS.includes(TOOL_RISK[t]), TOOL_RISK[t]);
+  ok("no risk is declared for a tool that does not exist", Object.keys(TOOL_RISK).every((t) => AI_EMPLOYEE_TOOLS.includes(t)));
+  ok("book_appointment commits", TOOL_RISK.book_appointment === "commits");
+  ok("a reply-shaped tool is reversible", TOOL_RISK.book_callback === "reversible" && TOOL_RISK.send_instant_quote_link === "reversible");
+  ok("an unknown tool's risk is floor", riskOf("delete_everything") === "floor");
+  // Stale: a booking's expiry is its slot; nothing else expires on its own.
+  const soon = Date.now() + 60_000;
+  ok("a booking proposal expires at its slot", proposalExpiry("book_appointment", { slot_id: `abc123_${soon}` })?.getTime() === soon);
+  ok("a callback proposal never goes stale on its own", proposalExpiry("book_callback", {}) === null);
+  ok("a mangled slot id has no expiry rather than a NaN date", proposalExpiry("book_appointment", { slot_id: "nonsense" }) === null);
+
+  const tools = code("lib/aiEmployee/tools.js");
+  ok("executeFor asks mayActAlone before any tool runs", /mayActAlone\(\{ mode, risk, tainted \}\)/.test(tools));
+  ok("...and a refused write becomes a proposal, not a run", /onProposal\(\{ name, args, risk \}\)/.test(tools) && /proposed: true/.test(tools));
+  ok("...and a dry run reports would_propose", /would_propose/.test(tools));
+  ok("book_appointment reaches the SAME bookSlot the phone receptionist uses", /bookSlot\(\{/.test(tools) && /from "@\/lib\/voice\/availability"/.test(tools));
+  ok("check_availability reaches the same reader", /bookableSlots\(companyId/.test(tools));
+  ok("a visit fee returns the booking link rather than booking", /reason === "fee_due"/.test(tools) && /bookingUrl: policy\.bookingUrl/.test(tools));
+  ok("a taken slot is told to the model by name", /result\.reason === "taken"/.test(tools));
+  ok("the instant-quote link carries no price", /instant-quote\/\$\{encodeURIComponent\(slug\)\}/.test(tools) && !/unitPrice[^\n]*sendInstantQuoteLink/.test(tools));
+  ok("the proposal executor is the only other door onto the implementations", /export async function runToolForCompany/.test(tools) && (tools.match(/IMPLEMENTATIONS\[name\]/g) || []).length === 2);
+  ok("bookSlot takes a source so the calendar can say who booked", /source = "phone_assistant"/.test(code("lib/voice/availability.js")) && /\n\s+source,\n/.test(code("lib/voice/availability.js")));
+}
+
+// ── Tenant isolation, restated by the owner: one executed check per statement ──
+{
+  const tools = code("lib/aiEmployee/tools.js");
+  // 1. companyId is injected by executeFor, never taken from the model or the visitor.
+  ok("1. executeFor injects companyId AFTER the model's args", /impl\(\{ \.\.\.args, companyId, source, language \}\)/.test(tools));
+  ok("1b. runToolForCompany injects it the same way", (tools.match(/\{ \.\.\.args, companyId, source, language \}/g) || []).length === 2);
+  ok("1c. the visitor's companyId is not in the args hash, so it cannot be smuggled through an edit",
+    argsHash({ name: "a", companyId: "X" }) === argsHash({ name: "a", companyId: "Y" }) && argsHash({ name: "a" }) === argsHash({ name: "a", companyId: "Z" }));
+  // 2. Web-chat and SMS threads resolve to exactly one company before any tool runs.
+  const web = code("lib/aiEmployee/webChat.js");
+  ok("2a. the web chat resolves the company from the slug and nothing else", /findBookingCompany\(companySlug/.test(web) && !/companyId: body|body\.companyId|searchParams\.get\("companyId"\)/.test(web));
+  ok("2b. ...and refuses a thread whose company disagrees", /tenant_mismatch/.test(web));
+  const sms = code("lib/aiEmployee/smsChannel.js");
+  ok("2c. a phone held by two companies gets no automatic reply", /const shared = companies\.length > 1/.test(sms) && /noAutoReply: shared/.test(sms));
+  ok("2d. ...and the ingest honours that flag before the employee hook", /!event\.noAutoReply/.test(code("lib/messaging/ingest.js")));
+  ok("2e. ...and the shared line is written to the thread for a person to read", /type: "shared_line"/.test(sms));
+  ok("2f. the acknowledgement is never sent on a shared line", /\} else if \(result\.created && !result\.ai\?\.replied\)/.test(sms));
+  // 3. A proposal can only be approved by a member of its own company.
+  const proposals = code("lib/aiEmployee/proposals.js");
+  ok("3a. the proposal is read under the member's companyId", /findFirst\(\{ where: \{ id, companyId \} \}\)/.test(proposals));
+  ok("3b. ...and executed with the ROW's companyId, never the request's", /runTool\(\{ companyId: row\.companyId/.test(proposals));
+  const approveRoute = code("app/api/ai-employee/proposals/[id]/route.js");
+  ok("3c. the route passes the session's companyId", /companyId: member\.companyId/.test(approveRoute) && !/body\.companyId/.test(approveRoute));
+  ok("3d. a support session cannot approve", /member\.impersonation/.test(approveRoute));
+  // 4. sources.js reads only that company's documents.
+  const respond = code("lib/aiEmployee/respond.js");
+  ok("4. the material is read under companyId", /aiEmployeeSource\.findMany\(\{\s*where: \{ companyId, status: "ready" \}/.test(respond));
+  // 5. The prompt never carries another tenant's data — roles.js is pure assembly,
+  //    so a foreign source handed in is the CALLER's fault and the query above is
+  //    the only caller. Executed: a prompt built with no sources says none.
+  const foreign = buildEmployeePrompt({ employee: ON, company: { name: "Mine" }, sources: [] });
+  ok("5. a prompt built from an empty read carries no material", /None uploaded/.test(foreign));
+  // 6. The employee is picked under companyId, and an employee switched off is invisible.
+  const employees = code("lib/aiEmployee/employees.js");
+  ok("6a. employeeForChannel reads under companyId", /where: \{ companyId, enabled: true \}/.test(employees));
+  ok("6b. an off employee is never picked", pickEmployee([{ id: "a", enabled: false, webChatEnabled: true, createdAt: 1 }], "web") === null);
+  ok("6c. the oldest enabled holder of a channel wins", pickEmployee([
+    { id: "new", enabled: true, webChatEnabled: true, createdAt: 2 },
+    { id: "old", enabled: true, webChatEnabled: true, createdAt: 1 },
+  ], "web")?.id === "old");
+  ok("6d. an unknown channel picks nobody", pickEmployee([{ id: "a", enabled: true, metaEnabled: true }], "carrier_pigeon") === null);
+  ok("6e. two employees cannot both claim a channel",
+    channelConflicts([{ id: "a", enabled: true, smsEnabled: true }], { id: "b", enabled: true, smsEnabled: true }).join(",") === "sms" &&
+    channelConflicts([{ id: "a", enabled: true, smsEnabled: true }], { id: "b", enabled: false, smsEnabled: true }).length === 0);
+  ok("6f. the settings route refuses a channel conflict", /channel_conflict/.test(code("app/api/ai-employee/route.js")));
+}
+
+// ── Proposals: approve runs the same tool, bound to what was read, never stale ──
+{
+  const { executeProposal, isStale, publicProposal } = await import("../lib/aiEmployee/proposals.js");
+  const now = new Date("2026-09-19T12:00:00Z");
+  const mkDb = (row) => {
+    const updates = [];
+    return {
+      updates,
+      aiEmployeeProposal: {
+        findFirst: async ({ where }) => (row && where.id === row.id && where.companyId === row.companyId ? row : null),
+        update: async ({ data }) => { updates.push(data); return { ...row, ...data }; },
+      },
+    };
+  };
+  const args = { slot_id: `abc123_${now.getTime() + 3600_000}`, name: "Ana", phone: "6135551234" };
+  const row = { id: "p1", companyId: "C1", tool: "book_appointment", args, status: "pending", expiresAt: new Date(now.getTime() + 3600_000) };
+  const ran = [];
+  const runTool = async (x) => { ran.push(x); return { ok: true, bookingId: "b1" }; };
+
+  const foreign = await executeProposal({ companyId: "C2", id: "p1", expectedHash: argsHash(args) }, { db: mkDb(row), runTool, now: () => now });
+  ok("a member of another company cannot approve", foreign.reason === "unknown_proposal" && ran.length === 0);
+
+  const wrongHash = await executeProposal({ companyId: "C1", id: "p1", expectedHash: "deadbeef" }, { db: mkDb(row), runTool, now: () => now });
+  ok("an approval whose hash is not what was read is refused", wrongHash.reason === "hash_mismatch" && ran.length === 0);
+
+  const edited = { ...args, name: "Ana Lopez" };
+  const editedWrong = await executeProposal({ companyId: "C1", id: "p1", args: edited, expectedHash: argsHash(args) }, { db: mkDb(row), runTool, now: () => now });
+  ok("an edit must carry the hash of the EDITED arguments", editedWrong.reason === "hash_mismatch" && ran.length === 0);
+
+  const db1 = mkDb(row);
+  const good = await executeProposal({ companyId: "C1", id: "p1", expectedHash: argsHash(args), userId: "u1" }, { db: db1, runTool, now: () => now });
+  ok("a matching approval runs the tool", good.ok && good.status === "approved" && ran.length === 1);
+  ok("...with the ROW's companyId injected", ran[0].companyId === "C1" && ran[0].name === "book_appointment");
+  ok("...and records who and when", db1.updates.at(-1).decidedByUserId === "u1" && db1.updates.at(-1).status === "approved");
+
+  const db2 = mkDb(row);
+  const editedGood = await executeProposal({ companyId: "C1", id: "p1", args: edited, expectedHash: argsHash(edited) }, { db: db2, runTool, now: () => now });
+  ok("an edit with its own hash runs the edited arguments", editedGood.ok && ran.at(-1).args.name === "Ana Lopez");
+
+  // Stale: the slot itself has started. The stored expiry AND the slot in the
+  // arguments agree, as they do for every row createProposal writes.
+  const pastArgs = { ...args, slot_id: `abc123_${now.getTime() - 1}` };
+  const stale = { ...row, args: pastArgs, expiresAt: new Date(now.getTime() - 1) };
+  const before = ran.length;
+  const db3 = mkDb(stale);
+  const late = await executeProposal({ companyId: "C1", id: "p1", expectedHash: argsHash(pastArgs) }, { db: db3, runTool, now: () => now });
+  ok("a stale proposal is marked stale and NEVER executed", late.reason === "stale" && ran.length === before && db3.updates.at(-1).status === "stale");
+  ok("an edit that moves a booking into the past is stale too", (await executeProposal(
+    { companyId: "C1", id: "p1", args: { ...args, slot_id: `abc123_${now.getTime() - 5}` }, expectedHash: argsHash({ ...args, slot_id: `abc123_${now.getTime() - 5}` }) },
+    { db: mkDb(row), runTool, now: () => now },
+  )).reason === "stale" && ran.length === before);
+
+  const decided = { ...row, status: "approved" };
+  ok("a decided proposal cannot be run twice", (await executeProposal({ companyId: "C1", id: "p1", expectedHash: argsHash(args) }, { db: mkDb(decided), runTool, now: () => now })).reason === "already_decided" && ran.length === before);
+  ok("isStale is from the clock, not the status", isStale({ expiresAt: new Date(now.getTime() - 1) }, now) && !isStale({ expiresAt: null }, now));
+  ok("the public shape carries the hash the approve must echo", publicProposal({ ...row, createdAt: now }).argsHash === argsHash(args));
+
+  const routeSrc = code("app/api/ai-employee/proposals/[id]/route.js");
+  ok("the approve route requires a hash", /no_hash/.test(routeSrc));
+  ok("nothing else executes a proposal", !/runToolForCompany/.test(routeSrc) && /executeProposal\(/.test(routeSrc));
+  const others = ["app/api/ai-employee/route.js", "app/api/ai-employee/suggestions/route.js", "app/api/ai-employee/test/route.js", "lib/aiEmployee/respond.js", "lib/aiEmployee/inbound.js", "lib/aiEmployee/webChat.js", "lib/aiEmployee/smsChannel.js"];
+  ok("runToolForCompany is imported only by proposals.js", others.every((f) => !/runToolForCompany/.test(code(f))) && /runToolForCompany/.test(code("lib/aiEmployee/proposals.js")));
+}
+
+// ── The responder: mode applied to the reply, proposals written, best tier ──
+{
+  const respond = code("lib/aiEmployee/respond.js");
+  ok("a reply is a reversible act and goes out only when the mode allows", /mayActAlone\(\{ mode: verdict\.mode, risk: RISK_REVERSIBLE, tainted: true \}\)/.test(respond));
+  ok("proposals are written after the reply row exists, with its id", /createProposal\(/.test(respond) && /replyId,\s*channel: chan/.test(respond));
+  ok("every employee conversation runs on the best tier", /tier: AI_EMPLOYEE_TIER/.test(respond) && /AI_EMPLOYEE_TIER = "best"/.test(respond));
+  ok("the best tier resolves to the best model", modelForTier("best") === AI_BEST_MODEL && tierForModel(AI_BEST_MODEL) === "best" && tierForModel("gpt-5-mini") === "standard");
+  ok("the best model's default has a rate in the price table", hasKnownPricing(AI_BEST_MODEL), AI_BEST_MODEL);
+  ok("...so a conversation's typical cost is a number, never null", Number.isInteger(typicalConversationCostCents(AI_BEST_MODEL)) && typicalConversationCostCents(AI_BEST_MODEL) > 0);
+  ok("...and an unknown model's cost is null, never zero", typicalConversationCostCents("gpt-imaginary") === null && pricingFor("gpt-imaginary") === null);
+  ok("the disclosure line opens the first reply on a thread", /state\.repliesSoFar === 0/.test(respond) && /disclosureLine\(/.test(respond));
+  ok("out of credit fetches a person by name", /type: "ai_employee\.handoff"/.test(respond) && /reason: SKIP\.NO_CREDIT/.test(respond));
+  ok("the employee is picked per channel, under companyId", /employeeForChannel\(companyId, chan, prisma\)/.test(respond) && /findFirst\(\{ where: \{ id: employeeId, companyId \} \}\)/.test(respond));
+  ok("the runToolLoop honours the tier it is handed", /const model = modelForTier\(tier\)/.test(code("lib/ai/provider.js")) && !/model: MODEL,\s*\.\.\.reasoningParams\(MODEL\)/.test(code("lib/ai/provider.js")));
+  // The disclosure, nine languages, always names the employee and the company.
+  ok("the disclosure covers nine languages", DISCLOSURE_LANGUAGES.length === 9);
+  for (const lang of DISCLOSURE_LANGUAGES) {
+    const line = disclosureLine({ displayName: "Sam", companyName: "Northline", language: lang });
+    ok(`${lang}: disclosure names Sam and Northline`, /Sam/.test(line) && /Northline/.test(line) && !/\{name\}|\{company\}/.test(line));
+  }
+  ok("a nameless employee is still disclosed", /assistant/.test(disclosureLine({ displayName: "", companyName: "X" })));
+  // The voice is a paragraph, never a tool.
+  for (const v of AI_EMPLOYEE_VOICES) ok(`voice ${v} is a style paragraph`, typeof voiceLine(v) === "string" && voiceLine(v).length > 20);
+  ok("an unknown voice adds nothing", voiceLine("shouty") === null);
+  ok("the voice reaches the prompt", /friendly colleague/.test(buildEmployeePrompt({ employee: { role: "closer", voice: "friendly" }, company: {}, sources: [] })));
+  ok("the prompt no longer forbids saying it is an assistant", !/NEVER say you are an AI/.test(buildEmployeePrompt({ employee: ON, company: {}, sources: [] })));
+  ok("...and still forbids claiming to be human", /NEVER claim to be a human being/.test(buildEmployeePrompt({ employee: ON, company: {}, sources: [] })));
+}
+
+// ── Web chat: draft in ask, send in auto, someone-will-reply otherwise ──────
+{
+  const inbound = code("lib/aiEmployee/inbound.js");
+  ok("the inbound hook sends only when the mode lets a reply go alone", /mayActAlone\(\{ mode: sendMode\(employee\), risk: RISK_REVERSIBLE, tainted: true \}\)/.test(inbound));
+  ok("...and picks the employee by the channel's platform", /employeeForChannel\(companyId, channel\)/.test(inbound) && /platform === "web" \? "web" : platform === "sms" \? "sms" : "meta"/.test(inbound));
+  const web = code("lib/aiEmployee/webChat.js");
+  ok("a web message goes through the one ingest", /ingest\(\{\s*platform: "web"/.test(web));
+  ok("the widget is told replied or waiting, nothing else", /result\.ai\?\.replied \? "replied" : "waiting"/.test(web));
+  ok("the visitor is burst-limited per token", /VISITOR_BURST_LIMIT/.test(web) && /rate_limited/.test(web));
+  const widget = code("app/components/chat/SiteChatWidget.js");
+  ok("the widget prints 'someone will reply shortly' on waiting", /copy\.waiting/.test(widget));
+  ok("the widget stores only the token in the browser", (widget.match(/localStorage\.(setItem|getItem)/g) || []).length === 2 && !/localStorage\.setItem\([^)]*(phone|email|name)/i.test(widget));
+  ok("'talk to a person' is a message the employee hands off on", /copy\.personMessage/.test(widget));
+  ok("nothing on the widget names FieldQuo", !/FieldQuo/i.test(widget));
+  ok("the widget's copy covers nine languages", WEB_CHAT_LANGUAGES.length === 9 && WEB_CHAT_LANGUAGES.every((l) => /\S/.test(webChatCopy(l, "X").waiting)));
+  ok("the mount renders nothing when no employee answers the web channel", /if \(!config\?\.enabled\) return null/.test(code("app/components/chat/SiteChatMount.js")));
+  ok("the site page mounts it with the page's own language", /<SiteChatMount companySlug=\{company\.bookingSlug \|\| company\.slug\} language=\{language\}/.test(code("app/site/[subdomain]/page.js")));
+  ok("the embed serves it as the 'chat' widget", /"chat"/.test(code("app/embed/[companySlug]/[widget]/page.js")));
+  ok("the send router carries web and sms before the WhatsApp branch", /platform === "web" \|\| platform === "sms"/.test(code("lib/messaging/send.js")));
+  ok("the web send never leaves the building", /web:\$\{crypto\.randomUUID\(\)\}/.test(code("lib/messaging/ownSend.js")));
+}
+
+// ── SMS: greyed without a number, STOP untouched, from the system number ───
+{
+  const own = code("lib/messaging/ownSend.js");
+  ok("an SMS send refuses by name when FieldQuo holds no system number", /no_system_number/.test(own) && /systemSmsNumber\(\)/.test(own));
+  ok("...and checks the opt-out before every send", /maySms\(\{ companyId, phone: to \}\)/.test(own));
+  const route = code("app/api/sms/inbound/route.js");
+  ok("STOP/START are classified before the inbox sees the text", route.indexOf("classifyInboundSms(body)") < route.indexOf("handleInboundClientSms("));
+  ok("the inbox is reached only for a non-keyword text", /if \(!verdict\) \{[\s\S]*handleInboundClientSms\(/.test(route));
+  const settings = code("app/api/ai-employee/route.js");
+  ok("the settings route refuses to switch SMS on without a number", /no_system_number/.test(settings));
+  ok("...and tells the screen whether one exists", /sms: \{ available: Boolean\(smsNumber\)/.test(settings));
+  const page = code("app/app/settings/ai-employee/page.js");
+  ok("the screen greys the SMS switch out", /disabled=\{!data\.sms\?\.available\}/.test(page));
+  ok("the screen never renders the old boolean switch", !/autoReplyEnabled/.test(page));
+  ok("the screen offers all three channels in the test box", /\["meta", MessageSquare/.test(page) && /\["web", Globe/.test(page) && /\["sms", Smartphone/.test(page));
+  ok("...and prints would-send against would-wait", /wouldSend/.test(page) && /wouldWait/.test(page) && /wouldPropose/.test(page));
+  ok("the test route takes the channel and the employee", /isChannel\(body\.channel\)/.test(code("app/api/ai-employee/test/route.js")));
+  ok("the screen warns when the mode moves up", /modeMovesUp/.test(page) && /MODE_RANK/.test(page));
+  ok("the screen shows the model and the typical cost as an estimate", /typicalConversationCents/.test(page) && /estimate/.test(page));
+  ok("the on/off switch prints its consequence", /enabledOffSentence/.test(page) && /enabledOnSentence/.test(page));
+  ok("mode and on/off changes are audited with a name", /ai_employee\.mode_changed/.test(settings) && /ai_employee\.enabled/.test(settings) && /recordActivity\(member/.test(settings));
+}
+
+// ── Roles: disjoint and complete, booking where it belongs ─────────────────
+for (const role of AI_EMPLOYEE_ROLES) {
+  const r = roleFor(role);
+  const both = r.allowed.filter((t) => r.forbidden.includes(t));
+  ok(`${role}: allowed and forbidden are disjoint`, both.length === 0, both);
+  const union = new Set([...r.allowed, ...r.forbidden]);
+  ok(`${role}: together they cover every tool`, AI_EMPLOYEE_TOOLS.every((t) => union.has(t)) && union.size === AI_EMPLOYEE_TOOLS.length, [...union]);
+}
+ok("the closer books and quotes", toolsForRole("closer").includes("book_appointment") && toolsForRole("closer").includes("send_instant_quote_link"));
+ok("the receptionist books but never quotes", toolsForRole("receptionist").includes("book_appointment") && !toolsForRole("receptionist").includes("send_instant_quote_link") && !toolsForRole("receptionist").includes("create_instant_quote"));
+ok("the troubleshooter neither books nor quotes", !toolsForRole("troubleshooter").includes("book_appointment") && !toolsForRole("troubleshooter").includes("send_instant_quote_link"));
+ok("custom is as narrow as the troubleshooter", !toolsForRole("custom").includes("book_appointment"));
+
+// ── The platform list and the inbox ────────────────────────────────────────
+ok("five platforms, Meta's three plus FieldQuo's two", MESSAGING_PLATFORMS.join(",") === "facebook,instagram,whatsapp,web,sms" && META_PLATFORMS.join(",") === "facebook,instagram,whatsapp" && OWN_PLATFORMS.join(",") === "web,sms");
+ok("each own platform has a conversation source the rollup knows", OWN_PLATFORMS.every((p) => CONVERSATION_SOURCES.includes(SOURCE_FOR_PLATFORM[p])));
+ok("Meta connection reads only Meta's three", /platform: \{ in: \[\.\.\.META_PLATFORMS\] \}/.test(code("lib/messaging/channels.js")));
+ok("the notification types exist and land somewhere", Boolean(NOTIFICATION_TYPES["ai_employee.proposal"]) && Boolean(NOTIFICATION_TYPES["ai_employee.handoff"]) && hrefFor({ entityType: "aiEmployeeProposal", entityId: "x" }) === "/app/settings/ai-employee#proposals");
+ok("the appointments screen badges an AI-employee booking", /source === "ai_employee"/.test(code("app/app/appointments/page.js")));
+
+// ── Schema ─────────────────────────────────────────────────────────────────
+{
+  const schema = read("prisma/schema.prisma");
+  ok("AiEmployeeProposal exists", /model AiEmployeeProposal \{/.test(schema));
+  const emp = schema.split("model AiEmployee {")[1]?.split("\nmodel ")[0] || "";
+  ok("the mode column defaults to ask", /mode String @default\("ask"\)/.test(emp));
+  ok("one employee per company AND role", /@@unique\(\[companyId, role\]\)/.test(emp));
+  ok("the three channel switches exist", /metaEnabled/.test(emp) && /webChatEnabled/.test(emp) && /smsEnabled/.test(emp));
+  ok("the face, the name and the voice exist", /displayName/.test(emp) && /avatarUrl/.test(emp) && /voice String\?/.test(emp));
+  const prop = schema.split("model AiEmployeeProposal {")[1]?.split("\nmodel ")[0] || "";
+  ok("a proposal records tool, args, risk, expiry and who decided", ["tool", "args", "risk", "expiresAt", "decidedByUserId", "status"].every((c) => new RegExp(`\\n\\s+${c}\\s`).test(prop)));
+}
 
 // ── Roles are capability sets ──────────────────────────────────────────────
 for (const role of AI_EMPLOYEE_ROLES) {
@@ -323,11 +638,12 @@ for (const role of AI_EMPLOYEE_ROLES) {
   }
 }
 
-// ── The settings screen tells the truth about auto-send ────────────────────
+// ── The settings screen tells the truth about the modes ────────────────────
 {
   const page = code("app/app/settings/ai-employee/page.js");
   ok("the screen offers the test box that proves what it would say", /test/i.test(page));
-  ok("...and names the two modes", /suggest/i.test(page) && /auto/i.test(page));
+  ok("...and lists the modes from the server's own list with their sentences", /data\.modes\.map/.test(page) && /m\.sentenceKey/.test(page));
+  ok("...and prints the floor in words", /data\.floorKeys\.map/.test(page));
 }
 
 console.log(`\ncheck-ai-employee: ${passed} passed, ${failed} failed`);

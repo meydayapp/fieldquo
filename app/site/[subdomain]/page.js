@@ -40,6 +40,7 @@ import { recentJobPhotos, jobPhotoPairs } from "@/lib/site/jobPhotos";
 import { resolveSiteStyle } from "@/lib/site/siteStyles";
 import { resolvePages, findPage, navPages, HOME_SLUG } from "@/lib/site/pages";
 import { categoryLabel } from "@/lib/i18n/translateContent";
+import SiteChatMount from "@/app/components/chat/SiteChatMount";
 
 async function loadSite(subdomain, { preview = false } = {}) {
   const site = await db.companySite.findUnique({
@@ -434,6 +435,12 @@ export default async function CompanySitePage({ params, searchParams, language: 
         // a free site's owner never learns it's on the page.
         showFieldquoCredit={showFieldquoCredit}
       />
+
+      {/* The AI employee's chat button — only when the company has switched
+          the web channel on for one (lib/aiEmployee/employees.js). Same slug
+          the booking and quote links resolve through, and the page's own
+          language, so the widget speaks what the page speaks. */}
+      <SiteChatMount companySlug={company.bookingSlug || company.slug} language={language} />
     </div>
   );
 }

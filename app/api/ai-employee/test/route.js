@@ -25,6 +25,7 @@ import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
 import { rateLimit } from "@/lib/rateLimit";
 import { respondToMessage } from "@/lib/aiEmployee/respond";
+import { isChannel } from "@/lib/aiEmployee/employees";
 
 export async function POST(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -57,13 +58,30 @@ export async function POST(request) {
     return NextResponse.json({ error: "That's longer than a message can be." }, { status: 400 });
   }
 
+  // Which employee, and on which channel. The employee id is read under the
+  // member's companyId inside respondToMessage; an id from another company
+  // is "no employee". The channel changes nothing about the composition —
+  // it is stamped on the result so the screen can render it as a Messenger
+  // bubble, a web-chat bubble or a text, with the mode's verdict beside it.
+  const channel = isChannel(body.channel) ? body.channel : "meta";
+  const employeeId = typeof body.employeeId === "string" ? body.employeeId : null;
+
   const result = await respondToMessage({
     companyId: member.companyId,
+    employeeId,
+    channel,
     dryRun: true,
     testText: text,
   });
 
   return NextResponse.json({
+    channel,
+    employeeId: result.employeeId || employeeId,
+    // What a real message would do in this mode: reach the customer, or wait
+    // here. And which tool calls would have waited as proposals.
+    wouldSend: result.wouldSend === true,
+    wouldPropose: result.wouldPropose || [],
+    model: result.model || null,
     // Null when it would have answered. A named reason otherwise — the same
     // reasons a real message would be refused for, which is the point of
     // running the real decision here.

@@ -152,6 +152,18 @@ const OUTLINE = {
       <circle cx="4" cy="4" r="2" />
     </>
   ),
+  // The messaging inbox's two FieldQuo-own platform badges (app/app/messages):
+  // the site chat widget and the shared SMS number. Not brands, so plain
+  // shapes — a speech bubble and a phone-shaped bubble — drawn here beside the
+  // brand marks so one component answers "what does this platform look like".
+  web: <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />,
+  sms: (
+    <>
+      <rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
+      <line x1="12" y1="18" x2="12.01" y2="18" />
+      <path d="M9 9h6M9 12h4" />
+    </>
+  ),
 };
 
 // Filled marks: these logos are solid shapes with no outline form that

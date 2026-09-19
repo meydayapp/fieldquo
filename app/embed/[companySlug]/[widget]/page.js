@@ -38,6 +38,7 @@
 export const dynamic = "force-dynamic";
 
 import { notFound } from "next/navigation";
+import { db } from "@/lib/db";
 import { findBookingCompany } from "@/lib/booking/findBookingCompany";
 import { loadPublicReviews } from "@/lib/reviews/publicReviews";
 import BookingFlow from "@/app/book/[companySlug]/BookingFlow";
@@ -45,6 +46,7 @@ import SelfQuoteFlow from "@/app/quote/[companySlug]/SelfQuoteFlow";
 import InstantQuoteFlow from "@/app/instant-quote/[companySlug]/InstantQuoteFlow";
 import EmbedFrame from "../../EmbedFrame";
 import Reviews from "../../Reviews";
+import SiteChatMount from "@/app/components/chat/SiteChatMount";
 
 // ── The fourth widget: the instant estimate ────────────────────────────────
 //
@@ -55,7 +57,7 @@ import Reviews from "../../Reviews";
 // homeowner's actual question in thirty seconds, only had a link to somewhere
 // else. The flow already exists and takes the same single prop as the other
 // two; it was never served here.
-const WIDGETS = new Set(["book", "quote", "reviews", "instant-quote"]);
+const WIDGETS = new Set(["book", "quote", "reviews", "instant-quote", "chat"]);
 
 // ── The tab title is a white-label surface too ────────────────────────────
 //
@@ -81,6 +83,12 @@ export async function generateMetadata({ params }) {
   };
 }
 
+/** The company's default language — the embed has no page language of its own. */
+async function loadEmbedLanguage(companyId) {
+  const row = await db.company.findUnique({ where: { id: companyId }, select: { defaultLanguage: true } }).catch(() => null);
+  return { language: row?.defaultLanguage || "en" };
+}
+
 export default async function EmbedPage({ params }) {
   const { companySlug, widget } = await params;
 
@@ -94,6 +102,19 @@ export default async function EmbedPage({ params }) {
     brandColor: true,
   });
   if (!company) notFound();
+
+  if (widget === "chat") {
+    // The chat widget in a transparent frame the host page positions
+    // bottom-right (the snippet on Settings → AI employee). The widget's own
+    // floating button sits in the frame's corner, so the host sees a button,
+    // not a box. No employee on the web channel renders nothing at all.
+    const { language } = await loadEmbedLanguage(company.id);
+    return (
+      <EmbedFrame className="bg-transparent">
+        <SiteChatMount companySlug={companySlug} language={language} />
+      </EmbedFrame>
+    );
+  }
 
   if (widget === "reviews") {
     const reviews = await loadPublicReviews(company.id);

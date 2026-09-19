@@ -328,9 +328,9 @@ const idsOf = (list) => list.map((m) => m.id).sort();
 section("1. The catalog is sound, and an unrecognised audience REFUSES");
 // ═══════════════════════════════════════════════════════════════════════════
 
-ok("the catalog holds exactly the declared types", NOTIFICATION_TYPE_KEYS.length === 26, NOTIFICATION_TYPE_KEYS);
+ok("the catalog holds exactly the declared types", NOTIFICATION_TYPE_KEYS.length === 28, NOTIFICATION_TYPE_KEYS);
 ok(
-  "six from the audit's tier 1, the undelivered quote, and the six rota/time-clock types, and the seven HR-file types",
+  "six from the audit's tier 1, the undelivered quote, the six rota/time-clock types, the seven HR-file types, and the AI employee's two",
   JSON.stringify([...NOTIFICATION_TYPE_KEYS].sort()) ===
     JSON.stringify(
       [
@@ -353,6 +353,10 @@ ok(
         "availability.requested",
         "availability.decided",
         "shoutout.received",
+        // The AI employee: a yes it needs, and a conversation it left to a
+        // person (lib/aiEmployee/proposals.js, lib/aiEmployee/respond.js).
+        "ai_employee.proposal",
+        "ai_employee.handoff",
         // The rota reaching the person on it, and the time clock noticing
         // (2026-09-13). Named recipients — scripts/check-shift-notify.mjs
         // executes the narrowing.
@@ -488,6 +492,10 @@ const EXPECTED = {
   "availability.requested": ["m_owner", "m_admin", "m_manager", "m_dispatcher"],
   "availability.decided": ["m_owner", "m_admin", "m_manager", "m_dispatcher", "m_estimator", "m_crew"],
   "shoutout.received": ["m_owner", "m_admin", "m_manager", "m_dispatcher", "m_estimator", "m_crew"],
+  // The AI employee's two are user:manage, like leave.requested: a proposal a
+  // crew member cannot approve is a badge on the wrong person.
+  "ai_employee.proposal": ["m_owner", "m_admin", "m_manager", "m_dispatcher"],
+  "ai_employee.handoff": ["m_owner", "m_admin", "m_manager", "m_dispatcher"],
   // ── The rota and time-clock types, UNNAMED (2026-09-13) ─────────────────
   //
   // Their call sites always pass `recipientUserIds` (the one worker, or the
