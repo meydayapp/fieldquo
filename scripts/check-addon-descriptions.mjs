@@ -273,6 +273,19 @@ section("E. The review sees the detail, and names a line without one");
   const noParagraph = completenessChecks({ ...base, scopeGroups: [{ categoryKey: "made_up_trade", lineItems: custom }] }, custom);
   const still = noParagraph.find((c) => c.id === "no_detail");
   ok(still && /no scope paragraph above it/.test(still.detail), "a bare line with NO paragraph above it is still flagged, and the finding says why", still?.detail);
+
+  // ── "The whole job is one line" reads the page too (2026-09-19) ─────────
+  // The owner built a one-service quote whose card prints the scope
+  // paragraph, the inclusions and the numbered process, and the review still
+  // said the whole job was one line. One line item under a service card is
+  // not a single figure to the homeowner; a lone line with nothing around it is.
+  const single = (quote, items) => completenessChecks(quote, items).some((c) => c.id === "single_line");
+  ok(!single({ ...base, scopeGroups: [{ categoryKey: "cabinet_refinishing", lineItems: refinish }] }, refinish), "one line under a service card with a scope paragraph/process is NOT 'the whole job is one line'");
+  ok(!single({ ...base, scopeGroups: [{ category: { key: "cabinet_refinishing", companySettings: [] }, lineItems: refinish }] }, refinish), "…in the stored-row shape too");
+  const detailed = [{ description: "Cabinet Refinishing", detail: "Degrease, sand, prime and spray 14 doors and 6 drawer fronts.", amount: 4200 }];
+  ok(!single({ ...base, scopeGroups: [] }, detailed), "…and a legacy single line whose own detail says what is done is carried by that detail");
+  ok(single({ ...base, scopeGroups: [{ categoryKey: "made_up_trade", lineItems: custom }] }, custom), "a lone line under a group with no paragraph, inclusions or steps IS still one line");
+  ok(single({ ...base, scopeGroups: [] }, [{ description: "Kitchen", amount: 9000 }]), "…and a bare legacy single line with no groups at all is still one line");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
