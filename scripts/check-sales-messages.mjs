@@ -1510,6 +1510,205 @@ section("15. Every text sent to a business ends up in its conversation");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+section("16. A conversation that names a business hangs on its lead");
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// 2026-09-19, the owner's screenshot: the list said "Advance Appliance"
+// (SalesSmsMessage.prospectId, from the line rung) and the thread said
+// "+1 914 935 7510 · Time zone unknown" (leads only). The attach is
+// EXECUTED here over an in-memory client, every refusal included, and the
+// three doors that call it are read.
+{
+  const { attachThreadToLead, decideAttachment, unattachedRows, ATTACHED_NUMBER_LABEL } = await import("@/lib/sales/messages/attachThread");
+  const { resolveBusiness } = await import("@/lib/sales/messages/businessResolve");
+  const { resolveLeadTimeZone } = await import("@/lib/sales/leadTimeZone");
+  const { displayBody } = await import("@/lib/chat/threadLayout");
+  const { APP_MESSAGES } = await import("../app/i18n/appMessages.js");
+
+  const T0 = new Date("2026-09-18T12:27:00Z");
+  const hit = (row, where) => {
+    if (!where) return true;
+    for (const [k, v] of Object.entries(where)) {
+      if (k === "OR") { if (!v.some((w) => hit(row, w))) return false; continue; }
+      if (k === "prospect") { const sub = v.is || v; if (!row.prospect || !hit(row.prospect, sub)) return false; continue; }
+      const actual = row[k];
+      if (v && typeof v === "object" && !(v instanceof Date)) {
+        if ("in" in v && !v.in.includes(actual)) return false;
+        if ("not" in v && (v.not === null ? actual == null : actual === v.not)) return false;
+        if ("contains" in v && !String(actual || "").includes(v.contains)) return false;
+        continue;
+      }
+      if (actual !== v) return false;
+    }
+    return true;
+  };
+  /** The tables the attach touches, every write recorded. */
+  function fakeDb({ leads = [], messages = [], prospects = [], contactNumbers = [], reps = [] } = {}) {
+    let seq = 0;
+    const withProspect = (l) => (l ? { ...l, prospect: prospects.find((p) => p.id === l.prospectId) || null } : null);
+    const db = {
+      leads, messages, prospects, contactNumbers, writes: [],
+      salesLead: {
+        findMany: async ({ where, take }) => leads.map(withProspect).filter((l) => hit(l, where)).slice(0, take || 999),
+        findFirst: async ({ where }) => leads.map(withProspect).find((l) => hit(l, where)) || null,
+        findUnique: async ({ where }) => withProspect(leads.find((l) => l.id === where.id)),
+        create: async ({ data }) => { const row = { id: `L${++seq}`, updatedAt: T0, ...data }; leads.push(row); db.writes.push({ model: "salesLead", op: "create", data }); return row; },
+      },
+      salesSmsMessage: {
+        findMany: async ({ where }) => messages.filter((m) => hit(m, where)),
+        findFirst: async ({ where }) => messages.find((m) => hit(m, where)) || null,
+        updateMany: async ({ where, data }) => { const rows = messages.filter((m) => hit(m, where)); for (const r of rows) Object.assign(r, data); db.writes.push({ model: "salesSmsMessage", op: "updateMany", where, data, count: rows.length }); return { count: rows.length }; },
+      },
+      salesCheckIn: { findMany: async () => [], findFirst: async () => null },
+      salesContactNumber: {
+        findMany: async ({ where }) => contactNumbers.filter((n) => hit(n, where)),
+        findFirst: async ({ where }) => contactNumbers.find((n) => hit(n, where)) || null,
+        create: async ({ data }) => { const row = { id: `n${++seq}`, createdAt: T0, ...data }; contactNumbers.push(row); db.writes.push({ model: "salesContactNumber", op: "create", data }); return row; },
+        updateMany: async ({ where, data }) => { db.writes.push({ model: "salesContactNumber", op: "updateMany", where, data }); return { count: 0 }; },
+      },
+      prospect: { findUnique: async ({ where }) => prospects.find((p) => p.id === where.id) || null, findFirst: async ({ where }) => prospects.find((p) => hit(p, where)) || null },
+      salesRep: { findUnique: async ({ where }) => reps.find((r) => r.id === where.id) || null, findMany: async () => [] },
+      platformSetting: { findUnique: async () => null },
+    };
+    return db;
+  }
+
+  const FAVOR = "rep_favor";
+  const DANIEL = "rep_daniel";
+  const CELL = "+19149357510";
+  const SHOP = "+18884209806";
+  const ADVANCE = { id: "P_adv", businessName: "Advance Appliance", phoneE164: SHOP, email: null, country: "US", province: "NY", assignedRepId: FAVOR, doNotContactAt: null, mergedIntoId: null };
+  const inbound = () => ({ id: "m_in", direction: "in", salesRepId: FAVOR, leadId: null, prospectId: "P_adv", matchedBy: "line_business_name", fromE164: CELL, toE164: "+14386099615", body: "Hi, this is Charlotte at Advance Appliance…", sentAt: T0 });
+
+  // ── 1. The owner's case: a claimed prospect, no lead → a lead, the cell, the row ──
+  {
+    const db = fakeDb({ prospects: [ADVANCE], messages: [inbound()], reps: [{ id: FAVOR, name: "Favor S.", testAccount: false }] });
+    const before = await resolveBusiness({ salesRepId: FAVOR, withE164: CELL, client: db });
+    ok("before: the thread resolves to no lead (the header printed the number)", before.lead === null, before);
+    const r = await attachThreadToLead({ salesRepId: FAVOR, e164: CELL, client: db });
+    ok("the thread attaches, creating the lead from the prospect", r.attached === true && r.created === true && r.recorded === true && r.rows === 1, r);
+    const lead = db.leads[0];
+    ok("…the lead is the carry-across: named, addressed, pointed at the prospect, the shop line as its phone",
+      lead && lead.salesRepId === FAVOR && lead.businessName === "Advance Appliance" && lead.prospectId === "P_adv" && lead.province === "NY" && lead.country === "US" && lead.phone === SHOP, lead);
+    ok("…the cell is on the card, labelled, textable, in the rep's name",
+      db.contactNumbers.length === 1 && db.contactNumbers[0].e164 === CELL && db.contactNumbers[0].salesLeadId === lead.id && db.contactNumbers[0].prospectId === "P_adv" && db.contactNumbers[0].label === ATTACHED_NUMBER_LABEL && db.contactNumbers[0].canText === true && db.contactNumbers[0].addedBySalesRepId === FAVOR, db.contactNumbers);
+    ok("…the row now carries the lead and still carries its rep and its rule", db.messages[0].leadId === lead.id && db.messages[0].salesRepId === FAVOR && db.messages[0].matchedBy === "line_business_name", db.messages[0]);
+    const after = await resolveBusiness({ salesRepId: FAVOR, withE164: CELL, client: db });
+    ok("after: the thread resolves to the lead, with both numbers", after.lead?.id === lead.id && after.numbers.includes(CELL) && after.numbers.includes(SHOP), after);
+    const zone = resolveLeadTimeZone(after.lead);
+    ok("…and the clock is DERIVED from the address, the way the call region derives it", zone.timeZone === "America/New_York" && zone.source === "derived", zone);
+    const again = await attachThreadToLead({ salesRepId: FAVOR, e164: CELL, client: db });
+    const writesBefore = db.writes.length;
+    ok("a second open attaches nothing and writes nothing", again.attached === false && again.reason === "nothing_to_attach" && db.writes.length === writesBefore, again);
+    ok("unattachedRows is empty once attached", (await unattachedRows({ salesRepId: FAVOR, e164: CELL, client: db })).length === 0);
+  }
+
+  // ── 2. The refusals, each with nothing written ─────────────────────────
+  {
+    const db = fakeDb({ prospects: [{ ...ADVANCE, assignedRepId: DANIEL }], messages: [inbound()] });
+    const r = await attachThreadToLead({ salesRepId: FAVOR, e164: CELL, client: db });
+    ok("a prospect claimed by another rep is not carried into this rep's leads", r.attached === false && r.reason === "prospect_not_held" && db.writes.length === 0 && db.leads.length === 0, r);
+  }
+  {
+    const db = fakeDb({ prospects: [{ ...ADVANCE, doNotContactAt: T0 }], messages: [inbound()] });
+    const r = await attachThreadToLead({ salesRepId: FAVOR, e164: CELL, client: db });
+    ok("a do-not-contact business gets no lead and no number", r.attached === false && r.reason === "do_not_contact" && db.writes.length === 0, r);
+  }
+  {
+    const two = [
+      { id: "L_a", salesRepId: FAVOR, prospectId: "P_adv", businessName: "Advance Appliance", contactName: null, phone: SHOP, updatedAt: T0 },
+      { id: "L_b", salesRepId: FAVOR, prospectId: "P_adv", businessName: "Advance Appliance (old)", contactName: null, phone: null, updatedAt: T0 },
+    ];
+    const db = fakeDb({ prospects: [ADVANCE], leads: two, messages: [inbound()] });
+    const r = await attachThreadToLead({ salesRepId: FAVOR, e164: CELL, client: db });
+    ok("two leads on the business: nothing is picked, nothing is written", r.attached === false && r.reason === "no_single_lead" && db.writes.length === 0, r);
+  }
+  {
+    const db = fakeDb({ prospects: [ADVANCE], messages: [{ ...inbound(), salesRepId: DANIEL }] });
+    const r = await attachThreadToLead({ salesRepId: FAVOR, e164: CELL, client: db });
+    ok("another rep's rows are not this rep's to attach", r.attached === false && r.reason === "nothing_to_attach" && db.writes.length === 0, r);
+  }
+
+  // ── 3. The rep's existing lead, by phone: no create, no second number ──
+  {
+    const lead = { id: "L_x", salesRepId: FAVOR, prospectId: null, businessName: "Xavier Roofing", contactName: null, phone: "(914) 935-7510", updatedAt: T0 };
+    const db = fakeDb({ leads: [lead], messages: [{ ...inbound(), prospectId: null, matchedBy: "line_recent_rep" }], reps: [{ id: FAVOR }] });
+    const r = await attachThreadToLead({ salesRepId: FAVOR, e164: CELL, client: db });
+    ok("a lead carrying the number takes the rows; no lead is made and the number is not recorded twice",
+      r.attached === true && r.created === false && r.recorded === false && db.leads.length === 1 && db.contactNumbers.length === 0 && db.messages[0].leadId === "L_x", r);
+  }
+
+  // ── 4. "Link to a lead": the named lead, re-read against the rep ───────
+  {
+    const mine = { id: "L_m", salesRepId: FAVOR, prospectId: null, businessName: "Mine", contactName: null, phone: "+15550001111", updatedAt: T0 };
+    const theirs = { id: "L_t", salesRepId: DANIEL, prospectId: null, businessName: "Theirs", contactName: null, phone: "+15550002222", updatedAt: T0 };
+    const db = fakeDb({ leads: [mine, theirs], messages: [{ ...inbound(), prospectId: null }], reps: [{ id: FAVOR }] });
+    const refused = await attachThreadToLead({ salesRepId: FAVOR, e164: CELL, leadId: "L_t", client: db });
+    ok("a colleague's lead named by id is refused, nothing written", refused.attached === false && refused.reason === "not_your_lead" && db.writes.length === 0, refused);
+    const r = await attachThreadToLead({ salesRepId: FAVOR, e164: CELL, leadId: "L_m", client: db });
+    ok("the rep's own lead takes the rows and the number", r.attached === true && r.recorded === true && db.messages[0].leadId === "L_m" && db.contactNumbers[0]?.salesLeadId === "L_m", r);
+  }
+
+  // ── 5. A test account's number is never written onto a record; the thread still attaches ──
+  {
+    const db = fakeDb({ prospects: [ADVANCE], messages: [inbound()], reps: [{ id: FAVOR, testAccount: true }] });
+    const r = await attachThreadToLead({ salesRepId: FAVOR, e164: CELL, client: db });
+    ok("a test account: the lead and the rows, but no number on the card", r.attached === true && r.recorded === false && r.unsaved === "test_account" && db.contactNumbers.length === 0 && db.messages[0].leadId, r);
+  }
+
+  // ── 6. The decision, pure ──────────────────────────────────────────────
+  ok("decideAttachment: a lead by phone wins outright", decideAttachment({ byPhone: { id: "A" }, prospectIds: ["P"], leadsOnProspect: [{ id: "B" }] })?.leadId === "A");
+  ok("…a stored contact number pointing at two leads decides nothing", decideAttachment({ contact: { prospectId: "P" }, leadsOnContact: [{ id: "A" }, { id: "B" }] }) === null);
+  ok("…rows filed to two different prospects decide nothing", decideAttachment({ prospectIds: ["P", "Q"] }) === null);
+  ok("…one prospect and no lead on it names the prospect to carry across", decideAttachment({ prospectIds: ["P", "P"] })?.prospectId === "P");
+  ok("…nothing at all decides nothing", decideAttachment({}) === null);
+
+  // ── 7. The three doors ─────────────────────────────────────────────────
+  {
+    const route = decomment(read("app/api/sales/messages/route.js"));
+    const get = functionSource(route, "GET") || "";
+    ok("the thread GET attaches when the business resolved to no lead, then resolves again", /if \(!business\?\.lead\)[\s\S]{0,400}attachThreadToLead\(\{ salesRepId: rep\.id, rep, e164: withE164, client: db \}\)[\s\S]{0,300}business = await resolveBusiness\(/.test(get));
+    ok("…and says where the clock came from", /timeZoneSource: lead \? resolveLeadTimeZone\(lead\)\.source : null/.test(get) && /attached,/.test(get));
+    const sms = decomment(read("lib/sales/salesSms.js"));
+    const inboundFn = functionSource(sms, "handleSalesInboundSms") || "";
+    ok("the inbound handler attaches a stored row filed to no lead", /if \(storedId && ownerRepId && !filed\.leadId && fromE164\)[\s\S]{0,300}attachThreadToLead\(\{ salesRepId: ownerRepId, e164: fromE164, client: db \}\)/.test(inboundFn));
+    const start = decomment(read("app/api/sales/messages/start/route.js"));
+    ok("the start route hangs existing rows on the lead the rep named", /attachThreadToLead\(\{ salesRepId: rep\.id, rep, e164: result\.e164, leadId: result\.leadId, client: db \}\)/.test(start));
+    const lib = decomment(read("lib/sales/messages/attachThread.js"));
+    const attach = functionSource(lib, "attachThreadToLead") || "";
+    ok("the row write is scoped to the rep and to rows with no lead, and never moves a row between reps", /updateMany\(\{\s*where: \{ salesRepId, leadId: null, OR: \[\{ fromE164: other \}, \{ toE164: other \}\] \},\s*data: \{ leadId: lead\.id \},/.test(attach) && !/data: \{[^}]*salesRepId/.test(attach));
+    ok("the lead is made through createSalesLead with the prospect as source, and the number through recordContactNumber", /createSalesLead\(client, \{[\s\S]{0,500}source: prospect/.test(attach) && /recordContactNumber\(\{/.test(attach));
+    ok("a claim check happens before the create", /prospect\.assignedRepId !== salesRepId\) return \{ attached: false, reason: "prospect_not_held" \}/.test(attach));
+  }
+
+  // ── 8. The screen: the header shows the lead, offers the link, folds the notes ──
+  {
+    const page = decomment(read("app/sales/messages/page.js"));
+    ok("the header is two lines, the actions icons with their labels by the header's own width", /data-thread-header/.test(page) && /@container/.test(page) && /@\[56rem\]:\[&>span\]:inline/.test(page));
+    ok("the header prints where they are and where the clock came from", /data-thread-place/.test(page) && /data-zone-source=\{thread\?\.timeZoneSource/.test(page) && /app\.salesText\.zoneDerivedTitle/.test(page));
+    ok("a no-lead conversation offers Link to a lead, never a demo's, a company's or another rep's number",
+      /const canLink = Boolean\(\s*thread && !thread\.lead && !demoThread && !thread\.company && !thread\.draftCompany && thread\.holder\?\.kind !== "other",?\s*\)/.test(page) && /data-link-lead-button/.test(page));
+    const panel = functionSource(page, "LinkLeadPanel") || "";
+    ok("the link panel searches what the rep holds and goes through the start route with the lead named", /\/api\/sales\/messages\/contacts\?q=/.test(panel) && /"\/api\/sales\/messages\/start", \{ method: "POST", body: \{ phone: e164, leadId \} \}/.test(panel));
+    ok("…a prospect is carried into a lead first, through the leads route", /"\/api\/sales\/leads", \{ method: "POST", body: \{ prospectId: entry\.id \} \}/.test(panel));
+    ok("the time-zone warning is one line with the server's sentence behind it", /app\.salesText\.zoneUnknownLine/.test(page) && /data-composer-blocker=\{softBlocker\.code\}/.test(page));
+    ok("the CASL note is one line with the rest behind it, and the appended phrase is still the literal", /caslFooterLine", \{ optOut: "Reply STOP to opt out" \}/.test(page) && /caslFooterNote", \{ optOut: "Reply STOP to opt out" \}/.test(page));
+    ok("the frame is flush with the shell on a phone", /className="fq-sales-flush"/.test(page) && /\.fq-sales-flush \{/.test(read("app/globals.css")));
+    const composer = decomment(read("app/components/chat/Composer.js"));
+    ok("the composer never shrinks and starts at two rows", /shrink-0 border-t border-border bg-card" data-chat-composer/.test(composer) && /rows=\{2\}/.test(composer));
+    const thread = decomment(read("app/components/chat/Thread.js"));
+    ok("the thread is the flex-1 min-h-0 child and its rows are findable", /min-h-0 flex-1 overflow-y-auto/.test(thread) && /data-chat-row="message"/.test(thread) && /displayBody\(m\.body\)/.test(thread));
+    ok("displayBody folds a run of blank lines and touches nothing else",
+      displayBody("a\n\n\n\n\nReply STOP") === "a\n\nReply STOP" && displayBody("a\n\nb") === "a\n\nb" && displayBody("a\nb") === "a\nb" && displayBody("a\n \n\t\n\nb") === "a\n\nb" && displayBody(null) === "");
+    const langs = Object.keys(APP_MESSAGES);
+    const keys = ["app.chat.showMore", "app.chat.showLess", "app.salesText.zoneUnknownLine", "app.salesText.caslFooterLine", "app.salesText.zoneDerivedTitle", "app.salesText.linkToLead", "app.salesText.linkToLeadTitle", "app.salesText.linkToLeadHint"];
+    const missing = langs.flatMap((l) => keys.filter((k) => !APP_MESSAGES[l]?.[k]).map((k) => `${l}:${k}`));
+    ok(`the new strings exist in every language (${langs.length})`, langs.length >= 9 && missing.length === 0, missing);
+    ok("caslFooterLine keeps the {optOut} slot in every language", langs.every((l) => /\{optOut\}/.test(APP_MESSAGES[l]["app.salesText.caslFooterLine"])));
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 console.log(`\n${failures.length ? "FAILED" : "PASSED"} — ${pass} assertions, ${failures.length} failures`);
 if (failures.length) {
   for (const f of failures) console.log(`  · ${f}`);

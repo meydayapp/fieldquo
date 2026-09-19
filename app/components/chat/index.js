@@ -11,5 +11,6 @@ export { default as ChatLayout, PANE_LIST, PANE_THREAD, PANE_CONTEXT, CONTEXT_CO
 export { default as RoomList, RoomListGroup, RoomListItem, UnreadBadge, roomTimeLabel } from "./RoomList";
 export { default as Thread, DayBubble, dayLabel } from "./Thread";
 export { default as Composer } from "./Composer";
+export { default as Footnote } from "./Footnote";
 export { default as ContextBar } from "./ContextBar";
 export { default as Avatar, initialsOf, CHANNEL_ICONS } from "./Avatar";

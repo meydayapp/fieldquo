@@ -326,3 +326,97 @@ FIXTURES.demoSend = {
   waiting,
 };
 export const DEMO_E164 = DEMO;
+
+// ── The owner's screenshot, 2026-09-19: Advance Appliance ─────────────────
+//
+// As production held it. The office's cell (+1 914 935 7510) texted back
+// after Favor's voicemail; the row was filed to the PROSPECT by the line
+// rung (lib/sales/smsAttribution.js) with no lead, so the list named it
+// and the header did not. The inbound is verbatim — five blank lines and
+// the business's own "Reply STOP to unsubscribe." — because that tail is
+// the one line the rep could see of it in a 100px pane. `advance` is the
+// thread BEFORE the attach (no lead, zone unknown, the amber warning);
+// `advanceAttached` is the same thread once lib/sales/messages/attachThread.js
+// has hung it on the lead made from the prospect: named, Yonkers NY, the
+// window judged in America/New_York, no warning.
+export const ADVANCE_E164 = "+19149357510";
+const advanceInbound = {
+  id: "adv-in",
+  direction: "in",
+  body:
+    "Hi, this is Charlotte at Advance Appliance and I received your Voicemail.\n" +
+    "We are here to help and looking forward to speaking with you and I call you back once an agent is available.\n" +
+    "The office is open 9 am -4 pm EST Mon-Fri.  If texting is easier, please reply with your inquiry so I can reply faster.\n\n\n\n\nReply STOP to unsubscribe.",
+  sentAt: ago(26 * 60 + 40),
+  fromE164: ADVANCE_E164,
+  toE164: "+14386099615",
+  triage: "positive",
+  triageReason: "Asks the rep to text the inquiry so the office can reply faster.",
+  triagedAt: ago(26 * 60 + 39),
+  triageModel: "gpt-5-mini",
+  triageOverriddenById: null,
+};
+const advanceOutbound = {
+  id: "adv-out",
+  direction: "out",
+  body:
+    "Hi Charlotte, Favor from FieldQuo — I rang about a quicker way for Advance Appliance to quote and invoice service calls. Happy to text the details here if that is easier.\n\nFieldQuo, 123 Main St. Reply STOP to opt out",
+  sentAt: ago(26 * 60 + 20),
+  fromE164: "+14386099615",
+  toE164: ADVANCE_E164,
+};
+const advanceTriage = { kind: "positive", reason: advanceInbound.triageReason, overridden: false, at: advanceInbound.triagedAt, open: true };
+const advanceConversation = (over = {}) => ({
+  e164: ADVANCE_E164,
+  numbers: [{ e164: ADVANCE_E164, lastAt: advanceOutbound.sentAt, count: 2 }],
+  lastAt: advanceOutbound.sentAt,
+  lastBody: advanceOutbound.body,
+  lastDirection: "out",
+  leadId: null,
+  name: "Advance Appliance",
+  count: 2,
+  unanswered: false,
+  lastInboundAt: advanceInbound.sentAt,
+  unread: 0,
+  readState: { readAt: ago(5), doneAt: null },
+  openDrafts: 0,
+  nextDraftDue: null,
+  triage: advanceTriage,
+  ...over,
+});
+const advance = baseThread(ADVANCE_E164, {
+  messages: [advanceInbound, advanceOutbound],
+  lead: null,
+  timeZone: null,
+  canSend: false,
+  blockers: [{ code: "time_zone_unknown", title: "We don't know what time it is where this prospect is.", fix: "Texting is limited to 08:00–21:00 every day, in the prospect's own time zone, so say where they are and the window can be checked. Nothing here guesses it from their area code, which is wrong for every ported mobile." }],
+  readState: { readAt: ago(5), doneAt: null },
+  triage: advanceTriage,
+  holder: { kind: "none" },
+  contact: { trade: null, city: null, province: null, score: null, repName: "Favor S.", numbers: [], emailThreads: [], pastCheckIns: [] },
+});
+const advanceAttached = baseThread(ADVANCE_E164, {
+  messages: [advanceInbound, advanceOutbound],
+  lead: { id: "lead-advance", businessName: "Advance Appliance", contactName: null, timeZone: null, email: null, status: "contacted", prospectId: "p-advance" },
+  timeZone: "America/New_York",
+  timeZoneSource: "derived",
+  canSend: true,
+  blockers: [],
+  readState: { readAt: ago(5), doneAt: null },
+  triage: advanceTriage,
+  attached: { leadId: "lead-advance", created: true, recorded: true },
+  window: { known: true, open: true, until: new Date(NOW.getTime() + 4 * 3600000).toISOString(), timeZone: "America/New_York" },
+  contact: { trade: "appliance_repair", city: "Yonkers", province: "NY", score: null, repName: "Favor S.", numbers: [{ id: "n-adv", e164: ADVANCE_E164, kind: "mobile", label: "Texted from this number", canCall: true, canText: true, preferred: false }], emailThreads: [], pastCheckIns: [] },
+});
+FIXTURES.advance = {
+  conversations: [advanceConversation(), ...conversations],
+  threads: { [ADVANCE_E164]: advance, [ME]: melton, [TO]: ouellet, [SL]: sloth, [PP]: park, [SC]: closed, [CP]: fresh },
+  contacts,
+  signup,
+};
+FIXTURES.advanceAttached = {
+  conversations: [advanceConversation({ leadId: "lead-advance" }), ...conversations],
+  threads: { [ADVANCE_E164]: advanceAttached, [ME]: melton, [TO]: ouellet, [SL]: sloth, [PP]: park, [SC]: closed, [CP]: fresh },
+  contacts,
+  signup,
+};

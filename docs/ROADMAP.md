@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 19 September 2026 (Affirm on pay links is a CAPABILITY the platform requests — `affirm_payments`, like bank debit — not a Stripe-dashboard step; the settings card prints Stripe's answer for it, `Company.stripeAffirmStatus`, and the pay link names Affirm only when that is `active`; a refusal is recorded, never a silent warn; see the section below)
+Last updated: 19 September 2026 (the Texts thread pane is the dominant area at every size, and a conversation that names a business hangs on its lead — see the section below)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -80,6 +80,60 @@ treatment. And the platform company view does not yet surface
 impersonation for now.
 
 ---
+## The Texts conversation is the dominant pane, and a thread that names a business hangs on its lead (19 September 2026)
+
+The owner's screenshot: rep Favor, a 1600×850 laptop at 125% (1280×680 CSS
+px), the Advance Appliance thread. Two things were wrong in one frame.
+
+**The pane.** Between the header and the composer the conversation was
+~100px — one line of Charlotte's text and a scrollbar — because the frame is
+a fixed height and the chrome around the pane (a four-row header, a
+three-line time-zone warning, the composer, a three-line CASL footnote) does
+not shrink. Now: the header is two lines (name · number · town · tags, then
+the verdict), the actions are icons with their words shown by a container
+query on the header's own width, the warning and the footnote are one line
+each with the full sentence behind a disclosure and in the hover
+(`app/components/chat/Footnote.js`), the composer starts at two rows, the
+frame is edge to edge on a phone (`.fq-sales-flush`), and a run of blank
+lines in a message is folded for display (`displayBody`, pure — the row
+keeps its bytes). Measured in Chrome by `npm run check:sales-textpane`
+(1600×860, 1280×680, 375×812): the pane went from 50% / 34% / 25% of the
+column to 67% / 57% / 63%, and on open both the last inbound and the last
+outbound are wholly visible at all three — before, neither was at 1280×680
+or on the phone.
+
+**The lead.** The list said "Advance Appliance" and the header said
+"+1 914 935 7510 · Time zone unknown", and the reply was refused for want of
+a clock. The text had been filed to the PROSPECT by the attribution ladder's
+line rung (the body names the business Favor had just rung) and to no lead,
+because Advance Appliance was a claimed prospect nobody had carried across;
+the thread read leads only. `lib/sales/messages/attachThread.js` now hangs
+such a conversation on its lead — the rep's existing one, or one made from
+the claimed prospect through the same create the leads route uses — records
+the sender's number on it through `lib/sales/contact/record.js`, and stamps
+the rep's rows. It runs after an inbound is stored, when the thread is
+opened (the backfill), and from the header's new "Link to a lead" control,
+which searches what the rep holds and goes through the "Text them" door.
+Exactly one candidate lead or nothing; a colleague's claim, a do-not-contact
+business and two leads on one business are all refused with nothing
+written. With the lead attached the clock is DERIVED from the address
+(`lib/sales/leadTimeZone.js`, the call region's rule) and the warning is
+gone; the header says "from their address" on hover. Production count at
+the time: four rep-owned conversations, one with no lead (Advance
+Appliance), and it attaches on Favor's next open.
+
+Executed by §16 of `scripts/check-sales-messages.mjs` over an in-memory
+client, and by `check:sales-textpane` in Chrome (not in `check:all` — it
+needs a browser and ninety seconds to bundle; run it after touching the
+thread pane's chrome).
+
+### Still owed here
+
+- The list load does not attach; only the thread open and the next inbound
+  do. A conversation nobody opens stays named-by-prospect in the list, which
+  is what it was before and is not wrong.
+- The Link panel's search is the New message picker's endpoint; a rep with
+  hundreds of leads gets its first page. Same as the picker.
 
 ## "Invite your team" is a set-up step, not an onboarding step (18 September 2026)
 

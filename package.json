@@ -318,6 +318,7 @@
     "check:sales-checkin": "node --import ./scripts/alias-loader.mjs scripts/check-sales-checkin.mjs",
     "check:sales-checkin-materialise": "node --import ./scripts/alias-loader.mjs scripts/check-sales-checkin-materialise.mjs",
     "check:sales-messages": "node --import ./scripts/alias-loader.mjs scripts/check-sales-messages.mjs",
+    "check:sales-textpane": "node --experimental-websocket scripts/check-sales-textpane.mjs",
     "check:sales-link-no-signup": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-sales-link-no-signup.mjs",
     "check:sales-text-them": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-sales-text-them.mjs",
     "check:area-code-zone": "node scripts/check-area-code-zone.mjs",

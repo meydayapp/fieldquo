@@ -178,7 +178,7 @@ export default function Composer({
   const count = String(value || "").length;
 
   return (
-    <div className="border-t border-border bg-card" data-chat-composer>
+    <div className="shrink-0 border-t border-border bg-card" data-chat-composer>
       {hint ? (
         <div className="flex items-center gap-2 px-3 pt-2 text-xs text-muted-foreground break-words" data-composer-hint>
           {hint}
@@ -249,11 +249,11 @@ export default function Composer({
           aria-controls={popupOpen ? listId : undefined}
           aria-expanded={popupOpen}
           // text-base: anything smaller makes iOS zoom the page on focus.
-          className="block w-full resize-none rounded-lg border border-border bg-card px-3 py-2.5 text-base text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-60"
+          className="block w-full resize-none rounded-lg border border-border bg-card px-3 py-2 text-base text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-60"
         />
       </div>
 
-      <div className="flex items-center gap-1 px-3 py-2">
+      <div className="flex items-center gap-1 px-3 py-1.5">
         <div className="flex min-w-0 flex-1 items-center gap-1" data-composer-actions>
           {actions}
         </div>
@@ -271,7 +271,11 @@ export default function Composer({
           disabled={!canSend}
           onClick={onSend}
           data-composer-send
-          className="ml-1 inline-flex min-h-[40px] items-center justify-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+          // 40px on a phone (a thumb), 34 from lg (a pointer) — the same
+          // split the sales header's actions make. The toolbar is one of
+          // five fixed rows under the thread; six pixels a row is a line of
+          // conversation on a 680px laptop.
+          className="ml-1 inline-flex min-h-[40px] lg:min-h-[34px] items-center justify-center gap-1.5 rounded-lg bg-primary px-3.5 py-1.5 text-sm font-semibold text-primary-foreground disabled:opacity-50"
         >
           {busy ? (
             <Loader2 size={15} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />
@@ -282,7 +286,11 @@ export default function Composer({
         </button>
       </div>
 
-      {footer ? <div className="px-3 pb-2 text-[11px] text-muted-foreground break-words">{footer}</div> : null}
+      {footer ? (
+        <div className="px-3 pb-2 text-[11px] text-muted-foreground break-words" data-composer-footer>
+          {footer}
+        </div>
+      ) : null}
     </div>
   );
 }

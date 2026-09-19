@@ -31,7 +31,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, ArrowDown, Loader2 } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
-import { ROW_DAY, ROW_UNREAD, dayLabelKind } from "@/lib/chat/threadLayout";
+import { ROW_DAY, ROW_UNREAD, dayLabelKind, displayBody } from "@/lib/chat/threadLayout";
 import Avatar, { initialsOf } from "./Avatar";
 
 const TIME = { hour: "numeric", minute: "2-digit" };
@@ -267,10 +267,11 @@ export default function Thread({
             return (
               <div
                 key={row.key}
+                data-chat-row="message"
                 data-own={inbound ? undefined : "true"}
                 data-sequential={row.sequential ? "true" : undefined}
                 data-unread={row.unread ? "true" : undefined}
-                className={`group relative flex gap-3 rounded-md px-1 ${row.groupStart ? "pt-3" : "pt-0.5"} ${
+                className={`group relative flex gap-3 rounded-md px-1 ${row.groupStart ? "pt-2" : "pt-0.5"} ${
                   row.groupEnd ? "pb-1" : ""
                 } hover:bg-muted/40`}
               >
@@ -308,7 +309,7 @@ export default function Thread({
                         failed ? "text-red-900 dark:text-red-200" : pending ? "text-muted-foreground" : "text-foreground"
                       }`}
                     >
-                      {m.body}
+                      {displayBody(m.body)}
                     </p>
                   )}
 

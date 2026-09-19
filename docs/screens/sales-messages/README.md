@@ -30,6 +30,10 @@ a green build, and the owner opened them and saw a list with a compose box.
 | `desktop-demo-sent.png` | The same thread after Send: the draft has become an outbound bubble marked "Sent (demo — nothing left FieldQuo)", the thread has moved from Drafts due to Waiting on them, the banner counts 2. |
 | `desktop-drafts-filter.png` | "Show only drafts" pressed: the list narrowed to the threads holding a draft, "Show all" in its place. |
 | `mobile-demo-send.png` / `mobile-drafts-banner.png` | The demo thread with its Send, and the list with the banner, on a phone. |
+| `textpane-before-1280x680.png` → `textpane-after-1280x680.png` | 2026-09-19, the owner's screenshot (rep Favor, 1600×850 at 125% = 1280×680 CSS px, `?scenario=advance`): before, a 187px conversation pane under a four-row header, a three-line warning and a three-line footnote — the inbound scrolled out of view; after, a 313px pane (57% of the column), two-line header with icon actions, one-line warning and footnote, both bubbles whole on open. Frames from `npm run check:sales-textpane`. |
+| `textpane-attached-1280x680.png` | The same thread hung on its lead (`?scenario=advanceAttached`): "Advance Appliance · +1 914 935 7510 · Yonkers, NY", the window tag "Open until…" in the zone derived from the address (hover says so), no warning, no Link control. |
+| `textpane-link-panel-1280x680.png` | "Link to a lead" pressed on the unattached thread: the panel over the conversation — not in the column — listing the rep's leads and prospects. |
+| `textpane-after-375.png` | The phone, edge to edge (`.fq-sales-flush`): 437px of a 689px column, both bubbles whole. |
 | `desktop-company-checkin.png` | A company that signed up through the rep's link and was never texted (Easy Roofers Inc., as production looked on 2026-09-12 after the backlog was materialised): listed under Drafts due by its company name, the day-1 draft open in an otherwise empty thread with its own Send, the "signed up through your link" note where the signup-link panel would have been, and the rep's demo company beside it marked Demo. |
 
 ## Rebuilding

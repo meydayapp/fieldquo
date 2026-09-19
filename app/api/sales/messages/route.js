@@ -134,7 +134,9 @@ import { resolveBusiness } from "@/lib/sales/messages/businessResolve";
 import { mergeReadStates } from "@/lib/sales/messages/business";
 import { START_REFUSALS, resolveNumberHolder } from "@/lib/sales/messages/startThread";
 import { suggestZoneForNumber } from "@/lib/sales/areaCodeZone";
+import { attachThreadToLead } from "@/lib/sales/messages/attachThread";
 import { SALES_SMS_TIME_ZONES } from "@/lib/sales/smsWindow";
+import { resolveLeadTimeZone } from "@/lib/sales/leadTimeZone";
 
 /**
  * The `!` catalogue for one conversation.
@@ -365,7 +367,30 @@ export async function GET(request) {
   // The business behind the number, and every number of theirs — the thread
   // is read across all of them. Falls back to the one number when nothing
   // names a business: a stranger's text is a conversation with one phone.
-  const business = await resolveBusiness({ salesRepId: rep.id, withE164, client: db }).catch(() => null);
+  let business = await resolveBusiness({ salesRepId: rep.id, withE164, client: db }).catch(() => null);
+  // ── A thread that names a business and hangs on no lead ─────────────────
+  //
+  // Attached now, on open — the backfill for rows filed before
+  // lib/sales/messages/attachThread.js existed (the header's reason, and
+  // the owner's: "we should know the timezone because it is Advance
+  // Appliance, one of her leads"). The ONE write this GET makes beside the
+  // check-in backlog, and for the same reason that one is here: the screen
+  // cannot show what is not on record. Idempotent — a thread with nothing
+  // to attach writes nothing — and fails soft to the nameless thread the
+  // screen already knows how to draw. `attached` rides on the response so
+  // the screen can say it happened.
+  let attached = null;
+  if (!business?.lead) {
+    try {
+      const result = await attachThreadToLead({ salesRepId: rep.id, rep, e164: withE164, client: db });
+      if (result.attached) {
+        attached = { leadId: result.leadId, created: result.created, recorded: result.recorded, unsaved: result.unsaved || null };
+        business = await resolveBusiness({ salesRepId: rep.id, withE164, client: db }).catch(() => business);
+      }
+    } catch (err) {
+      console.error("[sales messages] thread not attached to a lead:", err?.message);
+    }
+  }
   const numbers = business?.numbers?.length ? business.numbers : [withE164];
   const messages = await salesThread({ salesRepId: rep.id, withE164, numbers });
   const { lead, company, timeZone } = await threadContext({
@@ -598,6 +623,13 @@ export async function GET(request) {
     draftCompany: draftCompany ? { id: draftCompany.id, name: draftCompany.name, isDemo: draftCompany.isDemo } : null,
     demo: demoThread,
     timeZone,
+    // Where the clock came from — stated by a rep, or derived from the
+    // lead's address the way the call region derives it — so the header
+    // can say "from their address" rather than print a zone as a fact
+    // nobody typed. Null when there is none, which is what the blocker says.
+    timeZoneSource: lead ? resolveLeadTimeZone(lead).source : null,
+    // The lead this thread was hung on during THIS read, when it was.
+    attached,
     holder,
     // For the composer's zone row, when the readiness asks for one: the
     // closed list every zone write is checked against, and the area code's

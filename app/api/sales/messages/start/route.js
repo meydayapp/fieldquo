@@ -14,6 +14,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireOutreachRep } from "@/lib/sales/outreachGate";
 import { startTextThread } from "@/lib/sales/messages/startThread";
+import { attachThreadToLead } from "@/lib/sales/messages/attachThread";
 
 export async function POST(request) {
   const { rep, refusal } = await requireOutreachRep(request);
@@ -31,6 +32,17 @@ export async function POST(request) {
   if (!result.ok) {
     return NextResponse.json({ error: result.error, code: result.code }, { status: result.status });
   }
+  // "Link to a lead" on a conversation that already has words in it: the
+  // rep's rows on the number that hang on no lead are hung on this one
+  // (lib/sales/messages/attachThread.js). Nothing to hang, nothing written
+  // — the ordinary New-text press lands here with an empty thread.
+  let attached = null;
+  try {
+    const hung = await attachThreadToLead({ salesRepId: rep.id, rep, e164: result.e164, leadId: result.leadId, client: db });
+    if (hung.attached) attached = { leadId: hung.leadId, rows: hung.rows };
+  } catch (err) {
+    console.error("[sales messages/start] existing rows not attached:", err?.message);
+  }
   return NextResponse.json({
     ok: true,
     with: result.e164,
@@ -38,5 +50,6 @@ export async function POST(request) {
     created: result.created,
     recorded: result.recorded === true,
     unsaved: result.unsaved || null,
+    attached,
   });
 }

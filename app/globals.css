@@ -389,6 +389,30 @@
 .fq-sales-fill {
   height: calc(100dvh - var(--fq-top-bar) - var(--fq-tab-bar-height) - var(--fq-main-pad-y));
 }
+/* The texts client on a phone: flush with the chrome, edge to edge. Below
+ * md the frame is the whole screen — one pane at a time, nothing beside it
+ * — and <main>'s padding around it is 48px of nothing above and below and
+ * 32px of nothing at the sides of a conversation that is fighting for
+ * every line (2026-09-19: the owner's rep saw one line of a text). The
+ * margins here are the exact negatives of the shell's padding (pt-6 /
+ * sm:pt-8, px-4 / sm:px-6, and the tab-bar term stays in the height), so
+ * the frame sits where <main> sits and the composer stays clear of the
+ * tab bar. From md up the rule does nothing: the frame is a card among
+ * columns there, and its corners and borders come back. */
+@media (max-width: 47.999rem) {
+  .fq-sales-flush {
+    height: calc(100dvh - var(--fq-top-bar) - var(--fq-tab-bar-height));
+    margin: -1.5rem -1rem;
+    border-radius: 0;
+    border-left: 0;
+    border-right: 0;
+  }
+}
+@media (min-width: 40rem) and (max-width: 47.999rem) {
+  .fq-sales-flush {
+    margin: -2rem -1.5rem;
+  }
+}
 
 /* ── The toast layer (app/components/ToastLayer.js) ─────────────────────────
  *

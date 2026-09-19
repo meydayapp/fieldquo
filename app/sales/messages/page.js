@@ -110,6 +110,7 @@ import {
   ArrowLeft,
   CalendarPlus,
   Check,
+  Link2,
   ExternalLink,
   LifeBuoy,
   Loader2,
@@ -135,6 +136,7 @@ import {
   RoomList,
   Thread,
   Composer,
+  Footnote,
   ContextBar,
   PANE_LIST,
   PANE_THREAD,
@@ -142,7 +144,7 @@ import {
   CONTEXT_COLUMN_MIN_WIDTH,
 } from "@/app/components/chat";
 import { newLeadHref } from "@/lib/sales/calls/callerHrefs";
-import { layoutThread } from "@/lib/chat/threadLayout";
+import { displayBody, layoutThread } from "@/lib/chat/threadLayout";
 import {
   GROUP_DONE,
   GROUP_DRAFTS,
@@ -176,6 +178,18 @@ const CARD = "rounded-xl border border-border bg-card p-4 space-y-3";
 const ACTION =
   "inline-flex items-center gap-1.5 min-h-[44px] lg:min-h-[36px] whitespace-nowrap rounded-md border border-border bg-card px-2.5 text-xs font-medium text-foreground hover:bg-muted disabled:opacity-60";
 const TAG = "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold";
+// The thread header's actions: an icon each, the word beside it when the
+// HEADER is wide enough for both the words and the name — a container
+// query on the header (56rem), not a viewport breakpoint, because the
+// thread's width is what the list and the context column leave it: a
+// 1600px window with the Contact column open gives the thread ~710px,
+// the same as a 1280px window with it closed. Below that, one line of
+// name and pills and one of the verdict; four labelled buttons were a
+// third row that ate the thread (2026-09-19, the owner's screenshot: a
+// 100px conversation pane). The label is always in aria-label and title,
+// so an icon is never nameless.
+const ICON_ACTION =
+  "inline-flex items-center justify-center gap-1.5 h-9 min-w-[36px] lg:h-8 lg:min-w-0 whitespace-nowrap rounded-md border border-border bg-card px-2 text-xs font-medium text-foreground hover:bg-muted disabled:opacity-60 [&>span]:hidden @[56rem]:[&>span]:inline";
 
 // The frame's height: what the shell leaves between its chrome and the
 // bottom bar, MEASURED by the shell (--fq-top-bar) rather than guessed
@@ -288,7 +302,7 @@ function bodyWithKind(m, extra = null) {
           <KindChip item={m} />
         </p>
       ) : null}
-      <p className="whitespace-pre-wrap break-words text-sm text-foreground">{m.body}</p>
+      <p className="whitespace-pre-wrap break-words text-sm text-foreground">{displayBody(m.body)}</p>
       {extra}
     </div>
   );
@@ -693,6 +707,131 @@ function ContactHistory({ thread }) {
 // New message — a rep's own leads and claimed prospects, or a typed number
 // ═══════════════════════════════════════════════════════════════════════════
 //
+// ── "Link to a lead": a conversation with words in it and nobody behind it ─
+//
+// A text filed to the rep by the line it arrived on (lib/sales/
+// smsAttribution.js rung (b)) names a business the rep rang; when that
+// business is on none of their leads and lib/sales/messages/attachThread.js
+// could not pick one on its own, the rep can. The search is the New message
+// picker's — the rep's own leads and claimed prospects, nothing else — and
+// the press is the "Text them" door (app/api/sales/messages/start with a
+// leadId), which records the number on the lead through the same write the
+// dial pad uses and hangs the rows on it. A prospect is carried into a
+// lead first, through the leads route, exactly as the picker does it.
+function LinkLeadPanel({ e164, onLinked, onClose }) {
+  const { t } = useTranslation();
+  const [q, setQ] = useState("");
+  const [results, setResults] = useState(null);
+  const [error, setError] = useState("");
+  const [picking, setPicking] = useState("");
+  const searchRef = useRef(null);
+
+  useEffect(() => {
+    searchRef.current?.focus();
+  }, []);
+
+  const search = useCallback(
+    async (query) => {
+      setError("");
+      try {
+        const data = await fetchJson(`/api/sales/messages/contacts?q=${encodeURIComponent(query)}`);
+        setResults(data.results || []);
+      } catch (err) {
+        setError(err?.message || t("app.salesText.newSearchFailed"));
+      }
+    },
+    [t],
+  );
+  useEffect(() => {
+    search(q);
+  }, [q, search]);
+
+  async function pick(entry) {
+    setError("");
+    setPicking(entry.id);
+    try {
+      let leadId = entry.id;
+      if (entry.kind === "prospect") {
+        const { lead } = await fetchJson("/api/sales/leads", { method: "POST", body: { prospectId: entry.id } });
+        leadId = lead.id;
+      }
+      await fetchJson("/api/sales/messages/start", { method: "POST", body: { phone: e164, leadId } });
+      await onLinked();
+    } catch (err) {
+      // The server's own sentence: not yours, held by another rep, a
+      // do-not-contact business.
+      setError(err?.message || t("app.salesText.newOpenFailed"));
+    } finally {
+      setPicking("");
+    }
+  }
+
+  return (
+    // Over the thread, not in the column: a panel in the flow would take
+    // its height from the conversation, which is the one thing this screen
+    // must not do (the pane the whole 2026-09-19 fix is about).
+    <div className="absolute inset-x-0 top-full z-20 border-b border-border bg-card px-3 py-2 shadow-lg" data-link-lead>
+      <div className="flex items-center gap-2">
+        <p className="min-w-0 flex-1 text-xs font-semibold text-foreground">{t("app.salesText.linkToLeadTitle")}</p>
+        <button type="button" onClick={onClose} className="grid h-8 w-8 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-muted" aria-label={t("app.salesText.cancel")}>
+          <X size={15} aria-hidden="true" />
+        </button>
+      </div>
+      <p className="text-[11px] text-muted-foreground break-words">{t("app.salesText.linkToLeadHint", { number: prettyE164(e164) })}</p>
+      <div className="relative mt-1.5">
+        <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+        <label className="sr-only" htmlFor="link-lead-search">
+          {t("app.salesText.newSearchLabel")}
+        </label>
+        <input
+          id="link-lead-search"
+          ref={searchRef}
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder={t("app.salesText.newSearchPlaceholder")}
+          className="w-full min-h-[40px] rounded-lg border border-border bg-card pl-8 pr-3 text-base text-foreground"
+        />
+      </div>
+      {error ? <p className="pt-1.5 text-xs text-red-700 dark:text-red-300 break-words">{error}</p> : null}
+      <ul className="mt-1 max-h-40 divide-y divide-border/60 overflow-y-auto" data-link-lead-results>
+        {results === null ? (
+          <li className="flex items-center gap-2 px-1 py-2 text-xs text-muted-foreground">
+            <Loader2 className="animate-spin motion-reduce:animate-none" size={13} aria-hidden="true" />
+            {t("app.salesText.loading")}
+          </li>
+        ) : results.length === 0 ? (
+          <li className="px-1 py-2 text-xs text-muted-foreground">{t("app.salesText.newSearchEmpty")}</li>
+        ) : (
+          results.map((entry) => (
+            <li key={`${entry.kind}:${entry.id}`}>
+              <button
+                type="button"
+                disabled={Boolean(picking)}
+                onClick={() => pick(entry)}
+                className="flex min-h-[40px] w-full items-center gap-2 rounded-md px-1 py-1.5 text-left hover:bg-muted disabled:opacity-60"
+                data-link-lead-pick={entry.kind}
+              >
+                <span className="min-w-0 flex-1">
+                  <span className={`block truncate text-sm font-medium text-foreground ${entry.name ? "" : "tabular-nums"}`}>
+                    {entry.name || prettyE164(entry.e164)}
+                  </span>
+                  <span className="block truncate text-[11px] text-muted-foreground tabular-nums">
+                    {[entry.name && entry.e164 ? prettyE164(entry.e164) : null, entry.place].filter(Boolean).join(" · ")}
+                  </span>
+                </span>
+                <span className={`${TAG} bg-muted text-muted-foreground`}>
+                  {entry.kind === "lead" ? t("app.salesText.newKindLead") : t("app.salesText.newKindProspect")}
+                </span>
+                {picking === entry.id ? <Loader2 className="animate-spin motion-reduce:animate-none" size={13} aria-hidden="true" /> : null}
+              </button>
+            </li>
+          ))
+        )}
+      </ul>
+    </div>
+  );
+}
+
 // Two entry points the owner asked for. The picker searches ONLY what the
 // rep holds (app/api/sales/messages/contacts scopes both queries), and
 // "New text" hands a number to app/api/sales/messages/start, which decides
@@ -933,6 +1072,7 @@ function SalesMessagesScreen() {
   // "Text this number now" on a thread with no lead — startTextThread's
   // own path, the same one the New message picker's typed number takes.
   const [claiming, setClaiming] = useState(false);
+  const [linking, setLinking] = useState(false);
   const toLeadId = params.get("to") || "";
   const [showContext, setShowContext] = useState(true);
   const [contextTab, setContextTab] = useState("details");
@@ -1145,6 +1285,19 @@ function SalesMessagesScreen() {
   const demoThread = Boolean(thread?.demo);
   const suppressed = Boolean(thread?.suppressed);
   const blockers = thread?.blockers || [];
+  // Where they are, for the header — the prospect's town and state, once
+  // each (the route's `city` falls back to the province when the prospect
+  // has no town, and "NY, NY" is not an address).
+  const place = [thread?.contact?.city, thread?.contact?.province]
+    .filter((v, i, all) => v && all.indexOf(v) === i)
+    .join(", ");
+  // A conversation with words in it on none of the rep's leads — a text
+  // filed to a business by the line it arrived on, a pasted number — can
+  // be hung on one by the rep. Not a demo's, not a signed-up company's
+  // (those have their own sentence), not a number another rep holds.
+  const canLink = Boolean(
+    thread && !thread.lead && !demoThread && !thread.company && !thread.draftCompany && thread.holder?.kind !== "other",
+  );
   const smsWindow = thread?.window || null;
   const pendingDraft = (thread?.checkIns || [])[0] || null;
   // An empty thread on one of the rep's leads: the first message is theirs
@@ -1444,26 +1597,39 @@ function SalesMessagesScreen() {
   } else if (softBlocker && !(zoneAsked && softBlocker.code === "time_zone_unknown")) {
     // (A time_zone_unknown blocker is answered by the zone row above the
     // box rather than repeated here as a sentence with no control.)
+    //
+    // One line, the server's full sentence behind the disclosure and in
+    // the hover: what is in the way and what fixes it. The unknown-zone
+    // case gets its own short line, because the server's three-line
+    // explanation of ported mobiles was most of what pushed the
+    // conversation off the owner's rep's screen.
     hint = (
-      <span className="inline-flex items-start gap-1.5 text-amber-900 dark:text-amber-200">
-        <AlertCircle size={13} className="mt-0.5 shrink-0" aria-hidden="true" />
-        {/* The server's sentence: what is in the way and what fixes it. */}
-        <span>
-          {softBlocker.title} {softBlocker.fix}
-        </span>
-      </span>
+      <Footnote
+        tone="warning"
+        icon={AlertCircle}
+        className="w-full text-xs"
+        short={
+          softBlocker.code === "time_zone_unknown" && !softBlocker.candidates?.length
+            ? t("app.salesText.zoneUnknownLine")
+            : softBlocker.title
+        }
+        full={softBlocker.code === "time_zone_unknown" ? `${softBlocker.title} ${softBlocker.fix}` : softBlocker.fix}
+        data-composer-blocker={softBlocker.code}
+      />
     );
   } else if (softWarning) {
     // A Send that works, with the console's override said beside it — the
     // texting window is warn-only or off for this state. Same amber as a
     // blocker so it is read; the composer stays enabled because it is one.
     hint = (
-      <span className="inline-flex items-start gap-1.5 text-amber-900 dark:text-amber-200" data-window-override={softWarning.code}>
-        <AlertCircle size={13} className="mt-0.5 shrink-0" aria-hidden="true" />
-        <span>
-          {softWarning.title} {softWarning.fix}
-        </span>
-      </span>
+      <Footnote
+        tone="warning"
+        icon={AlertCircle}
+        className="w-full text-xs"
+        short={softWarning.title}
+        full={softWarning.fix}
+        data-window-override={softWarning.code}
+      />
     );
   }
 
@@ -1614,128 +1780,205 @@ function SalesMessagesScreen() {
     </div>
   ) : (
     <>
-      {/* ── Header: who, the tags, the actions ──────────────────────────── */}
-      <header className="border-b border-border px-3 py-2">
-        <div className="flex items-start gap-2">
+      {/* ── Header: two lines, never more ──────────────────────────────────
+          Line one: who (name, number, town), the tags, the actions as
+          icons. Line two: the reply's verdict and the control that
+          overrides it, when there is one. The four-row header this
+          replaced — name, then number and tags, then "Time zone unknown",
+          then four labelled buttons — was ~250px of a frame whose
+          conversation pane is what is left over; on the owner's rep's
+          laptop that was 100px. Everything here is shrink-0; the Thread
+          is the flex-1 child. */}
+      <div className="relative shrink-0">
+      <header className="@container border-b border-border px-3 py-1" data-thread-header>
+        <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={() => setPane(PANE_LIST)}
-            className="md:hidden -ml-1 grid h-11 w-11 shrink-0 place-items-center rounded-lg text-muted-foreground hover:bg-muted"
+            className="md:hidden -ml-1 grid h-9 w-9 shrink-0 place-items-center rounded-lg text-muted-foreground hover:bg-muted"
             aria-label={t("app.salesText.backToAll")}
           >
             <ArrowLeft size={18} aria-hidden="true" />
           </button>
-          <div className="min-w-0 flex-1">
-            <h2 className="truncate text-sm font-semibold text-foreground">{them}</h2>
-            <p className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-              <span className="tabular-nums">{prettyE164(openWith)}</span>
-              <span className={`${TAG} bg-muted text-muted-foreground`}>SMS</span>
-              {suppressed && (
-                <span className={`${TAG} bg-red-600 text-white`} data-tag="stop">
-                  <ShieldOff size={11} aria-hidden="true" /> STOP
-                </span>
-              )}
-              {demoThread ? (
-                <span className={`${TAG} border border-border bg-card text-muted-foreground uppercase tracking-wide`} data-tag="demo">
-                  {t("app.salesPortal.demoBadge")}
-                </span>
-              ) : null}
-              {thread?.lead?.status ? (
-                <span className={`${TAG} bg-muted text-foreground`} data-tag="stage">
-                  {t(`app.salesLeads.status.${thread.lead.status}`, LEAD_STATUS_LABELS[thread.lead.status] || thread.lead.status)}
-                </span>
-              ) : null}
-              {thread?.triage ? (
-                // The chip and, beside it, the dropdown that overrides it.
-                // The select IS the control — a visible <select>, so a rep
-                // on a phone gets the native picker — and the chip is what
-                // the list shows. The reason is the model's sentence, and
-                // is dropped once a rep has had the last word.
-                <span className="inline-flex items-center gap-1" data-tag="triage">
-                  <TriageChip triage={thread.triage} />
-                  <label className="inline-flex items-center gap-1">
-                    <span className="sr-only">{t("app.salesText.triageLabel")}</span>
-                    <select
-                      value={thread.triage.kind || ""}
-                      disabled={triageBusy}
-                      onChange={(e) => setTriage(e.target.value)}
-                      className="h-7 max-w-[11rem] rounded-md border border-border bg-card px-1.5 text-[11px] text-foreground"
-                      data-triage-select
-                    >
-                      <option value="">{t("app.salesText.triageUnset")}</option>
-                      {TRIAGE_KINDS.map((k) => (
-                        <option key={k} value={k}>
-                          {t(TRIAGE_LABEL_KEY[k])}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  {thread.triage.reason && !thread.triage.overridden ? (
-                    <span className="max-w-[18rem] truncate text-[11px] text-muted-foreground" title={thread.triage.reason}>
-                      {thread.triage.reason}
-                    </span>
-                  ) : null}
-                </span>
-              ) : null}
-              {suppressed ? null : smsWindow?.known ? (
-                <span
-                  className={`${TAG} ${smsWindow.open ? "bg-emerald-100 text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-100" : "bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-100"}`}
-                  data-tag="window"
-                >
-                  {smsWindow.open
-                    ? t("app.salesText.windowOpenUntil", { time: zoneTime(smsWindow.until, smsWindow.timeZone) })
-                    : smsWindow.override
-                      ? // Shut by the clock, open by the platform console's
-                        // override — said as both, never as "open".
-                        t(
-                          smsWindow.override === "off"
-                            ? "app.salesText.windowClosedOverrideOff"
-                            : "app.salesText.windowClosedOverrideWarn",
-                          { time: zoneTime(smsWindow.until, smsWindow.timeZone) },
-                        )
-                      : t("app.salesText.windowClosedOpens", { time: zoneTime(smsWindow.until, smsWindow.timeZone) })}
-                </span>
-              ) : thread ? (
-                <span className={`${TAG} bg-muted text-muted-foreground`} data-tag="window">
-                  {t("app.salesText.timeZoneUnknown")}
-                </span>
-              ) : null}
-            </p>
+          {/* One row that scrolls sideways rather than wrapping: the name
+              keeps its width, the tags queue after it. */}
+          <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" data-thread-identity>
+            <h2 className="max-w-[70%] shrink-0 truncate text-sm font-semibold text-foreground">{them}</h2>
+            {them !== prettyE164(openWith) ? (
+              <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{prettyE164(openWith)}</span>
+            ) : null}
+            {place ? (
+              <span className="shrink-0 text-xs text-muted-foreground" data-thread-place>
+                · {place}
+              </span>
+            ) : null}
+            {/* The window first among the tags — it is the one a rep acts on
+                (send now, or not), so it is the one that must not scroll
+                off the end of the row; the channel and the stage follow. */}
+            {suppressed ? null : smsWindow?.known ? (
+              <span
+                className={`${TAG} shrink-0 ${smsWindow.open ? "bg-emerald-100 text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-100" : "bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-100"}`}
+                data-tag="window"
+                data-zone-source={thread?.timeZoneSource || undefined}
+                // The zone the window is judged in, and where it came from
+                // — "from their address" is a different claim from "they
+                // told us", and the hover says which.
+                title={
+                  thread?.timeZoneSource === "derived"
+                    ? t("app.salesText.zoneDerivedTitle", { zone: smsWindow.timeZone })
+                    : smsWindow.timeZone || undefined
+                }
+              >
+                {smsWindow.open
+                  ? t("app.salesText.windowOpenUntil", { time: zoneTime(smsWindow.until, smsWindow.timeZone) })
+                  : smsWindow.override
+                    ? // Shut by the clock, open by the platform console's
+                      // override — said as both, never as "open".
+                      t(
+                        smsWindow.override === "off"
+                          ? "app.salesText.windowClosedOverrideOff"
+                          : "app.salesText.windowClosedOverrideWarn",
+                        { time: zoneTime(smsWindow.until, smsWindow.timeZone) },
+                      )
+                    : t("app.salesText.windowClosedOpens", { time: zoneTime(smsWindow.until, smsWindow.timeZone) })}
+              </span>
+            ) : thread ? (
+              <span className={`${TAG} shrink-0 bg-muted text-muted-foreground`} data-tag="window">
+                {t("app.salesText.timeZoneUnknown")}
+              </span>
+            ) : null}
+            {/* The channel, from md up: on a phone every tag costs the name
+                a letter, and this screen has one channel. */}
+            <span className="hidden md:inline-flex shrink-0 items-center rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">SMS</span>
+            {suppressed && (
+              <span className={`${TAG} shrink-0 bg-red-600 text-white`} data-tag="stop">
+                <ShieldOff size={11} aria-hidden="true" /> STOP
+              </span>
+            )}
+            {demoThread ? (
+              <span className={`${TAG} shrink-0 border border-border bg-card text-muted-foreground uppercase tracking-wide`} data-tag="demo">
+                {t("app.salesPortal.demoBadge")}
+              </span>
+            ) : null}
+            {thread?.lead?.status ? (
+              <span className={`${TAG} shrink-0 bg-muted text-foreground`} data-tag="stage">
+                {t(`app.salesLeads.status.${thread.lead.status}`, LEAD_STATUS_LABELS[thread.lead.status] || thread.lead.status)}
+              </span>
+            ) : null}
+          </div>
+          <div className="flex shrink-0 items-center gap-1" data-thread-actions>
+            {thread?.lead ? (
+              // The call itself is gated by the calling rules on the lead
+              // screen (salesCallReadiness, dialHref); this opens that region
+              // rather than producing a tel: link that skips the gate.
+              <Link href={`/sales/leads/${thread.lead.id}#lead-call`} className={ICON_ACTION} aria-label={t("app.salesText.actionCall")} title={t("app.salesText.actionCall")}>
+                <Phone size={14} aria-hidden="true" /> <span>{t("app.salesText.actionCall")}</span>
+              </Link>
+            ) : null}
+            {thread?.lead ? (
+              <Link href={`/sales/leads/${thread.lead.id}`} className={ICON_ACTION} aria-label={t("app.salesText.actionOpenLead")} title={t("app.salesText.actionOpenLead")}>
+                <ExternalLink size={14} aria-hidden="true" /> <span>{t("app.salesText.actionOpenLead")}</span>
+              </Link>
+            ) : null}
+            {canLink ? (
+              // A conversation on none of the rep's leads: hang it on one.
+              // The panel under the header searches what the rep holds —
+              // the New message picker's own endpoint — and the start
+              // route records the number on the lead and moves the rows.
+              <button
+                type="button"
+                onClick={() => setLinking((v) => !v)}
+                className={`${ICON_ACTION} ${linking ? "border-brand-accent bg-brand-accent/10" : ""}`}
+                aria-expanded={linking}
+                aria-label={t("app.salesText.linkToLead")}
+                title={t("app.salesText.linkToLead")}
+                data-link-lead-button
+              >
+                <Link2 size={14} aria-hidden="true" /> <span>{t("app.salesText.linkToLead")}</span>
+              </button>
+            ) : null}
+            {!suppressed && thread ? (
+              <button
+                type="button"
+                onClick={() => setParking((v) => !v)}
+                className={ICON_ACTION}
+                aria-expanded={parking}
+                aria-label={t("app.salesText.actionSchedule")}
+                title={t("app.salesText.actionSchedule")}
+              >
+                <CalendarPlus size={14} aria-hidden="true" /> <span>{t("app.salesText.actionSchedule")}</span>
+              </button>
+            ) : null}
+            {thread ? (
+              <button
+                type="button"
+                disabled={draftBusy === "done"}
+                onClick={() => setDone(!isDone)}
+                className={ICON_ACTION}
+                aria-label={isDone ? t("app.salesText.actionReopen") : t("app.salesText.actionMarkDone")}
+                title={isDone ? t("app.salesText.actionReopen") : t("app.salesText.actionMarkDone")}
+              >
+                {isDone ? <RotateCcw size={14} aria-hidden="true" /> : <Check size={14} aria-hidden="true" />}
+                <span>{isDone ? t("app.salesText.actionReopen") : t("app.salesText.actionMarkDone")}</span>
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={toggleContext}
+              className={ICON_ACTION}
+              aria-pressed={wide ? showContext : undefined}
+              aria-label={t("app.salesText.actionContact")}
+              title={t("app.salesText.actionContact")}
+            >
+              <UserRound size={14} aria-hidden="true" /> <span>{t("app.salesText.actionContact")}</span>
+            </button>
           </div>
         </div>
-        {/* One row that scrolls sideways on a phone rather than wrapping to
-            three: the thread is what the screen is for, and a header that
-            eats a third of it is a header that has to go. */}
-        <div className="mt-2 -mx-3 flex gap-1.5 overflow-x-auto px-3 pb-0.5 [&>*]:shrink-0" data-thread-actions>
-          {thread?.lead ? (
-            // The call itself is gated by the calling rules on the lead
-            // screen (salesCallReadiness, dialHref); this opens that region
-            // rather than producing a tel: link that skips the gate.
-            <Link href={`/sales/leads/${thread.lead.id}#lead-call`} className={ACTION}>
-              <Phone size={13} aria-hidden="true" /> {t("app.salesText.actionCall")}
-            </Link>
-          ) : null}
-          {thread?.lead ? (
-            <Link href={`/sales/leads/${thread.lead.id}`} className={ACTION}>
-              <ExternalLink size={13} aria-hidden="true" /> {t("app.salesText.actionOpenLead")}
-            </Link>
-          ) : null}
-          {!suppressed && thread ? (
-            <button type="button" onClick={() => setParking((v) => !v)} className={ACTION} aria-expanded={parking}>
-              <CalendarPlus size={13} aria-hidden="true" /> {t("app.salesText.actionSchedule")}
-            </button>
-          ) : null}
-          {thread ? (
-            <button type="button" disabled={draftBusy === "done"} onClick={() => setDone(!isDone)} className={ACTION}>
-              {isDone ? <RotateCcw size={13} aria-hidden="true" /> : <Check size={13} aria-hidden="true" />}
-              {isDone ? t("app.salesText.actionReopen") : t("app.salesText.actionMarkDone")}
-            </button>
-          ) : null}
-          <button type="button" onClick={toggleContext} className={ACTION} aria-pressed={wide ? showContext : undefined}>
-            <UserRound size={13} aria-hidden="true" /> {t("app.salesText.actionContact")}
-          </button>
-        </div>
+        {thread?.triage ? (
+          // The chip and, beside it, the dropdown that overrides it. The
+          // select IS the control — a visible <select>, so a rep on a
+          // phone gets the native picker — and the chip is what the list
+          // shows. The reason is the model's sentence, one line, the whole
+          // of it on hover; it is dropped once a rep has had the last word.
+          <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground" data-tag="triage">
+            <TriageChip triage={thread.triage} />
+            <label className="inline-flex shrink-0 items-center gap-1">
+              <span className="sr-only">{t("app.salesText.triageLabel")}</span>
+              <select
+                value={thread.triage.kind || ""}
+                disabled={triageBusy}
+                onChange={(e) => setTriage(e.target.value)}
+                className="h-7 max-w-[11rem] rounded-md border border-border bg-card px-1.5 text-[11px] text-foreground"
+                data-triage-select
+              >
+                <option value="">{t("app.salesText.triageUnset")}</option>
+                {TRIAGE_KINDS.map((k) => (
+                  <option key={k} value={k}>
+                    {t(TRIAGE_LABEL_KEY[k])}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {thread.triage.reason && !thread.triage.overridden ? (
+              <span className="min-w-0 flex-1 truncate text-[11px]" title={thread.triage.reason}>
+                {thread.triage.reason}
+              </span>
+            ) : null}
+          </div>
+        ) : null}
       </header>
+      {linking && canLink ? (
+        <LinkLeadPanel
+          e164={openWith}
+          onLinked={async () => {
+            setLinking(false);
+            await loadThread(openWith, { quiet: true });
+            await loadList();
+          }}
+          onClose={() => setLinking(false)}
+        />
+      ) : null}
+      </div>
       {/* The owner can read this thread from the console; when they have, the rep is told here. */}
       <ReviewedByOwner review={thread?.reviewedByOwner} className="px-3 pt-1" />
 
@@ -2104,7 +2347,13 @@ function SalesMessagesScreen() {
             // in rather than translated: a rep told in Spanish that the
             // message carries a Spanish opt-out line would have been told
             // something untrue about what goes over the wire.
-            footer={t("app.salesText.caslFooterNote", { optOut: "Reply STOP to opt out" })}
+            footer={
+              <Footnote
+                short={t("app.salesText.caslFooterLine", { optOut: "Reply STOP to opt out" })}
+                full={t("app.salesText.caslFooterNote", { optOut: "Reply STOP to opt out" })}
+                data-casl-footnote
+              />
+            }
           />
           </>
           )}
@@ -2156,6 +2405,8 @@ function SalesMessagesScreen() {
     <div data-tour="sales-texts">
       <ChatLayout
         height={FRAME_HEIGHT}
+        // Edge to edge on a phone — globals.css ".fq-sales-flush" says why.
+        className="fq-sales-flush"
         contextColumnFrom="wide"
         pane={pane}
         onCloseContext={() => setPane(PANE_THREAD)}
