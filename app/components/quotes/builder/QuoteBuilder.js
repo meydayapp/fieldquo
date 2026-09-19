@@ -767,6 +767,8 @@ export function QuoteBuilderForm({
   // because `notes` goes on the PDF the homeowner opens, and one forgotten
   // deletion would put "we couldn't work out what you meant" in front of them.
   const [reviewNotes, setReviewNotes] = useState(start.reviewNotes || "");
+  // So "Add to notes for review" can bring the box it wrote into view.
+  const reviewNotesRef = useRef(null);
   const [processNotes, setProcessNotes] = useState(
     // On a create, the company's default is what the saved quote WILL carry,
     // so the box opens holding it rather than blank — editing it now writes a
@@ -2268,7 +2270,7 @@ export function QuoteBuilderForm({
           that the client never sees it, and clears to nothing once the
           estimator has dealt with what it says. */}
       {reviewNotes ? (
-        <div className="bg-card border border-amber-300 dark:border-amber-800 rounded-xl p-5">
+        <div ref={reviewNotesRef} className="bg-card border border-amber-300 dark:border-amber-800 rounded-xl p-5">
           <h2 className="font-semibold text-foreground mb-1">
             {t("app.quoteNew.reviewNotes")}
           </h2>
@@ -2499,9 +2501,30 @@ export function QuoteBuilderForm({
           // The deep read's findings land in the internal notes for review —
           // appended under what is there, so a phone draft's own note and two
           // reads on different days all survive together.
-          onReviewNotes={(text) =>
-            setReviewNotes((current) => (current?.trim() ? `${current.trimEnd()}\n\n${text}` : text))
-          }
+          //
+          // SAVED at once, through the append route, not only put in the box:
+          // the box is two screens up and only exists once it has text, so
+          // the press looked like nothing happened, and a reload before the
+          // builder's own Save lost it. The route hands back the merged note
+          // and the new updatedAt; the second is what keeps the next Save
+          // from being refused as a stale write (see `version`).
+          onReviewNotes={async (text) => {
+            try {
+              const saved = await fetchJson(`/api/quotes/${quoteId}/review-notes`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: jsonBody({ append: text }, "review note"),
+              });
+              setReviewNotes(typeof saved?.reviewNotes === "string" ? saved.reviewNotes : text);
+              if (saved?.updatedAt) setVersion(saved.updatedAt);
+              // Shown, not only stored: scroll the box the text landed in into
+              // view on the next paint, once it exists.
+              setTimeout(() => reviewNotesRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 0);
+              return { ok: true };
+            } catch (err) {
+              return { ok: false, error: err?.message || t("app.quoteEdit.saveError") };
+            }
+          }}
           autoReview={autoReview}
         />
       )}

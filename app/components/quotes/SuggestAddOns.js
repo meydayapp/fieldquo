@@ -165,6 +165,29 @@ export default function SuggestAddOns({
   const [visionSpend, setVisionSpend] = useState(null);
   const [visionRunning, setVisionRunning] = useState(false);
   const [visionError, setVisionError] = useState("");
+  // Per pass: { busy, done, error } for "Add to notes for review". The parent
+  // saves the text (QuoteBuilder posts it to /api/quotes/[id]/review-notes)
+  // and answers ok or not; this is where that answer is shown, because the
+  // box it landed in is nowhere near the button.
+  const [notesState, setNotesState] = useState({});
+  async function addPassToNotes(p, j) {
+    const key = p.at || j;
+    setNotesState((s) => ({ ...s, [key]: { busy: true } }));
+    const text = [
+      t("app.deepRead.notesHeading", {
+        when: p.at
+          ? new Date(p.at).toLocaleDateString(language || "en", { day: "numeric", month: "short" })
+          : "",
+      }),
+      ...p.notes.map((n) => `— ${n}`),
+    ].join("\n");
+    const result = await Promise.resolve(onReviewNotes(text)).catch((err) => ({ ok: false, error: err?.message }));
+    if (result && result.ok === false) {
+      setNotesState((s) => ({ ...s, [key]: { error: result.error || t("app.deepRead.addToNotesFailed") } }));
+    } else {
+      setNotesState((s) => ({ ...s, [key]: { done: true } }));
+    }
+  }
 
   // ── The deep read's own dead end, closed the same way the designer's was ──
   //
@@ -847,9 +870,9 @@ export default function SuggestAddOns({
 
           {visionPasses.length > 0 ? (
             <div className="mt-3 space-y-3">
-              {visionPasses.map((p, i) => (
+              {visionPasses.map((p, j) => (
                 <div
-                  key={p.at || i}
+                  key={p.at || j}
                   className="border border-dashed border-border rounded-lg px-3 py-2.5"
                 >
                   <p className="text-[11px] text-muted-foreground/70">
@@ -891,28 +914,27 @@ export default function SuggestAddOns({
                           site. Appends; never replaces what is already
                           written there. */}
                       {onReviewNotes && !readOnly && (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            onReviewNotes(
-                              [
-                                t("app.deepRead.notesHeading", {
-                                  when: p.at
-                                    ? new Date(p.at).toLocaleDateString(language || "en", {
-                                        day: "numeric",
-                                        month: "short",
-                                      })
-                                    : "",
-                                }),
-                                ...p.notes.map((n) => `— ${n}`),
-                              ].join("\n"),
-                            )
-                          }
-                          className="mt-2.5 text-xs font-semibold text-foreground underline"
-                          data-deep-read-to-notes
-                        >
-                          {t("app.deepRead.addToNotes")}
-                        </button>
+                        <div className="mt-2.5 flex items-center gap-2 flex-wrap">
+                          <button
+                            type="button"
+                            disabled={notesState[p.at || j]?.busy}
+                            onClick={() => addPassToNotes(p, j)}
+                            className="text-xs font-semibold text-foreground underline disabled:opacity-60"
+                            data-deep-read-to-notes
+                          >
+                            {notesState[p.at || j]?.busy ? t("app.deepRead.addingToNotes") : t("app.deepRead.addToNotes")}
+                          </button>
+                          {/* The answer, beside the button that was pressed —
+                              the box it wrote is two screens up. */}
+                          {notesState[p.at || j]?.done && (
+                            <span className="text-xs text-green-700 dark:text-green-400 inline-flex items-center gap-1" data-deep-read-added>
+                              <Check size={12} /> {t("app.deepRead.addedToNotes")}
+                            </span>
+                          )}
+                          {notesState[p.at || j]?.error && (
+                            <span className="text-xs text-red-700 dark:text-red-300">{notesState[p.at || j].error}</span>
+                          )}
+                        </div>
                       )}
                     </>
                   ) : (
