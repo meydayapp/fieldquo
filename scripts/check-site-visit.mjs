@@ -32,6 +32,12 @@ import {
   siteVisitCarryEvents,
 } from "@/lib/quotes/siteVisit";
 import { serviceName } from "@/lib/schedule/clientNotice";
+import {
+  linkInstantVisits,
+  orphanVisitWhere,
+  bookedVisitWhere,
+  INSTANT_VISIT_LINK_WINDOW_MS,
+} from "@/lib/quotes/linkInstantVisits";
 import { APP_MESSAGES } from "../app/i18n/appMessages.js";
 import { EMAIL_COPY } from "../lib/i18n/emailCopy.js";
 
@@ -249,6 +255,59 @@ ok(/landingDayFrom\(useSearchParams\(\)\)/.test(calendar) && /useState\(landingD
 ok(/aboutHref\(aboutLabel\(appt\)\)/.test(calendar) && /app\.appts\.openAbout/.test(calendar), "a measure on the calendar links back to its quote");
 const getRoute = post.split("export async function POST")[0];
 ok(/quote: \{ select: \{ id: true, quoteNumber: true \} \}/.test(getRoute), "GET /api/appointments carries the quote so that link has something to point at");
+
+// ── 8. The visit the homeowner booked off an instant estimate ──────────────
+//
+// Q-2026-0003: the homeowner booked a measure straight after the instant
+// estimate. The booking route verified the draft's id and wrote it onto the
+// Booking row only; the Appointment beside it — the row this panel reads —
+// carried no quoteId, so the calendar had the visit and the quote page said
+// "No visit scheduled yet". Both creators must write it, and the repair for
+// rows written before they did is executed here against a scripted db.
+
+section("8. A homeowner's booking reaches the quote page");
+
+const confirm = read("app/api/booking/[companySlug]/confirm/route.js");
+const apptCreate = confirm.split("db.appointment.create(")[1]?.split("});")[0] || "";
+ok(/\.\.\.\(linkedQuoteId && \{ quoteId: linkedQuoteId \}\)/.test(apptCreate), "the free booking path writes the verified quote id onto the APPOINTMENT, not only the Booking");
+const settle = read("lib/booking/settleBookingFee.js");
+const settleCreate = settle.split("prisma.appointment.create(")[1]?.split("});")[0] || "";
+ok(/\.\.\.\(held\.quoteId && \{ quoteId: held\.quoteId \}\)/.test(settleCreate), "the paid booking path copies the held booking's quote id onto the appointment");
+ok(/linkInstantVisits\(db, quote\)/.test(quoteGet) && /if \(quote\.autoEstimated\)/.test(quoteGet), "GET /api/quotes/[id] repairs an auto-estimated draft's unlinked visits on read");
+
+{
+  const calls = [];
+  const fakeDb = {
+    appointment: {
+      updateMany: async ({ where, data }) => {
+        calls.push({ where, data });
+        return { count: calls.length === 1 ? 1 : 0 };
+      },
+    },
+  };
+  const created = new Date("2026-09-19T17:56:26.833Z");
+  const draft = { id: "q_draft", companyId: "co_1", clientId: "cl_1", createdAt: created, autoEstimated: true };
+  const linked = await linkInstantVisits(fakeDb, draft);
+  ok(linked === 1, "returns how many rows it attached", linked);
+  ok(calls.length === 2, "two rules, two writes: the verified booking and the same-client window", calls.length);
+  ok(calls.every((c) => c.data.quoteId === "q_draft"), "every write sets THIS draft's id and nothing else", calls.map((c) => c.data));
+  ok(calls.every((c) => c.where.quoteId === null && c.where.companyId === "co_1"), "and only into an EMPTY quoteId, inside the draft's own company", calls.map((c) => c.where));
+  const booked = bookedVisitWhere(draft);
+  ok(booked.booking?.is?.quoteId === "q_draft", "rule 1: the Booking beside the appointment names this quote", booked);
+  const orphan = orphanVisitWhere(draft);
+  ok(orphan.clientId === "cl_1" && orphan.jobId === null && orphan.invoiceId === null, "rule 2: the same client, and an appointment about nothing else yet", orphan);
+  ok(
+    orphan.createdAt.gte.getTime() === created.getTime() &&
+      orphan.createdAt.lte.getTime() === created.getTime() + INSTANT_VISIT_LINK_WINDOW_MS &&
+      INSTANT_VISIT_LINK_WINDOW_MS === 24 * 60 * 60 * 1000,
+    "…created within the 24 hours AFTER the draft, never before it",
+    orphan.createdAt,
+  );
+
+  calls.length = 0;
+  const manual = await linkInstantVisits(fakeDb, { ...draft, autoEstimated: false });
+  ok(manual === 0 && calls.length === 0, "a hand-built quote is never touched — the rule is for instant drafts only");
+}
 
 console.log(fail ? `\n${fail} FAILED\n` : "\nall passed\n");
 process.exit(fail ? 1 : 0);

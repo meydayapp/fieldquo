@@ -33,6 +33,7 @@ import {
 import { syncTakeoffAddOns } from "@/lib/quotes/takeoffAddOns";
 import { withCapturedMeasureImages } from "@/lib/measure/measureImages";
 import { canUseKitchenDesigner } from "@/lib/kitchen/access";
+import { linkInstantVisits } from "@/lib/quotes/linkInstantVisits";
 import {
   parseExpectedVersion,
   versionWhere,
@@ -115,6 +116,41 @@ export async function GET(request, { params }) {
   });
 
   if (!quote) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  // ── The visit the homeowner booked off this estimate ─────────────────────
+  //
+  // An instant-estimate draft's visit was written to the calendar with the
+  // quote's id on the Booking row and NOT on the Appointment row this include
+  // reads, so the panel below said "No visit scheduled yet" under a visit that
+  // was on the calendar. The creators now write it; this attaches the rows
+  // written before they did — the verified booking, and a visit booked for
+  // the same client within a day of the draft — and re-reads the list only
+  // when something changed. Idempotent, drafts only, see the module.
+  if (quote.autoEstimated) {
+    try {
+      const linked = await linkInstantVisits(db, quote);
+      if (linked > 0) {
+        quote.appointments = await db.appointment.findMany({
+          where: { quoteId: quote.id },
+          orderBy: { scheduledAt: "asc" },
+          select: {
+            id: true,
+            scheduledAt: true,
+            status: true,
+            location: true,
+            notes: true,
+            cancelReason: true,
+            assignedToId: true,
+            assignedTo: { select: { id: true, name: true } },
+          },
+        });
+      }
+    } catch (err) {
+      // The read is the thing that matters; a failed repair shows the old
+      // list, which is what the page showed before this existed.
+      console.error("[quotes GET] link instant visits:", err?.message);
+    }
+  }
 
   // Which scope groups came from an import — the editor renders these read-only
   // (the received cost is fixed; the markup is edited from the quote page). The
