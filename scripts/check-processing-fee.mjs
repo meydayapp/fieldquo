@@ -200,21 +200,57 @@ const NO_LEDGER = { ledger: async () => 0 };
   ok("a $1,000 balance is priced on the balance, not the total: $30.30",
     c.params.line_items[0].price_data.unit_amount === 100_000 && c.params.payment_intent_data.application_fee_amount === 3030);
 }
+const AFFIRM_CO = { ...COMPANY, offerFinancing: true, stripeAffirmStatus: "active" };
 {
   captured.length = 0;
-  await stripeLib.createInvoiceCheckoutSession({ invoice, company: { ...COMPANY, offerFinancing: true }, successUrl: "s", cancelUrl: "c" }, NO_LEDGER);
+  await stripeLib.createInvoiceCheckoutSession({ invoice, company: AFFIRM_CO, successUrl: "s", cancelUrl: "c" }, NO_LEDGER);
   const c = captured.find((x) => x.op === "checkout.sessions.create");
-  ok("Affirm-eligible link (card + affirm in ONE session) keeps the CARD fee — the lower — at creation",
+  ok("Affirm-eligible link (opted in + Stripe ACTIVE; card + affirm in ONE session) keeps the CARD fee — the lower — at creation",
     c.params.payment_method_types.join() === "card,affirm" && c.params.payment_intent_data.application_fee_amount === 6810);
   ok("  ^ on_behalf_of still set", c.params.payment_intent_data.on_behalf_of === "acct_contractor");
 }
 {
+  // The toggle alone is not enough: before lib/stripe/affirm.js the session
+  // named Affirm on offerFinancing alone, Stripe refused it for an account
+  // without the capability, and the console.warn fallback hid it.
+  for (const [status, why] of [["pending", "pending Stripe's review"], ["inactive", "turned off by Stripe"], ["unavailable", "a country Affirm does not serve"], [null, "never requested"]]) {
+    captured.length = 0;
+    await stripeLib.createInvoiceCheckoutSession({ invoice, company: { ...AFFIRM_CO, stripeAffirmStatus: status }, successUrl: "s", cancelUrl: "c" }, NO_LEDGER);
+    const c = captured.find((x) => x.op === "checkout.sessions.create");
+    ok(`  ^ opted in but the capability is ${why} (${status}): card only, ONE create call, nothing for Stripe to refuse`,
+      c.params.payment_method_types.join() === "card" && captured.filter((x) => x.op === "checkout.sessions.create").length === 1);
+  }
   captured.length = 0;
+  await stripeLib.createInvoiceCheckoutSession({ invoice, company: { ...AFFIRM_CO, offerFinancing: false }, successUrl: "s", cancelUrl: "c" }, NO_LEDGER);
+  ok("  ^ Stripe active but the contractor opted OUT: card only — the toggle is still the contractor's choice",
+    captured.find((x) => x.op === "checkout.sessions.create").params.payment_method_types.join() === "card");
+  captured.length = 0;
+  await stripeLib.createInvoiceCheckoutSession({ invoice: { ...invoice, total: 40 }, company: AFFIRM_CO, successUrl: "s", cancelUrl: "c" }, NO_LEDGER);
+  ok("  ^ a $40 invoice is under Affirm's $50 floor: card only",
+    captured.find((x) => x.op === "checkout.sessions.create").params.payment_method_types.join() === "card");
+}
+{
+  // Stripe refuses a session naming Affirm on an account our column says is
+  // active. The fallback still hands the homeowner a card link — and is no
+  // longer silent: the refusal is recorded and the column flipped to
+  // "inactive" so the settings card stops claiming active.
+  captured.length = 0;
+  const logged = [];
+  const written = [];
+  const fakeDb = { company: { update: async (args) => { written.push(args); return {}; } } };
   globalThis.__affirmRejects = true;
-  await stripeLib.createInvoiceCheckoutSession({ invoice, company: { ...COMPANY, offerFinancing: true }, successUrl: "s", cancelUrl: "c" }, NO_LEDGER);
+  await stripeLib.createInvoiceCheckoutSession(
+    { invoice, company: AFFIRM_CO, successUrl: "s", cancelUrl: "c" },
+    { ...NO_LEDGER, db: fakeDb, recordError: async (e) => { logged.push(e); } },
+  );
   globalThis.__affirmRejects = false;
   const last = captured[captured.length - 1];
-  ok("  ^ and the card-only fallback carries the same fee", last.params.payment_method_types.join() === "card" && last.params.payment_intent_data.application_fee_amount === 6810);
+  ok("Stripe refuses Affirm → the card-only fallback carries the same fee", last.params.payment_method_types.join() === "card" && last.params.payment_intent_data.application_fee_amount === 6810);
+  ok("  ^ and the refusal is RECORDED: area stripe_affirm, the company, the invoice, Stripe's message — never a bare console.warn",
+    logged.length === 1 && logged[0].area === "stripe_affirm" && logged[0].companyId === "co1" && logged[0].detail?.invoiceId === "inv1" && /affirm not activated/.test(logged[0].message), logged[0]);
+  ok("  ^ and Company.stripeAffirmStatus is flipped to \"inactive\" so the settings card stops saying active",
+    written.length === 1 && written[0].where.id === "co1" && written[0].data.stripeAffirmStatus === "inactive", written[0]);
+  ok("  ^ the fallback path in lib/stripe.js has no console.warn left", !/console\.warn\([^)]*Affirm/.test(read("lib/stripe.js")));
 }
 {
   captured.length = 0;
@@ -401,10 +437,18 @@ console.log("\n── 3. Capabilities: new accounts request card_payments + tran
   ok("CHARGE_CAPABILITIES is exactly those two", Object.keys(CHARGE_CAPABILITIES).sort().join() === "card_payments,transfers");
 
   const calls = [];
-  const fake = { accounts: { update: async (id, p) => { calls.push({ id, p }); return {}; } } };
+  // Stripe's update answers with the account, every requested capability
+  // now "pending" — what a real update returns — so the poll reads the new
+  // statuses off the return value instead of a second retrieve.
+  const fake = { accounts: { update: async (id, p) => {
+    calls.push({ id, p });
+    return { id, capabilities: Object.fromEntries(Object.keys(p.capabilities).map((k) => [k, "pending"])) };
+  } } };
   const did = await ensureChargeCapabilities({ id: "acct_old", capabilities: { transfers: "active" } }, { stripe: fake });
   ok("an existing account (no country yet) missing card_payments gets it requested (and only it)",
-    did === true && calls.length === 1 && Object.keys(calls[0].p.capabilities).join() === "card_payments");
+    Boolean(did) && calls.length === 1 && Object.keys(calls[0].p.capabilities).join() === "card_payments");
+  ok("  ^ and the UPDATED account Stripe returned is handed back, capability statuses on it",
+    did?.id === "acct_old" && did?.capabilities?.card_payments === "pending");
   calls.length = 0;
   const none = await ensureChargeCapabilities({ id: "acct_ok", capabilities: { card_payments: "pending", transfers: "active" } }, { stripe: fake });
   ok("an account with both (in any status) is left alone", none === false && calls.length === 0);
@@ -419,7 +463,85 @@ console.log("\n── 3. Capabilities: new accounts request card_payments + tran
   ok("  ^ and once requested (pending) it is not requested again", calls.length === 0);
   const nul = await ensureChargeCapabilities(null, { stripe: fake });
   ok("a null account is a no-op, not a throw", nul === false);
-  ok("the status poll calls ensureChargeCapabilities", /ensureChargeCapabilities\(account\)/.test(read("app/api/stripe/connect/status/route.js")));
+  ok("the status poll calls ensureChargeCapabilities with the company (the Affirm opt-in) and reads the account it returns",
+    /ensureChargeCapabilities\(account, \{ company \}\)/.test(read("app/api/stripe/connect/status/route.js")) &&
+      /\|\| account;/.test(read("app/api/stripe/connect/status/route.js")));
+
+  // ── Affirm: a capability the PLATFORM requests, not a dashboard step ────
+  //
+  // Every pay link is a destination charge with the Express account as
+  // on_behalf_of, and an Express account has no payment-method page. The
+  // settings card used to send contractors to find one. affirm_payments is
+  // requested here, like bank debit, and only for the two countries Affirm
+  // serves, and only once the contractor has opted in.
+  const affirm = await import("@/lib/stripe/affirm.js");
+  const READY = { card_payments: "active", transfers: "active", acss_debit_payments: "active" };
+  const READY_US = { card_payments: "active", transfers: "active", us_bank_account_ach_payments: "active" };
+  calls.length = 0;
+  await ensureChargeCapabilities({ id: "acct_ca_fin", country: "CA", capabilities: READY }, { stripe: fake, company: { offerFinancing: true } });
+  ok("a Canadian account with financing ON gets affirm_payments requested (and only it)",
+    calls.length === 1 && Object.keys(calls[0].p.capabilities).join() === "affirm_payments" && calls[0].p.capabilities.affirm_payments.requested === true);
+  calls.length = 0;
+  await ensureChargeCapabilities({ id: "acct_us_fin", country: "US", capabilities: READY_US }, { stripe: fake, company: { offerFinancing: true } });
+  ok("  ^ a US account too", calls.length === 1 && Object.keys(calls[0].p.capabilities).join() === "affirm_payments");
+  calls.length = 0;
+  await ensureChargeCapabilities({ id: "acct_ca_off", country: "CA", capabilities: READY }, { stripe: fake, company: { offerFinancing: false } });
+  ok("  ^ financing OFF: nothing requested — the toggle is the contractor's opt-in", calls.length === 0);
+  calls.length = 0;
+  await ensureChargeCapabilities({ id: "acct_gb", country: "GB", capabilities: { card_payments: "active", transfers: "active" } }, { stripe: fake, company: { offerFinancing: true } });
+  ok("  ^ a UK account with financing ON: NOT requested — Affirm serves US and CA only, and Stripe rejects the request elsewhere", calls.length === 0);
+  calls.length = 0;
+  await ensureChargeCapabilities({ id: "acct_ca_have", country: "CA", capabilities: { ...READY, affirm_payments: "pending" } }, { stripe: fake, company: { offerFinancing: true } });
+  ok("  ^ once requested (pending) it is not requested again", calls.length === 0);
+  calls.length = 0;
+  await ensureChargeCapabilities({ id: "acct_ca_no_country", capabilities: READY }, { stripe: fake, company: { offerFinancing: true } });
+  ok("  ^ an account whose country Stripe has not set yet: not requested (no guess at a country)", calls.length === 0);
+
+  // Status mapping from a Stripe account object — Company.stripeAffirmStatus.
+  const st = affirm.affirmStatusFor;
+  ok("affirmStatusFor: active / pending / inactive read straight off the capabilities map",
+    st({ country: "CA", capabilities: { affirm_payments: "active" } }) === "active" &&
+      st({ country: "US", capabilities: { affirm_payments: "pending" } }) === "pending" &&
+      st({ country: "CA", capabilities: { affirm_payments: "inactive" } }) === "inactive");
+  ok("  ^ a capability object's \"disabled\" reads as inactive", st({ country: "US", capabilities: { affirm_payments: "disabled" } }) === "inactive");
+  ok("  ^ not requested on a US/CA account is null — not \"inactive\", which would tell the card Stripe said no",
+    st({ country: "CA", capabilities: READY }) === null && st({ country: "US", capabilities: {} }) === null);
+  ok("  ^ a country Affirm does not serve is \"unavailable\" whatever the map says",
+    st({ country: "GB", capabilities: { affirm_payments: "active" } }) === "unavailable" && st({ country: "FR", capabilities: {} }) === "unavailable");
+  ok("  ^ a null account, or one without a country yet, is null — never a throw, never unavailable", st(null) === null && st({ capabilities: {} }) === null);
+  ok("affirmAmountEligible: $50–$30,000 in USD or CAD, cents, inclusive at both ends",
+    affirm.affirmAmountEligible({ amountCents: 5000, currency: "cad" }) && affirm.affirmAmountEligible({ amountCents: 3_000_000, currency: "usd" }) &&
+      !affirm.affirmAmountEligible({ amountCents: 4999, currency: "cad" }) && !affirm.affirmAmountEligible({ amountCents: 3_000_001, currency: "usd" }) &&
+      !affirm.affirmAmountEligible({ amountCents: 100_000, currency: "gbp" }) && !affirm.affirmAmountEligible({ amountCents: NaN, currency: "cad" }));
+  ok("affirmOffered is the ONE rule: opted in AND our column says active AND the amount qualifies",
+    affirm.affirmOffered({ company: { offerFinancing: true, stripeAffirmStatus: "active" }, amountCents: 226_000, currency: "cad" }) &&
+      !affirm.affirmOffered({ company: { offerFinancing: true, stripeAffirmStatus: "pending" }, amountCents: 226_000, currency: "cad" }) &&
+      !affirm.affirmOffered({ company: { offerFinancing: false, stripeAffirmStatus: "active" }, amountCents: 226_000, currency: "cad" }) &&
+      !affirm.affirmOffered({ company: { offerFinancing: true, stripeAffirmStatus: "active" }, amountCents: 100, currency: "cad" }));
+  const cap = affirm.summariseAffirmCapability({ status: "inactive", requirements: { currently_due: ["business_profile.url"], past_due: ["business_profile.url", "company.tax_id"], pending_verification: [], disabled_reason: "requirements.past_due" } });
+  ok("summariseAffirmCapability names what Stripe is asking for in the same words as the account card, de-duplicated, and its reason as a sentence",
+    cap.requirements.map((r) => r.label).join("; ") === "A business website or product description; Your business number (BN)" &&
+      cap.disabledReason === "Stripe is waiting on information that is now overdue." && cap.pendingVerification === false, cap);
+  ok("  ^ a null capability is empty, never a throw", affirm.summariseAffirmCapability(null).requirements.length === 0 && affirm.summariseAffirmCapability(null).disabledReason === null);
+
+  // The writers, and the card.
+  const statusRoute = read("app/api/stripe/connect/status/route.js");
+  const webhook = read("app/api/stripe/webhook/route.js");
+  ok("the status poll and account.updated both write stripeAffirmStatus from Stripe's answer, beside stripeBankDebitEnabled",
+    /stripeAffirmStatus: affirmStatus,/.test(statusRoute) && /stripeAffirmStatus: affirmStatusFor\(account\)/.test(webhook));
+  ok("  ^ the poll reads the capability's own requirements for pending / inactive and returns them under `affirm`",
+    /retrieveCapability\(synced\.id, AFFIRM_CAPABILITY\)/.test(statusRoute) && /affirm,\n/.test(statusRoute));
+  ok("  ^ and the column exists on Company", /stripeAffirmStatus String\?/.test(read("prisma/schema.prisma")));
+  const page = read("app/app/settings/payments/page.js");
+  ok("the settings card prints Stripe's status under the toggle (one sentence per state) and re-polls the moment financing is switched on",
+    /affirmSentence\(/.test(page) && /if \(next\) await loadStatus\(\);/.test(page) && /affirmUnavailable/.test(page) && /affirmPending/.test(page) && /affirmInactive/.test(page) && /affirmActive/.test(page));
+  ok("  ^ and prints what Stripe is asking for, in words", /affirmAsking/.test(page) && /disabledReason/.test(page));
+  const msgs = read("app/i18n/appMessages.js");
+  ok("nobody is sent to \"activate Affirm in your Stripe dashboard\" any more — the app copy, the help centre and the in-app articles",
+    !/activate Affirm in your Stripe dashboard/i.test(msgs) && !/financingActivateNote/.test(msgs) &&
+      !/activate Affirm in your (own )?Stripe dashboard/i.test(read("app/data/helpArticles.js")) &&
+      !/[Aa]ctivate Affirm in your (own )?Stripe dashboard/.test(read("content/help/en/invoices-and-payments-3.js") + read("content/help/en/settings-3.js") + read("content/help/en/integrations.js") + read("content/help/en/invoices-and-payments-1.js")));
+  ok("  ^ in all nine languages, the eight new card sentences exist", (msgs.match(/"app\.setPayments\.affirmUnavailable"/g) || []).length === 9 && (msgs.match(/"app\.setPayments\.financingNote"/g) || []).length === 9);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

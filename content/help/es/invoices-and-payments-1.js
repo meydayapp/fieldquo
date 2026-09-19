@@ -514,7 +514,7 @@ export const ARTICLES = {
             "**Gestionar en Stripe** abre su panel Express en una pestaña nueva: transferencias, documentos, datos bancarios, soporte. Stripe envía un código de acceso al **Correo de inicio de sesión** que se muestra en la página.",
             "**Copiar** junto al **ID de cuenta de Stripe** (empieza con acct_) — lo que Stripe usa para encontrar su cuenta cuando los contacta. Visible solo para el propietario.",
             "**Desconectar** desvincula Stripe de FieldQuo: los clientes no pueden pagar en línea hasta que reconecte. No elimina ni cierra su cuenta de Stripe y no cambia nada de su historial de transferencias.",
-            "**Ofrecer pago a plazos (Affirm)** deja que los clientes dividan una factura al pagar mientras usted cobra completo, por adelantado. Disponible en facturas entre $50 y $30,000 en USD o CAD, y primero debe activar Affirm en su panel de Stripe — ver [[pay-over-time-financing|Financiamiento a plazos]].",
+            "**Ofrecer pago a plazos (Affirm)** deja que los clientes dividan una factura al pagar mientras usted cobra completo, por adelantado. Disponible en facturas entre $50 y $30,000 en USD o CAD. Encenderlo le pide a Stripe que habilite Affirm en su cuenta — no hay nada que configurar en Stripe — y la línea bajo el interruptor muestra la respuesta de Stripe. Ver [[pay-over-time-financing|Financiamiento a plazos]].",
             "**Comisiones de procesamiento** y **Transferencia instantánea** se explican en [[payment-processing-fees-and-payouts|Comisiones de procesamiento de pagos y transferencias]] e [[instant-payouts|Transferencias instantáneas]].",
           ] },
         ],

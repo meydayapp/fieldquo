@@ -515,7 +515,7 @@ export const ARTICLES = {
             "**Manage in Stripe** opens your Express dashboard in a new tab: payouts, documents, bank details, support. Stripe emails a sign-in code to the **Sign-in email** shown on the page.",
             "**Copy** beside the **Stripe account ID** (it starts with acct_) — what Stripe uses to find your account when you contact them. Shown to the owner only.",
             "**Disconnect** unlinks Stripe from FieldQuo: clients cannot pay online until you reconnect. It does not delete or close your Stripe account and changes nothing about your past payout history.",
-            "**Offer pay-over-time (Affirm)** lets clients split an invoice at checkout while you are paid in full up front. Available on invoices between $50 and $30,000 in USD or CAD, and you must first activate Affirm in your Stripe dashboard — see [[pay-over-time-financing|Pay-over-time financing]].",
+            "**Offer pay-over-time (Affirm)** lets clients split an invoice at checkout while you are paid in full up front. Available on invoices between $50 and $30,000 in USD or CAD. Switching it on asks Stripe to enable Affirm on your account — there is nothing to set up in Stripe — and the line under the switch shows Stripe's answer. See [[pay-over-time-financing|Pay-over-time financing]].",
             "**Processing fees** and **Instant payout** are explained in [[payment-processing-fees-and-payouts|Payment processing fees and payouts]] and [[instant-payouts|Instant payouts]].",
           ] },
         ],

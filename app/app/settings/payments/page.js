@@ -22,8 +22,42 @@ import ProcessingFeesCard from "./ProcessingFeesCard";
 import InstantPayoutCard from "./InstantPayoutCard";
 import PaymentMethodsCard from "./PaymentMethodsCard";
 
+// The country Stripe reports for the connected account, in the reader's
+// language ("Canada", "Royaume-Uni"), falling back to the code Stripe gave
+// when the browser cannot name it. Only for the "Affirm isn't available for
+// accounts in …" sentence — never a guess at a country from an address.
+function countryName(code, language) {
+  if (!code) return "";
+  try {
+    return new Intl.DisplayNames([language || "en"], { type: "region" }).of(code) || code;
+  } catch {
+    return code;
+  }
+}
+
+// The one sentence under the Affirm toggle — Stripe's answer for the
+// affirm_payments capability on the connected account (lib/stripe/affirm.js),
+// never a claim. Off: what switching it on does, and that there is nothing
+// to set up in Stripe — the previous copy sent contractors to find an
+// "activate Affirm" page that an Express account does not have. On: which
+// of the four states Stripe's answer is, because "pending" and "inactive"
+// both mean card-only links and only one of them is the contractor's move.
+function affirmSentence({ affirm, offerFinancing, t, language }) {
+  const status = affirm?.status || null;
+  if (status === "unavailable") {
+    return t("app.setPayments.affirmUnavailable", {
+      country: countryName(affirm?.country, language),
+    });
+  }
+  if (!offerFinancing) return t("app.setPayments.financingNote");
+  if (status === "active") return t("app.setPayments.affirmActive");
+  if (status === "pending") return t("app.setPayments.affirmPending");
+  if (status === "inactive") return t("app.setPayments.affirmInactive");
+  return t("app.setPayments.affirmNotRequested");
+}
+
 function PaymentsPageScreen() {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const { formatDate } = useCompanyPreferences();
   const [company, setCompany] = useState(null);
   // What Stripe itself says, as opposed to what our database last heard. See
@@ -158,6 +192,12 @@ function PaymentsPageScreen() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ offerFinancing: next }),
       });
+      // Switching on is what makes the status poll REQUEST affirm_payments
+      // on the connected account (lib/stripe.js ensureChargeCapabilities),
+      // and the poll answers with the capability's real status — so ask
+      // now, and the sentence under the toggle is Stripe's answer before
+      // the contractor's hand leaves the switch, not on some later visit.
+      if (next) await loadStatus();
     } catch (err) {
       setCompany((c) => ({ ...c, offerFinancing: !next }));
       setError(err.message || t("app.setPayments.financingSaveError"));
@@ -657,16 +697,67 @@ function PaymentsPageScreen() {
               <p className="text-sm text-muted-foreground mt-1">
                 {t("app.setPayments.financingDesc")}
               </p>
-              <p className="text-xs text-muted-foreground mt-3">
-                {t("app.setPayments.financingActivateNote")}
+              {/* Stripe's answer, not ours — see affirmSentence. Coloured only
+                  when the toggle is on, because that is when the sentence is
+                  a status rather than an explanation. */}
+              <p
+                className={`text-xs mt-3 ${
+                  company?.offerFinancing && status?.affirm?.status === "active"
+                    ? "text-green-700 dark:text-green-400"
+                    : company?.offerFinancing && status?.affirm?.status
+                      ? "text-amber-700 dark:text-amber-400"
+                      : "text-muted-foreground"
+                }`}
+                data-affirm-status={status?.affirm?.status || "none"}
+              >
+                {affirmSentence({
+                  affirm: status?.affirm,
+                  offerFinancing: Boolean(company?.offerFinancing),
+                  t,
+                  language,
+                })}
               </p>
+              {/* What Stripe is waiting on for the capability itself, in the
+                  same words the connection card uses for the account — so the
+                  owner knows what to do without going looking for a dashboard
+                  page. Only for pending / inactive; an active capability has
+                  nothing outstanding by definition. */}
+              {company?.offerFinancing &&
+                (status?.affirm?.status === "pending" || status?.affirm?.status === "inactive") && (
+                  <>
+                    {status.affirm.requirements?.length > 0 && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {t("app.setPayments.affirmAsking", {
+                          items: status.affirm.requirements.map((r) => r.label).join("; "),
+                        })}
+                      </p>
+                    )}
+                    {status.affirm.disabledReason && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {status.affirm.disabledReason}
+                      </p>
+                    )}
+                    {status.affirm.pendingVerification && !status.affirm.requirements?.length && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {t("app.setPayments.affirmVerifying")}
+                      </p>
+                    )}
+                  </>
+                )}
             </div>
             <button
               type="button"
               role="switch"
               aria-checked={Boolean(company?.offerFinancing)}
               onClick={toggleFinancing}
-              disabled={savingFinancing}
+              // A switch that can never do anything is the dead control this
+              // codebase hunts: for a country Affirm does not serve it cannot
+              // be switched ON (the sentence beside it says why), but one
+              // already on can still be switched off.
+              disabled={
+                savingFinancing ||
+                (status?.affirm?.status === "unavailable" && !company?.offerFinancing)
+              }
               className={`relative shrink-0 mt-1 inline-flex h-6 w-11 items-center rounded-full transition-colors disabled:opacity-60 ${
                 company?.offerFinancing ? "bg-green-600" : "bg-muted"
               }`}

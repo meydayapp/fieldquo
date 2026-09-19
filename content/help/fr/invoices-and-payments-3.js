@@ -192,9 +192,9 @@ export const ARTICLES = {
         heading: "Affirm au moment du paiement",
         blocks: [
           { steps: [
-            "Activez d'abord Affirm dans votre propre tableau de bord Stripe — FieldQuo ne peut pas le faire à votre place ni le vérifier.",
+            "Rien à configurer dans Stripe d'abord. Votre compte Stripe n'a pas d'interrupteur Affirm à lui — FieldQuo demande à Stripe de l'ouvrir dès que vous activez l'option, et vérifie la réponse à chaque chargement de cette page.",
             "Ouvrez **Paramètres → Paiements**. Une fois Stripe actif, la carte **Proposer le paiement échelonné (Affirm)** apparaît avec un interrupteur.",
-            "Activez-le. Les factures de **50 $ à 30 000 $** en USD ou en CAD affichent alors Affirm à côté de la carte sur la page de paiement ; tout ce qui sort de cette plage, ou une entreprise pour laquelle Affirm n'a pas été activé, obtient une page carte seulement plutôt qu'une page brisée.",
+            "Activez-le. Les factures de **50 $ à 30 000 $** en USD ou en CAD affichent alors Affirm à côté de la carte sur la page de paiement ; tout ce qui sort de cette plage, ou une entreprise pour laquelle Stripe n'a pas encore ouvert Affirm, obtient une page carte seulement plutôt qu'une page brisée. La ligne sous l'interrupteur dit lequel c'est : **Affirm : actif**, **en attente de l'examen de Stripe**, **non activé par Stripe sur votre compte** (avec ce que Stripe demande), ou **non offert pour les comptes de votre pays**.",
           ] },
           { figure: "live:app-settings-payments", caption: "Paramètres → Paiements — la carte des frais de traitement, le compte Stripe connecté, et l'interrupteur du paiement échelonné dessous." },
           { p: "Vous êtes toujours payé en entier, d'avance ; Affirm perçoit les versements auprès du client. Les frais sur un paiement Affirm sont le taux d'Affirm, plus élevé que le taux carte, et ils sont refilés sur ce paiement de la même manière que des frais de carte — voir [[payment-processing-fees-and-payouts|Frais de traitement des paiements et versements]]. Un client qui paie par carte sur la même page paie les frais de carte, rien de plus." },
@@ -221,7 +221,7 @@ export const ARTICLES = {
             head: ["Commande", "Ce qu'elle fait"],
             rows: [
               ["Proposer le paiement échelonné (Affirm) — activé", "Les factures admissibles proposent Affirm à côté de la carte au paiement. Les frais d'Affirm sont refilés sur ces paiements seulement."],
-              ["Proposer le paiement échelonné (Affirm) — désactivé", "Chaque page de paiement est carte seulement, même si Affirm est actif dans votre tableau de bord Stripe."],
+              ["Proposer le paiement échelonné (Affirm) — désactivé", "Chaque page de paiement est carte seulement, même si Stripe a déjà ouvert Affirm sur votre compte."],
               ["Carte Financement — activée, sans conditions", "La soumission dit que du financement est offert, dans vos mots, avec un bouton vers votre fournisseur si vous en avez donné un. Aucun chiffre."],
               ["Carte Financement — taux et durée énoncés", "La soumission ajoute une mensualité estimative, calculée depuis votre TAEG et votre durée et présentée comme votre estimation."],
               ["Carte Financement — désactivée", "Rien au sujet du financement n'apparaît sur les soumissions ni les estimations."],
@@ -235,7 +235,7 @@ export const ARTICLES = {
         blocks: [
           { warning: "Ne promettez pas un taux ni une mensualité que vous ne pouvez pas honorer. Le chiffre sur la soumission est calculé à partir des conditions que vous avez tapées et présenté au propriétaire comme le vôtre. Au paiement, Affirm annonce ses propres conditions et la décision est celle du prêteur, pas celle de FieldQuo ni la vôtre." },
           { bullets: [
-            "Affirm : factures de 50 $ à 30 000 $, en USD ou en CAD seulement, et seulement une fois Affirm activé sur votre compte Stripe.",
+            "Affirm : factures de 50 $ à 30 000 $, en USD ou en CAD seulement, et seulement une fois que Stripe signale Affirm actif sur votre compte — la ligne sous l'interrupteur dans Paramètres → Paiements.",
             "La mensualité : des mois entiers, un TAEG entre 0 % et 100 %, les deux champs ou aucun.",
             "Le prélèvement bancaire et les forfaits de service ne sont pas du financement — un forfait, ce sont vos propres versements, sur vos propres factures. Voir [[service-plans|Forfaits de service]].",
           ] },
@@ -252,7 +252,7 @@ export const ARTICLES = {
     faq: [
       { q: "FieldQuo vérifie-t-il le crédit du client ?", a: "Non. C'est Affirm qui le fait, au moment du paiement, et qui décide seul. FieldQuo ne voit jamais la demande." },
       { q: "Puis-je afficher une mensualité sans énoncer de taux ?", a: "Non. Pas de conditions, pas de chiffre — un nombre inventé par FieldQuo serait une condition qu'on pourrait vous opposer." },
-      { q: "Affirm est-il offert au Canada ?", a: "Oui, pour les factures en CAD comme en USD, dans la plage de 50 $ à 30 000 $, une fois activé dans votre tableau de bord Stripe." },
+      { q: "Affirm est-il offert au Canada ?", a: "Oui, pour les factures en CAD comme en USD, dans la plage de 50 $ à 30 000 $, une fois que Stripe le signale actif sur votre compte. Affirm ne sert que les comptes américains et canadiens ; l'interrupteur le dit pour tout autre pays." },
     ],
   },
 

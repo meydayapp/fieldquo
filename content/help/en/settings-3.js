@@ -502,7 +502,7 @@ export const ARTICLES = {
           { bullets: [
             "A bank debit takes **3 to 5 business days** to clear. The invoice shows **Bank payment pending** with the date it was submitted and is marked paid only when the money arrives; if the bank returns it, the balance is still owing and the client can pay again by card.",
             "**Payment methods you accept** is for money that never touches Stripe: tick **Cash**, **E-transfer** and **Cheque** as you take them, press **Save**, and they print as an “Accepted:” line on the invoice email, in the client portal and on the invoice PDF. Untick everything and the line is left out.",
-            "**Offer pay-over-time (Affirm)** lets a client split an invoice between $50 and $30,000, in USD or CAD, at checkout; you are still paid in full up front. Activate Affirm in your Stripe dashboard first — the switch saves immediately, and rolls back if it cannot.",
+            "**Offer pay-over-time (Affirm)** lets a client split an invoice between $50 and $30,000, in USD or CAD, at checkout; you are still paid in full up front. There is nothing to activate in Stripe first: switching it on asks Stripe to enable Affirm on your account, and the line under the switch shows Stripe's answer — active, pending review, not enabled (with what Stripe is asking for), or not available in your country. The switch saves immediately, and rolls back if it cannot.",
           ] },
           { note: "The card and bank-debit fees are not settings — nobody can change them, and they cannot be passed to the client as a surcharge line. Bank debit in Canada in full: [[bank-debit-in-canada|Bank debit in Canada]]." },
         ],

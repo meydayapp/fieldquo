@@ -260,10 +260,15 @@ console.log("\nNo catalogue entry decides the currency of a number for the calle
   // An exemption is a claim about the world, so each one says what it is.
   const EXEMPT = new Map([
     [
-      "app.setPayments.financingActivateNote",
+      "app.setPayments.financingNote",
       "Affirm's own limit really is denominated in USD/CAD — the sentence says " +
         "so in the same breath. Rendering it in a Swiss company's francs would " +
         "state a threshold that does not exist.",
+    ],
+    [
+      "app.setPayments.affirmActive",
+      "See app.setPayments.financingNote — Stripe's Affirm bounds, $50–$30,000, " +
+        "are USD/CAD figures by Affirm's own rule (lib/stripe/affirm.js).",
     ],
     [
       "app.leads.budgetUnder1k",

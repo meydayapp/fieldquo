@@ -138,7 +138,10 @@ export async function GET(request) {
       stripeOnboarded: true,
       stripeChargesEnabled: true,
       // Offer Affirm pay-over-time alongside card on the invoice pay page.
-      // Opt-in: the connected account must have Affirm activated in Stripe.
+      // Opt-in: switching it on is what makes the status poll request the
+      // affirm_payments capability on the connected account
+      // (lib/stripe/affirm.js); the pay link names Affirm only once Stripe
+      // reports it active.
       offerFinancing: true,
     },
   });

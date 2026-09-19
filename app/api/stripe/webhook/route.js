@@ -8,6 +8,7 @@ import { earnMilestone, recordActivation, MILESTONES } from "@/lib/sales/commiss
 import { settleOccurrenceFromIntent } from "@/lib/servicePlans/run";
 import { settleCheckoutSession, failCheckoutSession } from "@/lib/stripe/settleCheckoutSession";
 import { bankDebitMethodFor } from "@/lib/stripe/bankDebit";
+import { affirmStatusFor } from "@/lib/stripe/affirm";
 import { settleChargeEvent } from "@/lib/stripe/settleChargeEvent";
 import { stampWebhookReceived } from "@/lib/platform/webhookHealth";
 
@@ -90,6 +91,10 @@ export async function POST(request) {
           // Bank debit on invoices renders only once Stripe has ACTIVATED
           // the capability — lib/stripe/bankDebit.js.
           stripeBankDebitEnabled: Boolean(bankDebitMethodFor(account)),
+          // Affirm on pay links: Stripe's status for affirm_payments, or
+          // "unavailable" for a country Affirm does not serve —
+          // lib/stripe/affirm.js. Only "active" names Affirm on a session.
+          stripeAffirmStatus: affirmStatusFor(account),
         },
       });
 

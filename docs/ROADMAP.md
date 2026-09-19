@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 18 September 2026 ("Invite your team" moved from the onboarding card to the Additional set-up steps card, popup and all — see the section below; and the fifth plan — "Need more people? Build a custom plan": seats past Scale at the ladder's own $25/seat step, crew = seats + 5, never more than 100 people, a Plan row per size minted on first use and billed at Stripe as Scale + "Extra seat" × quantity, steppers on /pricing and Account & Billing; and BBB's employee band → the plan it likely fits on the rep card, the pitch and the script prompt; see the section below)
+Last updated: 19 September 2026 (Affirm on pay links is a CAPABILITY the platform requests — `affirm_payments`, like bank debit — not a Stripe-dashboard step; the settings card prints Stripe's answer for it, `Company.stripeAffirmStatus`, and the pay link names Affirm only when that is `active`; a refusal is recorded, never a silent warn; see the section below)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -10,6 +10,76 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+
+## Affirm is a capability the platform requests, and the settings card says what Stripe answered (19 September 2026)
+
+**The bug.** Settings → Payments' "Offer pay-over-time (Affirm)" said *"You must
+first activate Affirm in your Stripe dashboard."* There is no such page: every
+pay link is a destination charge on FieldQuo's platform account with the
+contractor's Express account as `on_behalf_of`, and an Express account has no
+payment-method settings. The owner went looking and could not find it. Meanwhile
+`createInvoiceCheckoutSession` named Affirm on `offerFinancing` alone, Stripe
+refused the session for an account without the capability, and the fallback was
+a `console.warn` — the toggle looked on, the homeowner saw card, nobody was told.
+
+**What ships.**
+
+- `lib/stripe/affirm.js` — pure, the companion to `bankDebit.js`. Affirm serves
+  US (USD) and CA (CAD) accounts; `affirmCapabilityWanted` (country served AND
+  `offerFinancing`), `affirmStatusFor` (account → `active` / `pending` /
+  `inactive` / `unavailable` / null), `affirmAmountEligible` ($50–$30,000, USD or
+  CAD), `affirmOffered` (the ONE rule a session uses), and
+  `summariseAffirmCapability` (what Stripe is asking for, in the account card's
+  words).
+- `ensureChargeCapabilities` also requests `affirm_payments` for a US/CA account
+  once financing is switched on, and now returns the UPDATED account so the
+  status poll reads the new statuses without a second retrieve. Never
+  un-requested when the toggle goes off — the session is pinned to card unless
+  `offerFinancing` is on.
+- `Company.stripeAffirmStatus String?` (additive; live DB matched the schema
+  before and after). Written by the status poll and `account.updated`, beside
+  `stripeBankDebitEnabled`.
+- The status poll passes the company, reads the capability object's own
+  `requirements` / `disabled_reason` for pending / inactive, and returns
+  `affirm: { status, country, requirements[], pendingVerification,
+  disabledReason }`. The settings page re-polls the moment the toggle is
+  switched on, so the sentence under it is Stripe's answer before the hand
+  leaves the switch.
+- The card, in nine languages, one sentence per state — off: *"Available on
+  invoices between $50 and $30,000 in USD or CAD. Switch it on and FieldQuo asks
+  Stripe to enable Affirm on your account — there is nothing to set up in
+  Stripe."*; on: *"Affirm: active — shown on pay links from $50 to $30,000."* /
+  *"Affirm: pending Stripe's review — the link shows card only until then."* /
+  *"Affirm: not enabled by Stripe on your account — the link shows card only
+  until it is."* / *"Affirm: not requested from Stripe yet — reload this page to
+  ask again."*; any country Affirm does not serve: *"Affirm isn't available for
+  accounts in {country} — the link shows card only."* (and the switch cannot be
+  turned on). Under pending / inactive: *"Stripe is asking for: …"* and Stripe's
+  reason, in the same words the connection card uses.
+- `createInvoiceCheckoutSession` names Affirm only through `affirmOffered`
+  (opted in AND `stripeAffirmStatus === "active"` AND the amount qualifies). The
+  try/fallback stays as a last resort, but `reportAffirmRefused` records it
+  (platform error log, area `stripe_affirm`) and flips the column to `inactive`
+  so the card stops claiming active.
+- Help centre (en/fr/es), the in-app article and FEATURE-GUIDE no longer send
+  anyone to a Stripe dashboard page.
+
+**Proven.** `scripts/check-processing-fee.mjs` executes the gates (capability
+requested only for US/CA + financing on; status mapping; session names Affirm
+only when active; the refusal records and flips). Against Stripe TEST MODE, on
+sandbox account `acct_1UEwu3LOUYphSdIo` (CA): the poll took it from
+`{transfers}` to `affirm_payments: active` in one update, and the real
+`createInvoiceCheckoutSession` produced `cs_test_a1cM8x…` with
+`payment_method_types: ["card","affirm"]`, CAD 226000, then expired.
+
+**Still owed here.** Bank debit's `stripeBankDebitEnabled` stays a boolean; if
+the "Bank payments will be offered once Stripe activates…" sentence ever needs
+to say *why* Stripe has not, it should grow the same status + requirements
+treatment. And the platform company view does not yet surface
+`stripeAffirmStatus` — support reads it from the settings page under
+impersonation for now.
+
+---
 
 ## "Invite your team" is a set-up step, not an onboarding step (18 September 2026)
 
@@ -6955,9 +7025,11 @@ endpoint with a tampered POST.
   only `STRIPE_SECRET_KEY` and two webhook secrets — see VERCEL.md), and a
   third-party script loading on a public page a stranger opens in a driveway on
   a bad connection. Two harder problems sit behind that. Affirm has to be
-  ACTIVATED on the contractor's connected account, which `lib/stripe.js` already
-  documents it cannot verify from code — hence the try-with-Affirm/fall-back-to-card
-  dance at checkout — so the element would render nothing for an unknown share of
+  ACTIVATED on the contractor's connected account, which `lib/stripe.js` at the
+  time documented it could not verify from code — hence the try-with-Affirm/fall-back-to-card
+  dance at checkout (superseded 19 September 2026: it is the `affirm_payments`
+  capability, requested by the platform and read back as
+  `Company.stripeAffirmStatus` — see that section) — so the element would render nothing for an unknown share of
   companies, and a financing block that is present for one contractor and absent
   for another with the same settings is the dead-control failure wearing a
   vendor's logo. And at quote time there is no PaymentIntent and no Stripe

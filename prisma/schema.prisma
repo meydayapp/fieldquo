@@ -1399,6 +1399,19 @@ model Company {
   // A capability that was requested but not granted leaves this false — no
   // button that fails.
   stripeBankDebitEnabled Boolean @default(false)
+  // Affirm on invoice pay links — lib/stripe/affirm.js. Stripe's answer for
+  // the `affirm_payments` capability on the connected account: "active",
+  // "pending" (requested, under Stripe's review), "inactive" (Stripe turned
+  // it off, or refused a session that named it — lib/stripe.js flips it
+  // here so the settings card stops claiming active), "unavailable" (the
+  // account's country is not one Affirm serves), or null (never requested —
+  // the poll requests it only once offerFinancing is on). A status rather
+  // than a boolean, unlike stripeBankDebitEnabled, because the settings
+  // card says WHICH of these it is: a pending review and a country Affirm
+  // does not serve both show card-only links, and telling the contractor
+  // to wait for the one they cannot have is the dead control this codebase
+  // hunts. Written by the status poll and account.updated, like the rest.
+  stripeAffirmStatus String?
 
   createdAt DateTime @default(now())
   // Added because the platform churn metric queried it and the field didn't

@@ -131,11 +131,11 @@ export const HELP_ARTICLES = [
       { p: "Affirm lets your client split an invoice into monthly payments at checkout. You're paid the full amount right away — Affirm covers the rest and collects from the client. It appears next to the card option on the pay page." },
       { h: "Turn it on" },
       { steps: [
-        "First activate Affirm in your Stripe dashboard (Stripe → Settings → Payment methods → Affirm). FieldQuo can't do this step for you.",
-        "In FieldQuo, go to Settings → Payments and switch on 'Offer pay-over-time (Affirm)'.",
+        "Go to Settings → Payments and switch on 'Offer pay-over-time (Affirm)'. There is nothing to set up in Stripe first — your Stripe account has no Affirm switch of its own; FieldQuo asks Stripe to enable it the moment you turn this on.",
+        "Read the line under the switch: it is Stripe's answer — active, pending Stripe's review, not enabled on your account (with what Stripe is asking for), or not available for accounts in your country.",
         "Send an invoice as usual — Affirm shows at checkout for eligible amounts.",
       ] },
-      { note: "Available on invoices between $50 and $30,000 in USD or CAD. If Affirm isn't active on your Stripe account yet, the pay link quietly falls back to card only — it never breaks." },
+      { note: "Available on invoices between $50 and $30,000 in USD or CAD, for US and Canadian Stripe accounts. Until Stripe reports Affirm active, the pay link is card only — it never breaks, and the switch says why." },
     ],
   },
   {

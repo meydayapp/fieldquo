@@ -391,8 +391,10 @@ is not wired yet — don't demo it.*
 
 **Affirm pay-over-time** ✅ — Opt-in; on eligible invoices ($50–$30,000, USD/CAD)
 Checkout offers Affirm alongside card. Affirm pays the contractor in full; the
-homeowner pays monthly. Falls back to card-only if Affirm isn't activated on the
-account, so the pay link is never broken.
+homeowner pays monthly. The `affirm_payments` capability is requested on the
+connected account by the platform (lib/stripe/affirm.js) and the settings card
+prints Stripe's status; the link names Affirm only when it is `active`. A refusal
+still falls back to card-only, recorded to the platform error log.
 
 ## F. Know your numbers
 

@@ -192,9 +192,9 @@ export const ARTICLES = {
         heading: "Affirm al momento de pagar",
         blocks: [
           { steps: [
-            "Active primero Affirm en su propio panel de Stripe: FieldQuo no puede hacerlo por usted ni comprobarlo.",
+            "No hay nada que configurar primero en Stripe. Su cuenta de Stripe no tiene un interruptor de Affirm propio: FieldQuo le pide a Stripe que lo habilite en cuanto usted enciende la opción, y comprueba la respuesta cada vez que se carga esta página.",
             "Abra **Configuración → Pagos**. Cuando Stripe está activo, aparece la tarjeta **Ofrecer pago a plazos (Affirm)** con un interruptor.",
-            "Enciéndalo. Las facturas de entre **$50 y $30,000** en USD o CAD muestran entonces Affirm junto a la tarjeta en la página de pago; lo que quede fuera de ese rango, o una empresa sin Affirm activado, recibe una página solo con tarjeta en lugar de una página rota.",
+            "Enciéndalo. Las facturas de entre **$50 y $30,000** en USD o CAD muestran entonces Affirm junto a la tarjeta en la página de pago; lo que quede fuera de ese rango, o una empresa para la que Stripe aún no ha habilitado Affirm, recibe una página solo con tarjeta en lugar de una página rota. La línea bajo el interruptor dice cuál es el caso: **Affirm: activo**, **pendiente de la revisión de Stripe**, **Stripe no lo ha habilitado en su cuenta** (con lo que Stripe pide), o **no disponible para cuentas de su país**.",
           ] },
           { figure: "live:app-settings-payments", caption: "Configuración → Pagos: la tarjeta de comisiones de procesamiento, la cuenta de Stripe conectada y, debajo, el interruptor del pago a plazos." },
           { p: "Usted sigue cobrando el total, por adelantado; Affirm cobra las cuotas al cliente. La comisión de un pago con Affirm es la tarifa de Affirm, más alta que la de tarjeta, y se traslada a ese pago del mismo modo que una comisión de tarjeta; vea [[payment-processing-fees-and-payouts|Comisiones de procesamiento de pagos y transferencias]]. Un cliente que paga con tarjeta en la misma página paga la comisión de tarjeta, nada más." },
@@ -221,7 +221,7 @@ export const ARTICLES = {
             head: ["Control", "Qué hace"],
             rows: [
               ["Ofrecer pago a plazos (Affirm) — encendido", "Las facturas elegibles ofrecen Affirm junto a la tarjeta al pagar. La comisión de Affirm se traslada solo a esos pagos."],
-              ["Ofrecer pago a plazos (Affirm) — apagado", "Toda página de pago es solo con tarjeta, aunque Affirm esté activo en su panel de Stripe."],
+              ["Ofrecer pago a plazos (Affirm) — apagado", "Toda página de pago es solo con tarjeta, aunque Stripe ya haya habilitado Affirm en su cuenta."],
               ["Tarjeta Financiamiento — encendida, sin condiciones", "El presupuesto dice que hay financiamiento disponible, con sus palabras, y un botón hacia su proveedor si lo indicó. Ninguna cifra."],
               ["Tarjeta Financiamiento — tipo y plazo indicados", "El presupuesto añade una cuota mensual estimada, calculada con su TAE y su plazo y señalada como estimación suya."],
               ["Tarjeta Financiamiento — apagada", "Nada sobre financiamiento aparece en presupuestos ni cotizaciones."],
@@ -235,7 +235,7 @@ export const ARTICLES = {
         blocks: [
           { warning: "No prometa un tipo ni una cuota mensual que no pueda cumplir. La cifra del presupuesto se calcula con las condiciones que usted escribió y se muestra al propietario como suya. Al pagar, Affirm indica sus propias condiciones y la decisión es del prestamista, no de FieldQuo ni suya." },
           { bullets: [
-            "Affirm: facturas de $50 a $30,000, solo en USD o CAD, y solo una vez que Affirm esté activado en su cuenta de Stripe.",
+            "Affirm: facturas de $50 a $30,000, solo en USD o CAD, y solo una vez que Stripe informe que Affirm está activo en su cuenta — la línea bajo el interruptor en Configuración → Pagos.",
             "La cuota mensual: meses enteros, una TAE entre 0 % y 100 %, los dos campos o ninguno.",
             "El débito bancario y los planes de servicio no son financiamiento: un plan son sus propias cuotas, en sus propias facturas. Vea [[service-plans|Planes de servicio]].",
           ] },
@@ -252,7 +252,7 @@ export const ARTICLES = {
     faq: [
       { q: "¿FieldQuo revisa el crédito del cliente?", a: "No. Lo hace Affirm, al momento de pagar, y decide solo. FieldQuo nunca ve la solicitud." },
       { q: "¿Puedo mostrar una cuota mensual sin indicar un tipo?", a: "No. Sin condiciones no hay cifra: un número inventado por FieldQuo sería una condición que podrían exigirle." },
-      { q: "¿Affirm está disponible en Canadá?", a: "Sí, para facturas en CAD igual que en USD, dentro del rango de $50 a $30,000, una vez activado en su panel de Stripe." },
+      { q: "¿Affirm está disponible en Canadá?", a: "Sí, para facturas en CAD igual que en USD, dentro del rango de $50 a $30,000, una vez que Stripe lo informe activo en su cuenta. Affirm solo atiende cuentas de Estados Unidos y Canadá; el interruptor lo dice para cualquier otro país." },
     ],
   },
 

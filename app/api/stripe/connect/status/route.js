@@ -26,6 +26,11 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { stripe, ensureChargeCapabilities } from "@/lib/stripe";
 import { bankDebitMethodFor } from "@/lib/stripe/bankDebit";
+import {
+  AFFIRM_CAPABILITY,
+  affirmStatusFor,
+  summariseAffirmCapability,
+} from "@/lib/stripe/affirm";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { isBillingAdmin, BILLING_ADMIN_ERROR } from "@/lib/billing/billingAdmin";
 // The requirement wording and the identity gate both live in lib/stripe/ now:
@@ -73,6 +78,10 @@ export async function GET(request) {
       stripeOnboarded: true,
       stripeChargesEnabled: true,
       stripeBankDebitEnabled: true,
+      // The Affirm opt-in decides whether the poll requests the capability;
+      // the status column is compared so an unchanged answer writes nothing.
+      offerFinancing: true,
+      stripeAffirmStatus: true,
     },
   });
 
@@ -118,17 +127,48 @@ export async function GET(request) {
     // the one path every connected company hits, so the repair happens
     // here, once, and is a no-op afterwards. Best-effort: a failed update is
     // logged, and the status answer is still Stripe's.
-    await ensureChargeCapabilities(account).catch((err) => {
-      console.error("[stripe/connect/status] capability request failed:", err?.message);
-    });
+    //
+    // Affirm rides on the same call (requested only once the company has
+    // switched financing on — lib/stripe/affirm.js), and the UPDATED account
+    // Stripe hands back is the one read below: a contractor who just flipped
+    // the toggle sees the capability's real status on this very poll, not
+    // on the next one.
+    const synced =
+      (await ensureChargeCapabilities(account, { company }).catch((err) => {
+        console.error("[stripe/connect/status] capability request failed:", err?.message);
+        return false;
+      })) || account;
+
+    // ── Affirm: Stripe's status, and what stands in the way when it is not
+    // active. The capability object (one more call, only for pending /
+    // inactive) carries its own requirements and disabled_reason, which the
+    // card prints in words so the owner knows what Stripe wants without
+    // going looking for a dashboard page that, on Express, does not exist.
+    const affirmStatus = affirmStatusFor(synced);
+    let affirm = {
+      status: affirmStatus,
+      country: synced?.country || null,
+      requirements: [],
+      pendingVerification: false,
+      disabledReason: null,
+    };
+    if (affirmStatus === "pending" || affirmStatus === "inactive") {
+      try {
+        const capability = await stripe.accounts.retrieveCapability(synced.id, AFFIRM_CAPABILITY);
+        affirm = { ...affirm, ...summariseAffirmCapability(capability) };
+      } catch (err) {
+        console.error("[stripe/connect/status] affirm capability read failed:", err?.message);
+      }
+    }
 
     // Write it back, so the rest of the app — invoice pay links, the platform
     // company view — sees the same truth without each having to call Stripe.
-    const bankDebitEnabled = Boolean(bankDebitMethodFor(account));
+    const bankDebitEnabled = Boolean(bankDebitMethodFor(synced));
     if (
       summary.chargesEnabled !== company.stripeChargesEnabled ||
       summary.detailsSubmitted !== company.stripeOnboarded ||
-      bankDebitEnabled !== company.stripeBankDebitEnabled
+      bankDebitEnabled !== company.stripeBankDebitEnabled ||
+      affirmStatus !== company.stripeAffirmStatus
     ) {
       await db.company.update({
         where: { id: company.id },
@@ -138,6 +178,9 @@ export async function GET(request) {
           // Bank debit on invoices — lib/stripe/bankDebit.js. Only Stripe's
           // `active` counts; requested-but-pending stays false.
           stripeBankDebitEnabled: bankDebitEnabled,
+          // Affirm on pay links — lib/stripe/affirm.js. The status itself,
+          // because the card names it; only "active" puts Affirm on a link.
+          stripeAffirmStatus: affirmStatus,
         },
       });
     }
@@ -183,7 +226,10 @@ export async function GET(request) {
       // "us_bank_account") or null — the settings page says which way
       // clients can pay, in words, rather than leaving it to be discovered
       // from the portal.
-      bankDebit: bankDebitMethodFor(account),
+      bankDebit: bankDebitMethodFor(synced),
+      // Affirm: { status, country, requirements[], pendingVerification,
+      // disabledReason } — the settings card's sentence under the toggle.
+      affirm,
       accountDetails: accountIdentityFor(member, summary),
     });
   } catch (err) {

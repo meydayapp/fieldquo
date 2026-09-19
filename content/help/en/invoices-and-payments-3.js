@@ -194,9 +194,9 @@ export const ARTICLES = {
         heading: "Affirm at checkout",
         blocks: [
           { steps: [
-            "Activate Affirm in your own Stripe dashboard first — FieldQuo cannot do that for you and cannot check it.",
+            "There is nothing to set up in Stripe first. Your Stripe account has no Affirm switch of its own — FieldQuo asks Stripe to enable it the moment you turn the option on, and checks the answer every time this page loads.",
             "Open **Settings → Payments**. Once Stripe is active, the card **Offer pay-over-time (Affirm)** appears with a switch.",
-            "Turn it on. Invoices between **$50 and $30,000** in USD or CAD then show Affirm beside the card on the pay page; anything outside that range, or a company Affirm has not been activated for, gets a card-only page rather than a broken one.",
+            "Turn it on. Invoices between **$50 and $30,000** in USD or CAD then show Affirm beside the card on the pay page; anything outside that range, or a company Stripe has not yet enabled Affirm for, gets a card-only page rather than a broken one. The line under the switch says which it is: **Affirm: active**, **pending Stripe's review**, **not enabled by Stripe on your account** (with what Stripe is asking for), or **not available for accounts in your country**.",
           ] },
           { figure: "live:app-settings-payments", caption: "Settings → Payments — the processing-fee card, the connected Stripe account, and the pay-over-time switch below it." },
           { p: "You are still paid in full, up front; Affirm collects the instalments from the client. The fee on an Affirm payment is Affirm's rate, higher than the card rate, and it is passed through on that payment the same way a card fee is — see [[payment-processing-fees-and-payouts|Payment processing fees and payouts]]. A client who pays by card on the same page pays the card fee, nothing more." },
@@ -223,7 +223,7 @@ export const ARTICLES = {
             head: ["Control", "What it does"],
             rows: [
               ["Offer pay-over-time (Affirm) — on", "Eligible invoices offer Affirm beside the card at checkout. Affirm's fee is passed through on those payments only."],
-              ["Offer pay-over-time (Affirm) — off", "Every pay page is card-only, even if Affirm is active in your Stripe dashboard."],
+              ["Offer pay-over-time (Affirm) — off", "Every pay page is card-only, even if Stripe has already enabled Affirm on your account."],
               ["Financing card — on, no terms", "The quote says financing is available, in your words, with a button to your provider if you gave one. No number."],
               ["Financing card — rate and term stated", "The quote adds an estimated monthly payment, computed from your APR and term and labelled as your estimate."],
               ["Financing card — off", "Nothing about financing appears on quotes or estimates."],
@@ -237,7 +237,7 @@ export const ARTICLES = {
         blocks: [
           { warning: "Do not promise a rate or a monthly amount you cannot honour. The figure on the quote is computed from the terms you typed and shown to the homeowner as yours. At checkout, Affirm quotes its own terms and its decision is the lender's, not FieldQuo's and not yours." },
           { bullets: [
-            "Affirm: invoices from $50 to $30,000, USD or CAD only, and only once Affirm is activated on your Stripe account.",
+            "Affirm: invoices from $50 to $30,000, USD or CAD only, and only once Stripe reports Affirm active on your account — the line under the switch in Settings → Payments.",
             "The monthly figure: whole months, an APR between 0% and 100%, both fields or neither.",
             "Bank debit and service plans are not financing — a plan is your own instalments, on your own invoices. See [[service-plans|Service plans]].",
           ] },
@@ -254,7 +254,7 @@ export const ARTICLES = {
     faq: [
       { q: "Does FieldQuo check the client's credit?", a: "No. Affirm does, at checkout, and decides alone. FieldQuo never sees the application." },
       { q: "Can I show a monthly figure without stating a rate?", a: "No. No terms, no figure — a number FieldQuo invented would be a term you could be held to." },
-      { q: "Is Affirm available in Canada?", a: "Yes, for invoices in CAD as well as USD, within the $50–$30,000 range, once activated in your Stripe dashboard." },
+      { q: "Is Affirm available in Canada?", a: "Yes, for invoices in CAD as well as USD, within the $50–$30,000 range, once Stripe reports it active on your account. Affirm serves US and Canadian accounts only; the switch says so for any other country." },
     ],
   },
 
