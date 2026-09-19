@@ -70,6 +70,11 @@ export const rows = {
   // regex would have passed on the version that couldn't.
   member: [],
   pendingTeamProfile: [],
+  // The company's Products & Services and a quote's offered extras — read
+  // and written by lib/quotes/offeredAddOns.js, which createEstimateDraft
+  // and POST /api/quotes call to seed the "Offered" list at creation.
+  product: [],
+  quoteAddOn: [],
   // "Was this helpful?" votes from the public help centre
   // (app/api/help/feedback). check-help-centre.mjs executes the route and
   // reads the write back to prove the row carries slug/lang/helpful and
@@ -204,6 +209,8 @@ export function resetDbStub() {
   rows.marketingCampaignDelivery = [];
   rows.member = [];
   rows.pendingTeamProfile = [];
+  rows.product = [];
+  rows.quoteAddOn = [];
   rows.subscription = [];
   rows.plan = [];
   rows.messagingChannel = [];
@@ -579,6 +586,8 @@ export const db = new Proxy(
     marketingSubscriber: model("marketingSubscriber"),
     member: model("member"),
     pendingTeamProfile: model("pendingTeamProfile"),
+    product: model("product"),
+    quoteAddOn: model("quoteAddOn"),
     helpFeedback: model("helpFeedback"),
     subscription: model("subscription"),
     plan: model("plan"),

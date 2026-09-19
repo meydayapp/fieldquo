@@ -16,6 +16,7 @@ import { memberOrRefusal } from "@/lib/apiMember";
 import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { requirePermission } from "@/lib/permissions";
 import { TAKEOFF_ADD_ON_SOURCE } from "@/lib/quotes/takeoffAddOns";
+import { CATALOGUE_ADD_ON_SOURCE } from "@/lib/quotes/offeredAddOns";
 
 const money = (v) => {
   const n = Number(v);
@@ -118,7 +119,9 @@ export async function PUT(request, { params }) {
       // Without this the two sets interleave arbitrarily on `orderBy sortOrder`
       // and the client's list reshuffles every time the quote is re-saved.
       sortOrder: 100 + i,
-      source: ["manual", "history", "ai"].includes(a.source)
+      // "catalog" survives a re-save so the panel keeps saying where the
+      // row came from; anything unrecognised is the estimator's own.
+      source: ["manual", "history", "ai", CATALOGUE_ADD_ON_SOURCE].includes(a.source)
         ? a.source
         : "manual",
     }));

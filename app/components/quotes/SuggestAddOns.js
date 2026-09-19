@@ -268,6 +268,36 @@ export default function SuggestAddOns({
       setReview(data.review);
       setReviewedAt(data.reviewedAt);
       setDismissed([]);
+      // ── The review's PRICED recommendations join the offered list ──────
+      //
+      // The estimator pressed Review to be told what to offer; making them
+      // press Add on each answer was a second ask for the same thing. A
+      // recommendation with a price — the median this company's own accepted
+      // quotes carried for it (lib/ai/quoteReview.js), never a model's guess
+      // — lands in the list with the review's one-line benefit as its detail
+      // and is saved at once, so it is offered even if nobody scrolls down.
+      // One without a price stays a suggestion with an Add button: an offer
+      // needs a number, and the estimator is the one who has it.
+      const priced = (data.review?.addOns || []).filter(
+        (s) =>
+          Number(s.amount) > 0 &&
+          !addOns.some((a) => a.description.trim().toLowerCase() === s.description.trim().toLowerCase()),
+      );
+      if (priced.length && !readOnly) {
+        const next = [
+          ...addOns,
+          ...priced.map((s) => ({
+            description: s.description,
+            detail: s.detail || "",
+            amount: s.amount,
+            taxable: true,
+            source: s.source === "history" ? "history" : "ai",
+          })),
+        ].slice(0, 8);
+        setAddOns(next);
+        setDismissed(priced.map((s) => s.description));
+        await save(next);
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -999,7 +1029,7 @@ export default function SuggestAddOns({
         </div>
       )}
 
-      <div className="mt-5">
+      <div className="mt-5" data-offered-section>
         <div className="flex items-center justify-between gap-3">
           <p className="text-sm font-medium text-foreground">
             {t("app.quoteReview.offeredAtBottom")}
@@ -1014,6 +1044,13 @@ export default function SuggestAddOns({
             </button>
           )}
         </div>
+        {/* What this list IS, in one line — the owner could not tell whether
+            it was the client's, the AI's or his. It is his: pre-filled from
+            his own catalogue (lib/quotes/offeredAddOns.js) and the review,
+            ticked by the client on their copy. */}
+        <p className="text-xs text-muted-foreground mt-1">
+          {t("app.quoteReview.offeredIntro")}
+        </p>
 
         {addOns.length === 0 ? (
           <p className="text-xs text-muted-foreground mt-2">
@@ -1088,6 +1125,18 @@ export default function SuggestAddOns({
                 {fromTakeoff && (
                   <p className="text-xs text-muted-foreground">
                     {t("app.quoteReview.fromTakeoff")}
+                  </p>
+                )}
+                {/* Where a pre-filled row came from, so "why is this here"
+                    has an answer on the row itself. Removable like any other. */}
+                {a.source === "catalog" && (
+                  <p className="text-xs text-muted-foreground" data-add-on-source="catalog">
+                    {t("app.quoteReview.fromCatalogue")}
+                  </p>
+                )}
+                {(a.source === "history" || a.source === "ai") && (
+                  <p className="text-xs text-muted-foreground" data-add-on-source="review">
+                    {t("app.quoteReview.fromReview")}
                   </p>
                 )}
 

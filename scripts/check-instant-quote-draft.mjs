@@ -62,10 +62,11 @@ import { soloEstimatorFrom } from "@/lib/estimate/soloEstimator";
 import { lineItemsFromBreakdown, breakdownForRecord } from "@/lib/estimate/estimateLines";
 import { estimateCabinetRefinishing } from "@/lib/estimate/instantEstimate";
 import { billedUnitsOf } from "@/lib/quotes/builderPayload";
+import { catalogueAddOnsFor, seedCatalogueAddOns, CATALOGUE_ADD_ON_SOURCE } from "@/lib/quotes/offeredAddOns";
 import { measureForTrade, priceOneMaterial } from "@/lib/estimate/instantQuoteServer";
 import { taxStatement } from "@/lib/tax/documentTax";
 import { FALLBACK_LABOUR_RATE, FALLBACK_OVERHEAD_PCT } from "@/lib/costing/quoteCosting";
-import { rows, writes, resetDbStub } from "@/lib/db";
+import { rows, writes, resetDbStub, db } from "@/lib/db";
 
 let pass = 0;
 let fail = 0;
@@ -557,6 +558,91 @@ section("The instant funnel's client carries the same address components as a ha
   const schema = fs.readFileSync("prisma/schema.prisma", "utf8");
   const clientModel = schema.split("model Client {")[1]?.split("\n}")[0] || "";
   ok("Client has the two columns", /\n\s+postalCode\s+String\?/.test(clientModel) && /\n\s+county\s+String\?/.test(clientModel));
+}
+
+/* ═══════ 8. OFFERED — the trade's extras, on both kinds of quote ════════ */
+//
+// "Nothing offered yet" under a section the owner could not place. The rows
+// are the client-tickable extras; they are now pre-filled from the company's
+// own Products & Services (the standard add-ons FieldQuo seeds per trade, at
+// the company's prices) when a quote is created — instant OR hand-built —
+// and priced from this quote's own counts. Executed against the stub.
+
+section("The Offered list is pre-filled from the company's own catalogue, priced from its rows and this quote's counts");
+
+const HINGES = { id: "p_hinges", name: "Soft-Close Hinges", description: "Install soft-close hinges, per door.", unit: "door", unitPrice: 35, active: true, categories: [{ id: CABINET_CATEGORY.id }] };
+const SLIDES = { id: "p_slides", name: "Soft-Close Drawer Slides", description: "Per drawer.", unit: "drawer", unitPrice: 45, active: true, categories: [{ id: CABINET_CATEGORY.id }] };
+const TWO_TONE = { id: "p_twotone", name: "Two-Tone Finish", description: "Second colour.", unit: "flat", unitPrice: 600, active: true, categories: [{ id: CABINET_CATEGORY.id }] };
+const HANDLES = { id: "p_handles", name: "New Handles — supply & install", unit: "each", unitPrice: 12, active: true, categories: [{ id: CABINET_CATEGORY.id }] };
+const FLOOR_ONLY = { id: "p_floor", name: "Stair nosing", unit: "flat", unitPrice: 90, active: true, categories: [{ id: "cat_flooring" }] };
+const RETIRED = { id: "p_old", name: "Glass Inserts", unit: "door", unitPrice: 85, active: false, categories: [{ id: CABINET_CATEGORY.id }] };
+const UNPRICED = { id: "p_free", name: "Colour consult", unit: "flat", unitPrice: 0, active: true, categories: [{ id: CABINET_CATEGORY.id }] };
+
+{
+  const rows = catalogueAddOnsFor({
+    groups: [{ categoryId: CABINET_CATEGORY.id, intakeValues: { doorCount: 25, drawerCount: 10 } }],
+    products: [HINGES, SLIDES, TWO_TONE, HANDLES, FLOOR_ONLY, RETIRED, UNPRICED],
+  });
+  const names = rows.map((r) => r.description);
+  ok("per-door hinges are priced at the company's rate × THIS quote's door count", rows.find((r) => r.description.startsWith("Soft-Close Hinges"))?.amount === 875, rows);
+  ok("…and the row says what it counted", names.includes("Soft-Close Hinges (25 × door)"), names);
+  ok("per-drawer slides likewise, × the drawer count", rows.find((r) => r.description.startsWith("Soft-Close Drawer Slides"))?.amount === 450);
+  ok("a flat product is offered as-is", rows.find((r) => r.description === "Two-Tone Finish")?.amount === 600);
+  ok("a per-'each' product this quote cannot count is NOT offered at its unit price", !names.some((n) => n.startsWith("New Handles")), names);
+  ok("another trade's product is not offered on a cabinet quote", !names.includes("Stair nosing"));
+  ok("a retired product is not offered", !names.some((n) => n.startsWith("Glass Inserts")));
+  ok("an unpriced product is not offered — a $0 tick is not an offer", !names.includes("Colour consult"));
+  ok("every row carries the catalogue source and the product's own one-line benefit", rows.every((r) => r.source === CATALOGUE_ADD_ON_SOURCE) && rows[0].detail === "Install soft-close hinges, per door.");
+  ok("…and nothing is offered when the quote has no counts for a per-unit product", catalogueAddOnsFor({ groups: [{ categoryId: CABINET_CATEGORY.id, intakeValues: {} }], products: [HINGES] }).length === 0);
+  const many = Array.from({ length: 12 }, (_, i) => ({ ...TWO_TONE, id: `p${i}`, name: `Extra ${i}` }));
+  ok("capped at the editor's own eight", catalogueAddOnsFor({ groups: [{ categoryId: CABINET_CATEGORY.id }], products: many }).length === 8);
+}
+
+// Through the instant draft: the rows are written for the new quote.
+{
+  resetDbStub();
+  rows.serviceCategory = [{ ...CABINET_CATEGORY, label: "Cabinet Refinishing" }];
+  rows.product = [{ ...HINGES, companyId: NO_TAX_CO.id }, { ...TWO_TONE, companyId: NO_TAX_CO.id }];
+  await createEstimateDraft({
+    createdVia: "instant_quote",
+    company: NO_TAX_CO,
+    trade: "cabinet_refinishing",
+    categoryId: CABINET_CATEGORY.id,
+    contact: { ...BASE_CONTACT, email: "offered@test.example" },
+    measurement: { doorCount: 25, drawerCount: 10 },
+    materialKey: null,
+    estimate: cabinetEstimate(6650),
+    source: "manual",
+    language: "en",
+  });
+  const seeded = writes.find((w) => w.model === "quoteAddOn" && w.action === "createMany")?.data || [];
+  ok("an instant draft is created with the trade's extras offered", seeded.length === 2, seeded);
+  ok("…priced from the company's rows and the homeowner's counts", seeded.find((r) => r.description.startsWith("Soft-Close Hinges"))?.amount === 875 && seeded.find((r) => r.description === "Two-Tone Finish")?.amount === 600, seeded);
+  const quoteId = writes.find((w) => w.model === "quote" && w.action === "create")?.data ? rows.quote.at(-1)?.id : null;
+  ok("…on the draft itself", seeded.every((r) => r.quoteId && r.quoteId === quoteId), { quoteId, seeded });
+
+  // Seeded ONCE: a quote that already offers something is left alone.
+  const again = await seedCatalogueAddOns(db, { companyId: NO_TAX_CO.id, quoteId, scopeGroups: [{ categoryId: CABINET_CATEGORY.id, intakeValues: { doorCount: 25 } }] });
+  ok("re-running the seed on a quote that already offers extras writes nothing", again === 0, again);
+}
+
+// The hand-built path seeds the same rows, the editor keeps the source, and
+// the panel says where they came from.
+{
+  const post = fs.readFileSync("app/api/quotes/route.js", "utf8");
+  ok("POST /api/quotes seeds the same catalogue rows for a hand-built quote", /seedCatalogueAddOns\(db, \{\s*companyId: member\.companyId,\s*quoteId: quote\.id,\s*scopeGroups: quote\.scopeGroups,/.test(post));
+  const put = fs.readFileSync("app/api/quotes/[id]/add-ons/route.js", "utf8");
+  ok("PUT /api/quotes/[id]/add-ons keeps the catalogue source on a re-save", /\["manual", "history", "ai", CATALOGUE_ADD_ON_SOURCE\]\.includes\(a\.source\)/.test(put));
+  const panel = fs.readFileSync("app/components/quotes/SuggestAddOns.js", "utf8");
+  ok("the panel says in one line what the list is and who ticks it", /app\.quoteReview\.offeredIntro/.test(panel));
+  ok("…labels a catalogue row and a review row on the row itself", /data-add-on-source="catalog"/.test(panel) && /data-add-on-source="review"/.test(panel));
+  ok("…and a priced review recommendation joins the list and is saved, an unpriced one stays a suggestion", /Number\(s\.amount\) > 0 &&/.test(panel) && /await save\(next\);/.test(panel));
+  const { APP_MESSAGES } = await import("@/app/i18n/appMessages.js");
+  for (const key of ["app.quoteReview.offeredIntro", "app.quoteReview.fromCatalogue", "app.quoteReview.fromReview"]) {
+    const missing = Object.keys(APP_MESSAGES).filter((l) => !APP_MESSAGES[l][key]);
+    ok(`${key} exists in every app language`, missing.length === 0, missing);
+  }
+  ok("the intro names the client as the one who ticks, and the catalogue as the source", /client/i.test(APP_MESSAGES.en["app.quoteReview.offeredIntro"]) && /Products & Services/.test(APP_MESSAGES.en["app.quoteReview.offeredIntro"]));
 }
 
 /* ═════════ #5 — pricing functions ignore money smuggled into intake ══════ */
