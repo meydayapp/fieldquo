@@ -35087,6 +35087,8 @@ const es = {
 };
 
 const uk = {
+  "app.salesIntel.fact.websiteChanged.label": "Сайт змінився",
+  "app.salesIntel.fact.websiteChanged.text": "з {previous} — перечитано {latest}",
   "app.docEmails.group": "Листи документів",
   "app.docEmails.explainer": "Те, що клієнт отримує з кошторисом, рахунком, нагадуванням про оплату, квитанцією або запитом на завдаток. Оригінал належить FieldQuo і ніколи не змінюється; «Налаштувати» створює вашу власну копію тексту для кожної мови. Документ мовою, яку ви не налаштували, використовує оригінал.",
   "app.docEmails.kindQuote": "Лист із кошторисом",
@@ -44801,6 +44803,8 @@ const uk = {
 };
 
 const pa = {
+  "app.salesIntel.fact.websiteChanged.label": "ਵੈੱਬਸਾਈਟ ਬਦਲੀ",
+  "app.salesIntel.fact.websiteChanged.text": "{previous} ਤੋਂ — {latest} ਨੂੰ ਦੁਬਾਰਾ ਪੜ੍ਹੀ",
   "app.docEmails.group": "ਦਸਤਾਵੇਜ਼ ਈਮੇਲਾਂ",
   "app.docEmails.explainer": "ਉਹ ਜੋ ਗਾਹਕ ਨੂੰ ਹਵਾਲੇ, ਇਨਵੌਇਸ, ਭੁਗਤਾਨ ਰੀਮਾਈਂਡਰ, ਰਸੀਦ ਜਾਂ ਡਿਪਾਜ਼ਿਟ ਬੇਨਤੀ ਨਾਲ ਮਿਲਦਾ ਹੈ। ਅਸਲ FieldQuo ਦਾ ਹੈ ਅਤੇ ਕਦੇ ਨਹੀਂ ਬਦਲਦਾ; \"ਆਪਣੇ ਮੁਤਾਬਕ ਬਣਾਓ\" ਹਰ ਭਾਸ਼ਾ ਲਈ ਸ਼ਬਦਾਂ ਦੀ ਤੁਹਾਡੀ ਆਪਣੀ ਕਾਪੀ ਬਣਾਉਂਦਾ ਹੈ। ਜਿਸ ਭਾਸ਼ਾ ਨੂੰ ਤੁਸੀਂ ਨਹੀਂ ਬਦਲਿਆ, ਉਸ ਭਾਸ਼ਾ ਦਾ ਦਸਤਾਵੇਜ਼ ਅਸਲ ਵਰਤਦਾ ਹੈ।",
   "app.docEmails.kindQuote": "ਹਵਾਲਾ ਈਮੇਲ",
@@ -54447,6 +54451,8 @@ const pa = {
 };
 
 const tl = {
+  "app.salesIntel.fact.websiteChanged.label": "Nagbago ang website",
+  "app.salesIntel.fact.websiteChanged.text": "mula {previous} — muling binasa {latest}",
   "app.docEmails.group": "Mga email ng dokumento",
   "app.docEmails.explainer": "Ang natatanggap ng kliyente kasama ng quote, invoice, paalala sa pagbabayad, resibo o kahilingan ng deposito. Ang orihinal ay sa FieldQuo at hindi kailanman binabago; ang I-customize ay gumagawa ng sarili mong kopya ng pananalita, bawat wika. Ang dokumento sa wikang hindi mo na-customize ay gumagamit ng orihinal.",
   "app.docEmails.kindQuote": "Email ng quote",
@@ -64100,6 +64106,8 @@ const tl = {
 };
 
 const de = {
+  "app.salesIntel.fact.websiteChanged.label": "Website geändert",
+  "app.salesIntel.fact.websiteChanged.text": "seit {previous} — erneut gelesen am {latest}",
   "app.docEmails.group": "Dokument-E-Mails",
   "app.docEmails.explainer": "Was ein Kunde mit einem Angebot, einer Rechnung, einer Zahlungserinnerung, einem Beleg oder einer Anzahlungsanfrage erhält. Das Original gehört FieldQuo und wird nie verändert; „Anpassen“ legt Ihre eigene Kopie des Wortlauts an, je Sprache. Ein Dokument in einer Sprache, die Sie nicht angepasst haben, verwendet das Original.",
   "app.docEmails.kindQuote": "Angebots-E-Mail",
@@ -75166,6 +75174,8 @@ const de = {
 };
 
 const zh = {
+  "app.salesIntel.fact.websiteChanged.label": "网站已更改",
+  "app.salesIntel.fact.websiteChanged.text": "自 {previous} 起——{latest} 重新读取",
   "app.docEmails.group": "单据邮件",
   "app.docEmails.explainer": "客户随报价、发票、付款提醒、收据或定金申请收到的内容。原版属于 FieldQuo，永不更改；“自定义”会按语言创建您自己的措辞副本。您未自定义的语言的单据使用原版。",
   "app.docEmails.kindQuote": "报价邮件",
@@ -86225,6 +86235,8 @@ const zh = {
 };
 
 const it = {
+  "app.salesIntel.fact.websiteChanged.label": "Sito web modificato",
+  "app.salesIntel.fact.websiteChanged.text": "dal {previous} — riletto il {latest}",
   "app.docEmails.group": "Email dei documenti",
   "app.docEmails.explainer": "Ciò che un cliente riceve con un preventivo, una fattura, un sollecito di pagamento, una ricevuta o una richiesta di acconto. L'originale è di FieldQuo e non viene mai modificato; Personalizza crea una tua copia del testo, per lingua. Un documento in una lingua che non hai personalizzato usa l'originale.",
   "app.docEmails.kindQuote": "Email del preventivo",

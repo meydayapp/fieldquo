@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 19 September 2026 (US sales tax on a quote to a US address is the full combined rate on the whole quote, from any company, exactly as a Canadian province's — the ZIP's rate from the states' own Streamlined files, the state's own rule beside it as a hint the contractor may act on in one press, and the record stored on the quote and copied to its invoice — see the section below)
+Last updated: 19 September 2026 (every company now chases a sent quote at 1, 7 and 14 days in the client's language from three FieldQuo default follow-up rules — the table had zero rows before — and the quote, invoice, reminder, receipt and deposit emails can be previewed through the real builder and their wording customised per language without the original ever changing; every email template has Blocks and Canvas modes — see the section below)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -9,6 +9,82 @@ it exists to answer.
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
+
+## Follow-ups that actually run, document emails a company can see and reword, and a canvas mode for every email template (19 September 2026)
+
+Three owner requests in one push. Read together they are one finding: the
+follow-up automation and the document emails both existed and neither could
+be seen doing anything.
+
+**FollowUpRule had zero rows.** The cron, the rules page and the flow diagram
+had been live for months; nothing seeded a rule, so no homeowner had ever
+received an automated chase. Now:
+
+- `lib/followUps/defaults.js` — three FieldQuo defaults on `quote_no_response`
+  at 1, 7 and 14 days, wording in EN/FR/ES (a client in any other document
+  language gets emailCopy's generic follow-up line in THEIR language, never
+  English), rendered through the quote email's own shell so the chase and the
+  quote are one set of stationery. `FollowUpRule.builtInKey` (unique with
+  companyId) makes `ensureDefaultFollowUps` idempotent; `deletedAt` is a
+  tombstone so a deleted default stays deleted and "Restore" is an update.
+- Seeded at signup (`app/api/companies`, `app/api/platform/companies`),
+  self-healed on the rules page's GET, and backfilled onto all 26 companies
+  (78 rules) by `scripts/backfill-follow-up-defaults.mjs` after a dry run.
+- Stop conditions in `lib/followUps/stopConditions.js`, decided BEFORE the
+  FollowUpLog claim: accepted/declined, expired, the client replied on a
+  thread FieldQuo carries (SMS/WhatsApp/Meta — email replies land in the
+  company's own inbox and are invisible), a newer quote to the same client,
+  and — for the defaults only — a quote sent before the rule existed, so the
+  backfill could not fire three chases at once over months-old quotes. The
+  cron also asks the plan gate and the tax gate the Send button asks
+  (`lib/followUps/readiness.js`).
+- The settings page: each rule with a switch, an editable delay, a template
+  picker (a default offers "FieldQuo's wording, in the client's language"),
+  what the default says, Reset to default, and a Restore list for deleted
+  defaults. The quote's trail prints each automated chase from FollowUpLog.
+
+**Document emails.** `lib/email/documentEmailWording.js` names five wording
+slots (subject, greeting, intro, closing, signature) whose ORIGINAL is
+emailCopy's own sentence with tokens as arguments — no second copy to drift.
+A copy is a DocumentTemplate row with `documentKind` + `language`, one per
+language (EN/FR/ES), `isDefault` = "Use this"; the builders take `wording`
+and change only the five slots. Settings → Email templates opens with a
+Document emails group: preview through the real builder against the
+company's latest quote/invoice (a labelled sample when there is none),
+Customise / Use this / Back to original / Reset to original / Delete copy.
+Every sender loads the copy for the document's language
+(`loadDocumentWording`): quote send, invoice send (deposit vs invoice),
+request-payment (reminder), service plans (receipt), payment schedule
+(deposit). The hand-sent quote follow-up keeps the original wording — the
+copy is of the quote email.
+
+**Blocks / Canvas.** `DocumentTemplate.sentMode` + `canvas`; both bodies are
+kept; `lib/email/templateBody.js` is the one reader (the cron, campaign send
+and test send go through it). `lib/email/canvasEmail.js` compiles the
+designer's fabric document to table HTML by banding, pours it into the block
+mode's own shell (so the footer and the unsubscribe row cannot be left out),
+measures every text layer's ink against its ground and steps it — or the
+band — until 4.5:1, turns a linked shape with text into a bulletproof
+button, fills merge fields, and names everything email cannot show.
+`app/components/emailCanvas/EmailCanvasEditor.js` is the ad designer's canvas
+on a 600px artboard with a link panel and a merge-field row. On a document
+email copy the canvas draws the LETTER (greeting + intro); the amount, scope
+and footer stay the document's.
+
+Checks: `check:follow-up-defaults`, `check:document-emails`,
+`check:canvas-email` (all in check:all).
+
+### Still owed here
+
+- **The built-in follow-up wording is EN/FR/ES only.** UK/PA/TL/DE/IT clients
+  get the generic emailCopy line. Writing the three day-specific messages in
+  the other five is a translation job, not a code one.
+- **"Replied" only sees threads FieldQuo carries.** An email reply to the
+  quote goes to the company's inbox. Until a company mailbox is synced into
+  the inbox, a homeowner who replied by email will still get day 7.
+- **No screenshot verification of the two settings screens.** Build and
+  checks are green; the pages were not driven in a browser against a live
+  session this push.
 
 ## The crawler takes a second look: a site read a month ago is read again — for the rows that matter, unchanged costs a crawl and nothing else, changed runs the chain and the brief says so (19 September 2026)
 
