@@ -36,6 +36,7 @@ import { isVisitOutsideJobRange } from "@/lib/jobs/visitInRange";
 import { callbackReasonLabel } from "@/lib/jobs/callbackReasons";
 import ChangeOrders from "@/app/components/jobs/ChangeOrders";
 import JobDocuments from "@/app/components/jobs/JobDocuments";
+import PrepGuideCard from "@/app/components/jobs/PrepGuideCard";
 import JobSubcontractors from "@/app/components/jobs/JobSubcontractors";
 import DailyLog from "@/app/components/jobs/DailyLog";
 import { SiteVisitRows } from "@/app/components/quotes/SiteVisitPanel";
@@ -700,6 +701,12 @@ export default function JobDetail({ jobId }) {
           what does the drawing say. A revision never overwrites its
           predecessor; see the component's own header. */}
       <JobDocuments jobId={job.id} />
+
+      {/* What the client was asked to do before the crew arrives, and when
+          they were (or will be) told. Under Documents because the sent guide
+          is filed there; its own card because "did they get it" is a
+          question asked from the van on the first morning. */}
+      <PrepGuideCard jobId={job.id} />
 
       {/* What actually happened, one row per day. Above Visits deliberately:
           a visit is what was PLANNED for a day and this is what came of it,

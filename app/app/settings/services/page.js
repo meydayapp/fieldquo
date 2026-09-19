@@ -5,6 +5,10 @@ import { Plus, X, Sparkles, PackagePlus } from "lucide-react";
 import { INTAKE_FIELD_LIBRARY } from "@/app/data/intakeFieldLibrary";
 import RateCard from "./RateCard";
 import QuoteWording from "./QuoteWording";
+import PrepGuideEditor from "./PrepGuideEditor";
+import PrepGuideCompanyCard from "./PrepGuideCompanyCard";
+import ServiceDocuments from "./ServiceDocuments";
+import { usePermissions } from "@/app/providers/PermissionProvider";
 import BackToHome from "@/app/components/BackToHome";
 import { allPriceBookUnits } from "@/app/data/tradePriceBooks";
 import { categoryKeysForIndustries } from "@/app/data/industryCategories";
@@ -86,6 +90,25 @@ export default function ServiceSettingsPage() {
 
   const [seedingId, setSeedingId] = useState(null);
   const [seedMsg, setSeedMsg] = useState(null);
+
+  // The preparation guide's technical documents — the company's whole list,
+  // loaded once; ServiceDocuments filters it per service. Owner/admin may
+  // change them, matching the POST/DELETE routes' own gate.
+  const [serviceDocuments, setServiceDocuments] = useState([]);
+  const caller = usePermissions();
+  const canEditDocuments = ["owner", "admin"].includes(caller?.role);
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/settings/service-documents");
+        if (!res.ok) return; // the list stays empty; the row's own error is reported when it matters
+        const data = await res.json();
+        setServiceDocuments(Array.isArray(data) ? data : []);
+      } catch {
+        /* network: the section shows nothing rather than a false empty state */
+      }
+    })();
+  }, []);
 
   // ── The rate card, for someone who may not see rates ────────────────────
   //
@@ -216,6 +239,11 @@ export default function ServiceSettingsPage() {
             }),
             ...(c.contentOverrides?.scopeDescription !== undefined && {
               scopeDescription: c.contentOverrides.scopeDescription,
+            }),
+            // Only the languages the person touched, null meaning "reset to
+            // original" — the API merges per language over what is stored.
+            ...(c.prepGuideCopies && Object.keys(c.prepGuideCopies).length && {
+              prepGuideCopies: c.prepGuideCopies,
             }),
           })),
         }),
@@ -362,6 +390,12 @@ export default function ServiceSettingsPage() {
       <div className="mb-6">
         <BackToHome />
       </div>
+
+      <PrepGuideCompanyCard
+        documents={serviceDocuments}
+        onDocumentsChange={setServiceDocuments}
+        canEdit={canEditDocuments}
+      />
 
       {/* Said once, at the top, rather than as a row of empty rate boxes.
           The subtitle above promises "set your default rate for each", so an
@@ -669,6 +703,22 @@ export default function ServiceSettingsPage() {
                       })
                     }
                   />
+                  <PrepGuideEditor
+                    category={c}
+                    staged={c.prepGuideCopies || {}}
+                    onChange={(lang, copy) =>
+                      update(c.id, {
+                        prepGuideCopies: { ...(c.prepGuideCopies || {}), [lang]: copy },
+                      })
+                    }
+                  >
+                    <ServiceDocuments
+                      categoryId={c.id}
+                      documents={serviceDocuments}
+                      onChange={setServiceDocuments}
+                      canEdit={canEditDocuments}
+                    />
+                  </PrepGuideEditor>
                 </div>
               )}
             </div>

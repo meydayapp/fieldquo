@@ -12,6 +12,8 @@ import { resolveServiceContent } from "@/lib/documents/serviceContent";
 import { reprovisionIfLive } from "@/lib/voice/provision";
 import { getAppOrigin } from "@/lib/appUrl";
 import { loadEnforceableMember, canSeeMoney } from "@/lib/permissions/enforce";
+import { builtInGuide, GUIDE_LANGUAGES } from "@/lib/prepGuide/content";
+import { withPrepGuideCopy } from "@/lib/prepGuide/resolve";
 
 // GET — system catalog + this company's own custom quote types, merged with
 // this company's settings (enabled/rate/unit). Custom categories are scoped
@@ -138,6 +140,16 @@ export async function GET(request) {
         processSteps: setting?.processSteps ?? null,
         scopeDescription: setting?.scopeDescription ?? null,
       },
+      // The client preparation guide — lib/prepGuide. `originals` is the
+      // built-in per language, read-only on the screen; `copies` is what
+      // the company wrote, keyed by language, null when they never did.
+      // Same pair as content / contentOverrides above, for the same reason.
+      prepGuide: {
+        copies: setting?.prepGuide ?? null,
+        originals: Object.fromEntries(
+          GUIDE_LANGUAGES.map((lang) => [lang, builtInGuide(c.key, lang)]),
+        ),
+      },
     };
   });
 
@@ -261,6 +273,31 @@ export async function PATCH(request) {
   });
   const keyById = new Map(known.map((k) => [k.id, k.key]));
 
+  // The preparation-guide copy is a language-keyed map merged per language:
+  // { en: {...} } replaces English and leaves French alone, { fr: null } is
+  // "Reset to original" for French. A merge needs the stored map, so it is
+  // read here rather than trusted from the client — the screen only ever
+  // posts the languages the person touched.
+  const prepGuideByCategory = new Map();
+  const withCopies = categories.filter(
+    (c) => c.prepGuideCopies && typeof c.prepGuideCopies === "object",
+  );
+  if (withCopies.length) {
+    const stored = await db.companyServiceCategory.findMany({
+      where: { companyId: member.companyId, categoryId: { in: withCopies.map((c) => c.categoryId) } },
+      select: { categoryId: true, prepGuide: true },
+    });
+    const storedById = new Map(stored.map((r) => [r.categoryId, r.prepGuide]));
+    for (const c of withCopies) {
+      let next = storedById.get(c.categoryId) ?? null;
+      for (const [lang, copy] of Object.entries(c.prepGuideCopies)) {
+        if (!GUIDE_LANGUAGES.includes(lang)) continue;
+        next = withPrepGuideCopy(next, lang, copy);
+      }
+      prepGuideByCategory.set(c.categoryId, next);
+    }
+  }
+
   const results = await Promise.all(
     categories.map((c) =>
       db.companyServiceCategory.upsert({
@@ -288,6 +325,9 @@ export async function PATCH(request) {
           ...(c.scopeDescription !== undefined && {
             scopeDescription: sanitiseDescription(c.scopeDescription),
           }),
+          ...(prepGuideByCategory.has(c.categoryId) && {
+            prepGuide: prepGuideByCategory.get(c.categoryId),
+          }),
         },
         create: {
           companyId: member.companyId,
@@ -306,6 +346,9 @@ export async function PATCH(request) {
           }),
           ...(c.scopeDescription !== undefined && {
             scopeDescription: sanitiseDescription(c.scopeDescription),
+          }),
+          ...(prepGuideByCategory.has(c.categoryId) && {
+            prepGuide: prepGuideByCategory.get(c.categoryId),
           }),
         },
       }),
