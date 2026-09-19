@@ -395,4 +395,10 @@ export const ROUTES_SETTINGS_A = [
   { path: "/api/analytics/minimum-price", method: "GET", reply: () => minimumPrice() },
   { path: "/api/analytics/utilisation", method: "GET", reply: ({ search }) => utilisation(Number(search.get("days")) || 30) },
   { path: "/api/custom-fields", method: "GET", reply: () => CUSTOM_FIELDS },
+  // The company's own boxes on a record, with their values: what the quote
+  // detail page and the builder ask for. Answered with the quote fields and
+  // no values — a fixture quote nobody has filled the boxes on — so the
+  // frames render the panel rather than a 404 (which was the one call every
+  // quote frame reported unanswered).
+  { path: "/api/custom-fields/values", method: "GET", reply: ({ search }) => CUSTOM_FIELDS.filter((f) => f.entityType === (search.get("entityType") || "quote")).map((f) => ({ ...f, value: null })) },
 ];

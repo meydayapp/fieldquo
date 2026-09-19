@@ -2385,8 +2385,11 @@ export function QuoteBuilderForm({
         primaryLabel={
           isEdit ? t("app.quoteEdit.saveChanges") : t("app.quoteNew.saveAsDraft")
         }
+        // The one word that fits beside Cancel and Save & send at 375px —
+        // see the bar. "Save changes" beside both is what pushed the row
+        // over the total.
         primaryLabelShort={
-          isEdit ? t("app.quoteEdit.saveChanges") : t("app.quoteNew.saveAsDraftShort")
+          isEdit ? t("app.quoteEdit.saveChangesShort") : t("app.quoteNew.saveAsDraftShort")
         }
         onSaveDraft={() => handleSave("draft")}
         // Sending is offered while the quote is still open. On a decided quote

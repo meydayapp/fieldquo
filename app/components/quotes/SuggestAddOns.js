@@ -152,6 +152,7 @@ export default function SuggestAddOns({
   const [reviewing, setReviewing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState(null);
+  const [edited, setEdited] = useState(false);
   const [error, setError] = useState("");
   const [dismissed, setDismissed] = useState([]);
 
@@ -349,6 +350,7 @@ export default function SuggestAddOns({
       });
       setAddOns(saved);
       setSavedAt(Date.now());
+      setEdited(false);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -359,11 +361,13 @@ export default function SuggestAddOns({
   function update(i, patch) {
     setAddOns((prev) => prev.map((a, j) => (j === i ? { ...a, ...patch } : a)));
     setSavedAt(null);
+    setEdited(true);
   }
 
   function remove(i) {
     setAddOns((prev) => prev.filter((_, j) => j !== i));
     setSavedAt(null);
+    setEdited(true);
   }
 
   function addBlank() {
@@ -378,6 +382,7 @@ export default function SuggestAddOns({
       },
     ]);
     setSavedAt(null);
+    setEdited(true);
   }
 
   function acceptSuggestion(s) {
@@ -396,6 +401,7 @@ export default function SuggestAddOns({
     ]);
     setDismissed((prev) => [...prev, s.description]);
     setSavedAt(null);
+    setEdited(true);
   }
 
   if (!quoteId) {
@@ -426,7 +432,11 @@ export default function SuggestAddOns({
       ),
   );
 
-  const dirty = addOns.length > 0 && savedAt === null;
+  // Edited since the last load or save. This used to be "there are rows and
+  // nothing has been saved on THIS screen", which read "Unsaved" under a list
+  // that had just been loaded from the database — and now that every quote
+  // opens with its catalogue extras pre-filled, it read that on every open.
+  const dirty = edited;
 
   return (
     <Panel>

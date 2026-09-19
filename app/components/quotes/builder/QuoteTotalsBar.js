@@ -356,12 +356,24 @@ export default function QuoteTotalsBar({
           bar. Reserving corner space here was the wrong direction: every
           bar would need it, and every new launcher would break it. Now the
           launchers know about the bar instead. */}
+      {/* ── Two rows on a phone, one row from sm up ─────────────────────
+          The bar was one flex row at every width: the total on the left,
+          min-w-0, and the buttons on the right, shrink-0. On an EDIT there
+          are three buttons — Cancel, Save changes, Save & send — and at 375px
+          they are wider than the bar, so the total block was squeezed to
+          nothing and the buttons were drawn over "Total incl. tax $6,650.00"
+          with "Save & send" running off the right edge (the owner: "cancel /
+          save changes / save and send sits right above the price total").
+          Below sm the total takes a row of its own — label left, figure right
+          — and the buttons take the next, with the save label shortened to
+          the one word that fits beside the other two. The dock measures its
+          own height (useBottomDock), so the taller bar still clears <main>. */}
       <div
         ref={dockRef}
         data-tour="totals"
-        className="fixed bottom-[var(--fq-tab-bar-height)] left-0 right-0 lg:left-60 bg-card border-t border-border px-4 sm:px-6 py-3 flex items-center justify-between gap-3 z-40"
+        className="fixed bottom-[var(--fq-tab-bar-height)] left-0 right-0 lg:left-60 bg-card border-t border-border px-4 sm:px-6 py-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3 z-40"
       >
-        <div className="min-w-0">
+        <div className="flex items-baseline justify-between gap-3 min-w-0 sm:block" data-totals-figure>
           <div className="text-[11px] text-muted-foreground leading-none">
             {taxEnabled
               ? t("app.quoteNew.totalInclTax")
@@ -372,7 +384,11 @@ export default function QuoteTotalsBar({
           </div>
         </div>
 
-        <div className="flex gap-2 shrink-0">
+        {/* flex-wrap: French labels ("Enregistrer et envoyer") do not fit
+            three across at 375px; without it the row overflowed and pushed
+            Cancel off the left edge. A wrapped second row is honest; a
+            clipped button is a control nobody can reach. */}
+        <div className="flex flex-wrap gap-2 shrink-0 justify-end" data-totals-actions>
           {/* ── Review sits WITH the other actions ──────────────────────────
               It shipped at the bottom of the totals card, on the argument that
               a third button does not fit at 375px. The owner could not find

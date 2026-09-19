@@ -1049,6 +1049,26 @@ section("11. The tax hint never asks for a country and province already on file"
   ok("11j: …and the English never asks for the country or province", !/country|province/i.test(APP_MESSAGES.en["app.tax.line.unresolvedHintPlace"]), APP_MESSAGES.en["app.tax.line.unresolvedHintPlace"]);
 }
 
+section("12. The action bar never covers the total");
+
+// At 375px an edit's three buttons — Cancel, Save changes, Save & send — were
+// wider than the bar; the total block (min-w-0) was squeezed to nothing and
+// the buttons drew over "Total incl. tax $6,650.00". Photographed before and
+// after in docs/screens/app-guide/en/*quote-edit-instant-mobile-totals.png.
+{
+  const bar = read("app/components/quotes/builder/QuoteTotalsBar.js");
+  const dock = bar.split("ref={dockRef}")[1]?.split(">")[0] || "";
+  ok("12a: the dock stacks below sm and is one row from sm up", /flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between/.test(dock), dock);
+  ok("12b: the total takes a full row of its own on a phone — label left, figure right", /data-totals-figure/.test(bar) && /flex items-baseline justify-between gap-3 min-w-0 sm:block/.test(bar), "");
+  ok("12c: the buttons take the next row, right-aligned, and wrap rather than clip when a language's labels are longer", /flex flex-wrap gap-2 shrink-0 justify-end" data-totals-actions/.test(bar), "");
+  const builderSrc = read("app/components/quotes/builder/QuoteBuilder.js");
+  ok("12d: on an edit the phone-width save label is the one word that fits beside the other two", /primaryLabelShort=\{\s*isEdit \? t\("app\.quoteEdit\.saveChangesShort"\)/.test(builderSrc), "");
+  const missing = Object.keys(APP_MESSAGES).filter((l) => !APP_MESSAGES[l]["app.quoteEdit.saveChangesShort"]);
+  eq("12e: …in every app language", missing, []);
+  const screens = read("docs/screens/app-guide/harness/screens.js");
+  ok("12f: the harness photographs the edit bar at 1280×680 and 375×812, scrolled to the totals", /quote-edit-instant-totals/.test(screens) && /quote-edit-instant-mobile-totals[^\n]*width: 375, height: 812, scene: "scroll-totals"/.test(screens), "");
+}
+
 // ───────────────────────────────────────────────────────────────────────────
 
 console.log(
