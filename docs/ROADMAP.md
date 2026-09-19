@@ -1,12 +1,86 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 19 September 2026 (the day on a map: Schedule → Map (`?view=map`) and Settings → Work areas show the day's visits, appointments and bookings as pins numbered 1, 2, 3 PER PERSON in time order, one measured colour per person, grey "?" when unassigned, a list beside the map that keeps every row including the ones with no coordinates; office-booked appointments are geocoded like jobs; a work area can carry a drawn polygon nothing else reads yet — see the section below)
+Last updated: 19 September 2026 (the platform rail is seven groups by whose money and whose data — Earnings, Spending, Companies (/app), Sales team, Lead data, Support, FieldQuo's own systems — each described on hover and folding, remembered per admin; "Crew lines" is "Twilio numbers" — see the section below)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
 it exists to answer.
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
+
+---
+
+## The platform rail says whose money and whose data each row is: seven folding groups, described on hover (19 September 2026)
+
+The owner: "the side menu seems all bunched up — it's hard to distinguish
+earnings from expenditure, and sales team, and /app, and FieldQuo's own."
+Measured: 54 rows in six groups, "Demos & sales" holding 25 of them, no
+group folding, and the money rows split three ways (Subscriptions under
+Companies, Plans under Billing, Costs and Sales payouts under two others).
+
+- **Seven groups, in this order, each with a one-line description on the
+  heading's `title`**: Earnings ("Money coming in…": Subscriptions, Plans,
+  Promotions, Promo codes, Growth, Reports); Spending ("What FieldQuo
+  pays…": Costs first, AI usage, Voice economics, Retell numbers (voice),
+  Twilio numbers, Sales payouts, Commission plans); Companies (/app)
+  (Companies, Incomplete signups, Signup origins, Migrations, Features, the
+  three Demo rows); Sales team (Sales reps, Sales floor, Sales performance,
+  Call quality, Sales funnel, Sales notes, Rep conversations, Calling
+  windows, Review folder, Retry pool); Lead data (Prospects, Discovery
+  campaigns, Snapshot library, Capability matrix, Opportunity rules,
+  Playbooks, Confidence weights, Technology signatures, Do-not-contact);
+  Support (Team chat, Escalations, Feedback, Jennifer, Data deletion,
+  Errors); FieldQuo's own systems (Inbound sales line, Voice webhooks,
+  Analytics, Service categories, Audit log, Support runbook, Platform team,
+  My settings). Dashboard alone at the top. Every pre-existing href present
+  exactly once; none added. Analytics — not in the owner's list — stays
+  under FieldQuo's own systems: it is FieldQuo's count of itself, neither a
+  customer's data nor a dollar.
+- **Two rows renamed, hrefs unchanged**, because the owner could not find
+  where to buy the outbound SMS number: "Crew lines" is **Twilio numbers**
+  (title "Crew inboxes, sales reps' numbers, the system outbound number —
+  buy and audit"; the page's H1 and subtitle say the same), "Voice numbers"
+  is **Retell numbers (voice)**. The four sentences in `lib/sales/*` that
+  sent the owner "under Crew lines" now say "under Twilio numbers" — an
+  instruction naming a label that is not on the rail is the bug itself.
+- **Headings fold**, on the shared `navDisclosure.js` + `useGroupDisclosure`
+  the two /app sidebars use, never a private copy: every group open by
+  default; the group holding the route opened on every load and route change
+  whatever is stored (a load-time rule, so the heading of the group you are
+  in still folds on a click rather than being a dead control); real
+  `<button aria-expanded aria-controls>`, chevron `aria-hidden`; a folded
+  group's badge count rides on its heading; stored per admin under
+  `fq-platform-groups:<adminId>` (the id from `/api/platform/me`, remembered
+  beside it so a returning admin's folds paint first time), every storage
+  touch in try/catch; the phone drawer folds the same groups; headings 44px
+  in the drawer. `Row` and `GroupHeading` moved to module level so a fold
+  does not remount the button under the keyboard user's focus (the fault
+  `check-sidebar-focus.mjs` names on AdminSidebar).
+- **Checks**: `check:platform-console` gained 52 assertions — the seven
+  groups by name and order, the 55 pre-regroup hrefs each exactly once and
+  no row added, the owner's membership table, Costs first, the renames and
+  the page H1, no "under Crew lines" left, the fold rules run through a fake
+  localStorage (round trip, per-admin key, hand-edited value, a refusing
+  storage, stored-closed never hiding the active route for every row), and
+  the heading's attributes and tokens; each proved by mutation.
+  `check-nav-audit`'s group parser tolerates `description:`;
+  `check-review-folder` asserts group membership rather than an order the
+  regroup changed. Driven live in Chrome through the platform harness (fold,
+  focus retained, storage, reload, deep link, drawer). Harness: `?theme=dark`
+  and the `fold` / `drawer-fold` scenes; `THEME=dark` on `shoot.mjs`.
+  Frames: `docs/screens/platform-sidebar/` (1280 light/dark, open and
+  folded; 375 drawer light/dark and folded).
+
+### Still owed here
+
+- The seven reds `check:sidebar-focus`, `check:platform-conversation-audit`,
+  `check:sales-admin`, `check:sales-agent`, `check:sales-suppression`,
+  `check:snapshot-campaigns` and `check:prospect-ui` fail identically on
+  origin/main before this change (verified by swapping the changed files
+  back) — other sessions' work in flight, not touched here.
+- `/platform/costs` has no harness row in `docs/screens/platform-mobile/harness/pages.js`,
+  so it cannot be shot; the frames use `/platform/crew-lines` (a Spending
+  row) instead.
 
 ---
 

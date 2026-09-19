@@ -740,7 +740,16 @@ section("8. The folder's WHERE, and what the screen wires");
   ok("…and the suggested cards send it too", /new URLSearchParams\(\{ suggested: card\.key, page: String\(page\) \}\);\s*if \(pageSize !== PAGE_SIZES\[0\]\) params\.set\("pageSize"/.test(page));
 
   const sidebar = read("app/components/platform/PlatformSidebar.js");
-  ok("the sidebar has the Review folder under Sales", sidebar.includes('href: "/platform/sales/review"') && sidebar.indexOf('href: "/platform/sales/review"') > sidebar.indexOf('href: "/platform/sales/campaigns"'));
+  // Under "Sales team", the group of queues a PERSON works — not under
+  // "Lead data" beside the campaigns that fill it. Asserted by group
+  // membership: the folder's href must sit between the Sales team heading and
+  // the next group's heading. (Until 2026-09-19 this was an indexOf order
+  // against the campaigns row, which the regroup by money/people/data moved
+  // to a later group on purpose.)
+  const salesTeamAt = sidebar.indexOf('label: "Sales team"');
+  const nextGroupAt = sidebar.indexOf('label: "Lead data"');
+  const reviewAt = sidebar.indexOf('href: "/platform/sales/review"');
+  ok("the sidebar has the Review folder under Sales team", salesTeamAt > 0 && nextGroupAt > salesTeamAt && reviewAt > salesTeamAt && reviewAt < nextGroupAt);
   ok("the sidebar fetches the count and draws a badge", sidebar.includes("/api/platform/sales/review/count") && sidebar.includes("data-review-badge"));
 
   for (const action of ["sales_prospect_reviewed", "sales_prospects_bulk_reviewed", "sales_prospects_reclassified"]) {

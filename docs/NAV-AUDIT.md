@@ -180,8 +180,8 @@ screens.
 | `/platform/demo-availability` | Edit FieldQuo staff's own availability windows for the demo-booking calendar. | FieldQuo's own sales calendar. | No |
 | `/platform/ai-usage` | FieldQuo's own OpenAI token spend by company/feature; sets a per-company AI token cap. | Mostly FieldQuo's own cost data; the cap it writes is an operational limit, not customer content. | No |
 | `/platform/sales-agent` | FieldQuo's own phone sales agent: readiness chain, prompt/knowledge, call transcripts, tone toggles. | FieldQuo's own phone agent — explicitly not the tenant receptionist. | No |
-| `/platform/crew-lines` | FieldQuo's own Twilio number estate: holder, webhook drift/orphans; buy new numbers. | FieldQuo's own vendor account. | No |
-| `/platform/voice-numbers` | FieldQuo's own Retell number estate: billed numbers, holder, orphaned/duplicated. | FieldQuo's own vendor account, view-only re: tenant impact. | No |
+| `/platform/crew-lines` | "Twilio numbers" (was "Crew lines" until 2026-09-19): FieldQuo's own Twilio number estate: holder, webhook drift/orphans; buy new numbers. | FieldQuo's own vendor account. | No |
+| `/platform/voice-numbers` | "Retell numbers (voice)" (was "Voice numbers" until 2026-09-19): FieldQuo's own Retell number estate: billed numbers, holder, orphaned/duplicated. | FieldQuo's own vendor account, view-only re: tenant impact. | No |
 | `/platform/voice-webhooks` | Where Retell is actually posting call events for each agent, and a repair action when it's pointed at a dead deployment. | FieldQuo's own vendor/webhook configuration. | No, but it **was unreachable**: shipped with only a conditional link from the phone-pool alert banner on `/platform` (`app/platform/page.js`, shown only `if (voiceHealth.alerts.some(webhook-related))`). When that alert wasn't firing there was no way in at all — the exact "reachable from NOTHING" failure class. Fixed this pass: added as its own row in `PlatformSidebar.js`'s "FieldQuo's own systems" group, next to Voice numbers. |
 | `/platform/service-categories` | Add entries to the global service-category catalogue every company's onboarding reads from. | FieldQuo's own shared catalogue (affects every tenant's onboarding options). | No |
 | `/platform/audit-log` | Read-only feed of platform staff's own actions (impersonation, suspensions, edits). | FieldQuo's own staff-action record. | No |
@@ -312,6 +312,51 @@ all. No collapse/disclosure was added: 20 rows in six short groups reads
 fine without it, and `check-sidebar.mjs` doesn't exercise `/platform` at
 all, so building fold/remember machinery here would be untested surface area
 the audit didn't ask for.
+
+### Regrouped 2026-09-19 — by whose money and whose data
+
+The six groups above held until the sales machinery arrived: "Demos &
+sales" grew to 25 rows, and the money rows were split across three groups
+(Subscriptions under Companies, Plans under Billing, Costs and Sales payouts
+under two others). The owner: "the side menu seems all bunched up — it's
+hard to distinguish earnings from expenditure, and sales team, and /app, and
+FieldQuo's own." The 54 rows now sit in seven groups that answer that
+sentence, in this order, each with a one-line description shown as the
+heading's `title` on hover:
+
+| Group | Description (on hover) | Rows |
+|---|---|---|
+| **Earnings** | Money coming in: what FieldQuo charges, who pays it, and how that is growing | Subscriptions, Plans, Promotions, Promo codes, Growth, Reports |
+| **Spending** | What FieldQuo pays: vendors, phone numbers, and the sales team's commission | Costs, AI usage, Voice economics, Retell numbers (voice), Twilio numbers, Sales payouts, Commission plans |
+| **Companies (/app)** | The contractors' own accounts: who signed up, what they have on, and our demo fixtures | Companies, Incomplete signups, Signup origins, Migrations, Features, Demo accounts, Demo bookings, Demo availability |
+| **Sales team** | The reps: who they are, what the floor is doing now, and how each is performing | Sales reps, Sales floor, Sales performance, Call quality, Sales funnel, Sales notes, Rep conversations, Calling windows, Review folder, Retry pool |
+| **Lead data** | What the reps work from: prospects, the campaigns that find them, and the rules that pick a pitch | Prospects, Discovery campaigns, Snapshot library, Capability matrix, Opportunity rules, Playbooks, Confidence weights, Technology signatures, Do-not-contact |
+| **Support** | What needs a person today: tickets, escalations, Jennifer's hand-offs, errors | Team chat, Escalations, Feedback, Jennifer, Data deletion, Errors |
+| **FieldQuo's own systems** | Our own plumbing, no customer's data: the inbound line, webhooks, the catalogue, the audit log, this login | Inbound sales line, Voice webhooks, Analytics, Service categories, Audit log, Support runbook, Platform team, My settings |
+
+Dashboard stays alone at the top. Every href that existed before is still
+present exactly once; no row was added. Two rows were renamed, hrefs
+unchanged, because the owner could not find where to buy the outbound SMS
+number under "Crew lines": it is **Twilio numbers** (title: "Crew inboxes,
+sales reps' numbers, the system outbound number — buy and audit"; the page's
+H1 says the same), and "Voice numbers" is **Retell numbers (voice)**, so the
+two phone estates are told apart by their vendor.
+
+The headings now **fold**. The "no collapse/disclosure" reasoning above was
+explicitly conditional on the list not growing; it grew to 54. The folds run
+on the same `navDisclosure.js` + `useGroupDisclosure` the two `/app`
+sidebars use — never a private copy — which carries the one promise that
+matters: every group is open by default; the group holding the current
+route is opened on every load and route change whatever is stored; a
+heading is a real `<button aria-expanded aria-controls>`; a folded group's
+badge count moves onto its heading rather than vanishing; the preference is
+per admin (`localStorage` key `fq-platform-groups:<adminId>`, every touch in
+try/catch, a refusing storage means "everything open"); the phone drawer
+folds the same groups. `scripts/check-platform-console.mjs` pins the seven
+groups by name and order, the 55 pre-regroup hrefs (each exactly once),
+Costs first in Spending, the two renames and the page H1, runs the fold
+rules through a fake storage, and asserts the heading's a11y attributes and
+tokens. Frames in `docs/screens/platform-sidebar/`.
 
 ---
 
