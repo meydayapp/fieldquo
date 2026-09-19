@@ -14,8 +14,12 @@ export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
 
+  // Not the document-email COPIES (documentKind set): those have their own
+  // screen and API (app/api/settings/document-emails), and listing them here
+  // would put a "quote email (fr)" row under a type this page says nothing
+  // sends.
   const templates = await db.documentTemplate.findMany({
-    where: { companyId: member.companyId },
+    where: { companyId: member.companyId, documentKind: null },
     orderBy: [{ type: "asc" }, { createdAt: "asc" }],
   });
 

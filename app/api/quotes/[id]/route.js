@@ -169,13 +169,27 @@ export async function GET(request, { params }) {
   // "Kitchen Designer" on every countertop quote. See lib/kitchen/access.js.
   const canOpenKitchenDesigner = await canUseKitchenDesigner(quote, member.companyId);
 
+  // The automated chases the cron sent for this quote, from FollowUpLog — the
+  // same rows that stop a rule sending twice — so the trail on the quote page
+  // prints "Follow-up sent (day 7)" from the record of the send, not from a
+  // counter. Scoped through the rule's company: a log row is keyed only by the
+  // entity id, and the join is what keeps another tenant's rule out.
+  const automatedFollowUps = await db.followUpLog.findMany({
+    where: { entityType: "quote", entityId: quote.id, rule: { companyId: member.companyId } },
+    orderBy: { sentAt: "asc" },
+    select: {
+      sentAt: true,
+      rule: { select: { name: true, builtInKey: true, delayValue: true, delayUnit: true } },
+    },
+  });
+
   // Shaped by the same entry point the list route uses. GET /api/quotes has
   // been redacting for a while and this route wasn't, which made the
   // restriction cosmetic: the token and the client's email were one click away
   // on the detail endpoint. Redacting after the spread rather than before it so
   // importedGroupIds can't reintroduce a key the redactor just removed.
   return NextResponse.json(
-    redactQuote(full, { ...quote, importedGroupIds, canOpenKitchenDesigner }),
+    redactQuote(full, { ...quote, importedGroupIds, canOpenKitchenDesigner, automatedFollowUps }),
   );
 }
 

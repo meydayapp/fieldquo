@@ -17,6 +17,7 @@ import { trialDaysAllowed } from "@/lib/billing/trialOnce";
 import { TRIAL_PRICE } from "@/lib/pricing";
 import { seedStandardAddOns } from "@/lib/products/seedStandardAddOns";
 import { seedDefaultTemplates } from "@/lib/email/seedDefaultTemplates";
+import { ensureDefaultFollowUps } from "@/lib/followUps/defaults";
 import { getAppOrigin, isInternalPath } from "@/lib/appUrl";
 import { applySignupReferral, REFEREE_BONUS_MONTHS } from "@/lib/referrals";
 import { redeemPromoCode } from "@/lib/platform/promoCodes";
@@ -568,6 +569,15 @@ export async function POST(request) {
     await seedDefaultTemplates(company.id);
   } catch (err) {
     console.error("[companies POST] default template seeding failed", err);
+  }
+
+  // And the three follow-up rules — 1, 7 and 14 days after a quote is sent —
+  // switched on, in the client's language. Best-effort for the same reason;
+  // GET /api/settings/follow-up-rules re-seeds on first open if this failed.
+  try {
+    await ensureDefaultFollowUps(db, company.id);
+  } catch (err) {
+    console.error("[companies POST] default follow-up seeding failed", err);
   }
 
   const baseUrl = getAppOrigin(request);

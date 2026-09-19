@@ -72,6 +72,8 @@ model PlatformAdmin {
   pushSubscriptions PushSubscription[]
   /// Flagged signups this admin marked reviewed. See SignupOrigin.
   signupReviews     SignupOrigin[]
+  /// Bills this admin typed in on /platform/costs. See PlatformFixedBill.
+  fixedBillsEntered PlatformFixedBill[] @relation("fixedBillsEntered")
 
   /// When this admin last called the staff chat API. Stamped by
   /// lib/staff/viewer.js, throttled, so the team directory can show a presence
@@ -1764,6 +1766,17 @@ model Company {
   /// Off by default. Nobody should discover that their customers are being
   /// messaged automatically.
   reviewRequestsEnabled Boolean @default(false)
+
+  /// How many days BEFORE Job.startDate the client's preparation guide goes
+  /// out — the "clear the counters, move the car, keep the dog in" document
+  /// lib/prepGuide builds per trade. 3 is the owner's default; 0 means the
+  /// morning of the start date. Read by app/api/cron/prep-guides and by the
+  /// job page's "Send now"; edited under Settings > Services.
+  prepGuideLeadDays Int @default(3)
+
+  /// Spec sheets and technical documents the company attaches to the
+  /// preparation guide — see ServiceDocument.
+  serviceDocuments ServiceDocument[]
 
   /// Padding added on top of driving time between appointments: parking,
   /// unloading, writing up the last job. Zero by default because inventing a
@@ -3734,6 +3747,9 @@ model ServiceCategory {
   companySettings    CompanyServiceCategory[]
   scopeGroups        QuoteScopeGroup[]
   checklistTemplates JobChecklistTemplate[]
+  /// Technical documents a company attached to this trade's preparation
+  /// guide. See ServiceDocument.
+  serviceDocuments   ServiceDocument[]
   leadRequests       LeadRequest[]
   quickAddItems      QuickAddItem[]
   products           Product[]
@@ -3816,7 +3832,66 @@ model CompanyServiceCategory {
   // is the company's call to make, and the same trade-off includedItems has.
   scopeDescription String?
 
+  /// The company's own copy of the client preparation guide for this trade,
+  /// keyed by language: { en: { checklist: string[], warning, dayOf: string[],
+  /// afterCare, notes }, fr: {...}, es: {...} }. Null (or a missing language
+  /// key) means the built-in guide in lib/prepGuide/content.*.js is used
+  /// untouched — "Reset to original" deletes the language key rather than
+  /// copying the default back in, so an improvement to the default reaches
+  /// the company again. Written only by Settings > Services; read only by
+  /// lib/prepGuide/resolve.js.
+  prepGuide Json?
+
   @@unique([companyId, categoryId])
+}
+
+/// A spec sheet, data sheet or care guide the company attaches to the client
+/// preparation guide — "Renner Italia technical data sheet", the coating
+/// manufacturer's cure-time card, the flooring maker's cleaning instructions.
+///
+/// ── Company-level or per-trade ─────────────────────────────────────────────
+///
+/// categoryId null means "on every guide this company sends"; set, it rides
+/// only the guides for jobs that include that trade. A cabinet shop attaches
+/// the Renner sheet to cabinet_refinishing and its general care card to the
+/// company. Both are listed on the guide as links; those under the mail size
+/// cap (lib/prepGuide/send.js) are attached to the email as well.
+///
+/// ── Files, not text ────────────────────────────────────────────────────────
+///
+/// url is a PDF the company uploaded through the signed uploader
+/// (/api/upload), checked with isUploadedUrl on write — the same rule
+/// JobDocument applies, for the same reason: a link to somebody else's host
+/// inside a document the company signs is not a document the company chose.
+/// Deleting a row removes the reference only; the file stays where the
+/// uploader put it, because a guide already sent may still link to it.
+///
+/// language null means the document is offered on every guide whatever the
+/// client's language; set, it is listed only on guides in that language, so
+/// a shop with an English and a French spec sheet can attach the right one.
+model ServiceDocument {
+  id String @id @default(cuid())
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  categoryId String?
+  category   ServiceCategory? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  title String
+  url   String
+  /// Cloudinary public id, when the uploader reported one. Kept so a future
+  /// "remove the file too" can find it; nothing deletes it today.
+  publicId  String?
+  sizeBytes Int?
+  mimeType  String?
+  language  String?
+  sortOrder Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId, categoryId])
 }
 
 model QuoteScopeGroup {
@@ -4018,8 +4093,38 @@ model DocumentTemplate {
   createdAt DateTime             @default(now())
   updatedAt DateTime             @updatedAt
 
+  // ── A company's copy of a document email ─────────────────────────────────
+  //
+  // The quote, invoice, reminder, receipt and deposit-request emails are built
+  // from the document (lib/email/quoteEmail.js, invoiceEmail.js) and are not
+  // templates. What a company may change is the WORDING around the document —
+  // subject, greeting, intro, closing, signature — never the scope, totals,
+  // process or legal lines. A row with `documentKind` set is that copy:
+  // `sections` holds the wording slots (lib/email/documentEmailWording.js),
+  // `language` is the one language the copy is written in (a document keeps
+  // its own language — AGENTS.md non-negotiable 6 — so a French quote never
+  // reads an English copy), and `isDefault` is "Use this": the builder reads
+  // the copy only while it is true, else the original. The original lives in
+  // code and is never written.
+  documentKind String?
+  language     String?
+
+  // ── Blocks or canvas ─────────────────────────────────────────────────────
+  //
+  // A template may hold BOTH a block list (`sections`) and a canvas design
+  // (`canvas`, the designer's fabric document). `sentMode` says which one the
+  // send path renders — written down, never worked out from which half is
+  // empty, because both can be populated and "whichever isn't blank" is not
+  // an answer. Switching modes never clears the other body. See
+  // lib/email/canvasEmail.js for the compile and lib/email/templateBody.js for
+  // the one place that reads this column.
+  sentMode String @default("blocks")
+  canvas   Json?
+
   followUpRules      FollowUpRule[]
   marketingCampaigns MarketingCampaign[]
+
+  @@unique([companyId, documentKind, language])
 }
 
 // A company-configured automation rule: "N days/hours after <triggerEvent>,
@@ -4043,7 +4148,31 @@ model FollowUpRule {
   createdAt    DateTime          @default(now())
   updatedAt    DateTime          @updatedAt
 
+  // ── FieldQuo's own defaults ───────────────────────────────────────────────
+  //
+  // Nothing ever seeded a FollowUpRule: on 2026-09-19 the table had zero rows
+  // across every company, so no client had ever received an automated chase.
+  // lib/followUps/defaults.js now writes three rules per company (1, 7 and 14
+  // days after a quote is sent). `builtInKey` names which one a row is, and
+  // the unique index below is what makes ensureDefaultFollowUps idempotent —
+  // a second run finds the row and leaves it alone rather than counting.
+  //
+  // A built-in rule with no templateId renders the built-in wording in the
+  // CLIENT's language (lib/followUps/defaults.js); pointing it at a company
+  // template makes it behave exactly like a hand-made rule.
+  builtInKey String?
+
+  // A TOMBSTONE, not a delete, for the built-ins. "Delete" on a FieldQuo
+  // default sets this; the cron and the list skip it, and ensure() finds the
+  // row by its key and does NOT re-create it. Chosen over a `disabledBuiltIns`
+  // set on Company because the unique index already carries the idempotency,
+  // and "Reset to default" on a deleted row is then a plain update rather than
+  // a delete-from-set plus an insert. Hand-made rules still hard-delete.
+  deletedAt DateTime?
+
   logs FollowUpLog[]
+
+  @@unique([companyId, builtInKey])
 }
 
 // One row per (rule, entity) send — the cron route's dedupe guard so the
@@ -4537,6 +4666,19 @@ model Job {
   costRevisionDecision  String?
   costRevisionDecidedAt DateTime?
   reviewRequestedAt DateTime?
+
+  /// When the client's preparation guide was emailed for this job. The
+  /// once-only guard for app/api/cron/prep-guides and for the job page's
+  /// "Send now": claimed with a conditional update BEFORE the send, so two
+  /// overlapping runs cannot both mail the client — the same shape as
+  /// reviewRequestedAt above. Null on every job that has not been sent one.
+  prepGuideSentAt DateTime?
+  /// "Don't send for this job." Set by a person on the job page; the cron
+  /// skips the job while it is set and the page says so. Null means the
+  /// company's lead-day rule applies. Distinct from prepGuideSentAt because
+  /// "we chose not to" and "we did" are different facts, and a job can be
+  /// un-suppressed later and still be sent.
+  prepGuideSuppressedAt DateTime?
 
   /// The one-question satisfaction rating (1–5, optional comment), sent
   /// alongside the same review-request email rather than a second mailing
@@ -13591,9 +13733,23 @@ model PlatformCostDaily {
   /// The provider's own category key, verbatim: "calls-outbound",
   /// "calls-client", "recordings", "phonenumbers", "sms-outbound", … Never
   /// renamed on the way in, so a figure can be checked against the invoice.
+  ///
+  /// Since 2026-09-19 three more providers land here, each once a day
+  /// (lib/platform/costs/providerPulls.js):
+  ///   "openai"  the organisation Costs endpoint, billed dollars —
+  ///             category "<project_id>/<line_item>" and one "total" row a day
+  ///   "neon"    the consumption API, category "<project_id>/<metric>" —
+  ///             UNITS (CU-seconds, byte-hours) with cents only where Neon's
+  ///             published plan rate applies; otherwise cents is NULL
+  ///   "stripe"  balance transactions on FieldQuo's own account, category
+  ///             "<reporting_category>/<currency>" — cents is what Stripe kept
   category String
 
-  cents    Decimal  @db.Decimal(14, 4)
+  /// Null means "the units are known and the price is not" — a Neon metric
+  /// on a plan whose per-unit rate is not published. A row is never written
+  /// with 0 to stand in for a price nobody read; the page prints the units
+  /// and says to enter the invoice under Fixed bills.
+  cents    Decimal? @db.Decimal(14, 4)
   currency String   @default("USD")
   /// The usage the money bought — minutes, messages, numbers — with its unit
   /// as the provider names it. Null when the provider gave no usage figure.
@@ -13612,6 +13768,49 @@ model PlatformCostDaily {
 
   @@unique([day, provider, category])
   @@index([provider, day])
+}
+
+/// A bill FieldQuo paid that no API reports — typed in by a superadmin from
+/// the invoice. Vercel, Namecheap, Google Maps, Resend, Retell's monthly
+/// invoice, Neon's when the consumption API cannot price it.
+///
+/// ══ Never estimated, always attributed ═══════════════════════════════════
+///
+/// Every row says who typed it and when, and /platform/costs prints that
+/// beside the figure ("Vercel · September 2026 · $113.18 · entered by Emilio
+/// on 2026-09-19"). A month total that includes one of these says
+/// "includes hand-entered bills". A wrong row is EDITED or VOIDED (voidedAt),
+/// never deleted: the correction is part of the record.
+model PlatformFixedBill {
+  id String @id @default(cuid())
+
+  /// Lower-case provider key: "vercel", "neon", "resend", "google_maps",
+  /// "namecheap", "retell", "openai", "twilio", "stripe", "apify", "other".
+  /// Free text on purpose — a new supplier must not need a schema change.
+  provider String
+  /// The first day of the month the bill is for (UTC). One provider may have
+  /// several rows in a month (two Namecheap renewals); they are summed.
+  periodMonth DateTime @db.Date
+
+  amountCents Int
+  currency    String @default("USD")
+
+  /// The invoice number or the dashboard's own reference, so the figure can
+  /// be found again on the supplier's side.
+  invoiceRef String?
+  note       String?
+
+  enteredById String
+  enteredBy   PlatformAdmin @relation("fixedBillsEntered", fields: [enteredById], references: [id])
+  enteredAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  /// Set instead of deleting. A voided row is kept, printed struck through,
+  /// and excluded from every total.
+  voidedAt DateTime?
+
+  @@index([periodMonth])
+  @@index([provider, periodMonth])
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

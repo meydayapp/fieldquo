@@ -129,7 +129,11 @@ export default function FlowDiagram({ rules }) {
             </Node>
 
             {flow.steps.map((rule) => {
-              const broken = !rule.template;
+              // A FieldQuo default with no template is not broken: the cron
+              // renders its built-in wording in the client's language
+              // (lib/followUps/defaults.js). Only a hand-made rule with
+              // nothing to send is drawn as a warning.
+              const broken = !rule.template && !rule.builtInKey;
 
               return (
                 <Fragment key={rule.id}>
@@ -171,7 +175,11 @@ export default function FlowDiagram({ rules }) {
                         {FOLLOW_UP_CHANNEL === "email"
                           ? t("app.followFlow.sendEmail")
                           : FOLLOW_UP_CHANNEL}
-                        {rule.template ? ` · ${rule.template.name}` : ""}
+                        {rule.template
+                          ? ` · ${rule.template.name}`
+                          : rule.builtInKey
+                            ? ` · ${t("app.setFollowUps.builtInWording")}`
+                            : ""}
                       </p>
                       {broken && (
                         <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
