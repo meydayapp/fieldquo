@@ -77,6 +77,9 @@ their jobs."
   drive-time pricing from it are product decisions not taken here.
 - A thirteenth person on one day shares a colour (twelve-slot palette; the
   check says so).
+
+---
+
 ## The client preparation guide: what to clear, move and protect before the crew arrives, per trade, in the client's language, N days before the start date (19 September 2026)
 
 The owner asked whether TrueFinish Cabinets' client instructions existed for
