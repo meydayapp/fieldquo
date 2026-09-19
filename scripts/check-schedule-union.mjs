@@ -80,8 +80,15 @@ t("American and British spellings both excluded",
   countUpcoming(mergeSchedule([], [{ ...visit, status: "canceled" }]), new Date("2026-08-01")), 0);
 
 console.log("\nThe wiring is actually in place");
-const api = read("../app/api/appointments/route.js");
-t("the calendar API reads JobVisit", /db\.jobVisit\.findMany/.test(api));
+// The three queries moved out of the route into lib/schedule/feed.js when the
+// day map needed the same rows for the same caller. The assertions follow
+// them — and gain one: the route must actually CALL the feed, or the union
+// exists and the calendar never sees it.
+const route = read("../app/api/appointments/route.js");
+const api = read("../lib/schedule/feed.js");
+t("the calendar API reads the shared feed", /loadScheduleFeed\(db, member, full\)/.test(route));
+t("...and the day map reads the same one", /loadScheduleFeed\(/.test(read("../app/api/schedule/map/route.js")));
+t("the calendar feed reads JobVisit", /db\.jobVisit\.findMany/.test(api));
 // Matches the company scope wherever it sits in the job filter — the filter
 // has since gained `archivedAt: null` too, and an exact-string assertion
 // failed on a change that kept the scoping perfectly intact.
