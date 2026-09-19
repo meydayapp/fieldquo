@@ -123,13 +123,18 @@ export default function CrewLinesPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-          <MessageSquare size={20} /> Crew lines
+          <MessageSquare size={20} /> Twilio numbers
         </h1>
+        {/* The same sentence the sidebar row's title carries, so the row and
+            the page agree about what this is. "Crew lines" until 2026-09-19,
+            when the owner could not find where to buy the outbound SMS number
+            because nothing in that name said Twilio, or said "buy". */}
         <p className="text-sm text-muted-foreground mt-1">
+          Crew inboxes, sales reps&apos; numbers, the system outbound number — buy and audit.
           The numbers FieldQuo&apos;s Twilio account holds, who is holding each one, and
-          where its texts are actually being delivered. Read-only — repointing a number
-          decides which tenant receives which crew&apos;s photos, so it is done through the
-          claim flow, not from here.
+          where its texts are actually being delivered. Repointing a number decides which
+          tenant receives which crew&apos;s photos, so it is done through the claim flow,
+          not from here.
         </p>
       </div>
 

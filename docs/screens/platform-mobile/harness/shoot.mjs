@@ -7,8 +7,10 @@
 //   node docs/screens/platform-mobile/harness/shoot.mjs after     # → docs/screens/platform-mobile/after/
 //
 // Options: ROUTES=/platform,/platform/growth (comma list) to shoot a subset;
-// SIZES=375 to shoot one size; DEST=/some/dir to write elsewhere; SCENE=name
-// to press that scene on every route that has it (see fixtures/*.js).
+// SIZES=375 to shoot one size (1280 is the desktop rail); DEST=/some/dir to
+// write elsewhere; SCENE=name to press that scene on every route that has it
+// (see fixtures/*.js; "drawer", "fold" and "drawer-fold" are the rail's own);
+// THEME=dark to paint the console's dark theme (the frame is suffixed -dark).
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -52,7 +54,8 @@ for (const route of routes) {
     const dims = DIMS[size];
     await chrome.emulate({ width: dims.width, height: dims.height, scale: 1, mobile: dims.mobile });
     const scene = process.env.SCENE ? `&scene=${encodeURIComponent(process.env.SCENE)}` : "";
-    const url = `file://${OUT}/platform.html?path=${encodeURIComponent(route)}${scene}`;
+    const theme = process.env.THEME === "dark" ? "&theme=dark" : "";
+    const url = `file://${OUT}/platform.html?path=${encodeURIComponent(route)}${scene}${theme}`;
     const { sceneError } = await chrome.open(url);
     const audit = await chrome.eval(`(${auditSource})(${dims.width})`);
     audit.consoleErrors = chrome.consoleErrors.slice(0, 5);
@@ -61,7 +64,7 @@ for (const route of routes) {
     // the tablet — enough to see a table below the fold without the folder
     // weighing sixty megabytes.
     const png = await chrome.screenshot({ fullPage: true, maxHeight: size === 375 ? 1600 : dims.height });
-    const file = `${slug(route)}${process.env.SCENE ? "-" + process.env.SCENE : ""}-${size}.png`;
+    const file = `${slug(route)}${process.env.SCENE ? "-" + process.env.SCENE : ""}${theme ? "-dark" : ""}-${size}.png`;
     writeFileSync(path.join(DEST, file), png);
     report[`${route} @${size}`] = { file, ...compact(audit) };
     const flags = [

@@ -249,12 +249,16 @@ ok(/quoteId,/.test(panel) && !/clientId/.test(panel.split("fetchJson(\"/api/appo
 ok(/appointments\?day=/.test(panel), "each row links to its day on the calendar");
 
 const calendar = read("app/app/appointments/page.js");
-ok(/landingDayFrom\(useSearchParams\(\)\)/.test(calendar) && /useState\(landingDay\)/.test(calendar), "the calendar opens on ?day=");
+// useSearchParams() is read once into `searchParams` now that ?view= is read
+// off the same object; the landing day still comes from it.
+ok(/landingDayFrom\(searchParams\)/.test(calendar) && /const searchParams = useSearchParams\(\)/.test(calendar) && /useState\(landingDay\)/.test(calendar), "the calendar opens on ?day=");
 // Through aboutHref(aboutLabel(appt)), which resolves a quote-linked row to
 // /app/quotes/<id> — the same door a job- or invoice-linked row now has.
 ok(/aboutHref\(aboutLabel\(appt\)\)/.test(calendar) && /app\.appts\.openAbout/.test(calendar), "a measure on the calendar links back to its quote");
-const getRoute = post.split("export async function POST")[0];
+// The GET's query moved to lib/schedule/feed.js (shared with the day map).
+const getRoute = read("lib/schedule/feed.js");
 ok(/quote: \{ select: \{ id: true, quoteNumber: true \} \}/.test(getRoute), "GET /api/appointments carries the quote so that link has something to point at");
+ok(/loadScheduleFeed\(db, member, full\)/.test(post.split("export async function POST")[0]), "…through the shared feed the route calls");
 
 // ── 8. The visit the homeowner booked off an instant estimate ──────────────
 //

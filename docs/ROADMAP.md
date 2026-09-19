@@ -92,6 +92,152 @@ Organization → Admin keys) and `NEON_API_KEY` (console.neon.tech → Account
 settings → API keys) in Vercel — `docs/VERCEL.md` has both rows.** Until
 then the page says so on the relevant lines and everything else works.
 
+---
+
+## The platform rail says whose money and whose data each row is: seven folding groups, described on hover (19 September 2026)
+
+The owner: "the side menu seems all bunched up — it's hard to distinguish
+earnings from expenditure, and sales team, and /app, and FieldQuo's own."
+Measured: 54 rows in six groups, "Demos & sales" holding 25 of them, no
+group folding, and the money rows split three ways (Subscriptions under
+Companies, Plans under Billing, Costs and Sales payouts under two others).
+
+- **Seven groups, in this order, each with a one-line description on the
+  heading's `title`**: Earnings ("Money coming in…": Subscriptions, Plans,
+  Promotions, Promo codes, Growth, Reports); Spending ("What FieldQuo
+  pays…": Costs first, AI usage, Voice economics, Retell numbers (voice),
+  Twilio numbers, Sales payouts, Commission plans); Companies (/app)
+  (Companies, Incomplete signups, Signup origins, Migrations, Features, the
+  three Demo rows); Sales team (Sales reps, Sales floor, Sales performance,
+  Call quality, Sales funnel, Sales notes, Rep conversations, Calling
+  windows, Review folder, Retry pool); Lead data (Prospects, Discovery
+  campaigns, Snapshot library, Capability matrix, Opportunity rules,
+  Playbooks, Confidence weights, Technology signatures, Do-not-contact);
+  Support (Team chat, Escalations, Feedback, Jennifer, Data deletion,
+  Errors); FieldQuo's own systems (Inbound sales line, Voice webhooks,
+  Analytics, Service categories, Audit log, Support runbook, Platform team,
+  My settings). Dashboard alone at the top. Every pre-existing href present
+  exactly once; none added. Analytics — not in the owner's list — stays
+  under FieldQuo's own systems: it is FieldQuo's count of itself, neither a
+  customer's data nor a dollar.
+- **Two rows renamed, hrefs unchanged**, because the owner could not find
+  where to buy the outbound SMS number: "Crew lines" is **Twilio numbers**
+  (title "Crew inboxes, sales reps' numbers, the system outbound number —
+  buy and audit"; the page's H1 and subtitle say the same), "Voice numbers"
+  is **Retell numbers (voice)**. The four sentences in `lib/sales/*` that
+  sent the owner "under Crew lines" now say "under Twilio numbers" — an
+  instruction naming a label that is not on the rail is the bug itself.
+- **Headings fold**, on the shared `navDisclosure.js` + `useGroupDisclosure`
+  the two /app sidebars use, never a private copy: every group open by
+  default; the group holding the route opened on every load and route change
+  whatever is stored (a load-time rule, so the heading of the group you are
+  in still folds on a click rather than being a dead control); real
+  `<button aria-expanded aria-controls>`, chevron `aria-hidden`; a folded
+  group's badge count rides on its heading; stored per admin under
+  `fq-platform-groups:<adminId>` (the id from `/api/platform/me`, remembered
+  beside it so a returning admin's folds paint first time), every storage
+  touch in try/catch; the phone drawer folds the same groups; headings 44px
+  in the drawer. `Row` and `GroupHeading` moved to module level so a fold
+  does not remount the button under the keyboard user's focus (the fault
+  `check-sidebar-focus.mjs` names on AdminSidebar).
+- **Checks**: `check:platform-console` gained 52 assertions — the seven
+  groups by name and order, the 55 pre-regroup hrefs each exactly once and
+  no row added, the owner's membership table, Costs first, the renames and
+  the page H1, no "under Crew lines" left, the fold rules run through a fake
+  localStorage (round trip, per-admin key, hand-edited value, a refusing
+  storage, stored-closed never hiding the active route for every row), and
+  the heading's attributes and tokens; each proved by mutation.
+  `check-nav-audit`'s group parser tolerates `description:`;
+  `check-review-folder` asserts group membership rather than an order the
+  regroup changed. Driven live in Chrome through the platform harness (fold,
+  focus retained, storage, reload, deep link, drawer). Harness: `?theme=dark`
+  and the `fold` / `drawer-fold` scenes; `THEME=dark` on `shoot.mjs`.
+  Frames: `docs/screens/platform-sidebar/` (1280 light/dark, open and
+  folded; 375 drawer light/dark and folded).
+
+### Still owed here
+
+- The seven reds `check:sidebar-focus`, `check:platform-conversation-audit`,
+  `check:sales-admin`, `check:sales-agent`, `check:sales-suppression`,
+  `check:snapshot-campaigns` and `check:prospect-ui` fail identically on
+  origin/main before this change (verified by swapping the changed files
+  back) — other sessions' work in flight, not touched here.
+- `/platform/costs` has no harness row in `docs/screens/platform-mobile/harness/pages.js`,
+  so it cannot be shot; the frames use `/platform/crew-lines` (a Spending
+  row) instead.
+
+---
+
+## The day on a map: every person's stops numbered 1, 2, 3, on the calendar and on Settings → Work areas (19 September 2026)
+
+The owner: "can the work areas show a map of the city where the jobs are and
+where each staff is being dispatched? And if there are visits scheduled, show
+them on the map with the 1, 2, 3 sequence so the admin/manager can see all
+the jobs; the employee/estimator might see their scheduled visits and crew
+their jobs."
+
+- **Appointments are geocoded like jobs**: `Appointment.geocodedAt`
+  (additive) and `lib/geo/geocodeAppointment.js` — the job wrapper's rules
+  (`resolveJobCoordinates`: the one geocoder, the timeout, APPROXIMATE
+  refused, six decimals, nulls never a guess) applied to `location` or the
+  client's address, on POST and on a PATCH whose location CHANGES. A tried
+  refusal is stamped so it is not retried. The booking flow had written
+  coordinates for years; the office's own calendar bookings never were.
+  Read-only count on 19 Sep: **11 future appointments with an address and no
+  coordinates**, backfilled lazily by the map (cap 8 per load, only over the
+  rows the caller may see).
+- **One feed**: GET /api/appointments' three queries moved to
+  `lib/schedule/feed.js` (`loadScheduleFeed`, optional day range) so
+  `GET /api/schedule/map?day=` reads the SAME scoped, redacted rows — no map
+  rule of its own. Visits now carry their job's coordinates (site pair first,
+  the siteAddress geocode second, both halves or neither). The company's
+  centre comes from `lib/company/coordinates.js`, lifted from the
+  business-info route.
+- **Schedule → Map** (`?view=map`, a Calendar | Map tab pair):
+  `app/components/schedule/DayMapView.js` + `ScheduleMap.js`. Per person 1,
+  2, 3 in time order (never one sequence across the company); colour hashed
+  from the member id, resolved distinct across the day's set, every fill
+  measured ≥ 4.5:1 against its ink (`lib/schedule/mapStops.js`); unassigned
+  grey "?"; coincident stops fanned ~20 m apart for display only; popover
+  with time, person, what (job title / "Site visit · Q-1042" / the about
+  line), client, address, Open; date picker, person filter, legend; the list
+  beside the map in the same order with "No location on the map" on rows
+  that have none; on a phone the list is primary and the map is behind a
+  button and not mounted until shown. Cancelled rows are counted, not drawn.
+- **Who sees what** — the feed's rules, executed as owner / estimator / crew
+  in `check:schedule-map`: owner everyone; estimator own rows + unassigned
+  appointments + unassigned visits on any job (they keep the job board);
+  crew own rows + unassigned visits on their own jobs, client redacted to
+  name and address, and the crew load never geocodes a stranger's row.
+- **Settings → Work areas**: the same map coloured by the assignee's work
+  area, with `WorkArea.polygon Json?` (additive) drawn per area; drawing
+  behind `workarea:assign` (`PUT /api/work-areas/[id]/polygon`, sanitised by
+  `lib/workAreas/polygon.js`), read-only words for everyone else. Google
+  removed DrawingManager at Maps JS 3.65, so drawing is click-to-place
+  corners on an editable polygon, closed on the first corner or the Finish
+  button. **Nothing else reads the polygon** — the schema comment and the
+  page say so.
+- **Cost**: the Maps SDK and the map chunk load only through
+  `next/dynamic` on the map view (and on a phone only once "Show map" is
+  pressed); markers, polygons and the one InfoWindow are diffed, never
+  rebuilt per tick. One dynamic-map load per map view opened.
+- Checks: `check:schedule-map` (158, executes both routes against a
+  scripted database, palette measured, mutation-tested); `check:schedule-
+  union`, `check:team-calendar`, `check:site-visit`, `check:rbac-redaction`
+  followed the queries into the feed. Screenshots:
+  `docs/screens/schedule-map/`.
+
+### Still owed here
+
+- Google's 30-day cache rule: `geocodedAt` is stamped on appointments as on
+  jobs, and the sweep is still the cron nobody has scheduled.
+- The polygon is a picture. Dispatch-by-zone, "outside every zone" flags and
+  drive-time pricing from it are product decisions not taken here.
+- A thirteenth person on one day shares a colour (twelve-slot palette; the
+  check says so).
+
+---
+
 ## The client preparation guide: what to clear, move and protect before the crew arrives, per trade, in the client's language, N days before the start date (19 September 2026)
 
 The owner asked whether TrueFinish Cabinets' client instructions existed for

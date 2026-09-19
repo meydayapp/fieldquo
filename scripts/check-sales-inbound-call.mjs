@@ -1129,7 +1129,7 @@ section("15. What a superadmin is told about the pool");
     "no numbers held is its own state, and says where to buy one",
     (() => {
       const s = salesVoiceInboundState({ numbers: [] });
-      return s.state === "none" && /Crew lines/.test(s.text);
+      return s.state === "none" && /Twilio numbers/.test(s.text);
     })(),
   );
   ok(

@@ -384,7 +384,12 @@ t("null in, null out", bookingToCalendarEntry(null), null);
 // Both routes exclude it with `appointmentId: null`; assert the source says so
 // rather than trusting that it still does.
 import { readFileSync } from "node:fs";
-const apptRoute = readFileSync(new URL("../app/api/appointments/route.js", import.meta.url), "utf8");
+// The own-calendar route's three queries now live in lib/schedule/feed.js
+// (shared with the day map); the assertions on their shape read the feed,
+// and one below pins that the route still calls it.
+const apptRoute = readFileSync(new URL("../lib/schedule/feed.js", import.meta.url), "utf8");
+const apptRouteFile = readFileSync(new URL("../app/api/appointments/route.js", import.meta.url), "utf8");
+t("the own-calendar route reads the shared feed", apptRouteFile.includes("loadScheduleFeed(db, member, full)"));
 const teamRoute = readFileSync(new URL("../app/api/schedule/team/route.js", import.meta.url), "utf8");
 t("the own-calendar route excludes converted bookings", apptRoute.includes("appointmentId: null"));
 t("the team route does too", teamRoute.includes("appointmentId: null"));
