@@ -43,8 +43,12 @@ import {
   isLeadStatus,
   isPlausibleEmail,
   isReplyToken,
+  leadEmailedNoReply,
   leadListWhere,
+  leadMatchesSearch,
   leadOptedOut,
+  leadSearchTerm,
+  leadSearchWhere,
   leadWhere,
   newReplyToken,
   parseInboundEmail,
@@ -609,6 +613,94 @@ ok("an invented status is ignored rather than passed to Prisma", leadListWhere("
 ok("every pipeline status is accepted", LEAD_STATUSES.every(isLeadStatus) && !isLeadStatus("won"));
 ok("a send moves 'new' to 'contacted'", statusAfterSend("new") === "contacted");
 ok("...and moves nothing else backwards", ["contacted", "demoed", "signed", "lost"].every((s) => statusAfterSend(s) === s));
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("7b. The lead list search and the \"Emailed, no reply\" chip");
+
+// The search never loosens the scope: the rep id stays, and the search is
+// ANDed under it rather than ORed beside it.
+{
+  const where = leadListWhere("rep_1", "contacted", "alliance");
+  ok("the search keeps the rep scope", where.salesRepId === "rep_1");
+  ok("...and the status", where.status === "contacted");
+  ok("...and ANDs the search under both", Array.isArray(where.AND) && where.AND.length === 1 && Array.isArray(where.AND[0].OR));
+  ok("a blank search adds nothing", leadListWhere("rep_1", undefined, "   ").AND === undefined);
+  ok("a non-string search adds nothing", leadListWhere("rep_1", undefined, { contains: "x" }).AND === undefined);
+  ok("a bad rep id with a search still collapses to __none__", leadListWhere(null, undefined, "x").salesRepId === "__none__");
+  const fields = where.AND[0].OR.map((c) => Object.keys(c)[0]);
+  for (const f of ["businessName", "contactName", "email", "phone", "prospect"]) {
+    ok(`the where matches ${f}`, fields.includes(f));
+  }
+  ok("a wordy search is not widened to phones", !where.AND[0].OR.some((c) => c.contactNumbers));
+  const digits = leadSearchWhere("(514) 555");
+  ok("a search with digits reaches the E.164 columns by digits", digits.OR.some((c) => c.prospect?.phoneE164?.contains === "514555"));
+  ok("...and the lead's extra numbers", digits.OR.some((c) => c.contactNumbers?.some?.e164?.contains === "514555"));
+  ok("...and admits every lead with a typed phone for the second pass", digits.OR.some((c) => c.phone && c.phone.not === null));
+  ok("the term is bounded", leadSearchTerm("a".repeat(500)).length === 120);
+  ok("whitespace is collapsed", leadSearchTerm("  Alliance   Appliance ") === "Alliance Appliance");
+}
+
+{
+  const lead = {
+    businessName: "Alliance Appliance Repair",
+    contactName: "Favor Okafor",
+    email: "favor@allianceappliance.ca",
+    phone: "(514) 555-1234",
+    prospect: { city: "Laval", businessName: "Alliance Appliance", phoneE164: "+15145551234" },
+    contactNumbers: [{ e164: "+14385550199" }],
+  };
+  ok("business name matches, any case", leadMatchesSearch(lead, "alliance"));
+  ok("contact name matches", leadMatchesSearch(lead, "okafor"));
+  ok("email matches", leadMatchesSearch(lead, "allianceappliance.ca"));
+  ok("city matches", leadMatchesSearch(lead, "laval"));
+  ok("a phone typed with punctuation matches the typed phone by digits", leadMatchesSearch(lead, "514-555-1234"));
+  ok("a bare digit run matches the formatted phone", leadMatchesSearch(lead, "5551234"));
+  ok("an extra number on the card matches", leadMatchesSearch(lead, "438 555"));
+  ok("two digits alone do not read as a phone", !leadMatchesSearch(lead, "9 9"));
+  ok("an unrelated word does not match", !leadMatchesSearch(lead, "roofing"));
+  ok("a blank search matches everything", leadMatchesSearch(lead, ""));
+  ok("garbage in → nothing", !leadMatchesSearch(null, "x") && !leadMatchesSearch("lead", "x") && !leadMatchesSearch({}, "x"));
+  ok("a lead with no prospect and no numbers still searches by name", leadMatchesSearch({ businessName: "Sun Roofing" }, "sun"));
+}
+
+{
+  const d = (s) => new Date(s);
+  ok("never emailed → not on the chip", !leadEmailedNoReply({ introEmails: [], threads: [] }));
+  ok("garbage in → not on the chip", !leadEmailedNoReply(null) && !leadEmailedNoReply("x") && !leadEmailedNoReply({ threads: "no" }));
+  ok("an intro email with no reply → on the chip", leadEmailedNoReply({ introEmails: [{ sentAt: d("2026-09-18") }], threads: [] }));
+  ok("an inbox email out with no reply → on the chip", leadEmailedNoReply({ threads: [{ lastInboundAt: null, messages: [{ sentAt: d("2026-09-18") }] }] }));
+  ok("a reply after our email → off the chip", !leadEmailedNoReply({ threads: [{ lastInboundAt: d("2026-09-19"), messages: [{ sentAt: d("2026-09-18") }] }] }));
+  ok("a reply in June, our email in September, silence since → on the chip", leadEmailedNoReply({ threads: [{ lastInboundAt: d("2026-06-01"), messages: [{ sentAt: d("2026-09-18") }] }] }));
+  ok("a reply on another thread after the intro → off the chip", !leadEmailedNoReply({ introEmails: [{ sentAt: d("2026-09-01") }], threads: [{ lastInboundAt: d("2026-09-02"), messages: [] }] }));
+  ok("they wrote first and we never answered → off the chip", !leadEmailedNoReply({ threads: [{ lastInboundAt: d("2026-09-02"), messages: [] }] }));
+  ok("a message with an unreadable date counts as nothing", !leadEmailedNoReply({ threads: [{ lastInboundAt: null, messages: [{ sentAt: "not a date" }] }] }));
+}
+
+{
+  const ROUTE = read("app/api/sales/leads/route.js");
+  const body = functionBody(ROUTE, "GET");
+  ok("the list route reads ?q= through leadSearchTerm", body.includes('leadSearchTerm(searchParams.get("q"))'));
+  ok("...passes it into leadListWhere", body.includes("leadListWhere(rep.id, status, q)"));
+  ok("...narrows the widened phone rows with leadMatchesSearch", body.includes("leadMatchesSearch(lead, q)"));
+  ok("...and decides the chip with leadEmailedNoReply", body.includes("leadEmailedNoReply(lead)"));
+  ok("...asking only for the latest OUTBOUND message per thread", body.includes('direction: "out"'));
+  ok("the prospect's number never reaches the browser", /\(\{ prospect, contactNumbers, introEmails, threads, \.\.\.lead \}\)/.test(body));
+  ok("the counts are still the whole book, not the search", body.includes("where: leadListWhere(rep.id),"));
+  const PAGE = read("app/sales/leads/page.js");
+  ok("the page has a search box", /type="search"/.test(PAGE));
+  ok("...debounced", /setTimeout\(\(\) => setQuery\(q\.trim\(\)\), 300\)/.test(PAGE));
+  ok("...that lands in the URL", /url\.searchParams\.set\("q", query\)/.test(PAGE));
+  ok("...and is read back from it on load", /setQ\(initialQ\)/.test(PAGE));
+  ok("the chip is in the URL too", /url\.searchParams\.set\("noReply", "1"\)/.test(PAGE));
+  ok("the chip sends noReply=1", /params\.set\("noReply", "1"\)/.test(PAGE));
+  ok("the chip is a toggle, not a status", /setNoReply\(\(v\) => !v\)/.test(PAGE));
+  // readFileSync directly: read() strips comments, and a stripper over a
+  // 95,000-line file of quoted strings with slashes in them is not the tool.
+  const MSGS = readFileSync(join(ROOT, "app/i18n/appMessages.js"), "utf8");
+  for (const key of ["searchPlaceholder", "searchLabel", "searchClear", "filterNoReply", "noReplyBadge", "emptySearch"]) {
+    ok(`app.salesLeads.${key} is in nine languages`, (MSGS.match(new RegExp(`"app\\.salesLeads\\.${key}":`, "g")) || []).length === 9);
+  }
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 section("8. The routes — every handler scoped, gated, and re-checked");

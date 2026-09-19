@@ -28,7 +28,10 @@ import { outreachStatus } from "@/lib/sales/outreachSender";
 import {
   isLeadStatus,
   isPlausibleEmail,
+  leadEmailedNoReply,
   leadListWhere,
+  leadMatchesSearch,
+  leadSearchTerm,
   sanitiseHeaderText,
 } from "@/lib/sales/outreach";
 
@@ -38,9 +41,14 @@ export async function GET(request) {
 
   const { searchParams } = new URL(request.url);
   const status = searchParams.get("status");
+  // ?q= — business, contact, email, phone (by digits), city. ?noReply=1 —
+  // "Emailed, no reply". Both decided by the pure helpers in
+  // lib/sales/outreach.js; the where is built there too, never here.
+  const q = leadSearchTerm(searchParams.get("q"));
+  const noReply = searchParams.get("noReply") === "1";
 
-  const leads = await db.salesLead.findMany({
-    where: leadListWhere(rep.id, status),
+  const rows = await db.salesLead.findMany({
+    where: leadListWhere(rep.id, status, q),
     orderBy: { updatedAt: "desc" },
     take: 500,
     select: {
@@ -54,14 +62,40 @@ export async function GET(request) {
       convertedAt: true,
       createdAt: true,
       updatedAt: true,
+      // What the search and the no-reply chip decide on (see leadMatchesSearch
+      // and leadEmailedNoReply). Stripped from the payload below: the list
+      // shows none of it, and a prospect's number is not the screen's to carry.
+      prospect: { select: { city: true, businessName: true, phoneE164: true } },
+      contactNumbers: { select: { e164: true } },
+      introEmails: { orderBy: { sentAt: "desc" }, take: 1, select: { sentAt: true } },
       threads: {
         orderBy: { lastMessageAt: "desc" },
-        take: 1,
-        select: { id: true, subject: true, lastMessageAt: true },
+        select: {
+          id: true,
+          subject: true,
+          lastMessageAt: true,
+          lastInboundAt: true,
+          messages: {
+            where: { direction: "out" },
+            orderBy: { sentAt: "desc" },
+            take: 1,
+            select: { sentAt: true },
+          },
+        },
       },
       _count: { select: { threads: true } },
     },
   });
+
+  const leads = rows
+    .filter((lead) => !q || leadMatchesSearch(lead, q))
+    .filter((lead) => !noReply || leadEmailedNoReply(lead))
+    .map(({ prospect, contactNumbers, introEmails, threads, ...lead }) => ({
+      ...lead,
+      city: prospect?.city || null,
+      emailedNoReply: leadEmailedNoReply({ introEmails, threads }),
+      threads: threads.slice(0, 1).map(({ id, subject, lastMessageAt }) => ({ id, subject, lastMessageAt })),
+    }));
 
   // The counts the pipeline header shows. Computed from the rep's whole book
   // rather than from the filtered page, so switching filters doesn't make the

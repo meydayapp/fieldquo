@@ -12,9 +12,9 @@
 // is on the row rather than buried on the detail screen.
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Loader2, Plus, Users, Mail, CheckCircle2 } from "lucide-react";
+import { Loader2, Plus, Users, Mail, CheckCircle2, Search, MailX, X } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { jsonBody } from "@/lib/jsonBody";
 import { LEAD_STATUSES, LEAD_STATUS_LABELS } from "@/lib/sales/outreachPipeline";
@@ -35,23 +35,76 @@ export default function SalesLeadsPage() {
   const { t } = useTranslation();
   const [data, setData] = useState(null);
   const [status, setStatus] = useState("");
+  // ── Search and the "Emailed, no reply" chip ────────────────────────────
+  //
+  // `q` is what the box holds; `query` is what the list was last asked for,
+  // 300ms behind it, so a rep typing "Alliance App" fires one request, not
+  // twelve. Both filters live in the URL (?q=&noReply=1) — a rep who refreshes
+  // mid-search, or comes back from a lead's page, lands on the same list.
+  // Read once from window.location on mount, the same way the ?new=1 prefill
+  // below is, and written back with replaceState so the back button is not
+  // filled with keystrokes.
+  const [q, setQ] = useState("");
+  const [query, setQuery] = useState("");
+  const [noReply, setNoReply] = useState(false);
+  const hydrated = useRef(false);
   const [error, setError] = useState("");
   const [adding, setAdding] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
+
+  useEffect(() => {
+    let sp;
+    try {
+      sp = new URLSearchParams(window.location.search);
+    } catch {
+      hydrated.current = true;
+      return;
+    }
+    const initialQ = (sp.get("q") || "").slice(0, 120);
+    setQ(initialQ);
+    setQuery(initialQ);
+    setNoReply(sp.get("noReply") === "1");
+    const initialStatus = sp.get("status") || "";
+    if (LEAD_STATUSES.includes(initialStatus)) setStatus(initialStatus);
+    hydrated.current = true;
+  }, []);
+
+  useEffect(() => {
+    const handle = setTimeout(() => setQuery(q.trim()), 300);
+    return () => clearTimeout(handle);
+  }, [q]);
+
+  useEffect(() => {
+    if (!hydrated.current) return;
+    try {
+      const url = new URL(window.location.href);
+      if (query) url.searchParams.set("q", query);
+      else url.searchParams.delete("q");
+      if (noReply) url.searchParams.set("noReply", "1");
+      else url.searchParams.delete("noReply");
+      if (status) url.searchParams.set("status", status);
+      else url.searchParams.delete("status");
+      window.history.replaceState(window.history.state, "", url);
+    } catch {
+      /* the list still works without the address bar */
+    }
+  }, [query, noReply, status]);
 
   const load = useCallback(async () => {
     setError("");
     try {
       const params = new URLSearchParams();
       if (status) params.set("status", status);
+      if (query) params.set("q", query);
+      if (noReply) params.set("noReply", "1");
       setData(await fetchJson(`/api/sales/leads?${params}`));
     } catch (err) {
       // Never `if (res.ok)` with no else — the failure class AGENTS.md names.
       setError(err.message);
       setData(null);
     }
-  }, [status]);
+  }, [status, query, noReply]);
 
   useEffect(() => {
     load();
@@ -189,7 +242,51 @@ export default function SalesLeadsPage() {
         </form>
       )}
 
+      <label className="relative block">
+        <Search
+          size={16}
+          className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
+          aria-hidden="true"
+        />
+        <input
+          type="search"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder={t("app.salesLeads.searchPlaceholder")}
+          aria-label={t("app.salesLeads.searchLabel")}
+          maxLength={120}
+          className="w-full min-h-[44px] rounded-lg border border-border bg-background pl-9 pr-9 py-2 text-sm"
+          data-testid="sales-leads-search"
+        />
+        {q && (
+          <button
+            type="button"
+            onClick={() => setQ("")}
+            aria-label={t("app.salesLeads.searchClear")}
+            className="absolute right-1 top-1/2 -translate-y-1/2 p-2 text-muted-foreground"
+          >
+            <X size={14} />
+          </button>
+        )}
+      </label>
+
       <div className="flex flex-wrap gap-1.5">
+        {/* "Emailed, no reply" — the rep's own follow-up list: every lead
+            whose last word in the conversation is ours. Independent of the
+            status chips beside it; decided server-side by leadEmailedNoReply. */}
+        <button
+          type="button"
+          onClick={() => setNoReply((v) => !v)}
+          aria-pressed={noReply}
+          className={`inline-flex items-center justify-center gap-1 min-h-[44px] text-xs font-semibold px-3 rounded-full border ${
+            noReply
+              ? "bg-inverted text-inverted-foreground border-inverted"
+              : "border-border text-muted-foreground"
+          }`}
+        >
+          <MailX size={13} />
+          {t("app.salesLeads.filterNoReply")}
+        </button>
         {[
           { value: "", label: t("app.salesLeads.filterAll") },
           ...LEAD_STATUSES.map((s) => ({ value: s, label: statusLabel(s) })),
@@ -222,9 +319,11 @@ export default function SalesLeadsPage() {
 
       {leads && leads.length === 0 && (
         <p className="text-sm text-muted-foreground">
-          {status
-            ? t("app.salesLeads.emptyFiltered", { status: statusLabel(status) })
-            : t("app.salesLeads.emptyNone")}
+          {query || noReply
+            ? t("app.salesLeads.emptySearch")
+            : status
+              ? t("app.salesLeads.emptyFiltered", { status: statusLabel(status) })
+              : t("app.salesLeads.emptyNone")}
         </p>
       )}
 
@@ -244,10 +343,16 @@ export default function SalesLeadsPage() {
               <div className="min-w-0 flex-1 basis-full sm:basis-auto">
                 <p className="font-medium text-foreground break-words">{lead.businessName}</p>
                 <p className="text-xs text-muted-foreground break-words">
-                  {[lead.contactName, lead.email, lead.phone].filter(Boolean).join(" · ") ||
+                  {[lead.contactName, lead.email, lead.phone, lead.city].filter(Boolean).join(" · ") ||
                     t("app.salesLeads.noContactDetails")}
                 </p>
               </div>
+              {lead.emailedNoReply && (
+                <span className="text-xs text-amber-700 dark:text-amber-300 flex items-center gap-1">
+                  <MailX size={13} />
+                  {t("app.salesLeads.noReplyBadge")}
+                </span>
+              )}
               {lead._count?.threads > 0 && (
                 <span className="text-xs text-muted-foreground flex items-center gap-1">
                   <Mail size={13} />
