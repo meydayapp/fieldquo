@@ -25,6 +25,7 @@ import {
   requireLevel,
   permissionErrorResponse,
 } from "@/lib/permissions/enforce";
+import { loadDocumentWording } from "@/lib/email/documentEmailCopies";
 
 export async function POST(request, { params }) {
   const { id } = await params;
@@ -148,6 +149,12 @@ export async function POST(request, { params }) {
   // chasing one invoice would receive two emails that looked like they came
   // from different companies. Same builder now, in the client's language,
   // with `kind: "reminder"` changing only the framing.
+  const reminderLanguage = resolveClientLanguage({
+    document: invoice,
+    client: invoice.client,
+    company,
+  });
+
   const { subject, html, text } = buildInvoiceEmail({
     invoice,
     client: invoice.client,
@@ -156,10 +163,11 @@ export async function POST(request, { params }) {
     canTakeCard,
     note,
     kind: "reminder",
-    language: resolveClientLanguage({
-      document: invoice,
-      client: invoice.client,
-      company,
+    language: reminderLanguage,
+    wording: await loadDocumentWording(db, {
+      companyId: member.companyId,
+      kind: "reminder",
+      language: reminderLanguage,
     }),
   });
 

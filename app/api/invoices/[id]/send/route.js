@@ -43,6 +43,7 @@ import {
   requireLevel,
   permissionErrorResponse,
 } from "@/lib/permissions/enforce";
+import { loadDocumentWording } from "@/lib/email/documentEmailCopies";
 
 export async function POST(request, { params }) {
   const { id } = await params;
@@ -188,6 +189,12 @@ export async function POST(request, { params }) {
   // The company's own boxes flagged for the document (a PO number), the same
   // line the PDF and the portal print.
   const customFields = await loadDocumentCustomFields(db, member.companyId, "invoice", invoice.id);
+  const invoiceLanguage = resolveClientLanguage({
+    document: invoice,
+    client: invoice.client,
+    company,
+  });
+
   const { subject, html, text } = buildInvoiceEmail({
     invoice: { ...invoice, customFields },
     client: invoice.client,
@@ -202,10 +209,13 @@ export async function POST(request, { params }) {
     canTakeCard,
     requestAmount: ask.requestCents / 100,
     note: ask.stage ? ask.stage.label : null,
-    language: resolveClientLanguage({
-      document: invoice,
-      client: invoice.client,
-      company,
+    language: invoiceLanguage,
+    // A stage ask is the "deposit" wording; a whole-balance send the
+    // "invoice" one — the two the settings page lets a company customise.
+    wording: await loadDocumentWording(db, {
+      companyId: member.companyId,
+      kind: ask.stage ? "deposit" : "invoice",
+      language: invoiceLanguage,
     }),
   });
 
