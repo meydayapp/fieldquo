@@ -1,12 +1,85 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 19 September 2026 (/platform/costs is now three sections — Sales floor, Companies, Platform itself — each with its total beside last month's, every line saying provider · API-pulled / computed / hand-entered · last pulled; OpenAI's BILLED spend from the organisation Costs endpoint sits beside the computed figure with a reconciliation line, Neon's consumption and Stripe's fees on FieldQuo's own revenue are pulled daily into PlatformCostDaily, and Vercel, Namecheap, Resend, Google Maps and Retell's invoice are hand-entered as PlatformFixedBill rows, attributed and voided-never-deleted; two variables to set: OPENAI_ADMIN_API_KEY and NEON_API_KEY — see the section below)
+Last updated: 20 September 2026 (the sales floor's Twilio telemetry is back: every call-status and recording callback had answered 500 since 18 September from `new NextResponse("", { status: 204 })` — a 204 may carry no body — and the recording write's `NOT: { recordingSid }` excluded every never-recorded row; both fixed, every notification route now answers an empty 204 through lib/sales/calls/twilioAck.js and a throw is a logged error; the sales cron reconciles recordings and prospect legs from the carrier and transcribes one a tick; /platform/sales/performance prints the carrier's clock beside the rep's report with "Reported vs measured" per rep; /platform/crew-lines says US texting is NOT registered (A2P 10DLC, error 30034) with the owner's registration steps; the Places API sweep is retired — see the section below)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
 it exists to answer.
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
+
+---
+
+## The telephony the floor board reads is real again: the 204 that was a 500, the WHERE that NULL excluded, the net under the webhooks, the carrier's clock beside the rep's report, and US texting named as unregistered (20 September 2026)
+
+**What broke, 18 September.** Twilio's Monitor held 48 alerts of error 15003 —
+"Got HTTP 500 response to https://www.fieldquo.com/api/rep-dial/status" — and
+25 recordings nobody had filed. The platform error log had nothing, because
+the handlers had done their work; Vercel's runtime logs carried the sentence:
+`TypeError: Response constructor: Invalid response status code 204` on
+/api/rep-dial/status and /api/rep-dial/recording, from the last line of each,
+`new NextResponse("", { status: 204 })`. A 204 may carry no body and an empty
+string is a body. The status write had already landed (providerStatus,
+talkSeconds, cost were all right), so "Answered (carrier)" was right; Twilio
+saw a 500 on every event and, sending call-progress events once, never
+retried. The recordings were a second fault behind the first:
+`recordCallRecording` wrote `NOT: { recordingSid: sid }`, Prisma compiles
+that to `<>`, and `NULL <> 'RE…'` is unknown — the one row to update was the
+one row excluded, zero rows, `reason: "already"`, nothing logged.
+
+**Fixed.** lib/sales/calls/twilioAck.js — `noContent()` (null body) and
+`acknowledged()` (any throw → PlatformErrorLog row + 204) — used by status,
+recording, transfer's `noted()` and inbound?stage=status. The WHERE names NULL
+by name and "already" is only claimed when a row carries the sid.
+`answeredAt` on a `completed` event is the hang-up minus CallDuration (every
+first-day row had answeredAt = endedAt). scripts/check-sales-recording.mjs
+sections 8–9 execute both faults.
+
+**The net.** lib/sales/calls/reconcileProvider.js runs from the every-minute
+sales cron: recordings the carrier holds that no row carries (matched on
+either leg's sid — a `<Dial record>` reports on the rep's leg), prospect legs
+with no final status (fetched), rep legs with no prospect leg (children
+listed), and the answeredAt overwrite repaired from the row. Then
+`transcribeMissing({ limit: 1 })` a tick. The 25 recordings file on the first
+tick after deploy and transcribe over the following ~25 minutes; the QA
+scorecards follow each transcript. Answering-machine detection is NOT on
+(billed per call, no yes from the owner); the file names where it goes.
+
+**The carrier's clock.** /platform/sales/performance and
+/sales/agency/performance draw a third section: prospect legs, "Picked up
+(≥ 20 s)", "Conversation (measured)" — the transcript's verdict where one
+exists, a minute where none does — "Reported (reached)" over the same legs,
+"Reported vs measured" in points, and the four duration bands with voicemail
+named in the 20–60 band. Since 15 September: 123 legs, 79.7% picked up, 22%
+a minute or more, 47.2% reported reached — a gap of 25 points for everyone,
+23 for Umar, 35 for Favor. Two loader faults fixed on the way: the
+performance loader never selected providerStatus/endReason/endedAt (a
+no-answer leg was "unmeasured") nor `transcript` (its "Conversation
+(transcript)" column could only ever print "not yet known"); the word count
+now comes from Postgres via lib/sales/calls/contractorWordsSql.js, shared
+with /platform/costs, whose inline copy split on the letter s (`'\s+'` in a
+template literal cooks to `'s+'`).
+
+**US texting.** SMdee05d4… from +17166383616 to New York: undelivered, error
+30034. The account holds no Messaging Service, no brand, no campaign; every
+delivered text since 10 September went to +1 819. Every FieldQuo number has
+its texts to US phones undelivered until a brand + campaign exist and the
+numbers are in the campaign's Sender Pool; Canadian recipients are
+unaffected. /platform/crew-lines → "US texting (A2P 10DLC)" reads the
+resources live (lib/sms/usA2pStatus.js) and carries the six registration
+steps for a Canadian company. Nothing registers itself.
+
+### Still owed here
+
+- **A2P 10DLC registration** — the owner's, in Twilio's console; the page
+  flips to "registered" when the campaign reads VERIFIED.
+- **Answering-machine detection** — would split the 20–60 s band into people
+  and greetings; per-call cost, needs a yes.
+- One row, cmu77x5p3000204lc4gqxuy4a, has providerCostCents 1.4 (the
+  child leg alone) where it read 1.8 (both legs): the local replay that
+  proved the fix wrote it, and the by-hand restore was refused by the
+  auto-mode classifier. `UPDATE "SalesCallAttempt" SET "providerCostCents" =
+  1.8 WHERE id = 'cmu77x5p3000204lc4gqxuy4a' AND "providerCostCents" = 1.4;`
 
 ---
 
