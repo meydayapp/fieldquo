@@ -355,3 +355,38 @@ export async function PUT(request) {
 
   return NextResponse.json({ employee: publicEmployee(saved) });
 }
+
+/**
+ * DELETE → fire one: { id }. The row and everything hanging off it —
+ * proposals, replies — go with it (both relations cascade), the channels it
+ * held fall back to the human inbox the moment the row is gone, and an
+ * activity row says who fired whom. The last employee may be fired too: GET
+ * recreates a switched-off receptionist on the next read, which is the same
+ * empty state a company that never opened the page sees. The owner, 2026-09-20:
+ * "I should be able to fire / delete them."
+ */
+export async function DELETE(request) {
+  const { member, response } = await admin(request);
+  if (response) return response;
+
+  const body = await request.json().catch(() => ({}));
+  const id = typeof body?.id === "string" ? body.id : null;
+  if (!id) return NextResponse.json({ error: "Say which employee." }, { status: 400 });
+
+  // Under companyId — an id from another company is "not found", never a
+  // delete somewhere else.
+  const current = await db.aiEmployee.findFirst({ where: { id, companyId: member.companyId } });
+  if (!current) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  await db.aiEmployee.delete({ where: { id: current.id } });
+  await recordActivity(member, {
+    action: "ai_employee.fired",
+    entityType: "settings",
+    entityId: current.id,
+    summary: `Fired the AI ${current.role}${current.displayName ? ` (${current.displayName})` : ""}`,
+    summaryKey: "app.activity.event.aiEmployee.fired",
+    summaryParams: { role: current.role },
+  }).catch(() => {});
+
+  return NextResponse.json({ ok: true, id: current.id });
+}

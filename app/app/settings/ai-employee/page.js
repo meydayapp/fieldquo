@@ -32,6 +32,7 @@
 //    than executed.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import DeleteConfirmModal from "@/app/components/admin/DeleteConfirmModal";
 import Link from "next/link";
 import {
   Bot,
@@ -166,6 +167,8 @@ export default function AiEmployeePage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [confirmFire, setConfirmFire] = useState(false);
+  const [firing, setFiring] = useState(false);
   const [saved, setSaved] = useState(false);
   const [testText, setTestText] = useState("");
   const [testChannel, setTestChannel] = useState("meta");
@@ -308,6 +311,32 @@ export default function AiEmployeePage() {
     const { employee } = await res.json();
     setData((d) => ({ ...d, employees: [...d.employees, employee] }));
     setSelectedId(employee.id);
+  }
+
+  async function fire() {
+    if (!saved_?.id) return;
+    setFiring(true);
+    const res = await fetch("/api/ai-employee", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: saved_.id }),
+    });
+    setFiring(false);
+    setConfirmFire(false);
+    if (!res.ok) {
+      await reportResponseError(res, t("app.aiEmployee.fireError", "Couldn't fire that one."));
+      return;
+    }
+    // The list shrinks; if it was the last, the server hands back a fresh
+    // switched-off receptionist on the next read, so reload rather than
+    // guess at that row here.
+    const rest = data.employees.filter((e) => e.id !== saved_.id);
+    if (rest.length === 0) {
+      window.location.reload();
+      return;
+    }
+    setData((d) => ({ ...d, employees: rest }));
+    setSelectedId(rest[0].id);
   }
 
   async function uploadFace(file) {
@@ -914,7 +943,23 @@ export default function AiEmployeePage() {
                 <Check size={14} /> {t("app.common.saved", "Saved")}
               </span>
             )}
+            <button
+              type="button"
+              onClick={() => setConfirmFire(true)}
+              className="ml-auto inline-flex items-center gap-1.5 min-h-[44px] px-3 rounded-lg border border-border text-sm text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-950/30"
+            >
+              <Trash2 size={14} /> {t("app.aiEmployee.fire", "Fire")}
+            </button>
           </div>
+          <DeleteConfirmModal
+            isOpen={confirmFire}
+            onClose={() => setConfirmFire(false)}
+            onConfirm={fire}
+            title={t("app.aiEmployee.fire", "Fire")}
+            message={t("app.aiEmployee.fireConfirm", "Fire {name}? Its proposals and replies are removed and its channels go back to your inbox. This cannot be undone.", { name: saved_?.displayName || saved_?.name || "" })}
+            itemName={saved_?.displayName || saved_?.name || ""}
+            busy={firing}
+          />
         </>
       )}
 
