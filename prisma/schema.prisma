@@ -1303,6 +1303,15 @@ model Company {
   leaveRules Json?
   taxRate                Decimal          @default(0) @db.Decimal(6, 3)
   paymentMethods         String[]         @default(["cash", "e_transfer", "cheque"])
+  /// WHERE to send each offline payment, keyed by method — the e-transfer
+  /// address, the Zelle phone, the payee a cheque is made out to. Shape and
+  /// validation in lib/payments/offlineMethods.js; only that module's
+  /// catalogue may write a key here. Kept beside `paymentMethods` rather
+  /// than replacing it so the array stays the on/off list every existing
+  /// reader understands: a method is offered when it is in the array, and
+  /// this says how. ACH account numbers live here too — printed on the PDF
+  /// and the portal, never in an email body, never in a log line.
+  paymentMethodDetails   Json?
   bookingSlug            String?          @unique
   industries             String[]         @default([])
   onboardingStatus       OnboardingStatus @default(pending)
@@ -3325,6 +3334,16 @@ model Invoice {
   // show as "Emailed 3 July" in front of a client dispute.
   sentAt      DateTime?
   sentToEmail String?
+  /// The "How to pay" block AS SENT — the online option and each offline
+  /// method with its address, rendered in the document's language by
+  /// buildHowToPay (lib/payments/offlineMethods.js) at the moment the
+  /// invoice is emailed, and printed from here ever after. Non-negotiable
+  /// #6: a document keeps what it said. The company changing its e-transfer
+  /// address next month must not rewrite the copy the client is paying
+  /// from; a payment sent to the address that WAS on the invoice was sent
+  /// correctly. Null until first send, when the PDF and portal fall back to
+  /// the company's live settings.
+  howToPay    Json?
 
   // ── Chasing, as its own record ────────────────────────────────────────────
   //
@@ -8319,6 +8338,23 @@ enum PaymentMethod {
   // A past job paid on a card FieldQuo never saw needs a value those paths
   // ignore, and this is it.
   card_elsewhere
+  // ── The US ways to be paid without a card, and PayPal for either side ────
+  //
+  // A US contractor has no Interac: what they hand a homeowner is a Zelle
+  // phone number, a Venmo handle, a $cashtag, or a paper check. Recorded
+  // under their own names so a payment recorded as "Zelle" prints "Zelle"
+  // on the statement rather than a Canadian word. `check` is deliberately
+  // distinct from `cheque`: same paper, different word on the document the
+  // client keeps, and lib/payments/offlineMethods.js maps one to the other
+  // by the company's country. `ach` is a bank transfer the client pushed
+  // themselves — not Stripe's `us_bank_account` debit, which records as
+  // `stripe`.
+  zelle
+  venmo
+  cash_app
+  check
+  ach
+  paypal
 }
 
 enum PricingModel {
