@@ -750,6 +750,52 @@ export const ARTICLES = {
     ],
   },
 
+  "settings-my-calendar": {
+    title: "Mi calendario",
+    summary:
+      "Suscribe el calendario de tu propio teléfono o computadora a tu agenda de FieldQuo — citas, visitas de trabajo y reservas — para que se mantenga al día solo, con un enlace privado que puedes regenerar.",
+    updated: "2026-09-20",
+    intro: [
+      "La fila **Mi calendario** es una de las filas de Configuración que ve cada miembro, porque el enlace que contiene es tuyo: una dirección privada que tu aplicación de calendario vuelve a leer por su cuenta. Suscríbete una vez y cada cita, visita de trabajo y reserva que esté en tu calendario de FieldQuo aparece en Google Calendar, el Calendario de Apple u Outlook y lo sigue cuando se mueve o se cancela.",
+      "Lleva las mismas filas que tu calendario de FieldQuo te muestra, con el mismo alcance. El feed de un miembro de cuadrilla es el día de esa persona; el del propietario es toda la empresa.",
+    ],
+    sections: [
+      {
+        id: "what-is-on-the-screen",
+        heading: "Qué hay en la pantalla",
+        blocks: [
+          { bullets: [
+            "**Suscribirse en Google Calendar** — abre la página de Google para añadir por dirección en una pestaña nueva, con tu enlace ya puesto.",
+            "**Calendario de Apple** — abre la hoja de suscripción en un iPhone o Mac.",
+            "**Outlook (copiar enlace)** — copia la dirección; pégala en *Suscribirse desde la web* de Outlook.",
+            "**Tu enlace privado** — la dirección misma, en una casilla de solo lectura con un botón para copiar.",
+            "**Regenerar enlace** — pregunta primero y luego sustituye la dirección. Cada dispositivo suscrito deja de actualizarse hasta que vuelvas a suscribirte con la nueva.",
+          ] },
+          { note: "Google vuelve a leer cada pocas horas; Apple, cada 15 minutos a una hora. Un cambio hecho en FieldQuo no está en el teléfono en ese mismo segundo; está en la siguiente lectura." },
+        ],
+      },
+      {
+        id: "what-each-event-carries",
+        heading: "Qué lleva cada evento",
+        blocks: [
+          { p: "El título dice qué es y para quién — *Visita al sitio — Ana Ruiz*, *Llamada telefónica — Sr. Lalonde*, *Visita de trabajo: Repintar 14 Elm St — Ana Ruiz*. La ubicación es la dirección del sitio o, en una llamada, el número del cliente cuando tu nivel de acceso te permite verlo. La descripción lleva un enlace de vuelta a FieldQuo y las notas; el correo o el teléfono de un cliente nunca se escribe ahí." },
+          { p: "Un evento sin duración definida se muestra como una hora y lo dice en su descripción, para que un marcador nunca parezca un hecho. Una fila cancelada permanece treinta días marcada como cancelada, para que un teléfono que la tenía en caché la tache en vez de conservar una copia vieja." },
+        ],
+      },
+      {
+        id: "keep-the-link-private",
+        heading: "Mantén el enlace privado",
+        blocks: [
+          { warning: "Cualquiera que tenga la dirección puede leer tu agenda: la dirección es la credencial. Si se filtra, pulsa **Regenerar enlace**; la dirección anterior deja de responder de inmediato y la regeneración queda escrita en el registro de actividad de la empresa." },
+        ],
+      },
+    ],
+    faq: [
+      { q: "¿Es lo mismo que Añadir al calendario en Mi horario?", a: "No. Añadir al calendario descarga tus turnos publicados una sola vez. Esto es una suscripción a tus citas, visitas de trabajo y reservas, y se mantiene al día sola." },
+      { q: "¿En qué idioma están los eventos?", a: "En el idioma predeterminado de la empresa: el feed no tiene una persona conectada a quien preguntarle, y el teléfono que lo lee suele estar en el mismo idioma que el equipo." },
+      { q: "Trabajo para dos empresas. ¿Tengo un feed o dos?", a: "Dos, uno por empresa, cada uno limitado por las reglas de acceso de esa empresa. Suscríbete a los dos si quieres ambos en el teléfono." },
+    ],
+  },
   "settings-time-off-policies": {
     title: "Políticas de ausencias",
     summary:

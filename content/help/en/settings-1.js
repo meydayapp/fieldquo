@@ -748,6 +748,52 @@ export const ARTICLES = {
     ],
   },
 
+  "settings-my-calendar": {
+    title: "My calendar",
+    summary:
+      "Subscribe your own phone or computer calendar to your FieldQuo schedule — appointments, job visits and bookings — so it keeps itself up to date, with one private link you can regenerate.",
+    updated: "2026-09-20",
+    intro: [
+      "The **My calendar** row is one of the Settings rows every member sees, because the link on it is yours: a private address your calendar app re-reads on its own. Subscribe once, and every appointment, job visit and booking that is on your FieldQuo calendar appears in Google Calendar, Apple Calendar or Outlook and follows along when it moves or is cancelled.",
+      "It carries the same rows your FieldQuo calendar shows you, scoped the same way. A crew member's feed is a crew member's day; an owner's is the whole company's.",
+    ],
+    sections: [
+      {
+        id: "what-is-on-the-screen",
+        heading: "What is on the screen",
+        blocks: [
+          { bullets: [
+            "**Subscribe in Google Calendar** — opens Google's add-by-address page in a new tab with your link filled in.",
+            "**Apple Calendar** — opens the subscribe sheet on an iPhone or Mac.",
+            "**Outlook (copy link)** — copies the address; paste it into Outlook's *Subscribe from web*.",
+            "**Your private link** — the address itself, in a read-only box with a copy button.",
+            "**Regenerate link** — asks first, then replaces the address. Every device you subscribed stops updating until you subscribe again with the new one.",
+          ] },
+          { note: "Google re-reads every few hours, Apple every 15 minutes to an hour. A change you make in FieldQuo is not on the phone the same second; it is there by the next read." },
+        ],
+      },
+      {
+        id: "what-each-event-carries",
+        heading: "What each event carries",
+        blocks: [
+          { p: "The title says what it is and who it is for — *Site visit — Ana Ruiz*, *Phone call — Mr Lalonde*, *Job visit: Repaint 14 Elm St — Ana Ruiz*. The location is the site address, or, for a phone call, the client's number when your access level lets you see it. The description holds a link back into FieldQuo and any notes; a client's email or phone is never written there." },
+          { p: "An event with no set duration is shown as one hour and says so in its description, so a placeholder never reads as a fact. A cancelled row stays for thirty days marked as cancelled, so a phone that cached it strikes it out rather than keeping a stale copy." },
+        ],
+      },
+      {
+        id: "keep-the-link-private",
+        heading: "Keep the link private",
+        blocks: [
+          { warning: "Anyone holding the address can read your schedule — it is the credential. If it gets out, press **Regenerate link**; the old address stops answering at once, and the regeneration is written to the company's Activity log." },
+        ],
+      },
+    ],
+    faq: [
+      { q: "Is this the same as Add to calendar on My schedule?", a: "No. Add to calendar downloads your published shifts once. This is a subscription to your appointments, job visits and bookings, and it keeps itself current." },
+      { q: "Which language are the events in?", a: "The company's default language — the feed has no signed-in person to ask, and the phone reading it is usually set to the same language as the team." },
+      { q: "I work for two companies. Do I get one feed or two?", a: "Two, one per company, each scoped by that company's access rules. Subscribe to both if you want both on the phone." },
+    ],
+  },
   "settings-time-off-policies": {
     title: "Time off policies",
     summary:

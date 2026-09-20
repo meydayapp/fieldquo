@@ -108,6 +108,7 @@ export const SCREENS = [
   // Team & scheduling
   { slug: "settings-team", nav: "app.settings.team", href: "/app/settings/team", page: "app/app/settings/team/page.js", settings: true, sameAs: "team" },
   { slug: "settings-availability", nav: "app.settings.availability", href: "/app/settings/availability", page: "app/app/settings/availability/page.js", settings: true },
+  { slug: "settings-my-calendar", nav: "app.settings.myCalendar", href: "/app/settings/my-calendar", page: "app/app/settings/my-calendar/page.js", settings: true },
   { slug: "settings-leave", nav: "app.settings.leave", href: "/app/settings/leave", page: "app/app/settings/leave/page.js", settings: true },
   { slug: "settings-policies", nav: "app.settings.policies", href: "/app/settings/policies", page: "app/app/settings/policies/page.js", settings: true },
   { slug: "settings-booking-page", nav: "app.settings.bookingPage", href: "/app/settings/booking-page", page: "app/app/settings/booking-page/page.js", settings: true },

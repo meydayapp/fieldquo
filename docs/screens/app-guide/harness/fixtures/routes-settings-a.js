@@ -326,7 +326,7 @@ const CABINET_RATES = normaliseRates({
 
 const SETTINGS_A_SLUGS = new Set([
   "settings", "settings-migration", "settings-product-updates", "settings-company", "settings-branding", "settings-language",
-  "settings-activity", "settings-availability", "settings-leave", "settings-booking-page", "settings-work-areas",
+  "settings-activity", "settings-availability", "settings-my-calendar", "settings-leave", "settings-booking-page", "settings-work-areas",
   "settings-products", "settings-services", "settings-material-costs", "settings-cabinet-rates", "settings-overhead",
   "settings-custom-fields",
 ]);
@@ -346,6 +346,14 @@ export const ROUTES_SETTINGS_A = [
 
   // Business
   { path: "/api/availability", method: "GET", reply: ({ search }) => BOOKABLE[search.get("userId") || PEOPLE[0].userId] || [] },
+  // My calendar: the member's own feed link. A fixed token so the frame is
+  // the same on every capture; the four URL shapes are what the real route
+  // builds (lib/calendar/feedToken.js feedUrls).
+  { path: "/api/calendar/feed", method: "GET", reply: () => {
+    const https = "https://app.fieldquo.com/api/calendar/feed/x7Qm2pLw9vKd4sHn8cRt1bYe6uJa3gFz.ics";
+    const webcal = https.replace(/^https:\/\//, "webcal://");
+    return { token: "x7Qm2pLw9vKd4sHn8cRt1bYe6uJa3gFz", urls: { https, webcal, google: `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(webcal)}`, outlook: https } };
+  } },
   { path: "/api/working-hours", method: "GET", reply: ({ search }) => { const userId = search.get("userId") || PEOPLE[0].userId; return { userId, workingHours: WORKING[userId] || [] }; } },
   { path: "/api/settings/payment-schedule", method: "GET", reply: () => ({ stages: [
     { id: "ps_1", seq: 0, label: "Deposit to book", trigger: "on_invoice_created", percentage: 50 },
