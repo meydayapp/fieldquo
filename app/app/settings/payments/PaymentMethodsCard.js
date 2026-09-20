@@ -2,104 +2,176 @@
 
 // Payment methods you accept — Settings → Payments.
 //
-// The one screen that writes Company.paymentMethods. The column had a schema
-// default ("cash", "e_transfer", "cheque") and three readers — the invoice
-// email, the client portal and the invoice PDF all print it as an
-// "Accepted: …" line — but nothing let a contractor change it, so every
-// company told every homeowner it took cheques whether or not it did. This
-// card is the missing writer.
+// The one screen that writes Company.paymentMethods and
+// Company.paymentMethodDetails. The owner's brief: "In the payment options
+// offered (e-transfer, cash, cheque), if those are selected the options
+// should also appear in the invoice — pay online or via those options. When
+// the e-transfer option is checked, a text field with the e-transfer email
+// address or phone number should be entered. Also the USA doesn't have
+// e-transfer, so if an American company signs up it should show the
+// equivalent — Venmo or whatever they use."
 //
-// Only the values in lib/payments/paymentMethodOptions.js are offered, and the
-// route filters to the same list, because whatever is stored is printed
-// verbatim on documents carrying the company's name.
+// So: the list is the catalogue for the company's COUNTRY
+// (lib/payments/offlineMethods.js — a Canadian company never sees Zelle, a
+// US one never sees Interac), each method is a switch, and switching one on
+// reveals the fields the invoice needs to print a usable instruction. A
+// method that is on without its required detail cannot be saved: the route
+// refuses with a sentence, and this card says the same sentence before
+// asking, so the Save button is never a surprise.
 //
 // Saved through the existing business-info PATCH with a Save button rather
-// than on every tick: three checkboxes saved individually would send three
-// requests for one decision, and a half-applied set ("cash saved, cheque
+// than on every keystroke: a half-applied set ("e-transfer on, address
 // failed") is worse than the previous set staying put.
 
 import { useState } from "react";
-import { Banknote } from "lucide-react";
+import { Banknote, AlertCircle } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { useTranslation } from "@/app/hooks/useTranslation";
-import { PAYMENT_METHOD_OPTIONS } from "@/lib/payments/paymentMethodOptions";
+import {
+  OFFLINE_METHODS,
+  methodsForCountry,
+  paymentCountry,
+  enabledMethods,
+  validateAllDetails,
+  offlineMethodLabel,
+} from "@/lib/payments/offlineMethods";
 
-// Literal keys per method rather than a lookup table, so check:translations
-// can see each one is referenced; a key that is only ever built at runtime is
+// Literal keys per field rather than a lookup table, so check:translations
+// can see each one is referenced; a key only ever built at runtime is
 // indistinguishable from a dead one to it.
-function methodLabel(t, method) {
-  switch (method) {
-    case "cash":
-      return t("app.setPayments.methodsCash");
-    case "e_transfer":
-      return t("app.setPayments.methodsETransfer");
-    case "cheque":
-      return t("app.setPayments.methodsCheque");
+function fieldLabel(t, method, key) {
+  switch (key) {
+    case "address":
+      return method === "paypal"
+        ? t("app.setPayments.field.paypalAddress")
+        : t("app.setPayments.field.address");
+    case "autoDeposit":
+      return t("app.setPayments.field.autoDeposit");
+    case "securityQuestion":
+      return t("app.setPayments.field.securityQuestion");
+    case "securityAnswer":
+      return t("app.setPayments.field.securityAnswer");
+    case "payee":
+      return t("app.setPayments.field.payee");
+    case "mailingAddress":
+      return t("app.setPayments.field.mailingAddress");
+    case "handle":
+      return t("app.setPayments.field.handle");
+    case "cashtag":
+      return t("app.setPayments.field.cashtag");
+    case "bankName":
+      return t("app.setPayments.field.bankName");
+    case "routingNumber":
+      return t("app.setPayments.field.routingNumber");
+    case "accountNumber":
+      return t("app.setPayments.field.accountNumber");
     default:
-      return method;
+      return key;
+  }
+}
+
+// What the invoice will say for each method, so the owner sees the
+// consequence of the switch before a client does.
+function methodHint(t, method) {
+  switch (method) {
+    case "e_transfer":
+      return t("app.setPayments.hint.eTransfer");
+    case "zelle":
+      return t("app.setPayments.hint.zelle");
+    case "venmo":
+      return t("app.setPayments.hint.venmo");
+    case "cash_app":
+      return t("app.setPayments.hint.cashApp");
+    case "ach":
+      return t("app.setPayments.hint.ach");
+    case "paypal":
+      return t("app.setPayments.hint.paypal");
+    case "cheque":
+    case "check":
+      return t("app.setPayments.hint.cheque");
+    case "cash":
+      return t("app.setPayments.hint.cash");
+    default:
+      return "";
   }
 }
 
 function fromCompany(company) {
-  const stored = Array.isArray(company?.paymentMethods) ? company.paymentMethods : [];
-  return PAYMENT_METHOD_OPTIONS.filter((m) => stored.includes(m));
+  const details = company?.paymentMethodDetails && typeof company.paymentMethodDetails === "object" ? company.paymentMethodDetails : {};
+  return {
+    on: enabledMethods(company),
+    details: Object.fromEntries(Object.entries(details).map(([m, d]) => [m, { ...(d || {}) }])),
+  };
 }
+
+const stateKey = (st) => JSON.stringify([st.on, st.details]);
 
 /**
  * @param company  the /api/settings/business-info GET payload (or null while
  *                 the page is still loading it)
- * @param onSaved  called with the saved list once the server has accepted it,
- *                 so the page can fold it back into its own company state
+ * @param onSaved  called once the server has accepted the save, so the page
+ *                 reloads its own company state
  */
 export default function PaymentMethodsCard({ company, onSaved }) {
-  const { t } = useTranslation();
-  const [selected, setSelected] = useState(() => fromCompany(company));
+  const { t, language } = useTranslation();
+  const [state, setState] = useState(() => fromCompany(company));
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
 
-  // The page loads the company after this card first renders, so the ticks
+  // The page loads the company after this card first renders, so the switches
   // follow the payload when it arrives. Reset during render (React's
-  // "adjusting state when a prop changes" pattern) rather than in an effect,
-  // and keyed on the joined list rather than the array identity, so a
-  // re-render of the parent with the same methods does not wipe an unsaved
-  // edit.
-  const storedKey = fromCompany(company).join(",");
+  // "adjusting state when a prop changes" pattern), keyed on the content
+  // rather than the object identity, so a parent re-render with the same
+  // company does not wipe an unsaved edit.
+  const storedKey = stateKey(fromCompany(company));
   const [seenKey, setSeenKey] = useState(storedKey);
   if (seenKey !== storedKey) {
     setSeenKey(storedKey);
-    setSelected(storedKey ? storedKey.split(",") : []);
+    setState(fromCompany(company));
     setSaved(false);
   }
 
-  const dirty = selected.join(",") !== storedKey;
+  const country = paymentCountry(company || {});
+  const offered = methodsForCountry(country);
+  const dirty = stateKey(state) !== storedKey;
+  // The same refusal the route will give, shown before the request is made.
+  const problem = dirty ? validateAllDetails(state.details, { country, enabled: state.on }).error || "" : "";
 
   function toggle(method) {
     setSaved(false);
     setError("");
-    setSelected((cur) =>
-      cur.includes(method)
-        ? cur.filter((m) => m !== method)
-        : PAYMENT_METHOD_OPTIONS.filter((m) => m === method || cur.includes(m)),
-    );
+    setState((cur) => ({
+      ...cur,
+      on: cur.on.includes(method) ? cur.on.filter((m) => m !== method) : offered.filter((m) => m === method || cur.on.includes(m)),
+    }));
+  }
+
+  function setField(method, key, value) {
+    setSaved(false);
+    setError("");
+    setState((cur) => ({
+      ...cur,
+      details: { ...cur.details, [method]: { ...(cur.details[method] || {}), [key]: value } },
+    }));
   }
 
   async function handleSave() {
-    if (saving) return;
+    if (saving || problem) return;
     setSaving(true);
     setSaved(false);
     setError("");
     try {
       const updated = await fetchJson("/api/settings/business-info", {
         method: "PATCH",
-        body: { paymentMethods: selected },
+        body: { paymentMethods: state.on, paymentMethodDetails: state.details },
       });
       // What the server kept, not what was sent — the route filters to the
-      // known set, and the ticks must show what the documents will print.
-      const kept = fromCompany(updated);
-      setSelected(kept);
+      // country's catalogue and normalises each value (@ and $ stripped),
+      // and the switches must show what the documents will print.
+      setState(fromCompany(updated));
       setSaved(true);
-      onSaved?.(kept);
+      onSaved?.(updated);
     } catch (err) {
       setError(err.message || t("app.setPayments.methodsError"));
     } finally {
@@ -115,23 +187,87 @@ export default function PaymentMethodsCard({ company, onSaved }) {
           <h2 className="font-semibold text-foreground">{t("app.setPayments.methodsTitle")}</h2>
           <p className="text-sm text-muted-foreground mt-1">{t("app.setPayments.methodsIntro")}</p>
 
-          <div className="mt-4 flex flex-col gap-2">
-            {PAYMENT_METHOD_OPTIONS.map((method) => (
-              <label key={method} className="flex items-center gap-2 text-sm text-foreground">
-                <input
-                  type="checkbox"
-                  checked={selected.includes(method)}
-                  disabled={saving || !company}
-                  onChange={() => toggle(method)}
-                />
-                {methodLabel(t, method)}
-              </label>
-            ))}
+          <div className="mt-4 divide-y divide-border">
+            {offered.map((method) => {
+              const on = state.on.includes(method);
+              const spec = OFFLINE_METHODS[method];
+              const details = state.details[method] || {};
+              return (
+                <div key={method} className="py-3 first:pt-0 last:pb-0" data-method={method}>
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium text-foreground">{offlineMethodLabel(method, language)}</div>
+                      <p className="text-xs text-muted-foreground mt-0.5">{methodHint(t, method)}</p>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={on}
+                      aria-label={offlineMethodLabel(method, language)}
+                      onClick={() => toggle(method)}
+                      disabled={saving || !company}
+                      className={`relative shrink-0 mt-0.5 inline-flex h-6 w-11 items-center rounded-full transition-colors disabled:opacity-60 ${
+                        on ? "bg-green-600" : "bg-muted"
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
+                          on ? "translate-x-5" : "translate-x-0.5"
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {on && spec.fields.length > 0 && (
+                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                      {spec.fields.map((field) =>
+                        field.kind === "bool" ? (
+                          <label key={field.key} className="flex items-center gap-2 text-sm text-foreground sm:col-span-2">
+                            <input
+                              type="checkbox"
+                              checked={Boolean(details[field.key])}
+                              disabled={saving}
+                              onChange={(e) => setField(method, field.key, e.target.checked)}
+                            />
+                            {fieldLabel(t, method, field.key)}
+                          </label>
+                        ) : (
+                          <label key={field.key} className={`block text-xs text-muted-foreground ${field.kind === "address" ? "sm:col-span-2" : ""}`}>
+                            {fieldLabel(t, method, field.key)}
+                            {field.required ? " *" : ""}
+                            {field.kind === "address" ? (
+                              <textarea
+                                rows={2}
+                                value={details[field.key] || ""}
+                                disabled={saving}
+                                onChange={(e) => setField(method, field.key, e.target.value)}
+                                className="mt-1 w-full border border-border rounded-lg px-3 py-2 text-sm text-foreground bg-background"
+                              />
+                            ) : (
+                              <input
+                                type="text"
+                                inputMode={field.kind === "routing" || field.kind === "account" ? "numeric" : field.kind === "email_or_phone" ? "email" : "text"}
+                                autoComplete="off"
+                                value={details[field.key] || ""}
+                                disabled={saving}
+                                onChange={(e) => setField(method, field.key, e.target.value)}
+                                className="mt-1 w-full border border-border rounded-lg px-3 py-2 text-sm text-foreground bg-background"
+                              />
+                            )}
+                          </label>
+                        ),
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
-          {error && (
-            <div className="mt-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-sm rounded-lg px-4 py-3">
-              {error}
+          {(problem || error) && (
+            <div className="mt-3 flex items-start gap-2 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-sm rounded-lg px-4 py-3">
+              <AlertCircle size={15} className="shrink-0 mt-0.5" />
+              <span>{error || problem}</span>
             </div>
           )}
 
@@ -139,7 +275,7 @@ export default function PaymentMethodsCard({ company, onSaved }) {
             <button
               type="button"
               onClick={handleSave}
-              disabled={saving || !company || !dirty}
+              disabled={saving || !company || !dirty || Boolean(problem)}
               className="bg-primary text-primary-foreground px-4 py-2 rounded-full text-sm font-semibold hover:opacity-90 disabled:opacity-60"
             >
               {t("app.setPayments.methodsSave")}
