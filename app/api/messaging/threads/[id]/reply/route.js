@@ -53,6 +53,7 @@ import { readStatus } from "@/lib/messaging/outcomes";
 import { writeActivity } from "@/lib/messaging/activity";
 import { rescoreThread } from "@/lib/messaging/rescoreThread";
 import { rateLimit } from "@/lib/rateLimit";
+import { humanTookOver } from "@/lib/aiEmployee/routing";
 
 const MAX_LENGTH = 2000; // Meta's own limit for a text message.
 
@@ -197,6 +198,11 @@ export async function POST(request, { params }) {
       // path is handed a FACT rather than being left to look it up, which
       // would make it a second thing that reads the database.
       lastInboundAt: true,
+      // Which AI employee holds the thread, and whether a person already
+      // took it — lib/aiEmployee/routing.js. A human reply clears the first
+      // and stamps the second, inside the same transaction as the stamps.
+      assignedEmployeeId: true,
+      humanTookOverAt: true,
     },
   });
   if (!thread) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -430,6 +436,15 @@ export async function POST(request, { params }) {
         at: message.sentAt,
       });
     }
+    // ── A person has taken this conversation ──────────────────────────
+    //
+    // The AI employee that held it is unassigned and every employee stays
+    // silent until "Let {name} continue" is pressed in Conversations. In the
+    // same transaction as the reply's own stamps: a human message that went
+    // out without the take-over stamp is a message the employee could talk
+    // over. The owner's rule — the contractor takes over and the AI stops,
+    // on that thread, without switching anything off.
+    await humanTookOver({ prisma: tx, companyId: member.companyId, thread, userId: member.userId || null, at: message.sentAt });
   });
 
   // Our own reply changes what the conversation IS: two outbound messages
