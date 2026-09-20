@@ -1708,6 +1708,18 @@ model Company {
   callMinutes  Int?
   videoMinutes Int?
 
+  // What a phone call and a video call COST to book, in cents — the other
+  // half of each mode's preset (lib/booking/fee.js). The owner's point: not
+  // every consultation is the same; the in-person visit may carry a $49
+  // deposit while the call is free. The visit's fee stays on the EventType
+  // (feeCents / promoFeeCents / promoActive), per consultation, exactly as
+  // before; these two are company-level like the lengths above, because a
+  // call is the same call whoever takes it. Null or 0 means free. Charged
+  // only when the company can collect (stripeChargesEnabled), the same rule
+  // the visit fee has always had.
+  callFeeCents  Int?
+  videoFeeCents Int?
+
   // Whether a client who gave a phone number is TEXTED their booking
   // confirmation (the letter always goes by email). Off by default because
   // every text is a billable SMS the contractor pays for — the same reason
