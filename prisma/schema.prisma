@@ -6245,6 +6245,15 @@ model Booking {
   // those rows simply have no manage link rather than a broken one.
   manageToken   String?       @unique
 
+  // The calendar invite's SEQUENCE — how many times the event the client
+  // was sent has been re-issued. The confirmation letter attaches an .ics
+  // with a UID fixed per booking; a move re-sends that UID one higher so
+  // the client's calendar REPLACES the event rather than adding a second,
+  // and a cancellation sends METHOD:CANCEL with it so the event drops off.
+  // Bumped in the same write that moves or cancels the row
+  // (lib/booking/bookingInvite.js). Nothing else reads it.
+  calendarSequence Int @default(0)
+
   // When the visit fee was returned, and how much of it. Written only after
   // Stripe confirms the refund, for the same reason sentAt is written only
   // after Resend accepts: this is a record that money moved, not that somebody
