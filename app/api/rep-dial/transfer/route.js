@@ -57,6 +57,7 @@ import { NextResponse } from "next/server";
 import twilio from "twilio";
 import { db } from "@/lib/db";
 import { verifyTwilioWebhook } from "@/lib/sms/verifyTwilioWebhook";
+import { noContent } from "@/lib/sales/calls/twilioAck";
 import { getAppOrigin } from "@/lib/appUrl";
 import { recordError } from "@/lib/platform/errorLog";
 import {
@@ -89,8 +90,13 @@ function silence() {
   });
 }
 
-/** A notification, not a request for instructions. */
-const noted = () => new NextResponse("", { status: 204 });
+/**
+ * A notification, not a request for instructions. The body is null, not ""
+ * — a 204 with a string body is refused by the Response constructor, and
+ * the status and recording routes answered 500 for a day on that line
+ * (lib/sales/calls/twilioAck.js).
+ */
+const noted = () => noContent();
 
 /**
  * The join document, as an HTTP answer.
