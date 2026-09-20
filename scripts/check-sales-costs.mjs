@@ -408,7 +408,7 @@ section("9. The carrier's stopwatch — picked up, and reported vs measured");
   // repCallStats carries it, over PLACED calls, with the rep's reach over the same rows.
   const stats = repCallStats({ attempts: [...hand.slice(0, 5), { dialChannel: "browser", direction: "in", providerStatus: "completed", talkSeconds: 300, answeredAt: T0, disposition: "reached" }], from: null, to: null });
   ok("repCallStats.pickup is over placed calls only — the inbound conversation is not in it", stats.pickup.legs === 5 && stats.pickup.bands.unanswered === 5, stats.pickup);
-  ok("…and its `reported` is the disposition mix of those same placed calls", stats.pickup.reported === null || stats.pickup.reported.sampleSize === 5);
+  ok("…and its `reported` is the disposition mix of those same MEASURED placed calls", stats.pickup.reported === null || stats.pickup.reported.sampleSize === 5);
 
   // The word count leaves the database as a number, split on whitespace — not on the letter s.
   ok("the SQL fragment splits words on whitespace", /regexp_split_to_array\(trim\(seg->>'text'\), '\\s\+'\)/.test(CONTRACTOR_WORDS_SQL.strings.join("")) , CONTRACTOR_WORDS_SQL.strings.join("").slice(0, 200));
