@@ -280,7 +280,7 @@ const CREW_SETTINGS = [
   "app.settings.productUpdates", // what changed in the product
   "app.settings.language", // the language THEY read the app in
   "app.settings.availability", // the hours they can be scheduled
-  "app.settings.myCalendar", // their OWN Google Calendar and feed — nothing on it is the company's
+  "app.settings.myCalendar", // their own schedule on their own phone
 ];
 
 const crewRows = rowsFor("worker");
@@ -295,7 +295,7 @@ ok(crewRows.length === CREW_SETTINGS.length,
   crewRows.filter((k) => !CREW_SETTINGS.includes(k)).join(", ") ||
     `${crewRows.length} rows`);
 
-// The tier directly above, so "Crew sees three" is not achieved by breaking the
+// The tier directly above, so "Crew sees four" is not achieved by breaking the
 // person whose job needs the price book. Estimator is the SAME ROLE with
 // showPricing on — which is exactly why these four rows are grid rules and not
 // role capabilities.

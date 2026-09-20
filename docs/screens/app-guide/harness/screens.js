@@ -238,6 +238,10 @@ export const SCREENS = [
   { slug: "quote-edit-instant-mobile", href: "/app/quotes", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1046" }, width: 375, height: 812, chapter: "help" },
   { slug: "quote-edit-instant-mobile-totals", href: "/app/quotes", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1046" }, width: 375, height: 812, scene: "scroll-totals", chapter: "help" },
   { slug: "quote-edit-instant-offered", href: "/app/quotes", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1046" }, height: 680, scene: "scroll-offered", chapter: "help" },
+  // The AI team's routing picture (app/components/aiEmployee/TeamFlow.js),
+  // at desk width and at phone width, where its columns stack.
+  { slug: "ai-team-flow", href: "/app/settings/ai-employee", page: "app/app/settings/ai-employee/page.js", settings: true, height: 1360, scene: "ai-team-flow", chapter: "help" },
+  { slug: "ai-team-flow-phone", href: "/app/settings/ai-employee", page: "app/app/settings/ai-employee/page.js", settings: true, width: 375, height: 1900, scene: "ai-team-flow", chapter: "help" },
   ...INTRO_FRAMES,
 
   // ── The booking page at phone width, one frame per mode ────────────────

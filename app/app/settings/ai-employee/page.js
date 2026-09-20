@@ -30,6 +30,14 @@
 //    have run, bound to the exact arguments you read (a hash travels with
 //    each row), and a booking whose slot has passed is marked stale rather
 //    than executed.
+//
+// 6. THE FLOW VIEW (app/components/aiEmployee/TeamFlow.js) draws the routing
+//    process — channels, the front desk, one card per employee with its tool
+//    chips, the proposals gate, and the person every card can reach — from
+//    the server's own role table and routing log. Its two controls (which
+//    employee an intent goes to; a tool switch inside the role) save through
+//    PATCH /api/ai-employee, and what is drawn afterwards is the server's
+//    answer, never a local guess.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import DeleteConfirmModal from "@/app/components/admin/DeleteConfirmModal";
@@ -53,12 +61,14 @@ import {
   UserPlus,
   Pencil,
   Coins,
+  Workflow,
 } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { reportResponseError, showError } from "@/lib/clientErrors";
 import { formatAppMoney } from "@/lib/format/money";
 import { CREDIT_CURRENCY } from "@/lib/voice/creditCurrency";
 import BackToHome from "@/app/components/BackToHome";
+import TeamFlow from "@/app/components/aiEmployee/TeamFlow";
 
 const money = (cents) => formatAppMoney(Number(cents || 0) / 100, CREDIT_CURRENCY, "en");
 
@@ -618,6 +628,21 @@ export default function AiEmployeePage() {
             </div>
           )}
         </div>
+      </Card>
+
+      {/* ── How the team works ───────────────────────────────────────────── */}
+      <Card
+        id="team-flow"
+        title={t("app.aiEmployee.flow.title", "How your AI team works")}
+        icon={Workflow}
+        hint={t("app.aiEmployee.flow.hint", "A message comes in on a channel, the front desk reads it once and hands it to one employee, and only that employee answers. Counts are this week's.")}
+      >
+        <TeamFlow
+          data={data}
+          proposals={proposals}
+          onEmployees={(employees) => setData((d) => ({ ...d, employees }))}
+          t={t}
+        />
       </Card>
 
       {form && (

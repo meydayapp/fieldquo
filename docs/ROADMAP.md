@@ -158,7 +158,7 @@ Connect Google Calendar** (`app/components/calendar/GoogleConnect.js`, a new
   `google_calendar` on /platform/errors.
 - Plain `fetch` against the REST API — no `googleapis` (214 MB) and no
   `@googleapis/calendar` (847 KB + auth stack); 0 bytes added.
-- Help article `settings-my-calendar` in en/fr/es; the privacy policy lists
+- Help article `google-calendar` (Integrations) in en/fr/es, linked from the page's own `settings-my-calendar`; the privacy policy lists
   Google Calendar as a processor with the Limited-Use wording (effective date
   moved to 2026-09-20); `docs/GOOGLE-CALENDAR.md` is the owner's step list:
   Calendar API, consent screen (External, privacy URL), the four scopes,
@@ -176,7 +176,6 @@ Connect Google Calendar** (`app/components/calendar/GoogleConnect.js`, a new
   visit reaches the phone immediately rather than at the next hourly run.
 - The client's confirmation letter and manage page printing `meetUrl` when
   it is set (booking-modes work).
-- The Subscribe (.ics) section of the same settings page (calendar-feed work).
 
 ---
 
@@ -263,6 +262,87 @@ settings → API keys) in Vercel — `docs/VERCEL.md` has both rows.** Until
 then the page says so on the relevant lines and everything else works.
 
 ---
+
+## One employee per conversation: the front desk, hand-offs, the human take-over, the burst lock and the flow view (20 September 2026)
+
+The owner: "you don't want all the employees answering at the same time —
+there's got to be a process for handling chats." `lib/aiEmployee/routing.js`
+is the process; `scripts/check-ai-employee.mjs` executes it against a
+scripted database (560 assertions, mutation-tested: with the assignee gate
+removed, "exactly ONE reply was composed" fails).
+
+- **Front desk.** On a thread's first inbound message, one metered call on
+  the STANDARD tier (`ai_employee_front_desk`, its own usage feature)
+  classifies it — book / price / problem / other — and `assignThread`
+  writes `MessageThread.assignedEmployeeId`, `routingIntent`,
+  `routingReason`, `routedAt`. The pick (`pickAssignee`, pure): the
+  company's own mapping (`AiEmployee.intents`, written by the flow view's
+  drop-downs), then the role that handles the intent (receptionist → book,
+  closer → price, troubleshooter → problem), then the employee bound to the
+  channel, then the receptionist. One enabled employee takes everything and
+  no triage call is spent.
+- **Only the assignee replies.** `respondToMessage` runs the routing gate
+  before quota, state or prompt; a named employee that is not the holder
+  returns `not_assignee` without generating. `inbound.js` no longer picks
+  by channel — its cheap door is a count of enabled employees, and its
+  sender re-reads the SENDING employee's mode at the moment of sending.
+- **Hand-off.** `hand_off_to_employee(role, reason)` joins the closed tool
+  list, allowed for every role, never switchable off (`ALWAYS_ON_TOOLS`),
+  reversible, and — like `hand_off_to_human` — runs in every mode including
+  `ask` (a routing decision is not an act on the world; it used to become a
+  proposal nobody could act on). The assignment moves inside the tool; the
+  colleague's turn is the same function at depth 1 with the tool withheld
+  and `introductionLine` ("{name} here — I'll take it from here.", nine
+  languages) prepended once. A second hand-off on one thread inside ten
+  minutes is read as a hand-off to a person (`escalated`).
+- **A person takes it.** The reply route stamps `humanTookOverAt` and
+  clears the assignment inside its own transaction; `decide.js` refuses on
+  `HUMAN_TOOK_OVER` (sticky, unlike `humanReplied`). Conversations draws
+  who holds the thread (`app/components/messaging/AiHolderBar.js`) and
+  "Let {name} continue" posts to `/api/messaging/threads/[id]/ai-resume`,
+  whose candidate is the same `resumeCandidate` that printed the name.
+- **Burst lock.** Every inbound waits `BURST_DEBOUNCE_MS` (2.5 s; 6 s when
+  it is the third in ten seconds) and yields to a newer message; a reply
+  composed while a newer message landed is recorded (`burst_merged`) and
+  never sent.
+- **The routing log.** `AiEmployeeRoutingEvent` — assigned / handed_off /
+  human_took_over / resumed / escalated / burst_merged — feeds the flow
+  view's "this week" counts (`routingCounts` → `summariseRouting`).
+- **The flow view.** `app/components/aiEmployee/TeamFlow.js`, no library:
+  channels → front desk (drop-down per intent) → one card per employee
+  with a chip per tool (solid / outlined switch / "not in this role") →
+  hand-offs → the proposals gate with each mode → a person. Read-only but
+  the drop-downs and the switches (`AiEmployee.disabledTools`, honoured by
+  `toolsForRole`, `definitionsForRole` and `executeFor`), saved through
+  `PATCH /api/ai-employee`. The check renders it for real (Next's SWC
+  binding) and compares the chips to roles.js — a tool missing from the
+  picture fails the build. Photographed at 1280 and 375 by the app-guide
+  harness (`ai-team-flow`, `ai-team-flow-phone`).
+
+## Subscribe your phone's calendar to your FieldQuo schedule (20 September 2026)
+
+Option 1 — no OAuth. `Member.calendarFeedToken` (per member, minted on the
+first visit to Settings → My calendar, rotated by "Regenerate link", the old
+URL answering an empty 404). `GET /api/calendar/feed/{token}.ics`
+(`app/api/calendar/feed/[token]/route.js`) reads `loadScheduleFeed` — the
+one scoping function the calendar screen and the day map use — over now −
+30 days to now + 365, and `lib/calendar/feed.js` turns it into VEVENTs:
+stable UIDs, `SEQUENCE` and `LAST-MODIFIED` from the row's `updatedAt`
+(added to JobVisit and Booking), `STATUS:CANCELLED` for a month, DTSTART /
+DTEND with `TZID` in the company timezone and a generated VTIMEZONE
+(`lib/calendar/vtimezone.js`, Intl-driven, DST transitions bisected to the
+minute), `X-PUBLISHED-TTL:PT15M`, lines folded at 75 octets. The SUMMARY's
+mode words are `bookingModeLabel`'s; LOCATION prints a client's phone only
+to a member at `clientsProperties: full_view`, and no email ever. The page
+(`app/app/settings/my-calendar/page.js`, a shell whose sections are their
+own files so the Google-Calendar OAuth work lands beside it) offers Google
+(`calendar.google.com/calendar/r?cid=webcal://…`), Apple (`webcal://`) and
+Outlook (copy), nine languages, visible to every role.
+`scripts/check-calendar-feed.mjs` (137 assertions, in `check:all`) runs the
+real route against a scripted database: the token gate, the owner /
+estimator / crew scoping matrix, a minimal ICS parser, a moved row's higher
+SEQUENCE, the DST pair for America/Toronto and the single observance for
+America/Phoenix, and no phone or email in a crew feed.
 
 ## The AI employee: three permission modes with a floor, a proposals inbox, website chat and SMS on the one inbox, real bookings, faces and voices, one employee per role, on the best model (19 September 2026)
 

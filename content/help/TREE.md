@@ -70,7 +70,7 @@ callbacks, the crew inbox, team chat, How You Compare, the KPI dashboard,
 
 <!-- tree:start -->
 
-_Generated 2026-09-20 — 321 articles in the tree; written: en 321, fr 321, es 321; “Only in FieldQuo”: 34._
+_Generated 2026-09-20 — 322 articles in the tree; written: en 322, fr 322, es 322; “Only in FieldQuo”: 34._
 
 ### getting-started (23)
 
@@ -447,7 +447,7 @@ _Generated 2026-09-20 — 321 articles in the tree; written: en 321, fr 321, es 
 | `a-funnel-as-a-visitor` — A funnel | ✓ | ✓ | ✓ |  | funnels |  |
 | `the-texts-clients-receive` — The texts clients receive | ✓ | ✓ | ✓ |  | appointment_reminders |  |
 
-### integrations (11)
+### integrations (12)
 
 | Article | en | fr | es | Screen | Feature | Only |
 |---|:-:|:-:|:-:|---|---|:-:|
@@ -456,6 +456,7 @@ _Generated 2026-09-20 — 321 articles in the tree; written: en 321, fr 321, es 
 | `whatsapp` — WhatsApp Business | ✓ | ✓ | ✓ |  | whatsapp_messaging |  |
 | `phone-and-texts` — Phone numbers and texts (Twilio) | ✓ | ✓ | ✓ |  | voice_receptionist |  |
 | `google-maps-and-solar` — Google Maps and Google Solar | ✓ | ✓ | ✓ |  | aerial_measure |  |
+| `google-calendar` — My calendar | ✓ | ✓ | ✓ |  | scheduling |  |
 | `photos-and-files` — Photos and files (Cloudinary) | ✓ | ✓ | ✓ |  | job_photos |  |
 | `email-delivery` — Email delivery (Resend) and your own domain | ✓ | ✓ | ✓ |  | own_email_domain |  |
 | `quickbooks-xero-and-your-bookkeeper` — QuickBooks, Xero and your bookkeeper | ✓ | ✓ | ✓ |  | expenses |  |
