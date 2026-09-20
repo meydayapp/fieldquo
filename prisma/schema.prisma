@@ -1694,6 +1694,20 @@ model Company {
   // and settable per event type after that.
   defaultVisitMinutes Int @default(60)
 
+  // How long a phone call and a video call take, in minutes — beside
+  // defaultVisitMinutes because the three are one question asked per mode.
+  //
+  // One length used to apply to every mode, so a company that offered both
+  // booked a twenty-minute phone call into the hour a kitchen measure needs,
+  // and the calendar showed a crew member "out" for a call they took from the
+  // van. Nullable, and null means "never said": the booking page then uses
+  // the plain defaults in lib/booking/bookingModes.js (20 for a call, 30 for
+  // a video call) rather than inheriting the visit length, which is the one
+  // number that is most wrong for a call. A visit still takes the event
+  // type's own durationMinutes, seeded from defaultVisitMinutes.
+  callMinutes  Int?
+  videoMinutes Int?
+
   // How a client may meet this company: "call", "visit", "video".
   //
   // EventType.location was a free-text string ("Phone or on-site visit"), which
