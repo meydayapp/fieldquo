@@ -4263,6 +4263,13 @@ model Appointment {
   /// Job.geocodedAt.
   geocodedAt DateTime?
 
+  // The Google Meet link FieldQuo obtained when it mirrored a VIDEO-mode
+  // appointment onto the assignee's connected Google Calendar
+  // (lib/calendar/googleSync.js). Null for every other mode, and for a video
+  // call whose assignee has no calendar connected — the client's letters
+  // print it when present and say nothing when not; nothing invents one.
+  meetUrl String?
+
   @@index([jobId])
   @@index([invoiceId])
 }
@@ -6267,6 +6274,10 @@ model Booking {
   // so a contractor sees "payment wasn't completed" rather than a slot that
   // silently evaporated.
   cancelReason             String?
+
+  // Same link as Appointment.meetUrl, copied here because a booking's letters
+  // and its manage page read the Booking row (see the Appointment column).
+  meetUrl String?
 
   createdAt     DateTime      @default(now())
   /// Where the visit is. Collected from the client at booking time for
