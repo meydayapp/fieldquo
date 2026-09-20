@@ -361,6 +361,46 @@ export default function AppointmentsPage() {
     [monthAnchor, weekStartsOn],
   );
 
+  // ── Personal busy time from connected Google Calendars ──────────────────
+  //
+  // Grey blocks, no title: GET /api/calendar/google/busy answers intervals
+  // only, scoped the way the schedule is (own, or the team's for someone who
+  // may see it). Fetched per month grid rather than with the feed, because
+  // it is a different source with a different failure: Google being slow
+  // must not delay the calendar the person actually came for, so a failure
+  // here draws nothing and says nothing — the visits are unaffected.
+  const [busyBlocks, setBusyBlocks] = useState([]);
+  useEffect(() => {
+    if (!cells.length) return;
+    const from = new Date(cells[0]);
+    const to = new Date(cells[cells.length - 1]);
+    to.setDate(to.getDate() + 1);
+    const q = new URLSearchParams({ from: from.toISOString(), to: to.toISOString() });
+    let cancelled = false;
+    fetchJson(`/api/calendar/google/busy?${q}`)
+      .then((d) => {
+        if (!cancelled) setBusyBlocks(Array.isArray(d?.blocks) ? d.blocks : []);
+      })
+      .catch(() => {
+        if (!cancelled) setBusyBlocks([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [cells]);
+
+  const busyByDay = useMemo(() => {
+    const map = new Map();
+    for (const b of busyBlocks) {
+      const d = new Date(b.start);
+      if (Number.isNaN(d.getTime())) continue;
+      const k = dayKey(d);
+      if (!map.has(k)) map.set(k, []);
+      map.get(k).push(b);
+    }
+    return map;
+  }, [busyBlocks]);
+
   // Header names come from Intl rather than a hardcoded list, so a Monday-start
   // company in French gets "lun." without a seventh translated array to keep in
   // step. Built off a known Sunday (2024-01-07) plus the company's offset.
@@ -375,9 +415,22 @@ export default function AppointmentsPage() {
   );
 
   const todayKey = dayKey(new Date());
-  const shown = selectedDay
+  const shownEntries = selectedDay
     ? filtered.filter((a) => dayKey(new Date(a.scheduledAt)) === selectedDay)
     : filtered;
+  // The grey rows ride in the same list, in time order, as `kind: "busy"` —
+  // the row renderer returns early for them, so none of the appointment
+  // fields are ever read off one. Shown only on a picked day (or, with no
+  // day picked, for the days the grid covers): a busy block is a fact about
+  // one day, and a month of them above the whole list would bury the visits.
+  const shown = useMemo(() => {
+    const busyRows = busyBlocks
+      .filter((b) => !selectedDay || dayKey(new Date(b.start)) === selectedDay)
+      .filter((b) => filter === "all")
+      .map((b) => ({ kind: "busy", id: `busy-${b.userId}-${b.start}`, scheduledAt: b.start, endAt: b.end, memberName: b.memberName, userId: b.userId }));
+    if (!busyRows.length) return shownEntries;
+    return [...shownEntries, ...busyRows].sort((x, y) => new Date(x.scheduledAt) - new Date(y.scheduledAt));
+  }, [shownEntries, busyBlocks, selectedDay, filter]);
 
   function pickDay(key) {
     // Clicking the selected day again clears it. A day filter you can enter and
@@ -572,6 +625,7 @@ export default function AppointmentsPage() {
           {cells.map((day) => {
             const key = dayKey(day);
             const items = byDay.get(key) || [];
+            const busyCount = (busyByDay.get(key) || []).length;
             const outside = day.getMonth() !== monthAnchor.getMonth();
             const isToday = key === todayKey;
             const isPicked = key === selectedDay;
@@ -664,6 +718,16 @@ export default function AppointmentsPage() {
                     </span>
                   </>
                 )}
+                {busyCount > 0 && (
+                  <>
+                    {/* A personal block: grey, no name, no time to give — the
+                        list below says when. Below sm, a hollow dot. */}
+                    <span className="hidden sm:block mt-0.5 truncate rounded px-1 py-0.5 text-[10px] leading-tight bg-muted text-muted-foreground border border-dashed border-border">
+                      {t("app.calendar.google.busyBlock")}{busyCount > 1 ? ` ×${busyCount}` : ""}
+                    </span>
+                    <span className="sm:hidden mt-1 inline-block h-1.5 w-1.5 rounded-full border border-muted-foreground" />
+                  </>
+                )}
               </button>
             );
           })}
@@ -705,6 +769,24 @@ export default function AppointmentsPage() {
 
       <div ref={listRef} className="space-y-3 scroll-mt-4">
         {shown.map((appt) => {
+          if (appt.kind === "busy") {
+            const bStart = new Date(appt.scheduledAt);
+            const bEnd = new Date(appt.endAt);
+            return (
+              <div
+                key={appt.id}
+                className="rounded-lg border border-dashed border-border bg-muted/50 px-4 py-3 text-sm text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1"
+                aria-label={t("app.calendar.google.busyBlock")}
+              >
+                <span className="font-medium">{t("app.calendar.google.busyBlock")}</span>
+                <span className="tabular-nums">
+                  {localeDateTime(bStart, language, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                  {!Number.isNaN(bEnd.getTime()) && ` – ${localeDateTime(bEnd, language, { hour: "numeric", minute: "2-digit" })}`}
+                </span>
+                {appt.memberName && <span>· {appt.memberName}</span>}
+              </div>
+            );
+          }
           // Read from the FULL list, not `filtered`. A drive is measured from
           // the previous stop, and that stop may be filtered off screen —
           // computing legs over the visible subset would quietly invent a

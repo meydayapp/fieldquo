@@ -3,7 +3,7 @@
 ## The entity graph
 
 Every model, and what points at it. Generated from `prisma/schema.prisma`, so
-it cannot drift from the code. 268 models.
+it cannot drift from the code. 270 models.
 
 **Read it before adding anything.** The question it answers is "what already
 touches this, and what would my change touch" — which is the question that was
@@ -25,7 +25,7 @@ tenancy, so it carries no information.
 | **SalesLead** | 12 | PlatformVoiceCall, SalesCallAttempt, SalesCheckIn, SalesContactEmail, SalesContactNumber, SalesEmailDraft, SalesEvent, SalesIntroEmail, SalesLeadLinkEvent, SalesRepNote +2 |
 | **Client** | 11 | Appointment, ClientEquipment, Invoice, Job, MessageThread, PamphletStop, Quote, ReferralLink, SatisfactionResponse, ServicePlan +1 |
 | **Quote** | 11 | Appointment, Booking, Invoice, Job, JobPaymentStage, LeadRequest, QuoteAddOn, QuoteCosting, QuoteImport, QuoteScopeGroup +1 |
-| **Member** | 8 | AssetUseLog, CompanyChatMember, CompanyChatMessage, JobPhotoComment, JobPhotoMention, NotificationDelivery, SafetyIncident, ShoutOut |
+| **Member** | 10 | AssetUseLog, CalendarMirror, CompanyChatMember, CompanyChatMessage, JobPhotoComment, JobPhotoMention, MemberGoogleCalendar, NotificationDelivery, SafetyIncident, ShoutOut |
 | **Invoice** | 7 | Appointment, ChangeOrder, InvoiceCosting, JobPaymentStage, Payment, ServicePlanOccurrence, Task |
 | **ServiceCategory** | 6 | CompanyServiceCategory, JobChecklistTemplate, LeadRequest, QuickAddItem, QuoteScopeGroup, ServiceDocument |
 | **Asset** | 3 | AssetDocument, AssetUseLog, Expense |
@@ -38,7 +38,7 @@ tenancy, so it carries no information.
 
 ### Every model, both directions
 
-<details><summary>268 models — expand</summary>
+<details><summary>270 models — expand</summary>
 
 | Model | Points at | Pointed at by |
 |---|---|---|
@@ -52,6 +52,7 @@ tenancy, so it carries no information.
 | `AssetUseLog` | Asset, Job, Member | — |
 | `AvailabilityRequest` | Worker | — |
 | `Booking` | Appointment, EventType, Quote | Appointment |
+| `CalendarMirror` | Member | — |
 | `ChangeOrder` | Invoice, Job | — |
 | `Client` | — | Appointment, ClientEquipment, Invoice, Job, MessageThread, PamphletStop, Quote, ReferralLink, SatisfactionResponse, ServicePlan, Task |
 | `ClientEquipment` | Client | ClientEquipmentService, Job |
@@ -113,7 +114,8 @@ tenancy, so it carries no information.
 | `MarketingSubscriber` | — | MarketingCampaignDelivery |
 | `Material` | — | Expense, MaterialPriceEntry |
 | `MaterialPriceEntry` | Expense, Material | — |
-| `Member` | — | AssetUseLog, CompanyChatMember, CompanyChatMessage, JobPhotoComment, JobPhotoMention, NotificationDelivery, SafetyIncident, ShoutOut |
+| `Member` | MemberGoogleCalendar | AssetUseLog, CalendarMirror, CompanyChatMember, CompanyChatMessage, JobPhotoComment, JobPhotoMention, MemberGoogleCalendar, NotificationDelivery, SafetyIncident, ShoutOut |
+| `MemberGoogleCalendar` | Member | Member |
 | `Message` | MessageThread | — |
 | `MessageThread` | Client, MessagingChannel | Message |
 | `MessagingChannel` | — | MessageThread |

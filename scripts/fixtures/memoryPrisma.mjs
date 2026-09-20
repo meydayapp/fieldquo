@@ -23,7 +23,10 @@ const nextId = (p) => `${p}_${++seq}`;
 /** Relations the seed's writers follow through select/include. */
 const RELATIONS = {
   member: { user: { table: "user", kind: "one", localKey: "userId" } },
-  job: { visits: { table: "jobVisit", kind: "many", foreignKey: "jobId" } },
+  job: {
+    visits: { table: "jobVisit", kind: "many", foreignKey: "jobId" },
+    client: { table: "client", kind: "one", localKey: "clientId" },
+  },
   invoice: {
     client: { table: "client", kind: "one", localKey: "clientId" },
     payments: { table: "payment", kind: "many", foreignKey: "invoiceId" },
@@ -39,6 +42,23 @@ const RELATIONS = {
     room: { table: "companyChatRoom", kind: "one", localKey: "roomId" },
   },
   companyChatMessage: { author: { table: "member", kind: "one", localKey: "authorMemberId" } },
+  // The Google Calendar sync (scripts/check-google-calendar.mjs) loads an
+  // entity with the same includes lib/calendar/googleEntities.js uses in
+  // production. `booking` on an appointment is the REVERSE side of a
+  // one-to-one (Booking.appointmentId), hence foreignKey rather than
+  // localKey — see shape().
+  appointment: {
+    client: { table: "client", kind: "one", localKey: "clientId" },
+    booking: { table: "booking", kind: "one", foreignKey: "appointmentId" },
+    assignedTo: { table: "user", kind: "one", localKey: "assignedToId" },
+  },
+  jobVisit: {
+    job: { table: "job", kind: "one", localKey: "jobId" },
+    assignedTo: { table: "user", kind: "one", localKey: "assignedToId" },
+  },
+  booking: { eventType: { table: "eventType", kind: "one", localKey: "eventTypeId" } },
+  eventType: { user: { table: "user", kind: "one", localKey: "userId" } },
+  memberGoogleCalendar: { member: { table: "member", kind: "one", localKey: "memberId" } },
 };
 const RELATION_NAMES = new Set(Object.values(RELATIONS).flatMap((r) => Object.keys(r)));
 
@@ -78,6 +98,8 @@ const UNIQUES = {
   companyChatRoom: [["companyId", "key"], ["jobId"]],
   companyChatMember: [["roomId", "memberId"]],
   company: [["slug"]],
+  memberGoogleCalendar: [["memberId"]],
+  calendarMirror: [["memberId", "entityKind", "entityId"]],
 };
 
 /**
@@ -125,7 +147,19 @@ export function fakeDb() {
       if (k === "NOT") { if (matches(t, row, v)) return false; continue; }
       const rel = RELATIONS[t]?.[k];
       if (rel) {
-        if (rel.kind !== "many" || !v || typeof v.some !== "object") throw new Error(`memory db: unsupported relation filter ${t}.${k}`);
+        // A to-one relation filter (`eventType: { userId }`, `job: {
+        // companyId, archivedAt: null }`) is the related row matched against
+        // the nested where; no related row is no match, the way Postgres
+        // answers an inner join. `is` / `isNot` are not modelled.
+        if (rel.kind === "one") {
+          if (!v || typeof v !== "object") throw new Error(`memory db: unsupported relation filter ${t}.${k}`);
+          const target = rel.foreignKey
+            ? table(rel.table).find((r) => r[rel.foreignKey] === row.id)
+            : table(rel.table).find((r) => r.id === row[rel.localKey]);
+          if (!target || !matches(rel.table, target, v)) return false;
+          continue;
+        }
+        if (!v || typeof v.some !== "object") throw new Error(`memory db: unsupported relation filter ${t}.${k}`);
         const related = table(rel.table).filter((r) => r[rel.foreignKey] === row.id);
         if (!related.some((r) => matches(rel.table, r, v.some))) return false;
         continue;
@@ -184,7 +218,11 @@ export function fakeDb() {
       }
       const args = typeof v === "object" ? v : {};
       if (rel.kind === "one") {
-        const target = table(rel.table).find((r) => r.id === row[rel.localKey]) || null;
+        // localKey: this row points at the target. foreignKey: the target
+        // points back at this row (the reverse side of a one-to-one).
+        const target = rel.foreignKey
+          ? table(rel.table).find((r) => r[rel.foreignKey] === row.id) || null
+          : table(rel.table).find((r) => r.id === row[rel.localKey]) || null;
         out[k] = shape(rel.table, target, args);
       } else {
         let rows = table(rel.table).filter((r) => r[rel.foreignKey] === row.id);

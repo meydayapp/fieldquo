@@ -494,7 +494,7 @@ export const ARTICLES = {
       "Dos ajustes que se parecen y significan cosas distintas: el idioma en que usted lee FieldQuo, y el predeterminado de la empresa que heredan los compañeros y los clientes que no eligieron ninguno.",
     updated: "2026-09-12",
     intro: [
-      "**Idioma** es una de las tres filas de Configuración que ve cada miembro, Cuadrilla incluida, porque la mitad es personal: **Tu idioma** es aquel en el que *usted* lee la aplicación, y cambiarlo no toca a nadie más. La otra mitad, **Predeterminado de la empresa**, es lo que hereda todo el que no ha elegido — y lo que usan los documentos de un cliente cuando el cliente no tiene idioma propio.",
+      "**Idioma** es una de las cuatro filas de Configuración que ve cada miembro, Cuadrilla incluida, porque la mitad es personal: **Tu idioma** es aquel en el que *usted* lee la aplicación, y cambiarlo no toca a nadie más. La otra mitad, **Predeterminado de la empresa**, es lo que hereda todo el que no ha elegido — y lo que usan los documentos de un cliente cuando el cliente no tiene idioma propio.",
       "FieldQuo viene en ocho idiomas: English, Français, Español, Українська, ਪੰਜਾਬੀ, Tagalog, Deutsch e Italiano. Los documentos y correos para clientes existen en los ocho; la interfaz de la oficina interna está completa en algunos y parcialmente en inglés en otros, y la página dice cuál es cuál.",
     ],
     sections: [
@@ -681,7 +681,7 @@ export const ARTICLES = {
       "Dos semanas por persona en una sola pantalla: el Horario de trabajo, el turno que usan la agenda y las hojas de horas, y las Horas reservables, la franja que los clientes pueden reservar en la página pública — con un selector para definir el de otra persona.",
     updated: "2026-09-12",
     intro: [
-      "La fila **Disponibilidad** abre una página titulada **Tu horario**, y es una de las tres filas de Configuración que ve cada miembro, porque estas horas son de la propia persona. Contiene dos semanas distintas a propósito: **Horario de trabajo**, el turno, y **Horas reservables**, la franja que un cliente puede reservar. Un estimador trabaja de 8 a 16 pero solo toma consultas de 14 a 16 porque las mañanas está en obra; una sola semana no puede decir eso.",
+      "La fila **Disponibilidad** abre una página titulada **Tu horario**, y es una de las cuatro filas de Configuración que ve cada miembro, porque estas horas son de la propia persona. Contiene dos semanas distintas a propósito: **Horario de trabajo**, el turno, y **Horas reservables**, la franja que un cliente puede reservar. Un estimador trabaja de 8 a 16 pero solo toma consultas de 14 a 16 porque las mañanas está en obra; una sola semana no puede decir eso.",
       "Alguien con acceso al equipo obtiene además un selector **Horario de quién** en la parte superior y puede definir las semanas de un compañero — así es como un miembro de la cuadrilla que nunca inicia sesión pasa a ser reservable.",
     ],
     sections: [

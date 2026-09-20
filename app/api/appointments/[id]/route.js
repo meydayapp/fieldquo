@@ -25,6 +25,7 @@ import { siteVisitVerbForStatus } from "@/lib/quotes/siteVisit";
 import { pickAbout, aboutLabel } from "@/lib/schedule/appointmentAbout";
 import { loadAboutRecord } from "@/lib/schedule/aboutRecord";
 import { geocodeAppointment, locationChanged } from "@/lib/geo/geocodeAppointment";
+import { scheduleSync } from "@/lib/calendar/googleSync";
 
 // ── The list route was scoped; this one was not ────────────────────────────
 //
@@ -332,6 +333,7 @@ export async function PATCH(request, { params }) {
       force: body.force === true,
       previous,
       next,
+      busy: stops.filter((s) => s.kind === "google_busy"),
       travelFromPrevious: fromPrev?.minutes ?? null,
       travelToNext: toNext?.minutes ?? null,
       travelBuffer: existing.company?.travelBufferMinutes || 0,
@@ -524,6 +526,10 @@ export async function PATCH(request, { params }) {
   // Redacted on the way out too. The calendar writes this response straight
   // back into its row state, so an unredacted PATCH reply would restore every
   // field the GET just stripped.
+  // Moved, reassigned, cancelled or reopened: the assignee's Google Calendar
+  // follows, and a previous assignee's loses it. Behind the response.
+  scheduleSync("appointment", updated.id);
+
   return NextResponse.json({
     ...updated,
     client: redactClient(full, updated.client),
@@ -567,5 +573,8 @@ export async function DELETE(request, { params }) {
   }
 
   await db.appointment.delete({ where: { id: _params.id } });
+  // The row is gone, so the sync finds nothing to hold and removes every
+  // mirrored event for it.
+  scheduleSync("appointment", _params.id);
   return NextResponse.json({ success: true });
 }

@@ -1,14 +1,12 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 20 September 2026 (a booking's MODE is a choice the client makes and a preset the company sets: the public page shows a picker whenever more than one of visit / call / video is offered — "On-site visit · 60 min · $49" beside "Phone call · 20 min · No charge" — and STATES the one mode otherwise; the address is required for a visit, a dialable phone for a call, the email for a video call, refused server-side in the visitor's language; each mode has its own length and fee (Company.callMinutes/videoMinutes/callFeeCents/videoFeeCents beside the event type's visit length and fee), edited as one row per mode on each consultation card; the confirmation letter, the moved and cancelled letters, the manage page, the calendar card, the map, the appointment list and the crew's day all print the mode from lib/booking/bookingModes.js in the reader's language; a confirmation TEXT ships behind a switch on Settings → Messages; the confirmation carries a calendar invite that a move re-issues and a cancellation withdraws; the seeded "Phone or on-site visit" label is gone — see the section below)
+Last updated: 20 September 2026 (the true two-way Google Calendar connection: a member connects their own Google account from Settings → My calendar, every appointment / job visit / booking assigned to them is mirrored onto their primary calendar with the site address and a Meet link for video calls, their own events block every booker as titleless busy time, disconnect removes only FieldQuo's events — `npm run check:google-calendar`; the owner's Cloud Console and verification steps are in `docs/GOOGLE-CALENDAR.md`)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
 it exists to answer.
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
-
----
 
 ---
 
@@ -117,6 +115,70 @@ What shipped:
   before the caller has said which kind — a superset for a shorter call, so
   nothing is over-promised, but a 20-minute gap at the end of a day is not
   offered for a callback.
+## The true two-way Google Calendar connection: a member's visits on their own phone, their own commitments blocking every booker (20 September 2026)
+
+A member connects their own Google account from **Settings → My calendar →
+Connect Google Calendar** (`app/components/calendar/GoogleConnect.js`, a new
+"everyone" settings row). From then on, in both directions at once:
+
+- **FieldQuo → Google** (`lib/calendar/googleSync.js` `syncEntity(kind, id)`,
+  the ONE function, called with `after()` off every create / move / reassign /
+  cancel / delete path: appointments, job visits, the recurring-visit cron,
+  the voice and AI-employee `bookSlot`, the client's cancel and reschedule
+  links, pamphlet stops). Event title per mode in the member's own language
+  (`Visite sur place — Jane Doe`), location the site address, description the
+  FieldQuo link, `extendedProperties.private.fieldquoId` on every event.
+  Mirror rows (`CalendarMirror`, unique per member × entity) with a payload
+  hash, so a second sync of an unchanged row makes no Google request; a
+  cancelled or reassigned entry is deleted from the old holder's calendar
+  after the event is read back and found to carry FieldQuo's mark — a
+  member's own event under a stray id is left alone.
+- **Video bookings** get a Google Meet room minted with the event
+  (`conferenceDataVersion=1`), written onto `Appointment.meetUrl` and
+  `Booking.meetUrl` for the client's letters (additive columns; the booking
+  letters print it when present — owed to the booking-modes work).
+- **Google → FieldQuo** (`lib/calendar/googleBusy.js`, `freebusy.query`,
+  cached 5 minutes per member): opaque busy intervals merged into
+  `computeAvailableSlots` — so the public booking page, the reschedule link,
+  the voice receptionist and the AI employee never book over a personal
+  event — and into the office's own move check, where an overlap is a 409
+  `personal_busy` the dispatcher may force. The calendar page draws them grey,
+  "Busy (Google)", nothing else. Never a title: the API asked has none.
+- Two switches honoured server-side (`writeEnabled` → off strips every
+  FieldQuo event now; `busyReadEnabled`), disconnect (`POST
+  /api/calendar/google/disconnect`: FieldQuo's events removed, token revoked
+  at Google, row deleted), reconnect. Refresh token AES-256-GCM under
+  `META_TOKEN_ENCRYPTION_KEY`; the OAuth state is HMAC-signed with the member
+  id and verified against the cookie.
+- Hourly reconcile (`/api/cron/google-calendar-reconcile`): creates missing,
+  patches drifted, adopts an orphan it can name, deletes one it cannot, and is
+  the floor under the public booking confirm route and the fee settlement
+  (another agent's files, not hooked directly). Failures stamped on the row
+  (shown under the email on the settings page) and filed under
+  `google_calendar` on /platform/errors.
+- Plain `fetch` against the REST API — no `googleapis` (214 MB) and no
+  `@googleapis/calendar` (847 KB + auth stack); 0 bytes added.
+- Help article `settings-my-calendar` in en/fr/es; the privacy policy lists
+  Google Calendar as a processor with the Limited-Use wording (effective date
+  moved to 2026-09-20); `docs/GOOGLE-CALENDAR.md` is the owner's step list:
+  Calendar API, consent screen (External, privacy URL), the four scopes,
+  redirect URI `https://www.fieldquo.com/api/calendar/google/callback`, test
+  users while unverified, the verification form's wording, and the two env
+  vars `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET`.
+
+### Still owed here
+
+- The Google Cloud OAuth client and the verification submission — the
+  owner's, per the doc. Until the vars are set the page says so and draws no
+  button.
+- The public booking confirm route and `lib/booking/settleBookingFee.js` each
+  want one `scheduleSync("appointment", appointment.id)` line so a web-booked
+  visit reaches the phone immediately rather than at the next hourly run.
+- The client's confirmation letter and manage page printing `meetUrl` when
+  it is set (booking-modes work).
+- The Subscribe (.ics) section of the same settings page (calendar-feed work).
+
+---
 
 ## /platform/costs answers "where does the money go" in three sections, with what OpenAI billed beside what we computed, Neon and Stripe pulled daily, and the invoices no API reports typed in (19 September 2026)
 

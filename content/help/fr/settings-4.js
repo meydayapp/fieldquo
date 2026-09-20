@@ -504,7 +504,7 @@ export const ARTICLES = {
         id: "who-can-see-it",
         heading: "Qui peut le voir",
         blocks: [
-          { p: "Tout le monde dans l'entreprise, y compris les équipiers. C'est l'une des trois lignes des Paramètres qu'une connexion Équipier garde — avec **Langue** et **Vos heures** — parce que rien n'y est propre à l'entreprise et qu'il n'y a rien à refuser. Il n'y a aucune API derrière et rien à enregistrer." },
+          { p: "Tout le monde dans l'entreprise, y compris les équipiers. C'est l'une des quatre lignes des Paramètres qu'une connexion Équipier garde — avec **Langue**, **Vos heures** et **Mon calendrier** — parce que rien n'y est propre à l'entreprise et qu'il n'y a rien à refuser. Il n'y a aucune API derrière et rien à enregistrer." },
           { tip: "FieldQuo ne vous envoie ni courriel ni notification quand une entrée est ajoutée. Si vous voulez savoir ce qui a changé, c'est cette ligne qu'il faut regarder." },
         ],
       },

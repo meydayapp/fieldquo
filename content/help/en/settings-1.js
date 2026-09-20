@@ -492,7 +492,7 @@ export const ARTICLES = {
       "Two settings that look alike and mean different things: the language you read FieldQuo in, and the company default that teammates and clients inherit when they have chosen none.",
     updated: "2026-09-12",
     intro: [
-      "**Language** is one of the three Settings rows every member sees, Crew included, because half of it is personal: **Your language** is what *you* read the app in, and changing it touches nobody else. The other half, **Company default**, is what everyone who has not chosen inherits — and what a client's documents use when the client has no language of their own.",
+      "**Language** is one of the four Settings rows every member sees, Crew included, because half of it is personal: **Your language** is what *you* read the app in, and changing it touches nobody else. The other half, **Company default**, is what everyone who has not chosen inherits — and what a client's documents use when the client has no language of their own.",
       "FieldQuo ships eight languages: English, Français, Español, Українська, ਪੰਜਾਬੀ, Tagalog, Deutsch and Italiano. Client documents and emails exist in all eight; the back-office interface is complete in some and partly English in others, and the page says which is which.",
     ],
     sections: [
@@ -679,7 +679,7 @@ export const ARTICLES = {
       "Two weeks per person on one screen: Working hours, the shift the schedule and timesheets use, and Bookable hours, the window clients can book on the public page — with a picker to set someone else's.",
     updated: "2026-09-12",
     intro: [
-      "The **Availability** row opens a page titled **Your hours**, and it is one of the three Settings rows every member sees, because these hours are the person's own. It holds two different weeks on purpose: **Working hours**, the shift, and **Bookable hours**, the window a client may book. An estimator works 8 to 4 but only takes consultations 2 to 4 because mornings are on site; one week cannot say that.",
+      "The **Availability** row opens a page titled **Your hours**, and it is one of the four Settings rows every member sees, because these hours are the person's own. It holds two different weeks on purpose: **Working hours**, the shift, and **Bookable hours**, the window a client may book. An estimator works 8 to 4 but only takes consultations 2 to 4 because mornings are on site; one week cannot say that.",
       "Someone with team access also gets a **Whose hours** picker at the top and can set a colleague's weeks — which is how a crew member who never signs in becomes bookable.",
     ],
     sections: [

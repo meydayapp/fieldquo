@@ -128,6 +128,17 @@ const RESOLVES_ITS_OWN = {
     "not a dual-audience endpoint). Every OTHER app/api/meta-ads/* route is " +
     "a normal POST reached via fetch() and uses memberOrRefusal like " +
     "everything else.",
+  "app/api/calendar/google/callback/route.js":
+    "Google's OAuth redirect target for a member's own calendar — the same " +
+    "shape as the two Meta callbacks above: the browser lands here off " +
+    "accounts.google.com and a JSON 401 is unshowable, so every failed " +
+    "resolution becomes a 302 back to Settings → My calendar with a named " +
+    "reason (`session`, `bad_state`, `denied`). Not laxer: the signed state " +
+    "must verify against the cookie and name THIS member's id, so a session " +
+    "that changed hands between the two legs is refused rather than " +
+    "attaching the first person's Google account to the second person's row. " +
+    "Every OTHER app/api/calendar/google/* route is reached by fetch() and " +
+    "uses memberOrRefusal.",
   "app/api/track/route.js":
     "The page-view beacon: a public POST that a stranger on the pricing page " +
     "fires with no session, and that a signed-in member fires from /app in " +

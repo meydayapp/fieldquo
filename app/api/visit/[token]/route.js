@@ -14,6 +14,7 @@ import {
 } from "@/lib/booking/manageVisit";
 import { sendVisitCancelledEmails } from "@/app/admin/lib/email/templates";
 import { bookingInviteAttachment, nextSequence } from "@/lib/booking/bookingInvite";
+import { scheduleSync } from "@/lib/calendar/googleSync";
 
 // Public, token-only — the homeowner's own copy of the visit they booked.
 //
@@ -191,6 +192,10 @@ export async function POST(request, { params }) {
       .update({ where: { id: booking.appointmentId }, data: { status: "cancelled" } })
       .catch((err) => console.error("[visit] freeing appointment failed:", err?.message));
   }
+  // Off the estimator's Google Calendar too. The appointment is the row the
+  // calendar carries when there is one; the booking itself otherwise.
+  if (booking.appointmentId) scheduleSync("appointment", booking.appointmentId);
+  else scheduleSync("booking", booking.id);
 
   const after = {
     ...visit,

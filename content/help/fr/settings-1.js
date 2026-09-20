@@ -494,7 +494,7 @@ export const ARTICLES = {
       "Deux réglages qui se ressemblent et veulent dire des choses différentes : la langue dans laquelle vous lisez FieldQuo, et la valeur par défaut de l'entreprise dont héritent les collègues et les clients qui n'en ont choisi aucune.",
     updated: "2026-09-12",
     intro: [
-      "**Langue** est l'une des trois lignes de Paramètres que chaque membre voit, Équipiers compris, parce que la moitié en est personnelle : **Votre langue** est celle dans laquelle *vous* lisez l'application, et la changer ne touche personne d'autre. L'autre moitié, **Valeur par défaut de l'entreprise**, est ce dont hérite quiconque n'a pas choisi — et ce que les documents d'un client utilisent quand le client n'a pas de langue à lui.",
+      "**Langue** est l'une des quatre lignes de Paramètres que chaque membre voit, Équipiers compris, parce que la moitié en est personnelle : **Votre langue** est celle dans laquelle *vous* lisez l'application, et la changer ne touche personne d'autre. L'autre moitié, **Valeur par défaut de l'entreprise**, est ce dont hérite quiconque n'a pas choisi — et ce que les documents d'un client utilisent quand le client n'a pas de langue à lui.",
       "FieldQuo est livré en huit langues : English, Français, Español, Українська, ਪੰਜਾਬੀ, Tagalog, Deutsch et Italiano. Les documents et courriels des clients existent dans les huit; l'interface du back-office est complète dans certaines et partiellement en anglais dans d'autres, et la page dit laquelle est laquelle.",
     ],
     sections: [
@@ -681,7 +681,7 @@ export const ARTICLES = {
       "Deux semaines par personne sur un seul écran : les Heures de travail, le quart que l'horaire et les feuilles de temps utilisent, et les Heures réservables, la plage que les clients peuvent réserver sur la page publique — avec un sélecteur pour régler celles de quelqu'un d'autre.",
     updated: "2026-09-12",
     intro: [
-      "La ligne **Disponibilités** ouvre une page intitulée **Vos heures**, et c'est l'une des trois lignes de Paramètres que chaque membre voit, parce que ces heures appartiennent à la personne. Elle contient deux semaines différentes à dessein : les **Heures de travail**, le quart, et les **Heures réservables**, la plage qu'un client peut réserver. Un estimateur travaille de 8 h à 16 h mais ne prend des consultations que de 14 h à 16 h parce que les matinées sont sur le chantier; une seule semaine ne peut pas dire cela.",
+      "La ligne **Disponibilités** ouvre une page intitulée **Vos heures**, et c'est l'une des quatre lignes de Paramètres que chaque membre voit, parce que ces heures appartiennent à la personne. Elle contient deux semaines différentes à dessein : les **Heures de travail**, le quart, et les **Heures réservables**, la plage qu'un client peut réserver. Un estimateur travaille de 8 h à 16 h mais ne prend des consultations que de 14 h à 16 h parce que les matinées sont sur le chantier; une seule semaine ne peut pas dire cela.",
       "Une personne qui a l'accès à l'équipe obtient aussi un sélecteur **Heures de qui** en haut et peut régler les semaines d'un collègue — c'est ainsi qu'un équipier qui ne se connecte jamais devient réservable.",
     ],
     sections: [
