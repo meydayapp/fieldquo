@@ -80,7 +80,21 @@ async function admin(request, { allowSupportToLook = false } = {}) {
  */
 async function loadOrCreate(companyId, { mayCreate = true } = {}) {
   const rows = await db.aiEmployee.findMany({ where: { companyId }, orderBy: { createdAt: "asc" } });
-  if (rows.length) return rows;
+  if (rows.length) {
+    // A row hired before its role had a portrait (the receptionist rows
+    // created on 2026-09-19 predate lib/aiEmployee/faces.js) shows initials
+    // for ever unless somebody picks a face. Give it the role's default once,
+    // here, so the team list looks the way a fresh hire does. A role with no
+    // portrait (troubleshooter) keeps initials — nothing is invented.
+    const faceless = rows.filter((r) => !r.avatarUrl && defaultFaceFor(r.role));
+    if (faceless.length && mayCreate) {
+      await Promise.all(
+        faceless.map((r) => db.aiEmployee.update({ where: { id: r.id }, data: { avatarUrl: defaultFaceFor(r.role) } }).catch(() => null)),
+      );
+      for (const r of faceless) r.avatarUrl = defaultFaceFor(r.role);
+    }
+    return rows;
+  }
   // An impersonating support session must never write, and "read the screen"
   // would otherwise create a row for a company that never opened it. They get
   // the same defaults the create would have used, unsaved.
@@ -354,4 +368,39 @@ export async function PUT(request) {
   }
 
   return NextResponse.json({ employee: publicEmployee(saved) });
+}
+
+/**
+ * DELETE → fire one: { id }. The row and everything hanging off it —
+ * proposals, replies — go with it (both relations cascade), the channels it
+ * held fall back to the human inbox the moment the row is gone, and an
+ * activity row says who fired whom. The last employee may be fired too: GET
+ * recreates a switched-off receptionist on the next read, which is the same
+ * empty state a company that never opened the page sees. The owner, 2026-09-20:
+ * "I should be able to fire / delete them."
+ */
+export async function DELETE(request) {
+  const { member, response } = await admin(request);
+  if (response) return response;
+
+  const body = await request.json().catch(() => ({}));
+  const id = typeof body?.id === "string" ? body.id : null;
+  if (!id) return NextResponse.json({ error: "Say which employee." }, { status: 400 });
+
+  // Under companyId — an id from another company is "not found", never a
+  // delete somewhere else.
+  const current = await db.aiEmployee.findFirst({ where: { id, companyId: member.companyId } });
+  if (!current) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  await db.aiEmployee.delete({ where: { id: current.id } });
+  await recordActivity(member, {
+    action: "ai_employee.fired",
+    entityType: "settings",
+    entityId: current.id,
+    summary: `Fired the AI ${current.role}${current.displayName ? ` (${current.displayName})` : ""}`,
+    summaryKey: "app.activity.event.aiEmployee.fired",
+    summaryParams: { role: current.role },
+  }).catch(() => {});
+
+  return NextResponse.json({ ok: true, id: current.id });
 }

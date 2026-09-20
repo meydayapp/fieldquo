@@ -2229,6 +2229,13 @@ model Member {
   chatMessages    CompanyChatMessage[] @relation("CompanyChatAuthor")
   shoutOutsSent   ShoutOut[]           @relation("ShoutOutFrom")
 
+  // The person's own Google Calendar, connected from Settings → My calendar.
+  // Hangs off the Member for the same reason the feed's read state does: a
+  // person in two companies is two schedules, and disconnecting one must
+  // not silently drop the other's mirrored visits.
+  googleCalendar  MemberGoogleCalendar?
+  calendarMirrors CalendarMirror[]
+
   @@unique([userId, companyId])
 }
 
@@ -7152,6 +7159,66 @@ model MetaAdConnection {
   connectedByUserId String?
   connectedAt       DateTime @default(now())
   updatedAt         DateTime @updatedAt
+}
+
+// ── Google Calendar, per member ────────────────────────────────────────────
+//
+// One row per connected member (lib/calendar/googleConnection.js). The
+// refresh token is the only credential stored, AES-256-GCM under the same key
+// as a Meta token (lib/meta/tokenCrypto.js) — a leaked backup must not hand
+// out a working Google credential for every connected person. Access tokens
+// are minted from it per call and never written down.
+//
+// Two switches, both honoured server-side and not only in the panel:
+//   writeEnabled      FieldQuo mirrors this member's visits onto their primary
+//                     calendar (lib/calendar/googleSync.js). Off: nothing new
+//                     is written and the mirrors already there are removed.
+//   busyReadEnabled   the member's own events count as busy time in every
+//                     availability answer (lib/booking/computeAvailability.js).
+//                     Off: their personal calendar is never read.
+model MemberGoogleCalendar {
+  id              String   @id @default(cuid())
+  memberId        String   @unique
+  member          Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  // Always "primary" today — kept as a column so a later "pick a calendar"
+  // step is a value, not a schema change.
+  calendarId      String   @default("primary")
+  // The Google account's address, for "Connected as {email}" — read from the
+  // id_token at connect time, never editable.
+  email           String?
+  refreshTokenEnc String
+  connectedAt     DateTime @default(now())
+  lastSyncAt      DateTime?
+  // The last failure Google handed back, in one line, cleared by the next
+  // success. Written by the sync AND the reconcile so the settings panel can
+  // say "last sync failed: …" instead of nothing.
+  lastError       String?
+  busyReadEnabled Boolean  @default(true)
+  writeEnabled    Boolean  @default(true)
+  updatedAt       DateTime @updatedAt
+}
+
+// One row per (member, entity) FieldQuo has written to Google, so a second
+// sync of an unchanged visit is a no-op and a moved one is an UPDATE of the
+// same event rather than a duplicate. `payloadHash` is what makes "unchanged"
+// decidable without a round trip. Deleting a mirror row and its event is the
+// only delete FieldQuo ever issues against a member's calendar, and only for
+// an event whose extendedProperties carry the fieldquoId this row records.
+model CalendarMirror {
+  id            String   @id @default(cuid())
+  memberId      String
+  member        Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  // "appointment" | "visit" | "booking" — the same three kinds the schedule
+  // feed emits (lib/schedule/feed.js).
+  entityKind    String
+  entityId      String
+  googleEventId String
+  payloadHash   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([memberId, entityKind, entityId])
+  @@index([entityKind, entityId])
 }
 
 /// The Facebook Page (and the Instagram professional account linked to it) a
