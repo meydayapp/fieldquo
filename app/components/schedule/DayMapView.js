@@ -27,6 +27,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { bookingModeLabel } from "@/lib/booking/bookingModes";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { MapPin, MapPinOff, ChevronLeft, ChevronRight, Map as MapIcon, X } from "lucide-react";
@@ -60,7 +61,14 @@ const ALL = "__all__";
  * What a stop is, in words. `what` comes from describeStop; the kind word is
  * translated here and the ref/title is the record's own.
  */
-function whatText(stop, t) {
+function whatText(stop, t, language = "en") {
+  // A booking in a mode that is not a visit says which — "Phone call", "Video
+  // call" — from the same table the client's letter uses, ahead of the
+  // title, so the map's list does not read a callback as a stop.
+  if (stop.what === "booking" && stop.mode && stop.mode !== "visit") {
+    const label = bookingModeLabel(stop.mode, language);
+    return stop.title ? `${label} · ${stop.title}` : label;
+  }
   switch (stop.what) {
     case "visit":
       return stop.title || t("app.map.what.visit", "Job visit");
@@ -242,7 +250,7 @@ export default function DayMapView({
       buildPopover(stop, {
         t,
         timeText: timeOf(stop.scheduledAt),
-        whatLine: whatText(stop, t),
+        whatLine: whatText(stop, t, language),
         openText: t("app.map.open", "Open"),
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -442,7 +450,7 @@ export default function DayMapView({
                         <span className="text-xs text-muted-foreground">{appointmentStatusLabel(s.status, t)}</span>
                       )}
                     </div>
-                    <div className="text-sm font-medium text-foreground truncate">{whatText(s, t)}</div>
+                    <div className="text-sm font-medium text-foreground truncate">{whatText(s, t, language)}</div>
                     {s.clientName && <div className="text-sm truncate">{s.clientName}</div>}
                     <div className="flex items-center gap-1 text-xs text-muted-foreground">
                       {s.located ? <MapPin size={12} /> : <MapPinOff size={12} />}

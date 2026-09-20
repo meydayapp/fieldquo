@@ -420,17 +420,17 @@ export default function VisitManager({ token }) {
           label={copy.whenLabel}
           value={when}
         />
+        {/* The one sentence for what was booked and where — "On-site visit
+            at 14 Maple St", "Phone call — we'll ring 555-0199" — decided by
+            the server in the page's language (visitView → lib/booking/
+            bookingModes.js), so this reads exactly what the confirmation
+            letter and the text said. The three per-language sentences this
+            page used to carry were a second copy of the same words. */}
         <Row
           theme={theme}
           icon={data.mode === "visit" ? MapPin : data.mode === "video" ? Video : Phone}
           label={copy.whereLabel}
-          value={
-            data.mode === "visit"
-              ? data.address || copy.addressUnknown
-              : data.mode === "video"
-                ? copy.modeVideo
-                : copy.modeCall
-          }
+          value={data.where || (data.mode === "visit" ? data.address || copy.addressUnknown : copy.modeCall)}
           hint={data.mode === "visit" ? copy.modeVisit : null}
         />
         {paid > 0 && (

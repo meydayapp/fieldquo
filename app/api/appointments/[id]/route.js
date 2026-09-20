@@ -17,7 +17,7 @@ import { notifyClientMoved, notifyClientCancelled } from "@/lib/schedule/clientN
 import { travelMinutes, hasPoint } from "@/lib/booking/travel";
 import { serverMapsKey } from "@/lib/measure/roofMeasurement";
 import { getAppOrigin } from "@/lib/appUrl";
-import { visitManagePath } from "@/lib/booking/manageVisit";
+import { visitManagePath, visitFacts } from "@/lib/booking/manageVisit";
 import { recordSiteVisit } from "@/lib/quotes/siteVisitActivity";
 import { siteVisitVerbForStatus } from "@/lib/quotes/siteVisit";
 import { pickAbout, aboutLabel } from "@/lib/schedule/appointmentAbout";
@@ -123,6 +123,13 @@ export async function PATCH(request, { params }) {
           status: true,
           endTime: true,
           mode: true,
+          // With the address, phone and email the booking was made with, so
+          // the moved / cancelled letter names the kind of appointment and
+          // where ("Phone call — we'll ring 555-0199") the way the
+          // confirmation did — lib/booking/bookingModes.js.
+          address: true,
+          clientPhone: true,
+          clientEmail: true,
           manageToken: true,
           feePaidCents: true,
           feeCurrency: true,
@@ -436,6 +443,10 @@ export async function PATCH(request, { params }) {
       document: existing.invoice || existing.job?.quote || null,
       eventTypeName: existing.booking?.eventType?.name || null,
       location: existing.location || existing.client?.address || null,
+      // The booking's own facts, when there is one behind this appointment:
+      // the letter then names the mode in its own language instead of
+      // printing a street for a phone call.
+      where: existing.booking ? visitFacts(existing.booking) : null,
     };
     const result = plan
       ? await notifyClientMoved({

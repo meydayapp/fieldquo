@@ -238,4 +238,19 @@ export const SCREENS = [
   { slug: "quote-edit-instant-mobile-totals", href: "/app/quotes", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1046" }, width: 375, height: 812, scene: "scroll-totals", chapter: "help" },
   { slug: "quote-edit-instant-offered", href: "/app/quotes", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1046" }, height: 680, scene: "scroll-offered", chapter: "help" },
   ...INTRO_FRAMES,
+
+  // ── The booking page at phone width, one frame per mode ────────────────
+  //
+  // Unnumbered, under docs/screens/booking-modes/, so the guide's chapter
+  // does not renumber. Step 3 of the flow — the details form — for a visit
+  // (the address is required, the reason under Book says so) and for a phone
+  // call (the number to ring is required, and the summary line names the
+  // call). The same component and fixture as client-booking-page above.
+  // The picker on the PAID consultation (the measurement visit, $49 promo),
+  // so the chips read "On-site visit · 45 min · $49" beside "Phone call ·
+  // 20 min · No charge" — the choice the owner asked the client to be able
+  // to make knowingly.
+  { slug: "booking-pick-375", href: "/book/erable-design", page: "app/book/[companySlug]/BookingFlow.js", props: { companySlug: "erable-design" }, mode: "public", wrap: "bookingPage", scene: "booking-pick-paid", width: 375, height: 1100, out: "docs/screens/booking-modes", chapter: "booking-modes" },
+  { slug: "booking-visit-375", href: "/book/erable-design", page: "app/book/[companySlug]/BookingFlow.js", props: { companySlug: "erable-design" }, mode: "public", wrap: "bookingPage", scene: "booking-details-visit", width: 375, height: 1400, out: "docs/screens/booking-modes", chapter: "booking-modes" },
+  { slug: "booking-call-375", href: "/book/erable-design", page: "app/book/[companySlug]/BookingFlow.js", props: { companySlug: "erable-design" }, mode: "public", wrap: "bookingPage", scene: "booking-details-call", width: 375, height: 1400, out: "docs/screens/booking-modes", chapter: "booking-modes" },
 ];

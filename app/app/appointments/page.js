@@ -28,6 +28,7 @@ import { fetchJson } from "@/lib/fetchJson";
 import { personOptionLabel } from "@/lib/team/personLabel";
 import { dayKey, monthGrid, localeFormat, localeDateTime } from "@/lib/calendar/monthGrid";
 import { travelLegs, describeTravel } from "@/lib/booking/travel";
+import { bookingModeLabel, bookingModeLine } from "@/lib/booking/bookingModes";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { usePermissions } from "@/app/providers/PermissionProvider";
 import { can } from "@/lib/permissions";
@@ -80,10 +81,14 @@ import {
  * booked through a booking page and on rows predating the column, and guessing
  * "visit" there sends somebody to a driveway.
  */
+// The WORDS come from lib/booking/bookingModes.js — bookingModeLabel(mode,
+// language) — the same table the client's letter, the text and the manage
+// page print from, so the office and the homeowner name the appointment the
+// same way. Only the icon lives here.
 const MODE_BADGES = {
-  call: { key: "app.receptionist.bookedCall", icon: Phone },
-  visit: { key: "app.receptionist.bookedVisit", icon: MapPin },
-  video: { key: "app.receptionist.bookedVideo", icon: Video },
+  call: { icon: Phone },
+  visit: { icon: MapPin },
+  video: { icon: Video },
 };
 
 /**
@@ -735,7 +740,20 @@ export default function AppointmentsPage() {
           // one to lead with; the client's own address is a fallback and is
           // shown separately in the panel when the two disagree.
           const phone = appt.client?.phone || null;
-          const rowAddress = appt.location || appt.client?.address || null;
+          // Only a VISIT has somewhere to drive to. A phone or video booking
+          // used to fall through to the client's billing address here and get
+          // a maps link, which is a street on a row nobody is driving to;
+          // those rows print the mode line instead ("Phone call — we'll ring
+          // 555-0199"), the same sentence the client was sent.
+          const bookedMode = appt.booking?.mode || null;
+          const rowAddress =
+            bookedMode && bookedMode !== "visit"
+              ? null
+              : appt.location || appt.client?.address || null;
+          const rowModeLine =
+            bookedMode && bookedMode !== "visit"
+              ? bookingModeLine({ mode: bookedMode, phone, email: appt.client?.email, language })
+              : null;
 
           // Bookings carry `notes` too, but bookingToCalendarEntry fills it with
           // the booking's MODE — the word "visit" — which now has its own badge
@@ -861,8 +879,8 @@ export default function AppointmentsPage() {
                   )}
                   {/* Ring them, or drive to them. See MODE_BADGES. */}
                   {mode && (
-                    <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full shrink-0 border border-border text-muted-foreground">
-                      <ModeIcon size={11} />{t(mode.key)}</span>
+                    <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full shrink-0 border border-border text-muted-foreground" data-booking-mode={appt.booking.mode}>
+                      <ModeIcon size={11} />{bookingModeLabel(appt.booking.mode, language)}</span>
                   )}
                   <ChevronDown
                     size={14}
@@ -922,6 +940,12 @@ export default function AppointmentsPage() {
                         <MapPin size={13} className="shrink-0" />
                         <span className="truncate">{rowAddress}</span>
                       </a>
+                    )}
+                    {rowModeLine && (
+                      <span className="flex items-center gap-1.5 min-w-0 text-muted-foreground">
+                        {bookedMode === "video" ? <Video size={13} className="shrink-0" /> : <Phone size={13} className="shrink-0" />}
+                        <span className="truncate">{rowModeLine}</span>
+                      </span>
                     )}
                   </div>
                 )}
@@ -1065,6 +1089,7 @@ export default function AppointmentsPage() {
                 panelId={panelId}
                 canOpenClient={canOpenClient}
                 t={t}
+                language={language}
               />
             )}
           </div>
@@ -1149,7 +1174,7 @@ function DetailRow({ icon: Icon, label, children }) {
  * blank one is always a genuine blank, and on a callback it is the correct
  * answer rather than missing data.
  */
-function AppointmentDetails({ appt, panelId, canOpenClient, t }) {
+function AppointmentDetails({ appt, panelId, canOpenClient, t, language = "en" }) {
   const client = appt.client || null;
   const loaded = carriesContact(appt);
 
@@ -1218,6 +1243,16 @@ function AppointmentDetails({ appt, panelId, canOpenClient, t }) {
         <DetailRow icon={Mail} label={t("app.field.email")}>
           {contact(client?.email, `mailto:${client?.email}`)}
         </DetailRow>
+        {/* The kind of appointment the client booked, in one line — the
+            same sentence they were sent. A visit's line is its address, which
+            the Location row already carries, so only a call or a video call
+            gets this row; without it the panel showed a call as a location
+            of "—" and nothing else. */}
+        {appt.booking?.mode && appt.booking.mode !== "visit" && (
+          <DetailRow icon={appt.booking.mode === "video" ? Video : Phone} label={bookingModeLabel(appt.booking.mode, language)}>
+            {bookingModeLine({ mode: appt.booking.mode, phone: client?.phone, email: client?.email, language })}
+          </DetailRow>
+        )}
         <DetailRow icon={MapPin} label={t("app.appts.location")}>
           {address(siteAddress)}
         </DetailRow>

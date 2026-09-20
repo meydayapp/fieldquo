@@ -40,9 +40,20 @@ import { BOOKING_LANGUAGES, BOOKING_LANGUAGE_NAMES, bookingLanguage, bookingLang
 import SlotCalendar from "@/app/components/public/SlotCalendar";
 import AddressField from "./AddressField";
 import {
+  offeredModes,
+  bookingModeLabel,
+  bookingModeLine,
+  bookingModeStatement,
+  bookingFeeNote,
+  bookingModeCopy,
+  missingForMode,
+  requiredFieldRefusal,
+} from "@/lib/booking/bookingModes";
+import {
   Clock,
   MapPin,
   Phone,
+  Video,
   ArrowLeft,
   Loader2,
   Check,
@@ -183,8 +194,11 @@ export default function BookingFlow({
   // now, and remounting would send someone who just lost a slot back to today's
   // month with nothing selected.
   const [slotEpoch, setSlotEpoch] = useState(0);
-  // How the client wants to meet. Only asked when the company offers a choice —
-  // a segmented control with one option is a label pretending to be a control.
+  // How the client wants to meet. Asked whenever the company offers a choice;
+  // when it offers one, the page STATES it ("This is an on-site visit — we
+  // come to you") rather than saying nothing — the owner booked a demo and
+  // could not tell from the page which kind he had booked. The words are
+  // lib/booking/bookingModes.js's, the same ones the letter and the text use.
   const [mode, setMode] = useState(null);
   const [chosen, setChosen] = useState(null);
 
@@ -407,9 +421,29 @@ export default function BookingFlow({
   }, [companySlug]);
 
   useEffect(() => {
-    const offered = company?.bookingModes?.length ? company.bookingModes : ["visit"];
-    setMode((m) => m || offered[0]);
+    setMode((m) => m || offeredModes(company)[0]);
   }, [company]);
+  const modes = offeredModes(company);
+  // Each mode's preset for this event — { minutes, feeCents, feeStandardCents }
+  // — resolved by the server (`modes` on the booking GET), never derived here:
+  // the browser never computes a fee. Falls back to the event's own length
+  // and fee for a payload that predates presets.
+  const presetFor = (et, m) =>
+    et?.modes?.[m] ?? { minutes: et?.durationMinutes ?? null, feeCents: et?.feeCents || 0, feeStandardCents: et?.feeStandardCents ?? null };
+  const minutesFor = (et, m) => presetFor(et, m).minutes;
+  // "Free" / "$49" — what the chip and the fee card say for a mode.
+  const feeWords = (preset) =>
+    preset.feeCents > 0 ? moneyFromCents(preset.feeCents, company?.currency) : bookingModeCopy(language).noCharge;
+  const chosenPreset = presetFor(eventType, mode);
+  // What this mode still needs before Book means anything: the address for a
+  // visit, a dialable phone for a call, the email for a video call. The same
+  // function the confirm route refuses on, so the disabled button and the 400
+  // agree about why.
+  const missingField = missingForMode(mode, {
+    address,
+    phone: form.phone,
+    email: form.email,
+  });
 
   useEffect(() => {
     // Not `t`: this component now takes `t` from useTranslation(), and a local
@@ -466,10 +500,14 @@ export default function BookingFlow({
       // phone consult would filter times by a drive nobody is making.
       const forVisit = mode === "visit" && geoAddress.length > 5;
       try {
+        // `mode` goes with the query because it decides the slot length: a
+        // phone call is offered at the call's twenty minutes, a visit at the
+        // visit's hour, and a grid computed at the wrong length offers times
+        // the confirm route then reserves differently.
         const data = await fetchJson(
           `/api/booking/${companySlug}/availability?eventTypeSlug=${encodeURIComponent(
             eventType.slug,
-          )}&from=${from}&to=${to}` +
+          )}&from=${from}&to=${to}&mode=${encodeURIComponent(mode || "")}` +
             (forVisit ? `&address=${encodeURIComponent(geoAddress)}` : ""),
         );
         setTravelInfo(data?.travel || null);
@@ -744,6 +782,21 @@ export default function BookingFlow({
               })}
             </p>
           )}
+          {/* What was booked and where, in the visitor's language — the same
+              line the confirmation letter and the text carry. Only once the
+              booking is known to exist: a payment still settling has nothing
+              to describe yet. */}
+          {!settling && !trouble && mode && (
+            <p className="text-sm mt-2 font-medium" style={{ color: theme.ink }} data-booking-mode={mode}>
+              {bookingModeLine({
+                mode,
+                address: address.trim(),
+                phone: form.phone.trim(),
+                email: form.email.trim(),
+                language,
+              })}
+            </p>
+          )}
           <p className="text-sm mt-3" style={{ color: theme.inkMuted }}>
             {body}
           </p>
@@ -836,27 +889,22 @@ export default function BookingFlow({
                     <div className="font-medium" style={{ color: theme.ink }}>{et.name}</div>
                     <div className="text-xs mt-1 flex gap-3 flex-wrap" style={{ color: theme.inkMuted }}>
                       <span className="inline-flex items-center gap-1">
-                        <Clock size={11} /> {et.durationMinutes} min
+                        <Clock size={11} /> {minutesFor(et, mode)} min
                       </span>
-                      {et.location && (
-                        <span className="inline-flex items-center gap-1">
-                          <MapPin size={11} /> {et.location}
-                        </span>
-                      )}
-                      {et.feeCents > 0 && (
+                      {presetFor(et, mode).feeCents > 0 && (
                         <span
                           className="inline-flex items-center gap-1.5 font-semibold"
                           style={{ color: theme.accentText }}
                         >
-                          {et.feeStandardCents ? (
+                          {presetFor(et, mode).feeStandardCents ? (
                             <>
                               <span className="line-through font-normal" style={{ color: theme.inkMuted }}>
-                                {moneyFromCents(et.feeStandardCents, company.currency)}
+                                {moneyFromCents(presetFor(et, mode).feeStandardCents, company.currency)}
                               </span>
-                              {moneyFromCents(et.feeCents, company.currency)}
+                              {moneyFromCents(presetFor(et, mode).feeCents, company.currency)}
                             </>
                           ) : (
-                            moneyFromCents(et.feeCents, company.currency)
+                            moneyFromCents(presetFor(et, mode).feeCents, company.currency)
                           )}
                         </span>
                       )}
@@ -904,9 +952,9 @@ export default function BookingFlow({
               </button>
             )}
             <h2 className="font-semibold" style={{ color: theme.ink }}>{eventType.name}</h2>
-            {eventType.durationMinutes && (
-              <p className="text-xs mt-0.5" style={{ color: theme.inkMuted }}>
-                {eventType.durationMinutes} min
+            {minutesFor(eventType, mode) && (
+              <p className="text-xs mt-0.5" style={{ color: theme.inkMuted }} data-mode-minutes={minutesFor(eventType, mode)}>
+                {minutesFor(eventType, mode)} min
               </p>
             )}
           </div>
@@ -917,22 +965,26 @@ export default function BookingFlow({
               wanted and the crew found out on the day. A roofer doing a
               satellite estimate wants calls; a cabinet maker measuring a kitchen
               needs to be in the room. Both is common, so the company says which
-              it offers and the client picks. */}
-          {(company.bookingModes?.length || 0) > 1 && (
-            <div className="mb-4">
+              it offers and the client picks — and when there is only one, the
+              page says which, in a sentence, instead of leaving the visitor to
+              infer it from an address field. Labels and minutes per mode come
+              from the server and lib/booking/bookingModes.js, never typed here. */}
+          {modes.length > 1 ? (
+            <div className="mb-4" data-booking-modes={modes.join(",")}>
               <div className="text-xs font-semibold uppercase tracking-wide mb-1.5" style={{ color: theme.inkMuted }}>
-                How would you like to meet?
+                {t("booking.mode.howTitle")}
               </div>
-              <div className="flex flex-wrap gap-1.5">
-                {company.bookingModes.map((m) => {
-                  const label =
-                    m === "call" ? "Phone call" : m === "video" ? "Video call" : "Visit my place";
-                  const Icon = m === "visit" ? MapPin : Phone;
+              <div className="flex flex-wrap gap-1.5" role="group" aria-label={t("booking.mode.howTitle")}>
+                {modes.map((m) => {
+                  const Icon = m === "visit" ? MapPin : m === "video" ? Video : Phone;
                   const on = mode === m;
+                  const mins = minutesFor(eventType, m);
                   return (
                     <button
                       key={m}
+                      type="button"
                       onClick={() => setMode(m)}
+                      aria-pressed={on}
                       className="inline-flex items-center gap-1.5 px-3.5 min-h-10 rounded-lg border text-sm font-medium transition-colors border-[var(--bd)] hover:border-[var(--bd-hover)]"
                       style={{
                         "--bd": on ? solid.bg : theme.border,
@@ -941,12 +993,31 @@ export default function BookingFlow({
                         color: on ? solid.fg : theme.ink,
                       }}
                     >
-                      <Icon size={13} /> {label}
+                      <Icon size={13} /> {bookingModeLabel(m, language)}
+                      {mins ? <span className="opacity-75 font-normal">· {mins} min</span> : null}
+                      <span className="opacity-75 font-normal" data-mode-fee={presetFor(eventType, m).feeCents}>· {feeWords(presetFor(eventType, m))}</span>
                     </button>
                   );
                 })}
               </div>
             </div>
+          ) : (
+            <p className="mb-4 text-sm flex items-start gap-1.5" style={{ color: theme.ink }} data-booking-modes={modes.join(",")}>
+              {mode === "visit" ? (
+                <MapPin size={15} className="shrink-0 mt-0.5" style={{ color: theme.inkMuted }} />
+              ) : mode === "video" ? (
+                <Video size={15} className="shrink-0 mt-0.5" style={{ color: theme.inkMuted }} />
+              ) : (
+                <Phone size={15} className="shrink-0 mt-0.5" style={{ color: theme.inkMuted }} />
+              )}
+              <span>
+                {bookingModeStatement(mode, language)}{" "}
+                {bookingFeeNote({
+                  amountText: chosenPreset.feeCents > 0 ? moneyFromCents(chosenPreset.feeCents, company.currency) : null,
+                  language,
+                })}
+              </span>
+            </p>
           )}
 
           {/* ── Where are we coming to? ────────────────────────────────────
@@ -955,12 +1026,14 @@ export default function BookingFlow({
               a door at 5:30, and offering that slot is a promise the company
               breaks on the day.
 
-              Optional on purpose. Someone who won't type an address still gets
-              the full grid — the times are then merely unfiltered, which is
-              exactly what every booking page did before this. Blocking the
-              calendar behind a required field would cost more bookings than
-              the occasional tight drive does. That is also why the Google
-              suggestions in AddressField are an accelerator and never a gate:
+              Required for a visit — but the CALENDAR is not gated on it. This
+              used to be optional throughout, on the argument that a required
+              field costs bookings; the owner's answer (2026-09-20) was that a
+              visit with no address costs the booking anyway, on the day, in a
+              driveway nobody wrote down. So the grid still opens without it
+              (the times are merely unfiltered) and the Book button on step 3
+              waits for it, with the reason written underneath. The Google
+              suggestions in AddressField stay an accelerator and never a gate:
               a typed address books exactly as well as a picked one. */}
           {mode === "visit" && (
             <div className="mb-4">
@@ -969,7 +1042,7 @@ export default function BookingFlow({
                 className="block text-xs font-semibold uppercase tracking-wide mb-1.5"
                 style={{ color: theme.inkMuted }}
               >
-                Where should we come?
+                {t("booking.mode.whereTitle")}
               </label>
               <div className="relative">
                 <MapPin
@@ -1014,7 +1087,7 @@ export default function BookingFlow({
                   ? `Showing times we can reach ${travelInfo.address || "you"} on schedule.`
                   : travelInfo
                     ? "We couldn't place that address, so all times are shown. Double-check it before you book."
-                    : "Optional — it lets us hide times we couldn't get to you on time."}
+                    : t("booking.mode.addressHint")}
               </p>
               {/* One honest line, in the visitor's language, and no gate: the
                   request still goes through and the company answers it. */}
@@ -1067,26 +1140,29 @@ export default function BookingFlow({
             })}
           </h2>
           <p className="text-xs mb-4" style={{ color: theme.inkMuted }}>
-            {eventType.name} · {eventType.durationMinutes} min
+            {eventType.name} · {bookingModeLabel(mode, language)} · {minutesFor(eventType, mode)} min
           </p>
 
-          {eventType.feeCents > 0 && (
+          {/* The CHOSEN mode's fee — a paid visit and a free call are the
+              same event type with two presets (lib/booking/fee.js). */}
+          {chosenPreset.feeCents > 0 && (
             <div
               className="rounded-xl px-3.5 py-3 mb-4 text-sm"
               style={{ backgroundColor: wash.bg, color: wash.ink }}
+              data-fee-cents={chosenPreset.feeCents}
             >
               <div className="flex items-baseline justify-between gap-3">
-                <span className="font-medium">Visit fee</span>
+                <span className="font-medium">{bookingModeLabel(mode, language)} · {t("booking.mode.feeWord")}</span>
                 <span className="font-semibold" style={{ color: wash.accent }}>
-                  {eventType.feeStandardCents ? (
+                  {chosenPreset.feeStandardCents ? (
                     <>
                       <span className="line-through font-normal mr-1.5" style={{ color: wash.muted }}>
-                        {moneyFromCents(eventType.feeStandardCents, company.currency)}
+                        {moneyFromCents(chosenPreset.feeStandardCents, company.currency)}
                       </span>
-                      {moneyFromCents(eventType.feeCents, company.currency)}
+                      {moneyFromCents(chosenPreset.feeCents, company.currency)}
                     </>
                   ) : (
-                    moneyFromCents(eventType.feeCents, company.currency)
+                    moneyFromCents(chosenPreset.feeCents, company.currency)
                   )}
                 </span>
               </div>
@@ -1123,18 +1199,52 @@ export default function BookingFlow({
               hint="We'll send your confirmation here."
             />
             <Input
-              label="Phone"
+              label={mode === "call" ? t("booking.mode.phoneToRing") : "Phone"}
               theme={theme}
               type="tel"
               inputMode="tel"
               placeholder="555-123-4567"
               value={form.phone}
-              // Formatted as typed, still optional. Nothing here rejects a
-              // phone number — a validation gate on a field the flow doesn't
-              // require would turn a polish pass into lost bookings.
+              // Formatted as typed. Required for a phone call — it is the
+              // number somebody rings at the time picked, and a call booked
+              // with nothing to dial is a no-show the client never caused.
+              // Optional otherwise, as before.
+              required={mode === "call"}
               onChange={(v) => setForm({ ...form, phone: formatPhoneAsTyped(v) })}
-              hint="Optional, but it helps if we're running late."
+              hint={mode === "call" ? t("booking.mode.phoneHint") : "Optional, but it helps if we're running late."}
             />
+
+            {/* The visit address, asked again HERE when they skipped it on
+                the calendar step — a visit cannot be booked without one, and
+                sending them back a step to find out why is the kind of thing
+                that loses the booking. Same field, same state. */}
+            {mode === "visit" && !address.trim() && (
+              <div>
+                <label
+                  htmlFor="visit-address-late"
+                  className="block text-sm font-medium mb-1"
+                  style={{ color: theme.ink }}
+                >
+                  {t("booking.mode.whereTitle")}
+                </label>
+                <AddressField
+                  id="visit-address-late"
+                  value={address}
+                  onChange={(v) => {
+                    setAddress(v);
+                    setJurisdiction({});
+                  }}
+                  onResolved={({ address: picked, city, province, country }) => {
+                    if (!picked) return;
+                    setAddress(picked);
+                    setJurisdiction({ city: city || "", province: province || "", country: country || "" });
+                    setGeoAddress(picked.trim());
+                  }}
+                  placeholder="123 Main St, Montreal"
+                  className="w-full px-3 min-h-11 rounded-lg border text-sm focus:outline-none border-[var(--bd)] focus:border-[var(--bd-focus)] bg-[var(--paper)] text-[var(--ink)] placeholder:text-[var(--ink-faint)]"
+                />
+              </div>
+            )}
 
             {/* ── Which of their services, in their own words ────────────────
                 Only rendered when the company has enabled some. A shop that
@@ -1308,15 +1418,23 @@ export default function BookingFlow({
 
           <button
             type="submit"
-            disabled={submitting || !form.name.trim() || !form.email.trim() || !whenNeeded}
+            disabled={submitting || !form.name.trim() || !form.email.trim() || !whenNeeded || Boolean(missingField)}
             className="mt-5 w-full inline-flex items-center justify-center gap-2 min-h-12 rounded-full text-sm font-bold disabled:opacity-50"
             style={{ backgroundColor: solid.bg, color: solid.fg }}
           >
             {submitting && <Loader2 size={15} className="animate-spin" />}
-            {eventType.feeCents > 0
-              ? `Pay ${moneyFromCents(eventType.feeCents, company.currency)} & book`
+            {chosenPreset.feeCents > 0
+              ? `Pay ${moneyFromCents(chosenPreset.feeCents, company.currency)} & book`
               : "Confirm booking"}
           </button>
+          {/* Why the button is off, in words, in the visitor's language — the
+              same sentence the server answers with if the POST is forced. A
+              disabled button with no reason is a page that looks broken. */}
+          {missingField && (
+            <p className="text-xs mt-2 text-center" style={{ color: theme.inkMuted }} data-booking-missing={missingField}>
+              {requiredFieldRefusal(missingField, language)}
+            </p>
+          )}
         </form>
       )}
     </Shell>

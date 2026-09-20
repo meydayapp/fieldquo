@@ -178,6 +178,24 @@ export const rows = {
   salesCommissionEntry: [],
   salesPayoutBatch: [],
   salesLead: [],
+  // The public booking confirm route (scripts/check-booking-modes.mjs): the
+  // event type the slot is booked against and the Booking rows the conflict
+  // check reads. Present so the per-mode refusals — "a call with no phone is
+  // a 400 in words" — are asserted by RUNNING the route, not by reading it.
+  eventType: [],
+  booking: [],
+  appointment: [],
+  // The SMS STOP ledger (lib/sms/optOut.js maySms), read by the booking
+  // confirmation text's verdict — "a number that said STOP is never texted"
+  // is a property of a query and has to be run.
+  smsOptOut: [],
+  // The slot engine's inputs (lib/booking/computeAvailability.js): a
+  // member's weekly hours and their approved leave. Scripted so the
+  // availability route can be RUN for a call and for a visit and the two
+  // slot counts compared — "a phone call is offered at the call's length"
+  // is arithmetic inside a loop, not a sentence in a file.
+  availabilitySchedule: [],
+  leaveRequest: [],
 };
 
 /** Every write the product attempted, in order: { model, action, data }. */
@@ -200,6 +218,12 @@ export const reads = [];
 export const failNext = { model: null, times: 0 };
 
 export function resetDbStub() {
+  rows.eventType = [];
+  rows.booking = [];
+  rows.appointment = [];
+  rows.smsOptOut = [];
+  rows.availabilitySchedule = [];
+  rows.leaveRequest = [];
   rows.instantQuoteConfig = [];
   rows.serviceCategory = [];
   rows.client = [];
@@ -578,6 +602,12 @@ function uniqueCreateModel(name, uniqueFields) {
 export const db = new Proxy(
   {
     instantQuoteConfig: model("instantQuoteConfig"),
+    eventType: model("eventType"),
+    booking: model("booking"),
+    appointment: model("appointment"),
+    smsOptOut: model("smsOptOut"),
+    availabilitySchedule: model("availabilitySchedule"),
+    leaveRequest: model("leaveRequest"),
     serviceCategory: model("serviceCategory"),
     client: model("client"),
     quote: model("quote"),

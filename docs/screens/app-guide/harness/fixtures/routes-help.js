@@ -169,9 +169,25 @@ const bookingCompany = () => ({
   bookingModes: COMPANY.bookingModes,
   defaultLanguage: "fr",
   eventTypes: EVENT_TYPES.map((e) => ({
-    id: e.id, name: e.name, slug: e.slug, durationMinutes: e.durationMinutes, location: e.location,
+    id: e.id, name: e.name, slug: e.slug, durationMinutes: e.durationMinutes,
     feeCents: e.promoActive && e.promoFeeCents != null ? e.promoFeeCents : e.feeCents,
     feeStandardCents: e.promoActive && e.promoFeeCents != null ? e.feeCents : null,
+    // Each mode's preset, as app/api/booking/[companySlug] resolves it from
+    // lib/booking/fee.js: the event's own length and fee for a visit, the
+    // company's call length (default 20) and a free call. No `location` —
+    // the route stopped sending that free-text label.
+    modes: Object.fromEntries(
+      COMPANY.bookingModes.map((m) => [
+        m,
+        m === "visit"
+          ? {
+              minutes: e.durationMinutes,
+              feeCents: e.promoActive && e.promoFeeCents != null ? e.promoFeeCents : e.feeCents || 0,
+              feeStandardCents: e.promoActive && e.promoFeeCents != null ? e.feeCents : null,
+            }
+          : { minutes: m === "call" ? 20 : 30, feeCents: 0, feeStandardCents: null },
+      ]),
+    ),
   })),
   services: SERVICE_CATEGORIES.filter((c) => c.enabled).map((c) => ({ key: c.key, label: c.label })),
 });
@@ -1040,7 +1056,8 @@ export const ROUTES_HELP = [
   { path: `/api/booking/${SLUG}/members`, method: "GET", reply: () => ({ company: { name: COMPANY.name, logoUrl: COMPANY.logoUrl, brandColor: COMPANY.brandColor }, members: [] }) },
   { path: `/api/booking/${SLUG}/availability`, method: "GET", reply: ({ search }) => {
     const et = EVENT_TYPES.find((e) => e.slug === search.get("eventTypeSlug")) || EVENT_TYPES[0];
-    return { eventType: { name: et.name, durationMinutes: et.durationMinutes, location: et.location }, slots: slotsBetween(search.get("from") || "2026-09-14", search.get("to") || "2026-09-30"), travel: null };
+    const mode = search.get("mode") || "visit";
+    return { eventType: { name: et.name, durationMinutes: mode === "call" ? 20 : mode === "video" ? 30 : et.durationMinutes, mode }, slots: slotsBetween(search.get("from") || "2026-09-14", search.get("to") || "2026-09-30"), travel: null };
   } },
   { path: `/api/visit/${VISIT_TOKEN}`, method: "GET", reply: (ctx) => visitView(ctx) },
   { path: `/api/visit/${VISIT_TOKEN}/reschedule`, method: "GET", reply: ({ search }) => ({ slots: slotsBetween(search.get("from") || "2026-09-14", search.get("to") || "2026-09-30") }) },

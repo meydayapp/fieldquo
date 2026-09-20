@@ -8,7 +8,7 @@ import { stripe } from "@/lib/stripe";
 import {
   loadVisitByToken,
   visitView,
-  visitWhere,
+  visitFacts,
   planCancel,
   reasonMessage,
 } from "@/lib/booking/manageVisit";
@@ -204,7 +204,7 @@ export async function POST(request, { params }) {
     clientEmail: booking.clientEmail,
     eventTypeName: eventType.name,
     startTime: booking.startTime,
-    location: visitWhere(visit),
+    where: visitFacts(visit.booking),
     timezone: company.timezone,
     quoteNumber: booking.quote?.quoteNumber || null,
     // The same language the manage page itself was rendered in — see

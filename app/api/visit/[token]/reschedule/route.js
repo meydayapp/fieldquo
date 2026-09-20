@@ -6,11 +6,12 @@ import { db } from "@/lib/db";
 import { rateLimit } from "@/lib/rateLimit";
 import { getAppOrigin } from "@/lib/appUrl";
 import { computeAvailableSlots } from "@/lib/booking/computeAvailability";
+import { eventTypeForMode } from "@/lib/booking/bookingModes";
 import { canClientChange, changeNoticeHours } from "@/lib/booking/changePolicy";
 import {
   loadVisitByToken,
   visitView,
-  visitWhere,
+  visitFacts,
   visitManagePath,
   planReschedule,
   slotIsOffered,
@@ -154,7 +155,11 @@ export async function GET(request, { params }) {
       : null;
 
   const slotsByDate = await computeAvailableSlots({
-    eventType,
+    // The booking keeps its mode on a move, so the new time is found at that
+    // mode's length — a phone call re-slotted at the call's twenty minutes,
+    // a visit at the visit's hour. Same function planReschedule sizes the
+    // new end time with, so the two cannot disagree.
+    eventType: eventTypeForMode({ company, eventType, mode: booking.mode }),
     fromDate: from,
     toDate: to,
     destination,
@@ -237,7 +242,11 @@ export async function POST(request, { params }) {
       : null;
 
   const slotsByDate = await computeAvailableSlots({
-    eventType,
+    // The booking keeps its mode on a move, so the new time is found at that
+    // mode's length — a phone call re-slotted at the call's twenty minutes,
+    // a visit at the visit's hour. Same function planReschedule sizes the
+    // new end time with, so the two cannot disagree.
+    eventType: eventTypeForMode({ company, eventType, mode: booking.mode }),
     fromDate,
     toDate,
     destination,
@@ -299,7 +308,7 @@ export async function POST(request, { params }) {
     eventTypeName: eventType.name,
     previousStartTime,
     startTime: plan.start,
-    location: visitWhere(after),
+    where: visitFacts(after.booking),
     timezone: company.timezone,
     quoteNumber: booking.quote?.quoteNumber || null,
     arrivalWindowMinutes: booking.mode === "visit" ? company.arrivalWindowMinutes : 0,

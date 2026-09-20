@@ -186,6 +186,12 @@ const en = {
   "booking.work.notesPlaceholder":
     "What needs doing, roughly how big, anything unusual about getting to it…",
   "booking.work.notesHint": "Optional — it means we turn up prepared.",
+  "booking.mode.howTitle": "How would you like to meet?",
+  "booking.mode.whereTitle": "Where should we come?",
+  "booking.mode.addressHint": "Needed for an on-site visit — and it lets us hide times we couldn't reach you on schedule.",
+  "booking.mode.phoneToRing": "Phone number to call",
+  "booking.mode.phoneHint": "We'll ring this number at the time you picked.",
+  "booking.mode.feeWord": "booking fee",
 
   "features.everything": "Everything your business needs, in one place",
   "features.anyTrade": "Built for any trade",
@@ -742,6 +748,12 @@ const fr = {
   "booking.work.notesPlaceholder":
     "Ce qu'il y a à faire, l'ampleur approximative, tout ce qui sort de l'ordinaire…",
   "booking.work.notesHint": "Facultatif — cela nous permet d'arriver préparés.",
+  "booking.mode.howTitle": "Comment souhaitez-vous nous rencontrer ?",
+  "booking.mode.whereTitle": "Où devons-nous nous rendre ?",
+  "booking.mode.addressHint": "Requise pour une visite sur place — et elle nous permet de masquer les heures où nous ne pourrions pas arriver à temps.",
+  "booking.mode.phoneToRing": "Numéro de téléphone à appeler",
+  "booking.mode.phoneHint": "Nous appellerons ce numéro à l'heure choisie.",
+  "booking.mode.feeWord": "frais de réservation",
 
   "features.everything":
     "Tout ce dont votre entreprise a besoin, au même endroit",
@@ -1261,6 +1273,12 @@ const es = {
   "booking.work.notesPlaceholder":
     "Qué hay que hacer, más o menos de qué tamaño, cualquier cosa fuera de lo común…",
   "booking.work.notesHint": "Opcional — nos permite llegar preparados.",
+  "booking.mode.howTitle": "¿Cómo prefiere que nos reunamos?",
+  "booking.mode.whereTitle": "¿A dónde debemos ir?",
+  "booking.mode.addressHint": "Necesaria para una visita en sitio — y nos permite ocultar las horas en que no podríamos llegar a tiempo.",
+  "booking.mode.phoneToRing": "Número de teléfono al que llamar",
+  "booking.mode.phoneHint": "Llamaremos a este número a la hora que eligió.",
+  "booking.mode.feeWord": "cargo por reserva",
 
   "features.everything": "Todo lo que tu negocio necesita, en un solo lugar",
   "features.anyTrade": "Hecho para cualquier oficio",
@@ -1849,6 +1867,12 @@ const uk = {
   "booking.work.notesPlaceholder":
     "Що потрібно зробити, приблизний обсяг, будь-що незвичне…",
   "booking.work.notesHint": "Необов'язково — так ми приїдемо підготовленими.",
+  "booking.mode.howTitle": "Як вам зручніше зустрітися?",
+  "booking.mode.whereTitle": "Куди нам приїхати?",
+  "booking.mode.addressHint": "Потрібна для виїзду на місце — і дозволяє приховати час, коли ми не встигли б приїхати.",
+  "booking.mode.phoneToRing": "Номер телефону для дзвінка",
+  "booking.mode.phoneHint": "Ми зателефонуємо на цей номер у вибраний час.",
+  "booking.mode.feeWord": "плата за бронювання",
 
   "footer.product": "Продукт",
   "footer.company": "Компанія",
@@ -2365,6 +2389,12 @@ const pa = {
   "booking.work.notesPlaceholder":
     "ਕੀ ਕਰਨਾ ਹੈ, ਲਗਭਗ ਕਿੰਨਾ ਵੱਡਾ, ਪਹੁੰਚ ਬਾਰੇ ਕੋਈ ਖ਼ਾਸ ਗੱਲ…",
   "booking.work.notesHint": "ਚੋਣਵਾਂ — ਇਸ ਨਾਲ ਅਸੀਂ ਤਿਆਰ ਹੋ ਕੇ ਆਉਂਦੇ ਹਾਂ।",
+  "booking.mode.howTitle": "ਤੁਸੀਂ ਕਿਵੇਂ ਮਿਲਣਾ ਚਾਹੋਗੇ?",
+  "booking.mode.whereTitle": "ਸਾਨੂੰ ਕਿੱਥੇ ਆਉਣਾ ਚਾਹੀਦਾ ਹੈ?",
+  "booking.mode.addressHint": "ਸਾਈਟ 'ਤੇ ਮੁਲਾਕਾਤ ਲਈ ਲਾਜ਼ਮੀ — ਇਸ ਨਾਲ ਅਸੀਂ ਉਹ ਸਮੇਂ ਲੁਕਾ ਸਕਦੇ ਹਾਂ ਜਦੋਂ ਅਸੀਂ ਸਮੇਂ ਸਿਰ ਨਹੀਂ ਪਹੁੰਚ ਸਕਦੇ।",
+  "booking.mode.phoneToRing": "ਕਾਲ ਕਰਨ ਲਈ ਫ਼ੋਨ ਨੰਬਰ",
+  "booking.mode.phoneHint": "ਅਸੀਂ ਤੁਹਾਡੇ ਚੁਣੇ ਸਮੇਂ 'ਤੇ ਇਸ ਨੰਬਰ 'ਤੇ ਕਾਲ ਕਰਾਂਗੇ।",
+  "booking.mode.feeWord": "ਬੁਕਿੰਗ ਫ਼ੀਸ",
 
   "footer.product": "ਉਤਪਾਦ",
   "footer.company": "ਕੰਪਨੀ",
@@ -2886,6 +2916,12 @@ const tl = {
   "booking.work.notesPlaceholder":
     "Ano ang kailangang gawin, gaano kalaki, anumang hindi karaniwan…",
   "booking.work.notesHint": "Opsyonal — para handa kami pagdating.",
+  "booking.mode.howTitle": "Paano mo gustong magkita tayo?",
+  "booking.mode.whereTitle": "Saan kami pupunta?",
+  "booking.mode.addressHint": "Kailangan para sa on-site na pagbisita — at nagagawa naming itago ang mga oras na hindi kami makakarating sa takdang oras.",
+  "booking.mode.phoneToRing": "Numero ng teleponong tatawagan",
+  "booking.mode.phoneHint": "Tatawagan namin ang numerong ito sa oras na pinili mo.",
+  "booking.mode.feeWord": "bayad sa booking",
 
   "footer.product": "Produkto",
   "footer.company": "Kompanya",
@@ -3318,6 +3354,12 @@ const de = {
   "booking.work.notesLabel": "Sollten wir etwas wissen?",
   "booking.work.notesPlaceholder": "Was zu tun ist, ungefähr wie groß, alles Ungewöhnliche beim Zugang…",
   "booking.work.notesHint": "Optional — dann kommen wir vorbereitet.",
+  "booking.mode.howTitle": "Wie möchten Sie sich mit uns treffen?",
+  "booking.mode.whereTitle": "Wohin sollen wir kommen?",
+  "booking.mode.addressHint": "Erforderlich für einen Vor-Ort-Termin — und wir können damit Zeiten ausblenden, zu denen wir nicht rechtzeitig bei Ihnen wären.",
+  "booking.mode.phoneToRing": "Telefonnummer für den Anruf",
+  "booking.mode.phoneHint": "Wir rufen diese Nummer zur gewählten Zeit an.",
+  "booking.mode.feeWord": "Buchungsgebühr",
   "features.everything": "Alles, was Ihr Betrieb braucht, an einem Ort",
   "features.anyTrade": "Für jedes Gewerk gebaut",
   "ai.badge": "FieldQuo AI",
@@ -3697,6 +3739,12 @@ const zh = {
   "booking.work.notesLabel": "有什么我们该知道的吗？",
   "booking.work.notesPlaceholder": "要做什么，大概多大量，进场有没有什么特殊情况…",
   "booking.work.notesHint": "选填——写了我们上门时更有准备。",
+  "booking.mode.howTitle": "您希望以哪种方式沟通？",
+  "booking.mode.whereTitle": "我们应该去哪里？",
+  "booking.mode.addressHint": "上门服务需要地址 — 它还能让我们隐藏无法准时到达的时间段。",
+  "booking.mode.phoneToRing": "我们应拨打的电话号码",
+  "booking.mode.phoneHint": "我们会在您选择的时间拨打此号码。",
+  "booking.mode.feeWord": "预约费",
   "features.everything": "生意要用的，都在一处",
   "features.anyTrade": "适合任何工种",
   "ai.badge": "FieldQuo AI",
@@ -4105,6 +4153,12 @@ const it = {
   "booking.work.notesPlaceholder":
     "Che cosa c'è da fare, all'incirca quanto è grande, qualsiasi difficoltà per arrivarci…",
   "booking.work.notesHint": "Facoltativo — ci permette di arrivare preparati.",
+  "booking.mode.howTitle": "Come preferisce incontrarci?",
+  "booking.mode.whereTitle": "Dove dobbiamo venire?",
+  "booking.mode.addressHint": "Necessario per un sopralluogo — e ci permette di nascondere gli orari in cui non riusciremmo ad arrivare in tempo.",
+  "booking.mode.phoneToRing": "Numero di telefono da chiamare",
+  "booking.mode.phoneHint": "Chiameremo questo numero all'orario scelto.",
+  "booking.mode.feeWord": "costo di prenotazione",
 
   "features.everything": "Tutto quello che serve alla sua impresa, in un unico posto",
   "features.anyTrade": "Pensato per qualsiasi mestiere",

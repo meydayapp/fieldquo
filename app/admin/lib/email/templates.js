@@ -43,6 +43,34 @@ import { sendEmail, senderFor } from "@/lib/email/resend";
 import { describeWindow, letterLocale } from "@/lib/booking/arrivalWindow";
 import { formatMoney } from "@/lib/currency";
 import { emailCopy, EMAIL_COPY } from "@/lib/i18n/emailCopy";
+import { bookingModeLine, bookingModeLabel, bookingModeNoun, bookingFeeLine, bookingModeCopy } from "@/lib/booking/bookingModes";
+
+/**
+ * How a letter describes the appointment, given what it knows.
+ *
+ * `where` is the booking's own facts — { mode, address, phone, email } — and
+ * when it is there, each letter builds its line in ITS language: the client's
+ * copy in the client's, the office's copy in the office's. A single
+ * preformatted `location` string cannot do that, which is why the older
+ * argument stays only as the fallback for a hand-booked appointment
+ * (app/api/appointments, lib/schedule/clientNotice) that has no mode to name.
+ *
+ * With a mode, the subject and the intro name the MODE ("Confirmed: On-site
+ * visit with Northline", "Your phone call with Northline is confirmed") and
+ * the service moves to a row of its own; without one they name the service as
+ * they always did. The owner's complaint was exactly that the letter said
+ * "Consultation" and never which kind.
+ */
+function describeAppointment({ where, location, eventTypeName, language }) {
+  const mode = where?.mode;
+  if (!mode) return { subjectName: eventTypeName, introName: eventTypeName, whereLine: location, whatRow: null };
+  return {
+    subjectName: bookingModeLabel(mode, language),
+    introName: bookingModeNoun(mode, language),
+    whereLine: bookingModeLine({ ...where, language }),
+    whatRow: eventTypeName || null,
+  };
+}
 
 /**
  * The letter's sentences, for one language.
@@ -251,6 +279,13 @@ export function buildBookingConfirmationEmail({
   eventTypeName,
   startTime,
   location,
+  where = null,
+  // What was paid to book, as { cents, currency } — 0 for a free booking.
+  // Only a letter with a mode prints it ("$49 paid" / "No charge"): the
+  // owner's point was that not every consultation costs the same, so the
+  // letter says which this one did. Absent (a hand-booked appointment) says
+  // nothing about money, as before.
+  feePaid = null,
   timezone,
   arrivalWindowMinutes,
   manageUrl,
@@ -259,6 +294,17 @@ export function buildBookingConfirmationEmail({
   language = "en",
 }) {
   const copy = visitCopy(language);
+  const named = describeAppointment({ where, location, eventTypeName, language });
+  const feeRow =
+    where?.mode && feePaid
+      ? {
+          label: bookingModeCopy(language).feeLabel,
+          value: bookingFeeLine({
+            amountText: Number(feePaid.cents) > 0 ? formatMoney(Number(feePaid.cents) / 100, feePaid.currency) : null,
+            language,
+          }),
+        }
+      : null;
 
   // ── Window if the company set one, exact time otherwise ──────────────────
   //
@@ -275,18 +321,20 @@ export function buildBookingConfirmationEmail({
     headline: esc(copy.confirmedHeadline),
     intro: [
       esc(copy.greeting(clientName)),
-      esc(copy.confirmedIntro(eventTypeName, companyName)),
+      esc(copy.confirmedIntro(named.introName, companyName)),
       ...aboutLine({ about, quoteNumber }, copy),
     ],
     rows: [
+      { label: copy.what, value: named.whatRow },
       { label: copy.when, value: when },
-      { label: copy.where, value: location },
+      { label: copy.where, value: named.whereLine },
+      ...(feeRow ? [feeRow] : []),
     ],
     ...(manageUrl && { action: { url: manageUrl, label: copy.manageCta } }),
     footnote: manageUrl ? copy.changeViaLink : copy.changeViaReply,
   });
 
-  return { subject: copy.confirmedSubject(eventTypeName, companyName), html };
+  return { subject: copy.confirmedSubject(named.subjectName, companyName), html };
 }
 
 export async function sendBookingConfirmationEmail({ to, company, ...rest }) {
@@ -336,6 +384,7 @@ export function buildVisitCancelledEmails({
   eventTypeName,
   startTime,
   location,
+  where = null,
   timezone,
   refund = {},
   quoteNumber,
@@ -345,6 +394,7 @@ export function buildVisitCancelledEmails({
 }) {
   const companyName = company?.name || "";
   const copy = visitCopy(language);
+  const named = describeAppointment({ where, location, eventTypeName, language });
   const when = formatWhen(startTime, timezone, language);
   const amount = feeAmount(refund.amountCents, refund.currency || company?.currency);
   const byOffice = initiatedBy === "office";
@@ -369,15 +419,16 @@ export function buildVisitCancelledEmails({
       esc(copy.greeting(clientName)),
       esc(
         byOffice
-          ? copy.cancelledByOffice(eventTypeName, companyName)
-          : copy.cancelledByYou(eventTypeName, companyName),
+          ? copy.cancelledByOffice(named.introName, companyName)
+          : copy.cancelledByYou(named.introName, companyName),
       ),
       ...aboutLine({ about, quoteNumber }, copy),
       ...(feeLine ? [esc(feeLine)] : []),
     ],
     rows: [
+      { label: copy.what, value: named.whatRow },
       { label: copy.wasBookedFor, value: when },
-      { label: copy.where, value: location },
+      { label: copy.where, value: named.whereLine },
     ],
     footnote: byOffice ? copy.cancelledFootnoteByOffice : copy.cancelledFootnoteByYou,
   });
@@ -387,13 +438,19 @@ export function buildVisitCancelledEmails({
   // button does not need a letter about it.
   const officeCopy = visitCopy(company?.defaultLanguage || "en");
   const officeWhen = formatWhen(startTime, timezone, company?.defaultLanguage || "en");
+  const officeNamed = describeAppointment({
+    where,
+    location,
+    eventTypeName,
+    language: company?.defaultLanguage || "en",
+  });
   const companyHtml = byOffice
     ? null
     : bookingEmailShell({
         companyName,
         headline: esc(officeCopy.officeCancelledHeadline),
         intro: [
-          esc(officeCopy.officeCancelledIntro(clientName, eventTypeName)),
+          esc(officeCopy.officeCancelledIntro(clientName, officeNamed.introName)),
           ...(feeLine
             ? [
                 esc(
@@ -407,8 +464,9 @@ export function buildVisitCancelledEmails({
         rows: [
           { label: officeCopy.client, value: clientName },
           { label: officeCopy.email, value: clientEmail },
+          { label: officeCopy.what, value: officeNamed.whatRow },
           { label: officeCopy.wasBookedFor, value: officeWhen },
-          { label: officeCopy.where, value: location },
+          { label: officeCopy.where, value: officeNamed.whereLine },
         ],
         footnote: officeCopy.officeCancelledFootnote,
       });
@@ -416,7 +474,7 @@ export function buildVisitCancelledEmails({
   return {
     client: {
       to: clientEmail,
-      subject: copy.cancelledSubject(eventTypeName, companyName),
+      subject: copy.cancelledSubject(named.subjectName, companyName),
       html: clientHtml,
     },
     company: {
@@ -477,6 +535,7 @@ export function buildVisitRescheduledEmails({
   previousStartTime,
   startTime,
   location,
+  where = null,
   timezone,
   arrivalWindowMinutes,
   manageUrl,
@@ -487,6 +546,7 @@ export function buildVisitRescheduledEmails({
 }) {
   const companyName = company?.name || "";
   const copy = visitCopy(language);
+  const named = describeAppointment({ where, location, eventTypeName, language });
   const byOffice = initiatedBy === "office";
   const wasWhen = formatWhen(previousStartTime, timezone, language);
   const clientWhen =
@@ -500,15 +560,16 @@ export function buildVisitRescheduledEmails({
       esc(copy.greeting(clientName)),
       esc(
         byOffice
-          ? copy.movedByOffice(eventTypeName, companyName)
-          : copy.movedByYou(eventTypeName, companyName),
+          ? copy.movedByOffice(named.introName, companyName)
+          : copy.movedByYou(named.introName, companyName),
       ),
       ...aboutLine({ about, quoteNumber }, copy),
     ],
     rows: [
+      { label: copy.what, value: named.whatRow },
       { label: copy.newTime, value: clientWhen },
       { label: copy.previously, value: wasWhen },
-      { label: copy.where, value: location },
+      { label: copy.where, value: named.whereLine },
     ],
     ...(manageUrl && { action: { url: manageUrl, label: copy.manageCta } }),
     footnote: copy.movedFootnote,
@@ -521,21 +582,23 @@ export function buildVisitRescheduledEmails({
   const officeCopy = visitCopy(officeLanguage);
   const exactWhen = formatWhen(startTime, timezone, officeLanguage);
   const officeWasWhen = formatWhen(previousStartTime, timezone, officeLanguage);
+  const officeNamed = describeAppointment({ where, location, eventTypeName, language: officeLanguage });
   const companyHtml = byOffice
     ? null
     : bookingEmailShell({
         companyName,
         headline: esc(officeCopy.officeMovedHeadline),
         intro: [
-          esc(officeCopy.officeMovedIntro(clientName, eventTypeName)),
+          esc(officeCopy.officeMovedIntro(clientName, officeNamed.introName)),
           esc(officeCopy.officeMovedLine),
         ],
         rows: [
           { label: officeCopy.client, value: clientName },
           { label: officeCopy.email, value: clientEmail },
+          { label: officeCopy.what, value: officeNamed.whatRow },
           { label: officeCopy.newTime, value: exactWhen },
           { label: officeCopy.previously, value: officeWasWhen },
-          { label: officeCopy.where, value: location },
+          { label: officeCopy.where, value: officeNamed.whereLine },
         ],
         footnote: officeCopy.officeMovedFootnote,
       });
@@ -543,7 +606,7 @@ export function buildVisitRescheduledEmails({
   return {
     client: {
       to: clientEmail,
-      subject: copy.movedSubject(eventTypeName, companyName),
+      subject: copy.movedSubject(named.subjectName, companyName),
       html: clientHtml,
     },
     company: {

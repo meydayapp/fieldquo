@@ -251,6 +251,52 @@ async function runScene(scene) {
     await wait(500);
     return;
   }
+  if (scene === "booking-pick-paid") {
+    await clickButton("Measurement visit");
+    await wait(900);
+    const day17 = [...document.querySelectorAll("button")].find((b) => b.textContent.trim() === "17" && !b.disabled);
+    if (!day17) throw new Error("scene: no day 17 in the calendar");
+    day17.click();
+    await wait(500);
+    return;
+  }
+  if (scene === "booking-details-visit" || scene === "booking-details-call") {
+    // The consultation, then the mode (the fixture company offers a visit
+    // and a call, so the picker renders), then the first open day and its
+    // first time — which lands on step 3, the details form, where the
+    // required field for the mode and the sentence under Book are.
+    await clickButton("Kitchen design consultation");
+    await wait(600);
+    const picker = await until("[data-booking-modes]");
+    const wanted = scene.endsWith("call") ? "call" : "visit";
+    const chip = [...picker.querySelectorAll("button")][wanted === "call" ? 1 : 0];
+    if (!chip) throw new Error("scene: no mode chip");
+    chip.click();
+    await wait(600);
+    const day17 = [...document.querySelectorAll("button")].find((b) => b.textContent.trim() === "17" && !b.disabled);
+    if (!day17) throw new Error("scene: no day 17 in the calendar");
+    day17.click();
+    await wait(500);
+    const time = [...document.querySelectorAll("button")].find((b) => /^\d{1,2}:\d{2}/.test(b.textContent.trim()) && !b.disabled);
+    if (!time) throw new Error("scene: no time button");
+    time.click();
+    await wait(500);
+    // A name and an email, so the only thing holding Book back is the
+    // mode's own field — the point of the frame.
+    const inputs = [...document.querySelectorAll("input")];
+    const setValue = (el, v) => {
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set;
+      setter.call(el, v);
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+    };
+    const name = inputs.find((i) => i.autofocus || i.required);
+    if (name) setValue(name, "Sophie Tremblay");
+    const email = inputs.find((i) => i.type === "email");
+    if (email) setValue(email, "sophie@example.com");
+    await wait(300);
+    window.scrollTo(0, 0);
+    return;
+  }
   if (scene === "instant-pick") {
     // The estimator opens with nothing picked ("Pick a service"); picking a
     // trade is the first thing anyone does, and it reveals the intake.

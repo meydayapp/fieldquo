@@ -4,8 +4,9 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { findBookingCompany } from "@/lib/booking/findBookingCompany";
-import { effectiveBookingFeeCents } from "@/lib/booking/fee";
+import { effectiveBookingFeeCents, bookingModePresets } from "@/lib/booking/fee";
 import { categoryLabel } from "@/lib/i18n/translateContent";
+import { offeredModes } from "@/lib/booking/bookingModes";
 
 // Public — company branding + bookable event types for the public booking page
 export async function GET(request, { params }) {
@@ -26,6 +27,15 @@ export async function GET(request, { params }) {
     // Which ways a client may meet them. Public on purpose — the visitor has to
     // choose one before booking.
     bookingModes: true,
+    // Each mode's preset — length and fee — resolved below into `modes` so
+    // the page can say "Phone call · 20 min · Free" beside "On-site visit ·
+    // 60 min · $49". Resolved server-side by lib/booking/fee.js; the raw
+    // columns are destructured OUT of the public payload below.
+    defaultVisitMinutes: true,
+    callMinutes: true,
+    videoMinutes: true,
+    callFeeCents: true,
+    videoFeeCents: true,
     // For the service labels below: a French shop's booking page must not offer
     // "Cabinet Refinishing".
     defaultLanguage: true,
@@ -52,7 +62,6 @@ export async function GET(request, { params }) {
         name: true,
         slug: true,
         durationMinutes: true,
-        location: true,
         feeCents: true,
         promoFeeCents: true,
         promoActive: true,
@@ -76,9 +85,20 @@ export async function GET(request, { params }) {
       name: et.name,
       slug: et.slug,
       durationMinutes: et.durationMinutes,
-      location: et.location,
+      // EventType.location is deliberately NOT here. It was the free-text
+      // "Phone or on-site visit" label the seeded consultation carried, and
+      // the page printed it next to the clock as if it told the visitor
+      // something. The mode's own words come from lib/booking/bookingModes.js
+      // in the visitor's language; nothing public reads this column now.
       feeCents,
       feeStandardCents,
+      // Each offered mode's preset for THIS event — { minutes, feeCents,
+      // feeStandardCents } — the event's own length and fee for a visit, the
+      // company's for a call and a video call. Decided here by the same
+      // functions the confirm route reserves and charges with, so what the
+      // chips say is what is booked and what is paid. `feeCents` above is
+      // the visit's, kept for older readers of this payload.
+      modes: bookingModePresets({ company, eventType: et }),
     };
   });
 
@@ -95,7 +115,7 @@ export async function GET(request, { params }) {
   //
   // A comment asserting the opposite of the code is worse than no comment: the
   // next person reads it instead of the line.
-  const { stripeChargesEnabled, serviceCategories, ...pub } = company;
+  const { stripeChargesEnabled, serviceCategories, defaultVisitMinutes, callMinutes, videoMinutes, callFeeCents, videoFeeCents, ...pub } = company;
   // Flattened to { key, label } and nothing else, because every field that
   // leaves this endpoint is one somebody has to
   // check for prices.
@@ -110,5 +130,7 @@ export async function GET(request, { params }) {
       label: categoryLabel(c, company.defaultLanguage || "en"),
     }));
 
-  return NextResponse.json({ ...pub, eventTypes, services });
+  // Normalised, never raw: an empty array is the schema's "not stated" and the
+  // page must read it as visit-only, the same way the confirm route does.
+  return NextResponse.json({ ...pub, bookingModes: offeredModes(company), eventTypes, services });
 }
