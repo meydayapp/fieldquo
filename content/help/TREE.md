@@ -70,7 +70,7 @@ callbacks, the crew inbox, team chat, How You Compare, the KPI dashboard,
 
 <!-- tree:start -->
 
-_Generated 2026-09-19 — 320 articles in the tree; written: en 320, fr 320, es 320; “Only in FieldQuo”: 34._
+_Generated 2026-09-20 — 321 articles in the tree; written: en 321, fr 321, es 321; “Only in FieldQuo”: 34._
 
 ### getting-started (23)
 
@@ -354,7 +354,7 @@ _Generated 2026-09-19 — 320 articles in the tree; written: en 320, fr 320, es 
 | `import-expenses-from-a-bank-csv` — Import expenses from a bank CSV | ✓ | ✓ | ✓ | expenses | expenses |  |
 | `overhead-and-your-minimum-price` — Overhead and your minimum price | ✓ | ✓ | ✓ | settings-overhead | break_even |  |
 
-### settings (45)
+### settings (46)
 
 | Article | en | fr | es | Screen | Feature | Only |
 |---|:-:|:-:|:-:|---|---|:-:|
@@ -368,6 +368,7 @@ _Generated 2026-09-19 — 320 articles in the tree; written: en 320, fr 320, es 
 | `settings-activity-log` — Activity Log | ✓ | ✓ | ✓ | settings-activity | activity_log |  |
 | `settings-team` — Team | ✓ | ✓ | ✓ | settings-team | team_access |  |
 | `settings-your-hours` — Your hours | ✓ | ✓ | ✓ | settings-availability | booking_page |  |
+| `settings-my-calendar` — My calendar | ✓ | ✓ | ✓ | settings-my-calendar | scheduling |  |
 | `settings-time-off-policies` — Time off policies | ✓ | ✓ | ✓ | settings-leave | time_off |  |
 | `settings-booking-page` — Booking Page | ✓ | ✓ | ✓ | settings-booking-page | booking_page |  |
 | `settings-work-areas` — Work Areas | ✓ | ✓ | ✓ | settings-work-areas | work_areas |  |

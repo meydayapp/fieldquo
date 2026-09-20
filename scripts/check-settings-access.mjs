@@ -254,7 +254,7 @@ ok(!named(supervisorRows, "app.settings.accountBilling"),
 //
 // Everything above asks about a ROLE, and Crew is not one: PERMISSION_PRESETS
 // .worker and .estimator both map to `employee`. So the owner's spec — Crew's
-// entire settings surface is three rows — can only be checked by building the
+// entire settings surface is four rows — can only be checked by building the
 // member the preset actually produces and running the real predicate over it.
 //
 // The preset is IMPORTED rather than restated. A copy of the grid here would
@@ -280,6 +280,7 @@ const CREW_SETTINGS = [
   "app.settings.productUpdates", // what changed in the product
   "app.settings.language", // the language THEY read the app in
   "app.settings.availability", // the hours they can be scheduled
+  "app.settings.myCalendar", // their own schedule on their own phone
 ];
 
 const crewRows = rowsFor("worker");
@@ -290,11 +291,11 @@ for (const key of CREW_SETTINGS) {
   ok(crewRows.includes(key), `Crew keeps ${key}`);
 }
 ok(crewRows.length === CREW_SETTINGS.length,
-  "…and nothing else. Crew's whole settings surface is those three rows",
+  "…and nothing else. Crew's whole settings surface is those four rows",
   crewRows.filter((k) => !CREW_SETTINGS.includes(k)).join(", ") ||
     `${crewRows.length} rows`);
 
-// The tier directly above, so "Crew sees three" is not achieved by breaking the
+// The tier directly above, so "Crew sees four" is not achieved by breaking the
 // person whose job needs the price book. Estimator is the SAME ROLE with
 // showPricing on — which is exactly why these four rows are grid rules and not
 // role capabilities.
