@@ -22,11 +22,17 @@ import { fileURLToPath } from "node:url";
 
 import {
   CONVERSATION_MIN_CONTRACTOR_WORDS,
+  CONVERSATION_MIN_SECONDS,
+  PICKUP_MIN_SECONDS,
   connectFigures,
   contractorWords,
   conversationVerdict,
+  measuredConversation,
+  pickupBand,
+  pickupFigures,
   wasConnected,
 } from "@/lib/sales/calls/conversation";
+import { CONTRACTOR_WORDS_SQL } from "@/lib/sales/calls/contractorWordsSql";
 import {
   DIALLER_GAP_BREAK_MS,
   NOT_TRACKED_CALLS,
@@ -323,7 +329,7 @@ section("6. Wiring — the properties that cannot be executed here");
   const costsRoute = decomment(read("app/api/platform/costs/route.js"));
   ok("the costs API is superadmin-only on GET and POST", (costsRoute.match(/admin\.role !== "superadmin"/g) || []).length >= 1 && /async function gate/.test(costsRoute) && /await gate\(request\)/.test(costsRoute));
   const summary = decomment(read("lib/platform/costs/summary.js"));
-  ok("the summary excludes test dials in SQL and counts contractor words in SQL", /TEST_DIAL_SQL_EXCLUSION/.test(summary) && /seg->>'speaker' = 'contractor'/.test(summary));
+  ok("the summary excludes test dials in SQL and counts contractor words in SQL (the shared fragment)", /TEST_DIAL_SQL_EXCLUSION/.test(summary) && /\$\{CONTRACTOR_WORDS_SQL\}/.test(summary) && /seg->>'speaker' = 'contractor'/.test(read("lib/sales/calls/contractorWordsSql.js")));
   ok("every block of the summary carries a source and an as-of", (summary.match(/source: /g) || []).length >= 5 && (summary.match(/asOf: /g) || []).length >= 5);
   const pkg = JSON.parse(read("package.json"));
   ok("the script is registered and in check:all", typeof pkg.scripts["check:sales-costs"] === "string" && /check:sales-costs/.test(pkg.scripts["check:all"]));
@@ -366,6 +372,56 @@ section("6. Wiring — the properties that cannot be executed here");
   ok("an unknown count is an unknown rent, never zero", retellRent(null, new Date(), new Date()).cents === null);
   const page = read("app/platform/costs/page.js");
   ok("the page prints the rent figure and the two Twilio sides", /data\.retell\.rent\.cents === null \? UNKNOWN : money\(data\.retell\.rent\.cents\)/.test(page) && /data-twilio-sides/.test(page) && /sides\.tenants\.cents/.test(page));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("9. The carrier's stopwatch — picked up, and reported vs measured");
+{
+  ok("the thresholds are stated: twenty seconds, a minute", PICKUP_MIN_SECONDS === 20 && CONVERSATION_MIN_SECONDS === 60);
+  const leg = (talkSeconds, extra = {}) => ({ dialChannel: "browser", direction: "out", providerStatus: "completed", talkSeconds, answeredAt: T0, ...extra });
+  ok("a no-answer leg is 'unanswered'", pickupBand({ dialChannel: "browser", providerStatus: "no-answer", talkSeconds: 0 }) === "unanswered");
+  ok("a handset dial is unmeasured — null, never a band", pickupBand({ dialChannel: "handset", disposition: "reached" }) === null);
+  ok("a bridge with no final signal is unmeasured too", pickupBand({ dialChannel: "browser" }) === null);
+  ok("the bands: 12 s under, 45 s between, 60 s over", pickupBand(leg(12)) === "under20" && pickupBand(leg(45)) === "band20to60" && pickupBand(leg(60)) === "over60" && pickupBand(leg(19)) === "under20" && pickupBand(leg(20)) === "band20to60");
+  ok("a 45-second call with no transcript is not a conversation, by the clock", JSON.stringify(measuredConversation(leg(45))) === '{"talked":false,"basis":"duration"}');
+  ok("a 90-second call with no transcript is one, by the clock", JSON.stringify(measuredConversation(leg(90))) === '{"talked":true,"basis":"duration"}');
+  ok("a 45-second call whose transcript has 20 contractor words IS one — the transcript replaces the clock", JSON.stringify(measuredConversation(leg(45, { transcript: [say("contractor", 20)] }))) === '{"talked":true,"basis":"transcript"}');
+  ok("a 90-second call whose contractor said 3 words is NOT one — the clock is the stand-in, not the rule", JSON.stringify(measuredConversation(leg(90, { transcript: [say("contractor", 3)] }))) === '{"talked":false,"basis":"transcript"}');
+  ok("…and the SQL-counted words are honoured the same way", measuredConversation(leg(90, { contractorWords: 3 })).talked === false);
+
+  // The owner's hand count, reproduced: 135 legs → 22 / 13 / 72 / 28.
+  const hand = [
+    ...Array.from({ length: 22 }, () => ({ dialChannel: "browser", direction: "out", providerStatus: "no-answer", talkSeconds: 0, disposition: "no_answer" })),
+    ...Array.from({ length: 13 }, () => leg(10, { disposition: "no_answer" })),
+    ...Array.from({ length: 72 }, (_, i) => leg(40, { disposition: i < 40 ? "reached_not_interested" : "voicemail" })),
+    ...Array.from({ length: 28 }, (_, i) => leg(120, { disposition: i < 19 ? "reached_interested" : "callback" })),
+    { dialChannel: "handset", direction: "out", disposition: "reached" },
+  ];
+  const f = pickupFigures(hand, { reported: { reached: 59, logged: 135 } });
+  ok("135 measured legs, the handset dial not among them", f.legs === 135 && f.bands.unanswered === 22 && f.bands.under20 === 13 && f.bands.band20to60 === 72 && f.bands.over60 === 28, f.bands);
+  ok("picked up = 100 of 135 = 74.1%", f.pickedUp.hit === 100 && f.pickedUp.sampleSize === 135 && f.pickedUp.value === 74.1, f.pickedUp);
+  ok("conversation = 28 of 135 = 20.7%, all from the clock", f.conversation.hit === 28 && f.conversation.value === 20.7 && f.fromDuration === 135 && f.fromTranscript === 0, f.conversation);
+  ok("reported = 59 of 135 = 43.7%, and the gap is +23 whole points", f.reported.value === 43.7 && f.overMarkedPoints === 23, { reported: f.reported, gap: f.overMarkedPoints });
+  ok("under the floor the gap is null, not zero", pickupFigures(hand.slice(0, 3), { reported: { reached: 1, logged: 3 } }).overMarkedPoints === null);
+  ok("no rows is zero legs and null rates", pickupFigures([]).legs === 0 && pickupFigures(null).pickedUp.value === null);
+
+  // repCallStats carries it, over PLACED calls, with the rep's reach over the same rows.
+  const stats = repCallStats({ attempts: [...hand.slice(0, 5), { dialChannel: "browser", direction: "in", providerStatus: "completed", talkSeconds: 300, answeredAt: T0, disposition: "reached" }], from: null, to: null });
+  ok("repCallStats.pickup is over placed calls only — the inbound conversation is not in it", stats.pickup.legs === 5 && stats.pickup.bands.unanswered === 5, stats.pickup);
+  ok("…and its `reported` is the disposition mix of those same placed calls", stats.pickup.reported === null || stats.pickup.reported.sampleSize === 5);
+
+  // The word count leaves the database as a number, split on whitespace — not on the letter s.
+  ok("the SQL fragment splits words on whitespace", /regexp_split_to_array\(trim\(seg->>'text'\), '\\s\+'\)/.test(CONTRACTOR_WORDS_SQL.strings.join("")) , CONTRACTOR_WORDS_SQL.strings.join("").slice(0, 200));
+  ok("…and the costs summary uses it rather than an inline copy", /\$\{CONTRACTOR_WORDS_SQL\} AS "contractorWords"/.test(read("lib/platform/costs/summary.js")) && !/regexp_split_to_array/.test(read("lib/platform/costs/summary.js")));
+  ok("the performance loader selects what wasConnected() reads, and attaches the SQL word count", /providerStatus: true,\s*endReason: true,\s*endedAt: true/.test(read("lib/sales/performanceLoad.js")) && /contractorWordCounts\(\{ ids/.test(read("lib/sales/performanceLoad.js")));
+  const comp = read("app/components/sales/CallPerformanceSections.js");
+  ok("the shared component draws the section, with the bands and the gap", /data-performance-pickup/.test(comp) && /overMarkedPoints/.test(comp) && /bandBetween\(p\.pickupMinSeconds, p\.conversationMinSeconds\)/.test(comp));
+  for (const page of ["app/platform/sales/performance/page.js", "app/sales/agency/performance/page.js"]) {
+    const src = read(page);
+    ok(`${page} hands the component every pickup label`, ["pickupHeading", "pickupIntro", "prospectLegs", "pickedUp", "conversationMeasured", "reportedVsMeasured", "bands", "points", "conversationBasis", "bandUnanswered", "bandUnder", "bandBetween", "bandOver", "pickupLegend"].every((k) => new RegExp(`\\b${k}:`).test(src)));
+  }
+  ok("the legend says where voicemail sits", /20–60/.test(read("app/platform/sales/performance/page.js")) && /Voicemail pickups sit in the 20–60 second band/.test(read("app/platform/sales/performance/page.js")));
+  ok("answering-machine detection is off, and the legend says why", /billed per call/.test(read("app/platform/sales/performance/page.js")));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

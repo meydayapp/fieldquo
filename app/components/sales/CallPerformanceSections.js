@@ -100,6 +100,76 @@ function CallRow({ name, sub, stats, labels, href }) {
   );
 }
 
+/**
+ * Points between what the rep reported and what the clock measured. Red
+ * when the rep is ahead of the carrier by ten points or more — that is the
+ * discrepancy the section exists to show — and plain otherwise. Null (no
+ * percentage on one side) prints as a dash, never as zero.
+ */
+function OverMarked({ points, labels }) {
+  if (points === null || points === undefined) return <span className="text-muted-foreground">—</span>;
+  const cls = points >= 10 ? "text-red-700 dark:text-red-300 font-semibold" : points <= -10 ? "text-emerald-700 dark:text-emerald-300" : "text-foreground";
+  return (
+    <span className={cls}>
+      {points > 0 ? "+" : ""}
+      {points} {labels.points}
+    </span>
+  );
+}
+
+/** One rep's carrier-measured row. `p` is repCallStats().pickup — lib/sales/calls/conversation.js pickupFigures(). */
+function PickupRow({ name, sub, stats, labels, href }) {
+  const p = stats?.pickup;
+  return (
+    <tr className="border-t border-border">
+      <td className={TD}>
+        {href ? (
+          <Link href={href} className="font-medium text-foreground underline">
+            {name}
+          </Link>
+        ) : (
+          <div className="font-medium text-foreground">{name}</div>
+        )}
+        {sub ? <div className="text-xs text-muted-foreground">{sub}</div> : null}
+      </td>
+      <td className={`${TD} tabular-nums`}>{p ? p.legs : "—"}</td>
+      <td className={TD}>
+        <Rate value={p?.pickedUp} belowFloor={labels.belowFloor} />
+      </td>
+      <td className={TD}>
+        <Rate value={p?.conversation} belowFloor={labels.belowFloor} />
+        {p && p.legs > 0 ? <div className="text-xs text-muted-foreground">{labels.conversationBasis(p.fromTranscript, p.fromDuration)}</div> : null}
+      </td>
+      <td className={TD}>
+        <Rate value={p?.reported} belowFloor={labels.belowFloor} />
+      </td>
+      <td className={TD}>
+        <OverMarked points={p?.overMarkedPoints} labels={labels} />
+      </td>
+      <td className={`${TD} tabular-nums text-xs text-muted-foreground`}>
+        {p && p.legs > 0 ? (
+          <>
+            <div>
+              {labels.bandUnanswered}: {p.bands.unanswered}
+            </div>
+            <div>
+              {labels.bandUnder(p.pickupMinSeconds)}: {p.bands.under20}
+            </div>
+            <div>
+              {labels.bandBetween(p.pickupMinSeconds, p.conversationMinSeconds)}: {p.bands.band20to60}
+            </div>
+            <div>
+              {labels.bandOver(p.conversationMinSeconds)}: {p.bands.over60}
+            </div>
+          </>
+        ) : (
+          "—"
+        )}
+      </td>
+    </tr>
+  );
+}
+
 function QualityRow({ name, sub, row, labels, href }) {
   return (
     <tr className="border-t border-border">
@@ -208,6 +278,51 @@ export default function CallPerformanceSections({ calls, callQuality, labels, re
           </div>
         </div>
         <p className="text-xs text-muted-foreground">{labels.callsNote}</p>
+      </section>
+
+      {/* The carrier's stopwatch beside the rep's report — the section the
+          owner asked for after counting the prospect legs at Twilio by hand
+          (lib/sales/calls/conversation.js, pickupFigures). Its own table
+          rather than two more columns above: the point of it is the last
+          column, and that column needs the others beside it to be read. */}
+      <section className="space-y-2" data-performance-pickup>
+        <h2 className="text-base font-semibold text-foreground">{labels.pickupHeading}</h2>
+        <p className="text-sm text-muted-foreground">{labels.pickupIntro}</p>
+        <div className={`${CARD} p-0 overflow-hidden`}>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[920px] text-sm">
+              <thead className="bg-muted">
+                <tr>
+                  <th className={TH}>{labels.rep}</th>
+                  <th className={TH}>{labels.prospectLegs}</th>
+                  <th className={TH}>{labels.pickedUp}</th>
+                  <th className={TH}>{labels.conversationMeasured}</th>
+                  <th className={TH}>{labels.reachRate}</th>
+                  <th className={TH}>{labels.reportedVsMeasured}</th>
+                  <th className={TH}>{labels.bands}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {calls.reps.length === 0 ? (
+                  <tr>
+                    <td className={TD} colSpan={7}>
+                      {labels.noCalls}
+                    </td>
+                  </tr>
+                ) : (
+                  calls.reps.map((r) => (
+                    <PickupRow key={r.id} name={r.name} sub={r.agency?.name || null} stats={r.stats} labels={labels} href={repHref(r.id)} />
+                  ))
+                )}
+                {calls.agencies.map((a) => (
+                  <PickupRow key={`agency:${a.id}`} name={a.name} sub={labels.agencyOf(a.reps)} stats={a.stats} labels={labels} />
+                ))}
+                {calls.reps.length > 0 ? <PickupRow name={labels.everyone} stats={calls.total} labels={labels} /> : null}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <p className="text-xs text-muted-foreground">{labels.pickupLegend}</p>
       </section>
 
       <section className="space-y-2" data-performance-quality>

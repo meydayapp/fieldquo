@@ -81,6 +81,22 @@ const CALL_LABELS = {
   overCalls: (n) => `over ${n} ${n === 1 ? "call" : "calls"}`,
   agencyOf: (n) => `agency · ${n} ${n === 1 ? "rep" : "reps"}`,
   belowFloor: (remaining) => `${remaining} more before this is a percentage`,
+  pickupHeading: "Picked up — the carrier's clock beside the rep's report",
+  pickupIntro:
+    "Prospect legs only — the call Twilio placed to the contractor's number from a browser dial — measured by how long it lasted. \"Picked up\" is a leg that connected and ran twenty seconds or more. \"Conversation\" is the transcript's verdict where a transcript exists (the contractor said twenty or more words) and, where none does yet, a minute on the clock. \"Reported\" is what the rep logged for the same calls, and the last column is the gap between the two, in points.",
+  prospectLegs: "Prospect legs",
+  pickedUp: "Picked up (≥ 20 s)",
+  conversationMeasured: "Conversation (measured)",
+  reportedVsMeasured: "Reported vs measured",
+  bands: "By duration",
+  points: "pts",
+  conversationBasis: (t, d) => `${t} from transcript · ${d} from the clock`,
+  bandUnanswered: "Never answered",
+  bandUnder: (s) => `Under ${s} s`,
+  bandBetween: (a, b) => `${a}–${b} s`,
+  bandOver: (s) => `${s} s or more`,
+  pickupLegend:
+    "Voicemail pickups sit in the 20–60 second band: a greeting plus a message is answered, times out around a minute, and is not a conversation. The clock cannot tell a person from a machine in that band; answering-machine detection would, and is not turned on because it is billed per call. Every rate is over the legs the carrier measured for that rep — a handset dial has no leg and is not here.",
   qualityHeading: "Call quality",
   qualityIntro:
     "How the recorded calls measured against the playbook the rep was reading — the disclosure, the identity check inside twenty seconds, the permission ask, the banned moves, the pivot, discovery, objections, the next step and the close, scored in lib/sales/calls/qa.js. Where the owner has listened and written a score, that number replaces the model's.",
