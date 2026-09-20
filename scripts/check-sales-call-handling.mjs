@@ -1059,15 +1059,18 @@ ok("the bridge never records the call", (() => {
   return !/record:\s*["']?(true|record-)/.test(src);
 })());
 ok("the status route verifies the signature too", (() => {
-  const body = fnBody("app/api/rep-dial/status/route.js", "export async function POST(");
-  return /verifyTwilioWebhook\(request\)/.test(body);
+  // POST is acknowledged(() => handle(request)) since 2026-09-20 — the
+  // verification is the first line of handle(), and POST only wraps it.
+  const post = fnBody("app/api/rep-dial/status/route.js", "export async function POST(");
+  const body = fnBody("app/api/rep-dial/status/route.js", "async function handle(");
+  return /acknowledged\(\(\) => handle\(request\)/.test(post) && /verifyTwilioWebhook\(request\)/.test(body) && body.indexOf("verifyTwilioWebhook(request)") < body.indexOf("searchParams");
 })());
 ok("the status route never writes a disposition", (() => {
   const src = source("app/api/rep-dial/status/route.js");
   return !/disposition/.test(src);
 })());
 ok("the status route takes the attempt id from the URL we ourselves built", (() => {
-  const body = fnBody("app/api/rep-dial/status/route.js", "export async function POST(");
+  const body = fnBody("app/api/rep-dial/status/route.js", "async function handle(");
   return /searchParams\.get\("attemptId"\)/.test(body);
 })());
 ok("the webhooks are NOT under /api/sales, which middleware would refuse to Twilio", (() => {

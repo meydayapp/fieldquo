@@ -76,6 +76,8 @@ import { sweepQueuedPlaces, sweepRegisterPeople } from "@/lib/sales/intel/places
 import { sweepRecrawls } from "@/lib/sales/pipeline/recrawl";
 import { runApifyTick } from "@/lib/sales/intel/apifyRuns";
 import { reconcileCarrierPrices } from "@/lib/sales/calls/costs";
+import { reconcileRecordings, reconcileProspectLegs } from "@/lib/sales/calls/reconcileProvider";
+import { transcribeMissing } from "@/lib/sales/calls/transcribe";
 import { pullTwilioUsageIfStale } from "@/lib/platform/costs/twilioUsage";
 import { pullDailyProvidersIfStale } from "@/lib/platform/costs/providerPulls";
 
@@ -198,6 +200,33 @@ export async function GET(request) {
     result.twilioUsage = await pullTwilioUsageIfStale({ now, client: db });
   } catch (err) {
     result.twilioUsage = { error: err?.message || String(err) };
+  }
+
+  // The net under the call webhooks (lib/sales/calls/reconcileProvider.js):
+  // recordings the carrier holds that no row carries, prospect legs whose
+  // final status never landed, and the first-day answeredAt overwrite.
+  // Twilio sends a call-progress event once; from 2026-09-18 every one was
+  // answered 500, and this is what files what those days dropped — and
+  // what will file the next dropped one. Then ONE transcription a tick of
+  // a filed recording nobody transcribed: the recording webhook does this
+  // in after() on the day; this catches up. The AI slice below measures
+  // its own budget from `elapsed`, so a slow transcription shortens that
+  // slice rather than overrunning the function.
+  try {
+    result.recordings = await reconcileRecordings({ now, client: db, limit: 50, log: (line) => console.error(line) });
+  } catch (err) {
+    result.recordings = { error: err?.message || String(err) };
+  }
+  try {
+    result.prospectLegs = await reconcileProspectLegs({ now, client: db, limit: 10, log: (line) => console.error(line) });
+  } catch (err) {
+    result.prospectLegs = { error: err?.message || String(err) };
+  }
+  try {
+    const t = await transcribeMissing({ limit: 1, client: db });
+    result.transcribed = { attempted: t.attempted, done: t.done, results: t.results.map((r) => ({ id: r.id, ok: r.ok, reason: r.reason })) };
+  } catch (err) {
+    result.transcribed = { error: err?.message || String(err) };
   }
   // The other bills, once a day each: OpenAI's Costs endpoint, Neon's
   // consumption, Stripe's balance transactions — into the same ledger, for

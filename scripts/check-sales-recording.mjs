@@ -34,6 +34,7 @@ import { recordingsCsv } from "@/lib/sales/calls/recordingsList";
 import { recordCallRecording } from "@/lib/sales/calls/store";
 import { acknowledged, noContent } from "@/lib/sales/calls/twilioAck";
 import { answeredAtFrom } from "@/lib/sales/calls/providerStatus";
+import { recordingFromResource, legColumnsFromCall, pickProspectLeg, reconcileRecordings, reconcileProspectLegs } from "@/lib/sales/calls/reconcileProvider";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const read = (p) => readFileSync(join(ROOT, p), "utf8");
@@ -230,6 +231,80 @@ section("8. 2026-09-18 — the day nothing filed (both faults, executed)");
   ok("a zero-second completed call is stamped at its end", answeredAtFrom({ status: "completed", at: end, seconds: 0 })?.getTime() === end.getTime());
   ok("ringing / no-answer / nothing is null", [answeredAtFrom({ status: "ringing", at: end }), answeredAtFrom({ status: "no-answer", at: end, seconds: 0 }), answeredAtFrom({}), answeredAtFrom({ status: "completed", at: "yesterday", seconds: 3 })].every((v) => v === null));
   ok("the status route uses it", /answeredAt: answeredAtFrom\(\{ status, at, seconds \}\)/.test(read("app/api/rep-dial/status/route.js")));
+}
+
+section("9. The net under the webhooks — lib/sales/calls/reconcileProvider.js");
+{
+  const res = { sid: SID, callSid: "CAparent", conferenceSid: null, status: "completed", duration: "46", channels: 2, source: "DialVerb", uri: `/2010-04-01/Accounts/AC0/Recordings/${SID}.json` };
+  const f = recordingFromResource(res);
+  ok("a Recording resource reads into the webhook's shape", f && f.sid === SID && f.seconds === 46 && f.channels === 2 && f.callSid === "CAparent" && f.url === `https://api.twilio.com/2010-04-01/Accounts/AC0/Recordings/${SID}`, f);
+  ok("…refusing an unfinished one, a bad sid, a foreign uri", recordingFromResource({ ...res, status: "processing" }) === null && recordingFromResource({ ...res, sid: "nope" }) === null && recordingFromResource({ ...res, uri: "/evil" }) === null && recordingFromResource() === null);
+
+  const call = { sid: "CAchild", status: "completed", duration: "45", endTime: new Date("2026-09-18T17:15:04Z"), direction: "outbound-dial", to: "+18193459008" };
+  const cols = legColumnsFromCall(call);
+  ok("a completed child leg gives status, talk, end and the pickup (end − duration)", cols.providerStatus === "completed" && cols.talkSeconds === 45 && cols.endedAt.toISOString() === "2026-09-18T17:15:04.000Z" && cols.answeredAt.toISOString() === "2026-09-18T17:14:19.000Z" && cols.providerCallSid === "CAchild", cols);
+  const na = legColumnsFromCall({ ...call, status: "no-answer", duration: "0" });
+  ok("a no-answer leg is the status and the end reason, no pickup", na.providerStatus === "no-answer" && na.endReason === "no-answer" && !na.answeredAt && na.talkSeconds === 0, na);
+  ok("a leg still ringing is null — nothing final to write", legColumnsFromCall({ ...call, status: "in-progress" }) === null && legColumnsFromCall({}) === null);
+
+  const kids = [{ sid: "CAt", direction: "outbound-dial", to: "+15550001111" }, { sid: "CAp", direction: "outbound-dial", to: "+1 819-345-9008" }, { sid: "CAx", direction: "inbound", to: "+18193459008" }];
+  ok("the prospect leg is the outbound-dial child to the dialled number, formatting aside", pickProspectLeg(kids, "+18193459008")?.sid === "CAp");
+  ok("one outbound child and no number match is that child", pickProspectLeg([kids[0]], "+19999999999")?.sid === "CAt");
+  ok("two outbound children and no match is nobody — never a guess", pickProspectLeg(kids, "+19999999999") === null && pickProspectLeg([], "+1") === null);
+
+  // The recordings sweep against a fake carrier and a fake store.
+  const writes = [];
+  const fakeStore = {
+    salesCallAttempt: {
+      findMany: async ({ where }) => (where.recordingSid?.in ? [{ recordingSid: "RE" + "1".repeat(32) }] : []),
+      updateMany: async (args) => { writes.push(args); return { count: /CAknown/.test(JSON.stringify(args.where)) ? 1 : 0 }; },
+      findFirst: async ({ where }) => (writes.some((w) => w.data.recordingSid === where.recordingSid && /CAknown/.test(JSON.stringify(w.where))) ? { id: "att-known" } : null),
+    },
+    salesRepActivity: {}, salesCallTransfer: { findUnique: async () => null },
+  };
+  const carrier = {
+    recordings: { list: async () => [
+      { ...res, sid: "RE" + "1".repeat(32), callSid: "CAknown" },
+      { ...res, sid: "RE" + "2".repeat(32), callSid: "CAknown" },
+      { ...res, sid: "RE" + "3".repeat(32), callSid: "CAnobody" },
+      { ...res, sid: "RE" + "4".repeat(32), status: "processing" },
+    ] },
+  };
+  process.env.TWILIO_ACCOUNT_SID ||= "AC0"; process.env.TWILIO_AUTH_TOKEN ||= "t";
+  const swept = await reconcileRecordings({ client: fakeStore, twilio: carrier, now: new Date("2026-09-20T00:00:00Z") });
+  ok("the sweep files the recording no row had, skips the one a row has, counts the orphan, ignores the unfinished", swept.listed === 3 && swept.filed === 1 && swept.alreadyFiled === 1 && swept.unmatched === 1 && swept.filedAttemptIds[0] === "att-known", swept);
+  ok("…matching by EITHER leg's sid", /providerCallSid.*CAknown.*repCallSid.*CAknown|repCallSid.*CAknown.*providerCallSid.*CAknown/.test(JSON.stringify(writes[0].where)), writes[0].where);
+
+  // The legs sweep: the overwrite repair needs no carrier; the fetches are capped.
+  const legWrites = [];
+  const end = new Date("2026-09-18T17:15:04Z");
+  const legStore = {
+    salesCallAttempt: {
+      findMany: async ({ where, take }) => {
+        if (where.providerStatus === "completed") return [{ id: "a1", answeredAt: end, endedAt: end, talkSeconds: 45 }, { id: "a2", answeredAt: new Date(end - 1000), endedAt: end, talkSeconds: 45 }];
+        if (where.providerCallSid?.not === null) return [{ id: "b1", providerCallSid: "CAdone" }].slice(0, take);
+        if (where.repCallSid?.not === null) return [{ id: "c1", repCallSid: "CArep", toE164: "+18193459008" }, { id: "c2", repCallSid: "CAlonely", toE164: "+15550000000" }].slice(0, take);
+        return [];
+      },
+      updateMany: async (args) => { legWrites.push(args); return { count: 1 }; },
+    },
+  };
+  const legCarrier = {
+    calls: Object.assign((sid) => ({ fetch: async () => ({ sid, status: "completed", duration: "30", endTime: end }) }), {
+      list: async ({ parentCallSid }) => (parentCallSid === "CArep" ? [{ sid: "CAkid", direction: "outbound-dial", to: "+18193459008", status: "no-answer", duration: "0", endTime: end }] : []),
+    }),
+  };
+  const legs = await reconcileProspectLegs({ client: legStore, twilio: legCarrier, now: new Date("2026-09-20T00:00:00Z"), limit: 10 });
+  ok("answeredAt equal to endedAt is repaired to end − talk, and a row already right is left alone", legs.repairedAnsweredAt === 1 && legWrites[0].where.id === "a1" && legWrites[0].data.answeredAt.toISOString() === "2026-09-18T17:14:19.000Z", legs);
+  ok("a sid with no status is fetched and written", legWrites.some((w) => w.where.id === "b1" && w.data.providerStatus === "completed" && w.data.talkSeconds === 30));
+  ok("a rep leg's outbound child becomes the prospect leg", legWrites.some((w) => w.where.id === "c1" && w.data.providerCallSid === "CAkid" && w.data.providerStatus === "no-answer"));
+  ok("a rep leg with no child is closed as failed / no_prospect_leg, so it is not asked again", legWrites.some((w) => w.where.id === "c2" && w.data.providerStatus === "failed" && w.data.endReason === "no_prospect_leg") && legs.noLeg === 1);
+  ok("carrier reads are counted and capped", legs.fetched === 3 && legs.updated === 2);
+
+  const cron = read("app/api/cron/sales-pipeline/route.js");
+  ok("the cron runs both sweeps and one catch-up transcription a tick, each in its own try", /reconcileRecordings\(\{ now, client: db/.test(cron) && /reconcileProspectLegs\(\{ now, client: db/.test(cron) && /transcribeMissing\(\{ limit: 1, client: db \}\)/.test(cron));
+  ok("…before the AI slice measures what is left", cron.indexOf("transcribeMissing({ limit: 1") < cron.indexOf("const elapsed = Date.now() - now.getTime()"));
+  ok("answering-machine detection is named as the thing NOT turned on", /machineDetection/.test(read("lib/sales/calls/reconcileProvider.js")) && !/machineDetection/.test(read("app/api/rep-dial/bridge/route.js")));
 }
 
 console.log(`\n${failures.length === 0 ? "PASS" : "FAIL"} — ${pass} checks passed, ${failures.length} failed.`);
