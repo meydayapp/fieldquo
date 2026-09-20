@@ -32,6 +32,7 @@ import {
   MAX_PAST_JOB_ROWS,
   parsePastJobsCsv,
 } from "@/lib/jobs/pastJobImport";
+import { offlineMethodLabel } from "@/lib/payments/offlineMethods";
 
 const inputClass =
   "w-full border border-border rounded-lg px-3 py-2 text-sm bg-card focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
@@ -84,7 +85,7 @@ function useErrorText() {
         case "before_start":
           return t("app.pastJobs.err.paidBeforeStart", "Paid before the job started — this screen records jobs paid in full after the work.");
         case "unknown_method":
-          return t("app.pastJobs.err.unknownMethod", "Use cash, cheque, e_transfer or card_elsewhere.");
+          return t("app.pastJobs.err.unknownMethod", "Use cash, cheque, check, e_transfer, zelle, venmo, cash_app, ach, paypal or card_elsewhere.");
         case "live_format":
           return t("app.pastJobs.err.liveFormat", "That looks like a number FieldQuo will allocate this year. Leave it blank, or use your own old reference.");
         case "taken":
@@ -116,7 +117,7 @@ function useColumnHelp() {
       amount: t("app.pastJobs.col.amount", "What you charged, before tax."),
       taxApplied: t("app.pastJobs.col.taxApplied", "yes or no. Blank uses your company default. Tax is worked out from your rate on the job date."),
       paidDate: t("app.pastJobs.col.paidDate", "When it was paid in full, YYYY-MM-DD. Not in the future, not before the job started."),
-      paymentMethod: t("app.pastJobs.col.paymentMethod", "cash, cheque, e_transfer or card_elsewhere."),
+      paymentMethod: t("app.pastJobs.col.paymentMethod", "cash, cheque, check, e_transfer, zelle, venmo, cash_app, ach, paypal or card_elsewhere."),
       labourCost: t("app.pastJobs.col.labourCost", "Optional. What the labour cost you — recorded as an expense on the job."),
       materialsCost: t("app.pastJobs.col.materialsCost", "Optional. What the materials cost you — recorded as an expense on the job."),
       quoteNumber: t("app.pastJobs.col.quoteNumber", "Optional. Your old quote reference. Blank gets a past-job number like Q-2024-H0001."),
@@ -127,15 +128,21 @@ function useColumnHelp() {
 }
 
 function usePaymentMethodLabels() {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   return useMemo(
     () => ({
       cash: t("app.pastJobs.method.cash", "Cash"),
       cheque: t("app.pastJobs.method.cheque", "Cheque"),
       e_transfer: t("app.pastJobs.method.eTransfer", "E-Transfer"),
       card_elsewhere: t("app.pastJobs.method.cardElsewhere", "Card (taken elsewhere)"),
+      // The US methods and PayPal — named by the catalogue that names them
+      // on the invoice (lib/payments/offlineMethods.js), so the word on
+      // this screen is the word on the document.
+      ...Object.fromEntries(
+        ["check", "zelle", "venmo", "cash_app", "ach", "paypal"].map((m) => [m, offlineMethodLabel(m, language)]),
+      ),
     }),
-    [t],
+    [t, language],
   );
 }
 
