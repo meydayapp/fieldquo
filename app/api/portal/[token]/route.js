@@ -11,6 +11,7 @@ import { taxStatement } from "@/lib/tax/documentTax";
 import { documentTaxSentence } from "@/lib/tax/documentSentence";
 import { bankDebitOffer } from "@/lib/stripe/bankDebit";
 import { invoiceBalanceCents } from "@/lib/stripe";
+import { howToPayFor, onlineOptions, HOW_TO_PAY_COMPANY_SELECT } from "@/lib/payments/offlineMethods";
 
 export async function GET(request, { params }) {
   // Next 16: `params` is a Promise; reading it synchronously gives undefined.
@@ -61,7 +62,12 @@ export async function GET(request, { params }) {
           stripeAccountId: true,
           stripeChargesEnabled: true,
           stripeBankDebitEnabled: true,
-          paymentMethods: true,
+          // The "How to pay" block is rendered per invoice below from these
+          // (a stored block wins — see howToPayFor) and every one of them
+          // is stripped from `company` before the response: the homeowner
+          // receives the sentences, never the settings, and an ACH account
+          // number reaches the browser only inside the rendered block.
+          ...HOW_TO_PAY_COMPANY_SELECT,
           // ── For the tax line, and stripped from the payload below ────────
           //
           // Every invoice in this portal carries a tax row, and a row reading
@@ -160,6 +166,11 @@ export async function GET(request, { params }) {
           pendingPaymentAt: true,
           pendingPaymentFailedAt: true,
           pendingPaymentFailure: true,
+          // The "How to pay" block as sent (lib/payments/offlineMethods.js),
+          // and the document's language for building one when the invoice
+          // was issued before the block existed.
+          howToPay: true,
+          language: true,
           // Payment-schedule stages this invoice carries — only the fields
           // safe for a stranger's browser: a label and an amount, never the
           // internal trigger/percentage/job link. `requested` only: a
@@ -251,6 +262,11 @@ export async function GET(request, { params }) {
     stripeAccountId,
     stripeChargesEnabled,
     stripeBankDebitEnabled: _bankDebitEnabled,
+    paymentMethods: _paymentMethods,
+    paymentMethodDetails: _paymentMethodDetails,
+    offerFinancing: _offerFinancing,
+    stripeAffirmStatus: _stripeAffirmStatus,
+    address: _address,
     taxRate: _taxRate,
     autoApplyLocalTax: _autoApply,
     vatRegistered: _vatRegistered,
@@ -351,6 +367,14 @@ export async function GET(request, { params }) {
       failedPayment: invoice.pendingPaymentFailedAt
         ? { method: invoice.pendingPaymentMethod, at: invoice.pendingPaymentFailedAt, reason: invoice.pendingPaymentFailure }
         : null,
+      // How to pay: the block stored at send time, else one built now in the
+      // document's language. Rendered sentences only — the company's
+      // settings above never leave this route.
+      howToPay: howToPayFor(invoice, {
+        company: client.company || {},
+        language: invoice.language || resolveClientLanguage(client, client.company),
+        online: onlinePayments ? onlineOptions(client.company) : null,
+      }),
       taxKind: statement.kind,
       taxAssumedRegion: statement.assumed ? statement.assumedRegion : null,
       taxSentence:

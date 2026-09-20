@@ -26,14 +26,18 @@ export function getDefaultSections(documentType) {
     // An invoice is a demand, not a pitch. No process steps (the work is
     // done), no signature (there's nothing left to accept), no payment
     // schedule (the schedule already happened — what's owed now is the total).
+    // What it DOES need, right after the figure, is how to settle it:
+    // how_to_pay is the pay link and every offline method with its address
+    // (lib/documentSections/HowToPaySection.js).
     return [
       { type: "header", sortOrder: 0 },
       { type: "client_info", sortOrder: 1 },
       { type: "scope_groups", sortOrder: 2 },
       { type: "totals", sortOrder: 3 },
       { type: "payment_summary", sortOrder: 4 },
-      { type: "notes", sortOrder: 5 },
-      { type: "footer", sortOrder: 6 },
+      { type: "how_to_pay", sortOrder: 5 },
+      { type: "notes", sortOrder: 6 },
+      { type: "footer", sortOrder: 7 },
     ];
   }
 

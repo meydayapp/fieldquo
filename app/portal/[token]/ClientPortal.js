@@ -141,7 +141,6 @@ export default function ClientPortal({ token }) {
   // (the raw Stripe account id never crosses to a public endpoint) — see
   // app/api/portal/[token]/route.js.
   const onlinePayments = Boolean(data.onlinePayments);
-  const offlineLines = offlinePaymentLines(c, copy);
 
   // Every invoice here has already been filtered to ISSUED ones server-side
   // (app/api/portal/[token]/route.js) — a draft never reaches this component,
@@ -263,7 +262,7 @@ export default function ClientPortal({ token }) {
                   // No Stripe on this company: say what to do instead, rather
                   // than a Pay button that 400s under their own logo.
                   <span className="text-xs text-[#2d2520]/60 shrink-0 text-right max-w-[15rem]">
-                    {offlineLines.map((line) => (
+                    {offlinePaymentLines(inv.howToPay, copy).map((line) => (
                       <span key={line} className="block">
                         {line}
                       </span>
