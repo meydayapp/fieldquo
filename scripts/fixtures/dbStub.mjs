@@ -105,6 +105,12 @@ export const rows = {
   metaAdConnection: [],
   messageThread: [],
   message: [],
+  // The AI employees, read by lib/aiEmployee/inbound.js's cheap door on
+  // every ingested message (a count of enabled rows). Empty, so the hook
+  // answers "disabled" the way it does for a company with nobody hired —
+  // rather than throwing into its own catch and logging a failure on every
+  // messaging check.
+  aiEmployee: [],
   // The Facebook Page / Instagram PUBLISHING connection
   // (check-meta-pages-connect.mjs). The claims that need executing are
   // "a disconnected row can never answer connected" and "the token that comes
@@ -602,6 +608,7 @@ export const db = new Proxy(
     metaAdConnection: model("metaAdConnection"),
     messageThread: model("messageThread"),
     message: model("message"),
+    aiEmployee: model("aiEmployee"),
     metaPageConnection: model("metaPageConnection"),
     whatsAppTemplate: model("whatsAppTemplate"),
     leadRequest: model("leadRequest"),

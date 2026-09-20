@@ -36,10 +36,12 @@
 // changed" state: the payload the server returns is what is drawn. Everything
 // else is a picture of facts the server sent.
 //
-// ══ Phone width ════════════════════════════════════════════════════════════
+// ══ Layout ═════════════════════════════════════════════════════════════════
 //
-// One column: channels, then the front desk, then the cards, the gate and
-// the person, with the arrows turned downward. The grid switches at `md`.
+// Two rows, because the settings page is a 48rem column: channels beside
+// the front desk, then the cards two-up under an "assigned" arrow, then the
+// hand-offs, then the gate beside the person. On a phone every row is one
+// column and every arrow points down; the grids switch at `sm` / `md`.
 
 import { useState } from "react";
 import { ArrowDown, ArrowRight, Bot, Check, Globe, MessageSquare, Smartphone, UserRound, X } from "lucide-react";
@@ -82,12 +84,13 @@ function Count({ n, t }) {
   );
 }
 
-/** The arrow between two columns — right on a desk, down on a phone. */
-function Arrow({ label, count, t }) {
+/** The arrow between two boxes — right beside them on a desk, down between
+ *  them on a phone; `down` forces the downward one at every width. */
+function Arrow({ label, count, down = false, t }) {
   return (
-    <div className="flex items-center justify-center gap-1 text-muted-foreground md:flex-col md:justify-center">
-      <ArrowDown size={16} className="md:hidden" aria-hidden="true" />
-      <ArrowRight size={16} className="hidden md:block" aria-hidden="true" />
+    <div className={`flex items-center justify-center gap-1 text-muted-foreground ${down ? "" : "md:flex-col md:justify-center"}`}>
+      <ArrowDown size={16} className={down ? "" : "md:hidden"} aria-hidden="true" />
+      {down ? null : <ArrowRight size={16} className="hidden md:block" aria-hidden="true" />}
       {label ? <span className="text-[11px]">{label}</span> : null}
       {count !== undefined ? <Count n={count} t={t} /> : null}
     </div>
@@ -211,28 +214,28 @@ export default function TeamFlow({ data, proposals = [], onEmployees, t }) {
 
   return (
     <div className="space-y-3" data-team-flow>
-      {/* ── Row 1: channels → front desk → cards ───────────────────────── */}
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1.3fr)_auto_minmax(0,2fr)] md:items-stretch">
+      {/* ── Row 1: channels → front desk ───────────────────────────────── */}
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1.4fr)] md:items-stretch">
         {/* Channels */}
         <div className="space-y-2">
           {(data?.channels || ["web", "sms", "meta"]).map((c) => {
             const Icon = CHANNEL_ICON[c] || MessageSquare;
             const on = channelOn(c);
             return (
-              <div key={c} className={`${BOX} flex items-center gap-2 ${on ? "" : "opacity-70"}`} data-flow-channel={c} data-on={on ? "1" : "0"}>
-                <Icon size={16} className="shrink-0 text-muted-foreground" aria-hidden="true" />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-foreground">{t(`app.aiEmployee.channel.${c}`, c)}</p>
-                  <p className="text-[11px] text-muted-foreground">
-                    {on
-                      ? holdersOf(c).map(nameOf).join(", ")
-                      : t("app.aiEmployee.flow.channelOff", "Off — messages land in Conversations for a person")}
-                  </p>
+              <div key={c} className={`${BOX} ${on ? "" : "opacity-70"}`} data-flow-channel={c} data-on={on ? "1" : "0"}>
+                <div className="flex items-start gap-2">
+                  <Icon size={16} className="mt-0.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                  <p className="min-w-0 flex-1 break-words text-sm font-medium text-foreground">{t(`app.aiEmployee.channel.${c}`, c)}</p>
+                  <span className={`${CHIP} shrink-0 ${on ? "border-foreground text-foreground" : "border-border text-muted-foreground"}`}>
+                    {on ? t("app.aiEmployee.on", "on") : t("app.aiEmployee.off", "off")}
+                  </span>
+                  <Count n={counts.byChannel?.[c]} t={t} />
                 </div>
-                <span className={`${CHIP} ${on ? "border-foreground text-foreground" : "border-border text-muted-foreground"}`}>
-                  {on ? t("app.aiEmployee.on", "on") : t("app.aiEmployee.off", "off")}
-                </span>
-                <Count n={counts.byChannel?.[c]} t={t} />
+                <p className="mt-1 pl-6 text-[11px] text-muted-foreground">
+                  {on
+                    ? holdersOf(c).map(nameOf).join(", ")
+                    : t("app.aiEmployee.flow.channelOff", "Off — messages land in Conversations for a person")}
+                </p>
               </div>
             );
           })}
@@ -279,10 +282,12 @@ export default function TeamFlow({ data, proposals = [], onEmployees, t }) {
           </ul>
         </div>
 
-        <Arrow label={t("app.aiEmployee.flow.assigned", "assigned")} t={t} />
+      </div>
 
-        {/* Employee cards */}
-        <div className="space-y-2">
+      <Arrow label={t("app.aiEmployee.flow.assigned", "assigned")} down t={t} />
+
+      {/* ── Row 2: one card per employee ───────────────────────────────── */}
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {employees.map((e) => {
             const role = roleOf(e.role);
             const off = new Set(e.disabledTools || []);
@@ -317,7 +322,6 @@ export default function TeamFlow({ data, proposals = [], onEmployees, t }) {
             );
           })}
           {!employees.length ? <p className="text-sm text-muted-foreground">{t("app.aiEmployee.flow.noEmployees", "Nobody hired yet.")}</p> : null}
-        </div>
       </div>
 
       {/* ── Hand-offs between employees ────────────────────────────────── */}
@@ -350,10 +354,10 @@ export default function TeamFlow({ data, proposals = [], onEmployees, t }) {
           </p>
           <ul className="mt-1.5 space-y-1">
             {employees.map((e) => (
-              <li key={e.id} className="flex items-center gap-2 text-xs" data-flow-gate-row={e.id}>
-                <span className="min-w-0 flex-1 truncate text-foreground">{nameOf(e)}</span>
-                <span className={`${CHIP} border-border text-foreground`}>{t(`app.aiEmployee.mode.${e.mode}`, e.mode)}</span>
-                <span className="text-muted-foreground">
+              <li key={e.id} className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs" data-flow-gate-row={e.id}>
+                <span className="shrink-0 font-medium text-foreground">{nameOf(e)}</span>
+                <span className={`${CHIP} border-border text-left text-foreground`}>{t(`app.aiEmployee.mode.${e.mode}`, e.mode)}</span>
+                <span className="ml-auto shrink-0 text-muted-foreground">
                   {t("app.aiEmployee.flow.waiting", "{n} waiting", { n: waitingFor(e.id) })}
                 </span>
               </li>
