@@ -64,7 +64,7 @@ import { fetchJson } from "@/lib/fetchJson";
 import { LAYER_HEADINGS, SOURCE_CATEGORY_HEADING } from "@/lib/sales/prospectView";
 import PlatformWriteGate, { usePlatformAdmin } from "@/app/components/platform/PlatformWriteGate";
 import DuplicateGroup from "@/app/components/platform/DuplicateGroup";
-import GooglePlacesPanel, { GooglePlacesCard } from "@/app/components/platform/GooglePlacesPanel";
+import MapsScrapePanel, { MapsListingCard } from "@/app/components/platform/MapsScrapePanel";
 import EnrichmentPanel from "@/app/components/platform/EnrichmentPanel";
 import { FRENCH } from "@/lib/sales/leadLanguage";
 
@@ -611,7 +611,7 @@ export default function PlatformProspectsPage() {
 
       {!loading && data ? (
         <>
-          {isSuperadmin ? <GooglePlacesPanel /> : null}
+          {isSuperadmin ? <MapsScrapePanel /> : null}
           {isSuperadmin ? <EnrichmentPanel /> : null}
           {isSuperadmin ? (
             <AssignBar
@@ -949,8 +949,9 @@ function ProspectDetail({ detail, onSelect = null, onChanged = null }) {
         </p>
       </section>
 
-      {/* ── What Google Places said, beside what the record says ──────── */}
-      <GooglePlacesCard prospect={p} onChanged={onChanged} />
+      {/* ── The Maps listing the rule attached, beside what the record says.
+          Read-only: the scrape runs on the owner's Mac. ──────────────── */}
+      <MapsListingCard prospect={p} />
 
       {/* ── Who to ask for: every named person, with its source ───────── */}
       <section className={CARD}>

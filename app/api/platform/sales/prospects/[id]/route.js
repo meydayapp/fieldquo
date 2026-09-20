@@ -31,6 +31,7 @@ import { DISCOVERY_TRADES } from "@/lib/sales/discovery/trades";
 import { CLAIM_HOURS, prospectView, sourceCategoryView } from "@/lib/sales/prospectView";
 import { loadMergedAnalysis } from "@/lib/sales/discovery/mergedReads";
 import { mergedFromIds } from "@/lib/sales/discovery/mergeProspects";
+import { matchedMapsListings } from "@/lib/sales/intel/mapsScrapeStatus";
 
 export async function GET(request, { params }) {
   const { refusal } = await superadminOrRefusal(request);
@@ -66,7 +67,7 @@ export async function GET(request, { params }) {
   // card cannot disagree about what a merge shows.
   const analysis = await loadMergedAnalysis(db, prospect);
 
-  const [rules, signatures, rep] = await Promise.all([
+  const [rules, signatures, rep, mapsListings] = await Promise.all([
     db.confidenceRule.findMany(),
     db.technologySignature.findMany({ select: { code: true, name: true } }),
     prospect.assignedRepId
@@ -75,6 +76,10 @@ export async function GET(request, { params }) {
           select: { id: true, name: true, email: true },
         })
       : Promise.resolve(null),
+    // The Maps listing(s) the rule attached to this row — what the console's
+    // Google card states. Read from ExternalListing, which the owner's Mac
+    // scrape writes; nothing here asks Google.
+    matchedMapsListings({ db, prospectId: prospect.id }),
   ]);
 
   const signatureNames = Object.fromEntries(signatures.map((s) => [s.code, s.name]));
@@ -133,10 +138,12 @@ export async function GET(request, { params }) {
       // and a page that grouped and labelled these itself would be a second
       // opinion about whether an authorisation is a trade.
       sourceCategoriesView: sourceCategoryView(prospect),
-      // ── What Google Places said, beside the record's own values ──────
+      // ── What the Google listing said, beside the record's own values ──
       // The columns the card prints side by side, verbatim, and the stored
-      // check. Google's values are in `places.result`; the record's are here
-      // so a conflict is two lines a person compares, never a merge.
+      // match. The listing's values are in `places.result` (the snapshot the
+      // Maps scrape's matcher wrote — or, on 64 rows, the API before it was
+      // retired on 2026-09-20); the record's are here so a conflict is two
+      // lines a person compares, never a merge.
       addressLine: prospect.addressLine,
       city: prospect.city,
       websiteUrl: prospect.websiteUrl,
@@ -150,6 +157,7 @@ export async function GET(request, { params }) {
         verdict: prospect.placesVerdict,
         result: prospect.placesResult,
       },
+      mapsListings,
       // ── Who to ask for, every source ─────────────────────────────────
       people: prospect.people.map((x) => ({
         id: x.id,
