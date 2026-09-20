@@ -39,9 +39,11 @@ import { SOURCE_KINDS, READABLE_EXTENSIONS } from "@/lib/aiEmployee/sources";
 
 const SLUG = COMPANY.bookingSlug || COMPANY.slug;
 // Restated from lib/aiEmployee/roles.js, which imports node:crypto for the
-// instructions fingerprint and so cannot be bundled for the browser.
+// instructions fingerprint and so cannot be bundled for the browser. The
+// tool table below is restated for the same reason; check-ai-employee.mjs
+// renders the flow from the real roles.js, so a drift here is a stale
+// picture in the guide rather than a wrong control in the product.
 const AI_EMPLOYEE_TONES = ["professional", "warm", "brief"];
-const AI_EMPLOYEE_TOOLS = ["look_up_service_prices", "create_instant_quote", "book_callback", "hand_off_to_human"];
 
 // ── Document templates (email + PDF) ─────────────────────────────────────────
 //
@@ -482,36 +484,126 @@ const VOICES = {
   reason: null,
 };
 
-// ── The AI employee (inbox) ──────────────────────────────────────────────────
+// ── The AI employees (inbox) ────────────────────────────────────────────────
+//
+// The GET /api/ai-employee payload as the route shapes it today: a TEAM
+// (one row per role), the role table with what the company may switch off,
+// the modes and the floor, and the flow view's intents and this week's
+// routing counts. Three employees, so the front desk has a decision to draw
+// and the hand-off arrow has a number on it.
+const AI_TOOL_RISK = { look_up_service_prices: "reversible", create_instant_quote: "reversible", send_instant_quote_link: "reversible", book_callback: "reversible", check_availability: "reversible", book_appointment: "commits", hand_off_to_human: "reversible", hand_off_to_employee: "reversible" };
+const AI_ALL_TOOLS = Object.keys(AI_TOOL_RISK);
+const AI_ROLE_ALLOWED = {
+  closer: AI_ALL_TOOLS,
+  receptionist: ["book_callback", "check_availability", "book_appointment", "hand_off_to_human", "hand_off_to_employee"],
+  troubleshooter: ["book_callback", "hand_off_to_human", "hand_off_to_employee"],
+  custom: ["book_callback", "hand_off_to_human", "hand_off_to_employee"],
+};
+const aiRole = (key, defaultFace) => ({
+  key,
+  labelKey: `app.aiEmployee.role.${key}`,
+  blurbKey: `app.aiEmployee.role.${key}.blurb`,
+  allowed: AI_ROLE_ALLOWED[key],
+  forbidden: AI_ALL_TOOLS.filter((t) => !AI_ROLE_ALLOWED[key].includes(t)),
+  switchable: AI_ROLE_ALLOWED[key].filter((t) => t !== "hand_off_to_human" && t !== "hand_off_to_employee"),
+  defaultFace,
+});
+const aiEmployee = (over) => ({
+  voice: "friendly",
+  greeting: null,
+  instructions: null,
+  escalationRules: null,
+  handoffPhrase: null,
+  businessHoursOnly: false,
+  maxRepliesPerThread: 3,
+  metaEnabled: false,
+  webChatEnabled: false,
+  smsEnabled: false,
+  disabledTools: [],
+  intents: [],
+  createdAt: iso(day(-40)),
+  updatedAt: iso(day(-3)),
+  ...over,
+});
 const AI_EMPLOYEE = {
-  employee: {
-    id: "aie_erable",
-    role: "receptionist",
-    name: "Camille",
-    enabled: true,
-    autoReplyEnabled: false,
-    tone: "warm",
-    greeting: "Bonjour ! Camille ici, de chez Érable Design. Je peux répondre à vos questions ou organiser un rappel.",
-    instructions: "Residential kitchens, bathrooms and built-ins only. Lead time on a full kitchen is about 8 weeks. Never quote a price — offer the instant estimate link or a callback from Samuel.",
-    escalationRules: "Hand off anything about a warranty claim, a complaint, or a job already in progress.",
-    handoffPhrase: "Je transmets ça à l'équipe — quelqu'un vous revient aujourd'hui.",
-    businessHoursOnly: true,
-    maxRepliesPerThread: 3,
-    updatedAt: iso(day(-3)),
-  },
+  employees: [
+    aiEmployee({
+      id: "aie_camille", role: "receptionist", name: "Camille", displayName: "Camille", avatarUrl: "/ai-employees/receptionist-f.jpg",
+      enabled: true, mode: "accept_edits", tone: "warm", metaEnabled: true, webChatEnabled: true,
+      greeting: "Bonjour ! Camille ici, de chez Érable Design. Je peux répondre à vos questions ou organiser un rappel.",
+      instructions: "Residential kitchens, bathrooms and built-ins only. Lead time on a full kitchen is about 8 weeks. Never quote a price — offer the instant estimate link or a callback from Samuel.",
+      escalationRules: "Hand off anything about a warranty claim, a complaint, or a job already in progress.",
+      handoffPhrase: "Je transmets ça à l'équipe — quelqu'un vous revient aujourd'hui.",
+      businessHoursOnly: true,
+    }),
+    aiEmployee({
+      id: "aie_lea", role: "closer", name: "Léa", displayName: "Léa", avatarUrl: "/ai-employees/closer-m.jpg",
+      enabled: true, mode: "ask", tone: "professional", intents: ["price"], disabledTools: ["create_instant_quote"],
+      createdAt: iso(day(-20)),
+    }),
+    aiEmployee({
+      id: "aie_marc", role: "troubleshooter", name: "Marc", displayName: "Marc", avatarUrl: null,
+      enabled: false, mode: "ask", tone: "brief", createdAt: iso(day(-9)),
+    }),
+  ],
   roles: [
-    { key: "closer", labelKey: "app.aiEmployee.role.closer", blurbKey: "app.aiEmployee.role.closer.blurb", allowed: [...AI_EMPLOYEE_TOOLS], forbidden: [] },
-    { key: "receptionist", labelKey: "app.aiEmployee.role.receptionist", blurbKey: "app.aiEmployee.role.receptionist.blurb", allowed: ["book_callback", "hand_off_to_human"], forbidden: ["look_up_service_prices", "create_instant_quote"] },
-    { key: "troubleshooter", labelKey: "app.aiEmployee.role.troubleshooter", blurbKey: "app.aiEmployee.role.troubleshooter.blurb", allowed: ["book_callback", "hand_off_to_human"], forbidden: ["look_up_service_prices", "create_instant_quote"] },
-    { key: "custom", labelKey: "app.aiEmployee.role.custom", blurbKey: "app.aiEmployee.role.custom.blurb", allowed: ["book_callback", "hand_off_to_human"], forbidden: ["look_up_service_prices", "create_instant_quote"] },
+    aiRole("closer", "/ai-employees/closer-m.jpg"),
+    aiRole("receptionist", "/ai-employees/receptionist-f.jpg"),
+    aiRole("troubleshooter", null),
+    aiRole("custom", null),
+  ],
+  toolRisk: AI_TOOL_RISK,
+  modes: [
+    { key: "ask", sentenceKey: "app.aiEmployee.mode.ask.sentence" },
+    { key: "accept_edits", sentenceKey: "app.aiEmployee.mode.accept_edits.sentence" },
+    { key: "auto", sentenceKey: "app.aiEmployee.mode.auto.sentence" },
+  ],
+  floorKeys: ["app.aiEmployee.floor.spend", "app.aiEmployee.floor.delete", "app.aiEmployee.floor.move", "app.aiEmployee.floor.contract", "app.aiEmployee.floor.settings"],
+  channels: ["meta", "web", "sms"],
+  faces: [
+    { key: "closer-m", url: "/ai-employees/closer-m.jpg", forRole: "closer" },
+    { key: "receptionist-f", url: "/ai-employees/receptionist-f.jpg", forRole: "receptionist" },
+    { key: "dispatcher-m", url: "/ai-employees/dispatcher-m.jpg", forRole: null },
+    { key: "marketer-f", url: "/ai-employees/marketer-f.jpg", forRole: null },
   ],
   tones: AI_EMPLOYEE_TONES,
+  voices: ["formal", "friendly", "brief"],
   sourceKinds: SOURCE_KINDS,
   readableExtensions: READABLE_EXTENSIONS,
-  ai: { configured: true, allowed: true, reason: null, remaining: 412, cap: 600, nearLimit: false },
+  flow: {
+    intents: ["book", "price", "problem", "other"],
+    roleForIntent: { book: "receptionist", price: "closer", problem: "troubleshooter" },
+    counts: {
+      since: iso(day(-7)),
+      byIntent: { book: 9, price: 6, problem: 2, other: 4 },
+      byChannel: { meta: 12, web: 9, sms: 0 },
+      assignedTo: { aie_camille: 15, aie_lea: 6 },
+      handOffs: { "aie_camille>aie_lea": 3 },
+      toHuman: { aie_camille: 2, aie_lea: 1 },
+      escalated: 0,
+      resumed: 1,
+      burstMerged: 4,
+    },
+  },
+  ai: {
+    configured: true, allowed: true, reason: null, remaining: 412, cap: 600, usedTokens: 188000, nearLimit: false,
+    model: "gpt-5.5", tier: "best", typicalConversationCents: 4,
+    pricing: { inputPerMillionCents: 250, outputPerMillionCents: 1000 },
+  },
   businessHoursOpenNow: true,
   hasBusinessHours: true,
   channel: { connected: true, reason: null, mock: false },
+  sms: { available: false, number: null },
+  webChat: {
+    slug: SLUG,
+    snippet: `<iframe src="https://app.fieldquo.com/embed/${SLUG}/chat" title="Chat" style="position:fixed;right:16px;bottom:16px;width:380px;max-width:calc(100vw - 32px);height:560px;max-height:calc(100vh - 32px);border:0;z-index:2147483000;background:transparent" allow="clipboard-write"></iframe>`,
+    embedUrl: `https://app.fieldquo.com/embed/${SLUG}/chat`,
+  },
+};
+const AI_PROPOSALS = {
+  proposals: [
+    { id: "pr_1", employeeId: "aie_lea", threadId: "th_nguyen", channel: "meta", tool: "book_appointment", args: { slot_id: `slot_${day(2, 14, 0).getTime()}`, name: "Thi Nguyen", phone: "+1 819 555 0142", address: "14 rue des Érables, Gatineau" }, argsHash: "fixture", risk: "commits", excerpt: "Est-ce que jeudi 14 h fonctionne pour la visite ?", status: "pending", expiresAt: iso(day(2, 14, 0)), stale: false, decidedAt: null, result: null, failureReason: null, createdAt: iso(day(0, 9, 12)) },
+  ],
 };
 const AI_SOURCES = {
   sources: [
@@ -1086,6 +1178,7 @@ export const ROUTES_SETTINGS_B = [
   { path: "/api/ai-employee", method: "GET", reply: () => AI_EMPLOYEE },
   { path: "/api/ai-employee/sources", method: "GET", reply: () => AI_SOURCES },
   { path: "/api/ai-employee/suggestions", method: "GET", reply: () => AI_SUGGESTIONS },
+  { path: "/api/ai-employee/proposals", method: "GET", reply: () => AI_PROPOSALS },
 
   // Reviews — the ask, and the testimonials the company shows on its site.
   {

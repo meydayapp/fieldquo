@@ -1,14 +1,12 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 20 September 2026 (a booking's MODE is a choice the client makes and a preset the company sets: the public page shows a picker whenever more than one of visit / call / video is offered — "On-site visit · 60 min · $49" beside "Phone call · 20 min · No charge" — and STATES the one mode otherwise; the address is required for a visit, a dialable phone for a call, the email for a video call, refused server-side in the visitor's language; each mode has its own length and fee (Company.callMinutes/videoMinutes/callFeeCents/videoFeeCents beside the event type's visit length and fee), edited as one row per mode on each consultation card; the confirmation letter, the moved and cancelled letters, the manage page, the calendar card, the map, the appointment list and the crew's day all print the mode from lib/booking/bookingModes.js in the reader's language; a confirmation TEXT ships behind a switch on Settings → Messages; the confirmation carries a calendar invite that a move re-issues and a cancellation withdraws; the seeded "Phone or on-site visit" label is gone — see the section below)
+Last updated: 20 September 2026 (the true two-way Google Calendar connection: a member connects their own Google account from Settings → My calendar, every appointment / job visit / booking assigned to them is mirrored onto their primary calendar with the site address and a Meet link for video calls, their own events block every booker as titleless busy time, disconnect removes only FieldQuo's events — `npm run check:google-calendar`; the owner's Cloud Console and verification steps are in `docs/GOOGLE-CALENDAR.md`)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
 it exists to answer.
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
-
----
 
 ---
 
@@ -117,6 +115,69 @@ What shipped:
   before the caller has said which kind — a superset for a shorter call, so
   nothing is over-promised, but a 20-minute gap at the end of a day is not
   offered for a callback.
+## The true two-way Google Calendar connection: a member's visits on their own phone, their own commitments blocking every booker (20 September 2026)
+
+A member connects their own Google account from **Settings → My calendar →
+Connect Google Calendar** (`app/components/calendar/GoogleConnect.js`, a new
+"everyone" settings row). From then on, in both directions at once:
+
+- **FieldQuo → Google** (`lib/calendar/googleSync.js` `syncEntity(kind, id)`,
+  the ONE function, called with `after()` off every create / move / reassign /
+  cancel / delete path: appointments, job visits, the recurring-visit cron,
+  the voice and AI-employee `bookSlot`, the client's cancel and reschedule
+  links, pamphlet stops). Event title per mode in the member's own language
+  (`Visite sur place — Jane Doe`), location the site address, description the
+  FieldQuo link, `extendedProperties.private.fieldquoId` on every event.
+  Mirror rows (`CalendarMirror`, unique per member × entity) with a payload
+  hash, so a second sync of an unchanged row makes no Google request; a
+  cancelled or reassigned entry is deleted from the old holder's calendar
+  after the event is read back and found to carry FieldQuo's mark — a
+  member's own event under a stray id is left alone.
+- **Video bookings** get a Google Meet room minted with the event
+  (`conferenceDataVersion=1`), written onto `Appointment.meetUrl` and
+  `Booking.meetUrl` for the client's letters (additive columns; the booking
+  letters print it when present — owed to the booking-modes work).
+- **Google → FieldQuo** (`lib/calendar/googleBusy.js`, `freebusy.query`,
+  cached 5 minutes per member): opaque busy intervals merged into
+  `computeAvailableSlots` — so the public booking page, the reschedule link,
+  the voice receptionist and the AI employee never book over a personal
+  event — and into the office's own move check, where an overlap is a 409
+  `personal_busy` the dispatcher may force. The calendar page draws them grey,
+  "Busy (Google)", nothing else. Never a title: the API asked has none.
+- Two switches honoured server-side (`writeEnabled` → off strips every
+  FieldQuo event now; `busyReadEnabled`), disconnect (`POST
+  /api/calendar/google/disconnect`: FieldQuo's events removed, token revoked
+  at Google, row deleted), reconnect. Refresh token AES-256-GCM under
+  `META_TOKEN_ENCRYPTION_KEY`; the OAuth state is HMAC-signed with the member
+  id and verified against the cookie.
+- Hourly reconcile (`/api/cron/google-calendar-reconcile`): creates missing,
+  patches drifted, adopts an orphan it can name, deletes one it cannot, and is
+  the floor under the public booking confirm route and the fee settlement
+  (another agent's files, not hooked directly). Failures stamped on the row
+  (shown under the email on the settings page) and filed under
+  `google_calendar` on /platform/errors.
+- Plain `fetch` against the REST API — no `googleapis` (214 MB) and no
+  `@googleapis/calendar` (847 KB + auth stack); 0 bytes added.
+- Help article `google-calendar` (Integrations) in en/fr/es, linked from the page's own `settings-my-calendar`; the privacy policy lists
+  Google Calendar as a processor with the Limited-Use wording (effective date
+  moved to 2026-09-20); `docs/GOOGLE-CALENDAR.md` is the owner's step list:
+  Calendar API, consent screen (External, privacy URL), the four scopes,
+  redirect URI `https://www.fieldquo.com/api/calendar/google/callback`, test
+  users while unverified, the verification form's wording, and the two env
+  vars `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET`.
+
+### Still owed here
+
+- The Google Cloud OAuth client and the verification submission — the
+  owner's, per the doc. Until the vars are set the page says so and draws no
+  button.
+- The public booking confirm route and `lib/booking/settleBookingFee.js` each
+  want one `scheduleSync("appointment", appointment.id)` line so a web-booked
+  visit reaches the phone immediately rather than at the next hourly run.
+- The client's confirmation letter and manage page printing `meetUrl` when
+  it is set (booking-modes work).
+
+---
 
 ## /platform/costs answers "where does the money go" in three sections, with what OpenAI billed beside what we computed, Neon and Stripe pulled daily, and the invoices no API reports typed in (19 September 2026)
 
@@ -201,6 +262,87 @@ settings → API keys) in Vercel — `docs/VERCEL.md` has both rows.** Until
 then the page says so on the relevant lines and everything else works.
 
 ---
+
+## One employee per conversation: the front desk, hand-offs, the human take-over, the burst lock and the flow view (20 September 2026)
+
+The owner: "you don't want all the employees answering at the same time —
+there's got to be a process for handling chats." `lib/aiEmployee/routing.js`
+is the process; `scripts/check-ai-employee.mjs` executes it against a
+scripted database (560 assertions, mutation-tested: with the assignee gate
+removed, "exactly ONE reply was composed" fails).
+
+- **Front desk.** On a thread's first inbound message, one metered call on
+  the STANDARD tier (`ai_employee_front_desk`, its own usage feature)
+  classifies it — book / price / problem / other — and `assignThread`
+  writes `MessageThread.assignedEmployeeId`, `routingIntent`,
+  `routingReason`, `routedAt`. The pick (`pickAssignee`, pure): the
+  company's own mapping (`AiEmployee.intents`, written by the flow view's
+  drop-downs), then the role that handles the intent (receptionist → book,
+  closer → price, troubleshooter → problem), then the employee bound to the
+  channel, then the receptionist. One enabled employee takes everything and
+  no triage call is spent.
+- **Only the assignee replies.** `respondToMessage` runs the routing gate
+  before quota, state or prompt; a named employee that is not the holder
+  returns `not_assignee` without generating. `inbound.js` no longer picks
+  by channel — its cheap door is a count of enabled employees, and its
+  sender re-reads the SENDING employee's mode at the moment of sending.
+- **Hand-off.** `hand_off_to_employee(role, reason)` joins the closed tool
+  list, allowed for every role, never switchable off (`ALWAYS_ON_TOOLS`),
+  reversible, and — like `hand_off_to_human` — runs in every mode including
+  `ask` (a routing decision is not an act on the world; it used to become a
+  proposal nobody could act on). The assignment moves inside the tool; the
+  colleague's turn is the same function at depth 1 with the tool withheld
+  and `introductionLine` ("{name} here — I'll take it from here.", nine
+  languages) prepended once. A second hand-off on one thread inside ten
+  minutes is read as a hand-off to a person (`escalated`).
+- **A person takes it.** The reply route stamps `humanTookOverAt` and
+  clears the assignment inside its own transaction; `decide.js` refuses on
+  `HUMAN_TOOK_OVER` (sticky, unlike `humanReplied`). Conversations draws
+  who holds the thread (`app/components/messaging/AiHolderBar.js`) and
+  "Let {name} continue" posts to `/api/messaging/threads/[id]/ai-resume`,
+  whose candidate is the same `resumeCandidate` that printed the name.
+- **Burst lock.** Every inbound waits `BURST_DEBOUNCE_MS` (2.5 s; 6 s when
+  it is the third in ten seconds) and yields to a newer message; a reply
+  composed while a newer message landed is recorded (`burst_merged`) and
+  never sent.
+- **The routing log.** `AiEmployeeRoutingEvent` — assigned / handed_off /
+  human_took_over / resumed / escalated / burst_merged — feeds the flow
+  view's "this week" counts (`routingCounts` → `summariseRouting`).
+- **The flow view.** `app/components/aiEmployee/TeamFlow.js`, no library:
+  channels → front desk (drop-down per intent) → one card per employee
+  with a chip per tool (solid / outlined switch / "not in this role") →
+  hand-offs → the proposals gate with each mode → a person. Read-only but
+  the drop-downs and the switches (`AiEmployee.disabledTools`, honoured by
+  `toolsForRole`, `definitionsForRole` and `executeFor`), saved through
+  `PATCH /api/ai-employee`. The check renders it for real (Next's SWC
+  binding) and compares the chips to roles.js — a tool missing from the
+  picture fails the build. Photographed at 1280 and 375 by the app-guide
+  harness (`ai-team-flow`, `ai-team-flow-phone`).
+
+## Subscribe your phone's calendar to your FieldQuo schedule (20 September 2026)
+
+Option 1 — no OAuth. `Member.calendarFeedToken` (per member, minted on the
+first visit to Settings → My calendar, rotated by "Regenerate link", the old
+URL answering an empty 404). `GET /api/calendar/feed/{token}.ics`
+(`app/api/calendar/feed/[token]/route.js`) reads `loadScheduleFeed` — the
+one scoping function the calendar screen and the day map use — over now −
+30 days to now + 365, and `lib/calendar/feed.js` turns it into VEVENTs:
+stable UIDs, `SEQUENCE` and `LAST-MODIFIED` from the row's `updatedAt`
+(added to JobVisit and Booking), `STATUS:CANCELLED` for a month, DTSTART /
+DTEND with `TZID` in the company timezone and a generated VTIMEZONE
+(`lib/calendar/vtimezone.js`, Intl-driven, DST transitions bisected to the
+minute), `X-PUBLISHED-TTL:PT15M`, lines folded at 75 octets. The SUMMARY's
+mode words are `bookingModeLabel`'s; LOCATION prints a client's phone only
+to a member at `clientsProperties: full_view`, and no email ever. The page
+(`app/app/settings/my-calendar/page.js`, a shell whose sections are their
+own files so the Google-Calendar OAuth work lands beside it) offers Google
+(`calendar.google.com/calendar/r?cid=webcal://…`), Apple (`webcal://`) and
+Outlook (copy), nine languages, visible to every role.
+`scripts/check-calendar-feed.mjs` (137 assertions, in `check:all`) runs the
+real route against a scripted database: the token gate, the owner /
+estimator / crew scoping matrix, a minimal ICS parser, a moved row's higher
+SEQUENCE, the DST pair for America/Toronto and the single observance for
+America/Phoenix, and no phone or email in a crew feed.
 
 ## The AI employee: three permission modes with a floor, a proposals inbox, website chat and SMS on the one inbox, real bookings, faces and voices, one employee per role, on the best model (19 September 2026)
 

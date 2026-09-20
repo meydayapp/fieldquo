@@ -504,7 +504,7 @@ export const ARTICLES = {
         id: "who-can-see-it",
         heading: "Quién puede verlo",
         blocks: [
-          { p: "Todos en la empresa, incluida la cuadrilla. Es una de las tres filas de Configuración que un acceso de Cuadrilla conserva — junto con **Idioma** y **Tu horario** — porque nada en ella es propio de la empresa y no hay nada que rechazar. No hay ninguna API detrás y nada que guardar." },
+          { p: "Todos en la empresa, incluida la cuadrilla. Es una de las cuatro filas de Configuración que un acceso de Cuadrilla conserva — junto con **Idioma**, **Tu horario** y **Mi calendario** — porque nada en ella es propio de la empresa y no hay nada que rechazar. No hay ninguna API detrás y nada que guardar." },
           { tip: "FieldQuo no le envía correo ni notificación cuando se agrega una entrada. Si quiere saber qué cambió, esta fila es el lugar donde mirar." },
         ],
       },

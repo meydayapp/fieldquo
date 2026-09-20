@@ -13,6 +13,7 @@ import { NextResponse } from "next/server";
 import { requireCronSecret } from "@/lib/security/cronAuth";
 import { db } from "@/lib/db";
 import { ensureUpcomingVisit } from "@/lib/jobs/recurrence";
+import { scheduleSync } from "@/lib/calendar/googleSync";
 
 export async function GET(request) {
   const denied = requireCronSecret(request);
@@ -27,7 +28,11 @@ export async function GET(request) {
   for (const job of jobs) {
     try {
       const visit = await ensureUpcomingVisit(db, job.id);
-      if (visit) created += 1;
+      if (visit) {
+        created += 1;
+        // Next week's clean, on the same crew member's Google Calendar.
+        scheduleSync("visit", visit.id);
+      }
     } catch (err) {
       // One malformed job must not stop the run for all the others.
       console.error(`[recurring-jobs] ${job.id}:`, err.message);

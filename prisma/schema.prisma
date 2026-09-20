@@ -2060,6 +2060,7 @@ model Company {
   subcontractorPayments SubcontractorPayment[]
   locationStamps        LocationStamp[]
   aiEmployees           AiEmployee[]
+  aiEmployeeRoutingEvents AiEmployeeRoutingEvent[]
   aiEmployeeSources     AiEmployeeSource[]
   aiEmployeeReplies     AiEmployeeReply[]
   aiEmployeeProposals   AiEmployeeProposal[]
@@ -2220,6 +2221,15 @@ model Member {
   permissions      Json?
 
   invitationLanguage String? @default("en")
+
+  /// The private token behind this member's personal calendar feed —
+  /// GET /api/calendar/feed/<token>.ics (lib/calendar/feed.js). Per MEMBER,
+  /// not per user: a person in two companies subscribes to two calendars,
+  /// and each feed is scoped by that company's permission grid. Null until
+  /// the member first opens Settings → My calendar; "Regenerate link" writes
+  /// a fresh one, which is the only revocation a webcal URL has (the phone
+  /// keeps polling the old address and gets 404).
+  calendarFeedToken String? @unique
 
   jobPhotoCommentsAuthored JobPhotoComment[]
   jobPhotoMentions         JobPhotoMention[]
@@ -5081,6 +5091,11 @@ model JobVisit {
   photos         String[] @default([])
   notes          String?
   createdAt      DateTime @default(now())
+  /// For the calendar feed's SEQUENCE (lib/calendar/feed.js): a subscribed
+  /// phone only replaces an event whose SEQUENCE went up, so a moved visit
+  /// needs a number that moves with it. @default(now()) so the column can be
+  /// added to a live table without a value for every existing row.
+  updatedAt      DateTime @default(now()) @updatedAt
 
   /// Set when this visit is a RETURN to the address for work already covered
   /// by THIS job — not a brand-new trip. Null (the default, and every
@@ -6342,6 +6357,8 @@ model Booking {
   meetUrl String?
 
   createdAt     DateTime      @default(now())
+  /// Same reason as JobVisit.updatedAt — the calendar feed's SEQUENCE.
+  updatedAt     DateTime      @default(now()) @updatedAt
   /// Where the visit is. Collected from the client at booking time for
   /// in-person modes, and geocoded once so the scheduler can work out whether
   /// the estimator can physically get there from their previous job.
@@ -15685,6 +15702,30 @@ model MessageThread {
   scoreReasons Json?
   scoredAt     DateTime?
 
+  /// ── Which AI employee holds this conversation ──────────────────────────
+  ///
+  /// Set once by the front desk (lib/aiEmployee/routing.js) on the first
+  /// inbound message, moved by hand_off_to_employee, and CLEARED the moment
+  /// a person replies — see humanTookOverAt. respondToMessage refuses to
+  /// generate for any employee that is not this one, which is what stops two
+  /// employees answering the same homeowner. Not a relation: the thread
+  /// belongs to the messaging feature and the employee to its own, the same
+  /// argument AiEmployeeReply makes about its threadId.
+  assignedEmployeeId String?
+  /// What the front desk decided the first message was about — book | price |
+  /// problem | other — and its one-line reason, kept on the thread so the
+  /// flow view's counts and a contractor asking "why did the closer get
+  /// this?" both have an answer.
+  routingIntent String?
+  routingReason String?
+  routedAt      DateTime?
+  /// Stamped when a member writes on the thread from Conversations. While it
+  /// is set every employee stays silent, whatever the assignment was; "Let
+  /// {name} continue" clears it. Sticky on purpose — the older humanReplied
+  /// guard in decide.js is "since this message", and a person who has taken
+  /// a conversation over does not want it back after the next question.
+  humanTookOverAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -16066,11 +16107,55 @@ model AiEmployee {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  /// Tools the COMPANY switched off for this employee, from within what the
+  /// role allows (lib/aiEmployee/roles.js). Honoured by tools.js's executeFor
+  /// and by definitionsForRole, so a disabled tool is absent from the model's
+  /// list rather than refused when called — the same argument roles.js makes
+  /// about forbidden tools. A name outside the role's allowed set is ignored
+  /// on read: the role's forbidden list cannot be widened OR narrowed here.
+  disabledTools String[] @default([])
+  /// The front-desk intents this employee is the explicit destination for
+  /// (lib/aiEmployee/routing.js INTENTS). Empty means "whatever my role
+  /// handles by default"; the flow view's drop-downs write it. An intent
+  /// lives on at most one employee of a company — the settings route moves
+  /// it rather than copying it.
+  intents String[] @default([])
+
   sources   AiEmployeeSource[]
   proposals AiEmployeeProposal[]
 
   @@unique([companyId, role])
   @@index([companyId])
+}
+
+/// The routing log — one row per decision the front desk or an employee
+/// made about WHO holds a conversation (lib/aiEmployee/routing.js). Read by
+/// the flow view for "this week's counts" on each arrow, and by the
+/// ping-pong guard: two hand-offs on one thread inside ten minutes send the
+/// thread to a person instead of a third employee. Append-only; nothing
+/// updates or deletes a row. companyId is on every row for the same reason
+/// it is on AiEmployeeReply — the tenant fence is the column, not the join.
+model AiEmployeeRoutingEvent {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  threadId String
+  /// assigned | handed_off | human_took_over | resumed | escalated | burst_merged
+  kind String
+
+  fromEmployeeId String?
+  toEmployeeId   String?
+  /// book | price | problem | other — on "assigned" rows.
+  intent String?
+  reason String?
+  /// meta | web | sms
+  channel String?
+
+  createdAt DateTime @default(now())
+
+  @@index([companyId, createdAt])
+  @@index([threadId, createdAt])
 }
 
 /// An action the employee wanted to take and its mode did not let it take

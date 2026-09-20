@@ -235,6 +235,8 @@ function refusal(t, data) {
   switch (data?.reason) {
     case "in_the_past":
       return t("app.visitAction.reason.in_the_past");
+    case "personal_busy":
+      return t("app.visitAction.reason.personal_busy");
     case "travel_short":
       return data.travel?.against === "next"
         ? t("app.visitAction.reason.travel_short_next", { minutes })
@@ -278,7 +280,7 @@ function MoveDialog({ t, scheduledAt, client, patch, onClose, onDone }) {
       // override. Anything else is reported the way every other request is.
       if (res.status === 409) {
         const data = await res.json().catch(() => ({}));
-        setWarning({ text: refusal(t, data), canForce: ["in_the_past", "travel_short"].includes(data?.reason) });
+        setWarning({ text: refusal(t, data), canForce: ["in_the_past", "travel_short", "personal_busy"].includes(data?.reason) });
         return;
       }
       await reportResponseError(res, t("app.visitAction.failed", "Couldn't update the visit."));

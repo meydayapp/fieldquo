@@ -494,7 +494,7 @@ export const ARTICLES = {
       "Deux réglages qui se ressemblent et veulent dire des choses différentes : la langue dans laquelle vous lisez FieldQuo, et la valeur par défaut de l'entreprise dont héritent les collègues et les clients qui n'en ont choisi aucune.",
     updated: "2026-09-12",
     intro: [
-      "**Langue** est l'une des trois lignes de Paramètres que chaque membre voit, Équipiers compris, parce que la moitié en est personnelle : **Votre langue** est celle dans laquelle *vous* lisez l'application, et la changer ne touche personne d'autre. L'autre moitié, **Valeur par défaut de l'entreprise**, est ce dont hérite quiconque n'a pas choisi — et ce que les documents d'un client utilisent quand le client n'a pas de langue à lui.",
+      "**Langue** est l'une des quatre lignes de Paramètres que chaque membre voit, Équipiers compris, parce que la moitié en est personnelle : **Votre langue** est celle dans laquelle *vous* lisez l'application, et la changer ne touche personne d'autre. L'autre moitié, **Valeur par défaut de l'entreprise**, est ce dont hérite quiconque n'a pas choisi — et ce que les documents d'un client utilisent quand le client n'a pas de langue à lui.",
       "FieldQuo est livré en huit langues : English, Français, Español, Українська, ਪੰਜਾਬੀ, Tagalog, Deutsch et Italiano. Les documents et courriels des clients existent dans les huit; l'interface du back-office est complète dans certaines et partiellement en anglais dans d'autres, et la page dit laquelle est laquelle.",
     ],
     sections: [
@@ -681,7 +681,7 @@ export const ARTICLES = {
       "Deux semaines par personne sur un seul écran : les Heures de travail, le quart que l'horaire et les feuilles de temps utilisent, et les Heures réservables, la plage que les clients peuvent réserver sur la page publique — avec un sélecteur pour régler celles de quelqu'un d'autre.",
     updated: "2026-09-12",
     intro: [
-      "La ligne **Disponibilités** ouvre une page intitulée **Vos heures**, et c'est l'une des trois lignes de Paramètres que chaque membre voit, parce que ces heures appartiennent à la personne. Elle contient deux semaines différentes à dessein : les **Heures de travail**, le quart, et les **Heures réservables**, la plage qu'un client peut réserver. Un estimateur travaille de 8 h à 16 h mais ne prend des consultations que de 14 h à 16 h parce que les matinées sont sur le chantier; une seule semaine ne peut pas dire cela.",
+      "La ligne **Disponibilités** ouvre une page intitulée **Vos heures**, et c'est l'une des quatre lignes de Paramètres que chaque membre voit, parce que ces heures appartiennent à la personne. Elle contient deux semaines différentes à dessein : les **Heures de travail**, le quart, et les **Heures réservables**, la plage qu'un client peut réserver. Un estimateur travaille de 8 h à 16 h mais ne prend des consultations que de 14 h à 16 h parce que les matinées sont sur le chantier; une seule semaine ne peut pas dire cela.",
       "Une personne qui a l'accès à l'équipe obtient aussi un sélecteur **Heures de qui** en haut et peut régler les semaines d'un collègue — c'est ainsi qu'un équipier qui ne se connecte jamais devient réservable.",
     ],
     sections: [
@@ -750,6 +750,52 @@ export const ARTICLES = {
     ],
   },
 
+  "settings-my-calendar": {
+    title: "Mon calendrier",
+    summary:
+      "Abonnez le calendrier de votre propre téléphone ou ordinateur à votre horaire FieldQuo — rendez-vous, visites de chantier et réservations — pour qu'il se tienne à jour tout seul, avec un lien privé que vous pouvez régénérer.",
+    updated: "2026-09-20",
+    intro: [
+      "La ligne **Mon calendrier** fait partie des lignes de Paramètres que chaque membre voit, parce que le lien qu'elle porte est le vôtre : une adresse privée que votre application de calendrier relit d'elle-même. Abonnez-vous une fois, et chaque rendez-vous, visite de chantier et réservation qui figure sur votre calendrier FieldQuo apparaît dans Google Agenda, le Calendrier Apple ou Outlook et suit quand il est déplacé ou annulé.",
+      "Il porte les mêmes lignes que votre calendrier FieldQuo vous montre, avec la même portée. Le flux d'un membre d'équipe, c'est la journée de ce membre; celui du propriétaire, c'est toute l'entreprise.",
+    ],
+    sections: [
+      {
+        id: "what-is-on-the-screen",
+        heading: "Ce qu'il y a à l'écran",
+        blocks: [
+          { bullets: [
+            "**S'abonner dans Google Agenda** — ouvre la page d'ajout par adresse de Google dans un nouvel onglet, avec votre lien déjà rempli.",
+            "**Calendrier Apple** — ouvre la feuille d'abonnement sur un iPhone ou un Mac.",
+            "**Outlook (copier le lien)** — copie l'adresse; collez-la dans *S'abonner à partir du Web* d'Outlook.",
+            "**Votre lien privé** — l'adresse elle-même, dans une case en lecture seule avec un bouton de copie.",
+            "**Régénérer le lien** — demande d'abord, puis remplace l'adresse. Chaque appareil abonné cesse de se mettre à jour jusqu'à ce que vous vous réabonniez avec la nouvelle.",
+          ] },
+          { note: "Google relit toutes les quelques heures, Apple toutes les 15 minutes à une heure. Un changement fait dans FieldQuo n'est pas sur le téléphone à la seconde même; il y est à la prochaine lecture." },
+        ],
+      },
+      {
+        id: "what-each-event-carries",
+        heading: "Ce que porte chaque événement",
+        blocks: [
+          { p: "Le titre dit ce que c'est et pour qui — *Visite sur place — Ana Ruiz*, *Appel téléphonique — M. Lalonde*, *Visite de chantier : Repeindre 14 rue Elm — Ana Ruiz*. Le lieu est l'adresse du site ou, pour un appel, le numéro du client quand votre niveau d'accès vous permet de le voir. La description contient un lien de retour vers FieldQuo et les notes; le courriel ou le téléphone d'un client n'y est jamais écrit." },
+          { p: "Un événement sans durée définie est affiché comme une heure et le dit dans sa description, pour qu'un espace réservé ne passe jamais pour un fait. Une ligne annulée reste trente jours, marquée annulée, pour qu'un téléphone qui l'avait en cache la barre plutôt que d'en garder une copie périmée." },
+        ],
+      },
+      {
+        id: "keep-the-link-private",
+        heading: "Gardez le lien privé",
+        blocks: [
+          { warning: "Quiconque détient l'adresse peut lire votre horaire — c'est elle, l'identifiant. Si elle circule, appuyez sur **Régénérer le lien**; l'ancienne adresse cesse de répondre sur-le-champ, et la régénération est inscrite au journal d'activité de l'entreprise." },
+        ],
+      },
+    ],
+    faq: [
+      { q: "Est-ce la même chose que Ajouter au calendrier sur Mon horaire?", a: "Non. Ajouter au calendrier télécharge vos quarts publiés une seule fois. Ceci est un abonnement à vos rendez-vous, visites de chantier et réservations, et il se tient à jour tout seul." },
+      { q: "Dans quelle langue sont les événements?", a: "La langue par défaut de l'entreprise — le flux n'a pas de personne connectée à qui la demander, et le téléphone qui le lit est habituellement réglé dans la même langue que l'équipe." },
+      { q: "Je travaille pour deux entreprises. J'ai un flux ou deux?", a: "Deux, un par entreprise, chacun limité par les règles d'accès de cette entreprise. Abonnez-vous aux deux si vous voulez les deux sur le téléphone." },
+    ],
+  },
   "settings-time-off-policies": {
     title: "Politiques de congés",
     summary:

@@ -494,7 +494,7 @@ export const ARTICLES = {
       "Dos ajustes que se parecen y significan cosas distintas: el idioma en que usted lee FieldQuo, y el predeterminado de la empresa que heredan los compañeros y los clientes que no eligieron ninguno.",
     updated: "2026-09-12",
     intro: [
-      "**Idioma** es una de las tres filas de Configuración que ve cada miembro, Cuadrilla incluida, porque la mitad es personal: **Tu idioma** es aquel en el que *usted* lee la aplicación, y cambiarlo no toca a nadie más. La otra mitad, **Predeterminado de la empresa**, es lo que hereda todo el que no ha elegido — y lo que usan los documentos de un cliente cuando el cliente no tiene idioma propio.",
+      "**Idioma** es una de las cuatro filas de Configuración que ve cada miembro, Cuadrilla incluida, porque la mitad es personal: **Tu idioma** es aquel en el que *usted* lee la aplicación, y cambiarlo no toca a nadie más. La otra mitad, **Predeterminado de la empresa**, es lo que hereda todo el que no ha elegido — y lo que usan los documentos de un cliente cuando el cliente no tiene idioma propio.",
       "FieldQuo viene en ocho idiomas: English, Français, Español, Українська, ਪੰਜਾਬੀ, Tagalog, Deutsch e Italiano. Los documentos y correos para clientes existen en los ocho; la interfaz de la oficina interna está completa en algunos y parcialmente en inglés en otros, y la página dice cuál es cuál.",
     ],
     sections: [
@@ -681,7 +681,7 @@ export const ARTICLES = {
       "Dos semanas por persona en una sola pantalla: el Horario de trabajo, el turno que usan la agenda y las hojas de horas, y las Horas reservables, la franja que los clientes pueden reservar en la página pública — con un selector para definir el de otra persona.",
     updated: "2026-09-12",
     intro: [
-      "La fila **Disponibilidad** abre una página titulada **Tu horario**, y es una de las tres filas de Configuración que ve cada miembro, porque estas horas son de la propia persona. Contiene dos semanas distintas a propósito: **Horario de trabajo**, el turno, y **Horas reservables**, la franja que un cliente puede reservar. Un estimador trabaja de 8 a 16 pero solo toma consultas de 14 a 16 porque las mañanas está en obra; una sola semana no puede decir eso.",
+      "La fila **Disponibilidad** abre una página titulada **Tu horario**, y es una de las cuatro filas de Configuración que ve cada miembro, porque estas horas son de la propia persona. Contiene dos semanas distintas a propósito: **Horario de trabajo**, el turno, y **Horas reservables**, la franja que un cliente puede reservar. Un estimador trabaja de 8 a 16 pero solo toma consultas de 14 a 16 porque las mañanas está en obra; una sola semana no puede decir eso.",
       "Alguien con acceso al equipo obtiene además un selector **Horario de quién** en la parte superior y puede definir las semanas de un compañero — así es como un miembro de la cuadrilla que nunca inicia sesión pasa a ser reservable.",
     ],
     sections: [
@@ -750,6 +750,52 @@ export const ARTICLES = {
     ],
   },
 
+  "settings-my-calendar": {
+    title: "Mi calendario",
+    summary:
+      "Suscribe el calendario de tu propio teléfono o computadora a tu agenda de FieldQuo — citas, visitas de trabajo y reservas — para que se mantenga al día solo, con un enlace privado que puedes regenerar.",
+    updated: "2026-09-20",
+    intro: [
+      "La fila **Mi calendario** es una de las filas de Configuración que ve cada miembro, porque el enlace que contiene es tuyo: una dirección privada que tu aplicación de calendario vuelve a leer por su cuenta. Suscríbete una vez y cada cita, visita de trabajo y reserva que esté en tu calendario de FieldQuo aparece en Google Calendar, el Calendario de Apple u Outlook y lo sigue cuando se mueve o se cancela.",
+      "Lleva las mismas filas que tu calendario de FieldQuo te muestra, con el mismo alcance. El feed de un miembro de cuadrilla es el día de esa persona; el del propietario es toda la empresa.",
+    ],
+    sections: [
+      {
+        id: "what-is-on-the-screen",
+        heading: "Qué hay en la pantalla",
+        blocks: [
+          { bullets: [
+            "**Suscribirse en Google Calendar** — abre la página de Google para añadir por dirección en una pestaña nueva, con tu enlace ya puesto.",
+            "**Calendario de Apple** — abre la hoja de suscripción en un iPhone o Mac.",
+            "**Outlook (copiar enlace)** — copia la dirección; pégala en *Suscribirse desde la web* de Outlook.",
+            "**Tu enlace privado** — la dirección misma, en una casilla de solo lectura con un botón para copiar.",
+            "**Regenerar enlace** — pregunta primero y luego sustituye la dirección. Cada dispositivo suscrito deja de actualizarse hasta que vuelvas a suscribirte con la nueva.",
+          ] },
+          { note: "Google vuelve a leer cada pocas horas; Apple, cada 15 minutos a una hora. Un cambio hecho en FieldQuo no está en el teléfono en ese mismo segundo; está en la siguiente lectura." },
+        ],
+      },
+      {
+        id: "what-each-event-carries",
+        heading: "Qué lleva cada evento",
+        blocks: [
+          { p: "El título dice qué es y para quién — *Visita al sitio — Ana Ruiz*, *Llamada telefónica — Sr. Lalonde*, *Visita de trabajo: Repintar 14 Elm St — Ana Ruiz*. La ubicación es la dirección del sitio o, en una llamada, el número del cliente cuando tu nivel de acceso te permite verlo. La descripción lleva un enlace de vuelta a FieldQuo y las notas; el correo o el teléfono de un cliente nunca se escribe ahí." },
+          { p: "Un evento sin duración definida se muestra como una hora y lo dice en su descripción, para que un marcador nunca parezca un hecho. Una fila cancelada permanece treinta días marcada como cancelada, para que un teléfono que la tenía en caché la tache en vez de conservar una copia vieja." },
+        ],
+      },
+      {
+        id: "keep-the-link-private",
+        heading: "Mantén el enlace privado",
+        blocks: [
+          { warning: "Cualquiera que tenga la dirección puede leer tu agenda: la dirección es la credencial. Si se filtra, pulsa **Regenerar enlace**; la dirección anterior deja de responder de inmediato y la regeneración queda escrita en el registro de actividad de la empresa." },
+        ],
+      },
+    ],
+    faq: [
+      { q: "¿Es lo mismo que Añadir al calendario en Mi horario?", a: "No. Añadir al calendario descarga tus turnos publicados una sola vez. Esto es una suscripción a tus citas, visitas de trabajo y reservas, y se mantiene al día sola." },
+      { q: "¿En qué idioma están los eventos?", a: "En el idioma predeterminado de la empresa: el feed no tiene una persona conectada a quien preguntarle, y el teléfono que lo lee suele estar en el mismo idioma que el equipo." },
+      { q: "Trabajo para dos empresas. ¿Tengo un feed o dos?", a: "Dos, uno por empresa, cada uno limitado por las reglas de acceso de esa empresa. Suscríbete a los dos si quieres ambos en el teléfono." },
+    ],
+  },
   "settings-time-off-policies": {
     title: "Políticas de ausencias",
     summary:

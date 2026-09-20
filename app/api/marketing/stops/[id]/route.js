@@ -7,6 +7,7 @@ import { memberOrRefusal } from "@/lib/apiMember";
 import { emailRefusal, cleanEmail } from "@/lib/validation";
 import { can } from "@/lib/permissions";
 import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
+import { scheduleSync } from "@/lib/calendar/googleSync";
 
 // A stop belongs to the member's company iff its campaign does. Load both so
 // we can authorize and mutate in one place.
@@ -132,6 +133,7 @@ export async function POST(request, { params }) {
       },
     });
     appointmentId = appointment.id;
+    scheduleSync("appointment", appointment.id);
   }
 
   const updated = await db.pamphletStop.update({

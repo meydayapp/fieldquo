@@ -56,6 +56,7 @@ import {
   TrendingUp,
   CalendarDays,
   CalendarClock,
+  CalendarPlus,
   ScrollText,
   ClipboardList,
   AtSign,
@@ -116,6 +117,9 @@ export const GROUPS = [
     items: [
       { key: "app.settings.team", href: "/app/settings/team", icon: Users, helpArticle: "settings-team" },
       { key: "app.settings.availability", href: "/app/settings/availability", icon: Clock, helpArticle: "settings-availability" },
+      // The member's own feed link — beside Availability because both are
+      // about this one person's time, and both are rows every member keeps.
+      { key: "app.settings.myCalendar", href: "/app/settings/my-calendar", icon: CalendarPlus, helpArticle: "settings-my-calendar" },
       { key: "app.settings.leave", href: "/app/settings/leave", icon: CalendarClock, helpArticle: "settings-leave" },
       { key: "app.settings.policies", href: "/app/settings/policies", icon: ScrollText, helpArticle: "settings-policies" },
       { key: "app.settings.bookingPage", href: "/app/settings/booking-page", icon: CalendarDays, helpArticle: "settings-booking-page" },

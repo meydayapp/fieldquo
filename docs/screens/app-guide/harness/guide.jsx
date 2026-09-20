@@ -324,6 +324,17 @@ async function runScene(scene) {
     await wait(300);
     return;
   }
+  if (scene === "ai-team-flow") {
+    // "How your AI team works" — the routing picture on the AI employee
+    // settings page (app/components/aiEmployee/TeamFlow.js): channels, the
+    // front desk, one card per employee with its tool chips, the gate and
+    // the person. Photographed on its own because it sits under the team
+    // list, below the fold at both widths.
+    const el = await until("#team-flow");
+    window.scrollTo(0, el.getBoundingClientRect().top + window.scrollY - 16);
+    await wait(300);
+    return;
+  }
   if (scene === "scroll-offered") {
     // The "Offered" list at the foot of the editor — the client-tickable
     // extras, pre-filled from the catalogue (lib/quotes/offeredAddOns.js).

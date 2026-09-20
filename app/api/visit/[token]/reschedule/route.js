@@ -19,6 +19,7 @@ import {
 } from "@/lib/booking/manageVisit";
 import { sendVisitRescheduledEmails } from "@/app/admin/lib/email/templates";
 import { bookingInviteAttachment, nextSequence } from "@/lib/booking/bookingInvite";
+import { scheduleSync } from "@/lib/calendar/googleSync";
 
 // Public, token-only — the client moving their own visit.
 //
@@ -289,6 +290,9 @@ export async function POST(request, { params }) {
       .update({ where: { id: booking.appointmentId }, data: { scheduledAt: plan.start } })
       .catch((err) => console.error("[visit] moving appointment failed:", err?.message));
   }
+  // And the estimator's Google Calendar moves with it.
+  if (booking.appointmentId) scheduleSync("appointment", booking.appointmentId);
+  else scheduleSync("booking", booking.id);
 
   const after = {
     ...visit,
