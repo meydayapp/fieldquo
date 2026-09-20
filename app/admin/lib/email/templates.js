@@ -39,7 +39,8 @@
 // change the office does not also get a letter telling it so — the company
 // copy is for hearing about something a client did.
 
-import { sendEmail, senderFor } from "@/lib/email/resend";
+import { sendEmail } from "@/lib/email/resend";
+import { resolveSender } from "@/lib/email/companySender";
 import { describeWindow, letterLocale } from "@/lib/booking/arrivalWindow";
 import { formatMoney } from "@/lib/currency";
 import { emailCopy, EMAIL_COPY } from "@/lib/i18n/emailCopy";
@@ -303,8 +304,14 @@ export async function sendBookingConfirmationEmail({ to, company, ...rest }) {
     subject,
     html,
     // Uses the company's verified domain when the full row is passed, and
-    // otherwise the shared sender under the company's display name.
-    ...senderFor(company || { name: rest.companyName }),
+    // otherwise the DISCOVERED platform sender under the company's display
+    // name — resolveSender, not the sync senderFor, which with no platform
+    // sender falls back to Resend's sandbox address, and Resend refuses that
+    // for any recipient but the account's own. The owner booked a visit with
+    // a demo company on 2026-09-20 and got no confirmation for exactly this
+    // reason: 27 "resend_rejected" rows since July, all from this path and
+    // the moved/cancelled letters below.
+    ...(await resolveSender(company || { name: rest.companyName }, company?.id)),
   });
 }
 
@@ -440,7 +447,7 @@ export async function sendVisitCancelledEmails(params) {
  * letters are about.
  */
 async function sendBothCopies(company, letters) {
-  const sender = senderFor(company || { name: company?.name || "" });
+  const sender = await resolveSender(company || { name: company?.name || "" }, company?.id);
   // Both halves carry the tenant. The company's own copy is simulated for a
   // demo too — not because a contractor's inbox needs protecting, but because
   // splitting the rule ("client mail is faked, staff mail is real") gives a
