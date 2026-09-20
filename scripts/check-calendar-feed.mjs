@@ -26,6 +26,7 @@ import { FEED_COPY, FEED_COPY_LANGS, FEED_COPY_KEYS } from "@/lib/calendar/feedC
 import { feedUrls, mintFeedToken } from "@/lib/calendar/feedToken";
 import { buildVtimezone, resolveTimeZone, localWallClock } from "@/lib/calendar/vtimezone";
 import { feedEventsFor, buildFeedCalendar, foldLine, feedWindow } from "@/lib/calendar/feed";
+import { bookingModeLabel } from "@/lib/booking/bookingModes";
 import { SETTINGS_ROW_CAPABILITY, canSeeSettingsRow } from "@/lib/permissions/settingsAccess";
 import { APP_PAGES } from "@/lib/analytics/product/appPages.js";
 import { APP_MESSAGES } from "@/app/i18n/appMessages";
@@ -506,6 +507,10 @@ ok("a plain appointment: «Rendez-vous — Ana Ruiz»", aMine?.props.SUMMARY.val
 ok("a job visit: «Visite de chantier: Repaint 14 Elm St — Ana Ruiz»", vMine?.props.SUMMARY.value === "Visite de chantier: Repaint 14 Elm St — Ana Ruiz");
 ok("a booking of mode visit: «Visite sur place — Mr Lalonde»", bkMine?.props.SUMMARY.value === "Visite sur place — Mr Lalonde");
 ok("an appointment from a call booking: «Appel téléphonique — Ana Ruiz»", aCall?.props.SUMMARY.value === "Appel téléphonique — Ana Ruiz");
+// The words are lib/booking/bookingModes.js's — the ones the confirmation
+// letter and the manage page print — read through the helper, not copied.
+ok("...and they are the booking-modes helper's own words", aCall?.props.SUMMARY.value.startsWith(bookingModeLabel("call", "fr")) && bkMine?.props.SUMMARY.value.startsWith(bookingModeLabel("visit", "fr")));
+ok("...read through the helper, not restated in the feed", /bookingModeLabel\(mode, language\)/.test(read("lib/calendar/feed.js")) && !/mode === "call"/.test(read("lib/calendar/feed.js").split("function whatIs")[1].split("\n}")[0]));
 ok("LOCATION on a visit is the site address", vMine?.props.LOCATION?.value === "14 Elm St");
 ok("LOCATION on a booking is the booking's address", bkMine?.props.LOCATION?.value === "77 Pine Rd");
 ok("the visit's DESCRIPTION links to its job", /Ouvrir dans FieldQuo: https:\/\/app\.fieldquo\.test\/app\/jobs\/job_mine/.test(vMine?.props.DESCRIPTION?.value || ""));
