@@ -1708,6 +1708,14 @@ model Company {
   callMinutes  Int?
   videoMinutes Int?
 
+  // Whether a client who gave a phone number is TEXTED their booking
+  // confirmation (the letter always goes by email). Off by default because
+  // every text is a billable SMS the contractor pays for — the same reason
+  // appointmentReminderHours is opt-in — and a switch nobody flipped must not
+  // cost money. Read by lib/booking/finalizeBooking.js; set from
+  // Settings → Messages beside the template it governs.
+  bookingSmsConfirmation Boolean @default(false)
+
   // How a client may meet this company: "call", "visit", "video".
   //
   // EventType.location was a free-text string ("Phone or on-site visit"), which
