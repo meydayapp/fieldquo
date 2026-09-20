@@ -59,8 +59,9 @@ export default function PortalInvoice({ token, invoiceId, stageId = null }) {
   }, [token]);
 
   // `method` is "card" or "bank" — HOW, never how much. The bank button only
-  // exists when the server said the company can take it (data.bankDebit),
-  // and the route re-checks.
+  // exists when the server said the company can take it for the amount this
+  // page asks for (invoice.bankDebit / stage.bankDebit), and the route
+  // re-checks.
   async function pay(method = "card") {
     setPaying(method);
     setError("");
@@ -143,10 +144,18 @@ export default function PortalInvoice({ token, invoiceId, stageId = null }) {
   // below would only 400.
   const onlinePayments = Boolean(data.onlinePayments);
   // "Pay from bank account" — only when Stripe has activated the capability
-  // on the company's account (lib/stripe/bankDebit.js); never a button that
-  // fails. A bank debit clears in 3–5 business days, so a pending one is
-  // said out loud beside the balance rather than looking unpaid.
-  const bankDebit = data.bankDebit || null;
+  // on the company's account AND the figure this page asks for is inside
+  // Stripe's per-debit cap (lib/stripe/bankDebit.js); never a button that
+  // fails. The offer is decided server-side for the stage's share when a
+  // stage applies (a $3,000 deposit qualifies where the $12,000 balance does
+  // not) and for the balance otherwise — the same figure `due` shows. Over
+  // the cap the button is absent and `bankOverCap` says why. A bank debit
+  // clears in 3–5 business days, so a pending one is said out loud beside
+  // the balance rather than looking unpaid.
+  const bankOffer = onlinePayments
+    ? (stage ? stage.bankDebit : invoice.bankDebit) || null
+    : null;
+  const bankDebit = bankOffer?.eligible ? bankOffer.method : null;
   const pendingBank = invoice.pendingPayment || null;
   const failedBank = invoice.failedPayment || null;
 
@@ -403,6 +412,11 @@ export default function PortalInvoice({ token, invoiceId, stageId = null }) {
                   </button>
                   <p className="text-center text-xs text-[#2d2520]/60">{copy.bankNote}</p>
                 </>
+              )}
+              {bankOffer && !bankOffer.eligible && (
+                <p data-bank-over-cap className="text-center text-xs text-[#2d2520]/60">
+                  {copy.bankOverCap(money(bankOffer.maxCents / 100), money(due))}
+                </p>
               )}
             </div>
           ) : (

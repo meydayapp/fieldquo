@@ -3,10 +3,14 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { createInvoiceCheckoutSession } from "@/lib/stripe";
+import { createInvoiceCheckoutSession, invoiceBalanceCents } from "@/lib/stripe";
 import { latestInFamily, refreshFamilyLedger } from "@/lib/invoices/family";
 import { getAppOrigin } from "@/lib/appUrl";
-import { companyBankDebitMethod } from "@/lib/stripe/bankDebit";
+import { companyBankDebitMethod, bankDebitOffer } from "@/lib/stripe/bankDebit";
+import { resolveClientLanguage } from "@/lib/i18n/resolveLanguage";
+import { clientDocCopy } from "@/lib/i18n/clientDocCopy";
+import { documentFormatters } from "@/lib/i18n/documentLabels";
+import { recordError } from "@/lib/platform/errorLog";
 
 export async function POST(request, { params }) {
   // Next 16: `params` is a Promise; reading it synchronously gives undefined.
@@ -149,17 +153,89 @@ export async function POST(request, { params }) {
     if (stage) amountCents = stage.amountCents;
   }
 
-  const session = await createInvoiceCheckoutSession({
-    invoice: current,
-    company,
-    // A bank debit is not "paid" on return — it clears in 3–5 business days
-    // — so the portal is told which kind of return this is and says
-    // "pending", not "received".
-    successUrl: `${baseUrl}/portal/${_params.token}?paid=${method === "card" ? "true" : "bank"}`,
-    cancelUrl: `${baseUrl}/portal/${_params.token}`,
-    amountCents,
-    method,
-  });
+  // Every sentence from here on is read by the homeowner, under the
+  // contractor's logo, in the client's language — the same resolution the
+  // portal page itself uses, so a French portal never refuses in English.
+  const language = resolveClientLanguage(client, company);
+  const copy = clientDocCopy(language);
+  const { money } = documentFormatters(language, company.currency);
+
+  // ── Stripe's per-debit cap, refused BEFORE Stripe is asked ──────────────
+  //
+  // One Canadian pre-authorized debit is capped at $3,000.00 CAD (measured
+  // — lib/stripe/bankDebit.js). On 2026-09-19 a $4,150 invoice reached
+  // Stripe as a PAD session and came back `amount_too_large`, which this
+  // route re-threw as a 500. The portal no longer renders the bank button
+  // above the cap and says why instead; this is the same rule server-side,
+  // in the same words, because hiding a button is not access control. The
+  // figure is the one the session would charge: the stage's share when a
+  // stage applies, otherwise the balance — never more than the balance.
+  const balanceCents = invoiceBalanceCents(current);
+  const chargeCents =
+    amountCents == null ? balanceCents : Math.max(0, Math.min(amountCents, balanceCents));
+  if (method !== "card") {
+    const offer = bankDebitOffer({ company, amountCents: chargeCents });
+    if (offer && !offer.eligible) {
+      return NextResponse.json(
+        { error: copy.bankOverCap(money(offer.maxCents / 100), money(chargeCents / 100)) },
+        { status: 400 },
+      );
+    }
+  }
+
+  let session;
+  try {
+    session = await createInvoiceCheckoutSession({
+      invoice: current,
+      company,
+      // A bank debit is not "paid" on return — it clears in 3–5 business days
+      // — so the portal is told which kind of return this is and says
+      // "pending", not "received".
+      successUrl: `${baseUrl}/portal/${_params.token}?paid=${method === "card" ? "true" : "bank"}`,
+      cancelUrl: `${baseUrl}/portal/${_params.token}`,
+      amountCents,
+      method,
+    });
+  } catch (err) {
+    // ── Never a 500 on the payment screen ────────────────────────────────
+    //
+    // Two kinds of throw reach here. Our own refusals (lib/stripe.js: an
+    // unknown method, a paid-up invoice, the cap above) carry `status` and a
+    // sentence already written for a person — those pass through as they
+    // are, translated where a code lets us. Anything else is Stripe's or the
+    // network's: recorded for /platform/errors with the request id Stripe
+    // support asks for, and answered with ONE plain sentence. Stripe's own
+    // wording ("for the provided payment method types") is not for a
+    // homeowner and never reaches them. 400 when Stripe says the request
+    // was invalid — the fix is on our side — 502 when Stripe itself failed.
+    if (err?.code === "bank_debit_over_cap") {
+      return NextResponse.json(
+        { error: copy.bankOverCap(money(err.maxCents / 100), money(err.amountCents / 100)) },
+        { status: 400 },
+      );
+    }
+    if (Number.isInteger(err?.status) && err.status >= 400 && err.status < 500) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
+    const invalid = err?.type === "StripeInvalidRequestError";
+    await recordError({
+      area: "stripe_checkout",
+      code: err?.code || err?.type || "checkout_failed",
+      message: err?.message || "Checkout session could not be created",
+      companyId: company.id,
+      detail: {
+        invoiceId: current.id,
+        method,
+        amountCents: chargeCents,
+        requestId: err?.requestId || null,
+        statusCode: err?.statusCode || null,
+      },
+    });
+    return NextResponse.json(
+      { error: copy.paymentNotStarted(company.name) },
+      { status: invalid ? 400 : 502 },
+    );
+  }
 
   return NextResponse.json({ checkoutUrl: session.url });
 }

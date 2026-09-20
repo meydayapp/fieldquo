@@ -9,7 +9,8 @@ import { loadDocumentCustomFields } from "@/lib/customFields/values";
 import { resolveClientLanguage } from "@/lib/i18n/resolveLanguage";
 import { taxStatement } from "@/lib/tax/documentTax";
 import { documentTaxSentence } from "@/lib/tax/documentSentence";
-import { companyBankDebitMethod } from "@/lib/stripe/bankDebit";
+import { bankDebitOffer } from "@/lib/stripe/bankDebit";
+import { invoiceBalanceCents } from "@/lib/stripe";
 
 export async function GET(request, { params }) {
   // Next 16: `params` is a Promise; reading it synchronously gives undefined.
@@ -258,9 +259,17 @@ export async function GET(request, { params }) {
   } = client.company || {};
   const onlinePayments = Boolean(stripeAccountId && stripeChargesEnabled);
   // "Pay from bank account" renders only when Stripe has ACTIVATED the
-  // capability and the company bills in that method's currency — the method
-  // name only, never a fee (non-negotiable #4: the fee is the contractor's).
-  const bankDebit = onlinePayments ? companyBankDebitMethod(client.company) : null;
+  // capability, the company bills in that method's currency, AND the amount
+  // is inside Stripe's per-debit cap ($3,000 CAD for PAD — measured, see
+  // lib/stripe/bankDebit.js). The cap is why this is decided per invoice
+  // (and per payment stage) below rather than once per company: a $4,150
+  // invoice used to render the bank button, and the tap answered with a
+  // 500 from Stripe's `amount_too_large`. The offer carries the method,
+  // whether THIS amount qualifies and the cap — so the page can say why the
+  // button is missing — and never a fee (non-negotiable #4: the fee is the
+  // contractor's).
+  const offerFor = (amountCents) =>
+    onlinePayments ? bankDebitOffer({ company: client.company, amountCents }) : null;
 
   // Per invoice, because each was raised on its own day with its own decision
   // about tax. `asOf` is the invoice's creation date so a rate change last
@@ -321,7 +330,19 @@ export async function GET(request, { params }) {
       //
       // Already narrow at the source: id, label and amountCents only, and only
       // `requested` stages. Nothing further to strip here.
-      jobPaymentStages: invoice.jobPaymentStages,
+      //
+      // Each stage carries its own bank-debit offer: a $3,000 deposit on a
+      // $12,000 invoice is inside PAD's cap even though the balance is not,
+      // and the pay route charges the stage's share, so the stage's share
+      // is what the cap is measured against (capped at the balance, as the
+      // charge itself is — lib/stripe.js createInvoiceCheckoutSession).
+      jobPaymentStages: (invoice.jobPaymentStages || []).map((stage) => ({
+        ...stage,
+        bankDebit: offerFor(Math.min(stage.amountCents, invoiceBalanceCents(invoice))),
+      })),
+      // The bank-debit offer for the invoice's whole remaining balance —
+      // null when the company cannot take bank debit at all.
+      bankDebit: offerFor(invoiceBalanceCents(invoice)),
       // Pending / failed bank debit, as a state and Stripe's reason — no
       // intent id, nothing the browser can act on.
       pendingPayment: invoice.pendingPaymentAt && !invoice.pendingPaymentFailedAt
@@ -347,7 +368,8 @@ export async function GET(request, { params }) {
     language: resolveClientLanguage(client, client.company),
     company: companyView,
     onlinePayments,
-    bankDebit,
+    // No company-level `bankDebit` here any more: the answer depends on the
+    // amount, so it lives on each invoice and each stage above.
     quotes: client.quotes,
     invoices,
     // No `jobs` — see the comment on the query above.

@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 19 September 2026 (/platform/costs is now three sections — Sales floor, Companies, Platform itself — each with its total beside last month's, every line saying provider · API-pulled / computed / hand-entered · last pulled; OpenAI's BILLED spend from the organisation Costs endpoint sits beside the computed figure with a reconciliation line, Neon's consumption and Stripe's fees on FieldQuo's own revenue are pulled daily into PlatformCostDaily, and Vercel, Namecheap, Resend, Google Maps and Retell's invoice are hand-entered as PlatformFixedBill rows, attributed and voided-never-deleted; two variables to set: OPENAI_ADMIN_API_KEY and NEON_API_KEY — see the section below)
+Last updated: 20 September 2026 (a bank-debit payment above Stripe's $3,000.00 CAD pre-authorized-debit cap no longer 500s the client portal: the cap is measured and recorded in `lib/stripe/bankDebit.js`, the portal GET carries a per-invoice and per-stage offer so the bank button is absent above it with a sentence saying why in the eight portal languages, the pay route refuses in the client's language before Stripe is asked and turns any Stripe throw into a 400/502 sentence recorded under `stripe_checkout`, and the session builder refuses on its own — `npm run check:bank-debit-cap`)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -914,6 +914,51 @@ FieldQuo could show.
 
 ---
 
+
+## A bank debit above Stripe's $3,000 PAD cap is refused in words, never a 500 (20 September 2026)
+
+**The incident.** 2026-09-19T15:15:37Z, TrueFinish Cabinets (CA/CAD, PAD
+active): `POST /api/portal/<token>/pay` with `method: "bank"` on a $4,150
+invoice → 500. Stripe (`req_0ymITOokGO1xzZ`) refused the Checkout Session:
+`amount_too_large` — "The Checkout Session's total amount due must be no
+more than $3,000.00 CAD for the provided payment method types." Measured in
+test mode on 2026-09-20: a session naming only `acss_debit` is refused at
+300,001 cents and accepted at 300,000; Affirm on the same account took
+$5,000, so the cap is PAD's, not financing's. The portal rendered the bank
+button for any amount, the pay route called Stripe with no try/catch, and
+the homeowner saw a bare 500 under the contractor's logo.
+
+**What changed.**
+
+- `lib/stripe/bankDebit.js` — `BANK_DEBIT_MAX_CENTS` (`acss_debit:
+  300_000`, with the provenance; `us_bank_account: null` — no measured cap,
+  and null means "unmeasured", never "unlimited"), `bankDebitAmountEligible`,
+  and `bankDebitOffer({ company, amountCents })` → `{ method, eligible,
+  maxCents }` so a page can say why the button is missing.
+- `GET /api/portal/[token]` — no company-level `bankDebit` any more; each
+  invoice carries the offer for its balance and each `requested` stage the
+  offer for its own share (a $3,000 deposit on a $12,000 invoice qualifies
+  where the balance does not). Both portal pages render the bank button only
+  on `eligible` and otherwise the sentence "Bank debit is available up to
+  $3,000.00 per payment — this invoice is $4,150.00, so it's card only."
+  (`clientDocCopy.bankOverCap`, eight languages).
+- `POST /api/portal/[token]/pay` — refuses `bank` above the cap with a 400
+  and that sentence, in the client's language, BEFORE Stripe is asked; wraps
+  `createInvoiceCheckoutSession`: our own refusals pass through with their
+  status, anything from Stripe is recorded (`area: stripe_checkout`, code,
+  invoice, method, amount, Stripe request id) and answered "This payment
+  couldn't be started — please try by card, or contact {company}." — 400 for
+  a `StripeInvalidRequestError`, 502 otherwise. Stripe's wording never
+  reaches a homeowner.
+- `lib/stripe.js` bank branch — the same guard before the create (belt and
+  braces), throwing `status: 400`, `code: "bank_debit_over_cap"`.
+- `scripts/check-bank-debit-cap.mjs` executes all four layers against a
+  scripted db and a scripted Stripe that throws the real error.
+
+**Still owed here.** The US ACH cap is unmeasured. Measure it against Stripe
+Checkout in test mode the same way before filling `us_bank_account` in.
+
+---
 
 ## Affirm is a capability the platform requests, and the settings card says what Stripe answered (19 September 2026)
 
