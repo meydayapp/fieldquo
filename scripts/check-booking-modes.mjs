@@ -61,6 +61,7 @@ import { SMS_LANGUAGES } from "../lib/sms/templates.js";
 import { planReschedule, visitView, visitWhere } from "../lib/booking/manageVisit.js";
 import { finalizeBooking, bookingTextVerdict } from "../lib/booking/finalizeBooking.js";
 import { effectiveBookingFeeCents, bookingModePreset, bookingModePresets } from "../lib/booking/fee.js";
+import { buildBookingInvite, bookingIcsUid, nextSequence } from "../lib/booking/bookingInvite.js";
 import { phoneBookableModes } from "../lib/voice/visitPath.js";
 
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
@@ -497,6 +498,78 @@ const msgs = read("app/app/settings/messages/page.js");
 ok("Settings → Messages has the switch beside the booking text", /role="switch"/.test(msgs) && /bookingSmsOn/.test(msgs));
 const tplRoute = read("app/api/settings/message-templates/route.js");
 ok("…saved to bookingSmsConfirmation", /bookingSmsConfirmation: body\.enabled/.test(tplRoute));
+
+// ───────────────────────────────────────────────────────────────────────────
+console.log("\n7. The calendar invite — one UID, a rising SEQUENCE, CANCEL on cancel, the mode in the SUMMARY");
+const inviteBooking = (over = {}) => ({ id: "bk_77", startTime: START, endTime: new Date(START.getTime() + 20 * 60000), mode: "call", address: null, clientName: "Dana O'Brien", clientEmail: "d@x.test", clientPhone: "819-238-7263", feePaidCents: 0, feeCurrency: null, calendarSequence: 0, ...over });
+const ics0 = buildBookingInvite({ booking: inviteBooking(), company: COMPANY, language: "en", manageUrl: "https://x.test/visit/tok", organizerEmail: "office@acme.test", dtstamp: NOW });
+ok("METHOD:REQUEST on the confirmation", /^METHOD:REQUEST$/m.test(ics0));
+ok("UID fixed per booking", /^UID:booking-bk_77@fieldquo\.com$/m.test(ics0) && bookingIcsUid("bk_77") === "booking-bk_77@fieldquo.com");
+ok("SEQUENCE:0 the first time", /^SEQUENCE:0$/m.test(ics0));
+ok("the SUMMARY names the mode and the company", /^SUMMARY:Phone call — Acme Cabinets$/m.test(ics0), ics0.match(/^SUMMARY:.*$/m)?.[0]);
+ok("LOCATION for a call is the number, not a place", /^LOCATION:Phone: 819-238-7263$/m.test(ics0));
+ok("ORGANIZER is the company's sender, ATTENDEE the client", /^ORGANIZER;CN=Acme Cabinets:mailto:office@acme\.test$/m.test(ics0) && /^ATTENDEE;CN=Dana O'Brien;ROLE=REQ-PARTICIPANT;RSVP=TRUE:mailto:d@x\.test$/m.test(ics0));
+ok("DESCRIPTION carries the mode line, the fee and the manage link", /DESCRIPTION:Phone call — we'll ring 819-238-7263\\nNo charge\\nhttps:\/\/x\.test\/visit\/tok\\n/.test(ics0), ics0.match(/^DESCRIPTION:.*$/m)?.[0]);
+ok("DTSTART/DTEND are the booking's instants in UTC", /^DTSTART:20260916T210000Z$/m.test(ics0) && /^DTEND:20260916T212000Z$/m.test(ics0));
+ok("CRLF line endings, as iCalendar requires", ics0.includes("\r\n") && !/[^\r]\n/.test(ics0));
+const icsVisit = buildBookingInvite({ booking: inviteBooking({ mode: "visit", address: "12 Elm St, Gatineau", feePaidCents: 4900, feeCurrency: "CAD" }), company: COMPANY, language: "fr", dtstamp: NOW });
+ok("a visit's LOCATION is the address and its SUMMARY the visit, in the client's language (fr)", /^LOCATION:12 Elm St\\, Gatineau$/m.test(icsVisit) && /^SUMMARY:Visite sur place — Acme Cabinets$/m.test(icsVisit), icsVisit.match(/^(SUMMARY|LOCATION):.*$/gm));
+ok("…and the DESCRIPTION says what was paid, in French", /49[,.]00\s?\$ payés|\$49\.00 payés/.test(icsVisit), icsVisit.match(/^DESCRIPTION:.*$/m)?.[0]);
+for (const lang of BOOKING_MODE_LANGUAGES) {
+  const t = buildBookingInvite({ booking: inviteBooking({ mode: "video" }), company: COMPANY, language: lang, dtstamp: NOW });
+  ok(`${lang}: the SUMMARY names the mode in ${lang}`, t.includes(`SUMMARY:${bookingModeLabel("video", lang)} — Acme Cabinets`));
+}
+const icsMoved = buildBookingInvite({ booking: inviteBooking({ calendarSequence: 1, startTime: new Date(START.getTime() + 864e5), endTime: new Date(START.getTime() + 864e5 + 20 * 60000) }), company: COMPANY, language: "en", dtstamp: NOW });
+ok("a move re-sends the SAME UID one SEQUENCE higher (what makes a calendar replace, not duplicate)", /^UID:booking-bk_77@fieldquo\.com$/m.test(icsMoved) && /^SEQUENCE:1$/m.test(icsMoved) && /^METHOD:REQUEST$/m.test(icsMoved) && /^DTSTART:20260917T210000Z$/m.test(icsMoved));
+const icsCancel = buildBookingInvite({ booking: inviteBooking({ calendarSequence: 2 }), company: COMPANY, language: "en", method: "CANCEL", dtstamp: NOW });
+ok("a cancellation is METHOD:CANCEL, STATUS:CANCELLED, same UID, higher SEQUENCE", /^METHOD:CANCEL$/m.test(icsCancel) && /^STATUS:CANCELLED$/m.test(icsCancel) && /^UID:booking-bk_77@fieldquo\.com$/m.test(icsCancel) && /^SEQUENCE:2$/m.test(icsCancel));
+ok("nextSequence counts up from the row, and from nothing", nextSequence({ calendarSequence: 0 }) === 1 && nextSequence({ calendarSequence: 4 }) === 5 && nextSequence({}) === 1 && nextSequence({ calendarSequence: "x" }) === 1);
+
+console.log("\n   …through the real routes: confirm → move → cancel on one booking");
+const { POST: cancelRoute } = await import("../app/api/visit/[token]/route.js");
+const { POST: moveRoute } = await import("../app/api/visit/[token]/reschedule/route.js");
+const demoCo = { ...COMPANY, isDemo: true, bookingChangeNoticeHours: 1 };
+resetDbStub();
+rows.company.push(demoCo);
+rows.eventType.push({ ...EVENT_TYPE });
+for (const dayOfWeek of [0, 1, 2, 3, 4, 5, 6]) rows.availabilitySchedule.push({ id: `s${dayOfWeek}`, userId: "u1", dayOfWeek, startTime: "06:00", endTime: "22:00", timezone: "America/Toronto" });
+r = await post({ ...base, mode: "call", clientPhone: "819-238-7263", startTime: new Date(Date.now() + 5 * 864e5).toISOString() });
+j = await r.json();
+ok("booked (demo tenant, so the letter is recorded rather than sent)", r.status === 201, j);
+let mails = writes.filter((w) => w.model === "activityLog" && w.data?.action === "email.simulated");
+ok("the confirmation letter carried booking.ics", mails.length === 1 && mails[0].data.metadata.attachments.join() === "booking.ics", mails.map((m) => m.data.metadata?.attachments));
+const row = rows.booking.find((b) => b.id === j.id);
+ok("the row starts at SEQUENCE 0", row.calendarSequence === undefined || row.calendarSequence === 0);
+// The manage routes read the booking with its event type and company inline
+// (loadVisitByToken's nested select); the stub hands rows back as stored.
+Object.assign(row, { manageToken: row.manageToken || "tok_visit", calendarSequence: 0, eventType: { ...EVENT_TYPE, company: demoCo }, quote: null, feeStripePaymentIntentId: null, feeRefundedAt: null, feeRefundedCents: null });
+rows.appointment.forEach((a) => { a.status = "scheduled"; });
+const tokenReq = (path, body) => new Request(`http://x/api/visit/${row.manageToken}${path}`, { method: "POST", headers: { "content-type": "application/json", "x-forwarded-for": "10.0.0.1" }, body: JSON.stringify(body) });
+const movedTo = new Date(Date.now() + 6 * 864e5);
+movedTo.setUTCHours(15, 0, 0, 0);
+writes.length = 0;
+r = await moveRoute(tokenReq("/reschedule", { startTime: movedTo.toISOString() }), { params: Promise.resolve({ token: row.manageToken }) });
+j = await r.json();
+ok("the client moves it", r.status === 200 && j.rescheduled === true, j);
+ok("…the row's SEQUENCE is now 1, written with the move", writes.some((w) => w.model === "booking" && w.action === "update" && w.data.calendarSequence === 1 && w.data.startTime), writes.filter((w) => w.model === "booking"));
+ok("…and it kept its mode and phone, in the booker's language (fr)", j.mode === "call" && j.where === "Appel téléphonique — nous vous appellerons au 819-238-7263", j.where);
+mails = writes.filter((w) => w.model === "activityLog" && w.data?.action === "email.simulated");
+ok("…the moved letter to the client carried booking.ics, the office's copy none", mails.length === 2 && mails.filter((m) => m.data.metadata.attachments.length).length === 1 && mails.find((m) => m.data.metadata.attachments.length).data.metadata.to[0] === "d@x.test", mails.map((m) => [m.data.metadata.to, m.data.metadata.attachments]));
+writes.length = 0;
+r = await cancelRoute(tokenReq("", { action: "cancel" }), { params: Promise.resolve({ token: row.manageToken }) });
+j = await r.json();
+ok("the client cancels it", r.status === 200 && j.cancelled === true, j);
+ok("…the row's SEQUENCE is now 2, written with the cancel", writes.some((w) => w.model === "booking" && w.action === "update" && w.data.calendarSequence === 2 && w.data.status === "cancelled"), writes.filter((w) => w.model === "booking"));
+mails = writes.filter((w) => w.model === "activityLog" && w.data?.action === "email.simulated");
+ok("…the cancelled letter to the client carried cancelled.ics (METHOD:CANCEL)", mails.some((m) => m.data.metadata.attachments.join() === "cancelled.ics" && m.data.metadata.to[0] === "d@x.test"), mails.map((m) => [m.data.metadata.to, m.data.metadata.attachments]));
+const cancelSrc = read("app/api/visit/[token]/route.js");
+const moveSrc = read("app/api/visit/[token]/reschedule/route.js");
+const officeSrc = read("app/api/appointments/[id]/route.js");
+ok("the cancel route sends METHOD:CANCEL with the row's next sequence", /method: "CANCEL"/.test(cancelSrc) && /calendarSequence: sequence/.test(cancelSrc));
+ok("the move route re-issues with the row's next sequence", /nextSequence\(booking\)/.test(moveSrc) && /calendarSequence: sequence/.test(moveSrc));
+ok("the office's move/cancel does the same", /nextSequence\(existing\.booking\)/.test(officeSrc) && /method: cancelling \? "CANCEL" : "REQUEST"/.test(officeSrc) && /calendarSequence: inviteSequence/.test(officeSrc));
+ok("the manage page offers the same file", /href=\{`\/api\/visit\/\$\{token\}\/calendar`\}/.test(read("app/visit/[token]/VisitManager.js")) && /bookingInviteAttachment\(/.test(read("app/api/visit/[token]/calendar/route.js")));
+ok("the SMS carries no attachment (no such field on the send)", !/attachments/.test(read("lib/booking/finalizeBooking.js").split("sendSms(")[1] || ""));
 
 console.log(`\n${fail === 0 ? "ALL PASS" : "FAILURES"} — ${pass} passed, ${fail} failed\n`);
 process.exit(fail ? 1 : 0);

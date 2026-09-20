@@ -18,6 +18,7 @@ import {
   reasonMessage,
 } from "@/lib/booking/manageVisit";
 import { sendVisitRescheduledEmails } from "@/app/admin/lib/email/templates";
+import { bookingInviteAttachment, nextSequence } from "@/lib/booking/bookingInvite";
 
 // Public, token-only — the client moving their own visit.
 //
@@ -271,9 +272,13 @@ export async function POST(request, { params }) {
   // constraint, not another read.
   const previousStartTime = booking.startTime;
 
+  // The invite's SEQUENCE goes up in the same write: the letter re-sends the
+  // confirmation's UID one higher, which is what makes the client's calendar
+  // replace the event rather than add a second beside it.
+  const sequence = nextSequence(booking);
   await db.booking.update({
     where: { id: booking.id },
-    data: { startTime: plan.start, endTime: plan.end },
+    data: { startTime: plan.start, endTime: plan.end, calendarSequence: sequence },
   });
 
   // The crew's calendar moves with it. Without this the appointment stays at
@@ -287,7 +292,7 @@ export async function POST(request, { params }) {
 
   const after = {
     ...visit,
-    booking: { ...booking, startTime: plan.start, endTime: plan.end },
+    booking: { ...booking, startTime: plan.start, endTime: plan.end, calendarSequence: sequence },
   };
 
   // The link they are already holding, so the new confirmation can be acted on
@@ -299,6 +304,15 @@ export async function POST(request, { params }) {
   } catch (err) {
     console.error("[visit] manage link unavailable:", err?.message);
   }
+
+  const movedLanguage = visitView(after, now).language;
+  const invite = await bookingInviteAttachment({
+    booking: after.booking,
+    company,
+    language: movedLanguage,
+    sequence,
+    manageUrl,
+  });
 
   // Both sides get told. Best-effort — the visit has already moved.
   await sendVisitRescheduledEmails({
@@ -315,8 +329,9 @@ export async function POST(request, { params }) {
     manageUrl,
     // The language the page was rendered in — the quote's, else the company
     // default (visitView decides, so the letter and the page agree).
-    language: visitView(after, now).language,
+    language: movedLanguage,
     initiatedBy: "client",
+    ...(invite && { attachments: [invite] }),
   }).catch((err) => console.error("[visit] reschedule emails failed:", err?.message));
 
   return NextResponse.json({ ...visitView(after, now), rescheduled: true });

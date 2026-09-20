@@ -338,10 +338,15 @@ export function buildBookingConfirmationEmail({
   return { subject: copy.confirmedSubject(named.subjectName, companyName), html };
 }
 
-export async function sendBookingConfirmationEmail({ to, company, ...rest }) {
+// `attachments` is the calendar invite (lib/booking/bookingInvite.js) when
+// the caller built one — the client's copy only, since the office's calendar
+// already holds the appointment. Passed through untouched; this file words
+// letters and never decides what rides with them.
+export async function sendBookingConfirmationEmail({ to, company, attachments, ...rest }) {
   const { subject, html } = buildBookingConfirmationEmail(rest);
 
   return sendEmail({
+    ...(Array.isArray(attachments) && attachments.length && { attachments }),
     // The tenant, so a demo company's booking confirmation is simulated rather
     // than mailed to whoever booked. Every caller passes the full row (see
     // lib/booking/finalizeBooking.js and app/api/visit/[token]/*) — a partial
@@ -493,7 +498,7 @@ export function buildVisitCancelledEmails({
 }
 
 export async function sendVisitCancelledEmails(params) {
-  return sendBothCopies(params.company, buildVisitCancelledEmails(params));
+  return sendBothCopies(params.company, buildVisitCancelledEmails(params), params.attachments);
 }
 
 /**
@@ -504,8 +509,11 @@ export async function sendVisitCancelledEmails(params) {
  * Errors are returned, never thrown — the caller has already done the thing the
  * letters are about.
  */
-async function sendBothCopies(company, letters) {
+async function sendBothCopies(company, letters, attachments = null) {
   const sender = await resolveSender(company || { name: company?.name || "" }, company?.id);
+  // The calendar invite rides with the CLIENT's copy only — see
+  // sendBookingConfirmationEmail.
+  const clientExtras = Array.isArray(attachments) && attachments.length ? { attachments } : {};
   // Both halves carry the tenant. The company's own copy is simulated for a
   // demo too — not because a contractor's inbox needs protecting, but because
   // splitting the rule ("client mail is faked, staff mail is real") gives a
@@ -515,7 +523,7 @@ async function sendBothCopies(company, letters) {
 
   const [client, office] = await Promise.all([
     letters.client.to
-      ? sendEmail({ companyId: sendingCompanyId, ...letters.client, ...sender }).catch((err) => ({ error: err?.message }))
+      ? sendEmail({ companyId: sendingCompanyId, ...letters.client, ...sender, ...clientExtras }).catch((err) => ({ error: err?.message }))
       : Promise.resolve({ skipped: true }),
     letters.company.to
       ? sendEmail({ companyId: sendingCompanyId, ...letters.company, ...sender }).catch((err) => ({ error: err?.message }))
@@ -625,5 +633,5 @@ export function buildVisitRescheduledEmails({
 }
 
 export async function sendVisitRescheduledEmails(params) {
-  return sendBothCopies(params.company, buildVisitRescheduledEmails(params));
+  return sendBothCopies(params.company, buildVisitRescheduledEmails(params), params.attachments);
 }

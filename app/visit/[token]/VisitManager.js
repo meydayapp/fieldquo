@@ -46,7 +46,9 @@ import {
   ArrowLeft,
   Check,
   X,
+  CalendarPlus,
 } from "lucide-react";
+import { bookingModeCopy } from "@/lib/booking/bookingModes";
 import { documentTheme, fillPair, washPair } from "@/lib/documents/theme";
 import { documentFormatters } from "@/lib/i18n/documentLabels";
 import { clientDocCopy } from "@/lib/i18n/clientDocCopy";
@@ -446,6 +448,22 @@ export default function VisitManager({ token }) {
         <h2 className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: theme.inkMuted }}>
           {copy.changeHeading}
         </h2>
+
+        {/* The same .ics the confirmation attached — the row's current
+            time and SEQUENCE, so a client who lost the email gets the event
+            as it is now. Only while the booking stands: a cancelled one has
+            nothing to add. */}
+        {data.status !== "cancelled" && (
+          <a
+            href={`/api/visit/${token}/calendar`}
+            className="mb-2 w-full min-h-12 rounded-full border text-sm font-semibold inline-flex items-center justify-center gap-2"
+            style={{ borderColor: theme.border, color: theme.ink, backgroundColor: theme.paper }}
+            data-add-to-calendar
+          >
+            <CalendarPlus size={15} />
+            {bookingModeCopy(language).addToCalendar}
+          </a>
+        )}
 
         {policy.canChange ? (
           <div className="space-y-2">

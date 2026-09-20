@@ -13,6 +13,7 @@ import {
   reasonMessage,
 } from "@/lib/booking/manageVisit";
 import { sendVisitCancelledEmails } from "@/app/admin/lib/email/templates";
+import { bookingInviteAttachment, nextSequence } from "@/lib/booking/bookingInvite";
 
 // Public, token-only — the homeowner's own copy of the visit they booked.
 //
@@ -168,10 +169,14 @@ export async function POST(request, { params }) {
     }
   }
 
+  // The invite's SEQUENCE goes up in the same write, so the METHOD:CANCEL the
+  // letter carries names a number the row also holds.
+  const sequence = nextSequence(booking);
   await db.booking.update({
     where: { id: booking.id },
     data: {
       status: "cancelled",
+      calendarSequence: sequence,
       ...(refundedAt && { feeRefundedAt: refundedAt, feeRefundedCents: refundedCents }),
     },
   });
@@ -192,9 +197,21 @@ export async function POST(request, { params }) {
     booking: {
       ...booking,
       status: "cancelled",
+      calendarSequence: sequence,
       ...(refundedAt && { feeRefundedAt: refundedAt, feeRefundedCents: refundedCents }),
     },
   };
+
+  // METHOD:CANCEL with the confirmation's own UID — what makes the event
+  // drop off the client's calendar rather than sit there cancelled.
+  const cancelLanguage = visitView(visit, now).language;
+  const invite = await bookingInviteAttachment({
+    booking: after.booking,
+    company,
+    language: cancelLanguage,
+    method: "CANCEL",
+    sequence,
+  });
 
   // Both sides get told. Best-effort by contract — a Resend hiccup must never
   // surface as "we couldn't cancel that", because we did.
@@ -209,8 +226,9 @@ export async function POST(request, { params }) {
     quoteNumber: booking.quote?.quoteNumber || null,
     // The same language the manage page itself was rendered in — see
     // visitView: the quote's language, else the company default.
-    language: visitView(visit, now).language,
+    language: cancelLanguage,
     initiatedBy: "client",
+    ...(invite && { attachments: [invite] }),
     refund: {
       refunded: Boolean(refundedAt),
       amountCents: plan.amountCents,

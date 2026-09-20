@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 20 September 2026 (a booking's MODE is a choice the client makes and a preset the company sets: the public page shows a picker whenever more than one of visit / call / video is offered — "On-site visit · 60 min · $49" beside "Phone call · 20 min · No charge" — and STATES the one mode otherwise; the address is required for a visit, a dialable phone for a call, the email for a video call, refused server-side in the visitor's language; each mode has its own length and fee (Company.callMinutes/videoMinutes/callFeeCents/videoFeeCents beside the event type's visit length and fee), edited as one row per mode on each consultation card; the confirmation letter, the moved and cancelled letters, the manage page, the calendar card, the map, the appointment list and the crew's day all print the mode from lib/booking/bookingModes.js in the reader's language; a confirmation TEXT ships behind a switch on Settings → Messages; the seeded "Phone or on-site visit" label is gone — see the section below)
+Last updated: 20 September 2026 (a booking's MODE is a choice the client makes and a preset the company sets: the public page shows a picker whenever more than one of visit / call / video is offered — "On-site visit · 60 min · $49" beside "Phone call · 20 min · No charge" — and STATES the one mode otherwise; the address is required for a visit, a dialable phone for a call, the email for a video call, refused server-side in the visitor's language; each mode has its own length and fee (Company.callMinutes/videoMinutes/callFeeCents/videoFeeCents beside the event type's visit length and fee), edited as one row per mode on each consultation card; the confirmation letter, the moved and cancelled letters, the manage page, the calendar card, the map, the appointment list and the crew's day all print the mode from lib/booking/bookingModes.js in the reader's language; a confirmation TEXT ships behind a switch on Settings → Messages; the confirmation carries a calendar invite that a move re-issues and a cancellation withdraws; the seeded "Phone or on-site visit" label is gone — see the section below)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -71,6 +71,16 @@ What shipped:
   the STOP ledger (`maySms`) and a from-number. Body: "{company}: You're
   booked. {where}, {when}. {fee}. Reply STOP to opt out." in eight
   languages.
+- **A calendar invite** rides with the confirmation (`lib/booking/
+  bookingInvite.js` over `lib/calendar/ics.js`, which gained METHOD,
+  SEQUENCE and PRODID): METHOD:REQUEST, UID `booking-<id>@fieldquo.com`,
+  SUMMARY "Phone call — Northline" in the client's language, LOCATION the
+  address or "Phone: <number>", DESCRIPTION the mode line, the fee and the
+  manage link, ORGANIZER the company's resolved sender, ATTENDEE the client.
+  A move — client or office — bumps `Booking.calendarSequence` in the same
+  write and re-sends the UID one higher; a cancellation sends METHOD:CANCEL
+  with it. The manage page's "Add to calendar" serves the same file from
+  `/api/visit/[token]/calendar`. The text carries no attachment.
 - **The manage page** renders the server's `where` line; **the appointment
   list** badges the mode and prints the line instead of a maps link for a
   call; **the map** drops a call's pin and names the mode in the popover;

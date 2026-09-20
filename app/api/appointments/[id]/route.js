@@ -18,6 +18,8 @@ import { travelMinutes, hasPoint } from "@/lib/booking/travel";
 import { serverMapsKey } from "@/lib/measure/roofMeasurement";
 import { getAppOrigin } from "@/lib/appUrl";
 import { visitManagePath, visitFacts } from "@/lib/booking/manageVisit";
+import { bookingInviteAttachment, nextSequence } from "@/lib/booking/bookingInvite";
+import { resolveClientLanguage } from "@/lib/i18n/clientLanguage";
 import { recordSiteVisit } from "@/lib/quotes/siteVisitActivity";
 import { siteVisitVerbForStatus } from "@/lib/quotes/siteVisit";
 import { pickAbout, aboutLabel } from "@/lib/schedule/appointmentAbout";
@@ -130,6 +132,11 @@ export async function PATCH(request, { params }) {
           address: true,
           clientPhone: true,
           clientEmail: true,
+          clientName: true,
+          startTime: true,
+          // The calendar invite's SEQUENCE, bumped below with a move or a
+          // cancel so the client's calendar replaces or drops the event.
+          calendarSequence: true,
           manageToken: true,
           feePaidCents: true,
           feeCurrency: true,
@@ -402,11 +409,15 @@ export async function PATCH(request, { params }) {
   // old time, and a cancelled appointment would leave a confirmed booking
   // holding the slot on the booking page. Best-effort, logged: the appointment
   // has already changed.
+  // The invite's next SEQUENCE, when this write moves or cancels the row —
+  // stored in the same update and sent with the letter below.
+  const inviteSequence = existing.booking && (plan || cancelling) ? nextSequence(existing.booking) : null;
   if (existing.booking) {
     const bookingData = {
       ...(plan && { startTime: plan.start, endTime: plan.end }),
       ...(cancelling && { status: "cancelled" }),
       ...(reopening && existing.booking.status === "cancelled" && { status: "confirmed" }),
+      ...(inviteSequence != null && { calendarSequence: inviteSequence }),
     };
     if (Object.keys(bookingData).length) {
       await db.booking
@@ -448,6 +459,30 @@ export async function PATCH(request, { params }) {
       // printing a street for a phone call.
       where: existing.booking ? visitFacts(existing.booking) : null,
     };
+    // The calendar invite for a booking the client made through the booking
+    // page: the same UID their confirmation carried, re-issued one higher
+    // (a move) or cancelled (METHOD:CANCEL). A hand-booked appointment has
+    // no booking row and sent no invite, so it gets none here either.
+    const invite =
+      existing.booking && inviteSequence != null
+        ? await bookingInviteAttachment({
+            booking: {
+              ...existing.booking,
+              startTime: plan ? plan.start : existing.booking.startTime || existing.scheduledAt,
+              endTime: plan ? plan.end : existing.booking.endTime,
+              calendarSequence: inviteSequence,
+            },
+            company: existing.company,
+            language: resolveClientLanguage({
+              document: existing.quote || existing.invoice || existing.job?.quote || null,
+              client: existing.client,
+              company: existing.company,
+            }),
+            method: cancelling ? "CANCEL" : "REQUEST",
+            sequence: inviteSequence,
+            manageUrl,
+          })
+        : null;
     const result = plan
       ? await notifyClientMoved({
           ...common,
@@ -455,10 +490,12 @@ export async function PATCH(request, { params }) {
           startTime: plan.start,
           mode: existing.booking?.mode || "visit",
           manageUrl,
+          ...(invite && { attachments: [invite] }),
         })
       : await notifyClientCancelled({
           ...common,
           startTime: existing.scheduledAt,
+          ...(invite && { attachments: [invite] }),
           fee:
             existing.booking?.feePaidCents > 0
               ? { amountCents: existing.booking.feePaidCents, currency: existing.booking.feeCurrency }
