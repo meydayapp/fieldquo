@@ -70,7 +70,7 @@ callbacks, the crew inbox, team chat, How You Compare, the KPI dashboard,
 
 <!-- tree:start -->
 
-_Generated 2026-09-20 — 320 articles in the tree; written: en 320, fr 320, es 320; “Only in FieldQuo”: 34._
+_Generated 2026-09-20 — 321 articles in the tree; written: en 321, fr 321, es 321; “Only in FieldQuo”: 34._
 
 ### getting-started (23)
 
@@ -178,7 +178,7 @@ _Generated 2026-09-20 — 320 articles in the tree; written: en 320, fr 320, es 
 | `a-chat-room-for-every-job` — A chat room for every job | ✓ | ✓ | ✓ | chat | team_chat | ✓ |
 | `supervisor-required-visits` — Visits that need a supervisor | ✓ | ✓ | ✓ |  | scheduling |  |
 
-### invoices-and-payments (27)
+### invoices-and-payments (28)
 
 | Article | en | fr | es | Screen | Feature | Only |
 |---|:-:|:-:|:-:|---|---|:-:|
@@ -189,6 +189,7 @@ _Generated 2026-09-20 — 320 articles in the tree; written: en 320, fr 320, es 
 | `edit-an-invoice-after-sending` — Edit an invoice after it was sent | ✓ | ✓ | ✓ |  | invoice_changes |  |
 | `record-a-manual-payment` — Record a cash, cheque or e-transfer payment | ✓ | ✓ | ✓ |  | invoices |  |
 | `how-clients-pay-online` — How clients pay online | ✓ | ✓ | ✓ |  | card_payments |  |
+| `offline-payment-methods` — Cash, e-transfer, cheque — and Zelle, Venmo or Cash App in the US | ✓ | ✓ | ✓ | settings-payments | offline_payment_methods |  |
 | `connect-stripe-and-get-verified` — Connecting Stripe and getting verified | ✓ | ✓ | ✓ | settings-payments | stripe_connect |  |
 | `what-stripe-asks-for-and-why` — What Stripe asks for, and why | ✓ | ✓ | ✓ |  | stripe_connect |  |
 | `payment-processing-fees-and-payouts` — Payment processing fees and payouts | ✓ | ✓ | ✓ | settings-payments | card_payments |  |

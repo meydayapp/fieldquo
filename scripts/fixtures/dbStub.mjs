@@ -130,6 +130,14 @@ export const rows = {
   // of the `data` a create() received, which reading the route cannot settle.
   user: [],
   activityLog: [],
+  // The client portal's invoice family, payments and custom-field lookups
+  // (check-offline-payment-methods.mjs executes GET /api/portal/[token]
+  // with issued invoices, which the public-payload check runs with none).
+  // Read-only models there: the stub answers from `rows` and never invents.
+  invoice: [],
+  payment: [],
+  customField: [],
+  customFieldValue: [],
   // ── The sales retry pool (scripts/check-sales-retry-pool.mjs) ──────────
   // Prospect rows for the claim scan and the platform's Exhausted list, the
   // claim log the batch writes, the attempt rows a disposition updates, the
@@ -252,6 +260,10 @@ export function resetDbStub() {
   rows.leadRequest = [];
   rows.user = [];
   rows.activityLog = [];
+  rows.invoice = [];
+  rows.payment = [];
+  rows.customField = [];
+  rows.customFieldValue = [];
   rows.prospect = [];
   rows.salesQueueClaim = [];
   rows.salesCallAttempt = [];
@@ -637,6 +649,10 @@ export const db = new Proxy(
     leadRequest: model("leadRequest"),
     user: model("user"),
     activityLog: model("activityLog"),
+    invoice: model("invoice"),
+    payment: model("payment"),
+    customField: model("customField"),
+    customFieldValue: model("customFieldValue"),
     prospect: model("prospect"),
     salesQueueClaim: model("salesQueueClaim"),
     salesCallAttempt: model("salesCallAttempt"),

@@ -496,6 +496,9 @@ const en = {
   "feature.card_payments.name": "Get paid by card",
   "feature.card_payments.summary":
     "The client pays from their phone and the money goes to your account, not ours.",
+  "feature.offline_payment_methods.name": "Every other way to get paid",
+  "feature.offline_payment_methods.summary":
+    "E-transfer, cheque, cash — Zelle, Venmo, Cash App and check in the US — printed on the invoice with where to send it.",
   "feature.stripe_connect.name": "Your own payout account",
   "feature.stripe_connect.summary":
     "Connect your bank once; every client payment settles into it directly.",
@@ -1035,6 +1038,9 @@ const fr = {
   "feature.card_payments.name": "Encaissez par carte",
   "feature.card_payments.summary":
     "Le client paie depuis son téléphone et l'argent va dans votre compte, pas dans le nôtre.",
+  "feature.offline_payment_methods.name": "Toutes les autres façons d'être payé",
+  "feature.offline_payment_methods.summary":
+    "Virement Interac, chèque, comptant — Zelle, Venmo, Cash App et chèque aux États-Unis — imprimés sur la facture avec l'adresse où envoyer l'argent.",
   "feature.stripe_connect.name": "Votre propre compte de versement",
   "feature.stripe_connect.summary":
     "Reliez votre banque une fois; chaque paiement client s'y dépose directement.",
@@ -1557,6 +1563,9 @@ const es = {
   "feature.card_payments.name": "Cobra con tarjeta",
   "feature.card_payments.summary":
     "El cliente paga desde su teléfono y el dinero va a tu cuenta, no a la nuestra.",
+  "feature.offline_payment_methods.name": "Todas las demás formas de cobrar",
+  "feature.offline_payment_methods.summary":
+    "Transferencia Interac, cheque, efectivo — Zelle, Venmo, Cash App y cheque en Estados Unidos — impresos en la factura con la dirección a la que enviar el dinero.",
   "feature.stripe_connect.name": "Tu propia cuenta de cobros",
   "feature.stripe_connect.summary":
     "Conecta tu banco una vez; cada pago de cliente cae ahí directo.",
@@ -2080,6 +2089,9 @@ const uk = {
   "feature.card_payments.name": "Оплата карткою",
   "feature.card_payments.summary":
     "Клієнт платить із телефона, і гроші йдуть на ваш рахунок, а не на наш.",
+  "feature.offline_payment_methods.name": "Усі інші способи отримати оплату",
+  "feature.offline_payment_methods.summary":
+    "Переказ Interac, чек, готівка — Zelle, Venmo, Cash App і чек у США — надруковані в рахунку разом з адресою, куди надсилати.",
   "feature.stripe_connect.name": "Власний рахунок для виплат",
   "feature.stripe_connect.summary":
     "Підключіть банк один раз — і кожна оплата клієнта надходить прямо туди.",
@@ -2602,6 +2614,9 @@ const pa = {
   "feature.card_payments.name": "ਕਾਰਡ ਨਾਲ ਭੁਗਤਾਨ ਲਵੋ",
   "feature.card_payments.summary":
     "ਗਾਹਕ ਆਪਣੇ ਫ਼ੋਨ ਤੋਂ ਭੁਗਤਾਨ ਕਰਦਾ ਹੈ ਅਤੇ ਪੈਸਾ ਤੁਹਾਡੇ ਖਾਤੇ ਵਿੱਚ ਜਾਂਦਾ ਹੈ, ਸਾਡੇ ਨਹੀਂ।",
+  "feature.offline_payment_methods.name": "ਭੁਗਤਾਨ ਲੈਣ ਦੇ ਬਾਕੀ ਸਾਰੇ ਤਰੀਕੇ",
+  "feature.offline_payment_methods.summary":
+    "Interac ਟ੍ਰਾਂਸਫਰ, ਚੈੱਕ, ਨਕਦ — ਅਮਰੀਕਾ ਵਿੱਚ Zelle, Venmo, Cash App ਅਤੇ ਚੈੱਕ — ਇਨਵੌਇਸ 'ਤੇ ਛਪੇ, ਨਾਲ ਹੀ ਕਿੱਥੇ ਭੇਜਣਾ ਹੈ।",
   "feature.stripe_connect.name": "ਤੁਹਾਡਾ ਆਪਣਾ ਪੇਆਊਟ ਖਾਤਾ",
   "feature.stripe_connect.summary":
     "ਬੈਂਕ ਇੱਕ ਵਾਰ ਜੋੜੋ; ਹਰ ਗਾਹਕ ਦਾ ਭੁਗਤਾਨ ਸਿੱਧਾ ਉੱਥੇ ਪਹੁੰਚਦਾ ਹੈ।",
@@ -3129,6 +3144,9 @@ const tl = {
   "feature.card_payments.name": "Mabayaran sa pamamagitan ng card",
   "feature.card_payments.summary":
     "Nagbabayad ang kliyente mula sa telepono niya at diretso sa account mo ang pera, hindi sa amin.",
+  "feature.offline_payment_methods.name": "Lahat ng ibang paraan para mabayaran",
+  "feature.offline_payment_methods.summary":
+    "E-transfer, tseke, cash — Zelle, Venmo, Cash App at check sa US — nakalimbag sa invoice kasama kung saan ipadadala.",
   "feature.stripe_connect.name": "Sarili mong payout account",
   "feature.stripe_connect.summary":
     "Ikonekta ang bangko mo minsan lang; diretso doon ang bawat bayad ng kliyente.",
@@ -3553,6 +3571,9 @@ const de = {
   "feature.invoice_changes.summary": "Ändern Sie eine ausgestellte Rechnung, und die alte bleibt erhalten — es gibt nie eine Frage, was vereinbart war.",
   "feature.card_payments.name": "Per Karte bezahlt werden",
   "feature.card_payments.summary": "Der Kunde zahlt vom Handy, und das Geld geht auf Ihr Konto, nicht auf unseres.",
+  "feature.offline_payment_methods.name": "Alle anderen Wege, bezahlt zu werden",
+  "feature.offline_payment_methods.summary":
+    "E-Transfer, Scheck, Bargeld — Zelle, Venmo, Cash App und Scheck in den USA — auf der Rechnung gedruckt, samt Empfängeradresse.",
   "feature.stripe_connect.name": "Ihr eigenes Auszahlungskonto",
   "feature.stripe_connect.summary": "Bankverbindung einmal verbinden; jede Kundenzahlung landet direkt darauf.",
   "feature.financing.name": "Kunden monatlich zahlen lassen",
@@ -3938,6 +3959,9 @@ const zh = {
   "feature.invoice_changes.summary": "修改已开出的账单时，旧版本会保留，双方谈定的是什么永远不会说不清。",
   "feature.card_payments.name": "刷卡收款",
   "feature.card_payments.summary": "客户在手机上付款，钱进你的账户，不是我们的。",
+  "feature.offline_payment_methods.name": "其他所有收款方式",
+  "feature.offline_payment_methods.summary":
+    "电子转账、支票、现金——美国还有 Zelle、Venmo、Cash App 和支票——都印在账单上，附上汇款地址。",
   "feature.stripe_connect.name": "你自己的收款账户",
   "feature.stripe_connect.summary": "银行账户连接一次，之后每一笔客户付款都直接结算到那里。",
   "feature.financing.name": "让客户按月付",
@@ -4439,6 +4463,9 @@ const it = {
   "feature.card_payments.name": "Incassi con carta",
   "feature.card_payments.summary":
     "Il cliente paga dal telefono e il denaro va sul suo conto, non sul nostro.",
+  "feature.offline_payment_methods.name": "Tutti gli altri modi per essere pagati",
+  "feature.offline_payment_methods.summary":
+    "E-transfer, assegno, contanti — Zelle, Venmo, Cash App e assegno negli USA — stampati sulla fattura con l'indirizzo a cui inviare.",
   "feature.stripe_connect.name": "Il suo conto di accredito",
   "feature.stripe_connect.summary":
     "Colleghi la sua banca una volta sola; ogni pagamento dei clienti vi confluisce direttamente.",

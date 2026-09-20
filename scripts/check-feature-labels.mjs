@@ -244,7 +244,10 @@ for (const [language, script] of Object.entries(SCRIPTS)) {
 // same treatment as "Instagram" — kept in Latin script rather than invented
 // as a transliteration nobody searches for.
 {
-  const ALLOWED = ["FieldQuo", "AI", "PDF", "Instagram", "Meta", "Ads"];
+  // Interac, Zelle, Venmo, Cash App and PayPal are the payment networks a
+  // homeowner would search for by their Latin names — the offline payment
+  // methods row (lib/marketing/featureMatrix.js) names them as brands.
+  const ALLOWED = ["FieldQuo", "AI", "PDF", "Instagram", "Meta", "Ads", "Interac", "Zelle", "Venmo", "Cash", "App", "PayPal"];
   const strays = [];
   for (const language of Object.keys(SCRIPTS)) {
     for (const key of FEATURE_LABEL_KEYS) {
