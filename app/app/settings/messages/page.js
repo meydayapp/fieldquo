@@ -127,6 +127,41 @@ function MessageEditor({ type, onSaved }) {
 
   const isCustom = Boolean(type.custom);
 
+  // ── The switch, for the one type that has one ──────────────────────────
+  //
+  // The booking confirmation is off until the company says so — a text is
+  // billable, and a switch nobody flipped must not cost money. It sits here,
+  // beside the wording it governs, so nobody edits a message that isn't
+  // going out without seeing that it isn't. Optimistic, then reconciled from
+  // the server's answer; a refused save puts the pill back and says why.
+  const hasSwitch = typeof type.enabled === "boolean";
+  const [enabled, setEnabled] = useState(Boolean(type.enabled));
+  const [switching, setSwitching] = useState(false);
+  async function toggle() {
+    const next = !enabled;
+    setEnabled(next);
+    setSwitching(true);
+    setError("");
+    try {
+      const res = await fetch("/api/settings/message-templates", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: type.key, enabled: next }),
+      });
+      if (!res.ok) {
+        setEnabled(!next);
+        const d = await res.json().catch(() => null);
+        setError(d?.error || t("app.setMessages.saveError"));
+        return;
+      }
+      const d = await res.json().catch(() => null);
+      if (typeof d?.enabled === "boolean") setEnabled(d.enabled);
+      onSaved?.();
+    } finally {
+      setSwitching(false);
+    }
+  }
+
   return (
     <section className="rounded-xl border border-border bg-card p-5">
       <div className="flex items-center justify-between gap-2">
@@ -137,6 +172,35 @@ function MessageEditor({ type, onSaved }) {
           <span className="text-xs text-muted-foreground">{t("app.setMessages.customised")}</span>
         )}
       </div>
+
+      {hasSwitch && (
+        <div className="mt-3 flex items-start gap-3">
+          <button
+            type="button"
+            role="switch"
+            aria-checked={enabled}
+            disabled={switching}
+            onClick={toggle}
+            className={`shrink-0 mt-0.5 relative inline-flex h-6 w-11 items-center rounded-full border transition-colors disabled:opacity-60 ${
+              enabled ? "bg-inverted border-inverted" : "bg-muted border-border"
+            }`}
+          >
+            <span
+              className={`inline-block h-5 w-5 rounded-full bg-card shadow transition-transform ${
+                enabled ? "translate-x-5" : "translate-x-0.5"
+              }`}
+            />
+          </button>
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-foreground">
+              {enabled ? t("app.setMessages.bookingSmsOn") : t("app.setMessages.bookingSmsOff")}
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {t("app.setMessages.bookingSmsHint")}
+            </p>
+          </div>
+        </div>
+      )}
 
       <textarea
         value={text}
@@ -229,6 +293,8 @@ function sampleFor(token) {
       when: "Tue, Aug 12 at 2:00 PM",
       location: "123 Oak St",
       service: "on-site estimate",
+      where: "On-site visit at 123 Oak St",
+      fee: "No charge",
     }[token] ?? ""
   );
 }

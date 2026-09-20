@@ -8,8 +8,11 @@ import { reportResponseError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
 import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
+import { DEFAULT_CALL_MINUTES, DEFAULT_VIDEO_MINUTES } from "@/lib/booking/bookingModes";
 
 const DURATIONS = [15, 30, 45, 60, 90, 120, 180];
+// A call or a video call is shorter by nature; the row for those starts lower.
+const SHORT_DURATIONS = [10, 15, 20, 30, 45, 60];
 
 const MODES = [
   { key: "visit", label: "Visit their place", hint: "You go to them" },
@@ -93,6 +96,16 @@ function BookingPageScreen() {
   // consultation FieldQuo creates automatically when someone sets availability —
   // which was hardcoded to an hour, whatever the trade.
   const [visitMinutes, setVisitMinutes] = useState(60);
+  // The other two lengths, per mode. Null is "never said", and the booking
+  // page then uses the plain default (lib/booking/bookingModes.js) — shown
+  // here as the lit pill so the screen says what actually happens.
+  const [callMinutes, setCallMinutes] = useState(null);
+  const [videoMinutes, setVideoMinutes] = useState(null);
+  // …and each one's booking fee, in cents (null = free). Company-level like
+  // the lengths: a call is the same call whoever takes it. The visit's fee
+  // stays per event type, with its promo, exactly as before.
+  const [callFeeCents, setCallFeeCents] = useState(null);
+  const [videoFeeCents, setVideoFeeCents] = useState(null);
   const [savingVisit, setSavingVisit] = useState(false);
   const [stripeReady, setStripeReady] = useState(false);
   // Which ways a client may meet them. Drives the choice on the public booking
@@ -105,7 +118,6 @@ function BookingPageScreen() {
     durationMinutes: 60,
     bufferBefore: 0,
     bufferAfter: 0,
-    location: "",
   });
   const [travel, setTravel] = useState({ enabled: true, buffer: 0 });
   const [arrival, setArrival] = useState(0);
@@ -138,6 +150,10 @@ function BookingPageScreen() {
         setStripeReady(Boolean(info?.stripeChargesEnabled));
         if (info?.defaultVisitMinutes)
           setVisitMinutes(info.defaultVisitMinutes);
+        setCallMinutes(info?.callMinutes ?? null);
+        setVideoMinutes(info?.videoMinutes ?? null);
+        setCallFeeCents(info?.callFeeCents ?? null);
+        setVideoFeeCents(info?.videoFeeCents ?? null);
         if (Array.isArray(info?.bookingModes) && info.bookingModes.length)
           setModes(info.bookingModes);
         setTravel({
@@ -245,13 +261,25 @@ function BookingPageScreen() {
       await reportResponseError(res, t("app.setBooking.modesSaveError"));
   }
 
-  async function saveVisitMinutes(minutes) {
-    setVisitMinutes(minutes);
+  /**
+   * One saver for the three lengths. `field` is the Company column —
+   * defaultVisitMinutes, callMinutes or videoMinutes — and the row it lights
+   * is the same one the booking page reads (lib/booking/bookingModes.js).
+   */
+  async function saveMinutes(field, value) {
+    const set = {
+      defaultVisitMinutes: setVisitMinutes,
+      callMinutes: setCallMinutes,
+      videoMinutes: setVideoMinutes,
+      callFeeCents: setCallFeeCents,
+      videoFeeCents: setVideoFeeCents,
+    }[field];
+    set(value);
     setSavingVisit(true);
     const res = await fetch("/api/settings/business-info", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ defaultVisitMinutes: minutes }),
+      body: JSON.stringify({ [field]: value }),
     });
     setSavingVisit(false);
     if (!res.ok) {
@@ -321,7 +349,6 @@ function BookingPageScreen() {
         durationMinutes: 60,
         bufferBefore: 0,
         bufferAfter: 0,
-        location: "",
       });
     } else {
       // Was silent: a failed request did nothing visible at all.
@@ -380,7 +407,7 @@ function BookingPageScreen() {
   // refundOnCancel() returns "nothing_paid" before it looks at any of this, so
   // a company whose booking types are all free has a refund setting that can
   // never fire. Worth saying, rather than letting them think it's doing work.
-  const anyFee = eventTypes.some((et) => et.feeCents > 0);
+  const anyFee = eventTypes.some((et) => et.feeCents > 0) || callFeeCents > 0 || videoFeeCents > 0;
 
   return (
     <div className="p-4 sm:p-6 max-w-2xl mx-auto space-y-6">
@@ -561,6 +588,10 @@ function BookingPageScreen() {
           </div>
         )}
 
+        {/* The default length of a VISIT — what any consultation FieldQuo
+            creates automatically starts at. The length and fee of every
+            mode, per consultation, are on each consultation's card below:
+            one place per thing. */}
         <p className="text-sm font-semibold text-foreground mb-1">
           {t("app.setBooking.visitLengthTitle")}
         </p>
@@ -569,7 +600,7 @@ function BookingPageScreen() {
             <button
               key={m}
               type="button"
-              onClick={() => saveVisitMinutes(m)}
+              onClick={() => saveMinutes("defaultVisitMinutes", m)}
               disabled={savingVisit}
               className={`text-sm px-3 py-1.5 rounded-full border transition-colors disabled:opacity-60 ${
                 visitMinutes === m
@@ -737,123 +768,165 @@ function BookingPageScreen() {
             key={et.id}
             className="bg-card border border-border rounded-xl p-4"
           >
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div className="min-w-0">
-                <div className="font-medium text-foreground">{et.name}</div>
-                <div className="text-xs text-muted-foreground">
-                  {et.location || t("app.setBooking.noLocation")}
-                </div>
-              </div>
-              <div className="flex items-center gap-3 shrink-0">
-                <label className="flex items-center gap-1.5 text-sm">
-                  <span className="text-muted-foreground text-xs">
-                    {t("app.setBooking.length")}
-                  </span>
-                  <select
-                    value={et.durationMinutes}
-                    onChange={(e) => setDuration(et, Number(e.target.value))}
-                    className="border border-border rounded-lg px-2 py-1.5 text-sm bg-background"
-                  >
-                    {/* The saved value is included even if it isn't one of the
-                      presets, so an existing 75-minute visit isn't silently
-                      rounded to 60 the moment someone opens this page. */}
-                    {[...new Set([...DURATIONS, et.durationMinutes])]
-                      .sort((a, b) => a - b)
-                      .map((m) => (
-                        <option key={m} value={m}>
-                          {t("app.setBooking.minutesShort", { m })}
-                        </option>
-                      ))}
-                  </select>
-                </label>
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={et.active}
-                    onChange={() => toggleActive(et)}
-                  />
-                  {t("app.status.active")}
-                </label>
-              </div>
+            <div className="flex items-center justify-between gap-3">
+              <div className="font-medium text-foreground min-w-0 truncate">{et.name}</div>
+              <label className="flex items-center gap-2 text-sm shrink-0">
+                <input
+                  type="checkbox"
+                  checked={et.active}
+                  onChange={() => toggleActive(et)}
+                />
+                {t("app.status.active")}
+              </label>
             </div>
 
-            {/* Fee for this booking type — a paid on-site / estimate visit. Free
-              when blank. Collected via Stripe Connect at booking; the contractor
-              can later credit it onto the client's invoice by hand. */}
-            <div
-              className="mt-3 pt-3 border-t border-border flex flex-wrap items-end gap-3"
-              data-tour="booking-fee"
-            >
-              <label className="text-sm">
-                <span className="block text-xs text-muted-foreground mb-1">
-                  {t("app.setBooking.visitFee", "Visit fee")}
-                </span>
-                <div className="relative">
-                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-                    $
-                  </span>
-                  <input
-                    type="number"
-                    min="0"
-                    step="1"
-                    defaultValue={
-                      et.feeCents ? (et.feeCents / 100).toString() : ""
-                    }
-                    onBlur={(e) =>
-                      patchEventType(et, { feeCents: toCents(e.target.value) })
-                    }
-                    placeholder={t("app.setBooking.free", "Free")}
-                    className="w-28 border border-border rounded-lg pl-6 pr-2 py-1.5 text-sm bg-background"
-                  />
-                </div>
-              </label>
-
-              {et.feeCents > 0 && (
-                <>
-                  <label className="text-sm">
-                    <span className="block text-xs text-muted-foreground mb-1">
-                      {t("app.setBooking.promoPrice", "Promo price")}
-                    </span>
-                    <div className="relative">
-                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-                        $
-                      </span>
-                      <input
-                        type="number"
-                        min="0"
-                        step="1"
-                        defaultValue={
-                          et.promoFeeCents
-                            ? (et.promoFeeCents / 100).toString()
-                            : ""
-                        }
-                        onBlur={(e) =>
-                          patchEventType(et, {
-                            promoFeeCents: toCents(e.target.value),
-                          })
-                        }
-                        className="w-28 border border-border rounded-lg pl-6 pr-2 py-1.5 text-sm bg-background"
-                      />
+            {/* ── One preset per offered mode ──────────────────────────────
+                "Maybe the phone is free, maybe the in-person is paid." Each
+                kind of appointment a client can book has its own length and
+                its own fee — lib/booking/fee.js bookingModePreset, which is
+                what the public page prices its chips with. The visit row
+                edits THIS event type (its length, fee and promo, as before);
+                the call and video rows edit the company's preset, because a
+                call is the same call whoever takes it — and the row says so.
+                The old free-text label ("Phone or on-site visit") is gone:
+                the mode is a choice the client makes, not a caption. */}
+            <div className="mt-3 pt-3 border-t border-border space-y-3" data-tour="booking-fee">
+              {[
+                modes.includes("visit") && {
+                  key: "visit",
+                  minutes: et.durationMinutes,
+                  options: DURATIONS,
+                  feeCents: et.feeCents,
+                  perEvent: true,
+                  onMinutes: (m) => setDuration(et, m),
+                  onFee: (cents) => patchEventType(et, { feeCents: cents }),
+                },
+                modes.includes("call") && {
+                  key: "call",
+                  minutes: callMinutes ?? DEFAULT_CALL_MINUTES,
+                  options: SHORT_DURATIONS,
+                  feeCents: callFeeCents,
+                  perEvent: false,
+                  onMinutes: (m) => saveMinutes("callMinutes", m),
+                  onFee: (cents) => saveMinutes("callFeeCents", cents),
+                },
+                modes.includes("video") && {
+                  key: "video",
+                  minutes: videoMinutes ?? DEFAULT_VIDEO_MINUTES,
+                  options: SHORT_DURATIONS,
+                  feeCents: videoFeeCents,
+                  perEvent: false,
+                  onMinutes: (m) => saveMinutes("videoMinutes", m),
+                  onFee: (cents) => saveMinutes("videoFeeCents", cents),
+                },
+              ]
+                .filter(Boolean)
+                .map((row) => (
+                  <div key={row.key} className="flex flex-wrap items-end gap-3" data-mode-preset={row.key}>
+                    <div className="w-full sm:w-36 text-sm font-medium text-foreground">
+                      {t(`app.setBooking.mode.${row.key}`)}
+                      {!row.perEvent && (
+                        <span className="block text-[11px] font-normal text-muted-foreground">
+                          {t("app.setBooking.presetShared")}
+                        </span>
+                      )}
                     </div>
-                  </label>
-                  <label className="flex items-center gap-2 text-sm pb-1.5">
-                    <input
-                      type="checkbox"
-                      checked={!!et.promoActive}
-                      disabled={!et.promoFeeCents}
-                      onChange={(e) =>
-                        patchEventType(et, { promoActive: e.target.checked })
-                      }
-                    />
-                    {t("app.setBooking.promoOn", "Promo on")}
-                  </label>
-                </>
-              )}
+                    <label className="flex items-center gap-1.5 text-sm">
+                      <span className="text-muted-foreground text-xs">
+                        {t("app.setBooking.length")}
+                      </span>
+                      <select
+                        value={row.minutes}
+                        onChange={(e) => row.onMinutes(Number(e.target.value))}
+                        className="border border-border rounded-lg px-2 py-1.5 text-sm bg-background"
+                      >
+                        {/* The saved value is included even if it isn't one of
+                          the presets, so an existing 75-minute visit isn't
+                          silently rounded to 60 the moment someone opens
+                          this page. */}
+                        {[...new Set([...row.options, row.minutes])]
+                          .sort((a, b) => a - b)
+                          .map((m) => (
+                            <option key={m} value={m}>
+                              {t("app.setBooking.minutesShort", { m })}
+                            </option>
+                          ))}
+                      </select>
+                    </label>
+                    {/* The fee for this kind — blank is free. Collected via
+                        Stripe Connect at booking; the contractor can later
+                        credit it onto the client's invoice by hand. */}
+                    <label className="text-sm">
+                      <span className="block text-xs text-muted-foreground mb-1">
+                        {t("app.setBooking.modeFee")}
+                      </span>
+                      <div className="relative">
+                        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                          $
+                        </span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          key={`${row.key}-${row.feeCents ?? "free"}`}
+                          defaultValue={row.feeCents ? (row.feeCents / 100).toString() : ""}
+                          onBlur={(e) => {
+                            const cents = toCents(e.target.value);
+                            if ((cents ?? null) !== (row.feeCents ?? null)) row.onFee(cents);
+                          }}
+                          placeholder={t("app.setBooking.free", "Free")}
+                          className="w-28 border border-border rounded-lg pl-6 pr-2 py-1.5 text-sm bg-background"
+                        />
+                      </div>
+                    </label>
+                    {row.perEvent && et.feeCents > 0 && (
+                      <>
+                        <label className="text-sm">
+                          <span className="block text-xs text-muted-foreground mb-1">
+                            {t("app.setBooking.promoPrice", "Promo price")}
+                          </span>
+                          <div className="relative">
+                            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                              $
+                            </span>
+                            <input
+                              type="number"
+                              min="0"
+                              step="1"
+                              defaultValue={
+                                et.promoFeeCents
+                                  ? (et.promoFeeCents / 100).toString()
+                                  : ""
+                              }
+                              onBlur={(e) =>
+                                patchEventType(et, {
+                                  promoFeeCents: toCents(e.target.value),
+                                })
+                              }
+                              className="w-28 border border-border rounded-lg pl-6 pr-2 py-1.5 text-sm bg-background"
+                            />
+                          </div>
+                        </label>
+                        <label className="flex items-center gap-2 text-sm pb-1.5">
+                          <input
+                            type="checkbox"
+                            checked={!!et.promoActive}
+                            disabled={!et.promoFeeCents}
+                            onChange={(e) =>
+                              patchEventType(et, { promoActive: e.target.checked })
+                            }
+                          />
+                          {t("app.setBooking.promoOn", "Promo on")}
+                        </label>
+                      </>
+                    )}
+                  </div>
+                ))}
             </div>
 
             {/* Can't collect a fee without a connected payout account. Prompt it
               rather than silently taking a fee that goes nowhere. */}
-            {et.feeCents > 0 && !stripeReady && (
+            {(et.feeCents > 0 || callFeeCents > 0 || videoFeeCents > 0) && !stripeReady && (
               <div className="mt-2 text-xs rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 text-amber-800 dark:text-amber-300 px-3 py-2">
                 {t(
                   "app.setBooking.connectToCharge",
@@ -923,12 +996,12 @@ function BookingPageScreen() {
                   className="border rounded px-3 py-2 text-sm"
                 />
               </div>
-              <input
-                placeholder={t("app.setBooking.locationPlaceholder")}
-                value={form.location}
-                onChange={(e) => setForm({ ...form, location: e.target.value })}
-                className="w-full border rounded px-3 py-2 text-sm"
-              />
+              {/* No "location" caption. It was a free-text label ("Phone or
+                  on-site visit") that nothing public prints any more — the
+                  kind of appointment is a choice the client makes from the
+                  modes above, with each mode's own length and fee. A field
+                  written and never read is the dead control this codebase
+                  keeps removing. */}
               <button
                 type="submit"
                 className="w-full bg-inverted text-inverted-foreground py-2 rounded-full text-sm font-semibold"

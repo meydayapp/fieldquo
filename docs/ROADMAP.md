@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 19 September 2026 (/platform/costs is now three sections — Sales floor, Companies, Platform itself — each with its total beside last month's, every line saying provider · API-pulled / computed / hand-entered · last pulled; OpenAI's BILLED spend from the organisation Costs endpoint sits beside the computed figure with a reconciliation line, Neon's consumption and Stripe's fees on FieldQuo's own revenue are pulled daily into PlatformCostDaily, and Vercel, Namecheap, Resend, Google Maps and Retell's invoice are hand-entered as PlatformFixedBill rows, attributed and voided-never-deleted; two variables to set: OPENAI_ADMIN_API_KEY and NEON_API_KEY — see the section below)
+Last updated: 20 September 2026 (a booking's MODE is a choice the client makes and a preset the company sets: the public page shows a picker whenever more than one of visit / call / video is offered — "On-site visit · 60 min · $49" beside "Phone call · 20 min · No charge" — and STATES the one mode otherwise; the address is required for a visit, a dialable phone for a call, the email for a video call, refused server-side in the visitor's language; each mode has its own length and fee (Company.callMinutes/videoMinutes/callFeeCents/videoFeeCents beside the event type's visit length and fee), edited as one row per mode on each consultation card; the confirmation letter, the moved and cancelled letters, the manage page, the calendar card, the map, the appointment list and the crew's day all print the mode from lib/booking/bookingModes.js in the reader's language; a confirmation TEXT ships behind a switch on Settings → Messages; the confirmation carries a calendar invite that a move re-issues and a cancellation withdraws; the seeded "Phone or on-site visit" label is gone — see the section below)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -9,6 +9,114 @@ it exists to answer.
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
+
+---
+
+## A booking is a visit, a call or a video call — the client chooses, the company sets each one's length and fee, and every surface says which (20 September 2026)
+
+The owner booked a demo consultation with TrueFinish and read "Phone or
+on-site visit" — the free-text `EventType.location` the auto-created
+consultation carried — with no way to say which, an optional address, one
+duration for every kind, and a confirmation that named neither. His words:
+"if visit their place is selected the client needs to enter their address;
+if phone call is selected they also need to enter the phone number — those
+should be mandatory fields; and the client should be able to know what they
+booked and the company should know what type of visit it is. Maybe an
+in-person visit is longer than a call." And then: "Maybe not all
+consultations are the same — maybe the phone is free, maybe the in-person is
+paid. Each should have its own preset."
+
+What shipped:
+
+- **`lib/booking/bookingModes.js`** is the one place that knows a mode:
+  `offeredModes`, `resolveMode`, `bookingDurationMinutes` (visit → the event
+  type's own length, seeded from `defaultVisitMinutes`; call → `Company.
+  callMinutes` else 20; video → `videoMinutes` else 30), `missingForMode`
+  (visit → address, call → a dialable phone, video → email), and the words —
+  `bookingModeLabel`, `bookingModeNoun`, `bookingModeLine` ("On-site visit
+  at 12 Elm St" / "Phone call — we'll ring 819-238-7263" / "Video call —
+  we'll email a link to …"), `bookingModeStatement`, `requiredFieldRefusal`,
+  `bookingFeeLine` ("$49 paid" / "No charge") — in the eight document
+  languages plus zh. Nothing re-types them.
+- **`lib/booking/fee.js`** prices per mode: the visit's fee stays the event
+  type's (with its promo); a call's and a video call's are the company's
+  (`callFeeCents` / `videoFeeCents`, null = free), still only when Stripe
+  Connect can collect. `bookingModePreset(s)` puts length and fee side by
+  side, and that is what the booking GET sends as `eventTypes[].modes`.
+- **The public page** (`app/book/[companySlug]/BookingFlow.js`): the picker
+  whenever more than one mode is offered, each chip with its minutes and
+  "$49" / "No charge"; a sentence ("This is an on-site visit — we come to
+  you. No charge to book.") when there is one; the slot query carries the
+  mode so a call is offered at twenty minutes; Book is disabled until the
+  mode's field is filled, with the reason underneath in the visitor's
+  language; the address is asked again on the details step when skipped;
+  the confirmed screen prints the mode line.
+- **The confirm route** resolves the mode against what is offered, refuses
+  the missing field as a 400 in the visitor's language (`reason:
+  address_required | phone_required | email_required`), reserves the mode's
+  length, prices the mode's fee (a paid visit still takes the hold →
+  Stripe → settle path; a free call books at once), and writes `Appointment.
+  location` as the client's address or null — never the label. Same on the
+  paid settle path. `bookableMembers.js` seeds `location: null`.
+- **Letters** (`app/admin/lib/email/templates.js`): the confirmation, the
+  moved and the cancelled letters take the booking's facts (`where: { mode,
+  address, phone, email }`) and build their own line in their own language —
+  the client's copy in the client's, the office's in the office's. Subject
+  and intro name the mode ("Confirmed: Phone call with Northline"), the
+  service moves to a "What" row, and the confirmation carries a "Fee" row.
+- **The text**: `booking_confirmation` in `lib/sms/renderTemplate.js` is
+  editable now because it sends — from `finalizeBooking`, behind
+  `Company.bookingSmsConfirmation` (a switch beside the template on Settings
+  → Messages, off by default because a text is billable), a dialable phone,
+  the STOP ledger (`maySms`) and a from-number. Body: "{company}: You're
+  booked. {where}, {when}. {fee}. Reply STOP to opt out." in eight
+  languages.
+- **A calendar invite** rides with the confirmation (`lib/booking/
+  bookingInvite.js` over `lib/calendar/ics.js`, which gained METHOD,
+  SEQUENCE and PRODID): METHOD:REQUEST, UID `booking-<id>@fieldquo.com`,
+  SUMMARY "Phone call — Northline" in the client's language, LOCATION the
+  address or "Phone: <number>", DESCRIPTION the mode line, the fee and the
+  manage link, ORGANIZER the company's resolved sender, ATTENDEE the client.
+  A move — client or office — bumps `Booking.calendarSequence` in the same
+  write and re-sends the UID one higher; a cancellation sends METHOD:CANCEL
+  with it. The manage page's "Add to calendar" serves the same file from
+  `/api/visit/[token]/calendar`. The text carries no attachment.
+- **The manage page** renders the server's `where` line; **the appointment
+  list** badges the mode and prints the line instead of a maps link for a
+  call; **the map** drops a call's pin and names the mode in the popover;
+  **the crew's home** prints the line on the next-up card and the list.
+- **Reschedule** keeps the mode (the route accepts no new mode, address or
+  phone) and re-slots at the mode's length. The phone agent books a call at
+  the company's call length (the 15-minute callback floor still applies
+  when the company never set one) and never a mode that charges.
+- **Settings → Booking page**: each consultation card is one preset row per
+  offered mode — length and fee; the visit row edits the event type, the
+  call and video rows edit the company and say so. The free-text location
+  caption and its input are gone.
+- **Checks**: `scripts/check-booking-modes.mjs` (399 assertions) runs the
+  real confirm and availability routes against the db stub — the refusals
+  in words, 20 vs 60 minutes reserved, three call slots in the hour a visit
+  fits once, a paid visit held for payment while a free call books, the fee
+  never read from the body — builds every letter in eight languages and the
+  text, runs the four text gates and `finalizeBooking` end to end against a
+  demo tenant (the simulated send is a row), and checks every screen at
+  source. `check-visit-manage`, `check-sms-template` and `check-voice-visit`
+  updated. Frames at 375 wide: `docs/screens/booking-modes/{en,fr}/
+  booking-{pick,visit,call}-375.png` (the harness gained a `crypto` stub —
+  its build had been failing on `lib/marketing/unsubscribe.js`).
+
+### Still owed here
+
+- The booking page's other strings (the calendar, "Your name", "Confirm
+  booking", the confirmed screen's body) are still English literals; the
+  mode words, the refusals and the field labels follow the reader, the rest
+  does not yet.
+- The reminder text says "your appointment is …" with no location for a
+  call (the location is null now, honestly); it could carry the mode line.
+- The phone agent's `bookableSlots` still offers slots at the visit's length
+  before the caller has said which kind — a superset for a shorter call, so
+  nothing is over-promised, but a 20-minute gap at the end of a day is not
+  offered for a callback.
 
 ## /platform/costs answers "where does the money go" in three sections, with what OpenAI billed beside what we computed, Neon and Stripe pulled daily, and the invoices no API reports typed in (19 September 2026)
 
@@ -914,6 +1022,51 @@ FieldQuo could show.
 
 ---
 
+
+## A bank debit above Stripe's $3,000 PAD cap is refused in words, never a 500 (20 September 2026)
+
+**The incident.** 2026-09-19T15:15:37Z, TrueFinish Cabinets (CA/CAD, PAD
+active): `POST /api/portal/<token>/pay` with `method: "bank"` on a $4,150
+invoice → 500. Stripe (`req_0ymITOokGO1xzZ`) refused the Checkout Session:
+`amount_too_large` — "The Checkout Session's total amount due must be no
+more than $3,000.00 CAD for the provided payment method types." Measured in
+test mode on 2026-09-20: a session naming only `acss_debit` is refused at
+300,001 cents and accepted at 300,000; Affirm on the same account took
+$5,000, so the cap is PAD's, not financing's. The portal rendered the bank
+button for any amount, the pay route called Stripe with no try/catch, and
+the homeowner saw a bare 500 under the contractor's logo.
+
+**What changed.**
+
+- `lib/stripe/bankDebit.js` — `BANK_DEBIT_MAX_CENTS` (`acss_debit:
+  300_000`, with the provenance; `us_bank_account: null` — no measured cap,
+  and null means "unmeasured", never "unlimited"), `bankDebitAmountEligible`,
+  and `bankDebitOffer({ company, amountCents })` → `{ method, eligible,
+  maxCents }` so a page can say why the button is missing.
+- `GET /api/portal/[token]` — no company-level `bankDebit` any more; each
+  invoice carries the offer for its balance and each `requested` stage the
+  offer for its own share (a $3,000 deposit on a $12,000 invoice qualifies
+  where the balance does not). Both portal pages render the bank button only
+  on `eligible` and otherwise the sentence "Bank debit is available up to
+  $3,000.00 per payment — this invoice is $4,150.00, so it's card only."
+  (`clientDocCopy.bankOverCap`, eight languages).
+- `POST /api/portal/[token]/pay` — refuses `bank` above the cap with a 400
+  and that sentence, in the client's language, BEFORE Stripe is asked; wraps
+  `createInvoiceCheckoutSession`: our own refusals pass through with their
+  status, anything from Stripe is recorded (`area: stripe_checkout`, code,
+  invoice, method, amount, Stripe request id) and answered "This payment
+  couldn't be started — please try by card, or contact {company}." — 400 for
+  a `StripeInvalidRequestError`, 502 otherwise. Stripe's wording never
+  reaches a homeowner.
+- `lib/stripe.js` bank branch — the same guard before the create (belt and
+  braces), throwing `status: 400`, `code: "bank_debit_over_cap"`.
+- `scripts/check-bank-debit-cap.mjs` executes all four layers against a
+  scripted db and a scripted Stripe that throws the real error.
+
+**Still owed here.** The US ACH cap is unmeasured. Measure it against Stripe
+Checkout in test mode the same way before filling `us_bank_account` in.
+
+---
 
 ## Affirm is a capability the platform requests, and the settings card says what Stripe answered (19 September 2026)
 

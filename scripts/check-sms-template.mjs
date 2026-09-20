@@ -76,10 +76,19 @@ for (const [key, spec] of Object.entries(SMS_TEMPLATE_TYPES)) {
   ok(`${key.padEnd(22)} fallback produces text`, typeof out === "string" && out.length > 5, out?.slice(0, 40));
 }
 
-console.log("\nEditable = wired to send. Two send today; booking confirmation does not.");
+console.log("\nEditable = wired to send. All three send today.");
 const editable = Object.entries(SMS_TEMPLATE_TYPES).filter(([, s]) => s.editable).map(([k]) => k).sort();
-ok("on_my_way and appointment_reminder are editable, booking_confirmation is not",
-  editable.join(",") === "appointment_reminder,on_my_way", editable);
+ok("on_my_way, appointment_reminder and booking_confirmation are editable",
+  editable.join(",") === "appointment_reminder,booking_confirmation,on_my_way", editable);
+// Editable is a promise that it sends. The booking confirmation is texted by
+// finalizeBooking — the one point both the free and the paid path pass
+// through — behind the company's switch, the client's phone and the opt-out.
+const finalizeSrc = readFileSync(new URL("../lib/booking/finalizeBooking.js", import.meta.url), "utf8");
+ok("finalizeBooking renders the booking confirmation through renderMessage", /renderMessage\(\{\s*type: "booking_confirmation"/.test(finalizeSrc));
+ok("…only when the company switched it on", /bookingSmsConfirmation/.test(finalizeSrc));
+ok("…and never to a number that opted out", /maySms\(/.test(finalizeSrc));
+ok("…from the company's own line or the system number", /clientSmsFrom\(/.test(finalizeSrc));
+ok("…with the mode line as {where}", /where: bookingModeLine\(/.test(finalizeSrc));
 // The reminder cron must render through renderMessage, or "editable" is a lie:
 // the screen would offer wording that the send path never reads.
 const cronSrc = readFileSync(new URL("../app/api/cron/appointment-reminders/route.js", import.meta.url), "utf8");

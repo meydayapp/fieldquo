@@ -227,8 +227,21 @@ ok("30h out is fine on a 24h window", legit.ok === true, legit);
 ok("the new end is start + duration", legit.end.getTime() - legit.start.getTime() === 60 * 60000);
 const halfHour = planReschedule(booking(), COMPANY, { ...EVENT_TYPE, durationMinutes: 30 }, hoursOut(30), NOW);
 ok("a 30-minute event type gets a 30-minute end", halfHour.end.getTime() - halfHour.start.getTime() === 30 * 60000);
+// A broken event-type duration must never book a zero-length visit. It used
+// to be refused outright; the per-mode length (lib/booking/bookingModes.js)
+// now falls to the company's own default instead, which is the number the
+// company has been editing all along — still never zero.
 const noDuration = planReschedule(booking(), COMPANY, { ...EVENT_TYPE, durationMinutes: null }, hoursOut(30), NOW);
-ok("a broken duration is refused rather than booking a zero-length visit", noDuration.ok === false, noDuration);
+ok("a broken duration falls to the company's visit length, never zero", noDuration.ok === true && noDuration.end.getTime() - noDuration.start.getTime() === 60 * 60000, noDuration);
+// The mode's own length on a move: a phone call is re-slotted at the call's
+// twenty minutes, not the visit's hour, and the company's own call length wins
+// when they set one.
+const movedCall = planReschedule(booking({ mode: "call" }), COMPANY, EVENT_TYPE, hoursOut(30), NOW);
+ok("a moved phone call keeps the call's length (20 min by default)", movedCall.end.getTime() - movedCall.start.getTime() === 20 * 60000, movedCall);
+const movedCallSet = planReschedule(booking({ mode: "call" }), { ...COMPANY, callMinutes: 15 }, EVENT_TYPE, hoursOut(30), NOW);
+ok("…or the company's own call length when they set one", movedCallSet.end.getTime() - movedCallSet.start.getTime() === 15 * 60000, movedCallSet);
+const movedVideo = planReschedule(booking({ mode: "video" }), COMPANY, EVENT_TYPE, hoursOut(30), NOW);
+ok("a moved video call keeps the video length (30 min by default)", movedVideo.end.getTime() - movedVideo.start.getTime() === 30 * 60000, movedVideo);
 
 // ───────────────────────────────────────────────────────────────────────────
 console.log("\nReschedule — the slot has to be one that's offered");
@@ -274,12 +287,15 @@ ok("the refund verdict travels with it", view.refund.willRefund === false && vie
 const lateView = visitView({ booking: paid({ startTime: hoursOut(2) }), eventType: EVENT_TYPE, company: COMPANY }, NOW);
 ok("a page rendered too late says so", lateView.policy.canChange === false && lateView.policy.reason === "too_late");
 
-console.log("\nWhere the visit is, described once");
-ok("a visit uses the address", visitWhere({ booking: booking(), eventType: EVENT_TYPE, company: COMPANY }) === "14 Maple St, Toronto");
-ok("no address falls back to the event type's label", visitWhere({ booking: booking({ address: null }), eventType: EVENT_TYPE, company: COMPANY }) === "On-site visit");
-ok("a call is described as a call", visitWhere({ booking: booking({ mode: "call" }), eventType: EVENT_TYPE, company: COMPANY }).startsWith("Phone call"));
-ok("a call names the number they gave", visitWhere({ booking: booking({ mode: "call" }), eventType: EVENT_TYPE, company: COMPANY }).includes("555-0199"));
-ok("a video call is not an address", visitWhere({ booking: booking({ mode: "video" }), eventType: EVENT_TYPE, company: COMPANY }) === "Video call — we'll email a link");
+console.log("\nWhat was booked and where, described once (lib/booking/bookingModes.js)");
+ok("a visit names itself and the address", visitWhere({ booking: booking() }) === "On-site visit at 14 Maple St, Toronto", visitWhere({ booking: booking() }));
+ok("no address never falls back to the event type's free-text label", visitWhere({ booking: booking({ address: null }), eventType: EVENT_TYPE }) === "On-site visit — address to be confirmed");
+ok("a call is described as a call", visitWhere({ booking: booking({ mode: "call" }) }).startsWith("Phone call"));
+ok("a call names the number they gave", visitWhere({ booking: booking({ mode: "call" }) }) === "Phone call — we'll ring 555-0199");
+ok("a video call names the email the link goes to", visitWhere({ booking: booking({ mode: "video" }) }) === "Video call — we'll email a link to dana@example.test");
+ok("…in the reader's language", visitWhere({ booking: booking({ mode: "call" }), language: "fr" }) === "Appel téléphonique — nous vous appellerons au 555-0199");
+ok("the manage view carries the same line", visitView({ booking: booking({ mode: "call" }), eventType: EVENT_TYPE, company: COMPANY }, NOW).where === "Phone call — we'll ring 555-0199");
+ok("…and the manage view's address is the booking's, never the label", visitView({ booking: booking({ address: null }), eventType: EVENT_TYPE, company: COMPANY }, NOW).address === null);
 
 // ───────────────────────────────────────────────────────────────────────────
 console.log("\nThe letters");

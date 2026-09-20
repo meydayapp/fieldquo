@@ -92,6 +92,13 @@ export async function GET(request) {
       // JSON-LD — which is what puts opening hours in a Google result.
       businessHours: true,
       defaultVisitMinutes: true,
+      // The other two lengths, one per mode — lib/booking/bookingModes.js.
+      callMinutes: true,
+      videoMinutes: true,
+      // …and each one's booking fee (lib/booking/fee.js). The visit's fee
+      // stays on the event type.
+      callFeeCents: true,
+      videoFeeCents: true,
       bookingModes: true,
       travelCheckEnabled: true,
       travelBufferMinutes: true,
@@ -235,6 +242,10 @@ export async function PATCH(request) {
     weekStartsOn,
     businessHours,
     defaultVisitMinutes,
+    callMinutes,
+    videoMinutes,
+    callFeeCents,
+    videoFeeCents,
     bookingModes,
     travelCheckEnabled,
     travelBufferMinutes,
@@ -477,6 +488,24 @@ export async function PATCH(request) {
       // computeAvailability emit infinite slots, and a 10-hour one emits none.
       ...(defaultVisitMinutes !== undefined && {
         defaultVisitMinutes: Math.min(480, Math.max(10, Number(defaultVisitMinutes) || 60)),
+      }),
+      // The same clamp, per mode. Null clears the company's answer and the
+      // booking page falls back to the plain default (20 / 30) — see
+      // lib/booking/bookingModes.js bookingDurationMinutes.
+      ...(callMinutes !== undefined && {
+        callMinutes: callMinutes === null ? null : Math.min(480, Math.max(5, Number(callMinutes) || 20)),
+      }),
+      ...(videoMinutes !== undefined && {
+        videoMinutes: videoMinutes === null ? null : Math.min(480, Math.max(5, Number(videoMinutes) || 30)),
+      }),
+      // The call and video booking fees, in cents. Null or 0 is free. Whole
+      // cents, never negative, capped where the event-type fee is capped so a
+      // typo cannot post a $50,000 hold to a homeowner.
+      ...(callFeeCents !== undefined && {
+        callFeeCents: callFeeCents === null ? null : Math.min(500000, Math.max(0, Math.round(Number(callFeeCents) || 0))),
+      }),
+      ...(videoFeeCents !== undefined && {
+        videoFeeCents: videoFeeCents === null ? null : Math.min(500000, Math.max(0, Math.round(Number(videoFeeCents) || 0))),
       }),
       // Filtered to the known set, and never allowed to be empty: a company with
       // no bookable modes has a booking page that cannot be completed. Falls back

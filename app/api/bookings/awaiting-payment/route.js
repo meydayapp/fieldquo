@@ -28,7 +28,7 @@ import { reconcileBookingFee } from "@/lib/booking/reconcileBookingFee";
 const LOOKBACK_DAYS = 7;
 
 function shape(booking, company) {
-  const { feeCents } = effectiveBookingFeeCents(company, booking.eventType);
+  const { feeCents } = effectiveBookingFeeCents(company, booking.eventType, booking.mode);
   return {
     id: booking.id,
     clientName: booking.clientName,

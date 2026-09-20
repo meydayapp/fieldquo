@@ -13,7 +13,8 @@
 // that (lib/payroll/ownPayGate.js), and this file renders what it is given.
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowRightLeft, Clock, MapPin, MessagesSquare, Megaphone, Navigation, Send, Users } from "lucide-react";
+import { ArrowRightLeft, Clock, MapPin, MessagesSquare, Megaphone, Navigation, Phone, Send, Users, Video } from "lucide-react";
+import { bookingModeLine } from "@/lib/booking/bookingModes";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { formatTimeOfDay } from "@/lib/format/localeDate";
@@ -108,7 +109,18 @@ export default function WorkerHome() {
                         <div className="truncate text-sm font-semibold text-foreground">
                           {w.day} · {w.time}
                         </div>
-                        <div className="truncate text-xs text-muted-foreground">{[i.title, i.address].filter(Boolean).join(" · ") || t("app.me.noJob")}</div>
+                        <div className="truncate text-xs text-muted-foreground">
+                          {[
+                            i.title,
+                            i.address,
+                            // A call or a video call names itself where a visit names its street.
+                            i.booking?.mode && i.booking.mode !== "visit"
+                              ? bookingModeLine({ mode: i.booking.mode, phone: i.booking.phone, email: i.booking.email, language })
+                              : null,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ") || t("app.me.noJob")}
+                        </div>
                       </div>
                       {i.kind === "open" ? (
                         <button type="button" onClick={() => onClaimOpen(i, setDialog)} className="min-h-[44px] shrink-0 rounded-xl border border-border px-3 text-sm font-semibold text-foreground hover:bg-muted">
@@ -209,6 +221,15 @@ function NextUp({ item, t, language, money, now, onCover, onTrade, onClaim, onRo
       {item.address ? (
         <div className="mt-0.5 flex items-center gap-1.5 text-sm opacity-90">
           <MapPin size={14} /> {item.address}
+        </div>
+      ) : null}
+      {/* A phone or video booking has nowhere to drive to; it says which it
+          is and what to ring, in the reader's language, from the same words
+          the client was sent. */}
+      {item.booking?.mode && item.booking.mode !== "visit" ? (
+        <div className="mt-0.5 flex items-center gap-1.5 text-sm opacity-90" data-booking-mode={item.booking.mode}>
+          {item.booking.mode === "video" ? <Video size={14} /> : <Phone size={14} />}{" "}
+          {bookingModeLine({ mode: item.booking.mode, phone: item.booking.phone, email: item.booking.email, language })}
         </div>
       ) : null}
       {item.label ? <div className="mt-0.5 text-sm opacity-80">{item.label}</div> : null}
