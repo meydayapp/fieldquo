@@ -45,6 +45,7 @@ import { auditCrewLines } from "@/lib/crew/lineAudit";
 import { sharedLineAdvice } from "@/lib/crew/sharedLineAdvice";
 import { describeFailure, describeVendorFailure } from "@/lib/platform/diagnostics";
 import { readSalesNumberConfig } from "@/lib/sales/calls/numberConfig";
+import { readUsA2pStatus } from "@/lib/sms/usA2pStatus";
 
 export async function GET(request) {
   const admin = await getCurrentPlatformAdmin(request);
@@ -133,6 +134,15 @@ export async function GET(request) {
   // not read", which the page says rather than showing an empty table.
   const salesNumberConfig = await readSalesNumberConfig({ origin: getAppOrigin(request) }).catch(() => null);
 
+  // Whether a text from any of FieldQuo's numbers reaches a US phone — read
+  // from Twilio's A2P 10DLC resources (Messaging Services, campaigns, brand
+  // registrations), never from a setting. lib/sms/usA2pStatus.js has the
+  // 2026-09-19 error-30034 history. Its own read: it never throws, and a
+  // Twilio that cannot be asked is `twilioError` with every number unknown.
+  const usA2p = askedTwilio
+    ? await readUsA2pStatus({ numbers: numbers.map((n) => ({ e164: n.e164, purpose: bought.find((b) => b.e164 === n.e164)?.purpose || null })) })
+    : null;
+
   const audit = auditCrewLines({
     numbers,
     rows,
@@ -180,6 +190,7 @@ export async function GET(request) {
     },
     numbersError,
     salesNumberConfig,
+    usA2p,
     ...audit,
   });
 }

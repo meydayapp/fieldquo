@@ -1356,5 +1356,29 @@ section("12. Whose text is it — the attribution ladder, on hostile rows");
   ok("SalesSmsMessage carries prospectId and matchedBy, and both are read", /prospectId String\?/.test(smsModel) && /matchedBy String\?/.test(smsModel) && /prospectId: true/.test(listFn) && /matchedBy/.test(stripComments(read("lib/sales/smsAttribution.js"))));
 }
 
+// ── US A2P 10DLC: the verdict, from the resources that decide it ──────────
+{
+  const { usTextingVerdict, US_A2P_UNREGISTERED_ERROR, CAMPAIGN_VERIFIED } = await import("@/lib/sms/usA2pStatus");
+  ok("the unregistered-sender error is Twilio's 30034", US_A2P_UNREGISTERED_ERROR === 30034 && CAMPAIGN_VERIFIED === "VERIFIED");
+  const numbers = [{ e164: "+17162747905", purpose: "system" }, { e164: "+17166383616", purpose: "crew" }, { e164: "+14386099615", purpose: "sales" }];
+  const empty = usTextingVerdict({ numbers, services: [], brands: [] });
+  ok("no brand, no service, no campaign: every number NOT registered, and the summary says 30034 and that Canada is unaffected", empty.registered === false && empty.counts.notRegistered === 3 && /no A2P 10DLC brand, no campaign and no Messaging Service/.test(empty.summary) && /30034/.test(empty.summary) && /Canadian recipients are unaffected/.test(empty.summary), empty.summary);
+  ok("…and every line names the error", empty.lines.every((l) => l.state === "not_registered" && /undelivered \(error 30034\)/.test(l.text)));
+  const verified = { sid: "MG1", friendlyName: "FieldQuo A2P", phoneNumbers: ["+17162747905", "+14386099615"], campaigns: [{ sid: "QE1", status: "VERIFIED", usecase: "MIXED" }] };
+  const part = usTextingVerdict({ numbers, services: [verified], brands: [{ sid: "BN1", status: "APPROVED", brandType: "STANDARD" }] });
+  ok("a number in a service with a VERIFIED campaign is registered; one outside the pool is not", part.lines[0].state === "registered" && part.lines[2].state === "registered" && part.lines[1].state === "not_registered" && part.registered === false && /2 of 3 numbers registered/.test(part.summary), part.summary);
+  const pending = usTextingVerdict({ numbers: numbers.slice(0, 1), services: [{ ...verified, campaigns: [{ sid: "QE1", status: "IN_PROGRESS" }] }], brands: [] });
+  ok("a campaign not yet VERIFIED is 'pending', which is still undelivered", pending.lines[0].state === "pending" && /IN_PROGRESS/.test(pending.lines[0].text) && pending.registered === false);
+  const all = usTextingVerdict({ numbers: numbers.filter((n) => verified.phoneNumbers.includes(n.e164)), services: [verified], brands: [] });
+  ok("every number in a verified pool is 'registered' overall", all.registered === true && /US texting: registered/.test(all.summary));
+  const notAsked = usTextingVerdict({ numbers, asked: false });
+  ok("Twilio not asked is unknown, never 'not registered'", notAsked.registered === null && notAsked.lines.every((l) => l.state === "unknown") && /was not asked/.test(notAsked.summary));
+  const route = read("app/api/platform/crew-lines/route.js");
+  ok("the crew-lines API reads it live and only when Twilio was asked", /readUsA2pStatus\(\{ numbers/.test(route) && /askedTwilio\s*\?\s*await readUsA2pStatus/.test(route) && /usA2p,/.test(route));
+  const page = read("app/platform/crew-lines/page.js");
+  ok("the page prints the per-number verdict and the registration steps, and registers nothing", /UsTextingStatus status=\{data\.usA2p\}/.test(page) && /Regulatory Compliance/.test(page) && /Sender Pool/.test(page) && /\+17162747905/.test(page) && !/brandRegistrations\.create|usAppToPerson\.create/.test(page));
+  ok("the sample messages in the steps are the ones the code sends", /Reply STOP to opt out/.test(read("lib/sms/templates.js")) && /here is the link to sign up that we talked about/.test(read("lib/sales/salesSmsRules.js")) && /here is the link to sign up that we talked about/.test(page));
+}
+
 console.log(`\n${pass} passed, ${fail} failed\n`);
 process.exit(fail ? 1 : 0);

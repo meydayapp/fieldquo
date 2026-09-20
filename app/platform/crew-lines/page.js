@@ -282,7 +282,86 @@ export default function CrewLinesPage() {
           deployment answers on. A tick is a tick at Twilio; "not asked" is
           Twilio being unreachable, never a verdict. lib/sales/calls/numberConfig.js. */}
       <SalesNumberConfig config={data.salesNumberConfig} />
+
+      {/* ── US texting, read from Twilio's A2P 10DLC resources ──────────
+          Added 2026-09-20 after error 30034 on a text to New York. Every
+          verdict is what the carrier holds — Messaging Services, their
+          campaigns, brand registrations — not a setting of ours.
+          lib/sms/usA2pStatus.js. The steps are the owner's to perform in
+          Twilio's console; nothing on this page registers anything. */}
+      <UsTextingStatus status={data.usA2p} />
     </div>
+  );
+}
+
+/** The registration, as the owner performs it. Read alongside the live status above it. */
+const A2P_STEPS = [
+  "Twilio Console → Messaging → Regulatory Compliance → A2P 10DLC (console.twilio.com/us1/develop/sms/regulatory-compliance). Choose \"Register a brand\" → Standard brand (a Sole Proprietor brand is limited to one number and ~1,000 segments a day — FieldQuo has seven numbers).",
+  "Brand: the Canadian company's legal name, its business number (BN, nine digits — Twilio asks for a tax ID and accepts a Canadian BN with country CA), the registered address, the website (fieldquo.com), the vertical (Technology / Software), and a contact. Twilio charges a one-time brand fee (US$4 at time of writing, plus a US$44 one-time vetting fee for a Standard brand).",
+  "Campaign, once the brand shows Registered: \"Create campaign\" → use case Mixed (customer care + sales/marketing — \"Low volume mixed\" if the estimate is under 2,000 segments a day). Description: \"FieldQuo is field-service software for contractors. Our sales team texts business owners who asked for a callback or a demo, and the platform texts a contractor's crew and clients with appointment reminders and links.\"",
+  "Sample messages (copy from the code so they match what is sent): the reminder from lib/sms/templates.js — \"Acme Painting: Reminder — your appointment is Tue 9 am at 12 Main St. Reply STOP to opt out.\" — and the sales link from lib/sales/salesSmsRules.js — \"Hi Sam, this is Favor — here is the link to sign up that we talked about: https://www.fieldquo.com/r/… You can reply to this text if you have any questions.\" Opt-in: \"the contractor gave their number on a call or on the FieldQuo signup form\"; opt-out: STOP, handled by Twilio and lib/sms/optOut.js; help: HELP. Tick \"embedded links\"; do not tick \"embedded phone numbers\" unless a template carries one.",
+  "Twilio creates a Messaging Service for the campaign (or asks you to pick one). Open Messaging → Services → that service → Sender Pool → \"Add senders\" and add EVERY FieldQuo number listed above: the six sales numbers, the crew line and the system number +17162747905. A number not in the pool stays unregistered whatever the campaign says.",
+  "Wait for the campaign to read VERIFIED (vetting takes hours to a few business days; a rejection names the field to fix). Reload this page: each number flips to \"registered\" the moment Twilio's resources say so. Until then, texts to US phones from these numbers are undelivered with error 30034; Canadian recipients are unaffected throughout.",
+];
+
+function UsTextingStatus({ status }) {
+  const tone = (state) =>
+    state === "registered"
+      ? "text-emerald-700 dark:text-emerald-300"
+      : state === "unknown"
+        ? "text-muted-foreground"
+        : state === "pending"
+          ? "text-amber-800 dark:text-amber-200"
+          : "text-red-700 dark:text-red-300";
+  return (
+    <section id="us-texting" className="rounded-xl border border-border bg-card p-4 space-y-3 scroll-mt-4">
+      <h2 className="text-base font-semibold text-foreground">US texting (A2P 10DLC)</h2>
+      {!status ? (
+        <p className="text-sm text-muted-foreground">Twilio was not asked, so nothing here is a verdict.</p>
+      ) : (
+        <>
+          <p className={`text-sm font-medium ${status.registered ? tone("registered") : status.registered === false ? tone("not_registered") : tone("unknown")}`}>{status.summary}</p>
+          {status.twilioError ? <p className="text-sm text-amber-800 dark:text-amber-200">{status.twilioError}</p> : null}
+          <p className="text-xs text-muted-foreground">
+            Read live from Twilio&apos;s Messaging Services, their A2P campaigns and the account&apos;s brand registrations
+            {status.checkedAt ? ` at ${new Date(status.checkedAt).toLocaleTimeString()}` : ""}. Brands: {status.brands.length}; campaigns: {status.campaigns.length}; messaging services: {status.services.length}.
+          </p>
+          {status.lines.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs text-muted-foreground">
+                    <th className="py-1 pr-3 font-medium">Number</th>
+                    <th className="py-1 font-medium">US texting</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {status.lines.map((l) => (
+                    <tr key={l.e164} className="border-t border-border">
+                      <td className="py-1.5 pr-3 whitespace-nowrap tabular-nums">
+                        {l.e164}
+                        {l.purpose ? <span className="block text-xs text-muted-foreground">{l.purpose}</span> : null}
+                      </td>
+                      <td className={`py-1.5 ${tone(l.state)}`}>{l.text}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
+          {status.registered ? null : (
+            <details className="text-sm">
+              <summary className="cursor-pointer font-medium text-foreground">How to register (the owner, in Twilio&apos;s console — nothing here does it for you)</summary>
+              <ol className="mt-2 list-decimal space-y-2 pl-5 text-muted-foreground">
+                {A2P_STEPS.map((step) => (
+                  <li key={step.slice(0, 40)}>{step}</li>
+                ))}
+              </ol>
+            </details>
+          )}
+        </>
+      )}
+    </section>
   );
 }
 
