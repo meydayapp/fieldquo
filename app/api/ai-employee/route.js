@@ -80,7 +80,21 @@ async function admin(request, { allowSupportToLook = false } = {}) {
  */
 async function loadOrCreate(companyId, { mayCreate = true } = {}) {
   const rows = await db.aiEmployee.findMany({ where: { companyId }, orderBy: { createdAt: "asc" } });
-  if (rows.length) return rows;
+  if (rows.length) {
+    // A row hired before its role had a portrait (the receptionist rows
+    // created on 2026-09-19 predate lib/aiEmployee/faces.js) shows initials
+    // for ever unless somebody picks a face. Give it the role's default once,
+    // here, so the team list looks the way a fresh hire does. A role with no
+    // portrait (troubleshooter) keeps initials — nothing is invented.
+    const faceless = rows.filter((r) => !r.avatarUrl && defaultFaceFor(r.role));
+    if (faceless.length && mayCreate) {
+      await Promise.all(
+        faceless.map((r) => db.aiEmployee.update({ where: { id: r.id }, data: { avatarUrl: defaultFaceFor(r.role) } }).catch(() => null)),
+      );
+      for (const r of faceless) r.avatarUrl = defaultFaceFor(r.role);
+    }
+    return rows;
+  }
   // An impersonating support session must never write, and "read the screen"
   // would otherwise create a row for a company that never opened it. They get
   // the same defaults the create would have used, unsaved.
