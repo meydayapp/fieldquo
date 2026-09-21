@@ -3,7 +3,7 @@
 ## The entity graph
 
 Every model, and what points at it. Generated from `prisma/schema.prisma`, so
-it cannot drift from the code. 274 models.
+it cannot drift from the code. 279 models.
 
 **Read it before adding anything.** The question it answers is "what already
 touches this, and what would my change touch" — which is the question that was
@@ -21,24 +21,24 @@ tenancy, so it carries no information.
 | **Worker** | 20 | AvailabilityRequest, LeaveBalance, LeaveRequest, LocationStamp, OnboardingRun, PayRunLine, Payout, PolicyAcknowledgement, SafetyIncident, Salary +10 |
 | **Job** | 19 | Appointment, AssetUseLog, ChangeOrder, CompanyChatRoom, Invoice, JobDailyLog, JobDocument, JobMaterial, JobPaymentStage, JobPhoto +9 |
 | **Prospect** | 18 | PlatformVoiceCall, ProspectCapability, ProspectCorrection, ProspectEvidence, ProspectInference, ProspectOpportunity, ProspectPerson, ProspectScore, ProspectTalkingPoint, ProspectTechnology +8 |
-| **PlatformAdmin** | 14 | DemoBooking, DemoHostAvailability, PlatformAuditLog, PlatformFixedBill, PlatformSmsNumber, PushSubscription, SalesJurisdictionOverride, SalesTelemarketerRegistration, SignupOrigin, StaffMessage +4 |
+| **PlatformAdmin** | 16 | DemoBooking, DemoHostAvailability, PlatformAuditLog, PlatformFixedBill, PlatformSmsNumber, PushSubscription, SalesCallAttempt, SalesCallEvent, SalesJurisdictionOverride, SalesTelemarketerRegistration +6 |
 | **SalesLead** | 12 | PlatformVoiceCall, SalesCallAttempt, SalesCheckIn, SalesContactEmail, SalesContactNumber, SalesEmailDraft, SalesEvent, SalesIntroEmail, SalesLeadLinkEvent, SalesRepNote +2 |
 | **Client** | 11 | Appointment, ClientEquipment, Invoice, Job, MessageThread, PamphletStop, Quote, ReferralLink, SatisfactionResponse, ServicePlan +1 |
 | **Quote** | 11 | Appointment, Booking, Invoice, Job, JobPaymentStage, LeadRequest, QuoteAddOn, QuoteCosting, QuoteImport, QuoteScopeGroup +1 |
 | **Member** | 10 | AssetUseLog, CalendarMirror, CompanyChatMember, CompanyChatMessage, JobPhotoComment, JobPhotoMention, MemberGoogleCalendar, NotificationDelivery, SafetyIncident, ShoutOut |
 | **Invoice** | 7 | Appointment, ChangeOrder, InvoiceCosting, JobPaymentStage, Payment, ServicePlanOccurrence, Task |
 | **ServiceCategory** | 6 | CompanyServiceCategory, JobChecklistTemplate, LeadRequest, QuickAddItem, QuoteScopeGroup, ServiceDocument |
+| **SalesCallAttempt** | 5 | SalesCallEvent, SalesCallQa, SalesCallTransfer, SalesDispositionAudit, SalesRecordingMark |
+| **Task** | 4 | ChangeOrder, JobPhoto, TaskDependency, TimeEntry |
 | **Asset** | 3 | AssetDocument, AssetUseLog, Expense |
 | **CompanyChatRoom** | 3 | CompanyChatMember, CompanyChatMessage, Job |
 | **MarketingCampaign** | 3 | MarketingCampaignDelivery, MarketingDesign, PamphletStop |
 | **SalesThread** | 3 | SalesEmailDraft, SalesMessage, SalesRepNote |
 | **Shift** | 3 | ShiftAttendance, ShiftBreak, ShiftRequest |
-| **Subcontractor** | 3 | JobSubcontractor, SubcontractorDocument, SubcontractorPayment |
-| **VoiceAgent** | 3 | Company, VoiceCall, VoicePhoneNumber |
 
 ### Every model, both directions
 
-<details><summary>274 models — expand</summary>
+<details><summary>279 models — expand</summary>
 
 | Model | Points at | Pointed at by |
 |---|---|---|
@@ -53,7 +53,7 @@ tenancy, so it carries no information.
 | `AvailabilityRequest` | Worker | — |
 | `Booking` | Appointment, EventType, Quote | Appointment |
 | `CalendarMirror` | Member | — |
-| `ChangeOrder` | Invoice, Job | — |
+| `ChangeOrder` | Invoice, Job, Task | Task |
 | `Client` | — | Appointment, ClientEquipment, Invoice, Job, MessageThread, PamphletStop, Quote, ReferralLink, SatisfactionResponse, ServicePlan, Task |
 | `ClientEquipment` | Client | ClientEquipmentService, Job |
 | `ClientEquipmentService` | ClientEquipment | — |
@@ -136,7 +136,7 @@ tenancy, so it carries no information.
 | `PaymentScheduleStage` | — | JobPaymentStage |
 | `Payout` | Worker | — |
 | `Plan` | — | Subscription |
-| `PlatformAdmin` | — | DemoBooking, DemoHostAvailability, PlatformAuditLog, PlatformFixedBill, PlatformSmsNumber, PushSubscription, SalesJurisdictionOverride, SalesTelemarketerRegistration, SignupOrigin, StaffMessage, StaffRoom, StaffRoomMember, SupportTicket, SupportTicketNote |
+| `PlatformAdmin` | — | DemoBooking, DemoHostAvailability, PlatformAuditLog, PlatformFixedBill, PlatformSmsNumber, PushSubscription, SalesCallAttempt, SalesCallEvent, SalesJurisdictionOverride, SalesTelemarketerRegistration, SignupOrigin, StaffMessage, StaffRoom, StaffRoomMember, SupportTicket, SupportTicketNote |
 | `PlatformAuditLog` | PlatformAdmin, SalesRep | — |
 | `PlatformFixedBill` | PlatformAdmin | — |
 | `PlatformPromoCode` | SalesCommissionPlan | PlatformPromoRedemption |
@@ -170,7 +170,8 @@ tenancy, so it carries no information.
 | `SalaryComponent` | — | WorkerSalaryComponent |
 | `SalesAttribution` | SalesRep | Company |
 | `SalesAttributionTouch` | SalesRep | — |
-| `SalesCallAttempt` | Prospect, SalesCallQa, SalesLead, SalesRep | SalesCallQa, SalesCallTransfer |
+| `SalesCallAttempt` | PlatformAdmin, Prospect, SalesCallQa, SalesDispositionAudit, SalesLead, SalesRep | SalesCallEvent, SalesCallQa, SalesCallTransfer, SalesDispositionAudit, SalesRecordingMark |
+| `SalesCallEvent` | PlatformAdmin, SalesCallAttempt | — |
 | `SalesCallQa` | SalesCallAttempt | SalesCallAttempt |
 | `SalesCallTransfer` | SalesCallAttempt, SalesRep | — |
 | `SalesCheckIn` | SalesLead, SalesRep, SalesSmsMessage | SalesSmsMessage |
@@ -178,6 +179,7 @@ tenancy, so it carries no information.
 | `SalesCommissionPlan` | — | PlatformPromoCode, SalesRep |
 | `SalesContactEmail` | SalesLead, SalesRep | — |
 | `SalesContactNumber` | Prospect, SalesLead, SalesRep | — |
+| `SalesDispositionAudit` | SalesCallAttempt | SalesCallAttempt |
 | `SalesEmailDraft` | SalesLead, SalesRep, SalesThread | — |
 | `SalesEvent` | SalesLead, SalesRep | — |
 | `SalesIntroEmail` | SalesLead, SalesRep | — |
@@ -191,6 +193,7 @@ tenancy, so it carries no information.
 | `SalesPlaybookAssignment` | Prospect, SalesPlaybookExperiment | — |
 | `SalesPlaybookExperiment` | SalesPlaybook | SalesPlaybookAssignment |
 | `SalesQueueClaim` | Prospect, SalesRep | — |
+| `SalesRecordingMark` | SalesCallAttempt | — |
 | `SalesRep` | SalesCommissionPlan, SalesMailbox | Company, PlatformAuditLog, PlatformSmsNumber, PushSubscription, SalesAttribution, SalesAttributionTouch, SalesCallAttempt, SalesCallTransfer, SalesCheckIn, SalesCommissionEntry, SalesContactEmail, SalesContactNumber, SalesEmailDraft, SalesEvent, SalesIntroEmail, SalesLead, SalesLeadLinkEvent, SalesMailbox, SalesPayoutBatch, SalesQueueClaim, SalesRepActivity, SalesRepNote, SalesSmsMessage, SalesThread, SignupLead, SignupOrigin, StaffMessage, StaffRoom, StaffRoomMember, SupportTicket, SupportTicketNote |
 | `SalesRepActivity` | SalesRep | — |
 | `SalesRepNote` | Prospect, SalesLead, SalesRep, SalesThread | — |
@@ -224,9 +227,10 @@ tenancy, so it carries no information.
 | `Supplier` | — | PurchaseOrder |
 | `SupportTicket` | PlatformAdmin, SalesRep | SupportTicketNote |
 | `SupportTicketNote` | PlatformAdmin, SalesRep, SupportTicket | — |
-| `Task` | Client, Invoice, Job, Quote, WorkArea | JobPhoto |
+| `Task` | ChangeOrder, Client, Invoice, Job, Quote, WorkArea | ChangeOrder, JobPhoto, TaskDependency, TimeEntry |
+| `TaskDependency` | Task | — |
 | `TaxFormSubmission` | Worker | — |
-| `TimeEntry` | Job, Worker | LocationStamp, TimeEntryBreak |
+| `TimeEntry` | Job, Task, Worker | LocationStamp, TimeEntryBreak |
 | `TimeEntryBreak` | TimeEntry | — |
 | `User` | Worker | Account, AccountDevice, Appointment, AvailabilityRequest, AvailabilitySchedule, ChangeOrder, EventType, Funnel, Invoice, JobMaterial, JobVisit, LeadNote, LeadRequest, MarketingCampaign, MarketingDesign, Member, OrgMember, PamphletStop, PushSubscription, Quote, ScheduleEvent, Session, Shift, ShiftRequest, Task, TimeEntry, TwoFactor, WorkAreaAssignment, Worker, WorkingHours |
 | `VehicleDetail` | — | VehicleMaintenance |

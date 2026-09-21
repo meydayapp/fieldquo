@@ -12,6 +12,8 @@ import { documentTaxSentence } from "@/lib/tax/documentSentence";
 import { bankDebitOffer } from "@/lib/stripe/bankDebit";
 import { invoiceBalanceCents } from "@/lib/stripe";
 import { howToPayFor, onlineOptions, HOW_TO_PAY_COMPANY_SELECT } from "@/lib/payments/offlineMethods";
+import { orderPlan, planStatus } from "@/lib/jobs/plan";
+import { changeOrderLabel } from "@/lib/jobs/changeOrderAddendum";
 
 export async function GET(request, { params }) {
   // Next 16: `params` is a Promise; reading it synchronously gives undefined.
@@ -191,13 +193,71 @@ export async function GET(request, { params }) {
           },
         },
       },
-      // `jobs` used to be fetched here (with its `visits`, technician ids and
-      // checklists) and shipped whole. Nothing in ClientPortal.js or
-      // PortalInvoice.js reads `data.jobs` — docs/TODO.md is explicit that
-      // "the client portal shows invoices only" is the current, intended
-      // scope. Dropped rather than select-narrowed: the correct allow-list
-      // for a field nothing reads is no field at all. Add it back with a
-      // real `select` the day the portal actually shows job status.
+      // ── Jobs, back with a real select ───────────────────────────────────
+      //
+      // `jobs` used to be fetched here whole (visits, technician ids,
+      // checklists) and was dropped because nothing rendered it — "add it
+      // back with a real select the day the portal actually shows job
+      // status". That day: ClientPortal.js's job card shows the plan's steps
+      // as Done · In progress · Waiting on, the dates, the photos the crew
+      // filed against a step, and the change orders awaiting the client's
+      // signature.
+      //
+      // The allow-list is the boundary. Per step: title, status, due date,
+      // the step it waits on (title only), the hold reason, the change order
+      // it waits on. NOT its description (that is where staff write notes),
+      // NOT its estimate (hours are effort, effort is price), NOT its
+      // assignee id. Only steps the office marked clientVisible (default off
+      // — see Task.clientVisible). Photos: only those filed against such a
+      // step, and never the `issue` stage, whose own comment says "never to
+      // publish".
+      jobs: {
+        where: {
+          archivedAt: null,
+          status: { in: ["unscheduled", "scheduled", "in_progress", "completed"] },
+        },
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          title: true,
+          status: true,
+          startDate: true,
+          endDate: true,
+          completedAt: true,
+          tasks: {
+            where: { planStep: true, clientVisible: true, status: { not: "cancelled" } },
+            orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+            select: {
+              id: true,
+              title: true,
+              status: true,
+              dueDate: true,
+              scheduledStart: true,
+              waitingReason: true,
+              waitingOnChangeOrderId: true,
+              updatedAt: true,
+              dependsOn: { select: { dependsOn: { select: { id: true, title: true, status: true } } } },
+              photos: {
+                where: { stage: { not: "issue" } },
+                orderBy: { createdAt: "asc" },
+                select: { id: true, url: true, createdAt: true },
+              },
+            },
+          },
+          changeOrders: {
+            where: { status: "waiting_client", shareToken: { not: null } },
+            orderBy: { createdAt: "asc" },
+            select: { id: true, seq: true, createdAt: true, description: true, shareToken: true },
+          },
+          // Who is on site right now: open time entries on this job. The
+          // worker's name and the clock-in time, nothing else about the
+          // entry.
+          timeEntries: {
+            where: { clockOut: null },
+            select: { clockIn: true, worker: { select: { name: true } } },
+          },
+        },
+      },
     },
   });
 
@@ -389,6 +449,62 @@ export async function GET(request, { params }) {
     };
   });
 
+  // ── The job card's rows, derived here so the browser never sees a raw
+  //    task row. Status is lib/jobs/plan.js's derived one — "waiting" when a
+  //    blocker is not done, the change order is unsigned, or a hold reason
+  //    was written — and the change-order labels are the same CO-n the
+  //    addendum carries.
+  const now = new Date();
+  const jobs = (client.jobs || [])
+    // A finished job stays on the card for a month, then drops off: the
+    // homeowner opened this to see where things are, not a history.
+    .filter((j) => j.status !== "completed" || !j.completedAt || now - new Date(j.completedAt) < 31 * 86400000)
+    .map((j) => {
+      const coRows = j.changeOrders || [];
+      const labelOf = (id) => {
+        const co = coRows.find((c) => c.id === id);
+        return co ? changeOrderLabel(co, coRows) : null;
+      };
+      const steps = orderPlan(j.tasks || []).map((t) => {
+        const blockers = (t.dependsOn || []).map((d) => d.dependsOn).filter(Boolean);
+        const co = t.waitingOnChangeOrderId ? coRows.find((c) => c.id === t.waitingOnChangeOrderId) : null;
+        const derived = planStatus(t, blockers, co ? { ...co, label: changeOrderLabel(co, coRows) } : null);
+        return {
+          id: t.id,
+          title: t.title,
+          status: derived.status,
+          waitingOn: derived.waitingOn.map((w) => ({
+            kind: w.kind,
+            label: w.label,
+            ...(w.kind === "change_order" ? { changeOrderLabel: labelOf(w.id), shareToken: coRows.find((c) => c.id === w.id)?.shareToken || null } : {}),
+          })),
+          dueDate: t.scheduledStart || t.dueDate || null,
+          doneAt: t.status === "done" ? t.updatedAt : null,
+          photos: (t.photos || []).map((p) => ({ id: p.id, url: p.url, at: p.createdAt })),
+        };
+      });
+      const overdue = steps.some((s) => s.status !== "done" && s.dueDate && new Date(s.dueDate) < now);
+      return {
+        id: j.id,
+        title: j.title,
+        status: j.status,
+        startDate: j.startDate,
+        endDate: j.endDate,
+        completedAt: j.completedAt,
+        onSchedule: !overdue,
+        steps,
+        changeOrders: coRows.map((co) => ({
+          id: co.id,
+          label: changeOrderLabel(co, coRows),
+          description: co.description,
+          shareToken: co.shareToken,
+        })),
+        onSite: (j.timeEntries || [])
+          .filter((e) => e.worker?.name)
+          .map((e) => ({ name: e.worker.name, since: e.clockIn })),
+      };
+    });
+
   return NextResponse.json({
     clientName: client.name,
     // Resolved once, server-side, so both portal components read the same
@@ -401,6 +517,6 @@ export async function GET(request, { params }) {
     // amount, so it lives on each invoice and each stage above.
     quotes: client.quotes,
     invoices,
-    // No `jobs` — see the comment on the query above.
+    jobs,
   });
 }

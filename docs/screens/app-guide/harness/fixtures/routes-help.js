@@ -151,7 +151,53 @@ const portal = (ctx) => ({
       jobPaymentStages: [], taxKind: "charged", taxAssumedRegion: null,
     },
   ],
+  // The job card (app/portal/[token]/JobProgressCard.js): the plan's
+  // client-visible steps as the route derives them — status, what each
+  // waits on, the photos filed against a step. No notes, hours or money.
+  jobs: [
+    {
+      id: JOB.id, title: JOB.title, status: JOB.status, startDate: iso(day(-8, 8)), endDate: JOB.endDate, completedAt: null, onSchedule: true,
+      steps: [
+        { id: "st_1", title: "Cut and assemble carcasses — uppers and bases", status: "done", waitingOn: [], dueDate: iso(day(-8, 8)), doneAt: iso(day(-4, 16)), photos: [] },
+        { id: "st_2", title: "Doors and drawer fronts — prime and spray", status: "done", waitingOn: [], dueDate: iso(day(-2, 8)), doneAt: iso(day(-1, 17)), photos: [{ id: "jp_3", url: JOB_PHOTO_URLS[3], at: iso(day(-1, 16, 40)) }, { id: "jp_2b", url: JOB_PHOTO_URLS[2], at: iso(day(-1, 16, 45)) }] },
+        { id: "st_3", title: "Island top — glue up, sand, first coat", status: "in_progress", waitingOn: [], dueDate: iso(day(0, 8)), doneAt: null, photos: [{ id: "jp_2", url: JOB_PHOTO_URLS[1], at: iso(day(0, 11, 38)) }] },
+        { id: "st_4", title: "Install base run and uppers", status: "not_started", waitingOn: [], dueDate: iso(day(1, 8)), doneAt: null, photos: [] },
+        { id: "st_5", title: "Install island and waterfall end", status: "waiting", waitingOn: [{ kind: "change_order", label: "CO-2", changeOrderLabel: "CO-2", shareToken: CO_TOKEN }], dueDate: iso(day(2, 8)), doneAt: null, photos: [] },
+        { id: "st_6", title: "Hardware, adjust doors, final clean", status: "waiting", waitingOn: [{ kind: "task", label: "Install island and waterfall end" }], dueDate: iso(day(2, 13)), doneAt: null, photos: [] },
+        { id: "st_8", title: "Countertop template — Granite Lachapelle", status: "waiting", waitingOn: [{ kind: "external", label: "the countertop shop's templating slot · Thu a.m." }], dueDate: iso(day(3, 9)), doneAt: null, photos: [] },
+      ],
+      changeOrders: [{ id: "co_2", label: "CO-2", description: "Island top upgraded to 2-inch white oak with a mitred waterfall", shareToken: CO_TOKEN }],
+      onSite: [{ name: LEO.name, since: iso(day(0, 8, 10)) }, { name: ANA.name, since: iso(day(0, 8, 25)) }],
+    },
+  ],
 });
+
+// ── /co/<token> — the change-order addendum (app/co/[token]) ───────────────
+// GET /api/public/change-orders/[token]: what the homeowner sees before
+// signing CO-2 — the original line, the change, the delta with tax at the
+// quote's rate, the new total and the schedule. Never anything else about
+// the job.
+export const CO_TOKEN = "co_9c2e7b1a4f";
+const changeOrderPublic = (ctx) => {
+  const change = 640;
+  const rate = QUOTE.taxTotal / QUOTE.subtotal;
+  const tax = round2(change * rate);
+  return {
+    language: docLang(ctx),
+    company: { name: COMPANY.name, logoUrl: COMPANY.logoUrl, brandColor: COMPANY.brandColor, phone: COMPANY.phone, email: COMPANY.email, currency: COMPANY.currency },
+    client: { name: CLIENT.name, address: `${CLIENT.address}, ${CLIENT.city}` },
+    quote: { quoteNumber: QUOTE.quoteNumber, acceptedAt: iso(day(-6, 15)) },
+    changeOrder: {
+      id: "co_2", label: "CO-2", description: "Island top upgraded to 2-inch white oak with a mitred waterfall",
+      bodyHtml: "<p>The 1.5-inch top we quoted reads thin beside the waterfall end. A <b>2-inch</b> slab, mitred at the corner, carries the grain down the side in one piece.</p>",
+      priceDelta: change, scheduleDeltaDays: 1, photos: [JOB_PHOTO_URLS[1]],
+      originalLine: { description: "Island — white oak, rift sawn (7 ft × 3 ft, waterfall end)", amount: 4200, quantity: 1 },
+      createdAt: iso(day(0, 11, 40)), status: "waiting_client", signedBy: null, signedAt: null,
+    },
+    money: { quoteTotal: QUOTE.total, priorApproved: 385, change, taxRate: rate, tax, changeWithTax: round2(change + tax), newTotal: round2(QUOTE.total + 385 * (1 + rate) + change + tax), taxKnown: true },
+    schedule: { finishBefore: JOB.endDate, finishAfter: iso(day(3, 17)) },
+  };
+};
 
 // ── /book/<slug> — the booking page ─────────────────────────────────────────
 // app/api/booking/[companySlug]: the public columns plus the two active
@@ -640,8 +686,22 @@ const JOB_DETAIL = {
     { id: "ps_1", seq: 1, label: "Deposit to book", percentage: 50, status: "requested", dueDate: iso(day(-5, 9)), blockedReason: null, amountCents: Math.round(INVOICE.total * 100) },
     { id: "ps_2", seq: 2, label: "Balance on installation", percentage: 50, status: "pending", dueDate: iso(day(2, 17)), blockedReason: null, amountCents: Math.round(INVOICE.total * 100) },
   ],
+  // As GET /api/jobs/[id] presents them (lib/jobs/changeOrderPresent.js):
+  // labelled CO-n, the signature's name only, never the PNG or the token.
   changeOrders: [
-    { id: "co_1", description: "Add pull-out waste and recycling in the sink base", priceDelta: 385, status: "approved", invoiceId: null, invoice: null, createdBy: { name: SAM.name }, createdAt: iso(day(-3, 14, 10)) },
+    {
+      id: "co_2", seq: 2, label: "CO-2", description: "Island top upgraded to 2-inch white oak with a mitred waterfall", priceDelta: 640, status: "waiting_client", invoiceId: null, invoice: null,
+      bodyHtml: "<p>The 1.5-inch top we quoted reads thin beside the waterfall end. A <b>2-inch</b> slab, mitred at the corner, carries the grain down the side in one piece.</p>",
+      quoteLineKey: null, originalLine: null, taskId: "st_5", task: { id: "st_5", title: "Install island and waterfall end" }, scheduleDeltaDays: 1, photos: [JOB_PHOTO_URLS[1]],
+      sentAt: iso(day(0, 11, 42)), sentVia: "sms+email", viewedAt: iso(day(0, 12, 5)), decidedAt: null, decidedBy: null, signedBy: null, signedAt: null,
+      createdBy: { name: SAM.name }, createdById: SAM.userId, createdAt: iso(day(0, 11, 40)),
+    },
+    {
+      id: "co_1", seq: 1, label: "CO-1", description: "Add pull-out waste and recycling in the sink base", priceDelta: 385, status: "approved", invoiceId: null, invoice: null,
+      bodyHtml: null, quoteLineKey: "sg_1042:1", originalLine: { description: "Base cabinets — shaker, painted", amount: 8320, quantity: 16 }, taskId: null, task: null, scheduleDeltaDays: null, photos: [],
+      sentAt: iso(day(-3, 14, 12)), sentVia: "email", viewedAt: iso(day(-3, 15, 2)), decidedAt: iso(day(-3, 16, 14)), decidedBy: null, signedBy: "Sophie Dubois", signedAt: iso(day(-3, 16, 14)),
+      createdBy: { name: SAM.name }, createdById: SAM.userId, createdAt: iso(day(-3, 14, 10)),
+    },
   ],
   visits: [
     {
@@ -692,6 +752,39 @@ const JOB_PHOTOS = {
   tags: [{ id: "pt_before", name: "Before", color: "#6b7280" }, { id: "pt_shop", name: "In the shop", color: "#1f4e3d" }, { id: "pt_after", name: "After", color: "#2f855a" }],
 };
 const JOB_TASKS = TASKS.filter((t) => t.job?.id === JOB.id);
+
+// ── GET /api/jobs/[id]/plan — the job plan (lib/jobs/planPayload.js) ───────
+//
+// One step per approved line of Q-1042, in build order, with the hours the
+// takeoff gave each and the buy-list rows it consumes. Step 5 is on hold for
+// CO-2 (Task.waitingOnChangeOrderId) and step 6 waits on step 5; the derived
+// planStatus / waitingOn are what lib/jobs/plan.js would compute for them.
+const step = (o) => ({
+  description: null, status: "open", priority: "normal", dueDate: null, estimatedHours: null, quoteLineKey: null, quoteLineNo: null, categoryKey: CAT_KITCHEN.key,
+  materialKeys: [], waitingReason: null, waitingOnChangeOrderId: null, clientVisible: true, scheduledStart: null, scheduledEnd: null, sourceKey: null,
+  requiredPhotoCount: null, requiresComment: false, completionComment: null, createdAt: iso(day(-6, 15)), assignedToId: null, assignedTo: null,
+  clockedHours: 0, photoCount: 0, dependsOn: [], planStatus: "not_started", waitingOn: [], waitingOnChangeOrder: null, materials: [], fromChangeOrder: null, photos: [],
+  ...o,
+});
+const PLAN_STEPS = [
+  step({ id: "st_1", sortOrder: 0, title: "Cut and assemble carcasses — uppers and bases", quoteLineKey: "sg_1042:0", quoteLineNo: 1, sourceKey: "quote_line:q_1042:sg_1042:0", status: "done", planStatus: "done", estimatedHours: 32, clockedHours: 34.5, dueDate: iso(day(-8, 8)), assignedToId: LEO.userId, assignedTo: who(LEO), materials: [{ id: "jm_1", name: "Maple plywood 3/4\" — boxes", qty: 22, unit: "sheet", purchased: true }], materialKeys: ["plywood_maple_34"] }),
+  step({ id: "st_2", sortOrder: 1, title: "Doors and drawer fronts — prime and spray", quoteLineKey: "sg_1042:1", quoteLineNo: 2, sourceKey: "quote_line:q_1042:sg_1042:1", status: "done", planStatus: "done", estimatedHours: 18, clockedHours: 16, dueDate: iso(day(-2, 8)), assignedToId: ANA.userId, assignedTo: who(ANA), dependsOn: [{ id: "st_1", title: "Cut and assemble carcasses — uppers and bases", status: "done" }], materials: [{ id: "jm_2", name: "MDF shaker doors — 26", qty: 26, unit: "ea", purchased: true }], materialKeys: ["door_shaker_mdf"], photoCount: 2, photos: [{ id: "jp_3", url: JOB_PHOTO_URLS[3], stage: "progress", createdAt: iso(day(-1, 16, 40)) }] }),
+  step({ id: "st_3", sortOrder: 2, title: "Island top — glue up, sand, first coat", quoteLineKey: "sg_1042:2", quoteLineNo: 3, sourceKey: "quote_line:q_1042:sg_1042:2", status: "in_progress", planStatus: "in_progress", estimatedHours: 12, clockedHours: 7.5, dueDate: iso(day(0, 8)), assignedToId: LEO.userId, assignedTo: who(LEO), materials: [{ id: "jm_3", name: "White oak, rift sawn — island", qty: 1, unit: "lot", purchased: true }], materialKeys: ["oak_rift"], photoCount: 1, photos: [{ id: "jp_2", url: JOB_PHOTO_URLS[1], stage: "progress", createdAt: iso(day(-2, 15, 5)) }] }),
+  step({ id: "st_4", sortOrder: 3, title: "Install base run and uppers", quoteLineKey: "sg_1042:3", quoteLineNo: 4, sourceKey: "quote_line:q_1042:sg_1042:3", estimatedHours: 16, dueDate: iso(day(1, 8)), scheduledStart: iso(day(1, 8)), scheduledEnd: iso(day(1, 16, 30)), assignedToId: LEO.userId, assignedTo: who(LEO), dependsOn: [{ id: "st_1", title: "Cut and assemble carcasses — uppers and bases", status: "done" }, { id: "st_2", title: "Doors and drawer fronts — prime and spray", status: "done" }], materials: [{ id: "jm_4", name: "Blum soft-close hinges", qty: 52, unit: "ea", purchased: false }], materialKeys: ["hinge_blum"] }),
+  step({ id: "st_5", sortOrder: 4, title: "Install island and waterfall end", quoteLineKey: "sg_1042:2", quoteLineNo: null, sourceKey: "quote_line:q_1042:sg_1042:2b", estimatedHours: 8, dueDate: iso(day(2, 8)), scheduledStart: iso(day(2, 8)), scheduledEnd: iso(day(2, 12)), assignedToId: ANA.userId, assignedTo: who(ANA), waitingOnChangeOrderId: "co_2", waitingOnChangeOrder: { id: "co_2", label: "CO-2", status: "waiting_client" }, planStatus: "waiting", waitingOn: [{ kind: "change_order", id: "co_2", label: "CO-2" }], dependsOn: [{ id: "st_3", title: "Island top — glue up, sand, first coat", status: "in_progress" }, { id: "st_4", title: "Install base run and uppers", status: "open" }] }),
+  step({ id: "st_6", sortOrder: 5, title: "Hardware, adjust doors, final clean", quoteLineKey: "sg_1042:3", quoteLineNo: null, sourceKey: "quote_line:q_1042:sg_1042:3b", estimatedHours: 6, dueDate: iso(day(2, 13)), scheduledStart: iso(day(2, 13)), scheduledEnd: iso(day(2, 17)), assignedToId: LEO.userId, assignedTo: who(LEO), planStatus: "waiting", waitingOn: [{ kind: "task", id: "st_5", label: "Install island and waterfall end" }], dependsOn: [{ id: "st_5", title: "Install island and waterfall end", status: "open" }] }),
+  step({ id: "st_7", sortOrder: 6, title: "Pull-out waste and recycling in the sink base", sourceKey: "change_order_approved:co_1", quoteLineKey: "sg_1042:1", estimatedHours: 2, dueDate: iso(day(2, 8)), fromChangeOrder: { id: "co_1", label: "CO-1", status: "approved", description: "Add pull-out waste and recycling in the sink base" }, dependsOn: [{ id: "st_4", title: "Install base run and uppers", status: "open" }], planStatus: "waiting", waitingOn: [{ kind: "task", id: "st_4", label: "Install base run and uppers" }], materials: [{ id: "jm_5", name: "Pull-out waste unit — 2 bins", qty: 1, unit: "ea", purchased: false }] }),
+  step({ id: "st_8", sortOrder: 7, title: "Countertop template — Granite Lachapelle", description: "They template once the bases are level; slab arrives ~10 days after.", estimatedHours: null, dueDate: iso(day(3, 9)), waitingReason: "the countertop shop's templating slot · Thu a.m.", planStatus: "waiting", waitingOn: [{ kind: "external", id: null, label: "the countertop shop's templating slot · Thu a.m." }], clientVisible: true }),
+];
+const planPayload = (crew) => ({
+  job: { id: JOB.id, title: JOB.title, startDate: JOB.startDate, endDate: JOB.endDate, quoteNumber: QUOTE.quoteNumber, acceptedAt: iso(day(-6, 15)), clientName: CLIENT.name, timezone: "America/Toronto" },
+  steps: PLAN_STEPS,
+  summary: { count: 8, done: 2, estimatedHours: 94, clockedHours: 61 },
+  members: PEOPLE.map(who),
+  canEdit: !crew,
+  canAssign: !crew,
+  canCreate: !crew,
+});
 const DAILY_LOG = {
   id: "dl_1", logDate: iso(day(-1, 17)), day: "2026-09-13", body: [{ content: [{ text: "Doors and drawer fronts sprayed and racked. Island top glued up; final sanding tomorrow morning before loading." }] }],
   bodyText: "Doors and drawer fronts sprayed and racked. Island top glued up; final sanding tomorrow morning before loading.",
@@ -1011,6 +1104,8 @@ export const ROUTES_HELP = [
   { path: `/api/jobs/${JOB.id}/costing`, method: "GET", reply: crewOr(forbidden, () => JOB_COSTING) },
   { path: `/api/jobs/${JOB.id}/subcontractors`, method: "GET", reply: crewOr(forbidden, () => ({ rows: [], roster: [], visits: JOB_DETAIL.visits.map((v) => ({ id: v.id, scheduledAt: v.scheduledAt })), imports: [], canManage: true, canSeeMoney: true })) },
   { path: `/api/jobs/${JOB.id}/change-orders/bill`, method: "GET", reply: crewOr(forbidden, () => ({ canBill: true, reason: null, unbilled: { count: 1, total: 385 }, invoice: { id: INVOICE.id, invoiceNumber: INVOICE.invoiceNumber, status: INVOICE.status }, preview: { added: 442.65, newTotal: round2(INVOICE.total + 442.65) } })) },
+  { path: `/api/jobs/${JOB.id}/plan`, method: "GET", reply: crewOr(() => planPayload(true), () => planPayload(false)) },
+  { path: `/api/public/change-orders/${CO_TOKEN}`, method: "GET", reply: (ctx) => changeOrderPublic(ctx) },
   { path: `/api/jobs/${JOB.id}/materials`, method: "GET", reply: crewOr(() => ({ materials: JOB_MATERIALS.materials.map(({ estUnitCost, actualCost, ...m }) => ({ ...m, costHidden: true })), progress: { total: 5, bought: 3, outstanding: 2, complete: false, costHidden: true } }), () => JOB_MATERIALS) },
   { path: `/api/jobs/${JOB.id}/asset-use`, method: "GET", reply: () => ({ logs: [], assets: [] }) },
   { path: `/api/jobs/${JOB.id}/documents`, method: "GET", reply: crewOr(() => ({ chains: [], hiddenCount: 0, canUpload: false, canSeeMoney: false }), () => ({ chains: [{ id: "doc_1", current: { id: "doc_1", name: "Dubois — shop drawings v2.pdf", kind: "plan", url: "#", sizeBytes: 1843200, mimeType: "application/pdf", supersedesId: "doc_0", uploadedById: SAM.userId, uploadedAt: iso(day(-9, 11)), updatedAt: iso(day(-9, 11)) }, history: [{ id: "doc_0", name: "Dubois — shop drawings v1.pdf", kind: "plan", url: "#", sizeBytes: 1790000, mimeType: "application/pdf", supersedesId: null, uploadedById: SAM.userId, uploadedAt: iso(day(-14, 16)), updatedAt: iso(day(-14, 16)) }] }], hiddenCount: 0, canUpload: true, canSeeMoney: true })) },

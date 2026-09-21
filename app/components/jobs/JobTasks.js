@@ -73,7 +73,10 @@ export default function JobTasks({ jobId }) {
       return;
     }
     const rows = await res.json().catch(() => null);
-    if (liveRef.current) setTasks(Array.isArray(rows) ? rows : null);
+    // Plan steps are drawn by JobPlan.js above this card — the same Task
+    // rows, with `planStep` set. Here: the free-form to-dos only, exactly as
+    // before the plan existed.
+    if (liveRef.current) setTasks(Array.isArray(rows) ? rows.filter((task) => !task.planStep) : null);
   }, [jobId, liveRef]);
 
   useEffect(() => {

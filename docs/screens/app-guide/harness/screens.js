@@ -167,7 +167,10 @@ export const SCREENS = [
   // and the Approve button, the plan under the designer's palette.
   { slug: "client-quote-approval", href: "/q/qt_8f2c1a7d4e", page: "app/q/[token]/QuoteApproval.js", props: { token: "qt_8f2c1a7d4e" }, mode: "public", height: 2400, chapter: "help" },
   { slug: "client-booking-page", href: "/book/erable-design", page: "app/book/[companySlug]/BookingFlow.js", props: { companySlug: "erable-design" }, mode: "public", wrap: "bookingPage", scene: "booking-pick", chapter: "help" },
-  { slug: "client-portal", href: "/portal/pt_3a9d7c2f1b", page: "app/portal/[token]/ClientPortal.js", props: { token: "pt_3a9d7c2f1b" }, mode: "public", chapter: "help" },
+  // The portal now opens on the job card (Done · In progress · Waiting on,
+  // with CO-2 waiting on the client); taller so the balance and the
+  // documents under it are still in the frame.
+  { slug: "client-portal", href: "/portal/pt_3a9d7c2f1b", page: "app/portal/[token]/ClientPortal.js", props: { token: "pt_3a9d7c2f1b" }, mode: "public", height: 1700, chapter: "help" },
   { slug: "client-instant-estimate", href: "/instant-quote/erable-design", page: "app/instant-quote/[companySlug]/InstantQuoteFlow.js", props: { companySlug: "erable-design" }, mode: "public", scene: "instant-pick", chapter: "help" },
   { slug: "client-self-quote-form", href: "/quote/erable-design", page: "app/quote/[companySlug]/SelfQuoteFlow.js", props: { companySlug: "erable-design" }, mode: "public", chapter: "help" },
   { slug: "client-visit-manage", href: "/visit/vm_5c1e8b3a2d", page: "app/visit/[token]/VisitManager.js", props: { token: "vm_5c1e8b3a2d" }, mode: "public", chapter: "help" },
@@ -175,6 +178,8 @@ export const SCREENS = [
   { slug: "client-bio-link", href: "/l/erable-design", page: "app/components/links/LinkPageView.js", props: "bioLink", mode: "public", chapter: "help" },
   { slug: "client-funnel", href: "/f/erable-design/kitchen-quote", page: "app/f/[companySlug]/[funnelSlug]/FunnelRunner.js", props: { companySlug: "erable-design", funnelSlug: "kitchen-quote" }, mode: "public", scene: "funnel-start", chapter: "help" },
   { slug: "client-kitchen-design", href: "/design/qt_8f2c1a7d4e", page: "app/design/[token]/DesignClient.js", params: { token: "qt_8f2c1a7d4e" }, mode: "public", height: 1500, chapter: "help" },
+  // The change-order addendum a homeowner signs (app/co/[token]).
+  { slug: "client-change-order", href: "/co/co_9c2e7b1a4f", page: "app/co/[token]/ChangeOrderApproval.js", props: { token: "co_9c2e7b1a4f" }, mode: "public", height: 1500, chapter: "help" },
 
   // The detail pages the sidebar rows link to — inside the /app shell, as
   // the owner. `params` is what useParams() hands the page; the ids are
@@ -187,6 +192,10 @@ export const SCREENS = [
   // The same job scrolled to its visits (checklist, location stamps) and the
   // photo timeline below them — the lower half of a page too tall for one frame.
   { slug: "job-detail-visits", href: "/app/jobs", page: "app/app/jobs/[id]/JobDetail.js", props: { jobId: "j_318" }, scene: "scroll-visits", height: 2000, chapter: "help" },
+  // The same job scrolled to its plan: the ordered steps with their
+  // dependencies, the crew day view, and the change orders under them
+  // (CO-2 out with the client, CO-1 signed).
+  { slug: "job-plan", href: "/app/jobs", page: "app/app/jobs/[id]/JobDetail.js", props: { jobId: "j_318" }, scene: "scroll-plan", height: 2200, chapter: "help" },
   { slug: "invoice-detail", href: "/app/invoices", page: "app/app/invoices/[id]/page.js", params: { id: "inv_2069" }, height: 1560, chapter: "help" },
   { slug: "client-detail", href: "/app/clients", page: "app/app/clients/[id]/page.js", params: { id: "cl_dubois" }, chapter: "help" },
   { slug: "plan-detail", href: "/app/plans", page: "app/app/plans/[id]/page.js", params: { id: "sp_dubois" }, chapter: "help" },

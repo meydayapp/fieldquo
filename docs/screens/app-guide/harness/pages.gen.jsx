@@ -88,22 +88,23 @@ import P85 from "@/app/site/[subdomain]/SiteBlocks.js";
 import P86 from "@/app/components/links/LinkPageView.js";
 import P87 from "@/app/f/[companySlug]/[funnelSlug]/FunnelRunner.js";
 import P88 from "@/app/design/[token]/DesignClient.js";
-import P89 from "@/app/app/quotes/[id]/page.js";
-import P90 from "@/app/app/quotes/new/page.js";
-import P91 from "@/app/app/jobs/[id]/JobDetail.js";
-import P92 from "@/app/app/invoices/[id]/page.js";
-import P93 from "@/app/app/clients/[id]/page.js";
-import P94 from "@/app/app/plans/[id]/page.js";
-import P95 from "@/app/app/payroll/[id]/page.js";
-import P96 from "@/app/app/funnels/[id]/page.js";
-import P97 from "@/app/app/marketing/[id]/page.js";
-import P98 from "@/app/app/messages/review/page.js";
-import P99 from "@/app/app/clients/import/page.js";
-import P100 from "@/app/app/jobs/import/page.js";
-import P101 from "@/app/accept-invitation/[id]/page.js";
-import P102 from "@/app/signup/page.js";
-import P103 from "@/app/app/quotes/[id]/edit/page.js";
-import P104 from "@/docs/screens/app-guide/harness/TakeoffFrame.jsx";
+import P89 from "@/app/co/[token]/ChangeOrderApproval.js";
+import P90 from "@/app/app/quotes/[id]/page.js";
+import P91 from "@/app/app/quotes/new/page.js";
+import P92 from "@/app/app/jobs/[id]/JobDetail.js";
+import P93 from "@/app/app/invoices/[id]/page.js";
+import P94 from "@/app/app/clients/[id]/page.js";
+import P95 from "@/app/app/plans/[id]/page.js";
+import P96 from "@/app/app/payroll/[id]/page.js";
+import P97 from "@/app/app/funnels/[id]/page.js";
+import P98 from "@/app/app/marketing/[id]/page.js";
+import P99 from "@/app/app/messages/review/page.js";
+import P100 from "@/app/app/clients/import/page.js";
+import P101 from "@/app/app/jobs/import/page.js";
+import P102 from "@/app/accept-invitation/[id]/page.js";
+import P103 from "@/app/signup/page.js";
+import P104 from "@/app/app/quotes/[id]/edit/page.js";
+import P105 from "@/docs/screens/app-guide/harness/TakeoffFrame.jsx";
 export const PAGES = {
   "app/app/page.js": P0,
   "app/app/copilot/page.js": P1,
@@ -194,20 +195,21 @@ export const PAGES = {
   "app/components/links/LinkPageView.js": P86,
   "app/f/[companySlug]/[funnelSlug]/FunnelRunner.js": P87,
   "app/design/[token]/DesignClient.js": P88,
-  "app/app/quotes/[id]/page.js": P89,
-  "app/app/quotes/new/page.js": P90,
-  "app/app/jobs/[id]/JobDetail.js": P91,
-  "app/app/invoices/[id]/page.js": P92,
-  "app/app/clients/[id]/page.js": P93,
-  "app/app/plans/[id]/page.js": P94,
-  "app/app/payroll/[id]/page.js": P95,
-  "app/app/funnels/[id]/page.js": P96,
-  "app/app/marketing/[id]/page.js": P97,
-  "app/app/messages/review/page.js": P98,
-  "app/app/clients/import/page.js": P99,
-  "app/app/jobs/import/page.js": P100,
-  "app/accept-invitation/[id]/page.js": P101,
-  "app/signup/page.js": P102,
-  "app/app/quotes/[id]/edit/page.js": P103,
-  "docs/screens/app-guide/harness/TakeoffFrame.jsx": P104,
+  "app/co/[token]/ChangeOrderApproval.js": P89,
+  "app/app/quotes/[id]/page.js": P90,
+  "app/app/quotes/new/page.js": P91,
+  "app/app/jobs/[id]/JobDetail.js": P92,
+  "app/app/invoices/[id]/page.js": P93,
+  "app/app/clients/[id]/page.js": P94,
+  "app/app/plans/[id]/page.js": P95,
+  "app/app/payroll/[id]/page.js": P96,
+  "app/app/funnels/[id]/page.js": P97,
+  "app/app/marketing/[id]/page.js": P98,
+  "app/app/messages/review/page.js": P99,
+  "app/app/clients/import/page.js": P100,
+  "app/app/jobs/import/page.js": P101,
+  "app/accept-invitation/[id]/page.js": P102,
+  "app/signup/page.js": P103,
+  "app/app/quotes/[id]/edit/page.js": P104,
+  "docs/screens/app-guide/harness/TakeoffFrame.jsx": P105,
 };

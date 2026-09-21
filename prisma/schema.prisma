@@ -4699,8 +4699,110 @@ model Task {
   /// landed on the job.
   photos JobPhoto[]
 
+  // ── The job plan (lib/jobs/plan.js) ──────────────────────────────────────
+  //
+  // A plan STEP is a Task: the same row the to-do list, the crew's phone and
+  // the photo requirement already know how to handle, with the fields below
+  // filled in. A second "PlanStep" model was the obvious alternative and was
+  // rejected — it would have meant a second tick, a second photo path and a
+  // second permission rule for what is, to the person on site, the same
+  // thing: a piece of work with their name on it. `planStep` is what tells
+  // the two panels on the job page apart (the plan draws steps, "To-dos on
+  // this job" draws the rest), so a free-form to-do typed before the plan
+  // existed keeps rendering exactly where it always did.
+
+  /// True for a row that belongs to the ordered plan — built from the quote's
+  /// approved lines, added by hand with "Add a step", or created by an
+  /// approved change order. False (every row before this existed) for a
+  /// free-form to-do.
+  planStep Boolean @default(false)
+
+  /// Position in the plan. Only meaningful among the same job's plan steps.
+  sortOrder Int @default(0)
+
+  /// Hours the takeoff said this line would take (lib/pricing/paintTakeoff.js
+  /// per line; the trade's labour total for a one-line group). Null when the
+  /// quote had no takeoff behind that line — never invented from the price.
+  estimatedHours Decimal? @db.Decimal(6, 2)
+
+  /// Which approved quote line this step came from: "<scopeGroupId>:<index>"
+  /// for a scope-group line, "addon:<QuoteAddOn.id>" for a ticked option.
+  /// Lines have no id of their own (they are addressed by array index in the
+  /// builder), so the group id + ordinal is the most stable name available;
+  /// the idempotent sourceKey is built from it.
+  quoteLineKey String?
+  /// 1-based position across the quote's visible lines, for "Line 3" on the
+  /// step. Null for an option or a hand-added step.
+  quoteLineNo  Int?
+
+  /// The scope group's trade key ("painting") and the takeoff product keys
+  /// this line consumes ("wall_interior"). Keys, not JobMaterial ids: the
+  /// buy list is deleted and rebuilt on regenerate (app/api/jobs/[id]/
+  /// materials), and a foreign key would dangle every time. The plan joins
+  /// on (categoryKey, materialKey) at read time.
+  categoryKey  String?
+  materialKeys String[] @default([])
+
+  /// Why this step is on hold for a reason OUTSIDE the plan — "paint
+  /// delivery · due Sep 24 a.m.", "ceiling repair curing 24 h". The two other
+  /// kinds of waiting are relations: `dependsOn` (another step) and
+  /// `waitingOnChangeOrder` (the client's signature). Status itself does not
+  /// gain a `waiting` value: "waiting" is DERIVED from these three by
+  /// lib/jobs/plan.js so every existing reader of TaskStatus keeps its four
+  /// values, and a step whose blocker clears is waiting on nothing without
+  /// anyone having to remember to flip it back.
+  waitingReason String?
+
+  /// The change order this step cannot start until the client signs. Set by
+  /// lib/jobs/changeOrderDecision.js when a change order is sent against
+  /// this task, cleared by its decision.
+  waitingOnChangeOrderId String?
+  waitingOnChangeOrder   ChangeOrder? @relation("TaskWaitingOnChangeOrder", fields: [waitingOnChangeOrderId], references: [id], onDelete: SetNull)
+
+  /// Whether the client portal may show this step (title, status, dates, the
+  /// photos filed against it — never its notes or an hour figure). Default
+  /// OFF at the column: "Follow up payment for INV-0007" and "Review what
+  /// this job actually cost" are tasks with a jobId too, and a default of
+  /// true would have published them. Plan steps are created visible.
+  clientVisible Boolean @default(false)
+
+  /// The block on the crew day view — when set, the step is drawn at these
+  /// times in its assignee's lane. Null draws the step in the lane for its
+  /// dueDate with its estimate, and no times: a start time nobody chose is
+  /// not shown as one.
+  scheduledStart DateTime?
+  scheduledEnd   DateTime?
+
+  /// The steps this one waits on, and the steps waiting on this one.
+  dependsOn  TaskDependency[] @relation("TaskDependsOn")
+  dependents TaskDependency[] @relation("TaskDependents")
+
+  /// Hours clocked against this step (TimeEntry.taskId).
+  timeEntries  TimeEntry[]
+  /// Change orders raised against this step.
+  changeOrders ChangeOrder[] @relation("ChangeOrderTask")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+/// One edge of the job plan: `task` cannot start until `dependsOn` is done.
+///
+/// A join table rather than a `dependsOnIds String[]` on Task, because the
+/// gate in PATCH /api/tasks/[id] has to read the CURRENT status of every
+/// blocker in one query, and a cycle check has to walk the edges both ways.
+/// Cascade both sides: removing a step removes its edges, never the steps on
+/// the other end of them.
+model TaskDependency {
+  id          String   @id @default(cuid())
+  taskId      String
+  task        Task     @relation("TaskDependsOn", fields: [taskId], references: [id], onDelete: Cascade)
+  dependsOnId String
+  dependsOn   Task     @relation("TaskDependents", fields: [dependsOnId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@unique([taskId, dependsOnId])
+  @@index([dependsOnId])
 }
 
 model WorkArea {
@@ -5268,6 +5370,63 @@ model ChangeOrder {
   createdById String?
   createdBy   User?    @relation("ChangeOrderCreatedBy", fields: [createdById], references: [id])
   createdAt   DateTime @default(now())
+
+  // ── The client's step (lib/jobs/changeOrderAddendum.js) ──────────────────
+  //
+  // Everything below is additive. A change order logged the old way — typed
+  // by staff, "the client agreed" — still has every one of these null and
+  // keeps working exactly as before; see docs/CALLBACKS-AND-CHANGE-ORDERS.md.
+
+  /// CO-1, CO-2 … within the job, allocated at creation under the job's row
+  /// lock. Null on rows written before it existed; those are numbered by
+  /// createdAt order when displayed (changeOrderLabel), which is stable
+  /// because a change order is never deleted.
+  seq Int?
+
+  /// What changed, as sanitised rich text (bold, italic, lists, links only —
+  /// lib/jobs/changeOrderAddendum.js's sanitiser is the boundary between what
+  /// a browser sent and what a homeowner's page renders). `description`
+  /// stays the one-line title.
+  bodyHtml String?
+
+  /// The quote line this changes ("<scopeGroupId>:<index>", same key as
+  /// Task.quoteLineKey) and a snapshot of what that line said when the
+  /// change order was raised — the addendum prints "Original line" from the
+  /// snapshot, so a later edit to the quote cannot change what the client
+  /// was shown next to their signature.
+  quoteLineKey String?
+  originalLine Json?
+
+  /// Or the plan step it changes. An approved change order against a task
+  /// edits that step; one against a line (or nothing) adds a step.
+  taskId String?
+  task   Task?   @relation("ChangeOrderTask", fields: [taskId], references: [id], onDelete: SetNull)
+
+  /// Days the finish moves. Null means "not stated", not zero.
+  scheduleDeltaDays Int?
+
+  /// Site photos shown on the addendum (Cloudinary URLs via /api/upload).
+  photos String[] @default([])
+
+  /// The credential in the link the client receives. 32 CSPRNG bytes,
+  /// base64url — the same shape as Quote.shareToken. Null until sent.
+  shareToken String?   @unique
+  sentAt     DateTime?
+  /// "sms" | "email" | "sms+email" — which channels actually accepted the
+  /// message on the last send. Never set by a send that failed.
+  sentVia    String?
+  viewedAt   DateTime?
+
+  /// The client's approval, same shape as Quote.signature:
+  ///   { name, signatureDataUrl, signedAt, ip, userAgent, documentHash, consent }
+  /// documentHash covers this row's own agreed content (description, body,
+  /// delta, schedule, the line it changes). A client-signed change order has
+  /// `signature` set and `decidedById` null: the client decided, not a staff
+  /// member.
+  signature Json?
+
+  /// Plan steps on hold until this is signed (Task.waitingOnChangeOrderId).
+  waitingTasks Task[] @relation("TaskWaitingOnChangeOrder")
 
   @@index([jobId])
   @@index([invoiceId])
@@ -6586,6 +6745,14 @@ model TimeEntry {
   /// whether the person left at 16:00 or worked until 19:00 is a pay
   /// decision, and only a person makes it (the timesheet's manual clock-out).
   overrunNotifiedAt DateTime?
+
+  /// The plan step this time went to, when the person picked one at clock-in
+  /// (the step picker on /app/clock appears only for a job that has a plan).
+  /// Null means "the job, no particular step" — the row every entry written
+  /// before this existed makes, and still a true statement. SetNull: deleting
+  /// a step never deletes an hour somebody worked.
+  taskId String?
+  task   Task?   @relation(fields: [taskId], references: [id], onDelete: SetNull)
 }
 
 /// A lunch or break the person ACTUALLY took, punched from /app/clock while

@@ -14,6 +14,7 @@ import { documentFormatters } from "@/lib/i18n/documentLabels";
 import { clientDocCopy } from "@/lib/i18n/clientDocCopy";
 import { offlinePaymentLines } from "@/lib/payments/offlinePaymentNote";
 import { jsonBody } from "@/lib/jsonBody";
+import JobProgressCard from "./JobProgressCard";
 import {
   Loader2,
   Building2,
@@ -204,7 +205,15 @@ export default function ClientPortal({ token }) {
         </div>
       )}
 
-      {/* Balance first — it's the only thing most people open this for. */}
+      {/* The job, when there is one running: "where are we?" is what a
+          homeowner with a crew in the house opens this for. Above the
+          balance while the work is on; the route drops a finished job a
+          month after completion, so the page goes back to being a statement. */}
+      {(data.jobs || []).map((job) => (
+        <JobProgressCard key={job.id} job={job} token={token} copy={copy} date={date} accent={accent} accentOn={accentOn} />
+      ))}
+
+      {/* Balance — it's the other thing most people open this for. */}
       <div className="bg-white border border-black/10 rounded-2xl p-6 mb-6">
         <div className="text-xs uppercase tracking-wider text-[#2d2520]/40">
           {copy.balanceOwing}

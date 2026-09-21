@@ -22,6 +22,7 @@ import JobCosting from "@/app/components/jobs/JobCosting";
 import { CustomFieldsPanel } from "@/app/components/customFields/CustomFieldsBox";
 import JobMaterials from "@/app/components/jobs/JobMaterials";
 import JobTasks from "@/app/components/jobs/JobTasks";
+import JobPlan from "@/app/components/jobs/JobPlan";
 import Link from "next/link";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import JobPhotoCurator from "@/app/components/jobs/JobPhotoCurator";
@@ -665,6 +666,12 @@ export default function JobDetail({ jobId }) {
           amounts, the status and the payments are written. Renders itself
           away for someone who can neither see a sub on the job nor add one. */}
       <JobSubcontractors jobId={job.id} onChanged={() => setCostingKey((k) => k + 1)} />
+
+      {/* The plan: the approved quote's lines as ordered steps with
+          dependencies, and the crew day view under it. Above the change
+          orders because an approved change order lands here as a step.
+          Keyed on the change orders so an approval re-reads the plan. */}
+      <JobPlan jobId={job.id} onChanged={load} key={`plan-${(job.changeOrders || []).map((c) => `${c.id}:${c.status}`).join(",")}`} />
 
       {/* Scope changes agreed after the quote was accepted — see the
           ChangeOrder model's own header for why this is a deliberate log,

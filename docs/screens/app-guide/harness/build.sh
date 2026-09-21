@@ -3,7 +3,9 @@
 # the app's Tailwind CSS. Output goes to $OUT (default: a scratch dir), never
 # into the repo — the PNGs are the artefact, not the bundle.
 set -e
-ROOT=/Users/emilioboves/StudioProjects/fieldquo
+# Overridable so an agent worktree can bundle ITS tree rather than the main
+# checkout: ROOT=/path/to/worktree sh build.sh
+ROOT=${ROOT:-/Users/emilioboves/StudioProjects/fieldquo}
 H=$ROOT/docs/screens/app-guide/harness
 OUT=${OUT:-/private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/app-guide}
 mkdir -p "$OUT"

@@ -304,7 +304,14 @@ assertions without mutation (up from 172), 232 with (up from 158+14).
   "a change agreed mid-job" — already agreed by the time it's logged. Adding
   proposed/approved states is a real product decision (does the client
   e-sign a change order? does it need a second approver?) that nobody asked
-  for yet.
+  for yet. *Superseded 21 September 2026:* the owner approved mockup c4, and
+  the client now e-signs. `status` is `pending | waiting_client | approved |
+  rejected`; "Send for approval" (`lib/jobs/changeOrderSend.js`) texts and
+  emails a link to `app/co/[token]`, the signature is stored on
+  `ChangeOrder.signature` with the same audit shape as the quote's, and an
+  approved change order adds or edits its step on the job plan
+  (`lib/jobs/changeOrderDecision.js`). The staff-only path ("Save without
+  sending") still exists unchanged. See docs/ROADMAP.md, "The job plan".
 - **Editing or deleting a `ChangeOrder`.** Append-only, matching every other
   agreement record in this codebase. A correction is a new entry.
 - **Linking a `ChangeOrder` to the invoice it was eventually billed on.**

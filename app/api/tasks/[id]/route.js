@@ -11,6 +11,9 @@ import {
   completionGate,
   normaliseRequiredPhotoCount,
 } from "@/lib/tasks/completion";
+import { dependencyGate, gateMessage, wouldCycle } from "@/lib/jobs/plan";
+import { normalisePlanFields } from "@/lib/tasks/planFields";
+import { changeOrderLabel } from "@/lib/jobs/changeOrderAddendum";
 
 export async function PATCH(request, { params }) {
   // Next 16: `params` is a Promise; reading it synchronously gives undefined.
@@ -82,8 +85,13 @@ export async function PATCH(request, { params }) {
   const wantsPhotoCountChange = "requiredPhotoCount" in body;
   const wantsCommentFlagChange = "requiresComment" in body;
   const wantsJobChange = "jobId" in body;
+  // The plan's structure — what a step depends on, its estimate, its order,
+  // whether the client may see it — is the office's, held to the same bar.
+  // `waitingReason` is NOT in this list: "paint delivery, due tomorrow" is
+  // exactly what the person on site knows and the office does not.
+  const wantsPlanStructure = ["dependsOn", "estimatedHours", "sortOrder", "clientVisible", "planStep", "scheduledStart", "scheduledEnd"].some((k) => k in body);
   if (
-    (wantsPhotoCountChange || wantsCommentFlagChange || wantsJobChange) &&
+    (wantsPhotoCountChange || wantsCommentFlagChange || wantsJobChange || wantsPlanStructure) &&
     !can(member.role, "task:create")
   ) {
     return NextResponse.json(
@@ -131,6 +139,73 @@ export async function PATCH(request, { params }) {
     ...("jobId" in body && { jobId: body.jobId }),
   });
   if (notOurs) return notOurs;
+
+  // ── The plan fields ─────────────────────────────────────────────────────
+  const plan = normalisePlanFields(body);
+  if (!plan.ok) return NextResponse.json({ error: plan.error }, { status: 400 });
+
+  // Dependencies: every id must be a plan step on the SAME job, and the new
+  // set must not make the plan circular — a step waiting on itself could
+  // never start, and the gate below would refuse it forever.
+  let dependsOnIds = null;
+  if ("dependsOn" in body) {
+    dependsOnIds = [...new Set(plan.value.dependsOn)].filter((v) => v !== existing.id);
+    if (dependsOnIds.length) {
+      if (!existing.jobId) {
+        return NextResponse.json({ error: "Only a step on a job can depend on other steps." }, { status: 400 });
+      }
+      const own = await db.task.findMany({
+        where: { id: { in: dependsOnIds }, jobId: existing.jobId, companyId: member.companyId, planStep: true },
+        select: { id: true },
+      });
+      if (own.length !== dependsOnIds.length) {
+        return NextResponse.json({ error: "Every dependency must be a step on the same job." }, { status: 400 });
+      }
+      const edges = await db.taskDependency.findMany({
+        where: { task: { jobId: existing.jobId }, NOT: { taskId: existing.id } },
+        select: { taskId: true, dependsOnId: true },
+      });
+      if (wouldCycle(edges.map((e) => [e.taskId, e.dependsOnId]), dependsOnIds.map((d) => [existing.id, d]))) {
+        return NextResponse.json({ error: "That would make the plan go round in a circle — a step can't wait on something that waits on it." }, { status: 400 });
+      }
+    }
+  }
+
+  // ── The dependency gate ─────────────────────────────────────────────────
+  //
+  // A step cannot be STARTED or finished while a step it waits on is not
+  // done, or while the change order it was raised under is unsigned. Checked
+  // here, server-side, with fresh rows — the "Start" on the crew's phone is
+  // disabled ahead of time from the same rule, but a disabled button is not
+  // enforcement. The reason goes back with the refusal so the phone can say
+  // what it is waiting on, not just "no".
+  const forward = (body.status === "in_progress" || body.status === "done") && existing.status !== body.status;
+  if (forward && existing.planStep) {
+    const [deps, co] = await Promise.all([
+      db.taskDependency.findMany({
+        where: { taskId: existing.id },
+        select: { dependsOn: { select: { id: true, title: true, status: true } } },
+      }),
+      existing.waitingOnChangeOrderId
+        ? db.changeOrder.findUnique({
+            where: { id: existing.waitingOnChangeOrderId },
+            select: { id: true, seq: true, createdAt: true, status: true },
+          })
+        : null,
+    ]);
+    const gate = dependencyGate(
+      existing,
+      body.status,
+      deps.map((d) => d.dependsOn),
+      co ? { ...co, label: changeOrderLabel(co) } : null,
+    );
+    if (!gate.ok) {
+      return NextResponse.json(
+        { error: gateMessage(gate.blockedBy), blockedBy: gate.blockedBy },
+        { status: 409 },
+      );
+    }
+  }
 
   // ── The enforcement itself ────────────────────────────────────────────
   //
@@ -192,14 +267,28 @@ export async function PATCH(request, { params }) {
           ? String(body.completionComment).trim().slice(0, 2000)
           : null,
       }),
+      ...plan.data,
+      // Starting a step is how the person says the hold is over: the
+      // delivery came, the repair cured. A request that sets its own
+      // waitingReason in the same breath keeps that one.
+      ...(body.status === "in_progress" && existing.status !== "in_progress" && !("waitingReason" in body)
+        ? { waitingReason: null }
+        : {}),
+      ...(dependsOnIds !== null && {
+        dependsOn: {
+          deleteMany: {},
+          create: dependsOnIds.map((dependsOnId) => ({ dependsOnId })),
+        },
+      }),
     },
     include: {
       assignedTo: { select: { id: true, name: true } },
       _count: { select: { photos: true } },
+      dependsOn: { select: { dependsOn: { select: { id: true, title: true, status: true } } } },
     },
   });
 
-  return NextResponse.json(updated);
+  return NextResponse.json({ ...updated, dependsOn: updated.dependsOn.map((d) => d.dependsOn) });
 }
 
 export async function DELETE(request, { params }) {

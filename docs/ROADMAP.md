@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 21 September 2026 (the "next steps" email: two hours after a company's card goes in, if its onboarding checklist is still open, FieldQuo sends one letter in the company's language — the trade in the subject, only the open steps numbered in the checklist's order with what each unlocks for that trade, each a link that opens the step's window on the home page, a tick list of what is done — once per company, never a demo, switch and delay on /platform/companies, sent-date on the company page; see "The next-steps email" below; previous line: Sales-floor supervision: Listen / Whisper / Barge / Take on every live row of /platform/sales/floor through the superadmin's own browser, a Hold button for the rep, HOLD/UNHOLD and every supervisor action logged with seconds, calls to a colleague (browser to browser) and to a number outside the queue behind per-rep privileges — every outbound call runs in a per-attempt Twilio conference when `sales.supervision.enabled` is on, which is OFF by default because it costs +20% per call minute; docs/SALES-SUPERVISION.md — see the first section below; previous line: the call-outcomes second pass, and before it the set-up dialogs and the floor's presence)
+Last updated: 21 September 2026 (the job plan, change orders with remote approval, and the client progress view: an approved quote becomes one step per line and per ticked option with hours from the takeoff, painting dependencies, a hold reason and a crew day view, gated server-side so a step cannot start before what it waits on; a change order is sent by SMS + email to a one-page addendum the homeowner signs, holds its step until signed, adds or edits a step on approval and bills as a labelled "Change order CO-2 · …" line; the portal shows the job as Done · In progress · Waiting on with the crew's photos and the change orders waiting on the client — see "The job plan" below; previous line: the "next steps" email: two hours after a company's card goes in, if its onboarding checklist is still open, FieldQuo sends one letter in the company's language — the trade in the subject, only the open steps numbered in the checklist's order with what each unlocks for that trade, each a link that opens the step's window on the home page, a tick list of what is done — once per company, never a demo, switch and delay on /platform/companies, sent-date on the company page; see "The next-steps email" below; previous line: Sales-floor supervision: Listen / Whisper / Barge / Take on every live row of /platform/sales/floor through the superadmin's own browser, a Hold button for the rep, HOLD/UNHOLD and every supervisor action logged with seconds, calls to a colleague (browser to browser) and to a number outside the queue behind per-rep privileges — every outbound call runs in a per-attempt Twilio conference when `sales.supervision.enabled` is on, which is OFF by default because it costs +20% per call minute; docs/SALES-SUPERVISION.md — see the first section below; previous line: the call-outcomes second pass, and before it the set-up dialogs and the floor's presence)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -9,6 +9,113 @@ it exists to answer.
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
+
+## The job plan, change orders with remote approval, and the client progress view (21 September 2026)
+
+**What existed.** An accepted quote left one to-do ("Schedule the job for
+…", `lib/tasks/autoCreate.js`) and a job page whose tasks were whatever
+somebody typed. The lines the client signed never became work with a name on
+it. A change order was a staff-typed amount asserting "the client agreed";
+nothing went to the client, nothing was signed, and it billed as an unlabelled
+line. The portal answered "what do I owe" and nothing about where the job is.
+
+**What landed** (mockups j1, c4, c5 — the owner's "green light for all of
+that"):
+
+- **The plan is Tasks.** A plan step is a `Task` with `planStep` set, plus
+  `sortOrder`, `estimatedHours`, `quoteLineKey`/`quoteLineNo`,
+  `categoryKey`/`materialKeys` (joined to the buy list by key, so a regenerate
+  cannot dangle it), `waitingReason`, `waitingOnChangeOrderId`, `clientVisible`
+  (default OFF at the column — "Follow up payment" has a jobId too),
+  `scheduledStart/End`, and a `TaskDependency` join. `TimeEntry.taskId` lets the
+  clock book hours to a step (a second picker on /app/clock, only when the job
+  has a plan). Free-form to-dos are untouched: `JobTasks.js` now draws only
+  rows without `planStep`.
+- **Built on acceptance, idempotently.** `lib/jobs/buildPlan.js` runs from
+  `onQuoteAccepted` on the one path both doors take; every generated step
+  carries a unique `sourceKey` (`quote_line:<quote>:<group>:<index>`,
+  `quote_addon:<id>`, `change_order_approved:<id>`) and P2002 is read as
+  "already there". A rebuild adds only the lines the plan lacks; hand-added
+  steps, hand edits and deleted default edges all survive.
+- **Hours from the takeoff, matched not assumed.** `lib/jobs/plan.js`
+  re-runs `paintTakeoff` against the stored takeoff and the company's rates
+  and pairs its lines with the stored lines by ordinal — verified by
+  description equality, or the hours are withheld. Other trades give hours
+  only to a one-line group. Painting defaults: prep → ceiling → walls → trim
+  within an area; areas are independent.
+- **"Waiting on" is derived, not stored.** `planStatus()` reads three facts
+  fresh — a blocker not done, an unsigned change order, a written hold — so
+  a cleared blocker never leaves a stale status. `dependencyGate()` runs in
+  `PATCH /api/tasks/[id]` before any write and answers 409 with the blocker
+  named; the crew's Start button is disabled from the same verdict, but the
+  route is the enforcement. Cycles refused (`wouldCycle`).
+- **The job page.** `JobPlan.js`: the ordered list with pills, "waits on X"
+  chips, materials with on-hand/shopping-list counts, est/clocked hours,
+  Start / Mark done / Put on hold / Edit (assignee, hours, day, block times,
+  dependencies as chips, client-visible), Reorder (up/down, one save),
+  Add a step, Build/Rebuild from the quote; the crew day view underneath
+  (lanes per member, blocks with times only when set — no start time is
+  invented). Harness: `job-plan`.
+- **Change orders.** Additive on `ChangeOrder`: `seq` (CO-n under the job's
+  row lock), sanitised `bodyHtml`, `quoteLineKey` + `originalLine` snapshot or
+  `taskId`, `scheduleDeltaDays`, `photos`, `shareToken`, `sentAt`/`sentVia`/
+  `viewedAt`, `signature` (same audit shape as the quote's; hash over the
+  row's own agreed content). Status gains `waiting_client` — pending for money,
+  named so the job says "Waiting on client approval", and so staff cannot
+  "Mark agreed" a change order that is out for signature (409). "Save without
+  sending" is the old path and still works. `lib/jobs/changeOrderSend.js`
+  emails (branded, `documentEmailHtml`) and texts (`maySms`, the company's
+  line) the link and stamps sent only when a channel accepted.
+  `app/co/[token]` is the addendum: original line, the change, delta, tax at
+  the quote's rate, new total, schedule, Approve & sign with the pad; Ask a
+  question is `tel:` to the company. `POST /api/public/change-orders/[token]`
+  takes a name, a mark and consent — never an amount — and closes the race
+  with a status predicate. `lib/jobs/changeOrderDecision.js` is the one place
+  a decision reaches the plan: sent → the step is on hold; approved → the
+  hold clears and the change is written into the step, or (against a line)
+  ONE new step after that line's step; `Job.endDate` moves once. The bill
+  route writes `Change order CO-2 · <title>` with `detail` "Approved by
+  <name> on <date>" in the invoice's language. Harness: `client-change-order`.
+- **The portal.** `jobs` is back on `/api/portal/[token]` with an allow-list:
+  client-visible plan steps (title, derived status, what it waits on, the
+  photos filed against the step minus the `issue` stage), the change orders
+  waiting on the client with their link, who is on site from open time
+  entries. No description, no hours, no assignee id, no `priceDelta`.
+  `JobProgressCard.js`: Day N of M (measured "on schedule": no undone step past
+  its day), the bar, Done · In progress · Waiting on · Up next, "Review and
+  sign". Eight client languages in `clientDocCopy` (`job`, `changeOrder`
+  blocks); nine staff languages for `app.jobPlan.*` and the new
+  `app.changeOrder.*`.
+- **Checks.** `scripts/check-job-plan.mjs` (201 assertions: a real paint
+  takeoff → plan, idempotent creation with a simulated P2002 race, the gate,
+  cycles, the sanitiser against XSS payloads, the signature refusals, the
+  decision's effects, the labelled invoice line, and source-level assertions
+  that the portal and public payloads carry nothing internal).
+  `check:public-payload` updated for the portal's jobs and the reviewed
+  `dangerouslySetInnerHTML` sink; `check:change-order-money` for the
+  four-value status set.
+
+### Still owed here
+
+- **Cost: "Send for approval" is one Resend email and, when texted, one
+  Twilio SMS per send** — a staff action per change order, nothing scheduled.
+  No setting gates it; the owner's flip is the SMS/email checkboxes on the form
+  (both default on).
+- **Photos on the portal are "filed against a client-visible step" — there is
+  no per-photo "share with client" flag.** The office controls visibility per
+  step. A per-photo flag is a product decision.
+- **Done dates on the portal are the step's `updatedAt`** (a Task has no
+  completedAt). An edit after completion moves the date shown.
+- **Per-step clocked hours exist only for entries booked to a step from the
+  clock.** Manual time entries (`/api/time-entries`) have no step picker yet;
+  their hours count for the job, not a step.
+- **A change order's step is created only on approval.** A change order
+  against a *line* that is still out with the client shows nowhere in the plan
+  until signed (the one against a *task* holds that task). The mockup's
+  "CO-2 ⇒ hallway ceiling waiting on your approval" is the against-a-task case.
+- The home page's "Waiting on you" does not yet surface an overdue
+  `waiting_client` change order (the mockup's `.note` asks for it once
+  overdue, not on send).
 
 ## The next-steps email: two hours after the card, only the steps still open, each a link into its window (21 September 2026)
 

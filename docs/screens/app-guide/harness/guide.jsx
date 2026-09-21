@@ -349,6 +349,12 @@ async function runScene(scene) {
     await wait(300);
     return;
   }
+  if (scene === "scroll-plan") {
+    const el = await until('[data-tour="job-plan"]');
+    window.scrollTo(0, el.getBoundingClientRect().top + window.scrollY - 16);
+    await wait(300);
+    return;
+  }
   if (scene === "invoice-chase") {
     // The Request payment button is the one in the command strip carrying
     // the mail icon (app/app/invoices/[id]/page.js setShowChase).

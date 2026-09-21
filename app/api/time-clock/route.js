@@ -90,6 +90,11 @@ const OPEN_SELECT = {
   clockIn: true,
   jobId: true,
   job: { select: { id: true, title: true } },
+  // The plan step this entry is booked to, so the screen can say "on Walls,
+  // 2 coats" beside the job — a picker whose result you cannot see afterwards
+  // is a control you cannot tell is working.
+  taskId: true,
+  task: { select: { id: true, title: true } },
   breaks: BREAKS_SELECT,
 };
 
@@ -125,6 +130,8 @@ const ENTRY_SELECT = {
   status: true,
   jobId: true,
   job: { select: { id: true, title: true } },
+  taskId: true,
+  task: { select: { id: true, title: true } },
   breaks: BREAKS_SELECT,
 };
 
@@ -235,6 +242,25 @@ async function resolveJobId(rawJobId, member, full) {
 }
 
 /**
+ * The plan step, when one was picked. It has to be an open step on the job
+ * the entry is going to — a step from another job, or a done one, is refused
+ * rather than silently dropped, so the person learns their tap did not land.
+ * No step is a legitimate answer: "the job, no particular step".
+ */
+async function resolveTaskId(rawTaskId, jobId) {
+  if (rawTaskId === undefined || rawTaskId === null || rawTaskId === "") return { taskId: null };
+  if (typeof rawTaskId !== "string" || !jobId) {
+    return { error: "That step isn't on the job you're clocking in to.", status: 400 };
+  }
+  const step = await db.task.findFirst({
+    where: { id: rawTaskId, jobId, planStep: true, status: { in: ["open", "in_progress"] } },
+    select: { id: true },
+  });
+  if (!step) return { error: "That step isn't on the job you're clocking in to.", status: 400 };
+  return { taskId: step.id };
+}
+
+/**
  * Below this, a "switch" re-points the open entry instead of splitting it.
  *
  * Somebody who taps Clock in, sees the wrong job on screen and fixes it ten
@@ -312,6 +338,10 @@ export async function POST(request) {
     if (resolved.error) {
       return NextResponse.json({ error: resolved.error }, { status: resolved.status });
     }
+    const step = await resolveTaskId(body?.taskId, resolved.jobId);
+    if (step.error) {
+      return NextResponse.json({ error: step.error }, { status: step.status });
+    }
     const entry = await db.timeEntry.create({
       data: {
         workerId: worker.id,
@@ -321,6 +351,8 @@ export async function POST(request) {
         // is nullable on purpose and "this hour belongs to no job" is a
         // statement the row should make, not an absence of one.
         jobId: resolved.jobId,
+        // The plan step, the same way — see lib/jobs/plan.js clockedByTask.
+        taskId: step.taskId,
       },
       select: OPEN_SELECT,
     });
@@ -399,7 +431,13 @@ export async function POST(request) {
     if (resolved.error) {
       return NextResponse.json({ error: resolved.error }, { status: resolved.status });
     }
-    if ((open.jobId || null) === resolved.jobId) {
+    const step = await resolveTaskId(body?.taskId, resolved.jobId);
+    if (step.error) {
+      return NextResponse.json({ error: step.error }, { status: step.status });
+    }
+    // Same job AND same step is nothing to switch; same job, different step
+    // is a real move (the ceilings are done, the walls start).
+    if ((open.jobId || null) === resolved.jobId && (open.taskId || null) === step.taskId) {
       return NextResponse.json(
         { error: "You're already clocked in on that job." },
         { status: 409 },
@@ -412,7 +450,7 @@ export async function POST(request) {
     if (elapsedMs < MISTAP_WINDOW_MS) {
       const entry = await db.timeEntry.update({
         where: { id: open.id },
-        data: { jobId: resolved.jobId },
+        data: { jobId: resolved.jobId, taskId: step.taskId },
         select: OPEN_SELECT,
       });
       await logPunch(member, "switch", { worker, entry, job: entry.job });
@@ -445,6 +483,7 @@ export async function POST(request) {
           clockIn: at,
           status: "pending",
           jobId: resolved.jobId,
+          taskId: step.taskId,
         },
         select: OPEN_SELECT,
       }),
