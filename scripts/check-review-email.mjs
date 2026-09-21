@@ -72,8 +72,9 @@ const fr = buildReviewEmail({ company: co, client: { name: "Sam" }, language: "f
 ok("en asks in English", en.html.includes("Leave a review"));
 ok("fr asks in French", fr.html.includes("Laisser un avis"));
 ok("fr subject is French", fr.subject.startsWith("Comment"));
-ok("unknown language falls back to en", buildReviewEmail({ company: co, client: {}, language: "de" }).html.includes("Leave a review"));
-ok("both languages have every key", Object.keys(reviewCopy("en")).every((k) => k in reviewCopy("fr")));
+// "de" used to be the unknown language here; it is one of the eight now.
+ok("unknown language falls back to en", buildReviewEmail({ company: co, client: {}, language: "xx" }).html.includes("Leave a review"));
+ok("every document language has every key", ["fr", "es", "uk", "pa", "tl", "de", "it"].every((l) => Object.keys(reviewCopy("en")).every((k) => k in reviewCopy(l))));
 
 console.log("\nWhite-label");
 for (const lang of ["en", "fr"]) {

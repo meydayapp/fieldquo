@@ -41,6 +41,7 @@
 // weight, and Geist is cut on the same model. No external stylesheet is
 // requested by this page beyond what every page requests.
 
+import { UserPlus, MapPin } from "lucide-react";
 import { linkPageHandle } from "@/lib/links/handle";
 import { visibleLinks, splitSocial, groupLinks } from "@/lib/links/config";
 import { linkGroupLabels } from "@/lib/links/candidates";
@@ -86,6 +87,16 @@ const BOX = `${MOTION} ${WASH} border border-(color:--lp-border) bg-(color:--lp-
  *                    the two min-heights and nothing else: same tokens, same
  *                    markup, same rows — the preview IS this component, so
  *                    the settings screen cannot drift from the public page.
+ * @param language    the heading language. The bio link leaves it to the
+ *                    company's default; the digital business card
+ *                    (app/c/[slug]) passes the visitor's.
+ * @param saveContact { url, label } — the card's "Save our contact" pill,
+ *                    rendered ABOVE the featured row as the first control on
+ *                    the page. Absent on the bio link.
+ * @param address     { text, url, label } — the card's address line under the
+ *                    handle, linked to a map. Absent on the bio link, and
+ *                    absent on a card whose company has no address: never
+ *                    padded.
  */
 export default function LinkPageView({
   company,
@@ -94,9 +105,12 @@ export default function LinkPageView({
   year = new Date().getFullYear(),
   scheme = "auto",
   inFrame = false,
+  language = null,
+  saveContact = null,
+  address = null,
 }) {
   const { social, rows } = splitSocial(visibleLinks(candidates, config));
-  const headings = linkGroupLabels(company.defaultLanguage);
+  const headings = linkGroupLabels(language || company.defaultLanguage);
   const schemes = linkPageSchemes(company);
   const handle = linkPageHandle(company);
   const fill = inFrame ? "min-h-full" : "min-h-screen";
@@ -168,6 +182,27 @@ export default function LinkPageView({
                 {handle}
               </p>
             )}
+            {address?.text && (
+              <p className="mt-1.5 text-[14px] font-medium tracking-[-0.01em] text-(color:--lp-muted) sm:text-base">
+                {address.url ? (
+                  <a
+                    href={address.url}
+                    target="_blank"
+                    rel="noopener"
+                    className="inline-flex items-center gap-1.5 underline-offset-2 hover:underline"
+                    aria-label={address.label || address.text}
+                  >
+                    <MapPin size={14} aria-hidden="true" />
+                    <span>{address.text}</span>
+                  </a>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5">
+                    <MapPin size={14} aria-hidden="true" />
+                    <span>{address.text}</span>
+                  </span>
+                )}
+              </p>
+            )}
           </header>
 
           {config.bio && (
@@ -210,6 +245,24 @@ export default function LinkPageView({
           )}
 
           <div className="mx-auto w-full max-w-[440px]">
+            {/* The card's first control: hand the phone a contact. A plain
+                anchor to a .vcf — iOS Safari and Android both open the
+                Contacts prompt from it, no script needed. Painted in the
+                same ink-on-card tokens as a row (measured), not in the
+                brand fill: the featured pill below keeps that, so a page
+                with a review link has one brand button, not two. */}
+            {saveContact?.url && (
+              <div className="pt-3 pb-1">
+                <a
+                  href={saveContact.url}
+                  className={`${BOX} flex min-h-14 w-full items-center justify-center gap-2.5 rounded-full px-5 py-3.5 text-[15px] font-semibold tracking-[-0.03em] sm:py-[18px] sm:text-lg`}
+                >
+                  <UserPlus size={20} className="shrink-0 text-(color:--lp-accent)" aria-hidden="true" />
+                  <span>{saveContact.label}</span>
+                </a>
+              </div>
+            )}
+
             {/* The one filled control. Its fill is the brand where the brand
                 can be seen against the page; where it can't (yellow on
                 light, black on dark) the fill is ink and the TEXT and arrow

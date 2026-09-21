@@ -128,6 +128,15 @@ const RESOLVES_ITS_OWN = {
     "not a dual-audience endpoint). Every OTHER app/api/meta-ads/* route is " +
     "a normal POST reached via fetch() and uses memberOrRefusal like " +
     "everything else.",
+  "app/api/reviews/google/callback/route.js":
+    "Google's OAuth redirect target for the company's Business Profile — " +
+    "the same shape as the calendar callback below, on the same OAuth " +
+    "client with one more scope: the browser lands here off " +
+    "accounts.google.com and a JSON 401 is unshowable, so every failed " +
+    "resolution becomes a 302 back to Settings → Reviews with a named " +
+    "reason. Not laxer: the signed state must verify against its own " +
+    "cookie and name THIS member's id. Every OTHER app/api/reviews/google/* " +
+    "route is reached by fetch() and uses memberOrRefusal.",
   "app/api/calendar/google/callback/route.js":
     "Google's OAuth redirect target for a member's own calendar — the same " +
     "shape as the two Meta callbacks above: the browser lands here off " +

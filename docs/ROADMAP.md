@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 21 September 2026, evening (presence on the sales floor is DERIVED from the portal's keepalive — Off since {time} · Available · Busy · on a call / writing it up · Paused ({reason}) — and the floor board reads the performance page's one calls table, see the first section below; earlier the same day: the sales floor's Twilio telemetry is back: every call-status and recording callback had answered 500 since 18 September from `new NextResponse("", { status: 204 })` — a 204 may carry no body — and the recording write's `NOT: { recordingSid }` excluded every never-recorded row; both fixed, every notification route now answers an empty 204 through lib/sales/calls/twilioAck.js and a throw is a logged error; the sales cron reconciles recordings and prospect legs from the carrier and transcribes one a tick; /platform/sales/performance prints the carrier's clock beside the rep's report with "Reported vs measured" per rep; /platform/crew-lines says US texting is NOT registered (A2P 10DLC, error 30034) with the owner's registration steps; the Places API sweep is retired — see the section below; also today: the two Mac-run scrapers take `--state NY,FL,CA` — the enrichment order with everything outside those states removed BEFORE ranking, the skipped count printed and shown on the Maps panel; the listing matcher joins initialisms and sets trade words aside symmetrically, attaches a listing on the record's own phone or website under `matched_verify` with a "confirm on the call" fact on the card and the brief, and refuses a shared number or a franchise domain as an identity; `maps.mjs --rematch` re-reads the 1,725 refusals and `--promote` turns unmatched open listings with a phone into prospects in the review folder with their crawl queued, which every sweep now also does for its own run; BBB's employee band is captured end to end with a saved profile fixture — see "Regional passes, matched_verify, promotion" below)
+Last updated: 21 September 2026, evening (presence on the sales floor is DERIVED from the portal's keepalive — Off since {time} · Available · Busy · on a call / writing it up · Paused ({reason}) — and the floor board reads the performance page's one calls table, see the first section below; also today: Settings → Reviews: the company finds its Google listing in the Places box and the review link is derived from the place_id; every company has a public digital business card at /c/<slug> — logo, phone, email, address with a map link, Save our contact (a vCard), book / instant price / review / website / socials in the visitor's language — and a QR of it, a print sheet (card QR + a second QR that IS the contact), Add to Apple Wallet / Google Wallet for the contractor's own phone (signers built, env-gated, owner steps in docs/WALLET-PASS.md), NFC-tag instructions with the URL record and the contact record and the bytes each needs, ?ref= tap counts per source; the review email carries the QR in eight languages, the invoice PDF footer gets an optional review QR, the portal's paid state offers the review link; a Google-page paste keeps stars and dates; Connect Google Business Profile (same OAuth client, business.manage) caches reviews for 30 days under Google's name, never as testimonials, and prints Google's quota-0 refusal honestly with the paste path beside it — see "Reviews: the listing, the card, the passes, the tag, and the Business Profile" below; previous line: the sales floor's Twilio telemetry is back — see the telephony section; earlier the same day: the sales floor's Twilio telemetry is back: every call-status and recording callback had answered 500 since 18 September from `new NextResponse("", { status: 204 })` — a 204 may carry no body — and the recording write's `NOT: { recordingSid }` excluded every never-recorded row; both fixed, every notification route now answers an empty 204 through lib/sales/calls/twilioAck.js and a throw is a logged error; the sales cron reconciles recordings and prospect legs from the carrier and transcribes one a tick; /platform/sales/performance prints the carrier's clock beside the rep's report with "Reported vs measured" per rep; /platform/crew-lines says US texting is NOT registered (A2P 10DLC, error 30034) with the owner's registration steps; the Places API sweep is retired — see the section below; also today: the two Mac-run scrapers take `--state NY,FL,CA` — the enrichment order with everything outside those states removed BEFORE ranking, the skipped count printed and shown on the Maps panel; the listing matcher joins initialisms and sets trade words aside symmetrically, attaches a listing on the record's own phone or website under `matched_verify` with a "confirm on the call" fact on the card and the brief, and refuses a shared number or a franchise domain as an identity; `maps.mjs --rematch` re-reads the 1,725 refusals and `--promote` turns unmatched open listings with a phone into prospects in the review folder with their crawl queued, which every sweep now also does for its own run; BBB's employee band is captured end to end with a saved profile fixture — see "Regional passes, matched_verify, promotion" below)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -84,6 +84,97 @@ agreeing on one fixture with a cross-line attribution). `check-sales-costs`,
 (`app/components/sales/AvailableReminder.js`) can no longer fire — a present
 rep is never Off — and should be retired with its check;
 `measuredDurations` (`reporting.js`) is computed and printed by nobody now.
+
+---
+
+## Reviews: the listing, the card, the passes, the tag, and the Business Profile (21 September 2026)
+
+The owner asked whether a company can import its Google reviews, whether a QR
+for the review link can go on the thank-you email, and whether that QR can
+live in a phone's wallet and be tapped like an NFC card. Then extended it: the
+QR's target is a **digital business card**, not the review link alone, and the
+card must hand the homeowner a contact.
+
+**What shipped, on Settings → Reviews.**
+
+- **Find your Google listing.** The Places box the address fields already
+  load (`app/app/settings/reviews/ListingFinder.js`, `types: establishment`)
+  returns a place_id; the server derives
+  `https://search.google.com/local/writereview?placeid=…` into the same
+  `reviewUrl` column everything reads (`lib/reviews/googlePlace.js`). "Not my
+  business" clears both. A pasted link still wins and replaces the listing.
+- **The card, /c/<slug>** (`app/c/[slug]/page.js`): the bio link's rows
+  (`lib/links`) plus Save our contact and the address with a map link, in the
+  visitor's Accept-Language among the eight document languages with the
+  company's default as fallback (`lib/i18n/acceptLanguage.js`). Renders
+  whether or not the bio link is published — it is what the QR prints.
+  Passes through the tenant subdomain rewrite. `?ref=sticker|qr|nfc|wallet|
+  invoice|email` → one server-side `card_tap` row per view
+  (`lib/analytics/product/server.js`), summed per source on the settings
+  screen (`lib/reviews/cardTaps.js`).
+- **`/c/<slug>/contact.vcf`**: a vCard 3.0 with the logo as a ≤100 KB JPEG
+  and a NOTE carrying the booking and review links, `text/vcard` +
+  `Content-Disposition: attachment` + nosniff (`lib/reviews/vcard.js`). The
+  compact variant (no photo, card URL as the website) is what the NFC
+  "Contact" record and the "scan to save our contact" QR carry; the screen
+  prints its bytes and which tag holds it (NTAG215 = 504 B).
+- **QR** (`lib/reviews/qr.js`, ~350 lines, level M, versions 1–20, no
+  dependency; decoded module-by-module by the check and, during development,
+  by jsQR across every version). `/api/reviews/qr.svg|qr.png?of=card|review|
+  contact&ref=` (member); `/r/<token>/qr.png` (public, random token, the
+  review link, for the email). Print sheet `/api/reviews/print-sheet`: the
+  card QR large and small plus the contact QR, captions and the printed URL
+  in the company's language, the sentence colour measured through
+  `theme.accentText`.
+- **Wallet passes.** Apple: `.pkpass` signed with node-forge (pinned 1.4.0,
+  1.6 MB unpacked, the only new dependency — Node has no PKCS#12 reader or
+  CMS signer), manifest SHA-1s, WWDR G4 vendored, images by sharp; Google: a
+  generic class per company inline in an RS256 JWT, no Wallet API call. Both
+  env-gated (`APPLE_PASS_TYPE_ID`, `APPLE_TEAM_ID`,
+  `APPLE_PASS_CERT_P12_BASE64`, `APPLE_PASS_CERT_PASSWORD`;
+  `GOOGLE_WALLET_ISSUER_ID`, `GOOGLE_WALLET_SERVICE_ACCOUNT_JSON`); until set
+  the screen says "not set up yet" and names the variables. **NFC, stated on
+  the screen and in the doc: a wallet pass cannot be tapped by a customer
+  (Apple VAS is enterprise-only); a physical NTAG215 written with NFC Tools
+  can.** Owner steps: `docs/WALLET-PASS.md`.
+- **Email / invoice / portal.** The review-request email carries the hosted
+  QR beside the button, its copy now in all eight document languages
+  (`lib/reviews/reviewEmail.js`); the invoice PDF footer gets "Enjoyed the
+  work? Scan to review us" + QR behind `Company.invoiceReviewQr` (default
+  off; gate in `lib/reviews/invoiceQr.js`: switch × valid link × invoice);
+  the portal's "paid in full" state offers the review link.
+- **Import.** The paste box takes a copy of the Business Profile's Reviews
+  page: stars and dates are lifted off the second line (`parseRatingLine`),
+  relative dates are never invented into dates, rows marked `google_import`,
+  identity = author + date + first forty characters when a date is present,
+  unapproved by default. **Connect Google Business Profile**: OAuth on the
+  SAME client with `business.manage` (own cookie, same signed state), pick a
+  listing, `GoogleReview` cache refreshed by `/api/cron/google-reviews`
+  (04:40 UTC), purged at 30 days and when Google stops returning a review,
+  never edited, one switch per review (show on site → the embed's list with
+  "· Google"). A project whose quota is 0 — every new project — gets the
+  honest sentence with Google's words and the paste path beside it. Owner
+  steps (Basic API Access application, 60-day-old profile, sensitive-scope
+  verification, second redirect URI): `docs/GOOGLE-BUSINESS-PROFILE.md`.
+
+**Why the API pull is a cache and not testimonials** is unchanged from the
+research entry below ("Google Business Profile review import"): the policies
+allow 30 days, unaltered, attributed. That entry's "the shape to build" is
+what was built.
+
+**Check:** `scripts/check-reviews-google.mjs` (193 assertions) — the QR
+reader, the pass signature against a throwaway identity, the refresh against
+a fake Google answering 429, the card rendered through
+`scripts/jsx-loader.mjs` (Next's own swc, so a check can render a JSX
+component instead of grepping it), the vCard parsed, every language read
+back.
+
+**Left out, deliberately:** replies to Google reviews; Google rows on the
+FieldQuo-built website's testimonials block (the embed carries them; the
+site block is rebuilt from Testimonial rows and would need its own switch);
+verifying the `.vcf` prompt on a physical iPhone (headers per the platform
+documentation; `attachment` chosen so Android Chrome downloads rather than
+displays — iOS shows its download sheet first, then Contacts).
 
 ---
 
@@ -13571,7 +13662,7 @@ them.
 4. **Redirects must be 308, and old prefix-less URLs must keep working** —
    every referral card, van decal and Google result currently points at them.
 
-## Google Business Profile review import (researched, blocked, not started)
+## Google Business Profile review import (researched 2026-09; the cache shape below was BUILT on 21 September 2026 — see the Reviews entry near the top; still blocked at Google until the quota application lands)
 
 **Verdict: this cannot ship until Google approves an application FieldQuo has
 not yet made, and even then it is not the feature it sounds like.** What did

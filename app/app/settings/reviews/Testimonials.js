@@ -56,6 +56,7 @@ export default function Testimonials() {
   const [quote, setQuote] = useState("");
 
   const [paste, setPaste] = useState("");
+  const [pasteOrigin, setPasteOrigin] = useState("google");
   const [result, setResult] = useState(null);
   const fileRef = useRef(null);
 
@@ -174,7 +175,7 @@ export default function Testimonials() {
     setResult(null);
     const done = await mutate(
       "/api/settings/testimonials/import",
-      { method: "POST", body: JSON.stringify({ text }) },
+      { method: "POST", body: JSON.stringify({ text, origin: pasteOrigin }) },
       "app.testimonials.importError",
     );
     if (done) {
@@ -264,6 +265,9 @@ export default function Testimonials() {
                       <p className="text-sm text-foreground">{row.quote}</p>
                       <p className="text-xs text-muted-foreground mt-1">
                         {[row.authorName, row.companyLabel].filter(Boolean).join(", ")}
+                        {row.rating ? ` · ${"★".repeat(row.rating)}${"☆".repeat(5 - row.rating)}` : ""}
+                        {row.reviewedAt ? ` · ${new Date(row.reviewedAt).toLocaleDateString()}` : ""}
+                        {row.source === "google_import" ? ` · ${t("app.testimonials.fromGoogle")}` : ""}
                         {" · "}
                         <span className={row.approved ? "text-emerald-600 dark:text-emerald-400" : ""}>
                           {row.approved
@@ -374,6 +378,28 @@ export default function Testimonials() {
       <div className="space-y-2 pt-4 border-t border-border">
         <p className="text-xs font-semibold text-foreground">{t("app.testimonials.importTitle")}</p>
         <p className="text-xs text-muted-foreground">{t("app.testimonials.importHelp")}</p>
+        <p className="text-xs text-muted-foreground">{t("app.testimonials.importGoogleHow")}</p>
+        <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={t("app.testimonials.importOrigin")}>
+          {[
+            ["google", t("app.testimonials.importOriginGoogle")],
+            ["other", t("app.testimonials.importOriginOther")],
+          ].map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              role="radio"
+              aria-checked={pasteOrigin === value}
+              onClick={() => setPasteOrigin(value)}
+              className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                pasteOrigin === value
+                  ? "bg-inverted text-inverted-foreground border-transparent"
+                  : "border-border text-foreground hover:bg-muted"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
         <textarea
           value={paste}
           onChange={(e) => setPaste(e.target.value)}

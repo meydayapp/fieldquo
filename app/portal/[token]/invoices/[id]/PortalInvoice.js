@@ -32,6 +32,7 @@ import { clientDocCopy } from "@/lib/i18n/clientDocCopy";
 import { taxIdLine } from "@/lib/documents/taxId";
 import { documentIssueDate } from "@/lib/documents/issueDate";
 import { jsonBody } from "@/lib/jsonBody";
+import { reviewQrCopy } from "@/lib/reviews/reviewQrCopy";
 
 export default function PortalInvoice({ token, invoiceId, stageId = null }) {
   const [data, setData] = useState(null);
@@ -434,8 +435,25 @@ export default function PortalInvoice({ token, invoiceId, stageId = null }) {
               )}
             </div>
           ) : (
-            <div className="flex items-center justify-center gap-2 text-sm font-semibold text-green-700">
-              <Check size={16} /> {copy.paidInFullThanks}
+            <div className="flex flex-col items-center justify-center gap-3">
+              <div className="flex items-center justify-center gap-2 text-sm font-semibold text-green-700">
+                <Check size={16} /> {copy.paidInFullThanks}
+              </div>
+              {/* The one moment a homeowner is warmest is the moment the
+                  bill is settled. The link is the company's own review
+                  address (Settings → Reviews); absent when unset — no
+                  button to nowhere. Same words as the review email. */}
+              {data?.company?.reviewUrl && /^https?:\/\//i.test(data.company.reviewUrl) && (
+                <a
+                  href={data.company.reviewUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  data-review-link
+                  className="inline-flex items-center gap-1.5 rounded-full border border-black/10 px-4 py-2 text-sm font-semibold text-[#2d2520] hover:bg-black/5"
+                >
+                  {reviewQrCopy(language).leaveReview}
+                </a>
+              )}
             </div>
           )}
         </div>

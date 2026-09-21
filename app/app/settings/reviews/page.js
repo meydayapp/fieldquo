@@ -22,11 +22,44 @@
 //
 // Enforced on the server too. This is only the friendly half.
 
-import { useEffect, useState, useCallback } from "react";
-import { Star, ExternalLink, Loader2, Check, Info } from "lucide-react";
+import { useEffect, useState, useCallback, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Star, ExternalLink, Loader2, Check, Info, MapPin, X } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import Testimonials from "./Testimonials";
+import ListingFinder from "./ListingFinder";
+import CardAndQr from "./CardAndQr";
+import GoogleBusiness from "./GoogleBusiness";
+
+// The Business Profile callback's one word → the sentence for it. Literal
+// keys, so the translation checks can see every one of them.
+const GBP_OUTCOME_KEYS = {
+  connected: "app.setReviews.gbpOutcome.connected",
+  denied: "app.setReviews.gbpOutcome.denied",
+  bad_state: "app.setReviews.gbpOutcome.badState",
+  session: "app.setReviews.gbpOutcome.session",
+  not_configured: "app.setReviews.gbpOutcome.notConfigured",
+  exchange_failed: "app.setReviews.gbpOutcome.exchangeFailed",
+  no_refresh_token: "app.setReviews.gbpOutcome.noRefreshToken",
+  scope_missing: "app.setReviews.gbpOutcome.scopeMissing",
+  forbidden: "app.setReviews.gbpOutcome.forbidden",
+};
+
+/** Reads ?google= once, hands the key up, and clears it from the address bar. */
+function GbpOutcome({ onOutcome }) {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  useEffect(() => {
+    const word = searchParams.get("google");
+    if (!word) return;
+    onOutcome(GBP_OUTCOME_KEYS[word] || "app.setReviews.gbpOutcome.unknown");
+    const next = new URLSearchParams(searchParams.toString());
+    next.delete("google");
+    router.replace(`${window.location.pathname}${next.toString() ? `?${next}` : ""}`, { scroll: false });
+  }, [searchParams, router, onOutcome]);
+  return null;
+}
 
 const DELAYS = [
   { hours: 2, label: "app.setReviews.delay2h" },
@@ -44,6 +77,7 @@ export default function ReviewSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [url, setUrl] = useState("");
+  const [gbpOutcomeKey, setGbpOutcomeKey] = useState(null);
 
   // A toast is not enough here. On a refused load `data` stayed null, `loading`
   // went false, and the page rendered the switch OFF and the review URL blank —
@@ -130,9 +164,13 @@ export default function ReviewSettingsPage() {
 
   const on = Boolean(data?.reviewRequestsEnabled);
   const hasUrl = Boolean(data?.reviewUrl);
+  const listing = data?.googlePlaceId ? { id: data.googlePlaceId, label: data.googlePlaceLabel } : null;
 
   return (
     <div className="p-4 sm:p-6 max-w-2xl space-y-6">
+      <Suspense fallback={null}>
+        <GbpOutcome onOutcome={setGbpOutcomeKey} />
+      </Suspense>
       <div>
         <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
           <Star size={22} /> {t("app.settings.reviews")}
@@ -142,13 +180,49 @@ export default function ReviewSettingsPage() {
         </p>
       </div>
 
+      {/* ── Find the listing ───────────────────────────────────────────── */}
+      <section className="rounded-xl border border-border bg-card p-5" data-listing-section>
+        <p className="text-sm font-semibold text-foreground flex items-center gap-2">
+          <MapPin size={15} /> {t("app.setReviews.findListing")}
+        </p>
+        <p className="text-xs text-muted-foreground mt-1">{t("app.setReviews.findListingHelp")}</p>
+        {listing ? (
+          <div className="mt-3 flex flex-wrap items-center gap-2" data-listing-picked>
+            <span className="text-sm text-foreground">
+              <Check size={14} className="inline text-emerald-600 dark:text-emerald-400 mr-1" />
+              {listing.label || listing.id}
+            </span>
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => save({ googlePlaceId: null })}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-border text-xs font-medium text-foreground hover:bg-muted disabled:opacity-40"
+            >
+              <X size={12} /> {t("app.setReviews.notMyBusiness")}
+            </button>
+          </div>
+        ) : (
+          <div className="mt-3">
+            <ListingFinder
+              disabled={saving}
+              placeholder={t("app.setReviews.findListingPlaceholder")}
+              unavailableText={t("app.setReviews.findListingUnavailable")}
+              className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm text-foreground"
+              onPick={(place) =>
+                save({ googlePlaceId: place.placeId, googlePlaceName: place.name, googlePlaceAddress: place.address })
+              }
+            />
+          </div>
+        )}
+      </section>
+
       {/* ── Where to send them ─────────────────────────────────────────── */}
       <section className="rounded-xl border border-border bg-card p-5">
         <label htmlFor="reviewUrl" className="block text-sm font-semibold text-foreground">
           {t("app.setReviews.linkLabel")}
         </label>
         <p className="text-xs text-muted-foreground mt-1">
-          {t("app.setReviews.linkHelp")}
+          {listing ? t("app.setReviews.linkDerived") : t("app.setReviews.linkHelp")}
         </p>
         <div className="flex flex-wrap gap-2 mt-3">
           <input
@@ -256,6 +330,44 @@ export default function ReviewSettingsPage() {
           </div>
         </section>
       )}
+
+      {/* ── The QR on every invoice ────────────────────────────────────── */}
+      <section className="rounded-xl border border-border bg-card p-5" data-invoice-qr-section>
+        <div className="flex items-start gap-4">
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-foreground">{t("app.setReviews.invoiceQr")}</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {hasUrl ? t("app.setReviews.invoiceQrHelp") : t("app.setReviews.askAutoOff")}
+            </p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={Boolean(data.invoiceReviewQr)}
+            disabled={saving || !hasUrl}
+            onClick={() => save({ invoiceReviewQr: !data.invoiceReviewQr })}
+            className={`shrink-0 w-11 h-6 rounded-full transition-colors disabled:opacity-40 ${
+              data.invoiceReviewQr ? "bg-emerald-600" : "bg-muted-foreground/30"
+            }`}
+          >
+            <span
+              className={`block w-5 h-5 rounded-full bg-white shadow transition-transform ${
+                data.invoiceReviewQr ? "translate-x-5" : "translate-x-0.5"
+              }`}
+            />
+          </button>
+        </div>
+      </section>
+
+      {/* ── The card, the QR, the passes, the tag ─────────────────────── */}
+      <CardAndQr card={data.card} nfc={data.nfc} wallet={data.wallet} hasReviewUrl={hasUrl} />
+
+      {/* ── Google Business Profile ────────────────────────────────────── */}
+      <GoogleBusiness
+        googleBusiness={data.googleBusiness}
+        outcomeKey={gbpOutcomeKey}
+        onChanged={load}
+      />
 
       {/* ── What to do with the reviews once they exist ────────────────── */}
       <Testimonials />
