@@ -52,74 +52,79 @@ function Trend({ value, labels }) {
   );
 }
 
-function minutes(ms) {
-  if (!Number.isFinite(ms) || ms === null) return null;
-  return Math.round(ms / 60000);
-}
-
-function CallRow({ name, sub, stats, labels, href }) {
-  const m = stats?.measured;
-  // "Connected" and the two rates are lib/sales/calls/conversation.js's
-  // connectFigures(), carried on repCallStats as `connect` — the carrier's
-  // answer rate and the transcript's conversation rate, each labelled as
-  // what it is, never a count of our own.
-  const c = stats?.connect;
+/** A rate's number, or the counts standing in for it under the floor. */
+function Share({ value, count, belowFloor }) {
+  if (!value) return <span className="text-muted-foreground">—</span>;
   return (
-    <tr className="border-t border-border">
-      <td className={TD}>
-        {href ? (
-          <Link href={href} className="font-medium text-foreground underline">
-            {name}
-          </Link>
-        ) : (
-          <div className="font-medium text-foreground">{name}</div>
-        )}
-        {sub ? <div className="text-xs text-muted-foreground">{sub}</div> : null}
-      </td>
-      <td className={`${TD} tabular-nums`}>{stats?.dials ?? "—"}</td>
-      <td className={`${TD} tabular-nums`}>
-        {c ? c.connected : "—"}
-        {c ? <div className="text-xs text-muted-foreground">{labels.ofBridged(c.measured)}</div> : null}
-      </td>
-      <td className={`${TD} tabular-nums`}>
-        {m && m.talkMs !== null ? minutes(m.talkMs) : "—"}
-        {m && m.talkMs !== null ? <div className="text-xs text-muted-foreground">{labels.overCalls(m.measuredOf)}</div> : null}
-      </td>
-      <td className={TD}>
-        <Rate value={c?.answerRate} belowFloor={labels.belowFloor} />
-      </td>
-      <td className={TD}>
-        <Rate value={c?.conversationRate} belowFloor={labels.belowFloor} />
-        {c && c.unknown > 0 ? <div className="text-xs text-muted-foreground">{labels.notYetKnown(c.unknown)}</div> : null}
-      </td>
-      <td className={TD}>
-        <Rate value={stats?.reportedReachRate} belowFloor={labels.belowFloor} />
-      </td>
-      <td className={`${TD} tabular-nums`}>{stats?.callbacks?.booked ?? "—"}</td>
-    </tr>
+    <span>
+      <span className="text-base font-semibold tabular-nums">{count}</span>
+      {value.value !== null ? (
+        <span className="text-xs text-muted-foreground"> · {value.value}%</span>
+      ) : typeof belowFloor === "function" && value.sampleSize > 0 ? (
+        <span className="block text-xs text-muted-foreground">{belowFloor(value.remaining)}</span>
+      ) : null}
+    </span>
   );
 }
 
-/**
- * Points between what the rep reported and what the clock measured. Red
- * when the rep is ahead of the carrier by ten points or more — that is the
- * discrepancy the section exists to show — and plain otherwise. Null (no
- * percentage on one side) prints as a dash, never as zero.
- */
-function OverMarked({ points, labels }) {
+/** Red, in words, under a Twilio column when the carrier's data is short for the period. */
+function CarrierMissing({ table, labels }) {
+  if (!table?.carrierMissingSince) return null;
+  return <div className="text-xs text-red-700 dark:text-red-300">{labels.carrierMissingSince(new Date(table.carrierMissingSince).toLocaleDateString(), table.carrierMissingCount)}</div>;
+}
+
+/** The four buckets as one bar, so the shape of a rep's dials reads at a glance. */
+const BUCKET_ORDER = ["nobodyAnswered", "hungUpFast", "voicemailOrBrief", "realConversation"];
+const BUCKET_CLASS = {
+  nobodyAnswered: "bg-neutral-400 dark:bg-neutral-600",
+  hungUpFast: "bg-amber-400 dark:bg-amber-600",
+  voicemailOrBrief: "bg-sky-400 dark:bg-sky-600",
+  realConversation: "bg-emerald-500 dark:bg-emerald-500",
+};
+function BucketBar({ table, labels }) {
+  if (!table || table.joined === 0) return null;
+  return (
+    <div className="mt-1 flex h-2.5 w-full min-w-[140px] overflow-hidden rounded-full bg-muted" role="img" aria-label={BUCKET_ORDER.map((k) => `${labels[k]}: ${table.buckets[k]}`).join(", ")}>
+      {BUCKET_ORDER.map((k) =>
+        table.buckets[k] > 0 ? <div key={k} className={BUCKET_CLASS[k]} style={{ width: `${(table.buckets[k] / table.joined) * 100}%` }} title={`${labels[k]}: ${table.buckets[k]}`} /> : null,
+      )}
+    </div>
+  );
+}
+
+/** One header: the plain word, its one-line meaning, and its source. */
+function Head({ word, meaning, source }) {
+  return (
+    <th className={`${TH} align-top`}>
+      <div>{word}</div>
+      {meaning ? <div className="normal-case font-normal tracking-normal text-[11px] leading-snug text-muted-foreground max-w-[11rem]">{meaning}</div> : null}
+      {source ? <div className="normal-case font-normal tracking-normal text-[11px] text-muted-foreground/80 mt-0.5">{source}</div> : null}
+    </th>
+  );
+}
+
+/** The gap between the rep's word and the measured real conversations, in points. Red from ten points of over-marking. */
+function Gap({ points, labels }) {
   if (points === null || points === undefined) return <span className="text-muted-foreground">—</span>;
   const cls = points >= 10 ? "text-red-700 dark:text-red-300 font-semibold" : points <= -10 ? "text-emerald-700 dark:text-emerald-300" : "text-foreground";
   return (
-    <span className={cls}>
+    <span className={`tabular-nums ${cls}`}>
       {points > 0 ? "+" : ""}
       {points} {labels.points}
     </span>
   );
 }
 
-/** One rep's carrier-measured row. `p` is repCallStats().pickup — lib/sales/calls/conversation.js pickupFigures(). */
-function PickupRow({ name, sub, stats, labels, href }) {
-  const p = stats?.pickup;
+/**
+ * One rep's row of the calls table. `table` is lib/sales/calls/dialTable.js's
+ * dialTableRow: one denominator (dials with a prospect leg), attribution by
+ * attempt joined to the carrier by the child call sid, every Twilio column
+ * blank-and-red rather than borrowed when the carrier's data is missing.
+ */
+function DialRow({ name, sub, table, labels, href }) {
+  const t = table;
+  const twilio = (cell) => (t?.carrierMissingSince && t.joined === 0 ? <span className="text-red-700 dark:text-red-300 text-xs">{labels.carrierMissingSince(new Date(t.carrierMissingSince).toLocaleDateString(), t.carrierMissingCount)}</span> : cell);
+  const bucketCell = (k) => twilio(<Share value={t?.bucketRates?.[k]} count={t?.buckets[k]} belowFloor={labels.belowFloor} />);
   return (
     <tr className="border-t border-border">
       <td className={TD}>
@@ -131,42 +136,53 @@ function PickupRow({ name, sub, stats, labels, href }) {
           <div className="font-medium text-foreground">{name}</div>
         )}
         {sub ? <div className="text-xs text-muted-foreground">{sub}</div> : null}
+        <BucketBar table={t} labels={labels} />
+        {t && t.unverified.total > 0 ? <div className="text-xs text-muted-foreground mt-1">{labels.unverified(t.unverified.total, t.unverified.handset)}</div> : null}
       </td>
-      <td className={`${TD} tabular-nums`}>{p ? p.legs : "—"}</td>
+      <td className={`${TD} tabular-nums`}>
+        <span className="text-base font-semibold">{t ? t.dials : "—"}</span>
+        <CarrierMissing table={t} labels={labels} />
+      </td>
+      <td className={TD}>{bucketCell("nobodyAnswered")}</td>
+      <td className={TD}>{bucketCell("hungUpFast")}</td>
+      <td className={TD}>{bucketCell("voicemailOrBrief")}</td>
       <td className={TD}>
-        <Rate value={p?.pickedUp} belowFloor={labels.belowFloor} />
+        {bucketCell("realConversation")}
+        {t && t.joined > 0 ? <div className="text-xs text-muted-foreground">{labels.conversationBasis(t.conversationFromTranscript, t.conversationFromClock)}</div> : null}
       </td>
       <td className={TD}>
-        <Rate value={p?.conversation} belowFloor={labels.belowFloor} />
-        {p && p.legs > 0 ? <div className="text-xs text-muted-foreground">{labels.conversationBasis(p.fromTranscript, p.fromDuration)}</div> : null}
+        <Share value={t?.reached} count={t?.reached?.hit} belowFloor={labels.belowFloor} />
+        {t && t.dials > 0 && t.logged < t.dials ? <div className="text-xs text-muted-foreground">{labels.notLogged(t.dials - t.logged)}</div> : null}
       </td>
-      <td className={TD}>
-        <Rate value={p?.reported} belowFloor={labels.belowFloor} />
-      </td>
-      <td className={TD}>
-        <OverMarked points={p?.overMarkedPoints} labels={labels} />
-      </td>
-      <td className={`${TD} tabular-nums text-xs text-muted-foreground`}>
-        {p && p.legs > 0 ? (
-          <>
-            <div>
-              {labels.bandUnanswered}: {p.bands.unanswered}
-            </div>
-            <div>
-              {labels.bandUnder(p.pickupMinSeconds)}: {p.bands.under20}
-            </div>
-            <div>
-              {labels.bandBetween(p.pickupMinSeconds, p.conversationMinSeconds)}: {p.bands.band20to60}
-            </div>
-            <div>
-              {labels.bandOver(p.conversationMinSeconds)}: {p.bands.over60}
-            </div>
-          </>
-        ) : (
-          "—"
+      <td className={`${TD} tabular-nums`}>{t ? t.callbacksPromised : "—"}</td>
+      <td className={`${TD} tabular-nums`}>
+        {twilio(
+          <span>
+            {t ? t.minutesTalking : "—"}
+            {t && t.answeredCalls > 0 ? <span className="block text-xs text-muted-foreground">{labels.overAnswered(t.answeredCalls)}</span> : null}
+          </span>,
         )}
       </td>
+      <td className={TD}>
+        <Gap points={t?.gap} labels={labels} />
+      </td>
     </tr>
+  );
+}
+
+/** "Twilio: N prospect legs · FieldQuo: N attempts · N unjoined" — red when they differ. */
+function Reconciliation({ calls, labels }) {
+  const r = calls.reconciliation;
+  if (!r) {
+    return <p className="text-sm text-amber-800 dark:text-amber-200">{labels.carrierNotAsked(calls.carrierError || "")}</p>;
+  }
+  const cls = r.differ ? "text-red-700 dark:text-red-300" : "text-emerald-700 dark:text-emerald-300";
+  return (
+    <p className={`text-sm font-medium ${cls}`} data-performance-reconciliation>
+      {labels.reconciliation(r.twilioLegs, r.attempts, r.unjoinedAttempts + r.unjoinedLegs)}
+      {r.unjoinedAttempts || r.unjoinedLegs ? <span className="block text-xs font-normal">{labels.reconciliationDetail(r.unjoinedAttempts, r.unjoinedLegs)}</span> : null}
+      {!r.listedAll ? <span className="block text-xs font-normal">{labels.carrierListCapped}</span> : null}
+    </p>
   );
 }
 
@@ -242,87 +258,45 @@ export default function CallPerformanceSections({ calls, callQuality, labels, re
       <section className="space-y-2" data-performance-calls>
         <h2 className="text-base font-semibold text-foreground">{labels.callsHeading}</h2>
         <p className="text-sm text-muted-foreground">{labels.callsIntro}</p>
+        <Reconciliation calls={calls} labels={labels} />
         <div className={`${CARD} p-0 overflow-hidden`}>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[920px] text-sm">
+            <table className="w-full min-w-[1180px] text-sm">
               <thead className="bg-muted">
                 <tr>
-                  <th className={TH}>{labels.rep}</th>
-                  <th className={TH}>{labels.dials}</th>
-                  <th className={TH}>{labels.connected}</th>
-                  <th className={TH}>{labels.talkMinutes}</th>
-                  <th className={TH}>{labels.answerRate}</th>
-                  <th className={TH}>{labels.conversationRate}</th>
-                  <th className={TH}>{labels.reachRate}</th>
-                  <th className={TH}>{labels.callbacks}</th>
+                  <Head word={labels.rep} />
+                  <Head word={labels.dials} meaning={labels.dialsMeaning} source={labels.sourceTwilio} />
+                  <Head word={labels.nobodyAnswered} meaning={labels.nobodyAnsweredMeaning} source={labels.sourceTwilio} />
+                  <Head word={labels.hungUpFast} meaning={labels.hungUpFastMeaning} source={labels.sourceTwilio} />
+                  <Head word={labels.voicemailOrBrief} meaning={labels.voicemailOrBriefMeaning} source={labels.sourceTwilio} />
+                  <Head word={labels.realConversation} meaning={labels.realConversationMeaning} source={labels.sourceTranscriptOrTwilio} />
+                  <Head word={labels.reachedRepsWord} meaning={labels.reachedRepsWordMeaning} source={labels.sourceRep} />
+                  <Head word={labels.callbacks} meaning={labels.callbacksMeaning} source={labels.sourceRep} />
+                  <Head word={labels.minutesTalking} meaning={labels.minutesTalkingMeaning} source={labels.sourceTwilio} />
+                  <Head word={labels.gapHeading} meaning={labels.gapMeaning} source={labels.sourceDerived} />
                 </tr>
               </thead>
               <tbody>
                 {calls.reps.length === 0 ? (
                   <tr>
-                    <td className={TD} colSpan={8}>
+                    <td className={TD} colSpan={10}>
                       {labels.noCalls}
                     </td>
                   </tr>
                 ) : (
                   calls.reps.map((r) => (
-                    <CallRow key={r.id} name={r.name} sub={r.agency?.name || null} stats={r.stats} labels={labels} href={repHref(r.id)} />
+                    <DialRow key={r.id} name={r.name} sub={r.agency?.name || null} table={r.table} labels={labels} href={repHref(r.id)} />
                   ))
                 )}
                 {calls.agencies.map((a) => (
-                  <CallRow key={`agency:${a.id}`} name={a.name} sub={labels.agencyOf(a.reps)} stats={a.stats} labels={labels} />
+                  <DialRow key={`agency:${a.id}`} name={a.name} sub={labels.agencyOf(a.reps)} table={a.table} labels={labels} />
                 ))}
-                {calls.reps.length > 0 ? <CallRow name={labels.everyone} stats={calls.total} labels={labels} /> : null}
+                {calls.reps.length > 0 ? <DialRow name={labels.everyone} table={calls.totalTable} labels={labels} /> : null}
               </tbody>
             </table>
           </div>
         </div>
         <p className="text-xs text-muted-foreground">{labels.callsNote}</p>
-      </section>
-
-      {/* The carrier's stopwatch beside the rep's report — the section the
-          owner asked for after counting the prospect legs at Twilio by hand
-          (lib/sales/calls/conversation.js, pickupFigures). Its own table
-          rather than two more columns above: the point of it is the last
-          column, and that column needs the others beside it to be read. */}
-      <section className="space-y-2" data-performance-pickup>
-        <h2 className="text-base font-semibold text-foreground">{labels.pickupHeading}</h2>
-        <p className="text-sm text-muted-foreground">{labels.pickupIntro}</p>
-        <div className={`${CARD} p-0 overflow-hidden`}>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[920px] text-sm">
-              <thead className="bg-muted">
-                <tr>
-                  <th className={TH}>{labels.rep}</th>
-                  <th className={TH}>{labels.prospectLegs}</th>
-                  <th className={TH}>{labels.pickedUp}</th>
-                  <th className={TH}>{labels.conversationMeasured}</th>
-                  <th className={TH}>{labels.reachRate}</th>
-                  <th className={TH}>{labels.reportedVsMeasured}</th>
-                  <th className={TH}>{labels.bands}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {calls.reps.length === 0 ? (
-                  <tr>
-                    <td className={TD} colSpan={7}>
-                      {labels.noCalls}
-                    </td>
-                  </tr>
-                ) : (
-                  calls.reps.map((r) => (
-                    <PickupRow key={r.id} name={r.name} sub={r.agency?.name || null} stats={r.stats} labels={labels} href={repHref(r.id)} />
-                  ))
-                )}
-                {calls.agencies.map((a) => (
-                  <PickupRow key={`agency:${a.id}`} name={a.name} sub={labels.agencyOf(a.reps)} stats={a.stats} labels={labels} />
-                ))}
-                {calls.reps.length > 0 ? <PickupRow name={labels.everyone} stats={calls.total} labels={labels} /> : null}
-              </tbody>
-            </table>
-          </div>
-        </div>
-        <p className="text-xs text-muted-foreground">{labels.pickupLegend}</p>
       </section>
 
       <section className="space-y-2" data-performance-quality>

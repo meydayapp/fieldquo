@@ -414,14 +414,60 @@ section("9. The carrier's stopwatch — picked up, and reported vs measured");
   ok("the SQL fragment splits words on whitespace", /regexp_split_to_array\(trim\(seg->>'text'\), '\\s\+'\)/.test(CONTRACTOR_WORDS_SQL.strings.join("")) , CONTRACTOR_WORDS_SQL.strings.join("").slice(0, 200));
   ok("…and the costs summary uses it rather than an inline copy", /\$\{CONTRACTOR_WORDS_SQL\} AS "contractorWords"/.test(read("lib/platform/costs/summary.js")) && !/regexp_split_to_array/.test(read("lib/platform/costs/summary.js")));
   ok("the performance loader selects what wasConnected() reads, and attaches the SQL word count", /providerStatus: true,\s*endReason: true,\s*endedAt: true/.test(read("lib/sales/performanceLoad.js")) && /contractorWordCounts\(\{ ids/.test(read("lib/sales/performanceLoad.js")));
+  // ── The table the owner reads: lib/sales/calls/dialTable.js ────────────
+  const { dialTableRow, reconciliationLine, joinState, COLUMN_SOURCES } = await import("@/lib/sales/calls/dialTable");
+  const dial = (over, talk, extra = {}) => ({ direction: "out", dialChannel: "browser", providerCallSid: `CA${Math.random().toString(16).slice(2)}`, providerStatus: "completed", talkSeconds: talk, answeredAt: T0, dialledAt: T0, ...extra });
+  const rows = [
+    dial(1, 0, { providerStatus: "no-answer", answeredAt: null, disposition: "no_answer" }),
+    dial(1, 12, { disposition: "no_answer" }),
+    dial(1, 40, { disposition: "reached_not_interested" }),
+    dial(1, 40, { disposition: "voicemail" }),
+    dial(1, 120, { disposition: "reached_interested" }),
+    dial(1, 45, { disposition: "reached", transcript: [say("contractor", 30)] }),
+    dial(1, 200, { disposition: "reached", transcript: [say("contractor", 2)] }),
+    dial(1, 0, { providerStatus: null, answeredAt: null, talkSeconds: null, dialledAt: new Date("2026-09-18T12:00:00Z") }),
+    { direction: "out", dialChannel: "handset", disposition: "reached", dialledAt: T0 },
+    { direction: "out", dialChannel: "browser", disposition: "no_answer", dialledAt: new Date("2026-09-17T09:00:00Z") },
+    { direction: "in", dialChannel: "browser", providerCallSid: "CAin", providerStatus: "completed", talkSeconds: 500, answeredAt: T0, dialledAt: T0, disposition: "reached" },
+  ];
+  ok("joinState: sid + final status is joined; sid without status is unreported; no sid is no leg", joinState(rows[2]) === "joined" && joinState(rows[7]) === "leg_unreported" && joinState(rows[8]) === "no_leg" && joinState(null) === "no_leg");
+  const t = dialTableRow(rows, { now: T0 });
+  ok("ONE denominator: dials = placed attempts with a prospect leg (8), the inbound call and the two legless rows outside it", t.dials === 8 && t.joined === 7 && t.legUnreported === 1, t);
+  ok("the four buckets partition the joined dials: nobody 1, hung up fast 1, voicemail or brief 3, real 2", t.buckets.nobodyAnswered === 1 && t.buckets.hungUpFast === 1 && t.buckets.voicemailOrBrief === 3 && t.buckets.realConversation === 2 && Object.values(t.buckets).reduce((a, b) => a + b, 0) === t.joined, t.buckets);
+  ok("…the transcript decides where one exists: a 45-second talk is real, a 200-second brush-off is not", t.conversationFromTranscript === 2);
+  ok("minutes talking are the prospect leg's answered seconds only: 12+40+40+120+45+200 = 457 s → 8 min over 6 answered", t.talkSeconds === 457 && t.minutesTalking === 8 && t.answeredCalls === 6, { s: t.talkSeconds, m: t.minutesTalking, a: t.answeredCalls });
+  ok("reached (rep's word) is over the SAME 8 dials: 4 of 8, 1 not yet marked", t.reached.hit === 4 && t.reached.sampleSize === 8 && t.logged === 7, t.reached);
+  ok("unverified: the handset dial and the legless browser dial, named, never bucketed", t.unverified.total === 2 && t.unverified.handset === 1 && t.unverified.browser === 1);
+  ok("carrier data missing since the EARLIEST unreported/legless browser dial (the 17th), count 2", t.carrierMissingSince?.toISOString() === "2026-09-17T09:00:00.000Z" && t.carrierMissingCount === 2, t.carrierMissingSince);
+  ok("every column names its source", COLUMN_SOURCES.dials === "twilio" && COLUMN_SOURCES.reached === "rep" && COLUMN_SOURCES.realConversation === "transcript_or_twilio" && COLUMN_SOURCES.minutesTalking === "twilio");
+  ok("the gap is null under the floor, and a number over it", t.gap === null && dialTableRow(Array.from({ length: 20 }, (_, i) => dial(1, i < 4 ? 120 : 30, { disposition: i < 10 ? "reached" : "no_answer" }))).gap === 30);
+  ok("no rows is zero everything and no red line", JSON.stringify(dialTableRow([]).buckets) === '{"nobodyAnswered":0,"hungUpFast":0,"voicemailOrBrief":0,"realConversation":0}' && dialTableRow([]).carrierMissingSince === null);
+
+  const legs = rows.filter((r) => r.direction === "out" && r.providerCallSid).map((r) => ({ sid: r.providerCallSid }));
+  const rec = reconciliationLine({ legs: [...legs, { sid: "CAtestline" }], attempts: rows, listedAll: true });
+  ok("reconciliation: Twilio 9 legs · FieldQuo 10 attempts · 2 attempts unjoined + 1 leg unjoined → differs", rec.twilioLegs === 9 && rec.attempts === 10 && rec.joined === 8 && rec.unjoinedAttempts === 2 && rec.unjoinedLegs === 1 && rec.differ === true, rec);
+  const agree = reconciliationLine({ legs, attempts: rows.filter((r) => r.direction === "out" && r.providerCallSid) });
+  ok("…and agrees when every attempt has its leg and every leg its attempt", agree.differ === false && agree.unjoinedAttempts === 0 && agree.unjoinedLegs === 0);
+
   const comp = read("app/components/sales/CallPerformanceSections.js");
-  ok("the shared component draws the section, with the bands and the gap", /data-performance-pickup/.test(comp) && /overMarkedPoints/.test(comp) && /bandBetween\(p\.pickupMinSeconds, p\.conversationMinSeconds\)/.test(comp));
+  ok("the shared component draws the ten plain-word columns with a meaning and a source under each", /<Head word=\{labels\.nobodyAnswered\} meaning=\{labels\.nobodyAnsweredMeaning\} source=\{labels\.sourceTwilio\}/.test(comp) && /labels\.reachedRepsWord\} meaning=\{labels\.reachedRepsWordMeaning\} source=\{labels\.sourceRep\}/.test(comp) && /labels\.realConversation\} meaning=\{labels\.realConversationMeaning\} source=\{labels\.sourceTranscriptOrTwilio\}/.test(comp));
+  ok("…a stacked bar of the four buckets per rep, and the reconciliation line above the table", /function BucketBar/.test(comp) && /data-performance-reconciliation/.test(comp) && /<Reconciliation calls=\{calls\} labels=\{labels\} \/>/.test(comp));
+  ok("…the red carrier-missing rule on the Twilio cells, never a fallback", /labels\.carrierMissingSince\(/.test(comp) && !/ofBridged|overCalls|answerRate|conversationRate\b/.test(comp));
+  const LABELS = ["dials", "dialsMeaning", "nobodyAnswered", "nobodyAnsweredMeaning", "hungUpFast", "hungUpFastMeaning", "voicemailOrBrief", "voicemailOrBriefMeaning", "realConversation", "realConversationMeaning", "reachedRepsWord", "reachedRepsWordMeaning", "callbacks", "callbacksMeaning", "minutesTalking", "minutesTalkingMeaning", "gapHeading", "gapMeaning", "sourceTwilio", "sourceRep", "sourceTranscriptOrTwilio", "sourceDerived", "unverified", "carrierMissingSince", "reconciliation", "reconciliationDetail", "carrierListCapped", "carrierNotAsked", "conversationBasis", "notLogged", "overAnswered", "points"];
   for (const page of ["app/platform/sales/performance/page.js", "app/sales/agency/performance/page.js"]) {
     const src = read(page);
-    ok(`${page} hands the component every pickup label`, ["pickupHeading", "pickupIntro", "prospectLegs", "pickedUp", "conversationMeasured", "reportedVsMeasured", "bands", "points", "conversationBasis", "bandUnanswered", "bandUnder", "bandBetween", "bandOver", "pickupLegend"].every((k) => new RegExp(`\\b${k}:`).test(src)));
+    ok(`${page} hands the component every table label`, LABELS.every((k) => new RegExp(`\\b${k}:`).test(src)), LABELS.filter((k) => !new RegExp(`\\b${k}:`).test(src)));
+    ok(`${page} carries no abbreviation like "<20s" or "≥ 60 s"`, !/<\s*20\s*s|≥\s*\d+\s*s|\d+\s*s\b/.test(src.replace(/\/\/.*$/gm, "")), src.match(/<\s*20\s*s|≥\s*\d+\s*s|\d+\s*s\b/g));
   }
-  ok("the legend says where voicemail sits", /20–60/.test(read("app/platform/sales/performance/page.js")) && /Voicemail pickups sit in the 20–60 second band/.test(read("app/platform/sales/performance/page.js")));
-  ok("answering-machine detection is off, and the legend says why", /billed per call/.test(read("app/platform/sales/performance/page.js")));
+  const platform = read("app/platform/sales/performance/page.js");
+  ok("the owner's words: Dials · Nobody answered · Hung up fast · Voicemail or brief · Real conversation · Reached (rep's word) · Callbacks promised · Minutes talking", ['dials: "Dials"', 'nobodyAnswered: "Nobody answered"', 'hungUpFast: "Hung up fast"', 'voicemailOrBrief: "Voicemail or brief"', 'realConversation: "Real conversation"', "reachedRepsWord: \"Reached (rep's word)\"", 'callbacks: "Callbacks promised"', 'minutesTalking: "Minutes talking"'].every((w) => platform.includes(w)));
+  ok("…with the meanings under them, in seconds spelt out", /20 to 60 seconds/.test(platform) && /within 20 seconds/.test(platform) && /60 seconds or more/.test(platform));
+  ok("the note says voicemail sits in \"Voicemail or brief\" and why the clock cannot tell a machine", /Voicemail sits in \\"Voicemail or brief\\"/.test(platform) && /billed per call/.test(platform));
+  const msgs = read("app/i18n/appMessages.js");
+  ok("the nine languages carry every table key", ["nobodyAnswered", "hungUpFastMeaning", "carrierMissingSince", "reconciliationDetail", "sourceTranscriptOrTwilio"].every((k) => (msgs.match(new RegExp(`"app\\.salesAgencyPerf\\.${k}"`, "g")) || []).length === 9));
+  ok("the report builder attaches the table per rep, per agency and for everyone, plus the reconciliation", /row\.table = dialTableRow\(/.test(read("lib/sales/performanceReport.js")) && /totalTable: dialTableRow\(everyone/.test(read("lib/sales/performanceReport.js")) && /reconciliationLine\(\{ legs: carrierLegs\.legs/.test(read("lib/sales/performanceReport.js")));
+  ok("the loader selects the prospect leg sid the table joins on", /providerCallSid: true/.test(read("lib/sales/performanceLoad.js")));
+  ok("the loader asks Twilio for the period's prospect legs and a failed read is a sentence, not agreement", /listProspectLegs\(\{ from, to \}\)/.test(read("lib/sales/performanceLoad.js")) && /carrierLegs = \{ legs: \[\], listedAll: false, error/.test(read("lib/sales/performanceLoad.js")));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
