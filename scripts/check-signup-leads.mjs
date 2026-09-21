@@ -160,7 +160,7 @@ section("2. The capture route — 204, JSON body, no PII in a URL, cross-visitor
   const route = read("app/api/signup/lead/route.js");
   ok("POST answers 204 with no body", /new NextResponse\(null, \{ status: 204 \}\)/.test(route));
   ok("POST never returns row data (no NextResponse.json after the capture)", !/captureSignupLead[\s\S]*NextResponse\.json\(\{ (lead|prefill|signup)/.test(route.split("export async function GET")[0]));
-  ok("GET requires a resume token, not an email", /searchParams\.get\("token"\)/.test(route) && !/searchParams\.get\("email"\)/.test(route));
+  ok("GET requires a resume token or a session, never an email in the URL", /params\.get\("token"\)/.test(route) && !/params\.get\("email"\)/.test(route));
   ok("the route is rate-limited", /rateLimit\(request, "signup-lead"/.test(route));
 
   const page = read("app/signup/page.js");
@@ -171,7 +171,7 @@ section("2. The capture route — 204, JSON body, no PII in a URL, cross-visitor
   ok("the page keeps the furthest step at the Stripe handoff", /captureBodyFor\(form, "checkout"/.test(page));
   ok("the page uses keepalive so a handoff post still leaves", /keepalive: true,\s*\}\)\.catch/.test(page.split("function postSignupCapture")[1] || ""));
   ok("the resume link is read as a token", /URLSearchParams\(window\.location\.search\)\.get\("resume"\)/.test(page));
-  ok("the resume prefill fills only what is still empty", /email: f\.email \|\| p\.email/.test(page));
+  ok("the resume prefill fills only what is still empty", /if \(next\[key\] \|\| !value\) return;/.test(page) && /put\("email", p\.email\)/.test(page));
   ok("a signed-in owner adding a business is never captured", /if \(!hydrated \|\| !entryChecked \|\| alreadyOnFieldquo \|\| finishCheckout\) return;/.test(page));
 
   // Executed against the stub: create, update, lock.
@@ -202,6 +202,55 @@ section("2. The capture route — 204, JSON body, no PII in a URL, cross-visitor
   ok("the resume read never returns the row id, the codes or the token", prefill && !("id" in prefill) && !("salesCode" in prefill) && !("resumeToken" in prefill));
   ok("the resume read says the account already exists past step one", prefill?.accountExists === true);
   ok("an unknown token is null", (await signupLeadForResume({ client: db, token: "nope" })) === null);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("2b. A signed-in return puts the row back — the owner's 2026-09-21 bug");
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// He signed back into a company he had taken to Plan, from a fresh session,
+// and was shown the business step with every box empty under a banner that
+// said nothing was lost. Three things were missing: the address and the
+// service picks were never captured, so even a token resume could not get
+// past step one; and a signed-in return never asked for the row at all,
+// because the only read was by resume token.
+{
+  // The two answers the resume could not put back are captured now.
+  const body = captureBodyFor(
+    { email: "d@x.com", password: "hunter22", firstName: "Dave", address: "12 Elm St", city: "Ottawa", companyName: "Martin Painting" },
+    "services",
+    { selectedIndustries: ["painting"], selectedCategoryIds: ["cmr8n30vx0000uot61rlzeadg", "<script>", 42] },
+  );
+  ok("the page's body carries the street address", body?.address === "12 Elm St");
+  ok("…and the ticked quote types, as ids", Array.isArray(body?.serviceCategoryIds) && body.serviceCategoryIds.length === 2 && body.serviceCategoryIds[0] === "cmr8n30vx0000uot61rlzeadg");
+  const parsed = normaliseCapture({ ...body });
+  ok("the server keeps the address and drops what is not a catalogue id", parsed.lead?.address === "12 Elm St" && parsed.lead?.serviceCategoryIds?.length === 1);
+  ok("markup in the address is refused, not repaired", normaliseCapture({ ...body, address: "<b>12 Elm</b>" }).error === "address");
+  const kept = planCaptureWrite({
+    existing: { ...parsed.lead, stepReached: "plan" },
+    incoming: { emailKey: "d@x.com", email: "d@x.com", stepReached: "account", address: null, serviceCategoryIds: [] },
+    now: NOW,
+  });
+  ok("a later capture without them does not erase the address or the picks", kept.data.address === "12 Elm St" && kept.data.serviceCategoryIds.length === 1);
+
+  // The read by the address a session proves — the same function, a second key.
+  resetDbStub();
+  await captureSignupLead({ client: db, body: { ...body, email: "Dave@x.com", step: "plan" }, now: NOW });
+  const mine = await signupLeadForResume({ client: db, email: "dave@X.com" });
+  ok("the resume read answers by normalised email", mine?.address === "12 Elm St" && mine.serviceCategoryIds.length === 1 && mine.stepReached === "plan");
+  ok("…and by neither key when both are absent", (await signupLeadForResume({ client: db })) === null);
+
+  const route = read("app/api/signup/lead/route.js");
+  ok("?mine=1 takes the address from the SESSION, never the query string", /params\.get\("mine"\) === "1"/.test(route) && /auth\.api\.getSession\(\{ headers: request\.headers \}\)/.test(route) && !/searchParams\.get\("email"\)/.test(route));
+  ok("…and a signed-out caller gets the same 404 as an unknown token", /if \(!email\) return NextResponse\.json\(\{ error: "Not found" \}, \{ status: 404 \}\);/.test(route));
+
+  const page = read("app/signup/page.js");
+  const signedIn = page.split("setResumedSignup(true);")[1]?.split("} catch {")[0] || "";
+  ok("the signed-in branch asks for the row before entryChecked flips", /CAPTURE_ENDPOINT\}\?mine=1/.test(signedIn) && /applyLeadPrefill\(p\)/.test(signedIn) && /leadStepRef\.current = p\.stepReached/.test(signedIn));
+  ok("the resume judges the further of the draft's step and the row's", /further\(draftStepRef\.current, leadStepRef\.current\)/.test(page));
+  ok("the prefill puts back the address and the service picks", /put\("address", p\.address\)/.test(page) && /setSelectedCategoryIds\(p\.serviceCategoryIds\)/.test(page));
+  ok("the banner claims a restore only when fields were actually put back", /const kept = restoredLead\?\.fields\?\.length > 0;/.test(page) && /"app\.signup\.resumed\.bodyRestored"/.test(page) && !/nothing you've already entered is lost/.test(page));
+  ok("the capture posts the picks on every step and at the handoff", (page.match(/selectedCategoryIds,\s*salesCode/g) || []).length >= 3);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

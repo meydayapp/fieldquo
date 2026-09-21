@@ -10872,6 +10872,13 @@ model SignupLead {
   referrer    String?
   utm         Json?
   visitorId   String?
+  /// The street line of the BUSINESS address and the quote types ticked on
+  /// the services step — the two answers a returning visitor could not get
+  /// back. Without them a person who signed back in from another device was
+  /// clamped to the first step and retyped everything (the owner did, on
+  /// 2026-09-21); with them the page lands them where they stopped.
+  address            String?
+  serviceCategoryIds String[] @default([])
 
   /// The rep code on the link (`?sales=CODE`, lower-cased) and the referral
   /// or promo code (`?ref=`), as presented. Resolved at promotion, never
@@ -10908,6 +10915,45 @@ model SignupLead {
   @@index([completedCompanyId])
   @@index([referredRepId])
   @@index([promotedAt])
+}
+
+/// One follow-up email FieldQuo sent — or is sending — to somebody who
+/// started a signup and stopped. The row is what makes "exactly once per
+/// person, per touch" true (the unique on emailKey + touch is the claim),
+/// and it is the log /platform/signups reads back as "Follow-up sent 5 min ·
+/// 24 h". Keyed on the normalised ADDRESS rather than on a SignupLead or a
+/// Company: the same person is a SignupLead at the first step and a Company
+/// once a login exists, and is still one person owed one letter per touch.
+///
+/// `sentAt` null with `failedAt` set is a claim whose send did not happen;
+/// the cron retries it rather than treating the claim as the letter.
+model SignupNudge {
+  id       String @id @default(cuid())
+  emailKey String
+  email    String
+  /// "early" — the five-minute touch (lib/signup/earlyNudge.js).
+  /// "recovery" — the 24-hour note (lib/signup/abandoned.js), mirrored
+  /// here from Company.signupNudgeSentAt so one screen reads both.
+  touch String
+
+  signupLeadId String?
+  companyId    String?
+  language     String?
+  tradeKey     String?
+  stepReached  String?
+  /// The unsubscribe token in this letter's footer — app/api/no-contact.
+  optOutToken String? @unique
+
+  claimedAt  DateTime  @default(now())
+  sentAt     DateTime?
+  failedAt   DateTime?
+  error      String?
+  providerId String?
+
+  @@unique([emailKey, touch])
+  @@index([companyId])
+  @@index([signupLeadId])
+  @@index([sentAt])
 }
 
 /// Where a signup request came from: the IP and what Vercel's edge said about

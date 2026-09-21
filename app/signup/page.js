@@ -6,6 +6,7 @@ import Link from "next/link";
 import { signUp, signOut } from "@/lib/auth-client";
 import { TRIAL_PRICE, trialLabel } from "@/lib/pricing";
 import {
+  STEPS,
   firstStep,
   resumeStep,
   previousStep,
@@ -707,6 +708,11 @@ export default function SignupPage() {
   // the moment this page creates an account, and explaining "you already have
   // an account" to someone who just watched us make one reads as a bug.
   const [resumedSignup, setResumedSignup] = useState(false);
+  // The SignupLead put back on a signed-in return: which step it had reached
+  // and which fields it refilled. Null when there was no row — the banner
+  // then makes no promise about what was kept.
+  const [restoredLead, setRestoredLead] = useState(null);
+  const leadStepRef = useRef(null);
   // ── The THIRD signed-in state: a company that was never paid for ────────
   //
   // /api/companies commits the Company and the owner's membership and only
@@ -776,6 +782,24 @@ export default function SignupPage() {
         if (!cancelled && session?.user?.id) {
           setAccountReady(session.user);
           setResumedSignup(true);
+          // ── What they typed last time, by the address the session proves ──
+          //
+          // The owner's own return, 2026-09-21: signed back in from a fresh
+          // session, the tab with the draft long gone, and the page opened
+          // on an empty business step under a banner saying nothing was
+          // lost. The SignupLead row knew he had reached Plan; the page only
+          // ever asked for it by resume token, which a fresh sign-in does
+          // not have. Awaited HERE, before entryChecked flips, because the
+          // resume effect judges the step once, on the state it sees then.
+          const mine = await fetch(`${CAPTURE_ENDPOINT}?mine=1`)
+            .then((r) => (r.ok ? r.json() : null))
+            .catch(() => null);
+          const p = mine?.prefill;
+          if (!cancelled && p && !p.completed) {
+            const restored = applyLeadPrefill(p);
+            leadStepRef.current = p.stepReached || null;
+            setRestoredLead({ step: p.stepReached || null, fields: restored });
+          }
         }
       } catch {
         // Offline or blocked: fall through as a signed-out visitor, which is
@@ -1063,10 +1087,61 @@ export default function SignupPage() {
   const lastCaptureRef = useRef("");
   const captureTimerRef = useRef(null);
   const lastCaptureStepRef = useRef(null);
+
+  // ── A SignupLead row, put back into the form ────────────────────────────
+  //
+  // One applier for the two ways a row comes back — a ?resume= token from a
+  // rep's email, and a signed-in return (the entry check above). Fills only
+  // what is still empty: a draft in this tab is fresher than a row from the
+  // day they left. Returns the names of the fields it actually filled, so
+  // the banner can say "we kept X, Y, Z" instead of claiming nothing was
+  // lost when the address column was blank.
+  //
+  // Judged against the CURRENT state through refs, not inside a setState
+  // updater: the updater runs later, during the next render, so a list of
+  // filled fields pushed from inside it would still be empty when this
+  // function returns — and the entry check needs the answer now.
+  const formRef = useRef(form);
+  formRef.current = form;
+  const industriesRef = useRef(selectedIndustries);
+  industriesRef.current = selectedIndustries;
+  const categoryIdsRef = useRef(selectedCategoryIds);
+  categoryIdsRef.current = selectedCategoryIds;
+  function applyLeadPrefill(p) {
+    const filled = [];
+    const next = { ...formRef.current };
+    const put = (key, value) => {
+      if (next[key] || !value) return;
+      next[key] = value;
+      filled.push(key);
+    };
+    put("email", p.email);
+    put("firstName", p.firstName);
+    put("lastName", p.lastName);
+    put("companyName", p.companyName);
+    put("phone", p.phone ? formatPhoneInput(p.phone) : "");
+    put("address", p.address);
+    put("city", p.city);
+    put("province", p.province);
+    put("country", p.country);
+    if (p.language && next.language === "en") next.language = p.language;
+    setForm(next);
+    if (!industriesRef.current.length && Array.isArray(p.trades) && p.trades.length) {
+      setSelectedIndustries(p.trades);
+      filled.push("trades");
+    }
+    if (!categoryIdsRef.current.length && Array.isArray(p.serviceCategoryIds) && p.serviceCategoryIds.length) {
+      setSelectedCategoryIds(p.serviceCategoryIds);
+      filled.push("services");
+    }
+    if (p.accountExists && p.email) setExistingLogin(String(p.email).trim().toLowerCase());
+    return filled;
+  }
   useEffect(() => {
     if (!hydrated || !entryChecked || alreadyOnFieldquo || finishCheckout) return;
     const body = captureBodyFor(form, step, {
       selectedIndustries,
+      selectedCategoryIds,
       salesCode,
       referralCode,
       utm,
@@ -1093,7 +1168,7 @@ export default function SignupPage() {
     return () => {
       if (captureTimerRef.current) clearTimeout(captureTimerRef.current);
     };
-  }, [hydrated, entryChecked, alreadyOnFieldquo, finishCheckout, form, step, selectedIndustries, salesCode, referralCode, utm]);
+  }, [hydrated, entryChecked, alreadyOnFieldquo, finishCheckout, form, step, selectedIndustries, selectedCategoryIds, salesCode, referralCode, utm]);
 
   // ── A resume link ───────────────────────────────────────────────────────
   //
@@ -1113,20 +1188,7 @@ export default function SignupPage() {
       .then((d) => {
         const p = d?.prefill;
         if (cancelled || !p || p.completed) return;
-        setForm((f) => ({
-          ...f,
-          email: f.email || p.email || "",
-          firstName: f.firstName || p.firstName || "",
-          lastName: f.lastName || p.lastName || "",
-          companyName: f.companyName || p.companyName || "",
-          phone: f.phone || (p.phone ? formatPhoneInput(p.phone) : ""),
-          city: f.city || p.city || "",
-          province: f.province || p.province || "",
-          country: f.country || p.country || "",
-          language: p.language && f.language === "en" ? p.language : f.language,
-        }));
-        setSelectedIndustries((prev) => (prev.length ? prev : Array.isArray(p.trades) ? p.trades : prev));
-        if (p.accountExists && p.email) setExistingLogin(String(p.email).trim().toLowerCase());
+        applyLeadPrefill(p);
       })
       .catch(() => {});
     return () => {
@@ -1386,7 +1448,11 @@ export default function SignupPage() {
     // someone clicks Continue faster than the entry check comes back: a signed-in
     // person who reached "account" that way is moved to "business" rather than
     // being asked to sign up for an account they already have.
-    const saved = step === INITIAL_STEP ? draftStepRef.current : step;
+    // The further of the two records of where they were: this tab's draft
+    // and the server's row (a signed-in return from another device has only
+    // the row). resumeStep still clamps to what the restored answers support.
+    const further = (a, b) => (STEPS.indexOf(b) > STEPS.indexOf(a) ? b : a || b);
+    const saved = step === INITIAL_STEP ? further(draftStepRef.current, leadStepRef.current) : step;
     const target = resumeStep(saved, {
       accountExists,
       // What the account/business step collects, judged by the same validator
@@ -1700,7 +1766,7 @@ export default function SignupPage() {
         trackCheckoutStarted();
       // The furthest step, kept: "checkout" means they reached Stripe.
       if (!finishCheckout) {
-        const handoff = captureBodyFor(form, "checkout", { selectedIndustries, salesCode, referralCode, utm, visitorId: visitorId() });
+        const handoff = captureBodyFor(form, "checkout", { selectedIndustries, selectedCategoryIds, salesCode, referralCode, utm, visitorId: visitorId() });
         if (handoff) postSignupCapture(handoff);
       }
         window.location.href = data.checkoutUrl;
@@ -1772,7 +1838,7 @@ export default function SignupPage() {
       trackCheckoutStarted();
       // The furthest step, kept: "checkout" means they reached Stripe.
       if (!finishCheckout) {
-        const handoff = captureBodyFor(form, "checkout", { selectedIndustries, salesCode, referralCode, utm, visitorId: visitorId() });
+        const handoff = captureBodyFor(form, "checkout", { selectedIndustries, selectedCategoryIds, salesCode, referralCode, utm, visitorId: visitorId() });
         if (handoff) postSignupCapture(handoff);
       }
       window.location.href = data.checkoutUrl;
@@ -1981,11 +2047,20 @@ export default function SignupPage() {
         {resumedSignup && !alreadyOnFieldquo && (
           <div className="max-w-md mx-auto mb-6 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-xl px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
             {(() => {
+              // "Nothing you've already entered is lost" was printed over an
+              // EMPTY form on 2026-09-21. The sentence now depends on what
+              // was actually put back: the row's fields, or nothing.
+              const kept = restoredLead?.fields?.length > 0;
               const [before, after] = around(
-                t(
-                  "app.signup.resumed.body",
-                  "You're signed in as {email}, but your business was never finished — that last step is what creates it. Carry on below and nothing you've already entered is lost.",
-                ),
+                kept
+                  ? t(
+                      "app.signup.resumed.bodyRestored",
+                      "You're signed in as {email}, but your business was never finished — that last step is what creates it. We've put back what you entered last time; carry on from where you stopped.",
+                    )
+                  : t(
+                      "app.signup.resumed.body",
+                      "You're signed in as {email}, but your business was never finished — that last step is what creates it. Carry on below to set it up.",
+                    ),
                 "{email}",
               );
               return (

@@ -32,10 +32,21 @@
 // trades, language — so the form opens filled in. The token is 32 random
 // bytes, unique per row; the email address is not in the URL. An unknown
 // token is a 404 with nothing else, and there is no listing.
+//
+// ══ GET ?mine=1: the same prefill, for a signed-in person ══════════════════
+//
+// The owner signed back in on 2026-09-21 from a fresh session, was shown the
+// business step with every box empty, and a banner promising nothing was
+// lost. The row that knew he had reached Plan was keyed on his email, and
+// the page only ever asked for it by token. A session proves the address
+// better than a token does, so the read is allowed on it: the address comes
+// from Better Auth's session, never from the query string. A signed-out
+// caller gets a 404 that says nothing — same as an unknown token.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { auth } from "@/lib/auth";
 import { rateLimit } from "@/lib/rateLimit";
 import { isResumeToken } from "@/lib/signup/leads";
 import { captureSignupLead, signupLeadForResume } from "@/lib/signup/salesFloor";
@@ -63,10 +74,18 @@ export async function GET(request) {
   const limited = rateLimit(request, "signup-lead-resume", RESUME_LIMIT);
   if (limited) return limited;
 
-  const token = new URL(request.url).searchParams.get("token") || "";
-  if (!isResumeToken(token)) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const params = new URL(request.url).searchParams;
+  const token = params.get("token") || "";
+  let email = null;
+  if (!token && params.get("mine") === "1") {
+    const session = await auth.api.getSession({ headers: request.headers }).catch(() => null);
+    email = session?.user?.email || null;
+    if (!email) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  } else if (!isResumeToken(token)) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
 
-  const prefill = await signupLeadForResume({ client: db, token }).catch((err) => {
+  const prefill = await signupLeadForResume({ client: db, token: token || undefined, email }).catch((err) => {
     console.error("[signup/lead] resume read failed:", err?.message || err);
     return null;
   });
