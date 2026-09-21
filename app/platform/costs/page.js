@@ -270,6 +270,15 @@ export default function PlatformCostsPage() {
                 The same money as the Twilio and transcript lines above, seen per call rather than per category — it is
                 not added again. Source: {data.salesCalls.source}. As of {when(data.salesCalls.asOf)}.
               </p>
+              {data.sampling ? (
+                // The levers behind the transcript and QA lines, printed
+                // where the money is so a lower share is visible beside a
+                // lower bill (lib/sales/calls/outcomeSettings.js).
+                <p className="text-xs text-foreground break-words" data-costs-sampling>
+                  Transcribing {data.sampling.transcriptionPercent}% of recorded calls and scoring {data.sampling.aiReviewPercent}% of transcribed ones — set on{" "}
+                  <Link href="/platform/sales/outcomes" className="underline">Sales → Outcomes</Link>. Answering-machine detection is {data.sampling.amdEnabled ? `on, at $${data.sampling.amdUsdPerCall} a call` : `off (would be $${data.sampling.amdUsdPerCall} a call)`}.
+                </p>
+              ) : null}
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>

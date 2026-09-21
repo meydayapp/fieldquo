@@ -74,6 +74,7 @@ import {
   PROVIDER_ENDED,
 } from "@/lib/sales/calls/dispositions";
 import { foldChoice } from "@/lib/sales/calls/outcomeChoices";
+import { validateSubDispositionPick } from "@/lib/sales/calls/subDispositions";
 import { asksIntroEmail } from "@/lib/sales/outreach/introLink";
 import { EMPTY_DRAFT, draftStarted } from "./OutcomeForm";
 import { openTextThread } from "./TextThem";
@@ -386,6 +387,13 @@ export function CallSessionProvider({ children }) {
   const [draft, setDraft] = useState(EMPTY_DRAFT);
   const draftRef = useRef(draft);
   draftRef.current = draft;
+  // The sub-reason lists the outcome form draws under an outcome — the
+  // platform's, from GET /api/sales/calls (lib/sales/calls/subDispositions.js).
+  // Null until read; the form then draws the code defaults, and the server
+  // validates against the same lists either way.
+  const [subLists, setSubLists] = useState(null);
+  const subListsRef = useRef(null);
+  subListsRef.current = subLists;
   const [formError, setFormError] = useState("");
   const [busy, setBusy] = useState("");
   // The pop-up. Opened only by the auto-log reply saying "answered, ask the
@@ -457,7 +465,9 @@ export function CallSessionProvider({ children }) {
     let cancelled = false;
     fetchJson("/api/sales/calls")
       .then((body) => {
-        if (!cancelled && body?.store?.ready) adoptPending(body.pendingAttempt || null);
+        if (cancelled) return;
+        if (body?.subDispositions) setSubLists(body.subDispositions);
+        if (body?.store?.ready) adoptPending(body.pendingAttempt || null);
       })
       .catch(noop);
     return () => {
@@ -798,6 +808,14 @@ export function CallSessionProvider({ children }) {
       setFormError(tRef.current(fold.reasonKey));
       return;
     }
+    // The sub-reason, judged here with the same pure rule the server runs
+    // (subDispositions.js) so the refusal prints before the round trip —
+    // and judged again on the server, which is the one that counts.
+    const sub = validateSubDispositionPick({ code: fold.code, subDisposition: d.sub, detail: d.subDetail, lists: subListsRef.current });
+    if (!sub.ok) {
+      setFormError(tRef.current(sub.reasonKey));
+      return;
+    }
     setBusy("disposition");
     setFormError("");
     try {
@@ -810,6 +828,8 @@ export function CallSessionProvider({ children }) {
           disposition: fold.code,
           note: fold.note,
           callbackAt: fold.callbackAt ? fold.callbackAt.toISOString() : null,
+          subDisposition: sub.subDisposition,
+          subDispositionDetail: sub.detail,
         }),
       });
       setPending(null);
@@ -964,6 +984,7 @@ export function CallSessionProvider({ children }) {
       adoptPending,
       draft,
       setDraft,
+      subLists,
       formError,
       setFormError,
       busy,
@@ -999,6 +1020,7 @@ export function CallSessionProvider({ children }) {
       pending,
       adoptPending,
       draft,
+      subLists,
       formError,
       busy,
       sheetOpen,

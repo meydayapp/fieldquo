@@ -135,6 +135,14 @@ export default function CallbacksStrip({ items, error = "", onRetry = null, onCa
                     {row.due ? ` · ${t("app.salesQueue.tasksOverdue")}` : ""}
                   </p>
                   {row.note ? <p className="text-xs break-words">“{row.note}”</p> : null}
+                  {/* A promise another rep made, handed to this one because
+                      they were off at the hour (callbackAgenda.js). Said,
+                      so a name the rep never rang is not a mystery. */}
+                  {row.handedOver ? (
+                    <p className="text-xs font-medium break-words" data-callback-handed-over>
+                      {t("app.salesCall.callbacks.handedOver", { rep: row.promisedBy || "—" })}
+                    </p>
+                  ) : null}
                 </div>
                 {row.held && row.prospectId ? (
                   <button

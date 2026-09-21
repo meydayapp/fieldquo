@@ -22,6 +22,8 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { outcomeSettingValues } from "@/lib/sales/calls/outcomeSettingsStore";
+import { AMD_USD_PER_CALL } from "@/lib/sales/calls/outcomeSettings";
 import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
 import { platformCostSummary, periodBounds, RANGES } from "@/lib/platform/costs/summary";
 import { pullTwilioUsage } from "@/lib/platform/costs/twilioUsage";
@@ -48,8 +50,17 @@ export async function GET(request) {
   const granularity = ["day", "week", "month"].includes(url.searchParams.get("by")) ? url.searchParams.get("by") : bounds.granularity;
 
   try {
-    const summary = await platformCostSummary({ from: bounds.from, to: bounds.to, granularity, now });
-    return NextResponse.json({ ...summary, range, ranges: RANGES });
+    const [summary, outcomeSettings] = await Promise.all([
+      platformCostSummary({ from: bounds.from, to: bounds.to, granularity, now }),
+      // The two levers on the transcript and QA lines
+      // (lib/sales/calls/outcomeSettings.js), printed beside the spend so
+      // the owner sees what share of calls the money covers.
+      outcomeSettingValues().catch(() => null),
+    ]);
+    const sampling = outcomeSettings
+      ? { transcriptionPercent: outcomeSettings["sales.transcription.percent"], aiReviewPercent: outcomeSettings["sales.aiReview.percent"], amdEnabled: outcomeSettings["sales.amd.enabled"] === true, amdUsdPerCall: AMD_USD_PER_CALL }
+      : null;
+    return NextResponse.json({ ...summary, sampling, range, ranges: RANGES });
   } catch (err) {
     return NextResponse.json({ error: err?.message || "Could not read the costs." }, { status: 503 });
   }

@@ -52,6 +52,7 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 import { useCallSession } from "./CallSession";
 import { useConsoleSlots } from "./consoleSlots";
 import TransferControl from "./TransferControl";
+import { AmdNotice, LiveMarkButton, useLiveCallFacts } from "./RecordingMark";
 import TextThemButton from "./TextThem";
 import OutcomeForm, { OutcomeSheet } from "./OutcomeForm";
 import IntroEmailPrompt from "./IntroEmailPrompt";
@@ -143,6 +144,10 @@ export function LiveCallControls({ inCard = false }) {
   const { live, muted, hangUp, toggleMute, callError, audioWarning } = session;
   const [, setTick] = useState(0);
   const [error, setError] = useState("");
+  // The carrier's machine verdict, when detection is on, and the pickup
+  // stamp the Mark button needs (RecordingMark.js). Outbound only: an
+  // inbound call has no AMD leg and its attemptId lands later.
+  const liveFacts = useLiveCallFacts(live?.direction === "out" ? live?.attemptId || null : null);
   useEffect(() => {
     if (!live?.startedAt) return undefined;
     const id = setInterval(() => setTick((n) => n + 1), 1000);
@@ -250,6 +255,17 @@ export function LiveCallControls({ inCard = false }) {
       <TransferControl attemptId={live.attemptId || null} active onError={onTransferError} tone="call" />
       {live.transferNote ? <p className="text-xs text-emerald-900 dark:text-emerald-200">{live.transferNote}</p> : null}
 
+      {/* "Machine detected" when AMD is on and said so, and the Mark
+          button — a bookmark on the recording at this second, stamped by
+          the server (RecordingMark.js). Outbound calls: the recording and
+          the AMD leg are the prospect leg's. */}
+      {live.direction === "out" ? (
+        <>
+          <AmdNotice facts={liveFacts} />
+          <LiveMarkButton attemptId={live.attemptId || null} />
+        </>
+      ) : null}
+
       {/* "They'd rather text" / "email me": the thread or the composer on
           THIS caller, without hanging up. The call is held by CallSession
           in the shell, so the navigation these make leaves it up and this
@@ -275,7 +291,7 @@ export default function LiveCallStrip() {
   const session = useCallSession();
   const slots = useConsoleSlots();
   const liveCallNode = slots?.liveCallNode || null;
-  const { live, pending, viewMounted, sheetOpen, later, saveOutcome, draft, setDraft, busy, formError, introPrompt, closeIntroPrompt } = session;
+  const { live, pending, viewMounted, sheetOpen, later, saveOutcome, draft, setDraft, subLists, busy, formError, introPrompt, closeIntroPrompt } = session;
   if (!session.mounted) return null;
 
   return (
@@ -319,7 +335,7 @@ export default function LiveCallStrip() {
           Same draft, same save. Opened only by the auto-log reply — see
           CallSession's timer. */}
       <OutcomeSheet t={t} open={Boolean(sheetOpen && pending && !live)} onLater={later} title={t("app.salesCall.whatHappened")} body={pending ? whatHappenedBody(t, language, pending) : ""}>
-        <OutcomeForm t={t} draft={draft} setDraft={setDraft} busy={busy} onSave={saveOutcome} onLater={later} error={formError} autoFocus />
+        <OutcomeForm t={t} draft={draft} setDraft={setDraft} busy={busy} onSave={saveOutcome} onLater={later} error={formError} autoFocus subLists={subLists} language={language} />
       </OutcomeSheet>
 
       {/* "Send {business} the intro email?" — after a no-answer or a

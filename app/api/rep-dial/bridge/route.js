@@ -47,6 +47,8 @@ import { salesRepIdFromIdentity } from "@/lib/sales/calls/browserDial";
 import { callStoreState, recordRepLeg } from "@/lib/sales/calls/store";
 import { recordError } from "@/lib/platform/errorLog";
 import { dialRecordingAttrs } from "@/lib/sales/calls/recording";
+import { amdNumberAttrs } from "@/lib/sales/calls/amd";
+import { outcomeSettingValues } from "@/lib/sales/calls/outcomeSettingsStore";
 
 /** How long after the gate cleared a bridge may still happen. */
 export const BRIDGE_WINDOW_SECONDS = 120;
@@ -167,6 +169,17 @@ export async function POST(request) {
     // decides this and says why.
     ...dialRecordingAttrs({ origin, attemptId: attempt.id }),
   });
+  // ── Answering-machine detection, when the platform has switched it on ──
+  //
+  // Off by default — Twilio bills $0.0075 a call for it, and the owner's
+  // flip on /platform/sales/outcomes is the approval. On: DetectMessageEnd
+  // with the verdict posted to /api/rep-dial/amd on Twilio's own request,
+  // which on <Number> is the only delivery there is and never holds the
+  // bridge (lib/sales/calls/amd.js says why). A settings read that fails
+  // answers the defaults, so a settings outage cannot switch it on.
+  const settings = await outcomeSettingValues().catch(() => ({}));
+  const amd = amdNumberAttrs({ enabled: settings["sales.amd.enabled"] === true, origin, attemptId: attempt.id });
+
   dial.number(
     {
       statusCallback: `${origin}/api/rep-dial/status?attemptId=${encodeURIComponent(attempt.id)}`,
@@ -174,6 +187,7 @@ export async function POST(request) {
       // `initiated` is deliberately absent: it fires before anything has
       // happened and would only ever write columns we already know.
       statusCallbackEvent: ["ringing", "answered", "completed"],
+      ...amd,
     },
     attempt.toE164,
   );

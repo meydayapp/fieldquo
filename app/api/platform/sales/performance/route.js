@@ -30,6 +30,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
 import { loadPerformanceReport, performanceBounds } from "@/lib/sales/performanceLoad";
+import { loadOutcomeReport } from "@/lib/sales/calls/outcomeReport";
 
 export async function GET(request) {
   const admin = await getCurrentPlatformAdmin(request);
@@ -50,6 +51,13 @@ export async function GET(request) {
   // read — AGENTS.md failure class 1. `period` IS returned, and IS rendered,
   // because the dates the numbers actually cover are a fact the reader needs
   // and cannot derive from a key alone.
-  const report = await loadPerformanceReport({ from, to, repIds: null });
-  return NextResponse.json(report);
+  // The outcome block — sub-reasons, audits, the inbound service level —
+  // is the platform's own and is read beside the shared report rather than
+  // inside it (lib/sales/calls/outcomeReport.js says why). A failure there
+  // is a sentence on that section, never a blank performance page.
+  const [report, outcomes] = await Promise.all([
+    loadPerformanceReport({ from, to, repIds: null }),
+    loadOutcomeReport({ from, to }).catch((err) => ({ error: err?.message || String(err) })),
+  ]);
+  return NextResponse.json({ ...report, outcomes });
 }

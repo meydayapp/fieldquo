@@ -422,6 +422,12 @@ const GROUPS = [
       // deciding whether they go back — and the rule table is printed beside
       // them so the owner can read the numbers the queue is ordered by.
       { label: "Retry pool", href: "/platform/sales/retry-pool", icon: RotateCcw },
+      // The second pass on outcomes: the sub-reason lists under each one,
+      // the callback agenda (due, overdue, per rep), and the settings behind
+      // the service level, the transcription and review samples and
+      // answering-machine detection — each with its cost printed beside it.
+      // docs/SALES-OUTCOMES.md.
+      { label: "Outcomes", href: "/platform/sales/outcomes", icon: ListChecks },
     ],
   },
   {
