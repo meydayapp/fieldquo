@@ -16532,3 +16532,89 @@ kitchen job — `Appointment.quoteId` was only ever set by the quote page.
   a role without `appointment:assign` (employee) — the whole team was a list
   of 403s. Nine app languages. `check:appointment-about` executes the pure
   module against hostile input and is in `check:all`.
+
+## Signups: the plan step's cadence tabs, a signed-in return that remembers, a five-minute follow-up, and a way to hand a started signup to a rep (21 September 2026)
+
+Four asks from the owner, one push.
+
+**The plan step (`app/signup/page.js`, `app/components/marketing/PricingCard.js`).**
+The cadence is a two-tab segmented control above the cards — *No commitment* |
+*1-year commitment* with a red "Save 17%" pill computed from the plan rows
+(`annualComparison`; "up to" when the rungs disagree; hidden at 0%) — instead
+of two radio rows under them. Under the tabs, the owner's sentence exactly:
+"CA$990 a year — that's CA$83 a month. Save CA$198 a year — two months free."
+The months are computed from the saving over the monthly rate and only said
+when whole. Every card reprices with the tab: the monthly equivalent as the
+big figure, the monthly rate struck through beside it, and "paid annually —
+CA$990 after your free month" beneath — because the free first month is a
+Stripe trial on BOTH cadences (`createTrialCheckoutSession` sends
+`trial_period_days` regardless of interval and the up-front line never
+attaches to a year), so nothing says "today". A plan with no annual price
+(every bespoke Custom row) disables the tab with a sentence, its card says
+"billed monthly only", and `effectiveInterval` still falls to month so the
+posted cadence can never be one the plan lacks. The button says what the click
+commits to ("Start — first month free, then CA$990 a year"). Default tab is
+`DEFAULT_INTERVAL` (month), unchanged; a saved draft restores the tab. EN/FR/ES.
+
+**A signed-in return lands where they stopped (Ask D, the owner's own bug).**
+He signed back into a signup he had taken to Plan, from a fresh session, and
+got an empty business step under "nothing you've already entered is lost".
+Three causes, three fixes: the capture now keeps the street address and the
+ticked quote types (`SignupLead.address`, `serviceCategoryIds` — additive
+columns), which were the two answers a resume could not put back; the lead
+route answers `?mine=1` from the session's own address (never the query
+string); and the page asks for the row in the signed-in branch BEFORE
+`entryChecked` flips, so the resume judges the further of the draft's step and
+the row's. The banner now says "we've put back what you entered" only when
+fields were actually restored, and "carry on below to set it up" otherwise.
+Section 2b of `check:signup-leads` executes it.
+
+**The five-minute follow-up (Ask C).** `lib/signup/earlyNudge.js` — the
+owner overrode the 24-hour delay on 2026-09-21: five minutes after the
+person's LAST ACTIVITY (somebody still moving through the steps is not
+abandoned), "your free month is waiting", the button back to their filled-in
+form (`/signup?resume=<token>`) or to Account & Billing once a login exists,
+and the three things FieldQuo does for their trade from
+`lib/sales/tradeSellingPoints.js` — the reps' own list, named in the reader's
+language through the intro email's trade-phrase table — or the neutral three
+(`NEUTRAL_PITCH_KEYS`) when they stopped before a trade. One decision covers a
+first-step SignupLead and a card-screen Company; exactly once per PERSON via
+`SignupNudge` (unique on `emailKey` + `touch`), which is also the log the
+console reads. The 24-hour note (`lib/signup/abandoned.js`) is kept as the
+second and last touch — its rationale stays in the header with the override
+recorded beside it — and now also logs to `SignupNudge`. The cron runs every
+five minutes (`vercel.json`), refuses RFC 2606 reserved domains at the point of
+sending, and the `/no-contact/<token>` link resolves a nudge row's token for
+people with no company yet. Section 6b of `check:abandoned-signup` executes
+the rule, builds the letter in three languages and measures its contrast.
+*Not sent from the dev machine:* `RESEND_API_KEY` is Sensitive in Vercel and
+absent locally, so the first real send is the first cron run after deploy —
+the dry run against production shows exactly one recipient due: the owner's
+own "Test Company Inc" address (EN, house cleaning, stopped at Plan).
+
+**/platform/signups (Ask B).** One list, sorted by last seen, with All · Has
+phone · Unassigned · Assigned. Every row shows the trade its own words map to
+(`tradeKeyForIndustries` — the promotion's mapping, never a guess) or the raw
+words and a "Set trade" select; "Assign for callback" per row and a sticky
+bulk bar with a rep picker and checkboxes. The write
+(`/api/platform/signups/assign`, superadmin only, a separate file so the list
+stays literally read-only) finds or WRITES the Prospect the cron's way —
+`promoteOneSignupLead` is now the one function the cron loop and the on-demand
+path share, with `immediate` skipping only the two waits — then hands it over
+through `assignSignupToRep` with `hot` set so `hoistHot` puts it at the top of
+the rep's queue, audited as `how: "signup_callback"`. A referred signup is
+shown as its rep's and refused for anyone else (the owner's rule). The row
+reads back "Assigned to X · today" (linking to the prospect) and "Follow-up
+sent 5 min · 24 h" from the log. Section 6b of `check:signup-leads` executes
+every path against the db stub.
+
+**Owner's attention:** a `SignupLead` row for `signup-verify@example.com`
+("Test Company inc.", painting, phone 514-555-0100) was created in production
+by this session's plan-step browser check before the capture endpoint was
+stubbed. The auto-mode classifier refused the one-line `skipReason` update
+that would keep the promotion cron off it; the reserved-domain refusal keeps
+the emails off it. To retire it by hand:
+`node --import ./scripts/alias-loader.mjs -e 'import("dotenv/config");const {db}=await import("@/lib/db");await db.signupLead.updateMany({where:{email:"signup-verify@example.com",completedCompanyId:null},data:{skipReason:"test_row_agent_2026-09-21"}});await db.$disconnect()'`.
+Two pre-existing check failures, not from this work: `check:sales-assign`
+("pool counts use the same expression…") and `check:platform-rep-queue` ("the
+rep route flips `active` through lib/sales/repActivation.js").
