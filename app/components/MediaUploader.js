@@ -46,6 +46,13 @@ export default function MediaUploader({
   failedLabel = "Upload failed — check your connection and try again.",
   rejectedLabel = "That file couldn't be uploaded.",
   removeLabel = "Remove",
+  // `async (file) => entry | null`. When given and the browser reports no
+  // signal, the file is handed here instead of being uploaded — the offline
+  // queue (lib/offline/queue.js) stores it and uploads it at replay. The
+  // entry it returns is shown like any other (a local object URL); null
+  // means "not this file" and the ordinary upload path runs (and fails
+  // with failedLabel, as it always did).
+  offlineCapture = null,
 }) {
   const inputRef = useRef(null);
   const [busy, setBusy] = useState(false);
@@ -63,6 +70,13 @@ export default function MediaUploader({
           if (value.length + added.length >= max) {
             setError(limitLabel(max));
             break;
+          }
+          if (offlineCapture && typeof navigator !== "undefined" && navigator.onLine === false) {
+            const entry = await offlineCapture(file).catch(() => null);
+            if (entry) {
+              added.push(entry);
+              continue;
+            }
           }
           const fd = new FormData();
           fd.append("file", file);
@@ -99,7 +113,7 @@ export default function MediaUploader({
         if (inputRef.current) inputRef.current.value = ""; // allow re-picking the same file
       }
     },
-    [uploadUrl, value, onChange, max, limitLabel, failedLabel, rejectedLabel],
+    [uploadUrl, value, onChange, max, limitLabel, failedLabel, rejectedLabel, offlineCapture],
   );
 
   function remove(idx) {

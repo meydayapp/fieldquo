@@ -20,90 +20,96 @@ import P17 from "@/app/app/me/page.js";
 import P18 from "@/app/app/schedule/page.js";
 import P19 from "@/app/app/clock/page.js";
 import P20 from "@/app/app/settings/team/timesheets/page.js";
-import P21 from "@/app/app/time-off/page.js";
-import P22 from "@/app/app/safety/page.js";
-import P23 from "@/app/app/log/page.js";
-import P24 from "@/app/app/payroll/page.js";
-import P25 from "@/app/app/settings/expense-tracking/page.js";
-import P26 from "@/app/app/purchasing/page.js";
-import P27 from "@/app/app/fleet/page.js";
-import P28 from "@/app/app/analytics/benchmark/page.js";
-import P29 from "@/app/app/analytics/kpis/page.js";
-import P30 from "@/app/app/marketing/page.js";
-import P31 from "@/app/app/marketing/designer/page.js";
-import P32 from "@/app/app/funnels/page.js";
-import P33 from "@/app/app/receptionist/page.js";
-import P34 from "@/app/app/crew-inbox/page.js";
-import P35 from "@/app/app/messages/page.js";
-import P36 from "@/app/app/settings/refer/page.js";
-import P37 from "@/app/app/influencer/page.js";
-import P38 from "@/app/app/help/page.js";
-import P39 from "@/app/app/settings/account-billing/page.js";
-import P40 from "@/app/app/settings/company/page.js";
-import P41 from "@/app/app/settings/migration/page.js";
-import P42 from "@/app/app/settings/product-updates/page.js";
-import P43 from "@/app/app/settings/branding/page.js";
-import P44 from "@/app/app/settings/language/page.js";
-import P45 from "@/app/app/activity/page.js";
-import P46 from "@/app/app/settings/availability/page.js";
-import P47 from "@/app/app/settings/my-calendar/page.js";
-import P48 from "@/app/app/settings/leave/page.js";
-import P49 from "@/app/app/settings/policies/page.js";
-import P50 from "@/app/app/settings/booking-page/page.js";
-import P51 from "@/app/app/settings/work-areas/page.js";
-import P52 from "@/app/app/settings/products/page.js";
-import P53 from "@/app/app/settings/services/page.js";
-import P54 from "@/app/app/settings/material-costs/page.js";
-import P55 from "@/app/app/settings/cabinet-rates/page.js";
-import P56 from "@/app/app/settings/overhead/page.js";
-import P57 from "@/app/app/settings/custom-fields/page.js";
-import P58 from "@/app/app/settings/quote-email/page.js";
-import P59 from "@/app/app/settings/email-templates/page.js";
-import P60 from "@/app/app/settings/templates/page.js";
-import P61 from "@/app/app/settings/translations/page.js";
-import P62 from "@/app/app/settings/checklists/page.js";
-import P63 from "@/app/app/settings/job-photo-tags/page.js";
-import P64 from "@/app/app/settings/messages/page.js";
-import P65 from "@/app/app/settings/follow-ups/page.js";
-import P66 from "@/app/app/settings/notifications/page.js";
-import P67 from "@/app/app/settings/email-domain/page.js";
-import P68 from "@/app/app/settings/payments/page.js";
-import P69 from "@/app/app/settings/meta-ads/page.js";
-import P70 from "@/app/app/settings/ai-credit/page.js";
-import P71 from "@/app/app/settings/payroll/page.js";
-import P72 from "@/app/app/settings/website/page.js";
-import P73 from "@/app/app/settings/instant-quotes/page.js";
-import P74 from "@/app/app/settings/lead-form/page.js";
-import P75 from "@/app/app/settings/links/page.js";
-import P76 from "@/app/app/settings/voice/page.js";
-import P77 from "@/app/app/settings/ai-employee/page.js";
-import P78 from "@/app/app/settings/reviews/page.js";
-import P79 from "@/app/q/[token]/QuoteApproval.js";
-import P80 from "@/app/book/[companySlug]/BookingFlow.js";
-import P81 from "@/app/portal/[token]/ClientPortal.js";
-import P82 from "@/app/instant-quote/[companySlug]/InstantQuoteFlow.js";
-import P83 from "@/app/quote/[companySlug]/SelfQuoteFlow.js";
-import P84 from "@/app/visit/[token]/VisitManager.js";
-import P85 from "@/app/site/[subdomain]/SiteBlocks.js";
-import P86 from "@/app/components/links/LinkPageView.js";
-import P87 from "@/app/f/[companySlug]/[funnelSlug]/FunnelRunner.js";
-import P88 from "@/app/design/[token]/DesignClient.js";
-import P89 from "@/app/app/quotes/[id]/page.js";
-import P90 from "@/app/app/quotes/new/page.js";
-import P91 from "@/app/app/jobs/[id]/JobDetail.js";
-import P92 from "@/app/app/invoices/[id]/page.js";
-import P93 from "@/app/app/clients/[id]/page.js";
-import P94 from "@/app/app/plans/[id]/page.js";
-import P95 from "@/app/app/payroll/[id]/page.js";
-import P96 from "@/app/app/funnels/[id]/page.js";
-import P97 from "@/app/app/marketing/[id]/page.js";
-import P98 from "@/app/app/messages/review/page.js";
-import P99 from "@/app/app/clients/import/page.js";
-import P100 from "@/app/app/jobs/import/page.js";
-import P101 from "@/app/accept-invitation/[id]/page.js";
-import P102 from "@/app/signup/page.js";
-import P103 from "@/app/app/quotes/[id]/edit/page.js";
-import P104 from "@/docs/screens/app-guide/harness/TakeoffFrame.jsx";
+import P21 from "@/app/app/daily-sheets/page.js";
+import P22 from "@/app/app/time-off/page.js";
+import P23 from "@/app/app/safety/page.js";
+import P24 from "@/app/app/log/page.js";
+import P25 from "@/app/app/payroll/page.js";
+import P26 from "@/app/app/settings/expense-tracking/page.js";
+import P27 from "@/app/app/purchasing/page.js";
+import P28 from "@/app/app/fleet/page.js";
+import P29 from "@/app/app/analytics/benchmark/page.js";
+import P30 from "@/app/app/analytics/kpis/page.js";
+import P31 from "@/app/app/marketing/page.js";
+import P32 from "@/app/app/marketing/designer/page.js";
+import P33 from "@/app/app/funnels/page.js";
+import P34 from "@/app/app/receptionist/page.js";
+import P35 from "@/app/app/crew-inbox/page.js";
+import P36 from "@/app/app/messages/page.js";
+import P37 from "@/app/app/settings/refer/page.js";
+import P38 from "@/app/app/influencer/page.js";
+import P39 from "@/app/app/help/page.js";
+import P40 from "@/app/app/settings/account-billing/page.js";
+import P41 from "@/app/app/settings/company/page.js";
+import P42 from "@/app/app/settings/migration/page.js";
+import P43 from "@/app/app/settings/product-updates/page.js";
+import P44 from "@/app/app/settings/branding/page.js";
+import P45 from "@/app/app/settings/language/page.js";
+import P46 from "@/app/app/activity/page.js";
+import P47 from "@/app/app/settings/availability/page.js";
+import P48 from "@/app/app/settings/my-calendar/page.js";
+import P49 from "@/app/app/settings/leave/page.js";
+import P50 from "@/app/app/settings/policies/page.js";
+import P51 from "@/app/app/settings/booking-page/page.js";
+import P52 from "@/app/app/settings/work-areas/page.js";
+import P53 from "@/app/app/settings/field-work/page.js";
+import P54 from "@/app/app/settings/products/page.js";
+import P55 from "@/app/app/settings/services/page.js";
+import P56 from "@/app/app/settings/material-costs/page.js";
+import P57 from "@/app/app/settings/cabinet-rates/page.js";
+import P58 from "@/app/app/settings/overhead/page.js";
+import P59 from "@/app/app/settings/custom-fields/page.js";
+import P60 from "@/app/app/settings/quote-email/page.js";
+import P61 from "@/app/app/settings/email-templates/page.js";
+import P62 from "@/app/app/settings/templates/page.js";
+import P63 from "@/app/app/settings/translations/page.js";
+import P64 from "@/app/app/settings/checklists/page.js";
+import P65 from "@/app/app/settings/job-photo-tags/page.js";
+import P66 from "@/app/app/settings/messages/page.js";
+import P67 from "@/app/app/settings/follow-ups/page.js";
+import P68 from "@/app/app/settings/notifications/page.js";
+import P69 from "@/app/app/settings/email-domain/page.js";
+import P70 from "@/app/app/settings/payments/page.js";
+import P71 from "@/app/app/settings/meta-ads/page.js";
+import P72 from "@/app/app/settings/ai-credit/page.js";
+import P73 from "@/app/app/settings/payroll/page.js";
+import P74 from "@/app/app/settings/website/page.js";
+import P75 from "@/app/app/settings/instant-quotes/page.js";
+import P76 from "@/app/app/settings/lead-form/page.js";
+import P77 from "@/app/app/settings/links/page.js";
+import P78 from "@/app/app/settings/voice/page.js";
+import P79 from "@/app/app/settings/ai-employee/page.js";
+import P80 from "@/app/app/settings/reviews/page.js";
+import P81 from "@/app/q/[token]/QuoteApproval.js";
+import P82 from "@/app/book/[companySlug]/BookingFlow.js";
+import P83 from "@/app/portal/[token]/ClientPortal.js";
+import P84 from "@/app/instant-quote/[companySlug]/InstantQuoteFlow.js";
+import P85 from "@/app/quote/[companySlug]/SelfQuoteFlow.js";
+import P86 from "@/app/visit/[token]/VisitManager.js";
+import P87 from "@/app/site/[subdomain]/SiteBlocks.js";
+import P88 from "@/app/components/links/LinkPageView.js";
+import P89 from "@/app/f/[companySlug]/[funnelSlug]/FunnelRunner.js";
+import P90 from "@/app/design/[token]/DesignClient.js";
+import P91 from "@/app/app/quotes/[id]/page.js";
+import P92 from "@/app/app/quotes/new/page.js";
+import P93 from "@/app/app/jobs/[id]/JobDetail.js";
+import P94 from "@/app/app/invoices/[id]/page.js";
+import P95 from "@/app/app/clients/[id]/page.js";
+import P96 from "@/app/app/plans/[id]/page.js";
+import P97 from "@/app/app/payroll/[id]/page.js";
+import P98 from "@/app/app/funnels/[id]/page.js";
+import P99 from "@/app/app/marketing/[id]/page.js";
+import P100 from "@/app/app/messages/review/page.js";
+import P101 from "@/app/app/clients/import/page.js";
+import P102 from "@/app/app/jobs/import/page.js";
+import P103 from "@/app/accept-invitation/[id]/page.js";
+import P104 from "@/app/signup/page.js";
+import P105 from "@/app/app/quotes/[id]/edit/page.js";
+import P106 from "@/docs/screens/app-guide/harness/TakeoffFrame.jsx";
+import P107 from "@/app/app/callbacks/page.js";
+import P108 from "@/app/app/settings/follow-ups/past-clients/page.js";
+import P109 from "@/app/app/daily-sheets/week/page.js";
+import P110 from "@/app/app/invoices/new/page.js";
 export const PAGES = {
   "app/app/page.js": P0,
   "app/app/copilot/page.js": P1,
@@ -126,88 +132,94 @@ export const PAGES = {
   "app/app/schedule/page.js": P18,
   "app/app/clock/page.js": P19,
   "app/app/settings/team/timesheets/page.js": P20,
-  "app/app/time-off/page.js": P21,
-  "app/app/safety/page.js": P22,
-  "app/app/log/page.js": P23,
-  "app/app/payroll/page.js": P24,
-  "app/app/settings/expense-tracking/page.js": P25,
-  "app/app/purchasing/page.js": P26,
-  "app/app/fleet/page.js": P27,
-  "app/app/analytics/benchmark/page.js": P28,
-  "app/app/analytics/kpis/page.js": P29,
-  "app/app/marketing/page.js": P30,
-  "app/app/marketing/designer/page.js": P31,
-  "app/app/funnels/page.js": P32,
-  "app/app/receptionist/page.js": P33,
-  "app/app/crew-inbox/page.js": P34,
-  "app/app/messages/page.js": P35,
-  "app/app/settings/refer/page.js": P36,
-  "app/app/influencer/page.js": P37,
-  "app/app/help/page.js": P38,
-  "app/app/settings/account-billing/page.js": P39,
-  "app/app/settings/company/page.js": P40,
-  "app/app/settings/migration/page.js": P41,
-  "app/app/settings/product-updates/page.js": P42,
-  "app/app/settings/branding/page.js": P43,
-  "app/app/settings/language/page.js": P44,
-  "app/app/activity/page.js": P45,
-  "app/app/settings/availability/page.js": P46,
-  "app/app/settings/my-calendar/page.js": P47,
-  "app/app/settings/leave/page.js": P48,
-  "app/app/settings/policies/page.js": P49,
-  "app/app/settings/booking-page/page.js": P50,
-  "app/app/settings/work-areas/page.js": P51,
-  "app/app/settings/products/page.js": P52,
-  "app/app/settings/services/page.js": P53,
-  "app/app/settings/material-costs/page.js": P54,
-  "app/app/settings/cabinet-rates/page.js": P55,
-  "app/app/settings/overhead/page.js": P56,
-  "app/app/settings/custom-fields/page.js": P57,
-  "app/app/settings/quote-email/page.js": P58,
-  "app/app/settings/email-templates/page.js": P59,
-  "app/app/settings/templates/page.js": P60,
-  "app/app/settings/translations/page.js": P61,
-  "app/app/settings/checklists/page.js": P62,
-  "app/app/settings/job-photo-tags/page.js": P63,
-  "app/app/settings/messages/page.js": P64,
-  "app/app/settings/follow-ups/page.js": P65,
-  "app/app/settings/notifications/page.js": P66,
-  "app/app/settings/email-domain/page.js": P67,
-  "app/app/settings/payments/page.js": P68,
-  "app/app/settings/meta-ads/page.js": P69,
-  "app/app/settings/ai-credit/page.js": P70,
-  "app/app/settings/payroll/page.js": P71,
-  "app/app/settings/website/page.js": P72,
-  "app/app/settings/instant-quotes/page.js": P73,
-  "app/app/settings/lead-form/page.js": P74,
-  "app/app/settings/links/page.js": P75,
-  "app/app/settings/voice/page.js": P76,
-  "app/app/settings/ai-employee/page.js": P77,
-  "app/app/settings/reviews/page.js": P78,
-  "app/q/[token]/QuoteApproval.js": P79,
-  "app/book/[companySlug]/BookingFlow.js": P80,
-  "app/portal/[token]/ClientPortal.js": P81,
-  "app/instant-quote/[companySlug]/InstantQuoteFlow.js": P82,
-  "app/quote/[companySlug]/SelfQuoteFlow.js": P83,
-  "app/visit/[token]/VisitManager.js": P84,
-  "app/site/[subdomain]/SiteBlocks.js": P85,
-  "app/components/links/LinkPageView.js": P86,
-  "app/f/[companySlug]/[funnelSlug]/FunnelRunner.js": P87,
-  "app/design/[token]/DesignClient.js": P88,
-  "app/app/quotes/[id]/page.js": P89,
-  "app/app/quotes/new/page.js": P90,
-  "app/app/jobs/[id]/JobDetail.js": P91,
-  "app/app/invoices/[id]/page.js": P92,
-  "app/app/clients/[id]/page.js": P93,
-  "app/app/plans/[id]/page.js": P94,
-  "app/app/payroll/[id]/page.js": P95,
-  "app/app/funnels/[id]/page.js": P96,
-  "app/app/marketing/[id]/page.js": P97,
-  "app/app/messages/review/page.js": P98,
-  "app/app/clients/import/page.js": P99,
-  "app/app/jobs/import/page.js": P100,
-  "app/accept-invitation/[id]/page.js": P101,
-  "app/signup/page.js": P102,
-  "app/app/quotes/[id]/edit/page.js": P103,
-  "docs/screens/app-guide/harness/TakeoffFrame.jsx": P104,
+  "app/app/daily-sheets/page.js": P21,
+  "app/app/time-off/page.js": P22,
+  "app/app/safety/page.js": P23,
+  "app/app/log/page.js": P24,
+  "app/app/payroll/page.js": P25,
+  "app/app/settings/expense-tracking/page.js": P26,
+  "app/app/purchasing/page.js": P27,
+  "app/app/fleet/page.js": P28,
+  "app/app/analytics/benchmark/page.js": P29,
+  "app/app/analytics/kpis/page.js": P30,
+  "app/app/marketing/page.js": P31,
+  "app/app/marketing/designer/page.js": P32,
+  "app/app/funnels/page.js": P33,
+  "app/app/receptionist/page.js": P34,
+  "app/app/crew-inbox/page.js": P35,
+  "app/app/messages/page.js": P36,
+  "app/app/settings/refer/page.js": P37,
+  "app/app/influencer/page.js": P38,
+  "app/app/help/page.js": P39,
+  "app/app/settings/account-billing/page.js": P40,
+  "app/app/settings/company/page.js": P41,
+  "app/app/settings/migration/page.js": P42,
+  "app/app/settings/product-updates/page.js": P43,
+  "app/app/settings/branding/page.js": P44,
+  "app/app/settings/language/page.js": P45,
+  "app/app/activity/page.js": P46,
+  "app/app/settings/availability/page.js": P47,
+  "app/app/settings/my-calendar/page.js": P48,
+  "app/app/settings/leave/page.js": P49,
+  "app/app/settings/policies/page.js": P50,
+  "app/app/settings/booking-page/page.js": P51,
+  "app/app/settings/work-areas/page.js": P52,
+  "app/app/settings/field-work/page.js": P53,
+  "app/app/settings/products/page.js": P54,
+  "app/app/settings/services/page.js": P55,
+  "app/app/settings/material-costs/page.js": P56,
+  "app/app/settings/cabinet-rates/page.js": P57,
+  "app/app/settings/overhead/page.js": P58,
+  "app/app/settings/custom-fields/page.js": P59,
+  "app/app/settings/quote-email/page.js": P60,
+  "app/app/settings/email-templates/page.js": P61,
+  "app/app/settings/templates/page.js": P62,
+  "app/app/settings/translations/page.js": P63,
+  "app/app/settings/checklists/page.js": P64,
+  "app/app/settings/job-photo-tags/page.js": P65,
+  "app/app/settings/messages/page.js": P66,
+  "app/app/settings/follow-ups/page.js": P67,
+  "app/app/settings/notifications/page.js": P68,
+  "app/app/settings/email-domain/page.js": P69,
+  "app/app/settings/payments/page.js": P70,
+  "app/app/settings/meta-ads/page.js": P71,
+  "app/app/settings/ai-credit/page.js": P72,
+  "app/app/settings/payroll/page.js": P73,
+  "app/app/settings/website/page.js": P74,
+  "app/app/settings/instant-quotes/page.js": P75,
+  "app/app/settings/lead-form/page.js": P76,
+  "app/app/settings/links/page.js": P77,
+  "app/app/settings/voice/page.js": P78,
+  "app/app/settings/ai-employee/page.js": P79,
+  "app/app/settings/reviews/page.js": P80,
+  "app/q/[token]/QuoteApproval.js": P81,
+  "app/book/[companySlug]/BookingFlow.js": P82,
+  "app/portal/[token]/ClientPortal.js": P83,
+  "app/instant-quote/[companySlug]/InstantQuoteFlow.js": P84,
+  "app/quote/[companySlug]/SelfQuoteFlow.js": P85,
+  "app/visit/[token]/VisitManager.js": P86,
+  "app/site/[subdomain]/SiteBlocks.js": P87,
+  "app/components/links/LinkPageView.js": P88,
+  "app/f/[companySlug]/[funnelSlug]/FunnelRunner.js": P89,
+  "app/design/[token]/DesignClient.js": P90,
+  "app/app/quotes/[id]/page.js": P91,
+  "app/app/quotes/new/page.js": P92,
+  "app/app/jobs/[id]/JobDetail.js": P93,
+  "app/app/invoices/[id]/page.js": P94,
+  "app/app/clients/[id]/page.js": P95,
+  "app/app/plans/[id]/page.js": P96,
+  "app/app/payroll/[id]/page.js": P97,
+  "app/app/funnels/[id]/page.js": P98,
+  "app/app/marketing/[id]/page.js": P99,
+  "app/app/messages/review/page.js": P100,
+  "app/app/clients/import/page.js": P101,
+  "app/app/jobs/import/page.js": P102,
+  "app/accept-invitation/[id]/page.js": P103,
+  "app/signup/page.js": P104,
+  "app/app/quotes/[id]/edit/page.js": P105,
+  "docs/screens/app-guide/harness/TakeoffFrame.jsx": P106,
+  "app/app/callbacks/page.js": P107,
+  "app/app/settings/follow-ups/past-clients/page.js": P108,
+  "app/app/daily-sheets/week/page.js": P109,
+  "app/app/invoices/new/page.js": P110,
 };

@@ -729,7 +729,22 @@ export default function JobDetail({ jobId }) {
               </p>
             )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Opens the invoice editor FOR this job, which is what makes
+                the "add today's clocked hours" offer appear there
+                (app/app/invoices/new reads ?jobId=). */}
+            <Link
+              href={`/app/invoices/new?jobId=${jobId}&clientId=${job.clientId}`}
+              className="inline-flex items-center gap-1.5 border border-border text-sm font-semibold px-3 py-1.5 rounded-lg hover:bg-muted"
+            >
+              {t("app.job.newInvoice")}
+            </Link>
+            <Link
+              href="/app/daily-sheets"
+              className="inline-flex items-center gap-1.5 border border-border text-sm font-semibold px-3 py-1.5 rounded-lg hover:bg-muted"
+            >
+              {t("app.job.dailySheets")}
+            </Link>
             <Link
               href={`/app/jobs/new?originalJobId=${jobId}&clientId=${job.clientId}`}
               className="inline-flex items-center gap-1.5 border border-border text-sm font-semibold px-3 py-1.5 rounded-lg hover:bg-muted"

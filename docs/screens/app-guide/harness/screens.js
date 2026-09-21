@@ -65,6 +65,7 @@ export const SCREENS = [
   { slug: "team-schedule", nav: "app.nav.teamSchedule", href: "/app/schedule", page: "app/app/schedule/page.js" },
   { slug: "clock", nav: "app.nav.clock", href: "/app/clock", page: "app/app/clock/page.js" },
   { slug: "timesheets", nav: "app.nav.timesheets", href: "/app/settings/team/timesheets", page: "app/app/settings/team/timesheets/page.js", settings: true },
+  { slug: "daily-sheets", nav: "app.nav.dailySheets", href: "/app/daily-sheets", page: "app/app/daily-sheets/page.js" },
   { slug: "time-off", nav: "app.nav.timeOff", href: "/app/time-off", page: "app/app/time-off/page.js" },
   { slug: "safety", nav: "app.nav.safety", href: "/app/safety", page: "app/app/safety/page.js" },
   { slug: "manager-log", nav: "app.nav.log", href: "/app/log", page: "app/app/log/page.js" },
@@ -113,6 +114,7 @@ export const SCREENS = [
   { slug: "settings-policies", nav: "app.settings.policies", href: "/app/settings/policies", page: "app/app/settings/policies/page.js", settings: true },
   { slug: "settings-booking-page", nav: "app.settings.bookingPage", href: "/app/settings/booking-page", page: "app/app/settings/booking-page/page.js", settings: true },
   { slug: "settings-work-areas", nav: "app.settings.workAreas", href: "/app/settings/work-areas", page: "app/app/settings/work-areas/page.js", settings: true },
+  { slug: "settings-field-work", nav: "app.settings.fieldWork", href: "/app/settings/field-work", page: "app/app/settings/field-work/page.js", settings: true },
   // Services & pricing
   { slug: "settings-products", nav: "app.settings.products", href: "/app/settings/products", page: "app/app/settings/products/page.js", settings: true },
   { slug: "settings-services", nav: "app.settings.services", href: "/app/settings/services", page: "app/app/settings/services/page.js", settings: true },
@@ -258,4 +260,12 @@ export const SCREENS = [
   { slug: "booking-pick-375", href: "/book/erable-design", page: "app/book/[companySlug]/BookingFlow.js", props: { companySlug: "erable-design" }, mode: "public", wrap: "bookingPage", scene: "booking-pick-paid", width: 375, height: 1100, out: "docs/screens/booking-modes", chapter: "booking-modes" },
   { slug: "booking-visit-375", href: "/book/erable-design", page: "app/book/[companySlug]/BookingFlow.js", props: { companySlug: "erable-design" }, mode: "public", wrap: "bookingPage", scene: "booking-details-visit", width: 375, height: 1400, out: "docs/screens/booking-modes", chapter: "booking-modes" },
   { slug: "booking-call-375", href: "/book/erable-design", page: "app/book/[companySlug]/BookingFlow.js", props: { companySlug: "erable-design" }, mode: "public", wrap: "bookingPage", scene: "booking-details-call", width: 375, height: 1400, out: "docs/screens/booking-modes", chapter: "booking-modes" },
+  // Field work (2026-09-21): the assignee's callback list (no sidebar row —
+  // linked from Clients and from Settings → Follow-ups → Past clients), the
+  // past-clients rule screen, one crew member's week, and the invoice editor
+  // opened from a job so the clocked-hours offer shows, at phone width.
+  { slug: "callbacks", href: "/app/callbacks", page: "app/app/callbacks/page.js", chapter: "help" },
+  { slug: "settings-past-clients", href: "/app/settings/follow-ups/past-clients", page: "app/app/settings/follow-ups/past-clients/page.js", settings: true, chapter: "help" },
+  { slug: "daily-sheet-week", href: "/app/daily-sheets/week?workerId=w_leo&weekOf=2026-09-14", page: "app/app/daily-sheets/week/page.js", chapter: "help" },
+  { slug: "mobile-invoice-from-job", href: "/app/invoices/new?jobId=j_318", page: "app/app/invoices/new/page.js", width: 375, height: 1500, chapter: "help" },
 ];

@@ -897,4 +897,59 @@ export const ARTICLES = {
       { q: "¿Importar dos veces un CSV crea duplicados?", a: "Sí, un juego completo. El importador crea cada fila con nombre y no empareja con los clientes existentes." },
     ],
   },
+  "past-client-callbacks": {
+    "title": "Rotación de llamadas a clientes antiguos",
+    "summary": "Cada semana, una lista corta de sus propios clientes inactivos — sin trabajo desde tantos meses, una última factura por encima de tanto, en una zona — entregada a una persona para llamar, con el resultado de cada llamada registrado en el cliente.",
+    "intro": [
+      "El mejor prospecto de un pintor es el propietario cuya casa pintó hace cuatro años. **Ajustes → Seguimientos → Clientes antiguos** es una frase que usted rellena — *Cada lunes, listar clientes sin trabajo desde hace 10 meses o más, última factura por encima de $1.500, zona Kanata → entregar la lista a Sam, hasta 8 por semana* — y la lista que produce, semana tras semana.",
+      "La lista se construye a partir de sus propios trabajos y facturas y de nada más. La persona a la que se asigna la abre en **Clientes → Llamadas de esta semana**; los propietarios y administradores ven todas las listas."
+    ],
+    "sections": [
+      {
+        "id": "who-is-listed",
+        "heading": "Quién aparece, y quién nunca",
+        "blocks": [
+          {
+            "bullets": [
+              "Clientes con número de teléfono cuyo último trabajo es más antiguo que los meses fijados, cuya última factura (o el presupuesto detrás del trabajo) supera el importe fijado, y que están en la zona fijada: un prefijo de código postal, una ciudad o una zona de trabajo dibujada en el mapa.",
+              "El importe más grande primero, hasta el tope semanal.",
+              "**Nunca:** un cliente marcado **No contactar**, un cliente ya listado dentro del mismo número de meses, uno que dijo **No me interesa** en los últimos doce, o uno que dijo **Volver a llamar** en una fecha todavía futura."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "outcomes",
+        "heading": "Registrar la llamada",
+        "blocks": [
+          {
+            "p": "Cada fila admite un resultado: **Reservado** (abre un nuevo presupuesto para el cliente, como lo hace un prospecto), **Volver a llamar** con una fecha, **Ahora no**, **No me interesa**, **Número equivocado** o **No llamar**. Cada resultado se escribe en la cronología del cliente."
+          },
+          {
+            "warning": "**No llamar** es permanente. Marca al cliente, lo quita de todas las listas futuras y también excluye su número de las llamadas de la recepcionista telefónica: un solo deseo, respetado en todos los lugares desde los que la empresa llama."
+          }
+        ]
+      },
+      {
+        "id": "why-not-the-ai",
+        "heading": "Por qué la recepción con IA no puede tomar esta lista",
+        "blocks": [
+          {
+            "p": "La recepcionista telefónica puede hacer llamadas salientes, pero solo a personas que pidieron ser contactadas, y ese consentimiento, para un trabajo terminado, dura tres meses. Cada cliente que esta rotación lista está por definición fuera de esa ventana, así que una opción **recepción con IA** rechazaría cada llamada. Se omite en lugar de ofrecerse sin funcionar; la lista es de una persona."
+          }
+        ]
+      }
+    ],
+    "faq": [
+      {
+        "q": "¿Cuándo se construye la lista?",
+        "a": "Una vez por semana, el día indicado en la frase, en la misma ejecución de las 8 de la mañana que sus otros seguimientos. Ejecutar la regla dos veces en una semana no construye una segunda lista."
+      },
+      {
+        "q": "¿Puedo tener más de una regla?",
+        "a": "Sí: una por zona, por ejemplo, cada una con su propia persona asignada y su tope."
+      }
+    ],
+    "updated": "2026-09-21"
+  },
 };

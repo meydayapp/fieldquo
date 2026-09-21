@@ -1820,6 +1820,37 @@ model Company {
   voiceAutoTopup VoiceAutoTopup?
   aiCreditBundle AiCreditBundle?
   callConsents  CallConsent[]
+  /// Field work (2026-09-21): the offline queue's idempotency ledger, the
+  /// crew's daily sheets and the past-client callback rotation.
+  offlineSyncItems  OfflineSyncItem[]
+  dailySheets       DailyObjectiveSheet[]
+  callbackRules     CallbackRule[]
+  callbackLists     CallbackList[]
+  callbackEntries   CallbackEntry[]
+
+  /// Whether /app caches its shell and the last-loaded data on the phone so
+  /// an invoice or a punch can be made in a basement with no signal
+  /// (public/sw.js + lib/offline/). Default ON; the switch exists so a
+  /// company hit by a caching bug can turn it off without a deploy — read
+  /// by app/components/offline/OfflineShell.js on every load, so "off"
+  /// unregisters the fetch cache on the next open.
+  offlineCachingEnabled Boolean @default(true)
+
+  /// The hourly rate this company BILLS a client for clocked labour — the
+  /// "Labour — 6.5 h × $85" line the invoice editor offers from the job's
+  /// TimeEntry rows (lib/invoices/labourRates.js). Null means the offer is
+  /// shown with a "set a rate" link instead of a price. Deliberately NOT
+  /// Worker.hourlyRate, which is what the person COSTS; a sell rate and a
+  /// wage on one column is how a margin becomes zero by accident.
+  labourSellRate Decimal? @db.Decimal(10, 2)
+
+  /// The performance-pay rule for daily sheets (lib/dailySheets/bonus.js
+  /// normalises it). NULL MEANS NO RULE: no bonus is ever computed, and the
+  /// sheet says so. The mockup's "+$20 / +$17" was a placeholder, and the
+  /// owner has not chosen figures — so the default is honest silence, not a
+  /// default amount. Shape: { perObjectiveCents, allDoneCents, upsellPct,
+  /// minScore }.
+  performancePayRule Json?
   smsOptOuts    SmsOptOut[]
 
   /// Where a happy customer should leave a review. Usually a Google review
@@ -2234,6 +2265,8 @@ model User {
   tasksCreated          Task[]                 @relation("TaskCreatedBy")
   tasksAssigned         Task[]                 @relation("TaskAssignee")
   timeEntriesApproved   TimeEntry[]            @relation("TimeEntryApprovedBy")
+  dailySheetsEvaluated  DailyObjectiveSheet[]  @relation("DailySheetEvaluatedBy")
+  callbackOutcomes      CallbackEntry[]        @relation("CallbackOutcomeBy")
   workAreaAssignments   WorkAreaAssignment[]
   availability          AvailabilitySchedule[]
   workingHours          WorkingHours[]
@@ -2314,6 +2347,8 @@ model Member {
   // not silently drop the other's mirrored visits.
   googleCalendar  MemberGoogleCalendar?
   calendarMirrors CalendarMirror[]
+  /// Past-client callback lists this person works through. See CallbackRule.
+  callbackRulesAssigned CallbackRule[]
 
   @@unique([userId, companyId])
 }
@@ -2605,6 +2640,15 @@ model Client {
   servicePlans          ServicePlan[]
   satisfactionResponses SatisfactionResponse[]
   equipment ClientEquipment[]
+  callbackEntries CallbackEntry[]
+
+  /// "Don't call me." Set by a callback outcome (lib/callbacks/outcomes.js),
+  /// which also opts the phone out of the voice agent's consent ledger
+  /// (lib/voice/outbound.js optOut) so the two never disagree. Read by the
+  /// rotation builder — a client with this set is never listed again — and
+  /// shown on the client page. Never cleared by code; a person clears it.
+  doNotContactAt     DateTime?
+  doNotContactReason String?
 }
 
 enum ClientType {
@@ -3463,6 +3507,9 @@ model Invoice {
   // a financial record and outranks the link to it.
   jobId String?
   job   Job?    @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  /// TimeEntry rows this invoice bills as its "Labour — N h × rate" line.
+  /// See TimeEntry.billedInvoiceId.
+  billedTimeEntries TimeEntry[] @relation("TimeEntryBilledOn")
 
   /// Set when this invoice was raised by a service plan's schedule rather than
   /// by a person. Optional on both sides: the overwhelming majority of invoices
@@ -4780,6 +4827,7 @@ model Job {
   appointments Appointment[]
   timeEntries TimeEntry[]
   shifts      Shift[]
+  dailySheets DailyObjectiveSheet[]
   /// When the job was actually finished, and when we asked for a review.
   ///
   /// Both are needed and neither is derivable from `status`: a job can flip in
@@ -6548,6 +6596,7 @@ model Worker {
   payouts     Payout[]
   salaries    Salary[]
   payRunLines PayRunLine[]
+  dailySheets DailyObjectiveSheet[]
   salaryComponents WorkerSalaryComponent[]
   leaveBalances    LeaveBalance[]
   leaveRequests    LeaveRequest[]
@@ -6586,6 +6635,15 @@ model TimeEntry {
   /// whether the person left at 16:00 or worked until 19:00 is a pay
   /// decision, and only a person makes it (the timesheet's manual clock-out).
   overrunNotifiedAt DateTime?
+  /// The invoice whose labour line bills this entry, once one does (POST
+  /// /api/invoices with a `labour` block — lib/invoices/labourLine.js).
+  /// Written in the same transaction as the invoice; read by GET
+  /// /api/invoices/labour-line so the offer never lists an hour twice.
+  /// SetNull: deleting the invoice frees the hours to be billed again.
+  billedInvoiceId String?
+  billedInvoice   Invoice? @relation("TimeEntryBilledOn", fields: [billedInvoiceId], references: [id], onDelete: SetNull)
+
+  @@index([billedInvoiceId])
 }
 
 /// A lunch or break the person ACTUALLY took, punched from /app/clock while
@@ -7731,6 +7789,9 @@ model PayRun {
   updatedAt    DateTime  @updatedAt
 
   lines PayRunLine[]
+  /// Daily sheets whose bonus line this run carries. See
+  /// DailyObjectiveSheet.payRunId.
+  bonusSheets DailyObjectiveSheet[]
 
   @@index([companyId, periodStart])
 }
@@ -18065,4 +18126,172 @@ model ManagerLogEntry {
   updatedAt      DateTime @updatedAt
 
   @@index([companyId, date])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Field work (2026-09-21): offline sync, daily sheets, callback rotation
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// One replayed offline write. The phone queues an invoice, a punch or a
+/// photo in IndexedDB under a client-generated key (lib/offline/queue.js) and
+/// replays it with an X-Offline-Key header when it has signal again. The
+/// route runs the write through lib/offline/idempotency.js, which records the
+/// key here in the SAME transaction as the write — so a replay that reaches
+/// the server twice (a retry after a lost response, two tabs) answers with the
+/// first write's id instead of creating a second invoice. "Server wins": the
+/// server's id is the record's id; the phone's key is only ever a lookup.
+model OfflineSyncItem {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  memberId  String
+  clientKey String
+  kind      String // invoice | timesheet | photo
+  entityId  String?
+  status    String  @default("synced") // synced | failed
+  error     String?
+  createdAt DateTime @default(now())
+
+  @@unique([companyId, clientKey])
+  @@index([companyId, createdAt])
+}
+
+/// A crew member's day, as the coordinator sees it: what they were meant to
+/// do, what got done, what they sold, and how the day was rated. One row per
+/// worker per calendar day (the company's day, see lib/timeclock/jobChoices
+/// dayBoundsInZone). Clock stamps are NOT copied here — they are read live
+/// from TimeEntry so a corrected timesheet corrects the sheet.
+///
+/// Created lazily on the first write; a day nobody typed anything on has no
+/// row and the screen says "nothing recorded" rather than inventing one.
+model DailyObjectiveSheet {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  workerId  String
+  worker    Worker  @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  /// The calendar day, stored at UTC midnight of the company-local date
+  /// (lib/dailySheets/day.js) — compared as a date, never as an instant.
+  date      DateTime @db.Date
+  jobId     String?
+  job       Job?    @relation(fields: [jobId], references: [id], onDelete: SetNull)
+
+  /// [{ id, title, taskId?, plannedHours?, status, actualHours?, note?,
+  ///    beforePhoto?, afterPhoto? }] — lib/dailySheets/objectives.js
+  /// normalises. taskId points at the Task (the job plan's step, when one
+  /// exists) the objective came from; a typed objective has none.
+  objectives Json?
+  /// [{ id, description, amountCents, quoteAddOnId?, changeOrderId? }] —
+  /// an add-on the crew member sold on site. When linked to a QuoteAddOn or
+  /// ChangeOrder the amount is copied from that row at link time, never typed.
+  upsells    Json?
+
+  evaluationScore Int?
+  evaluationNote  String?
+  evaluatedById   String?
+  evaluatedBy     User?     @relation("DailySheetEvaluatedBy", fields: [evaluatedById], references: [id])
+  evaluatedAt     DateTime?
+
+  /// The bonus the company's rule produced at evaluation time, in cents.
+  /// NULL when the company has no rule (Company.performancePayRule) — never
+  /// zero, because "no rule" and "rule gave nothing" are different facts and
+  /// the pay run must not print a $0 bonus line for the first.
+  bonusCents     Int?
+  /// [{ label, cents }] — how bonusCents was reached, printed on the sheet.
+  bonusBreakdown Json?
+  /// Set when a pay run picked this bonus up as an earning line
+  /// (lib/payroll/buildPayRun.js). A sheet with a payRunId is never paid
+  /// twice; deleting the run frees it.
+  payRunId String?
+  payRun   PayRun? @relation(fields: [payRunId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([workerId, date])
+  @@index([companyId, date])
+  @@index([payRunId])
+}
+
+/// "Every Monday, list clients with no job in 10+ months, last ticket over
+/// $1,500, area Kanata → hand the list to Sam, up to 8 a week." One rule per
+/// list; a company may have several (one per area). The weekly list it
+/// produces is a CallbackList. Built from THIS company's own Job and Invoice
+/// history and nothing else (non-negotiable #8).
+///
+/// No AI-assignee column, on purpose. The voice agent does place outbound
+/// calls today (lib/voice/drainOutbound.js) but only with live consent, and
+/// consent from a finished job lasts three months (lib/voice/outbound.js
+/// CONSENT_SOURCES.job_completed) — every client this rule can list is by
+/// definition past that window, so an "AI front desk" option would be a
+/// control that appears to work and refuses every call. It comes back when
+/// the owner decides the consent rule for past clients.
+model CallbackRule {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  enabled   Boolean @default(true)
+  /// 0 = Sunday … 6 = Saturday, evaluated in the company's timezone.
+  weekday        Int     @default(1)
+  monthsSinceJob Int     @default(10)
+  minTicket      Decimal @default(0) @db.Decimal(12, 2)
+  /// postcode | city | work_area | null (anywhere). See lib/callbacks/rules.js.
+  areaKind  String?
+  areaValue String?
+  assigneeMemberId String?
+  assignee         Member? @relation(fields: [assigneeMemberId], references: [id], onDelete: SetNull)
+  weeklyCap Int @default(8)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lists CallbackList[]
+
+  @@index([companyId])
+}
+
+/// One week's list for one rule. weekOf is the company-local Monday of the
+/// week the list was built for; the unique pair is what makes the cron
+/// build a list once per week however many times it runs.
+model CallbackList {
+  id        String       @id @default(cuid())
+  companyId String
+  company   Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  ruleId    String
+  rule      CallbackRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  weekOf    DateTime     @db.Date
+  createdAt DateTime     @default(now())
+
+  entries CallbackEntry[]
+
+  @@unique([ruleId, weekOf])
+  @@index([companyId, weekOf])
+}
+
+/// One client on one week's list, with the outcome of the call.
+model CallbackEntry {
+  id        String       @id @default(cuid())
+  companyId String
+  company   Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  listId    String
+  list      CallbackList @relation(fields: [listId], references: [id], onDelete: Cascade)
+  clientId  String
+  client    Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  /// Copied at build time so the row keeps saying why the client was listed
+  /// after another job is booked.
+  lastJobAt    DateTime?
+  lastJobTitle String?
+  lastTicket   Decimal? @db.Decimal(12, 2)
+
+  /// booked | call_back | not_now | not_interested | wrong_number |
+  /// do_not_contact — lib/callbacks/outcomes.js. Null = still to call.
+  outcome     String?
+  outcomeNote String?
+  callBackOn  DateTime? @db.Date
+  outcomeById String?
+  outcomeBy   User?     @relation("CallbackOutcomeBy", fields: [outcomeById], references: [id])
+  outcomeAt   DateTime?
+
+  @@unique([listId, clientId])
+  @@index([companyId, clientId])
 }

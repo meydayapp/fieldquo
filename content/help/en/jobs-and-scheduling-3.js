@@ -727,4 +727,61 @@ export const ARTICLES = {
       { q: "Can I turn the flag off afterwards?", a: "The checkbox is on the booking form; the row itself does not offer a toggle. Assigning a supervisor is what clears the amber status." },
     ],
   },
+  "daily-sheets": {
+    "title": "Daily sheets and performance pay",
+    "summary": "One sheet per crew member per day: the objectives (from the job plan or typed), before and after photos, the clock stamps, the upsells they sold, the coordinator's evaluation, and the bonus the company's rule yields — or the sentence saying there is no rule.",
+    "intro": [
+      "Timesheets say when somebody was on site. **Daily sheets** (Team → Daily sheets) say what they were meant to do, whether it got done, and what they sold while there — which is what a coordinator needs to evaluate a day, and what a performance bonus, if the company pays one, is paid on.",
+      "A coordinator, administrator or owner sees every crew member's sheet and writes the evaluation. A crew member sees their own sheet on their phone, fills in results, photos and upsells, and reads the evaluation once it is written."
+    ],
+    "sections": [
+      {
+        "id": "the-sheet",
+        "heading": "What is on the sheet",
+        "blocks": [
+          {
+            "bullets": [
+              "**Objectives.** The tasks on the job plan due that day and assigned to the person appear as objectives; with none, the coordinator or the person types them. Each has a status — Planned, Done, First coat / partial, Not done — and the hours it actually took.",
+              "**Photos.** A before and an after per objective, taken on the phone.",
+              "**Clock stamps.** Read live from the time clock, so a corrected timesheet corrects the sheet. Nothing is copied.",
+              "**Upsells credited.** An add-on the homeowner ticked on the quote or an approved change order, picked from the list so the amount is the one on file; or a typed line when nothing is on file.",
+              "**Evaluation.** A score from 1 to 5 and a note, written by the coordinator only — a person cannot score their own day."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "performance-pay",
+        "heading": "Performance pay",
+        "blocks": [
+          {
+            "p": "The bonus box works out what the company's rule yields for the day — so much per objective done, so much when all are done, a share of the upsells — and shows the arithmetic. With **no rule** (the default), the box says so and nothing is computed: no $0, no placeholder. An owner writes the rule under [[settings-field-work|Settings → Field work]]."
+          },
+          {
+            "note": "The bonus goes to the next pay run as a **Performance bonus** earning line, which the person running payroll reviews before the run is saved. Once a run has taken it, the day's sheet is frozen."
+          }
+        ]
+      },
+      {
+        "id": "the-week",
+        "heading": "The week",
+        "blocks": [
+          {
+            "p": "**This week** on any sheet opens the person's week: hours, objectives done, upsells, average score and the bonus total, day by day. A day with no sheet shows a dash rather than a zero."
+          }
+        ]
+      }
+    ],
+    "faq": [
+      {
+        "q": "Where do the objectives come from?",
+        "a": "From the job plan's tasks that are assigned to the person and due that day. If the plan has none for them, they are typed on the sheet."
+      },
+      {
+        "q": "Can a crew member add an upsell with an amount?",
+        "a": "Yes, as a typed line. It credits the sheet; the coordinator sees it before evaluating, and the pay run is reviewed before it is saved."
+      }
+    ],
+    "updated": "2026-09-21"
+  },
 };

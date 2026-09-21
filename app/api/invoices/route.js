@@ -28,6 +28,9 @@ import {
   isEmptyCosting,
 } from "./costingWrite";
 import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
+import { readOfflineKey, withOfflineKey, recordOfflineRefusal } from "@/lib/offline/idempotency";
+import { buildLabourLine, labourRequestFrom, retotal } from "@/lib/invoices/labourLine";
+import { resolveLabourRate } from "@/lib/invoices/labourRates";
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -163,14 +166,27 @@ export async function POST(request) {
   const {
     clientId,
     quoteId,
-    lineItems,
-    subtotal,
+    // The job this invoice bills for, when the editor was opened from one
+    // (/app/invoices/new?jobId=). Owned-id checked below like the other two.
+    jobId,
+    // { timeEntryIds, rateKey } — "add today's clocked hours as a line". Ids
+    // and a key only; the server prices it (lib/invoices/labourLine.js).
+    labour,
+    // A body replayed from the phone's offline queue (lib/offline/queue.js)
+    // carries no subtotal/tax/total — this flag says "derive them here".
+    offline,
+    // The tax PERCENTAGE the editor showed, when it showed one. A rate, not
+    // an amount: used only to re-derive the tax after the server changes the
+    // lines. Absent → the company's own resolver decides.
+    taxRatePct,
+    lineItems: postedLineItems,
+    subtotal: postedSubtotal,
     discount,
-    tax,
+    tax: postedTax,
     // Whether this invoice CLAIMS tax applies. Distinct from `tax` being zero
     // — see the schema note on Invoice.taxEnabled.
     taxEnabled,
-    total,
+    total: postedTotal,
     dueDate,
     notes,
     language,
@@ -180,11 +196,44 @@ export async function POST(request) {
     costing,
   } = body;
 
-  if (!clientId || total === undefined) {
+  const offlineKey = readOfflineKey(request);
+  const labourRequest = labour ? labourRequestFrom(labour) : null;
+  const serverPrices = Boolean(offline || labourRequest);
+
+  if (!clientId || (postedTotal === undefined && !serverPrices)) {
     return NextResponse.json(
       { error: "clientId and total are required" },
       { status: 400 },
     );
+  }
+  if (labour && !labourRequest) {
+    return NextResponse.json(
+      { error: "The labour block needs timeEntryIds and a rateKey." },
+      { status: 400 },
+    );
+  }
+
+  // ── An offline replay the ledger already answered ─────────────────────────
+  //
+  // Checked before any validation so a replay of a key that was REFUSED last
+  // time answers with the same refusal (the phone shows "needs attention" and
+  // stops) rather than re-running the write and maybe succeeding on a body
+  // that was fixed elsewhere. See lib/offline/idempotency.js.
+  if (offlineKey) {
+    const seen = await db.offlineSyncItem.findUnique({
+      where: { companyId_clientKey: { companyId: member.companyId, clientKey: offlineKey } },
+      select: { entityId: true, status: true, error: true },
+    });
+    if (seen?.status === "failed") {
+      return NextResponse.json({ error: seen.error || "This invoice was refused earlier." }, { status: 409 });
+    }
+    if (seen?.entityId) {
+      const existing = await db.invoice.findFirst({
+        where: { id: seen.entityId, companyId: member.companyId },
+        include: { client: true },
+      });
+      if (existing) return NextResponse.json(redactInvoice(full, existing), { status: 200 });
+    }
   }
 
   // Neither id was proved to belong to this company before being written.
@@ -202,8 +251,50 @@ export async function POST(request) {
   const notOurs = await ownedIdsRefusal(NextResponse, db, member.companyId, {
     clientId,
     quoteId,
+    jobId,
   });
   if (notOurs) return notOurs;
+
+  // ── The clocked-hours line ────────────────────────────────────────────────
+  //
+  // Entries are loaded scoped to this company through their worker, and to
+  // the job when one was named. Anything open, already billed, rejected or
+  // without hours is left out by buildLabourLine; if nothing survives there is
+  // no line and the request is refused rather than answered with a $0 row.
+  let lineItems = Array.isArray(postedLineItems) ? postedLineItems : [];
+  let labourEntries = [];
+  if (labourRequest) {
+    labourEntries = await db.timeEntry.findMany({
+      where: {
+        id: { in: labourRequest.timeEntryIds },
+        worker: { companyId: member.companyId },
+        ...(jobId ? { jobId } : {}),
+      },
+      select: {
+        id: true, clockIn: true, clockOut: true, hours: true, status: true, billedInvoiceId: true,
+        worker: { select: { name: true } },
+      },
+    });
+    const rate = await resolveLabourRate(db, member.companyId, labourRequest.rateKey);
+    if (rate == null) {
+      const refusal = "No hourly rate is set for that key — set one under Settings → Field work.";
+      await recordOfflineRefusal({ db, companyId: member.companyId, memberId: member.id, key: offlineKey, kind: "invoice", error: refusal });
+      return NextResponse.json({ error: refusal }, { status: 422 });
+    }
+    const line = buildLabourLine({
+      entries: labourEntries,
+      rate,
+      rateKey: labourRequest.rateKey,
+      label: language === "fr" ? "Main-d'œuvre" : language === "es" ? "Mano de obra" : "Labour",
+    });
+    if (!line) {
+      const refusal = "None of those clock-ins can be billed — they are still open, already on an invoice, or have no hours.";
+      await recordOfflineRefusal({ db, companyId: member.companyId, memberId: member.id, key: offlineKey, kind: "invoice", error: refusal });
+      return NextResponse.json({ error: refusal }, { status: 422 });
+    }
+    labourEntries = labourEntries.filter((e) => line.labour.timeEntryIds.includes(e.id));
+    lineItems = [line, ...lineItems.filter((li) => li && String(li.description || "").trim())];
+  }
 
   // An invoice raised against a quote takes that quote's number so the pair
   // reconciles at a glance; one raised on its own has nothing to borrow and
@@ -223,6 +314,47 @@ export async function POST(request) {
   // resolver's answer for this client, recorded now so the invoice keeps
   // explaining itself after the rates table moves on. A figure the record
   // does not explain is recorded as typed by hand. See lib/tax/taxResolution.js.
+  // ── Money the server derives ──────────────────────────────────────────────
+  //
+  // An online save from the editor posts the figures it showed. A replay from
+  // the offline queue posts none, and a save that asked for a labour line
+  // posted figures that no longer include it — in both cases the lines are
+  // the truth and the totals are re-derived from them. The tax percentage is
+  // the editor's when it sent one, else the company's own resolver's answer
+  // ("the rate comes from your settings, not from this phone").
+  let resolved = null;
+  const readResolver = async () => {
+    if (resolved) return resolved;
+    const [companyForTax, taxRates, clientRow] = await Promise.all([
+      db.company.findUnique({
+        where: { id: member.companyId },
+        select: { taxRate: true, autoApplyLocalTax: true, country: true, province: true, vatRegistered: true, usTaxOverrides: true },
+      }),
+      db.taxRate.findMany({ where: { companyId: member.companyId } }),
+      db.client.findFirst({ where: { id: clientId, companyId: member.companyId } }),
+    ]);
+    resolved = resolveDocumentTax({
+      company: companyForTax || {},
+      taxRates,
+      client: await attachUsTaxRate(clientRow),
+    });
+    return resolved;
+  };
+
+  let subtotal = postedSubtotal;
+  let tax = postedTax;
+  let total = postedTotal;
+  if (serverPrices) {
+    const pctPosted = Number(taxRatePct);
+    const pct = Number.isFinite(pctPosted) && pctPosted >= 0 && typeof taxRatePct !== "undefined" && taxRatePct !== null
+      ? pctPosted
+      : Number((await readResolver())?.rate) || 0;
+    const money = retotal({ lineItems, discount, taxEnabled: taxEnabled !== false, taxRatePct: pct });
+    subtotal = money.subtotal;
+    tax = money.tax;
+    total = money.total;
+  }
+
   const taxableBase = (Number(subtotal) || 0) - (Number(discount) || 0);
   const inherited = readTaxResolution(sourceQuote?.taxResolution);
   let taxResolution = null;
@@ -230,20 +362,8 @@ export async function POST(request) {
     if (inherited && resolutionMatchesAmount(inherited, tax || 0, taxableBase)) {
       taxResolution = inherited;
     } else {
-      const [companyForTax, taxRates, clientRow] = await Promise.all([
-        db.company.findUnique({
-          where: { id: member.companyId },
-          select: { taxRate: true, autoApplyLocalTax: true, country: true, province: true, vatRegistered: true, usTaxOverrides: true },
-        }),
-        db.taxRate.findMany({ where: { companyId: member.companyId } }),
-        db.client.findFirst({ where: { id: clientId, companyId: member.companyId } }),
-      ]);
       taxResolution = resolutionForDocument({
-        resolution: resolveDocumentTax({
-          company: companyForTax || {},
-          taxRates,
-          client: await attachUsTaxRate(clientRow),
-        }),
+        resolution: await readResolver(),
         tax: tax || 0,
         taxableBase,
         taxEnabled,
@@ -279,12 +399,13 @@ export async function POST(request) {
         })
       : null;
 
-  const invoice = await db.invoice.create({
+  const createInvoice = (tx) => tx.invoice.create({
     data: {
       companyId: member.companyId,
       invoiceNumber: nextNumber,
       clientId,
       quoteId: quoteId || null,
+      jobId: jobId || null,
       createdById: member.userId,
       lineItems: lineItems || null,
       subtotal: subtotal || 0,
@@ -322,6 +443,31 @@ export async function POST(request) {
     },
     include: { client: true },
   });
+
+  // One transaction for the invoice, the hours it bills and the replay key:
+  // an invoice whose labour line exists while its entries stay unbilled is
+  // how the same afternoon ends up on two invoices. See
+  // lib/offline/idempotency.js for the replay side.
+  const { replayed, entityId, result: invoice } = await withOfflineKey(
+    { db, companyId: member.companyId, memberId: member.id, key: offlineKey, kind: "invoice" },
+    async (tx) => {
+      const created = await createInvoice(tx);
+      if (labourEntries.length) {
+        await tx.timeEntry.updateMany({
+          where: { id: { in: labourEntries.map((e) => e.id) }, billedInvoiceId: null },
+          data: { billedInvoiceId: created.id },
+        });
+      }
+      return { entityId: created.id, result: created };
+    },
+  );
+  if (replayed) {
+    const existing = entityId
+      ? await db.invoice.findFirst({ where: { id: entityId, companyId: member.companyId }, include: { client: true } })
+      : null;
+    if (!existing) return NextResponse.json({ error: "This invoice was refused earlier." }, { status: 409 });
+    return NextResponse.json(redactInvoice(full, existing), { status: 200 });
+  }
 
   // `costing` is deliberately NOT included in the response. Nothing on the
   // create path needs it back, and the fewer places a whole invoice row

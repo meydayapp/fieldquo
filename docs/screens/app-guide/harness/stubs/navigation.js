@@ -14,7 +14,15 @@ const ROUTER = { push: noop, replace: noop, back: noop, refresh: noop, prefetch:
 const EMPTY_SEARCH = new URLSearchParams("");
 export function useRouter() { return ROUTER; }
 export function useParams() { return (typeof window !== "undefined" && window.__harness?.params) || {}; }
-export function usePathname() { return (typeof window !== "undefined" && window.__harness?.href) || "/app"; }
-export function useSearchParams() { return EMPTY_SEARCH; }
+// A row's href may carry a query string ("/app/invoices/new?jobId=j_318"):
+// the path part is the pathname, the rest is what useSearchParams answers,
+// the way the App Router splits a real URL. Rows without one get the empty
+// set, as before.
+const rowHref = () => (typeof window !== "undefined" && window.__harness?.href) || "/app";
+export function usePathname() { return rowHref().split("?")[0]; }
+export function useSearchParams() {
+  const i = rowHref().indexOf("?");
+  return i >= 0 ? new URLSearchParams(rowHref().slice(i)) : EMPTY_SEARCH;
+}
 export function redirect() {}
 export function notFound() {}

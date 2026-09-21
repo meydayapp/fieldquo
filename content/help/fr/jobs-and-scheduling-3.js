@@ -725,4 +725,61 @@ export const ARTICLES = {
       { q: "Puis-je retirer le drapeau après coup?", a: "La case est sur le formulaire de réservation; la ligne elle-même n'offre pas d'interrupteur. C'est l'assignation d'un superviseur qui efface le statut ambre." },
     ],
   },
+  "daily-sheets": {
+    "title": "Feuilles de journée et prime de rendement",
+    "summary": "Une feuille par équipier et par jour : les objectifs (du plan de chantier ou saisis), les photos avant et après, les pointages, les ventes additionnelles réalisées, l'évaluation du coordonnateur, et la prime que produit la règle de l'entreprise — ou la phrase disant qu'il n'y a pas de règle.",
+    "intro": [
+      "Les feuilles de temps disent quand quelqu'un était sur le chantier. Les **feuilles de journée** (Équipe → Feuilles de journée) disent ce qu'il devait faire, si c'est fait, et ce qu'il a vendu sur place — ce dont un coordonnateur a besoin pour évaluer une journée, et ce sur quoi une prime de rendement, si l'entreprise en verse une, est calculée.",
+      "Un coordonnateur, un administrateur ou un propriétaire voit la feuille de chaque équipier et écrit l'évaluation. Un équipier voit sa propre feuille sur son téléphone, remplit les résultats, les photos et les ventes additionnelles, et lit l'évaluation une fois écrite."
+    ],
+    "sections": [
+      {
+        "id": "the-sheet",
+        "heading": "Ce qu'il y a sur la feuille",
+        "blocks": [
+          {
+            "bullets": [
+              "**Objectifs.** Les tâches du plan de chantier prévues ce jour-là et attribuées à la personne apparaissent comme objectifs ; à défaut, le coordonnateur ou la personne les saisit. Chacun a un statut — Prévu, Fait, Première couche / partiel, Non fait — et les heures réellement passées.",
+              "**Photos.** Une avant et une après par objectif, prises avec le téléphone.",
+              "**Pointages.** Lus en direct depuis l'horloge de pointage, donc une feuille de temps corrigée corrige la feuille. Rien n'est copié.",
+              "**Ventes additionnelles créditées.** Un extra coché par le client sur la soumission ou un avenant approuvé, choisi dans la liste pour que le montant soit celui du dossier ; ou une ligne saisie quand rien n'est au dossier.",
+              "**Évaluation.** Une note de 1 à 5 et un commentaire, écrits par le coordonnateur seulement — une personne ne peut pas noter sa propre journée."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "performance-pay",
+        "heading": "Prime de rendement",
+        "blocks": [
+          {
+            "p": "L'encadré de prime calcule ce que la règle de l'entreprise produit pour la journée — tant par objectif atteint, tant quand tous le sont, une part des ventes additionnelles — et montre le détail. Sans **aucune règle** (le défaut), l'encadré le dit et rien n'est calculé : pas de 0 $, pas de chiffre provisoire. Un propriétaire écrit la règle dans [[settings-field-work|Réglages → Terrain]]."
+          },
+          {
+            "note": "La prime part sur la prochaine paie comme ligne de gain **Prime de rendement**, que la personne qui fait la paie vérifie avant d'enregistrer. Une fois qu'une paie l'a prise, la feuille du jour est figée."
+          }
+        ]
+      },
+      {
+        "id": "the-week",
+        "heading": "La semaine",
+        "blocks": [
+          {
+            "p": "**Cette semaine**, sur n'importe quelle feuille, ouvre la semaine de la personne : heures, objectifs atteints, ventes additionnelles, note moyenne et total de prime, jour par jour. Un jour sans feuille affiche un tiret plutôt qu'un zéro."
+          }
+        ]
+      }
+    ],
+    "faq": [
+      {
+        "q": "D'où viennent les objectifs ?",
+        "a": "Des tâches du plan de chantier attribuées à la personne et prévues ce jour-là. Si le plan n'en a aucune pour elle, on les saisit sur la feuille."
+      },
+      {
+        "q": "Un équipier peut-il ajouter une vente additionnelle avec un montant ?",
+        "a": "Oui, comme ligne saisie. Elle crédite la feuille ; le coordonnateur la voit avant d'évaluer, et la paie est vérifiée avant d'être enregistrée."
+      }
+    ],
+    "updated": "2026-09-21"
+  },
 };

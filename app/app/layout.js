@@ -13,6 +13,7 @@ import ToastLayer from "@/app/components/ToastLayer";
 import PlanRequiredPrompt from "@/app/components/PlanRequiredPrompt";
 import AppTours from "@/app/components/AppTours";
 import JenniferPanel from "@/app/components/jennifer/JenniferPanel";
+import OfflineShell from "@/app/components/offline/OfflineShell";
 import CompanyPreferencesProvider from "@/app/providers/CompanyPreferencesProvider";
 import { LanguageProvider } from "@/app/providers/LanguageProvider";
 import { FeatureProvider } from "@/app/providers/FeatureProvider";
@@ -115,7 +116,7 @@ async function getCompanyShell() {
       where: { id: member.companyId },
       // influencerAt/influencerRepId: whether the Influencer row belongs in
       // the rail. Both, because lib/influencers' isInfluencer() needs both.
-      select: { name: true, currency: true, influencerAt: true, influencerRepId: true },
+      select: { name: true, currency: true, influencerAt: true, influencerRepId: true, offlineCachingEnabled: true },
     });
   } catch (err) {
     console.error("[AppLayout] couldn't load the company shell:", err);
@@ -417,6 +418,7 @@ export default async function AppLayout({ children }) {
     <div className="min-h-screen bg-background fq-app-shell">
       {/* Renders nothing unless a read-only support session is active. */}
       <ImpersonationBanner />
+
       {/* Renders nothing when the account is in good standing, which is the
           common case. Mounted here rather than on the billing page because
           someone whose card expired is looking at tomorrow's jobs, not at
@@ -459,6 +461,12 @@ export default async function AppLayout({ children }) {
         role={callerPermissions?.role}
         permissions={callerPermissions?.permissions}
       >
+        {/* The offline layer: registers public/sw.js's app-shell cache while
+            the company has it on, owns the IndexedDB queue, and draws the
+            amber "Offline — N invoices and M timesheets waiting to sync" bar
+            above the page. A provider, because the invoice editor and the
+            time clock read the queue through useOffline(). See lib/offline/. */}
+        <OfflineShell enabled={company?.offlineCachingEnabled !== false}>
         {/* lg:flex, not flex — below lg the sidebar renders as a full-width
             sticky top bar plus a drawer, which has to sit ABOVE the page in
             normal flow rather than beside it as a flex column. */}
@@ -476,6 +484,7 @@ export default async function AppLayout({ children }) {
           </main>
           <MobileTabBar />
         </div>
+        </OfflineShell>
       </PermissionProvider>
       </FeatureProvider>
       </CompanyPreferencesProvider>
