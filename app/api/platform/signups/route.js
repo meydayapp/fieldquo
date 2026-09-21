@@ -51,7 +51,29 @@ import {
   nudgeRecipient,
   decideSignupNudge,
 } from "@/lib/signup/abandoned";
-import { PROMOTE_AFTER_MS, STEP_LABELS } from "@/lib/signup/leads";
+import { PROMOTE_AFTER_MS, STEP_LABELS, emailKeyOf, tradeKeyForIndustries } from "@/lib/signup/leads";
+import { EARLY_NUDGE_DELAY_MINUTES, EARLY_TOUCH, RECOVERY_TOUCH } from "@/lib/signup/earlyNudge";
+import { discoveryTradeKeys, discoveryTradeLabel, isDiscoveryTradeKey } from "@/lib/sales/discovery/trades";
+import { INDUSTRIES } from "@/app/data/industries";
+
+/**
+ * The trade a row is about, derived from the person's OWN words and never
+ * guessed: the Prospect's tradeKey when one is on the floor (an operator may
+ * have set it), else the first industry slug that maps to a discovery trade
+ * (lib/signup/leads.js tradeKeyForIndustries — the same mapping the
+ * promotion writes). `raw` is what they ticked, as labels, so a row whose
+ * words mapped to nothing still shows them beside the "Set trade" select.
+ */
+function tradeOf({ prospectTradeKey = null, slugs = [] } = {}) {
+  const list = Array.isArray(slugs) ? slugs : [];
+  const key = isDiscoveryTradeKey(prospectTradeKey) ? prospectTradeKey : tradeKeyForIndustries(list);
+  return {
+    key,
+    label: key ? discoveryTradeLabel(key) : null,
+    source: isDiscoveryTradeKey(prospectTradeKey) ? "prospect" : key ? "industries" : null,
+    raw: list.map((slug) => INDUSTRIES.find((i) => i.slug === slug)?.label || slug),
+  };
+}
 
 export async function GET(request) {
   const admin = await getCurrentPlatformAdmin(request);
@@ -83,6 +105,11 @@ export async function GET(request) {
       signupNudgeSentAt: true,
       isDemo: true,
       subscription: { select: { id: true } },
+      referredByCode: true,
+      salesAttribution: { select: { salesRepId: true } },
+      // The lead behind the company: where they got to and when they were
+      // last seen, which is the "last seen" the screen sorts on.
+      signupLead: { select: { id: true, stepReached: true, lastSeenAt: true, trades: true } },
       _count: { select: { members: true, quotes: true, clients: true } },
       // Who to ask for. The Company row carries the address the signup was made
       // with; the owner's own name is on the User behind the Member, and it is
@@ -112,25 +139,64 @@ export async function GET(request) {
   // Rachel" / "unassigned" beside each unfinished signup.
   const floor = await db.prospect.findMany({
     where: { companyId: { in: rows.map((c) => c.id) }, signupKind: { not: null } },
-    select: { companyId: true, signupKind: true, hot: true, assignedRepId: true, claimExpiresAt: true },
+    select: { id: true, companyId: true, signupKind: true, hot: true, tradeKey: true, assignedRepId: true, assignedAt: true, claimExpiresAt: true },
   });
-  const repIds = [...new Set(floor.map((p) => p.assignedRepId).filter(Boolean))];
-  const reps = repIds.length ? await db.salesRep.findMany({ where: { id: { in: repIds } }, select: { id: true, name: true } }) : [];
-  const repName = new Map(reps.map((r) => [r.id, r.name]));
+  // Every rep, once: the names behind the holders AND the picker on the
+  // screen (active, not ended, not a test account — the review folder's own
+  // list, lib/signup/salesFloor.js's assign refuses anyone else).
+  const allReps = await db.salesRep.findMany({
+    where: { OR: [{ active: true, endedAt: null }, { id: { in: [...new Set(floor.map((p) => p.assignedRepId).filter(Boolean))] } }] },
+    select: { id: true, name: true, sellsIn: true, language: true, active: true, endedAt: true, testAccount: true },
+    orderBy: { name: "asc" },
+  });
+  const repName = new Map(allReps.map((r) => [r.id, r.name]));
+  const reps = allReps.filter((r) => r.active && !r.endedAt && !r.testAccount).map((r) => ({ id: r.id, name: r.name, sellsIn: r.sellsIn, language: r.language }));
   const floorByCompany = new Map();
   for (const p of floor) {
     const live = p.assignedRepId && (!p.claimExpiresAt || p.claimExpiresAt > now);
     floorByCompany.set(p.companyId, {
+      prospectId: p.id,
       kind: p.signupKind,
       hot: p.hot,
-      assignedTo: live ? { id: p.assignedRepId, name: repName.get(p.assignedRepId) || "a rep" } : null,
+      tradeKey: p.tradeKey,
+      assignedTo: live ? { id: p.assignedRepId, name: repName.get(p.assignedRepId) || "a rep", at: p.assignedAt } : null,
     });
   }
+
+  // ── Which follow-ups have gone out, per person ─────────────────────────
+  //
+  // The SignupNudge log (lib/signup/earlyNudge.js): the five-minute touch and
+  // the 24-hour note, keyed on the address. Company.signupNudgeSentAt is
+  // still read for the 24-hour note sent before the log existed.
+  const startedRows = await db.signupLead.findMany({
+    where: { completedCompanyId: null },
+    orderBy: { lastSeenAt: "desc" },
+    take: 200,
+    select: {
+      id: true, email: true, firstName: true, lastName: true, companyName: true, phoneE164: true, city: true, province: true, country: true,
+      trades: true, language: true, stepReached: true, startedAt: true, lastSeenAt: true, promotedAt: true, promotedLeadId: true, skipReason: true, salesCode: true,
+      referredRep: { select: { id: true, name: true } },
+      prospect: { select: { id: true, hot: true, signupKind: true, tradeKey: true, assignedRepId: true, assignedAt: true, claimExpiresAt: true, doNotContactAt: true } },
+    },
+  });
+  const emailKeys = [...new Set([...rows.map((c) => emailKeyOf(c.email)), ...startedRows.map((r) => emailKeyOf(r.email))].filter(Boolean))];
+  const nudgeRows = emailKeys.length
+    ? await db.signupNudge.findMany({ where: { emailKey: { in: emailKeys }, sentAt: { not: null } }, select: { emailKey: true, touch: true, sentAt: true } })
+    : [];
+  const nudgesFor = (email, legacyRecoveryAt = null) => {
+    const key = emailKeyOf(email);
+    const mine = nudgeRows.filter((n) => n.emailKey === key);
+    return {
+      early: mine.find((n) => n.touch === EARLY_TOUCH)?.sentAt || null,
+      recovery: mine.find((n) => n.touch === RECOVERY_TOUCH)?.sentAt || legacyRecoveryAt || null,
+    };
+  };
 
   const signups = rows.map((c) => {
     const to = nudgeRecipient(c.email);
     const verdict = to ? suppressed.get(to) : null;
     const lead = floorByCompany.get(c.id) || null;
+    const referredRepId = c.salesAttribution?.salesRepId || null;
     // The SAME predicate the cron uses, so the screen cannot print a different
     // answer from the one the send path will reach — the failure
     // lib/platform/trialCounting.js exists because of, where a banner and a
@@ -168,6 +234,16 @@ export async function GET(request) {
       // which rep holds it — null when none was written (a referred signup,
       // or one older than the floor).
       lead,
+      // Where the person got to and when they were last seen — off the lead
+      // behind the company, else the company's own creation.
+      stepReached: c.signupLead?.stepReached || "checkout",
+      stepLabel: STEP_LABELS[c.signupLead?.stepReached] || "Checkout",
+      lastSeenAt: c.signupLead?.lastSeenAt && c.signupLead.lastSeenAt > c.createdAt ? c.signupLead.lastSeenAt : c.createdAt,
+      trade: tradeOf({ prospectTradeKey: lead?.tradeKey || null, slugs: c.industries?.length ? c.industries : c.signupLead?.trades || [] }),
+      // A rep's own signup (their link attributed it): shown as theirs,
+      // never offered to anyone else.
+      referredTo: referredRepId ? { id: referredRepId, name: repName.get(referredRepId) || "a rep" } : c.referredByCode ? { id: null, name: null, code: c.referredByCode } : null,
+      nudges: nudgesFor(c.email, c.signupNudgeSentAt),
     };
   });
 
@@ -176,17 +252,6 @@ export async function GET(request) {
   // The SignupLead rows (lib/signup/leads.js): what people typed into the
   // first step and where each one now stands on the floor. Newest first,
   // bounded — this is a list a person reads, not an export.
-  const startedRows = await db.signupLead.findMany({
-    where: { completedCompanyId: null },
-    orderBy: { lastSeenAt: "desc" },
-    take: 200,
-    select: {
-      id: true, email: true, firstName: true, lastName: true, companyName: true, phoneE164: true, city: true, province: true, country: true,
-      trades: true, language: true, stepReached: true, startedAt: true, lastSeenAt: true, promotedAt: true, promotedLeadId: true, skipReason: true, salesCode: true,
-      referredRep: { select: { id: true, name: true } },
-      prospect: { select: { id: true, hot: true, signupKind: true, assignedRepId: true, claimExpiresAt: true, doNotContactAt: true } },
-    },
-  });
   const holderIds = [...new Set(startedRows.map((r) => r.prospect?.assignedRepId).filter(Boolean).filter((id) => !repName.has(id)))];
   if (holderIds.length) {
     for (const r of await db.salesRep.findMany({ where: { id: { in: holderIds } }, select: { id: true, name: true } })) repName.set(r.id, r.name);
@@ -196,7 +261,7 @@ export async function GET(request) {
     const live = p?.assignedRepId && (!p.claimExpiresAt || p.claimExpiresAt > now);
     let state;
     if (r.promotedLeadId && r.referredRep) state = { code: "rep_lead", rep: r.referredRep };
-    else if (p && live) state = { code: "assigned", rep: { id: p.assignedRepId, name: repName.get(p.assignedRepId) || "a rep" }, hot: p.hot };
+    else if (p && live) state = { code: "assigned", rep: { id: p.assignedRepId, name: repName.get(p.assignedRepId) || "a rep", at: p.assignedAt }, hot: p.hot };
     else if (p) state = { code: "unassigned", hot: p.hot };
     else if (r.skipReason) state = { code: "skipped", reason: r.skipReason };
     else if (!r.phoneE164) state = { code: "no_phone" };
@@ -217,14 +282,19 @@ export async function GET(request) {
       referredBy: r.referredRep || (r.salesCode ? { id: null, name: null, code: r.salesCode } : null),
       prospectId: p?.id || null,
       state,
+      trade: tradeOf({ prospectTradeKey: p?.tradeKey || null, slugs: r.trades }),
+      nudges: nudgesFor(r.email),
     };
   });
 
   return NextResponse.json({
     signups,
     started,
+    // The picker on the screen, and the trades a row's words may be set to.
+    reps,
+    trades: discoveryTradeKeys().map((key) => ({ key, label: discoveryTradeLabel(key) })),
     // Printed on the screen so the delay is stated where somebody reads it
     // rather than only in a source comment.
-    policy: { delayHours: NUDGE_DELAY_HOURS, windowDays: NUDGE_WINDOW_DAYS },
+    policy: { delayHours: NUDGE_DELAY_HOURS, windowDays: NUDGE_WINDOW_DAYS, earlyMinutes: EARLY_NUDGE_DELAY_MINUTES },
   });
 }

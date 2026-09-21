@@ -3,6 +3,8 @@
 
 import { CheckCircle2 } from "lucide-react";
 import { TRIAL_PRICE } from "@/lib/pricing";
+import { annualComparison } from "@/lib/pricing/ladder";
+import { annualPriceOf } from "@/lib/billing/interval";
 import { useTranslation } from "@/app/hooks/useTranslation";
 // The locale table moved to app/i18n/numberLocale.js — /pricing needed the
 // same one, and two copies of a mapping is how the second copy goes stale.
@@ -18,7 +20,15 @@ function money(value, locale) {
   return number.toLocaleString(locale, { maximumFractionDigits: 0 });
 }
 
-export default function PricingCard({ plan, selected, onSelect }) {
+// `interval` is the cadence the plan step's tabs have selected ("month" |
+// "year") and `symbol` the ladder's currency label (CA$ / US$). The card used
+// to print a bare "$" and the monthly figure whatever cadence was chosen, so
+// a visitor who picked the one-year commitment still read "99/mo" on every
+// card — the owner's exact complaint. Now the card reprices with the tab: on
+// the year the big figure is the monthly EQUIVALENT with the year's total
+// beside it, because the equivalent is what the buyer compares and the total
+// is what the card gets charged.
+export default function PricingCard({ plan, selected, onSelect, interval = "month", symbol = "$" }) {
   const { t, language } = useTranslation();
   const locale = numberLocaleFor(language);
 
@@ -44,6 +54,13 @@ export default function PricingCard({ plan, selected, onSelect }) {
   // advertising a dollar after the real price changed in lib/pricing.js.
   const trialTotal = TRIAL_PRICE;
   const monthlyTotal = Number(plan.priceMonthly || 0);
+  // Null priceAnnual means this tier has no annual option (every bespoke
+  // Custom row) — the card then keeps the monthly figure under the yearly tab
+  // and SAYS it is monthly only, rather than inventing a twelve-times price.
+  const yearly = interval === "year";
+  const cmp = annualComparison({ priceMonthly: plan.priceMonthly, priceAnnual: plan.priceAnnual });
+  const annualTotal = annualPriceOf(plan);
+  const perMonth = `${symbol}${money(monthlyTotal, locale)}${t("pricing.perMonthShort")}`;
 
   // ── There used to be a "(${amount}/licence)" line here ────────────────────
   //
@@ -95,13 +112,41 @@ export default function PricingCard({ plan, selected, onSelect }) {
         </div>
       </div>
 
-      <div className="mt-2 text-sm text-muted-foreground">
-        {t("pricing.then")}{" "}
-        <span className="font-semibold text-foreground">
-          ${money(monthlyTotal, locale)}
-          {t("pricing.perMonthShort")}
-        </span>
-      </div>
+      {yearly && cmp.available ? (
+        <div className="mt-2 text-sm text-muted-foreground">
+          {t("pricing.then")}{" "}
+          <span className="font-semibold text-foreground">
+            {symbol}
+            {money(cmp.perMonth, locale)}
+            {t("pricing.perMonthShort")}
+          </span>
+          {/* The strike-through is the monthly rate, shown only when the
+              year really is cheaper — "was CA$99/mo" beside an identical
+              number is a discount that isn't there. */}
+          {cmp.saves > 0 && (
+            <span className="ml-2 line-through decoration-muted-foreground/60">{perMonth}</span>
+          )}
+          {/* The free first month is a Stripe trial on BOTH cadences (see
+              lib/platform/stripeBilling.js createTrialCheckoutSession): no
+              charge for thirty days, then the whole year in one payment. So
+              this never says "today" — nothing is charged today. */}
+          <div className="text-xs mt-1">
+            {t("app.signup.plan.card.paidAnnually", "paid annually — {year} after your free month", {
+              year: `${symbol}${money(annualTotal, locale)}`,
+            })}
+          </div>
+        </div>
+      ) : (
+        <div className="mt-2 text-sm text-muted-foreground">
+          {t("pricing.then")}{" "}
+          <span className="font-semibold text-foreground">{perMonth}</span>
+          {yearly && (
+            <div className="text-xs mt-1">
+              {t("app.signup.plan.card.monthlyOnly", "billed monthly only — no annual option on this plan")}
+            </div>
+          )}
+        </div>
+      )}
 
       <ul className="mt-4 space-y-2 flex-1">
         <li className="flex items-center gap-2 text-sm text-foreground">
