@@ -435,7 +435,11 @@ function rowStatus(item, t) {
       label: item?.contact?.title || t("app.salesQueue.rowCannotBeCalled"),
     };
   }
-  if (item?.claim?.state === "mine_worked") {
+  // A signup lead handed to this rep outright (lib/signup/salesFloor.js
+  // "rep_lead") carries no lease, which claimState reads as "worked" — but
+  // nobody has dialled it. Until a dial is logged it is claimed, not worked;
+  // a green tick on an untouched row would be a false statement.
+  if (item?.claim?.state === "mine_worked" && !(item?.signup && !item?.lastOutcome)) {
     return {
       Icon: CircleCheck,
       className: "text-emerald-700 dark:text-emerald-300",
