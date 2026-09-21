@@ -23,6 +23,9 @@ import {
   sourcingProgress,
 } from "@/lib/jobs/sourcingList";
 import { taskForJobMaterials } from "@/lib/tasks/autoCreate";
+import { stockLevels } from "@/lib/purchasing/stock";
+import { onHandStatus } from "@/lib/materials/list";
+import { checkSpend } from "@/lib/voice/spendGate";
 
 const num = (v) => {
   const n = Number(v);
@@ -48,6 +51,13 @@ function shape(m) {
     purchasedAt: m.purchasedAt,
     addedByHand: m.addedByHand,
     sortOrder: m.sortOrder,
+    // The AI list's columns. Null on rows written before it existed; the
+    // panel draws those under "Other" with no reason line.
+    group: m.group || null,
+    reason: m.reason || null,
+    wastePct: m.wastePct == null ? null : num(m.wastePct),
+    stockMaterialId: m.stockMaterialId || null,
+    source: m.source || null,
   };
 }
 
@@ -79,22 +89,95 @@ function stripCosts(shaped) {
 }
 
 async function listFor(jobId, member) {
-  const materials = await db.jobMaterial.findMany({
-    where: { jobId },
-    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
-  });
+  const [materials, job] = await Promise.all([
+    db.jobMaterial.findMany({
+      // Excluded rows stay in the table (the next build reads them) and out of
+      // the list.
+      where: { jobId, excludedAt: null },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+    }),
+    db.job.findFirst({
+      where: { id: jobId },
+      select: {
+        companyId: true,
+        materialListBuiltAt: true,
+        materialListModel: true,
+        materialListBuiltById: true,
+      },
+    }),
+  ]);
   const shaped = materials.map(shape);
+
+  // ── On hand, summed from movements ────────────────────────────────────────
+  //
+  // Only for the lines matched to a stock row, and only the movements of
+  // those rows. The level is never read off a column — lib/purchasing/stock.js
+  // — and a line with no match says "not tracked", never 0.
+  const stockIds = [...new Set(shaped.map((m) => m.stockMaterialId).filter(Boolean))];
+  if (stockIds.length && job) {
+    const [rows, movements] = await Promise.all([
+      db.material.findMany({
+        where: { id: { in: stockIds }, companyId: job.companyId },
+        select: { id: true, name: true, unit: true, reorderThreshold: true },
+      }),
+      db.stockMovement.findMany({
+        where: { companyId: job.companyId, materialId: { in: stockIds } },
+        select: { materialId: true, quantity: true },
+      }),
+    ]);
+    const levels = new Map(stockLevels(rows, movements).map((l) => [l.materialId, l]));
+    for (const m of shaped) {
+      const level = m.stockMaterialId ? levels.get(m.stockMaterialId) : null;
+      // A stock id that no longer names one of this company's rows reads as
+      // untracked — the same as no id at all.
+      Object.assign(m, onHandStatus(m.qty, level ? level.level : null));
+    }
+  } else {
+    for (const m of shaped) Object.assign(m, onHandStatus(m.qty, null));
+  }
+
+  let builtBy = null;
+  if (job?.materialListBuiltById) {
+    const u = await db.user.findUnique({
+      where: { id: job.materialListBuiltById },
+      select: { name: true },
+    });
+    builtBy = u?.name || null;
+  }
+  const built = job?.materialListBuiltAt
+    ? { at: job.materialListBuiltAt, model: job.materialListModel, by: builtBy }
+    : null;
 
   // Progress is computed from the PRICED rows and then trimmed, so the counts
   // a cost-hidden caller sees (how many lines, how many bought) stay true.
   // Only the two money totals go.
   const progress = sourcingProgress(shaped);
-  if (hasToggle(member, "jobCosting")) return { materials: shaped, progress };
+  progress.short = shaped.filter((m) => m.status === "short" && !m.purchasedAt).length;
+  if (hasToggle(member, "jobCosting")) return { materials: shaped, progress, built };
 
   const { estimatedTotal, actualTotal, ...countsOnly } = progress;
   return {
     materials: stripCosts(shaped),
     progress: { ...countsOnly, costHidden: true },
+    built,
+  };
+}
+
+/**
+ * Whether the company could afford one AI build RIGHT NOW, read-only — the
+ * same verdict POST /materials/build takes the money on, minus the taking.
+ * The banner prints the price and the balance from this, so the button says
+ * "costs $0.10 and you have it" before anybody presses it. Never a 402 from
+ * a GET: nothing was asked for.
+ */
+async function spendFor(companyId) {
+  const spend = await checkSpend({ companyId, kind: "material_list" });
+  return {
+    allowed: spend.allowed,
+    reason: spend.reason,
+    needCents: spend.needCents,
+    balanceCents: spend.balanceCents,
+    shortfallCents: spend.shortfallCents,
   };
 }
 
@@ -132,7 +215,8 @@ export async function GET(request, { params }) {
 
   if (!(await ownJob(id, member.companyId, full)))
     return NextResponse.json({ error: "Not found" }, { status: 404 });
-  return NextResponse.json(await listFor(id, full));
+  const [list, spend] = await Promise.all([listFor(id, full), spendFor(member.companyId)]);
+  return NextResponse.json({ ...list, spend });
 }
 
 // Rebuild from the quote, or add one line by hand.
@@ -270,7 +354,12 @@ export async function PATCH(request, { params }) {
   // Refused out loud, not dropped: nothing in the app sends qty for a derived
   // line, so a body that does is a caller that misunderstands the column —
   // see the note on `qty` in the update below.
-  if (body.qty !== undefined && !line.addedByHand) {
+  // An AI row's qty is the model's ESTIMATE, not the recipe's prediction —
+  // the office correcting "6 rollers" to "4" is the review the banner asks
+  // for, and the close-out has no rate to calibrate against it. Takeoff
+  // rows keep the refusal: theirs IS the prediction.
+  const qtyEditable = line.addedByHand || line.source === "ai";
+  if (body.qty !== undefined && !qtyEditable) {
     return NextResponse.json(
       {
         error:
@@ -341,7 +430,7 @@ export async function PATCH(request, { params }) {
       // into two columns to prevent. A hand-added line has no prediction
       // behind it; its qty is the person's own statement and stays editable.
       ...(body.qty !== undefined &&
-        line.addedByHand && { qty: Math.max(0, num(body.qty)) }),
+        qtyEditable && { qty: Math.max(0, num(body.qty)) }),
     },
   });
 
@@ -384,11 +473,20 @@ export async function DELETE(request, { params }) {
       jobId: id,
       job: { companyId: member.companyId, ...assignedJobWhere(full) },
     },
-    select: { id: true },
+    select: { id: true, addedByHand: true },
   });
   if (!line) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  await db.jobMaterial.delete({ where: { id: line.id } });
+  // A hand-added line is deleted — it was theirs to type and theirs to
+  // remove. A derived line is EXCLUDED instead: the row stays, hidden, so the
+  // next AI build reads it and does not offer the same item again. That is
+  // the only way "lines you delete stay deleted on the next build" is true
+  // rather than a sentence on a banner.
+  if (line.addedByHand) {
+    await db.jobMaterial.delete({ where: { id: line.id } });
+  } else {
+    await db.jobMaterial.update({ where: { id: line.id }, data: { excludedAt: new Date() } });
+  }
   await taskForJobMaterials(id);
   return NextResponse.json(await listFor(id, full));
 }

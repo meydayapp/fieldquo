@@ -138,8 +138,13 @@ const schema = read("prisma/schema.prisma");
 ok("JobMaterial carries actualQty and materialKey", /actualQty Decimal\? @db\.Decimal\(12, 2\)/.test(schema) && /materialKey String\?/.test(schema));
 
 const patch = code("app/api/jobs/[id]/materials/route.js");
-ok("PATCH refuses qty on a derived line, out loud", /if \(body\.qty !== undefined && !line\.addedByHand\)[\s\S]{0,400}status: 400/.test(patch));
-ok("...and writes qty only when the line was added by hand", /body\.qty !== undefined &&\s*line\.addedByHand && \{ qty:/.test(patch));
+// A TAKEOFF line's qty is the recipe's prediction and stays refused; a
+// hand-added line's is the person's own statement; an AI-built line's
+// (JobMaterial.source === "ai", 2026-09-21) is the model's estimate, which
+// the office is asked to correct and the close-out has no rate to calibrate
+// against. The refusal and the write share ONE predicate.
+ok("PATCH refuses qty on a takeoff-derived line, out loud", /const qtyEditable = line\.addedByHand \|\| line\.source === "ai";[\s\S]{0,200}if \(body\.qty !== undefined && !qtyEditable\)[\s\S]{0,400}status: 400/.test(patch));
+ok("...and writes qty only through that same predicate", /body\.qty !== undefined &&\s*qtyEditable && \{ qty:/.test(patch));
 ok("...writes actualQty", /\.\.\.\(actualQty !== undefined && purchased && \{ actualQty \}\)/.test(patch));
 ok("...refuses a non-numeric or negative used quantity", /!Number\.isFinite\(n\) \|\| n < 0[\s\S]{0,300}status: 400/.test(patch));
 ok("...and a quantity-only PATCH leaves the receipt fields alone", /const isTick = body\.purchased !== undefined;/.test(patch) && /\.\.\.\(isTick && \{/.test(patch));

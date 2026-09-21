@@ -105,7 +105,12 @@ export default function AiCreditCard({ ai }) {
       tour="ai-credit-ai"
       title={t("app.setAiCredit.aiTitle", "AI image credit")}
       icon={Sparkles}
-      hint={t("app.setAiCredit.aiHint", "Spent by AI image generation ({gen}¢ each) and the paid deep photo read on a quote ({vis}¢ per read, up to 8 photos).", { gen: ai.priceCents.image_generation, vis: ai.priceCents.image_vision })}
+      hint={`${t("app.setAiCredit.aiHint", "Spent by AI image generation ({gen}¢ each) and the paid deep photo read on a quote ({vis}¢ per read, up to 8 photos).", { gen: ai.priceCents.image_generation, vis: ai.priceCents.image_vision })}${
+        // The third thing this wallet pays for. Its own sentence rather than a
+        // rewrite of the one above, so the eight translations of that sentence
+        // stay untouched; the price is passed in, never typed in.
+        ai.priceCents.material_list ? ` ${t("app.setAiCredit.materialListHint", "The AI material list on a job costs {mat}¢ per build.", { mat: ai.priceCents.material_list })}` : ""
+      }`}
     >
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <span className="text-sm font-medium text-muted-foreground">{t("app.setAiCredit.balance", "Balance:")}</span>
