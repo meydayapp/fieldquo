@@ -124,6 +124,13 @@ export default function DashboardPage() {
   const { role } = usePermissions();
   const canManageSetup = can(role, "user:manage");
   const [onboarding, setOnboarding] = useState(null);
+  // `?step=<key>` — the onboarding checklist step to open in its window the
+  // moment the list is loaded. The "next steps" letter
+  // (lib/email/onboardingNextStepsEmail.js) links each open step this way so
+  // a tap on the phone lands in the form, not on a settings page the reader
+  // has to find the field on. Read once on mount and stripped from the URL,
+  // like `?connected` below, so a refresh does not reopen it.
+  const [openStepKey, setOpenStepKey] = useState(null);
   // ── "$0 revenue this month" was a refusal wearing a number ───────────────
   //
   // GET /api/analytics/overview refuses a member without the showPricing
@@ -416,8 +423,12 @@ export default function DashboardPage() {
     const params =
       typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
     const backFromStripe = Boolean(params?.get("connected"));
-    if (backFromStripe) {
+    const step = String(params?.get("step") || "").trim();
+    if (/^[a-z_]{1,40}$/.test(step)) setOpenStepKey(step);
+    if (backFromStripe || step) {
       window.history.replaceState({}, "", window.location.pathname);
+    }
+    if (backFromStripe) {
       fetch("/api/stripe/connect/status", { cache: "no-store" })
         .catch(() => {})
         .then(() => loadOnboarding());
@@ -548,6 +559,8 @@ export default function DashboardPage() {
         status={onboarding}
         onRefresh={loadOnboarding}
         canOpenInPlace={canManageSetup}
+        openStepKey={openStepKey}
+        onOpenedStep={() => setOpenStepKey(null)}
       />
 
       {/* The eleven things worth doing after onboarding — each row removed the

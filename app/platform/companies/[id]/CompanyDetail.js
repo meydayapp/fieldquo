@@ -58,6 +58,18 @@ function formatDate(value) {
   });
 }
 
+/** "Sep 21, 2026, 4:10 p.m." — for the moment a letter went out, where the day alone hides "two hours after". */
+function formatDateTime(value) {
+  if (!value) return "—";
+  return new Date(value).toLocaleString("en-CA", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 export default function CompanyDetail({ companyId }) {
   const [company, setCompany] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -323,6 +335,37 @@ export default function CompanyDetail({ companyId }) {
           <p className="text-xs text-muted-foreground mt-3">
             Trial used on {formatDate(company.trialUsedAt)} — a restart after a cancellation is charged on the day.
           </p>
+        )}
+        {/* ── The letters FieldQuo wrote about this subscription ─────────
+            Read off the columns the senders stamp (lib/billing/notify.js,
+            app/api/cron/onboarding-next-steps), never inferred from the
+            clock. "Not sent" beside a reason is a decision the cron
+            recorded; a blank column with no reason is "not yet", and says
+            so, because the letter is due on a timer this screen does not
+            run. docs/ONBOARDING-EMAILS.md lists the whole sequence. */}
+        {sub && (
+          <dl className="grid gap-4 sm:grid-cols-2 mt-4 pt-4 border-t border-border">
+            <Field
+              label="Subscription confirmation"
+              value={sub.welcomeEmailSentAt ? `Sent ${formatDateTime(sub.welcomeEmailSentAt)}` : "Not sent"}
+              muted={!sub.welcomeEmailSentAt}
+            />
+            <Field
+              label="Next-steps email"
+              value={
+                sub.nextStepsEmailSentAt
+                  ? `Sent ${formatDateTime(sub.nextStepsEmailSentAt)}`
+                  : sub.nextStepsEmailSkipped === "onboarding_complete"
+                    ? "Not sent — setup was already complete when it came due"
+                    : sub.nextStepsEmailSkipped === "no_recipient"
+                      ? "Not sent — no address to send it to"
+                      : sub.nextStepsEmailSkipped
+                        ? `Not sent — ${sub.nextStepsEmailSkipped}`
+                        : "Not sent yet"
+              }
+              muted={!sub.nextStepsEmailSentAt}
+            />
+          </dl>
         )}
       </div>
 

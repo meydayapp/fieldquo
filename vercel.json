@@ -155,6 +155,10 @@
     {
       "path": "/api/cron/google-calendar-reconcile",
       "schedule": "25 * * * *"
+    },
+    {
+      "path": "/api/cron/onboarding-next-steps",
+      "schedule": "3,18,33,48 * * * *"
     }
   ]
 }

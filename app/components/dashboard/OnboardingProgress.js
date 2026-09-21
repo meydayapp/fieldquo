@@ -1,7 +1,7 @@
 // app/components/dashboard/OnboardingProgress.js
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 import Link from "next/link";
 import { CheckCircle2, Circle } from "lucide-react";
 import CircularProgress from "./CircularProgress";
@@ -40,7 +40,12 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 // refused, so the row stays what it was: a link to the page, which says why.
 // The Stripe step hands the browser to Stripe from inside its dialog and
 // comes back here; the payments page still works exactly as before.
-export default function OnboardingProgress({ status, onRefresh, canOpenInPlace = false }) {
+// `openStepKey` is the step the page was asked to open on load (`/app?step=
+// pricing`, from the next-steps letter). Opened once, when the list has
+// arrived and the step is still to do; `onOpenedStep` hands the key back so
+// a later re-render does not reopen it. A step that is already done, or one
+// this member may not save, opens nothing — the row is drawn as usual.
+export default function OnboardingProgress({ status, onRefresh, canOpenInPlace = false, openStepKey = null, onOpenedStep }) {
   const { t } = useTranslation();
 
   // labelKey through t(), with the English the server sent as the fallback —
@@ -68,6 +73,13 @@ export default function OnboardingProgress({ status, onRefresh, canOpenInPlace =
     labelOf: rowLabel,
     hrefOf: (step) => step.href,
   });
+
+  useEffect(() => {
+    if (!openStepKey || !status?.steps?.length) return;
+    const step = status.steps.find((s) => s.key === openStepKey);
+    onOpenedStep?.();
+    if (step && !step.done && canOpenInPlace && hasStepPanel(step.key)) open(step);
+  }, [openStepKey, status, canOpenInPlace, open, onOpenedStep]);
 
   if (!status?.steps?.length || status.complete) return null;
 

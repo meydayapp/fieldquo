@@ -1085,6 +1085,22 @@ model Subscription {
   /// before their card is charged.
   renewalReminderSentAt DateTime?
 
+  /// The "next steps" email — FieldQuo to a company whose card is in and
+  /// whose onboarding checklist is still open, a couple of hours after the
+  /// Subscription row appeared (lib/signup/nextSteps.js; the cron is
+  /// /api/cron/onboarding-next-steps). Claimed BEFORE the send by an
+  /// updateMany on `null`, the renewal reminder's trade: a claim that did not
+  /// become a letter is reverted to null so a Resend hiccup cannot consume
+  /// the one letter a company ever gets, and two overlapping runs cannot both
+  /// win the same row.
+  nextStepsEmailSentAt DateTime?
+  /// Why the letter was decided against, once, on the run that reached the
+  /// row: "onboarding_complete" (everything was ticked by the time it was
+  /// due), "no_recipient". Null while undecided. A decided row is never
+  /// revisited, so a company that finished in the first two hours is not
+  /// written to a week later because Stripe review dropped a tick.
+  nextStepsEmailSkipped String?
+
   // ── Refunds and disputes on FieldQuo's OWN charge ────────────────────────
   //
   // lib/stripe/settleChargeEvent.js receives charge.refunded and all three

@@ -12,6 +12,7 @@ import Link from "next/link";
 import { Search, Loader2, Building2, AlertCircle } from "lucide-react";
 import { count, money } from "@/app/components/platform/MetricCard";
 import { statusMeta } from "@/lib/platform/subscriptionStatus";
+import NextStepsEmailCard from "./NextStepsEmailCard";
 
 const STATUS_FILTERS = [
   { value: "", label: "All" },
@@ -85,6 +86,11 @@ export default function PlatformCompaniesPage() {
           Every company on FieldQuo.
         </p>
       </div>
+
+      {/* The one letter FieldQuo writes to a new company after the
+          confirmation, with its switch — here rather than on /platform/signups,
+          which is about people who never became a company. */}
+      <NextStepsEmailCard />
 
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">

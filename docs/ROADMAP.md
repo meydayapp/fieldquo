@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 21 September 2026 (the home page's two checklists open each step in a dialog on the page instead of navigating away — the same form the settings page renders, save re-reads the list, the row ticks or leaves, and the next step is offered in place; Stripe Connect and AI credit say plainly that they hand off to Stripe; every settings page keeps working and the deep links are untouched — see "Set-up steps open in place" below; previous line: presence on the sales floor is DERIVED from the portal's keepalive — Off since {time} · Available · Busy · on a call / writing it up · Paused ({reason}) — and the floor board reads the performance page's one calls table, see the second section below)
+Last updated: 21 September 2026 (the "next steps" email: two hours after a company's card goes in, if its onboarding checklist is still open, FieldQuo sends one letter in the company's language — the trade in the subject, only the open steps numbered in the checklist's order with what each unlocks for that trade, each a link that opens the step's window on the home page, a tick list of what is done — once per company, never a demo, switch and delay on /platform/companies, sent-date on the company page; see "The next-steps email" below; previous line: the home page's two checklists open each step in a dialog on the page instead of navigating away — see "Set-up steps open in place" below)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -9,6 +9,73 @@ it exists to answer.
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
+
+## The next-steps email: two hours after the card, only the steps still open, each a link into its window (21 September 2026)
+
+The owner had just signed up to a lead-generation site as a contractor and
+brought back its sequence: a welcome at signup, and two hours later a letter
+specific to the trade he had chosen, with a numbered "next steps 1-2-3"
+block. FieldQuo's own sequence after the card was one English "you're
+subscribed" confirmation and then silence until the trial-end notice.
+
+**What ships.** `docs/ONBOARDING-EMAILS.md` lists the whole sequence with
+times. The new touch:
+
+- `lib/email/onboardingNextStepsEmail.js` — subject
+  "{company}: next steps for your painting business" (the intro email's
+  trade phrase, en / fr / es); a numbered block of ONLY the open checklist
+  steps in `lib/onboarding.js`'s order (at most five), each with one line on
+  what it unlocks — the trade's own quote / card-payments sentence from
+  `lib/sales/tradeSellingPoints.js` where the trade lists one, the catalogue's
+  product sentence otherwise, the country's own tax why-sentence — and a
+  button to `/app?step=<key>`, which opens that step's window on the home
+  page (Stripe keeps the payments page and the row says it opens Stripe); a
+  tick list of what is done; a footer that says why and that it arrives once.
+  Transactional under `lib/marketing/unsubscribe.js`'s split — B2B account
+  admin to a paying customer, same class as the confirmation and the grace
+  warnings — so no unsubscribe and no mailing address, asserted. No "one email
+  a week?" link: no weekly digest exists to switch to.
+- `lib/signup/nextSteps.js` (pure) + `nextStepsStore.js` — due from
+  `Subscription.createdAt + delay`, no longer due 72 h after that; demos out;
+  the checklist re-read AFTER the claim; a company that finished inside the
+  window is skipped ONCE and recorded (`nextStepsEmailSkipped`), never
+  written to later when a tick drops. Social proof ("the N painting businesses
+  sent their first quote a median of X after signing up") prints only from
+  ten or more real subscribed companies of the trade — three exist today, so
+  nothing prints.
+- `/api/cron/onboarding-next-steps` every fifteen minutes (`vercel.json`);
+  claim on `Subscription.nextStepsEmailSentAt` before the send, reverted on
+  a failed send or build (the renewal reminder's trade).
+- `/app?step=<key>` on the dashboard opens that checklist step's dialog on
+  load (read once, stripped from the URL, only for a member who may save).
+- `/platform/companies` — the switch and the delay (1–72 h, default on at
+  2 h; `PlatformSetting onboarding.nextStepsEmail`), superadmin-only on write,
+  audit-logged; and "Email me a sample": the real letter, built from a named
+  company's checklist (or the first demo), sent by the real path to the
+  superadmin's own row's address only, marking nothing.
+- `/platform/companies/<id>` — "Subscription confirmation: Sent {when}" and
+  "Next-steps email: Sent {when} / Not sent — {recorded reason} / Not sent
+  yet" beside the plan.
+- `scripts/check-onboarding-next-steps.mjs` (145 assertions, in `check:all`)
+  executes the rule, the settings, the links, the proof gate and the builder
+  in three languages against all-done, no trade, a hostile name and junk
+  proof, measures the five colour pairs, and reads the wiring.
+
+### Still owed here
+
+- **A live send was not performed from the agent's machine.** `RESEND_API_KEY`
+  and `CRON_SECRET` are Sensitive in Vercel and the local `.env` has no
+  Resend key, so the builder was executed against the production demo
+  company's real checklist but the Resend call could not be. The
+  "Email me a sample" control on /platform/companies is the real mechanism —
+  press it once after the deploy and the letter arrives at the superadmin's
+  address from the discovered sender.
+- The "you're subscribed" confirmation is still English-only; the next-steps
+  letter is the first post-card touch in the company's language.
+- Only twelve signup industry slugs map to a discovery trade
+  (`app/data/industries.js`); a company on any other slug gets the letter
+  with no trade in the subject and the generic product sentences — the same
+  limit the five-minute nudge has.
 
 ## Set-up steps open in place: the onboarding checklist and the additional steps as dialogs on the home page (21 September 2026)
 
