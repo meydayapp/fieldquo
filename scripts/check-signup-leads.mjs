@@ -52,6 +52,10 @@ import {
 import { captureBodyFor } from "@/lib/signup/leadCapture";
 import {
   assignSignupToRep,
+  assignSignupForCallback,
+  ensureSignupProspect,
+  promoteOneSignupLead,
+  setSignupTrade,
   captureSignupLead,
   promoteSignupLeads,
   recordSignupCompletion,
@@ -160,7 +164,7 @@ section("2. The capture route — 204, JSON body, no PII in a URL, cross-visitor
   const route = read("app/api/signup/lead/route.js");
   ok("POST answers 204 with no body", /new NextResponse\(null, \{ status: 204 \}\)/.test(route));
   ok("POST never returns row data (no NextResponse.json after the capture)", !/captureSignupLead[\s\S]*NextResponse\.json\(\{ (lead|prefill|signup)/.test(route.split("export async function GET")[0]));
-  ok("GET requires a resume token, not an email", /searchParams\.get\("token"\)/.test(route) && !/searchParams\.get\("email"\)/.test(route));
+  ok("GET requires a resume token or a session, never an email in the URL", /params\.get\("token"\)/.test(route) && !/params\.get\("email"\)/.test(route));
   ok("the route is rate-limited", /rateLimit\(request, "signup-lead"/.test(route));
 
   const page = read("app/signup/page.js");
@@ -171,7 +175,7 @@ section("2. The capture route — 204, JSON body, no PII in a URL, cross-visitor
   ok("the page keeps the furthest step at the Stripe handoff", /captureBodyFor\(form, "checkout"/.test(page));
   ok("the page uses keepalive so a handoff post still leaves", /keepalive: true,\s*\}\)\.catch/.test(page.split("function postSignupCapture")[1] || ""));
   ok("the resume link is read as a token", /URLSearchParams\(window\.location\.search\)\.get\("resume"\)/.test(page));
-  ok("the resume prefill fills only what is still empty", /email: f\.email \|\| p\.email/.test(page));
+  ok("the resume prefill fills only what is still empty", /if \(next\[key\] \|\| !value\) return;/.test(page) && /put\("email", p\.email\)/.test(page));
   ok("a signed-in owner adding a business is never captured", /if \(!hydrated \|\| !entryChecked \|\| alreadyOnFieldquo \|\| finishCheckout\) return;/.test(page));
 
   // Executed against the stub: create, update, lock.
@@ -202,6 +206,55 @@ section("2. The capture route — 204, JSON body, no PII in a URL, cross-visitor
   ok("the resume read never returns the row id, the codes or the token", prefill && !("id" in prefill) && !("salesCode" in prefill) && !("resumeToken" in prefill));
   ok("the resume read says the account already exists past step one", prefill?.accountExists === true);
   ok("an unknown token is null", (await signupLeadForResume({ client: db, token: "nope" })) === null);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("2b. A signed-in return puts the row back — the owner's 2026-09-21 bug");
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// He signed back into a company he had taken to Plan, from a fresh session,
+// and was shown the business step with every box empty under a banner that
+// said nothing was lost. Three things were missing: the address and the
+// service picks were never captured, so even a token resume could not get
+// past step one; and a signed-in return never asked for the row at all,
+// because the only read was by resume token.
+{
+  // The two answers the resume could not put back are captured now.
+  const body = captureBodyFor(
+    { email: "d@x.com", password: "hunter22", firstName: "Dave", address: "12 Elm St", city: "Ottawa", companyName: "Martin Painting" },
+    "services",
+    { selectedIndustries: ["painting"], selectedCategoryIds: ["cmr8n30vx0000uot61rlzeadg", "<script>", 42] },
+  );
+  ok("the page's body carries the street address", body?.address === "12 Elm St");
+  ok("…and the ticked quote types, as ids", Array.isArray(body?.serviceCategoryIds) && body.serviceCategoryIds.length === 2 && body.serviceCategoryIds[0] === "cmr8n30vx0000uot61rlzeadg");
+  const parsed = normaliseCapture({ ...body });
+  ok("the server keeps the address and drops what is not a catalogue id", parsed.lead?.address === "12 Elm St" && parsed.lead?.serviceCategoryIds?.length === 1);
+  ok("markup in the address is refused, not repaired", normaliseCapture({ ...body, address: "<b>12 Elm</b>" }).error === "address");
+  const kept = planCaptureWrite({
+    existing: { ...parsed.lead, stepReached: "plan" },
+    incoming: { emailKey: "d@x.com", email: "d@x.com", stepReached: "account", address: null, serviceCategoryIds: [] },
+    now: NOW,
+  });
+  ok("a later capture without them does not erase the address or the picks", kept.data.address === "12 Elm St" && kept.data.serviceCategoryIds.length === 1);
+
+  // The read by the address a session proves — the same function, a second key.
+  resetDbStub();
+  await captureSignupLead({ client: db, body: { ...body, email: "Dave@x.com", step: "plan" }, now: NOW });
+  const mine = await signupLeadForResume({ client: db, email: "dave@X.com" });
+  ok("the resume read answers by normalised email", mine?.address === "12 Elm St" && mine.serviceCategoryIds.length === 1 && mine.stepReached === "plan");
+  ok("…and by neither key when both are absent", (await signupLeadForResume({ client: db })) === null);
+
+  const route = read("app/api/signup/lead/route.js");
+  ok("?mine=1 takes the address from the SESSION, never the query string", /params\.get\("mine"\) === "1"/.test(route) && /auth\.api\.getSession\(\{ headers: request\.headers \}\)/.test(route) && !/searchParams\.get\("email"\)/.test(route));
+  ok("…and a signed-out caller gets the same 404 as an unknown token", /if \(!email\) return NextResponse\.json\(\{ error: "Not found" \}, \{ status: 404 \}\);/.test(route));
+
+  const page = read("app/signup/page.js");
+  const signedIn = page.split("setResumedSignup(true);")[1]?.split("} catch {")[0] || "";
+  ok("the signed-in branch asks for the row before entryChecked flips", /CAPTURE_ENDPOINT\}\?mine=1/.test(signedIn) && /applyLeadPrefill\(p\)/.test(signedIn) && /leadStepRef\.current = p\.stepReached/.test(signedIn));
+  ok("the resume judges the further of the draft's step and the row's", /further\(draftStepRef\.current, leadStepRef\.current\)/.test(page));
+  ok("the prefill puts back the address and the service picks", /put\("address", p\.address\)/.test(page) && /setSelectedCategoryIds\(p\.serviceCategoryIds\)/.test(page));
+  ok("the banner claims a restore only when fields were actually put back", /const kept = restoredLead\?\.fields\?\.length > 0;/.test(page) && /"app\.signup\.resumed\.bodyRestored"/.test(page) && !/nothing you've already entered is lost/.test(page));
+  ok("the capture posts the picks on every step and at the handoff", (page.match(/selectedCategoryIds,\s*salesCode/g) || []).length >= 3);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -387,6 +440,106 @@ section("6. The owner's assign — one claim, the same shape as the hand-pick, w
   ok("a non-signup row is refused here (the prospects list assigns those)", r.refused && /prospects list/.test(r.error));
   r = await assignSignupToRep({ client: db, admin, rep: { ...rep, active: false }, prospectId: "p1", now: NOW, notify });
   ok("a deactivated rep is refused", /deactivated/.test(r.error));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("6b. Assign for callback from /platform/signups — the row is written the cron's way, then handed over");
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// The owner's 2026-09-21 complaint: a started signup showed its raw trade
+// word and had no way to be handed to somebody for a call back. The assign
+// finds or WRITES the Prospect through the same promotion the cron runs
+// (immediate — the two waits are the cron's patience, not a rule), and then
+// through the one assign write above. A referred signup goes to its rep and
+// nobody else.
+{
+  const admin = { id: "adm1", email: "emilio@fieldquo.com" };
+  const ann = { id: "rep_ann", name: "Ann", email: "ann@x", active: true, sellsIn: ["en"] };
+  const bob = { id: "rep_bob", name: "Bob", email: "bob@x", active: true, endedAt: null, sellsIn: ["en"], code: "bob-1" };
+  const notify = { push: async () => null, appSentence: async (l, k) => k };
+  const leadRow = (over = {}) => ({ id: "lead1", emailKey: "t@x.com", email: "t@x.com", firstName: "Tess", companyName: "Test Company inc.", phoneE164: "+16135550142", trades: ["painting"], stepReached: "plan", lastSeenAt: minutesAgo(2), completedCompanyId: null, prospectId: null, promotedAt: null, promotedLeadId: null, skipReason: null, salesCode: null, referredRepId: null, province: "ON", country: "CA", resumeToken: "tok", ...over });
+  const seed = (over = {}) => {
+    resetDbStub();
+    rows.platformAdmin.push({ id: "adm1", email: "emilio@fieldquo.com" });
+    rows.salesRep.push({ ...bob });
+    rows.signupLead.push(leadRow(over));
+  };
+
+  // The rule, immediate: the waits are skipped, the refusals are not.
+  const lead = leadRow();
+  ok("the cron would wait — two minutes quiet", decideSignupLeadPromotion({ lead, now: NOW }).action === "wait");
+  ok("a human asking now is not made to wait", decideSignupLeadPromotion({ lead, now: NOW, immediate: true }).action === "prospect");
+  ok("…nor for a phone", decideSignupLeadPromotion({ lead: leadRow({ phoneE164: null }), now: NOW, immediate: true }).action === "prospect");
+  ok("…but a completed row is still a customer", decideSignupLeadPromotion({ lead: leadRow({ completedCompanyId: "c" }), now: NOW, immediate: true }).action === "skip");
+  ok("…and a suppressed one is still refused", decideSignupLeadPromotion({ lead, now: NOW, immediate: true, suppressed: true }).reason === "suppressed");
+
+  // Executed: a two-minute-old lead, assigned now.
+  seed();
+  let r = await assignSignupForCallback({ client: db, admin, rep: ann, leadId: "lead1", now: NOW, notify });
+  ok("the lead becomes a hot Prospect on the spot", r.assigned === 1 && rows.prospect.length === 1 && rows.prospect[0].signupKind === "abandoned" && rows.prospect[0].hot === true);
+  ok("…with the trade its own word maps to", rows.prospect[0].tradeKey === "painting");
+  ok("…linked from the lead, promoted, stopped-at recorded", rows.signupLead[0].prospectId === rows.prospect[0].id && rows.signupLead[0].promotedAt && /Stopped at Plan/.test(rows.prospect[0].signupStateReason));
+  ok("…and handed to Ann with the same lease and claim row as the review folder", rows.prospect[0].assignedRepId === "rep_ann" && rows.salesQueueClaim.length === 1 && rows.salesQueueClaim[0].mode === "admin");
+  ok("…the audit row says how", rows.platformAuditLog[0]?.details?.how === "signup_callback");
+  ok("the answer names the rep and the row", r.rep?.name === "Ann" && r.prospectId === rows.prospect[0].id);
+  r = await assignSignupForCallback({ client: db, admin, rep: ann, leadId: "lead1", now: NOW, notify });
+  ok("a second press is refused — already Ann's — and writes nothing more", r.refused && rows.salesQueueClaim.length === 1 && rows.prospect.length === 1);
+
+  // Through the cron's own loop the same row is a no-op (promoted already).
+  const cron = await promoteSignupLeads({ client: db, now: NOW });
+  ok("the cron later finds nothing to do with it", cron.written.length === 0 && rows.prospect.length === 1);
+
+  // Referred: goes to Bob whoever was picked.
+  seed({ salesCode: "bob-1" });
+  r = await assignSignupForCallback({ client: db, admin, rep: ann, leadId: "lead1", now: NOW, notify });
+  ok("a signup on Bob's link is refused for Ann, naming Bob", r.refused && /Bob/.test(r.error) && r.referredRepId === "rep_bob");
+  ok("…and is Bob's already: his SalesLead, the Prospect handed to him, no claim row", rows.prospect[0]?.assignedRepId === "rep_bob" && rows.salesLead.length === 1 && rows.salesQueueClaim.length === 0);
+  r = await assignSignupForCallback({ client: db, admin, rep: bob, leadId: "lead1", now: NOW, notify });
+  ok("pressing it for Bob himself says so rather than writing a second claim", r.alreadyTheirs === true && rows.salesQueueClaim.length === 0);
+
+  // No phone: still assignable by hand (the rep can write).
+  seed({ phoneE164: null });
+  r = await assignSignupForCallback({ client: db, admin, rep: ann, leadId: "lead1", now: NOW, notify });
+  ok("a lead with no phone can still be handed out by a human", r.assigned === 1 && rows.prospect[0].phoneE164 === null);
+
+  // Set trade on a row whose words mapped to nothing.
+  seed({ trades: ["something-odd"] });
+  ok("an unknown word maps to no trade", prospectFromSignupLead(leadRow({ trades: ["something-odd"] })).tradeKey === null);
+  r = await setSignupTrade({ client: db, leadId: "lead1", tradeKey: "roofing", now: NOW });
+  ok("set trade writes the Prospect (creating it the cron's way) and the trade", r.ok && rows.prospect.length === 1 && rows.prospect[0].tradeKey === "roofing" && rows.signupLead[0].prospectId === rows.prospect[0].id);
+  ok("…the raw word is kept as the source category", rows.prospect[0].sourceCategories?.[0] === "something-odd");
+  r = await setSignupTrade({ client: db, leadId: "lead1", tradeKey: "not-a-trade", now: NOW });
+  ok("a made-up trade key is refused", /Not a trade/.test(r.error));
+
+  // A company row with no floor row gets the welcome row, then the hand-over.
+  resetDbStub();
+  rows.platformAdmin.push({ id: "adm1", email: "emilio@fieldquo.com" });
+  rows.company.push({ id: "c1", name: "Card Screen Co", email: "c@x.com", phone: "613-555-0100", city: "Ottawa", province: "ON", country: "CA", industries: ["cleaning"], defaultLanguage: "en", createdAt: minutesAgo(30), isDemo: false, subscription: null, salesAttribution: null, referredByCode: null, quotes: [], signupProspects: [], members: [] });
+  r = await assignSignupForCallback({ client: db, admin, rep: ann, companyId: "c1", now: NOW, notify });
+  ok("a card-screen company gets its welcome row written and handed over", r.assigned === 1 && rows.prospect.length === 1 && rows.prospect[0].companyId === "c1" && rows.prospect[0].signupKind === "new");
+  ok("…hot, because the owner asked for a callback", rows.prospect[0].hot === true && rows.prospect[0].tradeKey === "house_cleaning");
+  ok("…and the badge on the rep's card agrees", signupFact({ kind: "new", hot: true, company: { createdAt: minutesAgo(30), subscription: null, industries: ["cleaning"] } }, { now: NOW }).badge === "hot");
+  rows.company[0].subscription = { id: "sub" };
+  r = await ensureSignupProspect({ client: db, companyId: "c1", now: NOW });
+  ok("a company that paid is a customer — no floor row for it", r.error && r.reason === "completed" || r.prospectId === rows.prospect[0].id);
+  rows.company.push({ id: "c2", name: "Referred Co", email: "r@x.com", industries: [], createdAt: minutesAgo(30), isDemo: false, subscription: null, salesAttribution: { salesRepId: "rep_bob" }, referredByCode: null, quotes: [], signupProspects: [], members: [] });
+  r = await assignSignupForCallback({ client: db, admin, rep: ann, companyId: "c2", now: NOW, notify });
+  ok("a company on a rep's link is theirs — refused for anyone else, no row written", r.refused && r.referredRepId === "rep_bob" && rows.prospect.length === 1);
+
+  // The route and the screen.
+  const assignRoute = read("app/api/platform/signups/assign/route.js");
+  ok("the write route is superadmin-only and separate from the read-only list", /admin\.role !== "superadmin"/.test(assignRoute) && !/export async function (GET|PATCH|DELETE)/.test(assignRoute));
+  ok("…and goes through the one function, never a second assign", /assignSignupForCallback\(/.test(assignRoute) && !/salesQueueClaim\.create/.test(assignRoute) && !/prospect\.update/.test(assignRoute));
+  ok("…and never touches a Company", !/db\.company\./.test(assignRoute));
+  const listRoute = read("app/api/platform/signups/route.js");
+  ok("every row carries the trade its own words map to — the promotion's mapping", /tradeKeyForIndustries\(/.test(listRoute) && /trade: tradeOf\(/.test(listRoute) && (listRoute.match(/trade: tradeOf\(/g) || []).length === 2);
+  ok("…and which follow-ups went out, from the log", /db\.signupNudge\.findMany/.test(listRoute) && (listRoute.match(/nudges: nudgesFor\(/g) || []).length === 2);
+  const page = read("app/platform/signups/page.js");
+  ok("the screen posts to the write route", page.includes("/api/platform/signups/assign"));
+  ok("the screen has the four filters and sorts by last seen", /key: "phone"/.test(page) && /key: "unassigned"/.test(page) && /key: "assigned"/.test(page) && /new Date\(b\.lastSeenAt \|\| 0\) - new Date\(a\.lastSeenAt \|\| 0\)/.test(page));
+  ok("the screen has the sticky bulk bar with a rep picker and a per-row assign", /data-bulk-bar/.test(page) && /data-bulk-rep/.test(page) && /data-assign-callback/.test(page) && /data-set-trade/.test(page));
+  ok("a referred or held row is never tickable", /const tickable = isSuperadmin && !r\.referred\?\.id && !r\.assignedTo && !r\.doNotContact;/.test(page));
+  ok("the screen prints the follow-ups sent", /Follow-up sent/.test(page) && /data-followups/.test(page));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

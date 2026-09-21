@@ -78,7 +78,7 @@
     },
     {
       "path": "/api/cron/signup-recovery",
-      "schedule": "30 14 * * *"
+      "schedule": "*/5 * * * *"
     },
     {
       "path": "/api/cron/signup-leads",

@@ -45,10 +45,20 @@ import { nudgeRecipient } from "@/lib/signup/abandoned";
  */
 async function companyForToken(token) {
   if (typeof token !== "string" || token.length < 20) return null;
-  return db.company.findFirst({
+  const company = await db.company.findFirst({
     where: { signupNudgeOptOutToken: token },
     select: { id: true, name: true, email: true },
   });
+  if (company) return company;
+  // The five-minute follow-up (lib/signup/earlyNudge.js) goes to people who
+  // have no Company yet, so its token lives on the SignupNudge log row and
+  // the address is the one the letter went to. Same shape back, so the two
+  // handlers below need no second branch.
+  const nudge = await db.signupNudge.findUnique({
+    where: { optOutToken: token },
+    select: { id: true, email: true },
+  });
+  return nudge ? { id: nudge.id, name: null, email: nudge.email } : null;
 }
 
 export async function GET(request, { params }) {
@@ -90,7 +100,7 @@ export async function POST(request, { params }) {
     // asked about later.
     source: "form",
     reason:
-      "Unsubscribed from the FieldQuo signup-recovery email (incomplete signup).",
+      "Unsubscribed from a FieldQuo signup follow-up email (incomplete signup).",
   });
 
   if (!result.ok) {

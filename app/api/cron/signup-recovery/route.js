@@ -1,20 +1,29 @@
 // app/api/cron/signup-recovery/route.js
 //
-// Daily: write once to somebody who started a FieldQuo signup and never
-// reached the end of Stripe Checkout.
+// Every five minutes: the two letters FieldQuo writes to somebody who started
+// a signup and stopped.
 //
-// The rule, the delay, the window and the CASL classification all live in
-// lib/signup/abandoned.js, which is pure and therefore executable by
-// scripts/check-abandoned-signup.mjs. This file is only responsible for being
-// right about the queries, the claim, and the order of the side effects.
+//   1. The EARLY touch — five minutes after their last activity, "your free
+//      month is waiting", the way back in, and the three things FieldQuo does
+//      for their trade. lib/signup/earlyNudge.js decides; the owner's number.
+//   2. The RECOVERY note — twenty-four hours after a company was created with
+//      no card, once. lib/signup/abandoned.js decides; unchanged.
 //
-// ══ Mid-morning Eastern, not 09:00 UTC ═════════════════════════════════════
+// Both rules are pure and executable by scripts/check-abandoned-signup.mjs.
+// This file is only responsible for being right about the queries, the claim,
+// and the order of the side effects.
 //
-// Every other daily cron here fires at 05:00–10:00 UTC, which is the middle of
-// the night for the market this product sells into. That is fine for a rent
-// charge or a reconciliation; it is wrong for a letter whose only job is to
-// start a conversation. 14:30 UTC is mid-morning Eastern year-round and lands
-// at the top of the inbox rather than under everything that arrived since.
+// ══ Every five minutes, which replaced mid-morning Eastern ═════════════════
+//
+// This ran daily at 14:30 UTC — mid-morning Eastern, chosen so a letter whose
+// only job is to start a conversation lands at the top of the inbox rather
+// than under everything that arrived overnight. The five-minute touch cannot
+// wait for a time of day: its whole value is being in the inbox while the
+// thought is still warm, so the schedule is now `*/5` (vercel.json). The
+// recovery note rides on the same schedule and goes out on the first run
+// after its twenty-four hours are up, whatever the hour — a day after a
+// signup is, by construction, roughly the hour the person was awake and
+// signing up.
 //
 // ══ Claim, send, revert — the renewal-reminders trade, not review-requests' ═
 //
@@ -49,9 +58,213 @@ import { checkSuppression } from "@/lib/sales/suppression";
 import { mailingAddress } from "@/lib/legal/mailingAddress";
 import {
   incompleteSignupWhere,
+  isReservedTestAddress,
   nudgeRecipient,
   planSignupNudges,
 } from "@/lib/signup/abandoned";
+import { buildSignupEarlyNudgeEmail } from "@/lib/email/signupEarlyNudgeEmail";
+import {
+  EARLY_TOUCH,
+  RECOVERY_TOUCH,
+  earlyNudgePersonFromCompany,
+  earlyNudgePersonFromLead,
+  planEarlyNudges,
+} from "@/lib/signup/earlyNudge";
+import { emailKeyOf } from "@/lib/signup/leads";
+
+/**
+ * A claim on the early touch that never turned into a letter is retried
+ * after this long — a Resend hiccup must not permanently consume the one
+ * letter this person is ever going to get (the recovery note's own rule).
+ */
+const RECLAIM_AFTER_MS = 10 * 60 * 1000;
+
+/**
+ * The record of a send, for the screen. Upserted so the recovery note — which
+ * keeps Company.signupNudgeSentAt as its own claim — is visible in the same
+ * table as the early touch and /platform/signups reads one list.
+ */
+async function logTouch({ emailKey, email, touch, person = {}, sentAt, providerId = null }) {
+  await db.signupNudge
+    .upsert({
+      where: { emailKey_touch: { emailKey, touch } },
+      create: {
+        emailKey,
+        email,
+        touch,
+        signupLeadId: person.signupLeadId || null,
+        companyId: person.companyId || null,
+        language: person.language || null,
+        tradeKey: person.tradeKey || null,
+        stepReached: person.stepReached || null,
+        sentAt,
+        providerId,
+      },
+      update: { sentAt, providerId, failedAt: null, error: null },
+    })
+    .catch((err) => console.error("[signup-recovery] log failed:", err?.message || err));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// The early touch
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function runEarlyTouch({ now, origin, address, from }) {
+  const counts = {};
+  const note = (reason) => { counts[reason] = (counts[reason] || 0) + 1; };
+
+  // ── Everybody who could be owed the letter, both kinds of row ───────────
+  //
+  // Unfiltered by quiet time: the address rule needs a person's lead and
+  // company both present to pick the later one.
+  const [leads, companies] = await Promise.all([
+    db.signupLead.findMany({
+      where: { completedCompanyId: null },
+      select: {
+        id: true, email: true, firstName: true, companyName: true, language: true, trades: true, stepReached: true,
+        lastSeenAt: true, completedCompanyId: true, resumeToken: true, promotedLeadId: true,
+        prospect: { select: { assignedRepId: true, claimExpiresAt: true } },
+      },
+      orderBy: { lastSeenAt: "desc" },
+      take: BATCH,
+    }),
+    db.company.findMany({
+      where: { isDemo: false, ...incompleteSignupWhere() },
+      select: {
+        id: true, name: true, email: true, isDemo: true, createdAt: true, defaultLanguage: true, industries: true,
+        subscription: { select: { id: true } },
+        salesAttribution: { select: { salesRepId: true } },
+        signupLead: { select: { id: true, firstName: true, language: true, trades: true, stepReached: true, lastSeenAt: true } },
+        signupProspects: { select: { assignedRepId: true, claimExpiresAt: true } },
+        members: { where: { role: "owner" }, take: 1, select: { user: { select: { name: true } } } },
+      },
+      orderBy: { createdAt: "desc" },
+      take: BATCH,
+    }),
+  ]);
+
+  const heldKeys = new Set();
+  const live = (p) => p?.assignedRepId && (!p.claimExpiresAt || p.claimExpiresAt > now);
+  const people = [];
+  // A reserved test domain (example.com) is a test run through the funnel,
+  // never a person: dropped here, at the point of sending, and counted.
+  for (const l of leads) {
+    if (isReservedTestAddress(l.email)) { note("reserved_test_domain"); continue; }
+    people.push(earlyNudgePersonFromLead(l));
+    if (l.promotedLeadId || live(l.prospect)) heldKeys.add(emailKeyOf(l.email));
+  }
+  for (const c of companies) {
+    if (isReservedTestAddress(c.email)) { note("reserved_test_domain"); continue; }
+    people.push(earlyNudgePersonFromCompany(c, { ownerName: c.members?.[0]?.user?.name || null }));
+    if (c.salesAttribution?.salesRepId || c.signupProspects.some(live)) heldKeys.add(emailKeyOf(c.email));
+  }
+
+  // The do-not-contact list, read in the request that sends.
+  const addresses = [...new Set(people.map((p) => nudgeRecipient(p?.email)).filter(Boolean))];
+  const suppressedAddresses = new Set();
+  for (const email of addresses) {
+    const verdict = await checkSuppression(db, { channel: "email", email });
+    if (verdict.suppressed) suppressedAddresses.add(email);
+  }
+
+  // Already written to — the log is the record, keyed on the person.
+  const keys = [...new Set(people.map((p) => emailKeyOf(p?.email)).filter(Boolean))];
+  const sentRows = keys.length
+    ? await db.signupNudge.findMany({ where: { emailKey: { in: keys }, touch: EARLY_TOUCH, sentAt: { not: null } }, select: { emailKey: true } })
+    : [];
+  const sentKeys = new Set(sentRows.map((r) => r.emailKey));
+
+  const { sends, skipped } = planEarlyNudges({ people, suppressedAddresses, sentKeys, heldKeys, now });
+  for (const sk of skipped) note(sk.reason);
+
+  if (sends.length && !address) {
+    await recordError({
+      area: "signup",
+      code: "signup_nudge_no_mailing_address",
+      message: `SALES_MAILING_ADDRESS is unset, so ${sends.length} five-minute signup follow-up(s) were not sent — CASL requires a mailing address in every commercial message.`,
+    });
+    return { considered: people.length, sent: 0, counts, blocked: "no_mailing_address" };
+  }
+
+  let sent = 0;
+  for (const send of sends) {
+    const { person, to, emailKey } = send;
+    const token = randomBytes(32).toString("base64url");
+
+    // ── Claim: the unique on (emailKey, touch) IS the lock ──────────────
+    let claim;
+    try {
+      claim = await db.signupNudge.create({
+        data: {
+          emailKey, email: to, touch: EARLY_TOUCH,
+          signupLeadId: person.signupLeadId, companyId: person.companyId,
+          language: person.language, tradeKey: person.tradeKey, stepReached: person.stepReached,
+          optOutToken: token, claimedAt: now,
+        },
+        select: { id: true },
+      });
+    } catch (err) {
+      if (err?.code !== "P2002") throw err;
+      // Somebody holds the claim. A stale failed claim is retried; a live or
+      // sent one is left alone.
+      const held = await db.signupNudge.findUnique({ where: { emailKey_touch: { emailKey, touch: EARLY_TOUCH } }, select: { id: true, sentAt: true, claimedAt: true } });
+      if (!held || held.sentAt || now.getTime() - new Date(held.claimedAt).getTime() < RECLAIM_AFTER_MS) { note("claimed_by_another_run"); continue; }
+      const retaken = await db.signupNudge.updateMany({
+        where: { id: held.id, sentAt: null, claimedAt: held.claimedAt },
+        data: { claimedAt: now, optOutToken: token, failedAt: null, error: null, signupLeadId: person.signupLeadId, companyId: person.companyId },
+      });
+      if (retaken.count === 0) { note("claimed_by_another_run"); continue; }
+      claim = held;
+    }
+    const failed = (reason, error) =>
+      db.signupNudge.updateMany({ where: { id: claim.id, sentAt: null }, data: { failedAt: now, error: String(error || reason).slice(0, 500) } }).then(() => note(reason));
+
+    // ── The assertion, against a read taken after the claim ─────────────
+    //
+    // A person can finish between the list and the send; "we wrote to a
+    // paying customer to come back and pay" is the worst outcome here.
+    if (person.kind === "lead") {
+      const freshLead = await db.signupLead.findUnique({ where: { id: person.signupLeadId }, select: { completedCompanyId: true } });
+      if (!freshLead || freshLead.completedCompanyId) { await failed("completed_before_send"); continue; }
+    } else {
+      const freshCompany = await db.company.findUnique({ where: { id: person.companyId }, select: { isDemo: true, subscription: { select: { id: true } } } });
+      if (!freshCompany || freshCompany.isDemo || freshCompany.subscription) { await failed("completed_before_send"); continue; }
+    }
+
+    let email;
+    try {
+      email = buildSignupEarlyNudgeEmail({
+        firstName: person.firstName,
+        companyName: person.companyName,
+        language: person.language,
+        tradeKey: person.tradeKey,
+        // A lead has no login: the resume token opens /signup with their
+        // form filled in. A company has one: Account & Billing restarts
+        // checkout, for the reason the recovery note gives.
+        resumeUrl: person.kind === "lead" && person.resumeToken
+          ? `${origin}/signup?resume=${encodeURIComponent(person.resumeToken)}`
+          : `${origin}/app/settings/account-billing`,
+        optOutUrl: `${origin}/no-contact/${token}`,
+        mailingAddress: address,
+      });
+    } catch (err) {
+      await failed("build_failed", err?.message);
+      await recordError({ area: "signup", code: "signup_nudge_build_failed", message: `Couldn't build the five-minute signup follow-up: ${err?.message}`, companyId: person.companyId || undefined });
+      continue;
+    }
+
+    // sendEmail never throws — { id } | { error } | { skipped } — all three
+    // outcomes handled, as the recovery loop below does.
+    const result = await sendEmail({ companyId: person.companyId || undefined, from, to, subject: email.subject, html: email.html, text: email.text });
+    if (result?.skipped || result?.error) {
+      await failed(result.error ? "resend_rejected" : "no_api_key", result.error);
+      continue;
+    }
+    await db.signupNudge.updateMany({ where: { id: claim.id }, data: { sentAt: now, providerId: result.id || null, failedAt: null, error: null } });
+    sent++;
+  }
+  return { considered: people.length, sent, counts };
+}
 
 // Same shape and same reasoning as renewal-reminders' BATCH: the work per row
 // is at most one suppression read and one email, the query is driven by state
@@ -65,6 +278,9 @@ export async function GET(request) {
 
   const now = new Date();
   const origin = getAppOrigin(request);
+  const earlyAddress = mailingAddress();
+  const earlyFrom = await getPlatformFrom();
+  const early = await runEarlyTouch({ now, origin, address: earlyAddress, from: earlyFrom });
 
   // ── The whole population, not just the due ones ─────────────────────────
   //
@@ -91,7 +307,11 @@ export async function GET(request) {
     take: BATCH,
   });
 
-  const companies = rows.map((c) => ({ ...c, memberCount: c._count.members }));
+  const companies = rows
+    .map((c) => ({ ...c, memberCount: c._count.members }))
+    // The same reserved-domain refusal the early touch applies: a test row
+    // is not written to, and is not stamped either.
+    .filter((c) => !isReservedTestAddress(c.email));
 
   // ── The do-not-contact list, read now, once per address ─────────────────
   //
@@ -143,6 +363,7 @@ export async function GET(request) {
       sent: 0,
       ...counts,
       blocked: "no_mailing_address",
+      early,
     });
   }
 
@@ -242,7 +463,13 @@ export async function GET(request) {
     }
 
     sent++;
+    // The screen's record — the same table the early touch writes.
+    await logTouch({
+      emailKey: emailKeyOf(send.to), email: send.to, touch: RECOVERY_TOUCH,
+      person: { companyId: company.id, language: company.defaultLanguage, stepReached: "checkout" },
+      sentAt: now, providerId: result.id || null,
+    });
   }
 
-  return NextResponse.json({ success: true, considered: companies.length, sent, ...counts });
+  return NextResponse.json({ success: true, considered: companies.length, sent, ...counts, early });
 }

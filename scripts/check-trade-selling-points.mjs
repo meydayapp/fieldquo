@@ -274,7 +274,9 @@ section("9. The surfaces actually read the list (source)");
   const queue = read("app/sales/queue/page.js");
   ok("the queue's pitch layer draws it under the evidence-cited recommendations", /<TradePoints tradeKey=\{current\.tradeKey \|\| null\} language=\{language\} \/>/.test(queue));
   const email = read("lib/sales/outreach/introEmail.js");
-  ok("the intro email reads the one list", /tradeSellingPoints\(tradeKey, lang, \{ limit: TRADE_PITCH_TOP \}\)/.test(email));
+  // `partLang`, not `lang`: the intro email renders a French part and an
+  // English part for Quebec, and each part reads the list in its own language.
+  ok("the intro email reads the one list", /tradeSellingPoints\(tradeKey, partLang, \{ limit: TRADE_PITCH_TOP \}\)/.test(email));
   const script = read("lib/sales/intel/callScript.js");
   ok("the call-script inputs read the one list", /tradeSellingPoints\(prospect\?\.tradeKey \|\| null, scriptLang, \{ limit: TRADE_PITCH_TOP \}\)/.test(script));
   const demo = read("app/sales/demo/page.js");
