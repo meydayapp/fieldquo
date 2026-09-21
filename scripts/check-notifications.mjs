@@ -328,9 +328,9 @@ const idsOf = (list) => list.map((m) => m.id).sort();
 section("1. The catalog is sound, and an unrecognised audience REFUSES");
 // ═══════════════════════════════════════════════════════════════════════════
 
-ok("the catalog holds exactly the declared types", NOTIFICATION_TYPE_KEYS.length === 28, NOTIFICATION_TYPE_KEYS);
+ok("the catalog holds exactly the declared types", NOTIFICATION_TYPE_KEYS.length === 31, NOTIFICATION_TYPE_KEYS);
 ok(
-  "six from the audit's tier 1, the undelivered quote, the six rota/time-clock types, the seven HR-file types, and the AI employee's two",
+  "six from the audit's tier 1, the undelivered quote, the six rota/time-clock types, the seven HR-file types, the AI employee's two, and the three supply types",
   JSON.stringify([...NOTIFICATION_TYPE_KEYS].sort()) ===
     JSON.stringify(
       [
@@ -376,6 +376,12 @@ ok(
         "hr.onboarding.completed",
         "hr.policy.toAcknowledge",
         "hr.note.toAcknowledge",
+        // Supplies (2026-09-21): a request from the field lands on
+        // purchasing; its two answers go to the one person who asked —
+        // scripts/check-supply-requests.mjs reads the narrowing.
+        "supply.requested",
+        "supply.ordered",
+        "supply.restocked",
       ].sort(),
     ),
   NOTIFICATION_TYPE_KEYS,
@@ -521,6 +527,14 @@ const EXPECTED = {
   "hr.onboarding.completed": ["m_owner", "m_admin", "m_manager", "m_dispatcher"],
   "hr.policy.toAcknowledge": ["m_owner", "m_admin", "m_manager", "m_dispatcher", "m_estimator", "m_crew"],
   "hr.note.toAcknowledge": ["m_owner", "m_admin", "m_manager", "m_dispatcher", "m_estimator", "m_crew"],
+  // ── Supplies (2026-09-21) ───────────────────────────────────────────────
+  // The request lands on purchasing's rung (expenses: view_record_edit_all —
+  // owners, admins and the Manager preset; Dispatcher, Estimator and Crew
+  // hold view_record_edit_own). The two answers sit on the schedule floor
+  // and are always narrowed to the one requester by the route.
+  "supply.requested": ["m_owner", "m_admin", "m_manager"],
+  "supply.ordered": ["m_owner", "m_admin", "m_manager", "m_dispatcher", "m_estimator", "m_crew"],
+  "supply.restocked": ["m_owner", "m_admin", "m_manager", "m_dispatcher", "m_estimator", "m_crew"],
 };
 
 for (const type of NOTIFICATION_TYPE_KEYS) {

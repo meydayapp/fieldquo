@@ -103,8 +103,10 @@ import P100 from "@/app/app/jobs/import/page.js";
 import P101 from "@/app/accept-invitation/[id]/page.js";
 import P102 from "@/app/signup/page.js";
 import P103 from "@/app/app/quotes/[id]/edit/page.js";
-import P104 from "@/docs/screens/app-guide/harness/TakeoffFrame.jsx";
-import P105 from "@/docs/screens/app-guide/harness/PaintRatesFrame.jsx";
+import P104 from "@/app/app/jobs/[id]/work-order/WorkOrderView.js";
+import P105 from "@/app/app/me/supplies/page.js";
+import P106 from "@/docs/screens/app-guide/harness/TakeoffFrame.jsx";
+import P107 from "@/docs/screens/app-guide/harness/PaintRatesFrame.jsx";
 export const PAGES = {
   "app/app/page.js": P0,
   "app/app/copilot/page.js": P1,
@@ -210,6 +212,8 @@ export const PAGES = {
   "app/accept-invitation/[id]/page.js": P101,
   "app/signup/page.js": P102,
   "app/app/quotes/[id]/edit/page.js": P103,
-  "docs/screens/app-guide/harness/TakeoffFrame.jsx": P104,
-  "docs/screens/app-guide/harness/PaintRatesFrame.jsx": P105,
+  "app/app/jobs/[id]/work-order/WorkOrderView.js": P104,
+  "app/app/me/supplies/page.js": P105,
+  "docs/screens/app-guide/harness/TakeoffFrame.jsx": P106,
+  "docs/screens/app-guide/harness/PaintRatesFrame.jsx": P107,
 };

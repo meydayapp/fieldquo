@@ -2107,6 +2107,7 @@ model Company {
   suppliers             Supplier[]
   purchaseOrders        PurchaseOrder[]
   stockMovements        StockMovement[]
+  supplyRequests        SupplyRequest[]
   vehicleDetails        VehicleDetail[]
   // ── Subcontractors ─────────────────────────────────────────────────────
   // The companies this company hires per job. Distinct from Worker (a person
@@ -2240,6 +2241,7 @@ model User {
   eventTypes            EventType[]
   jobVisitsAssigned     JobVisit[]             @relation("JobVisitAssignee")
   jobMaterialsPurchased JobMaterial[]          @relation("JobMaterialPurchaser")
+  supplyRequestsMade    SupplyRequest[]        @relation("SupplyRequestRequester")
   changeOrdersCreated   ChangeOrder[]          @relation("ChangeOrderCreatedBy")
   changeOrdersDecided   ChangeOrder[]          @relation("ChangeOrderDecidedBy")
   shiftOverrides        Shift[]                @relation("ShiftAvailabilityOverride")
@@ -4871,6 +4873,26 @@ model Job {
   /// What has to be bought before the crew leaves the yard.
   materials JobMaterial[]
 
+  /// ── The crew work order (lib/workOrder/build.js) ────────────────────────
+  ///
+  /// Keys of the quote's items the office has hidden from the crew's copy —
+  /// "g:<scopeGroupId>:a:<areaIndex>" for a paint area, "g:<id>:l:<lineIndex>"
+  /// for a line item. On the JOB, not on the quote's JSON: the quote builder
+  /// re-derives lineItems from the takeoff on every save, so a flag stored
+  /// there would not survive the next edit, and the office decides what the
+  /// crew sees from the work order itself.
+  workOrderHidden String[] @default([])
+
+  /// When the AI material list was last built, by whom, and on which model —
+  /// the banner over the list prints all three, so "Last built today 7:42 by
+  /// Sam" is a fact read back rather than a sentence typed in.
+  materialListBuiltAt   DateTime?
+  materialListBuiltById String?
+  materialListModel     String?
+
+  /// Requests from the field for this job's supplies — see SupplyRequest.
+  supplyRequests SupplyRequest[]
+
   /// The invoices raised against this job. Plural: progress billing raises a
   /// deposit and a final invoice for the same work. See Invoice.jobId.
   invoices Invoice[]
@@ -5127,6 +5149,42 @@ model JobMaterial {
   /// who wrote "gas for the compactor" on the list did not derive it from a
   /// takeoff and should not lose it when the quote is revised.
   addedByHand Boolean @default(false)
+
+  /// ── The AI "nothing forgotten" list (lib/materials/list.js) ──────────────
+  ///
+  /// Which shelf of the list this line sits on: "primary" | "sundries" |
+  /// "consumables" | "fasteners" | "transitions". Null on rows written before
+  /// the grouped list existed and on hand-added rows; the panel draws those
+  /// under "Other" rather than inventing a group for them.
+  group String?
+
+  /// One line saying why this quantity — "286 lf trim-to-wall joints; ~50 lf
+  /// per tube". Written by the build, shown beside the line, never used in
+  /// any arithmetic.
+  reason String?
+
+  /// The waste allowance already APPLIED inside `qty`, as a percent. Recorded
+  /// so the panel can print "+10%" truthfully instead of guessing whether the
+  /// number on the row is net or gross. Null means none was applied.
+  wastePct Decimal? @db.Decimal(5, 2)
+
+  /// The company's `Material` row this line was matched to, so "On hand" can
+  /// be summed from that material's StockMovement rows. No Prisma relation,
+  /// for the reason StockMovement.materialId has none: the line outlives the
+  /// stock row it once named. Null = not tracked in stock.
+  stockMaterialId String?
+
+  /// Who derived the quantity: "takeoff" (the recipe arithmetic — never
+  /// overruled by a model), "ai" (the build's own estimate, editable), or
+  /// null for a hand-added line and for rows written before the build
+  /// existed. The PATCH route reads this to decide whether `qty` may change.
+  source String?
+
+  /// A line the office removed from an AI-built list. NOT deleted: the next
+  /// build reads this row and does not offer the same item again, which is
+  /// the only way "lines you delete stay deleted" can be true. Hidden from
+  /// the panel while set.
+  excludedAt DateTime?
 
   sortOrder Int      @default(0)
   createdAt DateTime @default(now())
@@ -14716,6 +14774,77 @@ model StockMovement {
   createdAt   DateTime @default(now())
 
   @@index([companyId, materialId, occurredAt])
+}
+
+/// A request from the field for something the van is short of — the mouth of
+/// the purchasing funnel. requested → ordered → restocked.
+///
+/// ── Why a row of its own and not a StockMovement or a PurchaseOrderLine ────
+///
+/// A crew member at a house with two rolls of tape left is not recording a
+/// movement (nothing has moved) and is not raising an order (they may not
+/// even see the Purchasing page). They are ASKING. The office turns the ask
+/// into an order, the delivery turns the order into a `received` movement,
+/// and this row is what remembers who asked, for which job, and where each
+/// ask stands — the three things the crew inbox's texts cannot answer.
+///
+/// "Restocked" writes the StockMovement and records its id here, so the level
+/// stays the sum of movements (lib/purchasing/stock.js) and the same request
+/// cannot restock twice: the unique on `restockMovementId` and the status
+/// check in lib/supplies/state.js are two guards on one write.
+model SupplyRequest {
+  id String @id @default(cuid())
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  /// The stock row this asks for, when picked from the company's list. Free
+  /// text otherwise — `itemName` is always set. No relation, as on
+  /// StockMovement: a request outlives the material row it named.
+  materialId String?
+  itemName   String
+  quantity   Decimal @db.Decimal(12, 3)
+  unit       String?
+
+  jobId String?
+  job   Job?    @relation(fields: [jobId], references: [id], onDelete: SetNull)
+
+  requestedById String
+  requestedBy   User   @relation("SupplyRequestRequester", fields: [requestedById], references: [id])
+
+  neededBy DateTime?
+  photoUrl String?
+  note     String?
+
+  /// "requested" | "ordered" | "restocked" | "cancelled" — lib/supplies/state.js
+  status String @default("requested")
+
+  /// Where the request came from: "field" (the phone form), "low_stock" (the
+  /// reorder banner's pre-fill) or "material_list" (a short line on a job's
+  /// AI list). Printed under the row so the office knows whose statement the
+  /// quantity is.
+  source String @default("field")
+
+  purchaseOrderId String?
+  orderedAt       DateTime?
+  orderedById     String?
+
+  /// The `received` movement Restocked wrote. Unique: one request, one
+  /// movement, never twice.
+  restockMovementId String?   @unique
+  restockedAt       DateTime?
+  restockedById     String?
+  /// "in van 2" — the sentence the requester is texted.
+  restockNote       String?
+
+  cancelledAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId, status])
+  @@index([requestedById, status])
+  @@index([jobId])
 }
 
 /// A vehicle, beyond what Asset carries.

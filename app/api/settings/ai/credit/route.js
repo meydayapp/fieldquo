@@ -25,7 +25,7 @@ import { db } from "@/lib/db";
 import { memberOrRefusalPlain } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
 import { isAiConfigured } from "@/lib/ai/provider";
-import { BUNDLES, IMAGE_GENERATION_CENTS, VISION_PASS_CENTS } from "@/lib/ai/imageEconomics";
+import { BUNDLES, IMAGE_GENERATION_CENTS, VISION_PASS_CENTS, MATERIAL_LIST_CENTS } from "@/lib/ai/imageEconomics";
 import {
   balanceFor,
   POOLS,
@@ -100,6 +100,7 @@ export async function GET(request) {
       priceCents: {
         image_generation: IMAGE_GENERATION_CENTS,
         image_vision: VISION_PASS_CENTS,
+        material_list: MATERIAL_LIST_CENTS,
       },
       topups: TOPUP_OPTIONS,
       bundles: BUNDLES,

@@ -1511,7 +1511,7 @@ function AreaCard({
               className={inputClass}
             />
           </Field>
-          <Field label={t("app.paint.crewNote", "Crew note (internal)")}>
+          <Field label={t("app.paint.crewNote", "Crew note (work order)")}>
             <input
               value={area.crewNote || ""}
               onChange={(e) => set({ crewNote: e.target.value })}

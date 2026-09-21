@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 21 September 2026 (the painting takeoff, sections b1–b4 and b6 of the approved builder mockup: a painting quote opens on its estimate type — Interior, Exterior, Cabinets & millwork, Staining, Commercial — each with its own rate set of situation-named rates priced as production rate × hourly or flat per unit, picked in a searchable picker and edited on Settings › Services › Painting rates; an area is a Room or a single Surface with an editable "calculated from measurements" strip, ticks what's painted, draws as one hours-and-money table with options the homeowner ticks under the room (extra coat, premium paint, custom); staining substrates carry stain and clear coat; the den and the exterior job still reproduce to the cent; see "The painting takeoff" below; previous line: the "next steps" email: two hours after a company's card goes in, if its onboarding checklist is still open, FieldQuo sends one letter in the company's language)
+Last updated: 21 September 2026 (the painting takeoff, sections b1–b4 and b6 of the approved builder mockup: a painting quote opens on its estimate type — Interior, Exterior, Cabinets & millwork, Staining, Commercial — each with its own rate set of situation-named rates priced as production rate × hourly or flat per unit, picked in a searchable picker and edited on Settings › Services › Painting rates; an area is a Room or a single Surface with an editable "calculated from measurements" strip, ticks what's painted, draws as one hours-and-money table with options the homeowner ticks under the room (extra coat, premium paint, custom); staining substrates carry stain and clear coat; the den and the exterior job still reproduce to the cent; see "The painting takeoff" below; previous line: materials, the crew work order and supply requests: "Build the material list" on the job page asks FieldQuo AI for the complete grouped list — Primary · Sundries · Consumables · Fasteners · Transitions — with a reason per line, the takeoff's own quantities never overruled, on hand summed from stock movements, MATERIAL_LIST_CENTS (10¢) off the AI-credit wallet per build; a crew work order per job at /app/jobs/<id>/work-order — per area the scope, the hours and the estimator's "crew note (work order only)" that nothing read until now, no prices, items the office hides absent from the crew's copy, a tick and photos per area as Task rows, PDF and print; supply requests from the van (/app/me/supplies) to Purchasing's Requests tab, requested → ordered → restocked, Restocked writing the one received movement; see "Materials, the work order and supplies" below)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -118,10 +118,93 @@ inside the takeoff, which is where the mockup's note put it.
 - Premium and staining products need prices before their options and lines
   carry money — deliberately unpriced rather than guessed; the card flags
   them.
-- The crew note is still stored and read by no surface (there is no work
-  order); it is labelled "internal" now rather than "work order only".
+- The crew note now has a reader — the crew work order that landed the
+  same day (`lib/workOrder/build.js`) prints it; the field says so again.
+  Work-order and material-fact lines read a line's FIRST product
+  (`productKey` / `gallons`); a stained line's clear coat is on
+  `line.materials[]` and in the purchase list, not on those lines yet.
 
 ---
+## Materials, the work order and supplies: the AI "nothing forgotten" list, the crew's copy of the quote, and request → ordered → restocked (21 September 2026)
+
+The owner approved the "Proposed" mockups of 21 September (jobs/section.html,
+changes 2, 3 and 4). Three things a crew standing in a driveway did not have:
+the tape and the caulk on the buy list, a document that says per area what
+was sold and how long it should take, and a button that tells the office
+"we're short".
+
+**What ships.**
+
+- **The AI material list** — `lib/materials/list.js` (pure: the strict
+  schema with no money field, unit canonicalisation, waste maths, the
+  refusals), `lib/materials/facts.js` (what the model may see — an
+  allow-list; `findMoneyKey` refuses the prompt if a rate slips in),
+  `lib/materials/build.js` (load → derive the takeoff's own lines → sum stock
+  → ask → normalise → the takeoff overrules → write). "Build the material
+  list" on `app/components/jobs/JobMaterials.js`; the list is grouped, each
+  row carries its reason, its waste, on hand versus needed (summed from
+  `StockMovement`, never stored) and Short / Covered / Not tracked; AI rows'
+  quantities are editable, takeoff rows' are not; a removed line is EXCLUDED
+  (`JobMaterial.excludedAt`), not deleted, so the next build does not offer
+  it again; hand-added and bought rows survive every rebuild. "Add to
+  shopping list" puts the shortfall on the job's draft `PurchaseOrder` (one
+  draft per job, appended to). "Print list" is a sheet with no prices.
+  **Paid:** `MATERIAL_LIST_CENTS = 10` (lib/ai/imageEconomics.js) off the AI
+  credit wallet per build through the same reserve-then-refund gate as the
+  deep photo read, feature `ai_material_list`, spend kind `material_list`;
+  the banner prints the model, the price and the balance before the button.
+  Vendor cost is ~½¢ a run on the mini model; the price is the owner's to set.
+- **The crew work order** — `lib/workOrder/build.js` (pure; walked for
+  money keys), `/app/jobs/<id>/work-order` inside the app shell (there is
+  no anonymous crew link anywhere in the product — see `lib/workOrder/url.js`
+  for why a tokenised copy is a product decision not made here), scoped by
+  `assignedJobWhere`, the client through `redactClient`. Per area: label,
+  hours from the same `paintTakeoff` the quote was priced with, the scope
+  sentence, the per-area `crewNote` PaintAreas.js has written since it
+  existed, a tick and photos — Task rows keyed `work_order:<jobId>:<areaKey>`
+  so the job page's to-do list shows the same step (photos through the
+  existing `POST /api/tasks/[id]/photos`). `Job.workOrderHidden` holds what
+  the office took off the crew's copy (toggled from the office's view of the
+  work order; absent, not greyed, on the crew's, the PDF and the print
+  sheet). PDF through `renderDocumentPdfBuffer` (section `work_order`, kind
+  `work_order_pdf`, never offered on a quote template) in the QUOTE's
+  language. `workOrderPath / workOrderPdfPath / workOrderUrl` and
+  `workOrderForQuote(quoteId, companyId)` for the quote page's Send menu.
+- **Supply requests** — `SupplyRequest` (requested → ordered → restocked,
+  cancelled as a side door; `lib/supplies/state.js` is the closed machine).
+  The phone form `/app/me/supplies` (a row on More and a link on the job's
+  Materials card): item from the stock list with its level and threshold or
+  free text, how many, which job (the time clock's chooser), needed by, a
+  photo, a note. Purchasing's new Requests tab: the reorder banner turns a
+  low material into a request for the SHORTFALL, "Mark ordered" asks which
+  PO, "Restocked" asks where it landed and writes ONE `received` movement in
+  the same transaction that moves the status (unique ref
+  `supply_request:<id>`; re-read first). Three notification types:
+  `supply.requested` to purchasing's rung, `supply.ordered` /
+  `supply.restocked` narrowed to the requester.
+- `scripts/check-material-list.mjs` (81), `check-work-order.mjs` (65),
+  `check-supply-requests.mjs` (69) — all in `check:all`; the harness rows
+  `job-materials`, `work-order`, `mobile-work-order`,
+  `purchasing-requests`, `mobile-supplies`.
+
+### Still owed here
+
+- **"Send to supplier" is deliberately absent.** No supplier email path
+  exists in the product (a PO's "sent" is a status); the button would have
+  emailed nobody. It needs the email, a price per send and the owner's yes.
+- **No tokenised work order for a sub without an account.** The link is the
+  app's; a crew member signs in. Who may hold an anonymous copy and for how
+  long is a product decision.
+- **The crew's tab bar still reads Home · Schedule · Earnings · Messages ·
+  More** (lib/me/tabs.js, asserted by check-employee-home). The mockup's
+  "Supplies" tab would replace Earnings; Supplies is a row on More instead.
+- **The model has not been run against production.** `OPENAI_API_KEY` is
+  Sensitive in Vercel; the build was executed against a stubbed model in the
+  check script and the fixture on the harness. The first real build on a
+  demo job is the proof.
+- The job-plan agent's per-line Task rows and this work order's per-area
+  Task rows are two source-key families on one table; linking an area to
+  its quote line is a follow-up once both have landed.
 
 ## The next-steps email: two hours after the card, only the steps still open, each a link into its window (21 September 2026)
 
