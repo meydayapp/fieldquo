@@ -105,11 +105,13 @@ import P102 from "@/app/app/jobs/import/page.js";
 import P103 from "@/app/accept-invitation/[id]/page.js";
 import P104 from "@/app/signup/page.js";
 import P105 from "@/app/app/quotes/[id]/edit/page.js";
-import P106 from "@/docs/screens/app-guide/harness/TakeoffFrame.jsx";
-import P107 from "@/app/app/callbacks/page.js";
-import P108 from "@/app/app/settings/follow-ups/past-clients/page.js";
-import P109 from "@/app/app/daily-sheets/week/page.js";
-import P110 from "@/app/app/invoices/new/page.js";
+import P106 from "@/app/app/jobs/[id]/work-order/WorkOrderView.js";
+import P107 from "@/app/app/me/supplies/page.js";
+import P108 from "@/docs/screens/app-guide/harness/TakeoffFrame.jsx";
+import P109 from "@/app/app/callbacks/page.js";
+import P110 from "@/app/app/settings/follow-ups/past-clients/page.js";
+import P111 from "@/app/app/daily-sheets/week/page.js";
+import P112 from "@/app/app/invoices/new/page.js";
 export const PAGES = {
   "app/app/page.js": P0,
   "app/app/copilot/page.js": P1,
@@ -217,9 +219,11 @@ export const PAGES = {
   "app/accept-invitation/[id]/page.js": P103,
   "app/signup/page.js": P104,
   "app/app/quotes/[id]/edit/page.js": P105,
-  "docs/screens/app-guide/harness/TakeoffFrame.jsx": P106,
-  "app/app/callbacks/page.js": P107,
-  "app/app/settings/follow-ups/past-clients/page.js": P108,
-  "app/app/daily-sheets/week/page.js": P109,
-  "app/app/invoices/new/page.js": P110,
+  "app/app/jobs/[id]/work-order/WorkOrderView.js": P106,
+  "app/app/me/supplies/page.js": P107,
+  "docs/screens/app-guide/harness/TakeoffFrame.jsx": P108,
+  "app/app/callbacks/page.js": P109,
+  "app/app/settings/follow-ups/past-clients/page.js": P110,
+  "app/app/daily-sheets/week/page.js": P111,
+  "app/app/invoices/new/page.js": P112,
 };

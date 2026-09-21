@@ -1,6 +1,7 @@
 // app/app/purchasing/page.js
 //
-// Purchasing: suppliers, purchase orders, and what is on the shelf.
+// Purchasing: requests from the field, suppliers, purchase orders, and what
+// is on the shelf.
 //
 // ── Why three panels on one page and not three nav rows ────────────────────
 //
@@ -19,8 +20,8 @@
 // sense at 1200px.
 "use client";
 
-import { useState } from "react";
-import { PackageSearch, Truck, Boxes } from "lucide-react";
+import { useEffect, useState } from "react";
+import { PackageSearch, Truck, Boxes, Inbox } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { usePermissions } from "@/app/providers/PermissionProvider";
 import { hasLevel } from "@/lib/permissions/enforce";
@@ -28,17 +29,36 @@ import { PURCHASING_CATEGORY, PURCHASING_LEVEL } from "@/lib/purchasing/access";
 import PurchaseOrdersPanel from "@/app/components/purchasing/PurchaseOrdersPanel";
 import SuppliersPanel from "@/app/components/purchasing/SuppliersPanel";
 import StockPanel from "@/app/components/purchasing/StockPanel";
+import SupplyRequestsPanel from "@/app/components/purchasing/SupplyRequestsPanel";
 
 const TABS = [
   { key: "orders", icon: Truck, labelKey: "app.purchasing.tab.orders" },
   { key: "stock", icon: Boxes, labelKey: "app.purchasing.tab.stock" },
   { key: "suppliers", icon: PackageSearch, labelKey: "app.purchasing.tab.suppliers" },
+  // The mouth of the funnel: what the field asked for, and where each ask
+  // stands. Last rather than first so the page still opens on Orders, the
+  // tab every existing capture and tour of it shows.
+  { key: "requests", icon: Inbox, labelKey: "app.purchasing.tab.requests" },
 ];
+const TAB_KEYS = new Set(TABS.map((t) => t.key));
 
 export default function PurchasingPage() {
   const { t } = useTranslation();
   const caller = usePermissions();
   const [tab, setTab] = useState("orders");
+
+  // ?tab=requests — the destination the "supply requested" notification
+  // links to (lib/notifications/render.js). Read once on mount from the
+  // address rather than through useSearchParams, which would ask for a
+  // Suspense boundary around a page that has none.
+  useEffect(() => {
+    try {
+      const wanted = new URLSearchParams(window.location.search).get("tab");
+      if (wanted && TAB_KEYS.has(wanted)) setTab(wanted);
+    } catch {
+      // No window (the harness's first paint), no tab to read.
+    }
+  }, []);
 
   // The sidebar already hides this row for a member without the level (see
   // NAV_REQUIREMENTS), and hiding a row is not access control — every route
@@ -96,6 +116,7 @@ export default function PurchasingPage() {
             })}
           </div>
 
+          {tab === "requests" && <SupplyRequestsPanel />}
           {tab === "orders" && <PurchaseOrdersPanel />}
           {tab === "stock" && <StockPanel />}
           {tab === "suppliers" && <SuppliersPanel />}

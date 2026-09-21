@@ -244,6 +244,16 @@ export const SCREENS = [
   // at desk width and at phone width, where its columns stack.
   { slug: "ai-team-flow", href: "/app/settings/ai-employee", page: "app/app/settings/ai-employee/page.js", settings: true, height: 1360, scene: "ai-team-flow", chapter: "help" },
   { slug: "ai-team-flow-phone", href: "/app/settings/ai-employee", page: "app/app/settings/ai-employee/page.js", settings: true, width: 375, height: 1900, scene: "ai-team-flow", chapter: "help" },
+  // Materials, the crew work order and supplies (2026-09-21). The job page
+  // scrolled to its grouped material list with the AI banner; the work order
+  // as the office (hidden line flagged) and on the crew's phone; Purchasing on
+  // its Requests tab (reached by the tab, as a person does); the crew's
+  // Request a supply form.
+  { slug: "job-materials", href: "/app/jobs", page: "app/app/jobs/[id]/JobDetail.js", props: { jobId: "j_318" }, scene: "scroll-materials", height: 1400, chapter: "help" },
+  { slug: "work-order", href: "/app/jobs", page: "app/app/jobs/[id]/work-order/WorkOrderView.js", props: { jobId: "j_318" }, height: 1200, chapter: "help" },
+  { slug: "mobile-work-order", href: "/app/jobs", page: "app/app/jobs/[id]/work-order/WorkOrderView.js", props: { jobId: "j_318" }, member: "crew", width: 375, height: 1500, chapter: "help" },
+  { slug: "purchasing-requests", href: "/app/purchasing", page: "app/app/purchasing/page.js", scene: "purchasing-requests", height: 1100, chapter: "help" },
+  { slug: "mobile-supplies", href: "/app/me/supplies", page: "app/app/me/supplies/page.js", member: "crew", width: 375, height: 1400, chapter: "help" },
   ...INTRO_FRAMES,
 
   // ── The booking page at phone width, one frame per mode ────────────────
