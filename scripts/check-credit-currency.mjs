@@ -87,6 +87,7 @@ const crediters = execLines("grep -rln 'addCredit' app lib").filter(
   (f) =>
     !f.endsWith("lib/voice/credits.js") &&
     !f.endsWith("app/app/settings/ai-credit/page.js") &&
+    !f.endsWith("app/app/settings/ai-credit/AiCreditCard.js") &&
     !f.endsWith("app/i18n/appMessages.js"),
 );
 // Four modules today, not two — the AI wallet doubled the count when it

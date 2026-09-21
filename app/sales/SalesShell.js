@@ -62,7 +62,7 @@ import Link from "next/link";
 import IncomingCallDock from "@/app/components/sales/IncomingCallDock";
 import { CallSessionProvider } from "@/app/components/sales/CallSession";
 import LiveCallStrip from "@/app/components/sales/LiveCallStrip";
-import { RepPresenceProvider, RepStatusPicker } from "@/app/components/sales/RepStatus";
+import { RepPresenceProvider, RepStatusPicker, SessionEndedBanner } from "@/app/components/sales/RepStatus";
 import AvailableReminder from "@/app/components/sales/AvailableReminder";
 import { clearReminderDismissed } from "@/lib/sales/availableReminder";
 import SalesMobileTabBar from "@/app/components/sales/SalesMobileTabBar";
@@ -814,6 +814,10 @@ export default function SalesShell({ children }) {
           under the top bar everywhere else. And the write-up of an
           outbound call that ended on a page with no dialler. */}
       <LiveCallStrip />
+      {/* One active session: when a newer sign-in or a supervisor ended this
+          one, the provider stops beating and this says so, with the way
+          back (app/components/sales/RepStatus.js SessionEndedBanner). */}
+      <SessionEndedBanner />
       {/* "You're shown as Off" — the reminder a rep who signed in without
           pressing Available sees once per session, with Go available and OK
           (app/components/sales/AvailableReminder.js). Mounted here, under the

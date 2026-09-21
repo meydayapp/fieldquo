@@ -73,6 +73,9 @@ const NOW = new Date("2026-09-10T12:00:00Z");
 // now made the way production makes them: a SalesRepActivity row through
 // livePresence, wrapped exactly as presenceFor wraps it. If either end of that
 // moves, this check fails instead of the phone.
+// Minutes are FRACTIONS of the two-minute Off window since 2026-09-21
+// (PRESENCE_STALE_MINUTES is 2, the owner's number): a rep unheard from
+// for longer than that is Off, not "available but stale".
 const row = (id, { state = STATE_AVAILABLE, mins = 0 } = {}) => ({
   salesRepId: id,
   presence: livePresence(
@@ -128,7 +131,7 @@ section("2. The order, which is the whole design");
   ok("on a shared line, whoever rang this contractor last is preferred", callback.targets[0]?.salesRepId === "b", callback.targets.map((x) => x.salesRepId));
 
   // Longest idle first, so one rep does not take every call.
-  const shared = ringPlan({ presence: [fresh("a", 2), fresh("b", 9)], now: NOW });
+  const shared = ringPlan({ presence: [fresh("a", 0.5), fresh("b", 1.5)], now: NOW });
   ok("otherwise the longest-idle rep goes first", shared.targets[0]?.salesRepId === "b", shared.targets.map((x) => x.salesRepId));
 
   const staleOnly = ringPlan({ presence: [fresh("a", 60)], transferTo: "+15551234567", now: NOW });
@@ -190,9 +193,9 @@ section("2b. The rep who rang them: the 2026-09-17 timeline, exactly");
   const oldDial = new Date(T - 2 * 3600e3);
   ok("paused is excluded when the dial is old", !plan(at("paused"), { lastCalledAt: oldDial }).targets.some((x) => x.salesRepId === "favor"));
   ok("offline is excluded when the dial is old", !plan({ salesRepId: "favor", presence: livePresence({ state: "available", startedAt: new Date(T - 3600e3), heartbeatAt: new Date(T - 3000e3), endedAt: new Date(T - 3000e3) }, T, {}) }, { lastCalledAt: oldDial }).targets.some((x) => x.salesRepId === "favor"));
-  ok("stale is excluded even in after_call", (() => {
+  ok("an after_call row unheard from for forty minutes is Off (derived), and excluded", (() => {
     const r = { salesRepId: "favor", presence: livePresence({ state: "after_call", startedAt: new Date(T - 40 * 60000), heartbeatAt: new Date(T - 40 * 60000), endedAt: null }, T, {}) };
-    return r.presence.stale === true && !plan(r, { lastCalledAt: oldDial }).targets.some((x) => x.salesRepId === "favor");
+    return r.presence.state === "offline" && r.presence.lastState === "after_call" && !plan(r, { lastCalledAt: oldDial }).targets.some((x) => x.salesRepId === "favor");
   })());
 
   // The dial is evidence, but a statement made AFTER it wins.
@@ -200,8 +203,12 @@ section("2b. The rep who rang them: the 2026-09-17 timeline, exactly");
   ok("a pause declared after the dial is respected", !plan(pausedAfter).targets.some((x) => x.salesRepId === "favor"), lastCallerVerdict(pausedAfter.presence, { lastCalledAt: dialledAt, now: T }));
   const pausedBefore = { salesRepId: "favor", presence: livePresence({ state: "paused", startedAt: new Date("2026-09-17T20:00:00Z"), heartbeatAt: new Date(T - 5000), endedAt: null }, T, {}) };
   ok("…a pause declared BEFORE a dial she then made from the console is not", plan(pausedBefore).targets.some((x) => x.salesRepId === "favor"));
-  const offAfter = { salesRepId: "favor", presence: livePresence({ state: "available", startedAt: new Date("2026-09-17T20:00:00Z"), heartbeatAt: new Date("2026-09-17T20:30:40Z"), endedAt: new Date("2026-09-17T20:30:40Z") }, T, {}) };
-  ok("signing out after the dial is respected", !plan(offAfter).targets.some((x) => x.salesRepId === "favor"));
+  // Sign-out writes an OPEN `offline` row (app/api/sales/auth/logout →
+  // setRepState), which the derivation reads as an explicit leave while
+  // nothing later contradicts it — the shape production leaves, not a
+  // closed available row.
+  const offAfter = { salesRepId: "favor", presence: livePresence({ state: "offline", startedAt: new Date("2026-09-17T20:30:40Z"), heartbeatAt: new Date("2026-09-17T20:30:40Z"), endedAt: null }, T, { portalSeenAt: new Date("2026-09-17T20:30:35Z") }) };
+  ok("signing out after the dial is respected", offAfter.presence.state === "offline" && !plan(offAfter).targets.some((x) => x.salesRepId === "favor"));
 
   ok("the verdict vocabulary is closed", lastCallerVerdict(null, {}) === LAST_CALLER_SKIP && LAST_CALLER_RING === "ring" && LAST_CALLER_HOLD === "hold");
   ok("the dial window is minutes, not a shift", RECENT_CALLER_MINUTES >= 10 && RECENT_CALLER_MINUTES <= 60);
@@ -212,7 +219,7 @@ section("3. Bounds, and the shapes of nothing");
 // ═══════════════════════════════════════════════════════════════════════════
 
 {
-  const many = ringPlan({ presence: [fresh("a", 1), fresh("b", 2), fresh("c", 3), fresh("d", 4)], transferTo: "+15551234567", now: NOW });
+  const many = ringPlan({ presence: [fresh("a", 0.25), fresh("b", 0.5), fresh("c", 0.75), fresh("d", 1)], transferTo: "+15551234567", now: NOW });
   ok(`never more than ${MAX_RING_TARGETS} targets`, many.targets.length === MAX_RING_TARGETS, many.targets.length);
   ok("no rep is rung twice", new Set(many.targets.map((x) => x.salesRepId)).size === many.targets.length);
   ok("the owner is not duplicated by the available sweep", ringPlan({ assignedRepId: "a", presence: [fresh("a")], now: NOW }).targets.length === 1);
@@ -238,7 +245,7 @@ section("3b. A Quebec caller rings only reps with French");
 // The route decides `needsFrench` from the caller's area code or the row
 // they matched, and hands ringPlan the ids of reps with French.
 {
-  const rows = [fresh("anglo", 1), fresh("franco", 5), fresh("anglo2", 9)];
+  const rows = [fresh("anglo", 0.3), fresh("franco", 1), fresh("anglo2", 1.5)];
   const fr = ringPlan({ presence: rows, needsFrench: true, frenchRepIds: ["franco"], now: NOW });
   ok("a 514 caller rings only the rep with French", fr.targets.length === 1 && fr.targets[0].salesRepId === "franco", fr.targets);
   ok("…the plan says so", fr.needsFrench === true);
@@ -272,7 +279,7 @@ section("4. It survives into the TwiML, which is the only thing Twilio reads");
 // ═══════════════════════════════════════════════════════════════════════════
 
 {
-  const plan = ringPlan({ assignedRepId: "daniel", presence: [fresh("daniel"), fresh("other", 5)], transferTo: "+15551234567", now: NOW });
+  const plan = ringPlan({ assignedRepId: "daniel", presence: [fresh("daniel"), fresh("other", 1)], transferTo: "+15551234567", now: NOW });
   const twiml = new twilio.twiml.VoiceResponse();
   const dial = twiml.dial({ callerId: "+16135550142", timeout: plan.ringSeconds, answerOnBridge: true });
   for (const target of plan.targets) {
@@ -341,7 +348,7 @@ section("6. The two ends agree about the shape");
 // (anyRepLive) that had the shape right all along.
 
 {
-  const rows = [fresh("a", 1), fresh("b", 2)];
+  const rows = [fresh("a", 0.5), fresh("b", 1)];
   // Availability must SURVIVE the wrapper. If it does not, everything below
   // step 1 of the ring order is unreachable and no other assertion notices.
   const plan = ringPlan({ presence: rows, now: NOW });

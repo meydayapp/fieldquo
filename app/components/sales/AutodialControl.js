@@ -87,6 +87,9 @@ export function useAutodial({ order, currentId, readiness, select, browserReady 
   const presence = useRepPresence();
   const { autodial: switchOn, callUp, inboundRinging, availablePresses } = presence;
   const state = presence.presence?.state || null;
+  // The write-up window's end, from the derived presence, so the dialler's
+  // stop can say how long the wait is (lib/sales/autodial.js).
+  const writeUpEndsAt = presence.presence?.writeUpEndsAt || null;
 
   const [phase, setPhase] = useState("idle"); // idle | countdown | waiting | dialling | stopped
   const [target, setTarget] = useState(null);
@@ -111,7 +114,7 @@ export function useAutodial({ order, currentId, readiness, select, browserReady 
   // this ref rather than in arm()'s dependencies is what keeps arm — and the
   // interval that depends on it — stable across renders.
   const latest = useRef({});
-  latest.current = { order, currentId, readiness, state, switchOn, callUp, inboundRinging, browserReady, skipped, select, clockOffsetMs };
+  latest.current = { order, currentId, readiness, state, writeUpEndsAt, switchOn, callUp, inboundRinging, browserReady, skipped, select, clockOffsetMs };
   const nowMs = useCallback(() => Date.now() + (Number(latest.current.clockOffsetMs) || 0), []);
 
   const nameOf = useCallback(
@@ -145,13 +148,14 @@ export function useAutodial({ order, currentId, readiness, select, browserReady 
         now: nowMs(),
         readiness: { decision: "allowed" },
         state: l.state,
+        writeUpEndsAt: l.writeUpEndsAt,
         switchOn: l.switchOn,
         callUp: l.callUp,
         inboundRinging: l.inboundRinging,
         browserReady: l.browserReady !== false,
       });
       if (gate.stop) {
-        halt(gate.reason, { state: gate.state || null });
+        halt(gate.reason, { state: gate.state || null, endsAt: gate.endsAt ?? null });
         return;
       }
       if (gate.wait) {
@@ -238,13 +242,14 @@ export function useAutodial({ order, currentId, readiness, select, browserReady 
         now: nowMs(),
         readiness: ready,
         state: l.state,
+        writeUpEndsAt: l.writeUpEndsAt,
         switchOn: l.switchOn,
         callUp: l.callUp,
         inboundRinging: l.inboundRinging,
         browserReady: l.browserReady !== false,
       });
       if (decision.stop) {
-        halt(decision.reason, { state: decision.state || null });
+        halt(decision.reason, { state: decision.state || null, endsAt: decision.endsAt ?? null });
         return;
       }
       if (decision.skip) {
@@ -292,13 +297,14 @@ export function useAutodial({ order, currentId, readiness, select, browserReady 
       now: nowMs(),
       readiness: { decision: "allowed" },
       state,
+      writeUpEndsAt,
       switchOn,
       callUp,
       inboundRinging,
       browserReady: browserReady !== false,
     });
     if (gate.stop) {
-      halt(gate.reason, { state: gate.state || null });
+      halt(gate.reason, { state: gate.state || null, endsAt: gate.endsAt ?? null });
       return;
     }
     if (phase === "waiting") {
@@ -313,7 +319,7 @@ export function useAutodial({ order, currentId, readiness, select, browserReady 
       return;
     }
     if (currentId && target && currentId !== target && currentId !== fromId) halt("moved");
-  }, [phase, target, fromId, waiting, order, skipped, state, switchOn, callUp, inboundRinging, browserReady, currentId, halt, arm, nowMs]);
+  }, [phase, target, fromId, waiting, order, skipped, state, writeUpEndsAt, switchOn, callUp, inboundRinging, browserReady, currentId, halt, arm, nowMs]);
 
   // The switch going off ends everything, whatever phase. Going ON is not
   // handled here on purpose: the persisted switch arrives true from the
@@ -482,6 +488,13 @@ export default function AutodialControl({ auto, claimLabel = null, onClaim = nul
         return t("app.salesAutodial.stop.notAvailable", {
           state: t(`app.salesStatus.state.${stop.state || "offline"}`),
         });
+      case AUTODIAL_REASONS.write_up_window:
+        // The window's end is the platform's clock; the countdown in the
+        // header is the same number. A window held for a missing outcome
+        // has no time on it and says what it is waiting for.
+        return stop.endsAt
+          ? t("app.salesAutodial.stop.writeUpWindow", { seconds: Math.max(0, Math.ceil((stop.endsAt - Date.now()) / 1000)) })
+          : t("app.salesAutodial.stop.writeUpOutcome");
       case AUTODIAL_REASONS.call_up:
         return t("app.salesAutodial.stop.callUp");
       case AUTODIAL_REASONS.inbound_ringing:

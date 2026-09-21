@@ -928,8 +928,12 @@ async function runRelease() {
   {
     // ── repOnShift, pure ──
     const beat = (minsAgo) => new Date(NOW.getTime() - minsAgo * 60 * 1000);
-    ok("available, heartbeat 2 min ago → on shift", repOnShift({ activity: { state: "available", startedAt: beat(120), heartbeatAt: beat(2), endedAt: null }, now: NOW }) === true);
-    ok("on a call, heartbeat 10 min ago → on shift", repOnShift({ activity: { state: "on_call", startedAt: beat(12), heartbeatAt: beat(10), endedAt: null }, now: NOW }) === true);
+    // The Off window is two minutes since 2026-09-21 (agentState.js
+    // PRESENCE_STALE_MINUTES); a beat inside it is a shift, one outside it
+    // is not, and the keepalive alone (portalSeenAt) is a shift too.
+    ok("available, heartbeat 1 min ago → on shift", repOnShift({ activity: { state: "available", startedAt: beat(120), heartbeatAt: beat(1), endedAt: null }, now: NOW }) === true);
+    ok("on a call, heartbeat 10 min ago, no dial in the last hour → off (the window is two minutes now)", repOnShift({ activity: { state: "on_call", startedAt: beat(12), heartbeatAt: beat(10), endedAt: null }, now: NOW }) === false);
+    ok("no row, a portal keepalive 1 min ago → on shift", repOnShift({ activity: null, portalSeenAt: beat(1), now: NOW }) === true);
     ok("available but not heard from for 40 min (lid closed) → off", repOnShift({ activity: { state: "available", startedAt: beat(300), heartbeatAt: beat(40), endedAt: null }, now: NOW }) === false);
     ok("…unless they dialled within the hour", repOnShift({ activity: { state: "available", startedAt: beat(300), heartbeatAt: beat(40), endedAt: null }, lastDialAt: beat(30), now: NOW }) === true);
     ok("offline → off, whatever the heartbeat", repOnShift({ activity: { state: "offline", startedAt: beat(1), heartbeatAt: beat(1), endedAt: null }, now: NOW }) === false);

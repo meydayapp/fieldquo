@@ -24,13 +24,14 @@
 // inside the team. Resend an invitation. Read the team's results and floor.
 // The phone number and the work mailbox are FieldQuo's to assign; the row
 // says so until both are there.
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Building2, Copy, Loader2, RefreshCw } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { centsToMoney } from "@/lib/sales/money";
-import { describeDuration } from "@/lib/sales/calls/agentState";
+import { WORD_OFF, countdownText, dayWindowParts, describeDuration, presenceHeadline } from "@/lib/sales/calls/agentState";
+import DialBuckets from "@/app/components/sales/DialBuckets";
 import { LANGUAGES } from "@/app/i18n/languages";
 
 // 44px on a phone, the portal's rule since the 2026-09-13 audit
@@ -420,9 +421,52 @@ export default function SalesAgencyPage() {
  * refresh for the platform screen's reason: current enough for "on a call",
  * slow enough that a board left open all day is not a load test.
  */
+/** Live reps first, then the day's dials, then the name — the platform board's order. */
+function sortedReps(reps) {
+  return [...(reps || [])].sort((a, b) => {
+    const offA = (a.presence?.state || "offline") === "offline" ? 1 : 0;
+    const offB = (b.presence?.state || "offline") === "offline" ? 1 : 0;
+    return offA - offB || (b.stats?.dials ?? 0) - (a.stats?.dials ?? 0) || String(a.name).localeCompare(String(b.name));
+  });
+}
+
+function prettyLine(e164) {
+  const d = String(e164 || "").replace(/\D/g, "");
+  if (d.length === 11 && d.startsWith("1")) return `+1 ${d.slice(1, 4)} ${d.slice(4, 7)} ${d.slice(7)}`;
+  return e164 || "";
+}
+
+/** A rate() as a percentage, or the counts while it is under the floor. */
+function pct(r) {
+  return r?.value != null ? `${r.value}%` : `${r?.hit ?? 0} / ${r?.sampleSize ?? 0}`;
+}
+
 function TeamFloor({ t }) {
   const [board, setBoard] = useState(null);
   const [failed, setFailed] = useState(false);
+  // The bucket words are the agency performance page's own keys — one
+  // catalogue entry per bucket, not a second set for the floor.
+  const bucketLabels = useMemo(
+    () => ({
+      nobodyAnswered: t("app.salesAgencyPerf.nobodyAnswered"),
+      hungUpFast: t("app.salesAgencyPerf.hungUpFast"),
+      voicemailOrBrief: t("app.salesAgencyPerf.voicemailOrBrief"),
+      realConversation: t("app.salesAgencyPerf.realConversation"),
+      realConversationRate: t("app.salesAgencyPerf.realConversation"),
+      dialsWithLeg: (n) => t("app.salesAgency.dialsWithLeg", { count: n }),
+      ofDials: (n) => t("app.salesAgency.ofDials", { count: n }),
+      sourceTwilio: t("app.salesAgencyPerf.sourceTwilio"),
+      sourceTranscriptOrTwilio: t("app.salesAgencyPerf.sourceTranscriptOrTwilio"),
+      carrierMissingSince: (date, n) => t("app.salesAgencyPerf.carrierMissingSince", { date, n }),
+    }),
+    [t],
+  );
+  const pauseLabels = useMemo(() => Object.fromEntries(Object.entries(PAUSE_KEY).map(([code, key]) => [code, t(key)])), [t]);
+  const windowSentence = (from) => {
+    const w = dayWindowParts(from);
+    if (!w) return null;
+    return w.sameDay ? t("app.salesAgency.windowToday", { time: w.time }) : t("app.salesAgency.windowYesterday", { time: w.time });
+  };
 
   const load = useCallback(async () => {
     try {
@@ -458,44 +502,89 @@ function TeamFloor({ t }) {
 
       {board?.store?.ready ? (
         <>
+          {board.period?.from ? (
+            <p className="text-sm text-foreground" data-floor-window>
+              {windowSentence(board.period.from)} — {t("app.salesAgency.floorDay")}
+            </p>
+          ) : null}
           <div className="grid gap-3 sm:grid-cols-2">
-            {(board.reps || []).map((rep) => {
+            {sortedReps(board.reps).map((rep) => {
               const p = rep.presence;
-              const declared = p?.everSeen !== false;
-              const seenNotOnFloor = !declared && p?.everSignedIn === true;
               const state = p?.state || "offline";
               const s = rep.stats;
+              // The four words — Off since · Available · Busy · Paused — from
+              // the same derivation and the same helper the platform board
+              // and the rep's own header use (agentState.js presenceHeadline).
+              const head = presenceHeadline(p, { labels: { pauseReasons: pauseLabels } });
+              const countdown = head.countdownSeconds === null ? null : countdownText(head.countdownSeconds);
+              const forText = p?.forMs != null && (state === "on_call" || state === "paused") ? describeDuration(p.forMs) : null;
+              const noCalls = !s?.dials;
+              const lines = s?.table?.lines;
               return (
-                <div key={rep.id} className={`${CARD} space-y-2`} data-floor-rep={rep.id} data-state={state}>
+                <div key={rep.id} className={`${CARD} space-y-2`} data-floor-rep={rep.id} data-state={state} data-presence-word={head.word}>
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="font-semibold text-foreground break-words">{rep.name}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {declared
-                          ? `${t(STATE_KEY[state] || STATE_KEY.offline)}${p?.pauseReason ? ` — ${t(PAUSE_KEY[p.pauseReason] || PAUSE_KEY.other)}` : ""}${p?.forMs != null ? ` · ${describeDuration(p.forMs)}` : ""}`
-                          : seenNotOnFloor
-                            ? t("app.salesAgency.signedInNotOnFloor")
-                            : t("app.salesAgency.neverSignedIn")}
+                      <p className="text-sm text-muted-foreground" data-presence-headline>
+                        {t(head.key, head.params)}
+                        {countdown ? <span className="tabular-nums"> {countdown}</span> : null}
+                        {head.sub ? (
+                          <span className={head.sub.alert ? "font-semibold text-red-700 dark:text-red-300" : ""} data-pause-over={head.sub.alert ? "true" : undefined}>
+                            {" "}— {t(head.sub.key, head.sub.params)}
+                          </span>
+                        ) : null}
+                        {forText ? ` · ${forText}` : ""}
                       </p>
-                      {p?.stale ? (
-                        <p className="text-xs text-muted-foreground">
-                          {t("app.salesAgency.stale", { time: p.lastSeenAt ? new Date(p.lastSeenAt).toLocaleTimeString() : "—" })}
+                      {head.word === WORD_OFF && p?.lastState && p.lastState !== "offline" ? (
+                        <p className="text-xs text-muted-foreground break-words">
+                          {t("app.salesAgency.lastState", {
+                            state: `${t(STATE_KEY[p.lastState] || STATE_KEY.offline)}${p.lastPauseReason ? ` — ${t(PAUSE_KEY[p.lastPauseReason] || PAUSE_KEY.other)}` : ""}`.toLowerCase(),
+                          })}
                         </p>
                       ) : null}
                     </div>
-                    <p className="text-2xl font-semibold tabular-nums text-foreground shrink-0" title={t("app.salesAgency.dials")}>{s?.dials ?? 0}</p>
+                    <div className="text-right shrink-0" data-calls-today>
+                      <p className="text-2xl font-semibold tabular-nums text-foreground leading-none">{s?.dials ?? 0}</p>
+                      <p className="text-[11px] text-muted-foreground">{t("app.salesAgency.callsToday")}</p>
+                      {lines && !noCalls ? (
+                        <p className="text-[11px] text-muted-foreground tabular-nums break-words max-w-[12rem]" data-lines-used>
+                          {lines.count > 0
+                            ? t("app.salesAgency.fromLines", { count: lines.count, lines: lines.rows.map((l) => `${prettyLine(l.e164)} (${l.calls})`).join(", ") })
+                            : null}
+                          {lines.noLine ? ` · ${t("app.salesAgency.byHandset", { count: lines.noLine })}` : ""}
+                        </p>
+                      ) : null}
+                    </div>
                   </div>
-                  <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
-                    <dt className="text-muted-foreground">{t("app.salesAgency.reached")}</dt>
+                  {noCalls ? <p className="text-xs text-muted-foreground" data-no-calls>{t("app.salesAgency.noCallsToday")}</p> : null}
+                  {!noCalls && s?.table ? <DialBuckets table={s.table} labels={bucketLabels} compact /> : null}
+                  <dl className={`grid grid-cols-2 gap-x-3 gap-y-1 text-xs ${noCalls ? "hidden" : ""}`}>
+                    <dt className="text-muted-foreground">{t("app.salesAgencyPerf.reachedRepsWord")}</dt>
                     <dd className="text-right tabular-nums text-foreground">
-                      {s?.reportedReachRate?.value != null
-                        ? `${s.reportedReachRate.value}%`
-                        : `${s?.reportedReachRate?.hit ?? 0} / ${s?.reportedReachRate?.sampleSize ?? 0}`}
+                      {s?.table ? pct(s.table.reached) : "—"}
+                      {s?.table && s.table.dials > 0 && s.table.logged < s.table.dials ? <span className="text-muted-foreground"> · {t("app.salesAgencyPerf.notLogged", { n: s.table.dials - s.table.logged })}</span> : null}
+                    </dd>
+                    <dt className="text-muted-foreground">{t("app.salesAgency.realConversationTranscript")}</dt>
+                    <dd className="text-right tabular-nums text-foreground" data-transcript-conversations>
+                      {s?.table ? s.table.realConversationFromTranscript : "—"}
+                      {s?.table ? <span className="text-muted-foreground"> · {t("app.salesAgency.transcribed", { count: s.table.conversationFromTranscript })}</span> : null}
                     </dd>
                     <dt className="text-muted-foreground">{t("app.salesAgency.notWrittenUp")}</dt>
                     <dd className="text-right tabular-nums text-foreground">{s?.dispositions?.pending ?? 0}</dd>
-                    <dt className="text-muted-foreground">{t("app.salesAgency.timeOnCalls")}</dt>
+                    <dt className="text-muted-foreground">
+                      {t("app.salesAgency.timeOnCalls")}
+                      <span className="block text-[11px]">{t("app.salesAgency.timeOnCallsNote")}</span>
+                    </dt>
                     <dd className="text-right tabular-nums text-foreground">{s?.onCallText || "—"}</dd>
+                    <dt className="text-muted-foreground">
+                      {t("app.salesAgency.meanTalk")}
+                      <span className="block text-[11px]">{t("app.salesAgency.meanTalkNote")}</span>
+                    </dt>
+                    <dd className="text-right tabular-nums text-foreground" data-mean-talk>
+                      {s?.table?.meanConversationSeconds != null
+                        ? `${describeDuration(s.table.meanConversationSeconds * 1000)} (${t("app.salesAgency.overConversations", { count: s.table.buckets.realConversation })})`
+                        : t("app.salesAgency.noConversationYet")}
+                    </dd>
                     <dt className="text-muted-foreground">{t("app.salesAgency.paused")}</dt>
                     <dd className="text-right tabular-nums text-foreground">{s?.pausedText || "—"}</dd>
                   </dl>

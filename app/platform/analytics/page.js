@@ -38,6 +38,8 @@ const TAB = "px-3 py-2 min-h-[44px] lg:min-h-[36px] rounded-lg text-sm font-medi
 const num = (n) => (n === null || n === undefined ? "—" : Number(n).toLocaleString("en-CA"));
 const pct = (n) => (n === null || n === undefined ? "—" : `${n}%`);
 
+const RANGE_LABELS = { 1: "Today", 7: "Last 7 days", 30: "Last 30 days", 90: "Last 90 days", 365: "Last year" };
+
 const STEP_LABELS = {
   visited: "Visited /signup",
   account: "Account & company",
@@ -74,7 +76,7 @@ function Bar({ value, max }) {
 }
 
 /** Rows of {key, count, companies?, uniqueVisitors?} with a bar each. */
-function RankTable({ rows, label, empty, showCompanies = false, showUniques = true, labelFor = (k) => k, total = null }) {
+function RankTable({ rows, label, empty, showCompanies = false, showUniques = true, labelFor = (k) => k, total = null, uniquesBasis = "range" }) {
   if (!rows?.length) return <p className="text-sm text-muted-foreground">{empty}</p>;
   const max = Math.max(...rows.map((r) => r.count));
   return (
@@ -84,7 +86,11 @@ function RankTable({ rows, label, empty, showCompanies = false, showUniques = tr
           <tr className="text-left text-xs text-muted-foreground">
             <th className="py-1 pr-3 font-medium">{label}</th>
             <th className="py-1 pr-3 font-medium text-right">Views</th>
-            {showUniques ? <th className="py-1 pr-3 font-medium text-right">Visitors</th> : null}
+            {showUniques ? (
+              <th className="py-1 pr-3 font-medium text-right" title={uniquesBasis === "range" ? "One browser counts once for the whole range." : "Past 30 days only daily counts are kept: a browser counts once per day it came."}>
+                {uniquesBasis === "range" ? "Visitors" : "Visitor-days"}
+              </th>
+            ) : null}
             {showCompanies ? <th className="py-1 pr-3 font-medium text-right">Companies</th> : null}
             <th className="py-1 w-1/3" />
           </tr>
@@ -119,18 +125,18 @@ function Stat({ label, value, hint }) {
   );
 }
 
-function Funnel({ funnel }) {
+function Funnel({ funnel, rangeLabel }) {
   const max = Math.max(1, ...funnel.steps.map((s) => s.count));
   return (
     <div className="space-y-3">
       <p className="text-xs text-muted-foreground">
         {funnel.basis === "visitors"
-          ? "Distinct visitors per step (one browser counts once), from the raw rows of the last 30 days."
-          : "Events per step — a ceiling on visitors, because the range reaches past the 30 days of raw rows and only daily counts remain."}
-        {" "}&ldquo;Completed&rdquo; is stamped by the billing sync when the Subscription row exists, never by the browser.
+          ? `How many people reached each step, ${rangeLabel.toLowerCase()} — one browser counts once.`
+          : `How many times each step was shown, ${rangeLabel.toLowerCase()} — past 30 days only daily counts are kept, so a person who came back twice counts twice here.`}
+        {" "}&ldquo;Completed&rdquo; is companies with a subscription created in the range — the card was entered.
       </p>
       <div className="space-y-2">
-        {funnel.steps.map((s, i) => (
+        {funnel.steps.map((s) => (
           <div key={s.key} className="grid grid-cols-[minmax(0,12rem)_1fr_auto] gap-3 items-center text-sm">
             <span className="text-foreground truncate">{STEP_LABELS[s.key] || s.key}</span>
             <div className="h-5 rounded bg-muted overflow-hidden">
@@ -138,10 +144,7 @@ function Funnel({ funnel }) {
             </div>
             <span className="tabular-nums text-right whitespace-nowrap">
               <span className="text-foreground font-medium">{num(s.count)}</span>
-              {i > 0 ? (
-                <span className="text-xs text-muted-foreground"> · drop {pct(s.dropPct)}</span>
-              ) : null}
-              {i > 0 && s.ofFirstPct !== null ? <span className="text-xs text-muted-foreground"> · {pct(s.ofFirstPct)} of visited</span> : null}
+              <span className="text-xs text-muted-foreground"> {s.count === 1 ? "person" : "people"}</span>
             </span>
           </div>
         ))}
@@ -236,8 +239,8 @@ export default function PlatformAnalyticsPage() {
         <label className="text-sm text-foreground flex items-center gap-2">
           Range
           <select value={range} onChange={(e) => setRange(Number(e.target.value))} className={FIELD}>
-            {[7, 30, 90].map((d) => (
-              <option key={d} value={d}>Last {d} days</option>
+            {(data?.range?.options || [1, 7, 30, 90, 365]).map((d) => (
+              <option key={d} value={d}>{RANGE_LABELS[d] || `Last ${d} days`}</option>
             ))}
           </select>
         </label>
@@ -285,12 +288,12 @@ export default function PlatformAnalyticsPage() {
             <div className="space-y-6">
               <section className={CARD}>
                 <h2 className="text-base font-semibold text-foreground">Signup funnel</h2>
-                <Funnel funnel={data.funnel} />
+                <Funnel funnel={data.funnel} rangeLabel={RANGE_LABELS[data.range.days] || `Last ${data.range.days} days`} />
               </section>
               <div className="grid gap-6 lg:grid-cols-2">
                 <section className={CARD}>
                   <h2 className="text-base font-semibold text-foreground">Most viewed pages</h2>
-                  <RankTable rows={data.marketing.pages} label="Page" empty="No marketing views in this range." />
+                  <RankTable rows={data.marketing.pages} label="Page" empty="No marketing views in this range." uniquesBasis={data.uniquesBasis} />
                 </section>
                 <section className={CARD}>
                   <h2 className="text-base font-semibold text-foreground">By language</h2>
@@ -310,7 +313,7 @@ export default function PlatformAnalyticsPage() {
                 <section className={CARD}>
                   <h2 className="text-base font-semibold text-foreground">Help centre</h2>
                   <p className="text-xs text-muted-foreground">Most-read articles, then what people searched for and did not find.</p>
-                  <RankTable rows={data.help.articles} label="Article" empty="No help-centre views in this range." />
+                  <RankTable rows={data.help.articles} label="Article" empty="No help-centre views in this range." uniquesBasis={data.uniquesBasis} />
                   <h3 className="text-sm font-semibold text-foreground pt-2">Searches with no results</h3>
                   <RankTable rows={data.help.searchesEmpty} label="Query" empty="Every search in this range found something — or nobody searched." showUniques={false} />
                   <h3 className="text-sm font-semibold text-foreground pt-2">All searches</h3>
@@ -405,7 +408,7 @@ export default function PlatformAnalyticsPage() {
               <div className="grid gap-6 lg:grid-cols-2">
                 <section className={CARD}>
                   <h2 className="text-base font-semibold text-foreground">Client-facing pages</h2>
-                  <RankTable rows={data.client.pages} label="Page" empty="No client-facing views in this range." />
+                  <RankTable rows={data.client.pages} label="Page" empty="No client-facing views in this range." uniquesBasis={data.uniquesBasis} />
                 </section>
                 <section className={CARD}>
                   <h2 className="text-base font-semibold text-foreground">By language</h2>

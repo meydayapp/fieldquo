@@ -29,13 +29,15 @@ import { usePermissions } from "@/app/providers/PermissionProvider";
 import { hasToggle, hasLevel } from "@/lib/permissions/enforce";
 import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
 import BackToHome from "@/app/components/BackToHome";
+import FixedCostsEditor from "./FixedCostsEditor";
 import { formatAppMoney } from "@/lib/format/money";
 import {
   useCompanyMoney,
   useCompanyPreferences,
 } from "@/app/providers/CompanyPreferencesProvider";
 
-const FIXED_COST_FREQUENCIES = ["weekly", "monthly", "yearly"];
+// The fixed-costs list moved to ./FixedCostsEditor.js, which the home page's
+// set-up dialog also renders; FIXED_COST_FREQUENCIES lives there.
 
 // Why an asset charges nothing this month. Keyed by the `reason` that
 // lib/accounting/depreciation.js returns ALONGSIDE the charge, so the sentence
@@ -116,7 +118,6 @@ function OverheadEditor() {
   // let the server refuse, as everywhere else in the app.
   const seesBills = !caller || hasLevel(caller, "expenses", "view_record_edit_all");
   const [salaries, setSalaries] = useState([]);
-  const [fixedCosts, setFixedCosts] = useState([]);
   // Capacity and the minimum price it makes possible. The page has always
   // claimed these feed a "minimum-price calculator"; there was no way to set the
   // capacity it needs and no screen that showed the result, so the sentence was
@@ -164,11 +165,6 @@ function OverheadEditor() {
     amount: "",
     frequency: "monthly",
     hoursPerWeek: "",
-  });
-  const [fixedForm, setFixedForm] = useState({
-    name: "",
-    amount: "",
-    frequency: "monthly",
   });
   const [debtForm, setDebtForm] = useState({
     name: "",
@@ -291,12 +287,10 @@ function OverheadEditor() {
     Promise.all([
       leg("/api/salaries", []),
       leg("/api/debt", []),
-      leg("/api/overhead/fixed-costs", []),
       leg("/api/settings/forecast", {}),
-    ]).then(([s, d, f, forecast]) => {
+    ]).then(([s, d, forecast]) => {
       setSalaries(Array.isArray(s) ? s : []);
       setDebts(Array.isArray(d) ? d : []);
-      setFixedCosts(Array.isArray(f) ? f : []);
       setCapacity(
         forecast?.jobsPerWeekCapacity == null
           ? ""
@@ -471,38 +465,6 @@ function OverheadEditor() {
       }
     } finally {
       setCapacitySaving(false);
-    }
-  }
-
-  async function addFixedCost(e) {
-    e.preventDefault();
-    const res = await fetch("/api/overhead/fixed-costs", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: fixedForm.name,
-        amount: Number(fixedForm.amount),
-        frequency: fixedForm.frequency,
-      }),
-    });
-    if (res.ok) {
-      const created = await res.json();
-      setFixedCosts((prev) => [created, ...prev]);
-      setFixedForm({ name: "", amount: "", frequency: "monthly" });
-      await loadMinPrice();
-    } else {
-      await reportResponseError(res);
-    }
-  }
-
-  async function removeFixedCost(id, label) {
-    if (!confirmDelete(label)) return;
-    const res = await fetch(`/api/overhead/fixed-costs/${id}`, { method: "DELETE" });
-    if (res.ok) {
-      setFixedCosts((prev) => prev.filter((f) => f.id !== id));
-      await loadMinPrice();
-    } else {
-      await reportResponseError(res);
     }
   }
 
@@ -934,90 +896,7 @@ function OverheadEditor() {
       {/* id: the dashboard's "Enter your overhead" set-up step lands here
           (lib/setupSteps.js). */}
       <div id="fixed-costs" className="scroll-mt-4">
-        <h2 className="font-semibold text-foreground mb-1">
-          {t("app.setOverhead.fixedCosts")}
-        </h2>
-        <p className="text-xs text-muted-foreground mb-3">
-          {t("app.setOverhead.fixedCostsDesc")}
-        </p>
-        <div className="space-y-2 mb-3">
-          {fixedCosts.length === 0 && (
-            <p className="text-sm text-muted-foreground">
-              {t("app.setOverhead.noFixedCosts")}
-            </p>
-          )}
-          {fixedCosts.map((f) => (
-            <div
-              key={f.id}
-              className="bg-card border border-border rounded-lg p-3 flex items-center justify-between gap-3 text-sm"
-            >
-              <span className="truncate">
-                {f.category}
-                {/* A recurring overhead expense saved as one-off from Settings →
-                    Expense Tracking is counted as $0 a month by the burn-rate
-                    calculation. It is still a row this list has to show — but
-                    silently showing it under a total it contributes nothing to
-                    is how a screen ends up lying about its own arithmetic. */}
-                {!FIXED_COST_FREQUENCIES.includes(f.frequency) && (
-                  <span className="block text-[11px] text-muted-foreground">
-                    {t("app.setOverhead.notCounted")}
-                  </span>
-                )}
-              </span>
-              <span className="flex items-center gap-3 shrink-0">
-                <span className="font-semibold tabular-nums">
-                  {money(f.amount)}/
-                  {t(`app.setOverhead.${f.frequency}`, f.frequency)}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => removeFixedCost(f.id, f.category)}
-                  aria-label={t("app.action.remove")}
-                  className="text-muted-foreground hover:text-red-600"
-                >
-                  <Trash2 size={14} />
-                </button>
-              </span>
-            </div>
-          ))}
-        </div>
-        <form onSubmit={addFixedCost} className="flex flex-wrap gap-2">
-          <input
-            placeholder={t("app.setOverhead.fixedCostNamePlaceholder")}
-            value={fixedForm.name}
-            onChange={(e) => setFixedForm({ ...fixedForm, name: e.target.value })}
-            className="border border-border rounded px-3 py-2 text-sm flex-1 min-w-[8rem] bg-background"
-          />
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            placeholder={t("app.setOverhead.amount")}
-            value={fixedForm.amount}
-            onChange={(e) => setFixedForm({ ...fixedForm, amount: e.target.value })}
-            className="border border-border rounded px-3 py-2 text-sm w-28 bg-background"
-          />
-          <select
-            value={fixedForm.frequency}
-            onChange={(e) =>
-              setFixedForm({ ...fixedForm, frequency: e.target.value })
-            }
-            className="border border-border rounded px-2 py-2 text-sm bg-card"
-          >
-            {FIXED_COST_FREQUENCIES.map((f) => (
-              <option key={f} value={f}>
-                {t(`app.setOverhead.${f}`)}
-              </option>
-            ))}
-          </select>
-          <button
-            type="submit"
-            className="bg-inverted text-inverted-foreground px-4 rounded-full"
-            aria-label={t("app.setOverhead.addFixedCost")}
-          >
-            <Plus size={14} />
-          </button>
-        </form>
+        <FixedCostsEditor onChanged={loadMinPrice} />
       </div>
 
       <div>

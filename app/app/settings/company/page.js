@@ -10,6 +10,10 @@ import BusinessHoursModal from "@/app/components/settings/BusinessHoursModal";
 import { SettingsDrillLink } from "@/app/components/settings/SettingsDrillDown";
 import OpeningHoursEditor from "@/app/components/settings/OpeningHoursEditor";
 import UsTaxCard from "@/app/components/settings/UsTaxCard";
+// The company-details and tax-registration fields are shared with the home
+// page's set-up dialogs, so they live in components rather than here.
+import CompanyDetailsFields from "@/app/components/settings/CompanyDetailsFields";
+import TaxRegistrationFields from "@/app/components/settings/TaxRegistrationFields";
 import PaymentScheduleEditor from "./PaymentScheduleEditor";
 import BackToHome from "@/app/components/BackToHome";
 import { INDUSTRIES } from "@/app/data/industries";
@@ -1190,135 +1194,13 @@ export default function CompanySettingsPage() {
 
       {/* Company details */}
       <SectionCard title={t("app.setCompany.detailsTitle")}>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="text-sm font-medium text-foreground block mb-1">
-              {t("app.setCompany.companyName")}
-            </label>
-            <input
-              className={inputClass}
-              value={form.name}
-              onChange={(e) => set("name", e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="text-sm font-medium text-foreground block mb-1">
-              {t("app.setCompany.phoneNumber")}
-            </label>
-            <input
-              className={inputClass}
-              value={form.phone}
-              onChange={(e) => set("phone", e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="text-sm font-medium text-foreground block mb-1">
-              {t("app.setCompany.emailAddress")}
-            </label>
-            <input
-              type="email"
-              className={inputClass}
-              value={form.email}
-              onChange={(e) => set("email", e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="text-sm font-medium text-foreground block mb-1">
-              {t("app.setCompany.websiteUrl")}
-            </label>
-            <input
-              className={inputClass}
-              placeholder={WEBSITE_PLACEHOLDER}
-              value={form.website}
-              onChange={(e) => set("website", e.target.value)}
-            />
-          </div>
-        </div>
-
-        {/* Auto-hosted subdomain.
-            The toggle is GONE, not disabled-looking-enabled. There is no
-            /site route, no page renderer and no hostname handling in
-            middleware — nothing is served at this address by anything.
-            Leaving a switch here let a company turn it on, see "Currently
-            published", and believe they had a website. The platform console
-            then repeated the claim back to FieldQuo staff.
-            Restore the toggle in the same commit that makes the address
-            resolve, not before. */}
-        <div className="flex items-start gap-2.5 bg-muted border border-border rounded-lg px-4 py-3">
-          <Globe size={16} className="text-muted-foreground mt-0.5 shrink-0" />
-          <div>
-            <div className="text-sm font-medium text-foreground">
-              {slug
-                ? `${slug}.fieldquo.com`
-                : t("app.setCompany.yourSubdomain")}
-            </div>
-            <div className="text-xs text-muted-foreground mt-0.5">
-              {t("app.setCompany.subdomainHint")}{" "}
-              <Link href="/app/settings/website" className="underline">
-                {t("app.settings.website")}
-              </Link>
-              .
-            </div>
-          </div>
-        </div>
-
-        <div>
-          <label className="text-sm font-medium text-foreground block mb-1">
-            {t("app.setCompany.streetAddress")}
-          </label>
-          <AddressAutocomplete
-            value={form.address}
-            onChange={(v) => set("address", v)}
-            onPlaceSelected={handlePlaceSelected}
-            placeholder={t("app.setCompany.addressPlaceholder")}
-            className={inputClass}
-          />
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <div>
-            <label className="text-sm font-medium text-foreground block mb-1">
-              {t("app.field.city")}
-            </label>
-            <input
-              className={inputClass}
-              value={form.city}
-              onChange={(e) => set("city", e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="text-sm font-medium text-foreground block mb-1">
-              {t("app.field.province")}
-            </label>
-            <input
-              className={inputClass}
-              value={form.province}
-              onChange={(e) => set("province", e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="text-sm font-medium text-foreground block mb-1">
-              {t("app.setCompany.postalCode")}
-            </label>
-            <input
-              className={inputClass}
-              value={form.postalCode}
-              onChange={(e) => set("postalCode", e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="text-sm font-medium text-foreground block mb-1">
-              {t("app.setCompany.country")}
-            </label>
-            <input
-              className={inputClass}
-              value={form.country}
-              onChange={(e) => set("country", e.target.value)}
-            />
-          </div>
-        </div>
-
-        <MiniMap lat={form.latitude} lng={form.longitude} />
+        <CompanyDetailsFields
+          form={form}
+          set={set}
+          onPlaceSelected={handlePlaceSelected}
+          slug={slug}
+          inputClass={inputClass}
+        />
       </SectionCard>
 
       {/* Service area — where they will drive to. Read by lib/company/
@@ -1454,72 +1336,7 @@ export default function CompanySettingsPage() {
 
       {/* Tax settings */}
       <SectionCard title={t("app.setCompany.taxTitle")}>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="text-sm font-medium text-foreground block mb-1">
-              {t("app.setCompany.taxIdName")}
-            </label>
-            <input
-              className={inputClass}
-              placeholder={t("app.setCompany.taxIdNamePlaceholder")}
-              value={form.taxIdName}
-              onChange={(e) => set("taxIdName", e.target.value)}
-            />
-          </div>
-          <div>
-            {/* Labelled the way the contractor's own country labels it —
-                "GST/HST number", "VAT number", "ABN" — rather than "Tax ID
-                number", which is what a database calls it. No format
-                validation, deliberately: see lib/compliance/taxRegistration.js
-                for why rejecting a valid number is the expensive mistake. */}
-            <label className="text-sm font-medium text-foreground block mb-1">
-              {t(taxReg.nameKey)}
-            </label>
-            <input
-              className={inputClass}
-              value={form.taxIdNumber}
-              onChange={(e) => set("taxIdNumber", e.target.value)}
-            />
-          </div>
-        </div>
-        <div className="-mt-2 space-y-2">
-          <p className="text-xs text-muted-foreground">{t(taxReg.whyKey)}</p>
-          <p className="text-xs text-muted-foreground">
-            {t("app.setCompany.taxIdHint")}{" "}
-            {t("app.setCompany.taxRegDisclaimer")}
-          </p>
-
-          {/* ── "I don't have one" ────────────────────────────────────────
-              A fact about the business, recorded next to the field it is
-              about — not a dismiss button on the onboarding card. Ticking it
-              clears the onboarding step; untick it the day they register and
-              the step comes back.
-
-              Offered in every country, including the ones where the number is
-              required, because "required" in every one of those rules means
-              "required IF registered". A Canadian sole trader under the $30k
-              threshold has no GST number to give, and hiding this from them
-              would leave exactly the smallest businesses carrying an item
-              they can never tick.
-
-              Hidden once a number is entered: there is nothing to declare an
-              absence of, and a ticked box beside a filled field is a
-              contradiction the screen shouldn't be able to show. */}
-          {!String(form.taxIdNumber || "").trim() && (
-            <label className="flex items-start gap-2.5 text-xs text-muted-foreground pt-1">
-              <input
-                type="checkbox"
-                className="mt-0.5"
-                checked={Boolean(form.taxRegistrationDismissed)}
-                onChange={(e) =>
-                  set("taxRegistrationDismissed", e.target.checked)
-                }
-              />
-              <span>{t("app.setCompany.taxRegNotRegistered")}</span>
-            </label>
-          )}
-        </div>
-
+        <TaxRegistrationFields form={form} set={set} inputClass={inputClass} />
         <div>
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-sm font-semibold text-foreground">

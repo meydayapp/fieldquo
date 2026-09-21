@@ -54,7 +54,7 @@ function stripComments(src) {
 
 section("The example beside each field matches what the job actually costs");
 
-// Mirrors consumableExample() in app/app/settings/material-costs/page.js —
+// Mirrors consumableExample() in app/app/settings/material-costs/MaterialCostsEditor.js —
 // duplicated here on purpose rather than imported, because that file is a
 // "use client" component with JSX and node can't load it without a
 // transpiler (see scripts/alias-loader.mjs: "Resolution only — no
@@ -169,7 +169,7 @@ section('The size question is answered on the page, not left for someone to find
 
 const pageSrc = stripComments(
   fs.readFileSync(
-    new URL("../app/app/settings/material-costs/page.js", import.meta.url),
+    new URL("../app/app/settings/material-costs/MaterialCostsEditor.js", import.meta.url),
     "utf8",
   ),
 );

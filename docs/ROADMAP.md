@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 21 September 2026 (Sales-floor supervision: Listen / Whisper / Barge / Take on every live row of /platform/sales/floor through the superadmin's own browser, a Hold button for the rep, HOLD/UNHOLD and every supervisor action logged with seconds, calls to a colleague (browser to browser) and to a number outside the queue behind per-rep privileges — every outbound call runs in a per-attempt Twilio conference when `sales.supervision.enabled` is on, which is OFF by default because it costs +20% per call minute; docs/SALES-SUPERVISION.md — see the first section below; previous line: Settings → Reviews and the /c/<slug> business card)
+Last updated: 21 September 2026 (Sales-floor supervision: Listen / Whisper / Barge / Take on every live row of /platform/sales/floor through the superadmin's own browser, a Hold button for the rep, HOLD/UNHOLD and every supervisor action logged with seconds, calls to a colleague (browser to browser) and to a number outside the queue behind per-rep privileges — every outbound call runs in a per-attempt Twilio conference when `sales.supervision.enabled` is on, which is OFF by default because it costs +20% per call minute; docs/SALES-SUPERVISION.md — see the first section below; previous line: the home page's set-up steps as dialogs, and the sales floor's presence from the keepalive)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -71,6 +71,157 @@ out of every count that already kept test dials out.
   called. The owner's one-minute test is in the commit report.
 - A supervisor's display name: the console has none, so the rep sees the
   email's local part.
+## Set-up steps open in place: the onboarding checklist and the additional steps as dialogs on the home page (21 September 2026)
+
+The owner: "Can a pop window be used instead of redirecting a company to the
+missing onboarding steps? So they don't necessarily navigate outside of the
+home page and get lost in the weeds. Same for the additional steps."
+
+**What shipped, on /app.**
+
+- **Every row of both cards opens its step in a dialog** on the home page —
+  `app/components/dashboard/StepDialog.js` (on the house `AlertDialog`:
+  focus in, Tab trapped, Escape and the scrim close, focus back), a
+  full-height sheet at phone width and a centred card from `sm` up, the
+  "Open in settings" link at its foot. `useStepDialog.js` is the shared
+  behaviour; `stepPanels.js` maps each step key to the component it opens,
+  loaded on demand so the dashboard's bundle does not carry the editors.
+- **The same component the settings page renders, never a copy.** Where a
+  page's form was inline it was lifted into a component both now render,
+  with a `compact` prop that drops the page chrome and the sections the
+  step is not about: `app/components/settings/BrandingForm.js` (Settings →
+  Branding is now that file), `CompanyDetailsFields.js` and
+  `TaxRegistrationFields.js` (the two cards of Settings → Company),
+  `settings/services/ServicesEditor.js` (three dialogs: services, pricing
+  with the rate card open, quote wording), `settings/payments/
+  useStripeConnect.js` + `StripeConnectCard.js`, `settings/overhead/
+  FixedCostsEditor.js`, `settings/availability/AvailabilityEditor.js`
+  (compact: bookable week only, writes `/api/availability` alone),
+  `settings/material-costs/MaterialCostsEditor.js`, `settings/products/
+  ProductCatalogue.js`, `settings/email-templates/EmailTemplatesManager.js`,
+  `settings/instant-quotes/TradeCard.js` (moved out of the page whole),
+  `settings/ai-credit/AiCreditCard.js`, `jobs/import/PastJobsEntry.js`.
+  `PaymentScheduleEditor` already was one. The check scripts that read those
+  pages were pointed at the new files, not loosened.
+- **Two kinds of finish.** A form saves as a whole → the dialog closes, the
+  card re-reads its list (`/api/onboarding-status` through the page's
+  `loadOnboarding`; `/api/setup-steps` through the card's own load), the
+  row ticks (onboarding) or leaves (set-up), and a strip offers "Next: …"
+  as a button that opens the next dialog. A list editor (fixed costs, the
+  schedule, recipes, add-ons, emails, past jobs, instant quotes) re-reads
+  on every change and stays open behind a Done button.
+- **The two that hand off to Stripe say so.** Connect: the dialog's one
+  sentence, the payments page's own four-state card, and `returnTo:
+  "home"` — a NAME, mapped to a path the server owns
+  (`lib/stripe/connectReturn.js`, carried on the refresh URL too) — so
+  Stripe sends the browser back to `/app?connected=true`, where the page
+  asks `/api/stripe/connect/status` (which writes the column) before
+  re-reading the checklist. AI credit: Checkout returns to the AI credit
+  page, where the payment is confirmed, and the dialog says exactly that.
+- **Gated the same way.** Onboarding rows open in place only for a member
+  who may change settings (`can(role, "user:manage")`, the set-up card's
+  gate); for anyone else they stay links. "Invite your team" keeps its own
+  Add Employee popup. The `?from=setup` links, `BackToHome`, and every
+  `/app/settings/...` deep link are unchanged.
+- Eleven `app.stepDialog.*` strings in all nine languages.
+
+**Verified** in the browser against a fixture-backed render of the two
+cards (no session was available: the rules forbid entering a password, the
+Chrome extension was not connected, and a demo login cannot be minted
+without a superadmin session): business details saved → 17 % and the row
+ticked with "Next: Add your logo and brand color →"; services saved → 33 %;
+a fixed cost added, Escape closed the sheet, the row left the set-up card (4
+left → 3 left) with the next step offered; the Stripe dialog's sentence and
+card; the pricing dialog's rate card open; the centred card at 1100 px.
+`npm run build` green; check:setup-steps 194/194, onboarding-solo,
+onboarding-seat-guard, tax-id, settings-access, settings-empty-vs-error and
+the seventeen checks that read the moved pages all pass.
+
+### Still owed here
+
+- A walk-through on a real trial company by someone with a session — the
+  upload to Cloudinary in the branding dialog and the Stripe round trip
+  were not exercised against fixtures.
+- Pre-existing, not from this pass: `check:app-currency` (2), `check:credit-
+  currency` (voice/page.js), `check:service-area` (backfillCoordinates),
+  `check:dashboard` (the cron line) and `check:app-catalogue` (5) fail on
+  origin/main as well.
+## Presence is derived, not declared; the floor board reads the one calls table (21 September 2026)
+
+**What the owner saw.** Every rep "Off" while they dialled; one card
+"Writing it up · 76h 26m — their browser has not said anything since
+11:54"; one "Paused" since Saturday; and, for Umar's day, "Calls from
++1 716 638 3616 — their line: 13", "Answered (carrier) 64.3% (9 of 14)",
+"Conversation (transcript) 8 of 9", "Mean talk time 41s (9 of 14)" beside a
+performance page that said something else about the same calls.
+
+**The stray Off.** The writer was the picker's own "Off" button: Umar pressed
+it at 17:30:40 UTC, eight seconds after "available", and kept working in the
+portal (his keepalive ran until 18:36 UTC). Nothing on hangup,
+unmount or route change wrote offline — the button did, and the board
+believed it. "Off" left the picker; the state action refuses `offline`
+from a screen; sign-out and the last tab closing write it.
+
+**The model** (`lib/sales/calls/agentState.js`, header cites OMniLeads's
+`agent_activity.py`, `presence.py`, `phoneJsController.js`): Off when no
+portal keepalive for two minutes (`PRESENCE_OFF_MINUTES`) and no dial, no
+live leg — "Off since" the later of the last beat and the last call, never
+the button; Busy · on a call from a live browser leg or a dial inside the
+window, whatever the row said; Busy · writing it up for `afterCallSeconds`
+after every call (a platform setting, default 60, `/platform/sales/floor`
+→ Floor settings; PUT is superadmin, audit-logged), during which the
+autodialler places nothing (`nextDial` stops with `write_up_window` and the
+end instant) and inbound does not ring them (the sweep wants Available; the
+contractor they were just speaking to still reaches them — the 2026-09-17
+rule); at zero Available on their own, sooner on Next, held while
+`requireWriteUp` is on and the call has no outcome ("write it up later"
+frees them); Paused by hand with a reason, "Admin / research" on the picker
+for paperwork instead of a Busy button; Available the moment a tab is
+present. `livePresence()` derives all of it from the keepalive
+(`SalesRep.lastSeenAt`, stamped by the shell's `POST /api/sales/presence`
+every 60 s, on `visibilitychange`, and by the gate on every request), the
+last call and the open row; `store.js heartbeat()` closes a row the rep
+walked away from (an expired pause ends at its last beat + 2 min, a
+sign-out row ends when they are back) so a fresh login is Available;
+`activityTotals` measures an open row to its last beat + 2 min
+(`rowPeriodEnd`) — Favor's 76 hours are two minutes past her last beat on
+the ledger. The rep's header, `/platform/sales/floor`, `/platform/sales/reps`
+and the agency floor all print `presenceHeadline()`'s words; the ring plan
+(`inboundDistribution.js`) and `repIsLive` read the derived state.
+
+**One calls table.** `repCallStats` carries `dialTableRow()` as `table`
+(`lib/sales/calls/dialTable.js`: attribution by attempt joined to Twilio by
+the prospect leg's sid, one denominator, the four buckets, the red
+carrier-missing rule) and the performance page aliases that same object;
+`connect` (carrier answer rate) and `pickup` (a second partition of the
+legs) left `repCallStats`, and `pickupFigures` left `conversation.js`. The
+table grew what a day view needs: the lines a rep's calls went OUT from
+("from 2 lines: +1 716 … (4), +1 438 … (3)"), `realConversationFromTranscript`
+beside `conversationFromTranscript` ("Real conversation (transcript): 1 · 2
+transcribed", never "8 of 9" as a rate), and `meanConversationSeconds` over
+real conversations only. Both floor cards print the buckets and the stacked
+bar through `app/components/sales/DialBuckets.js`, "Calls today" by attempt,
+"Time on calls — line open, including ringing and voicemail", the day's
+window ("Today, since 20:00" / "Since yesterday, …" — the UTC day, said in
+the viewer's clock), sort Off reps last, and print one "No calls today" line
+in place of nine zero tiles. Nine languages on the portal.
+
+**Checks.** `scripts/check-sales-presence.mjs` (125 assertions: today's
+production rows for Umar, Favor and Daniel through the derivation; the
+window, Next, the held outcome, the setting; the beat closing expired rows;
+call end never writing offline; sign-out and leaving writing it; the tab
+registry; the dialler and ring plan inside the window; the two boards
+agreeing on one fixture with a cross-line attribution). `check-sales-costs`,
+`-call-handling`, `-autodial`, `-agency`, `-inbound-distribution`,
+`-call-transfer`, `-lead-language`, `-batch-claim`, `-platform-rep-queue`,
+`-call-qa` updated to the two-minute window and the one table.
+
+**Still owed.** The "You're shown as Off" reminder
+(`app/components/sales/AvailableReminder.js`) can no longer fire — a present
+rep is never Off — and should be retired with its check;
+`measuredDurations` (`reporting.js`) is computed and printed by nobody now.
+
+---
 
 ## Reviews: the listing, the card, the passes, the tag, and the Business Profile (21 September 2026)
 

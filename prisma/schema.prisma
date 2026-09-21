@@ -10647,6 +10647,21 @@ model SalesRep {
   /// saying they are ready for the next prospect.
   lastSeenAt DateTime?
 
+  /// ── One active session (2026-09-21) ────────────────────────────────────
+  ///
+  /// OMniLeads's duplicate-login rule (agent_activity.py _close_open_session,
+  /// models.py User.force_logout): the NEWER sign-in wins. This is the
+  /// issued-at of the token the rep may currently use, set by the login
+  /// route from the JWT's own `iat`; every gate refuses a token issued
+  /// before it (lib/sales/auth.js sessionSuperseded) with a code the portal
+  /// turns into "You signed in somewhere else" and stops beating on. A
+  /// supervisor's Sign out sets it to now with `sessionEndedBy = "supervisor"`,
+  /// so the same refusal reads "A supervisor signed you out". Null: a rep
+  /// who has not signed in since the column landed — every token is good.
+  sessionIssuedAt DateTime?
+  /// "login" | "supervisor" — who started the current session boundary.
+  sessionEndedBy String?
+
   /// The autodial switch on the queue screen: after the rep logs an outcome,
   /// the next prospect in the day's order rings on its own after a five-second
   /// countdown. Off by default and persisted per rep rather than per browser,
@@ -15575,6 +15590,14 @@ model SalesRepActivity {
   /// on a guess about a browser that stopped talking. It only ages the claim,
   /// and livePresence() turns that age into a third answer beside the state.
   heartbeatAt DateTime?
+
+  /// The platform admin who set this state on the rep's behalf — a
+  /// supervisor's Pause (reason "supervision"), Make available or Sign out
+  /// from /platform/sales/floor (2026-09-21, OMniLeads's
+  /// supervisor_activity.py ejecutar_accion_sobre_agente). Null for every
+  /// row the rep or the call lifecycle wrote. A loose pointer, never a
+  /// relation: the ledger row must outlive the admin's account.
+  setByAdminId String?
 
   createdAt DateTime @default(now())
 

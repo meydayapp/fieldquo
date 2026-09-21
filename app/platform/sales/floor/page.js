@@ -9,10 +9,28 @@
 //
 // "On a call" begins when a rep presses dial and ends when they say it ended.
 // It is time on the prospect, not talk time, and the column is labelled that
-// way. Talk time appears only where a call was bridged and the carrier
-// reported a duration, and it always prints the number of calls it was
-// computed from — a mean over the four bridged calls in a day of forty is a
-// real number about four calls and a lie about forty.
+// way — "including ringing and voicemail". Talk time appears only where a
+// call was bridged and the carrier reported a duration, and only over REAL
+// conversations, with the count it was computed from beside it — a mean
+// over the four conversations in a day of forty is a real number about four
+// calls and a lie about forty.
+//
+// ══ The calls figures are the performance page's, not this screen's ═══════
+//
+// Until 2026-09-21 this card carried its own definitions: "Calls from <the
+// rep's assigned line> — their line" over a dial count (attribution read as
+// by line, when chooseCallerId dials from whichever line is nearest the
+// prospect and a rep's calls go out from other reps' lines), "Answered
+// (carrier)" (a voicemail greeting counted), "Conversation (transcript) 8 of
+// 9" (transcript COVERAGE printed as a rate) and a mean talk time over the
+// "answered". The owner read the four side by side with the performance
+// page and asked why they disagreed. They disagreed because they were four
+// second definitions. Now every calls figure on a card is `stats.table` —
+// lib/sales/calls/dialTable.js, attribution by attempt, joined to Twilio by
+// the prospect leg's sid, the four buckets and the red carrier-missing rule
+// — the same object /platform/sales/performance prints, drawn by the same
+// component. The lines a rep's calls went OUT from are printed under the
+// count, because a prospect rings back the number they saw.
 //
 // ══ A stale row is not a green row ════════════════════════════════════════
 //
@@ -23,37 +41,43 @@
 // is the whole reason livePresence returns `stale` beside `state` rather than
 // folding one into the other.
 //
-// ══ "Never signed in" is now a fact, not an inference ═════════════════════
+// ══ 2026-09-21: four words, derived — never a stale state ═════════════════
 //
-// It used to be printed whenever a rep had no SalesRepActivity row. Nothing
-// writes one of those when somebody opens the portal — only pressing dial,
-// pausing or going available does — so the board said "has never signed in"
-// about reps who had worked all morning, and a supervisor reading it concluded
-// they had not showed up. SalesRep.lastSeenAt is the observed fact that was
-// missing, stamped by lib/sales/gate.js, and the card now prints three
-// different things: never seen, signed in but not on the floor, or the state
-// they declared. Signing in deliberately does NOT put anybody in the routing
-// pool — that would be inventing a declaration.
+// Every card's headline is one of Off since {time} · Available · Busy · on a
+// call / writing it up · Paused ({reason}), from lib/sales/calls/agentState.js
+// livePresence() — the keepalive, the last call and the write-up window,
+// with the rep's own pause underneath. The old board printed the last button
+// pressed with a "stale" tone when the browser had gone quiet, and the owner
+// read "Writing it up · 76h 26m" and "Off" beside a rep who was dialling.
+// Now Off is what two minutes without the portal means, a live call is
+// Busy whatever the row said, and the stale sentence is gone because there
+// is no stale state to qualify: the last row's word is printed as history
+// ("last state: writing it up") under an Off headline. Signing in makes a
+// rep Available — no button — and a rep who has never had a keepalive is
+// "Never signed in", which is a different fact from Off and stays one.
 //
-// ══ Read-only, with one exception the owner took on 2026-09-21 ════════════
+// ══ Three controls reach into a rep's day, and no more (2026-09-21) ═══════
 //
-// This header used to say there was no control here that reached into a
-// rep's day — no forced logout, no forced pause, no listening in — because
-// each is a separate product decision and none had been taken. One has:
-// live-call SUPERVISION. A superadmin can listen to a rep's call, whisper
-// to the rep, barge in, or take the call, from the live row, through their
-// own browser (a Twilio Device on this page, identity `supervisor:<id>`).
-// The model is OMniLeads' supervisor board (supervision_app/static/…/
-// supervision.js obtenerNodosAcciones, lines 210–235: CHANSPY and
-// CHANSPYWISHPER buttons per agent; supervisor_activity.py lines 34–35 for
-// the full list); lib/sales/calls/supervision.js says how it is done on
-// Twilio and why every call runs in a conference when it is on. It is OFF
-// by default — it costs conference minutes — and when it is off the
-// buttons are not drawn and this screen says why. Forced logout, forced
-// pause and claim reassignment remain untaken decisions.
+// This board was read-only until the owner approved OMniLeads's supervisor
+// actions (supervisor_activity.py ejecutar_accion_sobre_agente): Pause
+// (reason "supervision"), Make available, Sign out — one row each on the
+// rep's activity ledger under the admin's id, audit-logged, superadmin-only
+// on the server (app/api/platform/sales/floor/rep-state). The floor's own
+// settings (the write-up window, the pause limits) are a card below the
+// cards, and they change what every rep's console does.
 //
-// Nothing here is EDITED on a company's data: these are FieldQuo's own reps
-// on FieldQuo's own calls, which is what the platform console is for.
+// ══ …and, since the same day, four on a LIVE CALL ══════════════════════════
+//
+// The owner also approved the other half of OMniLeads's supervisor board
+// (supervision_app/static/…/supervision.js obtenerNodosAcciones, 210–235;
+// supervisor_activity.py 34–35): Listen, Whisper, Barge and Take on a
+// rep's live call, through the superadmin's own browser (a Twilio Device
+// on this page, identity `supervisor:<id>`, useSupervisorPhone below).
+// lib/sales/calls/supervision.js says how it is done on Twilio and why
+// every call runs in a conference when it is on. It is OFF by default — it
+// costs conference minutes — and when it is off the buttons are not drawn
+// and the row says why. Reassigning a claim to a named person remains an
+// untaken decision.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -73,7 +97,9 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { fetchJson } from "@/lib/fetchJson";
-import { describeDuration } from "@/lib/sales/calls/agentState";
+import { WORD_OFF, countdownText, dayWindowParts, describeDuration, presenceHeadline } from "@/lib/sales/calls/agentState";
+import DialBuckets from "@/app/components/sales/DialBuckets";
+import { SUPERVISOR_ACTIONS, SUPERVISOR_ACTION_LABELS } from "@/lib/sales/calls/supervisorActions";
 
 // Cents → "$0.0412". Four places because a browser leg is $0.004 and two
 // places would print a real cost as nothing. Null prints as the word.
@@ -115,6 +141,200 @@ function prettyLine(e164) {
   const d = String(e164 || "").replace(/\D/g, "");
   if (d.length === 11 && d.startsWith("1")) return `+1 ${d.slice(1, 4)} ${d.slice(4, 7)} ${d.slice(7)}`;
   return e164 || "";
+}
+
+/**
+ * The words for the buckets — the platform performance page's own literals
+ * (app/platform/sales/performance/page.js CALL_LABELS), repeated here only
+ * because this console is English by convention and has no t(); the agency
+ * tab hands DialBuckets the app.salesAgencyPerf keys. scripts/check-sales-
+ * costs.mjs asserts the four names match the performance page's.
+ */
+const BUCKET_LABELS = {
+  nobodyAnswered: "Nobody answered",
+  hungUpFast: "Hung up fast",
+  voicemailOrBrief: "Voicemail or brief",
+  realConversation: "Real conversation",
+  realConversationRate: "Real conversation",
+  dialsWithLeg: (n) => `${n} ${n === 1 ? "dial" : "dials"} with a carrier leg`,
+  ofDials: (n) => `of ${n}`,
+  sourceTwilio: "source: Twilio",
+  sourceTranscriptOrTwilio: "source: transcript, else Twilio",
+  carrierMissingSince: (date, n) => `carrier data missing since ${date} (${n})`,
+};
+
+/**
+ * Live reps first, then by the day's dials, then by name — a rep who is
+ * Off sorts with the Off ones whatever they dialled this morning, so the
+ * top of the board is who can be reached now.
+ */
+function sortedReps(reps) {
+  return [...(reps || [])].sort((a, b) => {
+    const offA = (a.presence?.state || "offline") === "offline" ? 1 : 0;
+    const offB = (b.presence?.state || "offline") === "offline" ? 1 : 0;
+    return offA - offB || (b.stats?.dials ?? 0) - (a.stats?.dials ?? 0) || String(a.name).localeCompare(String(b.name));
+  });
+}
+
+/** "Today, since 08:00" — or, when the UTC day opened on the viewer's yesterday, says so. */
+function windowSentence(from) {
+  const w = dayWindowParts(from);
+  if (!w) return null;
+  return w.sameDay ? `Today, since ${w.time}` : `Since yesterday, ${w.time} (the day is cut at midnight UTC)`;
+}
+
+/**
+ * A supervisor's three buttons on one rep. Each posts the action, prints
+ * the refusal under itself when the graph says no ("Already paused"), and
+ * asks the board to reload so the card shows the ledger's answer rather
+ * than an optimistic one. Sign out asks first: it ends the rep's session
+ * everywhere and tears their phone down.
+ */
+function SupervisorButtons({ rep, onDone }) {
+  const [busy, setBusy] = useState("");
+  const [note, setNote] = useState("");
+  async function act(action) {
+    if (action === "sign_out" && !window.confirm(`Sign ${rep.name} out of the sales portal? Their session ends everywhere and their phone is torn down; they can sign in again.`)) return;
+    setBusy(action);
+    setNote("");
+    try {
+      await fetchJson("/api/platform/sales/floor/rep-state", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ repId: rep.id, action }) });
+      onDone?.();
+    } catch (err) {
+      setNote(err?.message || "Refused.");
+    } finally {
+      setBusy("");
+    }
+  }
+  return (
+    <div className="flex flex-wrap items-center gap-1 pt-1" data-supervisor-actions>
+      {SUPERVISOR_ACTIONS.map((action) => (
+        <button
+          key={action}
+          type="button"
+          disabled={Boolean(busy)}
+          onClick={() => act(action)}
+          data-supervisor-action={action}
+          className={`inline-flex items-center gap-1 min-h-[36px] px-2.5 rounded-md text-xs font-medium border border-border bg-card text-foreground hover:bg-muted disabled:opacity-60 ${action === "sign_out" ? "text-red-700 dark:text-red-300" : ""}`}
+        >
+          {busy === action ? <Loader2 size={12} className="animate-spin" /> : null}
+          {SUPERVISOR_ACTION_LABELS[action]}
+        </button>
+      ))}
+      {note ? <span className="text-xs text-amber-900 dark:text-amber-200 break-words basis-full">{note}</span> : null}
+    </div>
+  );
+}
+
+/**
+ * The floor's tunables — the write-up window after every call, whether a
+ * missing outcome holds a rep in it, and a maximum per pause reason. lib/sales/calls/
+ * floorSettings.js says what each does; PUT /api/platform/sales/
+ * floor-settings is superadmin-only and audit-logged. A save that fails
+ * says so in words and leaves the form as typed; the board's own poll
+ * re-reads the stored values every fifteen seconds.
+ */
+function FloorSettingsCard({ settings, pauseReasons, onSaved }) {
+  const [seconds, setSeconds] = useState(settings?.afterCallSeconds ?? 60);
+  const [require, setRequire] = useState(settings?.requireWriteUp ?? true);
+  const [limits, setLimits] = useState(settings?.pauseLimits || {});
+  const [saving, setSaving] = useState(false);
+  const [note, setNote] = useState("");
+  const storedLimits = JSON.stringify(settings?.pauseLimits || {});
+  const dirty = seconds !== (settings?.afterCallSeconds ?? 60) || require !== (settings?.requireWriteUp ?? true) || JSON.stringify(limits) !== storedLimits;
+  useEffect(() => {
+    // The stored values, when they arrive or change under us — unless the
+    // owner is mid-edit, in which case their typing wins until they save.
+    if (!dirty) {
+      setSeconds(settings?.afterCallSeconds ?? 60);
+      setRequire(settings?.requireWriteUp ?? true);
+      setLimits(settings?.pauseLimits || {});
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings?.afterCallSeconds, settings?.requireWriteUp, storedLimits]);
+  async function save() {
+    setSaving(true);
+    setNote("");
+    try {
+      const pauseLimits = Object.fromEntries(Object.entries(limits).map(([code, m]) => [code, m === "" || m === null ? null : Number(m)]));
+      const body = await fetchJson("/api/platform/sales/floor-settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ afterCallSeconds: Number(seconds), requireWriteUp: Boolean(require), pauseLimits }),
+      });
+      setNote(`Saved: ${body.settings.afterCallSeconds}s window, outcome ${body.settings.requireWriteUp ? "required" : "not required"}, pause limits updated.`);
+      onSaved?.(body.settings);
+    } catch (err) {
+      setNote(err?.message || "Could not save the floor settings.");
+    } finally {
+      setSaving(false);
+    }
+  }
+  return (
+    <section className={CARD} data-floor-settings>
+      <h2 className="text-base font-semibold text-foreground">Floor settings</h2>
+      <p className="text-xs text-muted-foreground break-words">
+        After every call a rep is &ldquo;Busy &middot; writing it up&rdquo; for this many seconds: the autodialler
+        places nothing and a caller is not rung to them. At zero they are Available on their own; sooner if they
+        press Next. With the outcome required, a call with no outcome keeps them in the window until they log
+        one or choose &ldquo;write it up later&rdquo;. Off is not a setting: a rep is Off after{" "}
+        {settings?.offAfterMinutes ?? 2} minutes without the portal, and Available the moment a tab is open.
+      </p>
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="text-sm">
+          <span className="block text-xs text-muted-foreground">Write-up window (seconds)</span>
+          <input
+            type="number"
+            min={0}
+            max={600}
+            step={1}
+            value={seconds}
+            onChange={(e) => setSeconds(e.target.value === "" ? "" : Number(e.target.value))}
+            className="mt-1 w-28 rounded-lg border border-border bg-background px-3 py-2 tabular-nums"
+            data-floor-after-call-seconds
+          />
+        </label>
+        <label className="flex items-center gap-2 text-sm min-h-[44px]">
+          <input type="checkbox" checked={require} onChange={(e) => setRequire(e.target.checked)} data-floor-require-write-up />
+          Outcome required before the window ends
+        </label>
+      </div>
+      <div data-floor-pause-limits>
+        <p className="text-xs font-semibold text-foreground">Pause limits</p>
+        <p className="text-xs text-muted-foreground break-words">
+          Minutes a pause may last before the rep&rsquo;s console and this board say &ldquo;Over by N min&rdquo; in red.
+          Blank means no limit. Break, lunch and dinner are recreational time; the rest is productive — the reports
+          split paused time that way so a three-hour lunch is visible.
+        </p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2 pt-1">
+          {(pauseReasons || []).map((r) => (
+            <label key={r.code} className="text-xs">
+              <span className="block text-muted-foreground">
+                {r.label} <span className="opacity-70">· {r.type}</span>
+              </span>
+              <input
+                type="number"
+                min={1}
+                max={480}
+                step={1}
+                value={limits[r.code] ?? ""}
+                placeholder="no limit"
+                onChange={(e) => setLimits((l) => ({ ...l, [r.code]: e.target.value === "" ? null : Number(e.target.value) }))}
+                className="mt-0.5 w-24 rounded-lg border border-border bg-background px-2 py-1.5 tabular-nums"
+                data-pause-limit={r.code}
+              />
+            </label>
+          ))}
+        </div>
+      </div>
+      <div>
+        <button type="button" className={`${BTN} bg-primary text-primary-foreground`} disabled={saving || !dirty} onClick={save}>
+          {saving ? <Loader2 size={16} className="animate-spin" /> : null} Save
+        </button>
+      </div>
+      {note ? <p className="text-xs text-muted-foreground break-words">{note}</p> : null}
+    </section>
+  );
 }
 
 /** "0:42" from an ISO instant to now. */
@@ -375,6 +595,12 @@ export default function SalesFloorPage() {
             in”, which is the portal noticing them arrive; it is not a state, and nobody is routed
             a call on it.
           </p>
+          {data?.period?.from ? (
+            <p className="text-sm text-foreground" data-floor-window>
+              {windowSentence(data.period.from)} — the calls figures on every card are the day’s, by
+              attempt, the same four buckets as the performance page.
+            </p>
+          ) : null}
         </div>
         <button type="button" className={`${BTN} border border-border`} onClick={load}>
           <RefreshCw size={16} /> Refresh
@@ -464,77 +690,52 @@ export default function SalesFloorPage() {
       {data?.store?.ready ? (
         <>
           <section className="grid gap-3 sm:grid-cols-2">
-            {(data.reps || []).map((rep) => {
+            {sortedReps(data.reps).map((rep) => {
               const p = rep.presence;
-              const stale = Boolean(p?.stale);
               const state = p?.state || "offline";
               const Icon = STATE_ICON[state] || CircleHelp;
-              const tone = stale ? TONE.stale : TONE[state] || TONE.offline;
+              const tone = TONE[state] || TONE.offline;
               const s = rep.stats;
-              // ── Three answers, and the middle one used to be missing ────
-              //
-              // A rep with no activity row was printed as "has never signed
-              // in". Nothing writes an activity row when somebody opens the
-              // portal — only dialling, pausing or going available does — so
-              // that sentence was said about reps who had been working all
-              // morning. `everSignedIn` is the observed fact (see
-              // SalesRep.lastSeenAt); `everSeen` remains what it always was,
-              // "has declared a state", and the two must not be merged: a rep
-              // who has only signed in is not on the floor and is not routable.
-              const declared = p?.everSeen !== false;
-              const seenNotOnFloor = !declared && p?.everSignedIn === true;
+              const head = presenceHeadline(p, { labels: { pauseReasons: pauseLabels } });
+              const countdown = head.countdownSeconds === null ? null : countdownText(head.countdownSeconds);
+              // "for 12m" only where a start is known — a call, a pause. Off
+              // carries its time in the word; Available has no counter.
+              const forText = p?.forMs != null && (state === "on_call" || state === "paused") ? describeDuration(p.forMs) : null;
+              const never = head.key === "app.salesPresence.never";
+              const noCalls = !s?.dials;
               return (
-                <div key={rep.id} className={`rounded-xl border p-4 space-y-2 ${tone}`}>
+                <div key={rep.id} className={`rounded-xl border p-4 space-y-2 ${tone}`} data-floor-rep={rep.id} data-presence-word={head.word}>
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="font-semibold break-words">
                         {rep.name}
                         {rep.agency ? <span className="text-xs font-normal text-muted-foreground"> · {rep.agency.name}</span> : null}
                       </p>
-                      <p className="text-sm flex items-center gap-1.5">
+                      <p className="text-sm flex items-center gap-1.5" data-presence-headline>
                         <Icon size={14} className="shrink-0" />
-                        {declared
-                          ? `${stateLabels[state] || state}${
-                              p?.pauseReason ? ` — ${pauseLabels[p.pauseReason] || p.pauseReason}` : ""
-                            }`
-                          : seenNotOnFloor
-                            ? "Signed in — not on the floor"
-                            : "Never signed in"}
-                        {p?.forMs != null && declared ? ` · ${describeDuration(p.forMs)}` : ""}
+                        {head.english}
+                        {countdown ? <span className="tabular-nums">{countdown}</span> : null}
+                        {head.sub ? (
+                          <span className={head.sub.alert ? "font-semibold text-red-700 dark:text-red-300" : "opacity-80"} data-pause-over={head.sub.alert ? "true" : undefined}>
+                            — {head.sub.english}
+                          </span>
+                        ) : null}
+                        {forText ? ` · ${forText}` : ""}
+                        {p?.setByAdmin && state !== "offline" ? <span className="opacity-70 text-xs">· set by a supervisor</span> : null}
                       </p>
-                      {/* The distinction, said rather than left to a colour.
-                          "Not on the floor" is a fact about what they have not
-                          declared; it is not a claim that they are idle. */}
-                      {seenNotOnFloor ? (
-                        <p className="text-xs break-words">
-                          Last seen in the portal at{" "}
-                          {new Date(p.portalSeenAt).toLocaleTimeString()}. They have not said
-                          whether they are available, so nothing is routed to them.
+                      {/* History under an Off headline: what the ledger row
+                          said last. The row itself is untouched; the board
+                          just stopped believing it. */}
+                      {head.word === WORD_OFF && p?.lastState && p.lastState !== "offline" ? (
+                        <p className="text-xs break-words opacity-80">
+                          last state: {(stateLabels[p.lastState] || p.lastState).toLowerCase()}
+                          {p.lastPauseReason ? ` — ${(pauseLabels[p.lastPauseReason] || p.lastPauseReason).toLowerCase()}` : ""}
                         </p>
                       ) : null}
-                      {!declared && !seenNotOnFloor ? (
+                      {never ? (
                         <p className="text-xs break-words">
                           There is no record of this account opening the portal.
                         </p>
-                      ) : null}
-                      {/* The line their next dial presents. "None" is the
-                          case that used to be silent: the dial borrowed the
-                          lowest-sorting line, which was another rep's. */}
-                      {rep.callerNumber ? (
-                        rep.callerNumber.e164 ? (
-                          <p className="text-xs break-words tabular-nums">
-                            Calls from {prettyLine(rep.callerNumber.e164)}
-                            {rep.callerNumber.rule === "assigned"
-                              ? " — their line"
-                              : rep.callerNumber.rule === "agency"
-                                ? " — the agency's line"
-                                : " — a pool line"}
-                          </p>
-                        ) : (
-                          <p className="text-xs break-words font-medium">
-                            No number assigned — their browser dials are refused rather than made from another rep's line.
-                          </p>
-                        )
                       ) : null}
                       {/* ── The live call, and what can be done about it ──
                           From the attempt row, not from presence. Buttons
@@ -599,37 +800,62 @@ export default function SalesFloorPage() {
                           ) : null}
                         </div>
                       ) : null}
-                      {/* Said, not shaded. A dashed box a supervisor has to
-                          decode is not as good as a sentence. */}
-                      {stale ? (
-                        <p className="text-xs break-words">
-                          Their browser has not said anything since{" "}
-                          {p.lastSeenAt ? new Date(p.lastSeenAt).toLocaleTimeString() : "we last heard"}.
-                          This is what they said they were doing, not what they are doing.
+                      {/* "No number assigned" is the case that used to be
+                          silent: the dial borrowed the lowest-sorting line,
+                          which was another rep's. The line their NEXT dial
+                          would present is no longer printed here — it read
+                          as "these calls were from this line", and they were
+                          not: chooseCallerId dials from the line nearest
+                          the prospect. The lines the day's calls actually
+                          went out from are under the count, from the
+                          attempts themselves. */}
+                      {rep.callerNumber && !rep.callerNumber.e164 ? (
+                        <p className="text-xs break-words font-medium">
+                          No number assigned — their browser dials are refused rather than made from another rep's line.
                         </p>
                       ) : null}
                     </div>
-                    <p className="text-2xl font-semibold tabular-nums shrink-0">{s?.dials ?? 0}</p>
+                    {/* Calls today, BY ATTEMPT — the rows that carry this
+                        rep's id — with the lines they went out from under
+                        it. Never a count of what a line did. */}
+                    <div className="text-right shrink-0" data-calls-today>
+                      <p className="text-2xl font-semibold tabular-nums leading-none">{s?.dials ?? 0}</p>
+                      <p className="text-[11px] opacity-70">Calls today</p>
+                      {s?.table?.lines ? (
+                        <p className="text-[11px] opacity-70 tabular-nums break-words max-w-[12rem]" data-lines-used>
+                          {s.table.lines.count === 0
+                            ? s.table.lines.noLine
+                              ? `from ${s.table.lines.noLine} handset ${s.table.lines.noLine === 1 ? "dial" : "dials"}, no line`
+                              : "no calls yet"
+                            : `from ${s.table.lines.count} ${s.table.lines.count === 1 ? "line" : "lines"}: ${s.table.lines.rows.map((l) => `${prettyLine(l.e164)} (${l.calls})`).join(", ")}${
+                                s.table.lines.noLine ? ` · ${s.table.lines.noLine} by handset` : ""
+                              }`}
+                        </p>
+                      ) : null}
+                    </div>
                   </div>
 
-                  <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
-                    <dt className="opacity-70">Reached (reported)</dt>
+                  {/* A day with no dials is one line, not nine zero tiles. */}
+                  {noCalls ? <p className="text-xs opacity-80" data-no-calls>No calls today</p> : null}
+
+                  {/* The four buckets — the performance page's, from the same
+                      object (stats.table), drawn by the same component. */}
+                  {!noCalls && s?.table ? <DialBuckets table={s.table} labels={BUCKET_LABELS} compact /> : null}
+
+                  <dl className={`grid grid-cols-2 gap-x-3 gap-y-1 text-xs ${noCalls ? "hidden" : ""}`}>
+                    <dt className="opacity-70">Reached (rep's word)</dt>
                     <dd className="text-right tabular-nums">
-                      {s?.reportedReachRate?.value != null
-                        ? `${s.reportedReachRate.value}%`
-                        : `${s?.reportedReachRate?.hit ?? 0} of ${s?.reportedReachRate?.sampleSize ?? 0}`}
+                      {s?.table ? pct(s.table.reached) : "—"}
+                      {s?.table && s.table.dials > 0 && s.table.logged < s.table.dials ? <span className="opacity-70"> · {s.table.dials - s.table.logged} not yet marked</span> : null}
                     </dd>
 
-                    {/* The other two rates, beside the self-report. The
-                        carrier's counts a voicemail greeting; the transcript's
-                        counts only a contractor who spoke. */}
-                    <dt className="opacity-70">Answered (carrier)</dt>
-                    <dd className="text-right tabular-nums">{s?.connect ? pct(s.connect.answerRate) : "—"}</dd>
-
-                    <dt className="opacity-70">Conversation (transcript)</dt>
-                    <dd className="text-right tabular-nums">
-                      {s?.connect ? pct(s.connect.conversationRate) : "—"}
-                      {s?.connect?.unknown ? <span className="opacity-70"> · {s.connect.unknown} not yet known</span> : null}
+                    {/* The transcript's OWN verdicts, and how many calls it
+                        judged. A count beside a count — never "8 of 9",
+                        which was transcript coverage printed as a rate. */}
+                    <dt className="opacity-70">Real conversation (transcript)</dt>
+                    <dd className="text-right tabular-nums" data-transcript-conversations>
+                      {s?.table ? s.table.realConversationFromTranscript : "—"}
+                      {s?.table ? <span className="opacity-70"> · {s.table.conversationFromTranscript} transcribed</span> : null}
                     </dd>
 
                     <dt className="opacity-70">Autodial / by hand</dt>
@@ -644,26 +870,40 @@ export default function SalesFloorPage() {
                     <dt className="opacity-70">Not written up</dt>
                     <dd className="text-right tabular-nums">{s?.dispositions?.pending ?? 0}</dd>
 
-                    <dt className="opacity-70">Time on calls</dt>
+                    <dt className="opacity-70">
+                      Time on calls
+                      <span className="block text-[11px] opacity-70">line open, including ringing and voicemail</span>
+                    </dt>
                     <dd className="text-right tabular-nums">{s?.onCallText || "—"}</dd>
 
-                    {/* The one figure the carrier measured, with the count it
-                        was measured from. Never printed alone. */}
-                    <dt className="opacity-70">Mean talk time</dt>
-                    <dd className="text-right tabular-nums">
-                      {s?.measured?.meanTalkText
-                        ? `${s.measured.meanTalkText} (${s.measured.measuredOf} of ${s.measured.total})`
-                        : "not measured"}
+                    {/* The carrier's seconds on the prospect leg, over REAL
+                        conversations only, with the count it was measured
+                        from. A mean over "answered" averaged in every
+                        voicemail greeting. Never printed alone. */}
+                    <dt className="opacity-70">
+                      Mean talk time
+                      <span className="block text-[11px] opacity-70">real conversations only</span>
+                    </dt>
+                    <dd className="text-right tabular-nums" data-mean-talk>
+                      {s?.table?.meanConversationSeconds != null
+                        ? `${describeDuration(s.table.meanConversationSeconds * 1000)} (over ${s.table.buckets.realConversation})`
+                        : "no real conversation yet"}
                     </dd>
 
-                    <dt className="opacity-70">Paused</dt>
-                    <dd className="text-right tabular-nums">{s?.pausedText || "—"}</dd>
+                    <dt className="opacity-70">
+                      Paused
+                      <span className="block text-[11px] opacity-70">recreational / productive</span>
+                    </dt>
+                    <dd className="text-right tabular-nums" data-paused-by-type>
+                      {s?.pausedText || "—"}
+                      {s?.pauses?.byType ? <span className="opacity-70"> · {s.pauses.byType.recreational.text} / {s.pauses.byType.productive.text}</span> : null}
+                    </dd>
 
                     {/* Hold time and supervised calls, from the attempt rows
                         (holdSeconds, supervisionKind). Zero is a real zero. */}
                     <dt className="opacity-70">On hold (total)</dt>
                     <dd className="text-right tabular-nums">
-                      {s?.measured?.holdMs != null ? `${describeDuration(s.measured.holdMs)} (${s.measured.holdOf})` : "—"}
+                      {s?.table ? `${describeDuration(s.table.holdSeconds * 1000)} (${s.table.heldCalls})` : "—"}
                     </dd>
 
                     <dt className="opacity-70">Supervised calls</dt>
@@ -676,10 +916,21 @@ export default function SalesFloorPage() {
                     <dt className="opacity-70">Callbacks overdue</dt>
                     <dd className="text-right tabular-nums">{s?.callbacks?.overdue?.length ?? 0}</dd>
                   </dl>
+
+                  <SupervisorButtons rep={rep} onDone={load} />
                 </div>
               );
             })}
           </section>
+
+          {/* ── The floor's tunables ────────────────────────────────────── */}
+          {data.settings ? (
+            <FloorSettingsCard
+              settings={data.settings}
+              pauseReasons={data.pauseReasons}
+              onSaved={(settings) => setData((d) => (d ? { ...d, settings: { ...d.settings, ...settings } } : d))}
+            />
+          ) : null}
 
           {/* ── The dialler ─────────────────────────────────────────────── */}
           {data.dialler ? (
@@ -717,35 +968,48 @@ export default function SalesFloorPage() {
             </section>
           ) : null}
 
-          {/* ── The three rates ─────────────────────────────────────────── */}
-          {data.connect ? (
-            <section className={CARD}>
-              <h2 className="text-base font-semibold text-foreground">Did we reach them? Three answers</h2>
+          {/* ── The day's calls, everyone ───────────────────────────────── */}
+          {data.table ? (
+            <section className={CARD} data-floor-table>
+              <h2 className="text-base font-semibold text-foreground">Did we reach them? The day, everyone</h2>
               <p className="text-xs text-muted-foreground break-words">
-                Each is a different fact and none replaces another. Browser calls only; a handset call
-                is measured by nobody.
+                The same four buckets as the performance page, over every call placed on the floor today — one
+                denominator, dials that reached the carrier as a call to the prospect&rsquo;s number, joined to
+                the rep&rsquo;s attempt by the prospect leg&rsquo;s call id and never by the line it went out on.
+                Voicemail sits in &ldquo;Voicemail or brief&rdquo;. &ldquo;Real conversation&rdquo; is the
+                transcript&rsquo;s verdict where one exists and a minute on the clock where none does yet. A
+                handset dial has no carrier leg and is in no bucket.
               </p>
-              <dl className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
-                <div className="rounded-lg border border-border p-3">
-                  <dt className="text-xs text-muted-foreground break-words">{data.connect.labels.answerRate}</dt>
-                  <dd className="text-2xl font-semibold tabular-nums">{pct(data.connect.answerRate)}</dd>
-                  <p className="text-xs text-muted-foreground">{data.connect.connected} of {data.connect.measured} bridged calls</p>
-                </div>
-                <div className="rounded-lg border border-border p-3">
-                  <dt className="text-xs text-muted-foreground break-words">{data.connect.labels.conversationRate}</dt>
-                  <dd className="text-2xl font-semibold tabular-nums">{pct(data.connect.conversationRate)}</dd>
-                  <p className="text-xs text-muted-foreground">
-                    {data.connect.conversations} of {data.connect.conversations + data.connect.notConversations} transcribed connected calls
-                    {data.connect.awaitingTranscript ? ` · ${data.connect.awaitingTranscript} recorded, transcript not yet known` : ""}
-                    {data.connect.unrecorded ? ` · ${data.connect.unrecorded} connected but never recorded` : ""}
-                  </p>
-                </div>
-                <div className="rounded-lg border border-border p-3">
-                  <dt className="text-xs text-muted-foreground break-words">{data.connect.labels.reportedReachRate}</dt>
-                  <dd className="text-2xl font-semibold tabular-nums">{pct(data.connect.reportedReachRate)}</dd>
-                  <p className="text-xs text-muted-foreground">what the reps logged, all channels</p>
-                </div>
+              <DialBuckets table={data.table} labels={BUCKET_LABELS} />
+              <dl className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1 text-sm">
+                <dt className="text-muted-foreground">Reached (rep&rsquo;s word)</dt>
+                <dd className="tabular-nums">
+                  {pct(data.table.reached)}
+                  {data.table.dials > 0 && data.table.logged < data.table.dials ? <span className="text-xs text-muted-foreground"> · {data.table.dials - data.table.logged} not yet marked</span> : null}
+                  <span className="block text-xs text-muted-foreground">source: rep&rsquo;s write-up</span>
+                </dd>
+                <dt className="text-muted-foreground">Real conversation (transcript)</dt>
+                <dd className="tabular-nums">
+                  {data.table.realConversationFromTranscript} <span className="text-xs text-muted-foreground">· {data.table.conversationFromTranscript} transcribed</span>
+                  <span className="block text-xs text-muted-foreground">source: transcript</span>
+                </dd>
+                <dt className="text-muted-foreground">Mean talk time, real conversations</dt>
+                <dd className="tabular-nums">
+                  {data.table.meanConversationSeconds != null ? `${describeDuration(data.table.meanConversationSeconds * 1000)} (over ${data.table.buckets.realConversation})` : "no real conversation yet"}
+                  <span className="block text-xs text-muted-foreground">source: Twilio, the prospect&rsquo;s leg</span>
+                </dd>
+                <dt className="text-muted-foreground">Unverified</dt>
+                <dd className="tabular-nums">
+                  {data.table.unverified.total}
+                  {data.table.unverified.handset ? <span className="text-xs text-muted-foreground"> · {data.table.unverified.handset} from a handset</span> : null}
+                  <span className="block text-xs text-muted-foreground">no carrier leg — in no bucket</span>
+                </dd>
               </dl>
+              <p className="text-xs text-muted-foreground">
+                Twilio&rsquo;s own count of the day&rsquo;s prospect legs is on the performance page&rsquo;s
+                reconciliation line; this board polls every fifteen seconds and does not ask the carrier each
+                time.
+              </p>
             </section>
           ) : null}
 

@@ -18,6 +18,7 @@
 // rate() with `value` null under the floor, and this prints "3 of 4" then —
 // the same honesty rule the platform page keeps for conversion.
 import Link from "next/link";
+import { BucketBar, CarrierMissing } from "./DialBuckets";
 
 const CARD = "rounded-xl border border-border bg-card p-4";
 const TH = "px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground";
@@ -67,30 +68,9 @@ function Share({ value, count, belowFloor }) {
   );
 }
 
-/** Red, in words, under a Twilio column when the carrier's data is short for the period. */
-function CarrierMissing({ table, labels }) {
-  if (!table?.carrierMissingSince) return null;
-  return <div className="text-xs text-red-700 dark:text-red-300">{labels.carrierMissingSince(new Date(table.carrierMissingSince).toLocaleDateString(), table.carrierMissingCount)}</div>;
-}
-
-/** The four buckets as one bar, so the shape of a rep's dials reads at a glance. */
-const BUCKET_ORDER = ["nobodyAnswered", "hungUpFast", "voicemailOrBrief", "realConversation"];
-const BUCKET_CLASS = {
-  nobodyAnswered: "bg-neutral-400 dark:bg-neutral-600",
-  hungUpFast: "bg-amber-400 dark:bg-amber-600",
-  voicemailOrBrief: "bg-sky-400 dark:bg-sky-600",
-  realConversation: "bg-emerald-500 dark:bg-emerald-500",
-};
-function BucketBar({ table, labels }) {
-  if (!table || table.joined === 0) return null;
-  return (
-    <div className="mt-1 flex h-2.5 w-full min-w-[140px] overflow-hidden rounded-full bg-muted" role="img" aria-label={BUCKET_ORDER.map((k) => `${labels[k]}: ${table.buckets[k]}`).join(", ")}>
-      {BUCKET_ORDER.map((k) =>
-        table.buckets[k] > 0 ? <div key={k} className={BUCKET_CLASS[k]} style={{ width: `${(table.buckets[k] / table.joined) * 100}%` }} title={`${labels[k]}: ${table.buckets[k]}`} /> : null,
-      )}
-    </div>
-  );
-}
+// The red carrier-missing rule and the stacked bar are ./DialBuckets.js's:
+// the floor cards draw the same two, and the bar's colours and order are
+// decided once there rather than here and again on the floor.
 
 /** One header: the plain word, its one-line meaning, and its source. */
 function Head({ word, meaning, source }) {

@@ -7,6 +7,7 @@ import { memberOrRefusal } from "@/lib/apiMember";
 import { isBillingAdmin, BILLING_ADMIN_ERROR } from "@/lib/billing/billingAdmin";
 import { createConnectOnboardingLink } from "@/lib/stripe";
 import { getAppOrigin } from "@/lib/appUrl";
+import { connectReturnName, connectReturnUrl } from "@/lib/stripe/connectReturn";
 
 // Stripe redirects here if an onboarding link expired mid-flow — regenerates a
 // fresh one and immediately redirects back into it.
@@ -76,12 +77,14 @@ export async function GET(request) {
   }
 
   const baseUrl = getAppOrigin(request);
+  // The same return-to name the first link carried (lib/stripe/connectReturn.js).
+  const returnTo = connectReturnName(searchParams.get("returnTo"));
 
   const { url } = await createConnectOnboardingLink({
     companyId,
     stripeAccountId: company.stripeAccountId,
-    returnUrl: `${baseUrl}/app/settings/payments?connected=true`,
-    refreshUrl: `${baseUrl}/api/stripe/connect/refresh?companyId=${companyId}`,
+    returnUrl: connectReturnUrl(baseUrl, returnTo),
+    refreshUrl: `${baseUrl}/api/stripe/connect/refresh?companyId=${companyId}&returnTo=${returnTo}`,
   });
 
   return NextResponse.redirect(url);
