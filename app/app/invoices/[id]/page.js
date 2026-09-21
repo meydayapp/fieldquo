@@ -1153,6 +1153,9 @@ export default function InvoiceDetailPage() {
                 value={`-${money(invoice.discount)}`}
               />
             )}
+            {Number(invoice.offlineDiscountAmount) > 0 && (
+              <p className="text-xs text-muted-foreground leading-snug">{labels.offlineDiscountIncluded}</p>
+            )}
             {/* Not always a figure. See lib/tax/documentTax.js — "$0.00" on a
                 tax row is a claim ("worked out, came to nothing") that a
                 document with no jurisdiction behind it cannot make. This is

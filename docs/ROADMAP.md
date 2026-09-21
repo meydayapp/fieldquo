@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 21 September 2026 (the "next steps" email: two hours after a company's card goes in, if its onboarding checklist is still open, FieldQuo sends one letter in the company's language — the trade in the subject, only the open steps numbered in the checklist's order with what each unlocks for that trade, each a link that opens the step's window on the home page, a tick list of what is done — once per company, never a demo, switch and delay on /platform/companies, sent-date on the company page; see "The next-steps email" below; previous line: Sales-floor supervision: Listen / Whisper / Barge / Take on every live row of /platform/sales/floor through the superadmin's own browser, a Hold button for the rep, HOLD/UNHOLD and every supervisor action logged with seconds, calls to a colleague (browser to browser) and to a number outside the queue behind per-rep privileges — every outbound call runs in a per-attempt Twilio conference when `sales.supervision.enabled` is on, which is OFF by default because it costs +20% per call minute; docs/SALES-SUPERVISION.md — see the first section below; previous line: the call-outcomes second pass, and before it the set-up dialogs and the floor's presence)
+Last updated: 21 September 2026 (the quote builder's text-block library — nine painting starters in EN/FR/ES seeded once per painting company, searchable from "+ Add area or line item" beside the trade chips and the products, rich text drawn on the PDF, the email, the approval page and the detail page, priced by hours, quantity, a custom amount or not at all, "hidden on work order" carried on the line, a block translated ONCE into a quote's other language and the reviewed text stored on the block; the quote page's Send… split button — preview as client, share with staff through the crew chat, create invoice, save as template, copy link, download PDF, copy, archive; QuoteTemplate rows offered on every new quote; Quote.siteAddress prefilled for a homeowner, required for a company client, printed as "Job address", handed to the Job and geocoded there, read by the satellite measure; and "Offer 3% off for e-transfer or cheque" — Canada only, a discount never a card surcharge because of Quebec, frozen on the draft, ticked by the client at approval, folded into the invoice with the card link left off; see "The text-block library, the Send… menu, the job address and the e-transfer discount" below; previous line: the "next steps" email: two hours after a company's card goes in, if its onboarding checklist is still open, FieldQuo sends one letter in the company's language — the trade in the subject, only the open steps numbered in the checklist's order with what each unlocks for that trade, each a link that opens the step's window on the home page, a tick list of what is done — once per company, never a demo, switch and delay on /platform/companies, sent-date on the company page)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -9,6 +9,164 @@ it exists to answer.
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
+
+## The text-block library, the Send… menu, the job address and the e-transfer discount (21 September 2026)
+
+Builder-level additions from the approved mockups (b5, b8, and the owner's
+notes on b1/b7), built beside the painting takeoff rather than inside it so
+the document-shaped builder can land over both.
+
+**The library.** `QuoteTextBlock` — one row per block per company: name,
+body, price mode (`none` / `hourly` / `quantity` / `custom`), price, unit,
+`hiddenOnWorkOrder`, the language it was written in, `translations` per
+language, tags, sort order, `seedKey`. `lib/quotes/textBlockDefaults.js`
+ships nine painting starters (Interior preparation, Daily set-up and
+clean-up, Final walkthrough, Exclusions, Deposit information, Paint
+upgrade, Popcorn ceiling removal at the complexity book's 3.50/sqft, Painter
+for a day, Complimentary colour consult) hand-written in EN, FR and ES;
+`lib/quotes/textBlockSeed.js` inserts them ONCE, on the first read of an
+empty library by a company with a painting trade on, in the company's own
+language with the other two stored as translations. A non-painting company's
+library opens empty — that is what we have written for them.
+
+- `lib/quotes/richText.js` — the one rich-text format: paragraphs,
+  `**bold**`, `_italic_`, `- ` and `1. ` lists, `[text](https://…)`; never
+  HTML. The parser emits text runs only, so a pasted `<script>` is eleven
+  printed characters on the PDF (`lib/documentSections/richTextPdf.js`), the
+  email (`richTextToHtml`, escaped) and the pages
+  (`app/components/quotes/RichTextBody.js`, no innerHTML anywhere). Links keep
+  http, https and mailto and drop the rest as words.
+- `lib/quotes/textBlocks.js` — a block becomes an ORDINARY line item
+  (`description`, `detail`, `amount`) plus `kind: "text"`, `priceMode`,
+  `hiddenOnWorkOrder`, `textBlockId`; the document renderers do not know the
+  table exists. An unpriced block prints no amount column — the PDF, the
+  covering email, the approval page and the detail page all read
+  `lineShowsAmount`; "Exclusions $0.00" appears nowhere.
+- `app/components/quotes/builder/LineItemLibrary.js` — "+ Add area or line
+  item" on every scope group's table: one searchable dialog with the text
+  blocks, "Common for this trade" (the same `defaultLineItems` catalogue, now
+  a section here rather than a second picker), Products & Services, and
+  "+ New block" — title, the five-button rich-text editor with preview
+  (`RichTextEditor.js`), Hidden on work order, price by hourly rate (prefilled
+  from the trade's `hourlySellRate` or the category rate) / quantity / custom
+  / none, a live line total, and "Save to library" — the item stays on the
+  quote either way (owner). An "Areas" section renders only when the takeoff
+  hands the dialog areas; today it does not, so there is no heading over
+  nothing.
+- **Translation, once.** Opening a block written in another language
+  resolves the stored rendering; with none, `POST
+  /api/quote-text-blocks/[id]/translate` drafts one through
+  `lib/ai/provider.js` (`checkAiQuota` before, `recordAiUsage` after,
+  feature `text_block_translation`), the dialog shows it marked as
+  machine-written, and "Add to quote" stores what the estimator accepted on
+  the block (`PATCH … { translation }`). The route answers a stored rendering
+  before the quota check and the model call; nothing translates at send
+  time. Cost: one short call per block per new language.
+- Settings › Services — `TextBlockLibraryCard.js`, folded by default with a
+  count: write, edit, reorder and remove blocks; the saved quote templates
+  underneath. Edit rights follow the quote grid (`quotes:view_create_edit`),
+  which the routes enforce.
+- Routes: `GET/POST /api/quote-text-blocks`, `PATCH/DELETE
+  /api/quote-text-blocks/[id]`, the translate route above. A member without
+  `showPricing` receives blocks with no price and writes none.
+
+**The Send… menu** (`app/components/quotes/SendMenu.js`, mounted on
+`/app/quotes/[id]`): Send to client / Send again as the primary while the
+quote is live, then Preview as client (`/q/…` through the share token — waits
+for a send, because the public page refuses a draft), Share with staff (a
+message and the back-office link posted into the crew chat through
+`POST /api/chat/rooms/[id]`, to a room or a person —
+`ShareWithStaffModal.js`), Create invoice (the existing convert; disabled
+with "After the client accepts" before that — offering it earlier is the
+product decision the mockup names), Save as template, Copy quote link,
+Download quote PDF, Copy (= duplicate), Archive / Restore from archive.
+Follow up, Call, Client accepted / didn't go ahead, Get approved, Edit and
+the bin stay as pills. "Copy work order link" and "Download work order PDF"
+are NOT drawn: no work-order document exists yet, and a row that led nowhere
+is the dead control this codebase is swept for.
+
+- `QuoteTemplate` (new) — a snapshot of the groups (line items, takeoff,
+  intake answers, subtotal), notes and process notes, under a name and in
+  the quote's language; no client, address, dates or token
+  (`lib/quotes/quoteTemplates.js`). `POST /api/quotes/[id]/template` saves
+  one; `GET /api/quote-templates` lists them with the categories attached;
+  `TemplatePicker.js` offers them on a new quote with nothing added yet and
+  opens the groups as persisted (prices kept, edited as numbers — never
+  re-derived from today's rate card). Applying a French template sets the
+  quote's language to French: the language is chosen at creation and the
+  template's words are in it.
+- `Quote.archivedAt` (new) — `POST /api/quotes/[id]/archive`; `GET
+  /api/quotes` hides archived rows unless `?archived=1`; the quotes list has
+  an "Archived" view; the detail page says so and offers the way back.
+  Filing, not deciding: status untouched, nothing deleted.
+
+**Job address.** `Quote.siteAddress` (new). `JobAddressField.js` under the
+client: prefilled from a homeowner's address, blank and REQUIRED for a
+`Client.type = company` (the builder refuses the save with the reason; `POST
+/api/quotes` and `PATCH /api/quotes/[id]` refuse the same case). Printed as
+"Job address" in the PDF's Prepared-for panel, the covering email, the
+approval page and the detail page — only when it is not simply the client's
+own address repeated (`lib/quotes/jobAddress.js`), never invented from
+absence. Carried onto the Job on acceptance and geocoded there
+(`lib/jobs/createJobFromQuote.js`, one Geocoding call per accepted quote
+with an address — the quote itself is never geocoded). The satellite measure
+reads it before the client's address. Copied by Duplicate.
+
+**"Offer 3% off for e-transfer or cheque."** `Company.offlinePaymentDiscount`
+(new, default off), a switch on Settings › Payments rendered for a Canadian
+company only; `PATCH /api/settings/business-info` stores false for any other
+country. A DISCOUNT, never a card surcharge: Quebec's Consumer Protection Act
+bars charging a consumer more than the advertised price for using a card, so
+"cards carry a 3% fee" cannot be printed there; the card fee stays the
+contractor's (`lib/stripe/processingFee.js`) and no client-facing surface
+prints one (`lib/payments/offlineDiscount.js`). The offer needs e-transfer or
+cheque switched on — a discount for a method the client cannot use is a dead
+control. `Quote.offlineDiscountPct` is frozen server-side at creation and on
+a DRAFT save (the browser never sends it); a sent quote keeps what it
+offered. The PDF, the email and the approval page print the offer as a
+sentence under the totals; the approval page offers it as a tick (the total
+moves live; the server reprices from its own rows, before tax — the mockup's
+1,167.31 − 35.02, GST/QST on 1,132.29) and records
+`Quote.offlineDiscountChosen`; the signed PDF prints it as a discount row.
+`lib/invoices/createInvoiceFromQuote.js` folds the amount into
+`Invoice.discount` and records `Invoice.offlineDiscountAmount`; the
+document says "includes the e-transfer / cheque discount" under the discount
+row and "How to pay" leaves the card link off with one sentence saying why
+(`buildHowToPay({ offlineDiscount })`, all eight document languages).
+
+**Verified.** `scripts/check-quote-text-blocks.mjs` (196 assertions, in
+`check:all`): hostile bodies through every renderer, the translate-once rule
+and the route's order, the nine defaults × three languages and the seeder's
+gates, the job-address rules and both routes, the discount's country gate
+and arithmetic and every surface that reads it, pricing and the amount
+column, templates, and every new app string in all nine language blocks.
+The harness photographs the Send… menu open (`quote-send-menu`), the library
+list and the popcorn block's editor on the French Q-1045 (`quote-line-item-
+library`, `quote-text-block-editor` — the block resolved to its stored
+French with no model call), the unfolded Settings card
+(`settings-services-library`), and Q-1044 now carries a text block, a job
+address and the offer. `docs/screens/app-guide/harness/build.sh` and
+`css.mjs` derive their root from their own location, so a worktree shoots
+its own tree.
+
+### Still owed here
+
+- **Areas in the library.** The mockup's "Areas: Room · Surface" section is
+  the painting takeoff's to hand in (`areas` + `onAddArea` on
+  `LineItemsTable`); the dialog draws the section the moment it does.
+- **Work-order rows and `hiddenOnWorkOrder`'s reader.** Both wait for the
+  work-order document; the flag is written on every text line and shown to
+  staff on the detail page and the builder, and the menu draws the two rows
+  the day the document and its token route exist.
+- **The builder's own Save + Send… bar** is the document-shaped builder's to
+  mount; `SendMenu` takes a `primary` and `items` and needs no page state.
+- **Create invoice before acceptance** (deposit invoices) is a product
+  decision; the row is drawn disabled with the reason until it is taken.
+- **The library is per company, not per trade.** Tags exist and search reads
+  them; a per-estimate-type filter (interior / exterior / cabinets) can key
+  on them when the estimate-type picker lands.
+- A staff-recorded acceptance ("Client accepted by phone / text") cannot
+  record the e-transfer choice; only the client's own approval can.
 
 ## The next-steps email: two hours after the card, only the steps still open, each a link into its window (21 September 2026)
 

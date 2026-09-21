@@ -35,6 +35,7 @@ import {
   validateAllDetails,
   offlineMethodLabel,
 } from "@/lib/payments/offlineMethods";
+import { offlineDiscountAvailable, OFFLINE_PAYMENT_DISCOUNT_PCT } from "@/lib/payments/offlineDiscount";
 
 // Literal keys per field rather than a lookup table, so check:translations
 // can see each one is referenced; a key only ever built at runtime is
@@ -101,10 +102,13 @@ function fromCompany(company) {
   return {
     on: enabledMethods(company),
     details: Object.fromEntries(Object.entries(details).map(([m, d]) => [m, { ...(d || {}) }])),
+    // The Canada-only discount switch (lib/payments/offlineDiscount.js).
+    // Read as the route stores it; a US company's row is always false.
+    offlineDiscount: company?.offlinePaymentDiscount === true,
   };
 }
 
-const stateKey = (st) => JSON.stringify([st.on, st.details]);
+const stateKey = (st) => JSON.stringify([st.on, st.details, st.offlineDiscount]);
 
 /**
  * @param company  the /api/settings/business-info GET payload (or null while
@@ -164,7 +168,12 @@ export default function PaymentMethodsCard({ company, onSaved }) {
     try {
       const updated = await fetchJson("/api/settings/business-info", {
         method: "PATCH",
-        body: { paymentMethods: state.on, paymentMethodDetails: state.details },
+        body: {
+          paymentMethods: state.on,
+          paymentMethodDetails: state.details,
+          // Only where the switch was offered; a US card never sends it.
+          ...(offlineDiscountAvailable(company || {}) ? { offlinePaymentDiscount: state.offlineDiscount } : {}),
+        },
       });
       // What the server kept, not what was sent — the route filters to the
       // country's catalogue and normalises each value (@ and $ stripped),
@@ -263,6 +272,57 @@ export default function PaymentMethodsCard({ company, onSaved }) {
               );
             })}
           </div>
+
+          {/* ── "Offer 3% off for e-transfer or cheque" ──────────────────
+              Rendered for a Canadian company only, and inert on the server
+              for any other (lib/payments/offlineDiscount.js on why it is a
+              discount and never a card surcharge — Quebec). Needs e-transfer
+              or cheque switched on above: a discount for a method the client
+              cannot use is a control that appears to work. */}
+          {offlineDiscountAvailable(company || {}) && (
+            <div className="mt-4 pt-4 border-t border-border" data-offline-discount>
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <div className="text-sm font-medium text-foreground">
+                    {t("app.setPayments.offlineDiscountTitle", "Offer {pct}% off for e-transfer or cheque", { pct: OFFLINE_PAYMENT_DISCOUNT_PCT })}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {t(
+                      "app.setPayments.offlineDiscountHint",
+                      "Quotes show \u201cPay by e-transfer or cheque \u2014 {pct}% off\u201d as an option the client picks when approving. The discount lands on their invoice and the card link comes off it. Framed as a discount, never a card fee \u2014 a card surcharge is not allowed in Quebec. Canada only.",
+                      { pct: OFFLINE_PAYMENT_DISCOUNT_PCT },
+                    )}
+                  </p>
+                  {state.offlineDiscount && !state.on.some((m) => m === "e_transfer" || m === "cheque") && (
+                    <p className="text-xs text-amber-700 dark:text-amber-500 mt-1">
+                      {t("app.setPayments.offlineDiscountNeedsMethod", "Switch on e-transfer or cheque above, or the offer will not appear on quotes.")}
+                    </p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={state.offlineDiscount}
+                  aria-label={t("app.setPayments.offlineDiscountTitle", "Offer {pct}% off for e-transfer or cheque", { pct: OFFLINE_PAYMENT_DISCOUNT_PCT })}
+                  onClick={() => {
+                    setSaved(false);
+                    setError("");
+                    setState((cur) => ({ ...cur, offlineDiscount: !cur.offlineDiscount }));
+                  }}
+                  disabled={saving || !company}
+                  className={`relative shrink-0 mt-0.5 inline-flex h-6 w-11 items-center rounded-full transition-colors disabled:opacity-60 ${
+                    state.offlineDiscount ? "bg-green-600" : "bg-muted"
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
+                      state.offlineDiscount ? "translate-x-5" : "translate-x-0.5"
+                    }`}
+                  />
+                </button>
+              </div>
+            </div>
+          )}
 
           {(problem || error) && (
             <div className="mt-3 flex items-start gap-2 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-sm rounded-lg px-4 py-3">

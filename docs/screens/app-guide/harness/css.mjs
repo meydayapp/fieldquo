@@ -3,7 +3,10 @@ import { compile } from "@tailwindcss/node";
 import { Scanner } from "@tailwindcss/oxide";
 import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-const ROOT = "/Users/emilioboves/StudioProjects/fieldquo";
+import { fileURLToPath } from "node:url";
+// build.sh copies this file to the checkout's root before running it, so the
+// root is this file's own directory — a worktree compiles its own CSS.
+const ROOT = process.env.ROOT || path.dirname(fileURLToPath(import.meta.url));
 const css = readFileSync(path.join(ROOT, "app/globals.css"), "utf8");
 const compiler = await compile(css, { base: path.join(ROOT, "app"), onDependency() {} });
 const scanner = new Scanner({ sources: [{ base: ROOT, pattern: "**/*", negated: false }, ...compiler.sources] });

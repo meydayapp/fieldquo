@@ -75,7 +75,10 @@ import LineItemsTable from "./LineItemsTable";
 import CostMarginPanel from "./CostMarginPanel";
 import QuoteTotalsBar from "./QuoteTotalsBar";
 import ClientPicker from "./ClientPicker";
+import JobAddressField from "./JobAddressField";
+import TemplatePicker from "./TemplatePicker";
 import SiteVisitPanel from "@/app/components/quotes/SiteVisitPanel";
+import { defaultSiteAddressFor, siteAddressRequired } from "@/lib/quotes/jobAddress";
 
 import { estimateQuoteCost } from "@/lib/costing/estimateJobCost";
 import {
@@ -200,6 +203,7 @@ export function initialStateFromQuote(quote, { fallbackLabel = "Scope" } = {}) {
       validUntil: defaultValidUntil(),
       costing: null,
       assignedTo: null,
+      siteAddress: "",
     };
   }
 
@@ -232,6 +236,10 @@ export function initialStateFromQuote(quote, { fallbackLabel = "Scope" } = {}) {
       : "",
     costing: null,
     assignedTo: quote.assignedTo || null,
+    // Where the work is, as saved. "" for a quote written before the column
+    // existed — the field then opens on the homeowner's own address, which is
+    // what every reader of such a quote already assumed.
+    siteAddress: quote.siteAddress || defaultSiteAddressFor(quote.client),
   };
 }
 
@@ -757,6 +765,9 @@ export function QuoteBuilderForm({
   // preference — the stored line items and the PDF are produced in it, and it
   // never changes afterwards (non-negotiable #6).
   const [quoteLanguage, setQuoteLanguage] = useState(start.language || null);
+  // Where the work is (Quote.siteAddress). Prefilled from a homeowner when
+  // they are picked, typed for a company client — see JobAddressField.
+  const [siteAddress, setSiteAddress] = useState(start.siteAddress || "");
 
   // ── Scope ────────────────────────────────────────────────────────────────
   const [scopeGroups, setScopeGroups] = useState(start.groups || []);
@@ -1275,6 +1286,33 @@ export function QuoteBuilderForm({
     );
   }
 
+  /**
+   * A line the library dialog built — a text block, priced or not. Appended
+   * as-is: the dialog already resolved the language and computed the amount
+   * through the same pure helper the check script runs.
+   */
+  function addLibraryLine(groupTempId, line) {
+    setScopeGroups((prev) =>
+      prev.map((g) =>
+        g.tempId === groupTempId ? { ...g, lineItems: [...g.lineItems, line] } : g,
+      ),
+    );
+  }
+
+  /**
+   * The rate an hourly text block opens on: the trade's hourly sell rate
+   * from its price book where it has one (painting's hourlySellRate), else
+   * the category's own default rate. Null when neither is set — the box
+   * then opens blank rather than on a number nobody chose.
+   */
+  function hourlyRateFor(group) {
+    const book = getPriceBook(group.categoryKey, rateOverridesFor(group.categoryId));
+    const fromBook = num(book?.hourlySellRate);
+    if (fromBook > 0) return fromBook;
+    const cat = categories.find((c) => c.id === group.categoryId);
+    return cat?.defaultRate != null ? num(cat.defaultRate) : null;
+  }
+
   function removeLineItem(groupTempId, itemIndex) {
     setScopeGroups((prev) =>
       prev.map((g) =>
@@ -1523,6 +1561,13 @@ export function QuoteBuilderForm({
         return;
       }
     }
+    // A company client's quote must say where the job is — their address is
+    // an office. The route refuses the same save; this is the sentence
+    // beside the field rather than a red banner after the round trip.
+    if (siteAddressRequired(selectedClient) && !siteAddress.trim()) {
+      setError(t("app.quoteNew.jobAddressRequired", "Enter the job address — a company client's address is their office, not the site."));
+      return;
+    }
     // A required custom box left blank, or a bad number, is caught before
     // the quote saves — otherwise the quote would land and the answers not.
     if (!cf.validate()) {
@@ -1574,6 +1619,7 @@ export function QuoteBuilderForm({
       processNotes,
       validUntil: validUntil || null,
       clientPhotos,
+      siteAddress: siteAddress.trim() || null,
       ...(costing !== undefined ? { costing } : {}),
     };
 
@@ -1891,8 +1937,13 @@ export function QuoteBuilderForm({
           // Adopt their saved preference automatically — the whole point of
           // storing it. Still overridable in the language bar below.
           if (c.language) setQuoteLanguage(c.language);
+          // A homeowner's job is at their address; a company's is not.
+          setSiteAddress(defaultSiteAddressFor(c));
         }}
-        onClear={() => setSelectedClient(null)}
+        onClear={() => {
+          setSelectedClient(null);
+          setSiteAddress("");
+        }}
         search={clientSearch}
         onSearchChange={setClientSearch}
         showNewClient={showNewClient}
@@ -1906,6 +1957,31 @@ export function QuoteBuilderForm({
         creating={creatingClient}
         error={error}
       />
+
+      {/* Where the work is — see JobAddressField. Below the client, because
+          it is answered from the client and overridden for a company one. */}
+      {selectedClient && (
+        <JobAddressField client={selectedClient} value={siteAddress} onChange={setSiteAddress} />
+      )}
+
+      {/* A saved shape to start from — the groups, notes and process notes
+          of a quote somebody kept (lib/quotes/quoteTemplates.js). Only on a
+          create with nothing added yet: applying one over half a quote would
+          be a silent replace. */}
+      {!isEdit && scopeGroups.length === 0 && (
+        <TemplatePicker
+          onApply={(tpl) => {
+            setScopeGroups(
+              tpl.groups.map((g) => groupFromStored({ ...g, id: null }, [], t("app.quoteEdit.scopeFallback"))),
+            );
+            if (tpl.notes && !notes) setNotes(tpl.notes);
+            if (tpl.processNotes) setProcessNotes(tpl.processNotes);
+            // Applying a French template IS choosing French — the language
+            // is chosen at creation and the template's words are in it.
+            if (tpl.language) setQuoteLanguage(tpl.language);
+          }}
+        />
+      )}
 
       {/* The estimator's measure, scheduled against THIS quote row — so only
           on an edit, where the row exists. On a new quote the first save is
@@ -2049,7 +2125,7 @@ export function QuoteBuilderForm({
               hasTakeoff(group.categoryKey) &&
               group.takeoff && (
                 <TradeTakeoff
-                  siteAddress={selectedClient?.address || ""}
+                  siteAddress={siteAddress || selectedClient?.address || ""}
                   categoryKey={group.categoryKey}
                   takeoff={group.takeoff}
                   book={getPriceBook(
@@ -2085,7 +2161,7 @@ export function QuoteBuilderForm({
                       // frame (and the traced outline in lat/lng, for the
                       // client's document — see LotAreaMeasure).
                       takeoff={group.takeoff || null}
-                      siteAddress={selectedClient?.address || ""}
+                      siteAddress={siteAddress || selectedClient?.address || ""}
                       onTakeoffChange={(patch) => updateTakeoff(group.tempId, patch)}
                     />
                   )}
@@ -2212,6 +2288,13 @@ export function QuoteBuilderForm({
                 onAddSuggested={(suggestion) =>
                   addSuggestedLineItem(group.tempId, suggestion)
                 }
+                // A block from the library, already a line
+                // (lib/quotes/textBlocks.js lineFromTextBlock) — in the
+                // quote's language, priced in the dialog.
+                onAddLine={(line) => addLibraryLine(group.tempId, line)}
+                documentLanguage={quoteLanguage || companyLanguage}
+                hourlyRate={hourlyRateFor(group)}
+                showPricing={caller ? hasToggle(caller, "showPricing") : true}
               />
             )}
           </ScopeGroupCard>

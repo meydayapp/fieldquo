@@ -37,6 +37,8 @@ import { clientDocCopy } from "@/lib/i18n/clientDocCopy";
 import { monthlyPayment } from "@/lib/financing/monthlyEstimate";
 import { jsonBody } from "@/lib/jsonBody";
 import { visibleLineItems } from "@/lib/quotes/scopeGroupDisplay";
+import { lineShowsAmount } from "@/lib/quotes/textBlocks";
+import RichTextBody from "@/app/components/quotes/RichTextBody";
 
 // Approve is the one green on this page, and it is NOT brand-derived — the
 // homeowner reads it as "yes", not as the contractor's colour, so it stays the
@@ -77,6 +79,10 @@ export default function QuoteApproval({ token }) {
   const [sigName, setSigName] = useState("");
   const [sigDataUrl, setSigDataUrl] = useState("");
   const [sigConsent, setSigConsent] = useState(false);
+  // "Pay by e-transfer or cheque — 3% off", ticked or not. A boolean goes to
+  // the server; the amount below is an illustration from the quote's own
+  // stored percentage, and the server reprices from its rows at approval.
+  const [payOffline, setPayOffline] = useState(false);
   const canSign =
     sigName.trim().length > 1 && Boolean(sigDataUrl) && sigConsent;
 
@@ -174,6 +180,7 @@ export default function QuoteApproval({ token }) {
         body: jsonBody({
           decision,
           addOnIds: decision === "accepted" ? picked : [],
+          payOffline: decision === "accepted" && payOffline && Boolean(quote?.offlineDiscount),
           ...(decision === "accepted"
             ? {
                 signature: {
@@ -242,17 +249,26 @@ export default function QuoteApproval({ token }) {
 
     const rate = Number(quote.taxRate || 0);
     const subtotal = Number(quote.subtotal || 0) + extras;
-    const tax = Number(quote.tax || 0) + taxableExtras * rate;
-    const total = subtotal - Number(quote.discount || 0) + tax;
+    // The e-transfer / cheque discount, mirrored from the server's own
+    // arithmetic (priceWithAddOns): a percentage of subtotal − discount,
+    // taken before tax. Shown as a row only once ticked, or once the server
+    // recorded it as chosen.
+    const offlinePct = Number(quote.offlineDiscount?.pct || 0);
+    const offlineOn = offlinePct > 0 && (quote.offlineDiscount?.chosen || payOffline);
+    const offlineBase = Math.max(0, subtotal - Number(quote.discount || 0));
+    const offline = offlineOn ? Math.round(offlineBase * offlinePct) / 100 : 0;
+    const tax = Math.max(0, Number(quote.tax || 0) + taxableExtras * rate - offline * rate);
+    const total = subtotal - Number(quote.discount || 0) - offline + tax;
 
     return {
       extras,
       subtotal,
       tax,
+      offline,
       // After a decision, show what the server actually recorded.
       total: settledTotal ?? total,
     };
-  }, [quote, picked, settledTotal]);
+  }, [quote, picked, settledTotal, payOffline]);
 
   /**
    * The monthly instalment shown under the total, or null.
@@ -441,6 +457,13 @@ export default function QuoteApproval({ token }) {
           <p className="text-lg font-semibold text-[#2d2520]">
             {quote.client?.name}
           </p>
+          {/* Where the work is — the same line the PDF's "Prepared for"
+              panel prints, when the quote names a site. */}
+          {quote.siteAddress && (
+            <p className="text-sm mt-1 text-[#2d2520]/60">
+              {labels.jobAddress} · <span className="text-[#2d2520]">{quote.siteAddress}</span>
+            </p>
+          )}
 
           {quote.validUntil && (
             <p className="text-sm mt-2 text-[#2d2520]/60">
@@ -586,22 +609,28 @@ export default function QuoteApproval({ token }) {
                               </span>
                             )}
                           </span>
-                          <span className="shrink-0 tabular-nums">
-                            {money(li.amount)}
-                          </span>
+                          {/* An unpriced text block — the exclusions, the
+                              deposit terms — has no amount, not a $0.00. */}
+                          {lineShowsAmount(li) ? (
+                            <span className="shrink-0 tabular-nums">
+                              {money(li.amount)}
+                            </span>
+                          ) : null}
                         </div>
                         {/* The scope under the name, same as the PDF — this
                             page and the printed quote are the same document
                             and a client who opens both must not find one of
                             them explaining more than the other.
 
-                            whitespace-pre-line: an estimator who typed a list
-                            of steps on separate lines gets a list, not one
-                            run-on paragraph. */}
+                            RichTextBody keeps a typed list a list and draws
+                            the library's bold, bullets and links the way the
+                            PDF does (lib/quotes/richText.js); a plain
+                            paragraph passes through it unchanged. */}
                         {li.detail ? (
-                          <p className="mt-0.5 pl-2 pr-12 text-xs leading-relaxed text-[#2d2520]/70 whitespace-pre-line">
-                            {li.detail}
-                          </p>
+                          <RichTextBody
+                            body={li.detail}
+                            className="mt-0.5 pl-2 pr-12 text-xs leading-relaxed text-[#2d2520]/70"
+                          />
                         ) : null}
                       </div>
                     ))}
@@ -905,6 +934,35 @@ export default function QuoteApproval({ token }) {
                 value={-quote.discount}
                 money={money}
               />
+            )}
+            {/* ── The e-transfer / cheque offer ──────────────────────────
+                Canada only, and only when this quote carried it
+                (lib/payments/offlineDiscount.js). Before a decision it is a
+                box the homeowner ticks, and the total moves the moment they
+                do — the same reason the extras reprice live. After a
+                decision it is a plain row, or nothing if they paid by card. */}
+            {quote.offlineDiscount && !decided && (
+              <label className="flex items-start gap-2.5 py-1 cursor-pointer" data-offline-discount>
+                <input
+                  type="checkbox"
+                  checked={payOffline}
+                  onChange={(e) => setPayOffline(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-black/20"
+                  style={{ accentColor: theme.accent }}
+                />
+                <span className="flex-1 flex justify-between gap-3 text-[#2d2520]">
+                  <span>
+                    {quote.offlineDiscount.label}
+                    <span className="block text-xs text-[#2d2520]/60">{copy.payOfflineHint}</span>
+                  </span>
+                  <span className="tabular-nums shrink-0">
+                    −{money(Math.round(Math.max(0, pricing.subtotal - Number(quote.discount || 0)) * quote.offlineDiscount.pct) / 100)}
+                  </span>
+                </span>
+              </label>
+            )}
+            {quote.offlineDiscount?.chosen && decided && (
+              <Row label={quote.offlineDiscount.label} value={-pricing.offline} money={money} />
             )}
             {/* ── Not always a number ────────────────────────────────────
                 A money row reading "$0.00" says tax was worked out and came to

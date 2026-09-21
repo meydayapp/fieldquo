@@ -3,8 +3,10 @@
 # the app's Tailwind CSS. Output goes to $OUT (default: a scratch dir), never
 # into the repo — the PNGs are the artefact, not the bundle.
 set -e
-ROOT=/Users/emilioboves/StudioProjects/fieldquo
-H=$ROOT/docs/screens/app-guide/harness
+# The checkout this script lives in — a worktree shoots its own tree, not
+# the main checkout's. $ROOT overrides it.
+H=$(cd "$(dirname "$0")" && pwd)
+ROOT=${ROOT:-$(cd "$H/../../../.." && pwd)}
 OUT=${OUT:-/private/tmp/claude-501/-Users-emilioboves-StudioProjects-fieldquo/6e0c5fd3-e3ee-487d-b256-ca69dbca769e/scratchpad/app-guide}
 mkdir -p "$OUT"
 cd "$ROOT"

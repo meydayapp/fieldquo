@@ -213,6 +213,38 @@ const setSelect = (el, value) => {
 };
 async function runScene(scene) {
   if (!scene) return;
+  if (scene === "send-menu-open") {
+    // The quote page's Send… split button, opened — the nine rows the
+    // mockup's b8 lists, gated as the page gates them (Preview and Copy
+    // link live for a sent quote; Create invoice waits for acceptance).
+    (await until("[data-send-menu-toggle]")).click();
+    await until("[data-send-menu-list]");
+    await wait(300);
+    return;
+  }
+  if (scene === "settings-library-open") {
+    // Settings › Services: the text-block library card, unfolded.
+    (await until("[data-text-block-library-card] button[aria-expanded]")).click();
+    await until("[data-text-block-row]");
+    await wait(300);
+    return;
+  }
+  if (scene === "quote-library-open" || scene === "quote-library-popcorn") {
+    // The builder's "+ Add area or line item" on the first scope group: the
+    // library list (b5's left frame), and — for the second scene — the
+    // editor opened on "Popcorn ceiling removal" with its by-quantity price.
+    (await until("[data-open-line-item-library]")).click();
+    await until("[data-line-item-library]");
+    await wait(600);
+    if (scene === "quote-library-popcorn") {
+      const row = [...document.querySelectorAll("[data-line-item-library] button")].find((b) => b.textContent.trim().startsWith("Popcorn ceiling removal") || b.textContent.trim().startsWith("Enlèvement de plafond") || b.textContent.trim().startsWith("Retiro de cielo raso"));
+      if (!row) throw new Error("scene: no popcorn row in the library");
+      row.click();
+      await until("[data-text-block-editor]");
+      await wait(400);
+    }
+    return;
+  }
   if (scene === "access-editor") {
     // Manage Team: the access dropdown on Samuel Roy (an Estimator) set to
     // "Custom…", which opens the grid — app/app/settings/team/page.js
