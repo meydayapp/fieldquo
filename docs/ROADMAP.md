@@ -20,8 +20,8 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 performance page that said something else about the same calls.
 
 **The stray Off.** The writer was the picker's own "Off" button: Umar pressed
-it at 21:30:40 UTC (17:30 local), eight seconds after "available", and kept
-working in the portal (his keepalive ran until 22:05). Nothing on hangup,
+it at 17:30:40 UTC, eight seconds after "available", and kept working in the
+portal (his keepalive ran until 18:36 UTC). Nothing on hangup,
 unmount or route change wrote offline — the button did, and the board
 believed it. "Off" left the picker; the state action refuses `offline`
 from a screen; sign-out and the last tab closing write it.

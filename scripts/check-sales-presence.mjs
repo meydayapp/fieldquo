@@ -102,9 +102,12 @@ section("2. livePresence — today's production rows, and every rule");
 
 const call = (over) => ({ dialledAt: min(3), answeredAt: min(3), endedAt: min(2), disposition: "no_answer", dialChannel: "browser", live: false, ...over });
 
-// Umar: a picker-written `offline` row at 21:30:40, beaten by the gate until
-// 22:05:27 (he kept working), last dial 21:29:33. At 22:20 he is Off — since
-// the last beat, NOT since the button; at 22:06 he was Available.
+// Umar: a picker-written `offline` row, beaten by the gate for another
+// thirty-five minutes (he kept working), last dial a minute before it. The
+// instants are the production rows' shape, not their clock (the real row
+// is 17:30:40 UTC): thirty-five minutes after the last beat he is Off —
+// since the last beat, NOT since the button; a minute after it he was
+// Available.
 const umarRow = { state: STATE_OFFLINE, startedAt: new Date("2026-09-21T21:30:40Z"), heartbeatAt: new Date("2026-09-21T22:05:27Z"), endedAt: null };
 const umarCall = { dialledAt: new Date("2026-09-21T21:29:33Z"), endedAt: new Date("2026-09-21T21:30:29Z"), disposition: "no_answer", dialChannel: "browser", live: false };
 {
