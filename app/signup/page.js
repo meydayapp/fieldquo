@@ -18,7 +18,7 @@ import {
   annualSaving,
   chargeFor,
 } from "@/lib/billing/interval";
-import { currencyLabel } from "@/lib/pricing/ladder";
+import { currencyLabel, annualComparison } from "@/lib/pricing/ladder";
 import { INDUSTRIES } from "@/app/data/industries";
 import { categoryKeysForIndustries } from "@/app/data/industryCategories";
 import PricingCard from "@/app/components/marketing/PricingCard";
@@ -99,6 +99,75 @@ function money(value) {
   return Number(value || 0).toLocaleString("en-CA", {
     maximumFractionDigits: 0,
   });
+}
+
+// "Save CA$198 a year — two months free." The months are COMPUTED from the
+// saving over the monthly rate, never assumed: the ladder's default is two
+// months, but Plan.priceAnnual is a column an operator edits per rung, and a
+// tier given a different deal must not go on saying "two". Whole months are
+// said in words a contractor can check in his head; anything fractional is
+// left as the money alone, because "1.7 months free" is a number nobody can.
+function savingSentence(t, { amount, months }) {
+  const whole = Math.abs(months - Math.round(months)) < 0.005 ? Math.round(months) : null;
+  if (whole === 2) return t("app.signup.plan.save", "Save {amount} a year — two months free.", { amount });
+  if (whole === 1) return t("app.signup.plan.saveOneMonth", "Save {amount} a year — one month free.", { amount });
+  if (whole !== null && whole > 2)
+    return t("app.signup.plan.saveMonths", "Save {amount} a year — {n} months free.", { amount, n: whole });
+  return t("app.signup.plan.saveOnly", "Save {amount} a year.", { amount });
+}
+
+// ── No commitment | 1-year commitment ─────────────────────────────────────
+//
+// The cadence used to be two radio rows inside the summary panel, under the
+// cards — so the cards above it went on printing the monthly price after the
+// year was chosen, which the owner read as the price not updating. It IS the
+// price not updating: the choice has to sit above the cards it reprices.
+//
+// The yearly tab is DISABLED, never hidden, when it cannot be bought — a
+// selected plan with no annual price, or a ladder with none at all — and the
+// sentence beside it says why. Hiding it would make the same plan look
+// monthly-only on one visit and not the next.
+function BillingIntervalTabs({ t, value, onChange, yearDisabled, percent, upTo }) {
+  const base = "px-4 py-2 rounded-full text-sm font-medium transition-colors flex items-center gap-2";
+  const on = "bg-inverted text-inverted-foreground";
+  const off = "text-foreground hover:bg-muted";
+  return (
+    <div
+      role="tablist"
+      aria-label={t("app.signup.plan.billingQuestion", "How would you like to be billed?")}
+      className="inline-flex items-center gap-1 rounded-full border border-border bg-card p-1"
+    >
+      <button
+        type="button"
+        role="tab"
+        aria-selected={value === "month"}
+        onClick={() => onChange("month")}
+        className={`${base} ${value === "month" ? on : off}`}
+      >
+        {t("app.signup.plan.noCommitment", "No commitment")}
+      </button>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={value === "year"}
+        aria-disabled={yearDisabled}
+        disabled={yearDisabled}
+        onClick={() => onChange("year")}
+        className={`${base} ${value === "year" ? on : off} disabled:opacity-50 disabled:cursor-not-allowed`}
+      >
+        {t("app.signup.plan.yearCommitment", "1-year commitment")}
+        {/* Red, as asked. Shown only for a real saving — a "Save 0%" pill
+            is a badge with nothing behind it. */}
+        {percent > 0 && !yearDisabled && (
+          <span className="bg-red-600 text-white text-[11px] font-semibold px-2 py-0.5 rounded-full leading-none">
+            {upTo
+              ? t("app.signup.plan.saveUpToPercent", "Save up to {percent}%", { percent })
+              : t("app.signup.plan.savePercent", "Save {percent}%", { percent })}
+          </span>
+        )}
+      </button>
+    </div>
+  );
 }
 
 // Where a half-finished signup is kept between visits.
@@ -926,9 +995,37 @@ export default function SignupPage() {
   // screen shows this same value, so the button and the charge cannot diverge.
   const effectiveInterval = annualAvailable ? billingInterval : "month";
   const charge = chargeFor(selectedPlan, effectiveInterval);
-  // Zero today — annual is the interval, not a discount. Shown only when the
-  // number is real and positive, so nothing claims a saving that isn't there.
+  // Two months on the ladder's default. Shown only when the number is real
+  // and positive, so nothing claims a saving that isn't there.
   const yearlySaving = annualSaving(selectedPlan);
+  // The pill on the yearly tab. The selected plan's own percentage once one
+  // is chosen; before that, the best on offer across the ladder — "up to"
+  // when the rungs disagree, which they can, because priceAnnual is per row.
+  const ladderComparisons = visiblePlans
+    .map((p) => annualComparison({ priceMonthly: p.priceMonthly, priceAnnual: p.priceAnnual }))
+    .filter((c) => c.available);
+  const anyAnnual = ladderComparisons.length > 0;
+  const selectedComparison = selectedPlan
+    ? annualComparison({ priceMonthly: selectedPlan.priceMonthly, priceAnnual: selectedPlan.priceAnnual })
+    : null;
+  const pillPercent = selectedComparison?.available
+    ? selectedComparison.percent
+    : Math.max(0, ...ladderComparisons.map((c) => c.percent));
+  const pillUpTo =
+    !selectedComparison?.available && ladderComparisons.some((c) => c.percent !== pillPercent);
+  // Disabled, not hidden — see BillingIntervalTabs.
+  const yearTabDisabled = hasSelection ? !annualAvailable : !anyAnnual;
+  const savingLine = annualAvailable
+    ? yearlySaving > 0
+      ? savingSentence(t, {
+          amount: `${symbol}${money(yearlySaving)}`,
+          months: pricing.monthlyTotal > 0 ? yearlySaving / pricing.monthlyTotal : 0,
+        })
+      : t(
+          "app.signup.plan.sameRate",
+          "Same rate as monthly — the year is the commitment, not a discount.",
+        )
+    : "";
 
   // ── The draft ───────────────────────────────────────────────────────────
   //
@@ -2303,6 +2400,67 @@ export default function SignupPage() {
                 );
               })()
             ) : (
+              <>
+              <div className="mb-6 flex flex-col items-center gap-3 text-center">
+                <BillingIntervalTabs
+                  t={t}
+                  value={effectiveInterval}
+                  onChange={setBillingInterval}
+                  yearDisabled={yearTabDisabled}
+                  percent={pillPercent}
+                  upTo={pillUpTo}
+                />
+                {/* ── What the tab means, in one sentence ──────────────────
+                    The year: the total, the monthly equivalent and the
+                    saving, in the owner's own shape. The reason to commit IS
+                    the saving, so it is said in money and in months rather
+                    than a percentage — "two months free" is checkable in the
+                    head against the monthly price; "17% off" is a number
+                    somebody has to trust. */}
+                <p className="text-sm text-muted-foreground max-w-lg">
+                  {hasSelection && !annualAvailable ? (
+                    <>
+                      {t(
+                        "app.signup.plan.monthlyLine",
+                        "{price} a month, cancel any time.",
+                        { price: `${symbol}${money(pricing.monthlyTotal)}` },
+                      )}{" "}
+                      {t("app.signup.plan.planMonthlyOnly", "{plan} is billed monthly only — there is no annual option on it.", {
+                        plan: selectedPlanName,
+                      })}
+                    </>
+                  ) : !anyAnnual ? (
+                    t("app.signup.plan.ladderMonthlyOnly", "These plans are billed monthly only.")
+                  ) : effectiveInterval === "year" ? (
+                    hasSelection ? (
+                      <>
+                        {t(
+                          "app.signup.plan.yearlyLine",
+                          "{year} a year — that's {month} a month.",
+                          {
+                            year: `${symbol}${money(annualPrice)}`,
+                            month: `${symbol}${money(annualPrice / 12)}`,
+                          },
+                        )}{" "}
+                        <span className="font-medium text-green-700 dark:text-green-400">{savingLine}</span>
+                      </>
+                    ) : (
+                      t(
+                        "app.signup.plan.yearlyPick",
+                        "Prices below are per month, paid annually — pick a plan to see the year's total.",
+                      )
+                    )
+                  ) : hasSelection ? (
+                    t(
+                      "app.signup.plan.monthlyLine",
+                      "{price} a month, cancel any time.",
+                      { price: `${symbol}${money(pricing.monthlyTotal)}` },
+                    )
+                  ) : (
+                    t("app.signup.plan.monthlyPick", "Prices below are per month, cancel any time.")
+                  )}
+                </p>
+              </div>
               <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {visiblePlans.map((plan) => (
                   <PricingCard
@@ -2310,6 +2468,8 @@ export default function SignupPage() {
                     plan={plan}
                     selected={selectedPlanId === plan.id}
                     onSelect={() => selectPlan(plan)}
+                    interval={effectiveInterval}
+                    symbol={symbol}
                   />
                 ))}
 
@@ -2353,6 +2513,7 @@ export default function SignupPage() {
                   </div>
                 )}
               </div>
+              </>
             )}
 
             {planCurrency && (
@@ -2364,108 +2525,9 @@ export default function SignupPage() {
                   </span>
                 </div>
 
-                {/* ── How often, and what it saves ─────────────────────────
-                    This comment used to say the two options carried the same
-                    rate and that no badge should claim otherwise. That stopped
-                    being true when the owner pointed at the competitor pricing
-                    he had already given me — a commitment that saves nothing is
-                    never taken — and the ladder moved to two months free. The
-                    saving is read from Plan.priceAnnual, so an operator who
-                    types a different deal into /platform/billing/plans gets the
-                    number they typed, and a plan with no annual price is
-                    disabled rather than quietly sold on a cadence it lacks. */}
-                {hasSelection && (
-                  <div className="mt-4">
-                    <div className="text-sm font-medium text-foreground">
-                      {t("app.signup.plan.billingQuestion", "How would you like to be billed?")}
-                    </div>
-
-                    <div className="mt-2 space-y-2">
-                      <label
-                        className={`flex items-start gap-3 border rounded-lg px-4 py-3 cursor-pointer ${
-                          effectiveInterval === "month"
-                            ? "border-inverted bg-muted"
-                            : "border-border"
-                        }`}
-                      >
-                        <input
-                          type="radio"
-                          name="billingInterval"
-                          className="mt-1"
-                          checked={effectiveInterval === "month"}
-                          onChange={() => setBillingInterval("month")}
-                        />
-                        <span className="text-sm">
-                          <span className="font-medium text-foreground">
-                            {t("app.signup.plan.noCommitment", "No commitment")}
-                          </span>
-                          <span className="block text-muted-foreground">
-                            {t(
-                              "app.signup.plan.monthlyLine",
-                              "{price} a month, cancel any time.",
-                              { price: `${symbol}${money(pricing.monthlyTotal)}` },
-                            )}
-                          </span>
-                        </span>
-                      </label>
-
-                      <label
-                        className={`flex items-start gap-3 border rounded-lg px-4 py-3 ${
-                          !annualAvailable
-                            ? "border-border opacity-60 cursor-not-allowed"
-                            : effectiveInterval === "year"
-                              ? "border-inverted bg-muted cursor-pointer"
-                              : "border-border cursor-pointer"
-                        }`}
-                      >
-                        <input
-                          type="radio"
-                          name="billingInterval"
-                          className="mt-1"
-                          disabled={!annualAvailable}
-                          checked={effectiveInterval === "year"}
-                          onChange={() => setBillingInterval("year")}
-                        />
-                        <span className="text-sm">
-                          <span className="font-medium text-foreground">
-                            {t("app.signup.plan.yearCommitment", "1 year commitment")}
-                          </span>
-                          <span className="block text-muted-foreground">
-                            {annualAvailable
-                              ? t(
-                                  "app.signup.plan.yearlyLine",
-                                  "{year} a year — that's {month} a month.",
-                                  {
-                                    year: `${symbol}${money(annualPrice)}`,
-                                    month: `${symbol}${money(annualPrice / 12)}`,
-                                  },
-                                )
-                              : t("app.signup.plan.monthlyOnly", "This plan is billed monthly only.")}
-                          </span>
-                          {/* The saving is the REASON to commit, so it is said
-                              in money and in months rather than a percentage —
-                              "two months free" is checkable in the head against
-                              the monthly price on the other option; "17% off"
-                              is a number somebody has to trust. */}
-                          {annualAvailable && (
-                            <span className="block mt-1 font-medium text-green-700 dark:text-green-400">
-                              {yearlySaving > 0
-                                ? t(
-                                    "app.signup.plan.save",
-                                    "Save {amount} a year — two months free.",
-                                    { amount: `${symbol}${money(yearlySaving)}` },
-                                  )
-                                : t(
-                                    "app.signup.plan.sameRate",
-                                    "Same rate as monthly — the year is the commitment, not a discount.",
-                                  )}
-                            </span>
-                          )}
-                        </span>
-                      </label>
-                    </div>
-                  </div>
-                )}
+                {/* The cadence is chosen by the tabs above the cards — see
+                    BillingIntervalTabs. It used to be two radio rows here,
+                    below the cards it should have been repricing. */}
 
                 {hasSelection && charge && (
                   <div className="text-sm text-muted-foreground mt-4">
@@ -2514,9 +2576,42 @@ export default function SignupPage() {
                   disabled={submitting || !hasSelection || !charge}
                   className={`${PRIMARY_BUTTON} mt-4 disabled:opacity-40`}
                 >
+                  {/* The button says what the click commits to, in the
+                      cadence chosen — "then CA$990 a year" is a different
+                      promise from "then CA$99/mo" and the label is the last
+                      thing read before the card form. Never "today" while the
+                      free month is live: nothing is charged today. */}
                   {submitting
                     ? t("app.signup.settingUp", "Setting up...")
-                    : t("app.signup.continueToPayment", "Continue to Payment")}
+                    : !charge
+                      ? t("app.signup.continueToPayment", "Continue to Payment")
+                      : (() => {
+                          const amount = `${symbol}${money(charge.amount)}`;
+                          const chargeText =
+                            charge.interval === "year"
+                              ? t("app.signup.plan.aYear", "{amount} a year", { amount })
+                              : t("app.signup.plan.perMonth", "{amount}/mo", { amount });
+                          if (finishCheckout && !resumeTrialLive)
+                            return t("app.signup.plan.startToday", "Start — {charge}, billed from today", {
+                              charge: chargeText,
+                            });
+                          if (finishCheckout)
+                            return t("app.signup.plan.startResume", "Start — free for another {days}, then {charge}", {
+                              days: dayCount(t, resumeTrialDaysLeft),
+                              charge: chargeText,
+                            });
+                          // trialLabel() owns the amount when the first
+                          // month is not free (lib/pricing.js) — this label
+                          // may never promise a free month the helper doesn't.
+                          return pricing.trialTotal > 0
+                            ? t("app.signup.plan.startTrialPaid", "Start — {trial}, then {charge}", {
+                                trial: trialText(t, pricing.trialTotal),
+                                charge: chargeText,
+                              })
+                            : t("app.signup.plan.startTrial", "Start — first month free, then {charge}", {
+                                charge: chargeText,
+                              });
+                        })()}
                 </button>
 
                 {/* ── No Back when this is a resumed payment ───────────────
