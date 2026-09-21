@@ -2032,6 +2032,13 @@ model Company {
   salesRepDemo     SalesRep?
   /// Where the signup request came from — FieldQuo's own record, see SignupOrigin.
   signupOrigin     SignupOrigin?
+  /// The typed-but-unfinished signup this company completed, when one was
+  /// captured — lib/signup/leads.js. Null for every company created before
+  /// the capture existed and for one created from the console.
+  signupLead       SignupLead?
+  /// The sales-floor row a self-serve signup became (welcome call / stalled
+  /// trial) — lib/signup/salesFloor.js. Never on a rep-referred company.
+  signupProspects  Prospect[]
   salesAttributionTouches SalesAttributionTouch[]
   salesCommissionEntries  SalesCommissionEntry[]
   /// Check-in texts a rep has DRAFTED about this company, sent or not. Nothing
@@ -10593,6 +10600,9 @@ model SalesRep {
   commissionEntries SalesCommissionEntry[]
   /// Signups that arrived on this rep's link, with where the request came from.
   signupOrigins     SignupOrigin[]
+  /// Unfinished signups that arrived on this rep's link (?sales=CODE) —
+  /// theirs to chase, never the owner's to assign. lib/signup/leads.js.
+  referredSignupLeads SignupLead[]
   /// Browsers this rep turned notifications on in. See PushSubscription.
   pushSubscriptions PushSubscription[]
   payoutBatches     SalesPayoutBatch[]
@@ -10728,6 +10738,82 @@ model SalesAttributionAudit {
   at            DateTime @default(now())
 
   @@index([companyId])
+}
+
+/// What somebody typed into the first step of /signup, kept as they type it.
+///
+/// Until 2026-09-21 nothing about a signup existed until the Company row was
+/// written at the plan step: the funnel counted sixteen browsers on /signup and
+/// thirteen that left at the Trades step this month, and not one of them had a
+/// name, a number or a company anywhere. The owner: "are we capturing that as
+/// potential leads we can call?" This is the capture. One row per email
+/// (`emailKey`, lower-cased and trimmed), written by app/api/signup/lead as the
+/// form is filled and as the visitor advances, linked to the Company when one
+/// is created, and promoted to a Prospect (or a rep's own SalesLead) by
+/// app/api/cron/signup-leads once it has gone quiet — lib/signup/leads.js.
+///
+/// `consentAt` is the moment a phone number was first typed into a business
+/// signup form: a B2B inquiry, the same implied-consent basis
+/// lib/signup/abandoned.js relies on for the recovery email (CASL s.10(9)(b)).
+/// The Privacy page says a started signup is kept so we can follow up.
+///
+/// `resumeToken` is what the rep's intro email carries so the person lands back
+/// on /signup with their details filled in — a random token, never the email,
+/// so no personal data rides in a URL (app/api/signup/lead GET).
+model SignupLead {
+  id String @id @default(cuid())
+
+  emailKey    String   @unique
+  email       String
+  firstName   String?
+  lastName    String?
+  companyName String?
+  phoneE164   String?
+  phoneRaw    String?
+  country     String?
+  province    String?
+  city        String?
+  trades      String[] @default([])
+  language    String?
+  referrer    String?
+  utm         Json?
+  visitorId   String?
+
+  /// The rep code on the link (`?sales=CODE`, lower-cased) and the referral
+  /// or promo code (`?ref=`), as presented. Resolved at promotion, never
+  /// trusted from the browser for anything else.
+  salesCode     String?
+  referralCode  String?
+  referredRepId String?
+  referredRep   SalesRep? @relation(fields: [referredRepId], references: [id])
+
+  /// The furthest step the visitor reached — lib/signup/funnel.js STEPS plus
+  /// "checkout". Never moves backwards.
+  stepReached String @default("account")
+  resumeToken String @unique
+
+  startedAt  DateTime  @default(now())
+  lastSeenAt DateTime  @default(now())
+  consentAt  DateTime?
+
+  completedCompanyId String?  @unique
+  completedCompany   Company? @relation(fields: [completedCompanyId], references: [id])
+
+  prospectId     String?   @unique
+  prospect       Prospect? @relation(fields: [prospectId], references: [id])
+  /// The SalesLead written for the referring rep instead of a Prospect.
+  promotedLeadId String?
+  promotedAt     DateTime?
+  /// Why the cron decided never to promote this row, when it did.
+  skipReason     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([lastSeenAt])
+  @@index([completedCompanyId])
+  @@index([referredRepId])
+  @@index([promotedAt])
 }
 
 /// Where a signup request came from: the IP and what Vercel's edge said about
@@ -12280,6 +12366,35 @@ model Prospect {
   /// (/platform/sales/review) and passed — "still unsure". Not a decision:
   /// the row keeps its status and stays in the folder, and this only sorts it
   /// behind the rows nobody has looked at yet. Null means nobody passed on it.
+  // ── A signup that became a lead ────────────────────────────────────────
+  //
+  // Three kinds of row the public signup form writes here, all with
+  // `status: "signup"` and `sourceProvider: "signup"` (lib/signup/salesFloor.js):
+  //
+  //   abandoned  somebody typed a phone into /signup and stopped — HOT;
+  //   new        a company was created self-serve — a welcome call;
+  //   stalled    that company has no card after the checkout grace, or no
+  //              quote sent in its first week — flipped by the cron, cleared
+  //              when the condition clears.
+  //
+  // `status: "signup"` is NOT in CLAIMABLE_STATUSES on purpose: the cold-call
+  // dispatcher (claimCandidateWhere) never picks one up, the review folder's
+  // trade bulks never touch one, and the ONLY way it reaches a rep's queue is
+  // the owner's hand assign on /platform/sales/review — assignSignupToRep()
+  // writes the SalesQueueClaim. A signup that arrived on a rep's own link is
+  // never written here at all; it is that rep's SalesLead directly.
+  //
+  // `hot` is what the queue sorts on (a hot row goes to the front of its
+  // window group) and what the red badge reads. Additive — no priority
+  // column existed.
+  hot               Boolean     @default(false)
+  signupKind        String?
+  signupStateReason String?
+  signupStateAt     DateTime?
+  companyId         String?
+  company           Company?    @relation(fields: [companyId], references: [id])
+  signupLead        SignupLead?
+
   reviewDeferredAt DateTime?
 
   // ── A suggested trade, stored so 299,000 rows can be confirmed in batches ─
@@ -12497,6 +12612,9 @@ model Prospect {
   contactNumbers      SalesContactNumber[]
   /// Every time a rep took this row, and how it left them. See SalesQueueClaim.
   queueClaims         SalesQueueClaim[]
+
+  @@index([status, hot])
+  @@index([companyId])
 }
 
 /// One rep taking one prospect, and how that claim ended.
