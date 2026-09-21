@@ -25,6 +25,8 @@ import { History, Loader2 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { currentRepId, readLead, sessionStore, writeLead } from "@/lib/sales/queueCache";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { effectiveSubDispositions, subDispositionLabel } from "@/lib/sales/calls/subDispositions";
+import { useCallSession } from "./CallSession";
 
 function browserTimeZone() {
   try {
@@ -79,6 +81,22 @@ export function useCallHistory({ prospectId = null, leadId = null, refreshKey = 
   return { history: data?.history || null, lastTime: data?.lastTime || null, error, reload: load };
 }
 
+/** "01:42" for a mark's second. */
+function stampOf(sec) {
+  const s = Math.max(0, Math.round(Number(sec) || 0));
+  return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+}
+
+/** The sub-reason's label in the rep's language, from the lists — or its key. */
+function subLabel(key, subLists, language) {
+  const lists = subLists && typeof subLists === "object" ? subLists : effectiveSubDispositions(null).lists;
+  for (const list of Object.values(lists)) {
+    const e = (Array.isArray(list) ? list : []).find((x) => x.key === key);
+    if (e) return subDispositionLabel(e, language);
+  }
+  return key;
+}
+
 /** "They hung up · 4 s" — or "" when the line knows nothing about the end. */
 function endedText(t, row) {
   if (!row?.ended) return "";
@@ -114,6 +132,9 @@ function outcomeText(t, row) {
  */
 export function CallHistoryStrip({ prospectId = null, leadId = null, refreshKey = 0, limit = 3, compact = false, title = true, loaded = null }) {
   const { t, language } = useTranslation();
+  // The platform's sub-reason lists, from the call session when the shell
+  // has read them (CallSession.js); the code defaults otherwise.
+  const { subLists = null } = useCallSession();
   const own = useCallHistory(loaded ? { prospectId: null, leadId: null, refreshKey } : { prospectId, leadId, refreshKey });
   const { history, error } = loaded || own;
   const [all, setAll] = useState(false);
@@ -181,7 +202,44 @@ export function CallHistoryStrip({ prospectId = null, leadId = null, refreshKey 
                 </span>
               ) : null}
               {row.callbackAt ? <span className="text-muted-foreground">· {t("app.salesCall.history.callbackAt", { when: fmtWhen(row.callbackAt, language) })}</span> : null}
+              {/* The sub-reason, as its key's label from the lists the form
+                  drew — a custom entry has no catalogue key, so the label
+                  travels with the lists (subDispositions.js). */}
+              {row.subDisposition ? (
+                <span className="text-muted-foreground break-words" data-call-history-sub={row.subDisposition}>
+                  · {subLabel(row.subDisposition, subLists, language)}
+                  {row.subDispositionDetail ? ` (${row.subDispositionDetail})` : ""}
+                </span>
+              ) : null}
+              {row.amdMachine ? (
+                <span className="rounded-full border border-border px-1.5 text-[10px] uppercase tracking-wide text-muted-foreground" title={t("app.salesCall.history.machineTitle")} data-call-history-amd>
+                  {t("app.salesCall.history.machine")}
+                </span>
+              ) : null}
               {row.note ? <span className="w-full sm:w-auto italic text-foreground break-words">“{row.note}”</span> : null}
+              {/* The owner's verdict on this outcome, when it was not an
+                  approval (dispositionAudit.js): the rep reads why, on the
+                  call it is about. */}
+              {row.audit ? (
+                <span
+                  className={`w-full break-words rounded-md px-1.5 py-0.5 text-xs ${row.audit.verdict === "rejected" ? "bg-red-50 text-red-900 dark:bg-red-950/40 dark:text-red-200" : "bg-amber-50 text-amber-900 dark:bg-amber-950/40 dark:text-amber-200"}`}
+                  data-call-history-audit={row.audit.verdict}
+                >
+                  {row.audit.note
+                    ? t(`app.salesCall.audit.${row.audit.verdict}.withNote`, { note: row.audit.note })
+                    : t(`app.salesCall.audit.${row.audit.verdict}.plain`)}
+                </span>
+              ) : null}
+              {row.marks?.length ? (
+                <span className="w-full text-xs text-muted-foreground break-words" data-call-history-marks={row.marks.length}>
+                  {t("app.salesCall.mark.listTitle", { count: row.marks.length })}{" "}
+                  {row.marks.map((m, i) => (
+                    <span key={i} className="mr-2 tabular-nums">
+                      [{stampOf(m.atSeconds)}] {m.note || "—"}
+                    </span>
+                  ))}
+                </span>
+              ) : null}
             </li>
           );
         })}

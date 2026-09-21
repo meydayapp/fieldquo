@@ -1182,6 +1182,18 @@ function CompanyCard({ t, current, row, compliance, numbers, onDial = null }) {
       {/* Tags: each one is a flag the server set on this row. */}
       <div className="flex flex-wrap gap-1.5" data-company-tags>
         {current.signup?.badge ? <SignupBadge kind={current.signup.badge} /> : null}
+        {current.callback ? (
+          <span
+            className={`inline-flex items-center rounded-lg border px-2 py-1 text-sm font-medium ${current.callback.due ? "border-amber-500/60 bg-amber-500/15 text-foreground" : "border-border text-foreground"}`}
+            data-current-callback={current.callback.due ? "due" : "upcoming"}
+          >
+            {current.callback.handedOver
+              ? t("app.salesQueue.callbackHandedOver", { time: current.callback.atLocal, rep: current.callback.promisedBy || "—" })
+              : current.callback.due
+                ? t("app.salesQueue.callbackDue", { time: current.callback.atLocal })
+                : t("app.salesQueue.callbackAt", { time: current.callback.atLocal })}
+          </span>
+        ) : null}
         {current.tradeLabel ? <Tag tone="unknown">{current.tradeLabel}</Tag> : null}
         <Tag tone={row?.researched ? "has" : "unknown"}>
           {row?.researched ? t("app.salesQueue.rowResearched") : row?.researching ? t("app.salesQueue.rowResearching") : t("app.salesQueue.rowNotResearched")}
@@ -1870,6 +1882,23 @@ function QueueList({ t, loading, data, items, groups, itemById, current, visible
                               ) : null}
                               {item.signup?.badge ? (
                                 <SignupBadge kind={item.signup.badge} compact title={item.signup.fact?.text || undefined} />
+                              ) : null}
+                              {/* "Callback due 2:00 pm — asked for you": the
+                                  promise on this row, delivered to this rep
+                                  (lib/sales/calls/callbackAgenda.js). Amber
+                                  once due; a hand-over names who promised. */}
+                              {item.callback ? (
+                                <span
+                                  className={`inline-block rounded border px-1 py-px mr-1 text-[11px] leading-4 ${item.callback.due ? "border-amber-500/60 bg-amber-500/15 text-foreground" : "border-border text-foreground"}`}
+                                  title={item.callback.note || undefined}
+                                  data-queue-callback={item.callback.due ? "due" : "upcoming"}
+                                >
+                                  {item.callback.handedOver
+                                    ? t("app.salesQueue.callbackHandedOver", { time: item.callback.atLocal, rep: item.callback.promisedBy || "—" })
+                                    : item.callback.due
+                                      ? t("app.salesQueue.callbackDue", { time: item.callback.atLocal })
+                                      : t("app.salesQueue.callbackAt", { time: item.callback.atLocal })}
+                                </span>
                               ) : null}
                               {item.language === "fr" ? (
                                 <span

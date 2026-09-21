@@ -89,6 +89,7 @@ import twilio from "twilio";
 import { db } from "@/lib/db";
 import { verifyTwilioWebhook } from "@/lib/sms/verifyTwilioWebhook";
 import { acknowledged } from "@/lib/sales/calls/twilioAck";
+import { answeredAtFrom } from "@/lib/sales/calls/providerStatus";
 import { ringPlan } from "@/lib/sales/calls/inboundDistribution";
 import { getAppOrigin } from "@/lib/appUrl";
 import { recordError } from "@/lib/platform/errorLog";
@@ -367,11 +368,21 @@ async function afterDial(request, params) {
     // disposition: the network saying `completed` and a person saying what the
     // conversation was are two different statements, and /api/rep-dial/status
     // holds the same line for outbound.
+    // ── The pickup, not the hang-up ─────────────────────────────────────
+    //
+    // This stamped answeredAt with `new Date()` — the moment the <Dial>
+    // ENDED — so every inbound row's wait-to-answer read as the whole call.
+    // The same fix the outbound status route made (providerStatus.js
+    // answeredAtFrom): the desk leg's DialCallDuration is its connected
+    // seconds, so the pickup is the end minus that. The service-level
+    // figures (lib/sales/calls/serviceLevel.js) read arrival (dialledAt)
+    // to this stamp.
+    const endedAtNow = new Date();
     await attachProviderCall({
       attemptId,
       providerStatus: status,
-      answeredAt: result.answered ? new Date() : null,
-      endedAt: new Date(),
+      answeredAt: result.answered ? answeredAtFrom({ status: "completed", at: endedAtNow, seconds }) || endedAtNow : null,
+      endedAt: endedAtNow,
       // Zero is a real answer — answered and hung up immediately — so the
       // guard is finiteness, not truthiness.
       talkSeconds: Number.isFinite(seconds) ? seconds : null,

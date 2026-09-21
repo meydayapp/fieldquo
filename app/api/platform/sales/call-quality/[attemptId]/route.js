@@ -8,7 +8,9 @@
 // whose it is.
 export const runtime = "nodejs";
 
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
+import { transcribeAttempt } from "@/lib/sales/calls/transcribe";
+import { scoreAttempt } from "@/lib/sales/calls/qa";
 import { db } from "@/lib/db";
 import { requireSuperadmin } from "@/lib/platform/superadminGate";
 import { callQaDetail, reviewCallQa } from "@/lib/sales/calls/qaQueue";
@@ -20,7 +22,22 @@ export async function GET(request, { params }) {
   if (refusal) return refusal;
   const call = await callQaDetail({ attemptId, repIds: null });
   if (!call) return NextResponse.json({ error: "No such recorded call." }, { status: 404 });
-  return NextResponse.json({ call, audioHref: `/api/platform/sales/recording/${encodeURIComponent(attemptId)}/audio` });
+  // ── On demand, regardless of the sample ─────────────────────────────
+  //
+  // A call the platform's sample left out (lib/sales/calls/sampling.js)
+  // is transcribed — and then scored — the moment a superadmin opens it.
+  // In after(), so this answer is not held for a model call; the screen
+  // says "transcribing" and the next open has it. `sample: false` is the
+  // whole difference from the reconcile.
+  let onDemand = null;
+  if (call.state === "not_sampled") {
+    onDemand = call.transcribed ? "scoring" : "transcribing";
+    after(async () => {
+      if (call.transcribed) await scoreAttempt(attemptId, { sample: false }).catch(() => null);
+      else await transcribeAttempt(attemptId, { sample: false }).catch(() => null);
+    });
+  }
+  return NextResponse.json({ call, onDemand, audioHref: `/api/platform/sales/recording/${encodeURIComponent(attemptId)}/audio` });
 }
 
 export async function POST(request, { params }) {

@@ -27,6 +27,7 @@ const STATE = {
   transcript_failed: "transcript failed",
   score_failed: "scoring failed",
   unscorable: "unscorable",
+  not_sampled: "not in the sample — opening it transcribes it on demand",
 };
 
 const LABELS = {
@@ -102,6 +103,29 @@ const LABELS = {
   inviteNotMade: "no invite created on the call",
   pitchBurst: "Longest pitch",
   burstShort: "under 25 s — a pitch this short halves the odds of a booked call",
+  // ── The recording marks and the disposition audit (docs/SALES-OUTCOMES.md) ──
+  markByRep: "the rep, during the call",
+  markByReviewer: "a reviewer",
+  markPlaceholder: "What is at this second (optional)",
+  markHere: "Mark here",
+  onDemandTranscribing: "This call was outside the transcription sample. Opening it started the transcript on demand — reopen it in a minute.",
+  onDemandScoring: "This call was outside the review sample. Opening it started the scorecard on demand — reopen it in a minute.",
+  auditTitle: "Audit the outcome",
+  auditIntro: "Was what the rep LOGGED the truth? This is your verdict on the outcome, not on how they spoke — the scorecard above is that. Rejected and observed need a note; the rep reads it on the call's own row and sees a count on their dashboard.",
+  auditOutcome: "Rep logged",
+  auditAutoLogged: "auto",
+  auditNote: "Their note",
+  auditAmd: "Carrier's AMD",
+  auditAiScore: "AI score",
+  auditCurrent: "Current verdict",
+  auditOutcomeMoved: (was) => `the outcome was “${was}” when this verdict was given`,
+  auditNotes: "Note to the rep",
+  auditApprove: "Approve",
+  auditReject: "Reject",
+  auditObserve: "Observe",
+  auditNoOutcome: "No outcome has been logged on this call yet, so there is nothing to audit.",
+  auditSaved: "Saved. The rep sees this on the call in their history.",
+  auditFailed: "The verdict could not be saved.",
 };
 
 export default function CallQualityPage() {
@@ -165,6 +189,8 @@ export default function CallQualityPage() {
         key={reloadKey}
         listUrl="/api/platform/sales/call-quality"
         detailUrl={(id) => `/api/platform/sales/call-quality/${encodeURIComponent(id)}`}
+        auditUrl={(id) => `/api/platform/sales/outcomes/audit/${encodeURIComponent(id)}`}
+        marksUrl={(id) => `/api/platform/sales/outcomes/marks/${encodeURIComponent(id)}`}
         labels={LABELS}
         repFilter={repId}
       />

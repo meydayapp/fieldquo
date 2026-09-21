@@ -183,6 +183,9 @@ export default function SalesHomePage() {
   // count is the badge's; the list is UnloggedCalls.js, drawn in place.
   const unlogged = useEndpoint("/api/sales/calls/unlogged", loadFailed);
   const [unloggedOpen, setUnloggedOpen] = useState(false);
+  // The owner's verdicts on this rep's outcomes — the rejected ones, with
+  // the note, in the last thirty days (lib/sales/calls/dispositionAudit.js).
+  const reviews = useEndpoint("/api/sales/calls/reviews", loadFailed);
   // What the intro emails asked for: call-back and demo requests nobody has
   // dealt with yet (lib/sales/outreach/introRequests.js says what counts).
   const introRequests = useEndpoint("/api/sales/intro-email/requests", loadFailed);
@@ -343,6 +346,31 @@ export default function SalesHomePage() {
           </>
         )}
       </section>
+
+      {/* The owner's verdicts on outcomes this rep logged — only when there
+          is a rejection to read. An approval is silence, and a card that
+          said "0 rejected" every morning would be a scoreboard nobody
+          asked for. The note is on the call's own row in the history too. */}
+      {Number.isFinite(reviews.data?.rejected) && reviews.data.rejected > 0 ? (
+        <section className={CARD} data-rejected-reviews={reviews.data.rejected}>
+          <div className="flex items-center gap-2">
+            <ClipboardCheck size={16} className="text-muted-foreground shrink-0" />
+            <h2 className="text-base font-semibold text-foreground">{t("app.salesCall.audit.dashboardTitle")}</h2>
+          </div>
+          <p className="text-sm text-foreground break-words">{t("app.salesCall.audit.dashboardLine", { count: reviews.data.rejected, days: reviews.data.days })}</p>
+          <ul className="divide-y divide-border/60 rounded-lg border border-border text-xs">
+            {reviews.data.items.slice(0, 5).map((r) => (
+              <li key={r.attemptId} className="px-2.5 py-1.5 space-y-0.5" data-rejected-review={r.attemptId}>
+                <p className="text-foreground">
+                  <span className="font-medium">{r.businessName || "—"}</span>
+                  <span className="text-muted-foreground"> · {t(`app.salesCall.disposition.${r.disposition}.label`)}</span>
+                </p>
+                <p className="text-red-900 dark:text-red-200 break-words">{r.note ? t("app.salesCall.audit.rejected.withNote", { note: r.note }) : t("app.salesCall.audit.rejected.plain")}</p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       {/* ── Requests from the intro email ─────────────────────────────────
           "{n} call-back requests from emails", "{n} demo requests" — the two

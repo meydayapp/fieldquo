@@ -49,6 +49,7 @@ import {
   DISPOSITIONS,
   DISPOSITION_ORDER,
   MAX_CALLBACK_DAYS,
+  AUTO_LOGGED_CODES,
   attemptsWithin24h,
   dispositionFor,
   dispositionOptions,
@@ -125,6 +126,7 @@ import {
   teamCallRows,
 } from "@/lib/sales/calls/reporting";
 import { REP_CALL_WRITES } from "@/lib/sales/calls/gate";
+import { DEFAULT_SUB_DISPOSITIONS, effectiveSubDispositions, subDispositionsFor, validateSubDispositionList } from "@/lib/sales/calls/subDispositions";
 import { GATE_WRITES_ON_SALES_REP } from "@/lib/sales/gate";
 import { anyRepLive, repIsLive } from "@/lib/sales/calls/inboundRouting";
 import { REQUIRED_MODELS, callStoreState, presenceFor } from "@/lib/sales/calls/store";
@@ -234,7 +236,13 @@ ok(
 // ═══════════════════════════════════════════════════════════════════════════
 section("2. planDisposition — every refusal, and the arithmetic behind each claim");
 
-const plan = (over) => planDisposition({ now: T0, ...over });
+// The sub-reason: since 2026-09-21 an outcome whose default list is
+// non-empty (lib/sales/calls/subDispositions.js) is refused without one.
+// The helper supplies the first default so every older assertion still
+// exercises the plan it was written for; section 2b below tests the
+// refusal itself.
+const firstSub = (code) => subDispositionsFor(code, DEFAULT_SUB_DISPOSITIONS)[0]?.key || null;
+const plan = (over) => planDisposition({ now: T0, subDisposition: over?.code ? firstSub(over.code) : null, ...over });
 
 ok("an unknown code is refused, and the refusal lists the real ones", (() => {
   const r = plan({ code: "wrong_number" });
@@ -285,11 +293,61 @@ ok("a released claim clears the rep", (() => {
 ok("only do_not_call produces a suppression plan", (() => {
   const withDnc = plan({ code: "do_not_call", note: "stop" }).suppression;
   const without = DISPOSITION_ORDER.filter((c) => c !== "do_not_call").every((code) => {
-    const r = planDisposition({ code, now: T0, note: "x", callbackAt: DISPOSITIONS[code].requiresCallback ? hoursFrom(T0, 2) : null });
+    const r = plan({ code, note: "x", callbackAt: DISPOSITIONS[code].requiresCallback ? hoursFrom(T0, 2) : null });
     return r.ok === false || r.suppression === null;
   });
   return withDnc !== null && without;
 })());
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("2b. The sub-reason and the platform's callback bounds — executed");
+
+ok("an outcome with a default list is refused without a sub-reason", (() => {
+  const r = planDisposition({ code: "reached_not_interested", now: T0 });
+  return r.ok === false && /reason/i.test(r.reason);
+})());
+ok("…and planned with one, which lands on the attempt", (() => {
+  const r = planDisposition({ code: "reached_not_interested", now: T0, subDisposition: "too_small" });
+  return r.ok === true && r.attempt.subDisposition === "too_small" && r.attempt.subDispositionDetail === null;
+})());
+ok("a sub-reason not on the list is refused", planDisposition({ code: "reached_not_interested", now: T0, subDisposition: "made_up" }).ok === false);
+ok("a sub-reason on an outcome with no list is refused (the sheet has a bug)", planDisposition({ code: "voicemail", now: T0, subDisposition: "too_small" }).ok === false);
+ok("the one entry that asks a name is refused without it", planDisposition({ code: "reached_not_interested", now: T0, subDisposition: "using_competitor" }).ok === false);
+ok("…and keeps the name on the attempt with it", (() => {
+  const r = planDisposition({ code: "reached_not_interested", now: T0, subDisposition: "using_competitor", subDispositionDetail: "Jobber" });
+  return r.ok === true && r.attempt.subDispositionDetail === "Jobber";
+})());
+ok("a platform list replaces the default for that outcome", (() => {
+  const lists = effectiveSubDispositions({ reached_not_interested: [{ key: "moon", label: { en: "Gone to the moon" } }] }).lists;
+  const custom = planDisposition({ code: "reached_not_interested", now: T0, subDisposition: "moon", subLists: lists });
+  const old = planDisposition({ code: "reached_not_interested", now: T0, subDisposition: "too_small", subLists: lists });
+  return custom.ok === true && old.ok === false;
+})());
+ok("a stored EMPTY list means no sub-reason is asked for", (() => {
+  const lists = effectiveSubDispositions({ reached_not_interested: [] }).lists;
+  return planDisposition({ code: "reached_not_interested", now: T0, subLists: lists }).ok === true;
+})());
+ok("a line-written outcome never has a list", AUTO_LOGGED_CODES.every((c) => subDispositionsFor(c, DEFAULT_SUB_DISPOSITIONS).length === 0));
+ok("the line's outcomes cannot be GIVEN a list", validateSubDispositionList("no_answer", [{ key: "x", label: { en: "x" } }]).ok === false);
+ok("a callback past the platform's days-ahead bound is refused in a plain sentence", (() => {
+  const r = planDisposition({ code: "callback", now: T0, callbackAt: hoursFrom(T0, 20 * 24), callbackLimits: { maxDaysAhead: 14, maxOpenPerRep: 25, openPersonal: 0 } });
+  return r.ok === false && /14 days ahead/.test(r.reason);
+})());
+ok("…and inside it is planned personal, delivered to the writing rep", (() => {
+  const r = planDisposition({ code: "callback", now: T0, callbackAt: hoursFrom(T0, 2 * 24), callbackLimits: { maxDaysAhead: 14, maxOpenPerRep: 25, openPersonal: 3 } });
+  return r.ok === true && r.attempt.callbackScope === "personal" && r.attempt.callbackRepId === "self" && r.attempt.callbackNotifiedAt === null;
+})());
+ok("a rep at the open-callback limit is refused with the numbers", (() => {
+  const r = planDisposition({ code: "callback", now: T0, callbackAt: hoursFrom(T0, 2), callbackLimits: { maxDaysAhead: 14, maxOpenPerRep: 25, openPersonal: 25 } });
+  return r.ok === false && /25/.test(r.reason);
+})());
+ok("no limits object (the line's own writes) applies only the code's 60-day ceiling", planDisposition({ code: "callback", now: T0, callbackAt: hoursFrom(T0, 30 * 24) }).ok === true);
+ok("every non-callback outcome clears the four callback columns", DISPOSITION_ORDER.filter((c) => c !== "callback").every((code) => {
+  const r = plan({ code, note: "x" });
+  return r.ok === true && r.attempt.callbackScope === null && r.attempt.callbackRepId === null && r.attempt.callbackNotifiedAt === null && r.attempt.callbackReassignedAt === null;
+}));
+ok("the store fills the 'self' sentinel with the writing rep", /callbackRepId === "self"\) plan\.attempt\.callbackRepId = salesRepId/.test(readFileSync(join(ROOT, "lib/sales/calls/store.js"), "utf8")));
+
 ok("the suppression is scoped to the phone channel, not widened to every channel", (() => {
   const s = plan({ code: "do_not_call", note: "stop calling" }).suppression;
   return s.channels.length === 1 && s.channels[0] === "phone";

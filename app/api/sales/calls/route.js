@@ -40,6 +40,7 @@ import { salesCallReadiness, CALL_ALLOWED } from "@/lib/sales/callingRules";
 import { windowPolicyForProspect } from "@/lib/sales/windowOverrides";
 import { isTestLine } from "@/lib/sales/testLines";
 import { loadTestLines } from "@/lib/sales/testLinesStore";
+import { loadSubDispositions } from "@/lib/sales/calls/outcomeSettingsStore";
 import { twilioConfigured } from "@/lib/sms/twilioClient";
 import { getAppOrigin } from "@/lib/appUrl";
 import {
@@ -191,11 +192,14 @@ export async function GET(request) {
   const store = callStoreState();
   const mode = dialModeState();
 
-  const [numberRows, open, repRow, agencyIds] = await Promise.all([
+  const [numberRows, open, repRow, agencyIds, subLists] = await Promise.all([
     salesCallerNumberRows().catch(() => []),
     currentActivity(rep.id).catch(() => null),
     db.salesRep.findUnique({ where: { id: rep.id }, select: { autodial: true } }),
     agencyLineHoldersFor(rep.id).catch(() => []),
+    // The sub-reason lists the outcome sheet draws under an outcome — the
+    // platform's edited ones, else the defaults (lib/sales/calls/subDispositions.js).
+    loadSubDispositions().catch(() => ({ lists: null })),
   ]);
   // The line THIS rep would present — their own, their agency's, or a pool
   // line — and not "any line FieldQuo holds". Readiness used to be told the
@@ -244,6 +248,7 @@ export async function GET(request) {
     // "your line" or "the team's line" rather than ten digits.
     callerNumber: mine.e164 ? { e164: mine.e164, rule: mine.rule } : null,
     dispositions: dispositionOptions(),
+    subDispositions: subLists?.lists || null,
     states: STATE_ORDER.map((code) => ({ code, ...REP_STATES[code] })),
     pauseReasons: PAUSE_REASON_ORDER.map((code) => PAUSE_REASONS[code]),
     statusChoices: STATUS_CHOICES,
@@ -829,6 +834,10 @@ export async function POST(request) {
     code: typeof body.disposition === "string" ? body.disposition.trim() : null,
     note: typeof body.note === "string" ? body.note.slice(0, MAX_NOTE) : "",
     callbackAt: body.callbackAt || null,
+    // The sub-reason and its one detail; validated against the platform's
+    // lists inside planDisposition, never trusted as a label.
+    subDisposition: typeof body.subDisposition === "string" ? body.subDisposition.trim() : null,
+    subDispositionDetail: typeof body.subDispositionDetail === "string" ? body.subDispositionDetail : null,
     now,
   });
   if (!result.ok) return bad(result.error, 409);
@@ -858,6 +867,7 @@ export async function POST(request) {
     attempt: {
       id: result.attempt.id,
       disposition: result.attempt.disposition,
+      subDisposition: result.attempt.subDisposition || null,
       callbackAt: result.attempt.callbackAt,
     },
     // What the retry pool decided on this dial (lib/sales/retryRules.js):

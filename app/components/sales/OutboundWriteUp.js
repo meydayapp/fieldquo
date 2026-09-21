@@ -97,7 +97,7 @@ function NumberQuestion({ t, session }) {
  * is the same state and two presses for one thread is noise.
  */
 export function OutboundWriteUpCard({ t, language, session, inline = true, flash = 0, formRef = null }) {
-  const { pending, draft, setDraft, busy, saveOutcome, later, formError } = session;
+  const { pending, draft, setDraft, subLists, busy, saveOutcome, later, formError } = session;
   if (!pending) return null;
   return (
     <div
@@ -124,7 +124,7 @@ export function OutboundWriteUpCard({ t, language, session, inline = true, flash
       {/* The six buttons, over the one shared draft. Every press folds to a
           real code in lib/sales/calls/outcomeChoices.js; this screen has no
           say in which. */}
-      <OutcomeForm t={t} draft={draft} setDraft={setDraft} busy={busy} onSave={saveOutcome} onLater={pending.override ? null : later} error={formError} />
+      <OutcomeForm t={t} draft={draft} setDraft={setDraft} busy={busy} onSave={saveOutcome} onLater={pending.override ? null : later} error={formError} subLists={subLists} language={language} />
 
       {/* After the call, beside the write-up: the same control the Call
           button had, so "text me instead" is one press whether or not the

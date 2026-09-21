@@ -24,6 +24,7 @@ const STATE_KEY = {
   transcript_failed: "app.salesCallQa.state.transcript_failed",
   score_failed: "app.salesCallQa.state.score_failed",
   unscorable: "app.salesCallQa.state.unscorable",
+  not_sampled: "app.salesCallQa.state.not_sampled",
 };
 
 function reviewLabelsFor(t) {

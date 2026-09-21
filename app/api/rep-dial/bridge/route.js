@@ -69,6 +69,8 @@ import { salesRepIdFromIdentity } from "@/lib/sales/calls/browserDial";
 import { callStoreState, recordRepLeg } from "@/lib/sales/calls/store";
 import { recordError } from "@/lib/platform/errorLog";
 import { dialRecordingAttrs, recordingCallbackUrl } from "@/lib/sales/calls/recording";
+import { amdNumberAttrs } from "@/lib/sales/calls/amd";
+import { outcomeSettingValues } from "@/lib/sales/calls/outcomeSettingsStore";
 import {
   KIND_INTERNAL,
   adminIdFromIdentity,
@@ -240,6 +242,12 @@ export async function POST(request) {
   // refusal above, and the prospect never knew.
   const mode = bridgeMode({ settings: await loadSupervisionSettings(), attempt });
   if (mode.conference) {
+    // Answering-machine detection rides on the participant exactly as it
+    // rides on <Number> below (the Participant resource takes the same
+    // MachineDetection / AmdStatusCallback parameters), so the outcomes
+    // work's verdict webhook is fed whichever way the prospect was dialled.
+    const confSettings = await outcomeSettingValues().catch(() => ({}));
+    const confAmd = amdNumberAttrs({ enabled: confSettings["sales.amd.enabled"] === true, origin, attemptId: attempt.id });
     const params2 = prospectParticipantParams({
       attempt,
       origin,
@@ -248,6 +256,7 @@ export async function POST(request) {
         recordingStatusCallback: recordingCallbackUrl({ origin, attemptId: attempt.id }),
         recordingStatusCallbackMethod: "POST",
         recordingStatusCallbackEvent: ["completed"],
+        ...confAmd,
       },
     });
     const added = await addProspectParticipant({ conferenceName: mode.conferenceName, params: params2 });
@@ -305,6 +314,17 @@ export async function POST(request) {
     // decides this and says why.
     ...dialRecordingAttrs({ origin, attemptId: attempt.id }),
   });
+  // ── Answering-machine detection, when the platform has switched it on ──
+  //
+  // Off by default — Twilio bills $0.0075 a call for it, and the owner's
+  // flip on /platform/sales/outcomes is the approval. On: DetectMessageEnd
+  // with the verdict posted to /api/rep-dial/amd on Twilio's own request,
+  // which on <Number> is the only delivery there is and never holds the
+  // bridge (lib/sales/calls/amd.js says why). A settings read that fails
+  // answers the defaults, so a settings outage cannot switch it on.
+  const settings = await outcomeSettingValues().catch(() => ({}));
+  const amd = amdNumberAttrs({ enabled: settings["sales.amd.enabled"] === true, origin, attemptId: attempt.id });
+
   dial.number(
     {
       statusCallback: `${origin}/api/rep-dial/status?attemptId=${encodeURIComponent(attempt.id)}`,
@@ -312,6 +332,7 @@ export async function POST(request) {
       // `initiated` is deliberately absent: it fires before anything has
       // happened and would only ever write columns we already know.
       statusCallbackEvent: ["ringing", "answered", "completed"],
+      ...amd,
     },
     attempt.toE164,
   );

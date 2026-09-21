@@ -297,6 +297,7 @@
     "check:homepage-sections": "node --import ./scripts/alias-loader.mjs scripts/check-homepage-sections.mjs",
     "check:sales-rule-admin": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-sales-rule-admin.mjs",
     "check:sales-calling-window": "node --import ./scripts/alias-loader.mjs scripts/check-sales-calling-window.mjs",
+    "check:sales-outcomes": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-sales-outcomes.mjs",
     "check:sales-call-handling": "node --import ./scripts/alias-loader.mjs scripts/check-sales-call-handling.mjs",
     "check:sales-call-panel": "node --import ./scripts/alias-loader.mjs scripts/check-sales-call-panel.mjs",
     "check:sales-inbound-call": "node --import ./scripts/alias-loader.mjs scripts/check-sales-inbound-call.mjs",

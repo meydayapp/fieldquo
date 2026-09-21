@@ -1083,6 +1083,26 @@ export default function SalesFloorPage() {
           </section>
 
           {/* ── Inbound ────────────────────────────────────────────────── */}
+          {/* Callbacks past their hour by more than a day, by rep
+              (lib/sales/calls/callbackAgenda.js). Drawn only when there is
+              one — a "0 overdue" line every fifteen seconds is noise. Null
+              counts mean the read failed, and say so. */}
+          {data.overdueCallbacks && (data.overdueCallbacks.flagged === null || data.overdueCallbacks.flagged > 0) ? (
+            <div className={`${CARD} border-red-400 dark:border-red-800`} data-overdue-callbacks={data.overdueCallbacks.flagged ?? "unknown"}>
+              <p className="text-sm font-semibold text-foreground">
+                {data.overdueCallbacks.flagged === null
+                  ? `Overdue callbacks could not be read${data.overdueCallbacks.error ? `: ${data.overdueCallbacks.error}` : "."}`
+                  : `${data.overdueCallbacks.flagged} callback${data.overdueCallbacks.flagged === 1 ? "" : "s"} more than ${data.overdueCallbacks.flagAfterHours} h overdue`}
+              </p>
+              {data.overdueCallbacks.byRep?.length ? (
+                <p className="text-sm text-muted-foreground break-words">
+                  {data.overdueCallbacks.byRep.map((r) => `${r.name || "unassigned"}: ${r.flagged}`).join(" · ")} —{" "}
+                  <Link href="/platform/sales/outcomes" className="underline">the agenda</Link>
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+
           {data.inbound || data.salesVoice ? (
             <section className={CARD}>
               <div className="flex items-start justify-between gap-3">

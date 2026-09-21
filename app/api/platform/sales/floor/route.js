@@ -52,6 +52,7 @@ import {
 } from "@/lib/sales/calls/inboundRouting";
 import { readSalesNumberConfig } from "@/lib/sales/calls/numberConfig";
 import { floorBoard } from "@/lib/sales/calls/floorBoard";
+import { overdueCallbacksForFloor } from "@/lib/sales/calls/callbackAgenda";
 import { TEAM_LEAD_CANNOT_SEE } from "@/lib/sales/team";
 import { dialModeState } from "@/lib/sales/calls/dialMode";
 import { inboundHandling } from "@/lib/sales/calls/inboundMatch";
@@ -102,10 +103,13 @@ export async function GET(request) {
   // today" from "we could not look" — the two are the same empty array and
   // different facts.
   const origin = getAppOrigin(request);
-  const [agent, inbound, numberRows, numberConfig] = await Promise.all([
+  const [agent, inbound, numberRows, numberConfig, overdueCallbacks] = await Promise.all([
     salesAgentRow().catch(() => null),
     inboundCalls({ from, to: now }).catch(() => undefined),
     salesCallerNumberRows().catch(() => undefined),
+    // Callbacks past their hour by more than a day, and whose they are —
+    // lib/sales/calls/callbackAgenda.js. Its own read, its own error.
+    overdueCallbacksForFloor({ now }),
     // The numbers' configuration AT TWILIO, cached for ten minutes: the
     // board polls every fifteen seconds and the carrier's number list does
     // not change between polls. Only the count of misconfigured numbers
@@ -209,6 +213,7 @@ export async function GET(request) {
             voicemailSeconds: Number.isFinite(row.voicemailSeconds) ? row.voicemailSeconds : null,
           })),
     dialMode: dialModeState(),
+    overdueCallbacks,
     notTracked,
     teamLeadCannotSee: TEAM_LEAD_CANNOT_SEE,
     serverNow,

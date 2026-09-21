@@ -47,7 +47,9 @@ import {
   WHICH_WRONG_NUMBER,
   choiceHintKey,
   choiceLabelKey,
+  foldChoice,
 } from "@/lib/sales/calls/outcomeChoices";
+import { subDispositionDetailLabel, subDispositionLabel, subDispositionsFor } from "@/lib/sales/calls/subDispositions";
 
 const BTN = "inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60";
 const FIELD = "w-full border border-border rounded-lg px-3 py-2.5 min-h-[44px] text-base bg-card text-foreground disabled:opacity-60";
@@ -62,6 +64,10 @@ export const EMPTY_DRAFT = Object.freeze({
   interested: false,
   which: null,
   note: "",
+  // The sub-reason under the outcome and its one detail
+  // (lib/sales/calls/subDispositions.js). Cleared whenever the choice moves.
+  sub: "",
+  subDetail: "",
 });
 
 /** Has the rep started? The auto-log timer stays out once this is true. */
@@ -99,20 +105,34 @@ function ChoiceButton({ t, choice, selected, onPick, big }) {
  * @param onLater   when given, a "Write it up later" button is drawn.
  * @param error     the refusal to print under the buttons, boxed, or "".
  */
-export default function OutcomeForm({ t, draft, setDraft, busy, onSave, onLater = null, error = "", autoFocus = false }) {
+export default function OutcomeForm({ t, draft, setDraft, busy, onSave, onLater = null, error = "", autoFocus = false, subLists = null, language = "en" }) {
   const patch = (p) => setDraft((d) => ({ ...d, ...p }));
   // Pressing "Call back" pre-selects a time (outcomeChoices.js
   // CALL_BACK_DEFAULT_WHEN) so Save works on the next press; any other
   // choice clears it, so a time picked for a callback is never carried
-  // into an outcome the fold would silently ignore it on.
+  // into an outcome the fold would silently ignore it on. The sub-reason
+  // goes with it: a reason picked under "Not now" must not ride into
+  // "Wrong number".
   const pick = (key) => {
     const next = key === draft.choice ? "" : key;
-    patch({ choice: next, whenKind: next === CHOICE_CALL_BACK ? CALL_BACK_DEFAULT_WHEN : null });
+    patch({ choice: next, whenKind: next === CHOICE_CALL_BACK ? CALL_BACK_DEFAULT_WHEN : null, sub: "", subDetail: "" });
   };
   const primary = OUTCOME_CHOICES.filter((c) => c.primary);
   const more = OUTCOME_CHOICES.filter((c) => !c.primary);
   const chosen = OUTCOME_CHOICES.find((c) => c.key === draft.choice) || null;
   const noteRequired = draft.choice === CHOICE_NO_CALLBACKS || (draft.choice === CHOICE_WRONG_OR_NOT_BUSINESS && draft.which === WHICH_NOT_A_BUSINESS);
+  // ── The sub-reason list for what the draft folds to ──────────────────
+  //
+  // The fold is pure and total (outcomeChoices.js), so the form can ask it
+  // which code the buttons currently mean and draw that code's list —
+  // "Not now" has one, "Wrong number" has one, "Sent the link" has none.
+  // Nothing here names a code; the list comes from the server's
+  // effective lists (subLists) or the code defaults while those load.
+  const preview = draft.choice
+    ? foldChoice({ key: draft.choice, note: draft.note, whenKind: draft.whenKind, whenAt: draft.whenAt ? new Date(draft.whenAt) : null, notOwner: draft.notOwner, interested: draft.interested, which: draft.which })
+    : null;
+  const subList = preview?.ok ? subDispositionsFor(preview.code, subLists) : [];
+  const subChosen = subList.find((e) => e.key === draft.sub) || null;
 
   return (
     <div className="space-y-3" data-outcome-form>
@@ -220,6 +240,42 @@ export default function OutcomeForm({ t, draft, setDraft, busy, onSave, onLater 
               {t(`app.salesCall.choice.wrong_or_not_business.${w}`)}
             </label>
           ))}
+        </div>
+      ) : null}
+
+      {/* ── The reason under the outcome ─────────────────────────────────
+          Required when the outcome has a list (subDispositions.js): the
+          save is refused without one, and the sentence says so under the
+          buttons. One tap; the one entry that asks a name draws a field. */}
+      {subList.length ? (
+        <div className="space-y-1.5" data-outcome-sub={preview.code}>
+          <p className="text-sm font-medium">{t("app.salesCall.sub.pick")}</p>
+          <div className="flex flex-wrap gap-2">
+            {subList.map((e) => (
+              <button
+                key={e.key}
+                type="button"
+                className={`${BTN} min-h-[40px] text-left ${draft.sub === e.key ? "bg-primary text-primary-foreground" : "bg-card border border-border"}`}
+                onClick={() => patch({ sub: draft.sub === e.key ? "" : e.key, subDetail: "" })}
+                aria-pressed={draft.sub === e.key}
+                data-outcome-sub-choice={e.key}
+              >
+                {subDispositionLabel(e, language)}
+              </button>
+            ))}
+          </div>
+          {subChosen?.askDetail ? (
+            <input
+              type="text"
+              className={FIELD}
+              value={draft.subDetail}
+              maxLength={80}
+              onChange={(e) => patch({ subDetail: e.target.value.slice(0, 80) })}
+              placeholder={subDispositionDetailLabel(subChosen, language)}
+              aria-label={subDispositionDetailLabel(subChosen, language)}
+              data-outcome-sub-detail
+            />
+          ) : null}
         </div>
       ) : null}
 
