@@ -28,7 +28,16 @@ import {
   tradeKeyForListingCategory,
   applyListing,
 } from "@/lib/sales/intel/listings";
-import { planPlacesWrite } from "@/lib/sales/intel/places";
+import { MATCHED_VERIFY, placeWordsFor, planPlacesWrite, verifyConfirmation, nameOverlap, nameTokens } from "@/lib/sales/intel/places";
+import { inRegions, loadEnrichmentOrder, pairsFromRows, parseRegions } from "@/lib/sales/intel/enrichmentOrder";
+import { emptyPromotionReport, planPromotion, promotableWhere, promoteListings, retailCategory } from "@/lib/sales/intel/promoteListings";
+import { rawFromListingRow, rematchUnmatched, rematchWhere } from "@/lib/sales/intel/rematch";
+import { RUNS_KEPT, RUNS_SETTING_KEY, foldRuns, keepRuns, recordScrapeRun, runRecordFrom } from "@/lib/sales/intel/mapsScrapeStatus";
+import { askedSentence, promotionSentence } from "@/lib/sales/intel/mapsScrapeSentences";
+import { placesRow } from "@/lib/sales/prospectView";
+import { composeBrief } from "@/lib/sales/intel/brief";
+import { contactBasisFor } from "@/lib/sales/contactBasis";
+import { APP_MESSAGES } from "@/app/i18n/appMessages";
 import { assembleRecord, dedupeFeed, extractDetailInPage, markersFor, parsePlaceUrl, placeIdFromHtml, readFeedInPage } from "./scrape/lib/mapsParse.mjs";
 import { FEED_BOUNDARY, SINGLE_TILE_DIAGONAL_KM, boundsFromMapsUrl, diagonalKm, planViewports, regionBounds, subdivide, textSearchUrl, tileSearchUrl, tilesFor, viewportKm } from "./scrape/lib/geo.mjs";
 import { classifyWall } from "./scrape/lib/browser.mjs";
@@ -251,6 +260,264 @@ section("applyListing (fake db)");
   ok("zero places meters nothing", (await meterLocalScrape({ db: {}, places: 0 })) === null);
 }
 
+// ── The 2026-09-21 change: names, and matched_verify ───────────────────
+//
+// Measured on production before the change: 914 name_disagrees, 406 no
+// candidate, 255 place_disagrees (correct refusals, and they stay so), and
+// ~148 where the phone or domain WAS the record's and only the name
+// disagreed — the four reasons that now flip. Every shape below is one of
+// those, built as a listing + a prospect and put through matchListing, the
+// function the sweep and the rematch both call.
+section("matcher — names and matched_verify");
+{
+  const T = (n) => [...nameTokens(n)].join(",");
+  ok("B P / B.P. / B&P / BP are one token", T("B P Plumbing") === "bp,plumbing" && T("B.P. Plumbing") === "bp,plumbing" && T("B&P Plumbing") === "bp,plumbing" && T("BP Plumbing") === "bp,plumbing");
+  ok("A-1 and A 1 agree; a lone article is still dropped", T("A-1 Plumbing") === T("A 1 Plumbing") && T("A Plus Plumbing").split(",")[0] !== "a");
+  ok("legal suffixes drop: Bock Plumbing, Inc. ≡ Bock Plumbing", nameOverlap("BOCK PLUMBING, INC.", "Bock Plumbing").overlap === 1);
+  ok("trade words set aside: the licence's full trade list ≡ the sign's short name", nameOverlap("THOMPSON PLUMBING HEATING & AIR CONDITIONING INC", "Thompson Plumbing").overlap === 1);
+  ok("…but two DIFFERENT trades on one surname stay two businesses", nameOverlap("THOMPSON PLUMBING", "Thompson Roofing").overlap === 0.5);
+  ok("…and a name that is all trade words is judged whole, as before", nameOverlap("QUALITY PLUMBING SERVICES", "Quality Roofing Services").overlap < 1 && nameOverlap("QUALITY PLUMBING SERVICES", "Quality Plumbing Services").overlap === 1);
+  ok("PSI vs K2 share only 'plumbing' still — the name half did not loosen", nameOverlap("PSI PLUMBING SERVICES", "K2 Plumbing").overlap < 0.6);
+  // Measured on the first dry rematch, 2026-09-21: a register-only reading
+  // of the trade-word-free core called every one of these 1.0. The
+  // symmetric reading refuses them all.
+  for (const [reg, cand] of [["MK BEST ROOFING", "Atlantic Do it Best Hardware"], ["Chimney MD", "Allied Roofing and Chimney"], ["Re-Masters", "MASTER APPLIANCE REPAIR ~ FREE service call"], ["Paint of Wny", "WNY Install Co."], ["Custom Carpet Centers", "Rent-A-Center"], ["Evergreen Heating & Cooling", "Evergreen Point Partners"], ["B & W Appliance Inc.", "D&M Appliance Repair Inc."], ["Brothers Construction Group", "Brothers Appliance"]]) {
+    ok(`one shared word in a longer name is not a match: '${reg}' vs '${cand}'`, nameOverlap(reg, cand).overlap < 0.6, String(nameOverlap(reg, cand).overlap));
+  }
+  ok("O.S. Electric ≡ OS Electric", nameOverlap("O.S. Electric Inc", "OS Electric Inc").overlap === 1);
+  // The second dry rematch: two names that each reduce to the town.
+  ok("the row's city is a place word: 'Rochester Remodeling and Home Builders' is not 'Quality Homes of Rochester'", nameOverlap("Rochester Remodeling and Home Builders", "Quality Homes of Rochester", { placeWords: placeWordsFor("Rochester") }).overlap < 0.6 && nameOverlap("Rochester Remodeling and Home Builders", "Quality Homes of Rochester").overlap === 1);
+  ok("…nor 'Flushing Heating and Plumbing Services' 'Flushing Heating and Air Conditioning'", nameOverlap("Flushing Heating and Plumbing Services", "Flushing Heating and Air Conditioning", { placeWords: placeWordsFor("Flushing", "Queens") }).overlap < 0.6);
+  ok("a surname is not a place word: Thompson still matches with the city set aside", nameOverlap("THOMPSON PLUMBING HEATING & AIR CONDITIONING INC", "Thompson Plumbing", { placeWords: placeWordsFor("Lakeside") }).overlap === 1);
+
+  const L = (o) => normaliseListing({ placeId: o.placeId || "ChIJLISTINGLISTINGLISTINGL", name: o.name, phone: o.phone || null, websiteUrl: o.web || null, category: "Plumber", address: o.address || "10 Main St, Lakeside, CA 92040, United States", latitude: o.lat ?? 32.85, longitude: o.lng ?? -116.92 });
+  const P = (o) => ({ id: o.id || "p", businessName: o.name, city: o.city || "LAKESIDE", province: o.province || "CA", country: "US", postalCode: o.postal ?? "92040", addressLine: o.addr ?? "10 MAIN ST", phoneE164: o.phone || null, domain: o.domain || null, websiteUrl: null, hasWebsite: null, latitude: o.lat ?? 32.85, longitude: o.lng ?? -116.92, googlePlaceId: null, googleRating: null, googleReviewCount: null, businessStatus: null, tradingNames: [] });
+  const far = { addr: "99 OTHER RD", postal: "92020", city: "EL CAJON", lat: 33.5, lng: -117.5 };
+
+  const roch = matchListing(L({ name: "Quality Homes of Rochester", address: "10 Main St, Rochester, NY 14604, United States" }), [P({ id: "rr", name: "ROCHESTER REMODELING AND HOME BUILDERS", city: "ROCHESTER", province: "NY", postal: "14604" })]);
+  ok("…and through the listing matcher, with the city read off both rows", roch.verdict === LISTING_VERDICTS.NO_CONFIDENT_MATCH && roch.score.reason === "name_disagrees", JSON.stringify(roch.score));
+  // The four that flip.
+  const v1 = matchListing(L({ name: "K2 Plumbing", phone: "(619) 733-9334" }), [P({ id: "psi", name: "PSI PLUMBING SERVICES INC", phone: "+16197339334", ...far })]);
+  ok("phone_same_only_generic_words_shared → matched_verify", v1.verdict === MATCHED_VERIFY && v1.prospect?.id === "psi" && v1.score.reason === "phone_same_only_generic_words_shared", JSON.stringify(v1.score));
+  const v2 = matchListing(L({ name: "Golden State Rooter", phone: "(619) 733-9334" }), [P({ id: "psi", name: "PSI PLUMBING SERVICES INC", phone: "+16197339334", ...far })]);
+  ok("phone_same_name_disagrees → matched_verify", v2.verdict === MATCHED_VERIFY && v2.score.reason === "phone_same_name_disagrees" && v2.score.identity.join() === "phone");
+  const v3 = matchListing(L({ name: "Drain Kings", web: "https://www.acmeplumb.com/" }), [P({ id: "acme", name: "ACME PLUMBING", domain: "acmeplumb.com", ...far })]);
+  ok("domain_same_name_disagrees → matched_verify", v3.verdict === MATCHED_VERIFY && v3.score.reason === "domain_same_name_disagrees" && v3.score.identity.join() === "domain");
+  const v4 = matchListing(L({ name: "Superior Plumbing Co", web: "https://www.acmeplumb.com/" }), [P({ id: "acme", name: "ACME PLUMBING", domain: "acmeplumb.com", ...far })]);
+  ok("domain_same_only_generic_words_shared → matched_verify", v4.verdict === MATCHED_VERIFY && v4.score.reason === "domain_same_only_generic_words_shared");
+  ok("the verify score says verify, not accept", v1.score.verify === true && v1.score.accept === false);
+  // A shared number or domain is a network, not a business.
+  const shared = matchListing(L({ name: "Servpro Restoration", web: "https://www.servpro.com/locations/ca/lakeside" }), [P({ id: "s1", name: "SERVPRO OF EL CAJON", domain: "servpro.com", ...far }), P({ id: "s2", name: "SERVPRO OF SANTEE", domain: "servpro.com", city: "SANTEE", postal: "92071", addr: "5 ELM ST", lat: 32.84, lng: -116.97 })]);
+  ok("a franchise domain two candidates carry is neither a verify nor an identity accept — refused, with the reason saying so", shared.verdict === LISTING_VERDICTS.NO_CONFIDENT_MATCH && /domain_shared_by_2_prospects/.test(shared.score.reason), shared.score.reason);
+  const franchiseSolo = matchListing(L({ name: "Servpro of Lakeside", web: "https://www.servpro.com/locations/ca/lakeside" }), [P({ id: "s1", name: "SERVPRO OF EL CAJON", domain: "servpro.com", ...far })]);
+  ok("…and with one candidate, two towns on the two signs is two branches: refused, no verify", franchiseSolo.verdict === LISTING_VERDICTS.NO_CONFIDENT_MATCH && franchiseSolo.score.reason === "domain_same_different_towns" && !franchiseSolo.score.verify, JSON.stringify(franchiseSolo.score));
+  const sameTown = matchListing(L({ name: "Servpro of El Cajon", web: "https://www.servpro.com/locations/ca/elcajon", address: "99 Other Rd, El Cajon, CA 92020, United States", lat: 33.5, lng: -117.5 }), [P({ id: "s1", name: "SERVPRO OF EL CAJON", domain: "servpro.com", ...far })]);
+  ok("…the same town on both signs is the same branch", sameTown.verdict === LISTING_VERDICTS.MATCHED);
+  const sharedLine = matchListing(L({ name: "Golden State Rooter", phone: "(619) 733-9334" }), [P({ id: "psi", name: "PSI PLUMBING SERVICES INC", phone: "+16197339334", ...far }), P({ id: "k2", name: "K2 PLUMBING INC", phone: "+16197339334", city: "SANTEE", postal: "92071", addr: "5 ELM ST", lat: 32.84, lng: -116.97 })]);
+  ok("a phone two candidates carry is not a verify either", sharedLine.verdict === LISTING_VERDICTS.NO_CONFIDENT_MATCH && /phone_shared_by_2_prospects/.test(sharedLine.score.reason));
+  const fb = matchListing(L({ name: "Drain Kings", web: "https://www.facebook.com/drainkings" }), [P({ id: "acme", name: "ACME PLUMBING", domain: "facebook.com", ...far })]);
+  ok("a platform domain (facebook.com) is never an identity", fb.verdict === LISTING_VERDICTS.NO_CONFIDENT_MATCH && fb.score.identity.length === 0 && fb.score.reason === "name_disagrees");
+
+  // The three that must not.
+  const r1 = matchListing(L({ name: "Drain Kings" }), [P({ id: "singer", name: "SINGER ENTERPRISES" })]);
+  ok("name_disagrees with no identity → still refused", r1.verdict === LISTING_VERDICTS.NO_CONFIDENT_MATCH && r1.prospect === null && r1.score.reason === "name_disagrees");
+  const r2 = matchListing(L({ name: "Thompson Plumbing", address: "1 Far Ave, Fresno, CA 93701, United States", lat: 36.7, lng: -119.8 }), [P({ id: "th", name: "THOMPSON PLUMBING", city: "BAKERSFIELD", postal: "93301", addr: "500 ELSEWHERE ST", lat: 35.37, lng: -119.02 })]);
+  ok("place_disagrees with no identity → still refused", r2.verdict === LISTING_VERDICTS.NO_CONFIDENT_MATCH && r2.score.reason === "place_disagrees", JSON.stringify(r2.score));
+  ok("no candidate → still no_candidate", matchListing(L({ name: "Anything" }), []).verdict === LISTING_VERDICTS.NO_CANDIDATES);
+  const r3 = matchListing(L({ name: "Thompson Roofing" }), [P({ id: "th", name: "THOMPSON PLUMBING", addr: "99 OTHER RD" })]);
+  ok("a surname across two trades in one city → still refused", r3.verdict === LISTING_VERDICTS.NO_CONFIDENT_MATCH && r3.score.reason === "name_disagrees");
+  const both = matchListing(L({ name: "K2 Plumbing", phone: "(619) 733-9334" }), [P({ id: "psi", name: "PSI PLUMBING SERVICES INC", phone: "+16197339334", ...far }), P({ id: "k2", name: "K2 PLUMBING INC", phone: "+16197339334" })]);
+  ok("a plain match anywhere in the net beats a verify", both.verdict === LISTING_VERDICTS.MATCHED && both.prospect.id === "k2" && !both.score.alsoAccepted.includes("psi"));
+  const solo = matchListing(L({ name: "K2 Plumbing", phone: "(619) 733-9334" }), [P({ id: "psi", name: "PSI PLUMBING SERVICES INC", phone: "+16197339334", ...far }), P({ id: "k2", name: "K2 PLUMBING INC", phone: "+16197339334", ...far, postal: "92021" })]);
+  ok("an exact name on a shared line is still the rule's own accept", solo.verdict === LISTING_VERDICTS.MATCHED && solo.prospect.id === "k2" && solo.score.acceptedVia === "rule");
+
+  // The names the owner named.
+  const bp = matchListing(L({ name: "BP Plumbing" }), [P({ id: "bp", name: "B P PLUMBING" })]);
+  ok("'B P Plumbing' ≡ 'BP Plumbing' at the same address → matched", bp.verdict === LISTING_VERDICTS.MATCHED && bp.score.nameOverlap === 1);
+  const bock = matchListing(L({ name: "Bock Plumbing" }), [P({ id: "bock", name: "BOCK PLUMBING, INC." })]);
+  ok("'Bock Plumbing, Inc.' ≡ 'Bock Plumbing' → matched", bock.verdict === LISTING_VERDICTS.MATCHED);
+
+  // The fact.
+  const f = verifyConfirmation({ identity: ["phone"], name: "K2 Plumbing" });
+  ok("the verify fact names the listing and says confirm on the call", f.code === "identity:phone" && f.text === "Google lists this number as K2 Plumbing — a rebrand or a shared line; confirm on the call" && f.key === "app.salesIntel.places.identity.phone");
+  ok("website and both have their own clause", verifyConfirmation({ identity: ["domain"], name: "X" }).code === "identity:website" && verifyConfirmation({ identity: ["phone", "domain"], name: "X" }).code === "identity:both");
+  for (const lang of ["en", "fr", "es"]) ok(`${lang}: the verify keys exist and carry {name}`, ["phone", "website", "both"].every((k) => /\{name\}/.test(APP_MESSAGES[lang]?.[`app.salesIntel.places.identity.${k}`] || "")));
+
+  // applyListing under verify: linked, blanks only, the fact first.
+  const writes = [];
+  const psiRow = { ...P({ id: "psi", name: "PSI PLUMBING SERVICES INC", phone: "+16197339334", ...far }), googleRating: 3.9, assignedRepId: null, campaignId: null };
+  const tx = {
+    prospect: { update: async (a) => (writes.push(["prospect.update", a]), a) },
+    prospectEvidence: { createMany: async (a) => (writes.push(["evidence", a]), a) },
+    salesContactNumber: { create: async (a) => (writes.push(["number", a]), a) },
+    externalListing: { upsert: async (a) => (writes.push(["listing", a]), { id: "el-v" }) },
+  };
+  const fake = { prospect: { findMany: async () => [psiRow], findFirst: async () => null }, salesContactNumber: { findMany: async () => [] }, externalListing: { upsert: async (a) => (writes.push(["listing", a]), { id: "el-v", matchedProspectId: null }) }, $transaction: async (fn) => fn(tx) };
+  const rv = await applyListing({ db: fake, raw: { placeId: "ChIJK2K2K2K2K2K2K2K2K2K2K2", name: "K2 Plumbing", category: "Plumber", address: "99 Other Rd, El Cajon, CA 92020, United States", phone: "+1 619-733-9334", websiteUrl: "https://k2plumbing.example/", rating: 4.9, reviewCount: 12, businessStatus: "OPERATIONAL" }, deps: { rerunChainForNewWebsite: async () => ({ queued: 1 }) } });
+  ok("applyListing: verdict matched_verify, the prospect linked", rv.verdict === MATCHED_VERIFY && rv.prospectId === "psi");
+  const upd = writes.find((w) => w[0] === "prospect.update")[1].data;
+  ok("blanks filled (website, place id), the record's rating kept", upd.websiteUrl === "https://k2plumbing.example/" && upd.googlePlaceId === "ChIJK2K2K2K2K2K2K2K2K2K2K2" && !("googleRating" in upd) && rv.conflicts.includes("googleRating"));
+  ok("placesVerdict is matched_verify and the fact leads the confirmations", upd.placesVerdict === MATCHED_VERIFY && upd.placesResult.confirmations[0].code === "identity:phone" && /K2 Plumbing/.test(upd.placesResult.confirmations[0].text));
+  ok("the listing row carries the verdict and the prospect", writes.some((w) => w[0] === "listing" && w[1].create.matchVerdict === MATCHED_VERIFY && w[1].create.matchedProspectId === "psi"));
+  ok("an evidence row records the verify", writes.some((w) => w[0] === "evidence" && w[1].data.some((e) => e.detector === "maps.scrape:identity_verify")));
+  const card = placesRow({ ...psiRow, placesCheckedAt: new Date("2026-09-21T00:00:00Z"), placesVerdict: upd.placesVerdict, placesResult: upd.placesResult });
+  ok("the rep card prints the fact first", card.known && card.parts[0].key === "app.salesIntel.places.identity.phone" && /K2 Plumbing/.test(card.text));
+  const brief = composeBrief({ prospect: { ...psiRow, placesVerdict: upd.placesVerdict, placesResult: upd.placesResult, people: [] }, evidence: [], now: new Date("2026-09-21T00:00:00Z") });
+  const verifyFact = (brief.known || brief.facts || []).find((x) => x.id === "google_verify" || x.key === "google_verify");
+  ok("the brief carries a 'Confirm on the call' fact of its own", Boolean(verifyFact) && /K2 Plumbing/.test(verifyFact.detail || verifyFact.text || JSON.stringify(verifyFact)), JSON.stringify(Object.keys(brief)));
+}
+
+// ── --state: the regional pass ─────────────────────────────────────────
+section("regions");
+{
+  ok("codes, names, commas and repeats parse to codes in order", parseRegions(["NY,FL", "california", "ny"]).regions.join() === "NY,FL,CA");
+  ok("an unknown token is refused, not filtered to nothing", parseRegions(["NY", "Narnia"]).unknown.join() === "Narnia");
+  ok("no filter → everything is in; a null province is OUTSIDE a filter", inRegions(null, null) && inRegions("OR", null) && !inRegions(null, ["NY"]) && inRegions("ny", ["NY"]) && !inRegions("OR", ["NY", "FL", "CA"]));
+  const rows = [{ id: "a", tier: "claimed", rank: 0 }, { id: "b", tier: "claimed", rank: 1 }, { id: "c", tier: "next_in_trade", rank: 2 }];
+  const byId = new Map([["a", { tradeKey: "plumbing", city: "Buffalo", province: "NY", country: "US" }], ["b", { tradeKey: "plumbing", city: "Portland", province: "OR", country: "US" }], ["c", { tradeKey: "roofing", city: "Miami", province: "FL", country: "US" }]]);
+  const pairs = pairsFromRows(rows, byId, { regions: ["NY", "FL", "CA"] });
+  ok("pairs outside the states are dropped and counted", pairs.length === 2 && pairs.every((p) => ["NY", "FL"].includes(p.province)) && pairs.skippedOutside === 1);
+  ok("without a filter nothing is dropped", pairsFromRows(rows, byId).length === 3 && pairsFromRows(rows, byId).skippedOutside === 0);
+
+  // loadEnrichmentOrder over a fake db: the filter goes into the WHERE and
+  // the claims outside are counted.
+  const seen = [];
+  const fakeDb = {
+    salesQueueClaim: { findMany: async ({ where }) => (where.releasedAt === null ? [
+      { prospectId: "a", salesRepId: "r", claimedAt: new Date("2026-09-20"), position: 0, prospect: { tradeKey: "plumbing", mergedIntoId: null, doNotContactAt: null, province: "NY" } },
+      { prospectId: "b", salesRepId: "r", claimedAt: new Date("2026-09-20"), position: 1, prospect: { tradeKey: "plumbing", mergedIntoId: null, doNotContactAt: null, province: "OR" } },
+    ] : [{ claimedAt: new Date("2026-09-20"), prospect: { tradeKey: "plumbing" } }]) },
+    prospect: {
+      findMany: async ({ where }) => (seen.push(where), []),
+      count: async () => 7,
+    },
+  };
+  const order = await loadEnrichmentOrder({ db: fakeDb, regions: ["NY", "FL", "CA"] });
+  ok("the claim outside the states is dropped before ranking and counted", order.rows.length === 1 && order.rows[0].id === "a" && order.outsideRegions.claimed === 1);
+  ok("the candidate reads carry the province filter; the outside count is read", seen.every((w) => JSON.stringify(w).includes('"province":{"in":["NY","FL","CA"]}')) && order.outsideRegions.candidates === 7 && order.regions.join() === "NY,FL,CA");
+  const plain = await loadEnrichmentOrder({ db: { ...fakeDb, prospect: { findMany: async () => [], count: async () => { throw new Error("must not count without a filter"); } } } });
+  ok("without --state: two claims, no province clause, nothing counted", plain.rows.length === 2 && plain.regions === null && plain.outsideRegions.candidates === 0);
+
+  const a = parseArgs(["--from-order", "--state", "NY,FL", "--state", "california", "--province", "QC"]);
+  ok("maps.mjs --state / --province parse to codes", a.regions.join() === "NY,FL,CA,QC");
+  let threw = null;
+  try { parseArgs(["--state", "Narnia"]); } catch (e) { threw = e.message; }
+  ok("an unknown state stops the run", /Narnia/.test(threw || ""));
+  ok("--rematch / --promote / --apply / --limit parse", parseArgs(["--rematch", "--apply", "--limit", "5"]).rematch && parseArgs(["--promote"]).promote && !parseArgs(["--promote"]).apply && parseArgs(["--limit", "5"]).limit === 5);
+}
+
+// ── Promotion: unmatched listings → prospects ──────────────────────────
+section("promotion");
+{
+  const base = { id: "el-1", externalId: "ChIJPROMOPROMOPROMOPROMOPR", name: "Bayside Plumbing", phoneE164: "+17185550100", domain: "baysideplumb.com", websiteUrl: "https://baysideplumb.com/", addressLine: "1 Shore Rd", city: "Brooklyn", province: "NY", postalCode: "11201", country: "US", latitude: 40.69, longitude: -73.99, category: "Plumber", tradeKey: "plumbing", rating: "4.6", reviewCount: 41, businessStatus: "OPERATIONAL", runId: "20260921-010000Z", lastSeenAt: new Date("2026-09-21T01:05:00Z"), matchedProspectId: null, promotedProspectId: null };
+  const ctx = () => ({ regions: null, existingPhones: new Set(), existingDomains: new Set(), existingPlaceIds: new Set(), dncPhones: new Set(), dncDomains: new Set(), batchPhones: new Set(), batchDomains: new Set() });
+  const p = planPromotion(base, ctx());
+  ok("a plumber with a phone becomes a discovered contractor in the plumbing trade", p.ok && p.prospect.status === "discovered" && p.prospect.classification === "contractor" && p.prospect.tradeKey === "plumbing" && p.prospect.sourceProvider === "google_maps" && p.prospect.sourceRecordId === base.externalId && p.prospect.googlePlaceId === base.externalId && p.prospect.campaignId === null, JSON.stringify(p));
+  ok("hasWebsite is true with a site and null without — never false", p.prospect.hasWebsite === true && planPromotion({ ...base, websiteUrl: null, domain: null }, ctx()).prospect.hasWebsite === null);
+  const noTradeName = planPromotion({ ...base, category: "Home builder", tradeKey: null }, ctx());
+  ok("category → no trade, name says a trade: discovered, no tradeKey → the folder's 'no trade'", noTradeName.ok && noTradeName.prospect.tradeKey === null && noTradeName.prospect.status === "discovered" && noTradeName.prospect.classification === "contractor");
+  const unclear = planPromotion({ ...base, name: "Bayside Group LLC", category: "Consultant", tradeKey: null }, ctx());
+  ok("category → no trade, name says nothing: needs_review → the folder's 'unclear'", unclear.ok && unclear.prospect.tradeKey === null && unclear.prospect.status === "needs_review" && unclear.prospect.classification === "needs_review");
+  ok("no phone → refused", planPromotion({ ...base, phoneE164: null }, ctx()).reason === "no_phone");
+  ok("closed → refused", planPromotion({ ...base, businessStatus: "CLOSED_PERMANENTLY" }, ctx()).reason === "closed" && planPromotion({ ...base, businessStatus: "CLOSED_TEMPORARILY" }, ctx()).reason === "closed");
+  ok("already matched or promoted → refused", planPromotion({ ...base, matchedProspectId: "x" }, ctx()).reason === "matched" && planPromotion({ ...base, promotedProspectId: "x" }, ctx()).reason === "already_promoted");
+  ok("a prospect on the same phone → duplicate", planPromotion(base, { ...ctx(), existingPhones: new Set(["+17185550100"]) }).reason === "duplicate_phone");
+  ok("a prospect on the same domain → duplicate", planPromotion(base, { ...ctx(), existingDomains: new Set(["baysideplumb.com"]) }).reason === "duplicate_domain");
+  ok("a prospect already carrying the place id → duplicate", planPromotion(base, { ...ctx(), existingPlaceIds: new Set([base.externalId]) }).reason === "duplicate_place_id");
+  ok("the do-not-contact list refuses by phone and by domain", planPromotion(base, { ...ctx(), dncPhones: new Set(["+17185550100"]) }).reason === "do_not_contact" && planPromotion(base, { ...ctx(), dncDomains: new Set(["baysideplumb.com"]) }).reason === "do_not_contact");
+  ok("outside --state → refused", planPromotion(base, { ...ctx(), regions: ["FL", "CA"] }).reason === "outside_regions" && planPromotion(base, { ...ctx(), regions: ["NY"] }).ok);
+  ok("a supply house by category or by name is not a lead", planPromotion({ ...base, category: "Plumbing supply store", tradeKey: null }, ctx()).reason === "retail_category" && planPromotion({ ...base, name: "Bayside Plumbing Supply", category: "Plumber" }, ctx()).reason === "retail_name" && retailCategory("Garage door supplier") === false);
+  ok("the where excludes matched, promoted, phoneless and closed rows, and takes --state", (() => { const w = promotableWhere({ regions: ["NY"] }); return w.matchedProspectId === null && w.promotedProspectId === null && w.phoneE164.not === null && w.NOT.length === 2 && w.province.in.join() === "NY"; })());
+
+  // Over a fake database: dedupe inside the batch, one research call, idempotent.
+  const created = [];
+  const listingWrites = [];
+  const research = [];
+  const rows = [base, { ...base, id: "el-2", externalId: "ChIJPROMOPROMOPROMOPROMOP2", name: "Bayside Plumbing (2nd pin)", phoneE164: "+17185550100" }, { ...base, id: "el-3", externalId: "ChIJPROMOPROMOPROMOPROMOP3", name: "Sunrise Roofing", phoneE164: "+13055550199", domain: null, websiteUrl: null, category: "Roofing contractor", tradeKey: "roofing", province: "FL", city: "Miami" }, { ...base, id: "el-4", externalId: "ChIJPROMOPROMOPROMOPROMOP4", name: "Taken Plumbing", phoneE164: "+12125550111", domain: "taken.example" }, { ...base, id: "el-5", externalId: "ChIJPROMOPROMOPROMOPROMOP5", name: "Blocked Plumbing", phoneE164: "+12125550122", domain: null, websiteUrl: null }];
+  let promotedFlags = new Map();
+  const fakeDb = {
+    externalListing: {
+      findMany: async ({ where, cursor }) => (cursor ? [] : rows.filter((r) => !promotedFlags.get(r.id) && (!where.province || where.province.in.includes(r.province)))),
+      updateMany: async ({ where }) => { const r = rows.find((x) => x.id === where.id); if (!r || promotedFlags.get(r.id)) return { count: 0 }; return { count: 1 }; },
+      update: async ({ where, data }) => { promotedFlags.set(where.id, data.promotedProspectId); listingWrites.push([where.id, data]); return {}; },
+      count: async () => 0,
+    },
+    prospect: {
+      // The pool as the database would answer it: one row already on
+      // +1 212 555 0111, plus whatever this run created.
+      findMany: async ({ where, select }) => {
+        if (select.phoneE164) return [{ phoneE164: "+12125550111" }, ...created.map((c) => ({ phoneE164: c.phoneE164 }))].filter((r) => where.phoneE164.in.includes(r.phoneE164));
+        if (select.domain) return created.filter((c) => c.domain && where.domain.in.includes(c.domain)).map((c) => ({ domain: c.domain }));
+        if (select.googlePlaceId) return created.filter((c) => where.googlePlaceId.in.includes(c.googlePlaceId)).map((c) => ({ googlePlaceId: c.googlePlaceId }));
+        return [];
+      },
+      create: async ({ data }) => { const id = `p-${created.length + 1}`; created.push({ id, ...data }); return { id }; },
+    },
+    prospectEvidence: { createMany: async () => ({}) },
+    salesSuppression: { findMany: async () => [{ kind: "phone", value: "+12125550122" }] },
+    $transaction: async (fn) => fn(fakeDb),
+  };
+  const dry = await promoteListings({ db: fakeDb, dry: true, queueResearch: async (a) => (research.push(a), { queued: a.prospectIds.length }) });
+  ok("dry: counts by state and trade, writes nothing, queues nothing", dry.promoted === 2 && dry.byState.NY === 1 && dry.byState.FL === 1 && dry.byTrade.known === 2 && created.length === 0 && research.length === 0 && dry.skipped.duplicate_phone_in_batch === 1 && dry.skipped.duplicate_phone === 1 && dry.skipped.do_not_contact === 1, JSON.stringify(dry.skipped));
+  const fl = await promoteListings({ db: { ...fakeDb, externalListing: { ...fakeDb.externalListing, findMany: async ({ where, cursor }) => (cursor ? [] : rows.filter((r) => where.province.in.includes(r.province))) } }, dry: true, regions: ["FL"], queueResearch: async () => ({ queued: 0 }) });
+  ok("--state bounds the promotion", fl.considered === 1 && fl.byState.FL === 1 && !fl.byState.NY);
+  const wet = await promoteListings({ db: fakeDb, dry: false, queueResearch: async (a) => (research.push(a), { queued: a.prospectIds.length }) });
+  ok("applied: two prospects, each listing stamped with its prospect, research queued once for both", wet.promoted === 2 && created.length === 2 && listingWrites.length === 2 && research.length === 1 && research[0].prospectIds.length === 2 && research[0].priority === "backlog" && wet.researchQueued === 2);
+  ok("the created rows are what ingest writes: discovered, contractor, the trade, the source", created.every((c) => c.status === "discovered" && c.classification === "contractor" && c.sourceProvider === "google_maps") && created.map((c) => c.tradeKey).sort().join() === "plumbing,roofing");
+  const again = await promoteListings({ db: fakeDb, dry: false, queueResearch: async (a) => (research.push(a), { queued: 0 }) });
+  ok("idempotent: a second run promotes nothing and queues nothing", again.promoted === 0 && created.length === 2 && research.length === 1);
+  ok("the empty report has the shape the panel and the summary read", JSON.stringify(Object.keys(emptyPromotionReport())) === JSON.stringify(["dry", "regions", "considered", "promoted", "researchQueued", "skipped", "byState", "byTrade", "byTradeKey", "byStatus", "rows", "errors"]));
+  ok("a promoted row's source has a label and a phone basis on the card", contactBasisFor("google_maps", "phone").sourceLabel === "Google Maps listing" && contactBasisFor("google_maps", "phone").state === "permitted");
+}
+
+// ── Rematch: the refused rows through today's rule ─────────────────────
+section("rematch");
+{
+  const listing = normaliseListing({ placeId: "ChIJREMATCHREMATCHREMATCHR", name: "B P Plumbing", category: "Plumber", address: "10 Main St, Lakeside, CA 92040, United States", phone: "+1 619-555-0100", websiteUrl: "https://bpplumb.example/", rating: 4.4, reviewCount: 9, businessStatus: "OPERATIONAL", latitude: 32.85, longitude: -116.92, hours: ["Monday: 8 AM–5 PM"], plusCode: "ABCD+EF", searchTerm: "plumber", searchLocation: "Lakeside, CA" });
+  const row = listingRow(listing, { verdict: "no_confident_match", runId: "20260919-000000Z", matchResult: { candidate: { reason: "name_disagrees" } } });
+  const stored = { id: "el-r", externalId: row.where.source_externalId.externalId, ...row.create, matchResult: { candidate: { reason: "name_disagrees" } }, lastSeenAt: new Date("2026-09-19T03:00:00Z") };
+  const back = normaliseListing(rawFromListingRow(stored));
+  const same = ["placeId", "name", "category", "address", "addressLine", "city", "province", "postalCode", "country", "latitude", "longitude", "phone", "phoneE164", "websiteUrl", "domain", "rating", "reviewCount", "businessStatus", "plusCode", "searchTerm", "searchLocation"].filter((k) => JSON.stringify(back[k]) !== JSON.stringify(listing[k]));
+  ok("a stored row rebuilds to the listing it came from", same.length === 0 && JSON.stringify(back.hours) === JSON.stringify(listing.hours), same.join(","));
+  ok("a CID-only row rebuilds its cid", rawFromListingRow({ externalId: "cid:0x1:0x2", payload: {} }).cid === "0x1:0x2" && rawFromListingRow({ externalId: "cid:0x1:0x2", payload: {} }).placeId === null);
+  ok("the where: refused google_maps rows only, --state optional", rematchWhere().matchedProspectId === null && rematchWhere().matchResult.not === null && rematchWhere({ regions: ["NY"] }).province.in.join() === "NY");
+
+  // Over a fake db: the refused row flips to matched under today's rule, dry writes nothing.
+  const bpRow = { id: "p-bp", businessName: "BP PLUMBING", addressLine: "10 MAIN ST", city: "LAKESIDE", province: "CA", country: "US", postalCode: "92040", phoneE164: null, domain: null, websiteUrl: null, hasWebsite: null, googlePlaceId: null, googleRating: null, googleReviewCount: null, businessStatus: null, latitude: 32.85, longitude: -116.92, tradingNames: [], assignedRepId: null, campaignId: null };
+  const writes = [];
+  const tx = { prospect: { update: async (a) => (writes.push(["prospect.update", a]), a) }, prospectEvidence: { createMany: async (a) => (writes.push(["evidence", a]), a) }, salesContactNumber: { create: async (a) => (writes.push(["number", a]), a) }, externalListing: { upsert: async (a) => (writes.push(["listing", a]), { id: "el-r" }) } };
+  const fakeDb = {
+    externalListing: { findMany: async ({ cursor }) => (cursor ? [] : [stored]), upsert: async (a) => (writes.push(["listing", a]), { id: "el-r", matchedProspectId: null }) },
+    prospect: { findMany: async () => [bpRow], findFirst: async () => null },
+    salesContactNumber: { findMany: async () => [] },
+    $transaction: async (fn) => fn(tx),
+  };
+  const dry = await rematchUnmatched({ db: fakeDb, dry: true });
+  ok("dry: the name_disagrees row now matches, nothing written", dry.considered === 1 && dry.byBefore.name_disagrees === 1 && dry.flipped.matched === 1 && dry.flips[0].prospect === "BP PLUMBING" && writes.length === 0, JSON.stringify(dry));
+  const wet = await rematchUnmatched({ db: fakeDb, dry: false });
+  ok("applied: the prospect gains the phone and website, the listing is linked, stamps stay at the sighting", wet.flipped.matched === 1 && writes.some((w) => w[0] === "prospect.update" && w[1].data.phoneE164 === "+16195550100" && w[1].data.websiteUrl === "https://bpplumb.example/" && w[1].data.placesCheckedAt.toISOString() === "2026-09-19T03:00:00.000Z") && writes.some((w) => w[0] === "listing" && w[1].update.matchedProspectId === "p-bp" && !("runId" in w[1].update)));
+}
+
+// ── The run record and the panel ───────────────────────────────────────
+section("run record and panel");
+{
+  const summary = { ...emptySummary("20260921-020000Z", { regions: ["NY", "FL", "CA"] }), regions: ["NY", "FL", "CA"], skippedOutside: { rows: 61987, claimed: 10, candidates: 61977 }, pairs: 12, placesOpened: 40, placesParsed: 39, written: { matched: 20, matchedVerify: 2, alreadyAttached: 0, noConfidentMatch: 5, noCandidates: 12, placeIdConflict: 0, duplicatePlace: 0, unnamed: 0, errors: 0 }, promoted: { considered: 12, promoted: 9, researchQueued: 9, byState: { NY: 9 }, byTrade: { known: 7, unknown: 2 }, dry: false } };
+  const rec = runRecordFrom(summary);
+  ok("the record keeps the states, the skipped count, the verify count and the promotion — and no args or file paths", rec.regions.join() === "NY,FL,CA" && rec.skippedOutside.rows === 61987 && rec.written.matchedVerify === 2 && rec.promoted.promoted === 9 && !("args" in rec));
+  const kept = keepRuns([{ runId: "20260920-010000Z" }, { runId: "20260921-020000Z", pairs: 1 }], rec);
+  ok("keepRuns replaces by runId, newest first, capped", kept.length === 2 && kept[0].runId === "20260921-020000Z" && kept[0].pairs === 12 && keepRuns(Array.from({ length: 30 }, (_, i) => ({ runId: `2026090${i}-000000Z` })), rec).length === RUNS_KEPT);
+  const settings = new Map();
+  await recordScrapeRun({ db: { platformSetting: { findUnique: async ({ where }) => (settings.has(where.key) ? { value: settings.get(where.key) } : null), upsert: async ({ where, create }) => settings.set(where.key, create.value) } }, summary });
+  ok("recordScrapeRun writes the setting the status reads", settings.get(RUNS_SETTING_KEY)?.[0]?.runId === "20260921-020000Z");
+  const folded = foldRuns([{ runId: "20260921-020000Z", _count: { _all: 39 }, _min: { createdAt: new Date("2026-09-21T02:10:00Z") }, _max: { updatedAt: new Date("2026-09-21T04:00:00Z"), lastSeenAt: null } }, { runId: "20260920-010000Z", _count: { _all: 5 }, _min: {}, _max: {} }], [{ runId: "20260921-020000Z", _count: { _all: 22 }, _max: {} }], settings.get(RUNS_SETTING_KEY));
+  ok("the run's record is joined onto its listing counts by runId; an unrecorded run has asked: null", folded.runs[0].asked?.regions?.join() === "NY,FL,CA" && folded.runs[0].matched === 22 && folded.runs[1].asked === null);
+  ok("a recorded run that wrote no listing is still listed", foldRuns([], [], [rec]).runs.length === 1 && foldRuns([], [], [rec]).runs[0].rows === 0);
+  const sentence = askedSentence(folded.runs[0]);
+  ok("the panel prints the state filter and the skipped count", /States: NY \/ FL \/ CA only/.test(sentence) && /61,987 prospects outside skipped \(10 held, 61,977 next in dispatch\)/.test(sentence) && /promoted 9 of 12/.test(sentence) && /2 attached on phone\/website alone/.test(sentence), sentence);
+  ok("an unrecorded run is never printed as 'no filter'", /not recorded/.test(askedSentence(folded.runs[1])) && /no filter/.test(askedSentence({ asked: { regions: null } })));
+  ok("promotable now / promoted", promotionSentence({ promotable: 2568, promoted: 12 }) === "promotable now: 2,568 · promoted: 12" && /unavailable/.test(promotionSentence(null)));
+}
+
 // ── Tiling ─────────────────────────────────────────────────────────────
 section("tiling");
 {
@@ -392,6 +659,13 @@ section("wiring");
   ok("scrape:maps is a script that loads .env and the alias", /--env-file=\.env/.test(pkg.scripts?.["scrape:maps"] || "") && /alias-loader/.test(pkg.scripts?.["scrape:maps"] || ""));
   const schema = fs.readFileSync(path.join(path.dirname(FIXTURES), "..", "..", "prisma", "schema.prisma"), "utf8");
   ok("the schema carries the maps-scrape columns on ExternalListing", /model ExternalListing \{[\s\S]*?tradeKey\s+String\?[\s\S]*?businessStatus String\?[\s\S]*?claimed\s+Boolean\?[\s\S]*?matchResult\s+Json\?[\s\S]*?lastSeenAt\s+DateTime[\s\S]*?@@unique\(\[source, externalId\]\)/.test(schema));
+  ok("the schema carries promotedProspectId and its index", /model ExternalListing \{[\s\S]*?promotedProspectId String\?[\s\S]*?promotedAt\s+DateTime\?[\s\S]*?@@index\(\[promotedProspectId\]\)/.test(schema));
+  const mapsSrc = fs.readFileSync(path.join(path.dirname(FIXTURES), "maps.mjs"), "utf8");
+  ok("every sweep ends by promoting its own run's listings, and records the run for the panel", /promoteListings\(\{ db, dry: args\.dry, runId, regions: args\.regions \}\)/.test(mapsSrc) && /recordScrapeRun\(\{ db, summary: snapshot \}\)/.test(mapsSrc));
+  const bbbSrc = fs.readFileSync(path.join(path.dirname(FIXTURES), "..", "bbb-principal.mjs"), "utf8");
+  ok("bbb-principal.mjs takes --state through the same parser and passes it to the batch", /parseRegions/.test(bbbSrc) && /regions: REGIONS/.test(bbbSrc));
+  const docsText = fs.readFileSync(path.join(path.dirname(FIXTURES), "..", "..", "docs", "sales", "SCRAPE-LOCAL-RUN.md"), "utf8");
+  ok("the run-book names --state, --rematch and --promote", /--state NY,FL,CA/.test(docsText) && /--rematch --apply/.test(docsText) && /--promote --apply/.test(docsText));
   const summary = fs.readFileSync(path.join(path.dirname(FIXTURES), "..", "..", "lib", "platform", "costs", "summary.js"), "utf8");
   ok("/platform/costs reads the local_scrape line", /provider: "local_scrape"/.test(summary) && /key: "local_scrape"/.test(summary));
   const docs = path.join(path.dirname(FIXTURES), "..", "..", "docs", "sales", "SCRAPE-LOCAL-RUN.md");

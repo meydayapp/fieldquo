@@ -1,6 +1,8 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 20 September 2026 (the Google Places API sweep is retired from the sales pipeline — the owner's rule of 2026-09-18 is that Google data is scraped from his Mac by scripts/scrape/maps.mjs, never fetched by key, and the API had refused every request since 2026-09-18T11:48Z, 9,181 PERMISSION_DENIED rows one a minute; the cron sweep, the claim-time after() call, the enrich route and the "Check Google" button are deleted, the prospects page reads what the Mac scrape landed instead, the cron marks the refusal rows reviewed once as system:places-retired, listingRow now writes the run id it always took, and `npm run check:places-retired` keeps a Google call from coming back — see the section below)
+Last updated: 21 September 2026 (the two Mac-run scrapers take `--state NY,FL,CA` — the enrichment order with everything outside those states removed BEFORE ranking, the skipped count printed and shown on the Maps panel; the listing matcher joins initialisms and sets trade words aside symmetrically, attaches a listing on the record's own phone or website under `matched_verify` with a "confirm on the call" fact on the card and the brief, and refuses a shared number or a franchise domain as an identity; `maps.mjs --rematch` re-reads the 1,725 refusals and `--promote` turns unmatched open listings with a phone into prospects in the review folder with their crawl queued, which every sweep now also does for its own run; BBB's employee band is captured end to end with a saved profile fixture — see "Regional passes, matched_verify, promotion" below)
+
+Previous: 20 September 2026 (the Google Places API sweep is retired from the sales pipeline — the owner's rule of 2026-09-18 is that Google data is scraped from his Mac by scripts/scrape/maps.mjs, never fetched by key, and the API had refused every request since 2026-09-18T11:48Z, 9,181 PERMISSION_DENIED rows one a minute; the cron sweep, the claim-time after() call, the enrich route and the "Check Google" button are deleted, the prospects page reads what the Mac scrape landed instead, the cron marks the refusal rows reviewed once as system:places-retired, listingRow now writes the run id it always took, and `npm run check:places-retired` keeps a Google call from coming back — see the section below)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -2185,6 +2187,98 @@ carries nobody (24 columns, no répondant).
   beats fetched, the upload refusal, the order, the pair dedupe, metering.
 
 Write-up: `docs/sales-intel/SOURCE-WHO-TO-ASK-FOR.md`.
+
+---
+
+## Regional passes, matched_verify, promotion, BBB headcount (21 September 2026)
+
+The owner, 2026-09-21: "Can we focus the Google Places [scrape] on NY, FL and
+California? I don't know if the BBB is set that way — prioritise those
+first." And, on the matcher's refusals measured on production (914
+name_disagrees, 406 no candidate, 255 place_disagrees, and ~150 where the
+phone or domain was the record's and only the name disagreed): the first
+three are correct, the last four are "almost certainly the same business".
+And: "the ~2,568 unmatched open businesses with phone numbers — can we
+determine their trades? Send them to the place in the platform where the AI
+identifies them and I put them in a trade, and then have the web crawler and
+the other analytics run so they can be used as leads."
+
+- **`--state`** on both scripts (`scripts/scrape/maps.mjs`,
+  `scripts/bbb-principal.mjs`; repeatable, `NY,FL,CA`, `--province QC`, full
+  names accepted, an unknown token stops the run).
+  `lib/sales/intel/enrichmentOrder.js` `loadEnrichmentOrder({ regions })`
+  filters the claims in memory and the candidates in the WHERE — before
+  ranking, so the window is the first 400 rows IN those states — and counts
+  what it dropped; `pairsFromRows(rows, byId, { regions })` applies it again
+  and reports `skippedOutside`. Measured on production the day it landed:
+  NY/FL/CA left 12 pairs of held leads and dropped 61,987 prospects (10 held,
+  61,977 next in dispatch). The run writes a trimmed summary to
+  `PlatformSetting` `sales.mapsScrape.runs` at every checkpoint
+  (`recordScrapeRun`), and `MapsScrapePanel` prints the states, the skipped
+  count, the verify count and the promotion per run — "not recorded" for a
+  run before this or a dry run, never "no filter".
+- **The matcher** (`lib/sales/intel/places.js` `nameTokens` / `nameOverlap`,
+  `lib/sales/intel/listings.js`): runs of single letters are one token ("B
+  P" ≡ "B.P." ≡ "B&P" ≡ "BP"); the trade words are set aside for a second,
+  SYMMETRIC reading (shared over the longer core) when both names keep a
+  word and do not name different trades — the first dry rematch, with a
+  register-only reading, called "MK Best Roofing" ≡ "Atlantic Do it Best
+  Hardware" and "Chimney MD" ≡ "Allied Roofing and Chimney"; the symmetric
+  reading refuses both and every shape like them is in the check. The
+  row's city is a place word for that reading ("Rochester Remodeling and
+  Home Builders" is not "Quality Homes of Rochester" — the second dry
+  rematch found it), and two different towns on the two signs is two
+  branches of one franchise: no core reading, no identity accept, no verify
+  ("Servpro of El Cajon" ≠ "Servpro of Lakeside"). A listing
+  whose phone or website domain IS the record's and whose name the rule
+  still refuses is attached under **`matched_verify`**: the listing linked,
+  Google's fields filling blanks only exactly as a match does,
+  `placesVerdict` `matched_verify`, and a confirmation the rep card and the
+  brief print first — "Google lists this number as {name} — a rebrand or a
+  shared line; confirm on the call" (`app.salesIntel.places.identity.*`, all
+  nine languages). A phone or domain that two or more candidates in the net
+  carry is a network, not a business — servpro.com is 323 prospects,
+  instagram.com 474 — and is struck from the verify AND from the older
+  "identity plus a shared word" accept; platform domains (`SHARED_DOMAINS`)
+  never count. name_disagrees without identity, place_disagrees and
+  no-candidate are refused as before, asserted.
+- **`maps.mjs --rematch [--apply]`** (`lib/sales/intel/rematch.js`) rebuilds
+  each refused row's record and runs the SAME `applyListing`, stamps left at
+  the sighting; count first, `--apply` writes.
+- **`maps.mjs --promote [--apply] [--state …]`**
+  (`lib/sales/intel/promoteListings.js`): an unmatched, open listing with a
+  phone and a name, no Prospect on its phone / domain / place id, not on the
+  do-not-contact list, not a supply house by name or category, becomes a
+  Prospect (`sourceProvider` `google_maps`, `sourceRecordId` the place id,
+  no campaign) with the ingest's own status — `discovered` and the trade
+  when Google's category maps to one (1,728 of the 1,862 promotable rows:
+  straight into that trade's queue), `discovered` with no trade or
+  `needs_review` otherwise (134: the review folder's "no trade" / "unclear",
+  where the trade suggestions and bulk assign already are). The research
+  chain is queued on the backlog lane once, after the writes. The listing's
+  `promotedProspectId` is set in the same transaction (re-checked null at
+  write time); the Prospect unique on (sourceProvider, sourceRecordId) is the
+  second lock. **Every sweep ends by promoting its own run's listings.** The
+  panel prints "promotable now: N · promoted: M". Dry-run on production:
+  1,862 of 2,551 (NY 720, no-province 611, ON 226, QC 93, NJ 85, CA 69, FL
+  41 …); NY/FL/CA only: 836 of 1,303. `google_maps` has a contact basis
+  (`lib/sales/contactBasis.js`) so the card says "Google Maps listing".
+- **BBB's employee band**: the parser already read the `<dl>` row; BBB shows
+  it on a minority of profiles (one of the 54 matched in production; two of
+  three opened by hand had none). It now also reads the JSON-LD
+  `numberOfEmployees`, "Business Incorporated" and "Years in Business"
+  (evidence only, never a start year), and
+  `scripts/fixtures/bbb/undisputed-plumbers.profile.html` — the one
+  production profile with the row — drives parse → `planBbbWrite` →
+  `employeeRange` → `planFitForRange` in `check:who-to-ask-for`.
+- Merged on the way: `agent/places-retire` (the Places API retirement, the
+  runId fix) — it had been finished and never pushed, and the panel this
+  work extends is in it.
+- Not touched: `lib/sales/calls`, `app/api/rep-dial` (a telemetry agent is
+  live there). Two checks fail on `origin/main` before this work and still
+  do, unrelated: `check:sales-brief` ("the head of the chain", a
+  `salesPipelineTask[0]` undefined) and `check:prospect-ui` (a `findMany`
+  undefined).
 
 ---
 

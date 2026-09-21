@@ -12789,11 +12789,20 @@ model ExternalListing {
   /// The last sighting. A re-scrape updates this and the payload; it never
   /// clears matchedProspectId.
   lastSeenAt     DateTime @default(now())
+  /// The Prospect this listing BECAME (lib/sales/intel/promoteListings.js):
+  /// an unmatched, open listing with a phone, promoted into the pool for the
+  /// review folder and the research chain. Set once and never cleared, so a
+  /// listing is promoted at most once however many sweeps re-sight it.
+  /// Distinct from matchedProspectId on purpose — that is a register row the
+  /// listing corroborates; this is a row the listing created.
+  promotedProspectId String?
+  promotedAt         DateTime?
 
   @@unique([source, externalId])
   @@index([source, phoneE164])
   @@index([source, domain])
   @@index([matchedProspectId])
+  @@index([promotedProspectId])
   @@index([source, keyword, location])
   @@index([tradeKey, city])
 }

@@ -41,6 +41,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { AlertCircle, Loader2, MapPin, RefreshCw } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
+import { askedSentence, promotionSentence, runSentence, stamp } from "@/lib/sales/intel/mapsScrapeSentences";
 
 const BTN =
   "inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60";
@@ -52,20 +53,10 @@ const CARD = "rounded-xl border border-border bg-card p-4 space-y-3";
  *  status loads and beside it after, because it is true either way. */
 const NEXT_SWEEP = "The next sweep runs from the owner's Mac (scripts/scrape/maps.mjs); nothing here calls Google.";
 
-/** "2026-09-19 23:25 UTC" — the console's own format; no locale, no zone
- *  guess, because two admins in two zones read the same run. */
-function stamp(iso) {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "—";
-  return `${d.toISOString().slice(0, 16).replace("T", " ")} UTC`;
-}
-
-/** The sentence one run reads as. Exported for the check. */
-export function runSentence(r) {
-  if (!r) return "";
-  return `${r.rows.toLocaleString()} rows · ${r.matched.toLocaleString()} matched a prospect · ${r.unmatched.toLocaleString()} unmatched · written ${stamp(r.firstAt)} → ${stamp(r.lastAt)}`;
-}
+// The sentences are in lib/sales/intel/mapsScrapeSentences.js — pure, so
+// the check executes them and this browser component never imports the
+// database client. `runSentence` is re-exported for the retired-Places check.
+export { runSentence };
 
 export default function MapsScrapePanel() {
   const [status, setStatus] = useState(null);
@@ -121,9 +112,12 @@ export default function MapsScrapePanel() {
           <div className="space-y-1">
             <h3 className="text-sm font-medium text-foreground">Last run</h3>
             {status.latestRun ? (
-              <p className="text-sm text-foreground break-words">
-                <code className="text-xs">{status.latestRun.runId}</code> · {runSentence(status.latestRun)}
-              </p>
+              <>
+                <p className="text-sm text-foreground break-words">
+                  <code className="text-xs">{status.latestRun.runId}</code> · {runSentence(status.latestRun)}
+                </p>
+                <p className={`text-sm break-words ${status.latestRun.asked ? "text-foreground" : "text-muted-foreground"}`}>{askedSentence(status.latestRun)}</p>
+              </>
             ) : (
               <p className="text-sm text-muted-foreground">
                 No run has recorded its id yet — the rows below are from runs before the scrape wrote one (fixed 2026-09-20 in
@@ -141,6 +135,7 @@ export default function MapsScrapePanel() {
                 {status.runs.slice(1).map((r) => (
                   <li key={r.runId} className="text-foreground break-words">
                     <code className="text-xs">{r.runId}</code> · {runSentence(r)}
+                    {r.asked ? <span className="block text-xs text-muted-foreground">{askedSentence(r)}</span> : null}
                   </li>
                 ))}
               </ul>
@@ -164,6 +159,14 @@ export default function MapsScrapePanel() {
               <dd className="text-foreground">
                 {status.total.rows.toLocaleString()} listings · {status.total.matched.toLocaleString()} matched a prospect ·{" "}
                 {status.total.unmatched.toLocaleString()} unmatched (kept for a later ingest)
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs text-muted-foreground">Unmatched listings → prospects</dt>
+              <dd className="text-foreground">
+                {promotionSentence(status.promotion)} · an open listing with a phone that matched no register row becomes a
+                prospect in the review folder with its crawl queued, at the end of every sweep and on{" "}
+                <code className="text-xs">maps.mjs --promote --apply</code> from the owner&apos;s Mac
               </dd>
             </div>
             <div>
@@ -241,7 +244,11 @@ export function MapsListingCard({ prospect }) {
                   " · run id not recorded (a run before 2026-09-20)"
                 )}
                 {l.lastSeenAt ? ` · last seen ${stamp(l.lastSeenAt)}` : ""}
-                {l.matchVerdict && l.matchVerdict !== "matched" ? ` · ${l.matchVerdict}` : ""}
+                {l.matchVerdict === "matched_verify"
+                  ? " · attached on the phone or website alone — the name differs; confirm on the call"
+                  : l.matchVerdict && l.matchVerdict !== "matched"
+                    ? ` · ${l.matchVerdict}`
+                    : ""}
               </p>
               <ul className="space-y-2">
                 <Beside label="Name" record={prospect.businessName} listing={l.name} />

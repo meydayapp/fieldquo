@@ -138,6 +138,24 @@ ok("an empty page is not a profile", parseBbbProfile("") === null && parseBbbPro
 const twoPrincipals = parseBbbProfile('<html><head></head><body><span id="businessName">Two Owners Plumbing</span><dl><div><dt>Principal Contacts</dt><dd>Mr. José Núñez, Co-Owner</dd><dd>Mrs. Ann-Marie O\'Brien, Co-Owner</dd></div><div><dt>Number of Employees</dt><dd>2 - 5</dd></div><div><dt>Type of Entity</dt><dd>Limited Liability Company (LLC)</dd></div></dl></body></html>');
 ok("two principals with Mr./Mrs. prefixes and accents, both kept, prefixes dropped", twoPrincipals.people.length === 2 && twoPrincipals.people[0].name === "José Núñez" && twoPrincipals.people[1].name === "Ann-Marie O'Brien" && twoPrincipals.people.every((p) => p.role === "Co-Owner"), twoPrincipals.people);
 ok("employee band and entity from the <dl> when JSON-LD has none", twoPrincipals.employeeRange === "2-5" && twoPrincipals.entityType === "Limited Liability Company (LLC)");
+// The one profile of the 54 matched in production that carried "Number of
+// Employees" (read by hand 2026-09-21): the band, the incorporation date and
+// the years, through the write plan, into the plan-fit sentence.
+const undisputed = parseBbbProfile(read("scripts/fixtures/bbb/undisputed-plumbers.profile.html"));
+ok("Undisputed: employees from the <dl>, incorporated, years, started, entity", undisputed.employeeRange === "2" && undisputed.businessIncorporated === "5/6/2020" && undisputed.businessIncorporatedYear === 2020 && undisputed.yearsInBusiness === 6 && undisputed.businessStartedYear === 2020 && undisputed.entityType === "Corporation", undisputed);
+ok("Undisputed: the owner, the phone, the grade, not accredited", undisputed.people[0]?.name === "Alan Yanez" && undisputed.people[0].kind === "principal" && undisputed.phone === "(925) 232-1283" && undisputed.rating === "A+" && undisputed.accredited === false);
+const ldOnly = parseBbbProfile('<html><head><script type="application/ld+json">{"@type":"LocalBusiness","name":"Band Co","numberOfEmployees":{"@type":"QuantitativeValue","minValue":"6","maxValue":"10"}}</script></head><body></body></html>');
+ok("employees from JSON-LD numberOfEmployees when the <dl> has no row", ldOnly.employeeRange === "6-10" && parseBbbProfile('<html><head><script type="application/ld+json">{"@type":"LocalBusiness","name":"V","numberOfEmployees":{"value":"51+"}}</script></head><body></body></html>').employeeRange === "51+");
+ok("a page with no employee row leaves the band null — never invented", profile.employeeRange === null);
+{
+  const blankRow = { id: "u", businessName: "UNDISPUTED PLUMBERS INC", city: "BAY POINT", province: "CA", postalCode: "94565", phoneE164: "+19252321283", employeeRange: null, businessStartedYear: null, entityType: null, bbbProfileUrl: null, bbbRating: null, bbbAccredited: null, domain: null, websiteUrl: null, hasWebsite: null };
+  const plan = planBbbWrite({ prospect: blankRow, profile: undisputed, now: new Date("2026-09-21T00:00:00Z") });
+  ok("the write plan fills employeeRange blank-only and cites it", plan.data.employeeRange === "2" && plan.gained.includes("employeeRange") && plan.evidence.some((e) => e.detector === "bbb.profile:employeeRange" && /2 employees/.test(e.rawValue)));
+  ok("incorporation and years are evidence, not columns", plan.evidence.some((e) => e.detector === "bbb.profile:businessIncorporated" && /5\/6\/2020/.test(e.rawValue)) && plan.evidence.some((e) => e.detector === "bbb.profile:yearsInBusiness") && !("businessIncorporated" in plan.data) && !("yearsInBusiness" in plan.data));
+  ok("a row that already has a band keeps it", !("employeeRange" in planBbbWrite({ prospect: { ...blankRow, employeeRange: "6-10" }, profile: undisputed }).data));
+  const { planFitForRange } = await import("@/lib/sales/intel/planFit");
+  ok("the plan-fit fact then has data: 2 employees → Solo", /About 2 employees per BBB/.test(planFitForRange(plan.data.employeeRange)?.sentence || "") && /Solo/.test(planFitForRange(plan.data.employeeRange).sentence));
+}
 ok("a page with a name and no Principal Contacts block names nobody", parseBbbProfile('<html><body><span id="businessName">Quiet Co</span><dl><div><dt>Type of Entity:</dt><dd>Sole Proprietorship</dd></div></dl></body></html>').people.length === 0);
 ok("a contact line with no role keeps the name", parseContactLine("Ms. Priya Patel").role === null && parseContactLine("Ms. Priya Patel").name === "Priya Patel");
 ok("malformed JSON-LD does not throw, the <dl> still reads", parseBbbProfile('<html><head><script type="application/ld+json">{bad json</script></head><body><span id="businessName">X</span><dl><div><dt>Principal Contacts</dt><dd>Mr. A B, Owner</dd></div></dl></body></html>').people[0].name === "A B");
@@ -332,6 +350,23 @@ ok("the cron runs the register sweep (from enrichmentSweep.js, not the retired P
 ok("the rep's typed name has a route, scoped by queueWhere", /queueWhere\(rep\.id/.test(read("app/api/sales/queue/people/route.js")) && /source: "typed"/.test(read("app/api/sales/queue/people/route.js")));
 ok("the rep card mounts the control and posts to that route", /WhoToAskFor/.test(read("app/sales/queue/page.js")) && /\/api\/sales\/queue\/people/.test(read("app/components/sales/WhoToAskFor.js")));
 ok("the platform page mounts the enrichment panel and lists people with sources", /EnrichmentPanel/.test(read("app/platform/sales/prospects/page.js")) && /x\.sourceLabel/.test(read("app/platform/sales/prospects/page.js")));
+{
+  const { bbbBatch } = await import("@/lib/sales/intel/bbbBatch");
+  const seen = [];
+  const fakeDb = {
+    salesQueueClaim: { findMany: async ({ where }) => (where.releasedAt === null ? [
+      { prospectId: "ny", salesRepId: "r", claimedAt: new Date("2026-09-20"), position: 0, prospect: { tradeKey: "plumbing", mergedIntoId: null, doNotContactAt: null, province: "NY" } },
+      { prospectId: "or", salesRepId: "r", claimedAt: new Date("2026-09-20"), position: 1, prospect: { tradeKey: "plumbing", mergedIntoId: null, doNotContactAt: null, province: "OR" } },
+    ] : [{ claimedAt: new Date("2026-09-20"), prospect: { tradeKey: "plumbing" } }]) },
+    prospect: {
+      findMany: async ({ where }) => { seen.push(where); return where.id ? [{ id: "ny", businessName: "NY Plumbing", city: "Buffalo", province: "NY", tradingNames: [] }] : []; },
+      count: async () => 3,
+    },
+  };
+  const batch = await bbbBatch({ db: fakeDb, scope: "claimed", regions: ["NY", "FL", "CA"] });
+  ok("bbbBatch --state: the Oregon claim is left out before ranking and counted", batch.rows.length === 1 && batch.rows[0].id === "ny" && batch.rows[0].province === "NY" && batch.regions.join() === "NY,FL,CA" && batch.outsideRegions.claimed === 1 && batch.outsideRegions.candidates === 3, JSON.stringify({ rows: batch.rows.map((r) => r.id), outside: batch.outsideRegions }));
+  ok("bbbBatch --ids ignores the filter", (await bbbBatch({ db: fakeDb, scope: "ids", ids: ["ny"], regions: ["FL"] })).rows.length === 1);
+}
 ok("the panel's routes exist", /enrichmentSweepStatus/.test(read("app/api/platform/sales/prospects/enrichment/route.js")) && /applyBbbRows/.test(read("app/api/platform/sales/prospects/bbb-upload/route.js")) && /bbbBatch/.test(read("app/api/platform/sales/prospects/bbb-batch/route.js")));
 ok("the ingest carries WA/OR principals through record → normalise → ingest", /principal: licence\.principal \|\| null/.test(read("lib/sales/discovery/usBoard/record.js")) && /principal:/.test(read("lib/sales/discovery/normalise.js")) && /recordBoardPrincipal\(/.test(read("lib/sales/discovery/ingest.js")));
 ok("the loader never deletes", !/deleteMany|\.delete\(/.test(read("scripts/cslb-personnel-load.mjs")));
