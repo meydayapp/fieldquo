@@ -302,7 +302,7 @@ section("9. The net under the webhooks — lib/sales/calls/reconcileProvider.js"
   ok("carrier reads are counted and capped", legs.fetched === 3 && legs.updated === 2);
 
   const cron = read("app/api/cron/sales-pipeline/route.js");
-  ok("the cron runs both sweeps and one catch-up transcription a tick, each in its own try", /reconcileRecordings\(\{ now, client: db/.test(cron) && /reconcileProspectLegs\(\{ now, client: db/.test(cron) && /transcribeMissing\(\{ limit: 1, client: db \}\)/.test(cron));
+  ok("the cron runs both sweeps and one catch-up transcription a tick, each in its own try", /reconcileRecordings\(\{ now, client: db/.test(cron) && /reconcileProspectLegs\(\{ now, client: db/.test(cron) && /transcribeMissing\(\{ limit: 1, retryUnconfigured: true, client: db \}\)/.test(cron));
   ok("…before the AI slice measures what is left", cron.indexOf("transcribeMissing({ limit: 1") < cron.indexOf("const elapsed = Date.now() - now.getTime()"));
   ok("answering-machine detection is named as the thing NOT turned on", /machineDetection/.test(read("lib/sales/calls/reconcileProvider.js")) && !/machineDetection/.test(read("app/api/rep-dial/bridge/route.js")));
 }

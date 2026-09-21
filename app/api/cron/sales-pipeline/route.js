@@ -235,7 +235,7 @@ export async function GET(request) {
     result.leadStatuses = { error: err?.message || String(err) };
   }
   try {
-    const t = await transcribeMissing({ limit: 1, client: db });
+    const t = await transcribeMissing({ limit: 1, retryUnconfigured: true, client: db });
     result.transcribed = { attempted: t.attempted, done: t.done, results: t.results.map((r) => ({ id: r.id, ok: r.ok, reason: r.reason })) };
   } catch (err) {
     result.transcribed = { error: err?.message || String(err) };
