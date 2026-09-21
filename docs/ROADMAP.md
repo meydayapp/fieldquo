@@ -1,12 +1,80 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 21 September 2026, evening (presence on the sales floor is DERIVED from the portal's keepalive — Off since {time} · Available · Busy · on a call / writing it up · Paused ({reason}) — and the floor board reads the performance page's one calls table, see the first section below; also today: Settings → Reviews: the company finds its Google listing in the Places box and the review link is derived from the place_id; every company has a public digital business card at /c/<slug> — logo, phone, email, address with a map link, Save our contact (a vCard), book / instant price / review / website / socials in the visitor's language — and a QR of it, a print sheet (card QR + a second QR that IS the contact), Add to Apple Wallet / Google Wallet for the contractor's own phone (signers built, env-gated, owner steps in docs/WALLET-PASS.md), NFC-tag instructions with the URL record and the contact record and the bytes each needs, ?ref= tap counts per source; the review email carries the QR in eight languages, the invoice PDF footer gets an optional review QR, the portal's paid state offers the review link; a Google-page paste keeps stars and dates; Connect Google Business Profile (same OAuth client, business.manage) caches reviews for 30 days under Google's name, never as testimonials, and prints Google's quota-0 refusal honestly with the paste path beside it — see "Reviews: the listing, the card, the passes, the tag, and the Business Profile" below; previous line: the sales floor's Twilio telemetry is back — see the telephony section; earlier the same day: the sales floor's Twilio telemetry is back: every call-status and recording callback had answered 500 since 18 September from `new NextResponse("", { status: 204 })` — a 204 may carry no body — and the recording write's `NOT: { recordingSid }` excluded every never-recorded row; both fixed, every notification route now answers an empty 204 through lib/sales/calls/twilioAck.js and a throw is a logged error; the sales cron reconciles recordings and prospect legs from the carrier and transcribes one a tick; /platform/sales/performance prints the carrier's clock beside the rep's report with "Reported vs measured" per rep; /platform/crew-lines says US texting is NOT registered (A2P 10DLC, error 30034) with the owner's registration steps; the Places API sweep is retired — see the section below; also today: the two Mac-run scrapers take `--state NY,FL,CA` — the enrichment order with everything outside those states removed BEFORE ranking, the skipped count printed and shown on the Maps panel; the listing matcher joins initialisms and sets trade words aside symmetrically, attaches a listing on the record's own phone or website under `matched_verify` with a "confirm on the call" fact on the card and the brief, and refuses a shared number or a franchise domain as an identity; `maps.mjs --rematch` re-reads the 1,725 refusals and `--promote` turns unmatched open listings with a phone into prospects in the review folder with their crawl queued, which every sweep now also does for its own run; BBB's employee band is captured end to end with a saved profile fixture — see "Regional passes, matched_verify, promotion" below)
+Last updated: 21 September 2026, night (the sales floor's second pass on call OUTCOMES: sub-reasons under an outcome from platform-edited lists, the owner's audit of what was logged beside the recording with the verdict on the rep's own row, Mark on the live call and on playback with the marks in the AI review, a callback that is personal until the rep is off past a grace and then global to the next available rep with the claim, the inbound service level from arrival to the real pickup, sampled transcription and review, and Twilio answering-machine detection off by default at $0.0075 a call — see "Call outcomes, second pass" below and docs/SALES-OUTCOMES.md; earlier the same evening: presence on the sales floor is DERIVED from the portal's keepalive — Off since {time} · Available · Busy · on a call / writing it up · Paused ({reason}) — and the floor board reads the performance page's one calls table, see the first section below; also today: Settings → Reviews: the company finds its Google listing in the Places box and the review link is derived from the place_id; every company has a public digital business card at /c/<slug> — logo, phone, email, address with a map link, Save our contact (a vCard), book / instant price / review / website / socials in the visitor's language — and a QR of it, a print sheet (card QR + a second QR that IS the contact), Add to Apple Wallet / Google Wallet for the contractor's own phone (signers built, env-gated, owner steps in docs/WALLET-PASS.md), NFC-tag instructions with the URL record and the contact record and the bytes each needs, ?ref= tap counts per source; the review email carries the QR in eight languages, the invoice PDF footer gets an optional review QR, the portal's paid state offers the review link; a Google-page paste keeps stars and dates; Connect Google Business Profile (same OAuth client, business.manage) caches reviews for 30 days under Google's name, never as testimonials, and prints Google's quota-0 refusal honestly with the paste path beside it — see "Reviews: the listing, the card, the passes, the tag, and the Business Profile" below; previous line: the sales floor's Twilio telemetry is back — see the telephony section; earlier the same day: the sales floor's Twilio telemetry is back: every call-status and recording callback had answered 500 since 18 September from `new NextResponse("", { status: 204 })` — a 204 may carry no body — and the recording write's `NOT: { recordingSid }` excluded every never-recorded row; both fixed, every notification route now answers an empty 204 through lib/sales/calls/twilioAck.js and a throw is a logged error; the sales cron reconciles recordings and prospect legs from the carrier and transcribes one a tick; /platform/sales/performance prints the carrier's clock beside the rep's report with "Reported vs measured" per rep; /platform/crew-lines says US texting is NOT registered (A2P 10DLC, error 30034) with the owner's registration steps; the Places API sweep is retired — see the section below; also today: the two Mac-run scrapers take `--state NY,FL,CA` — the enrichment order with everything outside those states removed BEFORE ranking, the skipped count printed and shown on the Maps panel; the listing matcher joins initialisms and sets trade words aside symmetrically, attaches a listing on the record's own phone or website under `matched_verify` with a "confirm on the call" fact on the card and the brief, and refuses a shared number or a franchise domain as an identity; `maps.mjs --rematch` re-reads the 1,725 refusals and `--promote` turns unmatched open listings with a phone into prospects in the review folder with their crawl queued, which every sweep now also does for its own run; BBB's employee band is captured end to end with a saved profile fixture — see "Regional passes, matched_verify, promotion" below)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
 it exists to answer.
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
+
+---
+
+## Call outcomes, second pass: sub-reasons, the audit, marks, the callback agenda, the service level, sampling, AMD (21 September 2026)
+
+Seven capabilities on the sales floor, every one studied from OMniLeads (design
+only, cited by file and line in `docs/SALES-OUTCOMES.md`) and every default the
+floor's own behaviour before this pass. Executed by
+`scripts/check-sales-outcomes.mjs` (131 assertions) and the extended
+`check-sales-call-handling`, `check-sales-call-panel`, `check-call-qa`.
+
+- **Sub-dispositions** — `lib/sales/calls/subDispositions.js`: a closed list
+  per outcome (Not now → already has software / too small / no budget / bad
+  timing / using a competitor (name) / happy as is; wrong number →
+  disconnected / a different business / a personal line / fax; not a fit,
+  gatekeeper), required at the sheet when non-empty, stored on
+  `SalesCallAttempt.subDisposition` + `subDispositionDetail`, counted by
+  sub-reason on `/platform/sales/performance`, editable per outcome on
+  `/platform/sales/outcomes` (defaults in code; a line-written outcome can
+  never be given a list).
+- **Disposition audit** — `SalesDispositionAudit` (approved / rejected /
+  observed, one per attempt, history in PlatformAuditLog), the panel on
+  `/platform/sales/call-quality` beside the recording, transcript and AI
+  score; the rep reads "Reviewed: rejected — note" on the call's row and a
+  30-day count on the dashboard; audited vs unaudited and the rejection rate
+  per rep on performance.
+- **Recording marks** — `SalesRecordingMark`: Mark on the live call (the
+  server stamps now − answeredAt), ticks + list + "Mark here" on the owner's
+  player, and the marks in the QA prompt as "moments the rep flagged".
+- **Callback agenda** — `lib/sales/calls/callbackAgenda.js`: personal by
+  default; past `sales.callback.graceMinutes` (15) with the rep unreachable it
+  goes global to the next available rep who sells in the prospect's language
+  (the inbound line's own reachability, read-only), with the prospect's claim;
+  "Callback due 2:00 pm — asked for you" pushed once and badged on the queue
+  row; the sheet refuses past `maxDaysAhead` (14) and at `maxOpenPerRep`
+  (25); the platform lists due today / overdue / per rep and the floor board
+  flags > 24 h overdue.
+- **Service level** — `sales.inbound.serviceLevelSeconds` (20);
+  `lib/sales/calls/serviceLevel.js` over inbound rows: answered within,
+  abandoned, to voicemail, average and longest wait, per day and per rep. The
+  inbound after-dial used to stamp answeredAt at the END of the desk leg; it
+  is now the pickup (end minus DialCallDuration).
+- **Sampling** — `sales.transcription.percent` and `sales.aiReview.percent`
+  (both 100): FNV-1a of the call sid mod 100, the same call in or out on every
+  run; a superadmin opening a sampled-out call transcribes and scores it on
+  demand; the shares print beside the spend on /platform/costs.
+- **AMD** — `sales.amd.enabled` OFF (Twilio bills $0.0075 a call; the switch
+  prints it and is the approval): `<Dial><Number machineDetection=
+  "DetectMessageEnd" amdStatusCallback=…>`, the verdict on the attempt
+  (`amdResult`/`amdAt`/`amdMs`) from `/api/rep-dial/amd`; a machine verdict
+  files the call as voicemail in the shared buckets, auto-logs `voicemail` so
+  the voicemail retry rule fires, and tells the rep on the card; a drop URL
+  (`sales.amd.voicemailDropUrl`, empty, with the RCW 80.36.400 warning printed
+  on it) plays a machine_end verdict and hangs up that leg — never a human.
+
+### Still owed here
+
+- **AMD accuracy is unmeasured** — the setting is off, so no call carries a
+  verdict. `scripts/report-amd-accuracy.mjs` prints the 2×2 against the
+  transcript for the first 50 calls; run it once the owner switches AMD on
+  and write the figures into `docs/SALES-OUTCOMES.md`.
+- **Reps have no playback of their own recordings**, so a rep's marks are a
+  list on the history row rather than ticks on a player; the owner's player
+  has the ticks.
+- The `sendFromMailbox` assertion in `check-sales-admin.mjs` and three
+  `check-sales-server-copy.mjs` assertions (CallPanel, threads page, the
+  salesIntel fact keys in uk/pa/tl) fail on origin/main before this pass and
+  are untouched by it.
 
 ---
 
