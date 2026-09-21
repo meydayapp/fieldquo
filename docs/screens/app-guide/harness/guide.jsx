@@ -394,6 +394,29 @@ async function runScene(scene) {
     await wait(1200);
     return;
   }
+  if (scene === "paint-rate-picker") {
+    // The painting takeoff's situation-named rate picker: the first row's
+    // rate link ("8 ft walls · 100 sqft/hr") opens the searchable list —
+    // PaintAreas.js RatePicker.
+    const link = [...document.querySelectorAll("[data-takeoff-frame] button")].find((b) => /sqft\/hr/.test(b.textContent));
+    if (!link) throw new Error("scene: no rate link on the painting takeoff");
+    link.click();
+    await until("[role=dialog] input");
+    await wait(300);
+    return;
+  }
+  if (scene === "paint-rates-open") {
+    // The painting rate card (PaintRatesFrame.jsx), opened on its Interior set.
+    await clickButton("Painting rates");
+    await wait(300);
+    return;
+  }
+  if (scene === "paint-substrate-picker") {
+    await clickButton("Add substrate");
+    await until("[role=dialog] input");
+    await wait(300);
+    return;
+  }
   if (scene === "funnel-start") {
     await clickButton("Start");
     await wait(400);

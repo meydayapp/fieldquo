@@ -104,6 +104,7 @@ import P101 from "@/app/accept-invitation/[id]/page.js";
 import P102 from "@/app/signup/page.js";
 import P103 from "@/app/app/quotes/[id]/edit/page.js";
 import P104 from "@/docs/screens/app-guide/harness/TakeoffFrame.jsx";
+import P105 from "@/docs/screens/app-guide/harness/PaintRatesFrame.jsx";
 export const PAGES = {
   "app/app/page.js": P0,
   "app/app/copilot/page.js": P1,
@@ -210,4 +211,5 @@ export const PAGES = {
   "app/signup/page.js": P102,
   "app/app/quotes/[id]/edit/page.js": P103,
   "docs/screens/app-guide/harness/TakeoffFrame.jsx": P104,
+  "docs/screens/app-guide/harness/PaintRatesFrame.jsx": P105,
 };

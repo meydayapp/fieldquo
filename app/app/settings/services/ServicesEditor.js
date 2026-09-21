@@ -30,6 +30,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Plus, X, Sparkles, PackagePlus } from "lucide-react";
 import { INTAKE_FIELD_LIBRARY } from "@/app/data/intakeFieldLibrary";
 import RateCard from "./RateCard";
+import PaintRateSets from "./PaintRateSets";
+import { PAINT_TAKEOFF_CATEGORIES } from "@/lib/pricing/sanitiseRates";
 import QuoteWording from "./QuoteWording";
 import PrepGuideEditor from "./PrepGuideEditor";
 import PrepGuideCompanyCard from "./PrepGuideCompanyCard";
@@ -407,6 +409,10 @@ export default function ServicesEditor({ compact = false, focus = "services", on
   const hasPreset = presetKeys.length > 0;
   // Where `#quote-wording` lands: the first enabled category on screen.
   const firstEnabledId = visibleCategories.find((c) => c.enabled)?.id ?? null;
+  // The one painting card that carries the takeoff's rate sets. Both
+  // painting trades share one takeoff; the card draws once.
+  const firstPaintingId =
+    visibleCategories.find((c) => c.enabled && PAINT_TAKEOFF_CATEGORIES.includes(c.key))?.id ?? null;
 
   // Which per-trade panels this rendering carries — see the header.
   const showRates = focus !== "wording";
@@ -742,6 +748,34 @@ export default function ServicesEditor({ compact = false, focus = "services", on
                   overrides={c.rateOverrides}
                   onChange={(next) => update(c.id, { rateOverrides: next })}
                   defaultOpen={compact && focus === "pricing"}
+                />
+              )}
+
+              {/* The painting takeoff's rate sets — once, on the first enabled
+                  painting trade. Both painting trades read ONE takeoff, but a
+                  company has an override row per trade, so a change here is
+                  written to every painting category's overrides and the save
+                  round-trips both. See PaintRateSets.js. */}
+              {showRates && c.enabled && !c.pricingHidden && c.id === firstPaintingId && (
+                <PaintRateSets
+                  book={c.priceBook}
+                  overrides={c.rateOverrides}
+                  onChange={(next) => {
+                    const takeoff = next?.takeoff;
+                    setCategories((prev) =>
+                      prev.map((cat) => {
+                        if (!PAINT_TAKEOFF_CATEGORIES.includes(cat.key)) return cat;
+                        if (cat.id === c.id) return { ...cat, rateOverrides: next };
+                        const rest = { ...(cat.rateOverrides || {}) };
+                        if (takeoff) rest.takeoff = takeoff;
+                        else delete rest.takeoff;
+                        return {
+                          ...cat,
+                          rateOverrides: Object.keys(rest).length ? rest : null,
+                        };
+                      }),
+                    );
+                  }}
                 />
               )}
 

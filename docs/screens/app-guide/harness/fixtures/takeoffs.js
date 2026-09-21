@@ -95,33 +95,72 @@ export const TAKEOFF_SEEDS = {
   },
   siding: { sqft: 2000, storeys: "two", rotRepairSqft: 40, trimFt: 200, fasciaFt: 120, soffitSqft: 260 },
   insulation: { assembly: "attic", climateZone: "6", sqft: 1200, existingDepthIn: 4, airSeal: true, baffles: 14, crewSize: 2 },
+  // The approved mockup's living room (15 × 16 × 8, $802.77) under the
+  // Interior estimate type, with the ceiling offered as an option and an
+  // extra coat priced by the takeoff — every step the builder now draws.
   interior_painting: {
     model: "area_substrate",
+    estimateType: "interior",
     areas: [
       {
         areaType: "living_room",
         label: "Living room",
         surface: "interior",
         measurement: "area",
+        widthFt: 15,
         lengthFt: 16,
-        widthFt: 14,
-        heightFt: 9,
-        prepHours: 2,
+        heightFt: 8,
+        prepHours: 0,
+        optional: false,
+        roundGallonsUp: null,
+        crewNote: "",
+        clientNote: "Furniture moved to the centre and covered by the client.",
+        substrates: [
+          { key: "walls", label: "Walls", coats: 2, quantity: null, driver: "wallSqft", productKey: "wall_interior", rateKey: "walls", showFormula: true },
+          { key: "baseboard", label: "Baseboard", coats: 2, quantity: null, driver: "linearFt", productKey: "trim_enamel", rateKey: "baseboard" },
+          { key: "door", label: "Door", coats: 2, quantity: 2, doorCount: 1, sides: 2, productKey: "trim_enamel", rateKey: "door" },
+          { key: "ceiling", label: "Ceiling", coats: 2, quantity: null, driver: "ceilingSqft", productKey: "ceiling_flat", rateKey: "ceiling", optional: true },
+        ],
+        options: [
+          { kind: "extra_coat", label: "Extra coat on walls", substrateIndex: 0, amount: null, detail: "" },
+          { kind: "premium_paint", label: "Premium paint upgrade (Aura)", substrateIndex: 0, productKey: "wall_interior_premium", amount: 96, detail: "" },
+        ],
+        media: [],
+      },
+    ],
+  },
+  // The mockup's staining kitchen: 26 doors and 9 drawer fronts, stain and
+  // clear coat on every line, products unpriced until the company prices
+  // them — which is what the figure shows.
+  "interior_painting:staining": {
+    model: "area_substrate",
+    estimateType: "staining",
+    areas: [
+      {
+        areaType: "kitchen",
+        label: "Kitchen",
+        surface: "staining",
+        measurement: "area",
+        widthFt: 0,
+        lengthFt: 0,
+        heightFt: 0,
+        prepHours: 3,
         optional: false,
         roundGallonsUp: null,
         crewNote: "",
         clientNote: "",
         substrates: [
-          { key: "ceiling", label: "Ceiling", coats: 2, quantity: null, driver: "ceilingSqft", productKey: "ceiling_flat" },
-          { key: "walls", label: "Walls", coats: 2, quantity: null, driver: "wallSqft", productKey: "wall_interior", showFormula: true },
-          { key: "baseboard", label: "Baseboard", coats: 2, quantity: null, driver: "linearFt", productKey: "trim_enamel" },
-          { key: "door", label: "Doors", coats: 2, quantity: 2, productKey: "trim_enamel" },
+          { key: "stain_cab_door", label: "Kitchen cabinets — doors", quantity: 26, rateKey: "stain_cab_door", products: [{ productKey: "stain_oil", coats: 1 }, { productKey: "clear_water", coats: 2 }] },
+          { key: "stain_cab_drawer", label: "Kitchen cabinets — drawer fronts", quantity: 9, rateKey: "stain_cab_drawer", products: [{ productKey: "stain_oil", coats: 1 }, { productKey: "clear_water", coats: 2 }] },
         ],
+        options: [],
+        media: [],
       },
     ],
   },
   exterior_painting: {
     model: "area_substrate",
+    estimateType: "exterior",
     areas: [
       {
         areaType: "exterior",
