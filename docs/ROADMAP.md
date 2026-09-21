@@ -1,12 +1,125 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 21 September 2026 (the "next steps" email: two hours after a company's card goes in, if its onboarding checklist is still open, FieldQuo sends one letter in the company's language — the trade in the subject, only the open steps numbered in the checklist's order with what each unlocks for that trade, each a link that opens the step's window on the home page, a tick list of what is done — once per company, never a demo, switch and delay on /platform/companies, sent-date on the company page; see "The next-steps email" below; previous line: Sales-floor supervision: Listen / Whisper / Barge / Take on every live row of /platform/sales/floor through the superadmin's own browser, a Hold button for the rep, HOLD/UNHOLD and every supervisor action logged with seconds, calls to a colleague (browser to browser) and to a number outside the queue behind per-rep privileges — every outbound call runs in a per-attempt Twilio conference when `sales.supervision.enabled` is on, which is OFF by default because it costs +20% per call minute; docs/SALES-SUPERVISION.md — see the first section below; previous line: the call-outcomes second pass, and before it the set-up dialogs and the floor's presence)
+Last updated: 21 September 2026 (the painting takeoff, sections b1–b4 and b6 of the approved builder mockup: a painting quote opens on its estimate type — Interior, Exterior, Cabinets & millwork, Staining, Commercial — each with its own rate set of situation-named rates priced as production rate × hourly or flat per unit, picked in a searchable picker and edited on Settings › Services › Painting rates; an area is a Room or a single Surface with an editable "calculated from measurements" strip, ticks what's painted, draws as one hours-and-money table with options the homeowner ticks under the room (extra coat, premium paint, custom); staining substrates carry stain and clear coat; the den and the exterior job still reproduce to the cent; see "The painting takeoff" below; previous line: the "next steps" email: two hours after a company's card goes in, if its onboarding checklist is still open, FieldQuo sends one letter in the company's language)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
 it exists to answer.
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
+
+---
+
+## The painting takeoff: estimate type first, situation-named rate sets, an editable measurement strip, one table per area with the homeowner's options under the room, and staining (21 September 2026)
+
+The owner approved the builder mockups (`scratchpad/mockups/builder/section.html`,
+sections b1–b4 and b6). Everything below is in `lib/pricing/paintTakeoff.js`
+(the arithmetic), `app/components/quotes/builder/PaintAreas.js` (the screen),
+`app/app/settings/services/PaintRateSets.js` (the rate card) and
+`app/api/settings/painting-rates/route.js` (a custom rate saved from the
+picker). Nothing in QuoteBuilder.js changed: the estimate-type step lives
+inside the takeoff, which is where the mockup's note put it.
+
+**What ships.**
+
+- **Estimate type first (b1).** `takeoff.estimateType` — interior · exterior ·
+  cabinets · staining · commercial (`PAINT_ESTIMATE_TYPES`). Cards carry no
+  hourly rate (owner note). `createTradeConfig` preselects interior /
+  exterior from the trade the group is filed under. A takeoff with no type —
+  every quote written before this — prices exactly as it did
+  (`estimateTypeOf()` → null → substrate rates, $85 / $80 by surface);
+  `scripts/check-paint-rate-sets.mjs` proves the den at $1,028.94 both ways.
+- **Rate sets (b3).** `PAINT_RATE_SET_DEFAULTS[type]` — an hourly sell rate
+  (interior 85 / exterior 80 RECOVERED; cabinets, staining and commercial
+  open at 85) and a keyed map of rates, each naming its substrate and a
+  basis: `production` (units/hr or h/unit × hourly — the recovered model) or
+  `flat` (a sell price per unit — the price book's model; hours still
+  schedule from the rate's own figure or the substrate's, so a $/sqft wall
+  is never labour-blind). Defaults are SEEDED from every substrate so nothing
+  changes until a company edits; the mockup's situation-named variants
+  ("16 ft walls · 80", "8 ft walls, lots of cutting · 75", "Walls, bad
+  condition · $1.50/sqft") are there under `provenance: "example"`, and the
+  picker and the card say so beside `✓ recovered` and `analogue`. Commercial
+  is the interior + exterior card copied as `analogue`. A substrate row
+  stores `rateKey` (the set's) or an inline `rate` (a custom rate that could
+  not be saved to the set — an estimator without settings rights gets a 403
+  from the route and the rate stays on the line, said on screen). The dead
+  per-line `productionRate` read is gone; the rate is the thing read.
+  Overrides ride on `CompanyServiceCategory.rates.takeoff` for BOTH painting
+  rows (the two books share one takeoff in code; `sanitiseRates` now passes
+  the structured subtree through `sanitisePaintTakeoffOverrides`, and the
+  Services editor writes it to both rows).
+- **Area details (b2).** Room (4 walls) / Surface (single wall) — `area` /
+  `wall`; the legacy `surface` style (instant-quote seeds) still draws under
+  Surface. Width · Length · Height, then the strip: Linear ft · Walls sqft ·
+  Ceiling sqft · Floor sqft, each typed over (`linearFtOverride`… — 0 is an
+  override, null/""/junk are not; a single wall refuses a ceiling or floor
+  override), marked "edited", with reset.
+- **Tick what's painted.** `PAINT_QUICK_PICKS[type]` — walls, ceiling, doors
+  (count × one side / both sides), trim, windows, closets for interior; the
+  type's own list for the others. A tick adds the row at the type's default
+  rate.
+- **The area table with options (b4).** Description · Qty · Prep hr ·
+  Painting hr · Total hr · Materials · Labour · Total, an area-total row at
+  the set's hourly, then "Options the homeowner can tick": a whole substrate
+  (the existing optional flag), **extra coat** (`area.options[]` kind
+  `extra_coat` — one more coat of the line's first product through coverage
+  plus `extraCoatHoursPct` of the line's hours, 50% by default, ILLUSTRATIVE
+  and on the card), **premium paint** (`premium_paint` — the product swapped,
+  the delta in paint money; the three premium products ship UNPRICED, so the
+  option says "price it on the rate card or type an amount"), or **custom**.
+  A typed amount wins and is tagged "custom price". They reach the client
+  through the SAME QuoteAddOn rows (`paintOptionalExtras` →
+  `tradeOptionalExtras` → `lib/quotes/takeoffAddOns.js`), now with
+  `QuoteAddOn.areaLabel` (additive column) and `kind`, so the public quote
+  can draw them under the room; the cap is `PAINT_OPTIONAL_EXTRAS_CAP` (40)
+  rather than the add-ons editor's 8, because per-room options are not a
+  foot-of-quote list. The public route returns `areaLabel` on each add-on.
+  Per-area media (`area.media`, MediaUploader, staff-only and said so) and
+  the client note, which now prints as the `detail` under the area's first
+  line for INCLUDED areas too (it used to reach the document only when the
+  area was optional).
+- **Staining (b6).** Substrates under `surface: "staining"`: kitchen cabinet
+  doors / drawer fronts (hours DERIVED from the owner's per-piece minutes in
+  `lib/pricing/cabinetLabour.js`: (6+3+2.5+3×3)/60 = 0.342 h a door), vanity
+  doors / fronts, treads, risers, spindles, railings, deck, fence (one face;
+  both = ×2, said on the pick), front door — each with `products: [stain,
+  clear coat]` so gallons roll up per product for both (`line.materials[]`;
+  `line.gallons` / `productKey` stay the first product's for older readers).
+  Every non-derived figure is `provenance: "illustrative"` and the three
+  staining products are UNPRICED (coverage is the label figure). A painted
+  Cabinets & millwork set exists too, with the refinishing card's $150 a
+  door offered as a FLAT rate beside the derived hours (the check holds the
+  two books equal).
+- **Interior Painting's tile icon.** `ServiceTiles.js`'s curated map now
+  carries every icon name `lib/trades/catalog.js` uses (PaintRoller, Waves,
+  Fence, Building… — 16 were missing and fell back to the Package box);
+  `check-paint-rate-sets.mjs` holds the two lists equal.
+- Checks: `check:paint-takeoff` (258, every recovered cent unchanged) and
+  `check:paint-rate-sets` (603: defaults, continuity, the mockup's living
+  room at $802.77, flat vs production, empty / zero / hidden / mismatched /
+  `__proto__` rates, geometry overrides, the three option kinds, staining,
+  the sanitiser, the merge, the icon map). Frames under
+  `docs/screens/paint-takeoff/` (the full card, the rate picker, the
+  substrate picker, the rate card, the staining kitchen) through the
+  harness's new `paint-takeoff` chapter.
+
+### Still owed here
+
+- **/q/[token] draws the options under the room.** The data is there
+  (`areaLabel`, `kind` on every takeoff add-on); the client page's grouping
+  is the client mini-site agent's, or a small follow-up on
+  `app/q/[token]/QuoteApproval.js` — today the rows still list under
+  "Optional extras" with the room in the description and still reprice.
+- **Cabinets & millwork vs. the Cabinet Refinishing trade** is a product
+  decision the mockup's note names: today the type has its own substrates
+  and offers the refinishing card's per-door price as a flat rate; it does
+  not link to `app/data/cabinetPricing.js`.
+- Premium and staining products need prices before their options and lines
+  carry money — deliberately unpriced rather than guessed; the card flags
+  them.
+- The crew note is still stored and read by no surface (there is no work
+  order); it is labelled "internal" now rather than "work order only".
 
 ---
 
