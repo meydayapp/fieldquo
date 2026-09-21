@@ -78,6 +78,7 @@ import { runApifyTick } from "@/lib/sales/intel/apifyRuns";
 import { reconcileCarrierPrices } from "@/lib/sales/calls/costs";
 import { reconcileRecordings, reconcileProspectLegs } from "@/lib/sales/calls/reconcileProvider";
 import { transcribeMissing } from "@/lib/sales/calls/transcribe";
+import { backfillLeadStatuses } from "@/lib/sales/leadStatus";
 import { pullTwilioUsageIfStale } from "@/lib/platform/costs/twilioUsage";
 import { pullDailyProvidersIfStale } from "@/lib/platform/costs/providerPulls";
 
@@ -221,6 +222,16 @@ export async function GET(request) {
     result.prospectLegs = await reconcileProspectLegs({ now, client: db, limit: 10, log: (line) => console.error(line) });
   } catch (err) {
     result.prospectLegs = { error: err?.message || String(err) };
+  }
+  // Lead statuses follow the outcomes (lib/sales/leadStatus.js): every
+  // disposition and demo of the last fortnight replayed as forward-only
+  // compare-and-sets. The first run after 2026-09-21 is the backfill; every
+  // run after it is the net for a write that took an older path. Cheap —
+  // an UPDATE that matches nothing costs a lookup.
+  try {
+    result.leadStatuses = await backfillLeadStatuses({ client: db, since: new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000), now });
+  } catch (err) {
+    result.leadStatuses = { error: err?.message || String(err) };
   }
   try {
     const t = await transcribeMissing({ limit: 1, client: db });

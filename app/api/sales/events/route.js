@@ -33,6 +33,7 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { advanceLeadStatus } from "@/lib/sales/leadStatus";
 import { db } from "@/lib/db";
 import { requireSalesRep } from "@/lib/sales/gate";
 import { requireCalendarRep } from "@/lib/sales/calendar/gate";
@@ -162,6 +163,9 @@ export async function POST(request) {
 
   if (type !== "walkthrough") {
     const created = await db.salesEvent.create({ data });
+    // A demo on the calendar moves its lead to "demoed" (forward only —
+    // lib/sales/leadStatus.js); the rep does not have to remember the dropdown.
+    if (type === "demo" && leadId) await advanceLeadStatus(db, { leadId, salesRepId: rep.id, to: "demoed" });
     return NextResponse.json({ event: shapeEvent(created) }, { status: 201 });
   }
 

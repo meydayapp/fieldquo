@@ -602,5 +602,49 @@ section("Warm/cold transfer targets: teammates first, everyone labelled");
   ok("the route reads each rep's manager and passes ownAgencyId", /manager: \{ select: \{ id: true, kind: true, name: true \} \}/.test(route) && /ownAgencyId,/.test(route));
 }
 
+// ── The agency's performance and call-quality pages: the team, and only the team ──
+section("The agency performance page: one computation, scoped to the team (owner, 2026-09-21)");
+{
+  fresh();
+  const { loadPerformanceReport } = await import("@/lib/sales/performanceLoad");
+  const { callQaQueue } = await import("@/lib/sales/calls/qaQueue");
+  const dial = (salesRepId, i, extra = {}) => ({ id: `${salesRepId}-${i}`, salesRepId, direction: "out", dialChannel: "browser", dialledAt: NOW, providerCallSid: `CA${salesRepId}${i}`, providerStatus: "completed", talkSeconds: 90, answeredAt: NOW, endedAt: NOW, disposition: "reached", qa: null, ...extra });
+  rows.salesCallAttempt.push(
+    dial("e1", 1), dial("e1", 2, { talkSeconds: 30, disposition: "voicemail" }), dial("e1", 3, { providerStatus: "no-answer", talkSeconds: 0, answeredAt: null, disposition: "no_answer" }),
+    dial("e2", 1),
+    dial(FREELANCER.id, 1), dial(FREELANCER.id, 2),
+    dial("ag_1", 1, { dialChannel: "handset", providerCallSid: null, providerStatus: null, talkSeconds: null, answeredAt: null }),
+  );
+  const teamIds = await agencyTeamIds(AGENCY.id);
+  const repIds = visibleRepIds(repViewer(AGENCY.id, teamIds));
+  const from = new Date("2026-09-14T00:00:00Z");
+  const to = new Date("2026-09-21T23:59:59Z");
+  const report = await loadPerformanceReport({ from, to, repIds });
+  const ids = report.calls.reps.map((r) => r.id);
+  ok("an agency sees its team and itself — never the freelancer, never the floor", ids.length === 4 && ids.every((id) => repIds.includes(id)) && !ids.includes(FREELANCER.id), ids);
+  const ann = report.calls.reps.find((r) => r.id === "e1");
+  ok("the same plain-word table: Ann's row has 3 dials, one in each of nobody / voicemail-or-brief / real", ann?.table?.dials === 3 && ann.table.buckets.nobodyAnswered === 1 && ann.table.buckets.voicemailOrBrief === 1 && ann.table.buckets.realConversation === 1, ann?.table?.buckets);
+  ok("…with the source on every column", ann?.table?.sources?.dials === "twilio" && ann.table.sources.reached === "rep");
+  ok("everyone's row is the team's four dials, the agency's own handset dial named as unverified, and no freelancer", report.calls.totalTable.dials === 4 && report.calls.totalTable.unverified.handset === 1 && report.calls.totalTable.buckets.realConversation === 2, report.calls.totalTable);
+  ok("the reconciliation line is scoped to the team, and when the carrier was not asked it says so rather than agreeing", report.calls.reconciliation === null && report.calls.carrierError === "twilio_not_configured", { rec: report.calls.reconciliation, err: report.calls.carrierError });
+  ok("…every attempt read was scoped to the team's ids", reads.filter((r) => r.model === "salesCallAttempt" && r.action === "findMany").every((r) => Array.isArray(r.args.where?.salesRepId?.in) && r.args.where.salesRepId.in.every((id) => repIds.includes(id))));
+  ok("the call-quality section is over the team's calls only", report.callQuality.reps.every((r) => repIds.includes(r.id)) && !report.callQuality.reps.some((r) => r.id === FREELANCER.id));
+
+  reads.length = 0;
+  const queue = await callQaQueue({ repIds, from, to });
+  ok("the call-quality queue reads only the team's attempts", reads.filter((r) => r.model === "salesCallAttempt").every((r) => Array.isArray(r.args.where?.salesRepId?.in) && r.args.where.salesRepId.in.every((id) => repIds.includes(id))) && Array.isArray(queue));
+
+  const perfRoute = decomment(read("app/api/sales/agency/performance/route.js"));
+  const qaRoute = decomment(read("app/api/sales/agency/call-quality/route.js"));
+  ok("/api/sales/agency/performance refuses a non-agency rep with not_agency, then loads the SAME loadPerformanceReport the platform uses, scoped", /if \(!isAgency\(rep\)\)/.test(perfRoute) && /code: "not_agency"/.test(perfRoute) && /loadPerformanceReport\(\{ from, to, repIds \}\)/.test(perfRoute) && /visibleRepIds\(repViewer\(rep\.id, teamIds\)\)/.test(perfRoute));
+  ok("/api/sales/agency/call-quality refuses a non-agency rep and scopes callQaQueue to the team", /code: "not_agency"/.test(qaRoute) && /callQaQueue\(\{\s*repIds,/.test(qaRoute));
+  ok("the platform page reads the same loader, unscoped", /loadPerformanceReport\(/.test(read("app/api/platform/sales/performance/route.js")) || /loadPerformanceReport\(/.test(read("app/platform/sales/performance/page.js")));
+  const perfPage = read("app/sales/agency/performance/page.js");
+  ok("a non-agency rep at /sales/agency/performance sees the refusal sentence, not an empty table", /failed === "not_agency"/.test(perfPage) && /t\("app\.salesAgency\.notAgency"\)/.test(perfPage));
+  ok("…and at /sales/agency itself", /failed === "not_agency"/.test(read("app/sales/agency/page.js")) && /t\("app\.salesAgency\.notAgency"\)/.test(read("app/sales/agency/page.js")));
+  ok("the agency page draws the shared CallPerformanceSections with the plain-word labels", /CallPerformanceSections/.test(perfPage) && /nobodyAnswered: t\("app\.salesAgencyPerf\.nobodyAnswered"\)/.test(perfPage) && /sourceTwilio: t\("app\.salesAgencyPerf\.sourceTwilio"\)/.test(perfPage));
+  ok("the refusal sentence exists in all nine languages", Object.values(APP_MESSAGES).filter((m) => typeof m["app.salesAgency.notAgency"] === "string").length === 9);
+}
+
 console.log(`\n${failures.length ? "FAILED" : "PASSED"} — ${pass} passed, ${failures.length} failed`);
 if (failures.length) process.exit(1);
