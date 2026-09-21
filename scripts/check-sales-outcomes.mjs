@@ -60,7 +60,7 @@ const { dialTableRow } = await import("@/lib/sales/calls/dialTable");
 const { AUDIT_VERDICTS, parseAuditVerdict, auditFigures } = await import("@/lib/sales/calls/dispositionAudit");
 const { markSecondsFor, parseMark, marksForPrompt, MAX_MARKS_PER_CALL } = await import("@/lib/sales/calls/recordingMarks");
 const { pickGlobalRep, callbackState, callbackRepOf, sweepCallbackAgenda } = await import("@/lib/sales/calls/callbackAgenda");
-const { STATE_AVAILABLE } = await import("@/lib/sales/calls/agentState");
+const { STATE_AVAILABLE, PRESENCE_STALE_MINUTES } = await import("@/lib/sales/calls/agentState");
 const { APP_MESSAGES } = await import("@/app/i18n/appMessages");
 const { buildQaPrompt } = await import("@/lib/sales/calls/qa");
 
@@ -195,19 +195,23 @@ section("5. The callback agenda: state, the global pick, the sweep");
 ok("state: upcoming, due, overdue at an hour, flagged at a day", callbackState({ callbackAt: hoursFrom(T0, 1) }, T0).state === "upcoming" && callbackState({ callbackAt: hoursFrom(T0, -0.1) }, T0).state === "due" && callbackState({ callbackAt: hoursFrom(T0, -2) }, T0).state === "overdue" && callbackState({ callbackAt: hoursFrom(T0, -25) }, T0).state === "flagged");
 ok("a broken time is unknown, not upcoming", callbackState({ callbackAt: "nope" }, T0).state === "unknown");
 ok("the delivered rep is callbackRepId, else the promiser", callbackRepOf({ salesRepId: "a", callbackRepId: "b" }) === "b" && callbackRepOf({ salesRepId: "a" }) === "a");
-const presence = (id, minutesAgo, state = STATE_AVAILABLE) => ({ salesRepId: id, presence: { state, stale: false, everSeen: true, lastSeenAt: hoursFrom(T0, -minutesAgo / 60).toISOString() } });
+// Seconds of idleness, inside PRESENCE_STALE_MINUTES (two minutes since
+// 2026-09-21) — a beat older than that is not reachable, which the last
+// assertion in this section holds.
+const presence = (id, secondsAgo, state = STATE_AVAILABLE) => ({ salesRepId: id, presence: { state, stale: false, everSeen: true, lastSeenAt: hoursFrom(T0, -secondsAgo / 3600).toISOString() } });
 ok("the global pick: the longest-idle reachable rep who sells in the prospect's language, never the one who is off", (() => {
   const r = pickGlobalRep({
     candidates: [{ id: "off", sellsIn: ["en"] }, { id: "busy", sellsIn: ["en"] }, { id: "fr", sellsIn: ["fr"] }, { id: "en1", sellsIn: ["en"] }, { id: "en2", sellsIn: [] }],
-    presence: [presence("busy", 1, "on_call"), presence("fr", 3), presence("en1", 2), presence("en2", 5)],
+    presence: [presence("busy", 10, "on_call"), presence("fr", 30), presence("en1", 20), presence("en2", 50)],
     prospect: { province: "ON" },
     excludeRepId: "off",
     now: T0,
   });
   return r.repId === "en2" && r.reason === "available";
 })());
-ok("a Quebec prospect goes only to a French seller", pickGlobalRep({ candidates: [{ id: "en1", sellsIn: ["en"] }, { id: "fr", sellsIn: ["fr"] }], presence: [presence("en1", 1), presence("fr", 2)], prospect: { province: "QC" }, now: T0 }).repId === "fr");
-ok("…and with no French rep free the reason says so", pickGlobalRep({ candidates: [{ id: "en1", sellsIn: ["en"] }], presence: [presence("en1", 1)], prospect: { province: "QC" }, now: T0 }).reason === "nobody_fr");
+ok("a Quebec prospect goes only to a French seller", pickGlobalRep({ candidates: [{ id: "en1", sellsIn: ["en"] }, { id: "fr", sellsIn: ["fr"] }], presence: [presence("en1", 10), presence("fr", 20)], prospect: { province: "QC" }, now: T0 }).repId === "fr");
+ok("…and with no French rep free the reason says so", pickGlobalRep({ candidates: [{ id: "en1", sellsIn: ["en"] }], presence: [presence("en1", 10)], prospect: { province: "QC" }, now: T0 }).reason === "nobody_fr");
+ok("a beat older than PRESENCE_STALE_MINUTES is not reachable", pickGlobalRep({ candidates: [{ id: "a", sellsIn: ["en"] }], presence: [presence("a", PRESENCE_STALE_MINUTES * 60 + 5)], prospect: { province: "ON" }, now: T0 }).repId === null);
 ok("a stale presence row is not reachable", pickGlobalRep({ candidates: [{ id: "a", sellsIn: ["en"] }], presence: [{ salesRepId: "a", presence: { state: STATE_AVAILABLE, stale: true, everSeen: true, lastSeenAt: T0.toISOString() } }], prospect: { province: "ON" }, now: T0 }).repId === null);
 
 // The sweep, against a scripted client: one due callback, promiser off past
