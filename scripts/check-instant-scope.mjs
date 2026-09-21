@@ -291,7 +291,7 @@ console.log("\nThe public payload and the pricer, executed");
 // ── 5. The screens: pinned in source ────────────────────────────────────────
 console.log("\nThe settings screen, the route and the form");
 {
-  const page = stripComments(read("app/app/settings/instant-quotes/page.js"));
+  const page = stripComments(read("app/app/settings/instant-quotes/page.js") + read("app/app/settings/instant-quotes/TradeCard.js"));
   const route = stripComments(read("app/api/settings/instant-quote/route.js"));
   const flow = stripComments(read("app/instant-quote/[companySlug]/InstantQuoteFlow.js"));
   const server = stripComments(read("lib/estimate/instantQuoteServer.js"));

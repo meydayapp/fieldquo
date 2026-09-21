@@ -282,9 +282,25 @@ for (const s of stepsFor(EMPTY)) {
 // ═══════════════════════════════════════════════════════════════════════════
 console.log("\n3. Every anchor names an id in the target page\n");
 
+// Six of the targets are a frame around an editor that lives beside the
+// page, because the home page's set-up dialogs render the same editor
+// (2026-09-21, the owner: "a pop window instead of redirecting"). The anchor
+// ids and the "Back to home" link are in the editor, so that is the file
+// these sections read for them.
+const PAGE_BODY = {
+  "app/app/settings/services/page.js": "app/app/settings/services/ServicesEditor.js",
+  "app/app/settings/material-costs/page.js": "app/app/settings/material-costs/MaterialCostsEditor.js",
+  "app/app/settings/products/page.js": "app/app/settings/products/ProductCatalogue.js",
+  "app/app/settings/availability/page.js": "app/app/settings/availability/AvailabilityEditor.js",
+  "app/app/settings/email-templates/page.js": "app/app/settings/email-templates/EmailTemplatesManager.js",
+  "app/app/jobs/import/page.js": "app/app/jobs/import/PastJobsEntry.js",
+  "app/app/settings/ai-credit/page.js": "app/app/settings/ai-credit/AiCreditCard.js",
+};
+
 function pageFileFor(href) {
   const path = href.split(/[?#]/)[0];
-  return `app${path}/page.js`;
+  const page = `app${path}/page.js`;
+  return PAGE_BODY[page] || page;
 }
 
 const TARGET_PAGES = new Map();
@@ -309,7 +325,9 @@ for (const step of SETUP_STEPS) {
 // The services page: the wording panel is collapsed by default, so the anchor
 // alone would land on a closed heading. The fragment has to open it.
 {
-  const src = stripComments(source("app/app/settings/services/page.js"));
+  // The editor lives in ServicesEditor.js (the home page's set-up dialogs
+  // render the same one); page.js is the frame around it.
+  const src = stripComments(source("app/app/settings/services/ServicesEditor.js"));
   ok("services: #quote-wording opens the wording panel (defaultOpen from the hash)", /window\.location\.hash === "#quote-wording"/.test(src) && /defaultOpen=\{openWording\}/.test(src));
   ok("services: the id is on ONE category, not every card", /id=\{c\.id === firstEnabledId \? "quote-wording" : undefined\}/.test(src));
 }
@@ -317,12 +335,15 @@ for (const step of SETUP_STEPS) {
 // ═══════════════════════════════════════════════════════════════════════════
 console.log("\n4. Every target page renders <BackToHome />\n");
 
+// The link may sit in the page frame or in the editor beside it — either is
+// the screen the reader lands on — so both files are read.
 for (const [file, key] of TARGET_PAGES) {
   if (!existsSync(file)) {
     ok(`${key}: ${file} imports BackToHome`, false, "file missing");
     continue;
   }
-  const src = stripComments(source(file));
+  const page = Object.entries(PAGE_BODY).find(([, body]) => body === file)?.[0];
+  const src = stripComments(source(file)) + (page && existsSync(page) ? stripComments(source(page)) : "");
   ok(`${key}: ${file} imports BackToHome`, /import BackToHome from "@\/app\/components\/BackToHome"/.test(src));
   ok(`${key}: …and renders it`, /<BackToHome\s*\/>/.test(src));
 }

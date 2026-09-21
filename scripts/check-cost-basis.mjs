@@ -891,8 +891,15 @@ for (const [file, inner] of [
     new RegExp(`return <${inner} />`).test(src),
     `${file}: the fetching component is separate, so a refusal never fetches`,
   );
+  // The fetching component may be defined below the gate in the same file
+  // (Overhead) or imported from its own (Material Costs, whose editor the
+  // home page's set-up dialog also renders); either way the gate must be
+  // decided before the component is rendered.
+  const innerAt = src.includes(`function ${inner}`)
+    ? src.indexOf(`function ${inner}`)
+    : src.indexOf(`<${inner} />`);
   ok(
-    src.indexOf("NoAccessPanel capability") < src.indexOf(`function ${inner}`),
+    innerAt >= 0 && src.indexOf("NoAccessPanel capability") < innerAt,
     `${file}: …and the gate is decided before it`,
   );
 }

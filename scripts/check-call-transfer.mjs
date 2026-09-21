@@ -127,6 +127,7 @@ const NOW = new Date("2026-09-10T12:00:00Z");
 // and for the reason its header records: presenceFor NESTS the state under
 // `presence`, and a check that builds the shape it wishes for passes while the
 // shipped code answers "unreachable" for every rep on the floor.
+// Minutes are fractions of the two-minute Off window since 2026-09-21.
 const row = (id, { state = STATE_AVAILABLE, mins = 0 } = {}) => ({
   salesRepId: id,
   presence: livePresence(
@@ -168,7 +169,7 @@ section("1. Who a rep may hand a caller to");
 {
   const targets = transferTargets({
     reps: REPS,
-    presence: [fresh("daniel"), fresh("maria", 5), fresh("owner", 9)],
+    presence: [fresh("daniel"), fresh("maria", 1), fresh("owner", 1.5)],
     excludeRepId: "daniel",
     now: NOW,
   });
@@ -765,7 +766,7 @@ section("6. It survives into the TwiML, which is the only thing Twilio reads");
   ok("…and only ever joins one room", (joinerXml.match(/<Conference/g) || []).length === 1);
 
   // ── A queue round that rings ─────────────────────────────────────────
-  const ring = ringPlan({ presence: [fresh("maria", 2), fresh("owner", 8)], transferTo: "+15551234567", now: NOW });
+  const ring = ringPlan({ presence: [fresh("maria", 0.5), fresh("owner", 1.5)], transferTo: "+15551234567", now: NOW });
   const step = queueStep({ round: 1, reachableNow: ring.targets.length });
   const ringing = new twilio.twiml.VoiceResponse();
   for (const line of step.say) ringing.say({ voice: "alice" }, line);

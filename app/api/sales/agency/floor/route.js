@@ -40,6 +40,11 @@ export async function GET(request) {
     campaigns: board.campaigns,
     notTracked: board.notTracked,
     serverNow: board.serverNow,
+    // The day's buckets over the team and the Off rule — the same objects
+    // the platform's board carries; FieldQuo's cost and inbound line stay
+    // out (TEAM_LEAD_CANNOT_SEE).
+    table: board.table,
+    settings: board.settings,
     scope: { agencyId: rep.id, repIds: visibleRepIds(viewer) },
   });
 }

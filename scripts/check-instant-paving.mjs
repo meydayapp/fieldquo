@@ -337,7 +337,7 @@ section("The routes: /measure returns the polygon, /request keeps it");
   ok("…beside areaSqft and satelliteImageUrl", /areaSqft: m\.areaSqft \?\? null/.test(measure) && /satelliteImageUrl: m\.satelliteImageUrl \?\? null/.test(measure));
   ok("/request re-measures from the posted polygon", /measureForTrade\(trade, \{ address, polygon, intake/.test(request));
   ok("…and its sanitised snapshot keeps the vertices, the area and the still", /vertices: Array\.isArray\(m\.vertices\) \? m\.vertices : null/.test(request) && /areaSqft: m\.areaSqft \?\? null/.test(request) && /satelliteImageUrl: m\.satelliteImageUrl \?\? null/.test(request));
-  ok("the settings screen explains the trace", /area_polygon:/.test(read("app/app/settings/instant-quotes/page.js")) && /"app\.setInstantQuotes\.measure\.area_polygon"/.test(read("app/i18n/appMessages.js")));
+  ok("the settings screen explains the trace", /area_polygon:/.test(read("app/app/settings/instant-quotes/TradeCard.js")) && /"app\.setInstantQuotes\.measure\.area_polygon"/.test(read("app/i18n/appMessages.js")));
   ok("the review screen labels the source", /area_polygon: \["app\.reviews\.source\.area"/.test(read("app/app/estimate-reviews/page.js")) && /"app\.reviews\.source\.area"/.test(read("app/i18n/appMessages.js")));
 }
 

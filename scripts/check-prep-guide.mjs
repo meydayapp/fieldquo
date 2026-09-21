@@ -374,7 +374,7 @@ section("8. Wiring");
 const read = (p) => readFileSync(repo(p), "utf8");
 ok("the job page renders the card", /PrepGuideCard/.test(read("app/app/jobs/[id]/JobDetail.js")));
 ok("the card's buttons call the real routes", /prep-guide`, \{ method: "POST" \}/.test(read("app/components/jobs/PrepGuideCard.js")) && /method: "PATCH", body: \{ suppressed \}/.test(read("app/components/jobs/PrepGuideCard.js")));
-ok("the settings page stages copies per language and sends only what was touched", /prepGuideCopies/.test(read("app/app/settings/services/page.js")) && /prepGuideCopies: c\.prepGuideCopies/.test(read("app/app/settings/services/page.js")));
+ok("the settings page stages copies per language and sends only what was touched", /prepGuideCopies/.test(read("app/app/settings/services/ServicesEditor.js")) && /prepGuideCopies: c\.prepGuideCopies/.test(read("app/app/settings/services/ServicesEditor.js")));
 ok("the service-categories PATCH merges copies per language", /withPrepGuideCopy\(next, lang, copy\)/.test(read("app/api/settings/service-categories/route.js")));
 ok("JobDocuments names the prep_guide source", /doc\.source === "prep_guide"/.test(read("app/components/jobs/JobDocuments.js")));
 ok("check:all runs this check", /check:prep-guide/.test(read("package.json").match(/"check:all": "([^"]+)"/)[1]));

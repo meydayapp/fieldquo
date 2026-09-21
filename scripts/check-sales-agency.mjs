@@ -351,7 +351,12 @@ section("10. agencyTeam and the floor scope");
   const board = await floorBoard({ repIds: scope, now: NOW });
   ok("the board lists only the team", board.reps.every((r) => scope.includes(r.id)) && !board.reps.some((r) => r.id === FREELANCER.id) && board.reps.length === 4, board.reps.map((r) => r.id));
   const sameSet = (a, b) => Array.isArray(a) && a.length === b.length && a.every((x) => b.includes(x));
-  ok("…every read was scoped to those ids", reads.filter((r) => ["salesCallAttempt", "salesRepActivity"].includes(r.model)).every((r) => sameSet(r.args.where?.salesRepId?.in, scope)), reads.filter((r) => ["salesCallAttempt", "salesRepActivity"].includes(r.model)).map((r) => r.args.where));
+  // The presence derivation's last-call read (store.js lastCallsFor) scopes
+  // by `salesRepId OR answeredByRepId` — an answered callback carries the
+  // rep who answered — so a scoped read is one whose ids, wherever they
+  // sit, are the team's.
+  const scopedIds = (where) => (where?.salesRepId?.in ? [where.salesRepId.in] : (where?.OR || []).map((o) => o.salesRepId?.in || o.answeredByRepId?.in).filter(Boolean));
+  ok("…every read was scoped to those ids", reads.filter((r) => ["salesCallAttempt", "salesRepActivity"].includes(r.model)).every((r) => scopedIds(r.args.where).length > 0 && scopedIds(r.args.where).every((ids) => sameSet(ids, scope))), reads.filter((r) => ["salesCallAttempt", "salesRepActivity"].includes(r.model)).map((r) => r.args.where));
   ok("…and the freelancer's dial is not in the team's campaigns", (board.campaigns || []).reduce((s, c) => s + c.dials, 0) === 1);
   const floorRoute = decomment(read("app/api/sales/agency/floor/route.js"));
   ok("the agency floor route scopes through repViewer → visibleRepIds → floorBoard", /repViewer\(rep\.id, teamIds\)/.test(floorRoute) && /floorBoard\(\{ repIds: visibleRepIds\(viewer\)/.test(floorRoute) && /isAgency\(rep\)/.test(floorRoute));

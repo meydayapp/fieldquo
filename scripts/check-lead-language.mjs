@@ -238,7 +238,8 @@ section("6. ringPlan rings only French reps for a Quebec caller");
       { portalSeenAt: new Date(NOW.getTime() - minutesAgo * 60000) },
     ),
   });
-  const rows = [fresh("anglo", 1), fresh("franco", 5), fresh("anglo2", 9)];
+  // Minutes are fractions of the two-minute Off window since 2026-09-21.
+  const rows = [fresh("anglo", 0.3), fresh("franco", 1), fresh("anglo2", 1.5)];
   const plan = ringPlan({ presence: rows, needsFrench: true, frenchRepIds: ["franco"], now: NOW });
   ok("a 514 caller rings only the French rep", plan.targets.length === 1 && plan.targets[0].salesRepId === "franco", plan.targets);
   ok("…and the plan says it needed French", plan.needsFrench === true);
