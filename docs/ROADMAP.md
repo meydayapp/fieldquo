@@ -2,13 +2,109 @@
 
 Last updated: 21 September 2026 (the two Mac-run scrapers take `--state NY,FL,CA` — the enrichment order with everything outside those states removed BEFORE ranking, the skipped count printed and shown on the Maps panel; the listing matcher joins initialisms and sets trade words aside symmetrically, attaches a listing on the record's own phone or website under `matched_verify` with a "confirm on the call" fact on the card and the brief, and refuses a shared number or a franchise domain as an identity; `maps.mjs --rematch` re-reads the 1,725 refusals and `--promote` turns unmatched open listings with a phone into prospects in the review folder with their crawl queued, which every sweep now also does for its own run; BBB's employee band is captured end to end with a saved profile fixture — see "Regional passes, matched_verify, promotion" below)
 
-Previous: 20 September 2026 (the Google Places API sweep is retired from the sales pipeline — the owner's rule of 2026-09-18 is that Google data is scraped from his Mac by scripts/scrape/maps.mjs, never fetched by key, and the API had refused every request since 2026-09-18T11:48Z, 9,181 PERMISSION_DENIED rows one a minute; the cron sweep, the claim-time after() call, the enrich route and the "Check Google" button are deleted, the prospects page reads what the Mac scrape landed instead, the cron marks the refusal rows reviewed once as system:places-retired, listingRow now writes the run id it always took, and `npm run check:places-retired` keeps a Google call from coming back — see the section below)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
 it exists to answer.
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
+
+---
+
+## A started signup is a lead: hot when abandoned, a welcome call when finished, stalled when it stops — assigned by hand from the review folder (21 September 2026)
+
+**The owner's question, verbatim:** "The people that start the signup
+process — are we capturing that as potential leads we can call? Is there a way
+to capture that information and transform them into hot leads that I can call
+in the sales platform, and assign to sales reps manually, with a badge that
+might say hot?" And the extension: "but that would only be for the ones that
+didn't complete the signup" — the finished ones reach the floor too, as a
+different kind.
+
+**What exists now**
+
+- **Capture** — `SignupLead` (one row per email, `lib/signup/leads.js`).
+  `app/signup/page.js` posts the first step as it is typed: a JSON body to
+  `POST /api/signup/lead`, 1.5 s after the last change and at once when the
+  step moves, `keepalive` at the Stripe handoff; never the password, never a
+  query string. `consentAt` is the first capture carrying a phone (B2B
+  inquiry — the same implied-consent basis the recovery email uses). The
+  Privacy page says a started signup is kept so we can follow up.
+- **Promotion** — `app/api/cron/signup-leads` every fifteen minutes
+  (`lib/signup/salesFloor.js promoteSignupLeads`): a SignupLead with a phone,
+  no Company, quiet for thirty minutes becomes a `Prospect` with
+  `status: "signup"`, `sourceProvider: "signup"`, `hot: true`,
+  `signupKind: "abandoned"`. Dedupe by email and phone against Company (link
+  as the customer, never a lead) and Prospect (link, flag hot, never a second
+  row); the do-not-contact list is read in the request that writes; a
+  completed signup is refused by the first branch and re-checked in the
+  write's WHERE. A lead whose link carried a rep's `?sales=` code becomes
+  **that rep's own SalesLead** with the Prospect handed to them outright —
+  never the folder.
+- **Finished signups** — `recordSignupCompletion` in `app/api/companies`
+  after the org exists: the typed row is marked completed; an unreferred
+  company gets a green **New signup** row (welcome call, `companyId` on the
+  Prospect); a rep-referred or referral-code company gets nothing (it is
+  theirs). The cron's sweep flips the row to red **Stalled** when there is
+  no card after `CHECKOUT_GRACE_MS` or no quote sent in seven days, and back
+  when that clears; on its first run it backfills the unreferred companies
+  of the last thirty days (three real ones at deploy) and nothing older.
+- **Never the dispatcher** — `"signup"` is outside `CLAIMABLE_STATUSES` and
+  `REVIEW_STATUSES`: the batch claim, the prospects list's hand-pick and the
+  folder's trade bulks cannot touch one. The ONE way to a rep's queue is
+  `assignSignupToRep` — the "Signups to assign" section at the top of
+  `/platform/sales/review` (`?signups=hot` from the funnel), one row to one
+  rep, the same three Prospect columns and mode-"admin" claim the hand-pick
+  writes, the same audit row and push. Refuses do-not-contact, a live hold,
+  and a Quebec row to a rep without French.
+- **The rep** — hot rows to the front of their window group (never across
+  one — `hoistHot` after the retry regroup); the HOT / New signup / Stalled
+  badge on the row and the card (nine catalogues, `SignupBadge`); the fact
+  first: "Started signup 40 minutes ago — got as far as Trades; trade
+  Painting; language FR" / "Signed up 3 hours ago — Roofing, Ottawa, EN;
+  card added; first quote not yet"; the opener above the script in en / fr /
+  es (`lib/sales/playbook/signupOpener.js` — "You started setting up
+  FieldQuo for X this morning… can I get you the rest of the way?" /
+  "I'm here to get your first quote out today; got fifteen minutes?"); the
+  intro email's three variants (`signup_abandoned` → `/signup?…&resume=<token>`
+  with their details filled in, `signup_new` / `signup_stalled` → the
+  fifteen-minute setup call on the rep's booking page); the signup's own
+  language sets the script default between Quebec's French and the rep's
+  preference; the calling window applies as usual. "Your signups" on the
+  Today screen lists every signup on the rep's link, finished or not, with
+  the facts and the opener (`/api/sales/signups`).
+- **The owner** — `/platform/signups` gains "Started, never finished" (every
+  SignupLead with its state: waiting / hot lead unassigned, in the review
+  folder / hot lead assigned to {rep} / {rep}'s lead — came in on their link
+  / not promoted: why) and, on each incomplete company, "New signup →
+  assigned to {rep}" / "Stalled → unassigned". `/platform/sales/reps` says
+  "referred by {rep} · card … · first quote …" on each attributed company
+  and lists the unfinished signups on the rep's link — informational, never
+  assignable. The funnel's Trades drop names the SignupLeads behind it with
+  a link to the hot ones. The recovery email skips a company whose signup
+  row a rep holds (`held_by_rep`).
+
+**Commission and attribution — nothing new was invented.** A self-serve
+signup earns a rep nothing: `SalesAttribution` is written only for a rep's
+link (or manual / admin / lead_link), and `lead_link` requires the rep's lead
+to PREDATE the company (`leadPredatesCompany`). So a welcome-call or stalled
+row the owner hands out is unpaid work by the rules as they stand — the rep
+onboards a customer FieldQuo already has. A HOT lead is different: the rep's
+lead exists before any company does, so if that person later finishes on the
+rep's link, or the rep claims the finished company by its email through
+`lead_link`, the existing rules attribute it. A signup that came in on a
+rep's link was theirs already.
+
+**Check:** `npm run check:signup-leads` — 545 assertions, in `check:all`.
+
+### Still owed here
+
+- The review folder's rail badge counts trade rows only; the signup section
+  carries its own count on the screen.
+- `/platform/sales/reps` and `/platform/signups` are English like the rest
+  of the console; the badge component itself is in nine.
+- A rep's texted signup link (`SalesSignupProgress`) and this capture are
+  two records of one signup; they are not yet joined on the rep's panel.
 
 ---
 

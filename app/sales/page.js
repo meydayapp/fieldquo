@@ -87,6 +87,7 @@ import {
 import { UnloggedCallsList } from "@/app/components/sales/UnloggedCalls";
 import OutreachNotice from "./leads/OutreachNotice";
 import MyFunnelCard from "./MyFunnelCard";
+import YourSignupsCard from "@/app/sales/YourSignupsCard";
 import ProductUsageCard from "./ProductUsageCard";
 
 const CARD = "rounded-xl border border-border bg-card p-4 space-y-3";
@@ -650,6 +651,9 @@ export default function SalesHomePage() {
           </>
         )}
       </section>
+
+      {/* ── Your signups — the ones that came in on this rep's link ────────── */}
+      <YourSignupsCard />
 
       {/* ── The rep's funnel this month — its own card, its own fetch ──────── */}
       <MyFunnelCard />

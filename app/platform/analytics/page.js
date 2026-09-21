@@ -160,6 +160,24 @@ function Funnel({ funnel }) {
               </li>
             ))}
           </ul>
+          {/* Who those browsers were. The funnel counts visits; the signup
+              capture (lib/signup/leads.js) keeps what they typed, and the
+              ones that left a phone number are hot leads in the review
+              folder until the owner hands them to a rep. */}
+          {funnel.signupLeads ? (
+            <p className="text-xs text-muted-foreground mt-2" data-funnel-signup-leads>
+              Behind the drop: <span className="text-foreground font-medium">{num(funnel.signupLeads.started)}</span>{" "}
+              {funnel.signupLeads.started === 1 ? "person" : "people"} typed a name, company or number and never finished
+              {" · "}
+              <span className="text-foreground font-medium">{num(funnel.signupLeads.withPhone)}</span> left a phone number
+              {" · "}
+              <a href={funnel.signupLeads.reviewHref} className="underline text-foreground">
+                {num(funnel.signupLeads.hotWaiting)} hot {funnel.signupLeads.hotWaiting === 1 ? "lead" : "leads"} waiting to be assigned
+              </a>
+              {" · "}
+              <a href={funnel.signupLeads.signupsHref} className="underline">every started signup</a>
+            </p>
+          ) : null}
         </div>
       ) : (
         <p className="text-xs text-muted-foreground">No raw rows in this range yet, so &ldquo;stopped at&rdquo; cannot be read.</p>

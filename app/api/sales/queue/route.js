@@ -89,6 +89,8 @@ import { openCheckIns } from "@/lib/sales/checkin/store";
 import { openTriageThreads } from "@/lib/sales/messages/triageStore";
 import { loadContactNumbers, pickContactNumber } from "@/lib/sales/contact/resolve";
 import { adminAssignedSummary } from "@/lib/sales/assignLeads";
+import { SIGNUP_PROSPECT_SELECT, signupStateOf } from "@/lib/signup/salesFloor";
+import { hoistHot } from "@/lib/signup/leads";
 import { loadMergedAnalysis } from "@/lib/sales/discovery/mergedReads";
 import { loadGivenBack } from "@/lib/sales/queueGivenBack";
 import { queueMemo } from "@/lib/sales/queueCache";
@@ -112,6 +114,9 @@ const QUEUE_SELECT = {
   id: true,
   businessName: true,
   tradeKey: true,
+  // A signup-sourced row (lib/signup/salesFloor.js): the HOT badge, the kind
+  // and the fact the row prints first. Null columns on every other row.
+  ...SIGNUP_PROSPECT_SELECT,
   city: true,
   province: true,
   country: true,
@@ -353,8 +358,7 @@ async function buildCurrent({ rep, full, zone, lang, now, policyContext, retryRu
   // the screen the same way.
   const testAccount = rep.testAccount === true;
 
-  return {
-    ...prospectView({
+  const view = prospectView({
       // The listing number OR the best one a rep recorded. contactability()
       // asks "is there a number to ring", and once somebody has told us the
       // owner's cell the answer is yes even when discovery found nothing —
@@ -381,10 +385,21 @@ async function buildCurrent({ rep, full, zone, lang, now, policyContext, retryRu
       suppression,
       crawls,
       now,
-    }),
+    });
+  // "Started signup 40 minutes ago — got as far as Trades; trade Painting;
+  // language FR" is the first thing a rep needs on a signup row, before the
+  // business name's directory facts. lib/signup/leads.js signupFact.
+  const signupState = signupStateOf(full, { now });
+  if (signupState?.fact) view.facts = [signupState.fact, ...(view.facts || [])];
+
+  return {
+    ...view,
     tradeLabel: full.tradeKey ? DISCOVERY_TRADES[full.tradeKey]?.label || full.tradeKey : null,
     territory: full.territory,
     websiteUrl: full.websiteUrl,
+    // The signup behind this row — null on a discovered prospect. The card
+    // and the playbook read the badge and the opener off it.
+    signup: signupStateOf(full, { now }),
     phoneE164: full.phoneE164 || voice.choices[0]?.e164 || null,
     // ── The numbers, and the reasons some of them are not offered ──────
     //
@@ -538,6 +553,8 @@ function readCurrentFull(rep, id, now) {
       // can lead with the best and list the rest with their sources.
       people: { orderBy: { seenAt: "desc" } },
       territory: { select: { id: true, name: true } },
+      signupLead: SIGNUP_PROSPECT_SELECT.signupLead,
+      company: SIGNUP_PROSPECT_SELECT.company,
       // The calling window is stated in the PROSPECT's local time, and the
       // only place anybody has ever written one down is SalesLead.timeZone —
       // set by the rep who had them on the phone, from the texting screen.
@@ -754,7 +771,12 @@ async function queueBody(rep, { tradeKey = null, prospectId = null, timeZone = n
       grouped.byId[p.id]?.testLine ? null : retryViewFor(p, { repZone: zone, language: lang, now, rules: retryRules }),
     ]),
   );
-  const windows = regroupForRetry(grouped, retries, { shiftEnd, now });
+  // Then hot rows — a signup that stopped mid-form — to the front of their
+  // window group, never across one (lib/signup/leads.js hoistHot).
+  const windows = hoistHot(
+    regroupForRetry(grouped, retries, { shiftEnd, now }),
+    new Set(inClaimOrder.filter((p) => p.hot === true).map((p) => p.id)),
+  );
   const byId = new Map(inClaimOrder.map((p) => [p.id, p]));
   const claimed = windows.order.map((id) => byId.get(id)).filter(Boolean);
   const rowExtras = new Map(
@@ -765,6 +787,10 @@ async function queueBody(rep, { tradeKey = null, prospectId = null, timeZone = n
         {
           city: p.city || null,
           province: p.province || null,
+          // The HOT / New signup / Stalled badge and the sentence under the
+          // name, for a row the signup form wrote. Null otherwise.
+          hot: p.hot === true,
+          signup: signupStateOf(p, { now }),
           // "fr" on a Quebec row, else null: the card draws a Français chip
           // from it, so a rep sees why this row reached them and not a
           // colleague. Decided by the same function the claim used.

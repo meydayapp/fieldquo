@@ -41,7 +41,8 @@ import { LANGUAGES } from "@/app/i18n/languages";
 import { COUNTRIES } from "@/lib/currency";
 import { isInternalPath } from "@/lib/appUrl";
 import { useTranslation } from "@/app/hooks/useTranslation";
-import { trackSignupStep, trackCheckoutStarted } from "@/lib/analytics/track";
+import { trackSignupStep, trackCheckoutStarted, visitorId } from "@/lib/analytics/track";
+import { CAPTURE_DEBOUNCE_MS, CAPTURE_ENDPOINT, captureBodyFor, captureFingerprint } from "@/lib/signup/leadCapture";
 
 // "1 month free" / "3 months free". The banner hardcoded the plural and read
 // "1 months free" for the whole life of the current one-month offer. Same
@@ -120,6 +121,25 @@ function reportSignupStep(token, step) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ token, step }),
+      keepalive: true,
+    }).catch(() => {});
+  } catch {
+    // A runtime without fetch keepalive, or a blocked request. Nothing to do.
+  }
+}
+
+/**
+ * Keep what this step has typed — lib/signup/leadCapture.js says what and
+ * when. A JSON body to the capture endpoint, fire-and-forget, `keepalive` so
+ * a post fired on the way to Stripe still leaves. The page never reads the
+ * answer; a blocked request costs the signup nothing.
+ */
+function postSignupCapture(body) {
+  try {
+    fetch(CAPTURE_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
       keepalive: true,
     }).catch(() => {});
   } catch {
@@ -933,6 +953,90 @@ export default function SignupPage() {
   }, [hydrated, step]);
   const draftStepRef = useRef(null);
 
+  // ── The capture ─────────────────────────────────────────────────────────
+  //
+  // What the first step has typed, kept server-side as it is typed, so a
+  // person who closes the tab at Trades is somebody the sales floor can ring
+  // (lib/signup/leads.js). Debounced CAPTURE_DEBOUNCE_MS after the last
+  // change; posted at once when the step moves (the furthest step is a fact
+  // worth having even if the next thing they do is close the tab). Nothing is
+  // posted twice: the fingerprint of the last body sent is kept in a ref.
+  // Not for a signed-in owner adding a business or finishing a checkout —
+  // those already have a Company row, which is the whole point of this.
+  const lastCaptureRef = useRef("");
+  const captureTimerRef = useRef(null);
+  const lastCaptureStepRef = useRef(null);
+  useEffect(() => {
+    if (!hydrated || !entryChecked || alreadyOnFieldquo || finishCheckout) return;
+    const body = captureBodyFor(form, step, {
+      selectedIndustries,
+      salesCode,
+      referralCode,
+      utm,
+      visitorId: visitorId(),
+      referrer: (() => {
+        try {
+          return document.referrer ? new URL(document.referrer).hostname : null;
+        } catch {
+          return null;
+        }
+      })(),
+    });
+    const fp = captureFingerprint(body);
+    if (!body || fp === lastCaptureRef.current) return;
+    const stepMoved = lastCaptureStepRef.current !== null && lastCaptureStepRef.current !== step;
+    lastCaptureStepRef.current = step;
+    if (captureTimerRef.current) clearTimeout(captureTimerRef.current);
+    const send = () => {
+      lastCaptureRef.current = fp;
+      postSignupCapture(body);
+    };
+    if (stepMoved) send();
+    else captureTimerRef.current = setTimeout(send, CAPTURE_DEBOUNCE_MS);
+    return () => {
+      if (captureTimerRef.current) clearTimeout(captureTimerRef.current);
+    };
+  }, [hydrated, entryChecked, alreadyOnFieldquo, finishCheckout, form, step, selectedIndustries, salesCode, referralCode, utm]);
+
+  // ── A resume link ───────────────────────────────────────────────────────
+  //
+  // The rep's intro email to somebody who stopped mid-signup links here with
+  // ?resume=<token> (a random token, never the email — app/api/signup/lead).
+  // The endpoint hands back what THEY typed and the form opens filled in,
+  // only where it is still empty: a draft in this tab is fresher than a row
+  // from the day they left. A login already created on the address gets the
+  // "sign in instead" line under the email box rather than a second password.
+  useEffect(() => {
+    if (!hydrated) return;
+    const token = new URLSearchParams(window.location.search).get("resume");
+    if (!token) return;
+    let cancelled = false;
+    fetch(`${CAPTURE_ENDPOINT}?token=${encodeURIComponent(token)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        const p = d?.prefill;
+        if (cancelled || !p || p.completed) return;
+        setForm((f) => ({
+          ...f,
+          email: f.email || p.email || "",
+          firstName: f.firstName || p.firstName || "",
+          lastName: f.lastName || p.lastName || "",
+          companyName: f.companyName || p.companyName || "",
+          phone: f.phone || (p.phone ? formatPhoneInput(p.phone) : ""),
+          city: f.city || p.city || "",
+          province: f.province || p.province || "",
+          country: f.country || p.country || "",
+          language: p.language && f.language === "en" ? p.language : f.language,
+        }));
+        setSelectedIndustries((prev) => (prev.length ? prev : Array.isArray(p.trades) ? p.trades : prev));
+        if (p.accountExists && p.email) setExistingLogin(String(p.email).trim().toLowerCase());
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [hydrated]);
+
   useEffect(() => {
     try {
       const raw = sessionStorage.getItem(DRAFT_KEY);
@@ -1497,6 +1601,11 @@ export default function SignupPage() {
         // it on the run that created it. Clearing it again would be tidying
         // something that isn't there.
         trackCheckoutStarted();
+      // The furthest step, kept: "checkout" means they reached Stripe.
+      if (!finishCheckout) {
+        const handoff = captureBodyFor(form, "checkout", { selectedIndustries, salesCode, referralCode, utm, visitorId: visitorId() });
+        if (handoff) postSignupCapture(handoff);
+      }
         window.location.href = data.checkoutUrl;
         return;
       } catch (err) {
@@ -1564,6 +1673,11 @@ export default function SignupPage() {
 
       // The funnel's "checkout started" bar; flushed before the navigation.
       trackCheckoutStarted();
+      // The furthest step, kept: "checkout" means they reached Stripe.
+      if (!finishCheckout) {
+        const handoff = captureBodyFor(form, "checkout", { selectedIndustries, salesCode, referralCode, utm, visitorId: visitorId() });
+        if (handoff) postSignupCapture(handoff);
+      }
       window.location.href = data.checkoutUrl;
     } catch (err) {
       setError(err?.message || t("app.signup.error.finishCompany", "Could not finish setting up your company"));

@@ -61,6 +61,12 @@ export const rows = {
   // presence is the claim, which reading lib/referrals cannot settle.
   salesRep: [],
   salesCommissionPlan: [],
+  // The signup capture and its promotion (scripts/check-signup-leads.mjs):
+  // what /signup typed, the do-not-contact rows the promotion reads in the
+  // request that writes, and the platform admin the assign names.
+  signupLead: [],
+  salesSuppression: [],
+  platformAdmin: [],
   salesAttribution: [],
   salesAttributionTouch: [],
   referralCredit: [],
@@ -292,6 +298,9 @@ export function resetDbStub() {
   rows.salesCommissionEntry = [];
   rows.salesPayoutBatch = [];
   rows.salesLead = [];
+  rows.signupLead = [];
+  rows.salesSuppression = [];
+  rows.platformAdmin = [];
   writes.length = 0;
   reads.length = 0;
   failNext.model = null;
@@ -485,6 +494,23 @@ function model(name) {
     count: async (args = {}) => {
       reads.push({ model: name, action: "count", args });
       return rows[name].filter((r) => matches(r, args.where)).length;
+    },
+    // Prisma's aggregate, for the one shape the product uses — `_max` of a
+    // column (lib/sales/assignLeads.js reads the highest open claim position
+    // so an assignment lands after the rep's own claims). Refused for any
+    // other shape rather than answering null and letting a position pass
+    // as zero.
+    aggregate: async (args = {}) => {
+      reads.push({ model: name, action: "aggregate", args });
+      const keys = Object.keys(args).filter((k) => k.startsWith("_"));
+      if (keys.length !== 1 || keys[0] !== "_max") throw new Error(`dbStub: ${name}.aggregate supports _max only`);
+      const hits = rows[name].filter((r) => matches(r, args.where));
+      const out = { _max: {} };
+      for (const field of Object.keys(args._max || {})) {
+        const values = hits.map((r) => r[field]).filter((v) => v != null);
+        out._max[field] = values.length ? values.reduce((a, b) => (b > a ? b : a)) : null;
+      }
+      return out;
     },
     // Prisma's groupBy, for the one shape the product uses so far —
     // `by: [field]` with `_count: { _all: true }` (lib/sales/reassign.js's
@@ -693,6 +719,12 @@ export const db = new Proxy(
     // @@unique([salesRepId, periodStart]) — the closer's idempotence.
     salesPayoutBatch: uniqueCreateModel("salesPayoutBatch", ["salesRepId", "periodStart"]),
     salesLead: model("salesLead"),
+    // emailKey @unique — one row per address is what lib/signup/leads.js's
+    // capture relies on; a second create for the same key is refused the way
+    // Postgres refuses it.
+    signupLead: uniqueCreateModel("signupLead", ["emailKey"]),
+    salesSuppression: model("salesSuppression"),
+    platformAdmin: model("platformAdmin"),
     // Prisma's interactive transaction, modelled as "run the callback with
     // this same client". It does NOT roll back — nothing here can — and that
     // is stated rather than implied: a check must not read a passing run as

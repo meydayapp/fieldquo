@@ -87,6 +87,7 @@ import { requiredLanguageFor } from "@/lib/sales/leadLanguage";
 import { db } from "@/lib/db";
 import { requireQueueRep } from "@/lib/sales/queueGate";
 import { queueWhere } from "@/lib/sales/prospectView";
+import { SIGNUP_PROSPECT_SELECT, signupStateOf } from "@/lib/signup/salesFloor";
 import { assembleProspectPlaybook } from "@/lib/sales/playbook/assemble";
 import { weaveDisclosure } from "@/lib/sales/playbook/recordingDisclosure";
 
@@ -133,7 +134,7 @@ export async function GET(request) {
     // hears "email me" has it in front of them without leaving the call.
     // province and lastCrawledAt decide the default script language and
     // whether an asked-for language's row is stale.
-    select: { id: true, email: true, emailSource: true, province: true, lastCrawledAt: true, assignedRepId: true },
+    select: { id: true, email: true, emailSource: true, province: true, lastCrawledAt: true, assignedRepId: true, businessName: true, ...SIGNUP_PROSPECT_SELECT },
   });
   if (!mine) {
     return NextResponse.json(
@@ -149,7 +150,11 @@ export async function GET(request) {
   const repRow = typeof db.salesRep?.findUnique === "function"
     ? await db.salesRep.findUnique({ where: { id: rep.id }, select: { language: true } })
     : null;
-  const defaultLanguage = defaultScriptLanguage({ prospect: mine, rep: repRow });
+  // A signup row carries the language the person chose on the form; that
+  // beats the rep's own (non-negotiable #6 — the client's language drives
+  // what they receive), never Quebec's French rule.
+  const signup = signupStateOf(mine, { now });
+  const defaultLanguage = defaultScriptLanguage({ prospect: { ...mine, statedLanguage: signup?.language || null }, rep: repRow });
   const language = requestedLanguage || defaultLanguage;
 
   const [result, rows] = await Promise.all([
@@ -248,6 +253,9 @@ export async function GET(request) {
     prospect: {
       id: result.prospect.id,
       businessName: result.prospect.businessName,
+      // The signup behind this row, or null — the opener the call screen
+      // draws above the script (app/components/sales/SignupOpener.js).
+      signup,
       // Null when the crawler saw none — never "" — so the screen can draw
       // nothing rather than a copy button for an empty string.
       email: mine.email || null,
@@ -284,6 +292,8 @@ export async function GET(request) {
       fallback,
       repId: rep.id,
     },
+    // Who is on the call, for the signup opener's "{rep} here".
+    repName: rep.name || null,
     objections: result.objections,
     talkingPoints: result.talkingPoints,
     // Carried up so a three-line script off a business whose site timed out
