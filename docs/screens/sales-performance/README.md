@@ -2,7 +2,7 @@
 
 The real pages (`app/platform/sales/performance/page.js`,
 `app/sales/agency/performance/page.js`, `app/sales/agency/call-quality/page.js`)
-rendered through `harness/` against `harness/fixtures/*.json` — snapshots of
+rendered through `harness/` against `harness/fixtures/data.js` — snapshots of
 what their routes returned for the REAL database, written by `dump.mjs`
 (read-only, through the same loaders the routes call). Nothing below the
 data layer is mocked; the shared CallPerformanceSections and the i18n hook

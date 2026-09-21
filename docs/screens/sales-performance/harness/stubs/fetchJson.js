@@ -1,12 +1,9 @@
 // Harness stub of @/lib/fetchJson: the three pages' requests answered from
-// fixtures/*.json — snapshots of what the REAL routes returned for the real
+// fixtures/data.js — snapshots of what the REAL routes returned for the real
 // database, written by dump.mjs (read-only). Nothing is invented: a route
 // the fixture does not carry is a loud error, so a page that quietly
 // depends on something unstubbed cannot render a wrong screen.
-import platform from "../fixtures/platform-performance.json";
-import agency from "../fixtures/agency-performance.json";
-import quality from "../fixtures/agency-call-quality.json";
-import me from "../fixtures/agency-me.json";
+import { PLATFORM as platform, AGENCY as agency, QUALITY as quality, ME as me } from "../fixtures/data.js";
 const delay = (ms) => new Promise((r) => setTimeout(r, ms));
 export async function fetchJson(url, options = {}) {
   const method = (options.method || "GET").toUpperCase();

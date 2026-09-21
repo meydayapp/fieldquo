@@ -7,7 +7,7 @@ ROOT=$(pwd)
 H=$ROOT/docs/screens/sales-performance/harness
 OUT=${1:-/tmp/perf-harness}
 mkdir -p "$OUT"
-NODE_PATH=$ROOT/node_modules npx esbuild "$H/pages.jsx" --bundle --format=iife --platform=browser --jsx=automatic --loader:.js=jsx --loader:.json=json \
+NODE_PATH=$ROOT/node_modules npx esbuild "$H/pages.jsx" --bundle --format=iife --platform=browser --jsx=automatic --loader:.js=jsx \
   --alias:@=. \
   --alias:next/link=$H/stubs/link.js \
   --alias:next/navigation=$H/stubs/navigation.js \
