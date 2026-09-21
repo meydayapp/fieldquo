@@ -51,6 +51,11 @@ export async function GET(request, { params }) {
           phone: true,
           email: true,
           currency: true,
+          // The "paid in full — thank you" state on an invoice offers the
+          // review link under it (Settings → Reviews). Null means no offer;
+          // nothing is invented. Forwarded to the browser as-is: it is the
+          // address the company already prints on its stickers.
+          reviewUrl: true,
           // The fallback in resolveClientLanguage, below the client's own
           // preference. The portal isn't tied to a single document, so there's
           // no frozen document language here — it's client.language → company

@@ -46,6 +46,11 @@ export async function POST(request) {
 
   const body = await request.json().catch(() => ({}));
   const text = typeof body.text === "string" ? body.text : "";
+  // Where the contractor says these came from. "google" marks the rows
+  // google_import — a paste of their own Google page, their words to copy,
+  // labelled so the screen can say so. Anything else keeps the format-derived
+  // source below.
+  const fromGoogle = body.origin === "google";
 
   if (!text.trim()) {
     return NextResponse.json({ error: "Nothing to import — paste some reviews first." }, { status: 400 });
@@ -104,8 +109,10 @@ export async function POST(request) {
         quote: row.quote,
         authorTitle: row.authorTitle,
         companyLabel: row.companyLabel,
-        source: tabular ? "csv" : "manual",
+        source: fromGoogle ? "google_import" : tabular ? "csv" : "manual",
         externalId: row.externalId,
+        rating: row.rating,
+        reviewedAt: row.reviewedAt,
         approved: false,
       },
       // The words and the author are the identity, so an update can only ever
@@ -115,6 +122,8 @@ export async function POST(request) {
       update: {
         authorTitle: row.authorTitle,
         companyLabel: row.companyLabel,
+        rating: row.rating,
+        reviewedAt: row.reviewedAt,
       },
     });
 
@@ -127,7 +136,7 @@ export async function POST(request) {
     entityType: "company",
     entityId: member.companyId,
     summary: `Imported ${imported} review${imported === 1 ? "" : "s"}`,
-    metadata: { imported, updated, skipped: parsed.skipped, format: tabular ? "csv" : "blocks" },
+    metadata: { imported, updated, skipped: parsed.skipped, format: tabular ? "csv" : "blocks", origin: fromGoogle ? "google" : "other" },
   });
 
   return NextResponse.json({

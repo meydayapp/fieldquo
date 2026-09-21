@@ -44,6 +44,7 @@ import { resolveSender } from "@/lib/email/companySender";
 import { shouldRequestReview, clampDelay, MAX_DELAY_HOURS } from "@/lib/reviews/request";
 import { buildReviewEmail } from "@/lib/reviews/reviewEmail";
 import { newSurveyToken } from "@/lib/reviews/satisfactionTokens";
+import { ensureReviewQrToken, reviewQrPngUrl } from "@/lib/reviews/qrToken";
 import { resolveClientLanguage } from "@/lib/i18n/clientLanguage";
 import { ensureSubscriber, unsubscribeHeaders } from "@/lib/marketing/unsubscribe";
 
@@ -75,6 +76,10 @@ export async function GET(request) {
   const note = (reason) => { skipped[reason] = (skipped[reason] || 0) + 1; };
 
   for (const company of companies) {
+    // The hosted review QR the email embeds (lib/reviews/qrToken.js). Minted
+    // once per company, before the loop, and the same for every email.
+    const qrPngUrl = reviewQrPngUrl(await ensureReviewQrToken(db, company.id), request);
+
     // The window: finished long enough ago to be due, recently enough that we
     // haven't missed the boat. Both ends matter — without the older bound, a
     // company switching this on today would fire at every customer they've
@@ -166,6 +171,7 @@ export async function GET(request) {
         unsubscribeToken: subscriber?.unsubscribeToken,
         surveyToken: survey.token,
         request,
+        qrPngUrl,
       });
       if (!email) { note("Couldn't build the email."); continue; }
 

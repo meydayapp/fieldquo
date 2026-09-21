@@ -319,7 +319,14 @@ export function fakeDb() {
       upsert: async ({ where, update, create, select, include }) => {
         const row = find(where);
         if (row) {
-          for (const [k, v] of Object.entries(update || {})) if (v !== undefined) row[k] = v;
+          // `{ increment }` the way update() already applies it — the
+          // analytics daily rollup upserts `count: { increment: n }`, and a
+          // fake that stored the object would answer NaN to every count.
+          for (const [k, v] of Object.entries(update || {})) {
+            if (v && typeof v === "object" && !Array.isArray(v) && !(v instanceof Date) && ("increment" in v || "decrement" in v)) {
+              row[k] = Number(row[k] || 0) + Number(v.increment || 0) - Number(v.decrement || 0);
+            } else if (v !== undefined) row[k] = v;
+          }
           return shape(t, row, { select, include });
         }
         return shape(t, insert(t, create), { select, include });

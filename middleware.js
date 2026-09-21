@@ -140,6 +140,10 @@ const SUBDOMAIN_PASSTHROUGH = [
   // /q: a homeowner opening the link from their email on the contractor's
   // subdomain must get the report, not that tenant's marketing site.
   "/estimate-report",
+  // The digital business card (/c/<slug>) — the page the QR on the van, the
+  // NFC tag and the wallet pass open. A homeowner scanning it on the tenant's
+  // own subdomain must get the card, not the marketing site's 404.
+  "/c",
 ];
 
 // The sales portal's own unauthenticated doors, and the complete list of them.
