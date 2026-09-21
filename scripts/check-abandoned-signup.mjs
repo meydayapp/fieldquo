@@ -51,6 +51,7 @@ import {
   decideSignupNudge,
   incompleteSignupWhere,
   isIncompleteSignup,
+  isReservedTestAddress,
   nudgeRecipient,
   planSignupNudges,
 } from "@/lib/signup/abandoned";
@@ -58,6 +59,20 @@ import {
   buildSignupRecoveryEmail,
   SIGNUP_RECOVERY_PAIRS,
 } from "@/lib/email/signupRecoveryEmail";
+import {
+  EARLY_NUDGE_DELAY_MINUTES,
+  EARLY_TOUCH,
+  RECOVERY_TOUCH,
+  decideEarlyNudge,
+  earlyNudgePersonFromCompany,
+  earlyNudgePersonFromLead,
+  planEarlyNudges,
+} from "@/lib/signup/earlyNudge";
+import {
+  buildSignupEarlyNudgeEmail,
+  SIGNUP_EARLY_NUDGE_PAIRS,
+} from "@/lib/email/signupEarlyNudgeEmail";
+import { NEUTRAL_PITCH_KEYS, tradeSellingPoints } from "@/lib/sales/tradeSellingPoints";
 import { contrastRatio } from "@/lib/brand/colour";
 import { APP_MESSAGES } from "@/app/i18n/appMessages";
 import { decomment, balanced, handlerBodies } from "./tenantScopeScan.mjs";
@@ -661,6 +676,115 @@ ok("it records a real source from the closed vocabulary",
 ok("it never deletes anything", !/\.delete\(|\.deleteMany\(/.test(optOut));
 ok("the page exists and posts to it",
   read("app/no-contact/[token]/NoContactForm.js").includes("/api/no-contact/"));
+
+// ══════════════════════════════════════════════════════════════════════════
+section("6b. The five-minute touch — the owner's 2026-09-21 override, executed");
+
+// ── The rule ──────────────────────────────────────────────────────────────
+ok("the first touch is five minutes, the owner's number", EARLY_NUDGE_DELAY_MINUTES === 5);
+ok("the 24-hour rationale is kept in the file, and the override is recorded beside it",
+  read("lib/signup/abandoned.js").includes("Too early is the expensive mistake") &&
+    read("lib/signup/abandoned.js").includes("Overridden by the owner, 2026-09-21"));
+ok("the two touches have distinct names in the log", EARLY_TOUCH !== RECOVERY_TOUCH);
+
+const T0 = new Date("2026-09-21T20:00:00Z");
+const leadPerson = (over = {}) =>
+  earlyNudgePersonFromLead({ id: "l1", email: "A@x.com", firstName: "A", trades: ["painting"], stepReached: "industry", lastSeenAt: new Date(T0 - 6 * 60000), completedCompanyId: null, resumeToken: "t", ...over });
+const companyPerson = (over = {}) =>
+  earlyNudgePersonFromCompany({ id: "c", email: "b@x.com", createdAt: new Date(T0 - 600000), subscription: null, industries: ["cleaning"], ...over });
+const EARLY_CASES = [
+  ["six minutes of silence is due", leadPerson(), {}, "due"],
+  ["four minutes is still active — not abandoned", leadPerson({ lastSeenAt: new Date(T0 - 4 * 60000) }), {}, "still_active"],
+  ["exactly five minutes is due", leadPerson({ lastSeenAt: new Date(T0 - 5 * 60000) }), {}, "due"],
+  ["a completed lead is a customer", leadPerson({ completedCompanyId: "c" }), {}, "completed"],
+  ["a company with a subscription is a customer", companyPerson({ subscription: { id: "s" } }), {}, "completed"],
+  ["a company with no card, ten minutes on, is due", companyPerson(), {}, "due"],
+  ["a company whose lead was seen a minute ago is still moving", companyPerson({ signupLead: { lastSeenAt: new Date(T0 - 60000), trades: [] } }), {}, "still_active"],
+  ["suppressed", leadPerson(), { suppressed: true }, "suppressed"],
+  ["already sent — exactly once", leadPerson(), { alreadySent: true }, "already_sent"],
+  ["held by a rep — their intro replaces it", leadPerson(), { heldByRep: true }, "held_by_rep"],
+  ["a demo", companyPerson({ isDemo: true }), {}, "demo"],
+  ["no address", leadPerson({ email: "" }), {}, "no_recipient"],
+  ["past the thirty-day window", leadPerson({ lastSeenAt: new Date(T0 - 31 * 86400000) }), {}, "too_late"],
+];
+for (const [label, person, extra, want] of EARLY_CASES) {
+  const got = decideEarlyNudge({ person, ...extra, now: T0 }).reason;
+  ok(`early: ${label} → ${want}`, got === want, got);
+}
+ok("send=true implies every guard passed, over every fixture",
+  EARLY_CASES.every(([, person, extra]) => {
+    const v = decideEarlyNudge({ person, ...extra, now: T0 });
+    return !v.send || (!person.completed && !person.isDemo && !extra.suppressed && !extra.alreadySent && !extra.heldByRep);
+  }));
+{
+  let threw = false;
+  try { earlyNudgePersonFromCompany({ id: "c", email: "b@x.com", createdAt: T0 }); } catch { threw = true; }
+  ok("an UNSELECTED subscription throws rather than reading as 'no card'", threw);
+}
+{
+  const plan = planEarlyNudges({ people: [leadPerson({ email: "same@x.com" }), companyPerson({ email: "SAME@x.com" })], now: T0 });
+  ok("one address with a lead and a company gets one letter", plan.sends.length === 1);
+  ok("…and it is the company, the later state of the same person", plan.sends[0]?.person.kind === "company");
+  const twice = planEarlyNudges({ people: [leadPerson()], sentKeys: new Set(["a@x.com"]), now: T0 });
+  ok("a sent key blocks a second letter for the same touch", twice.sends.length === 0 && twice.skipped[0]?.reason === "already_sent");
+  const held = planEarlyNudges({ people: [leadPerson()], heldKeys: new Set(["a@x.com"]), now: T0 });
+  ok("a held key blocks it too", held.sends.length === 0 && held.skipped[0]?.reason === "held_by_rep");
+}
+
+// ── The letter ────────────────────────────────────────────────────────────
+const earlyArgs = { firstName: "Émilie", companyName: "<b>Peinture</b> Tremblay", resumeUrl: "https://x/signup?resume=t", optOutUrl: "https://x/no-contact/t", mailingAddress: "1 Rue Test, Montréal" };
+const earlyEn = buildSignupEarlyNudgeEmail({ ...earlyArgs, language: "en", tradeKey: "painting" });
+ok("it builds", Boolean(earlyEn.subject && earlyEn.html && earlyEn.text));
+ok("the subject is the free month, not a bill", /free month/i.test(earlyEn.subject));
+ok("the button is the way back in", earlyEn.html.includes('href="https://x/signup?resume=t"') && earlyEn.text.includes("https://x/signup?resume=t"));
+ok("three trade points, the same three the reps' intro email prints",
+  earlyEn.points.length === 3 &&
+    earlyEn.points.map((p) => p.key).join() === tradeSellingPoints("painting", "en", { limit: 3 }).points.map((p) => p.key).join());
+ok("every point is printed in both parts", earlyEn.points.every((p) => earlyEn.html.includes(p.headline) && earlyEn.text.includes(p.headline)));
+ok("a hostile company name is escaped into the HTML", !earlyEn.html.includes("<b>Peinture</b>") && earlyEn.html.includes("&lt;b&gt;"));
+ok("the CASL footer: identification, address, opt-out — in both parts",
+  ["FieldQuo", "1 Rue Test, Montréal", "https://x/no-contact/t"].every((v) => earlyEn.html.includes(v) && earlyEn.text.includes(v)));
+const earlyFr = buildSignupEarlyNudgeEmail({ ...earlyArgs, language: "fr", tradeKey: "house_cleaning" });
+ok("French is a different letter", earlyFr.subject !== earlyEn.subject && earlyFr.language === "fr");
+ok("…and names the trade in French, not the English label", earlyFr.text.includes("d'entretien ménager") && !earlyFr.text.includes("house cleaning"));
+const earlyEs = buildSignupEarlyNudgeEmail({ ...earlyArgs, language: "es", tradeKey: "roofing" });
+ok("Spanish likewise", earlyEs.language === "es" && earlyEs.text.includes("de techos"));
+const earlyNone = buildSignupEarlyNudgeEmail({ ...earlyArgs, language: "en", tradeKey: null });
+ok("no trade → the neutral three, from the same table", earlyNone.points.map((p) => p.key).join() === NEUTRAL_PITCH_KEYS.join() && earlyNone.tradeLabel === null);
+ok("an unknown language falls back to English", buildSignupEarlyNudgeEmail({ ...earlyArgs, language: "uk" }).language === "en");
+for (const [what, patch] of [["mailing address", { mailingAddress: "" }], ["unsubscribe URL", { optOutUrl: "" }], ["resume URL", { resumeUrl: "" }]]) {
+  let threw = false;
+  try { buildSignupEarlyNudgeEmail({ ...earlyArgs, ...patch }); } catch { threw = true; }
+  ok(`a missing ${what} refuses to build rather than shipping a hole`, threw);
+}
+for (const k of ["subject", "heading", "greeting", "greetingNamed", "intro", "introNamed", "cta", "pointsIntro", "pointsIntroTrade", "noCharge", "identify", "optOut"]) {
+  ok(`app.signupNudge.${k} exists in en, fr and es`, ["en", "fr", "es"].every((l) => typeof APP_MESSAGES[l][`app.signupNudge.${k}`] === "string"));
+}
+for (const pair of SIGNUP_EARLY_NUDGE_PAIRS) {
+  const ratio = contrastRatio(pair.fg, pair.bg);
+  ok(`early: ${pair.name} clears 4.5:1`, ratio >= 4.5, `${ratio.toFixed(2)}:1`);
+}
+
+// ── The cron, the schedule, the log, the unsubscribe ─────────────────────
+const earlyCron = decomment(read("app/api/cron/signup-recovery/route.js"));
+ok("the cron runs the early touch through the shared planner", earlyCron.includes("planEarlyNudges(") && earlyCron.includes("runEarlyTouch("));
+ok("the early claim is the unique on (emailKey, touch)", earlyCron.includes("db.signupNudge.create(") && earlyCron.includes('err?.code !== "P2002"'));
+ok("a lead is re-read for completion after the claim, before the send", /freshLead[\s\S]*completedCompanyId[\s\S]*buildSignupEarlyNudgeEmail/.test(earlyCron));
+ok("a company is re-read for a subscription after the claim, before the send", /freshCompany[\s\S]*subscription[\s\S]*buildSignupEarlyNudgeEmail/.test(earlyCron));
+ok("a failed send marks the claim failed rather than sent", earlyCron.includes("failedAt: now") && earlyCron.includes("sentAt: now, providerId"));
+ok("a lead's button carries its resume token; a company's goes to Account & Billing",
+  earlyCron.includes("/signup?resume=${encodeURIComponent(person.resumeToken)}") && earlyCron.includes("/app/settings/account-billing"));
+ok("the recovery note is logged to the same table", earlyCron.includes("touch: RECOVERY_TOUCH"));
+ok("a reserved test domain is refused at the point of sending, for both touches — never bounced",
+  isReservedTestAddress("who@example.com") && isReservedTestAddress("a@mail.test") && !isReservedTestAddress("a@example.com.au") && !isReservedTestAddress("d@x.com") &&
+    (earlyCron.match(/isReservedTestAddress\(/g) || []).length >= 3);
+ok("the early touch runs before the recovery note", earlyCron.indexOf("runEarlyTouch({ now") < earlyCron.indexOf("planSignupNudges({ companies"));
+const vercelJson = JSON.parse(read("vercel.json"));
+const cronEntry = vercelJson.crons.find((c) => c.path === "/api/cron/signup-recovery");
+ok("the cron runs every five minutes, so five minutes means five minutes", cronEntry?.schedule === "*/5 * * * *", cronEntry?.schedule);
+const optOutSrc = decomment(read("app/api/no-contact/[token]/route.js"));
+ok("the unsubscribe link in the early letter resolves — SignupNudge.optOutToken, not only a Company", optOutSrc.includes("db.signupNudge.findUnique") && optOutSrc.includes("optOutToken: token"));
+ok("the schema carries the log with the per-person, per-touch unique", /model SignupNudge[\s\S]*@@unique\(\[emailKey, touch\]\)/.test(read("prisma/schema.prisma")));
 
 // ══════════════════════════════════════════════════════════════════════════
 section("7. Mutation testing — break each guarantee, confirm it is caught");
