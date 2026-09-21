@@ -23,6 +23,19 @@
 // response. If it fails, the failure is written on the row in words
 // (transcriptError) and the platform page offers "transcribe the missing
 // ones" — lib/sales/calls/transcribe.js.
+//
+// ══ 2026-09-18: twenty-five recordings on the provider, none filed ════════
+//
+// Two faults, one visible and one silent. The visible one: every answer
+// here was `new NextResponse("", { status: 204 })`, which the Response
+// constructor refuses (a 204 may carry no body), so Twilio got a 500 after
+// the handler had run. The silent one was in recordCallRecording's WHERE:
+// `NOT: { recordingSid: sid }` on a column that was NULL — SQL's `NULL <>
+// 'x'` is unknown, the row was excluded, zero rows updated, and the store
+// answered `reason: "already"`, which this route read as "filed before" and
+// logged nothing. The recording callback fired for every call and was
+// answered with a crash, and the row it was for never changed. Both are
+// fixed where they live; `acknowledged()` now guards the whole route.
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
@@ -32,15 +45,24 @@ import { callStoreState, recordCallRecording } from "@/lib/sales/calls/store";
 import { recordingFromWebhook } from "@/lib/sales/calls/recording";
 import { transcribeAttempt } from "@/lib/sales/calls/transcribe";
 import { recordError } from "@/lib/platform/errorLog";
+import { acknowledged, noContent } from "@/lib/sales/calls/twilioAck";
 
 export async function POST(request) {
+  return acknowledged(() => handle(request), {
+    area: "sales_dial",
+    code: "recording_webhook_threw",
+    what: "A call recording notification",
+  });
+}
+
+async function handle(request) {
   const { ok, params } = await verifyTwilioWebhook(request);
   if (!ok) return new NextResponse("Forbidden", { status: 403 });
 
   const recording = recordingFromWebhook(params);
   // Not a completed recording with a sid: nothing to file, and a 4xx would
   // only make the carrier send the same body again.
-  if (!recording) return new NextResponse("", { status: 204 });
+  if (!recording) return noContent();
 
   const query = new URL(request.url).searchParams;
   const attemptId = query.get("attemptId");
@@ -53,7 +75,7 @@ export async function POST(request) {
       message: `A call recording (${recording.sid}) arrived before SalesCallAttempt existed. It is on the provider and not filed.`,
       detail: { recordingUrl: recording.url, attemptId, transferId },
     }).catch(() => {});
-    return new NextResponse("", { status: 204 });
+    return noContent();
   }
 
   let filed;
@@ -66,7 +88,7 @@ export async function POST(request) {
       message: `A call recording (${recording.sid}) could not be attached: ${err?.message}`,
       detail: { recordingUrl: recording.url, attemptId, transferId, callSid: recording.callSid },
     }).catch(() => {});
-    return new NextResponse("", { status: 204 });
+    return noContent();
   }
 
   if (!filed.ok || (filed.updated === 0 && filed.reason !== "already")) {
@@ -77,7 +99,7 @@ export async function POST(request) {
       message: `A call recording (${recording.sid}) matched no attempt row (${filed.reason || "unknown"}). It is on the provider and not filed.`,
       detail: { recordingUrl: recording.url, attemptId, transferId, callSid: recording.callSid },
     }).catch(() => {});
-    return new NextResponse("", { status: 204 });
+    return noContent();
   }
 
   if (filed.updated > 0 && filed.attemptId) {
@@ -93,5 +115,5 @@ export async function POST(request) {
     });
   }
 
-  return new NextResponse("", { status: 204 });
+  return noContent();
 }

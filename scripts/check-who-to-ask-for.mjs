@@ -325,10 +325,10 @@ ok("the prompt prints it as one fact line", /Ask for: \$\{f\.askFor\}/.test(read
 // ── 12. Wiring ───────────────────────────────────────────────────────────
 section("12. Wiring — every control has a caller");
 const queueRoute = read("app/api/sales/queue/route.js");
-ok("the claim hook looks the register up before Google", queueRoute.indexOf("lookupRegisterPeopleFor") < queueRoute.indexOf("enrichProspects({ db, ids: never"));
+ok("the claim hook looks the register up after the response, and asks Google nothing", /after\(async \(\) => \{/.test(queueRoute) && /lookupRegisterPeopleFor\(\{ db, ids: held/.test(queueRoute) && !/enrichProspects|from "@\/lib\/sales\/intel\/places"/.test(queueRoute));
 ok("the current row loads its people", /people: \{ orderBy: \{ seenAt: "desc" \} \}/.test(queueRoute));
 const cron = read("app/api/cron/sales-pipeline/route.js");
-ok("the cron runs the register sweep and both vendor ticks", /sweepRegisterPeople\(/.test(cron) && /runApifyTick\(\{ db, source, now, trigger: "cron" \}\)/.test(cron));
+ok("the cron runs the register sweep (from enrichmentSweep.js, not the retired Places file) and both vendor ticks", /sweepRegisterPeople\(/.test(cron) && /intel\/enrichmentSweep"/.test(cron) && /runApifyTick\(\{ db, source, now, trigger: "cron" \}\)/.test(cron));
 ok("the rep's typed name has a route, scoped by queueWhere", /queueWhere\(rep\.id/.test(read("app/api/sales/queue/people/route.js")) && /source: "typed"/.test(read("app/api/sales/queue/people/route.js")));
 ok("the rep card mounts the control and posts to that route", /WhoToAskFor/.test(read("app/sales/queue/page.js")) && /\/api\/sales\/queue\/people/.test(read("app/components/sales/WhoToAskFor.js")));
 ok("the platform page mounts the enrichment panel and lists people with sources", /EnrichmentPanel/.test(read("app/platform/sales/prospects/page.js")) && /x\.sourceLabel/.test(read("app/platform/sales/prospects/page.js")));

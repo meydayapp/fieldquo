@@ -31,6 +31,9 @@ import { RECORDING_ASIDE, recordingDisclosureFor, carriesDisclosure, weaveDisclo
 import { OPENER, seedPlaybooks } from "@/lib/sales/playbook/defaults";
 import { CALL_SCRIPT_STYLE_EXAMPLE } from "@/lib/sales/intel/callScript";
 import { recordingsCsv } from "@/lib/sales/calls/recordingsList";
+import { recordCallRecording } from "@/lib/sales/calls/store";
+import { acknowledged, noContent } from "@/lib/sales/calls/twilioAck";
+import { answeredAtFrom } from "@/lib/sales/calls/providerStatus";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const read = (p) => readFileSync(join(ROOT, p), "utf8");
@@ -171,6 +174,62 @@ section("7. Wiring the check can only read");
   ok("…and check:all runs it", /check:sales-recording\b/.test(pkg.scripts["check:all"]));
   const schema = read("prisma/schema.prisma");
   ok("the columns exist", ["recordingSid", "recordingUrl", "recordingSeconds", "recordingChannels", "transcript ", "transcriptText", "transcribedAt", "transcriptError"].every((c) => schema.includes(`  ${c}`)));
+}
+
+section("8. 2026-09-18 — the day nothing filed (both faults, executed)");
+{
+  // The visible fault: a 204 with a string body is not a Response.
+  let threw = null;
+  try { new Response("", { status: 204 }); } catch (err) { threw = err; }
+  ok("the platform refuses `new Response(\"\", { status: 204 })` — the line every event answered 500 from", threw instanceof TypeError, threw?.message);
+  const nc = noContent();
+  ok("noContent() is a 204 with a null body", nc.status === 204 && nc.body === null);
+  const code = (p) => read(p).split("\n").filter((l) => !/^\s*(\/\/|\*)/.test(l)).join("\n");
+  const routes = ["app/api/rep-dial/status/route.js", "app/api/rep-dial/recording/route.js", "app/api/rep-dial/transfer/route.js", "app/api/rep-dial/inbound/route.js", "app/api/crew/inbound/route.js", "app/api/sms/inbound/route.js"];
+  ok("no route answers a 204 with a string body", routes.every((r) => !/Response\(\s*""\s*,\s*\{\s*status:\s*204/.test(code(r))));
+  for (const r of ["app/api/rep-dial/status/route.js", "app/api/rep-dial/recording/route.js"]) {
+    ok(`${r}: the whole handler runs inside acknowledged()`, /export async function POST\(request\) \{\s*return acknowledged\(/.test(code(r)));
+  }
+  ok("inbound?stage=status runs inside acknowledged()", /stage === "status"[\s\S]{0,200}acknowledged\(\(\) => statusStage\(params\)/.test(code("app/api/rep-dial/inbound/route.js")));
+  ok("the transfer route's noted() is noContent()", /const noted = \(\) => noContent\(\)/.test(code("app/api/rep-dial/transfer/route.js")));
+
+  // acknowledged(): a throw is a 204, and a good answer passes through.
+  const logged = [];
+  const log = async (row) => { logged.push(row); };
+  const fine = await acknowledged(async () => new Response("<Response/>", { status: 200 }), { area: "sales_dial", what: "x", log });
+  ok("acknowledged() returns the handler's own answer", fine.status === 200 && logged.length === 0);
+  const crashed = await acknowledged(async () => { throw new Error("boom"); }, { area: "sales_dial", code: "c", what: "A call status for attempt a1", log });
+  ok("…and a throw becomes a 204", crashed.status === 204 && crashed.body === null);
+  ok("…with the reason on the platform's error log, naming the event", logged.length === 1 && logged[0].area === "sales_dial" && logged[0].code === "c" && /A call status for attempt a1 .*boom/.test(logged[0].message), logged[0]);
+
+  // The silent fault: NOT on a NULL column excluded the one row to update.
+  const calls = [];
+  const fakeClient = (count, rowWithSid) => ({
+    salesCallAttempt: {
+      updateMany: async (args) => { calls.push(args.where); return { count }; },
+      findFirst: async () => rowWithSid,
+    },
+    salesRepActivity: {}, salesCallTransfer: { findUnique: async () => null },
+  });
+  const rec = { sid: SID, url: "https://api.twilio.com/x", seconds: 46, channels: 2, callSid: "CA0" };
+  const first = await recordCallRecording({ attemptId: "att1", recording: rec, client: fakeClient(1, { id: "att1" }) });
+  ok("a first recording files on its attempt", first.ok && first.updated === 1 && first.attemptId === "att1", first);
+  const where = JSON.stringify(calls[0]);
+  ok("…and the WHERE names NULL by name — never a bare `not` that SQL skips", /"recordingSid":null/.test(where) && !/"NOT":\{"recordingSid":"RE/.test(where), where);
+  ok("…while still refusing the same sid twice", /"recordingSid":\{"not":"RE/.test(where));
+  const again = await recordCallRecording({ attemptId: "att1", recording: rec, client: fakeClient(0, { id: "att1" }) });
+  ok("zero rows AND a row carrying the sid is 'already'", again.ok && again.updated === 0 && again.reason === "already" && again.attemptId === "att1", again);
+  const nobody = await recordCallRecording({ attemptId: "ghost", recording: rec, client: fakeClient(0, null) });
+  ok("zero rows and NO row carrying the sid is 'no_row', not a false 'already'", nobody.ok === false && nobody.reason === "no_row", nobody);
+  ok("the route logs an orphan for anything that is not ok", /!filed\.ok \|\|/.test(read("app/api/rep-dial/recording/route.js")));
+
+  // answeredAt: completed is stamped at the hang-up, so subtract the duration.
+  const end = new Date("2026-09-18T17:15:04Z");
+  ok("completed: answered = end − CallDuration", answeredAtFrom({ status: "completed", at: end, seconds: 45 })?.toISOString() === "2026-09-18T17:14:19.000Z");
+  ok("in-progress: answered = the event's own time", answeredAtFrom({ status: "in-progress", at: end, seconds: NaN })?.getTime() === end.getTime());
+  ok("a zero-second completed call is stamped at its end", answeredAtFrom({ status: "completed", at: end, seconds: 0 })?.getTime() === end.getTime());
+  ok("ringing / no-answer / nothing is null", [answeredAtFrom({ status: "ringing", at: end }), answeredAtFrom({ status: "no-answer", at: end, seconds: 0 }), answeredAtFrom({}), answeredAtFrom({ status: "completed", at: "yesterday", seconds: 3 })].every((v) => v === null));
+  ok("the status route uses it", /answeredAt: answeredAtFrom\(\{ status, at, seconds \}\)/.test(read("app/api/rep-dial/status/route.js")));
 }
 
 console.log(`\n${failures.length === 0 ? "PASS" : "FAIL"} — ${pass} checks passed, ${failures.length} failed.`);

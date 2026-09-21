@@ -88,6 +88,7 @@ import { NextResponse } from "next/server";
 import twilio from "twilio";
 import { db } from "@/lib/db";
 import { verifyTwilioWebhook } from "@/lib/sms/verifyTwilioWebhook";
+import { acknowledged } from "@/lib/sales/calls/twilioAck";
 import { ringPlan } from "@/lib/sales/calls/inboundDistribution";
 import { getAppOrigin } from "@/lib/appUrl";
 import { recordError } from "@/lib/platform/errorLog";
@@ -789,7 +790,15 @@ export async function POST(request) {
 async function handle(request, params) {
   const url = new URL(request.url);
   const stage = url.searchParams.get("stage");
-  if (stage === "status") return statusStage(params);
+  if (stage === "status") {
+    // A notification: a throw here is a logged error and a 204, never a 500
+    // — Twilio sends a final status once and would only file a warning.
+    return acknowledged(() => statusStage(params), {
+      area: "sales_inbound",
+      code: "status_webhook_threw",
+      what: `A final status for inbound call ${typeof params.CallSid === "string" ? params.CallSid : "(no CallSid)"}`,
+    });
+  }
   if (stage === "after-dial") return afterDial(request, params);
   // Two stages that did not exist. `queue` holds a caller instead of dropping
   // them; `after-voicemail` had a <Record> pointing at it and no handler, so

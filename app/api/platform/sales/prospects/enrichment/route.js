@@ -6,10 +6,15 @@
 //   GET                         the status the panel draws
 //   POST { action: "apify", source }         one tick for a source, now
 //   POST { action: "people", scope: "claimed" }  the register lookup over the claimed leads
-//   POST { action: "setting", key, value }   pairsPerDay per source, or the
-//                                            tier-2 Places cap
+//   POST { action: "setting", key, value }   pairsPerDay per source
 //
 // Superadmin only — every write here spends money or changes a cap.
+//
+// Until 2026-09-20 `setting` also took `placesAhead`, the Google Places
+// sweep's ahead-of-dispatcher cap. The sweep was retired (lib/sales/intel/
+// places.js's header) and the setting with it: a cap on a job that does not
+// run is a control that appears to work and doesn't. The Maps figures the
+// panel shows come from /api/platform/sales/prospects/maps-scrape.
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
@@ -18,7 +23,7 @@ import { db } from "@/lib/db";
 import { superadminOrRefusal } from "@/lib/sales/intel/configAdmin";
 import { ACTORS, apifyStatus, runApifyTick, setPairsPerDay } from "@/lib/sales/intel/apifyRuns";
 import { apifySpendThisMonth } from "@/lib/sales/intel/apify";
-import { PLACES_AHEAD_SETTING_KEY, enrichmentSweepStatus } from "@/lib/sales/intel/placesSweep";
+import { enrichmentSweepStatus } from "@/lib/sales/intel/enrichmentSweep";
 import { recrawlStatus } from "@/lib/sales/pipeline/recrawl";
 import { lookupRegisterPeopleFor } from "@/lib/sales/intel/registerPeople";
 import { DISCOVERY_TRADES } from "@/lib/sales/discovery/trades";
@@ -75,11 +80,7 @@ export async function POST(request) {
       const saved = await setPairsPerDay({ db, source: body.key, pairsPerDay: value });
       return NextResponse.json({ ok: true, key: ACTORS[body.key].settingKey, value: saved });
     }
-    if (body.key === "placesAhead") {
-      await db.platformSetting.upsert({ where: { key: PLACES_AHEAD_SETTING_KEY }, update: { value: { perHour: value } }, create: { key: PLACES_AHEAD_SETTING_KEY, value: { perHour: value } } });
-      return NextResponse.json({ ok: true, key: PLACES_AHEAD_SETTING_KEY, value });
-    }
-    return NextResponse.json({ error: "key must be bbb, google_maps or placesAhead." }, { status: 400 });
+    return NextResponse.json({ error: "key must be bbb or google_maps." }, { status: 400 });
   }
 
   return NextResponse.json({ error: "action must be apify, people or setting." }, { status: 400 });

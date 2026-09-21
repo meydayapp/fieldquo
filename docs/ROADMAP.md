@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 20 September 2026 (the true two-way Google Calendar connection: a member connects their own Google account from Settings → My calendar, every appointment / job visit / booking assigned to them is mirrored onto their primary calendar with the site address and a Meet link for video calls, their own events block every booker as titleless busy time, disconnect removes only FieldQuo's events — `npm run check:google-calendar`; the owner's Cloud Console and verification steps are in `docs/GOOGLE-CALENDAR.md`)
+Last updated: 20 September 2026 (the Google Places API sweep is retired from the sales pipeline — the owner's rule of 2026-09-18 is that Google data is scraped from his Mac by scripts/scrape/maps.mjs, never fetched by key, and the API had refused every request since 2026-09-18T11:48Z, 9,181 PERMISSION_DENIED rows one a minute; the cron sweep, the claim-time after() call, the enrich route and the "Check Google" button are deleted, the prospects page reads what the Mac scrape landed instead, the cron marks the refusal rows reviewed once as system:places-retired, listingRow now writes the run id it always took, and `npm run check:places-retired` keeps a Google call from coming back — see the section below)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -191,7 +191,8 @@ period's total and last month's:
    (the sales share of `splitTwilioSides`), the pipeline's AI by area with a
    count, tokens and what a unit costs ("Research briefs: 16,636 briefs ·
    12.7M tokens · $8.61 — 5.2¢ per 100"), the sales floor's own Retell line,
-   Google Places, Apify, the Mac scrape at $0. Per rep and per agency live
+   Apify, the Mac scrape at $0 (and the retired Places API's 119 requests,
+   printed only in a period that holds them). Per rep and per agency live
    here, as do cost per conversation and per signup.
 2. **Companies** — Retell minutes and rent, crew lines, client and crew
    texts, the companies' AI — and beside each line what the companies were
@@ -767,7 +768,8 @@ was in that week.
   not per call. The task carries `recrawl: true, previousCrawledAt`.
 - **Standing trigger**: `lib/sales/pipeline/recrawl.js` `sweepRecrawls`,
   once per `/api/cron/sales-pipeline` run after the drain, `RECRAWL_PER_TICK`
-  = 20 (the Places sweep's number), `RECRAWL_PENDING_CEILING` = 200, rows
+  = 20 (was the Places sweep's number; the sweep is retired, the cap stays),
+  `RECRAWL_PENDING_CEILING` = 200, rows
   with a live crawl skipped before the planner. The claim route's research
   call is in the claimed lane, so a just-claimed stale row re-crawls first.
 - **Unchanged**: `crawlWebsite.js` returns `done: true, advance: false` and
@@ -2168,13 +2170,15 @@ carries nobody (24 columns, no répondant).
   20 pairs a day a source (setting), 90-day pair dedupe, cost metered from
   the run's own usage into `PlatformCostDaily` (`apify`), unmatched rows
   kept in `ExternalListing`. A matched Maps row is written through
-  `planPlacesWrite` — the card cannot tell it from a Places-API lead. Not
-  exercised for real: `APIFY_TOKEN` is unset; the console names it.
+  `planPlacesWrite` — the same write a Places-API lead got before the API
+  was retired. Not exercised for real: `APIFY_TOKEN` is unset; the console
+  names it.
 - One order for every pass, `lib/sales/intel/enrichmentOrder.js`: open
   claims, then the trades being worked in dispatch order, never the pool;
   `/platform/sales/prospects` prints how far ahead of the dispatcher each
-  pass is per trade. Tier-2 Places lookups stay off until
-  `sales.places.aheadPerHour` is set — a paid request the owner has not sized.
+  pass is per trade. (The tier-2 Places cap, `sales.places.aheadPerHour`,
+  went with the Places sweep on 2026-09-20; the "Maps listing" column now
+  reports rows the Mac scrape matched.)
 - `npm run check:who-to-ask-for` — 121 checks: the CSLB parser on the
   file's own shapes, the BBB parser on saved AMS pages and hostile ones, the
   matcher on the wrong city / a chain / phone-only, never-overwrite, typed
@@ -2184,7 +2188,53 @@ Write-up: `docs/sales-intel/SOURCE-WHO-TO-ASK-FOR.md`.
 
 ---
 
-## Google Places corroborates every claimed lead: website, phone and trading status confirmed or contradicted in words (18 September 2026)
+## The Google Places API sweep is retired; the prospects page reads the Mac scrape (20 September 2026)
+
+The owner's rule (2026-09-18): Google data is scraped from his Mac —
+`scripts/scrape/maps.mjs` → `ExternalListing` rows, source `google_maps` →
+`lib/sales/intel/listings.js` matches them to prospects. "API keys never
+involved." The Places sweep below was built the day before that rule and, from
+2026-09-18T11:48Z, was refused on every request — `PERMISSION_DENIED`,
+"Requests to this API places.googleapis.com … are blocked", 9,181
+`PlatformErrorLog` rows, one a minute from the cron — until it was removed.
+(One batch did run before the block: 119 requests at 03:03Z that morning, 82
+matched; those 64 stamped rows keep their evidence under detector
+`places.textSearch:1`.)
+
+- Deleted: `lib/sales/intel/placesSweep.js`, `searchPlaces` / `checkPlaces` /
+  `enrichProspects` / the metering from `places.js`, `POST|GET
+  /api/platform/sales/prospects/enrich`, `GooglePlacesPanel.js`, the
+  claim-time Places `after()` in the queue route, the `placesAhead` setting.
+  `places.js` keeps the match rule, `planPlacesWrite` and the confirmations —
+  the Maps scrape path runs them. The register-people sweep moved, unchanged,
+  to `lib/sales/intel/enrichmentSweep.js`.
+- Replaced: `/platform/sales/prospects` shows what the scrape LANDED
+  (`lib/sales/intel/mapsScrapeStatus.js`, `GET
+  …/prospects/maps-scrape`): the last run by `runId` with rows / matched /
+  unmatched / first and last write, earlier runs, the null-runId bucket, the
+  $0 meter, and "The next sweep runs from the owner's Mac; nothing here calls
+  Google." Per prospect, a read-only statement of its matched listing(s).
+  No button: production cannot start a scrape. The panel can only show what
+  is in the database — the run log stays under `~/Library` on the Mac.
+- Found on the way: `listingRow` took `runId` and never wrote it, so all
+  4,239 rows from the first two nights carry null. Fixed; the panel names the
+  bucket rather than attributing it to a run.
+- The 9,181 rows are never deleted. The cron's `retirePlacesRefusals`
+  (`lib/platform/errorLog.js`) marks them reviewed once — `area = places AND
+  code = PERMISSION_DENIED AND resolvedAt IS NULL`, on the `(area, createdAt)`
+  index — as `system:places-retired` with the reason on every row and one
+  audit row; count 0 every tick after.
+- `npm run check:places-retired` asserts no Places endpoint in code under
+  `lib/sales`, `app/api/sales`, `app/api/cron`, `app/api/platform/sales`, no
+  `placesSweep` import, no `places` key in the cron result, the resolver's
+  exact WHERE (executed), the panel's sentence and no enrich fetch, no Places
+  `after()`. `check:places-enrich` keeps the rule's 60 checks.
+- Costs: the `google_places` line prints only in a period that holds the
+  retired rows, labelled retired; the Mac's $0 line is the Google line.
+
+---
+
+## Google Places corroborates every claimed lead: website, phone and trading status confirmed or contradicted in words (18 September 2026) — RETIRED 2026-09-20, see above
 
 DRAIN KINGS (Chatsworth, from the CSLB C-36 register) read "Website: none on
 record — nothing has crawled this business" while drainkingslosangeles.com was

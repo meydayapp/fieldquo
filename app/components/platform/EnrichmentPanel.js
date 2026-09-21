@@ -10,6 +10,13 @@
 // Every number here is read from a table; nothing is estimated. A pass
 // that has not run says so. A vendor with no key prints the variable's
 // name instead of a button that would fail.
+//
+// "Maps listing" in the table is not a pass this codebase runs: it is the
+// rows that carry a Google listing, stamped when the owner's Mac scrape
+// matched one (lib/sales/intel/enrichmentSweep.js says so). The Places API
+// sweep that used to walk this order, and its "Google ahead per hour" cap
+// that was set here, were retired on 2026-09-20 — the cap went with the job,
+// because a knob on a job that does not run is a dead control.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertCircle, Loader2, RefreshCw, Users } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
@@ -142,7 +149,7 @@ export default function EnrichmentPanel() {
         <>
           <div className="space-y-1 text-sm">
             <p>
-              <strong>Claimed leads:</strong> {status.sweep.claimed.total} · Google checked {status.sweep.claimed.places} · register personnel checked {status.sweep.claimed.people} · BBB checked {status.sweep.claimed.bbb}
+              <strong>Claimed leads:</strong> {status.sweep.claimed.total} · with a Maps listing {status.sweep.claimed.maps} · register personnel checked {status.sweep.claimed.people} · BBB checked {status.sweep.claimed.bbb}
             </p>
             <p className="text-xs text-muted-foreground">
               CSLB personnel file: {status.personnel.rows.toLocaleString()} people, release {status.personnel.release || "not loaded"}, loaded {day(status.personnel.loadedAt)} — <code>scripts/cslb-personnel-load.mjs</code>.
@@ -170,14 +177,14 @@ export default function EnrichmentPanel() {
             ) : (
               <table className="w-full text-sm">
                 <thead className="text-xs text-muted-foreground text-left">
-                  <tr><th className="py-1 pr-3">Trade</th><th className="pr-3">Open claims</th><th className="pr-3">Google ahead</th><th className="pr-3">Register ahead</th><th>BBB ahead</th></tr>
+                  <tr><th className="py-1 pr-3">Trade</th><th className="pr-3">Open claims</th><th className="pr-3">Maps listing</th><th className="pr-3">Register ahead</th><th>BBB ahead</th></tr>
                 </thead>
                 <tbody>
                   {status.sweep.trades.map((t) => (
                     <tr key={t.tradeKey} className="border-t border-border">
                       <td className="py-1 pr-3">{t.label}</td>
                       <td className="pr-3">{t.claims}</td>
-                      <td className="pr-3">{t.sources.places?.ahead ?? 0} / {t.total}</td>
+                      <td className="pr-3">{t.sources.maps?.ahead ?? 0} / {t.total}</td>
                       <td className="pr-3">{t.sources.people?.ahead ?? 0} / {t.total}</td>
                       <td>{t.sources.bbb?.ahead ?? 0} / {t.total}</td>
                     </tr>
@@ -186,17 +193,12 @@ export default function EnrichmentPanel() {
               </table>
             )}
             <p className="text-xs text-muted-foreground">
-              "Ahead" is how many rows at the head of the trade's dispatch order the pass has already done — the next rows a rep pressing Claim would get. Google walks ahead of the dispatcher only at{" "}
-              <code>{status.sweep.placesAheadSettingKey}</code> = {status.sweep.placesAheadPerHour} an hour{status.sweep.placesAheadPerHour === 0 ? " (off — a paid lookup the owner has not sized)" : ""}; the register lookup is free and walks it every tick.
+              "Ahead" is how many rows at the head of the trade's dispatch order the pass has already done — the next rows a rep pressing Claim would get. The register lookup is free and walks it every tick. "Maps listing" is how many of those rows carry a Google listing: matched when the owner's Mac runs the scrape, not by anything here.
             </p>
             <div className="flex items-center gap-2 flex-wrap">
               <button type="button" className={`${BTN} border border-border bg-card text-foreground`} disabled={busy} onClick={() => post({ action: "people" }, (r) => `Register lookup over the claimed leads: ${r.found} of ${r.asked} have a name on file, ${r.added} people added, ${r.notRegister} not from a register with personnel.`)}>
                 Look up the claimed leads in the registers now
               </button>
-              <label className="text-xs text-muted-foreground">
-                Google ahead per hour{" "}
-                <input defaultValue={status.sweep.placesAheadPerHour} inputMode="numeric" className="h-8 w-16 rounded-md border border-input bg-background px-2 text-sm" onBlur={(e) => { const v = Number(e.target.value); if (Number.isInteger(v) && v !== status.sweep.placesAheadPerHour) post({ action: "setting", key: "placesAhead", value: v }, () => `Google ahead-of-dispatcher cap set to ${v} an hour.`); }} />
-              </label>
             </div>
           </div>
 

@@ -38,7 +38,6 @@ export const runtime = "nodejs";
 
 import { NextResponse, after } from "next/server";
 import { db } from "@/lib/db";
-import { enrichProspects } from "@/lib/sales/intel/places";
 import { lookupRegisterPeopleFor } from "@/lib/sales/intel/registerPeople";
 import { recordError, errorDetail } from "@/lib/platform/errorLog";
 import { checkSuppression } from "@/lib/sales/suppression";
@@ -168,24 +167,28 @@ function queueResearchFor(prospectIds, rep = null) {
     .catch((err) => {
       console.error("[sales/queue] ensureResearchQueued failed:", err?.message || err);
     });
-  checkGoogleFor(prospectIds, rep);
+  lookupRegisterPeopleAfter(prospectIds, rep);
 }
 
 /**
- * Ask Google Places about the rows just claimed that nobody has asked about
- * before — after the response, never on its path.
+ * Who to ask for, from the register, for the rows just claimed — after the
+ * response, never on its path.
  *
- * `after()` rather than a dangling promise: a hundred Places requests take
- * tens of seconds, and a promise the handler does not await is killed with
- * the invocation once the response is sent. `after()` keeps the function
- * alive for the route's maxDuration. Never-checked rows only — the 90-day
- * window is lib/sales/intel/places.js's, and a re-ask is the console's
- * "Check Google", not a claim's. A row that gains a website here queues its
- * own crawl in the claimed lane (checkPlaces → ensureResearchQueued), so
- * the research asked for above is not waited on and not duplicated: the
- * plan is idempotent per stage.
+ * `after()` rather than a dangling promise: a promise the handler does not
+ * await is killed with the invocation once the response is sent, and
+ * `after()` keeps the function alive for the route's maxDuration. A table
+ * read per row (lib/sales/intel/registerPeople.js) against the CSLB
+ * personnel file, no vendor and no money, so the name is on the card by
+ * the time the rep opens it. Its own skip-if-checked stamp; 180 days.
+ *
+ * Until 2026-09-20 this hook went on to ask the Google Places API about
+ * every never-checked row in the claim. That call is gone — the owner's
+ * rule is that Google data is read from his Mac by scripts/scrape/maps.mjs
+ * and matched in lib/sales/intel/listings.js, never fetched by key, and
+ * the API had refused every request for two days by the time it was
+ * removed (lib/sales/intel/places.js's header). Nothing here calls Google.
  */
-function checkGoogleFor(prospectIds, rep) {
+function lookupRegisterPeopleAfter(prospectIds, rep) {
   if (!rep?.id) return;
   after(async () => {
     try {
@@ -195,34 +198,13 @@ function checkGoogleFor(prospectIds, rep) {
         where: { ...queueWhere(rep.id, { now: new Date() }), id: { in: prospectIds } },
         select: { id: true },
       });
-      // Who to ask for, from the register, before Google: a table read
-      // per row (lib/sales/intel/registerPeople.js), no money, and the
-      // name is on the card by the time the rep opens it. Its own
-      // skip-if-checked stamp; 180 days.
-      if (held.length) {
-        await lookupRegisterPeopleFor({ db, ids: held.map((r) => r.id) }).catch((err) =>
-          recordError({ area: "people", code: "claim_lookup_threw", message: `Register people lookup at claim time threw: ${err?.message || err}`, detail: { prospectIds: prospectIds.slice(0, 50) } }),
-        );
-      }
-      const never = await db.prospect.findMany({
-        where: { ...queueWhere(rep.id, { now: new Date() }), id: { in: prospectIds }, placesCheckedAt: null },
-        select: { id: true },
-      });
-      if (!never.length) return;
-      const report = await enrichProspects({ db, ids: never.map((r) => r.id) });
-      if (report.stopped) {
-        await recordError({
-          area: "places",
-          code: report.stopped.code,
-          message: `Places check at claim time stopped: ${report.stopped.message}`,
-          detail: { prospectIds: prospectIds.slice(0, 50) },
-        });
-      }
+      if (!held.length) return;
+      await lookupRegisterPeopleFor({ db, ids: held.map((r) => r.id) });
     } catch (err) {
       await recordError({
-        area: "places",
-        code: "claim_check_threw",
-        message: `Places check at claim time threw: ${err?.message || err}`,
+        area: "people",
+        code: "claim_lookup_threw",
+        message: `Register people lookup at claim time threw: ${err?.message || err}`,
         detail: errorDetail(err, { prospectIds: prospectIds.slice(0, 50) }),
       });
     }

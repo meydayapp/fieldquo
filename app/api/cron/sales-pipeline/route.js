@@ -72,7 +72,8 @@ import { topUpResearchBacklog } from "@/lib/sales/pipeline/research";
 import { SUGGEST_CRON_SLICE, suggestTradesBatch } from "@/lib/sales/discovery/suggestTradesBatch";
 import { runTradeSuggestAiSlice } from "@/lib/sales/discovery/suggestTradesAiApproval";
 import { sweepMissedInbound } from "@/lib/sales/calls/missed";
-import { sweepQueuedPlaces, sweepRegisterPeople } from "@/lib/sales/intel/placesSweep";
+import { sweepRegisterPeople } from "@/lib/sales/intel/enrichmentSweep";
+import { retirePlacesRefusals } from "@/lib/platform/errorLog";
 import { sweepRecrawls } from "@/lib/sales/pipeline/recrawl";
 import { runApifyTick } from "@/lib/sales/intel/apifyRuns";
 import { reconcileCarrierPrices } from "@/lib/sales/calls/costs";
@@ -259,25 +260,33 @@ export async function GET(request) {
   }
   result.suggestions = suggestions;
 
-  // ── Then Google Places, through what reps hold, in their queue order ────
+  // ── No Google Places sweep. ─────────────────────────────────────────────
   //
-  // The standing job the owner sized: 25 lookups per rep per clock hour,
-  // taken in the order the rep will dial, never a row checked in the last
-  // 90 days (lib/sales/intel/placesSweep.js). A tick takes at most
-  // SWEEP_PER_TICK across every rep — a few seconds of HTTP, metered at list
-  // price into PlatformCostDaily — and the hour's allowance, not this tick,
-  // is what bounds the spend. Its own try/catch, for the backlog's reason.
-  // The pool is NOT here: nobody holds those rows, and the owner has not
-  // said yes to the number.
-  let places;
+  // One ran here from 2026-09-17 to 2026-09-20 — 25 Text Search lookups
+  // per rep per clock hour, in queue order. The owner's rule of 2026-09-18
+  // retired it: Google data is READ from his Mac by scripts/scrape/maps.mjs
+  // into ExternalListing rows, which lib/sales/intel/listings.js matches
+  // to prospects; no API key is involved anywhere in this pipeline. By the
+  // time it was removed the API had refused every request for two days
+  // (PERMISSION_DENIED, 9,181 PlatformErrorLog rows, one a minute from this
+  // tick). The code is gone, not flagged off — lib/sales/intel/places.js's
+  // header has the full account — so there is no `places` key in this
+  // result any more; scripts/check-places-retired.mjs asserts that.
+  //
+  // What remains of it is a one-off tidy: those 9,181 rows can never be
+  // deleted (PlatformErrorLog is the record — the model comment on
+  // resolvedAt), so they are marked reviewed in-product, by the system, with
+  // the reason on every row. One updateMany on the (area, createdAt) index;
+  // count 0 on every tick after the first. Its own try/catch, as above.
+  let placesRetired;
   try {
-    places = await sweepQueuedPlaces({ db, now });
+    placesRetired = await retirePlacesRefusals({ db, now });
   } catch (err) {
-    places = { error: err?.message || String(err) };
+    placesRetired = { error: err?.message || String(err) };
   }
-  result.places = places;
+  result.placesRetired = placesRetired;
 
-  // ── Then who to ask for, from the registers, in the same order ─────────
+  // ── Then who to ask for, from the registers, in the enrichment order ───
   //
   // lib/sales/intel/registerPeople.js: a table read per row against the
   // CSLB personnel file already loaded, no vendor and no money, so it walks
@@ -295,8 +304,8 @@ export async function GET(request) {
   //
   // lib/sales/pipeline/recrawl.js: the rows reps hold and the rows next in
   // dispatch whose lastCrawledAt is older than MIN_RECRAWL_MS, up to
-  // RECRAWL_PER_TICK a tick — the Places sweep's number, for the same
-  // reason. Held rows go to the claimed lane, the rest to the backlog; an
+  // RECRAWL_PER_TICK a tick — a few seconds of one invocation. Held rows
+  // go to the claimed lane, the rest to the backlog; an
   // unchanged site costs the crawl alone, a changed one runs the chain as
   // a first crawl does. Never the pool. Its own try/catch, as above.
   let recrawl;

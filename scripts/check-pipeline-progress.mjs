@@ -69,7 +69,6 @@ import {
   sweepRecrawls,
 } from "@/lib/sales/pipeline/recrawl";
 import { MIN_RECRAWL_MS } from "@/lib/sales/crawl/policy";
-import { SWEEP_PER_TICK } from "@/lib/sales/intel/placesSweep";
 import { ENRICHMENT_TIERS } from "@/lib/sales/intel/enrichmentOrder";
 import { shouldAdvance } from "@/lib/sales/pipeline/chain";
 import { SITE_INFERENCE_VERSION } from "@/lib/sales/intel/siteInference";
@@ -558,7 +557,9 @@ section("10b. A site read once is read again — for the rows that matter, when 
     /if \(!changed\) \{[\s\S]*?\["prospectInferenceRun", "prospectCallScript"\][\s\S]*?crawledAt: now/.test(crawlSite));
 
   // ── The tick: the order's rows, the cap, the ceiling, the live skip ──
-  ok("the cap is the Places sweep's number", RECRAWL_PER_TICK === SWEEP_PER_TICK);
+  // Twenty was the Places sweep's per-tick number; the sweep is retired
+  // (2026-09-20) and the cap stands on its own reason (recrawl.js header).
+  ok("the cap is twenty a tick", RECRAWL_PER_TICK === 20);
   const rows = [];
   for (let i = 0; i < 30; i += 1) rows.push({ id: `h${i}`, tier: ENRICHMENT_TIERS.CLAIMED, done: false, lastCrawledAt: stale.lastCrawledAt });
   for (let i = 0; i < 10; i += 1) rows.push({ id: `n${i}`, tier: ENRICHMENT_TIERS.NEXT_IN_TRADE, done: false, lastCrawledAt: stale.lastCrawledAt });
