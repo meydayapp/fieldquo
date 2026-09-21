@@ -61,7 +61,11 @@ const flowSrc = readFileSync(FLOW, "utf8");
 const measureSrc = readFileSync(MEASURE_ROUTE, "utf8");
 const requestSrc = readFileSync(REQUEST_ROUTE, "utf8");
 const settingsSrc = readFileSync(SETTINGS_ROUTE, "utf8");
-const settingsPageSrc = readFileSync(SETTINGS_PAGE, "utf8");
+// The screen is page.js plus the per-trade card beside it (TradeCard.js),
+// which the home page's set-up dialog renders too.
+const settingsPageSrc =
+  readFileSync(SETTINGS_PAGE, "utf8") +
+  readFileSync(join(ROOT, "app/app/settings/instant-quotes/TradeCard.js"), "utf8");
 
 // ── Balanced-region reader ──────────────────────────────────────────────────
 // Naive bracket counting, deliberately. It is checked with `found` below so a

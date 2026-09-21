@@ -373,8 +373,12 @@ export default function DashboardPage() {
     }
   }
 
-  useEffect(() => {
-    fetch("/api/onboarding-status", { cache: "no-store" })
+  // The checklist's read, callable again: the onboarding card's dialogs
+  // re-read it after a save so the row ticks without a navigation
+  // (app/components/dashboard/useStepDialog.js). Resolves to the fresh
+  // status so the caller can choose the next step from it.
+  const loadOnboarding = useCallback(() => {
+    return fetch("/api/onboarding-status", { cache: "no-store" })
       .then(async (response) => {
         const data = await response.json();
         if (!response.ok) {
@@ -384,11 +388,42 @@ export default function DashboardPage() {
         }
         return data;
       })
-      .then(setOnboarding)
+      .then((data) => {
+        setOnboarding(data);
+        setOnboardingError("");
+        return data;
+      })
       .catch((error) => {
         console.error(error);
         setOnboardingError(error.message);
+        return null;
       });
+  }, []);
+
+  useEffect(() => {
+    // ── Back from Stripe's hosted Connect flow ──────────────────────────
+    //
+    // The "Connect Stripe" dialog sends the browser to Stripe with
+    // `returnTo: "home"` (lib/stripe/connectReturn.js), so it lands here with
+    // `?connected=true`. The column the checklist reads
+    // (Company.stripeChargesEnabled) is written by the account.updated
+    // webhook OR by GET /api/stripe/connect/status, which asks Stripe and
+    // writes the answer back — the payments page's reason for that call
+    // applies here word for word: the webhook may not have landed yet, and
+    // rendering the row unticked seconds after they finished is the page
+    // telling them to do it again. So: ask Stripe first, THEN read the
+    // checklist, and strip the parameter so a refresh does not repeat it.
+    const params =
+      typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+    const backFromStripe = Boolean(params?.get("connected"));
+    if (backFromStripe) {
+      window.history.replaceState({}, "", window.location.pathname);
+      fetch("/api/stripe/connect/status", { cache: "no-store" })
+        .catch(() => {})
+        .then(() => loadOnboarding());
+    } else {
+      loadOnboarding();
+    }
 
     // All three set their own state and never reject — see lib/loadState.js,
     // which exists so a refused list cannot be flattened into an empty one on
@@ -396,7 +431,7 @@ export default function DashboardPage() {
     Promise.all([loadOverview(), loadRecentQuotes(), loadAppointments()])
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [loadOverview, loadRecentQuotes, loadAppointments]);
+  }, [loadOnboarding, loadOverview, loadRecentQuotes, loadAppointments]);
 
   // The ranking, decided once per render from the two payloads. Pure, and
   // tested by scripts/check-dashboard-rank.mjs rather than by looking at it.
@@ -504,10 +539,16 @@ export default function DashboardPage() {
           Onboarding status unavailable: {onboardingError}
         </div>
       )}
-      {/* Onboarding checklist — only shown while incomplete. Every row is a
-          link to a page; the one row that was done in place (Add Employee)
-          lives on the set-up card below now, popup and all. */}
-      <OnboardingProgress status={onboarding} />
+      {/* Onboarding checklist — only shown while incomplete. Each row opens
+          its step in a dialog here, for someone who may change settings, and
+          re-reads the list on save; for anyone else the row is the link to
+          the settings page it always was. The one row that was done in place
+          before this (Add Employee) lives on the set-up card below. */}
+      <OnboardingProgress
+        status={onboarding}
+        onRefresh={loadOnboarding}
+        canOpenInPlace={canManageSetup}
+      />
 
       {/* The eleven things worth doing after onboarding — each row removed the
           moment the database says it is done, or hidden by hand. Fetches and

@@ -162,7 +162,7 @@ const USES_FORMATTER = [
   ["app/app/time-off/page.js", /useCompanyMoney\(\)/],
   ["app/app/settings/overhead/page.js", /useCompanyMoney\(\)/],
   ["app/app/settings/expense-tracking/page.js", /useCompanyMoney\(\)/],
-  ["app/app/settings/material-costs/page.js", /useCompanyMoney\(\)/],
+  ["app/app/settings/material-costs/MaterialCostsEditor.js", /useCompanyMoney\(\)/],
   // Added 2026-09-03. Its Rate component defaulted `prefix = "$"` — a plain
   // string default, which the scan above cannot see because there is no `${`
   // in front of it. Eighteen money boxes on the screen where a cabinet maker
@@ -180,7 +180,7 @@ const USES_FORMATTER = [
   // This page reads the currency CODE rather than useCompanyMoney: nothing on
   // it formats an amount, it labels boxes a person types into. So the pattern
   // is the provider hook, which is what supplies the code.
-  ["app/app/settings/instant-quotes/page.js", /useCompanyPreferences\(\)/],
+  ["app/app/settings/instant-quotes/TradeCard.js", /useCompanyPreferences\(\)/],
 ];
 
 // ── The catalogue is a screen too ──────────────────────────────────────────
@@ -211,7 +211,7 @@ const CURRENCY_FREE_KEYS = [
 // their absence.
 {
   const iq = readFileSync(
-    new URL("../app/app/settings/instant-quotes/page.js", import.meta.url),
+    new URL("../app/app/settings/instant-quotes/TradeCard.js", import.meta.url),
     "utf8",
   );
   ok(

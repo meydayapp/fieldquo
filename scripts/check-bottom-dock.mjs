@@ -402,7 +402,7 @@ section("No second copy of the tab bar's footprint");
   }
   ok("no source file hard-codes 4rem+env(safe-area-inset-bottom)", copies.length === 0, `— ${copies.join(", ")}`);
   const pads = [];
-  for (const where of ["app/app/settings/links/page.js", "app/app/settings/availability/page.js", "app/app/invoices/new/page.js", "app/components/quotes/builder/QuoteBuilder.js"]) {
+  for (const where of ["app/app/settings/links/page.js", "app/app/settings/availability/AvailabilityEditor.js", "app/app/invoices/new/page.js", "app/components/quotes/builder/QuoteBuilder.js"]) {
     const src = stripComments(read(where));
     if (/\bpb-2[48]\b/.test(src)) pads.push(where);
   }

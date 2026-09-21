@@ -247,7 +247,7 @@ console.log("\nThe preview runs the real builder\n");
 
 console.log("\nThe page\n");
 
-const page = code(read("app/app/settings/email-templates/page.js"));
+const page = code(read("app/app/settings/email-templates/EmailTemplatesManager.js"));
 ok("the templates page mounts the Document emails group", /<DocumentEmails/.test(page));
 ok("the old 'don't use a template' subtitle is gone", !/don't use a template/.test(page) && !/don't use a template/.test(APP_MESSAGES.en["app.emailTemplates.whatSends"]));
 ok("the new subtitle says what is customisable and what is derived", /customise its wording/i.test(APP_MESSAGES.en["app.emailTemplates.whatSends"]) && /always come from the document/i.test(APP_MESSAGES.en["app.emailTemplates.whatSends"]));

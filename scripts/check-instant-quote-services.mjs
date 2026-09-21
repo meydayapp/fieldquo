@@ -232,7 +232,9 @@ for (const bad of [null, undefined, "nope", 7, [null, undefined, 3, "x"]]) {
 }
 
 {
-  const page = stripComments(read("app/app/settings/instant-quotes/page.js"));
+  // The screen is page.js plus the per-trade card beside it (TradeCard.js),
+  // which the home page's set-up dialog renders too.
+  const page = stripComments(read("app/app/settings/instant-quotes/page.js") + read("app/app/settings/instant-quotes/TradeCard.js"));
 
   // The old screen folded both findings into "your lists don't match" and sent
   // the owner to Services. The "sold, not quoted" half is now a missing number
@@ -259,7 +261,7 @@ for (const bad of [null, undefined, "nope", 7, [null, undefined, 3, "x"]]) {
 // JSON.stringify threw on the cyclic structure. A handler that takes a
 // parameter must never be passed to onClick bare.
 {
-  const page = readFileSync("app/app/settings/instant-quotes/page.js", "utf8");
+  const page = readFileSync("app/app/settings/instant-quotes/page.js", "utf8") + readFileSync("app/app/settings/instant-quotes/TradeCard.js", "utf8");
   ok("the instant-quotes Save button never hands the click event to save()", !/onClick=\{save\}/.test(page.replace(/\{\/\*[\s\S]*?\*\/\}/g, "")) && /onClick=\{\(\) => save\(\)\}/.test(page));
 }
 

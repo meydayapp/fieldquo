@@ -112,7 +112,7 @@ ok("deleting an email template is not blocked by a star nothing reads",
 
 section("The screens no longer show a control nothing reads");
 
-const list = stripComments(read("app/app/settings/email-templates/page.js"));
+const list = stripComments(read("app/app/settings/email-templates/EmailTemplatesManager.js"));
 ok("the list page has no Active badge and no Set Active button", !/Set Active/.test(list) && !/app\.status\.active/.test(list) && !/isDefault/.test(list));
 ok("the list page no longer calls the activate route", !/\/activate/.test(list));
 ok("the subtitle says what decides — a rule or campaign picking by name — not a star", /app\.emailTemplates\.whatSends/.test(list) && !/descPart1|descPart2/.test(list));

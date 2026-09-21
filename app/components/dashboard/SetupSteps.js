@@ -21,11 +21,22 @@
 // struck off locally. The rule is "removed when the database says so", and
 // a refetch is how this card asks the database; a local splice would be the
 // card deciding for itself.
+//
+// Since 2026-09-21 every other row is done in place too — the owner: "Same
+// for the additional steps." Each opens its step in a dialog on this page,
+// rendering the SAME editor its settings page renders (app/components/
+// dashboard/stepPanels.js), and a change inside it re-reads this list the
+// same way the popup does, so the row leaves when the server says so and
+// the next one is offered (useStepDialog.js). The row keeps its link to the
+// page beside the dialog's own "Open in settings", and the "Done, hide"
+// button is untouched.
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, ChevronDown, UserPlus } from "lucide-react";
 import { CARD } from "@/app/components/dashboard/surface";
 import AddEmployeeModal from "@/app/components/team/AddEmployeeModal";
+import useStepDialog from "@/app/components/dashboard/useStepDialog";
+import { hasStepPanel } from "@/app/components/dashboard/stepPanels";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { reportResponseError } from "@/lib/clientErrors";
 import { remainingSteps } from "@/lib/setupSteps";
@@ -78,6 +89,31 @@ export default function SetupSteps() {
       cancelled = true;
     };
   }, [load]);
+
+  // The dialog a row opens. Its re-read is this card's own `load`, which
+  // resolves once the list is set; the rows still remaining are then read
+  // back for the next offer. The team row keeps its popup (below) rather
+  // than going through here — it is the one step whose form is a popup of
+  // its own already, and two frames around one form would be the weeds.
+  const [remainingRef, setRemainingRef] = useState([]);
+  useEffect(() => {
+    if (steps) setRemainingRef(steps);
+  }, [steps]);
+  const refresh = useCallback(async () => {
+    const data = await fetch("/api/setup-steps", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
+      .catch(() => null);
+    if (!data) return remainingRef;
+    const remaining = remainingSteps(data?.steps);
+    setSteps(remaining);
+    return remaining;
+  }, [remainingRef]);
+  const { open: openStep, dialog, nextStrip } = useStepDialog({
+    id: "setup",
+    refresh,
+    labelOf: (step) => t(step.titleKey, step.title),
+    hrefOf: (step) => step.href,
+  });
 
   async function hide(key) {
     setHiding(key);
@@ -142,6 +178,8 @@ export default function SetupSteps() {
         />
       </button>
 
+      {isOpen && nextStrip && <div className="px-5 pt-3">{nextStrip}</div>}
+
       {isOpen && (
         <ul id="setup-steps-list" className="border-t border-foreground/15">
           {steps.map((step) => (
@@ -149,12 +187,28 @@ export default function SetupSteps() {
               key={step.key}
               className="flex items-center justify-between gap-3 px-5 py-2 border-b border-foreground/10 last:border-b-0"
             >
+              {/* The row opens the dialog; the page link stays beside it as
+                  the small arrow, so both doors are on the row. The team
+                  row has no dialog of this kind — its button is below. */}
+              {hasStepPanel(step.key) ? (
+                <button
+                  type="button"
+                  onClick={() => openStep(step)}
+                  className="flex items-center gap-2 min-w-0 flex-1 py-2 text-sm font-medium text-foreground min-h-9 text-left"
+                >
+                  <span className="truncate">{t(step.titleKey, step.title)}</span>
+                </button>
+              ) : (
+                <span className="flex items-center gap-2 min-w-0 flex-1 py-2 text-sm font-medium text-foreground min-h-9">
+                  <span className="truncate">{t(step.titleKey, step.title)}</span>
+                </span>
+              )}
               <Link
                 href={step.href}
-                className="flex items-center gap-2 min-w-0 flex-1 py-2 text-sm font-medium text-foreground min-h-9"
+                aria-label={`${t(step.titleKey, step.title)} — ${t("app.stepDialog.openInSettings", "Open in settings")}`}
+                className="shrink-0 flex items-center justify-center min-h-9 min-w-9 text-muted-foreground hover:text-foreground"
               >
-                <span className="truncate">{t(step.titleKey, step.title)}</span>
-                <ArrowRight size={14} aria-hidden="true" className="shrink-0 text-muted-foreground" />
+                <ArrowRight size={14} aria-hidden="true" />
               </Link>
               {step.key === INLINE_ADD_EMPLOYEE_KEY && (
                 <button
@@ -190,6 +244,8 @@ export default function SetupSteps() {
           }}
         />
       )}
+
+      {dialog}
     </section>
   );
 }

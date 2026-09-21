@@ -1,0 +1,910 @@
+// app/app/settings/services/ServicesEditor.js
+//
+// The whole of Settings > Services as one component. The page renders it,
+// and so do three of the home page's set-up dialogs — "Choose the services
+// you offer", "Set your pricing for at least one service" and "Review the
+// job process on your quotes" (app/components/dashboard/stepPanels.js). One
+// component rather than a trimmed copy: the dialog ticks the same checkbox,
+// types into the same rate box and saves through the same PATCH with the
+// same payload, so the checklist and the settings page can never disagree
+// about what "enabled" or "priced" means.
+//
+// `compact` is what the dialogs pass, and `focus` says which of the three
+// they are. Compact drops the page's heading, the "Back to home" link, the
+// preparation-guide card, the instant-quote hint, the standard add-on seeding
+// and the prep-guide and documents editors — a phone-height sheet with every
+// section of this page in it is the weeds the dialog exists to keep people
+// out of. Nothing hidden is lost: the settings link at the foot of the
+// dialog is this page, whole.
+//
+//   focus "services" — the switches and, for a switched-on trade, its rate.
+//   focus "pricing"  — the switched-on trades only (all of them if none is
+//                      on yet), with the rate card already open.
+//   focus "wording"  — the switched-on trades' quote wording, panels open.
+//
+// `onSaved` fires after a successful PATCH; the dialog closes on it and
+// re-reads the checklist. The page passes nothing.
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { Plus, X, Sparkles, PackagePlus } from "lucide-react";
+import { INTAKE_FIELD_LIBRARY } from "@/app/data/intakeFieldLibrary";
+import RateCard from "./RateCard";
+import QuoteWording from "./QuoteWording";
+import PrepGuideEditor from "./PrepGuideEditor";
+import PrepGuideCompanyCard from "./PrepGuideCompanyCard";
+import ServiceDocuments from "./ServiceDocuments";
+import { usePermissions } from "@/app/providers/PermissionProvider";
+import BackToHome from "@/app/components/BackToHome";
+import { allPriceBookUnits } from "@/app/data/tradePriceBooks";
+import { categoryKeysForIndustries } from "@/app/data/industryCategories";
+// One call for what a trade IS — its price book, what it charges by, whether it
+// ships standard add-on products, whether a homeowner can be quoted for it
+// instantly. This screen used to import four lists and ask each one separately,
+// which is how it came to disagree with the instant-quote screen about which
+// trades a company sells.
+import { tradeDefinition } from "@/lib/trades/definition";
+import { reportResponseError, showError } from "@/lib/clientErrors";
+import { useTranslation } from "@/app/hooks/useTranslation";
+import Link from "next/link";
+import { Zap } from "lucide-react";
+
+function emptyCustomForm() {
+  return { label: "", fieldKeys: [] };
+}
+
+// Suggestions for the ~50 catalog trades with no price book of their own. The
+// list is the union of what the books already charge by, so a tiler reaches for
+// the same word a flooring installer uses instead of inventing "sq.ft.". Free
+// text still wins — `unit` is a label on a line item, not an enum, and forcing
+// a picker would strip units companies have already saved.
+// "hour" and "job" are added here because no trade in the book is time-priced
+// or whole-job priced, so neither can be derived from it.
+const UNIT_SUGGESTIONS = [...allPriceBookUnits(), "hour", "job"];
+
+// A chip for one thing the trade charges by. The book's label usually already
+// names the unit ("Per door"), so the unit is only appended when it adds
+// something — "Handrail" alone doesn't say linear feet.
+function basisChipLabel({ label, unit }) {
+  const words = unit.toLowerCase().split(/\s+/);
+  const said = label.toLowerCase();
+  return words.every((w) => said.includes(w)) ? label : `${label} (${unit})`;
+}
+
+export default function ServicesEditor({ compact = false, focus = "services", onSaved } = {}) {
+  const { t } = useTranslation();
+  const [categories, setCategories] = useState([]);
+  // Empty and refused are different sentences. Gated separately because the
+  // empty state below makes a claim about the business.
+  const [loadError, setLoadError] = useState("");
+  // Three states, not two. `categories` is [] before the fetch resolves AND
+  // when a company genuinely has none, and the empty state below reads "No
+  // quote types yet" — a claim about the business. Without this flag that claim
+  // flashes on screen for the ~200ms before the 66 categories arrive, telling
+  // every contractor on every visit that they have nothing configured.
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  // The industries picked at signup drive which of the ~60 catalog categories
+  // are shown by default — mirrors the signup services step so a plumber lands
+  // on plumbing quote types instead of the whole trade catalog. Fetched from
+  // business-info rather than folded into the service-categories response,
+  // whose plain-array shape several other pages already depend on.
+  const [industries, setIndustries] = useState([]);
+  // { [instantTrade]: { enabled, ok } } — null until the instant-quote endpoint
+  // answers, so "no badge yet" is distinguishable from "no instant quote".
+  const [instantByTrade, setInstantByTrade] = useState(null);
+  const [categorySearch, setCategorySearch] = useState("");
+  const [showAllTrades, setShowAllTrades] = useState(false);
+
+  const [showCustomModal, setShowCustomModal] = useState(false);
+  // The dashboard's "Review the job process on your quotes" step links to
+  // `#quote-wording`. The wording panel is collapsed by default, so landing on
+  // it closed would be a link that scrolls to a heading and shows nothing —
+  // the fragment opens every enabled category's panel. Read in an effect, not
+  // in the initial state: the server render has no location and a mismatch
+  // would rehydrate it closed.
+  const [openWording, setOpenWording] = useState(focus === "wording");
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.location.hash === "#quote-wording") {
+      setOpenWording(true);
+    }
+  }, []);
+  const [customForm, setCustomForm] = useState(emptyCustomForm());
+  const [creatingCustom, setCreatingCustom] = useState(false);
+  const [fieldSearch, setFieldSearch] = useState("");
+
+  const [seedingId, setSeedingId] = useState(null);
+  const [seedMsg, setSeedMsg] = useState(null);
+
+  // The preparation guide's technical documents — the company's whole list,
+  // loaded once; ServiceDocuments filters it per service. Owner/admin may
+  // change them, matching the POST/DELETE routes' own gate.
+  const [serviceDocuments, setServiceDocuments] = useState([]);
+  const caller = usePermissions();
+  const canEditDocuments = ["owner", "admin"].includes(caller?.role);
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/settings/service-documents");
+        if (!res.ok) return; // the list stays empty; the row's own error is reported when it matters
+        const data = await res.json();
+        setServiceDocuments(Array.isArray(data) ? data : []);
+      } catch {
+        /* network: the section shows nothing rather than a false empty state */
+      }
+    })();
+  }, []);
+
+  // ── The rate card, for someone who may not see rates ────────────────────
+  //
+  // GET /api/settings/service-categories removes `defaultRate`, `priceBook` and
+  // `rateOverrides` for a member without the showPricing toggle and marks each
+  // row `pricingHidden`. That is the same check Products & Services makes —
+  // this screen had none at all, and QA read $150 per door, the complexity
+  // uplifts, add-ons to $1,000 and a $3,800 job minimum off it as a crew
+  // member with pricing switched off.
+  //
+  // Read off any row rather than a top-level flag because the payload is a
+  // plain array (several other screens depend on that shape) and the server
+  // marks every row identically — one member either sees prices or does not.
+  const pricingHidden = categories.some((c) => c.pricingHidden);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/settings/service-categories");
+        // Was fire-and-forget: a 404/500 body was fed straight into
+        // setCategories, so an error object rendered as a corrupt page and a
+        // non-array crashed the .map below.
+        //
+        // The half-fix that followed said "keep the list empty so the existing
+        // empty state shows" — which is the bug written down as an intention.
+        // The empty state on this page reads "you have no service types",
+        // which is a statement about the business, and a refused request is
+        // not entitled to make one. lib/loadState.js: "An empty array is a
+        // CLAIM." So the failure is recorded and the claim is gated on it.
+        if (!res.ok) {
+          setLoadError(await reportResponseError(res));
+          return;
+        }
+        const data = await res.json();
+        setCategories(Array.isArray(data) ? data : []);
+        setLoadError("");
+      } catch {
+        // Not a Response — a network rejection. reportResponseError would read
+        // `.status` off an Error and print "Request failed (undefined)".
+        const msg = t("app.load.network");
+        setLoadError(msg);
+        showError(msg);
+      } finally {
+        // Whether the load succeeded or failed, it is no longer in flight — so
+        // the empty state is now allowed to make its claim (gated on !loading
+        // below). Set here rather than beside each outcome so no path can leave
+        // the page stuck reading "loading" forever.
+        setLoading(false);
+      }
+    })();
+
+    // Industries are read-only here (chosen at signup) — a failure just means
+    // no preset, so we fall back to showing everything rather than surfacing an
+    // error over what is a progressive enhancement.
+    (async () => {
+      try {
+        const res = await fetch("/api/settings/business-info");
+        if (!res.ok) return;
+        const data = await res.json();
+        setIndustries(Array.isArray(data?.industries) ? data.industries : []);
+      } catch {
+        // Ignore — the list simply shows all trades when we don't know the
+        // company's industry.
+      }
+    })();
+
+    // Which of these trades a homeowner can already get a price for. Read from
+    // the instant-quote screen's OWN endpoint rather than mirrored into this
+    // one: a second copy of "is roofing live" is how the two screens came to
+    // disagree in the first place. Progressive enhancement — a failure just
+    // means no badge, so it stays silent rather than erroring over a hint.
+    (async () => {
+      try {
+        const res = await fetch("/api/settings/instant-quote");
+        if (!res.ok) return;
+        const data = await res.json();
+        const live = {};
+        for (const t of Array.isArray(data?.trades) ? data.trades : []) {
+          live[t.trade] = {
+            enabled: Boolean(t.enabled),
+            ok: Boolean(t.readiness?.ok),
+          };
+        }
+        setInstantByTrade(live);
+      } catch {
+        // Ignore.
+      }
+    })();
+  }, []);
+
+  const update = (id, patch) => {
+    setCategories((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, ...patch } : c)),
+    );
+  };
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      const res = await fetch("/api/settings/service-categories", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          categories: categories.map((c) => ({
+            categoryId: c.id,
+            enabled: c.enabled,
+            // No `pricingModel`: the flat/per-unit/hourly choice this screen
+            // used to offer was written and never read, so picking one moved
+            // no price anywhere. A trade with a price book states its own
+            // basis (per door, per tread, per sq ft); one without is a rate
+            // plus a unit, both of which ARE read when a line item is seeded.
+            defaultRate: c.defaultRate,
+            unit: c.unit,
+            // Sparse patch only — the API filters it against the fields the
+            // trade declares and stores null when nothing is customised.
+            rates: c.rateOverrides ?? null,
+            // Round-tripped, not reconstructed: the GET sends the sparse
+            // override (null when the trade is inheriting) and the save sends
+            // exactly that back unless the editor changed it. A save that
+            // rebuilt these from the RESOLVED content would silently convert
+            // every inheriting trade into a customised one, and it would do it
+            // on a page where the user only came to change a rate.
+            ...(c.contentOverrides?.includedItems !== undefined && {
+              includedItems: c.contentOverrides.includedItems,
+            }),
+            ...(c.contentOverrides?.processSteps !== undefined && {
+              processSteps: c.contentOverrides.processSteps,
+            }),
+            ...(c.contentOverrides?.scopeDescription !== undefined && {
+              scopeDescription: c.contentOverrides.scopeDescription,
+            }),
+            // Only the languages the person touched, null meaning "reset to
+            // original" — the API merges per language over what is stored.
+            ...(c.prepGuideCopies && Object.keys(c.prepGuideCopies).length && {
+              prepGuideCopies: c.prepGuideCopies,
+            }),
+          })),
+        }),
+      });
+      // Was fire-and-forget: a rejected save looked exactly like a successful
+      // one, so a company could turn a service off, see "Saved", and have it
+      // quietly revert. Surface the failure instead.
+      if (!res.ok) await reportResponseError(res);
+      else onSaved?.();
+    } catch (err) {
+      await reportResponseError(err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  async function handleSeedStandard(categoryId, label) {
+    setSeedingId(categoryId);
+    setSeedMsg(null);
+    try {
+      const res = await fetch("/api/settings/products/seed-standard", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ categoryId }),
+      });
+      const data = await res.json();
+      if (!res.ok)
+        throw new Error(data.error || t("app.setServices.addItemsError"));
+      // Three outcomes, not two. The same hinges and handles are sold on
+      // refinishing AND refacing, so a cabinet shop that already seeded one of
+      // them gets its existing rows LINKED to this trade rather than copied —
+      // and reporting that as "already has them" was how a button that had
+      // just changed five products looked like it had done nothing.
+      const added = Number(data.created) || 0;
+      const linked = Number(data.linked) || 0;
+      setSeedMsg({
+        id: categoryId,
+        text:
+          added > 0
+            ? linked > 0
+              ? t("app.setServices.itemsAddedAndLinked", {
+                  count: added,
+                  linked,
+                  label,
+                })
+              : t("app.setServices.itemsAdded", { count: added, label })
+            : linked > 0
+              ? t("app.setServices.itemsLinked", { count: linked, label })
+              : t("app.setServices.alreadyHasItems", { label }),
+      });
+    } catch (err) {
+      setSeedMsg({ id: categoryId, text: err.message, error: true });
+    } finally {
+      setSeedingId(null);
+    }
+  }
+
+  function toggleField(key) {
+    setCustomForm((prev) => ({
+      ...prev,
+      fieldKeys: prev.fieldKeys.includes(key)
+        ? prev.fieldKeys.filter((k) => k !== key)
+        : [...prev.fieldKeys, key],
+    }));
+  }
+
+  async function handleCreateCustom(e) {
+    e.preventDefault();
+    if (!customForm.label.trim()) return;
+    setCreatingCustom(true);
+    try {
+      const res = await fetch("/api/settings/service-categories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          label: customForm.label.trim(),
+          fieldKeys: customForm.fieldKeys,
+        }),
+      });
+      if (res.ok) {
+        const created = await res.json();
+        setCategories((prev) => [...prev, created]);
+        setCustomForm(emptyCustomForm());
+        setFieldSearch("");
+        setShowCustomModal(false);
+      } else {
+        // Was silent: a failed request did nothing visible at all.
+        await reportResponseError(res);
+      }
+    } finally {
+      setCreatingCustom(false);
+    }
+  }
+
+  const filteredFields = useMemo(() => {
+    const q = fieldSearch.trim().toLowerCase();
+    if (!q) return INTAKE_FIELD_LIBRARY;
+    return INTAKE_FIELD_LIBRARY.filter((f) =>
+      f.label.toLowerCase().includes(q),
+    );
+  }, [fieldSearch]);
+
+  // The union of catalog keys the company's trade(s) actually sell. Empty when
+  // the industry is blank/unknown — same guard as signup, which then shows the
+  // full catalog rather than an empty list.
+  const presetKeys = useMemo(
+    () => categoryKeysForIndustries(industries),
+    [industries],
+  );
+
+  // What to render: search filters the label across everything; the trade
+  // filter hides only OTHER trades' system categories. A company's own custom
+  // categories (companyId set, isSystem false) always pass the trade filter —
+  // they were created deliberately and belong to no preset.
+  const visibleCategories = useMemo(() => {
+    const q = categorySearch.trim().toLowerCase();
+    const list = categories.filter((c) => {
+      if (q && !c.label.toLowerCase().includes(q)) return false;
+      if (!c.isSystem) return true;
+      if (showAllTrades || presetKeys.length === 0) return true;
+      return presetKeys.includes(c.key);
+    });
+    // The pricing and wording dialogs are about the trades the company
+    // sells, so they show those — unless none is switched on yet, in which
+    // case the whole list is the honest thing to show, because the first
+    // thing to do is switch one on.
+    if (compact && focus !== "services" && list.some((c) => c.enabled)) {
+      return list.filter((c) => c.enabled);
+    }
+    return list;
+  }, [categories, categorySearch, showAllTrades, presetKeys, compact, focus]);
+
+  // Only offer the "other trades" escape hatch when a preset is actually
+  // narrowing the list — with no preset, everything is already shown.
+  const hasPreset = presetKeys.length > 0;
+  // Where `#quote-wording` lands: the first enabled category on screen.
+  const firstEnabledId = visibleCategories.find((c) => c.enabled)?.id ?? null;
+
+  // Which per-trade panels this rendering carries — see the header.
+  const showRates = focus !== "wording";
+  const showWording = !compact || focus === "wording";
+  const showExtras = !compact;
+
+  return (
+    <div className={compact ? "" : "max-w-3xl mx-auto p-4 sm:p-6"}>
+      {compact ? (
+        focus === "services" && (
+          <div className="flex justify-end mb-3">
+            <button
+              onClick={() => setShowCustomModal(true)}
+              className="flex items-center gap-1.5 text-sm font-medium text-foreground hover:text-foreground shrink-0 min-h-9"
+            >
+              <Plus size={14} /> {t("app.setServices.addCustomType")}
+            </button>
+          </div>
+        )
+      ) : (
+        <>
+          <div className="flex items-start justify-between gap-4 mb-1">
+            <h1 className="text-xl font-semibold">{t("app.settings.services")}</h1>
+            <button
+              onClick={() => setShowCustomModal(true)}
+              className="flex items-center gap-1.5 text-sm font-medium text-foreground hover:text-foreground shrink-0"
+            >
+              <Plus size={14} /> {t("app.setServices.addCustomType")}
+            </button>
+          </div>
+          <p className="text-sm text-muted-foreground mb-6">
+            {t("app.setServices.subtitle")}
+          </p>
+          <div className="mb-6">
+            <BackToHome />
+          </div>
+
+          <PrepGuideCompanyCard
+            documents={serviceDocuments}
+            onDocumentsChange={setServiceDocuments}
+            canEdit={canEditDocuments}
+          />
+        </>
+      )}
+
+      {/* Said once, at the top, rather than as a row of empty rate boxes.
+          The subtitle above promises "set your default rate for each", so an
+          unexplained gap where the rates were reads as a broken screen. */}
+      {pricingHidden && (
+        <div className="mb-4 rounded-lg border border-border bg-muted px-4 py-3 text-sm text-muted-foreground">
+          {t(
+            "app.access.pricingHidden",
+            "Pricing is hidden by your access level. Ask an owner or admin if you need to see it.",
+          )}
+        </div>
+      )}
+
+      {categories.length > 0 && (
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-4">
+          <input
+            type="search"
+            value={categorySearch}
+            onChange={(e) => setCategorySearch(e.target.value)}
+            placeholder={t("app.setServices.searchPlaceholder")}
+            className="flex-1 border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border"
+          />
+          {hasPreset && (
+            <button
+              type="button"
+              onClick={() => setShowAllTrades((v) => !v)}
+              className="text-sm font-medium text-muted-foreground hover:text-foreground shrink-0 text-left sm:text-right"
+            >
+              {showAllTrades
+                ? t("app.setServices.showMyTrade")
+                : t("app.setServices.showOtherTrades")}
+            </button>
+          )}
+        </div>
+      )}
+
+      <div className="space-y-3">
+        {loading ? (
+          // In flight — a skeleton, never the empty state. "No quote types yet"
+          // is a statement about the business the fetch hasn't answered yet.
+          <div className="border rounded-lg p-6 space-y-3" aria-busy="true">
+            <div className="h-4 w-1/3 bg-accent rounded animate-pulse" />
+            <div className="h-16 bg-accent rounded animate-pulse" />
+            <div className="h-16 bg-accent rounded animate-pulse" />
+          </div>
+        ) : loadError ? (
+          <div className="rounded-lg border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/30 p-4 text-sm text-red-700 dark:text-red-300">
+            {loadError}
+          </div>
+        ) : (
+          categories.length === 0 && (
+            <div className="border rounded-lg p-6 text-sm text-muted-foreground text-center">
+              {t("app.setServices.emptyState")}
+            </div>
+          )
+        )}
+        {categories.length > 0 && visibleCategories.length === 0 && (
+          <div className="border rounded-lg p-6 text-sm text-muted-foreground text-center">
+            {t("app.setServices.noMatch")}
+          </div>
+        )}
+        {visibleCategories.map((c) => {
+          // Null for a company's OWN custom quote type — a real category with
+          // no catalogue entry, which is not a fault. It gets no basis chips,
+          // no complexity note and the plain rate-and-unit pair below, exactly
+          // as before.
+          const def = tradeDefinition(c.key);
+          const basis = def?.priceBookBasis || [];
+          const complexity = def?.priceBookComplexity || null;
+          const priced = Boolean(def?.hasPriceBook);
+          return (
+            // Two layers, on purpose. The ROW is the switch, the label and —
+            // for a one-number trade — the rate box, side by side from `sm`
+            // up. The rate card and the quote wording used to be children of
+            // that same row, so at ≥640px they were laid out BESIDE the label
+            // column, three panels sharing one line and overlapping each
+            // other's inputs. They are full-width blocks under the row now,
+            // inside the same card, so opening one pushes the next down
+            // instead of across.
+            <div key={c.id} className="border rounded-lg p-4">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+                <div className="flex items-start gap-4 flex-1 min-w-0">
+                  {/* The wording dialog lists the switched-on trades to edit
+                      their wording; a switch beside each would be a second
+                      job on a dialog that has one. */}
+                  {!(compact && focus === "wording") && (
+                    <input
+                      type="checkbox"
+                      checked={c.enabled}
+                      onChange={(e) =>
+                        update(c.id, { enabled: e.target.checked })
+                      }
+                      aria-label={c.label}
+                      className="h-5 w-5 shrink-0 mt-0.5"
+                    />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    {/* min-w-0 + break-words rather than truncate: the name is
+                      the company's own, and an ellipsis hides the half of
+                      "Cabinet refinishing — kitchens" that tells two custom
+                      trades apart. Wrapping keeps it readable at 375px and
+                      still cannot widen the column. */}
+                    <div className="font-medium flex flex-wrap items-center gap-2">
+                      <span className="min-w-0 break-words">{c.label}</span>
+                      {!c.isSystem && (
+                        <span className="shrink-0 flex items-center gap-1 text-xs bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded-full">
+                          <Sparkles size={11} />{" "}
+                          {t("app.setServices.customBadge")}
+                        </span>
+                      )}
+                    </div>
+                    {!c.isSystem && Array.isArray(c.customFields) && (
+                      <div className="text-xs text-muted-foreground mt-0.5 break-words">
+                        {c.customFields.length === 0
+                          ? t("app.setServices.noFieldsFlatRate")
+                          : c.customFields.map((f) => f.label).join(", ")}
+                      </div>
+                    )}
+                    {/* What this trade actually charges by, read off its price book
+                  rather than restated here — see priceBookBasis. A trade
+                  quoted from a supplier's invoice (countertop) has no per-unit
+                  basis and shows none, which is the truth about it. */}
+                    {c.enabled && basis.length > 0 && (
+                      <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                        <span className="text-xs text-muted-foreground mr-0.5">
+                          {t("app.setServices.pricedBy", "Priced by")}
+                        </span>
+                        {basis.map((b) => (
+                          <span
+                            key={b.label}
+                            className="rounded-full bg-muted px-2 py-0.5 text-xs text-foreground"
+                          >
+                            {basisChipLabel(b)}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {c.enabled && complexity && (
+                      <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                        <span>
+                          {t(
+                            "app.setServices.complexityNote",
+                            "Rates change with the complexity picked on the quote",
+                          )}
+                        </span>
+                        <span className="flex items-center gap-1.5">
+                          {complexity.map((level) => (
+                            <span
+                              key={level.value}
+                              className="flex items-center gap-1"
+                            >
+                              <span
+                                aria-hidden="true"
+                                className="inline-block h-1.5 w-1.5 rounded-full"
+                                style={{ backgroundColor: level.color }}
+                              />
+                              {level.label}
+                            </span>
+                          ))}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* ── The instant quote for this trade ────────────────────
+                      Enabling a service and setting up its instant quote were
+                      two unconnected lists: a cabinet painter had refinishing
+                      switched on here and no instant quote for it, while the
+                      other screen had him quoting roofs. The trade knows which
+                      estimator prices it (lib/trades/catalog.js), so the state
+                      belongs beside the switch that turns the trade on — and
+                      it's a link, not a toggle, because a rate card is
+                      numbers somebody has to read before a stranger is shown
+                      one. */}
+                    {showExtras &&
+                      c.enabled &&
+                      instantByTrade &&
+                      (() => {
+                        const trade = def?.instantTrade;
+                        if (!trade) return null;
+                        const state = instantByTrade[trade];
+                        if (!state) return null;
+                        const liveNow = state.enabled && state.ok;
+                        return (
+                          <Link
+                            href="/app/settings/instant-quotes"
+                            className="mt-1 flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+                          >
+                            <Zap size={12} />
+                            {liveNow
+                              ? t(
+                                  "app.setServices.instantQuoteLive",
+                                  "Homeowners can get an instant price for this",
+                                )
+                              : t(
+                                  "app.setServices.instantQuoteAvailable",
+                                  "An instant quote is available for this — set it up",
+                                )}
+                          </Link>
+                        );
+                      })()}
+
+                    {showExtras && c.enabled && def?.hasStandardAddOns && (
+                      <button
+                        type="button"
+                        onClick={() => handleSeedStandard(c.id, c.label)}
+                        disabled={seedingId === c.id}
+                        className="mt-1 flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground disabled:opacity-50"
+                      >
+                        <PackagePlus size={12} />
+                        {seedingId === c.id
+                          ? t("app.setServices.adding")
+                          : t("app.setServices.addStandardItems")}
+                      </button>
+                    )}
+                    {seedMsg?.id === c.id && (
+                      <div
+                        className={`text-xs mt-1 ${seedMsg.error ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400"}`}
+                      >
+                        {seedMsg.text}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* A trade with a price book is priced BY something — per door and
+                per drawer, per tread and riser, per sq ft — and the rate card
+                below holds those numbers. Showing a single rate box next to it
+                would be a second, contradictory answer to the same question,
+                so the basis is stated and the numbers live in one place. */}
+                {showRates && c.enabled && !priced && !c.pricingHidden && (
+                  <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap sm:shrink-0 pl-9 sm:pl-0">
+                    {/* ── Inherited shows as a PLACEHOLDER, never as a value ──
+                      The GET used to resolve the catalogue fallback into
+                      `defaultRate`, so the box displayed 80 for electrical and
+                      the save below echoed it back — pinning four trades to
+                      today's opening rate on a Save where nothing was typed.
+                      tradePriceBooks.js says that must not happen: a pinned
+                      row stops inheriting improvements, and benchmarkData.js
+                      then counts FieldQuo's own number as a rate a real
+                      company chose. RateCard.js next door has always done it
+                      this way for the structured book. */}
+                    <input
+                      type="number"
+                      step="0.01"
+                      placeholder={
+                        c.inheritedRate != null
+                          ? String(c.inheritedRate)
+                          : t("app.setServices.ratePlaceholder")
+                      }
+                      value={c.defaultRate ?? ""}
+                      onChange={(e) =>
+                        update(c.id, {
+                          defaultRate: e.target.value
+                            ? Number(e.target.value)
+                            : null,
+                        })
+                      }
+                      className="border rounded px-2 py-1 text-sm w-24"
+                    />
+
+                    <span className="text-sm text-muted-foreground">
+                      {t("app.setServices.per", "per")}
+                    </span>
+
+                    <input
+                      type="text"
+                      list="fq-unit-suggestions"
+                      placeholder={
+                        c.inheritedUnit || t("app.setServices.unitPlaceholder")
+                      }
+                      value={c.unit ?? ""}
+                      onChange={(e) => update(c.id, { unit: e.target.value })}
+                      className="border rounded px-2 py-1 text-sm w-28"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* The structured rate card, for trades that have one. The single
+                rate above stays for trades that genuinely are one number.
+                `pricingHidden` means the server sent no `priceBook` at all, so
+                RateCard would render its whole grid of inputs empty — a form
+                that looks fillable over numbers the caller may not read, and
+                whose save the PATCH refuses anyway. */}
+              {showRates && c.enabled && !c.pricingHidden && (
+                <RateCard
+                  category={c}
+                  overrides={c.rateOverrides}
+                  onChange={(next) => update(c.id, { rateOverrides: next })}
+                  defaultOpen={compact && focus === "pricing"}
+                />
+              )}
+
+              {/* The wording, not the price. These two columns have been read by
+                every quote since scope groups shipped and written by nothing —
+                so "a company that customised theirs" described a state no
+                company could reach. */}
+              {showWording && c.enabled && (
+                // `id="quote-wording"` on the FIRST enabled category only — an
+                // id must be unique, and the set-up step's link needs one
+                // place to land (lib/setupSteps.js).
+                <div
+                  id={c.id === firstEnabledId ? "quote-wording" : undefined}
+                  className="scroll-mt-4"
+                >
+                  <QuoteWording
+                    category={c}
+                    defaultOpen={openWording}
+                    onChange={(patch) =>
+                      update(c.id, {
+                        contentOverrides: { ...c.contentOverrides, ...patch },
+                      })
+                    }
+                  />
+                  {showExtras && (
+                  <PrepGuideEditor
+                    category={c}
+                    staged={c.prepGuideCopies || {}}
+                    onChange={(lang, copy) =>
+                      update(c.id, {
+                        prepGuideCopies: { ...(c.prepGuideCopies || {}), [lang]: copy },
+                      })
+                    }
+                  >
+                    <ServiceDocuments
+                      categoryId={c.id}
+                      documents={serviceDocuments}
+                      onChange={setServiceDocuments}
+                      canEdit={canEditDocuments}
+                    />
+                  </PrepGuideEditor>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* One list for every unit input on the page. Suggestions only — the
+          field stays free text so an existing saved unit is never dropped. */}
+      <datalist id="fq-unit-suggestions">
+        {UNIT_SUGGESTIONS.map((u) => (
+          <option key={u} value={u} />
+        ))}
+      </datalist>
+
+      <button
+        onClick={save}
+        disabled={saving}
+        className="mt-6 inline-flex items-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-5 py-2.5 rounded-lg disabled:opacity-60"
+      >
+        {saving ? t("app.action.saving") : t("app.setServices.saveSettings")}
+      </button>
+
+      {showCustomModal && (
+        <div
+          className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
+          onClick={() => setShowCustomModal(false)}
+        >
+          <div
+            className="bg-card rounded-2xl w-full max-w-lg p-6 max-h-[85vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-1">
+              <h2 className="text-lg font-semibold text-foreground">
+                {t("app.setServices.addCustomType")}
+              </h2>
+              <button onClick={() => setShowCustomModal(false)}>
+                <X size={18} className="text-muted-foreground" />
+              </button>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              {t("app.setServices.modalIntro")}
+            </p>
+
+            <form onSubmit={handleCreateCustom} className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-foreground block mb-1">
+                  {t("app.field.name")}
+                </label>
+                <input
+                  required
+                  autoFocus
+                  placeholder={t("app.setServices.namePlaceholder")}
+                  value={customForm.label}
+                  onChange={(e) =>
+                    setCustomForm((prev) => ({
+                      ...prev,
+                      label: e.target.value,
+                    }))
+                  }
+                  className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border"
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-sm font-medium text-foreground">
+                    {t("app.setServices.fieldsSelected", {
+                      count: customForm.fieldKeys.length,
+                    })}
+                  </label>
+                  <input
+                    placeholder={t("app.setServices.searchFields")}
+                    value={fieldSearch}
+                    onChange={(e) => setFieldSearch(e.target.value)}
+                    className="border border-border rounded-lg px-2 py-1 text-xs w-40"
+                  />
+                </div>
+                <div className="border border-border rounded-lg divide-y divide-border max-h-64 overflow-y-auto">
+                  {filteredFields.map((f) => (
+                    <label
+                      key={f.key}
+                      className="flex items-center gap-2.5 px-3 py-2 text-sm cursor-pointer hover:bg-muted"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={customForm.fieldKeys.includes(f.key)}
+                        onChange={() => toggleField(f.key)}
+                      />
+                      <span className="flex-1">{f.label}</span>
+                      <span className="text-xs text-muted-foreground capitalize">
+                        {f.type}
+                      </span>
+                    </label>
+                  ))}
+                  {filteredFields.length === 0 && (
+                    <p className="px-3 py-4 text-sm text-muted-foreground text-center">
+                      {t("app.setServices.noFieldsMatch", {
+                        query: fieldSearch,
+                      })}
+                    </p>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {t("app.setServices.noFieldsHint")}
+                </p>
+              </div>
+
+              <button
+                type="submit"
+                disabled={creatingCustom}
+                className="w-full bg-inverted text-inverted-foreground py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
+              >
+                {creatingCustom
+                  ? t("app.setServices.creating")
+                  : t("app.setServices.createType")}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

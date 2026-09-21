@@ -62,7 +62,7 @@ const stripComments = (src) =>
     .replace(/^[ \t]*\/\/.*$/gm, "");
 
 const route = stripComments(read("app/api/settings/service-categories/route.js"));
-const page = stripComments(read("app/app/settings/services/page.js"));
+const page = stripComments(read("app/app/settings/services/ServicesEditor.js"));
 const benchmark = stripComments(read("lib/pricing/benchmarkData.js"));
 
 // ── 1. The four trades, named, so a fifth is a deliberate decision ─────────

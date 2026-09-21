@@ -425,7 +425,7 @@ ok("app.setMaterialCosts.noneApplicable exists in English",
 ok("app.setMaterialCosts.noneApplicable exists in French",
   "app.setMaterialCosts.noneApplicable" in APP_MESSAGES.fr);
 ok("the empty-state message is actually rendered by the page",
-  read("app/app/settings/material-costs/page.js").includes(
+  read("app/app/settings/material-costs/MaterialCostsEditor.js").includes(
     't("app.setMaterialCosts.noneApplicable")',
   ));
 
