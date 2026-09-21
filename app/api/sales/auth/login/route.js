@@ -15,8 +15,10 @@ import {
   SALES_COOKIE,
   SALES_SESSION_MAX_AGE,
   signSalesToken,
+  verifySalesToken,
 } from "@/lib/sales/auth";
 import { canAuthenticate } from "@/lib/sales/invite";
+import { beginSession } from "@/lib/sales/sessionWrite";
 
 export async function POST(request) {
   // The same throttle the nine public forms have had, on the one endpoint
@@ -67,6 +69,16 @@ export async function POST(request) {
   if (!valid) return invalid();
 
   const token = await signSalesToken(rep.id);
+
+  // One active session: this token's iat becomes the boundary every older
+  // token is refused against (lib/sales/auth.js sessionSuperseded), and
+  // whatever the last session left open on the ledger is closed. Read back
+  // from the token rather than taken from the clock so the two agree to the
+  // second.
+  const claims = await verifySalesToken(token);
+  await beginSession({ salesRepId: rep.id, issuedAt: claims?.issuedAt ?? null }).catch((err) => {
+    console.error("[sales login] could not record the session boundary:", err?.message);
+  });
 
   const response = NextResponse.json({ success: true });
   response.cookies.set(SALES_COOKIE, token, {

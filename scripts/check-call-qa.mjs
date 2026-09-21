@@ -458,8 +458,11 @@ section("7. The performance report: one scope, every input");
   ok("buildSalesPerformance itself takes the scope, so there is one builder", buildSalesPerformance({ ...inputs, repIds: ["c"] }).reps.length === 1 && buildSalesPerformance({ ...inputs, repIds: ["c"] }).scope.repIds[0] === "c");
   ok("an empty scope is nobody, never everyone", buildPerformanceReport({ ...inputs, repIds: [] }).reps.length === 0);
   const calls = buildCallActivity({ reps, attempts, from: at(1), to: at(30), now: at(15) });
-  ok("call activity carries connectFigures() — the store's connected count, never one of its own (1 of 1 bridged per rep)", calls.reps[0].stats.connect.connected === 1 && calls.reps[0].stats.connect.measured === 1 && calls.reps[0].stats.dials === 2, calls.reps[0].stats.connect);
-  ok("…with the carrier's answer rate as an envelope, under the floor", calls.reps[0].stats.connect.answerRate.value === null && calls.reps[0].stats.connect.answerRate.sampleSize === 1);
+  // 2026-09-21: the calls figures are dialTable.js's table, composed once in
+  // repCallStats and aliased to the row — the floor board reads the same
+  // object. `connect` (carrier answer rate) left repCallStats that day.
+  ok("call activity carries repCallStats's table, and the row's `table` IS that object", calls.reps[0].stats.table && calls.reps[0].table === calls.reps[0].stats.table && calls.reps[0].stats.dials === 2, calls.reps[0].stats.table);
+  ok("…and no `connect` block of its own", !("connect" in calls.reps[0].stats));
   ok("reporting.js's measuredDurations grew no second connected count", !/carrierAnswerRate/.test(decomment(read("lib/sales/calls/reporting.js"))));
   ok("…callbacks promised counted", calls.reps[0].stats.callbacks.booked === 1);
   ok("…and the calls' own not-tracked list travels with the section", Array.isArray(calls.notTracked) && calls.notTracked.some((n) => n.key === "handsetDurations"));

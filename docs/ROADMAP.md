@@ -1,12 +1,89 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 21 September 2026 (Settings → Reviews: the company finds its Google listing in the Places box and the review link is derived from the place_id; every company has a public digital business card at /c/<slug> — logo, phone, email, address with a map link, Save our contact (a vCard), book / instant price / review / website / socials in the visitor's language — and a QR of it, a print sheet (card QR + a second QR that IS the contact), Add to Apple Wallet / Google Wallet for the contractor's own phone (signers built, env-gated, owner steps in docs/WALLET-PASS.md), NFC-tag instructions with the URL record and the contact record and the bytes each needs, ?ref= tap counts per source; the review email carries the QR in eight languages, the invoice PDF footer gets an optional review QR, the portal's paid state offers the review link; a Google-page paste keeps stars and dates; Connect Google Business Profile (same OAuth client, business.manage) caches reviews for 30 days under Google's name, never as testimonials, and prints Google's quota-0 refusal honestly with the paste path beside it — see "Reviews: the listing, the card, the passes, the tag, and the Business Profile" below; previous line: the sales floor's Twilio telemetry is back — see the telephony section)
+Last updated: 21 September 2026, evening (presence on the sales floor is DERIVED from the portal's keepalive — Off since {time} · Available · Busy · on a call / writing it up · Paused ({reason}) — and the floor board reads the performance page's one calls table, see the first section below; also today: Settings → Reviews: the company finds its Google listing in the Places box and the review link is derived from the place_id; every company has a public digital business card at /c/<slug> — logo, phone, email, address with a map link, Save our contact (a vCard), book / instant price / review / website / socials in the visitor's language — and a QR of it, a print sheet (card QR + a second QR that IS the contact), Add to Apple Wallet / Google Wallet for the contractor's own phone (signers built, env-gated, owner steps in docs/WALLET-PASS.md), NFC-tag instructions with the URL record and the contact record and the bytes each needs, ?ref= tap counts per source; the review email carries the QR in eight languages, the invoice PDF footer gets an optional review QR, the portal's paid state offers the review link; a Google-page paste keeps stars and dates; Connect Google Business Profile (same OAuth client, business.manage) caches reviews for 30 days under Google's name, never as testimonials, and prints Google's quota-0 refusal honestly with the paste path beside it — see "Reviews: the listing, the card, the passes, the tag, and the Business Profile" below; previous line: the sales floor's Twilio telemetry is back — see the telephony section; earlier the same day: the sales floor's Twilio telemetry is back: every call-status and recording callback had answered 500 since 18 September from `new NextResponse("", { status: 204 })` — a 204 may carry no body — and the recording write's `NOT: { recordingSid }` excluded every never-recorded row; both fixed, every notification route now answers an empty 204 through lib/sales/calls/twilioAck.js and a throw is a logged error; the sales cron reconciles recordings and prospect legs from the carrier and transcribes one a tick; /platform/sales/performance prints the carrier's clock beside the rep's report with "Reported vs measured" per rep; /platform/crew-lines says US texting is NOT registered (A2P 10DLC, error 30034) with the owner's registration steps; the Places API sweep is retired — see the section below; also today: the two Mac-run scrapers take `--state NY,FL,CA` — the enrichment order with everything outside those states removed BEFORE ranking, the skipped count printed and shown on the Maps panel; the listing matcher joins initialisms and sets trade words aside symmetrically, attaches a listing on the record's own phone or website under `matched_verify` with a "confirm on the call" fact on the card and the brief, and refuses a shared number or a franchise domain as an identity; `maps.mjs --rematch` re-reads the 1,725 refusals and `--promote` turns unmatched open listings with a phone into prospects in the review folder with their crawl queued, which every sweep now also does for its own run; BBB's employee band is captured end to end with a saved profile fixture — see "Regional passes, matched_verify, promotion" below)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
 it exists to answer.
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
+
+---
+
+## Presence is derived, not declared; the floor board reads the one calls table (21 September 2026)
+
+**What the owner saw.** Every rep "Off" while they dialled; one card
+"Writing it up · 76h 26m — their browser has not said anything since
+11:54"; one "Paused" since Saturday; and, for Umar's day, "Calls from
++1 716 638 3616 — their line: 13", "Answered (carrier) 64.3% (9 of 14)",
+"Conversation (transcript) 8 of 9", "Mean talk time 41s (9 of 14)" beside a
+performance page that said something else about the same calls.
+
+**The stray Off.** The writer was the picker's own "Off" button: Umar pressed
+it at 17:30:40 UTC, eight seconds after "available", and kept working in the
+portal (his keepalive ran until 18:36 UTC). Nothing on hangup,
+unmount or route change wrote offline — the button did, and the board
+believed it. "Off" left the picker; the state action refuses `offline`
+from a screen; sign-out and the last tab closing write it.
+
+**The model** (`lib/sales/calls/agentState.js`, header cites OMniLeads's
+`agent_activity.py`, `presence.py`, `phoneJsController.js`): Off when no
+portal keepalive for two minutes (`PRESENCE_OFF_MINUTES`) and no dial, no
+live leg — "Off since" the later of the last beat and the last call, never
+the button; Busy · on a call from a live browser leg or a dial inside the
+window, whatever the row said; Busy · writing it up for `afterCallSeconds`
+after every call (a platform setting, default 60, `/platform/sales/floor`
+→ Floor settings; PUT is superadmin, audit-logged), during which the
+autodialler places nothing (`nextDial` stops with `write_up_window` and the
+end instant) and inbound does not ring them (the sweep wants Available; the
+contractor they were just speaking to still reaches them — the 2026-09-17
+rule); at zero Available on their own, sooner on Next, held while
+`requireWriteUp` is on and the call has no outcome ("write it up later"
+frees them); Paused by hand with a reason, "Admin / research" on the picker
+for paperwork instead of a Busy button; Available the moment a tab is
+present. `livePresence()` derives all of it from the keepalive
+(`SalesRep.lastSeenAt`, stamped by the shell's `POST /api/sales/presence`
+every 60 s, on `visibilitychange`, and by the gate on every request), the
+last call and the open row; `store.js heartbeat()` closes a row the rep
+walked away from (an expired pause ends at its last beat + 2 min, a
+sign-out row ends when they are back) so a fresh login is Available;
+`activityTotals` measures an open row to its last beat + 2 min
+(`rowPeriodEnd`) — Favor's 76 hours are two minutes past her last beat on
+the ledger. The rep's header, `/platform/sales/floor`, `/platform/sales/reps`
+and the agency floor all print `presenceHeadline()`'s words; the ring plan
+(`inboundDistribution.js`) and `repIsLive` read the derived state.
+
+**One calls table.** `repCallStats` carries `dialTableRow()` as `table`
+(`lib/sales/calls/dialTable.js`: attribution by attempt joined to Twilio by
+the prospect leg's sid, one denominator, the four buckets, the red
+carrier-missing rule) and the performance page aliases that same object;
+`connect` (carrier answer rate) and `pickup` (a second partition of the
+legs) left `repCallStats`, and `pickupFigures` left `conversation.js`. The
+table grew what a day view needs: the lines a rep's calls went OUT from
+("from 2 lines: +1 716 … (4), +1 438 … (3)"), `realConversationFromTranscript`
+beside `conversationFromTranscript` ("Real conversation (transcript): 1 · 2
+transcribed", never "8 of 9" as a rate), and `meanConversationSeconds` over
+real conversations only. Both floor cards print the buckets and the stacked
+bar through `app/components/sales/DialBuckets.js`, "Calls today" by attempt,
+"Time on calls — line open, including ringing and voicemail", the day's
+window ("Today, since 20:00" / "Since yesterday, …" — the UTC day, said in
+the viewer's clock), sort Off reps last, and print one "No calls today" line
+in place of nine zero tiles. Nine languages on the portal.
+
+**Checks.** `scripts/check-sales-presence.mjs` (125 assertions: today's
+production rows for Umar, Favor and Daniel through the derivation; the
+window, Next, the held outcome, the setting; the beat closing expired rows;
+call end never writing offline; sign-out and leaving writing it; the tab
+registry; the dialler and ring plan inside the window; the two boards
+agreeing on one fixture with a cross-line attribution). `check-sales-costs`,
+`-call-handling`, `-autodial`, `-agency`, `-inbound-distribution`,
+`-call-transfer`, `-lead-language`, `-batch-claim`, `-platform-rep-queue`,
+`-call-qa` updated to the two-minute window and the one table.
+
+**Still owed.** The "You're shown as Off" reminder
+(`app/components/sales/AvailableReminder.js`) can no longer fire — a present
+rep is never Off — and should be retired with its check;
+`measuredDurations` (`reporting.js`) is computed and printed by nobody now.
 
 ---
 

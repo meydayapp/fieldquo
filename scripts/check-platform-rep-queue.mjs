@@ -508,7 +508,10 @@ section("5. The routes — release reused, attribution untouched, audit wired");
   ok("the screen opens the hand-off panel on the 409", /err\.status === 409 && err\.data\?\.counts/.test(page));
   ok("the screen sends the hand-off with active: false", /active: false,\s*handoff: \{ prospects: d\.prospects/.test(page));
   ok("the screen's release-all confirm says the dialled rows lose their place, and nothing else", /lose their place in \$\{rep\.name\}'s list/.test(page) && /Nothing is deleted/.test(page));
-  ok("the screen prints a stale presence as stale", /stale\. This is the disconnected-and-not-reconnected case/.test(page));
+  // 2026-09-21: there is no stale presence — a rep whose keepalive stopped is
+  // Off, and the screen prints the server's headline (agentState.js
+  // presenceHeadline through the queue route) rather than composing one.
+  ok("the screen prints the derived headline, and no longer a \"stale\" sentence", /p\.headline/.test(page) && !/stale\. This is the disconnected-and-not-reconnected case/.test(page) && /headline: presenceHeadline\(live, \{ now \}\)/.test(read("app/api/platform/sales/reps/[id]/queue/route.js")));
   ok("the screen wires check:platform-rep-queue into check:all", /check:platform-rep-queue/.test(JSON.parse(read("package.json")).scripts["check:all"]));
 }
 

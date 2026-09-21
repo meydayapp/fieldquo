@@ -54,6 +54,7 @@ import {
   heartbeat,
   liveCallFor,
   ownNumbers,
+  presenceFor,
   recordDial,
   salesCallerNumberRows,
   saveDisposition,
@@ -65,11 +66,12 @@ import {
   PAUSE_REASONS,
   PAUSE_REASON_ORDER,
   REP_STATES,
+  STATE_AFTER_CALL,
   STATE_AVAILABLE,
+  STATE_OFFLINE,
   STATE_ON_CALL,
   STATE_ORDER,
   STATUS_CHOICES,
-  livePresence,
 } from "@/lib/sales/calls/agentState";
 import { dialModeState } from "@/lib/sales/calls/dialMode";
 import { normalisePhone } from "@/lib/sales/suppressionRules";
@@ -257,7 +259,11 @@ export async function GET(request) {
     // the portal, and it is the same fact lib/sales/gate.js stamps on the read
     // path. Leaving it null would hand the rep's own screen a presence object
     // claiming they have never signed in, while they are looking at it.
-    presence: livePresence(open, now, { portalSeenAt: now }),
+    // Derived — the same answer the header and the floor read
+    // (store.js presenceFor). `open` is still returned beside it for the
+    // console's own uses. The presence route's beat is what makes this
+    // rep present; this GET does not stamp.
+    presence: (await presenceFor([rep.id], { now }).catch(() => null))?.[0]?.presence || null,
     // The call a rep has made and not written up.
     //
     // OMniLeads keeps its agents in after-call work until they disposition,
@@ -343,11 +349,25 @@ export async function POST(request) {
   const now = new Date();
 
   if (action === "heartbeat") {
+    // Kept for older tabs; the shell beats through POST /api/sales/presence
+    // now, which stamps the keepalive this one cannot (a rep route may not
+    // write SalesRep; the presence route goes through the gate's own fence).
     await heartbeat(rep.id, { now });
     return NextResponse.json({ ok: true, serverNow: now.toISOString() });
   }
 
   if (action === "state") {
+    // ── Off is not a state a screen may set ──────────────────────────────
+    //
+    // Off is derived from the keepalive (lib/sales/calls/agentState.js).
+    // The picker's Off button was the writer of the stray Off the owner
+    // saw on 2026-09-21 — pressed at 17:30 by a rep who then kept working
+    // in the portal — and it is gone; the two ways to leave are signing
+    // out (app/api/sales/auth/logout) and the last tab closing (the
+    // presence route's `leaving`), both of which write the row themselves.
+    if (body.state === STATE_OFFLINE) {
+      return bad("Off is not set from here: it is where you are when the portal has not heard from you for two minutes. Sign out, or close the portal.", 409);
+    }
     // ── The call lifecycle posts here too ─────────────────────────────────
     //
     // CallPanel posts `after_call` when Twilio reports the hangup, and the
@@ -376,7 +396,7 @@ export async function POST(request) {
     if (!result.ok) return bad(result.error, 409);
     return NextResponse.json({
       ok: true,
-      presence: livePresence(result.activity, now, { portalSeenAt: now }),
+      presence: (await presenceFor([rep.id], { now }).catch(() => null))?.[0]?.presence || null,
       serverNow: now.toISOString(),
     });
   }
@@ -414,11 +434,10 @@ export async function POST(request) {
     const attemptId = typeof body.attemptId === "string" ? body.attemptId.trim() : "";
     if (!attemptId) return bad("Which call?");
     const result = await autoLogAttempt({ salesRepId: rep.id, attemptId, now });
-    if (result.ok) {
-      // The write-up is done, by the line. Same transition the typed path
-      // makes below, for the same reason.
-      await setRepState({ salesRepId: rep.id, to: STATE_AVAILABLE, now }).catch(() => {});
-    }
+    // The write-up is done, by the line. The rep stays in the write-up
+    // window (agentState.js: Busy · writing it up until afterCallSeconds
+    // run out, or they press Next) — the outcome being saved is what lets
+    // the window END on time rather than hold them for a missing one.
     return NextResponse.json({
       ok: result.ok,
       code: result.code,
@@ -448,6 +467,10 @@ export async function POST(request) {
     if (!attemptId) return bad("Which call?");
     const result = await deferDisposition({ salesRepId: rep.id, attemptId, now });
     if (!result.ok) return bad(result.error, 409);
+    // "Later" is an outcome decision, and it frees the rep: recorded as
+    // available so the window (which would otherwise hold a call with no
+    // outcome while requireWriteUp is on) is over. The cron logs the
+    // leftovers at day end.
     await setRepState({ salesRepId: rep.id, to: STATE_AVAILABLE, now }).catch(() => {});
     return NextResponse.json({ ok: true, deferred: true, provisional: result.provisional, serverNow: now.toISOString() });
   }
@@ -814,10 +837,25 @@ export async function POST(request) {
   });
   if (!result.ok) return bad(result.error, 409);
 
-  // Logging the outcome ends the write-up. A rep who was still marked on a
-  // call after saying what happened would show on the board as talking to
-  // somebody who hung up ten minutes ago.
-  await setRepState({ salesRepId: rep.id, to: STATE_AVAILABLE, now }).catch(() => {});
+  // ── What the outcome does to the rep's state ─────────────────────────
+  //
+  // A HANDSET call has no carrier end: the outcome is the only "it ended"
+  // there is, so it closes the on_call row and the rep is Available. A
+  // browser call ended when the carrier said so and the rep has been in
+  // the write-up window since (agentState.js); saving the outcome does not
+  // end the window — the countdown or Next does — it only means the window
+  // will not hold them for a missing one. A rep who is still on the
+  // ledger as on_call for a browser call (the disconnect post was lost) is
+  // moved to after_call so the board does not show them talking to
+  // somebody who hung up.
+  if (result.attempt?.dialChannel === "handset") {
+    await setRepState({ salesRepId: rep.id, to: STATE_AVAILABLE, now }).catch(() => {});
+  } else {
+    const open = await currentActivity(rep.id).catch(() => null);
+    if (open?.state === STATE_ON_CALL) {
+      await setRepState({ salesRepId: rep.id, to: STATE_AFTER_CALL, callAttemptId: attemptId, now }).catch(() => {});
+    }
+  }
 
   return NextResponse.json({
     ok: true,

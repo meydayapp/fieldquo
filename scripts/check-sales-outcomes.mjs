@@ -55,7 +55,8 @@ const { AUTO_LOGGED_CODES, DISPOSITION_ORDER, autoLogOutcome, planDisposition } 
 const { fnv1a, sampleBucket, inSample, sampleKeyOf, sampledOutReason, isSampledOut } = await import("@/lib/sales/calls/sampling");
 const { inboundWaitOf, serviceLevelFigures } = await import("@/lib/sales/calls/serviceLevel");
 const { AMD_RESULTS, amdResultOf, isMachine, isMachineEnd, amdNumberAttrs, amdVerdictFrom, shouldDropVoicemail, dropVoicemail, amdCardKey } = await import("@/lib/sales/calls/amd");
-const { measuredConversation, pickupFigures } = await import("@/lib/sales/calls/conversation");
+const { measuredConversation } = await import("@/lib/sales/calls/conversation");
+const { dialTableRow } = await import("@/lib/sales/calls/dialTable");
 const { AUDIT_VERDICTS, parseAuditVerdict, auditFigures } = await import("@/lib/sales/calls/dispositionAudit");
 const { markSecondsFor, parseMark, marksForPrompt, MAX_MARKS_PER_CALL } = await import("@/lib/sales/calls/recordingMarks");
 const { pickGlobalRep, callbackState, callbackRepOf, sweepCallbackAgenda } = await import("@/lib/sales/calls/callbackAgenda");
@@ -352,11 +353,11 @@ ok("the drop redirects the prospect leg to <Play> + <Hangup/> and escapes the UR
 ok("a failed REST update is a reason, not a throw", (await dropVoicemail({ callSid: "CA9", dropUrl: "https://x/d.mp3", rest: { calls: () => ({ update: async () => { throw new Error("nope"); } }) } })).ok === false);
 ok("the card says something for a machine and a fax, nothing for a human", amdCardKey("machine_end_beep") === "app.salesCall.amd.machine" && amdCardKey("fax") === "app.salesCall.amd.fax" && amdCardKey("human") === null && amdCardKey(null) === null);
 ok("…and those keys exist in all nine languages", ["app.salesCall.amd.machine", "app.salesCall.amd.fax"].every((k) => Object.keys(APP_MESSAGES).every((l) => typeof APP_MESSAGES[l][k] === "string")));
-ok("a machine verdict files a two-minute call as voicemail in the measured bucket, whatever the transcript says", (() => {
-  const row = { dialChannel: "browser", providerStatus: "completed", answeredAt: T0, talkSeconds: 120, amdResult: "machine_end_beep", contractorWords: 60 };
+ok("a machine verdict files a two-minute call as voicemail in the shared bucket (dialTable.js), whatever the transcript says", (() => {
+  const row = { direction: "out", dialChannel: "browser", providerCallSid: "CA1", providerStatus: "completed", answeredAt: T0, talkSeconds: 120, amdResult: "machine_end_beep", contractorWords: 60 };
   const c = measuredConversation(row);
-  const f = pickupFigures([row, { ...row, amdResult: "human" }]);
-  return c.talked === false && c.basis === "amd" && f.talkedCount === 1 && f.fromAmd === 1;
+  const t = dialTableRow([row, { ...row, providerCallSid: "CA2", amdResult: "human" }], { now: T0 });
+  return c.talked === false && c.basis === "amd" && t.buckets.voicemailOrBrief === 1 && t.buckets.realConversation === 1 && t.conversationFromAmd === 1;
 })());
 ok("a machine verdict on an answered browser call auto-logs voicemail (the retry rule that fits), even when the rep hung up", (() => {
   const base = { dialChannel: "browser", direction: "out", providerStatus: "completed", answeredAt: T0, endedAt: hoursFrom(T0, 40 / 3600), talkSeconds: 40, amdResult: "machine_end_beep" };

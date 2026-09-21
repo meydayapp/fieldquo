@@ -67,7 +67,7 @@ export async function GET(request) {
   // withCosts: this is the one caller that may see what FieldQuo pays for
   // the day's calls — lib/sales/calls/floorBoard.js.
   const board = await floorBoard({ repIds: null, now, withCosts: true });
-  const { store, period, reps, states, pauseReasons, campaigns, anyLive, notTracked, serverNow, dialler, connect, cost } = board;
+  const { store, period, reps, states, pauseReasons, campaigns, anyLive, notTracked, serverNow, dialler, table, cost, settings } = board;
   const { from } = period;
 
   if (!store.ready) {
@@ -169,12 +169,13 @@ export async function GET(request) {
     // The per-number table left this screen on 2026-09-17; the link is to
     // where it went. Said as a path rather than rebuilt here.
     numberConfigHref: "/platform/crew-lines#sales-number-configuration",
-    // The dialler's numbers, the three rates and today's cost — the four
-    // entries the "does not show" list used to refuse, with their
-    // definitions. lib/sales/calls/reporting.js, conversation.js, costs.js.
+    // The dialler's numbers, the day's four buckets over everyone and
+    // today's cost, with their definitions. lib/sales/calls/reporting.js,
+    // dialTable.js, costs.js.
     dialler,
-    connect,
+    table,
     cost,
+    settings,
     inboundCalls:
       inbound === undefined
         ? null
