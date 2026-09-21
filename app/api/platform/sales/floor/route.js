@@ -3,7 +3,12 @@
 // The sales floor, live: who is on a call, who is writing one up, who is
 // paused and for how long — and what the day's calls actually came to.
 //
-// ══ Read-only, and superadmin-only ════════════════════════════════════════
+// ══ Read-only here; the actions are their own route ═══════════════════════
+//
+// Since 2026-09-21 the board has controls — Listen, Whisper, Barge, Take on
+// a live row (app/api/platform/sales/supervision) — but THIS route still
+// only reads: it says what each rep's live call is and whether supervision
+// is switched on. Superadmin-only, as it always was.
 //
 // Behind the platform-token check in middleware.js and checked again here,
 // because hiding a screen is not access control. Tighter than a plain admin
@@ -66,7 +71,7 @@ export async function GET(request) {
   // withCosts: this is the one caller that may see what FieldQuo pays for
   // the day's calls — lib/sales/calls/floorBoard.js.
   const board = await floorBoard({ repIds: null, now, withCosts: true });
-  const { store, period, reps, states, pauseReasons, campaigns, anyLive, notTracked, serverNow, dialler, connect, cost } = board;
+  const { store, period, reps, states, pauseReasons, campaigns, anyLive, notTracked, serverNow, dialler, connect, cost, supervision } = board;
   const { from } = period;
 
   if (!store.ready) {
@@ -171,6 +176,10 @@ export async function GET(request) {
     dialler,
     connect,
     cost,
+    // Live-call supervision: on or off (lib/sales/calls/supervision.js).
+    // The buttons on each live row read this; off means they are not drawn
+    // and the reason is printed instead.
+    supervision: supervision || null,
     inboundCalls:
       inbound === undefined
         ? null

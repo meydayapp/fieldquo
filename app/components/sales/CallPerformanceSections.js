@@ -163,6 +163,16 @@ function DialRow({ name, sub, table, labels, href }) {
           </span>,
         )}
       </td>
+      <td className={`${TD} tabular-nums`}>
+        {t ? (
+          <span>
+            {t.minutesOnHold}
+            <span className="block text-xs text-muted-foreground">{labels.holdSupervised(t.heldCalls, t.supervisedCalls)}</span>
+          </span>
+        ) : (
+          "—"
+        )}
+      </td>
       <td className={TD}>
         <Gap points={t?.gap} labels={labels} />
       </td>
@@ -273,13 +283,14 @@ export default function CallPerformanceSections({ calls, callQuality, labels, re
                   <Head word={labels.reachedRepsWord} meaning={labels.reachedRepsWordMeaning} source={labels.sourceRep} />
                   <Head word={labels.callbacks} meaning={labels.callbacksMeaning} source={labels.sourceRep} />
                   <Head word={labels.minutesTalking} meaning={labels.minutesTalkingMeaning} source={labels.sourceTwilio} />
+                  <Head word={labels.minutesOnHold} meaning={labels.minutesOnHoldMeaning} source={labels.sourceRep} />
                   <Head word={labels.gapHeading} meaning={labels.gapMeaning} source={labels.sourceDerived} />
                 </tr>
               </thead>
               <tbody>
                 {calls.reps.length === 0 ? (
                   <tr>
-                    <td className={TD} colSpan={10}>
+                    <td className={TD} colSpan={11}>
                       {labels.noCalls}
                     </td>
                   </tr>

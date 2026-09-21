@@ -54,6 +54,7 @@ import {
   liveCallFor,
   ownNumbers,
   recordDial,
+  releaseInternalCall,
   salesCallerNumberRows,
   saveDisposition,
   setRepState,
@@ -283,6 +284,7 @@ export async function GET(request) {
               !a.disposition &&
               !a.dispositionDeferredAt &&
               a.direction === "out" &&
+              a.kind !== "internal" &&
               a.dialChannel === "browser" &&
               (Boolean(a.endedAt) || PROVIDER_ENDED.includes(a.providerStatus)),
           );
@@ -393,6 +395,9 @@ export async function POST(request) {
       hungUpBy: typeof body.hungUpBy === "string" ? body.hungUpBy : null,
     });
     if (!result.ok) return bad(result.error);
+    // A colleague call: both reps are available again, decided here and
+    // not by either browser (lib/sales/calls/store.js releaseInternalCall).
+    await releaseInternalCall({ attemptId }).catch(() => {});
     return NextResponse.json({ ok: true, updated: result.updated, serverNow: now.toISOString() });
   }
 

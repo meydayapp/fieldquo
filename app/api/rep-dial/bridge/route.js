@@ -36,6 +36,28 @@
 // window was checked four hours ago — at 20:30 in Oklahoma, on a decision
 // taken at 16:30. So an attempt older than BRIDGE_WINDOW_SECONDS is refused.
 // A rep who lets a call sit that long presses the button again.
+//
+// ══ 2026-09-21: three shapes of call, one webhook ══════════════════════════
+//
+// The TwiML app's voice URL is this route, so every browser-placed call
+// lands here. It now answers three of them, told apart by the FROM identity
+// and the row — never by a parameter the browser chose:
+//
+//   a rep, prospect attempt, supervision OFF   <Dial><Number>  (unchanged)
+//   a rep, prospect attempt, supervision ON    <Dial><Conference> for the
+//                                              rep; the prospect is dialled
+//                                              INTO the room by REST as a
+//                                              recorded participant
+//   a rep, kind "internal"                     <Dial><Client> — a
+//                                              colleague's browser, no PSTN
+//   a superadmin (From client:supervisor:…)    <Dial><Conference> into the
+//                                              room the row says they hold
+//
+// The mode is read from the platform setting in THIS request; the
+// supervisor's mode (listen / whisper / barge) is read from the row the
+// platform route wrote, so a supervisor's browser cannot ask for a mode
+// the server did not grant. lib/sales/calls/supervision.js decides all of
+// it and says why (a) — a conference from the first ring — was chosen.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
@@ -46,7 +68,23 @@ import { getAppOrigin } from "@/lib/appUrl";
 import { salesRepIdFromIdentity } from "@/lib/sales/calls/browserDial";
 import { callStoreState, recordRepLeg } from "@/lib/sales/calls/store";
 import { recordError } from "@/lib/platform/errorLog";
-import { dialRecordingAttrs } from "@/lib/sales/calls/recording";
+import { dialRecordingAttrs, recordingCallbackUrl } from "@/lib/sales/calls/recording";
+import {
+  KIND_INTERNAL,
+  adminIdFromIdentity,
+  bridgeMode,
+  prospectParticipantParams,
+  repConferenceAttrs,
+  supervisorConferenceAttrs,
+} from "@/lib/sales/calls/supervision";
+import { addProspectParticipant } from "@/lib/sales/calls/supervisionRest";
+import {
+  loadSupervisionSettings,
+  recordSupervisorLeg,
+  supervisionAttempt,
+  writeAttempt,
+} from "@/lib/sales/calls/supervisionStore";
+import { repIdentity } from "@/lib/sales/calls/browserDial";
 
 /** How long after the gate cleared a bridge may still happen. */
 export const BRIDGE_WINDOW_SECONDS = 120;
@@ -85,6 +123,30 @@ export async function POST(request) {
     return refuse("Calling is not finished being set up. Please try again later.");
   }
 
+  // ── A supervisor's leg ──────────────────────────────────────────────────
+  //
+  // The identity was minted by /api/platform/sales/supervision/token for a
+  // superadmin only, and Twilio validated the token before placing this
+  // call — so `From` is trustworthy in a way a body parameter is not. What
+  // the leg joins, and how, comes from the ROW: the platform route wrote
+  // supervisedBy and supervisionKind before the browser was told to
+  // connect. A leg for a row that does not name this admin is refused.
+  const supervisorId = adminIdFromIdentity(params.From || "");
+  if (supervisorId) {
+    const superviseId = typeof params.supervise === "string" ? params.supervise.trim() : "";
+    const row = superviseId ? await supervisionAttempt(superviseId) : null;
+    if (!row || row.supervisedBy !== supervisorId || row.endedAt || !row.conferenceName) {
+      return refuse("That call is not yours to join, or it has ended.");
+    }
+    const attrs = supervisorConferenceAttrs({ attempt: row, origin: getAppOrigin(request) });
+    if (!attrs) return refuse("That call cannot be joined: the rep's leg is not known.");
+    await recordSupervisorLeg({ attemptId: row.id, adminId: supervisorId, callSid: params.CallSid }).catch(() => {});
+    const { name, ...conf } = attrs;
+    const twiml = new twilio.twiml.VoiceResponse();
+    twiml.dial().conference(conf, name);
+    return new NextResponse(twiml.toString(), { status: 200, headers: { "Content-Type": "text/xml" } });
+  }
+
   const attemptId = typeof params.attemptId === "string" ? params.attemptId.trim() : "";
   const identity = salesRepIdFromIdentity(params.From || "");
   if (!attemptId || !identity) {
@@ -94,7 +156,7 @@ export async function POST(request) {
   const attempt = await db.salesCallAttempt
     .findFirst({
       where: { id: attemptId, salesRepId: identity },
-      select: { id: true, toE164: true, fromE164: true, dialledAt: true, providerCallSid: true },
+      select: { id: true, toE164: true, fromE164: true, dialledAt: true, providerCallSid: true, kind: true, internalToRepId: true },
     })
     .catch(() => null);
 
@@ -106,7 +168,7 @@ export async function POST(request) {
   if (attempt.providerCallSid) {
     return refuse("That call has already been placed.");
   }
-  if (!attempt.fromE164) {
+  if (attempt.kind !== KIND_INTERNAL && !attempt.fromE164) {
     return refuse("There is no number to call from, so this call was not connected.");
   }
 
@@ -140,6 +202,82 @@ export async function POST(request) {
 
   const origin = getAppOrigin(request);
   const twiml = new twilio.twiml.VoiceResponse();
+
+  // ── A colleague's browser ───────────────────────────────────────────────
+  //
+  // `<Dial><Client>`: two client legs and nothing on the PSTN. The From the
+  // callee's dock sees is already `client:sales_rep:<caller>`, which is how
+  // it knows to print a colleague's name rather than look a number up. The
+  // status callback is the same route a prospect leg reports to, so
+  // answered / ended / seconds land on the row the same way. Recorded dual
+  // like any call — cheap, and a colleague call is still a FieldQuo call.
+  if (attempt.kind === KIND_INTERNAL) {
+    const to = repIdentity(attempt.internalToRepId);
+    if (!to) return refuse("That colleague could not be reached.");
+    const dial = twiml.dial({
+      timeout: RING_SECONDS,
+      answerOnBridge: true,
+      ...dialRecordingAttrs({ origin, attemptId: attempt.id }),
+    });
+    dial.client(
+      {
+        statusCallback: `${origin}/api/rep-dial/status?attemptId=${encodeURIComponent(attempt.id)}`,
+        statusCallbackMethod: "POST",
+        statusCallbackEvent: ["ringing", "answered", "completed"],
+      },
+      to,
+    );
+    return new NextResponse(twiml.toString(), { status: 200, headers: { "Content-Type": "text/xml" } });
+  }
+
+  // ── Conference mode, when the owner has switched it on ──────────────────
+  //
+  // Read in this request. The prospect is dialled INTO the room first, by
+  // REST, recorded dual on their leg (supervision.js, "Recording, in
+  // conference mode"); then the rep's TwiML joins the same room by name.
+  // If the carrier refuses the participant (a geo permission, a bad
+  // number) the rep hears why and nothing rings — the same shape as every
+  // refusal above, and the prospect never knew.
+  const mode = bridgeMode({ settings: await loadSupervisionSettings(), attempt });
+  if (mode.conference) {
+    const params2 = prospectParticipantParams({
+      attempt,
+      origin,
+      ringSeconds: RING_SECONDS,
+      recordingAttrs: {
+        recordingStatusCallback: recordingCallbackUrl({ origin, attemptId: attempt.id }),
+        recordingStatusCallbackMethod: "POST",
+        recordingStatusCallbackEvent: ["completed"],
+      },
+    });
+    const added = await addProspectParticipant({ conferenceName: mode.conferenceName, params: params2 });
+    if (!added.ok) {
+      await recordError({
+        area: "sales_dial",
+        code: "conference_dial_failed",
+        message: `Attempt ${attempt.id} could not be dialled into its conference: ${added.error}. The rep was told and nothing rang.`,
+      }).catch(() => {});
+      return refuse("The call could not be placed. The reason has been logged for the platform team.");
+    }
+    // The room's name (and SID, when the participant reported one) go on the
+    // row NOW, before the rep joins: every later action keys on them.
+    await writeAttempt({
+      attemptId: attempt.id,
+      data: { conferenceName: mode.conferenceName, ...(added.conferenceSid ? { conferenceSid: added.conferenceSid } : {}) },
+    }).catch(() => {});
+    const { name, ...conf } = repConferenceAttrs({ origin, attemptId: attempt.id, conferenceName: mode.conferenceName });
+    const dial = twiml.dial({
+      // The same action as the plain bridge: when the room ends — the
+      // prospect hung up, a supervisor ended it, or a transfer moved the
+      // prospect out — this leg lands at the transfer stage, which joins
+      // an open transfer or answers with an empty document.
+      action: `${origin}/api/rep-dial/transfer?stage=rep-leg&attemptId=${encodeURIComponent(attempt.id)}`,
+      method: "POST",
+    });
+    dial.conference(conf, name);
+    return new NextResponse(twiml.toString(), { status: 200, headers: { "Content-Type": "text/xml" } });
+  }
+
   const dial = twiml.dial({
     // A number FieldQuo owns, chosen by callPlan when the attempt was written.
     // Never taken from the request — Twilio rejects an unowned caller ID

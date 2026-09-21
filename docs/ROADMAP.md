@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 21 September 2026 (Settings → Reviews: the company finds its Google listing in the Places box and the review link is derived from the place_id; every company has a public digital business card at /c/<slug> — logo, phone, email, address with a map link, Save our contact (a vCard), book / instant price / review / website / socials in the visitor's language — and a QR of it, a print sheet (card QR + a second QR that IS the contact), Add to Apple Wallet / Google Wallet for the contractor's own phone (signers built, env-gated, owner steps in docs/WALLET-PASS.md), NFC-tag instructions with the URL record and the contact record and the bytes each needs, ?ref= tap counts per source; the review email carries the QR in eight languages, the invoice PDF footer gets an optional review QR, the portal's paid state offers the review link; a Google-page paste keeps stars and dates; Connect Google Business Profile (same OAuth client, business.manage) caches reviews for 30 days under Google's name, never as testimonials, and prints Google's quota-0 refusal honestly with the paste path beside it — see "Reviews: the listing, the card, the passes, the tag, and the Business Profile" below; previous line: the sales floor's Twilio telemetry is back — see the telephony section)
+Last updated: 21 September 2026 (Sales-floor supervision: Listen / Whisper / Barge / Take on every live row of /platform/sales/floor through the superadmin's own browser, a Hold button for the rep, HOLD/UNHOLD and every supervisor action logged with seconds, calls to a colleague (browser to browser) and to a number outside the queue behind per-rep privileges — every outbound call runs in a per-attempt Twilio conference when `sales.supervision.enabled` is on, which is OFF by default because it costs +20% per call minute; docs/SALES-SUPERVISION.md — see the first section below; previous line: Settings → Reviews and the /c/<slug> business card)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -9,6 +9,68 @@ it exists to answer.
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
+
+## Listen, whisper, barge and take a rep's live call from the floor board; Hold for the rep; calls to a colleague or to a number outside the queue (21 September 2026)
+
+The owner asked for the OMniLeads supervisor board on FieldQuo's floor.
+`docs/SALES-SUPERVISION.md` is the write-up; `lib/sales/calls/supervision.js`
+the decisions; `scripts/check-sales-supervision.mjs` (139 assertions,
+mutation-tested) the proof.
+
+**What shipped.** On `/platform/sales/floor`, superadmin-only and checked
+server-side on every action: Listen (CHANSPY), Whisper (CHANSPYWISHPER),
+Barge (CHANCONFER) and Take call (CHANTAKECALL) on every live row, through
+the supervisor's own browser (a Twilio Device with identity
+`supervisor:<adminId>`, dial-out only), with a live bar to switch modes and
+leave. One supervisor per call — a conditional update on `supervisedBy` is
+the lock. The rep's card says when somebody barged or took the call,
+always, and when somebody is listening or whispering if
+`sales.supervision.tellRepOnListen` (default on) says so. The prospect is
+never told anything. Every action is a `SalesCallEvent` row and a
+`PlatformAuditLog` row, and the attempt carries `supervisedBy`,
+`supervisionKind`, `supervisionSeconds`.
+
+**Hold.** A Hold button on the live call card: the prospect hears music
+(Twilio's own, or an https URL the owner sets), the rep's mic is off the
+call, a timer shows the hold, Resume returns. HOLD/UNHOLD are timestamped
+`SalesCallEvent` rows; `holdSeconds` — a column reporting.js has read since
+the table landed and nothing wrote — is now written. The board row says
+"On hold 0:42"; the floor and performance tables show hold time and
+supervised calls per rep.
+
+**The mechanism, and its price.** Twilio coaches only a conference
+participant, so with the setting on every outbound prospect call runs in a
+per-attempt conference from the first ring — option (a); the header of
+supervision.js says why (b), moving the legs on demand, was rejected: it
+ends the dual-channel recording mid-call and the second file replaces the
+first. The contractor's participant is recorded dual on its own leg
+(contractor first, everything they heard second; hold music is blanked
+from the rep track before transcription), the status and recording
+webhooks are unchanged. Twilio bills conference minutes on top of each leg:
+**$0.018/min → $0.0216/min for a two-party call (+20%), +$0.0058/min while a
+supervisor is on** — so `sales.supervision.enabled` is OFF by default and
+the switch on `/platform/sales/windows` is the owner's approval. Off, the
+bridge is byte-for-byte what it was.
+
+**Calls that are not reach.** On the rep's Team page, a People card with a
+presence dot per colleague and Call (browser to browser, no PSTN, kind
+`internal`, never written up), and — for a rep the owner has allowed it on
+`/platform/sales/reps` — a field to dial a number outside the queue with
+the state it rings in (kind `off_campaign`; suppression, own numbers, the
+window and the 24-hour cap still bind). `prospectDialsOnly()` keeps both
+out of every count that already kept test dials out.
+
+### Still owed here
+
+- **Inbound calls** are `<Dial><Client>` from the contractor's leg and are
+  not in a conference; they cannot be supervised or held yet. The board
+  says so on the row.
+- **A live coached-call test against Twilio** could not be run from this
+  machine without ringing a live rep or a stranger: every FieldQuo number
+  that answers rings the floor, and the one that does not fails when
+  called. The owner's one-minute test is in the commit report.
+- A supervisor's display name: the console has none, so the rep sees the
+  email's local part.
 
 ## Reviews: the listing, the card, the passes, the tag, and the Business Profile (21 September 2026)
 

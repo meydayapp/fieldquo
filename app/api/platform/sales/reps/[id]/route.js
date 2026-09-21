@@ -110,6 +110,8 @@ export async function PATCH(request, { params }) {
       payoutMethod: true,
       setupRequestedAt: true,
       testAccount: true,
+      canCallColleagues: true,
+      canCallOffCampaign: true,
       // The ledger count decides the test-account refusal below: a row that
       // has earned cannot become a test account. Read fresh, here.
       _count: { select: { phoneNumbers: true, commissionEntries: true } },
@@ -287,9 +289,23 @@ export async function PATCH(request, { params }) {
     }
   }
 
-  if (typeof active !== "boolean" && !touchesMailbox && !touchesPlan && !touchesEngagement && !touchesSellsIn && !touchesKind && !touchesTestAccount) {
+  // ── What this rep may dial outside the queue (2026-09-21) ──────────────
+  //
+  // Two booleans, the OMniLeads group privileges call_another_agent and
+  // call_off_camp as per-rep flags (lib/sales/calls/supervision.js). Read
+  // fresh by lib/sales/calls/gate.js on every dial, so a flag switched off
+  // here binds the next press. Audited: the off-campaign one is a dial on
+  // FieldQuo's account to a phone no record vouches for.
+  const touchesPrivileges = "canCallColleagues" in body || "canCallOffCampaign" in body;
+  for (const key of ["canCallColleagues", "canCallOffCampaign"]) {
+    if (key in body && typeof body[key] !== "boolean") {
+      return NextResponse.json({ error: `${key} must be true or false` }, { status: 400 });
+    }
+  }
+
+  if (typeof active !== "boolean" && !touchesMailbox && !touchesPlan && !touchesEngagement && !touchesSellsIn && !touchesKind && !touchesTestAccount && !touchesPrivileges) {
     return NextResponse.json(
-      { error: "Send active (true/false), workEmail, commissionPlanId, engagement (with agencyId for an agency), sellsIn, kind, or testAccount." },
+      { error: "Send active (true/false), workEmail, commissionPlanId, engagement (with agencyId for an agency), sellsIn, kind, testAccount, canCallColleagues or canCallOffCampaign." },
       { status: 400 },
     );
   }
@@ -342,6 +358,8 @@ export async function PATCH(request, { params }) {
     ...(conversion && !conversion.unchanged ? conversion.data : {}),
     ...(touchesSellsIn ? { sellsIn } : {}),
     ...(touchesTestAccount ? { testAccount: body.testAccount } : {}),
+    ...("canCallColleagues" in body ? { canCallColleagues: body.canCallColleagues } : {}),
+    ...("canCallOffCampaign" in body ? { canCallOffCampaign: body.canCallOffCampaign } : {}),
   };
   const SELECT = {
     id: true,
@@ -361,6 +379,8 @@ export async function PATCH(request, { params }) {
     setupRequestedAt: true,
     kind: true,
     testAccount: true,
+    canCallColleagues: true,
+    canCallOffCampaign: true,
     managerId: true,
     manager: { select: { id: true, kind: true, name: true } },
     commissionPlan: { select: { id: true, name: true } },
@@ -486,6 +506,17 @@ export async function PATCH(request, { params }) {
   // and after — the same vocabulary a payout question is answered from.
   if (transition && !transition.unchanged) actions.push(...transition.audit);
   if (conversion && !conversion.unchanged) actions.push(...conversion.audit);
+  if (touchesPrivileges && (existing.canCallColleagues !== updated.canCallColleagues || existing.canCallOffCampaign !== updated.canCallOffCampaign)) {
+    actions.push({
+      action: "sales_rep_call_privileges_updated",
+      details: {
+        salesRepId: updated.id,
+        email: updated.email,
+        from: { canCallColleagues: existing.canCallColleagues, canCallOffCampaign: existing.canCallOffCampaign },
+        to: { canCallColleagues: updated.canCallColleagues, canCallOffCampaign: updated.canCallOffCampaign },
+      },
+    });
+  }
   if (touchesSellsIn) {
     const before = sellsInOf(existing);
     const after = sellsInOf(updated);

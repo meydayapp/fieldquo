@@ -484,6 +484,11 @@ export function CallSessionProvider({ children }) {
     setCallError("");
     const placed = {
       attemptId: attempt.attemptId,
+      // "prospect" (the default), "internal" (a colleague's browser) or
+      // "off_campaign" (a typed number with no record). An internal call has
+      // no write-up and no transfer; the strip reads this to draw neither.
+      kind: attempt.kind === "internal" || attempt.kind === "off_campaign" ? attempt.kind : "prospect",
+      internal: attempt.internal || null,
       to: attempt.to || target?.phoneE164 || null,
       callerId: attempt.callerId || null,
       serverNow: attempt.serverNow || new Date().toISOString(),
@@ -517,6 +522,18 @@ export function CallSessionProvider({ children }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "ended", attemptId: placed.attemptId, hungUpBy }),
       }).catch(noop);
+      if (placed.kind === "internal") {
+        // A colleague call has no outcome to log — nobody was reached who
+        // could sign up — so there is no write-up. The SERVER moves both
+        // reps back to available on the `ended` post above (and again on
+        // the carrier's completed event); this only re-reads it. The
+        // client keeps no opinion about anybody's state here.
+        setOutbound(null);
+        setMuted(false);
+        presenceRef.current.setCallUp(false);
+        setTimeout(() => presenceRef.current.refresh?.(), 1200);
+        return;
+      }
       setOutbound(null);
       setMuted(false);
       setDraft(EMPTY_DRAFT);
@@ -903,6 +920,8 @@ export function CallSessionProvider({ children }) {
     if (outbound) {
       return {
         direction: "out",
+        kind: outbound.kind || "prospect",
+        internal: outbound.internal || null,
         attemptId: outbound.attemptId,
         transferNote: "",
         startedAt: outbound.startedAt,
@@ -924,6 +943,8 @@ export function CallSessionProvider({ children }) {
     if (inbound) {
       return {
         direction: "in",
+        kind: inbound.internal ? "internal" : "prospect",
+        internal: inbound.internal || null,
         attemptId: inbound.attemptId || null,
         transferNote: inbound.note || "",
         startedAt: inbound.answeredAt,

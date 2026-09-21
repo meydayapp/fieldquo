@@ -209,6 +209,8 @@ export default function PlatformSalesWindowsPage() {
 
       <TransferNumbersCard canEdit={isSuperadmin} />
 
+      <SupervisionCard canEdit={isSuperadmin} />
+
       {loading ? (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Loader2 size={16} className="animate-spin" /> Loading…
@@ -524,6 +526,178 @@ function TestLinesCard({ canEdit }) {
  * variable, and a control that pretended to change one would be the dead
  * button AGENTS.md forbids. It sits behind the list as one more entry.
  */
+/**
+ * Live-call supervision and hold — the one switch on this page that costs
+ * money. lib/sales/calls/supervision.js prints the figures; this card
+ * repeats them beside the switch so the person flipping it has read them.
+ */
+const SUP_BTN_PRIMARY = "min-h-[44px] inline-flex items-center justify-center gap-1.5 bg-inverted text-inverted-foreground text-sm font-semibold px-4 rounded-lg disabled:opacity-60";
+const SUP_BTN_QUIET = "min-h-[44px] inline-flex items-center justify-center gap-1.5 border border-border bg-card text-foreground text-sm font-semibold px-4 rounded-lg hover:bg-muted disabled:opacity-60";
+
+function SupervisionCard({ canEdit }) {
+  const [data, setData] = useState(null);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [musicDraft, setMusicDraft] = useState("");
+
+  const load = useCallback(async () => {
+    setError("");
+    try {
+      const body = await fetchJson("/api/platform/sales/supervision/settings");
+      setData(body);
+      setMusicDraft(body?.settings?.holdMusicUrl || "");
+    } catch (err) {
+      setError(err.message);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const settings = data?.settings || null;
+
+  async function save(patch, sentence) {
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const body = await fetchJson("/api/platform/sales/supervision/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch),
+      });
+      setData(body);
+      setMusicDraft(body?.settings?.holdMusicUrl || "");
+      setNotice(sentence);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function toggleEnabled() {
+    const on = !settings?.enabled;
+    if (
+      on &&
+      !confirm(
+        "Switch supervision on?\n\nFrom the next dial, every outbound prospect call runs in a Twilio conference so a superadmin can listen, whisper, barge or take it, and reps get a Hold button. Twilio bills conference minutes on top of each leg: a two-party call goes from about $0.018/min to $0.0216/min (+20%), and a supervisor on the line adds about $0.0058/min while they are on it. Calls already in progress are not changed. This is logged with your name.",
+      )
+    ) {
+      return;
+    }
+    save(
+      { enabled: on },
+      on
+        ? "Supervision is on. The next call each rep places runs in a conference; the floor board's Listen / Whisper / Barge / Take buttons work on those, and reps see Hold."
+        : "Supervision is off. New calls are plain bridges again — no conference minutes, no hold, no supervision. Calls already up finish as they started.",
+    );
+  }
+
+  return (
+    <section className="bg-card border border-border rounded-xl p-4 space-y-3" data-supervision-settings>
+      <div className="flex items-start gap-2">
+        <Phone size={16} className="shrink-0 mt-0.5 text-muted-foreground" aria-hidden="true" />
+        <div className="min-w-0">
+          <h2 className="font-semibold text-foreground">Live-call supervision and hold</h2>
+          <p className="text-sm text-muted-foreground mt-1 max-w-3xl">
+            With this on, every outbound prospect call runs in a per-call Twilio conference: a superadmin on
+            the floor board can listen (the rep and the contractor hear nothing), whisper (only the rep
+            hears), barge in, or take the call; and the rep can put the contractor on hold with music. The
+            contractor&apos;s leg is still recorded dual-channel from answer, so transcripts keep who said what.
+            It costs conference minutes on top of each leg — about +$0.0036 per minute of call, and about
+            $0.0058 per minute a supervisor is on the line — which is why it is off until you switch it on.
+            Inbound calls and calls already in progress are not affected.
+          </p>
+        </div>
+      </div>
+
+      {error && (
+        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-lg p-3 flex items-start gap-2 text-sm text-red-700 dark:text-red-300">
+          <AlertCircle size={16} className="shrink-0 mt-0.5" /> {error}
+        </div>
+      )}
+      {notice && (
+        <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 rounded-lg p-3 text-sm text-emerald-800 dark:text-emerald-300">
+          {notice}
+        </div>
+      )}
+
+      {!settings && !error ? (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 size={16} className="animate-spin" /> Loading…
+        </div>
+      ) : settings ? (
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center gap-3" data-supervision-enabled={settings.enabled ? "on" : "off"}>
+            <p className="text-sm text-foreground">
+              Supervision and hold: <strong>{settings.enabled ? "on" : "off"}</strong>
+            </p>
+            {canEdit ? (
+              <button type="button" onClick={toggleEnabled} disabled={busy} className={settings.enabled ? SUP_BTN_QUIET : SUP_BTN_PRIMARY}>
+                {settings.enabled ? "Switch off" : "Switch on (costs conference minutes)"}
+              </button>
+            ) : null}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3" data-supervision-tell-rep={settings.tellRepOnListen ? "on" : "off"}>
+            <p className="text-sm text-foreground">
+              Tell the rep when somebody is listening or whispering: <strong>{settings.tellRepOnListen ? "yes" : "no"}</strong>
+              <span className="text-muted-foreground"> — barge and take are always shown to the rep; the contractor is never told anything.</span>
+            </p>
+            {canEdit ? (
+              <button
+                type="button"
+                onClick={() =>
+                  save(
+                    { tellRepOnListen: !settings.tellRepOnListen },
+                    settings.tellRepOnListen ? "Listening and whispering are now silent on the rep's console." : "The rep's console now says when somebody is listening or whispering.",
+                  )
+                }
+                disabled={busy}
+                className={SUP_BTN_QUIET}
+              >
+                {settings.tellRepOnListen ? "Keep it silent" : "Tell the rep"}
+              </button>
+            ) : null}
+          </div>
+
+          <form
+            className="flex flex-wrap items-end gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              save({ holdMusicUrl: musicDraft.trim() || null }, musicDraft.trim() ? "Hold plays your file." : "Hold plays Twilio's own music.");
+            }}
+          >
+            <label className="block min-w-[16rem] flex-1">
+              <span className="block text-xs font-semibold text-muted-foreground mb-1">Hold music (https URL, empty for Twilio&apos;s own)</span>
+              <input
+                type="url"
+                value={musicDraft}
+                onChange={(e) => setMusicDraft(e.target.value)}
+                placeholder="https://…/hold.mp3"
+                disabled={!canEdit || busy}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+              />
+            </label>
+            {canEdit ? (
+              <button type="submit" disabled={busy} className={SUP_BTN_QUIET}>
+                Save hold music
+              </button>
+            ) : null}
+          </form>
+          <p className="text-xs text-muted-foreground">
+            Twilio&apos;s music is the default on purpose: a file that fails to load is silence, and a contractor
+            hearing silence hangs up.
+          </p>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 function TransferNumbersCard({ canEdit }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");

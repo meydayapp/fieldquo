@@ -54,6 +54,8 @@ model PlatformAdmin {
   createdAt    DateTime          @default(now())
 
   auditLogs        PlatformAuditLog[]
+  supervisedCalls  SalesCallAttempt[] @relation("SalesCallSupervisor")
+  callEvents       SalesCallEvent[]
   telemarketerRegistrations SalesTelemarketerRegistration[]
   jurisdictionOverrides     SalesJurisdictionOverride[]
   /// Numbers this admin calls and texts from.
@@ -10653,6 +10655,17 @@ model SalesRep {
   /// lib/sales/autodial.js still requires the rep to be `available`, no call
   /// up, nothing ringing, and the calling gate to answer allowed for that row.
   autodial Boolean @default(false)
+  // ── What this rep may dial that is not a prospect (2026-09-21) ───────
+  //
+  // The two OMniLeads group privileges (Grupo.call_another_agent and
+  // Grupo.call_off_camp, ominicontacto_app/models.py ~291–292) as per-rep
+  // flags, set by a superadmin on /platform/sales/reps. A colleague's
+  // browser costs nothing but two client legs and is on by default; an
+  // arbitrary typed number is a dial on FieldQuo's account to a phone no
+  // record vouches for and is OFF until the owner says otherwise.
+  canCallColleagues  Boolean @default(true)
+  canCallOffCampaign Boolean @default(false)
+  internalCallsReceived SalesCallAttempt[] @relation("SalesInternalCallsTo")
 
   /// The zone this rep's own hours are read in — the public demo page
   /// (app/demo/[repCode]) offers 15-minute slots from `demoHours` evaluated
@@ -15241,6 +15254,55 @@ model SalesCallAttempt {
   experimentKey   String?
   variantKey      String?
 
+  // ── What KIND of call this row is (2026-09-21, sales supervision) ─────
+  //
+  // "prospect" — the ordinary sales dial or callback, and every row before
+  // this column existed. "internal" — a rep rang a colleague's browser
+  // (toE164 is the INTERNAL_NUMBER sentinel, internalToRepId says who).
+  // "off_campaign" — a number the rep typed with no record behind it.
+  // Neither of the last two is prospect reach: prospectDialsOnly() (beside
+  // the test-dial exclusion in lib/sales) keeps them out of every count,
+  // and the 24-hour cap still counts an off-campaign dial to a real number
+  // because the law does.
+  kind String @default("prospect")
+  /// The colleague rung, on a kind "internal" row.
+  internalToRepId String?
+  internalToRep   SalesRep? @relation("SalesInternalCallsTo", fields: [internalToRepId], references: [id], onDelete: SetNull)
+
+  // ── The conference this call ran in, when supervision mode was on ────
+  //
+  // Null on a plain <Dial><Number> bridge. lib/sales/calls/supervision.js:
+  // with `sales.supervision.enabled` the bridge puts the rep in a
+  // per-attempt conference and dials the prospect in as a participant, so a
+  // superadmin can listen, whisper, barge or take the call, and the rep can
+  // put the prospect on hold. `conferenceSid` arrives on the first
+  // conference status callback and is the handle every REST action prefers
+  // over the name, which Twilio only resolves while the room is up.
+  conferenceName String?
+  conferenceSid  String?
+  /// When the prospect was last put on hold and not yet taken off. Null
+  /// when not held. `holdSeconds` above is the sum of closed intervals.
+  heldAt DateTime?
+
+  // ── Who was on this call besides the rep and the prospect ────────────
+  //
+  // The platform admin currently (or last) supervising, what they were
+  // doing — "listen", "whisper", "barge", "take" — and how long the
+  // supervision lasted, summed. One supervisor at a time: `supervisedBy`
+  // set is the lock, cleared when they leave or the conference ends.
+  // The full history is SalesCallEvent.
+  supervisedBy       String?
+  supervisor         PlatformAdmin? @relation("SalesCallSupervisor", fields: [supervisedBy], references: [id], onDelete: SetNull)
+  supervisionKind    String?
+  supervisionSeconds Int?
+  /// The supervisor's own browser leg, from the signed bridge webhook —
+  /// never from the browser. What "leave" hangs up and "mode" updates.
+  supervisorCallSid  String?
+  /// When the current supervision started; null between supervisions.
+  supervisedAt DateTime?
+
+  events SalesCallEvent[]
+
   createdAt DateTime @default(now())
 
   /// The cap query, and the only index that has to be fast: every dial runs it.
@@ -15352,6 +15414,40 @@ model SalesCallTransfer {
   @@index([attemptId, startedAt])
   @@index([state, startedAt])
   @@index([fromRepId, startedAt])
+}
+
+/// One timestamped thing that happened on a live sales call that the
+/// carrier's status callbacks do not report: the prospect put on hold and
+/// taken off it, a supervisor listening, whispering, barging in, taking the
+/// call, and leaving. The OMniLeads model is LlamadaLog's HOLD/UNHOLD rows
+/// (reportes_app/models.py ~408, api_app/views/agente.py ApiEventoHold
+/// ~610–640): hold time is measurable only because both edges are logged
+/// with a time. `seconds` is written on the closing edge (UNHOLD,
+/// SUPERVISION_END) so a report can sum without pairing rows.
+///
+/// Exactly one actor per row: the rep (hold) or the platform admin
+/// (supervision). Never deleted — the attempt's cascade is the only way a
+/// row goes, with the call it describes.
+model SalesCallEvent {
+  id String @id @default(cuid())
+
+  attemptId String
+  attempt   SalesCallAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+
+  /// HOLD · UNHOLD · LISTEN · WHISPER · BARGE · TAKE · SUPERVISION_END.
+  event String
+
+  salesRepId      String?
+  platformAdminId String?
+  platformAdmin   PlatformAdmin? @relation(fields: [platformAdminId], references: [id], onDelete: SetNull)
+
+  at      DateTime @default(now())
+  /// How long the interval this row closes lasted, on closing edges only.
+  seconds Int?
+  detail  Json?
+
+  @@index([attemptId, at])
+  @@index([platformAdminId, at])
 }
 
 /// How a recorded sales call measured against the playbook the rep was

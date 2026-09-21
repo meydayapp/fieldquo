@@ -59,12 +59,22 @@ section("1. The attributes, and where they land");
   const none = dialRecordingAttrs({ origin: ORIGIN });
   ok("a dial with neither still records and posts to the bare URL", none.record === DIAL_RECORDING && none.recordingStatusCallback === `${ORIGIN}/api/rep-dial/recording`);
   ok("a conference records from start", conferenceRecordingAttrs({ origin: ORIGIN, transferId: "tr1" }).record === CONFERENCE_RECORDING);
+  ok("in supervision mode the contractor's participant is recorded dual on its own leg, posting to the same recording route", (() => {
+    const src = read("lib/sales/calls/supervision.js");
+    return /record: true,\s*recordingChannels: "dual",\s*recordingTrack: "both"/.test(src) && /recordingCallbackUrl\(\{ origin, attemptId: attempt\.id \}\)/.test(read("app/api/rep-dial/bridge/route.js"));
+  })());
 
   for (const route of ["app/api/rep-dial/bridge/route.js", "app/api/rep-dial/inbound/route.js"]) {
     const src = read(route);
+    // A <Dial><Conference> in the bridge (2026-09-21, supervision mode) is
+    // NOT recorded on the <Dial>: the contractor's participant is recorded
+    // dual on its own leg (lib/sales/calls/supervision.js
+    // prospectParticipantParams, asserted below), and the supervisor's leg
+    // is never recorded at all. Those two dials are counted apart.
     const dials = src.split("twiml.dial(").length - 1;
+    const conferenceDials = (src.match(/\.conference\(conf, name\)/g) || []).length;
     const spread = (src.match(/\.\.\.dialRecordingAttrs\(/g) || []).length;
-    ok(`${route}: every <Dial> (${dials}) carries the recording attributes`, dials > 0 && spread === dials, { dials, spread });
+    ok(`${route}: every <Dial> that is not a <Conference> (${dials - conferenceDials}) carries the recording attributes`, dials > 0 && spread === dials - conferenceDials, { dials, conferenceDials, spread });
     ok(`${route}: no environment variable decides it`, !/process\.env\.[A-Z_]*RECORD/.test(src));
   }
   ok("both conference documents carry the recording attributes", (read("lib/sales/calls/transferRest.js").match(/\.\.\.conferenceRecordingAttrs\(/g) || []).length === 2);

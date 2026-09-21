@@ -52,6 +52,7 @@ import {
   TEST_JURISDICTION_CODE,
   TEST_LINES_SETTING_KEY,
   excludingTestDials,
+  prospectDialsOnly,
   isTestDial,
   isTestLine,
   normaliseTestLines,
@@ -254,22 +255,28 @@ section("5. Source: where the number is judged, written and counted");
   const leadRoute = decomment(read("app/api/sales/leads/[id]/route.js"));
   ok("the lead route decides it against the setting, twice (GET and PATCH)", (leadRoute.match(/testLine: isTestLine\(leadPhoneE164\(lead\), await loadTestLines\(\)\)/g) || []).length === 2);
 
-  // Every count of work carries the exclusion.
+  // Every count of work carries the exclusion. Since 2026-09-21 the counting
+  // sites go through prospectDialsOnly() — the same exclusion plus
+  // kind = "prospect", so a colleague call or an off-queue dial is not
+  // reach either (lib/sales/calls/supervision.js) — while the 24-hour cap
+  // keeps the bare exclusion: an off-queue dial to a real number IS a call
+  // to that number, and the law counts it.
   for (const [file, pattern, n] of [
-    ["lib/sales/funnelData.js", /salesCallAttempt\.findMany\(\{\s*where: excludingTestDials\(/, 1],
-    ["lib/sales/agency.js", /salesCallAttempt\.findMany\(\{\s*where: excludingTestDials\(/, 1],
-    ["lib/sales/calls/floorBoard.js", /salesCallAttempt\.findMany\(\{\s*where: excludingTestDials\(/, 1],
-    ["app/api/sales/badges/route.js", /salesCallAttempt\.count\(\{ where: excludingTestDials\(\{ salesRepId: rep\.id, direction: "out"/, 1],
-    ["lib/sales/calls/store.js", /where: excludingTestDials\(\{ toE164: phone, direction: "out"/, 1],
+    ["lib/sales/funnelData.js", /salesCallAttempt\.findMany\(\{\s*where: prospectDialsOnly\(/, 1],
+    ["lib/sales/agency.js", /salesCallAttempt\.findMany\(\{\s*where: prospectDialsOnly\(/, 1],
+    ["lib/sales/calls/floorBoard.js", /salesCallAttempt\.findMany\(\{\s*where: prospectDialsOnly\(/, 1],
+    ["app/api/sales/badges/route.js", /salesCallAttempt\.count\(\{ where: prospectDialsOnly\(\{ salesRepId: rep\.id, direction: "out"/, 1],
   ]) {
-    ok(`${file} counts through excludingTestDials`, (decomment(read(file)).match(new RegExp(pattern.source, "g")) || []).length >= n);
+    ok(`${file} counts through prospectDialsOnly`, (decomment(read(file)).match(new RegExp(pattern.source, "g")) || []).length >= n);
   }
+  ok("lib/sales/calls/store.js's cap counts through excludingTestDials (a real number's off-queue dial still spends it)", /where: excludingTestDials\(\{ toE164: phone, direction: "out"/.test(decomment(read("lib/sales/calls/store.js"))));
+  ok("prospectDialsOnly is the test exclusion plus kind = prospect", (() => { const w = prospectDialsOnly({}); return w.AND.length === 2 && JSON.stringify(w.AND[0]) === JSON.stringify(TEST_DIAL_EXCLUSION) && w.AND[1].kind === "prospect"; })());
   const growth = decomment(read("lib/platform/growthMeasured.js"));
-  ok("growthMeasured: every Prisma count of attempts carries the exclusion", (growth.match(/salesCallAttempt\.count\(\{ where: excludingTestDials\(/g) || []).length === 7 && !/salesCallAttempt\.count\(\{ where: \{/.test(growth));
+  ok("growthMeasured: every Prisma count of attempts carries the exclusion", (growth.match(/salesCallAttempt\.count\(\{ where: prospectDialsOnly\(/g) || []).length === 7 && !/salesCallAttempt\.count\(\{ where: \{/.test(growth));
   ok("…both raw SQL counts AND in the clause", (growth.match(/AND \$\{notTest\}/g) || []).length === 2 && /Prisma\.raw\(TEST_DIAL_SQL_EXCLUSION\)/.test(growth));
-  ok("…and the agreed-on-call read too", /where: excludingTestDials\(\{ direction: "out", disposition: AGREED_CODE \}\)/.test(growth));
+  ok("…and the agreed-on-call read too", /where: prospectDialsOnly\(\{ direction: "out", disposition: AGREED_CODE \}\)/.test(growth));
   const reporting = decomment(read("lib/sales/calls/reporting.js"));
-  ok("reporting.js drops test rows in repCallStats, teamCallRows and campaignCallRows", (reporting.match(/withoutTestDials\(attempts\)/g) || []).length === 3);
+  ok("reporting.js drops test rows (and non-prospect kinds) in repCallStats, teamCallRows and campaignCallRows", (reporting.match(/onlyProspectDials\(attempts\)/g) || []).length === 3);
 
   // The console.
   const route = decomment(read("app/api/platform/sales/test-lines/route.js"));
@@ -423,7 +430,7 @@ section("6. The test account: same path, same mark, its own words");
   ok("…refuses an agency", /existing\.kind === AGENCY_KIND\) \{[\s\S]{0,300}?code: "test_account_agency"/.test(patch));
   ok("…refuses an influencer ledger", /code: "test_account_influencer"/.test(patch));
   ok("…refuses a rep with a commission entry, on a count read fresh in this request, and says a test account earns nothing", /commissionEntries: true/.test(patch) && /existing\._count\?\.commissionEntries \|\| 0\) > 0/.test(patch) && /A test account earns nothing/.test(patch) && /code: "test_account_has_earned"/.test(patch));
-  ok("…writes the flag on the same update and returns it", /testAccount: body\.testAccount/.test(patch) && /testAccount: true,\s*managerId: true,/.test(patch));
+  ok("…writes the flag on the same update and returns it", /testAccount: body\.testAccount/.test(patch) && /testAccount: true,\s*canCallColleagues: true,\s*canCallOffCampaign: true,\s*managerId: true,/.test(patch));
   ok("…and audits the flip with before and after", /action: "sales_rep_test_account_set"/.test(patch) && /from: existing\.testAccount === true, to: updated\.testAccount === true/.test(patch));
   ok("the audit action has wording and is danger", Boolean(AUDIT_ACTIONS.sales_rep_test_account_set) && AUDIT_ACTIONS.sales_rep_test_account_set.tone === "danger");
   const list = decomment(read("app/api/platform/sales/reps/route.js"));

@@ -45,7 +45,7 @@ import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Building2, Headphones, Loader2, Mail, Mic, MicOff, NotebookPen, PhoneOff, UserPlus } from "lucide-react";
+import { ArrowLeft, Building2, Ear, Headphones, Loader2, Mail, Mic, MicOff, NotebookPen, Pause, PhoneOff, Play, UserPlus } from "lucide-react";
 
 import { fetchJson } from "@/lib/fetchJson";
 import { useTranslation } from "@/app/hooks/useTranslation";
@@ -134,6 +134,108 @@ export function EmailThemButton({ leadId = null, prospectId = null, className = 
 }
 
 /**
+ * Hold, and who else is on the line — the conference-mode facts of an
+ * outbound call, polled from /api/sales/calls/conference every four
+ * seconds while the call is up.
+ *
+ * Hold is drawn only when the server says the call CAN be held (it is in
+ * a conference); a plain bridge gets no button rather than one that
+ * refuses. The supervisor line is whatever the server chose to say —
+ * barge and take always, listen and whisper only if the platform setting
+ * tells reps (lib/sales/calls/supervision.js repNotice). Nothing here
+ * reaches the prospect.
+ */
+function ConferenceControls({ attemptId, active }) {
+  const { t } = useTranslation();
+  const [state, setState] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [, setTick] = useState(0);
+
+  useEffect(() => {
+    if (!attemptId || !active) return undefined;
+    let cancelled = false;
+    const ask = async () => {
+      try {
+        const body = await fetchJson(`/api/sales/calls/conference?attemptId=${encodeURIComponent(attemptId)}`);
+        if (!cancelled) setState(body?.state || null);
+      } catch {
+        /* the next tick asks again; nothing here blocks the call */
+      }
+    };
+    ask();
+    const id = setInterval(ask, 4000);
+    const tick = setInterval(() => setTick((n) => n + 1), 1000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+      clearInterval(tick);
+    };
+  }, [attemptId, active]);
+
+  if (!state) return null;
+
+  async function toggleHold() {
+    setBusy(true);
+    setError("");
+    try {
+      const body = await fetchJson("/api/sales/calls/conference", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: state.held ? "unhold" : "hold", attemptId }),
+      });
+      setState(body?.state || state);
+    } catch (err) {
+      setError(err?.message || t("app.salesHold.failed"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const sup = state.supervision;
+  const supText = sup
+    ? {
+        listen: t("app.salesSupervision.listening", { name: sup.name || t("app.salesSupervision.aSupervisor") }),
+        whisper: t("app.salesSupervision.whispering", { name: sup.name || t("app.salesSupervision.aSupervisor") }),
+        barge: t("app.salesSupervision.joined", { name: sup.name || t("app.salesSupervision.aSupervisor") }),
+        take: t("app.salesSupervision.took", { name: sup.name || t("app.salesSupervision.aSupervisor") }),
+      }[sup.kind] || null
+    : null;
+
+  return (
+    <div className="space-y-2" data-conference-controls>
+      {state.canHold ? (
+        <div className="flex flex-wrap items-center gap-2" data-hold={state.held ? "held" : "off"}>
+          <button
+            type="button"
+            className={`${BTN} border ${state.held ? "border-amber-400 bg-amber-100 dark:bg-amber-900/40 text-amber-900 dark:text-amber-100" : "border-emerald-400 text-emerald-900 dark:text-emerald-100"} flex-1`}
+            onClick={toggleHold}
+            disabled={busy || state.taken}
+            aria-pressed={state.held}
+            data-live-call-hold
+          >
+            {busy ? <Loader2 size={16} className="animate-spin motion-reduce:animate-none" aria-hidden="true" /> : state.held ? <Play size={16} aria-hidden="true" /> : <Pause size={16} aria-hidden="true" />}
+            {state.held ? t("app.salesHold.resume") : t("app.salesHold.hold")}
+          </button>
+          {state.held ? (
+            <span className="text-sm font-mono tabular-nums text-amber-900 dark:text-amber-100" data-hold-clock>
+              {t("app.salesHold.onHoldFor", { time: clock(state.heldAt ? Date.now() - new Date(state.heldAt).getTime() : 0) })}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+      {error ? <p className="text-xs text-amber-700 dark:text-amber-300 break-words">{error}</p> : null}
+      {supText ? (
+        <p className={`text-xs flex items-start gap-1.5 break-words ${sup.audible ? "font-semibold text-emerald-900 dark:text-emerald-100" : "text-emerald-900/80 dark:text-emerald-200/80"}`} data-supervision-notice={sup.kind}>
+          <Ear size={13} className="shrink-0 mt-0.5" aria-hidden="true" />
+          {supText}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/**
  * The controls, given the session's `live`. `inCard` is the Dialer card's
  * copy: no "Back to the call screen", because they are on it.
  */
@@ -151,6 +253,7 @@ export function LiveCallControls({ inCard = false }) {
   const onTransferError = useCallback((message) => setError(message || ""), []);
   if (!live) return null;
 
+  const internal = live.kind === "internal";
   const number = pretty(live.e164, t);
   const links = live.links;
   return (
@@ -165,7 +268,9 @@ export function LiveCallControls({ inCard = false }) {
             {t("app.salesDial.onACall")}
           </p>
           <p className="font-semibold text-emerald-900 dark:text-emerald-100 break-words">
-            {live.direction === "out" ? (
+            {internal ? (
+              t("app.salesInternal.onCallWithColleague", { name: live.internal?.name || live.label || t("app.salesInternal.aColleague") })
+            ) : live.direction === "out" ? (
               t("app.salesCall.onCallWith", { name: live.label || number })
             ) : live.label ? (
               <>
@@ -181,10 +286,13 @@ export function LiveCallControls({ inCard = false }) {
         </p>
       </div>
 
-      {live.callerId ? (
+      {live.callerId && !internal ? (
         <p className="text-xs text-emerald-900 dark:text-emerald-200 break-words">
           {t("app.salesCall.callerIdNotice", { number: live.callerId })}
         </p>
+      ) : null}
+      {internal ? (
+        <p className="text-xs text-emerald-900 dark:text-emerald-200 break-words">{t("app.salesInternal.noCarrierCost")}</p>
       ) : null}
 
       {/* Where the rep may go from here. Inbound: the server's links for
@@ -240,6 +348,11 @@ export function LiveCallControls({ inCard = false }) {
         </button>
       </div>
 
+      {/* ── Hold, and who else is on the line ──────────────────────────
+          Only on an outbound prospect / off-queue call: an inbound call
+          is not in a conference and a colleague is just muted. */}
+      {!internal && live.direction === "out" && live.attemptId ? <ConferenceControls attemptId={live.attemptId} active /> : null}
+
       {/* ── Handing them to somebody else ──────────────────────────────
           One control for both directions (TransferControl.js). `attemptId`
           is null for an inbound call until /api/sales/calls/answered has
@@ -247,15 +360,15 @@ export function LiveCallControls({ inCard = false }) {
           says the call has no rep leg to hand back from — so the control
           renders nothing rather than a button that would refuse. The
           reason is said below instead. */}
-      <TransferControl attemptId={live.attemptId || null} active onError={onTransferError} tone="call" />
-      {live.transferNote ? <p className="text-xs text-emerald-900 dark:text-emerald-200">{live.transferNote}</p> : null}
+      {!internal ? <TransferControl attemptId={live.attemptId || null} active onError={onTransferError} tone="call" /> : null}
+      {live.transferNote && !internal ? <p className="text-xs text-emerald-900 dark:text-emerald-200">{live.transferNote}</p> : null}
 
       {/* "They'd rather text" / "email me": the thread or the composer on
           THIS caller, without hanging up. The call is held by CallSession
           in the shell, so the navigation these make leaves it up and this
           strip follows the rep to the page they land on. */}
       <div className="flex flex-wrap gap-2" data-live-call-reach>
-        {live.e164 ? (
+        {live.e164 && !internal ? (
           <TextThemButton
             e164={live.e164}
             leadId={live.leadId || null}
@@ -264,7 +377,7 @@ export function LiveCallControls({ inCard = false }) {
             label={t("app.salesText.ratherText")}
           />
         ) : null}
-        <EmailThemButton leadId={live.leadId || null} prospectId={live.leadId ? null : live.prospectId || null} />
+        {!internal ? <EmailThemButton leadId={live.leadId || null} prospectId={live.leadId ? null : live.prospectId || null} /> : null}
       </div>
     </div>
   );

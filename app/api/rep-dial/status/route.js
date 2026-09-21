@@ -40,11 +40,14 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { verifyTwilioWebhook } from "@/lib/sms/verifyTwilioWebhook";
-import { attachProviderCall, callStoreState } from "@/lib/sales/calls/store";
+import { attachProviderCall, callStoreState, releaseInternalCall } from "@/lib/sales/calls/store";
 import { callCostCents } from "@/lib/sales/calls/browserDial";
 import { recordError } from "@/lib/platform/errorLog";
 import { acknowledged, noContent } from "@/lib/sales/calls/twilioAck";
 import { answeredAtFrom } from "@/lib/sales/calls/providerStatus";
+import { prospectStatusPlan } from "@/lib/sales/calls/supervision";
+import { endConference } from "@/lib/sales/calls/supervisionRest";
+import { supervisionAttempt } from "@/lib/sales/calls/supervisionStore";
 
 function parseTime(value) {
   if (!value) return null;
@@ -106,6 +109,34 @@ async function handle(request) {
       message: `Could not attach a call status to attempt ${attemptId}: ${err?.message}`,
     }).catch(() => {});
   });
+
+  // A colleague call that ended: both reps back to available, from the
+  // carrier's word rather than either browser's.
+  if (status === "completed" || status === "no-answer" || status === "busy" || status === "failed" || status === "canceled") {
+    await releaseInternalCall({ attemptId }).catch(() => {});
+  }
+
+  // ── Conference mode: a prospect who never joined does not end the room ──
+  //
+  // With supervision on, the prospect is a participant of a per-attempt
+  // conference (lib/sales/calls/supervision.js). Their hang-up ends the room
+  // by itself (endConferenceOnExit); a no-answer, busy or failed leg never
+  // joined, so nothing ends it and the rep would sit in silence. Any
+  // terminal status ends the room, idempotently — a room that is already
+  // over answers ok.
+  if (status) {
+    const row = await supervisionAttempt(attemptId).catch(() => null);
+    if (row && prospectStatusPlan({ attempt: row, status }).endConference) {
+      const ended = await endConference(row);
+      if (!ended.ok) {
+        await recordError({
+          area: "sales_dial",
+          code: "conference_end_failed",
+          message: `Attempt ${attemptId}'s prospect leg ended (${status}) and its conference could not be ended: ${ended.error}. The rep may be waiting in silence.`,
+        }).catch(() => {});
+      }
+    }
+  }
 
   // Twilio wants a 2xx and reads nothing. An empty 204 rather than TwiML: this
   // is a notification, not a request for instructions, and returning a
