@@ -30,6 +30,7 @@ import { serviceWindowNotice, needsServiceWindow } from "@/lib/messaging/service
 import { publicTemplateShape } from "@/lib/messaging/templates";
 import { publicAttachments } from "@/lib/messaging/attachments";
 import { demoThreads } from "@/lib/messaging/demoThreads";
+import { resumeCandidate } from "@/lib/aiEmployee/routing";
 import {
   normaliseOutcome,
   normaliseStatus,
@@ -136,6 +137,12 @@ async function readThread({ id, member }) {
       // timestamp would be a second answer, in a different clock, that could
       // disagree with the refusal it is about to get.
       lastInboundAt: true,
+      // Which AI employee holds the thread and whether a person took it over
+      // (lib/aiEmployee/routing.js). Shaped into `ai` below — the ids stay
+      // server-side; the screen gets a name and a button.
+      assignedEmployeeId: true,
+      humanTookOverAt: true,
+      routingIntent: true,
       // The linked client's name, for the one sentence that needs it: "save
       // this pin as Sandra Cole's address". Only ever returned to somebody who
       // may edit clients (see below), so this is not a new disclosure — it is
@@ -192,10 +199,19 @@ async function readThread({ id, member }) {
       ? { label: [company.name, company.address, company.city].filter(Boolean).join(", ") }
       : null;
 
+  // ── The AI employee on this thread ──────────────────────────────────────
+  //
+  // Who is answering, or who would if "Let {name} continue" were pressed.
+  // resumeCandidate is the same function the resume route calls, so the
+  // name on the button is the name that will answer.
+  const ai = await aiState(thread, member.companyId).catch(() => null);
+
   return NextResponse.json({
     connection,
     thread: {
       ...thread,
+      assignedEmployeeId: undefined,
+      ai,
       // Only for somebody who could act on it. A crew member sees the contact
       // card and the pin — those are the message — and not the two buttons
       // that would 403.
@@ -245,6 +261,31 @@ async function readThread({ id, member }) {
         : [],
     },
   });
+}
+
+/**
+ * { assignedEmployee: { id, name } | null, humanTookOverAt, resume: { id, name } | null }
+ *
+ * `resume` is non-null only while a person holds the thread AND the company
+ * has an enabled employee to hand it back to — the button is drawn from it,
+ * so there is never a "Let … continue" that does nothing.
+ */
+async function aiState(thread, companyId) {
+  const channel = thread.channel?.platform === "web" ? "web" : thread.channel?.platform === "sms" ? "sms" : "meta";
+  const holder = thread.assignedEmployeeId
+    ? await db.aiEmployee.findFirst({
+        where: { id: thread.assignedEmployeeId, companyId },
+        select: { id: true, name: true, displayName: true, role: true, avatarUrl: true },
+      })
+    : null;
+  const candidate = thread.humanTookOverAt ? await resumeCandidate({ prisma: db, companyId, thread, channel }) : null;
+  const shape = (e) => (e ? { id: e.id, name: e.displayName || e.name, role: e.role, avatarUrl: e.avatarUrl || null } : null);
+  return {
+    assignedEmployee: shape(holder),
+    humanTookOverAt: thread.humanTookOverAt || null,
+    intent: thread.routingIntent || null,
+    resume: shape(candidate),
+  };
 }
 
 export async function PATCH(request, { params }) {

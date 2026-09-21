@@ -48,6 +48,22 @@ const base = {
 
 export async function fetchJson(url, init = {}) {
   const u = String(url);
+  // The signup section above the folder (SignupsSection.js): one hot row,
+  // one welcome call, two reps.
+  if (u.startsWith("/api/platform/sales/review/signups") && init.method === "POST") {
+    const body = JSON.parse(init.body || "{}");
+    return { ok: true, assigned: 1, prospectId: body.prospectId, batchId: "assigned_by:adm1:x", rep: { id: body.salesRepId, name: "Rachel Tremblay" } };
+  }
+  if (u.startsWith("/api/platform/sales/review/signups")) {
+    const hotOnly = u.includes("hot=1");
+    const out = [
+      { id: "sp1", businessName: "Martin Peinture", phoneE164: "+18195550142", email: "dave@martinpeinture.ca", where: "Gatineau, QC, CA", tradeKey: "painting", contactName: "Dave Martin", requiredLanguage: "fr", createdAt: "2026-09-21T14:10:00.000Z",
+        signup: { kind: "abandoned", hot: true, badge: "hot", stateReason: "Stopped at Trades", stepLabel: "Trades", language: "fr", at: "2026-09-21T14:15:00.000Z", fact: { key: "signup", text: "Started signup 45 minutes ago — got as far as Trades; trade Painting; language FR", textKey: "app.salesIntel.fact.signup.abandoned", params: { n: 45, unit: "minutes", step: "Trades", trade: "Painting", language: "FR" }, badge: "hot" } } },
+      { id: "sp2", businessName: "Sunset Roofing", phoneE164: "+16135550199", email: "hello@sunsetroofing.ca", where: "Ottawa, ON, CA", tradeKey: "roofing", contactName: null, requiredLanguage: "en", createdAt: "2026-09-21T12:00:00.000Z",
+        signup: { kind: "new", hot: false, badge: "new", stateReason: "Signed up", stepLabel: null, language: "en", at: "2026-09-21T12:00:00.000Z", fact: { key: "signup", text: "Signed up 3 hours ago — Roofing, Ottawa, EN; card added; first quote not yet", textKey: "app.salesIntel.fact.signup.new", params: { n: 3, unit: "hours", trade: "Roofing", city: "Ottawa", language: "EN", card: "added", quote: "not yet", cardAdded: true, quoteSent: false }, badge: "new" } } },
+    ].filter((r) => !hotOnly || r.signup.hot);
+    return { signups: out, reps: [{ id: "rep1", name: "Rachel Tremblay", sellsIn: ["en", "fr"], language: "fr" }, { id: "rep2", name: "Ann Lee", sellsIn: ["en"], language: "en" }], hotOnly, count: out.length };
+  }
   if (u.startsWith("/api/platform/sales/review/bulk")) {
     const body = JSON.parse(init.body || "{}");
     return { ok: true, count: body.expectedCount, byStatus: { discovered: body.expectedCount }, campaigns: 1, sample: rows.slice(0, 3).map((r) => r.businessName), tradeLabel: "Roofing", research: "Not queued here. The backlog cron researches rows with a website, trade first; a claim queues the rest." };

@@ -365,7 +365,7 @@ export const ARTICLES = {
           { steps: [
             "Open the invoice and press **Record Payment**.",
             "Type the amount. The placeholder shows the ceiling: **Amount (up to $2,260.00)**. A figure above the balance is refused with “That's more than the … still owing on this invoice.”",
-            "Pick the method: **Cash**, **E-Transfer** or **Cheque**.",
+            "Pick the method. The list is your country's: **Cash**, **Interac e-Transfer**, **Cheque** and **PayPal** in Canada; **Zelle**, **Venmo**, **Cash App**, **Bank transfer (ACH)**, **PayPal**, **Check** and **Cash** in the US.",
             "Add **Notes (optional)** — the cheque number, the e-transfer reference.",
             "Press **Record**. The totals update, the banner reads **Paid in full — $2,260.00 received.** if that settled it, and the row appears under **Payment History** with today's date and the method.",
           ] },
@@ -396,7 +396,7 @@ export const ARTICLES = {
     ],
     faq: [
       { q: "The client paid a visit fee when they booked. Can I credit it?", a: "Yes. When a booking fee has been paid, the invoice shows a **Visit fee credit** card with **Credit to invoice**; it appears in Payment History as a visit fee credit and reduces the balance. See [[booking-fees-and-visit-deposits|Booking fees and visit deposits]]." },
-      { q: "Can I record a card payment I took on my own terminal?", a: "Not from this dialog — it offers cash, e-transfer and cheque. Card payments through FieldQuo go through Stripe and record themselves; a card taken elsewhere is a method the past-jobs import uses, not this screen." },
+      { q: "Can I record a card payment I took on my own terminal?", a: "Not from this dialog — it offers the offline methods of your country (cash, e-transfer and cheque in Canada; Zelle, Venmo, Cash App, ACH, check and cash in the US). Card payments through FieldQuo go through Stripe and record themselves; a card taken elsewhere is a method the past-jobs import uses, not this screen." },
       { q: "Does the client get a receipt?", a: "Not for a manual payment. If they want one, **Send again** emails the invoice with the payment listed and the balance at zero." },
     ],
   },
@@ -428,7 +428,7 @@ export const ARTICLES = {
             "Pays on Stripe Checkout: card, plus **Affirm** pay-over-time when you have switched it on and the amount is between $50 and $30,000 in CAD or USD. A bank payment is a one-off pre-authorized debit (Canada) or ACH debit (US) on Stripe's page, which verifies the account automatically where the bank supports it.",
             "Returns to the portal. A card payment shows as received at once, with the new balance; a bank payment reads **Bank payment pending** for 3–5 business days and then paid — or **Bank payment failed**, with Stripe's reason, the balance still owing and the card button still offered.",
           ] },
-          { note: "**Pay from bank account** appears only once Stripe has activated bank debit on your account — FieldQuo requests it when you connect, and **Settings → Payments** says which is the case (**Clients can pay invoices by card or from a bank account**). Booking fees stay card-only. Service plans keep their standing mandate, signed once — see [[service-plan-bank-debit-mandates|Service plans paid by bank debit]]. The offline methods printed as **Accepted:** on the invoice — cash, e-transfer, cheque — are ticked under **Settings → Payments → Payment methods you accept**." },
+          { note: "**Pay from bank account** appears only once Stripe has activated bank debit on your account — FieldQuo requests it when you connect, and **Settings → Payments** says which is the case (**Clients can pay invoices by card or from a bank account**). Stripe caps one pre-authorized debit at **$3,000.00 CAD**, so above that the button is absent and the portal says so — *Bank debit is available up to $3,000.00 per payment — this invoice is $4,150.00, so it's card only* — while a deposit or stage inside the cap still offers it. Booking fees stay card-only. Service plans keep their standing mandate, signed once — see [[service-plan-bank-debit-mandates|Service plans paid by bank debit]]. The other ways to pay — e-transfer, cheque, cash in Canada; Zelle, Venmo, Cash App, ACH, check in the US — print under **How to pay** on the invoice with the address to send to, switched on under **Settings → Payments → Payment methods you accept**. See [[offline-payment-methods|Cash, e-transfer, cheque — and Zelle, Venmo or Cash App in the US]]." },
         ],
       },
       {
@@ -605,6 +605,60 @@ export const ARTICLES = {
       { q: "Why does Stripe want my ID when the company is incorporated?", a: "Because a person is opening the account. Stripe verifies the representative as well as the company, and may ask for directors and owners of 25% or more separately." },
       { q: "Will my clients' payments stop while something is outstanding?", a: "Not once charges are on. **Taking card payments** and **Paying out to your bank** are separate switches; the usual effect of an outstanding item is paused payouts, with the money held safely by Stripe until it clears." },
       { q: "I sent a document and the list still shows it.", a: "The page only drops an item once Stripe marks it received. Press **Check again**; if it is now being verified, the label changes to **Nothing from you. Stripe is checking what you already sent; sending it again won't make it faster.**" },
+    ],
+  },
+  "offline-payment-methods": {
+    title: "Cash, e-transfer, cheque — and Zelle, Venmo or Cash App in the US",
+    summary:
+      "The ways a client can pay you without a card, by country: which ones you can switch on, what each needs from you, and the “How to pay” block the invoice prints with the address to send to.",
+    updated: "2026-09-20",
+    intro: [
+      "Not every client pays by card, and an invoice that only says **Accepted: e-transfer** still leaves them phoning to ask where to send it. **Settings → Payments → Payment methods you accept** lists the offline methods that exist in your country, each as a switch; switching one on asks for the detail a client needs — the Interac address, the Zelle number, who to make the cheque out to — and the invoice then prints a **How to pay** block with those details and the invoice number as the reference.",
+    ],
+    sections: [
+      {
+        id: "by-country",
+        heading: "Which methods you are offered",
+        blocks: [
+          { p: "The list follows the country on your company record. A Canadian company sees **Interac e-Transfer**, **PayPal**, **Cheque** and **Cash**. A US company sees **Zelle**, **Venmo**, **Cash App**, **Bank transfer (ACH)**, **PayPal**, **Check** and **Cash** — Interac does not exist in the United States, so it is never offered there, and a US company that signed up with the Canadian default has e-transfer dropped and cheque read as check the first time it saves. Anywhere else the list is PayPal, cheque and cash." },
+          { table: { head: ["Method", "Country", "What you enter"], rows: [
+            ["Interac e-Transfer", "Canada", "The email or phone number to send to; optionally the security question and answer, or a tick for auto-deposit"],
+            ["Cheque / Check", "Everywhere", "Nothing required — cheques are made out to your company name; a payee and a mailing address if you want them printed"],
+            ["Cash", "Everywhere", "Nothing"],
+            ["PayPal", "Everywhere", "Your PayPal email or PayPal.Me link"],
+            ["Zelle", "US", "The email or phone number enrolled with Zelle"],
+            ["Venmo", "US", "Your Venmo handle"],
+            ["Cash App", "US", "Your $cashtag"],
+            ["Bank transfer (ACH)", "US", "Bank name, routing number and account number"],
+          ] } },
+        ],
+      },
+      {
+        id: "what-the-invoice-prints",
+        heading: "What the invoice prints",
+        blocks: [
+          { p: "Every method that is on appears under **How to pay** on the invoice PDF, in the invoice email and on the client portal, in the language the invoice was written in, after **Pay online by card** when Stripe is connected. Each line says what to do — *Send an Interac e-Transfer to pay@yourcompany.ca. Auto-deposit is on — no security question needed. Use INV-2026-0042 as the reference.* — so the client has nothing to ask. A quote whose payment terms name a deposit prints the same block under its payment-terms cards, with the quote number." },
+          { note: "**Bank transfer (ACH)** details print on the PDF and in the portal only. The email says *Bank transfer details are on the invoice* — an account number does not belong in a message that gets forwarded." },
+          { p: "The block is fixed when the invoice is first sent. Changing your e-transfer address next month changes the next invoice, not the one a client is already paying from." },
+        ],
+      },
+      {
+        id: "switching-on",
+        heading: "Switching a method on",
+        blocks: [
+          { steps: [
+            "Open **Settings → Payments** and find **Payment methods you accept**.",
+            "Switch a method on. Its fields appear underneath; the ones marked * are required.",
+            "Press **Save**. A method that is on without its required detail is refused with a sentence — *E-transfer is on but has no address.* — and nothing changes until it is filled in.",
+          ] },
+          { note: "Switch everything off and the invoice prints no **How to pay** block at all — the email then says *Please get in touch to arrange payment* where the button would be, if Stripe is not connected either." },
+        ],
+      },
+    ],
+    faq: [
+      { q: "Can I keep an address on file for a method I have switched off?", a: "Yes. The details stay saved; only methods that are on are checked and printed." },
+      { q: "Where does the cheque payee come from?", a: "Your company name, unless you type a different payee — a trading name, a numbered company." },
+      { q: "A client paid by Zelle. How do I record it?", a: "**Record Payment** on the invoice offers your country's methods, Zelle included, and the statement prints the word you picked. See [[record-a-manual-payment|Record a cash, cheque or e-transfer payment]]." },
     ],
   },
 };

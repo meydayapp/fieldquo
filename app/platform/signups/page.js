@@ -26,6 +26,7 @@ import {
   AlertCircle,
   Ban,
   Building2,
+  Flame,
   Loader2,
   Mail,
   MailCheck,
@@ -55,7 +56,46 @@ const NUDGE_LABELS = {
   completed_checkout: "Completed checkout (should not be on this list)",
   demo: "Demo account (should not be on this list)",
   no_created_at: "No signup date on record",
+  held_by_rep: "A rep holds this signup — their intro replaces the email",
 };
+
+/**
+ * Where a started-never-finished signup stands on the sales floor, in words.
+ * Keyed off the state code /api/platform/signups derives from the row and
+ * its Prospect, never re-derived here.
+ */
+function startedState(state) {
+  switch (state?.code) {
+    case "rep_lead":
+      return { text: `${state.rep?.name || "A rep"}'s lead — came in on their link`, tone: "muted" };
+    case "assigned":
+      return { text: `${state.hot ? "Hot lead" : "Lead"} assigned to ${state.rep?.name || "a rep"}`, tone: "hot" };
+    case "unassigned":
+      return { text: `${state.hot ? "Hot lead" : "Lead"} — unassigned, in the review folder`, tone: "hot" };
+    case "skipped":
+      return { text: SKIP_LABELS[state.reason] || `Not promoted: ${state.reason}`, tone: "muted" };
+    case "no_phone":
+      return { text: "No phone typed yet — nothing to call", tone: "muted" };
+    case "waiting":
+      return { text: `Quiet for ${state.quietMinutes} min — becomes a hot lead after ${state.promoteAfterMinutes}`, tone: "muted" };
+    default:
+      return { text: state?.code || "—", tone: "muted" };
+  }
+}
+
+const SKIP_LABELS = {
+  suppressed: "On the do-not-contact list — never promoted",
+  company_exists: "Already a company on the books",
+  completed: "Completed the signup",
+};
+
+function minutesAgo(value) {
+  if (!value) return "—";
+  const m = Math.floor((Date.now() - new Date(value).getTime()) / 60000);
+  if (m < 60) return `${m} min ago`;
+  if (m < 48 * 60) return `${Math.floor(m / 60)} h ago`;
+  return `${Math.floor(m / 1440)} days ago`;
+}
 
 function daysAgo(value) {
   if (!value) return null;
@@ -94,6 +134,7 @@ export default function PlatformSignupsPage() {
   }, [load]);
 
   const signups = data?.signups || [];
+  const started = data?.started || [];
   const policy = data?.policy;
   const usedProduct = signups.filter((s) => s.quotes > 0 || s.clients > 0).length;
 
@@ -123,6 +164,81 @@ export default function PlatformSignupsPage() {
           <AlertCircle size={16} /> {error}
         </div>
       )}
+
+      {/* ── Started, never finished ──────────────────────────────────────
+          The typed-as-you-go rows (lib/signup/leads.js): people who put a
+          name, a company or a number into the first step and stopped
+          before a Company row existed. Until 2026-09-21 these were the
+          thirteen "left at Trades" in the funnel and nowhere else. */}
+      {!loading && data ? (
+        <section className="space-y-3" data-started-signups>
+          <div>
+            <h2 className="text-lg font-semibold text-foreground">Started, never finished</h2>
+            <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
+              What people typed into the first step of the signup and where each one now stands:
+              quiet for thirty minutes with a phone number and it becomes a <strong>hot lead</strong> in
+              the <Link href="/platform/sales/review?signups=hot" className="underline">review folder</Link> for
+              you to assign; one that came in on a rep&apos;s link is that rep&apos;s own lead.
+            </p>
+          </div>
+          {started.length === 0 ? (
+            <div className="bg-card border border-border rounded-xl p-6 text-sm text-muted-foreground">
+              Nobody has a half-typed signup right now.
+            </div>
+          ) : (
+            <div className="bg-card border border-border rounded-xl divide-y divide-border overflow-hidden">
+              {started.map((r) => {
+                const state = startedState(r.state);
+                return (
+                  <div key={r.id} className="px-5 py-4 flex flex-wrap gap-4 justify-between" data-started-row>
+                    <div className="min-w-0 space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-medium text-foreground">{r.companyName || r.name || r.email}</span>
+                        {r.state?.hot ? (
+                          <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border-red-200 dark:border-red-900">
+                            <Flame size={11} /> Hot
+                          </span>
+                        ) : null}
+                        {r.referredBy ? (
+                          <span className="text-xs px-2 py-0.5 rounded-full border border-border text-muted-foreground">
+                            referred by {r.referredBy.name || r.referredBy.code}
+                          </span>
+                        ) : null}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {r.name || "no name"}
+                        {r.where ? ` · ${r.where}` : ""}
+                        {r.trades?.length ? ` · ${r.trades.join(", ")}` : ""}
+                        {r.language ? ` · ${r.language.toUpperCase()}` : ""}
+                        {` · got as far as ${r.stepLabel}`}
+                      </div>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
+                        <a href={`mailto:${r.email}`} className="inline-flex items-center gap-1 text-foreground hover:underline">
+                          <Mail size={12} /> {r.email}
+                        </a>
+                        {r.phone ? (
+                          <a href={`tel:${r.phone}`} className="inline-flex items-center gap-1 text-foreground hover:underline">
+                            <Phone size={12} /> {r.phone}
+                          </a>
+                        ) : (
+                          <span className="text-muted-foreground">no phone</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0 space-y-1">
+                      <div className="text-sm text-foreground">Last seen {minutesAgo(r.lastSeenAt)}</div>
+                      <div className="text-xs text-muted-foreground">Started {formatDay(r.startedAt)}</div>
+                      <div className={`text-xs ${state.tone === "hot" ? "text-red-700 dark:text-red-300" : "text-muted-foreground"}`}>{state.text}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      ) : null}
+
+      <h2 className="text-lg font-semibold text-foreground">Reached the card screen, never paid</h2>
 
       {loading ? (
         <div className="flex items-center gap-2 text-sm text-muted-foreground py-8">
@@ -174,6 +290,22 @@ export default function PlatformSignupsPage() {
                           <Ban size={11} /> Do not contact
                         </span>
                       )}
+                      {s.lead ? (
+                        <Link
+                          href={s.lead.assignedTo ? "/platform/sales/reps" : "/platform/sales/review?signups=all"}
+                          className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border ${
+                            s.lead.kind === "stalled" || s.lead.hot
+                              ? "bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border-red-200 dark:border-red-900"
+                              : "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-900"
+                          }`}
+                          data-signup-floor-chip
+                        >
+                          <Flame size={11} />
+                          {s.lead.kind === "stalled" ? "Stalled" : "New signup"}
+                          {" → "}
+                          {s.lead.assignedTo ? `assigned to ${s.lead.assignedTo.name}` : "unassigned"}
+                        </Link>
+                      ) : null}
                       {(s.quotes > 0 || s.clients > 0) && (
                         <span className="text-xs px-2 py-0.5 rounded-full border bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-900">
                           Used the product · {count(s.quotes)} quotes ·{" "}

@@ -364,7 +364,7 @@ export const ARTICLES = {
           { steps: [
             "Abra la factura y toque **Registrar pago**.",
             "Escriba el monto. El texto guía muestra el tope: **Monto (hasta $2,260.00)**. Una cifra por encima del saldo se rechaza, en inglés: «That's more than the … still owing on this invoice.»",
-            "Elija el método: **Efectivo**, **Transferencia electrónica** o **Cheque**.",
+            "Elija el método. La lista es la de su país: **Efectivo**, **Transferencia Interac**, **Cheque** y **PayPal** en Canadá; **Zelle**, **Venmo**, **Cash App**, **Transferencia bancaria (ACH)**, **PayPal**, **Cheque** y **Efectivo** en Estados Unidos.",
             "Agregue **Notas (opcional)** — el número del cheque, la referencia de la transferencia.",
             "Toque **Registrar**. Los totales se actualizan, el aviso dice **Pagada por completo — se recibieron $2,260.00.** si eso la saldó, y la fila aparece bajo **Historial de pagos** con la fecha de hoy y el método.",
           ] },
@@ -395,7 +395,7 @@ export const ARTICLES = {
     ],
     faq: [
       { q: "El cliente pagó una tarifa de visita al reservar. ¿Puedo acreditarla?", a: "Sí. Cuando se pagó una tarifa de reserva, la factura muestra una tarjeta **Crédito por tarifa de visita** con **Acreditar a la factura**; aparece en el historial de pagos como crédito por tarifa de visita y reduce el saldo. Ver [[booking-fees-and-visit-deposits|Tarifas de reserva y depósitos de visita]]." },
-      { q: "¿Puedo registrar un pago con tarjeta que cobré en mi propia terminal?", a: "No desde este diálogo — ofrece efectivo, transferencia electrónica y cheque. Los pagos con tarjeta a través de FieldQuo pasan por Stripe y se registran solos; una tarjeta cobrada en otro lado es un método que usa la importación de trabajos pasados, no esta pantalla." },
+      { q: "¿Puedo registrar un pago con tarjeta que cobré en mi propia terminal?", a: "No desde este diálogo — ofrece las formas fuera de línea de su país (efectivo, transferencia Interac y cheque en Canadá; Zelle, Venmo, Cash App, ACH, cheque y efectivo en Estados Unidos). Los pagos con tarjeta a través de FieldQuo pasan por Stripe y se registran solos; una tarjeta cobrada en otro lado es un método que usa la importación de trabajos pasados, no esta pantalla." },
       { q: "¿El cliente recibe un recibo?", a: "No por un pago manual. Si quiere uno, **Enviar de nuevo** manda la factura por correo con el pago listado y el saldo en cero." },
     ],
   },
@@ -427,7 +427,7 @@ export const ARTICLES = {
             "Paga en Stripe Checkout: tarjeta, más **Affirm** a plazos cuando usted lo activó y el monto está entre $50 y $30,000 en CAD o USD. Un pago bancario es un débito preautorizado de una sola vez (Canadá) o un débito ACH (EE. UU.) en la página de Stripe, que verifica la cuenta automáticamente cuando el banco lo permite.",
             "Vuelve al portal. Un pago con tarjeta aparece recibido de inmediato, con el nuevo saldo; un pago bancario dice **Pago bancario pendiente** durante 3 a 5 días hábiles y luego pagado — o **El pago bancario falló**, con el motivo que da Stripe, el saldo todavía pendiente y el botón de tarjeta todavía ofrecido.",
           ] },
-          { note: "**Pagar desde una cuenta bancaria** aparece solo cuando Stripe ha activado el débito bancario en su cuenta — FieldQuo lo solicita por usted al conectar, y **Configuración → Pagos** dice en qué punto está (**Los clientes pueden pagar las facturas con tarjeta o desde una cuenta bancaria**). Las tarifas de reserva siguen siendo solo con tarjeta. Los planes de servicio conservan su mandato permanente, firmado una vez — ver [[service-plan-bank-debit-mandates|Planes de servicio pagados por débito bancario]]. Las formas fuera de línea impresas en la línea «Formas de pago aceptadas» de la factura — efectivo, transferencia electrónica, cheque — se marcan en **Configuración → Pagos → Formas de pago que aceptas**." },
+          { note: "**Pagar desde una cuenta bancaria** aparece solo cuando Stripe ha activado el débito bancario en su cuenta — FieldQuo lo solicita por usted al conectar, y **Configuración → Pagos** dice en qué punto está (**Los clientes pueden pagar las facturas con tarjeta o desde una cuenta bancaria**). Stripe limita un débito preautorizado a **$3,000.00 CAD**: por encima, el botón no aparece y el portal lo dice — *El débito bancario está disponible hasta $3,000.00 por pago; esta factura es de $4,150.00, así que solo con tarjeta* — mientras que un depósito o una etapa dentro del límite sí lo ofrece. Las tarifas de reserva siguen siendo solo con tarjeta. Los planes de servicio conservan su mandato permanente, firmado una vez — ver [[service-plan-bank-debit-mandates|Planes de servicio pagados por débito bancario]]. Las otras formas de pagar — transferencia Interac, cheque, efectivo en Canadá; Zelle, Venmo, Cash App, ACH, cheque en Estados Unidos — se imprimen bajo **Cómo pagar** en la factura con la dirección a la que enviar el dinero, y se activan en **Configuración → Pagos → Formas de pago que aceptas**. Vea [[offline-payment-methods|Efectivo, transferencia Interac, cheque — y Zelle, Venmo o Cash App en Estados Unidos]]." },
         ],
       },
       {
@@ -604,6 +604,60 @@ export const ARTICLES = {
       { q: "¿Por qué Stripe quiere mi identificación si la empresa está constituida?", a: "Porque una persona abre la cuenta. Stripe verifica al representante igual que a la empresa, y puede pedir por separado a los directores y a los dueños del 25% o más." },
       { q: "¿Se detendrán los pagos de mis clientes mientras algo esté pendiente?", a: "No una vez activados los cobros. **Cobro con tarjeta** y **Transferencias a su banco** son interruptores independientes; el efecto habitual de un elemento pendiente son transferencias en pausa, con el dinero guardado a salvo por Stripe hasta que se resuelva." },
       { q: "Envié un documento y la lista todavía lo muestra.", a: "La página solo quita un elemento cuando Stripe lo marca como recibido. Toque **Comprobar de nuevo**; si ahora está en verificación, la etiqueta cambia a **Nada de su parte. Stripe está revisando lo que ya envió; volver a enviarlo no lo acelerará.**" },
+    ],
+  },
+  "offline-payment-methods": {
+    title: "Efectivo, transferencia Interac, cheque — y Zelle, Venmo o Cash App en Estados Unidos",
+    summary:
+      "Las formas en que un cliente puede pagarle sin tarjeta, según el país: cuáles puede activar, qué necesita cada una de usted, y el bloque « Cómo pagar » que la factura imprime con la dirección a la que enviar el dinero.",
+    updated: "2026-09-20",
+    intro: [
+      "No todos los clientes pagan con tarjeta, y una factura que solo dice **Aceptamos: transferencia** los deja llamando para preguntar adónde enviarla. **Configuración → Pagos → Formas de pago que aceptas** lista las formas fuera de línea que existen en su país, cada una como un interruptor; al activar una se pide el dato que el cliente necesita — la dirección Interac, el número de Zelle, a nombre de quién va el cheque — y la factura imprime entonces un bloque **Cómo pagar** con esos datos y el número de factura como referencia.",
+    ],
+    sections: [
+      {
+        id: "by-country",
+        heading: "Qué formas se le ofrecen",
+        blocks: [
+          { p: "La lista sigue el país de su ficha de empresa. Una empresa canadiense ve **Transferencia Interac**, **PayPal**, **Cheque** y **Efectivo**. Una empresa estadounidense ve **Zelle**, **Venmo**, **Cash App**, **Transferencia bancaria (ACH)**, **PayPal**, **Cheque** y **Efectivo** — Interac no existe en Estados Unidos, así que nunca se ofrece allí, y una empresa estadounidense registrada con el valor canadiense por defecto ve la transferencia retirada y el cheque leído a la estadounidense la primera vez que guarda. En cualquier otro lugar la lista es PayPal, cheque y efectivo." },
+          { table: { head: ["Forma", "País", "Qué indica usted"], rows: [
+            ["Transferencia Interac", "Canadá", "El correo o teléfono al que enviar; opcionalmente la pregunta y respuesta de seguridad, o una marca para el depósito automático"],
+            ["Cheque", "En todas partes", "Nada obligatorio — los cheques van a nombre de su empresa; otro beneficiario y una dirección postal si quiere imprimirlos"],
+            ["Efectivo", "En todas partes", "Nada"],
+            ["PayPal", "En todas partes", "Su correo de PayPal o su enlace PayPal.Me"],
+            ["Zelle", "Estados Unidos", "El correo o teléfono registrado en Zelle"],
+            ["Venmo", "Estados Unidos", "Su usuario de Venmo"],
+            ["Cash App", "Estados Unidos", "Su $cashtag"],
+            ["Transferencia bancaria (ACH)", "Estados Unidos", "Nombre del banco, número de ruta y número de cuenta"],
+          ] } },
+        ],
+      },
+      {
+        id: "what-the-invoice-prints",
+        heading: "Qué imprime la factura",
+        blocks: [
+          { p: "Cada forma activada aparece bajo **Cómo pagar** en el PDF de la factura, en el correo de la factura y en el portal del cliente, en el idioma en que se escribió la factura, después de **Pague en línea con tarjeta** cuando Stripe está conectado. Cada línea dice qué hacer — *Envíe una transferencia Interac a pay@suempresa.ca. El depósito automático está activado — no se necesita pregunta de seguridad. Indique INV-2026-0042 como referencia.* — para que el cliente no tenga nada que preguntar. Una cotización cuyas condiciones de pago nombran un depósito imprime el mismo bloque bajo sus tarjetas de condiciones, con el número de cotización." },
+          { note: "Los datos de la **transferencia bancaria (ACH)** se imprimen solo en el PDF y en el portal. El correo dice *Los datos bancarios están en la factura* — un número de cuenta no va en un mensaje que se reenvía." },
+          { p: "El bloque queda fijo al primer envío de la factura. Cambiar su dirección de transferencia el mes que viene cambia la próxima factura, no la que un cliente ya está pagando." },
+        ],
+      },
+      {
+        id: "switching-on",
+        heading: "Activar una forma",
+        blocks: [
+          { steps: [
+            "Abra **Configuración → Pagos** y busque **Formas de pago que aceptas**.",
+            "Active una forma. Sus campos aparecen debajo; los marcados con * son obligatorios.",
+            "Pulse **Guardar**. Una forma activada sin su dato obligatorio se rechaza con una frase — *E-transfer is on but has no address.* — y nada cambia hasta que se rellena.",
+          ] },
+          { note: "Desactive todo y la factura no imprime ningún bloque **Cómo pagar** — el correo dice entonces *Por favor comuníquese con nosotros para coordinar el pago* en lugar del botón, si Stripe tampoco está conectado." },
+        ],
+      },
+    ],
+    faq: [
+      { q: "¿Puedo conservar una dirección guardada para una forma desactivada?", a: "Sí. Los datos quedan guardados; solo las formas activadas se comprueban e imprimen." },
+      { q: "¿De dónde sale el beneficiario del cheque?", a: "Del nombre de su empresa, salvo que indique otro beneficiario — un nombre comercial, una sociedad numerada." },
+      { q: "Un cliente pagó por Zelle. ¿Cómo lo registro?", a: "**Registrar pago** en la factura ofrece las formas de su país, Zelle incluido, y el estado de cuenta imprime la palabra elegida. Vea [[record-a-manual-payment|Registrar un pago en efectivo, cheque o transferencia]]." },
     ],
   },
 };

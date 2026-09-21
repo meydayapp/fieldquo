@@ -101,13 +101,19 @@ export function emptySummary(runId, args) {
     placesSkippedSeen: 0,
     dedupedAcrossTerms: 0,
     parseFailures: 0,
-    written: { matched: 0, alreadyAttached: 0, noConfidentMatch: 0, noCandidates: 0, placeIdConflict: 0, duplicatePlace: 0, unnamed: 0, errors: 0 },
+    written: { matched: 0, matchedVerify: 0, alreadyAttached: 0, noConfidentMatch: 0, noCandidates: 0, placeIdConflict: 0, duplicatePlace: 0, unnamed: 0, errors: 0 },
     gained: { websiteUrl: 0, phoneE164: 0, contactNumber: 0, googleRating: 0, googlePlaceId: 0, location: 0, businessStatus: 0 },
     conflicts: 0,
     closed: 0,
     unmatchedNewLeadLike: 0,
     unmatchedByTrade: {},
     metered: 0,
+    /** --state: the two-letter regions the run was bounded to, or null. */
+    regions: null,
+    /** How many prospects the regional filter dropped before ranking. */
+    skippedOutside: null,
+    /** What the end-of-run promotion did (lib/sales/intel/promoteListings.js). */
+    promoted: null,
     notes: [],
   };
 }

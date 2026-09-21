@@ -67,6 +67,7 @@ import { CustomFieldsPanel } from "@/app/components/customFields/CustomFieldsBox
 import BrandTheme from "@/app/components/BrandTheme";
 import { moneyFormatter } from "@/lib/format/money";
 import { paymentMethodLabel } from "@/lib/payments/methodLabels";
+import { methodsForCountry, paymentCountry, enabledMethods, offlineMethodLabel } from "@/lib/payments/offlineMethods";
 import { feeRateKey } from "@/lib/stripe/feeRateKey";
 import RefundDialog from "./RefundDialog";
 import { refundableCents } from "@/lib/invoices/refund";
@@ -133,9 +134,13 @@ export default function InvoiceDetailPage() {
   const [showPayment, setShowPayment] = useState(false);
   const [showChase, setShowChase] = useState(false);
   const [chaseNote, setChaseNote] = useState("");
+  // `method` starts empty and resolves to the company's first switched-on
+  // offline method (else the first its country has) when the company row
+  // arrives — a US company must not record "e_transfer" because a
+  // hardcoded default said so.
   const [payment, setPayment] = useState({
     amount: "",
-    method: "e_transfer",
+    method: "",
     notes: "",
   });
   const [downloadingPdf, setDownloadingPdf] = useState(false);
@@ -303,6 +308,10 @@ export default function InvoiceDetailPage() {
     }
   }
 
+  const offlineMethods = methodsForCountry(paymentCountry(company || {}));
+  const defaultMethod = enabledMethods(company || {})[0] || offlineMethods[0] || "cash";
+  const paymentMethod = payment.method || defaultMethod;
+
   async function handleAddPayment(e) {
     e.preventDefault();
     setError("");
@@ -312,6 +321,7 @@ export default function InvoiceDetailPage() {
       body: JSON.stringify({
         invoiceId: id,
         ...payment,
+        method: paymentMethod,
         amount: Number(payment.amount),
       }),
     });
@@ -325,7 +335,7 @@ export default function InvoiceDetailPage() {
     }
     await refresh();
     setShowPayment(false);
-    setPayment({ amount: "", method: "e_transfer", notes: "" });
+    setPayment({ amount: "", method: "", notes: "" });
   }
 
   /**
@@ -1467,18 +1477,24 @@ export default function InvoiceDetailPage() {
                 }
                 className="w-full border rounded px-3 py-2 text-sm"
               />
+              {/* The offline methods for the company's COUNTRY — a US
+                  company records a Zelle or a check, a Canadian one an
+                  Interac e-transfer or a cheque (lib/payments/offlineMethods.js).
+                  Every method the country has, not only the ones switched on
+                  for invoices: a client may still hand over a cheque the
+                  company never advertised. */}
               <select
-                value={payment.method}
+                value={paymentMethod}
                 onChange={(e) =>
                   setPayment({ ...payment, method: e.target.value })
                 }
                 className="w-full border rounded px-3 py-2 text-sm bg-card"
               >
-                <option value="cash">{t("app.invoiceDetail.cash")}</option>
-                <option value="e_transfer">
-                  {t("app.invoiceDetail.eTransfer")}
-                </option>
-                <option value="cheque">{t("app.invoiceDetail.cheque")}</option>
+                {offlineMethods.map((m) => (
+                  <option key={m} value={m}>
+                    {offlineMethodLabel(m, language)}
+                  </option>
+                ))}
               </select>
               <input
                 placeholder={t("app.invoiceDetail.notesOptional")}

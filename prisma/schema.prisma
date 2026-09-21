@@ -1303,6 +1303,15 @@ model Company {
   leaveRules Json?
   taxRate                Decimal          @default(0) @db.Decimal(6, 3)
   paymentMethods         String[]         @default(["cash", "e_transfer", "cheque"])
+  /// WHERE to send each offline payment, keyed by method — the e-transfer
+  /// address, the Zelle phone, the payee a cheque is made out to. Shape and
+  /// validation in lib/payments/offlineMethods.js; only that module's
+  /// catalogue may write a key here. Kept beside `paymentMethods` rather
+  /// than replacing it so the array stays the on/off list every existing
+  /// reader understands: a method is offered when it is in the array, and
+  /// this says how. ACH account numbers live here too — printed on the PDF
+  /// and the portal, never in an email body, never in a log line.
+  paymentMethodDetails   Json?
   bookingSlug            String?          @unique
   industries             String[]         @default([])
   onboardingStatus       OnboardingStatus @default(pending)
@@ -1694,6 +1703,40 @@ model Company {
   // and settable per event type after that.
   defaultVisitMinutes Int @default(60)
 
+  // How long a phone call and a video call take, in minutes — beside
+  // defaultVisitMinutes because the three are one question asked per mode.
+  //
+  // One length used to apply to every mode, so a company that offered both
+  // booked a twenty-minute phone call into the hour a kitchen measure needs,
+  // and the calendar showed a crew member "out" for a call they took from the
+  // van. Nullable, and null means "never said": the booking page then uses
+  // the plain defaults in lib/booking/bookingModes.js (20 for a call, 30 for
+  // a video call) rather than inheriting the visit length, which is the one
+  // number that is most wrong for a call. A visit still takes the event
+  // type's own durationMinutes, seeded from defaultVisitMinutes.
+  callMinutes  Int?
+  videoMinutes Int?
+
+  // What a phone call and a video call COST to book, in cents — the other
+  // half of each mode's preset (lib/booking/fee.js). The owner's point: not
+  // every consultation is the same; the in-person visit may carry a $49
+  // deposit while the call is free. The visit's fee stays on the EventType
+  // (feeCents / promoFeeCents / promoActive), per consultation, exactly as
+  // before; these two are company-level like the lengths above, because a
+  // call is the same call whoever takes it. Null or 0 means free. Charged
+  // only when the company can collect (stripeChargesEnabled), the same rule
+  // the visit fee has always had.
+  callFeeCents  Int?
+  videoFeeCents Int?
+
+  // Whether a client who gave a phone number is TEXTED their booking
+  // confirmation (the letter always goes by email). Off by default because
+  // every text is a billable SMS the contractor pays for — the same reason
+  // appointmentReminderHours is opt-in — and a switch nobody flipped must not
+  // cost money. Read by lib/booking/finalizeBooking.js; set from
+  // Settings → Messages beside the template it governs.
+  bookingSmsConfirmation Boolean @default(false)
+
   // How a client may meet this company: "call", "visit", "video".
   //
   // EventType.location was a free-text string ("Phone or on-site visit"), which
@@ -1989,6 +2032,13 @@ model Company {
   salesRepDemo     SalesRep?
   /// Where the signup request came from — FieldQuo's own record, see SignupOrigin.
   signupOrigin     SignupOrigin?
+  /// The typed-but-unfinished signup this company completed, when one was
+  /// captured — lib/signup/leads.js. Null for every company created before
+  /// the capture existed and for one created from the console.
+  signupLead       SignupLead?
+  /// The sales-floor row a self-serve signup became (welcome call / stalled
+  /// trial) — lib/signup/salesFloor.js. Never on a rep-referred company.
+  signupProspects  Prospect[]
   salesAttributionTouches SalesAttributionTouch[]
   salesCommissionEntries  SalesCommissionEntry[]
   /// Check-in texts a rep has DRAFTED about this company, sent or not. Nothing
@@ -2017,6 +2067,7 @@ model Company {
   subcontractorPayments SubcontractorPayment[]
   locationStamps        LocationStamp[]
   aiEmployees           AiEmployee[]
+  aiEmployeeRoutingEvents AiEmployeeRoutingEvent[]
   aiEmployeeSources     AiEmployeeSource[]
   aiEmployeeReplies     AiEmployeeReply[]
   aiEmployeeProposals   AiEmployeeProposal[]
@@ -2178,6 +2229,15 @@ model Member {
 
   invitationLanguage String? @default("en")
 
+  /// The private token behind this member's personal calendar feed —
+  /// GET /api/calendar/feed/<token>.ics (lib/calendar/feed.js). Per MEMBER,
+  /// not per user: a person in two companies subscribes to two calendars,
+  /// and each feed is scoped by that company's permission grid. Null until
+  /// the member first opens Settings → My calendar; "Regenerate link" writes
+  /// a fresh one, which is the only revocation a webcal URL has (the phone
+  /// keeps polling the old address and gets 404).
+  calendarFeedToken String? @unique
+
   jobPhotoCommentsAuthored JobPhotoComment[]
   jobPhotoMentions         JobPhotoMention[]
 
@@ -2194,6 +2254,13 @@ model Member {
   chatMemberships CompanyChatMember[]
   chatMessages    CompanyChatMessage[] @relation("CompanyChatAuthor")
   shoutOutsSent   ShoutOut[]           @relation("ShoutOutFrom")
+
+  // The person's own Google Calendar, connected from Settings → My calendar.
+  // Hangs off the Member for the same reason the feed's read state does: a
+  // person in two companies is two schedules, and disconnecting one must
+  // not silently drop the other's mirrored visits.
+  googleCalendar  MemberGoogleCalendar?
+  calendarMirrors CalendarMirror[]
 
   @@unique([userId, companyId])
 }
@@ -3284,6 +3351,16 @@ model Invoice {
   // show as "Emailed 3 July" in front of a client dispute.
   sentAt      DateTime?
   sentToEmail String?
+  /// The "How to pay" block AS SENT — the online option and each offline
+  /// method with its address, rendered in the document's language by
+  /// buildHowToPay (lib/payments/offlineMethods.js) at the moment the
+  /// invoice is emailed, and printed from here ever after. Non-negotiable
+  /// #6: a document keeps what it said. The company changing its e-transfer
+  /// address next month must not rewrite the copy the client is paying
+  /// from; a payment sent to the address that WAS on the invoice was sent
+  /// correctly. Null until first send, when the PDF and portal fall back to
+  /// the company's live settings.
+  howToPay    Json?
 
   // ── Chasing, as its own record ────────────────────────────────────────────
   //
@@ -4256,6 +4333,13 @@ model Appointment {
   /// Job.geocodedAt.
   geocodedAt DateTime?
 
+  // The Google Meet link FieldQuo obtained when it mirrored a VIDEO-mode
+  // appointment onto the assignee's connected Google Calendar
+  // (lib/calendar/googleSync.js). Null for every other mode, and for a video
+  // call whose assignee has no calendar connected — the client's letters
+  // print it when present and say nothing when not; nothing invents one.
+  meetUrl String?
+
   @@index([jobId])
   @@index([invoiceId])
 }
@@ -5014,6 +5098,11 @@ model JobVisit {
   photos         String[] @default([])
   notes          String?
   createdAt      DateTime @default(now())
+  /// For the calendar feed's SEQUENCE (lib/calendar/feed.js): a subscribed
+  /// phone only replaces an event whose SEQUENCE went up, so a moved visit
+  /// needs a number that moves with it. @default(now()) so the column can be
+  /// added to a live table without a value for every existing row.
+  updatedAt      DateTime @default(now()) @updatedAt
 
   /// Set when this visit is a RETURN to the address for work already covered
   /// by THIS job — not a brand-new trip. Null (the default, and every
@@ -6211,6 +6300,15 @@ model Booking {
   // those rows simply have no manage link rather than a broken one.
   manageToken   String?       @unique
 
+  // The calendar invite's SEQUENCE — how many times the event the client
+  // was sent has been re-issued. The confirmation letter attaches an .ics
+  // with a UID fixed per booking; a move re-sends that UID one higher so
+  // the client's calendar REPLACES the event rather than adding a second,
+  // and a cancellation sends METHOD:CANCEL with it so the event drops off.
+  // Bumped in the same write that moves or cancels the row
+  // (lib/booking/bookingInvite.js). Nothing else reads it.
+  calendarSequence Int @default(0)
+
   // When the visit fee was returned, and how much of it. Written only after
   // Stripe confirms the refund, for the same reason sentAt is written only
   // after Resend accepts: this is a record that money moved, not that somebody
@@ -6261,7 +6359,13 @@ model Booking {
   // silently evaporated.
   cancelReason             String?
 
+  // Same link as Appointment.meetUrl, copied here because a booking's letters
+  // and its manage page read the Booking row (see the Appointment column).
+  meetUrl String?
+
   createdAt     DateTime      @default(now())
+  /// Same reason as JobVisit.updatedAt — the calendar feed's SEQUENCE.
+  updatedAt     DateTime      @default(now()) @updatedAt
   /// Where the visit is. Collected from the client at booking time for
   /// in-person modes, and geocoded once so the scheduler can work out whether
   /// the estimator can physically get there from their previous job.
@@ -7109,6 +7213,66 @@ model MetaAdConnection {
   connectedByUserId String?
   connectedAt       DateTime @default(now())
   updatedAt         DateTime @updatedAt
+}
+
+// ── Google Calendar, per member ────────────────────────────────────────────
+//
+// One row per connected member (lib/calendar/googleConnection.js). The
+// refresh token is the only credential stored, AES-256-GCM under the same key
+// as a Meta token (lib/meta/tokenCrypto.js) — a leaked backup must not hand
+// out a working Google credential for every connected person. Access tokens
+// are minted from it per call and never written down.
+//
+// Two switches, both honoured server-side and not only in the panel:
+//   writeEnabled      FieldQuo mirrors this member's visits onto their primary
+//                     calendar (lib/calendar/googleSync.js). Off: nothing new
+//                     is written and the mirrors already there are removed.
+//   busyReadEnabled   the member's own events count as busy time in every
+//                     availability answer (lib/booking/computeAvailability.js).
+//                     Off: their personal calendar is never read.
+model MemberGoogleCalendar {
+  id              String   @id @default(cuid())
+  memberId        String   @unique
+  member          Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  // Always "primary" today — kept as a column so a later "pick a calendar"
+  // step is a value, not a schema change.
+  calendarId      String   @default("primary")
+  // The Google account's address, for "Connected as {email}" — read from the
+  // id_token at connect time, never editable.
+  email           String?
+  refreshTokenEnc String
+  connectedAt     DateTime @default(now())
+  lastSyncAt      DateTime?
+  // The last failure Google handed back, in one line, cleared by the next
+  // success. Written by the sync AND the reconcile so the settings panel can
+  // say "last sync failed: …" instead of nothing.
+  lastError       String?
+  busyReadEnabled Boolean  @default(true)
+  writeEnabled    Boolean  @default(true)
+  updatedAt       DateTime @updatedAt
+}
+
+// One row per (member, entity) FieldQuo has written to Google, so a second
+// sync of an unchanged visit is a no-op and a moved one is an UPDATE of the
+// same event rather than a duplicate. `payloadHash` is what makes "unchanged"
+// decidable without a round trip. Deleting a mirror row and its event is the
+// only delete FieldQuo ever issues against a member's calendar, and only for
+// an event whose extendedProperties carry the fieldquoId this row records.
+model CalendarMirror {
+  id            String   @id @default(cuid())
+  memberId      String
+  member        Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  // "appointment" | "visit" | "booking" — the same three kinds the schedule
+  // feed emits (lib/schedule/feed.js).
+  entityKind    String
+  entityId      String
+  googleEventId String
+  payloadHash   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([memberId, entityKind, entityId])
+  @@index([entityKind, entityId])
 }
 
 /// The Facebook Page (and the Instagram professional account linked to it) a
@@ -8198,6 +8362,23 @@ enum PaymentMethod {
   // A past job paid on a card FieldQuo never saw needs a value those paths
   // ignore, and this is it.
   card_elsewhere
+  // ── The US ways to be paid without a card, and PayPal for either side ────
+  //
+  // A US contractor has no Interac: what they hand a homeowner is a Zelle
+  // phone number, a Venmo handle, a $cashtag, or a paper check. Recorded
+  // under their own names so a payment recorded as "Zelle" prints "Zelle"
+  // on the statement rather than a Canadian word. `check` is deliberately
+  // distinct from `cheque`: same paper, different word on the document the
+  // client keeps, and lib/payments/offlineMethods.js maps one to the other
+  // by the company's country. `ach` is a bank transfer the client pushed
+  // themselves — not Stripe's `us_bank_account` debit, which records as
+  // `stripe`.
+  zelle
+  venmo
+  cash_app
+  check
+  ach
+  paypal
 }
 
 enum PricingModel {
@@ -10419,6 +10600,9 @@ model SalesRep {
   commissionEntries SalesCommissionEntry[]
   /// Signups that arrived on this rep's link, with where the request came from.
   signupOrigins     SignupOrigin[]
+  /// Unfinished signups that arrived on this rep's link (?sales=CODE) —
+  /// theirs to chase, never the owner's to assign. lib/signup/leads.js.
+  referredSignupLeads SignupLead[]
   /// Browsers this rep turned notifications on in. See PushSubscription.
   pushSubscriptions PushSubscription[]
   payoutBatches     SalesPayoutBatch[]
@@ -10554,6 +10738,82 @@ model SalesAttributionAudit {
   at            DateTime @default(now())
 
   @@index([companyId])
+}
+
+/// What somebody typed into the first step of /signup, kept as they type it.
+///
+/// Until 2026-09-21 nothing about a signup existed until the Company row was
+/// written at the plan step: the funnel counted sixteen browsers on /signup and
+/// thirteen that left at the Trades step this month, and not one of them had a
+/// name, a number or a company anywhere. The owner: "are we capturing that as
+/// potential leads we can call?" This is the capture. One row per email
+/// (`emailKey`, lower-cased and trimmed), written by app/api/signup/lead as the
+/// form is filled and as the visitor advances, linked to the Company when one
+/// is created, and promoted to a Prospect (or a rep's own SalesLead) by
+/// app/api/cron/signup-leads once it has gone quiet — lib/signup/leads.js.
+///
+/// `consentAt` is the moment a phone number was first typed into a business
+/// signup form: a B2B inquiry, the same implied-consent basis
+/// lib/signup/abandoned.js relies on for the recovery email (CASL s.10(9)(b)).
+/// The Privacy page says a started signup is kept so we can follow up.
+///
+/// `resumeToken` is what the rep's intro email carries so the person lands back
+/// on /signup with their details filled in — a random token, never the email,
+/// so no personal data rides in a URL (app/api/signup/lead GET).
+model SignupLead {
+  id String @id @default(cuid())
+
+  emailKey    String   @unique
+  email       String
+  firstName   String?
+  lastName    String?
+  companyName String?
+  phoneE164   String?
+  phoneRaw    String?
+  country     String?
+  province    String?
+  city        String?
+  trades      String[] @default([])
+  language    String?
+  referrer    String?
+  utm         Json?
+  visitorId   String?
+
+  /// The rep code on the link (`?sales=CODE`, lower-cased) and the referral
+  /// or promo code (`?ref=`), as presented. Resolved at promotion, never
+  /// trusted from the browser for anything else.
+  salesCode     String?
+  referralCode  String?
+  referredRepId String?
+  referredRep   SalesRep? @relation(fields: [referredRepId], references: [id])
+
+  /// The furthest step the visitor reached — lib/signup/funnel.js STEPS plus
+  /// "checkout". Never moves backwards.
+  stepReached String @default("account")
+  resumeToken String @unique
+
+  startedAt  DateTime  @default(now())
+  lastSeenAt DateTime  @default(now())
+  consentAt  DateTime?
+
+  completedCompanyId String?  @unique
+  completedCompany   Company? @relation(fields: [completedCompanyId], references: [id])
+
+  prospectId     String?   @unique
+  prospect       Prospect? @relation(fields: [prospectId], references: [id])
+  /// The SalesLead written for the referring rep instead of a Prospect.
+  promotedLeadId String?
+  promotedAt     DateTime?
+  /// Why the cron decided never to promote this row, when it did.
+  skipReason     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([lastSeenAt])
+  @@index([completedCompanyId])
+  @@index([referredRepId])
+  @@index([promotedAt])
 }
 
 /// Where a signup request came from: the IP and what Vercel's edge said about
@@ -12106,6 +12366,35 @@ model Prospect {
   /// (/platform/sales/review) and passed — "still unsure". Not a decision:
   /// the row keeps its status and stays in the folder, and this only sorts it
   /// behind the rows nobody has looked at yet. Null means nobody passed on it.
+  // ── A signup that became a lead ────────────────────────────────────────
+  //
+  // Three kinds of row the public signup form writes here, all with
+  // `status: "signup"` and `sourceProvider: "signup"` (lib/signup/salesFloor.js):
+  //
+  //   abandoned  somebody typed a phone into /signup and stopped — HOT;
+  //   new        a company was created self-serve — a welcome call;
+  //   stalled    that company has no card after the checkout grace, or no
+  //              quote sent in its first week — flipped by the cron, cleared
+  //              when the condition clears.
+  //
+  // `status: "signup"` is NOT in CLAIMABLE_STATUSES on purpose: the cold-call
+  // dispatcher (claimCandidateWhere) never picks one up, the review folder's
+  // trade bulks never touch one, and the ONLY way it reaches a rep's queue is
+  // the owner's hand assign on /platform/sales/review — assignSignupToRep()
+  // writes the SalesQueueClaim. A signup that arrived on a rep's own link is
+  // never written here at all; it is that rep's SalesLead directly.
+  //
+  // `hot` is what the queue sorts on (a hot row goes to the front of its
+  // window group) and what the red badge reads. Additive — no priority
+  // column existed.
+  hot               Boolean     @default(false)
+  signupKind        String?
+  signupStateReason String?
+  signupStateAt     DateTime?
+  companyId         String?
+  company           Company?    @relation(fields: [companyId], references: [id])
+  signupLead        SignupLead?
+
   reviewDeferredAt DateTime?
 
   // ── A suggested trade, stored so 299,000 rows can be confirmed in batches ─
@@ -12323,6 +12612,9 @@ model Prospect {
   contactNumbers      SalesContactNumber[]
   /// Every time a rep took this row, and how it left them. See SalesQueueClaim.
   queueClaims         SalesQueueClaim[]
+
+  @@index([status, hot])
+  @@index([companyId])
 }
 
 /// One rep taking one prospect, and how that claim ended.
@@ -12615,11 +12907,20 @@ model ExternalListing {
   /// The last sighting. A re-scrape updates this and the payload; it never
   /// clears matchedProspectId.
   lastSeenAt     DateTime @default(now())
+  /// The Prospect this listing BECAME (lib/sales/intel/promoteListings.js):
+  /// an unmatched, open listing with a phone, promoted into the pool for the
+  /// review folder and the research chain. Set once and never cleared, so a
+  /// listing is promoted at most once however many sweeps re-sight it.
+  /// Distinct from matchedProspectId on purpose — that is a register row the
+  /// listing corroborates; this is a row the listing created.
+  promotedProspectId String?
+  promotedAt         DateTime?
 
   @@unique([source, externalId])
   @@index([source, phoneE164])
   @@index([source, domain])
   @@index([matchedProspectId])
+  @@index([promotedProspectId])
   @@index([source, keyword, location])
   @@index([tradeKey, city])
 }
@@ -15528,6 +15829,30 @@ model MessageThread {
   scoreReasons Json?
   scoredAt     DateTime?
 
+  /// ── Which AI employee holds this conversation ──────────────────────────
+  ///
+  /// Set once by the front desk (lib/aiEmployee/routing.js) on the first
+  /// inbound message, moved by hand_off_to_employee, and CLEARED the moment
+  /// a person replies — see humanTookOverAt. respondToMessage refuses to
+  /// generate for any employee that is not this one, which is what stops two
+  /// employees answering the same homeowner. Not a relation: the thread
+  /// belongs to the messaging feature and the employee to its own, the same
+  /// argument AiEmployeeReply makes about its threadId.
+  assignedEmployeeId String?
+  /// What the front desk decided the first message was about — book | price |
+  /// problem | other — and its one-line reason, kept on the thread so the
+  /// flow view's counts and a contractor asking "why did the closer get
+  /// this?" both have an answer.
+  routingIntent String?
+  routingReason String?
+  routedAt      DateTime?
+  /// Stamped when a member writes on the thread from Conversations. While it
+  /// is set every employee stays silent, whatever the assignment was; "Let
+  /// {name} continue" clears it. Sticky on purpose — the older humanReplied
+  /// guard in decide.js is "since this message", and a person who has taken
+  /// a conversation over does not want it back after the next question.
+  humanTookOverAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -15909,11 +16234,55 @@ model AiEmployee {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  /// Tools the COMPANY switched off for this employee, from within what the
+  /// role allows (lib/aiEmployee/roles.js). Honoured by tools.js's executeFor
+  /// and by definitionsForRole, so a disabled tool is absent from the model's
+  /// list rather than refused when called — the same argument roles.js makes
+  /// about forbidden tools. A name outside the role's allowed set is ignored
+  /// on read: the role's forbidden list cannot be widened OR narrowed here.
+  disabledTools String[] @default([])
+  /// The front-desk intents this employee is the explicit destination for
+  /// (lib/aiEmployee/routing.js INTENTS). Empty means "whatever my role
+  /// handles by default"; the flow view's drop-downs write it. An intent
+  /// lives on at most one employee of a company — the settings route moves
+  /// it rather than copying it.
+  intents String[] @default([])
+
   sources   AiEmployeeSource[]
   proposals AiEmployeeProposal[]
 
   @@unique([companyId, role])
   @@index([companyId])
+}
+
+/// The routing log — one row per decision the front desk or an employee
+/// made about WHO holds a conversation (lib/aiEmployee/routing.js). Read by
+/// the flow view for "this week's counts" on each arrow, and by the
+/// ping-pong guard: two hand-offs on one thread inside ten minutes send the
+/// thread to a person instead of a third employee. Append-only; nothing
+/// updates or deletes a row. companyId is on every row for the same reason
+/// it is on AiEmployeeReply — the tenant fence is the column, not the join.
+model AiEmployeeRoutingEvent {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  threadId String
+  /// assigned | handed_off | human_took_over | resumed | escalated | burst_merged
+  kind String
+
+  fromEmployeeId String?
+  toEmployeeId   String?
+  /// book | price | problem | other — on "assigned" rows.
+  intent String?
+  reason String?
+  /// meta | web | sms
+  channel String?
+
+  createdAt DateTime @default(now())
+
+  @@index([companyId, createdAt])
+  @@index([threadId, createdAt])
 }
 
 /// An action the employee wanted to take and its mode did not let it take

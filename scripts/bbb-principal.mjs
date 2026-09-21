@@ -5,6 +5,7 @@
 //
 //   node --experimental-websocket --env-file-if-exists=.env --import ./scripts/alias-loader.mjs scripts/bbb-principal.mjs --claimed
 //   ... --next 60            # then the trades being worked, in dispatch order
+//   ... --state NY,FL,CA     # only those states (repeatable; --province QC the same)
 //   ... --ids a,b,c          # specific prospects
 //   ... --plan               # print who it would visit, in order; open nothing
 //   ... --headless           # no window (the first run should be visible — see below)
@@ -67,6 +68,7 @@ import { existsSync } from "node:fs";
 
 import { parseBbbProfile, parseBbbSearch, searchResultAsListing, bbbSearchUrlFor } from "@/lib/sales/intel/bbbProfile";
 import { matchListings } from "@/lib/sales/intel/listingMatch";
+import { parseRegions } from "@/lib/sales/intel/enrichmentOrder";
 
 const args = process.argv.slice(2);
 const flag = (n) => args.includes(n);
@@ -85,6 +87,20 @@ const HEADLESS = flag("--headless");
 const NO_DB = flag("--no-db");
 const PLAN = flag("--plan");
 const RESUME = flag("--resume");
+/**
+ * --state NY,FL,CA / --state NY --state FL / --province QC: the batch is the
+ * enrichment order with everything outside those regions removed BEFORE it
+ * is ranked (lib/sales/intel/enrichmentOrder.js, "A regional pass"). The
+ * owner's ask of 2026-09-21 — NY, FL and California first. Unknown tokens
+ * stop the run rather than filter it to nothing.
+ */
+const REGIONS = (() => {
+  const raw = [];
+  for (let i = 0; i < args.length; i += 1) if ((args[i] === "--state" || args[i] === "--province") && args[i + 1]) raw.push(args[++i]);
+  const parsed = parseRegions(raw);
+  if (parsed.unknown.length) throw new Error(`--state/--province: not a state or province: ${parsed.unknown.join(", ")}`);
+  return parsed.regions.length ? parsed.regions : null;
+})();
 /** Between pages: 3–5 s, jittered. A hand, not a loop. */
 const PAUSE_MIN_MS = 3000;
 const PAUSE_MAX_MS = 5000;
@@ -149,8 +165,8 @@ async function loadBatch() {
   const limit = Number(val("--next")) || Number(val("--limit")) || 60;
   let out;
   if (ids.length) out = await bbbBatch({ db, scope: "ids", ids });
-  else if (flag("--next")) out = await bbbBatch({ db, scope: "next", limit });
-  else out = await bbbBatch({ db, scope: "claimed", limit: Number(val("--limit")) || 500 });
+  else if (flag("--next")) out = await bbbBatch({ db, scope: "next", limit, regions: REGIONS });
+  else out = await bbbBatch({ db, scope: "claimed", limit: Number(val("--limit")) || 500, regions: REGIONS });
   return { db, rows: out.rows, meta: out };
 }
 
@@ -240,9 +256,11 @@ async function main() {
   const { db, rows, meta } = await loadBatch();
   const done = alreadyDone();
   const todo = rows.filter((r) => !done.has(r.id));
-  process.stdout.write(`${rows.length} prospects in the batch (${meta.scope}${meta.skippedRecent ? `, ${meta.skippedRecent} checked in the last 180 days left out` : ""}); ${todo.length} to visit${RESUME ? ` (${done.size} already in ${OUT})` : ""}.\n`);
+  const outside = meta.outsideRegions ? (Number(meta.outsideRegions.claimed) || 0) + (Number(meta.outsideRegions.candidates) || 0) : 0;
+  process.stdout.write(`${rows.length} prospects in the batch (${meta.scope}${meta.regions ? `, ${meta.regions.join("/")} only` : ""}${meta.skippedRecent ? `, ${meta.skippedRecent} checked in the last 180 days left out` : ""}); ${todo.length} to visit${RESUME ? ` (${done.size} already in ${OUT})` : ""}.\n`);
+  if (meta.regions) process.stdout.write(`${outside} prospect${outside === 1 ? "" : "s"} outside ${meta.regions.join("/")} skipped (${meta.outsideRegions.claimed} held, ${meta.outsideRegions.candidates} next in dispatch).\n`);
   if (PLAN) {
-    for (const [i, r] of todo.entries()) process.stdout.write(`${String(i + 1).padStart(4)}  ${r.tier || "ids"}  ${r.businessName}  —  ${[r.city, r.province].filter(Boolean).join(", ")}  ${r.phoneE164 || ""}\n     ${r.searchUrl}\n`);
+    for (const [i, r] of todo.entries()) process.stdout.write(`${String(i + 1).padStart(4)}  ${r.tier || "ids"}  ${(r.province || "--").padEnd(2)}  ${r.businessName}  —  ${[r.city, r.province].filter(Boolean).join(", ")}  ${r.phoneE164 || ""}\n     ${r.searchUrl}\n`);
     process.stdout.write(`\nPlan only: nothing opened, nothing written. Estimated ${(todo.length * 2 * 4) / 60 | 0} minutes at a human pace.\n`);
     await db?.$disconnect?.();
     return;

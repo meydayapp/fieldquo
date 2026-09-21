@@ -24,10 +24,11 @@ import {
   Clock,
 } from "lucide-react";
 import { readableForeground } from "@/lib/brand/colour";
+import { documentTheme } from "@/lib/documents/theme";
+import HowToPayBlock from "@/app/components/public/HowToPayBlock";
 import { documentLabels, documentFormatters } from "@/lib/i18n/documentLabels";
 import { documentCustomFacts } from "@/lib/documentSections/customFacts";
 import { clientDocCopy } from "@/lib/i18n/clientDocCopy";
-import { offlinePaymentLines } from "@/lib/payments/offlinePaymentNote";
 import { taxIdLine } from "@/lib/documents/taxId";
 import { documentIssueDate } from "@/lib/documents/issueDate";
 import { jsonBody } from "@/lib/jsonBody";
@@ -59,8 +60,9 @@ export default function PortalInvoice({ token, invoiceId, stageId = null }) {
   }, [token]);
 
   // `method` is "card" or "bank" — HOW, never how much. The bank button only
-  // exists when the server said the company can take it (data.bankDebit),
-  // and the route re-checks.
+  // exists when the server said the company can take it for the amount this
+  // page asks for (invoice.bankDebit / stage.bankDebit), and the route
+  // re-checks.
   async function pay(method = "card") {
     setPaying(method);
     setError("");
@@ -118,6 +120,12 @@ export default function PortalInvoice({ token, invoiceId, stageId = null }) {
   const accent = c.brandColor || "#06356b";
   // Measured, not assumed white — see the quote page for why.
   const accentOn = readableForeground(accent);
+  // For the "How to pay" block: the same measured palette the PDF uses.
+  const theme = documentTheme(c);
+  // The block as it was sent (or built by the route in the document's
+  // language) — the e-transfer address, who to make the cheque out to.
+  // Sentences only; the company's settings never reach this page.
+  const howToPay = invoice.howToPay || null;
   const items = Array.isArray(invoice.lineItems) ? invoice.lineItems : [];
   const balance = Math.max(
     0,
@@ -143,10 +151,18 @@ export default function PortalInvoice({ token, invoiceId, stageId = null }) {
   // below would only 400.
   const onlinePayments = Boolean(data.onlinePayments);
   // "Pay from bank account" — only when Stripe has activated the capability
-  // on the company's account (lib/stripe/bankDebit.js); never a button that
-  // fails. A bank debit clears in 3–5 business days, so a pending one is
-  // said out loud beside the balance rather than looking unpaid.
-  const bankDebit = data.bankDebit || null;
+  // on the company's account AND the figure this page asks for is inside
+  // Stripe's per-debit cap (lib/stripe/bankDebit.js); never a button that
+  // fails. The offer is decided server-side for the stage's share when a
+  // stage applies (a $3,000 deposit qualifies where the $12,000 balance does
+  // not) and for the balance otherwise — the same figure `due` shows. Over
+  // the cap the button is absent and `bankOverCap` says why. A bank debit
+  // clears in 3–5 business days, so a pending one is said out loud beside
+  // the balance rather than looking unpaid.
+  const bankOffer = onlinePayments
+    ? (stage ? stage.bankDebit : invoice.bankDebit) || null
+    : null;
+  const bankDebit = bankOffer?.eligible ? bankOffer.method : null;
   const pendingBank = invoice.pendingPayment || null;
   const failedBank = invoice.failedPayment || null;
 
@@ -353,12 +369,14 @@ export default function PortalInvoice({ token, invoiceId, stageId = null }) {
 
           {due > 0.005 && !onlinePayments ? (
             // The balance still shows above — what changes is that we don't
-            // offer a card we can't charge. Same words the invoice email sent.
-            <div className="text-center text-sm text-[#2d2520]/60 space-y-1">
-              {offlinePaymentLines(c, copy).map((line) => (
-                <p key={line}>{line}</p>
-              ))}
-            </div>
+            // offer a card we can't charge. The block says how to pay by
+            // the methods the company DOES take; with none on, the same
+            // "get in touch" line the invoice email carries.
+            howToPay?.methods?.length ? (
+              <HowToPayBlock block={howToPay} theme={theme} showOnline={false} />
+            ) : (
+              <p className="text-center text-sm text-[#2d2520]/60">{copy.arrangePayment}</p>
+            )
           ) : due > 0.005 && pendingBank ? (
             <div className="flex items-start justify-center gap-2 text-sm text-[#2d2520]/70">
               <Clock size={16} className="shrink-0 mt-0.5" />
@@ -403,6 +421,16 @@ export default function PortalInvoice({ token, invoiceId, stageId = null }) {
                   </button>
                   <p className="text-center text-xs text-[#2d2520]/60">{copy.bankNote}</p>
                 </>
+              )}
+              {bankOffer && !bankOffer.eligible && (
+                <p data-bank-over-cap className="text-center text-xs text-[#2d2520]/60">
+                  {copy.bankOverCap(money(bankOffer.maxCents / 100), money(due))}
+                </p>
+              )}
+              {/* The other ways to pay, under the buttons: the online row
+                  is left out because the buttons above ARE it. */}
+              {howToPay?.methods?.length > 0 && (
+                <HowToPayBlock block={howToPay} theme={theme} showOnline={false} className="pt-4 mt-1 border-t border-black/5" />
               )}
             </div>
           ) : (

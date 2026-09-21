@@ -25,6 +25,7 @@ import { documentTaxSentence } from "@/lib/tax/documentSentence";
 import { usableSections } from "@/lib/documents/templateKind";
 import { financingOffer } from "@/lib/estimate/financing";
 import { financingTerms } from "@/lib/financing/monthlyEstimate";
+import { HOW_TO_PAY_COMPANY_SELECT, depositHowToPay } from "@/lib/payments/offlineMethods";
 
 // First hop of x-forwarded-for is the client on Vercel. Best-effort — an audit
 // record with a null IP is still a valid signature, just weaker evidence.
@@ -70,8 +71,11 @@ async function loadQuote(token) {
           website: true,
           address: true,
           paymentTerms: true,
-          paymentMethods: true,
           currency: true,
+          // The deposit's "How to pay" block is built server-side from these
+          // and every one is stripped in present() — the homeowner receives
+          // the sentences (an e-transfer address), never the settings.
+          ...HOW_TO_PAY_COMPANY_SELECT,
           // The company default is only the fallback in resolveClientLanguage,
           // below the quote's own language and the client's preference — but
           // the page still needs it to land somewhere sensible for a client
@@ -211,6 +215,13 @@ function present(quote) {
     autoApplyLocalTax: _autoApply,
     vatRegistered: _vatRegistered,
     usTaxOverrides: _usTaxOverrides,
+    paymentMethods: _paymentMethods,
+    paymentMethodDetails: _paymentMethodDetails,
+    stripeAccountId: _stripeAccountId,
+    stripeChargesEnabled: _stripeChargesEnabled,
+    stripeBankDebitEnabled: _stripeBankDebitEnabled,
+    offerFinancing: _offerFinancing,
+    stripeAffirmStatus: _stripeAffirmStatus,
     ...companyPublic
   } = quote.company || {};
 
@@ -373,6 +384,16 @@ function present(quote) {
     ),
     paymentTerms: quote.company?.paymentTerms || null,
     paymentSchedule: parsePaymentSchedule(quote.company?.paymentTerms),
+    // How the deposit can be paid, under the schedule cards — the same
+    // block the quote PDF prints (PaymentTermsSection), in the document's
+    // language, with the quote number as the reference. Null when the terms
+    // don't parse into a schedule: no deposit is asked for at approval.
+    howToPay: depositHowToPay({
+      data: quote,
+      company: quote.company || {},
+      language: docLanguage,
+      schedule: parsePaymentSchedule(quote.company?.paymentTerms),
+    }),
   };
 }
 

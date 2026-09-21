@@ -44,6 +44,7 @@ import {
   permissionErrorResponse,
 } from "@/lib/permissions/enforce";
 import { loadDocumentWording } from "@/lib/email/documentEmailCopies";
+import { buildHowToPay, onlineOptions } from "@/lib/payments/offlineMethods";
 
 export async function POST(request, { params }) {
   const { id } = await params;
@@ -107,7 +108,17 @@ export async function POST(request, { params }) {
       // (AGENTS.md) and this one had drifted.
       currency: true,
       paymentTerms: true,
+      // The "How to pay" block: which methods are on, where each one goes,
+      // and what the pay link offers beyond a card — see buildHowToPay.
+      // `name` is the cheque payee when none was typed; `address` is what
+      // resolves the country when the column is empty.
       paymentMethods: true,
+      paymentMethodDetails: true,
+      name: true,
+      address: true,
+      stripeBankDebitEnabled: true,
+      offerFinancing: true,
+      stripeAffirmStatus: true,
       defaultLanguage: true,
       stripeAccountId: true,
       stripeChargesEnabled: true,
@@ -195,6 +206,26 @@ export async function POST(request, { params }) {
     company,
   });
 
+  // ── How to pay, fixed at first send ─────────────────────────────────────
+  //
+  // Built once from the company's settings as they are NOW, in the
+  // document's language, and stored on the invoice: every later email,
+  // PDF and portal view of this invoice prints this block, not whatever
+  // the settings say by then (non-negotiable #6). A second send of an
+  // invoice that already has one keeps it — the client may be halfway
+  // through paying to the address on the first copy. The plain invoice
+  // link is stored, not the stage link: the block outlives the stage.
+  const plainInvoiceUrl = portalInvoiceUrl(token, invoice.id, request);
+  const howToPay =
+    invoice.howToPay && typeof invoice.howToPay === "object" && Array.isArray(invoice.howToPay.methods)
+      ? invoice.howToPay
+      : buildHowToPay({
+          company: company || {},
+          language: invoiceLanguage,
+          reference: invoice.invoiceNumber,
+          online: canTakeCard ? onlineOptions(company, plainInvoiceUrl) : null,
+        });
+
   const { subject, html, text } = buildInvoiceEmail({
     invoice: { ...invoice, customFields },
     client: invoice.client,
@@ -205,8 +236,9 @@ export async function POST(request, { params }) {
     // takes THAT amount (app/api/portal/[token]/pay/route.js re-derives it
     // from the row and requires the row to be `requested`, which the write
     // below makes it).
-    url: portalInvoiceUrl(token, invoice.id, request) + (ask.stage ? `?stage=${ask.stage.id}` : ""),
+    url: plainInvoiceUrl + (ask.stage ? `?stage=${ask.stage.id}` : ""),
     canTakeCard,
+    howToPay,
     requestAmount: ask.requestCents / 100,
     note: ask.stage ? ask.stage.label : null,
     language: invoiceLanguage,
@@ -255,6 +287,8 @@ export async function POST(request, { params }) {
       // Don't drag a paid or overdue invoice back to "sent" because someone
       // emailed a copy of it.
       ...(invoice.status === "draft" ? { status: "sent" } : {}),
+      // The block as it went out — written on the first send only; see above.
+      ...(!invoice.howToPay && howToPay ? { howToPay } : {}),
     },
     select: { status: true, sentAt: true, sentToEmail: true },
   });

@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 20 September 2026 (the sales floor's Twilio telemetry is back: every call-status and recording callback had answered 500 since 18 September from `new NextResponse("", { status: 204 })` — a 204 may carry no body — and the recording write's `NOT: { recordingSid }` excluded every never-recorded row; both fixed, every notification route now answers an empty 204 through lib/sales/calls/twilioAck.js and a throw is a logged error; the sales cron reconciles recordings and prospect legs from the carrier and transcribes one a tick; /platform/sales/performance prints the carrier's clock beside the rep's report with "Reported vs measured" per rep; /platform/crew-lines says US texting is NOT registered (A2P 10DLC, error 30034) with the owner's registration steps; the Places API sweep is retired — see the section below)
+Last updated: 21 September 2026 (the sales floor's Twilio telemetry is back: every call-status and recording callback had answered 500 since 18 September from `new NextResponse("", { status: 204 })` — a 204 may carry no body — and the recording write's `NOT: { recordingSid }` excluded every never-recorded row; both fixed, every notification route now answers an empty 204 through lib/sales/calls/twilioAck.js and a throw is a logged error; the sales cron reconciles recordings and prospect legs from the carrier and transcribes one a tick; /platform/sales/performance prints the carrier's clock beside the rep's report with "Reported vs measured" per rep; /platform/crew-lines says US texting is NOT registered (A2P 10DLC, error 30034) with the owner's registration steps; the Places API sweep is retired — see the section below; also today: the two Mac-run scrapers take `--state NY,FL,CA` — the enrichment order with everything outside those states removed BEFORE ranking, the skipped count printed and shown on the Maps panel; the listing matcher joins initialisms and sets trade words aside symmetrically, attaches a listing on the record's own phone or website under `matched_verify` with a "confirm on the call" fact on the card and the brief, and refuses a shared number or a franchise domain as an identity; `maps.mjs --rematch` re-reads the 1,725 refusals and `--promote` turns unmatched open listings with a phone into prospects in the review folder with their crawl queued, which every sweep now also does for its own run; BBB's employee band is captured end to end with a saved profile fixture — see "Regional passes, matched_verify, promotion" below)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -80,6 +80,269 @@ steps for a Canadian company. Nothing registers itself.
   proved the fix wrote it, and the by-hand restore was refused by the
   auto-mode classifier. `UPDATE "SalesCallAttempt" SET "providerCostCents" =
   1.8 WHERE id = 'cmu77x5p3000204lc4gqxuy4a' AND "providerCostCents" = 1.4;`
+## A started signup is a lead: hot when abandoned, a welcome call when finished, stalled when it stops — assigned by hand from the review folder (21 September 2026)
+
+**The owner's question, verbatim:** "The people that start the signup
+process — are we capturing that as potential leads we can call? Is there a way
+to capture that information and transform them into hot leads that I can call
+in the sales platform, and assign to sales reps manually, with a badge that
+might say hot?" And the extension: "but that would only be for the ones that
+didn't complete the signup" — the finished ones reach the floor too, as a
+different kind.
+
+**What exists now**
+
+- **Capture** — `SignupLead` (one row per email, `lib/signup/leads.js`).
+  `app/signup/page.js` posts the first step as it is typed: a JSON body to
+  `POST /api/signup/lead`, 1.5 s after the last change and at once when the
+  step moves, `keepalive` at the Stripe handoff; never the password, never a
+  query string. `consentAt` is the first capture carrying a phone (B2B
+  inquiry — the same implied-consent basis the recovery email uses). The
+  Privacy page says a started signup is kept so we can follow up.
+- **Promotion** — `app/api/cron/signup-leads` every fifteen minutes
+  (`lib/signup/salesFloor.js promoteSignupLeads`): a SignupLead with a phone,
+  no Company, quiet for thirty minutes becomes a `Prospect` with
+  `status: "signup"`, `sourceProvider: "signup"`, `hot: true`,
+  `signupKind: "abandoned"`. Dedupe by email and phone against Company (link
+  as the customer, never a lead) and Prospect (link, flag hot, never a second
+  row); the do-not-contact list is read in the request that writes; a
+  completed signup is refused by the first branch and re-checked in the
+  write's WHERE. A lead whose link carried a rep's `?sales=` code becomes
+  **that rep's own SalesLead** with the Prospect handed to them outright —
+  never the folder.
+- **Finished signups** — `recordSignupCompletion` in `app/api/companies`
+  after the org exists: the typed row is marked completed; an unreferred
+  company gets a green **New signup** row (welcome call, `companyId` on the
+  Prospect); a rep-referred or referral-code company gets nothing (it is
+  theirs). The cron's sweep flips the row to red **Stalled** when there is
+  no card after `CHECKOUT_GRACE_MS` or no quote sent in seven days, and back
+  when that clears; on its first run it backfills the unreferred companies
+  of the last thirty days (three real ones at deploy) and nothing older.
+- **Never the dispatcher** — `"signup"` is outside `CLAIMABLE_STATUSES` and
+  `REVIEW_STATUSES`: the batch claim, the prospects list's hand-pick and the
+  folder's trade bulks cannot touch one. The ONE way to a rep's queue is
+  `assignSignupToRep` — the "Signups to assign" section at the top of
+  `/platform/sales/review` (`?signups=hot` from the funnel), one row to one
+  rep, the same three Prospect columns and mode-"admin" claim the hand-pick
+  writes, the same audit row and push. Refuses do-not-contact, a live hold,
+  and a Quebec row to a rep without French.
+- **The rep** — hot rows to the front of their window group (never across
+  one — `hoistHot` after the retry regroup); the HOT / New signup / Stalled
+  badge on the row and the card (nine catalogues, `SignupBadge`); the fact
+  first: "Started signup 40 minutes ago — got as far as Trades; trade
+  Painting; language FR" / "Signed up 3 hours ago — Roofing, Ottawa, EN;
+  card added; first quote not yet"; the opener above the script in en / fr /
+  es (`lib/sales/playbook/signupOpener.js` — "You started setting up
+  FieldQuo for X this morning… can I get you the rest of the way?" /
+  "I'm here to get your first quote out today; got fifteen minutes?"); the
+  intro email's three variants (`signup_abandoned` → `/signup?…&resume=<token>`
+  with their details filled in, `signup_new` / `signup_stalled` → the
+  fifteen-minute setup call on the rep's booking page); the signup's own
+  language sets the script default between Quebec's French and the rep's
+  preference; the calling window applies as usual. "Your signups" on the
+  Today screen lists every signup on the rep's link, finished or not, with
+  the facts and the opener (`/api/sales/signups`).
+- **The owner** — `/platform/signups` gains "Started, never finished" (every
+  SignupLead with its state: waiting / hot lead unassigned, in the review
+  folder / hot lead assigned to {rep} / {rep}'s lead — came in on their link
+  / not promoted: why) and, on each incomplete company, "New signup →
+  assigned to {rep}" / "Stalled → unassigned". `/platform/sales/reps` says
+  "referred by {rep} · card … · first quote …" on each attributed company
+  and lists the unfinished signups on the rep's link — informational, never
+  assignable. The funnel's Trades drop names the SignupLeads behind it with
+  a link to the hot ones. The recovery email skips a company whose signup
+  row a rep holds (`held_by_rep`).
+
+**Commission and attribution — nothing new was invented.** A self-serve
+signup earns a rep nothing: `SalesAttribution` is written only for a rep's
+link (or manual / admin / lead_link), and `lead_link` requires the rep's lead
+to PREDATE the company (`leadPredatesCompany`). So a welcome-call or stalled
+row the owner hands out is unpaid work by the rules as they stand — the rep
+onboards a customer FieldQuo already has. A HOT lead is different: the rep's
+lead exists before any company does, so if that person later finishes on the
+rep's link, or the rep claims the finished company by its email through
+`lead_link`, the existing rules attribute it. A signup that came in on a
+rep's link was theirs already.
+
+**Check:** `npm run check:signup-leads` — 545 assertions, in `check:all`.
+
+### Still owed here
+
+- The review folder's rail badge counts trade rows only; the signup section
+  carries its own count on the screen.
+- `/platform/sales/reps` and `/platform/signups` are English like the rest
+  of the console; the badge component itself is in nine.
+- A rep's texted signup link (`SalesSignupProgress`) and this capture are
+  two records of one signup; they are not yet joined on the rep's panel.
+
+---
+
+## A booking is a visit, a call or a video call — the client chooses, the company sets each one's length and fee, and every surface says which (20 September 2026)
+
+The owner booked a demo consultation with TrueFinish and read "Phone or
+on-site visit" — the free-text `EventType.location` the auto-created
+consultation carried — with no way to say which, an optional address, one
+duration for every kind, and a confirmation that named neither. His words:
+"if visit their place is selected the client needs to enter their address;
+if phone call is selected they also need to enter the phone number — those
+should be mandatory fields; and the client should be able to know what they
+booked and the company should know what type of visit it is. Maybe an
+in-person visit is longer than a call." And then: "Maybe not all
+consultations are the same — maybe the phone is free, maybe the in-person is
+paid. Each should have its own preset."
+
+What shipped:
+
+- **`lib/booking/bookingModes.js`** is the one place that knows a mode:
+  `offeredModes`, `resolveMode`, `bookingDurationMinutes` (visit → the event
+  type's own length, seeded from `defaultVisitMinutes`; call → `Company.
+  callMinutes` else 20; video → `videoMinutes` else 30), `missingForMode`
+  (visit → address, call → a dialable phone, video → email), and the words —
+  `bookingModeLabel`, `bookingModeNoun`, `bookingModeLine` ("On-site visit
+  at 12 Elm St" / "Phone call — we'll ring 819-238-7263" / "Video call —
+  we'll email a link to …"), `bookingModeStatement`, `requiredFieldRefusal`,
+  `bookingFeeLine` ("$49 paid" / "No charge") — in the eight document
+  languages plus zh. Nothing re-types them.
+- **`lib/booking/fee.js`** prices per mode: the visit's fee stays the event
+  type's (with its promo); a call's and a video call's are the company's
+  (`callFeeCents` / `videoFeeCents`, null = free), still only when Stripe
+  Connect can collect. `bookingModePreset(s)` puts length and fee side by
+  side, and that is what the booking GET sends as `eventTypes[].modes`.
+- **The public page** (`app/book/[companySlug]/BookingFlow.js`): the picker
+  whenever more than one mode is offered, each chip with its minutes and
+  "$49" / "No charge"; a sentence ("This is an on-site visit — we come to
+  you. No charge to book.") when there is one; the slot query carries the
+  mode so a call is offered at twenty minutes; Book is disabled until the
+  mode's field is filled, with the reason underneath in the visitor's
+  language; the address is asked again on the details step when skipped;
+  the confirmed screen prints the mode line.
+- **The confirm route** resolves the mode against what is offered, refuses
+  the missing field as a 400 in the visitor's language (`reason:
+  address_required | phone_required | email_required`), reserves the mode's
+  length, prices the mode's fee (a paid visit still takes the hold →
+  Stripe → settle path; a free call books at once), and writes `Appointment.
+  location` as the client's address or null — never the label. Same on the
+  paid settle path. `bookableMembers.js` seeds `location: null`.
+- **Letters** (`app/admin/lib/email/templates.js`): the confirmation, the
+  moved and the cancelled letters take the booking's facts (`where: { mode,
+  address, phone, email }`) and build their own line in their own language —
+  the client's copy in the client's, the office's in the office's. Subject
+  and intro name the mode ("Confirmed: Phone call with Northline"), the
+  service moves to a "What" row, and the confirmation carries a "Fee" row.
+- **The text**: `booking_confirmation` in `lib/sms/renderTemplate.js` is
+  editable now because it sends — from `finalizeBooking`, behind
+  `Company.bookingSmsConfirmation` (a switch beside the template on Settings
+  → Messages, off by default because a text is billable), a dialable phone,
+  the STOP ledger (`maySms`) and a from-number. Body: "{company}: You're
+  booked. {where}, {when}. {fee}. Reply STOP to opt out." in eight
+  languages.
+- **A calendar invite** rides with the confirmation (`lib/booking/
+  bookingInvite.js` over `lib/calendar/ics.js`, which gained METHOD,
+  SEQUENCE and PRODID): METHOD:REQUEST, UID `booking-<id>@fieldquo.com`,
+  SUMMARY "Phone call — Northline" in the client's language, LOCATION the
+  address or "Phone: <number>", DESCRIPTION the mode line, the fee and the
+  manage link, ORGANIZER the company's resolved sender, ATTENDEE the client.
+  A move — client or office — bumps `Booking.calendarSequence` in the same
+  write and re-sends the UID one higher; a cancellation sends METHOD:CANCEL
+  with it. The manage page's "Add to calendar" serves the same file from
+  `/api/visit/[token]/calendar`. The text carries no attachment.
+- **The manage page** renders the server's `where` line; **the appointment
+  list** badges the mode and prints the line instead of a maps link for a
+  call; **the map** drops a call's pin and names the mode in the popover;
+  **the crew's home** prints the line on the next-up card and the list.
+- **Reschedule** keeps the mode (the route accepts no new mode, address or
+  phone) and re-slots at the mode's length. The phone agent books a call at
+  the company's call length (the 15-minute callback floor still applies
+  when the company never set one) and never a mode that charges.
+- **Settings → Booking page**: each consultation card is one preset row per
+  offered mode — length and fee; the visit row edits the event type, the
+  call and video rows edit the company and say so. The free-text location
+  caption and its input are gone.
+- **Checks**: `scripts/check-booking-modes.mjs` (399 assertions) runs the
+  real confirm and availability routes against the db stub — the refusals
+  in words, 20 vs 60 minutes reserved, three call slots in the hour a visit
+  fits once, a paid visit held for payment while a free call books, the fee
+  never read from the body — builds every letter in eight languages and the
+  text, runs the four text gates and `finalizeBooking` end to end against a
+  demo tenant (the simulated send is a row), and checks every screen at
+  source. `check-visit-manage`, `check-sms-template` and `check-voice-visit`
+  updated. Frames at 375 wide: `docs/screens/booking-modes/{en,fr}/
+  booking-{pick,visit,call}-375.png` (the harness gained a `crypto` stub —
+  its build had been failing on `lib/marketing/unsubscribe.js`).
+
+### Still owed here
+
+- The booking page's other strings (the calendar, "Your name", "Confirm
+  booking", the confirmed screen's body) are still English literals; the
+  mode words, the refusals and the field labels follow the reader, the rest
+  does not yet.
+- The reminder text says "your appointment is …" with no location for a
+  call (the location is null now, honestly); it could carry the mode line.
+- The phone agent's `bookableSlots` still offers slots at the visit's length
+  before the caller has said which kind — a superset for a shorter call, so
+  nothing is over-promised, but a 20-minute gap at the end of a day is not
+  offered for a callback.
+## The true two-way Google Calendar connection: a member's visits on their own phone, their own commitments blocking every booker (20 September 2026)
+
+A member connects their own Google account from **Settings → My calendar →
+Connect Google Calendar** (`app/components/calendar/GoogleConnect.js`, a new
+"everyone" settings row). From then on, in both directions at once:
+
+- **FieldQuo → Google** (`lib/calendar/googleSync.js` `syncEntity(kind, id)`,
+  the ONE function, called with `after()` off every create / move / reassign /
+  cancel / delete path: appointments, job visits, the recurring-visit cron,
+  the voice and AI-employee `bookSlot`, the client's cancel and reschedule
+  links, pamphlet stops). Event title per mode in the member's own language
+  (`Visite sur place — Jane Doe`), location the site address, description the
+  FieldQuo link, `extendedProperties.private.fieldquoId` on every event.
+  Mirror rows (`CalendarMirror`, unique per member × entity) with a payload
+  hash, so a second sync of an unchanged row makes no Google request; a
+  cancelled or reassigned entry is deleted from the old holder's calendar
+  after the event is read back and found to carry FieldQuo's mark — a
+  member's own event under a stray id is left alone.
+- **Video bookings** get a Google Meet room minted with the event
+  (`conferenceDataVersion=1`), written onto `Appointment.meetUrl` and
+  `Booking.meetUrl` for the client's letters (additive columns; the booking
+  letters print it when present — owed to the booking-modes work).
+- **Google → FieldQuo** (`lib/calendar/googleBusy.js`, `freebusy.query`,
+  cached 5 minutes per member): opaque busy intervals merged into
+  `computeAvailableSlots` — so the public booking page, the reschedule link,
+  the voice receptionist and the AI employee never book over a personal
+  event — and into the office's own move check, where an overlap is a 409
+  `personal_busy` the dispatcher may force. The calendar page draws them grey,
+  "Busy (Google)", nothing else. Never a title: the API asked has none.
+- Two switches honoured server-side (`writeEnabled` → off strips every
+  FieldQuo event now; `busyReadEnabled`), disconnect (`POST
+  /api/calendar/google/disconnect`: FieldQuo's events removed, token revoked
+  at Google, row deleted), reconnect. Refresh token AES-256-GCM under
+  `META_TOKEN_ENCRYPTION_KEY`; the OAuth state is HMAC-signed with the member
+  id and verified against the cookie.
+- Hourly reconcile (`/api/cron/google-calendar-reconcile`): creates missing,
+  patches drifted, adopts an orphan it can name, deletes one it cannot, and is
+  the floor under the public booking confirm route and the fee settlement
+  (another agent's files, not hooked directly). Failures stamped on the row
+  (shown under the email on the settings page) and filed under
+  `google_calendar` on /platform/errors.
+- Plain `fetch` against the REST API — no `googleapis` (214 MB) and no
+  `@googleapis/calendar` (847 KB + auth stack); 0 bytes added.
+- Help article `google-calendar` (Integrations) in en/fr/es, linked from the page's own `settings-my-calendar`; the privacy policy lists
+  Google Calendar as a processor with the Limited-Use wording (effective date
+  moved to 2026-09-20); `docs/GOOGLE-CALENDAR.md` is the owner's step list:
+  Calendar API, consent screen (External, privacy URL), the four scopes,
+  redirect URI `https://www.fieldquo.com/api/calendar/google/callback`, test
+  users while unverified, the verification form's wording, and the two env
+  vars `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET`.
+
+### Still owed here
+
+- The Google Cloud OAuth client and the verification submission — the
+  owner's, per the doc. Until the vars are set the page says so and draws no
+  button.
+- The public booking confirm route and `lib/booking/settleBookingFee.js` each
+  want one `scheduleSync("appointment", appointment.id)` line so a web-booked
+  visit reaches the phone immediately rather than at the next hourly run.
+- The client's confirmation letter and manage page printing `meetUrl` when
+  it is set (booking-modes work).
 
 ---
 
@@ -95,7 +358,8 @@ period's total and last month's:
    (the sales share of `splitTwilioSides`), the pipeline's AI by area with a
    count, tokens and what a unit costs ("Research briefs: 16,636 briefs ·
    12.7M tokens · $8.61 — 5.2¢ per 100"), the sales floor's own Retell line,
-   Google Places, Apify, the Mac scrape at $0. Per rep and per agency live
+   Apify, the Mac scrape at $0 (and the retired Places API's 119 requests,
+   printed only in a period that holds them). Per rep and per agency live
    here, as do cost per conversation and per signup.
 2. **Companies** — Retell minutes and rent, crew lines, client and crew
    texts, the companies' AI — and beside each line what the companies were
@@ -166,6 +430,87 @@ settings → API keys) in Vercel — `docs/VERCEL.md` has both rows.** Until
 then the page says so on the relevant lines and everything else works.
 
 ---
+
+## One employee per conversation: the front desk, hand-offs, the human take-over, the burst lock and the flow view (20 September 2026)
+
+The owner: "you don't want all the employees answering at the same time —
+there's got to be a process for handling chats." `lib/aiEmployee/routing.js`
+is the process; `scripts/check-ai-employee.mjs` executes it against a
+scripted database (560 assertions, mutation-tested: with the assignee gate
+removed, "exactly ONE reply was composed" fails).
+
+- **Front desk.** On a thread's first inbound message, one metered call on
+  the STANDARD tier (`ai_employee_front_desk`, its own usage feature)
+  classifies it — book / price / problem / other — and `assignThread`
+  writes `MessageThread.assignedEmployeeId`, `routingIntent`,
+  `routingReason`, `routedAt`. The pick (`pickAssignee`, pure): the
+  company's own mapping (`AiEmployee.intents`, written by the flow view's
+  drop-downs), then the role that handles the intent (receptionist → book,
+  closer → price, troubleshooter → problem), then the employee bound to the
+  channel, then the receptionist. One enabled employee takes everything and
+  no triage call is spent.
+- **Only the assignee replies.** `respondToMessage` runs the routing gate
+  before quota, state or prompt; a named employee that is not the holder
+  returns `not_assignee` without generating. `inbound.js` no longer picks
+  by channel — its cheap door is a count of enabled employees, and its
+  sender re-reads the SENDING employee's mode at the moment of sending.
+- **Hand-off.** `hand_off_to_employee(role, reason)` joins the closed tool
+  list, allowed for every role, never switchable off (`ALWAYS_ON_TOOLS`),
+  reversible, and — like `hand_off_to_human` — runs in every mode including
+  `ask` (a routing decision is not an act on the world; it used to become a
+  proposal nobody could act on). The assignment moves inside the tool; the
+  colleague's turn is the same function at depth 1 with the tool withheld
+  and `introductionLine` ("{name} here — I'll take it from here.", nine
+  languages) prepended once. A second hand-off on one thread inside ten
+  minutes is read as a hand-off to a person (`escalated`).
+- **A person takes it.** The reply route stamps `humanTookOverAt` and
+  clears the assignment inside its own transaction; `decide.js` refuses on
+  `HUMAN_TOOK_OVER` (sticky, unlike `humanReplied`). Conversations draws
+  who holds the thread (`app/components/messaging/AiHolderBar.js`) and
+  "Let {name} continue" posts to `/api/messaging/threads/[id]/ai-resume`,
+  whose candidate is the same `resumeCandidate` that printed the name.
+- **Burst lock.** Every inbound waits `BURST_DEBOUNCE_MS` (2.5 s; 6 s when
+  it is the third in ten seconds) and yields to a newer message; a reply
+  composed while a newer message landed is recorded (`burst_merged`) and
+  never sent.
+- **The routing log.** `AiEmployeeRoutingEvent` — assigned / handed_off /
+  human_took_over / resumed / escalated / burst_merged — feeds the flow
+  view's "this week" counts (`routingCounts` → `summariseRouting`).
+- **The flow view.** `app/components/aiEmployee/TeamFlow.js`, no library:
+  channels → front desk (drop-down per intent) → one card per employee
+  with a chip per tool (solid / outlined switch / "not in this role") →
+  hand-offs → the proposals gate with each mode → a person. Read-only but
+  the drop-downs and the switches (`AiEmployee.disabledTools`, honoured by
+  `toolsForRole`, `definitionsForRole` and `executeFor`), saved through
+  `PATCH /api/ai-employee`. The check renders it for real (Next's SWC
+  binding) and compares the chips to roles.js — a tool missing from the
+  picture fails the build. Photographed at 1280 and 375 by the app-guide
+  harness (`ai-team-flow`, `ai-team-flow-phone`).
+
+## Subscribe your phone's calendar to your FieldQuo schedule (20 September 2026)
+
+Option 1 — no OAuth. `Member.calendarFeedToken` (per member, minted on the
+first visit to Settings → My calendar, rotated by "Regenerate link", the old
+URL answering an empty 404). `GET /api/calendar/feed/{token}.ics`
+(`app/api/calendar/feed/[token]/route.js`) reads `loadScheduleFeed` — the
+one scoping function the calendar screen and the day map use — over now −
+30 days to now + 365, and `lib/calendar/feed.js` turns it into VEVENTs:
+stable UIDs, `SEQUENCE` and `LAST-MODIFIED` from the row's `updatedAt`
+(added to JobVisit and Booking), `STATUS:CANCELLED` for a month, DTSTART /
+DTEND with `TZID` in the company timezone and a generated VTIMEZONE
+(`lib/calendar/vtimezone.js`, Intl-driven, DST transitions bisected to the
+minute), `X-PUBLISHED-TTL:PT15M`, lines folded at 75 octets. The SUMMARY's
+mode words are `bookingModeLabel`'s; LOCATION prints a client's phone only
+to a member at `clientsProperties: full_view`, and no email ever. The page
+(`app/app/settings/my-calendar/page.js`, a shell whose sections are their
+own files so the Google-Calendar OAuth work lands beside it) offers Google
+(`calendar.google.com/calendar/r?cid=webcal://…`), Apple (`webcal://`) and
+Outlook (copy), nine languages, visible to every role.
+`scripts/check-calendar-feed.mjs` (137 assertions, in `check:all`) runs the
+real route against a scripted database: the token gate, the owner /
+estimator / crew scoping matrix, a minimal ICS parser, a moved row's higher
+SEQUENCE, the DST pair for America/Toronto and the single observance for
+America/Phoenix, and no phone or email in a crew feed.
 
 ## The AI employee: three permission modes with a floor, a proposals inbox, website chat and SMS on the one inbox, real bookings, faces and voices, one employee per role, on the best model (19 September 2026)
 
@@ -590,7 +935,8 @@ was in that week.
   not per call. The task carries `recrawl: true, previousCrawledAt`.
 - **Standing trigger**: `lib/sales/pipeline/recrawl.js` `sweepRecrawls`,
   once per `/api/cron/sales-pipeline` run after the drain, `RECRAWL_PER_TICK`
-  = 20 (the Places sweep's number), `RECRAWL_PENDING_CEILING` = 200, rows
+  = 20 (was the Places sweep's number; the sweep is retired, the cap stays),
+  `RECRAWL_PENDING_CEILING` = 200, rows
   with a live crawl skipped before the planner. The claim route's research
   call is in the claimed lane, so a just-claimed stale row re-crawls first.
 - **Unchanged**: `crawlWebsite.js` returns `done: true, advance: false` and
@@ -987,6 +1333,51 @@ FieldQuo could show.
 
 ---
 
+
+## A bank debit above Stripe's $3,000 PAD cap is refused in words, never a 500 (20 September 2026)
+
+**The incident.** 2026-09-19T15:15:37Z, TrueFinish Cabinets (CA/CAD, PAD
+active): `POST /api/portal/<token>/pay` with `method: "bank"` on a $4,150
+invoice → 500. Stripe (`req_0ymITOokGO1xzZ`) refused the Checkout Session:
+`amount_too_large` — "The Checkout Session's total amount due must be no
+more than $3,000.00 CAD for the provided payment method types." Measured in
+test mode on 2026-09-20: a session naming only `acss_debit` is refused at
+300,001 cents and accepted at 300,000; Affirm on the same account took
+$5,000, so the cap is PAD's, not financing's. The portal rendered the bank
+button for any amount, the pay route called Stripe with no try/catch, and
+the homeowner saw a bare 500 under the contractor's logo.
+
+**What changed.**
+
+- `lib/stripe/bankDebit.js` — `BANK_DEBIT_MAX_CENTS` (`acss_debit:
+  300_000`, with the provenance; `us_bank_account: null` — no measured cap,
+  and null means "unmeasured", never "unlimited"), `bankDebitAmountEligible`,
+  and `bankDebitOffer({ company, amountCents })` → `{ method, eligible,
+  maxCents }` so a page can say why the button is missing.
+- `GET /api/portal/[token]` — no company-level `bankDebit` any more; each
+  invoice carries the offer for its balance and each `requested` stage the
+  offer for its own share (a $3,000 deposit on a $12,000 invoice qualifies
+  where the balance does not). Both portal pages render the bank button only
+  on `eligible` and otherwise the sentence "Bank debit is available up to
+  $3,000.00 per payment — this invoice is $4,150.00, so it's card only."
+  (`clientDocCopy.bankOverCap`, eight languages).
+- `POST /api/portal/[token]/pay` — refuses `bank` above the cap with a 400
+  and that sentence, in the client's language, BEFORE Stripe is asked; wraps
+  `createInvoiceCheckoutSession`: our own refusals pass through with their
+  status, anything from Stripe is recorded (`area: stripe_checkout`, code,
+  invoice, method, amount, Stripe request id) and answered "This payment
+  couldn't be started — please try by card, or contact {company}." — 400 for
+  a `StripeInvalidRequestError`, 502 otherwise. Stripe's wording never
+  reaches a homeowner.
+- `lib/stripe.js` bank branch — the same guard before the create (belt and
+  braces), throwing `status: 400`, `code: "bank_debit_over_cap"`.
+- `scripts/check-bank-debit-cap.mjs` executes all four layers against a
+  scripted db and a scripted Stripe that throws the real error.
+
+**Still owed here.** The US ACH cap is unmeasured. Measure it against Stripe
+Checkout in test mode the same way before filling `us_bank_account` in.
+
+---
 
 ## Affirm is a capability the platform requests, and the settings card says what Stripe answered (19 September 2026)
 
@@ -1946,13 +2337,15 @@ carries nobody (24 columns, no répondant).
   20 pairs a day a source (setting), 90-day pair dedupe, cost metered from
   the run's own usage into `PlatformCostDaily` (`apify`), unmatched rows
   kept in `ExternalListing`. A matched Maps row is written through
-  `planPlacesWrite` — the card cannot tell it from a Places-API lead. Not
-  exercised for real: `APIFY_TOKEN` is unset; the console names it.
+  `planPlacesWrite` — the same write a Places-API lead got before the API
+  was retired. Not exercised for real: `APIFY_TOKEN` is unset; the console
+  names it.
 - One order for every pass, `lib/sales/intel/enrichmentOrder.js`: open
   claims, then the trades being worked in dispatch order, never the pool;
   `/platform/sales/prospects` prints how far ahead of the dispatcher each
-  pass is per trade. Tier-2 Places lookups stay off until
-  `sales.places.aheadPerHour` is set — a paid request the owner has not sized.
+  pass is per trade. (The tier-2 Places cap, `sales.places.aheadPerHour`,
+  went with the Places sweep on 2026-09-20; the "Maps listing" column now
+  reports rows the Mac scrape matched.)
 - `npm run check:who-to-ask-for` — 121 checks: the CSLB parser on the
   file's own shapes, the BBB parser on saved AMS pages and hostile ones, the
   matcher on the wrong city / a chain / phone-only, never-overwrite, typed
@@ -1962,7 +2355,145 @@ Write-up: `docs/sales-intel/SOURCE-WHO-TO-ASK-FOR.md`.
 
 ---
 
-## Google Places corroborates every claimed lead: website, phone and trading status confirmed or contradicted in words (18 September 2026)
+## Regional passes, matched_verify, promotion, BBB headcount (21 September 2026)
+
+The owner, 2026-09-21: "Can we focus the Google Places [scrape] on NY, FL and
+California? I don't know if the BBB is set that way — prioritise those
+first." And, on the matcher's refusals measured on production (914
+name_disagrees, 406 no candidate, 255 place_disagrees, and ~150 where the
+phone or domain was the record's and only the name disagreed): the first
+three are correct, the last four are "almost certainly the same business".
+And: "the ~2,568 unmatched open businesses with phone numbers — can we
+determine their trades? Send them to the place in the platform where the AI
+identifies them and I put them in a trade, and then have the web crawler and
+the other analytics run so they can be used as leads."
+
+- **`--state`** on both scripts (`scripts/scrape/maps.mjs`,
+  `scripts/bbb-principal.mjs`; repeatable, `NY,FL,CA`, `--province QC`, full
+  names accepted, an unknown token stops the run).
+  `lib/sales/intel/enrichmentOrder.js` `loadEnrichmentOrder({ regions })`
+  filters the claims in memory and the candidates in the WHERE — before
+  ranking, so the window is the first 400 rows IN those states — and counts
+  what it dropped; `pairsFromRows(rows, byId, { regions })` applies it again
+  and reports `skippedOutside`. Measured on production the day it landed:
+  NY/FL/CA left 12 pairs of held leads and dropped 61,987 prospects (10 held,
+  61,977 next in dispatch). The run writes a trimmed summary to
+  `PlatformSetting` `sales.mapsScrape.runs` at every checkpoint
+  (`recordScrapeRun`), and `MapsScrapePanel` prints the states, the skipped
+  count, the verify count and the promotion per run — "not recorded" for a
+  run before this or a dry run, never "no filter".
+- **The matcher** (`lib/sales/intel/places.js` `nameTokens` / `nameOverlap`,
+  `lib/sales/intel/listings.js`): runs of single letters are one token ("B
+  P" ≡ "B.P." ≡ "B&P" ≡ "BP"); the trade words are set aside for a second,
+  SYMMETRIC reading (shared over the longer core) when both names keep a
+  word and do not name different trades — the first dry rematch, with a
+  register-only reading, called "MK Best Roofing" ≡ "Atlantic Do it Best
+  Hardware" and "Chimney MD" ≡ "Allied Roofing and Chimney"; the symmetric
+  reading refuses both and every shape like them is in the check. The
+  row's city is a place word for that reading ("Rochester Remodeling and
+  Home Builders" is not "Quality Homes of Rochester" — the second dry
+  rematch found it), and two different towns on the two signs is two
+  branches of one franchise: no core reading, no identity accept, no verify
+  ("Servpro of El Cajon" ≠ "Servpro of Lakeside"). A listing
+  whose phone or website domain IS the record's and whose name the rule
+  still refuses is attached under **`matched_verify`**: the listing linked,
+  Google's fields filling blanks only exactly as a match does,
+  `placesVerdict` `matched_verify`, and a confirmation the rep card and the
+  brief print first — "Google lists this number as {name} — a rebrand or a
+  shared line; confirm on the call" (`app.salesIntel.places.identity.*`, all
+  nine languages). A phone or domain that two or more candidates in the net
+  carry is a network, not a business — servpro.com is 323 prospects,
+  instagram.com 474 — and is struck from the verify AND from the older
+  "identity plus a shared word" accept; platform domains (`SHARED_DOMAINS`)
+  never count. name_disagrees without identity, place_disagrees and
+  no-candidate are refused as before, asserted.
+- **`maps.mjs --rematch [--apply]`** (`lib/sales/intel/rematch.js`) rebuilds
+  each refused row's record and runs the SAME `applyListing`, stamps left at
+  the sighting; count first, `--apply` writes.
+- **`maps.mjs --promote [--apply] [--state …]`**
+  (`lib/sales/intel/promoteListings.js`): an unmatched, open listing with a
+  phone and a name, no Prospect on its phone / domain / place id, not on the
+  do-not-contact list, not a supply house by name or category, becomes a
+  Prospect (`sourceProvider` `google_maps`, `sourceRecordId` the place id,
+  no campaign) with the ingest's own status — `discovered` and the trade
+  when Google's category maps to one (1,728 of the 1,862 promotable rows:
+  straight into that trade's queue), `discovered` with no trade or
+  `needs_review` otherwise (134: the review folder's "no trade" / "unclear",
+  where the trade suggestions and bulk assign already are). The research
+  chain is queued on the backlog lane once, after the writes. The listing's
+  `promotedProspectId` is set in the same transaction (re-checked null at
+  write time); the Prospect unique on (sourceProvider, sourceRecordId) is the
+  second lock. **Every sweep ends by promoting its own run's listings.** The
+  panel prints "promotable now: N · promoted: M". Dry-run on production:
+  1,862 of 2,551 (NY 720, no-province 611, ON 226, QC 93, NJ 85, CA 69, FL
+  41 …); NY/FL/CA only: 836 of 1,303. `google_maps` has a contact basis
+  (`lib/sales/contactBasis.js`) so the card says "Google Maps listing".
+- **BBB's employee band**: the parser already read the `<dl>` row; BBB shows
+  it on a minority of profiles (one of the 54 matched in production; two of
+  three opened by hand had none). It now also reads the JSON-LD
+  `numberOfEmployees`, "Business Incorporated" and "Years in Business"
+  (evidence only, never a start year), and
+  `scripts/fixtures/bbb/undisputed-plumbers.profile.html` — the one
+  production profile with the row — drives parse → `planBbbWrite` →
+  `employeeRange` → `planFitForRange` in `check:who-to-ask-for`.
+- Merged on the way: `agent/places-retire` (the Places API retirement, the
+  runId fix) — it had been finished and never pushed, and the panel this
+  work extends is in it.
+- Not touched: `lib/sales/calls`, `app/api/rep-dial` (a telemetry agent is
+  live there). Two checks fail on `origin/main` before this work and still
+  do, unrelated: `check:sales-brief` ("the head of the chain", a
+  `salesPipelineTask[0]` undefined) and `check:prospect-ui` (a `findMany`
+  undefined).
+
+---
+
+## The Google Places API sweep is retired; the prospects page reads the Mac scrape (20 September 2026)
+
+The owner's rule (2026-09-18): Google data is scraped from his Mac —
+`scripts/scrape/maps.mjs` → `ExternalListing` rows, source `google_maps` →
+`lib/sales/intel/listings.js` matches them to prospects. "API keys never
+involved." The Places sweep below was built the day before that rule and, from
+2026-09-18T11:48Z, was refused on every request — `PERMISSION_DENIED`,
+"Requests to this API places.googleapis.com … are blocked", 9,181
+`PlatformErrorLog` rows, one a minute from the cron — until it was removed.
+(One batch did run before the block: 119 requests at 03:03Z that morning, 82
+matched; those 64 stamped rows keep their evidence under detector
+`places.textSearch:1`.)
+
+- Deleted: `lib/sales/intel/placesSweep.js`, `searchPlaces` / `checkPlaces` /
+  `enrichProspects` / the metering from `places.js`, `POST|GET
+  /api/platform/sales/prospects/enrich`, `GooglePlacesPanel.js`, the
+  claim-time Places `after()` in the queue route, the `placesAhead` setting.
+  `places.js` keeps the match rule, `planPlacesWrite` and the confirmations —
+  the Maps scrape path runs them. The register-people sweep moved, unchanged,
+  to `lib/sales/intel/enrichmentSweep.js`.
+- Replaced: `/platform/sales/prospects` shows what the scrape LANDED
+  (`lib/sales/intel/mapsScrapeStatus.js`, `GET
+  …/prospects/maps-scrape`): the last run by `runId` with rows / matched /
+  unmatched / first and last write, earlier runs, the null-runId bucket, the
+  $0 meter, and "The next sweep runs from the owner's Mac; nothing here calls
+  Google." Per prospect, a read-only statement of its matched listing(s).
+  No button: production cannot start a scrape. The panel can only show what
+  is in the database — the run log stays under `~/Library` on the Mac.
+- Found on the way: `listingRow` took `runId` and never wrote it, so all
+  4,239 rows from the first two nights carry null. Fixed; the panel names the
+  bucket rather than attributing it to a run.
+- The 9,181 rows are never deleted. The cron's `retirePlacesRefusals`
+  (`lib/platform/errorLog.js`) marks them reviewed once — `area = places AND
+  code = PERMISSION_DENIED AND resolvedAt IS NULL`, on the `(area, createdAt)`
+  index — as `system:places-retired` with the reason on every row and one
+  audit row; count 0 every tick after.
+- `npm run check:places-retired` asserts no Places endpoint in code under
+  `lib/sales`, `app/api/sales`, `app/api/cron`, `app/api/platform/sales`, no
+  `placesSweep` import, no `places` key in the cron result, the resolver's
+  exact WHERE (executed), the panel's sentence and no enrich fetch, no Places
+  `after()`. `check:places-enrich` keeps the rule's 60 checks.
+- Costs: the `google_places` line prints only in a period that holds the
+  retired rows, labelled retired; the Mac's $0 line is the Google line.
+
+---
+
+## Google Places corroborates every claimed lead: website, phone and trading status confirmed or contradicted in words (18 September 2026) — RETIRED 2026-09-20, see above
 
 DRAIN KINGS (Chatsworth, from the CSLB C-36 register) read "Website: none on
 record — nothing has crawled this business" while drainkingslosangeles.com was

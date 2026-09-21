@@ -12,6 +12,10 @@
 //   POST → hire one: { role }. One per role — the schema's unique.
 //   PUT  → save one: { id, ...fields }. A mode change and an on/off change
 //          each write an audit row naming who did it and what it was before.
+//   PATCH → the flow view's two edits: { id, intents?, disabledTools? }.
+//          An intent moves to this employee and off every other; a
+//          disabled tool must be one the role allows and the company may
+//          switch (lib/aiEmployee/roles.js switchableToolsForRole).
 //
 // Owner/admin only, the same rung as the AI credit plan and the phone
 // receptionist: this decides what gets said to customers in the company's
@@ -36,7 +40,10 @@ import {
   CLOSED_ROLE,
   roleFor,
   instructionsFingerprint,
+  switchableToolsForRole,
+  cleanDisabledTools,
 } from "@/lib/aiEmployee/roles";
+import { INTENTS, ROLE_FOR_INTENT, isIntent, routingCounts } from "@/lib/aiEmployee/routing";
 import { TOOL_RISK } from "@/lib/aiEmployee/tools";
 import { MODES, MODE_SENTENCE_KEY, FLOOR_LIST_KEYS, modeOf } from "@/lib/aiEmployee/permission";
 import { CHANNELS, channelConflicts } from "@/lib/aiEmployee/employees";
@@ -80,7 +87,21 @@ async function admin(request, { allowSupportToLook = false } = {}) {
  */
 async function loadOrCreate(companyId, { mayCreate = true } = {}) {
   const rows = await db.aiEmployee.findMany({ where: { companyId }, orderBy: { createdAt: "asc" } });
-  if (rows.length) return rows;
+  if (rows.length) {
+    // A row hired before its role had a portrait (the receptionist rows
+    // created on 2026-09-19 predate lib/aiEmployee/faces.js) shows initials
+    // for ever unless somebody picks a face. Give it the role's default once,
+    // here, so the team list looks the way a fresh hire does. A role with no
+    // portrait (troubleshooter) keeps initials — nothing is invented.
+    const faceless = rows.filter((r) => !r.avatarUrl && defaultFaceFor(r.role));
+    if (faceless.length && mayCreate) {
+      await Promise.all(
+        faceless.map((r) => db.aiEmployee.update({ where: { id: r.id }, data: { avatarUrl: defaultFaceFor(r.role) } }).catch(() => null)),
+      );
+      for (const r of faceless) r.avatarUrl = defaultFaceFor(r.role);
+    }
+    return rows;
+  }
   // An impersonating support session must never write, and "read the screen"
   // would otherwise create a row for a company that never opened it. They get
   // the same defaults the create would have used, unsaved.
@@ -122,6 +143,11 @@ function publicEmployee(row) {
     handoffPhrase: row.handoffPhrase,
     businessHoursOnly: row.businessHoursOnly,
     maxRepliesPerThread: row.maxRepliesPerThread,
+    // The flow view's two editable facts. Cleaned on the way out as well as
+    // in, so a tool the role no longer allows (a role change) never shows
+    // as "off" for a tool that is not there.
+    disabledTools: cleanDisabledTools(row.role, row.disabledTools),
+    intents: Array.isArray(row.intents) ? row.intents.filter(isIntent) : [],
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -133,7 +159,7 @@ export async function GET(request) {
 
   const employees = await loadOrCreate(member.companyId, { mayCreate: !member.impersonation });
 
-  const [company, quota, connection, smsNumber] = await Promise.all([
+  const [company, quota, connection, smsNumber, counts] = await Promise.all([
     db.company.findUnique({
       where: { id: member.companyId },
       select: { businessHours: true, timezone: true, slug: true, bookingSlug: true },
@@ -145,6 +171,8 @@ export async function GET(request) {
     // The SMS channel needs a number FieldQuo holds. Null means the channel
     // is greyed out with one sentence — never a switch that fails.
     systemSmsNumber().catch(() => null),
+    // This week's routing counts for the flow view's arrows, from the log.
+    routingCounts({ companyId: member.companyId }).catch(() => null),
   ]);
 
   const slug = String(company?.bookingSlug || company?.slug || "").trim();
@@ -160,9 +188,18 @@ export async function GET(request) {
         blurbKey: preset.blurbKey,
         allowed: preset.allowed,
         forbidden: preset.forbidden,
+        // The subset the company may switch off — the two hand-offs are
+        // never on this list.
+        switchable: switchableToolsForRole(key),
         defaultFace: defaultFaceFor(key),
       };
     }),
+    // ── The flow view ─────────────────────────────────────────────────
+    flow: {
+      intents: INTENTS,
+      roleForIntent: ROLE_FOR_INTENT,
+      counts,
+    },
     toolRisk: TOOL_RISK,
     modes: MODES.map((key) => ({ key, sentenceKey: MODE_SENTENCE_KEY[key] })),
     floorKeys: FLOOR_LIST_KEYS,
@@ -354,4 +391,113 @@ export async function PUT(request) {
   }
 
   return NextResponse.json({ employee: publicEmployee(saved) });
+}
+
+/**
+ * PATCH → the flow view's edits. Both fields optional; both cleaned.
+ *
+ * Intents move in one transaction: the chosen employee gains the intent and
+ * every other employee of the company loses it, so pickAssignee can never
+ * find two explicit destinations for one intent. disabledTools is filtered
+ * through the role's switchable list — a forbidden tool has no switch, and
+ * the two hand-offs are always on (roles.js says why).
+ */
+export async function PATCH(request) {
+  const { member, response } = await admin(request);
+  if (response) return response;
+
+  const body = await request.json().catch(() => ({}));
+  const id = typeof body?.id === "string" ? body.id : null;
+  if (!id) return NextResponse.json({ error: "Say which employee." }, { status: 400 });
+
+  const rows = await loadOrCreate(member.companyId);
+  const current = rows.find((r) => r.id === id);
+  if (!current) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  const data = {};
+  if ("disabledTools" in body) {
+    data.disabledTools = cleanDisabledTools(current.role, body.disabledTools);
+  }
+  let intents = null;
+  if ("intents" in body) {
+    intents = Array.from(new Set((Array.isArray(body.intents) ? body.intents : []).filter(isIntent)));
+    data.intents = intents;
+  }
+  if (!Object.keys(data).length) return NextResponse.json({ error: "Nothing to change." }, { status: 400 });
+
+  const saved = await db.$transaction(async (tx) => {
+    if (intents && intents.length) {
+      // Each intent leaves every other employee. Row by row rather than a
+      // single array-remove UPDATE, because Prisma has no array-remove and
+      // the rows are at most four.
+      for (const other of rows) {
+        if (other.id === current.id) continue;
+        const kept = (other.intents || []).filter((i) => !intents.includes(i));
+        if (kept.length !== (other.intents || []).length) {
+          await tx.aiEmployee.update({ where: { id: other.id }, data: { intents: kept } });
+        }
+      }
+    }
+    return tx.aiEmployee.update({ where: { id: current.id }, data });
+  });
+
+  if ("disabledTools" in data) {
+    await recordActivity(member, {
+      action: "ai_employee.tools_changed",
+      entityType: "settings",
+      entityId: saved.id,
+      summary: `AI ${saved.role}: switched off ${data.disabledTools.length ? data.disabledTools.join(", ") : "nothing"}`,
+      summaryKey: "app.activity.event.aiEmployee.toolsChanged",
+      summaryParams: { role: saved.role, count: data.disabledTools.length },
+    }).catch(() => {});
+  }
+  if (intents) {
+    await recordActivity(member, {
+      action: "ai_employee.intents_changed",
+      entityType: "settings",
+      entityId: saved.id,
+      summary: `AI ${saved.role} now takes: ${intents.length ? intents.join(", ") : "its role's default"}`,
+      summaryKey: "app.activity.event.aiEmployee.intentsChanged",
+      summaryParams: { role: saved.role, intents: intents.join(", ") || "—" },
+    }).catch(() => {});
+  }
+
+  // The whole team, because an intent move changes other rows too.
+  const all = await db.aiEmployee.findMany({ where: { companyId: member.companyId }, orderBy: { createdAt: "asc" } });
+  return NextResponse.json({ employee: publicEmployee(saved), employees: all.map(publicEmployee) });
+}
+
+/**
+ * DELETE → fire one: { id }. The row and everything hanging off it —
+ * proposals, replies — go with it (both relations cascade), the channels it
+ * held fall back to the human inbox the moment the row is gone, and an
+ * activity row says who fired whom. The last employee may be fired too: GET
+ * recreates a switched-off receptionist on the next read, which is the same
+ * empty state a company that never opened the page sees. The owner, 2026-09-20:
+ * "I should be able to fire / delete them."
+ */
+export async function DELETE(request) {
+  const { member, response } = await admin(request);
+  if (response) return response;
+
+  const body = await request.json().catch(() => ({}));
+  const id = typeof body?.id === "string" ? body.id : null;
+  if (!id) return NextResponse.json({ error: "Say which employee." }, { status: 400 });
+
+  // Under companyId — an id from another company is "not found", never a
+  // delete somewhere else.
+  const current = await db.aiEmployee.findFirst({ where: { id, companyId: member.companyId } });
+  if (!current) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  await db.aiEmployee.delete({ where: { id: current.id } });
+  await recordActivity(member, {
+    action: "ai_employee.fired",
+    entityType: "settings",
+    entityId: current.id,
+    summary: `Fired the AI ${current.role}${current.displayName ? ` (${current.displayName})` : ""}`,
+    summaryKey: "app.activity.event.aiEmployee.fired",
+    summaryParams: { role: current.role },
+  }).catch(() => {});
+
+  return NextResponse.json({ ok: true, id: current.id });
 }

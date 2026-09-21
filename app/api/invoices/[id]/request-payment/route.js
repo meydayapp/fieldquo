@@ -18,6 +18,7 @@ import { sendEmail, SENDER_SELECT } from "@/lib/email/resend";
 import { resolveSender } from "@/lib/email/companySender";
 import { ensurePortalToken, portalInvoiceUrl } from "@/lib/clientPortal";
 import { buildInvoiceEmail } from "@/lib/email/invoiceEmail";
+import { HOW_TO_PAY_COMPANY_SELECT } from "@/lib/payments/offlineMethods";
 import { refreshFamilyLedger } from "@/lib/invoices/family";
 import { resolveClientLanguage } from "@/lib/i18n/clientLanguage";
 import {
@@ -113,10 +114,9 @@ export async function POST(request, { params }) {
       // currency than the invoice it is chasing.
       currency: true,
       paymentTerms: true,
-      paymentMethods: true,
       defaultLanguage: true,
-      stripeAccountId: true,
-      stripeChargesEnabled: true,
+      // The "How to pay" block, when the invoice has none stored yet.
+      ...HOW_TO_PAY_COMPANY_SELECT,
     },
   });
 

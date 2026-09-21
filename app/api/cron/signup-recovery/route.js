@@ -107,7 +107,18 @@ export async function GET(request) {
     if (verdict.suppressed) suppressedAddresses.add(email);
   }
 
-  const { sends, skipped } = planSignupNudges({ companies, suppressedAddresses, now });
+  // ── The companies a rep is already on ───────────────────────────────────
+  //
+  // A welcome-call or stalled row the owner handed to a rep
+  // (lib/signup/salesFloor.js) means the rep's own intro email and call are
+  // the follow-up; this letter stays unsent while the lease is live.
+  const heldRows = await db.prospect.findMany({
+    where: { companyId: { in: companies.map((c) => c.id) }, assignedRepId: { not: null }, OR: [{ claimExpiresAt: null }, { claimExpiresAt: { gt: now } }] },
+    select: { companyId: true },
+  });
+  const heldCompanyIds = new Set(heldRows.map((r) => r.companyId));
+
+  const { sends, skipped } = planSignupNudges({ companies, suppressedAddresses, heldCompanyIds, now });
 
   const counts = {};
   const note = (reason) => { counts[reason] = (counts[reason] || 0) + 1; };

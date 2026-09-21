@@ -492,7 +492,7 @@ export const ARTICLES = {
       "Two settings that look alike and mean different things: the language you read FieldQuo in, and the company default that teammates and clients inherit when they have chosen none.",
     updated: "2026-09-12",
     intro: [
-      "**Language** is one of the three Settings rows every member sees, Crew included, because half of it is personal: **Your language** is what *you* read the app in, and changing it touches nobody else. The other half, **Company default**, is what everyone who has not chosen inherits — and what a client's documents use when the client has no language of their own.",
+      "**Language** is one of the four Settings rows every member sees, Crew included, because half of it is personal: **Your language** is what *you* read the app in, and changing it touches nobody else. The other half, **Company default**, is what everyone who has not chosen inherits — and what a client's documents use when the client has no language of their own.",
       "FieldQuo ships eight languages: English, Français, Español, Українська, ਪੰਜਾਬੀ, Tagalog, Deutsch and Italiano. Client documents and emails exist in all eight; the back-office interface is complete in some and partly English in others, and the page says which is which.",
     ],
     sections: [
@@ -679,7 +679,7 @@ export const ARTICLES = {
       "Two weeks per person on one screen: Working hours, the shift the schedule and timesheets use, and Bookable hours, the window clients can book on the public page — with a picker to set someone else's.",
     updated: "2026-09-12",
     intro: [
-      "The **Availability** row opens a page titled **Your hours**, and it is one of the three Settings rows every member sees, because these hours are the person's own. It holds two different weeks on purpose: **Working hours**, the shift, and **Bookable hours**, the window a client may book. An estimator works 8 to 4 but only takes consultations 2 to 4 because mornings are on site; one week cannot say that.",
+      "The **Availability** row opens a page titled **Your hours**, and it is one of the four Settings rows every member sees, because these hours are the person's own. It holds two different weeks on purpose: **Working hours**, the shift, and **Bookable hours**, the window a client may book. An estimator works 8 to 4 but only takes consultations 2 to 4 because mornings are on site; one week cannot say that.",
       "Someone with team access also gets a **Whose hours** picker at the top and can set a colleague's weeks — which is how a crew member who never signs in becomes bookable.",
     ],
     sections: [
@@ -748,6 +748,52 @@ export const ARTICLES = {
     ],
   },
 
+  "settings-my-calendar": {
+    title: "My calendar",
+    summary:
+      "Subscribe your own phone or computer calendar to your FieldQuo schedule — appointments, job visits and bookings — so it keeps itself up to date, with one private link you can regenerate.",
+    updated: "2026-09-20",
+    intro: [
+      "The **My calendar** row is one of the Settings rows every member sees, because the link on it is yours: a private address your calendar app re-reads on its own. Subscribe once, and every appointment, job visit and booking that is on your FieldQuo calendar appears in Google Calendar, Apple Calendar or Outlook and follows along when it moves or is cancelled.",
+      "It carries the same rows your FieldQuo calendar shows you, scoped the same way. A crew member's feed is a crew member's day; an owner's is the whole company's.",
+    ],
+    sections: [
+      {
+        id: "what-is-on-the-screen",
+        heading: "What is on the screen",
+        blocks: [
+          { bullets: [
+            "**Subscribe in Google Calendar** — opens Google's add-by-address page in a new tab with your link filled in.",
+            "**Apple Calendar** — opens the subscribe sheet on an iPhone or Mac.",
+            "**Outlook (copy link)** — copies the address; paste it into Outlook's *Subscribe from web*.",
+            "**Your private link** — the address itself, in a read-only box with a copy button.",
+            "**Regenerate link** — asks first, then replaces the address. Every device you subscribed stops updating until you subscribe again with the new one.",
+          ] },
+          { note: "Google re-reads every few hours, Apple every 15 minutes to an hour. A change you make in FieldQuo is not on the phone the same second; it is there by the next read." },
+        ],
+      },
+      {
+        id: "what-each-event-carries",
+        heading: "What each event carries",
+        blocks: [
+          { p: "The title says what it is and who it is for — *Site visit — Ana Ruiz*, *Phone call — Mr Lalonde*, *Job visit: Repaint 14 Elm St — Ana Ruiz*. The location is the site address, or, for a phone call, the client's number when your access level lets you see it. The description holds a link back into FieldQuo and any notes; a client's email or phone is never written there." },
+          { p: "An event with no set duration is shown as one hour and says so in its description, so a placeholder never reads as a fact. A cancelled row stays for thirty days marked as cancelled, so a phone that cached it strikes it out rather than keeping a stale copy." },
+        ],
+      },
+      {
+        id: "keep-the-link-private",
+        heading: "Keep the link private",
+        blocks: [
+          { warning: "Anyone holding the address can read your schedule — it is the credential. If it gets out, press **Regenerate link**; the old address stops answering at once, and the regeneration is written to the company's Activity log." },
+        ],
+      },
+    ],
+    faq: [
+      { q: "Is this the same as Add to calendar on My schedule?", a: "No. Add to calendar downloads your published shifts once. This is a subscription to your appointments, job visits and bookings, and it keeps itself current." },
+      { q: "Which language are the events in?", a: "The company's default language — the feed has no signed-in person to ask, and the phone reading it is usually set to the same language as the team." },
+      { q: "I work for two companies. Do I get one feed or two?", a: "Two, one per company, each scoped by that company's access rules. Subscribe to both if you want both on the phone." },
+    ],
+  },
   "settings-time-off-policies": {
     title: "Time off policies",
     summary:

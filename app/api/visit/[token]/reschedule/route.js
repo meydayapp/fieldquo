@@ -6,17 +6,20 @@ import { db } from "@/lib/db";
 import { rateLimit } from "@/lib/rateLimit";
 import { getAppOrigin } from "@/lib/appUrl";
 import { computeAvailableSlots } from "@/lib/booking/computeAvailability";
+import { eventTypeForMode } from "@/lib/booking/bookingModes";
 import { canClientChange, changeNoticeHours } from "@/lib/booking/changePolicy";
 import {
   loadVisitByToken,
   visitView,
-  visitWhere,
+  visitFacts,
   visitManagePath,
   planReschedule,
   slotIsOffered,
   reasonMessage,
 } from "@/lib/booking/manageVisit";
 import { sendVisitRescheduledEmails } from "@/app/admin/lib/email/templates";
+import { bookingInviteAttachment, nextSequence } from "@/lib/booking/bookingInvite";
+import { scheduleSync } from "@/lib/calendar/googleSync";
 
 // Public, token-only — the client moving their own visit.
 //
@@ -154,7 +157,11 @@ export async function GET(request, { params }) {
       : null;
 
   const slotsByDate = await computeAvailableSlots({
-    eventType,
+    // The booking keeps its mode on a move, so the new time is found at that
+    // mode's length — a phone call re-slotted at the call's twenty minutes,
+    // a visit at the visit's hour. Same function planReschedule sizes the
+    // new end time with, so the two cannot disagree.
+    eventType: eventTypeForMode({ company, eventType, mode: booking.mode }),
     fromDate: from,
     toDate: to,
     destination,
@@ -237,7 +244,11 @@ export async function POST(request, { params }) {
       : null;
 
   const slotsByDate = await computeAvailableSlots({
-    eventType,
+    // The booking keeps its mode on a move, so the new time is found at that
+    // mode's length — a phone call re-slotted at the call's twenty minutes,
+    // a visit at the visit's hour. Same function planReschedule sizes the
+    // new end time with, so the two cannot disagree.
+    eventType: eventTypeForMode({ company, eventType, mode: booking.mode }),
     fromDate,
     toDate,
     destination,
@@ -262,9 +273,13 @@ export async function POST(request, { params }) {
   // constraint, not another read.
   const previousStartTime = booking.startTime;
 
+  // The invite's SEQUENCE goes up in the same write: the letter re-sends the
+  // confirmation's UID one higher, which is what makes the client's calendar
+  // replace the event rather than add a second beside it.
+  const sequence = nextSequence(booking);
   await db.booking.update({
     where: { id: booking.id },
-    data: { startTime: plan.start, endTime: plan.end },
+    data: { startTime: plan.start, endTime: plan.end, calendarSequence: sequence },
   });
 
   // The crew's calendar moves with it. Without this the appointment stays at
@@ -275,10 +290,13 @@ export async function POST(request, { params }) {
       .update({ where: { id: booking.appointmentId }, data: { scheduledAt: plan.start } })
       .catch((err) => console.error("[visit] moving appointment failed:", err?.message));
   }
+  // And the estimator's Google Calendar moves with it.
+  if (booking.appointmentId) scheduleSync("appointment", booking.appointmentId);
+  else scheduleSync("booking", booking.id);
 
   const after = {
     ...visit,
-    booking: { ...booking, startTime: plan.start, endTime: plan.end },
+    booking: { ...booking, startTime: plan.start, endTime: plan.end, calendarSequence: sequence },
   };
 
   // The link they are already holding, so the new confirmation can be acted on
@@ -291,6 +309,15 @@ export async function POST(request, { params }) {
     console.error("[visit] manage link unavailable:", err?.message);
   }
 
+  const movedLanguage = visitView(after, now).language;
+  const invite = await bookingInviteAttachment({
+    booking: after.booking,
+    company,
+    language: movedLanguage,
+    sequence,
+    manageUrl,
+  });
+
   // Both sides get told. Best-effort — the visit has already moved.
   await sendVisitRescheduledEmails({
     company,
@@ -299,15 +326,16 @@ export async function POST(request, { params }) {
     eventTypeName: eventType.name,
     previousStartTime,
     startTime: plan.start,
-    location: visitWhere(after),
+    where: visitFacts(after.booking),
     timezone: company.timezone,
     quoteNumber: booking.quote?.quoteNumber || null,
     arrivalWindowMinutes: booking.mode === "visit" ? company.arrivalWindowMinutes : 0,
     manageUrl,
     // The language the page was rendered in — the quote's, else the company
     // default (visitView decides, so the letter and the page agree).
-    language: visitView(after, now).language,
+    language: movedLanguage,
     initiatedBy: "client",
+    ...(invite && { attachments: [invite] }),
   }).catch((err) => console.error("[visit] reschedule emails failed:", err?.message));
 
   return NextResponse.json({ ...visitView(after, now), rescheduled: true });

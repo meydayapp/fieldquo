@@ -507,7 +507,7 @@ export const ARTICLES = {
         id: "who-can-see-it",
         heading: "Who can see it",
         blocks: [
-          { p: "Everyone in the company, including Crew. It is one of the three Settings rows a Crew login keeps — with **Language** and **Your hours** — because nothing on it is company-specific and there is nothing to refuse. There is no API behind it and nothing to save." },
+          { p: "Everyone in the company, including Crew. It is one of the four Settings rows a Crew login keeps — with **Language**, **Your hours** and **My calendar** — because nothing on it is company-specific and there is nothing to refuse. There is no API behind it and nothing to save." },
           { tip: "FieldQuo does not email or notify you when an entry is added. If you want to know what changed, this row is the place to look." },
         ],
       },

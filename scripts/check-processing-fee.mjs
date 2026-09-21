@@ -343,12 +343,29 @@ console.log("\n── 2b. Bank debit on invoices: one method, its own fee, only 
     bank.bankDebitSessionOptions("us_bank_account").us_bank_account.verification_method === "automatic" && bank.bankDebitSessionOptions("paypal") === null);
   ok("the service-plan mandate shares the transaction_type rule", /acssTransactionType\(client\)/.test(read("lib/servicePlans/stripeMandate.js")));
 
-  // The sessions themselves, against the scripted Stripe.
+  // Stripe's per-debit cap: $3,000.00 CAD for PAD, measured, none measured
+  // for ACH. The pages, the pay route and the session builder are exercised
+  // end to end in scripts/check-bank-debit-cap.mjs; the numbers live here
+  // beside the rest of the bank-debit table.
+  ok("PAD is capped at 300,000 cents: 299,999 and 300,000 eligible, 300,001 not; ACH has no measured cap (null)",
+    bank.BANK_DEBIT_MAX_CENTS.acss_debit === 300_000 && bank.BANK_DEBIT_MAX_CENTS.us_bank_account === null &&
+      bank.bankDebitAmountEligible({ method: "acss_debit", amountCents: 299_999 }) && bank.bankDebitAmountEligible({ method: "acss_debit", amountCents: 300_000 }) &&
+      !bank.bankDebitAmountEligible({ method: "acss_debit", amountCents: 300_001 }) && bank.bankDebitAmountEligible({ method: "us_bank_account", amountCents: 300_001 }));
+
+  // The sessions themselves, against the scripted Stripe. $2,500, not the
+  // $5,000 this case used to send: a $5,000 PAD is over Stripe's cap and is
+  // now refused before Stripe — the fee arithmetic is the same ($25.40,
+  // capped at $5.00).
   captured.length = 0;
-  await stripeLib.createInvoiceCheckoutSession({ invoice: { ...invoice, total: 5000, client: { type: "residential" } }, company: COMPANY, successUrl: "s", cancelUrl: "c", method: "acss_debit" }, NO_LEDGER);
+  await stripeLib.createInvoiceCheckoutSession({ invoice: { ...invoice, total: 2500, client: { type: "residential" } }, company: COMPANY, successUrl: "s", cancelUrl: "c", method: "acss_debit" }, NO_LEDGER);
   const padSession = captured.find((x) => x.op === "checkout.sessions.create");
-  ok("a PAD session names ONLY acss_debit and carries the PAD fee: $5,000 → $5.00 (not the card's $150.30)",
+  ok("a PAD session names ONLY acss_debit and carries the PAD fee: $2,500 → $5.00 (not the card's $75.30)",
     padSession.params.payment_method_types.join() === "acss_debit" && padSession.params.payment_intent_data.application_fee_amount === 500, padSession.params.payment_intent_data);
+  captured.length = 0;
+  let overCap = null;
+  try { await stripeLib.createInvoiceCheckoutSession({ invoice: { ...invoice, total: 5000, client: { type: "residential" } }, company: COMPANY, successUrl: "s", cancelUrl: "c", method: "acss_debit" }, NO_LEDGER); } catch (e) { overCap = e; }
+  ok("a $5,000 PAD is refused by the session builder (400, bank_debit_over_cap) without calling Stripe",
+    overCap?.status === 400 && overCap.code === "bank_debit_over_cap" && captured.length === 0, overCap?.message);
   ok("  ^ with the mandate options and on_behalf_of, and the invoice in the intent's metadata",
     padSession.params.payment_method_options.acss_debit.mandate_options.payment_schedule === "sporadic" &&
       padSession.params.payment_intent_data.on_behalf_of === "acct_contractor" && padSession.params.payment_intent_data.metadata.invoiceId === "inv1");
@@ -371,15 +388,15 @@ console.log("\n── 2b. Bank debit on invoices: one method, its own fee, only 
   // The portal: no button without the capability; the fee never in the payload.
   const portal = read("app/api/portal/[token]/route.js");
   const pay = read("app/api/portal/[token]/pay/route.js");
-  ok("the portal payload derives bankDebit from companyBankDebitMethod(company) and exposes the method only",
-    /bankDebit = onlinePayments \? companyBankDebitMethod\(client\.company\) : null/.test(portal) && !/processingFee|feeCents|application_fee/.test(portal));
+  ok("the portal payload derives each invoice's (and stage's) bankDebit offer from bankDebitOffer(company, amount) and exposes no fee",
+    /onlinePayments \? bankDebitOffer\(\{ company: client\.company, amountCents \}\) : null/.test(portal) && /bankDebit: offerFor\(invoiceBalanceCents\(invoice\)\)/.test(portal) && !/processingFee|feeCents|application_fee/.test(portal));
   ok("the pay route accepts method 'card' | 'bank' only and re-checks the capability server-side (hiding a button is not access control)",
     /requestedMethod !== "card" && requestedMethod !== "bank"/.test(pay) && /const bankMethod = companyBankDebitMethod\(company\)/.test(pay) && /requestedMethod === "bank" && !bankMethod/.test(pay));
   ok("  ^ and reads no amount or fee from the body", !/body\.amount|body\.fee|amountCents\s*=\s*body/.test(pay));
   ok("  ^ a bank return says pending (?paid=bank), a card return says received (?paid=true)", /paid=\$\{method === "card" \? "true" : "bank"\}/.test(pay));
   for (const f of ["app/portal/[token]/ClientPortal.js", "app/portal/[token]/invoices/[id]/PortalInvoice.js"]) {
     const src = read(f);
-    ok(`${f.split("/").pop()}: the bank button renders only behind data.bankDebit and sends method 'bank'; no fee is printed`,
+    ok(`${f.split("/").pop()}: the bank button renders only behind an eligible bank offer and sends method 'bank'; no fee is printed`,
       /data-pay-bank=/.test(src) && /pay\((inv\.id, )?"bank"\)/.test(src) && !/fee/i.test(src.replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "")));
   }
   const { CLIENT_DOC_COPY } = await import("@/lib/i18n/clientDocCopy.js");

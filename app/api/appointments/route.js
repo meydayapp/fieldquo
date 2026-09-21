@@ -19,6 +19,7 @@ import { pickAbout, prefillLocation, aboutLabel } from "@/lib/schedule/appointme
 import { loadAboutRecord } from "@/lib/schedule/aboutRecord";
 import { geocodeAppointment, appointmentAddress } from "@/lib/geo/geocodeAppointment";
 import { loadScheduleFeed } from "@/lib/schedule/feed";
+import { scheduleSync } from "@/lib/calendar/googleSync";
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -365,6 +366,10 @@ export async function POST(request) {
   // just decided whether this member may read. The notice follows the same
   // verdict: "sent" survives, the address does not.
   if (notice.to && !out.client?.email) notice.to = null;
+
+  // Onto the assignee's Google Calendar, behind the response — a Google
+  // hiccup can never fail the booking that just saved.
+  scheduleSync("appointment", appointment.id);
 
   return NextResponse.json(out, { status: 201 });
 }

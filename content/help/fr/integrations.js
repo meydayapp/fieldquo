@@ -7,7 +7,9 @@
 // Même structure que l'anglais (mêmes slugs, mêmes sections, mêmes blocs,
 // mêmes figures) ; les mots à l'écran viennent du bloc `fr` de
 // app/i18n/appMessages.js. Registre québécois, vous.
-export const ARTICLES = {
+import { ARTICLES as PART_2 } from "./integrations-2.js";
+
+const PART_1 = {
   "stripe": {
     title: "Stripe",
     summary:
@@ -877,3 +879,5 @@ export const ARTICLES = {
     ],
   },
 };
+
+export const ARTICLES = { ...PART_1, ...PART_2 };

@@ -7,7 +7,9 @@
 // Misma estructura que el inglés (mismos slugs, secciones, bloques y
 // figuras); las palabras en pantalla vienen del bloque `es` de
 // app/i18n/appMessages.js. Español neutro latinoamericano, usted.
-export const ARTICLES = {
+import { ARTICLES as PART_2 } from "./integrations-2.js";
+
+const PART_1 = {
   "stripe": {
     title: "Stripe",
     summary:
@@ -877,3 +879,5 @@ export const ARTICLES = {
     ],
   },
 };
+
+export const ARTICLES = { ...PART_1, ...PART_2 };

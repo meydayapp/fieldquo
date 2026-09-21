@@ -19,6 +19,7 @@ import { assigneeStopsAround } from "@/lib/schedule/entryNeighbours";
 import { notifyClientMoved, notifyClientCancelled } from "@/lib/schedule/clientNotice";
 import { travelMinutes, hasPoint } from "@/lib/booking/travel";
 import { serverMapsKey } from "@/lib/measure/roofMeasurement";
+import { scheduleSync } from "@/lib/calendar/googleSync";
 
 /**
  * "20 min" / "1 h 10" — the number the template's {eta} slot takes.
@@ -122,6 +123,7 @@ export async function PATCH(request, { params }) {
       force: body.force === true,
       previous,
       next,
+      busy: stops.filter((s) => s.kind === "google_busy"),
       travelFromPrevious: fromPrev?.minutes ?? null,
       travelToNext: toNext?.minutes ?? null,
       travelBuffer: visit.job.company.travelBufferMinutes || 0,
@@ -286,10 +288,14 @@ export async function PATCH(request, { params }) {
   // (it no-ops when a future visit already exists), so this and the cron can't
   // double-book. Never let it block the status update that just saved.
   if (status === "completed" && visit.job.recurring) {
-    await ensureUpcomingVisit(db, _params.id).catch((err) =>
+    const spawned = await ensureUpcomingVisit(db, _params.id).catch((err) =>
       console.error("[recurring next-visit] failed:", err.message),
     );
+    if (spawned?.id) scheduleSync("visit", spawned.id);
   }
+
+  // Moved, completed, cancelled — the assignee's Google Calendar follows.
+  scheduleSync("visit", updated.id);
 
   // ── Telling the client, in their language ────────────────────────────────
   //

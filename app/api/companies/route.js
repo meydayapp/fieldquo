@@ -33,6 +33,7 @@ import { recordSignupOrigin } from "@/lib/platform/signupOrigin";
 import { deriveVia } from "@/lib/platform/signupFlags";
 import { stampSignupPlanByToken } from "@/lib/sales/signupProgress";
 import { isRetired, RETIRED_PLAN_ERROR } from "@/lib/platform/sellablePlans";
+import { recordSignupCompletion } from "@/lib/signup/salesFloor";
 
 export async function POST(request) {
   const session = await auth.api.getSession({ headers: request.headers });
@@ -508,6 +509,36 @@ export async function POST(request) {
     where: { id: company.id },
     data: { authOrgId: org.id },
   });
+
+  // ── The sales floor hears about it ──────────────────────────────────────
+  //
+  // After the org, on purpose: a failed createOrganization deletes the
+  // company above, and a welcome row pointing at a deleted company would be
+  // a lead for a business that does not exist.
+  //
+  // lib/signup/salesFloor.js: the typed-as-you-go SignupLead at this address
+  // is marked completed (so the signup-leads cron never promotes a customer
+  // into a hot lead), and — for a company NOBODY referred — a welcome-call
+  // row is written for the owner to hand to a rep from the review folder.
+  // A company that arrived on a rep's link, or through a referral, is that
+  // rep's or that referrer's already and gets no row. Never throws; a failure
+  // is on /platform/errors, not in the contractor's way.
+  const completion = await recordSignupCompletion({
+    client: db,
+    company,
+    ownerEmail: session.user.email || null,
+    ownerName: session.user.name || null,
+    referred: Boolean(attributedRepId) || Boolean(referral),
+  });
+  if (completion.reason === "failed") {
+    await recordError({
+      area: "signup",
+      code: "signup_completion_not_recorded",
+      message: `The sales floor was not told about this signup: ${completion.error}`,
+      companyId: company.id,
+    }).catch(() => {});
+  }
+
 
   // Without this, activeOrganizationId stays null on the session, and every
   // company-scoped API route 401s regardless of how correct everything else

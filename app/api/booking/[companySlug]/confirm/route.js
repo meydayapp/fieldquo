@@ -19,6 +19,13 @@ import {
 } from "@/lib/company/serviceArea";
 import { isSupported } from "@/app/i18n/languages";
 import { bookingLanguage } from "@/lib/i18n/bookingLanguages";
+import {
+  resolveMode,
+  missingForMode,
+  requiredFieldRefusal,
+  bookingDurationMinutes,
+  bookingModeNoun,
+} from "@/lib/booking/bookingModes";
 
 // The one refusal this route makes in the visitor's own language: the "when
 // do you need this done?" question is required, and a homeowner reading the
@@ -135,24 +142,59 @@ export async function POST(request, { params }) {
   // is the homeowner's own free text, trimmed and capped at 2000 by the same
   // helper — the length is what stops a booking row becoming a place to store
   // a novel.
+  // The language every refusal below is written in: the one the visitor
+  // read the page in, else the company's.
+  const refusalLanguage =
+    typeof postedLanguage === "string" && isSupported(postedLanguage)
+      ? postedLanguage.toLowerCase()
+      : company.defaultLanguage || "en";
+
   const cleaned = cleanTradeAnswers(cleanServiceKey || "", { whenNeeded, answers, notes });
   if (!cleaned.whenNeeded) {
     // Required. The page disables the button until it is answered, so this
     // is reached by a hand-crafted POST or a stale tab — refused rather than
     // stored as "didn't say", because the calendar entry this creates is one
     // the crew plans a day around.
-    const lang =
-      typeof postedLanguage === "string" && isSupported(postedLanguage)
-        ? postedLanguage.toLowerCase()
-        : company.defaultLanguage || "en";
     return NextResponse.json(
-      { error: WHEN_REQUIRED[lang] || WHEN_REQUIRED.en },
+      { error: WHEN_REQUIRED[refusalLanguage] || WHEN_REQUIRED.en },
       { status: 400 },
     );
   }
 
+  // ── Which kind of appointment, and what it needs ────────────────────────
+  //
+  // Resolved against what the company ACTUALLY offers, not just against the
+  // three known strings. A visitor posting mode:"video" to a company that only
+  // does site visits would otherwise book a video call nobody can host.
+  //
+  // Then the field that mode cannot do without: an address for a visit (the
+  // van has to go somewhere), a dialable phone for a call (somebody has to
+  // ring it), an email for a video call (the link goes there). The page
+  // disables Book until it is there, and this is the second gate for a
+  // hand-crafted POST — refused in the visitor's language, in words that say
+  // what to enter and why, never stored as a booking with a hole in it. The
+  // address used to be optional here on purpose ("a required field would cost
+  // more bookings"); the owner's answer was that a visit nobody can drive to
+  // costs the booking anyway, on the day, in a driveway.
+  const chosenMode = resolveMode(company, mode);
+  const missing = missingForMode(chosenMode, {
+    address,
+    phone: clientPhone,
+    email: bookingEmail,
+  });
+  if (missing) {
+    return NextResponse.json(
+      { error: requiredFieldRefusal(missing, refusalLanguage), reason: `${missing}_required`, mode: chosenMode },
+      { status: 400 },
+    );
+  }
+
+  // The length of THIS mode — the event's own for a visit, the company's
+  // call or video length otherwise — from the same function the availability
+  // route offered slots with, so what was offered is what is reserved.
+  const durationMinutes = bookingDurationMinutes({ company, eventType, mode: chosenMode });
   const start = new Date(startTime);
-  const end = new Date(start.getTime() + eventType.durationMinutes * 60000);
+  const end = new Date(start.getTime() + durationMinutes * 60000);
 
   // Re-check for a conflict right before booking (another visitor may have taken
   // it). Includes recent pending_payment holds so two people can't both be sent
@@ -190,8 +232,20 @@ export async function POST(request, { params }) {
   // Hoisted above the client create, which now seeds the client's address
   // from it. A failed geocode further down still stores this typed string with
   // null coordinates — see the note there.
+  //
+  // Only for a visit. An address typed and then the mode switched to a call
+  // is not where anyone is going, and storing it would put a destination on
+  // an appointment nobody drives to.
   const visitAddress =
-    typeof address === "string" && address.trim() ? address.trim() : null;
+    chosenMode === "visit" && typeof address === "string" && address.trim()
+      ? address.trim()
+      : null;
+  // The phone as the client typed it, trimmed. A call was refused above
+  // unless it resolves to something dialable (e164), but the stored and
+  // printed form is theirs — "we'll ring 819-238-7263" reads as a promise,
+  // "+18192387263" reads as a database. The SMS layer normalises at send.
+  const bookingPhone =
+    typeof clientPhone === "string" && clientPhone.trim() ? clientPhone.trim() : null;
 
   // The booker's own language, when it is one the letter is written in.
   // A first-time booker used to get the company's language on everything
@@ -215,7 +269,7 @@ export async function POST(request, { params }) {
         companyId: company.id,
         name: clientName,
         email: bookingEmail,
-        phone: clientPhone || null,
+        phone: bookingPhone,
         ...(bookerLanguage ? { language: bookerLanguage } : {}),
         // ── Why the address lands here at all ────────────────────────────
         //
@@ -245,14 +299,6 @@ export async function POST(request, { params }) {
       },
     });
   }
-
-  // Validated against what the company ACTUALLY offers, not just against the
-  // three known strings. A visitor posting mode:"video" to a company that only
-  // does site visits would otherwise book a video call nobody can host.
-  const offered = Array.isArray(company.bookingModes) && company.bookingModes.length
-    ? company.bookingModes
-    : ["visit"];
-  const chosenMode = offered.includes(mode) ? mode : offered[0];
 
   // ── The visit address, geocoded ─────────────────────────────────────────
   //
@@ -339,8 +385,11 @@ export async function POST(request, { params }) {
 
   // ── Paid visit vs free booking ──────────────────────────────────────────
   //
-  // The fee is resolved server-side (the browser never says what a visit costs).
-  const { feeCents } = effectiveBookingFeeCents(company, eventType);
+  // The fee is resolved server-side (the browser never says what a visit
+  // costs) — and per MODE: the in-person visit may carry a deposit while the
+  // phone call is free (lib/booking/fee.js). Same function the booking GET
+  // priced the chips with, so the client paid what they were shown.
+  const { feeCents } = effectiveBookingFeeCents(company, eventType, chosenMode);
 
   if (feeCents > 0) {
     // PAID: hold the slot with a pending_payment booking and send the client to
@@ -364,7 +413,7 @@ export async function POST(request, { params }) {
         eventTypeId: eventType.id,
         clientName,
         clientEmail: bookingEmail,
-        clientPhone: clientPhone || null,
+        clientPhone: bookingPhone,
         language: bookerLanguage,
         startTime: start,
         endTime: end,
@@ -383,7 +432,7 @@ export async function POST(request, { params }) {
       const session = await createBookingFeeCheckoutSession({
         bookingId: held.id,
         company,
-        label: `${eventType.name} — visit fee`,
+        label: `${eventType.name} — ${bookingModeNoun(chosenMode, "en")} fee`,
         amountCents: feeCents,
         // {CHECKOUT_SESSION_ID} is substituted by Stripe on the redirect. It
         // used to be a bare `?booked=1`, which the page turned straight into
@@ -428,9 +477,13 @@ export async function POST(request, { params }) {
       companyId: company.id,
       clientId: client.id,
       scheduledAt: start,
-      // The CLIENT's address when they gave one — that's where the van goes.
-      // eventType.location is a label ("On-site visit"), not a destination.
-      location: visitAddress || eventType.location || null,
+      // The CLIENT's address for a visit — that's where the van goes. Null
+      // for a call or a video call, and never eventType.location: that was
+      // the free-text "Phone or on-site visit" label, and writing it here put
+      // a sentence that reads like a destination on the crew's calendar. The
+      // mode itself is on the Booking row, and every screen names it from
+      // lib/booking/bookingModes.js.
+      location: visitAddress,
       ...(visitPoint && { latitude: visitPoint.lat, longitude: visitPoint.lng }),
       status: "scheduled",
       // ── Onto the row the crew actually reads ──────────────────────────
@@ -460,7 +513,7 @@ export async function POST(request, { params }) {
       eventTypeId: eventType.id,
       clientName,
       clientEmail: bookingEmail,
-      clientPhone: clientPhone || null,
+      clientPhone: bookingPhone,
       language: bookerLanguage,
       startTime: start,
       endTime: end,

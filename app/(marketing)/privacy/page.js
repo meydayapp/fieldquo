@@ -86,6 +86,14 @@ export default function PrivacyPage() {
       <h3>From a subscribing company and its staff</h3>
       <ul>
         <li>Account and contact details: name, email, phone, company name and address.</li>
+        <li>
+          If you start the signup form and do not finish it, what you had
+          typed so far (your name, email, phone, company name, trades and
+          language) is kept so that we can follow up with you about the
+          signup &mdash; by email, or by a call from our sales team if you
+          gave a phone number. You can ask us to delete it at any time (see
+          Section 6).
+        </li>
         <li>Billing information, handled by Stripe (see Section 4) — FieldQuo does not store card numbers.</li>
         <li>Everything the company enters to run its business: clients, quotes, invoices, jobs, pricing, photos, and staff activity within the product.</li>
       </ul>

@@ -61,6 +61,12 @@ export const rows = {
   // presence is the claim, which reading lib/referrals cannot settle.
   salesRep: [],
   salesCommissionPlan: [],
+  // The signup capture and its promotion (scripts/check-signup-leads.mjs):
+  // what /signup typed, the do-not-contact rows the promotion reads in the
+  // request that writes, and the platform admin the assign names.
+  signupLead: [],
+  salesSuppression: [],
+  platformAdmin: [],
   salesAttribution: [],
   salesAttributionTouch: [],
   referralCredit: [],
@@ -105,6 +111,12 @@ export const rows = {
   metaAdConnection: [],
   messageThread: [],
   message: [],
+  // The AI employees, read by lib/aiEmployee/inbound.js's cheap door on
+  // every ingested message (a count of enabled rows). Empty, so the hook
+  // answers "disabled" the way it does for a company with nobody hired —
+  // rather than throwing into its own catch and logging a failure on every
+  // messaging check.
+  aiEmployee: [],
   // The Facebook Page / Instagram PUBLISHING connection
   // (check-meta-pages-connect.mjs). The claims that need executing are
   // "a disconnected row can never answer connected" and "the token that comes
@@ -130,6 +142,14 @@ export const rows = {
   // of the `data` a create() received, which reading the route cannot settle.
   user: [],
   activityLog: [],
+  // The client portal's invoice family, payments and custom-field lookups
+  // (check-offline-payment-methods.mjs executes GET /api/portal/[token]
+  // with issued invoices, which the public-payload check runs with none).
+  // Read-only models there: the stub answers from `rows` and never invents.
+  invoice: [],
+  payment: [],
+  customField: [],
+  customFieldValue: [],
   // ── The sales retry pool (scripts/check-sales-retry-pool.mjs) ──────────
   // Prospect rows for the claim scan and the platform's Exhausted list, the
   // claim log the batch writes, the attempt rows a disposition updates, the
@@ -178,6 +198,24 @@ export const rows = {
   salesCommissionEntry: [],
   salesPayoutBatch: [],
   salesLead: [],
+  // The public booking confirm route (scripts/check-booking-modes.mjs): the
+  // event type the slot is booked against and the Booking rows the conflict
+  // check reads. Present so the per-mode refusals — "a call with no phone is
+  // a 400 in words" — are asserted by RUNNING the route, not by reading it.
+  eventType: [],
+  booking: [],
+  appointment: [],
+  // The SMS STOP ledger (lib/sms/optOut.js maySms), read by the booking
+  // confirmation text's verdict — "a number that said STOP is never texted"
+  // is a property of a query and has to be run.
+  smsOptOut: [],
+  // The slot engine's inputs (lib/booking/computeAvailability.js): a
+  // member's weekly hours and their approved leave. Scripted so the
+  // availability route can be RUN for a call and for a visit and the two
+  // slot counts compared — "a phone call is offered at the call's length"
+  // is arithmetic inside a loop, not a sentence in a file.
+  availabilitySchedule: [],
+  leaveRequest: [],
 };
 
 /** Every write the product attempted, in order: { model, action, data }. */
@@ -200,6 +238,12 @@ export const reads = [];
 export const failNext = { model: null, times: 0 };
 
 export function resetDbStub() {
+  rows.eventType = [];
+  rows.booking = [];
+  rows.appointment = [];
+  rows.smsOptOut = [];
+  rows.availabilitySchedule = [];
+  rows.leaveRequest = [];
   rows.instantQuoteConfig = [];
   rows.serviceCategory = [];
   rows.client = [];
@@ -228,6 +272,10 @@ export function resetDbStub() {
   rows.leadRequest = [];
   rows.user = [];
   rows.activityLog = [];
+  rows.invoice = [];
+  rows.payment = [];
+  rows.customField = [];
+  rows.customFieldValue = [];
   rows.prospect = [];
   rows.salesQueueClaim = [];
   rows.salesCallAttempt = [];
@@ -250,6 +298,9 @@ export function resetDbStub() {
   rows.salesCommissionEntry = [];
   rows.salesPayoutBatch = [];
   rows.salesLead = [];
+  rows.signupLead = [];
+  rows.salesSuppression = [];
+  rows.platformAdmin = [];
   writes.length = 0;
   reads.length = 0;
   failNext.model = null;
@@ -444,6 +495,23 @@ function model(name) {
       reads.push({ model: name, action: "count", args });
       return rows[name].filter((r) => matches(r, args.where)).length;
     },
+    // Prisma's aggregate, for the one shape the product uses — `_max` of a
+    // column (lib/sales/assignLeads.js reads the highest open claim position
+    // so an assignment lands after the rep's own claims). Refused for any
+    // other shape rather than answering null and letting a position pass
+    // as zero.
+    aggregate: async (args = {}) => {
+      reads.push({ model: name, action: "aggregate", args });
+      const keys = Object.keys(args).filter((k) => k.startsWith("_"));
+      if (keys.length !== 1 || keys[0] !== "_max") throw new Error(`dbStub: ${name}.aggregate supports _max only`);
+      const hits = rows[name].filter((r) => matches(r, args.where));
+      const out = { _max: {} };
+      for (const field of Object.keys(args._max || {})) {
+        const values = hits.map((r) => r[field]).filter((v) => v != null);
+        out._max[field] = values.length ? values.reduce((a, b) => (b > a ? b : a)) : null;
+      }
+      return out;
+    },
     // Prisma's groupBy, for the one shape the product uses so far —
     // `by: [field]` with `_count: { _all: true }` (lib/sales/reassign.js's
     // open-lead count). Answered honestly for that shape and refused for any
@@ -578,6 +646,12 @@ function uniqueCreateModel(name, uniqueFields) {
 export const db = new Proxy(
   {
     instantQuoteConfig: model("instantQuoteConfig"),
+    eventType: model("eventType"),
+    booking: model("booking"),
+    appointment: model("appointment"),
+    smsOptOut: model("smsOptOut"),
+    availabilitySchedule: model("availabilitySchedule"),
+    leaveRequest: model("leaveRequest"),
     serviceCategory: model("serviceCategory"),
     client: model("client"),
     quote: model("quote"),
@@ -602,11 +676,16 @@ export const db = new Proxy(
     metaAdConnection: model("metaAdConnection"),
     messageThread: model("messageThread"),
     message: model("message"),
+    aiEmployee: model("aiEmployee"),
     metaPageConnection: model("metaPageConnection"),
     whatsAppTemplate: model("whatsAppTemplate"),
     leadRequest: model("leadRequest"),
     user: model("user"),
     activityLog: model("activityLog"),
+    invoice: model("invoice"),
+    payment: model("payment"),
+    customField: model("customField"),
+    customFieldValue: model("customFieldValue"),
     prospect: model("prospect"),
     salesQueueClaim: model("salesQueueClaim"),
     salesCallAttempt: model("salesCallAttempt"),
@@ -640,6 +719,12 @@ export const db = new Proxy(
     // @@unique([salesRepId, periodStart]) — the closer's idempotence.
     salesPayoutBatch: uniqueCreateModel("salesPayoutBatch", ["salesRepId", "periodStart"]),
     salesLead: model("salesLead"),
+    // emailKey @unique — one row per address is what lib/signup/leads.js's
+    // capture relies on; a second create for the same key is refused the way
+    // Postgres refuses it.
+    signupLead: uniqueCreateModel("signupLead", ["emailKey"]),
+    salesSuppression: model("salesSuppression"),
+    platformAdmin: model("platformAdmin"),
     // Prisma's interactive transaction, modelled as "run the callback with
     // this same client". It does NOT roll back — nothing here can — and that
     // is stated rather than implied: a check must not read a passing run as

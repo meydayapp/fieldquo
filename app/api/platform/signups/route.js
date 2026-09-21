@@ -51,6 +51,7 @@ import {
   nudgeRecipient,
   decideSignupNudge,
 } from "@/lib/signup/abandoned";
+import { PROMOTE_AFTER_MS, STEP_LABELS } from "@/lib/signup/leads";
 
 export async function GET(request) {
   const admin = await getCurrentPlatformAdmin(request);
@@ -106,9 +107,30 @@ export async function GET(request) {
     suppressed.set(email, verdict);
   }
 
+  // The signup row on the sales floor for each company, and who holds it —
+  // lib/signup/salesFloor.js. What the owner reads as "hot lead assigned to
+  // Rachel" / "unassigned" beside each unfinished signup.
+  const floor = await db.prospect.findMany({
+    where: { companyId: { in: rows.map((c) => c.id) }, signupKind: { not: null } },
+    select: { companyId: true, signupKind: true, hot: true, assignedRepId: true, claimExpiresAt: true },
+  });
+  const repIds = [...new Set(floor.map((p) => p.assignedRepId).filter(Boolean))];
+  const reps = repIds.length ? await db.salesRep.findMany({ where: { id: { in: repIds } }, select: { id: true, name: true } }) : [];
+  const repName = new Map(reps.map((r) => [r.id, r.name]));
+  const floorByCompany = new Map();
+  for (const p of floor) {
+    const live = p.assignedRepId && (!p.claimExpiresAt || p.claimExpiresAt > now);
+    floorByCompany.set(p.companyId, {
+      kind: p.signupKind,
+      hot: p.hot,
+      assignedTo: live ? { id: p.assignedRepId, name: repName.get(p.assignedRepId) || "a rep" } : null,
+    });
+  }
+
   const signups = rows.map((c) => {
     const to = nudgeRecipient(c.email);
     const verdict = to ? suppressed.get(to) : null;
+    const lead = floorByCompany.get(c.id) || null;
     // The SAME predicate the cron uses, so the screen cannot print a different
     // answer from the one the send path will reach — the failure
     // lib/platform/trialCounting.js exists because of, where a banner and a
@@ -116,6 +138,7 @@ export async function GET(request) {
     const decision = decideSignupNudge({
       company: { ...c, memberCount: c._count.members },
       suppressed: Boolean(verdict?.suppressed),
+      heldByRep: Boolean(lead?.assignedTo),
       now,
     });
 
@@ -141,11 +164,65 @@ export async function GET(request) {
       doNotContact: Boolean(verdict?.suppressed),
       doNotContactReason: verdict?.suppressed ? verdict.reason : null,
       nudgeState: decision.reason,
+      // The sales-floor row: kind (new / stalled), whether it is hot, and
+      // which rep holds it — null when none was written (a referred signup,
+      // or one older than the floor).
+      lead,
+    };
+  });
+
+  // ── Started, never finished ─────────────────────────────────────────────
+  //
+  // The SignupLead rows (lib/signup/leads.js): what people typed into the
+  // first step and where each one now stands on the floor. Newest first,
+  // bounded — this is a list a person reads, not an export.
+  const startedRows = await db.signupLead.findMany({
+    where: { completedCompanyId: null },
+    orderBy: { lastSeenAt: "desc" },
+    take: 200,
+    select: {
+      id: true, email: true, firstName: true, lastName: true, companyName: true, phoneE164: true, city: true, province: true, country: true,
+      trades: true, language: true, stepReached: true, startedAt: true, lastSeenAt: true, promotedAt: true, promotedLeadId: true, skipReason: true, salesCode: true,
+      referredRep: { select: { id: true, name: true } },
+      prospect: { select: { id: true, hot: true, signupKind: true, assignedRepId: true, claimExpiresAt: true, doNotContactAt: true } },
+    },
+  });
+  const holderIds = [...new Set(startedRows.map((r) => r.prospect?.assignedRepId).filter(Boolean).filter((id) => !repName.has(id)))];
+  if (holderIds.length) {
+    for (const r of await db.salesRep.findMany({ where: { id: { in: holderIds } }, select: { id: true, name: true } })) repName.set(r.id, r.name);
+  }
+  const started = startedRows.map((r) => {
+    const p = r.prospect || null;
+    const live = p?.assignedRepId && (!p.claimExpiresAt || p.claimExpiresAt > now);
+    let state;
+    if (r.promotedLeadId && r.referredRep) state = { code: "rep_lead", rep: r.referredRep };
+    else if (p && live) state = { code: "assigned", rep: { id: p.assignedRepId, name: repName.get(p.assignedRepId) || "a rep" }, hot: p.hot };
+    else if (p) state = { code: "unassigned", hot: p.hot };
+    else if (r.skipReason) state = { code: "skipped", reason: r.skipReason };
+    else if (!r.phoneE164) state = { code: "no_phone" };
+    else state = { code: "waiting", quietMinutes: Math.floor((now.getTime() - new Date(r.lastSeenAt).getTime()) / 60000), promoteAfterMinutes: PROMOTE_AFTER_MS / 60000 };
+    return {
+      id: r.id,
+      email: r.email,
+      name: [r.firstName, r.lastName].filter(Boolean).join(" ") || null,
+      companyName: r.companyName,
+      phone: r.phoneE164,
+      where: [r.city, r.province, r.country].filter(Boolean).join(", "),
+      trades: r.trades,
+      language: r.language,
+      stepReached: r.stepReached,
+      stepLabel: STEP_LABELS[r.stepReached] || r.stepReached,
+      startedAt: r.startedAt,
+      lastSeenAt: r.lastSeenAt,
+      referredBy: r.referredRep || (r.salesCode ? { id: null, name: null, code: r.salesCode } : null),
+      prospectId: p?.id || null,
+      state,
     };
   });
 
   return NextResponse.json({
     signups,
+    started,
     // Printed on the screen so the delay is stated where somebody reads it
     // rather than only in a source comment.
     policy: { delayHours: NUDGE_DELAY_HOURS, windowDays: NUDGE_WINDOW_DAYS },

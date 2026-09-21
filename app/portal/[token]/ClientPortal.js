@@ -69,7 +69,8 @@ export default function ClientPortal({ token }) {
   }, [load]);
 
   // `method` is "card" or "bank" — HOW, never how much. The bank button only
-  // renders when the server said the company can take it (data.bankDebit).
+  // renders when the server said the company can take it for THIS invoice's
+  // amount (inv.bankDebit.eligible).
   async function pay(invoiceId, method = "card") {
     setPayingId(invoiceId);
     setError("");
@@ -140,10 +141,6 @@ export default function ClientPortal({ token }) {
   // (the raw Stripe account id never crosses to a public endpoint) — see
   // app/api/portal/[token]/route.js.
   const onlinePayments = Boolean(data.onlinePayments);
-  // The bank-debit method Stripe has activated for this company, or null —
-  // decides whether a second, bank button renders (lib/stripe/bankDebit.js).
-  const onlineBank = onlinePayments ? data.bankDebit || null : null;
-  const offlineLines = offlinePaymentLines(c, copy);
 
   // Every invoice here has already been filtered to ISSUED ones server-side
   // (app/api/portal/[token]/route.js) — a draft never reaches this component,
@@ -233,6 +230,14 @@ export default function ClientPortal({ token }) {
               0,
               Number(inv.total || 0) - Number(inv.amountPaid || 0),
             );
+            // The bank-debit offer for this invoice's balance, decided
+            // server-side (lib/stripe/bankDebit.js): null when the company
+            // cannot take bank debit, `eligible: false` when the balance is
+            // over Stripe's per-debit cap — in which case the button is
+            // absent and the sentence says why, rather than a button that
+            // 500s under the contractor's own logo.
+            const bankOffer = onlinePayments ? inv.bankDebit || null : null;
+            const onlineBank = bankOffer?.eligible ? bankOffer.method : null;
             return (
               <div
                 key={inv.id}
@@ -257,7 +262,7 @@ export default function ClientPortal({ token }) {
                   // No Stripe on this company: say what to do instead, rather
                   // than a Pay button that 400s under their own logo.
                   <span className="text-xs text-[#2d2520]/60 shrink-0 text-right max-w-[15rem]">
-                    {offlineLines.map((line) => (
+                    {offlinePaymentLines(inv.howToPay, copy).map((line) => (
                       <span key={line} className="block">
                         {line}
                       </span>
@@ -299,6 +304,14 @@ export default function ClientPortal({ token }) {
                         <Landmark size={13} />
                         {copy.payBank(money(due))}
                       </button>
+                    )}
+                    {bankOffer && !bankOffer.eligible && (
+                      <span
+                        data-bank-over-cap
+                        className="text-xs text-[#2d2520]/60 text-right max-w-[15rem]"
+                      >
+                        {copy.bankOverCap(money(bankOffer.maxCents / 100), money(due))}
+                      </span>
                     )}
                   </span>
                 ) : (

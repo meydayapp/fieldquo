@@ -92,6 +92,7 @@ import Link from "next/link";
 import { AlertCircle, Check, Copy, HelpCircle, Loader2, Sparkles, Wrench, X } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import DuplicateGroup from "@/app/components/platform/DuplicateGroup";
+import SignupsSection from "./SignupsSection";
 
 const BTN =
   "inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60";
@@ -536,6 +537,9 @@ function RowsMode({ modeSwitch }) {
           <kbd>space</kbd> untick a row from a bulk · <kbd>Shift</kbd>+<kbd>A</kbd> the bulk trade
         </p>
       </header>
+
+      {/* The signup form's own leads, each to ONE rep by hand — SignupsSection.js. */}
+      <SignupsSection />
 
       {error ? (
         <p className="text-sm text-red-700 dark:text-red-300 inline-flex items-center gap-2" data-review-error>
@@ -1144,6 +1148,8 @@ function SuggestedMode({ card, setCard, modeSwitch }) {
           Keys: <kbd>j</kbd>/<kbd>k</kbd> move · <kbd>space</kbd> tick / untick · <kbd>Enter</kbd> accept the ticked rows
         </p>
       </header>
+
+      <SignupsSection />
 
       {error ? (
         <p className="text-sm text-red-700 dark:text-red-300 inline-flex items-center gap-2" data-review-error>

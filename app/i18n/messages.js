@@ -186,6 +186,12 @@ const en = {
   "booking.work.notesPlaceholder":
     "What needs doing, roughly how big, anything unusual about getting to it…",
   "booking.work.notesHint": "Optional — it means we turn up prepared.",
+  "booking.mode.howTitle": "How would you like to meet?",
+  "booking.mode.whereTitle": "Where should we come?",
+  "booking.mode.addressHint": "Needed for an on-site visit — and it lets us hide times we couldn't reach you on schedule.",
+  "booking.mode.phoneToRing": "Phone number to call",
+  "booking.mode.phoneHint": "We'll ring this number at the time you picked.",
+  "booking.mode.feeWord": "booking fee",
 
   "features.everything": "Everything your business needs, in one place",
   "features.anyTrade": "Built for any trade",
@@ -490,6 +496,9 @@ const en = {
   "feature.card_payments.name": "Get paid by card",
   "feature.card_payments.summary":
     "The client pays from their phone and the money goes to your account, not ours.",
+  "feature.offline_payment_methods.name": "Every other way to get paid",
+  "feature.offline_payment_methods.summary":
+    "E-transfer, cheque, cash — Zelle, Venmo, Cash App and check in the US — printed on the invoice with where to send it.",
   "feature.stripe_connect.name": "Your own payout account",
   "feature.stripe_connect.summary":
     "Connect your bank once; every client payment settles into it directly.",
@@ -742,6 +751,12 @@ const fr = {
   "booking.work.notesPlaceholder":
     "Ce qu'il y a à faire, l'ampleur approximative, tout ce qui sort de l'ordinaire…",
   "booking.work.notesHint": "Facultatif — cela nous permet d'arriver préparés.",
+  "booking.mode.howTitle": "Comment souhaitez-vous nous rencontrer ?",
+  "booking.mode.whereTitle": "Où devons-nous nous rendre ?",
+  "booking.mode.addressHint": "Requise pour une visite sur place — et elle nous permet de masquer les heures où nous ne pourrions pas arriver à temps.",
+  "booking.mode.phoneToRing": "Numéro de téléphone à appeler",
+  "booking.mode.phoneHint": "Nous appellerons ce numéro à l'heure choisie.",
+  "booking.mode.feeWord": "frais de réservation",
 
   "features.everything":
     "Tout ce dont votre entreprise a besoin, au même endroit",
@@ -1023,6 +1038,9 @@ const fr = {
   "feature.card_payments.name": "Encaissez par carte",
   "feature.card_payments.summary":
     "Le client paie depuis son téléphone et l'argent va dans votre compte, pas dans le nôtre.",
+  "feature.offline_payment_methods.name": "Toutes les autres façons d'être payé",
+  "feature.offline_payment_methods.summary":
+    "Virement Interac, chèque, comptant — Zelle, Venmo, Cash App et chèque aux États-Unis — imprimés sur la facture avec l'adresse où envoyer l'argent.",
   "feature.stripe_connect.name": "Votre propre compte de versement",
   "feature.stripe_connect.summary":
     "Reliez votre banque une fois; chaque paiement client s'y dépose directement.",
@@ -1261,6 +1279,12 @@ const es = {
   "booking.work.notesPlaceholder":
     "Qué hay que hacer, más o menos de qué tamaño, cualquier cosa fuera de lo común…",
   "booking.work.notesHint": "Opcional — nos permite llegar preparados.",
+  "booking.mode.howTitle": "¿Cómo prefiere que nos reunamos?",
+  "booking.mode.whereTitle": "¿A dónde debemos ir?",
+  "booking.mode.addressHint": "Necesaria para una visita en sitio — y nos permite ocultar las horas en que no podríamos llegar a tiempo.",
+  "booking.mode.phoneToRing": "Número de teléfono al que llamar",
+  "booking.mode.phoneHint": "Llamaremos a este número a la hora que eligió.",
+  "booking.mode.feeWord": "cargo por reserva",
 
   "features.everything": "Todo lo que tu negocio necesita, en un solo lugar",
   "features.anyTrade": "Hecho para cualquier oficio",
@@ -1539,6 +1563,9 @@ const es = {
   "feature.card_payments.name": "Cobra con tarjeta",
   "feature.card_payments.summary":
     "El cliente paga desde su teléfono y el dinero va a tu cuenta, no a la nuestra.",
+  "feature.offline_payment_methods.name": "Todas las demás formas de cobrar",
+  "feature.offline_payment_methods.summary":
+    "Transferencia Interac, cheque, efectivo — Zelle, Venmo, Cash App y cheque en Estados Unidos — impresos en la factura con la dirección a la que enviar el dinero.",
   "feature.stripe_connect.name": "Tu propia cuenta de cobros",
   "feature.stripe_connect.summary":
     "Conecta tu banco una vez; cada pago de cliente cae ahí directo.",
@@ -1849,6 +1876,12 @@ const uk = {
   "booking.work.notesPlaceholder":
     "Що потрібно зробити, приблизний обсяг, будь-що незвичне…",
   "booking.work.notesHint": "Необов'язково — так ми приїдемо підготовленими.",
+  "booking.mode.howTitle": "Як вам зручніше зустрітися?",
+  "booking.mode.whereTitle": "Куди нам приїхати?",
+  "booking.mode.addressHint": "Потрібна для виїзду на місце — і дозволяє приховати час, коли ми не встигли б приїхати.",
+  "booking.mode.phoneToRing": "Номер телефону для дзвінка",
+  "booking.mode.phoneHint": "Ми зателефонуємо на цей номер у вибраний час.",
+  "booking.mode.feeWord": "плата за бронювання",
 
   "footer.product": "Продукт",
   "footer.company": "Компанія",
@@ -2056,6 +2089,9 @@ const uk = {
   "feature.card_payments.name": "Оплата карткою",
   "feature.card_payments.summary":
     "Клієнт платить із телефона, і гроші йдуть на ваш рахунок, а не на наш.",
+  "feature.offline_payment_methods.name": "Усі інші способи отримати оплату",
+  "feature.offline_payment_methods.summary":
+    "Переказ Interac, чек, готівка — Zelle, Venmo, Cash App і чек у США — надруковані в рахунку разом з адресою, куди надсилати.",
   "feature.stripe_connect.name": "Власний рахунок для виплат",
   "feature.stripe_connect.summary":
     "Підключіть банк один раз — і кожна оплата клієнта надходить прямо туди.",
@@ -2365,6 +2401,12 @@ const pa = {
   "booking.work.notesPlaceholder":
     "ਕੀ ਕਰਨਾ ਹੈ, ਲਗਭਗ ਕਿੰਨਾ ਵੱਡਾ, ਪਹੁੰਚ ਬਾਰੇ ਕੋਈ ਖ਼ਾਸ ਗੱਲ…",
   "booking.work.notesHint": "ਚੋਣਵਾਂ — ਇਸ ਨਾਲ ਅਸੀਂ ਤਿਆਰ ਹੋ ਕੇ ਆਉਂਦੇ ਹਾਂ।",
+  "booking.mode.howTitle": "ਤੁਸੀਂ ਕਿਵੇਂ ਮਿਲਣਾ ਚਾਹੋਗੇ?",
+  "booking.mode.whereTitle": "ਸਾਨੂੰ ਕਿੱਥੇ ਆਉਣਾ ਚਾਹੀਦਾ ਹੈ?",
+  "booking.mode.addressHint": "ਸਾਈਟ 'ਤੇ ਮੁਲਾਕਾਤ ਲਈ ਲਾਜ਼ਮੀ — ਇਸ ਨਾਲ ਅਸੀਂ ਉਹ ਸਮੇਂ ਲੁਕਾ ਸਕਦੇ ਹਾਂ ਜਦੋਂ ਅਸੀਂ ਸਮੇਂ ਸਿਰ ਨਹੀਂ ਪਹੁੰਚ ਸਕਦੇ।",
+  "booking.mode.phoneToRing": "ਕਾਲ ਕਰਨ ਲਈ ਫ਼ੋਨ ਨੰਬਰ",
+  "booking.mode.phoneHint": "ਅਸੀਂ ਤੁਹਾਡੇ ਚੁਣੇ ਸਮੇਂ 'ਤੇ ਇਸ ਨੰਬਰ 'ਤੇ ਕਾਲ ਕਰਾਂਗੇ।",
+  "booking.mode.feeWord": "ਬੁਕਿੰਗ ਫ਼ੀਸ",
 
   "footer.product": "ਉਤਪਾਦ",
   "footer.company": "ਕੰਪਨੀ",
@@ -2572,6 +2614,9 @@ const pa = {
   "feature.card_payments.name": "ਕਾਰਡ ਨਾਲ ਭੁਗਤਾਨ ਲਵੋ",
   "feature.card_payments.summary":
     "ਗਾਹਕ ਆਪਣੇ ਫ਼ੋਨ ਤੋਂ ਭੁਗਤਾਨ ਕਰਦਾ ਹੈ ਅਤੇ ਪੈਸਾ ਤੁਹਾਡੇ ਖਾਤੇ ਵਿੱਚ ਜਾਂਦਾ ਹੈ, ਸਾਡੇ ਨਹੀਂ।",
+  "feature.offline_payment_methods.name": "ਭੁਗਤਾਨ ਲੈਣ ਦੇ ਬਾਕੀ ਸਾਰੇ ਤਰੀਕੇ",
+  "feature.offline_payment_methods.summary":
+    "Interac ਟ੍ਰਾਂਸਫਰ, ਚੈੱਕ, ਨਕਦ — ਅਮਰੀਕਾ ਵਿੱਚ Zelle, Venmo, Cash App ਅਤੇ ਚੈੱਕ — ਇਨਵੌਇਸ 'ਤੇ ਛਪੇ, ਨਾਲ ਹੀ ਕਿੱਥੇ ਭੇਜਣਾ ਹੈ।",
   "feature.stripe_connect.name": "ਤੁਹਾਡਾ ਆਪਣਾ ਪੇਆਊਟ ਖਾਤਾ",
   "feature.stripe_connect.summary":
     "ਬੈਂਕ ਇੱਕ ਵਾਰ ਜੋੜੋ; ਹਰ ਗਾਹਕ ਦਾ ਭੁਗਤਾਨ ਸਿੱਧਾ ਉੱਥੇ ਪਹੁੰਚਦਾ ਹੈ।",
@@ -2886,6 +2931,12 @@ const tl = {
   "booking.work.notesPlaceholder":
     "Ano ang kailangang gawin, gaano kalaki, anumang hindi karaniwan…",
   "booking.work.notesHint": "Opsyonal — para handa kami pagdating.",
+  "booking.mode.howTitle": "Paano mo gustong magkita tayo?",
+  "booking.mode.whereTitle": "Saan kami pupunta?",
+  "booking.mode.addressHint": "Kailangan para sa on-site na pagbisita — at nagagawa naming itago ang mga oras na hindi kami makakarating sa takdang oras.",
+  "booking.mode.phoneToRing": "Numero ng teleponong tatawagan",
+  "booking.mode.phoneHint": "Tatawagan namin ang numerong ito sa oras na pinili mo.",
+  "booking.mode.feeWord": "bayad sa booking",
 
   "footer.product": "Produkto",
   "footer.company": "Kompanya",
@@ -3093,6 +3144,9 @@ const tl = {
   "feature.card_payments.name": "Mabayaran sa pamamagitan ng card",
   "feature.card_payments.summary":
     "Nagbabayad ang kliyente mula sa telepono niya at diretso sa account mo ang pera, hindi sa amin.",
+  "feature.offline_payment_methods.name": "Lahat ng ibang paraan para mabayaran",
+  "feature.offline_payment_methods.summary":
+    "E-transfer, tseke, cash — Zelle, Venmo, Cash App at check sa US — nakalimbag sa invoice kasama kung saan ipadadala.",
   "feature.stripe_connect.name": "Sarili mong payout account",
   "feature.stripe_connect.summary":
     "Ikonekta ang bangko mo minsan lang; diretso doon ang bawat bayad ng kliyente.",
@@ -3318,6 +3372,12 @@ const de = {
   "booking.work.notesLabel": "Sollten wir etwas wissen?",
   "booking.work.notesPlaceholder": "Was zu tun ist, ungefähr wie groß, alles Ungewöhnliche beim Zugang…",
   "booking.work.notesHint": "Optional — dann kommen wir vorbereitet.",
+  "booking.mode.howTitle": "Wie möchten Sie sich mit uns treffen?",
+  "booking.mode.whereTitle": "Wohin sollen wir kommen?",
+  "booking.mode.addressHint": "Erforderlich für einen Vor-Ort-Termin — und wir können damit Zeiten ausblenden, zu denen wir nicht rechtzeitig bei Ihnen wären.",
+  "booking.mode.phoneToRing": "Telefonnummer für den Anruf",
+  "booking.mode.phoneHint": "Wir rufen diese Nummer zur gewählten Zeit an.",
+  "booking.mode.feeWord": "Buchungsgebühr",
   "features.everything": "Alles, was Ihr Betrieb braucht, an einem Ort",
   "features.anyTrade": "Für jedes Gewerk gebaut",
   "ai.badge": "FieldQuo AI",
@@ -3511,6 +3571,9 @@ const de = {
   "feature.invoice_changes.summary": "Ändern Sie eine ausgestellte Rechnung, und die alte bleibt erhalten — es gibt nie eine Frage, was vereinbart war.",
   "feature.card_payments.name": "Per Karte bezahlt werden",
   "feature.card_payments.summary": "Der Kunde zahlt vom Handy, und das Geld geht auf Ihr Konto, nicht auf unseres.",
+  "feature.offline_payment_methods.name": "Alle anderen Wege, bezahlt zu werden",
+  "feature.offline_payment_methods.summary":
+    "E-Transfer, Scheck, Bargeld — Zelle, Venmo, Cash App und Scheck in den USA — auf der Rechnung gedruckt, samt Empfängeradresse.",
   "feature.stripe_connect.name": "Ihr eigenes Auszahlungskonto",
   "feature.stripe_connect.summary": "Bankverbindung einmal verbinden; jede Kundenzahlung landet direkt darauf.",
   "feature.financing.name": "Kunden monatlich zahlen lassen",
@@ -3697,6 +3760,12 @@ const zh = {
   "booking.work.notesLabel": "有什么我们该知道的吗？",
   "booking.work.notesPlaceholder": "要做什么，大概多大量，进场有没有什么特殊情况…",
   "booking.work.notesHint": "选填——写了我们上门时更有准备。",
+  "booking.mode.howTitle": "您希望以哪种方式沟通？",
+  "booking.mode.whereTitle": "我们应该去哪里？",
+  "booking.mode.addressHint": "上门服务需要地址 — 它还能让我们隐藏无法准时到达的时间段。",
+  "booking.mode.phoneToRing": "我们应拨打的电话号码",
+  "booking.mode.phoneHint": "我们会在您选择的时间拨打此号码。",
+  "booking.mode.feeWord": "预约费",
   "features.everything": "生意要用的，都在一处",
   "features.anyTrade": "适合任何工种",
   "ai.badge": "FieldQuo AI",
@@ -3890,6 +3959,9 @@ const zh = {
   "feature.invoice_changes.summary": "修改已开出的账单时，旧版本会保留，双方谈定的是什么永远不会说不清。",
   "feature.card_payments.name": "刷卡收款",
   "feature.card_payments.summary": "客户在手机上付款，钱进你的账户，不是我们的。",
+  "feature.offline_payment_methods.name": "其他所有收款方式",
+  "feature.offline_payment_methods.summary":
+    "电子转账、支票、现金——美国还有 Zelle、Venmo、Cash App 和支票——都印在账单上，附上汇款地址。",
   "feature.stripe_connect.name": "你自己的收款账户",
   "feature.stripe_connect.summary": "银行账户连接一次，之后每一笔客户付款都直接结算到那里。",
   "feature.financing.name": "让客户按月付",
@@ -4105,6 +4177,12 @@ const it = {
   "booking.work.notesPlaceholder":
     "Che cosa c'è da fare, all'incirca quanto è grande, qualsiasi difficoltà per arrivarci…",
   "booking.work.notesHint": "Facoltativo — ci permette di arrivare preparati.",
+  "booking.mode.howTitle": "Come preferisce incontrarci?",
+  "booking.mode.whereTitle": "Dove dobbiamo venire?",
+  "booking.mode.addressHint": "Necessario per un sopralluogo — e ci permette di nascondere gli orari in cui non riusciremmo ad arrivare in tempo.",
+  "booking.mode.phoneToRing": "Numero di telefono da chiamare",
+  "booking.mode.phoneHint": "Chiameremo questo numero all'orario scelto.",
+  "booking.mode.feeWord": "costo di prenotazione",
 
   "features.everything": "Tutto quello che serve alla sua impresa, in un unico posto",
   "features.anyTrade": "Pensato per qualsiasi mestiere",
@@ -4385,6 +4463,9 @@ const it = {
   "feature.card_payments.name": "Incassi con carta",
   "feature.card_payments.summary":
     "Il cliente paga dal telefono e il denaro va sul suo conto, non sul nostro.",
+  "feature.offline_payment_methods.name": "Tutti gli altri modi per essere pagati",
+  "feature.offline_payment_methods.summary":
+    "E-transfer, assegno, contanti — Zelle, Venmo, Cash App e assegno negli USA — stampati sulla fattura con l'indirizzo a cui inviare.",
   "feature.stripe_connect.name": "Il suo conto di accredito",
   "feature.stripe_connect.summary":
     "Colleghi la sua banca una volta sola; ogni pagamento dei clienti vi confluisce direttamente.",

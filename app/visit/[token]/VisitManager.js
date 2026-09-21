@@ -46,7 +46,9 @@ import {
   ArrowLeft,
   Check,
   X,
+  CalendarPlus,
 } from "lucide-react";
+import { bookingModeCopy } from "@/lib/booking/bookingModes";
 import { documentTheme, fillPair, washPair } from "@/lib/documents/theme";
 import { documentFormatters } from "@/lib/i18n/documentLabels";
 import { clientDocCopy } from "@/lib/i18n/clientDocCopy";
@@ -420,17 +422,17 @@ export default function VisitManager({ token }) {
           label={copy.whenLabel}
           value={when}
         />
+        {/* The one sentence for what was booked and where — "On-site visit
+            at 14 Maple St", "Phone call — we'll ring 555-0199" — decided by
+            the server in the page's language (visitView → lib/booking/
+            bookingModes.js), so this reads exactly what the confirmation
+            letter and the text said. The three per-language sentences this
+            page used to carry were a second copy of the same words. */}
         <Row
           theme={theme}
           icon={data.mode === "visit" ? MapPin : data.mode === "video" ? Video : Phone}
           label={copy.whereLabel}
-          value={
-            data.mode === "visit"
-              ? data.address || copy.addressUnknown
-              : data.mode === "video"
-                ? copy.modeVideo
-                : copy.modeCall
-          }
+          value={data.where || (data.mode === "visit" ? data.address || copy.addressUnknown : copy.modeCall)}
           hint={data.mode === "visit" ? copy.modeVisit : null}
         />
         {paid > 0 && (
@@ -446,6 +448,22 @@ export default function VisitManager({ token }) {
         <h2 className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: theme.inkMuted }}>
           {copy.changeHeading}
         </h2>
+
+        {/* The same .ics the confirmation attached — the row's current
+            time and SEQUENCE, so a client who lost the email gets the event
+            as it is now. Only while the booking stands: a cancelled one has
+            nothing to add. */}
+        {data.status !== "cancelled" && (
+          <a
+            href={`/api/visit/${token}/calendar`}
+            className="mb-2 w-full min-h-12 rounded-full border text-sm font-semibold inline-flex items-center justify-center gap-2"
+            style={{ borderColor: theme.border, color: theme.ink, backgroundColor: theme.paper }}
+            data-add-to-calendar
+          >
+            <CalendarPlus size={15} />
+            {bookingModeCopy(language).addToCalendar}
+          </a>
+        )}
 
         {policy.canChange ? (
           <div className="space-y-2">

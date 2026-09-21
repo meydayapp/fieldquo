@@ -364,7 +364,7 @@ export const ARTICLES = {
           { steps: [
             "Ouvrez la facture et appuyez sur **Enregistrer un paiement**.",
             "Tapez le montant. Le texte indicatif montre le plafond : **Montant (jusqu'à 2 260,00 $)**. Un chiffre au-dessus du solde est refusé, en anglais : « That's more than the … still owing on this invoice. »",
-            "Choisissez le mode : **Comptant**, **Virement Interac** ou **Chèque**.",
+            "Choisissez le mode. La liste est celle de votre pays : **Comptant**, **Virement Interac**, **Chèque** et **PayPal** au Canada; **Zelle**, **Venmo**, **Cash App**, **Virement bancaire (ACH)**, **PayPal**, **Chèque** et **Comptant** aux États-Unis.",
             "Ajoutez des **Notes (facultatif)** — le numéro du chèque, la référence du virement.",
             "Appuyez sur **Enregistrer**. Les totaux se mettent à jour, le bandeau lit **Payée en totalité — 2 260,00 $ reçus.** si ça règle tout, et la ligne apparaît sous **Historique des paiements** avec la date du jour et le mode.",
           ] },
@@ -395,7 +395,7 @@ export const ARTICLES = {
     ],
     faq: [
       { q: "Le client a payé des frais de visite à la réservation. Puis-je les créditer?", a: "Oui. Quand des frais de réservation ont été payés, la facture montre une carte **Crédit de frais de visite** avec **Créditer sur la facture**; le crédit apparaît dans l'historique des paiements comme crédit de frais de visite et réduit le solde. Voir [[booking-fees-and-visit-deposits|Frais de réservation et acomptes de visite]]." },
-      { q: "Puis-je enregistrer un paiement par carte pris sur mon propre terminal?", a: "Pas depuis cette boîte de dialogue — elle offre comptant, virement Interac et chèque. Les paiements par carte via FieldQuo passent par Stripe et s'enregistrent d'eux-mêmes; une carte prise ailleurs est un mode que l'import des chantiers passés utilise, pas cet écran." },
+      { q: "Puis-je enregistrer un paiement par carte pris sur mon propre terminal?", a: "Pas depuis cette boîte de dialogue — elle offre les modes hors ligne de votre pays (comptant, virement Interac et chèque au Canada; Zelle, Venmo, Cash App, ACH, chèque et comptant aux États-Unis). Les paiements par carte via FieldQuo passent par Stripe et s'enregistrent d'eux-mêmes; une carte prise ailleurs est un mode que l'import des chantiers passés utilise, pas cet écran." },
       { q: "Le client reçoit-il un reçu?", a: "Pas pour un paiement manuel. S'il en veut un, **Renvoyer** expédie la facture par courriel avec le paiement listé et le solde à zéro." },
     ],
   },
@@ -427,7 +427,7 @@ export const ARTICLES = {
             "Il paie sur Stripe Checkout : carte, plus **Affirm** en paiement échelonné quand vous l'avez activé et que le montant est entre 50 $ et 30 000 $ en CAD ou en USD. Un paiement bancaire est un débit préautorisé ponctuel (Canada) ou un débit ACH (É.-U.) sur la page de Stripe, qui vérifie le compte automatiquement quand la banque le permet.",
             "Il revient au portail. Un paiement par carte apparaît reçu tout de suite, avec le nouveau solde; un paiement bancaire lit **Paiement bancaire en attente** pendant 3 à 5 jours ouvrables, puis payé — ou **Le paiement bancaire a échoué**, avec la raison donnée par Stripe, le solde toujours dû et le bouton carte toujours offert.",
           ] },
-          { note: "**Payer depuis un compte bancaire** n'apparaît qu'une fois que Stripe a activé le débit bancaire sur votre compte — FieldQuo le demande pour vous à la connexion, et **Paramètres → Paiements** dit où vous en êtes (**Les clients peuvent payer les factures par carte ou depuis un compte bancaire**). Les frais de réservation restent par carte seulement. Les plans de service gardent leur mandat permanent, signé une fois — voir [[service-plan-bank-debit-mandates|Plans de service payés par débit bancaire]]. Les modes hors ligne imprimés sur la ligne « Modes de paiement acceptés » de la facture — comptant, virement électronique, chèque — se cochent sous **Paramètres → Paiements → Modes de paiement que vous acceptez**." },
+          { note: "**Payer depuis un compte bancaire** n'apparaît qu'une fois que Stripe a activé le débit bancaire sur votre compte — FieldQuo le demande pour vous à la connexion, et **Paramètres → Paiements** dit où vous en êtes (**Les clients peuvent payer les factures par carte ou depuis un compte bancaire**). Stripe plafonne un prélèvement préautorisé à **3 000,00 $ CA** : au-delà, le bouton est absent et le portail le dit — *Le prélèvement bancaire est offert jusqu'à 3 000,00 $ par paiement — cette facture est de 4 150,00 $, donc par carte seulement* — tandis qu'un acompte ou une étape sous le plafond le propose toujours. Les frais de réservation restent par carte seulement. Les plans de service gardent leur mandat permanent, signé une fois — voir [[service-plan-bank-debit-mandates|Plans de service payés par débit bancaire]]. Les autres façons de payer — virement Interac, chèque, comptant au Canada; Zelle, Venmo, Cash App, ACH, chèque aux États-Unis — s'impriment sous **Comment payer** sur la facture avec l'adresse où envoyer l'argent, et s'activent sous **Paramètres → Paiements → Modes de paiement que vous acceptez**. Voir [[offline-payment-methods|Comptant, virement Interac, chèque — et Zelle, Venmo ou Cash App aux États-Unis]]." },
         ],
       },
       {
@@ -604,6 +604,60 @@ export const ARTICLES = {
       { q: "Pourquoi Stripe veut-il ma pièce d'identité alors que l'entreprise est incorporée?", a: "Parce qu'une personne ouvre le compte. Stripe vérifie le représentant autant que l'entreprise, et peut demander séparément les administrateurs et les propriétaires de 25 % ou plus." },
       { q: "Les paiements de mes clients vont-ils s'arrêter pendant qu'un élément est en attente?", a: "Pas une fois les débits activés. **Encaissement par carte** et **Versements à votre banque** sont deux interrupteurs distincts; l'effet habituel d'un élément en attente, c'est des versements en pause, avec l'argent gardé en sécurité par Stripe jusqu'à ce que ça se règle." },
       { q: "J'ai envoyé un document et la liste le montre encore.", a: "La page ne retire un élément que lorsque Stripe le marque reçu. Appuyez sur **Vérifier à nouveau**; s'il est maintenant en vérification, l'étiquette devient **Rien de votre part. Stripe vérifie ce que vous avez déjà envoyé; le renvoyer n'accélérera rien.**" },
+    ],
+  },
+  "offline-payment-methods": {
+    title: "Comptant, virement Interac, chèque — et Zelle, Venmo ou Cash App aux États-Unis",
+    summary:
+      "Les façons dont un client peut vous payer sans carte, selon le pays : lesquelles vous pouvez activer, ce que chacune exige de vous, et le bloc « Comment payer » que la facture imprime avec l'adresse où envoyer l'argent.",
+    updated: "2026-09-20",
+    intro: [
+      "Tous les clients ne paient pas par carte, et une facture qui dit seulement **Modes acceptés : virement** les laisse encore téléphoner pour demander où l'envoyer. **Paramètres → Paiements → Modes de paiement que vous acceptez** liste les modes hors ligne qui existent dans votre pays, chacun sous forme d'interrupteur; en activer un demande le détail dont le client a besoin — l'adresse Interac, le numéro Zelle, l'ordre du chèque — et la facture imprime alors un bloc **Comment payer** avec ces détails et le numéro de facture comme référence.",
+    ],
+    sections: [
+      {
+        id: "by-country",
+        heading: "Les modes qui vous sont proposés",
+        blocks: [
+          { p: "La liste suit le pays inscrit sur votre fiche d'entreprise. Une entreprise canadienne voit **Virement Interac**, **PayPal**, **Chèque** et **Comptant**. Une entreprise américaine voit **Zelle**, **Venmo**, **Cash App**, **Virement bancaire (ACH)**, **PayPal**, **Chèque** et **Comptant** — Interac n'existe pas aux États-Unis, il n'y est donc jamais proposé, et une entreprise américaine inscrite avec la valeur par défaut canadienne voit le virement retiré et le chèque relu à l'américaine au premier enregistrement. Ailleurs, la liste est PayPal, chèque et comptant." },
+          { table: { head: ["Mode", "Pays", "Ce que vous saisissez"], rows: [
+            ["Virement Interac", "Canada", "Le courriel ou le numéro de téléphone destinataire; au choix la question et la réponse de sécurité, ou une coche pour le dépôt automatique"],
+            ["Chèque", "Partout", "Rien d'obligatoire — les chèques sont libellés au nom de votre entreprise; un autre bénéficiaire et une adresse postale si vous voulez les imprimer"],
+            ["Comptant", "Partout", "Rien"],
+            ["PayPal", "Partout", "Votre courriel PayPal ou votre lien PayPal.Me"],
+            ["Zelle", "États-Unis", "Le courriel ou le numéro de téléphone inscrit chez Zelle"],
+            ["Venmo", "États-Unis", "Votre identifiant Venmo"],
+            ["Cash App", "États-Unis", "Votre $cashtag"],
+            ["Virement bancaire (ACH)", "États-Unis", "Nom de la banque, numéro d'acheminement et numéro de compte"],
+          ] } },
+        ],
+      },
+      {
+        id: "what-the-invoice-prints",
+        heading: "Ce que la facture imprime",
+        blocks: [
+          { p: "Chaque mode activé apparaît sous **Comment payer** sur le PDF de la facture, dans le courriel de facture et sur le portail client, dans la langue de la facture, après **Payez en ligne par carte** quand Stripe est connecté. Chaque ligne dit quoi faire — *Envoyez un virement Interac à pay@votreentreprise.ca. Le dépôt automatique est activé — aucune question de sécurité nécessaire. Indiquez INV-2026-0042 comme référence.* — pour que le client n'ait rien à demander. Une soumission dont les modalités de paiement nomment un acompte imprime le même bloc sous ses cartes de modalités, avec le numéro de soumission." },
+          { note: "Les coordonnées du **virement bancaire (ACH)** ne s'impriment que sur le PDF et dans le portail. Le courriel dit *Les coordonnées bancaires figurent sur la facture* — un numéro de compte n'a pas sa place dans un message qui se fait transférer." },
+          { p: "Le bloc est figé au premier envoi de la facture. Changer votre adresse de virement le mois prochain change la prochaine facture, pas celle qu'un client est déjà en train de payer." },
+        ],
+      },
+      {
+        id: "switching-on",
+        heading: "Activer un mode",
+        blocks: [
+          { steps: [
+            "Ouvrez **Paramètres → Paiements** et repérez **Modes de paiement que vous acceptez**.",
+            "Activez un mode. Ses champs apparaissent dessous; ceux marqués * sont obligatoires.",
+            "Appuyez sur **Enregistrer**. Un mode activé sans son détail obligatoire est refusé par une phrase — *E-transfer is on but has no address.* — et rien ne change tant qu'il n'est pas rempli.",
+          ] },
+          { note: "Désactivez tout et la facture n'imprime aucun bloc **Comment payer** — le courriel dit alors *Veuillez nous contacter pour organiser le paiement* à la place du bouton, si Stripe n'est pas connecté non plus." },
+        ],
+      },
+    ],
+    faq: [
+      { q: "Puis-je garder une adresse enregistrée pour un mode désactivé?", a: "Oui. Les détails restent enregistrés; seuls les modes activés sont vérifiés et imprimés." },
+      { q: "D'où vient l'ordre du chèque?", a: "Du nom de votre entreprise, sauf si vous saisissez un autre bénéficiaire — un nom commercial, une compagnie à numéro." },
+      { q: "Un client a payé par Zelle. Comment l'enregistrer?", a: "**Enregistrer un paiement** sur la facture propose les modes de votre pays, Zelle compris, et le relevé imprime le mot choisi. Voir [[record-a-manual-payment|Enregistrer un paiement comptant, par chèque ou par virement]]." },
     ],
   },
 };

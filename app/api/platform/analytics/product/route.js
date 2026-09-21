@@ -30,6 +30,8 @@ import {
 } from "@/lib/analytics/product/aggregate";
 import { SIGNUP_FUNNEL, FEATURES } from "@/lib/analytics/product/events";
 import { RAW_RETENTION_DAYS } from "@/lib/analytics/product/rollup";
+import { db } from "@/lib/db";
+import { unplacedSignupWhere } from "@/lib/signup/leads";
 
 const ALLOWED_ROLES = new Set(["superadmin", "admin"]);
 
@@ -83,6 +85,28 @@ export async function GET(request) {
     funnel = signupFunnel(counts, funnelRaw ? funnelRaw.stoppedAt : null, "events");
     if (funnelRaw) funnel.stoppedAtFrom = funnelRaw.from.toISOString().slice(0, 10);
   }
+
+  // ── The people behind the Trades drop ───────────────────────────────────
+  //
+  // The funnel counts browsers; lib/signup/leads.js keeps what they typed.
+  // Beside the drop: how many SignupLeads in this range never became a
+  // company, how many of those left a phone number, and how many are hot
+  // leads nobody has placed yet (unplacedSignupWhere — the same WHERE the
+  // review folder's section lists). Demo-free by construction: a demo has
+  // no SignupLead.
+  let signupLeads = null;
+  try {
+    const now = new Date();
+    const [started, withPhone, hotWaiting] = await Promise.all([
+      db.signupLead.count({ where: { startedAt: { gte: range.start, lt: range.end }, completedCompanyId: null } }),
+      db.signupLead.count({ where: { startedAt: { gte: range.start, lt: range.end }, completedCompanyId: null, phoneE164: { not: null } } }),
+      db.prospect.count({ where: { ...unplacedSignupWhere(now), hot: true } }),
+    ]);
+    signupLeads = { started, withPhone, hotWaiting, reviewHref: "/platform/sales/review?signups=hot", signupsHref: "/platform/signups" };
+  } catch (err) {
+    console.error("[platform/analytics] signup leads count failed:", err?.message || err);
+  }
+  funnel.signupLeads = signupLeads;
 
   // ── Help centre ───────────────────────────────────────────────────────
   const help = {

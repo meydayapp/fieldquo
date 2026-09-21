@@ -2,6 +2,7 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { PAYMENT_METHOD_LABELS } from "@/lib/payments/methodLabels";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { recordActivity } from "@/lib/activity/log";
@@ -78,6 +79,11 @@ export async function POST(request) {
       { error: "invoiceId, amount, and method are required" },
       { status: 400 },
     );
+  }
+  // A value the enum does not have used to reach Prisma and come back as a
+  // 500 with no sentence. The label map is every value the schema has.
+  if (!PAYMENT_METHOD_LABELS[method]) {
+    return NextResponse.json({ error: `"${method}" isn't a payment method.` }, { status: 400 });
   }
   // Recording money received is the highest-trust action in the app — a negative
   // amount is truthy and would have passed, quietly INCREASING the balance due.

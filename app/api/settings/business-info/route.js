@@ -10,7 +10,7 @@ import { normaliseHours } from "@/lib/company/businessHours";
 import { clampWindow } from "@/lib/booking/arrivalWindow";
 import { currencyForCountry } from "@/lib/currency";
 import { containsMarkupCharacters } from "@/lib/security/rejectMarkupCharacters";
-import { sanitisePaymentMethods } from "@/lib/payments/paymentMethodOptions";
+import { sanitiseMethods, validateAllDetails, paymentCountry, enabledMethods } from "@/lib/payments/offlineMethods";
 import { cleanRadiusKm, normalisePostalPrefixes } from "@/lib/company/serviceArea";
 import { usRatesTableStatus } from "@/lib/tax/usRates";
 import { normaliseUsOverrides, parseUsOverridesInput } from "@/lib/tax/usOverrides";
@@ -54,7 +54,11 @@ export async function GET(request) {
       paymentTerms: true,
       defaultProcessNotes: true,
       taxRate: true,
+      // The offline methods and where each one goes — Settings → Payments
+      // writes both through the PATCH below; every invoice surface reads
+      // them through lib/payments/offlineMethods.js.
       paymentMethods: true,
+      paymentMethodDetails: true,
       shareAnonymizedPricing: true,
       bookingSlug: true,
       // New — read-only identity used for the {slug}.fieldquo.com preview
@@ -92,6 +96,13 @@ export async function GET(request) {
       // JSON-LD — which is what puts opening hours in a Google result.
       businessHours: true,
       defaultVisitMinutes: true,
+      // The other two lengths, one per mode — lib/booking/bookingModes.js.
+      callMinutes: true,
+      videoMinutes: true,
+      // …and each one's booking fee (lib/booking/fee.js). The visit's fee
+      // stays on the event type.
+      callFeeCents: true,
+      videoFeeCents: true,
       bookingModes: true,
       travelCheckEnabled: true,
       travelBufferMinutes: true,
@@ -219,6 +230,7 @@ export async function PATCH(request) {
     defaultProcessNotes,
     taxRate,
     paymentMethods,
+    paymentMethodDetails,
     shareAnonymizedPricing,
     discoverable,
     taxIdName,
@@ -235,6 +247,10 @@ export async function PATCH(request) {
     weekStartsOn,
     businessHours,
     defaultVisitMinutes,
+    callMinutes,
+    videoMinutes,
+    callFeeCents,
+    videoFeeCents,
     bookingModes,
     travelCheckEnabled,
     travelBufferMinutes,
@@ -271,20 +287,54 @@ export async function PATCH(request) {
     }
   }
 
-  // Filtered to the known set, never stored raw: whatever lands in this column
-  // is printed on the invoice email, the portal and the PDF under the
-  // company's name (see lib/payments/paymentMethodOptions.js). A body that
-  // sends something other than an array is refused rather than quietly
-  // clearing the list — "cleared" and "malformed" must not look the same.
+  // ── Offline payment methods, by country ───────────────────────────────
+  //
+  // Filtered to the catalogue for the company's COUNTRY, never stored raw:
+  // whatever lands in these columns is printed on the invoice email, the
+  // portal and the PDF under the company's name, and a US company must
+  // never be able to switch on Interac (lib/payments/offlineMethods.js). A
+  // body that sends something other than an array is refused rather than
+  // quietly clearing the list — "cleared" and "malformed" must not look
+  // the same.
+  //
+  // Each method that is ON must carry the detail the client needs to use
+  // it (an e-transfer address, a Zelle number); validateAllDetails refuses
+  // the whole save with a sentence otherwise, so the settings never say
+  // "E-transfer" to a homeowner with nowhere to send it. The details are
+  // validated against the list being saved in this request, or the stored
+  // list when only the details changed. The country is re-read here rather
+  // than trusted from the body: `country` may be changing in this same
+  // PATCH, and the list must be judged against the country it will have.
   let cleanPaymentMethods;
-  if (paymentMethods !== undefined) {
-    cleanPaymentMethods = sanitisePaymentMethods(paymentMethods);
-    if (cleanPaymentMethods === null) {
-      return NextResponse.json(
-        { error: "paymentMethods must be a list of cash, e_transfer or cheque." },
-        { status: 400 },
-      );
+  let cleanPaymentDetails;
+  if (paymentMethods !== undefined || paymentMethodDetails !== undefined) {
+    const stored = await db.company.findUnique({
+      where: { id: member.companyId },
+      select: { country: true, address: true, province: true, paymentMethods: true, paymentMethodDetails: true },
+    });
+    const forCountry = paymentCountry({ ...stored, ...(country !== undefined ? { country } : {}) });
+    if (paymentMethods !== undefined) {
+      cleanPaymentMethods = sanitiseMethods(paymentMethods, forCountry);
+      if (cleanPaymentMethods === null) {
+        return NextResponse.json(
+          { error: "paymentMethods must be a list of payment methods." },
+          { status: 400 },
+        );
+      }
     }
+    const enabled =
+      cleanPaymentMethods !== undefined
+        ? cleanPaymentMethods
+        : enabledMethods({ ...stored, country: forCountry });
+    // Details not sent → the stored ones are re-validated against the new
+    // list, so switching e-transfer on without ever typing an address is
+    // refused even when the details object was left out of the body.
+    const r = validateAllDetails(
+      paymentMethodDetails !== undefined ? paymentMethodDetails : stored?.paymentMethodDetails,
+      { country: forCountry, enabled },
+    );
+    if (r.error) return NextResponse.json({ error: r.error }, { status: 400 });
+    cleanPaymentDetails = r.details;
   }
 
   // The service area. The radius is cleaned by the same helper the public
@@ -430,6 +480,7 @@ export async function PATCH(request) {
       ...(defaultProcessNotes !== undefined && { defaultProcessNotes }),
       ...(taxRate !== undefined && { taxRate }),
       ...(cleanPaymentMethods !== undefined && { paymentMethods: cleanPaymentMethods }),
+      ...(cleanPaymentDetails !== undefined && { paymentMethodDetails: cleanPaymentDetails }),
       ...(shareAnonymizedPricing !== undefined && { shareAnonymizedPricing }),
       ...(discoverable !== undefined && { discoverable }),
       ...(taxIdName !== undefined && { taxIdName }),
@@ -477,6 +528,24 @@ export async function PATCH(request) {
       // computeAvailability emit infinite slots, and a 10-hour one emits none.
       ...(defaultVisitMinutes !== undefined && {
         defaultVisitMinutes: Math.min(480, Math.max(10, Number(defaultVisitMinutes) || 60)),
+      }),
+      // The same clamp, per mode. Null clears the company's answer and the
+      // booking page falls back to the plain default (20 / 30) — see
+      // lib/booking/bookingModes.js bookingDurationMinutes.
+      ...(callMinutes !== undefined && {
+        callMinutes: callMinutes === null ? null : Math.min(480, Math.max(5, Number(callMinutes) || 20)),
+      }),
+      ...(videoMinutes !== undefined && {
+        videoMinutes: videoMinutes === null ? null : Math.min(480, Math.max(5, Number(videoMinutes) || 30)),
+      }),
+      // The call and video booking fees, in cents. Null or 0 is free. Whole
+      // cents, never negative, capped where the event-type fee is capped so a
+      // typo cannot post a $50,000 hold to a homeowner.
+      ...(callFeeCents !== undefined && {
+        callFeeCents: callFeeCents === null ? null : Math.min(500000, Math.max(0, Math.round(Number(callFeeCents) || 0))),
+      }),
+      ...(videoFeeCents !== undefined && {
+        videoFeeCents: videoFeeCents === null ? null : Math.min(500000, Math.max(0, Math.round(Number(videoFeeCents) || 0))),
       }),
       // Filtered to the known set, and never allowed to be empty: a company with
       // no bookable modes has a booking page that cannot be completed. Falls back

@@ -104,6 +104,7 @@ import { composerBlock, connectionBlurb } from "@/lib/messaging/composerState";
 // Where the Page gets connected. One constant shared with the connect and
 // callback routes, so the card below cannot point at a screen that moved.
 import { SOCIAL_SETTINGS_PATH } from "@/lib/social/settingsPath";
+import AiHolderBar from "@/app/components/messaging/AiHolderBar";
 // The one table that knows what WhatsApp will accept, and Meta's own size
 // limits with it. Read here so the file picker offers exactly what the send
 // path takes — a picker that offers more is a control that appears to work.
@@ -831,6 +832,8 @@ function MessagesScreen() {
           />
         )}
       />
+
+      {thread ? <AiHolderBar thread={thread} canEdit={canEdit} onChanged={refresh} t={t} /> : null}
 
       {thread ? (
         <ComposerArea

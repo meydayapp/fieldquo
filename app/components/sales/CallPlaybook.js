@@ -56,6 +56,7 @@ import { languageMeta } from "@/app/i18n/languages";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import StayOnTheLine from "@/app/components/sales/StayOnTheLine";
 import TurnaroundQuestion from "@/app/components/sales/TurnaroundQuestion";
+import SignupOpener from "@/app/components/sales/SignupOpener";
 import TradePoints from "@/app/components/sales/TradePoints";
 
 const BTN =
@@ -587,6 +588,13 @@ export default function CallPlaybook({
           </p>
         )}
       </div>
+
+      {/* ── A signup lead opens differently ──────────────────────────────
+          Above everything: the person typed their number into FieldQuo's
+          own form, and "you've never heard of me" would be false. */}
+      {data.prospect?.signup ? (
+        <SignupOpener signup={data.prospect.signup} repName={data.repName || ""} language={data.scriptLanguage?.current || data.scriptLanguage?.default || language || "en"} />
+      ) : null}
 
       {/* ── The generated script, when the pipeline has written one ───────
           Above the stages, because it is about THIS business and the stages

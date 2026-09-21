@@ -30,8 +30,17 @@
 //    have run, bound to the exact arguments you read (a hash travels with
 //    each row), and a booking whose slot has passed is marked stale rather
 //    than executed.
+//
+// 6. THE FLOW VIEW (app/components/aiEmployee/TeamFlow.js) draws the routing
+//    process — channels, the front desk, one card per employee with its tool
+//    chips, the proposals gate, and the person every card can reach — from
+//    the server's own role table and routing log. Its two controls (which
+//    employee an intent goes to; a tool switch inside the role) save through
+//    PATCH /api/ai-employee, and what is drawn afterwards is the server's
+//    answer, never a local guess.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import DeleteConfirmModal from "@/app/components/admin/DeleteConfirmModal";
 import Link from "next/link";
 import {
   Bot,
@@ -52,12 +61,14 @@ import {
   UserPlus,
   Pencil,
   Coins,
+  Workflow,
 } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { reportResponseError, showError } from "@/lib/clientErrors";
 import { formatAppMoney } from "@/lib/format/money";
 import { CREDIT_CURRENCY } from "@/lib/voice/creditCurrency";
 import BackToHome from "@/app/components/BackToHome";
+import TeamFlow from "@/app/components/aiEmployee/TeamFlow";
 
 const money = (cents) => formatAppMoney(Number(cents || 0) / 100, CREDIT_CURRENCY, "en");
 
@@ -166,6 +177,8 @@ export default function AiEmployeePage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [confirmFire, setConfirmFire] = useState(false);
+  const [firing, setFiring] = useState(false);
   const [saved, setSaved] = useState(false);
   const [testText, setTestText] = useState("");
   const [testChannel, setTestChannel] = useState("meta");
@@ -308,6 +321,32 @@ export default function AiEmployeePage() {
     const { employee } = await res.json();
     setData((d) => ({ ...d, employees: [...d.employees, employee] }));
     setSelectedId(employee.id);
+  }
+
+  async function fire() {
+    if (!saved_?.id) return;
+    setFiring(true);
+    const res = await fetch("/api/ai-employee", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: saved_.id }),
+    });
+    setFiring(false);
+    setConfirmFire(false);
+    if (!res.ok) {
+      await reportResponseError(res, t("app.aiEmployee.fireError", "Couldn't fire that one."));
+      return;
+    }
+    // The list shrinks; if it was the last, the server hands back a fresh
+    // switched-off receptionist on the next read, so reload rather than
+    // guess at that row here.
+    const rest = data.employees.filter((e) => e.id !== saved_.id);
+    if (rest.length === 0) {
+      window.location.reload();
+      return;
+    }
+    setData((d) => ({ ...d, employees: rest }));
+    setSelectedId(rest[0].id);
   }
 
   async function uploadFace(file) {
@@ -589,6 +628,21 @@ export default function AiEmployeePage() {
             </div>
           )}
         </div>
+      </Card>
+
+      {/* ── How the team works ───────────────────────────────────────────── */}
+      <Card
+        id="team-flow"
+        title={t("app.aiEmployee.flow.title", "How your AI team works")}
+        icon={Workflow}
+        hint={t("app.aiEmployee.flow.hint", "A message comes in on a channel, the front desk reads it once and hands it to one employee, and only that employee answers. Counts are this week's.")}
+      >
+        <TeamFlow
+          data={data}
+          proposals={proposals}
+          onEmployees={(employees) => setData((d) => ({ ...d, employees }))}
+          t={t}
+        />
       </Card>
 
       {form && (
@@ -914,7 +968,23 @@ export default function AiEmployeePage() {
                 <Check size={14} /> {t("app.common.saved", "Saved")}
               </span>
             )}
+            <button
+              type="button"
+              onClick={() => setConfirmFire(true)}
+              className="ml-auto inline-flex items-center gap-1.5 min-h-[44px] px-3 rounded-lg border border-border text-sm text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-950/30"
+            >
+              <Trash2 size={14} /> {t("app.aiEmployee.fire", "Fire")}
+            </button>
           </div>
+          <DeleteConfirmModal
+            isOpen={confirmFire}
+            onClose={() => setConfirmFire(false)}
+            onConfirm={fire}
+            title={t("app.aiEmployee.fire", "Fire")}
+            message={t("app.aiEmployee.fireConfirm", "Fire {name}? Its proposals and replies are removed and its channels go back to your inbox. This cannot be undone.", { name: saved_?.displayName || saved_?.name || "" })}
+            itemName={saved_?.displayName || saved_?.name || ""}
+            busy={firing}
+          />
         </>
       )}
 

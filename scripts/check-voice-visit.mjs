@@ -361,9 +361,11 @@ ok(
 
 const availability = readFileSync(new URL("../lib/voice/availability.js", import.meta.url), "utf8");
 ok(
-  /effectiveBookingFeeCents\(company, eventType\)/.test(availability) &&
+  // For the MODE being booked: the fee is per mode since 2026-09-20, and a
+  // free phone call at a company that charges for the visit is still free.
+  /effectiveBookingFeeCents\(company, eventType, bookedMode\)/.test(availability) &&
     /feeCents > 0\) return \{ ok: false, reason: "fee_due" \}/.test(availability),
-  "bookSlot re-prices the event type itself and refuses a paid one, whatever the agent was told",
+  "bookSlot re-prices the event type itself, for the mode booked, and refuses a paid one, whatever the agent was told",
 );
 ok(
   /if \(!policy\.canBook\) return \[\]/.test(availability),

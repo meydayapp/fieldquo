@@ -12,6 +12,7 @@
 // through to the optimistic branch, and that is invisible until it happens to
 // somebody.
 
+import fs from "node:fs";
 import { clientDocCopy } from "@/lib/i18n/clientDocCopy";
 import {
   changeRefusal,
@@ -187,6 +188,18 @@ ok(
 );
 ok("bad locale falls back", exactWhen("2026-08-11T18:00:00Z", "UTC", "not-a-locale").length > 0);
 ok("garbage date still returns a string", typeof exactWhen("nope", "UTC", "en-CA") === "string");
+
+// ── Client letters never leave from Resend's sandbox (2026-09-20) ────────
+// sendBookingConfirmationEmail and sendBothCopies used the sync senderFor()
+// with no platform sender, which falls back to onboarding@resend.dev; Resend
+// refuses that for any address but the account owner's, so the owner's own
+// test booking got no confirmation. Both must go through resolveSender.
+{
+  const src = fs.readFileSync(new URL("../app/admin/lib/email/templates.js", import.meta.url), "utf8");
+  ok(!/\bsenderFor\(/.test(src), "templates.js never calls the sync senderFor()");
+  ok(/sendBookingConfirmationEmail[\s\S]{0,900}await resolveSender\(/.test(src), "the booking confirmation resolves the discovered platform sender");
+  ok(/async function sendBothCopies[\s\S]{0,200}await resolveSender\(/.test(src), "…and so do the moved/cancelled letters");
+}
 
 console.log(`\n${fail === 0 ? "ALL PASS" : "FAILURES"} — ${pass} passed, ${fail} failed\n`);
 process.exit(fail ? 1 : 0);

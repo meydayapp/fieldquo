@@ -4,8 +4,22 @@
 //
 //   npm run scrape:maps -- --term "plumber" --location "Lakeside, CA" --country US --max-per-term 20
 //   npm run scrape:maps -- --from-order --pairs 20
-//   npm run scrape:maps -- --plan --from-order --pairs 20
+//   npm run scrape:maps -- --from-order --pairs 20 --state NY,FL,CA     (only those states; --province QC the same)
+//   npm run scrape:maps -- --plan --from-order --pairs 20 --state NY --state FL
 //   npm run scrape:maps -- --resume
+//   npm run scrape:maps -- --rematch            (re-run the matcher over refused listings: count only)
+//   npm run scrape:maps -- --rematch --apply    (… and write what flips)
+//   npm run scrape:maps -- --promote [--state …]          (unmatched open listings → prospects: count only)
+//   npm run scrape:maps -- --promote --apply [--state …]  (… and write them, research queued)
+//
+// --state: the enrichment order with every row outside those states removed
+// BEFORE ranking (lib/sales/intel/enrichmentOrder.js, "A regional pass") —
+// held leads in those states, then next-in-dispatch in those states, nothing
+// from anywhere else; the plan says how many pairs it skipped. The owner's
+// ask of 2026-09-21: NY, FL and California first. The same filter bounds
+// --promote. Every sweep ends by promoting ITS OWN new listings
+// (lib/sales/intel/promoteListings.js), so a place the Mac read tonight is
+// in the review folder with its crawl queued by morning.
 //
 // docs/sales/SCRAPE-LOCAL-RUN.md has the whole of it. In short: one real
 // Chrome, visible, a human pause between every action, one search per
@@ -28,7 +42,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { db } from "@/lib/db";
 import { applyListing, meterLocalScrape, searchTermForTrade } from "@/lib/sales/intel/listings";
-import { loadEnrichmentOrder, pairsFromRows, ENRICHMENT_TIERS } from "@/lib/sales/intel/enrichmentOrder";
+import { loadEnrichmentOrder, pairsFromRows, parseRegions, ENRICHMENT_TIERS } from "@/lib/sales/intel/enrichmentOrder";
+import { rematchUnmatched } from "@/lib/sales/intel/rematch";
+import { promoteListings } from "@/lib/sales/intel/promoteListings";
+import { recordScrapeRun } from "@/lib/sales/intel/mapsScrapeStatus";
 import { ChallengeError, guardPage, launchBrowser, visit, wander, wheelIn } from "./lib/browser.mjs";
 import { FEED_BOUNDARY, boundsFromMapsUrl, geocodeBounds, planViewports, regionBounds, subdivide, textSearchUrl, tileSearchUrl, DEFAULT_TILE_ZOOM } from "./lib/geo.mjs";
 import { RunLog, emptySummary, latestRunId, newRunId, progressFrom } from "./lib/log.mjs";
@@ -54,11 +71,22 @@ export function parseArgs(argv) {
     dry: false,
     saveHtml: null,
     maxTiles: 400,
+    regions: null,
+    rematch: false,
+    promote: false,
+    apply: false,
+    limit: 0,
   };
+  const regionArgs = [];
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
     const next = () => argv[++i];
     if (a === "--term") args.terms.push(next());
+    else if (a === "--state" || a === "--province") regionArgs.push(next());
+    else if (a === "--rematch") args.rematch = true;
+    else if (a === "--promote") args.promote = true;
+    else if (a === "--apply") args.apply = true;
+    else if (a === "--limit") args.limit = Math.max(0, Number(next()) || 0);
     else if (a === "--location") args.locations.push(next());
     else if (a === "--country") args.countries.push(String(next() || "").toUpperCase());
     else if (a === "--from-order") args.fromOrder = true;
@@ -76,6 +104,11 @@ export function parseArgs(argv) {
     else if (a === "--max-tiles") args.maxTiles = Math.max(1, Number(next()) || 400);
     else if (a === "--help" || a === "-h") args.help = true;
     else throw new Error(`Unknown argument: ${a}`);
+  }
+  if (regionArgs.length) {
+    const parsed = parseRegions(regionArgs);
+    if (parsed.unknown.length) throw new Error(`--state/--province: not a state or province: ${parsed.unknown.join(", ")}`);
+    args.regions = parsed.regions.length ? parsed.regions : null;
   }
   return args;
 }
@@ -111,13 +144,17 @@ export function pairsFromArgs(args) {
  * have been verified by BBB and Google Places." `held` counts the claimed
  * rows behind a pair; `ahead` the not-yet-handed-out ones.
  */
-async function orderedPairs({ limit = 20 } = {}) {
+async function orderedPairs({ limit = 20, regions = null } = {}) {
   // No "already done" stamp: the Places API check stamps placesCheckedAt,
   // but this sweep reads the whole city feed — it corroborates every held
   // row in it AND finds the businesses that are not in the pool yet, so a
   // city whose held leads were API-checked is still worth the search. The
   // run's own dedupe skips places already opened this run.
-  const order = await loadEnrichmentOrder({ db });
+  //
+  // `regions`: the order is built INSIDE the filter (rows outside never
+  // rank), and pairsFromRows applies it again over what came back, so the
+  // pairs and the "skipped" count agree whichever layer a row fell at.
+  const order = await loadEnrichmentOrder({ db, regions });
   const rows = order.rows;
   const ids = rows.map((r) => r.id);
   const prospects = ids.length
@@ -135,7 +172,9 @@ async function orderedPairs({ limit = 20 } = {}) {
     counts.set(k, c);
   }
   const out = [];
-  for (const p of pairsFromRows(rows, byId)) {
+  const pairs = pairsFromRows(rows, byId, { regions });
+  out.skippedOutside = { rows: (order.outsideRegions?.claimed || 0) + (order.outsideRegions?.candidates || 0) + (pairs.skippedOutside || 0), claimed: order.outsideRegions?.claimed || 0, candidates: order.outsideRegions?.candidates || 0 };
+  for (const p of pairs) {
     const term = searchTermForTrade(p.tradeKey);
     if (!term) continue;
     const city = String(p.city).trim().replace(/\s+/g, " ");
@@ -146,6 +185,7 @@ async function orderedPairs({ limit = 20 } = {}) {
       tradeKey: p.tradeKey,
       location: [cityLabel, p.province].filter(Boolean).join(", "),
       country: p.country,
+      province: p.province || null,
       held: c.held,
       ahead: c.ahead,
       reason: p.tier === ENRICHMENT_TIERS.CLAIMED ? "held" : "next in dispatch",
@@ -174,6 +214,10 @@ function usage() {
 
   --term "plumber" --location "Lakeside, CA" --country US   (repeatable)
   --from-order --pairs 20        pairs from the shared enrichment order (held leads, then next in dispatch)
+  --state NY,FL,CA               only prospects in those states (repeatable; --province QC the same)
+  --rematch [--apply]            re-run the matcher over refused listings; count only unless --apply
+  --promote [--apply] [--state]  unmatched open listings with a phone → prospects; count only unless --apply
+  --limit N                      stop a --rematch / --promote after N rows
   --max-per-term 120             places opened per (term, location)
   --headless                     no window (visible by default)
   --plan                         print the pairs and viewport plan, open no browser
@@ -223,16 +267,22 @@ async function main() {
     console.log(usage());
     return 0;
   }
+  if (args.rematch || args.promote) return runOneOff(args);
 
   // Pairs.
   let pairs = pairsFromArgs(args);
+  let skippedOutside = null;
   if (args.fromOrder) {
-    const ordered = await orderedPairs({ limit: args.pairs });
+    const ordered = await orderedPairs({ limit: args.pairs, regions: args.regions });
+    skippedOutside = ordered.skippedOutside || null;
     pairs = dedupePairs([...pairs, ...ordered]);
+  }
+  if (args.regions) {
+    console.log(`States: ${args.regions.join("/")} only${skippedOutside ? ` — ${skippedOutside.rows} prospect(s) outside ${args.regions.join("/")} skipped (${skippedOutside.claimed} held, ${skippedOutside.candidates} next in dispatch)` : ""}`);
   }
   if (!pairs.length) {
     console.log(usage());
-    console.error("Nothing to search: give --term/--location or --from-order.");
+    console.error(`Nothing to search: give --term/--location or --from-order${args.regions ? ` (no held or next-in-dispatch leads in ${args.regions.join("/")})` : ""}.`);
     return 1;
   }
 
@@ -244,7 +294,7 @@ async function main() {
       const plan = planViewports({ location: p.location, bounds: geo?.bounds || null, zoom: args.zoom, force: args.mode });
       const held = `${p.held ? ` · ${p.held} held` : ""}${p.ahead ? ` · ${p.ahead} next` : ""}`;
       const how = plan.mode === "single" ? `one search "${p.term} in ${p.location}"` : `${plan.tiles.length} viewports at ${args.zoom}z over ${plan.diagonalKm} km`;
-      console.log(`  ${p.term.padEnd(28)} ${p.location.padEnd(28)} ${p.country}${held} — ${how}${geo ? ` (bounds via ${geo.via})` : " (no bounds yet — the browser will frame it)"}`);
+      console.log(`  ${p.term.padEnd(28)} ${p.location.padEnd(28)} ${(p.province || "--").padEnd(2)} ${p.country}${held} — ${how}${geo ? ` (bounds via ${geo.via})` : " (no bounds yet — the browser will frame it)"}`);
     }
     return 0;
   }
@@ -258,18 +308,29 @@ async function main() {
   const log = new RunLog(runId);
   const progress = progressFrom(log.replay());
   const summary = emptySummary(runId, args);
+  summary.regions = args.regions;
+  summary.skippedOutside = skippedOutside;
   if (args.resume) {
     summary.notes.push(`resumed: ${progress.places.size} places and ${progress.tilesDone.size} tiles already done`);
   }
-  log.event("run_start", { args, pairs: pairs.map(pairKeyOf), resumed: Boolean(args.resume) });
-  console.log(`Run ${runId} — ${pairs.length} pair(s), max ${args.maxPerTerm} per term, ${args.headless ? "headless" : "visible"}${args.dry ? ", DRY (no writes)" : ""}`);
+  log.event("run_start", { args, pairs: pairs.map(pairKeyOf), resumed: Boolean(args.resume), regions: args.regions, skippedOutside });
+  console.log(`Run ${runId} — ${pairs.length} pair(s), max ${args.maxPerTerm} per term, ${args.headless ? "headless" : "visible"}${args.dry ? ", DRY (no writes)" : ""}${args.regions ? `, ${args.regions.join("/")} only` : ""}`);
   console.log(`Log: ${log.file}`);
 
   const markers = markersFor(args.lang);
   const seen = new Set(progress.places.keys());
   let parsedThisSession = 0;
   const { context, page } = await launchBrowser({ headless: args.headless, lang: args.lang });
-  const checkpoint = () => log.writeSummary({ ...summary, placesSeenTotal: seen.size });
+  // The summary goes to the Mac's log AND, unless dry, to the database
+  // (PlatformSetting, lib/sales/intel/mapsScrapeStatus.js recordScrapeRun),
+  // so the platform panel can say which states this run was bounded to and
+  // how many pairs it skipped — the one thing it could not read off the
+  // listings. Never throws: a panel line must not stop a scrape.
+  const checkpoint = () => {
+    const snapshot = { ...summary, placesSeenTotal: seen.size };
+    log.writeSummary(snapshot);
+    if (!args.dry) recordScrapeRun({ db, summary: snapshot }).catch((err) => console.error("[maps] run not recorded on the panel:", err?.message || err));
+  };
 
   try {
     for (const pair of pairs) {
@@ -392,8 +453,20 @@ async function main() {
       const m = await meterLocalScrape({ db, places: parsedThisSession });
       summary.metered = m ? parsedThisSession : 0;
     }
+    // This run's own new listings that matched nothing → prospects, in the
+    // review folder with their crawl queued (promoteListings.js). Bounded to
+    // the run id, so an earlier night's listings are the owner's --promote
+    // to make, not this sweep's side effect. Dry stays dry.
+    if (parsedThisSession) {
+      try {
+        const r = await promoteListings({ db, dry: args.dry, runId, regions: args.regions });
+        summary.promoted = { considered: r.considered, promoted: r.promoted, researchQueued: r.researchQueued, skipped: r.skipped, byState: r.byState, byTrade: r.byTrade, dry: r.dry };
+      } catch (err) {
+        summary.notes.push(`promotion did not run: ${err?.message || err}`);
+      }
+    }
     summary.finishedAt = new Date().toISOString();
-    log.event("run_end", { stopped: summary.stopped, placesParsed: summary.placesParsed });
+    log.event("run_end", { stopped: summary.stopped, placesParsed: summary.placesParsed, promoted: summary.promoted || null });
     checkpoint();
     await db.$disconnect().catch(() => {});
   }
@@ -402,10 +475,48 @@ async function main() {
   return summary.stopped ? (summary.stopped.kind === "error" ? 1 : 2) : 0;
 }
 
+/**
+ * --rematch and --promote: the two one-offs that read the database and
+ * open no browser. Both count first and write only with --apply, because
+ * the owner asked for the dry-run number before anything moved.
+ */
+async function runOneOff(args) {
+  const apply = args.apply;
+  try {
+    if (args.rematch) {
+      console.log(`Rematch — refused Maps listings through today's rule${args.regions ? `, ${args.regions.join("/")} only` : ""}${apply ? ", WRITING what flips" : " (count only; add --apply to write)"}`);
+      const r = await rematchUnmatched({
+        db,
+        dry: !apply,
+        regions: args.regions,
+        limit: args.limit,
+        onRow: (row, result, { before, after }) => {
+          if (after === "matched" || after === "matched_verify") console.log(`  ${after === "matched" ? "✓" : "?"} ${row.name} — was ${before}, now ${after} → ${result.score?.prospectName || result.prospectId}${result.score?.identity?.length ? ` (same ${result.score.identity.join(" + ")})` : ""}`);
+        },
+      });
+      console.log(`\n${r.considered} refused listing(s) re-read${r.dry ? " (dry)" : ""}: ${r.flipped.matched} now matched, ${r.flipped.matched_verify} now matched_verify, ${r.considered - r.flipped.matched - r.flipped.matched_verify} still refused${r.errors ? `, ${r.errors} errors` : ""}`);
+      console.log(`before: ${Object.entries(r.byBefore).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} ${n}`).join(", ")}`);
+      console.log(`after:  ${Object.entries(r.byAfter).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} ${n}`).join(", ")}`);
+      return r.errors ? 1 : 0;
+    }
+    console.log(`Promote — unmatched open Maps listings with a phone → prospects${args.regions ? `, ${args.regions.join("/")} only` : ""}${apply ? ", WRITING" : " (count only; add --apply to write)"}`);
+    const r = await promoteListings({ db, dry: !apply, regions: args.regions, limit: args.limit });
+    console.log(`\n${r.considered} listing(s) considered${r.dry ? " (dry)" : ""}: ${r.promoted} ${r.dry ? "would be promoted" : "promoted"}${r.dry ? "" : `, research queued for ${r.researchQueued}`}${r.errors ? `, ${r.errors} errors` : ""}`);
+    console.log(`by state: ${Object.entries(r.byState).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} ${n}`).join(", ") || "none"}`);
+    console.log(`trade known ${r.byTrade.known} (${Object.entries(r.byTradeKey).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} ${n}`).join(", ") || "—"}) · trade unknown ${r.byTrade.unknown} → review folder`);
+    console.log(`status: ${Object.entries(r.byStatus).map(([k, n]) => `${k} ${n}`).join(", ") || "none"}`);
+    console.log(`skipped: ${Object.entries(r.skipped).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} ${n}`).join(", ") || "none"}`);
+    return r.errors ? 1 : 0;
+  } finally {
+    await db.$disconnect().catch(() => {});
+  }
+}
+
 function tally(summary, write) {
   const w = summary.written;
   switch (write.verdict) {
     case "matched": w.matched += 1; break;
+    case "matched_verify": w.matchedVerify += 1; break;
     case "already_attached": w.alreadyAttached += 1; break;
     case "no_confident_match": w.noConfidentMatch += 1; break;
     case "no_candidate": w.noCandidates += 1; break;
@@ -425,11 +536,12 @@ function tally(summary, write) {
 }
 
 function verdictMark(v) {
-  return { matched: "✓", already_attached: "=", no_confident_match: "~", no_candidate: "+", place_id_conflict: "!", duplicate_place: "!", error: "✗" }[v] || "·";
+  return { matched: "✓", matched_verify: "?", already_attached: "=", no_confident_match: "~", no_candidate: "+", place_id_conflict: "!", duplicate_place: "!", error: "✗" }[v] || "·";
 }
 
 function describeWrite(w) {
   if (w.verdict === "matched") return `matched ${w.score?.prospectName || w.prospectId}${w.gained?.length ? `, gained ${w.gained.join(", ")}` : ", nothing new"}${w.conflicts?.length ? `, kept the record's ${w.conflicts.join(", ")}` : ""}`;
+  if (w.verdict === "matched_verify") return `attached to ${w.score?.prospectName || w.prospectId} on the same ${(w.score?.identity || []).join(" + ")} alone — the name differs, confirm on the call${w.gained?.length ? `; gained ${w.gained.join(", ")}` : ""}`;
   if (w.verdict === "already_attached") return "already attached on an earlier run";
   if (w.verdict === "no_candidate") return `no prospect row${w.newLeadLike ? " — looks like a new lead" : ""}`;
   if (w.verdict === "no_confident_match") return `refused: ${w.score?.reason} (top: ${w.score?.prospectName})${w.newLeadLike ? " — looks like a new lead" : ""}`;
@@ -453,7 +565,9 @@ function printSummary(s) {
   console.log(`pairs ${s.pairs} · tiles ${s.tiles} (${s.tilesSaturated} saturated → subdivided, ${s.tilesEmpty} empty) · feed links ${s.feedLinks}`);
   console.log(`places opened ${s.placesOpened} · parsed ${s.placesParsed} · unreadable ${s.parseFailures} · skipped as seen ${s.placesSkippedSeen} (${s.dedupedAcrossTerms} across terms)`);
   const w = s.written;
-  console.log(`matched ${w.matched} · already attached ${w.alreadyAttached} · refused ${w.noConfidentMatch} · no row ${w.noCandidates} · conflicts ${w.placeIdConflict + w.duplicatePlace} · errors ${w.errors}`);
+  console.log(`matched ${w.matched} · attached to verify ${w.matchedVerify} · already attached ${w.alreadyAttached} · refused ${w.noConfidentMatch} · no row ${w.noCandidates} · conflicts ${w.placeIdConflict + w.duplicatePlace} · errors ${w.errors}`);
+  if (s.regions) console.log(`states: ${s.regions.join("/")} only${s.skippedOutside ? ` · ${s.skippedOutside.rows} prospect(s) outside skipped` : ""}`);
+  if (s.promoted) console.log(`promoted into the pool: ${s.promoted.promoted} of ${s.promoted.considered} unmatched${s.promoted.dry ? " (dry — none written)" : ` · research queued ${s.promoted.researchQueued}`}${Object.keys(s.promoted.byState || {}).length ? ` · by state ${Object.entries(s.promoted.byState).map(([k, n]) => `${k} ${n}`).join(", ")}` : ""} · trade known ${s.promoted.byTrade?.known ?? 0}, to review ${s.promoted.byTrade?.unknown ?? 0}`);
   console.log(`gained: ${Object.entries(s.gained).filter(([, n]) => n).map(([k, n]) => `${k} ${n}`).join(", ") || "nothing"} · kept the record's value over Google's on ${s.conflicts} row(s) · closed ${s.closed}`);
   console.log(`unmatched that look like new leads: ${s.unmatchedNewLeadLike}${Object.keys(s.unmatchedByTrade).length ? ` (${Object.entries(s.unmatchedByTrade).map(([k, n]) => `${k} ${n}`).join(", ")})` : ""}`);
   console.log(`metered onto /platform/costs as local_scrape/google-maps: ${s.metered} places at $0`);

@@ -1,0 +1,75 @@
+// app/api/signup/lead/route.js
+//
+// The public signup page keeping what it has typed — and reading it back on
+// a resume link.
+//
+// ══ POST: a capture ═══════════════════════════════════════════════════════
+//
+// `{ email, step, firstName, lastName, companyName, phone, city, province,
+// country, language, trades[], salesCode, referralCode, utm, visitorId,
+// referrer }` — the first step of the funnel as it stands, posted by
+// app/signup/page.js CAPTURE_DEBOUNCE_MS after the last change and at once
+// on a step change (lib/signup/leadCapture.js). A JSON body, never a query
+// string: it carries a person's name and number.
+//
+// 204, always — created, updated, refused as not-yet-worth-a-row, refused as
+// locked (a company completed it; a rep already holds it), or malformed.
+// Answering differently for an address that has a row would turn a public
+// endpoint into "has this email started a signup" — the same reason
+// app/api/signup/progress answers 204 for a token it has never seen. A
+// malformed body is a 400 only because the shape is public and a client
+// should learn it is wrong; it still says nothing about any row.
+//
+// Rate-limited per IP the way signup/progress is: a capture is cheap to fire
+// and this must not be a way to fill a table. Nothing here is read by the
+// session — a stranger writes their own row and can read nothing back.
+//
+// ══ GET ?token=: the resume prefill ════════════════════════════════════════
+//
+// The rep's intro email to an abandoned signup links to
+// /signup?…&resume=<token>. The page asks here with the token and gets back
+// exactly what the person typed themselves — name, company, number, place,
+// trades, language — so the form opens filled in. The token is 32 random
+// bytes, unique per row; the email address is not in the URL. An unknown
+// token is a 404 with nothing else, and there is no listing.
+export const runtime = "nodejs";
+
+import { NextResponse } from "next/server";
+import { db } from "@/lib/db";
+import { rateLimit } from "@/lib/rateLimit";
+import { isResumeToken } from "@/lib/signup/leads";
+import { captureSignupLead, signupLeadForResume } from "@/lib/signup/salesFloor";
+
+/** A step's worth of typing is a handful of posts; a hundred in ten minutes is not a person. */
+const CAPTURE_LIMIT = { limit: 120, windowMs: 10 * 60 * 1000 };
+const RESUME_LIMIT = { limit: 30, windowMs: 10 * 60 * 1000 };
+
+export async function POST(request) {
+  const limited = rateLimit(request, "signup-lead", CAPTURE_LIMIT);
+  if (limited) return limited;
+
+  const body = await request.json().catch(() => null);
+  if (!body || typeof body !== "object" || typeof body.email !== "string" || typeof body.step !== "string") {
+    return NextResponse.json({ error: "email and step are required" }, { status: 400 });
+  }
+
+  await captureSignupLead({ client: db, body, now: new Date() }).catch((err) => {
+    console.error("[signup/lead] capture failed:", err?.message || err);
+  });
+  return new NextResponse(null, { status: 204 });
+}
+
+export async function GET(request) {
+  const limited = rateLimit(request, "signup-lead-resume", RESUME_LIMIT);
+  if (limited) return limited;
+
+  const token = new URL(request.url).searchParams.get("token") || "";
+  if (!isResumeToken(token)) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  const prefill = await signupLeadForResume({ client: db, token }).catch((err) => {
+    console.error("[signup/lead] resume read failed:", err?.message || err);
+    return null;
+  });
+  if (!prefill) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  return NextResponse.json({ prefill }, { headers: { "Cache-Control": "no-store" } });
+}

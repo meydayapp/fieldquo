@@ -70,7 +70,7 @@ callbacks, the crew inbox, team chat, How You Compare, the KPI dashboard,
 
 <!-- tree:start -->
 
-_Generated 2026-09-19 — 320 articles in the tree; written: en 320, fr 320, es 320; “Only in FieldQuo”: 34._
+_Generated 2026-09-20 — 323 articles in the tree; written: en 323, fr 323, es 323; “Only in FieldQuo”: 34._
 
 ### getting-started (23)
 
@@ -178,7 +178,7 @@ _Generated 2026-09-19 — 320 articles in the tree; written: en 320, fr 320, es 
 | `a-chat-room-for-every-job` — A chat room for every job | ✓ | ✓ | ✓ | chat | team_chat | ✓ |
 | `supervisor-required-visits` — Visits that need a supervisor | ✓ | ✓ | ✓ |  | scheduling |  |
 
-### invoices-and-payments (27)
+### invoices-and-payments (28)
 
 | Article | en | fr | es | Screen | Feature | Only |
 |---|:-:|:-:|:-:|---|---|:-:|
@@ -189,6 +189,7 @@ _Generated 2026-09-19 — 320 articles in the tree; written: en 320, fr 320, es 
 | `edit-an-invoice-after-sending` — Edit an invoice after it was sent | ✓ | ✓ | ✓ |  | invoice_changes |  |
 | `record-a-manual-payment` — Record a cash, cheque or e-transfer payment | ✓ | ✓ | ✓ |  | invoices |  |
 | `how-clients-pay-online` — How clients pay online | ✓ | ✓ | ✓ |  | card_payments |  |
+| `offline-payment-methods` — Cash, e-transfer, cheque — and Zelle, Venmo or Cash App in the US | ✓ | ✓ | ✓ | settings-payments | offline_payment_methods |  |
 | `connect-stripe-and-get-verified` — Connecting Stripe and getting verified | ✓ | ✓ | ✓ | settings-payments | stripe_connect |  |
 | `what-stripe-asks-for-and-why` — What Stripe asks for, and why | ✓ | ✓ | ✓ |  | stripe_connect |  |
 | `payment-processing-fees-and-payouts` — Payment processing fees and payouts | ✓ | ✓ | ✓ | settings-payments | card_payments |  |
@@ -354,7 +355,7 @@ _Generated 2026-09-19 — 320 articles in the tree; written: en 320, fr 320, es 
 | `import-expenses-from-a-bank-csv` — Import expenses from a bank CSV | ✓ | ✓ | ✓ | expenses | expenses |  |
 | `overhead-and-your-minimum-price` — Overhead and your minimum price | ✓ | ✓ | ✓ | settings-overhead | break_even |  |
 
-### settings (45)
+### settings (46)
 
 | Article | en | fr | es | Screen | Feature | Only |
 |---|:-:|:-:|:-:|---|---|:-:|
@@ -368,6 +369,7 @@ _Generated 2026-09-19 — 320 articles in the tree; written: en 320, fr 320, es 
 | `settings-activity-log` — Activity Log | ✓ | ✓ | ✓ | settings-activity | activity_log |  |
 | `settings-team` — Team | ✓ | ✓ | ✓ | settings-team | team_access |  |
 | `settings-your-hours` — Your hours | ✓ | ✓ | ✓ | settings-availability | booking_page |  |
+| `settings-my-calendar` — My calendar | ✓ | ✓ | ✓ | settings-my-calendar | scheduling |  |
 | `settings-time-off-policies` — Time off policies | ✓ | ✓ | ✓ | settings-leave | time_off |  |
 | `settings-booking-page` — Booking Page | ✓ | ✓ | ✓ | settings-booking-page | booking_page |  |
 | `settings-work-areas` — Work Areas | ✓ | ✓ | ✓ | settings-work-areas | work_areas |  |
@@ -446,7 +448,7 @@ _Generated 2026-09-19 — 320 articles in the tree; written: en 320, fr 320, es 
 | `a-funnel-as-a-visitor` — A funnel | ✓ | ✓ | ✓ |  | funnels |  |
 | `the-texts-clients-receive` — The texts clients receive | ✓ | ✓ | ✓ |  | appointment_reminders |  |
 
-### integrations (11)
+### integrations (12)
 
 | Article | en | fr | es | Screen | Feature | Only |
 |---|:-:|:-:|:-:|---|---|:-:|
@@ -455,6 +457,7 @@ _Generated 2026-09-19 — 320 articles in the tree; written: en 320, fr 320, es 
 | `whatsapp` — WhatsApp Business | ✓ | ✓ | ✓ |  | whatsapp_messaging |  |
 | `phone-and-texts` — Phone numbers and texts (Twilio) | ✓ | ✓ | ✓ |  | voice_receptionist |  |
 | `google-maps-and-solar` — Google Maps and Google Solar | ✓ | ✓ | ✓ |  | aerial_measure |  |
+| `google-calendar` — My calendar | ✓ | ✓ | ✓ |  | scheduling |  |
 | `photos-and-files` — Photos and files (Cloudinary) | ✓ | ✓ | ✓ |  | job_photos |  |
 | `email-delivery` — Email delivery (Resend) and your own domain | ✓ | ✓ | ✓ |  | own_email_domain |  |
 | `quickbooks-xero-and-your-bookkeeper` — QuickBooks, Xero and your bookkeeper | ✓ | ✓ | ✓ |  | expenses |  |

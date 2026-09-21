@@ -30,6 +30,7 @@ import {
   washPair,
 } from "@/lib/documents/theme";
 import SignaturePad from "@/app/components/SignaturePad";
+import HowToPayBlock from "@/app/components/public/HowToPayBlock";
 import { documentLabels, documentFormatters } from "@/lib/i18n/documentLabels";
 import { documentCustomFacts } from "@/lib/documentSections/customFacts";
 import { clientDocCopy } from "@/lib/i18n/clientDocCopy";
@@ -869,6 +870,14 @@ export default function QuoteApproval({ token }) {
                 <p className="text-sm text-[#2d2520]/70">
                   {quote.paymentTerms}
                 </p>
+              )}
+              {/* Where to send the deposit — the block the quote PDF prints
+                  under the same cards, built server-side in the document's
+                  language (lib/payments/offlineMethods.js depositHowToPay).
+                  Only when a schedule parsed: no schedule, nothing due at
+                  approval, nothing to say. */}
+              {quote.howToPay && (
+                <HowToPayBlock block={quote.howToPay} theme={theme} className="mt-4" />
               )}
             </div>
           )}

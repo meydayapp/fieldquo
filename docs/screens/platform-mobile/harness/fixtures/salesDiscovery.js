@@ -1232,6 +1232,22 @@ export const scenes = {
 // ═══════════════════════════════════════════════════════════════════════════
 export default function answer({ method, path, url, body }) {
   // ── Review ──────────────────────────────────────────────────────────────
+  // The signup section at the top of the folder (app/platform/sales/review/
+  // SignupsSection.js): two rows the signup form wrote — one hot, one a
+  // welcome call — and the reps the owner may hand them to.
+  if (path === "/api/platform/sales/review/signups" && method === "POST") {
+    return { ok: true, assigned: 1, prospectId: body?.prospectId || null, batchId: "assigned_by:adm1:x", rep: { id: body?.salesRepId || "rep1", name: "Rachel Tremblay" } };
+  }
+  if (path === "/api/platform/sales/review/signups") {
+    const hotOnly = url.searchParams.get("hot") === "1";
+    const rowsOut = [
+      { id: "sp1", businessName: "Martin Peinture", phoneE164: "+18195550142", email: "dave@martinpeinture.ca", where: "Gatineau, QC, CA", tradeKey: "painting", contactName: "Dave Martin", requiredLanguage: "fr", createdAt: new Date(NOW - 50 * 60 * 1000).toISOString(),
+        signup: { kind: "abandoned", hot: true, badge: "hot", stateReason: "Stopped at Trades", stepLabel: "Trades", language: "fr", at: new Date(NOW - 45 * 60 * 1000).toISOString(), fact: { key: "signup", text: "Started signup 45 minutes ago — got as far as Trades; trade Painting; language FR", textKey: "app.salesIntel.fact.signup.abandoned", params: { n: 45, unit: "minutes", step: "Trades", trade: "Painting", language: "FR" }, badge: "hot" } } },
+      { id: "sp2", businessName: "Sunset Roofing", phoneE164: "+16135550199", email: "hello@sunsetroofing.ca", where: "Ottawa, ON, CA", tradeKey: "roofing", contactName: null, requiredLanguage: "en", createdAt: new Date(NOW - 3 * 60 * 60 * 1000).toISOString(),
+        signup: { kind: "new", hot: false, badge: "new", stateReason: "Signed up", stepLabel: null, language: "en", at: new Date(NOW - 3 * 60 * 60 * 1000).toISOString(), fact: { key: "signup", text: "Signed up 3 hours ago — Roofing, Ottawa, EN; card added; first quote not yet", textKey: "app.salesIntel.fact.signup.new", params: { n: 3, unit: "hours", trade: "Roofing", city: "Ottawa", language: "EN", card: "added", quote: "not yet", cardAdded: true, quoteSent: false }, badge: "new" } } },
+    ].filter((r) => !hotOnly || r.signup.hot);
+    return { signups: rowsOut, reps: [{ id: "rep1", name: "Rachel Tremblay", sellsIn: ["en", "fr"], language: "fr" }, { id: "rep2", name: "Ann Lee", sellsIn: ["en"], language: "en" }], hotOnly, count: rowsOut.length };
+  }
   if (path === "/api/platform/sales/review/bulk" && method === "POST") {
     return { ok: true, count: body?.expectedCount ?? 583, byStatus: { discovered: body?.expectedCount ?? 583 }, campaigns: 1, sample: reviewRows.slice(0, 3).map((r) => r.businessName), tradeLabel: body?.tradeKey ? discoveryTradeLabel(body.tradeKey) : "Roofing", research: "Not queued here. The backlog cron researches rows with a website, trade first; a claim queues the rest." };
   }

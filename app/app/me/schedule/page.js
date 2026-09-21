@@ -116,6 +116,14 @@ export default function MySchedulePage() {
         >
           <CalendarPlus size={16} /> {t("app.mySchedule.addToCalendar")}
         </a>
+        {/* The download above is one-off; this is the link that keeps itself
+            current — appointments, visits and bookings, not shifts. */}
+        <Link
+          href="/app/settings/my-calendar"
+          className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-border bg-card px-4 text-sm font-semibold text-foreground hover:bg-muted"
+        >
+          <CalendarPlus size={16} /> {t("app.mySchedule.subscribeLink", "Subscribe to your appointments")}
+        </Link>
         <Link
           href="/app/time-off"
           className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-border bg-card px-4 text-sm font-semibold text-foreground hover:bg-muted"

@@ -25,6 +25,7 @@ import {
   AI_EMPLOYEE_TOOLS,
   toolsForRole,
   roleFor,
+  roleForbids,
   buildEmployeePrompt,
   instructionsFingerprint,
 } from "../lib/aiEmployee/roles.js";
@@ -212,8 +213,11 @@ ok("modeOf refuses to invent a mode", modeOf({ mode: "sudo" }) === "ask" && mode
 {
   const tools = code("lib/aiEmployee/tools.js");
   // 1. companyId is injected by executeFor, never taken from the model or the visitor.
-  ok("1. executeFor injects companyId AFTER the model's args", /impl\(\{ \.\.\.args, companyId, source, language \}\)/.test(tools));
-  ok("1b. runToolForCompany injects it the same way", (tools.match(/\{ \.\.\.args, companyId, source, language \}/g) || []).length === 2);
+  // The thread and the calling employee ride in the same way, for the
+  // hand-off: the model names a ROLE, and the executor supplies which thread
+  // moves and who let go of it.
+  ok("1. executeFor injects companyId AFTER the model's args", /impl\(\{ \.\.\.args, companyId, source, language, threadId, employeeId, prisma \}\)/.test(tools));
+  ok("1b. runToolForCompany injects it the same way", (tools.match(/\{ \.\.\.args, companyId, source, language \}/g) || []).length === 1);
   ok("1c. the visitor's companyId is not in the args hash, so it cannot be smuggled through an edit",
     argsHash({ name: "a", companyId: "X" }) === argsHash({ name: "a", companyId: "Y" }) && argsHash({ name: "a" }) === argsHash({ name: "a", companyId: "Z" }));
   // 2. Web-chat and SMS threads resolve to exactly one company before any tool runs.
@@ -351,8 +355,14 @@ ok("modeOf refuses to invent a mode", modeOf({ mode: "sudo" }) === "ask" && mode
 // ── Web chat: draft in ask, send in auto, someone-will-reply otherwise ──────
 {
   const inbound = code("lib/aiEmployee/inbound.js");
-  ok("the inbound hook sends only when the mode lets a reply go alone", /mayActAlone\(\{ mode: sendMode\(employee\), risk: RISK_REVERSIBLE, tainted: true \}\)/.test(inbound));
-  ok("...and picks the employee by the channel's platform", /employeeForChannel\(companyId, channel\)/.test(inbound) && /platform === "web" \? "web" : platform === "sms" \? "sms" : "meta"/.test(inbound));
+  // The sender re-reads the SENDING employee's mode at the moment of sending
+  // — the second, independent copy of the gate respond.js applies first.
+  // Keyed on the employee respond.js names, because after a hand-off the
+  // thread already belongs to the colleague while the first employee's
+  // one-liner is going out.
+  ok("the inbound hook sends only when the mode lets a reply go alone", /mayActAlone\(\{ mode: sendMode\(employee\), risk: RISK_REVERSIBLE, tainted: true \}\)/.test(inbound) && /guardedDeliver\(\{ companyId, threadId, employeeId, text \}\)/.test(inbound));
+  ok("...and no longer picks the employee by channel — routing does", !/employeeForChannel\(/.test(inbound) && /platform === "web" \? "web" : platform === "sms" \? "sms" : "meta"/.test(inbound));
+  ok("...with one cheap count as the door for companies with nothing on", /aiEmployee\.count\(\{ where: \{ companyId, enabled: true \} \}\)/.test(inbound));
   const web = code("lib/aiEmployee/webChat.js");
   ok("a web message goes through the one ingest", /ingest\(\{\s*platform: "web"/.test(web));
   ok("the widget is told replied or waiting, nothing else", /result\.ai\?\.replied \? "replied" : "waiting"/.test(web));
@@ -644,6 +654,448 @@ for (const role of AI_EMPLOYEE_ROLES) {
   ok("the screen offers the test box that proves what it would say", /test/i.test(page));
   ok("...and lists the modes from the server's own list with their sentences", /data\.modes\.map/.test(page) && /m\.sentenceKey/.test(page));
   ok("...and prints the floor in words", /data\.floorKeys\.map/.test(page));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ── Routing: one employee per conversation ─────────────────────────────────
+//
+// The owner's rule — "you don't want all the employees answering at the same
+// time — there's got to be a process for handling chats" — executed, not
+// described. The pure functions are driven directly; respondToMessage is run
+// against a scripted database for two employees on one thread, and exactly
+// one of them composes.
+// ═══════════════════════════════════════════════════════════════════════════
+{
+  const {
+    INTENTS, ROLE_FOR_INTENT, ROUTING_EVENT_KINDS, HAND_OFF_TOOL,
+    PING_PONG_WINDOW_MS, BURST_COUNT, BURST_WINDOW_MS, BURST_DEBOUNCE_MS, BURST_HOLD_MS,
+    FRONT_DESK_FEATURE, FRONT_DESK_TIER,
+    pickAssignee, needsClassification, classifyOutcome, classifyIntent, assignThread,
+    pingPongVerdict, handOffToEmployee, burstVerdict, superseded, burstGate,
+    humanTookOver, resumeCandidate, resumeEmployee, summariseRouting,
+    introductionLine, INTRODUCTION_LANGUAGES,
+  } = await import("../lib/aiEmployee/routing.js");
+  const { definitionsForRole, executeFor, TOOL_RISK } = await import("../lib/aiEmployee/tools.js");
+  const { switchableToolsForRole, cleanDisabledTools, ALWAYS_ON_TOOLS } = await import("../lib/aiEmployee/roles.js");
+  const { respondToMessage } = await import("../lib/aiEmployee/respond.js");
+
+  // ── The vocabulary ───────────────────────────────────────────────────────
+  ok("four intents, closed", INTENTS.length === 4 && ["book", "price", "problem", "other"].every((i) => INTENTS.includes(i)));
+  ok("three of them have a default role; `other` has none", Object.keys(ROLE_FOR_INTENT).length === 3 && !("other" in ROLE_FOR_INTENT));
+  ok("every default role is a real preset", Object.values(ROLE_FOR_INTENT).every((r) => AI_EMPLOYEE_ROLES.includes(r)));
+  ok("the routing skips are declared reasons", [SKIP.NOT_ASSIGNEE, SKIP.HUMAN_TOOK_OVER, SKIP.BURST_MERGED].every((r) => SKIP_REASONS.includes(r)));
+  ok("the hand-off tool is in the closed tool list", AI_EMPLOYEE_TOOLS.includes(HAND_OFF_TOOL));
+  ok("...allowed for EVERY role", AI_EMPLOYEE_ROLES.every((r) => toolsForRole(r).includes(HAND_OFF_TOOL)));
+  ok("...classified reversible", TOOL_RISK[HAND_OFF_TOOL] === "reversible");
+  ok("...and never switchable off, nor is the human hand-off", AI_EMPLOYEE_ROLES.every((r) => !switchableToolsForRole(r).includes(HAND_OFF_TOOL) && !switchableToolsForRole(r).includes("hand_off_to_human")) && ALWAYS_ON_TOOLS.length === 2);
+  ok("the front desk runs on the standard tier under its own feature name", FRONT_DESK_TIER === "standard" && FRONT_DESK_FEATURE === "ai_employee_front_desk" && FRONT_DESK_FEATURE !== "ai_employee_reply");
+  ok("ten-minute ping-pong window, three-in-ten burst", PING_PONG_WINDOW_MS === 600_000 && BURST_COUNT === 3 && BURST_WINDOW_MS === 10_000 && BURST_HOLD_MS > BURST_DEBOUNCE_MS);
+  ok("six routing event kinds", ROUTING_EVENT_KINDS.length === 6 && new Set(ROUTING_EVENT_KINDS).size === 6);
+
+  // ── Classification → assignment table ────────────────────────────────────
+  const R = { id: "R", role: "receptionist", enabled: true, createdAt: "2026-01-01", metaEnabled: true, webChatEnabled: true, smsEnabled: false, intents: [], displayName: "Rosa" };
+  const C = { id: "C", role: "closer", enabled: true, createdAt: "2026-01-02", metaEnabled: false, webChatEnabled: false, smsEnabled: true, intents: [], displayName: "Cal" };
+  const T = { id: "T", role: "troubleshooter", enabled: true, createdAt: "2026-01-03", metaEnabled: false, webChatEnabled: false, smsEnabled: false, intents: [], displayName: "Tam" };
+  const team = [R, C, T];
+  const table = [
+    ["book", "web", "R"], ["price", "web", "C"], ["problem", "web", "T"],
+    // `other` → the employee bound to the channel today
+    ["other", "web", "R"], ["other", "sms", "C"],
+    // `other` on a channel nobody holds → the receptionist
+    ["other", "meta", "R"],
+    // garbage → other
+    ["yolo", "sms", "C"],
+  ];
+  for (const [intent, channel, want] of table) {
+    ok(`table: ${intent} on ${channel} → ${want}`, pickAssignee({ rows: team, intent, channel })?.id === want);
+  }
+  ok("the company's own mapping beats the role default", pickAssignee({ rows: [R, { ...C, intents: ["book"] }, T], intent: "book", channel: "web" })?.id === "C");
+  ok("a disabled employee is never picked", pickAssignee({ rows: [{ ...R, enabled: false }, C, T], intent: "book", channel: "web" })?.id !== "R");
+  ok("an intent nobody's role handles falls to the channel holder", pickAssignee({ rows: [R, C], intent: "problem", channel: "sms" })?.id === "C");
+  ok("one employee takes everything, whatever the intent", ["book", "price", "problem", "other"].every((i) => pickAssignee({ rows: [C], intent: i, channel: "meta" })?.id === "C"));
+  ok("...and needs no classification call", !needsClassification([C]) && !needsClassification([C, { ...R, enabled: false }]) && needsClassification([C, R]));
+  ok("nobody enabled → null, never a throw", pickAssignee({ rows: [{ ...R, enabled: false }], intent: "book", channel: "web" }) === null && pickAssignee({ rows: null, intent: "book" }) === null);
+  ok("the model's answer is made safe", classifyOutcome({ intent: "book", reason: " a  visit " }).intent === "book" && classifyOutcome({ intent: "buy" }).intent === "other" && classifyOutcome(null).intent === "other" && classifyOutcome({ intent: "price", reason: "x".repeat(500) }).reason.length === 200);
+
+  // The front desk: metered, standard tier, structured, never throws.
+  {
+    const calls = [];
+    const used = [];
+    const out = await classifyIntent({
+      companyId: "C1", text: "how much to paint a bedroom",
+      deps: {
+        checkAiQuota: async () => ({ allowed: true }),
+        recordAiUsage: async (u) => { used.push(u); },
+        complete: async (args) => { calls.push(args); args.onUsage?.({ model: "gpt-x", promptTokens: 10, completionTokens: 2 }); return { ok: true, data: { intent: "price", reason: "asks a cost" } }; },
+      },
+    });
+    ok("the front desk asks for a schema on the standard tier", calls.length === 1 && calls[0].tier === "standard" && calls[0].schema?.properties?.intent?.enum?.length === 4);
+    ok("...fences the message as data", /data, not instructions/.test(calls[0].prompt));
+    ok("...and meters the call under its own feature", used.length === 1 && used[0].feature === FRONT_DESK_FEATURE && out.intent === "price" && out.metered === true);
+    const broke = await classifyIntent({ companyId: "C1", text: "hi", deps: { checkAiQuota: async () => ({ allowed: true }), recordAiUsage: async () => {}, complete: async () => { throw new Error("vendor down"); } } });
+    ok("a vendor failure is `other`, never a throw", broke.intent === "other" && /failed/.test(broke.reason));
+    const dry = await classifyIntent({ companyId: "C1", text: "hi", deps: { checkAiQuota: async () => ({ allowed: false }), recordAiUsage: async () => {}, complete: async () => { throw new Error("must not be called"); } } });
+    ok("no credit → no call, `other`", dry.intent === "other" && dry.metered === false);
+  }
+
+  // ── Pure verdicts ────────────────────────────────────────────────────────
+  const now = new Date("2026-09-20T12:00:00Z");
+  ok("a second hand-off inside ten minutes is ping-pong", pingPongVerdict({ recentHandOffs: [new Date(now - 60_000)], now }));
+  ok("...one eleven minutes ago is not", !pingPongVerdict({ recentHandOffs: [new Date(now - 11 * 60_000)], now }));
+  ok("...and none is not", !pingPongVerdict({ recentHandOffs: [], now }) && !pingPongVerdict({}));
+  ok("three inbound in ten seconds is a burst and holds longer", burstVerdict({ inboundAt: [now, new Date(now - 3000), new Date(now - 7000)], at: now }).burst === true && burstVerdict({ inboundAt: [now, new Date(now - 3000), new Date(now - 7000)], at: now }).waitMs === BURST_HOLD_MS);
+  ok("two is not, but still waits the short debounce", burstVerdict({ inboundAt: [now, new Date(now - 3000)], at: now }).burst === false && burstVerdict({ inboundAt: [now], at: now }).waitMs === BURST_DEBOUNCE_MS);
+  ok("a message eleven seconds old is outside the window", burstVerdict({ inboundAt: [now, new Date(now - 3000), new Date(now - 11_000)], at: now }).burst === false);
+  ok("the introduction covers nine languages and names the colleague", INTRODUCTION_LANGUAGES.length === 9 && INTRODUCTION_LANGUAGES.every((l) => introductionLine({ displayName: "Cal", language: l }).includes("Cal")));
+  ok("...and falls back to English on an unknown one", introductionLine({ displayName: "Cal", language: "xx" }) === introductionLine({ displayName: "Cal", language: "en" }));
+
+  // ── disabledTools ────────────────────────────────────────────────────────
+  ok("a disabled tool leaves the role's list", !toolsForRole("closer", { disabledTools: ["look_up_service_prices"] }).includes("look_up_service_prices") && toolsForRole("closer").includes("look_up_service_prices"));
+  ok("...and its definition", !definitionsForRole("closer", { disabledTools: ["look_up_service_prices"] }).some((d) => d.name === "look_up_service_prices"));
+  ok("...but a hand-off cannot be disabled", ["hand_off_to_human", HAND_OFF_TOOL].every((t) => toolsForRole("closer", { disabledTools: ["hand_off_to_human", HAND_OFF_TOOL] }).includes(t)));
+  ok("cleanDisabledTools drops forbidden, unknown and always-on names", cleanDisabledTools("receptionist", ["look_up_service_prices", "nope", "hand_off_to_human", "book_callback", "book_callback"]).join(",") === "book_callback");
+  ok("garbage disabledTools narrows nothing", toolsForRole("closer", { disabledTools: "x" }).length === toolsForRole("closer").length && toolsForRole("closer", { disabledTools: [42] }).length === toolsForRole("closer").length);
+  {
+    let threw = null;
+    const run = executeFor({ companyId: "C1", role: "closer", mode: "auto", disabledTools: ["look_up_service_prices"], onTool: () => {} });
+    try { await run("look_up_service_prices", {}); } catch (e) { threw = e.message; }
+    ok("executeFor refuses a disabled tool exactly like an unknown one", threw === "Unknown tool: look_up_service_prices");
+    let threw2 = null;
+    const run2 = executeFor({ companyId: "C1", role: "closer", mode: "auto", afterHandOff: true, onTool: () => {} });
+    try { await run2(HAND_OFF_TOOL, { role: "receptionist", reason: "x" }); } catch (e) { threw2 = e.message; }
+    ok("...and the hand-off on the turn after a hand-off", threw2 === `Unknown tool: ${HAND_OFF_TOOL}` && !definitionsForRole("closer", { afterHandOff: true }).some((d) => d.name === HAND_OFF_TOOL));
+    // In `ask` a hand-off RUNS (simulated here); it is never a proposal.
+    const seen = [];
+    const run3 = executeFor({ companyId: "C1", role: "closer", mode: "ask", dryRun: true, onTool: (x) => seen.push(x), onProposal: async () => "p" });
+    const r3 = await run3(HAND_OFF_TOOL, { role: "receptionist", reason: "x" });
+    ok("a hand-off in ask mode is simulated on a dry run, never proposed", r3.simulated === true && seen[0].summary === "simulated" && !r3.proposed);
+  }
+
+  // ── A scripted database ──────────────────────────────────────────────────
+  //
+  // Just enough Prisma for the routing reads and writes: equality, in, not,
+  // and the date comparisons the burst and ping-pong reads make.
+  function matches(row, where = {}) {
+    for (const [k, v] of Object.entries(where)) {
+      if (k === "OR") { if (!v.some((w) => matches(row, w))) return false; continue; }
+      const val = row[k];
+      if (v && typeof v === "object" && !(v instanceof Date) && !Array.isArray(v)) {
+        if ("in" in v && !v.in.includes(val)) return false;
+        if ("not" in v) {
+          if (v.not === null ? val == null : val === v.not) return false;
+        }
+        if ("gte" in v && !(new Date(val) >= new Date(v.gte))) return false;
+        if ("gt" in v && !(new Date(val) > new Date(v.gt))) return false;
+        if ("lte" in v && !(new Date(val) <= new Date(v.lte))) return false;
+        if ("lt" in v && !(new Date(val) < new Date(v.lt))) return false;
+        if (!("in" in v) && !("not" in v) && !("gte" in v) && !("gt" in v) && !("lte" in v) && !("lt" in v)) {
+          // a relation filter such as channel: { platform } — match the nested object
+          if (!matches(val || {}, v)) return false;
+        }
+        continue;
+      }
+      if (val !== v) return false;
+    }
+    return true;
+  }
+  function sortBy(rows, orderBy) {
+    if (!orderBy) return rows;
+    const [[k, dir]] = Object.entries(orderBy);
+    return [...rows].sort((a, b) => (new Date(a[k]) - new Date(b[k]) || (a[k] > b[k] ? 1 : a[k] < b[k] ? -1 : 0)) * (dir === "desc" ? -1 : 1));
+  }
+  let seq = 0;
+  function model(store, name) {
+    return {
+      findMany: async ({ where, orderBy, take } = {}) => { const r = sortBy(store[name].filter((x) => matches(x, where)), orderBy); return take ? r.slice(0, take) : r; },
+      findFirst: async ({ where, orderBy } = {}) => sortBy(store[name].filter((x) => matches(x, where)), orderBy)[0] || null,
+      findUnique: async ({ where } = {}) => store[name].find((x) => matches(x, where)) || null,
+      count: async ({ where } = {}) => store[name].filter((x) => matches(x, where)).length,
+      create: async ({ data }) => { const row = { id: `${name}_${++seq}`, createdAt: new Date(), ...data }; store[name].push(row); return row; },
+      update: async ({ where, data }) => { const row = store[name].find((x) => matches(x, where)); if (!row) throw new Error(`no ${name} ${JSON.stringify(where)}`); Object.assign(row, data); return row; },
+    };
+  }
+  function makeDb(seed) {
+    const store = { aiEmployee: [], messageThread: [], message: [], aiEmployeeReply: [], aiEmployeeRoutingEvent: [], aiEmployeeSource: [], company: [], ...seed };
+    const db = {};
+    for (const name of Object.keys(store)) db[name] = model(store, name);
+    db.$store = store;
+    return db;
+  }
+  const t0 = new Date("2026-09-20T15:00:00Z");
+  const at = (s) => new Date(t0.getTime() + s * 1000);
+  const company = { id: "C1", name: "Acme Painting", businessHours: null, timezone: "America/Toronto", defaultLanguage: "en" };
+  const thread = (over = {}) => ({ id: "th1", companyId: "C1", status: "open", participantName: "Sam", channel: { platform: "web" }, lastInboundAt: t0, assignedEmployeeId: null, routingIntent: null, routingReason: null, humanTookOverAt: null, ...over });
+  const inbound = (id, body, sec) => ({ id, threadId: "th1", direction: "in", private: false, body, sentAt: at(sec), attachments: null, failedReason: null, sentByUserId: null });
+  const employees = (over = {}) => [
+    { ...R, companyId: "C1", name: "Rosa", mode: "auto", maxRepliesPerThread: 3, businessHoursOnly: false, disabledTools: [], instructionsFingerprint: "f", ...over.R },
+    { ...C, companyId: "C1", name: "Cal", mode: "auto", maxRepliesPerThread: 3, businessHoursOnly: false, disabledTools: [], instructionsFingerprint: "f", ...over.C },
+  ];
+  /** The deps every run shares: instant sleep, a scripted model, a recorder. */
+  function harness(db, { text = "Sure — happy to help.", toolCalls = [] } = {}) {
+    const composed = [];
+    const sent = [];
+    const usage = [];
+    const deps = {
+      db,
+      checkAiQuota: async () => ({ allowed: true }),
+      recordAiUsage: async (u) => { usage.push(u); },
+      isAiConfigured: () => true,
+      notify: async () => {},
+      sleep: async () => {},
+      complete: async (args) => { args.onUsage?.({ model: "gpt-s", promptTokens: 5, completionTokens: 1 }); return { ok: true, data: { intent: /how much|price|cost/i.test(args.prompt) ? "price" : /leak|broken/i.test(args.prompt) ? "problem" : /come out|book|visit/i.test(args.prompt) ? "book" : "other", reason: "scripted" } }; },
+      runToolLoop: async ({ tools, execute, system, onUsage }) => {
+        const names = tools.map((d) => d.name);
+        composed.push({ names, system });
+        onUsage?.({ model: "gpt-b", promptTokens: 50, completionTokens: 10 });
+        for (const call of toolCalls) {
+          if (names.includes(call.name)) await execute(call.name, call.args);
+        }
+        return { text };
+      },
+    };
+    const send = async (msg, meta) => { sent.push({ text: msg, ...meta }); return { ok: true, externalId: `x${sent.length}` }; };
+    return { deps, send, composed, sent, usage };
+  }
+
+  // ── Two employees never both reply to one thread ─────────────────────────
+  {
+    const db = makeDb({ aiEmployee: employees(), messageThread: [thread()], message: [inbound("m1", "How much to paint a bedroom?", 0)], company: [company] });
+    const h = harness(db);
+    // The channel's own employee (Rosa holds web) and the closer both get the
+    // message, as two webhook deliveries would. Rosa is asked first.
+    const a = await respondToMessage({ companyId: "C1", threadId: "th1", messageId: "m1", channel: "web", employeeId: "R", send: h.send, deps: h.deps });
+    const b = await respondToMessage({ companyId: "C1", threadId: "th1", messageId: "m1", channel: "web", employeeId: "C", send: h.send, deps: h.deps });
+    ok("the front desk routed a price question to the closer", db.$store.messageThread[0].assignedEmployeeId === "C" && db.$store.messageThread[0].routingIntent === "price");
+    ok("the receptionist was REFUSED at the door, with the reason", a.replied === false && a.reason === SKIP.NOT_ASSIGNEE && a.assignedEmployeeId === "C");
+    ok("the closer replied", b.replied === true);
+    ok("exactly ONE reply was composed and ONE sent", h.composed.length === 1 && h.sent.length === 1 && h.sent[0].employeeId === "C");
+    ok("the assignment was logged with its intent", db.$store.aiEmployeeRoutingEvent.some((e) => e.kind === "assigned" && e.toEmployeeId === "C" && e.intent === "price" && e.channel === "web"));
+    ok("the front desk's call was metered separately from the reply", h.usage.some((u) => u.feature === FRONT_DESK_FEATURE) && h.usage.some((u) => u.feature === "ai_employee_reply"));
+    // The unnamed path — what inbound.js calls — lands on the same assignee.
+    const c = await respondToMessage({ companyId: "C1", threadId: "th1", messageId: "m1", channel: "web", send: h.send, deps: h.deps });
+    ok("an unnamed call resolves to the assignee and no second front-desk call is spent", c.replied === true && h.usage.filter((u) => u.feature === FRONT_DESK_FEATURE).length === 1);
+  }
+
+  // A company with one employee: no classification, it takes everything.
+  {
+    const db = makeDb({ aiEmployee: [employees()[0]], messageThread: [thread()], message: [inbound("m1", "How much to paint a bedroom?", 0)], company: [company] });
+    const h = harness(db);
+    const a = await respondToMessage({ companyId: "C1", threadId: "th1", messageId: "m1", channel: "web", send: h.send, deps: h.deps });
+    ok("one employee takes a price question with no front-desk call", a.replied === true && db.$store.messageThread[0].assignedEmployeeId === "R" && !h.usage.some((u) => u.feature === FRONT_DESK_FEATURE));
+    ok("...and the reason says so", /only one employee/.test(db.$store.messageThread[0].routingReason));
+  }
+
+  // ── Hand-off moves the assignee and introduces once ──────────────────────
+  {
+    const db = makeDb({ aiEmployee: employees(), messageThread: [thread()], message: [inbound("m1", "Hi, can someone come out to look at my kitchen?", 0)], company: [company] });
+    // Rosa (book) hands to the closer; the closer's turn then runs with no
+    // hand-off tool and does not hand back.
+    const h = harness(db, { toolCalls: [{ name: HAND_OFF_TOOL, args: { role: "closer", reason: "they want a price first" } }] });
+    const a = await respondToMessage({ companyId: "C1", threadId: "th1", messageId: "m1", channel: "web", send: h.send, deps: h.deps });
+    ok("the thread now belongs to the colleague", db.$store.messageThread[0].assignedEmployeeId === "C");
+    ok("the first employee's line went, then the colleague's", h.sent.length === 2 && h.sent[0].employeeId === "R" && h.sent[1].employeeId === "C" && a.colleague?.replied === true);
+    ok("the colleague opened with the introduction, once", h.sent[1].text.startsWith(introductionLine({ displayName: "Cal", language: "en" })) && !h.sent[0].text.includes("take it from here") && (h.sent[1].text.match(/take it from here/g) || []).length === 1);
+    ok("...and not with the disclosure again", !h.sent[1].text.includes("AI assistant"));
+    ok("the colleague's turn had no hand-off tool", !h.composed[1].names.includes(HAND_OFF_TOOL) && h.composed[0].names.includes(HAND_OFF_TOOL));
+    ok("the hand-off was logged from → to with its reason", db.$store.aiEmployeeRoutingEvent.some((e) => e.kind === "handed_off" && e.fromEmployeeId === "R" && e.toEmployeeId === "C" && /price/.test(e.reason)));
+    ok("two reply rows, one per employee, both sent", db.$store.aiEmployeeReply.filter((r) => r.sentAt).length === 2);
+  }
+
+  // ── Ping-pong → a person ─────────────────────────────────────────────────
+  {
+    const db = makeDb({ aiEmployee: employees(), messageThread: [thread({ assignedEmployeeId: "C", routingIntent: "price" })], company: [company], aiEmployeeRoutingEvent: [{ id: "e1", companyId: "C1", threadId: "th1", kind: "handed_off", fromEmployeeId: "R", toEmployeeId: "C", createdAt: new Date(t0 - 2 * 60_000) }] });
+    const r = await handOffToEmployee({ companyId: "C1", threadId: "th1", fromEmployeeId: "C", role: "receptionist", reason: "actually a booking", prisma: db, now: t0 });
+    ok("a second hand-off inside ten minutes goes to a person", r.ok === true && r.handedOff === true && r.reason === "ping_pong");
+    ok("...the thread is held by nobody", db.$store.messageThread[0].assignedEmployeeId === null);
+    ok("...and it is logged as an escalation", db.$store.aiEmployeeRoutingEvent.some((e) => e.kind === "escalated" && e.fromEmployeeId === "C"));
+    const db2 = makeDb({ aiEmployee: employees(), messageThread: [thread({ assignedEmployeeId: "C" })], company: [company], aiEmployeeRoutingEvent: [{ id: "e1", companyId: "C1", threadId: "th1", kind: "handed_off", fromEmployeeId: "R", toEmployeeId: "C", createdAt: new Date(t0 - 12 * 60_000) }] });
+    const r2 = await handOffToEmployee({ companyId: "C1", threadId: "th1", fromEmployeeId: "C", role: "receptionist", reason: "a booking", prisma: db2, now: t0 });
+    ok("...but one twelve minutes later is an ordinary hand-off", r2.ok === true && r2.toEmployeeId === "R" && db2.$store.messageThread[0].assignedEmployeeId === "R");
+    const r3 = await handOffToEmployee({ companyId: "C1", threadId: "th1", fromEmployeeId: "C", role: "troubleshooter", reason: "x", prisma: db2, now: t0 });
+    ok("a role nobody holds is refused by name, and the model is told to carry on", r3.ok === false && r3.reason === "no_such_employee" && /carry on|hand off to a person/i.test(r3.say));
+    // Through the responder: the ping-pong verdict is read as a hand-off to a person.
+    const db3 = makeDb({ aiEmployee: employees(), messageThread: [thread({ assignedEmployeeId: "C", routingIntent: "price" })], message: [inbound("m1", "ok", 0)], company: [company], aiEmployeeRoutingEvent: [{ id: "e1", companyId: "C1", threadId: "th1", kind: "handed_off", fromEmployeeId: "R", toEmployeeId: "C", createdAt: new Date(Date.now() - 60_000) }] });
+    const h = harness(db3, { toolCalls: [{ name: HAND_OFF_TOOL, args: { role: "receptionist", reason: "bounce" } }] });
+    const a = await respondToMessage({ companyId: "C1", threadId: "th1", messageId: "m1", channel: "web", send: h.send, deps: h.deps });
+    ok("the responder records a ping-pong as handed off, with no colleague turn", a.handedOff === true && a.colleague === null && h.sent.length === 1 && db3.$store.aiEmployeeReply.some((r) => r.handedOff && r.handoffReason === "ping_pong"));
+  }
+
+  // ── A human reply silences; "continue" resumes ───────────────────────────
+  {
+    ok("shouldReply: a taken-over thread is silent, by its own reason", say({ humanTookOver: true }).reason === SKIP.HUMAN_TOOK_OVER);
+    const db = makeDb({ aiEmployee: employees(), messageThread: [thread({ assignedEmployeeId: "C", routingIntent: "price" })], message: [inbound("m1", "any update?", 0)], company: [company], aiEmployeeRoutingEvent: [{ id: "e1", companyId: "C1", threadId: "th1", kind: "assigned", toEmployeeId: "C", intent: "price", createdAt: new Date(t0 - 60_000) }] });
+    await humanTookOver({ prisma: db, companyId: "C1", thread: db.$store.messageThread[0], userId: "u1", at: t0 });
+    ok("a human reply clears the assignment and stamps the take-over", db.$store.messageThread[0].assignedEmployeeId === null && db.$store.messageThread[0].humanTookOverAt === t0);
+    ok("...and logs who", db.$store.aiEmployeeRoutingEvent.some((e) => e.kind === "human_took_over" && e.fromEmployeeId === "C" && e.reason === "member:u1"));
+    const h = harness(db);
+    const a = await respondToMessage({ companyId: "C1", threadId: "th1", messageId: "m1", channel: "web", send: h.send, deps: h.deps });
+    ok("every employee stays silent afterwards", a.replied === false && a.reason === SKIP.HUMAN_TOOK_OVER && h.composed.length === 0);
+    ok("...and no front-desk call is spent on a taken-over thread", !h.usage.some((u) => u.feature === FRONT_DESK_FEATURE));
+    const cand = await resumeCandidate({ prisma: db, companyId: "C1", thread: db.$store.messageThread[0], channel: "web" });
+    ok("the resume button names the last holder", cand?.id === "C");
+    const back = await resumeEmployee({ prisma: db, companyId: "C1", thread: db.$store.messageThread[0], channel: "web", userId: "u1", now: t0 });
+    ok("\"Let Cal continue\" hands it back and clears the stamp", back?.id === "C" && db.$store.messageThread[0].assignedEmployeeId === "C" && db.$store.messageThread[0].humanTookOverAt === null);
+    const m2 = inbound("m2", "so, the price?", 5);
+    db.$store.message.push(m2);
+    const b = await respondToMessage({ companyId: "C1", threadId: "th1", messageId: "m2", channel: "web", send: h.send, deps: h.deps });
+    ok("...and the employee answers the next message", b.replied === true && h.sent[0].employeeId === "C");
+    ok("the resume was logged", db.$store.aiEmployeeRoutingEvent.some((e) => e.kind === "resumed" && e.toEmployeeId === "C"));
+    // A fired holder: the candidate falls back to the front desk's pick.
+    const db2 = makeDb({ aiEmployee: employees(), messageThread: [thread({ humanTookOverAt: t0, routingIntent: "book" })], company: [company], aiEmployeeRoutingEvent: [{ id: "e1", companyId: "C1", threadId: "th1", kind: "assigned", toEmployeeId: "T", intent: "book", createdAt: t0 }] });
+    ok("a holder no longer on the team → the role that handles the intent", (await resumeCandidate({ prisma: db2, companyId: "C1", thread: db2.$store.messageThread[0], channel: "web" }))?.id === "R");
+    // The reply route stamps it inside its transaction.
+    const replyRoute = code("app/api/messaging/threads/[id]/reply/route.js");
+    ok("the reply route stamps the take-over inside the reply's transaction", /humanTookOver\(\{ prisma: tx, companyId: member\.companyId, thread, userId: member\.userId \|\| null, at: message\.sentAt \}\)/.test(replyRoute) && /assignedEmployeeId: true,\s*humanTookOverAt: true/.test(replyRoute));
+    ok("the thread read hands the screen the holder and the resume candidate", /resumeCandidate\(/.test(code("app/api/messaging/threads/[id]/route.js")) && /assignedEmployeeId: undefined/.test(code("app/api/messaging/threads/[id]/route.js")));
+    ok("the resume route exists and refuses a thread nobody took", /not_taken_over/.test(code("app/api/messaging/threads/[id]/ai-resume/route.js")) && /resumeEmployee\(/.test(code("app/api/messaging/threads/[id]/ai-resume/route.js")));
+    ok("Conversations draws the bar from the thread's `ai` shape and posts to the resume route", /ai-resume/.test(code("app/components/messaging/AiHolderBar.js")) && /<AiHolderBar/.test(code("app/app/messages/page.js")));
+  }
+
+  // ── Burst → one reply ────────────────────────────────────────────────────
+  {
+    const db = makeDb({ aiEmployee: [employees()[0]], messageThread: [thread()], message: [inbound("m1", "hi", 0), inbound("m2", "I need a quote", 2), inbound("m3", "for a kitchen", 4)], company: [company] });
+    const h = harness(db);
+    const waits = [];
+    h.deps.sleep = async (ms) => { waits.push(ms); };
+    const r1 = await respondToMessage({ companyId: "C1", threadId: "th1", messageId: "m1", channel: "web", send: h.send, deps: h.deps });
+    const r2 = await respondToMessage({ companyId: "C1", threadId: "th1", messageId: "m2", channel: "web", send: h.send, deps: h.deps });
+    const r3 = await respondToMessage({ companyId: "C1", threadId: "th1", messageId: "m3", channel: "web", send: h.send, deps: h.deps });
+    ok("three messages in ten seconds → the first two yield", r1.reason === SKIP.BURST_MERGED && r2.reason === SKIP.BURST_MERGED);
+    ok("...and the last one replies, once, to the batch", r3.replied === true && h.composed.length === 1 && h.sent.length === 1);
+    ok("...having waited the longer hold as the third in ten seconds", waits[2] === BURST_HOLD_MS && waits[0] === BURST_DEBOUNCE_MS);
+    ok("the merges were logged", db.$store.aiEmployeeRoutingEvent.filter((e) => e.kind === "burst_merged").length === 2);
+    // The second half: composed, then superseded → recorded, not sent.
+    const db2 = makeDb({ aiEmployee: [employees()[0]], messageThread: [thread()], message: [inbound("m1", "hi", 0)], company: [company] });
+    const h2 = harness(db2);
+    h2.deps.runToolLoop = async () => { db2.$store.message.push(inbound("m2", "one more thing", 1)); return { text: "Hello!" }; };
+    const r = await respondToMessage({ companyId: "C1", threadId: "th1", messageId: "m1", channel: "web", send: h2.send, deps: h2.deps });
+    ok("a reply composed while a newer message landed is dropped, not sent", r.reason === SKIP.BURST_MERGED && h2.sent.length === 0 && db2.$store.aiEmployeeReply.some((x) => x.suppressedReason === SKIP.BURST_MERGED && x.draftText.endsWith("Hello!")));
+    ok("superseded() ignores an older re-delivery", (await superseded(db2, { threadId: "th1", messageId: "m2", sentAt: at(1) })) === false);
+    const g = await burstGate({ companyId: "C1", threadId: "th1", messageId: "m2", sentAt: at(1), prisma: db2, sleep: async () => {} });
+    ok("burstGate: the latest message is not merged", g.merged === false);
+  }
+
+  // ── The routing log → the flow view's counts ─────────────────────────────
+  {
+    const rows = [
+      { kind: "assigned", intent: "price", toEmployeeId: "C", channel: "web" },
+      { kind: "assigned", intent: "book", toEmployeeId: "R", channel: "meta" },
+      { kind: "assigned", intent: "nope", toEmployeeId: "R", channel: "fax" },
+      { kind: "handed_off", fromEmployeeId: "R", toEmployeeId: "C" },
+      { kind: "handed_off", fromEmployeeId: "R", toEmployeeId: "C" },
+      { kind: "human_took_over", fromEmployeeId: "C" },
+      { kind: "escalated", fromEmployeeId: "R" },
+      { kind: "resumed", toEmployeeId: "C" },
+      { kind: "burst_merged" },
+      null,
+    ];
+    const s = summariseRouting(rows, t0);
+    ok("counts per intent, with garbage filed under other", s.byIntent.price === 1 && s.byIntent.book === 1 && s.byIntent.other === 1);
+    ok("counts per channel, ignoring an unknown one", s.byChannel.web === 1 && s.byChannel.meta === 1 && s.byChannel.sms === 0);
+    ok("counts per assignee and per hand-off pair", s.assignedTo.C === 1 && s.assignedTo.R === 2 && s.handOffs["R>C"] === 2);
+    ok("counts the exits to a person, per employee", s.toHuman.C === 1 && s.toHuman.R === 1 && s.escalated === 1 && s.resumed === 1 && s.burstMerged === 1);
+    ok("an empty log is all zeros, never undefined", summariseRouting([]).byIntent.book === 0 && summariseRouting(null).escalated === 0);
+  }
+
+  // ── The flow view's chips match roles.js exactly ─────────────────────────
+  //
+  // Rendered for real (react-dom/server) with a payload built from roles.js
+  // the way GET /api/ai-employee builds it. Every tool in the closed list
+  // must appear as a chip on every card, in the state the role gives it — a
+  // tool missing from the flow fails here, which is the point.
+  {
+    const React = (await import("react")).default;
+    const { renderToStaticMarkup } = await import("react-dom/server");
+    // JSX: transformed with Next's own SWC binding (the only JSX compiler in
+    // node_modules), written beside the repo root so `@/` and node_modules
+    // resolve, and removed afterwards.
+    const swc = await import("next/dist/build/swc/index.js");
+    await swc.loadBindings();
+    const jsx = read("app/components/aiEmployee/TeamFlow.js").replace('"@/lib/clientErrors"', '"./lib/clientErrors.js"');
+    const js = (await swc.transform(jsx, {
+      filename: "TeamFlow.js",
+      jsc: { parser: { syntax: "ecmascript", jsx: true }, transform: { react: { runtime: "automatic" } }, target: "es2022" },
+      module: { type: "es6" },
+    })).code;
+    const tmp = path.join(ROOT, ".check-teamflow.tmp.mjs");
+    fs.writeFileSync(tmp, js);
+    let TeamFlow;
+    try {
+      TeamFlow = (await import(`${tmp}?${Date.now()}`)).default;
+    } finally {
+      fs.unlinkSync(tmp);
+    }
+    const rolesPayload = AI_EMPLOYEE_ROLES.map((key) => ({ key, allowed: roleFor(key).allowed, forbidden: roleFor(key).forbidden, switchable: switchableToolsForRole(key) }));
+    const data = {
+      employees: [
+        { id: "R", role: "receptionist", name: "Rosa", displayName: "Rosa", enabled: true, mode: "ask", metaEnabled: true, webChatEnabled: true, smsEnabled: false, disabledTools: ["book_callback"], intents: [] },
+        { id: "C", role: "closer", name: "Cal", displayName: "Cal", enabled: true, mode: "auto", metaEnabled: false, webChatEnabled: false, smsEnabled: false, disabledTools: [], intents: ["price"] },
+        { id: "T", role: "troubleshooter", name: "Tam", displayName: "Tam", enabled: false, mode: "ask", metaEnabled: false, webChatEnabled: false, smsEnabled: false, disabledTools: [], intents: [] },
+      ],
+      roles: rolesPayload,
+      channels: [...CHANNELS],
+      channel: { connected: true },
+      sms: { available: false },
+      flow: { intents: [...INTENTS], roleForIntent: ROLE_FOR_INTENT, counts: summariseRouting([{ kind: "assigned", intent: "price", toEmployeeId: "C", channel: "web" }, { kind: "handed_off", fromEmployeeId: "R", toEmployeeId: "C" }]) },
+    };
+    const t = (k, fb, values) => { let s = typeof fb === "string" ? fb : k; for (const [a, b] of Object.entries(values || {})) s = s.replace(`{${a}}`, String(b)); return s; };
+    const html = renderToStaticMarkup(React.createElement(TeamFlow, { data, proposals: [{ id: "p1", employeeId: "C", status: "pending" }], t }));
+    const cards = [...html.matchAll(/data-flow-employee="([^"]+)" data-role="([^"]+)"/g)].map((m) => ({ id: m[1], role: m[2] }));
+    ok("one card per employee, on or off", cards.length === 3 && cards.map((c) => c.id).join(",") === "R,C,T");
+    for (const card of cards) {
+      const seg = html.slice(html.indexOf(`data-flow-employee="${card.id}"`), html.indexOf("</div></div>", html.indexOf(`data-flow-employee="${card.id}"`) ) + 1);
+      const chips = [...html.slice(html.indexOf(`data-flow-employee="${card.id}"`)).matchAll(/data-tool="([^"]+)" data-state="([^"]+)"/g)].slice(0, AI_EMPLOYEE_TOOLS.length).map((m) => ({ tool: m[1], state: m[2] }));
+      const drawn = new Set(chips.map((c) => c.tool));
+      ok(`${card.role}: every tool in the closed list is a chip`, AI_EMPLOYEE_TOOLS.every((tool) => drawn.has(tool)) && drawn.size === AI_EMPLOYEE_TOOLS.length, [...drawn]);
+      for (const { tool, state } of chips) {
+        const forbidden = roleForbids(card.role, tool);
+        const emp = data.employees.find((e) => e.id === card.id);
+        const want = forbidden ? "forbidden" : ALWAYS_ON_TOOLS.includes(tool) ? "fixed" : emp.disabledTools.includes(tool) ? "off" : "on";
+        ok(`${card.role}: ${tool} drawn as ${want}`, state === want, state);
+      }
+      void seg;
+    }
+    ok("a forbidden chip says so", /Not in this role/.test(html));
+    ok("the front desk lists the four intents with a drop-down each", INTENTS.every((i) => html.includes(`data-flow-intent="${i}"`)) && (html.match(/<select/g) || []).length === 4);
+    ok("the price drop-down shows the closer (the explicit mapping)", /data-flow-intent="price"[\s\S]*?<option value="C" selected=""/.test(html));
+    ok("the three channels are drawn with their state", CHANNELS.every((c) => html.includes(`data-flow-channel="${c}"`)) && /data-flow-channel="web" data-on="1"/.test(html) && /data-flow-channel="sms" data-on="0"/.test(html));
+    ok("the proposals gate prints each employee's mode and what is waiting", /data-flow-gate-row="C"[\s\S]*?>auto<[\s\S]*?1 waiting/.test(html));
+    ok("a person is at the bottom, reachable from every card", /data-flow-person/.test(html) && /data-flow-handoffs/.test(html) && /Rosa[\s\S]*?Cal[\s\S]*?>1</.test(html.slice(html.indexOf("data-flow-handoffs"))));
+    ok("no chart library", !/from "recharts"|from "d3"|from "chart\.js"/.test(code("app/components/aiEmployee/TeamFlow.js")));
+    ok("the settings page mounts it", /<TeamFlow/.test(code("app/app/settings/ai-employee/page.js")));
+    ok("the route ships the roles' switchable list and the counts", /switchable: switchableToolsForRole\(key\)/.test(code("app/api/ai-employee/route.js")) && /routingCounts\(/.test(code("app/api/ai-employee/route.js")) && /export async function PATCH/.test(code("app/api/ai-employee/route.js")));
+    ok("...and cleans disabledTools on the way in and out", (code("app/api/ai-employee/route.js").match(/cleanDisabledTools\(/g) || []).length >= 2);
+  }
+
+  // ── Nine languages for every new sentence ────────────────────────────────
+  {
+    const { APP_MESSAGES } = await import("../app/i18n/appMessages.js");
+    const keys = [
+      ...Object.keys(APP_MESSAGES.en).filter((k) => k.startsWith("app.aiEmployee.flow.") || k.startsWith("app.messages.ai.") || k.startsWith("app.aiEmployee.intent.")),
+      ...AI_EMPLOYEE_TOOLS.map((t) => `app.aiEmployee.tool.${t}`),
+      ...[SKIP.HUMAN_TOOK_OVER, SKIP.NOT_ASSIGNEE, SKIP.BURST_MERGED].map((r) => `app.aiEmployee.skip.${r}`),
+      "app.activity.event.aiEmployee.resumed", "app.activity.event.aiEmployee.toolsChanged", "app.activity.event.aiEmployee.intentsChanged",
+    ];
+    ok("the flow view has at least twenty sentences", keys.filter((k) => k.startsWith("app.aiEmployee.flow.")).length >= 20);
+    for (const lang of Object.keys(APP_MESSAGES)) {
+      const missing = keys.filter((k) => typeof APP_MESSAGES[lang][k] !== "string" || !APP_MESSAGES[lang][k].trim());
+      ok(`${lang}: every routing sentence present`, missing.length === 0, missing);
+    }
+    ok("every intent has a label in every language", Object.keys(APP_MESSAGES).every((l) => INTENTS.every((i) => typeof APP_MESSAGES[l][`app.aiEmployee.intent.${i}`] === "string")));
+  }
+
+  // ── The responder's structure ────────────────────────────────────────────
+  {
+    const respond = code("lib/aiEmployee/respond.js");
+    ok("the assignee gate sits before the quota and the prompt", respond.indexOf("assignThread(") < respond.indexOf("checkQuota(companyId)") && respond.indexOf("burstGate(") < respond.indexOf("assignThread("));
+    ok("a non-assignee returns NOT_ASSIGNEE without generating", /reason: SKIP\.NOT_ASSIGNEE/.test(respond) && respond.indexOf("SKIP.NOT_ASSIGNEE") < respond.indexOf("runLoop("));
+    ok("the take-over stamp is handed to shouldReply as a fact", /humanTookOver: Boolean\(thread\?\.humanTookOverAt\)/.test(respond));
+    ok("the colleague's turn is the same function at depth 1", /handOffDepth: handOffDepth \+ 1/.test(respond));
+    ok("the introduction is prepended at depth 1 only", /if \(text && afterHandOff\)/.test(respond) && /introductionLine\(/.test(respond));
+    ok("the composed-then-superseded reply is recorded, not sent", /suppressedReason: SKIP\.BURST_MERGED/.test(respond));
+    ok("disabledTools reach both the definitions and the executor", /definitionsForRole\(employee\.role, \{\s*disabledTools: employee\.disabledTools,\s*afterHandOff,\s*\}\)/.test(respond) && /disabledTools: employee\.disabledTools,\s*threadId,\s*employeeId: employee\.id,\s*afterHandOff,\s*prisma,/.test(respond));
+    ok("the sender is told which employee is sending", /send\(text, \{ employeeId: employee\.id \}\)/.test(respond));
+  }
 }
 
 console.log(`\ncheck-ai-employee: ${passed} passed, ${failed} failed`);

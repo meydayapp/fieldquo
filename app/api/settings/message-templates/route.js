@@ -31,7 +31,7 @@ export async function GET(request) {
 
   const company = await db.company.findUnique({
     where: { id: member.companyId },
-    select: { smsTemplates: true, name: true, phone: true },
+    select: { smsTemplates: true, name: true, phone: true, bookingSmsConfirmation: true },
   });
   const stored = company?.smsTemplates && typeof company.smsTemplates === "object"
     ? company.smsTemplates
@@ -55,6 +55,11 @@ export async function GET(request) {
       return {
         key,
         label: spec.label,
+        // The switch that governs whether this type sends at all, when it has
+        // one. Only the booking confirmation does: it is off by default
+        // because a text is billable, and the switch sits beside the wording
+        // it governs rather than on another screen.
+        ...(key === "booking_confirmation" && { enabled: Boolean(company?.bookingSmsConfirmation) }),
         // The screen renders the KEY through t(); `label`/`hint` stay as the
         // English fallback for a language missing one.
         labelKey: spec.labelKey,
@@ -91,6 +96,28 @@ export async function PUT(request) {
   const spec = SMS_TEMPLATE_TYPES[type];
   if (!spec || !spec.editable) {
     return NextResponse.json({ error: "That message can't be edited." }, { status: 400 });
+  }
+
+  // ── The on/off switch, separate from the wording ─────────────────────────
+  //
+  // `{ type: "booking_confirmation", enabled: true|false }` flips the send
+  // without touching the template. Read by lib/booking/finalizeBooking.js
+  // fresh from the row on every booking.
+  if (type === "booking_confirmation" && typeof body.enabled === "boolean") {
+    await db.company.update({
+      where: { id: member.companyId },
+      data: { bookingSmsConfirmation: body.enabled },
+    });
+    await recordActivity(member, {
+      action: "message_template.updated",
+      entityType: "company",
+      entityId: member.companyId,
+      summary: body.enabled
+        ? `Switched on the "${spec.label}" text`
+        : `Switched off the "${spec.label}" text`,
+      metadata: { type, enabled: body.enabled },
+    });
+    return NextResponse.json({ ok: true, enabled: body.enabled });
   }
 
   const text = typeof body.text === "string" ? body.text.trim() : "";

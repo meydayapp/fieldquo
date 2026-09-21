@@ -19,10 +19,24 @@ moment BBB challenges it. Never the pool.
 cd ~/StudioProjects/fieldquo
 npm run bbb:principal -- --claimed            # every open claim, all reps
 npm run bbb:principal -- --next 60            # …then the trades being worked, in dispatch order
+npm run bbb:principal -- --next 60 --state NY,FL,CA   # only those states (repeatable; --province QC the same)
 npm run bbb:principal -- --plan --claimed     # print the order; open nothing
 npm run bbb:principal -- --claimed --resume   # continue an interrupted run
 npm run bbb:principal -- --ids <prospectId>   # one lead
 ```
+
+`--state NY,FL,CA` is the same regional pass `scripts/scrape/maps.mjs`
+takes (`lib/sales/intel/enrichmentOrder.js`, "A regional pass"): the batch
+is the enrichment order with every prospect outside those states removed
+before it is ranked — held leads there, then next-in-dispatch there, nothing
+from anywhere else — and the first line printed says how many were skipped.
+`--ids` ignores it: a person naming a row gets that row. The profile parser
+reads "Number of Employees" (the <dl> and the JSON-LD `numberOfEmployees`),
+"Business Incorporated" and "Years in Business" when the page carries them;
+BBB shows the employee count on a minority of profiles (one of the 54
+matched in production; two of three opened by hand on 2026-09-21 had none),
+so `Prospect.employeeRange` fills where BBB says and stays null where it
+does not.
 
 `npm run bbb:principal` is
 `node --experimental-websocket --env-file-if-exists=.env --import ./scripts/alias-loader.mjs scripts/bbb-principal.mjs`

@@ -633,5 +633,15 @@ console.log("\nThe gate is actually wired in\n");
   );
 }
 
+// ── A demo fixture never sees "add your card within N min" (2026-09-20) ────
+// The gate already exempts isDemo; the banner's source did not, and a demo
+// opened for a sales call led with the sentence. accessForCompany reads
+// isDemo beside createdAt and skips the setup_pending reason for it.
+{
+  const src = fs.readFileSync(new URL("../lib/billing/access.js", import.meta.url), "utf8");
+  ok(/select: \{ createdAt: true, isDemo: true \}/.test(src), "accessForCompany reads isDemo with createdAt");
+  ok(/age < CHECKOUT_GRACE_MS && !company\?\.isDemo/.test(src), "…and a demo company never gets setup_pending");
+}
+
 console.log(`\n${checks} checks, ${failures} failure(s).`);
 process.exit(failures ? 1 : 0);

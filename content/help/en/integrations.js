@@ -10,7 +10,9 @@
 // FieldQuo, what you have to do, what data leaves the building, and what is
 // NOT integrated. "FieldQuo does not do X" is a deliberate sentence, not a
 // gap.
-export const ARTICLES = {
+import { ARTICLES as PART_2 } from "./integrations-2.js";
+
+const PART_1 = {
   "stripe": {
     title: "Stripe",
     summary:
@@ -880,3 +882,5 @@ export const ARTICLES = {
     ],
   },
 };
+
+export const ARTICLES = { ...PART_1, ...PART_2 };
