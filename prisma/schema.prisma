@@ -723,6 +723,14 @@ model Testimonial {
   // spelling of the quote is correctly a new row, re-pasting the same one is
   // not. A Google row would carry Google's review name here instead.
   externalId   String?
+  // Both optional, both only ever filled by a paste that carried them (a
+  // "Google reviews" paste has a star rating and a date; a hand-typed quote
+  // has neither). Shown as-is on the reviews screen; never invented. When a
+  // date IS present it joins the dedupe identity — author + date + the first
+  // forty characters — because the same reviewer can say the same forty
+  // words a year apart and mean two reviews. See lib/reviews/testimonials.js.
+  rating       Int?
+  reviewedAt   DateTime?
   createdAt    DateTime @default(now())
   // @default(now()) so adding the column backfills the rows that predate it;
   // @updatedAt keeps it current from then on.
@@ -1809,6 +1817,33 @@ model Company {
   /// Off by default. Nobody should discover that their customers are being
   /// messaged automatically.
   reviewRequestsEnabled Boolean @default(false)
+
+  /// The company's Google Business listing, found through the same Places
+  /// autocomplete the address fields use (the one sanctioned client-side
+  /// Google call). A place_id is what turns into a "write a review" link —
+  /// lib/reviews/googlePlace.js — so `reviewUrl` above is DERIVED from it when
+  /// it is set, and the label (name + address as Google printed them) is kept
+  /// only so the screen can show "this is the listing you picked". Null means
+  /// the company pasted a link by hand or has not looked their listing up.
+  googlePlaceId    String?
+  googlePlaceLabel String?
+
+  /// Print a "scan to review us" QR in the footer of every invoice PDF and
+  /// invoice email. Off by default: a QR on an invoice is an ask, and an ask
+  /// nobody chose to make is the one that reads as automated. Read by
+  /// lib/documentSections/FooterSection.js, which also refuses to draw it
+  /// without a reviewUrl — the switch alone must never produce a QR that
+  /// scans to nothing.
+  invoiceReviewQr Boolean @default(false)
+
+  /// The lookup key behind /r/<token>/qr.png — the hosted PNG of the review
+  /// QR that emails embed (mail clients strip data: images). Random, minted
+  /// on first use, and deliberately not the company id: a public image URL
+  /// must not double as an enumerable list of tenants.
+  reviewQrToken String? @unique
+
+  googleBusiness CompanyGoogleBusiness?
+  googleReviews  GoogleReview[]
 
   /// How many days BEFORE Job.startDate the client's preparation guide goes
   /// out — the "clear the counters, move the car, keep the dog in" document
@@ -7250,6 +7285,65 @@ model MemberGoogleCalendar {
   busyReadEnabled Boolean  @default(true)
   writeEnabled    Boolean  @default(true)
   updatedAt       DateTime @updatedAt
+}
+
+// The company's Google Business Profile connection — ONE per company, made by
+// an owner/admin with the `business.manage` scope on the same OAuth client
+// the calendar uses (docs/GOOGLE-BUSINESS-PROFILE.md). Distinct from
+// MemberGoogleCalendar above on purpose: that is a person's own calendar,
+// this is the business's listing, and the two must be able to be connected
+// by different Google accounts.
+//
+// `locationName` is Google's resource name (`accounts/123/locations/456`),
+// chosen from the account's list after connecting; until it is set the
+// connection exists but nothing can be fetched. The reviews themselves land
+// in GoogleReview below, never in Testimonial.
+model CompanyGoogleBusiness {
+  id                  String   @id @default(cuid())
+  companyId           String   @unique
+  company             Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  refreshTokenEnc     String
+  email               String?
+  accountName         String?
+  locationName        String?
+  locationTitle       String?
+  connectedByMemberId String?
+  connectedAt         DateTime @default(now())
+  lastSyncAt          DateTime?
+  // The last thing Google said, in one line, cleared by the next success. A
+  // project whose Business Profile API quota is still 0 lands its refusal
+  // here, and the settings page prints it — see lib/reviews/googleBusiness/
+  // sync.js's quotaMessage().
+  lastError           String?
+  updatedAt           DateTime @updatedAt
+}
+
+// A CACHE of what Google returned, not a copy the company owns. The Business
+// Profile API policies allow Content to be stored for at most 30 days, unaltered
+// and attributed, and purged when Google stops returning it — so every row here
+// carries the time it was fetched, the nightly refresh deletes any row it did
+// not just see or that is older than 30 days, and nothing in the product edits
+// the words. `showOnSite` is the ONE thing the company decides: whether the
+// review, exactly as Google has it and marked "via Google", appears in their
+// own testimonials. Default off, like every other publication decision here.
+model GoogleReview {
+  id               String    @id @default(cuid())
+  companyId        String
+  company          Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  // Google's resource name: accounts/*/locations/*/reviews/*. The identity.
+  reviewName       String
+  reviewerName     String
+  starRating       Int
+  comment          String?
+  replyComment     String?
+  reviewCreateTime DateTime
+  reviewUpdateTime DateTime?
+  showOnSite       Boolean   @default(false)
+  fetchedAt        DateTime
+  createdAt        DateTime  @default(now())
+
+  @@unique([companyId, reviewName])
+  @@index([companyId, showOnSite])
 }
 
 // One row per (member, entity) FieldQuo has written to Google, so a second
