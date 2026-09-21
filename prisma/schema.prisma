@@ -54,6 +54,8 @@ model PlatformAdmin {
   createdAt    DateTime          @default(now())
 
   auditLogs        PlatformAuditLog[]
+  supervisedCalls  SalesCallAttempt[] @relation("SalesCallSupervisor")
+  callEvents       SalesCallEvent[]
   telemarketerRegistrations SalesTelemarketerRegistration[]
   jurisdictionOverrides     SalesJurisdictionOverride[]
   /// Numbers this admin calls and texts from.
@@ -10684,6 +10686,17 @@ model SalesRep {
   /// lib/sales/autodial.js still requires the rep to be `available`, no call
   /// up, nothing ringing, and the calling gate to answer allowed for that row.
   autodial Boolean @default(false)
+  // ── What this rep may dial that is not a prospect (2026-09-21) ───────
+  //
+  // The two OMniLeads group privileges (Grupo.call_another_agent and
+  // Grupo.call_off_camp, ominicontacto_app/models.py ~291–292) as per-rep
+  // flags, set by a superadmin on /platform/sales/reps. A colleague's
+  // browser costs nothing but two client legs and is on by default; an
+  // arbitrary typed number is a dial on FieldQuo's account to a phone no
+  // record vouches for and is OFF until the owner says otherwise.
+  canCallColleagues  Boolean @default(true)
+  canCallOffCampaign Boolean @default(false)
+  internalCallsReceived SalesCallAttempt[] @relation("SalesInternalCallsTo")
 
   /// The zone this rep's own hours are read in — the public demo page
   /// (app/demo/[repCode]) offers 15-minute slots from `demoHours` evaluated
@@ -15305,6 +15318,63 @@ model SalesCallAttempt {
   /// lib/sales/calls/qa.js. One per attempt; absent until scored.
   qa SalesCallQa?
 
+  // ── Call outcomes, second pass (2026-09-21) ───────────────────────────
+  //
+  // Studied from OMniLeads (LGPL-3.0, design only — docs/SALES-OUTCOMES.md
+  // carries the citations): a disposition may carry a sub-reason
+  // (OpcionCalificacion.subcalificaciones → CalificacionCliente.subcalificacion),
+  // a supervisor may audit it (AuditoriaCalificacion), a recording may be
+  // bookmarked (GrabacionMarca), a callback is personal or global
+  // (AgendaContacto.tipo_agenda), and a queue may detect answering machines
+  // (Queue.detectar_contestadores + LlamadaLog's AMD event). Every column
+  // below is nullable and additive; nothing that existed moved.
+
+  /// The sub-reason under the outcome — a key from the list the platform
+  /// keeps for that outcome (lib/sales/calls/subDispositions.js; the defaults
+  /// are in code, the edited lists in PlatformSetting `sales.subDispositions`).
+  /// Required at the disposition sheet when the outcome has a list; null for
+  /// an outcome with none and for every row the LINE wrote.
+  subDisposition       String?
+  /// The one free-text detail a sub-reason may ask for — the competitor's
+  /// name under "using a competitor". Null unless the sub-reason asked.
+  subDispositionDetail String?
+
+  /// Twilio's AnsweredBy for the PROSPECT leg, verbatim: human,
+  /// machine_start, machine_end_beep, machine_end_silence, machine_end_other,
+  /// fax, unknown. Written by app/api/rep-dial/amd from the amdStatusCallback
+  /// the bridge attaches when `sales.amd.enabled` is on (default off — Twilio
+  /// bills $0.0075 a call for it). Null on every call placed while it was
+  /// off, on every handset and inbound row, and never defaulted to "human":
+  /// absence of a verdict is not a verdict.
+  amdResult String?
+  amdAt     DateTime?
+  /// Twilio's MachineDetectionDuration — milliseconds the verdict took.
+  amdMs     Int?
+
+  /// "personal" | "global" — OMniLeads' TYPE_PERSONAL / TYPE_GLOBAL. A
+  /// rep's callback starts personal (delivered to the rep who promised it)
+  /// and becomes global when that rep is off at the hour and the platform's
+  /// grace (`sales.callback.graceMinutes`) has passed — then it goes to the
+  /// next available rep who can take the call (lib/sales/calls/callbackAgenda.js).
+  /// Null on every row that is not a callback and on callbacks written before
+  /// this column existed, which the agenda reads as personal.
+  callbackScope        String?
+  /// The rep the callback is CURRENTLY delivered to. Equal to salesRepId
+  /// while personal; the rep it was handed to once global. A loose pointer,
+  /// the shape answeredByRepId uses and for the same reason.
+  callbackRepId        String?
+  /// When the "Callback due — asked for you" push went out. Null until it
+  /// did; the sweep's `null` guard is what makes it fire once.
+  callbackNotifiedAt   DateTime?
+  /// When the callback went global. Null while personal.
+  callbackReassignedAt DateTime?
+
+  /// The supervisor's verdict on the rep's outcome, once given. One per
+  /// attempt; a re-audit updates it and the history is PlatformAuditLog's.
+  dispositionAudit SalesDispositionAudit?
+  /// Bookmarks on the recording — a rep's during the call, a superadmin's on playback.
+  recordingMarks   SalesRecordingMark[]
+
   // ── What was said, so an experiment can be read afterwards ────────────
   //
   // SalesPlaybookExperiment and SalesPlaybookAssignment already store which
@@ -15317,6 +15387,55 @@ model SalesCallAttempt {
   playbookVersion String?
   experimentKey   String?
   variantKey      String?
+
+  // ── What KIND of call this row is (2026-09-21, sales supervision) ─────
+  //
+  // "prospect" — the ordinary sales dial or callback, and every row before
+  // this column existed. "internal" — a rep rang a colleague's browser
+  // (toE164 is the INTERNAL_NUMBER sentinel, internalToRepId says who).
+  // "off_campaign" — a number the rep typed with no record behind it.
+  // Neither of the last two is prospect reach: prospectDialsOnly() (beside
+  // the test-dial exclusion in lib/sales) keeps them out of every count,
+  // and the 24-hour cap still counts an off-campaign dial to a real number
+  // because the law does.
+  kind String @default("prospect")
+  /// The colleague rung, on a kind "internal" row.
+  internalToRepId String?
+  internalToRep   SalesRep? @relation("SalesInternalCallsTo", fields: [internalToRepId], references: [id], onDelete: SetNull)
+
+  // ── The conference this call ran in, when supervision mode was on ────
+  //
+  // Null on a plain <Dial><Number> bridge. lib/sales/calls/supervision.js:
+  // with `sales.supervision.enabled` the bridge puts the rep in a
+  // per-attempt conference and dials the prospect in as a participant, so a
+  // superadmin can listen, whisper, barge or take the call, and the rep can
+  // put the prospect on hold. `conferenceSid` arrives on the first
+  // conference status callback and is the handle every REST action prefers
+  // over the name, which Twilio only resolves while the room is up.
+  conferenceName String?
+  conferenceSid  String?
+  /// When the prospect was last put on hold and not yet taken off. Null
+  /// when not held. `holdSeconds` above is the sum of closed intervals.
+  heldAt DateTime?
+
+  // ── Who was on this call besides the rep and the prospect ────────────
+  //
+  // The platform admin currently (or last) supervising, what they were
+  // doing — "listen", "whisper", "barge", "take" — and how long the
+  // supervision lasted, summed. One supervisor at a time: `supervisedBy`
+  // set is the lock, cleared when they leave or the conference ends.
+  // The full history is SalesCallEvent.
+  supervisedBy       String?
+  supervisor         PlatformAdmin? @relation("SalesCallSupervisor", fields: [supervisedBy], references: [id], onDelete: SetNull)
+  supervisionKind    String?
+  supervisionSeconds Int?
+  /// The supervisor's own browser leg, from the signed bridge webhook —
+  /// never from the browser. What "leave" hangs up and "mode" updates.
+  supervisorCallSid  String?
+  /// When the current supervision started; null between supervisions.
+  supervisedAt DateTime?
+
+  events SalesCallEvent[]
 
   createdAt DateTime @default(now())
 
@@ -15431,6 +15550,40 @@ model SalesCallTransfer {
   @@index([fromRepId, startedAt])
 }
 
+/// One timestamped thing that happened on a live sales call that the
+/// carrier's status callbacks do not report: the prospect put on hold and
+/// taken off it, a supervisor listening, whispering, barging in, taking the
+/// call, and leaving. The OMniLeads model is LlamadaLog's HOLD/UNHOLD rows
+/// (reportes_app/models.py ~408, api_app/views/agente.py ApiEventoHold
+/// ~610–640): hold time is measurable only because both edges are logged
+/// with a time. `seconds` is written on the closing edge (UNHOLD,
+/// SUPERVISION_END) so a report can sum without pairing rows.
+///
+/// Exactly one actor per row: the rep (hold) or the platform admin
+/// (supervision). Never deleted — the attempt's cascade is the only way a
+/// row goes, with the call it describes.
+model SalesCallEvent {
+  id String @id @default(cuid())
+
+  attemptId String
+  attempt   SalesCallAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+
+  /// HOLD · UNHOLD · LISTEN · WHISPER · BARGE · TAKE · SUPERVISION_END.
+  event String
+
+  salesRepId      String?
+  platformAdminId String?
+  platformAdmin   PlatformAdmin? @relation(fields: [platformAdminId], references: [id], onDelete: SetNull)
+
+  at      DateTime @default(now())
+  /// How long the interval this row closes lasted, on closing edges only.
+  seconds Int?
+  detail  Json?
+
+  @@index([attemptId, at])
+  @@index([platformAdminId, at])
+}
+
 /// How a recorded sales call measured against the playbook the rep was
 /// reading — lib/sales/calls/qa.js.
 ///
@@ -15456,6 +15609,76 @@ model SalesCallTransfer {
 /// through: "platform" (a PlatformAdmin id) or "agency" (a SalesRep of kind
 /// agency reviewing its own employee) — two tables, so the id alone would be
 /// ambiguous.
+/// A supervisor's verdict on a rep's outcome for one call.
+///
+/// OMniLeads' AuditoriaCalificacion (ominicontacto_app/models.py ~3149–3197):
+/// one row per disposition, three results — approved / rejected / observed —
+/// and free-text observations. Kept as one row per attempt (@unique) the way
+/// SalesCallQa is: the CURRENT verdict is what the rep sees and what the
+/// rejection rate counts; every save is also written to PlatformAuditLog
+/// (action `sales_disposition_audited`, with the verdict before and after),
+/// which is the history. Superadmin only, on both the read and the write —
+/// lib/sales/calls/dispositionAudit.js.
+///
+/// This is a HUMAN verdict on what the rep SAID happened. SalesCallQa is a
+/// model's score of how the rep spoke. Both exist and both are shown; neither
+/// replaces the other.
+model SalesDispositionAudit {
+  id        String           @id @default(cuid())
+  attemptId String           @unique
+  attempt   SalesCallAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+
+  /// PlatformAdmin.id of the superadmin who gave the verdict. A loose
+  /// pointer, not a relation: an admin leaving must not delete the record
+  /// that a call was reviewed.
+  auditorId   String
+  auditorName String?
+  /// "approved" | "rejected" | "observed" — lib/sales/calls/dispositionAudit.js AUDIT_VERDICTS.
+  verdict     String
+  /// The auditor's words. Required for rejected and observed: a rejection
+  /// with no reason cannot be acted on by the rep who reads it.
+  notes       String?
+
+  /// The rep's outcome AS AUDITED, copied at the moment of the verdict so a
+  /// rep overwriting the line's auto-log afterwards does not silently turn
+  /// an approval of "hung up" into an approval of "interested".
+  disposition    String?
+  subDisposition String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([verdict])
+  @@index([createdAt])
+}
+
+/// A bookmark on a call recording — OMniLeads' GrabacionMarca
+/// (ominicontacto_app/models.py ~2878: callid + descripcion), extended with
+/// WHERE in the recording it points (atSeconds) so it can be drawn as a tick
+/// on the scrubber, and WHO left it: a rep pressing Mark on the live call
+/// (stamped now − answeredAt by the server) or a superadmin on playback.
+/// Read into the AI review prompt as "moments the rep flagged".
+model SalesRecordingMark {
+  id        String           @id @default(cuid())
+  attemptId String
+  attempt   SalesCallAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+
+  /// "rep" | "platform" — which table authorId is an id in.
+  authorKind String
+  authorId   String
+  authorName String?
+
+  /// Seconds from the moment the prospect leg was answered — the recording's
+  /// own zero, because <Dial record> starts at the answer.
+  atSeconds Int
+  note      String
+
+  createdAt DateTime @default(now())
+
+  @@index([attemptId, atSeconds])
+  @@index([authorKind, authorId])
+}
+
 model SalesCallQa {
   id        String           @id @default(cuid())
   attemptId String           @unique

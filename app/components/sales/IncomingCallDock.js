@@ -264,6 +264,10 @@ export default function IncomingCallDock() {
         from,
         to: call?.parameters?.To || null,
         rangAt: Date.now(),
+        // A colleague's browser, not a contractor's phone. Known
+        // synchronously from the identity prefix, before the caller lookup
+        // answers with the name.
+        internal: typeof from === "string" && from.startsWith("client:"),
       });
       setWho(null);
       // Non-blocking, and never trusted for anything but the label: the
@@ -301,6 +305,7 @@ export default function IncomingCallDock() {
         callRef.current = null;
         presenceRef.current.setInboundRinging(false);
       });
+      const incomingWasInternal = typeof from === "string" && from.startsWith("client:");
       call.on("disconnect", () => {
         const wasLive = liveRef.current;
         liveRef.current = false;
@@ -316,7 +321,10 @@ export default function IncomingCallDock() {
         // The call ended: the rep is writing it up, on the ledger, until
         // they press Available. Soft — the row is commentary on a call
         // that has already happened.
-        if (wasLive) presenceRef.current.postState({ state: STATE_AFTER_CALL });
+        // A colleague call: the server moves both reps back to available
+        // from the carrier's completed event; this only re-reads it.
+        if (wasLive && incomingWasInternal) setTimeout(() => presenceRef.current.refresh?.(), 1200);
+        else if (wasLive) presenceRef.current.postState({ state: STATE_AFTER_CALL });
         // And the write-up itself, in place, once (see the header).
         const logged = loggedRef.current;
         loggedRef.current = null;
@@ -372,6 +380,16 @@ export default function IncomingCallDock() {
       // attempt land.
     } catch (err) {
       setError(err?.message || t("app.salesDial.couldNotPickUp"));
+      return;
+    }
+
+    if (incoming?.internal) {
+      // A colleague call: the CALLER's attempt row is the record and the
+      // callee claims nothing. On the ledger this rep is on a call; when it
+      // ends they are available again, not writing anything up (see the
+      // disconnect handler above — loggedRef stays null, so no form opens).
+      setAnswered({ attemptId: null, note: "" });
+      presenceRef.current.postState({ state: STATE_ON_CALL });
       return;
     }
 
@@ -475,6 +493,10 @@ export default function IncomingCallDock() {
       call: callRef.current,
       from: incoming?.from || null,
       answeredAt,
+      // A colleague ringing (From `client:sales_rep:…`): the name, and a
+      // flag the strip reads to draw neither transfer nor text nor a
+      // write-up — see the answer() branch below.
+      internal: incoming?.internal ? { name: who?.internal?.name || who?.businessName || null } : null,
       businessName: who?.businessName || null,
       attemptId: answered?.attemptId || null,
       note: answered?.note || "",
@@ -581,9 +603,13 @@ export default function IncomingCallDock() {
     return () => clearInterval(id);
   }, [ringing]);
 
-  const fromText = incoming ? pretty(incoming.from, t) : "";
-  const business = who?.businessName || null;
-  const holderText = who?.holder
+  // A colleague's call prints their name and no number — there is none —
+  // and none of the contractor links below apply to it.
+  const fromText = incoming ? (incoming.internal ? t("app.salesInternal.colleagueCalling") : pretty(incoming.from, t)) : "";
+  const business = incoming?.internal ? who?.internal?.name || who?.businessName || null : who?.businessName || null;
+  const holderText = incoming?.internal
+    ? ""
+    : who?.holder
     ? who.holder.mine
       ? t("app.salesDial.callerClaimedByYou")
       : t("app.salesDial.callerClaimedBy", { name: who.holder.name || t("app.salesDial.anotherRep") })
@@ -609,7 +635,7 @@ export default function IncomingCallDock() {
    * matched to nobody gets the save link, one it matched to somebody else's
    * claim gets nothing here (the holder line says who).
    */
-  const callerLinks = who ? (
+  const callerLinks = who && !incoming?.internal ? (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-0" data-incoming-links>
       {who.open?.href ? (
         <Link href={who.open.href} className={LINK} data-incoming-open-company={who.open.kind}>

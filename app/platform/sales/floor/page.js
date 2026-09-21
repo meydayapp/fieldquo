@@ -62,21 +62,38 @@
 // actions (supervisor_activity.py ejecutar_accion_sobre_agente): Pause
 // (reason "supervision"), Make available, Sign out — one row each on the
 // rep's activity ledger under the admin's id, audit-logged, superadmin-only
-// on the server (app/api/platform/sales/floor/rep-state). Nothing else here
-// reaches a rep: no listening in, no reassigning a claim to a named person.
-// The floor's own settings (the write-up window, the pause limits) are a
-// card below the cards, and they change what every rep's console does.
+// on the server (app/api/platform/sales/floor/rep-state). The floor's own
+// settings (the write-up window, the pause limits) are a card below the
+// cards, and they change what every rep's console does.
+//
+// ══ …and, since the same day, four on a LIVE CALL ══════════════════════════
+//
+// The owner also approved the other half of OMniLeads's supervisor board
+// (supervision_app/static/…/supervision.js obtenerNodosAcciones, 210–235;
+// supervisor_activity.py 34–35): Listen, Whisper, Barge and Take on a
+// rep's live call, through the superadmin's own browser (a Twilio Device
+// on this page, identity `supervisor:<id>`, useSupervisorPhone below).
+// lib/sales/calls/supervision.js says how it is done on Twilio and why
+// every call runs in a conference when it is on. It is OFF by default — it
+// costs conference minutes — and when it is off the buttons are not drawn
+// and the row says why. Reassigning a claim to a named person remains an
+// untaken decision.
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlertCircle,
   CircleHelp,
   Clock,
   Coffee,
+  Ear,
   Headphones,
   Loader2,
+  MessageSquare,
   PhoneCall,
+  PhoneForwarded,
+  PhoneOff,
   RefreshCw,
+  Users,
 } from "lucide-react";
 import Link from "next/link";
 import { fetchJson } from "@/lib/fetchJson";
@@ -320,10 +337,224 @@ function FloorSettingsCard({ settings, pauseReasons, onSaved }) {
   );
 }
 
+/** "0:42" from an ISO instant to now. */
+function since(iso, now = Date.now()) {
+  const t = iso ? new Date(iso).getTime() : NaN;
+  if (!Number.isFinite(t)) return "0:00";
+  const total = Math.max(0, Math.floor((now - t) / 1000));
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
+}
+
+const KIND_WORD = { listen: "Listening to", whisper: "Whispering to", barge: "On the call with", take: "Took the call from" };
+
+/**
+ * The supervisor's phone: one Twilio Device for this page, minted from
+ * /api/platform/sales/supervision/token (superadmin only, dial-out only),
+ * and the one call it has up. The MODE is never chosen here — the server
+ * wrote it on the attempt when `start` was posted, and the bridge reads it
+ * from there; this only connects with the attempt id and keeps the bar
+ * honest about what the server says.
+ */
+function useSupervisorPhone({ enabled, onChange }) {
+  const deviceRef = useRef(null);
+  const callRef = useRef(null);
+  const [ready, setReady] = useState(false);
+  const [deviceError, setDeviceError] = useState("");
+  const [live, setLive] = useState(null); // { attemptId, kind, repName, since, joined, wantTake }
+  const liveRef = useRef(null);
+  liveRef.current = live;
+  const [busy, setBusy] = useState("");
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!enabled) return undefined;
+    let cancelled = false;
+    let device = null;
+    let timer = null;
+    const mint = async () => {
+      const body = await fetchJson("/api/platform/sales/supervision/token", { method: "POST" });
+      return { token: body?.token || null, ttl: Number(body?.expiresInSeconds) || 600 };
+    };
+    (async () => {
+      try {
+        const { token, ttl } = await mint();
+        if (!token || cancelled) return;
+        const { Device } = await import("@twilio/voice-sdk");
+        device = new Device(token, { logLevel: "error", codecPreferences: ["opus", "pcmu"] });
+        deviceRef.current = device;
+        device.on("error", (err) => {
+          if (!cancelled) setDeviceError(err?.message || "The supervisor line dropped.");
+        });
+        const refresh = async () => {
+          try {
+            const { token: fresh } = await mint();
+            if (fresh && !cancelled) device.updateToken(fresh);
+          } catch {
+            /* the next timer tries again */
+          }
+        };
+        device.on("tokenWillExpire", refresh);
+        timer = setInterval(refresh, Math.max(60, Math.floor(ttl / 2)) * 1000);
+        // Dial-out only: no register(), nothing rings this browser.
+        if (!cancelled) setReady(true);
+      } catch (err) {
+        if (!cancelled) setDeviceError(err?.message || "The supervisor line could not start.");
+      }
+    })();
+    return () => {
+      cancelled = true;
+      if (timer) clearInterval(timer);
+      try {
+        callRef.current?.disconnect?.();
+        device?.destroy?.();
+      } catch {
+        /* already gone */
+      }
+      deviceRef.current = null;
+      setReady(false);
+    };
+  }, [enabled]);
+
+  const post = useCallback(async (body) => {
+    return fetchJson("/api/platform/sales/supervision", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  }, []);
+
+  const leave = useCallback(async () => {
+    const current = liveRef.current;
+    try {
+      callRef.current?.disconnect?.();
+    } catch {
+      /* already gone */
+    }
+    callRef.current = null;
+    setLive(null);
+    if (current?.attemptId) {
+      await post({ action: "leave", attemptId: current.attemptId }).catch(() => {});
+    }
+    onChange?.();
+  }, [post, onChange]);
+
+  /** Listen / whisper / barge / take on a live row. */
+  const start = useCallback(
+    async ({ attemptId, kind, repName }) => {
+      if (!deviceRef.current) {
+        setError("The supervisor line is not ready yet.");
+        return;
+      }
+      if (liveRef.current) {
+        setError("Leave the call you are on first.");
+        return;
+      }
+      setBusy(attemptId);
+      setError("");
+      try {
+        const body = await post({ action: "start", attemptId, kind });
+        const call = await deviceRef.current.connect({ params: { supervise: attemptId } });
+        callRef.current = call;
+        setLive({ attemptId, kind: body?.state?.kind || kind, repName, since: body?.state?.since || new Date().toISOString(), joined: false, wantTake: kind === "take" });
+        call.on("disconnect", () => {
+          // The room ended, or the leg was hung up server-side. The row is
+          // closed by the conference callback; this only clears the bar.
+          callRef.current = null;
+          setLive(null);
+          onChange?.();
+        });
+        call.on("error", (err) => setError(err?.message || "The supervisor leg dropped."));
+        onChange?.();
+      } catch (err) {
+        setError(err?.message || "Could not join the call.");
+        try {
+          callRef.current?.disconnect?.();
+        } catch {
+          /* nothing up */
+        }
+        callRef.current = null;
+        setLive(null);
+      } finally {
+        setBusy("");
+      }
+    },
+    [post, onChange],
+  );
+
+  const mode = useCallback(
+    async (kind) => {
+      const current = liveRef.current;
+      if (!current) return;
+      setBusy(current.attemptId);
+      setError("");
+      try {
+        const body = await post({ action: "mode", attemptId: current.attemptId, kind });
+        setLive((l) => (l ? { ...l, kind: body?.state?.kind || kind } : l));
+        onChange?.();
+      } catch (err) {
+        setError(err?.message || "Could not change mode.");
+      } finally {
+        setBusy("");
+      }
+    },
+    [post, onChange],
+  );
+
+  const take = useCallback(async () => {
+    const current = liveRef.current;
+    if (!current) return;
+    setBusy(current.attemptId);
+    setError("");
+    try {
+      const body = await post({ action: "take", attemptId: current.attemptId });
+      setLive((l) => (l ? { ...l, kind: body?.state?.kind || "take", wantTake: false } : l));
+      onChange?.();
+    } catch (err) {
+      setError(err?.message || "Could not take the call.");
+    } finally {
+      setBusy("");
+    }
+  }, [post, onChange]);
+
+  // While a leg is up: poll the server for `joined` (the bridge recorded
+  // the supervisor's CallSid), and finish a pending take once it is.
+  useEffect(() => {
+    if (!live?.attemptId || live.joined) return undefined;
+    let cancelled = false;
+    const id = setInterval(async () => {
+      try {
+        const body = await fetchJson(`/api/platform/sales/supervision?attemptId=${encodeURIComponent(live.attemptId)}`);
+        if (cancelled) return;
+        if (body?.state?.ended) {
+          leave();
+          return;
+        }
+        if (body?.state?.joined) {
+          setLive((l) => (l ? { ...l, joined: true, kind: body.state.kind || l.kind } : l));
+          if (live.wantTake) take();
+        }
+      } catch {
+        /* the next tick asks again */
+      }
+    }, 1500);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [live?.attemptId, live?.joined, live?.wantTake, leave, take]);
+
+  return { ready, deviceError, live, busy, error, start, mode, take, leave };
+}
+
 export default function SalesFloorPage() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick((n) => n + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
 
   const load = useCallback(async () => {
     setError("");
@@ -335,6 +566,9 @@ export default function SalesFloorPage() {
       setLoading(false);
     }
   }, []);
+
+  const supervisionOn = Boolean(data?.supervision?.enabled);
+  const phone = useSupervisorPhone({ enabled: supervisionOn, onChange: load });
 
   useEffect(() => {
     load();
@@ -380,6 +614,50 @@ export default function SalesFloorPage() {
             <p className="break-words">{error}</p>
           </div>
         </div>
+      ) : null}
+
+      {/* ── The supervisor's live bar ─────────────────────────────────────
+          "Listening to Umar · 0:42 · Whisper · Barge · Take · Leave". Drawn
+          only while this browser has a leg up; the mode word is the
+          server's, refreshed after every action. */}
+      {phone.live ? (
+        <div className="sticky top-0 z-30 rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/60 p-3 flex flex-wrap items-center gap-3" data-supervisor-bar={phone.live.kind}>
+          <Ear size={18} className="shrink-0" aria-hidden="true" />
+          <p className="font-semibold text-emerald-900 dark:text-emerald-100 min-w-0 break-words">
+            {KIND_WORD[phone.live.kind] || "On"} {phone.live.repName || "the rep"} · <span className="tabular-nums">{since(phone.live.since)}</span>
+            {!phone.live.joined ? <span className="font-normal text-sm"> · connecting…</span> : null}
+          </p>
+          <div className="flex flex-wrap gap-2 ml-auto">
+            {phone.live.kind !== "take" ? (
+              <>
+                {phone.live.kind !== "listen" ? (
+                  <button type="button" className={`${BTN} border border-border bg-card`} disabled={Boolean(phone.busy) || !phone.live.joined} onClick={() => phone.mode("listen")}>
+                    <Ear size={15} aria-hidden="true" /> Listen
+                  </button>
+                ) : null}
+                {phone.live.kind !== "whisper" ? (
+                  <button type="button" className={`${BTN} border border-border bg-card`} disabled={Boolean(phone.busy) || !phone.live.joined} onClick={() => phone.mode("whisper")}>
+                    <MessageSquare size={15} aria-hidden="true" /> Whisper
+                  </button>
+                ) : null}
+                {phone.live.kind !== "barge" ? (
+                  <button type="button" className={`${BTN} border border-border bg-card`} disabled={Boolean(phone.busy) || !phone.live.joined} onClick={() => phone.mode("barge")}>
+                    <Users size={15} aria-hidden="true" /> Barge
+                  </button>
+                ) : null}
+                <button type="button" className={`${BTN} border border-red-300 text-red-800 dark:text-red-200 bg-card`} disabled={Boolean(phone.busy) || !phone.live.joined} onClick={phone.take}>
+                  <PhoneForwarded size={15} aria-hidden="true" /> Take the call
+                </button>
+              </>
+            ) : null}
+            <button type="button" className={`${BTN} bg-red-600 text-white`} onClick={phone.leave}>
+              <PhoneOff size={15} aria-hidden="true" /> {phone.live.kind === "take" ? "Hang up" : "Leave"}
+            </button>
+          </div>
+          {phone.error ? <p className="w-full text-sm text-red-700 dark:text-red-300 break-words">{phone.error}</p> : null}
+        </div>
+      ) : phone.error || phone.deviceError ? (
+        <p className="text-sm text-red-700 dark:text-red-300 break-words">{phone.error || phone.deviceError}</p>
       ) : null}
 
       {loading ? (
@@ -458,6 +736,69 @@ export default function SalesFloorPage() {
                         <p className="text-xs break-words">
                           There is no record of this account opening the portal.
                         </p>
+                      ) : null}
+                      {/* ── The live call, and what can be done about it ──
+                          From the attempt row, not from presence. Buttons
+                          only when the call is in a conference and
+                          supervision is on; otherwise the reason. */}
+                      {rep.liveCall ? (
+                        <div className="mt-1 space-y-1" data-live-call={rep.liveCall.attemptId} data-live-call-kind={rep.liveCall.kind}>
+                          <p className="text-xs break-words tabular-nums">
+                            {rep.liveCall.kind === "internal"
+                              ? `On with a colleague${rep.liveCall.internalTo?.name ? ` (${rep.liveCall.internalTo.name})` : ""}`
+                              : rep.liveCall.kind === "off_campaign"
+                                ? "Off-queue call"
+                                : rep.liveCall.direction === "in"
+                                  ? "Inbound call"
+                                  : "Prospect call"}
+                            {" · "}
+                            {since(rep.liveCall.dialledAt)}
+                            {rep.liveCall.held ? ` · On hold ${since(rep.liveCall.heldAt)}` : ""}
+                            {rep.liveCall.supervision
+                              ? ` · ${rep.liveCall.supervision.name || "a supervisor"} ${
+                                  { listen: "listening", whisper: "whispering", barge: "on the call", take: "took the call" }[rep.liveCall.supervision.kind] || "on it"
+                                }${rep.liveCall.supervision.joined ? "" : " (connecting)"}`
+                              : ""}
+                          </p>
+                          {supervisionOn && rep.liveCall.supervisable && !rep.liveCall.supervision && !phone.live ? (
+                            <div className="flex flex-wrap gap-1.5" data-supervise-buttons>
+                              {[
+                                ["listen", "Listen", Ear],
+                                ["whisper", "Whisper", MessageSquare],
+                                ["barge", "Barge", Users],
+                                ["take", "Take call", PhoneForwarded],
+                              ].map(([kind, label, Icon2]) => (
+                                <button
+                                  key={kind}
+                                  type="button"
+                                  className="inline-flex items-center gap-1 min-h-[36px] px-2.5 rounded-md border border-border bg-card text-xs font-semibold disabled:opacity-60"
+                                  disabled={!phone.ready || phone.busy === rep.liveCall.attemptId}
+                                  onClick={() => phone.start({ attemptId: rep.liveCall.attemptId, kind, repName: rep.name })}
+                                  data-supervise={kind}
+                                >
+                                  <Icon2 size={13} aria-hidden="true" /> {label}
+                                </button>
+                              ))}
+                            </div>
+                          ) : null}
+                          {!supervisionOn ? (
+                            <p className="text-xs opacity-80">
+                              Supervision is off — switch it on under{" "}
+                              <Link href="/platform/sales/windows" className="underline">
+                                Calling rules
+                              </Link>{" "}
+                              to listen, whisper, barge or take a call.
+                            </p>
+                          ) : !rep.liveCall.supervisable ? (
+                            <p className="text-xs opacity-80">
+                              {rep.liveCall.kind === "internal"
+                                ? "A colleague call cannot be supervised."
+                                : rep.liveCall.direction === "in"
+                                  ? "Inbound calls are not in a conference and cannot be supervised yet."
+                                  : "This call was placed as a plain bridge (before supervision was switched on), so it cannot be joined."}
+                            </p>
+                          ) : null}
+                        </div>
                       ) : null}
                       {/* "No number assigned" is the case that used to be
                           silent: the dial borrowed the lowest-sorting line,
@@ -556,6 +897,20 @@ export default function SalesFloorPage() {
                     <dd className="text-right tabular-nums" data-paused-by-type>
                       {s?.pausedText || "—"}
                       {s?.pauses?.byType ? <span className="opacity-70"> · {s.pauses.byType.recreational.text} / {s.pauses.byType.productive.text}</span> : null}
+                    </dd>
+
+                    {/* Hold time and supervised calls, from the attempt rows
+                        (holdSeconds, supervisionKind). Zero is a real zero. */}
+                    <dt className="opacity-70">On hold (total)</dt>
+                    <dd className="text-right tabular-nums">
+                      {s?.table ? `${describeDuration(s.table.holdSeconds * 1000)} (${s.table.heldCalls})` : "—"}
+                    </dd>
+
+                    <dt className="opacity-70">Supervised calls</dt>
+                    <dd className="text-right tabular-nums">
+                      {s?.supervised
+                        ? `${s.supervised.calls}${s.supervised.calls ? ` (${["listen", "whisper", "barge", "take"].filter((k) => s.supervised.byKind[k]).map((k) => `${s.supervised.byKind[k]} ${k}`).join(", ")})` : ""}`
+                        : "—"}
                     </dd>
 
                     <dt className="opacity-70">Callbacks overdue</dt>
@@ -728,6 +1083,26 @@ export default function SalesFloorPage() {
           </section>
 
           {/* ── Inbound ────────────────────────────────────────────────── */}
+          {/* Callbacks past their hour by more than a day, by rep
+              (lib/sales/calls/callbackAgenda.js). Drawn only when there is
+              one — a "0 overdue" line every fifteen seconds is noise. Null
+              counts mean the read failed, and say so. */}
+          {data.overdueCallbacks && (data.overdueCallbacks.flagged === null || data.overdueCallbacks.flagged > 0) ? (
+            <div className={`${CARD} border-red-400 dark:border-red-800`} data-overdue-callbacks={data.overdueCallbacks.flagged ?? "unknown"}>
+              <p className="text-sm font-semibold text-foreground">
+                {data.overdueCallbacks.flagged === null
+                  ? `Overdue callbacks could not be read${data.overdueCallbacks.error ? `: ${data.overdueCallbacks.error}` : "."}`
+                  : `${data.overdueCallbacks.flagged} callback${data.overdueCallbacks.flagged === 1 ? "" : "s"} more than ${data.overdueCallbacks.flagAfterHours} h overdue`}
+              </p>
+              {data.overdueCallbacks.byRep?.length ? (
+                <p className="text-sm text-muted-foreground break-words">
+                  {data.overdueCallbacks.byRep.map((r) => `${r.name || "unassigned"}: ${r.flagged}`).join(" · ")} —{" "}
+                  <Link href="/platform/sales/outcomes" className="underline">the agenda</Link>
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+
           {data.inbound || data.salesVoice ? (
             <section className={CARD}>
               <div className="flex items-start justify-between gap-3">

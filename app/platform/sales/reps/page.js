@@ -1058,6 +1058,43 @@ export default function PlatformSalesRepsPage() {
     }
   }
 
+  /**
+   * What this rep may dial outside the queue (SalesRep.canCallColleagues /
+   * canCallOffCampaign, 2026-09-21). One PATCH per flag, audited. The
+   * off-campaign one is confirmed: it lets the rep ring any number on
+   * FieldQuo's account, which the transfer list was built to prevent.
+   */
+  async function saveCallPrivilege(rep, key, on) {
+    if (
+      key === "canCallOffCampaign" &&
+      on &&
+      !confirm(
+        `Let ${rep.name} dial any number from the portal? The call is placed on FieldQuo's account and recorded; the calling window, the suppression list and the 24-hour cap still apply to the number, judged for the state the rep says it rings in. It is attributed to nobody in the pool and never counts as reach.`,
+      )
+    ) {
+      return;
+    }
+    setBusy(true);
+    clearBanners();
+    try {
+      await fetchJson(`/api/platform/sales/reps/${rep.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [key]: on }),
+      });
+      setNotice(
+        key === "canCallColleagues"
+          ? `${rep.name} ${on ? "can" : "can no longer"} ring colleagues from the portal.`
+          : `${rep.name} ${on ? "can" : "can no longer"} dial a number outside the queue.`,
+      );
+      await load();
+    } catch (err) {
+      setError(err.message || "Could not change the calling privilege.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function savePlan(rep) {
     const value = planDraft[rep.id] ?? "";
     if (
@@ -2329,6 +2366,42 @@ export default function PlatformSalesRepsPage() {
                           ) : null}
                         </div>
                       )
+                    ) : null}
+                  </div>
+                ) : null}
+
+                {/* ── Calls outside the queue ───────────────────────────────
+                    The two OMniLeads group privileges (call_another_agent,
+                    call_off_camp) as per-rep flags. Read fresh on every dial
+                    by lib/sales/calls/gate.js. Superadmin-only, audited. */}
+                {!isInfluencerRow && !isAgencyRow ? (
+                  <div data-call-privileges={rep.id}>
+                    <div className={LABEL}>Calls outside the queue</div>
+                    <p className="text-sm text-foreground">
+                      Colleagues: {rep.canCallColleagues !== false ? "can ring a colleague's browser (no carrier cost)." : "cannot."}
+                    </p>
+                    <p className="text-sm text-foreground">
+                      Any number: {rep.canCallOffCampaign ? "can dial a typed number with no record behind it — recorded, window-checked, never counted as reach." : "cannot — the default."}
+                    </p>
+                    {isSuperadmin ? (
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <button
+                          onClick={() => saveCallPrivilege(rep, "canCallColleagues", rep.canCallColleagues === false)}
+                          disabled={busy}
+                          className={BTN_QUIET}
+                          data-call-privilege-toggle={`${rep.id}:colleagues`}
+                        >
+                          {rep.canCallColleagues !== false ? "Stop colleague calls" : "Allow colleague calls"}
+                        </button>
+                        <button
+                          onClick={() => saveCallPrivilege(rep, "canCallOffCampaign", !rep.canCallOffCampaign)}
+                          disabled={busy}
+                          className={rep.canCallOffCampaign ? BTN_QUIET : BTN_PRIMARY}
+                          data-call-privilege-toggle={`${rep.id}:off-campaign`}
+                        >
+                          {rep.canCallOffCampaign ? "Stop off-queue dialling" : "Allow dialling any number"}
+                        </button>
+                      </div>
                     ) : null}
                   </div>
                 ) : null}

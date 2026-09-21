@@ -35,13 +35,39 @@ import { requireSalesRep } from "@/lib/sales/gate";
 import { normalisePhone } from "@/lib/sales/suppressionRules";
 import { matchInboundCaller, MATCH_LEAD, MATCH_PROSPECT } from "@/lib/sales/calls/inboundMatch";
 import { callerLinks } from "@/lib/sales/calls/callerLinks";
+import { salesRepIdFromIdentity } from "@/lib/sales/calls/browserDial";
 
 export async function GET(request) {
   const { rep, refusal } = await requireSalesRep(request);
   if (refusal) return NextResponse.json(refusal.body, { status: refusal.status });
 
   const url = new URL(request.url);
-  const caller = normalisePhone(url.searchParams.get("from") || "");
+  const rawFrom = url.searchParams.get("from") || "";
+
+  // ── A colleague, not a contractor (2026-09-21) ────────────────────────
+  //
+  // An internal call arrives with From `client:sales_rep:<id>` — the bridge
+  // dialled `<Client>` from the caller's own identity. No number, no
+  // prospect match, no links; the label is the colleague's name and the
+  // dock prints "calling you" rather than a phone number nobody dialled.
+  const colleagueId = salesRepIdFromIdentity(rawFrom);
+  if (colleagueId) {
+    const row = await db.salesRep.findUnique({ where: { id: colleagueId }, select: { id: true, name: true } }).catch(() => null);
+    return NextResponse.json({
+      outcome: "internal",
+      internal: { salesRepId: colleagueId, name: row?.name || null },
+      businessName: row?.name || null,
+      city: null,
+      province: null,
+      holder: null,
+      open: null,
+      notes: null,
+      save: null,
+      text: null,
+    });
+  }
+
+  const caller = normalisePhone(rawFrom);
 
   const [prospects, leads] = await Promise.all([
     caller

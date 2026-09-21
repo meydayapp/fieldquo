@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 21 September 2026 (the "next steps" email: two hours after a company's card goes in, if its onboarding checklist is still open, FieldQuo sends one letter in the company's language — the trade in the subject, only the open steps numbered in the checklist's order with what each unlocks for that trade, each a link that opens the step's window on the home page, a tick list of what is done — once per company, never a demo, switch and delay on /platform/companies, sent-date on the company page; see "The next-steps email" below; previous line: the home page's two checklists open each step in a dialog on the page instead of navigating away — see "Set-up steps open in place" below)
+Last updated: 21 September 2026 (the "next steps" email: two hours after a company's card goes in, if its onboarding checklist is still open, FieldQuo sends one letter in the company's language — the trade in the subject, only the open steps numbered in the checklist's order with what each unlocks for that trade, each a link that opens the step's window on the home page, a tick list of what is done — once per company, never a demo, switch and delay on /platform/companies, sent-date on the company page; see "The next-steps email" below; previous line: Sales-floor supervision: Listen / Whisper / Barge / Take on every live row of /platform/sales/floor through the superadmin's own browser, a Hold button for the rep, HOLD/UNHOLD and every supervisor action logged with seconds, calls to a colleague (browser to browser) and to a number outside the queue behind per-rep privileges — every outbound call runs in a per-attempt Twilio conference when `sales.supervision.enabled` is on, which is OFF by default because it costs +20% per call minute; docs/SALES-SUPERVISION.md — see the first section below; previous line: the call-outcomes second pass, and before it the set-up dialogs and the floor's presence)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -76,6 +76,134 @@ times. The new touch:
   (`app/data/industries.js`); a company on any other slug gets the letter
   with no trade in the subject and the generic product sentences — the same
   limit the five-minute nudge has.
+## Listen, whisper, barge and take a rep's live call from the floor board; Hold for the rep; calls to a colleague or to a number outside the queue (21 September 2026)
+
+The owner asked for the OMniLeads supervisor board on FieldQuo's floor.
+`docs/SALES-SUPERVISION.md` is the write-up; `lib/sales/calls/supervision.js`
+the decisions; `scripts/check-sales-supervision.mjs` (139 assertions,
+mutation-tested) the proof.
+
+**What shipped.** On `/platform/sales/floor`, superadmin-only and checked
+server-side on every action: Listen (CHANSPY), Whisper (CHANSPYWISHPER),
+Barge (CHANCONFER) and Take call (CHANTAKECALL) on every live row, through
+the supervisor's own browser (a Twilio Device with identity
+`supervisor:<adminId>`, dial-out only), with a live bar to switch modes and
+leave. One supervisor per call — a conditional update on `supervisedBy` is
+the lock. The rep's card says when somebody barged or took the call,
+always, and when somebody is listening or whispering if
+`sales.supervision.tellRepOnListen` (default on) says so. The prospect is
+never told anything. Every action is a `SalesCallEvent` row and a
+`PlatformAuditLog` row, and the attempt carries `supervisedBy`,
+`supervisionKind`, `supervisionSeconds`.
+
+**Hold.** A Hold button on the live call card: the prospect hears music
+(Twilio's own, or an https URL the owner sets), the rep's mic is off the
+call, a timer shows the hold, Resume returns. HOLD/UNHOLD are timestamped
+`SalesCallEvent` rows; `holdSeconds` — a column reporting.js has read since
+the table landed and nothing wrote — is now written. The board row says
+"On hold 0:42"; the floor and performance tables show hold time and
+supervised calls per rep.
+
+**The mechanism, and its price.** Twilio coaches only a conference
+participant, so with the setting on every outbound prospect call runs in a
+per-attempt conference from the first ring — option (a); the header of
+supervision.js says why (b), moving the legs on demand, was rejected: it
+ends the dual-channel recording mid-call and the second file replaces the
+first. The contractor's participant is recorded dual on its own leg
+(contractor first, everything they heard second; hold music is blanked
+from the rep track before transcription), the status and recording
+webhooks are unchanged. Twilio bills conference minutes on top of each leg:
+**$0.018/min → $0.0216/min for a two-party call (+20%), +$0.0058/min while a
+supervisor is on** — so `sales.supervision.enabled` is OFF by default and
+the switch on `/platform/sales/windows` is the owner's approval. Off, the
+bridge is byte-for-byte what it was.
+
+**Calls that are not reach.** On the rep's Team page, a People card with a
+presence dot per colleague and Call (browser to browser, no PSTN, kind
+`internal`, never written up), and — for a rep the owner has allowed it on
+`/platform/sales/reps` — a field to dial a number outside the queue with
+the state it rings in (kind `off_campaign`; suppression, own numbers, the
+window and the 24-hour cap still bind). `prospectDialsOnly()` keeps both
+out of every count that already kept test dials out.
+
+### Still owed here
+
+- **Inbound calls** are `<Dial><Client>` from the contractor's leg and are
+  not in a conference; they cannot be supervised or held yet. The board
+  says so on the row.
+- **A live coached-call test against Twilio** could not be run from this
+  machine without ringing a live rep or a stranger: every FieldQuo number
+  that answers rings the floor, and the one that does not fails when
+  called. The owner's one-minute test is in the commit report.
+- A supervisor's display name: the console has none, so the rep sees the
+  email's local part.
+## Call outcomes, second pass: sub-reasons, the audit, marks, the callback agenda, the service level, sampling, AMD (21 September 2026)
+
+Seven capabilities on the sales floor, every one studied from OMniLeads (design
+only, cited by file and line in `docs/SALES-OUTCOMES.md`) and every default the
+floor's own behaviour before this pass. Executed by
+`scripts/check-sales-outcomes.mjs` (131 assertions) and the extended
+`check-sales-call-handling`, `check-sales-call-panel`, `check-call-qa`.
+
+- **Sub-dispositions** — `lib/sales/calls/subDispositions.js`: a closed list
+  per outcome (Not now → already has software / too small / no budget / bad
+  timing / using a competitor (name) / happy as is; wrong number →
+  disconnected / a different business / a personal line / fax; not a fit,
+  gatekeeper), required at the sheet when non-empty, stored on
+  `SalesCallAttempt.subDisposition` + `subDispositionDetail`, counted by
+  sub-reason on `/platform/sales/performance`, editable per outcome on
+  `/platform/sales/outcomes` (defaults in code; a line-written outcome can
+  never be given a list).
+- **Disposition audit** — `SalesDispositionAudit` (approved / rejected /
+  observed, one per attempt, history in PlatformAuditLog), the panel on
+  `/platform/sales/call-quality` beside the recording, transcript and AI
+  score; the rep reads "Reviewed: rejected — note" on the call's row and a
+  30-day count on the dashboard; audited vs unaudited and the rejection rate
+  per rep on performance.
+- **Recording marks** — `SalesRecordingMark`: Mark on the live call (the
+  server stamps now − answeredAt), ticks + list + "Mark here" on the owner's
+  player, and the marks in the QA prompt as "moments the rep flagged".
+- **Callback agenda** — `lib/sales/calls/callbackAgenda.js`: personal by
+  default; past `sales.callback.graceMinutes` (15) with the rep unreachable it
+  goes global to the next available rep who sells in the prospect's language
+  (the inbound line's own reachability, read-only), with the prospect's claim;
+  "Callback due 2:00 pm — asked for you" pushed once and badged on the queue
+  row; the sheet refuses past `maxDaysAhead` (14) and at `maxOpenPerRep`
+  (25); the platform lists due today / overdue / per rep and the floor board
+  flags > 24 h overdue.
+- **Service level** — `sales.inbound.serviceLevelSeconds` (20);
+  `lib/sales/calls/serviceLevel.js` over inbound rows: answered within,
+  abandoned, to voicemail, average and longest wait, per day and per rep. The
+  inbound after-dial used to stamp answeredAt at the END of the desk leg; it
+  is now the pickup (end minus DialCallDuration).
+- **Sampling** — `sales.transcription.percent` and `sales.aiReview.percent`
+  (both 100): FNV-1a of the call sid mod 100, the same call in or out on every
+  run; a superadmin opening a sampled-out call transcribes and scores it on
+  demand; the shares print beside the spend on /platform/costs.
+- **AMD** — `sales.amd.enabled` OFF (Twilio bills $0.0075 a call; the switch
+  prints it and is the approval): `<Dial><Number machineDetection=
+  "DetectMessageEnd" amdStatusCallback=…>`, the verdict on the attempt
+  (`amdResult`/`amdAt`/`amdMs`) from `/api/rep-dial/amd`; a machine verdict
+  files the call as voicemail in the shared buckets, auto-logs `voicemail` so
+  the voicemail retry rule fires, and tells the rep on the card; a drop URL
+  (`sales.amd.voicemailDropUrl`, empty, with the RCW 80.36.400 warning printed
+  on it) plays a machine_end verdict and hangs up that leg — never a human.
+
+### Still owed here
+
+- **AMD accuracy is unmeasured** — the setting is off, so no call carries a
+  verdict. `scripts/report-amd-accuracy.mjs` prints the 2×2 against the
+  transcript for the first 50 calls; run it once the owner switches AMD on
+  and write the figures into `docs/SALES-OUTCOMES.md`.
+- **Reps have no playback of their own recordings**, so a rep's marks are a
+  list on the history row rather than ticks on a player; the owner's player
+  has the ticks.
+- The `sendFromMailbox` assertion in `check-sales-admin.mjs` and three
+  `check-sales-server-copy.mjs` assertions (CallPanel, threads page, the
+  salesIntel fact keys in uk/pa/tl) fail on origin/main before this pass and
+  are untouched by it.
+
+---
 
 ## Set-up steps open in place: the onboarding checklist and the additional steps as dialogs on the home page (21 September 2026)
 

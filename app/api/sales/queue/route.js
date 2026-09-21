@@ -686,7 +686,7 @@ async function queueBody(rep, { tradeKey = null, prospectId = null, timeZone = n
   // nothing from the ordering, and it is the single slowest read on the
   // path. Without a named row it waits for the order, below.
   const namedId = prospectId && ids.includes(prospectId) ? prospectId : null;
-  const [openClaims, researching, lastAttempts, capCounts, oppCounts, namedFull] = ids.length
+  const [openClaims, researching, lastAttempts, capCounts, oppCounts, namedFull, callbackRows] = ids.length
     ? await Promise.all([
         db.salesQueueClaim.findMany({
           where: { salesRepId: rep.id, prospectId: { in: ids }, releasedAt: null },
@@ -710,8 +710,21 @@ async function queueBody(rep, { tradeKey = null, prospectId = null, timeZone = n
         db.prospectCapability.groupBy({ by: ["prospectId"], where: { prospectId: { in: ids } }, _count: { _all: true } }),
         db.prospectOpportunity.groupBy({ by: ["prospectId"], where: { prospectId: { in: ids } }, _count: { _all: true } }),
         namedId ? readCurrentFull(rep, namedId, now) : Promise.resolve(null),
+        // The callback promised on each held row and DELIVERED to this rep
+        // — their own, or one the agenda handed them when the promising rep
+        // was off (lib/sales/calls/callbackAgenda.js). The row's badge says
+        // "Callback due 2:00 pm — asked for you" from this; the retry pool
+        // already puts the due row at the front of Callable now.
+        db.salesCallAttempt
+          .findMany({
+            where: { prospectId: { in: ids }, disposition: "callback", callbackAt: { not: null }, OR: [{ callbackRepId: rep.id }, { callbackRepId: null, salesRepId: rep.id }] },
+            orderBy: { callbackAt: "desc" },
+            distinct: ["prospectId"],
+            select: { prospectId: true, salesRepId: true, callbackAt: true, callbackScope: true, dispositionNote: true, salesRep: { select: { name: true } } },
+          })
+          .catch(() => []),
       ])
-    : [[], [], [], [], [], null];
+    : [[], [], [], [], [], null, []];
   const capsById = new Map(capCounts.map((r) => [r.prospectId, r._count?._all || 0]));
   const oppsById = new Map(oppCounts.map((r) => [r.prospectId, r._count?._all || 0]));
   for (const p of claimedRows) {
@@ -724,6 +737,26 @@ async function queueBody(rep, { tradeKey = null, prospectId = null, timeZone = n
   });
   const researchingIds = new Set(researching.map((r) => r.prospectId));
   const lastById = new Map(lastAttempts.map((a) => [a.prospectId, a]));
+  const callbackById = new Map(
+    callbackRows
+      // A promise the rep has since dialled past is the retry pool's row,
+      // not a badge: keep only a callback newer than the rep's last dial.
+      .filter((c) => {
+        const last = lastById.get(c.prospectId);
+        return !last || !last.dialledAt || c.callbackAt.getTime() > last.dialledAt.getTime() - 60 * 60 * 1000;
+      })
+      .map((c) => [
+        c.prospectId,
+        {
+          atIso: c.callbackAt.toISOString(),
+          atLocal: repClock(c.callbackAt, { repZone: zone, language: lang, now }),
+          due: c.callbackAt.getTime() <= now.getTime(),
+          handedOver: c.callbackScope === "global" && c.salesRepId !== rep.id,
+          promisedBy: c.salesRepId !== rep.id ? c.salesRep?.name || null : null,
+          note: c.dispositionNote || null,
+        },
+      ]),
+  );
   const inClaimOrder = [...claimedRows].sort((a, b) => {
     const ra = rank.has(a.id) ? rank.get(a.id) : Number.MAX_SAFE_INTEGER;
     const rb = rank.has(b.id) ? rank.get(b.id) : Number.MAX_SAFE_INTEGER;
@@ -806,6 +839,9 @@ async function queueBody(rep, { tradeKey = null, prospectId = null, timeZone = n
           lastOutcome: last
             ? { disposition: last.disposition || null, at: last.dialledAt?.toISOString?.() || null }
             : null,
+          // "Callback due 2:00 pm — asked for you": the promise on this row
+          // delivered to this rep, or null.
+          callback: callbackById.get(p.id) || null,
           // "Retry 2 of 4 — next at 14:30", "Exhausted after 4 attempts":
           // every value the row prints is the server's, on the rep's clock.
           retry: retries[p.id] || null,
@@ -860,6 +896,8 @@ async function queueBody(rep, { tradeKey = null, prospectId = null, timeZone = n
 
     if (full) {
       current = await buildCurrent({ rep, full, zone, lang, now, policyContext, retryRules, testLines });
+      // The callback badge, the same fact the row carries.
+      if (current && callbackById.has(currentId)) current.callback = callbackById.get(currentId);
     }
   }
 

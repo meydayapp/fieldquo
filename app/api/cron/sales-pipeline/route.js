@@ -72,6 +72,7 @@ import { topUpResearchBacklog } from "@/lib/sales/pipeline/research";
 import { SUGGEST_CRON_SLICE, suggestTradesBatch } from "@/lib/sales/discovery/suggestTradesBatch";
 import { runTradeSuggestAiSlice } from "@/lib/sales/discovery/suggestTradesAiApproval";
 import { sweepMissedInbound } from "@/lib/sales/calls/missed";
+import { sweepCallbackAgenda } from "@/lib/sales/calls/callbackAgenda";
 import { sweepRegisterPeople } from "@/lib/sales/intel/enrichmentSweep";
 import { retirePlacesRefusals } from "@/lib/platform/errorLog";
 import { sweepRecrawls } from "@/lib/sales/pipeline/recrawl";
@@ -185,6 +186,16 @@ export async function GET(request) {
     result.missedCalls = await sweepMissedInbound({ now, client: db, log: (line) => console.error(line) });
   } catch (err) {
     result.missedCalls = { error: err?.message || String(err) };
+  }
+
+  // The callback agenda: the "Callback due — asked for you" push when a
+  // promised time comes, and the hand-over to the next available rep when
+  // the promising rep is off past the platform's grace.
+  // lib/sales/calls/callbackAgenda.js. Its own try, same reason as above.
+  try {
+    result.callbacks = await sweepCallbackAgenda({ now, client: db, log: (line) => console.error(line) });
+  } catch (err) {
+    result.callbacks = { error: err?.message || String(err) };
   }
 
   // What the calls cost. Twilio prices a call minutes after it ends, so the

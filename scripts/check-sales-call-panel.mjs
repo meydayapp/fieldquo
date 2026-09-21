@@ -366,7 +366,12 @@ ok("Left a voicemail → voicemail", foldChoice({ key: CHOICE_VOICEMAIL, now: T0
 {
   const f = foldChoice({ key: CHOICE_NOT_NOW, note: "call after the season", now: T0 });
   ok("Not now → reached_not_interested with the objection as the note", f.ok && f.code === "reached_not_interested" && f.note === "call after the season", f);
-  ok("…which planDisposition plans, holding the claim", planDisposition({ code: f.code, note: f.note, now: T0 }).ok === true && planDisposition({ code: f.code, note: f.note, now: T0 }).prospect.claimExpiresAt instanceof Date);
+  // With the sub-reason the sheet now asks for under "Not now"
+  // (lib/sales/calls/subDispositions.js); without one the plan refuses,
+  // which scripts/check-sales-call-handling.mjs §2b asserts.
+  const planned = planDisposition({ code: f.code, note: f.note, now: T0, subDisposition: "bad_timing" });
+  ok("…which planDisposition plans, holding the claim", planned.ok === true && planned.prospect.claimExpiresAt instanceof Date && planned.attempt.subDisposition === "bad_timing");
+  ok("…and refuses the same fold without the sub-reason the sheet asks for", planDisposition({ code: f.code, note: f.note, now: T0 }).ok === false);
 }
 {
   const later = foldChoice({ key: CHOICE_CALL_BACK, whenKind: WHEN_LATER_TODAY, now: T0 });
@@ -404,7 +409,7 @@ ok("Left a voicemail → voicemail", foldChoice({ key: CHOICE_VOICEMAIL, now: T0
   const nb = foldChoice({ key: CHOICE_WRONG_OR_NOT_BUSINESS, which: WHICH_NOT_A_BUSINESS, now: T0 });
   ok("…not a business, no words → refused", !nb.ok && nb.reasonKey === "app.salesCall.choice.wrong_or_not_business.needsWords", nb);
   const nb2 = foldChoice({ key: CHOICE_WRONG_OR_NOT_BUSINESS, which: WHICH_NOT_A_BUSINESS, note: "a franchise head office", now: T0 });
-  ok("…not a business, with words → not_a_fit", nb2.ok && nb2.code === "not_a_fit" && planDisposition({ code: nb2.code, note: nb2.note, now: T0 }).ok === true, nb2);
+  ok("…not a business, with words → not_a_fit", nb2.ok && nb2.code === "not_a_fit" && planDisposition({ code: nb2.code, note: nb2.note, now: T0, subDisposition: "franchise_head_office" }).ok === true, nb2);
 }
 ok("a note longer than 280 is clipped, not refused", foldChoice({ key: CHOICE_VOICEMAIL, note: "x".repeat(500), now: T0 }).note.length === OUTCOME_NOTE_MAX);
 ok("an unknown key → refused with a key, never a code", (() => { const f = foldChoice({ key: "made_up", now: T0 }); return !f.ok && f.code === null && f.reasonKey === "app.salesCall.choice.unknown"; })() && !foldChoice({}).ok && !foldChoice(null).ok);
@@ -557,7 +562,10 @@ section("8. Write it up later: the dialler is freed, the list counts only unlogg
   // ── 2026-09-17: the call-backs a rep promised, and the button that keeps them ──
   {
     const promised = between(store, "export async function promisedCallbacks(", "\n}");
-    ok("promisedCallbacks reads the rep's own callback outcomes with a time, soonest first", /where: \{ salesRepId, callbackAt: \{ not: null \}, disposition: "callback" \}/.test(promised) && /orderBy: \{ callbackAt: "asc" \}/.test(promised));
+    // Since 2026-09-21 the list is the callbacks DELIVERED to the rep: their
+    // own (callbackRepId themselves, or null on an older row) and the ones
+    // the agenda handed them (lib/sales/calls/callbackAgenda.js).
+    ok("promisedCallbacks reads the callback outcomes delivered to the rep with a time, soonest first", /OR: \[\{ callbackRepId: salesRepId \}, \{ callbackRepId: null, salesRepId \}\]/.test(promised) && /disposition: "callback"/.test(promised) && /orderBy: \{ callbackAt: "asc" \}/.test(promised));
     ok("…a promise is kept by a LATER OUTBOUND dial to the same number, and dropped by a later closing outcome or a do-not-contact", /after\.some\(\(a\) => a\.direction === "out"\)/.test(promised) && /CLOSED\.has\(a\.disposition\)/.test(promised) && /doNotContactAt\) continue/.test(promised));
     ok("…and says per row whether the console can still dial it (`held`: this rep's, not merged, claim not lapsed)", /assignedRepId === salesRepId/.test(promised) && /mergedIntoId === null/.test(promised) && /claimExpiresAt > at/.test(promised) && /held,/.test(promised));
     const cbRoute = source("app/api/sales/calls/callbacks/route.js");

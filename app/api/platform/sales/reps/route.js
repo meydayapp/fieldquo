@@ -119,6 +119,8 @@ export async function GET(request) {
       setupRequestedAt: true,
       // The owner's dialler-testing flag. Selected AND mapped below.
       testAccount: true,
+      canCallColleagues: true,
+      canCallOffCampaign: true,
       // The count is what makes "deactivate, never delete" legible on the
       // screen: a rep with attributions has history that stops being reachable
       // if the row goes.
@@ -420,6 +422,8 @@ export async function GET(request) {
       // The calling window is not applied to this rep's dials; every one is
       // a test and counted nowhere. The card's toggle reads and writes it.
       testAccount: r.testAccount === true,
+      canCallColleagues: r.canCallColleagues !== false,
+      canCallOffCampaign: r.canCallOffCampaign === true,
       hasNumber: (r._count?.phoneNumbers || 0) > 0,
       needsSetup: Boolean(r.setupRequestedAt) && !setupComplete({ workEmail: r.workEmail, numberCount: r._count?.phoneNumbers }),
       team: teamByAgency.get(r.id) || null,

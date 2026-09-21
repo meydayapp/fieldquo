@@ -74,6 +74,7 @@ import {
   PROVIDER_ENDED,
 } from "@/lib/sales/calls/dispositions";
 import { foldChoice } from "@/lib/sales/calls/outcomeChoices";
+import { validateSubDispositionPick } from "@/lib/sales/calls/subDispositions";
 import { asksIntroEmail } from "@/lib/sales/outreach/introLink";
 import { EMPTY_DRAFT, draftStarted } from "./OutcomeForm";
 import { openTextThread } from "./TextThem";
@@ -386,6 +387,13 @@ export function CallSessionProvider({ children }) {
   const [draft, setDraft] = useState(EMPTY_DRAFT);
   const draftRef = useRef(draft);
   draftRef.current = draft;
+  // The sub-reason lists the outcome form draws under an outcome — the
+  // platform's, from GET /api/sales/calls (lib/sales/calls/subDispositions.js).
+  // Null until read; the form then draws the code defaults, and the server
+  // validates against the same lists either way.
+  const [subLists, setSubLists] = useState(null);
+  const subListsRef = useRef(null);
+  subListsRef.current = subLists;
   const [formError, setFormError] = useState("");
   const [busy, setBusy] = useState("");
   // The pop-up. Opened only by the auto-log reply saying "answered, ask the
@@ -457,7 +465,9 @@ export function CallSessionProvider({ children }) {
     let cancelled = false;
     fetchJson("/api/sales/calls")
       .then((body) => {
-        if (!cancelled && body?.store?.ready) adoptPending(body.pendingAttempt || null);
+        if (cancelled) return;
+        if (body?.subDispositions) setSubLists(body.subDispositions);
+        if (body?.store?.ready) adoptPending(body.pendingAttempt || null);
       })
       .catch(noop);
     return () => {
@@ -484,6 +494,11 @@ export function CallSessionProvider({ children }) {
     setCallError("");
     const placed = {
       attemptId: attempt.attemptId,
+      // "prospect" (the default), "internal" (a colleague's browser) or
+      // "off_campaign" (a typed number with no record). An internal call has
+      // no write-up and no transfer; the strip reads this to draw neither.
+      kind: attempt.kind === "internal" || attempt.kind === "off_campaign" ? attempt.kind : "prospect",
+      internal: attempt.internal || null,
       to: attempt.to || target?.phoneE164 || null,
       callerId: attempt.callerId || null,
       serverNow: attempt.serverNow || new Date().toISOString(),
@@ -517,6 +532,18 @@ export function CallSessionProvider({ children }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "ended", attemptId: placed.attemptId, hungUpBy }),
       }).catch(noop);
+      if (placed.kind === "internal") {
+        // A colleague call has no outcome to log — nobody was reached who
+        // could sign up — so there is no write-up. The SERVER moves both
+        // reps back to available on the `ended` post above (and again on
+        // the carrier's completed event); this only re-reads it. The
+        // client keeps no opinion about anybody's state here.
+        setOutbound(null);
+        setMuted(false);
+        presenceRef.current.setCallUp(false);
+        setTimeout(() => presenceRef.current.refresh?.(), 1200);
+        return;
+      }
       setOutbound(null);
       setMuted(false);
       setDraft(EMPTY_DRAFT);
@@ -815,6 +842,14 @@ export function CallSessionProvider({ children }) {
       setFormError(tRef.current(fold.reasonKey));
       return;
     }
+    // The sub-reason, judged here with the same pure rule the server runs
+    // (subDispositions.js) so the refusal prints before the round trip —
+    // and judged again on the server, which is the one that counts.
+    const sub = validateSubDispositionPick({ code: fold.code, subDisposition: d.sub, detail: d.subDetail, lists: subListsRef.current });
+    if (!sub.ok) {
+      setFormError(tRef.current(sub.reasonKey));
+      return;
+    }
     setBusy("disposition");
     setFormError("");
     try {
@@ -827,6 +862,8 @@ export function CallSessionProvider({ children }) {
           disposition: fold.code,
           note: fold.note,
           callbackAt: fold.callbackAt ? fold.callbackAt.toISOString() : null,
+          subDisposition: sub.subDisposition,
+          subDispositionDetail: sub.detail,
         }),
       });
       setPending(null);
@@ -920,6 +957,8 @@ export function CallSessionProvider({ children }) {
     if (outbound) {
       return {
         direction: "out",
+        kind: outbound.kind || "prospect",
+        internal: outbound.internal || null,
         attemptId: outbound.attemptId,
         transferNote: "",
         startedAt: outbound.startedAt,
@@ -941,6 +980,8 @@ export function CallSessionProvider({ children }) {
     if (inbound) {
       return {
         direction: "in",
+        kind: inbound.internal ? "internal" : "prospect",
+        internal: inbound.internal || null,
         attemptId: inbound.attemptId || null,
         transferNote: inbound.note || "",
         startedAt: inbound.answeredAt,
@@ -981,6 +1022,7 @@ export function CallSessionProvider({ children }) {
       adoptPending,
       draft,
       setDraft,
+      subLists,
       formError,
       setFormError,
       busy,
@@ -1016,6 +1058,7 @@ export function CallSessionProvider({ children }) {
       pending,
       adoptPending,
       draft,
+      subLists,
       formError,
       busy,
       sheetOpen,

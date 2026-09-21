@@ -21,7 +21,8 @@ export async function POST(request) {
     body = {};
   }
   if (typeof body?.attemptId === "string" && body.attemptId) {
-    const r = await transcribeAttempt(body.attemptId, { force: Boolean(body.force) });
+    // A named call from the platform is on demand: the sample is not consulted.
+    const r = await transcribeAttempt(body.attemptId, { force: Boolean(body.force), sample: false });
     return NextResponse.json(r, { status: r.ok ? 200 : 409 });
   }
   const r = await transcribeMissing({ limit: body?.limit, retryFailed: Boolean(body?.retryFailed) });

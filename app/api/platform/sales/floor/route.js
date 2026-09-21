@@ -3,7 +3,12 @@
 // The sales floor, live: who is on a call, who is writing one up, who is
 // paused and for how long — and what the day's calls actually came to.
 //
-// ══ Read-only, and superadmin-only ════════════════════════════════════════
+// ══ Read-only here; the actions are their own route ═══════════════════════
+//
+// Since 2026-09-21 the board has controls — Listen, Whisper, Barge, Take on
+// a live row (app/api/platform/sales/supervision) — but THIS route still
+// only reads: it says what each rep's live call is and whether supervision
+// is switched on. Superadmin-only, as it always was.
 //
 // Behind the platform-token check in middleware.js and checked again here,
 // because hiding a screen is not access control. Tighter than a plain admin
@@ -47,6 +52,7 @@ import {
 } from "@/lib/sales/calls/inboundRouting";
 import { readSalesNumberConfig } from "@/lib/sales/calls/numberConfig";
 import { floorBoard } from "@/lib/sales/calls/floorBoard";
+import { overdueCallbacksForFloor } from "@/lib/sales/calls/callbackAgenda";
 import { TEAM_LEAD_CANNOT_SEE } from "@/lib/sales/team";
 import { dialModeState } from "@/lib/sales/calls/dialMode";
 import { inboundHandling } from "@/lib/sales/calls/inboundMatch";
@@ -66,7 +72,7 @@ export async function GET(request) {
   // withCosts: this is the one caller that may see what FieldQuo pays for
   // the day's calls — lib/sales/calls/floorBoard.js.
   const board = await floorBoard({ repIds: null, now, withCosts: true });
-  const { store, period, reps, states, pauseReasons, campaigns, anyLive, notTracked, serverNow, dialler, table, cost, settings } = board;
+  const { store, period, reps, states, pauseReasons, campaigns, anyLive, notTracked, serverNow, dialler, table, cost, settings, supervision } = board;
   const { from } = period;
 
   if (!store.ready) {
@@ -97,10 +103,13 @@ export async function GET(request) {
   // today" from "we could not look" — the two are the same empty array and
   // different facts.
   const origin = getAppOrigin(request);
-  const [agent, inbound, numberRows, numberConfig] = await Promise.all([
+  const [agent, inbound, numberRows, numberConfig, overdueCallbacks] = await Promise.all([
     salesAgentRow().catch(() => null),
     inboundCalls({ from, to: now }).catch(() => undefined),
     salesCallerNumberRows().catch(() => undefined),
+    // Callbacks past their hour by more than a day, and whose they are —
+    // lib/sales/calls/callbackAgenda.js. Its own read, its own error.
+    overdueCallbacksForFloor({ now }),
     // The numbers' configuration AT TWILIO, cached for ten minutes: the
     // board polls every fifteen seconds and the carrier's number list does
     // not change between polls. Only the count of misconfigured numbers
@@ -172,6 +181,10 @@ export async function GET(request) {
     table,
     cost,
     settings,
+    // Live-call supervision: on or off (lib/sales/calls/supervision.js).
+    // The buttons on each live row read this; off means they are not drawn
+    // and the reason is printed instead.
+    supervision: supervision || null,
     inboundCalls:
       inbound === undefined
         ? null
@@ -200,6 +213,7 @@ export async function GET(request) {
             voicemailSeconds: Number.isFinite(row.voicemailSeconds) ? row.voicemailSeconds : null,
           })),
     dialMode: dialModeState(),
+    overdueCallbacks,
     notTracked,
     teamLeadCannotSee: TEAM_LEAD_CANNOT_SEE,
     serverNow,

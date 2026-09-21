@@ -83,6 +83,9 @@ const CALL_LABELS = {
   callbacksMeaning: "a time the prospect agreed to",
   minutesTalking: "Minutes talking",
   minutesTalkingMeaning: "answered calls only, the prospect's leg",
+  minutesOnHold: "Minutes on hold",
+  minutesOnHoldMeaning: "the prospect held by the rep, summed from HOLD/UNHOLD events; supervision mode only",
+  holdSupervised: (held, supervised) => `${held} held · ${supervised} supervised`,
   gapHeading: "Rep's word vs measured",
   gapMeaning: "reached (rep's word) minus real conversation, in points",
   sourceTwilio: "source: Twilio",
@@ -191,6 +194,159 @@ function Tile({ icon: Icon, label, value, hint }) {
       <div className="mt-2 text-2xl font-bold text-foreground">{value}</div>
       {hint ? <p className="mt-1 text-xs text-muted-foreground">{hint}</p> : null}
     </div>
+  );
+}
+
+/**
+ * The second pass on outcomes (docs/SALES-OUTCOMES.md): why each "not now"
+ * and "wrong number" was said, audited vs unaudited per rep with the
+ * rejection rate, and how fast the inbound line was answered. Every count
+ * travels with its denominator; a missing input is a sentence, not a zero.
+ */
+function OutcomesSection({ outcomes }) {
+  if (!outcomes) return null;
+  if (outcomes.error) {
+    return (
+      <section className="space-y-2" data-outcomes-section="error">
+        <h2 className="text-base font-semibold text-foreground">Outcomes</h2>
+        <p className="text-sm text-amber-800 dark:text-amber-200">Could not read the outcome breakdown: {outcomes.error}</p>
+      </section>
+    );
+  }
+  const subs = Object.entries(outcomes.subDispositions || {});
+  const a = outcomes.audits?.total;
+  const sl = outcomes.serviceLevel;
+  return (
+    <section className="space-y-3" data-outcomes-section>
+      <h2 className="text-base font-semibold text-foreground">Outcomes</h2>
+      <p className="text-sm text-muted-foreground">
+        Why each outcome was said (the sub-reason the rep picked), whether the owner has audited what was logged, and how fast the inbound line was answered. Lists and thresholds are set on <Link href="/platform/sales/outcomes" className="underline">Sales → Outcomes</Link>; the audit itself is on <Link href="/platform/sales/call-quality" className="underline">Call quality</Link>.
+      </p>
+
+      <div className={CARD}>
+        <div className="text-sm font-medium text-foreground">By sub-reason</div>
+        {subs.length === 0 ? (
+          <p className="mt-1 text-sm text-muted-foreground">No outcome with a sub-reason list was logged in this period.</p>
+        ) : (
+          <div className="mt-2 grid gap-3 sm:grid-cols-2">
+            {subs.map(([code, o]) => (
+              <div key={code} className="rounded-lg border border-border p-3" data-sub-breakdown={code}>
+                <p className="text-sm font-semibold text-foreground">
+                  {code} <span className="text-xs font-normal text-muted-foreground">· {o.total} logged{o.none ? `, ${o.none} without a reason` : ""}</span>
+                </p>
+                {o.rows?.length ? (
+                  <ul className="mt-1 space-y-0.5 text-sm">
+                    {o.rows.map((r) => (
+                      <li key={r.key} className="flex justify-between gap-2">
+                        <span className="text-foreground break-words">
+                          {r.label}
+                          {o.details?.[r.key] ? <span className="text-xs text-muted-foreground"> ({Object.entries(o.details[r.key]).map(([d, n]) => `${d} ×${n}`).join(", ")})</span> : null}
+                        </span>
+                        <span className="tabular-nums text-muted-foreground">
+                          {r.count} · {r.percent === null ? "—" : `${r.percent}%`}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-1 text-xs text-muted-foreground">No reason picked yet — the sheet asks from now on.</p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className={CARD}>
+        <div className="text-sm font-medium text-foreground">Audited outcomes</div>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Of the outcomes reps wrote up themselves (the line&apos;s own are not auditable): {a?.audited ?? 0} audited, {a?.unaudited ?? 0} not yet
+          {a?.audited ? ` · ${a.approved} approved, ${a.rejected} rejected, ${a.observed} observed · rejection rate ${a.rejectionRate}% of audited` : ""}.
+        </p>
+        {outcomes.audits?.perRep?.length ? (
+          <div className="mt-2 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-xs text-muted-foreground">
+                  <th className="py-1 pr-3 font-medium">Rep</th>
+                  <th className="py-1 pr-3 font-medium text-right">Auditable</th>
+                  <th className="py-1 pr-3 font-medium text-right">Audited</th>
+                  <th className="py-1 pr-3 font-medium text-right">Rejected</th>
+                  <th className="py-1 font-medium text-right">Rejection rate</th>
+                </tr>
+              </thead>
+              <tbody>
+                {outcomes.audits.perRep.map((r) => (
+                  <tr key={r.repId || "none"} className="border-t border-border" data-audit-rep={r.repId || "none"}>
+                    <td className="py-1.5 pr-3">{r.repName || "—"}</td>
+                    <td className="py-1.5 pr-3 text-right tabular-nums">{r.auditable}</td>
+                    <td className="py-1.5 pr-3 text-right tabular-nums">
+                      {r.audited} <span className="text-xs text-muted-foreground">({r.unaudited} not yet)</span>
+                    </td>
+                    <td className="py-1.5 pr-3 text-right tabular-nums">{r.rejected}</td>
+                    <td className="py-1.5 text-right tabular-nums">{r.rejectionRate === null ? "—" : `${r.rejectionRate}%`}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
+      </div>
+
+      <div className={CARD} data-service-level>
+        <div className="text-sm font-medium text-foreground">Inbound service level — {sl?.serviceLevelSeconds} s</div>
+        {!sl || sl.total.offered === 0 ? (
+          <p className="mt-1 text-sm text-muted-foreground">No inbound calls in this period.</p>
+        ) : (
+          <>
+            <p className="mt-1 text-sm text-foreground">
+              Answered within {sl.serviceLevelSeconds} s: {sl.total.answeredWithinRate === null ? "—" : `${sl.total.answeredWithinRate}%`} ({sl.total.withinLevel} of {sl.total.answered} answered) · {sl.total.abandoned} abandoned · {sl.total.expired} to voicemail · {sl.total.open} still open
+              {sl.total.answered ? ` · average wait ${sl.total.averageWaitSeconds} s · longest ${sl.total.longestWait} s` : ""}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Wait is arrival to pickup on the desk leg. Abandoned: the caller hung up while it rang or held. To voicemail: the hold ran out and the machine was offered. Per rep counts the rep who picked up, else the rep the call was filed to.
+            </p>
+            <div className="mt-2 grid gap-3 sm:grid-cols-2">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Per day</p>
+                <ul className="mt-1 space-y-0.5 text-sm">
+                  {sl.perDay.map((d) => (
+                    <li key={d.day} className="flex justify-between gap-2 tabular-nums">
+                      <span>{d.day}</span>
+                      <span className="text-muted-foreground">
+                        {d.answeredWithinRate === null ? "—" : `${d.answeredWithinRate}%`} ({d.withinLevel}/{d.answered}) · {d.abandoned} abandoned{d.answered ? ` · avg ${d.averageWaitSeconds} s` : ""}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Per rep</p>
+                <ul className="mt-1 space-y-0.5 text-sm">
+                  {sl.perRep.map((r) => (
+                    <li key={r.repId || "none"} className="flex justify-between gap-2 tabular-nums">
+                      <span>{r.repName || "unfiled"}</span>
+                      <span className="text-muted-foreground">
+                        {r.answeredWithinRate === null ? "—" : `${r.answeredWithinRate}%`} ({r.withinLevel}/{r.answered}) · {r.abandoned} abandoned{r.answered ? ` · longest ${r.longestWait} s` : ""}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+
+      <div className={CARD} data-amd-summary>
+        <div className="text-sm font-medium text-foreground">Answering-machine detection</div>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {outcomes.amd?.enabled ? "On." : "Off — the clock and the transcript decide the voicemail bucket; switch it on under Sales → Outcomes ($0.0075 a call)."}{" "}
+          {outcomes.amd?.verdicts ? `${outcomes.amd.verdicts} verdicts this period: ${outcomes.amd.machine} machine, ${outcomes.amd.human} human, ${outcomes.amd.unknown} unknown or fax.` : "No verdicts in this period."}
+          {" "}Transcribing {outcomes.sampling?.transcriptionPercent}% of recorded calls, scoring {outcomes.sampling?.aiReviewPercent}%.
+        </p>
+      </div>
+    </section>
   );
 }
 
@@ -569,6 +725,9 @@ export default function SalesPerformancePage() {
               </div>
             </div>
           </section>
+
+          {/* ── 5b. Outcomes: sub-reasons, audits, the inbound service level ── */}
+          <OutcomesSection outcomes={report.outcomes} />
 
           {/* ── 6. What this page refuses to print ───────────────────────── */}
           <section className="space-y-2">

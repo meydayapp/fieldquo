@@ -16,8 +16,8 @@
 //
 // The audio element's src is the proxy the route named (`audioHref`), never
 // a provider URL — lib/sales/calls/recording.js says why.
-import { useCallback, useEffect, useState } from "react";
-import { AlertCircle, Loader2, RefreshCw } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { AlertCircle, Bookmark, Loader2, RefreshCw } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 
 const CARD = "rounded-xl border border-border bg-card p-4";
@@ -197,6 +197,197 @@ function Scorecard({ call, labels }) {
   );
 }
 
+/**
+ * The player with the bookmarks drawn on it: a tick per mark over the
+ * scrubber (lib/sales/calls/recordingMarks.js), the note on hover, a list
+ * under it that seeks, and — when `marksUrl` is given — "Mark here" at the
+ * player's current second. Without `marksUrl` (the agency) the ticks still
+ * draw from `call.marks` when the route sent them; nothing can be added.
+ */
+function MarkedPlayer({ audioHref, call, marksUrl, onMarks, labels }) {
+  const audioRef = useRef(null);
+  const [duration, setDuration] = useState(Number.isFinite(call.recordingSeconds) ? call.recordingSeconds : null);
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const marks = Array.isArray(call.marks) ? call.marks : [];
+  const seek = (s) => {
+    const a = audioRef.current;
+    if (!a) return;
+    a.currentTime = Math.max(0, s);
+    a.play?.().catch?.(() => {});
+  };
+  async function markHere() {
+    const a = audioRef.current;
+    if (!a || !marksUrl || busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      const r = await fetchJson(marksUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ atSeconds: Math.floor(a.currentTime || 0), note }) });
+      setNote("");
+      onMarks?.([...marks, r.mark].sort((x, y) => x.atSeconds - y.atSeconds));
+    } catch (err) {
+      setError(err?.message || "The mark could not be saved.");
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div className="space-y-2" data-marked-player>
+      <div className="relative">
+        {/* The transcript under the player is the caption. */}
+        <audio ref={audioRef} controls preload="none" src={audioHref} className="w-full" data-qa-audio onLoadedMetadata={(e) => Number.isFinite(e.currentTarget.duration) && setDuration(e.currentTarget.duration)} />
+        {/* Ticks: a thin strip under the native controls, one per mark,
+            positioned by second over the known duration. The native
+            scrubber's exact pixel range is browser-owned, so the strip is
+            its own honest ruler rather than a guess at the control's. */}
+        {duration && marks.length ? (
+          <div className="relative mt-1 h-3 rounded bg-muted" aria-hidden="true" data-mark-ruler>
+            {marks.map((m) => (
+              <button
+                key={m.id || `${m.atSeconds}-${m.note}`}
+                type="button"
+                title={`${stamp(m.atSeconds)} — ${m.note || "—"}${m.authorKind === "rep" ? ` (${labels.markByRep})` : ""}`}
+                onClick={() => seek(m.atSeconds)}
+                className={`absolute top-0 h-3 w-1 -translate-x-1/2 rounded-sm ${m.authorKind === "rep" ? "bg-primary" : "bg-amber-500"}`}
+                style={{ left: `${Math.min(100, Math.max(0, (m.atSeconds / duration) * 100))}%` }}
+                data-mark-tick={m.atSeconds}
+              />
+            ))}
+          </div>
+        ) : null}
+      </div>
+      {marks.length ? (
+        <ul className="space-y-0.5 text-xs" data-mark-list>
+          {marks.map((m) => (
+            <li key={m.id || `${m.atSeconds}-${m.note}`}>
+              <button type="button" className="underline tabular-nums" onClick={() => seek(m.atSeconds)}>
+                {stamp(m.atSeconds)}
+              </button>{" "}
+              <span className="text-foreground">{m.note || "—"}</span>{" "}
+              <span className="text-muted-foreground">({m.authorKind === "rep" ? labels.markByRep : m.authorName || labels.markByReviewer})</span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {marksUrl ? (
+        <form
+          className="flex gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            markHere();
+          }}
+        >
+          <input type="text" value={note} maxLength={200} onChange={(e) => setNote(e.target.value)} placeholder={labels.markPlaceholder} aria-label={labels.markPlaceholder} className={FIELD} data-mark-note />
+          <button type="submit" className={BTN_QUIET} disabled={busy} data-mark-here>
+            {busy ? <Loader2 size={14} className="animate-spin motion-reduce:animate-none" /> : <Bookmark size={14} />} {labels.markHere}
+          </button>
+        </form>
+      ) : null}
+      {error ? <p className="text-xs text-red-700 dark:text-red-300">{error}</p> : null}
+    </div>
+  );
+}
+
+/**
+ * The supervisor's verdict on the rep's OUTCOME
+ * (lib/sales/calls/dispositionAudit.js) — a different question from the
+ * scorecard's. Drawn only when `auditUrl` is given: the platform. Shows
+ * what the rep logged (outcome, sub-reason, note, whether the line wrote
+ * it, the carrier's machine verdict), the current verdict, and the three
+ * buttons with a note. Rejected and observed need the note; the rep reads it.
+ */
+function AuditPanel({ call, labels, auditUrl, onSaved }) {
+  const [verdict, setVerdict] = useState(call.audit?.verdict || "");
+  const [notes, setNotes] = useState(call.audit?.notes || "");
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState("");
+  useEffect(() => {
+    setVerdict(call.audit?.verdict || "");
+    setNotes(call.audit?.notes || "");
+    setNotice("");
+  }, [call.id, call.audit?.verdict, call.audit?.notes]);
+  async function save(v) {
+    setBusy(true);
+    setNotice("");
+    try {
+      const r = await fetchJson(auditUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ verdict: v, notes }) });
+      setVerdict(v);
+      onSaved?.(r.audit);
+      setNotice(labels.auditSaved);
+    } catch (err) {
+      setNotice(err?.message || labels.auditFailed);
+    } finally {
+      setBusy(false);
+    }
+  }
+  const V = [
+    ["approved", labels.auditApprove, "bg-emerald-600 text-white"],
+    ["rejected", labels.auditReject, "bg-red-600 text-white"],
+    ["observed", labels.auditObserve, "bg-amber-500 text-white"],
+  ];
+  return (
+    <div className="space-y-2" data-disposition-audit={verdict || "none"}>
+      <p className="text-sm font-semibold text-foreground">{labels.auditTitle}</p>
+      <p className="text-xs text-muted-foreground">{labels.auditIntro}</p>
+      <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-sm">
+        <dt className="text-muted-foreground">{labels.auditOutcome}</dt>
+        <dd className="text-foreground">
+          {call.disposition || "—"}
+          {call.subDisposition ? ` · ${call.subDisposition}${call.subDispositionDetail ? ` (${call.subDispositionDetail})` : ""}` : ""}
+          {call.dispositionAutoLogged ? <span className="ml-1 rounded-full border border-border px-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">{labels.auditAutoLogged}</span> : null}
+        </dd>
+        {call.dispositionNote ? (
+          <>
+            <dt className="text-muted-foreground">{labels.auditNote}</dt>
+            <dd className="italic text-foreground break-words">“{call.dispositionNote}”</dd>
+          </>
+        ) : null}
+        {call.amdResult ? (
+          <>
+            <dt className="text-muted-foreground">{labels.auditAmd}</dt>
+            <dd className="text-foreground">
+              {call.amdResult}
+              {Number.isFinite(call.amdMs) ? <span className="text-xs text-muted-foreground"> · verdict in {(call.amdMs / 1000).toFixed(1)} s</span> : null}
+            </dd>
+          </>
+        ) : null}
+        <dt className="text-muted-foreground">{labels.auditAiScore}</dt>
+        <dd>
+          <ScoreBadge value={call.effectiveOverall} labels={labels} />
+        </dd>
+        {call.audit ? (
+          <>
+            <dt className="text-muted-foreground">{labels.auditCurrent}</dt>
+            <dd className="text-foreground">
+              {call.audit.verdict}
+              {call.audit.updatedAt ? <span className="text-xs text-muted-foreground"> · {new Date(call.audit.updatedAt).toLocaleString()}</span> : null}
+              {call.audit.disposition && call.audit.disposition !== call.disposition ? <span className="text-xs text-amber-700 dark:text-amber-300"> · {labels.auditOutcomeMoved(call.audit.disposition)}</span> : null}
+            </dd>
+          </>
+        ) : null}
+      </dl>
+      <label className="block text-sm">
+        <span className="block font-medium text-foreground mb-1">{labels.auditNotes}</span>
+        <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} maxLength={1000} className={FIELD} data-audit-notes />
+      </label>
+      <div className="flex flex-wrap gap-2">
+        {V.map(([v, label, cls]) => (
+          <button key={v} type="button" className={`${BTN} ${cls} ${verdict === v ? "ring-2 ring-offset-1 ring-primary" : ""}`} disabled={busy || !call.disposition} onClick={() => save(v)} aria-pressed={verdict === v} data-audit-verdict={v}>
+            {busy ? <Loader2 size={14} className="animate-spin motion-reduce:animate-none" /> : null} {label}
+          </button>
+        ))}
+      </div>
+      {!call.disposition ? <p className="text-xs text-muted-foreground">{labels.auditNoOutcome}</p> : null}
+      {notice ? (
+        <p className="text-sm text-foreground" role="status">
+          {notice}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 function ReviewForm({ call, labels, onSubmit, busy }) {
   const [overall, setOverall] = useState(call.qa?.reviewerOverall ?? call.qa?.overall ?? "");
   const [note, setNote] = useState(call.qa?.reviewerNote || "");
@@ -236,7 +427,7 @@ function ReviewForm({ call, labels, onSubmit, busy }) {
  * @param {{ listUrl: string, detailUrl: (id) => string, labels: object,
  *           initialId?: string|null, repFilter?: string|null }} props
  */
-export default function CallQualityReview({ listUrl, detailUrl, labels, initialId = null, repFilter = null }) {
+export default function CallQualityReview({ listUrl, detailUrl, labels, initialId = null, repFilter = null, auditUrl = null, marksUrl = null }) {
   const [rows, setRows] = useState(null);
   const [error, setError] = useState("");
   const [openId, setOpenId] = useState(initialId);
@@ -245,6 +436,9 @@ export default function CallQualityReview({ listUrl, detailUrl, labels, initialI
   const [detailError, setDetailError] = useState("");
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
+  // "transcribing" | "scoring" when the platform's sample had left this
+  // call out and opening it started the work on demand (sampling.js).
+  const [onDemand, setOnDemand] = useState(null);
 
   const load = useCallback(async () => {
     setError("");
@@ -276,6 +470,7 @@ export default function CallQualityReview({ listUrl, detailUrl, labels, initialI
         if (cancelled) return;
         setCall(data.call);
         setAudioHref(data.audioHref || null);
+        setOnDemand(data.onDemand || null);
       })
       .catch((err) => {
         if (!cancelled) setDetailError(err?.message || labels.loadFailed);
@@ -383,11 +578,19 @@ export default function CallQualityReview({ listUrl, detailUrl, labels, initialI
                   ) : null}
                 </div>
               </div>
-              {audioHref ? (
-                // The transcript under the player is the caption.
-                <audio controls preload="none" src={audioHref} className="w-full" data-qa-audio />
+              {audioHref ? <MarkedPlayer audioHref={audioHref} call={call} marksUrl={marksUrl ? marksUrl(call.id) : null} labels={labels} onMarks={(marks) => setCall((c) => (c ? { ...c, marks } : c))} /> : null}
+              {onDemand ? (
+                <p className="text-xs text-amber-800 dark:text-amber-200" role="status" data-qa-on-demand={onDemand}>
+                  {onDemand === "scoring" ? labels.onDemandScoring : labels.onDemandTranscribing}
+                </p>
               ) : null}
             </div>
+
+            {auditUrl ? (
+              <div className={CARD}>
+                <AuditPanel call={call} labels={labels} auditUrl={auditUrl(call.id)} onSaved={(audit) => { setCall((c) => (c ? { ...c, audit } : c)); load(); }} />
+              </div>
+            ) : null}
 
             <div className={CARD}>
               <p className="text-sm font-semibold text-foreground mb-2">{labels.scorecard}</p>
