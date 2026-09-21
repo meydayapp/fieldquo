@@ -17,21 +17,24 @@
 // Reads only. Every transition still goes through POST /api/sales/calls
 // `action: "state"`, the ONE write path lib/sales/calls/store.js's
 // setRepState() sits behind — two routes that could open an activity row
-// would be two places for the close-then-open transaction to drift.
+// would be two places for the close-then-open transaction to drift. The
+// keepalive is POST /api/sales/presence, which beats and may CLOSE a row
+// but never opens one.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireCallingRep } from "@/lib/sales/calls/gate";
-import { callStoreState, currentActivity } from "@/lib/sales/calls/store";
+import { callStoreState, presenceFor } from "@/lib/sales/calls/store";
+import { loadFloorSettings } from "@/lib/sales/calls/floorSettingsStore";
 import {
   HEARTBEAT_SECONDS,
   PAUSE_REASONS,
   PAUSE_REASON_ORDER,
+  PRESENCE_OFF_MINUTES,
   REP_STATES,
   STATE_ORDER,
   STATUS_CHOICES,
-  livePresence,
 } from "@/lib/sales/calls/agentState";
 
 export async function GET(request) {
@@ -40,20 +43,28 @@ export async function GET(request) {
 
   const now = new Date();
   const store = callStoreState();
-  const [open, repRow] = await Promise.all([
-    currentActivity(rep.id).catch(() => null),
+  // The SAME derivation the floor board draws (store.js presenceFor →
+  // agentState.js livePresence): the keepalive, the last call, the open
+  // row and the write-up window. This request is itself a keepalive — the
+  // gate stamps lastSeenAt — so a rep reading their own header is present
+  // by definition, and the derivation says Available unless a call, the
+  // window or their own hand says otherwise.
+  const settings = await loadFloorSettings();
+  const [rows, repRow] = await Promise.all([
+    store.ready ? presenceFor([rep.id], { now, settings }).catch(() => null) : null,
     db.salesRep.findUnique({ where: { id: rep.id }, select: { autodial: true } }),
   ]);
 
   return NextResponse.json({
     store,
-    // This request IS the rep in the portal — the same fact GET /api/sales/
-    // calls stamps, for the same reason its comment gives.
-    presence: livePresence(open, now, { portalSeenAt: now }),
+    presence: rows?.[0]?.presence || null,
     states: STATE_ORDER.map((code) => ({ code, ...REP_STATES[code] })),
     pauseReasons: PAUSE_REASON_ORDER.map((code) => PAUSE_REASONS[code]),
     statusChoices: STATUS_CHOICES,
     heartbeatSeconds: HEARTBEAT_SECONDS,
+    offAfterMinutes: PRESENCE_OFF_MINUTES,
+    afterCallSeconds: settings.afterCallSeconds,
+    requireWriteUp: settings.requireWriteUp,
     autodial: repRow?.autodial === true,
     serverNow: now.toISOString(),
   });

@@ -378,16 +378,21 @@ ok("a fresh open row is live and not stale", (() => {
   const p = livePresence({ state: STATE_AVAILABLE, startedAt: hoursFrom(T0, -0.1), heartbeatAt: hoursFrom(T0, -0.01) }, T0);
   return p.state === STATE_AVAILABLE && p.stale === false;
 })());
-ok(`an open row unheard from for over ${PRESENCE_STALE_MINUTES} minutes goes stale`, (() => {
+// 2026-09-21: there is no "stale" state any more. A row unheard from for
+// over the Off window is a rep who is OFF — whatever the row says — with
+// "Off since" the last beat; the row's word is history (`lastState`).
+// lib/sales/calls/agentState.js's header has the model; the derivation
+// itself is driven exhaustively in scripts/check-sales-presence.mjs.
+ok(`an open row unheard from for over ${PRESENCE_STALE_MINUTES} minutes is Off since its last beat, never "available but stale"`, (() => {
   const p = livePresence(
     { state: STATE_AVAILABLE, startedAt: hoursFrom(T0, -4), heartbeatAt: hoursFrom(T0, -1) },
     T0,
   );
-  return p.state === STATE_AVAILABLE && p.stale === true;
+  return p.state === STATE_OFFLINE && p.stale === false && p.offSince?.getTime() === hoursFrom(T0, -1).getTime() && p.lastState === STATE_AVAILABLE;
 })());
-ok("a stale row keeps its state — the board shows both, not one instead of the other", (() => {
+ok("an on_call row six hours old with no beat is Off too — the board prints Off, and the row's word underneath", (() => {
   const p = livePresence({ state: STATE_ON_CALL, startedAt: hoursFrom(T0, -6) }, T0);
-  return p.state === STATE_ON_CALL && p.stale === true && p.forMs > 0;
+  return p.state === STATE_OFFLINE && p.lastState === STATE_ON_CALL && p.forMs > 0;
 })());
 ok("a paused row reports its reason", (() => {
   const p = livePresence({ state: STATE_PAUSED, pauseReason: "lunch", startedAt: T0, heartbeatAt: T0 }, T0);
@@ -406,9 +411,16 @@ const shift = [
   { state: STATE_ON_CALL, startedAt: hoursFrom(T0, -3), endedAt: hoursFrom(T0, -2.5) },
   { state: STATE_AFTER_CALL, startedAt: hoursFrom(T0, -2.5), endedAt: hoursFrom(T0, -2.4) },
   { state: STATE_PAUSED, pauseReason: "lunch", startedAt: hoursFrom(T0, -2.4), endedAt: hoursFrom(T0, -1.9) },
-  { state: STATE_AVAILABLE, startedAt: hoursFrom(T0, -1.9) },
+  // The open row is BEATEN at T0 — a rep at the desk. Since 2026-09-21 an
+  // open row is measured to its last beat plus the Off window, not to
+  // `to` (rowPeriodEnd): the unbeaten case is asserted just below.
+  { state: STATE_AVAILABLE, startedAt: hoursFrom(T0, -1.9), heartbeatAt: T0 },
 ];
 ok("a non-array of rows is unknown, not an empty day", activityTotals(null) === null);
+ok("an open row nobody has beaten ends at its last beat plus the Off window — Favor's 76 hours of \"writing it up\" become two minutes past her last beat", (() => {
+  const t = activityTotals([{ state: STATE_AFTER_CALL, startedAt: hoursFrom(T0, -76), heartbeatAt: hoursFrom(T0, -75) }], { to: T0 });
+  return t.afterCallMs === 3600 * 1000 + PRESENCE_STALE_MINUTES * 60 * 1000;
+})());
 ok("the open row is measured up to now, not dropped", (() => {
   const t = activityTotals(shift, { to: T0 });
   return t.availableMs === 1000 * 60 * 60 * (1 + 1.9);
@@ -1279,17 +1291,18 @@ ok("signing in does not change a declared state, or its duration", (() => {
     with_.stale === without.stale
   );
 })());
-ok("a rep who only signed in is NOT routable — the phone still needs a declaration", (() => {
+// 2026-09-21: reversed. A present rep with no row IS Available (the owner's
+// rule: "Available the moment a rep's portal tab is present"), and the
+// derived state carries that; a keepalive that has stopped derives to
+// offline and is not live. The router reads the state, not the row.
+ok("a rep who only signed in IS routable now — presence is derived from the keepalive, and Off from its absence", (() => {
   return (
-    repIsLive({ everSeen: false, everSignedIn: true, portalSeenAt: T0, state: STATE_OFFLINE, stale: false }) ===
-      false &&
-    // Hand-built rather than through livePresence, and deliberately hostile:
-    // "signed in, no declaration, but the state field says available". Only a
-    // router that gates on everSeen answers false. One that started trusting
-    // the sign-in would put this rep on the next inbound call.
-    repIsLive({ everSeen: false, everSignedIn: true, state: STATE_AVAILABLE, stale: false }) === false &&
+    repIsLive({ everSeen: false, everSignedIn: true, portalSeenAt: T0, state: STATE_OFFLINE, stale: false }) === false &&
     anyRepLive([
       { salesRepId: "a", presence: livePresence(null, T0, { portalSeenAt: T0 }) },
+    ]) === true &&
+    anyRepLive([
+      { salesRepId: "a", presence: livePresence(null, T0, { portalSeenAt: hoursFrom(T0, -1) }) },
     ]) === false
   );
 })());
@@ -1297,9 +1310,9 @@ ok("declaring available still routes — the pin above did not close the door", 
   const p = livePresence({ state: STATE_AVAILABLE, startedAt: T0, heartbeatAt: T0 }, T0, { portalSeenAt: T0 });
   return repIsLive(p) === true;
 })());
-ok("the router reads everSeen, never the sign-in", (() => {
+ok("the router reads the derived state — neither the row's existence nor the sign-in stamp directly", (() => {
   const body = fnBody("lib/sales/calls/inboundRouting.js", "export function repIsLive(");
-  return /presence\.everSeen/.test(body) && !/everSignedIn|portalSeenAt/.test(body);
+  return /REP_STATES\[presence\.state\]\?\.live/.test(body) && !/everSeen|everSignedIn|portalSeenAt/.test(body);
 })());
 
 // ── The fact has to be stored, stamped and read, or the board infers again ──
@@ -1391,14 +1404,17 @@ ok("a rep the roster could not return is “never”, not a crash", await (async
   const [row] = await presenceFor(["ghost"], { now: T0, client });
   return row.presence.everSignedIn === false && row.presence.portalSeenAt === null;
 })());
-ok("the floor screen prints three answers, and “never” is one of them", (() => {
+ok("the floor screen prints the four words through presenceHeadline, and “never” is still its own fact", (() => {
   const src = source("app/platform/sales/floor/page.js");
   return (
-    /everSignedIn/.test(src) &&
-    /Never signed in/.test(src) &&
-    /Signed in — not on the floor/.test(src) &&
+    /presenceHeadline\(/.test(src) &&
+    /app\.salesPresence\.never/.test(src) &&
+    // "Signed in — not on the floor" is gone: a present rep is Available.
+    !/Signed in — not on the floor/.test(src) &&
     // The old bug in one line: "never signed in" reached from everSeen alone.
-    !/everSeen === false\s*\n?\s*\?\s*"Has never signed in"/.test(src)
+    !/everSeen === false\s*\n?\s*\?\s*"Has never signed in"/.test(src) &&
+    // …and the English for "never" is the helper's, not the page's.
+    /english: "Never signed in"/.test(source("lib/sales/calls/agentState.js"))
   );
 })());
 

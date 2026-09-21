@@ -217,27 +217,25 @@ function assignSentence(res, rep, panel) {
   return parts.join(" · ");
 }
 
+/**
+ * The four words — Off since · Available · Busy · Paused — as the server
+ * spelt them (agentState.js presenceHeadline, through the queue route), so
+ * this page, the floor board and the rep's own header agree. Derived from
+ * the keepalive and the calls since 2026-09-21; there is no "stale" case
+ * any more, because a rep whose browser has gone quiet is Off.
+ */
 function presenceSentence(p) {
   if (!p) return { text: "Presence unavailable on this build.", tone: "muted" };
-  if (!p.everSignedIn) return { text: "Never signed in to the sales portal.", tone: "muted" };
-  if (!p.everSeen) {
-    return {
-      text: `Signed in, nothing declared — last opened the portal ${ago(p.portalSeenAt) || "at an unknown time"}.`,
-      tone: "muted",
-    };
+  const h = p.headline;
+  if (!h) return { text: "Presence unavailable on this build.", tone: "muted" };
+  if (h.key === "app.salesPresence.never") return { text: "Never signed in to the sales portal.", tone: "muted" };
+  if (h.word === "off") {
+    const last = p.lastState && p.lastState !== "offline" ? ` Last state on the ledger: ${(p.label || p.lastState).toLowerCase()}${p.pauseLabel ? ` — ${p.pauseLabel.toLowerCase()}` : ""}.` : "";
+    return { text: `${h.english}${p.offSince ? ` (${ago(p.offSince)})` : ""}.${last}`, tone: "muted" };
   }
-  if (p.state === "offline") {
-    return { text: `Off${p.since ? ` since ${ago(p.since)}` : ""}.`, tone: "muted" };
-  }
-  const what = p.pauseLabel ? `${p.label} — ${p.pauseLabel}` : p.label;
-  const forHow = p.since ? describeDuration(Math.max(0, Date.now() - new Date(p.since).getTime())) : null;
-  if (p.stale) {
-    return {
-      text: `Says "${what}"${forHow ? ` for ${forHow}` : ""}, but nothing has been heard from their browser since ${ago(p.lastSeenAt) || "a while"} — stale. This is the disconnected-and-not-reconnected case.`,
-      tone: "amber",
-    };
-  }
-  return { text: `${what}${forHow ? ` for ${forHow}` : ""}.`, tone: "live" };
+  const forHow = p.since && (p.state === "on_call" || p.state === "paused") ? describeDuration(Math.max(0, Date.now() - new Date(p.since).getTime())) : null;
+  const sub = h.sub ? ` — ${h.sub.english}` : "";
+  return { text: `${h.english}${sub}${forHow ? ` for ${forHow}` : ""}.`, tone: "live" };
 }
 
 /**

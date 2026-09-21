@@ -644,7 +644,7 @@ section("9. Presence: one model, and three answers");
 
 ok("no presence row at all is UNKNOWN, not absent", repIsLive(null) === null);
 ok(
-  "a rep who has never signed in is not live",
+  "a rep who has never signed in is not live (their derived state is offline)",
   repIsLive({ everSeen: false, state: STATE_OFFLINE }) === false,
 );
 ok(

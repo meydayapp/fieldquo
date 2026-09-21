@@ -279,6 +279,11 @@ model SalesRepActivity {
   /// and livePresence() turns that age into a third answer beside the state.
   heartbeatAt DateTime?
 
+  /// The platform admin who set this state on the rep's behalf (2026-09-21) —
+  /// see prisma/schema.prisma; kept in step here because scripts compare the
+  /// two.
+  setByAdminId String?
+
   createdAt DateTime @default(now())
 
   /// The live lookup: one rep's open row, and a team's open rows.

@@ -119,6 +119,7 @@ const { PREFERENCE_WRITES_ON_SALES_REP } = await import("@/lib/sales/preferenceW
 const { AUTODIAL_WRITES_ON_SALES_REP } = await import("@/lib/sales/autodialWrite");
 const { SELLS_IN_WRITES_ON_SALES_REP } = await import("@/lib/sales/sellsInWrite");
 const { DEMO_HOURS_WRITES_ON_SALES_REP } = await import("@/lib/sales/demoHoursWrite");
+const { SESSION_WRITES_ON_SALES_REP } = await import("@/lib/sales/sessionWrite");
 
 let pass = 0;
 const failures = [];
@@ -858,6 +859,16 @@ const LIB_FORBIDDEN_WRITE_BY_DESIGN = {
     "writer refuses to coerce. Its own file for the reason preferenceWrite.js " +
     "gives — one writer per file, so the index-located fence sees it. Column " +
     "asserted below.",
+  "lib/sales/sessionWrite.js":
+    "beginSession() and endSessionByAdmin() (2026-09-21, one active session). " +
+    "Write ONLY SalesRep.sessionIssuedAt and sessionEndedBy — " +
+    "SESSION_WRITES_ON_SALES_REP — the boundary every gate refuses an older " +
+    "token against. The login route calls the first BEFORE there is a " +
+    "session, with the iat of the token it just minted (a value the server " +
+    "produced, not the request); only the superadmin floor route reaches the " +
+    "second. Neither can change what is owed, who a company is credited to, " +
+    "or whether the rep can sign in tomorrow: the most a rep can do by " +
+    "signing in twice is end their own older session. Columns asserted below.",
   "lib/sales/agency.js":
     "The call-centre agency tier (2026-09-16; the file's header quotes the " +
     "owner's brief). An AGENCY account — kind \"agency\", a business FieldQuo " +
@@ -1198,6 +1209,22 @@ function objectKeys(src, from) {
   ok("…and writes no audit row, like the language writer", !/recordError/.test(autoSrc));
   const callsRoute = decomment(read("app/api/sales/calls/route.js"));
   ok("the calls route reaches it only through saveRepAutodial, after its own boolean check", /typeof body\.on !== "boolean"/.test(callsRoute) && /saveRepAutodial\(\{ salesRepId: rep\.id, on: body\.on \}\)/.test(callsRoute) && !/db\.salesRep\.update/.test(callsRoute));
+}
+
+// ── The session writer, fenced ────────────────────────────────────────────
+{
+  const src = decomment(read("lib/sales/sessionWrite.js"));
+  const columns = SESSION_WRITES_ON_SALES_REP;
+  ok("the session writer names its two columns as data", Array.isArray(columns) && columns.length === 2 && columns.includes("sessionIssuedAt") && columns.includes("sessionEndedBy"), columns);
+  const updates = [...src.matchAll(/salesRep\.update\(/g)].map((m) => m.index);
+  ok("…and the file makes exactly two writes to SalesRep", updates.length === 2 && (src.match(/salesRep\.(updateMany|upsert|create|delete|deleteMany)\(/g) || []).length === 0, updates);
+  for (const at of updates) {
+    const dataAt = src.indexOf("data: {", at);
+    const written = objectKeys(src, src.indexOf("{", dataAt));
+    ok(`the update at ${at} sets EXACTLY the two session columns`, written.length === columns.length && written.every((k) => columns.includes(k)), written);
+  }
+  ok("…the boundary is the token's own iat or the server's clock, never a request value", /new Date\(issuedAt \* 1000\) : now/.test(src) && !/body\./.test(src));
+  ok("…only the login route and the superadmin floor route reach it", /beginSession/.test(decomment(read("app/api/sales/auth/login/route.js"))) && /endSessionByAdmin/.test(decomment(read("app/api/platform/sales/floor/rep-state/route.js"))) && !/sessionWrite/.test(decomment(read("app/api/sales/calls/route.js"))));
 }
 
 // ── The selling languages, fenced the same way ─────────────────────────────

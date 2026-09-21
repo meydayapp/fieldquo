@@ -96,8 +96,11 @@ ok("…and both are in the order", PAUSE_REASON_ORDER.includes("dinner") && PAUS
 
 const codes = STATUS_CHOICES.map((c) => c.code);
 ok(
-  "the picker offers Available · Break · Dinner · Meeting · Training · Off, in that order",
-  JSON.stringify(codes) === JSON.stringify(["available", "break", "dinner", "meeting", "training", "off"]),
+  // 2026-09-21: Off left the picker (it is derived from the keepalive —
+  // agentState.js's header) and Admin / research joined it, the named
+  // pause for paperwork the owner wanted instead of a Busy button.
+  "the picker offers Available · Break · Dinner · Meeting · Training · Admin, in that order — and never Off",
+  JSON.stringify(codes) === JSON.stringify(["available", "break", "dinner", "meeting", "training", "admin"]) && !STATUS_CHOICES.some((c) => c.state === "offline"),
   codes,
 );
 ok(
@@ -146,7 +149,7 @@ for (const reason of PAUSE_REASON_ORDER) {
 }
 ok("statusChoiceFor maps a paused-dinner row to the Dinner choice", statusChoiceFor(presenceFor(STATUS_CHOICES[2]))?.code === "dinner");
 ok("…and an on_call row to no choice at all", statusChoiceFor(livePresence({ state: STATE_ON_CALL, startedAt: NOW, heartbeatAt: NOW }, NOW)) === null);
-ok("…and a paused-admin row to no choice — not rounded to Break", statusChoiceFor(livePresence({ state: STATE_PAUSED, pauseReason: "admin", startedAt: NOW, heartbeatAt: NOW }, NOW)) === null);
+ok("…and a paused-admin row to the Admin choice (on the picker since 2026-09-21), a paused-technical row to none — not rounded to Break", statusChoiceFor(livePresence({ state: STATE_PAUSED, pauseReason: "admin", startedAt: NOW, heartbeatAt: NOW }, NOW))?.code === "admin" && statusChoiceFor(livePresence({ state: STATE_PAUSED, pauseReason: "technical", startedAt: NOW, heartbeatAt: NOW }, NOW)) === null);
 
 // ═══════════════════════════════════════════════════════════════════════════
 section("2. The ledger: one rep's day, summarised");
@@ -167,7 +170,11 @@ const day = [
   { state: STATE_AVAILABLE, startedAt: at(12, 45), endedAt: at(13) },
   { state: STATE_ON_CALL, startedAt: at(13), endedAt: at(13, 30), callAttemptId: "a2" },
   { state: STATE_AFTER_CALL, startedAt: at(13, 30), endedAt: at(13, 35), callAttemptId: "a2" },
-  { state: STATE_PAUSED, pauseReason: "meeting", startedAt: at(13, 35), endedAt: null },
+  // Open, and BEATEN at NOW: a rep at the desk. Since 2026-09-21 an open
+  // row is measured to its last keepalive plus the Off window, not to
+  // `to` (agentState.js rowPeriodEnd) — an unbeaten open row is asserted
+  // in scripts/check-sales-call-handling.mjs.
+  { state: STATE_PAUSED, pauseReason: "meeting", startedAt: at(13, 35), endedAt: null, heartbeatAt: NOW },
 ];
 const s = summariseDay(day, { from: at(0), to: NOW });
 
@@ -279,9 +286,25 @@ ok("the switch outranks the call, the call outranks the ring", (() => {
   return a.reason === AUTODIAL_REASONS.switch_off && b.reason === AUTODIAL_REASONS.call_up;
 })());
 for (const state of Object.keys(REP_STATES)) {
-  if (state === STATE_AVAILABLE) continue;
+  if (state === STATE_AVAILABLE || state === STATE_AFTER_CALL) continue;
   const d = nextDial({ ...base, state });
   ok(`state "${state}" stops it, naming the state`, d.stop === true && d.reason === AUTODIAL_REASONS.not_available && d.state === state, d);
+}
+// ── The write-up window (2026-09-21) ────────────────────────────────────
+//
+// `after_call` is the platform's write-up window now (agentState.js), and
+// the dialler names it as such with the instant it ends, so the screen can
+// say "the next lead rings in 41s — or press Next". A window held for a
+// missing outcome has no end and says so. The dialler does not dial in it
+// either way; the presence flipping to available at the end is what arms
+// it again (RepStatus.js counts that as the one automatic press).
+{
+  const ends = Date.now() + 41_000;
+  const d = nextDial({ ...base, state: STATE_AFTER_CALL, writeUpEndsAt: ends });
+  ok('state "after_call" is the write-up window: stops, named, with the instant it ends', d.stop === true && d.reason === AUTODIAL_REASONS.write_up_window && d.state === STATE_AFTER_CALL && d.endsAt === ends, d);
+  const held = nextDial({ ...base, state: STATE_AFTER_CALL, writeUpEndsAt: null });
+  ok("…and a window held for a missing outcome is the same stop with no end on it", held.stop === true && held.reason === AUTODIAL_REASONS.write_up_window && held.endsAt === null, held);
+  ok("…never a dial", !("dial" in d) && !("dial" in held));
 }
 ok("no state at all stops it", nextDial({ ...base, state: null }).reason === AUTODIAL_REASONS.not_available);
 ok("the handset-only path stops it rather than opening a tel: link on a timer", nextDial({ ...base, browserReady: false }).reason === AUTODIAL_REASONS.no_browser_calling);

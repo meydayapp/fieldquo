@@ -29,7 +29,8 @@
 import { COMPANY_ID, CAMPAIGN_ID } from "./ids.js";
 import { NUMBER_CAPABILITIES, salesNumberState } from "@/lib/sales/repAdmin";
 import { PLAN_MONEY_FIELDS, STANDARD_PLAN, dollarsFromCents } from "@/lib/sales/commissionPlanAdmin";
-import { REP_STATES, STATE_ORDER, PAUSE_REASONS, livePresence, describeDuration } from "@/lib/sales/calls/agentState";
+import { REP_STATES, STATE_ORDER, PAUSE_REASONS, livePresence, describeDuration, presenceHeadline } from "@/lib/sales/calls/agentState";
+import { dialTableRow } from "@/lib/sales/calls/dialTable";
 import {
   project,
   rate as growthRate,
@@ -448,6 +449,25 @@ const ACTIVITY = {
   rep_farid: { state: "on_call", startedAt: ISO(NOW - 51 * MIN), heartbeatAt: ISO(NOW - 22 * MIN), endedAt: null, pauseReason: null },
 };
 const PORTAL_SEEN = { rep_ana: NOW - 20_000, rep_ben: NOW - 30_000, rep_carla: NOW - 15_000, rep_dmitri: NOW - 40_000, rep_farid: NOW - 22 * MIN, rep_gita: NOW - 41 * MIN, rep_eloise: null, rep_hugo: NOW - 30 * DAY };
+/**
+ * Invented attempts from a rep's outcome mix, in the shape the loader
+ * selects: the no-answers, the voicemails at forty seconds, the reached at
+ * two minutes, from two pool lines. The floor card's four-bucket table
+ * (lib/sales/calls/dialTable.js) is composed from these the way the real
+ * route composes it in repCallStats.
+ */
+function attemptsFor(repId, m = {}) {
+  let n = 0;
+  const att = (talk, over) => ({ id: `att_${repId}_${(n += 1)}`, salesRepId: repId, direction: "out", dialChannel: "browser", providerCallSid: `CA${repId}${n}`, providerStatus: "completed", talkSeconds: talk, answeredAt: ISO(NOW - n * MIN), dialledAt: ISO(NOW - n * MIN), fromE164: n % 3 === 0 ? "+14385550142" : "+14075550190", callerIdRule: "pool_local", toE164: `+1613555${String(1000 + n)}`, ...over });
+  return [
+    ...Array.from({ length: m.noAnswer || 0 }, () => att(0, { providerStatus: "no-answer", answeredAt: null, disposition: "no_answer" })),
+    ...Array.from({ length: m.voicemail || 0 }, () => att(40, { disposition: "voicemail" })),
+    ...Array.from({ length: m.notInterested || 0 }, () => att(45, { disposition: "reached_not_interested" })),
+    ...Array.from({ length: m.interested || 0 }, () => att(120, { disposition: "reached_interested" })),
+    ...Array.from({ length: Math.max(0, (m.reached || 0) - (m.interested || 0) - (m.notInterested || 0)) }, () => att(90, { disposition: "reached" })),
+  ];
+}
+
 const presenceOf = (repId) => livePresence(ACTIVITY[repId] || null, new Date(NOW), { portalSeenAt: PORTAL_SEEN[repId] ? ISO(PORTAL_SEEN[repId]) : null });
 
 function queuePayload(repId) {
@@ -463,6 +483,7 @@ function queuePayload(repId) {
         state: live.state, label: REP_STATES[live.state]?.label || live.state,
         pauseReason: live.pauseReason, pauseLabel: live.pauseReason ? PAUSE_REASONS[live.pauseReason]?.label || live.pauseReason : null,
         since: live.since, lastSeenAt: live.lastSeenAt, stale: live.stale, everSeen: live.everSeen, everSignedIn: live.everSignedIn, portalSeenAt: live.portalSeenAt,
+        headline: presenceHeadline(live, { now: new Date(NOW) }), offSince: live.offSince, writeUpEndsAt: live.writeUpEndsAt, lastState: live.lastState,
       },
     },
     targets: REP_ROWS.filter((r) => r.active && r.acceptedAt && r.id !== repId).map((r) => {
@@ -500,8 +521,8 @@ const dispositionMix = ({ total, pending, reached, interested = 0, notInterested
   ],
 });
 
-function repStats(repId) {
-  const S = {
+/** Each rep's invented day — read by repStats and by the floor's total. */
+const MIXES = {
     rep_ana: { dials: 47, mix: { total: 49, pending: 2, reached: 14, interested: 6, notInterested: 8, voicemail: 19, noAnswer: 13, wrongNumber: 1 }, onCallMs: 2 * HOUR + 41 * MIN, pausedMs: 22 * MIN, talk: { of: 11, total: 47, meanMs: 4 * MIN + 12_000 }, overdue: 2, upcoming: 3, callbacksReceived: 2 },
     rep_ben: { dials: 31, mix: { total: 31, pending: 0, reached: 7, interested: 2, notInterested: 5, voicemail: 15, noAnswer: 9 }, onCallMs: HOUR + 18 * MIN, pausedMs: 48 * MIN, talk: { of: 5, total: 31, meanMs: 3 * MIN + 5_000 }, overdue: 0, upcoming: 1, callbacksReceived: 0 },
     rep_carla: { dials: 62, mix: { total: 64, pending: 5, reached: 21, interested: 9, notInterested: 12, voicemail: 22, noAnswer: 14, wrongNumber: 2 }, onCallMs: 3 * HOUR + 5 * MIN, pausedMs: 35 * MIN, talk: { of: 18, total: 62, meanMs: 5 * MIN + 41_000 }, overdue: 4, upcoming: 6, callbacksReceived: 2 },
@@ -509,16 +530,25 @@ function repStats(repId) {
     rep_eloise: null,
     rep_farid: { dials: 38, mix: { total: 38, pending: 3, reached: 9, interested: 4, notInterested: 5, voicemail: 16, noAnswer: 10 }, onCallMs: 2 * HOUR + 2 * MIN, pausedMs: 0, talk: { of: 8, total: 38, meanMs: 3 * MIN + 48_000 }, overdue: 0, upcoming: 2, callbacksReceived: 0 },
     rep_gita: { dials: 0, mix: { total: 0, pending: 0, reached: 0 }, onCallMs: 0, pausedMs: 0, talk: { of: 0, total: 0, meanMs: null }, overdue: 3, upcoming: 0, callbacksReceived: 0 },
-  }[repId];
+  };
+
+function repStats(repId) {
+  const S = MIXES[repId];
   if (!S) return { period: { from: ISO(W0), to: ISO(NOW) }, dials: 0, callbacksReceived: 0, dispositions: dispositionMix({ total: 0, pending: 0, reached: 0 }), measured: { total: 0, bridged: 0, measuredOf: 0, talkMs: null, meanTalkMs: null, meanTalkText: null, holdMs: null, holdOf: 0, costCents: null }, reportedReachRate: rate(0, 0), reportedReachStatement: null, callbacks: { booked: 0, upcoming: [], overdue: [] }, onCallMs: null, afterCallMs: null, pausedMs: null, workingMs: null, onCallText: null, pausedText: null, pauses: null };
   const mix = dispositionMix(S.mix);
   const reach = rate(mix.reached, mix.logged);
+  // The four-bucket table the floor card draws (lib/sales/calls/dialTable.js),
+  // from invented attempts in the shape the loader selects: the no-answers,
+  // the voicemails at forty seconds, the reached at two minutes, from two
+  // pool lines — the real route composes the same object in repCallStats.
+  const table = dialTableRow(attemptsFor(repId, S.mix), { now: new Date(NOW) });
   const cb = (n, past) => Array.from({ length: n }, (_, i) => ({ attemptId: `att_${repId}_${past ? "o" : "u"}${i}`, toE164: `+1438555${String(100 + i).padStart(4, "0")}`, dueAt: ISO(NOW + (past ? -1 : 1) * (i + 1) * 50 * MIN) }));
   return {
     period: { from: ISO(new Date(NOW).setUTCHours(0, 0, 0, 0)), to: ISO(NOW) },
     dials: S.dials, callbacksReceived: S.callbacksReceived, dispositions: mix,
     measured: { total: S.talk.total, bridged: S.talk.total, measuredOf: S.talk.of, talkMs: S.talk.meanMs ? S.talk.meanMs * S.talk.of : null, meanTalkMs: S.talk.meanMs, meanTalkText: S.talk.meanMs ? describeDuration(S.talk.meanMs) : null, holdMs: null, holdOf: 0, costCents: S.dials ? S.dials * 3 : null },
     reportedReachRate: reach, reportedReachStatement: reach.statement,
+    table,
     callbacks: { booked: S.overdue + S.upcoming, upcoming: cb(S.upcoming, false), overdue: cb(S.overdue, true) },
     onCallMs: S.onCallMs, afterCallMs: 14 * MIN, pausedMs: S.pausedMs, workingMs: S.onCallMs + S.pausedMs + 2 * HOUR,
     onCallText: S.onCallMs ? describeDuration(S.onCallMs) : null, pausedText: S.pausedMs ? describeDuration(S.pausedMs) : null,
@@ -549,6 +579,10 @@ function floorPayload() {
     store: { ready: true, missing: [], pendingSchemaFile: "prisma/pending/sales-calls.prisma" },
     period: { from: ISO(new Date(NOW).setUTCHours(0, 0, 0, 0)), to: ISO(NOW) },
     reps: active.map((r) => ({ id: r.id, name: r.name, active: true, presence: presenceOf(r.id), stats: repStats(r.id) })),
+    // The day's four buckets over everyone, and the floor's tunables — the
+    // same objects the real route returns (lib/sales/calls/floorBoard.js).
+    table: dialTableRow(active.flatMap((r) => attemptsFor(r.id, MIXES[r.id]?.mix || {})), { now: new Date(NOW) }),
+    settings: { afterCallSeconds: 60, requireWriteUp: true, offAfterMinutes: 2 },
     states: STATE_ORDER.map((code) => ({ code, ...REP_STATES[code] })),
     pauseReasons: Object.values(PAUSE_REASONS),
     campaigns: [

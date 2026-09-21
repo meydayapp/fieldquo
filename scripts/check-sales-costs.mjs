@@ -29,7 +29,6 @@ import {
   conversationVerdict,
   measuredConversation,
   pickupBand,
-  pickupFigures,
   wasConnected,
 } from "@/lib/sales/calls/conversation";
 import { CONTRACTOR_WORDS_SQL } from "@/lib/sales/calls/contractorWordsSql";
@@ -154,13 +153,13 @@ const dials = [
 
 {
   const s = repCallStats({ attempts: dials, activity: null, from: min(-60), to: min(60), now: min(60) });
-  ok("a rep's stats carry the dialler block and the three rates", s.dialler?.placed === 5 && s.connect?.conversations === 0 && "reportedReachRate" in s);
+  ok("a rep's stats carry the dialler block, the four-bucket table and the rep's word", s.dialler?.placed === 5 && s.table?.buckets?.realConversation === 0 && "reportedReachRate" in s);
   const withTest = repCallStats({
     attempts: [...dials, { id: "t", direction: "out", dialChannel: "browser", dialSource: "autodial", dialledAt: min(10), answeredAt: min(10), providerStatus: "completed", jurisdictionCode: TEST_JURISDICTION_CODE, transcript: [say("contractor", 99)] }],
     activity: null, from: min(-60), to: min(60), now: min(60),
   });
   ok("a test-line dial is in none of it: not a dial, not autodial, not a conversation",
-    withTest.dialler.placed === 5 && withTest.dialler.source.autodial === 2 && withTest.connect.conversations === 0 && withTest.dials === 5, withTest.dialler);
+    withTest.dialler.placed === 5 && withTest.dialler.source.autodial === 2 && withTest.table.buckets.realConversation === 0 && withTest.dials === 5, withTest.dialler);
 }
 
 ok("the not-tracked list keeps handset durations and nothing stale",
@@ -320,7 +319,7 @@ section("6. Wiring — the properties that cannot be executed here");
   ok("the board reads costs only when asked, and the platform route asks", /withCosts = false/.test(board) && /withCosts: true/.test(decomment(read("app/api/platform/sales/floor/route.js"))));
   ok("…and the agency route does not", !/withCosts/.test(decomment(read("app/api/sales/agency/floor/route.js"))));
   const page = decomment(read("app/platform/sales/floor/page.js"));
-  ok("the floor page prints the dialler, the three rates and cost per conversation with its definition", /Today&rsquo;s dialler/.test(page) && /Three answers/.test(page) && /Cost per conversation, today/.test(page) && /data\.cost\.definition/.test(page));
+  ok("the floor page prints the dialler, the day's four buckets and cost per conversation with its definition", /Today&rsquo;s dialler/.test(page) && /The day, everyone/.test(page) && /<DialBuckets table=\{data\.table\}/.test(page) && /Cost per conversation, today/.test(page) && /data\.cost\.definition/.test(page));
   ok("…and the per-number table is gone from it, replaced by a link", !/Voice webhook host/.test(page) && /Number configuration →/.test(page) && !/Regional tab/.test(page));
   const crew = decomment(read("app/platform/crew-lines/page.js"));
   ok("the table lives on crew-lines under the anchor the link points at", /id="sales-number-configuration"/.test(crew) && /salesNumberConfig/.test(decomment(read("app/api/platform/crew-lines/route.js"))));
@@ -389,26 +388,35 @@ section("9. The carrier's stopwatch — picked up, and reported vs measured");
   ok("a 90-second call whose contractor said 3 words is NOT one — the clock is the stand-in, not the rule", JSON.stringify(measuredConversation(leg(90, { transcript: [say("contractor", 3)] }))) === '{"talked":false,"basis":"transcript"}');
   ok("…and the SQL-counted words are honoured the same way", measuredConversation(leg(90, { contractorWords: 3 })).talked === false);
 
-  // The owner's hand count, reproduced: 135 legs → 22 / 13 / 72 / 28.
+  // The owner's hand count, reproduced through the ONE table (dialTable.js —
+  // pickupFigures, the second partition of the same legs, left on
+  // 2026-09-21): 135 legs → 22 / 13 / 72 / 28, each with a prospect-leg sid.
+  let sidN = 0;
+  const sid = () => `CAhand${(sidN += 1)}`;
   const hand = [
-    ...Array.from({ length: 22 }, () => ({ dialChannel: "browser", direction: "out", providerStatus: "no-answer", talkSeconds: 0, disposition: "no_answer" })),
-    ...Array.from({ length: 13 }, () => leg(10, { disposition: "no_answer" })),
-    ...Array.from({ length: 72 }, (_, i) => leg(40, { disposition: i < 40 ? "reached_not_interested" : "voicemail" })),
-    ...Array.from({ length: 28 }, (_, i) => leg(120, { disposition: i < 19 ? "reached_interested" : "callback" })),
-    { dialChannel: "handset", direction: "out", disposition: "reached" },
+    ...Array.from({ length: 22 }, () => ({ dialChannel: "browser", direction: "out", providerCallSid: sid(), providerStatus: "no-answer", talkSeconds: 0, disposition: "no_answer", dialledAt: T0 })),
+    ...Array.from({ length: 13 }, () => leg(10, { disposition: "no_answer", providerCallSid: sid(), dialledAt: T0 })),
+    // 31 reached + 41 voicemail in the middle band, 19 + 9 callbacks over a
+    // minute: 59 marked reached, the owner's count.
+    ...Array.from({ length: 72 }, (_, i) => leg(40, { disposition: i < 31 ? "reached_not_interested" : "voicemail", providerCallSid: sid(), dialledAt: T0 })),
+    ...Array.from({ length: 28 }, (_, i) => leg(120, { disposition: i < 19 ? "reached_interested" : "callback", providerCallSid: sid(), dialledAt: T0 })),
+    { dialChannel: "handset", direction: "out", disposition: "reached", dialledAt: T0 },
   ];
-  const f = pickupFigures(hand, { reported: { reached: 59, logged: 135 } });
-  ok("135 measured legs, the handset dial not among them", f.legs === 135 && f.bands.unanswered === 22 && f.bands.under20 === 13 && f.bands.band20to60 === 72 && f.bands.over60 === 28, f.bands);
+  const { dialTableRow: tableRow } = await import("@/lib/sales/calls/dialTable");
+  const f = tableRow(hand, { now: T0 });
+  ok("135 dials with a leg, the handset dial unverified and not among them", f.dials === 135 && f.joined === 135 && f.unverified.handset === 1 && f.buckets.nobodyAnswered === 22 && f.buckets.hungUpFast === 13 && f.buckets.voicemailOrBrief === 72 && f.buckets.realConversation === 28, f.buckets);
   ok("picked up = 100 of 135 = 74.1%", f.pickedUp.hit === 100 && f.pickedUp.sampleSize === 135 && f.pickedUp.value === 74.1, f.pickedUp);
-  ok("conversation = 28 of 135 = 20.7%, all from the clock", f.conversation.hit === 28 && f.conversation.value === 20.7 && f.fromDuration === 135 && f.fromTranscript === 0, f.conversation);
-  ok("reported = 59 of 135 = 43.7%, and the gap is +23 whole points", f.reported.value === 43.7 && f.overMarkedPoints === 23, { reported: f.reported, gap: f.overMarkedPoints });
-  ok("under the floor the gap is null, not zero", pickupFigures(hand.slice(0, 3), { reported: { reached: 1, logged: 3 } }).overMarkedPoints === null);
-  ok("no rows is zero legs and null rates", pickupFigures([]).legs === 0 && pickupFigures(null).pickedUp.value === null);
+  ok("real conversation = 28 of 135 = 20.7%, all from the clock", f.realConversation.hit === 28 && f.realConversation.value === 20.7 && f.conversationFromTranscript === 0 && f.realConversationFromTranscript === 0, f.realConversation);
+  ok("reached (rep's word) = 59 of 135 = 43.7%, and the gap is +23 whole points", f.reached.value === 43.7 && f.gap === 23, { reported: f.reached, gap: f.gap });
+  ok("under the floor the gap is null, not zero", tableRow(hand.slice(0, 3), { now: T0 }).gap === null);
+  ok("no rows is zero dials and null rates", tableRow([]).dials === 0 && tableRow([]).realConversation.value === null);
+  ok("pickupFigures is gone — one partition of the legs, not two", !("pickupFigures" in (await import("@/lib/sales/calls/conversation"))));
 
-  // repCallStats carries it, over PLACED calls, with the rep's reach over the same rows.
-  const stats = repCallStats({ attempts: [...hand.slice(0, 5), { dialChannel: "browser", direction: "in", providerStatus: "completed", talkSeconds: 300, answeredAt: T0, disposition: "reached" }], from: null, to: null });
-  ok("repCallStats.pickup is over placed calls only — the inbound conversation is not in it", stats.pickup.legs === 5 && stats.pickup.bands.unanswered === 5, stats.pickup);
-  ok("…and its `reported` is the disposition mix of those same MEASURED placed calls", stats.pickup.reported === null || stats.pickup.reported.sampleSize === 5);
+  // repCallStats carries the table, over PLACED calls, with the rep's reach over the same rows.
+  const stats = repCallStats({ attempts: [...hand.slice(0, 5), { dialChannel: "browser", direction: "in", providerCallSid: "CAin1", providerStatus: "completed", talkSeconds: 300, answeredAt: T0, disposition: "reached", dialledAt: T0 }], from: null, to: null, now: T0 });
+  ok("repCallStats.table is over placed calls only — the inbound conversation is not in it", stats.table.dials === 5 && stats.table.buckets.nobodyAnswered === 5, stats.table.buckets);
+  ok("…and its reached is over those same 5 dials", stats.table.reached.sampleSize === 5);
+  ok("…and repCallStats carries neither `connect` nor `pickup` — the two old definitions are gone", !("connect" in stats) && !("pickup" in stats));
 
   // The word count leaves the database as a number, split on whitespace — not on the letter s.
   ok("the SQL fragment splits words on whitespace", /regexp_split_to_array\(trim\(seg->>'text'\), '\\s\+'\)/.test(CONTRACTOR_WORDS_SQL.strings.join("")) , CONTRACTOR_WORDS_SQL.strings.join("").slice(0, 200));
@@ -451,7 +459,8 @@ section("9. The carrier's stopwatch — picked up, and reported vs measured");
 
   const comp = read("app/components/sales/CallPerformanceSections.js");
   ok("the shared component draws the ten plain-word columns with a meaning and a source under each", /<Head word=\{labels\.nobodyAnswered\} meaning=\{labels\.nobodyAnsweredMeaning\} source=\{labels\.sourceTwilio\}/.test(comp) && /labels\.reachedRepsWord\} meaning=\{labels\.reachedRepsWordMeaning\} source=\{labels\.sourceRep\}/.test(comp) && /labels\.realConversation\} meaning=\{labels\.realConversationMeaning\} source=\{labels\.sourceTranscriptOrTwilio\}/.test(comp));
-  ok("…a stacked bar of the four buckets per rep, and the reconciliation line above the table", /function BucketBar/.test(comp) && /data-performance-reconciliation/.test(comp) && /<Reconciliation calls=\{calls\} labels=\{labels\} \/>/.test(comp));
+  const buckets = read("app/components/sales/DialBuckets.js");
+  ok("…a stacked bar of the four buckets per rep — drawn by DialBuckets.js, which the floor cards draw too — and the reconciliation line above the table", /export function BucketBar/.test(buckets) && /import \{ BucketBar, CarrierMissing \} from "\.\/DialBuckets"/.test(comp) && /data-performance-reconciliation/.test(comp) && /<Reconciliation calls=\{calls\} labels=\{labels\} \/>/.test(comp));
   ok("…the red carrier-missing rule on the Twilio cells, never a fallback", /labels\.carrierMissingSince\(/.test(comp) && !/ofBridged|overCalls|answerRate|conversationRate\b/.test(comp));
   const LABELS = ["dials", "dialsMeaning", "nobodyAnswered", "nobodyAnsweredMeaning", "hungUpFast", "hungUpFastMeaning", "voicemailOrBrief", "voicemailOrBriefMeaning", "realConversation", "realConversationMeaning", "reachedRepsWord", "reachedRepsWordMeaning", "callbacks", "callbacksMeaning", "minutesTalking", "minutesTalkingMeaning", "gapHeading", "gapMeaning", "sourceTwilio", "sourceRep", "sourceTranscriptOrTwilio", "sourceDerived", "unverified", "carrierMissingSince", "reconciliation", "reconciliationDetail", "carrierListCapped", "carrierNotAsked", "conversationBasis", "notLogged", "overAnswered", "points"];
   for (const page of ["app/platform/sales/performance/page.js", "app/sales/agency/performance/page.js"]) {
@@ -465,7 +474,7 @@ section("9. The carrier's stopwatch — picked up, and reported vs measured");
   ok("the note says voicemail sits in \"Voicemail or brief\" and why the clock cannot tell a machine", /Voicemail sits in \\"Voicemail or brief\\"/.test(platform) && /billed per call/.test(platform));
   const msgs = read("app/i18n/appMessages.js");
   ok("the nine languages carry every table key", ["nobodyAnswered", "hungUpFastMeaning", "carrierMissingSince", "reconciliationDetail", "sourceTranscriptOrTwilio"].every((k) => (msgs.match(new RegExp(`"app\\.salesAgencyPerf\\.${k}"`, "g")) || []).length === 9));
-  ok("the report builder attaches the table per rep, per agency and for everyone, plus the reconciliation", /row\.table = dialTableRow\(/.test(read("lib/sales/performanceReport.js")) && /totalTable: dialTableRow\(everyone/.test(read("lib/sales/performanceReport.js")) && /reconciliationLine\(\{\s*legs: scoped \? carrierLegs\.legs\.filter/.test(read("lib/sales/performanceReport.js")));
+  ok("the report builder aliases repCallStats's own table per rep, per agency and for everyone — one composition, in reporting.js — plus the reconciliation", /row\.table = row\.stats\.table/.test(read("lib/sales/performanceReport.js")) && /totalTable: total\.table/.test(read("lib/sales/performanceReport.js")) && !/dialTableRow\(/.test(decomment(read("lib/sales/performanceReport.js"))) && /table: placed \? dialTableRow\(placed, \{ now \}\) : null/.test(read("lib/sales/calls/reporting.js")) && /reconciliationLine\(\{\s*legs: scoped \? carrierLegs\.legs\.filter/.test(read("lib/sales/performanceReport.js")));
   ok("the loader selects the prospect leg sid the table joins on", /providerCallSid: true/.test(read("lib/sales/performanceLoad.js")));
   ok("the loader asks Twilio for the period's prospect legs and a failed read is a sentence, not agreement", /listProspectLegs\(\{ from, to \}\)/.test(read("lib/sales/performanceLoad.js")) && /carrierLegs = \{ legs: \[\], listedAll: false, error/.test(read("lib/sales/performanceLoad.js")));
 }

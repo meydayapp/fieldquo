@@ -556,6 +556,23 @@ export function CallSessionProvider({ children }) {
     return call;
   }, []);
 
+  // ── One active session ──────────────────────────────────────────────
+  //
+  // A newer sign-in elsewhere, or a supervisor's Sign out, ends this
+  // browser's session (RepStatus.js sessionLost). The Device is torn down
+  // at once — OMniLeads's force_logout unregisters the phone — so no call
+  // can ring a screen whose owner is gone, and the effect above will not
+  // rebuild it: its token fetch is refused the same way.
+  useEffect(() => {
+    if (!presence.sessionLost) return;
+    try {
+      deviceRef.current?.destroy?.();
+    } catch {
+      /* already gone */
+    }
+    deviceRef.current = null;
+  }, [presence.sessionLost]);
+
   /** The Call object that is up, whichever direction. */
   const liveCall = useCallback(() => outboundCallRef.current || inboundRef.current?.call || null, []);
 

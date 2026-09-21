@@ -46,6 +46,7 @@ import { releaseUntouched } from "@/lib/sales/queueBatch";
 import { handoffTargets, heldSelect, openLeadWhere, reassignHeld, summariseHeld } from "@/lib/sales/reassign";
 import { queueWhere } from "@/lib/sales/prospectView";
 import { presenceFor } from "@/lib/sales/calls/store";
+import { presenceHeadline } from "@/lib/sales/calls/agentState";
 import { PAUSE_REASONS, REP_STATES } from "@/lib/sales/calls/agentState";
 
 const ACTIONS = Object.freeze(["release_untouched", "release_all", "reassign"]);
@@ -90,6 +91,13 @@ async function repQueue(rep, now) {
           everSeen: live.everSeen,
           everSignedIn: live.everSignedIn,
           portalSeenAt: live.portalSeenAt,
+          // The four words and their sentence, spelt once (agentState.js
+          // presenceHeadline) — the reps page prints `headline` rather than
+          // composing its own from the state.
+          headline: presenceHeadline(live, { now }),
+          offSince: live.offSince,
+          writeUpEndsAt: live.writeUpEndsAt,
+          lastState: live.lastState,
         }
       : null,
   };
