@@ -55,7 +55,7 @@ const SCREENS = [
   "app/app/time-off/page.js",
   "app/app/payroll/page.js",
   "app/app/payroll/[id]/page.js",
-  "app/app/settings/availability/page.js",
+  "app/app/settings/availability/AvailabilityEditor.js",
   "app/app/settings/payroll/page.js",
   "app/components/settings/PayCycleCard.js",
 ];

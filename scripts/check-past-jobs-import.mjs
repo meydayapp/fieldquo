@@ -197,7 +197,7 @@ for (const [file, label] of GUARDED) {
 // ── The way back, and the dashboard step that points here ──────────────────
 ok("the Past jobs screen exists where the set-up step links", has("app/app/jobs/import/page.js"));
 ok("...and offers the way back when arrived at from the dashboard",
-  /BackToHome/.test(code("app/app/jobs/import/page.js")));
+  /BackToHome/.test(code("app/app/jobs/import/PastJobsEntry.js")));
 {
   const back = code("app/components/BackToHome.js");
   ok("the back link only appears when it was arrived at from the dashboard",

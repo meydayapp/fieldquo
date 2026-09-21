@@ -7,6 +7,7 @@ import { memberOrRefusal } from "@/lib/apiMember";
 import { isBillingAdmin, BILLING_ADMIN_ERROR } from "@/lib/billing/billingAdmin";
 import { createConnectOnboardingLink } from "@/lib/stripe";
 import { getAppOrigin } from "@/lib/appUrl";
+import { connectReturnName, connectReturnUrl } from "@/lib/stripe/connectReturn";
 import { recordError } from "@/lib/platform/errorLog";
 
 export async function POST(request) {
@@ -54,11 +55,19 @@ export async function POST(request) {
 
     const baseUrl = getAppOrigin(request);
 
+    // Where to come back to — a name from lib/stripe/connectReturn.js, never
+    // a URL the browser chose. The home page's set-up dialog sends "home";
+    // the payments page sends nothing and gets itself. The name rides on
+    // the refresh URL too, so an expired link resumed mid-flow returns to
+    // the same place.
+    const body = await request.json().catch(() => ({}));
+    const returnTo = connectReturnName(body?.returnTo);
+
     const { accountId, url } = await createConnectOnboardingLink({
       companyId: company.id,
       stripeAccountId: company.stripeAccountId,
-      returnUrl: `${baseUrl}/app/settings/payments?connected=true`,
-      refreshUrl: `${baseUrl}/api/stripe/connect/refresh?companyId=${company.id}`,
+      returnUrl: connectReturnUrl(baseUrl, returnTo),
+      refreshUrl: `${baseUrl}/api/stripe/connect/refresh?companyId=${company.id}&returnTo=${returnTo}`,
     });
 
     if (!company.stripeAccountId) {

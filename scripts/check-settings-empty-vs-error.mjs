@@ -76,18 +76,24 @@ const stripComments = (src) =>
     .replace(/^[ \t]*\/\*[\s\S]*?\*\//gm, "")
     .replace(/^[ \t]*\/\/.*$/gm, "");
 
+// Services and Products: the page files are frames; the screens' own code
+// lives in the editor beside each, which the home page's set-up dialogs
+// render too.
 const PAGES = {
-  services: "app/app/settings/services/page.js",
+  services: "app/app/settings/services/ServicesEditor.js",
   workAreas: "app/app/settings/work-areas/page.js",
   checklists: "app/app/settings/checklists/page.js",
   followUps: "app/app/settings/follow-ups/page.js",
   leave: "app/app/settings/leave/page.js",
   photoTags: "app/app/settings/job-photo-tags/page.js",
-  products: "app/app/settings/products/page.js",
+  products: "app/app/settings/products/ProductCatalogue.js",
   quoteEmail: "app/app/settings/quote-email/page.js",
   messages: "app/app/settings/messages/page.js",
   metaAds: "app/app/settings/meta-ads/page.js",
   overhead: "app/app/settings/overhead/page.js",
+  // The fixed-costs list moved beside the page (the home page's set-up
+  // dialog renders it too); its add and remove are asserted against that file.
+  overheadFixedCosts: "app/app/settings/overhead/FixedCostsEditor.js",
   leadForm: "app/app/settings/lead-form/page.js",
   refer: "app/app/settings/refer/page.js",
 };
@@ -277,7 +283,8 @@ ok(
 );
 ok(
   "every leg of overhead's initial load has a failure path",
-  (src.overhead.match(/leg\("\/api\//g) || []).length === 4,
+  (src.overhead.match(/leg\("\/api\//g) || []).length === 3 &&
+    /if \(!r\.ok\) \{\s*await reportResponseError\(r\);/.test(src.overheadFixedCosts),
 );
 // Two invented numbers on the same screen, both contradicting a lib that had
 // already reasoned the case through.
@@ -324,10 +331,11 @@ for (const fn of [
   "removeSalary",
   "removeDebt",
 ]) {
+  const where = fn === "removeFixedCost" ? src.overheadFixedCosts : src.overhead;
   ok(
     `overhead: ${fn} asks before deleting`,
     new RegExp(`async function ${fn}\\(id, label\\) \\{\\s*if \\(!confirmDelete\\(label\\)\\) return;`).test(
-      src.overhead,
+      where,
     ),
   );
 }
@@ -346,7 +354,8 @@ for (const call of [
   "removeAsset(a.id, a.name)",
   "removeBill(b.id, b.category)",
 ]) {
-  ok(`overhead: the button passes a name to ${call.split("(")[0]}`, src.overhead.includes(call));
+  const where = call.startsWith("removeFixedCost") ? src.overheadFixedCosts : src.overhead;
+  ok(`overhead: the button passes a name to ${call.split("(")[0]}`, where.includes(call));
 }
 
 // ── 7b. The two on the price book ─────────────────────────────────────────

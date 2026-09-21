@@ -152,9 +152,14 @@ t("...in every jurisdiction, not just the optional ones",
 t("the card carries no dismiss control of its own — the answer is recorded, not waved away",
   /dismissible: false/.test(ONBOARDING));
 
-const SETTINGS_PAGE = read("../app/app/settings/company/page.js");
+// The fields — the number, the local name, the reason and the checkbox — are
+// app/components/settings/TaxRegistrationFields.js, which Company Settings
+// renders in its tax card and the home page's set-up dialog renders too.
+// The page is read as well, to prove it still draws them.
+const TAX_FIELDS = read("../app/components/settings/TaxRegistrationFields.js");
+const SETTINGS_PAGE = read("../app/app/settings/company/page.js") + TAX_FIELDS;
 const BIZ = read("../app/api/settings/business-info/route.js");
-t("the checkbox lives in Company Settings", /taxRegNotRegistered/.test(SETTINGS_PAGE));
+t("the checkbox lives in Company Settings", /taxRegNotRegistered/.test(SETTINGS_PAGE) && /<TaxRegistrationFields/.test(read("../app/app/settings/company/page.js")));
 t("...and hides once a number is entered",
   /!String\(form\.taxIdNumber \|\| ""\)\.trim\(\) && \(/.test(SETTINGS_PAGE));
 t("saving a number clears the flag, so the two cannot contradict",
@@ -217,7 +222,7 @@ t("the card offers no dismiss control",
   !/step\.dismissible/.test(CARD) && !/\/api\/onboarding-status"[\s\S]{0,120}POST/.test(CARD));
 
 console.log("\nCompany Settings labels the field the way the country does");
-const SETTINGS = read("../app/app/settings/company/page.js");
+const SETTINGS = TAX_FIELDS;
 t("the number field uses the local name", /t\(taxReg\.nameKey\)/.test(SETTINGS));
 t("the reason is shown", /t\(taxReg\.whyKey\)/.test(SETTINGS));
 t("it does not claim to register or file anyone",

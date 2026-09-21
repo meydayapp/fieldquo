@@ -1078,7 +1078,7 @@ for (const [label, rel, pattern] of [
    "app/app/invoices/[id]/LifecycleBanners.js", /paidNoAmount/],
   // C1 — the services screen prints the reason where the rates were.
   ["Settings > Services prints the reason, not empty rate boxes",
-   "app/app/settings/services/page.js", /c\.pricingHidden/],
+   "app/app/settings/services/ServicesEditor.js", /c\.pricingHidden/],
 ]) check(label, pattern.test(src(rel)));
 
 check("…and 'Not set' is no longer hard-coded over a withheld field",

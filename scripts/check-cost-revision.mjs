@@ -314,7 +314,7 @@ ok("sections run labour → materials → verdict, top to bottom",
 const panel = code("app/components/jobs/JobCosting.js");
 ok("the panel's review card says which way the job decided", /data\.revision\?\.decision === "updated"/.test(panel) && /data\.revision\?\.decision === "left_as_is"/.test(panel) && /app\.jobCosting\.revisionUpdated"/.test(panel) && /app\.jobCosting\.revisionLeft"/.test(panel));
 
-const page = code("app/app/settings/material-costs/page.js");
+const page = code("app/app/settings/material-costs/MaterialCostsEditor.js");
 ok("Settings → Material Costs reads and writes the threshold through the gated route", /fetch\("\/api\/settings\/cost-revision"\)/.test(page) && /fetch\("\/api\/settings\/cost-revision", \{\s*method: "PUT"/.test(page));
 ok("...refuses a bad value before the request, with the same rule", /!Number\.isInteger\(n\) \|\| n < 0 \|\| n > 100/.test(page) && /app\.setMaterialCosts\.revisionInvalid"/.test(page));
 ok("...and says when it could not load rather than hiding the card", /app\.setMaterialCosts\.revisionLoadFailed"/.test(page) && /await reportResponseError\(res, setLoadError\)/.test(page));

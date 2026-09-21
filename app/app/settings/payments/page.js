@@ -1,19 +1,11 @@
 // app/app/settings/payments/page.js
 "use client";
 
-import { useState, useEffect } from "react";
-import {
-  CheckCircle2,
-  AlertCircle,
-  CreditCard,
-  ExternalLink,
-  AlertTriangle,
-  Copy,
-  Check,
-  X,
-} from "lucide-react";
+import { useState } from "react";
+import { AlertTriangle, Copy, Check } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
-import { humaniseDisabledReason } from "@/lib/stripe/connectAccount";
+import useStripeConnect from "./useStripeConnect";
+import StripeConnectCard, { connectState } from "./StripeConnectCard";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
@@ -59,15 +51,24 @@ function affirmSentence({ affirm, offerFinancing, t, language }) {
 function PaymentsPageScreen() {
   const { t, language } = useTranslation();
   const { formatDate } = useCompanyPreferences();
-  const [company, setCompany] = useState(null);
-  // What Stripe itself says, as opposed to what our database last heard. See
-  // the comment on loadStatus below — these disagreeing is the normal case,
-  // not the exception.
-  const [status, setStatus] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [rechecking, setRechecking] = useState(false);
-  const [connecting, setConnecting] = useState(false);
-  const [openingDashboard, setOpeningDashboard] = useState(false);
+  // The Stripe half of the page — status, connect, re-check, dashboard — is
+  // the hook the home page's set-up dialog also runs (./useStripeConnect.js).
+  const {
+    company,
+    setCompany,
+    status,
+    loading,
+    rechecking,
+    connecting,
+    openingDashboard,
+    error,
+    setError,
+    loadCompany,
+    loadStatus,
+    recheck,
+    handleConnect,
+    handleManageInStripe,
+  } = useStripeConnect();
   const [disconnecting, setDisconnecting] = useState(false);
   const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
   const [savingFinancing, setSavingFinancing] = useState(false);
@@ -77,104 +78,6 @@ function PaymentsPageScreen() {
   // silently does nothing is the dead control this codebase keeps hunting.
   // On failure the button says so and points at the text, which is selectable.
   const [copyFailed, setCopyFailed] = useState(false);
-  const [error, setError] = useState("");
-
-  // fetchJson, not `fetch().then(r => r.json())`. Unguarded, a 403 or 500 body
-  // is `{ error: "…" }` — an object, so `setCompany` succeeded, and every read
-  // off it (`company.stripeAccountId`, `company.offerFinancing`) came back
-  // undefined. The page then drew "Not connected to Stripe" with a Connect
-  // button, to a company that has been taking card payments for a year, with
-  // no error anywhere on screen.
-  function loadCompany() {
-    return fetchJson("/api/settings/business-info")
-      .then(setCompany)
-      .catch((err) => setError(err.message || t("app.setPayments.loadError")));
-  }
-
-  /**
-   * Ask Stripe directly.
-   *
-   * The company row's stripeChargesEnabled is only ever written by the
-   * account.updated webhook. If that webhook isn't wired up — no Connect
-   * endpoint, wrong secret, or an endpoint not listening for events on
-   * connected accounts — the column stays false permanently even though
-   * Stripe has approved the account. The page then tells the user to finish
-   * something they already finished, and no amount of clicking "Finish Setup"
-   * can ever clear it.
-   *
-   * So the badge is driven by this call, and the webhook is just the
-   * background path for when nobody has the page open.
-   */
-  async function loadStatus() {
-    try {
-      setStatus(await fetchJson("/api/stripe/connect/status"));
-    } catch (err) {
-      setError(err.message || t("app.setPayments.statusError"));
-    }
-  }
-
-  async function recheck() {
-    setError("");
-    setRechecking(true);
-    await Promise.all([loadStatus(), loadCompany()]);
-    setRechecking(false);
-  }
-
-  useEffect(() => {
-    Promise.all([loadCompany(), loadStatus()]).finally(() => setLoading(false));
-  }, []);
-
-  // Coming back from Stripe's hosted flow. The account was almost certainly
-  // updated seconds ago, and the webhook may not have landed yet — so check
-  // rather than render whatever the database happened to hold. The parameter
-  // is then stripped so a refresh doesn't repeat it.
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const params = new URLSearchParams(window.location.search);
-    if (!params.get("connected")) return;
-
-    loadStatus();
-    window.history.replaceState({}, "", window.location.pathname);
-  }, []);
-
-  async function handleConnect() {
-    setError("");
-    setConnecting(true);
-    try {
-      // fetchJson rather than res.json() — see lib/fetchJson.js. This call
-      // was reporting "The string did not match the expected pattern" for
-      // weeks, which was Safari's JSON parser choking on a 500 HTML page
-      // caused by an unset NEXT_PUBLIC_APP_URL.
-      const data = await fetchJson("/api/stripe/connect", { method: "POST" });
-      if (!data?.url) throw new Error(t("app.setPayments.noOnboardingLink"));
-      window.location.href = data.url;
-    } catch (err) {
-      // FieldQuo's own Stripe setup is unfinished (the route says which):
-      // say so in the contractor's words, and that nothing else is blocked.
-      if (err?.data?.platformSetup) {
-        setError(t("app.setPayments.platformSetup"));
-      } else {
-        setError(err.message || t("app.setPayments.connectError"));
-      }
-      setConnecting(false);
-    }
-  }
-
-  async function handleManageInStripe() {
-    setError("");
-    setOpeningDashboard(true);
-    try {
-      const data = await fetchJson("/api/stripe/connect/login-link", {
-        method: "POST",
-      });
-      if (!data?.url) throw new Error(t("app.setPayments.noDashboardLink"));
-      window.open(data.url, "_blank", "noopener,noreferrer");
-    } catch (err) {
-      setError(err.message || t("app.setPayments.dashboardError"));
-    } finally {
-      setOpeningDashboard(false);
-    }
-  }
 
   // Optimistic toggle for "offer Affirm alongside card". We flip the local copy
   // first so the switch responds instantly, then persist. On failure we roll it
@@ -243,40 +146,8 @@ function PaymentsPageScreen() {
     );
   }
 
-  // Stripe's answer wins whenever we have one; the column is only a fallback
-  // for the moment before the status call returns.
-  const hasAccount = status?.connected ?? Boolean(company?.stripeAccountId);
-  const chargesEnabled =
-    status?.chargesEnabled ?? Boolean(company?.stripeChargesEnabled);
-
-  const requirements = status?.requirements || [];
-  // Submitted and waiting on Stripe's review. Distinct from "incomplete":
-  // there is nothing for the user to do, and prompting them to provide more
-  // information is how the same document gets uploaded four times.
-  const awaitingReview =
-    hasAccount &&
-    !chargesEnabled &&
-    requirements.length === 0 &&
-    (status?.pendingVerification || status?.detailsSubmitted);
-
-  // Only asserted when Stripe actually told us. `payoutsEnabled === false` and
-  // "we haven't asked yet" are different, and undefined must not raise an alarm
-  // about money on the strength of a status call that hasn't returned.
-  const payoutsBlocked = status?.connected === true && status?.payoutsEnabled === false;
-
-  // Submitted and waiting on Stripe, versus waiting on the contractor. The
-  // onboarding block above already draws this line and says why: prompting
-  // someone to "provide more information" while Stripe reviews what they just
-  // sent is how the same document gets uploaded four times. The payout banner
-  // was making exactly that mistake — it told a contractor whose account had
-  // gone INTO review to go and finish what Stripe asks for, when the answer is
-  // that there is nothing to do and it clears in a day or three.
-  const payoutsUnderReview =
-    payoutsBlocked && requirements.length === 0 && status?.pendingVerification;
-
-  const notStarted = !hasAccount;
-  const inProgress = hasAccount && !chargesEnabled && !awaitingReview;
-  const active = chargesEnabled;
+  // The same flags the card derives, for the blocks below it that read them.
+  const { requirements, active } = connectState(status, company);
 
   // ── Who this block is for ───────────────────────────────────────────────
   //
@@ -310,189 +181,17 @@ function PaymentsPageScreen() {
         </div>
       )}
 
-      <div data-tour="payments-stripe" className="bg-card border border-border rounded-xl p-6">
-        {active && (
-          <div className="flex items-start gap-3">
-            <CheckCircle2
-              size={22}
-              className="text-green-600 dark:text-green-400 shrink-0 mt-0.5"
-            />
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <h2 className="font-semibold text-foreground">
-                  {t("app.setPayments.stripeConnected")}
-                </h2>
-                <span className="text-xs bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-300 px-2 py-0.5 rounded-full font-medium">
-                  {t("app.status.active")}
-                </span>
-              </div>
-              <p className="text-sm text-muted-foreground mt-1">
-                {t("app.setPayments.activeDesc")}
-              </p>
-
-              {/* ── Taking payments and BEING PAID are two different switches ──
-                  The status route has always returned payoutsEnabled and no
-                  screen has ever rendered it. An account can have
-                  charges_enabled true and payouts_enabled false at the same
-                  time — Stripe keeps accepting the client's card and holds the
-                  money, so from in here everything looks like it is working
-                  while nothing reaches the bank. Nobody finds out from a
-                  screen; they find out from an empty account weeks later.
-
-                  Shown only in the `active` block on purpose: while charges are
-                  off there is no money to be held, and saying it there would be
-                  a second alarm about the same unfinished onboarding. */}
-              {payoutsBlocked && (
-                <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
-                  <p className="font-semibold">
-                    {payoutsUnderReview
-                      ? t("app.setPayments.payoutsReviewing")
-                      : t("app.setPayments.payoutsHeld")}
-                  </p>
-                  <p className="mt-0.5">
-                    {payoutsUnderReview
-                      ? t("app.setPayments.payoutsReviewingDesc")
-                      : t("app.setPayments.payoutsHeldDesc")}
-                  </p>
-                  {/* Stripe's own reason, and now actually humanised — this
-                      comment used to claim it was while the line below printed
-                      `rejected.listed` in a monospace font to a contractor
-                      whose money was being held. More specific than anything we
-                      could infer, and absent rather than guessed at when Stripe
-                      gives none. */}
-                  {!payoutsUnderReview && status?.disabledReason && (
-                    <p className="mt-1 text-xs">
-                      {humaniseDisabledReason(status.disabledReason)}
-                    </p>
-                  )}
-                </div>
-              )}
-
-              <div className="flex flex-wrap gap-3 mt-4">
-                <button
-                  type="button"
-                  onClick={handleManageInStripe}
-                  disabled={openingDashboard}
-                  className="flex items-center gap-1.5 border border-border text-foreground px-4 py-2 rounded-full text-sm font-semibold hover:bg-muted disabled:opacity-60"
-                >
-                  <ExternalLink size={14} />
-                  {openingDashboard ? t("app.setPayments.opening") : t("app.setPayments.manageInStripe")}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowDisconnectConfirm(true)}
-                  className="text-sm font-medium text-red-600 dark:text-red-400 px-4 py-2 rounded-full hover:bg-red-50 dark:bg-red-950/40"
-                >
-                  {t("app.setPayments.disconnect")}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {awaitingReview && (
-          <div className="flex items-start gap-3">
-            <AlertCircle size={22} className="text-blue-500 shrink-0 mt-0.5" />
-            <div>
-              <h2 className="font-semibold text-foreground">
-                {t("app.setPayments.reviewingTitle")}
-              </h2>
-              <p className="text-sm text-muted-foreground mt-1 mb-4">
-                {t("app.setPayments.reviewingDesc")}
-              </p>
-              <button
-                type="button"
-                onClick={recheck}
-                disabled={rechecking}
-                className="border border-border text-foreground px-5 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60"
-              >
-                {rechecking ? t("app.setPayments.checking") : t("app.setPayments.checkAgain")}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {inProgress && (
-          <div className="flex items-start gap-3">
-            <AlertCircle size={22} className="text-amber-500 shrink-0 mt-0.5" />
-            <div>
-              <h2 className="font-semibold text-foreground">
-                {t("app.setPayments.needsThingsTitle")}
-              </h2>
-
-              {requirements.length > 0 ? (
-                <>
-                  <p className="text-sm text-muted-foreground mt-1 mb-3">
-                    {t("app.setPayments.needsThingsIntro")}
-                  </p>
-                  {/* Naming the actual outstanding items rather than saying "a
-                      bit more information". Stripe's hosted flow sometimes
-                      shows a clean summary while still holding a requirement
-                      open — with the list here, at least the two screens can
-                      be compared. */}
-                  <ul className="text-sm text-muted-foreground mb-4 space-y-1.5 list-disc pl-5">
-                    {requirements.map((r) => (
-                      <li key={r.key}>{r.label}</li>
-                    ))}
-                  </ul>
-                </>
-              ) : (
-                <p className="text-sm text-muted-foreground mt-1 mb-4">
-                  {t("app.setPayments.notFinished")}
-                </p>
-              )}
-
-              {status?.disabledReason && (
-                <p className="text-xs text-muted-foreground mb-4">
-                  {t("app.setPayments.stripeReason")}{" "}
-                  <span>{humaniseDisabledReason(status.disabledReason)}</span>
-                </p>
-              )}
-
-              <div className="flex flex-wrap gap-3">
-                <button
-                  type="button"
-                  onClick={handleConnect}
-                  disabled={connecting}
-                  className="bg-inverted text-inverted-foreground px-5 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60"
-                >
-                  {connecting ? t("app.setPayments.redirecting") : t("app.setPayments.finishSetup")}
-                </button>
-                {/* For the case this whole route exists to fix: they finished
-                    on Stripe's side and FieldQuo hadn't caught up. */}
-                <button
-                  type="button"
-                  onClick={recheck}
-                  disabled={rechecking}
-                  className="border border-border text-foreground px-5 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60"
-                >
-                  {rechecking ? t("app.setPayments.checking") : t("app.setPayments.alreadyDone")}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {notStarted && (
-          <div className="flex items-start gap-3">
-            <CreditCard size={22} className="text-muted-foreground shrink-0 mt-0.5" />
-            <div>
-              <h2 className="font-semibold text-foreground">{t("app.setPayments.notConnected")}</h2>
-              <p className="text-sm text-muted-foreground mt-1 mb-4">
-                {t("app.setPayments.notConnectedDesc")}
-              </p>
-              <button
-                type="button"
-                onClick={handleConnect}
-                disabled={connecting}
-                className="bg-inverted text-inverted-foreground px-5 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60"
-              >
-                {connecting ? t("app.setPayments.redirecting") : t("app.setPayments.connectWithStripe")}
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
+      <StripeConnectCard
+        status={status}
+        company={company}
+        connecting={connecting}
+        rechecking={rechecking}
+        openingDashboard={openingDashboard}
+        onConnect={handleConnect}
+        onRecheck={recheck}
+        onManage={handleManageInStripe}
+        onDisconnect={() => setShowDisconnectConfirm(true)}
+      />
 
       {/* ── What each payment costs, and instant payouts ────────────────────
           The fee card renders in every state — a contractor deciding whether

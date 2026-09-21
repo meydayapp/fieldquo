@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 21 September 2026, night (the sales floor's second pass on call OUTCOMES: sub-reasons under an outcome from platform-edited lists, the owner's audit of what was logged beside the recording with the verdict on the rep's own row, Mark on the live call and on playback with the marks in the AI review, a callback that is personal until the rep is off past a grace and then global to the next available rep with the claim, the inbound service level from arrival to the real pickup, sampled transcription and review, and Twilio answering-machine detection off by default at $0.0075 a call — see "Call outcomes, second pass" below and docs/SALES-OUTCOMES.md; earlier the same evening: presence on the sales floor is DERIVED from the portal's keepalive — Off since {time} · Available · Busy · on a call / writing it up · Paused ({reason}) — and the floor board reads the performance page's one calls table, see the first section below; also today: Settings → Reviews: the company finds its Google listing in the Places box and the review link is derived from the place_id; every company has a public digital business card at /c/<slug> — logo, phone, email, address with a map link, Save our contact (a vCard), book / instant price / review / website / socials in the visitor's language — and a QR of it, a print sheet (card QR + a second QR that IS the contact), Add to Apple Wallet / Google Wallet for the contractor's own phone (signers built, env-gated, owner steps in docs/WALLET-PASS.md), NFC-tag instructions with the URL record and the contact record and the bytes each needs, ?ref= tap counts per source; the review email carries the QR in eight languages, the invoice PDF footer gets an optional review QR, the portal's paid state offers the review link; a Google-page paste keeps stars and dates; Connect Google Business Profile (same OAuth client, business.manage) caches reviews for 30 days under Google's name, never as testimonials, and prints Google's quota-0 refusal honestly with the paste path beside it — see "Reviews: the listing, the card, the passes, the tag, and the Business Profile" below; previous line: the sales floor's Twilio telemetry is back — see the telephony section; earlier the same day: the sales floor's Twilio telemetry is back: every call-status and recording callback had answered 500 since 18 September from `new NextResponse("", { status: 204 })` — a 204 may carry no body — and the recording write's `NOT: { recordingSid }` excluded every never-recorded row; both fixed, every notification route now answers an empty 204 through lib/sales/calls/twilioAck.js and a throw is a logged error; the sales cron reconciles recordings and prospect legs from the carrier and transcribes one a tick; /platform/sales/performance prints the carrier's clock beside the rep's report with "Reported vs measured" per rep; /platform/crew-lines says US texting is NOT registered (A2P 10DLC, error 30034) with the owner's registration steps; the Places API sweep is retired — see the section below; also today: the two Mac-run scrapers take `--state NY,FL,CA` — the enrichment order with everything outside those states removed BEFORE ranking, the skipped count printed and shown on the Maps panel; the listing matcher joins initialisms and sets trade words aside symmetrically, attaches a listing on the record's own phone or website under `matched_verify` with a "confirm on the call" fact on the card and the brief, and refuses a shared number or a franchise domain as an identity; `maps.mjs --rematch` re-reads the 1,725 refusals and `--promote` turns unmatched open listings with a phone into prospects in the review folder with their crawl queued, which every sweep now also does for its own run; BBB's employee band is captured end to end with a saved profile fixture — see "Regional passes, matched_verify, promotion" below)
+Last updated: 21 September 2026, night (also today: the home page's two checklists open each step in a dialog on the page instead of navigating away — the same form the settings page renders, save re-reads the list, the row ticks or leaves, and the next step is offered in place; Stripe Connect and AI credit say plainly that they hand off to Stripe; every settings page keeps working and the deep links are untouched — see "Set-up steps open in place" below; previous line: presence on the sales floor is DERIVED from the portal's keepalive — Off since {time} · Available · Busy · on a call / writing it up · Paused ({reason}) — and the floor board reads the performance page's one calls table, see the second section below; and: the sales floor's second pass on call OUTCOMES: sub-reasons under an outcome from platform-edited lists, the owner's audit of what was logged beside the recording with the verdict on the rep's own row, Mark on the live call and on playback with the marks in the AI review, a callback that is personal until the rep is off past a grace and then global to the next available rep with the claim, the inbound service level from arrival to the real pickup, sampled transcription and review, and Twilio answering-machine detection off by default at $0.0075 a call — see "Call outcomes, second pass" below and docs/SALES-OUTCOMES.md; earlier the same evening: presence on the sales floor is DERIVED from the portal's keepalive — Off since {time} · Available · Busy · on a call / writing it up · Paused ({reason}) — and the floor board reads the performance page's one calls table, see the first section below; also today: Settings → Reviews: the company finds its Google listing in the Places box and the review link is derived from the place_id; every company has a public digital business card at /c/<slug> — logo, phone, email, address with a map link, Save our contact (a vCard), book / instant price / review / website / socials in the visitor's language — and a QR of it, a print sheet (card QR + a second QR that IS the contact), Add to Apple Wallet / Google Wallet for the contractor's own phone (signers built, env-gated, owner steps in docs/WALLET-PASS.md), NFC-tag instructions with the URL record and the contact record and the bytes each needs, ?ref= tap counts per source; the review email carries the QR in eight languages, the invoice PDF footer gets an optional review QR, the portal's paid state offers the review link; a Google-page paste keeps stars and dates; Connect Google Business Profile (same OAuth client, business.manage) caches reviews for 30 days under Google's name, never as testimonials, and prints Google's quota-0 refusal honestly with the paste path beside it — see "Reviews: the listing, the card, the passes, the tag, and the Business Profile" below; previous line: the sales floor's Twilio telemetry is back — see the telephony section; earlier the same day: the sales floor's Twilio telemetry is back: every call-status and recording callback had answered 500 since 18 September from `new NextResponse("", { status: 204 })` — a 204 may carry no body — and the recording write's `NOT: { recordingSid }` excluded every never-recorded row; both fixed, every notification route now answers an empty 204 through lib/sales/calls/twilioAck.js and a throw is a logged error; the sales cron reconciles recordings and prospect legs from the carrier and transcribes one a tick; /platform/sales/performance prints the carrier's clock beside the rep's report with "Reported vs measured" per rep; /platform/crew-lines says US texting is NOT registered (A2P 10DLC, error 30034) with the owner's registration steps; the Places API sweep is retired — see the section below; also today: the two Mac-run scrapers take `--state NY,FL,CA` — the enrichment order with everything outside those states removed BEFORE ranking, the skipped count printed and shown on the Maps panel; the listing matcher joins initialisms and sets trade words aside symmetrically, attaches a listing on the record's own phone or website under `matched_verify` with a "confirm on the call" fact on the card and the brief, and refuses a shared number or a franchise domain as an identity; `maps.mjs --rematch` re-reads the 1,725 refusals and `--promote` turns unmatched open listings with a phone into prospects in the review folder with their crawl queued, which every sweep now also does for its own run; BBB's employee band is captured end to end with a saved profile fixture — see "Regional passes, matched_verify, promotion" below)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -78,6 +78,81 @@ floor's own behaviour before this pass. Executed by
 
 ---
 
+## Set-up steps open in place: the onboarding checklist and the additional steps as dialogs on the home page (21 September 2026)
+
+The owner: "Can a pop window be used instead of redirecting a company to the
+missing onboarding steps? So they don't necessarily navigate outside of the
+home page and get lost in the weeds. Same for the additional steps."
+
+**What shipped, on /app.**
+
+- **Every row of both cards opens its step in a dialog** on the home page —
+  `app/components/dashboard/StepDialog.js` (on the house `AlertDialog`:
+  focus in, Tab trapped, Escape and the scrim close, focus back), a
+  full-height sheet at phone width and a centred card from `sm` up, the
+  "Open in settings" link at its foot. `useStepDialog.js` is the shared
+  behaviour; `stepPanels.js` maps each step key to the component it opens,
+  loaded on demand so the dashboard's bundle does not carry the editors.
+- **The same component the settings page renders, never a copy.** Where a
+  page's form was inline it was lifted into a component both now render,
+  with a `compact` prop that drops the page chrome and the sections the
+  step is not about: `app/components/settings/BrandingForm.js` (Settings →
+  Branding is now that file), `CompanyDetailsFields.js` and
+  `TaxRegistrationFields.js` (the two cards of Settings → Company),
+  `settings/services/ServicesEditor.js` (three dialogs: services, pricing
+  with the rate card open, quote wording), `settings/payments/
+  useStripeConnect.js` + `StripeConnectCard.js`, `settings/overhead/
+  FixedCostsEditor.js`, `settings/availability/AvailabilityEditor.js`
+  (compact: bookable week only, writes `/api/availability` alone),
+  `settings/material-costs/MaterialCostsEditor.js`, `settings/products/
+  ProductCatalogue.js`, `settings/email-templates/EmailTemplatesManager.js`,
+  `settings/instant-quotes/TradeCard.js` (moved out of the page whole),
+  `settings/ai-credit/AiCreditCard.js`, `jobs/import/PastJobsEntry.js`.
+  `PaymentScheduleEditor` already was one. The check scripts that read those
+  pages were pointed at the new files, not loosened.
+- **Two kinds of finish.** A form saves as a whole → the dialog closes, the
+  card re-reads its list (`/api/onboarding-status` through the page's
+  `loadOnboarding`; `/api/setup-steps` through the card's own load), the
+  row ticks (onboarding) or leaves (set-up), and a strip offers "Next: …"
+  as a button that opens the next dialog. A list editor (fixed costs, the
+  schedule, recipes, add-ons, emails, past jobs, instant quotes) re-reads
+  on every change and stays open behind a Done button.
+- **The two that hand off to Stripe say so.** Connect: the dialog's one
+  sentence, the payments page's own four-state card, and `returnTo:
+  "home"` — a NAME, mapped to a path the server owns
+  (`lib/stripe/connectReturn.js`, carried on the refresh URL too) — so
+  Stripe sends the browser back to `/app?connected=true`, where the page
+  asks `/api/stripe/connect/status` (which writes the column) before
+  re-reading the checklist. AI credit: Checkout returns to the AI credit
+  page, where the payment is confirmed, and the dialog says exactly that.
+- **Gated the same way.** Onboarding rows open in place only for a member
+  who may change settings (`can(role, "user:manage")`, the set-up card's
+  gate); for anyone else they stay links. "Invite your team" keeps its own
+  Add Employee popup. The `?from=setup` links, `BackToHome`, and every
+  `/app/settings/...` deep link are unchanged.
+- Eleven `app.stepDialog.*` strings in all nine languages.
+
+**Verified** in the browser against a fixture-backed render of the two
+cards (no session was available: the rules forbid entering a password, the
+Chrome extension was not connected, and a demo login cannot be minted
+without a superadmin session): business details saved → 17 % and the row
+ticked with "Next: Add your logo and brand color →"; services saved → 33 %;
+a fixed cost added, Escape closed the sheet, the row left the set-up card (4
+left → 3 left) with the next step offered; the Stripe dialog's sentence and
+card; the pricing dialog's rate card open; the centred card at 1100 px.
+`npm run build` green; check:setup-steps 194/194, onboarding-solo,
+onboarding-seat-guard, tax-id, settings-access, settings-empty-vs-error and
+the seventeen checks that read the moved pages all pass.
+
+### Still owed here
+
+- A walk-through on a real trial company by someone with a session — the
+  upload to Cloudinary in the branding dialog and the Stripe round trip
+  were not exercised against fixtures.
+- Pre-existing, not from this pass: `check:app-currency` (2), `check:credit-
+  currency` (voice/page.js), `check:service-area` (backfillCoordinates),
+  `check:dashboard` (the cron line) and `check:app-catalogue` (5) fail on
+  origin/main as well.
 ## Presence is derived, not declared; the floor board reads the one calls table (21 September 2026)
 
 **What the owner saw.** Every rep "Off" while they dialled; one card

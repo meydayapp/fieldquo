@@ -264,7 +264,7 @@ for (const file of ["app/book/[companySlug]/BookingFlow.js", "app/quote/[company
 console.log("\nServices & Pricing: RateCard and QuoteWording are under the row, not in it\n");
 
 {
-  const src = stripComments(read("app/app/settings/services/page.js"));
+  const src = stripComments(read("app/app/settings/services/ServicesEditor.js"));
 
   // The card first, then the row INSIDE it. The page has another
   // `sm:flex-row` above the list (the search-and-filter toolbar), and a search

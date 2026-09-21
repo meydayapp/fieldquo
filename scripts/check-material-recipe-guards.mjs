@@ -64,7 +64,7 @@ const stripComments = (src) =>
     .replace(/^[ \t]*\/\/.*$/gm, "");
 
 const route = stripComments(read("app/api/settings/material-recipes/route.js"));
-const page = stripComments(read("app/app/settings/material-costs/page.js"));
+const page = stripComments(read("app/app/settings/material-costs/MaterialCostsEditor.js"));
 
 // ── 1. The sanitiser is real, and it refuses the value the page produces ───
 //

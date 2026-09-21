@@ -538,8 +538,24 @@ function readGate(file) {
 }
 
 /** The /api/… route files a page fetches, resolved on disk. */
+// A page whose screen is a component beside it (the home page's set-up
+// dialogs render the same component — app/components/dashboard/stepPanels.js)
+// fetches through that component, so its routes are read from both files.
+const PAGE_BODY = {
+  "app/app/settings/services/page.js": "app/app/settings/services/ServicesEditor.js",
+  "app/app/settings/products/page.js": "app/app/settings/products/ProductCatalogue.js",
+  "app/app/settings/branding/page.js": "app/components/settings/BrandingForm.js",
+  "app/app/settings/availability/page.js": "app/app/settings/availability/AvailabilityEditor.js",
+  "app/app/settings/material-costs/page.js": "app/app/settings/material-costs/MaterialCostsEditor.js",
+  "app/app/settings/email-templates/page.js": "app/app/settings/email-templates/EmailTemplatesManager.js",
+  "app/app/settings/overhead/page.js": "app/app/settings/overhead/FixedCostsEditor.js",
+  "app/app/settings/payments/page.js": "app/app/settings/payments/useStripeConnect.js",
+  "app/app/settings/ai-credit/page.js": "app/app/settings/ai-credit/AiCreditCard.js",
+  "app/app/settings/instant-quotes/page.js": "app/app/settings/instant-quotes/TradeCard.js",
+};
+
 function routesFetchedBy(pageFile) {
-  const src = read(pageFile);
+  const src = read(pageFile) + (PAGE_BODY[pageFile] ? read(PAGE_BODY[pageFile]) : "");
   const found = new Set();
   for (const match of src.matchAll(/["'`](\/api\/[^"'`]*)/g)) {
     // Query string and interpolated segments dropped: "/api/expenses/summary

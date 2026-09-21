@@ -64,7 +64,10 @@ const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), selec
  * @param {() => void} [props.onScrim] — a click outside the card; absent = nothing
  * @param {string} [props.scrimLabel] — the scrim's accessible name when it acts
  * @param {"center"|"sheet"} [props.placement]
+ * @param {string} [props.wrapperClass] — the wrapper's padding; "p-4" unless a caller wants a sheet flush to the phone's edges
  * @param {string} [props.zClass] — the wrapper's z-index utility
+ * @param {string} [props.widthClass] — the card's max width; "sm:max-w-md" for the alert-dialog, wider for a form
+ * @param {string} [props.shapeClass] — the card's radius and padding; overridden by a sheet that is square at phone width
  * @param {string} [props.cardClass] — extra classes on the card
  * @param {object} [props.wrapperProps] — data-* hooks for the wrapper
  * @param {object} [props.cardProps] — data-* hooks for the card
@@ -79,7 +82,18 @@ export default function AlertDialog({
   onScrim,
   scrimLabel,
   placement = "center",
+  // The 16px gutters every caller shipped with. The dashboard's set-up
+  // dialogs pass "p-0 sm:p-4" so a form the height of a phone can be a
+  // full-height sheet at phone width without a 16px frame of scrim around it;
+  // nothing else changes for the callers that leave it alone.
+  wrapperClass = "p-4",
   zClass = "z-[65]",
+  // Split out of the class string, not appended to it: two Tailwind
+  // utilities for the same property do not resolve by attribute order, so a
+  // caller could not widen the card by adding "sm:max-w-2xl" after
+  // "sm:max-w-md". The defaults are the exact classes every caller had.
+  widthClass = "sm:max-w-md",
+  shapeClass = "rounded-2xl p-5 space-y-4",
   cardClass = "",
   wrapperProps = {},
   cardProps = {},
@@ -142,7 +156,7 @@ export default function AlertDialog({
   const wrapperLayout = placement === "sheet" ? "items-end sm:items-center sm:justify-center" : "items-center justify-center";
 
   return createPortal(
-    <div className={`fixed inset-0 ${zClass} flex ${wrapperLayout} p-4`} {...wrapperProps}>
+    <div className={`fixed inset-0 ${zClass} flex ${wrapperLayout} ${wrapperClass}`} {...wrapperProps}>
       {onScrim ? (
         <button type="button" className="absolute inset-0 bg-black/40" aria-label={scrimLabel} onClick={onScrim} tabIndex={-1} />
       ) : (
@@ -156,7 +170,7 @@ export default function AlertDialog({
         aria-modal="true"
         aria-labelledby={labelledBy}
         aria-describedby={describedBy}
-        className={`relative w-full sm:max-w-md rounded-2xl bg-card text-foreground shadow-xl p-5 space-y-4 ${cardClass}`}
+        className={`relative w-full ${widthClass} ${shapeClass} bg-card text-foreground shadow-xl ${cardClass}`}
         {...cardProps}
       >
         {children}

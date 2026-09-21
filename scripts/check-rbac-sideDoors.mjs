@@ -118,7 +118,7 @@ t(`every call site passes (db, …)${bad.length ? " — " + bad.join("; ") : ""}
 t("the price book route specifically",
   /loadEnforceableMember\(db, member\.id\)/.test(read("../app/api/products/route.js")));
 t("the products page surfaces a refusal instead of an empty list",
-  /loadError/.test(read("../app/app/settings/products/page.js")));
+  /loadError/.test(read("../app/app/settings/products/ProductCatalogue.js")));
 
 console.log("\nRank applies to every field, not just the active flag");
 // The lockout fix was scoped to `active === false`, which left the sideways
@@ -168,7 +168,7 @@ t("quick-add runs through filterNavItemsByPermission",
   /quickAddItems[\s\S]{0,200}filterNavItemsByPermission/.test(SIDEBAR));
 t("the Create button hides when nothing is creatable",
   /quickAddItems\.length > 0 && \(/.test(SIDEBAR));
-const PRODUCTS_PAGE = read("../app/app/settings/products/page.js");
+const PRODUCTS_PAGE = read("../app/app/settings/products/ProductCatalogue.js");
 t("a refused price book hides its Add/Import/Export controls",
   /\{!loadError && \(/.test(PRODUCTS_PAGE));
 

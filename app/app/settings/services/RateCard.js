@@ -54,9 +54,12 @@ function groupFields(fields) {
   return blocks;
 }
 
-export default function RateCard({ category, overrides, onChange }) {
+// `defaultOpen`: closed on the settings page, where a company with six
+// trades would otherwise face six open grids; open in the home page's
+// "Set your pricing" dialog, which exists to show exactly this grid.
+export default function RateCard({ category, overrides, onChange, defaultOpen = false }) {
   const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   const fields = PRICE_BOOK_FIELDS[category.key] || [];
   const book = useMemo(
     () => getPriceBook(category.key, overrides),
