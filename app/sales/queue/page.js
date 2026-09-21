@@ -306,6 +306,7 @@ import {
 import { fetchJson } from "@/lib/fetchJson";
 import { prefetchTargets, readLead, readSnapshot, sessionStore, writeLead, writeSnapshot } from "@/lib/sales/queueCache";
 import ContactNumbers from "@/app/components/sales/ContactNumbers";
+import SignupBadge, { signupFactParams } from "@/app/components/sales/SignupBadge";
 import WhoToAskFor from "@/app/components/sales/WhoToAskFor";
 import DialerPad, { formatE164ForReading, typedToE164 } from "@/app/components/sales/DialerPad";
 import QueueLeadEditor from "@/app/components/sales/QueueLeadEditor";
@@ -1176,6 +1177,7 @@ function CompanyCard({ t, current, row, compliance, numbers, onDial = null }) {
 
       {/* Tags: each one is a flag the server set on this row. */}
       <div className="flex flex-wrap gap-1.5" data-company-tags>
+        {current.signup?.badge ? <SignupBadge kind={current.signup.badge} /> : null}
         {current.tradeLabel ? <Tag tone="unknown">{current.tradeLabel}</Tag> : null}
         <Tag tone={row?.researched ? "has" : "unknown"}>
           {row?.researched ? t("app.salesQueue.rowResearched") : row?.researching ? t("app.salesQueue.rowResearching") : t("app.salesQueue.rowNotResearched")}
@@ -1352,9 +1354,11 @@ function ResearchLayers({ t, current, language = "en" }) {
                     (a number, a domain) as a value. */}
                 {Array.isArray(f.parts) && f.parts.length
                   ? f.parts.map((part) => t(part.key, part.text, part.params || {})).join("; ")
-                  : f.textKey
-                    ? t(f.textKey, f.text, f.params || {})
-                    : f.text}
+                  : f.key === "signup"
+                    ? t(f.textKey, f.text, signupFactParams(f, t))
+                    : f.textKey
+                      ? t(f.textKey, f.text, f.params || {})
+                      : f.text}
                 {f.key === "bbb" && f.url ? (
                   <>
                     {" "}
@@ -1843,6 +1847,11 @@ function QueueList({ t, loading, data, items, groups, itemById, current, visible
                               <span className="text-muted-foreground tabular-nums mr-1">{position}.</span>
                               {item.businessName}
                             </span>
+                            {item.signup?.fact ? (
+                              <span className="block text-xs text-foreground break-words" data-signup-fact>
+                                {t(item.signup.fact.textKey, item.signup.fact.text, signupFactParams(item.signup.fact, t))}
+                              </span>
+                            ) : null}
                             {meta.place ? (
                               <span className="block text-xs text-muted-foreground break-words">{meta.place}</span>
                             ) : null}
@@ -1854,6 +1863,9 @@ function QueueList({ t, loading, data, items, groups, itemById, current, visible
                                 >
                                   {meta.zone}
                                 </span>
+                              ) : null}
+                              {item.signup?.badge ? (
+                                <SignupBadge kind={item.signup.badge} compact title={item.signup.fact?.text || undefined} />
                               ) : null}
                               {item.language === "fr" ? (
                                 <span

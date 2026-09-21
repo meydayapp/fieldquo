@@ -39,6 +39,9 @@ import {
   workEmailProblem,
 } from "@/lib/sales/repAdmin";
 import { signupLinkFor } from "@/lib/sales/repStats";
+import { STEP_LABELS, stalledDecision } from "@/lib/signup/leads";
+import { companyFactsOf } from "@/lib/signup/salesFloor";
+import { CHECKOUT_GRACE_MS } from "@/lib/signup/setupGate";
 import { outreachStatus } from "@/lib/sales/outreachSender";
 import { MAILBOX_PUBLIC_SELECT } from "@/lib/sales/mailbox/store";
 import { resolvePlanAssignment } from "@/lib/sales/commissionPlanServer";
@@ -252,6 +255,14 @@ export async function GET(request) {
           name: true,
           country: true,
           signupOrigin: { select: { ipCountry: true, flag: true, flagReason: true, reviewedAt: true } },
+          // The signup's state — card, first quote, stalled — read the way
+          // the owner's signups screen and the rep's own list read it
+          // (lib/signup/leads.js stalledDecision). Informational: a referred
+          // signup is this rep's, never assignable from the console.
+          createdAt: true,
+          isDemo: true,
+          subscription: { select: { id: true } },
+          quotes: { where: { sentAt: { not: null } }, orderBy: { sentAt: "asc" }, take: 1, select: { sentAt: true } },
         },
       },
     },
@@ -261,11 +272,22 @@ export async function GET(request) {
   for (const a of attributionRows) {
     if (!companiesByRep.has(a.salesRepId)) companiesByRep.set(a.salesRepId, []);
     const o = a.company?.signupOrigin || null;
+    const facts = a.company ? companyFactsOf(a.company) : null;
+    const stalled = facts ? stalledDecision({ company: facts, now: new Date(), checkoutGraceMs: CHECKOUT_GRACE_MS }) : { stalled: false, reason: null };
     companiesByRep.get(a.salesRepId).push({
       id: a.company?.id || null,
       name: a.company?.name || null,
       country: a.company?.country || null,
       attributedAt: a.capturedAt,
+      signup: facts
+        ? {
+            kind: stalled.stalled ? "stalled" : "new",
+            cardAdded: Boolean(facts.subscription),
+            firstQuoteSentAt: facts.firstQuoteSentAt,
+            stalledReason: stalled.reason,
+            signedUpAt: facts.createdAt,
+          }
+        : null,
       origin: o
         ? {
             ipCountry: o.ipCountry,
@@ -276,6 +298,33 @@ export async function GET(request) {
             needsReview: needsReview(o),
           }
         : null,
+    });
+  }
+
+  // ── Unfinished signups on each rep's link ───────────────────────────────
+  //
+  // A SignupLead whose `?sales=` code was this rep's and which became their
+  // own SalesLead (lib/signup/salesFloor.js "rep_lead"), or is still waiting
+  // to. Shown as "referred by {rep}" with the state; never assignable here.
+  const referredRows = await db.signupLead.findMany({
+    where: { completedCompanyId: null, OR: [{ referredRepId: { in: reps.map((r) => r.id) } }, { salesCode: { in: reps.map((r) => r.code).filter(Boolean) } }] },
+    orderBy: { lastSeenAt: "desc" },
+    take: 500,
+    select: { id: true, companyName: true, firstName: true, lastName: true, phoneE164: true, stepReached: true, lastSeenAt: true, promotedLeadId: true, skipReason: true, referredRepId: true, salesCode: true },
+  });
+  const repByCode = new Map(reps.map((r) => [r.code, r.id]));
+  const referredByRep = new Map();
+  for (const l of referredRows) {
+    const repId = l.referredRepId || repByCode.get(l.salesCode) || null;
+    if (!repId) continue;
+    if (!referredByRep.has(repId)) referredByRep.set(repId, []);
+    referredByRep.get(repId).push({
+      id: l.id,
+      name: l.companyName || [l.firstName, l.lastName].filter(Boolean).join(" ") || "—",
+      phone: l.phoneE164,
+      stepLabel: STEP_LABELS[l.stepReached] || l.stepReached,
+      lastSeenAt: l.lastSeenAt,
+      state: l.promotedLeadId ? "rep_lead" : l.skipReason ? `skipped:${l.skipReason}` : l.phoneE164 ? "waiting" : "no_phone",
     });
   }
 
@@ -345,6 +394,8 @@ export async function GET(request) {
       companyCount: r._count.attributions,
       // Each attributed company with its signup-origin chip. See above.
       companies: companiesByRep.get(r.id) || [],
+      // Started on this rep's link, not finished — theirs, with the state.
+      referredSignups: referredByRep.get(r.id) || [],
       flaggedSignups: (companiesByRep.get(r.id) || []).filter((c) => c.origin?.needsReview).length,
       // held = leased + worked; untouched + dialled = leased. openLeads are
       // SalesLeads not converted and not lost. See lib/sales/reassign.js.

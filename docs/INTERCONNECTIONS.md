@@ -206,7 +206,7 @@ Ask three questions of this graph:
 ## The entity graph
 
 Every model, and what points at it. Generated from `prisma/schema.prisma`, so
-it cannot drift from the code. 270 models.
+it cannot drift from the code. 272 models.
 
 **Read it before adding anything.** The question it answers is "what already
 touches this, and what would my change touch" — which is the question that was
@@ -220,10 +220,10 @@ tenancy, so it carries no information.
 
 | Entity | Pointed at by | From |
 |---|---:|---|
-| **SalesRep** | 30 | Company, PlatformAuditLog, PlatformSmsNumber, PushSubscription, SalesAttribution, SalesAttributionTouch, SalesCallAttempt, SalesCallTransfer, SalesCheckIn, SalesCommissionEntry +20 |
+| **SalesRep** | 31 | Company, PlatformAuditLog, PlatformSmsNumber, PushSubscription, SalesAttribution, SalesAttributionTouch, SalesCallAttempt, SalesCallTransfer, SalesCheckIn, SalesCommissionEntry +21 |
 | **Worker** | 20 | AvailabilityRequest, LeaveBalance, LeaveRequest, LocationStamp, OnboardingRun, PayRunLine, Payout, PolicyAcknowledgement, SafetyIncident, Salary +10 |
 | **Job** | 19 | Appointment, AssetUseLog, ChangeOrder, CompanyChatRoom, Invoice, JobDailyLog, JobDocument, JobMaterial, JobPaymentStage, JobPhoto +9 |
-| **Prospect** | 17 | PlatformVoiceCall, ProspectCapability, ProspectCorrection, ProspectEvidence, ProspectInference, ProspectOpportunity, ProspectPerson, ProspectScore, ProspectTalkingPoint, ProspectTechnology +7 |
+| **Prospect** | 18 | PlatformVoiceCall, ProspectCapability, ProspectCorrection, ProspectEvidence, ProspectInference, ProspectOpportunity, ProspectPerson, ProspectScore, ProspectTalkingPoint, ProspectTechnology +8 |
 | **PlatformAdmin** | 14 | DemoBooking, DemoHostAvailability, PlatformAuditLog, PlatformFixedBill, PlatformSmsNumber, PushSubscription, SalesJurisdictionOverride, SalesTelemarketerRegistration, SignupOrigin, StaffMessage +4 |
 | **SalesLead** | 12 | PlatformVoiceCall, SalesCallAttempt, SalesCheckIn, SalesContactEmail, SalesContactNumber, SalesEmailDraft, SalesEvent, SalesIntroEmail, SalesLeadLinkEvent, SalesRepNote +2 |
 | **Client** | 11 | Appointment, ClientEquipment, Invoice, Job, MessageThread, PamphletStop, Quote, ReferralLink, SatisfactionResponse, ServicePlan +1 |
@@ -241,7 +241,7 @@ tenancy, so it carries no information.
 
 ### Every model, both directions
 
-<details><summary>270 models — expand</summary>
+<details><summary>272 models — expand</summary>
 
 | Model | Points at | Pointed at by |
 |---|---|---|
@@ -260,7 +260,7 @@ tenancy, so it carries no information.
 | `Client` | — | Appointment, ClientEquipment, Invoice, Job, MessageThread, PamphletStop, Quote, ReferralLink, SatisfactionResponse, ServicePlan, Task |
 | `ClientEquipment` | Client | ClientEquipmentService, Job |
 | `ClientEquipmentService` | ClientEquipment | — |
-| `Company` | AiCreditBundle, CompanySite, CrewInboxNumber, ForecastSettings, LinkPage, MetaAdConnection, SalesAttribution, SalesRep, SignupOrigin, Subscription, VoiceAgent, VoiceAutoTopup | AccountAbuseStrike, ActivityLog, AiCreditBundle, AiDigest, AiEmployee, AiEmployeeProposal, AiEmployeeReply, AiEmployeeSource, AiUsage, Appointment, Asset, AssetUseLog, AvailabilityRequest, CallConsent, Client, ClientEquipment, CompanyChatMember, CompanyChatMessage, CompanyChatRoom, CompanyFeatureOverride, CompanyServiceCategory, CompanySite, ConnectFeeRecovery, CrewInboundMessage, CrewInboxNumber, CustomField, Debt, DocumentTemplate, EventType, Expense, ExpenseImportBatch, FollowUpRule, ForecastSettings, Funnel, InstantPayout, InstantQuoteConfig, Invoice, Job, JobChecklistTemplate, JobDailyLog, JobDocument, JobPaymentStage, JobPhoto, JobPhotoComment, JobPhotoMention, JobPhotoTag, JobSubcontractor, LeadRequest, LeavePolicy, LeaveRequest, LinkPage, LocationStamp, MarketingCampaign, MarketingDesign, MarketingSpend, MarketingSubscriber, Material, MaterialRecipeSetting, Member, MessageThread, MessagingChannel, MetaAdConnection, MetaLeadForm, MetaPageConnection, MigrationRequest, NotificationDelivery, NotificationEvent, NotificationRule, PayRun, PaymentScheduleStage, PendingTeamProfile, Product, PurchaseOrder, QuickAddItem, Quote, QuoteImport, RecordEdit, ReferralCredit, ReferralInvite, SafetyIncident, Salary, SalaryComponent, SalesAttribution, SalesAttributionTouch, SalesCheckIn, SalesCommissionEntry, SalesRep, SatisfactionResponse, ScheduleEvent, ServiceCategory, ServiceDocument, ServicePlan, Shift, ShiftAttendance, ShiftRequest, ShoutOut, SignupOrigin, SmsOptOut, SocialPublish, StockMovement, Subcontractor, SubcontractorPayment, Subscription, Supplier, SupportTicket, Task, TaxRate, VehicleDetail, VoiceAgent, VoiceAutoTopup, VoiceCall, VoiceCallTask, VoiceCreditEntry, VoicePhoneNumber, WhatsAppTemplate, WorkArea, Worker, WorkingHours |
+| `Company` | AiCreditBundle, CompanySite, CrewInboxNumber, ForecastSettings, LinkPage, MetaAdConnection, SalesAttribution, SalesRep, SignupLead, SignupOrigin, Subscription, VoiceAgent, VoiceAutoTopup | AccountAbuseStrike, ActivityLog, AiCreditBundle, AiDigest, AiEmployee, AiEmployeeProposal, AiEmployeeReply, AiEmployeeRoutingEvent, AiEmployeeSource, AiUsage, Appointment, Asset, AssetUseLog, AvailabilityRequest, CallConsent, Client, ClientEquipment, CompanyChatMember, CompanyChatMessage, CompanyChatRoom, CompanyFeatureOverride, CompanyServiceCategory, CompanySite, ConnectFeeRecovery, CrewInboundMessage, CrewInboxNumber, CustomField, Debt, DocumentTemplate, EventType, Expense, ExpenseImportBatch, FollowUpRule, ForecastSettings, Funnel, InstantPayout, InstantQuoteConfig, Invoice, Job, JobChecklistTemplate, JobDailyLog, JobDocument, JobPaymentStage, JobPhoto, JobPhotoComment, JobPhotoMention, JobPhotoTag, JobSubcontractor, LeadRequest, LeavePolicy, LeaveRequest, LinkPage, LocationStamp, MarketingCampaign, MarketingDesign, MarketingSpend, MarketingSubscriber, Material, MaterialRecipeSetting, Member, MessageThread, MessagingChannel, MetaAdConnection, MetaLeadForm, MetaPageConnection, MigrationRequest, NotificationDelivery, NotificationEvent, NotificationRule, PayRun, PaymentScheduleStage, PendingTeamProfile, Product, Prospect, PurchaseOrder, QuickAddItem, Quote, QuoteImport, RecordEdit, ReferralCredit, ReferralInvite, SafetyIncident, Salary, SalaryComponent, SalesAttribution, SalesAttributionTouch, SalesCheckIn, SalesCommissionEntry, SalesRep, SatisfactionResponse, ScheduleEvent, ServiceCategory, ServiceDocument, ServicePlan, Shift, ShiftAttendance, ShiftRequest, ShoutOut, SignupLead, SignupOrigin, SmsOptOut, SocialPublish, StockMovement, Subcontractor, SubcontractorPayment, Subscription, Supplier, SupportTicket, Task, TaxRate, VehicleDetail, VoiceAgent, VoiceAutoTopup, VoiceCall, VoiceCallTask, VoiceCreditEntry, VoicePhoneNumber, WhatsAppTemplate, WorkArea, Worker, WorkingHours |
 | `CompanyChatMember` | CompanyChatRoom, Member | — |
 | `CompanyChatMessage` | CompanyChatRoom, Member | — |
 | `CompanyChatRoom` | Job | CompanyChatMember, CompanyChatMessage, Job |
@@ -346,7 +346,7 @@ tenancy, so it carries no information.
 | `PlatformSmsNumber` | PlatformAdmin, SalesRep | — |
 | `PlatformVoiceCall` | Prospect, SalesLead | — |
 | `PolicyAcknowledgement` | CompanyPolicy, Worker | — |
-| `Prospect` | ProspectCampaign, SalesTerritory | PlatformVoiceCall, ProspectCapability, ProspectCorrection, ProspectEvidence, ProspectInference, ProspectOpportunity, ProspectPerson, ProspectScore, ProspectTalkingPoint, ProspectTechnology, SalesCallAttempt, SalesContactNumber, SalesLead, SalesPlaybookAssignment, SalesQueueClaim, SalesRepNote, SalesSmsMessage |
+| `Prospect` | ProspectCampaign, SalesTerritory, SignupLead | PlatformVoiceCall, ProspectCapability, ProspectCorrection, ProspectEvidence, ProspectInference, ProspectOpportunity, ProspectPerson, ProspectScore, ProspectTalkingPoint, ProspectTechnology, SalesCallAttempt, SalesContactNumber, SalesLead, SalesPlaybookAssignment, SalesQueueClaim, SalesRepNote, SalesSmsMessage, SignupLead |
 | `ProspectCampaign` | SalesTerritory | Prospect |
 | `ProspectCapability` | Prospect | — |
 | `ProspectCorrection` | Prospect | — |
@@ -393,7 +393,7 @@ tenancy, so it carries no information.
 | `SalesPlaybookAssignment` | Prospect, SalesPlaybookExperiment | — |
 | `SalesPlaybookExperiment` | SalesPlaybook | SalesPlaybookAssignment |
 | `SalesQueueClaim` | Prospect, SalesRep | — |
-| `SalesRep` | SalesCommissionPlan, SalesMailbox | Company, PlatformAuditLog, PlatformSmsNumber, PushSubscription, SalesAttribution, SalesAttributionTouch, SalesCallAttempt, SalesCallTransfer, SalesCheckIn, SalesCommissionEntry, SalesContactEmail, SalesContactNumber, SalesEmailDraft, SalesEvent, SalesIntroEmail, SalesLead, SalesLeadLinkEvent, SalesMailbox, SalesPayoutBatch, SalesQueueClaim, SalesRepActivity, SalesRepNote, SalesSmsMessage, SalesThread, SignupOrigin, StaffMessage, StaffRoom, StaffRoomMember, SupportTicket, SupportTicketNote |
+| `SalesRep` | SalesCommissionPlan, SalesMailbox | Company, PlatformAuditLog, PlatformSmsNumber, PushSubscription, SalesAttribution, SalesAttributionTouch, SalesCallAttempt, SalesCallTransfer, SalesCheckIn, SalesCommissionEntry, SalesContactEmail, SalesContactNumber, SalesEmailDraft, SalesEvent, SalesIntroEmail, SalesLead, SalesLeadLinkEvent, SalesMailbox, SalesPayoutBatch, SalesQueueClaim, SalesRepActivity, SalesRepNote, SalesSmsMessage, SalesThread, SignupLead, SignupOrigin, StaffMessage, StaffRoom, StaffRoomMember, SupportTicket, SupportTicketNote |
 | `SalesRepActivity` | SalesRep | — |
 | `SalesRepNote` | Prospect, SalesLead, SalesRep, SalesThread | — |
 | `SalesSmsMessage` | Prospect, SalesCheckIn, SalesLead, SalesRep | SalesCheckIn |
@@ -413,6 +413,7 @@ tenancy, so it carries no information.
 | `ShiftBreak` | Shift | — |
 | `ShiftRequest` | Shift, Worker | — |
 | `ShoutOut` | Member, Worker | — |
+| `SignupLead` | Prospect, SalesRep | Company, Prospect |
 | `SignupOrigin` | PlatformAdmin, SalesRep | Company |
 | `SocialPublish` | MarketingDesign | — |
 | `StaffMessage` | PlatformAdmin, SalesRep, StaffRoom | — |

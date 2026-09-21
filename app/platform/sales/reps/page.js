@@ -1708,8 +1708,43 @@ export default function PlatformSalesRepsPage() {
                         ) : (
                           <span className="text-xs text-muted-foreground">no origin on file</span>
                         )}
+                        {/* The signup's state — this rep's to chase, never
+                            assignable from here. lib/signup/leads.js. */}
+                        {c.signup ? (
+                          <span
+                            className={`text-xs px-2 py-0.5 rounded-full border ${
+                              c.signup.kind === "stalled"
+                                ? "bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border-red-200 dark:border-red-900"
+                                : "border-border text-muted-foreground"
+                            }`}
+                            data-rep-signup-state={c.signup.kind}
+                          >
+                            referred by {rep.name} · card {c.signup.cardAdded ? "added" : "not yet"} · first quote {c.signup.firstQuoteSentAt ? "sent" : "not yet"}
+                            {c.signup.kind === "stalled" ? ` · stalled (${c.signup.stalledReason === "no_quote" ? "no quote in 7 days" : "no card"})` : ""}
+                          </span>
+                        ) : null}
                       </div>
                     ))}
+                    {rep.referredSignups?.length ? (
+                      <div className="space-y-1 pt-1" data-rep-referred-signups>
+                        <p className="text-xs font-medium text-foreground">Started on this link, not finished</p>
+                        {rep.referredSignups.map((l) => (
+                          <div key={l.id} className="flex flex-wrap items-center gap-2 text-sm">
+                            <span className="text-foreground">{l.name}</span>
+                            <span className="text-xs text-muted-foreground">
+                              referred by {rep.name} · got as far as {l.stepLabel} · last seen {formatDate(l.lastSeenAt)}
+                              {l.state === "rep_lead"
+                                ? " · their lead"
+                                : l.state === "waiting"
+                                  ? " · becomes their lead after 30 quiet minutes"
+                                  : l.state === "no_phone"
+                                    ? " · no phone typed"
+                                    : ` · ${l.state.replace("skipped:", "not promoted: ")}`}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
                     {rep.flaggedSignups > 0 ? (
                       <Link
                         href="/platform/signup-origins?flagged=1"
