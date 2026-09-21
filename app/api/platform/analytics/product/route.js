@@ -21,8 +21,8 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
 import {
-  RANGES, rangeFor, dailyRows, rawUniques, mergeUniques, signupVisitors,
-  clientConversions, companyDenominator, companyNames,
+  RANGES, rangeFor, dailyRows, rawUniques, mergeUniques, signupVisitors, signupsCompleted,
+  rawUniquesByPath, clientConversions, companyDenominator, companyNames,
 } from "@/lib/analytics/product/queries";
 import {
   excludeDemo, topPaths, byLanguage, dimension, signupFunnel, featureUsage,
@@ -47,19 +47,42 @@ export async function GET(request) {
   const includeDemo = searchParams.get("demo") === "1";
   const companyId = String(searchParams.get("company") || "").trim() || null;
 
-  const [dailyAll, uniques, funnelRaw, conversions, totalCompanies] = await Promise.all([
+  const [dailyAll, uniques, funnelRaw, conversions, totalCompanies, rangeUniques, completedInRange] = await Promise.all([
     dailyRows({ start: range.start, end: range.end }),
     rawUniques({ start: range.start, end: range.end }),
     signupVisitors({ start: range.start, end: range.end }),
     clientConversions({ start: range.start, end: range.end, includeDemo }),
     companyDenominator({ includeDemo }),
+    rawUniquesByPath({ start: range.start, end: range.end }),
+    signupsCompleted({ start: range.start, end: range.end }),
   ]);
   const merged = mergeUniques(dailyAll, uniques);
   const rows = includeDemo ? merged : excludeDemo(merged);
 
+  // ── Visitors per page: one browser once for the whole range ────────────
+  //
+  // rankBy sums the per-day uniques, so a person who came back on a second
+  // day is two "visitors" — /signup read 58 while the funnel, which counts a
+  // browser once, read 56. When the raw rows cover the whole range the
+  // range-wide distinct count replaces the sum; when they do not (90 days, a
+  // year) the sum stays and `uniquesBasis` tells the page to label it.
+  const uniquesBasis = rangeUniques && rangeUniques.from <= range.start ? "range" : "per-day";
+  const rangeUniqueByKey = new Map();
+  if (uniquesBasis === "range") {
+    for (const r of rangeUniques.rows) {
+      if (!includeDemo && r.isDemo) continue;
+      const k = `${r.surface}|${r.path}`;
+      rangeUniqueByKey.set(k, (rangeUniqueByKey.get(k) || 0) + r.uniqueVisitors);
+    }
+  }
+  const withRangeUniques = (list, surface) =>
+    uniquesBasis === "range"
+      ? list.map((p) => ({ ...p, uniqueVisitors: rangeUniqueByKey.get(`${surface}|${p.key}`) ?? p.uniqueVisitors }))
+      : list;
+
   // ── Marketing ─────────────────────────────────────────────────────────
   const marketing = {
-    pages: topPaths(rows, "marketing", { limit: 25 }),
+    pages: withRangeUniques(topPaths(rows, "marketing", { limit: 25 }), "marketing"),
     languages: byLanguage(rows, "marketing"),
     // One word per landing — facebook / instagram / google / direct — with
     // click ids folded in, because the Facebook app sends no referrer.
@@ -82,6 +105,9 @@ export async function GET(request) {
       else if (r.event === "signup_step" && counts[r.path] !== undefined) counts[r.path] += r.count;
       else if (r.event === "checkout_started") counts.checkout_started += r.count;
     }
+    // Completed is a company on every basis — the Subscription row, never
+    // the daily event count (see signupsCompleted).
+    counts.completed = completedInRange;
     funnel = signupFunnel(counts, funnelRaw ? funnelRaw.stoppedAt : null, "events");
     if (funnelRaw) funnel.stoppedAtFrom = funnelRaw.from.toISOString().slice(0, 10);
   }
@@ -110,7 +136,7 @@ export async function GET(request) {
 
   // ── Help centre ───────────────────────────────────────────────────────
   const help = {
-    articles: topPaths(rows, "help", { limit: 25 }),
+    articles: withRangeUniques(topPaths(rows, "help", { limit: 25 }), "help"),
     searches: dimension(rows, "help_search", { surface: "help" }),
     searchesEmpty: dimension(rows, "help_search_empty", { surface: "help" }),
     languages: byLanguage(rows, "help"),
@@ -132,7 +158,7 @@ export async function GET(request) {
   };
 
   // ── Client-facing ─────────────────────────────────────────────────────
-  const clientPages = topPaths(rows, "client", { limit: 50 });
+  const clientPages = withRangeUniques(topPaths(rows, "client", { limit: 50 }), "client");
   const sum = (prefixes) =>
     clientPages.filter((p) => prefixes.some((pre) => p.key === pre || p.key.startsWith(`${pre}/`))).reduce((n, p) => n + p.count, 0);
   const client = {
@@ -162,6 +188,7 @@ export async function GET(request) {
 
   return NextResponse.json({
     range: { days: range.days, start: range.start.toISOString().slice(0, 10), end: range.end.toISOString().slice(0, 10), options: RANGES },
+    uniquesBasis,
     includeDemo,
     rawRetentionDays: RAW_RETENTION_DAYS,
     totals: {
