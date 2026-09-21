@@ -97,7 +97,7 @@ function Head({ word, meaning, source }) {
   return (
     <th className={`${TH} align-top`}>
       <div>{word}</div>
-      {meaning ? <div className="normal-case font-normal tracking-normal text-[11px] leading-snug text-muted-foreground max-w-[11rem]">{meaning}</div> : null}
+      {meaning ? <div className="normal-case font-normal tracking-normal text-[11px] leading-snug text-muted-foreground max-w-[9rem]">{meaning}</div> : null}
       {source ? <div className="normal-case font-normal tracking-normal text-[11px] text-muted-foreground/80 mt-0.5">{source}</div> : null}
     </th>
   );
@@ -261,7 +261,7 @@ export default function CallPerformanceSections({ calls, callQuality, labels, re
         <Reconciliation calls={calls} labels={labels} />
         <div className={`${CARD} p-0 overflow-hidden`}>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1180px] text-sm">
+            <table className="w-full min-w-[1100px] text-sm">
               <thead className="bg-muted">
                 <tr>
                   <Head word={labels.rep} />

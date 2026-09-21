@@ -627,6 +627,14 @@ section("The agency performance page: one computation, scoped to the team (owner
   ok("…with the source on every column", ann?.table?.sources?.dials === "twilio" && ann.table.sources.reached === "rep");
   ok("everyone's row is the team's four dials, the agency's own handset dial named as unverified, and no freelancer", report.calls.totalTable.dials === 4 && report.calls.totalTable.unverified.handset === 1 && report.calls.totalTable.buckets.realConversation === 2, report.calls.totalTable);
   ok("the reconciliation line is scoped to the team, and when the carrier was not asked it says so rather than agreeing", report.calls.reconciliation === null && report.calls.carrierError === "twilio_not_configured", { rec: report.calls.reconciliation, err: report.calls.carrierError });
+  {
+    const { buildPerformanceReport } = await import("@/lib/sales/performanceReport");
+    const legs = [{ sid: "CAe11" }, { sid: "CAe21" }, { sid: `CA${FREELANCER.id}1` }, { sid: `CA${FREELANCER.id}2` }, { sid: "CAtestline" }];
+    const scoped = buildPerformanceReport({ reps: rows.salesRep, attempts: rows.salesCallAttempt, from, to, repIds, carrierLegs: { legs, listedAll: true, error: null } });
+    ok("with the carrier read, an agency's line counts only the legs ITS attempts join — the freelancer's two legs and the test line never appear as 'unjoined'", scoped.calls.reconciliation.twilioLegs === 2 && scoped.calls.reconciliation.unjoinedLegs === 0 && scoped.calls.reconciliation.attempts === 5 && scoped.calls.reconciliation.unjoinedAttempts === 3, scoped.calls.reconciliation);
+    const platform = buildPerformanceReport({ reps: rows.salesRep, attempts: rows.salesCallAttempt, from, to, repIds: null, carrierLegs: { legs, listedAll: true, error: null } });
+    ok("…while the platform's unscoped line sees every leg, the test line included", platform.calls.reconciliation.twilioLegs === 5 && platform.calls.reconciliation.unjoinedLegs === 1, platform.calls.reconciliation);
+  }
   ok("…every attempt read was scoped to the team's ids", reads.filter((r) => r.model === "salesCallAttempt" && r.action === "findMany").every((r) => Array.isArray(r.args.where?.salesRepId?.in) && r.args.where.salesRepId.in.every((id) => repIds.includes(id))));
   ok("the call-quality section is over the team's calls only", report.callQuality.reps.every((r) => repIds.includes(r.id)) && !report.callQuality.reps.some((r) => r.id === FREELANCER.id));
 

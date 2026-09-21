@@ -142,7 +142,7 @@ export default function AgencyPerformancePage() {
   }
 
   return (
-    <div className="space-y-6 max-w-5xl" data-agency-performance>
+    <div className="space-y-6 max-w-7xl" data-agency-performance>
       <header className="space-y-1">
         <h1 className="text-xl font-semibold text-foreground flex items-center gap-2">
           <TrendingUp size={20} aria-hidden="true" /> {t("app.salesAgencyPerf.title")}

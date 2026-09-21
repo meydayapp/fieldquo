@@ -15,7 +15,7 @@ const page = params.get("page") || "platform";
 const Page = page === "agency" ? AgencyPerformancePage : page === "quality" ? AgencyCallQualityPage : PlatformPerformancePage;
 createRoot(document.getElementById("root")).render(
   <div className="bg-background text-foreground min-h-screen p-6">
-    <div className="max-w-6xl mx-auto"><Page /></div>
+    <div className="max-w-[1540px] mx-auto"><Page /></div>
   </div>,
 );
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
