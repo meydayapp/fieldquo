@@ -7,6 +7,8 @@
 // price per unit (door + drawer counted as units) plus a complexity upcharge,
 // with the reasons shown on the quote/PDF.
 
+import { resolveComplexity } from "@/lib/pricing/complexity";
+
 export const UNIT_PRICED_CATEGORIES = ["cabinet_refinishing", "cabinet_refacing"];
 
 export function isUnitPriced(categoryKey) {
@@ -70,13 +72,78 @@ export function levelUpcharge(level) {
   return l && l.upcharge != null ? l.upcharge : 0;
 }
 
-// Final per-unit price = base + upcharge (custom uses the typed amount).
-export function finalUnitPrice(group) {
+/**
+ * Final per-unit price = base + upcharge (custom uses the typed amount).
+ *
+ * ── The new factor module, and why an old quote cannot move ────────────────
+ *
+ * A group carrying `complexity: { model: "factors_v1", … }` prices from the
+ * FACTORS instead of the chip. Everything else — which is every quote written
+ * before today, and every group the estimator has not converted — falls
+ * through to the original two lines below, byte for byte. The discriminator is
+ * checked first and nothing else in this function changed, which is what
+ * scripts/check-complexity.mjs asserts against the real stored shapes,
+ * including the Custom upcharge.
+ *
+ * The new model maps its level onto the SAME per-unit grid the company already
+ * edits on the rate card — `complexityUpchargePerUnit`, Moderate and High —
+ * rather than introducing a second cabinet surcharge. Standard adds nothing;
+ * Complex takes the High figure; Specialty never gets here, because
+ * lib/pricing/complexity refuses to price it at all and the group becomes an
+ * unpriced "on-site assessment required" line instead.
+ *
+ * @param {object} group
+ * @param {object} [book]  the merged price book, when the caller has one. Only
+ *   the new model reads it; without it the same defaults as the chips apply,
+ *   so a caller that has never had a book keeps working unchanged.
+ */
+export function finalUnitPrice(group, book = null) {
   const base = Number(group.baseUnitPrice) || 0;
+
+  const factorLevel = factorComplexityLevel(group, book);
+  if (factorLevel) {
+    return base + factorLevelUpcharge(factorLevel, book);
+  }
+
   if (group.complexityLevel === "custom") {
     return base + (Number(group.complexityUpcharge) || 0);
   }
   return base + levelUpcharge(group.complexityLevel);
+}
+
+/**
+ * The factor module's level for a cabinet group, or null when the group is not
+ * on it.
+ *
+ * DERIVED on every read, never stored. A level written down beside the factors
+ * that produced it is two statements about the same job, and the copy that
+ * rots is always the one nobody looks at — here it would be the one the
+ * company's own multiplier settings had since moved underneath.
+ *
+ * Specialty returns null too, and that is not a gap: a Specialty group never
+ * reaches a unit price at all, because lib/pricing/tradeScope.js turns it into
+ * an unpriced "on-site assessment required" line before any arithmetic runs.
+ */
+function factorComplexityLevel(group, book) {
+  const resolved = resolveComplexity({
+    trade: group?.categoryKey || "cabinet_refinishing",
+    complexity: group?.complexity,
+    book,
+  });
+  if (!resolved || !resolved.priced) return null;
+  return resolved.level;
+}
+
+/** Moderate and Complex map onto the book's own two figures. */
+function factorLevelUpcharge(level, book) {
+  if (level === "standard") return 0;
+  const grid = book && typeof book === "object" ? book.complexityUpchargePerUnit : null;
+  const key = level === "complex" ? "high" : "moderate";
+  const fromBook = grid && Number(grid[key]);
+  if (Number.isFinite(fromBook)) return fromBook;
+  // No book in hand — the same two numbers the chips used, so the two paths
+  // never disagree on a company that has not customised anything.
+  return levelUpcharge(key === "high" ? "high" : "moderate");
 }
 
 export function groupUnits(group) {
@@ -86,6 +153,6 @@ export function groupUnits(group) {
 
 // Revenue from the base scope (units × final unit price). Add-on line items
 // are summed separately by the caller.
-export function unitPricingSubtotal(group) {
-  return groupUnits(group) * finalUnitPrice(group);
+export function unitPricingSubtotal(group, book = null) {
+  return groupUnits(group) * finalUnitPrice(group, book);
 }

@@ -51,6 +51,29 @@ export const TRADE_PRICE_BOOKS = {
     // DOLLARS added to the unit price, not a percentage — an ornate kitchen
     // costs a fixed amount more per face to prep, regardless of the base rate.
     complexityUpchargePerUnit: { standard: 0, moderate: 20, high: 40 },
+    // ── The factor-based complexity module's settings ────────────────────
+    //
+    // Multipliers on LABOUR HOURS only — lib/pricing/complexity/index.js says
+    // why, and cabinet REVENUE still comes from the per-unit grid above, so a
+    // kitchen is never surcharged twice for the same difficulty.
+    //
+    // PROVENANCE, and it is not the same as the rest of this file: these two
+    // figures came from a ChatGPT summary of trade practice written for the
+    // product owner. No FieldQuo job was timed to produce them. They are an
+    // opening position he expects to tune, which is why they are editable here
+    // and on the trade's rate card rather than constants in code.
+    //
+    // `force.darkToLight` is his switch, OFF by default: turned on, a
+    // dark-to-light kitchen becomes a Specialty — no automatic price, an
+    // on-site assessment instead. Stored 1/0 because lib/pricing/sanitiseRates
+    // .js coerces every declared field to a finite number; a boolean would be
+    // dropped on the way in and the toggle would write nothing. There is no
+    // `veneer` key here: cabinets have no veneer answer to force on, and a
+    // switch nothing reads is the dead control AGENTS.md names first.
+    complexityFactors: {
+      multiplier: { moderate: 1.25, complex: 1.75 },
+      force: { darkToLight: 0 },
+    },
     addOns: {
       handleHolesPerDoor: 12,
       softCloseHingesPerDoor: 35,
@@ -76,6 +99,14 @@ export const TRADE_PRICE_BOOKS = {
     perDoor: 550,
     perDrawer: 350,
     complexityUpchargePerUnit: { standard: 0, moderate: 20, high: 40 },
+    // Same module, same provenance caveat as refinishing above. Refacing reads
+    // the same factor list (lib/pricing/complexity/cabinets.js) because the
+    // questions are the same questions — the difference between the two trades
+    // is what you buy, not what makes the kitchen hard.
+    complexityFactors: {
+      multiplier: { moderate: 1.25, complex: 1.75 },
+      force: { darkToLight: 0 },
+    },
 
     // Selecting a material seeds perDoor/perDrawer and supplies the cost basis.
     // costPerSqft is what the door costs YOU, per square foot of face.
@@ -172,6 +203,16 @@ export const TRADE_PRICE_BOOKS = {
       },
     },
     basementTreadPrice: 110,
+    // The factor module's settings for the trade it was built for. Fourteen
+    // factors (lib/pricing/complexity/stairs.js) came from the owner's own
+    // research; the two multipliers below came from a ChatGPT summary of trade
+    // practice written for him, and no staircase was timed to produce them.
+    // Both of his forcing switches apply here — a staircase is the only trade
+    // in the book with a veneer stringer to force on.
+    complexityFactors: {
+      multiplier: { moderate: 1.25, complex: 1.75 },
+      force: { darkToLight: 0, veneer: 0 },
+    },
   },
 
   // ── Hardwood flooring ─────────────────────────────────────────────────
@@ -1037,6 +1078,22 @@ export const TRADE_PRICE_BOOKS = {
 
   roofing_service: {
     label: "Roofing",
+
+    // The factor module's settings. Seven factors in
+    // lib/pricing/complexity/roofing.js describe the roof's CONDITION; the
+    // takeoff below still measures its QUANTITIES, and lib/pricing/roofLabour
+    // .js still itemises hours from those. The multiplier lands once, on the
+    // total, in tradeLabourHours() — never on the bundles.
+    //
+    // Same provenance caveat as the other two books: 1.25 and 1.75 came from a
+    // ChatGPT summary of trade practice written for the product owner, not
+    // from a measured job. Neither forcing switch is declared here, because no
+    // roofing answer forces a Specialty on its own — the specialty threshold
+    // does that work, and a switch with nothing to switch would be a dead
+    // control.
+    complexityFactors: {
+      multiplier: { moderate: 1.25, complex: 1.75 },
+    },
 
     // Keyed map, not an array — mergeDeep replaces arrays wholesale, so a
     // company editing one shingle rate on the rate card would silently discard
@@ -1981,6 +2038,12 @@ export const PRICE_BOOK_GROUPS = {
   standard: "Standard complexity",
   moderate: "Moderate complexity",
   high: "High complexity",
+  // The factor-based module. The heading carries the provenance because this
+  // is the one place the person changing the numbers is looking at them, and
+  // "1.25" with no story behind it reads like a measurement.
+  complexityFactors:
+    "Complexity multipliers — applied to LABOUR HOURS only, never to materials. Starting figures from a summary of trade practice, not from a measured job; tune them against your own closed jobs.",
+  complexityForce: "Force an on-site assessment",
   inspectionBands: "Full home inspection — by living area",
   inspectionWarranty: "New-build warranty inspections",
   inspectionAncillary: "Ancillary inspections and testing",
@@ -2093,6 +2156,9 @@ export const PRICE_BOOK_FIELDS = {
       suffix: "$ / tread",
       step: 1,
     },
+    // Stairs is the trade the factor module was built for, and the only one
+    // with a veneer answer to force on.
+    ...complexityFactorFields({ forces: ["darkToLight", "veneer"] }),
   ],
   flooring: complexityFields("flooring", [
     ["pricePerSqft", "Refinishing", "$ / sqft"],
@@ -2968,6 +3034,9 @@ export const PRICE_BOOK_FIELDS = {
       step: 0.01,
       group: "roofMaterialCost",
     },
+    // No forcing switches: lib/pricing/complexity/roofing.js has no answer
+    // that forces a Specialty on its own.
+    ...complexityFactorFields(),
   ],
 
   siding: [
@@ -3461,6 +3530,9 @@ function cabinetFields() {
       step: 1,
     },
     { path: "minimumTotal", label: "Job minimum", suffix: "$", step: 100 },
+    // Both cabinet trades read lib/pricing/complexity/cabinets.js, whose only
+    // forcing answer is dark → light.
+    ...complexityFactorFields({ forces: ["darkToLight"] }),
   ];
 }
 
@@ -3495,6 +3567,66 @@ function paintCoverageFields() {
     group: "paintCoverage",
     internal: true,
   }));
+}
+
+/**
+ * The factor-based complexity module's editable settings, as rate-card rows.
+ *
+ * TWO kinds of row, and the second is why `type: "toggle"` exists at all:
+ *
+ *   multipliers  plain numbers, ×1.25 and ×1.75 by default, applied to LABOUR
+ *                HOURS. `internal: true` — an hours coefficient is not a price
+ *                and must never reach a homeowner-facing surface
+ *                (non-negotiable #4); priceBookBasis skips internal rows, so
+ *                declaring them here does not make the settings screen claim
+ *                this trade charges "per ×".
+ *   force        the owner's two switches, stored 1/0. A boolean would not
+ *                survive lib/pricing/sanitiseRates.js, which coerces every
+ *                declared field to a finite number — so the switch is a number
+ *                and RateCard renders it as a checkbox.
+ *
+ * Declared per trade rather than appended to every book: a trade with no
+ * factor list has nothing to multiply, and rows on its card would be the dead
+ * control this codebase keeps getting swept for. `forces` names only the
+ * switches that trade's factor list actually reads.
+ */
+function complexityFactorFields({ forces = [] } = {}) {
+  const rows = [
+    {
+      path: "complexityFactors.multiplier.moderate",
+      label: "Moderate — labour hours ×",
+      suffix: "×",
+      step: 0.05,
+      group: "complexityFactors",
+      internal: true,
+    },
+    {
+      path: "complexityFactors.multiplier.complex",
+      label: "Complex — labour hours ×",
+      suffix: "×",
+      step: 0.05,
+      group: "complexityFactors",
+      internal: true,
+    },
+  ];
+  // Specialty has no row on purpose. "No automatic price" is not a number a
+  // company can tune, and a box holding 1.00 beside the other two would read
+  // as though it were.
+  const FORCE_LABELS = {
+    darkToLight: "Dark → light is always an on-site assessment",
+    veneer: "Veneer is always an on-site assessment",
+  };
+  for (const key of forces) {
+    rows.push({
+      path: `complexityFactors.force.${key}`,
+      label: FORCE_LABELS[key],
+      suffix: "off / on",
+      type: "toggle",
+      group: "complexityForce",
+      internal: true,
+    });
+  }
+  return rows;
 }
 
 function complexityFields(categoryKey, rows) {

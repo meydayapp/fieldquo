@@ -77,6 +77,13 @@ export default function RateCard({ category, overrides, onChange, defaultOpen = 
   // `type` decides how the value is stored, not just how it renders. Most of a
   // rate card is money, but a few fields are the wording a quote prints — the
   // garage-door spec and warranty lines — and Number("Made in Canada") is NaN.
+  //
+  // `toggle` is a THIRD kind and stores 1, never `true`. lib/pricing/
+  // sanitiseRates.js keeps only declared paths and coerces each to a finite
+  // number, so a boolean would be dropped on the way to the database and the
+  // switch would be a control that appears to work and doesn't. Unticking
+  // clears the key rather than writing 0, which is the same "go back to
+  // inheriting" every other field on this card offers.
   function setField(path, raw, type = "number") {
     const next = structuredClone(overrides || {});
     const parts = path.split(".");
@@ -156,21 +163,41 @@ export default function RateCard({ category, overrides, onChange, defaultOpen = 
                       <span className="hidden w-24 text-right text-xs text-muted-foreground sm:block">
                         {field.suffix}
                       </span>
-                      <input
-                        type={field.type === "text" ? "text" : "number"}
-                        {...(field.type === "text"
-                          ? {}
-                          : { step: field.step ?? 1 })}
-                        value={effective ?? ""}
-                        onChange={(e) =>
-                          setField(field.path, e.target.value, field.type)
-                        }
-                        className={`${field.type === "text" ? textInputClass : inputClass} ${
-                          isOverridden
-                            ? "border-amber-400 bg-amber-50 dark:bg-amber-950/30"
-                            : ""
-                        }`}
-                      />
+                      {/* A switch is a checkbox, not a box you type 1 into.
+                          It occupies the same slot as the number input so the
+                          rows in a block still line up. */}
+                      {field.type === "toggle" ? (
+                        <span className="flex w-28 justify-end">
+                          <input
+                            type="checkbox"
+                            checked={Number(effective) === 1}
+                            onChange={(e) =>
+                              setField(
+                                field.path,
+                                e.target.checked ? 1 : "",
+                                "toggle",
+                              )
+                            }
+                            className="h-4 w-4 accent-foreground"
+                          />
+                        </span>
+                      ) : (
+                        <input
+                          type={field.type === "text" ? "text" : "number"}
+                          {...(field.type === "text"
+                            ? {}
+                            : { step: field.step ?? 1 })}
+                          value={effective ?? ""}
+                          onChange={(e) =>
+                            setField(field.path, e.target.value, field.type)
+                          }
+                          className={`${field.type === "text" ? textInputClass : inputClass} ${
+                            isOverridden
+                              ? "border-amber-400 bg-amber-50 dark:bg-amber-950/30"
+                              : ""
+                          }`}
+                        />
+                      )}
                       {isOverridden ? (
                         <button
                           type="button"
