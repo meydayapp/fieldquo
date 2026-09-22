@@ -1423,6 +1423,36 @@ model Company {
   quoteEmailIncludeReferences  Boolean @default(false)
   quoteEmailIncludeBeforeAfter Boolean @default(false)
 
+  // ── The client proposal (the mini-site a quote link opens) ───────────────
+  //
+  // What a homeowner reads BESIDE the quote: who the company is, what its
+  // work looks like, whether it is insured, what past clients said. Typed
+  // once, loaded on every quote (app/q/[token]), with a per-quote override in
+  // Quote.presentation. See lib/proposal/sections.js.
+  //
+  // story / storyHeadline / storyVideoUrl / teamPhotoUrl — the "About us"
+  // section. Null means the section is not rendered and not listed in the
+  // proposal's table of contents; nothing is invented in its place.
+  story          String?
+  storyHeadline  String?
+  storyVideoUrl  String?
+  teamPhotoUrl   String?
+  // Which proposal sections are ON for a new quote, by key
+  // ({ about, beforeAfter, documents, testimonials, services } → boolean).
+  // Null means every section with content behind it is on — the reason a
+  // company typed a story is to show it. A section with nothing behind it is
+  // never rendered whatever this says.
+  proposalSections Json?
+  // Stamped once the two older before/after stores — this column's
+  // quoteEmailBeforeAfter and the website's beforeafter block — were copied
+  // into CompanyGalleryPair (lib/company/gallery.js). Additive: the old
+  // columns are left as they were. Null = not merged yet.
+  galleryMergedAt DateTime?
+
+  galleryPairs       CompanyGalleryPair[]
+  companyDocuments   CompanyDocument[]
+  documentSignatures DocumentSignature[]
+
   pendingTeamProfiles PendingTeamProfile[]
   customFields        CustomField[]
 
@@ -2823,6 +2853,17 @@ model Quote {
   // Removing a section is turning the flag above off.
   emailReferences  Json?
   emailBeforeAfter Json?
+
+  // Per-quote overrides for the client proposal — see lib/proposal/sections.js.
+  //   { sections: { about: bool|null, beforeAfter, documents, testimonials,
+  //                 services },           null = follow Company.proposalSections
+  //     documentIds: string[] | null,     which library documents to show;
+  //                                       null = every document marked showOnQuotes
+  //     crewSize: number | null }         crew for the day-by-day plan; null =
+  //                                       the costing's named crew, else no plan
+  // Null means "company defaults throughout", the same three-state rule the
+  // email sections above use and for the same reason.
+  presentation Json?
 
   // Last AI review. Stored rather than recomputed so reopening the quote
   // doesn't spend tokens again, and so a review can be dismissed item by item
@@ -18430,4 +18471,137 @@ model CallbackEntry {
 
   @@unique([listId, clientId])
   @@index([companyId, clientId])
+}
+
+// ============================================================
+// CLIENT PROPOSAL — gallery, document library, waivers
+// ============================================================
+
+/// One before/after pair in the company's ONE gallery.
+///
+/// Until 2026-09-21 pairs lived in two places that could disagree: the
+/// website's `beforeafter` block (CompanySite.blocks/pages content.pairs)
+/// and Company.quoteEmailBeforeAfter for the covering email. The owner's
+/// decision (client mockup §2) is one gallery: the website block, the quote
+/// email and the proposal page all read this table, and the two older stores
+/// were copied in additively — never deleted — on first read
+/// (lib/company/gallery.js).
+///
+/// Removing a pair sets `removedAt` rather than deleting the row, so an
+/// accidental removal is reversible and the migration marker on Company can
+/// never resurrect a pair the owner took down.
+model CompanyGalleryPair {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  beforeUrl      String
+  afterUrl       String
+  beforePublicId String?
+  afterPublicId  String?
+  caption        String?
+  sortOrder      Int     @default(0)
+  /// "manual" | "quote_email" | "website" — where the pair came from. The two
+  /// migrated sources keep their name so a support screen can say why a pair
+  /// the owner never uploaded here is in the gallery.
+  source    String    @default("manual")
+  removedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([companyId, removedAt, sortOrder])
+}
+
+/// The company's document library: insurance, licence, WSIB/CNESST
+/// clearance, warranty, product data sheets, waivers.
+///
+/// Client-facing when `showOnQuotes` is true and the document has not
+/// expired — the "Important documents" section of the proposal. An expired
+/// document is flagged in /app and hidden from every client surface
+/// automatically (lib/company/documents.js isExpired): a certificate a
+/// homeowner can open must never be one that has lapsed.
+///
+/// A `waiver` has no file: its `body` is { sections: [{ heading, text }],
+/// acknowledgements: [string] }, rendered in plain sections to the client,
+/// who must tick every acknowledgement before the Sign button unlocks
+/// (lib/waivers/signing.js). The text is stored in the language it was
+/// written in and shown as-is — AGENTS.md non-negotiable #6.
+model CompanyDocument {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  /// insurance | licence | wsib | warranty | datasheet | waiver | other
+  type    String  @default("other")
+  title   String
+  /// One line under the title on the client's card — "$2M liability · to
+  /// Mar 31, 2027". Typed by the company; never derived from the expiry
+  /// date, which is shown to the company and not to the client.
+  summary      String?
+  fileUrl      String?
+  filePublicId String?
+  mimeType     String?
+  expiresAt    DateTime?
+  showOnQuotes Boolean   @default(true)
+  sortOrder    Int       @default(0)
+  /// Waivers only — see the model comment.
+  body Json?
+  /// Waivers only: attach a pending signature to every new quote / job /
+  /// invoice automatically. Off by default: a release a homeowner must sign
+  /// is a decision the company makes per document.
+  attachToQuotes   Boolean   @default(false)
+  attachToJobs     Boolean   @default(false)
+  attachToInvoices Boolean   @default(false)
+  archivedAt       DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  signatures DocumentSignature[]
+
+  @@index([companyId, archivedAt, sortOrder])
+}
+
+/// A waiver attached to a quote, a job or an invoice, and — once the client
+/// has ticked every acknowledgement and signed — the record of that.
+///
+/// `token` is the public credential for /w/[token] (a waiver sent on its own,
+/// off a job or an invoice); a waiver attached to a quote is also reachable
+/// inside the quote's proposal page. `acknowledgements` is the list of lines
+/// AS THEY WERE at signing, each with the tick's timestamp, and they are part
+/// of `documentHash` — so a later edit to the waiver text cannot change what
+/// was agreed. `signature` is the same audit shape Quote.signature carries
+/// (lib/documents/signatureAudit.js): name, PNG, consent, IP, user agent.
+///
+/// No relations to Quote/Job/Invoice: a signed release outlives what it was
+/// attached to, the same reasoning as JobDocument.sourceQuoteId.
+model DocumentSignature {
+  id         String          @id @default(cuid())
+  companyId  String
+  company    Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  documentId String
+  document   CompanyDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  token     String  @unique
+  quoteId   String?
+  jobId     String?
+  invoiceId String?
+  clientId  String?
+
+  /// "pending" | "signed"
+  status           String    @default("pending")
+  /// [{ text, tickedAt }] — filled at signing.
+  acknowledgements Json?
+  signature        Json?
+  signedAt         DateTime?
+  documentHash     String?
+  /// The JobDocument row the signed PDF was filed as, when a job existed.
+  jobDocumentId    String?
+  /// When the link was last emailed to the client.
+  sentAt           DateTime?
+  createdAt        DateTime  @default(now())
+
+  @@index([companyId, status])
+  @@index([quoteId])
+  @@index([jobId])
+  @@index([invoiceId])
+  @@index([clientId, status])
 }

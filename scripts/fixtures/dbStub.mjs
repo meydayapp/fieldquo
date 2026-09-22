@@ -216,6 +216,12 @@ export const rows = {
   // is arithmetic inside a loop, not a sentence in a file.
   availabilitySchedule: [],
   leaveRequest: [],
+  // The client proposal (2026-09-21): the one gallery, the document library
+  // and the waiver signatures. Empty by default — a company with nothing set
+  // up — which is exactly the state the proposal must render nothing for.
+  companyGalleryPair: [],
+  companyDocument: [],
+  documentSignature: [],
 };
 
 /** Every write the product attempted, in order: { model, action, data }. */
@@ -652,6 +658,9 @@ export const db = new Proxy(
     smsOptOut: model("smsOptOut"),
     availabilitySchedule: model("availabilitySchedule"),
     leaveRequest: model("leaveRequest"),
+    companyGalleryPair: model("companyGalleryPair"),
+    companyDocument: model("companyDocument"),
+    documentSignature: model("documentSignature"),
     serviceCategory: model("serviceCategory"),
     client: model("client"),
     quote: model("quote"),

@@ -167,7 +167,7 @@ export const SCREENS = [
   // the two server-rendered pages (website, bio link) would have computed.
   // Taller frames where the point of the page is at its foot: the add-ons
   // and the Approve button, the plan under the designer's palette.
-  { slug: "client-quote-approval", href: "/q/qt_8f2c1a7d4e", page: "app/q/[token]/QuoteApproval.js", props: { token: "qt_8f2c1a7d4e" }, mode: "public", height: 2400, chapter: "help" },
+  { slug: "client-quote-approval", href: "/q/qt_8f2c1a7d4e", page: "app/q/[token]/QuoteApproval.js", props: { token: "qt_8f2c1a7d4e" }, mode: "public", height: 5000, chapter: "help" },
   { slug: "client-booking-page", href: "/book/erable-design", page: "app/book/[companySlug]/BookingFlow.js", props: { companySlug: "erable-design" }, mode: "public", wrap: "bookingPage", scene: "booking-pick", chapter: "help" },
   { slug: "client-portal", href: "/portal/pt_3a9d7c2f1b", page: "app/portal/[token]/ClientPortal.js", props: { token: "pt_3a9d7c2f1b" }, mode: "public", chapter: "help" },
   { slug: "client-instant-estimate", href: "/instant-quote/erable-design", page: "app/instant-quote/[companySlug]/InstantQuoteFlow.js", props: { companySlug: "erable-design" }, mode: "public", scene: "instant-pick", chapter: "help" },
@@ -291,4 +291,14 @@ export const SCREENS = [
   { slug: "paint-substrate-picker", href: "/app/quotes/new", page: "docs/screens/app-guide/harness/TakeoffFrame.jsx", props: { trade: "interior_painting" }, mode: "public", scene: "paint-substrate-picker", width: 1200, height: 1000, out: "docs/screens/paint-takeoff", chapter: "paint-takeoff" },
   { slug: "paint-settings-rates", href: "/app/settings/services", page: "docs/screens/app-guide/harness/PaintRatesFrame.jsx", mode: "public", scene: "paint-rates-open", width: 1000, height: 1500, out: "docs/screens/paint-takeoff", chapter: "paint-takeoff" },
   { slug: "paint-staining", href: "/app/quotes/new", page: "docs/screens/app-guide/harness/TakeoffFrame.jsx", props: { trade: "interior_painting", seed: "staining" }, mode: "public", width: 1200, height: 1400, out: "docs/screens/paint-takeoff", chapter: "paint-takeoff" },
+  // The proposal at phone width (client mockup §1): the contents collapse
+  // into a chip bar under the sticky header. Appended, never inserted — NN
+  // is the row's index.
+  { slug: "client-quote-approval-mobile", href: "/q/qt_8f2c1a7d4e", page: "app/q/[token]/QuoteApproval.js", props: { token: "qt_8f2c1a7d4e" }, mode: "public", width: 375, height: 5600, chapter: "help" },
+  // Settings › Presentation (client mockup §2) — not a sidebar row; reached
+  // from Quote Email, a quote's Presentation panel and the set-up steps.
+  { slug: "settings-presentation", href: "/app/settings/presentation", page: "app/app/settings/presentation/page.js", chapter: "help", height: 2600 },
+  // The quote page with its Presentation tab open — per-quote on/off, the
+  // documents to include, the crew size behind the day plan, the waiver.
+  { slug: "quote-detail-presentation", href: "/app/quotes", page: "app/app/quotes/[id]/page.js", params: { id: "q_1044" }, scene: "quote-presentation", chapter: "help", height: 1600 },
 ];

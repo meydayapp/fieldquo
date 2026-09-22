@@ -13,6 +13,7 @@ import { useState } from "react";
 import { X, ImagePlus, Eye, EyeOff, Loader2 } from "lucide-react";
 import { BLOCK_TYPES } from "@/app/data/siteBlocks";
 import { fetchJson } from "@/lib/fetchJson";
+import Link from "next/link";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
 export function BlockEditor({ block, onChange, onToggle, onError }) {
@@ -119,9 +120,25 @@ export function BlockEditor({ block, onChange, onToggle, onError }) {
               the copy is the one that rots. Keys listed in `imagePair` get an
               uploader instead of a text input, because a before/after pair holds
               image URLs. */}
-          {def.repeats && def.repeats !== "images" && (
+          {/* Before/after pairs are the company's ONE gallery since
+              2026-09-21 (lib/company/gallery.js): the public page renders
+              the gallery, not this block's copy, so an editor for the copy
+              here would be a control that appears to work and doesn't. The
+              gallery is edited from Fine-tune › Before & after pairs on this
+              page and from Settings › Presentation. */}
+          {block.type === "beforeafter" ? (
+            <p className="text-xs text-muted-foreground">
+              {t(
+                "app.sectionEditor.gallerySource",
+                "These pairs come from your company gallery — the same pairs on your quote email and your client proposals. Edit them under Fine-tune › Before & after pairs, or in Settings › Presentation.",
+              )}{" "}
+              <Link href="/app/settings/presentation#gallery" className="underline underline-offset-2 text-foreground">
+                {t("app.sectionEditor.openGallery", "Open the gallery")}
+              </Link>
+            </p>
+          ) : def.repeats && def.repeats !== "images" ? (
             <RepeatEditor def={def} block={block} onChange={onChange} onError={onError} />
-          )}
+          ) : null}
         </div>
       )}
     </div>

@@ -2,7 +2,7 @@
 //
 // Which component each set-up step opens in its dialog on the home page —
 // the onboarding checklist's five (lib/onboarding.js) and the "Additional
-// set-up steps" card's ten (lib/setupSteps.js; the eleventh, "Invite your
+// set-up steps" card's fourteen (lib/setupSteps.js; the fifteenth, "Invite your
 // team", has had its own popup since 2026-09-18 and keeps it).
 //
 // ══ The rule ═══════════════════════════════════════════════════════════════
@@ -80,6 +80,13 @@ const MaterialCostsEditor = lazy(() => import("@/app/app/settings/material-costs
 const ProductCatalogue = lazy(() => import("@/app/app/settings/products/ProductCatalogue"));
 const EmailTemplatesManager = lazy(() => import("@/app/app/settings/email-templates/EmailTemplatesManager"));
 const PastJobsEntry = lazy(() => import("@/app/app/jobs/import/PastJobsEntry"));
+// The client proposal's four (2026-09-21). Story / gallery / documents are
+// the editors Settings › Presentation renders; reviews is the Google
+// Business Profile card from Settings › Reviews.
+const StoryEditor = lazy(() => import("@/app/components/settings/StoryEditor"));
+const GalleryEditor = lazy(() => import("@/app/components/settings/GalleryEditor"));
+const CompanyDocumentsEditor = lazy(() => import("@/app/components/settings/CompanyDocumentsEditor"));
+const GoogleReviewsPanel = lazy(() => import("@/app/components/dashboard/panels/GoogleReviewsPanel"));
 
 /**
  * @typedef {object} StepPanel
@@ -136,6 +143,28 @@ export const STEP_PANELS = {
     render: ({ onChanged }) => (
       <PaymentScheduleEditor canEdit onSaved={onChanged} onCleared={onChanged} />
     ),
+  },
+  story: {
+    finish: "save",
+    introKey: "app.presentation.story.cardHint",
+    introFallback: "The “About us” section on every quote — in your own words.",
+    render: ({ onSaved }) => <StoryEditor compact onSaved={onSaved} />,
+  },
+  gallery: {
+    finish: "list",
+    introKey: "app.presentation.gallery.cardHint",
+    introFallback: "One gallery, shared with your website and quote emails.",
+    render: ({ onChanged }) => <GalleryEditor compact onChanged={onChanged} />,
+  },
+  documents: {
+    finish: "list",
+    introKey: "app.presentation.documents.cardHint",
+    introFallback: "Shown under “Important documents” on every quote; expiry dates are yours, never the client's.",
+    render: ({ onChanged }) => <CompanyDocumentsEditor compact onChanged={onChanged} />,
+  },
+  google_reviews: {
+    finish: "list",
+    render: ({ onChanged }) => <GoogleReviewsPanel onChanged={onChanged} />,
   },
   quote_process: {
     finish: "save",
