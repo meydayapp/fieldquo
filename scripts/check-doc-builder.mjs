@@ -191,8 +191,8 @@ ok("the quote page imports the sections from app/components/document", /from "@\
 // The tells of a second copy: the brand rule, the total band, the masthead
 // word. Each lives in QuoteDocument.js and nowhere else.
 for (const [tell, why] of [
-  ['className="flex h-1.5" aria-hidden="true"', "the brand rule"],
-  ["rounded-xl bg-inverted text-inverted-foreground px-4 py-3 mt-2", "the total band"],
+  ['className="flex h-[5px]" aria-hidden="true"', "the brand rule"],
+  ["rounded-md bg-inverted text-inverted-foreground px-2.5 py-2 mt-1 font-bold", "the total band"],
   ['className="px-5 sm:px-7 pt-5 pb-4 border-b border-border"', "the masthead"],
 ]) {
   ok(`${why} is drawn once, in QuoteDocument.js`, sections.includes(tell) && !builder.includes(tell) && !page.includes(tell));

@@ -87,41 +87,40 @@ export default function SettingsIndexPage() {
               <section
                 key={group.key}
                 aria-labelledby={`settings-${group.key}`}
-                className={`rounded-xl border bg-card p-3 ${tradeCard ? "border-dashed border-sidebar-primary" : "border-border"}`}
+                // The mockup's tile (`.mk-s .tile`, s2): a 34px icon box,
+                // 13px title, the hint, then the rows as one wrapped line of
+                // 12px links. A trade-gated row keeps its dashed outline.
+                className={`rounded-[10px] border bg-card p-3 flex gap-2.5 items-start min-w-0 ${tradeCard ? "border-dashed border-sidebar-primary" : "border-border"}`}
               >
-                <div className="flex items-start gap-3 px-1 pb-2">
-                  {Icon && (
-                    <span className="w-9 h-9 rounded-lg bg-muted text-inverted flex items-center justify-center shrink-0">
-                      <Icon size={18} />
-                    </span>
-                  )}
-                  <div className="min-w-0">
-                    <h2 id={`settings-${group.key}`} className="text-sm font-semibold text-foreground">
-                      {t(group.key)}
-                    </h2>
-                    {meta.hint && <p className="text-xs text-muted-foreground">{t(meta.hint)}</p>}
-                  </div>
+                {Icon && (
+                  <span className="w-[34px] h-[34px] rounded-lg bg-muted text-inverted flex items-center justify-center shrink-0">
+                    <Icon size={16} />
+                  </span>
+                )}
+                <div className="min-w-0 flex-1">
+                  <h2 id={`settings-${group.key}`} className="text-[13px] font-semibold text-foreground">
+                    {t(group.key)}
+                  </h2>
+                  {meta.hint && <p className="text-xs text-muted-foreground">{t(meta.hint)}</p>}
+                  <ul className="mt-1.5 flex flex-wrap gap-x-2.5 gap-y-1">
+                    {group.items.map((item) => {
+                      const gated = item.key in SETTINGS_ROW_TRADE_GATE;
+                      return (
+                        <li key={item.href} className="min-w-0">
+                          <Link
+                            href={item.href}
+                            data-nav-row
+                            className={`inline-flex items-center min-h-[28px] rounded-full px-2 text-xs text-muted-foreground hover:bg-sidebar-panel-accent hover:text-foreground ${
+                              gated ? "border border-dashed border-sidebar-primary/60" : ""
+                            }`}
+                          >
+                            {t(item.key)}
+                          </Link>
+                        </li>
+                      );
+                    })}
+                  </ul>
                 </div>
-                <ul className="space-y-0.5">
-                  {group.items.map((item) => {
-                    const RowIcon = item.icon;
-                    const gated = item.key in SETTINGS_ROW_TRADE_GATE;
-                    return (
-                      <li key={item.href}>
-                        <Link
-                          href={item.href}
-                          data-nav-row
-                          className={`flex items-center gap-3 px-2.5 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:bg-sidebar-panel-accent hover:text-foreground ${
-                            gated ? "border border-dashed border-sidebar-primary/60" : ""
-                          }`}
-                        >
-                          <RowIcon size={16} className="shrink-0" />
-                          <span className="truncate">{t(item.key)}</span>
-                        </Link>
-                      </li>
-                    );
-                  })}
-                </ul>
               </section>
             );
           })}

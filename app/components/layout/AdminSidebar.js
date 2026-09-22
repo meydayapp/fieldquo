@@ -12,6 +12,7 @@ import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvide
 import TrialBadge from "@/app/components/layout/TrialBadge";
 import NavDrawer from "@/app/components/layout/NavDrawer";
 import {
+  Plus,
   MessageSquare,
   MessageCircle,
   Home,
@@ -459,7 +460,7 @@ export default function AdminSidebar() {
     const showLabel = forceExpanded || !collapsed;
     return (
       <nav
-        className="flex-1 min-h-0 px-3 py-2 space-y-0.5 overflow-y-auto"
+        className="flex-1 min-h-0 px-2.5 py-1 space-y-0.5 overflow-y-auto"
         aria-label={t("app.nav.mainMenu")}
         onKeyDown={onRowsKeyDown}
       >
@@ -480,7 +481,7 @@ export default function AdminSidebar() {
                   noise, and there is nothing to toggle. */}
               {showLabel &&
                 (group.pinned ? (
-                  <div className="px-3 pb-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-sidebar-muted-foreground">
+                  <div className="px-2 pt-1 pb-[3px] text-[10px] font-semibold uppercase tracking-[0.12em] text-sidebar-muted-foreground">
                     {t(group.key)}
                   </div>
                 ) : (
@@ -489,7 +490,7 @@ export default function AdminSidebar() {
                     onClick={() => toggle(group.key)}
                     aria-expanded={open}
                     data-nav-row
-                    className="w-full flex items-center gap-1.5 px-3 py-0.5 mb-0.5 rounded-lg text-[10px] font-semibold uppercase tracking-[0.12em] text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
+                    className="w-full flex items-center gap-1.5 px-2 pt-1 pb-[3px] rounded-lg text-[10px] font-semibold uppercase tracking-[0.12em] text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
                   >
                     <span className="truncate">{t(group.key)}</span>
                     <ChevronDown
@@ -517,7 +518,7 @@ export default function AdminSidebar() {
             {row(MORE_ITEM, {
               forceExpanded,
               trailing: (
-                <span className="ml-auto text-[10px] font-bold rounded-full px-2 py-0.5 bg-sidebar-accent text-sidebar-accent-foreground">
+                <span className="ml-auto text-[10px] font-bold rounded-full px-[7px] py-px bg-sidebar-accent text-sidebar-accent-foreground">
                   {moreCount}
                 </span>
               ),
@@ -549,19 +550,8 @@ export default function AdminSidebar() {
           ) : (
             <Logo variant="icon" href="/app" height={26} priority />
           )}
-          {/* Expand / contract — desktop only, beside the logo rather than a
-              row of its own at the foot: that row was the 36px that pushed
-              the AI group under the fold of an 860px window. */}
-          <button
-            type="button"
-            onClick={() => setCollapsed((v) => !v)}
-            aria-label={collapsed ? t("app.sidebar.expand") : t("app.sidebar.collapse")}
-            title={collapsed ? t("app.sidebar.expand") : t("app.sidebar.collapse")}
-            data-rail-toggle
-            className="hidden lg:flex h-8 w-8 items-center justify-center rounded-lg text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-          >
-            {collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
-          </button>
+          {/* Expand / contract lives in the foot now (mockup s1: a
+              "Collapse" row under the trial line) — see the foot below. */}
           <button
             type="button"
             onClick={() => setMobileOpen(false)}
@@ -582,16 +572,34 @@ export default function AdminSidebar() {
             two search boxes 60px apart was the settings sidebar's old wart,
             and the 48px go to the rows: with it, the AI group sat below the
             fold of an 860px window. */}
+        {/* ── Create, then Search — the mockup's two rows under the logo ──
+            (`.mk-s .rail .create` / `.rail .search`). Create is the brand
+            fill at radius 8 and opens the same quick-add menu the top bar's
+            button and the phone's floating + open (CreateMenu.js, one
+            overlay). Search is the translucent pill with the `/` key. Both
+            only while expanded and on the main list — in 76px there is no
+            room for either, and the top bar has both one click away. */}
         {showLabel && !slid && (
-          <div className="px-3 pt-2 xl:hidden">
+          <div className="px-2.5 pt-2.5 space-y-1.5">
+            <button
+              type="button"
+              onClick={() => shell.toggle("create")}
+              aria-haspopup="menu"
+              className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-[13px] font-semibold bg-sidebar-primary text-sidebar-primary-foreground hover:brightness-105"
+              data-rail-create
+            >
+              <Plus size={16} strokeWidth={2.4} className="shrink-0" />
+              <span className="truncate">{t("app.quickAdd.title")}</span>
+            </button>
             <button
               type="button"
               onClick={() => shell.open("search")}
-              className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm bg-sidebar-accent text-sidebar-muted-foreground border-sidebar-border hover:text-sidebar-accent-foreground"
+              className="w-full flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs bg-white/[0.12] text-sidebar-muted-foreground hover:text-sidebar-foreground"
+              data-rail-search
             >
-              <Search size={14} className="shrink-0" />
+              <Search size={13} className="shrink-0" />
               <span className="truncate">{t("app.search.placeholderShort")}</span>
-              <kbd className="ml-auto text-[11px] font-mono border border-sidebar-border rounded px-1.5 text-sidebar-muted-foreground">/</kbd>
+              <kbd className="ml-auto text-[11px] font-mono border border-white/25 rounded px-[5px]">/</kbd>
             </button>
           </div>
         )}
@@ -633,7 +641,7 @@ export default function AdminSidebar() {
         {/* Pinned footer — Settings (the slide's handle), the trial badge,
             Collapse. On the phone drawer the identity chip and Log Out ride
             here too, because the phone has no avatar menu in its bar. */}
-        <div className="px-3 py-2 border-t border-sidebar-border space-y-0.5">
+        <div className="px-2.5 py-2 border-t border-sidebar-border space-y-0.5">
           {settingsItem && (
             <Link
               href={settingsItem.href}
@@ -652,7 +660,7 @@ export default function AdminSidebar() {
               data-tour="nav-settings"
               data-nav-row
               aria-current={inSettings ? "page" : undefined}
-              className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              className={`flex items-center gap-2.5 px-2.5 py-[7px] rounded-lg text-[13px] font-medium transition-colors ${
                 showLabel ? "" : "justify-center"
               } ${
                 inSettings
@@ -660,9 +668,9 @@ export default function AdminSidebar() {
                   : "text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
               }`}
             >
-              <Settings size={18} className="shrink-0" />
+              <Settings size={16} className="shrink-0" />
               {showLabel && <span className="truncate">{t(settingsItem.key)}</span>}
-              {showLabel && <ChevronRight size={16} className="ml-auto shrink-0" />}
+              {showLabel && <ChevronRight size={14} className="ml-auto shrink-0" />}
             </Link>
           )}
 
@@ -731,6 +739,25 @@ export default function AdminSidebar() {
             </button>
           )}
 
+          {/* The trial line and the Collapse row close the rail, as the
+              mockup's foot does (`.rail .foot`, `.rail .trial`). Collapse is
+              a row so it reads like the rest; collapsed, it is the chevron
+              alone and expands. Desktop only — the drawer has an X. */}
+          {!forceExpanded && (
+            <button
+              type="button"
+              onClick={() => setCollapsed((v) => !v)}
+              aria-label={collapsed ? t("app.sidebar.expand") : t("app.sidebar.collapse")}
+              title={collapsed ? t("app.sidebar.expand") : t("app.sidebar.collapse")}
+              data-rail-toggle
+              className={`hidden lg:flex w-full items-center gap-2.5 px-2.5 py-[7px] rounded-lg text-[13px] font-medium text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground ${
+                showLabel ? "" : "justify-center"
+              }`}
+            >
+              {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+              {showLabel && <span className="truncate">{t("app.sidebar.collapse")}</span>}
+            </button>
+          )}
         </div>
       </div>
     );
@@ -743,7 +770,7 @@ export default function AdminSidebar() {
           (TopBar.js) is the other half of the desktop chrome. */}
       <aside
         className={`hidden lg:flex shrink-0 bg-sidebar text-sidebar-foreground border-r border-sidebar-border h-screen sticky top-0 flex-col transition-all duration-200 motion-reduce:transition-none ${
-          collapsed ? "w-[76px]" : "w-64"
+          collapsed ? "w-[64px]" : "w-[232px]"
         }`}
         data-rail={collapsed ? "collapsed" : "expanded"}
       >
@@ -779,7 +806,10 @@ function RailLink({ item, showLabel, active, label, featureFlags, onNavigate, tr
       // that just clears it. Still 36px tall — over the 44px touch floor only
       // matters on the phone drawer, whose rows are the same component with
       // more room and no such squeeze (see the drawer's own padding).
-      className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+      // The mockup's row: 13px / 500, 7px 10px, radius 8, a 16px icon at a
+      // 10px gap (`.mk-s .rail .r`) — the rail reads as one quiet list
+      // with one orange row, not as a column of buttons.
+      className={`flex items-center gap-2.5 px-2.5 py-[7px] rounded-lg text-[13px] font-medium transition-colors ${
         showLabel ? "" : "justify-center"
       } ${
         active
@@ -792,7 +822,7 @@ function RailLink({ item, showLabel, active, label, featureFlags, onNavigate, tr
           : "text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
       }`}
     >
-      <Icon size={18} className="shrink-0" />
+      <Icon size={16} className="shrink-0" />
       {showLabel && <span className="truncate">{label}</span>}
       {/* Renders nothing unless the row's feature is in preview or locked.
           A row that is going to refuse should say so BEFORE the click. */}

@@ -111,6 +111,7 @@ import { documentLabels } from "@/lib/i18n/documentLabels";
 import { formatAddress } from "@/lib/format/address";
 import { formatAppMoney } from "@/lib/format/money";
 import { visibleLineItems } from "@/lib/quotes/scopeGroupDisplay";
+import { resolveServiceContent } from "@/lib/documents/serviceContent";
 import { isTextLine } from "@/lib/quotes/textBlocks";
 import { scopeGroupPayload } from "@/lib/quotes/builderPayload";
 import { quoteStatusLabel, quoteStatusClasses } from "@/lib/quotes/statusLabels";
@@ -719,15 +720,21 @@ export default function DocumentBuilder({ b }) {
   };
 
   return (
-    <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-4" data-builder-layout="document">
+    <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-4" data-builder-layout="document">
       {isEdit && (
         <Link href={`/app/quotes/${quoteId}`} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft size={14} /> {t("app.quoteEdit.backTo")} {start.quoteNumber}
         </Link>
       )}
 
+      {/* ── The card: toolbar, then the document beside its drawer ──────
+          The mockup's one `.card` (radius 12, padding 16–20) holding the
+          tabs strip and the buttons on one row, the paper under it, and —
+          from lg up, when open — the Cost & margin drawer as a 220px column
+          to its right (`.two`). On a phone the drawer is a bottom sheet. */}
+      <div className="bg-card border border-border rounded-xl p-4 sm:p-5 space-y-3" data-doc-card>
       {/* ── Toolbar: tabs, status, Save, Send… ─────────────────────────── */}
-      <div className="flex items-center justify-between gap-3 flex-wrap" data-doc-toolbar>
+      <div className="flex items-center justify-between gap-3 flex-wrap -mt-1" data-doc-toolbar>
         <div role="tablist" className="flex gap-1 border-b border-border -mb-px overflow-x-auto max-w-full">
           {TABS.map((key) => (
             <button
@@ -736,8 +743,10 @@ export default function DocumentBuilder({ b }) {
               role="tab"
               aria-selected={tab === key}
               onClick={() => setTab(key)}
-              className={`px-3 py-2 text-sm font-medium whitespace-nowrap border-b-2 -mb-px ${
-                tab === key ? "border-foreground text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
+              // The mockup's tabs strip: 13px, the active tab in the
+              // foreground weight 600 with the BRAND orange underline.
+              className={`px-3.5 py-2 text-[13px] whitespace-nowrap border-b-2 -mb-px ${
+                tab === key ? "border-sidebar-primary text-foreground font-semibold" : "border-transparent text-muted-foreground hover:text-foreground"
               }`}
               data-doc-tab={key}
             >
@@ -747,16 +756,16 @@ export default function DocumentBuilder({ b }) {
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {start.status ? (
-            <span className={`text-xs px-2 py-0.5 rounded-full ${quoteStatusClasses(start.status)}`}>{quoteStatusLabel(start.status, t)}</span>
+            <span className={`text-[10px] font-semibold px-1.5 py-px rounded ${quoteStatusClasses(start.status)}`}>{quoteStatusLabel(start.status, t)}</span>
           ) : (
-            <span className="text-xs px-2 py-0.5 rounded-full border border-border text-muted-foreground">{t("app.docBuilder.unsaved", "Not saved yet")}</span>
+            <span className="text-[10px] font-semibold px-1.5 py-px rounded bg-muted text-muted-foreground">{t("app.docBuilder.unsaved", "Not saved yet")}</span>
           )}
           {b.mayCost && (
             <button
               type="button"
               onClick={() => setCostOpen((v) => !v)}
               aria-pressed={costOpen}
-              className="inline-flex items-center gap-1.5 border border-border text-foreground px-3 py-1.5 rounded-full text-sm font-semibold"
+              className="inline-flex items-center gap-1.5 border border-border bg-card text-foreground px-3 py-[5px] rounded-full text-[13px] font-semibold"
               data-cost-drawer-toggle
             >
               <TrendingUp size={14} /> {t("app.cost.title", "Cost & margin")}
@@ -776,7 +785,7 @@ export default function DocumentBuilder({ b }) {
               type="button"
               onClick={() => b.handleSave("draft")}
               disabled={Boolean(b.saving) || (!isEdit && (!b.selectedClient || b.scopeGroups.length === 0))}
-              className="inline-flex items-center gap-1.5 border border-border text-foreground px-4 py-1.5 rounded-full text-sm font-semibold disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 border border-border bg-card text-foreground px-3 py-[5px] rounded-full text-[13px] font-semibold disabled:opacity-60"
               data-doc-save
             >
               {b.saving === "draft" ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
@@ -882,7 +891,8 @@ export default function DocumentBuilder({ b }) {
 
       {/* ══ Estimate ═══════════════════════════════════════════════════════ */}
       {tab === "estimate" && (
-        <div className="space-y-4" data-tab-panel="estimate">
+        <div className={`grid gap-3.5 items-start ${b.mayCost && costOpen ? "lg:grid-cols-[minmax(0,1fr)_260px]" : ""}`} data-tab-panel="estimate">
+        <div className="space-y-4 min-w-0">
           {/* A painting company's first question (mockup b1) — ABOVE the
               document, before the client and the rooms, in this layout as
               in the classic one. The pick puts the service in the body. */}
@@ -1048,6 +1058,9 @@ export default function DocumentBuilder({ b }) {
                       subtotal={b.groupTotal(group)}
                       lines={lines}
                       money={money}
+                      // The trade's colour, as ScopeGroupCard, the approval
+                      // page and the PDF resolve it — one resolver.
+                      accent={resolveServiceContent(group.categoryKey, b.wordingOverrideFor(group.categoryId), group.takeoff || null).accent || null}
                       data-doc-group-key={group.categoryKey || ""}
                       edit={{
                         group: locked ? null : () => toggleGroup(group.tempId),
@@ -1170,7 +1183,7 @@ export default function DocumentBuilder({ b }) {
                     type="button"
                     onClick={() => setShowTiles((v) => !v)}
                     aria-expanded={showTiles || b.scopeGroups.length === 0}
-                    className="text-sm font-semibold text-foreground inline-flex items-center gap-1"
+                    className="text-[13px] font-semibold text-foreground inline-flex items-center gap-1"
                     data-doc-add-service
                   >
                     <Plus size={14} /> {t("app.docBuilder.addService", "Add a service, area or line item")}
@@ -1265,6 +1278,21 @@ export default function DocumentBuilder({ b }) {
 
           {b.renderSuggestAddOns()}
         </div>
+        {/* The drawer as a column, from lg up (mockup `.drawer`): beside the
+            document, never inside it. Below lg the same panel is the sheet
+            further down. */}
+        {b.mayCost && costOpen && (
+          <aside className="hidden lg:block sticky top-[64px] rounded-[10px] border border-border bg-card p-3 text-xs space-y-2" data-cost-drawer-column>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{t("app.docBuilder.internalOnly", "Internal — never on the document")}</span>
+              <button type="button" onClick={() => setCostOpen(false)} className="p-1 rounded text-muted-foreground hover:text-foreground" aria-label={t("app.docBuilder.closeDrawer", "Close")}>
+                <X size={14} />
+              </button>
+            </div>
+            {b.renderCostMarginPanel()}
+          </aside>
+        )}
+        </div>
       )}
 
       {/* ══ Presentation ═══════════════════════════════════════════════════ */}
@@ -1304,12 +1332,15 @@ export default function DocumentBuilder({ b }) {
         </div>
       )}
 
-      {/* ── Cost & margin drawer — staff only, never in the document ────── */}
+      </div>
+
+      {/* ── Cost & margin as a bottom sheet below lg — staff only, never in
+          the document. From lg up the column beside the document draws it. */}
       {b.mayCost && costOpen && (
-        <div className="fixed inset-0 z-50 flex sm:justify-end" data-cost-drawer>
+        <div className="fixed inset-0 z-50 flex lg:hidden" data-cost-drawer>
           <button type="button" aria-label={t("app.docBuilder.closeDrawer", "Close")} onClick={() => setCostOpen(false)} className="absolute inset-0 bg-black/30" />
           {/* A right-hand panel from sm up; a bottom sheet on a phone. */}
-          <div className="relative mt-auto sm:mt-0 w-full sm:w-[28rem] max-h-[85vh] sm:max-h-full overflow-y-auto bg-background border-t sm:border-t-0 sm:border-l border-border rounded-t-2xl sm:rounded-none p-4 space-y-3 shadow-xl">
+          <div className="relative mt-auto w-full max-h-[85vh] overflow-y-auto bg-background border-t border-border rounded-t-2xl p-4 space-y-3 shadow-xl">
             <div className="flex items-center justify-between gap-3">
               <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("app.docBuilder.internalOnly", "Internal — never on the document")}</span>
               <button type="button" onClick={() => setCostOpen(false)} className="p-1 rounded text-muted-foreground hover:text-foreground" aria-label={t("app.docBuilder.closeDrawer", "Close")}>

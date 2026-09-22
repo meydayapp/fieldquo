@@ -1478,6 +1478,9 @@ export default function QuoteDetailPage() {
                 subtotal={group.subtotal}
                 lines={visibleLineItems(group)}
                 money={money}
+                // The trade's colour, from the same content the client's page
+                // resolves (`docContent.groups[].accent`), when it is loaded.
+                accent={docContent?.groups?.find((g) => g.id === group.id)?.accent || null}
                 showAmounts={!quote.pricingHidden}
                 lineExtras={(item) =>
                   // Staff see what the crew will not: a block kept off the

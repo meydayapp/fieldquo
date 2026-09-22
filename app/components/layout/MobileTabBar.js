@@ -118,7 +118,7 @@ export default function MobileTabBar() {
     // chrome above page content); the mobile drawer it opens is z-50, so this
     // never sits above that overlay.
     <nav
-      className="lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-sidebar-border/60 bg-sidebar/80 supports-[backdrop-filter]:bg-sidebar/65 backdrop-blur-xl backdrop-saturate-150 pb-[env(safe-area-inset-bottom)]"
+      className="lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-sidebar-border bg-sidebar pb-[env(safe-area-inset-bottom)]"
     >
       {/* Fixed content height (not just "auto"), and taken from the ONE
           declaration of it — --fq-tab-bar-row in app/globals.css — so the
@@ -156,7 +156,7 @@ export default function MobileTabBar() {
                 // pair clears the 4.5:1 text floor in both themes, which a
                 // plain accent-coloured label on the bar's navy background
                 // does not (measured ~3.9:1 — see docs/MOBILE-TABBAR.md).
-                className={`flex flex-col items-center gap-0.5 rounded-xl px-3 py-1.5 min-h-[44px] min-w-[44px] justify-center ${
+                className={`flex flex-col items-center gap-[3px] rounded-[10px] px-2 py-[5px] min-h-[44px] min-w-[44px] justify-center ${
                   active
                     ? "bg-sidebar-primary text-sidebar-primary-foreground"
                     : "text-sidebar-muted-foreground"
@@ -180,7 +180,7 @@ export default function MobileTabBar() {
           className="flex-1 max-w-[7rem] min-w-0 flex items-center justify-center active:bg-sidebar-accent/50 transition-colors"
         >
           <span
-            className={`flex flex-col items-center gap-0.5 rounded-xl px-3 py-1.5 min-h-[44px] min-w-[44px] justify-center ${
+            className={`flex flex-col items-center gap-[3px] rounded-[10px] px-2 py-[5px] min-h-[44px] min-w-[44px] justify-center ${
               shell.isOpen("more") || pathname.startsWith("/app/more")
                 ? "bg-sidebar-primary text-sidebar-primary-foreground"
                 : "text-sidebar-muted-foreground"

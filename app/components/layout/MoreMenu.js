@@ -84,44 +84,43 @@ function Tile({ group, meta = {}, onNavigate, compact = false }) {
   const pathname = usePathname();
   const Icon = meta.icon || FileText;
   return (
-    <section className="rounded-xl border border-border bg-card p-3" aria-labelledby={`more-${group.key}`}>
-      <div className="flex items-start gap-3 px-1 pb-2">
-        {!compact && (
-          <span className="w-9 h-9 rounded-lg bg-muted text-inverted flex items-center justify-center shrink-0">
-            <Icon size={18} />
-          </span>
-        )}
-        <div className="min-w-0">
-          <h2 id={`more-${group.key}`} className={`font-semibold ${compact ? "text-[10px] uppercase tracking-[0.12em] text-muted-foreground" : "text-sm text-foreground"}`}>
-            {t(group.key)}
-          </h2>
-          {meta.hint && <p className="text-xs text-muted-foreground">{t(meta.hint)}</p>}
-        </div>
+    // The mockup's tile (`.mk-s .tile`): a 34px icon box, a 13px title, the
+    // hint under it, and the rows as ONE wrapped line of 12px links rather
+    // than a stacked list of icon buttons — eight tiles fit a screen that way.
+    <section className="rounded-[10px] border border-border bg-card p-3 flex gap-2.5 items-start min-w-0" aria-labelledby={`more-${group.key}`}>
+      {!compact && (
+        <span className="w-[34px] h-[34px] rounded-lg bg-muted text-inverted flex items-center justify-center shrink-0">
+          <Icon size={16} />
+        </span>
+      )}
+      <div className="min-w-0 flex-1">
+        <h2 id={`more-${group.key}`} className={`font-semibold ${compact ? "text-[10px] uppercase tracking-[0.12em] text-muted-foreground" : "text-[13px] text-foreground"}`}>
+          {t(group.key)}
+        </h2>
+        {meta.hint && <p className="text-xs text-muted-foreground">{t(meta.hint)}</p>}
+        <ul className="mt-1.5 flex flex-wrap gap-x-2.5 gap-y-1">
+          {group.items.map((item) => {
+            const active = isActive(pathname, item.href);
+            return (
+              <li key={item.href} className="min-w-0">
+                <Link
+                  href={item.href}
+                  onClick={onNavigate}
+                  data-nav-row
+                  aria-current={active ? "page" : undefined}
+                  className={`inline-flex items-center min-h-[28px] rounded-full px-2 text-xs ${
+                    active
+                      ? "bg-sidebar-primary text-sidebar-primary-foreground font-semibold"
+                      : "text-muted-foreground hover:bg-sidebar-panel-accent hover:text-foreground"
+                  }`}
+                >
+                  {t(item.key)}
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
       </div>
-      <ul className="space-y-0.5">
-        {group.items.map((item) => {
-          const RowIcon = item.icon;
-          const active = isActive(pathname, item.href);
-          return (
-            <li key={item.href}>
-              <Link
-                href={item.href}
-                onClick={onNavigate}
-                data-nav-row
-                aria-current={active ? "page" : undefined}
-                className={`flex items-center gap-3 px-2.5 py-2 rounded-lg text-sm font-medium ${
-                  active
-                    ? "bg-sidebar-primary text-sidebar-primary-foreground"
-                    : "text-muted-foreground hover:bg-sidebar-panel-accent hover:text-foreground"
-                }`}
-              >
-                <RowIcon size={16} className="shrink-0" />
-                <span className="truncate">{t(item.key)}</span>
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
     </section>
   );
 }
