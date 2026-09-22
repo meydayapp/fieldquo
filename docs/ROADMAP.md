@@ -1,12 +1,114 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 21 September 2026 (the job plan, change orders with remote approval, and the client progress view: an approved quote becomes one step per line and per ticked option with hours from the takeoff, painting dependencies, a hold reason and a crew day view, gated server-side so a step cannot start before what it waits on; a change order is sent by SMS + email to a one-page addendum the homeowner signs, holds its step until signed, adds or edits a step on approval and bills as a labelled "Change order CO-2 · …" line; the portal shows the job as Done · In progress · Waiting on with the crew's photos and the change orders waiting on the client — see "The job plan" below; previous line: the quote builder's text-block library — nine painting starters in EN/FR/ES seeded once per painting company, searchable from "+ Add area or line item" beside the trade chips and the products, rich text drawn on the PDF, the email, the approval page and the detail page, priced by hours, quantity, a custom amount or not at all, "hidden on work order" carried on the line, a block translated ONCE into a quote's other language and the reviewed text stored on the block; the quote page's Send… split button — preview as client, share with staff through the crew chat, create invoice, save as template, copy link, download PDF, copy, archive; QuoteTemplate rows offered on every new quote; Quote.siteAddress prefilled for a homeowner, required for a company client, printed as "Job address", handed to the Job and geocoded there, read by the satellite measure; and "Offer 3% off for e-transfer or cheque" — Canada only, a discount never a card surcharge because of Quebec, frozen on the draft, ticked by the client at approval, folded into the invoice with the card link left off; see "The text-block library, the Send… menu, the job address and the e-transfer discount" below; previous line: field work: invoices, clock punches and their photos made without signal wait in an IndexedDB queue on the phone and replay once — punches, then photos, then invoices — under an X-Offline-Key ledger the server keeps (server wins, the phone never invents an id); public/sw.js caches the field screens network-first, switched per company under Settings → Field work (default on); the invoice editor opened from a job offers "Labour — 6.5 h × $85 · from today's clock-ins" as a server-priced line from TimeEntry ids and a rate key, billed once; every crew member gets a daily sheet (/app/daily-sheets) with objectives from the plan's tasks or typed, before/after photos, live clock stamps, upsells linked to the quote's add-ons or change orders, the coordinator's 1–5 evaluation and a bonus that exists only under a company performance-pay rule (none by default) and lands on the pay run as a "Performance bonus" line; and a weekly past-client callback rotation (Settings → Follow-ups → Past clients) lists a company's own dormant clients for a person to call, outcomes on the client's timeline, "do not call" opting the number out of the voice ledger too — never assignable to the AI front desk, whose consent rule cannot reach a client ten months after a job; and before it: the client proposal: the quote link opens a branded mini-site — sticky header with the total and Accept, a table of contents, "Your project" (the quote, with Scope of work and a day-by-day plan derived from the takeoff's hours and a stated crew size, never invented), then About us, Before & after, Important documents, Testimonials and Services, each rendered only when the company has content for it; one before/after gallery merged additively from the website block and the quote-email pairs; a company document library with measured expiry; waivers the client ticks line by line and signs, refused server-side while a box is unticked, filed on the job and shown in the portal; four set-up rows that open in place; Settings › Presentation and a Presentation tab on the quote — see "The client proposal" below; previous line: the painting takeoff, sections b1–b4 and b6 of the approved builder mockup: a painting quote opens on its estimate type — Interior, Exterior, Cabinets & millwork, Staining, Commercial — each with its own rate set of situation-named rates priced as production rate × hourly or flat per unit, picked in a searchable picker and edited on Settings › Services › Painting rates; an area is a Room or a single Surface with an editable "calculated from measurements" strip, ticks what's painted, draws as one hours-and-money table with options the homeowner ticks under the room (extra coat, premium paint, custom); staining substrates carry stain and clear coat; the den and the exterior job still reproduce to the cent; and before it: the painting takeoff, sections b1–b4 and b6 of the approved builder mockup: a painting quote opens on its estimate type — Interior, Exterior, Cabinets & millwork, Staining, Commercial — each with its own rate set of situation-named rates priced as production rate × hourly or flat per unit, picked in a searchable picker and edited on Settings › Services › Painting rates; an area is a Room or a single Surface with an editable "calculated from measurements" strip, ticks what's painted, draws as one hours-and-money table with options the homeowner ticks under the room (extra coat, premium paint, custom); staining substrates carry stain and clear coat; the den and the exterior job still reproduce to the cent; and before it: the "next steps" email: two hours after a company's card goes in, if its onboarding checklist is still open, FieldQuo sends one letter in the company's language — the trade in the subject, only the open steps numbered in the checklist's order with what each unlocks for that trade, each a link that opens the step's window on the home page, a tick list of what is done — once per company, never a demo, switch and delay on /platform/companies, sent-date on the company page)
+Last updated: 21 September 2026 (/compare: FieldQuo vs Roofr and FieldQuo vs PaintScout, both read off the served pricing pages from a Canadian connection on 2026-09-21 before a word of copy was written — Roofr's SMS $49, Instant Estimator $149, Roofr Sites $99 and AI Receptionist $99 totalled as $396/mo of add-ons on /compare and /pricing, its $0 Starter and unlimited users conceded and its per-report measurement fees printed per report; PaintScout's $119 + $20 a user priced in the open for a shop of eleven, its Operations add-on sold separately, a `paint_takeoff` matrix entry with nine names; a new pricing unit (`UNIT_FLAT_PLUS_USAGE`) and `billsPerHead()` so no page says "they bill every login" about a vendor whose page says unlimited users; see "/compare: FieldQuo vs Roofr and FieldQuo vs PaintScout" below; previous line: the job plan, change orders with remote approval, and the client progress view: an approved quote becomes one step per line and per ticked option with hours from the takeoff, painting dependencies, a hold reason and a crew day view, gated server-side so a step cannot start before what it waits on; a change order is sent by SMS + email to a one-page addendum the homeowner signs, holds its step until signed, adds or edits a step on approval and bills as a labelled "Change order CO-2 · …" line; the portal shows the job as Done · In progress · Waiting on with the crew's photos and the change orders waiting on the client — see "The job plan" below; previous line: the quote builder's text-block library — nine painting starters in EN/FR/ES seeded once per painting company, searchable from "+ Add area or line item" beside the trade chips and the products, rich text drawn on the PDF, the email, the approval page and the detail page, priced by hours, quantity, a custom amount or not at all, "hidden on work order" carried on the line, a block translated ONCE into a quote's other language and the reviewed text stored on the block; the quote page's Send… split button — preview as client, share with staff through the crew chat, create invoice, save as template, copy link, download PDF, copy, archive; QuoteTemplate rows offered on every new quote; Quote.siteAddress prefilled for a homeowner, required for a company client, printed as "Job address", handed to the Job and geocoded there, read by the satellite measure; and "Offer 3% off for e-transfer or cheque" — Canada only, a discount never a card surcharge because of Quebec, frozen on the draft, ticked by the client at approval, folded into the invoice with the card link left off; see "The text-block library, the Send… menu, the job address and the e-transfer discount" below; previous line: field work: invoices, clock punches and their photos made without signal wait in an IndexedDB queue on the phone and replay once — punches, then photos, then invoices — under an X-Offline-Key ledger the server keeps (server wins, the phone never invents an id); public/sw.js caches the field screens network-first, switched per company under Settings → Field work (default on); the invoice editor opened from a job offers "Labour — 6.5 h × $85 · from today's clock-ins" as a server-priced line from TimeEntry ids and a rate key, billed once; every crew member gets a daily sheet (/app/daily-sheets) with objectives from the plan's tasks or typed, before/after photos, live clock stamps, upsells linked to the quote's add-ons or change orders, the coordinator's 1–5 evaluation and a bonus that exists only under a company performance-pay rule (none by default) and lands on the pay run as a "Performance bonus" line; and a weekly past-client callback rotation (Settings → Follow-ups → Past clients) lists a company's own dormant clients for a person to call, outcomes on the client's timeline, "do not call" opting the number out of the voice ledger too — never assignable to the AI front desk, whose consent rule cannot reach a client ten months after a job; and before it: the client proposal: the quote link opens a branded mini-site — sticky header with the total and Accept, a table of contents, "Your project" (the quote, with Scope of work and a day-by-day plan derived from the takeoff's hours and a stated crew size, never invented), then About us, Before & after, Important documents, Testimonials and Services, each rendered only when the company has content for it; one before/after gallery merged additively from the website block and the quote-email pairs; a company document library with measured expiry; waivers the client ticks line by line and signs, refused server-side while a box is unticked, filed on the job and shown in the portal; four set-up rows that open in place; Settings › Presentation and a Presentation tab on the quote — see "The client proposal" below; previous line: the painting takeoff, sections b1–b4 and b6 of the approved builder mockup: a painting quote opens on its estimate type — Interior, Exterior, Cabinets & millwork, Staining, Commercial — each with its own rate set of situation-named rates priced as production rate × hourly or flat per unit, picked in a searchable picker and edited on Settings › Services › Painting rates; an area is a Room or a single Surface with an editable "calculated from measurements" strip, ticks what's painted, draws as one hours-and-money table with options the homeowner ticks under the room (extra coat, premium paint, custom); staining substrates carry stain and clear coat; the den and the exterior job still reproduce to the cent; and before it: the painting takeoff, sections b1–b4 and b6 of the approved builder mockup: a painting quote opens on its estimate type — Interior, Exterior, Cabinets & millwork, Staining, Commercial — each with its own rate set of situation-named rates priced as production rate × hourly or flat per unit, picked in a searchable picker and edited on Settings › Services › Painting rates; an area is a Room or a single Surface with an editable "calculated from measurements" strip, ticks what's painted, draws as one hours-and-money table with options the homeowner ticks under the room (extra coat, premium paint, custom); staining substrates carry stain and clear coat; the den and the exterior job still reproduce to the cent; and before it: the "next steps" email: two hours after a company's card goes in, if its onboarding checklist is still open, FieldQuo sends one letter in the company's language — the trade in the subject, only the open steps numbered in the checklist's order with what each unlocks for that trade, each a link that opens the step's window on the home page, a tick list of what is done — once per company, never a demo, switch and delay on /platform/companies, sent-date on the company page)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
 it exists to answer.
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
+
+---
+
+## /compare: FieldQuo vs Roofr and FieldQuo vs PaintScout — read on 2026-09-21 from Canada, built the way the other five are (21 September 2026)
+
+The owner read Roofr's pricing page and said "that is wild — add a FieldQuo
+vs Roofr comparison similar to what we have with Jobber." Both pages were
+read into `lib/marketing/competitors.js` BEFORE their `COMPARE_PAGES` entries
+were written — off the served HTML from a Canadian connection (Videotron,
+Gatineau), which is a stronger vantage than the US read every other entry
+has, since Canada is most of who FieldQuo competes for.
+
+**Roofr** (`/compare/fieldquo-vs-roofr`). Every figure the owner relayed
+matched the page; the page had four things his reading did not: a $0 Starter
+with no time limit (proposals, invoices and work orders capped at ten in
+total), "Unlimited users" on every plan card, an AI Receptionist add-on
+($99/mo) beside the three he named, and measurement reports charged per roof
+on every plan ($19 Starter / $13 paid; report + ESX $31 / $23). Figures are
+read from the price elements' own `data-monthly` / `data-annual` attributes
+(a new read-method constant, `DATA_ATTRIBUTES`, standing beside
+`STRUCTURED_DATA`). SMS $49 (Essentials and Scale only — ✕ on Starter and
+Measure+), Instant Estimator $149, Roofr Sites $99 (Beta), AI Receptionist
+$99: $396/mo at the monthly toggle, totalled by `addOnStack` and rendered on
+/compare and /pricing exactly as Jobber's $177 is. A new pricing unit,
+`UNIT_FLAT_PLUS_USAGE` (unlimited users, metered per report), so the per-head
+argument — "they bill every login" — is never made on a page whose subject
+says the opposite: `billsPerHead()` in parity.js gates the shop section and
+the people-in-the-field row. Per-report charges live in a new `perUseCharges`
+list (`allPerUseCharges` / `publishablePerUseCharges`), printed per report
+under their own heading and never folded into a monthly. Conceded, in the
+paragraph and the ledger: the free tier (`entry_price_below_our_floor`, label
+now "A plan priced below…" since one of the two is $0), a measured edge report
+(`measured_roof_report`: ours derives the ridge/hip/valley split by convention
+— `lib/measure/roofGeometry.js` says so in its own header), QuickBooks (Scale
+only, Beta, US only — quoted in full), Zapier/CompanyCam
+(`integration_marketplace`), and Talk to sales. Claimed: the receptionist
+add-on against our no-monthly-floor, Roofr Payments "U.S businesses only"
+against `payments_in_canada` (new key; evidence acss_debit in
+`lib/stripe/processingFee.js`), and logo & branding on Measure+ not Starter.
+
+**PaintScout** (`/compare/fieldquo-vs-paintscout`). Sales $119/mo ($99
+annual, priceCurrency USD in their Offer markup), one user, "$20/user/month"
+after; Operations add-on $99/mo ($79 annual); 14-day trial, no card; Success
+packages $999 / $1,499 / $1,999 recorded in a note, never as a figure. Their
+Feature Breakdown's two columns were parsed tick by tick: 24 rows ticked
+under Sales are the tier, 17 ticked only under Sales + Operations are the
+add-on's `keys`. Two changes to parity.js for this shape: a key sold only on
+a paid add-on is "sold separately" (`addOnWith`), never "not listed on their
+pricing page"; and `shopMath` prices a per-seat vendor's extra users
+(`derivedSeatTotal`, op `seat_total`, `data-derived-count`), so a shop of
+eleven reads "$319 — $119 + 10 × $20 more users" with the working shown and
+the check re-running it. The matrix gained `paint_takeoff` ("Painting priced
+by production rate", proofs `lib/pricing/paintTakeoff.js`, `PaintAreas.js`,
+`PaintRateSets.js`; nine catalogue names; on /features/quotes) so the page
+can say what the owner asked it to say about hours and gallons. Conceded:
+painting-only production-rate defaults (ours are opening positions — the
+paragraph says so; no `has:false` key, because we DO ship defaults),
+iOS/Android and offline mode (their JSON-LD), QuickBooks, Zapier/CompanyCam,
+a community (new key), a demo, and a no-card trial (recorded as the first
+half of the `monthly_billing` claim, in their favour).
+
+**Renderer changes that were false sentences waiting for these two pages.**
+"At Roofr the same list is $349" → "…$349 a month, plus $396 in add-ons"
+(`headlineTheirsPlusAddOns`, when add-ons carry part of the list); "their
+cheaper plans don't carry it" on a one-plan vendor → "their only plan; the
+rest is sold as add-ons"; "1 user" on PaintScout's biggest plan → "1 user
+included, $20/mo for each one after"; the receptionist panel's third state —
+priced as an add-on, on no tier — instead of "we cannot answer this one"
+beside a $99 add-on; "That is what those three cost together" → the count;
+the receptionist note under the stack only when the stack has one; "see all
+five side by side" → "every company"; the index now says seven, and two
+cheaper starts. All nine `app/i18n/comparePages/*` catalogues carry the new
+keys (`check:marketing-i18n` pins the English to the module).
+
+**Checks.** `check:competitors` 1434 (was 1046): the unit-uniqueness
+assertion is rewritten — PaintScout honestly shares `UNIT_PER_SEAT` with
+Housecall Pro, and the check names the pair — plus Roofr, PaintScout and
+per-use sections. `check:compare-pages` 852 (was 654): per-use, per-user and
+quoted amounts admitted with their own reasons, the `seat_total` derivation
+recomputed from the markup, the three receptionist states, and section 14
+for the two pages including a stale render that empties the per-report
+charges and the free tier. `check:comparison-pages` MAPPED gains both;
+`check:pricing-page` counts every totallable stack and computes its stale
+date from the newest reading instead of a typed 2026-12-01;
+`check:sales-playbook-battlecards` 7 cards. `docs/sales/PLAYBOOK.md` §7 and
+`docs/sales/FEATURES.md` carry both.
+
+### Still owed here
+
+- **Re-read both pages by 2026-12-20.** Every figure ages out at 90 days
+  (`STALE_AFTER_DAYS`); on that day both pages empty their price rows, the
+  add-on blocks on /compare and /pricing, and the per-report list.
+- **Measure+ 6-hour vs 2-hour.** Recorded as two figures; the ladder keeps
+  the cheaper. Their card prints "$109 - $169" as one range — check whether
+  the two positions are one plan with an option or two plans.
+- **Roofr's mobile app.** Their compare table says "Mobile optimized job
+  management — Access your Roofr Dashboard", which is a web dashboard, not a
+  store app; nothing on the pricing page names one, so `mobile_app` is
+  "not checked" for Roofr rather than conceded. Worth a read of their site.
+- **`theirTiersNoMatchNote`** still prints "this page makes no matched claim
+  in either direction" under every tier list while TheCase above it makes
+  exactly that claim from `tierFeatures/`. Pre-existing on all seven pages.
 
 ---
 
