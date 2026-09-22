@@ -1,0 +1,702 @@
+[
+ {
+  "seedKey": "fq.plumbing.water_heaters.repair_visit",
+  "industry": "Plumbing",
+  "sourceCategory": "Book Now",
+  "sourceService": "Water Heater Repair",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_0"
+ },
+ {
+  "seedKey": "fq.plumbing.visits.leak_detection_repair",
+  "industry": "Plumbing",
+  "sourceCategory": "Book Now",
+  "sourceService": "Leak Detection Repair",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_1"
+ },
+ {
+  "seedKey": "fq.plumbing.drains.drain_cleaning_visit",
+  "industry": "Plumbing",
+  "sourceCategory": "Book Now",
+  "sourceService": "Drain Cleaning",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_2"
+ },
+ {
+  "seedKey": "fq.plumbing.appliances.dishwasher_tailpiece",
+  "industry": "Plumbing",
+  "sourceCategory": "Dishwasher & Garbage Disposal",
+  "sourceService": "Replace Dishwasher Tailpiece",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_3"
+ },
+ {
+  "seedKey": "fq.plumbing.appliances.remove_disposal_install_strainer",
+  "industry": "Plumbing",
+  "sourceCategory": "Dishwasher & Garbage Disposal",
+  "sourceService": "Remove Garbage Disposal & Install Strainer",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_4"
+ },
+ {
+  "seedKey": "fq.plumbing.appliances.dishwasher_trap_tailpiece",
+  "industry": "Plumbing",
+  "sourceCategory": "Dishwasher & Garbage Disposal",
+  "sourceService": "Replace Dishwasher Trap & Tailpiece",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_5"
+ },
+ {
+  "seedKey": "fq.plumbing.appliances.dishwasher_flex_line",
+  "industry": "Plumbing",
+  "sourceCategory": "Dishwasher & Garbage Disposal",
+  "sourceService": "Install Dishwasher Flex Line & Leak Test",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_6"
+ },
+ {
+  "seedKey": "fq.plumbing.drains.septic_pumping",
+  "industry": "Plumbing",
+  "sourceCategory": "Drain Cleaning",
+  "sourceService": "Septic Tank Pumping",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_7"
+ },
+ {
+  "seedKey": "fq.plumbing.drains.cable_cleaning",
+  "industry": "Plumbing",
+  "sourceCategory": "Drain Cleaning",
+  "sourceService": "Cable Drain Cleaning",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_8"
+ },
+ {
+  "seedKey": "fq.plumbing.drains.grease_trap",
+  "industry": "Plumbing",
+  "sourceCategory": "Drain Cleaning",
+  "sourceService": "Grease Trap Service",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_9"
+ },
+ {
+  "seedKey": "fq.plumbing.drains.clean_ice_machine",
+  "industry": "Plumbing",
+  "sourceCategory": "Drain Cleaning",
+  "sourceService": "Clean Ice Machine",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_10"
+ },
+ {
+  "seedKey": "fq.plumbing.drains.clean_main_line",
+  "industry": "Plumbing",
+  "sourceCategory": "Drain Cleaning",
+  "sourceService": "Clean Main Line",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_11"
+ },
+ {
+  "seedKey": "fq.plumbing.drains.clean_drain",
+  "industry": "Plumbing",
+  "sourceCategory": "Drain Cleaning",
+  "sourceService": "Clean Drain",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_12"
+ },
+ {
+  "seedKey": "fq.plumbing.drains.kitchen_sink_line",
+  "industry": "Plumbing",
+  "sourceCategory": "Drain Cleaning",
+  "sourceService": "Clear Kitchen Sink Line",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_13"
+ },
+ {
+  "seedKey": "fq.plumbing.drains.hydro_jetting",
+  "industry": "Plumbing",
+  "sourceCategory": "Drain Cleaning",
+  "sourceService": "Hydro Jetting Service",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_14"
+ },
+ {
+  "seedKey": "fq.plumbing.drains.tub_shower_manual",
+  "industry": "Plumbing",
+  "sourceCategory": "Drain Cleaning",
+  "sourceService": "Tub or Shower Drain Clearing with Manual Tool",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_15"
+ },
+ {
+  "seedKey": "fq.plumbing.drains.main_drum_machine",
+  "industry": "Plumbing",
+  "sourceCategory": "Drain Cleaning",
+  "sourceService": "Main Drain Clearing with Large Drum Equipment",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_16"
+ },
+ {
+  "seedKey": "fq.plumbing.drains.sink_electric_jetting",
+  "industry": "Plumbing",
+  "sourceCategory": "Drain Cleaning",
+  "sourceService": "Sink Drain Clearing with Electric Jetting",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_17"
+ },
+ {
+  "seedKey": "fq.plumbing.drains.toilet_auger",
+  "industry": "Plumbing",
+  "sourceCategory": "Drain Cleaning",
+  "sourceService": "Toilet Clearing with Auger Tool",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_18"
+ },
+ {
+  "seedKey": "fq.plumbing.drains.camera_inspection",
+  "industry": "Plumbing",
+  "sourceCategory": "Drain Cleaning",
+  "sourceService": "Drain Inspection with Camera",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_19"
+ },
+ {
+  "seedKey": "fq.plumbing.drains.branch_small_drum",
+  "industry": "Plumbing",
+  "sourceCategory": "Drain Cleaning",
+  "sourceService": "Branch Drain Clearing with Small Drum Equipment",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_20"
+ },
+ {
+  "seedKey": "fq.plumbing.drains.root_treatment",
+  "industry": "Plumbing",
+  "sourceCategory": "Drain Cleaning",
+  "sourceService": "Main Drain Treatment with Root Growth Preventer",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_21"
+ },
+ {
+  "seedKey": "fq.plumbing.faucets.replace_two_handle",
+  "industry": "Plumbing",
+  "sourceCategory": "Faucet",
+  "sourceService": "Replace 2 Handle Faucet",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_22"
+ },
+ {
+  "seedKey": "fq.plumbing.faucets.washers_seats",
+  "industry": "Plumbing",
+  "sourceCategory": "Faucet",
+  "sourceService": "Replace Washers/Seats",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_23"
+ },
+ {
+  "seedKey": "fq.plumbing.faucets.aerator",
+  "industry": "Plumbing",
+  "sourceCategory": "Faucet",
+  "sourceService": "Replace Lavatory Faucet Aerator",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_24"
+ },
+ {
+  "seedKey": "fq.plumbing.faucets.replace_single_lever",
+  "industry": "Plumbing",
+  "sourceCategory": "Faucet",
+  "sourceService": "Replace Single Lever Faucet",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_25"
+ },
+ {
+  "seedKey": "fq.plumbing.appliances.install_customer_parts",
+  "industry": "Plumbing",
+  "sourceCategory": "Laundry - Washer & Dryer",
+  "sourceService": "Install Appliance with Customer's Parts",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_26"
+ },
+ {
+  "seedKey": "fq.plumbing.appliances.dryer_reconnect",
+  "industry": "Plumbing",
+  "sourceCategory": "Laundry - Washer & Dryer",
+  "sourceService": "Disconnect and Reinstall Dryer with Existing Parts",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_27"
+ },
+ {
+  "seedKey": "fq.plumbing.appliances.dryer_vent_hood",
+  "industry": "Plumbing",
+  "sourceCategory": "Laundry - Washer & Dryer",
+  "sourceService": "Replace Dryer Vent Hood Through Wall",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_28"
+ },
+ {
+  "seedKey": "fq.plumbing.appliances.clean_dryer_vent",
+  "industry": "Plumbing",
+  "sourceCategory": "Laundry - Washer & Dryer",
+  "sourceService": "Clean Dryer Vent",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_29"
+ },
+ {
+  "seedKey": "fq.plumbing.appliances.appliance_flex_line",
+  "industry": "Plumbing",
+  "sourceCategory": "Laundry - Washer & Dryer",
+  "sourceService": "Replace or Install Appliance Stainless Steel Flex Line & Leak Test",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_30"
+ },
+ {
+  "seedKey": "fq.plumbing.appliances.appliance_reconnect",
+  "industry": "Plumbing",
+  "sourceCategory": "Laundry - Washer & Dryer",
+  "sourceService": "Disconnect and Reinstall Appliance with Existing Parts",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_31"
+ },
+ {
+  "seedKey": "fq.plumbing.appliances.appliance_drain_hose",
+  "industry": "Plumbing",
+  "sourceCategory": "Laundry - Washer & Dryer",
+  "sourceService": "Replace or Install Appliance Drain Hose & Leak Test",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_32"
+ },
+ {
+  "seedKey": "fq.plumbing.toilets.repair",
+  "industry": "Plumbing",
+  "sourceCategory": "Repair Services",
+  "sourceService": "Repair Toilet",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_33"
+ },
+ {
+  "seedKey": "fq.plumbing.faucets.install_kitchen_sink",
+  "industry": "Plumbing",
+  "sourceCategory": "Repair Services",
+  "sourceService": "Install Kitchen Sink",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_34"
+ },
+ {
+  "seedKey": "fq.plumbing.tub_shower.install_shower_faucet",
+  "industry": "Plumbing",
+  "sourceCategory": "Repair Services",
+  "sourceService": "Install Shower Faucet",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_35"
+ },
+ {
+  "seedKey": "fq.plumbing.tub_shower.cartridge",
+  "industry": "Plumbing",
+  "sourceCategory": "Repair Services",
+  "sourceService": "Shower Cartridge Replacement",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_36"
+ },
+ {
+  "seedKey": "fq.plumbing.toilets.flapper_parts",
+  "industry": "Plumbing",
+  "sourceCategory": "Repair Services",
+  "sourceService": "Flapper Parts Replacement",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_37"
+ },
+ {
+  "seedKey": "fq.plumbing.faucets.install_kitchen_faucet",
+  "industry": "Plumbing",
+  "sourceCategory": "Repair Services",
+  "sourceService": "Install Kitchen Faucet",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_38"
+ },
+ {
+  "seedKey": "fq.plumbing.toilets.valve_replacement",
+  "industry": "Plumbing",
+  "sourceCategory": "Repair Services",
+  "sourceService": "Toilet Valve Replacement",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_39"
+ },
+ {
+  "seedKey": "fq.plumbing.tub_shower.shower_valve_install",
+  "industry": "Plumbing",
+  "sourceCategory": "Repair Services",
+  "sourceService": "Shower Valve Install",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_40"
+ },
+ {
+  "seedKey": "fq.plumbing.toilets.install",
+  "industry": "Plumbing",
+  "sourceCategory": "Repair Services",
+  "sourceService": "Toilet Install",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_41"
+ },
+ {
+  "seedKey": "fq.plumbing.tub_shower.tub_spout",
+  "industry": "Plumbing",
+  "sourceCategory": "Repair Services",
+  "sourceService": "Replaced Tub Spout",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_42"
+ },
+ {
+  "seedKey": "fq.plumbing.visits.diagnostic_commercial",
+  "industry": "Plumbing",
+  "sourceCategory": "Repair Services",
+  "sourceService": "Diagnostic (Commercial)",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_43"
+ },
+ {
+  "seedKey": "fq.plumbing.visits.diagnostic_out_of_range",
+  "industry": "Plumbing",
+  "sourceCategory": "Repair Services",
+  "sourceService": "Diagnostic (Out-of-Range)",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_44"
+ },
+ {
+  "seedKey": "fq.plumbing.visits.diagnostic_weekend",
+  "industry": "Plumbing",
+  "sourceCategory": "Repair Services",
+  "sourceService": "Diagnostic (Weekend)",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_45"
+ },
+ {
+  "seedKey": "fq.plumbing.visits.diagnostic_emergency",
+  "industry": "Plumbing",
+  "sourceCategory": "Repair Services",
+  "sourceService": "Diagnostic (Emergency)",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_46"
+ },
+ {
+  "seedKey": "fq.plumbing.visits.diagnostic_residential",
+  "industry": "Plumbing",
+  "sourceCategory": "Repair Services",
+  "sourceService": "Diagnostic (Residential)",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_47"
+ },
+ {
+  "seedKey": "fq.plumbing.lines.sewer_replacement",
+  "industry": "Plumbing",
+  "sourceCategory": "Sewer Pump Replacement",
+  "sourceService": "Sewer Line Replacement",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_48"
+ },
+ {
+  "seedKey": "fq.plumbing.lines.water_line_install",
+  "industry": "Plumbing",
+  "sourceCategory": "Sewer Pump Replacement",
+  "sourceService": "Water Line Install",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_49"
+ },
+ {
+  "seedKey": "fq.plumbing.lines.sewer_install",
+  "industry": "Plumbing",
+  "sourceCategory": "Sewer Pump Replacement",
+  "sourceService": "Sewer Line Install",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_50"
+ },
+ {
+  "seedKey": "fq.plumbing.lines.leak_repair",
+  "industry": "Plumbing",
+  "sourceCategory": "Sewer Pump Replacement",
+  "sourceService": "Leak Repair Service",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_51"
+ },
+ {
+  "seedKey": "fq.plumbing.lines.gas_line_install",
+  "industry": "Plumbing",
+  "sourceCategory": "Sewer Pump Replacement",
+  "sourceService": "Gas Line Installation",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_52"
+ },
+ {
+  "seedKey": "fq.plumbing.lines.main_water_replacement",
+  "industry": "Plumbing",
+  "sourceCategory": "Sewer Pump Replacement",
+  "sourceService": "Main Water Line Replacement",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_53"
+ },
+ {
+  "seedKey": "fq.plumbing.lines.water_line_repair",
+  "industry": "Plumbing",
+  "sourceCategory": "Sewer Pump Replacement",
+  "sourceService": "Water Line Repair",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_54"
+ },
+ {
+  "seedKey": "fq.plumbing.sump.float_switch",
+  "industry": "Plumbing",
+  "sourceCategory": "Sewer Pump Replacement",
+  "sourceService": "Replace and Test Mercury Float Switch",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_55"
+ },
+ {
+  "seedKey": "fq.plumbing.sump.discharge_line",
+  "industry": "Plumbing",
+  "sourceCategory": "Sewer Pump Replacement",
+  "sourceService": "Repair Sump Pump Discharge Line and Test",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_56"
+ },
+ {
+  "seedKey": "fq.plumbing.sump.battery_backup",
+  "industry": "Plumbing",
+  "sourceCategory": "Sewer Pump Replacement",
+  "sourceService": "Install Battery Back-Up Sump Pump Unit NOT Included",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_57"
+ },
+ {
+  "seedKey": "fq.plumbing.sump.check_valve",
+  "industry": "Plumbing",
+  "sourceCategory": "Sewer Pump Replacement",
+  "sourceService": "Replace Sump Pump Water Check Valve (Up to 1 - 1/2 Inch",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_58"
+ },
+ {
+  "seedKey": "fq.plumbing.sump.replace_customer_pump",
+  "industry": "Plumbing",
+  "sourceCategory": "Sewer Pump Replacement",
+  "sourceService": "Replace Sump Pump - Customer Provided",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_59"
+ },
+ {
+  "seedKey": "fq.plumbing.toilets.tank_replacement",
+  "industry": "Plumbing",
+  "sourceCategory": "Toilet",
+  "sourceService": "Toilet Tank Replacement",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_60"
+ },
+ {
+  "seedKey": "fq.plumbing.toilets.flapper_test",
+  "industry": "Plumbing",
+  "sourceCategory": "Toilet",
+  "sourceService": "Flapper Replacement and Testing",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_61"
+ },
+ {
+  "seedKey": "fq.plumbing.toilets.fill_valve_test",
+  "industry": "Plumbing",
+  "sourceCategory": "Toilet",
+  "sourceService": "Tank Fill Valve Replacement and Testing",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_62"
+ },
+ {
+  "seedKey": "fq.plumbing.toilets.tank_rebuild",
+  "industry": "Plumbing",
+  "sourceCategory": "Toilet",
+  "sourceService": "Toilet Tank Rebuilding - Flapper & Fill Valve Only",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_63"
+ },
+ {
+  "seedKey": "fq.plumbing.toilets.reset_seal",
+  "industry": "Plumbing",
+  "sourceCategory": "Toilet",
+  "sourceService": "Toilet Reset and Seal",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_64"
+ },
+ {
+  "seedKey": "fq.plumbing.valves.sweat_valve",
+  "industry": "Plumbing",
+  "sourceCategory": "Toilet",
+  "sourceService": "Sweat Valve",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_65"
+ },
+ {
+  "seedKey": "fq.plumbing.tub_shower.shower_base_no_tile",
+  "industry": "Plumbing",
+  "sourceCategory": "Tub & Shower",
+  "sourceService": "Replace Shower Base No Tile Removal or Replacement",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_66"
+ },
+ {
+  "seedKey": "fq.plumbing.tub_shower.pop_up_drain",
+  "industry": "Plumbing",
+  "sourceCategory": "Tub & Shower",
+  "sourceService": "Replace Pop Up Drain",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_67"
+ },
+ {
+  "seedKey": "fq.plumbing.tub_shower.shower_base",
+  "industry": "Plumbing",
+  "sourceCategory": "Tub & Shower",
+  "sourceService": "Replace Shower Base",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_68"
+ },
+ {
+  "seedKey": "fq.plumbing.tub_shower.tub_waste_overflow",
+  "industry": "Plumbing",
+  "sourceCategory": "Tub & Shower",
+  "sourceService": "Replace Tub Waste & Overflow",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_69"
+ },
+ {
+  "seedKey": "fq.plumbing.valves.main_valve",
+  "industry": "Plumbing",
+  "sourceCategory": "Valves & Water Regulation",
+  "sourceService": "Main Valve Replacement",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_70"
+ },
+ {
+  "seedKey": "fq.plumbing.valves.gas_valve",
+  "industry": "Plumbing",
+  "sourceCategory": "Valves & Water Regulation",
+  "sourceService": "Install Gas Valve",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_71"
+ },
+ {
+  "seedKey": "fq.plumbing.valves.water_softener",
+  "industry": "Plumbing",
+  "sourceCategory": "Valves & Water Regulation",
+  "sourceService": "Install Water Softener System",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_72"
+ },
+ {
+  "seedKey": "fq.plumbing.valves.water_valve",
+  "industry": "Plumbing",
+  "sourceCategory": "Valves & Water Regulation",
+  "sourceService": "Install Water Valve",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_73"
+ },
+ {
+  "seedKey": "fq.plumbing.valves.water_purification",
+  "industry": "Plumbing",
+  "sourceCategory": "Valves & Water Regulation",
+  "sourceService": "Water Purification Services",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_74"
+ },
+ {
+  "seedKey": "fq.plumbing.valves.angle_stop",
+  "industry": "Plumbing",
+  "sourceCategory": "Valves & Water Regulation",
+  "sourceService": "Angle Stop Replacement",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_75"
+ },
+ {
+  "seedKey": "fq.plumbing.valves.hose_bib",
+  "industry": "Plumbing",
+  "sourceCategory": "Valves & Water Regulation",
+  "sourceService": "Hose Bib Replacement",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_76"
+ },
+ {
+  "seedKey": "fq.plumbing.valves.pressure_reducing_valve",
+  "industry": "Plumbing",
+  "sourceCategory": "Valves & Water Regulation",
+  "sourceService": "Pressure Reducing Valve Install",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_77"
+ },
+ {
+  "seedKey": "fq.plumbing.water_heaters.gas_install_service",
+  "industry": "Plumbing",
+  "sourceCategory": "Water Heater - Replacements",
+  "sourceService": "Install And Service Gas Water Heater",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_78"
+ },
+ {
+  "seedKey": "fq.plumbing.water_heaters.electric_50_gallon",
+  "industry": "Plumbing",
+  "sourceCategory": "Water Heater - Replacements",
+  "sourceService": "Install New Water Heater (>50 Gallons Electric))",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_79"
+ },
+ {
+  "seedKey": "fq.plumbing.water_heaters.tankless_install",
+  "industry": "Plumbing",
+  "sourceCategory": "Water Heater - Replacements",
+  "sourceService": "Tankless Water Heater Installation",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_80"
+ },
+ {
+  "seedKey": "fq.plumbing.water_heaters.install_generic",
+  "industry": "Plumbing",
+  "sourceCategory": "Water Heater - Replacements",
+  "sourceService": "Water Heater Install (Generic)",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_81"
+ },
+ {
+  "seedKey": "fq.plumbing.water_heaters.emergency_shutoff",
+  "industry": "Plumbing",
+  "sourceCategory": "Water Heater - Replacements",
+  "sourceService": "Replace Emergency Shutoff Valve",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_82"
+ },
+ {
+  "seedKey": "fq.plumbing.water_heaters.thermostat",
+  "industry": "Plumbing",
+  "sourceCategory": "Water Heater - Replacements",
+  "sourceService": "Replace Thermostat",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_83"
+ },
+ {
+  "seedKey": "fq.plumbing.water_heaters.drain_valve",
+  "industry": "Plumbing",
+  "sourceCategory": "Water Heater - Replacements",
+  "sourceService": "Replace Valve Drain Line",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_84"
+ },
+ {
+  "seedKey": "fq.plumbing.water_heaters.service_burners",
+  "industry": "Plumbing",
+  "sourceCategory": "Water Heater - Replacements",
+  "sourceService": "Service Water Heater Burners",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_85"
+ },
+ {
+  "seedKey": "fq.plumbing.water_heaters.expansion_tank",
+  "industry": "Plumbing",
+  "sourceCategory": "Water Heater - Replacements",
+  "sourceService": "Replace Expansion Tank",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_86"
+ },
+ {
+  "seedKey": "fq.plumbing.water_heaters.leak_above",
+  "industry": "Plumbing",
+  "sourceCategory": "Water Heater - Replacements",
+  "sourceService": "Repair Water Leak Above Water Heater",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_87"
+ },
+ {
+  "seedKey": "fq.plumbing.water_heaters.safety_sensor",
+  "industry": "Plumbing",
+  "sourceCategory": "Water Heater - Replacements",
+  "sourceService": "Replace Safety Sensor",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_88"
+ },
+ {
+  "seedKey": "fq.plumbing.water_heaters.hot_surface_igniter",
+  "industry": "Plumbing",
+  "sourceCategory": "Water Heater - Replacements",
+  "sourceService": "Replace Hot Surface Pilot Igniter",
+  "taskCode": "DEFAULT_PLUMBING_SERVICE_89"
+ },
+ {
+  "seedKey": "fq.plumbing.visits.custom_job",
+  "industry": "Water Heater",
+  "sourceCategory": "Custom Services",
+  "sourceService": "Custom Job",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.plumbing.water_heaters.repair_any_brand",
+  "industry": "Water Heater",
+  "sourceCategory": "Water Heater",
+  "sourceService": "Water heater repair",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.plumbing.water_heaters.symptom_no_hot_water",
+  "industry": "Water Heater",
+  "sourceCategory": "Water Heater",
+  "sourceService": "No hot water",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.plumbing.water_heaters.symptom_not_hot_enough",
+  "industry": "Water Heater",
+  "sourceCategory": "Water Heater",
+  "sourceService": "Water not hot enough",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.plumbing.water_heaters.symptom_too_hot",
+  "industry": "Water Heater",
+  "sourceCategory": "Water Heater",
+  "sourceService": "Water too hot",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.plumbing.water_heaters.symptom_noise",
+  "industry": "Water Heater",
+  "sourceCategory": "Water Heater",
+  "sourceService": "Noise",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.plumbing.water_heaters.symptom_leaking",
+  "industry": "Water Heater",
+  "sourceCategory": "Water Heater",
+  "sourceService": "Leaking",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.plumbing.water_heaters.symptom_water_condition",
+  "industry": "Water Heater",
+  "sourceCategory": "Water Heater",
+  "sourceService": "Water condition",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.plumbing.water_heaters.symptom_low_pressure",
+  "industry": "Water Heater",
+  "sourceCategory": "Water Heater",
+  "sourceService": "Not enough water pressure",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.plumbing.water_heaters.symptom_no_hot_water_2",
+  "industry": "Water Heater",
+  "sourceCategory": "Water Heater",
+  "sourceService": "No hot water",
+  "taskCode": null
+ }
+]
