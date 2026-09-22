@@ -1,0 +1,373 @@
+[
+ {
+  "seedKey": "fq.carpet_cleaning.add_ons.pet_treatment",
+  "industry": "Carpet Cleaning",
+  "sourceCategory": "Add-On & Protection",
+  "sourceService": "Pet Stain & Odor Treatment (Carpet & Upholstery)",
+  "taskCode": "DEFAULT_CARPET_SERVICE_0"
+ },
+ {
+  "seedKey": "fq.carpet_cleaning.add_ons.protector",
+  "industry": "Carpet Cleaning",
+  "sourceCategory": "Add-On & Protection",
+  "sourceService": "Carpet Protector Add-On (Carpet/Fabric Protector)",
+  "taskCode": "DEFAULT_CARPET_SERVICE_1"
+ },
+ {
+  "seedKey": "fq.carpet_cleaning.add_ons.odor_neutralization",
+  "industry": "Carpet Cleaning",
+  "sourceCategory": "Add-On & Protection",
+  "sourceService": "Odor Neutralization (Whole Area Treatment)",
+  "taskCode": "DEFAULT_CARPET_SERVICE_2"
+ },
+ {
+  "seedKey": "fq.carpet_cleaning.visits.deep_cleaning",
+  "industry": "Carpet Cleaning",
+  "sourceCategory": "Book Now",
+  "sourceService": "Professional Carpet Deep Cleaning",
+  "taskCode": "DEFAULT_CARPET_SERVICE_3"
+ },
+ {
+  "seedKey": "fq.carpet_cleaning.visits.pet_treatment",
+  "industry": "Carpet Cleaning",
+  "sourceCategory": "Book Now",
+  "sourceService": "Pet Stain & Odor Treatment",
+  "taskCode": "DEFAULT_CARPET_SERVICE_4"
+ },
+ {
+  "seedKey": "fq.carpet_cleaning.visits.high_traffic_refresh",
+  "industry": "Carpet Cleaning",
+  "sourceCategory": "Book Now",
+  "sourceService": "High-Traffic Carpet Refresh",
+  "taskCode": "DEFAULT_CARPET_SERVICE_5"
+ },
+ {
+  "seedKey": "fq.carpet_cleaning.visits.one_room",
+  "industry": "Carpet Cleaning",
+  "sourceCategory": "Book Now",
+  "sourceService": "Carpet Cleaning - 1 Room",
+  "taskCode": "DEFAULT_CARPET_SERVICE_6"
+ },
+ {
+  "seedKey": "fq.carpet_cleaning.visits.two_rooms",
+  "industry": "Carpet Cleaning",
+  "sourceCategory": "Book Now",
+  "sourceService": "Carpet Cleaning - 2 Rooms",
+  "taskCode": "DEFAULT_CARPET_SERVICE_7"
+ },
+ {
+  "seedKey": "fq.carpet_cleaning.visits.three_rooms",
+  "industry": "Carpet Cleaning",
+  "sourceCategory": "Book Now",
+  "sourceService": "Carpet Cleaning - 3 Rooms",
+  "taskCode": "DEFAULT_CARPET_SERVICE_8"
+ },
+ {
+  "seedKey": "fq.carpet_cleaning.visits.whole_home",
+  "industry": "Carpet Cleaning",
+  "sourceCategory": "Book Now",
+  "sourceService": "Whole-Home Carpet Cleaning",
+  "taskCode": "DEFAULT_CARPET_SERVICE_9"
+ },
+ {
+  "seedKey": "fq.carpet_cleaning.visits.pet_treatment_enzyme",
+  "industry": "Carpet Cleaning",
+  "sourceCategory": "Book Now",
+  "sourceService": "Pet Stain & Odor Treatment",
+  "taskCode": "DEFAULT_CARPET_SERVICE_10"
+ },
+ {
+  "seedKey": "fq.carpet_cleaning.carpet.up_to_250_sqft",
+  "industry": "Carpet Cleaning",
+  "sourceCategory": "Core Carpet Cleaning",
+  "sourceService": "Carpet Cleaning (Up to 250 sq ft)",
+  "taskCode": "DEFAULT_CARPET_SERVICE_11"
+ },
+ {
+  "seedKey": "fq.carpet_cleaning.carpet.per_room_standard",
+  "industry": "Carpet Cleaning",
+  "sourceCategory": "Core Carpet Cleaning",
+  "sourceService": "Carpet Cleaning (Per Room - Standard)",
+  "taskCode": "DEFAULT_CARPET_SERVICE_12"
+ },
+ {
+  "seedKey": "fq.carpet_cleaning.carpet.bundle_2_rooms_hallway",
+  "industry": "Carpet Cleaning",
+  "sourceCategory": "Core Carpet Cleaning",
+  "sourceService": "Carpet Cleaning Bundle (2 Rooms + Hallway)",
+  "taskCode": "DEFAULT_CARPET_SERVICE_13"
+ },
+ {
+  "seedKey": "fq.carpet_cleaning.carpet.vacant_unit_2br",
+  "industry": "Carpet Cleaning",
+  "sourceCategory": "Core Carpet Cleaning",
+  "sourceService": "Carpet Cleaning - Vacant Unit (2BR + Common Areas)",
+  "taskCode": "DEFAULT_CARPET_SERVICE_14"
+ },
+ {
+  "seedKey": "fq.carpet_cleaning.carpet.one_room",
+  "industry": "Carpet Cleaning",
+  "sourceCategory": "Core Carpet Cleaning",
+  "sourceService": "Carpet Cleaning - 1 Room",
+  "taskCode": "DEFAULT_CARPET_SERVICE_15"
+ },
+ {
+  "seedKey": "fq.carpet_cleaning.carpet.two_rooms",
+  "industry": "Carpet Cleaning",
+  "sourceCategory": "Core Carpet Cleaning",
+  "sourceService": "Carpet Cleaning - 2 Rooms",
+  "taskCode": "DEFAULT_CARPET_SERVICE_16"
+ },
+ {
+  "seedKey": "fq.carpet_cleaning.carpet.three_rooms",
+  "industry": "Carpet Cleaning",
+  "sourceCategory": "Core Carpet Cleaning",
+  "sourceService": "Carpet Cleaning - 3 Rooms",
+  "taskCode": "DEFAULT_CARPET_SERVICE_17"
+ },
+ {
+  "seedKey": "fq.carpet_cleaning.carpet.four_rooms",
+  "industry": "Carpet Cleaning",
+  "sourceCategory": "Core Carpet Cleaning",
+  "sourceService": "Carpet Cleaning - 4 Rooms",
+  "taskCode": "DEFAULT_CARPET_SERVICE_18"
+ },
+ {
+  "seedKey": "fq.carpet_cleaning.carpet.five_plus_rooms",
+  "industry": "Carpet Cleaning",
+  "sourceCategory": "Core Carpet Cleaning",
+  "sourceService": "Carpet Cleaning - 5+ Rooms",
+  "taskCode": "DEFAULT_CARPET_SERVICE_19"
+ },
+ {
+  "seedKey": "fq.carpet_cleaning.carpet.hallway",
+  "industry": "Carpet Cleaning",
+  "sourceCategory": "Core Carpet Cleaning",
+  "sourceService": "Carpet Cleaning - Hallway",
+  "taskCode": "DEFAULT_CARPET_SERVICE_20"
+ },
+ {
+  "seedKey": "fq.carpet_cleaning.carpet.up_to_3_areas",
+  "industry": "Carpet Cleaning",
+  "sourceCategory": "Core Carpet Cleaning",
+  "sourceService": "Carpet Cleaning (Up to 3 Areas)",
+  "taskCode": "DEFAULT_CARPET_SERVICE_21"
+ },
+ {
+  "seedKey": "fq.carpet_cleaning.carpet.whole_home_stain_removal",
+  "industry": "Carpet Cleaning",
+  "sourceCategory": "Core Carpet Cleaning",
+  "sourceService": "Whole-Home Carpet Cleaning + Stain Removal",
+  "taskCode": "DEFAULT_CARPET_SERVICE_22"
+ },
+ {
+  "seedKey": "fq.carpet_cleaning.carpet.whole_house",
+  "industry": "Carpet Cleaning",
+  "sourceCategory": "Core Carpet Cleaning",
+  "sourceService": "Carpet Cleaning - Whole House",
+  "taskCode": "DEFAULT_CARPET_SERVICE_23"
+ },
+ {
+  "seedKey": "fq.carpet_cleaning.carpet.recurring",
+  "industry": "Carpet Cleaning",
+  "sourceCategory": "Core Carpet Cleaning",
+  "sourceService": "Recurring - Carpet Cleaning",
+  "taskCode": "DEFAULT_CARPET_SERVICE_24"
+ },
+ {
+  "seedKey": "fq.carpet_cleaning.carpet.stairs_16_steps",
+  "industry": "Carpet Cleaning",
+  "sourceCategory": "Core Carpet Cleaning",
+  "sourceService": "Carpet Cleaning - Stairs (Up to 16 Steps)",
+  "taskCode": "DEFAULT_CARPET_SERVICE_25"
+ },
+ {
+  "seedKey": "fq.carpet_cleaning.specialty.stretching",
+  "industry": "Carpet Cleaning",
+  "sourceCategory": "Specialty Cleaning & Repair",
+  "sourceService": "Carpet Stretching (De-Wrinkle)",
+  "taskCode": "DEFAULT_CARPET_SERVICE_26"
+ },
+ {
+  "seedKey": "fq.carpet_cleaning.specialty.tile_grout",
+  "industry": "Carpet Cleaning",
+  "sourceCategory": "Specialty Cleaning & Repair",
+  "sourceService": "Tile & Grout Cleaning",
+  "taskCode": "DEFAULT_CARPET_SERVICE_27"
+ },
+ {
+  "seedKey": "fq.carpet_cleaning.specialty.tile_grout_hallway",
+  "industry": "Carpet Cleaning",
+  "sourceCategory": "Specialty Cleaning & Repair",
+  "sourceService": "Tile & Grout Cleaning - Hallway",
+  "taskCode": "DEFAULT_CARPET_SERVICE_28"
+ },
+ {
+  "seedKey": "fq.carpet_cleaning.specialty.tile_grout_2_rooms",
+  "industry": "Carpet Cleaning",
+  "sourceCategory": "Specialty Cleaning & Repair",
+  "sourceService": "Tile & Grout Cleaning - 2 Rooms",
+  "taskCode": "DEFAULT_CARPET_SERVICE_29"
+ },
+ {
+  "seedKey": "fq.carpet_cleaning.specialty.tile_grout_3_rooms",
+  "industry": "Carpet Cleaning",
+  "sourceCategory": "Specialty Cleaning & Repair",
+  "sourceService": "Tile & Grout Cleaning - 3 Rooms",
+  "taskCode": "DEFAULT_CARPET_SERVICE_30"
+ },
+ {
+  "seedKey": "fq.carpet_cleaning.specialty.tile_grout_4_rooms",
+  "industry": "Carpet Cleaning",
+  "sourceCategory": "Specialty Cleaning & Repair",
+  "sourceService": "Tile & Grout Cleaning - 4 Rooms",
+  "taskCode": "DEFAULT_CARPET_SERVICE_31"
+ },
+ {
+  "seedKey": "fq.carpet_cleaning.specialty.tile_grout_5_rooms",
+  "industry": "Carpet Cleaning",
+  "sourceCategory": "Specialty Cleaning & Repair",
+  "sourceService": "Tile & Grout Cleaning - 5+ Rooms",
+  "taskCode": "DEFAULT_CARPET_SERVICE_32"
+ },
+ {
+  "seedKey": "fq.carpet_cleaning.specialty.tile_grout_stairs",
+  "industry": "Carpet Cleaning",
+  "sourceCategory": "Specialty Cleaning & Repair",
+  "sourceService": "Tile & Grout Cleaning - Stairs",
+  "taskCode": "DEFAULT_CARPET_SERVICE_33"
+ },
+ {
+  "seedKey": "fq.carpet_cleaning.specialty.stone_stairs",
+  "industry": "Carpet Cleaning",
+  "sourceCategory": "Specialty Cleaning & Repair",
+  "sourceService": "Natural Stone Cleaning - Stairs",
+  "taskCode": "DEFAULT_CARPET_SERVICE_34"
+ },
+ {
+  "seedKey": "fq.carpet_cleaning.specialty.stone_backsplash",
+  "industry": "Carpet Cleaning",
+  "sourceCategory": "Specialty Cleaning & Repair",
+  "sourceService": "Natural Stone Cleaning - Backsplash",
+  "taskCode": "DEFAULT_CARPET_SERVICE_35"
+ },
+ {
+  "seedKey": "fq.carpet_cleaning.specialty.sectional",
+  "industry": "Carpet Cleaning",
+  "sourceCategory": "Specialty Cleaning & Repair",
+  "sourceService": "Furniture Cleaning - Sectional",
+  "taskCode": "DEFAULT_CARPET_SERVICE_36"
+ },
+ {
+  "seedKey": "fq.carpet_cleaning.specialty.leather_chairs",
+  "industry": "Carpet Cleaning",
+  "sourceCategory": "Specialty Cleaning & Repair",
+  "sourceService": "Leather Furniture Cleaning - Chairs",
+  "taskCode": "DEFAULT_CARPET_SERVICE_37"
+ },
+ {
+  "seedKey": "fq.carpet_cleaning.specialty.leather_sofa",
+  "industry": "Carpet Cleaning",
+  "sourceCategory": "Specialty Cleaning & Repair",
+  "sourceService": "Leather Furniture Cleaning - Sofa",
+  "taskCode": "DEFAULT_CARPET_SERVICE_38"
+ },
+ {
+  "seedKey": "fq.carpet_cleaning.specialty.leather_sectional",
+  "industry": "Carpet Cleaning",
+  "sourceCategory": "Specialty Cleaning & Repair",
+  "sourceService": "Leather Furniture Cleaning - Sectional",
+  "taskCode": "DEFAULT_CARPET_SERVICE_39"
+ },
+ {
+  "seedKey": "fq.carpet_cleaning.specialty.mattress_full",
+  "industry": "Carpet Cleaning",
+  "sourceCategory": "Specialty Cleaning & Repair",
+  "sourceService": "Mattress Cleaning - Full",
+  "taskCode": "DEFAULT_CARPET_SERVICE_40"
+ },
+ {
+  "seedKey": "fq.carpet_cleaning.specialty.mattress_cal_king",
+  "industry": "Carpet Cleaning",
+  "sourceCategory": "Specialty Cleaning & Repair",
+  "sourceService": "Mattress Cleaning - California King",
+  "taskCode": "DEFAULT_CARPET_SERVICE_41"
+ },
+ {
+  "seedKey": "fq.carpet_cleaning.specialty.recurring_hard_floor",
+  "industry": "Carpet Cleaning",
+  "sourceCategory": "Specialty Cleaning & Repair",
+  "sourceService": "Recurring - Hard-Surface Floor Cleaning",
+  "taskCode": "DEFAULT_CARPET_SERVICE_42"
+ },
+ {
+  "seedKey": "fq.carpet_cleaning.specialty.other",
+  "industry": "Carpet Cleaning",
+  "sourceCategory": "Specialty Cleaning & Repair",
+  "sourceService": "Carpet Cleaning - Other",
+  "taskCode": "DEFAULT_CARPET_SERVICE_43"
+ },
+ {
+  "seedKey": "fq.carpet_cleaning.specialty.move_in_out_1_1",
+  "industry": "Carpet Cleaning",
+  "sourceCategory": "Specialty Cleaning & Repair",
+  "sourceService": "Move In/Out Cleaning - 1 Bed / 1 Bath",
+  "taskCode": "DEFAULT_CARPET_SERVICE_44"
+ },
+ {
+  "seedKey": "fq.carpet_cleaning.specialty.one_time_1_1",
+  "industry": "Carpet Cleaning",
+  "sourceCategory": "Specialty Cleaning & Repair",
+  "sourceService": "One-Time Cleaning - 1 Bed / 1 Bath",
+  "taskCode": "DEFAULT_CARPET_SERVICE_45"
+ },
+ {
+  "seedKey": "fq.carpet_cleaning.specialty.area_rug_8x10",
+  "industry": "Carpet Cleaning",
+  "sourceCategory": "Specialty Cleaning & Repair",
+  "sourceService": "Area Rug Cleaning (On-Site, 8x10 Synthetic)",
+  "taskCode": "DEFAULT_CARPET_SERVICE_46"
+ },
+ {
+  "seedKey": "fq.carpet_cleaning.specialty.area_rug_various",
+  "industry": "Carpet Cleaning",
+  "sourceCategory": "Specialty Cleaning & Repair",
+  "sourceService": "Area Rug Cleaning (Various Sizes/Materials)",
+  "taskCode": "DEFAULT_CARPET_SERVICE_47"
+ },
+ {
+  "seedKey": "fq.carpet_cleaning.specialty.upholstery",
+  "industry": "Carpet Cleaning",
+  "sourceCategory": "Specialty Cleaning & Repair",
+  "sourceService": "Upholstery Cleaning (Sofa/Chair/Loveseat)",
+  "taskCode": "DEFAULT_CARPET_SERVICE_48"
+ },
+ {
+  "seedKey": "fq.carpet_cleaning.specialty.stairs_glass_detail",
+  "industry": "Carpet Cleaning",
+  "sourceCategory": "Specialty Cleaning & Repair",
+  "sourceService": "Stairs & Glass Detail Cleaning",
+  "taskCode": "DEFAULT_CARPET_SERVICE_49"
+ },
+ {
+  "seedKey": "fq.carpet_cleaning.specialty.custom_job",
+  "industry": "Carpet Repair",
+  "sourceCategory": "Custom Services",
+  "sourceService": "Custom Job",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.carpet_cleaning.specialty.stretching_repair",
+  "industry": "Carpet Repair",
+  "sourceCategory": "Repair",
+  "sourceService": "Carpet Stretching",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.carpet_cleaning.specialty.rug_custom_job",
+  "industry": "Rug Cleaning",
+  "sourceCategory": "Custom Services",
+  "sourceService": "Custom job",
+  "taskCode": null
+ }
+]

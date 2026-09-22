@@ -1,0 +1,275 @@
+[
+ {
+  "seedKey": "fq.residential_cleaning.add_ons.inside_fridge",
+  "industry": "Home Cleaning",
+  "sourceCategory": "Add-On Services",
+  "sourceService": "Inside Refrigerator Cleaning",
+  "taskCode": "DEFAULT_MAID_SERVICE_0"
+ },
+ {
+  "seedKey": "fq.residential_cleaning.add_ons.inside_cabinets",
+  "industry": "Home Cleaning",
+  "sourceCategory": "Add-On Services",
+  "sourceService": "Interior Cabinet Cleaning",
+  "taskCode": "DEFAULT_MAID_SERVICE_1"
+ },
+ {
+  "seedKey": "fq.residential_cleaning.add_ons.additional_rooms",
+  "industry": "Home Cleaning",
+  "sourceCategory": "Add-On Services",
+  "sourceService": "Additional Rooms Sanitization (Baths/Bedrooms)",
+  "taskCode": "DEFAULT_MAID_SERVICE_2"
+ },
+ {
+  "seedKey": "fq.residential_cleaning.add_ons.post_construction",
+  "industry": "Home Cleaning",
+  "sourceCategory": "Add-On Services",
+  "sourceService": "Post-Construction Cleaning",
+  "taskCode": "DEFAULT_MAID_SERVICE_3"
+ },
+ {
+  "seedKey": "fq.residential_cleaning.add_ons.inside_oven",
+  "industry": "Home Cleaning",
+  "sourceCategory": "Add-On Services",
+  "sourceService": "Inside Oven Cleaning",
+  "taskCode": "DEFAULT_MAID_SERVICE_4"
+ },
+ {
+  "seedKey": "fq.residential_cleaning.add_ons.deep_clean_key_areas",
+  "industry": "Home Cleaning",
+  "sourceCategory": "Add-On Services",
+  "sourceService": "Deep Clean & Sanitize (Key Areas)",
+  "taskCode": "DEFAULT_MAID_SERVICE_5"
+ },
+ {
+  "seedKey": "fq.residential_cleaning.visits.one_time_deep",
+  "industry": "Home Cleaning",
+  "sourceCategory": "Book Now",
+  "sourceService": "One-Time Deep Cleaning",
+  "taskCode": "DEFAULT_MAID_SERVICE_6"
+ },
+ {
+  "seedKey": "fq.residential_cleaning.visits.recurring_service",
+  "industry": "Home Cleaning",
+  "sourceCategory": "Book Now",
+  "sourceService": "Recurring Cleaning Service",
+  "taskCode": "DEFAULT_MAID_SERVICE_7"
+ },
+ {
+  "seedKey": "fq.residential_cleaning.visits.move_in_out",
+  "industry": "Home Cleaning",
+  "sourceCategory": "Book Now",
+  "sourceService": "Move-In / Move-Out Cleaning",
+  "taskCode": "DEFAULT_MAID_SERVICE_8"
+ },
+ {
+  "seedKey": "fq.residential_cleaning.commercial.recurring_office",
+  "industry": "Home Cleaning",
+  "sourceCategory": "Commercial Cleaning",
+  "sourceService": "Recurring - Office / Commercial Cleaning",
+  "taskCode": "DEFAULT_MAID_SERVICE_9"
+ },
+ {
+  "seedKey": "fq.residential_cleaning.commercial.recurring_weekly",
+  "industry": "Home Cleaning",
+  "sourceCategory": "Commercial Cleaning",
+  "sourceService": "Recurring Commercial Cleaning (Weekly/Bi-Weekly)",
+  "taskCode": "DEFAULT_MAID_SERVICE_10"
+ },
+ {
+  "seedKey": "fq.residential_cleaning.commercial.weekly_janitorial",
+  "industry": "Home Cleaning",
+  "sourceCategory": "Commercial Cleaning",
+  "sourceService": "Weekly Janitorial Service (Commercial)",
+  "taskCode": "DEFAULT_MAID_SERVICE_11"
+ },
+ {
+  "seedKey": "fq.residential_cleaning.commercial.one_time_office",
+  "industry": "Home Cleaning",
+  "sourceCategory": "Commercial Cleaning",
+  "sourceService": "One-Time - Office / Commercial Cleaning",
+  "taskCode": "DEFAULT_MAID_SERVICE_12"
+ },
+ {
+  "seedKey": "fq.residential_cleaning.core.hourly_two_cleaners",
+  "industry": "Home Cleaning",
+  "sourceCategory": "Core Home Cleaning",
+  "sourceService": "Home Cleaning (Hourly - 2 Cleaners, 2-Hour Minimum)",
+  "taskCode": "DEFAULT_MAID_SERVICE_13"
+ },
+ {
+  "seedKey": "fq.residential_cleaning.core.routine_general",
+  "industry": "Home Cleaning",
+  "sourceCategory": "Core Home Cleaning",
+  "sourceService": "Routine Home Cleaning (General)",
+  "taskCode": "DEFAULT_MAID_SERVICE_14"
+ },
+ {
+  "seedKey": "fq.residential_cleaning.core.one_time_studio",
+  "industry": "Home Cleaning",
+  "sourceCategory": "Core Home Cleaning",
+  "sourceService": "One-Time Cleaning - Studio",
+  "taskCode": "DEFAULT_MAID_SERVICE_15"
+ },
+ {
+  "seedKey": "fq.residential_cleaning.core.apartment_1_1",
+  "industry": "Home Cleaning",
+  "sourceCategory": "Core Home Cleaning",
+  "sourceService": "Apartment Cleaning (1 Bed / 1 Bath)",
+  "taskCode": "DEFAULT_MAID_SERVICE_16"
+ },
+ {
+  "seedKey": "fq.residential_cleaning.core.one_time_1br",
+  "industry": "Home Cleaning",
+  "sourceCategory": "Core Home Cleaning",
+  "sourceService": "One-Time Cleaning - 1 Bedroom, 2–5 Bathrooms",
+  "taskCode": "DEFAULT_MAID_SERVICE_17"
+ },
+ {
+  "seedKey": "fq.residential_cleaning.core.one_time_2br",
+  "industry": "Home Cleaning",
+  "sourceCategory": "Core Home Cleaning",
+  "sourceService": "One-Time Cleaning - 2 Bedrooms, 2–5 Bathrooms",
+  "taskCode": "DEFAULT_MAID_SERVICE_18"
+ },
+ {
+  "seedKey": "fq.residential_cleaning.core.one_time_3br",
+  "industry": "Home Cleaning",
+  "sourceCategory": "Core Home Cleaning",
+  "sourceService": "One-Time Cleaning - 3 Bedrooms, 2–5 Bathrooms",
+  "taskCode": "DEFAULT_MAID_SERVICE_19"
+ },
+ {
+  "seedKey": "fq.residential_cleaning.core.one_time_4br",
+  "industry": "Home Cleaning",
+  "sourceCategory": "Core Home Cleaning",
+  "sourceService": "One-Time Cleaning - 4 Bedrooms, 2–5 Bathrooms",
+  "taskCode": "DEFAULT_MAID_SERVICE_20"
+ },
+ {
+  "seedKey": "fq.residential_cleaning.core.one_time_5br",
+  "industry": "Home Cleaning",
+  "sourceCategory": "Core Home Cleaning",
+  "sourceService": "One-Time Cleaning - 5+ Bedrooms, 2–5 Bathrooms",
+  "taskCode": "DEFAULT_MAID_SERVICE_21"
+ },
+ {
+  "seedKey": "fq.residential_cleaning.move.studio",
+  "industry": "Home Cleaning",
+  "sourceCategory": "Move-In / Move-Out Cleaning",
+  "sourceService": "Move In/Out Cleaning - Studio",
+  "taskCode": "DEFAULT_MAID_SERVICE_22"
+ },
+ {
+  "seedKey": "fq.residential_cleaning.move.1br_2_5ba",
+  "industry": "Home Cleaning",
+  "sourceCategory": "Move-In / Move-Out Cleaning",
+  "sourceService": "Move In/Out Cleaning - 1 Bedroom, 2–5 Bathrooms",
+  "taskCode": "DEFAULT_MAID_SERVICE_23"
+ },
+ {
+  "seedKey": "fq.residential_cleaning.move.2br_2_5ba",
+  "industry": "Home Cleaning",
+  "sourceCategory": "Move-In / Move-Out Cleaning",
+  "sourceService": "Move In/Out Cleaning - 2 Bedrooms, 2–5 Bathrooms",
+  "taskCode": "DEFAULT_MAID_SERVICE_24"
+ },
+ {
+  "seedKey": "fq.residential_cleaning.move.2br_1ba",
+  "industry": "Home Cleaning",
+  "sourceCategory": "Move-In / Move-Out Cleaning",
+  "sourceService": "Move In/Out Cleaning - 2 Bedrooms, 1 Bathroom",
+  "taskCode": "DEFAULT_MAID_SERVICE_25"
+ },
+ {
+  "seedKey": "fq.residential_cleaning.move.3br_1ba",
+  "industry": "Home Cleaning",
+  "sourceCategory": "Move-In / Move-Out Cleaning",
+  "sourceService": "Move In/Out Cleaning - 3 Bedrooms, 1 Bathroom",
+  "taskCode": "DEFAULT_MAID_SERVICE_26"
+ },
+ {
+  "seedKey": "fq.residential_cleaning.move.4br_1ba",
+  "industry": "Home Cleaning",
+  "sourceCategory": "Move-In / Move-Out Cleaning",
+  "sourceService": "Move In/Out Cleaning - 4 Bedrooms, 1 Bathroom",
+  "taskCode": "DEFAULT_MAID_SERVICE_27"
+ },
+ {
+  "seedKey": "fq.residential_cleaning.move.5br_2_5ba",
+  "industry": "Home Cleaning",
+  "sourceCategory": "Move-In / Move-Out Cleaning",
+  "sourceService": "Move In/Out Cleaning - 5+ Bedrooms, 2–5 Bathrooms",
+  "taskCode": "DEFAULT_MAID_SERVICE_28"
+ },
+ {
+  "seedKey": "fq.residential_cleaning.move.3br_2_5ba",
+  "industry": "Home Cleaning",
+  "sourceCategory": "Move-In / Move-Out Cleaning",
+  "sourceService": "Move In/Out Cleaning - 3 Bedrooms, 2–5 Bathrooms",
+  "taskCode": "DEFAULT_MAID_SERVICE_29"
+ },
+ {
+  "seedKey": "fq.residential_cleaning.move.4br_2_5ba",
+  "industry": "Home Cleaning",
+  "sourceCategory": "Move-In / Move-Out Cleaning",
+  "sourceService": "Move In/Out Cleaning - 4 Bedrooms, 2–5 Bathrooms",
+  "taskCode": "DEFAULT_MAID_SERVICE_30"
+ },
+ {
+  "seedKey": "fq.residential_cleaning.recurring.1br_1ba",
+  "industry": "Home Cleaning",
+  "sourceCategory": "Recurring Cleaning",
+  "sourceService": "Recurring - 1 Bedroom, 1 Bathroom",
+  "taskCode": "DEFAULT_MAID_SERVICE_31"
+ },
+ {
+  "seedKey": "fq.residential_cleaning.recurring.1br_2_5ba",
+  "industry": "Home Cleaning",
+  "sourceCategory": "Recurring Cleaning",
+  "sourceService": "Recurring - 1 Bedroom, 2–5 Bathrooms",
+  "taskCode": "DEFAULT_MAID_SERVICE_32"
+ },
+ {
+  "seedKey": "fq.residential_cleaning.recurring.4br_2_5ba",
+  "industry": "Home Cleaning",
+  "sourceCategory": "Recurring Cleaning",
+  "sourceService": "Recurring - 4 Bedrooms, 2–5 Bathrooms",
+  "taskCode": "DEFAULT_MAID_SERVICE_33"
+ },
+ {
+  "seedKey": "fq.residential_cleaning.recurring.5br_2_5ba",
+  "industry": "Home Cleaning",
+  "sourceCategory": "Recurring Cleaning",
+  "sourceService": "Recurring - 5+ Bedrooms, 2–5 Bathrooms",
+  "taskCode": "DEFAULT_MAID_SERVICE_34"
+ },
+ {
+  "seedKey": "fq.residential_cleaning.recurring.kitchen_restroom",
+  "industry": "Home Cleaning",
+  "sourceCategory": "Recurring Cleaning",
+  "sourceService": "Recurring - Kitchen / Restroom Cleaning",
+  "taskCode": "DEFAULT_MAID_SERVICE_35"
+ },
+ {
+  "seedKey": "fq.residential_cleaning.recurring.bi_weekly",
+  "industry": "Home Cleaning",
+  "sourceCategory": "Recurring Cleaning",
+  "sourceService": "Recurring Home Cleaning (Bi-Weekly)",
+  "taskCode": "DEFAULT_MAID_SERVICE_36"
+ },
+ {
+  "seedKey": "fq.residential_cleaning.recurring.3br_2_5ba",
+  "industry": "Home Cleaning",
+  "sourceCategory": "Recurring Cleaning",
+  "sourceService": "Recurring - 3 Bedrooms, 2–5 Bathrooms",
+  "taskCode": "DEFAULT_MAID_SERVICE_37"
+ },
+ {
+  "seedKey": "fq.residential_cleaning.recurring.2br_2_5ba",
+  "industry": "Home Cleaning",
+  "sourceCategory": "Recurring Cleaning",
+  "sourceService": "Recurring - 2 Bedrooms, 2–5 Bathrooms",
+  "taskCode": "DEFAULT_MAID_SERVICE_38"
+ }
+]

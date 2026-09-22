@@ -1,0 +1,121 @@
+[
+ {
+  "seedKey": "fq.window_cleaning.visits.inspection",
+  "industry": "Window & Exterior Cleaning",
+  "sourceCategory": "Book Now",
+  "sourceService": "Window & Exterior Cleaning Inspection Service",
+  "taskCode": "DEFAULT_EXTERIOR_SERVICE_0"
+ },
+ {
+  "seedKey": "fq.window_cleaning.visits.repair",
+  "industry": "Window & Exterior Cleaning",
+  "sourceCategory": "Book Now",
+  "sourceService": "Window & Exterior Cleaning Repair Service",
+  "taskCode": "DEFAULT_EXTERIOR_SERVICE_1"
+ },
+ {
+  "seedKey": "fq.window_cleaning.visits.install_upgrade",
+  "industry": "Window & Exterior Cleaning",
+  "sourceCategory": "Book Now",
+  "sourceService": "Window & Exterior Cleaning Installation or Upgrade",
+  "taskCode": "DEFAULT_EXTERIOR_SERVICE_2"
+ },
+ {
+  "seedKey": "fq.window_cleaning.exterior.driveway_pressure_wash",
+  "industry": "Window & Exterior Cleaning",
+  "sourceCategory": "Core Exterior Cleaning",
+  "sourceService": "Driveway / Concrete Pressure Wash",
+  "taskCode": "DEFAULT_EXTERIOR_SERVICE_3"
+ },
+ {
+  "seedKey": "fq.window_cleaning.exterior.power_soft_wash",
+  "industry": "Window & Exterior Cleaning",
+  "sourceCategory": "Core Exterior Cleaning",
+  "sourceService": "Exterior Power/Soft Wash (Home + Surrounding Surfaces)",
+  "taskCode": "DEFAULT_EXTERIOR_SERVICE_4"
+ },
+ {
+  "seedKey": "fq.window_cleaning.exterior.house_soft_wash",
+  "industry": "Window & Exterior Cleaning",
+  "sourceCategory": "Core Exterior Cleaning",
+  "sourceService": "House Soft Wash (Siding + Exterior Surfaces)",
+  "taskCode": "DEFAULT_EXTERIOR_SERVICE_5"
+ },
+ {
+  "seedKey": "fq.window_cleaning.exterior.gutter_cleaning",
+  "industry": "Window & Exterior Cleaning",
+  "sourceCategory": "Core Exterior Cleaning",
+  "sourceService": "Gutter Cleaning",
+  "taskCode": "DEFAULT_EXTERIOR_SERVICE_6"
+ },
+ {
+  "seedKey": "fq.window_cleaning.specialty.natural_stone_house",
+  "industry": "Window & Exterior Cleaning",
+  "sourceCategory": "Specialty Surface Cleaning",
+  "sourceService": "Natural Stone Cleaning - Whole House",
+  "taskCode": "DEFAULT_EXTERIOR_SERVICE_7"
+ },
+ {
+  "seedKey": "fq.window_cleaning.specialty.solar_panels",
+  "industry": "Window & Exterior Cleaning",
+  "sourceCategory": "Specialty Surface Cleaning",
+  "sourceService": "Solar Panel Cleaning",
+  "taskCode": "DEFAULT_EXTERIOR_SERVICE_8"
+ },
+ {
+  "seedKey": "fq.window_cleaning.specialty.screen_repair",
+  "industry": "Window & Exterior Cleaning",
+  "sourceCategory": "Specialty Surface Cleaning",
+  "sourceService": "Window/Door Screen Repair or Replacement",
+  "taskCode": "DEFAULT_EXTERIOR_SERVICE_9"
+ },
+ {
+  "seedKey": "fq.window_cleaning.windows.recurring",
+  "industry": "Window & Exterior Cleaning",
+  "sourceCategory": "Window Cleaning",
+  "sourceService": "Recurring - Window Washing",
+  "taskCode": "DEFAULT_EXTERIOR_SERVICE_10"
+ },
+ {
+  "seedKey": "fq.window_cleaning.windows.one_time",
+  "industry": "Window & Exterior Cleaning",
+  "sourceCategory": "Window Cleaning",
+  "sourceService": "One-Time - Window Washing",
+  "taskCode": "DEFAULT_EXTERIOR_SERVICE_11"
+ },
+ {
+  "seedKey": "fq.window_cleaning.windows.skylights",
+  "industry": "Window & Exterior Cleaning",
+  "sourceCategory": "Window Cleaning",
+  "sourceService": "Skylight Cleaning",
+  "taskCode": "DEFAULT_EXTERIOR_SERVICE_12"
+ },
+ {
+  "seedKey": "fq.window_cleaning.windows.whole_property_int_ext",
+  "industry": "Window & Exterior Cleaning",
+  "sourceCategory": "Window Cleaning",
+  "sourceService": "Whole-Property Window Cleaning (Interior + Exterior)",
+  "taskCode": "DEFAULT_EXTERIOR_SERVICE_13"
+ },
+ {
+  "seedKey": "fq.window_cleaning.windows.int_ext_tracks_sills_screens",
+  "industry": "Window & Exterior Cleaning",
+  "sourceCategory": "Window Cleaning",
+  "sourceService": "Window Cleaning (Int/Ext) + Tracks/Sills/Screens",
+  "taskCode": "DEFAULT_EXTERIOR_SERVICE_14"
+ },
+ {
+  "seedKey": "fq.window_cleaning.windows.exterior_glass_frames",
+  "industry": "Window & Exterior Cleaning",
+  "sourceCategory": "Window Cleaning",
+  "sourceService": "Exterior Window Cleaning (Glass + Frames)",
+  "taskCode": "DEFAULT_EXTERIOR_SERVICE_15"
+ },
+ {
+  "seedKey": "fq.window_cleaning.windows.commercial",
+  "industry": "Window & Exterior Cleaning",
+  "sourceCategory": "Window Cleaning",
+  "sourceService": "Commercial Window & Glass Door Cleaning + Sill Wipe",
+  "taskCode": "DEFAULT_EXTERIOR_SERVICE_16"
+ }
+]
