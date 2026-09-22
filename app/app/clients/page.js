@@ -58,6 +58,14 @@ export default function ClientsPage() {
               ? t("app.clients.countOne")
               : t("app.clients.count", { count: clients?.length })}
           </ListCount>
+          {/* The past-client callback list, for whoever the rotation is
+              assigned to (owners and admins see every list). The page
+              refuses anyone else, so the link is the honest offer. */}
+          <p className="text-xs mt-1">
+            <Link href="/app/callbacks" className="underline text-muted-foreground hover:text-foreground">
+              {t("app.callbacks.clientsLink")}
+            </Link>
+          </p>
         </div>
         {/* Both writes require clientsProperties: full_edit — the level POST
             /api/clients and POST /api/clients/import have always taken, and

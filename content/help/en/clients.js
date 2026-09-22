@@ -902,4 +902,59 @@ export const ARTICLES = {
       { q: "Does importing a CSV twice create duplicates?", a: "Yes, one full set. The importer creates every named row and does not match against existing clients." },
     ],
   },
+  "past-client-callbacks": {
+    "title": "Past-client callback rotation",
+    "summary": "Every week, a short list of your own dormant clients — no job in so many months, a last ticket over so much, in an area — handed to one person to call, with the outcome of each call logged on the client.",
+    "intro": [
+      "A painter's best lead is a homeowner they painted for four years ago. **Settings → Follow-ups → Past clients** is one sentence you fill in — *Every Monday, list clients with no job in 10+ months, last ticket over $1,500, area Kanata → hand the list to Sam, up to 8 a week* — and the list it produces, week after week.",
+      "The list is built from your own jobs and invoices and nothing else. The person it is assigned to opens it under **Clients → This week's callbacks**; owners and administrators see every list."
+    ],
+    "sections": [
+      {
+        "id": "who-is-listed",
+        "heading": "Who is listed, and who never is",
+        "blocks": [
+          {
+            "bullets": [
+              "Clients with a phone number whose last job is older than the months you set, whose last invoice (or the quote behind the job) is over the ticket you set, and who are in the area you set — a postcode prefix, a city, or a work area drawn on the map.",
+              "Biggest ticket first, up to the weekly cap.",
+              "**Never:** a client marked **Do not contact**, a client already listed within the same number of months, one who said **Not interested** in the last twelve, or one who said **Call back** on a date still ahead."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "outcomes",
+        "heading": "Logging the call",
+        "blocks": [
+          {
+            "p": "Each row takes one outcome: **Booked** (opens a new quote for the client, the way a lead does), **Call back** with a date, **Not now**, **Not interested**, **Wrong number**, or **Do not call**. Every outcome is written to the client's timeline."
+          },
+          {
+            "warning": "**Do not call** is permanent. It marks the client, removes them from every future list, and also opts their number out of the phone receptionist's calling — one wish, honoured everywhere the company rings people."
+          }
+        ]
+      },
+      {
+        "id": "why-not-the-ai",
+        "heading": "Why the AI front desk cannot take this list",
+        "blocks": [
+          {
+            "p": "The phone receptionist can place outbound calls, but only to people who asked to be contacted — and that consent, for a finished job, lasts three months. Every client this rotation lists is by definition past that window, so an **AI front desk** option would refuse every call. It is left off rather than offered dead; the list is a person's."
+          }
+        ]
+      }
+    ],
+    "faq": [
+      {
+        "q": "When is the list built?",
+        "a": "Once a week, on the weekday in the sentence, at the same 8am run as your other follow-ups. Running the rule twice in a week does not build a second list."
+      },
+      {
+        "q": "Can I have more than one rule?",
+        "a": "Yes — one per area, say, each with its own assignee and cap."
+      }
+    ],
+    "updated": "2026-09-21"
+  },
 };

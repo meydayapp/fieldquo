@@ -726,4 +726,61 @@ export const ARTICLES = {
       { q: "¿Puedo quitar la marca después?", a: "La casilla está en el formulario de reserva; la fila en sí no ofrece un interruptor. Asignar un supervisor es lo que borra el estado ámbar." },
     ],
   },
+  "daily-sheets": {
+    "title": "Hojas del día y pago por desempeño",
+    "summary": "Una hoja por miembro del equipo y por día: los objetivos (del plan del trabajo o escritos), fotos de antes y después, los fichajes, las ventas adicionales que logró, la evaluación del coordinador y la bonificación que produce la regla de la empresa, o la frase que dice que no hay regla.",
+    "intro": [
+      "Las hojas de horas dicen cuándo estuvo alguien en la obra. Las **hojas del día** (Equipo → Hojas del día) dicen qué debía hacer, si se hizo y qué vendió mientras estaba allí: lo que un coordinador necesita para evaluar un día, y sobre lo que se paga una bonificación por desempeño, si la empresa paga una.",
+      "Un coordinador, administrador o propietario ve la hoja de cada miembro del equipo y escribe la evaluación. Un miembro del equipo ve su propia hoja en su teléfono, rellena resultados, fotos y ventas adicionales, y lee la evaluación una vez escrita."
+    ],
+    "sections": [
+      {
+        "id": "the-sheet",
+        "heading": "Qué hay en la hoja",
+        "blocks": [
+          {
+            "bullets": [
+              "**Objetivos.** Las tareas del plan del trabajo previstas para ese día y asignadas a la persona aparecen como objetivos; si no hay ninguna, el coordinador o la persona las escribe. Cada uno tiene un estado — Previsto, Hecho, Primera mano / parcial, No hecho — y las horas que realmente llevó.",
+              "**Fotos.** Una de antes y una de después por objetivo, tomadas con el teléfono.",
+              "**Fichajes.** Leídos en directo del reloj de fichaje, así que una hoja de horas corregida corrige la hoja. Nada se copia.",
+              "**Ventas adicionales acreditadas.** Un extra que el cliente marcó en el presupuesto o una orden de cambio aprobada, elegido de la lista para que el importe sea el registrado; o una línea escrita cuando no hay nada registrado.",
+              "**Evaluación.** Una puntuación de 1 a 5 y una nota, escritas solo por el coordinador: una persona no puede puntuar su propio día."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "performance-pay",
+        "heading": "Pago por desempeño",
+        "blocks": [
+          {
+            "p": "El recuadro de bonificación calcula lo que la regla de la empresa produce para el día — tanto por objetivo cumplido, tanto cuando se cumplen todos, una parte de las ventas adicionales — y muestra el cálculo. Sin **regla** (el valor por defecto), el recuadro lo dice y no se calcula nada: ni $0, ni una cifra provisional. Un propietario escribe la regla en [[settings-field-work|Ajustes → Trabajo de campo]]."
+          },
+          {
+            "note": "La bonificación va a la siguiente nómina como línea de ingreso **Bonificación por desempeño**, que la persona que hace la nómina revisa antes de guardarla. Una vez que una nómina la ha tomado, la hoja del día queda congelada."
+          }
+        ]
+      },
+      {
+        "id": "the-week",
+        "heading": "La semana",
+        "blocks": [
+          {
+            "p": "**Esta semana**, en cualquier hoja, abre la semana de la persona: horas, objetivos cumplidos, ventas adicionales, puntuación media y total de bonificación, día por día. Un día sin hoja muestra un guion en lugar de un cero."
+          }
+        ]
+      }
+    ],
+    "faq": [
+      {
+        "q": "¿De dónde vienen los objetivos?",
+        "a": "De las tareas del plan del trabajo asignadas a la persona y previstas para ese día. Si el plan no tiene ninguna para ella, se escriben en la hoja."
+      },
+      {
+        "q": "¿Puede un miembro del equipo añadir una venta adicional con un importe?",
+        "a": "Sí, como línea escrita. Acredita la hoja; el coordinador la ve antes de evaluar, y la nómina se revisa antes de guardarse."
+      }
+    ],
+    "updated": "2026-09-21"
+  },
 };

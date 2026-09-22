@@ -897,4 +897,59 @@ export const ARTICLES = {
       { q: "Importer deux fois un CSV crée-t-il des doublons?", a: "Oui, un jeu complet. L'importateur crée chaque ligne qui a un nom et n'apparie pas avec les clients existants." },
     ],
   },
+  "past-client-callbacks": {
+    "title": "Rotation de rappels des anciens clients",
+    "summary": "Chaque semaine, une courte liste de vos propres clients dormants — aucun chantier depuis tant de mois, une dernière facture au-dessus de tant, dans un secteur — remise à une personne pour appeler, avec le résultat de chaque appel consigné sur le client.",
+    "intro": [
+      "Le meilleur prospect d'un peintre, c'est le propriétaire chez qui il a peint il y a quatre ans. **Réglages → Relances → Anciens clients**, c'est une phrase que vous remplissez — *Chaque lundi, lister les clients sans chantier depuis 10 mois et plus, dernière facture au-dessus de 1 500 $, secteur Kanata → remettre la liste à Sam, jusqu'à 8 par semaine* — et la liste qu'elle produit, semaine après semaine.",
+      "La liste est bâtie à partir de vos propres chantiers et factures et de rien d'autre. La personne à qui elle est attribuée l'ouvre dans **Clients → Rappels de la semaine** ; les propriétaires et administrateurs voient toutes les listes."
+    ],
+    "sections": [
+      {
+        "id": "who-is-listed",
+        "heading": "Qui est listé, et qui ne l'est jamais",
+        "blocks": [
+          {
+            "bullets": [
+              "Les clients avec un numéro de téléphone dont le dernier chantier est plus vieux que les mois fixés, dont la dernière facture (ou la soumission derrière le chantier) dépasse le montant fixé, et qui sont dans le secteur fixé — un début de code postal, une ville, ou une zone de travail dessinée sur la carte.",
+              "Plus gros montant d'abord, jusqu'au plafond hebdomadaire.",
+              "**Jamais :** un client marqué **Ne pas contacter**, un client déjà listé dans le même nombre de mois, un client qui a dit **Pas intéressé** dans les douze derniers, ou un client qui a dit **Rappeler** à une date encore à venir."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "outcomes",
+        "heading": "Consigner l'appel",
+        "blocks": [
+          {
+            "p": "Chaque ligne prend un résultat : **Réservé** (ouvre une nouvelle soumission pour le client, comme le fait un prospect), **Rappeler** avec une date, **Pas maintenant**, **Pas intéressé**, **Mauvais numéro**, ou **Ne pas appeler**. Chaque résultat est écrit sur la chronologie du client."
+          },
+          {
+            "warning": "**Ne pas appeler** est définitif. Cela marque le client, le retire de toutes les listes futures, et désinscrit aussi son numéro des appels de la réceptionniste téléphonique — un seul souhait, respecté partout où l'entreprise appelle des gens."
+          }
+        ]
+      },
+      {
+        "id": "why-not-the-ai",
+        "heading": "Pourquoi l'accueil IA ne peut pas prendre cette liste",
+        "blocks": [
+          {
+            "p": "La réceptionniste téléphonique peut passer des appels sortants, mais seulement aux gens qui ont demandé à être contactés — et ce consentement, pour un chantier terminé, dure trois mois. Chaque client que cette rotation liste est par définition au-delà de cette fenêtre, donc une option **accueil IA** refuserait chaque appel. Elle est omise plutôt qu'offerte morte ; la liste est celle d'une personne."
+          }
+        ]
+      }
+    ],
+    "faq": [
+      {
+        "q": "Quand la liste est-elle bâtie ?",
+        "a": "Une fois par semaine, le jour indiqué dans la phrase, lors de la même exécution de 8 h que vos autres relances. Exécuter la règle deux fois dans la semaine ne bâtit pas une seconde liste."
+      },
+      {
+        "q": "Puis-je avoir plus d'une règle ?",
+        "a": "Oui — une par secteur, par exemple, chacune avec sa propre personne attribuée et son plafond."
+      }
+    ],
+    "updated": "2026-09-21"
+  },
 };

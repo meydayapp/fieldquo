@@ -614,4 +614,68 @@ export const ARTICLES = {
       { q: "Is there a cap?", a: "20 invites a day from this screen." },
     ],
   },
+  "settings-field-work": {
+    "title": "Field work: offline mode, labour rate, performance pay",
+    "summary": "Three switches behind the crew's phone screens: whether the app keeps its field screens on the phone, the hourly rate a clocked-hours invoice line bills, and the performance-pay rule — which is off until you write one.",
+    "intro": [
+      "**Settings → Team & scheduling → Field work** holds the settings that decide what happens in a basement with no signal, what an hour of clocked labour is billed at, and whether a good day earns a bonus. Owners and administrators can change them; nobody else sees the page.",
+      "None of the three invents a number. With no hourly rate, the invoice editor offers the clocked hours with a link here instead of a price; with no performance-pay rule, no sheet and no pay run ever shows a bonus figure."
+    ],
+    "sections": [
+      {
+        "id": "offline-mode",
+        "heading": "Offline mode",
+        "blocks": [
+          {
+            "p": "**On** by default. While it is on, the app keeps the invoice editor, job pages, the time clock, timesheets and daily sheets — and the last data each one loaded — on the phone, so they open without signal. An invoice or a punch made without signal waits in a queue on the phone and is sent when the signal returns; the amber bar at the top of the app says how many are waiting. See [[working-without-signal|Working without signal]]."
+          },
+          {
+            "note": "Turn it **Off** only if a phone is showing stale screens you cannot explain. Off empties the phone's cache the next time the app opens; anything already queued still sends."
+          }
+        ]
+      },
+      {
+        "id": "labour-rate",
+        "heading": "Hourly rate billed to clients",
+        "blocks": [
+          {
+            "p": "The price on the **Labour — 6.5 h × $85** line the invoice editor offers when it is opened from a job with clock-ins. This is what you **charge**, not what you pay: a crew member's wage lives on their worker record and never appears on an invoice."
+          },
+          {
+            "p": "A service you price by the hour under **Services & Pricing** is offered as a second choice on the same line, so a company that bills plumbing at one rate and carpentry at another can pick the right one."
+          }
+        ]
+      },
+      {
+        "id": "performance-pay",
+        "heading": "Performance pay",
+        "blocks": [
+          {
+            "p": "**No rule** is the default, and it means exactly that: the daily sheet says there is no rule and the pay run adds nothing. Write a rule when you have decided what a good day is worth — an amount per objective done, an amount when every objective is done, a share of the upsells the person sold, and, if you want one, the evaluation score below which nothing is paid."
+          },
+          {
+            "steps": [
+              "Fill in the amounts you want to pay. Leave the ones you do not want at zero.",
+              "Press **Save rule**. From now on, when a coordinator evaluates a day, the sheet works out the bonus and shows the arithmetic.",
+              "The bonus lands on the next pay run as a **Performance bonus** earning line, which you review before the run is saved."
+            ]
+          },
+          {
+            "warning": "A rule applies to days evaluated after it is saved. Changing it later does not re-price days already evaluated — what a person saw on their sheet is what they are paid."
+          }
+        ]
+      }
+    ],
+    "faq": [
+      {
+        "q": "Does offline mode work in the mobile app?",
+        "a": "Yes — the mobile app wraps this same web app, and the same offline layer runs inside it unchanged."
+      },
+      {
+        "q": "Can a crew member set their own rate or rule?",
+        "a": "No. The page is owner and administrator only, and the invoice editor and the sheets only read what is set here."
+      }
+    ],
+    "updated": "2026-09-21"
+  },
 };

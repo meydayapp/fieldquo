@@ -611,4 +611,68 @@ export const ARTICLES = {
       { q: "Y a-t-il un plafond?", a: "20 invitations par jour depuis cet écran." },
     ],
   },
+  "settings-field-work": {
+    "title": "Terrain : mode hors ligne, taux horaire, prime de rendement",
+    "summary": "Trois réglages derrière les écrans de l'équipe : si l'application garde ses écrans de terrain sur le téléphone, le taux horaire facturé pour les heures pointées, et la règle de prime de rendement — désactivée tant que vous n'en écrivez pas une.",
+    "intro": [
+      "**Réglages → Équipe et horaires → Terrain** regroupe les réglages qui décident ce qui se passe dans un sous-sol sans réseau, à quel prix une heure pointée est facturée, et si une bonne journée rapporte une prime. Les propriétaires et administrateurs peuvent les modifier ; personne d'autre ne voit la page.",
+      "Aucun des trois n'invente de chiffre. Sans taux horaire, l'éditeur de facture propose les heures pointées avec un lien vers cette page plutôt qu'un prix ; sans règle de prime, aucune feuille ni aucune paie n'affiche jamais un montant de prime."
+    ],
+    "sections": [
+      {
+        "id": "offline-mode",
+        "heading": "Mode hors ligne",
+        "blocks": [
+          {
+            "p": "**Activé** par défaut. Tant qu'il l'est, l'application garde l'éditeur de facture, les pages de chantier, l'horloge de pointage, les feuilles de temps et les feuilles de journée — et les dernières données chargées par chacun — sur le téléphone, pour qu'ils s'ouvrent sans réseau. Une facture ou un pointage fait sans réseau attend dans une file sur le téléphone et part au retour du réseau ; la barre ambre en haut de l'application dit combien attendent. Voir [[working-without-signal|Travailler sans réseau]]."
+          },
+          {
+            "note": "Passez-le sur **Désactivé** seulement si un téléphone affiche des écrans périmés que vous ne pouvez pas expliquer. Désactivé vide le cache du téléphone à la prochaine ouverture ; ce qui est déjà en file part quand même."
+          }
+        ]
+      },
+      {
+        "id": "labour-rate",
+        "heading": "Taux horaire facturé aux clients",
+        "blocks": [
+          {
+            "p": "Le prix de la ligne **Main-d'œuvre — 6,5 h × 85 $** que l'éditeur de facture propose quand on l'ouvre depuis un chantier avec des pointages. C'est ce que vous **facturez**, pas ce que vous payez : le salaire d'un équipier vit sur sa fiche de travailleur et n'apparaît jamais sur une facture."
+          },
+          {
+            "p": "Un service tarifé à l'heure dans **Services et tarifs** est proposé comme second choix sur la même ligne, pour qu'une entreprise qui facture la plomberie à un taux et la menuiserie à un autre choisisse le bon."
+          }
+        ]
+      },
+      {
+        "id": "performance-pay",
+        "heading": "Prime de rendement",
+        "blocks": [
+          {
+            "p": "**Aucune règle** est le défaut, et cela veut dire exactement cela : la feuille de journée dit qu'il n'y a pas de règle et la paie n'ajoute rien. Écrivez une règle quand vous avez décidé ce que vaut une bonne journée — un montant par objectif atteint, un montant quand tous les objectifs le sont, une part des ventes additionnelles réalisées, et, si vous le voulez, la note d'évaluation en dessous de laquelle rien n'est versé."
+          },
+          {
+            "steps": [
+              "Remplissez les montants que vous voulez verser. Laissez à zéro ceux que vous ne voulez pas.",
+              "Appuyez sur **Enregistrer la règle**. Dès lors, quand un coordonnateur évalue une journée, la feuille calcule la prime et montre le détail.",
+              "La prime arrive sur la prochaine paie comme ligne de gain **Prime de rendement**, que vous vérifiez avant d'enregistrer la paie."
+            ]
+          },
+          {
+            "warning": "Une règle s'applique aux journées évaluées après son enregistrement. La changer ensuite ne recalcule pas les journées déjà évaluées — ce que la personne a vu sur sa feuille est ce qui lui est versé."
+          }
+        ]
+      }
+    ],
+    "faq": [
+      {
+        "q": "Le mode hors ligne fonctionne-t-il dans l'application mobile ?",
+        "a": "Oui — l'application mobile enveloppe cette même application web, et la même couche hors ligne y tourne sans changement."
+      },
+      {
+        "q": "Un équipier peut-il fixer son propre taux ou sa propre règle ?",
+        "a": "Non. La page est réservée aux propriétaires et administrateurs, et l'éditeur de facture comme les feuilles ne font que lire ce qui est réglé ici."
+      }
+    ],
+    "updated": "2026-09-21"
+  },
 };

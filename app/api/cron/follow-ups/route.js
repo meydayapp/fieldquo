@@ -29,6 +29,7 @@ import { quoteChaseBlocker, gatherQuoteChaseFacts } from "@/lib/followUps/stopCo
 import { companyMaySend, quoteTaxReady } from "@/lib/followUps/readiness";
 import { resolveClientLanguage } from "@/lib/i18n/clientLanguage";
 import { templateBody } from "@/lib/email/templateBody";
+import { runCallbackRotation } from "@/lib/callbacks/build";
 
 function cutoffFor(rule) {
   const ms =
@@ -497,6 +498,23 @@ export async function GET(request) {
     }
   }
 
+  // ── Past-client callback rotation ─────────────────────────────────────────
+  //
+  // Same 8am schedule, same secret: once a day, every company's CallbackRule
+  // gets the chance to build this week's list (lib/callbacks/build.js — it
+  // builds only on the rule's weekday and only once per week). Rides here
+  // rather than on a cron of its own because Vercel's cron count is a
+  // billed ceiling, and this is a lookup over the company's own client book,
+  // not a send. Best-effort: a failure here must not fail the follow-ups
+  // that already went out above.
+  let callbacks = null;
+  try {
+    callbacks = await runCallbackRotation({ now: new Date() });
+  } catch (err) {
+    console.error("[follow-ups] callback rotation failed:", err?.message);
+    callbacks = { error: err?.message || "failed" };
+  }
+
   return NextResponse.json({
     success: true,
     sent,
@@ -505,5 +523,6 @@ export async function GET(request) {
     skippedNoEmail,
     skippedUnsubscribed,
     stopped,
+    callbacks,
   });
 }

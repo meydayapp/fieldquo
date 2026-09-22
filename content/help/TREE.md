@@ -70,7 +70,7 @@ callbacks, the crew inbox, team chat, How You Compare, the KPI dashboard,
 
 <!-- tree:start -->
 
-_Generated 2026-09-21 — 323 articles in the tree; written: en 323, fr 323, es 323; “Only in FieldQuo”: 34._
+_Generated 2026-09-22 — 327 articles in the tree; written: en 327, fr 327, es 327; “Only in FieldQuo”: 34._
 
 ### getting-started (23)
 
@@ -144,7 +144,7 @@ _Generated 2026-09-21 — 323 articles in the tree; written: en 323, fr 323, es 
 | `scope-of-work-and-terms` — Scope of work and payment terms on every quote | ✓ | ✓ | ✓ | settings-company | contract_terms |  |
 | `the-large-quote-alert` — The large-quote alert | ✓ | ✓ | ✓ | settings-notifications |  |  |
 
-### jobs-and-scheduling (29)
+### jobs-and-scheduling (30)
 
 | Article | en | fr | es | Screen | Feature | Only |
 |---|:-:|:-:|:-:|---|---|:-:|
@@ -169,6 +169,7 @@ _Generated 2026-09-21 — 323 articles in the tree; written: en 323, fr 323, es 
 | `the-team-schedule` — The Team Schedule | ✓ | ✓ | ✓ | team-schedule | scheduling |  |
 | `the-time-clock` — The time clock | ✓ | ✓ | ✓ | clock | time_clock |  |
 | `timesheets-and-approving-hours` — Timesheets: review and approve hours | ✓ | ✓ | ✓ | timesheets | timesheets |  |
+| `daily-sheets` — Daily sheets and performance pay | ✓ | ✓ | ✓ | daily-sheets |  |  |
 | `time-off-requests` — Time off requests | ✓ | ✓ | ✓ | time-off | time_off |  |
 | `safety-incidents` — Safety incidents and near-misses | ✓ | ✓ | ✓ | safety | proof | ✓ |
 | `job-costing` — Job costing: quoted against actual | ✓ | ✓ | ✓ |  | job_costing |  |
@@ -211,7 +212,7 @@ _Generated 2026-09-21 — 323 articles in the tree; written: en 323, fr 323, es 
 | `booking-fees-and-visit-deposits` — Booking fees and visit deposits | ✓ | ✓ | ✓ | settings-booking-page | booking_deposit |  |
 | `money-owed-and-receivables-aging` — Money owed and receivables aging | ✓ | ✓ | ✓ | home | dashboard |  |
 
-### clients (12)
+### clients (13)
 
 | Article | en | fr | es | Screen | Feature | Only |
 |---|:-:|:-:|:-:|---|---|:-:|
@@ -219,6 +220,7 @@ _Generated 2026-09-21 — 323 articles in the tree; written: en 323, fr 323, es 
 | `add-a-client` — Add a client | ✓ | ✓ | ✓ |  | clients |  |
 | `the-client-record` — The client record | ✓ | ✓ | ✓ |  | clients |  |
 | `business-clients-and-contacts` — Business clients and their contact person | ✓ | ✓ | ✓ |  | clients |  |
+| `past-client-callbacks` — Past-client callback rotation | ✓ | ✓ | ✓ |  |  |  |
 | `client-notes` — Client notes | ✓ | ✓ | ✓ |  | clients |  |
 | `a-clients-language` — A client's language | ✓ | ✓ | ✓ |  | languages |  |
 | `client-equipment-and-warranties` — Client equipment and warranties | ✓ | ✓ | ✓ | client-equipment | proof | ✓ |
@@ -308,7 +310,7 @@ _Generated 2026-09-21 — 323 articles in the tree; written: en 323, fr 323, es 
 | `team-chat` — Team chat | ✓ | ✓ | ✓ | chat | team_chat | ✓ |
 | `texting-clients-what-is-and-is-not-automated` — Texting clients: what is automated and what is not | ✓ | ✓ | ✓ |  | appointment_reminders |  |
 
-### mobile-and-crew (16)
+### mobile-and-crew (17)
 
 | Article | en | fr | es | Screen | Feature | Only |
 |---|:-:|:-:|:-:|---|---|:-:|
@@ -327,6 +329,7 @@ _Generated 2026-09-21 — 323 articles in the tree; written: en 323, fr 323, es 
 | `changing-your-availability` — Changing your availability | ✓ | ✓ | ✓ | settings-availability | crew_shifts |  |
 | `report-a-safety-incident` — Report a safety incident | ✓ | ✓ | ✓ | safety | proof |  |
 | `push-notifications` — Push notifications | ✓ | ✓ | ✓ |  | appointment_reminders |  |
+| `working-without-signal` — Working without signal: invoices and punches that wait to sync | ✓ | ✓ | ✓ |  |  |  |
 | `bad-connections-and-offline` — Bad connections, and why there is no offline mode | ✓ | ✓ | ✓ |  | time_clock |  |
 
 ### reports-and-insights (21)
@@ -355,7 +358,7 @@ _Generated 2026-09-21 — 323 articles in the tree; written: en 323, fr 323, es 
 | `import-expenses-from-a-bank-csv` — Import expenses from a bank CSV | ✓ | ✓ | ✓ | expenses | expenses |  |
 | `overhead-and-your-minimum-price` — Overhead and your minimum price | ✓ | ✓ | ✓ | settings-overhead | break_even |  |
 
-### settings (46)
+### settings (47)
 
 | Article | en | fr | es | Screen | Feature | Only |
 |---|:-:|:-:|:-:|---|---|:-:|
@@ -387,6 +390,7 @@ _Generated 2026-09-21 — 323 articles in the tree; written: en 323, fr 323, es 
 | `settings-job-photo-tags` — Job photo tags | ✓ | ✓ | ✓ | settings-job-photo-tags | job_photos |  |
 | `settings-client-messages` — Client messages | ✓ | ✓ | ✓ | settings-messages | appointment_reminders |  |
 | `settings-follow-ups` — Follow-ups | ✓ | ✓ | ✓ | settings-follow-ups | follow_ups |  |
+| `settings-field-work` — Field work: offline mode, labour rate, performance pay | ✓ | ✓ | ✓ | settings-field-work |  |  |
 | `settings-notifications` — Notifications | ✓ | ✓ | ✓ | settings-notifications |  |  |
 | `settings-email-domain` — Email Domain | ✓ | ✓ | ✓ | settings-email-domain | own_email_domain |  |
 | `settings-payments` — Payments | ✓ | ✓ | ✓ | settings-payments | stripe_connect |  |

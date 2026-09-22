@@ -43,6 +43,9 @@ import ListState from "@/app/components/ListState";
 import { todayHoursFrom } from "@/lib/timeclock/todayHours";
 import { openBreak, unpaidBreakMs } from "@/lib/timeclock/entryHours";
 import { captureStamp, locationPermissionState } from "@/lib/location/capture";
+import { useOffline } from "@/app/components/offline/OfflineShell";
+import { isNetworkFailure } from "@/lib/offline/queue";
+import { queuedPunchState } from "@/lib/offline/punchState";
 
 function fmtClock(d) {
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
@@ -77,6 +80,13 @@ export default function TimeClockPage() {
   const [locationState, setLocationState] = useState("unavailable");
   const [enrolling, setEnrolling] = useState(false);
   const [enrolError, setEnrolError] = useState("");
+  // The offline queue. A punch made with no signal is stored on the phone
+  // with the moment it was tapped and replayed by the shell; until then
+  // this screen shows the punch as "waiting to sync" rather than pretending
+  // the server has it. See lib/offline/punchState.js for how a queued
+  // punch overrides what the (cached) server answer says.
+  const offline = useOffline();
+  const online = offline ? offline.online : true;
 
   // ── A failed load must not read as "you're clocked out" ──────────────
   //
@@ -162,15 +172,40 @@ export default function TimeClockPage() {
       // The sheet has been answered one way or the other; re-read so the
       // explanation line disappears once it has nothing left to explain.
       locationPermissionState().then(setLocationState);
-      const res = await fetch("/api/time-clock", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const queuePunch = async () => {
+        const option = options.find((o) => o.id === sendJobId);
+        await offline.enqueue("timesheet", {
           action,
-          ...(action === "out" ? {} : { jobId: sendJobId || null }),
+          jobId: action === "out" ? null : sendJobId || null,
+          jobTitle: option?.title || null,
+          at: new Date().toISOString(),
           ...(stamp && { stamp }),
-        }),
-      });
+        });
+        touched.current = false;
+        setSwitchTo("");
+      };
+      if (offline && !online) {
+        await queuePunch();
+        return;
+      }
+      let res;
+      try {
+        res = await fetch("/api/time-clock", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action,
+            ...(action === "out" ? {} : { jobId: sendJobId || null }),
+            ...(stamp && { stamp }),
+          }),
+        });
+      } catch (err) {
+        if (offline && isNetworkFailure(err)) {
+          await queuePunch();
+          return;
+        }
+        throw err;
+      }
       if (!res.ok) {
         await reportResponseError(res, t("app.clock.punchError", "Couldn't record that."));
         return;
@@ -285,8 +320,12 @@ export default function TimeClockPage() {
     );
   }
 
-  const open = data?.open;
+  // A queued punch overrides the server's (possibly cached) answer: the
+  // last thing tapped is the truth on this phone until it syncs.
+  const queued = queuedPunchState(offline?.items, data?.open);
+  const open = queued.open;
   const clockedIn = Boolean(open);
+  const waitingToSync = queued.pending;
   const elapsedMs = open ? now.getTime() - new Date(open.clockIn).getTime() : 0;
   const runningBreak = open ? openBreak(open.breaks) : null;
   const breakMs = runningBreak ? now.getTime() - new Date(runningBreak.start).getTime() : 0;
@@ -327,6 +366,7 @@ export default function TimeClockPage() {
             <div className="mt-3 text-5xl font-bold tabular-nums text-foreground">{fmtElapsed(elapsedMs)}</div>
             <div className="mt-1 text-xs text-muted-foreground">
               {t("app.clock.since", { time: fmtTime(open.clockIn) })}
+              {waitingToSync ? ` · ${t("app.clock.waitingToSync")}` : ""}
             </div>
             {/* Which job these hours are landing on. Said out loud, because a
                 picker whose result is invisible afterwards is a control you
@@ -341,7 +381,7 @@ export default function TimeClockPage() {
                 One running break at a time. While one runs, the only offer
                 is to end it — a second "Start" beside it would be a control
                 the server refuses. */}
-            {runningBreak ? (
+            {waitingToSync ? null : runningBreak ? (
               <div className="mt-4">
                 <div className="inline-flex items-center gap-2 rounded-full bg-amber-50 dark:bg-amber-950/40 px-3 py-1 text-xs font-semibold text-amber-800 dark:text-amber-300">
                   <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />

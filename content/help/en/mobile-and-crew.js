@@ -1175,4 +1175,63 @@ export const ARTICLES = {
       { q: "What about working hours in Settings → Availability?", a: "That screen also holds your usual pattern (Working hours), which the rota only warns about. The request here changes the availability half — the one that refuses a shift." },
     ],
   },
+  "working-without-signal": {
+    "title": "Working without signal: invoices and punches that wait to sync",
+    "summary": "What the app does in a basement: the field screens open from the phone, an invoice or a clock-in you make is kept on the phone, and everything is sent — in order, once — when the signal comes back.",
+    "intro": [
+      "A phone loses signal in exactly the places the work happens. With **Offline mode** on (the default, under Settings → Field work), the invoice editor, job pages, the time clock, timesheets and daily sheets open from a copy on the phone, with the last clients, business details and clock-ins each one loaded.",
+      "Anything you *write* without signal is queued on the phone, not lost and not pretended sent. The amber bar at the top says **Offline — 2 invoices and 3 timesheets waiting to sync**, and **Details** lists them."
+    ],
+    "sections": [
+      {
+        "id": "an-invoice-without-signal",
+        "heading": "An invoice without signal",
+        "blocks": [
+          {
+            "p": "Open **New invoice** from the job. The client and the job are filled in; if the crew clocked in on the job, the green box offers **Labour — 6.5 h × $85** from those clock-ins. Add your lines and photos as usual. The buttons read **Save on phone** and **Queue to send**: the first keeps a draft, the second sends it by email the moment the phone is back online."
+          },
+          {
+            "note": "Tax is added when it syncs — the rate comes from your settings, not from the phone. The invoice number is given by the server at the same moment, so two phones can never hand out the same number."
+          }
+        ]
+      },
+      {
+        "id": "a-punch-without-signal",
+        "heading": "A clock-in or clock-out without signal",
+        "blocks": [
+          {
+            "p": "Tap **Clock in** or **Clock out** as usual. The clock shows the punch with **waiting to sync** beside the time, and it is recorded at the moment you tapped, not the moment the phone reconnected. Breaks wait until the punch has synced."
+          }
+        ]
+      },
+      {
+        "id": "what-happens-when-the-signal-returns",
+        "heading": "What happens when the signal returns",
+        "blocks": [
+          {
+            "bullets": [
+              "**Punches first**, in the order they were tapped, then photos, then invoices — so an invoice's photos exist before the invoice that carries them.",
+              "**Once.** Every queued item has its own key; if the phone sends it twice (a lost reply, two tabs), the server answers with the first copy and creates nothing new.",
+              "**Synced ✓** appears when it is done, with a link to the invoice. **Needs attention** appears if the server refused something — the client was removed, a clock-out arrived before its clock-in — with the reason and a **Retry**.",
+              "With the app closed, the queue sends on the next open. Phones that support it also wake the app when the signal returns."
+            ]
+          },
+          {
+            "warning": "A queued item stays on the phone until it has synced. Do not clear the browser's site data while the bar shows items waiting — that is the only copy."
+          }
+        ]
+      }
+    ],
+    "faq": [
+      {
+        "q": "Why does the offer say one clock-in is still open?",
+        "a": "An hour still running has no total yet, so it cannot be billed. Clock out first, or bill it on the next invoice."
+      },
+      {
+        "q": "What if there is no hourly rate?",
+        "a": "The box offers a link to Settings → Field work instead of a price. Nothing is billed at a rate nobody chose."
+      }
+    ],
+    "updated": "2026-09-21"
+  },
 };
