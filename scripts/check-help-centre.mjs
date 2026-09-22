@@ -95,7 +95,7 @@ section("1. The tree");
   const badRelated = HELP_ARTICLES.flatMap((a) => (a.related || []).filter((r) => !articleMeta(r)).map((r) => `${a.slug} → ${r}`));
   ok("every `related` slug exists", badRelated.length === 0, badRelated.join(", "));
   const screenSlugs = new Set(SCREENS.filter((s) => !s.chapter).map((s) => s.slug));
-  const badScreens = HELP_ARTICLES.filter((a) => a.screen && !screenSlugs.has(a.screen)).map((a) => `${a.slug}: ${a.screen}`);
+  const badScreens = HELP_ARTICLES.flatMap((a) => [a.screen, ...(a.alsoScreens || [])].filter((s) => s && !screenSlugs.has(s)).map((s) => `${a.slug}: ${s}`));
   ok("every `screen` names a sidebar row in harness/screens.js", badScreens.length === 0, badScreens.join(", "));
   const inventory = new Set([...FEATURE_MATRIX.map((f) => f.key), ...FEATURE_KEYS]);
   const badFeatures = HELP_ARTICLES.filter((a) => a.feature && !inventory.has(a.feature)).map((a) => `${a.slug}: ${a.feature}`);

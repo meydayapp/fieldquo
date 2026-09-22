@@ -247,81 +247,88 @@ export const ARTICLES = {
   "the-sidebar-and-where-everything-is": {
     title: "The sidebar, and where everything is",
     summary:
-      "Home, five groups, FieldQuo AI, Help, Plan and Settings — every row of the main menu and the Settings menu, and why some rows are missing for some people.",
-    updated: "2026-09-12",
+      "One rail of seventeen rows in five groups, a More page for everything else, a top bar with search, Create and your account, and Settings sliding into the same rail — where every screen lives, and why some rows are missing for some people.",
+    updated: "2026-09-21",
     intro: [
-      "The back office is one sidebar. Learn its shape once and you know where everything is: Home at the top, five groups in the order work moves, and the tools — FieldQuo AI, Help, Plan, Settings — under a rule at the bottom.",
-      "On a phone the same menu is a drawer behind the menu button, and the four pipeline screens plus Chat sit in a bar along the bottom.",
+      "The back office is one sidebar. Learn its shape once and you know where everything is: Home at the top, then Work, People, Money, Grow and AI — seventeen rows — then More, which opens the rest of the product as a page of tiles. Settings sits at the foot of the rail and slides its own list into the same column; there is no second sidebar.",
+      "Across the top of every screen is a slim bar: where you are, a search box that finds a client, a quote number, a page or a setting, the Create button, the notification bell and your avatar. On a phone the five most-used screens sit in a bar along the bottom and More opens a sheet.",
     ],
     sections: [
       {
         id: "overview",
         heading: "Overview",
         blocks: [
-          { p: "Above the menu is a **Create** button — a quick way to start a Client, Lead, Quote, Job or Invoice — and a **Search menu** box that finds any row by typing its name, including the rows at the bottom. Then **Home**, the dashboard. Every group heading except **Work** folds and unfolds — Work stays open because it is the pipeline; all five are open the first time you sign in, and FieldQuo remembers what you fold." },
+          { p: "The rail shows icons and labels; the button at the bottom collapses it to icons alone, with the name of each row on hover, and FieldQuo remembers the choice. Every group heading except **Work** and **AI** folds and unfolds — those two stay open because they are the pipeline and the walkthrough starts there; all five are open the first time you sign in. The **Search** box at the top of the rail opens the same search as the top bar; press **/** anywhere to open it from the keyboard." },
         ],
       },
       {
-        id: "the-five-groups",
-        heading: "The five groups, top to bottom",
+        id: "the-rail",
+        heading: "The rail, top to bottom",
         blocks: [
           { table: {
             head: ["Group", "Rows"],
             rows: [
-              ["**Work**", "Leads · Quotes · Quote reviews · Jobs · Invoices · Service Plans · Calendar · To-do"],
-              ["**People**", "Clients · Client equipment · Chat · Your team · Subcontractors · Assign shifts · Team calendar · Time clock · Timesheets · Time Off · Safety"],
-              ["**Money**", "Payroll · Expenses · Purchasing · Vehicles"],
-              ["**Insights**", "Insights · KPIs"],
-              ["**Grow**", "Marketing · Designer · Funnels · Receptionist · Crew inbox · Messages · Refer & Earn"],
+              ["**Work**", "Leads · Quotes · Quote reviews · Jobs · Invoices · Calendar"],
+              ["**People**", "Clients · Chat · Assign shifts"],
+              ["**Money**", "Payroll · Insights"],
+              ["**Grow**", "Marketing · Messages · Receptionist"],
+              ["**AI**", "FieldQuo AI · AI team"],
             ],
           } },
-          { figure: "live:app", caption: "Home — the sidebar with Create, Search menu, Home and the five groups, the dashboard beside it." },
-          { p: "Under the rule: **FieldQuo AI**, then **Help**, **Plan** and **Settings**, and an **Appearance** switch for light, dark or system. The footer holds your name — which opens Account & Billing if you are an owner or administrator — the **Trial started · N days left** badge during the free month, **Log Out**, and the button that collapses the rail to icons." },
+          { figure: "live:app", caption: "Home — the rail with Search, Home, the five groups and More; the top bar and the dashboard beside it." },
+          { p: "Under the groups, **More** carries a count — the number of rows it holds for you — and opens a page of four tiles: **Work & sales** (Service Plans, To-do, Funnels, Crew inbox, Designer), **Time & crew** (My home, Your team, Team calendar, My schedule, Time clock, Timesheets, Daily sheets, Time Off, Safety, Log book), **Money & reports** (Expenses, Purchasing, Vehicles, KPIs) and **Clients & partners** (Client equipment, Subcontractors, Refer & Earn). Nothing was removed when the rail was shortened: every row that used to be in the rail is in a tile, one click away." },
+        ],
+      },
+      {
+        id: "the-top-bar",
+        heading: "The top bar",
+        blocks: [
+          { p: "From left to right: the group and row you are on; **Search**, which looks through clients, quotes, jobs and invoices by name or number and through every page and setting by name — arrow keys move, Enter opens, Escape closes; **Create**, a menu to start a Client, Lead, Quote, Job or Invoice; the **bell**; and your **avatar**, which opens Settings, Account & billing, Your team, Help, Language, the light-or-dark **Appearance** switch and **Log out**. During a support session the avatar menu names the support person and the company being viewed." },
         ],
       },
       {
         id: "the-settings-menu",
         heading: "The Settings menu",
         blocks: [
-          { p: "**Settings** opens a second menu and lands on Company Settings. It has eight groups, closed by default so it reads as an index, with the group you are in opened, and a **Search settings** box at the top." },
+          { p: "**Settings**, at the foot of the rail, slides a list of eight groups into the same column — **Back to menu** at the top brings the rail back, and Settings stays highlighted while you are on a settings page. Clicking it lands on the settings index: a **Search settings** box first, then eight cards, each with its rows as links. Two clicks reach any setting; one from search." },
           { bullets: [
             "**Account** — Account & Billing · Refer & Earn · Data Migration · Product Updates",
             "**Business** — Company Settings · Branding · Language · Activity Log",
-            "**Team & scheduling** — Manage Team · Availability · Time Off Policies · Booking Page · Work Areas",
+            "**Team & scheduling** — Manage Team · Availability · My calendar · Time Off Policies · Policies · Booking Page · Work Areas · Field work",
             "**Services & pricing** — Products & Services · Services & Pricing · Material Costs · Cabinet Pricing · Overhead · Custom Fields",
             "**Documents & templates** — Quote Email · Email Templates · PDF Templates · Translations · Checklists · Job photo tags",
             "**Messaging & alerts** — Client messages · Follow-ups · Notifications · Email Domain",
             "**Getting paid** — Payments · Meta Ads · Expense Tracking · AI credit · Payroll",
             "**Client-facing** — Your website · Instant Quotes · Share your links · Bio link · Phone receptionist · AI employee · Reviews",
           ] },
-          { figure: "live:app-settings", caption: "Settings — the eight groups down the left, Company Settings open." },
+          { figure: "live:app-settings", caption: "Settings — the index of eight cards, with the settings list slid into the rail on the left." },
         ],
       },
       {
         id: "on-a-phone",
         heading: "On a phone",
         blocks: [
-          { p: "Below the width of a laptop the rail becomes a drawer: the menu button at the top opens it, the logo at the top goes Home. A bar along the bottom holds **Leads**, **Quotes**, **Jobs**, **Invoices** and **Chat**, and a **More** tab that opens the same drawer — not a second menu. See [[using-fieldquo-on-your-phone|Using FieldQuo on your phone]]." },
+          { p: "Below the width of a laptop the top bar keeps the menu button, the logo (which goes Home), search and the bell. A bar along the bottom holds **Leads**, **Quotes**, **Jobs**, **Invoices** and **Chat**, and a **More** tab that opens a sheet over the page: search first, then the rest of the rail, the same four tiles, the settings groups and your account — the bar stays visible under it. A round **+** above the bar is the Create menu. On a settings page a strip across the top lists the other rows of that group. See [[using-fieldquo-on-your-phone|Using FieldQuo on your phone]]." },
         ],
       },
       {
         id: "rows-you-may-not-see",
         heading: "Rows you may not see",
         blocks: [
-          { p: "A missing row is not a fault. The sidebar hides what the signed-in person's access level does not allow, and the page behind a hidden row refuses them too — hiding is a courtesy, the refusal is the security." },
+          { p: "A missing row is not a fault. The sidebar hides what the signed-in person's access level does not allow, and the page behind a hidden row refuses them too — hiding is a courtesy, the refusal is the security. The same rules apply on the More page, in the phone sheet and in search: a row you cannot see cannot be found by typing its name either." },
           { bullets: [
-            "**Quotes, Jobs, Invoices, Leads** need at least view access to that area. Crew can only view jobs, so a crew member's Work group is Jobs, Calendar and To-do.",
-            "**Clients, Client equipment, Receptionist** need full view of client records. **Insights** needs the see-prices switch; **KPIs** needs job costing.",
-            "**Your team, Team calendar, Quote reviews, Subcontractors, Vehicles, Marketing, Designer, Funnels** are owner, administrator, dispatcher and manager. **Plan** and **Refer & Earn** are owner and administrator only.",
-            "**Cabinet Pricing** and **Material Costs** appear only for trades that price that way. Every rule is in [[access-levels-overview|Access levels]] and [[the-settings-menu|The Settings menu]].",
+            "**Quotes, Jobs, Invoices, Leads** need at least view access to that area. Crew can only view jobs, so a crew member's Work group is Jobs and Calendar.",
+            "**Clients, Receptionist** need full view of client records. **Insights** needs the see-prices switch; **KPIs** needs job costing.",
+            "**Your team, Team calendar, Quote reviews, AI team, Subcontractors, Vehicles, Marketing, Designer, Funnels** are owner, administrator, dispatcher and manager. **Account & billing** and **Refer & Earn** are owner and administrator only.",
+            "**Cabinet Pricing** and **Material Costs** appear only for companies that sell a trade priced that way — the only rows a trade decides. Every rule is in [[access-levels-overview|Access levels]] and [[the-settings-menu|The Settings menu]].",
           ] },
         ],
       },
     ],
     faq: [
-      { q: "Where are my clients' texts and Facebook messages?", a: "Under Grow → Messages. Crew inbox, beside it, is where your own crew's texted photos land." },
-      { q: "Why is there a row I cannot find in this list?", a: "Type it into Search menu. If nothing matches, it is hidden for your access level — ask an owner or administrator." },
-      { q: "Where do I change my plan?", a: "Plan, at the bottom of the sidebar — the same screen as Settings → Account & Billing. Owners and administrators only." },
+      { q: "Where are my clients' texts and Facebook messages?", a: "Grow → Messages, in the rail. Crew inbox, under More → Work & sales, is where your own crew's texted photos land." },
+      { q: "Why is there a row I cannot find in this list?", a: "Press / and type it. If nothing matches, it is hidden for your access level — ask an owner or administrator." },
+      { q: "Where do I change my plan?", a: "Your avatar → Account & billing — the same screen as Settings → Account & Billing. Owners and administrators only." },
     ],
   },
 
