@@ -114,6 +114,8 @@ import { formatAppMoney } from "@/lib/format/money";
 import { defaultValidUntil } from "@/lib/quotes/validUntil";
 import { visibleLineItems } from "@/lib/quotes/scopeGroupDisplay";
 import { taxPlaceOf } from "@/lib/quotes/taxPlace";
+import { taxLineHeadline, taxLineSource, taxLineResolved, taxLineUnresolvedHint } from "@/lib/tax/taxLine";
+import { readTaxResolution } from "@/lib/tax/taxResolution";
 import { splitLawnLines } from "@/lib/quotes/lawnLines";
 import { planRequiredFrom } from "@/lib/signup/planRequired";
 import { LANGUAGES } from "@/app/i18n/languages";
@@ -204,6 +206,7 @@ export function initialStateFromQuote(quote, { fallbackLabel = "Scope" } = {}) {
       costing: null,
       assignedTo: null,
       siteAddress: "",
+      taxResolution: null,
     };
   }
 
@@ -240,6 +243,10 @@ export function initialStateFromQuote(quote, { fallbackLabel = "Scope" } = {}) {
     // existed — the field then opens on the homeowner's own address, which is
     // what every reader of such a quote already assumed.
     siteAddress: quote.siteAddress || defaultSiteAddressFor(quote.client),
+    // What the tax line said when the quote was written, so the edit screen
+    // prints "HST 13% (Ontario)" from the record rather than re-resolving
+    // (an edit never re-prices — see the tax effect below).
+    taxResolution: readTaxResolution(quote.taxResolution),
   };
 }
 
@@ -402,6 +409,9 @@ export default function QuoteBuilder({ mode = "create", quoteId = null }) {
           taxConfig: {
             taxRate: num(businessInfo?.taxRate),
             autoApplyLocalTax: Boolean(businessInfo?.autoApplyLocalTax),
+            // auto | manual — lib/tax/taxMode.js. The route sends the
+            // effective mode, never null.
+            taxMode: businessInfo?.taxMode || null,
             taxRates: Array.isArray(businessInfo?.taxRates)
               ? businessInfo.taxRates
               : [],
@@ -829,6 +839,9 @@ export function QuoteBuilderForm({
   // What the resolver found: components, the US state base, the EU rates.
   // Null until a client is picked.
   const [taxDetail, setTaxDetail] = useState(null);
+  // The whole resolution, for the tax line's sentence ("HST 13% (Ontario) ·
+  // from the job address") — lib/tax/taxLine.js reads it.
+  const [taxResult, setTaxResult] = useState(null);
   const [taxSchemeNote, setTaxSchemeNote] = useState("");
   const [validUntil, setValidUntil] = useState(start.validUntil ?? "");
 
@@ -946,6 +959,10 @@ export function QuoteBuilderForm({
       company: config,
       taxRates: config.taxRates,
       client: selectedClient,
+      // Where the work is. Services on real property are taxed where the
+      // property is, so the job address answers before the client's own
+      // record does — an Ottawa client's Gatineau job is Quebec's rate.
+      siteAddress,
       workType: vatWorkType,
       // The builder's own language, not the quote's: this note is read by the
       // estimator on screen and never appears on the document the client
@@ -954,6 +971,7 @@ export function QuoteBuilderForm({
     });
     if (!taxRateTouched) setTaxRate(result.rate);
     setTaxDetail(result.detail);
+    setTaxResult(result);
     // A national relief scheme that is NOT a rate cut — Sweden's ROT credit,
     // Iceland's labour-VAT refund. Shown so the null reduced rate beside it
     // doesn't read as something we forgot to fill in.
@@ -980,8 +998,11 @@ export function QuoteBuilderForm({
         : "",
     );
 
+    // The mode is not consulted here: in `manual` the resolver already
+    // answered with the company's own rate, and explainTaxSource has nothing
+    // to add for that (lib/tax/taxLine.js prints "your default rate").
     const note =
-      config.autoApplyLocalTax && selectedClient && !result.assumed
+      selectedClient && !result.assumed
         ? explainTaxSource(result, selectedClient, lang)
         : null;
     // explainTaxSource returns a key plus params, never a sentence — it used
@@ -994,7 +1015,41 @@ export function QuoteBuilderForm({
     // registered". Separate from the note because it qualifies the number
     // rather than explaining where it came from.
     setTaxCaution(result.cautionKey ? t(result.cautionKey) : "");
-  }, [isEdit, boot.taxConfig, selectedClient, taxRateTouched, vatWorkType, lang, t]);
+  }, [isEdit, boot.taxConfig, selectedClient, siteAddress, taxRateTouched, vatWorkType, lang, t]);
+
+  // ── The tax line, in words ───────────────────────────────────────────────
+  //
+  // On a create: the live resolution, unless the estimator has typed over it
+  // — then the box is the truth and the line says so. On an edit: the record
+  // the quote was written with, else the rate recovered from its money.
+  const taxLine = (() => {
+    const rate = num(taxRate);
+    const typed = { source: "manual", rate };
+    let basis;
+    let recovered = false;
+    if (isEdit) {
+      const stored = start.taxResolution;
+      if (stored && Math.abs(num(stored.rate) - rate) < 0.005) basis = stored;
+      else {
+        basis = typed;
+        // A rate read back out of an older quote's money, not one anybody
+        // typed on this screen — no provenance sentence for it.
+        recovered = !taxRateTouched;
+      }
+    } else {
+      basis = taxRateTouched ? typed : taxResult;
+    }
+    const resolved = taxLineResolved(basis);
+    const headline = resolved ? taxLineHeadline(basis, lang) : null;
+    const source = resolved && !recovered ? taxLineSource(basis) : null;
+    const hint = resolved ? null : taxLineUnresolvedHint(basis, { place: taxPlaceOf(selectedClient) });
+    return {
+      resolved,
+      headline: headline ? t(headline.key, headline.params) : "",
+      source: source ? t(source.key, source.params) : "",
+      hint: hint ? t(hint.key, hint.params) : "",
+    };
+  })();
 
   // ── Scope group helpers ──────────────────────────────────────────────────
 
@@ -2411,10 +2466,9 @@ export function QuoteBuilderForm({
         taxNote={taxNote}
         taxCaution={taxCaution}
         taxAssumed={taxAssumed}
-        // The client's place, for the "not worked out" hint — see the prop.
-        // Only a place the record can actually name; a client with no
-        // country still gets the sentence that asks for one.
-        taxPlace={taxPlaceOf(selectedClient)}
+        // "HST 13% (Ontario) · from the job address", or the hint that says
+        // what to add — see the prop.
+        taxLine={taxLine}
         taxSchemeNote={taxSchemeNote}
         // Only where a reduced construction rate actually exists for the
         // company's country. Most member states have none, and offering a

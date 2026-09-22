@@ -40,7 +40,10 @@ import { supportedCountryOptions } from "@/lib/tax/jurisdictions";
 
 /**
  * @param blocked   the 409 payload from a send route:
- *                  { clientId, clientName, missing: ["country","province"] }
+ *                  { clientId, clientName, missing: ["country","province"],
+ *                    resolvable: { rate, label } | null } — `resolvable` set
+ *                  means the address already names a rate and the document
+ *                  merely carries $0 against it (lib/tax/documentTax.js).
  * @param docPath   "quotes" | "invoices" — which collection to PATCH for the
  *                  "no tax" route. Passed rather than inferred so an invoice
  *                  can never accidentally PATCH a quote id.
@@ -138,10 +141,19 @@ export default function TaxUnresolvedModal({
             <p className="text-sm text-muted-foreground mt-1">
               {t("app.tax.blocked.body")}
             </p>
-            {fields && (
-              <p className="text-sm text-muted-foreground mt-2">
-                {t("app.tax.blocked.missing", { client: clientName, fields })}
+            {blocked?.resolvable ? (
+              <p className="text-sm text-muted-foreground mt-2" data-tax-resolvable>
+                {t("app.tax.blocked.resolvable", {
+                  rate: blocked.resolvable.rate,
+                  region: blocked.resolvable.label || "",
+                })}
               </p>
+            ) : (
+              fields && (
+                <p className="text-sm text-muted-foreground mt-2">
+                  {t("app.tax.blocked.missing", { client: clientName, fields })}
+                </p>
+              )
             )}
           </div>
         </div>
@@ -153,7 +165,18 @@ export default function TaxUnresolvedModal({
         )}
 
         {/* ── Route one: give the client a location ───────────────────────── */}
-        {blocked?.clientId && (
+        {/* Not offered when the location already answers: the fix is the
+            document, and the link below opens it. */}
+        {blocked?.resolvable && docPath && docId && (
+          <Link
+            href={`/app/${docPath}/${docId}/edit`}
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground underline underline-offset-2"
+          >
+            <ExternalLink size={14} />
+            {t("app.tax.blocked.openDocument")}
+          </Link>
+        )}
+        {blocked?.clientId && !blocked?.resolvable && (
           <div className="border border-border rounded-lg p-3 space-y-2.5">
             <div className="text-sm font-medium text-foreground">
               {t("app.tax.blocked.setAddress", { client: clientName })}

@@ -402,6 +402,31 @@ async function runScene(scene) {
     await wait(300);
     return;
   }
+  if (scene === "quote-tax-line") {
+    // The builder with the fixture client picked: the tax line reads
+    // "GST 5 % + QST 9,975 % (Québec) · from the client's address" with
+    // Change beside it (lib/tax/taxLine.js), scrolled into view.
+    const search = await until("[data-client-search]");
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
+    setter.call(search, "Sophie");
+    search.dispatchEvent(new Event("input", { bubbles: true }));
+    await wait(300);
+    const pick = [...document.querySelectorAll("button")].find((b) => b.textContent.includes("Sophie Dubois"));
+    if (!pick) throw new Error("client row not offered");
+    pick.click();
+    const line = await until("[data-tax-line]");
+    window.scrollTo(0, line.getBoundingClientRect().top + window.scrollY - 240);
+    await wait(300);
+    return;
+  }
+  if (scene === "settings-tax") {
+    // Settings → Company scrolled to the tax card: the mode, the preview
+    // for the company's own province, the rates list.
+    const el = await until("[data-tax-mode]");
+    window.scrollTo(0, el.getBoundingClientRect().top + window.scrollY - 120);
+    await wait(300);
+    return;
+  }
   if (scene === "invoice-chase") {
     // The Request payment button is the one in the command strip carrying
     // the mail icon (app/app/invoices/[id]/page.js setShowChase).

@@ -47,6 +47,7 @@ export async function GET(request, { params }) {
       select: {
         taxRate: true,
         autoApplyLocalTax: true,
+        taxMode: true,
         country: true,
         province: true,
         vatRegistered: true,

@@ -280,6 +280,7 @@ export async function POST(request) {
         defaultProcessNotes: true,
         taxRate: true,
         autoApplyLocalTax: true,
+        taxMode: true,
         country: true,
         province: true,
         vatRegistered: true,
@@ -333,6 +334,9 @@ export async function POST(request) {
         company: company || {},
         taxRates,
         client: await attachUsTaxRate(clientRow),
+        // The job address answers first: services on real property are
+        // taxed where the property is (lib/tax/documentTax.js).
+        siteAddress: siteAddressValue,
       }),
       tax: tax || 0,
       taxableBase: (Number(subtotal) || 0) - (Number(discount) || 0),

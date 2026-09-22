@@ -1041,9 +1041,13 @@ section("11. The tax hint never asks for a country and province already on file"
   eq("11f: nothing → null", taxPlaceOf(null), null);
 
   const bar = read("app/components/quotes/builder/QuoteTotalsBar.js");
-  ok("11g: the totals bar picks the place sentence when it has a place, the generic one otherwise", /taxPlace\s*\?\s*t\("app\.tax\.line\.unresolvedHintPlace", \{ place: taxPlace \}\)\s*:\s*t\("app\.tax\.line\.unresolvedHint"\)/.test(bar), "");
+  // Since 2026-09-21 the sentence is chosen in lib/tax/taxLine.js
+  // (taxLineUnresolvedHint: the place sentence when a place is known, "add
+  // the province" otherwise) and the bar prints what the builder hands it,
+  // keyed on the RATE being unknown — never on the amount being $0.
+  ok("11g: the totals bar prints the unresolved hint only while the rate is unknown", /taxUnresolved && taxLine\?\.hint/.test(bar) && !/Number\(tax\) === 0/.test(bar), "");
   const builderSrc = read("app/components/quotes/builder/QuoteBuilder.js");
-  ok("11h: …and the builder hands it the selected client's place", /taxPlace=\{taxPlaceOf\(selectedClient\)\}/.test(builderSrc), "");
+  ok("11h: …and the builder hands the selected client's place to the hint", /taxLineUnresolvedHint\(basis, \{ place: taxPlaceOf\(selectedClient\) \}\)/.test(builderSrc), "");
   const missing = Object.keys(APP_MESSAGES).filter((l) => !APP_MESSAGES[l]["app.tax.line.unresolvedHintPlace"]);
   eq("11i: the sentence exists in every app language", missing, []);
   ok("11j: …and the English never asks for the country or province", !/country|province/i.test(APP_MESSAGES.en["app.tax.line.unresolvedHintPlace"]), APP_MESSAGES.en["app.tax.line.unresolvedHintPlace"]);

@@ -88,6 +88,7 @@ export async function GET(request, { params }) {
           country: true,
           taxRate: true,
           autoApplyLocalTax: true,
+          taxMode: true,
           vatRegistered: true,
           usTaxOverrides: true,
         },
@@ -337,6 +338,7 @@ export async function GET(request, { params }) {
     address: _address,
     taxRate: _taxRate,
     autoApplyLocalTax: _autoApply,
+    taxMode: _taxMode,
     vatRegistered: _vatRegistered,
     usTaxOverrides: _usTaxOverrides,
     ...companyView

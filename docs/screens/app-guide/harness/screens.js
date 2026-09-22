@@ -324,4 +324,8 @@ export const SCREENS = [
   // dependencies, the crew day view, and the change orders under them
   // (CO-2 out with the client, CO-1 signed).
   { slug: "job-plan", href: "/app/jobs", page: "app/app/jobs/[id]/JobDetail.js", props: { jobId: "j_318" }, scene: "scroll-plan", height: 2200, chapter: "help" },
+  // The builder's tax line, worked out from the client's province
+  // (docs/TAX.md), and Settings → Tax with the mode and its preview.
+  { slug: "quote-tax-line", href: "/app/quotes", page: "app/app/quotes/new/page.js", scene: "quote-tax-line", height: 1100, chapter: "help" },
+  { slug: "settings-tax", href: "/app/settings/company", page: "app/app/settings/company/page.js", settings: true, scene: "settings-tax", height: 1400, chapter: "help" },
 ];
