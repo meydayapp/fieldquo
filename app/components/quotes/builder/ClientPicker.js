@@ -91,6 +91,7 @@ export default function ClientPicker({
                 className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
               />
               <input
+                data-client-search
                 value={search}
                 onChange={(e) => onSearchChange(e.target.value)}
                 placeholder={t("app.clients.search")}

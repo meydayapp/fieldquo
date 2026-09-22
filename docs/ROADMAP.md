@@ -2103,6 +2103,58 @@ was in that week.
 
 ---
 
+## Tax is worked out automatically from the province or state of the job (21 September 2026)
+
+Owner, on a new quote for a client in Ottawa, ON, that opened on "Tax: Not
+worked out · No tax rate is known for Ottawa, ON yet": "That should not be
+true — taxes should be automatically set based on the province / state."
+Full write-up: `docs/TAX.md`.
+
+1. **Automatic by default.** `lib/tax/resolveTaxRate.js` no longer opens
+   with the `autoApplyLocalTax` gate; the ladder (own named rate → US
+   override → published table → own default → unresolved) runs for every
+   company in `auto` mode. `Company.taxMode` (`auto` | `manual` | null)
+   is the switch; null reads as `manual` only when the old boolean was
+   switched off, so every existing company — all had it on — is on the
+   ladder it was already on and nothing typed changes (`lib/tax/taxMode.js`).
+   Column added by `prisma db execute` (the day's diff carried foreign DROPs).
+2. **Place of supply.** Real-property services are taxed where the property
+   is: `Quote.siteAddress` answers first, parsed by the new
+   `lib/tax/addressRegion.js` ("Ottawa, ON", "Ontario", "Québec", a postal
+   code, the country's name); then the client's columns in any spelling;
+   then the client's address line (the legacy rows); then the company's
+   address, tagged assumed. A province with no country is accepted on the
+   company's own side of the border only. `normaliseCountry` takes "Canada".
+3. **The line says where the number came from.** `lib/tax/taxLine.js`: "HST
+   13% (Ontario)" / "GST 5% + QST 9.975% (Quebec)" / "TVH 13 % (Ontario)",
+   then "From the job address" / "From the client's address" / "Assumed from
+   your own address" / "Your default rate" / "Typed on this quote", with a
+   Change link that unfolds the rate box and switch. "Not worked out" is
+   keyed on the RATE being unknown, never on the $0 of an empty quote, and
+   its hint says what to add ("Add the client's province, or a job
+   address…"). Same on the new-invoice page, the quote and invoice detail
+   pages (from the stored record, which now carries `placeSource` and
+   `components`), and the send-refusal modal, which names the rate when the
+   address is fine and the document merely carries $0.
+4. **Settings → Tax** shows the two modes with a preview of the company's
+   own province through the same resolver; the rates list is worded per
+   mode; the US per-state card stays. Platform company page shows the
+   effective mode. 30 new strings in nine languages.
+5. **Checks.** `npm run check:tax-auto` (219 assertions: Ottawa ON 13% from
+   the client; QC 5 + 9.975; AB 5; job in NS over client in ON → 14% from
+   the site; Gatineau address line → 14.975%; US TX combined with hint; no
+   address → "add the province"; opted-out 12% stays manual; new company
+   auto; nine languages with placeholders; every route and screen reads
+   the field). `check:tax-send` and `check:quote-builder` updated to the
+   new rules. Photographed: `docs/screens/app-guide/{en,fr}/179-quote-tax-line.png`,
+   `180-settings-tax.png`.
+
+Pre-existing on origin/main, not touched: `check:address-fields` fails on
+`app/components/settings/CompanyDetailsFields.js` (landed in 89c9f81a, the
+onboarding-modal work) — the handler declares nothing about jurisdiction.
+
+---
+
 ## US sales tax on a quote is the full rate on the whole quote, with the state's rule beside it (19 September 2026)
 
 Owner's decision, after seeing the first version (which zeroed the tax in
