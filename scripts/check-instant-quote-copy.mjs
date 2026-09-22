@@ -152,7 +152,13 @@ console.log("\nloadCompanyInstantTrades answers in the language it was asked for
     { companyId: "c1", trade: "roofing", enabled: true, config: { ...INSTANT_ESTIMATE_DEFAULTS.roofing, estimateVisibility: "after_submit" } },
     { companyId: "c1", trade: "junk_removal", enabled: true, config: { ...INSTANT_ESTIMATE_DEFAULTS.junk_removal } },
   ];
-  rows.companyServiceCategory = [];
+  // Both trades have to be SOLD to be offered — the public list is now gated
+  // on the company's enabled services (instantTradeOffered), so an empty
+  // service list is an empty estimator and there would be nothing to localise.
+  rows.companyServiceCategory = [
+    { id: "ccs_roof", companyId: "c1", enabled: true, rates: null, category: { key: "roofing_service" } },
+    { id: "ccs_junk", companyId: "c1", enabled: true, rates: null, category: { key: "junk_removal" } },
+  ];
 
   const en = await loadCompanyInstantTrades("acme");
   const fr = await loadCompanyInstantTrades("acme", { language: "fr" });

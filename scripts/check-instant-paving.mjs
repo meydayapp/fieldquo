@@ -162,6 +162,14 @@ section("A traced 100 m² prices through measureForTrade and priceAllMaterials")
   rows.company = [company];
   rows.instantQuoteConfig = [{ companyId: "c1", trade: "paving", enabled: true, config: { ...INSTANT_ESTIMATE_DEFAULTS.paving, estimateVisibility: "range" } }];
   rows.serviceCategory = [{ id: "cat_paving", key: "paving" }];
+  // The company has to SELL paving for it to be offered or priced: the public
+  // pricer reads the enabled service both to gate the trade and to get the
+  // rate out of the company's price book (effectiveInstantConfig). `rates:
+  // null` is the "never edited their rate card" state, so the figures below
+  // are still the book's own.
+  rows.companyServiceCategory = [
+    { id: "ccs_paving", companyId: "c1", enabled: true, rates: null, category: { key: "paving" } },
+  ];
 
   const measured = await measureForTrade("paving", { polygon: SQUARE_100M2 });
   ok("the polygon measures", measured.ok === true, measured);

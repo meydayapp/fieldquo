@@ -487,6 +487,14 @@ rows.instantQuoteConfig = [
   { companyId: "co_1", trade: "cabinet_refinishing", enabled: true, config: CONFIG },
 ];
 rows.serviceCategory = [{ id: CATEGORY.id, key: "cabinet_refinishing" }];
+// The company has to SELL refinishing. The phone assistant drafts through the
+// same pricer the public widget uses, and that now refuses a trade the company
+// has not switched on under Services — the receptionist must not quote work
+// nobody here does either. `rates: null` means "never edited their rate card",
+// so the live price book is the code book and every figure below is unchanged.
+rows.companyServiceCategory = [
+  { id: "ccs_1", companyId: "co_1", enabled: true, rates: CATEGORY.rates, category: { key: "cabinet_refinishing" } },
+];
 
 const result = await draftEstimateFromForm({
   company: { id: "co_1" },

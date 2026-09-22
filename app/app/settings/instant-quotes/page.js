@@ -11,7 +11,7 @@
 // what a homeowner is quoted.
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import EmbedCode from "@/app/components/settings/EmbedCode";
 import BackToHome from "@/app/components/BackToHome";
@@ -31,7 +31,6 @@ export default function InstantQuotesSettingsPage() {
   const [reportWebsite, setReportWebsite] = useState(null);
   const [live, setLive] = useState({ count: 0, slug: null });
   const [mismatches, setMismatches] = useState(null);
-  const [showOtherTrades, setShowOtherTrades] = useState(false);
   const [error, setError] = useState("");
 
   async function load() {
@@ -61,25 +60,25 @@ export default function InstantQuotesSettingsPage() {
     load();
   }, []);
 
-  // ── Their trades first, everything else behind a door ────────────────────
+  // ── Their trades, and only their trades ──────────────────────────────────
   //
-  // This screen used to list all ten wired estimators flat, in code order, with
-  // nothing saying which of them the company actually does. A cabinet painter
-  // read that as a setup checklist and worked down it — six rate cards saved in
-  // twenty seconds, roofing among them. Being SHOWN a card is what made filling
-  // it in look like the job.
+  // This screen used to list all fourteen wired estimators — the company's own
+  // first, the rest behind a "+ Show 11 other trades FieldQuo can price"
+  // disclosure. The owner, looking at TrueFinish's three services: "if
+  // TrueFinish only has 3 selected quote types, why do I have the option to
+  // show the other 11? it doesn't make sense, I should enable them first."
   //
-  // A trade the company has already switched on stays in the first group even
-  // when it isn't one of their services. It's their row; hiding it behind a
-  // disclosure the moment they'd disagree with it would be the software marking
-  // its own homework.
-  const [mine, others] = useMemo(() => {
-    const list = trades || [];
-    return [
-      list.filter((t) => t.offeredAsService || t.enabled),
-      list.filter((t) => !t.offeredAsService && !t.enabled),
-    ];
-  }, [trades]);
+  // He is right, and a cabinet painter had already proved it by working down
+  // the list and saving a roofing rate card — being SHOWN a card is what made
+  // filling it in look like the job. The route no longer sends a trade the
+  // company doesn't sell and the PUT refuses to enable one, so the disclosure
+  // is gone rather than merely collapsed; the line under the cards says where
+  // the real first step is.
+  //
+  // A trade they have already switched on is still sent and still listed even
+  // when it isn't one of their services — it is their row, a homeowner can be
+  // quoted from it right now, and the amber finding above is only actionable
+  // if the card with the off switch is on the screen.
 
   // ── Two findings that used to be one panel, and shouldn't have been ──────
   //
@@ -292,7 +291,7 @@ export default function InstantQuotesSettingsPage() {
       {/* id: the dashboard's "Enable instant quotes" set-up step lands here
           (lib/setupSteps.js). */}
       <div id="trades" className="space-y-4 scroll-mt-4">
-        {mine.map((trade) => (
+        {(trades || []).map((trade) => (
           <TradeCard
             key={trade.trade}
             trade={trade}
@@ -302,46 +301,25 @@ export default function InstantQuotesSettingsPage() {
         ))}
       </div>
 
-      {/* Everything FieldQuo can price that this company hasn't said it does.
-          Behind a disclosure rather than removed: a contractor who genuinely
-          adds a trade needs to reach it, and the honest order is to add the
-          service first — which is what the note says. */}
-      {others.length > 0 && (
-        <div className="mt-6">
-          <button
-            type="button"
-            onClick={() => setShowOtherTrades((v) => !v)}
-            className="text-sm font-medium text-muted-foreground hover:text-foreground"
+      {/* One line where eleven cards used to be. Not a disclosure that reopens
+          them — a contractor who genuinely adds a trade adds the SERVICE, and
+          this says so and links there. */}
+      {trades && (
+        <p className="mt-6 text-sm text-muted-foreground">
+          {t(
+            "app.setInstantQuotes.enableServiceFirst",
+            "Only the services you sell can be offered as an instant quote.",
+          )}{" "}
+          <Link
+            href="/app/settings/services"
+            className="underline font-medium text-foreground"
           >
-            {showOtherTrades
-              ? t("app.setInstantQuotes.hideOtherTrades", "Hide other trades")
-              : t(
-                  "app.setInstantQuotes.showOtherTrades",
-                  "+ Show {count} other trades FieldQuo can price",
-                  { count: others.length },
-                )}
-          </button>
-          {showOtherTrades && (
-            <>
-              <p className="mt-2 mb-3 text-xs text-muted-foreground max-w-xl">
-                {t(
-                  "app.setInstantQuotes.otherTradesNote",
-                  "These aren't in your services. If you do sell one, add it under Services first — that's the list your quotes, your website and your receptionist all read.",
-                )}
-              </p>
-              <div className="space-y-4">
-                {others.map((trade) => (
-                  <TradeCard
-                    key={trade.trade}
-                    trade={trade}
-                    canEdit={canEdit}
-                    onSaved={load}
-                  />
-                ))}
-              </div>
-            </>
-          )}
-        </div>
+            {t(
+              "app.setInstantQuotes.enableServiceLink",
+              "Enable a trade in Settings › Services to offer it here",
+            )}
+          </Link>
+        </p>
       )}
 
       {financing && (

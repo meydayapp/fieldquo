@@ -266,7 +266,14 @@ console.log("\nThe public payload and the pricer, executed");
     const one = await priceOneMaterial({ companyId: "c1", trade: "painting", materialKey: "standard", measurement: m });
     ok("priceOneMaterial does the same", one.ok && near(one.estimate.point, asExt.point), one.estimate?.point);
     ok("...and hands back the measurement as priced, scope settled", one.measurement?.scope === "exterior", one.measurement);
-    ok("...the estimate's breakdown names the scope it priced", one.estimate.breakdown.some((b) => /exterior/i.test(b.label)), one.estimate.breakdown);
+    // NOT "the breakdown says exterior". With only exterior sold, the derived
+    // base rate IS the siding rate and the scope surcharge is 0 (instantSeed.js
+    // says so, and says why: charging a surcharge on top would double-count).
+    // A zero surcharge produces no surcharge line, so the scope is recorded
+    // where the reviewer and the document read it — on the measurement — and
+    // the assertion is that it is recorded, not that a line exists for it.
+    ok("...the scope it priced is on the measurement the draft is written from", one.measurement.scope === "exterior", one.measurement);
+    ok("...and the breakdown carries no surcharge that was never applied", !one.estimate.breakdown.some((b) => /surcharge/i.test(b.label)), one.estimate.breakdown);
   });
 
   await withServices([], async () => {
@@ -278,13 +285,106 @@ console.log("\nThe public payload and the pricer, executed");
     ok("...on both entry points", one.ok === false && one.reason === "scope_not_offered", one);
   });
 
-  // Another trade is untouched by any of this.
+  // Another trade: no scope question, but the SAME service gate. Painting has
+  // been gated on the company's services since the interior/exterior fix; the
+  // owner's "I should enable them first" made that the rule for all fourteen,
+  // so epoxy sold prices and epoxy not sold is not offered and not priced.
   resetDbStub();
   rows.company = [company];
   rows.instantQuoteConfig = [{ companyId: "c1", trade: "epoxy", enabled: true, config: { ...INSTANT_ESTIMATE_DEFAULTS.epoxy } }];
-  rows.companyServiceCategory = [];
+  rows.companyServiceCategory = [{ companyId: "c1", enabled: true, rates: null, category: { key: "epoxy" } }];
   const epoxy = await priceAllMaterials({ companyId: "c1", trade: "epoxy", measurement: { areaSqft: 500, surfaceCondition: "good" } });
-  ok("a non-painting trade prices with no services lookup at all", epoxy.ok && !("scopes" in ((await loadCompanyInstantTrades("acme")).trades[0] || {})), epoxy);
+  ok("a non-painting trade prices with no scope question at all", epoxy.ok && !("scopes" in ((await loadCompanyInstantTrades("acme")).trades[0] || {})), epoxy);
+
+  rows.companyServiceCategory = [];
+  const epoxyOff = await priceAllMaterials({ companyId: "c1", trade: "epoxy", measurement: { areaSqft: 500, surfaceCondition: "good" } });
+  ok("...and is refused outright once the company stops selling it", epoxyOff.ok === false && epoxyOff.reason === "not_configured", epoxyOff);
+  const listedOff = (await loadCompanyInstantTrades("acme")).trades.map((t) => t.trade);
+  ok("...and vanishes from the public list, whatever the saved row says", !listedOff.includes("epoxy"), listedOff);
+  resetDbStub();
+}
+
+// ── 4b. The price is the company's price book, read live ───────────────────
+//
+// The owner: "why do we have pricing in /app/settings/instant-quotes? Keep
+// only the information that is NOT in a quote ... because the pricing is
+// already there." These assertions are what "already there" means in
+// execution: move the rate under Services & Pricing and the number a stranger
+// is quoted moves with it, on the same request, with nothing saved on the
+// instant row in between.
+//
+// The proof has to be a PRICE, not a config. A check that the derived config
+// carries $175 proves the derivation; it does not prove the pricer reads the
+// derivation rather than the row it was seeded from — which is exactly the
+// bug that existed, and exactly what a source grep cannot tell you.
+console.log("\nThe rate under Services moves the price a homeowner is quoted");
+{
+  const company = {
+    id: "c1", slug: "acme", name: "Acme Cabinets", logoUrl: null, brandColor: "#123456",
+    defaultLanguage: "en", currency: "CAD", bookingModes: [], bookingSlug: null, eventTypes: [],
+    financing: null, phone: null,
+  };
+  const measurement = { doorCount: 20, drawerCount: 0, complexityLevel: "standard" };
+
+  // The saved instant row keeps the OLD rate on purpose: if the pricer were
+  // still reading it, every figure below would be the $150 one.
+  const staleRow = {
+    companyId: "c1", trade: "cabinet_refinishing", enabled: true,
+    config: {
+      ...INSTANT_ESTIMATE_DEFAULTS.cabinet_refinishing,
+      perDoor: 150, perDrawer: 150, minCharge: 0,
+      estimateVisibility: "range", rangeBandPct: 0,
+    },
+  };
+
+  async function priceWithBookRate(perDoor) {
+    resetDbStub();
+    rows.company = [company];
+    rows.serviceCategory = [{ id: "cat_cr", key: "cabinet_refinishing" }];
+    rows.instantQuoteConfig = [staleRow];
+    rows.companyServiceCategory = [{
+      companyId: "c1", enabled: true,
+      // The company's own patch over the code book — what Settings › Services
+      // & Pricing writes. minimumTotal is zeroed so the floor cannot mask the
+      // per-door rate; the floor's own behaviour is checked elsewhere.
+      rates: { perDoor, perDrawer: perDoor, minimumTotal: 0 },
+      category: { key: "cabinet_refinishing" },
+    }];
+    return priceOneMaterial({ companyId: "c1", trade: "cabinet_refinishing", materialKey: null, measurement });
+  }
+
+  const at150 = await priceWithBookRate(150);
+  const at175 = await priceWithBookRate(175);
+  ok("both price", at150.ok === true && at175.ok === true, { at150: at150.reason, at175: at175.reason });
+  ok("20 doors at the book's $150 is $3,000", near(at150.estimate.point, 3000), at150.estimate?.point);
+  ok("...and raising the BOOK rate to $175 makes it $3,500", near(at175.estimate.point, 3500), at175.estimate?.point);
+  ok("...although the saved instant row still says $150 — the row is no longer the price",
+     staleRow.config.perDoor === 150);
+
+  // The stored row is not rewritten behind the company's back. No data
+  // deletion, no silent write: the column is simply not what prices any more.
+  ok("...and nothing wrote to the instant row to achieve it",
+     !rows.instantQuoteConfig.some((r) => r.config.perDoor !== 150), rows.instantQuoteConfig[0]?.config?.perDoor);
+
+  // The other half of the owner's ask: a trade he has not enabled under
+  // Services is not offered, whatever the instant row says.
+  resetDbStub();
+  rows.company = [company];
+  rows.serviceCategory = [{ id: "cat_cr", key: "cabinet_refinishing" }];
+  rows.instantQuoteConfig = [staleRow];
+  rows.companyServiceCategory = [];
+  const off = await loadCompanyInstantTrades("acme");
+  ok("a trade whose service is off is not on the public page", off.trades.length === 0, off.trades.map((t) => t.trade));
+  const offPriced = await priceOneMaterial({ companyId: "c1", trade: "cabinet_refinishing", materialKey: null, measurement });
+  ok("...and a POST around the page cannot price it either", offPriced.ok === false, offPriced);
+
+  // Non-negotiable #4, on the payload the change touches.
+  rows.companyServiceCategory = [{ companyId: "c1", enabled: true, rates: { perDoor: 175 }, category: { key: "cabinet_refinishing" } }];
+  const on = await loadCompanyInstantTrades("acme");
+  ok("the trade is back the moment the service is on", on.trades.map((t) => t.trade).join() === "cabinet_refinishing", on.trades.map((t) => t.trade));
+  const payload = JSON.stringify(on.trades);
+  ok("...and the live book's rate never crosses to the browser with it",
+     !/175|perDoor|perDrawer|ratePerSqft|minCharge|complexityUpcharge/.test(payload), payload.slice(0, 200));
   resetDbStub();
 }
 
@@ -297,15 +397,19 @@ console.log("\nThe settings screen, the route and the form");
   const server = stripComments(read("lib/estimate/instantQuoteServer.js"));
 
   ok("the route derives the seed from the company's enabled books", /deriveInstantSeed\(trade, seedInputs\)/.test(route) && /rates: true/.test(route));
-  ok("...opens an unsaved card on the derived seed", /applyDerivedSeed\(trade, seed, derived\)/.test(route));
-  ok("...reports drift only for a saved row", /seedDrift: row \? seedDrift\(trade, row\.config, derived\) : \[\]/.test(route));
+  ok("...and applies it OVER the saved row, so the book is the live price", /applyDerivedSeed\(trade, row\?\.config \?\? seed, derived\)/.test(route));
+  ok("...suppressing the rate editors it replaces", /rateFields: pricedFromServices \? \[\]/.test(route) && /hasMaterialRates:.*!pricedFromServices/.test(route));
+  ok("...and sending the figures read-only instead", /pricedFromServices: pricedFromServices/.test(route) && /readSeedValue\(derived, f\.path\)/.test(route));
+  ok("...with no drift left to report or adopt", !/seedDrift/.test(route));
   ok("...and hands painting its offered scopes", /scopesOffered: seedInputs\.offered/.test(route));
   ok("...and the live count excludes painting with no scope sold", /scopesOffered\.length === 0/.test(route));
 
-  ok("the page shows the drift notice", /app\.setInstantQuotes\.seedDriftTitle/.test(page) && /app\.setInstantQuotes\.seedDriftLine/.test(page));
-  ok("...with the one button", /app\.setInstantQuotes\.useServicesPricing/.test(page));
-  ok("...which applies the derivation and saves through the existing PUT", /applyDerivedSeed\(trade\.trade, config, trade\.derivedSeed\)/.test(page) && /save\(next\)/.test(page) && /method: "PUT"/.test(page));
-  ok("...and never adopts on its own (no effect calls it)", !/useEffect\([^)]*adoptServicesPricing/.test(page));
+  ok("the page states the rates that come from Services", /app\.setInstantQuotes\.pricedFromServicesTitle/.test(page) && /app\.setInstantQuotes\.pricedFromServicesIntro/.test(page));
+  ok("...and links to the screen that changes them", /app\/settings\/services/.test(page) && /app\.setInstantQuotes\.pricedFromServicesLink/.test(page));
+  ok("...read-only: no input or onChange inside that panel", !/function PricedFromServices[\s\S]*?\n\}/.exec(page)?.[0].match(/onChange|<input/));
+  ok("...and the drift notice and its adopt button are gone", !/seedDrift|useServicesPricing|adoptServicesPricing/.test(page));
+  ok("...the painting surcharge boxes go with them when the book states them", /trade\.trade === "painting" && !pricedFromServices/.test(page));
+  ok("...and so does the minimum charge where the book states it", /!minChargeFromServices/.test(page) && /f\.path === "minCharge"/.test(page));
   ok("the surcharge block is retitled as a surcharge on the base rate", /app\.setInstantQuotes\.scopeSurchargeTitle/.test(page) && /app\.setInstantQuotes\.scopeSurchargeHelp/.test(page) && !/interiorExterior/.test(page));
   ok("...greys the scope not sold and says why", /disabled=\{!sold\}/.test(page) && /app\.setInstantQuotes\.scopeNotSold/.test(page));
   ok("...and says when painting is not offered at all", /app\.setInstantQuotes\.paintingNotOffered/.test(page));
@@ -313,11 +417,15 @@ console.log("\nThe settings screen, the route and the form");
 
   ok("the public form hides the scope question for one scope", /askedWhen/.test(flow) && /trade\.scopes\.length > 1/.test(flow));
   ok("the server settles scope in BOTH pricing functions", (server.match(/withOfferedScope\(companyId, trade, requested\)/g) || []).length === 2);
-  ok("...and reads the services fresh, never off the instant row", /companyEnabledCategoryKeys/.test(server));
+  ok("...and reads the services fresh, never off the instant row", /companyEnabledCategoryRows/.test(server));
+  ok("the gate is the catalogue's, applied to every trade, not just painting", /instantTradeOffered\(trade, keys\)/.test(server));
+  ok("...and the live book is applied on the way to the price", /applyDerivedSeed\(trade, savedConfig, derived\)/.test(server) && /loadEnabledConfig/.test(server));
 
   const KEYS = [
     "scopeSurchargeTitle", "scopeSurchargeHelp", "scopeNotSold", "scopeFixedNote", "scope.interior", "scope.exterior",
-    "paintingNotOffered", "derivedDefaultsNote", "seedDriftTitle", "seedDriftLine", "seedDriftUnset", "useServicesPricing",
+    "paintingNotOffered", "derivedDefaultsNote",
+    "pricedFromServicesTitle", "pricedFromServicesIntro", "pricedFromServicesLink",
+    "enableServiceFirst", "enableServiceLink",
     "materials.standard.ratePerSqft", "scopeSurcharge.exterior", "conditionSurcharge.fair", "conditionSurcharge.poor", "minCharge",
   ].map((k) => `app.setInstantQuotes.${k}`);
   const langs = Object.keys(APP_MESSAGES);
@@ -326,7 +434,8 @@ console.log("\nThe settings screen, the route and the form");
   ok("every new key exists in all nine", missing.length === 0, missing);
   ok("the retired key is gone from all nine", langs.every((l) => !("app.setInstantQuotes.interiorExterior" in APP_MESSAGES[l])));
   ok("no catalogue hand-writes a currency symbol in the new copy", langs.every((l) => KEYS.every((k) => !/\$/.test(APP_MESSAGES[l][k]))));
-  ok("the drift line keeps its three placeholders everywhere", langs.every((l) => ["{field}", "{there}", "{here}"].every((p) => APP_MESSAGES[l]["app.setInstantQuotes.seedDriftLine"].includes(p))));
+  ok("the retired drift keys are gone from all nine", langs.every((l) => !["seedDriftTitle", "seedDriftLine", "seedDriftUnset", "useServicesPricing", "showOtherTrades", "hideOtherTrades"].some((k) => `app.setInstantQuotes.${k}` in APP_MESSAGES[l])));
+  ok("the services link keeps its placeholder everywhere", langs.every((l) => APP_MESSAGES[l]["app.setInstantQuotes.pricedFromServicesLink"].includes("{service}")));
   ok("getPriceBook is what the derivation reads (company patch over the book)", getPriceBook("interior_painting", { complexity: { standard: { wallPricePerSqft: 9 } } }).complexity.standard.wallPricePerSqft === 9);
 }
 

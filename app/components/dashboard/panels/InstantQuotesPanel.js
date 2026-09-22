@@ -3,10 +3,11 @@
 // "Enable instant quotes", in the home page's dialog. The cards are
 // app/app/settings/instant-quotes/TradeCard.js — the same card, the same
 // PUT, the same readiness rule Settings > Instant quotes runs — for the
-// trades the company sells (the page's `mine`: offered as a service, or
-// already switched on). The other trades FieldQuo can price stay on the
-// page behind its disclosure; the honest order for a trade the company
-// does not sell is to add the service first, and the page says so.
+// trades the company sells (offered as a service, or already switched on).
+// The route no longer sends any other kind, so this filter is belt and
+// braces rather than the thing that hides them: the honest order for a trade
+// the company does not sell is to add the SERVICE first, which is what the
+// line below and the settings page both say.
 //
 // The same read the page makes, and the same re-read after a save: the
 // route is what decides a trade is ready, and a card that had just been
