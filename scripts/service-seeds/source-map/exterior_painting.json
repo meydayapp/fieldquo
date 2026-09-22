@@ -1,0 +1,37 @@
+[
+ {
+  "seedKey": "fq.exterior_painting.exterior.deck_fence",
+  "industry": "Painting",
+  "sourceCategory": "Exterior Components",
+  "sourceService": "Deck & Fence Painting / Staining",
+  "taskCode": "DEFAULT_PAINT_SERVICE_31"
+ },
+ {
+  "seedKey": "fq.exterior_painting.exterior.fascia_soffit",
+  "industry": "Painting",
+  "sourceCategory": "Exterior Components",
+  "sourceService": "Fascia & Soffit Painting",
+  "taskCode": "DEFAULT_PAINT_SERVICE_32"
+ },
+ {
+  "seedKey": "fq.exterior_painting.exterior.garage_door",
+  "industry": "Painting",
+  "sourceCategory": "Exterior Components",
+  "sourceService": "Garage Door Painting",
+  "taskCode": "DEFAULT_PAINT_SERVICE_33"
+ },
+ {
+  "seedKey": "fq.exterior_painting.exterior.paint_stain_residential",
+  "industry": "Painting",
+  "sourceCategory": "Exterior Components",
+  "sourceService": "Exterior Painting and Staining for Residential Properties",
+  "taskCode": "DEFAULT_PAINT_SERVICE_34"
+ },
+ {
+  "seedKey": "fq.exterior_painting.exterior.surfaces_and_trim",
+  "industry": "Painting",
+  "sourceCategory": "Exterior Components",
+  "sourceService": "Exterior Painting of Residential Surfaces and Trim",
+  "taskCode": "DEFAULT_PAINT_SERVICE_35"
+ }
+]

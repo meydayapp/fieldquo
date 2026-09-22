@@ -1,0 +1,51 @@
+[
+ {
+  "seedKey": "fq.carpentry.cabinet_install.cabinets",
+  "industry": "Cabinetry",
+  "sourceCategory": "Cabinetry > Installation > Doors & Cabinets",
+  "sourceService": "Installation - Cabinets",
+  "taskCode": "DEFAULT_CABINETRY_SERVICE_1"
+ },
+ {
+  "seedKey": "fq.carpentry.cabinet_install.hardware",
+  "industry": "Cabinetry",
+  "sourceCategory": "Cabinetry > Installation > Doors & Cabinets",
+  "sourceService": "Installation - Cabinet hardware",
+  "taskCode": "DEFAULT_CABINETRY_SERVICE_2"
+ },
+ {
+  "seedKey": "fq.carpentry.cabinet_install.other",
+  "industry": "Cabinetry",
+  "sourceCategory": "Cabinetry > Installation > Doors & Cabinets",
+  "sourceService": "Installation - Something else / I don't know",
+  "taskCode": "DEFAULT_CABINETRY_SERVICE_3"
+ },
+ {
+  "seedKey": "fq.carpentry.cabinet_repair.refinishing",
+  "industry": "Cabinetry",
+  "sourceCategory": "Cabinetry > Repair > Doors & Cabinets",
+  "sourceService": "Repair - Refinishing cabinets",
+  "taskCode": "DEFAULT_CABINETRY_SERVICE_4"
+ },
+ {
+  "seedKey": "fq.carpentry.cabinet_repair.cabinets",
+  "industry": "Cabinetry",
+  "sourceCategory": "Cabinetry > Repair > Doors & Cabinets",
+  "sourceService": "Repair - Cabinets",
+  "taskCode": "DEFAULT_CABINETRY_SERVICE_5"
+ },
+ {
+  "seedKey": "fq.carpentry.cabinet_repair.hardware",
+  "industry": "Cabinetry",
+  "sourceCategory": "Cabinetry > Repair > Doors & Cabinets",
+  "sourceService": "Repair - Cabinet hardware",
+  "taskCode": "DEFAULT_CABINETRY_SERVICE_6"
+ },
+ {
+  "seedKey": "fq.carpentry.cabinet_repair.other",
+  "industry": "Cabinetry",
+  "sourceCategory": "Cabinetry > Repair > Doors & Cabinets",
+  "sourceService": "Repair - Something else / I don't know",
+  "taskCode": "DEFAULT_CABINETRY_SERVICE_7"
+ }
+]

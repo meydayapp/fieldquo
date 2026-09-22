@@ -1,0 +1,254 @@
+[
+ {
+  "seedKey": "fq.interior_painting.add_ons.touch_up",
+  "industry": "Painting",
+  "sourceCategory": "Add-On Services",
+  "sourceService": "Touch-Up Painting",
+  "taskCode": "DEFAULT_PAINT_SERVICE_0"
+ },
+ {
+  "seedKey": "fq.interior_painting.add_ons.trim_baseboard",
+  "industry": "Painting",
+  "sourceCategory": "Add-On Services",
+  "sourceService": "Trim & Baseboard Painting",
+  "taskCode": "DEFAULT_PAINT_SERVICE_1"
+ },
+ {
+  "seedKey": "fq.interior_painting.add_ons.door_painting",
+  "industry": "Painting",
+  "sourceCategory": "Add-On Services",
+  "sourceService": "Door Painting",
+  "taskCode": "DEFAULT_PAINT_SERVICE_2"
+ },
+ {
+  "seedKey": "fq.interior_painting.add_ons.accent_wall",
+  "industry": "Painting",
+  "sourceCategory": "Add-On Services",
+  "sourceService": "Accent Wall Painting",
+  "taskCode": "DEFAULT_PAINT_SERVICE_3"
+ },
+ {
+  "seedKey": "fq.interior_painting.add_ons.roller_shades_supplies",
+  "industry": "Painting",
+  "sourceCategory": "Add-On Services",
+  "sourceService": "Installation of Roller Shades and Painting Supplies",
+  "taskCode": "DEFAULT_PAINT_SERVICE_4"
+ },
+ {
+  "seedKey": "fq.interior_painting.add_ons.urethane_enamel",
+  "industry": "Painting",
+  "sourceCategory": "Add-On Services",
+  "sourceService": "Interior Painting with Sherwin Williams Emerald Urethane Enamel",
+  "taskCode": "DEFAULT_PAINT_SERVICE_5"
+ },
+ {
+  "seedKey": "fq.interior_painting.visits.interior_service",
+  "industry": "Painting",
+  "sourceCategory": "Book Now",
+  "sourceService": "Interior Painting Service",
+  "taskCode": "DEFAULT_PAINT_SERVICE_6"
+ },
+ {
+  "seedKey": "fq.interior_painting.visits.exterior_service",
+  "industry": "Painting",
+  "sourceCategory": "Book Now",
+  "sourceService": "Exterior Painting Service",
+  "taskCode": "DEFAULT_PAINT_SERVICE_7"
+ },
+ {
+  "seedKey": "fq.interior_painting.visits.room_repaint",
+  "industry": "Painting",
+  "sourceCategory": "Book Now",
+  "sourceService": "Room Repaint & Color Update",
+  "taskCode": "DEFAULT_PAINT_SERVICE_8"
+ },
+ {
+  "seedKey": "fq.interior_painting.commercial.commercial",
+  "industry": "Painting",
+  "sourceCategory": "Commercial Services",
+  "sourceService": "Commercial Painting",
+  "taskCode": "DEFAULT_PAINT_SERVICE_9"
+ },
+ {
+  "seedKey": "fq.interior_painting.core.per_room",
+  "industry": "Painting",
+  "sourceCategory": "Core Painting",
+  "sourceService": "Interior Painting - Per Room",
+  "taskCode": "DEFAULT_PAINT_SERVICE_10"
+ },
+ {
+  "seedKey": "fq.interior_painting.core.whole_home",
+  "industry": "Painting",
+  "sourceCategory": "Core Painting",
+  "sourceService": "Interior Painting - Whole Home",
+  "taskCode": "DEFAULT_PAINT_SERVICE_11"
+ },
+ {
+  "seedKey": "fq.interior_painting.core.exterior_full_home",
+  "industry": "Painting",
+  "sourceCategory": "Core Painting",
+  "sourceService": "Exterior Painting - Full Home",
+  "taskCode": "DEFAULT_PAINT_SERVICE_12"
+ },
+ {
+  "seedKey": "fq.interior_painting.cabinets.cabinet_painting",
+  "industry": "Painting",
+  "sourceCategory": "Core Painting",
+  "sourceService": "Cabinet Painting",
+  "taskCode": "DEFAULT_PAINT_SERVICE_13"
+ },
+ {
+  "seedKey": "fq.interior_painting.core.interior_staining",
+  "industry": "Painting",
+  "sourceCategory": "Core Painting",
+  "sourceService": "Labor and Material for Interior Staining Services",
+  "taskCode": "DEFAULT_PAINT_SERVICE_14"
+ },
+ {
+  "seedKey": "fq.interior_painting.core.ceilings",
+  "industry": "Painting",
+  "sourceCategory": "Core Painting",
+  "sourceService": "Interior Ceiling Painting for Residential Properties",
+  "taskCode": "DEFAULT_PAINT_SERVICE_15"
+ },
+ {
+  "seedKey": "fq.interior_painting.core.interior_exterior_residential",
+  "industry": "Painting",
+  "sourceCategory": "Core Painting",
+  "sourceService": "Interior and Exterior Painting Services for Residential Properties",
+  "taskCode": "DEFAULT_PAINT_SERVICE_16"
+ },
+ {
+  "seedKey": "fq.interior_painting.core.rooms_and_ceilings",
+  "industry": "Painting",
+  "sourceCategory": "Core Painting",
+  "sourceService": "Interior Painting of Residential Rooms and Ceilings",
+  "taskCode": "DEFAULT_PAINT_SERVICE_17"
+ },
+ {
+  "seedKey": "fq.interior_painting.core.rooms_color_change",
+  "industry": "Painting",
+  "sourceCategory": "Core Painting",
+  "sourceService": "Interior Painting of Residential Rooms with Color Change",
+  "taskCode": "DEFAULT_PAINT_SERVICE_18"
+ },
+ {
+  "seedKey": "fq.interior_painting.core.rooms_and_cabinetry",
+  "industry": "Painting",
+  "sourceCategory": "Core Painting",
+  "sourceService": "Interior Painting for Residential Rooms and Cabinetry",
+  "taskCode": "DEFAULT_PAINT_SERVICE_19"
+ },
+ {
+  "seedKey": "fq.interior_painting.core.residential_spaces",
+  "industry": "Painting",
+  "sourceCategory": "Core Painting",
+  "sourceService": "Interior Painting for Residential Spaces",
+  "taskCode": "DEFAULT_PAINT_SERVICE_20"
+ },
+ {
+  "seedKey": "fq.interior_painting.core.premium_latex_interior_exterior",
+  "industry": "Painting",
+  "sourceCategory": "Core Painting",
+  "sourceService": "Interior and Exterior Painting with Sherwin Williams Products",
+  "taskCode": "DEFAULT_PAINT_SERVICE_21"
+ },
+ {
+  "seedKey": "fq.interior_painting.core.interior_exterior_full",
+  "industry": "Painting",
+  "sourceCategory": "Core Painting",
+  "sourceService": "Interior and Exterior Painting for Residential Properties",
+  "taskCode": "DEFAULT_PAINT_SERVICE_22"
+ },
+ {
+  "seedKey": "fq.interior_painting.core.two_bedroom_unit_walls",
+  "industry": "Painting",
+  "sourceCategory": "Core Painting",
+  "sourceService": "Interior Wall Painting for Two Bedroom Units",
+  "taskCode": "DEFAULT_PAINT_SERVICE_23"
+ },
+ {
+  "seedKey": "fq.interior_painting.core.walls_ceilings_trim",
+  "industry": "Painting",
+  "sourceCategory": "Core Painting",
+  "sourceService": "Interior Painting for Residential Walls, Ceilings, and Trim",
+  "taskCode": "DEFAULT_PAINT_SERVICE_24"
+ },
+ {
+  "seedKey": "fq.interior_painting.core.walls_and_ceilings",
+  "industry": "Painting",
+  "sourceCategory": "Core Painting",
+  "sourceService": "Interior Wall and Ceiling Painting for Residential Spaces",
+  "taskCode": "DEFAULT_PAINT_SERVICE_25"
+ },
+ {
+  "seedKey": "fq.interior_painting.cabinets.kitchen_refinish_full",
+  "industry": "Painting",
+  "sourceCategory": "Core Painting",
+  "sourceService": "Cabinet Refinishing and Full Painting for Kitchen Cabinets",
+  "taskCode": "DEFAULT_PAINT_SERVICE_26"
+ },
+ {
+  "seedKey": "fq.interior_painting.core.ceilings_flat_latex",
+  "industry": "Painting",
+  "sourceCategory": "Core Painting",
+  "sourceService": "Interior Ceiling Painting with Sherwin Williams ProMar Products",
+  "taskCode": "DEFAULT_PAINT_SERVICE_27"
+ },
+ {
+  "seedKey": "fq.interior_painting.core.one_bedroom_apartment",
+  "industry": "Painting",
+  "sourceCategory": "Core Painting",
+  "sourceService": "Interior Wall Painting for One-Bedroom Apartments",
+  "taskCode": "DEFAULT_PAINT_SERVICE_28"
+ },
+ {
+  "seedKey": "fq.interior_painting.core.apartment_various",
+  "industry": "Painting",
+  "sourceCategory": "Core Painting",
+  "sourceService": "Interior Apartment Painting for Various Room Sizes",
+  "taskCode": "DEFAULT_PAINT_SERVICE_29"
+ },
+ {
+  "seedKey": "fq.interior_painting.cabinets.kitchen_paint_refinish",
+  "industry": "Painting",
+  "sourceCategory": "Core Painting",
+  "sourceService": "Cabinet Painting and Refinishing for Residential Kitchens",
+  "taskCode": "DEFAULT_PAINT_SERVICE_30"
+ },
+ {
+  "seedKey": "fq.interior_painting.prep.surface_preparation",
+  "industry": "Painting",
+  "sourceCategory": "Prep & Repair",
+  "sourceService": "Surface Preparation",
+  "taskCode": "DEFAULT_PAINT_SERVICE_36"
+ },
+ {
+  "seedKey": "fq.interior_painting.prep.drywall_patch",
+  "industry": "Painting",
+  "sourceCategory": "Prep & Repair",
+  "sourceService": "Drywall Patch & Repair",
+  "taskCode": "DEFAULT_PAINT_SERVICE_37"
+ },
+ {
+  "seedKey": "fq.interior_painting.prep.caulking_sealing",
+  "industry": "Painting",
+  "sourceCategory": "Prep & Repair",
+  "sourceService": "Caulking & Sealing",
+  "taskCode": "DEFAULT_PAINT_SERVICE_38"
+ },
+ {
+  "seedKey": "fq.interior_painting.prep.rooms_with_prep",
+  "industry": "Painting",
+  "sourceCategory": "Prep & Repair",
+  "sourceService": "Interior Painting and Preparation for Residential Rooms",
+  "taskCode": "DEFAULT_PAINT_SERVICE_39"
+ },
+ {
+  "seedKey": "fq.interior_painting.prep.popcorn_removal_paint",
+  "industry": "Painting",
+  "sourceCategory": "Prep & Repair",
+  "sourceService": "Removal and Painting of Popcorn Ceilings in Interior Spaces",
+  "taskCode": "DEFAULT_PAINT_SERVICE_40"
+ }
+]
