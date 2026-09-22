@@ -10,6 +10,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Loader2, Plus, Trash2 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { showError } from "@/lib/clientErrors";
@@ -26,10 +27,7 @@ import {
   rateFieldPatch,
   readRate,
 } from "@/lib/estimate/instantRateFields";
-import {
-  applyDerivedSeed,
-  PAINTING_SCOPE_CATEGORY,
-} from "@/lib/estimate/instantSeed";
+import { PAINTING_SCOPE_CATEGORY } from "@/lib/estimate/instantSeed";
 import { categoryLabel } from "@/lib/trades/catalog";
 import LawnCareEditor from "./LawnCareEditor";
 
@@ -286,14 +284,21 @@ function ScopeSurcharges({ map, offered, onChange, t }) {
   );
 }
 
-// ── Where the saved row and Services & Pricing now disagree ───────────────
+// ── The rates that come from Services & Pricing, shown and not edited ─────
 //
-// Reported, and changed by one press or not at all. The saved row is what the
-// company chose, so a change to their price book never rewrites it on their
-// behalf — but it must not drift invisibly either, which is exactly what
-// happened to the $150 a door instantRateFields.js describes. Each line names
-// the rate, what the book says ("there") and what this row says ("here");
-// the button applies the derivation over the current form and saves.
+// There used to be a drift notice here: the saved instant row priced, the
+// company's price book moved on without it, and this panel listed the two
+// figures side by side with a "Use my services pricing" button to reconcile
+// them by hand. That was housekeeping the contractor had to remember to do,
+// on a number a stranger is being quoted in the meantime.
+//
+// The owner settled it — "keep only the information that is NOT in a quote ...
+// because the pricing is already there" — so the book is now read LIVE on
+// every estimate (effectiveInstantConfig in lib/estimate/instantQuoteServer.js)
+// and there is nothing left to drift or to adopt. What is left is this: the
+// figures the estimator will use, stated plainly, and the one link that
+// changes them. Read-only because two boxes for one number is how they
+// disagree, and because the other box is the one the quote builder reads.
 //
 // Keys built by concatenation, invisible to check-translations' literal scan:
 // "app.setInstantQuotes.materials.standard.ratePerSqft",
@@ -303,46 +308,46 @@ function ScopeSurcharges({ map, offered, onChange, t }) {
 // "app.setInstantQuotes.minCharge", "app.setInstantQuotes.scope.interior",
 // "app.setInstantQuotes.scope.exterior". The cabinet paths (perDoor, perDrawer,
 // the add-ons) resolve exactly as UnitRates resolves them.
-function SeedDriftNotice({ drift, money, saving, canEdit, onAdopt, t }) {
-  if (!drift?.length) return null;
-  const shown = (d, v) => {
-    if (v === undefined || v === null || v === "") {
-      return t("app.setInstantQuotes.seedDriftUnset", "not set");
-    }
-    return d.kind === "percent" ? `${Math.round(Number(v) * 100)}%` : money(v);
-  };
+function PricedFromServices({ fields, serviceLabels, money, t }) {
+  if (!fields?.length) return null;
+  const shown = (f) =>
+    f.kind === "percent" ? `${Math.round(Number(f.value) * 100)}%` : money(f.value);
   return (
-    <div className="mt-3 text-xs rounded-lg bg-amber-50 text-amber-800 border border-amber-200 px-3 py-2">
-      <strong>
+    <div className="rounded-lg border border-border bg-muted/40 px-3 py-3">
+      <div className="text-sm font-medium text-foreground">
         {t(
-          "app.setInstantQuotes.seedDriftTitle",
-          "Your Services & Pricing rates changed since this was saved:",
+          "app.setInstantQuotes.pricedFromServicesTitle",
+          "Priced from your rates in Services & Pricing",
         )}
-      </strong>
-      <ul className="mt-1 space-y-0.5">
-        {drift.map((d) => (
-          <li key={d.path}>
-            {t(
-              "app.setInstantQuotes.seedDriftLine",
-              "{field} is {there} there and {here} here",
-              {
-                field: t(`app.setInstantQuotes.${d.path}`, d.label),
-                there: shown(d, d.derived),
-                here: shown(d, d.saved),
-              },
-            )}
-          </li>
+      </div>
+      <p className="mt-1 text-xs text-muted-foreground">
+        {t(
+          "app.setInstantQuotes.pricedFromServicesIntro",
+          "These are read every time a homeowner gets an estimate, so this card and your quotes always quote the same number. Change them where they live:",
+        )}{" "}
+        <Link
+          href="/app/settings/services"
+          className="underline font-medium text-foreground"
+        >
+          {serviceLabels?.length
+            ? t("app.setInstantQuotes.pricedFromServicesLink", "Open {service} rates", {
+                service: serviceLabels.join(" / "),
+              })
+            : t("app.setInstantQuotes.mismatchServicesLink", "Open Services")}
+        </Link>
+      </p>
+      <dl className="mt-2 space-y-1">
+        {fields.map((f) => (
+          <div key={f.path} className="flex items-baseline justify-between gap-3 text-xs">
+            <dt className="text-muted-foreground min-w-0">
+              {t(`app.setInstantQuotes.${f.path}`, f.label)}
+            </dt>
+            <dd className="font-medium text-foreground tabular-nums shrink-0">
+              {shown(f)}
+            </dd>
+          </div>
         ))}
-      </ul>
-      <button
-        type="button"
-        onClick={onAdopt}
-        disabled={!canEdit || saving}
-        className="mt-2 inline-flex items-center gap-2 rounded-lg border border-amber-300 bg-card px-3 py-1.5 text-xs font-medium text-foreground disabled:opacity-50"
-      >
-        {saving && <Loader2 size={13} className="animate-spin" />}
-        {t("app.setInstantQuotes.useServicesPricing", "Use my services pricing")}
-      </button>
+      </dl>
     </div>
   );
 }
@@ -391,8 +396,11 @@ export default function TradeCard({ trade, canEdit, onSaved }) {
     });
   }
 
-  // `configToSave` exists for the one caller that has just replaced the form
-  // state and must not save the render-old closure: adoptServicesPricing.
+  // `configToSave` exists for a caller that has just replaced the form state
+  // and must not save the render-old closure. The last such caller was the
+  // drift notice's "use my services pricing" button; the parameter stays
+  // because the hazard does, and a future caller finding the default is a bug
+  // that costs a save.
   async function save(configToSave = config) {
     setSaving(true);
     setSavedNote("");
@@ -415,14 +423,14 @@ export default function TradeCard({ trade, canEdit, onSaved }) {
     }
   }
 
-  // One press: the derivation the route computed, applied over whatever is in
-  // the form right now (their other edits survive), then saved through the
-  // same PUT as the Save button. Never automatic — see SeedDriftNotice.
-  function adoptServicesPricing() {
-    const next = applyDerivedSeed(trade.trade, config, trade.derivedSeed);
-    setConfig(next);
-    save(next);
-  }
+  // The route sends this only when the company's own price book states this
+  // trade's rates. It is what suppresses every editor for a number that now
+  // lives under Services & Pricing — see PricedFromServices above.
+  const pricedFromServices = Array.isArray(trade.pricedFromServices)
+    && trade.pricedFromServices.length > 0;
+  const minChargeFromServices = (trade.pricedFromServices || []).some(
+    (f) => f.path === "minCharge",
+  );
 
   const materials = Array.isArray(config.materials) ? config.materials : [];
   // Painting only. Absent for every other trade, and [] when the company sells
@@ -555,12 +563,10 @@ export default function TradeCard({ trade, canEdit, onSaved }) {
         </p>
       )}
 
-      <SeedDriftNotice
-        drift={trade.seedDrift}
+      <PricedFromServices
+        fields={trade.pricedFromServices}
+        serviceLabels={trade.serviceLabels}
         money={money}
-        saving={saving}
-        canEdit={canEdit}
-        onAdopt={adoptServicesPricing}
         t={t}
       />
 
@@ -984,7 +990,16 @@ export default function TradeCard({ trade, canEdit, onSaved }) {
             onChange={(m) => patch({ prepSurcharge: m })}
           />
         )}
-        {trade.trade === "painting" && (
+        {/* Painting's two surcharges are DERIVED from the interior and
+            exterior books — siding over walls, the moderate and high tiers
+            over standard (lib/estimate/instantSeed.js) — so once the book is
+            read live they are shown in the panel above and not edited here.
+            Leaving the boxes would be two controls that change no number, on
+            the screen this codebase is repeatedly swept for exactly that. The
+            condition is: no derivation for this company (their painting
+            services are off), in which case the saved row still prices and
+            the boxes are still the only place to set it. */}
+        {trade.trade === "painting" && !pricedFromServices && (
           <>
             <ScopeSurcharges
               map={config.scopeSurcharge}
@@ -1234,8 +1249,16 @@ export default function TradeCard({ trade, canEdit, onSaved }) {
             />
           )}
           {/* Junk's minimum lives in its own rate card (in cents); the shared
-              dollar minCharge would be a second, conflicting control. */}
-          {trade.trade !== "junk_removal" && trade.trade !== "lawn_care" && (
+              dollar minCharge would be a second, conflicting control.
+              Cabinet refinishing's floor is its price book's `minimumTotal`
+              and is now read from there, so the box is shown in the
+              read-only panel instead — same rule, one more trade. The other
+              trades' floors have no book equivalent (instantSeed.js says so
+              for paving), so this IS the only place they are stated and the
+              box stays. */}
+          {trade.trade !== "junk_removal" &&
+            trade.trade !== "lawn_care" &&
+            !minChargeFromServices && (
             <NumField
               label={t("app.setInstantQuotes.minimumCharge", "Minimum charge")}
               prefix="$"

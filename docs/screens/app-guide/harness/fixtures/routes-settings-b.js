@@ -21,14 +21,17 @@ import { instantRateFields } from "@/lib/estimate/instantRateFields";
 import {
   applyDerivedSeed,
   deriveInstantSeed,
-  seedDrift,
+  seedFields,
+  readSeedValue,
   seedInputsFor,
+  DERIVED_SEED_TRADES,
 } from "@/lib/estimate/instantSeed";
 import { instantQuoteReadiness } from "@/lib/estimate/instantQuoteReadiness";
 import {
   categoryKeysForInstantTrade,
   categoryLabel,
   catalogueMismatches,
+  instantTradeOffered,
 } from "@/lib/trades/catalog";
 import { normaliseFinancing } from "@/lib/estimate/financing";
 import { TUNING_SETTINGS, TUNING_FIELDS } from "@/lib/voice/agentTuning";
@@ -209,29 +212,40 @@ function instantQuotePayload() {
     saved.push({ id: `iq_${trade}`, companyId: COMPANY.id, trade, enabled: true, config, updatedAt: iso(day(-14)) });
   }
   const byTrade = new Map(saved.map((r) => [r.trade, r]));
-  const trades = Object.entries(INSTANT_ESTIMATE_TRADES).map(([trade, spec]) => {
+  // Only the trades the fixture company SELLS, exactly as the route now sends
+  // them: the "+ show the other eleven" disclosure is gone, so a screenshot
+  // that still listed fourteen would be a picture of a screen nobody ships.
+  const listable = Object.entries(INSTANT_ESTIMATE_TRADES).filter(
+    ([trade]) => instantTradeOffered(trade, enabledKeys) || byTrade.get(trade)?.enabled,
+  );
+  const trades = listable.map(([trade, spec]) => {
     const row = byTrade.get(trade);
     const seed = INSTANT_ESTIMATE_DEFAULTS[trade] ?? null;
     const seedInputs = seedInputsFor(trade, enabledRows);
     const derived = deriveInstantSeed(trade, seedInputs);
-    const config = row?.config ?? (derived && seed ? applyDerivedSeed(trade, seed, derived) : seed) ?? null;
+    // The live book over the saved row — what the public pricer reads.
+    const config = (derived ? applyDerivedSeed(trade, row?.config ?? seed, derived) : row?.config ?? seed) ?? null;
+    const pricedFromServices = DERIVED_SEED_TRADES.includes(trade) && Boolean(derived);
     const categoryKeys = categoryKeysForInstantTrade(trade);
     return {
       trade,
       label: tradeLabel(trade),
       measure: spec.measure,
-      hasMaterialRates: Array.isArray(seed?.materials),
-      rateFields: instantRateFields(trade, seed),
+      hasMaterialRates: Array.isArray(seed?.materials) && !pricedFromServices,
+      rateFields: pricedFromServices ? [] : instantRateFields(trade, seed),
+      pricedFromServices: pricedFromServices
+        ? seedFields(trade)
+            .map((f) => ({ ...f, value: readSeedValue(derived, f.path) }))
+            .filter((f) => f.value !== undefined)
+        : null,
       enabled: row?.enabled ?? false,
       offeredAsService: categoryKeys.some((k) => enabledSet.has(k)),
       serviceLabels: categoryKeys.map(categoryLabel),
       config,
       isDefaults: !row,
-      derivedSeed: derived,
       derivedFromServices: !row && Boolean(derived),
-      seedDrift: row ? seedDrift(trade, row.config, derived) : [],
       ...(trade === "painting" && { scopesOffered: seedInputs.offered }),
-      readiness: instantQuoteReadiness(trade, row?.config ?? null),
+      readiness: instantQuoteReadiness(trade, row ? config : null),
     };
   });
   const mismatches = catalogueMismatches({

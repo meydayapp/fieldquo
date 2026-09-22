@@ -23,8 +23,10 @@ import { instantRateFields } from "@/lib/estimate/instantRateFields";
 import {
   applyDerivedSeed,
   deriveInstantSeed,
-  seedDrift,
+  seedFields,
+  readSeedValue,
   seedInputsFor,
+  DERIVED_SEED_TRADES,
 } from "@/lib/estimate/instantSeed";
 import { instantQuoteReadiness } from "@/lib/estimate/instantQuoteReadiness";
 import { instantAutoEnablePlan } from "@/lib/estimate/instantQuoteProvision";
@@ -33,6 +35,7 @@ import {
   categoryKeysForInstantTrade,
   categoryLabel,
   catalogueMismatches,
+  instantTradeOffered,
 } from "@/lib/trades/catalog";
 import { normaliseFinancing } from "@/lib/estimate/financing";
 import {
@@ -172,24 +175,54 @@ export async function GET(request) {
     }
   }
 
-  const trades = Object.entries(INSTANT_ESTIMATE_TRADES).map(([trade, spec]) => {
+  // ── Only the trades this company sells ───────────────────────────────────
+  //
+  // The owner, looking at TrueFinish's three services: "if TrueFinish only has
+  // 3 selected quote types, why do I have the option to show the other 11? it
+  // doesn't make sense, I should enable them first." He is right — the other
+  // eleven were rendered behind a disclosure, and being SHOWN a card is what
+  // made filling it in look like the job. They are no longer sent at all, so
+  // they cannot be listed and (with the PUT gate below) cannot be configured.
+  //
+  // A trade he has already switched ON stays, even when it is not one of his
+  // services: it is his row, a homeowner can be quoted from it right now, and
+  // the amber "not one of your services" finding is only actionable if the card
+  // with the off switch is still on the screen.
+  const listable = Object.entries(INSTANT_ESTIMATE_TRADES).filter(
+    ([trade]) => instantTradeOffered(trade, enabledKeys) || byTrade.get(trade)?.enabled,
+  );
+
+  const trades = listable.map(([trade, spec]) => {
     const row = byTrade.get(trade);
     const seed = INSTANT_ESTIMATE_DEFAULTS[trade] ?? null;
-    // ── The seed is the company's own pricing where it can be ─────────────
+    // ── The pricing IS the company's own pricing where it can be ──────────
     //
-    // For a trade whose seed derives from a price book, run the derivation
-    // over the company's book (their rates patched over ours) and over only
-    // the services they have switched on. Null for every other trade, and for
-    // a derivable one whose services are all off — nothing to inherit from.
+    // For a trade whose rates a price book can state, run the derivation over
+    // the company's book (their rates patched over ours) and over only the
+    // services they have switched on. Null for every other trade, and for a
+    // derivable one whose services are all off — nothing to inherit from.
     //
-    // No saved row: the form opens on the derived figures, already theirs.
-    // Saved row: the row is what prices, and `seedDrift` says where it now
-    // differs from the derivation — the screen reports it and offers a button;
-    // nothing here re-derives on their behalf.
+    // This used to be a SEED: a starting point copied onto the instant row,
+    // after which the row priced and the book moved on without it. It is now
+    // the live figure on both sides — see effectiveInstantConfig in
+    // lib/estimate/instantQuoteServer.js.
     const seedInputs = seedInputsFor(trade, enabledRows);
     const derived = deriveInstantSeed(trade, seedInputs);
+    // ── What the owner sees is what a homeowner is quoted ─────────────────
+    //
+    // This file's own header promises that, and it stopped being true the day
+    // a trade could be seeded from the price book and then drift from it. The
+    // public pricer now reads the book LIVE (effectiveInstantConfig in
+    // lib/estimate/instantQuoteServer.js), so the screen applies the same
+    // derivation over the same saved row and the promise holds again — with no
+    // drift notice and no "adopt" button, because there is nothing left to
+    // adopt.
     const config =
-      row?.config ?? (derived && seed ? applyDerivedSeed(trade, seed, derived) : seed) ?? null;
+      (derived ? applyDerivedSeed(trade, row?.config ?? seed, derived) : row?.config ?? seed) ??
+      null;
+    // Does the price book state this trade's rates? Then this screen shows
+    // them and does not edit them.
+    const pricedFromServices = DERIVED_SEED_TRADES.includes(trade) && Boolean(derived);
     // Which of the company's own services this estimator prices. Plural: one
     // `painting` estimator serves interior and exterior painting both.
     const categoryKeys = categoryKeysForInstantTrade(trade);
@@ -208,28 +241,43 @@ export async function GET(request) {
       // the answer, and reproduces today's set exactly — so this replaces
       // `hasMaterials` in the payload rather than joining it. Sending both would
       // leave a field nothing on the screen reads.
-      hasMaterialRates: Array.isArray(seed?.materials),
+      // A rate the price book states is not editable here any more — it is
+      // edited under Services & Pricing, where the quote builder reads it from
+      // too. So the material rows and the unit-rate boxes are suppressed for a
+      // derived trade and replaced by the read-only block below, which shows
+      // the figures the estimator will actually use and links to the one screen
+      // that changes them. Two boxes for one number is how they disagree.
+      hasMaterialRates: Array.isArray(seed?.materials) && !pricedFromServices,
       // The unit rates this trade prices off, resolved from its price book and
       // its seed — see lib/estimate/instantRateFields.js. Filtered HERE rather
       // than in the browser so a supplier cost flagged `internal` never leaves
       // the server for a screen that edits client-facing prices.
-      rateFields: instantRateFields(trade, seed),
+      rateFields: pricedFromServices ? [] : instantRateFields(trade, seed),
+      // The rates this trade takes from the company's own price book, as a
+      // read-only list: label, the value the estimator will use, and whether
+      // it reads as money or a percentage. Present only when the derivation
+      // produced something, so the screen never shows an empty "your rates"
+      // panel over a trade that has none.
+      pricedFromServices: pricedFromServices
+        ? seedFields(trade)
+            .map((f) => ({ ...f, value: readSeedValue(derived, f.path) }))
+            .filter((f) => f.value !== undefined)
+        : null,
       enabled: row?.enabled ?? false,
       // Is this one of their trades? Drives the grouping on the settings
       // screen — their own services first, everything else behind a
       // disclosure — so nobody configures a rate card for work they don't do.
       offeredAsService: categoryKeys.some((k) => enabledSet.has(k)),
       serviceLabels: categoryKeys.map(categoryLabel),
-      // Seed the form with the company's saved config, else the reference
-      // defaults so they have something to edit rather than a blank grid.
+      // The company's saved config with their live price-book rates over it —
+      // exactly what the public pricer will use — else the reference defaults
+      // so they have something to edit rather than a blank grid.
       config,
       isDefaults: !row,
-      // The derivation the screen can apply on one press, and whether the
-      // unsaved seed above is already it (so the "typical figures, not your
-      // prices" note is not shown over the company's own numbers).
-      derivedSeed: derived,
+      // Whether the figures on an UNSAVED card are the company's own (read out
+      // of their Services & Pricing book) or FieldQuo's reference points. The
+      // note must not let the second pass for the first.
       derivedFromServices: !row && Boolean(derived),
-      seedDrift: row ? seedDrift(trade, row.config, derived) : [],
       // Painting only: which scopes the company sells, so the screen can
       // show the surcharge box for those and grey the other — and say plainly
       // when neither is on, because the public page then offers no painting
@@ -240,7 +288,11 @@ export async function GET(request) {
       // a dead control in front of a stranger, and the contractor is the only
       // person allowed to be told why — so it's computed here, behind auth, and
       // never on the public endpoint.
-      readiness: instantQuoteReadiness(trade, row?.config ?? null),
+      // Dry-run over the config that will actually price — the saved row with
+      // the live book over it — not over the row alone. A trade whose rate now
+      // comes from Services would otherwise be reported unready for a box this
+      // screen no longer shows.
+      readiness: instantQuoteReadiness(trade, row ? config : null),
     };
   });
 
@@ -374,14 +426,39 @@ export async function PUT(request) {
     return NextResponse.json({ error: "Unknown trade" }, { status: 400 });
   }
 
-  // Refuse to enable a trade that can't actually price. Better a clear error
-  // here than a public "instant quote" button that returns needsConfig — a
-  // dead control in front of a homeowner is exactly what this product forbids.
+  // Refuse to enable a trade that can't actually price, or one the company
+  // doesn't sell. Better a clear error here than a public "instant quote"
+  // button that returns needsConfig — a dead control in front of a homeowner
+  // is exactly what this product forbids.
   //
-  // The check is the READINESS dry-run, not a hand-written mirror of the
+  // The price check is the READINESS dry-run, not a hand-written mirror of the
   // estimator's rules. The hand-written mirror is what let Cabinet Refacing
   // through: it validated a per-door price the public pricer never looked at.
+  //
+  // The SERVICE check is the other half of the GET no longer listing a trade
+  // the company doesn't sell: hiding the card is not access control, and a
+  // POST around the screen must not switch one on either. Only on enable —
+  // saving or switching OFF a trade whose service was since withdrawn has to
+  // stay possible, or a company that turned a service off is left with a row
+  // they can never reach to turn off.
   if (enabled) {
+    const enabledKeys = (
+      await db.companyServiceCategory.findMany({
+        where: { companyId: member.companyId, enabled: true },
+        select: { category: { select: { key: true } } },
+      })
+    )
+      .map((r) => r.category?.key)
+      .filter(Boolean);
+    if (!instantTradeOffered(trade, enabledKeys)) {
+      const labels = categoryKeysForInstantTrade(trade).map(categoryLabel);
+      return NextResponse.json(
+        {
+          error: `You don't sell ${labels.join(" or ") || tradeLabel(trade)} yet. Switch it on under Settings › Services first — that's the list your quotes, your website and this estimator all read.`,
+        },
+        { status: 400 },
+      );
+    }
     const readiness = instantQuoteReadiness(trade, config);
     if (!readiness.ok) {
       return NextResponse.json(
