@@ -1,0 +1,18 @@
+[
+  {"seedKey": "fq.hvac_install.central.split_3_5_ton", "industry": "Heating & Air Conditioning", "sourceCategory": "System Installation", "sourceService": "Install 3.5-Ton Split HVAC System", "taskCode": "DEFAULT_HVAC_SERVICE_87"},
+  {"seedKey": "fq.hvac_install.central.split_ac_4_ton", "industry": "Heating & Air Conditioning", "sourceCategory": "System Installation", "sourceService": "Install 4-Ton Split Ac System", "taskCode": "DEFAULT_HVAC_SERVICE_88"},
+  {"seedKey": "fq.hvac_install.central.heat_pump_2_5_ton", "industry": "Heating & Air Conditioning", "sourceCategory": "System Installation", "sourceService": "Install 2.5 Ton Heat Pump System", "taskCode": "DEFAULT_HVAC_SERVICE_89"},
+  {"seedKey": "fq.hvac_install.central.system_2_to_3_5_ton", "industry": "Heating & Air Conditioning", "sourceCategory": "System Installation", "sourceService": "Install 2-3.5 Ton Hvac System", "taskCode": "DEFAULT_HVAC_SERVICE_95"},
+  {"seedKey": "fq.hvac_install.central.system_5_ton", "industry": "Heating & Air Conditioning", "sourceCategory": "System Installation", "sourceService": "Install 5 Ton Hvac System", "taskCode": "DEFAULT_HVAC_SERVICE_99"},
+  {"seedKey": "fq.hvac_install.ductless.mini_split", "industry": "Heating & Air Conditioning", "sourceCategory": "System Installation", "sourceService": "Install Ductless Mini Split System", "taskCode": "DEFAULT_HVAC_SERVICE_94"},
+  {"seedKey": "fq.hvac_install.ductless.cold_climate_heat_pump", "industry": "Heating & Air Conditioning", "sourceCategory": "System Installation", "sourceService": "Install Cold-Climate Hyper-Heat Systems", "taskCode": "DEFAULT_HVAC_SERVICE_97"},
+  {"seedKey": "fq.hvac_install.ductless.multi_zone", "industry": "Heating & Air Conditioning", "sourceCategory": "System Installation", "sourceService": "Install Multi-Zone Mini Split System", "taskCode": "DEFAULT_HVAC_SERVICE_100"},
+  {"seedKey": "fq.hvac_install.ductless.condenser", "industry": "Heating & Air Conditioning", "sourceCategory": "System Installation", "sourceService": "Install Mini Split Condenser System", "taskCode": "DEFAULT_HVAC_SERVICE_102"},
+  {"seedKey": "fq.hvac_install.components.dehumidifiers", "industry": "Heating & Air Conditioning", "sourceCategory": "System Installation", "sourceService": "Install And Service Hvac Dehumidifiers", "taskCode": "DEFAULT_HVAC_SERVICE_90"},
+  {"seedKey": "fq.hvac_install.components.ductwork", "industry": "Heating & Air Conditioning", "sourceCategory": "System Installation", "sourceService": "Install Hvac Ductwork", "taskCode": "DEFAULT_HVAC_SERVICE_91"},
+  {"seedKey": "fq.hvac_install.components.air_handler", "industry": "Heating & Air Conditioning", "sourceCategory": "System Installation", "sourceService": "Install Air Handler", "taskCode": "DEFAULT_HVAC_SERVICE_92"},
+  {"seedKey": "fq.hvac_install.components.boiler_zone_valves", "industry": "Heating & Air Conditioning", "sourceCategory": "System Installation", "sourceService": "Boiler Installation And Zone Valve Replacement", "taskCode": "DEFAULT_HVAC_SERVICE_96"},
+  {"seedKey": "fq.hvac_install.components.generator", "industry": "Heating & Air Conditioning", "sourceCategory": "System Installation", "sourceService": "Install Hvac Generators", "taskCode": "DEFAULT_HVAC_SERVICE_98"},
+  {"seedKey": "fq.hvac_install.additional.heat_pump_repair", "industry": "Heating & Air Conditioning", "sourceCategory": "System Installation", "sourceService": "Repair Heat Pump", "taskCode": "DEFAULT_HVAC_SERVICE_93"},
+  {"seedKey": "fq.hvac_install.additional.relocate_system", "industry": "Heating & Air Conditioning", "sourceCategory": "System Installation", "sourceService": "Relocate Hvac Systems", "taskCode": "DEFAULT_HVAC_SERVICE_101"}
+]

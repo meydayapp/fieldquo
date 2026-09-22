@@ -16,6 +16,7 @@ import { createTrialCheckoutSession } from "@/lib/platform/stripeBilling";
 import { trialDaysAllowed } from "@/lib/billing/trialOnce";
 import { TRIAL_PRICE } from "@/lib/pricing";
 import { seedStandardAddOns } from "@/lib/products/seedStandardAddOns";
+import { seedServicesForTrade } from "@/lib/products/seedServices";
 import { seedDefaultTemplates } from "@/lib/email/seedDefaultTemplates";
 import { ensureDefaultFollowUps } from "@/lib/followUps/defaults";
 import { getAppOrigin, isInternalPath } from "@/lib/appUrl";
@@ -589,6 +590,27 @@ export async function POST(request) {
       }
     } catch (err) {
       console.error("[companies POST] standard add-on seeding failed", err);
+    }
+
+    // And the trade's service list — every service the trade habitually
+    // sells, with the benchmark median as the starting price where one
+    // exists (app/data/serviceSeeds, lib/products/seedServices.js). Its own
+    // try: a seed file with a problem must not cost the add-ons above, and
+    // "Add missing services" on Settings > Services re-runs it on demand.
+    try {
+      const selected = await db.serviceCategory.findMany({
+        where: { id: { in: serviceCategoryIds } },
+        select: { id: true, key: true },
+      });
+      for (const cat of selected) {
+        await seedServicesForTrade({
+          companyId: company.id,
+          categoryId: cat.id,
+          categoryKey: cat.key,
+        });
+      }
+    } catch (err) {
+      console.error("[companies POST] trade service seeding failed", err);
     }
   }
 

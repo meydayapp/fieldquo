@@ -14,6 +14,7 @@ import { getAppOrigin } from "@/lib/appUrl";
 import { loadEnforceableMember, canSeeMoney } from "@/lib/permissions/enforce";
 import { builtInGuide, GUIDE_LANGUAGES } from "@/lib/prepGuide/content";
 import { withPrepGuideCopy } from "@/lib/prepGuide/resolve";
+import { seedServicesForTrade } from "@/lib/products/seedServices";
 
 // GET — system catalog + this company's own custom quote types, merged with
 // this company's settings (enabled/rate/unit). Custom categories are scoped
@@ -298,6 +299,18 @@ export async function PATCH(request) {
     }
   }
 
+  // Which of these trades is being switched ON right now — absent or disabled
+  // before this save, enabled after it. Read before the upserts, because
+  // afterwards every row says "enabled" and the question has no answer.
+  const before = await db.companyServiceCategory.findMany({
+    where: { companyId: member.companyId, categoryId: { in: [...keyById.keys()] } },
+    select: { categoryId: true, enabled: true },
+  });
+  const wasEnabled = new Set(before.filter((r) => r.enabled).map((r) => r.categoryId));
+  const newlyEnabled = categories.filter(
+    (c) => c.enabled && keyById.has(c.categoryId) && !wasEnabled.has(c.categoryId),
+  );
+
   const results = await Promise.all(
     categories.map((c) =>
       db.companyServiceCategory.upsert({
@@ -354,6 +367,26 @@ export async function PATCH(request) {
       }),
     ),
   );
+
+  // ── Switching a trade on seeds its service list ─────────────────────────
+  //
+  // The same rows a new company gets at signup: the trade's services with the
+  // benchmark median as the starting price (lib/products/seedServices.js).
+  // Idempotent by seed key, so a trade switched off and on again adds nothing
+  // twice and never touches a row the company has edited. Best-effort — the
+  // save itself has already succeeded, and "Add missing services" on the
+  // same screen re-runs this on demand if it fails here.
+  for (const c of newlyEnabled) {
+    try {
+      await seedServicesForTrade({
+        companyId: member.companyId,
+        categoryId: c.categoryId,
+        categoryKey: keyById.get(c.categoryId),
+      });
+    } catch (err) {
+      console.error("[settings/service-categories] trade service seeding failed:", err?.message);
+    }
+  }
 
   // ── The phone receptionist's closed list of services lives here ─────────
   //

@@ -38,11 +38,25 @@ model Product {
   active       Boolean     @default(true)
   createdAt    DateTime    @default(now())
 
+  // Which trade seed this row was created from — "fq.<trade>.<category>.<slug>",
+  // app/data/serviceSeeds/*. Null for anything the company added itself.
+  //
+  // Two readers, and it is written exactly once (lib/products/seedServices.js):
+  //   - re-seeding skips every key the company already holds, so a row it has
+  //     renamed or repriced is never touched and never duplicated;
+  //   - Settings > Services and the price editor look the key up in the seed
+  //     to show the benchmark range beside the company's own price.
+  // The seed's median is copied into `unitPrice` at creation and never again;
+  // the key is a pointer to a guideline, not a live link to a price.
+  seedKey String?
+
   // Which quote types (ServiceCategory) this product/service can be added to
   // as a line item. Empty = available on every quote type (e.g. a generic
   // "Rush Fee"); non-empty = only offered when building a quote in one of
   // these categories, so a Flooring quote doesn't offer cabinet hinges.
   categories ServiceCategory[]
+
+  @@index([companyId, seedKey])
 }
 
 model PlatformAdmin {
