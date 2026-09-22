@@ -369,7 +369,7 @@ const GROUPS = [
       // group is about what these people did. Filing them with "who holds a
       // platform login" would put the people beside the console's own keys,
       // which is a different question.
-      { label: "Sales reps", href: "/platform/sales/reps", icon: UserRoundCheck },
+      { label: "Sales reps", href: "/platform/sales/reps", icon: UserRoundCheck, badge: "repSetup" },
       // What the floor is doing RIGHT NOW, as opposed to what it sold. Placed
       // above performance because it is the screen somebody opens at 10am and
       // performance is the one they open on a Monday: one is a board you watch,
@@ -670,6 +670,12 @@ export default function PlatformSidebar() {
   // superadmin-only and answers null to everyone else; the signup count is
   // for anyone who may view companies.
   const [signupFlagCount, setSignupFlagCount] = useState(null);
+  // The third, same lifecycle: reps an agency added (or a superadmin moved
+  // under one) who still have no phone number or no work mailbox. This used
+  // to be a PlatformErrorLog row that nobody cleared — see
+  // app/api/platform/sales/reps/count for why it is a derived badge now. It
+  // goes away on its own when both are assigned.
+  const [repSetupCount, setRepSetupCount] = useState(null);
   // The phone drawer. Closed whenever the route changes — the row that was
   // tapped is now the screen, and a drawer still over it would need a second
   // tap for nothing (the same effect AdminSidebar runs on pathname).
@@ -691,6 +697,7 @@ export default function PlatformSidebar() {
         });
     readCount("/api/platform/sales/review/count", setReviewCount);
     readCount("/api/platform/signup-origins/count", setSignupFlagCount);
+    readCount("/api/platform/sales/reps/count", setRepSetupCount);
     return () => {
       cancelled = true;
     };
@@ -798,7 +805,7 @@ export default function PlatformSidebar() {
 
   // Which count a row wears, if any. Null draws nothing rather than a zero.
   const badgeFor = (item) =>
-    item.badge === "review" ? reviewCount : item.badge === "signups" ? signupFlagCount : null;
+    item.badge === "review" ? reviewCount : item.badge === "signups" ? signupFlagCount : item.badge === "repSetup" ? repSetupCount : null;
 
   // ── The rail's contents, drawn twice ─────────────────────────────────────
   //
@@ -911,6 +918,7 @@ export default function PlatformSidebar() {
           <div className="ml-auto flex items-center gap-1">
             {signupFlagCount ? <TopBadge href="/platform/signup-origins" label="signups to review" count={signupFlagCount} /> : null}
             {reviewCount ? <TopBadge href="/platform/sales/review" label="rows in the review folder" count={reviewCount} /> : null}
+            {repSetupCount ? <TopBadge href="/platform/sales/reps" label="reps waiting for a number and a mailbox" count={repSetupCount} /> : null}
           </div>
         </div>
       </div>

@@ -82,7 +82,18 @@ export async function POST(request) {
   if (provider !== "twilio" && !DAILY_PROVIDERS[provider]) return NextResponse.json({ error: "Unknown provider" }, { status: 400 });
   const result = provider === "twilio" ? await pullTwilioUsage({ from, to, now }) : await pullProvider(provider, { from, to, now });
   if (!result.ok) {
-    const why = result.reason === "not_configured" ? `waiting for ${result.envVar || "its key"}` : result.reason === "failed" ? result.error : result.reason || (result.failed || []).join(", ");
+    // "refused" is an OPTIONAL provider saying no — OpenAI's costs endpoint
+    // without an org admin key. It is a sentence about configuration, not a
+    // failure to investigate, and it is deliberately the same words the card
+    // on /platform/costs prints. See DAILY_PROVIDERS.optional.
+    const why =
+      result.reason === "not_configured"
+        ? `waiting for ${result.envVar || "its key"}`
+        : result.reason === "refused"
+          ? `${result.envVar || "an admin key"} is not connected, so FieldQuo's metered spend is shown instead`
+          : result.reason === "failed"
+            ? result.error
+            : result.reason || (result.failed || []).join(", ");
     return NextResponse.json({ error: `The ${provider} pull did not run: ${why}`, ...result }, { status: 502 });
   }
   return NextResponse.json(result);

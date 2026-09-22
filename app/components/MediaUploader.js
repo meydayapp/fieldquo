@@ -18,7 +18,7 @@
 
 import { useRef, useState, useCallback } from "react";
 import { ImagePlus, X, Film, FileText, Loader2 } from "lucide-react";
-import { CLIENT_MEDIA_ACCEPT } from "@/lib/media/validate";
+import { CLIENT_MEDIA_ACCEPT, UPLOAD_REQUEST_MAX_BYTES, megabytes, overRequestLimit } from "@/lib/media/validate";
 
 export default function MediaUploader({
   uploadUrl,
@@ -45,6 +45,16 @@ export default function MediaUploader({
   limitLabel = (n) => `You can attach up to ${n} files.`,
   failedLabel = "Upload failed — check your connection and try again.",
   rejectedLabel = "That file couldn't be uploaded.",
+  // The one refusal the SERVER never gets to explain. Vercel answers 413 at
+  // the edge for a body over UPLOAD_REQUEST_MAX_BYTES and puts no JSON in it,
+  // so /api/upload's own sentence never runs and the uploader used to print
+  // `rejectedLabel` — "That file couldn't be uploaded.", no reason, for what
+  // is simply a big photo. Both numbers are named because "too large" without
+  // them leaves somebody guessing how much to shrink it by.
+  tooLargeLabel = (size, limit) => `That file is ${size} — the most that can be sent in one upload is ${limit}. Take the photo at a smaller size, or resize it and try again.`,
+  // Every other unexplained status. A 401 after a session expired looked
+  // exactly like a corrupt file.
+  signedOutLabel = "Your session has expired. Sign in again, then re-attach the file.",
   removeLabel = "Remove",
   // `async (file) => entry | null`. When given and the browser reports no
   // signal, the file is handed here instead of being uploaded — the offline
@@ -78,6 +88,14 @@ export default function MediaUploader({
               continue;
             }
           }
+          // Refused BEFORE the request, with the reason, rather than after a
+          // 413 that carries no body — the upload of a 9 MB photo on a phone
+          // costs the person their connection for nothing. Same constant the
+          // 413 branch below reads, so the two sentences cannot disagree.
+          if (overRequestLimit(file.size)) {
+            setError(tooLargeLabel(megabytes(file.size), megabytes(UPLOAD_REQUEST_MAX_BYTES)));
+            continue;
+          }
           const fd = new FormData();
           fd.append("file", file);
           let res;
@@ -89,9 +107,19 @@ export default function MediaUploader({
           }
           const data = await res.json().catch(() => null);
           if (!res.ok || !data?.url) {
-            // Surface the server's specific reason (too large, wrong type) —
-            // a silent failure here is the "why won't my photo upload" black hole.
-            setError(data?.error || rejectedLabel);
+            // The server's own reason first — it inspected the file, and
+            // /api/upload says which: not configured, no file, the
+            // classifyMedia verdict, or Cloudinary's own message through
+            // explainCloudinaryError. `rejectedLabel` is the LAST resort, and
+            // until 2026-09-22 it was the only thing a 413 could produce.
+            setError(
+              data?.error ||
+                (res.status === 413
+                  ? tooLargeLabel(megabytes(file.size), megabytes(UPLOAD_REQUEST_MAX_BYTES))
+                  : res.status === 401 || res.status === 403
+                    ? signedOutLabel
+                    : rejectedLabel),
+            );
             continue;
           }
           // Trust the server's classification rather than re-deriving it here —
@@ -113,7 +141,7 @@ export default function MediaUploader({
         if (inputRef.current) inputRef.current.value = ""; // allow re-picking the same file
       }
     },
-    [uploadUrl, value, onChange, max, limitLabel, failedLabel, rejectedLabel, offlineCapture],
+    [uploadUrl, value, onChange, max, limitLabel, failedLabel, rejectedLabel, tooLargeLabel, signedOutLabel, offlineCapture],
   );
 
   function remove(idx) {

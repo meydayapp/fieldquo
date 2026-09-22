@@ -360,7 +360,63 @@ async function main() {
   }
 
   // ═════════════════════════════════════════════════════════════════════════
-  section("7. The check is wired in");
+  section("7. A stray NUL cannot kill the write");
+  // ═════════════════════════════════════════════════════════════════════════
+
+  // `pipeline_task_error: invalid byte sequence for encoding "UTF8": 0x00`,
+  // four times between 2026-09-14 and -09-21, always on GENERATE_CALL_SCRIPT.
+  // Postgres will not store U+0000 in text OR jsonb — it cannot even be
+  // written into a query as chr(0) — so one stray byte anywhere in a scraped
+  // page, a model's reply or a quoted error takes the whole statement with it.
+  // lib/text/pgSafeText.js is the single sanitiser, applied at the three
+  // writes. Executed here against hostile strings rather than grepped.
+  {
+    const { pgSafe, pgSafeString, hasUnstorableText } = await import("@/lib/text/pgSafeText");
+
+    const NUL = "\u0000";
+    ok("a NUL is dropped and the words around it survive", pgSafeString(`Gravel${NUL} Insulation`) === "Gravel Insulation");
+    ok("\\n \\r \\t survive — a scope paragraph keeps its lines", pgSafeString("one\ntwo\r\nthree\tfour") === "one\ntwo\r\nthree\tfour");
+    ok(
+      "the other C0 controls and DEL go, and are not turned into spaces",
+      pgSafeString("a\u0001b\u0007c\u000bd\u000ce\u001ff\u007fg") === "abcdefg",
+    );
+    const lone = `plan${String.fromCharCode(0xd800)}s`;
+    ok("a lone surrogate — half a character — goes too", pgSafeString(lone) === "plans");
+    ok("a well-formed pair is left alone", pgSafeString("roof \u{1F3E0} done") === "roof \u{1F3E0} done");
+    ok("a non-string comes back as itself", pgSafeString(7) === 7 && pgSafeString(null) === null);
+    ok(
+      "consecutive calls do not skip — the global regexes reset",
+      pgSafeString(`a${NUL}b`) === "ab" && pgSafeString("clean") === "clean" && pgSafeString(`c${NUL}d`) === "cd",
+    );
+
+    // The shape a createMany row and a jsonb script actually have.
+    const at = new Date("2026-09-21T15:00:00.000Z");
+    const row = {
+      type: "page_text",
+      [`raw${NUL}Key`]: "x",
+      rawValue: `Here to Serve You${NUL} Since 1986`,
+      normalizedValue: null,
+      confidence: 0.9,
+      observedAt: at,
+      nested: { citations: [`${NUL}Online booking: no`, "clean"] },
+    };
+    const safe = pgSafe(row);
+    ok("a row round-trips with every NUL gone and nothing else changed", !JSON.stringify(safe).includes("\\u0000") && safe.rawValue === "Here to Serve You Since 1986" && safe.nested.citations[0] === "Online booking: no" && safe.nested.citations[1] === "clean");
+    ok("a key carrying one is cleaned too", Object.hasOwn(safe, "rawKey") && !Object.hasOwn(safe, `raw${NUL}Key`));
+    ok("a Date stays a Date, a number stays a number, null stays null", safe.observedAt instanceof Date && safe.observedAt.getTime() === at.getTime() && safe.confidence === 0.9 && safe.normalizedValue === null);
+    ok("clean text is returned identical, byte for byte", JSON.stringify(pgSafe({ a: "plain", b: ["x", 1, true, null] })) === JSON.stringify({ a: "plain", b: ["x", 1, true, null] }));
+    ok("hasUnstorableText says which payloads would have failed", hasUnstorableText(row) === true && hasUnstorableText({ a: "fine" }) === false);
+
+    const crawl = decomment(read("lib/sales/crawl/crawlSite.js"));
+    ok("the crawl sanitises every evidence row at the createMany", /data: rows\.map\(\(r\) => pgSafe\(\{ \.\.\.r, prospectId: prospect\.id, observedAt: now \}\)\)/.test(crawl));
+    const script = decomment(read("lib/sales/pipeline/handlers/generateCallScript.js"));
+    ok("the call script is sanitised before the upsert", /script: pgSafe\(checked\.script\)/.test(script));
+    const runner = decomment(read("lib/sales/pipeline/runner.js"));
+    ok("the runner's own note and lastError cannot carry one either", /pgSafeString\(String\(note\)\)\.slice\(0, 500\)/.test(runner) && /pgSafeString\(message\)\.slice\(0, 500\)/.test(runner));
+  }
+
+  // ═════════════════════════════════════════════════════════════════════════
+  section("8. The check is wired in");
   // ═════════════════════════════════════════════════════════════════════════
 
   {

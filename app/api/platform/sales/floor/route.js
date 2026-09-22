@@ -57,8 +57,40 @@ import { TEAM_LEAD_CANNOT_SEE } from "@/lib/sales/team";
 import { dialModeState } from "@/lib/sales/calls/dialMode";
 import { inboundHandling } from "@/lib/sales/calls/inboundMatch";
 import { salesAgentRow } from "@/lib/platform/salesAgent";
+import { scrubSecrets } from "@/lib/platform/diagnostics";
 
+// ══ A 500 here used to say nothing at all ═════════════════════════════════
+//
+// 2026-09-22: the board showed "Something went wrong on our end (error 500)"
+// and the owner had no next step — the screen's banner is lib/fetchJson.js's
+// generic sentence for a 5xx with no `error` in the body, and this route had
+// no catch, so whatever threw went to the function log nobody reads. Every
+// loader below was then executed against production and none of them threw,
+// which is exactly why the SENTENCE matters more than any one guess: the next
+// occurrence has to name itself.
+//
+// fetchJson prefers `data.error` over its own wording, so the banner becomes
+// the reason. The text is run through scrubSecrets() — this is FieldQuo's own
+// back office and superadmin-only, but a vendor's error message is the most
+// likely place for a credential to be echoed back (lib/platform/diagnostics.js
+// says the same thing at more length).
 export async function GET(request) {
+  try {
+    return await floorResponse(request);
+  } catch (err) {
+    const reason = scrubSecrets(err?.message || String(err));
+    console.error("[platform sales floor] read failed:", reason, err?.code || "");
+    return NextResponse.json(
+      {
+        error: `The floor board could not be read: ${reason}`,
+        code: err?.code || "floor_read_failed",
+      },
+      { status: 500 },
+    );
+  }
+}
+
+async function floorResponse(request) {
   const admin = await getCurrentPlatformAdmin(request);
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (admin.role !== "superadmin") {

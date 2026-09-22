@@ -76,7 +76,6 @@ import { activationAuditRows, changeRepActive } from "@/lib/sales/repActivation"
 import { deactivationGate, queueCountsFor } from "@/lib/sales/reassign";
 import { AGENCY_ENGAGEMENT, AGENCY_KIND, clearSetupIfComplete } from "@/lib/sales/agency";
 import { agencyConversion, conversionCounts, resolveEngagementChange } from "@/lib/sales/repEngagement";
-import { recordError } from "@/lib/platform/errorLog";
 import { parseSellsIn, sellsInOf } from "@/lib/sales/leadLanguage";
 
 export async function PATCH(request, { params }) {
@@ -546,16 +545,12 @@ export async function PATCH(request, { params }) {
 
   // The owner's flag, exactly as an agency's own add fires it
   // (lib/sales/agency.js createAgencyRep): a rep now under an agency still
-  // needs a number or a work mailbox, and the errors page says so. Not fired
-  // when both are already there — there would be nothing to assign.
-  if (transition && !transition.unchanged && transition.flagSetup && transition.agency) {
-    await recordError({
-      area: "sales",
-      code: "agency_rep_needs_setup",
-      message: `${updated.name} (${updated.email}) now works for ${transition.agency.name}. Assign a phone number and a work mailbox on /platform/sales/reps.`,
-      detail: { agencyId: transition.agency.id, salesRepId: updated.id, linkedByPlatformAdminId: admin.id },
-    }).catch(() => {});
-  }
+  // needs a number or a work mailbox. `setupRequestedAt` on the row IS the
+  // flag; it used to be duplicated as a PlatformErrorLog row, which is a
+  // to-do sitting on the errors page and never clearing itself. The console
+  // counts the flagged rows instead — app/api/platform/sales/reps/count feeds
+  // the badge on "Sales reps", and clearSetupIfComplete() empties it when
+  // both arrive. The audit entry for the link is written above and stays.
 
   // sellsIn through sellsInOf(), as the list route returns it — the response
   // the screen reloads from and the one it got from the save must agree.

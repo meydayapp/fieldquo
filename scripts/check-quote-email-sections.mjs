@@ -84,6 +84,11 @@ function companyRow(overrides = {}) {
     brandColor: "#06356b",
     phone: "613-555-0100",
     currency: "CAD",
+    // The column the covering email's "what happens next" falls back to.
+    // Present with a null value — a company that has written no default —
+    // because assertSectionFieldsLoaded asks whether the KEY was selected,
+    // not whether it has a value.
+    defaultProcessNotes: null,
     ...base,
     quoteEmailIncludeReferences: false,
     quoteEmailIncludeBeforeAfter: false,

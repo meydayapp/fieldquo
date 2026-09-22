@@ -243,10 +243,14 @@ section("7. createAgencyRep — the forced values, the flag, the log");
   ok("the email is lower-cased and the languages kept", created?.email === "dee@northline.example" && JSON.stringify(created?.sellsIn) === '["fr","en"]');
   ok("setupRequestedAt is stamped", created?.setupRequestedAt instanceof Date);
   ok("an invite token is issued (hash stored, never the token)", typeof created?.inviteTokenHash === "string" && created.inviteTokenHash.length > 20 && !("inviteToken" in created));
-  ok("the owner is flagged: an error-log line names the agency, the rep and the console", (() => {
-    const w = writes.find((x) => x.model === "platformErrorLog");
-    return w && w.data.code === "agency_rep_needs_setup" && w.data.message.includes("Northline Contact") && w.data.message.includes("Dee Ng") && w.data.message.includes("/platform/sales/reps") && w.data.detail.salesRepId === result.rep.id;
-  })(), writes.filter((x) => x.model === "platformErrorLog"));
+  // 2026-09-22: this used to assert a PlatformErrorLog row — a to-do sitting
+  // on /platform/errors beside refused webhooks, resolved by hand, and still
+  // there after the number and the mailbox arrived. The flag is
+  // `setupRequestedAt` (asserted above) and the console reads it through
+  // app/api/platform/sales/reps/count, so the badge clears itself. Nothing
+  // may write an error for it again.
+  ok("the owner's flag is the row's own setupRequestedAt, and NO error-log row is written", writes.filter((x) => x.model === "platformErrorLog").length === 0 && created?.setupRequestedAt instanceof Date, writes.filter((x) => x.model === "platformErrorLog"));
+  ok("…and lib/sales/agency.js no longer records an error for it at all", !/agency_rep_needs_setup/.test(read("lib/sales/agency.js")) && !/recordError\(/.test(read("lib/sales/agency.js")));
   ok("an audit row names the agency as the actor, with no platform admin", (() => {
     const w = writes.find((x) => x.model === "platformAuditLog");
     return w && w.data.actorSalesRepId === AGENCY.id && !("platformAdminId" in w.data) && w.data.action === "sales_rep_invited";
@@ -555,7 +559,11 @@ section("Linking an existing rep to an agency, and back, from /platform (owner, 
   const route = decomment(read("app/api/platform/sales/reps/[id]/route.js"));
   ok("PATCH /api/platform/sales/reps/[id] decides the engagement through resolveEngagementChange with the body's agencyId", /resolveEngagementChange\(\{[\s\S]*?agencyId: body\.agencyId/.test(route) && /transition\.data/.test(route) && /transition\.audit/.test(route));
   ok("…kind may only become agency, through agencyConversion over fresh counts", /body\.kind !== AGENCY_KIND/.test(route) && /conversionCounts\(existing\.id\)/.test(route) && /agencyConversion\(\{ existing, counts/.test(route));
-  ok("…and fires the owner's number-and-mailbox line when the rep still needs one", /code: "agency_rep_needs_setup"/.test(route) && /transition\.flagSetup/.test(route));
+  ok("…and records whether a number and a mailbox were still owed in the AUDIT, never as an error", !/agency_rep_needs_setup/.test(route) && !/recordError\(/.test(route) && /needsSetupAtChange: needsSetup/.test(read("lib/sales/repEngagement.js")));
+  const countRoute = decomment(read("app/api/platform/sales/reps/count/route.js"));
+  ok("the badge counts the flagged rows through the SAME setupComplete the list and the clear use", /setupRequestedAt: \{ not: null \}/.test(countRoute) && /setupComplete\(r\)/.test(countRoute) && /admin\.role !== "superadmin"/.test(countRoute) && /count: null/.test(countRoute));
+  const rail = decomment(read("app/components/platform/PlatformSidebar.js"));
+  ok("…and the rail wears it beside Sales reps, linking there", /badge: "repSetup"/.test(rail) && /\/api\/platform\/sales\/reps\/count/.test(rail) && /repSetupCount/.test(rail) && /href="\/platform\/sales\/reps"/.test(rail));
   const repsPage = decomment(read("app/platform/sales/reps/page.js"));
   ok("the rep card offers employee / freelancer / works for an agency, with an agency picker of active agencies", /value="agency"/.test(repsPage) && /data-agency-picker/.test(repsPage) && /activeAgencies\.map/.test(repsPage) && /agencyReps\.filter\(\(a\) => a\.active\)/.test(repsPage));
   ok("…confirms the consequence in a sentence that says who is paid from the next close and that batches and earners stay", /From the next weekly close/.test(repsPage) && /Batches already closed stay with/.test(repsPage) && /keeps \$\{rep\.name\} as the earner/.test(repsPage) && /confirm\(`\$\{consequence\}/.test(repsPage));

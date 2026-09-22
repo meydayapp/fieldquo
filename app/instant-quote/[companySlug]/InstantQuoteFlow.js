@@ -1300,6 +1300,7 @@ export default function InstantQuoteFlow({ companySlug, embedded = false }) {
                       limitLabel={uploadCopy.uploadLimit}
                       failedLabel={uploadCopy.uploadFailed}
                       rejectedLabel={uploadCopy.uploadRejected}
+                      tooLargeLabel={uploadCopy.uploadTooLarge}
                       removeLabel={uploadCopy.uploadRemove}
                     />
                   </Section>

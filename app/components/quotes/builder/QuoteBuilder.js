@@ -2370,6 +2370,11 @@ export function QuoteBuilderForm({
   const readiness = {
     validUntil,
     processNotes,
+    // What the document prints when the box is empty — the company's own
+    // default (Company.defaultProcessNotes). Passed so the readiness panel
+    // judges what the CLIENT will read rather than what this row stores; see
+    // effectiveProcessNotes in lib/quotes/completeness.js.
+    defaultProcessNotes: boot.defaultProcessNotes || "",
     clientPhotos,
     discount,
     subtotal,

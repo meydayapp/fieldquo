@@ -50,7 +50,7 @@ import { createTradeConfig } from "../lib/pricing/tradeScope.js";
 import { APP_MESSAGES } from "../app/i18n/appMessages.js";
 import { paintingCategoryFor, paintingCategoriesOf } from "../app/components/quotes/builder/EstimateTypeFirst.js";
 import { createFabHiddenOn } from "../app/components/layout/CreateMenu.js";
-import { completenessChecks } from "../lib/quotes/completeness.js";
+import { completenessChecks, effectiveProcessNotes } from "../lib/quotes/completeness.js";
 import { newScopeGroup, scopeGroupPayload, groupSubtotal } from "../lib/quotes/builderPayload.js";
 
 let pass = 0;
@@ -611,6 +611,33 @@ for (const [lang, tab, prepared] of [["fr", "Devis", "Préparé pour"], ["es", "
   const withBoth = completenessChecks({ ...STORED_QUOTE, processNotes: "We start in two weeks.", clientPhotos: [{ url: "https://res.cloudinary.com/demo/a.jpg", kind: "image" }] }, []).map((c) => c.id);
   ok("the review raises both findings when the fields are empty", withNeither.includes("no_process") && withNeither.includes("no_photos"), withNeither.join(","));
   ok("filling them clears both findings", !withBoth.includes("no_process") && !withBoth.includes("no_photos"), withBoth.join(","));
+
+  // ── The company's default counts, because the document prints it ───────
+  //
+  // app/api/quotes/[id]/document prints `quote.processNotes ||
+  // company.defaultProcessNotes`, so a company that wrote its wording once in
+  // Settings has the section on every quote. The finding used to read the
+  // quote's column alone and told those companies, on every quote, that they
+  // had said nothing about what happens next. The four-line example in the
+  // textarea is a PLACEHOLDER (app.quoteEdit.processNotesPlaceholder) and
+  // prints nowhere — which is exactly why the effective text, not the box,
+  // decides.
+  const DEFAULT_WORDING = "We'll confirm a start date within 2 business days of approval.";
+  const withCompanyDefault = completenessChecks({ ...STORED_QUOTE, processNotes: "", defaultProcessNotes: DEFAULT_WORDING }, []).map((c) => c.id);
+  ok("a company default and an empty box → no finding, because that text is what prints", !withCompanyDefault.includes("no_process"), withCompanyDefault.join(","));
+  const viaRelation = completenessChecks({ ...STORED_QUOTE, processNotes: "", company: { defaultProcessNotes: DEFAULT_WORDING } }, []).map((c) => c.id);
+  ok("…read off the company relation too, which is the shape the server has", !viaRelation.includes("no_process"));
+  const blankDefault = completenessChecks({ ...STORED_QUOTE, processNotes: "", defaultProcessNotes: "   " }, []).map((c) => c.id);
+  ok("a company with NO default is still told — that is the case the advice was written for", blankDefault.includes("no_process") && completenessChecks({ ...STORED_QUOTE, processNotes: "", defaultProcessNotes: null }, []).map((c) => c.id).includes("no_process"));
+  ok("the quote's own words win over the default", effectiveProcessNotes({ processNotes: "Ours.", defaultProcessNotes: DEFAULT_WORDING }) === "Ours." && effectiveProcessNotes({ processNotes: "  ", defaultProcessNotes: DEFAULT_WORDING }) === DEFAULT_WORDING);
+
+  const docRoute = src("app/api/quotes/[id]/document/route.js");
+  ok("…and that IS what the document route prints", /quote\.processNotes \|\| quote\.company\?\.defaultProcessNotes/.test(docRoute));
+  const email = src("lib/email/quoteEmail.js");
+  ok("the covering email resolves it the same way, and the send route loads the column", /effectiveProcessNotes\(\{ \.\.\.quote, company \}\)/.test(email) && /defaultProcessNotes: true/.test(src("app/api/quotes/[id]/send/route.js")));
+  ok("…and a select that forgets it is refused rather than silently dropping the section", /"defaultProcessNotes" in company/.test(src("lib/quotes/emailSections.js")));
+  const bootstrap = src("app/components/quotes/builder/QuoteBuilder.js");
+  ok("the builder hands the readiness panel the same default", /defaultProcessNotes: boot\.defaultProcessNotes \|\| ""/.test(bootstrap));
 }
 
 // ── The toolbar row ────────────────────────────────────────────────────────

@@ -230,8 +230,9 @@ export default function PlatformCostsPage() {
                 <p className="text-sm text-muted-foreground break-words">
                   Computed {money(data.openai.billed.computedCents)} from the two AI ledgers (this section&rsquo;s pipeline AI{" "}
                   {microsMoney(data.openai.platform.micros)} + the companies&rsquo; AI {microsMoney(data.openai.tenants.micros)}).{" "}
-                  <strong>Waiting for {data.openai.billed.envVar}</strong> — the organisation Costs endpoint needs an admin key, and
-                  until it is set nothing billed is pulled and no reconciliation is possible. See docs/VERCEL.md.
+                  <strong>OpenAI&rsquo;s own invoice figures aren&rsquo;t connected</strong> — FieldQuo&rsquo;s metered spend is shown
+                  instead, and it is the figure above. An organisation-level admin key ({data.openai.billed.envVar}, a different
+                  credential from OPENAI_API_KEY) would enable the comparison against what OpenAI actually billed.
                 </p>
               ) : (
                 <>
@@ -551,7 +552,16 @@ export default function PlatformCostsPage() {
                       <td className="py-1.5 pr-3">{p.label}</td>
                       <td className="py-1.5 pr-3 text-xs text-muted-foreground break-words">{SOURCE_KIND[p.kind]} · {p.cadence}</td>
                       <td className="py-1.5 pr-3 text-xs text-muted-foreground whitespace-nowrap">
-                        {!p.configured ? <span className="text-amber-700 dark:text-amber-300">waiting for {p.envVar}</span> : p.lastPullAt ? when(p.lastPullAt) : key === "retell" ? "per call" : "never"}
+                        {/* An OPTIONAL provider is not "waiting" — nobody is
+                            going to set its key, and amber implies somebody
+                            should. It reads as the settled state it is. */}
+                        {!p.configured ? (
+                          p.optional ? (
+                            <span className="text-muted-foreground">not connected — {p.envVar}</span>
+                          ) : (
+                            <span className="text-amber-700 dark:text-amber-300">waiting for {p.envVar}</span>
+                          )
+                        ) : p.lastPullAt ? when(p.lastPullAt) : key === "retell" ? "per call" : "never"}
                       </td>
                       <td className="py-1.5 text-right">
                         {["twilio", "openai", "neon", "stripe"].includes(key) && p.configured ? (

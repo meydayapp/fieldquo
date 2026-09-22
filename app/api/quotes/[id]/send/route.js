@@ -164,6 +164,10 @@ export async function POST(request, { params }) {
       // this route sends, silently. buildQuoteEmail refuses to run on a
       // company row that is missing them rather than guessing — see
       // assertSectionFieldsLoaded.
+      // What the covering email prints under "what happens next" when the
+      // quote's own box is empty — the same fallback the PDF and the client
+      // page already apply. assertSectionFieldsLoaded refuses without it.
+      defaultProcessNotes: true,
       ...QUOTE_EMAIL_COMPANY_SELECT,
     },
   }), member.companyId);

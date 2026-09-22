@@ -4,7 +4,9 @@ import {
   uploadPublicId, safeFilename, countMediaKinds,
   PHOTO_MAX_BYTES, VIDEO_MAX_BYTES, DOCUMENT_MAX_BYTES,
   CLIENT_MEDIA_ACCEPT,
+  UPLOAD_REQUEST_MAX_BYTES, megabytes, overRequestLimit,
 } from "@/lib/media/validate";
+import { readFileSync } from "node:fs";
 
 let pass = 0, fail = 0;
 const ok = (n, c, got) => { if (c) { pass++; console.log(`  ✓ ${n}`); } else { fail++; console.log(`  ✗ ${n}${got !== undefined ? `  got: ${JSON.stringify(got)}` : ""}`); } };
@@ -140,6 +142,39 @@ console.log("\nList normalisation");
 ok("drops malformed, keeps valid", normaliseMediaList([{ url: "https://x/a.jpg" }, "junk", { url: "http://bad" }, null]).length === 1);
 ok("caps the count (anti-flood)", normaliseMediaList(Array.from({ length: 50 }, () => ({ url: "https://x/a.jpg" })), { max: 20 }).length === 20);
 ok("non-array -> []", Array.isArray(normaliseMediaList("nope")) && normaliseMediaList("nope").length === 0);
+
+// ── The ceiling that actually binds, and the sentence about it ────────────
+//
+// Every cap above is enforced inside /api/upload. On Vercel that route never
+// runs for a body over ~4.5 MB — the platform answers 413 at the edge with no
+// JSON — so the uploader got `data === null` and printed "That file couldn't
+// be uploaded." with no reason, for what is simply a phone photo. The server
+// limits are unchanged; what is new is that the browser can now say the true
+// thing, before the upload and after a refusal.
+console.log("\nThe request ceiling, and the reason a person reads");
+ok("the cap is Vercel's request body limit, stated once", UPLOAD_REQUEST_MAX_BYTES === Math.floor(4.5 * MB));
+ok("a typical phone photo is over it, and a small one is not", overRequestLimit(9 * MB) && !overRequestLimit(1.2 * MB) && !overRequestLimit(UPLOAD_REQUEST_MAX_BYTES));
+ok("…and one byte over is over", overRequestLimit(UPLOAD_REQUEST_MAX_BYTES + 1));
+ok("junk sizes are not over the limit", !overRequestLimit(undefined) && !overRequestLimit(null) && !overRequestLimit("nonsense") && !overRequestLimit(-5));
+ok("megabytes never prints a bare 0 for a real file", megabytes(9 * MB) === "9 MB" && megabytes(1.25 * MB) === "1.3 MB" && megabytes(UPLOAD_REQUEST_MAX_BYTES) === "4.5 MB", [megabytes(9 * MB), megabytes(1.25 * MB), megabytes(UPLOAD_REQUEST_MAX_BYTES)]);
+
+const uploader = readFileSync(new URL("../app/components/MediaUploader.js", import.meta.url), "utf8");
+ok("the uploader refuses an over-size file BEFORE spending the connection on it", /if \(overRequestLimit\(file\.size\)\)/.test(uploader));
+ok("…and a 413 with no body still names the size and the limit", /res\.status === 413/.test(uploader) && /tooLargeLabel\(megabytes\(file\.size\), megabytes\(UPLOAD_REQUEST_MAX_BYTES\)\)/.test(uploader));
+ok("the server's own reason still wins over every fallback", /data\?\.error \|\|/.test(uploader));
+ok("an expired session reads as one, not as a bad file", /res\.status === 401 \|\| res\.status === 403/.test(uploader) && /signedOutLabel/.test(uploader));
+
+const route = readFileSync(new URL("../app/api/upload/route.js", import.meta.url), "utf8");
+ok("/api/upload still answers with a specific error for every refusal it can see", /Image uploads aren't configured/.test(route) && /error: verdict\.error/.test(route) && /explainCloudinaryError\(err\)/.test(route));
+
+const copy = readFileSync(new URL("../lib/i18n/clientDocCopy.js", import.meta.url), "utf8");
+const tooLarge = (copy.match(/uploadTooLarge:/g) || []).length;
+const rejected = (copy.match(/uploadRejected:/g) || []).length;
+ok("the client-facing sentence exists in every language the rejection does", tooLarge === rejected && tooLarge >= 8, { tooLarge, rejected });
+for (const flow of ["../app/quote/[companySlug]/SelfQuoteFlow.js", "../app/instant-quote/[companySlug]/InstantQuoteFlow.js"]) {
+  const src = readFileSync(new URL(flow, import.meta.url), "utf8");
+  ok(`${flow.split("/").pop()} hands it to the uploader, so a homeowner reads it in their own language`, /tooLargeLabel=\{[a-zA-Z]+\.uploadTooLarge\}/.test(src));
+}
 
 console.log(`\n${fail === 0 ? "ALL PASS" : "FAILURES"} — ${pass} passed, ${fail} failed\n`);
 process.exit(fail ? 1 : 0);

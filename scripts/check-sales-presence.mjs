@@ -51,6 +51,8 @@ import { heartbeat, presenceFor, setRepState } from "@/lib/sales/calls/store";
 import { AUTODIAL_REASONS, nextDial } from "@/lib/sales/autodial";
 import { reachable, ringPlan, lastCallerVerdict, LAST_CALLER_RING, LAST_CALLER_SKIP } from "@/lib/sales/calls/inboundDistribution";
 import { DEFAULT_FLOOR_SETTINGS, AFTER_CALL_SECONDS_MAX, FLOOR_SETTINGS_KEY, normaliseFloorSettings, validateFloorSettings } from "@/lib/sales/calls/floorSettings";
+import { loadFloorSettings } from "@/lib/sales/calls/floorSettingsStore";
+import { PAUSE_REASON_ORDER } from "@/lib/sales/calls/agentState";
 import { repOnShift } from "@/lib/sales/queueBatch";
 import { otherTabsAlive, prunedRegistry, REGISTRY_TTL_MS } from "@/app/components/sales/presenceBeat";
 import { dialTableRow } from "@/lib/sales/calls/dialTable";
@@ -340,6 +342,36 @@ section("6. The floor settings");
   ok("the board reads the settings once and hands them to presenceFor, and returns them", /loadFloorSettings\(\{ client \}\)/.test(board) && /presenceFor\(ids, \{ now, client, settings \}\)/.test(board) && /settings: \{ \.\.\.settings, offAfterMinutes: PRESENCE_OFF_MINUTES \}/.test(board));
   const page = decomment(read("app/platform/sales/floor/page.js"));
   ok("/platform/sales/floor has the settings card, PUTting to the route", /data-floor-settings/.test(page) && /\/api\/platform\/sales\/floor-settings/.test(page) && /data-floor-after-call-seconds/.test(page) && /data-floor-require-write-up/.test(page));
+
+  // ── The row may be absent, half-written, or nonsense ────────────────────
+  //
+  // 2026-09-22: production had NO `sales.floor` PlatformSetting row at all —
+  // the presence work shipped the readers before anything wrote one — and the
+  // board was answering 500. The row turned out not to be the cause (every
+  // loader was executed against production and returned the documented
+  // shape), but "the reader is fine" is worth holding down rather than
+  // re-deriving by reading. loadFloorSettings is the ONE door; these are its
+  // three hostile inputs.
+  const shaped = (s) =>
+    Boolean(s) &&
+    typeof s.afterCallSeconds === "number" &&
+    typeof s.requireWriteUp === "boolean" &&
+    Boolean(s.pauseLimits) &&
+    PAUSE_REASON_ORDER.every((code) => Object.hasOwn(s.pauseLimits, code));
+  const loaded = (settings) => loadFloorSettings({ client: memoryClient({ settings }) });
+  const none = await loaded(null);
+  ok("no row at all → the documented defaults, whole", shaped(none) && JSON.stringify(none) === JSON.stringify(DEFAULT_FLOOR_SETTINGS));
+  const partial = await loaded({ afterCallSeconds: 90 });
+  ok("a half-written row keeps what it says and fills the rest", shaped(partial) && partial.afterCallSeconds === 90 && partial.requireWriteUp === true && partial.pauseLimits.lunch === DEFAULT_FLOOR_SETTINGS.pauseLimits.lunch);
+  const junk = await loaded({ afterCallSeconds: "soon", requireWriteUp: "maybe", pauseLimits: { break: "ages", nonsense: 5 } });
+  ok("junk in the row is the defaults, field by field, and an unknown reason is dropped", shaped(junk) && JSON.stringify(junk) === JSON.stringify(DEFAULT_FLOOR_SETTINGS) && !Object.hasOwn(junk.pauseLimits, "nonsense"));
+  ok("a client with no PlatformSetting delegate is the defaults, not a throw", shaped(await loadFloorSettings({ client: {} })));
+
+  // The board's route says WHY it failed rather than handing the screen a
+  // bare 500 — lib/fetchJson.js prefers `data.error`, so the banner becomes
+  // the reason. See that route's header.
+  const floorRoute = decomment(read("app/api/platform/sales/floor/route.js"));
+  ok("GET wraps the reads and answers a scrubbed reason on a 500", /return await floorResponse\(request\)/.test(floorRoute) && /scrubSecrets\(err\?\.message/.test(floorRoute) && /status: 500/.test(floorRoute));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

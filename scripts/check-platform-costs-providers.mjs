@@ -364,7 +364,15 @@ section("Provider pulls — waiting for the key, logged with the provider named,
   ok("an unknown provider is refused", (await pullProvider("vercel", { client })).reason === "unknown_provider");
   process.env.OPENAI_ADMIN_API_KEY = "sk-admin-test";
   const failing = await pullProvider("openai", { client, now: new Date("2026-09-19T10:00:00Z"), deps: { fetchImpl: async () => ({ ok: false, status: 401, json: async () => ({ error: { message: "Invalid admin key" } }) }) } });
-  ok("a failed pull returns not-ok with the provider and the error, never throws", failing.ok === false && failing.provider === "openai" && failing.reason === "failed" && /Invalid admin key/.test(failing.error), failing);
+  // OpenAI's costs pull is OPTIONAL (DAILY_PROVIDERS.optional): the owner has
+  // decided not to hold an org-level admin key, so a refusal is a settled
+  // configuration fact. It still returns not-ok and still carries the vendor's
+  // own words — what changed on 2026-09-22 is that it no longer writes a
+  // PlatformErrorLog row every day for a decision already taken.
+  ok("an optional provider's refusal returns not-ok with the provider and the vendor's words, never throws", failing.ok === false && failing.provider === "openai" && failing.reason === "refused" && failing.optional === true && /Invalid admin key/.test(failing.error), failing);
+  const pullsSrc = read("lib/platform/costs/providerPulls.js");
+  ok("…and the recordError is inside the NOT-optional branch only", /if \(p\.optional\) \{[\s\S]*?\} else \{\s*await recordError\(/.test(pullsSrc) && /optional: true/.test(pullsSrc));
+  ok("…logged at info, at most once a day per provider", /console\.info\(/.test(pullsSrc) && /24 \* 60 \* 60 \* 1000/.test(pullsSrc));
   const wide = await pullProvider("openai", { client, from: new Date("2026-01-01T00:00:00Z"), to: new Date("2026-09-19T00:00:00Z") });
   ok("a range wider than Neon's sixty days is refused rather than partly pulled", wide.reason === "range_too_wide");
   const sample = { object: "page", data: [{ object: "bucket", start_time: Date.UTC(2026, 8, 18) / 1000, results: [{ amount: { value: 0.5, currency: "usd" }, line_item: "gpt-5-mini, input_tokens", project_id: "proj_a", quantity: 1000, quantity_unit: "tokens" }] }], has_more: false };
@@ -470,7 +478,9 @@ section("The page, the route and the docs");
   ok("each section heading carries its total and last month's", /\{index\}\. \{section\.title\} — \{money\(section\.totalCents\)\}/.test(page) && /last month \{prevState/.test(page));
   ok("the companies section prints charged and margin beside each line", /withCharged/.test(page) && /Charged to companies/.test(page) && /money\(l\.charged\.cents - l\.cents\)/.test(page));
   ok("every line prints provider · source kind · as of", /SOURCE_KIND\[l\.sourceKind\]/.test(page) && /when\(l\.asOf\)/.test(page) && /\{l\.provider\}/.test(page));
-  ok("a missing admin key is a sentence, not a spinner or a zero", /Waiting for \{data\.openai\.billed\.envVar\}/.test(page) && !/billed\.configured \? .*Loader2/.test(page));
+  ok("a missing admin key is a sentence, not a spinner or a zero", /OpenAI&rsquo;s own invoice figures aren&rsquo;t connected/.test(page) && /\{data\.openai\.billed\.envVar\}/.test(page) && !/billed\.configured \? .*Loader2/.test(page));
+  ok("…and it says FieldQuo's own metered spend is what is shown", /FieldQuo&rsquo;s metered spend is shown/.test(page) && /would enable the comparison/.test(page));
+  ok("an optional provider's row reads as settled, not as amber waiting", /p\.optional \? \(/.test(page) && /not connected — \{p\.envVar\}/.test(page));
   ok("the reconciliation line is printed", /data-openai-reconciliation/.test(page) && /reconciliation\.statement/.test(page));
   ok("the per-rep and per-agency tables are inside section 1", page.indexOf(">Per rep</h3>") > page.indexOf('id="costs-sales"') && page.indexOf(">Per rep</h3>") < page.indexOf('id="costs-companies"'));
   ok("the fixed-bills form lives in section 3 and prints each row's statement", page.indexOf("data-fixed-bills") > page.indexOf('id="costs-platform"') && /r\.statement/.test(page) && /Void/.test(page) && !/Delete/.test(page));

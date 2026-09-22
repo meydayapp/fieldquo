@@ -615,6 +615,7 @@ export default function SelfQuoteFlow({ companySlug, embedded = false }) {
                   limitLabel={copy.uploadLimit}
                   failedLabel={copy.uploadFailed}
                   rejectedLabel={copy.uploadRejected}
+                  tooLargeLabel={copy.uploadTooLarge}
                   removeLabel={copy.uploadRemove}
                 />
               </div>
