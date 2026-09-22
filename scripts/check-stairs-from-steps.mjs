@@ -57,15 +57,21 @@ section("1. The rule at 1, 14 and 30 steps × three shapes");
 
 const EXPECT_POSTS = { straight: 2, L: 4, U: 5 };
 const EXPECT_TURNS = { straight: 0, L: 1, U: 2 };
+// A flight has one more riser than tread — the top riser rises to the landing,
+// which is not a tread — and a turn starts a new flight. So straight = +1,
+// L = +2, U = +3. It was `risers === steps` until 2026-09-22; the owner caught
+// it on a 25-step L quoted with 25 risers instead of 27.
+const EXPECT_RISERS = (steps, shape) => steps + EXPECT_TURNS[shape] + 1;
 for (const steps of [1, 14, 30]) {
   for (const shape of STAIR_SHAPES) {
     const d = stairsFromSteps({ steps, shape });
     const rail = Math.round((steps * 11) / 12 + EXPECT_TURNS[shape] * 3);
     ok(
-      `${steps} steps, ${shape}: ${steps} treads, ${steps} risers, ${2 * steps} balusters, ${EXPECT_POSTS[shape]} posts, ${rail} ft rail`,
+      `${steps} steps, ${shape}: ${steps} treads, ${EXPECT_RISERS(steps, shape)} risers, ${2 * steps} balusters, ${EXPECT_POSTS[shape]} posts, ${rail} ft rail`,
       d &&
         d.treads === steps &&
-        d.risers === steps &&
+        d.risers === EXPECT_RISERS(steps, shape) &&
+        d.flights === EXPECT_TURNS[shape] + 1 &&
         d.balusters === 2 * steps &&
         d.posts === EXPECT_POSTS[shape] &&
         d.handrailFt === rail &&
@@ -76,6 +82,17 @@ for (const steps of [1, 14, 30]) {
   }
 }
 ok("the default shape is L", DEFAULT_STAIR_SHAPE === "L" && stairsFromSteps({ steps: 14 }).shape === "L");
+// The owner's own stair, the one that showed the bug: an L with 25 steps was
+// quoted with 25 risers. An L is two flights, so it carries two more risers
+// than treads.
+{
+  const l25 = stairsFromSteps({ steps: 25, shape: "L" });
+  ok("25-step L: 25 treads, 27 risers, 50 balusters, 4 newel posts", l25.treads === 25 && l25.risers === 27 && l25.balusters === 50 && l25.posts === 4, l25);
+  ok("25-step straight: 26 risers (one flight)", stairsFromSteps({ steps: 25, shape: "straight" }).risers === 26);
+  ok("25-step U: 28 risers (three flights)", stairsFromSteps({ steps: 25, shape: "U" }).risers === 28);
+  ok("a U's newel posts stay inside the owner's 4-to-6 rule", stairsFromSteps({ steps: 25, shape: "U" }).posts >= 4 && stairsFromSteps({ steps: 25, shape: "U" }).posts <= 6, stairsFromSteps({ steps: 25, shape: "U" }).posts);
+  ok("risers are never fewer than treads, at any step count or shape", [1, 2, 7, 25, 200].every((n) => STAIR_SHAPES.every((sh) => stairsFromSteps({ steps: n, shape: sh }).risers > n)));
+}
 ok("a typed railing wins over the estimate", stairsFromSteps({ steps: 14, railingFt: 22 }).handrailFt === 22 && stairsFromSteps({ steps: 14, railingFt: 22 }).railingGiven === true);
 ok("a fractional step count floors", stairsFromSteps({ steps: 14.7 }).treads === 14);
 ok("a string step count parses", stairsFromSteps({ steps: "14" }).treads === 14);
@@ -101,7 +118,7 @@ const est = computeInstantEstimate({ trade: "stair", measurements: { treads: 14,
 ok("it prices", est.ok, est);
 const labels = (est.breakdown || []).map((b) => b.label);
 ok("treads line", labels.some((l) => /^14 treads/.test(l)), labels);
-ok("risers line: 14", labels.includes("14 risers"), labels);
+ok("risers line: 14 treads on an L is 16 risers", labels.includes("16 risers"), labels);
 ok("balusters line: 28", labels.includes("28 balusters"), labels);
 ok("posts line: 4", labels.includes("4 newel posts"), labels);
 ok("handrail line: round(14 × 11 / 12 + 3) = 16 ft", labels.includes("Handrail (16 ft)"), labels);
@@ -123,7 +140,7 @@ section("4. The draft's takeoff carries the counts, switched on, with the note")
 const costing = costingInputsForInstantTrade("stair", null, { treads: 14, shape: "L" }, { categoryKey: "stairs" });
 const sec = costing.takeoff?.sections?.[0];
 ok("one staircase section", Boolean(sec), costing);
-ok("treads 14, risers 14, balusters 28, posts 4, handrail 16", sec?.treads === 14 && sec?.risers === 14 && sec?.balusters === 28 && sec?.posts === 4 && sec?.handrailFt === 16, sec);
+ok("treads 14, risers 16, balusters 28, posts 4, handrail 16", sec?.treads === 14 && sec?.risers === 16 && sec?.balusters === 28 && sec?.posts === 4 && sec?.handrailFt === 16, sec);
 ok("risers, balusters and posts are switched ON so they price", sec?.paintRisers === true && sec?.paintBalusters === true && sec?.paintPosts === true);
 ok("the note says 'estimated from 14 steps, L-shape' and to adjust after the photos", /estimated from 14 steps, L-shape — adjust after the photos/.test(sec?.notes || ""), sec?.notes);
 ok("the shape is kept on the intake values", costing.intakeValues?.shape === "L");
@@ -176,7 +193,14 @@ ok("the fill writes every count and switches the opt-in parts on",
 ok("the fill goes through the same set() the inputs use", /onFill=\{\(d\) =>\s*set\(\{/.test(TAKEOFF));
 ok("no field is disabled or read-only after a fill", !/readOnly|disabled=\{filled/.test(TAKEOFF.slice(TAKEOFF.indexOf("function StairSection"), TAKEOFF.indexOf("function StairsTakeoff"))));
 const MSGS = readFileSync(join(ROOT, "app/i18n/appMessages.js"), "utf8");
-for (const key of ["stairsFillTitle", "stairsSteps", "stairsShape", "stairsFill", "stairsFillPreview", "stairsShape_straight", "stairsShape_L", "stairsShape_U"]) {
+// The preview sentence names the risers as their own figure. It read
+// "{treads} treads and risers" — one number for two counts that are no longer
+// equal — which is how the owner read 25 risers off a 27-riser stair.
+ok("the fill preview names treads and risers separately, in every language", (MSGS.match(/"app\.takeoff\.stairsFillPreview": "[^"]*\{treads\}[^"]*\{risers\}/g) || []).length === 9);
+ok("the form passes risers to the preview", /risers: derived\.risers/.test(TAKEOFF));
+ok("the form prints the one-line reason under it", /app\.takeoff\.stairsRiserHint/.test(TAKEOFF));
+
+for (const key of ["stairsFillTitle", "stairsSteps", "stairsShape", "stairsFill", "stairsFillPreview", "stairsRiserHint", "stairsShape_straight", "stairsShape_L", "stairsShape_U"]) {
   ok(`app.takeoff.${key} is in nine languages`, (MSGS.match(new RegExp(`"app\\.takeoff\\.${key}":`, "g")) || []).length === 9);
 }
 

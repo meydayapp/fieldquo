@@ -381,4 +381,16 @@ export const SCREENS = [
   { slug: "quote-new-painter-classic", href: "/app/quotes/new", page: "app/app/quotes/new/page.js", height: 1000, chapter: "help" },
   { slug: "quote-new-painter-classic-mobile", href: "/app/quotes/new", page: "app/app/quotes/new/page.js", width: 375, height: 812, chapter: "help" },
   { slug: "quote-new-painter-doc-builder-rooms", href: "/app/quotes/new", page: "app/app/quotes/new/page.js", scene: "painter-pick-interior", height: 1400, chapter: "help" },
+  // ── Many services on one quote ──────────────────────────────────────────
+  //
+  // Refinishing, refacing and the countertop on one document with one total,
+  // reached by tapping the tile row the document draws after the last scope
+  // — the control that was a closed disclosure until 2026-09-22, which is
+  // what made the owner think a quote could hold one service. The shot is
+  // tall because the point is the THIRD scope and the single total under it.
+  { slug: "quote-doc-builder-services", href: "/app/quotes/q_1045/edit", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1045" }, scene: "doc-many-services", height: 2000, chapter: "help" },
+  // The site-visit photos and "what happens next", each where it is now
+  // written: the uploader beside the document, the process notes inside it.
+  { slug: "quote-doc-builder-photos", href: "/app/quotes/q_1045/edit", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1045" }, scene: "doc-photos", height: 900, chapter: "help" },
+  { slug: "quote-doc-builder-process", href: "/app/quotes/q_1045/edit", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1045" }, scene: "doc-process-editor", height: 1700, chapter: "help" },
 ];

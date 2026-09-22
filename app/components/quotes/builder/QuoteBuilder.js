@@ -2195,7 +2195,7 @@ export function QuoteBuilderForm({
     {/* Job photos. The column and the quote detail page already supported
         these, but only lead intake ever filled them — a quote typed up by
         staff had nowhere to put the pictures from the site visit. */}
-    <div className="bg-card border border-border rounded-xl p-5">
+    <div className="bg-card border border-border rounded-xl p-5" data-photos-box>
       <h2 className="font-semibold text-foreground mb-2">
         {t("app.quoteDetail.clientMedia")}
       </h2>
@@ -2215,7 +2215,7 @@ export function QuoteBuilderForm({
     <>
     {/* Sits below the totals because that's where it sits on the client's
         copy too — the extras are the last thing they read before deciding. */}
-    <div>
+    <div data-process-notes-box>
       <label
         htmlFor="quote-process-notes"
         className="block text-sm font-medium text-foreground mb-1"

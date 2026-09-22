@@ -67,7 +67,6 @@ import {
   Download,
   TrendingUp,
   X,
-  Plus,
   Trash2,
   Pencil,
   ExternalLink,
@@ -496,7 +495,6 @@ export default function DocumentBuilder({ b }) {
   // Which service card has its editor unfolded beneath its lines.
   const [openGroup, setOpenGroup] = useState(null);
   const [focusArea, setFocusArea] = useState(null);
-  const [showTiles, setShowTiles] = useState(false);
   const [costOpen, setCostOpen] = useState(false);
   const [company, setCompany] = useState(boot.company || null);
   const [notice, setNotice] = useState("");
@@ -734,8 +732,15 @@ export default function DocumentBuilder({ b }) {
           to its right (`.two`). On a phone the drawer is a bottom sheet. */}
       <div className="bg-card border border-border rounded-xl p-4 sm:p-5 space-y-3" data-doc-card>
       {/* ── Toolbar: tabs, status, Save, Send… ─────────────────────────── */}
-      <div className="flex items-center justify-between gap-3 flex-wrap -mt-1" data-doc-toolbar>
-        <div role="tablist" className="flex gap-1 border-b border-border -mb-px overflow-x-auto max-w-full">
+      {/* The tabs take their natural width and the action cluster wraps to
+          its own line when the row runs out — `shrink-0` on both children of
+          a wrapping flex row. Without it the tabs were the flexible child and
+          got squeezed into their own overflow scroller at desktop widths,
+          which is what the owner saw: a scrollbar thumb under four tabs on a
+          1440px screen. Below lg the strip may still scroll (four tabs do not
+          fit 375px), which is why the overflow rule survives there. */}
+      <div className="flex items-start justify-between gap-x-3 gap-y-2 flex-wrap -mt-1" data-doc-toolbar>
+        <div role="tablist" className="flex gap-1 border-b border-border -mb-px shrink-0 max-w-full overflow-x-auto lg:overflow-x-visible">
           {TABS.map((key) => (
             <button
               key={key}
@@ -1031,7 +1036,7 @@ export default function DocumentBuilder({ b }) {
                 />
               )}
 
-              {b.scopeGroups.map((group) => {
+              {b.scopeGroups.map((group, groupIndex) => {
                 const locked = group.imported || !b.canEditScope;
                 const overrides = b.rateOverridesFor(group.categoryId);
                 const language = b.quoteLanguage || b.companyLanguage;
@@ -1058,6 +1063,7 @@ export default function DocumentBuilder({ b }) {
                   <div key={group.tempId} ref={(el) => (groupRefs.current[group.tempId] = el)}>
                     <DocumentScopeGroup
                       label={group.label}
+                      index={b.scopeGroups.length > 1 ? groupIndex : null}
                       subtotal={b.groupTotal(group)}
                       lines={lines}
                       money={money}
@@ -1180,33 +1186,38 @@ export default function DocumentBuilder({ b }) {
                 </div>
               )}
 
+              {/* ── Add another service ─────────────────────────────────────
+                  A quote holds as many scope groups as the job has trades —
+                  refinishing AND refacing AND the countertop, one document,
+                  one total — and the same service may appear twice (a painter
+                  quoting interior and exterior: "it's the same job, just a
+                  different scoped item"). Nothing here dedupes.
+
+                  This was a disclosure that started closed, so on any quote
+                  that already had one service the other trades were behind a
+                  click nobody found, and the owner reported he could not put
+                  more than one service on a quote. The tiles are a compact
+                  row now — visible, after the last group, the way the classic
+                  layout's picker is always on the page. The full card is kept
+                  for the empty quote, where it is the first thing to do. */}
               {b.canEditScope && !b.paintingFirst && (
-                <div data-tour="service-picker">
-                  <button
-                    type="button"
-                    onClick={() => setShowTiles((v) => !v)}
-                    aria-expanded={showTiles || b.scopeGroups.length === 0}
-                    className="text-[13px] font-semibold text-foreground inline-flex items-center gap-1"
-                    data-doc-add-service
-                  >
-                    <Plus size={14} /> {t("app.docBuilder.addService", "Add a service, area or line item")}
-                  </button>
-                  {(showTiles || b.scopeGroups.length === 0) && (
-                    <div className="mt-3">
-                      <ServiceTiles
-                        categories={b.categories}
-                        onAdd={addAndOpen((category, label) => {
-                          b.addScopeGroup(category, label);
-                          setShowTiles(false);
-                        })}
-                        documentLanguage={b.quoteLanguage}
-                      />
-                      {b.scopeGroups.length > 0 && (
-                        <p className="text-xs text-muted-foreground mt-2">
-                          {t("app.docBuilder.addLineHint", "To add a room or a line to a service already on the quote, open that service above.")}
-                        </p>
+                <div className="pt-1" data-doc-add-service>
+                  <p className="text-[11px] font-bold tracking-wider uppercase text-muted-foreground pb-1.5">
+                    {t("app.docBuilder.addService", "Add a service, area or line item")}
+                  </p>
+                  <ServiceTiles
+                    variant={b.scopeGroups.length === 0 ? "card" : "row"}
+                    categories={b.categories}
+                    onAdd={addAndOpen((category, label) => b.addScopeGroup(category, label))}
+                    documentLanguage={b.quoteLanguage}
+                  />
+                  {b.scopeGroups.length > 0 && (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      {t(
+                        "app.docBuilder.addAnotherHint",
+                        "Each one becomes its own scope on this quote, with its own measurements and options — the same service can be added twice. To add a room or a line to a service already here, open it above.",
                       )}
-                    </div>
+                    </p>
                   )}
                 </div>
               )}
@@ -1230,6 +1241,37 @@ export default function DocumentBuilder({ b }) {
                 </InlinePanel>
               )}
             </DocumentTotals>
+
+            {/* ── What happens next ───────────────────────────────────────
+                Quote.processNotes. It prints on the client's proposal and in
+                the covering email (lib/documentSections/ProcessStepsSection,
+                which the section registry orders BEFORE the notes) — so it
+                belongs here, between the totals and the notes, where the
+                client reads it.
+
+                The classic builder has always had this box. The document
+                layout only offered it on the Presentation tab, two clicks
+                from the document, so the review's most common finding —
+                "Nothing about what happens next: timeline, site access,
+                payment schedule, warranty, who to call" — had nowhere
+                obvious to be answered. The editor is the SAME closure the
+                classic layout renders, b.renderProcessNotes, "Save as
+                default" and all; not a second copy. b.readiness reads
+                processNotes live, so the finding clears as it is typed,
+                before any save. */}
+            <div className="px-5 sm:px-7 pt-5" data-doc-process>
+              <Editable onClick={() => setEditing((e) => (e === "process" ? null : "process"))} label={t("app.quoteEdit.whatHappensNext")} block>
+                <p className="text-[11px] font-bold tracking-wider uppercase text-muted-foreground">{t("app.quoteEdit.whatHappensNext")}</p>
+                <p className="text-sm text-foreground whitespace-pre-wrap">
+                  {b.processNotes || <span className="text-muted-foreground italic">{t("app.quoteEdit.processNotesPlaceholder")}</span>}
+                </p>
+              </Editable>
+              {editing === "process" && (
+                <InlinePanel title={t("app.docBuilder.processPanel", "The client reads this under the price")} onClose={() => setEditing(null)} t={t} data-doc-process-editor>
+                  {b.renderProcessNotes()}
+                </InlinePanel>
+              )}
+            </div>
 
             {/* Notes — the client-facing ones, where the PDF prints them
                 (after the totals, lib/documentSections/NotesSection). */}
@@ -1259,6 +1301,16 @@ export default function DocumentBuilder({ b }) {
               <CustomFieldInputs cf={b.cf} columns={2} />
             </div>
           )}
+
+          {/* Photos and videos from the site visit. Beside the document
+              rather than in it: they are not printed on the client's copy —
+              they travel to the job and the invoice, and the review's "No
+              photos" finding reads the same Quote.clientPhotos this writes
+              (lib/quotes/completeness.js). Same MediaUploader and same
+              /api/upload as the classic layout — b.renderPhotosBox, one
+              closure, moved off the Presentation tab where an estimator
+              writing an estimate never went. */}
+          {b.renderPhotosBox()}
 
           <div className="bg-card border border-border rounded-xl px-5 pb-1">
             <QuoteReadinessBlock readiness={b.readiness} readinessItems={b.readinessItems} showReviewHint={!isEdit} />
@@ -1310,8 +1362,12 @@ export default function DocumentBuilder({ b }) {
               {t("app.docBuilder.presentationAfterSave", "The proposal's sections — your story, before & after photos, documents — are set once the quote is saved.")}
             </div>
           )}
-          {b.renderProcessNotes()}
-          {b.renderPhotosBox()}
+          {/* "What happens next" and the site-visit photos used to live here.
+              They moved to the Estimate tab — into the document and beside it
+              — because that is where they are written and where the review
+              asks for them. Rendering them twice would be two boxes writing
+              one field, which is how a builder ends up with a box nobody
+              trusts. */}
         </div>
       )}
 

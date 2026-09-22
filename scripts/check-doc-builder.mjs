@@ -50,6 +50,8 @@ import { createTradeConfig } from "../lib/pricing/tradeScope.js";
 import { APP_MESSAGES } from "../app/i18n/appMessages.js";
 import { paintingCategoryFor, paintingCategoriesOf } from "../app/components/quotes/builder/EstimateTypeFirst.js";
 import { createFabHiddenOn } from "../app/components/layout/CreateMenu.js";
+import { completenessChecks } from "../lib/quotes/completeness.js";
+import { newScopeGroup, scopeGroupPayload, groupSubtotal } from "../lib/quotes/builderPayload.js";
 
 let pass = 0;
 const fails = [];
@@ -471,6 +473,161 @@ for (const [lang, tab, prepared] of [["fr", "Devis", "Préparé pour"], ["es", "
   eq("exterior falls back to the one painting service the company has", paintingCategoryFor("exterior", [{ key: "interior_painting" }])?.key, "interior_painting");
   eq("no painting service → null, never a guess", paintingCategoryFor("interior", [{ key: "stairs" }]), null);
   eq("paintingCategoriesOf ignores junk", paintingCategoriesOf([null, {}, { key: "exterior_painting" }]).length, 1);
+}
+
+// ── Many services on one quote, the same one twice ─────────────────────────
+//
+// The owner, on the document layout: "if I'm a general contractor and need to
+// do floor, kitchen, countertop I don't need to send 20 individual quotes",
+// and "the same service can appear twice — a painter quoting interior AND
+// exterior. It's the same job, just a different scoped item."
+//
+// The regression was not in the state — addScopeGroup has never deduped —
+// it was that the document's service picker was a disclosure that started
+// CLOSED, so on any quote already carrying one service the other trades were
+// behind a click. The tiles are a visible row after the last group now, in
+// both shapes of the picker, and this is where that stays true.
+{
+  // Two groups of the SAME category, priced differently, neither imported.
+  const twoOfOne = {
+    ...STORED_QUOTE,
+    id: "q2",
+    addOns: [],
+    importedGroupIds: [],
+    scopeGroups: [
+      {
+        id: "s1", categoryId: "cat2", category: { key: "cabinet_refinishing", label: "Cabinets" },
+        label: "Cabinets", lineItems: [{ description: "Kitchen doors", quantity: 22, rate: 150, amount: 3300 }], subtotal: 3300,
+      },
+      {
+        id: "s2", categoryId: "cat2", category: { key: "cabinet_refinishing", label: "Cabinets" },
+        label: "Cabinets", lineItems: [{ description: "Bathroom vanity", quantity: 4, rate: 150, amount: 600 }], subtotal: 600,
+      },
+    ],
+  };
+  const initial = { ...initialStateFromQuote(twoOfOne), quote: twoOfOne };
+  const doc = render("document", "edit", "q2", initial);
+  const classic = render("classic", "edit", "q2", initial);
+
+  ok("two groups of the same service both reach the document", (doc.match(/data-doc-group="true"/g) || []).length === 2, String((doc.match(/data-doc-group="true"/g) || []).length));
+  // Priced independently: each card carries its OWN subtotal, not a shared
+  // one and not one doubled.
+  ok("each group prints its own subtotal", doc.includes("$3,300.00") && doc.includes("$600.00"), "3300 / 600 not both present");
+  // …and both roll into ONE total. 3300 + 600 = 3900, less the stored 500
+  // discount, plus 13% on 3400 = 442 → 3842.
+  ok("the two groups roll into one total", totalOf(doc) === "$3,842.00", String(totalOf(doc)));
+  ok("the classic layout agrees on that total", totalOf(classic) === totalOf(doc), `${totalOf(classic)} vs ${totalOf(doc)}`);
+  // Nothing dedupes by category: two identical headings, told apart by the
+  // 01 / 02 badge the classic card has always drawn.
+  ok("neither layout dedupes the repeated service", (classic.match(/Cabinets/g) || []).length >= 2 && (doc.match(/Cabinets/g) || []).length >= 2);
+  ok("the document numbers the repeated groups 01 / 02", /data-doc-group-index[^>]*>01</.test(doc) && /data-doc-group-index[^>]*>02</.test(doc));
+  // One scope is not numbered "01" — in either layout.
+  const oneGroup = { ...twoOfOne, scopeGroups: [twoOfOne.scopeGroups[0]] };
+  ok(
+    "a single scope carries no number",
+    !render("document", "edit", "q2", { ...initialStateFromQuote(oneGroup), quote: oneGroup }).includes("data-doc-group-index"),
+  );
+
+  // The picker itself: every enabled service is offered after the last
+  // group, with no click first. This is the regression, stated.
+  ok("the document offers the service tiles with a quote already in progress", doc.includes('data-service-tiles-variant="row"'));
+  for (const cat of BOOTSTRAP.categories) {
+    ok(`the row offers ${cat.key}`, doc.includes(`data-service-tile="${cat.key}"`));
+  }
+  ok("the row includes the service already on the quote (adding it twice is the point)", doc.includes('data-service-tile="cabinet_refinishing"'));
+  // An empty quote still gets the full card, which is the first thing to do
+  // on a blank page.
+  // …on a company with no painting, where the tiles are the first step (a
+  // painting company answers EstimateTypeFirst instead — covered below).
+  const blankDoc = renderToStaticMarkup(
+    <LanguageProvider initialLanguage="en">
+      <PermissionProvider role="owner" permissions={{}}>
+        <QuoteBuilderForm
+          mode="create"
+          quoteId={null}
+          bootstrap={{ ...BOOTSTRAP, layout: "document", categories: BOOTSTRAP.categories.filter((c) => c.key !== "interior_painting") }}
+          initial={initialStateFromQuote(null)}
+        />
+      </PermissionProvider>
+    </LanguageProvider>,
+  );
+  ok("an empty quote gets the full picker card", blankDoc.includes('data-service-tiles-variant="card"'));
+  ok("one component draws both shapes", !src("app/components/quotes/builder/ServiceTiles.js").includes("ServiceTilesRow"));
+
+  // ── On the wire ──────────────────────────────────────────────────────────
+  //
+  // The screen is half the claim; the other half is that two groups of one
+  // service survive the save as two rows priced apart. Executed through the
+  // functions the builder calls — newScopeGroup, scopeGroupPayload,
+  // groupSubtotal — and then through quoteRequestBody, which is the only
+  // body either layout posts.
+  const cabinets = { id: "cat2", key: "cabinet_refinishing", label: "Cabinets" };
+  const kitchen = newScopeGroup(cabinets, "Kitchen", null, { tempId: "t1" });
+  const vanity = newScopeGroup(cabinets, "Bathroom vanity", null, { tempId: "t2" });
+  kitchen.lineItems = [{ description: "Kitchen doors", quantity: 22, unit: "unit", rate: 150, amount: 3300 }];
+  vanity.lineItems = [{ description: "Vanity doors", quantity: 4, unit: "unit", rate: 150, amount: 600 }];
+  const payloads = [kitchen, vanity].map((g) => scopeGroupPayload(g, null, "en"));
+  ok("two groups of one category are two payload rows", payloads.length === 2 && payloads[0].categoryId === payloads[1].categoryId, payloads.map((p) => p.categoryId));
+  ok("each keeps its own label", payloads[0].label === "Kitchen" && payloads[1].label === "Bathroom vanity");
+  // A unit-priced trade's payload opens with its derived unit line (0 units
+  // here, so $0) before the typed ones — what matters is that each group
+  // carries ITS line and not the other's.
+  const descs = payloads.map((p) => p.lineItems.map((l) => l.description));
+  ok("each keeps its own lines and none of the other's", descs[0].includes("Kitchen doors") && !descs[0].includes("Vanity doors") && descs[1].includes("Vanity doors") && !descs[1].includes("Kitchen doors"), JSON.stringify(descs));
+  ok("each is priced on its own lines, never on the other's", groupSubtotal(kitchen) === 3300 && groupSubtotal(vanity) === 600, [groupSubtotal(kitchen), groupSubtotal(vanity)]);
+  const posted = quoteRequestBody({ ...state, isEdit: false, groupsPayload: payloads, clientId: "c", composeSeconds: 1, language: "en", assignedToId: "", subtotal: 3900 });
+  ok("both rows reach the POST body", posted.scopeGroups.length === 2, posted.scopeGroups.length);
+  ok("the body carries one subtotal for the pair", posted.subtotal === 3900, posted.subtotal);
+}
+
+// ── The photo uploader and "what happens next", in BOTH layouts ────────────
+//
+// Both existed in the classic builder and both were reachable in the document
+// only from the Presentation tab, which an estimator writing an estimate never
+// opens — so the review's two most common findings ("No photos", "Nothing
+// about what happens next") had nowhere obvious to be answered. Each is ONE
+// closure rendered by both layouts, never a second copy.
+{
+  const initial = { ...initialStateFromQuote(STORED_QUOTE), quote: STORED_QUOTE };
+  const doc = render("document", "edit", "q1", initial);
+  const classic = render("classic", "edit", "q1", initial);
+
+  ok("the photo uploader is on the document layout's estimate screen", doc.includes("data-photos-box"));
+  ok("the photo uploader is on the classic layout", classic.includes("data-photos-box"));
+  ok("it is drawn once per layout, not twice", (doc.match(/data-photos-box/g) || []).length === 1 && (classic.match(/data-photos-box/g) || []).length === 1);
+  ok("both layouts mount the SAME uploader closure", builder.includes("b.renderPhotosBox()") && quoteBuilder.includes("{renderPhotosBox()}"));
+  ok("the uploader posts to /api/upload in one place", (quoteBuilder.match(/uploadUrl="\/api\/upload"/g) || []).length === 1 && !/<MediaUploader/.test(builder));
+
+  ok("what happens next is editable inside the document", doc.includes("data-doc-process"));
+  ok("what happens next is on the classic layout", classic.includes("data-process-notes-box"));
+  ok("both layouts mount the SAME process-notes closure", builder.includes("b.renderProcessNotes()") && quoteBuilder.includes("{renderProcessNotes()}"));
+  ok("the document draws it between the totals and the notes, as the client reads it", doc.indexOf("data-doc-totals") < doc.indexOf("data-doc-process") && doc.indexOf("data-doc-process") < doc.indexOf("data-doc-notes"));
+  ok("the stored process notes print in the document", /data-doc-process[\s\S]{0,1500}50% on approval\./.test(doc));
+
+  // The two findings the review raises are the two fields these write, and
+  // the browser already knows both — completenessChecks runs on the same
+  // draft object the builder holds, so they clear before any save.
+  const withNeither = completenessChecks({ ...STORED_QUOTE, processNotes: "", clientPhotos: [] }, []).map((c) => c.id);
+  const withBoth = completenessChecks({ ...STORED_QUOTE, processNotes: "We start in two weeks.", clientPhotos: [{ url: "https://res.cloudinary.com/demo/a.jpg", kind: "image" }] }, []).map((c) => c.id);
+  ok("the review raises both findings when the fields are empty", withNeither.includes("no_process") && withNeither.includes("no_photos"), withNeither.join(","));
+  ok("filling them clears both findings", !withBoth.includes("no_process") && !withBoth.includes("no_photos"), withBoth.join(","));
+}
+
+// ── The toolbar row ────────────────────────────────────────────────────────
+//
+// The tabs and the action cluster share one wrapping row. The tabs were the
+// flexible child, so they were squeezed into their own overflow scroller at
+// any width — a scrollbar thumb under four tabs on a 1440px screen. Both
+// children hold their natural width now and the cluster wraps instead; the
+// strip keeps its scroller below lg, where four tabs genuinely do not fit
+// 375px.
+{
+  const doc = render("document", "edit", "q1", { ...initialStateFromQuote(STORED_QUOTE), quote: STORED_QUOTE });
+  const strip = doc.match(/<div role="tablist" class="([^"]*)"/)?.[1] || "";
+  ok("the tab strip does not shrink", strip.includes("shrink-0"), strip);
+  ok("the tab strip stops scrolling from lg up", strip.includes("lg:overflow-x-visible"), strip);
+  ok("the tab strip may still scroll on a phone", strip.includes("overflow-x-auto"), strip);
+  ok("the toolbar row wraps", /data-doc-toolbar/.test(doc) && /class="[^"]*flex-wrap[^"]*"[^>]*data-doc-toolbar/.test(doc));
 }
 
 // ── The floating + (CreateMenu.js) stays off the builder ──────────────────
