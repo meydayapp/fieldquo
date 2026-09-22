@@ -27,6 +27,11 @@ import {
   QUOTE_EMAIL_COMPANY_SELECT,
   sanitiseSectionItems,
 } from "@/lib/quotes/emailSections";
+// The before/after pairs are the company's ONE gallery since 2026-09-21
+// (lib/company/gallery.js): read from it and written through it, so the
+// website block, the quote email and the client proposal never disagree.
+// The quoteEmailBeforeAfter column is left as it was; it is not the store.
+import { withCompanyGallery, replaceCompanyGallery } from "@/lib/company/gallery";
 
 /**
  * The stored values, cleaned on the way out as well as on the way in.
@@ -58,7 +63,7 @@ export async function GET(request) {
     select: QUOTE_EMAIL_COMPANY_SELECT,
   });
 
-  return NextResponse.json(present(company || {}));
+  return NextResponse.json(present(await withCompanyGallery(company || {}, member.companyId)));
 }
 
 export async function PATCH(request) {
@@ -94,11 +99,19 @@ export async function PATCH(request) {
       // sanitisers for why half a reference is worse than one fewer. The
       // response returns what was actually kept, so the page can re-render
       // from the truth instead of from what it hoped it sent.
-      data[meta.companyItemsField] = sanitiseSectionItems(key, patch.items).slice(
-        0,
-        meta.max,
-      );
-      changed.push(meta.companyItemsField);
+      if (key === "beforeAfter") {
+        // The gallery, not the column — see the import note. No `max`
+        // here: the email prints the first four (emailSections.js), the
+        // gallery holds what the company uploaded.
+        await replaceCompanyGallery(member.companyId, sanitiseSectionItems(key, patch.items));
+        changed.push("gallery");
+      } else {
+        data[meta.companyItemsField] = sanitiseSectionItems(key, patch.items).slice(
+          0,
+          meta.max,
+        );
+        changed.push(meta.companyItemsField);
+      }
     }
 
     if ("include" in patch) {
@@ -117,11 +130,16 @@ export async function PATCH(request) {
     return NextResponse.json({ error: "Nothing to change." }, { status: 400 });
   }
 
-  const updated = await db.company.update({
-    where: { id: member.companyId },
-    data,
-    select: QUOTE_EMAIL_COMPANY_SELECT,
-  });
+  const updated = Object.keys(data).length
+    ? await db.company.update({
+        where: { id: member.companyId },
+        data,
+        select: QUOTE_EMAIL_COMPANY_SELECT,
+      })
+    : await db.company.findUnique({
+        where: { id: member.companyId },
+        select: QUOTE_EMAIL_COMPANY_SELECT,
+      });
 
   await recordActivity(member, {
     action: "settings.quote_email_updated",
@@ -131,5 +149,5 @@ export async function PATCH(request) {
     metadata: { changed },
   });
 
-  return NextResponse.json(present(updated));
+  return NextResponse.json(present(await withCompanyGallery(updated || {}, member.companyId)));
 }

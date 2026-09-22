@@ -27,6 +27,11 @@ import { memberOrRefusal } from "@/lib/apiMember";
 import { isWebsiteAdmin } from "@/lib/site/access";
 import { makeBlock, sanitiseBlocks } from "@/app/data/siteBlocks";
 import { recordActivity } from "@/lib/activity/log";
+// The confirmed pairs are the company's ONE gallery (lib/company/gallery.js)
+// — the same rows the quote email and the client proposal read. The block
+// keeps a copy so the builder's preview and the section editor show what was
+// confirmed; the public page renders from the gallery.
+import { replaceCompanyGallery } from "@/lib/company/gallery";
 
 
 /** Same guard the block sanitiser uses — these land in src on a public page. */
@@ -203,6 +208,7 @@ export async function PUT(request) {
     where: { companyId: member.companyId },
     data,
   });
+  await replaceCompanyGallery(member.companyId, pairs, { source: "website" });
 
   await recordActivity(member, {
     action: "website.pairs_set",

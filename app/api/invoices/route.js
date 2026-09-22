@@ -2,6 +2,7 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { attachDefaultWaivers } from "@/lib/waivers/service";
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { attachUsTaxRate } from "@/lib/tax/usRates";
@@ -332,5 +333,10 @@ export async function POST(request) {
   // the two dials are independent and someone at name_address_only can reach
   // here. Reading the record back out of your own save is the same shape as
   // the bug already fixed on PATCH /api/quotes/[id].
+  // Waivers marked "attach to every invoice" — see the quote route.
+  await attachDefaultWaivers({ companyId: member.companyId, invoiceId: invoice.id }).catch((err) =>
+    console.error("[invoices] default waivers failed:", err?.message),
+  );
+
   return NextResponse.json(redactInvoice(full, invoice), { status: 201 });
 }

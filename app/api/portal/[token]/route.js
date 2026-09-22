@@ -33,6 +33,8 @@ export async function GET(request, { params }) {
       // taxStatement below) or hands straight back as `clientName`. Nothing
       // else on Client — email, phone, address, notes, portalToken, type,
       // contactName, city, createdAt — reaches this route at all now.
+      // `id` is read by the signed-documents query below and never forwarded.
+      id: true,
       name: true,
       language: true,
       country: true, // resolveDocumentTax's jurisdiction lookup
@@ -505,8 +507,38 @@ export async function GET(request, { params }) {
       };
     });
 
+  // ── Signed waivers, and any still waiting for a signature ────────────────
+  //
+  // The signed copy (the PDF filed on the job) with View, and a pending one
+  // with its own signing link. Title, date, URL, token — nothing internal.
+  // Best-effort: a hiccup here must not take the invoices off the page.
+  let documents = [];
+  try {
+    const rows = await db.documentSignature.findMany({
+      where: { clientId: client.id, companyId: client.companyId, document: { archivedAt: null } },
+      orderBy: { createdAt: "desc" },
+      select: { status: true, signedAt: true, token: true, jobDocumentId: true, document: { select: { title: true } } },
+      take: 20,
+    });
+    const filedIds = rows.map((r) => r.jobDocumentId).filter(Boolean);
+    const filed = filedIds.length
+      ? await db.jobDocument.findMany({ where: { id: { in: filedIds } }, select: { id: true, url: true } })
+      : [];
+    const urlById = new Map(filed.map((f) => [f.id, f.url]));
+    documents = rows.map((r) => ({
+      title: r.document?.title || "",
+      status: r.status === "signed" ? "signed" : "pending",
+      signedAt: r.signedAt,
+      url: r.status === "signed" ? urlById.get(r.jobDocumentId) || null : null,
+      signToken: r.status === "signed" ? null : r.token,
+    }));
+  } catch (err) {
+    console.error("[portal] documents failed:", err?.message);
+  }
+
   return NextResponse.json({
     clientName: client.name,
+    documents,
     // Resolved once, server-side, so both portal components read the same
     // language the client was written to elsewhere. client.language is
     // selected explicitly above for exactly this.

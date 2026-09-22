@@ -37,6 +37,7 @@ import { scriptSafeJson } from "@/lib/security/scriptSafeJson";
 import { openingHoursSpecification, hasBusinessHours } from "@/lib/company/businessHours";
 import SiteBlocks from "./SiteBlocks";
 import { recentJobPhotos, jobPhotoPairs } from "@/lib/site/jobPhotos";
+import { loadCompanyGallery, galleryAsSitePairs } from "@/lib/company/gallery";
 import { resolveSiteStyle } from "@/lib/site/siteStyles";
 import { resolvePages, findPage, navPages, HOME_SLUG } from "@/lib/site/pages";
 import { categoryLabel } from "@/lib/i18n/translateContent";
@@ -267,21 +268,32 @@ export default async function CompanySitePage({ params, searchParams, language: 
     }
   }
 
-  // Same rule for the before/after slider: a pair the company curated wins, an
-  // empty block fills itself from two-photo job visits. This is what makes the
-  // section keep working as crews upload more work, without anyone opening the
-  // builder again.
-  const emptyPairs = blocks.some(
-    (b) => b.type === "beforeafter" && b.visible !== false && !(b.content?.pairs?.length),
-  );
-  if (emptyPairs) {
-    const pairs = await jobPhotoPairs(site.companyId, 6);
-    if (pairs.length) {
+  // ── The before/after slider reads the company's ONE gallery ───────────────
+  //
+  // Since 2026-09-21 the pairs live in CompanyGalleryPair (lib/company/
+  // gallery.js) — the same rows the quote email prints and the client
+  // proposal shows — and the block's own `content.pairs` is only what was
+  // copied into that gallery on first read. So a visible block is filled
+  // from the gallery whenever the gallery has anything, and a company with
+  // an empty gallery keeps the older behaviour: an empty block fills itself
+  // from two-photo job visits, so the section keeps working as crews upload
+  // more work without anyone opening the builder again.
+  const hasPairBlock = blocks.some((b) => b.type === "beforeafter" && b.visible !== false);
+  if (hasPairBlock) {
+    const gallery = galleryAsSitePairs(await loadCompanyGallery(site.companyId).catch(() => []));
+    if (gallery.length) {
       blocks = blocks.map((b) =>
-        b.type === "beforeafter" && !(b.content?.pairs?.length)
-          ? { ...b, content: { ...b.content, pairs } }
-          : b,
+        b.type === "beforeafter" ? { ...b, content: { ...b.content, pairs: gallery.slice(0, 12) } } : b,
       );
+    } else if (blocks.some((b) => b.type === "beforeafter" && b.visible !== false && !(b.content?.pairs?.length))) {
+      const pairs = await jobPhotoPairs(site.companyId, 6);
+      if (pairs.length) {
+        blocks = blocks.map((b) =>
+          b.type === "beforeafter" && !(b.content?.pairs?.length)
+            ? { ...b, content: { ...b.content, pairs } }
+            : b,
+        );
+      }
     }
   }
 

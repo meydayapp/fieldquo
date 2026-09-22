@@ -79,6 +79,7 @@ import TaxUnresolvedModal from "@/app/components/tax/TaxUnresolvedModal";
 import { planRequiredFrom } from "@/lib/signup/planRequired";
 import LifecycleBanners from "./LifecycleBanners";
 import JobPanel from "./JobPanel";
+import WaiversCard from "@/app/components/waivers/WaiversCard";
 import LinkedJobDocuments from "@/app/components/jobs/LinkedJobDocuments";
 import { SiteVisitRows } from "@/app/components/quotes/SiteVisitPanel";
 import CostPanel from "./CostPanel";
@@ -1426,6 +1427,11 @@ export default function InvoiceDetailPage() {
           )
         }
       />
+
+      {/* A release the client must sign for THIS invoice — a roof-access
+          waiver before the crew returns, say. Attached from the library,
+          sent as its own link, filed on the job once signed. */}
+      <WaiversCard target={{ invoiceId: id }} editable={hasLevel(caller, "invoices", "view_create_edit")} />
 
       {/* The job's filed documents — this invoice as it was sent sits here
           beside the contract it bills against. Same strip as the quote page;

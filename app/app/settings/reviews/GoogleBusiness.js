@@ -153,7 +153,7 @@ export default function GoogleBusiness({ googleBusiness, outcomeKey, onChanged }
   const lastError = connection?.lastError || null;
 
   return (
-    <section className="rounded-xl border border-border bg-card p-5 space-y-4" data-gbp-section>
+    <section id="google-business" className="rounded-xl border border-border bg-card p-5 space-y-4 scroll-mt-6" data-gbp-section>
       <div>
         <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
           <Store size={16} /> {t("app.setReviews.gbpTitle")}

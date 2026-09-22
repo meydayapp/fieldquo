@@ -43,6 +43,9 @@ import {
   sanitiseSectionItems,
   sectionActions,
 } from "@/lib/quotes/emailSections";
+// The before/after pairs come from the company's one gallery
+// (lib/company/gallery.js), overlaid on the column every reader here expects.
+import { withCompanyGallery } from "@/lib/company/gallery";
 
 async function load(member, id) {
   const [quote, company] = await Promise.all([
@@ -55,7 +58,7 @@ async function load(member, id) {
       select: QUOTE_EMAIL_COMPANY_SELECT,
     }),
   ]);
-  return { quote, company: company || {} };
+  return { quote, company: await withCompanyGallery(company || {}, member.companyId) };
 }
 
 /**
