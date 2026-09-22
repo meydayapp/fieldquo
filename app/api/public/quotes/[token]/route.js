@@ -324,6 +324,9 @@ function present(quote) {
       amount: num(a.amount),
       taxable: a.taxable,
       selected: a.selected,
+      // The room a takeoff option belongs under (null otherwise). A label
+      // the estimator wrote, never a rate — see QuoteAddOn.areaLabel.
+      areaLabel: a.areaLabel ?? null,
     })),
     client: { name: quote.client?.name || "" },
     company: companyPublic,

@@ -268,6 +268,19 @@ export const SCREENS = [
   { slug: "booking-pick-375", href: "/book/erable-design", page: "app/book/[companySlug]/BookingFlow.js", props: { companySlug: "erable-design" }, mode: "public", wrap: "bookingPage", scene: "booking-pick-paid", width: 375, height: 1100, out: "docs/screens/booking-modes", chapter: "booking-modes" },
   { slug: "booking-visit-375", href: "/book/erable-design", page: "app/book/[companySlug]/BookingFlow.js", props: { companySlug: "erable-design" }, mode: "public", wrap: "bookingPage", scene: "booking-details-visit", width: 375, height: 1400, out: "docs/screens/booking-modes", chapter: "booking-modes" },
   { slug: "booking-call-375", href: "/book/erable-design", page: "app/book/[companySlug]/BookingFlow.js", props: { companySlug: "erable-design" }, mode: "public", wrap: "bookingPage", scene: "booking-details-call", width: 375, height: 1400, out: "docs/screens/booking-modes", chapter: "booking-modes" },
+
+  // ── The painting takeoff, step by step ─────────────────────────────────
+  //
+  // Unnumbered, under docs/screens/paint-takeoff/. The 2026-09-21 builder
+  // mockup's sections: the estimate-type cards, the area table with its
+  // options (the whole card, taller than the intro frame shows), the
+  // situation-named rate picker, the substrate picker and the staining
+  // table. Same TakeoffFrame and fixture as the intro frames.
+  { slug: "paint-interior-full", href: "/app/quotes/new", page: "docs/screens/app-guide/harness/TakeoffFrame.jsx", props: { trade: "interior_painting" }, mode: "public", width: 1200, height: 2000, out: "docs/screens/paint-takeoff", chapter: "paint-takeoff" },
+  { slug: "paint-rate-picker", href: "/app/quotes/new", page: "docs/screens/app-guide/harness/TakeoffFrame.jsx", props: { trade: "interior_painting" }, mode: "public", scene: "paint-rate-picker", width: 1200, height: 1000, out: "docs/screens/paint-takeoff", chapter: "paint-takeoff" },
+  { slug: "paint-substrate-picker", href: "/app/quotes/new", page: "docs/screens/app-guide/harness/TakeoffFrame.jsx", props: { trade: "interior_painting" }, mode: "public", scene: "paint-substrate-picker", width: 1200, height: 1000, out: "docs/screens/paint-takeoff", chapter: "paint-takeoff" },
+  { slug: "paint-settings-rates", href: "/app/settings/services", page: "docs/screens/app-guide/harness/PaintRatesFrame.jsx", mode: "public", scene: "paint-rates-open", width: 1000, height: 1500, out: "docs/screens/paint-takeoff", chapter: "paint-takeoff" },
+  { slug: "paint-staining", href: "/app/quotes/new", page: "docs/screens/app-guide/harness/TakeoffFrame.jsx", props: { trade: "interior_painting", seed: "staining" }, mode: "public", width: 1200, height: 1400, out: "docs/screens/paint-takeoff", chapter: "paint-takeoff" },
   // The proposal at phone width (client mockup §1): the contents collapse
   // into a chip bar under the sticky header. Appended, never inserted — NN
   // is the row's index.
