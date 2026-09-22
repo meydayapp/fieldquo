@@ -37,6 +37,8 @@ import {
   assignedJobWhere,
 } from "@/lib/permissions/enforce";
 import { CHANGE_ORDER_STATUSES } from "@/lib/jobs/changeOrderValue";
+import { applyChangeOrderDecision } from "@/lib/jobs/changeOrderDecision";
+import { CHANGE_ORDER_INCLUDE, presentChangeOrder } from "@/lib/jobs/changeOrderPresent";
 
 export async function PATCH(request, { params }) {
   // Next 16: params is a Promise.
@@ -65,7 +67,9 @@ export async function PATCH(request, { params }) {
 
   const body = await request.json();
   const { status } = body;
-  if (!CHANGE_ORDER_STATUSES.includes(status)) {
+  // `waiting_client` is not a status a person sets from here — it is what the
+  // send route writes once a carrier accepted the link (POST …/send).
+  if (!CHANGE_ORDER_STATUSES.includes(status) || status === "waiting_client") {
     return NextResponse.json(
       { error: "A change order is pending, approved or rejected." },
       { status: 400 },
@@ -91,6 +95,23 @@ export async function PATCH(request, { params }) {
     );
   }
 
+  // ── Sent for signature means the signature is the approval ─────────────
+  //
+  // Once the addendum is out with the homeowner, "Mark agreed" would let a
+  // staff member record an approval the client was asked for and never gave.
+  // Reject (withdraw it) and Back to pending (take it back to edit or resend)
+  // stay open; approved is reached only through the client's signature on
+  // the public route.
+  if (existing.status === "waiting_client" && status === "approved") {
+    return NextResponse.json(
+      {
+        error:
+          "This change order is out with the client for signature — their signature is the approval. Take it back to pending first if it was agreed some other way.",
+      },
+      { status: 409 },
+    );
+  }
+
   const updated = await db.changeOrder.update({
     where: { id: existing.id },
     data: {
@@ -101,12 +122,14 @@ export async function PATCH(request, { params }) {
       decidedAt: status === "pending" ? null : new Date(),
       decidedById: status === "pending" ? null : member.userId,
     },
-    include: {
-      createdBy: { select: { id: true, name: true } },
-      decidedBy: { select: { id: true, name: true } },
-      invoice: { select: { id: true, invoiceNumber: true, status: true } },
-    },
+    include: CHANGE_ORDER_INCLUDE,
   });
 
-  return NextResponse.json(updated);
+  // The plan follows the decision: an approval adds or edits its step, a
+  // rejection or a withdrawal releases the step it had on hold. Best effort —
+  // see lib/jobs/changeOrderDecision.js.
+  await applyChangeOrderDecision(updated.id, status, { byUserId: member.userId, previousStatus: existing.status });
+
+  const all = await db.changeOrder.findMany({ where: { jobId: job.id }, select: { id: true, seq: true, createdAt: true } });
+  return NextResponse.json(presentChangeOrder(updated, all));
 }

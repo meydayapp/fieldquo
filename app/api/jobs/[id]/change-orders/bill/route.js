@@ -48,6 +48,7 @@ import { resolveJobInvoice } from "@/lib/invoices/jobLink";
 import { billChangeOrders, changeOrderSummary } from "@/lib/jobs/changeOrderValue";
 import { computeInvoiceState } from "@/lib/invoices/computeInvoiceState";
 import { familyPayments } from "@/lib/invoices/family";
+import { documentLabels, documentFormatters } from "@/lib/i18n/documentLabels";
 
 const INVOICE_SELECT = {
   id: true,
@@ -59,7 +60,39 @@ const INVOICE_SELECT = {
   tax: true,
   taxEnabled: true,
   total: true,
+  // The line is written in the document's language (AGENTS.md #6).
+  language: true,
 };
+
+// What the line needs beyond the money: its number, and who approved it —
+// the client's signature name when there is one, else the staff decider.
+const CO_BILL_SELECT = {
+  id: true,
+  seq: true,
+  createdAt: true,
+  description: true,
+  priceDelta: true,
+  status: true,
+  invoiceId: true,
+  decidedAt: true,
+  decidedBy: { select: { name: true } },
+  signature: true,
+};
+
+/**
+ * "Change order" / "Approved by {name} on {date}" in the invoice's language,
+ * for lib/jobs/changeOrderValue.js's billChangeOrders.
+ */
+function billWording(invoice) {
+  const language = invoice?.language || "en";
+  const labels = documentLabels(language);
+  const { date } = documentFormatters(language);
+  return {
+    changeOrder: labels.changeOrder,
+    approvedBy: (name, when) => labels.changeOrderApprovedBy.replace("{name}", name).replace("{date}", when),
+    date: (at) => date(at),
+  };
+}
 
 /**
  * The rows both verbs need, AFTER each has passed its own gate.
@@ -81,7 +114,7 @@ async function load(member, full, jobId) {
 
   const changeOrders = await db.changeOrder.findMany({
     where: { jobId: job.id },
-    select: { id: true, description: true, priceDelta: true, status: true, invoiceId: true },
+    select: CO_BILL_SELECT,
   });
 
   const invoice = await resolveJobInvoice(db, job, member.companyId, INVOICE_SELECT);
@@ -108,7 +141,7 @@ function billingState({ invoice, changeOrders }) {
   if (invoice.status !== "draft")
     return { canBill: false, reason: "invoice_sent", unbilled, invoice: shape };
 
-  const preview = billChangeOrders({ invoice, changeOrders });
+  const preview = billChangeOrders({ invoice, changeOrders, wording: billWording(invoice) });
   if (!preview.ok)
     return { canBill: false, reason: preview.reason, unbilled, invoice: shape };
 
@@ -188,10 +221,10 @@ export async function POST(request, { params }) {
 
     const freshOrders = await tx.changeOrder.findMany({
       where: { jobId: loaded.job.id },
-      select: { id: true, description: true, priceDelta: true, status: true, invoiceId: true },
+      select: CO_BILL_SELECT,
     });
 
-    const billed = billChangeOrders({ invoice: fresh, changeOrders: freshOrders });
+    const billed = billChangeOrders({ invoice: fresh, changeOrders: freshOrders, wording: billWording(fresh) });
     if (!billed.ok) return { error: billed.reason };
 
     // The whole family's payments, through `tx` so the balance is read inside

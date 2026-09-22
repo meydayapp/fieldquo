@@ -160,8 +160,12 @@ function orderedIn(body, a, b) {
 
 section("1. Status decides whether a number is money at all");
 
-eq("the closed set is exactly three", CHANGE_ORDER_STATUSES, [
+// Four since the client's remote approval landed: `waiting_client` is a
+// change order out with the homeowner for signature — money-wise pending,
+// named separately so the job page can say so (lib/jobs/changeOrderAddendum.js).
+eq("the closed set is exactly four", CHANGE_ORDER_STATUSES, [
   "pending",
+  "waiting_client",
   "approved",
   "rejected",
 ]);
@@ -200,7 +204,7 @@ ok("isApprovedChangeOrder agrees with changeOrderStatus on every input above",
 section("2. The four hostile shapes the brief names, executed");
 
 eq("no change orders at all", changeOrderSummary([]), {
-  counts: { approved: 0, pending: 0, rejected: 0, unrecognised: 0 },
+  counts: { approved: 0, pending: 0, waiting_client: 0, rejected: 0, unrecognised: 0 },
   total: 0,
   approvedTotal: 0,
   pendingTotal: 0,
@@ -523,8 +527,10 @@ const DRAFT = {
     invoice: DRAFT,
     changeOrders: [{ id: "co1", description: "   ", priceDelta: 100, status: "approved" }],
   });
+  // The line now names WHICH change order it is, so a blank description
+  // still leaves a line a homeowner can read.
   eq("a blank description gets a real label rather than an empty invoice line",
-    r.newLineItems[0].description, "Change order");
+    r.newLineItems[0].description, "Change order CO-1");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -777,8 +783,8 @@ const MUTATIONS = [
   [
     "folds rejected money into the approved total",
     (s) => s.replace(
-      '    } else if (status === "pending") pendingTotal += delta;\n    else if (status === "rejected") rejectedTotal += delta;',
-      '    } else if (status === "pending") pendingTotal += delta;\n    else if (status === "rejected") { rejectedTotal += delta; approvedTotal += delta; }',
+      '    } else if (status === "pending" || status === "waiting_client") pendingTotal += delta;\n    else if (status === "rejected") rejectedTotal += delta;',
+      '    } else if (status === "pending" || status === "waiting_client") pendingTotal += delta;\n    else if (status === "rejected") { rejectedTotal += delta; approvedTotal += delta; }',
     ),
   ],
   [

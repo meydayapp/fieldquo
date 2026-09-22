@@ -92,6 +92,11 @@ import {
   X,
 } from "lucide-react";
 import DeleteConfirmModal from "@/app/components/admin/DeleteConfirmModal";
+import SendMenu from "@/app/components/quotes/SendMenu";
+import ShareWithStaffModal from "@/app/components/quotes/ShareWithStaffModal";
+import SaveAsTemplateModal from "@/app/components/quotes/SaveAsTemplateModal";
+import { Eye, Share2, LayoutTemplate, Archive, ArchiveRestore, ClipboardCopy } from "lucide-react";
+import { workOrderPath, workOrderPdfPath } from "@/lib/workOrder/url";
 import BrandTheme from "@/app/components/BrandTheme";
 import { usePermissions } from "@/app/providers/PermissionProvider";
 import { useFeatureFlags } from "@/app/providers/FeatureProvider";
@@ -127,6 +132,10 @@ import ImportedCostsPanel from "./ImportedCostsPanel";
 import SiteVisitPanel from "@/app/components/quotes/SiteVisitPanel";
 import LinkedJobDocuments from "@/app/components/jobs/LinkedJobDocuments";
 import { visibleLineItems } from "@/lib/quotes/scopeGroupDisplay";
+import { lineShowsAmount } from "@/lib/quotes/textBlocks";
+import { jobAddressLine } from "@/lib/quotes/jobAddress";
+import { offlineDiscountLine } from "@/lib/payments/offlineDiscount";
+import RichTextBody from "@/app/components/quotes/RichTextBody";
 import { quoteStatusLabel, quoteStatusClasses } from "@/lib/quotes/statusLabels";
 import { formatAddress } from "@/lib/format/address";
 import { planRequiredFrom } from "@/lib/signup/planRequired";
@@ -278,6 +287,13 @@ export default function QuoteDetailPage() {
   // beside justSent rather than folded into it: the banner still names the
   // address, and only the claim about delivery changes.
   const [justSentSimulated, setJustSentSimulated] = useState(false);
+  // ── The Send… menu's own state ──────────────────────────────────────────
+  const [shareStaffOpen, setShareStaffOpen] = useState(false);
+  const [templateOpen, setTemplateOpen] = useState(false);
+  const [menuBusy, setMenuBusy] = useState(""); // "" | "link" | "preview" | "archive"
+  // One line under the strip for the menu's quiet successes — "link copied",
+  // "saved as template", "shared" — where a modal would be an interruption.
+  const [menuNotice, setMenuNotice] = useState("");
   // The send refused because an optional email section is switched on with
   // nothing in it. Held as state rather than flattened into `error`, because
   // the 409 carries the two ways out and a red banner cannot offer a button.
@@ -584,6 +600,72 @@ export default function QuoteDetailPage() {
   }
 
   /**
+   * The client's link: the stored share token, minted on first use. The
+   * same route the approval page uses (GET/POST /api/quotes/[id]/share), so
+   * "Copy quote link" here and "Copy link" there hand out one URL.
+   */
+  async function clientLink() {
+    const got = await fetch(`/api/quotes/${id}/share`);
+    const data = await got.json().catch(() => null);
+    if (got.ok && data?.url) return data.url;
+    const made = await fetch(`/api/quotes/${id}/share`, { method: "POST" });
+    const created = await made.json().catch(() => null);
+    if (!made.ok) throw new Error(created?.error || t("app.sendMenu.linkError", "Couldn't get the client link."));
+    return created.url;
+  }
+
+  async function handleCopyLink() {
+    setMenuBusy("link");
+    setError("");
+    setMenuNotice("");
+    try {
+      const url = await clientLink();
+      await navigator.clipboard.writeText(url);
+      setMenuNotice(t("app.sendMenu.linkCopied", "Client link copied."));
+    } catch (err) {
+      setError(err.message || t("app.sendMenu.linkError", "Couldn't get the client link."));
+    } finally {
+      setMenuBusy("");
+    }
+  }
+
+  async function handlePreview() {
+    setMenuBusy("preview");
+    setError("");
+    try {
+      const url = await clientLink();
+      window.open(url, "_blank", "noopener");
+    } catch (err) {
+      setError(err.message || t("app.sendMenu.linkError", "Couldn't get the client link."));
+    } finally {
+      setMenuBusy("");
+    }
+  }
+
+  /** Archive is filing, not deciding — see POST /api/quotes/[id]/archive. */
+  async function handleArchive(archived) {
+    setMenuBusy("archive");
+    setError("");
+    setMenuNotice("");
+    try {
+      const res = await fetch(`/api/quotes/${id}/archive`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ archived }),
+      });
+      if (!res.ok) {
+        await reportResponseError(res, setError, t("app.sendMenu.archiveError", "Couldn't archive this quote."));
+        return;
+      }
+      const data = await res.json().catch(() => null);
+      setQuote((q) => (q ? { ...q, archivedAt: data?.archivedAt ?? null } : q));
+      setMenuNotice(archived ? t("app.sendMenu.archived", "Archived. It's off the quotes list until you restore it.") : t("app.sendMenu.unarchived", "Restored to the quotes list."));
+    } finally {
+      setMenuBusy("");
+    }
+  }
+
+  /**
    * The PDF the client would receive, for the office to keep or print.
    *
    * POSTs rather than opens a link, matching the invoice page: the route is a
@@ -756,27 +838,130 @@ export default function QuoteDetailPage() {
         </Link>
 
         <div className="flex flex-wrap gap-2">
-          {/* Shown while the quote is still live, not only while it's a draft.
-              Re-sending a quote a client says they never received is one of
-              the most common things anyone needs to do, and the old button
-              vanished the moment the status changed. Never on a past job —
-              see the note under the strip — and the send route refuses too. */}
-          {["draft", "sent"].includes(quote.status) && !quote.historicalImportedAt && (
-            <button
-              onClick={() => sendQuote("quote")}
-              disabled={Boolean(sending)}
-              className="flex items-center gap-1.5 bg-inverted text-inverted-foreground px-4 py-2 rounded-full text-sm font-semibold disabled:opacity-60"
-            >
-              {sending === "quote" ? (
-                <Loader2 size={14} className="animate-spin" />
-              ) : (
-                <Send size={14} />
-              )}
-              {quote.sentAt
-                ? t("app.quoteDetail.sendAgain")
-                : t("app.action.send")}
-            </button>
-          )}
+          {/* ── Send… ──────────────────────────────────────────────────────
+              One split button for the ways to send and the things beside
+              sending (mockup b8): the primary is Send / Send again while
+              the quote is still live — never on a past job, see the note
+              under the strip, and the send route refuses too — and the menu
+              holds preview, share with staff, invoice, template, link, PDF,
+              copy and archive. What each row can and cannot do is decided
+              here, once, in the same terms the routes use. */}
+          {(() => {
+            const sendable = ["draft", "sent"].includes(quote.status) && !quote.historicalImportedAt;
+            // The public page refuses a draft ("isn't ready yet"), so the
+            // link rows wait for a send rather than opening on a 404.
+            const linkable = quote.status !== "draft" && !quote.historicalImportedAt && canDuplicateQuote;
+            const canInvoice = quote.status === "accepted" && !quote.invoices?.length;
+            const workOrderJobId = quote.jobs?.[0]?.id || null;
+            const items = [
+              {
+                key: "preview",
+                label: t("app.sendMenu.preview", "Preview as client"),
+                hint: linkable ? "/q/…" : t("app.sendMenu.previewAfterSend", "Available once the quote has been sent."),
+                icon: Eye,
+                disabled: !linkable,
+                busy: menuBusy === "preview",
+                onSelect: handlePreview,
+              },
+              {
+                key: "share",
+                label: t("app.sendMenu.shareStaff", "Share with staff"),
+                hint: t("app.sendMenu.shareStaffHint", "chat · link"),
+                icon: Share2,
+                onSelect: () => setShareStaffOpen(true),
+              },
+              {
+                key: "invoice",
+                label: t("app.quoteDetail.convertToInvoice"),
+                hint: canInvoice ? null : t("app.sendMenu.invoiceAfterAccept", "After the client accepts."),
+                icon: RefreshCw,
+                disabled: !canInvoice || actionLoading,
+                onSelect: handleConvert,
+              },
+              canDuplicateQuote && {
+                key: "template",
+                label: t("app.sendMenu.saveTemplate", "Save as template"),
+                icon: LayoutTemplate,
+                onSelect: () => setTemplateOpen(true),
+              },
+              canDuplicateQuote && {
+                key: "link",
+                label: t("app.sendMenu.copyLink", "Copy quote link"),
+                hint: linkable ? null : t("app.sendMenu.previewAfterSend", "Available once the quote has been sent."),
+                icon: ClipboardCopy,
+                disabled: !linkable,
+                busy: menuBusy === "link",
+                onSelect: handleCopyLink,
+              },
+              // The crew's work order is the JOB's (lib/workOrder/url.js), so
+              // the two rows exist only once this quote has a job — an
+              // accepted quote. Before that they are absent, not greyed: a
+              // link to a job that does not exist is not a link.
+              workOrderJobId && {
+                key: "workOrderLink",
+                label: t("app.sendMenu.copyWorkOrderLink", "Copy work order link"),
+                hint: t("app.sendMenu.workOrderHint", "The crew's copy — no prices. Opens in the app for signed-in crew."),
+                icon: ClipboardCopy,
+                busy: menuBusy === "workOrderLink",
+                onSelect: async () => {
+                  setMenuBusy("workOrderLink");
+                  setMenuNotice("");
+                  try {
+                    await navigator.clipboard.writeText(`${window.location.origin}${workOrderPath(workOrderJobId)}`);
+                    setMenuNotice(t("app.sendMenu.workOrderLinkCopied", "Work order link copied."));
+                  } finally {
+                    setMenuBusy("");
+                  }
+                },
+              },
+              workOrderJobId && {
+                key: "workOrderPdf",
+                label: t("app.sendMenu.downloadWorkOrderPdf", "Download work order PDF"),
+                icon: Download,
+                onSelect: () => window.open(workOrderPdfPath(workOrderJobId), "_blank", "noopener"),
+              },
+              canDownloadPdf && {
+                key: "pdf",
+                label: t("app.sendMenu.downloadPdf", "Download quote PDF"),
+                icon: Download,
+                busy: downloadingPdf,
+                onSelect: handleDownloadPdf,
+              },
+              canDuplicateQuote && {
+                key: "copy",
+                label: t("app.sendMenu.copy", "Copy"),
+                hint: t("app.sendMenu.copyHint", "A fresh draft with the same services."),
+                icon: Copy,
+                busy: duplicating,
+                onSelect: handleDuplicate,
+              },
+              canDuplicateQuote && {
+                key: "archive",
+                label: quote.archivedAt ? t("app.sendMenu.unarchive", "Restore from archive") : t("app.sendMenu.archive", "Archive"),
+                hint: quote.archivedAt ? null : t("app.sendMenu.archiveHint", "Off the list, never deleted."),
+                icon: quote.archivedAt ? ArchiveRestore : Archive,
+                busy: menuBusy === "archive",
+                onSelect: () => handleArchive(!quote.archivedAt),
+              },
+            ];
+            return (
+              <SendMenu
+                primary={
+                  sendable
+                    ? {
+                        label: quote.sentAt ? t("app.quoteDetail.sendAgain") : t("app.sendMenu.sendToClient", "Send to client"),
+                        icon: Send,
+                        busy: sending === "quote",
+                        disabled: Boolean(sending),
+                        onClick: () => sendQuote("quote"),
+                      }
+                    : null
+                }
+                menuLabel={sendable ? t("app.sendMenu.more", "Send…") : t("app.sendMenu.moreDecided", "More…")}
+                items={items}
+              />
+            );
+          })()}
           {quote.status === "sent" && quote.sentAt && !quote.historicalImportedAt && (
             <button
               onClick={() => sendQuote("follow_up")}
@@ -887,38 +1072,9 @@ export default function QuoteDetailPage() {
           >
             <Pencil size={14} /> {t("app.action.edit")}
           </Link>
-          {canDuplicateQuote && (
-            <button
-              onClick={handleDuplicate}
-              disabled={duplicating}
-              className="flex items-center gap-1.5 border border-border text-foreground px-4 py-2 rounded-full text-sm font-semibold disabled:opacity-60"
-            >
-              {duplicating ? (
-                <Loader2 size={14} className="animate-spin" />
-              ) : (
-                <Copy size={14} />
-              )}
-              {t("app.quoteDetail.duplicate", "Duplicate")}
-            </button>
-          )}
-          {/* Absent rather than disabled without showPricing — see
-              canDownloadPdf. The invoice page keeps its icon-only button; this
-              one carries a word because "Download PDF" was the control the
-              help-centre writers could not find on this screen. */}
-          {canDownloadPdf && (
-            <button
-              onClick={handleDownloadPdf}
-              disabled={downloadingPdf}
-              className="flex items-center gap-1.5 border border-border text-foreground px-4 py-2 rounded-full text-sm font-semibold disabled:opacity-60"
-            >
-              {downloadingPdf ? (
-                <Loader2 size={14} className="animate-spin" />
-              ) : (
-                <Download size={14} />
-              )}
-              {t("app.quoteDetail.downloadPdf", "Download PDF")}
-            </button>
-          )}
+          {/* Duplicate and Download PDF moved into the Send… menu above —
+              the help-centre writers could not find "Download PDF" among ten
+              pills; in a menu of nine named rows it has a place. */}
           {/* Hidden, not disabled — same as Jobs. A greyed trash icon still
               says "somebody could delete this quote here", which is a question
               the owner asks their team about, not a fact about this screen. */}
@@ -933,6 +1089,32 @@ export default function QuoteDetailPage() {
           )}
         </div>
       </div>
+
+      {/* Archived: said plainly, with the way back in the menu. */}
+      {quote.archivedAt && (
+        <p className="text-sm text-muted-foreground flex items-center gap-1.5" data-archived-note>
+          <Archive size={14} /> {t("app.sendMenu.archivedNote", "Archived — not on the quotes list. Restore it from the menu above.")}
+        </p>
+      )}
+      {menuNotice && (
+        <p className="text-sm text-green-800 dark:text-green-300 flex items-center gap-1.5" data-menu-notice>
+          <CheckCircle2 size={14} /> {menuNotice}
+        </p>
+      )}
+      <ShareWithStaffModal
+        isOpen={shareStaffOpen}
+        onClose={() => setShareStaffOpen(false)}
+        quoteId={id}
+        quoteNumber={quote.quoteNumber}
+        onShared={() => setMenuNotice(t("app.sendMenu.shared", "Shared in your team chat."))}
+      />
+      <SaveAsTemplateModal
+        isOpen={templateOpen}
+        onClose={() => setTemplateOpen(false)}
+        quoteId={id}
+        suggestedName={(quote.scopeGroups || []).map((g) => g.label || g.category?.label).filter(Boolean).join(" + ")}
+        onSaved={(row) => setMenuNotice(t("app.sendMenu.templateSaved", "Saved as template \u201c{name}\u201d. Pick it on the next new quote.", { name: row.name }))}
+      />
 
       {/* Entered after the fact on /app/jobs/import. The strip above withholds
           Send, Follow up and Get approved on these; this says why. */}
@@ -1345,6 +1527,19 @@ export default function QuoteDetailPage() {
             {clientAddress && (
               <p className="text-sm text-muted-foreground">{clientAddress}</p>
             )}
+            {/* Where the work is — the same rule the PDF's panel uses
+                (lib/quotes/jobAddress.js jobAddressLine):
+                printed when the quote names a site that is not simply the
+                client's own address. */}
+            {(() => {
+              const job = jobAddressLine(quote, labels);
+              return job ? (
+                <p className="text-sm text-muted-foreground mt-1" data-job-address>
+                  <span className="text-[10px] font-bold tracking-wider uppercase block">{job.label}</span>
+                  {job.value}
+                </p>
+              ) : null;
+            })()}
           </div>
 
           {/* Dates in the company's chosen format, not a hardcoded locale —
@@ -1403,8 +1598,18 @@ export default function QuoteDetailPage() {
                             appears on the version the homeowner receives is a
                             paragraph nobody proofreads. */}
                         {item.detail ? (
-                          <span className="block mt-0.5 text-xs leading-relaxed text-muted-foreground whitespace-pre-line">
-                            {item.detail}
+                          <RichTextBody
+                            body={item.detail}
+                            className="mt-0.5 text-xs leading-relaxed text-muted-foreground"
+                          />
+                        ) : null}
+                        {/* Staff see what the crew will not: a block kept
+                            off the work order says so here, where the
+                            quote is proofread, and nowhere the client
+                            reads. */}
+                        {item.hiddenOnWorkOrder ? (
+                          <span className="inline-block mt-1 rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground">
+                            {t("app.textBlocks.hiddenOnWorkOrderChip", "Hidden on work order")}
                           </span>
                         ) : null}
                         {item.quantity > 1 && (
@@ -1422,7 +1627,7 @@ export default function QuoteDetailPage() {
                           claim than saying nothing. The totals block below
                           already replaces itself with the reason; these lines
                           simply drop the column. */}
-                      {!quote.pricingHidden && (
+                      {!quote.pricingHidden && lineShowsAmount(item) && (
                         <span className="tabular-nums shrink-0">
                           {money(item.amount)}
                         </span>
@@ -1967,6 +2172,24 @@ export default function QuoteDetailPage() {
                 value={`-${money(quote.discount)}`}
               />
             )}
+            {/* The e-transfer / cheque offer this quote carries, as the
+                client reads it: an option with its illustration before they
+                decide, a row once they took it. Absent on a quote that
+                offered none — every US quote, and every Canadian one written
+                with the switch off (lib/payments/offlineDiscount.js). */}
+            {(() => {
+              const line = offlineDiscountLine(quote, { language });
+              if (!line) return null;
+              if (line.chosen) {
+                return <Row label={line.label} value={`-${money(line.amount)}`} />;
+              }
+              if (quote.status === "accepted" || quote.status === "declined") return null;
+              return (
+                <p className="text-xs text-muted-foreground" data-offline-offer>
+                  {line.label} (−{money(line.amount)})
+                </p>
+              );
+            })()}
             {/* Not always a figure. See lib/tax/documentTax.js — "$0.00" on a
                 tax row is a claim ("worked out, came to nothing") that a
                 document with no jurisdiction behind it cannot make. This is

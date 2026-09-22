@@ -298,6 +298,9 @@ export default function PortalInvoice({ token, invoiceId, stageId = null }) {
             {Number(invoice.discount) > 0 && (
               <Row label={labels.discount} value={-Number(invoice.discount)} money={money} />
             )}
+            {Number(invoice.offlineDiscountAmount) > 0 && (
+              <p className="text-xs text-[#2d2520]/60 leading-snug">{labels.offlineDiscountIncluded}</p>
+            )}
             {/* Not always a number — see lib/tax/documentTax.js. An invoice
                 is the harder of the two documents to get wrong: this is what
                 the household actually owes, and what the company remits

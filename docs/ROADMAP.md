@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 21 September 2026 (/compare: FieldQuo vs Roofr and FieldQuo vs PaintScout, both read off the served pricing pages from a Canadian connection on 2026-09-21 before a word of copy was written — Roofr's SMS $49, Instant Estimator $149, Roofr Sites $99 and AI Receptionist $99 totalled as $396/mo of add-ons on /compare and /pricing, its $0 Starter and unlimited users conceded and its per-report measurement fees printed per report; PaintScout's $119 + $20 a user priced in the open for a shop of eleven, its Operations add-on sold separately, a `paint_takeoff` matrix entry with nine names; a new pricing unit (`UNIT_FLAT_PLUS_USAGE`) and `billsPerHead()` so no page says "they bill every login" about a vendor whose page says unlimited users; see "/compare: FieldQuo vs Roofr and FieldQuo vs PaintScout" below; previous line: field work: invoices, clock punches and their photos made without signal wait in an IndexedDB queue on the phone and replay once — punches, then photos, then invoices — under an X-Offline-Key ledger the server keeps (server wins, the phone never invents an id); public/sw.js caches the field screens network-first, switched per company under Settings → Field work (default on); the invoice editor opened from a job offers "Labour — 6.5 h × $85 · from today's clock-ins" as a server-priced line from TimeEntry ids and a rate key, billed once; every crew member gets a daily sheet (/app/daily-sheets) with objectives from the plan's tasks or typed, before/after photos, live clock stamps, upsells linked to the quote's add-ons or change orders, the coordinator's 1–5 evaluation and a bonus that exists only under a company performance-pay rule (none by default) and lands on the pay run as a "Performance bonus" line; and a weekly past-client callback rotation (Settings → Follow-ups → Past clients) lists a company's own dormant clients for a person to call, outcomes on the client's timeline, "do not call" opting the number out of the voice ledger too — never assignable to the AI front desk, whose consent rule cannot reach a client ten months after a job; see "Field work" below; previous line: the client proposal: the quote link opens a branded mini-site — sticky header with the total and Accept, a table of contents, "Your project" (the quote, with Scope of work and a day-by-day plan derived from the takeoff's hours and a stated crew size, never invented), then About us, Before & after, Important documents, Testimonials and Services, each rendered only when the company has content for it; one before/after gallery merged additively from the website block and the quote-email pairs; a company document library with measured expiry; waivers the client ticks line by line and signs, refused server-side while a box is unticked, filed on the job and shown in the portal; four set-up rows that open in place; Settings › Presentation and a Presentation tab on the quote — see "The client proposal" below)
+Last updated: 21 September 2026 (/compare: FieldQuo vs Roofr and FieldQuo vs PaintScout, both read off the served pricing pages from a Canadian connection on 2026-09-21 before a word of copy was written — Roofr's SMS $49, Instant Estimator $149, Roofr Sites $99 and AI Receptionist $99 totalled as $396/mo of add-ons on /compare and /pricing, its $0 Starter and unlimited users conceded and its per-report measurement fees printed per report; PaintScout's $119 + $20 a user priced in the open for a shop of eleven, its Operations add-on sold separately, a `paint_takeoff` matrix entry with nine names; a new pricing unit (`UNIT_FLAT_PLUS_USAGE`) and `billsPerHead()` so no page says "they bill every login" about a vendor whose page says unlimited users; see "/compare: FieldQuo vs Roofr and FieldQuo vs PaintScout" below; previous line: the job plan, change orders with remote approval, and the client progress view: an approved quote becomes one step per line and per ticked option with hours from the takeoff, painting dependencies, a hold reason and a crew day view, gated server-side so a step cannot start before what it waits on; a change order is sent by SMS + email to a one-page addendum the homeowner signs, holds its step until signed, adds or edits a step on approval and bills as a labelled "Change order CO-2 · …" line; the portal shows the job as Done · In progress · Waiting on with the crew's photos and the change orders waiting on the client — see "The job plan" below; previous line: the quote builder's text-block library — nine painting starters in EN/FR/ES seeded once per painting company, searchable from "+ Add area or line item" beside the trade chips and the products, rich text drawn on the PDF, the email, the approval page and the detail page, priced by hours, quantity, a custom amount or not at all, "hidden on work order" carried on the line, a block translated ONCE into a quote's other language and the reviewed text stored on the block; the quote page's Send… split button — preview as client, share with staff through the crew chat, create invoice, save as template, copy link, download PDF, copy, archive; QuoteTemplate rows offered on every new quote; Quote.siteAddress prefilled for a homeowner, required for a company client, printed as "Job address", handed to the Job and geocoded there, read by the satellite measure; and "Offer 3% off for e-transfer or cheque" — Canada only, a discount never a card surcharge because of Quebec, frozen on the draft, ticked by the client at approval, folded into the invoice with the card link left off; see "The text-block library, the Send… menu, the job address and the e-transfer discount" below; previous line: field work: invoices, clock punches and their photos made without signal wait in an IndexedDB queue on the phone and replay once — punches, then photos, then invoices — under an X-Offline-Key ledger the server keeps (server wins, the phone never invents an id); public/sw.js caches the field screens network-first, switched per company under Settings → Field work (default on); the invoice editor opened from a job offers "Labour — 6.5 h × $85 · from today's clock-ins" as a server-priced line from TimeEntry ids and a rate key, billed once; every crew member gets a daily sheet (/app/daily-sheets) with objectives from the plan's tasks or typed, before/after photos, live clock stamps, upsells linked to the quote's add-ons or change orders, the coordinator's 1–5 evaluation and a bonus that exists only under a company performance-pay rule (none by default) and lands on the pay run as a "Performance bonus" line; and a weekly past-client callback rotation (Settings → Follow-ups → Past clients) lists a company's own dormant clients for a person to call, outcomes on the client's timeline, "do not call" opting the number out of the voice ledger too — never assignable to the AI front desk, whose consent rule cannot reach a client ten months after a job; and before it: the client proposal: the quote link opens a branded mini-site — sticky header with the total and Accept, a table of contents, "Your project" (the quote, with Scope of work and a day-by-day plan derived from the takeoff's hours and a stated crew size, never invented), then About us, Before & after, Important documents, Testimonials and Services, each rendered only when the company has content for it; one before/after gallery merged additively from the website block and the quote-email pairs; a company document library with measured expiry; waivers the client ticks line by line and signs, refused server-side while a box is unticked, filed on the job and shown in the portal; four set-up rows that open in place; Settings › Presentation and a Presentation tab on the quote — see "The client proposal" below; previous line: the painting takeoff, sections b1–b4 and b6 of the approved builder mockup: a painting quote opens on its estimate type — Interior, Exterior, Cabinets & millwork, Staining, Commercial — each with its own rate set of situation-named rates priced as production rate × hourly or flat per unit, picked in a searchable picker and edited on Settings › Services › Painting rates; an area is a Room or a single Surface with an editable "calculated from measurements" strip, ticks what's painted, draws as one hours-and-money table with options the homeowner ticks under the room (extra coat, premium paint, custom); staining substrates carry stain and clear coat; the den and the exterior job still reproduce to the cent; and before it: the painting takeoff, sections b1–b4 and b6 of the approved builder mockup: a painting quote opens on its estimate type — Interior, Exterior, Cabinets & millwork, Staining, Commercial — each with its own rate set of situation-named rates priced as production rate × hourly or flat per unit, picked in a searchable picker and edited on Settings › Services › Painting rates; an area is a Room or a single Surface with an editable "calculated from measurements" strip, ticks what's painted, draws as one hours-and-money table with options the homeowner ticks under the room (extra coat, premium paint, custom); staining substrates carry stain and clear coat; the den and the exterior job still reproduce to the cent; and before it: the "next steps" email: two hours after a company's card goes in, if its onboarding checklist is still open, FieldQuo sends one letter in the company's language — the trade in the subject, only the open steps numbered in the checklist's order with what each unlocks for that trade, each a link that opens the step's window on the home page, a tick list of what is done — once per company, never a demo, switch and delay on /platform/companies, sent-date on the company page)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -112,6 +112,272 @@ date from the newest reading instead of a typed 2026-12-01;
 
 ---
 
+## The job plan, change orders with remote approval, and the client progress view (21 September 2026)
+
+**What existed.** An accepted quote left one to-do ("Schedule the job for
+…", `lib/tasks/autoCreate.js`) and a job page whose tasks were whatever
+somebody typed. The lines the client signed never became work with a name on
+it. A change order was a staff-typed amount asserting "the client agreed";
+nothing went to the client, nothing was signed, and it billed as an unlabelled
+line. The portal answered "what do I owe" and nothing about where the job is.
+
+**What landed** (mockups j1, c4, c5 — the owner's "green light for all of
+that"):
+
+- **The plan is Tasks.** A plan step is a `Task` with `planStep` set, plus
+  `sortOrder`, `estimatedHours`, `quoteLineKey`/`quoteLineNo`,
+  `categoryKey`/`materialKeys` (joined to the buy list by key, so a regenerate
+  cannot dangle it), `waitingReason`, `waitingOnChangeOrderId`, `clientVisible`
+  (default OFF at the column — "Follow up payment" has a jobId too),
+  `scheduledStart/End`, and a `TaskDependency` join. `TimeEntry.taskId` lets the
+  clock book hours to a step (a second picker on /app/clock, only when the job
+  has a plan). Free-form to-dos are untouched: `JobTasks.js` now draws only
+  rows without `planStep`.
+- **Built on acceptance, idempotently.** `lib/jobs/buildPlan.js` runs from
+  `onQuoteAccepted` on the one path both doors take; every generated step
+  carries a unique `sourceKey` (`quote_line:<quote>:<group>:<index>`,
+  `quote_addon:<id>`, `change_order_approved:<id>`) and P2002 is read as
+  "already there". A rebuild adds only the lines the plan lacks; hand-added
+  steps, hand edits and deleted default edges all survive.
+- **Hours from the takeoff, matched not assumed.** `lib/jobs/plan.js`
+  re-runs `paintTakeoff` against the stored takeoff and the company's rates
+  and pairs its lines with the stored lines by ordinal — verified by
+  description equality, or the hours are withheld. Other trades give hours
+  only to a one-line group. Painting defaults: prep → ceiling → walls → trim
+  within an area; areas are independent.
+- **"Waiting on" is derived, not stored.** `planStatus()` reads three facts
+  fresh — a blocker not done, an unsigned change order, a written hold — so
+  a cleared blocker never leaves a stale status. `dependencyGate()` runs in
+  `PATCH /api/tasks/[id]` before any write and answers 409 with the blocker
+  named; the crew's Start button is disabled from the same verdict, but the
+  route is the enforcement. Cycles refused (`wouldCycle`).
+- **The job page.** `JobPlan.js`: the ordered list with pills, "waits on X"
+  chips, materials with on-hand/shopping-list counts, est/clocked hours,
+  Start / Mark done / Put on hold / Edit (assignee, hours, day, block times,
+  dependencies as chips, client-visible), Reorder (up/down, one save),
+  Add a step, Build/Rebuild from the quote; the crew day view underneath
+  (lanes per member, blocks with times only when set — no start time is
+  invented). Harness: `job-plan`.
+- **Change orders.** Additive on `ChangeOrder`: `seq` (CO-n under the job's
+  row lock), sanitised `bodyHtml`, `quoteLineKey` + `originalLine` snapshot or
+  `taskId`, `scheduleDeltaDays`, `photos`, `shareToken`, `sentAt`/`sentVia`/
+  `viewedAt`, `signature` (same audit shape as the quote's; hash over the
+  row's own agreed content). Status gains `waiting_client` — pending for money,
+  named so the job says "Waiting on client approval", and so staff cannot
+  "Mark agreed" a change order that is out for signature (409). "Save without
+  sending" is the old path and still works. `lib/jobs/changeOrderSend.js`
+  emails (branded, `documentEmailHtml`) and texts (`maySms`, the company's
+  line) the link and stamps sent only when a channel accepted.
+  `app/co/[token]` is the addendum: original line, the change, delta, tax at
+  the quote's rate, new total, schedule, Approve & sign with the pad; Ask a
+  question is `tel:` to the company. `POST /api/public/change-orders/[token]`
+  takes a name, a mark and consent — never an amount — and closes the race
+  with a status predicate. `lib/jobs/changeOrderDecision.js` is the one place
+  a decision reaches the plan: sent → the step is on hold; approved → the
+  hold clears and the change is written into the step, or (against a line)
+  ONE new step after that line's step; `Job.endDate` moves once. The bill
+  route writes `Change order CO-2 · <title>` with `detail` "Approved by
+  <name> on <date>" in the invoice's language. Harness: `client-change-order`.
+- **The portal.** `jobs` is back on `/api/portal/[token]` with an allow-list:
+  client-visible plan steps (title, derived status, what it waits on, the
+  photos filed against the step minus the `issue` stage), the change orders
+  waiting on the client with their link, who is on site from open time
+  entries. No description, no hours, no assignee id, no `priceDelta`.
+  `JobProgressCard.js`: Day N of M (measured "on schedule": no undone step past
+  its day), the bar, Done · In progress · Waiting on · Up next, "Review and
+  sign". Eight client languages in `clientDocCopy` (`job`, `changeOrder`
+  blocks); nine staff languages for `app.jobPlan.*` and the new
+  `app.changeOrder.*`.
+- **Checks.** `scripts/check-job-plan.mjs` (201 assertions: a real paint
+  takeoff → plan, idempotent creation with a simulated P2002 race, the gate,
+  cycles, the sanitiser against XSS payloads, the signature refusals, the
+  decision's effects, the labelled invoice line, and source-level assertions
+  that the portal and public payloads carry nothing internal).
+  `check:public-payload` updated for the portal's jobs and the reviewed
+  `dangerouslySetInnerHTML` sink; `check:change-order-money` for the
+  four-value status set.
+
+### Still owed here
+
+- **Cost: "Send for approval" is one Resend email and, when texted, one
+  Twilio SMS per send** — a staff action per change order, nothing scheduled.
+  No setting gates it; the owner's flip is the SMS/email checkboxes on the form
+  (both default on).
+- **Photos on the portal are "filed against a client-visible step" — there is
+  no per-photo "share with client" flag.** The office controls visibility per
+  step. A per-photo flag is a product decision.
+- **Done dates on the portal are the step's `updatedAt`** (a Task has no
+  completedAt). An edit after completion moves the date shown.
+- **Per-step clocked hours exist only for entries booked to a step from the
+  clock.** Manual time entries (`/api/time-entries`) have no step picker yet;
+  their hours count for the job, not a step.
+- **A change order's step is created only on approval.** A change order
+  against a *line* that is still out with the client shows nowhere in the plan
+  until signed (the one against a *task* holds that task). The mockup's
+  "CO-2 ⇒ hallway ceiling waiting on your approval" is the against-a-task case.
+- The home page's "Waiting on you" does not yet surface an overdue
+  `waiting_client` change order (the mockup's `.note` asks for it once
+  overdue, not on send).
+## The text-block library, the Send… menu, the job address and the e-transfer discount (21 September 2026)
+
+Builder-level additions from the approved mockups (b5, b8, and the owner's
+notes on b1/b7), built beside the painting takeoff rather than inside it so
+the document-shaped builder can land over both.
+
+**The library.** `QuoteTextBlock` — one row per block per company: name,
+body, price mode (`none` / `hourly` / `quantity` / `custom`), price, unit,
+`hiddenOnWorkOrder`, the language it was written in, `translations` per
+language, tags, sort order, `seedKey`. `lib/quotes/textBlockDefaults.js`
+ships nine painting starters (Interior preparation, Daily set-up and
+clean-up, Final walkthrough, Exclusions, Deposit information, Paint
+upgrade, Popcorn ceiling removal at the complexity book's 3.50/sqft, Painter
+for a day, Complimentary colour consult) hand-written in EN, FR and ES;
+`lib/quotes/textBlockSeed.js` inserts them ONCE, on the first read of an
+empty library by a company with a painting trade on, in the company's own
+language with the other two stored as translations. A non-painting company's
+library opens empty — that is what we have written for them.
+
+- `lib/quotes/richText.js` — the one rich-text format: paragraphs,
+  `**bold**`, `_italic_`, `- ` and `1. ` lists, `[text](https://…)`; never
+  HTML. The parser emits text runs only, so a pasted `<script>` is eleven
+  printed characters on the PDF (`lib/documentSections/richTextPdf.js`), the
+  email (`richTextToHtml`, escaped) and the pages
+  (`app/components/quotes/RichTextBody.js`, no innerHTML anywhere). Links keep
+  http, https and mailto and drop the rest as words.
+- `lib/quotes/textBlocks.js` — a block becomes an ORDINARY line item
+  (`description`, `detail`, `amount`) plus `kind: "text"`, `priceMode`,
+  `hiddenOnWorkOrder`, `textBlockId`; the document renderers do not know the
+  table exists. An unpriced block prints no amount column — the PDF, the
+  covering email, the approval page and the detail page all read
+  `lineShowsAmount`; "Exclusions $0.00" appears nowhere.
+- `app/components/quotes/builder/LineItemLibrary.js` — "+ Add area or line
+  item" on every scope group's table: one searchable dialog with the text
+  blocks, "Common for this trade" (the same `defaultLineItems` catalogue, now
+  a section here rather than a second picker), Products & Services, and
+  "+ New block" — title, the five-button rich-text editor with preview
+  (`RichTextEditor.js`), Hidden on work order, price by hourly rate (prefilled
+  from the trade's `hourlySellRate` or the category rate) / quantity / custom
+  / none, a live line total, and "Save to library" — the item stays on the
+  quote either way (owner). An "Areas" section renders only when the takeoff
+  hands the dialog areas; today it does not, so there is no heading over
+  nothing.
+- **Translation, once.** Opening a block written in another language
+  resolves the stored rendering; with none, `POST
+  /api/quote-text-blocks/[id]/translate` drafts one through
+  `lib/ai/provider.js` (`checkAiQuota` before, `recordAiUsage` after,
+  feature `text_block_translation`), the dialog shows it marked as
+  machine-written, and "Add to quote" stores what the estimator accepted on
+  the block (`PATCH … { translation }`). The route answers a stored rendering
+  before the quota check and the model call; nothing translates at send
+  time. Cost: one short call per block per new language.
+- Settings › Services — `TextBlockLibraryCard.js`, folded by default with a
+  count: write, edit, reorder and remove blocks; the saved quote templates
+  underneath. Edit rights follow the quote grid (`quotes:view_create_edit`),
+  which the routes enforce.
+- Routes: `GET/POST /api/quote-text-blocks`, `PATCH/DELETE
+  /api/quote-text-blocks/[id]`, the translate route above. A member without
+  `showPricing` receives blocks with no price and writes none.
+
+**The Send… menu** (`app/components/quotes/SendMenu.js`, mounted on
+`/app/quotes/[id]`): Send to client / Send again as the primary while the
+quote is live, then Preview as client (`/q/…` through the share token — waits
+for a send, because the public page refuses a draft), Share with staff (a
+message and the back-office link posted into the crew chat through
+`POST /api/chat/rooms/[id]`, to a room or a person —
+`ShareWithStaffModal.js`), Create invoice (the existing convert; disabled
+with "After the client accepts" before that — offering it earlier is the
+product decision the mockup names), Save as template, Copy quote link,
+Download quote PDF, Copy (= duplicate), Archive / Restore from archive, and
+— once the quote has a job — Copy work order link and Download work order
+PDF, pointing at the crew's work order that landed the same hour
+(`lib/workOrder/url.js`; the work order is the JOB's, so before acceptance
+the two rows are absent, not greyed). Follow up, Call, Client accepted /
+didn't go ahead, Get approved, Edit and the bin stay as pills.
+`lib/workOrder/build.js` now reads a line's `hiddenOnWorkOrder` (a block
+ticked hidden is absent from the crew's copy without anyone hiding it per
+job) and flattens a block's rich text to plain sentences for the crew.
+
+- `QuoteTemplate` (new) — a snapshot of the groups (line items, takeoff,
+  intake answers, subtotal), notes and process notes, under a name and in
+  the quote's language; no client, address, dates or token
+  (`lib/quotes/quoteTemplates.js`). `POST /api/quotes/[id]/template` saves
+  one; `GET /api/quote-templates` lists them with the categories attached;
+  `TemplatePicker.js` offers them on a new quote with nothing added yet and
+  opens the groups as persisted (prices kept, edited as numbers — never
+  re-derived from today's rate card). Applying a French template sets the
+  quote's language to French: the language is chosen at creation and the
+  template's words are in it.
+- `Quote.archivedAt` (new) — `POST /api/quotes/[id]/archive`; `GET
+  /api/quotes` hides archived rows unless `?archived=1`; the quotes list has
+  an "Archived" view; the detail page says so and offers the way back.
+  Filing, not deciding: status untouched, nothing deleted.
+
+**Job address.** `Quote.siteAddress` (new). `JobAddressField.js` under the
+client: prefilled from a homeowner's address, blank and REQUIRED for a
+`Client.type = company` (the builder refuses the save with the reason; `POST
+/api/quotes` and `PATCH /api/quotes/[id]` refuse the same case). Printed as
+"Job address" in the PDF's Prepared-for panel, the covering email, the
+approval page and the detail page — only when it is not simply the client's
+own address repeated (`lib/quotes/jobAddress.js`), never invented from
+absence. Carried onto the Job on acceptance and geocoded there
+(`lib/jobs/createJobFromQuote.js`, one Geocoding call per accepted quote
+with an address — the quote itself is never geocoded). The satellite measure
+reads it before the client's address. Copied by Duplicate.
+
+**"Offer 3% off for e-transfer or cheque."** `Company.offlinePaymentDiscount`
+(new, default off), a switch on Settings › Payments rendered for a Canadian
+company only; `PATCH /api/settings/business-info` stores false for any other
+country. A DISCOUNT, never a card surcharge: Quebec's Consumer Protection Act
+bars charging a consumer more than the advertised price for using a card, so
+"cards carry a 3% fee" cannot be printed there; the card fee stays the
+contractor's (`lib/stripe/processingFee.js`) and no client-facing surface
+prints one (`lib/payments/offlineDiscount.js`). The offer needs e-transfer or
+cheque switched on — a discount for a method the client cannot use is a dead
+control. `Quote.offlineDiscountPct` is frozen server-side at creation and on
+a DRAFT save (the browser never sends it); a sent quote keeps what it
+offered. The PDF, the email and the approval page print the offer as a
+sentence under the totals; the approval page offers it as a tick (the total
+moves live; the server reprices from its own rows, before tax — the mockup's
+1,167.31 − 35.02, GST/QST on 1,132.29) and records
+`Quote.offlineDiscountChosen`; the signed PDF prints it as a discount row.
+`lib/invoices/createInvoiceFromQuote.js` folds the amount into
+`Invoice.discount` and records `Invoice.offlineDiscountAmount`; the
+document says "includes the e-transfer / cheque discount" under the discount
+row and "How to pay" leaves the card link off with one sentence saying why
+(`buildHowToPay({ offlineDiscount })`, all eight document languages).
+
+**Verified.** `scripts/check-quote-text-blocks.mjs` (196 assertions, in
+`check:all`): hostile bodies through every renderer, the translate-once rule
+and the route's order, the nine defaults × three languages and the seeder's
+gates, the job-address rules and both routes, the discount's country gate
+and arithmetic and every surface that reads it, pricing and the amount
+column, templates, and every new app string in all nine language blocks.
+The harness photographs the Send… menu open (`quote-send-menu`), the library
+list and the popcorn block's editor on the French Q-1045 (`quote-line-item-
+library`, `quote-text-block-editor` — the block resolved to its stored
+French with no model call), the unfolded Settings card
+(`settings-services-library`), and Q-1044 now carries a text block, a job
+address and the offer. `docs/screens/app-guide/harness/build.sh` and
+`css.mjs` derive their root from their own location, so a worktree shoots
+its own tree.
+
+### Still owed here
+
+- **Areas in the library.** The mockup's "Areas: Room · Surface" section is
+  the painting takeoff's to hand in (`areas` + `onAddArea` on
+  `LineItemsTable`); the dialog draws the section the moment it does.
+- **A tokenised work-order link for a sub without an account** is the
+  product decision `lib/workOrder/url.js` records; the menu's link opens
+  inside the app for signed-in crew.
+- **The builder's own Save + Send… bar** is the document-shaped builder's to
+  mount; `SendMenu` takes a `primary` and `items` and needs no page state.
+- **Create invoice before acceptance** (deposit invoices) is a product
+  decision; the row is drawn disabled with the reason until it is taken.
+- **The library is per company, not per trade.** Tags exist and search reads
+  them; a per-estimate-type filter (interior / exterior / cabinets) can key
+  on them when the estimate-type picker lands.
+- A staff-recorded acceptance ("Client accepted by phone / text") cannot
+  record the e-transfer choice; only the client's own approval can.
 ## Field work: offline invoicing and punches, the crew's daily sheet and performance pay, the past-client callback rotation (21 September 2026)
 
 Mockups j5, j6, j7 of `jobs/section.html`. Full write-up of the offline

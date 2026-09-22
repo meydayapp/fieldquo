@@ -66,16 +66,20 @@ export default function QuotesPage() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
   const [errorKey, setErrorKey] = useState("");
+  // The archive: quotes filed away from the Send… menu (Quote.archivedAt).
+  // Off by default and OFF THE LIST by default — GET /api/quotes hides them
+  // unless asked, so this is a second view, not a sixth status chip.
+  const [archived, setArchived] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     setErrorKey("");
-    const result = await fetchArray("/api/quotes");
+    const result = await fetchArray(archived ? "/api/quotes?archived=1" : "/api/quotes");
     if (result.aborted) return;
     if (result.ok) setQuotes(result.data);
     else setErrorKey(result.errorKey);
     setLoading(false);
-  }, []);
+  }, [archived]);
 
   useEffect(() => {
     if (canView) load();
@@ -115,7 +119,7 @@ export default function QuotesPage() {
   // "No quotes match" only makes sense when something is narrowing the list.
   // With nothing applied and nothing to show, this is an account that has never
   // written a quote, and that deserves the first-run panel instead.
-  const narrowed = filter !== "all" || search.trim() !== "";
+  const narrowed = filter !== "all" || search.trim() !== "" || archived;
 
   // Rendered INSTEAD of the screen, not around it: nothing loads, and the
   // panel names who to ask. A list that is empty because the server refused it
@@ -182,7 +186,28 @@ export default function QuotesPage() {
             </span>
           </button>
         ))}
+        {/* The archive is a different list, not a status: no count on the
+            chip, because the count would be a second request for a number
+            nobody chases. */}
+        <button
+          type="button"
+          onClick={() => setArchived((v) => !v)}
+          aria-pressed={archived}
+          className={`shrink-0 inline-flex items-center gap-2 min-h-[44px] rounded-full px-4 py-1.5 text-sm border ${
+            archived
+              ? "bg-inverted text-inverted-foreground border-inverted"
+              : "border-border text-muted-foreground"
+          }`}
+          data-archived-filter
+        >
+          {t("app.quotes.archived", "Archived")}
+        </button>
       </div>
+      {archived && (
+        <p className="text-sm text-muted-foreground" data-archived-view-note>
+          {t("app.quotes.archivedNote", "Showing archived quotes only. Open one to restore it.")}
+        </p>
+      )}
 
       <div data-tour="quotes-search" className="relative max-w-sm">
         <Search

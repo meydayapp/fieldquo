@@ -224,6 +224,9 @@ export async function POST(request, { params }) {
           language: invoiceLanguage,
           reference: invoice.invoiceNumber,
           online: canTakeCard ? onlineOptions(company, plainInvoiceUrl) : null,
+          // Priced for e-transfer / cheque at approval: no card link, and the
+          // block says so (lib/payments/offlineDiscount.js).
+          offlineDiscount: Number(invoice.offlineDiscountAmount || 0) > 0,
         });
 
   const { subject, html, text } = buildInvoiceEmail({

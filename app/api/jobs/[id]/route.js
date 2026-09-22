@@ -30,6 +30,7 @@ import { withWarranty } from "@/lib/equipment/warranty";
 import { warrantyLinkVerdict } from "@/lib/equipment/installed";
 import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
 import { syncJobRoom } from "@/lib/company/chat/store";
+import { CHANGE_ORDER_INCLUDE, presentChangeOrder } from "@/lib/jobs/changeOrderPresent";
 
 // Next 16: params is a Promise.
 export async function GET(request, { params }) {
@@ -117,11 +118,7 @@ export async function GET(request, { params }) {
       // on rather than a bare "billed" the contractor cannot act on.
       changeOrders: {
         orderBy: { createdAt: "desc" },
-        include: {
-          createdBy: { select: { id: true, name: true } },
-          decidedBy: { select: { id: true, name: true } },
-          invoice: { select: { id: true, invoiceNumber: true, status: true } },
-        },
+        include: CHANGE_ORDER_INCLUDE,
       },
       // Both directions of a callback: what this job was a return FOR, and
       // what returns THIS job has already spawned.
@@ -168,7 +165,13 @@ export async function GET(request, { params }) {
   // GET /api/jobs (the list) selects { id, name } and was never exposed. The
   // detail route is the one that had no `select` at all, which is the same
   // shape as the /api/clients leak this redactor was written for.
-  return NextResponse.json({ ...job, client: redactClient(full, job.client) });
+  return NextResponse.json({
+    ...job,
+    client: redactClient(full, job.client),
+    // Labelled (CO-1, CO-2) and redacted — the signature PNG and the share
+    // token stay on the server. See lib/jobs/changeOrderPresent.js.
+    changeOrders: (job.changeOrders || []).map((co) => presentChangeOrder(co, job.changeOrders)),
+  });
 }
 
 export async function PATCH(request, { params }) {

@@ -1338,6 +1338,25 @@ model Company {
   /// this says how. ACH account numbers live here too — printed on the PDF
   /// and the portal, never in an email body, never in a log line.
   paymentMethodDetails   Json?
+  /// "Offer 3% off for e-transfer or cheque" — CANADA ONLY, default off.
+  ///
+  /// A DISCOUNT for paying off-card, never a surcharge for paying by card.
+  /// Quebec's Consumer Protection Act bars a merchant from charging a
+  /// consumer more for using a card than the advertised price, so "card
+  /// payments carry a 3% fee" cannot be printed on a Quebec quote; "3% off
+  /// when you pay by e-transfer or cheque" is the same money framed the one
+  /// way that is legal in every province. The card fee itself stays where
+  /// lib/stripe/processingFee.js puts it — on the contractor, as a Stripe
+  /// application fee — and the homeowner never sees a fee line.
+  ///
+  /// Inert on a US company: lib/payments/offlineDiscount.js answers false
+  /// whatever this column says when the company's payment country is not
+  /// CA, the settings card does not render the switch, and PATCH
+  /// /api/settings/business-info writes false. Interac and cheques are the
+  /// two methods the wording names; a company with neither switched on is
+  /// offering a discount for a method the client cannot use, so the offer
+  /// also needs one of them in `paymentMethods`.
+  offlinePaymentDiscount Boolean          @default(false)
   bookingSlug            String?          @unique
   industries             String[]         @default([])
   onboardingStatus       OnboardingStatus @default(pending)
@@ -1545,6 +1564,8 @@ model Company {
   clients               Client[]
   quotes                Quote[]
   invoices              Invoice[]
+  quoteTextBlocks       QuoteTextBlock[]
+  quoteTemplates        QuoteTemplate[]
   // FieldQuo's paid data-migration service — the sanctioned write exception,
   // see the model's own header comment.
   migrationRequests     MigrationRequest[]
@@ -2834,6 +2855,40 @@ model Quote {
   // quote because a two-day repair and a three-week reno need different words.
   processNotes String?
 
+  /// WHERE the work is, as distinct from where the client lives.
+  ///
+  /// The quote used to pass the client's address through to the document,
+  /// the satellite measure and the job. Right for a homeowner, whose jobs are
+  /// at their own address; wrong for a general contractor or a property
+  /// manager (Client.type = company), whose address is an office and whose
+  /// every job is somewhere else. So this is prefilled from the client for an
+  /// individual, blank and required for a company client, editable on both,
+  /// printed as "Job address" beside the client block, handed to
+  /// Job.siteAddress on acceptance (lib/jobs/createJobFromQuote.js) where it
+  /// is geocoded — the quote itself is never geocoded, so this column costs
+  /// no Google call. Null on every quote written before it existed: absence
+  /// means "not asked", and every reader falls back to the client's address
+  /// only where the client is an individual.
+  siteAddress String?
+
+  /// Archived: off the working list, never deleted. A status would have to
+  /// be an enum value every switch in the product learns about; a timestamp
+  /// is read by the two things that care — the list, which hides these
+  /// unless asked, and the detail page, which says so and offers Unarchive.
+  archivedAt DateTime?
+
+  /// The e-transfer / cheque discount THIS quote offered, as a percentage,
+  /// or null when it offered none. Frozen onto the quote by the save routes
+  /// from the company's switch (Company.offlinePaymentDiscount) while the
+  /// quote is still a draft, and never re-read from the company after: a
+  /// sent quote keeps offering what it offered (non-negotiable #6). The
+  /// browser never sends it — POST/PATCH /api/quotes derive it server-side.
+  offlineDiscountPct Decimal? @db.Decimal(5, 2)
+  /// Whether the client took that discount when they approved. Written only
+  /// by the public approval route, which reprices from its own rows; the
+  /// invoice raised from the quote reads it (lib/invoices/createInvoiceFromQuote.js).
+  offlineDiscountChosen Boolean @default(false)
+
   // ── Per-quote control of the two optional email sections ────────────────
   //
   // THREE states, and the third is the point. NULL means "follow the company
@@ -3394,6 +3449,14 @@ model Invoice {
   lineItems Json?
   subtotal  Decimal @default(0) @db.Decimal(12, 2)
   discount  Decimal @default(0) @db.Decimal(12, 2)
+  /// The part of `discount` that is the e-transfer / cheque discount the
+  /// client chose at approval (Quote.offlineDiscountChosen), or null. Folded
+  /// INTO `discount` rather than kept as a second subtraction so every
+  /// existing reader of subtotal − discount + tax stays right; this column
+  /// only lets the document say "includes the 3% e-transfer / cheque
+  /// discount" under the discount row and lets "How to pay" leave the card
+  /// link off an invoice priced for a method that is not a card.
+  offlineDiscountAmount Decimal? @db.Decimal(12, 2)
   tax       Decimal @default(0) @db.Decimal(12, 2)
   total     Decimal @default(0) @db.Decimal(12, 2)
 
@@ -4157,6 +4220,115 @@ model QuoteScopeGroup {
   sortOrder  Int             @default(0)
 }
 
+/// A named block of prose a company reuses across quotes — the prep
+/// paragraph, the exclusions, the deposit terms, "painter for a day" — with
+/// an optional price and a switch that keeps it off the crew's work order.
+///
+/// ── Why a table and not more Company.default* columns ───────────────────
+///
+/// The words a painter repeats lived in five places (the service wording,
+/// the trade's line-item chips, the add-on suggestions, the notes box, the
+/// process notes), none of them named, searchable, priced or reusable per
+/// quote. One row per block, per company, is the shape the builder's library
+/// needs: searchable by name, taggable by trade, orderable, and copied onto
+/// the quote as an ordinary line item — the document renderers do not know
+/// this table exists (lib/quotes/textBlocks.js lineFromTextBlock).
+///
+/// ── Language ──────────────────────────────────────────────────────────────
+///
+/// `language` is what `name` and `body` are written in. `translations` is
+/// { fr: { name, body }, es: … } — a stored, reviewed rendering per
+/// language, written ONCE: the moment a quote in another language adds this
+/// block and no rendering exists yet, the builder drafts one through the
+/// metered AI provider, shows it to the estimator to edit, and saves what
+/// they accepted here. Nothing is translated at send time. A quote keeps the
+/// text it was given (non-negotiable #6); this row only keeps the estimator
+/// from paying for the same sentence twice.
+///
+/// `body` is the constrained rich text lib/quotes/richText.js parses —
+/// paragraphs, **bold**, _italic_, "- " and "1. " lists, [links](https://…).
+/// No HTML is ever stored or rendered from it; a pasted <script> is text.
+model QuoteTextBlock {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  name String
+  body String @default("")
+
+  /// "none" | "hourly" | "quantity" | "custom" — how the block is priced
+  /// when it lands on a quote. See lib/quotes/textBlocks.js PRICE_MODES.
+  priceMode String   @default("none")
+  /// hourly: the rate per hour; quantity: the rate per `unit`; custom: the
+  /// amount. Null means "ask when adding" — the builder's dialog prefills
+  /// from this and the estimator can change it per quote.
+  price     Decimal? @db.Decimal(12, 2)
+  /// quantity mode only: sqft, lnft, each…
+  unit      String?
+
+  /// True keeps the block off the crew's work order — deposit terms and
+  /// exclusions are for the homeowner, not the ladder. Copied onto the line
+  /// item as `hiddenOnWorkOrder`, which the work-order document reads.
+  hiddenOnWorkOrder Boolean @default(false)
+
+  language     String @default("en")
+  translations Json?
+
+  /// Trade / estimate-type tags the library filters by: "painting",
+  /// "interior", "exterior"… Free strings; empty means "every quote".
+  tags String[] @default([])
+
+  /// Which shipped default this row came from (lib/quotes/textBlockDefaults.js),
+  /// so seeding is idempotent and a company that deletes a default is not
+  /// handed it back next time the library opens. Null on a block the company
+  /// wrote itself.
+  seedKey String?
+
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId, sortOrder])
+}
+
+/// A reusable starting point for a new quote: the scope groups (with their
+/// stored line items, takeoff and intake answers), the notes and the process
+/// notes of the quote it was saved from, under a name.
+///
+/// A SNAPSHOT, deliberately. The groups are copied exactly as
+/// QuoteScopeGroup stored them — prices included — and open in the builder
+/// as persisted groups, so a template written in March is not silently
+/// repriced by the rate card of the day it is applied; the estimator edits
+/// the numbers as numbers, the way a reopened quote works. No client, no
+/// address, no dates, no share token: those belong to a quote, not a shape.
+model QuoteTemplate {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  name     String
+  /// The language the groups' text is written in — the quote a template is
+  /// applied to opens in it (non-negotiable #6: the language is chosen at
+  /// creation, and applying a French template IS choosing French).
+  language String @default("en")
+
+  /// [{ categoryId, label, lineItems, takeoff, intakeValues, subtotal }] in
+  /// order — the same shape lib/quotes/duplicateQuote.js copies.
+  scopeGroups  Json
+  notes        String?
+  processNotes String?
+
+  /// Traceability only; the quote may be deleted after and the template
+  /// stands on its own copy.
+  sourceQuoteId String?
+  createdById   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId, name])
+}
+
 /// What one quote was ESTIMATED to cost, frozen at the moment it was quoted:
 /// who was expected on the job and at what rate, the bill of materials, this
 /// job's share of overhead, and the margin those produced. Internal only.
@@ -4796,8 +4968,110 @@ model Task {
   /// landed on the job.
   photos JobPhoto[]
 
+  // ── The job plan (lib/jobs/plan.js) ──────────────────────────────────────
+  //
+  // A plan STEP is a Task: the same row the to-do list, the crew's phone and
+  // the photo requirement already know how to handle, with the fields below
+  // filled in. A second "PlanStep" model was the obvious alternative and was
+  // rejected — it would have meant a second tick, a second photo path and a
+  // second permission rule for what is, to the person on site, the same
+  // thing: a piece of work with their name on it. `planStep` is what tells
+  // the two panels on the job page apart (the plan draws steps, "To-dos on
+  // this job" draws the rest), so a free-form to-do typed before the plan
+  // existed keeps rendering exactly where it always did.
+
+  /// True for a row that belongs to the ordered plan — built from the quote's
+  /// approved lines, added by hand with "Add a step", or created by an
+  /// approved change order. False (every row before this existed) for a
+  /// free-form to-do.
+  planStep Boolean @default(false)
+
+  /// Position in the plan. Only meaningful among the same job's plan steps.
+  sortOrder Int @default(0)
+
+  /// Hours the takeoff said this line would take (lib/pricing/paintTakeoff.js
+  /// per line; the trade's labour total for a one-line group). Null when the
+  /// quote had no takeoff behind that line — never invented from the price.
+  estimatedHours Decimal? @db.Decimal(6, 2)
+
+  /// Which approved quote line this step came from: "<scopeGroupId>:<index>"
+  /// for a scope-group line, "addon:<QuoteAddOn.id>" for a ticked option.
+  /// Lines have no id of their own (they are addressed by array index in the
+  /// builder), so the group id + ordinal is the most stable name available;
+  /// the idempotent sourceKey is built from it.
+  quoteLineKey String?
+  /// 1-based position across the quote's visible lines, for "Line 3" on the
+  /// step. Null for an option or a hand-added step.
+  quoteLineNo  Int?
+
+  /// The scope group's trade key ("painting") and the takeoff product keys
+  /// this line consumes ("wall_interior"). Keys, not JobMaterial ids: the
+  /// buy list is deleted and rebuilt on regenerate (app/api/jobs/[id]/
+  /// materials), and a foreign key would dangle every time. The plan joins
+  /// on (categoryKey, materialKey) at read time.
+  categoryKey  String?
+  materialKeys String[] @default([])
+
+  /// Why this step is on hold for a reason OUTSIDE the plan — "paint
+  /// delivery · due Sep 24 a.m.", "ceiling repair curing 24 h". The two other
+  /// kinds of waiting are relations: `dependsOn` (another step) and
+  /// `waitingOnChangeOrder` (the client's signature). Status itself does not
+  /// gain a `waiting` value: "waiting" is DERIVED from these three by
+  /// lib/jobs/plan.js so every existing reader of TaskStatus keeps its four
+  /// values, and a step whose blocker clears is waiting on nothing without
+  /// anyone having to remember to flip it back.
+  waitingReason String?
+
+  /// The change order this step cannot start until the client signs. Set by
+  /// lib/jobs/changeOrderDecision.js when a change order is sent against
+  /// this task, cleared by its decision.
+  waitingOnChangeOrderId String?
+  waitingOnChangeOrder   ChangeOrder? @relation("TaskWaitingOnChangeOrder", fields: [waitingOnChangeOrderId], references: [id], onDelete: SetNull)
+
+  /// Whether the client portal may show this step (title, status, dates, the
+  /// photos filed against it — never its notes or an hour figure). Default
+  /// OFF at the column: "Follow up payment for INV-0007" and "Review what
+  /// this job actually cost" are tasks with a jobId too, and a default of
+  /// true would have published them. Plan steps are created visible.
+  clientVisible Boolean @default(false)
+
+  /// The block on the crew day view — when set, the step is drawn at these
+  /// times in its assignee's lane. Null draws the step in the lane for its
+  /// dueDate with its estimate, and no times: a start time nobody chose is
+  /// not shown as one.
+  scheduledStart DateTime?
+  scheduledEnd   DateTime?
+
+  /// The steps this one waits on, and the steps waiting on this one.
+  dependsOn  TaskDependency[] @relation("TaskDependsOn")
+  dependents TaskDependency[] @relation("TaskDependents")
+
+  /// Hours clocked against this step (TimeEntry.taskId).
+  timeEntries  TimeEntry[]
+  /// Change orders raised against this step.
+  changeOrders ChangeOrder[] @relation("ChangeOrderTask")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+/// One edge of the job plan: `task` cannot start until `dependsOn` is done.
+///
+/// A join table rather than a `dependsOnIds String[]` on Task, because the
+/// gate in PATCH /api/tasks/[id] has to read the CURRENT status of every
+/// blocker in one query, and a cycle check has to walk the edges both ways.
+/// Cascade both sides: removing a step removes its edges, never the steps on
+/// the other end of them.
+model TaskDependency {
+  id          String   @id @default(cuid())
+  taskId      String
+  task        Task     @relation("TaskDependsOn", fields: [taskId], references: [id], onDelete: Cascade)
+  dependsOnId String
+  dependsOn   Task     @relation("TaskDependents", fields: [dependsOnId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@unique([taskId, dependsOnId])
+  @@index([dependsOnId])
 }
 
 model WorkArea {
@@ -5422,6 +5696,63 @@ model ChangeOrder {
   createdById String?
   createdBy   User?    @relation("ChangeOrderCreatedBy", fields: [createdById], references: [id])
   createdAt   DateTime @default(now())
+
+  // ── The client's step (lib/jobs/changeOrderAddendum.js) ──────────────────
+  //
+  // Everything below is additive. A change order logged the old way — typed
+  // by staff, "the client agreed" — still has every one of these null and
+  // keeps working exactly as before; see docs/CALLBACKS-AND-CHANGE-ORDERS.md.
+
+  /// CO-1, CO-2 … within the job, allocated at creation under the job's row
+  /// lock. Null on rows written before it existed; those are numbered by
+  /// createdAt order when displayed (changeOrderLabel), which is stable
+  /// because a change order is never deleted.
+  seq Int?
+
+  /// What changed, as sanitised rich text (bold, italic, lists, links only —
+  /// lib/jobs/changeOrderAddendum.js's sanitiser is the boundary between what
+  /// a browser sent and what a homeowner's page renders). `description`
+  /// stays the one-line title.
+  bodyHtml String?
+
+  /// The quote line this changes ("<scopeGroupId>:<index>", same key as
+  /// Task.quoteLineKey) and a snapshot of what that line said when the
+  /// change order was raised — the addendum prints "Original line" from the
+  /// snapshot, so a later edit to the quote cannot change what the client
+  /// was shown next to their signature.
+  quoteLineKey String?
+  originalLine Json?
+
+  /// Or the plan step it changes. An approved change order against a task
+  /// edits that step; one against a line (or nothing) adds a step.
+  taskId String?
+  task   Task?   @relation("ChangeOrderTask", fields: [taskId], references: [id], onDelete: SetNull)
+
+  /// Days the finish moves. Null means "not stated", not zero.
+  scheduleDeltaDays Int?
+
+  /// Site photos shown on the addendum (Cloudinary URLs via /api/upload).
+  photos String[] @default([])
+
+  /// The credential in the link the client receives. 32 CSPRNG bytes,
+  /// base64url — the same shape as Quote.shareToken. Null until sent.
+  shareToken String?   @unique
+  sentAt     DateTime?
+  /// "sms" | "email" | "sms+email" — which channels actually accepted the
+  /// message on the last send. Never set by a send that failed.
+  sentVia    String?
+  viewedAt   DateTime?
+
+  /// The client's approval, same shape as Quote.signature:
+  ///   { name, signatureDataUrl, signedAt, ip, userAgent, documentHash, consent }
+  /// documentHash covers this row's own agreed content (description, body,
+  /// delta, schedule, the line it changes). A client-signed change order has
+  /// `signature` set and `decidedById` null: the client decided, not a staff
+  /// member.
+  signature Json?
+
+  /// Plan steps on hold until this is signed (Task.waitingOnChangeOrderId).
+  waitingTasks Task[] @relation("TaskWaitingOnChangeOrder")
 
   @@index([jobId])
   @@index([invoiceId])
@@ -6741,6 +7072,15 @@ model TimeEntry {
   /// whether the person left at 16:00 or worked until 19:00 is a pay
   /// decision, and only a person makes it (the timesheet's manual clock-out).
   overrunNotifiedAt DateTime?
+
+  /// The plan step this time went to, when the person picked one at clock-in
+  /// (the step picker on /app/clock appears only for a job that has a plan).
+  /// Null means "the job, no particular step" — the row every entry written
+  /// before this existed makes, and still a true statement. SetNull: deleting
+  /// a step never deletes an hour somebody worked.
+  taskId String?
+  task   Task?   @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
   /// The invoice whose labour line bills this entry, once one does (POST
   /// /api/invoices with a `labour` block — lib/invoices/labourLine.js).
   /// Written in the same transaction as the invoice; read by GET

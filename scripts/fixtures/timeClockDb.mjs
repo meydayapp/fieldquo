@@ -32,6 +32,10 @@ export const rows = {
   job: [],
   jobVisit: [],
   timeEntry: [],
+  // The plan steps the clock's picker offers per job (lib/timeclock/
+  // jobChoices.js since the job plan landed) and an entry may be booked to.
+  // Empty unless a check seeds one: no plan, no second picker.
+  task: [],
 };
 
 /** Every write attempted, in order. */
@@ -61,6 +65,7 @@ const RELATIONS = {
   timeEntry: {
     worker: { list: false, get: (e) => rows.worker.find((w) => w.id === e.workerId) || null },
     job: { list: false, get: (e) => (e.jobId ? rows.job.find((j) => j.id === e.jobId) || null : null) },
+    task: { list: false, get: (e) => (e.taskId ? rows.task.find((t) => t.id === e.taskId) || null : null) },
   },
 };
 
@@ -157,6 +162,7 @@ function relationModel(model, key) {
   if (model === "jobVisit" && key === "job") return "job";
   if (model === "timeEntry" && key === "worker") return "worker";
   if (model === "timeEntry" && key === "job") return "job";
+  if (model === "timeEntry" && key === "task") return "task";
   throw new Error(`timeClockDb: unknown relation ${model}.${key}`);
 }
 
@@ -234,6 +240,7 @@ export const db = new Proxy(
     job: model("job"),
     jobVisit: model("jobVisit"),
     timeEntry: model("timeEntry"),
+    task: model("task"),
     // Prisma's batch form invokes each call eagerly and awaits the array. The
     // stub's methods are already-running promises by the time they arrive here,
     // so awaiting them is the same sequence a batch would produce — enough to

@@ -114,6 +114,7 @@ import P111 from "@/app/app/daily-sheets/week/page.js";
 import P112 from "@/app/app/invoices/new/page.js";
 import P113 from "@/docs/screens/app-guide/harness/PaintRatesFrame.jsx";
 import P114 from "@/app/app/settings/presentation/page.js";
+import P115 from "@/app/co/[token]/ChangeOrderApproval.js";
 export const PAGES = {
   "app/app/page.js": P0,
   "app/app/copilot/page.js": P1,
@@ -230,4 +231,5 @@ export const PAGES = {
   "app/app/invoices/new/page.js": P112,
   "docs/screens/app-guide/harness/PaintRatesFrame.jsx": P113,
   "app/app/settings/presentation/page.js": P114,
+  "app/co/[token]/ChangeOrderApproval.js": P115,
 };

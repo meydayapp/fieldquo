@@ -6,6 +6,8 @@ import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { can, requirePermission } from "@/lib/permissions";
 import { normaliseRequiredPhotoCount } from "@/lib/tasks/completion";
+import { normalisePlanFields } from "@/lib/tasks/planFields";
+import { wouldCycle } from "@/lib/jobs/plan";
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -158,6 +160,16 @@ export async function POST(request) {
     );
   }
 
+  // A plan step ("Add a step" on the job page) carries the plan fields —
+  // lib/tasks/planFields.js validates them; the same job-and-cycle rules the
+  // PATCH route applies to `dependsOn` apply here.
+  const plan = normalisePlanFields(body);
+  if (!plan.ok) return NextResponse.json({ error: plan.error }, { status: 400 });
+  const dependsOnIds = [...new Set(plan.value.dependsOn || [])];
+  if (dependsOnIds.length && !jobId) {
+    return NextResponse.json({ error: "Only a step on a job can depend on other steps." }, { status: 400 });
+  }
+
   if (
     assignedToId &&
     assignedToId !== member.userId &&
@@ -207,6 +219,30 @@ export async function POST(request) {
         { status: 400 },
       );
   }
+  if (dependsOnIds.length) {
+    const own = await db.task.findMany({
+      where: { id: { in: dependsOnIds }, jobId, companyId: member.companyId, planStep: true },
+      select: { id: true },
+    });
+    if (own.length !== dependsOnIds.length) {
+      return NextResponse.json({ error: "Every dependency must be a step on the same job." }, { status: 400 });
+    }
+    const edges = await db.taskDependency.findMany({
+      where: { task: { jobId } },
+      select: { taskId: true, dependsOnId: true },
+    });
+    // A brand-new step cannot be on the far side of an existing edge, but the
+    // check is cheap and keeps the rule in one shape on both routes.
+    if (wouldCycle(edges.map((e) => [e.taskId, e.dependsOnId]), dependsOnIds.map((d) => ["__new__", d]))) {
+      return NextResponse.json({ error: "That would make the plan go round in a circle." }, { status: 400 });
+    }
+  }
+  // A hand-added step lands at the end of the plan unless told otherwise.
+  let sortOrder = plan.data.sortOrder;
+  if (plan.value.planStep && sortOrder === undefined && jobId) {
+    const last = await db.task.aggregate({ where: { jobId, planStep: true }, _max: { sortOrder: true } });
+    sortOrder = (last?._max?.sortOrder ?? -1) + 1;
+  }
 
   const task = await db.task.create({
     data: {
@@ -224,6 +260,12 @@ export async function POST(request) {
       workAreaId: workAreaId || null,
       requiredPhotoCount,
       requiresComment: Boolean(requiresComment),
+      ...plan.data,
+      ...(sortOrder !== undefined && { sortOrder }),
+      // A step added by hand is the client's to see unless the form said
+      // otherwise; a plain to-do stays off the portal (the column's default).
+      ...(plan.value.planStep && !("clientVisible" in body) ? { clientVisible: true } : {}),
+      ...(dependsOnIds.length && { dependsOn: { create: dependsOnIds.map((dependsOnId) => ({ dependsOnId })) } }),
     },
     include: {
       assignedTo: { select: { id: true, name: true } },

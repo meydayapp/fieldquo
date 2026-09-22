@@ -14,20 +14,26 @@
 // a laptop and genuinely ambiguous on a phone, where quantity and rate are
 // two identical narrow number boxes. Headers cost one row and remove the
 // guessing.
+//
+// ── Where the chips went ────────────────────────────────────────────────────
+//
+// "Common for this trade" and the products <select> used to sit under the
+// table as two separate pickers. Both now live inside the one library
+// dialog "+ Add area or line item" opens (LineItemLibrary.js), beside the
+// company's text blocks, so there is one list to search. The catalogue and
+// the products are still the sources; only the doorway moved. A text block
+// on the table is a line whose scope is drawn rich (RichTextBody) and,
+// when it carries no price, shows no rate or amount boxes.
 "use client";
 
 import { useState } from "react";
-import { Plus, X, Search } from "lucide-react";
-import { getDefaultLineItems } from "@/app/data/defaultLineItems";
-import { getLineItemGroups } from "@/app/data/lineItemGroups";
+import { Plus, X } from "lucide-react";
 import { getBenchmark } from "@/lib/pricing/benchmarkGuidance";
 import { formatAppMoney } from "@/lib/format/money";
 import { useTranslation } from "@/app/hooks/useTranslation";
-
-// Above this many suggestions a flat row of chips stops being a picker and
-// becomes a wall. Electrical ships 54 and plumbing 82; every other trade ships
-// six to nine and is better off flat, so the switch is on count, not on trade.
-const GROUPED_PICKER_THRESHOLD = 20;
+import { isTextLine, lineShowsAmount } from "@/lib/quotes/textBlocks";
+import RichTextBody from "@/app/components/quotes/RichTextBody";
+import LineItemLibrary from "./LineItemLibrary";
 
 // The scope-note placeholder (app.lineItems.detailPlaceholder) is shown greyed
 // in the box, so an estimator can see the SHAPE of a good scope note without
@@ -46,40 +52,24 @@ export default function LineItemsTable({
   onRemove,
   onAddProduct,
   onAddSuggested,
+  // A fully-formed line from the library dialog — a text block, priced or
+  // not (lib/quotes/textBlocks.js lineFromTextBlock).
+  onAddLine,
+  // The quote's language, so a block written in another one is resolved or
+  // drafted into it before it lands.
+  documentLanguage = "en",
+  // The trade's hourly sell rate, prefilled for an hourly block.
+  hourlyRate = null,
+  // Whether this member may see or type money — the dialog prices nothing
+  // for one who may not.
+  showPricing = true,
+  // The takeoff's areas, when the trade has some to offer (see the dialog).
+  areas = null,
+  onAddArea = null,
 }) {
   const { t, language } = useTranslation();
   const detailPlaceholder = t("app.lineItems.detailPlaceholder");
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [query, setQuery] = useState("");
-
-  // Anything already on the quote drops out of the suggestions — offering
-  // "Disposal fee" when it's the line directly above is noise.
-  const present = new Set(
-    items.map((i) => String(i.description || "").trim().toLowerCase()),
-  );
-  const catalog = getDefaultLineItems(categoryKey);
-  const all = catalog.filter(
-    (s) => !present.has(s.description.toLowerCase()),
-  );
-  const q = query.trim().toLowerCase();
-  const suggestions = q
-    ? all.filter((s) => s.description.toLowerCase().includes(q))
-    : all;
-
-  // Gated on the CATALOGUE size, not on what's left. Gating on the remainder
-  // would flip the picker from sectioned to flat partway through a big quote,
-  // as adding lines shrank the list past the threshold — the layout moving
-  // under someone mid-task, for no reason they could see.
-  const groups = getLineItemGroups(categoryKey);
-  const grouped = groups.length > 0 && catalog.length >= GROUPED_PICKER_THRESHOLD;
-  const sections = grouped
-    ? groups
-        .map((g) => ({
-          ...g,
-          items: suggestions.filter((s) => s.group === g.key),
-        }))
-        .filter((g) => g.items.length > 0)
-    : [{ key: "_all", label: null, items: suggestions }];
+  const [libraryOpen, setLibraryOpen] = useState(false);
 
   return (
     <div>
@@ -124,6 +114,25 @@ export default function LineItemsTable({
               placeholder={t("app.lineItems.description")}
               className="w-full sm:col-span-5 border border-border rounded px-2 py-2 sm:py-1.5 text-sm"
             />
+            {/* An unpriced text block has no quantity or rate to type: the
+                boxes would be a $0.00 the document does not print. Its row
+                keeps the remove button and the badges below. */}
+            {!lineShowsAmount(item) ? (
+              <div className="flex items-center justify-between gap-2 sm:col-span-7">
+                <span className="text-[11px] text-muted-foreground">
+                  {t("app.textBlocks.chipTextBlock", "Text block")}
+                  {item.hiddenOnWorkOrder ? ` · ${t("app.textBlocks.hiddenOnWorkOrderChip", "Hidden on work order")}` : ""}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => onRemove(i)}
+                  className="shrink-0 p-2 sm:p-0 -mr-1 sm:mr-0 text-muted-foreground hover:text-red-600"
+                  aria-label={t("app.lineItems.removeLine")}
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            ) : (
             <div className="flex items-center gap-2 sm:contents">
               <label className="flex-1 sm:contents">
                 <span className="sm:hidden block text-[10px] font-medium text-muted-foreground mb-0.5">
@@ -161,6 +170,7 @@ export default function LineItemsTable({
                 <X size={14} />
               </button>
             </div>
+            )}
 
             {/* ── What the work actually involves ──────────────────────────
                 The name of a line is not the scope of it. "Cabinet
@@ -174,13 +184,29 @@ export default function LineItemsTable({
                 belonging to the line above it rather than a fifth column.
                 Optional on every line: a disposal fee does not need a
                 paragraph, and forcing one would fill quotes with padding. */}
-            <textarea
-              value={item.detail || ""}
-              onChange={(e) => onChange(i, "detail", e.target.value)}
-              rows={2}
-              placeholder={detailPlaceholder}
-              className="w-full sm:col-span-12 border border-border rounded px-2 py-1.5 text-xs resize-y bg-background text-foreground placeholder:text-muted-foreground"
-            />
+            {isTextLine(item) ? (
+              // The block's body, as the client will read it — bold, lists
+              // and links drawn, not their markers. Edited through the
+              // library dialog rather than in place: the toolbar and the
+              // preview live there, and a plain textarea here would show
+              // the markers to somebody who never chose to see them.
+              <div className="sm:col-span-12 rounded border border-dashed border-border px-2 py-1.5 text-xs text-muted-foreground">
+                {item.detail ? <RichTextBody body={item.detail} /> : null}
+                {lineShowsAmount(item) && item.hiddenOnWorkOrder ? (
+                  <span className="inline-block mt-1 rounded-full border border-border px-2 py-0.5 text-[10px]">
+                    {t("app.textBlocks.hiddenOnWorkOrderChip", "Hidden on work order")}
+                  </span>
+                ) : null}
+              </div>
+            ) : (
+              <textarea
+                value={item.detail || ""}
+                onChange={(e) => onChange(i, "detail", e.target.value)}
+                rows={2}
+                placeholder={detailPlaceholder}
+                className="w-full sm:col-span-12 border border-border rounded px-2 py-1.5 text-xs resize-y bg-background text-foreground placeholder:text-muted-foreground"
+              />
+            )}
 
             <BenchmarkHint item={item} categoryKey={categoryKey} />
           </div>
@@ -196,102 +222,37 @@ export default function LineItemsTable({
           <Plus size={12} /> {t("app.lineItems.addLine")}
         </button>
 
-        {/* Gated on the unfiltered list, not the filtered one: a search that
-            matches nothing must not take the button that closes the panel. */}
-        {all.length > 0 && onAddSuggested && (
+        {/* The library: text blocks, the trade's habitual extras, the
+            products catalogue, a custom item — one dialog. Offered whenever
+            a caller can take a line from it. */}
+        {(onAddLine || onAddSuggested || onAddProduct) && (
           <button
             type="button"
-            onClick={() => setShowSuggestions((v) => !v)}
+            onClick={() => setLibraryOpen(true)}
             className="text-xs font-medium text-muted-foreground hover:text-foreground flex items-center gap-1"
+            data-open-line-item-library
           >
-            <Plus size={12} />
-            {showSuggestions ? t("app.action.hide") : t("app.lineItems.commonForTrade")}
+            <Plus size={12} /> {t("app.textBlocks.addTitle", "Add area or line item")}
           </button>
-        )}
-
-        {/* Only the products linked to this group's category — a flooring
-            group shouldn't offer cabinet hardware. */}
-        {products.length > 0 && (
-          <select
-            value=""
-            onChange={(e) => {
-              const product = products.find((p) => p.id === e.target.value);
-              if (product) onAddProduct(product);
-              e.target.value = "";
-            }}
-            className="text-xs border border-border rounded-full px-3 py-1.5 bg-card"
-          >
-            <option value="">{t("app.lineItems.addFromProducts")}</option>
-            {products.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-                {p.unitPrice != null
-                  ? ` — ${formatAppMoney(p.unitPrice, currency, language)}`
-                  : ""}
-              </option>
-            ))}
-          </select>
         )}
       </div>
 
-      {/* Offered, never added automatically. An unwanted line on a quote is
-          worse than a missing one, because the client reads it. Prices are
-          blank on purpose — see app/data/defaultLineItems.js. */}
-      {showSuggestions && all.length > 0 && (
-        <div className="mt-3 border border-dashed border-border rounded-lg p-3">
-          <p className="text-[11px] text-muted-foreground mb-2">
-            {t("app.lineItems.suggestionsHint")}
-          </p>
-
-          {/* Search appears with the sections. Fifty-four chips are navigable
-              by heading; eighty-two are navigable by typing. */}
-          {grouped && (
-            <div className="relative mb-3">
-              <Search
-                size={13}
-                className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
-              />
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder={t("app.lineItems.searchItems", { count: all.length })}
-                className="w-full border border-border rounded-lg pl-7 pr-2 py-1.5 text-xs bg-card"
-              />
-            </div>
-          )}
-
-          {sections.length === 0 ? (
-            <p className="text-xs text-muted-foreground py-1">
-              {t("app.lineItems.noMatches", { query })}
-            </p>
-          ) : (
-            <div className="space-y-3">
-              {sections.map((section) => (
-                <div key={section.key}>
-                  {section.label && (
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
-                      {section.label}
-                    </p>
-                  )}
-                  <div className="flex flex-wrap gap-1.5">
-                    {section.items.map((s) => (
-                      <button
-                        key={s.key || s.description}
-                        type="button"
-                        onClick={() => onAddSuggested(s)}
-                        className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-2.5 py-1 text-xs text-foreground hover:bg-muted"
-                      >
-                        <Plus size={11} />
-                        {s.description}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+      <LineItemLibrary
+        open={libraryOpen}
+        onClose={() => setLibraryOpen(false)}
+        categoryKey={categoryKey}
+        products={products}
+        existingDescriptions={items.map((i) => i.description)}
+        documentLanguage={documentLanguage}
+        currency={currency}
+        hourlyRate={hourlyRate}
+        showPricing={showPricing}
+        areas={areas}
+        onAddArea={onAddArea}
+        onAddLine={onAddLine}
+        onAddSuggested={onAddSuggested}
+        onAddProduct={onAddProduct}
+      />
     </div>
   );
 }

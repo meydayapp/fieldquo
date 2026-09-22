@@ -72,6 +72,10 @@ export default function TimeClockPage() {
   // into the suggestion once the person has touched the picker.
   const [jobId, setJobId] = useState("");
   const [switchTo, setSwitchTo] = useState("");
+  // The plan step, when the chosen job has a plan. "" is "no particular
+  // step" — a real answer, booked as such (TimeEntry.taskId null).
+  const [taskId, setTaskId] = useState("");
+  const [switchTaskId, setSwitchTaskId] = useState("");
   const touched = useRef(false);
   const tick = useRef(null);
   // Whether the next tap would put the browser's location sheet on screen.
@@ -163,7 +167,7 @@ export default function TimeClockPage() {
     return () => clearInterval(tick.current);
   }, []);
 
-  async function punch(action, sendJobId) {
+  async function punch(action, sendJobId, sendTaskId = "") {
     setBusy(true);
     try {
       // Asked once, here, at the tap. null when the phone did not answer, and
@@ -177,6 +181,9 @@ export default function TimeClockPage() {
         await offline.enqueue("timesheet", {
           action,
           jobId: action === "out" ? null : sendJobId || null,
+          // The plan step, carried through the queue the same way — see
+          // lib/offline/queue.js replayTimesheet.
+          taskId: action === "out" || !sendJobId ? null : sendTaskId || null,
           jobTitle: option?.title || null,
           at: new Date().toISOString(),
           ...(stamp && { stamp }),
@@ -195,7 +202,7 @@ export default function TimeClockPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             action,
-            ...(action === "out" ? {} : { jobId: sendJobId || null }),
+            ...(action === "out" ? {} : { jobId: sendJobId || null, taskId: sendJobId ? sendTaskId || null : null }),
             ...(stamp && { stamp }),
           }),
         });
@@ -212,6 +219,8 @@ export default function TimeClockPage() {
       }
       touched.current = false;
       setSwitchTo("");
+      setSwitchTaskId("");
+      setTaskId("");
       await load();
     } finally {
       setBusy(false);
@@ -341,7 +350,12 @@ export default function TimeClockPage() {
   const otherOptions = options.filter((o) => !o.today);
   const jobLabel = (o) =>
     o?.title || t("app.clock.untitledJob", "Untitled job");
-  const currentJobName = open?.job?.title || null;
+  const currentJobName = open?.job?.title
+    ? open?.task?.title
+      ? `${open.job.title} · ${open.task.title}`
+      : open.job.title
+    : null;
+  const stepsFor = (id) => options.find((o) => o.id === id)?.steps || [];
 
   return (
     <div className="max-w-md mx-auto p-4 sm:p-6">
@@ -446,12 +460,19 @@ export default function TimeClockPage() {
               onChange={(v) => {
                 touched.current = true;
                 setJobId(v);
+                setTaskId("");
               }}
               todayOptions={todayOptions}
               otherOptions={otherOptions}
               jobLabel={jobLabel}
               t={t}
             />
+            {/* The step, only when the job has a plan. Hours booked to a
+                step show as "clocked" on it (lib/jobs/plan.js); hours booked
+                to the job alone still count for the job. */}
+            {stepsFor(jobId).length > 0 && (
+              <StepSelect id="clock-step" value={taskId} onChange={setTaskId} steps={stepsFor(jobId)} t={t} />
+            )}
             <p className="mt-2 text-xs text-muted-foreground">
               {data.todayCount === 1
                 ? t(
@@ -488,7 +509,7 @@ export default function TimeClockPage() {
 
         <button
           type="button"
-          onClick={() => punch(clockedIn ? "out" : "in", jobId)}
+          onClick={() => punch(clockedIn ? "out" : "in", jobId, taskId)}
           disabled={busy}
           className={`mt-6 w-full inline-flex items-center justify-center gap-2 rounded-xl px-5 py-4 text-base font-semibold text-white transition-colors disabled:opacity-60 ${
             clockedIn ? "bg-red-600 hover:bg-red-700" : "bg-emerald-600 hover:bg-emerald-700"
@@ -519,16 +540,22 @@ export default function TimeClockPage() {
           <JobSelect
             id="clock-switch-job"
             value={switchTo}
-            onChange={setSwitchTo}
+            onChange={(v) => {
+              setSwitchTo(v);
+              setSwitchTaskId("");
+            }}
             todayOptions={todayOptions}
             otherOptions={otherOptions}
             jobLabel={jobLabel}
             t={t}
           />
+          {stepsFor(switchTo).length > 0 && (
+            <StepSelect id="clock-switch-step" value={switchTaskId} onChange={setSwitchTaskId} steps={stepsFor(switchTo)} t={t} />
+          )}
           <button
             type="button"
-            onClick={() => punch("switch", switchTo)}
-            disabled={busy || (switchTo || "") === (open?.jobId || "")}
+            onClick={() => punch("switch", switchTo, switchTaskId)}
+            disabled={busy || ((switchTo || "") === (open?.jobId || "") && (switchTaskId || "") === (open?.taskId || ""))}
             className="mt-3 w-full inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-background px-5 py-3 text-base font-semibold text-foreground transition-colors disabled:opacity-50"
           >
             {busy ? <Loader2 size={18} className="animate-spin" /> : <ArrowRightLeft size={16} />}
@@ -569,7 +596,11 @@ export default function TimeClockPage() {
                   {/* Named either way. "No job" is a fact worth showing — it is
                       how somebody notices an hour that should have had one. */}
                   <span className="block text-xs text-muted-foreground break-words">
-                    {e.job?.title || t("app.clock.noJobEntry", "Not linked to a job")}
+                    {e.job?.title
+                      ? e.task?.title
+                        ? `${e.job.title} · ${e.task.title}`
+                        : e.job.title
+                      : t("app.clock.noJobEntry", "Not linked to a job")}
                   </span>
                   {/* The breaks that came off this entry — the reason its
                       hours are less than clock-in to clock-out. Unpaid only:
@@ -607,6 +638,33 @@ export default function TimeClockPage() {
  * Two optgroups, and the "no job" row sits above both rather than at the
  * bottom — it is the honest default for a lot of days, not the leftover option.
  */
+/**
+ * The plan step within the chosen job. A native <select>, like the job
+ * picker above it and for the same reasons (read in a driveway, on a phone).
+ */
+function StepSelect({ id, value, onChange, steps, t }) {
+  return (
+    <div className="mt-2">
+      <label htmlFor={id} className="text-xs font-semibold text-muted-foreground">
+        {t("app.clock.stepLabel", "Which step?")}
+      </label>
+      <select
+        id={id}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="mt-1.5 w-full rounded-xl border border-border bg-background px-3 py-3 text-base text-foreground"
+      >
+        <option value="">{t("app.clock.noStep", "The job — no particular step")}</option>
+        {steps.map((s) => (
+          <option key={s.id} value={s.id}>
+            {s.title}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
 function JobSelect({ id, value, onChange, todayOptions, otherOptions, jobLabel, t }) {
   return (
     <select
