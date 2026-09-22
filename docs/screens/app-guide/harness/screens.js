@@ -178,8 +178,6 @@ export const SCREENS = [
   { slug: "client-bio-link", href: "/l/erable-design", page: "app/components/links/LinkPageView.js", props: "bioLink", mode: "public", chapter: "help" },
   { slug: "client-funnel", href: "/f/erable-design/kitchen-quote", page: "app/f/[companySlug]/[funnelSlug]/FunnelRunner.js", props: { companySlug: "erable-design", funnelSlug: "kitchen-quote" }, mode: "public", scene: "funnel-start", chapter: "help" },
   { slug: "client-kitchen-design", href: "/design/qt_8f2c1a7d4e", page: "app/design/[token]/DesignClient.js", params: { token: "qt_8f2c1a7d4e" }, mode: "public", height: 1500, chapter: "help" },
-  // The change-order addendum a homeowner signs (app/co/[token]).
-  { slug: "client-change-order", href: "/co/co_9c2e7b1a4f", page: "app/co/[token]/ChangeOrderApproval.js", props: { token: "co_9c2e7b1a4f" }, mode: "public", height: 1500, chapter: "help" },
 
   // The detail pages the sidebar rows link to — inside the /app shell, as
   // the owner. `params` is what useParams() hands the page; the ids are
@@ -192,10 +190,6 @@ export const SCREENS = [
   // The same job scrolled to its visits (checklist, location stamps) and the
   // photo timeline below them — the lower half of a page too tall for one frame.
   { slug: "job-detail-visits", href: "/app/jobs", page: "app/app/jobs/[id]/JobDetail.js", props: { jobId: "j_318" }, scene: "scroll-visits", height: 2000, chapter: "help" },
-  // The same job scrolled to its plan: the ordered steps with their
-  // dependencies, the crew day view, and the change orders under them
-  // (CO-2 out with the client, CO-1 signed).
-  { slug: "job-plan", href: "/app/jobs", page: "app/app/jobs/[id]/JobDetail.js", props: { jobId: "j_318" }, scene: "scroll-plan", height: 2200, chapter: "help" },
   { slug: "invoice-detail", href: "/app/invoices", page: "app/app/invoices/[id]/page.js", params: { id: "inv_2069" }, height: 1560, chapter: "help" },
   { slug: "client-detail", href: "/app/clients", page: "app/app/clients/[id]/page.js", params: { id: "cl_dubois" }, chapter: "help" },
   { slug: "plan-detail", href: "/app/plans", page: "app/app/plans/[id]/page.js", params: { id: "sp_dubois" }, chapter: "help" },
@@ -251,6 +245,16 @@ export const SCREENS = [
   // at desk width and at phone width, where its columns stack.
   { slug: "ai-team-flow", href: "/app/settings/ai-employee", page: "app/app/settings/ai-employee/page.js", settings: true, height: 1360, scene: "ai-team-flow", chapter: "help" },
   { slug: "ai-team-flow-phone", href: "/app/settings/ai-employee", page: "app/app/settings/ai-employee/page.js", settings: true, width: 375, height: 1900, scene: "ai-team-flow", chapter: "help" },
+  // Materials, the crew work order and supplies (2026-09-21). The job page
+  // scrolled to its grouped material list with the AI banner; the work order
+  // as the office (hidden line flagged) and on the crew's phone; Purchasing on
+  // its Requests tab (reached by the tab, as a person does); the crew's
+  // Request a supply form.
+  { slug: "job-materials", href: "/app/jobs", page: "app/app/jobs/[id]/JobDetail.js", props: { jobId: "j_318" }, scene: "scroll-materials", height: 1400, chapter: "help" },
+  { slug: "work-order", href: "/app/jobs", page: "app/app/jobs/[id]/work-order/WorkOrderView.js", props: { jobId: "j_318" }, height: 1200, chapter: "help" },
+  { slug: "mobile-work-order", href: "/app/jobs", page: "app/app/jobs/[id]/work-order/WorkOrderView.js", props: { jobId: "j_318" }, member: "crew", width: 375, height: 1500, chapter: "help" },
+  { slug: "purchasing-requests", href: "/app/purchasing", page: "app/app/purchasing/page.js", scene: "purchasing-requests", height: 1100, chapter: "help" },
+  { slug: "mobile-supplies", href: "/app/me/supplies", page: "app/app/me/supplies/page.js", member: "crew", width: 375, height: 1400, chapter: "help" },
   ...INTRO_FRAMES,
 
   // ── The booking page at phone width, one frame per mode ────────────────
@@ -267,4 +271,10 @@ export const SCREENS = [
   { slug: "booking-pick-375", href: "/book/erable-design", page: "app/book/[companySlug]/BookingFlow.js", props: { companySlug: "erable-design" }, mode: "public", wrap: "bookingPage", scene: "booking-pick-paid", width: 375, height: 1100, out: "docs/screens/booking-modes", chapter: "booking-modes" },
   { slug: "booking-visit-375", href: "/book/erable-design", page: "app/book/[companySlug]/BookingFlow.js", props: { companySlug: "erable-design" }, mode: "public", wrap: "bookingPage", scene: "booking-details-visit", width: 375, height: 1400, out: "docs/screens/booking-modes", chapter: "booking-modes" },
   { slug: "booking-call-375", href: "/book/erable-design", page: "app/book/[companySlug]/BookingFlow.js", props: { companySlug: "erable-design" }, mode: "public", wrap: "bookingPage", scene: "booking-details-call", width: 375, height: 1400, out: "docs/screens/booking-modes", chapter: "booking-modes" },
+  // The change-order addendum a homeowner signs (app/co/[token]).
+  { slug: "client-change-order", href: "/co/co_9c2e7b1a4f", page: "app/co/[token]/ChangeOrderApproval.js", props: { token: "co_9c2e7b1a4f" }, mode: "public", height: 1500, chapter: "help" },
+  // The same job scrolled to its plan: the ordered steps with their
+  // dependencies, the crew day view, and the change orders under them
+  // (CO-2 out with the client, CO-1 signed).
+  { slug: "job-plan", href: "/app/jobs", page: "app/app/jobs/[id]/JobDetail.js", props: { jobId: "j_318" }, scene: "scroll-plan", height: 2200, chapter: "help" },
 ];
