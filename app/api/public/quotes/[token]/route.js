@@ -111,6 +111,7 @@ async function loadQuote(token) {
           country: true,
           taxRate: true,
           autoApplyLocalTax: true,
+          taxMode: true,
           vatRegistered: true,
           usTaxOverrides: true,
           // The "About us" section and the company's section defaults.
@@ -246,6 +247,7 @@ function present(quote) {
     financing: _financing,
     taxRate: _taxRate,
     autoApplyLocalTax: _autoApply,
+    taxMode: _taxMode,
     vatRegistered: _vatRegistered,
     usTaxOverrides: _usTaxOverrides,
     paymentMethods: _paymentMethods,

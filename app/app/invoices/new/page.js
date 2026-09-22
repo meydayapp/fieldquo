@@ -18,6 +18,8 @@ import { formatAppMoney } from "@/lib/format/money";
 import { planRequiredFrom } from "@/lib/signup/planRequired";
 import { explainTaxSource, renderTaxNote } from "@/lib/tax/resolveTaxRate";
 import { resolveDocumentTax } from "@/lib/tax/documentTax";
+import { taxLineHeadline, taxLineSource, taxLineResolved, taxLineUnresolvedHint } from "@/lib/tax/taxLine";
+import { taxPlaceOf } from "@/lib/quotes/taxPlace";
 
 export default function NewInvoicePage() {
   // The company's billing currency, read off whatever this page already
@@ -58,6 +60,8 @@ export default function NewInvoicePage() {
   // ("county and city taxes are not included, enter the rate for this address")
   // had no field to be acted on.
   const [taxRateTouched, setTaxRateTouched] = useState(false);
+  // The whole resolution, for the line's sentence (lib/tax/taxLine.js).
+  const [taxResult, setTaxResult] = useState(null);
   const [taxConfig, setTaxConfig] = useState(null);
   // Set when the rate came from the company's own province rather than this
   // client's. A guess with a price attached — see QuoteTotalsBar.
@@ -120,6 +124,9 @@ export default function NewInvoicePage() {
         setTaxConfig({
           taxRate: Number(businessInfo?.taxRate || 0),
           autoApplyLocalTax: Boolean(businessInfo?.autoApplyLocalTax),
+          // auto | manual — lib/tax/taxMode.js. The route sends the effective
+          // mode, never null.
+          taxMode: businessInfo?.taxMode || null,
           taxRates: Array.isArray(businessInfo?.taxRates)
             ? businessInfo.taxRates
             : [],
@@ -159,6 +166,7 @@ export default function NewInvoicePage() {
       lang: language,
     });
     if (!taxRateTouched) setTaxRate(result.rate);
+    setTaxResult(result);
     setTaxAssumed(
       result.assumed
         ? t(
@@ -171,13 +179,32 @@ export default function NewInvoicePage() {
         : "",
     );
     const note =
-      taxConfig.autoApplyLocalTax && selectedClient && !result.assumed
+      selectedClient && !result.assumed
         ? explainTaxSource(result, selectedClient, language)
         : null;
     // The US note is assembled from parts; renderTaxNote knows the shape.
     setTaxNote(renderTaxNote(note, t));
     setTaxCaution(result.cautionKey ? t(result.cautionKey) : "");
   }, [taxConfig, selectedClient, taxRateTouched, language, t]);
+
+  // The tax line in words — "HST 13% (Ontario) · from the client's address"
+  // — or, when nothing names a province, the hint that says what to add.
+  // Keyed on the RATE, never the amount: an invoice with no lines yet is $0
+  // of tax at a known rate, not an unresolved blank (lib/tax/taxLine.js).
+  const taxLine = (() => {
+    const basis = taxRateTouched ? { source: "manual", rate: Number(taxRate) || 0 } : taxResult;
+    const resolved = taxLineResolved(basis);
+    const headline = resolved ? taxLineHeadline(basis, language) : null;
+    const source = resolved ? taxLineSource(basis) : null;
+    const hint = resolved ? null : taxLineUnresolvedHint(basis, { place: taxPlaceOf(selectedClient) });
+    return {
+      resolved,
+      headline: headline ? t(headline.key, headline.params) : "",
+      source: source ? t(source.key, source.params) : "",
+      hint: hint ? t(hint.key, hint.params) : "",
+    };
+  })();
+  const taxUnresolved = taxEnabled && !taxLine.resolved;
 
   const filteredClients = clients.filter((c) =>
     c.name?.toLowerCase().includes(clientSearch.toLowerCase()),
@@ -688,6 +715,14 @@ export default function NewInvoicePage() {
           />
           {t("app.invoiceNew.applyTax", { rate: taxRate })}
         </label>
+        {taxEnabled && taxLine.resolved && taxLine.headline && (
+          <div className="mb-2" data-tax-line>
+            <p className="text-sm font-medium text-foreground">{taxLine.headline}</p>
+            {taxLine.source && (
+              <p className="text-xs text-muted-foreground" data-tax-source>{taxLine.source}</p>
+            )}
+          </div>
+        )}
         {taxEnabled && (
           <div className="mb-3 space-y-1">
             <label className="flex items-center gap-2 text-sm">
@@ -728,7 +763,7 @@ export default function NewInvoicePage() {
           </div>
           {/* Tax on with nothing charged is not a settled zero — the send
               route refuses to post one (lib/tax/documentTax.js). */}
-          {taxEnabled && tax === 0 ? (
+          {taxUnresolved ? (
             <div className="flex justify-between text-amber-700 dark:text-amber-300">
               <span>{t("app.invoiceNew.tax")}</span>
               <span className="font-medium">{t("app.tax.line.unresolved")}</span>
@@ -742,6 +777,11 @@ export default function NewInvoicePage() {
                   : t("app.tax.line.none")}
               </span>
             </div>
+          )}
+          {taxUnresolved && taxLine.hint && (
+            <p className="text-xs text-amber-700 dark:text-amber-300 leading-snug" data-tax-unresolved-hint>
+              {taxLine.hint}
+            </p>
           )}
           {taxAssumed && (
             <p className="text-xs text-amber-700 dark:text-amber-300 leading-snug">

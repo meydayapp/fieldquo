@@ -25,6 +25,8 @@ import {
 } from "@/lib/currency";
 import { taxRegistrationFor } from "@/lib/compliance/taxRegistration";
 import { isVatJurisdiction } from "@/lib/tax/jurisdictions";
+import { resolveDocumentTax } from "@/lib/tax/documentTax";
+import { taxLineHeadline } from "@/lib/tax/taxLine";
 import { reportResponseError } from "@/lib/clientErrors";
 import {
   contractTemplateList,
@@ -679,6 +681,11 @@ export default function CompanySettingsPage() {
           taxIdNumber: data?.taxIdNumber || "",
           taxRegistrationDismissed: Boolean(data?.taxRegistrationDismissedAt),
           autoApplyLocalTax: data?.autoApplyLocalTax ?? true,
+          // auto | manual — the route sends the effective mode, never null
+          // (lib/tax/taxMode.js).
+          taxMode: data?.taxMode === "manual" ? "manual" : "auto",
+          // The flat column behind the default, read for the preview only.
+          taxRate: Number(data?.taxRate || 0),
           // Per-state US overrides and whether the card is shown at all —
           // see UsTaxCard and app/api/settings/business-info.
           usTaxOverrides: data?.usTaxOverrides || {},
@@ -762,6 +769,36 @@ export default function CompanySettingsPage() {
   // the same keystroke that relabels the tax-number field.
   const isVatCountry = isVatJurisdiction(form?.country);
 
+  // ── What a quote for a job at the company's own address would carry ─────
+  //
+  // The same resolver the builder runs, against the form as it stands, with
+  // no client — which is the "assumed from your own address" rung. Shown so
+  // the contractor can see the mode's effect before saving it; it changes
+  // as they type a province or flip the mode.
+  const taxPreview = (() => {
+    if (!form) return null;
+    const result = resolveDocumentTax({
+      company: {
+        taxMode: form.taxMode,
+        autoApplyLocalTax: form.taxMode === "auto",
+        taxRate: form.taxRate,
+        country: form.country,
+        province: form.province,
+        vatRegistered: form.vatRegistered,
+        usTaxOverrides: form.usTaxOverrides,
+      },
+      taxRates,
+      client: null,
+      lang: language,
+    });
+    const headline = taxLineHeadline(result, language);
+    return {
+      region: result.label || result.detail?.label || form.province || "",
+      headline: headline ? t(headline.key, headline.params) : null,
+      caution: result.cautionKey ? t(result.cautionKey) : "",
+    };
+  })();
+
   function handlePlaceSelected({
     address,
     city,
@@ -817,7 +854,8 @@ export default function CompanySettingsPage() {
       taxIdName: form.taxIdName,
       taxIdNumber: form.taxIdNumber,
       taxRegistrationDismissed: form.taxRegistrationDismissed,
-      autoApplyLocalTax: form.autoApplyLocalTax,
+      // The mode; the route writes autoApplyLocalTax in step with it.
+      taxMode: form.taxMode,
       vatRegistered: form.vatRegistered,
       usTaxOverrides: form.usTaxOverrides,
       timezone: form.timezone,
@@ -1337,10 +1375,68 @@ export default function CompanySettingsPage() {
       {/* Tax settings */}
       <SectionCard title={t("app.setCompany.taxTitle")}>
         <TaxRegistrationFields form={form} set={set} inputClass={inputClass} />
+        {/* ── Automatic or manual ──────────────────────────────────────
+            Read by every resolver through lib/tax/taxMode.js. `auto` is the
+            default and what every existing company was already on; the
+            owner's decision of 2026-09-21. The preview under it is the
+            builder's own resolver run against this form, so the effect of
+            the choice is on screen before Save. */}
+        <div className="space-y-2" data-tax-mode>
+          <p className="text-sm font-medium text-foreground">
+            {t("app.setCompany.taxModeTitle")}
+          </p>
+          {[
+            ["auto", "app.setCompany.taxModeAuto", "app.setCompany.taxModeAutoHint"],
+            ["manual", "app.setCompany.taxModeManual", "app.setCompany.taxModeManualHint"],
+          ].map(([value, key, hintKey]) => (
+            <label key={value} className="flex items-start gap-2.5 text-sm text-foreground">
+              <input
+                type="radio"
+                className="mt-0.5"
+                name="tax-mode"
+                checked={form.taxMode === value}
+                onChange={() => set("taxMode", value)}
+              />
+              <span>
+                {t(key)}
+                <span className="block text-xs text-muted-foreground mt-0.5">
+                  {t(hintKey)}
+                </span>
+              </span>
+            </label>
+          ))}
+          {taxPreview && (
+            <div
+              className="rounded-lg border border-border bg-muted px-3 py-2 text-sm"
+              data-tax-preview
+            >
+              {taxPreview.headline ? (
+                <>
+                  <span className="text-muted-foreground">
+                    {t("app.setCompany.taxPreviewLabel", { region: taxPreview.region })}
+                  </span>{" "}
+                  <span className="font-medium text-foreground">{taxPreview.headline}</span>
+                  {taxPreview.caution && (
+                    <span className="block text-xs text-muted-foreground mt-1">{taxPreview.caution}</span>
+                  )}
+                </>
+              ) : (
+                <span className="text-muted-foreground">
+                  {form.province
+                    ? t("app.setCompany.taxPreviewUnknown", { region: taxPreview.region })
+                    : t("app.setCompany.taxPreviewNoProvince")}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+
         <div>
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center justify-between mb-1">
             <h3 className="text-sm font-semibold text-foreground">
-              {t("app.setCompany.taxRates")}
+              {form.taxMode === "manual"
+                ? t("app.setCompany.taxRates")
+                : t("app.setCompany.taxRatesOptional")}
             </h3>
             <button
               onClick={() => setShowNewRate((v) => !v)}
@@ -1350,9 +1446,20 @@ export default function CompanySettingsPage() {
             </button>
           </div>
 
+          {/* How the rows are used, per mode: in `auto` a row named after a
+              province beats the published rate for that province and the
+              default row fills in where the table has no answer; in
+              `manual` they are the whole answer. */}
+          <p className="text-xs text-muted-foreground mb-2">
+            {form.taxMode === "manual"
+              ? t("app.setCompany.taxRatesManualHint")
+              : t("app.setCompany.taxRatesAutoHint")}
+          </p>
           {taxRates.length === 0 && !showNewRate && (
             <p className="text-sm text-muted-foreground">
-              {t("app.setCompany.noTaxRates")}
+              {form.taxMode === "manual"
+                ? t("app.setCompany.noTaxRates")
+                : t("app.setCompany.noTaxRatesAuto")}
             </p>
           )}
 
@@ -1468,25 +1575,6 @@ export default function CompanySettingsPage() {
             ))}
           </div>
         )}
-
-        <label className="flex items-start gap-2.5 text-sm text-foreground">
-          <input
-            type="checkbox"
-            className="mt-0.5"
-            checked={form.autoApplyLocalTax}
-            onChange={(e) => set("autoApplyLocalTax", e.target.checked)}
-          />
-          <span>
-            {t("app.setCompany.autoApplyTax")}
-            {/* Honoured by the quote builder via lib/tax/resolveTaxRate.js.
-                It only ever selects between the rates listed above — nothing
-                is invented, and an unmatched province falls back to your
-                default. */}
-            <span className="block text-xs text-muted-foreground mt-1">
-              {t("app.setCompany.autoApplyTaxHint")}
-            </span>
-          </span>
-        </label>
 
         {/* Only for a company that touches the US: its own address there, a
             US client on file, or an override already saved. */}

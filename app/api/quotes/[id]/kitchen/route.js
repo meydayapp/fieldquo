@@ -26,7 +26,7 @@ import { requirePermission } from "@/lib/permissions";
 import { recordActivity } from "@/lib/activity/log";
 import { ratesForCompany } from "@/lib/kitchen/rates";
 import { kitchenLineItems, getKitchenBreakdown } from "@/lib/kitchen/pricing";
-import { resolveTaxRate } from "@/lib/tax/resolveTaxRate";
+import { resolveDocumentTax } from "@/lib/tax/documentTax";
 import { attachUsTaxRate } from "@/lib/tax/usRates";
 import {
   KITCHEN_DESIGN_KEY,
@@ -254,8 +254,10 @@ export async function PUT(request, { params }) {
             // rates depending on which screen priced the job first.
             select: {
               autoApplyLocalTax: true,
+              taxMode: true,
               taxRate: true,
               country: true,
+              province: true,
               vatRegistered: true,
               usTaxOverrides: true,
             },
@@ -268,8 +270,14 @@ export async function PUT(request, { params }) {
             })
             .then(attachUsTaxRate),
         ]);
+        // resolveDocumentTax, not resolveTaxRate: the same ladder the
+        // builder and the create route use, which asks the job address
+        // first and falls back to the company's own province rather than
+        // to nothing (lib/tax/documentTax.js).
         effectiveRate =
-          Number(resolveTaxRate({ company: company || {}, taxRates, client }).rate || 0) / 100;
+          Number(
+            resolveDocumentTax({ company: company || {}, taxRates, client, siteAddress: quote.siteAddress || null }).rate || 0,
+          ) / 100;
       }
     }
     const discount = Number(quote.discount || 0);

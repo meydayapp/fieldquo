@@ -352,4 +352,8 @@ export const SCREENS = [
   { slug: "shell-phone-create", href: "/app", page: "app/app/page.js", width: 375, height: 812, scene: "create-sheet", out: "docs/screens/shell", chapter: "shell" },
   { slug: "shell-phone-settings", href: "/app/settings/branding", page: "app/app/settings/branding/page.js", settings: true, width: 375, height: 812, out: "docs/screens/shell", chapter: "shell" },
   { slug: "shell-phone-drawer", href: "/app", page: "app/app/page.js", width: 375, height: 812, scene: "drawer-open", out: "docs/screens/shell", chapter: "shell" },
+  // The builder's tax line, worked out from the client's province
+  // (docs/TAX.md), and Settings → Tax with the mode and its preview.
+  { slug: "quote-tax-line", href: "/app/quotes", page: "app/app/quotes/new/page.js", scene: "quote-tax-line", height: 1100, chapter: "help" },
+  { slug: "settings-tax", href: "/app/settings/company", page: "app/app/settings/company/page.js", settings: true, scene: "settings-tax", height: 1400, chapter: "help" },
 ];

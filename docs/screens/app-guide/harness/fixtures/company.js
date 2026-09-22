@@ -83,6 +83,7 @@ export const COMPANY = {
   taxIdNumber: "123456789 RT0001",
   taxRegistrationDismissedAt: null,
   autoApplyLocalTax: true,
+  taxMode: "auto",
   worksAloneAt: null,
   vatRegistered: false,
   taxRates: [

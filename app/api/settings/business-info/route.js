@@ -13,6 +13,7 @@ import { containsMarkupCharacters } from "@/lib/security/rejectMarkupCharacters"
 import { sanitiseMethods, validateAllDetails, paymentCountry, enabledMethods } from "@/lib/payments/offlineMethods";
 import { cleanRadiusKm, normalisePostalPrefixes } from "@/lib/company/serviceArea";
 import { usRatesTableStatus } from "@/lib/tax/usRates";
+import { effectiveTaxMode, parseTaxMode } from "@/lib/tax/taxMode";
 import { normaliseUsOverrides, parseUsOverridesInput } from "@/lib/tax/usOverrides";
 // The geocode-if-missing rule moved to lib/company/coordinates.js so the day
 // map could centre on the same address without a second copy of it.
@@ -73,6 +74,9 @@ export async function GET(request) {
       taxIdNumber: true,
       taxRegistrationDismissedAt: true,
       autoApplyLocalTax: true,
+      // auto | manual | null — lib/tax/taxMode.js. The response carries the
+      // EFFECTIVE mode (below) so the settings screen never shows a blank.
+      taxMode: true,
       // "It's just me — no crew right now". Written from here (see the PATCH)
       // and read by Settings > Team, which renders the checkbox, and by
       // lib/onboarding.js, which drops the "Invite your team" step while it
@@ -148,6 +152,9 @@ export async function GET(request) {
 
   return NextResponse.json({
     ...withCoords,
+    // Never null on the wire: a company that has not chosen is on the mode
+    // its old setting implies, and the screen shows that one.
+    taxMode: effectiveTaxMode(company),
     usTaxOverrides: usOverrides,
     usTaxRelevant: usClients > 0 || Object.keys(usOverrides).length > 0,
     usRatesTable: usRatesTable
@@ -242,6 +249,7 @@ export async function PATCH(request) {
     taxRegistrationDismissed,
     worksAlone,
     autoApplyLocalTax,
+    taxMode,
     vatRegistered,
     usTaxOverrides,
     currency,
@@ -283,6 +291,13 @@ export async function PATCH(request) {
   // Per-state US overrides, validated to the closed shape or refused whole —
   // a bad state code or a 400% rate must not half-save.
   let cleanUsOverrides;
+  // "auto" / "manual" only; anything else is refused rather than stored as
+  // a third state the resolver would have to invent a meaning for.
+  const cleanTaxMode = taxMode === undefined ? null : parseTaxMode(taxMode);
+  if (taxMode !== undefined && !cleanTaxMode) {
+    return NextResponse.json({ error: "taxMode must be \"auto\" or \"manual\"." }, { status: 400 });
+  }
+
   if (usTaxOverrides !== undefined) {
     try {
       cleanUsOverrides = parseUsOverridesInput(usTaxOverrides);
@@ -542,7 +557,12 @@ export async function PATCH(request) {
       ...(vatRegistered !== undefined && {
         vatRegistered: vatRegistered === true || vatRegistered === false ? vatRegistered : null,
       }),
-      ...(autoApplyLocalTax !== undefined && { autoApplyLocalTax }),
+      // The mode, and the older boolean kept in step with it: taxMode is
+      // what every resolver reads (lib/tax/taxMode.js); autoApplyLocalTax
+      // only feeds the migration rule for rows that never chose. Writing
+      // both means a row that has chosen reads the same either way.
+      ...(cleanTaxMode && { taxMode: cleanTaxMode, autoApplyLocalTax: cleanTaxMode === "auto" }),
+      ...(cleanTaxMode == null && autoApplyLocalTax !== undefined && { autoApplyLocalTax }),
       ...(cleanUsOverrides !== undefined && { usTaxOverrides: cleanUsOverrides }),
       ...(timezone !== undefined && { timezone }),
       ...(dateFormat !== undefined && { dateFormat }),
