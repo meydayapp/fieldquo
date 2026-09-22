@@ -1,0 +1,415 @@
+[
+ {
+  "seedKey": "fq.roofing_service.cleaning.roof_cleaning",
+  "industry": "Roof & Attic",
+  "sourceCategory": "Roof & Attic > Cleaning > Roof",
+  "sourceService": "Cleaning - Roof Cleaning",
+  "taskCode": "DEFAULT_ROOFING_SERVICE_1"
+ },
+ {
+  "seedKey": "fq.roofing_service.cleaning.gutter_clean_out",
+  "industry": "Roof & Attic",
+  "sourceCategory": "Roof & Attic > Cleaning > Gutters",
+  "sourceService": "Cleaning - Gutters Clean Out",
+  "taskCode": "DEFAULT_ROOFING_SERVICE_2"
+ },
+ {
+  "seedKey": "fq.roofing_service.cleaning.other",
+  "industry": "Roof & Attic",
+  "sourceCategory": "Roof & Attic > Cleaning > Other",
+  "sourceService": "Cleaning - Something Else / I Don'T Know",
+  "taskCode": "DEFAULT_ROOFING_SERVICE_3"
+ },
+ {
+  "seedKey": "fq.roofing_service.inspection.expert_inspection",
+  "industry": "Roof & Attic",
+  "sourceCategory": "Roof & Attic > Inspection > Roof Inspection",
+  "sourceService": "Inspection - Expert Roof Inspection",
+  "taskCode": "DEFAULT_ROOFING_SERVICE_4"
+ },
+ {
+  "seedKey": "fq.roofing_service.install.asphalt_shingle",
+  "industry": "Roof & Attic",
+  "sourceCategory": "Roof & Attic > Installation > Roof Treatment",
+  "sourceService": "Installation - Asphalt Shingle",
+  "taskCode": "DEFAULT_ROOFING_SERVICE_5"
+ },
+ {
+  "seedKey": "fq.roofing_service.install.clay_tile",
+  "industry": "Roof & Attic",
+  "sourceCategory": "Roof & Attic > Installation > Roof Treatment",
+  "sourceService": "Installation - Clay Tile",
+  "taskCode": "DEFAULT_ROOFING_SERVICE_6"
+ },
+ {
+  "seedKey": "fq.roofing_service.install.concrete_tile",
+  "industry": "Roof & Attic",
+  "sourceCategory": "Roof & Attic > Installation > Roof Treatment",
+  "sourceService": "Installation - Concrete Tile",
+  "taskCode": "DEFAULT_ROOFING_SERVICE_7"
+ },
+ {
+  "seedKey": "fq.roofing_service.install.metal",
+  "industry": "Roof & Attic",
+  "sourceCategory": "Roof & Attic > Installation > Roof Treatment",
+  "sourceService": "Installation - Metal",
+  "taskCode": "DEFAULT_ROOFING_SERVICE_8"
+ },
+ {
+  "seedKey": "fq.roofing_service.install.other_materials",
+  "industry": "Roof & Attic",
+  "sourceCategory": "Roof & Attic > Installation > Roof Treatment",
+  "sourceService": "Installation - Other Materials",
+  "taskCode": "DEFAULT_ROOFING_SERVICE_9"
+ },
+ {
+  "seedKey": "fq.roofing_service.install.rolled_flat",
+  "industry": "Roof & Attic",
+  "sourceCategory": "Roof & Attic > Installation > Roof Treatment",
+  "sourceService": "Installation - Rolled/Flat Roof",
+  "taskCode": "DEFAULT_ROOFING_SERVICE_10"
+ },
+ {
+  "seedKey": "fq.roofing_service.install.slate",
+  "industry": "Roof & Attic",
+  "sourceCategory": "Roof & Attic > Installation > Roof Treatment",
+  "sourceService": "Installation - Slate",
+  "taskCode": "DEFAULT_ROOFING_SERVICE_11"
+ },
+ {
+  "seedKey": "fq.roofing_service.install.solar_shingle",
+  "industry": "Roof & Attic",
+  "sourceCategory": "Roof & Attic > Installation > Roof Treatment",
+  "sourceService": "Installation - Solar Shingle",
+  "taskCode": "DEFAULT_ROOFING_SERVICE_12"
+ },
+ {
+  "seedKey": "fq.roofing_service.install.vinyl",
+  "industry": "Roof & Attic",
+  "sourceCategory": "Roof & Attic > Installation > Roof Treatment",
+  "sourceService": "Installation - Vinyl",
+  "taskCode": "DEFAULT_ROOFING_SERVICE_13"
+ },
+ {
+  "seedKey": "fq.roofing_service.install.wood_shake",
+  "industry": "Roof & Attic",
+  "sourceCategory": "Roof & Attic > Installation > Roof Treatment",
+  "sourceService": "Installation - Wood Shake",
+  "taskCode": "DEFAULT_ROOFING_SERVICE_14"
+ },
+ {
+  "seedKey": "fq.roofing_service.replace.asphalt_shingle",
+  "industry": "Roof & Attic",
+  "sourceCategory": "Roof & Attic > Installation > Roof Replacement",
+  "sourceService": "Installation - Asphalt Shingle",
+  "taskCode": "DEFAULT_ROOFING_SERVICE_15"
+ },
+ {
+  "seedKey": "fq.roofing_service.replace.clay_tile",
+  "industry": "Roof & Attic",
+  "sourceCategory": "Roof & Attic > Installation > Roof Replacement",
+  "sourceService": "Installation - Clay Tile",
+  "taskCode": "DEFAULT_ROOFING_SERVICE_16"
+ },
+ {
+  "seedKey": "fq.roofing_service.replace.concrete_tile",
+  "industry": "Roof & Attic",
+  "sourceCategory": "Roof & Attic > Installation > Roof Replacement",
+  "sourceService": "Installation - Concrete Tile",
+  "taskCode": "DEFAULT_ROOFING_SERVICE_17"
+ },
+ {
+  "seedKey": "fq.roofing_service.replace.metal",
+  "industry": "Roof & Attic",
+  "sourceCategory": "Roof & Attic > Installation > Roof Replacement",
+  "sourceService": "Installation - Metal",
+  "taskCode": "DEFAULT_ROOFING_SERVICE_18"
+ },
+ {
+  "seedKey": "fq.roofing_service.replace.other_materials",
+  "industry": "Roof & Attic",
+  "sourceCategory": "Roof & Attic > Installation > Roof Replacement",
+  "sourceService": "Installation - Other Materials",
+  "taskCode": "DEFAULT_ROOFING_SERVICE_19"
+ },
+ {
+  "seedKey": "fq.roofing_service.replace.rolled_flat",
+  "industry": "Roof & Attic",
+  "sourceCategory": "Roof & Attic > Installation > Roof Replacement",
+  "sourceService": "Installation - Rolled/Flat Roof",
+  "taskCode": "DEFAULT_ROOFING_SERVICE_20"
+ },
+ {
+  "seedKey": "fq.roofing_service.replace.slate",
+  "industry": "Roof & Attic",
+  "sourceCategory": "Roof & Attic > Installation > Roof Replacement",
+  "sourceService": "Installation - Slate",
+  "taskCode": "DEFAULT_ROOFING_SERVICE_21"
+ },
+ {
+  "seedKey": "fq.roofing_service.replace.solar_shingle",
+  "industry": "Roof & Attic",
+  "sourceCategory": "Roof & Attic > Installation > Roof Replacement",
+  "sourceService": "Installation - Solar Shingles",
+  "taskCode": "DEFAULT_ROOFING_SERVICE_22"
+ },
+ {
+  "seedKey": "fq.roofing_service.replace.vinyl",
+  "industry": "Roof & Attic",
+  "sourceCategory": "Roof & Attic > Installation > Roof Replacement",
+  "sourceService": "Installation - Vinyl",
+  "taskCode": "DEFAULT_ROOFING_SERVICE_23"
+ },
+ {
+  "seedKey": "fq.roofing_service.replace.wood_shake",
+  "industry": "Roof & Attic",
+  "sourceCategory": "Roof & Attic > Installation > Roof Replacement",
+  "sourceService": "Installation - Wood Shake",
+  "taskCode": "DEFAULT_ROOFING_SERVICE_24"
+ },
+ {
+  "seedKey": "fq.roofing_service.components.melt_system",
+  "industry": "Roof & Attic",
+  "sourceCategory": "Roof & Attic > Installation > Roof & Shingles",
+  "sourceService": "Installation - Melt System",
+  "taskCode": "DEFAULT_ROOFING_SERVICE_25"
+ },
+ {
+  "seedKey": "fq.roofing_service.components.flashing",
+  "industry": "Roof & Attic",
+  "sourceCategory": "Roof & Attic > Installation > Roof & Shingles",
+  "sourceService": "Installation - Roof Flashing",
+  "taskCode": "DEFAULT_ROOFING_SERVICE_26"
+ },
+ {
+  "seedKey": "fq.roofing_service.components.roof_treatment",
+  "industry": "Roof & Attic",
+  "sourceCategory": "Roof & Attic > Installation > Roof & Shingles",
+  "sourceService": "Installation - Roof Treatment",
+  "taskCode": "DEFAULT_ROOFING_SERVICE_27"
+ },
+ {
+  "seedKey": "fq.roofing_service.components.roof_vents",
+  "industry": "Roof & Attic",
+  "sourceCategory": "Roof & Attic > Installation > Roof & Shingles",
+  "sourceService": "Installation - Roof Vents",
+  "taskCode": "DEFAULT_ROOFING_SERVICE_28"
+ },
+ {
+  "seedKey": "fq.roofing_service.components.soffit_fascia",
+  "industry": "Roof & Attic",
+  "sourceCategory": "Roof & Attic > Installation > Roof & Shingles",
+  "sourceService": "Installation - Soffit/Fascia",
+  "taskCode": "DEFAULT_ROOFING_SERVICE_29"
+ },
+ {
+  "seedKey": "fq.roofing_service.components.shingles",
+  "industry": "Roof & Attic",
+  "sourceCategory": "Roof & Attic > Installation > Roof & Shingles",
+  "sourceService": "Installation - Shingles",
+  "taskCode": "DEFAULT_ROOFING_SERVICE_30"
+ },
+ {
+  "seedKey": "fq.roofing_service.components.chimney_cricket",
+  "industry": "Roof & Attic",
+  "sourceCategory": "Roof & Attic > Installation > Other",
+  "sourceService": "Installation - Chimney Cricket/Saddle",
+  "taskCode": "DEFAULT_ROOFING_SERVICE_31"
+ },
+ {
+  "seedKey": "fq.roofing_service.components.gutters",
+  "industry": "Roof & Attic",
+  "sourceCategory": "Roof & Attic > Installation > Other",
+  "sourceService": "Installation - Gutters",
+  "taskCode": "DEFAULT_ROOFING_SERVICE_32"
+ },
+ {
+  "seedKey": "fq.roofing_service.components.insulation",
+  "industry": "Roof & Attic",
+  "sourceCategory": "Roof & Attic > Installation > Other",
+  "sourceService": "Installation - Insulation",
+  "taskCode": "DEFAULT_ROOFING_SERVICE_33"
+ },
+ {
+  "seedKey": "fq.roofing_service.components.siding",
+  "industry": "Roof & Attic",
+  "sourceCategory": "Roof & Attic > Installation > Other",
+  "sourceService": "Installation - Siding",
+  "taskCode": "DEFAULT_ROOFING_SERVICE_34"
+ },
+ {
+  "seedKey": "fq.roofing_service.install.other",
+  "industry": "Roof & Attic",
+  "sourceCategory": "Roof & Attic > Installation > Other",
+  "sourceService": "Installation - Something Else / I Don'T Know",
+  "taskCode": "DEFAULT_ROOFING_SERVICE_35"
+ },
+ {
+  "seedKey": "fq.roofing_service.components.windows",
+  "industry": "Roof & Attic",
+  "sourceCategory": "Roof & Attic > Installation > Other",
+  "sourceService": "Installation - Windows",
+  "taskCode": "DEFAULT_ROOFING_SERVICE_36"
+ },
+ {
+  "seedKey": "fq.roofing_service.repair.asphalt_shingle",
+  "industry": "Roof & Attic",
+  "sourceCategory": "Roof & Attic > Repair > Roof & Shingles",
+  "sourceService": "Repair - Asphalt Shingle",
+  "taskCode": "DEFAULT_ROOFING_SERVICE_37"
+ },
+ {
+  "seedKey": "fq.roofing_service.repair.clay_tile",
+  "industry": "Roof & Attic",
+  "sourceCategory": "Roof & Attic > Repair > Roof & Shingles",
+  "sourceService": "Repair - Clay Tile",
+  "taskCode": "DEFAULT_ROOFING_SERVICE_38"
+ },
+ {
+  "seedKey": "fq.roofing_service.repair.concrete_tile",
+  "industry": "Roof & Attic",
+  "sourceCategory": "Roof & Attic > Repair > Roof & Shingles",
+  "sourceService": "Repair - Concrete Tile",
+  "taskCode": "DEFAULT_ROOFING_SERVICE_39"
+ },
+ {
+  "seedKey": "fq.roofing_service.repair.cracked_shingles",
+  "industry": "Roof & Attic",
+  "sourceCategory": "Roof & Attic > Repair > Roof & Shingles",
+  "sourceService": "Repair - Cracked/Broken Shingles",
+  "taskCode": "DEFAULT_ROOFING_SERVICE_40"
+ },
+ {
+  "seedKey": "fq.roofing_service.repair.melt_system",
+  "industry": "Roof & Attic",
+  "sourceCategory": "Roof & Attic > Repair > Roof & Shingles",
+  "sourceService": "Repair - Melt System",
+  "taskCode": "DEFAULT_ROOFING_SERVICE_41"
+ },
+ {
+  "seedKey": "fq.roofing_service.repair.metal",
+  "industry": "Roof & Attic",
+  "sourceCategory": "Roof & Attic > Repair > Roof & Shingles",
+  "sourceService": "Repair - Metal",
+  "taskCode": "DEFAULT_ROOFING_SERVICE_42"
+ },
+ {
+  "seedKey": "fq.roofing_service.repair.other_materials",
+  "industry": "Roof & Attic",
+  "sourceCategory": "Roof & Attic > Repair > Roof & Shingles",
+  "sourceService": "Repair - Other Materials",
+  "taskCode": "DEFAULT_ROOFING_SERVICE_43"
+ },
+ {
+  "seedKey": "fq.roofing_service.repair.missing_shingles",
+  "industry": "Roof & Attic",
+  "sourceCategory": "Roof & Attic > Repair > Roof & Shingles",
+  "sourceService": "Repair - Replace Missing Shingles",
+  "taskCode": "DEFAULT_ROOFING_SERVICE_44"
+ },
+ {
+  "seedKey": "fq.roofing_service.repair.rolled_flat",
+  "industry": "Roof & Attic",
+  "sourceCategory": "Roof & Attic > Repair > Roof & Shingles",
+  "sourceService": "Repair - Rolled/Flat Roof",
+  "taskCode": "DEFAULT_ROOFING_SERVICE_45"
+ },
+ {
+  "seedKey": "fq.roofing_service.repair.flashing",
+  "industry": "Roof & Attic",
+  "sourceCategory": "Roof & Attic > Repair > Roof & Shingles",
+  "sourceService": "Repair - Roof Flashing",
+  "taskCode": "DEFAULT_ROOFING_SERVICE_46"
+ },
+ {
+  "seedKey": "fq.roofing_service.repair.roof_vents",
+  "industry": "Roof & Attic",
+  "sourceCategory": "Roof & Attic > Repair > Roof & Shingles",
+  "sourceService": "Repair - Roof Vents",
+  "taskCode": "DEFAULT_ROOFING_SERVICE_47"
+ },
+ {
+  "seedKey": "fq.roofing_service.repair.slate",
+  "industry": "Roof & Attic",
+  "sourceCategory": "Roof & Attic > Repair > Roof & Shingles",
+  "sourceService": "Repair - Slate",
+  "taskCode": "DEFAULT_ROOFING_SERVICE_48"
+ },
+ {
+  "seedKey": "fq.roofing_service.repair.soffit_fascia",
+  "industry": "Roof & Attic",
+  "sourceCategory": "Roof & Attic > Repair > Roof & Shingles",
+  "sourceService": "Repair - Soffit/Fascia",
+  "taskCode": "DEFAULT_ROOFING_SERVICE_49"
+ },
+ {
+  "seedKey": "fq.roofing_service.repair.solar_shingle",
+  "industry": "Roof & Attic",
+  "sourceCategory": "Roof & Attic > Repair > Roof & Shingles",
+  "sourceService": "Repair - Solar Shingle",
+  "taskCode": "DEFAULT_ROOFING_SERVICE_50"
+ },
+ {
+  "seedKey": "fq.roofing_service.repair.other_shingles",
+  "industry": "Roof & Attic",
+  "sourceCategory": "Roof & Attic > Repair > Roof & Shingles",
+  "sourceService": "Repair - Something Else / I Don'T Know",
+  "taskCode": "DEFAULT_ROOFING_SERVICE_51"
+ },
+ {
+  "seedKey": "fq.roofing_service.repair.vinyl",
+  "industry": "Roof & Attic",
+  "sourceCategory": "Roof & Attic > Repair > Roof & Shingles",
+  "sourceService": "Repair - Vinyl",
+  "taskCode": "DEFAULT_ROOFING_SERVICE_52"
+ },
+ {
+  "seedKey": "fq.roofing_service.repair.wood_shake",
+  "industry": "Roof & Attic",
+  "sourceCategory": "Roof & Attic > Repair > Roof & Shingles",
+  "sourceService": "Repair - Wood Shake",
+  "taskCode": "DEFAULT_ROOFING_SERVICE_53"
+ },
+ {
+  "seedKey": "fq.roofing_service.repair.chimney_cricket",
+  "industry": "Roof & Attic",
+  "sourceCategory": "Roof & Attic > Repair > Other",
+  "sourceService": "Repair - Chimney Cricket/Saddle",
+  "taskCode": "DEFAULT_ROOFING_SERVICE_54"
+ },
+ {
+  "seedKey": "fq.roofing_service.repair.gutters",
+  "industry": "Roof & Attic",
+  "sourceCategory": "Roof & Attic > Repair > Other",
+  "sourceService": "Repair - Gutters",
+  "taskCode": "DEFAULT_ROOFING_SERVICE_55"
+ },
+ {
+  "seedKey": "fq.roofing_service.repair.insulation",
+  "industry": "Roof & Attic",
+  "sourceCategory": "Roof & Attic > Repair > Other",
+  "sourceService": "Repair - Insulation",
+  "taskCode": "DEFAULT_ROOFING_SERVICE_56"
+ },
+ {
+  "seedKey": "fq.roofing_service.repair.siding",
+  "industry": "Roof & Attic",
+  "sourceCategory": "Roof & Attic > Repair > Other",
+  "sourceService": "Repair - Siding",
+  "taskCode": "DEFAULT_ROOFING_SERVICE_57"
+ },
+ {
+  "seedKey": "fq.roofing_service.repair.other_other",
+  "industry": "Roof & Attic",
+  "sourceCategory": "Roof & Attic > Repair > Other",
+  "sourceService": "Repair - Something Else / I Don'T Know",
+  "taskCode": "DEFAULT_ROOFING_SERVICE_58"
+ },
+ {
+  "seedKey": "fq.roofing_service.repair.windows",
+  "industry": "Roof & Attic",
+  "sourceCategory": "Roof & Attic > Repair > Other",
+  "sourceService": "Repair - Windows",
+  "taskCode": "DEFAULT_ROOFING_SERVICE_59"
+ }
+]

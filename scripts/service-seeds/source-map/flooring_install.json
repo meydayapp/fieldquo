@@ -1,0 +1,492 @@
+[
+ {
+  "seedKey": "fq.flooring_install.install.carpet_basement",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Installation > Basement",
+  "sourceService": "Installation - Carpet",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_1"
+ },
+ {
+  "seedKey": "fq.flooring_install.install.epoxy_coating_basement",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Installation > Basement",
+  "sourceService": "Installation - Coating / epoxy",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_2"
+ },
+ {
+  "seedKey": "fq.flooring_install.install.concrete_basement",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Installation > Basement",
+  "sourceService": "Installation - Concrete",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_3"
+ },
+ {
+  "seedKey": "fq.flooring_install.install.engineered_wood_basement",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Installation > Basement",
+  "sourceService": "Installation - Engineered wood flooring",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_4"
+ },
+ {
+  "seedKey": "fq.flooring_install.install.subfloor_basement",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Installation > Basement",
+  "sourceService": "Installation - Sub floor",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_5"
+ },
+ {
+  "seedKey": "fq.flooring_install.install.tile_basement",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Installation > Basement",
+  "sourceService": "Installation - Tile",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_6"
+ },
+ {
+  "seedKey": "fq.flooring_install.install.vinyl_basement",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Installation > Basement",
+  "sourceService": "Installation - Vinly",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_7"
+ },
+ {
+  "seedKey": "fq.flooring_install.install.wood_basement",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Installation > Basement",
+  "sourceService": "Installation - Wood",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_8"
+ },
+ {
+  "seedKey": "fq.flooring_install.install.pavers_driveway",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Installation > Driveway",
+  "sourceService": "Installation - Pavers",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_9"
+ },
+ {
+  "seedKey": "fq.flooring_install.install.blacktop_driveway",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Installation > Driveway",
+  "sourceService": "Installation - Blacktop",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_10"
+ },
+ {
+  "seedKey": "fq.flooring_install.install.epoxy_coating_driveway",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Installation > Driveway",
+  "sourceService": "Installation - Coating / epoxy",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_11"
+ },
+ {
+  "seedKey": "fq.flooring_install.install.concrete_driveway",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Installation > Driveway",
+  "sourceService": "Installation - Concrete",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_12"
+ },
+ {
+  "seedKey": "fq.flooring_install.install.epoxy_coating_garage",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Installation > Garage",
+  "sourceService": "Installation - Coating / epoxy",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_13"
+ },
+ {
+  "seedKey": "fq.flooring_install.install.concrete_garage",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Installation > Garage",
+  "sourceService": "Installation - Concrete",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_14"
+ },
+ {
+  "seedKey": "fq.flooring_install.install.tile_garage",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Installation > Garage",
+  "sourceService": "Installation - Tile",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_15"
+ },
+ {
+  "seedKey": "fq.flooring_install.install.carpet_interior",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Installation > Interior",
+  "sourceService": "Installation - Carpet",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_16"
+ },
+ {
+  "seedKey": "fq.flooring_install.install.epoxy_coating_interior",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Installation > Interior",
+  "sourceService": "Installation - Coating / epoxy",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_17"
+ },
+ {
+  "seedKey": "fq.flooring_install.install.concrete_interior",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Installation > Interior",
+  "sourceService": "Installation - Concrete",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_18"
+ },
+ {
+  "seedKey": "fq.flooring_install.install.engineered_wood_interior",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Installation > Interior",
+  "sourceService": "Installation - Engineered wood flooring",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_19"
+ },
+ {
+  "seedKey": "fq.flooring_install.install.subfloor_interior",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Installation > Interior",
+  "sourceService": "Installation - Sub floor",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_20"
+ },
+ {
+  "seedKey": "fq.flooring_install.install.tile_interior",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Installation > Interior",
+  "sourceService": "Installation - Tile",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_21"
+ },
+ {
+  "seedKey": "fq.flooring_install.install.vinyl_interior",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Installation > Interior",
+  "sourceService": "Installation - Vinly",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_22"
+ },
+ {
+  "seedKey": "fq.flooring_install.install.wood_interior",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Installation > Interior",
+  "sourceService": "Installation - Wood",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_23"
+ },
+ {
+  "seedKey": "fq.flooring_install.install.epoxy_coating_exterior",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Installation > Exterior",
+  "sourceService": "Installation - Coating / epoxy",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_24"
+ },
+ {
+  "seedKey": "fq.flooring_install.install.concrete_exterior",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Installation > Exterior",
+  "sourceService": "Installation - Concrete",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_25"
+ },
+ {
+  "seedKey": "fq.flooring_install.install.wood_deck_exterior",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Installation > Exterior",
+  "sourceService": "Installation - Wood deck",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_26"
+ },
+ {
+  "seedKey": "fq.flooring_install.install.composite_deck_exterior",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Installation > Exterior",
+  "sourceService": "Installation - Composite deck",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_27"
+ },
+ {
+  "seedKey": "fq.flooring_install.install.tile_exterior",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Installation > Exterior",
+  "sourceService": "Installation - Tile",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_28"
+ },
+ {
+  "seedKey": "fq.flooring_install.install.wood_exterior",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Installation > Exterior",
+  "sourceService": "Installation - Wood",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_29"
+ },
+ {
+  "seedKey": "fq.flooring_install.install.other",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Installation > Other",
+  "sourceService": "Installation - Something else / I don't know",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_30"
+ },
+ {
+  "seedKey": "fq.flooring_install.repair.carpet_basement",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Repair > Basement",
+  "sourceService": "Repair - Carpet",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_31"
+ },
+ {
+  "seedKey": "fq.flooring_install.repair.carpet_stretching_basement",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Repair > Basement",
+  "sourceService": "Repair - Carpet stretching",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_32"
+ },
+ {
+  "seedKey": "fq.flooring_install.repair.epoxy_coating_basement",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Repair > Basement",
+  "sourceService": "Repair - Coating / epoxy",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_33"
+ },
+ {
+  "seedKey": "fq.flooring_install.repair.concrete_repour_basement",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Repair > Basement",
+  "sourceService": "Repair - Concrete re-pouring",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_34"
+ },
+ {
+  "seedKey": "fq.flooring_install.repair.concrete_removal_basement",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Repair > Basement",
+  "sourceService": "Repair - Concrete removal",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_35"
+ },
+ {
+  "seedKey": "fq.flooring_install.repair.engineered_wood_basement",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Repair > Basement",
+  "sourceService": "Repair - Engineered wood flooring",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_36"
+ },
+ {
+  "seedKey": "fq.flooring_install.repair.subfloor_basement",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Repair > Basement",
+  "sourceService": "Repair - Sub floor",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_37"
+ },
+ {
+  "seedKey": "fq.flooring_install.repair.tile_basement",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Repair > Basement",
+  "sourceService": "Repair - Tile",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_38"
+ },
+ {
+  "seedKey": "fq.flooring_install.repair.vinyl_basement",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Repair > Basement",
+  "sourceService": "Repair - Vinly",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_39"
+ },
+ {
+  "seedKey": "fq.flooring_install.repair.wood_basement",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Repair > Basement",
+  "sourceService": "Repair - Wood",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_40"
+ },
+ {
+  "seedKey": "fq.flooring_install.repair.concrete_polishing_basement",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Repair > Basement",
+  "sourceService": "Repair - Concrete polishing",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_41"
+ },
+ {
+  "seedKey": "fq.flooring_install.repair.concrete_sealing_basement",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Repair > Basement",
+  "sourceService": "Repair - Concrete sealing",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_42"
+ },
+ {
+  "seedKey": "fq.flooring_install.repair.pavers_driveway",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Repair > Driveway",
+  "sourceService": "Repair - Pavers",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_43"
+ },
+ {
+  "seedKey": "fq.flooring_install.repair.blacktop_driveway",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Repair > Driveway",
+  "sourceService": "Repair - Blacktop",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_44"
+ },
+ {
+  "seedKey": "fq.flooring_install.repair.epoxy_coating_driveway",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Repair > Driveway",
+  "sourceService": "Repair - Coating / epoxy",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_45"
+ },
+ {
+  "seedKey": "fq.flooring_install.repair.concrete_polishing_driveway",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Repair > Driveway",
+  "sourceService": "Repair - Concrete polishing",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_46"
+ },
+ {
+  "seedKey": "fq.flooring_install.repair.concrete_repour_driveway",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Repair > Driveway",
+  "sourceService": "Repair - Concrete re-pouring",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_47"
+ },
+ {
+  "seedKey": "fq.flooring_install.repair.concrete_sealing_driveway",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Repair > Driveway",
+  "sourceService": "Repair - Concrete sealing",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_48"
+ },
+ {
+  "seedKey": "fq.flooring_install.repair.epoxy_coating_garage",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Repair > Garage",
+  "sourceService": "Repair - Coating / epoxy",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_49"
+ },
+ {
+  "seedKey": "fq.flooring_install.repair.concrete_repour_garage",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Repair > Garage",
+  "sourceService": "Repair - Concrete re-pouring",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_50"
+ },
+ {
+  "seedKey": "fq.flooring_install.repair.tile_garage",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Repair > Garage",
+  "sourceService": "Repair - Tile",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_51"
+ },
+ {
+  "seedKey": "fq.flooring_install.repair.concrete_sealing_garage",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Repair > Garage",
+  "sourceService": "Repair - Concrete Sealing",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_52"
+ },
+ {
+  "seedKey": "fq.flooring_install.repair.carpet_interior",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Repair > Interior",
+  "sourceService": "Repair - Carpet",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_53"
+ },
+ {
+  "seedKey": "fq.flooring_install.repair.carpet_stretching_interior",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Repair > Interior",
+  "sourceService": "Repair - Carpet stretching",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_54"
+ },
+ {
+  "seedKey": "fq.flooring_install.repair.epoxy_coating_interior",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Repair > Interior",
+  "sourceService": "Repair - Coating / epoxy",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_55"
+ },
+ {
+  "seedKey": "fq.flooring_install.repair.concrete_repour_interior",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Repair > Interior",
+  "sourceService": "Repair - Concrete re-pouring",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_56"
+ },
+ {
+  "seedKey": "fq.flooring_install.repair.engineered_wood_interior",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Repair > Interior",
+  "sourceService": "Repair - Engineered wood flooring",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_57"
+ },
+ {
+  "seedKey": "fq.flooring_install.repair.subfloor_interior",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Repair > Interior",
+  "sourceService": "Repair - Sub floor",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_58"
+ },
+ {
+  "seedKey": "fq.flooring_install.repair.tile_interior",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Repair > Interior",
+  "sourceService": "Repair - Tile",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_59"
+ },
+ {
+  "seedKey": "fq.flooring_install.repair.vinyl_interior",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Repair > Interior",
+  "sourceService": "Repair - Vinly",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_60"
+ },
+ {
+  "seedKey": "fq.flooring_install.repair.wood_interior",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Repair > Interior",
+  "sourceService": "Repair - Wood",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_61"
+ },
+ {
+  "seedKey": "fq.flooring_install.repair.concrete_sealing_interior",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Repair > Interior",
+  "sourceService": "Repair - Concrete Sealing",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_62"
+ },
+ {
+  "seedKey": "fq.flooring_install.repair.epoxy_coating_exterior",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Repair > Exterior",
+  "sourceService": "Repair - Coating / epoxy",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_63"
+ },
+ {
+  "seedKey": "fq.flooring_install.repair.concrete_exterior",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Repair > Exterior",
+  "sourceService": "Repair - Concrete",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_64"
+ },
+ {
+  "seedKey": "fq.flooring_install.repair.wood_deck_exterior",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Repair > Exterior",
+  "sourceService": "Repair - Wood deck",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_65"
+ },
+ {
+  "seedKey": "fq.flooring_install.repair.composite_deck_exterior",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Repair > Exterior",
+  "sourceService": "Repair - Composite deck",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_66"
+ },
+ {
+  "seedKey": "fq.flooring_install.repair.tile_exterior",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Repair > Exterior",
+  "sourceService": "Repair - Tile",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_67"
+ },
+ {
+  "seedKey": "fq.flooring_install.repair.wood_exterior",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Repair > Exterior",
+  "sourceService": "Repair - Wood",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_68"
+ },
+ {
+  "seedKey": "fq.flooring_install.repair.concrete_sealing_exterior",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Repair > Exterior",
+  "sourceService": "Repair - Concrete sealing",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_69"
+ },
+ {
+  "seedKey": "fq.flooring_install.repair.other",
+  "industry": "Flooring",
+  "sourceCategory": "Flooring > Repair > Other",
+  "sourceService": "Repair - Something else / I don't know",
+  "taskCode": "DEFAULT_FLOORING_SERVICE_70"
+ }
+]
