@@ -10,6 +10,54 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## Service seeds: every trade's service list, the benchmark range beside each price, the median as the preset (22 September 2026)
+
+The owner's asks, in order: "improve some of the services that may be missing, and use
+the median for the preset pricing"; then "keep the low and max and median as guidelines
+for them to set their own custom rates"; then "all of those should be saved in the
+services for our quotes and trades too — except for the task code, we can have our own."
+Full write-up: `docs/SERVICE-SEEDS.md`.
+
+- `app/data/serviceSeeds/<trade>.js` — 19 trades, **830 services** (327 with a
+  low/median/high range), names and descriptions written in FieldQuo's own words in
+  **EN/FR/ES**, unit, duration, online-booking flag, `pricedBy` where the takeoff or a
+  price book already prices the thing. Stable keys `fq.<trade>.<category>.<slug>`; the
+  join back to the source's task code lives only in `scripts/service-seeds/source-map/`
+  (never shipped) so the owner's spreadsheet marks can be applied without redoing this.
+- `lib/products/seedServices.js` writes them as `Product` rows (new `Product.seedKey`,
+  indexed) at signup, when a trade is switched on, and from **"Add missing services for
+  my trade"** on Settings › Services. The median — converted for a CAD company at one
+  dated constant (`lib/pricing/benchmarkFx.js`, 1.37, rounded to $5/$1/$0.25) — is the
+  starting price, written once; no benchmark → no price, never a placeholder. Idempotent
+  by key: a renamed or repriced row is never touched.
+- `app/components/pricing/BenchmarkRange.js` on Settings › Services (`ServiceSeedsCard`)
+  and in the Products price editor: "Typical: $250 · $325 · $450 (low · typical · high)",
+  the company's price marked on the bar, **Use typical**, and the sentence "Typical
+  range from industry benchmarks — set your own rate." Nine app languages. Nothing
+  reaches a client-facing route (asserted).
+- Sixteen field-service trades added to `lib/trades/catalog.js` with nine-language
+  names (`labelTranslations`, written on create only) — run `npm run seed:categories`
+  in production to create the rows.
+- `scripts/check-service-seeds.mjs` (in `check:all`): format, key uniqueness across
+  trades, three real languages, a hash list of every source sentence (none may appear),
+  low ≤ median ≤ high, takeoff-priced rows never flat-priced, idempotent seeding on a
+  fixture company, the CAD rounding, and that the screens read what the seeder writes.
+- Photographed: `docs/screens/app-guide/{en,fr,es}/177-settings-services-seeds.png`.
+
+### Still owed here
+
+- The long tail of seed files (janitorial, air duct, lighting, drywall, doors & windows,
+  demolition, decks, tile, fencing, concrete, chimney, gutters, siding, insulation, pest,
+  pool, junk, auto detailing, security, smart home, solar, locksmith, restoration, sewer,
+  water treatment, home inspection, moving and the one-row books) — ~800 rows, same
+  format, rig in `scripts/service-seeds/authoring/`. The owner asked for the trades
+  companies use first; those shipped.
+- `source: "fieldquo_median"` — the range from FieldQuo companies' own prices
+  (aggregate, MIN_COHORT). The seam is in place; nothing computes it yet.
+- The New-quote template gallery reading `serviceSeedsFor(trade)` (agent/templates).
+- Applying the owner's "Validated? / Your note" columns from the spreadsheet by task
+  code — the map exists, the apply script does not.
+
 ## The document-shaped quote builder, and the painter's first screen (22 September 2026)
 
 Mockup b7, approved 2026-09-21 ("keep it like that"): what the estimator
