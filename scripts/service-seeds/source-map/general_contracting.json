@@ -1,0 +1,758 @@
+[
+ {
+  "seedKey": "fq.general_contracting.bathroom.demolition",
+  "industry": "General Contractor",
+  "sourceCategory": "Bathroom Remodeling",
+  "sourceService": "Bathroom Demolition and Removal Services",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_0"
+ },
+ {
+  "seedKey": "fq.general_contracting.bathroom.plumbing_fixtures",
+  "industry": "General Contractor",
+  "sourceCategory": "Bathroom Remodeling",
+  "sourceService": "Bathroom Plumbing and Fixture Installation Services",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_1"
+ },
+ {
+  "seedKey": "fq.general_contracting.bathroom.remodel_refinish",
+  "industry": "General Contractor",
+  "sourceCategory": "Bathroom Remodeling",
+  "sourceService": "Bathroom Remodel and Fixture Refinishing Services",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_2"
+ },
+ {
+  "seedKey": "fq.general_contracting.bathroom.remodel_shower_system",
+  "industry": "General Contractor",
+  "sourceCategory": "Bathroom Remodeling",
+  "sourceService": "Bathroom Remodel and Shower System Installation",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_3"
+ },
+ {
+  "seedKey": "fq.general_contracting.bathroom.tub_repair_refinish",
+  "industry": "General Contractor",
+  "sourceCategory": "Bathroom Remodeling",
+  "sourceService": "Bathtub Repair, Refinishing, and Waterproofing Services",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_4"
+ },
+ {
+  "seedKey": "fq.general_contracting.bathroom.resurfacing_plumbing",
+  "industry": "General Contractor",
+  "sourceCategory": "Bathroom Remodeling",
+  "sourceService": "Bathtub and Shower Resurfacing with Plumbing Installation",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_5"
+ },
+ {
+  "seedKey": "fq.general_contracting.bathroom.complete_remodel",
+  "industry": "General Contractor",
+  "sourceCategory": "Bathroom Remodeling",
+  "sourceService": "Complete Bathroom Remodel and Renovation Services",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_6"
+ },
+ {
+  "seedKey": "fq.general_contracting.bathroom.full_remodel_framing",
+  "industry": "General Contractor",
+  "sourceCategory": "Bathroom Remodeling",
+  "sourceService": "Full Bathroom Remodel with Framing and Rough-ins",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_7"
+ },
+ {
+  "seedKey": "fq.general_contracting.bathroom.exhaust_fan",
+  "industry": "General Contractor",
+  "sourceCategory": "Bathroom Remodeling",
+  "sourceService": "Installation of Bathroom Exhaust Fan and Venting",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_8"
+ },
+ {
+  "seedKey": "fq.general_contracting.bathroom.custom_vanity",
+  "industry": "General Contractor",
+  "sourceCategory": "Bathroom Remodeling",
+  "sourceService": "Installation of Custom Bathroom Vanity and Hardware",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_9"
+ },
+ {
+  "seedKey": "fq.general_contracting.bathroom.shower_doors",
+  "industry": "General Contractor",
+  "sourceCategory": "Bathroom Remodeling",
+  "sourceService": "Installation of Shower Doors and Glass Enclosures",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_10"
+ },
+ {
+  "seedKey": "fq.general_contracting.bathroom.cabinet_refinishing_hardware",
+  "industry": "General Contractor",
+  "sourceCategory": "Bathroom Remodeling",
+  "sourceService": "Kitchen and Bathroom Cabinet Refinishing and Hardware Installation",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_11"
+ },
+ {
+  "seedKey": "fq.general_contracting.bathroom.sink_plumbing",
+  "industry": "General Contractor",
+  "sourceCategory": "Bathroom Remodeling",
+  "sourceService": "Kitchen and Bathroom Sink Installation with Plumbing",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_12"
+ },
+ {
+  "seedKey": "fq.general_contracting.bathroom.master_custom_tile",
+  "industry": "General Contractor",
+  "sourceCategory": "Bathroom Remodeling",
+  "sourceService": "Master Bathroom and Shower Remodel with Custom Tile",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_13"
+ },
+ {
+  "seedKey": "fq.general_contracting.bathroom.tile_finishing",
+  "industry": "General Contractor",
+  "sourceCategory": "Bathroom Remodeling",
+  "sourceService": "Tile Installation and Finishing for Bathrooms and Showers",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_14"
+ },
+ {
+  "seedKey": "fq.general_contracting.bathroom.tile_shower_assembly",
+  "industry": "General Contractor",
+  "sourceCategory": "Bathroom Remodeling",
+  "sourceService": "Tile Installation and Shower System Assembly",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_15"
+ },
+ {
+  "seedKey": "fq.general_contracting.concrete_masonry.block_fence",
+  "industry": "General Contractor",
+  "sourceCategory": "Concrete, Foundation & Masonry",
+  "sourceService": "Concrete Block Installation and Fence Construction Services",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_16"
+ },
+ {
+  "seedKey": "fq.general_contracting.concrete_masonry.driveway_patio_curb",
+  "industry": "General Contractor",
+  "sourceCategory": "Concrete, Foundation & Masonry",
+  "sourceService": "Concrete Driveway, Patio, and Curbing Installation",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_17"
+ },
+ {
+  "seedKey": "fq.general_contracting.concrete_masonry.foundation_slab",
+  "industry": "General Contractor",
+  "sourceCategory": "Concrete, Foundation & Masonry",
+  "sourceService": "Concrete Foundation and Slab Installation and Demolition",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_18"
+ },
+ {
+  "seedKey": "fq.general_contracting.concrete_masonry.leveling",
+  "industry": "General Contractor",
+  "sourceCategory": "Concrete, Foundation & Masonry",
+  "sourceService": "Concrete Leveling and Raising for Driveways and Walkways",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_19"
+ },
+ {
+  "seedKey": "fq.general_contracting.concrete_masonry.crack_repair",
+  "industry": "General Contractor",
+  "sourceCategory": "Concrete, Foundation & Masonry",
+  "sourceService": "Foundation and Concrete Crack Repair and Injection",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_20"
+ },
+ {
+  "seedKey": "fq.general_contracting.concrete_masonry.masonry_stabilization",
+  "industry": "General Contractor",
+  "sourceCategory": "Concrete, Foundation & Masonry",
+  "sourceService": "Foundation and Exterior Masonry Repair and Stabilization",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_21"
+ },
+ {
+  "seedKey": "fq.general_contracting.concrete_masonry.piers_helical",
+  "industry": "General Contractor",
+  "sourceCategory": "Concrete, Foundation & Masonry",
+  "sourceService": "Installation and Labor for Foundation Pier and Helical Pile Work",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_22"
+ },
+ {
+  "seedKey": "fq.general_contracting.concrete_masonry.pavers_asphalt",
+  "industry": "General Contractor",
+  "sourceCategory": "Concrete, Foundation & Masonry",
+  "sourceService": "Installation and Restoration of Hardscape Pavers and Asphalt",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_23"
+ },
+ {
+  "seedKey": "fq.general_contracting.concrete_masonry.vinyl_metal_fence",
+  "industry": "General Contractor",
+  "sourceCategory": "Concrete, Foundation & Masonry",
+  "sourceService": "Installation of Residential Vinyl and Metal Fence Systems",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_24"
+ },
+ {
+  "seedKey": "fq.general_contracting.concrete_masonry.truss_anchors_rebar",
+  "industry": "General Contractor",
+  "sourceCategory": "Concrete, Foundation & Masonry",
+  "sourceService": "Installation of Steel Truss Anchors and Rebar",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_25"
+ },
+ {
+  "seedKey": "fq.general_contracting.concrete_masonry.structural_framing_foundation",
+  "industry": "General Contractor",
+  "sourceCategory": "Concrete, Foundation & Masonry",
+  "sourceService": "Structural Framing, Leveling, and Foundation Repair Services",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_26"
+ },
+ {
+  "seedKey": "fq.general_contracting.site_prep.demolition",
+  "industry": "General Contractor",
+  "sourceCategory": "Demolition, Site Prep & Cleanup",
+  "sourceService": "Demolition and Site Preparation for Residential Projects",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_27"
+ },
+ {
+  "seedKey": "fq.general_contracting.site_prep.excavation_grading",
+  "industry": "General Contractor",
+  "sourceCategory": "Demolition, Site Prep & Cleanup",
+  "sourceService": "Excavation and Grading for Driveway and Landscaping",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_28"
+ },
+ {
+  "seedKey": "fq.general_contracting.site_prep.final_cleanup",
+  "industry": "General Contractor",
+  "sourceCategory": "Demolition, Site Prep & Cleanup",
+  "sourceService": "Final Cleanup and Post-Construction Walkthrough Services",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_29"
+ },
+ {
+  "seedKey": "fq.general_contracting.site_prep.debris_hauling",
+  "industry": "General Contractor",
+  "sourceCategory": "Demolition, Site Prep & Cleanup",
+  "sourceService": "Removal and Hauling of Construction Debris and Waste",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_30"
+ },
+ {
+  "seedKey": "fq.general_contracting.electrical.panel_upgrade",
+  "industry": "General Contractor",
+  "sourceCategory": "Electrical & Lighting",
+  "sourceService": "Electrical Panel Upgrade and Circuit Breaker Installation",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_31"
+ },
+ {
+  "seedKey": "fq.general_contracting.electrical.wiring_fixtures_fans",
+  "industry": "General Contractor",
+  "sourceCategory": "Electrical & Lighting",
+  "sourceService": "Electrical Wiring, Fixtures, and Ceiling Fan Installation",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_32"
+ },
+ {
+  "seedKey": "fq.general_contracting.electrical.dehumidifier_controls",
+  "industry": "General Contractor",
+  "sourceCategory": "Electrical & Lighting",
+  "sourceService": "Installation of Dehumidifier Systems and Related HVAC Controls",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_33"
+ },
+ {
+  "seedKey": "fq.general_contracting.electrical.holiday_lighting",
+  "industry": "General Contractor",
+  "sourceCategory": "Electrical & Lighting",
+  "sourceService": "Installation of Residential Christmas and Holiday Lighting",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_34"
+ },
+ {
+  "seedKey": "fq.general_contracting.electrical.lighting_fixtures",
+  "industry": "General Contractor",
+  "sourceCategory": "Electrical & Lighting",
+  "sourceService": "Installation of Residential Lighting Fixtures and Components",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_35"
+ },
+ {
+  "seedKey": "fq.general_contracting.electrical.smoke_co_detectors",
+  "industry": "General Contractor",
+  "sourceCategory": "Electrical & Lighting",
+  "sourceService": "Installation of Smoke and Carbon Monoxide Detectors",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_36"
+ },
+ {
+  "seedKey": "fq.general_contracting.outdoor.structures_patio_covers",
+  "industry": "General Contractor",
+  "sourceCategory": "Fencing, Decks & Outdoor Structures",
+  "sourceService": "Installation of Outdoor Structures and Patio Covers",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_37"
+ },
+ {
+  "seedKey": "fq.general_contracting.flooring.attic_insulation_removal",
+  "industry": "General Contractor",
+  "sourceCategory": "Flooring & Tile",
+  "sourceService": "Attic Insulation Removal and Debris Cleanup",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_38"
+ },
+ {
+  "seedKey": "fq.general_contracting.flooring.carpet_subfloor",
+  "industry": "General Contractor",
+  "sourceCategory": "Flooring & Tile",
+  "sourceService": "Carpet Installation and Subfloor Preparation Services",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_39"
+ },
+ {
+  "seedKey": "fq.general_contracting.flooring.carpet_hardwood",
+  "industry": "General Contractor",
+  "sourceCategory": "Flooring & Tile",
+  "sourceService": "Carpet and Hardwood Flooring Installation and Repair",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_40"
+ },
+ {
+  "seedKey": "fq.general_contracting.flooring.vinyl_laminate_epoxy",
+  "industry": "General Contractor",
+  "sourceCategory": "Flooring & Tile",
+  "sourceService": "Flooring Installation and Property Maintenance Services",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_41"
+ },
+ {
+  "seedKey": "fq.general_contracting.flooring.install_repair_refinish",
+  "industry": "General Contractor",
+  "sourceCategory": "Flooring & Tile",
+  "sourceService": "Flooring Installation, Repair, and Hardwood Floor Refinishing",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_42"
+ },
+ {
+  "seedKey": "fq.general_contracting.flooring.garage_coating_crack",
+  "industry": "General Contractor",
+  "sourceCategory": "Flooring & Tile",
+  "sourceService": "Garage Floor Coating and Crack Repair Services",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_43"
+ },
+ {
+  "seedKey": "fq.general_contracting.flooring.garage_epoxy_prep",
+  "industry": "General Contractor",
+  "sourceCategory": "Flooring & Tile",
+  "sourceService": "Garage Floor Epoxy Coating and Preparation Services",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_44"
+ },
+ {
+  "seedKey": "fq.general_contracting.flooring.hardwood_furniture_moving",
+  "industry": "General Contractor",
+  "sourceCategory": "Flooring & Tile",
+  "sourceService": "Hardwood Flooring Installation and Furniture Moving Services",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_45"
+ },
+ {
+  "seedKey": "fq.general_contracting.framing.baseboard_finish_repair",
+  "industry": "General Contractor",
+  "sourceCategory": "Framing, Carpentry & Trim",
+  "sourceService": "Baseboard Installation, Finishing, and Repair Services",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_46"
+ },
+ {
+  "seedKey": "fq.general_contracting.framing.deck_with_railing",
+  "industry": "General Contractor",
+  "sourceCategory": "Framing, Carpentry & Trim",
+  "sourceService": "Construction and Finishing of Residential Deck with Railing",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_47"
+ },
+ {
+  "seedKey": "fq.general_contracting.framing.finish_carpentry",
+  "industry": "General Contractor",
+  "sourceCategory": "Framing, Carpentry & Trim",
+  "sourceService": "Finish Carpentry Labor and Trimwork Installation",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_48"
+ },
+ {
+  "seedKey": "fq.general_contracting.framing.deck_structure",
+  "industry": "General Contractor",
+  "sourceCategory": "Framing, Carpentry & Trim",
+  "sourceService": "Installation and Framing of Residential Deck Structure",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_49"
+ },
+ {
+  "seedKey": "fq.general_contracting.framing.baseboards_trim",
+  "industry": "General Contractor",
+  "sourceCategory": "Framing, Carpentry & Trim",
+  "sourceService": "Installation of Residential Baseboards and Trim",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_50"
+ },
+ {
+  "seedKey": "fq.general_contracting.framing.fencing_gates",
+  "industry": "General Contractor",
+  "sourceCategory": "Framing, Carpentry & Trim",
+  "sourceService": "Installation of Residential Fencing and Gate Systems",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_51"
+ },
+ {
+  "seedKey": "fq.general_contracting.framing.privacy_fence",
+  "industry": "General Contractor",
+  "sourceCategory": "Framing, Carpentry & Trim",
+  "sourceService": "Installation of Residential Privacy Fence and Posts",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_52"
+ },
+ {
+  "seedKey": "fq.general_contracting.framing.raw_wood_refinishing",
+  "industry": "General Contractor",
+  "sourceCategory": "Framing, Carpentry & Trim",
+  "sourceService": "Refinishing of Raw Wood Surfaces and Carpentry Work",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_53"
+ },
+ {
+  "seedKey": "fq.general_contracting.framing.dock_boards",
+  "industry": "General Contractor",
+  "sourceCategory": "Framing, Carpentry & Trim",
+  "sourceService": "Replacement of Dock Boards and Labor for Installation",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_54"
+ },
+ {
+  "seedKey": "fq.general_contracting.framing.electrical_rough_trim",
+  "industry": "General Contractor",
+  "sourceCategory": "Framing, Carpentry & Trim",
+  "sourceService": "Rough-In and Trim-Out Electrical Work",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_55"
+ },
+ {
+  "seedKey": "fq.general_contracting.hvac.annual_maintenance",
+  "industry": "General Contractor",
+  "sourceCategory": "HVAC, Insulation & Ventilation",
+  "sourceService": "Annual HVAC System Maintenance and Inspection Service",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_56"
+ },
+ {
+  "seedKey": "fq.general_contracting.hvac.attic_sealing_insulation",
+  "industry": "General Contractor",
+  "sourceCategory": "HVAC, Insulation & Ventilation",
+  "sourceService": "Attic Air Sealing and Insulation Coverage",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_57"
+ },
+ {
+  "seedKey": "fq.general_contracting.hvac.crawlspace",
+  "industry": "General Contractor",
+  "sourceCategory": "HVAC, Insulation & Ventilation",
+  "sourceService": "Crawlspace Inspection, Repair, and Winterization Services",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_58"
+ },
+ {
+  "seedKey": "fq.general_contracting.hvac.mini_split",
+  "industry": "General Contractor",
+  "sourceCategory": "HVAC, Insulation & Ventilation",
+  "sourceService": "HVAC Mini Split Installation and Thermostat Setup",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_59"
+ },
+ {
+  "seedKey": "fq.general_contracting.hvac.system_install_replace",
+  "industry": "General Contractor",
+  "sourceCategory": "HVAC, Insulation & Ventilation",
+  "sourceService": "HVAC System Installation and Replacement Services",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_60"
+ },
+ {
+  "seedKey": "fq.general_contracting.hvac.install_repair_maintain",
+  "industry": "General Contractor",
+  "sourceCategory": "HVAC, Insulation & Ventilation",
+  "sourceService": "HVAC System Installation, Repair, and Maintenance Services",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_61"
+ },
+ {
+  "seedKey": "fq.general_contracting.hvac.filter_replacement",
+  "industry": "General Contractor",
+  "sourceCategory": "HVAC, Insulation & Ventilation",
+  "sourceService": "HVAC and Air Conditioning System Filter Replacement",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_62"
+ },
+ {
+  "seedKey": "fq.general_contracting.hvac.service_call_diagnostic",
+  "industry": "General Contractor",
+  "sourceCategory": "HVAC, Insulation & Ventilation",
+  "sourceService": "HVAC and Appliance Service Call with Diagnostic",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_63"
+ },
+ {
+  "seedKey": "fq.general_contracting.hvac.commercial_dehumidifiers",
+  "industry": "General Contractor",
+  "sourceCategory": "HVAC, Insulation & Ventilation",
+  "sourceService": "Installation of Commercial Dehumidifiers and Air Movers",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_64"
+ },
+ {
+  "seedKey": "fq.general_contracting.hvac.fiberglass_batts",
+  "industry": "General Contractor",
+  "sourceCategory": "HVAC, Insulation & Ventilation",
+  "sourceService": "Installation of Fiberglass Batts Insulation in Attic and Crawl Space",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_65"
+ },
+ {
+  "seedKey": "fq.general_contracting.kitchen.demolition",
+  "industry": "General Contractor",
+  "sourceCategory": "Kitchen Remodeling",
+  "sourceService": "Demolition of Kitchen Cabinets and Countertops",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_66"
+ },
+ {
+  "seedKey": "fq.general_contracting.kitchen.countertops",
+  "industry": "General Contractor",
+  "sourceCategory": "Kitchen Remodeling",
+  "sourceService": "Fabrication and Installation of Kitchen Countertops",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_67"
+ },
+ {
+  "seedKey": "fq.general_contracting.kitchen.hood_cleaning",
+  "industry": "General Contractor",
+  "sourceCategory": "Kitchen Remodeling",
+  "sourceService": "Hood Cleaning and Maintenance Service Call",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_68"
+ },
+ {
+  "seedKey": "fq.general_contracting.kitchen.cabinet_painting",
+  "industry": "General Contractor",
+  "sourceCategory": "Kitchen Remodeling",
+  "sourceService": "Kitchen Cabinet Painting and Refinishing Services",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_69"
+ },
+ {
+  "seedKey": "fq.general_contracting.kitchen.remodel_pavers",
+  "industry": "General Contractor",
+  "sourceCategory": "Kitchen Remodeling",
+  "sourceService": "Kitchen Remodel and Paver Installation Services",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_70"
+ },
+ {
+  "seedKey": "fq.general_contracting.kitchen.remodel_full",
+  "industry": "General Contractor",
+  "sourceCategory": "Kitchen Remodeling",
+  "sourceService": "Kitchen Remodel with Countertops, Cabinets, and Backsplash",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_71"
+ },
+ {
+  "seedKey": "fq.general_contracting.painting.drywall_repair_debris",
+  "industry": "General Contractor",
+  "sourceCategory": "Painting, Drywall & Finishes",
+  "sourceService": "Drywall Repair and Construction Debris Removal",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_72"
+ },
+ {
+  "seedKey": "fq.general_contracting.painting.primer",
+  "industry": "General Contractor",
+  "sourceCategory": "Painting, Drywall & Finishes",
+  "sourceService": "Interior Drywall and Surface Primer Application",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_73"
+ },
+ {
+  "seedKey": "fq.general_contracting.painting.mold_remediation_painting",
+  "industry": "General Contractor",
+  "sourceCategory": "Painting, Drywall & Finishes",
+  "sourceService": "Interior Preparation, Mold Remediation, and Painting Services",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_74"
+ },
+ {
+  "seedKey": "fq.general_contracting.painting.paint_supply_application",
+  "industry": "General Contractor",
+  "sourceCategory": "Painting, Drywall & Finishes",
+  "sourceService": "Interior and Exterior Paint Supply and Application",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_75"
+ },
+ {
+  "seedKey": "fq.general_contracting.painting.stucco_repair",
+  "industry": "General Contractor",
+  "sourceCategory": "Painting, Drywall & Finishes",
+  "sourceService": "Stucco Repair and Patching Services",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_76"
+ },
+ {
+  "seedKey": "fq.general_contracting.painting.wallpaper",
+  "industry": "General Contractor",
+  "sourceCategory": "Painting, Drywall & Finishes",
+  "sourceService": "Wallpaper Installation and Removal Services",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_77"
+ },
+ {
+  "seedKey": "fq.general_contracting.plumbing.backflow_testing",
+  "industry": "General Contractor",
+  "sourceCategory": "Plumbing & Drainage",
+  "sourceService": "Backflow Testing and Inspection Services",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_78"
+ },
+ {
+  "seedKey": "fq.general_contracting.plumbing.repair_leak_repipe",
+  "industry": "General Contractor",
+  "sourceCategory": "Plumbing & Drainage",
+  "sourceService": "Plumbing Repair, Leak Detection, and Water Repipe Services",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_79"
+ },
+ {
+  "seedKey": "fq.general_contracting.plumbing.service_call_drain",
+  "industry": "General Contractor",
+  "sourceCategory": "Plumbing & Drainage",
+  "sourceService": "Plumbing Service Call and Drain Cleaning Labor",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_80"
+ },
+ {
+  "seedKey": "fq.general_contracting.plumbing.service_call_leak",
+  "industry": "General Contractor",
+  "sourceCategory": "Plumbing & Drainage",
+  "sourceService": "Plumbing Service Call and Leak Repair Labor",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_81"
+ },
+ {
+  "seedKey": "fq.general_contracting.plumbing.spring_startup",
+  "industry": "General Contractor",
+  "sourceCategory": "Plumbing & Drainage",
+  "sourceService": "Spring Plumbing System Start-Up and Water Heater Service",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_82"
+ },
+ {
+  "seedKey": "fq.general_contracting.roofing.chimney_cap_liner",
+  "industry": "General Contractor",
+  "sourceCategory": "Roofing, Gutters & Chimneys",
+  "sourceService": "Chimney Cap, Liner, and Protective Wrapping Installation",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_83"
+ },
+ {
+  "seedKey": "fq.general_contracting.roofing.chimney_repair_flashing",
+  "industry": "General Contractor",
+  "sourceCategory": "Roofing, Gutters & Chimneys",
+  "sourceService": "Chimney Repair, Flashing Installation, and Waterproofing",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_84"
+ },
+ {
+  "seedKey": "fq.general_contracting.roofing.flat_roof_replacement",
+  "industry": "General Contractor",
+  "sourceCategory": "Roofing, Gutters & Chimneys",
+  "sourceService": "Complete Flat Roof Replacement and Coating Services",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_85"
+ },
+ {
+  "seedKey": "fq.general_contracting.roofing.downspout_reinstall",
+  "industry": "General Contractor",
+  "sourceCategory": "Roofing, Gutters & Chimneys",
+  "sourceService": "Downspout Demolition, Removal, and Reinstallation",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_86"
+ },
+ {
+  "seedKey": "fq.general_contracting.roofing.foundation_drainage",
+  "industry": "General Contractor",
+  "sourceCategory": "Roofing, Gutters & Chimneys",
+  "sourceService": "Foundation and Basement Drainage System Installation",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_87"
+ },
+ {
+  "seedKey": "fq.general_contracting.roofing.gutter_cleaning",
+  "industry": "General Contractor",
+  "sourceCategory": "Roofing, Gutters & Chimneys",
+  "sourceService": "Gutter Cleaning and Maintenance Services",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_88"
+ },
+ {
+  "seedKey": "fq.general_contracting.roofing.downspout_install",
+  "industry": "General Contractor",
+  "sourceCategory": "Roofing, Gutters & Chimneys",
+  "sourceService": "Installation and Reconnection of Residential Downspouts",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_89"
+ },
+ {
+  "seedKey": "fq.general_contracting.roofing.seamless_gutters",
+  "industry": "General Contractor",
+  "sourceCategory": "Roofing, Gutters & Chimneys",
+  "sourceService": "Installation and Repair of Aluminum Seamless Gutters and Downspouts",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_90"
+ },
+ {
+  "seedKey": "fq.general_contracting.roofing.asphalt_shingles",
+  "industry": "General Contractor",
+  "sourceCategory": "Roofing, Gutters & Chimneys",
+  "sourceService": "Installation of Asphalt Shingles and Roofing Materials",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_91"
+ },
+ {
+  "seedKey": "fq.general_contracting.roofing.chimney_flashing_sealing",
+  "industry": "General Contractor",
+  "sourceCategory": "Roofing, Gutters & Chimneys",
+  "sourceService": "Installation of Chimney Flashing and Roof Sealing Materials",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_92"
+ },
+ {
+  "seedKey": "fq.general_contracting.roofing.drip_edge_fascia",
+  "industry": "General Contractor",
+  "sourceCategory": "Roofing, Gutters & Chimneys",
+  "sourceService": "Installation of Residential Roof Drip Edge and Fascia",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_93"
+ },
+ {
+  "seedKey": "fq.general_contracting.roofing.roof_vents",
+  "industry": "General Contractor",
+  "sourceCategory": "Roofing, Gutters & Chimneys",
+  "sourceService": "Installation of Residential Roof Vents and Ridge Ventilation",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_94"
+ },
+ {
+  "seedKey": "fq.general_contracting.roofing.sump_condensation",
+  "industry": "General Contractor",
+  "sourceCategory": "Roofing, Gutters & Chimneys",
+  "sourceService": "Installation of Sump Pump Systems and Condensation Drainage",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_95"
+ },
+ {
+  "seedKey": "fq.general_contracting.roofing.roof_repair_shingles",
+  "industry": "General Contractor",
+  "sourceCategory": "Roofing, Gutters & Chimneys",
+  "sourceService": "Residential Roof Repair and Shingle Replacement Services",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_96"
+ },
+ {
+  "seedKey": "fq.general_contracting.roofing.architectural_replacement",
+  "industry": "General Contractor",
+  "sourceCategory": "Roofing, Gutters & Chimneys",
+  "sourceService": "Residential Roof Replacement with Architectural Shingles",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_97"
+ },
+ {
+  "seedKey": "fq.general_contracting.roofing.install_materials_fasteners",
+  "industry": "General Contractor",
+  "sourceCategory": "Roofing, Gutters & Chimneys",
+  "sourceService": "Roof Installation with Materials and Fasteners",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_98"
+ },
+ {
+  "seedKey": "fq.general_contracting.roofing.repair_maintenance",
+  "industry": "General Contractor",
+  "sourceCategory": "Roofing, Gutters & Chimneys",
+  "sourceService": "Roof Repair and Maintenance Services",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_99"
+ },
+ {
+  "seedKey": "fq.general_contracting.roofing.tear_off_shingling",
+  "industry": "General Contractor",
+  "sourceCategory": "Roofing, Gutters & Chimneys",
+  "sourceService": "Roof Tear-Off, Replacement, and Shingling Services",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_100"
+ },
+ {
+  "seedKey": "fq.general_contracting.roofing.soffit_fascia_gutter",
+  "industry": "General Contractor",
+  "sourceCategory": "Roofing, Gutters & Chimneys",
+  "sourceService": "Roof, Soffit, Fascia and Gutter Repair and Replacement",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_101"
+ },
+ {
+  "seedKey": "fq.general_contracting.roofing.materials_waterproofing",
+  "industry": "General Contractor",
+  "sourceCategory": "Roofing, Gutters & Chimneys",
+  "sourceService": "Roofing Materials and Waterproofing Installation",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_102"
+ },
+ {
+  "seedKey": "fq.general_contracting.roofing.vapor_barrier_coating",
+  "industry": "General Contractor",
+  "sourceCategory": "Roofing, Gutters & Chimneys",
+  "sourceService": "Waterproofing, Vapor Barrier, and Protective Coating Installation",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_103"
+ },
+ {
+  "seedKey": "fq.general_contracting.waterproofing.antimicrobial_odor",
+  "industry": "General Contractor",
+  "sourceCategory": "Waterproofing & Restoration",
+  "sourceService": "Antimicrobial Treatment and Odor Elimination Services",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_104"
+ },
+ {
+  "seedKey": "fq.general_contracting.waterproofing.containment",
+  "industry": "General Contractor",
+  "sourceCategory": "Waterproofing & Restoration",
+  "sourceService": "Installation of Containment Barriers and Protective Sheeting",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_105"
+ },
+ {
+  "seedKey": "fq.general_contracting.openings.garage_opener_hardware",
+  "industry": "General Contractor",
+  "sourceCategory": "Windows, Doors & Garage",
+  "sourceService": "Installation of Garage Door Opener Hardware and Mounting Components",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_106"
+ },
+ {
+  "seedKey": "fq.general_contracting.openings.windows_glass",
+  "industry": "General Contractor",
+  "sourceCategory": "Windows, Doors & Garage",
+  "sourceService": "Installation of Residential Windows and Glass Units",
+  "taskCode": "DEFAULT_GENERAL_CONTRACTOR_SERVICE_107"
+ }
+]
