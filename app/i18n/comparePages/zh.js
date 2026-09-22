@@ -101,7 +101,7 @@ const zh = {
   "compare.capability.daily_logs": "每日施工日志",
   "compare.capability.geofencing": "定位与电子围栏打卡",
   "compare.capability.field_worker_quotes": "现场班组可以在车上定价并发出报价单",
-  "compare.capability.entry_price_below_our_floor": "有比 FieldQuo 最便宜的一档更低的付费套餐",
+  "compare.capability.entry_price_below_our_floor": "有比 FieldQuo 最便宜的一档更低的套餐",
   "compare.capability.ai_receptionist_no_monthly_floor": "AI 电话接线员每个套餐都有，没有每月最低消费",
   "compare.capability.bank_debit_capped": "加拿大银行扣款，每笔付款最高五加元",
   "compare.capability.white_label_documents": "报价、发票和邮件用的是承包商的品牌，不是我们的",

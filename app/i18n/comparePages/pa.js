@@ -106,7 +106,7 @@ const pa = {
   "compare.capability.daily_logs": "ਰੋਜ਼ਾਨਾ ਸਾਈਟ ਲੌਗ",
   "compare.capability.geofencing": "ਟਿਕਾਣੇ ਦੀ ਪਛਾਣ ਅਤੇ ਜੀਓਫ਼ੈਂਸ ਵਾਲੀ ਹਾਜ਼ਰੀ",
   "compare.capability.field_worker_quotes": "ਫ਼ੀਲਡ ਕਰੂ ਵੈਨ ਵਿੱਚੋਂ ਹੀ ਕੋਟ ਦੀ ਕੀਮਤ ਲਾ ਕੇ ਭੇਜ ਸਕਦਾ ਹੈ",
-  "compare.capability.entry_price_below_our_floor": "FieldQuo ਦੇ ਸਭ ਤੋਂ ਸਸਤੇ ਪੜਾਅ ਤੋਂ ਹੇਠਾਂ ਕੋਈ ਪੈਸੇ ਵਾਲਾ ਪਲਾਨ",
+  "compare.capability.entry_price_below_our_floor": "FieldQuo ਦੇ ਸਭ ਤੋਂ ਸਸਤੇ ਪੜਾਅ ਤੋਂ ਹੇਠਾਂ ਕੋਈ ਪਲਾਨ",
   "compare.capability.ai_receptionist_no_monthly_floor": "ਹਰ ਪਲਾਨ ਵਿੱਚ AI ਫ਼ੋਨ ਰਿਸੈਪਸ਼ਨਿਸਟ, ਕੋਈ ਮਹੀਨਾਵਾਰ ਘੱਟੋ-ਘੱਟ ਨਹੀਂ",
   "compare.capability.bank_debit_capped": "ਕੈਨੇਡਾ ਵਿੱਚ ਬੈਂਕ ਡੈਬਿਟ, ਪ੍ਰਤੀ ਭੁਗਤਾਨ ਵੱਧ ਤੋਂ ਵੱਧ ਪੰਜ ਡਾਲਰ",
   "compare.capability.white_label_documents": "ਕੋਟੇਸ਼ਨਾਂ, ਬਿੱਲ ਅਤੇ ਈਮੇਲਾਂ ਉੱਤੇ ਠੇਕੇਦਾਰ ਦਾ ਬ੍ਰਾਂਡ ਹੁੰਦਾ ਹੈ, ਸਾਡਾ ਨਹੀਂ",

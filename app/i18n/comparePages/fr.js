@@ -111,7 +111,7 @@ const fr = {
   "compare.capability.daily_logs": "Journaux de chantier quotidiens",
   "compare.capability.geofencing": "Géolocalisation et pointage à l’intérieur d’un périmètre",
   "compare.capability.field_worker_quotes": "L’équipe de terrain peut chiffrer et envoyer une soumission depuis la camionnette",
-  "compare.capability.entry_price_below_our_floor": "Un forfait payant sous l’échelon le moins cher de FieldQuo",
+  "compare.capability.entry_price_below_our_floor": "Un forfait sous l’échelon le moins cher de FieldQuo",
   "compare.capability.ai_receptionist_no_monthly_floor": "Réceptionniste téléphonique IA sur tous les forfaits, sans minimum mensuel",
   "compare.capability.bank_debit_capped": "Débit bancaire au Canada plafonné à cinq dollars par paiement",
   "compare.capability.white_label_documents": "Les soumissions, factures et courriels portent la marque de l’entrepreneur, pas la nôtre",

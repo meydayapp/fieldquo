@@ -104,7 +104,7 @@ const es = {
   "compare.capability.daily_logs": "Bitácoras diarias de obra",
   "compare.capability.geofencing": "Geolocalización y registro de entrada con geocerca",
   "compare.capability.field_worker_quotes": "La cuadrilla puede poner precio y enviar un presupuesto desde la camioneta",
-  "compare.capability.entry_price_below_our_floor": "Un plan de pago por debajo del peldaño más barato de FieldQuo",
+  "compare.capability.entry_price_below_our_floor": "Un plan por debajo del peldaño más barato de FieldQuo",
   "compare.capability.ai_receptionist_no_monthly_floor": "Recepcionista telefónica con IA en todos los planes, sin mínimo mensual",
   "compare.capability.bank_debit_capped": "Débito bancario en Canadá con tope de cinco dólares por pago",
   "compare.capability.white_label_documents": "Los presupuestos, facturas y correos llevan la marca del contratista, no la nuestra",

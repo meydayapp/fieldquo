@@ -109,7 +109,7 @@ const it = {
   "compare.capability.daily_logs": "Rapportini giornalieri di cantiere",
   "compare.capability.geofencing": "Geolocalizzazione e timbratura con geofencing",
   "compare.capability.field_worker_quotes": "La squadra in cantiere può valorizzare e inviare un preventivo dal furgone",
-  "compare.capability.entry_price_below_our_floor": "Un piano a pagamento sotto il gradino più economico di FieldQuo",
+  "compare.capability.entry_price_below_our_floor": "Un piano sotto il gradino più economico di FieldQuo",
   "compare.capability.ai_receptionist_no_monthly_floor": "Centralino telefonico AI su ogni piano, senza minimo mensile",
   "compare.capability.bank_debit_capped": "Addebito bancario in Canada con un massimo di cinque dollari per pagamento",
   "compare.capability.white_label_documents": "Preventivi, fatture ed email portano il marchio dell'artigiano, non il nostro",

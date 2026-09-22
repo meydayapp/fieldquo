@@ -121,7 +121,7 @@ const en = {
   "compare.capability.daily_logs": "Daily site logs",
   "compare.capability.geofencing": "Geolocation and geofenced clock-in",
   "compare.capability.field_worker_quotes": "Field crew can price and send a quote from the van",
-  "compare.capability.entry_price_below_our_floor": "A paid plan below FieldQuo's cheapest rung",
+  "compare.capability.entry_price_below_our_floor": "A plan priced below FieldQuo's cheapest rung",
   "compare.capability.ai_receptionist_no_monthly_floor": "AI phone receptionist on every plan, with no monthly minimum",
   "compare.capability.bank_debit_capped": "Bank debit in Canada capped at five dollars per payment",
   "compare.capability.white_label_documents": "Quotes, invoices and emails carry the contractor's brand, not ours",

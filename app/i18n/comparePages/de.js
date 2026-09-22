@@ -103,7 +103,7 @@ const de = {
   "compare.capability.daily_logs": "Tägliche Bautagebücher",
   "compare.capability.geofencing": "Standortdaten und Stempeln im Geofence",
   "compare.capability.field_worker_quotes": "Das Team vor Ort kann ein Angebot aus dem Transporter kalkulieren und senden",
-  "compare.capability.entry_price_below_our_floor": "Ein bezahlter Tarif unterhalb der günstigsten Stufe von FieldQuo",
+  "compare.capability.entry_price_below_our_floor": "Ein Tarif unterhalb der günstigsten Stufe von FieldQuo",
   "compare.capability.ai_receptionist_no_monthly_floor": "KI-Telefonassistent in jedem Tarif, ohne monatliche Mindestabnahme",
   "compare.capability.bank_debit_capped": "Bankeinzug in Kanada, gedeckelt auf fünf Dollar pro Zahlung",
   "compare.capability.white_label_documents": "Angebote, Rechnungen und E-Mails tragen die Marke des Handwerkers, nicht unsere",

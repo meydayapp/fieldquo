@@ -111,7 +111,7 @@ const uk = {
   "compare.capability.daily_logs": "Щоденні журнали на об’єкті",
   "compare.capability.geofencing": "Геолокація і відмітка приходу в геозоні",
   "compare.capability.field_worker_quotes": "Бригада в полі може оцінити й надіслати кошторис прямо з фургона",
-  "compare.capability.entry_price_below_our_floor": "Платний план, дешевший за найдешевший щабель FieldQuo",
+  "compare.capability.entry_price_below_our_floor": "План, дешевший за найдешевший щабель FieldQuo",
   "compare.capability.ai_receptionist_no_monthly_floor": "ШІ-секретар на телефоні в кожному плані, без місячного мінімуму",
   "compare.capability.bank_debit_capped": "Банківський дебет у Канаді з обмеженням п'ять доларів за платіж",
   "compare.capability.white_label_documents": "Кошториси, рахунки та листи несуть бренд підрядника, а не наш",
