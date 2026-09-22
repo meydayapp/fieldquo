@@ -107,6 +107,7 @@ import P104 from "@/app/app/jobs/[id]/work-order/WorkOrderView.js";
 import P105 from "@/app/app/me/supplies/page.js";
 import P106 from "@/docs/screens/app-guide/harness/TakeoffFrame.jsx";
 import P107 from "@/docs/screens/app-guide/harness/PaintRatesFrame.jsx";
+import P108 from "@/app/app/settings/presentation/page.js";
 export const PAGES = {
   "app/app/page.js": P0,
   "app/app/copilot/page.js": P1,
@@ -216,4 +217,5 @@ export const PAGES = {
   "app/app/me/supplies/page.js": P105,
   "docs/screens/app-guide/harness/TakeoffFrame.jsx": P106,
   "docs/screens/app-guide/harness/PaintRatesFrame.jsx": P107,
+  "app/app/settings/presentation/page.js": P108,
 };

@@ -23,6 +23,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { loadCompanyGallery, galleryAsSitePairs } from "@/lib/company/gallery";
 import { memberOrRefusalPlain } from "@/lib/apiMember";
 import { planOrRefusal } from "@/lib/signup/planGate";
 import { sanitiseBlocks, siteFromCompany } from "@/app/data/siteBlocks";
@@ -160,10 +161,10 @@ export async function GET(request) {
   // Pairs the company has CONFIRMED, read off the block. Suggestions derived
   // from two-photo job visits are offered separately — a suggestion is not a
   // confirmation, and the difference matters on a public page.
-  const confirmedPairs = (Array.isArray(site?.blocks) ? site.blocks : [])
-    .filter((b) => b?.type === "beforeafter")
-    .flatMap((b) => (Array.isArray(b.content?.pairs) ? b.content.pairs : []))
-    .filter((x) => x?.before && x?.after);
+  // The company's one gallery (lib/company/gallery.js) — what the public
+  // page renders, the quote email prints and the proposal shows. The block's
+  // own pairs are only the copy that was merged into it.
+  const confirmedPairs = galleryAsSitePairs(await loadCompanyGallery(member.companyId).catch(() => []));
 
   return NextResponse.json({
     // Only what's actually absent — see lib/site/gaps.js. The builder asks about

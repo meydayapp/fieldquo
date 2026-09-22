@@ -366,6 +366,35 @@ export default function ClientPortal({ token }) {
         </Section>
       )}
 
+      {/* Signed waivers with their copy, and any still to sign — the
+          portal's Documents section (client mockup §3). */}
+      {data.documents?.length > 0 && (
+        <Section icon={FileText} title={copy.portalDocumentsHeading}>
+          {data.documents.map((d, i) => (
+            <div key={i} className="flex items-center justify-between gap-x-4 gap-y-2 py-4 flex-wrap">
+              <div className="min-w-0">
+                <div className="font-medium text-[#2d2520]">{d.title}</div>
+                <div className="text-xs text-[#2d2520]/70 mt-0.5">
+                  {d.status === "signed" ? copy.waiverSignedOn(date(d.signedAt)) : copy.waiverKicker}
+                </div>
+              </div>
+              <div className="flex items-center gap-3 shrink-0">
+                {d.status === "signed" && d.url && (
+                  <a href={d.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center min-h-11 text-sm font-semibold underline text-[#2d2520]">
+                    {copy.proposal.viewDocument}
+                  </a>
+                )}
+                {d.status !== "signed" && d.signToken && (
+                  <a href={`/w/${d.signToken}`} className="inline-flex items-center min-h-11 text-sm font-semibold underline text-[#2d2520]">
+                    {copy.waiverOpen}
+                  </a>
+                )}
+              </div>
+            </div>
+          ))}
+        </Section>
+      )}
+
       <p className="text-center text-xs text-[#2d2520]/40 mt-10">
         {copy.portalQuestions(c.name, c.phone, c.email)}
       </p>

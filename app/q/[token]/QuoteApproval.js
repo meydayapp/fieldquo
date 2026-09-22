@@ -18,10 +18,27 @@
 // self-quote form next door has always used it. Now this page, that form and the
 // PDF derive from the same measured palette, which is also why they finally look
 // like the same document.
+//
+// ── Since 2026-09-21: a mini-site, not one document ─────────────────────────
+//
+// The quote is still the first section ("Your project") and still the same
+// document: scope, prices, extras posting addOnIds only, the signature. But
+// the link now opens a branded page with a sticky header (logo · total ·
+// Accept) and a table of contents beside the document — About us, Before &
+// after, Important documents, Testimonials, Services — each fed from
+// company rows through the public route (lib/proposal/load.js) and each
+// rendered ONLY when `quote.proposal.sections` lists it: a section with
+// nothing behind it is not drawn and not in the contents. Nothing here is
+// generated at request time, and nothing here names FieldQuo.
+//
+// Inside "Your project", above the prices: Scope of work (the trade's scope
+// paragraphs and the estimator's text blocks — the same words, not a second
+// copy) and How the work runs (the process steps, plus a day-by-day plan
+// derived from the takeoff's hours and the crew size when BOTH exist).
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Check, X, Loader2, Building2, Plus } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Check, X, Loader2, Building2, Plus, FileText, Play, Star } from "lucide-react";
 import { accessiblePair } from "@/lib/brand/colour";
 import {
   documentTheme,
@@ -31,15 +48,23 @@ import {
 } from "@/lib/documents/theme";
 import SignaturePad from "@/app/components/SignaturePad";
 import HowToPayBlock from "@/app/components/public/HowToPayBlock";
+import WaiverSign from "@/app/components/public/WaiverSign";
 import { documentLabels, documentFormatters } from "@/lib/i18n/documentLabels";
 import { documentCustomFacts } from "@/lib/documentSections/customFacts";
 import { clientDocCopy } from "@/lib/i18n/clientDocCopy";
 import { monthlyPayment } from "@/lib/financing/monthlyEstimate";
 import { jsonBody } from "@/lib/jsonBody";
 import { visibleLineItems } from "@/lib/quotes/scopeGroupDisplay";
-import { lineShowsAmount } from "@/lib/quotes/textBlocks";
+import { lineShowsAmount, isTextLine } from "@/lib/quotes/textBlocks";
 import RichTextBody from "@/app/components/quotes/RichTextBody";
 
+// ── Muted ink is /70, never lighter ──────────────────────────────────────────
+//
+// #2d2520 composited over white measures 4.12:1 at /60 and 3.08:1 at /50 —
+// under the 4.5:1 bar on the captions, the "Prepared for" line and the
+// footer. /70 measures 5.65:1 (scripts/check-client-proposal.mjs runs the
+// arithmetic), so every muted line on this page uses /70 or darker.
+//
 // Approve is the one green on this page, and it is NOT brand-derived — the
 // homeowner reads it as "yes", not as the contractor's colour, so it stays the
 // same on every tenant. It was #16a34a, which measures 3.30:1 against the white
@@ -66,6 +91,13 @@ export default function QuoteApproval({ token }) {
   // answers 410 with an English sentence; this page already has the client's
   // own words for it, so it shows those instead.
   const [expiredOnSubmit, setExpiredOnSubmit] = useState(false);
+  // Waivers attached to this quote, signed in place. Tokens of the ones
+  // still pending: the Accept button stays disabled with the reason printed
+  // while any remain, and the server refuses the approval regardless.
+  const [waiverSigned, setWaiverSigned] = useState(() => new Set());
+  // Which section the reader is in, for the contents — scroll-driven.
+  const [activeSection, setActiveSection] = useState("project");
+  const approveRef = useRef(null);
 
   // Ids of the optional extras ticked. Ids only — the amounts live on the
   // server and the total below is for the client's benefit, not the
@@ -213,6 +245,12 @@ export default function QuoteApproval({ token }) {
           setConfirming(null);
           return;
         }
+        // A waiver attached to this quote is still unsigned: the page's own
+        // sentence for it, in the document's language, rather than the
+        // route's English.
+        if (res.status === 409 && data?.needsWaiver) {
+          throw new Error(copy.waiverRequiredBeforeApprove);
+        }
         throw new Error(data?.error || copy.genericError);
       }
       setDecided(data.status);
@@ -294,6 +332,33 @@ export default function QuoteApproval({ token }) {
     return monthly === null ? null : { monthly, ...terms };
   }, [quote, pricing.total]);
 
+  // The contents: "Your project" always, then whatever the server said has
+  // content AND is switched on. Computed before the early returns so the
+  // hook order is stable.
+  const proposal = quote?.proposal || null;
+  const sectionKeys = useMemo(
+    () => ["project", ...((proposal?.sections || []).filter((k) => SECTION_IDS[k]))],
+    [proposal],
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !quote) return undefined;
+    const ids = sectionKeys.map((k) => SECTION_IDS[k]);
+    const onScroll = () => {
+      // The section whose top is nearest above the header line wins.
+      const line = 120;
+      let current = ids[0];
+      for (const id of ids) {
+        const el = document.getElementById(id);
+        if (el && el.getBoundingClientRect().top - line <= 0) current = id;
+      }
+      setActiveSection(current);
+    };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [quote, sectionKeys]);
+
   if (loading) {
     return (
       <Shell>
@@ -316,7 +381,7 @@ export default function QuoteApproval({ token }) {
           <p className="text-lg font-semibold text-[#2d2520]">
             {clientDocCopy("en").connectionLost}
           </p>
-          <p className="text-sm text-[#2d2520]/60 mt-2">
+          <p className="text-sm text-[#2d2520]/70 mt-2">
             {clientDocCopy("en").connectionLostHint}
           </p>
           <button
@@ -336,7 +401,7 @@ export default function QuoteApproval({ token }) {
       <Shell>
         <div className="bg-white border border-black/10 rounded-2xl p-8 text-center">
           <p className="text-lg font-semibold text-[#2d2520]">{loadError}</p>
-          <p className="text-sm text-[#2d2520]/60 mt-2">
+          <p className="text-sm text-[#2d2520]/70 mt-2">
             {clientDocCopy("en").linkInvalidHint}
           </p>
         </div>
@@ -386,8 +451,124 @@ export default function QuoteApproval({ token }) {
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
     );
 
+  const waivers = proposal?.waivers || [];
+  const pendingWaivers = waivers.filter((w) => w.status !== "signed" && !waiverSigned.has(w.token));
+  const waiverBlocks = pendingWaivers.length > 0 && !locked;
+
+  // The header's Accept: jump to the signature step in "Your project" and
+  // open it — the same name + drawn mark + consent as the buttons at the foot.
+  const startAccept = () => {
+    if (locked || waiverBlocks) return;
+    setConfirming("accepted");
+    approveRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const jumpTo = (id) => {
+    const el = document.getElementById(id);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const sectionLabel = (key) =>
+    key === "project"
+      ? copy.proposal.yourProject
+      : key === "about"
+        ? copy.proposal.aboutUs
+        : key === "beforeAfter"
+          ? copy.proposal.beforeAfter
+          : key === "documents"
+            ? copy.proposal.importantDocuments
+            : key === "testimonials"
+              ? copy.proposal.testimonials
+              : copy.proposal.services;
+
+  const scopeBlocks = scopeOfWork(quote.scopeGroups);
+  const plan = proposal?.plan || null;
+  const howTheWorkRuns = (quote.processSteps?.length > 0) || (plan?.days?.length > 0) || Boolean(plan?.paint);
+
+  const tocLink = (key, mobile) => {
+    const id = SECTION_IDS[key];
+    const on = activeSection === id;
+    return (
+      <button
+        key={key}
+        type="button"
+        onClick={() => jumpTo(id)}
+        aria-current={on ? "true" : undefined}
+        className={
+          mobile
+            ? "shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold whitespace-nowrap min-h-9"
+            : "block w-full text-left rounded-md px-3 py-2 text-sm min-h-10"
+        }
+        style={
+          on
+            ? { backgroundColor: fill.bg, color: fill.fg, fontWeight: 700 }
+            : { color: theme.inkMuted, backgroundColor: mobile ? wash.bg : "transparent" }
+        }
+      >
+        {sectionLabel(key)}
+      </button>
+    );
+  };
+
   return (
-    <Shell>
+    <Shell wide>
+      {/* ── Sticky header: logo · total · Accept ───────────────────────────
+          The total moves as extras are ticked (same `pricing` as the band
+          below) and the button is the one green on the page, unchanged. */}
+      <div className="sticky top-0 z-30 -mx-4 px-4 bg-white/95 backdrop-blur border-b border-black/10">
+        <div className="max-w-5xl mx-auto flex items-center gap-3 py-2.5 min-h-14">
+          {c.logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={c.logoUrl} alt={c.name} className="h-8 w-auto max-w-[120px] object-contain" />
+          ) : (
+            <div className="h-8 w-8 rounded-md flex items-center justify-center shrink-0" style={{ backgroundColor: fill.bg, color: fill.fg }}>
+              <Building2 size={16} />
+            </div>
+          )}
+          <span className="font-semibold text-[#2d2520] truncate text-sm sm:text-base">{c.name}</span>
+          <span className="ml-auto text-right leading-tight shrink-0">
+            <span className="hidden sm:inline text-xs text-[#2d2520]/70 mr-2">{copy.proposal.quoteTotal}</span>
+            <span className="font-bold tabular-nums text-[#2d2520] text-sm sm:text-base">{money(pricing.total)}</span>
+          </span>
+          {!decided && !expired && (
+            <button
+              type="button"
+              onClick={startAccept}
+              disabled={waiverBlocks}
+              title={waiverBlocks ? copy.waiverRequiredBeforeApprove : undefined}
+              className="hidden sm:inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold text-white min-h-10 disabled:cursor-not-allowed"
+              style={{ backgroundColor: waiverBlocks ? "#4b5563" : APPROVE_GREEN }}
+            >
+              <Check size={15} /> {copy.proposal.acceptQuote}
+            </button>
+          )}
+        </div>
+        {/* Phone: the contents as a chip bar under the header. */}
+        {sectionKeys.length > 1 && (
+          <div className="md:hidden max-w-5xl mx-auto flex gap-2 overflow-x-auto pb-2 -mb-px [scrollbar-width:none]">
+            {sectionKeys.map((k) => tocLink(k, true))}
+          </div>
+        )}
+      </div>
+
+      <div className="max-w-5xl mx-auto md:grid md:grid-cols-[176px_1fr] md:gap-6 pt-5">
+        {/* Desktop: the contents beside the document. */}
+        {sectionKeys.length > 1 ? (
+          <nav aria-label={copy.proposal.contents} className="hidden md:block">
+            <div className="sticky top-20 space-y-0.5">
+              {sectionKeys.map((k) => tocLink(k, false))}
+              <div className="pt-4 px-3 text-[10px] uppercase tracking-wider" style={{ color: theme.inkMuted }}>
+                {labels.quote} {quote.quoteNumber}
+              </div>
+              <div className="px-3 text-xs text-[#2d2520]">{quote.client?.name}</div>
+            </div>
+          </nav>
+        ) : (
+          <div className="hidden md:block" />
+        )}
+
+        <div className="min-w-0 space-y-5">
+      <section id={SECTION_IDS.project} className="scroll-mt-24">
       <div className="bg-white border border-black/10 rounded-2xl overflow-hidden shadow-sm">
         {/* The brand rule, before anything else. Same device as the PDF —
             it reads as the document being on their letterhead rather than
@@ -431,7 +612,7 @@ export default function QuoteApproval({ token }) {
                 {c.phone && (
                   <a
                     href={`tel:${c.phone}`}
-                    className="text-xs text-[#2d2520]/55 hover:text-[#2d2520]"
+                    className="text-xs text-[#2d2520]/70 hover:text-[#2d2520]"
                   >
                     {c.phone}
                   </a>
@@ -453,7 +634,7 @@ export default function QuoteApproval({ token }) {
         </div>
 
         <div className="px-6 sm:px-8 py-6">
-          <p className="text-sm text-[#2d2520]/60">{labels.preparedFor}</p>
+          <p className="text-sm text-[#2d2520]/70">{labels.preparedFor}</p>
           <p className="text-lg font-semibold text-[#2d2520]">
             {quote.client?.name}
           </p>
@@ -466,20 +647,113 @@ export default function QuoteApproval({ token }) {
           )}
 
           {quote.validUntil && (
-            <p className="text-sm mt-2 text-[#2d2520]/60">
+            <p className="text-sm mt-2 text-[#2d2520]/70">
               {labels.validUntil} {fmt.date(quote.validUntil)}
             </p>
           )}
           {/* The company's own boxes flagged for the document, in the same
               words as the PDF attached to the email that brought them here. */}
           {documentCustomFacts(quote.customFields, { date: fmt.date, labels }).map(([label, value]) => (
-            <p key={label} className="text-sm mt-1 text-[#2d2520]/60">
+            <p key={label} className="text-sm mt-1 text-[#2d2520]/70">
               {label} · <span className="text-[#2d2520]">{value}</span>
             </p>
           ))}
         </div>
 
         <div className="px-6 sm:px-8 pb-6 space-y-6">
+          {/* ── Scope of work ─────────────────────────────────────────────
+              The trade's scope paragraph for each group and the estimator's
+              own text blocks, in their words — moved up from the price
+              cards (which no longer repeat them) so the page never carries
+              the same sentence twice. Omitted when nothing was written. */}
+          {scopeBlocks.length > 0 && (
+            <div>
+              <SectionKicker theme={theme}>{copy.proposal.scopeOfWork}</SectionKicker>
+              <div className="rounded-xl border border-black/10 overflow-hidden" style={{ borderLeft: `3px solid ${rule}` }}>
+                {scopeBlocks.map((b, i) => (
+                  <div key={i} className={i > 0 ? "border-t border-black/5" : ""}>
+                    {b.heading && (
+                      <div className="px-4 py-2 text-sm font-semibold text-[#2d2520]" style={{ backgroundColor: wash.bg, color: wash.ink }}>
+                        {b.heading}
+                      </div>
+                    )}
+                    {/* A block's body may carry the library's rich text
+                        (bold, lists, links — lib/quotes/richText.js); a
+                        trade's scope paragraph passes through unchanged. */}
+                    <RichTextBody body={b.text} className="px-4 py-3 text-sm leading-relaxed text-[#2d2520]/80" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ── How the work runs ─────────────────────────────────────────
+              The trade's process steps (as before), then the day-by-day
+              plan — derived server-side from the takeoff's hours and the
+              crew size, and simply absent when either is missing. The
+              paint line is the takeoff's products and coats, nothing
+              invented. */}
+          {howTheWorkRuns && (
+            <div>
+              <SectionKicker theme={theme}>{copy.howTheWorkRuns}</SectionKicker>
+              {quote.processSteps?.length > 0 && (
+                <ol className="space-y-0 mb-3">
+                  {quote.processSteps.map((s, i) => {
+                    const last = i === quote.processSteps.length - 1;
+                    return (
+                      <li key={i} className="flex gap-3">
+                        <div className="flex flex-col items-center shrink-0">
+                          <span
+                            className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold"
+                            style={{ backgroundColor: fill.bg, color: fill.fg }}
+                          >
+                            {s.num}
+                          </span>
+                          {!last && <span className="w-px flex-1 my-1" style={{ backgroundColor: theme.accentRule }} />}
+                        </div>
+                        <div className={last ? "pb-0" : "pb-4"}>
+                          <p className="text-sm font-semibold text-[#2d2520]">
+                            {s.title}
+                            {s.timeline && (
+                              <span className="ml-2 text-xs font-normal text-[#2d2520]/70">{s.timeline}</span>
+                            )}
+                          </p>
+                          <p className="text-xs text-[#2d2520]/70 leading-relaxed mt-0.5">{s.body}</p>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ol>
+              )}
+              {plan?.days?.length > 0 && (
+                <div className="rounded-xl border border-black/10 divide-y divide-black/5">
+                  {plan.days.map((d) => (
+                    <div key={d.day} className="flex items-baseline justify-between gap-3 px-4 py-2 text-sm">
+                      <span className="text-[#2d2520]">
+                        <b>{copy.proposal.day(d.day)}</b>
+                        {d.labels.length > 0 && <span className="text-[#2d2520]/80"> — {d.labels.join(", ")}</span>}
+                      </span>
+                      <span className="text-xs text-[#2d2520]/70 shrink-0">
+                        {d.halfDay ? copy.proposal.halfDay : plan.crewSize ? copy.proposal.crewOf(plan.crewSize) : ""}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {plan?.paint && (plan.paint.products?.length > 0 || plan.paint.coats?.length > 0) && (
+                <p className="text-xs text-[#2d2520]/70 mt-2">
+                  {copy.proposal.paintLine(
+                    plan.paint.products?.join(", ") || "",
+                    plan.paint.coats?.length ? copy.proposal.coats(plan.paint.coats.length === 1 ? plan.paint.coats[0] : `${plan.paint.coats[0]}–${plan.paint.coats[plan.paint.coats.length - 1]}`) : "",
+                  )}
+                </p>
+              )}
+            </div>
+          )}
+
+          {quote.scopeGroups?.length > 0 && (
+            <SectionKicker theme={theme}>{copy.proposal.priceByArea}</SectionKicker>
+          )}
           {/* One card per service, matching the PDF exactly — a client who
               reads this page and then opens the attachment must not find two
               different documents. The per-service accent is the card's left
@@ -535,11 +809,8 @@ export default function QuoteApproval({ token }) {
                       document. /80 rather than the /70 the bullets use: this
                       is the sentence the whole card depends on, and it clears
                       4.5:1 composited over white where /70 does not. */}
-                  {g.description && (
-                    <p className="mb-3 border-b border-black/5 pb-3 text-xs leading-relaxed text-[#2d2520]/80">
-                      {g.description}
-                    </p>
-                  )}
+                  {/* The scope paragraph now prints once, under "Scope of
+                      work" above — not here as well. */}
 
                   {/* The measurement behind the price — the satellite still
                       with the traced lawn (or the roof, or the eaves) and
@@ -597,13 +868,19 @@ export default function QuoteApproval({ token }) {
                         import's one line repeats the card head above word
                         for word, dollar for dollar. See
                         lib/quotes/scopeGroupDisplay.js. */}
-                    {visibleLineItems(g).map((li, j) => (
+                    {/* An UNPRICED text block prints once, under "Scope of
+                        work" above, in the estimator's words; here it would
+                        be a title with no amount saying the same thing
+                        again. A PRICED block ("Painter for a day — 8 h") is
+                        money the client is agreeing to, so it stays a line
+                        (lib/quotes/textBlocks.js lineShowsAmount). */}
+                    {visibleLineItems(g).filter((li) => !(isTextLine(li) && !lineShowsAmount(li))).map((li, j) => (
                       <div key={j}>
                         <div className="flex justify-between gap-4 text-sm text-[#2d2520]">
                           <span>
                             {li.description}
                             {Number(li.quantity) > 1 && (
-                              <span className="text-[#2d2520]/50">
+                              <span className="text-[#2d2520]/70">
                                 {" "}
                                 × {li.quantity}
                               </span>
@@ -638,7 +915,7 @@ export default function QuoteApproval({ token }) {
 
                   {g.included?.length > 0 && (
                     <div className="mt-3 pt-3 border-t border-black/5">
-                      <p className="text-[10px] font-bold tracking-wider text-[#2d2520]/40 mb-1.5 uppercase">
+                      <p className="text-[10px] font-bold tracking-wider text-[#2d2520]/70 mb-1.5 uppercase">
                         {copy.whatsIncluded}
                       </p>
                       <ul className="space-y-1">
@@ -666,7 +943,7 @@ export default function QuoteApproval({ token }) {
                       answering them here is what a second opinion reads like. */}
                   {g.mayChange?.length > 0 && (
                     <div className="mt-3 pt-3 border-t border-black/5">
-                      <p className="text-[10px] font-bold tracking-wider text-[#2d2520]/40 mb-1.5 uppercase">
+                      <p className="text-[10px] font-bold tracking-wider text-[#2d2520]/70 mb-1.5 uppercase">
                         {copy.whatCouldChange}
                       </p>
                       <dl className="space-y-1.5">
@@ -690,7 +967,7 @@ export default function QuoteApproval({ token }) {
 
           {glossary.length > 0 && (
             <div className="rounded-xl border border-black/5 bg-black/[0.02] px-4 py-3">
-              <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-[#2d2520]/40">
+              <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-[#2d2520]/70">
                 {copy.termsExplained}
               </p>
               <dl className="space-y-1.5">
@@ -716,7 +993,7 @@ export default function QuoteApproval({ token }) {
               >
                 {copy.optionalExtras}
               </h2>
-              <p className="text-xs text-[#2d2520]/50 mt-2 mb-3">
+              <p className="text-xs text-[#2d2520]/70 mt-2 mb-3">
                 {locked ? copy.extrasChosen : copy.extrasTickHint}
               </p>
 
@@ -766,7 +1043,7 @@ export default function QuoteApproval({ token }) {
                           </span>
                         </span>
                         {a.detail && (
-                          <span className="block text-xs text-[#2d2520]/60 mt-1">
+                          <span className="block text-xs text-[#2d2520]/70 mt-1">
                             {a.detail}
                           </span>
                         )}
@@ -775,64 +1052,6 @@ export default function QuoteApproval({ token }) {
                   );
                 })}
               </div>
-            </div>
-          )}
-
-          {/* The steps, then the company's own notes for this job. Placed
-              after the total because the client's eye goes to the price
-              first no matter what we do — this is the answer to the question
-              that follows it. */}
-          {quote.processSteps?.length > 0 && (
-            <div className="pt-5 border-t border-black/5">
-              <h3
-                className="text-xs font-bold tracking-wider mb-3 uppercase"
-                style={{ color: theme.accentText }}
-              >
-                {copy.howTheWorkRuns}
-              </h3>
-              <ol className="space-y-0">
-                {quote.processSteps.map((s, i) => {
-                  const last = i === quote.processSteps.length - 1;
-                  return (
-                    <li key={i} className="flex gap-3">
-                      <div className="flex flex-col items-center shrink-0">
-                        <span
-                          className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold"
-                          style={{
-                            backgroundColor: fill.bg,
-                            color: fill.fg,
-                          }}
-                        >
-                          {s.num}
-                        </span>
-                        {!last && (
-                          <span
-                            className="w-px flex-1 my-1"
-                            style={{ backgroundColor: theme.accentRule }}
-                          />
-                        )}
-                      </div>
-                      <div className={last ? "pb-0" : "pb-4"}>
-                        <p className="text-sm font-semibold text-[#2d2520]">
-                          {s.title}
-                          {/* "When do I get my house back" is what a client
-                              scans a process list for. Beside the step, not
-                              buried in the sentence — and simply absent for a
-                              trade whose content does not state one. */}
-                          {s.timeline && (
-                            <span className="ml-2 text-xs font-normal text-[#2d2520]/45">
-                              {s.timeline}
-                            </span>
-                          )}
-                        </p>
-                        <p className="text-xs text-[#2d2520]/65 leading-relaxed mt-0.5">
-                          {s.body}
-                        </p>
-                      </div>
-                    </li>
-                  );
-                })}
-              </ol>
             </div>
           )}
 
@@ -849,75 +1068,6 @@ export default function QuoteApproval({ token }) {
                 style={{ color: wash.ink }}
               >
                 {quote.processNotes}
-              </p>
-            </div>
-          )}
-
-          {quote.paymentTerms && (
-            <div className="pt-4 border-t border-black/5">
-              <h3
-                className="text-xs font-bold tracking-wider mb-2.5 uppercase"
-                style={{ color: theme.accentText }}
-              >
-                {copy.paymentTerms}
-              </h3>
-              {quote.paymentSchedule?.length > 0 ? (
-                // grid-cols-2, not -3: parsePaymentSchedule (lib/documents/
-                // paymentSchedule.js) reads the company's own free-text
-                // payment terms, so a stage's label can be "At rough-in
-                // inspection" rather than "Deposit", and there can be more
-                // than three stages. Three fixed columns on a 375px phone
-                // gave labels like that ~100px to wrap into; two columns
-                // leaves real room and still shows the whole schedule at a
-                // glance from sm up.
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {quote.paymentSchedule.map((s, i) => (
-                    <div
-                      key={i}
-                      className="rounded-lg px-3 py-2.5 border"
-                      style={{
-                        backgroundColor: wash.bg,
-                        borderColor: theme.accentRule,
-                      }}
-                    >
-                      <div
-                        className="text-xl font-bold leading-none"
-                        style={{ color: wash.accent }}
-                      >
-                        {s.pct}
-                      </div>
-                      <div
-                        className="text-xs font-semibold mt-1"
-                        style={{ color: wash.ink }}
-                      >
-                        {s.label}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-[#2d2520]/70">
-                  {quote.paymentTerms}
-                </p>
-              )}
-              {/* Where to send the deposit — the block the quote PDF prints
-                  under the same cards, built server-side in the document's
-                  language (lib/payments/offlineMethods.js depositHowToPay).
-                  Only when a schedule parsed: no schedule, nothing due at
-                  approval, nothing to say. */}
-              {quote.howToPay && (
-                <HowToPayBlock block={quote.howToPay} theme={theme} className="mt-4" />
-              )}
-            </div>
-          )}
-
-          {quote.notes && (
-            <div className="pt-4 border-t border-black/5">
-              <h3 className="text-sm font-semibold text-[#2d2520] mb-1">
-                {labels.notes}
-              </h3>
-              <p className="text-sm text-[#2d2520]/70 whitespace-pre-wrap">
-                {quote.notes}
               </p>
             </div>
           )}
@@ -1000,7 +1150,7 @@ export default function QuoteApproval({ token }) {
                 the Ontario rate" printed directly under it. Nothing was shown,
                 so the sentence was describing a number that wasn't there. */}
             {quote.taxAssumedRegion && taxIsAFigure && (
-              <p className="text-xs text-[#2d2520]/55 leading-snug pt-1">
+              <p className="text-xs text-[#2d2520]/70 leading-snug pt-1">
                 {labels.taxAssumedNote.replace(
                   "{region}",
                   quote.taxAssumedRegion,
@@ -1011,7 +1161,7 @@ export default function QuoteApproval({ token }) {
                 sentence the PDF prints, in the document's language, from the
                 record stored when the quote was written. */}
             {quote.taxSentence && (
-              <p className="text-xs text-[#2d2520]/55 leading-snug pt-1">
+              <p className="text-xs text-[#2d2520]/70 leading-snug pt-1">
                 {quote.taxSentence}
               </p>
             )}
@@ -1119,9 +1269,103 @@ export default function QuoteApproval({ token }) {
               )}
             </div>
           )}
+
+          {quote.paymentTerms && (
+            <div className="pt-4 border-t border-black/5">
+              <h3
+                className="text-xs font-bold tracking-wider mb-2.5 uppercase"
+                style={{ color: theme.accentText }}
+              >
+                {copy.paymentTerms}
+              </h3>
+              {quote.paymentSchedule?.length > 0 ? (
+                // grid-cols-2, not -3: parsePaymentSchedule (lib/documents/
+                // paymentSchedule.js) reads the company's own free-text
+                // payment terms, so a stage's label can be "At rough-in
+                // inspection" rather than "Deposit", and there can be more
+                // than three stages. Three fixed columns on a 375px phone
+                // gave labels like that ~100px to wrap into; two columns
+                // leaves real room and still shows the whole schedule at a
+                // glance from sm up.
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {quote.paymentSchedule.map((s, i) => (
+                    <div
+                      key={i}
+                      className="rounded-lg px-3 py-2.5 border"
+                      style={{
+                        backgroundColor: wash.bg,
+                        borderColor: theme.accentRule,
+                      }}
+                    >
+                      <div
+                        className="text-xl font-bold leading-none"
+                        style={{ color: wash.accent }}
+                      >
+                        {s.pct}
+                      </div>
+                      <div
+                        className="text-xs font-semibold mt-1"
+                        style={{ color: wash.ink }}
+                      >
+                        {s.label}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-[#2d2520]/70">
+                  {quote.paymentTerms}
+                </p>
+              )}
+              {/* Where to send the deposit — the block the quote PDF prints
+                  under the same cards, built server-side in the document's
+                  language (lib/payments/offlineMethods.js depositHowToPay).
+                  Only when a schedule parsed: no schedule, nothing due at
+                  approval, nothing to say. */}
+              {quote.howToPay && (
+                <HowToPayBlock block={quote.howToPay} theme={theme} className="mt-4" />
+              )}
+            </div>
+          )}
+
+          {quote.notes && (
+            <div className="pt-4 border-t border-black/5">
+              <h3 className="text-sm font-semibold text-[#2d2520] mb-1">
+                {labels.notes}
+              </h3>
+              <p className="text-sm text-[#2d2520]/70 whitespace-pre-wrap">
+                {quote.notes}
+              </p>
+            </div>
+          )}
+
         </div>
 
-        <div className="px-6 sm:px-8 py-6 bg-[#faf8f4] border-t border-black/5">
+        {/* ── Waivers attached to this quote ─────────────────────────────
+            Read in plain sections, every box ticked, then signed — the same
+            component /w/[token] renders. Until every attached waiver is
+            signed the Accept buttons stay disabled with the reason printed;
+            the server refuses the approval regardless. */}
+        {waivers.length > 0 && (
+          <div className="px-6 sm:px-8 pb-6 space-y-6">
+            {waivers.map((w) => (
+              <div key={w.token} className="rounded-xl border border-black/10 p-4 sm:p-5">
+                <p className="text-[10px] font-bold tracking-[0.15em] uppercase mb-1" style={{ color: theme.accentText }}>
+                  {copy.waiverKicker}
+                </p>
+                <WaiverSign
+                  waiver={w}
+                  company={c}
+                  language={language}
+                  embedded
+                  onSigned={() => setWaiverSigned((prev) => new Set([...prev, w.token]))}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div ref={approveRef} className="px-6 sm:px-8 py-6 bg-[#faf8f4] border-t border-black/5 scroll-mt-24">
           {decided === "accepted" ? (
             <Settled
               tone="ok"
@@ -1147,7 +1391,7 @@ export default function QuoteApproval({ token }) {
                   ? copy.approveConfirm(money(pricing.total))
                   : copy.declineConfirm}
               </p>
-              <p className="text-sm text-[#2d2520]/60 mt-1">
+              <p className="text-sm text-[#2d2520]/70 mt-1">
                 {confirming === "accepted"
                   ? pricing.extras > 0
                     ? copy.approveSubExtras(money(pricing.extras))
@@ -1213,10 +1457,16 @@ export default function QuoteApproval({ token }) {
             </div>
           ) : (
             <div className="flex gap-3 justify-center flex-wrap">
+              {waiverBlocks && (
+                <p className="w-full text-center text-sm" style={{ color: theme.warning }}>
+                  {copy.waiverRequiredBeforeApprove}
+                </p>
+              )}
               <button
                 onClick={() => setConfirming("accepted")}
-                className="inline-flex items-center gap-2 text-white px-7 py-3 rounded-full text-sm font-semibold"
-                style={{ backgroundColor: APPROVE_GREEN }}
+                disabled={waiverBlocks}
+                className="inline-flex items-center gap-2 text-white px-7 py-3 rounded-full text-sm font-semibold disabled:cursor-not-allowed"
+                style={{ backgroundColor: waiverBlocks ? "#4b5563" : APPROVE_GREEN }}
               >
                 <Check size={16} /> {copy.approveThisQuote}
               </button>
@@ -1231,17 +1481,190 @@ export default function QuoteApproval({ token }) {
         </div>
       </div>
 
-      <p className="text-center text-xs text-[#2d2520]/40 mt-6">
+      </section>
+
+      {/* ── The company beside the document ───────────────────────────────
+          Each of these renders only when the server listed it — see the
+          file header. Same paper, same measured theme, same language. */}
+      {proposal?.about && sectionKeys.includes("about") && (
+        <ProposalSection id={SECTION_IDS.about} kicker={copy.proposal.aboutUs} title={proposal.about.headline} theme={theme}>
+          <div className={proposal.about.teamPhotoUrl ? "grid gap-4 sm:grid-cols-[1fr_200px] items-start" : ""}>
+            <p className="text-sm leading-relaxed text-[#2d2520]/80 whitespace-pre-line">{proposal.about.story}</p>
+            {proposal.about.teamPhotoUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={proposal.about.teamPhotoUrl} alt={copy.proposal.teamPhotoAlt} className="w-full rounded-lg border border-black/10 object-cover aspect-[4/3]" />
+            )}
+          </div>
+          {proposal.about.videoUrl && (
+            <a
+              href={proposal.about.videoUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 mt-4 text-sm font-semibold min-h-11"
+              style={{ color: theme.accentText }}
+            >
+              <Play size={14} /> {copy.proposal.watchVideo}
+            </a>
+          )}
+        </ProposalSection>
+      )}
+
+      {proposal?.gallery?.length > 0 && sectionKeys.includes("beforeAfter") && (
+        <ProposalSection id={SECTION_IDS.beforeAfter} kicker={copy.proposal.beforeAfter} title={copy.proposal.recentWork} theme={theme}>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {proposal.gallery.map((p, i) => (
+              <figure key={i}>
+                <div className="grid grid-cols-2 gap-1">
+                  <div className="relative">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={p.before} alt={`${copy.proposal.before}${p.caption ? ` — ${p.caption}` : ""}`} className="w-full aspect-[4/3] object-cover rounded-l-md border border-black/10" />
+                    <span className="absolute left-1.5 top-1.5 text-[10px] font-bold tracking-wider px-1.5 py-0.5 rounded bg-[#20242b]/80 text-white">{copy.proposal.before.toUpperCase()}</span>
+                  </div>
+                  <div className="relative">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={p.after} alt={`${copy.proposal.after}${p.caption ? ` — ${p.caption}` : ""}`} className="w-full aspect-[4/3] object-cover rounded-r-md border border-black/10" />
+                    <span className="absolute left-1.5 top-1.5 text-[10px] font-bold tracking-wider px-1.5 py-0.5 rounded bg-[#20242b]/80 text-white">{copy.proposal.after.toUpperCase()}</span>
+                  </div>
+                </div>
+                {p.caption && <figcaption className="text-xs text-[#2d2520]/70 mt-1.5">{p.caption}</figcaption>}
+              </figure>
+            ))}
+          </div>
+        </ProposalSection>
+      )}
+
+      {proposal?.documents?.length > 0 && sectionKeys.includes("documents") && (
+        <ProposalSection id={SECTION_IDS.documents} kicker={copy.proposal.importantDocuments} title={copy.proposal.documentsHeading} theme={theme}>
+          <div className="grid gap-3 grid-cols-2 sm:grid-cols-3">
+            {proposal.documents.map((d, i) => (
+              <a
+                key={i}
+                href={d.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-lg border border-black/10 p-3 hover:border-black/25 flex flex-col"
+              >
+                <div className="h-14 rounded-md border border-black/10 flex items-center justify-center" style={{ backgroundColor: wash.bg, color: wash.accent }}>
+                  <FileText size={22} />
+                </div>
+                <p className="text-sm font-semibold text-[#2d2520] mt-2 leading-snug">{d.title}</p>
+                {d.summary && <p className="text-xs text-[#2d2520]/70 mt-0.5">{d.summary}</p>}
+                <span className="text-xs font-bold mt-auto pt-2" style={{ color: theme.accentText }}>
+                  {copy.proposal.viewDocument}
+                </span>
+              </a>
+            ))}
+          </div>
+        </ProposalSection>
+      )}
+
+      {proposal?.testimonials?.length > 0 && sectionKeys.includes("testimonials") && (
+        <ProposalSection id={SECTION_IDS.testimonials} kicker={copy.proposal.testimonials} title={copy.proposal.whatClientsSaid} theme={theme}>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {proposal.testimonials.map((r, i) => (
+              <blockquote key={i} className="rounded-lg border border-black/10 p-3.5 text-sm">
+                <Star size={13} className="inline -mt-0.5 mr-1" style={{ color: "#b45309" }} aria-hidden="true" />
+                <span className="text-[#2d2520]/85">“{r.quote}”</span>
+                {r.author && <footer className="text-xs text-[#2d2520]/70 mt-2">— {r.author}</footer>}
+              </blockquote>
+            ))}
+          </div>
+        </ProposalSection>
+      )}
+
+      {proposal?.services?.length > 0 && sectionKeys.includes("services") && (
+        <ProposalSection id={SECTION_IDS.services} kicker={copy.proposal.services} title={copy.proposal.whatElseWeDo} theme={theme}>
+          <ul className="grid gap-2 grid-cols-2 sm:grid-cols-3">
+            {proposal.services.map((sv) => (
+              <li key={sv.key} className="rounded-lg border border-black/10 px-3 py-2.5 text-sm font-semibold text-[#2d2520]" style={{ borderLeft: `3px solid ${rule}` }}>
+                {sv.label}
+              </li>
+            ))}
+          </ul>
+        </ProposalSection>
+      )}
+
+      <p className="text-center text-xs text-[#2d2520]/70 mt-2">
         {copy.quoteQuestions(c.name, c.phone)}
       </p>
+        </div>
+      </div>
+
+      {/* Phone: the total and Accept stay pinned at the foot (the header's
+          Accept is sm-and-up only). Same handler, same lock while a waiver
+          is pending; gone once the quote is decided or expired. */}
+      {!decided && !expired && (
+        <div className="sm:hidden fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur border-t border-black/10 px-4 py-2.5 flex items-center gap-3">
+          <span className="font-bold tabular-nums text-[#2d2520]">{money(pricing.total)}</span>
+          <button
+            type="button"
+            onClick={startAccept}
+            disabled={waiverBlocks}
+            className="ml-auto inline-flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-full text-sm font-semibold text-white min-h-11 disabled:cursor-not-allowed"
+            style={{ backgroundColor: waiverBlocks ? "#4b5563" : APPROVE_GREEN }}
+          >
+            <Check size={15} /> {copy.proposal.acceptQuote}
+          </button>
+        </div>
+      )}
     </Shell>
   );
 }
 
-function Shell({ children }) {
+/** The section ids the contents jump to; keys match the server's `sections`. */
+const SECTION_IDS = {
+  project: "project",
+  about: "about",
+  beforeAfter: "before-after",
+  documents: "documents",
+  testimonials: "testimonials",
+  services: "services",
+};
+
+/**
+ * "Scope of work": each group's scope paragraph under its label, then any
+ * prose block the estimator added as a text-kind line. Groups with neither
+ * contribute nothing, and an empty list hides the whole heading.
+ */
+function scopeOfWork(groups) {
+  const out = [];
+  for (const g of Array.isArray(groups) ? groups : []) {
+    if (g?.description) out.push({ heading: g.label, text: g.description });
+    for (const li of Array.isArray(g?.lineItems) ? g.lineItems : []) {
+      if (li?.kind === "text" && li.text) out.push({ heading: li.description || "", text: li.text });
+    }
+  }
+  return out;
+}
+
+function SectionKicker({ theme, children }) {
   return (
-    <div className="min-h-dvh bg-[#f5f2ec] py-8 sm:py-14 px-4">
-      <div className="max-w-2xl mx-auto">{children}</div>
+    <h2
+      className="text-xs font-bold tracking-wider mb-3 uppercase"
+      style={{ color: theme.accentText }}
+    >
+      {children}
+    </h2>
+  );
+}
+
+function ProposalSection({ id, kicker, title, theme, children }) {
+  return (
+    <section id={id} className="scroll-mt-24 bg-white border border-black/10 rounded-2xl shadow-sm px-6 sm:px-8 py-6">
+      <p className="text-[10px] font-bold tracking-[0.15em] uppercase" style={{ color: theme.accentText }}>
+        {kicker}
+      </p>
+      {title && <h2 className="text-lg font-semibold text-[#2d2520] mt-0.5 mb-3">{title}</h2>}
+      {!title && <div className="mb-3" />}
+      {children}
+    </section>
+  );
+}
+
+function Shell({ children, wide = false }) {
+  return (
+    <div className={`min-h-dvh bg-[#f5f2ec] px-4 ${wide ? "pb-24 sm:pb-10" : "py-8 sm:py-14"}`}>
+      <div className={wide ? "" : "max-w-2xl mx-auto"}>{children}</div>
     </div>
   );
 }
@@ -1273,7 +1696,7 @@ function Settled({ tone, title, body }) {
       </p>
       <p
         className={`text-sm mt-1 ${
-          ok ? "text-green-700" : "text-[#2d2520]/60"
+          ok ? "text-green-700" : "text-[#2d2520]/70"
         }`}
       >
         {body}

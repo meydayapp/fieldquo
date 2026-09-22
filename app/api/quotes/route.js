@@ -34,6 +34,7 @@ import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
 import { requireCreatedVia } from "@/lib/quotes/createdVia";
 import { normaliseSiteAddress } from "@/lib/geo/geocodeJob";
 import { offlineDiscountPctFor } from "@/lib/payments/offlineDiscount";
+import { attachDefaultWaivers } from "@/lib/waivers/service";
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -512,5 +513,13 @@ export async function POST(request) {
   // name-and-address reaches here — and read the client's email back out of
   // their own save. Same shape as the bug already fixed on PATCH
   // /api/quotes/[id]; the POST in the same file was the copy nobody looked at.
+  // Waivers the company marked "attach to every quote" (Settings ›
+  // Presentation) — a pending signature row each, which the client signs
+  // inside the quote's own page. Best-effort: a waiver draft with no
+  // acknowledgement lines is skipped, and nothing here may fail the save.
+  await attachDefaultWaivers({ companyId: member.companyId, quoteId: quote.id }).catch((err) =>
+    console.error("[quotes] default waivers failed:", err?.message),
+  );
+
   return NextResponse.json(redactQuote(full, quote), { status: 201 });
 }

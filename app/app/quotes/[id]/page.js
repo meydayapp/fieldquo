@@ -126,6 +126,7 @@ import { documentLabels } from "@/lib/i18n/documentLabels";
 import ImportedByPanel from "./ImportedByPanel";
 import QuoteCostEditor from "@/app/components/quotes/QuoteCostEditor";
 import EmailSectionsPanel from "./EmailSectionsPanel";
+import PresentationPanel from "./PresentationPanel";
 import EmailSectionsBlockedModal from "./EmailSectionsBlockedModal";
 import ImportedCostsPanel from "./ImportedCostsPanel";
 import SiteVisitPanel from "@/app/components/quotes/SiteVisitPanel";
@@ -183,6 +184,10 @@ export default function QuoteDetailPage() {
   const [costing, setCosting] = useState(null);
   // Whether the inline cost editor is open.
   const [costEditorOpen, setCostEditorOpen] = useState(false);
+  // "Email" (what the covering email carries) and "Presentation" (what the
+  // client sees when they open the link) — two decisions about what to
+  // SEND, one strip, above the document (client mockup §2).
+  const [sendTab, setSendTab] = useState("email");
   // The company's billing currency, the reader's language. All eight money
   // renders below go through this — they used to go through a private
   // toFixed(2) helper that printed $2100.00 on the page a client opens.
@@ -1354,10 +1359,48 @@ export default function QuoteDetailPage() {
       {/* What this quote's email will carry beyond the quote itself. Editable
           while the client can still act on it; frozen once they have decided,
           because the email has already been read by then. */}
-      <EmailSectionsPanel
-        quoteId={id}
-        editable={["draft", "sent"].includes(quote.status)}
-      />
+      <div className="bg-card border border-border rounded-xl">
+        <div role="tablist" className="flex gap-1 border-b border-border px-3">
+          {[
+            ["email", t("app.quoteEmail.tab", "Email")],
+            ["presentation", t("app.proposal.tab", "Presentation")],
+          ].map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              role="tab"
+              aria-selected={sendTab === key}
+              onClick={() => setSendTab(key)}
+              className={`px-3 py-2.5 text-sm border-b-2 -mb-px min-h-11 ${
+                sendTab === key ? "border-accent text-foreground font-semibold" : "border-transparent text-muted-foreground"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="p-4">
+          {sendTab === "email" ? (
+            <div className="space-y-3">
+              <EmailSectionsPanel
+                quoteId={id}
+                editable={["draft", "sent"].includes(quote.status)}
+              />
+              {/* The panel above renders nothing until a section is on or
+                  has content — so the tab is never blank, this line always
+                  says where the email's optional sections are set. */}
+              <p className="text-xs text-muted-foreground">
+                {t("app.quoteEmail.tabHint", "References and before/after photos for the covering email are set in")}{" "}
+                <Link href="/app/settings/quote-email" className="underline underline-offset-2 text-foreground">
+                  {t("app.settings.quoteEmail", "Quote Email")}
+                </Link>
+              </p>
+            </div>
+          ) : (
+            <PresentationPanel quoteId={id} editable={["draft", "sent"].includes(quote.status)} />
+          )}
+        </div>
+      </div>
 
       {/* Sub-side of a cross-company import: shows if another company pulled
           this quote into their project, with an honest pending/confirmed state.

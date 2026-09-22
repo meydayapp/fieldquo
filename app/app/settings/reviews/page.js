@@ -31,6 +31,8 @@ import Testimonials from "./Testimonials";
 import ListingFinder from "./ListingFinder";
 import CardAndQr from "./CardAndQr";
 import GoogleBusiness from "./GoogleBusiness";
+// The "Connect Google reviews" set-up step links here with ?from=setup.
+import BackToHome from "@/app/components/BackToHome";
 
 // The Business Profile callback's one word → the sentence for it. Literal
 // keys, so the translation checks can see every one of them.
@@ -171,6 +173,7 @@ export default function ReviewSettingsPage() {
       <Suspense fallback={null}>
         <GbpOutcome onOutcome={setGbpOutcomeKey} />
       </Suspense>
+      <BackToHome />
       <div>
         <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
           <Star size={22} /> {t("app.settings.reviews")}

@@ -311,6 +311,25 @@ section("The control is in Settings, and it is wired to something — on the set
   ok("both columns exist in the schema",
     /worksAloneAt\s+DateTime\?/.test(SCHEMA) &&
       /onboardingCompletedAt\s+DateTime\?/.test(SCHEMA));
+
+  // ── The client proposal's four rows (2026-09-21) live on the set-up card ──
+  //
+  // "Add your company story", "Upload before & after photos", "Upload your
+  // insurance, licence and documents", "Connect Google reviews" are things
+  // the product works WITHOUT — so they belong on the additional set-up
+  // card (lib/setupSteps.js), where each can be hidden by hand, and never
+  // on onboarding, where a solo painter with no photos yet would be stuck
+  // on an unfinishable checklist all over again.
+  const PROPOSAL_STEPS = ["story", "gallery", "documents", "google_reviews"];
+  ok("the four proposal rows are set-up steps, not onboarding steps",
+    PROPOSAL_STEPS.every((k) => new RegExp(`key: "${k}"`).test(SETUP)) &&
+      PROPOSAL_STEPS.every((k) => !new RegExp(`key: "${k}"`).test(ONBOARDING)));
+  ok("...each measured on the rows the proposal itself reads",
+    /s\.storySet === true/.test(SETUP) && /count\(s\.galleryPairs\) > 0/.test(SETUP) &&
+      /count\(s\.clientDocuments\) > 0/.test(SETUP) && /s\.googleReviewsConnected === true/.test(SETUP));
+  ok("...and the snapshot reads those rows",
+    /loadCompanyGallery\(companyId\)/.test(SNAPSHOT) && /companyDocument\.count/.test(SNAPSHOT) &&
+      /companyGoogleBusiness\.findUnique/.test(SNAPSHOT) && /story: true/.test(SNAPSHOT));
 }
 
 console.log("");

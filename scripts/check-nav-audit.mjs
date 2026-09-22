@@ -254,6 +254,7 @@ const DRILL_INS = {
   "/app/quotes/[id]/edit": "opened from the quote detail page's own Edit button",
   "/app/quotes/[id]/kitchen": "kitchen designer — opened from the quote detail page",
   "/app/settings/email-templates/[id]": "opened from the Email Templates list",
+  "/app/settings/presentation": "the client proposal's company content (story, one gallery, document library, waivers, section defaults) — opened from Settings › Quote Email, from a quote's own Presentation panel and from the home page's set-up steps (which open the same editors in a dialog). Deliberately not a nav row: it is set up once and then reached from the quote it decorates, and a fourth Documents row would compete with Quote Email for the same reader",
   "/app/settings/product-updates/[slug]": "opened from the Product Updates list",
   "/app/settings/team/new": "opened from the Manage Team page's own Invite button",
   "/app/settings/team/payroll": "a Manage Team tab — per-employee pay rates, not the company-wide payroll config at /app/settings/payroll",

@@ -469,6 +469,15 @@ async function runScene(scene) {
     await wait(400);
     return;
   }
+  if (scene === "quote-presentation") {
+    // The quote page's Email / Presentation strip: open the Presentation tab
+    // (app/app/quotes/[id]/PresentationPanel.js).
+    const tab = await until('[role="tab"]:nth-of-type(2)');
+    tab.click();
+    await until("input[type=number]");
+    await wait(400);
+    return;
+  }
   throw new Error(`scene: unknown "${scene}"`);
 }
 
