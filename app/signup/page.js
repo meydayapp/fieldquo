@@ -91,12 +91,14 @@ function around(sentence, placeholder) {
  * The names of the fields applyLeadPrefill put back, in the words the form
  * labels them with, joined for the resumed-signup banner. The two picks
  * (trades, services) have no form label and get their own short words.
+ * Empty when nothing the person can see was restored — the caller then
+ * shows the honest "carry on below" sentence instead.
  */
 function restoredFieldNames(fields, t) {
+  // No email, first or last name: those live on the account step, which a
+  // person who already has a login is never shown again — naming a field
+  // they cannot find on the page reads as one more thing that was lost.
   const label = {
-    email: () => t("app.signup.field.email", "Email"),
-    firstName: () => t("app.signup.field.firstName", "First name"),
-    lastName: () => t("app.signup.field.lastName", "Last name"),
     companyName: () => t("app.signup.field.companyName", "Company name"),
     phone: () => t("app.signup.field.phone", "Phone"),
     address: () => t("app.signup.address", "Address"),
@@ -1754,10 +1756,20 @@ export default function SignupPage() {
   // start over or sign in as somebody else without losing the link they
   // came in on — being unable to sign out of an account you cannot use is
   // its own kind of broken, and the owner hit exactly that on 2026-09-21.
+  //
+  // The tab's draft goes with the session. "Not you?" means the next person
+  // at this keyboard must not find the last one's company, phone and email
+  // already typed into the account step — and the draft is what would put
+  // them there, because the restore above wrote the row into it.
   async function handleSignOut(to = "/login") {
     await signOut({
       fetchOptions: {
         onSuccess: () => {
+          try {
+            sessionStorage.removeItem(DRAFT_KEY);
+          } catch {
+            // A blocked storage is a draft that was never written either.
+          }
           window.location.href = to;
         },
       },
@@ -2120,13 +2132,14 @@ export default function SignupPage() {
               // time round the row was missing the one field the next step
               // needs, and "we've put back what you entered" over a form
               // asking for the address again read as the same lie.
-              const kept = restoredLead?.fields?.length > 0;
+              const names = restoredFieldNames(restoredLead?.fields, t);
+              const kept = names.length > 0;
               const [before, after] = around(
                 kept
                   ? t(
                       "app.signup.resumed.bodyRestoredFields",
                       "You're signed in as {email}, but your business was never finished — that last step is what creates it. We've put back: {fields}. Carry on from where you stopped.",
-                      { fields: restoredFieldNames(restoredLead.fields, t) },
+                      { fields: names },
                     )
                   : t(
                       "app.signup.resumed.body",

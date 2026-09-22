@@ -256,7 +256,7 @@ section("2b. A signed-in return puts the row back — the owner's 2026-09-21 bug
   ok("the signed-in branch asks for the row before entryChecked flips", /CAPTURE_ENDPOINT\}\?mine=1/.test(signedIn) && /applyLeadPrefill\(p\)/.test(signedIn) && /leadStepRef\.current = p\.stepReached/.test(signedIn));
   ok("the resume judges the further of the draft's step and the row's", /further\(draftStepRef\.current, leadStepRef\.current\)/.test(page));
   ok("the prefill puts back the address and the service picks", /put\("address", p\.address\)/.test(page) && /setSelectedCategoryIds\(p\.serviceCategoryIds\)/.test(page));
-  ok("the banner claims a restore only when fields were actually put back", /const kept = restoredLead\?\.fields\?\.length > 0;/.test(page) && /"app\.signup\.resumed\.bodyRestoredFields"/.test(page) && !/nothing you've already entered is lost/.test(page));
+  ok("the banner claims a restore only when fields the person can see were put back", /const names = restoredFieldNames\(restoredLead\?\.fields, t\);\s*const kept = names\.length > 0;/.test(page) && /"app\.signup\.resumed\.bodyRestoredFields"/.test(page) && !/nothing you've already entered is lost/.test(page));
   ok("the capture posts the picks on every step and at the handoff", (page.match(/selectedCategoryIds,\s*salesCode/g) || []).length >= 3);
 }
 
@@ -362,7 +362,8 @@ section("2c. The owner's SECOND return, same day — the row the cron had matche
   const page = read("app/signup/page.js");
   const signedIn = page.split("setResumedSignup(true);")[1]?.split("} catch {")[0] || "";
   ok("the page restores when the server says not completed, and seeds from the session otherwise", /if \(p && !p\.completed\)/.test(signedIn) && /applyLeadPrefill\(\{ email: session\.user\.email, \.\.\.splitName\(session\.user\.name\) \}\)/.test(signedIn));
-  ok("the banner names the fields it put back", /app\.signup\.resumed\.bodyRestoredFields/.test(page) && /restoredFieldNames\(restoredLead\.fields, t\)/.test(page));
+  ok("the banner names the fields it put back — never the account-step ones a login is not shown", /app\.signup\.resumed\.bodyRestoredFields/.test(page) && /\{ fields: names \}/.test(page) && !/email: \(\) => t\("app\.signup\.field\.email"/.test(page));
+  ok("Not you? Sign out clears the tab draft before reloading", /sessionStorage\.removeItem\(DRAFT_KEY\);[\s\S]{0,200}window\.location\.href = to;/.test(page));
   ok("…and says when the missing address is what held the step back", /app\.signup\.resumed\.addressMissing/.test(page) && /!form\.address\.trim\(\)/.test(page));
   ok("the resumed banner has 'Not you? Sign out' that reloads THIS page", /data-resumed-sign-out/.test(page) && /handleSignOut\(window\.location\.pathname \+ window\.location\.search\)/.test(page) && /app\.signup\.resumed\.signOut/.test(page));
   for (const lang of Object.keys(APP_MESSAGES)) {
