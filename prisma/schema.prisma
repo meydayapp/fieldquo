@@ -1357,6 +1357,17 @@ model Company {
   /// offering a discount for a method the client cannot use, so the offer
   /// also needs one of them in `paymentMethods`.
   offlinePaymentDiscount Boolean          @default(false)
+  /// Which quote builder this company's estimators open — "document", the
+  /// document-shaped builder (mockup b7: the estimator edits the page the
+  /// client will read, with the cost panel in a drawer), or "classic", the
+  /// long form it replaced. Both post the same body to the same routes;
+  /// scripts/check-doc-builder.mjs proves the bytes match. Defaults to
+  /// "document" for a company created after 2026-09-21; every company that
+  /// existed before was set to "classic" by the column's backfill and is
+  /// flipped from /platform/companies/[id] — the owner decides the rollout,
+  /// one company at a time, never a code change. Read by GET
+  /// /api/settings/business-info; written only by the platform PATCH.
+  quoteBuilderLayout     String           @default("document")
   bookingSlug            String?          @unique
   industries             String[]         @default([])
   onboardingStatus       OnboardingStatus @default(pending)

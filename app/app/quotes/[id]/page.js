@@ -97,6 +97,7 @@ import ShareWithStaffModal from "@/app/components/quotes/ShareWithStaffModal";
 import SaveAsTemplateModal from "@/app/components/quotes/SaveAsTemplateModal";
 import { Eye, Share2, LayoutTemplate, Archive, ArchiveRestore, ClipboardCopy } from "lucide-react";
 import { workOrderPath, workOrderPdfPath } from "@/lib/workOrder/url";
+import { fetchClientLink, downloadQuotePdf } from "@/lib/quotes/clientActions";
 import BrandTheme from "@/app/components/BrandTheme";
 import { usePermissions } from "@/app/providers/PermissionProvider";
 import { useFeatureFlags } from "@/app/providers/FeatureProvider";
@@ -604,15 +605,7 @@ export default function QuoteDetailPage() {
    * same route the approval page uses (GET/POST /api/quotes/[id]/share), so
    * "Copy quote link" here and "Copy link" there hand out one URL.
    */
-  async function clientLink() {
-    const got = await fetch(`/api/quotes/${id}/share`);
-    const data = await got.json().catch(() => null);
-    if (got.ok && data?.url) return data.url;
-    const made = await fetch(`/api/quotes/${id}/share`, { method: "POST" });
-    const created = await made.json().catch(() => null);
-    if (!made.ok) throw new Error(created?.error || t("app.sendMenu.linkError", "Couldn't get the client link."));
-    return created.url;
-  }
+  const clientLink = () => fetchClientLink(id, t("app.sendMenu.linkError", "Couldn't get the client link."));
 
   async function handleCopyLink() {
     setMenuBusy("link");
@@ -678,24 +671,12 @@ export default function QuoteDetailPage() {
     setDownloadingPdf(true);
     setError("");
     try {
-      const res = await fetch(`/api/quotes/${id}/pdf`, { method: "POST" });
-      if (!res.ok) {
-        // Never a bare `if (res.ok)`: a 403 from a toggle that changed since
-        // the page loaded has to say so, or the press reads as having worked.
-        await reportResponseError(
-          res,
-          setError,
-          t("app.quoteDetail.pdfError", "Couldn't build the PDF."),
-        );
-        return;
-      }
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `quote-${quote.quoteNumber}.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
+      // lib/quotes/clientActions.js — shared with the document builder's
+      // Send… menu. A refusal (a toggle that changed since the page loaded)
+      // arrives as the thrown reason, never as a press that seemed to work.
+      await downloadQuotePdf(id, quote.quoteNumber, t("app.quoteDetail.pdfError", "Couldn't build the PDF."));
+    } catch (err) {
+      setError(err?.message || t("app.quoteDetail.pdfError", "Couldn't build the PDF."));
     } finally {
       setDownloadingPdf(false);
     }

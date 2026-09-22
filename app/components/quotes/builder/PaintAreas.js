@@ -173,7 +173,10 @@ function Modal({ title, onClose, children }) {
 
 /* ── 1. Estimate type ──────────────────────────────────────────────────── */
 
-function EstimateTypeCards({ value, onPick, t }) {
+// Exported: the same cards are the FIRST screen of a painting company's new
+// quote (EstimateTypeFirst.js), before any service tile — the owner's b1
+// mockup, which landed inside the takeoff and was never seen (2026-09-21).
+export function EstimateTypeCards({ value, onPick, t, legacyNote = true }) {
   return (
     <div className="rounded-lg border border-border p-3 space-y-2">
       <div>
@@ -217,7 +220,7 @@ function EstimateTypeCards({ value, onPick, t }) {
           );
         })}
       </div>
-      {!value && (
+      {!value && legacyNote && (
         <p className="text-xs text-muted-foreground">
           {t(
             "app.paint.typeLegacy",
@@ -1199,7 +1202,9 @@ function AreaCard({
   const hasNotes = Boolean(area.clientNote || area.crewNote);
 
   return (
-    <div className="rounded-lg border border-border p-3 space-y-3">
+    // data-paint-area: the document builder lands here when its room card is
+    // clicked (DocumentBuilder.js scrolls to the index it drew).
+    <div className="rounded-lg border border-border p-3 space-y-3" data-paint-area={index}>
       {/* ── Header: name · Room/Surface · total ── */}
       <div className="flex items-center gap-2 flex-wrap">
         <div className="inline-flex rounded-lg border border-border overflow-hidden text-sm">

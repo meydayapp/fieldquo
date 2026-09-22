@@ -24,6 +24,16 @@
 // "Review" alone would be a button that silently creates a database record;
 // the full sentence under it ("saves a draft first, then checks it") is what
 // makes it honest, and a sticky bar has nowhere to put a sentence.
+//
+// ── Four pieces, one bar ────────────────────────────────────────────────────
+//
+// The default export is the classic builder's card + dock, unchanged. The
+// pieces it is made of are exported on their own — QuoteTermsFields (the
+// expiry, discount and tax inputs with their notes), QuoteTotalsLines (the
+// four figures), QuoteReadinessBlock and QuoteActionsDock — because the
+// document-shaped builder (DocumentBuilder.js) draws the figures INSIDE the
+// document and opens the inputs from them, and keeps the dock. Same inputs,
+// same notes, same buttons; one copy of each.
 "use client";
 
 import Link from "next/link";
@@ -120,16 +130,87 @@ export default function QuoteTotalsBar({
   // Where "Cancel" goes back to, when there is somewhere to go back to.
   cancelHref = null,
 }) {
-  const { t, language } = useTranslation();
-  const dockRef = useBottomDock();
-  // Same reason as explainTaxSource: 9,5 % not 9.5 % on a French screen.
-  const pct = (n) =>
-    Number(n).toLocaleString(numberLocaleFor(language), { maximumFractionDigits: 3 });
   const money = (n) => formatAppMoney(n, currency, "en");
+  const terms = {
+    subtotal, discount, onDiscountChange, taxRate, onTaxRateChange, taxNote, taxCaution,
+    taxSchemeNote, taxAssumed, taxVat, taxEnabled, onTaxToggle, validUntil,
+    onValidUntilChange, validUntilDefaulted, currency,
+  };
 
   return (
     <>
       <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+        <QuoteTermsFields {...terms} />
+        <QuoteTotalsLines
+          subtotal={subtotal}
+          taxableBase={taxableBase}
+          tax={tax}
+          total={total}
+          taxEnabled={taxEnabled}
+          taxPlace={taxPlace}
+          money={money}
+        />
+      </div>
+
+      <QuoteReadinessBlock
+        readiness={readiness}
+        readinessItems={readinessItems}
+        showReviewHint={Boolean(onSaveAndReview)}
+      />
+
+      <QuoteActionsDock
+        total={total}
+        taxEnabled={taxEnabled}
+        money={money}
+        saving={saving}
+        disabled={disabled}
+        primaryLabel={primaryLabel}
+        primaryLabelShort={primaryLabelShort}
+        onSaveDraft={onSaveDraft}
+        onSaveAndSend={onSaveAndSend}
+        onSaveAndReview={onSaveAndReview}
+        cancelHref={cancelHref}
+      />
+    </>
+  );
+}
+
+/**
+ * The terms — expiry, discount, tax — and every note about the tax rate.
+ * Exactly the inputs the classic card holds; the document builder opens
+ * them from the totals it draws inside the document.
+ */
+export function QuoteTermsFields({
+  subtotal,
+  discount,
+  onDiscountChange,
+  taxRate,
+  onTaxRateChange = null,
+  taxNote = "",
+  taxCaution = "",
+  taxSchemeNote = "",
+  taxAssumed = "",
+  taxVat = null,
+  taxEnabled,
+  onTaxToggle,
+  validUntil,
+  onValidUntilChange,
+  validUntilDefaulted = true,
+  currency,
+  // Which of the three to draw. The classic card draws all; the document
+  // builder opens one at a time from the row the estimator clicked.
+  only = null,
+}) {
+  const { t, language } = useTranslation();
+  // Same reason as explainTaxSource: 9,5 % not 9.5 % on a French screen.
+  const pct = (n) =>
+    Number(n).toLocaleString(numberLocaleFor(language), { maximumFractionDigits: 3 });
+  const show = (key) => !only || only === key;
+
+  return (
+    <>
+      {show("validUntil") && (
+        <>
         {/* Expiry first: it is the one term on a quote whose whole job is to
             put a deadline in front of the client, and it opens pre-filled at
             30 days — see lib/quotes/validUntil.js for why a default is a
@@ -156,7 +237,10 @@ export default function QuoteTotalsBar({
                 : t("app.quoteNew.validUntilStored")}
           </p>
         </div>
+        </>
+      )}
 
+      {show("discount") && (
         <DiscountField
           value={discount}
           onChange={onDiscountChange}
@@ -164,6 +248,10 @@ export default function QuoteTotalsBar({
           currency={currency}
         />
 
+      )}
+
+      {show("tax") && (
+        <>
         {onTaxRateChange ? (
           <div>
             <label
@@ -266,6 +354,19 @@ export default function QuoteTotalsBar({
           </p>
         )}
 
+        </>
+      )}
+    </>
+  );
+}
+
+/**
+ * Subtotal, discount, tax and total — the figures, with the "not worked
+ * out" warning the send route will otherwise refuse on.
+ */
+export function QuoteTotalsLines({ subtotal, taxableBase = subtotal, tax, total, taxEnabled, taxPlace = null, money }) {
+  const { t } = useTranslation();
+  return (
         <div className="space-y-1 text-sm">
           <div className="flex justify-between text-muted-foreground">
             <span>{t("app.quoteEdit.subtotal")}</span>
@@ -317,12 +418,17 @@ export default function QuoteTotalsBar({
             <span className="tabular-nums">{money(total)}</span>
           </div>
         </div>
-      </div>
+  );
+}
 
-      {/* What is still missing, live and free. The sentence explaining that
-          Review saves a draft first lives here too — the sticky bar has room
-          for a button and not for a sentence. */}
-      {readiness && (
+/** What is still missing, live and free — and the sentence about Review. */
+export function QuoteReadinessBlock({ readiness, readinessItems, showReviewHint = false }) {
+  const { t } = useTranslation();
+  if (!readiness) return null;
+  // What is still missing, live and free. The sentence explaining that
+  // Review saves a draft first lives here too — the sticky bar has room
+  // for a button and not for a sentence.
+  return (
         <div className="pt-4 border-t border-border space-y-2">
           <QuoteReadiness
             draft={readiness}
@@ -332,14 +438,40 @@ export default function QuoteTotalsBar({
           {/* Only alongside the button it explains. On the edit route the
               review panel is on the page already, so this sentence would be
               describing a button that isn't there. */}
-          {onSaveAndReview && (
+          {showReviewHint && (
             <p className="text-xs text-muted-foreground">
               {t("app.quoteNew.saveAndReviewHint")}
             </p>
           )}
         </div>
-      )}
+  );
+}
 
+/**
+ * The fixed bar: the total and the ways out. Shared by both builders so a
+ * phone's thumb finds the same buttons in the same place whichever layout
+ * the company is on.
+ */
+export function QuoteActionsDock({
+  total,
+  taxEnabled,
+  money,
+  saving,
+  disabled,
+  primaryLabel,
+  primaryLabelShort,
+  onSaveDraft,
+  onSaveAndSend = null,
+  onSaveAndReview = null,
+  cancelHref = null,
+  // Rendered before the save buttons — the document builder's "Cost &
+  // margin" and "Preview" controls live here on a phone.
+  leading = null,
+}) {
+  const { t } = useTranslation();
+  const dockRef = useBottomDock();
+  return (
+    <>
       {/* left-60 clears the desktop sidebar; full width below that breakpoint
           where the sidebar collapses. lg:left-60, not sm: — AdminSidebar only
           becomes a rail at `lg` (hidden lg:flex). */}
@@ -389,6 +521,7 @@ export default function QuoteTotalsBar({
             Cancel off the left edge. A wrapped second row is honest; a
             clipped button is a control nobody can reach. */}
         <div className="flex flex-wrap gap-2 shrink-0 justify-end" data-totals-actions>
+          {leading}
           {/* ── Review sits WITH the other actions ──────────────────────────
               It shipped at the bottom of the totals card, on the argument that
               a third button does not fit at 375px. The owner could not find
@@ -478,3 +611,4 @@ export default function QuoteTotalsBar({
     </>
   );
 }
+

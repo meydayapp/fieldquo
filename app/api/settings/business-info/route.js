@@ -62,6 +62,10 @@ export async function GET(request) {
       // "Offer 3% off for e-transfer or cheque" — Canada only; see the
       // column and lib/payments/offlineDiscount.js.
       offlinePaymentDiscount: true,
+      // Which quote builder the estimators open (document / classic). Read
+      // here by QuoteBuilder's bootstrap; never written here — the platform
+      // console flips it, see the column.
+      quoteBuilderLayout: true,
       shareAnonymizedPricing: true,
       bookingSlug: true,
       // New — read-only identity used for the {slug}.fieldquo.com preview

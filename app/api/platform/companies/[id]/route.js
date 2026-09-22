@@ -2,6 +2,7 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { QUOTE_BUILDER_LAYOUTS } from "@/lib/quotes/builderLayout";
 import { db } from "@/lib/db";
 import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
 import { requirePlatformPermission } from "@/lib/platform/permissions";
@@ -101,7 +102,21 @@ export async function PATCH(request, { params }) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await request.json();
-  const { onboardingStatus, name } = body;
+  const { onboardingStatus, name, quoteBuilderLayout } = body;
+
+  // The quote-builder rollout flag. FieldQuo's own decision about which
+  // screen a company gets — like /platform/features, not the company's data
+  // (non-negotiable #3 is about quotes, clients and invoices; this touches
+  // none of them). Closed vocabulary: anything else is refused, not stored.
+  if (
+    quoteBuilderLayout !== undefined &&
+    !QUOTE_BUILDER_LAYOUTS.includes(quoteBuilderLayout)
+  ) {
+    return NextResponse.json(
+      { error: `quoteBuilderLayout must be one of ${QUOTE_BUILDER_LAYOUTS.join(", ")}.` },
+      { status: 400 },
+    );
+  }
 
   // Suspending a company cuts off a paying customer's access — a heavier
   // action than renaming, and gated accordingly. Support can do neither.
@@ -128,6 +143,7 @@ export async function PATCH(request, { params }) {
     data: {
       ...(onboardingStatus !== undefined && { onboardingStatus }),
       ...(name !== undefined && { name }),
+      ...(quoteBuilderLayout !== undefined && { quoteBuilderLayout }),
     },
   });
 
@@ -141,7 +157,13 @@ export async function PATCH(request, { params }) {
       targetCompanyId: id,
       // Record what it was as well as what it became — an audit entry saying
       // only "status changed to churned" can't answer "changed from what?".
-      details: { ...body, previousStatus: existing.onboardingStatus },
+      details: {
+        ...body,
+        previousStatus: existing.onboardingStatus,
+        ...(quoteBuilderLayout !== undefined && {
+          previousQuoteBuilderLayout: existing.quoteBuilderLayout,
+        }),
+      },
     },
   });
 

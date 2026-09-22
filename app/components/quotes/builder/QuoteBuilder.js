@@ -79,6 +79,12 @@ import JobAddressField from "./JobAddressField";
 import TemplatePicker from "./TemplatePicker";
 import SiteVisitPanel from "@/app/components/quotes/SiteVisitPanel";
 import { defaultSiteAddressFor, siteAddressRequired } from "@/lib/quotes/jobAddress";
+// The document-shaped layout (mockup b7). Same state, same handlers, same
+// save — see `layout` in the form and lib/quotes/builderLayout.js.
+import DocumentBuilder from "./DocumentBuilder";
+import EstimateTypeFirst, { paintingCategoriesOf, paintingCategoryFor } from "./EstimateTypeFirst";
+import { resolveBuilderLayout } from "@/lib/quotes/builderLayout";
+import { quoteRequestBody } from "@/lib/quotes/builderRequest";
 
 import { estimateQuoteCost } from "@/lib/costing/estimateJobCost";
 import {
@@ -394,6 +400,14 @@ export default function QuoteBuilder({ mode = "create", quoteId = null }) {
           // The billing currency, so every money render here matches the
           // document the client will receive.
           companyCurrency: businessInfo?.currency || null,
+          // The company as the document's masthead prints it — name, logo,
+          // address, phone, email, brand colour — and the e-transfer /
+          // cheque switch the totals need. The document layout draws the
+          // letterhead from this; the classic layout ignores it.
+          company: businessInfo && typeof businessInfo === "object" ? businessInfo : null,
+          // Which builder this company is on. Absent → classic, deliberately:
+          // see resolveBuilderLayout.
+          layout: resolveBuilderLayout(businessInfo?.quoteBuilderLayout),
           // What a saved quote WILL carry: the company's default is copied onto
           // Quote.processNotes at creation, so the "what happens next" box opens
           // holding it and the readiness panel doesn't warn about a company that
@@ -1056,6 +1070,25 @@ export function QuoteBuilderForm({
     ]);
   }
 
+  /**
+   * The painting company's first answer — "what kind of estimate is this?"
+   * (EstimateTypeFirst.js) — becomes the painting service itself, with the
+   * type on its takeoff, so the estimator never meets a tile for painting.
+   * The group is the one newScopeGroup builds for the tile; only
+   * `takeoff.estimateType` differs, and it is the field PaintAreas reads.
+   */
+  function addPaintingEstimate(estimateType) {
+    const category = paintingCategoryFor(estimateType, categories);
+    if (!category) return;
+    const group = newScopeGroup(category, category.label, rateOverridesFor(category.id), {
+      tempId: crypto.randomUUID(),
+    });
+    setScopeGroups((prev) => [
+      ...prev,
+      group.takeoff ? { ...group, takeoff: { ...group.takeoff, estimateType } } : group,
+    ]);
+  }
+
   function removeScopeGroup(tempId) {
     setScopeGroups((prev) => prev.filter((g) => g.tempId !== tempId));
   }
@@ -1604,24 +1637,36 @@ export function QuoteBuilderForm({
     );
     const costing = costingPayload();
 
-    const shared = {
+    // The body, as one pure function — lib/quotes/builderRequest.js. Both
+    // layouts save through this one call, and scripts/check-doc-builder.mjs
+    // hashes what it produces against the inline literal it replaced.
+    const request = quoteRequestBody({
+      isEdit,
       subtotal,
-      // The CLAMPED figure quoteTotals worked with, not the raw box. If someone
-      // typed 50000 off a 4850 quote, the screen already showed 4850 off and a
-      // total of 0; saving the 50000 would put a number on the document that
-      // contradicts the total beside it.
-      discount: appliedDiscount,
+      appliedDiscount,
       tax,
       taxEnabled,
       total,
       notes,
       reviewNotes,
       processNotes,
-      validUntil: validUntil || null,
+      validUntil,
       clientPhotos,
-      siteAddress: siteAddress.trim() || null,
-      ...(costing !== undefined ? { costing } : {}),
-    };
+      siteAddress,
+      costing,
+      groupsPayload,
+      canEditScope,
+      assignedToTouched,
+      assignedToId,
+      version,
+      againstVersion,
+      clientId: selectedClient?.id,
+      // Stopped here rather than on unmount: the work is finished at Save,
+      // and the seconds spent watching a spinner afterwards are not compose
+      // time. Null on an edit — an edit is not composition.
+      composeSeconds: isEdit ? null : (composeTimer.current?.stop() ?? null),
+      language: quoteLanguage || companyLanguage,
+    });
 
     let quote = null;
 
@@ -1629,26 +1674,7 @@ export function QuoteBuilderForm({
       const res = await fetch(`/api/quotes/${quoteId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: jsonBody({
-          ...shared,
-          // Omitted once the client has decided: the API refuses line-item
-          // changes on a decided quote, and sending them would fail the whole
-          // save including the notes and the expiry that are still legitimately
-          // editable.
-          ...(canEditScope ? { scopeGroups: groupsPayload } : {}),
-          // Only when the picker was actually touched — see assignedToTouched's
-          // own comment. A routine save (a note, an expiry date) must not
-          // silently re-post the assignee and trip quote:assign for someone
-          // who never meant to reassign anything.
-          ...(assignedToTouched && { assignedToId: assignedToId || null }),
-          // The version this screen is editing FROM. Omitted entirely when
-          // there isn't one — the route reads a missing field as "unguarded"
-          // and behaves exactly as it did before, which is what lets the rest
-          // of the app migrate to this one screen at a time.
-          ...((againstVersion ?? version)
-            ? { expectedUpdatedAt: againstVersion ?? version }
-            : {}),
-        }),
+        body: jsonBody(request),
       });
       // BEFORE res.json(): readStaleConflict clones the response, and clone()
       // throws once the body has been consumed — the same trap
@@ -1677,27 +1703,10 @@ export function QuoteBuilderForm({
       if (data?.updatedAt) setVersion(data.updatedAt);
       quote = data;
     } else {
-      // Stopped here rather than on unmount: the work is finished at Save, and
-      // the seconds spent watching a spinner afterwards are not compose time.
-      const composeSeconds = composeTimer.current?.stop() ?? null;
-
       const res = await fetch("/api/quotes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: jsonBody({
-          ...shared,
-          clientId: selectedClient.id,
-          composeSeconds,
-          scopeGroups: groupsPayload,
-          // Always created as a draft. Only a confirmed send promotes it, in
-          // app/api/quotes/[id]/send.
-          status: "draft",
-          language: quoteLanguage || companyLanguage,
-          // Omitted on the default "(unassigned)" pick — POST /api/quotes
-          // resolves that to whoever is saving. Sent only when the estimator
-          // deliberately picked someone from the list.
-          ...(assignedToId && { assignedToId }),
-        }),
+        body: jsonBody(request),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => null);
@@ -1820,6 +1829,544 @@ export function QuoteBuilderForm({
     },
   ];
 
+
+  // ── Pieces both layouts draw ─────────────────────────────────────────────
+  //
+  // One copy of each editor, closed over this component's state, so the
+  // classic form and the document layout (DocumentBuilder.js) render the
+  // same takeoff, the same line table, the same notes box and the same
+  // review panel. The copy nobody looks at is the one that rots, so there
+  // is no copy: the document layout receives these as functions.
+
+  /** Everything inside a service card: takeoff, unit pricing, intake, lines. */
+  const renderGroupEditor = (group) => {
+    // Read-only: a subcontractor cost imported from another company's quote.
+    // The lines and total are fixed; the markup is changed on the quote page
+    // (ImportedCostsPanel), not by hand-editing here.
+    const locked = group.imported || !canEditScope;
+    return (
+      <>
+        {!group.persisted && isUnitPriced(group.categoryKey) && (
+          <UnitPricingFields
+            book={getPriceBook(
+              group.categoryKey,
+              rateOverridesFor(group.categoryId),
+            )}
+            currency={companyCurrency}
+            group={group}
+            reasonsOpen={Boolean(reasonsOpen[group.tempId])}
+            onToggleReasons={() =>
+              setReasonsOpen((p) => ({
+                ...p,
+                [group.tempId]: !p[group.tempId],
+              }))
+            }
+            onIntakeChange={(key, value) =>
+              updateIntakeValue(group.tempId, key, value)
+            }
+            onPricingChange={(patch) => updatePricing(group.tempId, patch)}
+            onToggleReason={(reasonId) =>
+              toggleComplexityReason(group.tempId, reasonId)
+            }
+          />
+        )}
+
+        {!group.persisted &&
+          hasTakeoff(group.categoryKey) &&
+          group.takeoff && (
+            <TradeTakeoff
+              siteAddress={siteAddress || selectedClient?.address || ""}
+              categoryKey={group.categoryKey}
+              takeoff={group.takeoff}
+              book={getPriceBook(
+                group.categoryKey,
+                rateOverridesFor(group.categoryId),
+              )}
+              onChange={(next) =>
+                typeof next === "function"
+                  ? updateTakeoff(group.tempId, next)
+                  : updatePricing(group.tempId, { takeoff: next })
+              }
+            />
+          )}
+
+        {!group.persisted &&
+          !group.isTiered &&
+          !isUnitPriced(group.categoryKey) &&
+          !hasTakeoff(group.categoryKey) && (
+            <>
+              {/* Trace it rather than guess it: the landscaping trades'
+                  Lot Size and Edging boxes below can be filled from an
+                  outline drawn on the aerial photo. The boxes stay
+                  editable — a number paced on site overrules one traced
+                  from the sky. */}
+              {isLotMeasureTrade(group.categoryKey) && (
+                <LotAreaMeasure
+                  intakeValues={group.intakeValues || {}}
+                  fields={getGroupFields(group)}
+                  onIntakeChange={(patch) =>
+                    updateIntakeValues(group.tempId, patch)
+                  }
+                  // The group's takeoff carries the still's address and
+                  // frame (and the traced outline in lat/lng, for the
+                  // client's document — see LotAreaMeasure).
+                  takeoff={group.takeoff || null}
+                  siteAddress={siteAddress || selectedClient?.address || ""}
+                  onTakeoffChange={(patch) => updateTakeoff(group.tempId, patch)}
+                />
+              )}
+              {/* Lawn care sells PROGRAMS priced by the lawn's size band
+                  (lib/estimate/lawnCare.js). The picker prices the
+                  company's card at the Lot Size above — traced or typed
+                  — and writes the picks as this group's lines, each
+                  program with its included treatments under it. */}
+              {group.categoryKey === "lawn_care" && (
+                <div className="rounded-lg border border-border p-3">
+                  <LawnProgramPicker
+                    areaSqft={group.intakeValues?.lotSize}
+                    language={quoteLanguage || companyLanguage}
+                    currency={companyCurrency}
+                    lineItems={group.lineItems}
+                    onLines={(lines) => replaceLawnLines(group.tempId, lines)}
+                  />
+                </div>
+              )}
+              <IntakeFields
+                fields={getGroupFields(group)}
+                values={group.intakeValues || {}}
+                onChange={(key, value) =>
+                  updateIntakeValue(group.tempId, key, value)
+                }
+              />
+            </>
+          )}
+
+        {!group.persisted && group.isTiered && (
+          <TierSelector
+            group={group}
+            onSelect={(tierKey, tierLabel) =>
+              selectTier(group.tempId, tierKey, tierLabel)
+            }
+          />
+        )}
+
+        {/* A saved group's takeoff is kept but not re-opened. Its lines were
+            priced against the rate card of the day it was written, and a
+            quote already in a client's inbox must not silently reprice
+            because gravel went up — so the numbers are edited as numbers. */}
+        {group.persisted && group.takeoff && !locked && (
+          <p className="text-xs text-muted-foreground">
+            {t("app.quoteEdit.takeoffFrozen")}
+          </p>
+        )}
+
+        {/* A saved unit-priced group's PRICE is frozen for the same reason
+            its takeoff is. Its COST is not, and the two are different
+            questions. Doors, drawer fronts and the door material feed the
+            material recipe and nothing else — scopeGroupPayload and
+            groupSubtotal both return early on `persisted`, so a number
+            typed here cannot reach the client's copy of the quote.
+            Without it, every quote written before intake answers were
+            stored is permanently uncostable. */}
+        {group.persisted &&
+          isUnitPriced(group.categoryKey) &&
+          !locked &&
+          mayCost && (
+            <div className="space-y-2 rounded-md border border-dashed p-3">
+              <p className="text-xs text-muted-foreground">
+                {t("app.quoteEdit.intakeCostOnly")}
+              </p>
+              {/* The billed unit count, as a reminder rather than a
+                  prefill. 35 units is not 35 doors — the recipe costs a
+                  door at 12 sqft and 45 minutes and a drawer front at 3
+                  and 20, and splitting the total for the user would be
+                  inventing the answer the boxes are asking for. */}
+              {billedUnitsOf(group) > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  {t("app.quoteEdit.intakeBilledUnits", {
+                    count: billedUnitsOf(group),
+                  })}
+                </p>
+              )}
+              <IntakeFields
+                fields={getGroupFields(group)}
+                values={group.intakeValues || {}}
+                onChange={(key, value) =>
+                  updateIntakeValue(group.tempId, key, value)
+                }
+              />
+            </div>
+          )}
+
+        {locked ? (
+          <div className="space-y-1.5">
+            {/* Not group.lineItems directly — ScopeGroupCard above already
+                shows this group's label and subtotal; a blended
+                subcontractor import's one line item repeats both, word
+                for word. See lib/quotes/scopeGroupDisplay.js. */}
+            {visibleLineItems(group).map((item, li) => (
+              <div
+                key={li}
+                className="flex justify-between gap-3 text-sm text-muted-foreground"
+              >
+                <span className="min-w-0 truncate">{item.description}</span>
+                <span className="tabular-nums shrink-0">
+                  {formatAppMoney(item.amount, companyCurrency, "en")}
+                </span>
+              </div>
+            ))}
+            {group.imported && (
+              <p className="text-[11px] text-muted-foreground pt-2 mt-1 border-t border-border">
+                {t("app.quoteEdit.importedLocked")}
+              </p>
+            )}
+          </div>
+        ) : (
+          <LineItemsTable
+            currency={companyCurrency}
+            items={group.lineItems}
+            products={getProductsForCategory(group.categoryId)}
+            categoryKey={group.categoryKey}
+            onChange={(i, field, value) =>
+              updateLineItem(group.tempId, i, field, value)
+            }
+            onAdd={() => addLineItem(group.tempId)}
+            onRemove={(i) => removeLineItem(group.tempId, i)}
+            onAddProduct={(product) =>
+              addProductLineItem(group.tempId, product)
+            }
+            onAddSuggested={(suggestion) =>
+              addSuggestedLineItem(group.tempId, suggestion)
+            }
+            // A block from the library, already a line
+            // (lib/quotes/textBlocks.js lineFromTextBlock) — in the
+            // quote's language, priced in the dialog.
+            onAddLine={(line) => addLibraryLine(group.tempId, line)}
+            documentLanguage={quoteLanguage || companyLanguage}
+            hourlyRate={hourlyRateFor(group)}
+            showPricing={caller ? hasToggle(caller, "showPricing") : true}
+          />
+        )}
+      </>
+    );
+  };
+
+  /** Internal cost & margin — never client-facing; see the component. */
+  const renderCostMarginPanel = () => (
+    <>
+    {mayCost && (
+      <CostMarginPanel
+        currency={companyCurrency}
+        estimate={estimate}
+        workers={workers}
+        crew={crew}
+        onCrewChange={setCrew}
+        overheadPct={overheadPct}
+        onOverheadChange={setOverheadPct}
+        manualLabourHours={manualLabourHours}
+        onManualLabourHoursChange={setManualLabourHours}
+        manualMaterialCost={manualMaterialCost}
+        onManualMaterialCostChange={setManualMaterialCost}
+        overheadSource={boot.overheadSource || null}
+        subtotal={taxableBase}
+        totalGroupCount={scopeGroups.length}
+        marginTarget={marginTarget}
+        onMaterialOverride={updateMaterialOverride}
+        // Which groups' bills can actually be typed over. The same test the
+        // takeoff editor uses, and for the same reason: scopeGroupPayload
+        // returns early on a persisted group, so its takeoff never leaves
+        // this screen. Offering boxes there would be a control that appears
+        // to work and doesn't — the margin would move and the saved quote
+        // would not.
+        editableMaterialGroups={scopeGroups
+          .filter((g) => !g.persisted && g.takeoff)
+          .map((g) => g.tempId)}
+      />
+    )}
+
+    </>
+  );
+
+  const renderNotesBox = () => (
+    <>
+    {/* Notes */}
+    <div className="bg-card border border-border rounded-xl p-5">
+      <h2 className="font-semibold text-foreground mb-2">
+        {t("app.field.notes")}
+      </h2>
+      <textarea
+        value={notes}
+        onChange={(e) => setNotes(e.target.value)}
+        rows={3}
+        placeholder={t("app.quoteNew.notesPlaceholder")}
+        className="w-full border border-border rounded-lg px-3 py-2 text-sm resize-none"
+      />
+    </div>
+
+    {/* Notes for review — INTERNAL.
+        Rendered only when there is something in it. An always-present empty
+        box beside the client-facing one is two textareas that look alike and
+        do opposite things, which is how a back-office note ends up on a
+        homeowner's PDF. It appears when a phone draft filled it, says plainly
+        that the client never sees it, and clears to nothing once the
+        estimator has dealt with what it says. */}
+    </>
+  );
+
+  const renderReviewNotesBox = () => (
+    <>
+    {reviewNotes ? (
+      <div ref={reviewNotesRef} className="bg-card border border-amber-300 dark:border-amber-800 rounded-xl p-5">
+        <h2 className="font-semibold text-foreground mb-1">
+          {t("app.quoteNew.reviewNotes")}
+        </h2>
+        <p className="text-xs text-muted-foreground mb-2">
+          {t("app.quoteNew.reviewNotesHint")}
+        </p>
+        <textarea
+          value={reviewNotes}
+          onChange={(e) => setReviewNotes(e.target.value)}
+          rows={3}
+          className="w-full border border-border rounded-lg px-3 py-2 text-sm resize-none"
+        />
+      </div>
+    ) : null}
+
+    </>
+  );
+
+  const renderPhotosBox = () => (
+    <>
+    {/* Job photos. The column and the quote detail page already supported
+        these, but only lead intake ever filled them — a quote typed up by
+        staff had nowhere to put the pictures from the site visit. */}
+    <div className="bg-card border border-border rounded-xl p-5">
+      <h2 className="font-semibold text-foreground mb-2">
+        {t("app.quoteDetail.clientMedia")}
+      </h2>
+      <MediaUploader
+        uploadUrl="/api/upload"
+        value={clientPhotos}
+        onChange={setClientPhotos}
+        label={t("app.quoteNew.addPhotos")}
+        hint={t("app.quoteNew.addPhotosHint")}
+      />
+    </div>
+
+    </>
+  );
+
+  const renderProcessNotes = () => (
+    <>
+    {/* Sits below the totals because that's where it sits on the client's
+        copy too — the extras are the last thing they read before deciding. */}
+    <div>
+      <label
+        htmlFor="quote-process-notes"
+        className="block text-sm font-medium text-foreground mb-1"
+      >
+        {t("app.quoteEdit.whatHappensNext")}
+      </label>
+      <p className="text-xs text-muted-foreground mb-2">
+        {t("app.quoteEdit.whatHappensNextHint")}
+      </p>
+      <textarea
+        id="quote-process-notes"
+        value={processNotes}
+        onChange={(e) => setProcessNotes(e.target.value)}
+        rows={5}
+        placeholder={t("app.quoteEdit.processNotesPlaceholder")}
+        className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-card"
+      />
+
+      {/* ── Save it once, never type it again ─────────────────────────────
+          Company.defaultProcessNotes has always existed and the builder has
+          always seeded from it — but the only place to SET it was Settings >
+          Company, three screens from where anybody actually writes the words.
+          So this box sat empty on quote after quote: the owner's point was
+          that it lives below the totals and never gets filled, and the fix he
+          reached for was a preset.
+
+          Offered here, where the text already is. It is the same text either
+          way, so the only thing the trip to Settings ever added was the
+          chance to forget.
+
+          Owner-and-admin only, because it writes a COMPANY setting: the
+          business-info PATCH refuses anyone below user:manage, and a button
+          that 403s is worse than no button. */}
+      {canSaveProcessDefault && processNotes.trim() && (
+        <div className="mt-2 flex items-center gap-3 flex-wrap">
+          {processNotes.trim() !== savedProcessDefault.trim() ? (
+            <button
+              type="button"
+              onClick={saveProcessNotesDefault}
+              disabled={savingProcessDefault}
+              className="text-xs font-medium text-foreground underline underline-offset-2 disabled:opacity-50"
+            >
+              {savingProcessDefault
+                ? t("app.quoteEdit.savingDefault")
+                : t("app.quoteEdit.saveAsDefault")}
+            </button>
+          ) : (
+            <span className="text-xs text-muted-foreground">
+              {t("app.quoteEdit.isYourDefault")}
+            </span>
+          )}
+          {processDefaultSaved && (
+            <span className="text-xs text-green-700 dark:text-green-400">
+              {t("app.quoteEdit.defaultSaved")}
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+
+    {/* The AI review and the optional extras. Needs a saved quote — the review
+        reads the stored row — which is why the builder's third button saves a
+        draft first and lands here. */}
+    </>
+  );
+
+  const renderSuggestAddOns = () => (
+    <>
+    {isEdit && quoteId && (
+      <SuggestAddOns
+        quoteId={quoteId}
+        readOnly={["accepted", "declined"].includes(start.status)}
+        onProcessNotes={setProcessNotes}
+        // The actuals finding's "Apply 18% more hours" — arithmetic in
+        // lib/quotes/applyActuals.js over THIS component's state, through
+        // the same setters the cost panel and the line table use, so the
+        // estimate, the totals bar and the client document all follow.
+        // Refused there for anything but a draft, whatever the panel shows.
+        quoteStatus={start.status || null}
+        onApplyActuals={(finding) => {
+          const r = applyActualsToDraft({
+            status: start.status,
+            scopeGroups,
+            manualLabourHours,
+            manualMaterialCost,
+            estimate,
+            categoryKey: finding.categoryKey,
+            labourPct: finding.labourPct ?? null,
+            materialsPct: finding.materialsPct ?? null,
+          });
+          if (!r.ok) return r;
+          setScopeGroups(r.scopeGroups);
+          setManualLabourHours(r.manualLabourHours);
+          setManualMaterialCost(r.manualMaterialCost);
+          return r;
+        }}
+        // The deep read's findings land in the internal notes for review —
+        // appended under what is there, so a phone draft's own note and two
+        // reads on different days all survive together.
+        //
+        // SAVED at once, through the append route, not only put in the box:
+        // the box is two screens up and only exists once it has text, so
+        // the press looked like nothing happened, and a reload before the
+        // builder's own Save lost it. The route hands back the merged note
+        // and the new updatedAt; the second is what keeps the next Save
+        // from being refused as a stale write (see `version`).
+        onReviewNotes={async (text) => {
+          try {
+            const saved = await fetchJson(`/api/quotes/${quoteId}/review-notes`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: jsonBody({ append: text }, "review note"),
+            });
+            setReviewNotes(typeof saved?.reviewNotes === "string" ? saved.reviewNotes : text);
+            if (saved?.updatedAt) setVersion(saved.updatedAt);
+            // Shown, not only stored: scroll the box the text landed in into
+            // view on the next paint, once it exists.
+            setTimeout(() => reviewNotesRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 0);
+            return { ok: true };
+          } catch (err) {
+            return { ok: false, error: err?.message || t("app.quoteEdit.saveError") };
+          }
+        }}
+        autoReview={autoReview}
+      />
+    )}
+
+    </>
+  );
+
+  const renderSendConfirm = () => (
+    <>
+    <SendConfirmModal
+      isOpen={Boolean(pendingSend)}
+      busy={saving === "sent"}
+      onClose={() => setPendingSend(null)}
+      onConfirm={() => {
+        setPendingSend(null);
+        handleSave("sent", { confirmed: true });
+      }}
+      recipient={pendingSend?.to}
+      title={t("app.quoteNew.confirmSendTitle")}
+      detail={t("app.quoteNew.confirmSendDetail")}
+      confirmLabel={t("app.quoteNew.confirmSendCta")}
+    />
+    </>
+  );
+
+  // The readiness input, worked out here rather than by the model. Same
+  // checks lib/ai/quoteReview.js runs — they were never AI work, just null
+  // checks that happened to live behind an API call.
+  const readiness = {
+    validUntil,
+    processNotes,
+    clientPhotos,
+    discount,
+    subtotal,
+    // Each group with the company's saved wording beside it, so the "no
+    // description" check reads the document the way the client does — a
+    // name over a scope paragraph is not a bare name.
+    scopeGroups: scopeGroups.map((g) => ({ ...g, override: wordingOverrideFor(g.categoryId) })),
+    client: selectedClient,
+  };
+  const readinessItems = scopeGroups.flatMap((g) =>
+    Array.isArray(g.lineItems) ? g.lineItems : [],
+  );
+
+  // A painting company's empty new quote opens on the estimate-type cards
+  // (EstimateTypeFirst.js), in both layouts, instead of the service tiles.
+  const paintingFirst =
+    !isEdit && scopeGroups.length === 0 && paintingCategoriesOf(categories).length > 0;
+
+  // ── Which layout ─────────────────────────────────────────────────────────
+  //
+  // Decided by the company (Company.quoteBuilderLayout, read into the
+  // bootstrap). Everything above this line is shared: state, derivation,
+  // the save. Only the arrangement differs, and the document layout is
+  // handed the same closures the classic markup below calls.
+  const layout = resolveBuilderLayout(boot.layout);
+  if (layout === "document") {
+    return (
+      <DocumentBuilder
+        b={{
+          t, lang, isEdit, quoteId, start, boot, caller, mayCost, canEditScope,
+          companyCurrency, companyLanguage, quoteLanguage, setQuoteLanguage, languageMeta,
+          clients: filteredClients, clientSearch, setClientSearch, selectedClient, setSelectedClient,
+          showNewClient, setShowNewClient, newClient, setNewClient, handleCreateClient, creatingClient,
+          siteAddress, setSiteAddress,
+          categories, products, teamRoster, settingsAccess,
+          scopeGroups, setScopeGroups, addScopeGroup, addPaintingEstimate, paintingFirst, removeScopeGroup, updateLineItem, removeLineItem,
+          groupFromStored, groupTotal, rateOverridesFor, wordingOverrideFor, getProductsForCategory,
+          notes, setNotes, reviewNotes, setReviewNotes, reviewNotesRef, processNotes, setProcessNotes,
+          assignedToId, setAssignedToId, setAssignedToTouched,
+          discount, setDiscount, appliedDiscount, taxableBase, taxEnabled, setTaxEnabled, taxRate, setTaxRate,
+          setTaxRateTouched, taxNote, taxCaution, taxAssumed, taxSchemeNote, taxDetail, vatWorkType, setVatWorkType,
+          validUntil, setValidUntil, subtotal, tax, total, estimate,
+          taxPlace: taxPlaceOf(selectedClient),
+          saving, error, errorRef, conflict, conflictRef, runSave, handleSave, pendingSend, setPendingSend,
+          cf, readiness, readinessItems, OPEN_STATUSES, TOUR_STEPS, showTour, setShowTour,
+          renderGroupEditor, renderCostMarginPanel, renderNotesBox, renderReviewNotesBox,
+          renderPhotosBox, renderProcessNotes, renderSuggestAddOns, renderSendConfirm,
+        }}
+      />
+    );
+  }
+
   return (
     // No pb-24 for the totals bar: the /app shell's <main> pads by the bar's
     // measured height (useBottomDock in QuoteTotalsBar), so the last field
@@ -1922,6 +2469,21 @@ export function QuoteBuilderForm({
           <AlertCircle size={16} className="shrink-0 mt-0.5" />
           {error}
         </div>
+      )}
+
+      {/* ── A painting company's first screen (mockup b1) ─────────────────
+          Before the client, before the tiles: which kind of estimate. The
+          pick adds the painting service with its type set; "Other trades"
+          unfolds the tiles for a company that also does something else. The
+          tiles below are withheld in this state so painting never has a tile
+          step. See EstimateTypeFirst.js for why this is first. */}
+      {paintingFirst && (
+        <EstimateTypeFirst
+          categories={categories}
+          onPickType={addPaintingEstimate}
+          onAddOther={addScopeGroup}
+          documentLanguage={quoteLanguage}
+        />
       )}
 
       {/* Locked on an edit rather than hidden: the client is information the
@@ -2066,7 +2628,7 @@ export function QuoteBuilderForm({
       {/* Service picker. The tile grid, the section-preset expansion and the
           per-trade accent all live in ServiceTiles — this component keeps the
           state and the pricing rules. */}
-      {canEditScope && (
+      {canEditScope && !paintingFirst && (
         <ServiceTiles
           categories={categories}
           onAdd={addScopeGroup}
@@ -2096,207 +2658,7 @@ export function QuoteBuilderForm({
             wordingOverride={wordingOverrideFor(group.categoryId)}
             t={t}
           >
-            {!group.persisted && isUnitPriced(group.categoryKey) && (
-              <UnitPricingFields
-                book={getPriceBook(
-                  group.categoryKey,
-                  rateOverridesFor(group.categoryId),
-                )}
-                currency={companyCurrency}
-                group={group}
-                reasonsOpen={Boolean(reasonsOpen[group.tempId])}
-                onToggleReasons={() =>
-                  setReasonsOpen((p) => ({
-                    ...p,
-                    [group.tempId]: !p[group.tempId],
-                  }))
-                }
-                onIntakeChange={(key, value) =>
-                  updateIntakeValue(group.tempId, key, value)
-                }
-                onPricingChange={(patch) => updatePricing(group.tempId, patch)}
-                onToggleReason={(reasonId) =>
-                  toggleComplexityReason(group.tempId, reasonId)
-                }
-              />
-            )}
-
-            {!group.persisted &&
-              hasTakeoff(group.categoryKey) &&
-              group.takeoff && (
-                <TradeTakeoff
-                  siteAddress={siteAddress || selectedClient?.address || ""}
-                  categoryKey={group.categoryKey}
-                  takeoff={group.takeoff}
-                  book={getPriceBook(
-                    group.categoryKey,
-                    rateOverridesFor(group.categoryId),
-                  )}
-                  onChange={(next) =>
-                    typeof next === "function"
-                      ? updateTakeoff(group.tempId, next)
-                      : updatePricing(group.tempId, { takeoff: next })
-                  }
-                />
-              )}
-
-            {!group.persisted &&
-              !group.isTiered &&
-              !isUnitPriced(group.categoryKey) &&
-              !hasTakeoff(group.categoryKey) && (
-                <>
-                  {/* Trace it rather than guess it: the landscaping trades'
-                      Lot Size and Edging boxes below can be filled from an
-                      outline drawn on the aerial photo. The boxes stay
-                      editable — a number paced on site overrules one traced
-                      from the sky. */}
-                  {isLotMeasureTrade(group.categoryKey) && (
-                    <LotAreaMeasure
-                      intakeValues={group.intakeValues || {}}
-                      fields={getGroupFields(group)}
-                      onIntakeChange={(patch) =>
-                        updateIntakeValues(group.tempId, patch)
-                      }
-                      // The group's takeoff carries the still's address and
-                      // frame (and the traced outline in lat/lng, for the
-                      // client's document — see LotAreaMeasure).
-                      takeoff={group.takeoff || null}
-                      siteAddress={siteAddress || selectedClient?.address || ""}
-                      onTakeoffChange={(patch) => updateTakeoff(group.tempId, patch)}
-                    />
-                  )}
-                  {/* Lawn care sells PROGRAMS priced by the lawn's size band
-                      (lib/estimate/lawnCare.js). The picker prices the
-                      company's card at the Lot Size above — traced or typed
-                      — and writes the picks as this group's lines, each
-                      program with its included treatments under it. */}
-                  {group.categoryKey === "lawn_care" && (
-                    <div className="rounded-lg border border-border p-3">
-                      <LawnProgramPicker
-                        areaSqft={group.intakeValues?.lotSize}
-                        language={quoteLanguage || companyLanguage}
-                        currency={companyCurrency}
-                        lineItems={group.lineItems}
-                        onLines={(lines) => replaceLawnLines(group.tempId, lines)}
-                      />
-                    </div>
-                  )}
-                  <IntakeFields
-                    fields={getGroupFields(group)}
-                    values={group.intakeValues || {}}
-                    onChange={(key, value) =>
-                      updateIntakeValue(group.tempId, key, value)
-                    }
-                  />
-                </>
-              )}
-
-            {!group.persisted && group.isTiered && (
-              <TierSelector
-                group={group}
-                onSelect={(tierKey, tierLabel) =>
-                  selectTier(group.tempId, tierKey, tierLabel)
-                }
-              />
-            )}
-
-            {/* A saved group's takeoff is kept but not re-opened. Its lines were
-                priced against the rate card of the day it was written, and a
-                quote already in a client's inbox must not silently reprice
-                because gravel went up — so the numbers are edited as numbers. */}
-            {group.persisted && group.takeoff && !locked && (
-              <p className="text-xs text-muted-foreground">
-                {t("app.quoteEdit.takeoffFrozen")}
-              </p>
-            )}
-
-            {/* A saved unit-priced group's PRICE is frozen for the same reason
-                its takeoff is. Its COST is not, and the two are different
-                questions. Doors, drawer fronts and the door material feed the
-                material recipe and nothing else — scopeGroupPayload and
-                groupSubtotal both return early on `persisted`, so a number
-                typed here cannot reach the client's copy of the quote.
-                Without it, every quote written before intake answers were
-                stored is permanently uncostable. */}
-            {group.persisted &&
-              isUnitPriced(group.categoryKey) &&
-              !locked &&
-              mayCost && (
-                <div className="space-y-2 rounded-md border border-dashed p-3">
-                  <p className="text-xs text-muted-foreground">
-                    {t("app.quoteEdit.intakeCostOnly")}
-                  </p>
-                  {/* The billed unit count, as a reminder rather than a
-                      prefill. 35 units is not 35 doors — the recipe costs a
-                      door at 12 sqft and 45 minutes and a drawer front at 3
-                      and 20, and splitting the total for the user would be
-                      inventing the answer the boxes are asking for. */}
-                  {billedUnitsOf(group) > 0 && (
-                    <p className="text-xs text-muted-foreground">
-                      {t("app.quoteEdit.intakeBilledUnits", {
-                        count: billedUnitsOf(group),
-                      })}
-                    </p>
-                  )}
-                  <IntakeFields
-                    fields={getGroupFields(group)}
-                    values={group.intakeValues || {}}
-                    onChange={(key, value) =>
-                      updateIntakeValue(group.tempId, key, value)
-                    }
-                  />
-                </div>
-              )}
-
-            {locked ? (
-              <div className="space-y-1.5">
-                {/* Not group.lineItems directly — ScopeGroupCard above already
-                    shows this group's label and subtotal; a blended
-                    subcontractor import's one line item repeats both, word
-                    for word. See lib/quotes/scopeGroupDisplay.js. */}
-                {visibleLineItems(group).map((item, li) => (
-                  <div
-                    key={li}
-                    className="flex justify-between gap-3 text-sm text-muted-foreground"
-                  >
-                    <span className="min-w-0 truncate">{item.description}</span>
-                    <span className="tabular-nums shrink-0">
-                      {formatAppMoney(item.amount, companyCurrency, "en")}
-                    </span>
-                  </div>
-                ))}
-                {group.imported && (
-                  <p className="text-[11px] text-muted-foreground pt-2 mt-1 border-t border-border">
-                    {t("app.quoteEdit.importedLocked")}
-                  </p>
-                )}
-              </div>
-            ) : (
-              <LineItemsTable
-                currency={companyCurrency}
-                items={group.lineItems}
-                products={getProductsForCategory(group.categoryId)}
-                categoryKey={group.categoryKey}
-                onChange={(i, field, value) =>
-                  updateLineItem(group.tempId, i, field, value)
-                }
-                onAdd={() => addLineItem(group.tempId)}
-                onRemove={(i) => removeLineItem(group.tempId, i)}
-                onAddProduct={(product) =>
-                  addProductLineItem(group.tempId, product)
-                }
-                onAddSuggested={(suggestion) =>
-                  addSuggestedLineItem(group.tempId, suggestion)
-                }
-                // A block from the library, already a line
-                // (lib/quotes/textBlocks.js lineFromTextBlock) — in the
-                // quote's language, priced in the dialog.
-                onAddLine={(line) => addLibraryLine(group.tempId, line)}
-                documentLanguage={quoteLanguage || companyLanguage}
-                hourlyRate={hourlyRateFor(group)}
-                showPricing={caller ? hasToggle(caller, "showPricing") : true}
-              />
-            )}
+            {renderGroupEditor(group)}
           </ScopeGroupCard>
         );
       })}
@@ -2305,109 +2667,20 @@ export function QuoteBuilderForm({
           `subtotal` here is the POST-discount figure: the row it feeds is
           labelled "Quote price (pre-tax)", and once there is a discount the
           pre-tax price is what is left after it. */}
-      {mayCost && (
-        <CostMarginPanel
-          currency={companyCurrency}
-          estimate={estimate}
-          workers={workers}
-          crew={crew}
-          onCrewChange={setCrew}
-          overheadPct={overheadPct}
-          onOverheadChange={setOverheadPct}
-          manualLabourHours={manualLabourHours}
-          onManualLabourHoursChange={setManualLabourHours}
-          manualMaterialCost={manualMaterialCost}
-          onManualMaterialCostChange={setManualMaterialCost}
-          overheadSource={boot.overheadSource || null}
-          subtotal={taxableBase}
-          totalGroupCount={scopeGroups.length}
-          marginTarget={marginTarget}
-          onMaterialOverride={updateMaterialOverride}
-          // Which groups' bills can actually be typed over. The same test the
-          // takeoff editor uses, and for the same reason: scopeGroupPayload
-          // returns early on a persisted group, so its takeoff never leaves
-          // this screen. Offering boxes there would be a control that appears
-          // to work and doesn't — the margin would move and the saved quote
-          // would not.
-          editableMaterialGroups={scopeGroups
-            .filter((g) => !g.persisted && g.takeoff)
-            .map((g) => g.tempId)}
-        />
-      )}
+      {renderCostMarginPanel()}
 
-      {/* Notes */}
-      <div className="bg-card border border-border rounded-xl p-5">
-        <h2 className="font-semibold text-foreground mb-2">
-          {t("app.field.notes")}
-        </h2>
-        <textarea
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          rows={3}
-          placeholder={t("app.quoteNew.notesPlaceholder")}
-          className="w-full border border-border rounded-lg px-3 py-2 text-sm resize-none"
-        />
-      </div>
+      {renderNotesBox()}
 
-      {/* Notes for review — INTERNAL.
-          Rendered only when there is something in it. An always-present empty
-          box beside the client-facing one is two textareas that look alike and
-          do opposite things, which is how a back-office note ends up on a
-          homeowner's PDF. It appears when a phone draft filled it, says plainly
-          that the client never sees it, and clears to nothing once the
-          estimator has dealt with what it says. */}
-      {reviewNotes ? (
-        <div ref={reviewNotesRef} className="bg-card border border-amber-300 dark:border-amber-800 rounded-xl p-5">
-          <h2 className="font-semibold text-foreground mb-1">
-            {t("app.quoteNew.reviewNotes")}
-          </h2>
-          <p className="text-xs text-muted-foreground mb-2">
-            {t("app.quoteNew.reviewNotesHint")}
-          </p>
-          <textarea
-            value={reviewNotes}
-            onChange={(e) => setReviewNotes(e.target.value)}
-            rows={3}
-            className="w-full border border-border rounded-lg px-3 py-2 text-sm resize-none"
-          />
-        </div>
-      ) : null}
+      {renderReviewNotesBox()}
 
-      {/* Job photos. The column and the quote detail page already supported
-          these, but only lead intake ever filled them — a quote typed up by
-          staff had nowhere to put the pictures from the site visit. */}
-      <div className="bg-card border border-border rounded-xl p-5">
-        <h2 className="font-semibold text-foreground mb-2">
-          {t("app.quoteDetail.clientMedia")}
-        </h2>
-        <MediaUploader
-          uploadUrl="/api/upload"
-          value={clientPhotos}
-          onChange={setClientPhotos}
-          label={t("app.quoteNew.addPhotos")}
-          hint={t("app.quoteNew.addPhotosHint")}
-        />
-      </div>
+      {renderPhotosBox()}
 
       <QuoteTotalsBar
         // What is still missing, worked out here rather than by the model. Same
         // checks lib/ai/quoteReview.js runs — they were never AI work, just null
         // checks that happened to live behind an API call.
-        readiness={{
-          validUntil,
-          processNotes,
-          clientPhotos,
-          discount,
-          subtotal,
-          // Each group with the company's saved wording beside it, so the
-          // "no description" check reads the document the way the client
-          // does — a name over a scope paragraph is not a bare name.
-          scopeGroups: scopeGroups.map((g) => ({ ...g, override: wordingOverrideFor(g.categoryId) })),
-          client: selectedClient,
-        }}
-        readinessItems={scopeGroups.flatMap((g) =>
-          Array.isArray(g.lineItems) ? g.lineItems : [],
-        )}
+        readiness={readiness}
+        readinessItems={readinessItems}
         taxNote={taxNote}
         taxCaution={taxCaution}
         taxAssumed={taxAssumed}
@@ -2494,144 +2767,11 @@ export function QuoteBuilderForm({
         cancelHref={isEdit ? `/app/quotes/${quoteId}` : null}
       />
 
-      {/* Sits below the totals because that's where it sits on the client's
-          copy too — the extras are the last thing they read before deciding. */}
-      <div>
-        <label
-          htmlFor="quote-process-notes"
-          className="block text-sm font-medium text-foreground mb-1"
-        >
-          {t("app.quoteEdit.whatHappensNext")}
-        </label>
-        <p className="text-xs text-muted-foreground mb-2">
-          {t("app.quoteEdit.whatHappensNextHint")}
-        </p>
-        <textarea
-          id="quote-process-notes"
-          value={processNotes}
-          onChange={(e) => setProcessNotes(e.target.value)}
-          rows={5}
-          placeholder={t("app.quoteEdit.processNotesPlaceholder")}
-          className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-card"
-        />
+      {renderProcessNotes()}
 
-        {/* ── Save it once, never type it again ─────────────────────────────
-            Company.defaultProcessNotes has always existed and the builder has
-            always seeded from it — but the only place to SET it was Settings >
-            Company, three screens from where anybody actually writes the words.
-            So this box sat empty on quote after quote: the owner's point was
-            that it lives below the totals and never gets filled, and the fix he
-            reached for was a preset.
+      {renderSuggestAddOns()}
 
-            Offered here, where the text already is. It is the same text either
-            way, so the only thing the trip to Settings ever added was the
-            chance to forget.
-
-            Owner-and-admin only, because it writes a COMPANY setting: the
-            business-info PATCH refuses anyone below user:manage, and a button
-            that 403s is worse than no button. */}
-        {canSaveProcessDefault && processNotes.trim() && (
-          <div className="mt-2 flex items-center gap-3 flex-wrap">
-            {processNotes.trim() !== savedProcessDefault.trim() ? (
-              <button
-                type="button"
-                onClick={saveProcessNotesDefault}
-                disabled={savingProcessDefault}
-                className="text-xs font-medium text-foreground underline underline-offset-2 disabled:opacity-50"
-              >
-                {savingProcessDefault
-                  ? t("app.quoteEdit.savingDefault")
-                  : t("app.quoteEdit.saveAsDefault")}
-              </button>
-            ) : (
-              <span className="text-xs text-muted-foreground">
-                {t("app.quoteEdit.isYourDefault")}
-              </span>
-            )}
-            {processDefaultSaved && (
-              <span className="text-xs text-green-700 dark:text-green-400">
-                {t("app.quoteEdit.defaultSaved")}
-              </span>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* The AI review and the optional extras. Needs a saved quote — the review
-          reads the stored row — which is why the builder's third button saves a
-          draft first and lands here. */}
-      {isEdit && quoteId && (
-        <SuggestAddOns
-          quoteId={quoteId}
-          readOnly={["accepted", "declined"].includes(start.status)}
-          onProcessNotes={setProcessNotes}
-          // The actuals finding's "Apply 18% more hours" — arithmetic in
-          // lib/quotes/applyActuals.js over THIS component's state, through
-          // the same setters the cost panel and the line table use, so the
-          // estimate, the totals bar and the client document all follow.
-          // Refused there for anything but a draft, whatever the panel shows.
-          quoteStatus={start.status || null}
-          onApplyActuals={(finding) => {
-            const r = applyActualsToDraft({
-              status: start.status,
-              scopeGroups,
-              manualLabourHours,
-              manualMaterialCost,
-              estimate,
-              categoryKey: finding.categoryKey,
-              labourPct: finding.labourPct ?? null,
-              materialsPct: finding.materialsPct ?? null,
-            });
-            if (!r.ok) return r;
-            setScopeGroups(r.scopeGroups);
-            setManualLabourHours(r.manualLabourHours);
-            setManualMaterialCost(r.manualMaterialCost);
-            return r;
-          }}
-          // The deep read's findings land in the internal notes for review —
-          // appended under what is there, so a phone draft's own note and two
-          // reads on different days all survive together.
-          //
-          // SAVED at once, through the append route, not only put in the box:
-          // the box is two screens up and only exists once it has text, so
-          // the press looked like nothing happened, and a reload before the
-          // builder's own Save lost it. The route hands back the merged note
-          // and the new updatedAt; the second is what keeps the next Save
-          // from being refused as a stale write (see `version`).
-          onReviewNotes={async (text) => {
-            try {
-              const saved = await fetchJson(`/api/quotes/${quoteId}/review-notes`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: jsonBody({ append: text }, "review note"),
-              });
-              setReviewNotes(typeof saved?.reviewNotes === "string" ? saved.reviewNotes : text);
-              if (saved?.updatedAt) setVersion(saved.updatedAt);
-              // Shown, not only stored: scroll the box the text landed in into
-              // view on the next paint, once it exists.
-              setTimeout(() => reviewNotesRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 0);
-              return { ok: true };
-            } catch (err) {
-              return { ok: false, error: err?.message || t("app.quoteEdit.saveError") };
-            }
-          }}
-          autoReview={autoReview}
-        />
-      )}
-
-      <SendConfirmModal
-        isOpen={Boolean(pendingSend)}
-        busy={saving === "sent"}
-        onClose={() => setPendingSend(null)}
-        onConfirm={() => {
-          setPendingSend(null);
-          handleSave("sent", { confirmed: true });
-        }}
-        recipient={pendingSend?.to}
-        title={t("app.quoteNew.confirmSendTitle")}
-        detail={t("app.quoteNew.confirmSendDetail")}
-        confirmLabel={t("app.quoteNew.confirmSendCta")}
-      />
+      {renderSendConfirm()}
 
       {/* Onboarding tour. Create only: its three steps point at the client
           picker, the service tiles and the totals bar, and on a decided quote

@@ -38,6 +38,7 @@ import CompanyActivity from "./CompanyActivity";
 import CompanyHealth from "./CompanyHealth";
 import CompanyActions from "./CompanyActions";
 import CompanyInfluencer from "./CompanyInfluencer";
+import CompanyBuilderLayout from "./CompanyBuilderLayout";
 import CompanyDisputeEvidence from "./CompanyDisputeEvidence";
 import PlatformWriteGate, {
   usePlatformAdmin,
@@ -692,6 +693,14 @@ export default function CompanyDetail({ companyId }) {
         companyId={companyId}
         companyName={company.name}
         trialEndsAt={company.trialEndsAt}
+        onDone={load}
+      />
+
+      {/* Which quote builder their estimators open — the rollout of the
+          document-shaped builder is decided here, per company. */}
+      <CompanyBuilderLayout
+        companyId={companyId}
+        value={company.quoteBuilderLayout}
         onDone={load}
       />
 
