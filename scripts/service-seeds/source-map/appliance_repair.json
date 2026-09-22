@@ -1,0 +1,149 @@
+[
+ {
+  "seedKey": "fq.appliance_repair.repair.general",
+  "industry": "Appliances",
+  "sourceCategory": "Core Services",
+  "sourceService": "Appliance Repair",
+  "taskCode": "DEFAULT_APPLIANCES_SERVICE_0"
+ },
+ {
+  "seedKey": "fq.appliance_repair.repair.refrigerator",
+  "industry": "Appliances",
+  "sourceCategory": "Core Services",
+  "sourceService": "Refrigerator Repair",
+  "taskCode": "DEFAULT_APPLIANCES_SERVICE_1"
+ },
+ {
+  "seedKey": "fq.appliance_repair.repair.dishwasher",
+  "industry": "Appliances",
+  "sourceCategory": "Core Services",
+  "sourceService": "Dishwasher Repair",
+  "taskCode": "DEFAULT_APPLIANCES_SERVICE_2"
+ },
+ {
+  "seedKey": "fq.appliance_repair.repair.oven_range",
+  "industry": "Appliances",
+  "sourceCategory": "Core Services",
+  "sourceService": "Oven and Range Repair",
+  "taskCode": "DEFAULT_APPLIANCES_SERVICE_3"
+ },
+ {
+  "seedKey": "fq.appliance_repair.repair.washer",
+  "industry": "Appliances",
+  "sourceCategory": "Core Services",
+  "sourceService": "Washer Repair",
+  "taskCode": "DEFAULT_APPLIANCES_SERVICE_4"
+ },
+ {
+  "seedKey": "fq.appliance_repair.repair.dryer",
+  "industry": "Appliances",
+  "sourceCategory": "Core Services",
+  "sourceService": "Dryer Repair",
+  "taskCode": "DEFAULT_APPLIANCES_SERVICE_5"
+ },
+ {
+  "seedKey": "fq.appliance_repair.additional.installation",
+  "industry": "Appliances",
+  "sourceCategory": "Additional Services",
+  "sourceService": "Appliance Installation",
+  "taskCode": "DEFAULT_APPLIANCES_SERVICE_6"
+ },
+ {
+  "seedKey": "fq.appliance_repair.additional.dryer_vent_cleaning",
+  "industry": "Appliances",
+  "sourceCategory": "Additional Services",
+  "sourceService": "Dryer Vent Cleaning",
+  "taskCode": "DEFAULT_APPLIANCES_SERVICE_7"
+ },
+ {
+  "seedKey": "fq.appliance_repair.additional.leak_diagnosis",
+  "industry": "Appliances",
+  "sourceCategory": "Additional Services",
+  "sourceService": "Leak Diagnosis and Repair",
+  "taskCode": "DEFAULT_APPLIANCES_SERVICE_8"
+ },
+ {
+  "seedKey": "fq.appliance_repair.additional.electrical_troubleshooting",
+  "industry": "Appliances",
+  "sourceCategory": "Additional Services",
+  "sourceService": "Electrical Troubleshooting",
+  "taskCode": "DEFAULT_APPLIANCES_SERVICE_9"
+ },
+ {
+  "seedKey": "fq.appliance_repair.additional.smart_setup",
+  "industry": "Appliances",
+  "sourceCategory": "Additional Services",
+  "sourceService": "Smart Appliance Setup",
+  "taskCode": "DEFAULT_APPLIANCES_SERVICE_10"
+ },
+ {
+  "seedKey": "fq.appliance_repair.additional.cleaning",
+  "industry": "Appliances",
+  "sourceCategory": "Additional Services",
+  "sourceService": "Appliance Cleaning Service",
+  "taskCode": "DEFAULT_APPLIANCES_SERVICE_11"
+ },
+ {
+  "seedKey": "fq.appliance_repair.additional.parts_replacement",
+  "industry": "Appliances",
+  "sourceCategory": "Additional Services",
+  "sourceService": "Parts Replacement Service",
+  "taskCode": "DEFAULT_APPLIANCES_SERVICE_12"
+ },
+ {
+  "seedKey": "fq.appliance_repair.maintenance.tune_up",
+  "industry": "Appliances",
+  "sourceCategory": "Maintenance & Inspection",
+  "sourceService": "Appliance Tune-Up",
+  "taskCode": "DEFAULT_APPLIANCES_SERVICE_13"
+ },
+ {
+  "seedKey": "fq.appliance_repair.maintenance.preventative",
+  "industry": "Appliances",
+  "sourceCategory": "Maintenance & Inspection",
+  "sourceService": "Preventative Maintenance Service",
+  "taskCode": "DEFAULT_APPLIANCES_SERVICE_14"
+ },
+ {
+  "seedKey": "fq.appliance_repair.maintenance.inspection",
+  "industry": "Appliances",
+  "sourceCategory": "Maintenance & Inspection",
+  "sourceService": "Appliance Inspection",
+  "taskCode": "DEFAULT_APPLIANCES_SERVICE_15"
+ },
+ {
+  "seedKey": "fq.appliance_repair.maintenance.performance_optimization",
+  "industry": "Appliances",
+  "sourceCategory": "Maintenance & Inspection",
+  "sourceService": "Performance Optimization",
+  "taskCode": "DEFAULT_APPLIANCES_SERVICE_16"
+ },
+ {
+  "seedKey": "fq.appliance_repair.maintenance.filter_replacement",
+  "industry": "Appliances",
+  "sourceCategory": "Maintenance & Inspection",
+  "sourceService": "Filter Replacement Service",
+  "taskCode": "DEFAULT_APPLIANCES_SERVICE_17"
+ },
+ {
+  "seedKey": "fq.appliance_repair.maintenance.inspection_visit",
+  "industry": "Appliances",
+  "sourceCategory": "Book Now",
+  "sourceService": "Appliances Inspection Service",
+  "taskCode": "DEFAULT_APPLIANCES_SERVICE_18"
+ },
+ {
+  "seedKey": "fq.appliance_repair.repair.repair_visit",
+  "industry": "Appliances",
+  "sourceCategory": "Book Now",
+  "sourceService": "Appliances Repair Service",
+  "taskCode": "DEFAULT_APPLIANCES_SERVICE_19"
+ },
+ {
+  "seedKey": "fq.appliance_repair.additional.install_upgrade_visit",
+  "industry": "Appliances",
+  "sourceCategory": "Book Now",
+  "sourceService": "Appliances Installation or Upgrade",
+  "taskCode": "DEFAULT_APPLIANCES_SERVICE_20"
+ }
+]

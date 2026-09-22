@@ -1,0 +1,128 @@
+[
+ {
+  "seedKey": "fq.garage_door.maintenance.bottom_seal",
+  "industry": "Garage",
+  "sourceCategory": "Add-On & Maintenance",
+  "sourceService": "Garage Door Bottom Seal Replacement",
+  "taskCode": "DEFAULT_GARAGE_SERVICE_0"
+ },
+ {
+  "seedKey": "fq.garage_door.repair.repair_visit",
+  "industry": "Garage",
+  "sourceCategory": "Book Now",
+  "sourceService": "Garage Door Repair",
+  "taskCode": "DEFAULT_GARAGE_SERVICE_1"
+ },
+ {
+  "seedKey": "fq.garage_door.opener.opener_service_visit",
+  "industry": "Garage",
+  "sourceCategory": "Book Now",
+  "sourceService": "Garage Door Opener Service",
+  "taskCode": "DEFAULT_GARAGE_SERVICE_2"
+ },
+ {
+  "seedKey": "fq.garage_door.repair.spring_visit",
+  "industry": "Garage",
+  "sourceCategory": "Book Now",
+  "sourceService": "Garage Door Spring Replacement",
+  "taskCode": "DEFAULT_GARAGE_SERVICE_3"
+ },
+ {
+  "seedKey": "fq.garage_door.repair.track_realignment",
+  "industry": "Garage",
+  "sourceCategory": "Core Garage Door Services",
+  "sourceService": "Garage Door Track Realignment / Repair",
+  "taskCode": "DEFAULT_GARAGE_SERVICE_4"
+ },
+ {
+  "seedKey": "fq.garage_door.repair.panel_replacement",
+  "industry": "Garage",
+  "sourceCategory": "Core Garage Door Services",
+  "sourceService": "Garage Door Panel / Section Replacement",
+  "taskCode": "DEFAULT_GARAGE_SERVICE_5"
+ },
+ {
+  "seedKey": "fq.garage_door.repair.nylon_rollers",
+  "industry": "Garage",
+  "sourceCategory": "Core Garage Door Services",
+  "sourceService": "Garage Door Roller Replacement (Nylon)",
+  "taskCode": "DEFAULT_GARAGE_SERVICE_6"
+ },
+ {
+  "seedKey": "fq.garage_door.repair.cable_replacement",
+  "industry": "Garage",
+  "sourceCategory": "Core Garage Door Services",
+  "sourceService": "Garage Door Cable Replacement",
+  "taskCode": "DEFAULT_GARAGE_SERVICE_7"
+ },
+ {
+  "seedKey": "fq.garage_door.repair.torsion_spring",
+  "industry": "Garage",
+  "sourceCategory": "Core Garage Door Services",
+  "sourceService": "Garage Door Torsion Spring Replacement",
+  "taskCode": "DEFAULT_GARAGE_SERVICE_8"
+ },
+ {
+  "seedKey": "fq.garage_door.opener.repair_service_call",
+  "industry": "Garage",
+  "sourceCategory": "Core Garage Door Services",
+  "sourceService": "Garage Door Opener Repair / Service Call",
+  "taskCode": "DEFAULT_GARAGE_SERVICE_9"
+ },
+ {
+  "seedKey": "fq.garage_door.opener.repair_adjustment",
+  "industry": "Garage",
+  "sourceCategory": "Core Garage Door Services",
+  "sourceService": "Garage Door Opener Repair and Adjustment",
+  "taskCode": "DEFAULT_GARAGE_SERVICE_10"
+ },
+ {
+  "seedKey": "fq.garage_door.opener.safety_sensors",
+  "industry": "Garage",
+  "sourceCategory": "Core Garage Door Services",
+  "sourceService": "Garage Door Safety Sensor Replacement / Alignment",
+  "taskCode": "DEFAULT_GARAGE_SERVICE_11"
+ },
+ {
+  "seedKey": "fq.garage_door.opener.inspection_diagnostic",
+  "industry": "Garage",
+  "sourceCategory": "Core Garage Door Services",
+  "sourceService": "Garage Door Opener Inspection and Diagnostic",
+  "taskCode": "DEFAULT_GARAGE_SERVICE_12"
+ },
+ {
+  "seedKey": "fq.garage_door.install.opener_install",
+  "industry": "Garage",
+  "sourceCategory": "Specialty & Installation",
+  "sourceService": "Garage Door Opener Installation (Chain/Belt Drive)",
+  "taskCode": "DEFAULT_GARAGE_SERVICE_13"
+ },
+ {
+  "seedKey": "fq.garage_door.install.floor_coating",
+  "industry": "Garage",
+  "sourceCategory": "Specialty & Installation",
+  "sourceService": "Garage Floor Coating (Polyaspartic Flake System",
+  "taskCode": "DEFAULT_GARAGE_SERVICE_14"
+ },
+ {
+  "seedKey": "fq.garage_door.install.entry_lock_deadbolt",
+  "industry": "Garage",
+  "sourceCategory": "Specialty & Installation",
+  "sourceService": "Entry Door Lock & Deadbolt Replacement",
+  "taskCode": "DEFAULT_GARAGE_SERVICE_15"
+ },
+ {
+  "seedKey": "fq.garage_door.install.wood_metal_components",
+  "industry": "Garage",
+  "sourceCategory": "Specialty & Installation",
+  "sourceService": "Wood & Metal Component Replacement",
+  "taskCode": "DEFAULT_GARAGE_SERVICE_16"
+ },
+ {
+  "seedKey": "fq.garage_door.install.door_install",
+  "industry": "Garage",
+  "sourceCategory": "Specialty & Installation",
+  "sourceService": "Garage Door Installation (Door + Basic Hardware)",
+  "taskCode": "DEFAULT_GARAGE_SERVICE_17"
+ }
+]

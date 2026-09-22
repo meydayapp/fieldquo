@@ -1,0 +1,569 @@
+[
+ {
+  "seedKey": "fq.handyman.assembly.furniture",
+  "industry": "Handyman",
+  "sourceCategory": "Assembly & Installation",
+  "sourceService": "Furniture Assembly and Installation Services",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_0"
+ },
+ {
+  "seedKey": "fq.handyman.assembly.hot_tub",
+  "industry": "Handyman",
+  "sourceCategory": "Assembly & Installation",
+  "sourceService": "Installation - Hot tub",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_1"
+ },
+ {
+  "seedKey": "fq.handyman.carpentry.siding_trim_repair",
+  "industry": "Handyman",
+  "sourceCategory": "Carpentry, Cabinets & Trim",
+  "sourceService": "Exterior Siding and Trim Repair and Replacement",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_2"
+ },
+ {
+  "seedKey": "fq.handyman.carpentry.cabinet_install",
+  "industry": "Handyman",
+  "sourceCategory": "Carpentry, Cabinets & Trim",
+  "sourceService": "Installation - Cabinets",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_3"
+ },
+ {
+  "seedKey": "fq.handyman.carpentry.crown_molding",
+  "industry": "Handyman",
+  "sourceCategory": "Carpentry, Cabinets & Trim",
+  "sourceService": "Installation - Crown molding",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_4"
+ },
+ {
+  "seedKey": "fq.handyman.labour.hourly",
+  "industry": "Handyman",
+  "sourceCategory": "Cleanup & General Labor",
+  "sourceService": "Handyman Service Call Labor - Hourly Rate",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_5"
+ },
+ {
+  "seedKey": "fq.handyman.labour.site_prep_debris",
+  "industry": "Handyman",
+  "sourceCategory": "Cleanup & General Labor",
+  "sourceService": "Site Preparation and Debris Removal Services",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_6"
+ },
+ {
+  "seedKey": "fq.handyman.doors_windows.closet_doors",
+  "industry": "Handyman",
+  "sourceCategory": "Doors, Windows & Hardware",
+  "sourceService": "Closet Door Installation, Repair, and Shelving System",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_7"
+ },
+ {
+  "seedKey": "fq.handyman.doors_windows.closet_remodel",
+  "industry": "Handyman",
+  "sourceCategory": "Doors, Windows & Hardware",
+  "sourceService": "Closet Remodel with Shelving, Doors, and Hardware Installation",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_8"
+ },
+ {
+  "seedKey": "fq.handyman.doors_windows.hardware_alignment",
+  "industry": "Handyman",
+  "sourceCategory": "Doors, Windows & Hardware",
+  "sourceService": "Door and Cabinet Hardware Repair and Alignment",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_9"
+ },
+ {
+  "seedKey": "fq.handyman.doors_windows.exterior_door_rot",
+  "industry": "Handyman",
+  "sourceCategory": "Doors, Windows & Hardware",
+  "sourceService": "Exterior Door and Trim Repair with Wood Rot Treatment",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_10"
+ },
+ {
+  "seedKey": "fq.handyman.doors_windows.interior_door_install",
+  "industry": "Handyman",
+  "sourceCategory": "Doors, Windows & Hardware",
+  "sourceService": "Installation - Interior door",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_11"
+ },
+ {
+  "seedKey": "fq.handyman.doors_windows.tv_mount",
+  "industry": "Handyman",
+  "sourceCategory": "Doors, Windows & Hardware",
+  "sourceService": "Installation - TV mount",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_12"
+ },
+ {
+  "seedKey": "fq.handyman.doors_windows.screens",
+  "industry": "Handyman",
+  "sourceCategory": "Doors, Windows & Hardware",
+  "sourceService": "Installation and Repair of Residential Window and Door Screens",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_13"
+ },
+ {
+  "seedKey": "fq.handyman.doors_windows.blinds",
+  "industry": "Handyman",
+  "sourceCategory": "Doors, Windows & Hardware",
+  "sourceService": "Installation and Replacement of Interior Window Blinds",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_14"
+ },
+ {
+  "seedKey": "fq.handyman.doors_windows.door_sill_trim",
+  "industry": "Handyman",
+  "sourceCategory": "Doors, Windows & Hardware",
+  "sourceService": "Installation of Door Sill and Trim Components",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_15"
+ },
+ {
+  "seedKey": "fq.handyman.doors_windows.storm_doors",
+  "industry": "Handyman",
+  "sourceCategory": "Doors, Windows & Hardware",
+  "sourceService": "Installation of Exterior Storm Doors and Weather Sealing",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_16"
+ },
+ {
+  "seedKey": "fq.handyman.doors_windows.garage_control_kits",
+  "industry": "Handyman",
+  "sourceCategory": "Doors, Windows & Hardware",
+  "sourceService": "Installation of Garage Door Smooth Control Kits",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_17"
+ },
+ {
+  "seedKey": "fq.handyman.doors_windows.grab_bars",
+  "industry": "Handyman",
+  "sourceCategory": "Doors, Windows & Hardware",
+  "sourceService": "Installation of Grab Bars and Wall Hardware",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_18"
+ },
+ {
+  "seedKey": "fq.handyman.doors_windows.brackets_mounting",
+  "industry": "Handyman",
+  "sourceCategory": "Doors, Windows & Hardware",
+  "sourceService": "Installation of Hardware, Brackets, and Mounting Accessories",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_19"
+ },
+ {
+  "seedKey": "fq.handyman.doors_windows.cabinet_repair_refinish",
+  "industry": "Handyman",
+  "sourceCategory": "Doors, Windows & Hardware",
+  "sourceService": "Kitchen Cabinet Repair and Refinishing Services",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_20"
+ },
+ {
+  "seedKey": "fq.handyman.doors_windows.rekey_opener",
+  "industry": "Handyman",
+  "sourceCategory": "Doors, Windows & Hardware",
+  "sourceService": "Lock Rekeying and Garage Door Opener Installation Services",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_21"
+ },
+ {
+  "seedKey": "fq.handyman.doors_windows.interior_door_repair",
+  "industry": "Handyman",
+  "sourceCategory": "Doors, Windows & Hardware",
+  "sourceService": "Repair - Interior door",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_22"
+ },
+ {
+  "seedKey": "fq.handyman.doors_windows.sliding_door_rollers",
+  "industry": "Handyman",
+  "sourceCategory": "Doors, Windows & Hardware",
+  "sourceService": "Sliding Door and Screen Roller Repair and Replacement",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_23"
+ },
+ {
+  "seedKey": "fq.handyman.electrical.duplex_receptacle_breaker",
+  "industry": "Handyman",
+  "sourceCategory": "Electrical & Lighting",
+  "sourceService": "Electrical Installation of Duplex Receptacles and Breaker",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_24"
+ },
+ {
+  "seedKey": "fq.handyman.electrical.outlet_switch_repair",
+  "industry": "Handyman",
+  "sourceCategory": "Electrical & Lighting",
+  "sourceService": "Electrical Outlet and Switch Replacement and Repair",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_25"
+ },
+ {
+  "seedKey": "fq.handyman.electrical.gas_burner_parts",
+  "industry": "Handyman",
+  "sourceCategory": "Electrical & Lighting",
+  "sourceService": "Gas Fireplace and Range Burner Repair Parts and Installation",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_26"
+ },
+ {
+  "seedKey": "fq.handyman.electrical.hourly_bulbs",
+  "industry": "Handyman",
+  "sourceCategory": "Electrical & Lighting",
+  "sourceService": "Hourly Electrical Services and Light Bulb Replacement",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_27"
+ },
+ {
+  "seedKey": "fq.handyman.electrical.doorbell_install",
+  "industry": "Handyman",
+  "sourceCategory": "Electrical & Lighting",
+  "sourceService": "Installation - Doorbell",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_28"
+ },
+ {
+  "seedKey": "fq.handyman.electrical.popcorn_drywall",
+  "industry": "Handyman",
+  "sourceCategory": "Electrical & Lighting",
+  "sourceService": "Popcorn Ceiling Removal and Drywall Repair",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_29"
+ },
+ {
+  "seedKey": "fq.handyman.electrical.exhaust_fan_repair",
+  "industry": "Handyman",
+  "sourceCategory": "Electrical & Lighting",
+  "sourceService": "Repair - Bathroom exhaust fan",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_30"
+ },
+ {
+  "seedKey": "fq.handyman.electrical.doorbell_repair",
+  "industry": "Handyman",
+  "sourceCategory": "Electrical & Lighting",
+  "sourceService": "Repair - Doorbell",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_31"
+ },
+ {
+  "seedKey": "fq.handyman.electrical.smoke_detector_repair",
+  "industry": "Handyman",
+  "sourceCategory": "Electrical & Lighting",
+  "sourceService": "Repair - Smoke detector",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_32"
+ },
+ {
+  "seedKey": "fq.handyman.electrical.window_recessed",
+  "industry": "Handyman",
+  "sourceCategory": "Electrical & Lighting",
+  "sourceService": "Window Replacement and Recessed Lighting Installation Services",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_33"
+ },
+ {
+  "seedKey": "fq.handyman.exterior.deck_work",
+  "industry": "Handyman",
+  "sourceCategory": "Exterior, Decks & Fencing",
+  "sourceService": "Deck Construction, Repair, and Replacement Services",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_34"
+ },
+ {
+  "seedKey": "fq.handyman.exterior.fence_repair_labour",
+  "industry": "Handyman",
+  "sourceCategory": "Exterior, Decks & Fencing",
+  "sourceService": "Fence Repair and Diagnostic Service Labor",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_35"
+ },
+ {
+  "seedKey": "fq.handyman.exterior.fence_gate_repair",
+  "industry": "Handyman",
+  "sourceCategory": "Exterior, Decks & Fencing",
+  "sourceService": "Fence and Gate Repair and Replacement Services",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_36"
+ },
+ {
+  "seedKey": "fq.handyman.exterior.power_wash_deck_refinish",
+  "industry": "Handyman",
+  "sourceCategory": "Exterior, Decks & Fencing",
+  "sourceService": "Power Washing and Deck Refinishing Services",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_37"
+ },
+ {
+  "seedKey": "fq.handyman.flooring.materials_install",
+  "industry": "Handyman",
+  "sourceCategory": "Flooring & Tile",
+  "sourceService": "Flooring Materials and Installation Services",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_38"
+ },
+ {
+  "seedKey": "fq.handyman.flooring.lvp",
+  "industry": "Handyman",
+  "sourceCategory": "Flooring & Tile",
+  "sourceService": "Installation of Luxury Vinyl Plank Flooring",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_39"
+ },
+ {
+  "seedKey": "fq.handyman.flooring.materials_coverings",
+  "industry": "Handyman",
+  "sourceCategory": "Flooring & Tile",
+  "sourceService": "Installation of Residential Flooring Materials and Protective Coverings",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_40"
+ },
+ {
+  "seedKey": "fq.handyman.flooring.vinyl_plank_prep",
+  "industry": "Handyman",
+  "sourceCategory": "Flooring & Tile",
+  "sourceService": "Installation of Vinyl Plank Flooring with Prep and Materials",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_41"
+ },
+ {
+  "seedKey": "fq.handyman.flooring.basement_carpentry",
+  "industry": "Handyman",
+  "sourceCategory": "Flooring & Tile",
+  "sourceService": "Interior Basement Remodel and Carpentry Services",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_42"
+ },
+ {
+  "seedKey": "fq.handyman.flooring.carpet_removal",
+  "industry": "Handyman",
+  "sourceCategory": "Flooring & Tile",
+  "sourceService": "Removal and Disposal of Residential Carpet and Pad",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_43"
+ },
+ {
+  "seedKey": "fq.handyman.flooring.mortar_supply",
+  "industry": "Handyman",
+  "sourceCategory": "Flooring & Tile",
+  "sourceService": "Supply and Installation of Mortar Type S and Premix Mortar Mix",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_44"
+ },
+ {
+  "seedKey": "fq.handyman.flooring.tile_install_grout",
+  "industry": "Handyman",
+  "sourceCategory": "Flooring & Tile",
+  "sourceService": "Tile Flooring Installation, Cleaning, and Grout Sealing",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_45"
+ },
+ {
+  "seedKey": "fq.handyman.hvac.ac_repair_recharge",
+  "industry": "Handyman",
+  "sourceCategory": "HVAC & Ventilation",
+  "sourceService": "Air Conditioning System Repair and Refrigerant Recharge",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_46"
+ },
+ {
+  "seedKey": "fq.handyman.hvac.duct_cleaning_labour",
+  "industry": "Handyman",
+  "sourceCategory": "HVAC & Ventilation",
+  "sourceService": "Air Duct Cleaning and General Labor Services",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_47"
+ },
+ {
+  "seedKey": "fq.handyman.hvac.dryer_vent",
+  "industry": "Handyman",
+  "sourceCategory": "HVAC & Ventilation",
+  "sourceService": "Dryer Vent Cleaning and Maintenance Service",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_48"
+ },
+ {
+  "seedKey": "fq.handyman.hvac.high_efficiency_install",
+  "industry": "Handyman",
+  "sourceCategory": "HVAC & Ventilation",
+  "sourceService": "Installation of High-Efficiency HVAC Systems and Components",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_49"
+ },
+ {
+  "seedKey": "fq.handyman.painting.exterior_caulking",
+  "industry": "Handyman",
+  "sourceCategory": "Painting, Drywall & Finishes",
+  "sourceService": "Caulking and Sealing of Exterior Building Junctions",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_50"
+ },
+ {
+  "seedKey": "fq.handyman.painting.drywall_patch",
+  "industry": "Handyman",
+  "sourceCategory": "Painting, Drywall & Finishes",
+  "sourceService": "Drywall and Interior Wall Repair and Patching",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_51"
+ },
+ {
+  "seedKey": "fq.handyman.painting.baseboards",
+  "industry": "Handyman",
+  "sourceCategory": "Painting, Drywall & Finishes",
+  "sourceService": "Installation and Finishing of Interior Residential Baseboards",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_52"
+ },
+ {
+  "seedKey": "fq.handyman.painting.bathroom_finishing",
+  "industry": "Handyman",
+  "sourceCategory": "Painting, Drywall & Finishes",
+  "sourceService": "Interior Bathroom Finishing and Maintenance Services",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_53"
+ },
+ {
+  "seedKey": "fq.handyman.painting.drywall_surface_repair",
+  "industry": "Handyman",
+  "sourceCategory": "Painting, Drywall & Finishes",
+  "sourceService": "Interior Drywall and Surface Repair Services",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_54"
+ },
+ {
+  "seedKey": "fq.handyman.painting.touch_up",
+  "industry": "Handyman",
+  "sourceCategory": "Painting, Drywall & Finishes",
+  "sourceService": "Interior Paint Touch-Up and Repair Services",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_55"
+ },
+ {
+  "seedKey": "fq.handyman.painting.paint_supplies_units",
+  "industry": "Handyman",
+  "sourceCategory": "Painting, Drywall & Finishes",
+  "sourceService": "Interior Painting and Fastener Supplies for Residential Units",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_56"
+ },
+ {
+  "seedKey": "fq.handyman.painting.patching_finishing",
+  "industry": "Handyman",
+  "sourceCategory": "Painting, Drywall & Finishes",
+  "sourceService": "Interior Painting, Patching, and Finishing Work",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_57"
+ },
+ {
+  "seedKey": "fq.handyman.painting.wall_paint_materials",
+  "industry": "Handyman",
+  "sourceCategory": "Painting, Drywall & Finishes",
+  "sourceService": "Interior Wall Painting Materials and Labor",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_58"
+ },
+ {
+  "seedKey": "fq.handyman.painting.wall_ceiling_prep",
+  "industry": "Handyman",
+  "sourceCategory": "Painting, Drywall & Finishes",
+  "sourceService": "Interior Wall and Ceiling Painting and Preparation",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_59"
+ },
+ {
+  "seedKey": "fq.handyman.plumbing.angle_stop",
+  "industry": "Handyman",
+  "sourceCategory": "Plumbing",
+  "sourceService": "Angle Stop Valve Replacement and Supply Line Installation",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_60"
+ },
+ {
+  "seedKey": "fq.handyman.plumbing.bathroom_fixtures_wallpaper",
+  "industry": "Handyman",
+  "sourceCategory": "Plumbing",
+  "sourceService": "Bathroom Fixtures, Hardware, and Wallpaper Installation",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_61"
+ },
+ {
+  "seedKey": "fq.handyman.plumbing.bathroom_plumbing_fixtures",
+  "industry": "Handyman",
+  "sourceCategory": "Plumbing",
+  "sourceService": "Bathroom Plumbing Installation and Fixture Replacement",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_62"
+ },
+ {
+  "seedKey": "fq.handyman.plumbing.bathroom_remodel",
+  "industry": "Handyman",
+  "sourceCategory": "Plumbing",
+  "sourceService": "Bathroom Remodel with Fixtures, Cabinetry, and Finishes",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_63"
+ },
+ {
+  "seedKey": "fq.handyman.plumbing.tub_shower_drain",
+  "industry": "Handyman",
+  "sourceCategory": "Plumbing",
+  "sourceService": "Bathroom Tub and Shower Drain Cleaning and Repair",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_64"
+ },
+ {
+  "seedKey": "fq.handyman.plumbing.ceiling_fan_bath_fixtures",
+  "industry": "Handyman",
+  "sourceCategory": "Plumbing",
+  "sourceService": "Ceiling Fan Installation and Bathroom Fixture Services",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_65"
+ },
+ {
+  "seedKey": "fq.handyman.plumbing.ceramic_chrome_fixtures",
+  "industry": "Handyman",
+  "sourceCategory": "Plumbing",
+  "sourceService": "Ceramic and Chrome Plumbing Fixtures Installation and Repair",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_66"
+ },
+ {
+  "seedKey": "fq.handyman.plumbing.door_replacement",
+  "industry": "Handyman",
+  "sourceCategory": "Plumbing",
+  "sourceService": "Door Replacement and Installation Services",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_67"
+ },
+ {
+  "seedKey": "fq.handyman.plumbing.drain_sewer_clearing",
+  "industry": "Handyman",
+  "sourceCategory": "Plumbing",
+  "sourceService": "Drain Cleaning and Sewer Line Clearing Services",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_68"
+ },
+ {
+  "seedKey": "fq.handyman.plumbing.disposal_replacement",
+  "industry": "Handyman",
+  "sourceCategory": "Plumbing",
+  "sourceService": "Garbage Disposal Replacement and Installation Labor",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_69"
+ },
+ {
+  "seedKey": "fq.handyman.plumbing.hvac_water_heater_maintenance",
+  "industry": "Handyman",
+  "sourceCategory": "Plumbing",
+  "sourceService": "HVAC and Water Heater Maintenance and Service",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_70"
+ },
+ {
+  "seedKey": "fq.handyman.plumbing.riser_extensions_valves",
+  "industry": "Handyman",
+  "sourceCategory": "Plumbing",
+  "sourceService": "Installation of Plumbing Riser Extensions and Cut-Off Valves",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_71"
+ },
+ {
+  "seedKey": "fq.handyman.plumbing.faucet_install",
+  "industry": "Handyman",
+  "sourceCategory": "Plumbing",
+  "sourceService": "Kitchen and Bathroom Faucet Installation and Replacement",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_72"
+ },
+ {
+  "seedKey": "fq.handyman.plumbing.sink_install_repair",
+  "industry": "Handyman",
+  "sourceCategory": "Plumbing",
+  "sourceService": "Kitchen and Bathroom Sink Installation and Plumbing Repair",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_73"
+ },
+ {
+  "seedKey": "fq.handyman.plumbing.install_repair",
+  "industry": "Handyman",
+  "sourceCategory": "Plumbing",
+  "sourceService": "Plumbing Installation and Repair Services",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_74"
+ },
+ {
+  "seedKey": "fq.handyman.plumbing.repair_fixture_replacement",
+  "industry": "Handyman",
+  "sourceCategory": "Plumbing",
+  "sourceService": "Plumbing Repair and Fixture Replacement Services",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_75"
+ },
+ {
+  "seedKey": "fq.handyman.plumbing.repair_fixture_service",
+  "industry": "Handyman",
+  "sourceCategory": "Plumbing",
+  "sourceService": "Plumbing Repair and Fixture Service for Residential Properties",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_76"
+ },
+ {
+  "seedKey": "fq.handyman.plumbing.pipe_materials",
+  "industry": "Handyman",
+  "sourceCategory": "Plumbing",
+  "sourceService": "Supply and Installation of Residential Plumbing Pipe Materials",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_77"
+ },
+ {
+  "seedKey": "fq.handyman.plumbing.toilet_install_repair",
+  "industry": "Handyman",
+  "sourceCategory": "Plumbing",
+  "sourceService": "Toilet Installation and Repair Services",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_78"
+ },
+ {
+  "seedKey": "fq.handyman.plumbing.toilet_install_seat_valve",
+  "industry": "Handyman",
+  "sourceCategory": "Plumbing",
+  "sourceService": "Toilet Installation with Seat, Fill Valve, and Hardware",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_79"
+ },
+ {
+  "seedKey": "fq.handyman.plumbing.toilet_labour",
+  "industry": "Handyman",
+  "sourceCategory": "Plumbing",
+  "sourceService": "Toilet Repair, Replacement, and Installation Services",
+  "taskCode": "DEFAULT_HANDYMAN_SERVICE_80"
+ }
+]
