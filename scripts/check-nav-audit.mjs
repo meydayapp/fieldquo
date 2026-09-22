@@ -235,6 +235,7 @@ const DRILL_INS = {
   "/app/jobs/[id]": "job detail — opened from clients, quotes, invoices, appointments",
   "/app/jobs/[id]/edit": "opened from the job detail page's own Edit button",
   "/app/jobs/[id]/visits/new": "opened from the job detail page's own Add visit button",
+  "/app/jobs/[id]/work-order": "the crew's copy of the quote — opened from the job detail page's own Work order button, and the address 'Copy work order link' hands a crew member (lib/workOrder/url.js)",
   "/app/jobs/import": "past jobs, already done and paid, typed in for the year's overview — opened from the Jobs list page's own Past jobs button and from the dashboard's set-up steps. Deliberately not a nav row: it is a thing you do once to catch up, not a place you go, and it must stay reachable after that step is waved off",
   "/app/jobs/new": "opened from the Jobs list, a client's own page, and Quick Add",
   "/app/leads/import": "opened from the Leads list page's own Import button",
@@ -274,6 +275,7 @@ const DRILL_INS = {
   "/app/me/tax-forms": "the TD1 / W-4 form — opened from a checklist item, never browsed to: it is a thing you fill in once",
   "/app/me/requests": "the person's own shift and availability requests — a row on the employee home's More tab (app/app/me/more/page.js), with the pending count as its badge",
   "/app/me/availability": "when the person can work, or be booked — a row on the employee home's More tab",
+  "/app/me/supplies": "request a supply from the van — a row on the employee home's More tab, a link on the job's Materials card, and the target of the ordered/restocked notifications",
   "/app/subcontractors/[id]": "one subcontractor — opened from the Subcontractors list and from a job's own \"Subs on this job\" panel",
   "/app/subcontractors/new": "opened from the Subcontractors list page's own Add button",
 };

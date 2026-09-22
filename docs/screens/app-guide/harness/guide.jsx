@@ -343,6 +343,21 @@ async function runScene(scene) {
     await wait(300);
     return;
   }
+  if (scene === "scroll-materials") {
+    const el = await until("#job-materials");
+    window.scrollTo(0, el.getBoundingClientRect().top + window.scrollY - 16);
+    await wait(300);
+    return;
+  }
+  if (scene === "purchasing-requests") {
+    // The Requests tab — the fourth on the Purchasing page.
+    const tab = [...document.querySelectorAll('main [role="tab"]')].at(-1);
+    if (!tab) throw new Error("scene: no purchasing tabs");
+    tab.click();
+    await until("main ul li, main form");
+    await wait(400);
+    return;
+  }
   if (scene === "scroll-visits") {
     const el = await until('[data-tour="job-visits"]');
     window.scrollTo(0, el.getBoundingClientRect().top + window.scrollY - 16);

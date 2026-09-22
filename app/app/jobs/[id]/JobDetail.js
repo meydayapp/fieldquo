@@ -53,6 +53,7 @@ import {
   FileText,
   Trash2,
   Archive,
+  ClipboardList,
 } from "lucide-react";
 import { formatAddress } from "@/lib/format/address";
 import { formatDistanceM } from "@/lib/geo/distance";
@@ -324,6 +325,19 @@ export default function JobDetail({ jobId }) {
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
+          {/* The crew's copy of the quote — per area, scope, hours, the
+              estimator's crew note, a tick and photos; no prices. Offered to
+              everyone who can open the job, because the crew are its readers
+              (lib/workOrder/url.js). Only a job with a quote has one. */}
+          {job.quoteId && (
+            <Link
+              href={`/app/jobs/${jobId}/work-order`}
+              className="inline-flex items-center gap-1.5 border border-border text-foreground px-3 py-2 rounded-lg text-sm font-semibold"
+            >
+              <ClipboardList size={13} />
+              {t("app.workOrder.link", "Work order")}
+            </Link>
+          )}
           {canEditJob && (
             <select
               data-tour="job-status"
