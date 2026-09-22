@@ -318,6 +318,10 @@ export const SCREENS = [
   // Settings › Services with the library card unfolded — where the blocks
   // and the saved templates are edited without a quote open.
   { slug: "settings-services-library", href: "/app/settings/services", page: "app/app/settings/services/page.js", settings: true, scene: "settings-library-open", height: 1100, chapter: "help" },
+  // Settings › Services for a company that also does handyman work: the
+  // seeded services under the trade, the benchmark range beside each price,
+  // "Use typical", and "Add missing services for my trade".
+  { slug: "settings-services-seeds", href: "/app/settings/services", page: "app/app/settings/services/page.js", settings: true, scene: "settings-seeds-open", height: 1300, chapter: "help" },
   // The change-order addendum a homeowner signs (app/co/[token]).
   { slug: "client-change-order", href: "/co/co_9c2e7b1a4f", page: "app/co/[token]/ChangeOrderApproval.js", props: { token: "co_9c2e7b1a4f" }, mode: "public", height: 1500, chapter: "help" },
   // The same job scrolled to its plan: the ordered steps with their

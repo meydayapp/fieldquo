@@ -14,7 +14,7 @@
 // phone. A rep flipping between a figure in "Quotes" and one in "For your
 // clients" should see one business.
 import { COMPANY, PEOPLE, CLIENT, QUOTE, JOB, INVOICE, day, iso, TODAY } from "./company.js";
-import { EVENT_TYPES, SERVICE_CATEGORIES } from "./routes-settings-a.js";
+import { EVENT_TYPES, SERVICE_CATEGORIES, HANDYMAN_CATEGORY, SEEDED_HANDYMAN, PRODUCTS_FIXTURE, BUSINESS_INFO_FIXTURE } from "./routes-settings-a.js";
 import { JOBS, INVOICES, PLANS, TASKS, J_318, INV_2069, INV_2066, Q_1042, Q_1044, Q_1045, Q_1046, LAVOIE, FORTIN, RIVENORD } from "./routes-work.js";
 import { PAY_RUNS, PAY_RUN_LINES } from "./routes-money.js";
 import { CAMPAIGNS, PLANS as BILLING_PLANS } from "./routes-grow.js";
@@ -1285,6 +1285,12 @@ const QUOTE_TEMPLATES = [
 ];
 
 export const ROUTES_HELP = [
+  // Settings › Services, seeds screen: the same cabinet company with handyman
+  // switched on, its seeded rows in the price book, and the industry preset
+  // widened so the handyman card is shown. Every other screen falls through.
+  { path: "/api/settings/service-categories", method: "GET", reply: (ctx) => (ctx.screen?.slug === "settings-services-seeds" ? [...SERVICE_CATEGORIES, HANDYMAN_CATEGORY] : ctx.next()) },
+  { path: "/api/products", method: "GET", reply: (ctx) => (ctx.screen?.slug === "settings-services-seeds" ? [...PRODUCTS_FIXTURE, ...SEEDED_HANDYMAN] : ctx.next()) },
+  { path: "/api/settings/business-info", method: "GET", reply: (ctx) => (ctx.screen?.slug === "settings-services-seeds" ? { ...BUSINESS_INFO_FIXTURE, industries: [...(BUSINESS_INFO_FIXTURE.industries || []), "handyman"] } : ctx.next()) },
   // ── Settings › Presentation and the proposal's staff side ─────────────
   { path: "/api/settings/presentation", method: "GET", reply: () => PRESENTATION_SETTINGS },
   { path: "/api/settings/gallery", method: "GET", reply: () => ({ pairs: GALLERY_PAIRS }) },

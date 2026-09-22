@@ -96,7 +96,7 @@ export default function ServiceSeedsCard({ category, currency, canEdit, products
   return (
     <div className="mt-3 border-t border-border pt-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <button type="button" onClick={() => setOpen((v) => !v)} className="text-left text-sm font-medium text-foreground">
+        <button type="button" data-service-seeds-toggle onClick={() => setOpen((v) => !v)} aria-expanded={open} className="text-left text-sm font-medium text-foreground">
           {t("app.serviceSeeds.title")}
           <span className="ml-2 text-xs font-normal text-muted-foreground">
             {t("app.serviceSeeds.count", { have: mine.length, total: summary?.seedable ?? 0 })}
@@ -135,7 +135,7 @@ export default function ServiceSeedsCard({ category, currency, canEdit, products
             <p className="text-xs text-muted-foreground">{t("app.serviceSeeds.none")}</p>
           ) : (
             mine.map((p) => (
-              <div key={p.id} className="flex flex-col gap-1 rounded-md border border-border px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+              <div key={p.id} data-service-seeds-row className="flex flex-col gap-1 rounded-md border border-border px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0 flex-1">
                   <div className="text-sm text-foreground break-words">{p.name}</div>
                   <BenchmarkRange
@@ -152,7 +152,16 @@ export default function ServiceSeedsCard({ category, currency, canEdit, products
                   ) : p.unitPrice != null ? (
                     <>
                       {whole(p.unitPrice, currency, language)}
-                      {p.unit ? <span className="text-xs text-muted-foreground"> / {p.unit}</span> : null}
+                      {p.unit ? (
+                        <span className="text-xs text-muted-foreground">
+                          {/* The seeder stores the builder's unit code
+                              (linear_ft, sqft) so a line item reads it as
+                              one; the review's unit labels turn it back
+                              into words. A unit the company typed prints
+                              as itself. */}
+                          {" / "}{t(`app.quoteReview.unit_${p.unit}`, p.unit)}
+                        </span>
+                      ) : null}
                     </>
                   ) : (
                     <span className="text-xs text-muted-foreground">{t("app.serviceSeeds.noPrice")}</span>

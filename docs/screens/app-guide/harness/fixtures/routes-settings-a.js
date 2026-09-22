@@ -120,6 +120,23 @@ const cat = (id) => {
   return { id: c.id, label: c.label };
 };
 
+// ── The seeded-services screen: handyman switched on, six of its seeded rows
+// in the price book exactly as lib/products/seedServices.js writes them for a
+// CAD company (the benchmark median × 1.37, rounded), one of them repriced by
+// the owner and one left unpriced because the benchmark had no figure.
+export const HANDYMAN_CATEGORY = systemCategory("handyman", "Handyman", "Hammer", 8, true);
+export const SEEDED_HANDYMAN = [
+  ["fq.handyman.doors_windows.interior_door_install", "Interior door installation", 345, "each"],
+  ["fq.handyman.doors_windows.tv_mount", "TV mount installation", 225, "each"],
+  ["fq.handyman.doors_windows.grab_bars", "Grab bar and wall hardware installation", 295, "each"],
+  ["fq.handyman.carpentry.crown_molding", "Crown moulding installation", 760, "linear_ft"],
+  ["fq.handyman.electrical.doorbell_install", "Doorbell installation", 205, "each"],
+  ["fq.handyman.assembly.furniture", "Furniture assembly and installation", null, "flat"],
+].map(([seedKey, name, unitPrice, unit], i) => ({
+  id: `pr_seed_${i}`, seedKey, name, description: null, type: "service", unitPrice, costPrice: null, unit, active: true,
+  categories: [{ id: HANDYMAN_CATEGORY.id, label: HANDYMAN_CATEGORY.label }], translations: null, companyId: COMPANY.id, createdAt: iso(day(-3)),
+}));
+
 // ── Price book (Settings → Products & Services) ───────────────────────────
 const PRODUCTS = [
   { id: "pr_upper", name: "Upper cabinets — shaker, painted", description: "Painted MDF shaker doors, soft-close hinges, 30\" or 36\" high", type: "service", unitPrice: 425, costPrice: 262, unit: "lin. ft", active: true, categories: [cat("sc_kitchen_cabinets")] },
@@ -129,6 +146,8 @@ const PRODUCTS = [
   { id: "pr_drawer", name: "Drawer box — dovetail maple", description: "5/8\" solid maple, Baltic birch bottom, clear coat", type: "product", unitPrice: 165, costPrice: 88, unit: "ea", active: true, categories: [cat("sc_kitchen_cabinets"), cat("sc_bathroom_vanities"), cat("sc_builtins_closets")] },
   { id: "pr_install", name: "Installation day", description: "Two installers, one day, levelling and scribing included", type: "service", unitPrice: 830, costPrice: 560, unit: "day", active: true, categories: [] },
 ].map((p) => ({ ...p, translations: null, companyId: COMPANY.id, createdAt: iso(day(-200)) }));
+export const PRODUCTS_FIXTURE = PRODUCTS;
+export const BUSINESS_INFO_FIXTURE = BUSINESS_INFO;
 
 // ── Booking page ──────────────────────────────────────────────────────────
 export const EVENT_TYPES = [
@@ -327,7 +346,7 @@ const CABINET_RATES = normaliseRates({
 const SETTINGS_A_SLUGS = new Set([
   "settings", "settings-migration", "settings-product-updates", "settings-company", "settings-branding", "settings-language",
   "settings-activity", "settings-availability", "settings-my-calendar", "settings-leave", "settings-booking-page", "settings-work-areas",
-  "settings-products", "settings-services", "settings-material-costs", "settings-cabinet-rates", "settings-overhead",
+  "settings-products", "settings-services", "settings-services-seeds", "settings-material-costs", "settings-cabinet-rates", "settings-overhead",
   "settings-custom-fields",
 ]);
 

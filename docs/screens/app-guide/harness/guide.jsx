@@ -222,6 +222,16 @@ async function runScene(scene) {
     await wait(300);
     return;
   }
+  if (scene === "settings-seeds-open") {
+    // Settings › Services: the handyman card's seeded-services list, unfolded.
+    const toggle = await until("[data-service-seeds-toggle]");
+    toggle.click();
+    await until("[data-service-seeds-row]");
+    toggle.scrollIntoView({ block: "start" });
+    window.scrollBy(0, -80);
+    await wait(300);
+    return;
+  }
   if (scene === "settings-library-open") {
     // Settings › Services: the text-block library card, unfolded.
     (await until("[data-text-block-library-card] button[aria-expanded]")).click();
