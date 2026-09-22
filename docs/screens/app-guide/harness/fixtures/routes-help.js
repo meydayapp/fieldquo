@@ -66,6 +66,15 @@ const COMPANY_PUBLIC = {
 // back office shows; this is the same document a week earlier.)
 export const QUOTE_TOKEN = "qt_8f2c1a7d4e";
 
+// ── /q/<token> before it is sent — the estimator's own preview ─────────────
+// Since 2026-09-22 the share token is minted when the quote is SAVED, so the
+// office can open the client's copy while the quote is still a draft. The
+// payload carries `preview: true`, which is what app/api/public/quotes/[token]
+// sets for a signed-in member of the owning company and for nobody else — a
+// homeowner's payload never has it, and a draft's link answers a stranger with
+// the ordinary not-found.
+export const QUOTE_PREVIEW_TOKEN = "qt_2d7b4e91c0";
+
 // ── /api/measure/* — what the roofing and gutter takeoff cards ask ─────────
 // Answered for the intro email's per-trade frames (TakeoffFrame.jsx). The
 // measurement is fixed; the still is a live tile when a key was given.
@@ -650,6 +659,22 @@ const QUOTE_1044_DETAIL = {
     { id: "ao_1044b", description: "Under-cabinet LED lighting", detail: "Warm white strip, hard-wired", amount: 540, taxable: true, sortOrder: 1, source: "estimator", selected: false, selectedAt: null },
   ],
 };
+// Benali's vanity quote, saved this afternoon and not yet sent — the state the
+// Send… menu's Preview and Copy link rows used to be greyed in.
+const DRAFT_DETAIL = {
+  ...QUOTE_1044_DETAIL,
+  id: Q_1045.id,
+  quoteNumber: Q_1045.quoteNumber,
+  number: Q_1045.number,
+  title: Q_1045.title,
+  status: "draft",
+  sentAt: null,
+  sentToEmail: null,
+  acceptedAt: null,
+  declinedAt: null,
+  approvedAt: null,
+};
+
 const QUOTE_1044_DOCUMENT = {
   groups: [{ id: "sg_1044a", categoryKey: CAT_REFACING.key, label: "Kitchen refacing", subtotal: 9800, accent: null, description: "Your boxes stay; every door, drawer front and visible surface is replaced and finished to match.", included: ["Removal and disposal of the old doors", "Soft-close hinges on every door", "Two-year workmanship warranty"], mayChange: [{ title: "Box condition", body: "Water-damaged boxes found on removal are repaired at cost, agreed before we continue." }] }],
   processSteps: [
@@ -1356,6 +1381,18 @@ export const ROUTES_HELP = [
   { path: `/api/quotes/${Q_1044.id}/email-sections`, method: "GET", reply: () => ({ ...EMAIL_SECTIONS, quoteId: Q_1044.id }) },
   { path: `/api/quotes/${Q_1044.id}/imports`, method: "GET", reply: () => ({ asSource: [], asImporter: [] }) },
   { path: `/api/quotes/${Q_1044.id}/share`, method: "GET", reply: () => ({ url: `https://app.fieldquo.com/q/${QUOTE_TOKEN}`, token: QUOTE_TOKEN }) },
+  // ── The same screen on an UNSENT draft ────────────────────────────────────
+  // Since the share token is minted at save, a draft has a link too, and the
+  // Send… menu's Preview and Copy link rows are live on it — with the copy
+  // row saying what a draft link does and does not do. GET /share answers a
+  // token here because the quote was saved, not because it was sent.
+  { path: `/api/quotes/${DRAFT_DETAIL.id}`, method: "GET", reply: () => DRAFT_DETAIL },
+  { path: `/api/quotes/${DRAFT_DETAIL.id}/document`, method: "GET", reply: () => ({ ...QUOTE_1044_DOCUMENT, id: DRAFT_DETAIL.id, status: "draft", sentAt: null }) },
+  { path: `/api/quotes/${DRAFT_DETAIL.id}/costing`, method: "GET", reply: forbidden },
+  { path: `/api/quotes/${DRAFT_DETAIL.id}/email-sections`, method: "GET", reply: () => ({ ...EMAIL_SECTIONS, quoteId: DRAFT_DETAIL.id }) },
+  { path: `/api/quotes/${DRAFT_DETAIL.id}/imports`, method: "GET", reply: () => ({ asSource: [], asImporter: [] }) },
+  { path: `/api/quotes/${DRAFT_DETAIL.id}/presentation`, method: "GET", reply: () => QUOTE_PRESENTATION(DRAFT_DETAIL) },
+  { path: `/api/quotes/${DRAFT_DETAIL.id}/share`, method: "GET", reply: () => ({ url: `https://app.fieldquo.com/q/${QUOTE_PREVIEW_TOKEN}`, shareToken: QUOTE_PREVIEW_TOKEN }) },
   // The text-block library the builder's "+ Add area or line item" opens on
   // and Settings › Services lists: the nine shipped painting defaults, as
   // the route would seed them for an English company
@@ -1412,6 +1449,8 @@ export const ROUTES_HELP = [
 
   // Client-facing
   { path: `/api/public/quotes/${QUOTE_TOKEN}`, method: "GET", reply: (ctx) => publicQuote(ctx) },
+  { path: `/api/public/quotes/${QUOTE_PREVIEW_TOKEN}`, method: "GET", reply: (ctx) => ({ ...publicQuote(ctx), status: "draft", sentAt: null, preview: true }) },
+  { path: `/api/quotes/received/${QUOTE_PREVIEW_TOKEN}`, method: "GET", status: 404, reply: () => ({ error: "Not a contractor's quote" }) },
   { path: `/api/quotes/received/${QUOTE_TOKEN}`, method: "GET", status: 404, reply: () => ({ error: "Not a contractor's quote" }) },
   { path: `/api/portal/${PORTAL_TOKEN}`, method: "GET", reply: (ctx) => portal(ctx) },
   { path: `/api/booking/${SLUG}`, method: "GET", reply: () => bookingCompany() },

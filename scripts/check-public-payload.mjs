@@ -203,8 +203,18 @@ const TOKEN_MINTERS = {
     what: "Booking.manageToken — cancel and reschedule a visit",
     fn: null,
   },
+  // The token moved to SAVE time on 2026-09-22 (the owner: "the token should
+  // be minted when the quote is saved because the quote will be sent either
+  // way afterwards"), so this module is now the minter the create and update
+  // paths use. The two routes below still exist and still mint lazily, for a
+  // quote that predates the move or came in by a path that does not save
+  // through PATCH.
+  "lib/quotes/shareToken.js": {
+    what: "Quote.shareToken, minted when the quote is SAVED — the one minter",
+    fn: "mintShareToken",
+  },
   "app/api/quotes/[id]/send/route.js": {
-    what: "Quote.shareToken, minted when the quote is first sent",
+    what: "Quote.shareToken, minted lazily if a pre-existing quote has none",
     fn: null,
   },
   "app/api/quotes/[id]/share/route.js": {

@@ -57,6 +57,7 @@ import { jsonBody } from "@/lib/jsonBody";
 import { visibleLineItems } from "@/lib/quotes/scopeGroupDisplay";
 import { lineShowsAmount, isTextLine } from "@/lib/quotes/textBlocks";
 import RichTextBody from "@/app/components/quotes/RichTextBody";
+import PreviewDecisionNote from "./PreviewDecisionNote";
 
 // ── Muted ink is /70, never lighter ──────────────────────────────────────────
 //
@@ -439,6 +440,20 @@ export default function QuoteApproval({ token }) {
   // available.
   const locked = Boolean(decided) || expired;
 
+  // ── The office looking at its own unsent draft ──────────────────────────
+  //
+  // Set by GET /api/public/quotes/[token] for a signed-in member of the owning
+  // company, and only ever for a draft; a homeowner's payload never carries
+  // it. It removes the three ways to decide (the header Accept, the pair at
+  // the foot, the phone bar) because the POST behind them refuses a draft —
+  // leaving them would be a control that appears to work and doesn't.
+  //
+  // It deliberately does NOT feed `locked` above. The extras stay tickable, so
+  // the preview prices exactly the way the client's copy will; freezing them
+  // would make the one screen whose job is "show me what they'll see" show
+  // something else.
+  const previewing = Boolean(quote.preview);
+
   // Does the tax line carry a NUMBER, as opposed to "To be confirmed" or
   // "None"? Computed once because two separate things depend on it and they
   // must not be allowed to disagree: the row itself, and the sentence
@@ -530,7 +545,7 @@ export default function QuoteApproval({ token }) {
             <span className="hidden sm:inline text-xs text-[#2d2520]/70 mr-2">{copy.proposal.quoteTotal}</span>
             <span className="font-bold tabular-nums text-[#2d2520] text-sm sm:text-base">{money(pricing.total)}</span>
           </span>
-          {!decided && !expired && (
+          {!decided && !expired && !previewing && (
             <button
               type="button"
               onClick={startAccept}
@@ -1455,6 +1470,8 @@ export default function QuoteApproval({ token }) {
                 <p className="text-sm text-red-700 mt-3">{actionError}</p>
               )}
             </div>
+          ) : previewing ? (
+            <PreviewDecisionNote />
           ) : (
             <div className="flex gap-3 justify-center flex-wrap">
               {waiverBlocks && (
@@ -1593,7 +1610,7 @@ export default function QuoteApproval({ token }) {
       {/* Phone: the total and Accept stay pinned at the foot (the header's
           Accept is sm-and-up only). Same handler, same lock while a waiver
           is pending; gone once the quote is decided or expired. */}
-      {!decided && !expired && (
+      {!decided && !expired && !previewing && (
         <div className="sm:hidden fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur border-t border-black/10 px-4 py-2.5 flex items-center gap-3">
           <span className="font-bold tabular-nums text-[#2d2520]">{money(pricing.total)}</span>
           <button

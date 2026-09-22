@@ -47,6 +47,7 @@ import { installFetch } from "./fixtures/api.js";
 import { COMPANY, MEMBER, CREW_MEMBER, CREW, DISPATCHER, DISPATCHER_MEMBER, OWNER, FEATURE_FLAGS } from "./fixtures/company.js";
 import { PUBLIC_PROPS } from "./fixtures/public.js";
 import { documentTheme } from "@/lib/documents/theme";
+import PreviewBanner from "@/app/q/[token]/PreviewBanner";
 
 const params = new URLSearchParams(window.location.search);
 const slug = params.get("page") || "home";
@@ -137,6 +138,10 @@ function Shell({ children }) {
 const WRAPS = {
   bookingPage: (children) => <div className="min-h-dvh" style={{ backgroundColor: documentTheme(COMPANY).page }}>{children}</div>,
   sitePage: (children) => <div style={{ backgroundColor: "#ffffff", color: documentTheme(COMPANY).ink }}>{children}</div>,
+  // app/q/[token]/page.js's own composition for a member previewing an unsent
+  // draft: the office's strip above, the client's document below, nothing of
+  // the strip on the document itself.
+  quotePreviewPage: (children) => <><PreviewBanner />{children}</>,
 };
 function PublicShell({ children }) {
   const wrap = screen.wrap ? WRAPS[screen.wrap] : null;

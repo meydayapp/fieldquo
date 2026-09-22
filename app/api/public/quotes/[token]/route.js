@@ -18,6 +18,7 @@ import { loadDocumentCustomFields } from "@/lib/customFields/values";
 import { onQuoteAccepted, onQuoteDeclined } from "@/lib/quotes/quoteLifecycle";
 import { notifyEvent } from "@/lib/notifications/notify";
 import { recordActivity } from "@/lib/activity/log";
+import { canPreviewCompanyDocument } from "@/lib/quotes/previewAccess";
 import { buildSignatureRecord } from "@/lib/documents/signatureAudit";
 import { resolveClientLanguage } from "@/lib/i18n/clientLanguage";
 import { isTextLine } from "@/lib/quotes/textBlocks";
@@ -472,16 +473,38 @@ export async function GET(request, { params }) {
     );
   }
 
-  // A draft was never meant to leave the office. If a link escapes before the
-  // quote is sent, don't show numbers that are still being worked out.
+  // ── A draft was never meant to leave the office ──────────────────────────
+  //
+  // If a link escapes before the quote is sent, don't show numbers that are
+  // still being worked out — the world gets the same not-found a wrong token
+  // gets. The gate is the STATUS and not the existence of a token: every saved
+  // quote now has one (lib/quotes/shareToken.js), so "it has a link" stopped
+  // meaning "it is ready to be read" and a token test here would publish every
+  // draft in the product.
+  //
+  // The one exception is the office looking at its own work. A signed-in
+  // member of the owning company gets the page as a PREVIEW, which is the
+  // whole point of minting early: spot anything wrong on the client's copy
+  // before the client has it. Nothing is recorded — no view, no timestamp on
+  // the quote, no activity row, no email — this branch reads and returns, and
+  // scripts/check-quote-preview.mjs asserts that it stays that way. The POST
+  // below is NOT relaxed: a preview can look, never accept or decline.
+  let preview = false;
   if (quote.status === "draft") {
-    return NextResponse.json(
-      { error: "This quote isn't ready yet." },
-      { status: 404 },
-    );
+    preview = await canPreviewCompanyDocument(request, quote.companyId);
+    if (!preview) {
+      return NextResponse.json(
+        { error: "This quote isn't ready yet." },
+        { status: 404 },
+      );
+    }
   }
 
   const presented = present(quote);
+  // Read by app/q/[token]/QuoteApproval.js, which drops Approve and Decline
+  // for it — in a preview they would be two controls that cannot work, since
+  // the POST refuses a draft outright.
+  if (preview) presented.preview = true;
 
   // ── The proposal beside the document ─────────────────────────────────────
   //
