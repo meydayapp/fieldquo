@@ -20,11 +20,23 @@
 //     {complexityFor(group.categoryKey) && (
 //       <ComplexityPicker
 //         trade={group.categoryKey}
-//         // stairs / roofing keep it on the takeoff; cabinets have no takeoff
-//         // and keep it on the group itself.
-//         value={group.takeoff?.complexity ?? group.complexity}
+//         // Three places, because a cabinet group has no `takeoff` column: it
+//         // sits on the group while the builder is open, and comes back inside
+//         // intakeValues once the quote has been round-tripped (see
+//         // withCabinetAnswers in lib/quotes/builderPayload.js). Read all three
+//         // or a reopened quote shows every factor unticked on a quote that has
+//         // them — the bug that put the cabinet answers in intakeValues.
+//         value={
+//           group.takeoff?.complexity ??
+//           group.complexity ??
+//           group.intakeValues?.complexity
+//         }
 //         book={getPriceBook(group.categoryKey, rateOverrides)}
-//         onChange={(next) => updateGroup({ complexity: next })}
+//         onChange={(next) =>
+//           group.takeoff
+//             ? updateGroup({ takeoff: { ...group.takeoff, complexity: next } })
+//             : updateGroup({ complexity: next })
+//         }
 //       />
 //     )}
 //

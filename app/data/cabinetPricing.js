@@ -123,11 +123,20 @@ export function finalUnitPrice(group, book = null) {
  * Specialty returns null too, and that is not a gap: a Specialty group never
  * reaches a unit price at all, because lib/pricing/tradeScope.js turns it into
  * an unpriced "on-site assessment required" line before any arithmetic runs.
+ *
+ * TWO places to look, on purpose. A cabinet group has no `takeoff` column, so
+ * its answers are persisted inside `intakeValues` (lib/quotes/builderPayload
+ * .js's withCabinetAnswers, which is where the door count and the hinge type
+ * already live). While the builder is open the object sits on the group; once
+ * it has been round-tripped through the database it comes back one level down.
+ * Reading only the first would price a reopened quote off a level nobody
+ * chose, which is precisely the "reopening a quote shows every upgrade
+ * unticked" bug that put the cabinet answers in intakeValues to begin with.
  */
 function factorComplexityLevel(group, book) {
   const resolved = resolveComplexity({
     trade: group?.categoryKey || "cabinet_refinishing",
-    complexity: group?.complexity,
+    complexity: group?.complexity || group?.intakeValues?.complexity,
     book,
   });
   if (!resolved || !resolved.priced) return null;

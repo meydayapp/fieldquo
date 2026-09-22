@@ -450,6 +450,19 @@ console.log("\n6. An existing cabinet quote prices to the cent");
     stored.map((g) => unitPricingSubtotal(g, cabBook)),
     stored.map((g, i) => ((Number(g.intakeValues.doorCount) || 0) + (Number(g.intakeValues.drawerCount) || 0)) * before[i]));
 
+  // A cabinet group has no takeoff column, so its factors persist inside
+  // intakeValues. Both reads have to price the same, or a reopened quote
+  // prices off a level nobody chose.
+  {
+    const factors = { surface: "failing", contamination: "bleed_risk", hardware: "out_of_square" };
+    const onGroup = { baseUnitPrice: 150, complexity: { model: COMPLEXITY_MODEL, factors } };
+    const roundTripped = { baseUnitPrice: 150, intakeValues: { doorCount: 10, complexity: { model: COMPLEXITY_MODEL, factors } } };
+    eq("6f: a group reopened from the database prices the same as the one still on screen",
+      finalUnitPrice(roundTripped, cabBook), finalUnitPrice(onGroup, cabBook));
+    ok("6g: …and that is not both falling through to Standard",
+      finalUnitPrice(onGroup, cabBook) > 150, finalUnitPrice(onGroup, cabBook));
+  }
+
   // A quote that was Custom stays Custom even if somebody later attaches a
   // complexity object that resolves to Standard: the guard is the model key,
   // and the old fields are never consulted by the new path.
