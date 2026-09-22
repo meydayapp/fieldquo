@@ -19,6 +19,7 @@
 
 import { useEffect, useRef } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Plus, X } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { QUICK_ADD_ITEMS, useNavItems } from "@/app/components/layout/AdminSidebar";
@@ -99,9 +100,22 @@ export function CreateButton() {
  * where CreateButton in the top bar takes over, and hidden on the employee
  * home's own screens (the /app/me tab bar has its own idea of "add").
  */
+/**
+ * Routes where a floating "create" is noise: the person is already creating
+ * or editing something, and the page has its own docked Draft / Save bar.
+ * The owner, on the live shell: "why is the create button visible when
+ * creating a new quote?" Any /new or /edit route, and the two designers.
+ */
+export const CREATE_FAB_HIDDEN = /\/(new|edit|import)(\/|$)|\/quotes\/[^/]+\/kitchen(\/|$)/;
+
+export function createFabHiddenOn(pathname) {
+  return CREATE_FAB_HIDDEN.test(String(pathname || ""));
+}
+
 export function CreateFab() {
   const { t } = useTranslation();
   const shell = useNavShell();
+  const pathname = usePathname();
   const items = useNavItems(QUICK_ADD_ITEMS);
   const open = shell.isOpen(OVERLAY);
   useEffect(() => {
@@ -111,16 +125,23 @@ export function CreateFab() {
     return () => document.removeEventListener("keydown", onKey);
   }, [open, shell]);
   if (items.length === 0) return null;
+  if (createFabHiddenOn(pathname)) return null;
   return (
     <>
+      {/* Stacked ABOVE Jennifer's launcher, not beside it: Jennifer sits at
+          bottom: tab bar + dock + 1.25rem and is 3.5rem tall (JenniferPanel.js),
+          so this starts at + 5.5rem — the slot HelpButton uses on the quote
+          builder, which is a /new route where this is not rendered at all.
+          The owner: "why is it on top of the chat button?" — it was at +1rem,
+          under the same corner. right-5 to share Jennifer's column. */}
       <button
         type="button"
         onClick={() => shell.toggle(OVERLAY)}
         aria-label={t("app.quickAdd.title")}
         aria-expanded={open}
         data-create-fab
-        className="lg:hidden fixed right-4 z-40 w-12 h-12 rounded-full bg-sidebar-primary text-sidebar-primary-foreground shadow-[0_6px_16px_rgba(0,0,0,0.25)] flex items-center justify-center active:brightness-95"
-        style={{ bottom: "calc(var(--fq-tab-bar-height) + var(--fq-dock-height) + 1rem)" }}
+        className="lg:hidden fixed right-5 z-40 w-12 h-12 rounded-full bg-sidebar-primary text-sidebar-primary-foreground shadow-[0_6px_16px_rgba(0,0,0,0.25)] flex items-center justify-center active:brightness-95"
+        style={{ bottom: "calc(var(--fq-tab-bar-height) + var(--fq-dock-height) + 5.5rem)", marginRight: "0.25rem" }}
       >
         <Plus size={24} strokeWidth={2.5} />
       </button>

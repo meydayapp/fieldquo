@@ -356,4 +356,23 @@ export const SCREENS = [
   // (docs/TAX.md), and Settings → Tax with the mode and its preview.
   { slug: "quote-tax-line", href: "/app/quotes", page: "app/app/quotes/new/page.js", scene: "quote-tax-line", height: 1100, chapter: "help" },
   { slug: "settings-tax", href: "/app/settings/company", page: "app/app/settings/company/page.js", settings: true, scene: "settings-tax", height: 1400, chapter: "help" },
+  // ── The document-shaped builder (mockup b7) and the painter's first screen (b1) ──
+  //
+  // Appended, so nothing above renumbers. "doc-builder" in a slug flips the
+  // fixture company's Company.quoteBuilderLayout to "document"; "painter"
+  // switches its painting trades on (fixtures/routes-help.js). The same
+  // hand-built draft Q-1045 is photographed in both layouts, desktop and
+  // phone; New quote for a painting company shows the estimate-type cards
+  // as the first thing on the page, in both layouts.
+  { slug: "quote-doc-builder", href: "/app/quotes", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1045" }, height: 1500, chapter: "help" },
+  { slug: "quote-doc-builder-mobile", href: "/app/quotes", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1045" }, width: 375, height: 812, chapter: "help" },
+  { slug: "quote-doc-builder-cost-drawer", href: "/app/quotes", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1045" }, scene: "doc-cost-drawer", height: 1100, chapter: "help" },
+  { slug: "quote-doc-builder-work-order", href: "/app/quotes", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1045" }, scene: "doc-tab-workorder", height: 1100, chapter: "help" },
+  { slug: "quote-classic-builder", href: "/app/quotes", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1045" }, height: 1500, chapter: "help" },
+  { slug: "quote-classic-builder-mobile", href: "/app/quotes", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1045" }, width: 375, height: 812, chapter: "help" },
+  { slug: "quote-new-painter-doc-builder", href: "/app/quotes/new", page: "app/app/quotes/new/page.js", height: 1000, chapter: "help" },
+  { slug: "quote-new-painter-doc-builder-mobile", href: "/app/quotes/new", page: "app/app/quotes/new/page.js", width: 375, height: 812, chapter: "help" },
+  { slug: "quote-new-painter-classic", href: "/app/quotes/new", page: "app/app/quotes/new/page.js", height: 1000, chapter: "help" },
+  { slug: "quote-new-painter-classic-mobile", href: "/app/quotes/new", page: "app/app/quotes/new/page.js", width: 375, height: 812, chapter: "help" },
+  { slug: "quote-new-painter-doc-builder-rooms", href: "/app/quotes/new", page: "app/app/quotes/new/page.js", scene: "painter-pick-interior", height: 1400, chapter: "help" },
 ];

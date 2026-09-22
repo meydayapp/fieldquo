@@ -49,6 +49,7 @@ import { PermissionProvider } from "../app/providers/PermissionProvider.js";
 import { createTradeConfig } from "../lib/pricing/tradeScope.js";
 import { APP_MESSAGES } from "../app/i18n/appMessages.js";
 import { paintingCategoryFor, paintingCategoriesOf } from "../app/components/quotes/builder/EstimateTypeFirst.js";
+import { createFabHiddenOn } from "../app/components/layout/CreateMenu.js";
 
 let pass = 0;
 const fails = [];
@@ -470,6 +471,26 @@ for (const [lang, tab, prepared] of [["fr", "Devis", "Préparé pour"], ["es", "
   eq("exterior falls back to the one painting service the company has", paintingCategoryFor("exterior", [{ key: "interior_painting" }])?.key, "interior_painting");
   eq("no painting service → null, never a guess", paintingCategoryFor("interior", [{ key: "stairs" }]), null);
   eq("paintingCategoriesOf ignores junk", paintingCategoriesOf([null, {}, { key: "exterior_painting" }]).length, 1);
+}
+
+// ── The floating + (CreateMenu.js) stays off the builder ──────────────────
+//
+// "Why is the create button visible when creating a new quote?" — hidden on
+// every /new, /edit and /import route and the kitchen designer, executed
+// against the rule the component uses. And it no longer sits on Jennifer:
+// its bottom offset is the slot above her launcher (5.5rem = 1.25rem +
+// 3.5rem + a 0.75rem gap), read from both files rather than assumed.
+{
+  for (const path of ["/app/quotes/new", "/app/quotes/q_1/edit", "/app/invoices/new", "/app/jobs/new", "/app/clients/new", "/app/clients/c_1/edit", "/app/jobs/import", "/app/quotes/q_1/kitchen"]) {
+    ok(`the + is hidden on ${path}`, createFabHiddenOn(path));
+  }
+  for (const path of ["/app", "/app/quotes", "/app/quotes/q_1", "/app/jobs/j_1", "/app/settings/company", "/app/newsletter"]) {
+    ok(`the + shows on ${path}`, !createFabHiddenOn(path));
+  }
+  const fab = src("app/components/layout/CreateMenu.js");
+  const jen = src("app/components/jennifer/JenniferPanel.js");
+  ok("the + sits above Jennifer's launcher, not on it", fab.includes("var(--fq-dock-height) + 5.5rem)") && jen.includes("var(--fq-dock-height)+1.25rem)") && jen.includes("h-14 w-14"));
+  ok("the + returns null on a hidden route before rendering", /createFabHiddenOn\(pathname\)\) return null/.test(fab));
 }
 
 // ───────────────────────────────────────────────────────────────────────────

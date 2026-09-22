@@ -476,6 +476,30 @@ async function runScene(scene) {
     await wait(300);
     return;
   }
+  // ── The document-shaped builder ─────────────────────────────────────────
+  if (scene === "doc-cost-drawer") {
+    (await until("[data-cost-drawer-toggle]")).click();
+    await until("[data-cost-drawer]");
+    await wait(400);
+    return;
+  }
+  if (scene === "doc-tab-workorder") {
+    (await until('[data-doc-tab="workorder"]')).click();
+    await until('[data-tab-panel="workorder"]');
+    await wait(400);
+    return;
+  }
+  if (scene === "painter-pick-interior") {
+    // The painter's first answer: Interior. The service lands in the
+    // document with its estimate type set, ready for rooms.
+    const cards = await until("[data-estimate-type-first]");
+    const interior = [...cards.querySelectorAll("button")].find((b) => /Interior|Intérieur|Interior/.test(b.textContent));
+    if (!interior) throw new Error("interior card not offered");
+    interior.click();
+    await until("[data-doc-group], [data-paint-area], [data-doc-group-toggle]");
+    await wait(500);
+    return;
+  }
   if (scene === "settings-tax") {
     // Settings → Company scrolled to the tax card: the mode, the preview
     // for the company's own province, the rates list.

@@ -132,15 +132,24 @@ section("2. One request body, built once, for both verbs");
 // ───────────────────────────────────────────────────────────────────────────
 
 const builder = read("app/components/quotes/builder/QuoteBuilder.js");
+// The body moved out of the component into lib/quotes/builderRequest.js
+// (2026-09-22) so the classic and the document layouts post through one
+// function — scripts/check-doc-builder.mjs hashes its output against the
+// literal it replaced. The rules below now read that file.
+const request = read("lib/quotes/builderRequest.js");
 
 ok(
+  "the builder posts through quoteRequestBody, once, for both layouts",
+  (builder.match(/quoteRequestBody\(/g) || []).length === 1,
+);
+ok(
   "the shared fields are assembled once",
-  (builder.match(/const shared = \{/g) || []).length === 1,
+  (request.match(/const shared = \{/g) || []).length === 1,
   "two bodies is how a field ends up saved by one screen and not the other",
 );
 ok(
   "…and spread into both the POST and the PATCH",
-  (builder.match(/\.\.\.shared,/g) || []).length === 2,
+  (request.match(/\.\.\.shared,/g) || []).length === 2,
 );
 ok(
   "the money is worked out by the shared helper, once",
@@ -148,17 +157,17 @@ ok(
 );
 ok(
   "the CLAMPED discount is what gets saved",
-  /discount: appliedDiscount/.test(builder),
+  /discount: appliedDiscount/.test(request),
   "saving the raw box would contradict the total printed beside it",
 );
 ok(
   "the tax FLAG is sent, not just the amount",
-  /\btaxEnabled,/.test(builder),
+  /\btaxEnabled,/.test(request),
   "read in two places and written in none was the original bug",
 );
 ok(
   "an edit omits scope groups once the client has decided",
-  /canEditScope \? \{ scopeGroups/.test(builder),
+  /canEditScope \? \{ scopeGroups/.test(request),
   "the API refuses them, so sending them fails the whole save",
 );
 ok(
