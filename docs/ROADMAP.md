@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 22 September 2026 (the /app shell reorganised — a rail of 17 rows in five groups (Work · People · Money · Grow · AI) with everything else on a More page of four tiles, the settings list sliding INTO the one rail with Back (Roofr's mechanic, with Settings kept lit), a real /app/settings index of eight cards with search, a 52px top bar with `/` search over records + pages + settings, Create, the bell and an avatar menu holding Help/Plan/Settings/Appearance/Log out, the phone's More as a bottom sheet over the tab bar and a floating Create, trade gating held to one table (`ROW_TRADE_GATE`) that names no AI/schedule/money/people row, and `check:shell` proving every one of the 42 + 44 old destinations is still ≤ 2 taps away — see "The shell" below; previous line: /compare: FieldQuo vs Roofr and FieldQuo vs PaintScout, both read off the served pricing pages from a Canadian connection on 2026-09-21 before a word of copy was written — Roofr's SMS $49, Instant Estimator $149, Roofr Sites $99 and AI Receptionist $99 totalled as $396/mo of add-ons on /compare and /pricing, its $0 Starter and unlimited users conceded and its per-report measurement fees printed per report; PaintScout's $119 + $20 a user priced in the open for a shop of eleven, its Operations add-on sold separately, a `paint_takeoff` matrix entry with nine names; a new pricing unit (`UNIT_FLAT_PLUS_USAGE`) and `billsPerHead()` so no page says "they bill every login" about a vendor whose page says unlimited users; see "/compare: FieldQuo vs Roofr and FieldQuo vs PaintScout" below; previous line: the job plan, change orders with remote approval, and the client progress view: an approved quote becomes one step per line and per ticked option with hours from the takeoff, painting dependencies, a hold reason and a crew day view, gated server-side so a step cannot start before what it waits on; a change order is sent by SMS + email to a one-page addendum the homeowner signs, holds its step until signed, adds or edits a step on approval and bills as a labelled "Change order CO-2 · …" line; the portal shows the job as Done · In progress · Waiting on with the crew's photos and the change orders waiting on the client — see "The job plan" below; previous line: the quote builder's text-block library — nine painting starters in EN/FR/ES seeded once per painting company, searchable from "+ Add area or line item" beside the trade chips and the products, rich text drawn on the PDF, the email, the approval page and the detail page, priced by hours, quantity, a custom amount or not at all, "hidden on work order" carried on the line, a block translated ONCE into a quote's other language and the reviewed text stored on the block; the quote page's Send… split button — preview as client, share with staff through the crew chat, create invoice, save as template, copy link, download PDF, copy, archive; QuoteTemplate rows offered on every new quote; Quote.siteAddress prefilled for a homeowner, required for a company client, printed as "Job address", handed to the Job and geocoded there, read by the satellite measure; and "Offer 3% off for e-transfer or cheque" — Canada only, a discount never a card surcharge because of Quebec, frozen on the draft, ticked by the client at approval, folded into the invoice with the card link left off; see "The text-block library, the Send… menu, the job address and the e-transfer discount" below; previous line: field work: invoices, clock punches and their photos made without signal wait in an IndexedDB queue on the phone and replay once — punches, then photos, then invoices — under an X-Offline-Key ledger the server keeps (server wins, the phone never invents an id); public/sw.js caches the field screens network-first, switched per company under Settings → Field work (default on); the invoice editor opened from a job offers "Labour — 6.5 h × $85 · from today's clock-ins" as a server-priced line from TimeEntry ids and a rate key, billed once; every crew member gets a daily sheet (/app/daily-sheets) with objectives from the plan's tasks or typed, before/after photos, live clock stamps, upsells linked to the quote's add-ons or change orders, the coordinator's 1–5 evaluation and a bonus that exists only under a company performance-pay rule (none by default) and lands on the pay run as a "Performance bonus" line; and a weekly past-client callback rotation (Settings → Follow-ups → Past clients) lists a company's own dormant clients for a person to call, outcomes on the client's timeline, "do not call" opting the number out of the voice ledger too — never assignable to the AI front desk, whose consent rule cannot reach a client ten months after a job; and before it: the client proposal: the quote link opens a branded mini-site — sticky header with the total and Accept, a table of contents, "Your project" (the quote, with Scope of work and a day-by-day plan derived from the takeoff's hours and a stated crew size, never invented), then About us, Before & after, Important documents, Testimonials and Services, each rendered only when the company has content for it; one before/after gallery merged additively from the website block and the quote-email pairs; a company document library with measured expiry; waivers the client ticks line by line and signs, refused server-side while a box is unticked, filed on the job and shown in the portal; four set-up rows that open in place; Settings › Presentation and a Presentation tab on the quote — see "The client proposal" below; previous line: the painting takeoff, sections b1–b4 and b6 of the approved builder mockup: a painting quote opens on its estimate type — Interior, Exterior, Cabinets & millwork, Staining, Commercial — each with its own rate set of situation-named rates priced as production rate × hourly or flat per unit, picked in a searchable picker and edited on Settings › Services › Painting rates; an area is a Room or a single Surface with an editable "calculated from measurements" strip, ticks what's painted, draws as one hours-and-money table with options the homeowner ticks under the room (extra coat, premium paint, custom); staining substrates carry stain and clear coat; the den and the exterior job still reproduce to the cent; and before it: the painting takeoff, sections b1–b4 and b6 of the approved builder mockup: a painting quote opens on its estimate type — Interior, Exterior, Cabinets & millwork, Staining, Commercial — each with its own rate set of situation-named rates priced as production rate × hourly or flat per unit, picked in a searchable picker and edited on Settings › Services › Painting rates; an area is a Room or a single Surface with an editable "calculated from measurements" strip, ticks what's painted, draws as one hours-and-money table with options the homeowner ticks under the room (extra coat, premium paint, custom); staining substrates carry stain and clear coat; the den and the exterior job still reproduce to the cent; and before it: the "next steps" email: two hours after a company's card goes in, if its onboarding checklist is still open, FieldQuo sends one letter in the company's language — the trade in the subject, only the open steps numbered in the checklist's order with what each unlocks for that trade, each a link that opens the step's window on the home page, a tick list of what is done — once per company, never a demo, switch and delay on /platform/companies, sent-date on the company page)
+Last updated: 22 September 2026 (the document-shaped quote builder behind Company.quoteBuilderLayout — document for new companies, classic for the 29 existing ones until the owner flips each on /platform/companies/[id] — with one shared QuoteDocument drawn by the quote page and edited in place by the builder, the request body proved byte-identical by md5, the painting company's estimate-type cards as the FIRST screen of New quote in both layouts, and the shell's floating + kept off create/edit routes and stacked above the chat launcher — see "The document-shaped quote builder" below; previous line: the /app shell reorganised — a rail of 17 rows in five groups (Work · People · Money · Grow · AI) with everything else on a More page of four tiles, the settings list sliding INTO the one rail with Back (Roofr's mechanic, with Settings kept lit), a real /app/settings index of eight cards with search, a 52px top bar with `/` search over records + pages + settings, Create, the bell and an avatar menu holding Help/Plan/Settings/Appearance/Log out, the phone's More as a bottom sheet over the tab bar and a floating Create, trade gating held to one table (`ROW_TRADE_GATE`) that names no AI/schedule/money/people row, and `check:shell` proving every one of the 42 + 44 old destinations is still ≤ 2 taps away — see "The shell" below; previous line: /compare: FieldQuo vs Roofr and FieldQuo vs PaintScout, both read off the served pricing pages from a Canadian connection on 2026-09-21 before a word of copy was written — Roofr's SMS $49, Instant Estimator $149, Roofr Sites $99 and AI Receptionist $99 totalled as $396/mo of add-ons on /compare and /pricing, its $0 Starter and unlimited users conceded and its per-report measurement fees printed per report; PaintScout's $119 + $20 a user priced in the open for a shop of eleven, its Operations add-on sold separately, a `paint_takeoff` matrix entry with nine names; a new pricing unit (`UNIT_FLAT_PLUS_USAGE`) and `billsPerHead()` so no page says "they bill every login" about a vendor whose page says unlimited users; see "/compare: FieldQuo vs Roofr and FieldQuo vs PaintScout" below; previous line: the job plan, change orders with remote approval, and the client progress view: an approved quote becomes one step per line and per ticked option with hours from the takeoff, painting dependencies, a hold reason and a crew day view, gated server-side so a step cannot start before what it waits on; a change order is sent by SMS + email to a one-page addendum the homeowner signs, holds its step until signed, adds or edits a step on approval and bills as a labelled "Change order CO-2 · …" line; the portal shows the job as Done · In progress · Waiting on with the crew's photos and the change orders waiting on the client — see "The job plan" below; previous line: the quote builder's text-block library — nine painting starters in EN/FR/ES seeded once per painting company, searchable from "+ Add area or line item" beside the trade chips and the products, rich text drawn on the PDF, the email, the approval page and the detail page, priced by hours, quantity, a custom amount or not at all, "hidden on work order" carried on the line, a block translated ONCE into a quote's other language and the reviewed text stored on the block; the quote page's Send… split button — preview as client, share with staff through the crew chat, create invoice, save as template, copy link, download PDF, copy, archive; QuoteTemplate rows offered on every new quote; Quote.siteAddress prefilled for a homeowner, required for a company client, printed as "Job address", handed to the Job and geocoded there, read by the satellite measure; and "Offer 3% off for e-transfer or cheque" — Canada only, a discount never a card surcharge because of Quebec, frozen on the draft, ticked by the client at approval, folded into the invoice with the card link left off; see "The text-block library, the Send… menu, the job address and the e-transfer discount" below; previous line: field work: invoices, clock punches and their photos made without signal wait in an IndexedDB queue on the phone and replay once — punches, then photos, then invoices — under an X-Offline-Key ledger the server keeps (server wins, the phone never invents an id); public/sw.js caches the field screens network-first, switched per company under Settings → Field work (default on); the invoice editor opened from a job offers "Labour — 6.5 h × $85 · from today's clock-ins" as a server-priced line from TimeEntry ids and a rate key, billed once; every crew member gets a daily sheet (/app/daily-sheets) with objectives from the plan's tasks or typed, before/after photos, live clock stamps, upsells linked to the quote's add-ons or change orders, the coordinator's 1–5 evaluation and a bonus that exists only under a company performance-pay rule (none by default) and lands on the pay run as a "Performance bonus" line; and a weekly past-client callback rotation (Settings → Follow-ups → Past clients) lists a company's own dormant clients for a person to call, outcomes on the client's timeline, "do not call" opting the number out of the voice ledger too — never assignable to the AI front desk, whose consent rule cannot reach a client ten months after a job; and before it: the client proposal: the quote link opens a branded mini-site — sticky header with the total and Accept, a table of contents, "Your project" (the quote, with Scope of work and a day-by-day plan derived from the takeoff's hours and a stated crew size, never invented), then About us, Before & after, Important documents, Testimonials and Services, each rendered only when the company has content for it; one before/after gallery merged additively from the website block and the quote-email pairs; a company document library with measured expiry; waivers the client ticks line by line and signs, refused server-side while a box is unticked, filed on the job and shown in the portal; four set-up rows that open in place; Settings › Presentation and a Presentation tab on the quote — see "The client proposal" below; previous line: the painting takeoff, sections b1–b4 and b6 of the approved builder mockup: a painting quote opens on its estimate type — Interior, Exterior, Cabinets & millwork, Staining, Commercial — each with its own rate set of situation-named rates priced as production rate × hourly or flat per unit, picked in a searchable picker and edited on Settings › Services › Painting rates; an area is a Room or a single Surface with an editable "calculated from measurements" strip, ticks what's painted, draws as one hours-and-money table with options the homeowner ticks under the room (extra coat, premium paint, custom); staining substrates carry stain and clear coat; the den and the exterior job still reproduce to the cent; and before it: the painting takeoff, sections b1–b4 and b6 of the approved builder mockup: a painting quote opens on its estimate type — Interior, Exterior, Cabinets & millwork, Staining, Commercial — each with its own rate set of situation-named rates priced as production rate × hourly or flat per unit, picked in a searchable picker and edited on Settings › Services › Painting rates; an area is a Room or a single Surface with an editable "calculated from measurements" strip, ticks what's painted, draws as one hours-and-money table with options the homeowner ticks under the room (extra coat, premium paint, custom); staining substrates carry stain and clear coat; the den and the exterior job still reproduce to the cent; and before it: the "next steps" email: two hours after a company's card goes in, if its onboarding checklist is still open, FieldQuo sends one letter in the company's language — the trade in the subject, only the open steps numbered in the checklist's order with what each unlocks for that trade, each a link that opens the step's window on the home page, a tick list of what is done — once per company, never a demo, switch and delay on /platform/companies, sent-date on the company page)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -9,6 +9,104 @@ it exists to answer.
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
+
+## The document-shaped quote builder, and the painter's first screen (22 September 2026)
+
+Mockup b7, approved 2026-09-21 ("keep it like that"): what the estimator
+edits is what the client reads. And the b1 fix the owner asked for on
+production — "I don't see the changes in the UI/UX for painting": the
+estimate-type cards had landed INSIDE the takeoff, behind a service tile,
+with the type preselected, so the approved first screen was never seen.
+
+**The flag.** `Company.quoteBuilderLayout` — "document" | "classic".
+Added to the live DB with default `'classic'` (so all 29 existing companies
+read classic), then the column default altered to `'document'` for every
+company created from now on; the schema says `@default("document")`. Read
+by GET /api/settings/business-info into the builder's bootstrap; written
+ONLY by PATCH /api/platform/companies/[id] (company:manage, audited with the
+previous value) from a "Quote builder" card on /platform/companies/[id]
+(`CompanyBuilderLayout.js`). The owner decides the rollout, one company at
+a time; nothing is flipped by code. `lib/quotes/builderLayout.js` is the
+closed list; an absent or junk value resolves to classic.
+
+**One state, two arrangements.** `QuoteBuilderForm` keeps every piece of
+state, every handler, the derivation and the save, and hands the document
+layout (`app/components/quotes/builder/DocumentBuilder.js`) the SAME
+closures the classic markup calls — `renderGroupEditor` (every trade's
+takeoff, unit pricing, intake, tiers, the line table with the library),
+`renderCostMarginPanel`, notes, photos, process notes, the AI review, the
+send confirm. The request body left the component for
+`lib/quotes/builderRequest.js`; `scripts/check-doc-builder.mjs` runs six
+fixture saves through it and through a transcript of the f74a2d13 inline
+literal and requires the md5s to match (they do — printed by the check).
+
+**The document.** `app/components/document/QuoteDocument.js` — frame with
+the brand rule, masthead, prepared-for + job address + facts, one card per
+service, totals with the band — is now drawn by BOTH the quote page
+(`app/app/quotes/[id]/page.js`, read-only; its inline mirror is gone) and
+the builder (with `edit` callbacks). The check reads the source: the brand
+rule, the total band and the masthead exist once. In the builder: click
+the company block → Settings › Company saved in place (user:manage); click
+the contact → the client's record (clientsProperties full_edit); click the
+job address, the dates, discount, tax → the same QuoteTermsFields the
+classic card holds (`QuoteTotalsBar.js` is split into four exported pieces,
+its default export unchanged); click a room → the group's takeoff opens
+scrolled to that room's card (`data-paint-area`); click a text block → the
+RichTextEditor in place. A painting takeoff's rooms draw as the mockup's
+cards from `paintTakeoff()` — "Walls — 496 sqft, 2 coats $568.61", "Option:
+Ceiling + $227.43" under the room it belongs to — and a stored quote's
+`QuoteAddOn.areaLabel` offers sit under the line that names them.
+Subtotal · e-transfer / cheque line (Canada, from the frozen pct on a sent
+quote or the company switch on a draft) · tax with the taxLine sentence ·
+the band. Tabs: Estimate · Presentation (PresentationPanel + process notes
++ photos) · Work order (the job's link and PDF via `lib/workOrder/url.js`
+when a job exists; else the hidden-on-work-order switches and a crew
+preview from `buildWorkOrderModel`, which carries no money) · Notes (the
+internal review box + site visit). Cost & margin is a right-hand drawer
+(bottom sheet on a phone) behind a "Cost & margin · 29%" button, staff-only,
+never inside the article. Save + the existing SendMenu top-right (menu only
+on a phone — the dock has the buttons); the shared `QuoteActionsDock` at
+the foot, now `lg:left-64` to clear the new rail.
+
+**Not inline-editable, by design:** the quote number (server-minted on the
+first save), the issue date (`sentAt`/`createdAt`), the estimator's name
+(on no client surface — it stays in the staff strip above the document), a
+stored group's takeoff (frozen; its lines open in the line table).
+
+**The painter's first screen (b1).** `EstimateTypeFirst.js` renders the
+exported `EstimateTypeCards` BEFORE the client box in both layouts when a
+company has a painting trade enabled; the pick adds the matching painting
+service itself (exterior → exterior_painting, everything else → the
+interior book, which holds the cabinet, staining and commercial substrates)
+with `takeoff.estimateType` set and the takeoff already open — no tile step
+for painting; a mixed-trade company gets "Other trades" (the tiles); a
+company with no painting never sees the cards. Executed in the check for
+both layouts, both company shapes.
+
+**The shell's floating +.** Hidden on every /new, /edit, /import route and
+the kitchen designer (`createFabHiddenOn`, executed in the check), and
+stacked ABOVE Jennifer's launcher (bottom: tab bar + dock + 5.5rem) instead
+of on it — the two owner notes on the live shell.
+
+**Photographed** (harness rows 195–205, en/fr/es): the draft Q-1045 in both
+layouts at 1280 and 375, the cost drawer, the Work order tab, New quote for
+a painting company in both layouts at 1280 and 375 with the cards first,
+and the Interior pick landing in the document with the takeoff open.
+
+### Still owed here
+
+- The takeoff's room card re-draws the estimate-type cards inside the group
+  (PaintAreas' own header) — legitimate for changing the type, but a second
+  copy of the question on the same screen; fold it into a "Change type"
+  link once the owner has used it.
+- The other docks (invoices/new, availability, links) still sit at
+  `lg:left-60` / `lg:left-64` over a rail that can collapse to 76px — a
+  `--fq-rail-width` variable would let every dock follow the rail.
+- 43 new strings landed in all nine languages; es/uk/pa/tl/de/zh/it are
+  drafts pending a fluent read, as the catalogue's APP_REVIEW_PENDING says.
+- Pre-existing red on origin/main, not touched: `check:approval-screens`
+  (lawn_estimate has no label) and `check:client-proposal` (a /60 ink on
+  QuoteApproval.js).
 
 ## The shell: seventeen rows, More, Settings in the one rail, a top bar (22 September 2026)
 

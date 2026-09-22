@@ -504,6 +504,19 @@ export default function DocumentBuilder({ b }) {
   const [templateOpen, setTemplateOpen] = useState(false);
   const [menuError, setMenuError] = useState("");
   const groupRefs = useRef({});
+  // A service added from the cards or the tiles opens unfolded — the next
+  // thing the estimator does is add a room or a line, not click "Edit".
+  const [openNext, setOpenNext] = useState(false);
+  const groupCount = b.scopeGroups.length;
+  useEffect(() => {
+    if (!openNext || groupCount === 0) return;
+    setOpenGroup(b.scopeGroups[groupCount - 1].tempId);
+    setOpenNext(false);
+  }, [openNext, groupCount, b.scopeGroups]);
+  const addAndOpen = (fn) => (...args) => {
+    fn(...args);
+    setOpenNext(true);
+  };
 
   // A room click opens the group's takeoff and lands on that room's card.
   useEffect(() => {
@@ -754,31 +767,40 @@ export default function DocumentBuilder({ b }) {
               ) : null}
             </button>
           )}
-          <button
-            type="button"
-            onClick={() => b.handleSave("draft")}
-            disabled={Boolean(b.saving) || (!isEdit && (!b.selectedClient || b.scopeGroups.length === 0))}
-            className="inline-flex items-center gap-1.5 border border-border text-foreground px-4 py-1.5 rounded-full text-sm font-semibold disabled:opacity-60"
-            data-doc-save
-          >
-            {b.saving === "draft" ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-            {isEdit ? t("app.quoteEdit.saveChangesShort") : t("app.quoteNew.saveAsDraftShort")}
-          </button>
-          <SendMenu
-            primary={
-              sendable
-                ? {
-                    label: t("app.quoteNew.saveAndSend"),
-                    icon: Send,
-                    busy: b.saving === "sent",
-                    disabled: Boolean(b.saving) || (!isEdit && (!b.selectedClient || b.scopeGroups.length === 0)),
-                    onClick: () => b.handleSave("sent"),
-                  }
-                : null
-            }
-            menuLabel={sendable ? t("app.sendMenu.more", "Send…") : t("app.sendMenu.moreDecided", "More…")}
-            items={menuItems}
-          />
+          {/* Save and Save & send live here from sm up. On a phone the
+              dock at the foot already holds both under the thumb, so the
+              toolbar keeps only the menu — two Save buttons on one 375px
+              screen is the row the owner asked to have thinned. */}
+          <div className="hidden sm:flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => b.handleSave("draft")}
+              disabled={Boolean(b.saving) || (!isEdit && (!b.selectedClient || b.scopeGroups.length === 0))}
+              className="inline-flex items-center gap-1.5 border border-border text-foreground px-4 py-1.5 rounded-full text-sm font-semibold disabled:opacity-60"
+              data-doc-save
+            >
+              {b.saving === "draft" ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+              {isEdit ? t("app.quoteEdit.saveChangesShort") : t("app.quoteNew.saveAsDraftShort")}
+            </button>
+            <SendMenu
+              primary={
+                sendable
+                  ? {
+                      label: t("app.quoteNew.saveAndSend"),
+                      icon: Send,
+                      busy: b.saving === "sent",
+                      disabled: Boolean(b.saving) || (!isEdit && (!b.selectedClient || b.scopeGroups.length === 0)),
+                      onClick: () => b.handleSave("sent"),
+                    }
+                  : null
+              }
+              menuLabel={sendable ? t("app.sendMenu.more", "Send…") : t("app.sendMenu.moreDecided", "More…")}
+              items={menuItems}
+            />
+          </div>
+          <div className="sm:hidden">
+            <SendMenu menuLabel={sendable ? t("app.sendMenu.more", "Send…") : t("app.sendMenu.moreDecided", "More…")} items={menuItems} />
+          </div>
         </div>
       </div>
 
@@ -867,8 +889,8 @@ export default function DocumentBuilder({ b }) {
           {b.paintingFirst && (
             <EstimateTypeFirst
               categories={b.categories}
-              onPickType={b.addPaintingEstimate}
-              onAddOther={(category, label) => b.addScopeGroup(category, label)}
+              onPickType={addAndOpen(b.addPaintingEstimate)}
+              onAddOther={addAndOpen((category, label) => b.addScopeGroup(category, label))}
               documentLanguage={b.quoteLanguage}
             />
           )}
@@ -878,12 +900,11 @@ export default function DocumentBuilder({ b }) {
               word={labels.quote}
               number={start.quoteNumber}
               numberPlaceholder={t("app.docBuilder.numberOnSave", "Numbered on first save")}
-              meta={meta}
+              // The dates print once, in the facts panel beside the client
+              // (as the quote page draws them), not under the number as well.
               edit={{
                 company: canEditCompany ? () => setEditing((e) => (e === "company" ? null : "company")) : null,
                 companyLabel: t("app.docBuilder.editCompany", "Edit company details"),
-                meta: () => setEditing((e) => (e === "validUntil" ? null : "validUntil")),
-                metaLabel: t("app.quoteEdit.validUntil"),
               }}
             />
             {editing === "company" && (
@@ -913,7 +934,7 @@ export default function DocumentBuilder({ b }) {
                   ? { label: labels.jobAddress, value: b.siteAddress, placeholder: t("app.quoteNew.jobAddressPlaceholder", "Start typing the job address…") }
                   : null
               }
-              facts={meta.map((m) => [m.label, m.value])}
+              facts={meta.length ? meta.map((m) => [m.label, m.value]) : [[labels.validUntil, t("app.quoteNew.validUntilCleared")]]}
               clientSlot={
                 !b.selectedClient || (!isEdit && editing === "client") ? (
                   <div className="mt-2" data-tour="client-picker">
@@ -1158,10 +1179,10 @@ export default function DocumentBuilder({ b }) {
                     <div className="mt-3">
                       <ServiceTiles
                         categories={b.categories}
-                        onAdd={(category, label) => {
+                        onAdd={addAndOpen((category, label) => {
                           b.addScopeGroup(category, label);
                           setShowTiles(false);
-                        }}
+                        })}
                         documentLanguage={b.quoteLanguage}
                       />
                       {b.scopeGroups.length > 0 && (

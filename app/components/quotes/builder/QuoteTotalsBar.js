@@ -525,8 +525,9 @@ export function QuoteActionsDock({
   return (
     <>
       {/* left-60 clears the desktop sidebar; full width below that breakpoint
-          where the sidebar collapses. lg:left-60, not sm: — AdminSidebar only
-          becomes a rail at `lg` (hidden lg:flex). */}
+          where the sidebar collapses. lg:left-64, not sm: — AdminSidebar only
+          becomes a rail at `lg` (hidden lg:flex), and the 2026-09-21 shell's
+          rail is w-64; the old left-60 put the bar's first 16px under it. */}
       {/* ── This bar is a "bottom dock" ──────────────────────────────────
           It sits at bottom: var(--fq-tab-bar-height) — 0 from lg up, the
           tab bar's footprint below it — and hands its own measured height
@@ -555,7 +556,7 @@ export function QuoteActionsDock({
       <div
         ref={dockRef}
         data-tour="totals"
-        className="fixed bottom-[var(--fq-tab-bar-height)] left-0 right-0 lg:left-60 bg-card border-t border-border px-4 sm:px-6 py-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3 z-40"
+        className="fixed bottom-[var(--fq-tab-bar-height)] left-0 right-0 lg:left-64 bg-card border-t border-border px-4 sm:px-6 py-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3 z-40"
       >
         <div className="flex items-baseline justify-between gap-3 min-w-0 sm:block" data-totals-figure>
           <div className="text-[11px] text-muted-foreground leading-none">
