@@ -47,6 +47,7 @@ import { inferComplexity } from "@/lib/pricing/complexity/instantStairs";
 import {
   buildTradeLineItems,
   createTradeConfig,
+  tradeLabourDetail,
   tradeLabourHours,
 } from "@/lib/pricing/tradeScope";
 import { getPriceBook, PRICE_BOOK_FIELDS } from "@/app/data/tradePriceBooks";
@@ -285,6 +286,26 @@ if (hasTradeMaterials("roofing_service")) {
   ];
   ok("3d: the bill of materials is IDENTICAL at Standard, Moderate and Complex",
     new Set(bills).size === 1, bills);
+}
+
+// The ITEMISED hours and the TOTAL have to agree, because lib/proposal/load.js
+// prefers the itemised one for the homeowner's day-by-day plan and falls back
+// to the total for the cost panel. Two answers to "how long" on one roof, one
+// of them on a document somebody signs, is the failure this asserts away.
+{
+  const complexRoof = roofAt({ storeys: "two", pitch: "steep", layers: "two" });
+  const detail = tradeLabourDetail("roofing_service", complexRoof, null);
+  ok("3f: the itemised roofing hours carry the same multiplier as the total",
+    Math.abs(detail.hours - tradeLabourHours("roofing_service", complexRoof, null)) < 0.02,
+    { detail: detail.hours, total: tradeLabourHours("roofing_service", complexRoof, null) });
+  const rows = detail.parts || detail.breakdown || detail.steps || [];
+  ok("3g: …and the parts still add up to it, so the breakdown can be read",
+    rows.length > 0 &&
+      Math.abs(rows.reduce((s, r) => s + (Number(r.hours) || 0), 0) - detail.hours) < 0.2,
+    { sum: rows.reduce((s, r) => s + (Number(r.hours) || 0), 0), hours: detail.hours });
+  ok("3h: a roof not on the factor model gets its detail back untouched",
+    md5(tradeLabourDetail("roofing_service", roofBase, null)) ===
+      md5(tradeLabourDetail("roofing_service", { ...roofBase, complexity: undefined }, null)));
 }
 
 // And the client-facing PRICES on a stairs group do not move either: the level
