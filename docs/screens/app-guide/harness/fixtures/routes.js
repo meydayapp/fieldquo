@@ -18,6 +18,7 @@ import { ROUTES_SETTINGS_A } from "./routes-settings-a.js";
 import { ROUTES_SETTINGS_B } from "./routes-settings-b.js";
 import { ROUTES_CHAT } from "./routes-chat.js";
 import { ROUTES_HELP } from "./routes-help.js";
+import { ROUTES_FIELD } from "./routes-field.js";
 
 // Settings B before Grow: both answer /api/settings/document-templates,
 // and only the settings file's list carries the PDF layouts and the
@@ -28,6 +29,7 @@ import { ROUTES_HELP } from "./routes-help.js";
 // owner is answered differently for the crew (see its header).
 export const ROUTES = [
   ...ROUTES_HELP,
+  ...ROUTES_FIELD,
   ...ROUTES_WORK,
   ...ROUTES_PEOPLE,
   ...ROUTES_MONEY,

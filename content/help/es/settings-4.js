@@ -611,4 +611,68 @@ export const ARTICLES = {
       { q: "¿Hay un tope?", a: "20 invitaciones al día desde esta pantalla." },
     ],
   },
+  "settings-field-work": {
+    "title": "Trabajo de campo: modo sin conexión, tarifa por hora, pago por desempeño",
+    "summary": "Tres ajustes detrás de las pantallas del equipo: si la aplicación guarda sus pantallas de campo en el teléfono, la tarifa por hora que factura una línea de horas fichadas, y la regla de pago por desempeño, que está apagada hasta que usted escriba una.",
+    "intro": [
+      "**Ajustes → Equipo y horarios → Trabajo de campo** reúne los ajustes que deciden qué pasa en un sótano sin señal, a qué precio se factura una hora fichada y si un buen día gana una bonificación. Los propietarios y administradores pueden cambiarlos; nadie más ve la página.",
+      "Ninguno de los tres inventa una cifra. Sin tarifa por hora, el editor de facturas ofrece las horas fichadas con un enlace a esta página en lugar de un precio; sin regla de pago, ninguna hoja ni ninguna nómina muestra nunca un importe de bonificación."
+    ],
+    "sections": [
+      {
+        "id": "offline-mode",
+        "heading": "Modo sin conexión",
+        "blocks": [
+          {
+            "p": "**Activado** por defecto. Mientras lo esté, la aplicación guarda el editor de facturas, las páginas de trabajo, el reloj de fichaje, las hojas de horas y las hojas del día — y los últimos datos que cargó cada una — en el teléfono, para que se abran sin señal. Una factura o un fichaje hecho sin señal espera en una cola en el teléfono y se envía cuando vuelve la señal; la barra ámbar en la parte superior de la aplicación dice cuántos esperan. Vea [[working-without-signal|Trabajar sin señal]]."
+          },
+          {
+            "note": "Póngalo en **Desactivado** solo si un teléfono muestra pantallas desactualizadas que no puede explicar. Desactivado vacía la caché del teléfono la próxima vez que se abre la aplicación; lo que ya está en cola se envía igual."
+          }
+        ]
+      },
+      {
+        "id": "labour-rate",
+        "heading": "Tarifa por hora facturada a los clientes",
+        "blocks": [
+          {
+            "p": "El precio de la línea **Mano de obra — 6,5 h × $85** que el editor de facturas ofrece cuando se abre desde un trabajo con fichajes. Es lo que usted **cobra**, no lo que paga: el salario de un miembro del equipo vive en su ficha de trabajador y nunca aparece en una factura."
+          },
+          {
+            "p": "Un servicio que usted tarifa por hora en **Servicios y precios** se ofrece como segunda opción en la misma línea, para que una empresa que factura la plomería a una tarifa y la carpintería a otra elija la correcta."
+          }
+        ]
+      },
+      {
+        "id": "performance-pay",
+        "heading": "Pago por desempeño",
+        "blocks": [
+          {
+            "p": "**Sin regla** es el valor por defecto, y significa exactamente eso: la hoja del día dice que no hay regla y la nómina no añade nada. Escriba una regla cuando haya decidido cuánto vale un buen día: un importe por objetivo cumplido, un importe cuando se cumplen todos, una parte de las ventas adicionales que la persona logró y, si lo desea, la puntuación de evaluación por debajo de la cual no se paga nada."
+          },
+          {
+            "steps": [
+              "Rellene los importes que quiere pagar. Deje en cero los que no quiere.",
+              "Pulse **Guardar regla**. Desde entonces, cuando un coordinador evalúa un día, la hoja calcula la bonificación y muestra el cálculo.",
+              "La bonificación llega a la siguiente nómina como línea de ingreso **Bonificación por desempeño**, que usted revisa antes de guardar la nómina."
+            ]
+          },
+          {
+            "warning": "Una regla se aplica a los días evaluados después de guardarla. Cambiarla más tarde no recalcula los días ya evaluados: lo que la persona vio en su hoja es lo que se le paga."
+          }
+        ]
+      }
+    ],
+    "faq": [
+      {
+        "q": "¿Funciona el modo sin conexión en la aplicación móvil?",
+        "a": "Sí: la aplicación móvil envuelve esta misma aplicación web, y la misma capa sin conexión funciona dentro sin cambios."
+      },
+      {
+        "q": "¿Puede un miembro del equipo fijar su propia tarifa o regla?",
+        "a": "No. La página es solo para propietarios y administradores, y el editor de facturas y las hojas solo leen lo que se fija aquí."
+      }
+    ],
+    "updated": "2026-09-21"
+  },
 };

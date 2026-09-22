@@ -3,8 +3,12 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Plus, X, Trash2, Search } from "lucide-react";
+import { Plus, X, Trash2, Search, Clock, WifiOff } from "lucide-react";
+import Link from "next/link";
 import { fetchJson } from "@/lib/fetchJson";
+import { showToast } from "@/lib/toast";
+import { useOffline } from "@/app/components/offline/OfflineShell";
+import { isNetworkFailure } from "@/lib/offline/queue";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useCustomFields, CustomFieldInputs } from "@/app/components/customFields/CustomFieldsBox";
 import { useBottomDock } from "@/app/hooks/useBottomDock";
@@ -26,6 +30,11 @@ export default function NewInvoicePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const preselectedClientId = searchParams.get("clientId");
+  // Opened from a job page: the invoice bills that job, and the job's
+  // clock-ins are offered as a labour line (GET /api/invoices/labour-line).
+  const jobId = searchParams.get("jobId");
+  const offline = useOffline();
+  const online = offline ? offline.online : true;
 
   const [clients, setClients] = useState([]);
   const [clientSearch, setClientSearch] = useState("");
@@ -64,6 +73,15 @@ export default function NewInvoicePage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  // The clocked-hours offer: what the server said can be billed on this job,
+  // and which rate the person picked. `labour` is the block the POST carries
+  // — ids and a rate key, never an amount (lib/invoices/labourLine.js). The
+  // line the editor SHOWS for it is a preview built from the server's own
+  // rate figure and is not posted.
+  const [labourOffer, setLabourOffer] = useState(null);
+  const [labourRateKey, setLabourRateKey] = useState("");
+  const [labour, setLabour] = useState(null);
+  const [labourDismissed, setLabourDismissed] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -77,6 +95,21 @@ export default function NewInvoicePage() {
         if (preselectedClientId) {
           const match = list.find((c) => c.id === preselectedClientId);
           if (match) setSelectedClient(match);
+        }
+        if (jobId) {
+          // Best effort: a job with no clock-ins, or a phone with no cached
+          // copy of this read, leaves the offer out rather than the page.
+          try {
+            const offer = await fetchJson(`/api/invoices/labour-line?jobId=${encodeURIComponent(jobId)}`);
+            setLabourOffer(offer);
+            if (offer?.rates?.length) setLabourRateKey(offer.rates[0].key);
+            if (!preselectedClientId && offer?.job?.clientId) {
+              const match = list.find((c) => c.id === offer.job.clientId);
+              if (match) setSelectedClient(match);
+            }
+          } catch {
+            setLabourOffer(null);
+          }
         }
         setCurrency(businessInfo?.currency || null);
         // The same shape the quote builder hands the resolver, so an invoice
@@ -108,7 +141,7 @@ export default function NewInvoicePage() {
         setLoading(false);
       }
     })();
-  }, [preselectedClientId]);
+  }, [preselectedClientId, jobId]);
 
   useEffect(() => {
     if (!taxConfig) return;
@@ -176,12 +209,55 @@ export default function NewInvoicePage() {
     setLineItems((prev) => prev.filter((_, i) => i !== index));
   }
 
-  const subtotal = lineItems.reduce(
-    (sum, item) => sum + Number(item.amount || 0),
-    0,
-  );
+  const labourRate = labourOffer?.rates?.find((r) => r.key === labourRateKey) || null;
+  // The preview line for the clocked hours: the server's hours × the
+  // server's rate. Shown so the total on screen is the total that will be
+  // saved; NOT posted — the route rebuilds it from the ids and the key.
+  const labourPreview =
+    labour && labourOffer && labourRate
+      ? {
+          description: `${t("app.invoiceNew.labourWord")} — ${labourOffer.hours} h × ${labourRate.rate}`,
+          quantity: labourOffer.hours,
+          rate: labourRate.rate,
+          amount: Math.round(labourOffer.hours * labourRate.rate * 100) / 100,
+        }
+      : null;
+
+  const subtotal =
+    lineItems.reduce((sum, item) => sum + Number(item.amount || 0), 0) + (labourPreview ? labourPreview.amount : 0);
   const tax = taxEnabled ? subtotal * (taxRate / 100) : 0;
   const total = subtotal + tax;
+
+  function addLabourLine() {
+    if (!labourOffer?.entries?.length || !labourRateKey) return;
+    setLabour({ timeEntryIds: labourOffer.entries.map((e) => e.id), rateKey: labourRateKey });
+  }
+
+  // ── No signal: keep it on the phone ───────────────────────────────────────
+  //
+  // The same body the online save posts, minus every money figure (the
+  // route derives them at replay — see lib/offline/queue.js invoiceBodyFrom),
+  // plus the keys of photos picked while offline. The queue replays it with
+  // the client-minted key; the server's ledger makes a second replay a no-op.
+  async function queueOffline(status) {
+    const photoKeys = clientPhotos.filter((p) => p.offlineKey).map((p) => p.offlineKey);
+    await offline.enqueue("invoice", {
+      clientId: selectedClient.id,
+      clientName: selectedClient.name,
+      jobId: jobId || null,
+      lineItems: lineItems.filter((li) => li.description.trim()),
+      labour,
+      taxEnabled,
+      notes,
+      dueDate: dueDate || null,
+      language,
+      send: status === "sent",
+      clientPhotos: clientPhotos.filter((p) => !p.offlineKey),
+      photoKeys,
+    });
+    showToast({ message: t(status === "sent" ? "app.invoiceNew.queuedToSend" : "app.invoiceNew.savedOnPhone"), tone: "success" });
+    router.push("/app/invoices");
+  }
 
   async function handleSave(status) {
     setError("");
@@ -202,11 +278,25 @@ export default function NewInvoicePage() {
     // try/finally so a rejected fetch (network drop) can't leave setSaving(true)
     // and both save buttons stuck disabled with no error shown.
     try {
-      const res = await fetch("/api/invoices", {
+      // Offline, or holding a photo that was picked offline and is still on
+      // the phone: the queue owns the whole save, so the upload and the
+      // invoice happen in order once there is signal.
+      if (offline && (!online || clientPhotos.some((p) => p.offlineKey))) {
+        await queueOffline(status);
+        return;
+      }
+      let res;
+      try {
+        res = await fetch("/api/invoices", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           clientId: selectedClient.id,
+          ...(jobId ? { jobId } : {}),
+          // Ids and a rate key. The route prices the line and re-derives the
+          // totals from the lines it ends up with; `taxRatePct` is the rate
+          // this screen showed, so the two agree on the percentage.
+          ...(labour ? { labour, taxRatePct: taxEnabled ? taxRate : 0 } : {}),
           lineItems,
           subtotal,
           tax,
@@ -225,6 +315,15 @@ export default function NewInvoicePage() {
           ...(costing ? { costing } : {}),
         }),
       });
+      } catch (err) {
+        // The signal dropped between the page opening and Save. Same answer
+        // as being offline from the start: keep it on the phone.
+        if (offline && isNetworkFailure(err)) {
+          await queueOffline(status);
+          return;
+        }
+        throw err;
+      }
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -294,9 +393,72 @@ export default function NewInvoicePage() {
       <div>
         <h1 className="text-2xl font-bold text-foreground">{t("app.invoices.new")}</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          {t("app.invoiceNew.subtitle")}
+          {labourOffer?.job?.title
+            ? t("app.invoiceNew.forJob", { job: labourOffer.job.title })
+            : t("app.invoiceNew.subtitle")}
+          {offline && !online ? ` ${t("app.invoiceNew.offlineSubtitle")}` : ""}
         </p>
       </div>
+
+      {/* The clocked-hours offer. Only with a job, and only while it still
+          has something to say: hours the server says can be billed, or the
+          reason none can (no rate set → the link to set one). Never a $0
+          line; "Not now" hides it for this invoice. */}
+      {labourOffer && !labourDismissed && !labour && (
+        <div className="rounded-xl border border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950/30 px-4 py-3 text-sm text-emerald-900 dark:text-emerald-100 space-y-2">
+          <div className="flex items-center gap-2 font-medium">
+            <Clock size={15} className="shrink-0" />
+            {labourOffer.entries?.length
+              ? t("app.invoiceNew.labourOffer", {
+                  who: (labourOffer.byWorker || []).map((w) => `${w.name} ${w.hours} h`).join(" · "),
+                })
+              : t("app.invoiceNew.labourNone")}
+          </div>
+          {labourOffer.skipped?.open > 0 && (
+            <p className="text-xs opacity-80">{t("app.invoiceNew.labourStillOpen", { count: labourOffer.skipped.open })}</p>
+          )}
+          {labourOffer.skipped?.billed > 0 && (
+            <p className="text-xs opacity-80">{t("app.invoiceNew.labourAlreadyBilled", { count: labourOffer.skipped.billed })}</p>
+          )}
+          {labourOffer.entries?.length > 0 && labourOffer.rates?.length === 0 && (
+            <p className="text-xs">
+              {t("app.invoiceNew.labourNoRate")}{" "}
+              <Link href="/app/settings/field-work" className="underline font-semibold">
+                {t("app.invoiceNew.labourSetRate")}
+              </Link>
+            </p>
+          )}
+          {labourOffer.entries?.length > 0 && labourOffer.rates?.length > 0 && (
+            <div className="flex items-center gap-2 flex-wrap">
+              {labourOffer.rates.length > 1 && (
+                <select
+                  value={labourRateKey}
+                  onChange={(e) => setLabourRateKey(e.target.value)}
+                  className="border border-border rounded-lg px-2 py-1.5 text-sm bg-background text-foreground"
+                >
+                  {labourOffer.rates.map((r) => (
+                    <option key={r.key} value={r.key}>
+                      {r.source === "company" ? t("app.invoiceNew.rateCompany") : r.label} · {formatAppMoney(r.rate, currency, language)}/h
+                    </option>
+                  ))}
+                </select>
+              )}
+              <button
+                type="button"
+                onClick={addLabourLine}
+                className="bg-inverted text-inverted-foreground px-3 py-1.5 rounded-full text-sm font-semibold"
+              >
+                {t("app.invoiceNew.labourAdd", {
+                  line: `${t("app.invoiceNew.labourWord")} — ${labourOffer.hours} h × ${labourRate ? formatAppMoney(labourRate.rate, currency, language) : ""}`,
+                })}
+              </button>
+              <button type="button" onClick={() => setLabourDismissed(true)} className="text-sm underline opacity-80">
+                {t("app.invoiceNew.labourNotNow")}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {error && (
         <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-sm rounded-lg px-4 py-3">
@@ -368,6 +530,20 @@ export default function NewInvoicePage() {
           <h2 className="font-semibold text-foreground">{t("app.invoiceNew.lineItems")}</h2>
         </div>
         <div className="space-y-2">
+          {labourPreview && (
+            <div className="rounded-lg border border-emerald-200 dark:border-emerald-900 bg-emerald-50/60 dark:bg-emerald-950/20 px-3 py-2 flex items-center justify-between gap-3 text-sm">
+              <div className="min-w-0">
+                <div className="font-medium text-foreground truncate">{labourPreview.description}</div>
+                <div className="text-xs text-muted-foreground">{t("app.invoiceNew.labourFromClock")}</div>
+              </div>
+              <div className="flex items-center gap-3 shrink-0">
+                <span className="font-medium tabular-nums">{formatAppMoney(labourPreview.amount, currency, language)}</span>
+                <button type="button" onClick={() => setLabour(null)} aria-label={t("app.invoiceNew.removeLine")} className="text-muted-foreground">
+                  <X size={14} />
+                </button>
+              </div>
+            </div>
+          )}
           {/* Desktop-only header row; mobile keeps the per-input inline labels below. */}
           <div className="hidden sm:grid sm:grid-cols-12 sm:gap-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
             <span className="sm:col-span-5">{t("app.invoiceNew.description")}</span>
@@ -489,6 +665,17 @@ export default function NewInvoicePage() {
           onChange={setClientPhotos}
           label={t("app.quoteNew.addPhotos")}
           hint={t("app.invoiceNew.addPhotosHint")}
+          // No signal: the file goes into the phone's queue and is uploaded
+          // before the invoice is posted. Only photos — a PDF plan can wait.
+          offlineCapture={
+            offline
+              ? async (file) => {
+                  if (!file.type?.startsWith("image/")) return null;
+                  const item = await offline.enqueue("photo", { blob: file, name: file.name, type: file.type });
+                  return { url: URL.createObjectURL(file), kind: "photo", offlineKey: item.key };
+                }
+              : null
+          }
         />
       </div>
 
@@ -562,6 +749,9 @@ export default function NewInvoicePage() {
               {taxAssumed}
             </p>
           )}
+          {offline && !online && (
+            <p className="text-xs text-muted-foreground leading-snug">{t("app.invoiceNew.offlineTaxNote")}</p>
+          )}
           <div className="flex justify-between font-semibold text-foreground text-base pt-1 border-t border-border mt-1">
             <span>{t("app.invoiceNew.total")}</span>
             <span>{formatAppMoney(total, currency, language)}</span>
@@ -576,22 +766,26 @@ export default function NewInvoicePage() {
           and pads <main> so the totals card is never under it. See
           app/globals.css "bottom dock". */}
       <div ref={dockRef} data-tour="invoice-save" className="fixed bottom-[var(--fq-tab-bar-height)] left-0 right-0 lg:left-60 bg-card border-t border-border px-6 py-4 flex gap-3 justify-end items-center">
-        <p className="text-xs text-muted-foreground mr-auto max-w-xs">
-          {t("app.invoiceNew.sendHelper", "Emails the invoice to the client’s email on file.")}
+        <p className="text-xs text-muted-foreground mr-auto max-w-xs hidden sm:block">
+          {offline && !online ? (
+            <span className="inline-flex items-center gap-1"><WifiOff size={12} /> {t("app.invoiceNew.offlineHelper")}</span>
+          ) : (
+            t("app.invoiceNew.sendHelper", "Emails the invoice to the client’s email on file.")
+          )}
         </p>
         <button
           onClick={() => handleSave("draft")}
           disabled={saving}
           className="border border-border px-5 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60"
         >
-          {t("app.invoiceNew.saveDraft")}
+          {offline && !online ? t("app.invoiceNew.saveOnPhone") : t("app.invoiceNew.saveDraft")}
         </button>
         <button
           onClick={() => handleSave("sent")}
           disabled={saving}
           className="bg-inverted text-inverted-foreground px-5 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60"
         >
-          {saving ? t("app.action.saving") : t("app.invoiceNew.saveSend")}
+          {saving ? t("app.action.saving") : offline && !online ? t("app.invoiceNew.queueToSend") : t("app.invoiceNew.saveSend")}
         </button>
       </div>
     </div>

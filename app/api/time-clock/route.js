@@ -43,6 +43,8 @@ import { entryHours, openBreak } from "@/lib/timeclock/entryHours";
 import { BREAK_KINDS } from "@/lib/shifts/coverage";
 import { recordActivity } from "@/lib/activity/log";
 import { canSelfEnrol } from "@/lib/timeclock/selfEnrol";
+import { readOfflineKey, recordOfflineRefusal } from "@/lib/offline/idempotency";
+import { punchMoment } from "@/lib/offline/punchMoment";
 
 // ── Every punch leaves a row in the activity trail ──────────────────────────
 //
@@ -286,6 +288,50 @@ export async function POST(request) {
   const body = await request.json().catch(() => ({}));
   const action = body?.action;
 
+  // ── A punch replayed from the phone's offline queue ─────────────────────
+  //
+  // Carries X-Offline-Key and `at`: the moment the person actually tapped,
+  // hours ago in a basement. `at` is honoured ONLY with a key (an online
+  // client cannot back-date a punch by adding a field), and only inside the
+  // window lib/offline/punchMoment.js allows. The ledger makes a second
+  // replay of the same key a no-op — see lib/offline/idempotency.js.
+  const offlineKey = readOfflineKey(request);
+  if (offlineKey) {
+    const seen = await db.offlineSyncItem.findUnique({
+      where: { companyId_clientKey: { companyId: member.companyId, clientKey: offlineKey } },
+      select: { entityId: true, status: true, error: true },
+    });
+    if (seen?.status === "failed") {
+      return NextResponse.json({ error: seen.error || "This punch was refused earlier." }, { status: 409 });
+    }
+    if (seen) {
+      const entry = seen.entityId
+        ? await db.timeEntry.findFirst({ where: { id: seen.entityId, workerId: worker.id }, select: OPEN_SELECT })
+        : null;
+      return NextResponse.json({ ok: true, replayed: true, open: entry, entry });
+    }
+  }
+  const moment = punchMoment({ at: body?.at, offlineKey, now: new Date() });
+  if (moment.error) {
+    await recordOfflineRefusal({ db, companyId: member.companyId, memberId: member.id, key: offlineKey, kind: "timesheet", error: moment.error });
+    return NextResponse.json({ error: moment.error }, { status: 400 });
+  }
+  const now = moment.at;
+  const refuse = async (error, status) => {
+    await recordOfflineRefusal({ db, companyId: member.companyId, memberId: member.id, key: offlineKey, kind: "timesheet", error });
+    return NextResponse.json({ error }, { status });
+  };
+  const ledger = async (entryId) => {
+    if (!offlineKey) return;
+    try {
+      await db.offlineSyncItem.create({
+        data: { companyId: member.companyId, memberId: member.id, clientKey: offlineKey, kind: "timesheet", entityId: entryId || null, status: "synced" },
+      });
+    } catch {
+      /* a racing replay already wrote it; the entry it points at is this one or its twin */
+    }
+  };
+
   const open = await db.timeEntry.findFirst({
     where: { workerId: worker.id, clockOut: null },
     orderBy: { clockIn: "desc" },
@@ -331,12 +377,12 @@ export async function POST(request) {
   if (action === "in") {
     // One open entry at a time — the same guard the manual API enforces.
     if (open) {
-      return NextResponse.json({ error: "You're already clocked in — clock out first." }, { status: 409 });
+      return refuse("You're already clocked in — clock out first.", 409);
     }
     const full = await loadEnforceableMember(db, member.id);
     const resolved = await resolveJobId(body?.jobId, member, full);
     if (resolved.error) {
-      return NextResponse.json({ error: resolved.error }, { status: resolved.status });
+      return refuse(resolved.error, resolved.status);
     }
     const step = await resolveTaskId(body?.taskId, resolved.jobId);
     if (step.error) {
@@ -345,7 +391,7 @@ export async function POST(request) {
     const entry = await db.timeEntry.create({
       data: {
         workerId: worker.id,
-        clockIn: new Date(),
+        clockIn: now,
         status: "pending",
         // Explicitly null rather than omitted when there is no job: the column
         // is nullable on purpose and "this hour belongs to no job" is a
@@ -366,15 +412,22 @@ export async function POST(request) {
       timeEntryId: entry.id,
       jobId: entry.jobId,
     });
+    await ledger(entry.id);
     await logPunch(member, "in", { worker, entry, job: entry.job });
     return NextResponse.json({ ok: true, open: entry });
   }
 
   if (action === "out") {
     if (!open) {
-      return NextResponse.json({ error: "You're not clocked in." }, { status: 409 });
+      return refuse("You're not clocked in.", 409);
     }
-    const clockOut = new Date();
+    const clockOut = now;
+    // A replayed "out" from before the open entry's "in" is a queue out of
+    // order (the phone replays in tap order, so this means an edit in
+    // between). Refused with the reason rather than booked as negative hours.
+    if (clockOut.getTime() <= new Date(open.clockIn).getTime()) {
+      return refuse("That clock-out is earlier than the clock-in it closes.", 409);
+    }
     // A break still running is closed at the same instant — a lunch that
     // never ended would otherwise eat every hour after it. Then the same
     // arithmetic the manual clock-out uses (lib/timeclock/entryHours.js), so
@@ -406,6 +459,7 @@ export async function POST(request) {
       timeEntryId: entry.id,
       jobId: entry.jobId,
     });
+    await ledger(entry.id);
     await logPunch(member, "out", { worker, entry, job: open.job, hours });
     return NextResponse.json({ ok: true, entry });
   }
@@ -444,8 +498,11 @@ export async function POST(request) {
       );
     }
 
-    const at = new Date();
+    const at = now;
     const elapsedMs = at.getTime() - new Date(open.clockIn).getTime();
+    if (elapsedMs < 0) {
+      return refuse("That switch is earlier than the clock-in it follows.", 409);
+    }
 
     if (elapsedMs < MISTAP_WINDOW_MS) {
       const entry = await db.timeEntry.update({
@@ -453,6 +510,7 @@ export async function POST(request) {
         data: { jobId: resolved.jobId, taskId: step.taskId },
         select: OPEN_SELECT,
       });
+      await ledger(entry.id);
       await logPunch(member, "switch", { worker, entry, job: entry.job });
       return NextResponse.json({ ok: true, open: entry, corrected: true });
     }
@@ -514,6 +572,7 @@ export async function POST(request) {
         jobId: entry.jobId,
       });
     }
+    await ledger(entry.id);
     await logPunch(member, "switch", { worker, entry, job: entry.job, hours });
     return NextResponse.json({ ok: true, open: entry, closedHours: hours });
   }

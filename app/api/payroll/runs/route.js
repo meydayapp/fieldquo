@@ -214,6 +214,17 @@ export async function POST(request) {
     select: { id: true, periodStart: true, periodEnd: true, status: true },
   });
 
+  // The daily-sheet bonuses this run carries are now spoken for. Stamped
+  // after the run exists so a failed create leaves them free; a failed stamp
+  // is logged, not fatal — the run is real, and the next run's preview will
+  // show the bonus again, which a person will notice.
+  const bonusSheetIds = computed.meta?.bonusSheetIds || [];
+  if (bonusSheetIds.length) {
+    await db.dailyObjectiveSheet
+      .updateMany({ where: { id: { in: bonusSheetIds }, companyId: member.companyId, payRunId: null }, data: { payRunId: run.id } })
+      .catch((err) => console.error("[payroll] could not stamp bonus sheets:", err?.message));
+  }
+
   // Hours the worker approved for themselves, carried into the audit trail.
   //
   // The marker existed only on the Timesheets screen and in the timeEntry

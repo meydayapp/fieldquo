@@ -191,6 +191,11 @@ export const NAV_GROUPS = [
       { key: "app.nav.teamSchedule", href: "/app/schedule", icon: Calendar, helpArticle: "team-schedule" },
       { key: "app.nav.clock", href: "/app/clock", icon: Clock, helpArticle: "clock" },
       { key: "app.nav.timesheets", href: "/app/settings/team/timesheets", icon: Clock, helpArticle: "timesheets" },
+      // The crew member's day: objectives, before/after, the coordinator's
+      // evaluation. Every role — the route narrows a crew member to their
+      // own sheet (lib/dailySheets/access.js), so there is no level at which
+      // the row shows nothing.
+      { key: "app.nav.dailySheets", href: "/app/daily-sheets", icon: ClipboardList, helpArticle: "daily-sheets" },
       // Top-level, not buried in settings: everyone uses it, not just admins.
       { key: "app.nav.timeOff", href: "/app/time-off", icon: CalendarClock, helpArticle: "time-off" },
       // Same shelf as the rest of the crew's own records — a near-miss is

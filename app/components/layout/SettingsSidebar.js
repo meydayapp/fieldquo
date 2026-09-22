@@ -39,6 +39,7 @@ import {
   CreditCard,
   Receipt,
   Wallet,
+  Smartphone,
   Gift,
   Megaphone,
   Link2,
@@ -124,6 +125,10 @@ export const GROUPS = [
       { key: "app.settings.policies", href: "/app/settings/policies", icon: ScrollText, helpArticle: "settings-policies" },
       { key: "app.settings.bookingPage", href: "/app/settings/booking-page", icon: CalendarDays, helpArticle: "settings-booking-page" },
       { key: "app.settings.workAreas", href: "/app/settings/work-areas", icon: Map, helpArticle: "settings-work-areas" },
+      // Offline mode, the hourly rate billed for clocked hours, performance
+      // pay — the switches behind the crew's phone screens. Beside Work
+      // Areas because all of it is about people in the field.
+      { key: "app.settings.fieldWork", href: "/app/settings/field-work", icon: Smartphone, helpArticle: "settings-field-work" },
     ],
   },
   {

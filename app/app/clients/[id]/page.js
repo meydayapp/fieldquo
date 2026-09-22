@@ -214,6 +214,14 @@ export default function ClientDetailPage() {
             >
               {isCompany ? t("app.clientNew.company") : t("app.clientNew.homeowner")}
             </span>
+            {/* Set by a callback outcome (lib/callbacks/outcomes.js). Read
+                here and by the rotation builder; nothing clears it but a
+                person editing the record. */}
+            {client.doNotContactAt && (
+              <span className="inline-block mt-1 ml-2 text-xs px-2 py-0.5 rounded-full bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300" title={client.doNotContactReason || ""}>
+                {t("app.callbacks.dncBadge")}
+              </span>
+            )}
           </div>
           {canEditClient && (
             <button

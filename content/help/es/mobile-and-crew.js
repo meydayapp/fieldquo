@@ -1173,4 +1173,63 @@ export const ARTICLES = {
       { q: "¿Y las horas de trabajo en Configuración → Disponibilidad?", a: "Esa pantalla también guarda tu patrón habitual (Horas de trabajo), sobre el que el horario solo avisa. La solicitud aquí cambia la mitad de disponibilidad — la que rechaza un turno." },
     ],
   },
+  "working-without-signal": {
+    "title": "Trabajar sin señal: facturas y fichajes que esperan a sincronizarse",
+    "summary": "Lo que hace la aplicación en un sótano: las pantallas de campo se abren desde el teléfono, una factura o un fichaje que usted hace se guarda en el teléfono, y todo se envía — en orden, una sola vez — cuando vuelve la señal.",
+    "intro": [
+      "Un teléfono pierde la señal exactamente donde se hace el trabajo. Con el **modo sin conexión** activado (el valor por defecto, en Ajustes → Trabajo de campo), el editor de facturas, las páginas de trabajo, el reloj de fichaje, las hojas de horas y las hojas del día se abren desde una copia en el teléfono, con los últimos clientes, datos de la empresa y fichajes que cada una cargó.",
+      "Todo lo que usted *escribe* sin señal se pone en cola en el teléfono, ni se pierde ni se finge enviado. La barra ámbar de arriba dice **Sin conexión — 2 facturas y 3 fichajes esperando a sincronizarse**, y **Detalles** los enumera."
+    ],
+    "sections": [
+      {
+        "id": "an-invoice-without-signal",
+        "heading": "Una factura sin señal",
+        "blocks": [
+          {
+            "p": "Abra **Nueva factura** desde el trabajo. El cliente y el trabajo ya están rellenados; si el equipo fichó en el trabajo, el recuadro verde ofrece **Mano de obra — 6,5 h × $85** a partir de esos fichajes. Añada sus líneas y fotos como siempre. Los botones dicen **Guardar en el teléfono** y **Poner en cola para enviar**: el primero guarda un borrador, el segundo lo envía por correo en cuanto el teléfono vuelve a tener conexión."
+          },
+          {
+            "note": "El impuesto se añade al sincronizar: la tasa viene de sus ajustes, no del teléfono. El número de factura lo asigna el servidor en ese mismo momento, así que dos teléfonos nunca pueden dar el mismo número."
+          }
+        ]
+      },
+      {
+        "id": "a-punch-without-signal",
+        "heading": "Un fichaje de entrada o salida sin señal",
+        "blocks": [
+          {
+            "p": "Pulse **Fichar entrada** o **Fichar salida** como siempre. El reloj muestra el fichaje con **esperando a sincronizarse** junto a la hora, y se registra en el momento en que usted pulsó, no en el momento en que el teléfono se reconectó. Los descansos esperan hasta que el fichaje se haya sincronizado."
+          }
+        ]
+      },
+      {
+        "id": "what-happens-when-the-signal-returns",
+        "heading": "Qué pasa cuando vuelve la señal",
+        "blocks": [
+          {
+            "bullets": [
+              "**Primero los fichajes**, en el orden en que se hicieron, luego las fotos, luego las facturas, para que las fotos de una factura existan antes que la factura que las lleva.",
+              "**Una sola vez.** Cada elemento en cola tiene su propia clave; si el teléfono lo envía dos veces (una respuesta perdida, dos pestañas), el servidor responde con la primera copia y no crea nada nuevo.",
+              "**Sincronizado ✓** aparece cuando termina, con un enlace a la factura. **Necesita atención** aparece si el servidor rechazó algo — el cliente fue eliminado, una salida llegó antes que su entrada — con el motivo y un botón **Reintentar**.",
+              "Con la aplicación cerrada, la cola se envía en la siguiente apertura. Los teléfonos que lo permiten también despiertan la aplicación cuando vuelve la señal."
+            ]
+          },
+          {
+            "warning": "Un elemento en cola permanece en el teléfono hasta que se sincroniza. No borre los datos del sitio en el navegador mientras la barra muestre elementos en espera: es la única copia."
+          }
+        ]
+      }
+    ],
+    "faq": [
+      {
+        "q": "¿Por qué la oferta dice que un fichaje sigue abierto?",
+        "a": "Una hora todavía en curso no tiene total, así que no se puede facturar. Fiche la salida primero, o factúrela en la siguiente factura."
+      },
+      {
+        "q": "¿Y si no hay tarifa por hora?",
+        "a": "El recuadro ofrece un enlace a Ajustes → Trabajo de campo en lugar de un precio. Nada se factura a una tarifa que nadie eligió."
+      }
+    ],
+    "updated": "2026-09-21"
+  },
 };

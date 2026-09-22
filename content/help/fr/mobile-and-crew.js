@@ -1173,4 +1173,63 @@ export const ARTICLES = {
       { q: "Et les heures de travail dans Paramètres → Disponibilités ?", a: "Cet écran contient aussi votre horaire habituel (Heures de travail), pour lequel l'horaire ne fait qu'avertir. La demande ici change la moitié disponibilités — celle qui refuse un quart." },
     ],
   },
+  "working-without-signal": {
+    "title": "Travailler sans réseau : factures et pointages qui attendent la synchronisation",
+    "summary": "Ce que fait l'application dans un sous-sol : les écrans de terrain s'ouvrent depuis le téléphone, une facture ou un pointage que vous faites est gardé sur le téléphone, et tout est envoyé — dans l'ordre, une seule fois — au retour du réseau.",
+    "intro": [
+      "Un téléphone perd le réseau exactement là où le travail se fait. Avec le **mode hors ligne** activé (le défaut, dans Réglages → Terrain), l'éditeur de facture, les pages de chantier, l'horloge de pointage, les feuilles de temps et les feuilles de journée s'ouvrent depuis une copie sur le téléphone, avec les derniers clients, coordonnées de l'entreprise et pointages que chacun a chargés.",
+      "Tout ce que vous *écrivez* sans réseau est mis en file sur le téléphone, ni perdu ni prétendu envoyé. La barre ambre en haut dit **Hors ligne — 2 factures et 3 pointages en attente de synchronisation**, et **Détails** les liste."
+    ],
+    "sections": [
+      {
+        "id": "an-invoice-without-signal",
+        "heading": "Une facture sans réseau",
+        "blocks": [
+          {
+            "p": "Ouvrez **Nouvelle facture** depuis le chantier. Le client et le chantier sont remplis ; si l'équipe a pointé sur le chantier, l'encadré vert propose **Main-d'œuvre — 6,5 h × 85 $** à partir de ces pointages. Ajoutez vos lignes et vos photos comme d'habitude. Les boutons disent **Enregistrer sur le téléphone** et **Mettre en file pour envoi** : le premier garde un brouillon, le second l'envoie par courriel dès que le téléphone retrouve le réseau."
+          },
+          {
+            "note": "La taxe est ajoutée à la synchronisation — le taux vient de vos réglages, pas du téléphone. Le numéro de facture est attribué par le serveur au même moment, pour que deux téléphones ne donnent jamais le même numéro."
+          }
+        ]
+      },
+      {
+        "id": "a-punch-without-signal",
+        "heading": "Un pointage d'entrée ou de sortie sans réseau",
+        "blocks": [
+          {
+            "p": "Appuyez sur **Pointer l'entrée** ou **Pointer la sortie** comme d'habitude. L'horloge montre le pointage avec **en attente de synchronisation** à côté de l'heure, et il est enregistré au moment où vous avez appuyé, pas au moment où le téléphone s'est reconnecté. Les pauses attendent que le pointage soit synchronisé."
+          }
+        ]
+      },
+      {
+        "id": "what-happens-when-the-signal-returns",
+        "heading": "Ce qui se passe au retour du réseau",
+        "blocks": [
+          {
+            "bullets": [
+              "**Les pointages d'abord**, dans l'ordre où ils ont été faits, puis les photos, puis les factures — pour que les photos d'une facture existent avant la facture qui les porte.",
+              "**Une seule fois.** Chaque élément en file a sa propre clé ; si le téléphone l'envoie deux fois (réponse perdue, deux onglets), le serveur répond avec la première copie et ne crée rien de nouveau.",
+              "**Synchronisé ✓** apparaît quand c'est fait, avec un lien vers la facture. **À vérifier** apparaît si le serveur a refusé quelque chose — le client a été retiré, une sortie est arrivée avant son entrée — avec la raison et un bouton **Réessayer**.",
+              "Application fermée, la file part à la prochaine ouverture. Les téléphones qui le permettent réveillent aussi l'application au retour du réseau."
+            ]
+          },
+          {
+            "warning": "Un élément en file reste sur le téléphone jusqu'à sa synchronisation. N'effacez pas les données du site dans le navigateur pendant que la barre montre des éléments en attente — c'est la seule copie."
+          }
+        ]
+      }
+    ],
+    "faq": [
+      {
+        "q": "Pourquoi l'offre dit-elle qu'un pointage est encore ouvert ?",
+        "a": "Une heure encore en cours n'a pas de total, donc elle ne peut pas être facturée. Pointez la sortie d'abord, ou facturez-la sur la prochaine facture."
+      },
+      {
+        "q": "Et s'il n'y a pas de taux horaire ?",
+        "a": "L'encadré propose un lien vers Réglages → Terrain plutôt qu'un prix. Rien n'est facturé à un taux que personne n'a choisi."
+      }
+    ],
+    "updated": "2026-09-21"
+  },
 };

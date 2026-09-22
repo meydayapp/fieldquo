@@ -20,6 +20,8 @@
 // of control this codebase keeps being swept for.
 "use client";
 
+import Link from "next/link";
+
 import { useEffect, useState } from "react";
 import { Plus, Trash2, X, RotateCcw, ChevronDown, ChevronUp } from "lucide-react";
 import { TRIGGER_META } from "@/lib/followUps/triggers";
@@ -272,6 +274,15 @@ export default function FollowUpsPage() {
           <h1 className="text-2xl font-bold text-foreground">{t("app.settings.followUps")}</h1>
           <p className="text-sm text-muted-foreground mt-1">
             {t("app.setFollowUps.subtitle")}
+          </p>
+          {/* The rotation over the company's OWN past clients — a rule that
+              looks back through the client book rather than at an open quote.
+              Its own screen: app/app/settings/follow-ups/past-clients. */}
+          <p className="text-sm mt-2">
+            <Link href="/app/settings/follow-ups/past-clients" className="underline font-semibold text-foreground">
+              {t("app.callbacks.settingsTitle")}
+            </Link>{" "}
+            <span className="text-muted-foreground">— {t("app.callbacks.followUpsLinkHint")}</span>
           </p>
         </div>
         <button
