@@ -221,8 +221,11 @@ const OLD_SETTINGS = [
 // drawer is a second two-tap route to every rail row.
 const settingsOpenByDefault = settingsSrc.includes("const DEFAULT_OPEN = GROUPS.map((g) => g.key)") && settingsSrc.includes("defaultOpenKeys: DEFAULT_OPEN");
 const sheetHoldsRail = moreSrc.includes("PHONE_MENU_GROUPS") && moreSrc.includes("NAV_GROUPS.flatMap((g) => g.items)") && moreSrc.includes("!TAB_HREFS.has(i.href)");
-const sheetHoldsMore = moreSrc.includes("<MoreGrid onNavigate={onNavigate} columns={1} />");
-const sheetHoldsSettings = moreSrc.includes("useSettingsGroups()") && moreSrc.includes("settings.map((group) =>");
+// The sheet draws the mockup's rows (s3, 2026-09-22): one row per More
+// group and per settings group, every page of the group as a link in the
+// row's caption — so the tell is the group map plus the item links in it.
+const sheetHoldsMore = moreSrc.includes("const more = useNavGroups(MORE_GROUPS);") && moreSrc.includes("{more.map((group) => {") && /group\.items\.map\(\(item, i\) => \(\s*<span key=\{item\.href\}>[\s\S]*?<Link href=\{item\.href\}/.test(moreSrc);
+const sheetHoldsSettings = moreSrc.includes("useSettingsGroups()") && moreSrc.includes("{settings.map((group, i) => (") && /group\.items\.map\(\(item, j\) => \(\s*<span key=\{item\.href\}>[\s\S]*?<Link href=\{item\.href\}/.test(moreSrc);
 const sheetHoldsAccount = moreSrc.includes("<AccountMenu onNavigate={shell.close} tone=\"sheet\" />");
 ok("the settings list slides in with every group open on a first visit", settingsOpenByDefault);
 ok("the phone sheet holds the rail rows that are not tabs", sheetHoldsRail);

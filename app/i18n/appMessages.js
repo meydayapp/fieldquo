@@ -13530,6 +13530,7 @@ const en = {
   "app.paint.otherTrades": "Other trades",
   "app.paint.newPaintingQuote": "New painting quote",
   "app.paint.otherTradesHint": "Something else on this quote (a countertop, flooring)?",
+  "app.more.everythingElse": "Everything else",
 };
 
 // ── French ─────────────────────────────────────────────────────────────────
@@ -26566,6 +26567,7 @@ const fr = {
   "app.paint.otherTrades": "Autres métiers",
   "app.paint.newPaintingQuote": "Nouvelle soumission de peinture",
   "app.paint.otherTradesHint": "Autre chose sur cette soumission (un comptoir, un plancher) ?",
+  "app.more.everythingElse": "Tout le reste",
 };
 
 
@@ -39955,6 +39957,7 @@ const es = {
   "app.paint.otherTrades": "Otros oficios",
   "app.paint.newPaintingQuote": "Nuevo presupuesto de pintura",
   "app.paint.otherTradesHint": "¿Algo más en este presupuesto (una encimera, un piso)?",
+  "app.more.everythingElse": "Todo lo demás",
 };
 
 const uk = {
@@ -51171,6 +51174,7 @@ const uk = {
   "app.paint.otherTrades": "Інші напрямки",
   "app.paint.newPaintingQuote": "Новий кошторис на фарбування",
   "app.paint.otherTradesHint": "Щось іще в цьому кошторисі (стільниця, підлога)?",
+  "app.more.everythingElse": "Усе інше",
 };
 
 const pa = {
@@ -62319,6 +62323,7 @@ const pa = {
   "app.paint.otherTrades": "ਹੋਰ ਕਿੱਤੇ",
   "app.paint.newPaintingQuote": "ਨਵਾਂ ਪੇਂਟਿੰਗ ਕੋਟ",
   "app.paint.otherTradesHint": "ਇਸ ਕੋਟ 'ਤੇ ਕੁਝ ਹੋਰ (ਕਾਊਂਟਰਟੌਪ, ਫਲੋਰਿੰਗ)?",
+  "app.more.everythingElse": "ਬਾਕੀ ਸਭ ਕੁਝ",
 };
 
 const tl = {
@@ -73474,6 +73479,7 @@ const tl = {
   "app.paint.otherTrades": "Ibang trade",
   "app.paint.newPaintingQuote": "Bagong quote sa pagpipinta",
   "app.paint.otherTradesHint": "May iba pa sa quote na ito (countertop, sahig)?",
+  "app.more.everythingElse": "Lahat ng iba pa",
 };
 
 const de = {
@@ -86025,6 +86031,7 @@ const de = {
   "app.paint.otherTrades": "Andere Gewerke",
   "app.paint.newPaintingQuote": "Neues Malerangebot",
   "app.paint.otherTradesHint": "Noch etwas auf diesem Angebot (eine Arbeitsplatte, ein Boden)?",
+  "app.more.everythingElse": "Alles andere",
 };
 
 const zh = {
@@ -98569,6 +98576,7 @@ const zh = {
   "app.paint.otherTrades": "其他工种",
   "app.paint.newPaintingQuote": "新建油漆报价",
   "app.paint.otherTradesHint": "本报价还有别的项目（台面、地板）？",
+  "app.more.everythingElse": "其他",
 };
 
 const it = {
@@ -111415,6 +111423,7 @@ const it = {
   "app.paint.otherTrades": "Altri mestieri",
   "app.paint.newPaintingQuote": "Nuovo preventivo di tinteggiatura",
   "app.paint.otherTradesHint": "Qualcos'altro in questo preventivo (un piano, un pavimento)?",
+  "app.more.everythingElse": "Tutto il resto",
 };
 
 export const APP_MESSAGES = { en, fr, es, uk, pa, tl, de, zh, it };

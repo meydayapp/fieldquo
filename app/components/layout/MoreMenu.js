@@ -20,7 +20,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Search, X, FileText, Clock, Wallet, Users, LayoutGrid, Settings as SettingsIcon } from "lucide-react";
+import { Search, X, FileText, Clock, Wallet, Users, Settings as SettingsIcon } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { HOME_ITEM, NAV_GROUPS, MORE_GROUPS, useNavGroups } from "@/app/components/layout/AdminSidebar";
 import { TAB_ITEMS } from "@/app/components/layout/MobileTabBar";
@@ -133,33 +133,77 @@ function Tile({ group, meta = {}, onNavigate, compact = false }) {
  */
 function PhoneMenuTiles({ onNavigate }) {
   const { t } = useTranslation();
+  const pathname = usePathname();
   const menu = useNavGroups(PHONE_MENU_GROUPS);
+  const more = useNavGroups(MORE_GROUPS);
   const settings = useSettingsGroups();
+  // The mockup's sheet (s3 `.sheet .srow` / `.sg`): a 10px heading, then
+  // ROWS — the rail rows that are not tabs one per row, and each More group
+  // as one row whose caption lists its pages. Every page stays a tap away:
+  // the caption's words are the links, so two taps reach everything the
+  // desktop More page reaches (check-shell walks this).
+  const heading = (label) => (
+    <p className="px-1.5 pt-2.5 pb-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">{label}</p>
+  );
+  const rowCls = "flex items-center gap-2.5 px-1.5 py-2 border-b border-border text-[13px] text-foreground";
   return (
-    <>
+    <div data-phone-menu>
       {menu.map((group) => (
-        <Tile key={group.key} group={group} meta={{ icon: LayoutGrid }} onNavigate={onNavigate} />
-      ))}
-      <MoreGrid onNavigate={onNavigate} columns={1} />
-      {settings.length > 0 && (
-        <section className="rounded-xl border border-border bg-card p-3 space-y-3" aria-label={t("app.settings.title")}>
-          <Link
-            href="/app/settings"
-            onClick={onNavigate}
-            data-nav-row
-            className="flex items-center gap-3 px-1 text-sm font-semibold text-foreground"
-          >
-            <span className="w-9 h-9 rounded-lg bg-muted text-inverted flex items-center justify-center shrink-0">
-              <SettingsIcon size={18} />
-            </span>
-            {t("app.settings.title")}
-          </Link>
-          {settings.map((group) => (
-            <Tile key={group.key} group={group} onNavigate={onNavigate} compact />
-          ))}
+        <section key={group.key} aria-label={t(group.key)}>
+          {heading(t(group.key))}
+          {group.items.map((item) => {
+            const RowIcon = item.icon;
+            const active = isActive(pathname, item.href);
+            return (
+              <Link key={item.href} href={item.href} onClick={onNavigate} data-nav-row aria-current={active ? "page" : undefined} className={`${rowCls} ${active ? "font-semibold" : ""}`}>
+                <RowIcon size={16} className="shrink-0 text-muted-foreground" />
+                <span className="truncate">{t(item.key)}</span>
+              </Link>
+            );
+          })}
         </section>
-      )}
-    </>
+      ))}
+      {more.length > 0 && heading(t("app.more.everythingElse", "Everything else"))}
+      {more.map((group) => {
+        const meta = MORE_GROUP_META[group.key] || {};
+        const Icon = meta.icon || FileText;
+        return (
+          <div key={group.key} className={`${rowCls} items-start`} data-more-row>
+            <Icon size={16} className="shrink-0 mt-0.5 text-muted-foreground" />
+            <span className="shrink-0 font-medium">{t(group.key)}</span>
+            <span className="min-w-0 ml-auto text-right text-[11px] leading-5 text-muted-foreground">
+              {group.items.map((item, i) => (
+                <span key={item.href}>
+                  {i > 0 ? " · " : ""}
+                  <Link href={item.href} onClick={onNavigate} data-nav-row className="hover:text-foreground hover:underline underline-offset-2 inline-block min-h-[20px]">
+                    {t(item.key)}
+                  </Link>
+                </span>
+              ))}
+            </span>
+          </div>
+        );
+      })}
+      {settings.length > 0 && heading(t("app.settings.title"))}
+      {settings.map((group, i) => (
+        // One row per settings group, every page of it in the caption — a
+        // settings page stays two taps away on a phone (More, then the word).
+        <div key={group.key} className={`${rowCls} items-start ${i === settings.length - 1 ? "border-b-0" : ""}`} data-settings-row>
+          <SettingsIcon size={16} className="shrink-0 mt-0.5 text-muted-foreground" />
+          <span className="shrink-0 font-medium">{t(group.key)}</span>
+          <span className="min-w-0 ml-auto text-right text-[11px] leading-5 text-muted-foreground">
+            {group.items.map((item, j) => (
+              <span key={item.href}>
+                {j > 0 ? " · " : ""}
+                <Link href={item.href} onClick={onNavigate} data-nav-row className="hover:text-foreground hover:underline underline-offset-2 inline-block min-h-[20px]">
+                  {t(item.key)}
+                </Link>
+              </span>
+            ))}
+          </span>
+        </div>
+      ))}
+    </div>
   );
 }
 
