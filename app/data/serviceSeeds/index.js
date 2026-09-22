@@ -54,8 +54,44 @@
 //
 // docs/SERVICE-SEEDS.md has the industry → trade mapping and the counts.
 
+import { SEED as appliance_repair } from "./appliance_repair";
+import { SEED as carpentry } from "./carpentry";
+import { SEED as carpet_cleaning } from "./carpet_cleaning";
+import { SEED as electrical } from "./electrical";
+import { SEED as exterior_painting } from "./exterior_painting";
+import { SEED as flooring_install } from "./flooring_install";
+import { SEED as garage_door } from "./garage_door";
+import { SEED as general_contracting } from "./general_contracting";
+import { SEED as handyman } from "./handyman";
+import { SEED as hvac_install } from "./hvac_install";
+import { SEED as hvac_repair } from "./hvac_repair";
+import { SEED as interior_painting } from "./interior_painting";
+import { SEED as lawn_care } from "./lawn_care";
+import { SEED as plumbing } from "./plumbing";
+import { SEED as residential_cleaning } from "./residential_cleaning";
+import { SEED as roofing_service } from "./roofing_service";
 import { SEED as snow_removal } from "./snow_removal";
+import { SEED as tree_care_service } from "./tree_care_service";
+import { SEED as window_cleaning } from "./window_cleaning";
 
 export const SERVICE_SEEDS = {
+  appliance_repair,
+  carpentry,
+  carpet_cleaning,
+  electrical,
+  exterior_painting,
+  flooring_install,
+  garage_door,
+  general_contracting,
+  handyman,
+  hvac_install,
+  hvac_repair,
+  interior_painting,
+  lawn_care,
+  plumbing,
+  residential_cleaning,
+  roofing_service,
   snow_removal,
+  tree_care_service,
+  window_cleaning,
 };

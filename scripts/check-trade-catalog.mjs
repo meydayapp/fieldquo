@@ -115,8 +115,17 @@ const missingFromBefore = beforeKeys.filter((k) => !afterKeys.includes(k));
 ok("every seeded key from before the refactor still exists",
   missingFromBefore.length === 0, missingFromBefore);
 const addedSinceBefore = afterKeys.filter((k) => !beforeKeys.includes(k));
-ok("kitchen_design is the only trade added since, and it's a deliberate one",
-  JSON.stringify(addedSinceBefore) === JSON.stringify(["kitchen_design"]),
+// kitchen_design (2026-08-30) and the sixteen trades the service-seed work
+// added on 2026-09-21 (docs/SERVICE-SEEDS.md lists each with its source
+// industry). Asserted by name so a stray key is still caught.
+const DELIBERATE_ADDITIONS = [
+  "air_duct_cleaning", "baby_proofing", "caulking_sealants", "deck_patio", "doors_windows",
+  "furniture_upholstery", "glass", "home_organization", "kitchen_design", "lighting",
+  "marine_services", "moving", "security_systems", "sewer_septic", "smart_home",
+  "solar_energy", "wildlife_control",
+];
+ok("only the deliberate trades were added since",
+  JSON.stringify(addedSinceBefore) === JSON.stringify(DELIBERATE_ADDITIONS),
   addedSinceBefore);
 
 // The label/icon/sortOrder checks below only make sense for keys BEFORE
@@ -149,22 +158,40 @@ ok("and the collision they were in is gone",
 // The seeder writes ONLY these four fields. `industries` and `instantTrade` are
 // code facts about a trade; a column holding a copy of one is the "written and
 // never read" failure, and worse, it would go stale on the next deploy.
+// …plus `labelTranslations`, and only on the 2026-09-21 trades, which arrive
+// with names in nine languages. The seeders pass the row to `create` and a
+// fixed four-field object to `update`, so a translation column is written
+// once and never overwritten — check-service-seeds asserts the seeder source.
 const seeded = seedRows();
-ok("the seeder writes key/label/icon/sortOrder and nothing else",
-  seeded.every((r) => JSON.stringify(Object.keys(r).sort()) === '["icon","key","label","sortOrder"]'),
-  seeded.find((r) => Object.keys(r).length !== 4));
+const FOUR = '["icon","key","label","sortOrder"]';
+const FIVE = '["icon","key","label","labelTranslations","sortOrder"]';
+ok("the seeder writes key/label/icon/sortOrder, plus labelTranslations only where the catalogue declares one",
+  seeded.every((r) => {
+    const keys = JSON.stringify(Object.keys(r).sort());
+    return TRADE_CATALOG[r.key].labelTranslations ? keys === FIVE : keys === FOUR;
+  }),
+  seeded.find((r) => ![FOUR, FIVE].includes(JSON.stringify(Object.keys(r).sort()))));
+ok("every declared labelTranslations carries the eight non-English app languages",
+  seeded.filter((r) => r.labelTranslations).every((r) =>
+    ["fr", "es", "uk", "pa", "tl", "de", "zh", "it"].every((l) => typeof r.labelTranslations[l] === "string" && r.labelTranslations[l].trim())),
+  seeded.filter((r) => r.labelTranslations).map((r) => [r.key, Object.keys(r.labelTranslations)]));
 
 /* ══ 2. Industry presets resolve exactly as they did ════════════════════════ */
 
 section("Every industry still offers the same trades");
 
+// The 2026-09-21 trades joined the presets they belong to (lib/trades/
+// catalog.js says which and why). A preset may GAIN one of those; it may never
+// lose a trade or gain anything else.
+const NEW_TRADES = new Set(DELIBERATE_ADDITIONS);
 for (const { slug } of INDUSTRIES) {
   const before = [...(BEFORE.industryCategoryKeys[slug] || [])].sort();
   const after = [...categoryKeysForIndustries([slug])].sort();
-  ok(`${slug}: ${before.length} trades, unchanged`,
-    JSON.stringify(before) === JSON.stringify(after),
-    { dropped: before.filter((k) => !after.includes(k)),
-      gained: after.filter((k) => !before.includes(k)) });
+  const dropped = before.filter((k) => !after.includes(k));
+  const gained = after.filter((k) => !before.includes(k));
+  ok(`${slug}: ${before.length} trades kept${gained.length ? `, +${gained.length} seed-work trade(s)` : ""}`,
+    dropped.length === 0 && gained.every((k) => NEW_TRADES.has(k)),
+    { dropped, gained });
 }
 
 ok("INDUSTRY_CATEGORY_KEYS still covers every industry slug",
@@ -558,7 +585,11 @@ console.log(`      ${noIndustry.join(", ")}`);
 // both and presumed onto neither, same reasoning as the two fence entries
 // already in this list. A DIFFERENT new member showing up here is still the
 // thing this count exists to catch.
-ok("that list has not grown beyond the one deliberate addition", noIndustry.length === 13, noIndustry);
+// 18 = 13 + the five 2026-09-21 trades that no marketing industry sells
+// (moving, wildlife control, furniture & upholstery, marine, home
+// organisation) — reachable via "show other trades" until the owner assigns
+// a preset. A DIFFERENT new member is still what this count exists to catch.
+ok("that list has not grown beyond the deliberate additions", noIndustry.length === 18, noIndustry);
 
 const instantNoIndustry = noIndustry.filter((k) => instantTradeForCategory(k));
 console.log(`  · of those, ${instantNoIndustry.length} have a wired instant estimator — offered to every company on one screen, surfaced by no industry on the other:`);

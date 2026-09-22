@@ -37,6 +37,7 @@ import PrepGuideEditor from "./PrepGuideEditor";
 import PrepGuideCompanyCard from "./PrepGuideCompanyCard";
 import TextBlockLibraryCard from "./TextBlockLibraryCard";
 import ServiceDocuments from "./ServiceDocuments";
+import ServiceSeedsCard from "./ServiceSeedsCard";
 import { usePermissions } from "@/app/providers/PermissionProvider";
 import { hasLevel } from "@/lib/permissions/enforce";
 import BackToHome from "@/app/components/BackToHome";
@@ -95,6 +96,34 @@ export default function ServicesEditor({ compact = false, focus = "services", on
   // business-info rather than folded into the service-categories response,
   // whose plain-array shape several other pages already depend on.
   const [industries, setIndustries] = useState([]);
+  // The company's billing currency — what its price boxes are in, and what the
+  // benchmark range beside them is converted into. Read off business-info with
+  // the industries; CAD until it answers, the schema default.
+  const [currency, setCurrency] = useState("CAD");
+  // The company's Products, for the seeded-services card under each trade.
+  // Loaded once for the page, filtered per card by seed-key prefix. A refusal
+  // (a member who may not see money) is kept as a sentence, not an empty list.
+  const [products, setProducts] = useState([]);
+  const [productsError, setProductsError] = useState("");
+  const loadProducts = async () => {
+    try {
+      const res = await fetch("/api/products");
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setProductsError(data?.error || t("app.access.pricingHidden"));
+        setProducts([]);
+        return;
+      }
+      setProducts(Array.isArray(data) ? data : []);
+      setProductsError("");
+    } catch {
+      setProductsError(t("app.load.network"));
+    }
+  };
+  useEffect(() => {
+    loadProducts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // { [instantTrade]: { enabled, ok } } — null until the instant-quote endpoint
   // answers, so "no badge yet" is distinguishable from "no instant quote".
   const [instantByTrade, setInstantByTrade] = useState(null);
@@ -200,6 +229,7 @@ export default function ServicesEditor({ compact = false, focus = "services", on
         if (!res.ok) return;
         const data = await res.json();
         setIndustries(Array.isArray(data?.industries) ? data.industries : []);
+        if (typeof data?.currency === "string" && data.currency) setCurrency(data.currency);
       } catch {
         // Ignore — the list simply shows all trades when we don't know the
         // company's industry.
@@ -757,6 +787,20 @@ export default function ServicesEditor({ compact = false, focus = "services", on
                   overrides={c.rateOverrides}
                   onChange={(next) => update(c.id, { rateOverrides: next })}
                   defaultOpen={compact && focus === "pricing"}
+                />
+              )}
+
+              {/* The trade's seeded services with the benchmark range beside
+                  the company's own price — see ServiceSeedsCard. Hidden with
+                  the rates: it is prices. */}
+              {showRates && c.enabled && !c.pricingHidden && (
+                <ServiceSeedsCard
+                  category={c}
+                  currency={currency}
+                  canEdit={["owner", "admin"].includes(caller?.role)}
+                  products={products}
+                  productsError={productsError}
+                  onProductsChange={loadProducts}
                 />
               )}
 

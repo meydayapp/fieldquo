@@ -27,6 +27,8 @@ import { reportResponseError } from "@/lib/clientErrors";
 import Link from "next/link";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import BackToHome from "@/app/components/BackToHome";
+import BenchmarkRange from "@/app/components/pricing/BenchmarkRange";
+import { benchmarkForSeedKey } from "@/lib/services/seeds";
 
 const inputClass =
   "w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
@@ -76,6 +78,22 @@ export default function ProductCatalogue({ compact = false, onChanged } = {}) {
   const fileInputRef = useRef(null);
 
   const [loadError, setLoadError] = useState("");
+  // The billing currency, for the benchmark range in the price editor: the
+  // range is USD quartiles and must be shown in the currency the price box is
+  // in. CAD (the schema default) until business-info answers.
+  const [currency, setCurrency] = useState("CAD");
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/settings/business-info");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (typeof data?.currency === "string" && data.currency) setCurrency(data.currency);
+      } catch {
+        /* the range renders in CAD; the price box is unaffected */
+      }
+    })();
+  }, []);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -633,6 +651,18 @@ export default function ProductCatalogue({ compact = false, onChanged } = {}) {
                     }
                     className={inputClass}
                   />
+                  {/* The benchmark range for a seeded service, beside the
+                      price it is a guideline for. Only a row created from a
+                      trade seed has a seedKey; a product the company added
+                      itself shows nothing here rather than a made-up band. */}
+                  {editing?.seedKey && (
+                    <BenchmarkRange
+                      benchmark={benchmarkForSeedKey(editing.seedKey)}
+                      currency={currency}
+                      price={form.unitPrice ? Number(form.unitPrice) : null}
+                      onUse={(v) => setForm((f) => ({ ...f, unitPrice: String(v) }))}
+                    />
+                  )}
                 </div>
                 <div>
                   <label className="text-xs text-muted-foreground block mb-1">
