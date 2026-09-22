@@ -117,6 +117,7 @@ import { fetchJson } from "@/lib/fetchJson";
 import { jsonBody } from "@/lib/jsonBody";
 import { taxStatement } from "@/lib/tax/documentTax";
 import { documentTaxSentence } from "@/lib/tax/documentSentence";
+import { taxLineHeadline, taxLineSource } from "@/lib/tax/taxLine";
 import TaxUnresolvedModal from "@/app/components/tax/TaxUnresolvedModal";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { formatDuration } from "@/lib/i18n/duration";
@@ -222,10 +223,24 @@ export default function QuoteDetailPage() {
     company,
     taxRates: company?.taxRates,
     client: quote?.client,
+    siteAddress: quote?.siteAddress || null,
+    taxableBase: Number(quote?.subtotal ?? 0) - Number(quote?.discount ?? 0),
     asOf: quote?.createdAt ? new Date(quote.createdAt) : undefined,
     lang: language,
   });
   const taxSentence = taxLine.kind === "off" ? "" : documentTaxSentence(quote?.taxResolution, language);
+  // "HST 13% (Ontario) · from the job address" — the office copy explains
+  // the rate from the record the document was written with, and from the
+  // live resolution only for a document that never recorded one
+  // (lib/tax/taxLine.js).
+  const taxWords = (() => {
+    if (taxLine.kind !== "charged") return null;
+    const basis = taxLine.stored || taxLine.resolution;
+    const headline = taxLineHeadline(basis, language);
+    if (!headline) return null;
+    const source = taxLine.stored ? taxLineSource(taxLine.stored) : null;
+    return { headline: t(headline.key, headline.params), source: source ? t(source.key, source.params) : "" };
+  })();
   const [loading, setLoading] = useState(true);
   const [showDelete, setShowDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -2187,6 +2202,12 @@ export default function QuoteDetailPage() {
             />
             {/* The US sentence the client's copy carries, from the stored
                 record (lib/tax/documentSentence.js). */}
+            {taxWords && (
+              <p className="text-xs text-muted-foreground -mt-1 mb-1" data-tax-words>
+                {taxWords.headline}
+                {taxWords.source ? ` · ${taxWords.source}` : ""}
+              </p>
+            )}
             {taxSentence && (
               <p className="text-xs text-muted-foreground -mt-1 mb-1">{taxSentence}</p>
             )}

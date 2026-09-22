@@ -1,7 +1,7 @@
 // app/components/layout/AdminSidebar.js
 "use client";
 
-import { useState, useEffect, useMemo, useRef, createElement } from "react";
+import { useState, useEffect, useMemo, createElement } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -15,7 +15,6 @@ import {
   MessageSquare,
   MessageCircle,
   Home,
-  Plus,
   Filter,
   Calendar,
   Users,
@@ -35,6 +34,7 @@ import {
   Gift,
   Handshake,
   Sparkles,
+  Bot,
   Compass,
   Gauge,
   Eye,
@@ -53,14 +53,14 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronDown,
-  Menu,
+  LayoutGrid,
+  Search,
   X,
   MessagesSquare,
 } from "lucide-react";
-import ThemeToggle from "@/app/components/ThemeToggle";
 import Logo from "@/app/components/Logo";
-import { NavFilter, NavEmptyState, useGroupDisclosure } from "@/app/components/layout/NavFilter";
-import { activeGroupKey, isGroupOpen, visibleGroups } from "@/app/components/layout/navDisclosure";
+import { activeGroupKey, isGroupOpen } from "@/app/components/layout/navDisclosure";
+import { useGroupDisclosure } from "@/app/components/layout/NavFilter";
 import { useFeatureFlags } from "@/app/providers/FeatureProvider";
 import { filterNavGroups, filterNavItems } from "@/lib/features/nav";
 import {
@@ -68,56 +68,60 @@ import {
   filterNavItemsByPermission,
 } from "@/lib/permissions/nav";
 import { usePermissions } from "@/app/providers/PermissionProvider";
+import { useTradeGate } from "@/app/providers/TradeGateProvider";
+import { filterNavGroupsByTrade } from "@/lib/settings/tradeGateNav";
 import FeatureRowBadge from "@/app/components/layout/FeatureRowBadge";
-import NotificationBell from "@/app/components/layout/NotificationBell";
+import { useNavShell, isSettingsPath } from "@/app/components/layout/NavShell";
+import { SettingsPanel } from "@/app/components/layout/SettingsSidebar";
+import { useRovingRows } from "@/app/components/layout/rovingRows";
 
-// Grouped, not flat.
+// ── Seventeen rows, four groups, and a More ─────────────────────────────────
 //
-// Eleven items in one list is past the point where anyone scans — you read it
-// top to bottom every time, which is slower than it looks when you do it fifty
-// times a day. Five short groups can be scanned by shape.
+// This rail held forty destinations in five folding groups. In an 860px-tall
+// window it showed Home, the eight Work rows and the first row of People
+// before it scrolled; the rest of the product was below the fold or behind a
+// fold. The 2026-09-21 study of Jobber (docs/research/jobber-ui-study.md)
+// measured theirs at seventeen rows, no headings, one submenu — and the
+// owner's verdict was "FieldQuo is very heavy on the side menus". So this is
+// a REORGANISATION, not a cut: every destination that existed still exists,
+// and the owner's own list of what must stay first-class — the AI review,
+// the AI employees, schedule and dispatch, quotes, jobs, invoices, clients,
+// leads, the inbox, reports — is what the seventeen are. Everything else is
+// one click away under More (/app/more, and the phone's bottom sheet), and
+// scripts/check-shell.mjs proves two things about that every build: the
+// flagship rows are top-level, and every old row is still reachable in two
+// taps.
 //
 // The order inside "Work" is the order work actually moves:
 //
-//   Requests -> Quotes -> Jobs -> Invoices
+//   Leads -> Quotes -> Quote reviews -> Jobs -> Invoices
 //
-// A request becomes a quote, an accepted quote becomes a job, a finished job
-// becomes an invoice. The old list opened with Calendar and buried Requests in
-// third — which is neither the pipeline order nor the order anyone thinks in.
-// Calendar sits at the end of Work because it's where scheduled jobs land, not
-// where work starts.
+// A lead becomes a quote, a reviewed quote goes out, an accepted quote
+// becomes a job, a finished job becomes an invoice. Calendar sits at the end
+// of Work because it's where scheduled jobs land, not where work starts.
 //
-// Timesheets and Expenses moved OUT of the nav and into Money; they were
-// pointing at /app/settings/* URLs anyway, which is a decent sign they were
-// never top-level concerns.
+// ── Which rows are "trade" rows ─────────────────────────────────────────────
 //
-// ── Five groups, not four: Insights split out of Money ─────────────────────
+// Owner, same day: "anything not needed for a roofer that a painter or an
+// HVAC guy needs is not shown — although every button we have is good for
+// all trades, maybe just reorganisation." So the default is SHOW. A row is
+// removed only when companyTradeGate() proves the company cannot use it —
+// the same gate that already hides Cabinet Rates and Material Costs in
+// Settings (NAV_ROW_TRADE_GATE beside SETTINGS_ROW_TRADE_GATE in
+// lib/settings/tradeGateNav.js). Feature flags (lib/features/nav.js) and the
+// permission grid (lib/permissions/nav.js) keep doing what they do; the
+// trade gate is a third filter, not a replacement for either.
 //
-// Money used to hold Payroll, Expenses, Insights and KPIs together, on the
-// theory that they're all "money screens". That conflated RUNNING money
-// (payroll, expenses — actions that move it) with READING money back
-// (Insights, KPIs — reports that change nothing). AGENTS.md already draws
-// this line for the whole product: "Analytics reads the whole thing. Settings
-// configures it." Insights is the reading half, so it gets its own shelf
-// between Money and Grow — after the operational groups a contractor works
-// in daily, before the group about finding new work. See the comment on that
-// group below for why it holds only two rows despite six analytics pages
-// existing.
+// ── Collapsible, with two groups deliberately not ───────────────────────────
 //
-// ── Collapsible, with one group deliberately not ────────────────────────────
-//
-// Twenty-four items is too many to scan even in five groups, so the groups
-// fold and remember it. "Work" does NOT fold, for a concrete reason rather
-// than a taste one: app/components/tours.js points the first-run walkthrough
-// at [data-tour='nav-requests'], 'nav-quotes' and 'nav-estimate-reviews', and
-// OnboardingTour requires a target that measures non-zero. A collapsed group
-// unmounts its items, so a folded Work is a walkthrough that silently never
-// starts. Work is also the pipeline the product exists to serve — the one
-// group nobody wants folded anyway.
-//
-// `pinned` is that rule, made explicit and enforced: check:sidebar fails if any
-// group holding a `tour` item is foldable, so moving Requests elsewhere breaks
-// a check instead of breaking the tour.
+// The groups fold and remember it. "Work" and "AI" do NOT fold, for a
+// concrete reason rather than a taste one: app/components/tours.js points
+// the first-run walkthrough at [data-tour='nav-requests'], 'nav-quotes',
+// 'nav-estimate-reviews' and 'nav-ai', and OnboardingTour requires a target
+// that measures non-zero. A collapsed group unmounts its items, so a folded
+// Work is a walkthrough that silently never starts. `pinned` is that rule,
+// made explicit and enforced: check:sidebar fails if any group holding a
+// `tour` item is foldable.
 export const NAV_GROUPS = [
   {
     key: "app.nav.group.work",
@@ -125,169 +129,142 @@ export const NAV_GROUPS = [
     items: [
       { key: "app.nav.requests", href: "/app/leads", icon: ClipboardList, tour: "nav-requests", helpArticle: "requests" },
       { key: "app.nav.quotes", href: "/app/quotes", icon: FileText, tour: "nav-quotes", helpArticle: "quotes" },
+      // The AI review of a quote before it goes out — the owner named it
+      // first among the things the shell must not bury.
       { key: "app.nav.estimateReviews", href: "/app/estimate-reviews", icon: BadgeCheck, tour: "nav-estimate-reviews", helpArticle: "estimate-reviews" },
       { key: "app.nav.jobs", href: "/app/jobs", icon: Briefcase, helpArticle: "jobs" },
       { key: "app.nav.invoices", href: "/app/invoices", icon: Receipt, helpArticle: "invoices" },
-      // Recurring work sold as a package. Sits after Invoices because that is
-      // what it produces — a plan is a standing instruction to raise one.
-      { key: "app.nav.plans", href: "/app/plans", icon: CalendarSync, helpArticle: "plans" },
+      // Appointments and bookings — the schedule half of "schedule and
+      // dispatch". The dispatch half (Assign shifts) is under People, because
+      // it is about who, not when.
       { key: "app.nav.calendar", href: "/app/appointments", icon: Calendar, helpArticle: "calendar" },
-      // /app/tasks existed, worked, and was reachable from NOTHING — no nav
-      // entry and no link from any page. 380 lines of working to-do list that
-      // only somebody typing the URL could find.
-      { key: "app.nav.tasks", href: "/app/tasks", icon: ListTodo, helpArticle: "tasks" },
     ],
   },
   {
     key: "app.nav.group.people",
     items: [
-      // ── The employee home ───────────────────────────────────────────────
-      //
-      // Home · Schedule · Earnings · Messages · More for the person in the
-      // van; Home · Schedule · Team · Messages · More for whoever runs the
-      // crew (lib/me/tabs.js decides which). One row for every role, first
-      // under People because it is the one screen about YOU rather than
-      // about the company's work — and on a phone it is the bottom bar
-      // itself (app/components/layout/MobileTabBar.js). No NAV_REQUIREMENTS
-      // entry: there is no level at which a person has no home.
-      { key: "app.nav.myHome", href: "/app/me", icon: Home, helpArticle: "my-home" },
       { key: "app.nav.clients", href: "/app/clients", icon: Users, helpArticle: "clients" },
-      // The CUSTOMER's kit — their furnace, their panel — and whose warranty
-      // is about to run out. Next to Clients because that is what it is a fact
-      // about, and deliberately NOT next to Vehicles below: the contractor's
-      // own van is `Asset` and a different subject entirely. The two labels
-      // ("Client equipment" / "Vehicles") say which is which without needing
-      // the group headings to do it.
-      { key: "app.nav.clientEquipment", href: "/app/equipment", icon: ShieldCheck, helpArticle: "client-equipment" },
-      // The company talking to itself: #general, a room per active job, direct
-      // messages (app/app/chat, on the shared chat kit). Under People because
-      // it is about the roster — the rooms are DERIVED from who is on the team
-      // and who is booked on which job. Deliberately NOT under Grow beside the
-      // crew inbox and Facebook messages: those are conversations with people
-      // OUTSIDE the company; this is the crew and the office. No
-      // NAV_REQUIREMENTS entry on purpose — everyone on the roster is in
-      // #general, so a Crew member with `none` on every document ladder still
-      // gets this row, and it is the one row they are certain to keep.
+      // The company talking to itself: #general, a room per active job,
+      // direct messages. No NAV_REQUIREMENTS entry on purpose — everyone on
+      // the roster is in #general, so a Crew member with `none` on every
+      // document ladder still gets this row, and it is the one row they are
+      // certain to keep. It is also the phone's fifth tab.
       { key: "app.nav.chat", href: "/app/chat", icon: MessagesSquare, helpArticle: "chat" },
-      // ── HR in one place ─────────────────────────────────────────────────
-      //
-      // "Manage Team" lived ONLY under Settings, so hiring someone meant
-      // hunting through a 31-item settings list while Timesheets and Time Off
-      // sat right here. Employee records, their hours and their leave are one
-      // job; splitting them across two menus is why people ask where things are.
-      { key: "app.nav.team", href: "/app/settings/team", icon: UserCog, helpArticle: "team" },
-      // The companies hired per job — the electrician, the roofer — as
-      // opposed to the people on the roster above. Under People because that
-      // is where somebody looks for "who do we work with", and gated on the
-      // same `user:manage` its API requires (lib/permissions/nav.js), so the
-      // row and the endpoint never disagree about who gets in.
-      { key: "app.nav.subcontractors", href: "/app/subcontractors", icon: HardHat, helpArticle: "subcontractors" },
+      // The dispatch board: who is on which site, when. Top-level on the
+      // owner's word ("scheduling, dispatching"); the person's OWN schedule
+      // and the team calendar VIEW of the same shifts are under More.
       { key: "app.nav.scheduler", href: "/app/scheduler", icon: CalendarClock, helpArticle: "scheduler" },
-      // The person's OWN next two weeks, phone-first (app/app/me/schedule).
-      // Every role: the schedule ladder's floor is view_own, so there is no
-      // NAV_REQUIREMENTS rule to write — nobody is below it. A manager gets
-      // it too; their own shifts are theirs to see without opening the board.
-      { key: "app.nav.mySchedule", href: "/app/me/schedule", icon: CalendarDays, helpArticle: "my-schedule" },
-      { key: "app.nav.teamSchedule", href: "/app/schedule", icon: Calendar, helpArticle: "team-schedule" },
-      { key: "app.nav.clock", href: "/app/clock", icon: Clock, helpArticle: "clock" },
-      { key: "app.nav.timesheets", href: "/app/settings/team/timesheets", icon: Clock, helpArticle: "timesheets" },
-      // The crew member's day: objectives, before/after, the coordinator's
-      // evaluation. Every role — the route narrows a crew member to their
-      // own sheet (lib/dailySheets/access.js), so there is no level at which
-      // the row shows nothing.
-      { key: "app.nav.dailySheets", href: "/app/daily-sheets", icon: ClipboardList, helpArticle: "daily-sheets" },
-      // Top-level, not buried in settings: everyone uses it, not just admins.
-      { key: "app.nav.timeOff", href: "/app/time-off", icon: CalendarClock, helpArticle: "time-off" },
-      // Same shelf as the rest of the crew's own records — a near-miss is
-      // worth logging exactly as fast as clocking in. See lib/permissions.js's
-      // "safety" category for who this hides from (report_own is the floor,
-      // not `none`, so this row shows for a Crew member too).
-      { key: "app.nav.safety", href: "/app/safety", icon: ShieldAlert, helpArticle: "safety" },
-      // The manager's day book — weather, who called in, what broke. Not a
-      // job's diary (that is on the job). Gated in lib/permissions/nav.js on
-      // the same roles /api/hr/log requires.
-      { key: "app.nav.log", href: "/app/log", icon: BookOpen, helpArticle: "manager-log" },
     ],
   },
+  // Money RUNS money (payroll moves it); Insights READS it back. They share a
+  // shelf here because at seventeen rows a one-row "Insights" group would be
+  // the owner's own "a group with one item is usually a group that should
+  // not exist". KPIs, Expenses, Purchasing and Vehicles are under More.
   {
     key: "app.nav.group.money",
     items: [
       { key: "app.nav.payroll", href: "/app/payroll", icon: Wallet, helpArticle: "payroll" },
-      { key: "app.nav.expenses", href: "/app/settings/expense-tracking", icon: Wallet, helpArticle: "expenses" },
-      // Suppliers, purchase orders and stock. In Money rather than Work
-      // because buying is spending — it is gated on the same `expenses`
-      // ladder as the row above it, and a contractor looking for "what did we
-      // spend at Northline this year" looks here, not in the job pipeline.
-      { key: "app.nav.purchasing", href: "/app/purchasing", icon: ShoppingCart, helpArticle: "purchasing" },
-      // The vans. In Money for the same reason Purchasing is: a vehicle is an
-      // `Asset` whose depreciation already sits in this group's cost basis
-      // (the register lives inside Settings → Overhead, which the construction
-      // audit called out as a discoverability problem), and the audience for
-      // "insurance lapses Thursday" is the same person who reads Expenses.
-      // Gated on the same `user:manage` its API requires, so the row and the
-      // endpoint never disagree about who gets in.
-      { key: "app.nav.fleet", href: "/app/fleet", icon: Truck, helpArticle: "fleet" },
-    ],
-  },
-  // Insights used to live inside Money, and that was a mislabel rather than a
-  // simplification: Payroll and Expenses are things you RUN — money moves
-  // because you clicked something. Insights and KPIs are things you READ — a
-  // lens over quotes, jobs and invoices that changes nothing by itself.
-  // AGENTS.md draws the same line: "Analytics reads the whole thing. Settings
-  // configures it." Money runs the pipeline; this group reads it back.
-  //
-  // Only two rows here on purpose. /app/analytics/benchmark is a hub, not
-  // just a benchmark screen — it links out to digest, statements, win-loss
-  // and estimate-accuracy (see the comments on those four pages, which used
-  // to be reachable from NOTHING). Giving each of those six screens its own
-  // sidebar row would be the "nine items, split it" problem in reverse: a
-  // seventh nav row for what is genuinely one destination with a fan-out menu
-  // inside it. KPIs gets its own row anyway, on the same reasoning that put
-  // it here in the first place — it's the one insights screen that was
-  // built and then unreachable ("the /app/tasks failure again"), and a
-  // dashboard nobody can find stays unfound one click deeper into a hub.
-  {
-    key: "app.nav.group.insights",
-    items: [
       { key: "app.nav.insights", href: "/app/analytics/benchmark", icon: Compass, helpArticle: "insights" },
-      { key: "app.nav.kpis", href: "/app/analytics/kpis", icon: Gauge, helpArticle: "kpis" },
     ],
   },
-  // Marketing Designer (the ad-creative canvas editor, marketing_designer in
-  // lib/features/registry.js) sits here, directly after "app.nav.marketing" —
-  // it's a tool FOR marketing campaigns, not a separate concern.
-  //
-  // This comment used to say the designer "has no route yet" and that there was
-  // "nothing to add until that lands". It landed, the row directly below was
-  // added, and the comment was left behind contradicting the line under it. A
-  // wrong comment is worse than none: the next person reads it and goes looking
-  // for work that is already done. AGENTS.md asks for the comment to be fixed
-  // too, so it is.
   {
     key: "app.nav.group.grow",
     items: [
       { key: "app.nav.marketing", href: "/app/marketing", icon: Megaphone, helpArticle: "marketing" },
-      // The multi-ratio ad canvas editor — its own row, not folded into the
-      // Marketing hub link above, because it is a different verb (design one
-      // asset in five sizes vs. run a campaign) and the check-sidebar.mjs
-      // "every item is found by typing its own label" rule needs its own
-      // href to prove reachable.
-      { key: "app.nav.marketingDesigner", href: "/app/marketing/designer", icon: Palette, helpArticle: "marketing-designer" },
-      { key: "app.nav.funnels", href: "/app/funnels", icon: Filter, helpArticle: "funnels" },
-      { key: "app.nav.receptionist", href: "/app/receptionist", icon: Headset, helpArticle: "receptionist" },
-      { key: "app.nav.crewInbox", href: "/app/crew-inbox", icon: MessageSquare, helpArticle: "crew-inbox" },
-      // Facebook Page and Instagram business messages. In "Grow" rather than
-      // beside the crew inbox one row up: those two are both "messages", but
-      // the crew inbox is work coming IN FROM the van, and this is a stranger
-      // who found the company on Facebook — a lead, which is what everything
-      // else in this group is about.
+      // Facebook Page and Instagram business messages — a stranger who found
+      // the company, i.e. a lead. The crew inbox (work coming in FROM the
+      // van) is under More; the crew's own chat is under People.
       { key: "app.nav.messages", href: "/app/messages", icon: MessageCircle, helpArticle: "messages" },
+      // The phone front desk — one of the AI employees, filed under Grow
+      // because a stranger meets it, beside the inbox that stranger writes to.
+      { key: "app.nav.receptionist", href: "/app/receptionist", icon: Headset, helpArticle: "receptionist" },
+    ],
+  },
+  // The AI employees, as their own shelf. FieldQuo AI is the estimator's
+  // assistant (answers about the company's own numbers); AI team is where
+  // the employees are hired, given a face and a channel, and where their
+  // proposals wait for a yes. Pinned: `nav-ai` is a tour anchor.
+  {
+    key: "app.nav.group.ai",
+    pinned: true,
+    items: [
+      { key: "app.nav.ai", href: "/app/copilot", icon: Sparkles, tour: "nav-ai", helpArticle: "ai" },
+      // A settings page with a rail row, the way Your team always was: the
+      // AI team is something the owner opens weekly, not something set up
+      // once. Gated in lib/permissions/nav.js on the same roles its
+      // SETTINGS_ROW_CAPABILITY (user:manage) resolves to.
+      { key: "app.nav.aiTeam", href: "/app/settings/ai-employee", icon: Bot, helpArticle: "settings-ai-employee" },
+    ],
+  },
+];
+
+// ── Everything else: one click away, grouped the same way ───────────────────
+//
+// Rendered by /app/more (a grid of tiles, one per group), by the phone's More
+// sheet, and by the rail's own search. Same three filters as the rail, same
+// trade gate. Nothing here was removed from the product — the rows below
+// are exactly the rows the rail used to carry, minus the seventeen above.
+export const MORE_GROUPS = [
+  {
+    key: "app.nav.group.moreWork",
+    items: [
+      // Recurring work sold as a package — a standing instruction to raise
+      // an invoice.
+      { key: "app.nav.plans", href: "/app/plans", icon: CalendarSync, helpArticle: "plans" },
+      // /app/tasks existed, worked, and was once reachable from NOTHING; it
+      // stays a row so that never happens again.
+      { key: "app.nav.tasks", href: "/app/tasks", icon: ListTodo, helpArticle: "tasks" },
+      { key: "app.nav.funnels", href: "/app/funnels", icon: Filter, helpArticle: "funnels" },
+      { key: "app.nav.crewInbox", href: "/app/crew-inbox", icon: MessageSquare, helpArticle: "crew-inbox" },
+      // The multi-ratio ad canvas editor — its own row, not folded into the
+      // Marketing hub, because it is a different verb (design one asset in
+      // five sizes vs. run a campaign) and the reachability check needs its
+      // own href to prove it reachable.
+      { key: "app.nav.marketingDesigner", href: "/app/marketing/designer", icon: Palette, helpArticle: "marketing-designer" },
+    ],
+  },
+  {
+    key: "app.nav.group.moreCrew",
+    items: [
+      // The employee home — on a phone it is the bottom bar itself
+      // (lib/me/tabs.js). No NAV_REQUIREMENTS entry: there is no level at
+      // which a person has no home.
+      { key: "app.nav.myHome", href: "/app/me", icon: Home, helpArticle: "my-home" },
+      // The roster. Also in the avatar menu and on the settings index's Team
+      // card — two taps from anywhere, which is the check's rule.
+      { key: "app.nav.team", href: "/app/settings/team", icon: UserCog, helpArticle: "team" },
+      { key: "app.nav.teamSchedule", href: "/app/schedule", icon: Calendar, helpArticle: "team-schedule" },
+      { key: "app.nav.mySchedule", href: "/app/me/schedule", icon: CalendarDays, helpArticle: "my-schedule" },
+      { key: "app.nav.clock", href: "/app/clock", icon: Clock, helpArticle: "clock" },
+      { key: "app.nav.timesheets", href: "/app/settings/team/timesheets", icon: Clock, helpArticle: "timesheets" },
+      { key: "app.nav.dailySheets", href: "/app/daily-sheets", icon: ClipboardList, helpArticle: "daily-sheets" },
+      { key: "app.nav.timeOff", href: "/app/time-off", icon: CalendarClock, helpArticle: "time-off" },
+      // report_own is the floor, not `none`, so this row shows for a Crew
+      // member too — see lib/permissions.js's "safety" category.
+      { key: "app.nav.safety", href: "/app/safety", icon: ShieldAlert, helpArticle: "safety" },
+      { key: "app.nav.log", href: "/app/log", icon: BookOpen, helpArticle: "manager-log" },
+    ],
+  },
+  {
+    key: "app.nav.group.moreMoney",
+    items: [
+      { key: "app.nav.expenses", href: "/app/settings/expense-tracking", icon: Wallet, helpArticle: "expenses" },
+      { key: "app.nav.purchasing", href: "/app/purchasing", icon: ShoppingCart, helpArticle: "purchasing" },
+      // The contractor's own vans (`Asset`) — deliberately NOT beside Client
+      // equipment, which is the customer's furnace.
+      { key: "app.nav.fleet", href: "/app/fleet", icon: Truck, helpArticle: "fleet" },
+      { key: "app.nav.kpis", href: "/app/analytics/kpis", icon: Gauge, helpArticle: "kpis" },
+    ],
+  },
+  {
+    key: "app.nav.group.morePartners",
+    items: [
+      { key: "app.nav.clientEquipment", href: "/app/equipment", icon: ShieldCheck, helpArticle: "client-equipment" },
+      { key: "app.nav.subcontractors", href: "/app/subcontractors", icon: HardHat, helpArticle: "subcontractors" },
       { key: "app.nav.refer", href: "/app/settings/refer", icon: Gift, helpArticle: "refer" },
       // Only for a company enrolled in the influencer programme — filtered
-      // out below on the shell's own `isInfluencer` (resolved server-side by
-      // AppLayout, so the first paint is right), not by a fetch. Declared
-      // here rather than appended at render time so check-sidebar and the
-      // help centre see it as a row like any other.
+      // out on the shell's own `isInfluencer` (resolved server-side by
+      // AppLayout), not by a fetch.
       { key: "app.nav.influencer", href: "/app/influencer", icon: Handshake, helpArticle: "influencer" },
     ],
   },
@@ -295,15 +272,15 @@ export const NAV_GROUPS = [
 
 /** Rows that exist only for an enrolled influencer company. */
 const INFLUENCER_ONLY = new Set(["app.nav.influencer"]);
-function dropInfluencerRows(groups, isInfluencer) {
+export function dropInfluencerRows(groups, isInfluencer) {
   if (isInfluencer) return groups;
   return groups
     .map((g) => ({ ...g, items: g.items.filter((i) => !INFLUENCER_ONLY.has(i.key)) }))
     .filter((g) => g.items.length > 0);
 }
 
-// The floating "+" popup — quick-create shortcuts.
-const QUICK_ADD_ITEMS = [
+// The Create menu — top bar on desktop, floating + on a phone (CreateMenu.js).
+export const QUICK_ADD_ITEMS = [
   { key: "app.quickAdd.client", href: "/app/clients", icon: Users },
   { key: "app.quickAdd.request", href: "/app/leads", icon: ClipboardList },
   { key: "app.quickAdd.quote", href: "/app/quotes/new", icon: FileText },
@@ -311,7 +288,10 @@ const QUICK_ADD_ITEMS = [
   { key: "app.quickAdd.invoice", href: "/app/invoices/new", icon: Receipt },
 ];
 
-// Bottom-of-sidebar items, above Log Out.
+// Account rows. They used to sit in the scrolling rail; they now live in the
+// avatar menu (TopBar.js) and at the end of the phone's More sheet. Settings
+// ALSO keeps a row at the foot of the rail — it is the one of these somebody
+// reaches for daily, and it is where the rail slides into its settings list.
 export const BOTTOM_ITEMS = [
   { key: "app.nav.help", href: "/app/help", icon: LifeBuoy, helpArticle: "help" },
   { key: "app.nav.plan", href: "/app/settings/account-billing", icon: CreditCard, helpArticle: "plan" },
@@ -319,32 +299,60 @@ export const BOTTOM_ITEMS = [
 ];
 
 export const HOME_ITEM = { key: "app.nav.home", href: "/app", icon: Home, helpArticle: "home" };
-export const AI_ITEM = { key: "app.nav.ai", href: "/app/copilot", icon: Sparkles, tour: "nav-ai", helpArticle: "ai" };
+export const MORE_ITEM = { key: "app.nav.more", href: "/app/more", icon: LayoutGrid, helpArticle: "home" };
+/** The AI row, for the help centre's list — the same object the AI group holds. */
+export const AI_ITEM = NAV_GROUPS.find((g) => g.key === "app.nav.group.ai").items[0];
 
-// What the filter box searches. Home and the bottom section are pulled in so
-// typing "settings" finds Settings — a menu search that quietly can't reach a
-// third of the menu is worse than no search box. They render in their own
-// fixed slots when the box is empty, so this grouping exists only while
-// searching.
-const SEARCH_CORPUS = [
-  ...NAV_GROUPS,
-  { key: "app.nav.group.more", items: [HOME_ITEM, AI_ITEM, ...BOTTOM_ITEMS] },
+// What global search (and the phone sheet's box) covers on the menu side:
+// every rail row, every More row, Home and the account rows. Home rides in
+// the first group so the corpus has no one-row group; a menu search that
+// quietly can't reach a third of the menu is worse than no search box.
+export const SEARCH_CORPUS = [
+  { ...NAV_GROUPS[0], items: [HOME_ITEM, ...NAV_GROUPS[0].items] },
+  ...NAV_GROUPS.slice(1),
+  ...MORE_GROUPS,
+  { key: "app.nav.group.account", items: [...BOTTOM_ITEMS] },
 ];
 
-// Everything is open on a first visit, and folding is something the user
-// CHOOSES once they know where things live.
-//
-// This started as `["app.nav.group.work"]` — open Work, fold the rest — on the
-// reasoning that opening everything makes the accordion decorative. That was
-// wrong, and it was caught within the hour: the owner went looking for the crew
-// messaging agent and couldn't find it in the menu, because it sits under Grow
-// and Grow was folded. Three quarters of the product had been hidden from
-// anyone who hadn't already learned the layout.
-//
-// Folding solves "this rail is long" for someone who knows what's on it. It
-// does not solve discovery, and using it as the default trades a scanning
-// problem for a much worse one — a feature that may as well not be built. The
-// user's own folds still persist; only the first visit changed back.
+/**
+ * The rail's groups after the three cosmetic filters, in the order they
+ * always apply: feature flags, then the permission grid, then the trade
+ * gate. Exported so the More page, the phone sheet, the top bar's search and
+ * the check script all read ONE pipeline rather than four restatements.
+ */
+export function useNavGroups(groups) {
+  const featureFlags = useFeatureFlags();
+  const caller = usePermissions();
+  const tradeGate = useTradeGate();
+  const { isInfluencer } = useCompanyPreferences();
+  return useMemo(
+    () =>
+      filterNavGroupsByTrade(
+        filterNavGroupsByPermission(
+          dropInfluencerRows(filterNavGroups(groups, featureFlags), isInfluencer),
+          caller,
+        ),
+        tradeGate,
+      ),
+    [groups, featureFlags, caller, tradeGate, isInfluencer],
+  );
+}
+
+/** Flat lists (Create, the account rows) through the same two gates the rail applies to them. */
+export function useNavItems(items) {
+  const featureFlags = useFeatureFlags();
+  const caller = usePermissions();
+  return useMemo(
+    () => filterNavItemsByPermission(filterNavItems(items, featureFlags), caller),
+    [items, featureFlags, caller],
+  );
+}
+
+// Everything is open on a first visit; folding is something the user CHOOSES
+// once they know where things live. (This was once "open Work, fold the
+// rest", and the owner went looking for the crew messaging agent and couldn't
+// find it in the menu because Grow was folded. Folding solves "this rail is
+// long" for someone who knows what's on it; it does not solve discovery.)
 const DEFAULT_OPEN = NAV_GROUPS.map((g) => g.key);
 const DISCLOSURE_KEY = "fq-nav-groups";
 
@@ -355,6 +363,7 @@ export default function AdminSidebar() {
   const { data: session } = useSession();
   // Null unless this is a support session — see the identity row below.
   const impersonation = useImpersonation();
+  const shell = useNavShell();
   // Owner/admin only — the same set Account & Billing itself enforces.
   const [canOpenBilling, setCanOpenBilling] = useState(false);
   useEffect(() => {
@@ -365,73 +374,15 @@ export default function AdminSidebar() {
   }, []);
 
   const [collapsed, setCollapsed] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const [quickAddOpen, setQuickAddOpen] = useState(false);
-  const [query, setQuery] = useState("");
+  const mobileOpen = shell.isOpen("drawer");
+  const setMobileOpen = (v) => (v ? shell.open("drawer") : shell.close());
 
-  // Feature availability, resolved server-side by AppLayout so the first paint
-  // is already correct. Cosmetics only — a row removed here is a row whose page
-  // and API were already refusing, see lib/features/nav.js. Null (no provider,
-  // or a lookup that failed) leaves the menu exactly as declared above.
   const featureFlags = useFeatureFlags();
-  // Two independent filters, applied in sequence and NOT merged into one pass.
-  //
-  // They answer different questions and can disagree: a feature can be hidden
-  // for the whole company while an owner would otherwise have every
-  // permission, and a screen can be perfectly available while THIS member has
-  // no business on it. Collapsing them into a single predicate would make the
-  // reason a row vanished unrecoverable the next time someone asks why.
-  const caller = usePermissions();
-  // Whether this company is an influencer (Company.influencerAt +
-  // influencerRepId), handed down by AppLayout with the currency so the row
-  // is present or absent on the first paint. Cosmetic like the feature
-  // filter: /api/influencer refuses a company that is not enrolled.
-  const { isInfluencer } = useCompanyPreferences();
-  const navGroups = useMemo(
-    () =>
-      filterNavGroupsByPermission(
-        dropInfluencerRows(filterNavGroups(NAV_GROUPS, featureFlags), isInfluencer),
-        caller,
-      ),
-    [featureFlags, caller, isInfluencer],
-  );
-  const bottomItems = useMemo(
-    () => filterNavItemsByPermission(filterNavItems(BOTTOM_ITEMS, featureFlags), caller),
-    [featureFlags, caller],
-  );
-  // Filtered too, or typing "receptionist" would surface a hidden feature by
-  // name in the search results — the leak the nav filter closes, reopened by
-  // the search box.
-  const searchCorpus = useMemo(
-    // Filtered by permission too, or typing "payroll" would name a screen the
-    // member cannot open — reopening by search the leak the nav filter closes.
-    () =>
-      filterNavGroupsByPermission(
-        dropInfluencerRows(filterNavGroups(SEARCH_CORPUS, featureFlags), isInfluencer),
-        caller,
-      ),
-    [featureFlags, caller, isInfluencer],
-  );
-  // filterNavItemsByPermission, not just filterNavItems. This list ran through
-  // the FEATURE-FLAG filter alone, so "app.quickAdd.quote" — which has been in
-  // NAV_REQUIREMENTS since that file was written, with a comment explaining
-  // that composing a whole quote and losing it to a 403 "costs the person
-  // their work" — was defined and never applied. QA found all five entries
-  // offered to a Worker whose API refuses every one.
-  const quickAddItems = useMemo(
-    () =>
-      filterNavItemsByPermission(
-        filterNavItems(QUICK_ADD_ITEMS, featureFlags),
-        caller,
-      ),
-    [featureFlags, caller],
-  );
-  const showAiItem = useMemo(
-    () => filterNavItems([AI_ITEM], featureFlags).length > 0,
-    [featureFlags],
-  );
-
-  const quickAddRef = useRef(null);
+  const navGroups = useNavGroups(NAV_GROUPS);
+  const moreGroups = useNavGroups(MORE_GROUPS);
+  const bottomItems = useNavItems(BOTTOM_ITEMS);
+  const settingsItem = bottomItems.find((i) => i.key === "app.nav.settings") || null;
+  const moreCount = moreGroups.reduce((n, g) => n + g.items.length, 0);
 
   // Persist the expanded/contracted preference across visits.
   useEffect(() => {
@@ -443,31 +394,22 @@ export default function AdminSidebar() {
     window.localStorage.setItem("fq-sidebar-collapsed", collapsed ? "1" : "0");
   }, [collapsed]);
 
-  // Close the quick-add popup on outside click.
-  useEffect(() => {
-    function handleClick(e) {
-      if (quickAddRef.current && !quickAddRef.current.contains(e.target)) {
-        setQuickAddOpen(false);
-      }
-    }
-    if (quickAddOpen) document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [quickAddOpen]);
+  // ── The settings slide ────────────────────────────────────────────────────
+  //
+  // Roofr's mechanic (docs/research/roofr-ui-study.md §2.2): clicking
+  // Settings does not swap the rail for a second sidebar; a second list
+  // slides over the same column, and "Back" slides it out. The URL does not
+  // change on Back. What Roofr gets wrong — and this deliberately does not —
+  // is the highlight: after Back, their main list shows no active row. Here
+  // the Settings row at the foot stays lit while the URL is under
+  // /app/settings, so "where am I" is always answered.
+  //
+  // Whether the panel is showing lives in NavShellProvider, which opens it
+  // when the route ENTERS settings (a deep link included, on the first
+  // paint) and closes it when the route leaves. Inside settings it is the
+  // user's: Back keeps the main list until they open Settings again.
+  const inSettings = isSettingsPath(pathname);
 
-  // Close the mobile drawer whenever the route changes.
-  useEffect(() => {
-    setMobileOpen(false);
-  }, [pathname]);
-
-  // Was: a raw fetch("/api/auth/sign-out"). That hits the same route
-  // better-auth's own client calls, but bypasses better-auth's client-side
-  // session store — useSession() elsewhere in the tree (MarketingHeader,
-  // this component's own avatar row) doesn't get told the session is gone,
-  // so it keeps rendering the cached "logged in" state until something
-  // forces a real re-fetch. Using signOut() from lib/auth-client updates
-  // that store directly, and we don't navigate until its callback confirms
-  // the server has actually cleared the session cookie — no race between
-  // "redirect fired" and "cookie actually cleared."
   async function handleLogout() {
     await signOut({
       fetchOptions: {
@@ -482,12 +424,6 @@ export default function AdminSidebar() {
   const isActive = (href) =>
     href === "/app" ? pathname === "/app" : pathname.startsWith(href);
 
-  // Clear the filter on navigation — a stale query left over the rail hides
-  // most of the menu on the page you just arrived at.
-  useEffect(() => {
-    setQuery("");
-  }, [pathname]);
-
   const activeKey = activeGroupKey(navGroups, pathname, isActive);
   const { openKeys, toggle } = useGroupDisclosure({
     storageKey: DISCLOSURE_KEY,
@@ -495,83 +431,137 @@ export default function AdminSidebar() {
     activeKey,
   });
 
-  const searching = query.trim().length > 0;
-  const label = (key) => t(key);
-  const searchGroups = visibleGroups({ groups: searchCorpus, query, label });
+  // Arrow keys walk the rows; Home/End jump. The list is the one thing on
+  // the page a keyboard user tabs into fifty times a day, and forty Tab
+  // presses to reach Settings was the complaint.
+  const onRowsKeyDown = useRovingRows();
 
-  function NavLink({ item, onNavigate, forceExpanded }) {
+  // The row itself is a module-level component (RailLink, below): a function
+  // declared in THIS body would get a new identity every render, and React
+  // would unmount and remount every row on every render — which is how the
+  // search box once lost focus after each keystroke (check-sidebar-focus).
+  // `row()` is CALLED and returns the element; it is not itself a component,
+  // so nothing remounts.
+  const row = (item, { forceExpanded = false, onNavigate, trailing = null } = {}) => (
+    <RailLink
+      key={item.href}
+      item={item}
+      showLabel={forceExpanded || !collapsed}
+      active={isActive(item.href)}
+      label={t(item.key)}
+      featureFlags={featureFlags}
+      onNavigate={onNavigate}
+      trailing={trailing}
+    />
+  );
+
+  function mainList({ forceExpanded }) {
     const showLabel = forceExpanded || !collapsed;
-    const active = isActive(item.href);
-    const Icon = item.icon;
     return (
-      <Link
-        href={item.href}
-        onClick={onNavigate}
-        title={showLabel ? undefined : t(item.key)}
-        // Anchor for the first-run walkthrough (app/components/tours.js). Only
-        // set on the handful of items the welcome tour points at.
-        data-tour={item.tour}
-        className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-          showLabel ? "" : "justify-center"
-        } ${
-          active
-            // Orange marks the active item. It's the one place the accent
-            // earns its loudness — you should be able to see where you are
-            // from across a workshop.
-            ? "bg-sidebar-primary text-sidebar-primary-foreground font-semibold"
-            // Hover pairs the accent FILL with the accent FOREGROUND. It used
-            // to pair bg-sidebar-accent with text-sidebar-foreground — two
-            // tokens with no contract between them. Under the old brand
-            // theming that mismatch was the bug the owner reported: a lime or
-            // blue company got --sidebar-accent as a near-white wash while
-            // --sidebar-foreground stayed white, so hovering a row erased its
-            // label. The pair is now the one the tokens promise.
-            : "text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-        }`}
+      <nav
+        className="flex-1 min-h-0 px-3 py-2 space-y-0.5 overflow-y-auto"
+        aria-label={t("app.nav.mainMenu")}
+        onKeyDown={onRowsKeyDown}
       >
-        <Icon size={18} className="shrink-0" />
-        {showLabel && <span className="truncate">{t(item.key)}</span>}
-        {/* Renders nothing unless the row's feature is in preview or locked.
-            A row that is going to refuse should say so BEFORE the click. */}
-        {showLabel && <FeatureRowBadge navKey={item.key} flags={featureFlags} tone="rail" />}
-      </Link>
+        {row(HOME_ITEM, { forceExpanded })}
+
+        {navGroups.map((group) => {
+          const open = isGroupOpen({
+            group,
+            openKeys,
+            searching: false,
+            railCollapsed: !showLabel,
+          });
+          return (
+            <div key={group.key} className="pt-2 first:pt-1">
+              {/* Headings only when the rail is expanded. Collapsed, the
+                  groups still read as groups because of the gap between
+                  them — a heading squeezed into 76px would be truncated
+                  noise, and there is nothing to toggle. */}
+              {showLabel &&
+                (group.pinned ? (
+                  <div className="px-3 pb-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-sidebar-muted-foreground">
+                    {t(group.key)}
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => toggle(group.key)}
+                    aria-expanded={open}
+                    data-nav-row
+                    className="w-full flex items-center gap-1.5 px-3 py-0.5 mb-0.5 rounded-lg text-[10px] font-semibold uppercase tracking-[0.12em] text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
+                  >
+                    <span className="truncate">{t(group.key)}</span>
+                    <ChevronDown
+                      size={13}
+                      className={`ml-auto shrink-0 transition-transform motion-reduce:transition-none ${
+                        open ? "" : "-rotate-90"
+                      }`}
+                    />
+                  </button>
+                ))}
+              {open && (
+                <div className="space-y-0.5">
+                  {group.items.map((item) => row(item, { forceExpanded }))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        {/* More — the rest of the product, one click away. The count is the
+            number of rows this member would actually see there, after the
+            same three filters, so it is never "27" over an empty page. */}
+        {moreCount > 0 && (
+          <div className="pt-2">
+            {row(MORE_ITEM, {
+              forceExpanded,
+              trailing: (
+                <span className="ml-auto text-[10px] font-bold rounded-full px-2 py-0.5 bg-sidebar-accent text-sidebar-accent-foreground">
+                  {moreCount}
+                </span>
+              ),
+            })}
+          </div>
+        )}
+      </nav>
     );
   }
 
   function sidebarContent({ forceExpanded = false }) {
     const showLabel = forceExpanded || !collapsed;
+    const slid = shell.settingsPanel && showLabel;
 
     return (
       <div className="flex flex-col h-full">
-        {/* Logo -> Dashboard/Home */}
-        {/* Stacks when the rail is collapsed. The rail is w-[76px] there, and a
-            26px logo beside a 44px bell inside px-5 comes to 124px — the bell
-            would hang off the edge or squash the logo. Dropping the bell
-            instead was the other option and it is worse: a collapsed rail is
-            the state somebody leaves the app in all day, and an unread count
-            you cannot see is the whole feature switched off by a layout. */}
+        {/* Logo -> Dashboard/Home. Collapsed shows the icon alone. onDark
+            composes the icon with live text — the wordmark's navy would
+            disappear against navy chrome. */}
         <div
-          className={`py-5 border-b border-sidebar-border flex ${
+          className={`py-3 border-b border-sidebar-border flex ${
             showLabel
               ? "px-5 flex-row items-center justify-between"
               : "px-2 flex-col items-center gap-2"
           }`}
         >
-          {/* onDark composes the icon with live text rather than the flat
-              artwork — the wordmark's navy would disappear against navy
-              chrome. Collapsed shows the icon alone. */}
           {showLabel ? (
             <Logo variant="horizontal" href="/app" height={26} onDark priority />
           ) : (
             <Logo variant="icon" href="/app" height={26} priority />
           )}
-          {/* Desktop only. Below `lg` this rail is a drawer you have to open,
-              and the bell lives in the sticky top bar instead — see the mount
-              down there. Rendering both would put two bells on one phone
-              screen the moment the drawer opened. */}
-          <div className="hidden lg:block">
-            <NotificationBell />
-          </div>
+          {/* Expand / contract — desktop only, beside the logo rather than a
+              row of its own at the foot: that row was the 36px that pushed
+              the AI group under the fold of an 860px window. */}
+          <button
+            type="button"
+            onClick={() => setCollapsed((v) => !v)}
+            aria-label={collapsed ? t("app.sidebar.expand") : t("app.sidebar.collapse")}
+            title={collapsed ? t("app.sidebar.expand") : t("app.sidebar.collapse")}
+            data-rail-toggle
+            className="hidden lg:flex h-8 w-8 items-center justify-center rounded-lg text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+          >
+            {collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+          </button>
           <button
             type="button"
             onClick={() => setMobileOpen(false)}
@@ -584,282 +574,163 @@ export default function AdminSidebar() {
           </button>
         </div>
 
-        {/* Create — pinned ABOVE the scroll area. Two reasons: its flyout is
-            absolutely positioned to the side, and inside the nav's overflow-y-auto
-            that also clips horizontally, so the popup rendered off-screen and the
-            button looked dead. And starting a quote / job / invoice is the main
-            reason people reach for the sidebar, so it earns a solid primary
-            button rather than a dashed afterthought.
-
-            Hidden entirely when the caller can create NOTHING — a Worker on
-            view-only across the board now filters every entry out, and a
-            primary button that opens an empty menu is a worse control than no
-            button. */}
-        {quickAddItems.length > 0 && (
-        <div className="px-3 pt-3">
-          <div className="relative" ref={forceExpanded ? null : quickAddRef}>
+        {/* Search — opens the global palette (TopBar.js's box, `/` from
+            anywhere). Not a second filter over the menu: the palette's
+            corpus IS the menu, plus settings, plus records. In 76px there is
+            no room for a box, and the icon in the top bar is one click away.
+            Hidden from xl up, where the top bar draws the wide box itself —
+            two search boxes 60px apart was the settings sidebar's old wart,
+            and the 48px go to the rows: with it, the AI group sat below the
+            fold of an 860px window. */}
+        {showLabel && !slid && (
+          <div className="px-3 pt-2 xl:hidden">
             <button
               type="button"
-              onClick={() => setQuickAddOpen((v) => !v)}
-              title={showLabel ? undefined : t("app.quickAdd.title")}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold bg-sidebar-primary text-sidebar-primary-foreground hover:brightness-110 ${
+              onClick={() => shell.open("search")}
+              className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm bg-sidebar-accent text-sidebar-muted-foreground border-sidebar-border hover:text-sidebar-accent-foreground"
+            >
+              <Search size={14} className="shrink-0" />
+              <span className="truncate">{t("app.search.placeholderShort")}</span>
+              <kbd className="ml-auto text-[11px] font-mono border border-sidebar-border rounded px-1.5 text-sidebar-muted-foreground">/</kbd>
+            </button>
+          </div>
+        )}
+
+        {/* ── The two lists, one column ────────────────────────────────────
+            The main list stays mounted underneath; the settings list is
+            positioned over it and slides in from the right. overflow-hidden
+            on the wrapper is what makes it a slide and not a pop. Reduced
+            motion gets an instant swap (motion-reduce:transition-none). */}
+        <div className="relative flex-1 min-h-0 overflow-hidden flex flex-col">
+          <div
+            className={`flex-1 min-h-0 flex flex-col transition-transform duration-300 motion-reduce:transition-none ${
+              slid ? "-translate-x-full" : "translate-x-0"
+            }`}
+            aria-hidden={slid || undefined}
+            // A translated-away list must not keep tab stops: `inert` takes it
+            // out of the tab order and the accessibility tree together.
+            inert={slid}
+          >
+            {mainList({ forceExpanded })}
+          </div>
+          {showLabel && (
+            <div
+              className={`absolute inset-0 flex flex-col transition-transform duration-300 motion-reduce:transition-none ${
+                slid ? "translate-x-0" : "translate-x-full"
+              }`}
+              aria-hidden={!slid || undefined}
+              inert={!slid}
+              data-settings-panel={slid ? "open" : "closed"}
+            >
+              <SettingsPanel
+                onBack={() => shell.setSettingsPanel(false)}
+                onNavigate={forceExpanded ? () => setMobileOpen(false) : undefined}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Pinned footer — Settings (the slide's handle), the trial badge,
+            Collapse. On the phone drawer the identity chip and Log Out ride
+            here too, because the phone has no avatar menu in its bar. */}
+        <div className="px-3 py-2 border-t border-sidebar-border space-y-0.5">
+          {settingsItem && (
+            <Link
+              href={settingsItem.href}
+              onClick={(e) => {
+                // Already under settings: the row is the slide's handle, not
+                // a navigation — clicking it re-opens the list without
+                // bouncing to the index.
+                if (inSettings && showLabel) {
+                  e.preventDefault();
+                  shell.setSettingsPanel(true);
+                } else if (forceExpanded) {
+                  setMobileOpen(false);
+                }
+              }}
+              title={showLabel ? undefined : t(settingsItem.key)}
+              data-tour="nav-settings"
+              data-nav-row
+              aria-current={inSettings ? "page" : undefined}
+              className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                 showLabel ? "" : "justify-center"
+              } ${
+                inSettings
+                  ? "bg-sidebar-primary text-sidebar-primary-foreground font-semibold"
+                  : "text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
               }`}
             >
-              <Plus size={18} className="shrink-0" />
-              {showLabel && <span>{t("app.quickAdd.title")}</span>}
-            </button>
+              <Settings size={18} className="shrink-0" />
+              {showLabel && <span className="truncate">{t(settingsItem.key)}</span>}
+              {showLabel && <ChevronRight size={16} className="ml-auto shrink-0" />}
+            </Link>
+          )}
 
-            {quickAddOpen && (
-              <div className="absolute z-50 top-0 left-full ml-2 w-52 bg-card rounded-xl shadow-lg border border-border p-2">
-                {quickAddItems.map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <Link
-                      key={item.key}
-                      href={item.href}
-                      onClick={() => setQuickAddOpen(false)}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-foreground hover:bg-muted"
-                    >
-                      <Icon size={16} className="shrink-0" />
-                      {t(item.key)}
-                    </Link>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-        )}
-
-        {/* min-h-0 lets this flex child actually shrink so overflow-y-auto
-            scrolls it — without it the nav keeps its full content height, the
-            column overflows, and the fixed bottom section (AI, profile, help,
-            logout) rides up over it. That overlap was the "two sidebars" feel. */}
-        {/* Filter — expanded rail only. In 76px there is no room for an input
-            and no need for one: the collapsed rail ignores disclosure and
-            shows every icon, so nothing is hidden there to search for. */}
-        {showLabel && (
-          <div className="px-3 pt-3">
-            <NavFilter
-              value={query}
-              onChange={setQuery}
-              placeholder={t("app.nav.search")}
-              tone="rail"
-            />
-          </div>
-        )}
-
-        <nav className="flex-1 min-h-0 px-3 py-4 space-y-1 overflow-y-auto">
-          {searching && showLabel ? (
-            // Searching replaces the whole menu with matches — including Home
-            // and the bottom section, which is why they're in SEARCH_CORPUS.
-            // Leaving them pinned below a "nothing matches" message would be a
-            // straight contradiction on screen.
+          {/* ── Whose account is this? Phone drawer only; the desktop has the
+              avatar menu in the top bar (TopBar.js), which carries the same
+              identity block, the same impersonation chip and Log Out. */}
+          {forceExpanded && (
             <>
-              {searchGroups.map((group) => (
-                <div key={group.key} className="pt-3 first:pt-1">
-                  <div className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-sidebar-muted-foreground">
-                    {t(group.key)}
+              {impersonation ? (
+                <div className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-amber-500/15">
+                  <div className="w-7 h-7 rounded-full bg-amber-500 text-[#2d2520] flex items-center justify-center text-xs font-semibold shrink-0">
+                    <Eye size={14} />
                   </div>
-                  <div className="space-y-1">
-                    {group.items.map((item) => (
-                      <NavLink key={item.href} item={item} forceExpanded={forceExpanded} />
-                    ))}
-                  </div>
+                  <span className="min-w-0">
+                    <span className="block text-xs font-semibold text-sidebar-foreground truncate">
+                      {impersonation.adminEmail || t("app.nav.support", "Support")}
+                    </span>
+                    <span className="block text-[11px] text-sidebar-muted-foreground truncate">
+                      {t("app.nav.viewingCompany", "viewing {company}", {
+                        company: impersonation.companyName,
+                      })}
+                    </span>
+                  </span>
                 </div>
-              ))}
-              {searchGroups.length === 0 && (
-                <NavEmptyState
-                  tone="rail"
-                  message={t("app.nav.noMatches", { query })}
-                  clearLabel={t("app.action.clear")}
-                  onClear={() => setQuery("")}
-                />
-              )}
-            </>
-          ) : (
-            <>
-              <NavLink item={HOME_ITEM} forceExpanded={forceExpanded} />
-
-              {navGroups.map((group) => {
-                const open = isGroupOpen({
-                  group,
-                  openKeys,
-                  searching: false,
-                  railCollapsed: !showLabel,
-                });
-                return (
-                  <div key={group.key} className="pt-3 first:pt-1">
-                    {/* Headings only when the rail is expanded. Collapsed, the
-                        groups still read as groups because of the gap between
-                        them — a heading squeezed into 76px would be truncated
-                        noise, and there is nothing to toggle. */}
-                    {showLabel &&
-                      (group.pinned ? (
-                        <div className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-sidebar-muted-foreground">
-                          {t(group.key)}
-                        </div>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => toggle(group.key)}
-                          aria-expanded={open}
-                          className="w-full flex items-center gap-1.5 px-3 py-1 mb-1 rounded-lg text-[10px] font-semibold uppercase tracking-[0.12em] text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
-                        >
-                          <span className="truncate">{t(group.key)}</span>
-                          <ChevronDown
-                            size={13}
-                            className={`ml-auto shrink-0 transition-transform ${
-                              open ? "" : "-rotate-90"
-                            }`}
-                          />
-                        </button>
-                      ))}
-                    {open && (
-                      <div className="space-y-1">
-                        {group.items.map((item) => (
-                          <NavLink key={item.href} item={item} forceExpanded={forceExpanded} />
-                        ))}
+              ) : session?.user && (
+                // Links to Account & Billing, which only an owner or admin can
+                // open. Non-billing roles get the same chip without the link.
+                createElement(
+                  canOpenBilling ? Link : "div",
+                  {
+                    ...(canOpenBilling ? { href: "/app/settings/account-billing", onClick: () => setMobileOpen(false) } : {}),
+                    className: `flex items-center gap-2.5 px-3 py-2 rounded-lg ${
+                      canOpenBilling ? "hover:bg-sidebar-accent" : ""
+                    }`,
+                  },
+                  <>
+                    {session.user.image ? (
+                      <img
+                        src={session.user.image}
+                        alt={session.user.name || "Profile"}
+                        className="w-7 h-7 rounded-full object-cover shrink-0"
+                      />
+                    ) : (
+                      <div className="w-7 h-7 rounded-full bg-sidebar-primary text-sidebar-primary-foreground flex items-center justify-center text-xs font-semibold shrink-0">
+                        {initials(session.user.name || session.user.email)}
                       </div>
                     )}
-                  </div>
-                );
-              })}
-
-              {/* Secondary — AI, help, plan, settings, appearance. Kept INSIDE
-                  the scroll area rather than pinned, so the drawer's fixed
-                  footer stays small. Pinning all of this is what made the bottom
-                  section eat half the mobile screen. FieldQuo AI still leads it
-                  (its own slot above a divider) — the feature most worth
-                  noticing. */}
-              <div className="pt-4 mt-3 border-t border-sidebar-border space-y-1">
-                {showAiItem && <NavLink item={AI_ITEM} forceExpanded={forceExpanded} />}
-                {bottomItems.map((item) => (
-                  <NavLink key={item.href} item={item} forceExpanded={forceExpanded} />
-                ))}
-                {/* Theme control — /app and /platform are the only themeable
-                    surfaces, so it lives here rather than the marketing header.
-                    Hidden collapsed; the segmented control needs its targets
-                    legible. */}
-                {showLabel && (
-                  <div className="px-3 pt-2 flex items-center justify-between">
-                    <span className="text-xs text-sidebar-muted-foreground">
-                      {t("app.nav.appearance")}
+                    <span className="text-sm font-medium text-sidebar-foreground truncate">
+                      {session.user.name}
                     </span>
-                    <ThemeToggle compact />
-                  </div>
-                )}
-              </div>
+                  </>,
+                )
+              )}
             </>
           )}
-        </nav>
 
-        {/* Pinned footer — deliberately minimal (who am I + trial + get out), so
-            it never dominates the drawer on a phone. Everything else scrolls. */}
-        <div className="px-3 py-3 border-t border-sidebar-border space-y-1">
-          {/* Profile + trial countdown */}
-          {/* ── Whose account is this? ──────────────────────────────────
-              During a support session the Better Auth session still belongs to
-              whoever is signed in on this browser, so this row showed THEIR
-              name while the page rendered a customer's data. QA saw "jonny"
-              the whole time they were inside another company.
-              The support admin's own email replaces it, with the company named
-              underneath — so the answer to "whose account am I in" is on
-              screen, not only in a banner at the top that scrolls away. */}
-          {impersonation ? (
-            <div className={`flex items-center gap-2.5 px-3 py-2 rounded-lg bg-amber-500/15 ${showLabel ? "" : "justify-center"}`}>
-              <div className="w-7 h-7 rounded-full bg-amber-500 text-[#2d2520] flex items-center justify-center text-xs font-semibold shrink-0">
-                <Eye size={14} />
-              </div>
-              {showLabel && (
-                <span className="min-w-0">
-                  <span className="block text-xs font-semibold text-sidebar-foreground truncate">
-                    {impersonation.adminEmail || t("app.nav.support", "Support")}
-                  </span>
-                  <span className="block text-[11px] text-sidebar-muted-foreground truncate">
-                    {t("app.nav.viewingCompany", "viewing {company}", {
-                      company: impersonation.companyName,
-                    })}
-                  </span>
-                </span>
-              )}
-            </div>
-          ) : session?.user && (
-            // Links to Account & Billing, which only an owner or admin can
-            // open — a Manager clicking their own name landed on "Not
-            // available to your account". Non-billing roles get the same chip
-            // without the link rather than a different destination: there is no
-            // profile page to send them to, and inventing one here would be
-            // scope this doesn't have.
-            // `as` picks Link or a plain div — one copy of the chip's markup
-            // rather than two branches that drift apart.
-            createElement(
-              canOpenBilling ? Link : "div",
-              {
-                ...(canOpenBilling
-                  ? { href: "/app/settings/account-billing" }
-                  : {}),
-                title: showLabel ? undefined : session.user.name,
-                className: `flex items-center gap-2.5 px-3 py-2 rounded-lg ${
-                  canOpenBilling ? "hover:bg-sidebar-accent" : ""
-                } ${showLabel ? "" : "justify-center"}`,
-              },
-              <>
-              {session.user.image ? (
-                <img
-                  src={session.user.image}
-                  alt={session.user.name || "Profile"}
-                  className="w-7 h-7 rounded-full object-cover shrink-0"
-                />
-              ) : (
-                <div className="w-7 h-7 rounded-full bg-sidebar-primary text-sidebar-primary-foreground flex items-center justify-center text-xs font-semibold shrink-0">
-                  {(session.user.name || session.user.email || "?")
-                    .trim()
-                    .split(/\s+/)
-                    .slice(0, 2)
-                    .map((p) => p[0]?.toUpperCase())
-                    .join("")}
-                </div>
-              )}
-              {showLabel && (
-                <span className="text-sm font-medium text-sidebar-foreground truncate">
-                  {session.user.name}
-                </span>
-              )}
-              </>,
-            )
-          )}
           {showLabel ? <TrialBadge /> : <TrialBadge collapsed />}
 
-          <button
-            onClick={handleLogout}
-            title={showLabel ? undefined : t("app.nav.logOut")}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground ${
-              showLabel ? "" : "justify-center"
-            }`}
-          >
-            <LogOut size={18} className="shrink-0" />
-            {showLabel && t("app.nav.logOut")}
-          </button>
+          {forceExpanded && (
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            >
+              <LogOut size={18} className="shrink-0" />
+              {t("app.nav.logOut")}
+            </button>
+          )}
 
-          {/* Expand / contract toggle — desktop only */}
-          <button
-            onClick={() => setCollapsed((v) => !v)}
-            aria-label={collapsed ? t("app.sidebar.expand") : t("app.sidebar.collapse")}
-            className={`hidden lg:flex w-full items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground ${
-              showLabel ? "" : "justify-center"
-            }`}
-          >
-            {collapsed ? (
-              <ChevronRight size={18} className="shrink-0" />
-            ) : (
-              <>
-                <ChevronLeft size={18} className="shrink-0" />
-                <span>{t("app.sidebar.collapse")}</span>
-              </>
-            )}
-          </button>
         </div>
       </div>
     );
@@ -867,65 +738,76 @@ export default function AdminSidebar() {
 
   return (
     <>
-      {/* ── Mobile top bar ──────────────────────────────────────────────────
-          This was a floating `fixed top-4 left-4` button. Pages start their
-          content at p-6, so on every phone the page's own <h1> rendered
-          UNDERNEATH the button — the first thing you read on any screen had a
-          hamburger sitting on it.
-
-          A bar in normal flow takes its own space instead of stealing the
-          page's. It's sticky so navigation stays reachable while scrolling,
-          which a floating button over content never quite managed. */}
-      {/* h-14 is load-bearing, not decorative: SettingsSidebar's own mobile bar
-          sticks at top-14 so the two stack instead of overlapping. Changing this
-          height means changing that offset. */}
-      <div className="lg:hidden sticky top-0 z-40 h-14 flex items-center gap-2 px-3 text-sidebar-foreground border-b border-sidebar-border/60 bg-sidebar/80 supports-[backdrop-filter]:bg-sidebar/65 backdrop-blur-xl backdrop-saturate-150">
-        <button
-          type="button"
-          onClick={() => setMobileOpen(true)}
-          aria-label={t("app.sidebar.openMenu")}
-          // The walkthrough points at nav items that live inside this drawer.
-          // It opens the drawer by clicking THIS, named explicitly rather than
-          // guessed at — see app/components/OnboardingTour.js.
-          data-tour-open="nav"
-          aria-expanded={mobileOpen}
-          // 44px minimum: below that a target is genuinely hard to hit on a
-          // phone, and this is the button every navigation goes through.
-          className="p-2.5 -m-0.5 rounded-lg hover:bg-sidebar-accent"
-        >
-          <Menu size={20} />
-        </button>
-        <Logo variant="horizontal" href="/app" height={22} onDark priority />
-        {/* Pushed to the right edge, and NOT inside the drawer: a bell you have
-            to open a menu to see is a bell that never gets looked at. This bar
-            renders on every /app screen below `lg` (AdminSidebar is mounted by
-            the layout, and app/components/mobile/AppBar.js — which the audit
-            expected to replace it on detail screens — has no callers anywhere
-            in the codebase), so the count is visible from a quote, a job and an
-            invoice as well as from a list. */}
-        <div className="ml-auto">
-          <NotificationBell />
-        </div>
-      </div>
-
-      {/* Desktop sidebar */}
+      {/* Desktop sidebar. Brand chrome, not another white panel: --sidebar is
+          navy by default; the foreground token is contrast-picked. The top bar
+          (TopBar.js) is the other half of the desktop chrome. */}
       <aside
-        // Brand chrome, not another white panel. --sidebar is navy by
-        // default and becomes the company's colour under white-label; the
-        // foreground token is contrast-picked, so it stays readable whatever
-        // they choose.
-        className={`hidden lg:flex shrink-0 bg-sidebar text-sidebar-foreground border-r border-sidebar-border h-screen sticky top-0 flex-col transition-all duration-200 ${
+        className={`hidden lg:flex shrink-0 bg-sidebar text-sidebar-foreground border-r border-sidebar-border h-screen sticky top-0 flex-col transition-all duration-200 motion-reduce:transition-none ${
           collapsed ? "w-[76px]" : "w-64"
         }`}
+        data-rail={collapsed ? "collapsed" : "expanded"}
       >
         {sidebarContent({ forceExpanded: false })}
       </aside>
 
       {/* Mobile drawer — the shared slide-over; the rows inside are this
-          rail's own. */}
+          rail's own. Opened by the hamburger in TopBar.js (and by the tour,
+          through the same data-tour-open hook that button carries). */}
       <NavDrawer open={mobileOpen} onClose={() => setMobileOpen(false)} label={t("app.sidebar.openMenu")}>
         {sidebarContent({ forceExpanded: true })}
       </NavDrawer>
     </>
   );
+}
+
+/** One rail row. Module-level on purpose — see the note beside row() above. */
+function RailLink({ item, showLabel, active, label, featureFlags, onNavigate, trailing }) {
+  const Icon = item.icon;
+  return (
+    <Link
+      href={item.href}
+      onClick={onNavigate}
+      title={showLabel ? undefined : label}
+      // Anchor for the first-run walkthrough (app/components/tours.js). Only
+      // set on the handful of items the welcome tour points at.
+      data-tour={item.tour}
+      data-nav-row
+      aria-current={active ? "page" : undefined}
+      // py-2, not py-2.5: eighteen rows plus five headings have to share an
+      // 860px window with the logo, the search and the foot. At 40px a row the
+      // AI group sat below the fold on a laptop; at 36px it is the More row
+      // that just clears it. Still 36px tall — over the 44px touch floor only
+      // matters on the phone drawer, whose rows are the same component with
+      // more room and no such squeeze (see the drawer's own padding).
+      className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+        showLabel ? "" : "justify-center"
+      } ${
+        active
+          // Orange marks the active item. It's the one place the accent
+          // earns its loudness — you should be able to see where you are
+          // from across a workshop.
+          ? "bg-sidebar-primary text-sidebar-primary-foreground font-semibold"
+          // Hover pairs the accent FILL with the accent FOREGROUND — the pair
+          // the tokens promise (scripts/check-sidebar.mjs measures it).
+          : "text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+      }`}
+    >
+      <Icon size={18} className="shrink-0" />
+      {showLabel && <span className="truncate">{label}</span>}
+      {/* Renders nothing unless the row's feature is in preview or locked.
+          A row that is going to refuse should say so BEFORE the click. */}
+      {showLabel && <FeatureRowBadge navKey={item.key} flags={featureFlags} tone="rail" />}
+      {showLabel && trailing}
+    </Link>
+  );
+}
+
+/** "Marc Tremblay" → "MT"; an email → its first letter. */
+export function initials(name) {
+  return String(name || "?")
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase())
+    .join("");
 }

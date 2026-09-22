@@ -65,7 +65,7 @@ function ok(name, cond, got) {
 const section = (t) => console.log(`\n${t}\n`);
 
 const MATRIX_KEYS = new Set(FEATURE_MATRIX.map((e) => e.key));
-const MAPPED = ["quoteiq", "jobber", "housecall_pro", "projul", "servicetitan"];
+const MAPPED = ["quoteiq", "jobber", "housecall_pro", "projul", "servicetitan", "roofr", "paintscout"];
 
 // ═══════════════════════════════════════════════════════════════════════════
 section("1. Every competitor produces a real ladder");

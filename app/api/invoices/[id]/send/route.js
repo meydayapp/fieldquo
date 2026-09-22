@@ -125,6 +125,7 @@ export async function POST(request, { params }) {
       // For the tax gate below.
       taxRate: true,
       autoApplyLocalTax: true,
+      taxMode: true,
       country: true,
       province: true,
       vatRegistered: true,

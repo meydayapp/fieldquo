@@ -1,35 +1,42 @@
 // app/components/layout/SettingsSidebar.js
 //
-// Secondary sidebar for /app/settings/*. Grouped by what a company is actually
-// trying to DO, not by when a screen happened to get built — the old flat list
-// had twenty-plus items in two buckets, which is past the point anyone scans.
+// The settings rows (GROUPS), and the two things that draw them: the list
+// that slides INTO the one rail (SettingsPanel), and the section strip a
+// phone shows at the top of every settings page (SettingsPhoneNav).
 //
-// Groups are ordered roughly by how often they're opened: identity first, then
-// the day-to-day (team/scheduling, services/pricing), then what goes OUT
-// (documents & templates, messaging & alerts), then what comes IN or OUT in
-// money (getting paid — payments, expenses, payroll), then the client-facing
-// surfaces. The company's own audit trail (Activity) sits with Business
-// rather than in a group of its own — a "Records" group holding exactly one
-// row was a shelf, not a category.
+// ── There is no second sidebar any more ─────────────────────────────────────
 //
-// ── Mobile ──────────────────────────────────────────────────────────────────
+// Until 2026-09-21 this file rendered a second 256px column beside the rail
+// under /app/settings/* — its own search box, eight folding groups, 42 rows —
+// and the rail's Work/People/Money/Grow groups vanished while you were in it.
+// Roofr keeps ONE panel and slides a settings list over it (docs/research/
+// roofr-ui-study.md §2.2); the owner asked for exactly that. So the desktop
+// <aside> and the phone sheet are gone. AdminSidebar mounts SettingsPanel in
+// the same column and slides it; app/app/settings/layout.js mounts
+// SettingsPhoneNav above the page below `lg`; app/app/settings/page.js is
+// the index (search first, eight cards). The file keeps its name because
+// twenty-odd check scripts parse the GROUPS declaration out of it, and the rows
+// have not moved.
 //
-// This was `w-64 shrink-0` at every width. On a 375px phone that is 256px of
-// navigation and 119px for the page, which is why every settings screen read as
-// a column of crushed, wrapped text. AdminSidebar already had a drawer; this one
-// never got one.
-//
-// So below `lg` it becomes a sticky bar showing WHERE YOU ARE plus a button that
-// opens the full list as a sheet. The current page's name is on the bar because
-// "Settings" alone doesn't tell you which of thirty-six screens you're on, and
-// on a phone the list that would have told you is hidden.
+// Grouped by what a company is actually trying to DO, not by when a screen
+// happened to get built. Groups are ordered roughly by how often they're
+// opened: identity first, then the day-to-day (team/scheduling,
+// services/pricing), then what goes OUT (documents & templates, messaging &
+// alerts), then what comes IN or OUT in money (getting paid), then the
+// client-facing surfaces. The company's own audit trail (Activity) sits with
+// Business rather than in a group of its own — a "Records" group holding
+// exactly one row was a shelf, not a category.
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { useNavShell } from "@/app/components/layout/NavShell";
+import { useTradeGate } from "@/app/providers/TradeGateProvider";
+import { useRovingRows } from "@/app/components/layout/rovingRows";
 import {
+  ChevronLeft,
   MessageSquare,
   Star,
   Building2,
@@ -70,9 +77,7 @@ import {
   Zap,
   Sparkles,
   Activity,
-  Settings as SettingsIcon,
   ChevronDown,
-  X,
   Share2,
   ArrowUpDown,
 } from "lucide-react";
@@ -204,55 +209,69 @@ export const GROUPS = [
   },
 ];
 
-// Nothing is open until you're in it. Thirty-six links in eight groups is the
-// complaint; defaulting them all open would leave the list exactly as long as
-// it is today and make the accordion decoration. Closed, /app/settings reads as
-// eight category headings — a far better index than thirty-six links — and the
-// group you're actually in opens itself. Nothing here anchors a tour, so unlike
-// the main rail no group needs pinning.
+// Everything open on a first visit, for the same reason the main rail's
+// groups are: folding solves "this list is long" for someone who already
+// knows where things live, and it does not solve discovery. With the list
+// open, every settings page is two clicks from anywhere — Settings, then
+// the row — which is the ceiling scripts/check-shell.mjs holds; closed by
+// default it would be three (Settings, the group, the row), and the old
+// second sidebar's "nothing is open until you're in it" was exactly the
+// complaint that the first thing a new owner saw was eight headings and no
+// pages. The user's own folds still persist (fq-settings-groups); nothing
+// here anchors a tour, so no group needs pinning.
 const DISCLOSURE_KEY = "fq-settings-groups";
+const DEFAULT_OPEN = GROUPS.map((g) => g.key);
 
-export default function SettingsSidebar({ tradeGate = null }) {
-  const { t } = useTranslation();
-  const [query, setQuery] = useState("");
-  const pathname = usePathname();
-  const [sheetOpen, setSheetOpen] = useState(false);
+/** The 8 groups' icons and one-line descriptions, for the index page's cards. */
+export const GROUP_META = {
+  "app.settings.group.account": { icon: CreditCard, hint: "app.settings.groupHint.account" },
+  "app.settings.group.business": { icon: Building2, hint: "app.settings.groupHint.business" },
+  "app.settings.group.team": { icon: Users, hint: "app.settings.groupHint.team" },
+  "app.settings.group.pricing": { icon: Package, hint: "app.settings.groupHint.pricing" },
+  "app.settings.group.documents": { icon: FileText, hint: "app.settings.groupHint.documents" },
+  "app.settings.group.messaging": { icon: MessageSquare, hint: "app.settings.groupHint.messaging" },
+  "app.settings.group.paid": { icon: Receipt, hint: "app.settings.groupHint.paid" },
+  "app.settings.group.clientFacing": { icon: Globe, hint: "app.settings.groupHint.clientFacing" },
+};
 
-  const isActive = (href) => pathname === href || pathname.startsWith(href + "/");
+// The settings rows that are ALSO rail / More rows. On the index they are
+// drawn as links like any other row — same page, same URL — but the guide's
+// "Every screen" chapter photographs each page once (screens.js `sameAs`),
+// and check-shell counts them once when it proves nothing was lost.
+export const SETTINGS_ROWS_ALSO_IN_NAV = {
+  "app.settings.accountBilling": "app.nav.plan",
+  "app.settings.refer": "app.nav.refer",
+  "app.settings.team": "app.nav.team",
+  "app.settings.expenseTracking": "app.nav.expenses",
+  "app.settings.aiEmployee": "app.nav.aiTeam",
+};
 
-  // Same map the main rail uses, from the provider AppLayout mounts. Cosmetics:
-  // the settings screens behind these rows are gated by their own FeatureGate
-  // layouts whether or not this list ever hides anything.
+/** Longest-prefix match: /app/settings/team/timesheets is Team, not Settings. */
+export function currentSettingsItem(items, pathname) {
+  const p = String(pathname || "");
+  return (
+    items
+      .filter((i) => p === i.href || p.startsWith(i.href + "/"))
+      .sort((a, b) => b.href.length - a.href.length)[0] || null
+  );
+}
+
+/**
+ * The 42 rows after the three cosmetic filters, in the order they always
+ * apply: feature flags, then the settings capability map, then the trade
+ * gate. One hook, four readers (the slide panel, the phone strip, the index
+ * page, the global search) — so a hidden row is hidden everywhere or nowhere.
+ *
+ * Removing a row is cosmetics, not access control. Every row this can remove
+ * is refused server-side for the same member whether or not the row was
+ * drawn — see SETTINGS_ROW_CAPABILITY in lib/permissions/settingsAccess.js.
+ */
+export function useSettingsGroups() {
   const featureFlags = useFeatureFlags();
-  // Three filters, one after the other, answering three different questions:
-  // "does this company have the feature", "may this person use the screen",
-  // and — since the Cabinet Rates fix — "does this company sell the thing
-  // this particular screen configures". They are kept separate because they
-  // fail in opposite directions — a missing feature map shows everything, and
-  // so does a missing role or a missing trade gate, but conflating any two of
-  // them would make one silently stand in for another that asks a different
-  // question.
-  //
-  // Removing a row is cosmetics, not access control. Every row this can remove
-  // is refused server-side for the same member whether or not the row was
-  // drawn — see SETTINGS_ROW_CAPABILITY in lib/permissions/settingsAccess.js,
-  // which is the list, and the per-route notes beside each entry.
-  //
-  // That list is deliberately NOT restated here. It said "the four rows
-  // (Account & Billing, Refer & Earn, Payroll, Booking Page)" and had grown to
-  // fifteen without anyone noticing — a comment enumerating a map that lives
-  // in another file is a copy, and the copy is the one that rots.
-  //
-  // An owner holds every capability, so this is a no-op on the owner's screen.
   const access = useSettingsAccess();
-  // The granular grid, from the provider app/app/layout.js mounts one layout
-  // up — the same object AdminSidebar filters the main rail with. Two rows are
-  // decided by a per-member toggle rather than by a role (Overhead and
-  // Material Costs, on jobCosting), and SettingsAccessProvider deliberately
-  // carries only a role; borrowing the grid from the layout above costs
-  // nothing and stops the two menus answering the same question differently.
   const caller = usePermissions();
-  const groups = useMemo(
+  const tradeGate = useTradeGate();
+  return useMemo(
     () =>
       filterSettingsGroupsByTrade(
         filterSettingsGroups(
@@ -264,104 +283,78 @@ export default function SettingsSidebar({ tradeGate = null }) {
       ),
     [featureFlags, access.resolved, access.role, access.impersonation, caller, tradeGate],
   );
-  // The "you are here" label on the mobile bar reads from this too — otherwise a
-  // hidden feature would name itself at the top of the screen the moment someone
-  // reached its URL, which is the leak the row removal exists to prevent.
-  const allItems = useMemo(() => groups.flatMap((g) => g.items), [groups]);
+}
 
+/**
+ * The list that slides over the rail. Rail tones — it sits on the navy
+ * column now, not on a card — measured by scripts/check-sidebar.mjs like
+ * every other pairing on the rail.
+ *
+ * @param onBack      slides the main list back (the rail owns the state)
+ * @param onNavigate  the phone drawer closes itself after a tap
+ */
+export function SettingsPanel({ onBack, onNavigate }) {
+  const { t } = useTranslation();
+  const [query, setQuery] = useState("");
+  const pathname = usePathname();
+  const featureFlags = useFeatureFlags();
+  const groups = useSettingsGroups();
+  const allItems = useMemo(() => groups.flatMap((g) => g.items), [groups]);
+  const current = currentSettingsItem(allItems, pathname);
+  const isActive = (href) => pathname === href || pathname.startsWith(href + "/");
   const activeKey = activeGroupKey(groups, pathname, isActive);
   const { openKeys, toggle } = useGroupDisclosure({
     storageKey: DISCLOSURE_KEY,
-    defaultOpenKeys: [],
+    defaultOpenKeys: DEFAULT_OPEN,
     activeKey,
   });
+  const onRowsKeyDown = useRovingRows();
 
-  // Close on navigation. Without this, tapping a link on a phone leaves the
-  // sheet covering the page you just asked for.
-  useEffect(() => {
-    setSheetOpen(false);
-  }, [pathname]);
-
-  // Body scroll lock while the sheet is open — otherwise the page behind it
-  // scrolls under your finger and the sheet appears to jump.
-  useEffect(() => {
-    if (!sheetOpen) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, [sheetOpen]);
-
-  // Longest match wins: /app/settings/team/timesheets must resolve to Manage
-  // Team, not to whichever shorter prefix happens to be listed first.
-  const current = allItems.filter((i) => isActive(i.href)).sort(
-    (a, b) => b.href.length - a.href.length,
-  )[0];
-
-  function renderItem(item, { onNavigate } = {}) {
-    const Icon = item.icon;
-    // Only the item `current` resolved to — the longest match — is highlighted.
-    // This used to call isActive() per item, which is a PREFIX test, so
-    // /app/settings/team/timesheets lit up every ancestor that happened to be
-    // in the list. More than one "you are here" is no "you are here".
-    const active = current?.href === item.href;
-    return (
-      <Link
-        key={item.href}
-        href={item.href}
-        onClick={onNavigate}
-        className={`flex items-center gap-3 px-3 py-2.5 lg:py-2 rounded-lg text-sm font-medium transition-colors ${
-          active
-            // Orange, the same as the main rail's active item, rather than the
-            // bg-inverted slab this used. Two reasons. It makes "you are here"
-            // one colour across both sidebars and both themes instead of navy
-            // here and orange there. And --inverted is a BUTTON token: in dark
-            // mode it is #0d3d78 against a #111d31 card, which is 1.57:1 — a
-            // lighter, brighter blue barely distinguishable from the panel
-            // behind it, and below the hover fill it is supposed to outrank.
-            ? "bg-sidebar-primary text-sidebar-primary-foreground font-semibold"
-            // Hover moves the TEXT as well as the fill. It was
-            // `hover:bg-muted` alone at 1.12:1, so the row never visibly
-            // changed; and at a fill strong enough to see, muted-foreground on
-            // it measures 4.16:1 in light mode — under the floor — so the text
-            // has to come up with the fill rather than be swallowed by it.
-            : "text-muted-foreground hover:bg-sidebar-panel-accent hover:text-foreground"
-        }`}
-      >
-        <Icon size={16} className="shrink-0" />
-        <span className="truncate">{t(item.key)}</span>
-        {/* Nothing unless the row's feature is in preview or locked. */}
-        <FeatureRowBadge navKey={item.key} flags={featureFlags} tone="panel" />
-      </Link>
-    );
-  }
-
-  // ── Filter ────────────────────────────────────────────────────────────
-  //
-  // Thirty-six destinations in eight groups. The groups help, but past about
-  // twenty items no amount of grouping beats typing three letters — which is
-  // why every settings screen worth using has a filter box (macOS, Slack,
-  // GitHub all landed on the same answer).
-  //
-  // It is also what makes folding the groups safe: a query overrides
-  // disclosure, so every link stays one search away no matter what is closed.
-  // The matching itself now lives in navDisclosure.js, shared with the main
-  // rail rather than copied into it.
+  // A query overrides disclosure, so every link stays one search away no
+  // matter what is closed. The matching lives in navDisclosure.js, shared
+  // with the main rail rather than copied into it.
   const searching = query.trim().length > 0;
   const label = (key) => t(key);
   const filtered = visibleGroups({ groups, query, label });
 
-  const nav = (onNavigate) => (
-    <div className="space-y-3">
-      <NavFilter
-        value={query}
-        onChange={setQuery}
-        placeholder={t("app.settings.search")}
-        tone="panel"
-      />
+  return (
+    <div className="flex flex-col h-full min-h-0">
+      <div className="px-3 pt-3 space-y-2 shrink-0">
+        <button
+          type="button"
+          onClick={onBack}
+          data-nav-row
+          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+        >
+          <ChevronLeft size={16} className="shrink-0" />
+          {t("app.settings.backToMenu")}
+        </button>
+        <Link
+          href="/app/settings"
+          onClick={onNavigate}
+          data-nav-row
+          aria-current={pathname === "/app/settings" ? "page" : undefined}
+          className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-semibold ${
+            pathname === "/app/settings"
+              ? "bg-sidebar-primary text-sidebar-primary-foreground"
+              : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+          }`}
+        >
+          {t("app.settings.title")}
+        </Link>
+        <NavFilter
+          value={query}
+          onChange={setQuery}
+          placeholder={t("app.settings.search")}
+          tone="rail"
+        />
+      </div>
 
-      <nav className="space-y-2">
+      <nav
+        className="flex-1 min-h-0 overflow-y-auto px-3 py-3 space-y-2"
+        aria-label={t("app.settings.title")}
+        onKeyDown={onRowsKeyDown}
+      >
         {filtered.map((group) => {
           const open = isGroupOpen({ group, openKeys, searching });
           return (
@@ -370,17 +363,42 @@ export default function SettingsSidebar({ tradeGate = null }) {
                 type="button"
                 onClick={() => toggle(group.key)}
                 aria-expanded={open}
-                className="w-full flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold text-muted-foreground uppercase tracking-wide hover:bg-sidebar-panel-accent hover:text-foreground transition-colors"
+                data-nav-row
+                className="w-full flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-semibold uppercase tracking-[0.12em] text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
               >
                 <span className="truncate">{t(group.key)}</span>
                 <ChevronDown
                   size={14}
-                  className={`ml-auto shrink-0 transition-transform ${open ? "" : "-rotate-90"}`}
+                  className={`ml-auto shrink-0 transition-transform motion-reduce:transition-none ${open ? "" : "-rotate-90"}`}
                 />
               </button>
               {open && (
                 <div className="space-y-0.5 pb-1">
-                  {group.items.map((item) => renderItem(item, { onNavigate }))}
+                  {group.items.map((item) => {
+                    const Icon = item.icon;
+                    // Only the longest match is highlighted. A PREFIX test per
+                    // item lit up every ancestor of /app/settings/team/timesheets;
+                    // more than one "you are here" is no "you are here".
+                    const active = current?.href === item.href;
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={onNavigate}
+                        data-nav-row
+                        aria-current={active ? "page" : undefined}
+                        className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          active
+                            ? "bg-sidebar-primary text-sidebar-primary-foreground font-semibold"
+                            : "text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                        }`}
+                      >
+                        <Icon size={16} className="shrink-0" />
+                        <span className="truncate">{t(item.key)}</span>
+                        <FeatureRowBadge navKey={item.key} flags={featureFlags} tone="rail" />
+                      </Link>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -389,7 +407,7 @@ export default function SettingsSidebar({ tradeGate = null }) {
 
         {filtered.length === 0 && (
           <NavEmptyState
-            tone="panel"
+            tone="rail"
             message={t("app.nav.noMatches", { query })}
             clearLabel={t("app.action.clear")}
             onClear={() => setQuery("")}
@@ -398,63 +416,58 @@ export default function SettingsSidebar({ tradeGate = null }) {
       </nav>
     </div>
   );
+}
 
+/**
+ * The phone's section list: a strip at the top of every settings page with
+ * the current GROUP's rows, the current one lit, and "All settings" first.
+ * Below `lg` only — on desktop the rail's slide does this job. A strip, not
+ * a sheet: the page is the thing a person came for, and a full-screen list
+ * over it was the old shape's complaint.
+ *
+ * The rail's own top bar is 52px and sticky; this sits just under it.
+ */
+export function SettingsPhoneNav() {
+  const { t } = useTranslation();
+  const pathname = usePathname();
+  const groups = useSettingsGroups();
+  const allItems = useMemo(() => groups.flatMap((g) => g.items), [groups]);
+  const current = currentSettingsItem(allItems, pathname);
+  const group = current ? groups.find((g) => g.items.some((i) => i.href === current.href)) : null;
+  const shell = useNavShell();
+  if (!group) return null;
   return (
-    <>
-      {/* ── Mobile: a bar that says where you are, and opens the list ── */}
-      {/* top-14, not top-0: AdminSidebar's mobile bar is h-14 and sticks above
-          this one. At top-0 the two would occupy the same 56px and this bar
-          would be hidden behind it. */}
-      <div className="lg:hidden sticky top-14 z-30 border-b border-border/60 bg-card/70 supports-[backdrop-filter]:bg-card/60 backdrop-blur-xl backdrop-saturate-150">
-        <button
-          type="button"
-          onClick={() => setSheetOpen(true)}
-          aria-expanded={sheetOpen}
-          className="w-full flex items-center gap-2 px-4 py-3 text-left"
+    <div className="lg:hidden sticky top-[52px] z-30 border-b border-border/60 bg-card/80 supports-[backdrop-filter]:bg-card/65 backdrop-blur-xl">
+      <div className="flex items-center gap-1.5 px-3 py-2 overflow-x-auto" data-settings-phone-nav>
+        <Link
+          href="/app/settings"
+          onClick={() => shell.close()}
+          className="shrink-0 inline-flex items-center gap-1 rounded-full border border-border px-3 py-1 text-xs font-semibold text-muted-foreground hover:bg-sidebar-panel-accent hover:text-foreground"
         >
-          <SettingsIcon size={16} className="shrink-0 text-muted-foreground" />
-          <span className="text-sm font-semibold text-foreground truncate">
-            {current ? t(current.key) : t("app.settings.title")}
-          </span>
-          <ChevronDown size={16} className="ml-auto shrink-0 text-muted-foreground" />
-        </button>
+          <ChevronLeft size={14} />
+          {t("app.settings.allSettings")}
+        </Link>
+        <span className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground px-1">
+          {t(group.key)}
+        </span>
+        {group.items.map((item) => {
+          const active = current?.href === item.href;
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              aria-current={active ? "page" : undefined}
+              className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold border ${
+                active
+                  ? "bg-sidebar-primary text-sidebar-primary-foreground border-sidebar-primary"
+                  : "text-muted-foreground border-border hover:bg-sidebar-panel-accent hover:text-foreground"
+              }`}
+            >
+              {t(item.key)}
+            </Link>
+          );
+        })}
       </div>
-
-      {sheetOpen && (
-        <div className="lg:hidden fixed inset-0 z-50">
-          <div
-            className="absolute inset-0 bg-black/40"
-            onClick={() => setSheetOpen(false)}
-          />
-          <div className="absolute inset-x-0 bottom-0 top-14 bg-card/95 supports-[backdrop-filter]:bg-card/85 backdrop-blur-xl rounded-t-2xl flex flex-col shadow-[0_-8px_40px_rgba(0,0,0,0.18)]">
-            {/* Grab handle — the modern bottom-sheet affordance. */}
-            <div className="mx-auto mt-2 h-1 w-9 rounded-full bg-muted-foreground/25 shrink-0" />
-            <div className="flex items-center justify-between px-4 py-3 border-b border-border/60 shrink-0">
-              <span className="font-bold text-foreground">{t("app.settings.title")}</span>
-              <button
-                type="button"
-                onClick={() => setSheetOpen(false)}
-                aria-label={t("app.sidebar.closeMenu")}
-                className="p-1.5 -mr-1.5 text-muted-foreground"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            {/* The sheet scrolls, not the page behind it. Thirty-six items
-                don't fit on a phone and a non-scrolling sheet would hide the
-                last three groups entirely. */}
-            <div className="flex-1 overflow-y-auto px-3 py-4 overscroll-contain">
-              {nav(() => setSheetOpen(false))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Desktop: unchanged ── */}
-      <aside className="hidden lg:block w-64 shrink-0 border-r border-border bg-card min-h-full px-3 py-6">
-        <h1 className="px-3 text-lg font-bold text-foreground mb-4">{t("app.settings.title")}</h1>
-        {nav()}
-      </aside>
-    </>
+    </div>
   );
 }

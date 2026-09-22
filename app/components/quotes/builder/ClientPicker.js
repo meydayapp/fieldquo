@@ -91,6 +91,7 @@ export default function ClientPicker({
                 className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
               />
               <input
+                data-client-search
                 value={search}
                 onChange={(e) => onSearchChange(e.target.value)}
                 placeholder={t("app.clients.search")}
@@ -251,12 +252,12 @@ export default function ClientPicker({
                 //
                 // `country` used to be dropped here, and dropping it alone was
                 // enough to break tax on every client quick-added from the
-                // builder: resolveTaxRate refuses to guess a country from a
-                // province code (deliberately — "ON" on its own is ambiguous),
-                // so a client with province "ON" and country null resolves to
-                // "unknown" exactly like one with no address at all. Google
-                // returns it as short_name, which is already the ISO alpha-2
-                // the lookup wants.
+                // builder. Since 2026-09-21 a province whose code settles
+                // the country ("ON" is only ever Ontario) is read on the
+                // company's own side of the border (lib/tax/addressRegion.js),
+                // but a client across it still needs the country on the
+                // record — so keep it. Google returns it as short_name,
+                // which is already the ISO alpha-2 the lookup wants.
                 onPlaceSelected={({ address, city, province, postalCode, county, country }) =>
                   onNewClientChange({
                     address,

@@ -111,10 +111,20 @@ ok(
   "a client with province + country is 'known'",
   clientJurisdictionKnown(ONTARIO_CLIENT) === true,
 );
+// Reversed on 2026-09-21 (owner: "taxes should be automatically set based
+// on the province / state"): "ON" is Ontario and nowhere else — Canadian
+// province codes and US state codes do not overlap — so a province with no
+// country column identifies the jurisdiction on the company's own side of
+// the border. Across it, the country has to be on the record (see the US
+// company case below). lib/tax/addressRegion.js regionFromClientRecord.
 ok(
-  "a client with a province and NO country is not",
-  clientJurisdictionKnown(HALF_CLIENT) === false,
-  "a region code alone cannot identify a jurisdiction",
+  "a client with a province and NO country is known when the code settles the country",
+  clientJurisdictionKnown(HALF_CLIENT, OTTAWA) === true,
+  "ON can only be Ontario",
+);
+ok(
+  "…but not for a company across the border",
+  clientJurisdictionKnown(HALF_CLIENT, { country: "US" }) === false,
 );
 
 const ontario = resolveDocumentTax({ company: OTTAWA, client: ONTARIO_CLIENT });
@@ -142,14 +152,14 @@ ok("…flagged as an assumption", assumed.assumed === true);
 ok("…naming the province it assumed", /ontario/i.test(assumed.assumedRegion || ""), assumed.assumedRegion);
 ok("…with basis 'company_assumed'", assumed.basis === "company_assumed");
 
-// The half-filled client must take the SAME path as the blank one. A stray
-// "ON" beside a null country must not be merged over the company's country to
-// manufacture a determination out of two halves.
+// The half-filled client on a Canadian company: "ON" is Ontario, and the
+// rate is the CLIENT's, not an assumption — the owner's Ottawa clients
+// carry exactly this shape (2026-09-21).
 const half = resolveDocumentTax({ company: OTTAWA, client: HALF_CLIENT });
 ok(
-  "a province-only client is assumed, not treated as determined",
-  half.assumed === true && half.basis === "company_assumed",
-  `${half.basis} assumed:${half.assumed}`,
+  "a province-only client on a Canadian company is determined from the client",
+  half.assumed === false && half.basis === "client" && half.rate === 13,
+  `${half.basis} assumed:${half.assumed} rate:${half.rate}`,
 );
 
 // And it must not leak across countries.
@@ -244,17 +254,30 @@ ok(
   refusal?.clientId === "c1",
 );
 
-// The half-filled client: country is what's missing, and the refusal must say
-// THAT rather than listing both and sending someone to re-type a correct
-// province.
+// The half-filled client on a company with no country of its own: "ON"
+// settles Ontario, the send is allowed, and there is nothing to refuse.
 const halfRefusal = taxSendRefusal(
   taxStatement({ taxEnabled: true, tax: 0, company: NO_PROVINCE, client: HALF_CLIENT }),
   { client: HALF_CLIENT },
 );
+// The rate is known (Ontario, 13%) but the document carries $0 against it,
+// so the send is still refused — and the refusal says the rate, names
+// nothing as missing, and points at the document rather than the client.
 ok(
-  "a client with a province needs only a country, and is told so",
-  halfRefusal?.missing.join() === "country",
-  JSON.stringify(halfRefusal?.missing),
+  "a client whose province settles the country: the refusal names the rate, not a missing field",
+  halfRefusal?.resolvable?.rate === 13 && halfRefusal.missing.length === 0 && /13%/.test(halfRefusal.error),
+  JSON.stringify({ missing: halfRefusal?.missing, resolvable: halfRefusal?.resolvable }),
+);
+// A province nothing recognises ("Zone 4") with no country: the refusal
+// names the country as the missing half, not the province they typed.
+const oddRefusal = taxSendRefusal(
+  taxStatement({ taxEnabled: true, tax: 0, company: NO_PROVINCE, client: { id: "c9", name: "odd", province: "Zone 4", country: null } }),
+  { client: { id: "c9", name: "odd", province: "Zone 4", country: null } },
+);
+ok(
+  "an unrecognised province with no country is told the country is missing",
+  Array.isArray(oddRefusal?.missing) && oddRefusal.missing.includes("country"),
+  JSON.stringify(oddRefusal?.missing),
 );
 
 section("The send: allowed in every case that CAN explain itself");

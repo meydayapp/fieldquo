@@ -325,7 +325,7 @@ const CABINET_RATES = normaliseRates({
 });
 
 const SETTINGS_A_SLUGS = new Set([
-  "settings", "settings-migration", "settings-product-updates", "settings-company", "settings-branding", "settings-language",
+  "settings", "settings-tax", "settings-migration", "settings-product-updates", "settings-company", "settings-branding", "settings-language",
   "settings-activity", "settings-availability", "settings-my-calendar", "settings-leave", "settings-booking-page", "settings-work-areas",
   "settings-products", "settings-services", "settings-material-costs", "settings-cabinet-rates", "settings-overhead",
   "settings-custom-fields",

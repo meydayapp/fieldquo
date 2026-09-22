@@ -11,6 +11,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { effectiveTaxMode } from "@/lib/tax/taxMode";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -539,9 +540,10 @@ export default function CompanyDetail({ companyId }) {
                 : null
             }
           />
+          {/* lib/tax/taxMode.js: the column, else the older boolean. */}
           <Field
-            label="Auto local tax"
-            value={company.autoApplyLocalTax ? "On" : "Off"}
+            label="Tax mode"
+            value={effectiveTaxMode(company) === "manual" ? "Manual — own rates only" : "Automatic — by province / state"}
           />
           <Field label="Payment terms" value={company.paymentTerms} />
           <Field

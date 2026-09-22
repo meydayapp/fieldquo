@@ -255,9 +255,9 @@ The three worth memorising, because they come up constantly:
 
 ## Competitors
 
-Grounded in `lib/marketing/competitors.js` and the five pages under
-`app/(marketing)/compare/`. Five comparisons exist, all English-only by
-decision:
+Grounded in `lib/marketing/competitors.js` and the seven pages under
+`app/(marketing)/compare/`. Seven comparisons exist, translated into the nine
+catalogue languages (titles and meta descriptions stay English for crawlers):
 
 | Page | Competitor | What we actually claim |
 |---|---|---|
@@ -266,6 +266,8 @@ decision:
 | `/compare/fieldquo-vs-servicetitan` | ServiceTitan | They publish no price. Every tier says Request Pricing. |
 | `/compare/fieldquo-vs-projul` | Projul | Annual only — all three tiers priced annually. |
 | `/compare/fieldquo-vs-quoteiq` | QuoteIQ | Starts at $29.99/mo for one user against our $99 floor. Every QuoteIQ user is a paid login; our crew seats are free. |
+| `/compare/fieldquo-vs-roofr` | Roofr | SMS ($49), Instant Estimator ($149), Roofr Sites ($99) and AI Receptionist ($99) are add-ons — $396/mo on top of the plan — and every measurement report is charged per roof ($13 paid plans / $19 Starter). Conceded: a $0 Starter plan, unlimited users on every plan, and a measured edge report ours derives by convention. Read 2026-09-21 from Canada; their page prices in USD. |
+| `/compare/fieldquo-vs-paintscout` | PaintScout | Sales $119/mo ($99 annual) includes one user; every extra user is $20/mo; the job half (Operations) is a $99/mo add-on. Shop math prices the extra users in the open. Conceded: painting-only production-rate defaults, iOS/Android, offline, QuickBooks, Zapier/CompanyCam, a community, a no-card trial. Read 2026-09-21 from Canada; USD. |
 
 ### The rules the code enforces on you
 

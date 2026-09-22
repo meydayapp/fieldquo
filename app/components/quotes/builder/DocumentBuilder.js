@@ -628,7 +628,9 @@ export default function DocumentBuilder({ b }) {
         : null;
   const offlineAmount = offlinePct ? offlineDiscountAmount(b.taxableBase, offlinePct) : 0;
 
-  const taxUnresolved = b.taxEnabled && Number(b.tax) === 0;
+  // Keyed on the RATE being settled, not the amount — an empty quote has $0
+  // of tax at any rate (lib/tax/taxLine.js, the owner's 2026-09-21 note).
+  const taxUnresolved = b.taxEnabled && !b.taxLine?.resolved;
   const totalRows = [
     { key: "subtotal", label: labels.subtotal, value: money(b.subtotal) },
     b.subtotal - b.taxableBase > 0
@@ -643,11 +645,12 @@ export default function DocumentBuilder({ b }) {
       value: taxUnresolved ? t("app.tax.line.unresolved") : b.taxEnabled ? money(b.tax) : t("app.tax.line.none"),
       tone: taxUnresolved ? "warn" : undefined,
       editLabel: t("app.quoteEdit.taxRate"),
+      // The sentence under the figure: what to add when nothing names a
+      // province, else where the settled rate came from ("HST 13% (Ontario)
+      // · from the job address").
       note: taxUnresolved
-        ? b.taxPlace
-          ? t("app.tax.line.unresolvedHintPlace", { place: b.taxPlace })
-          : t("app.tax.line.unresolvedHint")
-        : b.taxNote || null,
+        ? b.taxLine?.hint || null
+        : [b.taxLine?.headline, b.taxLine?.source].filter(Boolean).join(" · ") || null,
     },
   ].filter(Boolean);
 
@@ -673,6 +676,7 @@ export default function DocumentBuilder({ b }) {
     taxCaution: b.taxCaution,
     taxSchemeNote: b.taxSchemeNote,
     taxAssumed: b.taxAssumed,
+    taxLine: b.taxLine,
     taxVat:
       b.taxDetail?.reducedRate != null
         ? {
@@ -1184,7 +1188,7 @@ export default function DocumentBuilder({ b }) {
             >
               {(editing === "discount" || editing === "tax") && (
                 <InlinePanel title={editing === "discount" ? t("app.quoteEdit.discount") : t("app.quoteEdit.taxRate")} onClose={() => setEditing(null)} t={t}>
-                  <QuoteTermsFields {...termsProps} only={editing} />
+                  <QuoteTermsFields {...termsProps} only={editing} startChanging />
                 </InlinePanel>
               )}
             </DocumentTotals>

@@ -163,11 +163,17 @@ console.log("\nThe quick-add menu is filtered by permission, not only by flag");
 // NAV_REQUIREMENTS has carried app.quickAdd.quote since it was written, with a
 // comment about losing a composed quote to a 403 — and the sidebar ran the
 // list through the FEATURE-FLAG filter alone, so it never applied.
+// The Create menu moved out of the rail on 2026-09-21 (CreateMenu.js: the
+// top bar's pill and the phone's floating +). Both forms take their items
+// from AdminSidebar's useNavItems, which is filterNavItemsByPermission over
+// filterNavItems — and both render nothing when the list is empty.
 const SIDEBAR = read("../app/components/layout/AdminSidebar.js");
+const CREATE = read("../app/components/layout/CreateMenu.js");
 t("quick-add runs through filterNavItemsByPermission",
-  /quickAddItems[\s\S]{0,200}filterNavItemsByPermission/.test(SIDEBAR));
+  /export function useNavItems[\s\S]{0,400}filterNavItemsByPermission\(filterNavItems\(/.test(SIDEBAR) &&
+    (CREATE.match(/useNavItems\(QUICK_ADD_ITEMS\)/g) || []).length === 2);
 t("the Create button hides when nothing is creatable",
-  /quickAddItems\.length > 0 && \(/.test(SIDEBAR));
+  (CREATE.match(/if \(items\.length === 0\) return null;/g) || []).length === 2);
 const PRODUCTS_PAGE = read("../app/app/settings/products/ProductCatalogue.js");
 t("a refused price book hides its Add/Import/Export controls",
   /\{!loadError && \(/.test(PRODUCTS_PAGE));

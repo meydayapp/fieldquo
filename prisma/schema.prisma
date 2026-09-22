@@ -1682,7 +1682,28 @@ model Company {
   /// because "never answered" and "said no" are different states, and padding
   /// the first into the second would silently hide the step from everyone.
   taxRegistrationDismissedAt DateTime?
+  /// Superseded by `taxMode` below and kept only as the input to its
+  /// migration rule (lib/tax/taxMode.js effectiveTaxMode). Written in step
+  /// with taxMode by the settings route so nothing that still reads it rots.
   autoApplyLocalTax Boolean @default(true)
+
+  /// How a document's tax rate is chosen — lib/tax/taxMode.js.
+  ///
+  ///   auto    — the job's province or state decides: the company's own
+  ///             named rates first, then the published table
+  ///             (lib/tax/jurisdictions.js). The owner's decision of
+  ///             2026-09-21: "taxes should be automatically set based on
+  ///             the province / state."
+  ///   manual  — only the rates the company typed: a named row that matches
+  ///             the province, else its default. Never the table.
+  ///   null    — never chosen. Read as `manual` when autoApplyLocalTax is
+  ///             false (the one opt-out that existed before this column),
+  ///             else `auto`. Every production row on 2026-09-21 had
+  ///             autoApplyLocalTax = true, so no company's behaviour
+  ///             changed when the column landed. Deliberately no column
+  ///             default: a default would backfill every existing row with
+  ///             an answer nobody gave.
+  taxMode TaxMode?
 
   /// Is this company registered for VAT? THREE states, and the nullability is
   /// the point:
@@ -2713,6 +2734,12 @@ model Client {
   /// shown on the client page. Never cleared by code; a person clears it.
   doNotContactAt     DateTime?
   doNotContactReason String?
+}
+
+/// See Company.taxMode.
+enum TaxMode {
+  auto
+  manual
 }
 
 enum ClientType {
@@ -11442,6 +11469,13 @@ model SignupLead {
   address            String?
   serviceCategoryIds String[] @default([])
 
+  /// The Better Auth user this address signed in as, set by a capture that
+  /// arrived on a session whose email IS this row's (lib/signup/salesFloor.js
+  /// captureSignupLead). Read by the signed-in resume as the fallback when
+  /// the session's address no longer spells the emailKey, and by
+  /// /platform/signups to say "has a login, no company yet".
+  authUserId String?
+
   /// The rep code on the link (`?sales=CODE`, lower-cased) and the referral
   /// or promo code (`?ref=`), as presented. Resolved at promotion, never
   /// trusted from the browser for anything else.
@@ -11477,6 +11511,7 @@ model SignupLead {
   @@index([completedCompanyId])
   @@index([referredRepId])
   @@index([promotedAt])
+  @@index([authUserId])
 }
 
 /// One follow-up email FieldQuo sent — or is sending — to somebody who

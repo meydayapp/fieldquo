@@ -51,7 +51,7 @@ import {
   nudgeRecipient,
   decideSignupNudge,
 } from "@/lib/signup/abandoned";
-import { PROMOTE_AFTER_MS, STEP_LABELS, emailKeyOf, tradeKeyForIndustries } from "@/lib/signup/leads";
+import { PROMOTE_AFTER_MS, STEP_LABELS, emailKeyOf, tradeKeyForIndustries, unfinishedSignupLeadWhere } from "@/lib/signup/leads";
 import { EARLY_NUDGE_DELAY_MINUTES, EARLY_TOUCH, RECOVERY_TOUCH } from "@/lib/signup/earlyNudge";
 import { discoveryTradeKeys, discoveryTradeLabel, isDiscoveryTradeKey } from "@/lib/sales/discovery/trades";
 import { INDUSTRIES } from "@/app/data/industries";
@@ -168,13 +168,19 @@ export async function GET(request) {
   // The SignupNudge log (lib/signup/earlyNudge.js): the five-minute touch and
   // the 24-hour note, keyed on the address. Company.signupNudgeSentAt is
   // still read for the 24-hour note sent before the log existed.
+  // "Unfinished" is signupLeadFinished's rule, not `completedCompanyId: null`:
+  // a row the cron matched by phone or email to a company already on the
+  // books is still somebody's live, unfinished signup. The owner's own test
+  // signup vanished from this list on 2026-09-21 for exactly that reason,
+  // while he was stuck on the page it belonged to.
   const startedRows = await db.signupLead.findMany({
-    where: { completedCompanyId: null },
+    where: unfinishedSignupLeadWhere(),
     orderBy: { lastSeenAt: "desc" },
     take: 200,
     select: {
       id: true, email: true, firstName: true, lastName: true, companyName: true, phoneE164: true, city: true, province: true, country: true,
       trades: true, language: true, stepReached: true, startedAt: true, lastSeenAt: true, promotedAt: true, promotedLeadId: true, skipReason: true, salesCode: true,
+      authUserId: true, completedCompanyId: true,
       referredRep: { select: { id: true, name: true } },
       prospect: { select: { id: true, hot: true, signupKind: true, tradeKey: true, assignedRepId: true, assignedAt: true, claimExpiresAt: true, doNotContactAt: true } },
     },
@@ -263,7 +269,7 @@ export async function GET(request) {
     if (r.promotedLeadId && r.referredRep) state = { code: "rep_lead", rep: r.referredRep };
     else if (p && live) state = { code: "assigned", rep: { id: p.assignedRepId, name: repName.get(p.assignedRepId) || "a rep", at: p.assignedAt }, hot: p.hot };
     else if (p) state = { code: "unassigned", hot: p.hot };
-    else if (r.skipReason) state = { code: "skipped", reason: r.skipReason };
+    else if (r.skipReason) state = { code: "skipped", reason: r.skipReason, matchedCompanyId: r.skipReason === "company_exists" ? r.completedCompanyId : null };
     else if (!r.phoneE164) state = { code: "no_phone" };
     else state = { code: "waiting", quietMinutes: Math.floor((now.getTime() - new Date(r.lastSeenAt).getTime()) / 60000), promoteAfterMinutes: PROMOTE_AFTER_MS / 60000 };
     return {
@@ -279,6 +285,10 @@ export async function GET(request) {
       stepLabel: STEP_LABELS[r.stepReached] || r.stepReached,
       startedAt: r.startedAt,
       lastSeenAt: r.lastSeenAt,
+      // A login exists for this address (the capture arrived on its
+      // session) and no company does — the state the signup page resumes
+      // into. Shown so a rep ringing them knows they can just sign in.
+      signedIn: Boolean(r.authUserId),
       referredBy: r.referredRep || (r.salesCode ? { id: null, name: null, code: r.salesCode } : null),
       prospectId: p?.id || null,
       state,

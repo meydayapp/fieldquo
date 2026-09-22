@@ -120,7 +120,12 @@ const adminSrc = read("app/components/layout/AdminSidebar.js");
 const settingsSrc = read("app/components/layout/SettingsSidebar.js");
 const platformSrc = read("app/components/platform/PlatformSidebar.js");
 
-const adminGroups = groups(sliceArray(adminSrc, "const NAV_GROUPS = ["));
+// The rail's seventeen and the More groups (2026-09-21): both are rail data,
+// both are drawn (the rail and /app/more + the phone sheet), both count.
+const adminGroups = [
+  ...groups(sliceArray(adminSrc, "const NAV_GROUPS = [")),
+  ...groups(sliceArray(adminSrc, "const MORE_GROUPS = [")),
+];
 const settingsGroups = groups(sliceArray(settingsSrc, "const GROUPS = ["));
 const platformGroups = groups(sliceArray(platformSrc, "const GROUPS = ["), "label");
 
@@ -128,8 +133,17 @@ const adminExtra = [
   ...leafItems(sliceArray(adminSrc, "const QUICK_ADD_ITEMS = [")),
   ...leafItems(sliceArray(adminSrc, "const BOTTOM_ITEMS = [")),
   ...leafItems(`[${adminSrc.match(/const HOME_ITEM = (\{[^{}]*\});/)?.[1] ?? ""}]`),
-  ...leafItems(`[${adminSrc.match(/const AI_ITEM = (\{[^{}]*\});/)?.[1] ?? ""}]`),
+  ...leafItems(`[${adminSrc.match(/const MORE_ITEM = (\{[^{}]*\});/)?.[1] ?? ""}]`),
 ];
+// The AI row lives in NAV_GROUPS' AI group now; a parse that silently found
+// no MORE_ITEM would drop /app/more out of the linked set and section 5
+// would name it, so pin both here.
+ok("parsed the More row and the AI row",
+  adminExtra.some((i) => i.href === "/app/more") && adminItems_hasAi(),
+  adminExtra.map((i) => i.href).join(", "));
+function adminItems_hasAi() {
+  return adminGroups.some((g) => g.items.some((i) => i.href === "/app/copilot"));
+}
 const platformHome = leafItems(`[${platformSrc.match(/const HOME_ITEM = (\{[^{}]*\});/)?.[1] ?? ""}]`);
 
 const adminItems = [...adminGroups.flatMap((g) => g.items), ...adminExtra];
@@ -267,7 +281,6 @@ const DRILL_INS = {
   "/app/analytics/statements": "linked from the Insights hub and the KPI dashboard's AR panel",
   "/app/analytics/win-loss": "linked from the Insights hub",
   "/app/analytics/estimate-accuracy": "linked from the Insights hub and the KPI dashboard",
-  "/app/settings": "redirects to /app/settings/company — not a destination of its own",
   "/app/settings/team/people/[workerId]": "one person's HR file — opened from Manage Team's HR file link under each name and from every count on the compliance screen",
   "/app/settings/team/compliance": "the HR & compliance overview — a tab on Manage Team, beside Workers and Timesheets; not a sidebar row because it is one view OF the team, not a second team",
   "/app/settings/team/onboarding": "the onboarding checklist editor — a tab on Manage Team; opening it is what seeds the default checklist",

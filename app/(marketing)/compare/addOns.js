@@ -84,6 +84,26 @@ export const ADD_ON_COUNTERPARTS = Object.freeze({
   ]),
   "jobber.addon.ai_receptionist": Object.freeze(["voice_receptionist", "call_to_quote"]),
   "jobber.addon.sales_pipeline": Object.freeze(["leads", "funnels"]),
+  // ── Roofr, read 2026-09-21 ────────────────────────────────────────────
+  //
+  // SMS is the honest one to get right. Their add-on is "Send and track SMS
+  // texts directly from the job card". What FieldQuo does by text is the
+  // appointment reminder and the on-my-way message to the client, and the
+  // crew inbox from the field — appointment_reminders is `partial` in the
+  // matrix and its limits print here. We do not have a two-way text thread
+  // with a homeowner from the job, and this list must not imply one.
+  "roofr.addon.sms": Object.freeze(["appointment_reminders", "crew_inbox"]),
+  "roofr.addon.instant_estimator": Object.freeze(["instant_quotes", "self_quote", "aerial_measure"]),
+  "roofr.addon.sites": Object.freeze(["website_builder"]),
+  "roofr.addon.ai_receptionist": Object.freeze(["voice_receptionist", "call_to_quote"]),
+  // ── PaintScout, read 2026-09-21 ───────────────────────────────────────
+  //
+  // One add-on, so totalOf() refuses to total it and the AddOnStack block
+  // does not render on that page; the head-to-head row and the lede carry
+  // the $99 instead. The mapping is still here so /pricing or a later page
+  // can set our side against it without re-deciding what the counterparts
+  // are.
+  "paintscout.addon.operations": Object.freeze(["jobs", "scheduling", "leads", "tasks", "appointment_reminders"]),
 });
 
 // Validated at module load, the way app/data/featurePages.js validates its own

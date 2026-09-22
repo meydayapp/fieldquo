@@ -155,6 +155,7 @@ export async function POST(request, { params }) {
       // query because the gate runs on every send.
       taxRate: true,
       autoApplyLocalTax: true,
+      taxMode: true,
       country: true,
       province: true,
       vatRegistered: true,
@@ -232,6 +233,9 @@ export async function POST(request, { params }) {
       company: company || {},
       taxRates,
       client: await attachUsTaxRate(quote.client),
+      // Where the work is: a job across a provincial line answers before
+      // the client's own record does (lib/tax/documentTax.js).
+      siteAddress: quote.siteAddress || null,
       asOf: quote.createdAt,
     }),
     { client: quote.client },

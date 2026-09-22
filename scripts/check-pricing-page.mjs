@@ -567,10 +567,23 @@ async function main() {
   const stack = addOnStack("jobber", TODAY);
   ok("their add-ons are publishable and totallable today", stack.refusal === null, String(stack.refusal));
   ok("the pricing page carries the block", html.includes('data-addon-stack="jobber"'));
+  // Every competitor whose stack the module will total gets a block here —
+  // that is what AddOnComparison does, by design. Jobber was the only one for
+  // months; Roofr (read 2026-09-21, four add-ons at one selector point) is the
+  // second, and its $396 beside Jobber's $177 is the owner's "that is wild"
+  // on the page where a visitor decides. So the row count is the sum over
+  // every totallable stack, not Jobber's three.
+  const totallable = COMPETITORS.map((c) => addOnStack(c.id, TODAY)).filter((st) => st.refusal === null);
+  ok("more than one competitor's stack totals today, so the loop below is exercised", totallable.length >= 2,
+    totallable.length);
+  for (const st of totallable) {
+    ok(`the pricing page carries ${st.items[0].competitorId}'s block`,
+      html.includes(`data-addon-stack="${st.items[0].competitorId}"`));
+  }
   ok(
-    "...with one row per publishable add-on",
-    stack.items.every((a) => html.includes(`data-addon-id="${a.id}"`)) &&
-      (html.split("data-addon-id=").length - 1) === stack.items.length,
+    "...with one row per publishable add-on, across every stack",
+    totallable.every((st) => st.items.every((a) => html.includes(`data-addon-id="${a.id}"`))) &&
+      (html.split("data-addon-id=").length - 1) === totallable.reduce((n, st) => n + st.items.length, 0),
     html.split("data-addon-id=").length - 1,
   );
   ok(
@@ -686,14 +699,20 @@ async function main() {
   // three months stops being printed here exactly as it stops being printed on
   // /compare — the block leaves rather than going quietly out of date.
   {
+    // Ninety-five days past the NEWEST add-on reading of any competitor. A
+    // date typed here was 2026-12-01 — past Jobber's 2026-08-28 read and not
+    // past Roofr's 2026-09-21 one — and the assertion went red the day a
+    // second stack arrived rather than the day a reading actually rotted.
+    const newest = allAddOns().map((a) => a.checked).sort().at(-1);
+    const staleDay = new Date(Date.parse(`${newest}T00:00:00Z`) + 95 * 86400000).toISOString().slice(0, 10);
     const stale = renderToStaticMarkup(
       createElement(
         LanguageProvider,
         { initialLanguage: "en" },
-        createElement(PricingPlans, { plans: ladderCards, asOf: "2026-12-01" }),
+        createElement(PricingPlans, { plans: ladderCards, asOf: staleDay }),
       ),
     );
-    ok("ninety-five days after the read, the block is gone", !/data-addon-stack/.test(stale));
+    ok(`ninety-five days after the newest read (${staleDay}), every block is gone`, !/data-addon-stack/.test(stale));
     ok("...and no competitor amount survives on the page",
       !stale.includes(`$${stack.total}`) &&
         stack.items.every((a) => !stale.includes(`data-addon-id="${a.id}"`)));

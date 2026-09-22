@@ -98,6 +98,9 @@ import {
   SOURCING_TIERS,
   STALE_AFTER_DAYS,
   TEAM_SIZES,
+  UNIT_FLAT_PLUS_USAGE,
+  UNIT_PER_SEAT,
+  allPerUseCharges,
   UNVERIFIED,
   VERIFIED,
   allAddOns,
@@ -1227,9 +1230,24 @@ ok("every competitor declares what it charges per",
   COMPETITORS.map((c) => [c.id, c.pricingUnit]));
 ok("...and where that was established", COMPETITORS.every((c) => SOURCING_TIERS.includes(c.pricingUnitSourcing)),
   COMPETITORS.map((c) => [c.id, c.pricingUnitSourcing]));
-ok("no two of the five charge in the same way, so the units are not decoration",
-  new Set(COMPETITORS.map((c) => c.pricingUnit)).size === COMPETITORS.length,
-  COMPETITORS.map((c) => c.pricingUnit));
+// This used to assert every competitor had a DIFFERENT unit — true for five,
+// and it stopped being true on 2026-09-21 when PaintScout was read: "1 User"
+// and "Team seats: $20/user/month" is exactly the shape Housecall Pro sells,
+// and inventing a seventh unit to keep the set distinct would have been a
+// data model bending to a check. What the assertion was FOR survives: the
+// units are read off the pages, not assigned to make a table look varied.
+// So the set must still be wide, and any two companies that share a unit must
+// be named here, on purpose, so a third joining them is a decision.
+{
+  const units = COMPETITORS.map((c) => c.pricingUnit);
+  ok("at least six distinct units are in use across the competitors",
+    new Set(units).size >= 6, units);
+  const shared = Object.entries(
+    COMPETITORS.reduce((m, c) => ((m[c.pricingUnit] ||= []).push(c.id), m), {}),
+  ).filter(([, ids]) => ids.length > 1);
+  ok("the only unit two companies share is per-seat, and they are Housecall Pro and PaintScout",
+    JSON.stringify(shared) === JSON.stringify([[UNIT_PER_SEAT, ["housecall_pro", "paintscout"]]]), shared);
+}
 ok("FieldQuo's own unit is declared, not left for a caller to name",
   Object.hasOwn(PRICING_UNITS, FIELDQUO_PRICING_UNIT));
 ok("...and it is not any competitor's unit",
@@ -1267,6 +1285,127 @@ ok("every rung really does include free crew", SEAT_LADDER.every((t) => t.crewSe
   SEAT_LADDER.map((t) => [t.tierKey, t.crewSeats]));
 ok("...and the top rung really is 25 people for one price",
   SEAT_LADDER[3].seats + SEAT_LADDER[3].crewSeats === 25);
+
+// ══════════════════════════════════════════════════════════════════════════
+console.log("\nRoofr: a free tier, unlimited users, four add-ons and a charge per roof");
+// ══ Read on 2026-09-21 from Canada; the owner's four figures all matched ═══
+//
+// What the page had that his reading did not: a $0 Starter plan with no time
+// limit, "Unlimited users" on every card, an AI Receptionist add-on beside the
+// three he named, and measurement reports priced per report on every plan.
+// Each of those changes the comparison and each is asserted here so it cannot
+// be quietly dropped to make the page read better.
+{
+  const roofr = competitor("roofr");
+  ok("Roofr is in the data", Boolean(roofr));
+  ok("...read from a Canadian connection, every figure and add-on",
+    [...roofr.figures, ...roofr.addOns].every((f) => f.observedFrom === "CA"));
+  ok("...and the geo caveat says their page prices in USD", /USD/.test(roofr.geoCaveat || ""));
+  const starter = roofr.figures.find((f) => f.id === "roofr.starter.monthly");
+  ok("Starter is a published price of nothing — PRICE_FREE, never an amount of 0",
+    starter?.price?.kind === PRICE_FREE && starter.price.currency === "USD");
+  ok("...and it publishes as a free tier", withholdReason(starter, "2026-09-21") === null);
+  ok("...with its ten-proposal cap quoted in their own words",
+    starter.includedFeatures.includes("10 trial proposals, invoices & work orders"));
+  ok("every Roofr plan records unlimited users with no seat count to divide by",
+    roofr.figures.every((f) => f.unlimitedSeats === true && f.seatsIncluded === null));
+  ok("...and its unit says headcount does not enter the price",
+    roofr.pricingUnit === UNIT_FLAT_PLUS_USAGE && PRICING_UNITS[UNIT_FLAT_PLUS_USAGE].mapsTo === "none");
+  ok("...while the unit's caveat names the per-report charge the plan price leaves out",
+    /per-report/.test(PRICING_UNITS[UNIT_FLAT_PLUS_USAGE].caveat));
+  const monthly = (id) => roofr.figures.find((f) => f.id === id)?.price?.amount;
+  ok("Essentials is $249 monthly and $209 billed yearly, as printed",
+    monthly("roofr.essentials.monthly") === 249 && monthly("roofr.essentials.annual") === 209);
+  ok("Scale is $349 monthly and $299 billed yearly, as printed",
+    monthly("roofr.scale.monthly") === 349 && monthly("roofr.scale.annual") === 299);
+  const addOn = (id) => roofr.addOns.find((a) => a.id === id);
+  ok("the SMS add-on is $49 a month", addOn("roofr.addon.sms")?.price?.amount === 49);
+  ok("...and its note records that Starter and Measure+ cannot buy it",
+    /✕ Starter, ✕ Measure\+/.test(addOn("roofr.addon.sms").note));
+  ok("the Instant Estimator is $149, Roofr Sites $99 and the AI Receptionist $99",
+    addOn("roofr.addon.instant_estimator")?.price?.amount === 149 &&
+      addOn("roofr.addon.sites")?.price?.amount === 99 &&
+      addOn("roofr.addon.ai_receptionist")?.price?.amount === 99);
+  ok("...all four at the same point on their selectors, so they can be totalled",
+    new Set(roofr.addOns.map((a) => JSON.stringify(a.axis))).size === 1);
+  ok("...and the receptionist add-on is keyed to the comparable feature",
+    addOn("roofr.addon.ai_receptionist").feature === "ai_receptionist");
+  ok("every Roofr add-on publishes today", roofr.addOns.every((a) => withholdReason(a, "2026-09-21") === null));
+
+  // ── Per-use charges: their own list, their own gate, never a monthly ──────
+  const perUse = allPerUseCharges().filter((c) => c.competitorId === "roofr");
+  ok("Roofr's measurement reports are recorded per report", perUse.length === 4, perUse.length);
+  for (const c of perUse) {
+    ok(`${c.id} carries a source, a date, a vantage point and a currency`,
+      c.source === roofr.figures[0].source && /^\d{4}-\d{2}-\d{2}$/.test(c.checked) && c.observedFrom === "CA" && c.price.currency === "USD");
+    ok(`${c.id} is priced per report, not per month`, c.price.per === "report");
+    ok(`${c.id} names the tiers it applies to`, Array.isArray(c.onTiers) && c.onTiers.length > 0);
+    ok(`${c.id} publishes through the same gate as a figure`, withholdReason(c, "2026-09-21") === null,
+      withholdReason(c, "2026-09-21"));
+  }
+  ok("a report is $19 on Starter and $13 on the paid plans",
+    perUse.find((c) => c.id === "roofr.report.starter")?.price.amount === 19 &&
+      perUse.find((c) => c.id === "roofr.report.paid")?.price.amount === 13);
+  ok("...and a per-report charge is not an add-on, so it cannot be summed into a monthly figure",
+    !roofr.addOns.some((a) => a.price.per === "report"));
+
+  // ── Both directions, and the one that hurts ──────────────────────────────
+  const both = claims("roofr");
+  ok("Roofr's free tier is conceded as a price below our floor",
+    both.theyHaveWeDont.some((c) => c.capability === "entry_price_below_our_floor" && c.publishable));
+  ok("...and their measured report is conceded, with our derived edge split named as the reason",
+    both.theyHaveWeDont.some((c) => c.capability === "measured_roof_report" && c.publishable) &&
+      /CONVENTION/.test(FIELDQUO_CAPABILITIES.measured_roof_report.evidence));
+  ok("...and the measured-report claim does not call their report human-verified",
+    !/human/i.test(both.theyHaveWeDont.find((c) => c.capability === "measured_roof_report").claim));
+  ok("Roofr's QuickBooks concession quotes the US-only qualification",
+    /US businesses only|United States/.test(both.theyHaveWeDont.find((c) => c.capability === "accounting_sync")?.claim || ""));
+  ok("the receptionist add-on is claimed against our no-monthly-floor, not against 'included'",
+    both.weHaveTheyDont.some((c) => c.capability === "ai_receptionist_no_monthly_floor" && c.publishable));
+  ok("the Canadian payments claim is scoped to what their page says",
+    /U\.S businesses only/.test(both.weHaveTheyDont.find((c) => c.capability === "payments_in_canada")?.claim || ""));
+  ok("...and it names a capability with code behind it",
+    FIELDQUO_CAPABILITIES.payments_in_canada.has === true && /acss_debit/.test(FIELDQUO_CAPABILITIES.payments_in_canada.evidence));
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+console.log("\nPaintScout: one user, twenty dollars for each of the next, and the job half sold separately");
+{
+  const ps = competitor("paintscout");
+  ok("PaintScout is in the data", Boolean(ps));
+  ok("...read from Canada, and the caveat says their page prices in USD",
+    ps.figures.every((f) => f.observedFrom === "CA") && /USD/.test(ps.geoCaveat || ""));
+  const sales = ps.figures.find((f) => f.id === "paintscout.sales.monthly");
+  const annual = ps.figures.find((f) => f.id === "paintscout.sales.annual");
+  ok("Sales is $119 monthly and $99 billed annually, one user included",
+    sales?.price?.amount === 119 && annual?.price?.amount === 99 && sales.seatsIncluded === 1 && annual.seatsIncluded === 1);
+  ok("...and the price of the next user travels on the figure as a figure, not as prose",
+    sales.perExtraUser?.amount === 20 && sales.perExtraUser.per === "month" && sales.perExtraUser.currency === "USD");
+  ok("...on both billing modes", annual.perExtraUser?.amount === 20);
+  ok("their unit is per seat with extras priced individually — Housecall Pro's, honestly shared",
+    ps.pricingUnit === UNIT_PER_SEAT);
+  const ops = ps.addOns.find((a) => a.id === "paintscout.addon.operations");
+  ok("Operations is a $99 a month add-on", ops?.price?.amount === 99 && ops.price.per === "month");
+  ok("...at the same selector point as the plan", JSON.stringify(ops.axis) === JSON.stringify(sales.axis));
+  ok("both PaintScout figures and the add-on publish today",
+    [...ps.figures, ...ps.addOns].every((f) => withholdReason(f, "2026-09-21") === null));
+  ok("the Sales bullets are the six Key Features ticked in the Sales column",
+    sales.includedFeatures.length === 6 && sales.includedFeatures.includes("Production Rate Estimating"));
+  const both = claims("paintscout");
+  for (const cap of ["mobile_app", "offline_use", "accounting_sync", "integration_marketplace", "community", "self_serve_demo"]) {
+    ok(`PaintScout's ${cap} is conceded and publishes`,
+      both.theyHaveWeDont.some((c) => c.capability === cap && c.publishable));
+  }
+  ok("the iOS/Android and offline concessions come off their own structured data",
+    both.theyHaveWeDont.filter((c) => ["mobile_app", "offline_use"].includes(c.capability)).every((c) => /schema\.org Offer markup|structured/.test(c.verifiedBy)));
+  ok("the seat claim is made in our favour AND names that our crew cannot quote",
+    /field_worker_quotes/.test(both.weHaveTheyDont.find((c) => c.capability === "free_crew_seats")?.note || ""));
+  ok("the trial claim carries their no-card trial as a point in their favour",
+    /no credit card/.test(both.weHaveTheyDont.find((c) => c.capability === "monthly_billing")?.note || ""));
+  ok("the Success packages are recorded in a note and never as a figure",
+    !ps.figures.some((f) => [999, 1499, 1999].includes(f.price?.amount)) &&
+      /\$999/.test(both.theyHaveWeDont.find((c) => c.capability === "self_serve_demo").note));
+}
 
 // ══════════════════════════════════════════════════════════════════════════
 console.log("\nQuoteIQ beats us at one user, and the data says so first");
