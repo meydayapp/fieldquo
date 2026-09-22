@@ -52,6 +52,7 @@ import {
 } from "@/lib/pricing/tradeScope";
 import { getPriceBook, PRICE_BOOK_FIELDS } from "@/app/data/tradePriceBooks";
 import { finalUnitPrice, unitPricingSubtotal } from "@/app/data/cabinetPricing";
+import { newScopeGroup } from "@/lib/quotes/builderPayload";
 import { sanitiseRates } from "@/lib/pricing/sanitiseRates";
 import { tradeMaterialsFor, hasTradeMaterials } from "@/lib/costing/tradeMaterials";
 import { lineShowsAmount } from "@/lib/quotes/textBlocks";
@@ -476,6 +477,23 @@ console.log("\n6. An existing cabinet quote prices to the cent");
   const cx = { baseUnitPrice: 150, complexity: { model: COMPLEXITY_MODEL, factors: { surface: "failing", contamination: "bleed_risk", hardware: "out_of_square" } } };
   eq("6e: Moderate and Complex read the company's own Moderate and High figures",
     [finalUnitPrice(mod, tuned), finalUnitPrice(cx, tuned)], [183, 227]);
+
+  // The owner's report (2026-09-22): a NEW cabinet group's chips priced
+  // nothing. newScopeGroup seeded a benign factor object, finalUnitPrice
+  // consults the factor model first, and Standard answered before the chip
+  // the estimator pressed. A fresh group carries no factor object, so the
+  // chip on screen is the price — the same +20 / +40 the rate card states.
+  {
+    const cat = { id: "c_ref", key: "cabinet_refinishing", label: "Cabinet Refinishing" };
+    const fresh = newScopeGroup(cat, cat.label, null, { tempId: "fresh" });
+    ok("6h: a fresh cabinet group carries no factor-model object to shadow its chips",
+      !("complexity" in fresh) && fresh.complexityLevel === "standard", Object.keys(fresh).filter((k) => /complex/i.test(k)));
+    const moderate = { ...fresh, complexityLevel: "moderate", intakeValues: { doorCount: 30, drawerCount: 0 } };
+    const high = { ...moderate, complexityLevel: "high" };
+    eq("6i: the Moderate and High chips move a fresh group's unit price and subtotal",
+      [finalUnitPrice(moderate, cabBook), unitPricingSubtotal(moderate, cabBook), finalUnitPrice(high, cabBook)],
+      [fresh.baseUnitPrice + 20, (fresh.baseUnitPrice + 20) * 30, fresh.baseUnitPrice + 40]);
+  }
 }
 
 /* ── 7. The forcing switches ──────────────────────────────────────────── */

@@ -376,7 +376,9 @@ function StairSection({ section, index, book, canRemove, onChange, onRemove }) {
         />
         Two-tone finish
         <span className="text-muted-foreground">
-          +$
+          {/* The formatter supplies the currency sign — the same doubled-sign
+              slip the countertop footer had (c579765c). */}
+          +
           {money(
             section.twoToneSurchargeOverride ?? rates.twoToneSurcharge ?? 0,
           )}

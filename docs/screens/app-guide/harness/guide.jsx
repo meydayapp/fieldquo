@@ -550,6 +550,61 @@ async function runScene(scene) {
     await wait(500);
     return;
   }
+  if (scene === "doc-stairs-30" || scene === "doc-stairs-30-moderate") {
+    // The owner's report (2026-09-22): a staircase whose price did not move
+    // with its complexity. Reached as a hand would: the Stairs tile on the
+    // document's tile row, the editor, "Fill from step count" at 30, and —
+    // for the second frame — the Moderate tile. The document's group head
+    // prints the subtotal, which is the number under test.
+    // The empty quote draws the card grid, whose tiles carry the fixture's
+    // label and no key; the row (after a first scope) carries the key.
+    const tile =
+      document.querySelector('[data-service-tile="stairs"]') ||
+      [...(await until('[data-service-tiles-variant="card"]')).querySelectorAll("button")].find((b) => /^Stairs/.test(b.textContent.trim()));
+    if (!tile) throw new Error("scene: no Stairs tile");
+    tile.click();
+    await until("[data-doc-group]");
+    if (!document.querySelector("[data-doc-group-editor]")) (await until("[data-doc-group-toggle]")).click();
+    const steps = await until('[data-testid="stairs-fill-steps"]');
+    Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set.call(steps, "30");
+    steps.dispatchEvent(new Event("input", { bubbles: true }));
+    await wait(150);
+    (await until('[data-testid="stairs-fill-apply"]')).click();
+    await wait(300);
+    if (scene === "doc-stairs-30-moderate") {
+      const moderate = [...document.querySelectorAll("[data-doc-group-editor] button")].find((b) => /^Moderate/.test(b.textContent.trim()));
+      if (!moderate) throw new Error("scene: no Moderate tile on the stairs card");
+      moderate.click();
+      await wait(400);
+    }
+    await wait(300);
+    return;
+  }
+  if (scene === "painter-pick-cabinets" || scene === "painter-pick-cabinets-moderate" || scene === "painter-pick-staining") {
+    // The painter's other answers. What lands in the document — and what it
+    // is called — is the frame. The "-moderate" variant then fills 30 doors
+    // on the cabinet card and taps its Moderate chip: the group head's
+    // subtotal has to move, on the owner's own trade.
+    const cards = await until("[data-estimate-type-first]");
+    const re = scene === "painter-pick-staining" ? /Staining|Teinture|Tinte|Tintura/ : /Cabinets|Armoires|Gabinetes/;
+    const card = [...cards.querySelectorAll("button")].find((b) => re.test(b.textContent));
+    if (!card) throw new Error(`scene: ${scene} card not offered`);
+    card.click();
+    await until("[data-doc-group], [data-paint-area], [data-doc-group-toggle]");
+    if (scene === "painter-pick-cabinets-moderate") {
+      if (!document.querySelector("[data-doc-group-editor]")) (await until("[data-doc-group-toggle]")).click();
+      const doors = await until('[data-doc-group-editor] input[type="number"]');
+      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set.call(doors, "30");
+      doors.dispatchEvent(new Event("input", { bubbles: true }));
+      await wait(200);
+      const moderate = [...document.querySelectorAll("[data-doc-group-editor] button")].find((b) => /^Moderate/.test(b.textContent.trim()));
+      if (!moderate) throw new Error("scene: no Moderate chip on the cabinet card");
+      moderate.click();
+      await wait(400);
+    }
+    await wait(500);
+    return;
+  }
   if (scene === "settings-tax") {
     // Settings → Company scrolled to the tax card: the mode, the preview
     // for the company's own province, the rates list.

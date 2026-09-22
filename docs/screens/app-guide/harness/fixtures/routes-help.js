@@ -1331,6 +1331,11 @@ const DOC_BUILDER_CATEGORIES = SERVICE_CATEGORIES.map((c) =>
   c.key === "countertop" ? { ...c, enabled: true } : c,
 );
 
+const PURE_PAINTER_CATEGORIES = PAINTER_CATEGORIES.map((c) =>
+  c.key === "cabinet_refinishing" || c.key === "cabinet_refacing" ? { ...c, enabled: false } : c,
+);
+const STAIRS_CATEGORIES = SERVICE_CATEGORIES.map((c) => (c.key === "stairs" ? { ...c, enabled: true } : c));
+
 export const ROUTES_HELP = [
   // Settings › Services, seeds screen: the same cabinet company with handyman
   // switched on, its seeded rows in the price book, and the industry preset
@@ -1339,6 +1344,13 @@ export const ROUTES_HELP = [
   { path: "/api/products", method: "GET", reply: (ctx) => (ctx.screen?.slug === "settings-services-seeds" ? [...PRODUCTS_FIXTURE, ...SEEDED_HANDYMAN] : ctx.next()) },
   { path: "/api/settings/business-info", method: "GET", reply: (ctx) => (ctx.screen?.slug === "settings-services-seeds" ? { ...BUSINESS_INFO_FIXTURE, industries: [...(BUSINESS_INFO_FIXTURE.industries || []), "handyman"] } : ctx.next()) },
   { path: "/api/settings/business-info", method: "GET", reply: (ctx) => (isDocBuilder(ctx) ? { ...COMPANY, quoteBuilderLayout: "document" } : ctx.next()) },
+  // Two more shapes for the quote-fix frames (2026-09-22): "purepainter" is a
+  // painter with NO cabinet trade, so the painter's own "Cabinets & millwork"
+  // takeoff is what its card opens; "stairs" is the cabinet shop with Stairs
+  // switched on, for the staircase whose price has to move with its level.
+  // Both sit BEFORE the painter row: "purepainter" matches /painter/ too.
+  { path: "/api/settings/service-categories", method: "GET", reply: (ctx) => (/purepainter/.test(ctx.screen?.slug || "") ? PURE_PAINTER_CATEGORIES : ctx.next()) },
+  { path: "/api/settings/service-categories", method: "GET", reply: (ctx) => (/stairs/.test(ctx.screen?.slug || "") ? STAIRS_CATEGORIES : ctx.next()) },
   { path: "/api/settings/service-categories", method: "GET", reply: (ctx) => (isPainter(ctx) ? PAINTER_CATEGORIES : ctx.next()) },
   // After the painter row, and only for a slug that is not the painter's:
   // "quote-new-painter-doc-builder" matches both tests and must keep the

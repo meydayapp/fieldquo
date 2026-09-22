@@ -92,7 +92,9 @@ import {
   FALLBACK_OVERHEAD_PCT,
   FALLBACK_LABOUR_RATE,
 } from "@/lib/costing/quoteCosting";
-import { isUnitPriced } from "@/app/data/cabinetPricing";
+import { isUnitPriced, UNIT_PRICED_CATEGORIES } from "@/app/data/cabinetPricing";
+import { PAINT_ESTIMATE_TYPES } from "@/lib/pricing/paintTakeoff";
+import { APP_MESSAGES } from "@/app/i18n/appMessages";
 import { fieldsForCategory } from "@/app/data/quoteIntakeFields";
 import { isLotMeasureTrade } from "@/lib/measure/lotTakeoff";
 import { getPriceBook } from "@/app/data/tradePriceBooks";
@@ -1133,9 +1135,41 @@ export function QuoteBuilderForm({
    * `takeoff.estimateType` differs, and it is the field PaintAreas reads.
    */
   function addPaintingEstimate(estimateType) {
+    // Owner's decision (2026-09-22): a company selling cabinet refinishing
+    // or refacing has ONE cabinet takeoff — that trade's doors / drawers /
+    // complexity card — and the painter's "Cabinets & millwork" card opens
+    // it, refinishing first as the higher-volume trade. The painting
+    // substrate list stays for a painter with no cabinet trade. Nothing
+    // stored changes: this only decides which group a fresh pick creates.
+    if (estimateType === "cabinets") {
+      const cabinet = UNIT_PRICED_CATEGORIES.map((key) =>
+        categories.find((c) => c?.key === key),
+      ).find(Boolean);
+      if (cabinet) {
+        addScopeGroup(cabinet, cabinet.label);
+        return;
+      }
+    }
     const category = paintingCategoryFor(estimateType, categories);
     if (!category) return;
-    const group = newScopeGroup(category, category.label, rateOverridesFor(category.id), {
+    // The heading the CLIENT reads. The parent service's name only when it
+    // IS the estimate — "Interior Painting" over an interior estimate; over
+    // a cabinets, staining or commercial one it was the owner's report
+    // ("Cabinets & millwork" created a group titled Interior Painting). The
+    // type's label, in the document's own language (non-negotiable #6),
+    // from the same catalogue the cards print it from.
+    const own =
+      (estimateType === "interior" && category.key === "interior_painting") ||
+      (estimateType === "exterior" && category.key === "exterior_painting");
+    const lang = String(quoteLanguage || companyLanguage || "en").slice(0, 2).toLowerCase();
+    const key = `app.paint.type.${estimateType}`;
+    const label = own
+      ? category.label
+      : APP_MESSAGES[lang]?.[key] ||
+        APP_MESSAGES.en[key] ||
+        PAINT_ESTIMATE_TYPES[estimateType]?.label ||
+        category.label;
+    const group = newScopeGroup(category, label, rateOverridesFor(category.id), {
       tempId: crypto.randomUUID(),
     });
     setScopeGroups((prev) => [

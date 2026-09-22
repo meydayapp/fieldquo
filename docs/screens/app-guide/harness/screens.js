@@ -400,4 +400,16 @@ export const SCREENS = [
   // written: the uploader beside the document, the process notes inside it.
   { slug: "quote-doc-builder-photos", href: "/app/quotes/q_1045/edit", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1045" }, scene: "doc-photos", height: 900, chapter: "help" },
   { slug: "quote-doc-builder-process", href: "/app/quotes/q_1045/edit", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1045" }, scene: "doc-process-editor", height: 1700, chapter: "help" },
+  // ── The quote-fix frames (2026-09-22) ──────────────────────────────────
+  //
+  // The owner's four reports on New quote, each photographed as the flow a
+  // hand takes. Unnumbered under docs/screens/quote-fix/ so the guide does
+  // not renumber. "stairs" in a slug switches Stairs on for the cabinet
+  // shop; "purepainter" is a painter with no cabinet trade (routes-help.js).
+  { slug: "quote-fix-doc-builder-stairs-standard", href: "/app/quotes/new", page: "app/app/quotes/new/page.js", scene: "doc-stairs-30", height: 1700, chapter: "quote-fix", out: "docs/screens/quote-fix" },
+  { slug: "quote-fix-doc-builder-stairs-moderate", href: "/app/quotes/new", page: "app/app/quotes/new/page.js", scene: "doc-stairs-30-moderate", height: 1700, chapter: "quote-fix", out: "docs/screens/quote-fix" },
+  { slug: "quote-fix-painter-doc-builder-cabinets", href: "/app/quotes/new", page: "app/app/quotes/new/page.js", scene: "painter-pick-cabinets", height: 1500, chapter: "quote-fix", out: "docs/screens/quote-fix" },
+  { slug: "quote-fix-painter-doc-builder-cabinets-moderate", href: "/app/quotes/new", page: "app/app/quotes/new/page.js", scene: "painter-pick-cabinets-moderate", height: 1500, chapter: "quote-fix", out: "docs/screens/quote-fix" },
+  { slug: "quote-fix-purepainter-doc-builder-cabinets", href: "/app/quotes/new", page: "app/app/quotes/new/page.js", scene: "painter-pick-cabinets", height: 1100, chapter: "quote-fix", out: "docs/screens/quote-fix" },
+  { slug: "quote-fix-purepainter-doc-builder-staining", href: "/app/quotes/new", page: "app/app/quotes/new/page.js", scene: "painter-pick-staining", height: 1100, chapter: "quote-fix", out: "docs/screens/quote-fix" },
 ];
