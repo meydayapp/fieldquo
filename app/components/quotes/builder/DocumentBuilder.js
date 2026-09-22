@@ -527,7 +527,16 @@ export default function DocumentBuilder({ b }) {
   }, [focusArea, openGroup]);
 
   const sendable = !isEdit || b.OPEN_STATUSES.includes(start.status);
-  const linkable = isEdit && start.status && start.status !== "draft";
+  // ── The link exists from the first SAVE, not from the first send ────────
+  //
+  // It used to require a sent quote, because the share token was minted by the
+  // send route. It is now minted when the quote is saved (lib/quotes/
+  // shareToken.js) and /q/<token> answers a draft with a members-only preview,
+  // so both link rows work as soon as there is a quote id. What they still
+  // cannot do is work on a quote that has never been saved: there is nothing
+  // to link to, which is what `isEdit` covers and what afterSaveHint says.
+  const linkable = isEdit;
+  const unsentDraft = isEdit && start.status === "draft";
   const workOrderJobId = start.quote?.jobs?.[0]?.id || null;
 
   async function menuAction(key, fn) {
@@ -549,7 +558,14 @@ export default function DocumentBuilder({ b }) {
     {
       key: "preview",
       label: t("app.sendMenu.preview", "Preview as client"),
-      hint: linkable ? savedHint : isEdit ? t("app.sendMenu.previewAfterSend", "Available once the quote has been sent.") : afterSaveHint,
+      // On a draft the point of the row IS that it works before sending, so
+      // it says so; on a sent quote the caveat that matters is that the link
+      // shows the last SAVED version, not what is on screen unsaved.
+      hint: !linkable
+        ? afterSaveHint
+        : unsentDraft
+          ? t("app.sendMenu.previewDraftHint", "See the client's copy before you send it.")
+          : savedHint,
       icon: Eye,
       disabled: !linkable,
       busy: menuBusy === "preview",
@@ -577,8 +593,13 @@ export default function DocumentBuilder({ b }) {
     },
     {
       key: "link",
-      label: t("app.sendMenu.copyLink", "Copy quote link"),
-      hint: linkable ? null : isEdit ? t("app.sendMenu.previewAfterSend", "Available once the quote has been sent.") : afterSaveHint,
+      // The draft wording is the owner's: the row works, and the sentence is
+      // the one fact that would otherwise surprise somebody who pasted the
+      // link into a text message this afternoon.
+      label: unsentDraft
+        ? t("app.sendMenu.copyLinkDraft", "Copy link — the client can open it once you send.")
+        : t("app.sendMenu.copyLink", "Copy quote link"),
+      hint: linkable ? null : afterSaveHint,
       icon: ClipboardCopy,
       disabled: !linkable,
       busy: menuBusy === "link",

@@ -32,6 +32,7 @@ import { seedCatalogueAddOns } from "@/lib/quotes/offeredAddOns";
 import { withCapturedMeasureImages } from "@/lib/measure/measureImages";
 import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
 import { requireCreatedVia } from "@/lib/quotes/createdVia";
+import { mintShareToken } from "@/lib/quotes/shareToken";
 import { normaliseSiteAddress } from "@/lib/geo/geocodeJob";
 import { offlineDiscountPctFor } from "@/lib/payments/offlineDiscount";
 import { attachDefaultWaivers } from "@/lib/waivers/service";
@@ -373,6 +374,15 @@ export async function POST(request) {
 
   const quote = await db.quote.create({
     data: {
+      // ── The client's link, minted here rather than at Send ──────────────
+      //
+      // So that "Preview as client" and "Copy quote link" work from the first
+      // save. The quote is going to be sent either way; what decides whether a
+      // stranger may open /q/<token> is the quote's STATUS, not whether the
+      // string exists — see lib/quotes/shareToken.js and app/q/[token]/page.js.
+      // Send and POST /share both reuse an existing token, so this is the only
+      // value this quote's link will ever have unless somebody rotates it.
+      shareToken: mintShareToken(),
       // Null unless the browser reported something plausible. Absence is not
       // zero: a quote created by an API client or an older page carries no
       // claim about how long it took, and summariseComposeTimes drops nulls

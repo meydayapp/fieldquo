@@ -178,6 +178,9 @@ export const SCREENS = [
   // Taller frames where the point of the page is at its foot: the add-ons
   // and the Approve button, the plan under the designer's palette.
   { slug: "client-quote-approval", href: "/q/qt_8f2c1a7d4e", page: "app/q/[token]/QuoteApproval.js", props: { token: "qt_8f2c1a7d4e" }, mode: "public", height: 5000, chapter: "help" },
+  // The same document before it is sent, opened by the office. Appended at the
+  // end of the file (NN is the row's index), never here — these two are out:
+  // "docs/screens/quote-preview", so they do not renumber the guide.
   { slug: "client-booking-page", href: "/book/erable-design", page: "app/book/[companySlug]/BookingFlow.js", props: { companySlug: "erable-design" }, mode: "public", wrap: "bookingPage", scene: "booking-pick", chapter: "help" },
   // The portal now opens on the job card (Done · In progress · Waiting on,
   // with CO-2 waiting on the client); taller so the balance and the
@@ -303,6 +306,10 @@ export const SCREENS = [
   { slug: "paint-rate-picker", href: "/app/quotes/new", page: "docs/screens/app-guide/harness/TakeoffFrame.jsx", props: { trade: "interior_painting" }, mode: "public", scene: "paint-rate-picker", width: 1200, height: 1000, out: "docs/screens/paint-takeoff", chapter: "paint-takeoff" },
   { slug: "paint-substrate-picker", href: "/app/quotes/new", page: "docs/screens/app-guide/harness/TakeoffFrame.jsx", props: { trade: "interior_painting" }, mode: "public", scene: "paint-substrate-picker", width: 1200, height: 1000, out: "docs/screens/paint-takeoff", chapter: "paint-takeoff" },
   { slug: "paint-settings-rates", href: "/app/settings/services", page: "docs/screens/app-guide/harness/PaintRatesFrame.jsx", mode: "public", scene: "paint-rates-open", width: 1000, height: 1500, out: "docs/screens/paint-takeoff", chapter: "paint-takeoff" },
+  { slug: "quote-preview-draft", href: "/q/qt_2d7b4e91c0", page: "app/q/[token]/QuoteApproval.js", props: { token: "qt_2d7b4e91c0" }, mode: "public", wrap: "quotePreviewPage", width: 1280, height: 5000, out: "docs/screens/quote-preview", chapter: "quote-preview" },
+  { slug: "quote-preview-draft-375", href: "/q/qt_2d7b4e91c0", page: "app/q/[token]/QuoteApproval.js", props: { token: "qt_2d7b4e91c0" }, mode: "public", wrap: "quotePreviewPage", width: 375, height: 1400, out: "docs/screens/quote-preview", chapter: "quote-preview" },
+  { slug: "quote-send-menu-draft", href: "/app/quotes", page: "app/app/quotes/[id]/page.js", params: { id: "q_1045" }, scene: "send-menu-open", width: 1280, height: 900, out: "docs/screens/quote-preview", chapter: "quote-preview" },
+  { slug: "quote-send-menu-draft-375", href: "/app/quotes", page: "app/app/quotes/[id]/page.js", params: { id: "q_1045" }, scene: "send-menu-open", width: 375, height: 800, out: "docs/screens/quote-preview", chapter: "quote-preview" },
   { slug: "paint-staining", href: "/app/quotes/new", page: "docs/screens/app-guide/harness/TakeoffFrame.jsx", props: { trade: "interior_painting", seed: "staining" }, mode: "public", width: 1200, height: 1400, out: "docs/screens/paint-takeoff", chapter: "paint-takeoff" },
   // The proposal at phone width (client mockup §1): the contents collapse
   // into a chip bar under the sticky header. Appended, never inserted — NN

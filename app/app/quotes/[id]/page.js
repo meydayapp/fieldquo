@@ -850,16 +850,30 @@ export default function QuoteDetailPage() {
               here, once, in the same terms the routes use. */}
           {(() => {
             const sendable = ["draft", "sent"].includes(quote.status) && !quote.historicalImportedAt;
-            // The public page refuses a draft ("isn't ready yet"), so the
-            // link rows wait for a send rather than opening on a 404.
-            const linkable = quote.status !== "draft" && !quote.historicalImportedAt && canDuplicateQuote;
+            // ── The link rows no longer wait for a send ───────────────────
+            //
+            // They used to, because the token was minted by the send route and
+            // the public page refused a draft outright — so the one moment an
+            // estimator wants the client's copy, to check it before it goes,
+            // was the one moment both rows were greyed. The token is now minted
+            // at save (lib/quotes/shareToken.js) and /q/<token> answers a draft
+            // with a members-only PREVIEW, so both rows work from the first
+            // save. What still gates them is the permission to hand a priced
+            // link to anybody, and an imported past job, which has no
+            // client-facing document to open.
+            const linkable = !quote.historicalImportedAt && canDuplicateQuote;
+            // A draft's link resolves for the office and not-founds for the
+            // client, and the rows say so rather than implying a live link.
+            const unsentDraft = quote.status === "draft";
             const canInvoice = quote.status === "accepted" && !quote.invoices?.length;
             const workOrderJobId = quote.jobs?.[0]?.id || null;
             const items = [
               {
                 key: "preview",
                 label: t("app.sendMenu.preview", "Preview as client"),
-                hint: linkable ? "/q/…" : t("app.sendMenu.previewAfterSend", "Available once the quote has been sent."),
+                hint: unsentDraft
+                  ? t("app.sendMenu.previewDraftHint", "See the client's copy before you send it.")
+                  : "/q/…",
                 icon: Eye,
                 disabled: !linkable,
                 busy: menuBusy === "preview",
@@ -888,8 +902,12 @@ export default function QuoteDetailPage() {
               },
               canDuplicateQuote && {
                 key: "link",
-                label: t("app.sendMenu.copyLink", "Copy quote link"),
-                hint: linkable ? null : t("app.sendMenu.previewAfterSend", "Available once the quote has been sent."),
+                // The draft wording is the owner's: the row works, and the
+                // sentence is the one fact that would otherwise surprise
+                // somebody who pasted the link into a text message today.
+                label: unsentDraft
+                  ? t("app.sendMenu.copyLinkDraft", "Copy link — the client can open it once you send.")
+                  : t("app.sendMenu.copyLink", "Copy quote link"),
                 icon: ClipboardCopy,
                 disabled: !linkable,
                 busy: menuBusy === "link",
@@ -947,21 +965,47 @@ export default function QuoteDetailPage() {
               },
             ];
             return (
-              <SendMenu
-                primary={
-                  sendable
-                    ? {
-                        label: quote.sentAt ? t("app.quoteDetail.sendAgain") : t("app.sendMenu.sendToClient", "Send to client"),
-                        icon: Send,
-                        busy: sending === "quote",
-                        disabled: Boolean(sending),
-                        onClick: () => sendQuote("quote"),
-                      }
-                    : null
-                }
-                menuLabel={sendable ? t("app.sendMenu.more", "Send…") : t("app.sendMenu.moreDecided", "More…")}
-                items={items}
-              />
+              <>
+                <SendMenu
+                  primary={
+                    sendable
+                      ? {
+                          label: quote.sentAt ? t("app.quoteDetail.sendAgain") : t("app.sendMenu.sendToClient", "Send to client"),
+                          icon: Send,
+                          busy: sending === "quote",
+                          disabled: Boolean(sending),
+                          onClick: () => sendQuote("quote"),
+                        }
+                      : null
+                  }
+                  menuLabel={sendable ? t("app.sendMenu.more", "Send…") : t("app.sendMenu.moreDecided", "More…")}
+                  items={items}
+                />
+                {/* ── Preview, out of the menu ──────────────────────────────
+                    The owner asked for it not to be buried: checking the
+                    client's copy before sending is the commonest thing done
+                    on this screen, and it was two presses inside a dropdown.
+                    Same handler as the menu row, so the two cannot drift —
+                    and absent, not greyed, when that row is unavailable too
+                    (no permission to hand out a priced link, or an imported
+                    past job, which has no client-facing document). */}
+                {linkable && (
+                  <button
+                    type="button"
+                    onClick={handlePreview}
+                    disabled={menuBusy === "preview"}
+                    className="flex items-center gap-1.5 border border-border text-foreground px-4 py-2 rounded-full text-sm font-semibold disabled:opacity-60"
+                    data-quote-preview-button
+                  >
+                    {menuBusy === "preview" ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <Eye size={14} />
+                    )}
+                    {t("app.sendMenu.previewShort", "Preview")}
+                  </button>
+                )}
+              </>
             );
           })()}
           {quote.status === "sent" && quote.sentAt && !quote.historicalImportedAt && (
