@@ -286,6 +286,14 @@ export function DocumentScopeGroup({
   lineExtras = null,
   edit = {},
   headExtra = null,
+  // A 0-based position, drawn as 01 · 02 · 03 before the name. Only the
+  // builder passes it, and only on a quote carrying more than one scope:
+  // two groups of the SAME service — a painter quoting interior AND
+  // exterior, two kitchens in one house — are otherwise two identical
+  // headings with no way to tell which one is being opened. Numbering a
+  // single scope "01" says nothing, so the caller passes null there. Same
+  // rule as ScopeGroupCard's badge in the classic layout.
+  index = null,
   // The trade's own colour (lib/documents/serviceContent.js `accent`), as
   // the approval page and the PDF draw it: a 3px left rule and a 7% wash on
   // the head (mockup b7 `.room`). Null falls back to the border tokens.
@@ -305,7 +313,14 @@ export function DocumentScopeGroup({
         style={accent ? { backgroundColor: `${accent}12` } : undefined}
       >
         <Editable onClick={edit.group} label={edit.groupLabel} block className="min-w-0 flex-1">
-          <h2 className="font-semibold text-foreground text-sm truncate">{label}</h2>
+          <h2 className="font-semibold text-foreground text-sm truncate">
+            {index != null && (
+              <span className="text-muted-foreground tabular-nums font-bold mr-1.5" data-doc-group-index>
+                {String(index + 1).padStart(2, "0")}
+              </span>
+            )}
+            {label}
+          </h2>
         </Editable>
         <span className="flex items-center gap-2 shrink-0">
           {headExtra}

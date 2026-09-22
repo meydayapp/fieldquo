@@ -499,6 +499,41 @@ async function runScene(scene) {
     await wait(400);
     return;
   }
+  if (scene === "doc-many-services") {
+    // The owner's case: "if I'm a general contractor and need to do floor,
+    // kitchen, countertop I don't need to send 20 individual quotes." The
+    // quote opens with Cabinet Refinishing on it; the two taps below are
+    // the shipped tile row, and the result is three scopes and ONE total.
+    for (const key of ["cabinet_refacing", "countertop"]) {
+      const tile = await until(`[data-service-tiles-variant="row"] [data-service-tile="${key}"]`);
+      tile.click();
+      await wait(250);
+    }
+    // Three scope cards, numbered 01 / 02 / 03, before the shutter opens.
+    await until("[data-doc-group-index]");
+    const groups = document.querySelectorAll("[data-doc-group]");
+    if (groups.length !== 3) throw new Error(`expected 3 scopes, got ${groups.length}`);
+    await wait(500);
+    return;
+  }
+  if (scene === "doc-photos") {
+    // The site-visit photo box, which the document layout had nowhere to
+    // put until 2026-09-22 — scrolled to, on the Estimate tab where it now
+    // sits beside the document.
+    const box = await until("[data-photos-box]");
+    box.scrollIntoView({ block: "center" });
+    await wait(400);
+    return;
+  }
+  if (scene === "doc-process-editor") {
+    // "What happens next", opened from inside the document: the click is on
+    // the region the client reads, and the editor that opens is the classic
+    // builder's own box, "Save as default" and all.
+    (await until("[data-doc-process] [data-editable]")).click();
+    await until("[data-doc-process] #quote-process-notes");
+    await wait(400);
+    return;
+  }
   if (scene === "painter-pick-interior") {
     // The painter's first answer: Interior. The service lands in the
     // document with its estimate type set, ready for rooms.

@@ -1298,6 +1298,13 @@ const isPainter = (ctx) => /painter/.test(ctx.screen?.slug || "");
 const PAINTER_CATEGORIES = SERVICE_CATEGORIES.map((c) =>
   c.key === "interior_painting" || c.key === "exterior_painting" ? { ...c, enabled: true } : c,
 );
+// The document builder's cabinet shop sells stone as well as cabinets —
+// refinishing, refacing AND countertops, which is the trade set the owner's
+// own company runs. Without it the many-services frames say nothing: a
+// company with two enabled trades cannot show three scopes on one quote.
+const DOC_BUILDER_CATEGORIES = SERVICE_CATEGORIES.map((c) =>
+  c.key === "countertop" ? { ...c, enabled: true } : c,
+);
 
 export const ROUTES_HELP = [
   // Settings › Services, seeds screen: the same cabinet company with handyman
@@ -1308,6 +1315,10 @@ export const ROUTES_HELP = [
   { path: "/api/settings/business-info", method: "GET", reply: (ctx) => (ctx.screen?.slug === "settings-services-seeds" ? { ...BUSINESS_INFO_FIXTURE, industries: [...(BUSINESS_INFO_FIXTURE.industries || []), "handyman"] } : ctx.next()) },
   { path: "/api/settings/business-info", method: "GET", reply: (ctx) => (isDocBuilder(ctx) ? { ...COMPANY, quoteBuilderLayout: "document" } : ctx.next()) },
   { path: "/api/settings/service-categories", method: "GET", reply: (ctx) => (isPainter(ctx) ? PAINTER_CATEGORIES : ctx.next()) },
+  // After the painter row, and only for a slug that is not the painter's:
+  // "quote-new-painter-doc-builder" matches both tests and must keep the
+  // painting trades it is named for.
+  { path: "/api/settings/service-categories", method: "GET", reply: (ctx) => (isDocBuilder(ctx) && !isPainter(ctx) ? DOC_BUILDER_CATEGORIES : ctx.next()) },
   // ── Settings › Presentation and the proposal's staff side ─────────────
   { path: "/api/settings/presentation", method: "GET", reply: () => PRESENTATION_SETTINGS },
   { path: "/api/settings/gallery", method: "GET", reply: () => ({ pairs: GALLERY_PAIRS }) },

@@ -231,14 +231,28 @@ function FillFromSteps({ onFill, t }) {
         </button>
       </div>
       {derived && (
-        <p className="text-xs text-muted-foreground">
-          {t("app.takeoff.stairsFillPreview", {
-            treads: derived.treads,
-            balusters: derived.balusters,
-            posts: derived.posts,
-            handrailFt: derived.handrailFt,
-          })}
-        </p>
+        <>
+          <p className="text-xs text-muted-foreground">
+            {t("app.takeoff.stairsFillPreview", {
+              treads: derived.treads,
+              // Named separately from the treads because they are no longer
+              // the same number: a flight has one more riser than tread, so
+              // a 25-step L-shape stair is 25 treads and 27 risers. The
+              // sentence read "25 treads and risers", which was a count —
+              // the wrong one — and the owner read it as one.
+              risers: derived.risers,
+              balusters: derived.balusters,
+              posts: derived.posts,
+              handrailFt: derived.handrailFt,
+            })}
+          </p>
+          <p className="text-[11px] text-muted-foreground">
+            {t(
+              "app.takeoff.stairsRiserHint",
+              "A flight carries one more riser than tread — the top riser rises to the landing, which is not a tread. Change any box after filling.",
+            )}
+          </p>
+        </>
       )}
     </div>
   );
