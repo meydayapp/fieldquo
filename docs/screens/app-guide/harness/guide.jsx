@@ -227,6 +227,49 @@ const setSelect = (el, value) => {
 };
 async function runScene(scene) {
   if (!scene) return;
+  // ── The shell (2026-09-21) ───────────────────────────────────────────────
+  // Each frame is reached by operating the shipped controls: the collapse
+  // button, the tab bar's More, the floating +, the top bar's search and
+  // avatar, the phone's hamburger.
+  if (scene === "rail-collapse") {
+    (await until('aside[data-rail="expanded"] [data-rail-toggle]')).click();
+    await until('[data-rail="collapsed"]');
+    await wait(400);
+    return;
+  }
+  if (scene === "more-sheet") {
+    (await until("[data-more-tab]")).click();
+    await until("[data-more-sheet]");
+    await wait(400);
+    return;
+  }
+  if (scene === "create-sheet") {
+    (await until("[data-create-fab]")).click();
+    await until("[data-create-sheet]");
+    await wait(300);
+    return;
+  }
+  if (scene === "search-open") {
+    (await until("[data-search-button]")).click();
+    const input = await until("[data-global-search] input");
+    const set = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
+    set.call(input, "rive");
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await wait(900);
+    return;
+  }
+  if (scene === "account-open") {
+    (await until("[data-avatar-button]")).click();
+    await until("[data-account-menu]");
+    await wait(300);
+    return;
+  }
+  if (scene === "drawer-open") {
+    (await until('[data-tour-open="nav"]')).click();
+    await until("[data-nav-drawer]");
+    await wait(400);
+    return;
+  }
   if (scene === "send-menu-open") {
     // The quote page's Send… split button, opened — the nine rows the
     // mockup's b8 lists, gated as the page gates them (Preview and Copy
