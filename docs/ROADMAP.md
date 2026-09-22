@@ -1,12 +1,111 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 21 September 2026 (materials, the crew work order and supply requests: "Build the material list" on the job page asks FieldQuo AI for the complete grouped list — Primary · Sundries · Consumables · Fasteners · Transitions — with a reason per line, the takeoff's own quantities never overruled, on hand summed from stock movements, MATERIAL_LIST_CENTS (10¢) off the AI-credit wallet per build; a crew work order per job at /app/jobs/<id>/work-order — per area the scope, the hours and the estimator's "crew note (work order only)" that nothing read until now, no prices, items the office hides absent from the crew's copy, a tick and photos per area as Task rows, PDF and print; supply requests from the van (/app/me/supplies) to Purchasing's Requests tab, requested → ordered → restocked, Restocked writing the one received movement; see "Materials, the work order and supplies" below; previous line: the "next steps" email: two hours after a company's card goes in, if its onboarding checklist is still open, FieldQuo sends one letter in the company's language — the trade in the subject, only the open steps numbered in the checklist's order with what each unlocks for that trade, each a link that opens the step's window on the home page, a tick list of what is done — once per company, never a demo, switch and delay on /platform/companies, sent-date on the company page; see "The next-steps email" below; previous line: Sales-floor supervision: Listen / Whisper / Barge / Take on every live row of /platform/sales/floor through the superadmin's own browser, a Hold button for the rep, HOLD/UNHOLD and every supervisor action logged with seconds, calls to a colleague (browser to browser) and to a number outside the queue behind per-rep privileges — every outbound call runs in a per-attempt Twilio conference when `sales.supervision.enabled` is on, which is OFF by default because it costs +20% per call minute; docs/SALES-SUPERVISION.md — see the first section below; previous line: the call-outcomes second pass, and before it the set-up dialogs and the floor's presence)
+Last updated: 21 September 2026 (field work: invoices, clock punches and their photos made without signal wait in an IndexedDB queue on the phone and replay once — punches, then photos, then invoices — under an X-Offline-Key ledger the server keeps (server wins, the phone never invents an id); public/sw.js caches the field screens network-first, switched per company under Settings → Field work (default on); the invoice editor opened from a job offers "Labour — 6.5 h × $85 · from today's clock-ins" as a server-priced line from TimeEntry ids and a rate key, billed once; every crew member gets a daily sheet (/app/daily-sheets) with objectives from the plan's tasks or typed, before/after photos, live clock stamps, upsells linked to the quote's add-ons or change orders, the coordinator's 1–5 evaluation and a bonus that exists only under a company performance-pay rule (none by default) and lands on the pay run as a "Performance bonus" line; and a weekly past-client callback rotation (Settings → Follow-ups → Past clients) lists a company's own dormant clients for a person to call, outcomes on the client's timeline, "do not call" opting the number out of the voice ledger too — never assignable to the AI front desk, whose consent rule cannot reach a client ten months after a job; see "Field work" below; previous line: materials, the crew work order and supply requests)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
 it exists to answer.
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
+
+---
+
+## Field work: offline invoicing and punches, the crew's daily sheet and performance pay, the past-client callback rotation (21 September 2026)
+
+Mockups j5, j6, j7 of `jobs/section.html`. Full write-up of the offline
+layer, and how it runs unchanged inside the Capacitor shell on branch
+`mobile`: `docs/OFFLINE-FIELD.md`.
+
+**Offline (j5).** `public/sw.js` now carries a network-first app-shell cache
+for the field screens and the reads they make (`Company.offlineCachingEnabled`,
+default on, Settings → Field work; off empties the cache on the next open).
+`lib/offline/` — the IndexedDB queue (`store.js`), the replay (`queue.js`:
+punches in tap order, then photos, then invoices; a thrown fetch stops the
+pass; 4xx = "Needs attention" with the server's sentence and a Retry; 5xx
+retries up to five times), the server ledger (`idempotency.js` +
+`OfflineSyncItem`: the write and the key in one transaction, a second replay
+answers with the first id), the punch moment (`punchMoment.js`: a queued
+punch keeps its tap time; an online client cannot back-date), and the clock's
+queued-state override (`punchState.js`). `app/components/offline/OfflineShell.js`
+registers the worker, owns the queue, replays on `online` / visibility / the
+worker's Background Sync wake-up, and draws the amber bar with Details. The
+invoice editor (`/app/invoices/new?jobId=`) offers the job's clocked hours
+from `GET /api/invoices/labour-line` and posts `labour: { timeEntryIds,
+rateKey }`; `POST /api/invoices` prices it from `Company.labourSellRate` or an
+hour-priced service (`lib/invoices/labourRates.js`), re-derives the totals,
+stamps `TimeEntry.billedInvoiceId` in the same transaction, and takes `jobId`.
+`MediaUploader` gained `offlineCapture` so a photo picked offline goes into the
+queue and is uploaded before the invoice posts. `POST /api/time-clock` honours
+`at` only with a key. The job page links "New invoice" (with jobId) and
+"Daily sheets".
+
+**Daily sheets (j6).** `DailyObjectiveSheet` (workerId + date unique;
+objectives JSON with `taskId` when from the plan; upsells JSON whose linked
+rows copy the QuoteAddOn / ChangeOrder amount by id, never from the request;
+evaluationScore/Note; `bonusCents` NULL = no rule; `payRunId` once a run took
+it). `lib/dailySheets/` — `access.js` (a coordinator = owner/admin, supervisor
+with no grid, or timeTracking:view_record_edit_all; crew see only their own
+Worker row; a member with no Worker row sees nothing; only a coordinator
+evaluates), `bonus.js` (computeBonus is null without a rule; an all-zero rule
+stores as null), `objectives.js`, `weekly.js`, `day.js` (company-local day
+via dayBoundsInZone). Routes: `GET/PUT /api/daily-sheets`,
+`POST /api/daily-sheets/evaluate`, `GET /api/daily-sheets/week`,
+`GET /api/daily-sheets/upsells`. `lib/payroll/buildPayRun.js` adds one
+"Performance bonus — N days" earning line per person from sheets with
+`bonusCents > 0` and no `payRunId`; the commit stamps them. Screens:
+`/app/daily-sheets` (sidebar row, everyone), `/app/daily-sheets/week`.
+
+**Callback rotation (j7).** `CallbackRule` (weekday, monthsSinceJob,
+minTicket, area by postcode prefix / city / work-area polygon, assignee
+Member, weeklyCap), `CallbackList` (unique per rule and week — the
+once-per-week lock), `CallbackEntry` (outcome: booked · call_back(date) ·
+not_now · not_interested · wrong_number · do_not_contact). `lib/callbacks/`
+— `rules.js` (pure selection: DNC never, no phone, no job, recent job, small
+ticket, outside area, listed within the dormancy window, future call-back
+date, not-interested within 12 months; biggest ticket first, capped),
+`build.js` (gathers the company's own Client/Job/Invoice rows and nothing
+else), `outcomes.js`, `scope.js`. Built by the follow-ups cron
+(`app/api/cron/follow-ups`, best-effort tail) — no new Vercel cron.
+`Client.doNotContactAt/Reason` written by the do-not-call outcome, which
+also calls `lib/voice/outbound.js optOut`; read by the builder and shown on
+the client page. Screens: Settings → Follow-ups → Past clients (the sentence
+editor + this week's list), `/app/callbacks` (the assignee's view, linked
+from Clients). **No AI assignee, on purpose**: the front desk may only call
+a client for three months after a job; every listed client is past that.
+
+**Settings → Field work** (`/app/settings/field-work`, owner/admin; read-only
+support sessions read): offline mode, hourly rate billed to clients,
+performance-pay rule (default none; rule editor with per-objective, all-done,
+upsell % and a minimum score).
+
+**Checks:** `check:offline-invoicing` (59), `check:daily-objectives` (43),
+`check:callback-rotation` (34), all in `check:all`. Nine-language catalogue
+(200 keys); help articles `settings-field-work`, `working-without-signal`,
+`daily-sheets`, `past-client-callbacks` in en/fr/es; harness rows
+`daily-sheets`, `settings-field-work`, `callbacks`, `settings-past-clients`,
+`daily-sheet-week`, `mobile-invoice-from-job` (`fixtures/routes-field.js`).
+
+### Still owed here
+
+- **Custom fields on an offline invoice** are not queued: the editor's
+  custom-field values save against the invoice id after creation, and the
+  queue has no stage for that yet. An invoice made offline gets its custom
+  fields typed on the invoice page afterwards.
+- **The send is not idempotent.** A lost response to `POST
+  /api/invoices/[id]/send` after the email went can mean one email twice on
+  the next pass; the create never doubles.
+- **Daily-sheet photos and edits are online-only** (not on the queue) —
+  only invoices, punches and invoice photos are.
+- **The job plan's steps** (mockup j1) had not landed when this shipped, so
+  objectives come from `Task` rows on the job assigned to the person and due
+  that day; when the plan lands with its own model, `objectivesFromTasks`
+  is the one place to widen.
+- **The AI front desk as a callback assignee** waits on the owner's consent
+  decision for past clients (see `docs/OFFLINE-FIELD.md`).
+- The harness screenshots for the two new sidebar rows landed as
+  `22-daily-sheets.png` and `58-settings-field-work.png` beside the rows that
+  held those indices; a full reshoot renumbers the folder (figures resolve
+  by slug, so nothing reads the wrong file).
 
 ---
 
