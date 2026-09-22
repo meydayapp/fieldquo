@@ -34,9 +34,12 @@ import { isLotMeasureTrade } from "@/lib/measure/lotTakeoff";
 import { COMPANY } from "./fixtures/company.js";
 import { SITE_IMAGE, SITE_ADDRESS, TAKEOFF_SEEDS, LOT_INTAKE } from "./fixtures/takeoffs.js";
 
-export default function TakeoffFrame({ trade }) {
+export default function TakeoffFrame({ trade, seed: seedKey }) {
   const label = TRADE_CATALOG[trade]?.label || trade;
-  const seed = TAKEOFF_SEEDS[trade] || {};
+  // `seed` names an alternative filled takeoff for the same trade — the
+  // painting trade's staining kitchen (fixtures/takeoffs.js TAKEOFF_SEEDS
+  // ["interior_painting:staining"]) beside its living room.
+  const seed = TAKEOFF_SEEDS[seedKey ? `${trade}:${seedKey}` : trade] || TAKEOFF_SEEDS[trade] || {};
   // Held in state, the way the builder holds a group's takeoff: the roofing
   // and gutter panels APPLY the measurement through onChange, and the frame
   // is the card with those fields filled.

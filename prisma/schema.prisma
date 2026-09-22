@@ -3311,10 +3311,17 @@ model QuoteAddOn {
   taxable   Boolean @default(true)
   sortOrder Int     @default(0)
 
-  // "manual" | "history" | "ai" — where the suggestion came from. Kept so the
-  // platform can answer whether the AI suggestions are worth their tokens:
-  // if nobody ever accepts an "ai" add-on, the feature isn't earning its cost.
+  // "manual" | "history" | "ai" | "takeoff" — where the suggestion came from.
+  // Kept so the platform can answer whether the AI suggestions are worth
+  // their tokens: if nobody ever accepts an "ai" add-on, the feature isn't
+  // earning its cost.
   source String @default("manual")
+
+  // For a "takeoff" row: the area (room) the offer belongs under — "Living
+  // room" for its ceiling, its extra coat, its premium paint — so the public
+  // quote can draw the option beside the room instead of in one list at the
+  // foot. Null for every other source. Written by lib/quotes/takeoffAddOns.js.
+  areaLabel String?
 
   selected   Boolean   @default(false)
   selectedAt DateTime?

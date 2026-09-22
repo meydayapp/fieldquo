@@ -278,4 +278,17 @@ export const SCREENS = [
   { slug: "settings-past-clients", href: "/app/settings/follow-ups/past-clients", page: "app/app/settings/follow-ups/past-clients/page.js", settings: true, chapter: "help" },
   { slug: "daily-sheet-week", href: "/app/daily-sheets/week?workerId=w_leo&weekOf=2026-09-14", page: "app/app/daily-sheets/week/page.js", chapter: "help" },
   { slug: "mobile-invoice-from-job", href: "/app/invoices/new?jobId=j_318", page: "app/app/invoices/new/page.js", width: 375, height: 1500, chapter: "help" },
+
+  // ── The painting takeoff, step by step ─────────────────────────────────
+  //
+  // Unnumbered, under docs/screens/paint-takeoff/. The 2026-09-21 builder
+  // mockup's sections: the estimate-type cards, the area table with its
+  // options (the whole card, taller than the intro frame shows), the
+  // situation-named rate picker, the substrate picker and the staining
+  // table. Same TakeoffFrame and fixture as the intro frames.
+  { slug: "paint-interior-full", href: "/app/quotes/new", page: "docs/screens/app-guide/harness/TakeoffFrame.jsx", props: { trade: "interior_painting" }, mode: "public", width: 1200, height: 2000, out: "docs/screens/paint-takeoff", chapter: "paint-takeoff" },
+  { slug: "paint-rate-picker", href: "/app/quotes/new", page: "docs/screens/app-guide/harness/TakeoffFrame.jsx", props: { trade: "interior_painting" }, mode: "public", scene: "paint-rate-picker", width: 1200, height: 1000, out: "docs/screens/paint-takeoff", chapter: "paint-takeoff" },
+  { slug: "paint-substrate-picker", href: "/app/quotes/new", page: "docs/screens/app-guide/harness/TakeoffFrame.jsx", props: { trade: "interior_painting" }, mode: "public", scene: "paint-substrate-picker", width: 1200, height: 1000, out: "docs/screens/paint-takeoff", chapter: "paint-takeoff" },
+  { slug: "paint-settings-rates", href: "/app/settings/services", page: "docs/screens/app-guide/harness/PaintRatesFrame.jsx", mode: "public", scene: "paint-rates-open", width: 1000, height: 1500, out: "docs/screens/paint-takeoff", chapter: "paint-takeoff" },
+  { slug: "paint-staining", href: "/app/quotes/new", page: "docs/screens/app-guide/harness/TakeoffFrame.jsx", props: { trade: "interior_painting", seed: "staining" }, mode: "public", width: 1200, height: 1400, out: "docs/screens/paint-takeoff", chapter: "paint-takeoff" },
 ];
