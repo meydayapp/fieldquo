@@ -224,11 +224,28 @@ export function caseRows(competitorId, competitorName, t, locale = "en-CA", asOf
             : {
                 kind: PLAIN,
                 text: perMo(money(parity.tier.price)),
-                sub: say(
-                  "compare.rows.parityTheirs",
-                  "{plan} — their cheaper plans don't carry it",
-                  { plan: parity.tier.label },
-                ),
+                // "Their cheaper plans don't carry it" is only a sentence when
+                // there ARE cheaper plans. PaintScout sells one plan, and the
+                // job half of it as an add-on; saying its cheaper plans lack
+                // something is a claim about plans that do not exist.
+                sub:
+                  parity.tier.id !== cheapest.id
+                    ? say(
+                        "compare.rows.parityTheirs",
+                        "{plan} — their cheaper plans don't carry it",
+                        { plan: parity.tier.label },
+                      )
+                    : priced.length === 1 && addOnsFor(competitorId, asOf).some((a) => !a.includedFree)
+                      ? say(
+                          "compare.rows.parityOnlyPlan",
+                          "{plan} — their only plan; the rest is sold as add-ons",
+                          { plan: parity.tier.label },
+                        )
+                      : say(
+                          "compare.rows.parityCheapestToo",
+                          "{plan} — their cheapest plan carries it",
+                          { plan: parity.tier.label },
+                        ),
               },
         ),
       );
@@ -462,9 +479,17 @@ export function caseRows(competitorId, competitorName, t, locale = "en-CA", asOf
             text: priced.at(-1).annualOnly
               ? perYr(money(priced.at(-1).annualTotal))
               : perMo(money(priced.at(-1).price)),
+            // The per-user price, where their page prints one: "1 user" on
+            // its own reads as a ceiling, and PaintScout's is a floor with
+            // $20 a head above it.
             sub: priced.at(-1).unlimitedUsers
               ? say("compare.rows.unlimitedUsers", "unlimited users")
-              : users(priced.at(-1).seats),
+              : typeof priced.at(-1).perExtraUser === "number"
+                ? say("compare.rows.usersPlusEach", "{users} included, {amount}/mo for each one after", {
+                    users: users(priced.at(-1).seats),
+                    amount: money(priced.at(-1).perExtraUser),
+                  })
+                : users(priced.at(-1).seats),
           }
         : { kind: PLAIN, text: say("compare.rows.onRequest", "On request") },
     ),
