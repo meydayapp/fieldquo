@@ -1,0 +1,611 @@
+[
+ {
+  "seedKey": "fq.hvac_repair.blower.replace_motor",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Blower Motors",
+  "sourceService": "Replace Blower Motor",
+  "taskCode": "DEFAULT_HVAC_SERVICE_0"
+ },
+ {
+  "seedKey": "fq.hvac_repair.blower.replace_motor_module",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Blower Motors",
+  "sourceService": "Replace Blower Motor Module",
+  "taskCode": "DEFAULT_HVAC_SERVICE_1"
+ },
+ {
+  "seedKey": "fq.hvac_repair.blower.replace_wheel",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Blower Motors",
+  "sourceService": "Replace Blower Wheel",
+  "taskCode": "DEFAULT_HVAC_SERVICE_2"
+ },
+ {
+  "seedKey": "fq.hvac_repair.blower.clean_motor",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Blower Motors",
+  "sourceService": "Clean Blower Motor",
+  "taskCode": "DEFAULT_HVAC_SERVICE_3"
+ },
+ {
+  "seedKey": "fq.hvac_repair.blower.evaporator_motor",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Blower Motors",
+  "sourceService": "Replace Or Install Hvac Evaporator Motor",
+  "taskCode": "DEFAULT_HVAC_SERVICE_4"
+ },
+ {
+  "seedKey": "fq.hvac_repair.air_quality.air_quality_visit",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Book Now",
+  "sourceService": "Air Quality Improvement",
+  "taskCode": "DEFAULT_HVAC_SERVICE_5"
+ },
+ {
+  "seedKey": "fq.hvac_repair.air_quality.duct_cleaning_visit",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Book Now",
+  "sourceService": "Duct Cleaning",
+  "taskCode": "DEFAULT_HVAC_SERVICE_6"
+ },
+ {
+  "seedKey": "fq.hvac_repair.diagnostics.heating_repair_visit",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Book Now",
+  "sourceService": "Heating Repair",
+  "taskCode": "DEFAULT_HVAC_SERVICE_7"
+ },
+ {
+  "seedKey": "fq.hvac_repair.diagnostics.cooling_repair_visit",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Book Now",
+  "sourceService": "Cooling Repair",
+  "taskCode": "DEFAULT_HVAC_SERVICE_8"
+ },
+ {
+  "seedKey": "fq.hvac_repair.controls.thermostat_visit",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Book Now",
+  "sourceService": "Thermostat",
+  "taskCode": "DEFAULT_HVAC_SERVICE_9"
+ },
+ {
+  "seedKey": "fq.hvac_repair.coils.inspect",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Coils",
+  "sourceService": "Inspect Coils",
+  "taskCode": "DEFAULT_HVAC_SERVICE_10"
+ },
+ {
+  "seedKey": "fq.hvac_repair.coils.clean",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Coils",
+  "sourceService": "Clean Coils",
+  "taskCode": "DEFAULT_HVAC_SERVICE_11"
+ },
+ {
+  "seedKey": "fq.hvac_repair.coils.chemical_clean",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Coils",
+  "sourceService": "Chemical Coil Cleaning",
+  "taskCode": "DEFAULT_HVAC_SERVICE_12"
+ },
+ {
+  "seedKey": "fq.hvac_repair.coils.replace",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Coils",
+  "sourceService": "Replace Coils",
+  "taskCode": "DEFAULT_HVAC_SERVICE_13"
+ },
+ {
+  "seedKey": "fq.hvac_repair.coils.protective_coating",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Coils",
+  "sourceService": "Apply Coil Protection",
+  "taskCode": "DEFAULT_HVAC_SERVICE_14"
+ },
+ {
+  "seedKey": "fq.hvac_repair.coils.repair",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Coils",
+  "sourceService": "Repair Coils",
+  "taskCode": "DEFAULT_HVAC_SERVICE_15"
+ },
+ {
+  "seedKey": "fq.hvac_repair.coils.evaporator_clean",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Coils",
+  "sourceService": "Evaporator Clean",
+  "taskCode": "DEFAULT_HVAC_SERVICE_16"
+ },
+ {
+  "seedKey": "fq.hvac_repair.coils.evaporator_install",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Coils",
+  "sourceService": "Evaporator Coil Install",
+  "taskCode": "DEFAULT_HVAC_SERVICE_17"
+ },
+ {
+  "seedKey": "fq.hvac_repair.compressor.replace",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Compressors",
+  "sourceService": "Replace Compressor",
+  "taskCode": "DEFAULT_HVAC_SERVICE_18"
+ },
+ {
+  "seedKey": "fq.hvac_repair.compressor.repair",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Compressors",
+  "sourceService": "Repair Compressor",
+  "taskCode": "DEFAULT_HVAC_SERVICE_19"
+ },
+ {
+  "seedKey": "fq.hvac_repair.compressor.acid_test",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Compressors",
+  "sourceService": "Test Acidity Levels",
+  "taskCode": "DEFAULT_HVAC_SERVICE_20"
+ },
+ {
+  "seedKey": "fq.hvac_repair.compressor.replace_and_startup",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Compressors",
+  "sourceService": "Compressor Replacement",
+  "taskCode": "DEFAULT_HVAC_SERVICE_21"
+ },
+ {
+  "seedKey": "fq.hvac_repair.compressor.hard_start_kit",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Compressors",
+  "sourceService": "Install Hard Start Kit",
+  "taskCode": "DEFAULT_HVAC_SERVICE_22"
+ },
+ {
+  "seedKey": "fq.hvac_repair.condensate.clean_drain_pan",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Condensate Drain",
+  "sourceService": "Clean Drain Pan",
+  "taskCode": "DEFAULT_HVAC_SERVICE_23"
+ },
+ {
+  "seedKey": "fq.hvac_repair.condensate.clean_pump",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Condensate Drain",
+  "sourceService": "Clean Condensate Pump",
+  "taskCode": "DEFAULT_HVAC_SERVICE_24"
+ },
+ {
+  "seedKey": "fq.hvac_repair.condensate.clear_flush_line",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Condensate Drain",
+  "sourceService": "Clear & Flush Condensate Drain Line",
+  "taskCode": "DEFAULT_HVAC_SERVICE_25"
+ },
+ {
+  "seedKey": "fq.hvac_repair.condensate.replace_pump",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Condensate Drain",
+  "sourceService": "Replace Condensate Pump",
+  "taskCode": "DEFAULT_HVAC_SERVICE_26"
+ },
+ {
+  "seedKey": "fq.hvac_repair.condensate.replace_line",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Condensate Drain",
+  "sourceService": "Replace Condensate Drain Line",
+  "taskCode": "DEFAULT_HVAC_SERVICE_27"
+ },
+ {
+  "seedKey": "fq.hvac_repair.condensate.maintain_drainage",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Condensate Drain",
+  "sourceService": "Maintain Drainage Systems",
+  "taskCode": "DEFAULT_HVAC_SERVICE_28"
+ },
+ {
+  "seedKey": "fq.hvac_repair.condensate.drain_pan_switch",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Condensate Drain",
+  "sourceService": "Install Drain Pan Switch",
+  "taskCode": "DEFAULT_HVAC_SERVICE_29"
+ },
+ {
+  "seedKey": "fq.hvac_repair.condenser.clean_coil",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Condenser",
+  "sourceService": "Clean Condenser Coil",
+  "taskCode": "DEFAULT_HVAC_SERVICE_30"
+ },
+ {
+  "seedKey": "fq.hvac_repair.condenser.level_risers",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Condenser",
+  "sourceService": "Level and Adjust Condenser with Risers",
+  "taskCode": "DEFAULT_HVAC_SERVICE_31"
+ },
+ {
+  "seedKey": "fq.hvac_repair.condenser.leak_check",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Condenser",
+  "sourceService": "Perform Leak Check",
+  "taskCode": "DEFAULT_HVAC_SERVICE_32"
+ },
+ {
+  "seedKey": "fq.hvac_repair.condenser.replace_service_valve",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Condenser",
+  "sourceService": "Replace Liquid/Suction Valve",
+  "taskCode": "DEFAULT_HVAC_SERVICE_33"
+ },
+ {
+  "seedKey": "fq.hvac_repair.condenser.fan_motor_service",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Condenser",
+  "sourceService": "Service Condenser Fan Motor",
+  "taskCode": "DEFAULT_HVAC_SERVICE_34"
+ },
+ {
+  "seedKey": "fq.hvac_repair.condenser.fan_motor_and_blade",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Condenser",
+  "sourceService": "Service Condenser Fan Motor and Blade",
+  "taskCode": "DEFAULT_HVAC_SERVICE_35"
+ },
+ {
+  "seedKey": "fq.hvac_repair.condenser.replace_fan_blade",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Condenser",
+  "sourceService": "Replace Condenser Fan Blade",
+  "taskCode": "DEFAULT_HVAC_SERVICE_36"
+ },
+ {
+  "seedKey": "fq.hvac_repair.condenser.remount_fan_blade",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Condenser",
+  "sourceService": "Remount/Realign Condenser Fan Blade",
+  "taskCode": "DEFAULT_HVAC_SERVICE_37"
+ },
+ {
+  "seedKey": "fq.hvac_repair.condenser.install_fan_motor",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Condenser",
+  "sourceService": "Install Condenser Fan Motor",
+  "taskCode": "DEFAULT_HVAC_SERVICE_38"
+ },
+ {
+  "seedKey": "fq.hvac_repair.condenser.install_condenser",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Condenser",
+  "sourceService": "Install Condensers",
+  "taskCode": "DEFAULT_HVAC_SERVICE_39"
+ },
+ {
+  "seedKey": "fq.hvac_repair.belts.adjust_belt_pulley",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Fan Belts",
+  "sourceService": "Adjust Belt and Pulley",
+  "taskCode": "DEFAULT_HVAC_SERVICE_40"
+ },
+ {
+  "seedKey": "fq.hvac_repair.belts.replace_belt",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Fan Belts",
+  "sourceService": "Replace Belt",
+  "taskCode": "DEFAULT_HVAC_SERVICE_41"
+ },
+ {
+  "seedKey": "fq.hvac_repair.belts.replace_pulley",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Fan Belts",
+  "sourceService": "Replace Blower Pulley",
+  "taskCode": "DEFAULT_HVAC_SERVICE_42"
+ },
+ {
+  "seedKey": "fq.hvac_repair.air_quality.replace_filter",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Filters",
+  "sourceService": "Replace Air Filter",
+  "taskCode": "DEFAULT_HVAC_SERVICE_43"
+ },
+ {
+  "seedKey": "fq.hvac_repair.air_quality.clean_ducts",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Filters",
+  "sourceService": "Clean Air Ducts",
+  "taskCode": "DEFAULT_HVAC_SERVICE_44"
+ },
+ {
+  "seedKey": "fq.hvac_repair.air_quality.iaq_testing",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Filters",
+  "sourceService": "Perform IAQ Testing",
+  "taskCode": "DEFAULT_HVAC_SERVICE_45"
+ },
+ {
+  "seedKey": "fq.hvac_repair.air_quality.uv_purifier_install",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Filters",
+  "sourceService": "Install UV Air Purification System",
+  "taskCode": "DEFAULT_HVAC_SERVICE_46"
+ },
+ {
+  "seedKey": "fq.hvac_repair.air_quality.seal_insulate_ducts",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Filters",
+  "sourceService": "Seal and Insulate Ducts",
+  "taskCode": "DEFAULT_HVAC_SERVICE_47"
+ },
+ {
+  "seedKey": "fq.hvac_repair.air_quality.replace_uv_bulbs",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Filters",
+  "sourceService": "Replace Hvac Uv Bulbs",
+  "taskCode": "DEFAULT_HVAC_SERVICE_48"
+ },
+ {
+  "seedKey": "fq.hvac_repair.maintenance.furnace_cleaning",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "General Maintenance & Controls",
+  "sourceService": "Furnace cleaning",
+  "taskCode": "DEFAULT_HVAC_SERVICE_49"
+ },
+ {
+  "seedKey": "fq.hvac_repair.controls.maintain_capacitors",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "General Maintenance & Controls",
+  "sourceService": "Maintain Hvac Capacitors",
+  "taskCode": "DEFAULT_HVAC_SERVICE_50"
+ },
+ {
+  "seedKey": "fq.hvac_repair.controls.repair_defrost_board",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "General Maintenance & Controls",
+  "sourceService": "Repair Hvac Defrost Boards",
+  "taskCode": "DEFAULT_HVAC_SERVICE_51"
+ },
+ {
+  "seedKey": "fq.hvac_repair.maintenance.seal_attic_crawlspace",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "General Maintenance & Controls",
+  "sourceService": "Seal Attic And Crawlspace",
+  "taskCode": "DEFAULT_HVAC_SERVICE_52"
+ },
+ {
+  "seedKey": "fq.hvac_repair.controls.replace_capacitor",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "General Maintenance & Controls",
+  "sourceService": "Capacitor Replacement",
+  "taskCode": "DEFAULT_HVAC_SERVICE_53"
+ },
+ {
+  "seedKey": "fq.hvac_repair.controls.replace_contactor",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "General Maintenance & Controls",
+  "sourceService": "Replace Hvac Contactors",
+  "taskCode": "DEFAULT_HVAC_SERVICE_54"
+ },
+ {
+  "seedKey": "fq.hvac_repair.maintenance.blown_in_insulation",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "General Maintenance & Controls",
+  "sourceService": "Install Blown-In Insulation",
+  "taskCode": "DEFAULT_HVAC_SERVICE_55"
+ },
+ {
+  "seedKey": "fq.hvac_repair.maintenance.ac_tune_up",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "General Maintenance & Controls",
+  "sourceService": "Ac Tune Up",
+  "taskCode": "DEFAULT_HVAC_SERVICE_56"
+ },
+ {
+  "seedKey": "fq.hvac_repair.controls.thermostat_wiring",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "General Maintenance & Controls",
+  "sourceService": "Thermostat Wiring Service",
+  "taskCode": "DEFAULT_HVAC_SERVICE_57"
+ },
+ {
+  "seedKey": "fq.hvac_repair.controls.install_control_board",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "General Maintenance & Controls",
+  "sourceService": "Install Control Board",
+  "taskCode": "DEFAULT_HVAC_SERVICE_58"
+ },
+ {
+  "seedKey": "fq.hvac_repair.controls.replace_fuses",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "General Maintenance & Controls",
+  "sourceService": "Replace And Install Fuses",
+  "taskCode": "DEFAULT_HVAC_SERVICE_59"
+ },
+ {
+  "seedKey": "fq.hvac_repair.controls.surge_protector",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "General Maintenance & Controls",
+  "sourceService": "Install  Hvac Surge Protectors",
+  "taskCode": "DEFAULT_HVAC_SERVICE_60"
+ },
+ {
+  "seedKey": "fq.hvac_repair.maintenance.repair_insulation",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "General Maintenance & Controls",
+  "sourceService": "Repair Hvac Insulation",
+  "taskCode": "DEFAULT_HVAC_SERVICE_61"
+ },
+ {
+  "seedKey": "fq.hvac_repair.maintenance.generator_maintenance",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "General Maintenance & Controls",
+  "sourceService": "Maintain Hvac Generators",
+  "taskCode": "DEFAULT_HVAC_SERVICE_62"
+ },
+ {
+  "seedKey": "fq.hvac_repair.controls.thermostat_repair",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "General Maintenance & Controls",
+  "sourceService": "Thermostat Repair",
+  "taskCode": "DEFAULT_HVAC_SERVICE_63"
+ },
+ {
+  "seedKey": "fq.hvac_repair.controls.repair_control_board",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "General Maintenance & Controls",
+  "sourceService": "Repair Control Boards",
+  "taskCode": "DEFAULT_HVAC_SERVICE_64"
+ },
+ {
+  "seedKey": "fq.hvac_repair.maintenance.furnace_maintenance",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "General Maintenance & Controls",
+  "sourceService": "Furnace Maintenance",
+  "taskCode": "DEFAULT_HVAC_SERVICE_65"
+ },
+ {
+  "seedKey": "fq.hvac_repair.heat_exchanger.clean_check_burners",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Heat Exchangers",
+  "sourceService": "Clean and Check Burner Exchanger",
+  "taskCode": "DEFAULT_HVAC_SERVICE_66"
+ },
+ {
+  "seedKey": "fq.hvac_repair.heat_exchanger.replace",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Heat Exchangers",
+  "sourceService": "Replace Heat Exchanger",
+  "taskCode": "DEFAULT_HVAC_SERVICE_67"
+ },
+ {
+  "seedKey": "fq.hvac_repair.heat_exchanger.replace_face_plate",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Heat Exchangers",
+  "sourceService": "Replace Face Plate",
+  "taskCode": "DEFAULT_HVAC_SERVICE_68"
+ },
+ {
+  "seedKey": "fq.hvac_repair.heat_exchanger.flue_pipe",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Heat Exchangers",
+  "sourceService": "Replace Or Install Hvac Flue Pipe",
+  "taskCode": "DEFAULT_HVAC_SERVICE_69"
+ },
+ {
+  "seedKey": "fq.hvac_repair.refrigerant.check_levels",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Refrigerant",
+  "sourceService": "Check Refrigerant Levels",
+  "taskCode": "DEFAULT_HVAC_SERVICE_70"
+ },
+ {
+  "seedKey": "fq.hvac_repair.refrigerant.add_r410a",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Refrigerant",
+  "sourceService": "Add 410-A Refrigerant (per pound)",
+  "taskCode": "DEFAULT_HVAC_SERVICE_71"
+ },
+ {
+  "seedKey": "fq.hvac_repair.refrigerant.add_r410a_additional",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Refrigerant",
+  "sourceService": "Add Additional 410-A Refrigerant (per pound)",
+  "taskCode": "DEFAULT_HVAC_SERVICE_72"
+ },
+ {
+  "seedKey": "fq.hvac_repair.refrigerant.add_r22",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Refrigerant",
+  "sourceService": "Add R-22 Refrigerant (per pound)",
+  "taskCode": "DEFAULT_HVAC_SERVICE_73"
+ },
+ {
+  "seedKey": "fq.hvac_repair.refrigerant.add_r22_additional",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Refrigerant",
+  "sourceService": "Add Additional R-22 Refrigerant (per pound)",
+  "taskCode": "DEFAULT_HVAC_SERVICE_74"
+ },
+ {
+  "seedKey": "fq.hvac_repair.refrigerant.leak_search",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Refrigerant",
+  "sourceService": "Perform Leak Search",
+  "taskCode": "DEFAULT_HVAC_SERVICE_75"
+ },
+ {
+  "seedKey": "fq.hvac_repair.refrigerant.repair_leaks",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Refrigerant",
+  "sourceService": "Repair Leaks",
+  "taskCode": "DEFAULT_HVAC_SERVICE_76"
+ },
+ {
+  "seedKey": "fq.hvac_repair.refrigerant.leak_repair_recharge",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Refrigerant",
+  "sourceService": "Leak Repair",
+  "taskCode": "DEFAULT_HVAC_SERVICE_77"
+ },
+ {
+  "seedKey": "fq.hvac_repair.refrigerant.electronic_leak_search",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Refrigerant",
+  "sourceService": "Leak Search Service",
+  "taskCode": "DEFAULT_HVAC_SERVICE_78"
+ },
+ {
+  "seedKey": "fq.hvac_repair.refrigerant.walk_in_reversing_valve",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Refrigerant",
+  "sourceService": "Walk-In Freezer Reversing Valve Replacement",
+  "taskCode": "DEFAULT_HVAC_SERVICE_79"
+ },
+ {
+  "seedKey": "fq.hvac_repair.refrigerant.repair_lineset",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Refrigerant",
+  "sourceService": "Repair Hvac Lineset",
+  "taskCode": "DEFAULT_HVAC_SERVICE_80"
+ },
+ {
+  "seedKey": "fq.hvac_repair.refrigerant.flush_lineset",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Refrigerant",
+  "sourceService": "Flush Hvac Lineset",
+  "taskCode": "DEFAULT_HVAC_SERVICE_81"
+ },
+ {
+  "seedKey": "fq.hvac_repair.refrigerant.txv_replacement",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Refrigerant",
+  "sourceService": "Txv Replacement Service",
+  "taskCode": "DEFAULT_HVAC_SERVICE_82"
+ },
+ {
+  "seedKey": "fq.hvac_repair.diagnostics.residential",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Repair Services",
+  "sourceService": "Diagnostic Service (Residential)",
+  "taskCode": "DEFAULT_HVAC_SERVICE_83"
+ },
+ {
+  "seedKey": "fq.hvac_repair.diagnostics.commercial",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Repair Services",
+  "sourceService": "Diagnostic Service (Commercial)",
+  "taskCode": "DEFAULT_HVAC_SERVICE_84"
+ },
+ {
+  "seedKey": "fq.hvac_repair.diagnostics.emergency",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Repair Services",
+  "sourceService": "Diagnostic Service (Emergency)",
+  "taskCode": "DEFAULT_HVAC_SERVICE_85"
+ },
+ {
+  "seedKey": "fq.hvac_repair.diagnostics.out_of_range",
+  "industry": "Heating & Air Conditioning",
+  "sourceCategory": "Repair Services",
+  "sourceService": "Diagnostic Service (Out of Range)",
+  "taskCode": "DEFAULT_HVAC_SERVICE_86"
+ }
+]

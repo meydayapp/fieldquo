@@ -1,0 +1,100 @@
+[
+ {
+  "seedKey": "fq.tree_care_service.shrub_removal.one_shrub",
+  "industry": "Tree Services",
+  "sourceCategory": "Tree Services > Removal > Bushes and shrubs",
+  "sourceService": "Removal - 1 Bush / shrub",
+  "taskCode": "DEFAULT_TREE_SERVICES_SERVICE_1"
+ },
+ {
+  "seedKey": "fq.tree_care_service.shrub_removal.two_plus_shrubs",
+  "industry": "Tree Services",
+  "sourceCategory": "Tree Services > Removal > Bushes and shrubs",
+  "sourceService": "Removal - 2+ Bushes / shrubs",
+  "taskCode": "DEFAULT_TREE_SERVICES_SERVICE_2"
+ },
+ {
+  "seedKey": "fq.tree_care_service.stump_removal.one_stump",
+  "industry": "Tree Services",
+  "sourceCategory": "Tree Services > Removal > Stumps",
+  "sourceService": "Removal - 1 stump",
+  "taskCode": "DEFAULT_TREE_SERVICES_SERVICE_3"
+ },
+ {
+  "seedKey": "fq.tree_care_service.stump_removal.two_plus_stumps",
+  "industry": "Tree Services",
+  "sourceCategory": "Tree Services > Removal > Stumps",
+  "sourceService": "Removal - 2+ stumps",
+  "taskCode": "DEFAULT_TREE_SERVICES_SERVICE_4"
+ },
+ {
+  "seedKey": "fq.tree_care_service.tree_removal.emergency",
+  "industry": "Tree Services",
+  "sourceCategory": "Tree Services > Removal > Tree",
+  "sourceService": "Removal - Emergency removal",
+  "taskCode": "DEFAULT_TREE_SERVICES_SERVICE_5"
+ },
+ {
+  "seedKey": "fq.tree_care_service.tree_removal.sick_tree",
+  "industry": "Tree Services",
+  "sourceCategory": "Tree Services > Removal > Tree",
+  "sourceService": "Removal - Sick tree",
+  "taskCode": "DEFAULT_TREE_SERVICES_SERVICE_6"
+ },
+ {
+  "seedKey": "fq.tree_care_service.tree_removal.one_tree",
+  "industry": "Tree Services",
+  "sourceCategory": "Tree Services > Removal > Tree",
+  "sourceService": "Removal - 1 Tree",
+  "taskCode": "DEFAULT_TREE_SERVICES_SERVICE_7"
+ },
+ {
+  "seedKey": "fq.tree_care_service.tree_removal.two_trees",
+  "industry": "Tree Services",
+  "sourceCategory": "Tree Services > Removal > Tree",
+  "sourceService": "Removal - 2 Trees",
+  "taskCode": "DEFAULT_TREE_SERVICES_SERVICE_8"
+ },
+ {
+  "seedKey": "fq.tree_care_service.tree_removal.other",
+  "industry": "Tree Services",
+  "sourceCategory": "Tree Services > Removal > Other",
+  "sourceService": "Removal - Something else / I don't know",
+  "taskCode": "DEFAULT_TREE_SERVICES_SERVICE_9"
+ },
+ {
+  "seedKey": "fq.tree_care_service.shrub_care.trimming",
+  "industry": "Tree Services",
+  "sourceCategory": "Tree Services > Treatment > Bushes and shrubs",
+  "sourceService": "Treatment - Bush / shrub trimming",
+  "taskCode": "DEFAULT_TREE_SERVICES_SERVICE_10"
+ },
+ {
+  "seedKey": "fq.tree_care_service.shrub_care.pruning",
+  "industry": "Tree Services",
+  "sourceCategory": "Tree Services > Treatment > Bushes and shrubs",
+  "sourceService": "Treatment - Bush / shrub pruning",
+  "taskCode": "DEFAULT_TREE_SERVICES_SERVICE_11"
+ },
+ {
+  "seedKey": "fq.tree_care_service.tree_care.trimming",
+  "industry": "Tree Services",
+  "sourceCategory": "Tree Services > Treatment > Tree",
+  "sourceService": "Treatment - Tree trimming",
+  "taskCode": "DEFAULT_TREE_SERVICES_SERVICE_12"
+ },
+ {
+  "seedKey": "fq.tree_care_service.tree_care.pruning",
+  "industry": "Tree Services",
+  "sourceCategory": "Tree Services > Treatment > Tree",
+  "sourceService": "Treatment - Tree pruning",
+  "taskCode": "DEFAULT_TREE_SERVICES_SERVICE_13"
+ },
+ {
+  "seedKey": "fq.tree_care_service.tree_care.other",
+  "industry": "Tree Services",
+  "sourceCategory": "Tree Services > Treatment > Other",
+  "sourceService": "Treatment - Something else / I don't know",
+  "taskCode": "DEFAULT_TREE_SERVICES_SERVICE_14"
+ }
+]

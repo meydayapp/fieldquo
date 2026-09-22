@@ -1,0 +1,142 @@
+[
+ {
+  "seedKey": "fq.lawn_care.core.lawn_mowing",
+  "industry": "Landscaping & Lawn",
+  "sourceCategory": "Core Services",
+  "sourceService": "Lawn Mowing",
+  "taskCode": "DEFAULT_LANDSCAPING_SERVICE_0"
+ },
+ {
+  "seedKey": "fq.lawn_care.core.fertilization",
+  "industry": "Landscaping & Lawn",
+  "sourceCategory": "Core Services",
+  "sourceService": "Lawn Fertilization",
+  "taskCode": "DEFAULT_LANDSCAPING_SERVICE_1"
+ },
+ {
+  "seedKey": "fq.lawn_care.core.weed_control",
+  "industry": "Landscaping & Lawn",
+  "sourceCategory": "Core Services",
+  "sourceService": "Weed Control Service",
+  "taskCode": "DEFAULT_LANDSCAPING_SERVICE_2"
+ },
+ {
+  "seedKey": "fq.lawn_care.core.landscape_maintenance",
+  "industry": "Landscaping & Lawn",
+  "sourceCategory": "Core Services",
+  "sourceService": "Landscape Maintenance",
+  "taskCode": "DEFAULT_LANDSCAPING_SERVICE_3"
+ },
+ {
+  "seedKey": "fq.lawn_care.core.tree_shrub_trimming",
+  "industry": "Landscaping & Lawn",
+  "sourceCategory": "Core Services",
+  "sourceService": "Tree and Shrub Trimming",
+  "taskCode": "DEFAULT_LANDSCAPING_SERVICE_4"
+ },
+ {
+  "seedKey": "fq.lawn_care.core.sod_installation",
+  "industry": "Landscaping & Lawn",
+  "sourceCategory": "Core Services",
+  "sourceService": "Sod Installation",
+  "taskCode": "DEFAULT_LANDSCAPING_SERVICE_5"
+ },
+ {
+  "seedKey": "fq.lawn_care.additional.seasonal_yard_cleanup",
+  "industry": "Landscaping & Lawn",
+  "sourceCategory": "Additional Services",
+  "sourceService": "Seasonal Yard Cleanup",
+  "taskCode": "DEFAULT_LANDSCAPING_SERVICE_6"
+ },
+ {
+  "seedKey": "fq.lawn_care.additional.mulch_installation",
+  "industry": "Landscaping & Lawn",
+  "sourceCategory": "Additional Services",
+  "sourceService": "Mulch Installation",
+  "taskCode": "DEFAULT_LANDSCAPING_SERVICE_7"
+ },
+ {
+  "seedKey": "fq.lawn_care.additional.landscape_design",
+  "industry": "Landscaping & Lawn",
+  "sourceCategory": "Additional Services",
+  "sourceService": "Landscape Design Service",
+  "taskCode": "DEFAULT_LANDSCAPING_SERVICE_8"
+ },
+ {
+  "seedKey": "fq.lawn_care.additional.irrigation_install",
+  "industry": "Landscaping & Lawn",
+  "sourceCategory": "Additional Services",
+  "sourceService": "Irrigation System Installation",
+  "taskCode": "DEFAULT_LANDSCAPING_SERVICE_9"
+ },
+ {
+  "seedKey": "fq.lawn_care.additional.drainage_solutions",
+  "industry": "Landscaping & Lawn",
+  "sourceCategory": "Additional Services",
+  "sourceService": "Drainage Solutions",
+  "taskCode": "DEFAULT_LANDSCAPING_SERVICE_10"
+ },
+ {
+  "seedKey": "fq.lawn_care.additional.hardscape_install",
+  "industry": "Landscaping & Lawn",
+  "sourceCategory": "Additional Services",
+  "sourceService": "Hardscape Installation",
+  "taskCode": "DEFAULT_LANDSCAPING_SERVICE_11"
+ },
+ {
+  "seedKey": "fq.lawn_care.maintenance.irrigation_service",
+  "industry": "Landscaping & Lawn",
+  "sourceCategory": "Maintenance & Inspection",
+  "sourceService": "Irrigation System Service",
+  "taskCode": "DEFAULT_LANDSCAPING_SERVICE_12"
+ },
+ {
+  "seedKey": "fq.lawn_care.maintenance.lawn_health_inspection",
+  "industry": "Landscaping & Lawn",
+  "sourceCategory": "Maintenance & Inspection",
+  "sourceService": "Lawn Health Inspection",
+  "taskCode": "DEFAULT_LANDSCAPING_SERVICE_13"
+ },
+ {
+  "seedKey": "fq.lawn_care.maintenance.seasonal_lawn_treatment",
+  "industry": "Landscaping & Lawn",
+  "sourceCategory": "Maintenance & Inspection",
+  "sourceService": "Seasonal Lawn Treatment",
+  "taskCode": "DEFAULT_LANDSCAPING_SERVICE_14"
+ },
+ {
+  "seedKey": "fq.lawn_care.maintenance.lawn_pest_control",
+  "industry": "Landscaping & Lawn",
+  "sourceCategory": "Maintenance & Inspection",
+  "sourceService": "Pest Control for Lawn",
+  "taskCode": "DEFAULT_LANDSCAPING_SERVICE_15"
+ },
+ {
+  "seedKey": "fq.lawn_care.maintenance.landscape_maintenance_plan",
+  "industry": "Landscaping & Lawn",
+  "sourceCategory": "Maintenance & Inspection",
+  "sourceService": "Landscape Maintenance Plan",
+  "taskCode": "DEFAULT_LANDSCAPING_SERVICE_16"
+ },
+ {
+  "seedKey": "fq.lawn_care.maintenance.inspection_visit",
+  "industry": "Landscaping & Lawn",
+  "sourceCategory": "Book Now",
+  "sourceService": "Landscaping & Lawn Inspection Service",
+  "taskCode": "DEFAULT_LANDSCAPING_SERVICE_17"
+ },
+ {
+  "seedKey": "fq.lawn_care.additional.repair_visit",
+  "industry": "Landscaping & Lawn",
+  "sourceCategory": "Book Now",
+  "sourceService": "Landscaping & Lawn Repair Service",
+  "taskCode": "DEFAULT_LANDSCAPING_SERVICE_18"
+ },
+ {
+  "seedKey": "fq.lawn_care.additional.install_upgrade_visit",
+  "industry": "Landscaping & Lawn",
+  "sourceCategory": "Book Now",
+  "sourceService": "Landscaping & Lawn Installation or Upgrade",
+  "taskCode": "DEFAULT_LANDSCAPING_SERVICE_19"
+ }
+]
