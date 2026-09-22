@@ -33,6 +33,7 @@ import {
   requireCost,
 } from "../costingWrite";
 import { syncTakeoffAddOns } from "@/lib/quotes/takeoffAddOns";
+import { shareTokenData } from "@/lib/quotes/shareToken";
 import { withCapturedMeasureImages } from "@/lib/measure/measureImages";
 import { normaliseSiteAddress } from "@/lib/geo/geocodeJob";
 import { offlineDiscountPctFor } from "@/lib/payments/offlineDiscount";
@@ -413,6 +414,15 @@ export async function PATCH(request, { params }) {
   }
 
   const scalarData = {
+    // ── The client's link, lazily ────────────────────────────────────────
+    //
+    // Quotes created before the token moved to save-time (and those created by
+    // the paths that don't mint one — an instant estimate, a converted lead, a
+    // duplicate) have no link yet. Rather than a migration script over every
+    // row in the product, each one picks its token up on its next save. Empty
+    // object when there already is one, so a link already sitting in a
+    // client's inbox is never rewritten by an edit: see shareTokenData.
+    ...shareTokenData(existing.shareToken),
     ...(status !== undefined && {
       status,
       ...(status === "sent" && !reopening && { sentAt: new Date() }),
