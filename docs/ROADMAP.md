@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 21 September 2026 (the quote builder's text-block library — nine painting starters in EN/FR/ES seeded once per painting company, searchable from "+ Add area or line item" beside the trade chips and the products, rich text drawn on the PDF, the email, the approval page and the detail page, priced by hours, quantity, a custom amount or not at all, "hidden on work order" carried on the line, a block translated ONCE into a quote's other language and the reviewed text stored on the block; the quote page's Send… split button — preview as client, share with staff through the crew chat, create invoice, save as template, copy link, download PDF, copy, archive; QuoteTemplate rows offered on every new quote; Quote.siteAddress prefilled for a homeowner, required for a company client, printed as "Job address", handed to the Job and geocoded there, read by the satellite measure; and "Offer 3% off for e-transfer or cheque" — Canada only, a discount never a card surcharge because of Quebec, frozen on the draft, ticked by the client at approval, folded into the invoice with the card link left off; see "The text-block library, the Send… menu, the job address and the e-transfer discount" below; previous line: the "next steps" email: two hours after a company's card goes in, if its onboarding checklist is still open, FieldQuo sends one letter in the company's language — the trade in the subject, only the open steps numbered in the checklist's order with what each unlocks for that trade, each a link that opens the step's window on the home page, a tick list of what is done — once per company, never a demo, switch and delay on /platform/companies, sent-date on the company page)
+Last updated: 21 September 2026 (the quote builder's text-block library — nine painting starters in EN/FR/ES seeded once per painting company, searchable from "+ Add area or line item" beside the trade chips and the products, rich text drawn on the PDF, the email, the approval page and the detail page, priced by hours, quantity, a custom amount or not at all, "hidden on work order" carried on the line, a block translated ONCE into a quote's other language and the reviewed text stored on the block; the quote page's Send… split button — preview as client, share with staff through the crew chat, create invoice, save as template, copy link, download PDF, copy, archive; QuoteTemplate rows offered on every new quote; Quote.siteAddress prefilled for a homeowner, required for a company client, printed as "Job address", handed to the Job and geocoded there, read by the satellite measure; and "Offer 3% off for e-transfer or cheque" — Canada only, a discount never a card surcharge because of Quebec, frozen on the draft, ticked by the client at approval, folded into the invoice with the card link left off; see "The text-block library, the Send… menu, the job address and the e-transfer discount" below; previous line: the painting takeoff, sections b1–b4 and b6 of the approved builder mockup: a painting quote opens on its estimate type — Interior, Exterior, Cabinets & millwork, Staining, Commercial — each with its own rate set of situation-named rates priced as production rate × hourly or flat per unit, picked in a searchable picker and edited on Settings › Services › Painting rates; an area is a Room or a single Surface with an editable "calculated from measurements" strip, ticks what's painted, draws as one hours-and-money table with options the homeowner ticks under the room (extra coat, premium paint, custom); staining substrates carry stain and clear coat; the den and the exterior job still reproduce to the cent; and before it: the "next steps" email: two hours after a company's card goes in, if its onboarding checklist is still open, FieldQuo sends one letter in the company's language — the trade in the subject, only the open steps numbered in the checklist's order with what each unlocks for that trade, each a link that opens the step's window on the home page, a tick list of what is done — once per company, never a demo, switch and delay on /platform/companies, sent-date on the company page)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -79,11 +79,15 @@ message and the back-office link posted into the crew chat through
 `ShareWithStaffModal.js`), Create invoice (the existing convert; disabled
 with "After the client accepts" before that — offering it earlier is the
 product decision the mockup names), Save as template, Copy quote link,
-Download quote PDF, Copy (= duplicate), Archive / Restore from archive.
-Follow up, Call, Client accepted / didn't go ahead, Get approved, Edit and
-the bin stay as pills. "Copy work order link" and "Download work order PDF"
-are NOT drawn: no work-order document exists yet, and a row that led nowhere
-is the dead control this codebase is swept for.
+Download quote PDF, Copy (= duplicate), Archive / Restore from archive, and
+— once the quote has a job — Copy work order link and Download work order
+PDF, pointing at the crew's work order that landed the same hour
+(`lib/workOrder/url.js`; the work order is the JOB's, so before acceptance
+the two rows are absent, not greyed). Follow up, Call, Client accepted /
+didn't go ahead, Get approved, Edit and the bin stay as pills.
+`lib/workOrder/build.js` now reads a line's `hiddenOnWorkOrder` (a block
+ticked hidden is absent from the crew's copy without anyone hiding it per
+job) and flattens a block's rich text to plain sentences for the crew.
 
 - `QuoteTemplate` (new) — a snapshot of the groups (line items, takeoff,
   intake answers, subtotal), notes and process notes, under a name and in
@@ -154,10 +158,9 @@ its own tree.
 - **Areas in the library.** The mockup's "Areas: Room · Surface" section is
   the painting takeoff's to hand in (`areas` + `onAddArea` on
   `LineItemsTable`); the dialog draws the section the moment it does.
-- **Work-order rows and `hiddenOnWorkOrder`'s reader.** Both wait for the
-  work-order document; the flag is written on every text line and shown to
-  staff on the detail page and the builder, and the menu draws the two rows
-  the day the document and its token route exist.
+- **A tokenised work-order link for a sub without an account** is the
+  product decision `lib/workOrder/url.js` records; the menu's link opens
+  inside the app for signed-in crew.
 - **The builder's own Save + Send… bar** is the document-shaped builder's to
   mount; `SendMenu` takes a `primary` and `items` and needs no page state.
 - **Create invoice before acceptance** (deposit invoices) is a product
@@ -167,6 +170,201 @@ its own tree.
   on them when the estimate-type picker lands.
 - A staff-recorded acceptance ("Client accepted by phone / text") cannot
   record the e-transfer choice; only the client's own approval can.
+## The painting takeoff: estimate type first, situation-named rate sets, an editable measurement strip, one table per area with the homeowner's options under the room, and staining (21 September 2026)
+
+The owner approved the builder mockups (`scratchpad/mockups/builder/section.html`,
+sections b1–b4 and b6). Everything below is in `lib/pricing/paintTakeoff.js`
+(the arithmetic), `app/components/quotes/builder/PaintAreas.js` (the screen),
+`app/app/settings/services/PaintRateSets.js` (the rate card) and
+`app/api/settings/painting-rates/route.js` (a custom rate saved from the
+picker). Nothing in QuoteBuilder.js changed: the estimate-type step lives
+inside the takeoff, which is where the mockup's note put it.
+
+**What ships.**
+
+- **Estimate type first (b1).** `takeoff.estimateType` — interior · exterior ·
+  cabinets · staining · commercial (`PAINT_ESTIMATE_TYPES`). Cards carry no
+  hourly rate (owner note). `createTradeConfig` preselects interior /
+  exterior from the trade the group is filed under. A takeoff with no type —
+  every quote written before this — prices exactly as it did
+  (`estimateTypeOf()` → null → substrate rates, $85 / $80 by surface);
+  `scripts/check-paint-rate-sets.mjs` proves the den at $1,028.94 both ways.
+- **Rate sets (b3).** `PAINT_RATE_SET_DEFAULTS[type]` — an hourly sell rate
+  (interior 85 / exterior 80 RECOVERED; cabinets, staining and commercial
+  open at 85) and a keyed map of rates, each naming its substrate and a
+  basis: `production` (units/hr or h/unit × hourly — the recovered model) or
+  `flat` (a sell price per unit — the price book's model; hours still
+  schedule from the rate's own figure or the substrate's, so a $/sqft wall
+  is never labour-blind). Defaults are SEEDED from every substrate so nothing
+  changes until a company edits; the mockup's situation-named variants
+  ("16 ft walls · 80", "8 ft walls, lots of cutting · 75", "Walls, bad
+  condition · $1.50/sqft") are there under `provenance: "example"`, and the
+  picker and the card say so beside `✓ recovered` and `analogue`. Commercial
+  is the interior + exterior card copied as `analogue`. A substrate row
+  stores `rateKey` (the set's) or an inline `rate` (a custom rate that could
+  not be saved to the set — an estimator without settings rights gets a 403
+  from the route and the rate stays on the line, said on screen). The dead
+  per-line `productionRate` read is gone; the rate is the thing read.
+  Overrides ride on `CompanyServiceCategory.rates.takeoff` for BOTH painting
+  rows (the two books share one takeoff in code; `sanitiseRates` now passes
+  the structured subtree through `sanitisePaintTakeoffOverrides`, and the
+  Services editor writes it to both rows).
+- **Area details (b2).** Room (4 walls) / Surface (single wall) — `area` /
+  `wall`; the legacy `surface` style (instant-quote seeds) still draws under
+  Surface. Width · Length · Height, then the strip: Linear ft · Walls sqft ·
+  Ceiling sqft · Floor sqft, each typed over (`linearFtOverride`… — 0 is an
+  override, null/""/junk are not; a single wall refuses a ceiling or floor
+  override), marked "edited", with reset.
+- **Tick what's painted.** `PAINT_QUICK_PICKS[type]` — walls, ceiling, doors
+  (count × one side / both sides), trim, windows, closets for interior; the
+  type's own list for the others. A tick adds the row at the type's default
+  rate.
+- **The area table with options (b4).** Description · Qty · Prep hr ·
+  Painting hr · Total hr · Materials · Labour · Total, an area-total row at
+  the set's hourly, then "Options the homeowner can tick": a whole substrate
+  (the existing optional flag), **extra coat** (`area.options[]` kind
+  `extra_coat` — one more coat of the line's first product through coverage
+  plus `extraCoatHoursPct` of the line's hours, 50% by default, ILLUSTRATIVE
+  and on the card), **premium paint** (`premium_paint` — the product swapped,
+  the delta in paint money; the three premium products ship UNPRICED, so the
+  option says "price it on the rate card or type an amount"), or **custom**.
+  A typed amount wins and is tagged "custom price". They reach the client
+  through the SAME QuoteAddOn rows (`paintOptionalExtras` →
+  `tradeOptionalExtras` → `lib/quotes/takeoffAddOns.js`), now with
+  `QuoteAddOn.areaLabel` (additive column) and `kind`, so the public quote
+  can draw them under the room; the cap is `PAINT_OPTIONAL_EXTRAS_CAP` (40)
+  rather than the add-ons editor's 8, because per-room options are not a
+  foot-of-quote list. The public route returns `areaLabel` on each add-on.
+  Per-area media (`area.media`, MediaUploader, staff-only and said so) and
+  the client note, which now prints as the `detail` under the area's first
+  line for INCLUDED areas too (it used to reach the document only when the
+  area was optional).
+- **Staining (b6).** Substrates under `surface: "staining"`: kitchen cabinet
+  doors / drawer fronts (hours DERIVED from the owner's per-piece minutes in
+  `lib/pricing/cabinetLabour.js`: (6+3+2.5+3×3)/60 = 0.342 h a door), vanity
+  doors / fronts, treads, risers, spindles, railings, deck, fence (one face;
+  both = ×2, said on the pick), front door — each with `products: [stain,
+  clear coat]` so gallons roll up per product for both (`line.materials[]`;
+  `line.gallons` / `productKey` stay the first product's for older readers).
+  Every non-derived figure is `provenance: "illustrative"` and the three
+  staining products are UNPRICED (coverage is the label figure). A painted
+  Cabinets & millwork set exists too, with the refinishing card's $150 a
+  door offered as a FLAT rate beside the derived hours (the check holds the
+  two books equal).
+- **Interior Painting's tile icon.** `ServiceTiles.js`'s curated map now
+  carries every icon name `lib/trades/catalog.js` uses (PaintRoller, Waves,
+  Fence, Building… — 16 were missing and fell back to the Package box);
+  `check-paint-rate-sets.mjs` holds the two lists equal.
+- Checks: `check:paint-takeoff` (258, every recovered cent unchanged) and
+  `check:paint-rate-sets` (603: defaults, continuity, the mockup's living
+  room at $802.77, flat vs production, empty / zero / hidden / mismatched /
+  `__proto__` rates, geometry overrides, the three option kinds, staining,
+  the sanitiser, the merge, the icon map). Frames under
+  `docs/screens/paint-takeoff/` (the full card, the rate picker, the
+  substrate picker, the rate card, the staining kitchen) through the
+  harness's new `paint-takeoff` chapter.
+
+### Still owed here
+
+- **/q/[token] draws the options under the room.** The data is there
+  (`areaLabel`, `kind` on every takeoff add-on); the client page's grouping
+  is the client mini-site agent's, or a small follow-up on
+  `app/q/[token]/QuoteApproval.js` — today the rows still list under
+  "Optional extras" with the room in the description and still reprice.
+- **Cabinets & millwork vs. the Cabinet Refinishing trade** is a product
+  decision the mockup's note names: today the type has its own substrates
+  and offers the refinishing card's per-door price as a flat rate; it does
+  not link to `app/data/cabinetPricing.js`.
+- Premium and staining products need prices before their options and lines
+  carry money — deliberately unpriced rather than guessed; the card flags
+  them.
+- The crew note now has a reader — the crew work order that landed the
+  same day (`lib/workOrder/build.js`) prints it; the field says so again.
+  Work-order and material-fact lines read a line's FIRST product
+  (`productKey` / `gallons`); a stained line's clear coat is on
+  `line.materials[]` and in the purchase list, not on those lines yet.
+
+---
+## Materials, the work order and supplies: the AI "nothing forgotten" list, the crew's copy of the quote, and request → ordered → restocked (21 September 2026)
+
+The owner approved the "Proposed" mockups of 21 September (jobs/section.html,
+changes 2, 3 and 4). Three things a crew standing in a driveway did not have:
+the tape and the caulk on the buy list, a document that says per area what
+was sold and how long it should take, and a button that tells the office
+"we're short".
+
+**What ships.**
+
+- **The AI material list** — `lib/materials/list.js` (pure: the strict
+  schema with no money field, unit canonicalisation, waste maths, the
+  refusals), `lib/materials/facts.js` (what the model may see — an
+  allow-list; `findMoneyKey` refuses the prompt if a rate slips in),
+  `lib/materials/build.js` (load → derive the takeoff's own lines → sum stock
+  → ask → normalise → the takeoff overrules → write). "Build the material
+  list" on `app/components/jobs/JobMaterials.js`; the list is grouped, each
+  row carries its reason, its waste, on hand versus needed (summed from
+  `StockMovement`, never stored) and Short / Covered / Not tracked; AI rows'
+  quantities are editable, takeoff rows' are not; a removed line is EXCLUDED
+  (`JobMaterial.excludedAt`), not deleted, so the next build does not offer
+  it again; hand-added and bought rows survive every rebuild. "Add to
+  shopping list" puts the shortfall on the job's draft `PurchaseOrder` (one
+  draft per job, appended to). "Print list" is a sheet with no prices.
+  **Paid:** `MATERIAL_LIST_CENTS = 10` (lib/ai/imageEconomics.js) off the AI
+  credit wallet per build through the same reserve-then-refund gate as the
+  deep photo read, feature `ai_material_list`, spend kind `material_list`;
+  the banner prints the model, the price and the balance before the button.
+  Vendor cost is ~½¢ a run on the mini model; the price is the owner's to set.
+- **The crew work order** — `lib/workOrder/build.js` (pure; walked for
+  money keys), `/app/jobs/<id>/work-order` inside the app shell (there is
+  no anonymous crew link anywhere in the product — see `lib/workOrder/url.js`
+  for why a tokenised copy is a product decision not made here), scoped by
+  `assignedJobWhere`, the client through `redactClient`. Per area: label,
+  hours from the same `paintTakeoff` the quote was priced with, the scope
+  sentence, the per-area `crewNote` PaintAreas.js has written since it
+  existed, a tick and photos — Task rows keyed `work_order:<jobId>:<areaKey>`
+  so the job page's to-do list shows the same step (photos through the
+  existing `POST /api/tasks/[id]/photos`). `Job.workOrderHidden` holds what
+  the office took off the crew's copy (toggled from the office's view of the
+  work order; absent, not greyed, on the crew's, the PDF and the print
+  sheet). PDF through `renderDocumentPdfBuffer` (section `work_order`, kind
+  `work_order_pdf`, never offered on a quote template) in the QUOTE's
+  language. `workOrderPath / workOrderPdfPath / workOrderUrl` and
+  `workOrderForQuote(quoteId, companyId)` for the quote page's Send menu.
+- **Supply requests** — `SupplyRequest` (requested → ordered → restocked,
+  cancelled as a side door; `lib/supplies/state.js` is the closed machine).
+  The phone form `/app/me/supplies` (a row on More and a link on the job's
+  Materials card): item from the stock list with its level and threshold or
+  free text, how many, which job (the time clock's chooser), needed by, a
+  photo, a note. Purchasing's new Requests tab: the reorder banner turns a
+  low material into a request for the SHORTFALL, "Mark ordered" asks which
+  PO, "Restocked" asks where it landed and writes ONE `received` movement in
+  the same transaction that moves the status (unique ref
+  `supply_request:<id>`; re-read first). Three notification types:
+  `supply.requested` to purchasing's rung, `supply.ordered` /
+  `supply.restocked` narrowed to the requester.
+- `scripts/check-material-list.mjs` (81), `check-work-order.mjs` (65),
+  `check-supply-requests.mjs` (69) — all in `check:all`; the harness rows
+  `job-materials`, `work-order`, `mobile-work-order`,
+  `purchasing-requests`, `mobile-supplies`.
+
+### Still owed here
+
+- **"Send to supplier" is deliberately absent.** No supplier email path
+  exists in the product (a PO's "sent" is a status); the button would have
+  emailed nobody. It needs the email, a price per send and the owner's yes.
+- **No tokenised work order for a sub without an account.** The link is the
+  app's; a crew member signs in. Who may hold an anonymous copy and for how
+  long is a product decision.
+- **The crew's tab bar still reads Home · Schedule · Earnings · Messages ·
+  More** (lib/me/tabs.js, asserted by check-employee-home). The mockup's
+  "Supplies" tab would replace Earnings; Supplies is a row on More instead.
+- **The model has not been run against production.** `OPENAI_API_KEY` is
+  Sensitive in Vercel; the build was executed against a stubbed model in the
+  check script and the fixture on the harness. The first real build on a
+  demo job is the proof.
+- The job-plan agent's per-line Task rows and this work order's per-area
+  Task rows are two source-key families on one table; linking an area to
+  its quote line is a follow-up once both have landed.
 
 ## The next-steps email: two hours after the card, only the steps still open, each a link into its window (21 September 2026)
 

@@ -375,6 +375,21 @@ async function runScene(scene) {
     await wait(300);
     return;
   }
+  if (scene === "scroll-materials") {
+    const el = await until("#job-materials");
+    window.scrollTo(0, el.getBoundingClientRect().top + window.scrollY - 16);
+    await wait(300);
+    return;
+  }
+  if (scene === "purchasing-requests") {
+    // The Requests tab — the fourth on the Purchasing page.
+    const tab = [...document.querySelectorAll('main [role="tab"]')].at(-1);
+    if (!tab) throw new Error("scene: no purchasing tabs");
+    tab.click();
+    await until("main ul li, main form");
+    await wait(400);
+    return;
+  }
   if (scene === "scroll-visits") {
     const el = await until('[data-tour="job-visits"]');
     window.scrollTo(0, el.getBoundingClientRect().top + window.scrollY - 16);
@@ -424,6 +439,29 @@ async function runScene(scene) {
     if (!btn) throw new Error("scene: no measure button on the takeoff card");
     btn.click();
     await wait(1200);
+    return;
+  }
+  if (scene === "paint-rate-picker") {
+    // The painting takeoff's situation-named rate picker: the first row's
+    // rate link ("8 ft walls · 100 sqft/hr") opens the searchable list —
+    // PaintAreas.js RatePicker.
+    const link = [...document.querySelectorAll("[data-takeoff-frame] button")].find((b) => /sqft\/hr/.test(b.textContent));
+    if (!link) throw new Error("scene: no rate link on the painting takeoff");
+    link.click();
+    await until("[role=dialog] input");
+    await wait(300);
+    return;
+  }
+  if (scene === "paint-rates-open") {
+    // The painting rate card (PaintRatesFrame.jsx), opened on its Interior set.
+    await clickButton("Painting rates");
+    await wait(300);
+    return;
+  }
+  if (scene === "paint-substrate-picker") {
+    await clickButton("Add substrate");
+    await until("[role=dialog] input");
+    await wait(300);
     return;
   }
   if (scene === "funnel-start") {

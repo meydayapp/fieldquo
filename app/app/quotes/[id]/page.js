@@ -96,6 +96,7 @@ import SendMenu from "@/app/components/quotes/SendMenu";
 import ShareWithStaffModal from "@/app/components/quotes/ShareWithStaffModal";
 import SaveAsTemplateModal from "@/app/components/quotes/SaveAsTemplateModal";
 import { Eye, Share2, LayoutTemplate, Archive, ArchiveRestore, ClipboardCopy } from "lucide-react";
+import { workOrderPath, workOrderPdfPath } from "@/lib/workOrder/url";
 import BrandTheme from "@/app/components/BrandTheme";
 import { usePermissions } from "@/app/providers/PermissionProvider";
 import { useFeatureFlags } from "@/app/providers/FeatureProvider";
@@ -846,6 +847,7 @@ export default function QuoteDetailPage() {
             // link rows wait for a send rather than opening on a 404.
             const linkable = quote.status !== "draft" && !quote.historicalImportedAt && canDuplicateQuote;
             const canInvoice = quote.status === "accepted" && !quote.invoices?.length;
+            const workOrderJobId = quote.jobs?.[0]?.id || null;
             const items = [
               {
                 key: "preview",
@@ -886,9 +888,33 @@ export default function QuoteDetailPage() {
                 busy: menuBusy === "link",
                 onSelect: handleCopyLink,
               },
-              // "Copy work order link" and "Download work order PDF" are not
-              // drawn: there is no work-order document yet, and a row that
-              // led nowhere would be the dead control this file is swept for.
+              // The crew's work order is the JOB's (lib/workOrder/url.js), so
+              // the two rows exist only once this quote has a job — an
+              // accepted quote. Before that they are absent, not greyed: a
+              // link to a job that does not exist is not a link.
+              workOrderJobId && {
+                key: "workOrderLink",
+                label: t("app.sendMenu.copyWorkOrderLink", "Copy work order link"),
+                hint: t("app.sendMenu.workOrderHint", "The crew's copy — no prices. Opens in the app for signed-in crew."),
+                icon: ClipboardCopy,
+                busy: menuBusy === "workOrderLink",
+                onSelect: async () => {
+                  setMenuBusy("workOrderLink");
+                  setMenuNotice("");
+                  try {
+                    await navigator.clipboard.writeText(`${window.location.origin}${workOrderPath(workOrderJobId)}`);
+                    setMenuNotice(t("app.sendMenu.workOrderLinkCopied", "Work order link copied."));
+                  } finally {
+                    setMenuBusy("");
+                  }
+                },
+              },
+              workOrderJobId && {
+                key: "workOrderPdf",
+                label: t("app.sendMenu.downloadWorkOrderPdf", "Download work order PDF"),
+                icon: Download,
+                onSelect: () => window.open(workOrderPdfPath(workOrderJobId), "_blank", "noopener"),
+              },
               canDownloadPdf && {
                 key: "pdf",
                 label: t("app.sendMenu.downloadPdf", "Download quote PDF"),

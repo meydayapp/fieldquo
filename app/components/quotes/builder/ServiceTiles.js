@@ -33,6 +33,7 @@
 import { useState } from "react";
 import {
   Paintbrush,
+  PaintRoller,
   Home,
   Layers,
   Grid2x2,
@@ -48,6 +49,21 @@ import {
   Sparkles,
   Trees,
   Droplets,
+  Droplet,
+  Building,
+  Building2,
+  Sprout,
+  PawPrint,
+  Waves,
+  Trash2,
+  Snowflake,
+  Ruler,
+  Lock,
+  Flame,
+  Fence,
+  DoorClosed,
+  Car,
+  Bug,
   Package,
   ChevronRight,
   Plus,
@@ -60,8 +76,15 @@ import { resolveServiceContent } from "@/lib/documents/serviceContent";
 // name. Dynamic property access defeats tree-shaking and would pull the entire
 // icon library — around a thousand components — into the bundle to render at
 // most a dozen tiles.
+//
+// Every icon name lib/trades/catalog.js uses is here. It was not: the map
+// carried seventeen names and the catalogue used thirty-two, so Interior
+// Painting (PaintRoller), Pool & Spa (Waves), Fencing (Fence) and a dozen
+// others drew the Package box. scripts/check-paint-rate-sets.mjs keeps the two
+// lists equal.
 const ICONS = {
   Paintbrush,
+  PaintRoller,
   Home,
   Layers,
   Grid2x2,
@@ -77,6 +100,21 @@ const ICONS = {
   Sparkles,
   Trees,
   Droplets,
+  Droplet,
+  Building,
+  Building2,
+  Sprout,
+  PawPrint,
+  Waves,
+  Trash2,
+  Snowflake,
+  Ruler,
+  Lock,
+  Flame,
+  Fence,
+  DoorClosed,
+  Car,
+  Bug,
   Package,
 };
 

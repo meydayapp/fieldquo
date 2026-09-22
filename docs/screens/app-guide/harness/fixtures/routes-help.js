@@ -684,16 +684,86 @@ const JOB_COSTING = {
   estimatedAt: iso(day(-6, 15)),
   currency: COMPANY.currency,
 };
-const JOB_MATERIALS = {
-  materials: [
-    { id: "jm_1", name: "Maple plywood 3/4\" — boxes", qty: 22, actualQty: 22, unit: "sheet", materialKey: "plywood_maple_34", categoryKey: CAT_KITCHEN.key, estUnitCost: 96, actualCost: 2068, supplier: "Langevin Bois", purchasedAt: iso(day(-12, 10)), addedByHand: false, sortOrder: 0 },
-    { id: "jm_2", name: "MDF shaker doors — 26", qty: 26, actualQty: 26, unit: "ea", materialKey: "door_shaker_mdf", categoryKey: CAT_KITCHEN.key, estUnitCost: 68, actualCost: 1742, supplier: "Portes Lacroix", purchasedAt: iso(day(-9, 14)), addedByHand: false, sortOrder: 1 },
-    { id: "jm_3", name: "White oak, rift sawn — island", qty: 1, actualQty: 1, unit: "lot", materialKey: "oak_rift", categoryKey: CAT_KITCHEN.key, estUnitCost: 1890, actualCost: 1890, supplier: "Langevin Bois", purchasedAt: iso(day(-12, 10)), addedByHand: false, sortOrder: 2 },
-    { id: "jm_4", name: "Blum soft-close hinges", qty: 52, actualQty: null, unit: "ea", materialKey: "hinge_blum", categoryKey: CAT_KITCHEN.key, estUnitCost: 6.5, actualCost: null, supplier: "Richelieu", purchasedAt: null, addedByHand: false, sortOrder: 3 },
-    { id: "jm_5", name: "Pull-out waste unit — 2 bins", qty: 1, actualQty: null, unit: "ea", materialKey: null, categoryKey: null, estUnitCost: 148, actualCost: null, supplier: "Richelieu", purchasedAt: null, addedByHand: true, sortOrder: 4 },
-  ],
-  progress: { total: 5, bought: 3, outstanding: 2, complete: false, estimatedTotal: 6338, actualTotal: 5700 },
+// ── The AI material list, the crew work order and the supply requests ────
+//
+// The same five JobMaterial rows, now carrying the grouped list's columns
+// (app/api/jobs/[id]/materials shape): the takeoff's own lines under
+// Primary, the build's sundries and consumables with a reason each, "on
+// hand" summed from the stock fixture's movements, and the banner's facts.
+const stockLevel = (id) => STOCK_FOR_MATERIALS.find((l) => l.materialId === id)?.level ?? null;
+const STOCK_FOR_MATERIALS = [
+  { materialId: "mat_birch", level: 14 },
+  { materialId: "mat_hinge", level: 68 },
+  { materialId: "mat_slide", level: 26 },
+  { materialId: "mat_tape", level: 3 },
+];
+const onHand = (qty, materialId) => {
+  const level = materialId ? stockLevel(materialId) : null;
+  if (level === null) return { onHand: null, short: null, status: "untracked" };
+  const short = Math.max(0, qty - level);
+  return { onHand: level, short, status: short > 0 ? "short" : "covered" };
 };
+const MATERIAL_LIST_ROWS = [
+  { id: "jm_1", name: "Maple plywood 3/4\" — boxes", qty: 22, actualQty: 22, unit: "sheet", materialKey: "plywood_maple_34", categoryKey: CAT_KITCHEN.key, estUnitCost: 96, actualCost: 2068, supplier: "Langevin Bois", purchasedAt: iso(day(-12, 10)), addedByHand: false, sortOrder: 0, group: "primary", reason: "38 lin. ft of boxes at 0.55 sheet per ft, +10%, rounded up", wastePct: 10, stockMaterialId: null, source: "takeoff" },
+  { id: "jm_2", name: "MDF shaker doors — 26", qty: 26, actualQty: 26, unit: "ea", materialKey: "door_shaker_mdf", categoryKey: CAT_KITCHEN.key, estUnitCost: 68, actualCost: 1742, supplier: "Portes Lacroix", purchasedAt: iso(day(-9, 14)), addedByHand: false, sortOrder: 1, group: "primary", reason: "26 door and drawer fronts on the approved lines", wastePct: null, stockMaterialId: null, source: "takeoff" },
+  { id: "jm_3", name: "White oak, rift sawn — island", qty: 1, actualQty: 1, unit: "lot", materialKey: "oak_rift", categoryKey: CAT_KITCHEN.key, estUnitCost: 1890, actualCost: 1890, supplier: "Langevin Bois", purchasedAt: iso(day(-12, 10)), addedByHand: false, sortOrder: 2, group: "primary", reason: "7 × 3 ft top with a waterfall end", wastePct: null, stockMaterialId: null, source: "takeoff" },
+  { id: "jm_4", name: "Blum soft-close hinges", qty: 52, actualQty: null, unit: "ea", materialKey: "hinge_blum", categoryKey: CAT_KITCHEN.key, estUnitCost: 6.5, actualCost: null, supplier: "Richelieu", purchasedAt: null, addedByHand: false, sortOrder: 3, group: "fasteners", reason: "26 doors × 2 hinges", wastePct: null, stockMaterialId: "mat_hinge", source: "takeoff" },
+  { id: "jm_5", name: "Pull-out waste unit — 2 bins", qty: 1, actualQty: null, unit: "ea", materialKey: null, categoryKey: null, estUnitCost: 148, actualCost: null, supplier: "Richelieu", purchasedAt: null, addedByHand: true, sortOrder: 4, group: null, reason: null, wastePct: null, stockMaterialId: null, source: null },
+  { id: "jm_6", name: "Blum Tandem 21\" undermount slides", qty: 14, actualQty: null, unit: "pair", materialKey: null, categoryKey: null, estUnitCost: null, actualCost: null, supplier: null, purchasedAt: null, addedByHand: false, sortOrder: 5, group: "fasteners", reason: "14 drawers on the base run, one pair each", wastePct: null, stockMaterialId: "mat_slide", source: "ai" },
+  { id: "jm_7", name: "Baltic birch 3/4 — drawer boxes", qty: 6, actualQty: null, unit: "sheet", materialKey: null, categoryKey: null, estUnitCost: null, actualCost: null, supplier: null, purchasedAt: null, addedByHand: false, sortOrder: 6, group: "primary", reason: "14 dovetail drawers, ~2.3 boxes per sheet, +10%", wastePct: 10, stockMaterialId: "mat_birch", source: "ai" },
+  { id: "jm_8", name: "Painter's tape 1½\"", qty: 6, actualQty: null, unit: "roll", materialKey: null, categoryKey: null, estUnitCost: null, actualCost: null, supplier: null, purchasedAt: null, addedByHand: false, sortOrder: 7, group: "sundries", reason: "Masking the island top and the finished floor for install", wastePct: null, stockMaterialId: "mat_tape", source: "ai" },
+  { id: "jm_9", name: "Sanding discs 5\" — 180 / 220", qty: 2, actualQty: null, unit: "box", materialKey: null, categoryKey: null, estUnitCost: null, actualCost: null, supplier: null, purchasedAt: null, addedByHand: false, sortOrder: 8, group: "consumables", reason: "26 fronts and the island top between coats", wastePct: null, stockMaterialId: null, source: "ai" },
+  { id: "jm_10", name: "Wood glue, 1 gal", qty: 1, actualQty: null, unit: "ea", materialKey: null, categoryKey: null, estUnitCost: null, actualCost: null, supplier: null, purchasedAt: null, addedByHand: false, sortOrder: 9, group: "fasteners", reason: "Dovetails and the island glue-up", wastePct: null, stockMaterialId: null, source: "ai" },
+  { id: "jm_11", name: "Scribe moulding, oak — 8 ft", qty: 4, actualQty: null, unit: "ea", materialKey: null, categoryKey: null, estUnitCost: null, actualCost: null, supplier: null, purchasedAt: null, addedByHand: false, sortOrder: 10, group: "transitions", reason: "28 lin. ft of uppers against an out-of-plumb wall", wastePct: null, stockMaterialId: null, source: "ai" },
+].map((m) => ({ ...m, ...onHand(m.qty, m.stockMaterialId) }));
+const MATERIAL_LIST = {
+  materials: MATERIAL_LIST_ROWS,
+  progress: { total: 11, bought: 3, outstanding: 8, complete: false, estimatedTotal: 6338, actualTotal: 5700, unpriced: 6, short: 2 },
+  built: { at: iso(day(0, 7, 42)), model: "gpt-5-mini", by: SAM.name },
+  spend: { allowed: true, reason: null, needCents: 10, balanceCents: 1840, shortfallCents: 0 },
+};
+const stripMoney = (m) => { const { estUnitCost, actualCost, ...rest } = m; return { ...rest, costHidden: true }; };
+
+// The crew work order for the same job (app/api/jobs/[id]/work-order shape,
+// lib/workOrder/build.js): one step per scope group of a cabinet quote —
+// no per-area takeoff, so hours come from the recipe's productivity figure
+// — plus the two lines the office hid from the crew's copy.
+const WORK_ORDER = {
+  job: { id: JOB.id, title: JOB.title, status: "in_progress", startDate: iso(day(1, 8)), endDate: iso(day(2, 17)), siteAddress: JOB_DETAIL.siteAddress, quoteNumber: QUOTE.quoteNumber, language: "en" },
+  client: { name: CLIENT.name, phone: null, email: null, restricted: true },
+  crew: [LEO.name, ANA.name],
+  totalHours: 42,
+  displayHours: "42.0",
+  clockedHours: 19.5,
+  areas: [
+    { key: "g:sg_boxes:", label: "Cabinet boxes — uppers and base run", trade: "Kitchen cabinets", hours: 18, displayHours: "18.0", scope: "12 lin. ft uppers, shaker, painted; 16 lin. ft base, shaker, painted, dovetail drawers", lines: [{ key: "g:sg_boxes:l:0", label: "Upper cabinets — shaker, painted", detail: "12 lin. ft, soft-close hinges", quantity: 12, unit: "lin. ft", hidden: false }, { key: "g:sg_boxes:l:1", label: "Base cabinets — shaker, painted", detail: "16 lin. ft, dovetail drawers", quantity: 16, unit: "lin. ft", hidden: false }], crewNote: "Carcasses and base run first — Léo + Ana. The fridge panel scribes to the bulkhead, check it before glue-up.", hidden: false, taskId: "t_wo_1", done: true, assignee: LEO.name, photos: [{ id: "jp_2", url: JOB_PHOTO_URLS[1], createdAt: iso(day(-2, 15, 5)) }] },
+    { key: "g:sg_island:", label: "Island — white oak, rift sawn", trade: "Kitchen cabinets", hours: 14, displayHours: "14.0", scope: "7 ft × 3 ft top, waterfall end", lines: [{ key: "g:sg_island:l:0", label: "Island — white oak, rift sawn", detail: "7 ft × 3 ft, waterfall end", quantity: 1, unit: "ea", hidden: false }], crewNote: "Waterfall mitre is glued in the shop — it travels as one piece. Two people to carry.", hidden: false, taskId: null, done: false, assignee: null, photos: [] },
+    { key: "g:sg_install:", label: "Installation", trade: "Kitchen cabinets", hours: 10, displayHours: "10.0", scope: "2 installers, 2 days", lines: [{ key: "g:sg_install:l:0", label: "Installation", detail: "2 installers, 2 days", quantity: 2, unit: "day", hidden: false }, { key: "g:sg_install:l:1", label: "Final walkthrough & touch-ups", detail: null, quantity: 1, unit: "flat", hidden: true }], crewNote: null, hidden: false, taskId: null, done: false, assignee: null, photos: [] },
+  ],
+  stats: { done: 1, areas: 3, photos: 1 },
+  hiddenCount: 1,
+};
+// The crew's copy: hidden lines absent, the office's flags gone.
+const CREW_WORK_ORDER = { ...WORK_ORDER, areas: WORK_ORDER.areas.map((a) => ({ ...a, lines: a.lines.filter((l) => !l.hidden) })) };
+
+// Supply requests (app/api/supply-requests shape): the office's list with
+// the reorder banner's pre-fill, and Léo's own.
+const SUPPLY_REQUESTS = [
+  { id: "sr_1", materialId: "mat_tape", itemName: "Painter's tape 1½\"", quantity: 6, unit: "roll", jobId: JOB.id, jobTitle: JOB.title, requestedById: LEO.userId, requestedByName: LEO.name, neededBy: iso(day(1, 8)), photoUrl: JOB_PHOTO_URLS[3], note: "Down to the last roll and a half — masking the island tomorrow.", status: "requested", source: "field", purchaseOrderId: null, purchaseOrderNumber: null, orderedAt: null, restockedAt: null, restockNote: null, cancelledAt: null, createdAt: iso(day(0, 14, 12)) },
+  { id: "sr_2", materialId: "mat_slide", itemName: "Blum Tandem 21\" undermount slides", quantity: 4, unit: "pair", jobId: JOB.id, jobTitle: JOB.title, requestedById: SAM.userId, requestedByName: SAM.name, neededBy: null, photoUrl: null, note: null, status: "ordered", source: "material_list", purchaseOrderId: "po_014", purchaseOrderNumber: "PO-014", orderedAt: iso(day(-2, 11)), restockedAt: null, restockNote: null, cancelledAt: null, createdAt: iso(day(-2, 10, 40)) },
+  { id: "sr_3", materialId: "mat_hinge", itemName: "Blum Clip-top soft-close hinges, 110°", quantity: 12, unit: "each", jobId: null, jobTitle: null, requestedById: SAM.userId, requestedByName: SAM.name, neededBy: null, photoUrl: null, note: null, status: "ordered", source: "low_stock", purchaseOrderId: "po_014", purchaseOrderNumber: "PO-014", orderedAt: iso(day(-2, 11)), restockedAt: null, restockNote: null, cancelledAt: null, createdAt: iso(day(-2, 10, 45)) },
+  { id: "sr_4", materialId: null, itemName: "Scribe moulding, oak — 8 ft", quantity: 4, unit: "ea", jobId: JOB.id, jobTitle: JOB.title, requestedById: ANA.userId, requestedByName: ANA.name, neededBy: null, photoUrl: null, note: null, status: "restocked", source: "field", purchaseOrderId: null, purchaseOrderNumber: null, orderedAt: iso(day(-4, 9)), restockedAt: iso(day(-1, 16)), restockNote: "in van 2", cancelledAt: null, createdAt: iso(day(-5, 15, 20)) },
+];
+const SUPPLY_OPTIONS = {
+  jobs: [{ id: JOB.id, title: JOB.title, client: CLIENT.name }],
+  materials: [
+    { id: "mat_birch", name: "Baltic birch 3/4 — 5 × 5", unit: "sheet", level: 14, threshold: 10 },
+    { id: "mat_hinge", name: "Blum Clip-top soft-close hinges, 110°", unit: "each", level: 68, threshold: 80 },
+    { id: "mat_slide", name: "Blum Tandem 21\" undermount slides", unit: "pair", level: 26, threshold: 12 },
+    { id: "mat_tape", name: "Painter's tape 1½\"", unit: "roll", level: 3, threshold: 6 },
+  ],
+};
+
 const JOB_PHOTOS = {
   photos: [
     { id: "jp_1", url: JOB_PHOTO_URLS[0], stage: "start", featured: false, caption: "Existing kitchen — before removal", createdAt: iso(day(-18, 10, 30)), annotationJson: null, annotationWidth: null, annotationHeight: null, flattenedUrl: null, annotationUpdatedAt: null, tags: [{ id: "pt_before", name: "Before", color: "#6b7280", active: true }] },
@@ -1046,7 +1116,10 @@ export const ROUTES_HELP = [
   { path: `/api/jobs/${JOB.id}/costing`, method: "GET", reply: crewOr(forbidden, () => JOB_COSTING) },
   { path: `/api/jobs/${JOB.id}/subcontractors`, method: "GET", reply: crewOr(forbidden, () => ({ rows: [], roster: [], visits: JOB_DETAIL.visits.map((v) => ({ id: v.id, scheduledAt: v.scheduledAt })), imports: [], canManage: true, canSeeMoney: true })) },
   { path: `/api/jobs/${JOB.id}/change-orders/bill`, method: "GET", reply: crewOr(forbidden, () => ({ canBill: true, reason: null, unbilled: { count: 1, total: 385 }, invoice: { id: INVOICE.id, invoiceNumber: INVOICE.invoiceNumber, status: INVOICE.status }, preview: { added: 442.65, newTotal: round2(INVOICE.total + 442.65) } })) },
-  { path: `/api/jobs/${JOB.id}/materials`, method: "GET", reply: crewOr(() => ({ materials: JOB_MATERIALS.materials.map(({ estUnitCost, actualCost, ...m }) => ({ ...m, costHidden: true })), progress: { total: 5, bought: 3, outstanding: 2, complete: false, costHidden: true } }), () => JOB_MATERIALS) },
+  { path: `/api/jobs/${JOB.id}/materials`, method: "GET", reply: crewOr(() => ({ materials: MATERIAL_LIST.materials.map(stripMoney), progress: { total: 11, bought: 3, outstanding: 8, complete: false, unpriced: 6, short: 2, costHidden: true }, built: MATERIAL_LIST.built, spend: MATERIAL_LIST.spend }), () => MATERIAL_LIST) },
+  { path: `/api/jobs/${JOB.id}/work-order`, method: "GET", reply: crewOr(() => ({ workOrder: CREW_WORK_ORDER }), () => ({ workOrder: WORK_ORDER })) },
+  { path: "/api/supply-requests", method: "GET", reply: crewOr(() => ({ requests: SUPPLY_REQUESTS.filter((r) => r.requestedById === LEO.userId), scope: "mine", open: 1, lowStock: [] }), () => ({ requests: SUPPLY_REQUESTS, scope: "company", open: 3, lowStock: [{ materialId: "mat_tape", itemName: "Painter's tape 1½\"", unit: "roll", level: 3, threshold: 6, quantity: 3 }] })) },
+  { path: "/api/supply-requests/options", method: "GET", reply: () => SUPPLY_OPTIONS },
   { path: `/api/jobs/${JOB.id}/asset-use`, method: "GET", reply: () => ({ logs: [], assets: [] }) },
   { path: `/api/jobs/${JOB.id}/documents`, method: "GET", reply: crewOr(() => ({ chains: [], hiddenCount: 0, canUpload: false, canSeeMoney: false }), () => ({ chains: [{ id: "doc_1", current: { id: "doc_1", name: "Dubois — shop drawings v2.pdf", kind: "plan", url: "#", sizeBytes: 1843200, mimeType: "application/pdf", supersedesId: "doc_0", uploadedById: SAM.userId, uploadedAt: iso(day(-9, 11)), updatedAt: iso(day(-9, 11)) }, history: [{ id: "doc_0", name: "Dubois — shop drawings v1.pdf", kind: "plan", url: "#", sizeBytes: 1790000, mimeType: "application/pdf", supersedesId: null, uploadedById: SAM.userId, uploadedAt: iso(day(-14, 16)), updatedAt: iso(day(-14, 16)) }] }], hiddenCount: 0, canUpload: true, canSeeMoney: true })) },
   { path: `/api/jobs/${JOB.id}/daily-logs`, method: "GET", reply: () => ({ logs: [DAILY_LOG], day: { key: "2026-09-14", log: null, photoCount: 0, taskLines: [] } }) },
