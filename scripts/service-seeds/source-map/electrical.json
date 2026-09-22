@@ -1,0 +1,513 @@
+[
+ {
+  "seedKey": "fq.electrical.appliances.install_contactor",
+  "industry": "Electrical",
+  "sourceCategory": "Appliances",
+  "sourceService": "Install Contactor",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_0"
+ },
+ {
+  "seedKey": "fq.electrical.appliances.install_pressure_switch",
+  "industry": "Electrical",
+  "sourceCategory": "Appliances",
+  "sourceService": "Install Pressure Switch",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_1"
+ },
+ {
+  "seedKey": "fq.electrical.appliances.dryer_cord",
+  "industry": "Electrical",
+  "sourceCategory": "Appliances",
+  "sourceService": "Install dryer cord, 4 wire up to 6 ft",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_2"
+ },
+ {
+  "seedKey": "fq.electrical.appliances.water_softener_outlet",
+  "industry": "Electrical",
+  "sourceCategory": "Appliances",
+  "sourceService": "Install water softener outlet, GFCI protected, tap existing circuitry",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_3"
+ },
+ {
+  "seedKey": "fq.electrical.appliances.dishwasher_hardwire",
+  "industry": "Electrical",
+  "sourceCategory": "Appliances",
+  "sourceService": "Install dishwasher, hard wire to existing with disconnect",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_4"
+ },
+ {
+  "seedKey": "fq.electrical.appliances.disposal_cord",
+  "industry": "Electrical",
+  "sourceCategory": "Appliances",
+  "sourceService": "Install garbage disposal, cord connected up to 3 ft",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_5"
+ },
+ {
+  "seedKey": "fq.electrical.appliances.range_cord",
+  "industry": "Electrical",
+  "sourceCategory": "Appliances",
+  "sourceService": "Install range cord, 4 wire, 6 ft",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_6"
+ },
+ {
+  "seedKey": "fq.electrical.appliances.microwave_circuit",
+  "industry": "Electrical",
+  "sourceCategory": "Appliances",
+  "sourceService": "Install microwave outlet, install 20A 120V circuit, up to 40 ft, accessible",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_7"
+ },
+ {
+  "seedKey": "fq.electrical.ballasts.two_8ft",
+  "industry": "Electrical",
+  "sourceCategory": "Ballast Replacement",
+  "sourceService": "Replace standard height, two 8 ft bulb, electronic, 120V or 277V ballast",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_8"
+ },
+ {
+  "seedKey": "fq.electrical.ballasts.single_4ft",
+  "industry": "Electrical",
+  "sourceCategory": "Ballast Replacement",
+  "sourceService": "Replace standard height, single 4 ft bulb, electronic, 120V or 277V ballast",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_9"
+ },
+ {
+  "seedKey": "fq.electrical.ballasts.two_4ft",
+  "industry": "Electrical",
+  "sourceCategory": "Ballast Replacement",
+  "sourceService": "Replace standard height, two 4 ft bulb, electronic, 120V or 277V ballast",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_10"
+ },
+ {
+  "seedKey": "fq.electrical.ballasts.single_8ft",
+  "industry": "Electrical",
+  "sourceCategory": "Ballast Replacement",
+  "sourceService": "Replace standard height, single 8 ft bulb, electronic, 120V or 277V ballast",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_11"
+ },
+ {
+  "seedKey": "fq.electrical.visits.power_issue",
+  "industry": "Electrical",
+  "sourceCategory": "Book Now",
+  "sourceService": "Power Issue",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_12"
+ },
+ {
+  "seedKey": "fq.electrical.visits.fixtures",
+  "industry": "Electrical",
+  "sourceCategory": "Book Now",
+  "sourceService": "Install/Repair Fixtures",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_13"
+ },
+ {
+  "seedKey": "fq.electrical.visits.switch_outlet",
+  "industry": "Electrical",
+  "sourceCategory": "Book Now",
+  "sourceService": "Switch/Outlet",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_14"
+ },
+ {
+  "seedKey": "fq.electrical.visits.panel",
+  "industry": "Electrical",
+  "sourceCategory": "Book Now",
+  "sourceService": "Electrical Panel",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_15"
+ },
+ {
+  "seedKey": "fq.electrical.fans.bathroom_exhaust",
+  "industry": "Electrical",
+  "sourceCategory": "Ceiling Fans",
+  "sourceService": "Bathroom Exhaust Fan Installation",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_16"
+ },
+ {
+  "seedKey": "fq.electrical.fans.supply_install_fan",
+  "industry": "Electrical",
+  "sourceCategory": "Ceiling Fans",
+  "sourceService": "Furnish and install generic ball standard mount ceiling fan",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_17"
+ },
+ {
+  "seedKey": "fq.electrical.fans.supply_install_fan_light",
+  "industry": "Electrical",
+  "sourceCategory": "Ceiling Fans",
+  "sourceService": "Furnish and install generic ball standard mount ceiling fan and light combination",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_18"
+ },
+ {
+  "seedKey": "fq.electrical.fans.fan_control_switch",
+  "industry": "Electrical",
+  "sourceCategory": "Ceiling Fans",
+  "sourceService": "Install fan control switch",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_19"
+ },
+ {
+  "seedKey": "fq.electrical.fans.customer_fan_existing_box",
+  "industry": "Electrical",
+  "sourceCategory": "Ceiling Fans",
+  "sourceService": "Install customer supplied ceiling fan on existing box",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_20"
+ },
+ {
+  "seedKey": "fq.electrical.fans.customer_fan_light_existing_box",
+  "industry": "Electrical",
+  "sourceCategory": "Ceiling Fans",
+  "sourceService": "Install customer supplied ceiling fan with light on existing box",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_21"
+ },
+ {
+  "seedKey": "fq.electrical.panels.whole_house_surge",
+  "industry": "Electrical",
+  "sourceCategory": "Circuit Breakers",
+  "sourceService": "Install Whole House Surge Protector",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_22"
+ },
+ {
+  "seedKey": "fq.electrical.panels.replace_faulty_breakers",
+  "industry": "Electrical",
+  "sourceCategory": "Circuit Breakers",
+  "sourceService": "Replace Faulty Breakers",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_23"
+ },
+ {
+  "seedKey": "fq.electrical.panels.install_breakers",
+  "industry": "Electrical",
+  "sourceCategory": "Circuit Breakers",
+  "sourceService": "Install Circuit Breakers",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_24"
+ },
+ {
+  "seedKey": "fq.electrical.panels.mc_cable_connectors",
+  "industry": "Electrical",
+  "sourceCategory": "Circuit Breakers",
+  "sourceService": "Install Mc Cable Connectors",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_25"
+ },
+ {
+  "seedKey": "fq.electrical.panels.outdoor_main_200a_40",
+  "industry": "Electrical",
+  "sourceCategory": "Circuit Breakers",
+  "sourceService": "Replace outdoor main breaker load center, 40 circuit 200 amp labeled",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_26"
+ },
+ {
+  "seedKey": "fq.electrical.panels.all_breakers_200a_40",
+  "industry": "Electrical",
+  "sourceCategory": "Circuit Breakers",
+  "sourceService": "Replace all breakers and load center, 40 circuit 200 amp labeled",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_27"
+ },
+ {
+  "seedKey": "fq.electrical.panels.main_lug_125a_20",
+  "industry": "Electrical",
+  "sourceCategory": "Circuit Breakers",
+  "sourceService": "Replace main lug load center, 20 circuit 125 amp labeled",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_28"
+ },
+ {
+  "seedKey": "fq.electrical.panels.all_breakers_200a_30",
+  "industry": "Electrical",
+  "sourceCategory": "Circuit Breakers",
+  "sourceService": "Replace all breakers and load center, 30 circuit 200 amp labeled",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_29"
+ },
+ {
+  "seedKey": "fq.electrical.panels.all_breakers_150a_30",
+  "industry": "Electrical",
+  "sourceCategory": "Circuit Breakers",
+  "sourceService": "Replace all breakers and load center, 30 circuit 150 amp labeled",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_30"
+ },
+ {
+  "seedKey": "fq.electrical.panels.main_lug_200a_30",
+  "industry": "Electrical",
+  "sourceCategory": "Circuit Breakers",
+  "sourceService": "Replace main lug load center, 30 circuit 200 amp labeled",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_31"
+ },
+ {
+  "seedKey": "fq.electrical.panels.all_breakers_100a_20",
+  "industry": "Electrical",
+  "sourceCategory": "Circuit Breakers",
+  "sourceService": "Replace all breakers and load center, 20 circuit 100 amp labeled",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_32"
+ },
+ {
+  "seedKey": "fq.electrical.dimmers.three_way_1000w",
+  "industry": "Electrical",
+  "sourceCategory": "Dimmer",
+  "sourceService": "Replace or install 1000W 3-way Skylark dimmer",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_33"
+ },
+ {
+  "seedKey": "fq.electrical.dimmers.single_pole_600w_slide",
+  "industry": "Electrical",
+  "sourceCategory": "Dimmer",
+  "sourceService": "Replace or install 600W single pole Diva dimmer",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_34"
+ },
+ {
+  "seedKey": "fq.electrical.dimmers.three_way_600w_toggle",
+  "industry": "Electrical",
+  "sourceCategory": "Dimmer",
+  "sourceService": "Replace or install 600W 3-way Ariadni dimmer",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_35"
+ },
+ {
+  "seedKey": "fq.electrical.dimmers.single_pole_600w_toggle",
+  "industry": "Electrical",
+  "sourceCategory": "Dimmer",
+  "sourceService": "Replace or install 600W single pole Ariadni dimmer",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_36"
+ },
+ {
+  "seedKey": "fq.electrical.dimmers.single_pole_1000w_slide",
+  "industry": "Electrical",
+  "sourceCategory": "Dimmer",
+  "sourceService": "Replace or install 1000W single pole Diva dimmer",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_37"
+ },
+ {
+  "seedKey": "fq.electrical.lighting.install_fixtures",
+  "industry": "Electrical",
+  "sourceCategory": "Lighting Installation",
+  "sourceService": "Install Light Fixtures",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_38"
+ },
+ {
+  "seedKey": "fq.electrical.lighting.led_install",
+  "industry": "Electrical",
+  "sourceCategory": "Lighting Installation",
+  "sourceService": "Led Light Installation",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_39"
+ },
+ {
+  "seedKey": "fq.electrical.outdoor.exterior_prewire",
+  "industry": "Electrical",
+  "sourceCategory": "Outdoor Lighting",
+  "sourceService": "Install Exterior Light Prewire",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_40"
+ },
+ {
+  "seedKey": "fq.electrical.outdoor.porch_light_existing",
+  "industry": "Electrical",
+  "sourceCategory": "Outdoor Lighting",
+  "sourceService": "Install wall mounted porch light at existing location",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_41"
+ },
+ {
+  "seedKey": "fq.electrical.outdoor.motion_detector_existing",
+  "industry": "Electrical",
+  "sourceCategory": "Outdoor Lighting",
+  "sourceService": "Install motion detector on existing fixture",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_42"
+ },
+ {
+  "seedKey": "fq.electrical.outdoor.quartz_flood_500w",
+  "industry": "Electrical",
+  "sourceCategory": "Outdoor Lighting",
+  "sourceService": "Install surface mount quartz flood light at existing location 500W",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_43"
+ },
+ {
+  "seedKey": "fq.electrical.outdoor.post_light_25ft",
+  "industry": "Electrical",
+  "sourceCategory": "Outdoor Lighting",
+  "sourceService": "Install post light with 100W fixture head, up to 25 ft from house, white or black",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_44"
+ },
+ {
+  "seedKey": "fq.electrical.outdoor.new_feed_box",
+  "industry": "Electrical",
+  "sourceCategory": "Outdoor Lighting",
+  "sourceService": "Install new feed and box for outside fixture",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_45"
+ },
+ {
+  "seedKey": "fq.electrical.receptacles.install_outlets",
+  "industry": "Electrical",
+  "sourceCategory": "Receptacle Replacement",
+  "sourceService": "Install Outlets",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_46"
+ },
+ {
+  "seedKey": "fq.electrical.receptacles.whole_house_outlets",
+  "industry": "Electrical",
+  "sourceCategory": "Receptacle Replacement",
+  "sourceService": "Install Electrical Outlets (Whole House Replacement)",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_47"
+ },
+ {
+  "seedKey": "fq.electrical.receptacles.whole_house_old_work_boxes",
+  "industry": "Electrical",
+  "sourceCategory": "Receptacle Replacement",
+  "sourceService": "Old Work Electrical Box (Whole House Replacement)",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_48"
+ },
+ {
+  "seedKey": "fq.electrical.receptacles.replace_15_20a",
+  "industry": "Electrical",
+  "sourceCategory": "Receptacle Replacement",
+  "sourceService": "Replace 15 or 20A 120V receptacle outlet",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_49"
+ },
+ {
+  "seedKey": "fq.electrical.receptacles.two_wire_to_three_wire",
+  "industry": "Electrical",
+  "sourceCategory": "Receptacle Replacement",
+  "sourceService": "Replace 15A 120V 2 wire receptacle with 3 wire receptacle",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_50"
+ },
+ {
+  "seedKey": "fq.electrical.receptacles.reverse_polarity",
+  "industry": "Electrical",
+  "sourceCategory": "Receptacle Replacement",
+  "sourceService": "Repair a reverse polarity receptacle",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_51"
+ },
+ {
+  "seedKey": "fq.electrical.receptacles.two_wire_to_gfci_indoor",
+  "industry": "Electrical",
+  "sourceCategory": "Receptacle Replacement",
+  "sourceService": "Replace 15A 120V 2 wire receptacle with GFCI receptacle indoor",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_52"
+ },
+ {
+  "seedKey": "fq.electrical.receptacles.gfci_outdoor_cover",
+  "industry": "Electrical",
+  "sourceCategory": "Receptacle Replacement",
+  "sourceService": "Replace 15A 120V receptacle with GFCI receptacle and outdoor cover",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_53"
+ },
+ {
+  "seedKey": "fq.electrical.recessed.six_inch_access_above",
+  "industry": "Electrical",
+  "sourceCategory": "Recessed Lighting",
+  "sourceService": "Install 6-inch round, black or white, access from above",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_54"
+ },
+ {
+  "seedKey": "fq.electrical.recessed.four_inch_no_access",
+  "industry": "Electrical",
+  "sourceCategory": "Recessed Lighting",
+  "sourceService": "Install 4-inch round, black or white, no access",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_55"
+ },
+ {
+  "seedKey": "fq.electrical.recessed.wall_washer_no_access",
+  "industry": "Electrical",
+  "sourceCategory": "Recessed Lighting",
+  "sourceService": "Install wall washer fixture, no access",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_56"
+ },
+ {
+  "seedKey": "fq.electrical.recessed.five_inch_no_access",
+  "industry": "Electrical",
+  "sourceCategory": "Recessed Lighting",
+  "sourceService": "Install 5-inch round, black or white, no access",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_57"
+ },
+ {
+  "seedKey": "fq.electrical.recessed.six_inch_no_access",
+  "industry": "Electrical",
+  "sourceCategory": "Recessed Lighting",
+  "sourceService": "Install 6-inch round, black or white, no access",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_58"
+ },
+ {
+  "seedKey": "fq.electrical.detectors.co_hardwired",
+  "industry": "Electrical",
+  "sourceCategory": "Smoke Detectors",
+  "sourceService": "Install new 120V hard wired carbon monoxide detector",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_59"
+ },
+ {
+  "seedKey": "fq.electrical.detectors.smoke_hardwired_new",
+  "industry": "Electrical",
+  "sourceCategory": "Smoke Detectors",
+  "sourceService": "Install new 120V hard wired smoke detector with battery backup",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_60"
+ },
+ {
+  "seedKey": "fq.electrical.detectors.smoke_hardwired_replace",
+  "industry": "Electrical",
+  "sourceCategory": "Smoke Detectors",
+  "sourceService": "Replace 120V hard wired smoke detector with battery backup",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_61"
+ },
+ {
+  "seedKey": "fq.electrical.specialty.ev_charger",
+  "industry": "Electrical",
+  "sourceCategory": "Specialty Installations",
+  "sourceService": "Ev Charger Installation",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_62"
+ },
+ {
+  "seedKey": "fq.electrical.specialty.generator",
+  "industry": "Electrical",
+  "sourceCategory": "Specialty Installations",
+  "sourceService": "Generator Installation",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_63"
+ },
+ {
+  "seedKey": "fq.electrical.switches.four_way",
+  "industry": "Electrical",
+  "sourceCategory": "Switch Replacement",
+  "sourceService": "Replace 4 way switch",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_64"
+ },
+ {
+  "seedKey": "fq.electrical.switches.three_way",
+  "industry": "Electrical",
+  "sourceCategory": "Switch Replacement",
+  "sourceService": "Replace 3 way switch",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_65"
+ },
+ {
+  "seedKey": "fq.electrical.switches.double_pole",
+  "industry": "Electrical",
+  "sourceCategory": "Switch Replacement",
+  "sourceService": "Replace double pole switch",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_66"
+ },
+ {
+  "seedKey": "fq.electrical.switches.single_pole",
+  "industry": "Electrical",
+  "sourceCategory": "Switch Replacement",
+  "sourceService": "Replace single pole switch",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_67"
+ },
+ {
+  "seedKey": "fq.electrical.switches.digital_timer",
+  "industry": "Electrical",
+  "sourceCategory": "Switch Replacement",
+  "sourceService": "Replace single pole 24 hour digital wall timer",
+  "taskCode": "DEFAULT_ELECTRICAL_SERVICE_68"
+ },
+ {
+  "seedKey": "fq.electrical.visits.standard_install",
+  "industry": "Electrical",
+  "sourceCategory": "Custom Services",
+  "sourceService": "Standard Install",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.electrical.visits.diagnostic_visit",
+  "industry": "Electrical",
+  "sourceCategory": "Custom Services",
+  "sourceService": "Diagnostic Visit",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.electrical.visits.service_visit",
+  "industry": "Electrical",
+  "sourceCategory": "Custom Services",
+  "sourceService": "Service Visit",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.electrical.visits.preventative_maintenance",
+  "industry": "Electrical",
+  "sourceCategory": "Custom Services",
+  "sourceService": "Preventative Maintenance",
+  "taskCode": null
+ }
+]
