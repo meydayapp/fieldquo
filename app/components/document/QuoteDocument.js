@@ -208,6 +208,18 @@ export function DocumentMasthead({ company, word, number, status = null, meta = 
  *                    before a client is chosen)
  */
 export function DocumentParties({ label, client, clientAddress = "", jobAddress = null, facts = [], edit = {}, clientSlot = null }) {
+  // With facts, the job address sits under the client (the quote page); with
+  // none it takes the right column (mockup b7: "Prepared for" left, "Job
+  // address" right, the dates already under the number in the masthead).
+  const jobRight = jobAddress && facts.length === 0;
+  const jobBlock = jobAddress ? (
+    <Editable onClick={edit.jobAddress} label={edit.jobAddressLabel} block className={jobRight ? "" : "mt-1"}>
+      <p className="text-sm text-muted-foreground" data-job-address>
+        <span className="text-[11px] font-bold tracking-wider uppercase block text-muted-foreground">{jobAddress.label}</span>
+        {jobAddress.value || <span className="italic">{jobAddress.placeholder}</span>}
+      </p>
+    </Editable>
+  ) : null;
   return (
     <div className="px-5 sm:px-7 py-5 border-b border-border grid gap-4 sm:grid-cols-2" data-doc-parties>
       <div className="min-w-0">
@@ -226,18 +238,12 @@ export function DocumentParties({ label, client, clientAddress = "", jobAddress 
             {/* Where the work is — the same rule the PDF's panel uses
                 (jobAddressLine): printed when the quote names a site that is
                 not simply the client's own address. */}
-            {jobAddress && (
-              <Editable onClick={edit.jobAddress} label={edit.jobAddressLabel} block className="mt-1">
-                <p className="text-sm text-muted-foreground" data-job-address>
-                  <span className="text-[10px] font-bold tracking-wider uppercase block">{jobAddress.label}</span>
-                  {jobAddress.value || <span className="italic">{jobAddress.placeholder}</span>}
-                </p>
-              </Editable>
-            )}
+            {!jobRight && jobBlock}
           </>
         )}
       </div>
 
+      {jobRight && <div className="min-w-0">{jobBlock}</div>}
       {facts.length > 0 && (
         <Editable onClick={edit.facts} label={edit.factsLabel} block className="sm:text-right">
           <dl className="text-sm space-y-1 sm:text-right">

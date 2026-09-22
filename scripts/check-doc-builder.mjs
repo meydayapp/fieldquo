@@ -221,7 +221,7 @@ ok("the schema defaults a NEW company to document", /quoteBuilderLayout\s+String
 // Only the keys this change ADDED (app.docBuilder.*, app.paint.otherTrades):
 // uk, pa and tl already lag on older builder keys, which is
 // check-language-completeness's business, not this file's.
-const keys = [...new Set([...(builder + src("app/components/quotes/builder/EstimateTypeFirst.js")).matchAll(/t\(\s*"(app\.(?:docBuilder\.[a-zA-Z0-9.]+|paint\.otherTrades))"/g)].map((m) => m[1]))];
+const keys = [...new Set([...(builder + src("app/components/quotes/builder/EstimateTypeFirst.js")).matchAll(/t\(\s*"(app\.(?:docBuilder\.[a-zA-Z0-9.]+|paint\.otherTrades(?:Hint)?|paint\.newPaintingQuote))"/g)].map((m) => m[1]))];
 ok("the document layout has strings of its own to check", keys.length > 30, String(keys.length));
 for (const lang of Object.keys(APP_MESSAGES)) {
   const missing = keys.filter((k) => !(k in APP_MESSAGES[lang]));

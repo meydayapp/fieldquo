@@ -910,11 +910,14 @@ export default function DocumentBuilder({ b }) {
               word={labels.quote}
               number={start.quoteNumber}
               numberPlaceholder={t("app.docBuilder.numberOnSave", "Numbered on first save")}
-              // The dates print once, in the facts panel beside the client
-              // (as the quote page draws them), not under the number as well.
+              // The dates under the number (mockup b7) — click to change the
+              // expiry. Absent on a create with no expiry: nothing invented.
+              meta={meta.length ? meta : [{ label: labels.validUntil, value: t("app.quoteNew.validUntilCleared") }]}
               edit={{
                 company: canEditCompany ? () => setEditing((e) => (e === "company" ? null : "company")) : null,
                 companyLabel: t("app.docBuilder.editCompany", "Edit company details"),
+                meta: () => setEditing((e) => (e === "validUntil" ? null : "validUntil")),
+                metaLabel: t("app.quoteEdit.validUntil"),
               }}
             />
             {editing === "company" && (
@@ -944,7 +947,7 @@ export default function DocumentBuilder({ b }) {
                   ? { label: labels.jobAddress, value: b.siteAddress, placeholder: t("app.quoteNew.jobAddressPlaceholder", "Start typing the job address…") }
                   : null
               }
-              facts={meta.length ? meta.map((m) => [m.label, m.value]) : [[labels.validUntil, t("app.quoteNew.validUntilCleared")]]}
+              facts={[]}
               clientSlot={
                 !b.selectedClient || (!isEdit && editing === "client") ? (
                   <div className="mt-2" data-tour="client-picker">

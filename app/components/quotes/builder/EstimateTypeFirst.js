@@ -55,21 +55,34 @@ export default function EstimateTypeFirst({ categories = [], onPickType, onAddOt
   const { t } = useTranslation();
   const [othersOpen, setOthersOpen] = useState(false);
   const others = (Array.isArray(categories) ? categories : []).filter((c) => !PAINTING_KEYS.includes(c?.key));
+  // The mockup's card (b1 `.card`): "New painting quote" at 15px/600, the
+  // one-line hint, the five tiles, then the sentence with "Other trades ›"
+  // for a company that also sells something else.
   return (
-    <div className="space-y-3" data-estimate-type-first data-tour="service-picker">
-      <EstimateTypeCards value={null} onPick={onPickType} t={t} legacyNote={false} />
+    <div className="bg-card border border-border rounded-xl p-5 space-y-3" data-estimate-type-first data-tour="service-picker">
+      <div>
+        <h2 className="text-[15px] font-semibold text-foreground">{t("app.paint.newPaintingQuote", "New painting quote")}</h2>
+        <p className="text-xs text-muted-foreground">
+          {t("app.paint.typeTitle", "What kind of estimate is this?")}{" "}
+          {t("app.paint.typeHint", "The pick decides which areas, surfaces and rates you see next.")}
+        </p>
+      </div>
+      <EstimateTypeCards value={null} onPick={onPickType} t={t} legacyNote={false} bare />
       {others.length > 0 && (
         <div>
-          <button
-            type="button"
-            onClick={() => setOthersOpen((v) => !v)}
-            aria-expanded={othersOpen}
-            className="text-sm font-medium text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
-            data-other-trades
-          >
-            {othersOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-            {t("app.paint.otherTrades", "Other trades")}
-          </button>
+          <p className="text-[13px] text-muted-foreground">
+            {t("app.paint.otherTradesHint", "Something else on this quote (a countertop, flooring)?")}{" "}
+            <button
+              type="button"
+              onClick={() => setOthersOpen((v) => !v)}
+              aria-expanded={othersOpen}
+              className="font-medium text-foreground hover:underline underline-offset-4 inline-flex items-center gap-0.5"
+              data-other-trades
+            >
+              {t("app.paint.otherTrades", "Other trades")}
+              {othersOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            </button>
+          </p>
           {othersOpen && (
             <div className="mt-2">
               <ServiceTiles categories={others} onAdd={onAddOther} documentLanguage={documentLanguage} />

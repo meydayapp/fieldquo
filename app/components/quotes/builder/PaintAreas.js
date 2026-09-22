@@ -176,20 +176,24 @@ function Modal({ title, onClose, children }) {
 // Exported: the same cards are the FIRST screen of a painting company's new
 // quote (EstimateTypeFirst.js), before any service tile — the owner's b1
 // mockup, which landed inside the takeoff and was never seen (2026-09-21).
-export function EstimateTypeCards({ value, onPick, t, legacyNote = true }) {
+export function EstimateTypeCards({ value, onPick, t, legacyNote = true, bare = false }) {
+  // `bare`: the caller draws the card and the title (EstimateTypeFirst's
+  // "New painting quote" card, mockup b1); only the tiles are drawn here.
   return (
-    <div className="rounded-lg border border-border p-3 space-y-2">
-      <div>
-        <div className="text-sm font-semibold text-foreground">
-          {t("app.paint.typeTitle", "What kind of estimate is this?")}
+    <div className={bare ? "space-y-2" : "rounded-lg border border-border p-3 space-y-2"}>
+      {!bare && (
+        <div>
+          <div className="text-sm font-semibold text-foreground">
+            {t("app.paint.typeTitle", "What kind of estimate is this?")}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {t(
+              "app.paint.typeHint",
+              "The pick decides which areas, surfaces and rates you see next.",
+            )}
+          </p>
         </div>
-        <p className="text-xs text-muted-foreground">
-          {t(
-            "app.paint.typeHint",
-            "The pick decides which areas, surfaces and rates you see next.",
-          )}
-        </p>
-      </div>
+      )}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
         {Object.keys(PAINT_ESTIMATE_TYPES).map((key) => {
           const type = PAINT_ESTIMATE_TYPES[key];
@@ -207,8 +211,8 @@ export function EstimateTypeCards({ value, onPick, t, legacyNote = true }) {
                   : "border-border bg-card hover:border-muted-foreground"
               }`}
             >
-              <span className="w-9 h-9 rounded-lg flex items-center justify-center bg-blue-600/10 text-blue-700 dark:text-blue-300">
-                <Icon size={18} />
+              <span className="w-9 h-9 rounded-lg flex items-center justify-center bg-blue-600/[0.12] text-blue-700 dark:text-blue-300">
+                <Icon size={16} />
               </span>
               <span className="text-sm font-medium text-foreground">
                 {t(`app.paint.type.${key}`, type.label)}

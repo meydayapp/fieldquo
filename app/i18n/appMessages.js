@@ -13528,6 +13528,8 @@ const en = {
   "app.docBuilder.internalOnly": "Internal — never on the document",
   "app.docBuilder.closeDrawer": "Close",
   "app.paint.otherTrades": "Other trades",
+  "app.paint.newPaintingQuote": "New painting quote",
+  "app.paint.otherTradesHint": "Something else on this quote (a countertop, flooring)?",
 };
 
 // ── French ─────────────────────────────────────────────────────────────────
@@ -26562,6 +26564,8 @@ const fr = {
   "app.docBuilder.internalOnly": "Interne — jamais sur le document",
   "app.docBuilder.closeDrawer": "Fermer",
   "app.paint.otherTrades": "Autres métiers",
+  "app.paint.newPaintingQuote": "Nouvelle soumission de peinture",
+  "app.paint.otherTradesHint": "Autre chose sur cette soumission (un comptoir, un plancher) ?",
 };
 
 
@@ -39949,6 +39953,8 @@ const es = {
   "app.docBuilder.internalOnly": "Interno — nunca en el documento",
   "app.docBuilder.closeDrawer": "Cerrar",
   "app.paint.otherTrades": "Otros oficios",
+  "app.paint.newPaintingQuote": "Nuevo presupuesto de pintura",
+  "app.paint.otherTradesHint": "¿Algo más en este presupuesto (una encimera, un piso)?",
 };
 
 const uk = {
@@ -51163,6 +51169,8 @@ const uk = {
   "app.docBuilder.internalOnly": "Внутрішнє — ніколи не в документі",
   "app.docBuilder.closeDrawer": "Закрити",
   "app.paint.otherTrades": "Інші напрямки",
+  "app.paint.newPaintingQuote": "Новий кошторис на фарбування",
+  "app.paint.otherTradesHint": "Щось іще в цьому кошторисі (стільниця, підлога)?",
 };
 
 const pa = {
@@ -62309,6 +62317,8 @@ const pa = {
   "app.docBuilder.internalOnly": "ਅੰਦਰੂਨੀ — ਦਸਤਾਵੇਜ਼ 'ਤੇ ਕਦੇ ਨਹੀਂ",
   "app.docBuilder.closeDrawer": "ਬੰਦ ਕਰੋ",
   "app.paint.otherTrades": "ਹੋਰ ਕਿੱਤੇ",
+  "app.paint.newPaintingQuote": "ਨਵਾਂ ਪੇਂਟਿੰਗ ਕੋਟ",
+  "app.paint.otherTradesHint": "ਇਸ ਕੋਟ 'ਤੇ ਕੁਝ ਹੋਰ (ਕਾਊਂਟਰਟੌਪ, ਫਲੋਰਿੰਗ)?",
 };
 
 const tl = {
@@ -73462,6 +73472,8 @@ const tl = {
   "app.docBuilder.internalOnly": "Internal — hindi kailanman nasa dokumento",
   "app.docBuilder.closeDrawer": "Isara",
   "app.paint.otherTrades": "Ibang trade",
+  "app.paint.newPaintingQuote": "Bagong quote sa pagpipinta",
+  "app.paint.otherTradesHint": "May iba pa sa quote na ito (countertop, sahig)?",
 };
 
 const de = {
@@ -86011,6 +86023,8 @@ const de = {
   "app.docBuilder.internalOnly": "Intern — nie auf dem Dokument",
   "app.docBuilder.closeDrawer": "Schließen",
   "app.paint.otherTrades": "Andere Gewerke",
+  "app.paint.newPaintingQuote": "Neues Malerangebot",
+  "app.paint.otherTradesHint": "Noch etwas auf diesem Angebot (eine Arbeitsplatte, ein Boden)?",
 };
 
 const zh = {
@@ -98553,6 +98567,8 @@ const zh = {
   "app.docBuilder.internalOnly": "内部 — 绝不出现在文件上",
   "app.docBuilder.closeDrawer": "关闭",
   "app.paint.otherTrades": "其他工种",
+  "app.paint.newPaintingQuote": "新建油漆报价",
+  "app.paint.otherTradesHint": "本报价还有别的项目（台面、地板）？",
 };
 
 const it = {
@@ -111397,6 +111413,8 @@ const it = {
   "app.docBuilder.internalOnly": "Interno — mai sul documento",
   "app.docBuilder.closeDrawer": "Chiudi",
   "app.paint.otherTrades": "Altri mestieri",
+  "app.paint.newPaintingQuote": "Nuovo preventivo di tinteggiatura",
+  "app.paint.otherTradesHint": "Qualcos'altro in questo preventivo (un piano, un pavimento)?",
 };
 
 export const APP_MESSAGES = { en, fr, es, uk, pa, tl, de, zh, it };
