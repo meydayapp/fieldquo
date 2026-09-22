@@ -120,19 +120,45 @@ const TEXT_PAIRS = [
     "app/components/layout/AdminSidebar.js", "bg-sidebar-primary"],
   ["rail strong text", "--sidebar-foreground", "--sidebar",
     "app/components/layout/AdminSidebar.js", "text-sidebar-foreground"],
+  ["rail More count", "--sidebar-accent-foreground", "--sidebar-accent",
+    "app/components/layout/AdminSidebar.js", "bg-sidebar-accent text-sidebar-accent-foreground"],
   ["rail filter text", "--sidebar-foreground", "--sidebar-accent",
     "app/components/layout/NavFilter.js", "bg-sidebar-accent"],
   ["rail filter placeholder", "--sidebar-muted-foreground", "--sidebar-accent",
     "app/components/layout/NavFilter.js", "placeholder:text-sidebar-muted-foreground"],
-  // ── the settings panel, which sits on a card ──
-  ["panel idle row", "--muted-foreground", "--card",
-    "app/components/layout/SettingsSidebar.js", "text-muted-foreground"],
-  ["panel hover row", "--foreground", "--sidebar-panel-accent",
-    "app/components/layout/SettingsSidebar.js", "hover:bg-sidebar-panel-accent"],
-  ["panel hover row text", "--foreground", "--sidebar-panel-accent",
-    "app/components/layout/SettingsSidebar.js", "hover:text-foreground"],
-  ["panel selected row", "--sidebar-primary-foreground", "--sidebar-primary",
+  // ── the settings list, which slides INTO the rail (2026-09-21) ──
+  ["settings panel idle row", "--sidebar-muted-foreground", "--sidebar",
+    "app/components/layout/SettingsSidebar.js", "text-sidebar-muted-foreground"],
+  ["settings panel hover row", "--sidebar-accent-foreground", "--sidebar-accent",
+    "app/components/layout/SettingsSidebar.js", "hover:text-sidebar-accent-foreground"],
+  ["settings panel selected row", "--sidebar-primary-foreground", "--sidebar-primary",
     "app/components/layout/SettingsSidebar.js", "bg-sidebar-primary"],
+  // ── the lists that sit on a card: the settings index, the More tiles, the
+  //    phone's section strip, the search palette ──
+  ["panel idle row", "--muted-foreground", "--card",
+    "app/app/settings/page.js", "text-muted-foreground"],
+  ["panel hover row", "--foreground", "--sidebar-panel-accent",
+    "app/app/settings/page.js", "hover:bg-sidebar-panel-accent"],
+  ["panel hover row text", "--foreground", "--sidebar-panel-accent",
+    "app/app/settings/page.js", "hover:text-foreground"],
+  ["More tile idle row", "--muted-foreground", "--card",
+    "app/components/layout/MoreMenu.js", "text-muted-foreground"],
+  ["More tile hover row", "--foreground", "--sidebar-panel-accent",
+    "app/components/layout/MoreMenu.js", "hover:bg-sidebar-panel-accent"],
+  ["More tile selected row", "--sidebar-primary-foreground", "--sidebar-primary",
+    "app/components/layout/MoreMenu.js", "bg-sidebar-primary"],
+  ["phone settings strip chip", "--muted-foreground", "--card",
+    "app/components/layout/SettingsSidebar.js", "text-muted-foreground border-border"],
+  ["search result text", "--foreground", "--card",
+    "app/components/layout/GlobalSearch.js", "text-foreground"],
+  ["search result highlighted", "--foreground", "--muted",
+    "app/components/layout/GlobalSearch.js", "bg-muted"],
+  ["search result meta on highlight", "--muted-foreground", "--muted",
+    "app/components/layout/GlobalSearch.js", "text-muted-foreground"],
+  ["top bar crumb", "--muted-foreground", "--card",
+    "app/components/layout/TopBar.js", "text-muted-foreground"],
+  ["top bar Create pill", "--inverted-foreground", "--inverted",
+    "app/components/layout/CreateMenu.js", "bg-inverted text-inverted-foreground"],
   ["panel filter text", "--foreground", "--background",
     "app/components/layout/NavFilter.js", "bg-background"],
   ["panel filter placeholder", "--muted-foreground", "--background",
@@ -144,7 +170,7 @@ const HOVER_FILLS = [
   ["rail hover fill", "--sidebar-accent", "--sidebar",
     "app/components/layout/AdminSidebar.js", "hover:bg-sidebar-accent"],
   ["panel hover fill", "--sidebar-panel-accent", "--card",
-    "app/components/layout/SettingsSidebar.js", "hover:bg-sidebar-panel-accent"],
+    "app/app/settings/page.js", "hover:bg-sidebar-panel-accent"],
 ];
 
 const LADDERS = [
@@ -199,10 +225,17 @@ function stripComments(src) {
 // Alpha over a surface yields a different ratio on every surface it lands on,
 // so nothing above could assert it. These were the unmeasurable classes that
 // produced the 3.22:1 group headings; they must not come back.
-console.log(" no unmeasurable alpha text on either sidebar");
+console.log(" no unmeasurable alpha text on any shell surface");
 for (const file of [
   "app/components/layout/AdminSidebar.js",
   "app/components/layout/SettingsSidebar.js",
+  "app/components/layout/TopBar.js",
+  "app/components/layout/MoreMenu.js",
+  "app/components/layout/GlobalSearch.js",
+  "app/components/layout/CreateMenu.js",
+  "app/components/layout/AccountMenu.js",
+  "app/app/settings/page.js",
+  "app/app/more/page.js",
 ]) {
   const code = stripComments(read(file));
   const alpha = [...code.matchAll(/text-(?:sidebar-)?(?:muted-)?foreground\/\d+/g)].map((m) => m[0]);
@@ -215,6 +248,15 @@ ok("SettingsSidebar no longer paints active rows with bg-inverted",
   !settingsCode.includes("bg-inverted"));
 ok("SettingsSidebar no longer hovers with bg-muted (1.12:1)",
   !settingsCode.includes("hover:bg-muted"));
+// The lists on a card: the settings index and the More tiles.
+const cardListCode = [
+  stripComments(read("app/app/settings/page.js")),
+  stripComments(read("app/components/layout/MoreMenu.js")),
+].join("\n");
+ok("the settings index and More tiles never paint rows with bg-inverted",
+  !cardListCode.includes("bg-inverted"));
+ok("the settings index and More tiles never hover with bg-muted (1.12:1)",
+  !cardListCode.includes("hover:bg-muted"));
 
 // A fill strong enough to SEE is strong enough to swallow muted text. Checking
 // "is the class somewhere in the file" is not enough here — the group header
@@ -225,7 +267,7 @@ const mutedOnFill = Object.entries(THEMES).map(([theme, tok]) => [
   theme,
   contrast(tok["--muted-foreground"], tok["--sidebar-panel-accent"]),
 ]);
-const rowStrings = [...settingsCode.matchAll(/"([^"\n]*)"/g)]
+const rowStrings = [...(settingsCode + cardListCode).matchAll(/"([^"\n]*)"/g)]
   .map((m) => m[1])
   .filter((s) => s.includes("text-muted-foreground") && s.includes("hover:bg-sidebar-panel-accent"));
 const unlifted = rowStrings.filter((s) => !s.includes("hover:text-foreground"));
@@ -277,6 +319,7 @@ function parseGroups(src, decl, groupKeyPrefix) {
 const adminSrc = read("app/components/layout/AdminSidebar.js");
 const settingsSrc = read("app/components/layout/SettingsSidebar.js");
 const NAV = parseGroups(adminSrc, "const NAV_GROUPS = [", "app\\.nav\\.group\\.");
+const MORE = parseGroups(adminSrc, "const MORE_GROUPS = [", "app\\.nav\\.group\\.");
 const SETTINGS = parseGroups(settingsSrc, "const GROUPS = [", "app\\.settings\\.group\\.");
 
 const en = APP_MESSAGES.en;
@@ -286,13 +329,18 @@ console.log("Navigation structure\n");
 
 // A regex that silently matched nothing would make every assertion below pass
 // on an empty list. Pin the shape first.
-ok("parsed the main rail", NAV.length >= 4 && NAV.flatMap((g) => g.items).length >= 20,
+// Seventeen rows in five groups since 2026-09-21 (the shell reorganisation);
+// the rest of the rail moved to MORE_GROUPS. check-shell.mjs holds the
+// ≤ 17 ceiling and the reachability proof; this pins the parse.
+ok("parsed the main rail", NAV.length >= 4 && NAV.flatMap((g) => g.items).length >= 12,
   `${NAV.length} groups / ${NAV.flatMap((g) => g.items).length} items`);
+ok("parsed the More groups", MORE.length >= 3 && MORE.flatMap((g) => g.items).length >= 15,
+  `${MORE.length} groups / ${MORE.flatMap((g) => g.items).length} items`);
 ok("parsed the settings panel",
   SETTINGS.length >= 8 && SETTINGS.flatMap((g) => g.items).length >= 30,
   `${SETTINGS.length} groups / ${SETTINGS.flatMap((g) => g.items).length} items`);
 
-for (const [name, groups] of [["rail", NAV], ["panel", SETTINGS]]) {
+for (const [name, groups] of [["rail", NAV], ["more", MORE], ["panel", SETTINGS]]) {
   const items = groups.flatMap((g) => g.items);
   const missing = items.filter((i) => !en[i.key]);
   ok(`${name}: every item label is translated`, missing.length === 0,
@@ -307,7 +355,7 @@ for (const [name, groups] of [["rail", NAV], ["panel", SETTINGS]]) {
 
 const CLOSED = new Set(); // the worst case: nothing open
 
-for (const [name, groups] of [["rail", NAV], ["panel", SETTINGS]]) {
+for (const [name, groups] of [["rail", NAV], ["more", MORE], ["panel", SETTINGS]]) {
   const items = groups.flatMap((g) => g.items);
 
   const unreachableBySearch = items.filter((item) => {
@@ -350,7 +398,7 @@ ok("rail: the 76px icon rail shows every item regardless of disclosure",
 //
 // OnboardingTour needs a target that measures non-zero, and a collapsed group
 // unmounts its items. Any group holding a tour anchor must therefore be pinned.
-for (const [name, groups] of [["rail", NAV], ["panel", SETTINGS]]) {
+for (const [name, groups] of [["rail", NAV], ["more", MORE], ["panel", SETTINGS]]) {
   const bad = groups.filter((g) => g.items.some((i) => i.tour) && !g.pinned);
   ok(`${name}: groups holding a data-tour anchor are pinned`, bad.length === 0,
     bad.map((g) => g.key).join(" "));
@@ -361,6 +409,11 @@ const rendered = new Set([...adminSrc.matchAll(/tour:\s*"([^"]+)"/g)].map((m) =>
 const orphans = [...new Set(anchors)].filter((a) => !rendered.has(a));
 ok("every nav anchor the tour points at is still declared in the rail",
   orphans.length === 0, orphans.join(" "));
+// …and declared in NAV_GROUPS or the Settings foot, never in MORE_GROUPS: a
+// More row renders on /app/more and in a sheet, not in the rail the tour
+// measures.
+const moreTours = MORE.flatMap((g) => g.items).filter((i) => i.tour);
+ok("no tour anchor sits on a More row", moreTours.length === 0, moreTours.map((i) => i.key).join(" "));
 
 // ── Disclosure semantics ───────────────────────────────────────────────────
 
@@ -387,11 +440,20 @@ ok("disclosure adds no schema field",
 ok("disclosure costs no network round trip",
   !stripComments(read("app/components/layout/NavFilter.js")).includes("fetch("));
 
-// The filter box exists once and is used twice.
-ok("both sidebars use the shared filter rather than a private copy",
-  adminSrc.includes("<NavFilter") && settingsSrc.includes("<NavFilter"));
-ok("the main rail can search the items its own groups do not hold",
-  adminSrc.includes("SEARCH_CORPUS") && adminSrc.includes("BOTTOM_ITEMS]"));
+// The filter box exists once and is used twice: the settings list that
+// slides into the rail, and the settings index. The rail's own box is the
+// GLOBAL search (GlobalSearch.js) since 2026-09-21 — not a second filter over
+// the menu — and its corpus is every rail row, every More row, Home and the
+// account rows, so no row is out of its reach.
+ok("the settings panel and the settings index use the shared filter rather than a private copy",
+  settingsSrc.includes("<NavFilter") && read("app/app/settings/page.js").includes("<NavFilter"));
+ok("the rail's search box opens the global palette",
+  stripComments(adminSrc).includes('shell.open("search")'));
+ok("the global search corpus holds every rail row, every More row, Home and the account rows",
+  adminSrc.includes("SEARCH_CORPUS") && adminSrc.includes("...MORE_GROUPS") &&
+    adminSrc.includes("HOME_ITEM, ...NAV_GROUPS[0].items") && adminSrc.includes("[...BOTTOM_ITEMS]"));
+ok("GlobalSearch searches that corpus through the rail's own three filters",
+  read("app/components/layout/GlobalSearch.js").includes("useNavGroups(SEARCH_CORPUS)"));
 
 // ── The dark wordmark: constant and filesystem must agree ──────────────────
 //
@@ -440,49 +502,31 @@ if (declared) {
   );
 }
 
-// ══ The tab bar's "More" reaches the drawer through the DOM ════════════════
+// ══ The tab bar's "More", the hamburger and the tour share one state ═══════
 //
-// MobileTabBar cannot call AdminSidebar's `setMobileOpen` — it is local state
-// with no exported setter and no context. So "More" clicks the real hamburger
-// node by attribute, which is not invented: app/components/OnboardingTour.js
-// already opens the same drawer the same way, because the welcome tour has to
-// point at rows living inside it.
-//
-// The cost of that choice is a SILENT failure. openAdminDrawer() does nothing
-// at all if the node is gone — `if (trigger instanceof HTMLElement)` and no
-// else — so renaming or dropping the attribute leaves a "More" button that
-// looks fine and opens nothing. Two consumers now depend on a string in a
-// third file, and nothing else in the repo would notice.
-//
-// Asserted here rather than in a new check script because the check:all chain
-// is being edited by several agents at once and a new entry would conflict;
-// this file already parses AdminSidebar, so it is the right home anyway.
+// MobileTabBar used to open AdminSidebar's drawer by clicking the hamburger's
+// real DOM node (`[data-tour-open="nav"]`), because the drawer's state was
+// private. Since 2026-09-21 the state lives in NavShellProvider (NavShell.js):
+// the tab bar opens the More SHEET through it, the hamburger (now in
+// TopBar.js) opens the DRAWER through it, and OnboardingTour still clicks the
+// hamburger by attribute — so the attribute has to survive on the hamburger,
+// and the tab bar must no longer depend on it.
 const TAB_BAR = "app/components/layout/MobileTabBar.js";
 const TOUR = "app/components/OnboardingTour.js";
+const TOP_BAR = "app/components/layout/TopBar.js";
 const DRAWER_HOOK = 'data-tour-open="nav"';
 
-const sidebarSrc = read("app/components/layout/AdminSidebar.js");
-ok(
-  `AdminSidebar still renders ${DRAWER_HOOK} on its hamburger`,
-  sidebarSrc.includes(DRAWER_HOOK),
-  sidebarSrc.includes(DRAWER_HOOK)
-    ? ""
-    : "MobileTabBar's More button and OnboardingTour both click this node to open\n       the drawer. Without it both fail silently — the button opens nothing.",
-);
-ok(
-  "MobileTabBar targets that same attribute",
-  read(TAB_BAR).includes(DRAWER_HOOK),
-  read(TAB_BAR).includes(DRAWER_HOOK)
-    ? ""
-    : "the tab bar's More button no longer matches the node AdminSidebar renders",
-);
-ok(
-  "OnboardingTour targets it too, so the two agree",
-  read(TOUR).includes("data-tour-open"),
-  read(TOUR).includes("data-tour-open")
-    ? ""
-    : "the tour opened the drawer this way first; if it has moved on, MobileTabBar\n       is now the only caller and this coupling should be reconsidered",
-);
+ok(`TopBar renders ${DRAWER_HOOK} on the hamburger`, read(TOP_BAR).includes(DRAWER_HOOK),
+  "OnboardingTour clicks this node to open the drawer; without it the walkthrough opens nothing");
+ok("OnboardingTour still targets it", read(TOUR).includes("data-tour-open"));
+ok("MobileTabBar no longer reaches the drawer through the DOM",
+  !stripComments(read(TAB_BAR)).includes("data-tour-open") && !stripComments(read(TAB_BAR)).includes("querySelector"));
+ok("MobileTabBar's More opens the sheet through the shared shell state",
+  /shell\.toggle\("more"\)/.test(read(TAB_BAR)) && read(TAB_BAR).includes("useNavShell"));
+ok("AdminSidebar reads the drawer state from the same provider",
+  adminSrc.includes("useNavShell") && adminSrc.includes('isOpen("drawer")'));
+ok("the app layout mounts NavShellProvider once, above rail, top bar and tab bar",
+  read("app/app/layout.js").includes("<NavShellProvider>") && read("app/app/layout.js").includes("<TopBar />"));
 
 console.log(
   `\n${checks} checks, ${failures} failure(s)${warnings ? `, ${warnings} warning(s)` : ""}.`,

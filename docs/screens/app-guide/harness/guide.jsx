@@ -3,9 +3,10 @@
 // The /app back office, one screen at a time, for the sales guide's "Every
 // screen" chapter. ?page=<slug> picks a row of screens.js, ?lang=en|fr|es
 // picks the interface language, and the page is the REAL page module
-// rendered inside the REAL shell — AdminSidebar, the providers app/app/
-// layout.js mounts, and for /app/settings/* the SettingsSidebar too —
-// with window.fetch answered from fixtures/ instead of a server.
+// rendered inside the REAL shell — AdminSidebar, TopBar, MobileTabBar, the
+// providers app/app/layout.js mounts, and for /app/settings/* the phone's
+// section strip too — with window.fetch answered from fixtures/ instead of
+// a server.
 //
 // ── Language is the app's own provider, not a stubbed t() ─────────────────
 //
@@ -27,9 +28,12 @@
 import React, { useEffect } from "react";
 import { createRoot } from "react-dom/client";
 import AdminSidebar from "@/app/components/layout/AdminSidebar";
+import TopBar from "@/app/components/layout/TopBar";
 import MobileTabBar from "@/app/components/layout/MobileTabBar";
-import SettingsSidebar from "@/app/components/layout/SettingsSidebar";
+import { NavShellProvider } from "@/app/components/layout/NavShell";
+import { SettingsPhoneNav } from "@/app/components/layout/SettingsSidebar";
 import { SettingsDrillDownProvider, SettingsBackBar } from "@/app/components/settings/SettingsDrillDown";
+import { TradeGateProvider } from "@/app/providers/TradeGateProvider";
 import ToastLayer from "@/app/components/ToastLayer";
 import CompanyPreferencesProvider from "@/app/providers/CompanyPreferencesProvider";
 import { LanguageProvider } from "@/app/providers/LanguageProvider";
@@ -96,13 +100,22 @@ function Shell({ children }) {
         <CompanyPreferencesProvider initialCurrency={COMPANY.currency}>
           <FeatureProvider flags={FEATURE_FLAGS}>
             <PermissionProvider role={member.role} permissions={member.permissions}>
+              <SettingsAccessProvider access={{ role: member.role, impersonation: false }}>
+              <TradeGateProvider tradeGate={COMPANY.tradeGate}>
+              <NavShellProvider>
               <div className="lg:flex">
                 <AdminSidebar />
-                <main className="flex-1 min-w-0 pb-[calc(var(--fq-tab-bar-height)+var(--fq-dock-height))]">
-                  {children}
-                </main>
+                <div className="flex-1 min-w-0 flex flex-col min-h-screen">
+                  <TopBar />
+                  <main className="flex-1 min-w-0 pb-[calc(var(--fq-tab-bar-height)+var(--fq-dock-height))]">
+                    {children}
+                  </main>
+                </div>
                 <MobileTabBar />
               </div>
+              </NavShellProvider>
+              </TradeGateProvider>
+              </SettingsAccessProvider>
             </PermissionProvider>
           </FeatureProvider>
         </CompanyPreferencesProvider>
@@ -133,19 +146,20 @@ function PublicShell({ children }) {
   );
 }
 
+// app/app/settings/layout.js's pair: no second sidebar since 2026-09-21 —
+// the rail slides its own settings list (driven by the route) — only the
+// drill-down provider and the phone's section strip.
 function SettingsShell({ children }) {
   return (
-    <SettingsAccessProvider access={{ role: member.role, impersonation: false }}>
-      <SettingsDrillDownProvider>
-        <div className="lg:flex min-h-screen">
-          <SettingsSidebar tradeGate={COMPANY.tradeGate} />
-          <main className="flex-1 min-w-0">
-            <SettingsBackBar />
-            {children}
-          </main>
+    <SettingsDrillDownProvider>
+      <div className="min-h-screen">
+        <SettingsPhoneNav />
+        <div className="min-w-0">
+          <SettingsBackBar />
+          {children}
         </div>
-      </SettingsDrillDownProvider>
-    </SettingsAccessProvider>
+      </div>
+    </SettingsDrillDownProvider>
   );
 }
 

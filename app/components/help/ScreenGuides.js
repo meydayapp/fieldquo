@@ -23,7 +23,7 @@
 "use client";
 
 import { ExternalLink } from "lucide-react";
-import { NAV_GROUPS, BOTTOM_ITEMS, HOME_ITEM, AI_ITEM } from "@/app/components/layout/AdminSidebar";
+import { NAV_GROUPS, MORE_GROUPS, BOTTOM_ITEMS, HOME_ITEM } from "@/app/components/layout/AdminSidebar";
 import { GROUPS as SETTINGS_GROUPS } from "@/app/components/layout/SettingsSidebar";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { articleForScreen } from "@/lib/help/tree";
@@ -37,9 +37,12 @@ function rowsOf(groups) {
 export default function ScreenGuides() {
   const { t, language } = useTranslation();
   const lang = isHelpChromeLang(language) ? language : "en";
+  // The rail's order: Home, the seventeen, then the More groups, then the
+  // account rows, then settings — the same walk the sales guide takes.
   const groups = [
-    { key: "app.nav.group.more", items: [HOME_ITEM, AI_ITEM] },
+    { key: "app.nav.home", items: [HOME_ITEM] },
     ...rowsOf(NAV_GROUPS),
+    ...rowsOf(MORE_GROUPS),
     { key: "app.nav.settings", items: BOTTOM_ITEMS.filter((i) => i.helpArticle) },
     ...rowsOf(SETTINGS_GROUPS),
   ];

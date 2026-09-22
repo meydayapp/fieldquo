@@ -90,7 +90,18 @@ function formatAmount(amount, currency) {
   }
 }
 
-export default function NotificationBell({ className = "" }) {
+// Two tones for the one button. "rail" is the navy chrome it was born on
+// (the phone's top bar); "bar" is the desktop top bar (TopBar.js), which sits
+// on --card, where the rail's near-white muted text would vanish. The badge
+// pair (bg-sidebar-primary / text-sidebar-primary-foreground) is the same on
+// both: it is orange-on-navy-ink, and scripts/check-sidebar.mjs proves it
+// clears 4.5:1 against itself, not against the surface behind it.
+const BELL_TONE = {
+  rail: "text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+  bar: "text-muted-foreground hover:bg-muted hover:text-foreground",
+};
+
+export default function NotificationBell({ className = "", tone = "rail" }) {
   const { t } = useTranslation();
   const [unread, setUnread] = useState(0);
   const [open, setOpen] = useState(false);
@@ -320,7 +331,7 @@ export default function NotificationBell({ className = "" }) {
         }
         // 44px, the same floor AdminSidebar's own hamburger sets and for the
         // same reason: this is a control people hit one-handed on a phone.
-        className="relative flex h-11 w-11 items-center justify-center rounded-lg text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+        className={`relative flex h-11 w-11 items-center justify-center rounded-lg ${BELL_TONE[tone] || BELL_TONE.rail}`}
       >
         <Bell size={20} />
         {unread > 0 && (

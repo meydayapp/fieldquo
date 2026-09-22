@@ -401,20 +401,26 @@ ok("PUT checks canUseMaterialCostsCategory before writing an override",
 ok("GET still carves impersonation out, seeing every category regardless of trade",
   /member\.impersonation[\s\S]*Object\.keys\(MATERIAL_RECIPES\)/.test(recipesRoute));
 
+// Since 2026-09-21 the settings rows are drawn by four surfaces (the rail's
+// slide panel, the settings index, the phone strip, the global search), all
+// through ONE hook — useSettingsGroups — which reads the gate from
+// TradeGateProvider; app/app/layout.js resolves it once for the whole shell.
 const sidebarSrc = stripComments(settingsSrc);
 ok("SettingsSidebar imports the trade-gate filter",
   sidebarSrc.includes("filterSettingsGroupsByTrade") &&
     sidebarSrc.includes('from "@/lib/settings/tradeGateNav"'));
-ok("SettingsSidebar actually applies the filter in its groups computation",
-  /filterSettingsGroupsByTrade\(/.test(sidebarSrc));
-ok("SettingsSidebar accepts tradeGate as a prop rather than hardcoding it",
-  /function SettingsSidebar\(\{[^}]*tradeGate/.test(sidebarSrc));
+ok("useSettingsGroups actually applies the filter in its groups computation",
+  /export function useSettingsGroups[\s\S]{0,800}filterSettingsGroupsByTrade\(/.test(sidebarSrc));
+ok("useSettingsGroups reads the gate from the provider rather than hardcoding it",
+  /useTradeGate\(\)/.test(sidebarSrc));
+ok("the rail applies the same gate to its own rows",
+  /filterNavGroupsByTrade\(/.test(stripComments(read("app/components/layout/AdminSidebar.js"))));
 
-const layoutSrc = stripComments(read("app/app/settings/layout.js"));
-ok("the settings layout resolves the company's trade gate server-side",
+const layoutSrc = stripComments(read("app/app/layout.js"));
+ok("the app layout resolves the company's trade gate server-side",
   layoutSrc.includes("companyTradeGate"));
-ok("the settings layout passes it to SettingsSidebar",
-  /<SettingsSidebar[^>]*tradeGate=\{tradeGate\}/.test(layoutSrc));
+ok("the app layout hands it to TradeGateProvider",
+  /<TradeGateProvider tradeGate=\{settingsShell\.tradeGate\}>/.test(layoutSrc));
 
 // ── 5. Translations ────────────────────────────────────────────────────
 

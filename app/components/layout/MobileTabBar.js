@@ -2,14 +2,14 @@
 "use client";
 
 // The native-app navigation model for phones: a bottom tab bar, shown below
-// `lg` where AdminSidebar's sticky top bar + full-screen drawer (the web
-// pattern) currently stands in for it. Above `lg` this renders nothing —
-// AdminSidebar's real rail takes over there.
+// `lg` where TopBar's 52px bar + the drawer (the web pattern) stand in for
+// the rail. Above `lg` this renders nothing — AdminSidebar's real rail takes
+// over there.
 //
 // ── Which five, and why ─────────────────────────────────────────────────
 //
 // AdminSidebar's own comment on NAV_GROUPS names the order work actually
-// moves: "Requests -> Quotes -> Jobs -> Invoices". AGENTS.md's pipeline
+// moves: "Leads -> Quotes -> Jobs -> Invoices". AGENTS.md's pipeline
 // diagram (Lead -> Quote -> Job -> Invoice -> Payment) says the same thing.
 // Both are the authoritative answer to "what does a contractor reach for
 // most" — not a guess made here. Those four are also the one part of the
@@ -19,17 +19,24 @@
 //
 // The fifth is Chat — the crew's own screen, see the note on TAB_ITEMS.
 //
-// Home is deliberately NOT a tab: the mobile top bar AdminSidebar already
-// renders (the sticky bar with the logo, still visible below `lg`) links the
+// Home is deliberately NOT a tab: the phone's top bar (TopBar.js) links the
 // logo to /app, so Home stays one tap away without spending a slot on a
 // destination that already has one.
 //
-// The last slot is "More", which opens the SAME drawer AdminSidebar
-// contains everything else in — not a second menu. See openAdminDrawer below
-// for how, given this file may not edit AdminSidebar.js.
+// The last slot is "More". It used to open the ENTIRE rail as a left drawer
+// over this bar — forty rows behind a scroll, in a 320px panel, with the
+// tab bar covered — by clicking the hamburger's DOM node, because the
+// drawer's state was private to AdminSidebar. Since 2026-09-21 it opens the
+// More sheet (MoreMenu.js): search first, the same grouped tiles as
+// /app/more, the account rows at the end, and this bar still visible under
+// it. The state is shared through NavShellProvider (NavShell.js), so no DOM
+// hack; the hamburger keeps its data-tour-open hook for the walkthrough.
+//
+// Create is the floating + above this bar (CreateMenu.js's CreateFab),
+// mounted by TopBar so there is one per shell.
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ClipboardList, FileText, Briefcase, Receipt, MessagesSquare, Menu } from "lucide-react";
+import { ClipboardList, FileText, Briefcase, Receipt, MessagesSquare, LayoutGrid } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useFeatureFlags } from "@/app/providers/FeatureProvider";
 import { usePermissions } from "@/app/providers/PermissionProvider";
@@ -37,6 +44,7 @@ import { filterNavItems } from "@/lib/features/nav";
 import { filterNavItemsByPermission } from "@/lib/permissions/nav";
 import { isMePath } from "@/lib/me/tabs";
 import { MeTabBar } from "@/app/components/me/MeShell";
+import { useNavShell } from "@/app/components/layout/NavShell";
 
 // Same i18n keys AdminSidebar's own NAV_GROUPS rows use for these four
 // destinations — not new strings, so there is nothing to translate twice and
@@ -50,40 +58,13 @@ import { MeTabBar } from "@/app/components/me/MeShell";
 // of the jobs they are booked on, and the chat is the crew's own screen.
 // Same shell, same kit, same drawer for everything else. It is feature-gated
 // (team_chat) like every other row, through the same filterNavItems below.
-const TAB_ITEMS = [
+export const TAB_ITEMS = [
   { key: "app.nav.requests", href: "/app/leads", icon: ClipboardList },
   { key: "app.nav.quotes", href: "/app/quotes", icon: FileText },
   { key: "app.nav.jobs", href: "/app/jobs", icon: Briefcase },
   { key: "app.nav.invoices", href: "/app/invoices", icon: Receipt },
   { key: "app.nav.chat", href: "/app/chat", icon: MessagesSquare },
 ];
-
-/**
- * Opens AdminSidebar's mobile drawer from outside it.
- *
- * `mobileOpen` is local state inside AdminSidebar with no exported setter, no
- * context, no event bus — and this file may not edit that component to add
- * one. This is not the first place in the codebase to hit that wall:
- * app/components/OnboardingTour.js already opens the same drawer from outside
- * AdminSidebar, for the exact same reason (the welcome tour has to point at
- * rows that live inside it), by clicking the real DOM node AdminSidebar
- * renders for its own hamburger button — `[data-tour-open="nav"]` — rather
- * than reimplementing the toggle. That button click runs AdminSidebar's own
- * `setMobileOpen(true)`, so this is the SAME open, not a second one. Reusing
- * a pattern the codebase already ships (and that OnboardingTour's tour steps
- * exercise on every first-run walkthrough) rather than inventing a new way to
- * reach the same piece of state.
- *
- * A cleaner fix — lifting `mobileOpen` to a shared context AdminSidebar and
- * this component both read — is the better long-term shape; see
- * docs/MOBILE-TABBAR.md for why that was not done here (it requires editing
- * AdminSidebar.js, which is out of scope for this change).
- */
-function openAdminDrawer() {
-  if (typeof document === "undefined") return;
-  const trigger = document.querySelector('[data-tour-open="nav"]');
-  if (trigger instanceof HTMLElement) trigger.click();
-}
 
 /** Mirrors AdminSidebar's own `isActive`: /app is exact, everything else is a prefix. */
 function isActive(pathname, href) {
@@ -93,6 +74,7 @@ function isActive(pathname, href) {
 export default function MobileTabBar() {
   const { t } = useTranslation();
   const pathname = usePathname();
+  const shell = useNavShell();
 
   // Same two-filter pipeline AdminSidebar runs on NAV_GROUPS, in the same
   // order (feature flags first, then the permission grid) and via the exact
@@ -191,12 +173,20 @@ export default function MobileTabBar() {
 
         <button
           type="button"
-          onClick={openAdminDrawer}
+          onClick={() => shell.toggle("more")}
           aria-label={t("app.nav.more")}
+          aria-expanded={shell.isOpen("more")}
+          data-more-tab
           className="flex-1 max-w-[7rem] min-w-0 flex items-center justify-center active:bg-sidebar-accent/50 transition-colors"
         >
-          <span className="flex flex-col items-center gap-0.5 rounded-xl px-3 py-1.5 min-h-[44px] min-w-[44px] justify-center text-sidebar-muted-foreground">
-            <Menu size={20} className="shrink-0" />
+          <span
+            className={`flex flex-col items-center gap-0.5 rounded-xl px-3 py-1.5 min-h-[44px] min-w-[44px] justify-center ${
+              shell.isOpen("more") || pathname.startsWith("/app/more")
+                ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                : "text-sidebar-muted-foreground"
+            }`}
+          >
+            <LayoutGrid size={20} className="shrink-0" />
             <span className="text-[10px] font-semibold leading-none truncate max-w-[4.25rem]">
               {t("app.nav.more")}
             </span>

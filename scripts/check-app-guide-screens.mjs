@@ -24,19 +24,22 @@ const rows = (src, prefix) =>
 const admin = read("app/components/layout/AdminSidebar.js");
 const settings = read("app/components/layout/SettingsSidebar.js");
 
-// The main rail as drawn: Home, AI, the groups, then the bottom rows. The
-// component declares HOME_ITEM and AI_ITEM after the groups and renders them
-// first; QUICK_ADD_ITEMS are a popup, not rows.
-const groupsSrc = admin.slice(admin.indexOf("const NAV_GROUPS"), admin.indexOf("const QUICK_ADD_ITEMS"));
+// The rail as drawn since 2026-09-21: Home, the seventeen (NAV_GROUPS), the
+// More row, the More groups (MORE_GROUPS — tiled on /app/more and in the
+// phone sheet, in declaration order), then the account rows (BOTTOM_ITEMS:
+// the avatar menu, with Settings also at the rail's foot). The component
+// declares HOME_ITEM / MORE_ITEM after the groups and renders Home first;
+// QUICK_ADD_ITEMS are the Create menu, not rows.
+const navSrc = admin.slice(admin.indexOf("const NAV_GROUPS"), admin.indexOf("const MORE_GROUPS"));
+const moreSrc = admin.slice(admin.indexOf("const MORE_GROUPS"), admin.indexOf("const INFLUENCER_ONLY"));
 const bottomSrc = admin.slice(admin.indexOf("const BOTTOM_ITEMS"), admin.indexOf("const HOME_ITEM"));
-const homeAi = admin.slice(admin.indexOf("const HOME_ITEM"), admin.indexOf("const SEARCH_CORPUS"));
-const rail = [...rows(homeAi, "app\\.nav"), ...rows(groupsSrc, "app\\.nav"), ...rows(bottomSrc, "app\\.nav")];
+const homeMore = admin.slice(admin.indexOf("const HOME_ITEM"), admin.indexOf("const AI_ITEM"));
+const [home, more] = rows(homeMore, "app\\.nav");
+const rail = [home, ...rows(navSrc, "app\\.nav"), more, ...rows(moreSrc, "app\\.nav"), ...rows(bottomSrc, "app\\.nav")];
 const settingsRows = rows(settings.slice(settings.indexOf("const GROUPS")), "app\\.settings");
 
 const expected = [...rail, ...settingsRows];
-// The Settings row's href is /app/settings, which redirects to Company;
-// the guide photographs where the click lands, so its row says so.
-const listed = SCREENS.filter((s) => !s.chapter).map((s) => ({ key: s.nav, href: s.slug === "settings" ? "/app/settings" : s.href }));
+const listed = SCREENS.filter((s) => !s.chapter).map((s) => ({ key: s.nav, href: s.href }));
 
 let fail = 0;
 const t = (name, ok, detail = "") => { if (!ok) fail++; console.log(`  ${ok ? "ok  " : "FAIL"} ${name}${detail ? "  " + detail : ""}`); };

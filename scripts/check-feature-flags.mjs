@@ -747,9 +747,13 @@ for (const [name, src] of [["AdminSidebar", adminSrc], ["SettingsSidebar", setti
   ok(/filterNavGroups\(/.test(src), `${name} filters its groups through the shared helper`);
   ok(/useFeatureFlags\(\)/.test(src), `${name} reads the resolved flags`);
 }
+// The rail's search is the global palette since 2026-09-21; its menu corpus
+// goes through useNavGroups, whose first pass is filterNavGroups.
+const searchSrc = read("app/components/layout/GlobalSearch.js");
 ok(
-  /filterNavGroups\(SEARCH_CORPUS/.test(adminSrc),
-  "the rail's SEARCH box searches the FILTERED corpus",
+  /export function useNavGroups[\s\S]{0,600}filterNavGroups\(groups, featureFlags\)/.test(adminSrc) &&
+    /useNavGroups\(SEARCH_CORPUS\)/.test(searchSrc),
+  "the shell's SEARCH box searches the FILTERED corpus",
   "otherwise typing a hidden feature's name surfaces it by name",
 );
 

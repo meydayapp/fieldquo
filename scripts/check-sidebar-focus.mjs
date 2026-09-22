@@ -61,7 +61,11 @@ section("2. No OTHER component is declared in the render body and rendered as JS
 // capital-letter name inside the module and check none is both nested and used
 // as an element — the exact shape that costs focus, scroll position and any
 // state held below it.
-const nested = [...SRC.matchAll(/^\s{2,}function ([A-Z]\w*)\(/gm)].map((m) => m[1]);
+// `[ \t]`, not `\s`: with the m flag, `\s{2,}` also matches two blank lines,
+// which made a MODULE-LEVEL component preceded by an empty line read as
+// nested — a false failure that would have pushed the fix back into the
+// render body, i.e. the bug this check exists to prevent.
+const nested = [...SRC.matchAll(/^[ \t]{2,}function ([A-Z]\w*)\(/gm)].map((m) => m[1]);
 ok(nested.length === 0, "no capitalised function is declared inside a render body", nested);
 
 section("3. The filter itself is a plain controlled input, imported from outside");
