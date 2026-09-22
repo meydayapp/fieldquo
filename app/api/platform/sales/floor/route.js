@@ -200,7 +200,7 @@ async function floorResponse(request) {
       transferConfigured: Boolean(process.env.FIELDQUO_SALES_TRANSFER_TO),
       anyLive,
       webhookUrl: inboundWebhookUrl(origin),
-      misconfigured: numberConfig && !numberConfig.twilioError ? numberConfig.counts.misconfigured : null,
+      misconfigured: numberConfig && !numberConfig.twilioError ? (numberConfig.counts?.misconfigured ?? null) : null,
       configUnknown: !numberConfig || Boolean(numberConfig.twilioError),
     }),
     // The per-number table left this screen on 2026-09-17; the link is to
