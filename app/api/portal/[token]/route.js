@@ -163,6 +163,7 @@ export async function GET(request, { params }) {
           notes: true,
           subtotal: true,
           discount: true,
+          offlineDiscountAmount: true,
           tax: true,
           taxEnabled: true,
           // What the line said — read below for the kind and the sentence,
@@ -396,6 +397,9 @@ export async function GET(request, { params }) {
       notes: invoice.notes,
       subtotal: invoice.subtotal,
       discount: invoice.discount,
+      // The part of the discount that is the e-transfer / cheque discount,
+      // so the page can say so under the row (lib/payments/offlineDiscount.js).
+      offlineDiscountAmount: invoice.offlineDiscountAmount,
       tax: invoice.tax,
       // The allow-list is the right shape and it is also the thing that has to
       // be kept in step: the query above gained `jobPaymentStages` when the

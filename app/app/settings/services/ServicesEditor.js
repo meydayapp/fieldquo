@@ -35,8 +35,10 @@ import { PAINT_TAKEOFF_CATEGORIES } from "@/lib/pricing/sanitiseRates";
 import QuoteWording from "./QuoteWording";
 import PrepGuideEditor from "./PrepGuideEditor";
 import PrepGuideCompanyCard from "./PrepGuideCompanyCard";
+import TextBlockLibraryCard from "./TextBlockLibraryCard";
 import ServiceDocuments from "./ServiceDocuments";
 import { usePermissions } from "@/app/providers/PermissionProvider";
+import { hasLevel } from "@/lib/permissions/enforce";
 import BackToHome from "@/app/components/BackToHome";
 import { allPriceBookUnits } from "@/app/data/tradePriceBooks";
 import { categoryKeysForIndustries } from "@/app/data/industryCategories";
@@ -125,6 +127,7 @@ export default function ServicesEditor({ compact = false, focus = "services", on
   const [serviceDocuments, setServiceDocuments] = useState([]);
   const caller = usePermissions();
   const canEditDocuments = ["owner", "admin"].includes(caller?.role);
+  const canEditLibrary = caller ? hasLevel(caller, "quotes", "view_create_edit") : true;
   useEffect(() => {
     (async () => {
       try {
@@ -455,6 +458,12 @@ export default function ServicesEditor({ compact = false, focus = "services", on
             onDocumentsChange={setServiceDocuments}
             canEdit={canEditDocuments}
           />
+
+          {/* The prose a quote reuses, beside the wording it prints per
+              service below — one screen for "what your quotes say". Edit
+              rights follow the quote grid, not the role: the routes ask for
+              quotes:view_create_edit and refuse anyone under it. */}
+          <TextBlockLibraryCard canEdit={canEditLibrary} />
         </>
       )}
 

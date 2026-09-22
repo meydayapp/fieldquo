@@ -20,6 +20,8 @@ import { notifyEvent } from "@/lib/notifications/notify";
 import { recordActivity } from "@/lib/activity/log";
 import { buildSignatureRecord } from "@/lib/documents/signatureAudit";
 import { resolveClientLanguage } from "@/lib/i18n/clientLanguage";
+import { isTextLine } from "@/lib/quotes/textBlocks";
+import { offlineDiscountLine, offlineDiscountAmount } from "@/lib/payments/offlineDiscount";
 import { taxStatement } from "@/lib/tax/documentTax";
 import { documentTaxSentence } from "@/lib/tax/documentSentence";
 import { usableSections } from "@/lib/documents/templateKind";
@@ -171,7 +173,7 @@ const round = (n) => Math.round(n * 100) / 100;
  * Someone editing the page can change what they SEE; they cannot change what
  * they are charged.
  */
-function priceWithAddOns(quote, selectedIds) {
+function priceWithAddOns(quote, selectedIds, { payOffline = false } = {}) {
   const chosen = quote.addOns.filter((a) => selectedIds.includes(a.id));
 
   const extras = chosen.reduce((s, a) => s + num(a.amount), 0);
@@ -181,10 +183,26 @@ function priceWithAddOns(quote, selectedIds) {
 
   const rate = effectiveTaxRate(quote);
   const subtotal = round(num(quote.subtotal) + extras);
-  const tax = round(num(quote.tax) + taxableExtras * rate);
-  const total = round(subtotal - num(quote.discount) + tax);
 
-  return { chosen, extras: round(extras), subtotal, tax, total };
+  // ── The e-transfer / cheque discount, if this quote offered it and the
+  // client took it ─────────────────────────────────────────────────────────
+  //
+  // A flag from the browser, never an amount: the percentage is the one
+  // frozen on the quote row (Quote.offlineDiscountPct), and a quote that
+  // offered nothing prices the flag as nothing. Taken off the base BEFORE
+  // tax — the client saves 3% of what they would otherwise be charged, and
+  // tax on money they were never charged is the bug lib/quotes/totals.js
+  // exists to prevent — so the tax line drops by the rate on the discount.
+  const offlinePct = num(quote.offlineDiscountPct);
+  const offlineChosen = payOffline && offlinePct > 0;
+  const offlineAmount = offlineChosen
+    ? offlineDiscountAmount(subtotal - num(quote.discount), offlinePct)
+    : 0;
+
+  const tax = round(Math.max(0, num(quote.tax) + taxableExtras * rate - offlineAmount * rate));
+  const total = round(subtotal - num(quote.discount) - offlineAmount + tax);
+
+  return { chosen, extras: round(extras), subtotal, tax, total, offlineChosen, offlineAmount };
 }
 
 // What the client-facing page is told about financing, or null.
@@ -329,6 +347,14 @@ function present(quote) {
       areaLabel: a.areaLabel ?? null,
     })),
     client: { name: quote.client?.name || "" },
+    // Where the work is — the quote's own job address, or nothing. A
+    // homeowner's own address is not repeated here; the PDF's "Prepared for"
+    // panel already carries it, and this page names the client only.
+    siteAddress: quote.siteAddress || null,
+    // The e-transfer / cheque offer this quote made, or null. The amount is
+    // recomputed on the page as extras are ticked (from the pct, never from
+    // a figure the page could edit); the server reprices at approval.
+    offlineDiscount: offlineDiscountLine(quote, { language: docLanguage }),
     company: companyPublic,
     financing: financingBlock(quote),
     scopeGroups: quote.scopeGroups.map((g) => {
@@ -381,20 +407,15 @@ function present(quote) {
             // so the printed quote explained a line the web page did not.
             // A lawn program's included services travel here.
             detail: typeof li.detail === "string" ? li.detail : "",
-            // A prose block (the builder's text-block library) rather than
-            // a priced line: the proposal prints it under "Scope of work"
-            // in the estimator's own words. Nothing else on the item is
-            // forwarded — a block's price mode and work-order flag stay
-            // internal.
-            kind: li.kind === "text" ? "text" : "line",
-            text:
-              li.kind === "text"
-                ? typeof li.body === "string"
-                  ? li.body
-                  : typeof li.text === "string"
-                    ? li.text
-                    : ""
-                : "",
+            // A library text block (lib/quotes/textBlocks.js) rather than a
+            // priced line: `kind` and `priceMode` let the page leave the
+            // amount column off an unpriced one, and `text` — the block's
+            // body, which lives in `detail` — is what the proposal prints
+            // under "Scope of work". Nothing else on the item is forwarded:
+            // the work-order flag is a fact about the crew's document.
+            kind: isTextLine(li) ? "text" : "line",
+            ...(isTextLine(li) ? { priceMode: li.priceMode } : {}),
+            text: isTextLine(li) && typeof li.detail === "string" ? li.detail : "",
           }),
         ),
       };
@@ -577,7 +598,11 @@ export async function POST(request, { params }) {
   const validIds = quote.addOns.map((a) => a.id);
   const selectedIds = requestedIds.filter((id) => validIds.includes(id));
 
-  const priced = priceWithAddOns(quote, selectedIds);
+  // Whether they chose to pay by e-transfer or cheque for the discount. A
+  // boolean, priced server-side from the quote's own stored percentage.
+  const priced = priceWithAddOns(quote, selectedIds, {
+    payOffline: body?.payOffline === true,
+  });
 
   const accepted = decision === "accepted";
 
@@ -596,6 +621,7 @@ export async function POST(request, { params }) {
       subtotal: priced.subtotal,
       tax: priced.tax,
       discount: quote.discount,
+      offlineDiscount: priced.offlineAmount,
       total: priced.total,
       lineItems: quote.lineItems,
       scopeGroups: quote.scopeGroups,
@@ -641,6 +667,9 @@ export async function POST(request, { params }) {
             acceptedSubtotal: priced.subtotal,
             acceptedTax: priced.tax,
             acceptedTotal: priced.total,
+            // Recorded so the invoice raised from this quote carries the
+            // discount and its "How to pay" leaves the card link off.
+            offlineDiscountChosen: priced.offlineChosen,
           }
         : {}),
     },
@@ -973,6 +1002,9 @@ async function renderApprovedQuotePdf(quote, companyId, priced, language, signat
       subtotal: priced.subtotal,
       tax: priced.tax,
       total: priced.total,
+      // The signed PDF prints the discount the client took as a discount
+      // row, not as an offer — TotalsSection reads this flag.
+      offlineDiscountChosen: priced.offlineChosen,
       signature: signatureRecord || quote.signature || null,
     },
     company: fullCompany,

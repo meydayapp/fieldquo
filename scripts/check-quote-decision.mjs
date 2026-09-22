@@ -379,7 +379,11 @@ t("another company's quote is a 404", r.status, 404);
 // ═══════════════════════════════════════════════════════════════════════════
 console.log("\n6. The quote page: the buttons, the dialogs, the reopen");
 const PAGE = read("app/app/quotes/[id]/page.js");
-const bar = PAGE.slice(PAGE.indexOf('t("app.quoteDetail.getApproved")'), PAGE.indexOf("canDuplicateQuote &&"));
+// From Get approved to the bin: the Send… menu above Get approved carries
+// its own `canDuplicateQuote &&` rows now, so the slice ends on the delete
+// gate, which is the last pill in the strip.
+const barStart = PAGE.indexOf('t("app.quoteDetail.getApproved")');
+const bar = PAGE.slice(barStart, PAGE.indexOf("canDeleteQuote &&", barStart));
 t("a 'Client didn't go ahead' button exists on a sent quote", /quote\.status === "sent" && !quote\.historicalImportedAt && \(\s*<>[\s\S]*?setDecision\("declined"\)/.test(bar));
 t("a 'Client accepted' button exists beside it", /setDecision\("accepted"\)/.test(bar));
 t("both are gated on the route's rung (view_create_edit)", /const canDecide = hasLevel\(caller, "quotes", "view_create_edit"\)/.test(PAGE) && /canDecide && quote\.status === "sent"/.test(bar));

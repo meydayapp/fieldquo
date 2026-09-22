@@ -1338,6 +1338,25 @@ model Company {
   /// this says how. ACH account numbers live here too — printed on the PDF
   /// and the portal, never in an email body, never in a log line.
   paymentMethodDetails   Json?
+  /// "Offer 3% off for e-transfer or cheque" — CANADA ONLY, default off.
+  ///
+  /// A DISCOUNT for paying off-card, never a surcharge for paying by card.
+  /// Quebec's Consumer Protection Act bars a merchant from charging a
+  /// consumer more for using a card than the advertised price, so "card
+  /// payments carry a 3% fee" cannot be printed on a Quebec quote; "3% off
+  /// when you pay by e-transfer or cheque" is the same money framed the one
+  /// way that is legal in every province. The card fee itself stays where
+  /// lib/stripe/processingFee.js puts it — on the contractor, as a Stripe
+  /// application fee — and the homeowner never sees a fee line.
+  ///
+  /// Inert on a US company: lib/payments/offlineDiscount.js answers false
+  /// whatever this column says when the company's payment country is not
+  /// CA, the settings card does not render the switch, and PATCH
+  /// /api/settings/business-info writes false. Interac and cheques are the
+  /// two methods the wording names; a company with neither switched on is
+  /// offering a discount for a method the client cannot use, so the offer
+  /// also needs one of them in `paymentMethods`.
+  offlinePaymentDiscount Boolean          @default(false)
   bookingSlug            String?          @unique
   industries             String[]         @default([])
   onboardingStatus       OnboardingStatus @default(pending)
@@ -1545,6 +1564,8 @@ model Company {
   clients               Client[]
   quotes                Quote[]
   invoices              Invoice[]
+  quoteTextBlocks       QuoteTextBlock[]
+  quoteTemplates        QuoteTemplate[]
   // FieldQuo's paid data-migration service — the sanctioned write exception,
   // see the model's own header comment.
   migrationRequests     MigrationRequest[]
@@ -2834,6 +2855,40 @@ model Quote {
   // quote because a two-day repair and a three-week reno need different words.
   processNotes String?
 
+  /// WHERE the work is, as distinct from where the client lives.
+  ///
+  /// The quote used to pass the client's address through to the document,
+  /// the satellite measure and the job. Right for a homeowner, whose jobs are
+  /// at their own address; wrong for a general contractor or a property
+  /// manager (Client.type = company), whose address is an office and whose
+  /// every job is somewhere else. So this is prefilled from the client for an
+  /// individual, blank and required for a company client, editable on both,
+  /// printed as "Job address" beside the client block, handed to
+  /// Job.siteAddress on acceptance (lib/jobs/createJobFromQuote.js) where it
+  /// is geocoded — the quote itself is never geocoded, so this column costs
+  /// no Google call. Null on every quote written before it existed: absence
+  /// means "not asked", and every reader falls back to the client's address
+  /// only where the client is an individual.
+  siteAddress String?
+
+  /// Archived: off the working list, never deleted. A status would have to
+  /// be an enum value every switch in the product learns about; a timestamp
+  /// is read by the two things that care — the list, which hides these
+  /// unless asked, and the detail page, which says so and offers Unarchive.
+  archivedAt DateTime?
+
+  /// The e-transfer / cheque discount THIS quote offered, as a percentage,
+  /// or null when it offered none. Frozen onto the quote by the save routes
+  /// from the company's switch (Company.offlinePaymentDiscount) while the
+  /// quote is still a draft, and never re-read from the company after: a
+  /// sent quote keeps offering what it offered (non-negotiable #6). The
+  /// browser never sends it — POST/PATCH /api/quotes derive it server-side.
+  offlineDiscountPct Decimal? @db.Decimal(5, 2)
+  /// Whether the client took that discount when they approved. Written only
+  /// by the public approval route, which reprices from its own rows; the
+  /// invoice raised from the quote reads it (lib/invoices/createInvoiceFromQuote.js).
+  offlineDiscountChosen Boolean @default(false)
+
   // ── Per-quote control of the two optional email sections ────────────────
   //
   // THREE states, and the third is the point. NULL means "follow the company
@@ -3394,6 +3449,14 @@ model Invoice {
   lineItems Json?
   subtotal  Decimal @default(0) @db.Decimal(12, 2)
   discount  Decimal @default(0) @db.Decimal(12, 2)
+  /// The part of `discount` that is the e-transfer / cheque discount the
+  /// client chose at approval (Quote.offlineDiscountChosen), or null. Folded
+  /// INTO `discount` rather than kept as a second subtraction so every
+  /// existing reader of subtotal − discount + tax stays right; this column
+  /// only lets the document say "includes the 3% e-transfer / cheque
+  /// discount" under the discount row and lets "How to pay" leave the card
+  /// link off an invoice priced for a method that is not a card.
+  offlineDiscountAmount Decimal? @db.Decimal(12, 2)
   tax       Decimal @default(0) @db.Decimal(12, 2)
   total     Decimal @default(0) @db.Decimal(12, 2)
 
@@ -4155,6 +4218,115 @@ model QuoteScopeGroup {
   intakeValues Json?
   subtotal   Decimal         @default(0) @db.Decimal(12, 2)
   sortOrder  Int             @default(0)
+}
+
+/// A named block of prose a company reuses across quotes — the prep
+/// paragraph, the exclusions, the deposit terms, "painter for a day" — with
+/// an optional price and a switch that keeps it off the crew's work order.
+///
+/// ── Why a table and not more Company.default* columns ───────────────────
+///
+/// The words a painter repeats lived in five places (the service wording,
+/// the trade's line-item chips, the add-on suggestions, the notes box, the
+/// process notes), none of them named, searchable, priced or reusable per
+/// quote. One row per block, per company, is the shape the builder's library
+/// needs: searchable by name, taggable by trade, orderable, and copied onto
+/// the quote as an ordinary line item — the document renderers do not know
+/// this table exists (lib/quotes/textBlocks.js lineFromTextBlock).
+///
+/// ── Language ──────────────────────────────────────────────────────────────
+///
+/// `language` is what `name` and `body` are written in. `translations` is
+/// { fr: { name, body }, es: … } — a stored, reviewed rendering per
+/// language, written ONCE: the moment a quote in another language adds this
+/// block and no rendering exists yet, the builder drafts one through the
+/// metered AI provider, shows it to the estimator to edit, and saves what
+/// they accepted here. Nothing is translated at send time. A quote keeps the
+/// text it was given (non-negotiable #6); this row only keeps the estimator
+/// from paying for the same sentence twice.
+///
+/// `body` is the constrained rich text lib/quotes/richText.js parses —
+/// paragraphs, **bold**, _italic_, "- " and "1. " lists, [links](https://…).
+/// No HTML is ever stored or rendered from it; a pasted <script> is text.
+model QuoteTextBlock {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  name String
+  body String @default("")
+
+  /// "none" | "hourly" | "quantity" | "custom" — how the block is priced
+  /// when it lands on a quote. See lib/quotes/textBlocks.js PRICE_MODES.
+  priceMode String   @default("none")
+  /// hourly: the rate per hour; quantity: the rate per `unit`; custom: the
+  /// amount. Null means "ask when adding" — the builder's dialog prefills
+  /// from this and the estimator can change it per quote.
+  price     Decimal? @db.Decimal(12, 2)
+  /// quantity mode only: sqft, lnft, each…
+  unit      String?
+
+  /// True keeps the block off the crew's work order — deposit terms and
+  /// exclusions are for the homeowner, not the ladder. Copied onto the line
+  /// item as `hiddenOnWorkOrder`, which the work-order document reads.
+  hiddenOnWorkOrder Boolean @default(false)
+
+  language     String @default("en")
+  translations Json?
+
+  /// Trade / estimate-type tags the library filters by: "painting",
+  /// "interior", "exterior"… Free strings; empty means "every quote".
+  tags String[] @default([])
+
+  /// Which shipped default this row came from (lib/quotes/textBlockDefaults.js),
+  /// so seeding is idempotent and a company that deletes a default is not
+  /// handed it back next time the library opens. Null on a block the company
+  /// wrote itself.
+  seedKey String?
+
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId, sortOrder])
+}
+
+/// A reusable starting point for a new quote: the scope groups (with their
+/// stored line items, takeoff and intake answers), the notes and the process
+/// notes of the quote it was saved from, under a name.
+///
+/// A SNAPSHOT, deliberately. The groups are copied exactly as
+/// QuoteScopeGroup stored them — prices included — and open in the builder
+/// as persisted groups, so a template written in March is not silently
+/// repriced by the rate card of the day it is applied; the estimator edits
+/// the numbers as numbers, the way a reopened quote works. No client, no
+/// address, no dates, no share token: those belong to a quote, not a shape.
+model QuoteTemplate {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  name     String
+  /// The language the groups' text is written in — the quote a template is
+  /// applied to opens in it (non-negotiable #6: the language is chosen at
+  /// creation, and applying a French template IS choosing French).
+  language String @default("en")
+
+  /// [{ categoryId, label, lineItems, takeoff, intakeValues, subtotal }] in
+  /// order — the same shape lib/quotes/duplicateQuote.js copies.
+  scopeGroups  Json
+  notes        String?
+  processNotes String?
+
+  /// Traceability only; the quote may be deleted after and the template
+  /// stands on its own copy.
+  sourceQuoteId String?
+  createdById   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId, name])
 }
 
 /// What one quote was ESTIMATED to cost, frozen at the moment it was quoted:

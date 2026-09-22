@@ -34,6 +34,8 @@ import {
 } from "../costingWrite";
 import { syncTakeoffAddOns } from "@/lib/quotes/takeoffAddOns";
 import { withCapturedMeasureImages } from "@/lib/measure/measureImages";
+import { normaliseSiteAddress } from "@/lib/geo/geocodeJob";
+import { offlineDiscountPctFor } from "@/lib/payments/offlineDiscount";
 import { canUseKitchenDesigner } from "@/lib/kitchen/access";
 import { linkInstantVisits } from "@/lib/quotes/linkInstantVisits";
 import {
@@ -225,6 +227,8 @@ export async function PATCH(request, { params }) {
   const existing = await db.quote.findFirst({
     where: { id, companyId: member.companyId },
     include: {
+      // The client's kind decides whether a blank job address is allowed.
+      client: { select: { type: true } },
       // Whether a cost row already exists decides what an EMPTY costing block
       // means, and the stored groups are what a costing re-price runs over
       // when the request is only changing a number on the totals bar.
@@ -271,6 +275,10 @@ export async function PATCH(request, { params }) {
     reviewNotes,
     processNotes,
     validUntil,
+    // Where the work is — editable on every save; required for a company
+    // client (checked below against the client's kind, the same gate POST
+    // runs). See Quote.siteAddress.
+    siteAddress,
     scopeGroups: rawScopeGroups,
     clientPhotos,
     // The internal cost estimate. See the note below on why `undefined` and an
@@ -322,6 +330,32 @@ export async function PATCH(request, { params }) {
       assignedToId,
     });
     if (notOurs) return notOurs;
+  }
+
+  // A company client's quote must name the site — see POST /api/quotes. Only
+  // checked when the address is being written: a status-only PATCH on an
+  // old quote with no address must still go through.
+  const siteAddressValue = siteAddress === undefined ? undefined : normaliseSiteAddress(siteAddress);
+  if (siteAddressValue === null && existing.client?.type === "company") {
+    return NextResponse.json(
+      { error: "A job address is required for a company client — their own address is an office, not the site." },
+      { status: 400 },
+    );
+  }
+
+  // ── The e-transfer / cheque offer, re-frozen while still a draft ────────
+  //
+  // A builder save (one that carries scopeGroups) on a DRAFT re-reads the
+  // company's switch, so turning the offer on then finishing a draft puts
+  // it on that draft. Once sent, the quote keeps what it offered: the
+  // client is deciding on a document, not on a setting.
+  let offlineDiscountPct;
+  if (scopeGroups && existing.status === "draft") {
+    const companyOffer = await db.company.findUnique({
+      where: { id: member.companyId },
+      select: { country: true, address: true, province: true, paymentMethods: true, offlinePaymentDiscount: true },
+    });
+    offlineDiscountPct = offlineDiscountPctFor(companyOffer);
   }
 
   // Line-item edits are only valid while the quote is open. Editing scope groups
@@ -411,6 +445,8 @@ export async function PATCH(request, { params }) {
     ...(notes !== undefined && { notes }),
     ...(reviewNotes !== undefined && { reviewNotes }),
     ...(processNotes !== undefined && { processNotes }),
+    ...(siteAddressValue !== undefined && { siteAddress: siteAddressValue }),
+    ...(offlineDiscountPct !== undefined && { offlineDiscountPct }),
     ...(validUntil !== undefined && {
       validUntil: validUntil ? new Date(validUntil) : null,
     }),

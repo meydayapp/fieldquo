@@ -376,6 +376,10 @@ export const ROUTES_SETTINGS_A = [
   { path: "/api/work-areas", method: "GET", reply: () => WORK_AREAS },
 
   // Services & pricing
+  // The preparation-guide card's two reads (PrepGuideCompanyCard): the lead
+  // time, and the documents that ride every guide — none on the fixture.
+  { path: "/api/settings/prep-guide", method: "GET", reply: () => ({ leadDays: 2, maxLeadDays: 30 }) },
+  { path: "/api/settings/service-documents", method: "GET", reply: () => [] },
   { path: "/api/products", method: "GET", reply: ({ search }) => {
     const q = (search.get("q") || "").trim().toLowerCase();
     return q ? PRODUCTS.filter((p) => p.name.toLowerCase().includes(q)) : PRODUCTS;

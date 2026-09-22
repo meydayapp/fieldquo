@@ -304,6 +304,20 @@ export const SCREENS = [
   // The quote page with its Presentation tab open — per-quote on/off, the
   // documents to include, the crew size behind the day plan, the waiver.
   { slug: "quote-detail-presentation", href: "/app/quotes", page: "app/app/quotes/[id]/page.js", params: { id: "q_1044" }, scene: "quote-presentation", chapter: "help", height: 1600 },
+  // ── The quote's Send… menu and the line-item library ────────────────────
+  //
+  // Appended, so nothing above renumbers. The sent quote Q-1044 with its
+  // split button open; the hand-built draft's builder with the library
+  // dialog open on its list, then open on the popcorn block's editor (the
+  // two frames mockup b5 and b8 proposed). Q-1044 also carries a text
+  // block, a job address and the e-transfer / cheque offer, so the plain
+  // quote-detail-sent frame above photographs those too.
+  { slug: "quote-send-menu", href: "/app/quotes", page: "app/app/quotes/[id]/page.js", params: { id: "q_1044" }, scene: "send-menu-open", height: 900, chapter: "help" },
+  { slug: "quote-line-item-library", href: "/app/quotes", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1045" }, scene: "quote-library-open", height: 900, chapter: "help" },
+  { slug: "quote-text-block-editor", href: "/app/quotes", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1045" }, scene: "quote-library-popcorn", height: 1000, chapter: "help" },
+  // Settings › Services with the library card unfolded — where the blocks
+  // and the saved templates are edited without a quote open.
+  { slug: "settings-services-library", href: "/app/settings/services", page: "app/app/settings/services/page.js", settings: true, scene: "settings-library-open", height: 1100, chapter: "help" },
   // The change-order addendum a homeowner signs (app/co/[token]).
   { slug: "client-change-order", href: "/co/co_9c2e7b1a4f", page: "app/co/[token]/ChangeOrderApproval.js", props: { token: "co_9c2e7b1a4f" }, mode: "public", height: 1500, chapter: "help" },
   // The same job scrolled to its plan: the ordered steps with their

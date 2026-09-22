@@ -32,6 +32,8 @@ import { seedCatalogueAddOns } from "@/lib/quotes/offeredAddOns";
 import { withCapturedMeasureImages } from "@/lib/measure/measureImages";
 import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
 import { requireCreatedVia } from "@/lib/quotes/createdVia";
+import { normaliseSiteAddress } from "@/lib/geo/geocodeJob";
+import { offlineDiscountPctFor } from "@/lib/payments/offlineDiscount";
 import { attachDefaultWaivers } from "@/lib/waivers/service";
 
 export async function GET(request) {
@@ -54,12 +56,16 @@ export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const status = searchParams.get("status");
   const clientId = searchParams.get("clientId");
+  // Archived quotes are off the working list unless the list asks for them
+  // (?archived=1 shows ONLY the archive). Not a status — see Quote.archivedAt.
+  const archived = searchParams.get("archived") === "1";
 
   const quotes = await db.quote.findMany({
     where: {
       companyId: member.companyId,
       ...(status && { status }),
       ...(clientId && { clientId }),
+      archivedAt: archived ? { not: null } : null,
     },
     include: {
       client: { select: { id: true, name: true, email: true } },
@@ -137,6 +143,9 @@ export async function POST(request) {
     processNotes,
     validUntil,
     language,
+    // Where the work is. Prefilled from a homeowner's address by the builder,
+    // typed for a company client, and required for one — see Quote.siteAddress.
+    siteAddress,
     // Photos of the job. Previously only ever set by lead intake, so a quote
     // typed up by staff had no way to carry the pictures the estimator took.
     clientPhotos,
@@ -275,10 +284,35 @@ export async function POST(request) {
         province: true,
         vatRegistered: true,
         usTaxOverrides: true,
+        // For the e-transfer / cheque offer frozen onto the draft below.
+        address: true,
+        paymentMethods: true,
+        offlinePaymentDiscount: true,
       },
     }),
   ]);
   const quoteNumber = getNextQuoteNumber(lastQuote?.quoteNumber);
+
+  // ── The job address, checked against the client's kind ──────────────────
+  //
+  // A company client (a GC, a property manager) has an office address and
+  // work somewhere else every time, so a quote for one with no job address
+  // is a quote for nowhere; the builder refuses it too, and this is the
+  // gate behind that control. A homeowner's quote may leave it blank, and
+  // every reader then falls back to the client's own address.
+  const siteAddressValue = siteAddress === undefined ? null : normaliseSiteAddress(siteAddress);
+  if (clientId) {
+    const clientKind = await db.client.findFirst({
+      where: { id: clientId, companyId: member.companyId },
+      select: { type: true },
+    });
+    if (clientKind?.type === "company" && !siteAddressValue) {
+      return NextResponse.json(
+        { error: "A job address is required for a company client — their own address is an office, not the site." },
+        { status: 400 },
+      );
+    }
+  }
 
   // ── What the tax line says, recorded at creation ─────────────────────────
   //
@@ -389,6 +423,11 @@ export async function POST(request) {
           : company?.defaultProcessNotes || null,
       validUntil: validUntil ? new Date(validUntil) : null,
       language: language || "en",
+      siteAddress: siteAddressValue,
+      // The e-transfer / cheque offer, decided by the server from the
+      // company's switch and frozen here — the browser never sends it, and a
+      // sent quote never re-reads it (lib/payments/offlineDiscount.js).
+      offlineDiscountPct: offlineDiscountPctFor(company),
       // Same boundary the public self-quote intake uses — the browser sends
       // URLs, and these end up on a document a homeowner opens, so nothing
       // reaches the column that isn't an https media entry we recognise.

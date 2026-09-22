@@ -25,6 +25,11 @@ export default function HowToPayBlock({ block, theme, showOnline = true, classNa
       >
         {block.title}
       </h3>
+      {block.note && (
+        <p className="text-sm leading-snug mb-3" style={{ color: theme.inkMuted }}>
+          {block.note}
+        </p>
+      )}
       {showOnline && block.online && (
         <div
           className="rounded-lg px-3 py-2.5 border mb-3 text-sm font-semibold"

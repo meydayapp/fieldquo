@@ -23,6 +23,8 @@ import { publicIntakeFields } from "@/app/data/quoteIntakeFields";
 import { budgetBands } from "@/lib/estimate/budgetBands";
 import { sanitiseFunnelSteps } from "@/app/data/funnelBlocks";
 import { parsePaymentSchedule } from "@/lib/documents/paymentSchedule";
+import { seedRowsFor } from "@/lib/quotes/textBlockDefaults";
+import { presentTextBlock } from "@/lib/quotes/textBlocks";
 import { GUTTER_MEASUREMENT, ROOF_MEASUREMENT } from "./takeoffs.js";
 import { JOB_PHOTOS as JOB_PHOTO_URLS } from "./public.js";
 
@@ -629,10 +631,20 @@ const QUOTE_1044_DETAIL = {
       { description: "New doors and drawer fronts — painted maple, shaker", detail: "22 doors, 8 drawer fronts", quantity: 30, unit: "ea", rate: 210, amount: 6300 },
       { description: "Box veneer and end panels", detail: "Matching painted finish", quantity: 1, unit: "lot", rate: 1900, amount: 1900 },
       { description: "Hinges, pulls and installation", detail: "Soft-close, 1 day", quantity: 1, unit: "lot", rate: 1600, amount: 1600 },
+      // A library text block on the quote: unpriced prose, kept off the
+      // crew's work order (lib/quotes/textBlocks.js lineFromTextBlock).
+      { description: "Exclusions", detail: "This quote does not include:\n- Plumbing or electrical changes\n- Countertop removal or reinstallation\n\nAnything found once the work starts is **priced separately** and agreed before it is done.", quantity: 1, unit: "flat", rate: 0, amount: 0, kind: "text", priceMode: "none", hiddenOnWorkOrder: true, textBlockId: "tb_exclusions" },
     ],
     takeoff: { doorCount: 22, drawerCount: 8 },
     intakeValues: { doorCount: 22, drawerCount: 8 },
   }],
+  // Where the work is — the Lavoies' cottage, not the address on the client
+  // record (the Lavoies' cottage) — and the e-transfer / cheque offer the quote carries (the fixture
+  // company is Canadian; lib/payments/offlineDiscount.js).
+  siteAddress: "88 chemin du Lac, Sainte-Adèle, QC J8B 1A2",
+  offlineDiscountPct: 3,
+  offlineDiscountChosen: false,
+  archivedAt: null,
   addOns: [
     { id: "ao_1044a", description: "Soft-close upgrade on all drawers", detail: "Blum undermount runners", amount: 380, taxable: true, sortOrder: 0, source: "estimator", selected: false, selectedAt: null },
     { id: "ao_1044b", description: "Under-cabinet LED lighting", detail: "Warm white strip, hard-wired", amount: 540, taxable: true, sortOrder: 1, source: "estimator", selected: false, selectedAt: null },
@@ -1256,6 +1268,22 @@ const CREW_JOB = {
 };
 const crewOr = (mine, theirs) => (ctx) => (isCrew(ctx) ? mine(ctx) : theirs(ctx));
 
+const TEXT_BLOCKS = seedRowsFor(COMPANY.id, "en").map((r, i) =>
+  presentTextBlock({ ...r, id: i === 3 ? "tb_exclusions" : `tb_${r.seedKey}`, updatedAt: iso(day(-3)) }),
+);
+const QUOTE_TEMPLATES = [
+  {
+    id: "qt_1",
+    name: "Kitchen refacing — painted maple",
+    language: "en",
+    groups: [{ id: null, categoryId: CAT_REFACING.id, category: { id: CAT_REFACING.id, key: CAT_REFACING.key, label: CAT_REFACING.label }, label: "Kitchen refacing", lineItems: QUOTE_1044_DETAIL.scopeGroups[0].lineItems, takeoff: null, intakeValues: { doorCount: 22, drawerCount: 8 }, subtotal: 9800 }],
+    notes: "",
+    processNotes: COMPANY.defaultProcessNotes,
+    createdAt: iso(day(-10)),
+    sourceQuoteId: Q_1042.id,
+  },
+];
+
 export const ROUTES_HELP = [
   // ── Settings › Presentation and the proposal's staff side ─────────────
   { path: "/api/settings/presentation", method: "GET", reply: () => PRESENTATION_SETTINGS },
@@ -1293,6 +1321,13 @@ export const ROUTES_HELP = [
   { path: `/api/quotes/${Q_1044.id}/costing`, method: "GET", reply: forbidden },
   { path: `/api/quotes/${Q_1044.id}/email-sections`, method: "GET", reply: () => ({ ...EMAIL_SECTIONS, quoteId: Q_1044.id }) },
   { path: `/api/quotes/${Q_1044.id}/imports`, method: "GET", reply: () => ({ asSource: [], asImporter: [] }) },
+  { path: `/api/quotes/${Q_1044.id}/share`, method: "GET", reply: () => ({ url: `https://app.fieldquo.com/q/${QUOTE_TOKEN}`, token: QUOTE_TOKEN }) },
+  // The text-block library the builder's "+ Add area or line item" opens on
+  // and Settings › Services lists: the nine shipped painting defaults, as
+  // the route would seed them for an English company
+  // (lib/quotes/textBlockSeed.js), plus one template saved from Q-1042.
+  { path: "/api/quote-text-blocks", method: "GET", reply: () => TEXT_BLOCKS },
+  { path: "/api/quote-templates", method: "GET", reply: () => QUOTE_TEMPLATES },
   ...EDIT_ROUTES(QUOTE_1046_DETAIL),
   ...EDIT_ROUTES(QUOTE_1045_DETAIL),
   { path: `/api/jobs/${JOB.id}`, method: "GET", reply: crewOr(() => CREW_JOB, () => JOB_DETAIL) },

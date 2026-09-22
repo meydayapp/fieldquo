@@ -497,7 +497,9 @@ section("12. Settings card and help centre");
   ok("the card lists methodsForCountry(paymentCountry(company)) — never a fixed three", /methodsForCountry\(country\)/.test(card) && /paymentCountry\(company/.test(card) && !/\["cash",\s*"e_transfer",\s*"cheque"\]/.test(card));
   ok("each method is a switch, and its fields appear when on", /role="switch"/.test(card) && /on && spec\.fields\.length > 0/.test(card));
   ok("the card refuses before the route does, with the same sentence", /validateAllDetails\(state\.details/.test(card) && /disabled=\{saving \|\| !company \|\| !dirty \|\| Boolean\(problem\)\}/.test(card));
-  ok("the card sends both columns in one save", /paymentMethods: state\.on, paymentMethodDetails: state\.details/.test(card));
+  // The body spans lines since the e-transfer / cheque discount switch joined
+  // the same save (lib/payments/offlineDiscount.js) — one PATCH, three columns.
+  ok("the card sends both columns in one save", /paymentMethods: state\.on,\s*paymentMethodDetails: state\.details/.test(card));
   ok("the old options module is gone", (() => { try { readFileSync(join(ROOT, "lib/payments/paymentMethodOptions.js")); return false; } catch { return true; } })());
   for (const lang of ["en", "fr", "es"]) {
     const mod = read(`content/help/${lang}/invoices-and-payments-1.js`);

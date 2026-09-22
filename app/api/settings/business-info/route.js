@@ -59,6 +59,9 @@ export async function GET(request) {
       // them through lib/payments/offlineMethods.js.
       paymentMethods: true,
       paymentMethodDetails: true,
+      // "Offer 3% off for e-transfer or cheque" — Canada only; see the
+      // column and lib/payments/offlineDiscount.js.
+      offlinePaymentDiscount: true,
       shareAnonymizedPricing: true,
       bookingSlug: true,
       // New — read-only identity used for the {slug}.fieldquo.com preview
@@ -231,6 +234,7 @@ export async function PATCH(request) {
     taxRate,
     paymentMethods,
     paymentMethodDetails,
+    offlinePaymentDiscount,
     shareAnonymizedPricing,
     discoverable,
     taxIdName,
@@ -335,6 +339,24 @@ export async function PATCH(request) {
     );
     if (r.error) return NextResponse.json({ error: r.error }, { status: 400 });
     cleanPaymentDetails = r.details;
+  }
+
+  // ── The e-transfer / cheque discount switch ─────────────────────────────
+  //
+  // Canada only, judged against the country the company WILL have after this
+  // PATCH — the same rule the methods above use. A US company that sends
+  // `true` (a stale tab, a scripted client) stores false: the offer names
+  // Interac and cheques, neither of which a US client can use, and the
+  // wording is a Quebec-safe framing of a card fee the US does not need.
+  // Never "as sent" — the value written is the one the documents will act on.
+  let cleanOfflineDiscount;
+  if (offlinePaymentDiscount !== undefined) {
+    const stored = await db.company.findUnique({
+      where: { id: member.companyId },
+      select: { country: true, address: true, province: true },
+    });
+    const forCountry = paymentCountry({ ...stored, ...(country !== undefined ? { country } : {}) });
+    cleanOfflineDiscount = forCountry === "CA" && offlinePaymentDiscount === true;
   }
 
   // The service area. The radius is cleaned by the same helper the public
@@ -481,6 +503,7 @@ export async function PATCH(request) {
       ...(taxRate !== undefined && { taxRate }),
       ...(cleanPaymentMethods !== undefined && { paymentMethods: cleanPaymentMethods }),
       ...(cleanPaymentDetails !== undefined && { paymentMethodDetails: cleanPaymentDetails }),
+      ...(cleanOfflineDiscount !== undefined && { offlinePaymentDiscount: cleanOfflineDiscount }),
       ...(shareAnonymizedPricing !== undefined && { shareAnonymizedPricing }),
       ...(discoverable !== undefined && { discoverable }),
       ...(taxIdName !== undefined && { taxIdName }),
