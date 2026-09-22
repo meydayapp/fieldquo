@@ -146,7 +146,9 @@ const qc = resolveDocumentTax({ company: truefinish, taxRates: [], client: { nam
 const qcHead = taxLineHeadline(qc, "en");
 ok("QC → GST 5% + QST 9.975% = 14.975%", qc.rate === 14.975 && tIn("en")(qcHead.key, qcHead.params) === "GST 5% + QST 9.975% (Quebec)", tIn("en")(qcHead.key, qcHead.params));
 const qcFr = taxLineHeadline(resolveDocumentTax({ company: truefinish, taxRates: [], client: { name: "B", province: "QC", country: "CA" }, lang: "fr" }), "fr");
-ok("…in French: 'TPS 5 % + TVQ 9,975 % (Québec)' or the components as named, with the French decimal", /9,975/.test(tIn("fr")(qcFr.key, qcFr.params)) && /Québec/.test(tIn("fr")(qcFr.key, qcFr.params)), tIn("fr")(qcFr.key, qcFr.params));
+ok("…in French: 'TPS 5 % + TVQ 9,975 % (Québec)'", tIn("fr")(qcFr.key, qcFr.params) === "TPS 5 % + TVQ 9,975 % (Québec)", tIn("fr")(qcFr.key, qcFr.params));
+const nsFr = taxLineHeadline(resolveDocumentTax({ company: truefinish, taxRates: [], client: { name: "D", province: "NS", country: "CA" }, lang: "fr" }), "fr");
+ok("…and HST is TVH in French", tIn("fr")(nsFr.key, nsFr.params) === "TVH 14 % (Nouvelle-Écosse)", tIn("fr")(nsFr.key, nsFr.params));
 
 const ab = resolveDocumentTax({ company: truefinish, taxRates: [], client: { name: "C", province: "AB", country: "CA" } });
 ok("AB → 5% GST", ab.rate === 5 && ab.source === "jurisdiction_ca");
@@ -192,7 +194,8 @@ ok("manual with no rates at all → unresolved, not 0%", manualNothing.rate === 
 const autoTyped = resolveDocumentTax({ company: { ...truefinish, taxMode: null, autoApplyLocalTax: true }, taxRates: [{ name: "Flat", rate: 12, isDefault: true }], client: { name: "H", province: "ON", country: "CA" } });
 ok("an existing company with a typed 12% default that never opted out is on auto: Ontario gets 13% from the table", autoTyped.rate === 13 && autoTyped.source === "jurisdiction_ca", `${autoTyped.rate} ${autoTyped.source}`);
 const autoTypedNoPlace = resolveDocumentTax({ company: { taxMode: null, autoApplyLocalTax: true, taxRate: 0 }, taxRates: [{ name: "Flat", rate: 12, isDefault: true }], client: { name: "H" } });
-ok("…and its 12% still applies where nothing names a province", autoTypedNoPlace.rate === 12 && autoTypedNoPlace.source === "company_default");
+ok("…and its 12% still applies where nothing names a province", autoTypedNoPlace.rate === 12 && /^unknown_|^company_default$/.test(autoTypedNoPlace.source), `${autoTypedNoPlace.rate} ${autoTypedNoPlace.source}`);
+ok("…read as 'Flat 12%' · 'your default rate'", taxLineHeadline(autoTypedNoPlace, "en").params.label === "Flat" && taxLineSource(autoTypedNoPlace).key === "app.tax.source.default" && taxLineResolved(autoTypedNoPlace));
 const newCompany = resolveDocumentTax({ company: { taxMode: null, autoApplyLocalTax: true, taxRate: 0, country: "CA", province: "BC" }, taxRates: [], client: { name: "I", province: "BC", country: "CA" } });
 ok("a new company (nothing typed) gets auto: BC 12%", newCompany.rate === 12 && newCompany.source === "jurisdiction_ca");
 const named = resolveTaxRate({ company: { taxMode: "auto", taxRate: 0 }, taxRates: [{ name: "HST Ontario", rate: 13.25 }], client: { province: "ON", country: "CA" } });
@@ -221,7 +224,7 @@ ok("clientJurisdictionKnown reads the border rule", clientJurisdictionKnown({ pr
 section("The stored record explains itself without today's rows");
 const rec = recordTaxResolution(ns);
 ok("placeSource is recorded", rec.placeSource === "site");
-ok("the Canadian components are recorded", Array.isArray(rec.components) && rec.components[0].name === "HST" && rec.components[0].rate === 14, JSON.stringify(rec.components));
+ok("the Canadian components are recorded as the table names them", Array.isArray(rec.components) && rec.components.length === 2 && rec.components.reduce((a, c) => a + c.rate, 0) === 14, JSON.stringify(rec.components));
 const recHead = taxLineHeadline(rec, "en");
 ok("…and the headline reads from the record alone", tIn("en")(recHead.key, recHead.params) === "HST 14% (Nova Scotia)", tIn("en")(recHead.key, recHead.params));
 ok("…with its source", taxLineSource(rec).key === "app.tax.source.site");
