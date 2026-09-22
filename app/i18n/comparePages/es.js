@@ -274,7 +274,7 @@ const es = {
   "addOns.oursTitle": "En FieldQuo, en todos los planes:",
   "addOns.limits": "Dónde termina:",
   "addOns.total": "{total} {currency} al mes, encima del precio del plan.",
-  "addOns.totalBody": "Eso es lo que cuestan esas tres juntas en el punto de sus propios selectores donde las leímos. En FieldQuo esos mismos tres trabajos van en todos los planes, a cualquier tamaño, desde el más barato de esta página.",
+  "addOns.totalBody": "Eso es lo que cuestan esas {count} juntas en el punto de sus propios selectores donde las leímos. En FieldQuo esos mismos {count} trabajos van en todos los planes, a cualquier tamaño, desde el más barato de esta página.",
   "addOns.receptionist": "Su complemento de recepcionista es un piso mensual: se cobra en un mes en el que el teléfono nunca suena. El nuestro no tiene mínimo mensual. La función va en todos los planes y el tiempo de conversación es crédito prepagado que compras cuando lo necesitas, así que un febrero tranquilo no cuesta nada por ella.",
 
   // ── /pricing's own line under the add-on stack ──────────────────────────

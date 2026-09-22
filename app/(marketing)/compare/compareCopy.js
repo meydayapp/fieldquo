@@ -124,9 +124,10 @@ const COUNTERPOINTS = {
  *   the price for software he does not use churns, and the refund is worse
  *   than the sale was good.
  *
- * A sixth page for a company nobody has read a pricing page for would be the
+ * An eighth page for a company nobody has read a pricing page for would be the
  * thing to refuse, and there is no way to add one without adding the research
- * first.
+ * first. Roofr and PaintScout were read on 2026-09-21 before their entries
+ * below were written, and the reading is what the entries are built from.
  */
 export const COMPARE_PAGES = [
   {
@@ -253,6 +254,76 @@ export const COMPARE_PAGES = [
       "job_costing",
       "team_access",
       "white_label",
+      "languages",
+    ],
+  },
+  // ══ The two the owner asked for on 2026-09-21 ═════════════════════════
+  //
+  // Roofr, after he read their pricing page: "that is wild — add a FieldQuo
+  // vs Roofr comparison similar to what we have with Jobber." The shape IS
+  // Jobber's: four things we put in every plan, sold by them as monthly
+  // add-ons on top of a plan. What Roofr adds that Jobber does not is a free
+  // tier, unlimited users on every plan, and a charge per roof measured —
+  // the first two are points for them and the page says so.
+  //
+  // PaintScout, because painters are who FieldQuo was first built for and
+  // PaintScout is the painting-only product they compare us with. One plan,
+  // one add-on that carries the whole job half, and every extra person paid.
+  {
+    slug: "fieldquo-vs-roofr",
+    competitorId: "roofr",
+    title: "FieldQuo vs Roofr — texting, instant estimates, a website and a receptionist, in every plan from {ourEntry}",
+    description:
+      "Roofr sells texting, its Instant Estimator, a website and an AI receptionist as monthly add-ons, and charges per roof measured. FieldQuo puts all four in every plan, from {ourEntry}.",
+    lede:
+      "Roofr sells SMS texting, its Instant Estimator, a website and an AI receptionist as separate monthly add-ons — {addOnTotal} a month on top of the plan — and every roof you measure is charged per report on top of that. FieldQuo puts all four in every plan, at every price, from {ourEntry}, and measures a roof from its address without a per-roof fee.",
+    concessionLede:
+      "Start with what we do not have. Roofr's cheapest plan is free, with " +
+      "no time limit, and every Roofr plan includes unlimited users; their " +
+      "measurement report lists the ridges, hips and valleys as measured, " +
+      "and ours derives that split by convention from the roof's shape. " +
+      "FieldQuo is also a web application with no phone app, nothing that " +
+      "works off the network, and no salesperson to walk you through it.",
+    features: [
+      "aerial_measure",
+      "instant_quotes",
+      "self_quote",
+      "website_builder",
+      "voice_receptionist",
+      "appointment_reminders",
+      "ai_quote_review",
+      "job_costing",
+      "white_label",
+      "own_email_domain",
+      "languages",
+    ],
+  },
+  {
+    slug: "fieldquo-vs-paintscout",
+    competitorId: "paintscout",
+    title: "FieldQuo vs PaintScout — the job half included, crew free, from {ourEntry}",
+    description:
+      "PaintScout sells its job half as a monthly add-on and charges for every extra user. FieldQuo runs the quote, the job, the invoice and the payment in one plan, with field crew free, from {ourEntry}.",
+    lede:
+      "PaintScout's plan sells the estimate; scheduling, the pipeline and the job are an add-on at {addOnTotal} a month more, and every person after the first is paid for. FieldQuo prices painting by production rate too — hours from your rates, gallons from coverage — and runs the quote, the job, the invoice and the payment in one plan, with everybody in a van free, from {ourEntry}.",
+    concessionLede:
+      "Start with what we do not have. PaintScout is built only for " +
+      "painters, and its production-rate defaults come from years of " +
+      "painting companies; ours ship as opening positions you are expected " +
+      "to tune. Their page lists iOS and Android apps, offline mode, " +
+      "QuickBooks, Zapier and CompanyCam, a community of other painters, " +
+      "and a trial that asks for no card. FieldQuo has none of those, and if " +
+      "any of them decides it for you, they are the better buy.",
+    features: [
+      "paint_takeoff",
+      "ai_quote_review",
+      "instant_quotes",
+      "jobs",
+      "scheduling",
+      "job_costing",
+      "voice_receptionist",
+      "white_label",
+      "own_email_domain",
       "languages",
     ],
   },
@@ -387,15 +458,15 @@ export const COMPARE_CHROME = {
   eyebrow: "Comparison",
 
   indexTitle: "Compare FieldQuo",
-  indexMetaTitle: "Compare FieldQuo with Jobber, Housecall Pro, ServiceTitan, Projul and QuoteIQ",
+  indexMetaTitle: "Compare FieldQuo with Jobber, Housecall Pro, ServiceTitan, Projul, QuoteIQ, Roofr and PaintScout",
   indexMetaDescription:
     "Side-by-side comparisons built only from what each company publishes on its own site, with every figure we could not verify named rather than filled in.",
   indexLede:
-    "Five comparisons, each built from what the other company publishes on " +
+    "Seven comparisons, each built from what the other company publishes on " +
     "its own website. Nothing here is converted between currencies, nothing " +
     "is a promotional rate, and anything we could not settle is named rather " +
-    "than guessed. One of the five starts cheaper than we do, and that page " +
-    "says so before it says anything else.",
+    "than guessed. Two of the seven start cheaper than we do, and those pages " +
+    "say so before they say anything else.",
 
   // The rules panel. These are statements about how the page is built, so
   // they are safe to write as prose — none of them is a claim about anybody

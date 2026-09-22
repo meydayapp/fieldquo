@@ -267,7 +267,7 @@ const zh = {
   "addOns.oursTitle": "在 FieldQuo，每个套餐里都有：",
   "addOns.limits": "到哪儿为止：",
   "addOns.total": "每月 {total} {currency}，加在套餐价之上。",
-  "addOns.totalBody": "这是我们在他们自己的选项上读取时，那三项加起来的价钱。在 FieldQuo，同样这三件事每个套餐都做，任何人数规模都做，从本页最便宜的那个套餐起。",
+  "addOns.totalBody": "这是我们在他们自己的选项上读取时，那 {count} 项加起来的价钱。在 FieldQuo，同样这 {count} 件事每个套餐都做，任何人数规模都做，从本页最便宜的那个套餐起。",
   "addOns.receptionist": "他们的接线员加购是一道月度底线：哪怕这个月电话一通没响，也照收。我们没有每月最低消费。这项功能每个套餐都有，通话时长是你需要时才买的预充值额度，所以清闲的二月不为它花一分钱。",
 
   // ── /pricing's own line under the add-on stack ──────────────────────────

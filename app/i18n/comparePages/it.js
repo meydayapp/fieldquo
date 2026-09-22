@@ -276,7 +276,7 @@ const it = {
   "addOns.oursTitle": "In FieldQuo, su ogni piano:",
   "addOns.limits": "Dove si ferma:",
   "addOns.total": "{total} {currency} al mese, sopra il prezzo del piano.",
-  "addOns.totalBody": "È quanto costano insieme quei tre nel punto dei loro selettori in cui li abbiamo letti. In FieldQuo gli stessi tre lavori sono in ogni piano, a ogni dimensione, a partire da quello più economico di questa pagina.",
+  "addOns.totalBody": "È quanto costano insieme quei {count} nel punto dei loro selettori in cui li abbiamo letti. In FieldQuo gli stessi {count} lavori sono in ogni piano, a ogni dimensione, a partire da quello più economico di questa pagina.",
   "addOns.receptionist": "Il loro componente aggiuntivo di centralino è un minimo mensile: viene addebitato anche in un mese in cui il telefono non squilla mai. Il nostro non ha minimo mensile. La funzionalità è su ogni piano e i minuti di conversazione sono credito prepagato che compra quando le serve, quindi un febbraio tranquillo non costa nulla.",
 
   // ── La riga di /pricing sotto la pila dei componenti aggiuntivi ─────────

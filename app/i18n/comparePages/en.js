@@ -288,7 +288,7 @@ const en = {
   "addOns.oursTitle": "In FieldQuo, on every plan:",
   "addOns.limits": "Where it stops:",
   "addOns.total": "{total} {currency} a month, on top of the plan price.",
-  "addOns.totalBody": "That is what those three cost together at the point on their own selectors where we read them. In FieldQuo the same three jobs are in every plan, at every size, from the cheapest one on this page.",
+  "addOns.totalBody": "That is what those {count} cost together at the point on their own selectors where we read them. In FieldQuo the same {count} jobs are in every plan, at every size, from the cheapest one on this page.",
   "addOns.receptionist": "Their receptionist add-on is a monthly floor: it is charged in a month when the phone never rings. Ours has no monthly minimum. The feature is on every plan and the talk time is prepaid credit you buy when you need it, so a quiet February costs nothing for it.",
 
   // ── /pricing's own line under the add-on stack ──────────────────────────

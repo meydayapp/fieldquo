@@ -34,6 +34,8 @@ import { SEAT_LADDER } from "@/lib/pricing/ladder";
 import {
   tierLadder,
   firstTierWith,
+  addOnWith,
+  billsPerHead,
   parityFor,
   neverListed,
   addOnsFor,
@@ -170,8 +172,21 @@ export function caseRows(competitorId, competitorName, t, locale = "en-CA", asOf
               text: perMo(money(cheapest.price)),
               sub: say("compare.rows.tierUsers", "{plan} — {users}", {
                 plan: cheapest.label,
-                users: users(cheapest.seats),
+                // "Unlimited users" is their claim about their own plan and a
+                // different fact from a null seat count. Their word, not ours.
+                users: cheapest.unlimitedUsers
+                  ? say("compare.rows.unlimitedUsers", "unlimited users")
+                  : users(cheapest.seats),
               }),
+              // The cap on a free tier, in their words, beside the price.
+              // Roofr Starter is $0 and stops at ten proposals; a cheapest-plan
+              // cell that printed the $0 without the ten would be the blank
+              // cell this module forbids, with a number in it.
+              foot: cheapest.limitNote
+                ? say("compare.rows.theirLimit", "Their page: “{limit}”", {
+                    limit: cheapest.limitNote,
+                  })
+                : null,
             },
       ),
     );
@@ -383,6 +398,34 @@ export function caseRows(competitorId, competitorName, t, locale = "en-CA", asOf
   }
 
   // ── How people are counted, which is the difference that compounds ──────
+  //
+  // "Every login is a paid user" is the strongest row on the Jobber, QuoteIQ,
+  // Housecall Pro and PaintScout pages, and it is FALSE on Roofr's ("Unlimited
+  // users" on every card, "Roofr does not charge per seat" in their FAQ) and
+  // on Projul's (a flat fee, "no per-user fees" on their own page). This row
+  // was printing it for every competitor. So the competitor's cell is decided
+  // by the unit they declare in competitors.js: a vendor whose price does not
+  // move with headcount gets their own fact in their own words, and the row
+  // stops being a win for us — which it never was against those two.
+  const theirHeadcountCell = !billsPerHead(competitorId)
+    ? priced.length && priced.every((tier) => tier.unlimitedUsers)
+      ? {
+          kind: PLAIN,
+          text: say("compare.rows.unlimitedUsersCap", "Unlimited users"),
+          sub: say("compare.rows.unlimitedEveryPlan", "On every plan, in their words"),
+        }
+      : {
+          kind: PLAIN,
+          text: say("compare.rows.notCounted", "Not counted"),
+          sub: say("compare.rows.flatFeeSub", "A flat fee — headcount does not move their price"),
+        }
+    : {
+        kind: NO,
+        text: say("compare.rows.billed", "Billed"),
+        sub: say("compare.rows.everyLoginPaid", "Every login is a paid user at {competitor}", {
+          competitor: competitorName,
+        }),
+      };
   rows.push(
     row(
       say("compare.rows.peopleInField", "People in the field"),
@@ -394,13 +437,7 @@ export function caseRows(competitorId, competitorName, t, locale = "en-CA", asOf
           "Crew see the schedule and the job at no charge",
         ),
       },
-      {
-        kind: NO,
-        text: say("compare.rows.billed", "Billed"),
-        sub: say("compare.rows.everyLoginPaid", "Every login is a paid user at {competitor}", {
-          competitor: competitorName,
-        }),
-      },
+      theirHeadcountCell,
     ),
   );
 
@@ -425,7 +462,9 @@ export function caseRows(competitorId, competitorName, t, locale = "en-CA", asOf
             text: priced.at(-1).annualOnly
               ? perYr(money(priced.at(-1).annualTotal))
               : perMo(money(priced.at(-1).price)),
-            sub: users(priced.at(-1).seats),
+            sub: priced.at(-1).unlimitedUsers
+              ? say("compare.rows.unlimitedUsers", "unlimited users")
+              : users(priced.at(-1).seats),
           }
         : { kind: PLAIN, text: say("compare.rows.onRequest", "On request") },
     ),
@@ -441,11 +480,25 @@ export function caseRows(competitorId, competitorName, t, locale = "en-CA", asOf
     if (!entry || entry.readiness !== "shipped") continue;
     const said = featureEntry(key, t) ?? entry;
     const tier = firstTierWith(competitorId, key, asOf);
+    // Not on any tier but on a paid add-on — Roofr's Instant Estimator, Sites
+    // and AI Receptionist, PaintScout's Operations. "Not in their plans" would
+    // be a false absence; the add-on's own label and monthly price is what
+    // their page says. See addOnWith in lib/marketing/parity.js.
+    const addOn = tier ? null : addOnWith(competitorId, key, asOf);
     rows.push(
       row(
         said.name,
         { kind: YES, text: say("compare.rows.everyPlan", "Every plan"), sub: said.summary },
-        tier
+        addOn
+          ? {
+              kind: PLAIN,
+              text: say("compare.rows.addOnAtPrice", "{addOn} add-on — {amount}/mo", {
+                addOn: addOn.label,
+                amount: money(addOn.price),
+              }),
+              sub: say("compare.rows.soldSeparately", "sold separately, on top of the plan"),
+            }
+          : tier
           ? {
               kind: PLAIN,
               text:

@@ -278,7 +278,7 @@ const fr = {
   "addOns.oursTitle": "Dans FieldQuo, sur tous les forfaits :",
   "addOns.limits": "Là où ça s’arrête :",
   "addOns.total": "{total} {currency} par mois, par-dessus le prix du forfait.",
-  "addOns.totalBody": "C’est ce que ces trois-là coûtent ensemble au réglage de leurs propres sélecteurs où nous les avons relevés. Dans FieldQuo, ces trois mêmes tâches sont dans tous les forfaits, à toutes les tailles, à partir du moins cher de cette page.",
+  "addOns.totalBody": "C’est ce que ces {count} extras coûtent ensemble au réglage de leurs propres sélecteurs où nous les avons relevés. Dans FieldQuo, ces {count} mêmes tâches sont dans tous les forfaits, à toutes les tailles, à partir du moins cher de cette page.",
   "addOns.receptionist": "Leur module de réceptionniste est un plancher mensuel : il est facturé dans un mois où le téléphone ne sonne jamais. Le nôtre n’a pas de minimum mensuel. La fonction est sur tous les forfaits et le temps d’appel est du crédit prépayé que vous achetez quand vous en avez besoin, alors un février tranquille ne coûte rien de ce côté.",
 
   // ── La ligne propre à /pricing sous la pile de modules ──────────────────

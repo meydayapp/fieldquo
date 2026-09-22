@@ -266,7 +266,7 @@ const de = {
   "addOns.oursTitle": "In FieldQuo, in jedem Tarif:",
   "addOns.limits": "Wo das aufhört:",
   "addOns.total": "{total} {currency} im Monat, zusätzlich zum Tarifpreis.",
-  "addOns.totalBody": "So viel kosten die drei zusammen an der Stelle ihrer eigenen Auswahlfelder, an der wir sie abgelesen haben. In FieldQuo stecken dieselben drei Aufgaben in jedem Tarif, in jeder Größe, ab dem günstigsten auf dieser Seite.",
+  "addOns.totalBody": "So viel kosten die {count} zusammen an der Stelle ihrer eigenen Auswahlfelder, an der wir sie abgelesen haben. In FieldQuo stecken dieselben {count} Aufgaben in jedem Tarif, in jeder Größe, ab dem günstigsten auf dieser Seite.",
   "addOns.receptionist": "Ihr Zusatzmodul für den Telefonassistenten ist ein monatlicher Sockelbetrag: Es wird auch in einem Monat berechnet, in dem das Telefon nie klingelt. Unseres hat keine monatliche Mindestabnahme. Die Funktion ist in jedem Tarif enthalten, und die Gesprächszeit ist Guthaben, das Sie im Voraus kaufen, wenn Sie es brauchen — ein ruhiger Februar kostet dafür also nichts.",
 
   // ── /pricing's own line under the add-on stack ──────────────────────────

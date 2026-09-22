@@ -275,7 +275,7 @@ const tl = {
   "addOns.oursTitle": "Sa FieldQuo, sa bawat plano:",
   "addOns.limits": "Kung saan ito nagtatapos:",
   "addOns.total": "{total} {currency} kada buwan, sa ibabaw ng presyo ng plano.",
-  "addOns.totalBody": "Iyan ang halaga ng tatlong iyon nang magkakasama sa puntong binasa namin sa sarili nilang mga selector. Sa FieldQuo, ang parehong tatlong trabaho ay nasa bawat plano, sa bawat laki, mula sa pinakamura sa page na ito.",
+  "addOns.totalBody": "Iyan ang halaga ng {count} na iyon nang magkakasama sa puntong binasa namin sa sarili nilang mga selector. Sa FieldQuo, ang parehong {count} trabaho ay nasa bawat plano, sa bawat laki, mula sa pinakamura sa page na ito.",
   "addOns.receptionist": "Ang receptionist add-on nila ay buwanang minimum: sinisingil ito sa buwang hindi man lang tumunog ang telepono. Ang sa amin ay walang buwanang minimum. Nasa bawat plano ang feature at ang talk time ay prepaid credit na binibili mo kapag kailangan mo, kaya ang tahimik na Pebrero ay walang bayad para dito.",
 
   // ── /pricing's own line under the add-on stack ──────────────────────────
