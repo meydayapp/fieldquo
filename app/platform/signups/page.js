@@ -75,7 +75,7 @@ const NUDGE_LABELS = {
 
 const SKIP_LABELS = {
   suppressed: "On the do-not-contact list — never promoted",
-  company_exists: "Already a company on the books",
+  company_exists: "Matches a company already on the books (same email or phone) — not promoted; the signup itself is unfinished",
   completed: "Completed the signup",
 };
 
@@ -136,6 +136,7 @@ function unify(data) {
       prospectId: r.prospectId,
       hot: Boolean(s.hot),
       assignedTo,
+      signedIn: Boolean(r.signedIn),
       referred: s.code === "rep_lead" ? s.rep : r.referredBy,
       doNotContact: false,
       doNotContactReason: null,
@@ -184,7 +185,7 @@ function startedState(state) {
     case "unassigned":
       return { text: `${state.hot ? "Hot lead" : "Lead"} — unassigned, in the review folder`, tone: "hot" };
     case "skipped":
-      return { text: SKIP_LABELS[state.reason] || `Not promoted: ${state.reason}`, tone: "muted" };
+      return { text: SKIP_LABELS[state.reason] || `Not promoted: ${state.reason}`, tone: "muted", companyId: state.matchedCompanyId || null };
     case "no_phone":
       return { text: "No phone typed yet — assign by hand or wait for one", tone: "muted" };
     case "waiting":
@@ -518,6 +519,11 @@ export default function PlatformSignupsPage() {
                       {r.where ? ` · ${r.where}` : ""}
                       {r.language ? ` · ${r.language.toUpperCase()}` : ""}
                       {` · got as far as ${r.stepLabel}`}
+                      {/* The state the signup page resumes into: a login
+                          exists, no company does. A rep who rings them can
+                          say "just sign in and carry on" rather than "start
+                          again". */}
+                      {r.signedIn && r.kind === "lead" ? " · signed in, no company yet" : ""}
                     </div>
 
                     <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
@@ -583,6 +589,14 @@ export default function PlatformSignupsPage() {
                           signup section — the same row, the other door. */}
                       {r.prospectId && !r.assignedTo ? (
                         <Link href="/platform/sales/review?signups=all" className={`underline ${r.floorText.tone === "hot" ? "text-red-700 dark:text-red-300" : "text-muted-foreground"}`}>
+                          {r.floorText.text}
+                        </Link>
+                      ) : r.floorText.companyId ? (
+                        // The company the cron matched this signup to — a
+                        // link, so "already on the books" can be checked
+                        // rather than believed (the owner's row matched by
+                        // phone to a different business of his).
+                        <Link href={`/platform/companies/${r.floorText.companyId}`} className="underline text-muted-foreground">
                           {r.floorText.text}
                         </Link>
                       ) : (

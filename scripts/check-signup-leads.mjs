@@ -44,8 +44,11 @@ import {
   normaliseCapture,
   planCaptureWrite,
   prospectFromSignupLead,
+  resumeEmailKeys,
   signupFact,
+  signupLeadFinished,
   stalledDecision,
+  unfinishedSignupLeadWhere,
   unplacedSignupWhere,
   worthCapturing,
 } from "@/lib/signup/leads";
@@ -246,15 +249,135 @@ section("2b. A signed-in return puts the row back — the owner's 2026-09-21 bug
 
   const route = read("app/api/signup/lead/route.js");
   ok("?mine=1 takes the address from the SESSION, never the query string", /params\.get\("mine"\) === "1"/.test(route) && /auth\.api\.getSession\(\{ headers: request\.headers \}\)/.test(route) && !/searchParams\.get\("email"\)/.test(route));
-  ok("…and a signed-out caller gets the same 404 as an unknown token", /if \(!email\) return NextResponse\.json\(\{ error: "Not found" \}, \{ status: 404 \}\);/.test(route));
+  ok("…and a signed-out caller gets the same 404 as an unknown token", /if \(!email && !userId\) return NextResponse\.json\(\{ error: "Not found" \}, \{ status: 404 \}\);/.test(route));
 
   const page = read("app/signup/page.js");
   const signedIn = page.split("setResumedSignup(true);")[1]?.split("} catch {")[0] || "";
   ok("the signed-in branch asks for the row before entryChecked flips", /CAPTURE_ENDPOINT\}\?mine=1/.test(signedIn) && /applyLeadPrefill\(p\)/.test(signedIn) && /leadStepRef\.current = p\.stepReached/.test(signedIn));
   ok("the resume judges the further of the draft's step and the row's", /further\(draftStepRef\.current, leadStepRef\.current\)/.test(page));
   ok("the prefill puts back the address and the service picks", /put\("address", p\.address\)/.test(page) && /setSelectedCategoryIds\(p\.serviceCategoryIds\)/.test(page));
-  ok("the banner claims a restore only when fields were actually put back", /const kept = restoredLead\?\.fields\?\.length > 0;/.test(page) && /"app\.signup\.resumed\.bodyRestored"/.test(page) && !/nothing you've already entered is lost/.test(page));
+  ok("the banner claims a restore only when fields were actually put back", /const kept = restoredLead\?\.fields\?\.length > 0;/.test(page) && /"app\.signup\.resumed\.bodyRestoredFields"/.test(page) && !/nothing you've already entered is lost/.test(page));
   ok("the capture posts the picks on every step and at the handoff", (page.match(/selectedCategoryIds,\s*salesCode/g) || []).length >= 3);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("2c. The owner's SECOND return, same day — the row the cron had matched to another company");
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// The production row, read back on 2026-09-21 after the fix above shipped:
+// Test Company Inc · Ottawa, ON, CA · trades [cleaning] · EN · phone ·
+// stepReached "plan" · NO address and NO serviceCategoryIds (captured before
+// those columns existed) · completedCompanyId = a company he had set up a
+// week earlier under a DIFFERENT email, stamped skipReason "company_exists"
+// by the promotion cron's phone match. The auth user has no membership
+// anywhere. The page read `completed: true`, put nothing back, showed the
+// "carry on below" banner over an empty business form, and had no sign-out.
+{
+  const OWNER_ROW = {
+    id: "owner_row", emailKey: "castes-query.8v@icloud.com", email: "castes-query.8v@icloud.com",
+    firstName: "emilio", lastName: "boves", companyName: "Test Company Inc",
+    phoneE164: "+18192387263", phoneRaw: "819-238-7263", country: "CA", province: "ON", city: "Ottawa",
+    trades: ["cleaning"], language: "en", address: null, serviceCategoryIds: [],
+    salesCode: null, referralCode: null, stepReached: "plan", resumeToken: "o".repeat(43),
+    startedAt: minutesAgo(60), lastSeenAt: minutesAgo(55), consentAt: minutesAgo(59),
+    completedCompanyId: "other_company_of_his", prospectId: null, promotedAt: null, skipReason: "company_exists",
+    authUserId: null,
+  };
+
+  // ── The rule, executed on that shape ────────────────────────────────────
+  ok("a cron dedupe link is NOT a finished signup", signupLeadFinished(OWNER_ROW) === false);
+  ok("…a real completion is", signupLeadFinished({ completedCompanyId: "c1", skipReason: null }) === true);
+  ok("…and no link is not", signupLeadFinished({ completedCompanyId: null, skipReason: "company_exists" }) === false);
+  ok("the query-side twin admits the dedupe-linked row", unfinishedSignupLeadWhere().OR.length === 2);
+  ok("the promotion verdict still skips a real completion", decideSignupLeadPromotion({ lead: { ...OWNER_ROW, skipReason: null }, now: NOW }).reason === "completed");
+  ok("…and a dedupe-linked row stays skipped as company_exists, never 'completed'", decideSignupLeadPromotion({ lead: OWNER_ROW, now: NOW }).reason === "company_exists");
+
+  // ── The resume read, by the session's address ──────────────────────────
+  resetDbStub();
+  rows.signupLead = [{ ...OWNER_ROW }];
+  const back = await signupLeadForResume({ client: db, email: "castes-query.8v@icloud.com", userId: "IvBY_user" });
+  ok("the row comes back for the signed-in session", Boolean(back));
+  ok("…flagged NOT completed", back?.completed === false);
+  ok("…matched by email", back?.matchedBy === "email");
+  const prefillFields = ["companyName", "phone", "city", "province", "country", "language"].filter((k) => back?.[k]);
+  ok("…with every first-step field the row has", prefillFields.length === 6, prefillFields.join(","));
+  ok("…and its trade, and the furthest step it reached", back?.trades?.[0] === "cleaning" && back?.stepReached === "plan");
+  ok("…and nothing invented for the columns it predates", back?.address === null && Array.isArray(back?.serviceCategoryIds) && back.serviceCategoryIds.length === 0);
+
+  // ── The session's spelling differs only by case (and, at gmail, dots) ───
+  const byCase = await signupLeadForResume({ client: db, email: "Castes-Query.8V@iCloud.com" });
+  ok("a session address that differs only by case still matches", byCase?.companyName === "Test Company Inc");
+  ok("icloud dots are NOT collapsed — a dotted and an undotted icloud address are two people", resumeEmailKeys("castes-query.8v@icloud.com").length === 1 && (await signupLeadForResume({ client: db, email: "castesquery8v@icloud.com" })) === null);
+  ok("gmail dots and plus tags are collapsed, exact key first", JSON.stringify(resumeEmailKeys("D.Martin+fq@Gmail.com")) === JSON.stringify(["d.martin+fq@gmail.com", "d.martin@gmail.com", "dmartin@gmail.com"]));
+  rows.signupLead.push({ ...OWNER_ROW, id: "gmail_row", emailKey: "dmartin@gmail.com", email: "dmartin@gmail.com", resumeToken: "g".repeat(43), completedCompanyId: null, skipReason: null, companyName: "Martin Painting" });
+  ok("a gmail session with dots and a tag finds the undotted row", (await signupLeadForResume({ client: db, email: "D.Martin+fq@gmail.com" }))?.companyName === "Martin Painting");
+  ok("no email, no user → null", (await signupLeadForResume({ client: db })) === null);
+
+  // ── The user-id fallback ───────────────────────────────────────────────
+  rows.signupLead.push({ ...OWNER_ROW, id: "renamed_row", emailKey: "old@x.com", email: "old@x.com", resumeToken: "r".repeat(43), completedCompanyId: null, skipReason: null, companyName: "Renamed Co", authUserId: "user_42" });
+  const byUser = await signupLeadForResume({ client: db, email: "new@x.com", userId: "user_42" });
+  ok("a login whose address no longer spells the key is found by its user id", byUser?.companyName === "Renamed Co" && byUser.matchedBy === "user");
+  ok("a user id nobody's row carries → null (no guessing)", (await signupLeadForResume({ client: db, email: "nobody@x.com", userId: "user_none" })) === null);
+
+  // ── The capture stores the user id only for the session's OWN address ──
+  resetDbStub();
+  const captureBody = { email: "Dave@x.com", step: "business", firstName: "Dave", companyName: "Martin Painting" };
+  await captureSignupLead({ client: db, body: captureBody, now: NOW, session: { userId: "user_dave", email: "dave@X.com" } });
+  const created = writes.find((w) => w.model === "signupLead" && w.action === "create");
+  ok("a capture on the address's own session stores the user id", created?.data?.authUserId === "user_dave", JSON.stringify(created?.data?.authUserId));
+  resetDbStub();
+  await captureSignupLead({ client: db, body: { ...captureBody, email: "stranger@x.com" }, now: NOW, session: { userId: "user_dave", email: "dave@x.com" } });
+  const strangers = writes.find((w) => w.model === "signupLead" && w.action === "create");
+  ok("…and NOT for a stranger's address typed while signed in", strangers && !("authUserId" in strangers.data));
+  const bodyPlan = planCaptureWrite({ existing: null, incoming: { emailKey: "d@x.com", email: "d@x.com", stepReached: "account", authUserId: "u1" }, now: NOW });
+  ok("planCaptureWrite carries the id when the capture has it", bodyPlan.data.authUserId === "u1");
+  ok("…and leaves the column alone when it does not", !("authUserId" in planCaptureWrite({ existing: { authUserId: "u1" }, incoming: { emailKey: "d@x.com", email: "d@x.com", stepReached: "account" }, now: NOW }).data));
+
+  // ── The dedupe-linked row keeps taking captures ────────────────────────
+  ok("the capture lock ignores a dedupe link", !planCaptureWrite({ existing: OWNER_ROW, incoming: { emailKey: OWNER_ROW.emailKey, email: OWNER_ROW.email, stepReached: "plan", address: "1 Main St" }, now: NOW }).refusal);
+  ok("…and still refuses a real completion", planCaptureWrite({ existing: { ...OWNER_ROW, skipReason: null }, incoming: { emailKey: OWNER_ROW.emailKey, email: OWNER_ROW.email, stepReached: "plan" }, now: NOW }).refusal === "locked");
+  resetDbStub();
+  rows.signupLead = [{ ...OWNER_ROW }];
+  const later = await captureSignupLead({ client: db, body: { email: OWNER_ROW.email, step: "plan", companyName: "Test Company Inc", address: "1 Main St" }, now: NOW });
+  ok("…so his next capture (with the address, at last) is written", later.ok === true && later.reason === "updated", later.reason);
+
+  // ── When the company IS created, the guess becomes the fact ────────────
+  resetDbStub();
+  rows.signupLead = [{ ...OWNER_ROW }];
+  rows.prospect = [];
+  await recordSignupCompletion({ client: db, company: { id: "test_company_inc", isDemo: false, email: OWNER_ROW.email, name: "Test Company Inc" }, ownerEmail: OWNER_ROW.email, referred: true, now: NOW });
+  const relinked = writes.find((w) => w.model === "signupLead" && w.action === "updateMany");
+  ok("completing the signup relinks the row to the company it created and clears the stamp", relinked?.data?.completedCompanyId === "test_company_inc" && relinked.data.skipReason === null && relinked.data.stepReached === "checkout");
+
+  // ── The routes and the page ─────────────────────────────────────────────
+  const route = read("app/api/signup/lead/route.js");
+  ok("the capture route reads the session from the cookie and hands it to captureSignupLead", /const session = await auth\.api\.getSession\(\{ headers: request\.headers \}\)\.catch\(\(\) => null\);\s*const who = session\?\.user\?\.id/.test(route) && /captureSignupLead\(\{ client: db, body, now: new Date\(\), session: who \}\)/.test(route));
+  ok("?mine=1 passes the user id as well as the address", /signupLeadForResume\(\{ client: db, token: token \|\| undefined, email, userId \}\)/.test(route));
+  ok("…and logs a signed-in return with no row, by user id only", /console\.info\("\[signup\/lead\] signed-in return with no SignupLead", \{ userId \}\)/.test(route) && !/console\.info\([^)]*email/.test(route));
+  const platform = read("app/api/platform/signups/route.js");
+  ok("/platform/signups lists the dedupe-linked row as unfinished", /where: unfinishedSignupLeadWhere\(\)/.test(platform) && /signedIn: Boolean\(r\.authUserId\)/.test(platform));
+  const platformPage = read("app/platform/signups/page.js");
+  ok("…and says 'signed in, no company yet' on it", /signed in, no company yet/.test(platformPage));
+
+  const page = read("app/signup/page.js");
+  const signedIn = page.split("setResumedSignup(true);")[1]?.split("} catch {")[0] || "";
+  ok("the page restores when the server says not completed, and seeds from the session otherwise", /if \(p && !p\.completed\)/.test(signedIn) && /applyLeadPrefill\(\{ email: session\.user\.email, \.\.\.splitName\(session\.user\.name\) \}\)/.test(signedIn));
+  ok("the banner names the fields it put back", /app\.signup\.resumed\.bodyRestoredFields/.test(page) && /restoredFieldNames\(restoredLead\.fields, t\)/.test(page));
+  ok("…and says when the missing address is what held the step back", /app\.signup\.resumed\.addressMissing/.test(page) && /!form\.address\.trim\(\)/.test(page));
+  ok("the resumed banner has 'Not you? Sign out' that reloads THIS page", /data-resumed-sign-out/.test(page) && /handleSignOut\(window\.location\.pathname \+ window\.location\.search\)/.test(page) && /app\.signup\.resumed\.signOut/.test(page));
+  for (const lang of Object.keys(APP_MESSAGES)) {
+    const dict = APP_MESSAGES[lang];
+    ok(`${lang}: the five banner keys exist`, ["app.signup.resumed.bodyRestoredFields", "app.signup.resumed.addressMissing", "app.signup.resumed.signOut", "app.signup.resumed.field.trades", "app.signup.resumed.field.services"].every((k) => typeof dict[k] === "string" && dict[k]));
+    ok(`${lang}: the restored sentence carries both placeholders`, /\{email\}/.test(dict["app.signup.resumed.bodyRestoredFields"] || "") && /\{fields\}/.test(dict["app.signup.resumed.bodyRestoredFields"] || ""));
+  }
+
+  // The landing step for that row, through the same clamp the page uses:
+  // the furthest step reached is Plan, but without an address the company
+  // cannot be created, so the clamp lands on Business — with the form full
+  // and the banner saying the address is what is missing.
+  const { resumeStep } = await import("@/lib/signup/funnel");
+  ok("the owner's row lands on Business (no address), not on an empty account step", resumeStep("plan", { accountExists: true, companyReady: false, hasIndustries: true, hasServices: false }) === "business");
+  ok("…and with an address it lands on Services (no picks were ever captured), the step after the one he had answers for", resumeStep("plan", { accountExists: true, companyReady: true, hasIndustries: true, hasServices: false }) === "services");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

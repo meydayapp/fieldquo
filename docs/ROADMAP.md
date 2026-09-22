@@ -1286,6 +1286,28 @@ different kind.
   assignable. The funnel's Trades drop names the SignupLeads behind it with
   a link to the hot ones. The recovery email skips a company whose signup
   row a rep holds (`held_by_rep`).
+- **The signed-in return, fixed twice (2026-09-21).** A login with no
+  company is sent back to `/signup`, which asks `GET /api/signup/lead?mine=1`
+  for the row keyed on the session's address and puts it back. The owner's
+  second report the same evening: the cron's phone match had linked his test
+  row to ANOTHER company of his (`completedCompanyId` + `skipReason:
+  "company_exists"`), every reader took that for a finished signup, and the
+  page showed an empty business form under "carry on below" with no way to
+  sign out. Now `signupLeadFinished` (`lib/signup/leads.js`) is the ONE rule
+  for "did this signup create its company" — a dedupe link is not a finish —
+  used by the resume read, the capture lock, the promotion verdict, the
+  completion relink (which replaces the guess with the fact and clears the
+  stamp) and `/platform/signups`' started list. The row is matched by
+  `resumeEmailKeys` (case; gmail's dots and plus tags, one direction) and
+  then by `SignupLead.authUserId`, which every capture on a session stores
+  when the session's address IS the captured one (never for a stranger's
+  address typed while signed in). The banner names the fields it put back,
+  says when the missing street address is what held the landing step back,
+  and carries "Not you? Sign out" that reloads the page with its query
+  string. With no row at all the form is seeded from the session (email,
+  name) so the next capture writes one, the route logs the gap by user id,
+  and the platform row says "signed in, no company yet". `check:signup-leads`
+  §2c executes the owner's exact row shape.
 
 **Commission and attribution — nothing new was invented.** A self-serve
 signup earns a rep nothing: `SalesAttribution` is written only for a rep's

@@ -11431,6 +11431,13 @@ model SignupLead {
   address            String?
   serviceCategoryIds String[] @default([])
 
+  /// The Better Auth user this address signed in as, set by a capture that
+  /// arrived on a session whose email IS this row's (lib/signup/salesFloor.js
+  /// captureSignupLead). Read by the signed-in resume as the fallback when
+  /// the session's address no longer spells the emailKey, and by
+  /// /platform/signups to say "has a login, no company yet".
+  authUserId String?
+
   /// The rep code on the link (`?sales=CODE`, lower-cased) and the referral
   /// or promo code (`?ref=`), as presented. Resolved at promotion, never
   /// trusted from the browser for anything else.
@@ -11466,6 +11473,7 @@ model SignupLead {
   @@index([completedCompanyId])
   @@index([referredRepId])
   @@index([promotedAt])
+  @@index([authUserId])
 }
 
 /// One follow-up email FieldQuo sent — or is sending — to somebody who

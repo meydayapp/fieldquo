@@ -87,6 +87,44 @@ function around(sentence, placeholder) {
   return [sentence.slice(0, at), sentence.slice(at + placeholder.length)];
 }
 
+/**
+ * The names of the fields applyLeadPrefill put back, in the words the form
+ * labels them with, joined for the resumed-signup banner. The two picks
+ * (trades, services) have no form label and get their own short words.
+ */
+function restoredFieldNames(fields, t) {
+  const label = {
+    email: () => t("app.signup.field.email", "Email"),
+    firstName: () => t("app.signup.field.firstName", "First name"),
+    lastName: () => t("app.signup.field.lastName", "Last name"),
+    companyName: () => t("app.signup.field.companyName", "Company name"),
+    phone: () => t("app.signup.field.phone", "Phone"),
+    address: () => t("app.signup.address", "Address"),
+    city: () => t("app.signup.field.city", "City"),
+    province: () => t("app.signup.field.province", "Province"),
+    country: () => t("app.signup.field.country", "Country"),
+    language: () => t("app.signup.field.language", "Language"),
+    trades: () => t("app.signup.resumed.field.trades", "your trades"),
+    services: () => t("app.signup.resumed.field.services", "your services"),
+  };
+  return (Array.isArray(fields) ? fields : [])
+    .map((f) => (label[f] ? label[f]() : null))
+    .filter(Boolean)
+    .join(", ");
+}
+
+/**
+ * Better Auth stores one `name`; this form asks for two. The account step
+ * joined them with a space, so the first word is the first name and the
+ * rest the last — good enough for a prefill, and empty strings (which
+ * applyLeadPrefill skips) when the session has no name at all.
+ */
+function splitName(name) {
+  const words = String(name || "").trim().split(/\s+/).filter(Boolean);
+  if (!words.length) return { firstName: "", lastName: "" };
+  return { firstName: words[0], lastName: words.slice(1).join(" ") };
+}
+
 // Prices on this page are whole dollars in a stated currency, and the currency
 // is written with the ladder's own label (CA$ / US$) rather than a bare "$" —
 // this product sells in two dollars and a bare sign in front of one of them is
@@ -795,10 +833,28 @@ export default function SignupPage() {
             .then((r) => (r.ok ? r.json() : null))
             .catch(() => null);
           const p = mine?.prefill;
-          if (!cancelled && p && !p.completed) {
+          if (cancelled) return;
+          if (p && !p.completed) {
+            // `completed` is the server's signupLeadFinished, not the bare
+            // column: his second return the same day found the row linked
+            // by the cron to ANOTHER company of his and the page put nothing
+            // back. The row's furthest step is restored too, and the
+            // banner names every field that came back — resumeStep still
+            // clamps to what those answers support, so a row from before
+            // the address column existed lands on the business step with
+            // the address box the only empty one.
             const restored = applyLeadPrefill(p);
             leadStepRef.current = p.stepReached || null;
             setRestoredLead({ step: p.stepReached || null, fields: restored });
+          } else {
+            // No row (or a row that genuinely finished under a company they
+            // are no longer in). The session still knows who they are: the
+            // address and the name they typed at the account step. Put
+            // those into the form — they are theirs, not a guess — so the
+            // next capture writes a row and /platform/signups can see a
+            // person who has a login and nothing to log in to.
+            applyLeadPrefill({ email: session.user.email, ...splitName(session.user.name) });
+            setRestoredLead({ step: null, fields: [] });
           }
         }
       } catch {
@@ -1124,7 +1180,10 @@ export default function SignupPage() {
     put("city", p.city);
     put("province", p.province);
     put("country", p.country);
-    if (p.language && next.language === "en") next.language = p.language;
+    if (p.language && p.language !== "en" && next.language === "en") {
+      next.language = p.language;
+      filled.push("language");
+    }
     setForm(next);
     if (!industriesRef.current.length && Array.isArray(p.trades) && p.trades.length) {
       setSelectedIndustries(p.trades);
@@ -1688,11 +1747,18 @@ export default function SignupPage() {
   // the raw call clears the cookie and leaves the client-side session store
   // still reporting a logged-in user, so MarketingHeader keeps rendering the
   // avatar until something forces a refetch. Same reasoning as AdminSidebar.
-  async function handleSignOut() {
+  //
+  // `to` is where to land afterwards. The unfinished-checkout banner sends
+  // people to /login; the resumed-signup banner reloads THIS page with its
+  // query string intact (a rep's ?sales= code, a referral) so the person can
+  // start over or sign in as somebody else without losing the link they
+  // came in on — being unable to sign out of an account you cannot use is
+  // its own kind of broken, and the owner hit exactly that on 2026-09-21.
+  async function handleSignOut(to = "/login") {
     await signOut({
       fetchOptions: {
         onSuccess: () => {
-          window.location.href = "/login";
+          window.location.href = to;
         },
       },
     });
@@ -2018,7 +2084,7 @@ export default function SignupPage() {
                 the allow-list for a locked company. */}
             <button
               type="button"
-              onClick={handleSignOut}
+              onClick={() => handleSignOut("/login")}
               className="mt-2 text-sm font-semibold underline underline-offset-2"
             >
               {t("app.signup.finish.signOut", "Sign out of this account")}
@@ -2049,13 +2115,18 @@ export default function SignupPage() {
             {(() => {
               // "Nothing you've already entered is lost" was printed over an
               // EMPTY form on 2026-09-21. The sentence now depends on what
-              // was actually put back: the row's fields, or nothing.
+              // was actually put back: the row's fields, BY NAME, or nothing.
+              // A list rather than "what you entered", because the second
+              // time round the row was missing the one field the next step
+              // needs, and "we've put back what you entered" over a form
+              // asking for the address again read as the same lie.
               const kept = restoredLead?.fields?.length > 0;
               const [before, after] = around(
                 kept
                   ? t(
-                      "app.signup.resumed.bodyRestored",
-                      "You're signed in as {email}, but your business was never finished — that last step is what creates it. We've put back what you entered last time; carry on from where you stopped.",
+                      "app.signup.resumed.bodyRestoredFields",
+                      "You're signed in as {email}, but your business was never finished — that last step is what creates it. We've put back: {fields}. Carry on from where you stopped.",
+                      { fields: restoredFieldNames(restoredLead.fields, t) },
                     )
                   : t(
                       "app.signup.resumed.body",
@@ -2063,17 +2134,49 @@ export default function SignupPage() {
                     ),
                 "{email}",
               );
+              // Landed short of the row's furthest step because the address
+              // was never saved (rows from before the column existed):
+              // say so, or the banner's "carry on from where you stopped"
+              // sits over a step they had already passed.
+              const shortOfStep =
+                kept &&
+                restoredLead.step &&
+                STEPS.indexOf(restoredLead.step) > STEPS.indexOf(step) &&
+                !form.address.trim();
               return (
-                <p>
-                  {before}
-                  <strong>
-                    {accountReady?.email ||
-                      t("app.signup.resumed.yourAccount", "your account")}
-                  </strong>
-                  {after}
-                </p>
+                <>
+                  <p>
+                    {before}
+                    <strong>
+                      {accountReady?.email ||
+                        t("app.signup.resumed.yourAccount", "your account")}
+                    </strong>
+                    {after}
+                  </p>
+                  {shortOfStep && (
+                    <p className="mt-2">
+                      {t(
+                        "app.signup.resumed.addressMissing",
+                        "Your street address wasn't saved last time — add it below and you'll be back at the step you reached.",
+                      )}
+                    </p>
+                  )}
+                </>
               );
             })()}
+            {/* ── Not you? ─────────────────────────────────────────────────
+                Every route under /app sends a login with no company back
+                here, and the header's avatar links to /app: without this
+                there was no way out of the account at all. Signs out and
+                reloads this page, query string and all. */}
+            <button
+              type="button"
+              onClick={() => handleSignOut(window.location.pathname + window.location.search)}
+              className="mt-2 text-sm font-semibold underline underline-offset-2"
+              data-resumed-sign-out
+            >
+              {t("app.signup.resumed.signOut", "Not you? Sign out")}
+            </button>
             <p className="mt-2">
               {t(
                 "app.signup.resumed.invited",
