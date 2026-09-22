@@ -1,12 +1,13 @@
 // docs/screens/app-guide/harness/screens.js
 //
-// Every row of the /app sidebar and every row of the Settings sidebar, in
-// the order the product draws them. `nav` rows are read from the sidebar
-// components at build time by check-sidebar.mjs; this list is the SAME
-// order copied by hand, and scripts/check-app-guide-screens.mjs (see the
-// harness README) fails when the two drift — a guide that shows screens in
-// an order the product does not is the "control that appears to work"
-// failure, in print.
+// Every row of the /app rail (the seventeen, then More's groups, then the
+// account rows) and every row of the settings list, in the order the
+// product draws them. `nav` rows are read from AdminSidebar.js and
+// SettingsSidebar.js at build time by check-sidebar.mjs; this list is the
+// SAME order copied by hand, and scripts/check-app-guide-screens.mjs (see
+// the harness README) fails when the two drift — a guide that shows
+// screens in an order the product does not is the "control that appears to
+// work" failure, in print.
 //
 // `href` is what usePathname() returns inside the harness so the sidebar
 // highlights the row being photographed. `page` is the module the harness
@@ -39,61 +40,70 @@ export const INTRO_FRAMES = INTRO_TAKEOFF_TRADES.map((trade) => ({
 }));
 
 export const SCREENS = [
-  // ── The main rail ──────────────────────────────────────────────────────
+  // ── The main rail: Home, then the seventeen (2026-09-21 shell) ─────────
   { slug: "home", nav: "app.nav.home", href: "/app", page: "app/app/page.js" },
-  { slug: "ai", nav: "app.nav.ai", href: "/app/copilot", page: "app/app/copilot/page.js" },
   // Work
   { slug: "requests", nav: "app.nav.requests", href: "/app/leads", page: "app/app/leads/page.js" },
   { slug: "quotes", nav: "app.nav.quotes", href: "/app/quotes", page: "app/app/quotes/page.js" },
   { slug: "estimate-reviews", nav: "app.nav.estimateReviews", href: "/app/estimate-reviews", page: "app/app/estimate-reviews/page.js" },
   { slug: "jobs", nav: "app.nav.jobs", href: "/app/jobs", page: "app/app/jobs/page.js" },
   { slug: "invoices", nav: "app.nav.invoices", href: "/app/invoices", page: "app/app/invoices/page.js" },
-  { slug: "plans", nav: "app.nav.plans", href: "/app/plans", page: "app/app/plans/page.js" },
   { slug: "calendar", nav: "app.nav.calendar", href: "/app/appointments", page: "app/app/appointments/page.js" },
-  { slug: "tasks", nav: "app.nav.tasks", href: "/app/tasks", page: "app/app/tasks/page.js" },
   // People
   { slug: "clients", nav: "app.nav.clients", href: "/app/clients", page: "app/app/clients/page.js" },
-  { slug: "client-equipment", nav: "app.nav.clientEquipment", href: "/app/equipment", page: "app/app/equipment/page.js" },
   // The crew chat opens on the room list; the scene opens the job room so
   // the figure shows a thread, a mention and the composer.
   { slug: "chat", nav: "app.nav.chat", href: "/app/chat", page: "app/app/chat/page.js", scene: "chat-open" },
-  { slug: "team", nav: "app.nav.team", href: "/app/settings/team", page: "app/app/settings/team/page.js", settings: true },
-  { slug: "subcontractors", nav: "app.nav.subcontractors", href: "/app/subcontractors", page: "app/app/subcontractors/page.js" },
   { slug: "scheduler", nav: "app.nav.scheduler", href: "/app/scheduler", page: "app/app/scheduler/page.js" },
-  { slug: "my-schedule", nav: "app.nav.mySchedule", href: "/app/me/schedule", page: "app/app/me/schedule/page.js" },
+  // Money
+  { slug: "payroll", nav: "app.nav.payroll", href: "/app/payroll", page: "app/app/payroll/page.js" },
+  { slug: "insights", nav: "app.nav.insights", href: "/app/analytics/benchmark", page: "app/app/analytics/benchmark/page.js" },
+  // Grow
+  { slug: "marketing", nav: "app.nav.marketing", href: "/app/marketing", page: "app/app/marketing/page.js" },
+  { slug: "messages", nav: "app.nav.messages", href: "/app/messages", page: "app/app/messages/page.js", scene: "messages-open" },
+  { slug: "receptionist", nav: "app.nav.receptionist", href: "/app/receptionist", page: "app/app/receptionist/page.js" },
+  // AI
+  { slug: "ai", nav: "app.nav.ai", href: "/app/copilot", page: "app/app/copilot/page.js" },
+  { slug: "ai-team", nav: "app.nav.aiTeam", href: "/app/settings/ai-employee", page: "app/app/settings/ai-employee/page.js", settings: true },
+  // More — the page the rail's last row opens
+  { slug: "more", nav: "app.nav.more", href: "/app/more", page: "app/app/more/page.js" },
+
+  // ── The More groups, in the order /app/more tiles them ─────────────────
+  // Work & sales
+  { slug: "plans", nav: "app.nav.plans", href: "/app/plans", page: "app/app/plans/page.js" },
+  { slug: "tasks", nav: "app.nav.tasks", href: "/app/tasks", page: "app/app/tasks/page.js" },
+  { slug: "funnels", nav: "app.nav.funnels", href: "/app/funnels", page: "app/app/funnels/page.js" },
+  { slug: "crew-inbox", nav: "app.nav.crewInbox", href: "/app/crew-inbox", page: "app/app/crew-inbox/page.js" },
+  { slug: "marketing-designer", nav: "app.nav.marketingDesigner", href: "/app/marketing/designer", page: "app/app/marketing/designer/page.js" },
+  // Time & crew
   { slug: "my-home", nav: "app.nav.myHome", href: "/app/me", page: "app/app/me/page.js" },
+  { slug: "team", nav: "app.nav.team", href: "/app/settings/team", page: "app/app/settings/team/page.js", settings: true },
   { slug: "team-schedule", nav: "app.nav.teamSchedule", href: "/app/schedule", page: "app/app/schedule/page.js" },
+  { slug: "my-schedule", nav: "app.nav.mySchedule", href: "/app/me/schedule", page: "app/app/me/schedule/page.js" },
   { slug: "clock", nav: "app.nav.clock", href: "/app/clock", page: "app/app/clock/page.js" },
   { slug: "timesheets", nav: "app.nav.timesheets", href: "/app/settings/team/timesheets", page: "app/app/settings/team/timesheets/page.js", settings: true },
   { slug: "daily-sheets", nav: "app.nav.dailySheets", href: "/app/daily-sheets", page: "app/app/daily-sheets/page.js" },
   { slug: "time-off", nav: "app.nav.timeOff", href: "/app/time-off", page: "app/app/time-off/page.js" },
   { slug: "safety", nav: "app.nav.safety", href: "/app/safety", page: "app/app/safety/page.js" },
   { slug: "manager-log", nav: "app.nav.log", href: "/app/log", page: "app/app/log/page.js" },
-  // Money
-  { slug: "payroll", nav: "app.nav.payroll", href: "/app/payroll", page: "app/app/payroll/page.js" },
+  // Money & reports
   { slug: "expenses", nav: "app.nav.expenses", href: "/app/settings/expense-tracking", page: "app/app/settings/expense-tracking/page.js", settings: true },
   { slug: "purchasing", nav: "app.nav.purchasing", href: "/app/purchasing", page: "app/app/purchasing/page.js" },
   { slug: "fleet", nav: "app.nav.fleet", href: "/app/fleet", page: "app/app/fleet/page.js" },
-  // Insights
-  { slug: "insights", nav: "app.nav.insights", href: "/app/analytics/benchmark", page: "app/app/analytics/benchmark/page.js" },
   { slug: "kpis", nav: "app.nav.kpis", href: "/app/analytics/kpis", page: "app/app/analytics/kpis/page.js" },
-  // Grow
-  { slug: "marketing", nav: "app.nav.marketing", href: "/app/marketing", page: "app/app/marketing/page.js" },
-  { slug: "marketing-designer", nav: "app.nav.marketingDesigner", href: "/app/marketing/designer", page: "app/app/marketing/designer/page.js" },
-  { slug: "funnels", nav: "app.nav.funnels", href: "/app/funnels", page: "app/app/funnels/page.js" },
-  { slug: "receptionist", nav: "app.nav.receptionist", href: "/app/receptionist", page: "app/app/receptionist/page.js" },
-  { slug: "crew-inbox", nav: "app.nav.crewInbox", href: "/app/crew-inbox", page: "app/app/crew-inbox/page.js" },
-  { slug: "messages", nav: "app.nav.messages", href: "/app/messages", page: "app/app/messages/page.js", scene: "messages-open" },
+  // Clients & partners
+  { slug: "client-equipment", nav: "app.nav.clientEquipment", href: "/app/equipment", page: "app/app/equipment/page.js" },
+  { slug: "subcontractors", nav: "app.nav.subcontractors", href: "/app/subcontractors", page: "app/app/subcontractors/page.js" },
   { slug: "refer", nav: "app.nav.refer", href: "/app/settings/refer", page: "app/app/settings/refer/page.js", settings: true },
   // Present only for a company enrolled in the influencer programme.
   { slug: "influencer", nav: "app.nav.influencer", href: "/app/influencer", page: "app/app/influencer/page.js" },
-  // Bottom of the rail
+
+  // ── The account rows (avatar menu on desktop, the More sheet's tail on a phone) ──
   { slug: "help", nav: "app.nav.help", href: "/app/help", page: "app/app/help/page.js" },
   { slug: "plan", nav: "app.nav.plan", href: "/app/settings/account-billing", page: "app/app/settings/account-billing/page.js", settings: true },
-  // Settings itself redirects to Company; the row is photographed as the
-  // settings index the sidebar opens on (Company Settings), which is what a
-  // person clicking it sees.
-  { slug: "settings", nav: "app.nav.settings", href: "/app/settings/company", page: "app/app/settings/company/page.js", settings: true },
+  // Settings is an index of its own since 2026-09-21: search first, eight
+  // cards, every row a link.
+  { slug: "settings", nav: "app.nav.settings", href: "/app/settings", page: "app/app/settings/page.js", settings: true },
 
   // ── The Settings sidebar ───────────────────────────────────────────────
   // Account
@@ -102,7 +112,7 @@ export const SCREENS = [
   { slug: "settings-migration", nav: "app.settings.migration", href: "/app/settings/migration", page: "app/app/settings/migration/page.js", settings: true },
   { slug: "settings-product-updates", nav: "app.settings.productUpdates", href: "/app/settings/product-updates", page: "app/app/settings/product-updates/page.js", settings: true },
   // Business
-  { slug: "settings-company", nav: "app.settings.company", href: "/app/settings/company", page: "app/app/settings/company/page.js", settings: true, sameAs: "settings" },
+  { slug: "settings-company", nav: "app.settings.company", href: "/app/settings/company", page: "app/app/settings/company/page.js", settings: true },
   { slug: "settings-branding", nav: "app.settings.branding", href: "/app/settings/branding", page: "app/app/settings/branding/page.js", settings: true },
   { slug: "settings-language", nav: "app.settings.language", href: "/app/settings/language", page: "app/app/settings/language/page.js", settings: true },
   { slug: "settings-activity", nav: "app.settings.activity", href: "/app/activity", page: "app/app/activity/page.js" },
@@ -146,7 +156,7 @@ export const SCREENS = [
   { slug: "settings-lead-form", nav: "app.settings.leadForm", href: "/app/settings/lead-form", page: "app/app/settings/lead-form/page.js", settings: true },
   { slug: "settings-bio-link", nav: "app.settings.bioLink", href: "/app/settings/links", page: "app/app/settings/links/page.js", settings: true },
   { slug: "settings-voice", nav: "app.settings.voice", href: "/app/settings/voice", page: "app/app/settings/voice/page.js", settings: true },
-  { slug: "settings-ai-employee", nav: "app.settings.aiEmployee", href: "/app/settings/ai-employee", page: "app/app/settings/ai-employee/page.js", settings: true },
+  { slug: "settings-ai-employee", nav: "app.settings.aiEmployee", href: "/app/settings/ai-employee", page: "app/app/settings/ai-employee/page.js", settings: true, sameAs: "ai-team" },
   { slug: "settings-reviews", nav: "app.settings.reviews", href: "/app/settings/reviews", page: "app/app/settings/reviews/page.js", settings: true },
 
   // ── Figures for the "Roles and access" chapter (not sidebar rows) ──────
@@ -328,4 +338,47 @@ export const SCREENS = [
   // dependencies, the crew day view, and the change orders under them
   // (CO-2 out with the client, CO-1 signed).
   { slug: "job-plan", href: "/app/jobs", page: "app/app/jobs/[id]/JobDetail.js", props: { jobId: "j_318" }, scene: "scroll-plan", height: 2200, chapter: "help" },
+
+  // ── The shell itself (2026-09-21): rail expanded and collapsed, the
+  //    settings index and one settings page with the rail slid, the phone's
+  //    home with its tab bar and floating Create, the More sheet, the Create
+  //    sheet, the top bar with the search palette open. Unnumbered, under
+  //    docs/screens/shell/, so the guide's chapter does not renumber.
+  { slug: "shell-rail", href: "/app", page: "app/app/page.js", out: "docs/screens/shell", chapter: "shell" },
+  { slug: "shell-rail-collapsed", href: "/app", page: "app/app/page.js", scene: "rail-collapse", out: "docs/screens/shell", chapter: "shell" },
+  { slug: "shell-settings-index", href: "/app/settings", page: "app/app/settings/page.js", settings: true, out: "docs/screens/shell", chapter: "shell" },
+  { slug: "shell-settings-page", href: "/app/settings/branding", page: "app/app/settings/branding/page.js", settings: true, out: "docs/screens/shell", chapter: "shell" },
+  { slug: "shell-more", href: "/app/more", page: "app/app/more/page.js", out: "docs/screens/shell", chapter: "shell" },
+  { slug: "shell-search", href: "/app/quotes", page: "app/app/quotes/page.js", scene: "search-open", out: "docs/screens/shell", chapter: "shell" },
+  { slug: "shell-account-menu", href: "/app/quotes", page: "app/app/quotes/page.js", scene: "account-open", out: "docs/screens/shell", chapter: "shell" },
+  { slug: "shell-phone-home", href: "/app", page: "app/app/page.js", width: 375, height: 812, out: "docs/screens/shell", chapter: "shell" },
+  { slug: "shell-phone-more", href: "/app", page: "app/app/page.js", width: 375, height: 812, scene: "more-sheet", out: "docs/screens/shell", chapter: "shell" },
+  { slug: "shell-phone-create", href: "/app", page: "app/app/page.js", width: 375, height: 812, scene: "create-sheet", out: "docs/screens/shell", chapter: "shell" },
+  { slug: "shell-phone-settings", href: "/app/settings/branding", page: "app/app/settings/branding/page.js", settings: true, width: 375, height: 812, out: "docs/screens/shell", chapter: "shell" },
+  { slug: "shell-phone-drawer", href: "/app", page: "app/app/page.js", width: 375, height: 812, scene: "drawer-open", out: "docs/screens/shell", chapter: "shell" },
+  // The builder's tax line, worked out from the client's province
+  // (docs/TAX.md), and Settings → Tax with the mode and its preview.
+  { slug: "quote-tax-line", href: "/app/quotes", page: "app/app/quotes/new/page.js", scene: "quote-tax-line", height: 1100, chapter: "help" },
+  { slug: "settings-tax", href: "/app/settings/company", page: "app/app/settings/company/page.js", settings: true, scene: "settings-tax", height: 1400, chapter: "help" },
+  // ── The document-shaped builder (mockup b7) and the painter's first screen (b1) ──
+  //
+  // Appended, so nothing above renumbers. "doc-builder" in a slug flips the
+  // fixture company's Company.quoteBuilderLayout to "document"; "painter"
+  // switches its painting trades on (fixtures/routes-help.js). The same
+  // hand-built draft Q-1045 is photographed in both layouts, desktop and
+  // phone; New quote for a painting company shows the estimate-type cards
+  // as the first thing on the page, in both layouts. The edit rows carry
+  // the REAL route as href — usePathname() in the harness answers it, and
+  // the floating + hides itself on /edit (CreateMenu.js createFabHiddenOn).
+  { slug: "quote-doc-builder", href: "/app/quotes/q_1045/edit", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1045" }, height: 1500, chapter: "help" },
+  { slug: "quote-doc-builder-mobile", href: "/app/quotes/q_1045/edit", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1045" }, width: 375, height: 812, chapter: "help" },
+  { slug: "quote-doc-builder-cost-drawer", href: "/app/quotes/q_1045/edit", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1045" }, scene: "doc-cost-drawer", height: 1100, chapter: "help" },
+  { slug: "quote-doc-builder-work-order", href: "/app/quotes/q_1045/edit", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1045" }, scene: "doc-tab-workorder", height: 1100, chapter: "help" },
+  { slug: "quote-classic-builder", href: "/app/quotes/q_1045/edit", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1045" }, height: 1500, chapter: "help" },
+  { slug: "quote-classic-builder-mobile", href: "/app/quotes/q_1045/edit", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1045" }, width: 375, height: 812, chapter: "help" },
+  { slug: "quote-new-painter-doc-builder", href: "/app/quotes/new", page: "app/app/quotes/new/page.js", height: 1000, chapter: "help" },
+  { slug: "quote-new-painter-doc-builder-mobile", href: "/app/quotes/new", page: "app/app/quotes/new/page.js", width: 375, height: 812, chapter: "help" },
+  { slug: "quote-new-painter-classic", href: "/app/quotes/new", page: "app/app/quotes/new/page.js", height: 1000, chapter: "help" },
+  { slug: "quote-new-painter-classic-mobile", href: "/app/quotes/new", page: "app/app/quotes/new/page.js", width: 375, height: 812, chapter: "help" },
+  { slug: "quote-new-painter-doc-builder-rooms", href: "/app/quotes/new", page: "app/app/quotes/new/page.js", scene: "painter-pick-interior", height: 1400, chapter: "help" },
 ];

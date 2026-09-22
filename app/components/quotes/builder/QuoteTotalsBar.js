@@ -24,9 +24,20 @@
 // "Review" alone would be a button that silently creates a database record;
 // the full sentence under it ("saves a draft first, then checks it") is what
 // makes it honest, and a sticky bar has nowhere to put a sentence.
+//
+// ── Four pieces, one bar ────────────────────────────────────────────────────
+//
+// The default export is the classic builder's card + dock, unchanged. The
+// pieces it is made of are exported on their own — QuoteTermsFields (the
+// expiry, discount and tax inputs with their notes), QuoteTotalsLines (the
+// four figures), QuoteReadinessBlock and QuoteActionsDock — because the
+// document-shaped builder (DocumentBuilder.js) draws the figures INSIDE the
+// document and opens the inputs from them, and keeps the dock. Same inputs,
+// same notes, same buttons; one copy of each.
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { Loader2, Save, Send, Sparkles } from "lucide-react";
 import QuoteReadiness from "./QuoteReadiness";
 import DiscountField from "@/app/components/quotes/DiscountField";
@@ -77,17 +88,21 @@ export default function QuoteTotalsBar({
   // company's country operates a reduced VAT rate for renovation work. Null
   // everywhere else, including Canada and the US.
   taxVat = null,
-  // ── Where the client is, when the rate could not be worked out ──────────
+  // ── What the tax line says, and whether it is settled ───────────────────
   //
-  // The "not worked out" hint below used to tell everyone to "set the
-  // client's country and province" — including the estimator looking at a
-  // New York client whose country and province were BOTH on file (the US
-  // path deliberately applies no rate, see lib/tax/jurisdictions.js). A
-  // sentence asking for something already done reads as the software being
-  // broken. So the builder hands in the place it already knows ("New York,
-  // NY") and the hint names it: no rate is known for THAT place yet. Null
-  // when the address really is missing, and the old sentence is right.
-  taxPlace = null,
+  // { headline, source, resolved, hint } from lib/tax/taxLine.js, already
+  // translated by the builder: "HST 13% (Ontario)", "from the job address",
+  // and — only when nothing anywhere names a province — the hint that says
+  // what to add. `resolved` decides the whole shape of the block: a settled
+  // rate is printed as a sentence with a "Change" control beside it, and
+  // the rate box and the tax switch stay folded away until that is pressed;
+  // an unsettled one opens on the box, because the box is the fix.
+  //
+  // Why not key this on the tax AMOUNT, as the old "Not worked out" test
+  // did: an empty quote has $0 of tax at ANY rate, and the first screen of
+  // every new quote was reading "no tax rate is known for Ottawa, ON" over
+  // a perfectly good 13% (owner, 2026-09-21).
+  taxLine = null,
   total,
   taxEnabled,
   onTaxToggle,
@@ -120,16 +135,99 @@ export default function QuoteTotalsBar({
   // Where "Cancel" goes back to, when there is somewhere to go back to.
   cancelHref = null,
 }) {
-  const { t, language } = useTranslation();
-  const dockRef = useBottomDock();
-  // Same reason as explainTaxSource: 9,5 % not 9.5 % on a French screen.
-  const pct = (n) =>
-    Number(n).toLocaleString(numberLocaleFor(language), { maximumFractionDigits: 3 });
   const money = (n) => formatAppMoney(n, currency, "en");
+  const terms = {
+    subtotal, discount, onDiscountChange, taxRate, onTaxRateChange, taxNote, taxCaution,
+    taxSchemeNote, taxAssumed, taxVat, taxLine, taxEnabled, onTaxToggle, validUntil,
+    onValidUntilChange, validUntilDefaulted, currency,
+  };
 
   return (
     <>
       <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+        <QuoteTermsFields {...terms} />
+        <QuoteTotalsLines
+          subtotal={subtotal}
+          taxableBase={taxableBase}
+          tax={tax}
+          total={total}
+          taxEnabled={taxEnabled}
+          taxLine={taxLine}
+          money={money}
+        />
+      </div>
+
+      <QuoteReadinessBlock
+        readiness={readiness}
+        readinessItems={readinessItems}
+        showReviewHint={Boolean(onSaveAndReview)}
+      />
+
+      <QuoteActionsDock
+        total={total}
+        taxEnabled={taxEnabled}
+        money={money}
+        saving={saving}
+        disabled={disabled}
+        primaryLabel={primaryLabel}
+        primaryLabelShort={primaryLabelShort}
+        onSaveDraft={onSaveDraft}
+        onSaveAndSend={onSaveAndSend}
+        onSaveAndReview={onSaveAndReview}
+        cancelHref={cancelHref}
+      />
+    </>
+  );
+}
+
+/**
+ * The terms — expiry, discount, tax — and every note about the tax rate.
+ * Exactly the inputs the classic card holds; the document builder opens
+ * them from the totals it draws inside the document.
+ */
+export function QuoteTermsFields({
+  subtotal,
+  discount,
+  onDiscountChange,
+  taxRate,
+  onTaxRateChange = null,
+  taxNote = "",
+  taxCaution = "",
+  taxSchemeNote = "",
+  taxAssumed = "",
+  taxVat = null,
+  taxLine = null,
+  taxEnabled,
+  onTaxToggle,
+  validUntil,
+  onValidUntilChange,
+  validUntilDefaulted = true,
+  currency,
+  // Which of the three to draw. The classic card draws all; the document
+  // builder opens one at a time from the row the estimator clicked.
+  only = null,
+  // The document builder opens the tax panel BECAUSE the estimator wants to
+  // change the rate, so the box is unfolded from the start there.
+  startChanging = false,
+}) {
+  const { t, language } = useTranslation();
+  // "Change" unfolds the rate box and the switch under a settled line. Local:
+  // it is a matter of what is on screen, not of what is saved.
+  const [changing, setChanging] = useState(startChanging);
+  const resolved = Boolean(taxLine?.resolved);
+  // The controls: always when a caller cannot edit the rate (the checkbox is
+  // then the only control), when the line is unsettled, when tax is off
+  // (the switch back on has to be reachable), or on request.
+  const showTaxControls = !onTaxRateChange || !resolved || !taxEnabled || changing;
+  // Same reason as explainTaxSource: 9,5 % not 9.5 % on a French screen.
+  const pct = (n) =>
+    Number(n).toLocaleString(numberLocaleFor(language), { maximumFractionDigits: 3 });
+  const show = (key) => !only || only === key;
+
+  return (
+    <>
+      {show("validUntil") && (
+        <>
         {/* Expiry first: it is the one term on a quote whose whole job is to
             put a deadline in front of the client, and it opens pre-filled at
             30 days — see lib/quotes/validUntil.js for why a default is a
@@ -157,6 +255,10 @@ export default function QuoteTotalsBar({
           </p>
         </div>
 
+        </>
+      )}
+
+      {show("discount") && (
         <DiscountField
           value={discount}
           onChange={onDiscountChange}
@@ -164,43 +266,80 @@ export default function QuoteTotalsBar({
           currency={currency}
         />
 
-        {onTaxRateChange ? (
-          <div>
-            <label
-              htmlFor="quote-tax-rate"
-              className="block text-sm font-medium text-foreground mb-1"
-            >
-              {t("app.quoteEdit.taxRate")}
-            </label>
-            <input
-              id="quote-tax-rate"
-              type="number"
-              min="0"
-              step="0.001"
-              value={taxRate}
-              disabled={!taxEnabled}
-              onChange={(e) => onTaxRateChange(e.target.value)}
-              className="w-full sm:w-40 border border-border rounded-lg px-3 py-2 text-sm disabled:bg-muted disabled:text-muted-foreground"
-            />
-            <label className="flex items-center gap-2 mt-2 text-sm">
+      )}
+
+      {show("tax") && (
+        <>
+        {/* ── The tax line as a sentence ──────────────────────────────
+            "HST 13% (Ontario) · from the job address", with Change beside
+            it. The number is worked out for the estimator now
+            (lib/tax/resolveTaxRate.js), so the screen has to say where it
+            came from — a figure that appears on its own with no
+            explanation is worse than one they typed. */}
+        {taxEnabled && resolved && taxLine?.headline && (
+          <div data-tax-line className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-foreground">
+                <span className="text-muted-foreground">{t("app.quoteEdit.tax")}: </span>
+                {taxLine.headline}
+              </p>
+              {taxLine.source && (
+                <p className="text-xs text-muted-foreground mt-0.5" data-tax-source>
+                  {taxLine.source}
+                </p>
+              )}
+            </div>
+            {onTaxRateChange && !changing && (
+              <button
+                type="button"
+                onClick={() => setChanging(true)}
+                className="text-xs font-medium underline underline-offset-2 text-foreground shrink-0"
+                data-tax-change
+              >
+                {t("app.tax.line.change")}
+              </button>
+            )}
+          </div>
+        )}
+
+        {showTaxControls &&
+          (onTaxRateChange ? (
+            <div data-tax-controls>
+              <label
+                htmlFor="quote-tax-rate"
+                className="block text-sm font-medium text-foreground mb-1"
+              >
+                {t("app.quoteEdit.taxRate")}
+              </label>
+              <input
+                id="quote-tax-rate"
+                type="number"
+                min="0"
+                step="0.001"
+                value={taxRate}
+                disabled={!taxEnabled}
+                onChange={(e) => onTaxRateChange(e.target.value)}
+                className="w-full sm:w-40 border border-border rounded-lg px-3 py-2 text-sm disabled:bg-muted disabled:text-muted-foreground"
+              />
+              <label className="flex items-center gap-2 mt-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={taxEnabled}
+                  onChange={(e) => onTaxToggle(e.target.checked)}
+                />
+                {t("app.quoteEdit.chargeTax")}
+              </label>
+            </div>
+          ) : (
+            <label className="flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
                 checked={taxEnabled}
                 onChange={(e) => onTaxToggle(e.target.checked)}
               />
-              {t("app.quoteEdit.chargeTax")}
+              {t("app.quoteNew.applyTax", { rate: taxRate })}
             </label>
-          </div>
-        ) : (
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={taxEnabled}
-              onChange={(e) => onTaxToggle(e.target.checked)}
-            />
-            {t("app.quoteNew.applyTax", { rate: taxRate })}
-          </label>
-        )}
+          ))}
 
         {/* ── Standard or reduced VAT ──────────────────────────────────
             A question rather than a guess: the reduced rate's conditions
@@ -266,6 +405,20 @@ export default function QuoteTotalsBar({
           </p>
         )}
 
+        </>
+      )}
+    </>
+  );
+}
+
+/**
+ * Subtotal, discount, tax and total — the figures, with the "not worked
+ * out" warning the send route will otherwise refuse on.
+ */
+export function QuoteTotalsLines({ subtotal, taxableBase = subtotal, tax, total, taxEnabled, taxLine = null, money }) {
+  const { t } = useTranslation();
+  const taxUnresolved = taxEnabled && !Boolean(taxLine?.resolved);
+  return (
         <div className="space-y-1 text-sm">
           <div className="flex justify-between text-muted-foreground">
             <span>{t("app.quoteEdit.subtotal")}</span>
@@ -285,12 +438,14 @@ export default function QuoteTotalsBar({
             </div>
           )}
           {/* ── The zero that isn't a figure ─────────────────────────────
-              Tax switched ON with nothing charged is not "$0.00", it is "we
-              haven't worked this out" — and it is the state that let
-              Q-2026-0011 out of the building with $682.50 of HST missing.
-              The send route refuses it (lib/tax/documentTax.js); this is where
-              the estimator sees it first, while it is still fixable. */}
-          {taxEnabled && Number(tax) === 0 ? (
+              Tax switched ON with no RATE behind it is not "$0.00", it is
+              "we haven't worked this out" — the state that let Q-2026-0011
+              out of the building with $682.50 of HST missing. The send route
+              refuses it (lib/tax/documentTax.js); this is where the
+              estimator sees it first, while it is still fixable. Keyed on
+              the rate, not the amount: $0 of tax on an empty quote at 13%
+              is a figure. */}
+          {taxUnresolved ? (
             <div className="flex justify-between text-amber-700 dark:text-amber-300">
               <span>{t("app.quoteEdit.tax")}</span>
               <span className="font-medium">
@@ -305,11 +460,9 @@ export default function QuoteTotalsBar({
               </span>
             </div>
           )}
-          {taxEnabled && Number(tax) === 0 && (
+          {taxUnresolved && taxLine?.hint && (
             <p className="text-xs text-amber-700 dark:text-amber-300 leading-snug" data-tax-unresolved-hint>
-              {taxPlace
-                ? t("app.tax.line.unresolvedHintPlace", { place: taxPlace })
-                : t("app.tax.line.unresolvedHint")}
+              {taxLine.hint}
             </p>
           )}
           <div className="flex justify-between font-semibold text-foreground text-base pt-1 border-t border-border mt-1">
@@ -317,12 +470,17 @@ export default function QuoteTotalsBar({
             <span className="tabular-nums">{money(total)}</span>
           </div>
         </div>
-      </div>
+  );
+}
 
-      {/* What is still missing, live and free. The sentence explaining that
-          Review saves a draft first lives here too — the sticky bar has room
-          for a button and not for a sentence. */}
-      {readiness && (
+/** What is still missing, live and free — and the sentence about Review. */
+export function QuoteReadinessBlock({ readiness, readinessItems, showReviewHint = false }) {
+  const { t } = useTranslation();
+  if (!readiness) return null;
+  // What is still missing, live and free. The sentence explaining that
+  // Review saves a draft first lives here too — the sticky bar has room
+  // for a button and not for a sentence.
+  return (
         <div className="pt-4 border-t border-border space-y-2">
           <QuoteReadiness
             draft={readiness}
@@ -332,17 +490,44 @@ export default function QuoteTotalsBar({
           {/* Only alongside the button it explains. On the edit route the
               review panel is on the page already, so this sentence would be
               describing a button that isn't there. */}
-          {onSaveAndReview && (
+          {showReviewHint && (
             <p className="text-xs text-muted-foreground">
               {t("app.quoteNew.saveAndReviewHint")}
             </p>
           )}
         </div>
-      )}
+  );
+}
 
+/**
+ * The fixed bar: the total and the ways out. Shared by both builders so a
+ * phone's thumb finds the same buttons in the same place whichever layout
+ * the company is on.
+ */
+export function QuoteActionsDock({
+  total,
+  taxEnabled,
+  money,
+  saving,
+  disabled,
+  primaryLabel,
+  primaryLabelShort,
+  onSaveDraft,
+  onSaveAndSend = null,
+  onSaveAndReview = null,
+  cancelHref = null,
+  // Rendered before the save buttons — the document builder's "Cost &
+  // margin" and "Preview" controls live here on a phone.
+  leading = null,
+}) {
+  const { t } = useTranslation();
+  const dockRef = useBottomDock();
+  return (
+    <>
       {/* left-60 clears the desktop sidebar; full width below that breakpoint
-          where the sidebar collapses. lg:left-60, not sm: — AdminSidebar only
-          becomes a rail at `lg` (hidden lg:flex). */}
+          where the sidebar collapses. lg:left-64, not sm: — AdminSidebar only
+          becomes a rail at `lg` (hidden lg:flex), and the 2026-09-21 shell's
+          rail is w-64; the old left-60 put the bar's first 16px under it. */}
       {/* ── This bar is a "bottom dock" ──────────────────────────────────
           It sits at bottom: var(--fq-tab-bar-height) — 0 from lg up, the
           tab bar's footprint below it — and hands its own measured height
@@ -371,7 +556,7 @@ export default function QuoteTotalsBar({
       <div
         ref={dockRef}
         data-tour="totals"
-        className="fixed bottom-[var(--fq-tab-bar-height)] left-0 right-0 lg:left-60 bg-card border-t border-border px-4 sm:px-6 py-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3 z-40"
+        className="fixed bottom-[var(--fq-tab-bar-height)] left-0 right-0 lg:left-64 bg-card border-t border-border px-4 sm:px-6 py-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3 z-40"
       >
         <div className="flex items-baseline justify-between gap-3 min-w-0 sm:block" data-totals-figure>
           <div className="text-[11px] text-muted-foreground leading-none">
@@ -389,6 +574,7 @@ export default function QuoteTotalsBar({
             Cancel off the left edge. A wrapped second row is honest; a
             clipped button is a control nobody can reach. */}
         <div className="flex flex-wrap gap-2 shrink-0 justify-end" data-totals-actions>
+          {leading}
           {/* ── Review sits WITH the other actions ──────────────────────────
               It shipped at the bottom of the totals card, on the argument that
               a third button does not fit at 375px. The owner could not find
@@ -478,3 +664,4 @@ export default function QuoteTotalsBar({
     </>
   );
 }
+

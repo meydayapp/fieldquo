@@ -78,6 +78,7 @@ import {
   PRICE_UNKNOWN,
   SOURCED_PUBLISHER,
   allAddOns,
+  allPerUseCharges,
   claims,
   comparableTier,
   competitor as findCompetitor,
@@ -395,6 +396,15 @@ export default function ComparisonPage({ slug, asOf }) {
   // print, not a description of it: "they have AI limits" compares to nothing.
   const meteredTiers = published.filter((f) => Number.isFinite(f.aiCreditsPerMonth));
 
+  // What they charge per use — Roofr's measurement reports — through the
+  // same gate as a plan figure, printed per report and never as a monthly.
+  // Kept out of `addOns` on purpose: totalOf() refuses to add a per-report
+  // price to a per-month one, and the way to keep that refusal from ever
+  // firing is to never hand it one. See allPerUseCharges in competitors.js.
+  const perUse = allPerUseCharges().filter(
+    (u) => u.competitorId === competitor.id && withholdReason(u, asOf) === null,
+  );
+
   const ladder = FIELDQUO_REFERENCE.ladder;
   const otherPages = COMPARE_PAGES.filter((p) => p.slug !== slug);
 
@@ -652,6 +662,53 @@ export default function ComparisonPage({ slug, asOf }) {
                 { count: withheld.length, competitor: competitor.name },
               )}
             </p>
+          ) : null}
+
+          {/* ── Charged per use, on top of the plan ─────────────────────────
+              Their own words for the unit ("per report"), their own price,
+              and which of their tiers it applies to. No total: a per-report
+              charge has no monthly figure until somebody knows how many roofs
+              a shop measures, and this page does not know that. */}
+          {perUse.length > 0 ? (
+            <div className="mt-10 max-w-3xl" data-per-use={competitor.id}>
+              <h3 className="text-lg font-semibold text-foreground">
+                {t("compare.perUseTitle", "Charged per use, on top of the plan")}
+              </h3>
+              <p className="mt-2 text-sm text-muted-foreground">
+                {t(
+                  "compare.perUseIntro",
+                  "{competitor} prices these per use on every plan, so the plan price above is where their bill starts and not where it ends. FieldQuo has no charge of this kind: measuring a roof from its address is in every plan at the plan price.",
+                  { competitor: competitor.name },
+                )}
+              </p>
+              <div className="mt-4 space-y-3">
+                {perUse.map((charge) => (
+                  <div
+                    key={charge.id}
+                    data-per-use-id={charge.id}
+                    className="bg-card border border-border rounded-xl p-4"
+                  >
+                    <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                      <div className="font-semibold text-foreground">{charge.label}</div>
+                      <div className="text-foreground font-semibold whitespace-nowrap">
+                        {t("compare.perUseAmount", "${amount} {currency} {unit}", {
+                          amount: charge.price.amount.toLocaleString(locale),
+                          currency: charge.price.currency,
+                          // Their unit, quoted — "per report", "per bundle".
+                          unit: charge.unit,
+                        })}
+                      </div>
+                    </div>
+                    <div className="mt-2 text-xs text-muted-foreground">
+                      {provenanceLine(charge, t)} ·{" "}
+                      <SourceLink href={charge.source}>
+                        {t("addOns.sourceLink", "their pricing page")}
+                      </SourceLink>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           ) : null}
 
           {/* ── The withheld figures are NOT printed here ──────────────────
@@ -978,11 +1035,59 @@ export default function ComparisonPage({ slug, asOf }) {
                 receptionistFeature.label,
               ),
             })}
-            intro={t("compare.receptionistUnknownIntro", "We cannot answer this one for {competitor}.", {
-              competitor: competitor.name,
-            })}
+            intro={
+              receptionistAddOn
+                ? t(
+                    "compare.receptionistAddOnOnlyIntro",
+                    "No {competitor} tier lists it as included. Their page sells it as an add-on on top of the plan.",
+                    { competitor: competitor.name },
+                  )
+                : t("compare.receptionistUnknownIntro", "We cannot answer this one for {competitor}.", {
+                    competitor: competitor.name,
+                  })
+            }
           />
           <div className="mt-8 grid md:grid-cols-2 gap-4">
+            {/* Three answers, not two. A tier that includes it is the branch
+                above; nobody-checked is the one below; and BETWEEN them is a
+                vendor whose page prices the receptionist as an add-on and
+                lists it on no tier — Roofr. Saying "we cannot answer this"
+                beside a $99 add-on we printed two screens up read as the
+                page contradicting itself. */}
+            {receptionistAddOn ? (
+              <div
+                className="bg-card border border-border rounded-xl p-5"
+                data-receptionist-addon={receptionistAddOn.id}
+                data-capability-match={receptionistFeature.key}
+                data-capability-established="add_on"
+              >
+                <div className="font-semibold text-foreground">
+                  {competitor.name} {receptionistAddOn.label}
+                </div>
+                <div className="mt-1 text-foreground">{priceLine(receptionistAddOn.price, t, locale)}</div>
+                {coordinateLine(receptionistAddOn, t) ? (
+                  <div className="mt-1 text-sm text-muted-foreground">
+                    {coordinateLine(receptionistAddOn, t)}
+                  </div>
+                ) : null}
+                <div className="mt-2 text-sm text-muted-foreground">
+                  {t(
+                    "compare.receptionistAddOnOnly",
+                    "It is {availability}: {price}. That is a floor you pay in a month when the phone never rings.",
+                    {
+                      availability: availabilityWord(FEATURE_ADD_ON, t),
+                      price: priceLine(receptionistAddOn.price, t, locale),
+                    },
+                  )}
+                </div>
+                <div className="mt-3 text-xs text-muted-foreground">
+                  {provenanceLine(receptionistAddOn, t)} ·{" "}
+                  <SourceLink href={receptionistAddOn.source}>
+                    {t("addOns.sourceLink", "their pricing page")}
+                  </SourceLink>
+                </div>
+              </div>
+            ) : (
             <div
               className="bg-card border border-border rounded-xl p-5"
               data-capability-match={receptionistFeature.key}
@@ -999,6 +1104,7 @@ export default function ComparisonPage({ slug, asOf }) {
                 )}
               </p>
             </div>
+            )}
             <div className="bg-card border border-border rounded-xl p-5">
               <div className="font-semibold text-foreground">FieldQuo</div>
               <div className="mt-1 text-foreground">

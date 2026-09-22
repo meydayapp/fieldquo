@@ -243,16 +243,28 @@ export default function AddOnStack({
           })}
         </p>
         <p className="mt-2 text-muted-foreground">
+          {/* Said with the count, not "three": Jobber sells three of these
+              and Roofr sells four, and a sentence that had the number typed
+              into it was true on one page and false on the next. */}
           {t(
             "addOns.totalBody",
-            "That is what those three cost together at the point on their own selectors where we read them. In FieldQuo the same three jobs are in every plan, at every size, from the cheapest one on this page.",
+            "That is what those {count} cost together at the point on their own selectors where we read them. In FieldQuo the same {count} jobs are in every plan, at every size, from the cheapest one on this page.",
+            { count: stack.items.length },
           )}
         </p>
       </div>
 
       {/* The receptionist, stated narrowly on purpose — see the file header.
           The label comes out of the capability ledger so this page cannot make
-          a claim about our own product that the ledger does not carry. */}
+          a claim about our own product that the ledger does not carry.
+
+          Rendered only when one of THEIR add-ons in this stack is the
+          receptionist (`feature: "ai_receptionist"` on the add-on in
+          competitors.js). "Their receptionist add-on is a monthly floor" is a
+          sentence about a specific add-on, and it was being printed under any
+          stack at all — true for Jobber and Roofr, and a false statement about
+          a company whose stack has no such add-on. */}
+      {stack.items.some((a) => a.feature === "ai_receptionist") ? (
       <div className="mt-4 rounded-xl border border-border bg-card p-5" data-addon-receptionist="true">
         <div className="flex items-start gap-2">
           <Info size={16} className="text-muted-foreground shrink-0 mt-1" aria-hidden="true" />
@@ -269,6 +281,7 @@ export default function AddOnStack({
           </div>
         </div>
       </div>
+      ) : null}
     </section>
   );
 }

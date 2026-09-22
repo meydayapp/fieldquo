@@ -11,6 +11,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { effectiveTaxMode } from "@/lib/tax/taxMode";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -38,6 +39,7 @@ import CompanyActivity from "./CompanyActivity";
 import CompanyHealth from "./CompanyHealth";
 import CompanyActions from "./CompanyActions";
 import CompanyInfluencer from "./CompanyInfluencer";
+import CompanyBuilderLayout from "./CompanyBuilderLayout";
 import CompanyDisputeEvidence from "./CompanyDisputeEvidence";
 import PlatformWriteGate, {
   usePlatformAdmin,
@@ -538,9 +540,10 @@ export default function CompanyDetail({ companyId }) {
                 : null
             }
           />
+          {/* lib/tax/taxMode.js: the column, else the older boolean. */}
           <Field
-            label="Auto local tax"
-            value={company.autoApplyLocalTax ? "On" : "Off"}
+            label="Tax mode"
+            value={effectiveTaxMode(company) === "manual" ? "Manual — own rates only" : "Automatic — by province / state"}
           />
           <Field label="Payment terms" value={company.paymentTerms} />
           <Field
@@ -692,6 +695,14 @@ export default function CompanyDetail({ companyId }) {
         companyId={companyId}
         companyName={company.name}
         trialEndsAt={company.trialEndsAt}
+        onDone={load}
+      />
+
+      {/* Which quote builder their estimators open — the rollout of the
+          document-shaped builder is decided here, per company. */}
+      <CompanyBuilderLayout
+        companyId={companyId}
+        value={company.quoteBuilderLayout}
         onDone={load}
       />
 

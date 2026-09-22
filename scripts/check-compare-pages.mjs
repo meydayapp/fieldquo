@@ -76,6 +76,7 @@ import {
   UNVERIFIED,
   VERIFIED,
   allAddOns,
+  allPerUseCharges,
   claims,
   comparableTier,
   competitor as findCompetitor,
@@ -395,6 +396,19 @@ async function main() {
         .map((a) => a.price.amount),
       ...SEAT_LADDER.map((t) => t.price),
       ...COMPETITORS.filter((c) => mine(c.id)).map((c) => addOnStack(c.id, asOf).total).filter((n) => n !== null),
+      // Charged per use — Roofr's per-report measurement fees. Their own
+      // published figure, through withholdReason like any other, printed per
+      // report under its own heading and never as a monthly (see
+      // allPerUseCharges in competitors.js).
+      ...allPerUseCharges()
+        .filter((u) => mine(u.competitorId) && withholdReason(u, asOf) === null)
+        .map((u) => u.price.amount),
+      // The price of the next user, where a figure carries one (PaintScout's
+      // "$20/user/month"). It rides on a publishable figure and publishes with
+      // it; a stale reading empties it the same way.
+      ...publishableFigures(asOf)
+        .filter((f) => mine(f.competitorId) && typeof f.perExtraUser?.amount === "number")
+        .map((f) => f.perExtraUser.amount),
     ]);
     for (const c of COMPETITORS.filter((c) => mine(c.id))) {
       const ladder = tierLadder(c.id, asOf);
@@ -445,6 +459,11 @@ async function main() {
         .split(",")
         .filter(Boolean)
         .map(Number),
+      // Only a seat total carries one. null, not 0, when absent — "no count"
+      // and "a count of nought" must stay different things to recomputeDerived.
+      count: /data-derived-count="([^"]+)"/.test(el.outer)
+        ? Number(/data-derived-count="([^"]+)"/.exec(el.outer)[1])
+        : null,
     }));
 
   /** Every endpoint of a reported band this competitor's entries carry. */
@@ -462,16 +481,58 @@ async function main() {
     return out;
   };
 
+  /**
+   * Amounts inside a competitor's OWN quoted phrase.
+   *
+   * Roofr's Starter card reads "$19 measurement reports delivered in 24 hrs
+   * or less" and "ESX files $12 USD / report" — their words, quoted verbatim
+   * under `data-their-feature` and `data-entry-price-feature` because
+   * renaming a competitor's feature is how a comparison becomes a straw man.
+   * A dollar sign inside a quotation is not a figure this page asserts; it is
+   * their sentence. It still only reaches the page through a figure that
+   * publishes (theirTiers and entryGap both filter on withholdReason), so a
+   * stale reading takes the quotation with it — asserted in section 7.
+   */
+  const quotedAmounts = (html) => {
+    const out = new Set();
+    for (const attr of ["data-their-feature", "data-entry-price-feature"]) {
+      for (const el of elementsWith(html, attr)) for (const n of amountsIn(el.outer)) out.add(n);
+    }
+    return out;
+  };
+
+  /**
+   * Derived values a page may print, admitted in two passes so a derivation
+   * whose input is ITSELF a derivation on the same page (PaintScout: the
+   * annual saving is computed from the seat total, which is computed from
+   * $119 and $20) is admitted only once the inner one is. Two passes, not a
+   * loop to fixpoint: the chain is exactly one deep by construction and a
+   * deeper one is a new kind of arithmetic somebody should look at.
+   */
+  const admittedDerived = (html, competitorId) => {
+    const base = new Set([
+      ...publishedAmounts(TODAY, competitorId ?? null),
+      ...(competitorId ? derivedMonthlies(TODAY, html, competitorId) : []),
+    ]);
+    const derived = derivationsIn(html);
+    const inner = new Set(
+      derived.filter((d) => d.inputs.every((n) => base.has(n))).map((d) => d.value),
+    );
+    const outer = new Set(
+      derived
+        .filter((d) => d.inputs.every((n) => base.has(n) || inner.has(n)))
+        .map((d) => d.value),
+    );
+    return new Set([...inner, ...outer]);
+  };
+
   for (const p of [{ slug: "/compare (index)", html: indexHtml }, ...pages]) {
     const allowed = new Set([
       ...publishedAmounts(TODAY, p.competitorId ?? null),
       ...(p.competitorId ? derivedMonthlies(TODAY, p.html, p.competitorId) : []),
       ...(p.competitorId ? reportedAmounts(TODAY, p.competitorId) : []),
-      ...derivationsIn(p.html)
-        .filter((d) => d.inputs.every((n) =>
-          publishedAmounts(TODAY, p.competitorId ?? null).has(n) ||
-          (p.competitorId ? derivedMonthlies(TODAY, p.html, p.competitorId).has(n) : false)))
-        .map((d) => d.value),
+      ...quotedAmounts(p.html),
+      ...admittedDerived(p.html, p.competitorId ?? null),
     ]);
     const strays = [...new Set(amountsIn(p.html))].filter((n) => !allowed.has(n));
     ok(`${p.slug}: every printed amount is publishable`, strays.length === 0, strays.join(","));
@@ -487,10 +548,19 @@ async function main() {
   {
     let declared = 0;
     for (const p of pages) {
-      const admissible = new Set([
+      const published = new Set([
         ...publishedAmounts(TODAY, p.competitorId),
         ...derivedMonthlies(TODAY, p.html, p.competitorId),
       ]);
+      // A seat total is itself an admissible input to the saving computed
+      // from it — but ONLY when its own inputs publish, which is what makes
+      // this a chain of two checked derivations rather than a loophole.
+      const seatTotals = new Set(
+        derivationsIn(p.html)
+          .filter((d) => d.op === "seat_total" && d.inputs.every((n) => published.has(n)))
+          .map((d) => d.value),
+      );
+      const admissible = new Set([...published, ...seatTotals]);
       for (const d of derivationsIn(p.html)) {
         declared += 1;
         const where = `${p.slug}/${d.op}=${d.value}`;
@@ -500,13 +570,20 @@ async function main() {
         ok(`${where}: a year is twelve months and nothing else`, d.months === MONTHS_PER_YEAR,
           d.months);
         // Recomputed from the record's own inputs, never read back off it.
-        const again = recomputeDerived({ op: d.op, inputs: d.inputs, months: d.months });
+        const again = recomputeDerived({ op: d.op, inputs: d.inputs, months: d.months, count: d.count });
         ok(`${where}: re-running the arithmetic gives the number printed`, again === d.value,
           String(again));
         const shown = amountsIn(d.el.outer);
         ok(`${where}: the page shows the working — every input is printed beside the answer`,
           d.inputs.every((n) => shown.includes(n)),
           d.inputs.filter((n) => !shown.includes(n)).join(","));
+        if (d.op === "seat_total") {
+          // The count is the third input and it is printed as a bare number,
+          // so it is checked as text rather than as an amount.
+          ok(`${where}: ...and the number of extra users is printed too`,
+            Number.isInteger(d.count) && d.count > 0 && new RegExp(`\\b${d.count}\\b`).test(d.el.text),
+            d.count);
+        }
         ok(`${where}: ...and the answer itself is printed, not only declared`,
           shown.includes(d.value));
       }
@@ -1343,10 +1420,31 @@ async function main() {
     }
     ok("...and still says the talk time is prepaid credit", /prepaid credit/i.test(jobber.text));
 
-    // ── Nobody else gets one ───────────────────────────────────────────────
+    // ── Only a page whose stack the module will total gets one ───────────
+    //
+    // This said "nobody else gets one", and that was true for five pages. Roofr
+    // sells four add-ons at one selector point and gets a block; PaintScout
+    // sells ONE and does not — totalOf refuses to dress a single figure up as
+    // an accumulation — and the row and the lede carry its $99 instead. The
+    // rule is the module's answer, page by page, not a list of names.
     for (const p of pages.filter((x) => x.competitorId !== "jobber")) {
-      ok(`${p.slug}: no add-on block, because no add-on prices were read`,
-        !/data-addon-stack/.test(p.html) && !/data-addon-total/.test(p.html));
+      const theirs = addOnStack(p.competitorId, TODAY);
+      if (theirs.refusal === null) {
+        ok(`${p.slug}: the add-on block renders, because the module will total their stack`,
+          /data-addon-stack/.test(p.html) && p.html.includes(`data-addon-total="${theirs.total}"`));
+        ok(`${p.slug}: ...and says how many, not "three"`,
+          p.text.includes(`those ${theirs.items.length} cost together`));
+      } else {
+        ok(`${p.slug}: no add-on block — ${theirs.refusal}`,
+          !/data-addon-stack/.test(p.html) && !/data-addon-total/.test(p.html));
+      }
+    }
+    // The receptionist paragraph under the stack is about THEIR receptionist
+    // add-on, and only a stack that has one gets it.
+    for (const p of pages) {
+      const has = addOnStack(p.competitorId, TODAY).items.some((a) => a.feature === "ai_receptionist");
+      ok(`${p.slug}: the receptionist note under the stack ${has ? "renders" : "does not render"}`,
+        /data-addon-receptionist/.test(p.html) === has);
     }
     // And the whole block leaves with the prices when the reading goes stale —
     // the same degradation the figure rows have, asserted rather than assumed.
@@ -1523,12 +1621,35 @@ async function main() {
     ok("...while still not claiming they lack it",
       /not a claim that they lack it/.test(quoteiq.text));
     // The same statement is owed on every page where the match is unresolved,
-    // and must never appear on one where it IS resolved.
+    // and must never appear on one where it IS resolved — and there is a
+    // THIRD state since Roofr: no tier includes it, but their page prices it
+    // as an add-on. That page names the add-on (data-capability-established=
+    // "add_on") and neither of the other two sentences.
     for (const p of pages) {
       const resolved = comparableTier(p.competitorId, { feature: "ai_receptionist" }, TODAY);
-      ok(`${p.slug}: says which of the two it is, and only one of them`,
-        Boolean(resolved) === /data-receptionist-figure/.test(p.html) &&
-          Boolean(resolved) !== /data-capability-established="false"/.test(p.html));
+      const addOnOnly =
+        !resolved &&
+        allAddOns().some(
+          (a) => a.competitorId === p.competitorId && a.feature === "ai_receptionist" && withholdReason(a, TODAY) === null,
+        );
+      const states = [
+        /data-receptionist-figure/.test(p.html),
+        /data-capability-established="add_on"/.test(p.html),
+        /data-capability-established="false"/.test(p.html),
+      ];
+      ok(`${p.slug}: says which of the three it is, and only one of them`,
+        states.filter(Boolean).length === 1 &&
+          states[0] === Boolean(resolved) &&
+          states[1] === addOnOnly &&
+          states[2] === (!resolved && !addOnOnly),
+        states);
+    }
+    {
+      const roofr = pages.find((p) => p.competitorId === "roofr");
+      ok("Roofr is the add-on-only case, and the panel prices the add-on rather than saying nobody looked",
+        /data-capability-established="add_on"/.test(roofr.html) &&
+          /sells it as an add-on on top of the plan/.test(roofr.text) &&
+          !/We cannot answer this one for Roofr/.test(roofr.text));
     }
     ok("the vocabulary is still one key, which is why this section exists",
       Object.keys(COMPARABLE_FEATURES).length === 1 &&
@@ -1716,6 +1837,117 @@ async function main() {
       !/is a withheld figure \(their page states/.test(source(COPY)));
     ok("...and still refuses to hold a number itself, for the stronger reason",
       /bypasses withholdReason/.test(source(COPY)));
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  console.log("\n14. Roofr and PaintScout, read 2026-09-21");
+  // ══ Two pages, two shapes the first five did not have ═════════════════════
+  //
+  // Roofr does not bill per head: "Unlimited users" on every card. Every
+  // sentence on the other pages that turns on "they bill every login" is false
+  // here, and the page has to say their fact instead of ours. They also sell
+  // a free tier and charge per roof measured, neither of which any earlier
+  // page had a place for.
+  //
+  // PaintScout bills every user past the first at $20, sells the job half as a
+  // single add-on the module refuses to "total", and is the first page whose
+  // shop price is arithmetic on two of their figures rather than one.
+  {
+    const roofr = pages.find((p) => p.competitorId === "roofr");
+    const ps = pages.find((p) => p.competitorId === "paintscout");
+    ok("both pages rendered", Boolean(roofr?.html) && Boolean(ps?.html));
+
+    // ── Roofr: their facts, in their words ───────────────────────────────
+    ok("Roofr's free tier is printed as free, in USD",
+      elementsWith(roofr.html, "data-figure-id").some(
+        (el) => el.value === "roofr.starter.monthly" && /Free \(USD\)/.test(el.text),
+      ));
+    ok("...and the head-to-head names the ten-proposal cap beside the $0",
+      /10 trial proposals, invoices &(amp;)? work orders/.test(roofr.text) && /\$0\/mo/.test(roofr.text));
+    ok("Roofr's people-in-the-field cell says unlimited users, not 'billed'",
+      /Unlimited users/.test(roofr.text) && !/Every login is a paid user at Roofr/.test(roofr.text));
+    ok("...and the shop section that assumes per-login billing does not render",
+      !/What it costs for a shop like yours/.test(roofr.text) && !/Roofr bills every login/.test(roofr.text));
+    ok("the four add-ons total on the page",
+      roofr.html.includes('data-addon-total="396"') && roofr.html.includes('data-addon-count="4"'));
+    ok("...and the lede carries that total from the gate, not from the keyboard",
+      /\$396 a month on top of the plan/.test(roofr.text) && !/396/.test(source(COPY)));
+    ok("the per-report charges render under their own heading, per report",
+      /data-per-use="roofr"/.test(roofr.html) &&
+        elementsWith(roofr.html, "data-per-use-id").length === 4 &&
+        /\$13 USD per report/.test(roofr.text) && /\$19 USD per report/.test(roofr.text));
+    ok("...and none of them is ever summed into a monthly figure",
+      !/\$(13|19|23|31)\s*\/mo/.test(roofr.text) && !/\$(13|19|23|31) USD per month/.test(roofr.text));
+    ok("the measured-report concession is on the page, with our derived split named",
+      roofr.html.includes('data-lacks="measured_roof_report"') &&
+        /hips, valleys, ridges, flashing/.test(roofr.text) && /derives that split by convention/.test(roofr.text));
+    ok("...and the free tier is conceded as a price below our floor",
+      roofr.html.includes('data-direction="they-have-we-dont" data-capability="entry_price_below_our_floor"') ||
+        /\$0 a month with no time limit/.test(roofr.text));
+    ok("the Canadian-payments claim quotes 'U.S businesses only'",
+      roofr.html.includes('data-capability="payments_in_canada"') && /U\.S businesses only/.test(roofr.text));
+    ok("the geo caveat says the page was read from Canada and prices in USD",
+      /Read from a Canadian connection/.test(roofr.text) && /All pricing in USD/.test(roofr.text));
+    ok("the receptionist note under the stack renders, because Roofr sells one",
+      /data-addon-receptionist/.test(roofr.html));
+    ok("the SMS counterpart prints the reminder feature's limits, not a two-way thread we lack",
+      elementsWith(roofr.html, "data-addon-stack").some((el) => /Where it stops:/.test(el.text)) ||
+        /data-limits="appointment_reminders"/.test(roofr.html));
+    ok("ninety-five days on, the per-report charges and the free tier leave with the rest",
+      (() => {
+        const stale = renderAtDate("fieldquo-vs-roofr", staleDateFor("roofr"));
+        return !/data-per-use=/.test(stale) && !/Free \(USD\)/.test(stale) && !/data-addon-stack/.test(stale);
+      })());
+
+    // ── PaintScout: every user past the first, and the job half separately ─
+    ok("PaintScout's shop section renders and prices the extra users",
+      /What it costs for a shop like yours/.test(ps.text) &&
+        ps.html.includes('data-derived-op="seat_total"'));
+    ok("...a shop of eleven is $119 plus ten more users at $20, shown as working",
+      /\$119 \+ 10 × \$20 more users/.test(ps.text) && ps.html.includes('data-derived-value="319"'));
+    ok("...and the saving is computed from that total, not from the one-user price",
+      elementsWith(ps.html, "data-derived-value").some(
+        (el) => /data-derived-op="annual_saving"/.test(el.outer) && /data-derived-inputs="319,/.test(el.outer),
+      ));
+    ok("the Operations add-on is priced in the add-on row as what they charge",
+      /Sold as paid add-ons/.test(ps.text) && /\+\$99\/mo/.test(ps.text) && /Operations \$99/.test(ps.text));
+    // The headline rows carry website, instant quotes, self-quote and the
+    // receptionist — all four of Roofr's add-ons — so it is the Roofr page
+    // that exercises "an add-on, not an absence" in the head-to-head.
+    ok("a capability sold only as an add-on is priced as one, never called absent",
+      /Instant Estimator add-on — \$149\/mo/.test(roofr.text) &&
+        /Roofr Sites add-on — \$99\/mo/.test(roofr.text) &&
+        /AI Receptionist add-on — \$99\/mo/.test(roofr.text) &&
+        /sold separately, on top of the plan/.test(roofr.text));
+    ok("no add-on block on PaintScout — one add-on is a price, not a stack",
+      !/data-addon-stack/.test(ps.html));
+    ok("...so the lede's add-on figure comes from parity's add-on list instead",
+      /\$99 a month more/.test(ps.text));
+    ok("every login is billed at PaintScout, and the row says so",
+      /Every login is a paid user at PaintScout/.test(ps.text));
+    ok("the paint takeoff is on the page as a matrix feature, with its proved name",
+      ps.html.includes('data-matrix-key="paint_takeoff"') && /Painting priced by production rate/.test(ps.text));
+    ok("the concession names their painting defaults and our opening positions",
+      /production-rate defaults come from years of painting companies/.test(ps.text) &&
+        /opening positions you are expected to tune/.test(ps.text));
+    ok("...and iOS/Android, offline, QuickBooks, Zapier/CompanyCam, a community and a no-card trial",
+      ["mobile_app", "offline_use", "accounting_sync", "integration_marketplace", "community"].every((k) =>
+        elementsWith(ps.html, "data-capability").some(
+          (el) => el.value === k && /they-have-we-dont/.test(el.outer) && !/data-unverified/.test(el.outer),
+        )) && /14-day trial takes no card/.test(ps.text));
+    ok("the free-crew claim is on the page with the $20 in it",
+      ps.html.includes('data-capability="free_crew_seats"') && /\$20 a month for each additional team seat/.test(ps.text));
+    ok("the Success packages are nowhere on the page as figures",
+      !/\$999|\$1,499|\$1,999/.test(ps.text));
+
+    // ── Both: the index counts seven and the other-pages strip links both ─
+    ok("the index lists seven comparisons", /Seven comparisons/.test(decode(indexHtml)) &&
+      indexHtml.includes("/compare/fieldquo-vs-roofr") && indexHtml.includes("/compare/fieldquo-vs-paintscout"));
+    for (const p of pages) {
+      const others = COMPARE_PAGES.filter((x) => x.slug !== p.slug);
+      ok(`${p.slug}: links every other comparison`,
+        others.every((o) => p.html.includes(`/compare/${o.slug}`)));
+    }
   }
 
   console.log(

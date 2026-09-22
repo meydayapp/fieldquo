@@ -2,7 +2,9 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import AdminSidebar from "@/app/components/layout/AdminSidebar";
+import TopBar from "@/app/components/layout/TopBar";
 import MobileTabBar from "@/app/components/layout/MobileTabBar";
+import { NavShellProvider } from "@/app/components/layout/NavShell";
 import ImpersonationBanner from "@/app/components/ImpersonationBanner";
 import BillingBanner from "@/app/components/layout/BillingBanner";
 import EmailVerifyBanner from "@/app/components/layout/EmailVerifyBanner";
@@ -18,6 +20,9 @@ import CompanyPreferencesProvider from "@/app/providers/CompanyPreferencesProvid
 import { LanguageProvider } from "@/app/providers/LanguageProvider";
 import { FeatureProvider } from "@/app/providers/FeatureProvider";
 import { PermissionProvider } from "@/app/providers/PermissionProvider";
+import { SettingsAccessProvider } from "@/app/providers/SettingsAccessProvider";
+import { TradeGateProvider } from "@/app/providers/TradeGateProvider";
+import { companyTradeGate } from "@/lib/settings/tradeGate";
 import { isInfluencer } from "@/lib/influencers";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
@@ -207,6 +212,40 @@ async function resolveCallerPermissions() {
 }
 
 /**
+ * The member's role and whether this is a support session, for the settings
+ * rows — and the company's trade gate, for the two settings rows only a
+ * cabinet maker or a painter has a reason to see.
+ *
+ * Both used to be resolved by app/app/settings/layout.js, because only the
+ * settings sidebar read them. The settings rows are now drawn by the rail's
+ * slide panel, the settings index, the phone strip and the global search —
+ * on EVERY page — so the two answers moved up here, beside the feature flags
+ * and the permission grid they travel with. One getCurrentMember, one trade
+ * query, for the whole shell.
+ *
+ * Never throws, and null reads as "unresolved" downstream: the settings
+ * capability filter shows everything, the trade filter shows everything —
+ * the same fail-open posture the other lookups above carry, for the same
+ * reason (a blanked menu on a database blip looks like the account broke,
+ * and every settings screen is gated server-side regardless).
+ */
+async function resolveSettingsShell() {
+  try {
+    const member = await getCurrentMember(
+      { headers: await headers(), method: "GET", url: "http://x/app/settings" },
+      { skipBillingGate: true },
+    );
+    if (!member?.role) return { access: null, tradeGate: null };
+    const access = { role: member.role, impersonation: !!member.impersonation };
+    const tradeGate = member.companyId ? await companyTradeGate(member.companyId) : null;
+    return { access, tradeGate };
+  } catch (err) {
+    console.error("[AppLayout] couldn't resolve the settings shell:", err);
+    return { access: null, tradeGate: null };
+  }
+}
+
+/**
  * Has this person finished signing up — INCLUDING paying for it?
  *
  * ── Two ways to arrive here without a subscription ─────────────────────────
@@ -349,7 +388,7 @@ async function getSetupRedirect() {
 }
 
 export default async function AppLayout({ children }) {
-  const [company, language, locked, featureFlags, callerPermissions, setupPath] =
+  const [company, language, locked, featureFlags, callerPermissions, setupPath, settingsShell] =
     await Promise.all([
       getCompanyShell(),
       getAppLanguage(),
@@ -360,6 +399,7 @@ export default async function AppLayout({ children }) {
       // screen in the app for no benefit.
       resolveCallerPermissions(),
       getSetupRedirect(),
+      resolveSettingsShell(),
     ]);
 
   // Before the lock check: a company that doesn't exist, or one that never
@@ -467,23 +507,39 @@ export default async function AppLayout({ children }) {
             above the page. A provider, because the invoice editor and the
             time clock read the queue through useOffline(). See lib/offline/. */}
         <OfflineShell enabled={company?.offlineCachingEnabled !== false}>
-        {/* lg:flex, not flex — below lg the sidebar renders as a full-width
-            sticky top bar plus a drawer, which has to sit ABOVE the page in
-            normal flow rather than beside it as a flex column. */}
+        {/* The settings rows' two gates, for every surface that draws them
+            (see resolveSettingsShell). The nav-shell provider holds which
+            overlay is open — drawer, More sheet, Create, search — for the
+            rail, the top bar and the tab bar together (NavShell.js). */}
+        <SettingsAccessProvider access={settingsShell.access}>
+        <TradeGateProvider tradeGate={settingsShell.tradeGate}>
+        <NavShellProvider>
+        {/* lg:flex, not flex — below lg the top bar is a full-width sticky
+            bar plus a drawer, which has to sit ABOVE the page in normal flow
+            rather than beside it as a flex column. */}
         <div className="lg:flex">
           <AdminSidebar />
-          {/* The bottom padding reserves exactly what is pinned over the
-              bottom of the viewport: MobileTabBar below `lg` (0 from `lg`
-              up, where it stops rendering) plus whatever Save / Send bar the
-              current page has mounted through useBottomDock. Both come from
-              the variables app/globals.css declares, so the last field on a
-              page is never under either — and no page needs its own pb-24
-              guess at how tall its bar turned out to be. */}
-          <main className="flex-1 min-w-0 pb-[calc(var(--fq-tab-bar-height)+var(--fq-dock-height))]">
-            {children}
-          </main>
+          <div className="flex-1 min-w-0 flex flex-col min-h-screen">
+            {/* One component at two widths: the 52px desktop bar (crumb,
+                search, Create, bell, avatar) and the phone's 52px bar
+                (hamburger, logo, search, bell). */}
+            <TopBar />
+            {/* The bottom padding reserves exactly what is pinned over the
+                bottom of the viewport: MobileTabBar below `lg` (0 from `lg`
+                up, where it stops rendering) plus whatever Save / Send bar the
+                current page has mounted through useBottomDock. Both come from
+                the variables app/globals.css declares, so the last field on a
+                page is never under either — and no page needs its own pb-24
+                guess at how tall its bar turned out to be. */}
+            <main className="flex-1 min-w-0 pb-[calc(var(--fq-tab-bar-height)+var(--fq-dock-height))]">
+              {children}
+            </main>
+          </div>
           <MobileTabBar />
         </div>
+        </NavShellProvider>
+        </TradeGateProvider>
+        </SettingsAccessProvider>
         </OfflineShell>
       </PermissionProvider>
       </FeatureProvider>

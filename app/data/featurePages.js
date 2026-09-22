@@ -245,6 +245,7 @@ const PAGES = [
     ],
     features: [
       "quotes",
+      "paint_takeoff",
       "priced_options",
       "quote_pdf",
       "quote_send",

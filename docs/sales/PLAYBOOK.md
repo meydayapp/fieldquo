@@ -691,7 +691,7 @@ sentence, and ask the one question.
 
 > So you've never heard of us, and there's no reason you should have. We're small and we're new, and I'm not going to pretend otherwise. What we do in a sentence: the quote gets built while you're still standing in the driveway, from your own price list, with your name on it, and the customer approves it from their phone. That's the whole company. Whether it's any use to you turns on one thing, which is how your quotes go out today — same day from the van, or later that night at the table. Tell me which, and I'll tell you straight whether it's worth fifteen minutes.
 
-## 7. Battlecards — the five they will name
+## 7. Battlecards — the seven they will name
 
 Read the honest half out loud. A rep who oversells gets caught on the call, and
 a contractor who buys on something we do not have asks for a refund.
@@ -838,14 +838,14 @@ Full page a contractor reads: https://www.fieldquo.com/compare/fieldquo-vs-jobbe
 
 **Say this when they name them**
 
-> Start with what QuoteIQ has that we do not: A paid plan below FieldQuo's cheapest rung. Their own page says: "QuoteIQ starts at $29.99 a month for one user; FieldQuo's cheapest rung is $99". If that is what decides it for you, they are the better buy and I would rather say so now.
+> Start with what QuoteIQ has that we do not: A plan priced below FieldQuo's cheapest rung. Their own page says: "QuoteIQ starts at $29.99 a month for one user; FieldQuo's cheapest rung is $99". If that is what decides it for you, they are the better buy and I would rather say so now.
 > The narrow thing worth knowing: your own website is on their Max plan at $699 a month. It is on every plan of ours, and ours starts at $99.
 > For 6 of you — say 2 pricing work and 4 in vans — their Elite is $299 and our Crew is $169. Tell me your real numbers and I will do it again with yours.
 > Give me fifteen minutes and I will show you how it works for a business like yours — a quote with your name on it next to the last one you sent out of QuoteIQ — and you tell me what is wrong with it.
 
 **What they genuinely do well**
 
-- A paid plan below FieldQuo's cheapest rung — their page: “QuoteIQ starts at $29.99 a month for one user; FieldQuo's cheapest rung is $99”
+- A plan priced below FieldQuo's cheapest rung — their page: “QuoteIQ starts at $29.99 a month for one user; FieldQuo's cheapest rung is $99”
 - Native mobile app (iOS / Android) — their page: “QuoteIQ ships iOS and Android apps and tells you to download one during signup”
 - Two-way sync with QuickBooks or Xero — their page: “QuoteIQ includes a QuickBooks integration from its Pro tier”
 - Book a guided demo with a salesperson — their page: “QuoteIQ offers a scheduled demo and a phone number”
@@ -874,6 +874,89 @@ Full page a contractor reads: https://www.fieldquo.com/compare/fieldquo-vs-jobbe
 Full page a contractor reads: https://www.fieldquo.com/compare/fieldquo-vs-quoteiq
 
 ---
+
+### Roofr
+
+Read on 2026-09-21 from a Canadian connection. Their page says "All pricing
+in USD." Roofr does not bill per head — "Unlimited users" on every plan card —
+so there is no headcount arithmetic on this card and you do not do any.
+
+**Say this when they name them**
+
+> Start with what Roofr has that we do not: A plan priced below FieldQuo's cheapest rung. Their own page says: "Roofr's Starter plan is $0 a month with no time limit; FieldQuo's cheapest rung is $99". If that is what decides it for you, they are the better buy and I would rather say so now.
+> The narrow thing worth knowing: crew shifts is on their Scale plan at $349 a month. It is on every plan of ours, and ours starts at $99.
+> Give me fifteen minutes and I will show you how it works for a business like yours — a quote with your name on it next to the last one you sent out of Roofr — and you tell me what is wrong with it.
+
+**What they genuinely do well**
+
+- A plan priced below FieldQuo's cheapest rung — their page: “Roofr's Starter plan is $0 a month with no time limit; FieldQuo's cheapest rung is $99” (Starter caps proposals, invoices and work orders at ten in total — say that too)
+- A roof measurement report with measured edge lengths — their page: “Roofr sells a measurement report per roof — total squares, pitch, and edges (hips, valleys, ridges, flashing) — delivered in as little as two hours, or the report is free”
+- Two-way sync with QuickBooks or Xero — their page: “Roofr's Scale plan lists a QuickBooks integration — marked Beta, US businesses only, no QuickBooks Desktop”
+- Connects to other tools (Zapier, CompanyCam) — their page: “Roofr connects to Zapier and CompanyCam on every plan, Starter included”
+- Book a guided demo with a salesperson — their page: “Roofr's page offers Talk to sales, Book a call and onboarding at no extra charge on the paid plans”
+
+**Where we win**
+
+- Roofr's AI Receptionist is a $99 a month add-on on top of the plan
+- Roofr Payments is listed as U.S businesses only, and so is their financing partner
+- Company logo & branding is listed on Roofr's Measure+ card, not on the free Starter plan
+- SMS ($49), the Instant Estimator ($149), Roofr Sites ($99) and the AI Receptionist ($99) are add-ons — $396/mo on top of the plan, at the monthly toggle. All four are in every plan of ours.
+- Crew shifts: their Scale at $349/mo; every plan of ours, from $99.
+- 42 things we ship are not listed on any tier of their pricing page — including Lead tracking, Lead form for your website, AI quote review, Suggested add-ons, Confirmation calls, Quote drafted from the call.
+
+**The price**
+
+- They count: Nobody — every plan says unlimited users. What is metered is each roof measured, not each person.
+- Starter: Free (USD), unlimited users (read 2026-09-21) — "10 trial proposals, invoices & work orders"
+- Measure+ (6 hour): USD 109 /month, or 95 billed yearly (read 2026-09-21)
+- Measure+ (2 hour): USD 169 /month, or 145 billed yearly (read 2026-09-21)
+- Essentials: USD 249 /month, or 209 billed yearly (read 2026-09-21)
+- Scale: USD 349 /month, or 299 billed yearly (read 2026-09-21)
+- Per report, on every plan: Roofr Report $19 on Starter, $13 on the paid plans; Report + ESX $31 / $23. Never fold these into a monthly number — you do not know how many roofs they measure.
+- No headcount arithmetic: their price does not move with people. Compare plan against plan, and name the add-ons and the per-report charge.
+
+Full page a contractor reads: https://www.fieldquo.com/compare/fieldquo-vs-roofr
+
+### PaintScout
+
+Read on 2026-09-21 from a Canadian connection. PaintScout is a Calgary
+company that prices in USD. One plan, one add-on, and every person after the
+first is $20 a month — that is the whole card.
+
+**Say this when they name them**
+
+> Start with what PaintScout has that we do not: native mobile app (iOS / Android). Their own page says: "PaintScout's pricing page declares iOS and Android apps in its own structured data". If that is what decides it for you, they are the better buy and I would rather say so now.
+> They count people differently to us: each included user, plus a stated price per additional user. We bill the people who price work and carry field crew at no charge, so the same shop can be two very different bills.
+> For 6 of you — say 2 pricing work and 4 in vans — their Sales is $219 and our Crew is $169. Tell me your real numbers and I will do it again with yours.
+> Give me fifteen minutes and I will show you how it works for a business like yours — a quote with your name on it next to the last one you sent out of PaintScout — and you tell me what is wrong with it.
+
+**What they genuinely do well**
+
+- Native mobile app (iOS / Android) — their page: “PaintScout's pricing page declares iOS and Android apps in its own structured data”
+- Works offline — their page: “PaintScout lists offline mode for field use among its features”
+- Two-way sync with QuickBooks or Xero — their page: “PaintScout exports invoices to QuickBooks”
+- Connects to other tools (Zapier, CompanyCam) — their page: “PaintScout connects to CompanyCam and, through Zapier, to other tools”
+- A customer community to ask other contractors — their page: “PaintScout links a community — a Facebook group for pricing painting projects — from its site”
+- Book a guided demo with a salesperson — their page: “PaintScout's page says to book a personalized demo, and sells three onboarding packages”
+- Painting only, with production-rate defaults built from years of painting companies. Ours price by production rate too — hours from rates, gallons from coverage — and ship as opening positions the company tunes. Say that plainly; do not claim parity of defaults.
+
+**Where we win**
+
+- PaintScout includes one user and charges $20 a month for each additional team seat; FieldQuo bills only the people who originate money and includes field crew free
+- PaintScout's 14-day trial takes no card; FieldQuo's month is free with a card on file and you leave at the end of any month (the first half is a point for them — say it)
+- Operations — scheduling, the pipeline, jobs, tasks, reminders — is a $99/mo add-on on top of Sales. All of it is in every plan of ours.
+- 50 things we ship are not listed on any tier of their pricing page — including Lead form for your website, AI quote review, AI receptionist, Confirmation calls, Quote drafted from the call, Your own website.
+
+**The price**
+
+- They count: Each included user, plus a stated price per additional user.
+- Sales: USD 119 /month, 1 included, $20/user/month after (read 2026-09-21)
+- Sales: USD 99 /month billed annually, 1 included, $20/user/month after (read 2026-09-21)
+- Operations add-on: USD 99 /month, or 79 billed annually (read 2026-09-21)
+- Success packages are one-time onboarding purchases ($999 / $1,499 / $1,999), optional — never in a monthly comparison.
+- Six of you (2 pricing work, 4 in vans): their Sales $219 ($119 + 5 × $20) against our Crew $169.
+
+Full page a contractor reads: https://www.fieldquo.com/compare/fieldquo-vs-paintscout
 
 ## Appendix — where each rule comes from
 

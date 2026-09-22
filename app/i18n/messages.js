@@ -400,6 +400,9 @@ const en = {
   "feature.kitchen_designer.name": "Kitchen and cabinet designer",
   "feature.kitchen_designer.summary":
     "Draw the run, pick the finishes, and the cabinet prices and the floor plan go straight into the quote.",
+  "feature.paint_takeoff.name": "Painting priced by production rate",
+  "feature.paint_takeoff.summary":
+    "Measure the room or the elevation, pick the substrate, and the quote works out the hours from your rates and the gallons from coverage.",
   "feature.aerial_measure.name": "Measure from the sky",
   "feature.aerial_measure.summary":
     "Type the address and get roof area and pitch, or trace a driveway or patio, without going out there.",
@@ -942,6 +945,9 @@ const fr = {
   "feature.kitchen_designer.name": "Concepteur de cuisines et d'armoires",
   "feature.kitchen_designer.summary":
     "Dessinez la rangée, choisissez les finis, et le prix des armoires et le plan passent directement dans la soumission.",
+  "feature.paint_takeoff.name": "Peinture chiffrée au taux de production",
+  "feature.paint_takeoff.summary":
+    "Mesurez la pièce ou l’élévation, choisissez le support, et la soumission calcule les heures à partir de vos taux et les gallons à partir du rendement.",
   "feature.aerial_measure.name": "Mesurer depuis le ciel",
   "feature.aerial_measure.summary":
     "Tapez l'adresse et obtenez la superficie et la pente du toit, ou tracez une entrée ou un patio, sans vous déplacer.",
@@ -1467,6 +1473,9 @@ const es = {
   "feature.kitchen_designer.name": "Diseñador de cocinas y gabinetes",
   "feature.kitchen_designer.summary":
     "Dibuja el tramo, elige los acabados, y el precio de los gabinetes y el plano pasan directo al presupuesto.",
+  "feature.paint_takeoff.name": "Pintura cotizada por tasa de producción",
+  "feature.paint_takeoff.summary":
+    "Mide la habitación o la fachada, elige el sustrato, y el presupuesto calcula las horas a partir de tus tasas y los galones a partir del rendimiento.",
   "feature.aerial_measure.name": "Medir desde el cielo",
   "feature.aerial_measure.summary":
     "Escribe la dirección y obtén el área y la pendiente del techo, o traza una entrada o un patio, sin ir hasta allá.",
@@ -1993,6 +2002,9 @@ const uk = {
   "feature.kitchen_designer.name": "Конструктор кухонь і шаф",
   "feature.kitchen_designer.summary":
     "Накресліть ряд, оберіть оздоблення — і ціни на шафи та план потрапляють просто в кошторис.",
+  "feature.paint_takeoff.name": "Малярні роботи за нормою виробітку",
+  "feature.paint_takeoff.summary":
+    "Виміряйте кімнату або фасад, оберіть основу — і кошторис порахує години за вашими нормами та галони за витратою фарби.",
   "feature.aerial_measure.name": "Заміри з висоти",
   "feature.aerial_measure.summary":
     "Введіть адресу й отримайте площу та ухил даху або обведіть під'їзд чи терасу, не виїжджаючи на місце.",
@@ -2518,6 +2530,9 @@ const pa = {
   "feature.kitchen_designer.name": "ਰਸੋਈ ਅਤੇ ਕੈਬਨਿਟ ਡਿਜ਼ਾਈਨਰ",
   "feature.kitchen_designer.summary":
     "ਲਾਈਨ ਵਾਹੋ, ਫਿਨਿਸ਼ ਚੁਣੋ, ਅਤੇ ਕੈਬਨਿਟ ਦੀਆਂ ਕੀਮਤਾਂ ਤੇ ਨਕਸ਼ਾ ਸਿੱਧਾ ਕੋਟ ਵਿੱਚ ਚਲੇ ਜਾਂਦੇ ਹਨ।",
+  "feature.paint_takeoff.name": "ਉਤਪਾਦਨ ਦਰ ਨਾਲ ਪੇਂਟਿੰਗ ਦੀ ਕੀਮਤ",
+  "feature.paint_takeoff.summary":
+    "ਕਮਰਾ ਜਾਂ ਬਾਹਰੀ ਕੰਧ ਮਾਪੋ, ਸਤ੍ਹਾ ਚੁਣੋ, ਅਤੇ ਕੋਟੇਸ਼ਨ ਤੁਹਾਡੀਆਂ ਦਰਾਂ ਤੋਂ ਘੰਟੇ ਅਤੇ ਕਵਰੇਜ ਤੋਂ ਗੈਲਨ ਕੱਢ ਲੈਂਦੀ ਹੈ।",
   "feature.aerial_measure.name": "ਉੱਪਰੋਂ ਮਾਪ",
   "feature.aerial_measure.summary":
     "ਪਤਾ ਲਿਖੋ ਅਤੇ ਛੱਤ ਦਾ ਖੇਤਰ ਤੇ ਢਲਾਣ ਲਵੋ, ਜਾਂ ਡਰਾਈਵਵੇਅ ਜਾਂ ਵਿਹੜਾ ਖਿੱਚੋ — ਉੱਥੇ ਗਏ ਬਿਨਾਂ।",
@@ -3048,6 +3063,9 @@ const tl = {
   "feature.kitchen_designer.name": "Taga-disenyo ng kusina at cabinet",
   "feature.kitchen_designer.summary":
     "Iguhit ang hanay, pumili ng finish, at diretsong papasok sa quote ang presyo ng cabinet at ang floor plan.",
+  "feature.paint_takeoff.name": "Pintura na pinepresyo ayon sa production rate",
+  "feature.paint_takeoff.summary":
+    "Sukatin ang kuwarto o ang harapan, piliin ang ibabaw, at kinukuwenta ng quote ang oras mula sa iyong mga rate at ang galon mula sa coverage.",
   "feature.aerial_measure.name": "Sukat mula sa himpapawid",
   "feature.aerial_measure.summary":
     "I-type ang address at makuha ang sukat at slope ng bubong, o bakasin ang daanan o patio, nang hindi pumupunta doon.",
@@ -3505,6 +3523,9 @@ const de = {
   "feature.self_quote.summary": "Ein öffentliches Formular, in dem ein Hausbesitzer die Arbeit beschreibt und Fotos hochlädt; es kommt als begonnenes Angebot an.",
   "feature.kitchen_designer.name": "Küchen- und Möbelplaner",
   "feature.kitchen_designer.summary": "Zeile zeichnen, Oberflächen wählen — Möbelpreise und Grundriss gehen direkt ins Angebot.",
+  "feature.paint_takeoff.name": "Malerarbeiten nach Leistungssatz kalkuliert",
+  "feature.paint_takeoff.summary":
+    "Raum oder Fassade aufmessen, Untergrund wählen, und das Angebot rechnet die Stunden aus Ihren Sätzen und die Gallonen aus der Ergiebigkeit.",
   "feature.aerial_measure.name": "Aufmaß aus der Luft",
   "feature.aerial_measure.summary": "Adresse eintippen und Dachfläche und Neigung bekommen, oder Einfahrt und Terrasse nachzeichnen, ohne hinzufahren.",
   "feature.funnels.name": "Anfrage-Funnels",
@@ -3893,6 +3914,9 @@ const zh = {
   "feature.self_quote.summary": "一个公开表单，业主描述要做的活并上传照片；提交后会变成一份已经开好头的报价单。",
   "feature.kitchen_designer.name": "厨房与橱柜设计器",
   "feature.kitchen_designer.summary": "画出柜体走向，选好饰面，橱柜价格和平面图直接进报价单。",
+  "feature.paint_takeoff.name": "按施工效率报价的油漆工程",
+  "feature.paint_takeoff.summary":
+    "量好房间或外墙，选好基面，报价单就按你的效率算出工时、按涂布率算出用漆量。",
   "feature.aerial_measure.name": "从天上量尺寸",
   "feature.aerial_measure.summary": "输入地址就能拿到屋顶面积和坡度，或者描出车道、露台的轮廓，不用跑一趟。",
   "feature.funnels.name": "获客落地页",
@@ -4367,6 +4391,9 @@ const it = {
   "feature.kitchen_designer.name": "Progettista di cucine e mobili",
   "feature.kitchen_designer.summary":
     "Disegni la composizione, scelga le finiture, e i prezzi dei mobili e la pianta finiscono direttamente nel preventivo.",
+  "feature.paint_takeoff.name": "Tinteggiatura prezzata a tasso di produzione",
+  "feature.paint_takeoff.summary":
+    "Misura la stanza o il prospetto, scegli il supporto, e il preventivo calcola le ore dai tuoi tassi e i galloni dalla resa.",
   "feature.aerial_measure.name": "Misure dal cielo",
   "feature.aerial_measure.summary":
     "Digiti l'indirizzo e ottenga superficie e pendenza del tetto, oppure tracci un vialetto o un patio, senza andare sul posto.",

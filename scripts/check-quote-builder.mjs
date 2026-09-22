@@ -132,15 +132,24 @@ section("2. One request body, built once, for both verbs");
 // ───────────────────────────────────────────────────────────────────────────
 
 const builder = read("app/components/quotes/builder/QuoteBuilder.js");
+// The body moved out of the component into lib/quotes/builderRequest.js
+// (2026-09-22) so the classic and the document layouts post through one
+// function — scripts/check-doc-builder.mjs hashes its output against the
+// literal it replaced. The rules below now read that file.
+const request = read("lib/quotes/builderRequest.js");
 
 ok(
+  "the builder posts through quoteRequestBody, once, for both layouts",
+  (builder.match(/quoteRequestBody\(/g) || []).length === 1,
+);
+ok(
   "the shared fields are assembled once",
-  (builder.match(/const shared = \{/g) || []).length === 1,
+  (request.match(/const shared = \{/g) || []).length === 1,
   "two bodies is how a field ends up saved by one screen and not the other",
 );
 ok(
   "…and spread into both the POST and the PATCH",
-  (builder.match(/\.\.\.shared,/g) || []).length === 2,
+  (request.match(/\.\.\.shared,/g) || []).length === 2,
 );
 ok(
   "the money is worked out by the shared helper, once",
@@ -148,17 +157,17 @@ ok(
 );
 ok(
   "the CLAMPED discount is what gets saved",
-  /discount: appliedDiscount/.test(builder),
+  /discount: appliedDiscount/.test(request),
   "saving the raw box would contradict the total printed beside it",
 );
 ok(
   "the tax FLAG is sent, not just the amount",
-  /\btaxEnabled,/.test(builder),
+  /\btaxEnabled,/.test(request),
   "read in two places and written in none was the original bug",
 );
 ok(
   "an edit omits scope groups once the client has decided",
-  /canEditScope \? \{ scopeGroups/.test(builder),
+  /canEditScope \? \{ scopeGroups/.test(request),
   "the API refuses them, so sending them fails the whole save",
 );
 ok(
@@ -1041,9 +1050,13 @@ section("11. The tax hint never asks for a country and province already on file"
   eq("11f: nothing → null", taxPlaceOf(null), null);
 
   const bar = read("app/components/quotes/builder/QuoteTotalsBar.js");
-  ok("11g: the totals bar picks the place sentence when it has a place, the generic one otherwise", /taxPlace\s*\?\s*t\("app\.tax\.line\.unresolvedHintPlace", \{ place: taxPlace \}\)\s*:\s*t\("app\.tax\.line\.unresolvedHint"\)/.test(bar), "");
+  // Since 2026-09-21 the sentence is chosen in lib/tax/taxLine.js
+  // (taxLineUnresolvedHint: the place sentence when a place is known, "add
+  // the province" otherwise) and the bar prints what the builder hands it,
+  // keyed on the RATE being unknown — never on the amount being $0.
+  ok("11g: the totals bar prints the unresolved hint only while the rate is unknown", /taxUnresolved && taxLine\?\.hint/.test(bar) && !/Number\(tax\) === 0/.test(bar), "");
   const builderSrc = read("app/components/quotes/builder/QuoteBuilder.js");
-  ok("11h: …and the builder hands it the selected client's place", /taxPlace=\{taxPlaceOf\(selectedClient\)\}/.test(builderSrc), "");
+  ok("11h: …and the builder hands the selected client's place to the hint", /taxLineUnresolvedHint\(basis, \{ place: taxPlaceOf\(selectedClient\) \}\)/.test(builderSrc), "");
   const missing = Object.keys(APP_MESSAGES).filter((l) => !APP_MESSAGES[l]["app.tax.line.unresolvedHintPlace"]);
   eq("11i: the sentence exists in every app language", missing, []);
   ok("11j: …and the English never asks for the country or province", !/country|province/i.test(APP_MESSAGES.en["app.tax.line.unresolvedHintPlace"]), APP_MESSAGES.en["app.tax.line.unresolvedHintPlace"]);

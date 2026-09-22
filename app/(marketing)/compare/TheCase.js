@@ -48,6 +48,7 @@ import { featureEntry, featureGroup } from "@/lib/marketing/featureLabels";
 import {
   neverListed,
   shopMath,
+  billsPerHead,
   entriesFor,
   parityFor,
   derivationProps,
@@ -138,10 +139,19 @@ export default function TheCase({ competitor, t, locale = "en-CA", asOf = null }
           values?.[name] !== undefined ? String(values[name]) : m,
         );
 
-  const { rows, missingCount, hasPrices } = caseRows(id, competitor.name, t, locale, asOf);
+  const { rows, missingCount, hasPrices, addOns } = caseRows(id, competitor.name, t, locale, asOf);
   if (!rows.length) return null;
 
   const parity = parityFor(id, { asOf });
+  // When part of "the same list" is sold as add-ons rather than on the parity
+  // tier — Roofr's four, PaintScout's Operations — the headline must say so.
+  // "At Roofr the same list is $349" is false by $396 a month, and the row
+  // that prints the $396 is not an excuse for the sentence above it.
+  const addOnOnlyKeys = parity.tier
+    ? parity.covered.filter((k) => !parity.tier.covers.has(k))
+    : [];
+  const addOnTotal =
+    addOnOnlyKeys.length && addOns.length ? addOns.reduce((n, a) => n + a.price, 0) : null;
   const missing = neverListed(id, asOf);
   const solo = SEAT_LADDER[0];
 
@@ -173,7 +183,17 @@ export default function TheCase({ competitor, t, locale = "en-CA", asOf = null }
                       "At {competitor} the same list is {price} a year.",
                       { competitor: competitor.name, price: money(parity.tier.annualTotal) },
                     )
-                  : say(
+                  : addOnTotal !== null
+                    ? say(
+                        "compare.case.headlineTheirsPlusAddOns",
+                        "At {competitor} the same list is {price} a month, plus {addOns} in add-ons.",
+                        {
+                          competitor: competitor.name,
+                          price: money(parity.tier.price),
+                          addOns: money(addOnTotal),
+                        },
+                      )
+                    : say(
                       "compare.case.headlineTheirs",
                       "At {competitor} the same list is {price}.",
                       { competitor: competitor.name, price: money(parity.tier.price) },
@@ -251,7 +271,13 @@ export default function TheCase({ competitor, t, locale = "en-CA", asOf = null }
         </section>
 
         {/* ── What it costs a real shop ────────────────────────────────── */}
-        {hasPrices ? (
+        {/* Only for a vendor who bills per head. This section opens with
+            "{competitor} bills every login", and Roofr's page says the
+            opposite on every card ("Unlimited users") while Projul's sells a
+            flat fee. Pricing a flat fee three times and calling it a
+            comparison would have been a false sentence in the section's own
+            intro; billsPerHead reads the unit off competitors.js. */}
+        {hasPrices && billsPerHead(id) ? (
           <section>
             <h3 className="text-2xl sm:text-3xl font-bold text-foreground text-center">
               {say("compare.case.shopTitle", "What it costs for a shop like yours")}
@@ -299,11 +325,32 @@ export default function TheCase({ competitor, t, locale = "en-CA", asOf = null }
                           {money(m.fieldquo.price)}
                         </div>
                       </div>
-                      <div className="text-right">
+                      <div
+                        className="text-right"
+                        // A per-seat vendor's price for this shop is worked
+                        // out — PaintScout: $119 plus $20 for each user past
+                        // the first — and the working is declared on the box
+                        // that prints both the answer and the inputs, so the
+                        // reader and the check can each re-run it.
+                        {...(m.seatTotal ? derivationProps(m.seatTotal) : {})}
+                      >
                         <div className="text-xs text-muted-foreground">{competitor.name}</div>
                         <div className="text-xl font-bold text-muted-foreground tabular-nums">
                           {money(m.competitor.price)}
                         </div>
+                        {m.seatTotal ? (
+                          <div className="text-[11px] text-muted-foreground leading-snug">
+                            {say(
+                              "compare.case.seatWorking",
+                              "{base} + {extra} × {perUser} more users",
+                              {
+                                base: money(m.competitor.basePrice),
+                                extra: m.competitor.extraUsers,
+                                perUser: money(m.competitor.perExtraUser),
+                              },
+                            )}
+                          </div>
+                        ) : null}
                       </div>
                       <div className="text-right min-w-[7rem]">
                         {wins ? (
@@ -338,7 +385,7 @@ export default function TheCase({ competitor, t, locale = "en-CA", asOf = null }
               <Link href="/cost" className="text-primary font-medium hover:underline">
                 {say("compare.case.calcLink", "cost calculator")}
               </Link>{" "}
-              {say("compare.case.calcAfter", "and see all five side by side.")}
+              {say("compare.case.calcAfter", "and see every company side by side.")}
             </p>
           </section>
         ) : null}

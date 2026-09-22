@@ -12,8 +12,11 @@
 // to what their client was reading — which makes "check the quote before you
 // send it" a much weaker check than it should be.
 //
-// So the structure below deliberately mirrors lib/documentSections/* and
-// QuoteApproval.js. What it does NOT mirror is their colour handling: those
+// So the document below is drawn from app/components/document/
+// QuoteDocument.js — the SAME sections the document-shaped builder edits in
+// place (2026-09-22), so the two cannot drift — and those sections mirror
+// lib/documentSections/* and QuoteApproval.js. What they do NOT mirror is
+// the colour handling: those
 // render for a stranger with no session and compute literal hex values from
 // Company.brandColor, while the <article> here is wrapped in data-brand +
 // BrandTheme, which puts the same brand colour into the semantic tokens.
@@ -81,7 +84,6 @@ import {
   Mail,
   Loader2,
   CheckCircle2,
-  Building2,
   PhoneCall,
   PhoneOff,
   Download,
@@ -97,7 +99,14 @@ import ShareWithStaffModal from "@/app/components/quotes/ShareWithStaffModal";
 import SaveAsTemplateModal from "@/app/components/quotes/SaveAsTemplateModal";
 import { Eye, Share2, LayoutTemplate, Archive, ArchiveRestore, ClipboardCopy } from "lucide-react";
 import { workOrderPath, workOrderPdfPath } from "@/lib/workOrder/url";
-import BrandTheme from "@/app/components/BrandTheme";
+import { fetchClientLink, downloadQuotePdf } from "@/lib/quotes/clientActions";
+import {
+  DocumentFrame,
+  DocumentMasthead,
+  DocumentParties,
+  DocumentScopeGroup,
+  DocumentTotals,
+} from "@/app/components/document/QuoteDocument";
 import { usePermissions } from "@/app/providers/PermissionProvider";
 import { useFeatureFlags } from "@/app/providers/FeatureProvider";
 import { hasLevel, hasToggle } from "@/lib/permissions/enforce";
@@ -116,6 +125,7 @@ import { fetchJson } from "@/lib/fetchJson";
 import { jsonBody } from "@/lib/jsonBody";
 import { taxStatement } from "@/lib/tax/documentTax";
 import { documentTaxSentence } from "@/lib/tax/documentSentence";
+import { taxLineHeadline, taxLineSource } from "@/lib/tax/taxLine";
 import TaxUnresolvedModal from "@/app/components/tax/TaxUnresolvedModal";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { formatDuration } from "@/lib/i18n/duration";
@@ -132,10 +142,8 @@ import ImportedCostsPanel from "./ImportedCostsPanel";
 import SiteVisitPanel from "@/app/components/quotes/SiteVisitPanel";
 import LinkedJobDocuments from "@/app/components/jobs/LinkedJobDocuments";
 import { visibleLineItems } from "@/lib/quotes/scopeGroupDisplay";
-import { lineShowsAmount } from "@/lib/quotes/textBlocks";
 import { jobAddressLine } from "@/lib/quotes/jobAddress";
 import { offlineDiscountLine } from "@/lib/payments/offlineDiscount";
-import RichTextBody from "@/app/components/quotes/RichTextBody";
 import { quoteStatusLabel, quoteStatusClasses } from "@/lib/quotes/statusLabels";
 import { formatAddress } from "@/lib/format/address";
 import { planRequiredFrom } from "@/lib/signup/planRequired";
@@ -221,10 +229,24 @@ export default function QuoteDetailPage() {
     company,
     taxRates: company?.taxRates,
     client: quote?.client,
+    siteAddress: quote?.siteAddress || null,
+    taxableBase: Number(quote?.subtotal ?? 0) - Number(quote?.discount ?? 0),
     asOf: quote?.createdAt ? new Date(quote.createdAt) : undefined,
     lang: language,
   });
   const taxSentence = taxLine.kind === "off" ? "" : documentTaxSentence(quote?.taxResolution, language);
+  // "HST 13% (Ontario) · from the job address" — the office copy explains
+  // the rate from the record the document was written with, and from the
+  // live resolution only for a document that never recorded one
+  // (lib/tax/taxLine.js).
+  const taxWords = (() => {
+    if (taxLine.kind !== "charged") return null;
+    const basis = taxLine.stored || taxLine.resolution;
+    const headline = taxLineHeadline(basis, language);
+    if (!headline) return null;
+    const source = taxLine.stored ? taxLineSource(taxLine.stored) : null;
+    return { headline: t(headline.key, headline.params), source: source ? t(source.key, source.params) : "" };
+  })();
   const [loading, setLoading] = useState(true);
   const [showDelete, setShowDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -604,15 +626,7 @@ export default function QuoteDetailPage() {
    * same route the approval page uses (GET/POST /api/quotes/[id]/share), so
    * "Copy quote link" here and "Copy link" there hand out one URL.
    */
-  async function clientLink() {
-    const got = await fetch(`/api/quotes/${id}/share`);
-    const data = await got.json().catch(() => null);
-    if (got.ok && data?.url) return data.url;
-    const made = await fetch(`/api/quotes/${id}/share`, { method: "POST" });
-    const created = await made.json().catch(() => null);
-    if (!made.ok) throw new Error(created?.error || t("app.sendMenu.linkError", "Couldn't get the client link."));
-    return created.url;
-  }
+  const clientLink = () => fetchClientLink(id, t("app.sendMenu.linkError", "Couldn't get the client link."));
 
   async function handleCopyLink() {
     setMenuBusy("link");
@@ -678,24 +692,12 @@ export default function QuoteDetailPage() {
     setDownloadingPdf(true);
     setError("");
     try {
-      const res = await fetch(`/api/quotes/${id}/pdf`, { method: "POST" });
-      if (!res.ok) {
-        // Never a bare `if (res.ok)`: a 403 from a toggle that changed since
-        // the page loaded has to say so, or the press reads as having worked.
-        await reportResponseError(
-          res,
-          setError,
-          t("app.quoteDetail.pdfError", "Couldn't build the PDF."),
-        );
-        return;
-      }
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `quote-${quote.quoteNumber}.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
+      // lib/quotes/clientActions.js — shared with the document builder's
+      // Send… menu. A refusal (a toggle that changed since the page loaded)
+      // arrives as the thrown reason, never as a press that seemed to work.
+      await downloadQuotePdf(id, quote.quoteNumber, t("app.quoteDetail.pdfError", "Couldn't build the PDF."));
+    } catch (err) {
+      setError(err?.message || t("app.quoteDetail.pdfError", "Couldn't build the PDF."));
     } finally {
       setDownloadingPdf(false);
     }
@@ -1432,231 +1434,77 @@ export default function QuoteDetailPage() {
           on a decoration would be worse — the masthead already degrades to the
           brand mark alone when that request fails, and a document you can read
           beats a document you're waiting for. */}
-      <article
-        data-brand
-        className="bg-card border border-border rounded-2xl overflow-hidden"
-      >
-        {/* The attribute above and this <style> are deliberately on the same
-            element rather than a wrapper: a wrapper is one refactor away from
-            being flattened, and the attribute would survive it while the theme
-            quietly stopped applying. A custom property set on an element
-            resolves for that element's own declarations too, so the article's
-            bg-card is themed as well as its children. */}
-        <BrandTheme
-          brandColor={company?.brandColor}
-          brandColors={company?.brandColors}
+      <DocumentFrame company={company}>
+        {/* The masthead, the parties and the facts — app/components/document/
+            QuoteDocument.js, the same sections the document-shaped builder
+            edits in place. No edit callbacks here: this page reads. */}
+        <DocumentMasthead
+          company={company}
+          word={labels.quote}
+          number={quote.quoteNumber}
+          status={
+            <span className={`inline-block mt-1 text-xs px-2 py-0.5 rounded-full ${quoteStatusClasses(quote.status)}`}>
+              {quoteStatusLabel(quote.status, t)}
+            </span>
+          }
         />
-        {/* The brand rule, before anything else. Two weights of the company's
-            own colour, as in HeaderSection's PDF band — it reads as the quote
-            being ON their letterhead rather than in a generic frame. */}
-        <div className="flex h-1.5" aria-hidden="true">
-          <div className="flex-[2] bg-inverted" />
-          <div className="flex-1 bg-inverted opacity-50" />
-        </div>
-
-        <header className="px-5 sm:px-7 pt-5 pb-4 border-b border-border">
-          <div className="flex items-start justify-between gap-4 flex-wrap">
-            <div className="flex items-center gap-3 min-w-0">
-              {company?.logoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={company.logoUrl}
-                  alt={company.name || ""}
-                  className="h-10 w-auto max-w-[160px] object-contain"
-                />
-              ) : (
-                <div className="h-10 w-10 rounded-lg bg-inverted text-inverted-foreground flex items-center justify-center shrink-0">
-                  <Building2 size={18} />
-                </div>
-              )}
-              {/* Only what came back. A placeholder company name here would be
-                  inventing the one thing on the page that has to be theirs. */}
-              {company?.name && (
-                <div className="min-w-0">
-                  <div className="font-semibold text-foreground truncate">
-                    {company.name}
-                  </div>
-                  {company.phone && (
-                    <div className="text-xs text-muted-foreground truncate">
-                      {company.phone}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            <div className="sm:text-right shrink-0">
-              <div className="text-[11px] font-bold tracking-[0.18em] uppercase text-muted-foreground">
-                {labels.quote}
-              </div>
-              <h1 className="text-xl font-bold text-foreground tabular-nums">
-                {quote.quoteNumber}
-              </h1>
-              <span
-                className={`inline-block mt-1 text-xs px-2 py-0.5 rounded-full ${quoteStatusClasses(quote.status)}`}
-              >
-                {quoteStatusLabel(quote.status, t)}
-              </span>
-            </div>
-          </div>
-        </header>
-
-        <div className="px-5 sm:px-7 py-5 border-b border-border grid gap-4 sm:grid-cols-2">
-          <div className="min-w-0">
-            <p className="text-[11px] font-bold tracking-wider uppercase text-muted-foreground">
-              {labels.preparedFor}
-            </p>
-            <p className="text-base font-semibold text-foreground mt-0.5 break-words">
-              {quote.client?.name}
-            </p>
-            {quote.client?.contactName && (
-              <p className="text-sm text-muted-foreground">
-                {quote.client.contactName}
-              </p>
-            )}
-            {quote.client?.email && (
-              <p className="text-sm text-muted-foreground break-all">
-                {quote.client.email}
-              </p>
-            )}
-            {quote.client?.phone && (
-              <p className="text-sm text-muted-foreground">
-                {quote.client.phone}
-              </p>
-            )}
-            {clientAddress && (
-              <p className="text-sm text-muted-foreground">{clientAddress}</p>
-            )}
-            {/* Where the work is — the same rule the PDF's panel uses
-                (lib/quotes/jobAddress.js jobAddressLine):
-                printed when the quote names a site that is not simply the
-                client's own address. */}
-            {(() => {
-              const job = jobAddressLine(quote, labels);
-              return job ? (
-                <p className="text-sm text-muted-foreground mt-1" data-job-address>
-                  <span className="text-[10px] font-bold tracking-wider uppercase block">{job.label}</span>
-                  {job.value}
-                </p>
-              ) : null;
-            })()}
-          </div>
-
-          {/* Dates in the company's chosen format, not a hardcoded locale —
-              this is staff reading their own data, which is the internal side
-              of the split described at the top of lib/format/companyDate.js. */}
-          <dl className="text-sm space-y-1 sm:text-right">
-            <Fact label={labels.date} value={formatDate(quote.createdAt)} />
-            {quote.validUntil && (
-              // Borrowed from the quote EDITOR's catalogue rather than adding a
-              // seventh translation of "Valid until" — same field, same words,
-              // one string to keep right.
-              <Fact
-                label={t("app.quoteEdit.validUntil")}
-                value={formatDate(quote.validUntil)}
-              />
-            )}
-          </dl>
-        </div>
+        <DocumentParties
+          label={labels.preparedFor}
+          client={quote.client}
+          clientAddress={clientAddress}
+          jobAddress={jobAddressLine(quote, labels)}
+          // Dates in the company's chosen format, not a hardcoded locale —
+          // staff reading their own data, the internal side of the split at
+          // the top of lib/format/companyDate.js. "Valid until" borrows the
+          // quote EDITOR's string rather than adding a seventh translation.
+          facts={[
+            [labels.date, formatDate(quote.createdAt)],
+            ...(quote.validUntil ? [[t("app.quoteEdit.validUntil"), formatDate(quote.validUntil)]] : []),
+          ]}
+        />
 
         {quote.scopeGroups?.length > 0 && (
           <section className="px-5 sm:px-7 py-5 space-y-3">
-            {/* One card per service, as on the approval page. A flat list of
-                lines gives a three-trade quote no seams at all, which is how a
-                client ends up asking "so what's the painting costing me?" */}
+            {/* One card per service, as on the approval page — the shared
+                section. visibleLineItems, not group.lineItems: a blended
+                subcontractor import's one line repeats the card head word
+                for word (lib/quotes/scopeGroupDisplay.js). `pricingHidden`
+                means the API removed `amount` from every line; the column
+                is dropped rather than printing a coerced $0.00. */}
             {quote.scopeGroups.map((group) => (
-              <div
+              <DocumentScopeGroup
                 key={group.id}
-                className="rounded-xl border border-border overflow-hidden"
-              >
-                <div className="flex items-center justify-between gap-3 px-4 py-2.5 bg-muted">
-                  <h2 className="font-semibold text-foreground text-sm truncate">
-                    {group.label || group.category?.label}
-                  </h2>
-                  {Number(group.subtotal) > 0 && (
-                    <span className="text-sm font-semibold text-foreground tabular-nums shrink-0">
-                      {money(group.subtotal)}
+                label={group.label || group.category?.label}
+                subtotal={group.subtotal}
+                lines={visibleLineItems(group)}
+                money={money}
+                // The trade's colour, from the same content the client's page
+                // resolves (`docContent.groups[].accent`), when it is loaded.
+                accent={docContent?.groups?.find((g) => g.id === group.id)?.accent || null}
+                showAmounts={!quote.pricingHidden}
+                lineExtras={(item) =>
+                  // Staff see what the crew will not: a block kept off the
+                  // work order says so here, where the quote is proofread,
+                  // and nowhere the client reads.
+                  item.hiddenOnWorkOrder ? (
+                    <span className="inline-block mt-1 rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground shrink-0 self-start">
+                      {t("app.textBlocks.hiddenOnWorkOrderChip", "Hidden on work order")}
                     </span>
-                  )}
-                </div>
-                <div className="px-4 py-1">
-                  {/* Not group.lineItems directly — a blended subcontractor
-                      import's one line repeats the card head above (same
-                      label, same amount) word for word, which is what made
-                      "Subcontracted work $9,871.68" read as two lines on
-                      Q-2026-0014. See lib/quotes/scopeGroupDisplay.js. */}
-                  {visibleLineItems(group).map((item, i) => (
-                    <div
-                      key={i}
-                      className="flex justify-between gap-4 text-sm text-foreground py-1.5 border-b border-border last:border-0"
-                    >
-                      <span className="min-w-0">
-                        {item.description}
-                        {/* The scope the client will read, shown to staff on
-                            the same row. This page is where somebody checks a
-                            quote before it goes out, and a paragraph that only
-                            appears on the version the homeowner receives is a
-                            paragraph nobody proofreads. */}
-                        {item.detail ? (
-                          <RichTextBody
-                            body={item.detail}
-                            className="mt-0.5 text-xs leading-relaxed text-muted-foreground"
-                          />
-                        ) : null}
-                        {/* Staff see what the crew will not: a block kept
-                            off the work order says so here, where the
-                            quote is proofread, and nowhere the client
-                            reads. */}
-                        {item.hiddenOnWorkOrder ? (
-                          <span className="inline-block mt-1 rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground">
-                            {t("app.textBlocks.hiddenOnWorkOrderChip", "Hidden on work order")}
-                          </span>
-                        ) : null}
-                        {item.quantity > 1 && (
-                          <span className="text-muted-foreground">
-                            {" "}
-                            × {item.quantity}
-                          </span>
-                        )}
-                      </span>
-                      {/* `pricingHidden` means the API removed `amount` from
-                          every line. money() coerces a missing amount to zero
-                          deliberately — on a client-facing document a visible
-                          zero beats "$NaN" — so rendering it here printed
-                          "$0.00" beside real work, which is a stronger false
-                          claim than saying nothing. The totals block below
-                          already replaces itself with the reason; these lines
-                          simply drop the column. */}
-                      {!quote.pricingHidden && lineShowsAmount(item) && (
-                        <span className="tabular-nums shrink-0">
-                          {money(item.amount)}
-                        </span>
-                      )}
-                    </div>
-                  ))}
-                  {/* ── Why this line costs what it costs ──────────────────
-                      The takeoff already stores it. `meta` carries the base
-                      unit price, the complexity level the estimator chose and
-                      the reasons they ticked — and until now this page threw
-                      all of it away and printed a bare "Cabinet Refinishing ×
-                      37". Somebody looking at a quote three weeks later, or
-                      defending it to a client on the phone, had no way to see
-                      that $170 was $150 plus a moderate uplift, let alone
-                      why.
-
-                      Staff-only, like the rest of this page. The client's copy
-                      states the price; this states the reasoning behind it. */}
-                  {(group.lineItems || []).map((item, i) =>
-                    item?.meta?.complexityLevel ? (
-                      <PriceReasoning
-                        key={`why${i}`}
-                        item={item}
-                        money={money}
-                      />
-                    ) : null,
-                  )}
-                </div>
-              </div>
+                  ) : null
+                }
+              >
+                {/* ── Why this line costs what it costs ──────────────────
+                    The takeoff already stores it. `meta` carries the base
+                    unit price, the complexity level the estimator chose and
+                    the reasons they ticked. Staff-only, like the rest of
+                    this page: the client's copy states the price; this
+                    states the reasoning behind it. */}
+                {(group.lineItems || []).map((item, i) =>
+                  item?.meta?.complexityLevel ? (
+                    <PriceReasoning key={`why${i}`} item={item} money={money} />
+                  ) : null,
+                )}
+              </DocumentScopeGroup>
             ))}
           </section>
         )}
@@ -2140,11 +1988,9 @@ export default function QuoteDetailPage() {
         {/* ── The totals, or a sentence saying they are withheld ───────────
             `pricingHidden` is set by the API for a member without the
             showPricing toggle: subtotal, tax and total are ABSENT from the
-            payload. Rendering the block anyway prints "$0.00" three times over
-            — money() coerces a missing amount to zero deliberately, because on
-            a client-facing document a visible zero beats "$NaN" — and a quote
-            reading $0.00 is a stronger false claim than one that says nothing.
-            So the block is replaced by the reason, not blanked. */}
+            payload. Rendering the block anyway prints "$0.00" three times
+            over — a quote reading $0.00 is a stronger false claim than one
+            that says nothing. So the block is replaced by the reason. */}
         {quote.pricingHidden ? (
           <div className="px-5 sm:px-7 py-5 border-t border-border">
             <p className="sm:w-3/5 sm:ml-auto text-sm text-muted-foreground">
@@ -2155,80 +2001,51 @@ export default function QuoteDetailPage() {
             </p>
           </div>
         ) : (
-        <div className="px-5 sm:px-7 py-5 border-t border-border">
-          {/* Right-aligned and narrow above sm, exactly as TotalsSection lays
-              the PDF out: a totals block spanning the full width reads as
-              another table, kept to a column it reads as a summary. */}
-          <div className="sm:w-3/5 sm:ml-auto space-y-1 text-sm">
-            <Row
-              label={t("app.quoteDetail.subtotal")}
-              value={money(quote.subtotal)}
-            />
-            {/* Only when there is one — a "Discount $0.00" line invites the
-                question of why nothing was discounted. */}
-            {Number(quote.discount) > 0 && (
-              <Row
-                label={t("app.quoteEdit.discount")}
-                value={`-${money(quote.discount)}`}
-              />
-            )}
-            {/* The e-transfer / cheque offer this quote carries, as the
-                client reads it: an option with its illustration before they
-                decide, a row once they took it. Absent on a quote that
-                offered none — every US quote, and every Canadian one written
-                with the switch off (lib/payments/offlineDiscount.js). */}
-            {(() => {
-              const line = offlineDiscountLine(quote, { language });
-              if (!line) return null;
-              if (line.chosen) {
-                return <Row label={line.label} value={`-${money(line.amount)}`} />;
-              }
-              if (quote.status === "accepted" || quote.status === "declined") return null;
-              return (
-                <p className="text-xs text-muted-foreground" data-offline-offer>
-                  {line.label} (−{money(line.amount)})
-                </p>
-              );
-            })()}
-            {/* Not always a figure. See lib/tax/documentTax.js — "$0.00" on a
-                tax row is a claim ("worked out, came to nothing") that a
-                document with no jurisdiction behind it cannot make. This is
-                the office's own copy of what the client will read. */}
-            <Row
-              label={t("app.quoteDetail.tax")}
-              value={
-                taxLine.kind === "charged"
-                  ? money(quote.tax)
-                  : taxLine.kind === "unresolved"
-                    ? t("app.tax.line.unresolved")
-                    : t("app.tax.line.none")
-              }
-            />
-            {/* The US sentence the client's copy carries, from the stored
-                record (lib/tax/documentSentence.js). */}
-            {taxSentence && (
-              <p className="text-xs text-muted-foreground -mt-1 mb-1">{taxSentence}</p>
-            )}
-
-            {/* The headline figure in a filled band in their colour, matching
-                the PDF and the approval page. Everything above it is quiet, so
-                the eye lands on the one number that matters instead of reading
-                three of similar weight to find it. */}
-            <div className="flex items-center justify-between gap-3 rounded-xl bg-inverted text-inverted-foreground px-4 py-3 mt-2">
-              <span className="text-xs font-bold uppercase tracking-wide">
-                {t("app.quoteDetail.quotedTotal")}
-              </span>
-              <span className="text-xl font-bold tabular-nums">
-                {money(quote.total)}
-              </span>
-            </div>
-
-            {/* Shown only when it differs, so it reads as news rather than as
-                a second total to reconcile. This is the figure the invoice is
-                built from. */}
-            {quote.acceptedTotal !== null &&
+          <DocumentTotals
+            rows={[
+              { key: "subtotal", label: t("app.quoteDetail.subtotal"), value: money(quote.subtotal) },
+              // Only when there is one — a "Discount $0.00" line invites the
+              // question of why nothing was discounted.
+              ...(Number(quote.discount) > 0
+                ? [{ key: "discount", label: t("app.quoteEdit.discount"), value: `-${money(quote.discount)}` }]
+                : []),
+              // The e-transfer / cheque offer this quote carries, as the
+              // client reads it: an option with its illustration before they
+              // decide, a row once they took it. Absent on a quote that
+              // offered none (lib/payments/offlineDiscount.js).
+              ...(() => {
+                const line = offlineDiscountLine(quote, { language });
+                if (!line) return [];
+                if (line.chosen) return [{ key: "offline", label: line.label, value: `-${money(line.amount)}` }];
+                if (quote.status === "accepted" || quote.status === "declined") return [];
+                return [{ key: "offline", label: line.label, value: `(−${money(line.amount)})`, tone: "good" }];
+              })(),
+              // Not always a figure. See lib/tax/documentTax.js — "$0.00" on
+              // a tax row is a claim a document with no jurisdiction behind
+              // it cannot make. Under it: "HST 13% (Ontario) · from the job
+              // address" from the record the document was written with, and
+              // the US sentence the client's copy carries.
+              {
+                key: "tax",
+                label: t("app.quoteDetail.tax"),
+                value:
+                  taxLine.kind === "charged"
+                    ? money(quote.tax)
+                    : taxLine.kind === "unresolved"
+                      ? t("app.tax.line.unresolved")
+                      : t("app.tax.line.none"),
+                tone: taxLine.kind === "unresolved" ? "warn" : undefined,
+                note: [taxWords ? `${taxWords.headline}${taxWords.source ? ` · ${taxWords.source}` : ""}` : "", taxSentence].filter(Boolean).join(" ") || null,
+              },
+            ]}
+            total={{ label: t("app.quoteDetail.quotedTotal"), value: money(quote.total) }}
+            after={
+              // Shown only when it differs, so it reads as news rather than
+              // as a second total to reconcile. This is the figure the
+              // invoice is built from.
+              quote.acceptedTotal !== null &&
               quote.acceptedTotal !== undefined &&
-              Number(quote.acceptedTotal) !== Number(quote.total) && (
+              Number(quote.acceptedTotal) !== Number(quote.total) ? (
                 <div className="flex items-center justify-between gap-3 rounded-xl border border-green-200 dark:border-green-900 bg-green-50 dark:bg-green-950/40 px-4 py-2.5 mt-1.5 text-green-800 dark:text-green-300">
                   <span className="text-xs font-bold uppercase tracking-wide">
                     {t("app.quoteDetail.approvedWithExtras")}
@@ -2237,11 +2054,11 @@ export default function QuoteDetailPage() {
                     {money(quote.acceptedTotal)}
                   </span>
                 </div>
-              )}
-          </div>
-        </div>
+              ) : null
+            }
+          />
         )}
-      </article>
+      </DocumentFrame>
 
       <DeleteConfirmModal
         isOpen={showDelete}
@@ -2458,26 +2275,7 @@ function PriceReasoning({ item, money }) {
   );
 }
 
-function Fact({ label, value }) {
-  return (
-    <div>
-      <dt className="inline text-muted-foreground">{label} </dt>
-      <dd className="inline text-foreground font-medium tabular-nums">
-        {value}
-      </dd>
-    </div>
-  );
-}
 
-/** A quiet totals line. The loud one is the band, and there is only one. */
-function Row({ label, value }) {
-  return (
-    <div className="flex justify-between gap-3 text-muted-foreground">
-      <span>{label}</span>
-      <span className="tabular-nums">{value}</span>
-    </div>
-  );
-}
 
 /**
  * One line of the email trail.

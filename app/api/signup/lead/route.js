@@ -64,7 +64,14 @@ export async function POST(request) {
     return NextResponse.json({ error: "email and step are required" }, { status: 400 });
   }
 
-  await captureSignupLead({ client: db, body, now: new Date() }).catch((err) => {
+  // The session, when there is one, so the row can carry the Better Auth
+  // user id the address signed in as — the capture right after the account
+  // step is created, and every one after it, arrives on that session. Read
+  // from the cookie, never from the body; captureSignupLead only attaches it
+  // when the session's address is the one being captured.
+  const session = await auth.api.getSession({ headers: request.headers }).catch(() => null);
+  const who = session?.user?.id ? { userId: session.user.id, email: session.user.email || null } : null;
+  await captureSignupLead({ client: db, body, now: new Date(), session: who }).catch((err) => {
     console.error("[signup/lead] capture failed:", err?.message || err);
   });
   return new NextResponse(null, { status: 204 });
@@ -77,18 +84,28 @@ export async function GET(request) {
   const params = new URL(request.url).searchParams;
   const token = params.get("token") || "";
   let email = null;
+  let userId = null;
   if (!token && params.get("mine") === "1") {
     const session = await auth.api.getSession({ headers: request.headers }).catch(() => null);
     email = session?.user?.email || null;
-    if (!email) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    userId = session?.user?.id || null;
+    if (!email && !userId) return NextResponse.json({ error: "Not found" }, { status: 404 });
   } else if (!isResumeToken(token)) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const prefill = await signupLeadForResume({ client: db, token: token || undefined, email }).catch((err) => {
+  const prefill = await signupLeadForResume({ client: db, token: token || undefined, email, userId }).catch((err) => {
     console.error("[signup/lead] resume read failed:", err?.message || err);
     return null;
   });
-  if (!prefill) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!prefill) {
+    // A login with no company and no row: the page will capture one on its
+    // next debounce (it seeds the form from the session for exactly this),
+    // and /platform/signups shows it as "signed in, no company yet" from
+    // then on. Logged by user id — no address, no name — so the gap between
+    // "has a login" and "has a row" is visible in the function logs.
+    if (userId) console.info("[signup/lead] signed-in return with no SignupLead", { userId });
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
   return NextResponse.json({ prefill }, { headers: { "Cache-Control": "no-store" } });
 }

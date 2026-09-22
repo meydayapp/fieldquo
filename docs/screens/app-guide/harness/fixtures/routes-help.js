@@ -1284,6 +1284,21 @@ const QUOTE_TEMPLATES = [
   },
 ];
 
+// ── The document-shaped builder and the painter's first screen ────────────
+//
+// Two fixture companies from one: a slug carrying "doc-builder" answers
+// business-info with quoteBuilderLayout "document" (the flag the platform
+// flips per company); a slug carrying "painter" answers the categories with
+// the two painting trades switched on, which is what puts "What kind of
+// estimate is this?" first on New quote (EstimateTypeFirst.js). Every other
+// frame keeps the cabinet shop it always had. Consulted first; a miss defers
+// to the group file's answer.
+const isDocBuilder = (ctx) => /doc-builder/.test(ctx.screen?.slug || "");
+const isPainter = (ctx) => /painter/.test(ctx.screen?.slug || "");
+const PAINTER_CATEGORIES = SERVICE_CATEGORIES.map((c) =>
+  c.key === "interior_painting" || c.key === "exterior_painting" ? { ...c, enabled: true } : c,
+);
+
 export const ROUTES_HELP = [
   // Settings › Services, seeds screen: the same cabinet company with handyman
   // switched on, its seeded rows in the price book, and the industry preset
@@ -1291,6 +1306,8 @@ export const ROUTES_HELP = [
   { path: "/api/settings/service-categories", method: "GET", reply: (ctx) => (ctx.screen?.slug === "settings-services-seeds" ? [...SERVICE_CATEGORIES, HANDYMAN_CATEGORY] : ctx.next()) },
   { path: "/api/products", method: "GET", reply: (ctx) => (ctx.screen?.slug === "settings-services-seeds" ? [...PRODUCTS_FIXTURE, ...SEEDED_HANDYMAN] : ctx.next()) },
   { path: "/api/settings/business-info", method: "GET", reply: (ctx) => (ctx.screen?.slug === "settings-services-seeds" ? { ...BUSINESS_INFO_FIXTURE, industries: [...(BUSINESS_INFO_FIXTURE.industries || []), "handyman"] } : ctx.next()) },
+  { path: "/api/settings/business-info", method: "GET", reply: (ctx) => (isDocBuilder(ctx) ? { ...COMPANY, quoteBuilderLayout: "document" } : ctx.next()) },
+  { path: "/api/settings/service-categories", method: "GET", reply: (ctx) => (isPainter(ctx) ? PAINTER_CATEGORIES : ctx.next()) },
   // ── Settings › Presentation and the proposal's staff side ─────────────
   { path: "/api/settings/presentation", method: "GET", reply: () => PRESENTATION_SETTINGS },
   { path: "/api/settings/gallery", method: "GET", reply: () => ({ pairs: GALLERY_PAIRS }) },

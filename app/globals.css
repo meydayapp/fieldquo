@@ -172,15 +172,23 @@
    * Selected stays orange in BOTH sidebars and both themes, so "you are here"
    * is one colour everywhere and never a second blue competing with the navy
    * it sits on. */
-  --sidebar: #06356b;
+  /* The rail palette is the shell mockup's (scratchpad mockups/shell,
+   * `.mk-s` --rail / --rail-mute / --rail-hover / --rail-line, 2026-09-22):
+   * a slightly deeper navy than the primary button, muted rows at #b9c7dc
+   * (8.3:1 on it), hover TWO steps lighter — the mockup's #1b3a6b is 1.26:1
+   * on its rail, under the 1.5 floor check-sidebar holds hovers to, so it
+   * is #264b82 (1.63:1) here — the rule one step lighter than the rail.
+   * The active row's text stays the measured navy on orange rather than the
+   * mockup's white (3.0:1 — check-sidebar would refuse it). */
+  --sidebar: #0f2a55;
   --sidebar-foreground: #ffffff;
-  --sidebar-muted-foreground: #ccd8e6;
+  --sidebar-muted-foreground: #b9c7dc;
   --sidebar-primary: #ff5a00;
   --sidebar-primary-foreground: #0b1a2e;
-  --sidebar-accent: #2a5687;
+  --sidebar-accent: #264b82;
   --sidebar-accent-foreground: #ffffff;
   --sidebar-panel-accent: #c2d1e2;
-  --sidebar-border: #114a8f;
+  --sidebar-border: #23457a;
   --sidebar-ring: #ff5a00;
   /* The chrome slab: primary buttons and the sidebar. Navy, not near-black. */
   --inverted: #06356b;
@@ -247,15 +255,15 @@
    * that works on #06356b is invisible on #081729 (the old #16294a was
    * 1.24:1). Orange does not lift in dark mode, per the rule above, so
    * selected pulls further ahead here (5.76:1) and the ladder is wider. */
-  --sidebar: #081729;
+  --sidebar: #0b1a33;
   --sidebar-foreground: #e9eef6;
-  --sidebar-muted-foreground: #aebccd;
+  --sidebar-muted-foreground: #b9c7dc;
   --sidebar-primary: #ff5a00;
   --sidebar-primary-foreground: #0b1a2e;
-  --sidebar-accent: #24405f;
+  --sidebar-accent: #213d68;
   --sidebar-accent-foreground: #e9eef6;
   --sidebar-panel-accent: #2c3f5b;
-  --sidebar-border: #1c3050;
+  --sidebar-border: #1d3760;
   --sidebar-ring: #ff5a00;
 }
 
