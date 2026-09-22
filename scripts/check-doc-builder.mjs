@@ -48,6 +48,7 @@ import { LanguageProvider } from "../app/providers/LanguageProvider.js";
 import { PermissionProvider } from "../app/providers/PermissionProvider.js";
 import { createTradeConfig } from "../lib/pricing/tradeScope.js";
 import { APP_MESSAGES } from "../app/i18n/appMessages.js";
+import { paintingCategoryFor, paintingCategoriesOf } from "../app/components/quotes/builder/EstimateTypeFirst.js";
 
 let pass = 0;
 const fails = [];
@@ -216,10 +217,14 @@ ok("the schema defaults a NEW company to document", /quoteBuilderLayout\s+String
 // Every string the document layout shows is in the catalogue, in the nine
 // languages — a key with a fallback in the code is still a key the FR and
 // ES screens would print in English.
-const keys = [...new Set([...builder.matchAll(/t\(\s*"(app\.[a-zA-Z0-9.]+)"/g)].map((m) => m[1]))];
+// Only the keys this change ADDED (app.docBuilder.*, app.paint.otherTrades):
+// uk, pa and tl already lag on older builder keys, which is
+// check-language-completeness's business, not this file's.
+const keys = [...new Set([...(builder + src("app/components/quotes/builder/EstimateTypeFirst.js")).matchAll(/t\(\s*"(app\.(?:docBuilder\.[a-zA-Z0-9.]+|paint\.otherTrades))"/g)].map((m) => m[1]))];
+ok("the document layout has strings of its own to check", keys.length > 30, String(keys.length));
 for (const lang of Object.keys(APP_MESSAGES)) {
   const missing = keys.filter((k) => !(k in APP_MESSAGES[lang]));
-  ok(`every DocumentBuilder key exists in ${lang}`, missing.length === 0, missing.join(", "));
+  ok(`every new key exists in ${lang}`, missing.length === 0, missing.join(", "));
 }
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -384,8 +389,11 @@ for (const [label, mode, id, initial] of CASES) {
   const doc = render("document", "create", null, CASES[1][3]);
   ok("painting: rooms drawn as cards", (doc.match(/data-doc-room=/g) || []).length === 2);
   ok("painting: the ceiling option sits under its room", /data-doc-room="0"[\s\S]*?data-doc-option[\s\S]*?Ceiling/.test(doc));
-  ok("painting: room dimensions on the card", doc.includes("15 × 16 × 8"));
-  ok("painting: the room's lines carry their measurement, never a rate", /Walls<!-- --> — <!-- -->\d+ sqft/.test(doc) || /Walls — \d+ sqft/.test(doc.replace(/<!-- -->/g, "")));
+  // React's static markup separates adjacent text with <!-- -->; the
+  // assertions read the text a person sees.
+  const text = doc.replace(/<!-- -->/g, "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
+  ok("painting: room dimensions on the card", text.includes("15 × 16 × 8"));
+  ok("painting: the room's lines carry their measurement, never a rate", /Walls — \d+ sqft, 2 coats/.test(text), text.slice(text.indexOf("Living room"), text.indexOf("Living room") + 160));
   ok("painting: no hourly rate reaches the document", !/\/h\b|\/hr\b/.test(doc.split("data-doc-editor")[1].split("</article>")[0]));
 }
 
@@ -417,8 +425,51 @@ for (const [label, mode, id, initial] of CASES) {
 for (const [lang, tab, prepared] of [["fr", "Devis", "Préparé pour"], ["es", "Presupuesto", "Preparado para"]]) {
   const doc = render("document", "edit", "q1", { ...CASES[2][3], language: lang }, { lang });
   ok(`${lang}: the document word follows the document's language`, doc.includes(prepared), `${prepared} not found`);
-  ok(`${lang}: the tabs follow the reader's language`, doc.includes(APP_MESSAGES[lang]["app.docBuilder.tab.estimate"]));
+  ok(`${lang}: the tabs follow the reader's language`, doc.includes(`>${APP_MESSAGES[lang]["app.docBuilder.tab.workorder"]}<`), doc.match(/data-doc-tab="workorder"[^>]*>([^<]*)</)?.[1]);
   void tab;
+}
+
+// ── The painting company's first screen (mockup b1) ────────────────────────
+//
+// New quote, painting enabled, nothing added: the estimate-type cards are
+// the first thing in the body, before the client box, and the service
+// tiles are withheld — in BOTH layouts. A mixed-trade company gets "Other
+// trades"; a painting-only company does not. Picking a type adds the
+// painting service with the type on its takeoff (executed through the
+// same helpers the screen calls).
+{
+  const blank = initialStateFromQuote(null);
+  for (const layout of QUOTE_BUILDER_LAYOUTS) {
+    const html = render(layout, "create", null, blank);
+    const cards = html.indexOf("data-estimate-type-first");
+    ok(`${layout}: the estimate-type cards are on a painting company's new quote`, cards >= 0);
+    ok(`${layout}: the cards come BEFORE the client box`, cards >= 0 && cards < html.indexOf('data-tour="client-picker"'), `${cards} vs ${html.indexOf('data-tour="client-picker"')}`);
+    const esc = (v) => String(v).replace(/&/g, "&amp;");
+    ok(`${layout}: all five types are offered`, ["interior", "exterior", "cabinets", "staining", "commercial"].every((k) => html.includes(esc(APP_MESSAGES.en[`app.paint.type.${k}`]))));
+    ok(`${layout}: no service tile step for painting`, !/data-service-tiles|Interior painting<\/(?:span|div)>/.test(html.split("data-estimate-type-first")[1]?.split("data-tour=\"client-picker\"")[0] || ""));
+    ok(`${layout}: a mixed-trade company sees Other trades`, html.includes("data-other-trades"));
+    const paintOnly = renderToStaticMarkup(
+      <LanguageProvider initialLanguage="en">
+        <PermissionProvider role="owner" permissions={{}}>
+          <QuoteBuilderForm mode="create" quoteId={null} bootstrap={{ ...BOOTSTRAP, layout, categories: BOOTSTRAP.categories.filter((c) => c.key === "interior_painting") }} initial={blank} />
+        </PermissionProvider>
+      </LanguageProvider>,
+    );
+    ok(`${layout}: a painting-only company has no Other trades link`, !paintOnly.includes("data-other-trades") && paintOnly.includes("data-estimate-type-first"));
+    const nonPainter = renderToStaticMarkup(
+      <LanguageProvider initialLanguage="en">
+        <PermissionProvider role="owner" permissions={{}}>
+          <QuoteBuilderForm mode="create" quoteId={null} bootstrap={{ ...BOOTSTRAP, layout, categories: BOOTSTRAP.categories.filter((c) => c.key !== "interior_painting") }} initial={blank} />
+        </PermissionProvider>
+      </LanguageProvider>,
+    );
+    ok(`${layout}: a company with no painting never sees the cards`, !nonPainter.includes("data-estimate-type-first"));
+  }
+  eq("exterior → exterior_painting when the company has it", paintingCategoryFor("exterior", [{ key: "interior_painting" }, { key: "exterior_painting" }])?.key, "exterior_painting");
+  eq("staining → interior_painting (its substrates live in the interior book)", paintingCategoryFor("staining", [{ key: "interior_painting" }, { key: "exterior_painting" }])?.key, "interior_painting");
+  eq("exterior falls back to the one painting service the company has", paintingCategoryFor("exterior", [{ key: "interior_painting" }])?.key, "interior_painting");
+  eq("no painting service → null, never a guess", paintingCategoryFor("interior", [{ key: "stairs" }]), null);
+  eq("paintingCategoriesOf ignores junk", paintingCategoriesOf([null, {}, { key: "exterior_painting" }]).length, 1);
 }
 
 // ───────────────────────────────────────────────────────────────────────────

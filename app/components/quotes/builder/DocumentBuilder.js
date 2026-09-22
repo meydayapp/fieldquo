@@ -861,6 +861,17 @@ export default function DocumentBuilder({ b }) {
       {/* ══ Estimate ═══════════════════════════════════════════════════════ */}
       {tab === "estimate" && (
         <div className="space-y-4" data-tab-panel="estimate">
+          {/* A painting company's first question (mockup b1) — ABOVE the
+              document, before the client and the rooms, in this layout as
+              in the classic one. The pick puts the service in the body. */}
+          {b.paintingFirst && (
+            <EstimateTypeFirst
+              categories={b.categories}
+              onPickType={b.addPaintingEstimate}
+              onAddOther={(category, label) => b.addScopeGroup(category, label)}
+              documentLanguage={b.quoteLanguage}
+            />
+          )}
           <DocumentFrame company={company} data-doc-editor>
             <DocumentMasthead
               company={company}
@@ -975,16 +986,6 @@ export default function DocumentBuilder({ b }) {
 
             {/* ── The body: one card per service ─────────────────────────── */}
             <section className="px-5 sm:px-7 py-5 space-y-3" data-doc-body>
-              {/* A painting company's first question (mockup b1), in the
-                  body of the document where the rooms will appear. */}
-              {b.paintingFirst && (
-                <EstimateTypeFirst
-                  categories={b.categories}
-                  onPickType={b.addPaintingEstimate}
-                  onAddOther={(category, label) => b.addScopeGroup(category, label)}
-                  documentLanguage={b.quoteLanguage}
-                />
-              )}
               {!isEdit && b.scopeGroups.length === 0 && (
                 <TemplatePicker
                   onApply={(tpl) => {
