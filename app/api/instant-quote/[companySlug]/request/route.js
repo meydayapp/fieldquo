@@ -52,6 +52,7 @@ export async function POST(request, { params }) {
       // is the exact defect this select exists to close.
       taxRate: true,
       autoApplyLocalTax: true,
+      taxMode: true,
       taxRates: { select: { name: true, rate: true } },
       country: true,
       province: true,

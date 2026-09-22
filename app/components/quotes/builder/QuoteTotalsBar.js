@@ -27,6 +27,7 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { Loader2, Save, Send, Sparkles } from "lucide-react";
 import QuoteReadiness from "./QuoteReadiness";
 import DiscountField from "@/app/components/quotes/DiscountField";
@@ -77,17 +78,21 @@ export default function QuoteTotalsBar({
   // company's country operates a reduced VAT rate for renovation work. Null
   // everywhere else, including Canada and the US.
   taxVat = null,
-  // ── Where the client is, when the rate could not be worked out ──────────
+  // ── What the tax line says, and whether it is settled ───────────────────
   //
-  // The "not worked out" hint below used to tell everyone to "set the
-  // client's country and province" — including the estimator looking at a
-  // New York client whose country and province were BOTH on file (the US
-  // path deliberately applies no rate, see lib/tax/jurisdictions.js). A
-  // sentence asking for something already done reads as the software being
-  // broken. So the builder hands in the place it already knows ("New York,
-  // NY") and the hint names it: no rate is known for THAT place yet. Null
-  // when the address really is missing, and the old sentence is right.
-  taxPlace = null,
+  // { headline, source, resolved, hint } from lib/tax/taxLine.js, already
+  // translated by the builder: "HST 13% (Ontario)", "from the job address",
+  // and — only when nothing anywhere names a province — the hint that says
+  // what to add. `resolved` decides the whole shape of the block: a settled
+  // rate is printed as a sentence with a "Change" control beside it, and
+  // the rate box and the tax switch stay folded away until that is pressed;
+  // an unsettled one opens on the box, because the box is the fix.
+  //
+  // Why not key this on the tax AMOUNT, as the old "Not worked out" test
+  // did: an empty quote has $0 of tax at ANY rate, and the first screen of
+  // every new quote was reading "no tax rate is known for Ottawa, ON" over
+  // a perfectly good 13% (owner, 2026-09-21).
+  taxLine = null,
   total,
   taxEnabled,
   onTaxToggle,
@@ -122,6 +127,15 @@ export default function QuoteTotalsBar({
 }) {
   const { t, language } = useTranslation();
   const dockRef = useBottomDock();
+  // "Change" unfolds the rate box and the switch under a settled line. Local:
+  // it is a matter of what is on screen, not of what is saved.
+  const [changing, setChanging] = useState(false);
+  const resolved = Boolean(taxLine?.resolved);
+  // The controls: always when a caller cannot edit the rate (the checkbox is
+  // then the only control), when the line is unsettled, when tax is off
+  // (the switch back on has to be reachable), or on request.
+  const showTaxControls = !onTaxRateChange || !resolved || !taxEnabled || changing;
+  const taxUnresolved = taxEnabled && !resolved;
   // Same reason as explainTaxSource: 9,5 % not 9.5 % on a French screen.
   const pct = (n) =>
     Number(n).toLocaleString(numberLocaleFor(language), { maximumFractionDigits: 3 });
@@ -164,43 +178,76 @@ export default function QuoteTotalsBar({
           currency={currency}
         />
 
-        {onTaxRateChange ? (
-          <div>
-            <label
-              htmlFor="quote-tax-rate"
-              className="block text-sm font-medium text-foreground mb-1"
-            >
-              {t("app.quoteEdit.taxRate")}
-            </label>
-            <input
-              id="quote-tax-rate"
-              type="number"
-              min="0"
-              step="0.001"
-              value={taxRate}
-              disabled={!taxEnabled}
-              onChange={(e) => onTaxRateChange(e.target.value)}
-              className="w-full sm:w-40 border border-border rounded-lg px-3 py-2 text-sm disabled:bg-muted disabled:text-muted-foreground"
-            />
-            <label className="flex items-center gap-2 mt-2 text-sm">
+        {/* ── The tax line as a sentence ──────────────────────────────
+            "HST 13% (Ontario) · from the job address", with Change beside
+            it. The number is worked out for the estimator now
+            (lib/tax/resolveTaxRate.js), so the screen has to say where it
+            came from — a figure that appears on its own with no
+            explanation is worse than one they typed. */}
+        {taxEnabled && resolved && taxLine?.headline && (
+          <div data-tax-line className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-foreground">
+                <span className="text-muted-foreground">{t("app.quoteEdit.tax")}: </span>
+                {taxLine.headline}
+              </p>
+              {taxLine.source && (
+                <p className="text-xs text-muted-foreground mt-0.5" data-tax-source>
+                  {taxLine.source}
+                </p>
+              )}
+            </div>
+            {onTaxRateChange && !changing && (
+              <button
+                type="button"
+                onClick={() => setChanging(true)}
+                className="text-xs font-medium underline underline-offset-2 text-foreground shrink-0"
+                data-tax-change
+              >
+                {t("app.tax.line.change")}
+              </button>
+            )}
+          </div>
+        )}
+
+        {showTaxControls &&
+          (onTaxRateChange ? (
+            <div data-tax-controls>
+              <label
+                htmlFor="quote-tax-rate"
+                className="block text-sm font-medium text-foreground mb-1"
+              >
+                {t("app.quoteEdit.taxRate")}
+              </label>
+              <input
+                id="quote-tax-rate"
+                type="number"
+                min="0"
+                step="0.001"
+                value={taxRate}
+                disabled={!taxEnabled}
+                onChange={(e) => onTaxRateChange(e.target.value)}
+                className="w-full sm:w-40 border border-border rounded-lg px-3 py-2 text-sm disabled:bg-muted disabled:text-muted-foreground"
+              />
+              <label className="flex items-center gap-2 mt-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={taxEnabled}
+                  onChange={(e) => onTaxToggle(e.target.checked)}
+                />
+                {t("app.quoteEdit.chargeTax")}
+              </label>
+            </div>
+          ) : (
+            <label className="flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
                 checked={taxEnabled}
                 onChange={(e) => onTaxToggle(e.target.checked)}
               />
-              {t("app.quoteEdit.chargeTax")}
+              {t("app.quoteNew.applyTax", { rate: taxRate })}
             </label>
-          </div>
-        ) : (
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={taxEnabled}
-              onChange={(e) => onTaxToggle(e.target.checked)}
-            />
-            {t("app.quoteNew.applyTax", { rate: taxRate })}
-          </label>
-        )}
+          ))}
 
         {/* ── Standard or reduced VAT ──────────────────────────────────
             A question rather than a guess: the reduced rate's conditions
@@ -285,12 +332,14 @@ export default function QuoteTotalsBar({
             </div>
           )}
           {/* ── The zero that isn't a figure ─────────────────────────────
-              Tax switched ON with nothing charged is not "$0.00", it is "we
-              haven't worked this out" — and it is the state that let
-              Q-2026-0011 out of the building with $682.50 of HST missing.
-              The send route refuses it (lib/tax/documentTax.js); this is where
-              the estimator sees it first, while it is still fixable. */}
-          {taxEnabled && Number(tax) === 0 ? (
+              Tax switched ON with no RATE behind it is not "$0.00", it is
+              "we haven't worked this out" — the state that let Q-2026-0011
+              out of the building with $682.50 of HST missing. The send route
+              refuses it (lib/tax/documentTax.js); this is where the
+              estimator sees it first, while it is still fixable. Keyed on
+              the rate, not the amount: $0 of tax on an empty quote at 13%
+              is a figure. */}
+          {taxUnresolved ? (
             <div className="flex justify-between text-amber-700 dark:text-amber-300">
               <span>{t("app.quoteEdit.tax")}</span>
               <span className="font-medium">
@@ -305,11 +354,9 @@ export default function QuoteTotalsBar({
               </span>
             </div>
           )}
-          {taxEnabled && Number(tax) === 0 && (
+          {taxUnresolved && taxLine?.hint && (
             <p className="text-xs text-amber-700 dark:text-amber-300 leading-snug" data-tax-unresolved-hint>
-              {taxPlace
-                ? t("app.tax.line.unresolvedHintPlace", { place: taxPlace })
-                : t("app.tax.line.unresolvedHint")}
+              {taxLine.hint}
             </p>
           )}
           <div className="flex justify-between font-semibold text-foreground text-base pt-1 border-t border-border mt-1">

@@ -304,7 +304,7 @@ export async function POST(request) {
   const sourceQuote = quoteId
     ? await db.quote.findFirst({
         where: { id: quoteId, companyId: member.companyId },
-        select: { quoteNumber: true, taxResolution: true },
+        select: { quoteNumber: true, taxResolution: true, siteAddress: true },
       })
     : null;
 
@@ -329,7 +329,7 @@ export async function POST(request) {
     const [companyForTax, taxRates, clientRow] = await Promise.all([
       db.company.findUnique({
         where: { id: member.companyId },
-        select: { taxRate: true, autoApplyLocalTax: true, country: true, province: true, vatRegistered: true, usTaxOverrides: true },
+        select: { taxRate: true, autoApplyLocalTax: true, taxMode: true, country: true, province: true, vatRegistered: true, usTaxOverrides: true },
       }),
       db.taxRate.findMany({ where: { companyId: member.companyId } }),
       db.client.findFirst({ where: { id: clientId, companyId: member.companyId } }),
@@ -338,6 +338,10 @@ export async function POST(request) {
       company: companyForTax || {},
       taxRates,
       client: await attachUsTaxRate(clientRow),
+      // The quote's job address, when the invoice is raised from one: the
+      // property's province decides (lib/tax/documentTax.js). An invoice
+      // raised on its own has no site and reads the client's record.
+      siteAddress: sourceQuote?.siteAddress || null,
     });
     return resolved;
   };

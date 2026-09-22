@@ -38,12 +38,12 @@ export default function JobAddressField({ client, value, onChange, error = "" })
       <AddressAutocomplete
         value={value}
         onChange={onChange}
-        // address-jurisdiction: none — this is ONE string (Quote.siteAddress),
-        // the site the crew drives to and the satellite measures. The
-        // quote's tax jurisdiction still comes from the CLIENT record's
-        // province and country (ClientPicker keeps both); a job in the next
-        // province is billed to the person who ordered it, and the address
-        // where the ladder stands does not change who owes which tax.
+        // address-jurisdiction: none — ONE string (Quote.siteAddress); the tax
+        // ladder reads the province back out of the formatted line
+        // (lib/tax/addressRegion.js), so older quotes answer the same way.
+        // And it DOES decide the tax: real-property services are taxed where
+        // the property is, so this answers before the client's own record
+        // (lib/tax/documentTax.js placeOfSupply).
         onPlaceSelected={(p) => onChange(p?.address || value)}
         placeholder={t("app.quoteNew.jobAddressPlaceholder", "Start typing the job address…")}
         required={required}
