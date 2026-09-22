@@ -113,6 +113,10 @@ const SUBDOMAIN_PASSTHROUGH = [
   "/embed",
   "/q",
   "/portal",
+  // A waiver sent on its own (/w/<token>). Same class as /q: the homeowner
+  // following the emailed link must reach the document to sign, not the
+  // tenant's marketing site.
+  "/w",
   // The client-facing kitchen designer. Same class as /q and /portal: a
   // homeowner reaching it from a link on the contractor's own subdomain must
   // get the drawing, not that tenant's marketing site.

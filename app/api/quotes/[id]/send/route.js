@@ -57,6 +57,10 @@ import {
   quoteEmailSectionGate,
   QUOTE_EMAIL_COMPANY_SELECT,
 } from "@/lib/quotes/emailSections";
+// The before/after pairs are read from the company's one gallery
+// (lib/company/gallery.js) and overlaid on the column the gate and the
+// email builder expect — the same pairs the website and the proposal show.
+import { withCompanyGallery } from "@/lib/company/gallery";
 import { loadDocumentWording } from "@/lib/email/documentEmailCopies";
 
 export async function POST(request, { params }) {
@@ -137,7 +141,7 @@ export async function POST(request, { params }) {
     );
   }
 
-  const company = await db.company.findUnique({
+  const company = await withCompanyGallery(await db.company.findUnique({
     where: { id: member.companyId },
     select: {
       ...SENDER_SELECT,
@@ -161,7 +165,7 @@ export async function POST(request, { params }) {
       // assertSectionFieldsLoaded.
       ...QUOTE_EMAIL_COMPANY_SELECT,
     },
-  });
+  }), member.companyId);
 
   // ── The empty-section gate ───────────────────────────────────────────────
   //

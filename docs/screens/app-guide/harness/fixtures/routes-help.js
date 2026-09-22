@@ -131,7 +131,72 @@ const publicQuote = (ctx) => ({
     { pct: "50%", label: "Deposit to book the shop time" },
     { pct: "50%", label: "Balance on installation" },
   ],
+  // ── The proposal beside the document (client mockup §1, 2026-09-21) ──
+  // Every section the fixture company has content for, in the shape
+  // app/api/public/quotes/[token] publishes: rendered sections only, no ids.
+  // The day plan is what lib/proposal/sections.js dayPlan() derives from
+  // the cabinet takeoff's hours for a crew of two; the waiver is attached,
+  // pending, with its public token.
+  proposal: proposalFor(ctx),
 });
+
+const proposalFor = (ctx) => {
+  const lang = docLang(ctx);
+  const t = (en, fr, es) => (lang === "fr" ? fr : lang === "es" ? es : en);
+  return {
+    sections: ["about", "beforeAfter", "documents", "testimonials", "services"],
+    about: {
+      headline: t("Two brothers, one shop, sixteen years", "Deux frères, un atelier, seize ans", "Dos hermanos, un taller, dieciséis años"),
+      story: t(
+        "Érable started in a garage in Laval in 2010. Today four of us build, spray and install every kitchen ourselves — one of the two brothers is on every site, and we don't leave until you've opened every door.",
+        "Érable a commencé dans un garage à Laval en 2010. Aujourd'hui, nous sommes quatre à fabriquer, peindre et installer chaque cuisine nous-mêmes — l'un des deux frères est sur chaque chantier, et nous ne partons pas avant que vous ayez ouvert chaque porte.",
+        "Érable empezó en un garaje de Laval en 2010. Hoy somos cuatro los que fabricamos, pintamos e instalamos cada cocina — uno de los dos hermanos está en cada obra, y no nos vamos hasta que haya abierto cada puerta.",
+      ),
+      videoUrl: null,
+      teamPhotoUrl: JOB_PHOTO_URLS[5],
+    },
+    gallery: [
+      { before: JOB_PHOTO_URLS[4], after: JOB_PHOTO_URLS[0], caption: t("Split-level in Vimont — dated oak to white shaker", "Split-level à Vimont — chêne daté vers shaker blanc", "Casa en Vimont — roble antiguo a shaker blanco") },
+      { before: JOB_PHOTO_URLS[2], after: JOB_PHOTO_URLS[3], caption: t("Rift white oak island, Sainte-Rose", "Îlot en chêne blanc, Sainte-Rose", "Isla de roble blanco, Sainte-Rose") },
+    ],
+    documents: [
+      { type: "insurance", title: t("Certificate of insurance", "Certificat d'assurance", "Certificado de seguro"), summary: t("$2M liability · to Mar 31, 2027", "Responsabilité 2 M$ · jusqu'au 31 mars 2027", "Responsabilidad 2 M$ · hasta el 31 mar 2027"), url: "https://res.cloudinary.com/demo/raw/upload/coi.pdf", mimeType: "application/pdf" },
+      { type: "licence", title: t("RBQ licence", "Licence RBQ", "Licencia RBQ"), summary: "RBQ 5812-4471-01", url: "https://res.cloudinary.com/demo/raw/upload/rbq.pdf", mimeType: "application/pdf" },
+      { type: "warranty", title: t("Workmanship warranty", "Garantie de main-d'œuvre", "Garantía de mano de obra"), summary: t("5 years on finish and hardware", "5 ans sur la finition et la quincaillerie", "5 años en acabado y herrajes"), url: "https://res.cloudinary.com/demo/raw/upload/warranty.pdf", mimeType: "application/pdf" },
+    ],
+    testimonials: [
+      { quote: t("They measured twice, showed up when they said, and the island is dead level. Our kitchen looks like a magazine.", "Ils ont mesuré deux fois, sont venus quand ils l'ont dit, et l'îlot est parfaitement de niveau. Notre cuisine ressemble à un magazine.", "Midieron dos veces, llegaron cuando dijeron, y la isla está perfectamente nivelada. Nuestra cocina parece de revista."), author: "Priya M. — ★★★★★ — Google" },
+      { quote: t("Fixed a sagging pantry two other shops said needed replacing. Hasn't moved since.", "Ils ont réparé un garde-manger affaissé que deux autres ateliers voulaient remplacer. Il n'a pas bougé depuis.", "Arreglaron una despensa vencida que otros dos talleres querían reemplazar. No se ha movido desde entonces."), author: "Tom & Elise R." },
+    ],
+    services: SERVICE_CATEGORIES.filter((c) => c.enabled).slice(0, 4).map((c) => ({ key: c.key, label: c.label })),
+    plan: {
+      crewSize: 2,
+      days: [
+        { day: 1, labels: [t("Remove old cabinets, set boxes", "Retirer les anciennes armoires, poser les caissons", "Retirar gabinetes viejos, colocar cajas")], hours: 16, halfDay: false },
+        { day: 2, labels: [t("Hang doors, fit hardware, island", "Poser les portes, la quincaillerie, l'îlot", "Colgar puertas, herrajes, isla")], hours: 16, halfDay: false },
+        { day: 3, labels: [t("Touch-ups, walkthrough", "Retouches, visite finale", "Retoques, recorrido final")], hours: 5, halfDay: true },
+      ],
+      paint: { products: ["Benjamin Moore Advance"], coats: [2] },
+    },
+    waivers: [
+      {
+        token: "wv_fixture000000000000001",
+        title: t("Release of liability — cabinet installation", "Décharge de responsabilité — installation d'armoires", "Exención de responsabilidad — instalación de gabinetes"),
+        sections: [
+          { heading: t("Furniture and belongings", "Meubles et effets personnels", "Muebles y pertenencias"), text: t("We move and cover furniture in the rooms we work in. Fragile items, electronics and valuables should be removed by you before we arrive.", "Nous déplaçons et couvrons les meubles dans les pièces où nous travaillons. Les objets fragiles, l'électronique et les objets de valeur doivent être retirés par vous avant notre arrivée.", "Movemos y cubrimos los muebles de las habitaciones donde trabajamos. Los objetos frágiles, la electrónica y los objetos de valor deben retirarse antes de nuestra llegada.") },
+          { heading: t("Existing surfaces", "Surfaces existantes", "Superficies existentes"), text: t("Removing old cabinets can reveal damage behind them. Repairs beyond the quoted lines are agreed with you as a change order before they are done.", "Le retrait des anciennes armoires peut révéler des dommages derrière elles. Les réparations au-delà des lignes soumises sont convenues avec vous par avenant avant d'être faites.", "Retirar los gabinetes viejos puede revelar daños detrás. Las reparaciones más allá de lo presupuestado se acuerdan con usted como orden de cambio antes de hacerse.") },
+        ],
+        acknowledgements: [
+          t("I understand I am responsible for removing fragile items and valuables before the crew arrives.", "Je comprends que je suis responsable de retirer les objets fragiles et de valeur avant l'arrivée de l'équipe.", "Entiendo que soy responsable de retirar los objetos frágiles y de valor antes de que llegue la cuadrilla."),
+          t("I understand that hidden damage may show once the old cabinets are out and that additional repair is quoted separately.", "Je comprends que des dommages cachés peuvent apparaître une fois les anciennes armoires retirées et que toute réparation supplémentaire est soumise séparément.", "Entiendo que pueden aparecer daños ocultos al retirar los gabinetes viejos y que cualquier reparación adicional se presupuesta por separado."),
+        ],
+        status: "pending",
+        signedAt: null,
+        signedName: null,
+      },
+    ],
+  };
+};
 
 // ── /portal/<token> — Sophie's portal ───────────────────────────────────────
 export const PORTAL_TOKEN = "pt_3a9d7c2f1b";
@@ -601,7 +666,60 @@ const QUOTE_1045_DETAIL = {
   addOns: OFFERED_FROM_CATALOGUE("ao_1045"),
   reviewNotes: null,
 };
+// ── The client proposal, staff side (client mockup §2) ─────────────────────
+// Settings › Presentation and a quote's Presentation panel: the story, the
+// one gallery, the document library (one expired, one waiver) and what the
+// quote will show. Shapes from app/api/settings/{presentation,gallery,
+// company-documents} and app/api/quotes/[id]/presentation.
+const GALLERY_PAIRS = [
+  { id: "gp_1", beforeUrl: JOB_PHOTO_URLS[4], afterUrl: JOB_PHOTO_URLS[0], beforePublicId: null, afterPublicId: null, caption: "Split-level in Vimont — dated oak to white shaker", sortOrder: 0, source: "quote_email" },
+  { id: "gp_2", beforeUrl: JOB_PHOTO_URLS[2], afterUrl: JOB_PHOTO_URLS[3], beforePublicId: null, afterPublicId: null, caption: "Rift white oak island, Sainte-Rose", sortOrder: 1, source: "website" },
+];
+const COMPANY_DOCUMENTS = [
+  { id: "cd_coi", type: "insurance", title: "Certificate of insurance", summary: "$2M liability · to Mar 31, 2027", fileUrl: "https://res.cloudinary.com/demo/raw/upload/coi.pdf", mimeType: "application/pdf", expiresAt: iso(day(190, 0)), showOnQuotes: true, sortOrder: 0, body: null, attachToQuotes: false, attachToJobs: false, attachToInvoices: false, expired: false, expiresSoon: false, signable: null, visibleToClients: true },
+  { id: "cd_rbq", type: "licence", title: "RBQ licence", summary: "RBQ 5812-4471-01", fileUrl: "https://res.cloudinary.com/demo/raw/upload/rbq.pdf", mimeType: "application/pdf", expiresAt: iso(day(20, 0)), showOnQuotes: true, sortOrder: 1, body: null, attachToQuotes: false, attachToJobs: false, attachToInvoices: false, expired: false, expiresSoon: true, signable: null, visibleToClients: true },
+  { id: "cd_cnesst", type: "wsib", title: "CNESST clearance", summary: null, fileUrl: "https://res.cloudinary.com/demo/raw/upload/cnesst.pdf", mimeType: "application/pdf", expiresAt: iso(day(-12, 0)), showOnQuotes: true, sortOrder: 2, body: null, attachToQuotes: false, attachToJobs: false, attachToInvoices: false, expired: true, expiresSoon: false, signable: null, visibleToClients: false },
+  { id: "cd_warranty", type: "warranty", title: "Workmanship warranty", summary: "5 years on finish and hardware", fileUrl: "https://res.cloudinary.com/demo/raw/upload/warranty.pdf", mimeType: "application/pdf", expiresAt: null, showOnQuotes: true, sortOrder: 3, body: null, attachToQuotes: false, attachToJobs: false, attachToInvoices: false, expired: false, expiresSoon: false, signable: null, visibleToClients: true },
+  { id: "cd_waiver", type: "waiver", title: "Release of liability — cabinet installation", summary: null, fileUrl: null, mimeType: null, expiresAt: null, showOnQuotes: false, sortOrder: 4, body: { sections: [{ heading: "Furniture and belongings", text: "We move and cover furniture in the rooms we work in." }, { heading: "Existing surfaces", text: "Removing old cabinets can reveal damage behind them." }], acknowledgements: ["I understand I am responsible for removing fragile items and valuables before the crew arrives.", "I understand that hidden damage may show once the old cabinets are out and that additional repair is quoted separately."] }, attachToQuotes: true, attachToJobs: false, attachToInvoices: false, expired: false, expiresSoon: false, signable: true, visibleToClients: false },
+];
+const PRESENTATION_SETTINGS = {
+  story: "Érable started in a garage in Laval in 2010. Today four of us build, spray and install every kitchen ourselves — one of the two brothers is on every site, and we don't leave until you've opened every door.",
+  storyHeadline: "Two brothers, one shop, sixteen years",
+  storyVideoUrl: "",
+  teamPhotoUrl: JOB_PHOTO_URLS[5],
+  sections: [
+    { key: "about", on: true, hasContent: true },
+    { key: "beforeAfter", on: true, hasContent: true },
+    { key: "documents", on: true, hasContent: true },
+    { key: "testimonials", on: true, hasContent: true },
+    { key: "services", on: true, hasContent: true },
+  ],
+  counts: { beforeAfter: 2, documents: 3, testimonials: 2, services: 4 },
+};
+const QUOTE_PRESENTATION = (detail) => ({
+  quoteId: detail.id,
+  sections: [
+    { key: "about", labelKey: "app.proposal.section.about", fillHref: "/app/settings/presentation#story", on: true, inherited: true, companyDefault: true, hasContent: true, rendered: true, override: null },
+    { key: "beforeAfter", labelKey: "app.proposal.section.beforeAfter", fillHref: "/app/settings/presentation#gallery", on: true, inherited: true, companyDefault: true, hasContent: true, rendered: true, override: null },
+    { key: "documents", labelKey: "app.proposal.section.documents", fillHref: "/app/settings/presentation#documents", on: true, inherited: true, companyDefault: true, hasContent: true, rendered: true, override: null },
+    { key: "testimonials", labelKey: "app.proposal.section.testimonials", fillHref: "/app/settings/reviews#google-business", on: true, inherited: true, companyDefault: true, hasContent: true, rendered: true, override: null },
+    { key: "services", labelKey: "app.proposal.section.services", fillHref: "/app/settings/services", on: false, inherited: false, companyDefault: true, hasContent: true, rendered: false, override: false },
+  ],
+  counts: { beforeAfter: 2, documents: 3, testimonials: 2, services: 4 },
+  documents: COMPANY_DOCUMENTS.filter((d) => d.type !== "waiver").map((d) => ({ id: d.id, title: d.title, type: d.type, expired: d.expired, visibleToClients: d.visibleToClients, included: d.visibleToClients && d.id !== "cd_warranty" })),
+  documentIds: ["cd_coi", "cd_rbq"],
+  plan: { totalHours: 37, crewSize: 2, crewSizeOverride: 2, days: [{ day: 1 }, { day: 2 }, { day: 3 }] },
+  waivers: [{ id: "ds_1", documentId: "cd_waiver", title: "Release of liability — cabinet installation", status: "pending", signedAt: null, sentAt: iso(day(-1, 16)) }],
+  waiverLibrary: [{ id: "cd_waiver", title: "Release of liability — cabinet installation", signable: true }],
+});
+const WAIVERS_FOR = (target) => ({
+  waivers: [{ id: "ds_1", documentId: "cd_waiver", title: "Release of liability — cabinet installation", status: "pending", signedAt: null, sentAt: iso(day(-1, 16)), signedName: "", acknowledged: 0, jobDocumentId: null, ...target }],
+  library: [{ id: "cd_waiver", title: "Release of liability — cabinet installation", signable: true }],
+});
+
 const EDIT_ROUTES = (detail) => [
+  { path: `/api/quotes/${detail.id}/presentation`, method: "GET", reply: () => QUOTE_PRESENTATION(detail) },
+  { path: "/api/waivers", method: "GET", reply: () => WAIVERS_FOR({ quoteId: detail.id }) },
   { path: `/api/quotes/${detail.id}`, method: "GET", reply: () => detail },
   { path: `/api/quotes/${detail.id}/costing`, method: "GET", reply: () => ({ ...QUOTE_COSTING, price: detail.subtotal, saved: false, labourHours: 26.25, labourCost: 1181.25, materialTotal: 612, overhead: 665, estimatedCost: 2458.25, profit: 4191.75, marginPct: 63, crew: [], groups: [] }) },
   { path: `/api/quotes/${detail.id}/review`, method: "GET", reply: () => ({ review: null, reviewedAt: null }) },
@@ -976,6 +1094,13 @@ const CREW_JOB = {
 const crewOr = (mine, theirs) => (ctx) => (isCrew(ctx) ? mine(ctx) : theirs(ctx));
 
 export const ROUTES_HELP = [
+  // ── Settings › Presentation and the proposal's staff side ─────────────
+  { path: "/api/settings/presentation", method: "GET", reply: () => PRESENTATION_SETTINGS },
+  { path: "/api/settings/gallery", method: "GET", reply: () => ({ pairs: GALLERY_PAIRS }) },
+  { path: "/api/settings/company-documents", method: "GET", reply: () => ({ documents: COMPANY_DOCUMENTS }) },
+  { path: `/api/quotes/${QUOTE.id}/presentation`, method: "GET", reply: () => QUOTE_PRESENTATION(QUOTE) },
+  { path: `/api/quotes/${Q_1044.id}/presentation`, method: "GET", reply: () => QUOTE_PRESENTATION(Q_1044) },
+  { path: "/api/waivers", method: "GET", reply: () => WAIVERS_FOR({}) },
   ...MEASURE_ROUTES,
   // ── The crew's phone: the same routes, Léo's answers ────────────────────
   { path: "/api/settings/members/self/role", reply: crewOr(() => ({ assignableRoles: [], canGrantAccess: false, yourRole: "employee", role: "employee" }), () => ({ assignableRoles: ["admin", "supervisor", "employee"], canGrantAccess: true, yourRole: "owner", role: "owner" })) },

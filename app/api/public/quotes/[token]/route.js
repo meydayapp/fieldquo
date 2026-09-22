@@ -26,6 +26,17 @@ import { usableSections } from "@/lib/documents/templateKind";
 import { financingOffer } from "@/lib/estimate/financing";
 import { financingTerms } from "@/lib/financing/monthlyEstimate";
 import { HOW_TO_PAY_COMPANY_SELECT, depositHowToPay } from "@/lib/payments/offlineMethods";
+// The proposal beside the quote — story, gallery, documents, reviews,
+// services, the day plan — and the waivers attached to it. Loaded per
+// company, projected without ids; see lib/proposal/load.js.
+import {
+  PROPOSAL_COMPANY_SELECT,
+  loadProposalContent,
+  loadQuoteWaivers,
+  loadWorkPlan,
+} from "@/lib/proposal/load";
+import { renderedSectionKeys } from "@/lib/proposal/sections";
+import { pendingWaiversForQuote, fileSignedWaiversForJob } from "@/lib/waivers/service";
 
 // First hop of x-forwarded-for is the client on Vercel. Best-effort — an audit
 // record with a null IP is still a valid signature, just weaker evidence.
@@ -100,6 +111,10 @@ async function loadQuote(token) {
           autoApplyLocalTax: true,
           vatRegistered: true,
           usTaxOverrides: true,
+          // The "About us" section and the company's section defaults.
+          // Stripped from `company` in present() and re-published only
+          // through the proposal projection.
+          ...PROPOSAL_COMPANY_SELECT,
         },
       },
       scopeGroups: {
@@ -222,6 +237,13 @@ function present(quote) {
     stripeBankDebitEnabled: _stripeBankDebitEnabled,
     offerFinancing: _offerFinancing,
     stripeAffirmStatus: _stripeAffirmStatus,
+    // The proposal's own inputs, published under `proposal` (GET below)
+    // in the shape the sections rule allows — never the raw setting.
+    story: _story,
+    storyHeadline: _storyHeadline,
+    storyVideoUrl: _storyVideoUrl,
+    teamPhotoUrl: _teamPhotoUrl,
+    proposalSections: _proposalSections,
     ...companyPublic
   } = quote.company || {};
 
@@ -356,6 +378,20 @@ function present(quote) {
             // so the printed quote explained a line the web page did not.
             // A lawn program's included services travel here.
             detail: typeof li.detail === "string" ? li.detail : "",
+            // A prose block (the builder's text-block library) rather than
+            // a priced line: the proposal prints it under "Scope of work"
+            // in the estimator's own words. Nothing else on the item is
+            // forwarded — a block's price mode and work-order flag stay
+            // internal.
+            kind: li.kind === "text" ? "text" : "line",
+            text:
+              li.kind === "text"
+                ? typeof li.body === "string"
+                  ? li.body
+                  : typeof li.text === "string"
+                    ? li.text
+                    : ""
+                : "",
           }),
         ),
       };
@@ -419,7 +455,45 @@ export async function GET(request, { params }) {
     );
   }
 
-  return NextResponse.json(present(quote));
+  const presented = present(quote);
+
+  // ── The proposal beside the document ─────────────────────────────────────
+  //
+  // Every section is fed from company rows — the story, the one gallery, the
+  // document library, published reviews, enabled services — and a section
+  // with nothing behind it is not in `sections` and not rendered. The day
+  // plan is derived from the takeoff's hours and a stated crew size, or is
+  // null; nothing here is generated at request time. Waivers attached to
+  // this quote travel with their public token so the page can sign them in
+  // place. Best-effort as a whole: a proposal load failing must not take
+  // the quote itself off the homeowner's screen.
+  try {
+    const [{ content, sections }, plan, waivers] = await Promise.all([
+      loadProposalContent({
+        companyId: quote.companyId,
+        company: quote.company,
+        language: presented.language,
+        presentation: quote.presentation,
+      }),
+      loadWorkPlan({ quote, companyId: quote.companyId }),
+      loadQuoteWaivers({ quoteId: quote.id, companyId: quote.companyId }),
+    ]);
+    presented.proposal = {
+      sections: renderedSectionKeys(sections),
+      about: sections.about.rendered ? content.about : null,
+      gallery: sections.beforeAfter.rendered ? content.gallery : [],
+      documents: sections.documents.rendered ? content.documents : [],
+      testimonials: sections.testimonials.rendered ? content.testimonials : [],
+      services: sections.services.rendered ? content.services : [],
+      plan: plan && (plan.days || plan.paint) ? { days: plan.days, crewSize: plan.days ? plan.crewSize : null, paint: plan.paint } : null,
+      waivers,
+    };
+  } catch (err) {
+    console.error("[public quote] proposal load failed:", err?.message);
+    presented.proposal = { sections: [], about: null, gallery: [], documents: [], testimonials: [], services: [], plan: null, waivers: [] };
+  }
+
+  return NextResponse.json(presented);
 }
 
 // Accept or decline. The client is not authenticated beyond the token, so
@@ -466,6 +540,24 @@ export async function POST(request, { params }) {
       { error: "This quote has expired. Ask for an updated one." },
       { status: 410 },
     );
+  }
+
+  // A waiver attached to this quote and not yet signed blocks the approval.
+  // The page keeps its Accept button disabled and prints why; this is the
+  // rule, and the button is the courtesy. Only on acceptance — declining a
+  // quote needs no release signed.
+  if (decision === "accepted") {
+    const pending = await pendingWaiversForQuote({ quoteId: quote.id, companyId: quote.companyId });
+    if (pending.length) {
+      return NextResponse.json(
+        {
+          error: "Please sign the attached waiver before approving this quote.",
+          needsWaiver: true,
+          waivers: pending.map((w) => ({ token: w.token, title: w.document?.title || "" })),
+        },
+        { status: 409 },
+      );
+    }
   }
 
   // Which extras they ticked. Ids only — deliberately not amounts, not a
@@ -584,6 +676,13 @@ export async function POST(request, { params }) {
       // back-office path (PATCH /api/quotes/[id]) so the two can never drift —
       // they used to, and the back office was the one doing nothing.
       const { job, invoice } = await onQuoteAccepted(updated.id, { signedPdf });
+      // A waiver signed on this quote before the job existed is filed on
+      // the job now — the same Documents card the signed quote lands in.
+      if (job?.id) {
+        await fileSignedWaiversForJob({ quoteId: updated.id, jobId: job.id }).catch((err) =>
+          console.error("[public quote] waiver filing failed:", err?.message),
+        );
+      }
       await recordActivity(
         { companyId: updated.companyId },
         {

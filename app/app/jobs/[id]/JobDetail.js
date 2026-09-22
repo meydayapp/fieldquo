@@ -36,6 +36,7 @@ import { isVisitOutsideJobRange } from "@/lib/jobs/visitInRange";
 import { callbackReasonLabel } from "@/lib/jobs/callbackReasons";
 import ChangeOrders from "@/app/components/jobs/ChangeOrders";
 import JobDocuments from "@/app/components/jobs/JobDocuments";
+import WaiversCard from "@/app/components/waivers/WaiversCard";
 import PrepGuideCard from "@/app/components/jobs/PrepGuideCard";
 import JobSubcontractors from "@/app/components/jobs/JobSubcontractors";
 import DailyLog from "@/app/components/jobs/DailyLog";
@@ -701,6 +702,12 @@ export default function JobDetail({ jobId }) {
           what does the drawing say. A revision never overwrites its
           predecessor; see the component's own header. */}
       <JobDocuments jobId={job.id} />
+
+      {/* Waivers attached to this job (and, through the quote, the ones
+          signed before it existed): who signed, who is still waited on,
+          send the link again. The signed PDF is in the Documents card
+          above as kind "waiver". */}
+      <WaiversCard target={{ jobId: job.id }} editable={canEditJob} />
 
       {/* What the client was asked to do before the crew arrives, and when
           they were (or will be) told. Under Documents because the sent guide

@@ -75,6 +75,12 @@ const EXPECTED_KEYS = [
   "team",
   "overhead",
   "payment_schedule",
+  // The client proposal's four (2026-09-21, client mockup §2), in the
+  // mockup's position: after the payment schedule.
+  "story",
+  "gallery",
+  "documents",
+  "google_reviews",
   "quote_process",
   "ai_credits",
   "instant_quotes",
@@ -85,7 +91,7 @@ const EXPECTED_KEYS = [
   "import_jobs",
 ];
 ok(
-  "the team row, then the ten in the owner's order",
+  "the team row, the ten in the owner's order, and the proposal's four after the payment schedule",
   JSON.stringify(SETUP_STEP_KEYS) === JSON.stringify(EXPECTED_KEYS),
   SETUP_STEP_KEYS.join(","),
 );
@@ -114,13 +120,19 @@ const EMPTY = {
   pendingInvites: 0,
   seatLimit: 6,
   worksAlone: false,
+  // The proposal's four signals, all "nothing yet".
+  storySet: false,
+  galleryPairs: 0,
+  clientDocuments: 0,
+  googleReviewsConnected: false,
+  approvedTestimonials: 0,
 };
 const TOTAL = EXPECTED_KEYS.length;
 
 {
   const steps = stepsFor(EMPTY);
-  ok("an empty company has all eleven steps undone", steps.every((s) => !s.done && !s.dismissed && s.applies === true));
-  ok("…and all eleven on the card", remainingSteps(steps).length === TOTAL);
+  ok("an empty company has every step undone", steps.every((s) => !s.done && !s.dismissed && s.applies === true));
+  ok("…and every one on the card", remainingSteps(steps).length === TOTAL);
   ok("a snapshot with NOTHING in it (every signal absent) is also all-undone", stepsFor({}).every((s) => !s.done));
   ok("…and every step APPLIES — absence never removes a row", stepsFor({}).every((s) => s.applies === true));
   ok("a null snapshot does not throw", (() => { try { return stepsFor(undefined).length === TOTAL && stepsFor(null).length === TOTAL; } catch { return false; } })());
@@ -150,6 +162,11 @@ const FLIPS = [
   ["historicalImports", 3, "import_jobs"],
   ["activeMembers", 2, "team"],
   ["pendingInvites", 1, "team"],
+  ["storySet", true, "story"],
+  ["galleryPairs", 1, "gallery"],
+  ["clientDocuments", 1, "documents"],
+  ["googleReviewsConnected", true, "google_reviews"],
+  ["approvedTestimonials", 2, "google_reviews"],
 ];
 for (const [field, value, expectKey] of FLIPS) {
   const steps = stepsFor({ ...EMPTY, [field]: value });
@@ -163,6 +180,12 @@ for (const [field, value, expectKey] of FLIPS) {
 
 // The signals that must NOT count, each for a stated reason.
 {
+  // The proposal rows: a string "true" is not a story set (the snapshot
+  // trims and tests the column itself); an expired document is already
+  // excluded by the snapshot's count, so 0 here is the only honest answer.
+  ok("storySet=\"true\" (a string) is not done", !stepsFor({ ...EMPTY, storySet: "true" }).find((x) => x.key === "story").done);
+  ok("galleryPairs=\"3\" counts, galleryPairs=\"lots\" does not", stepsFor({ ...EMPTY, galleryPairs: "3" }).find((x) => x.key === "gallery").done && !stepsFor({ ...EMPTY, galleryPairs: "lots" }).find((x) => x.key === "gallery").done);
+  ok("clientDocuments=0 (every document expired) is not done", !stepsFor({ ...EMPTY, clientDocuments: 0 }).find((x) => x.key === "documents").done);
   let s = stepsFor({ ...EMPTY, enabledCategories: [{ processSteps: [], includedItems: [], scopeDescription: "  ", rates: null }] });
   ok("empty wording overrides are not a review", !s.find((x) => x.key === "quote_process").done);
   ok("a null rate card is not a saved override", !s.find((x) => x.key === "materials").done);
@@ -212,7 +235,7 @@ for (const [field, value, expectKey] of FLIPS) {
   ok("a done step is still returned, flagged done", overhead && overhead.done === true);
   const shown = remainingSteps(steps).map((s) => s.key);
   ok("the card shows neither the dismissed nor the done step", !shown.includes("emails") && !shown.includes("overhead"));
-  ok("…and shows the other nine", shown.length === TOTAL - 2, shown.length);
+  ok("…and shows all the others", shown.length === TOTAL - 2, shown.length);
   ok("normaliseDismissed drops unknown keys and duplicates", JSON.stringify(normaliseDismissed(["emails", "bogus", "emails", 7, null])) === JSON.stringify(["emails"]));
   ok("normaliseDismissed of garbage is []", normaliseDismissed("emails").length === 0 && normaliseDismissed(null).length === 0);
   ok("done beats dismissed: a step both done and dismissed is simply gone", remainingSteps(stepsFor({ ...EMPTY, dismissed: ["overhead"], overheadDebts: 1 })).length === TOTAL - 1);
@@ -289,6 +312,9 @@ console.log("\n3. Every anchor names an id in the target page\n");
 // these sections read for them.
 const PAGE_BODY = {
   "app/app/settings/services/page.js": "app/app/settings/services/ServicesEditor.js",
+  // The Google Business Profile card carries the #google-business anchor;
+  // the Reviews page is the frame around it.
+  "app/app/settings/reviews/page.js": "app/app/settings/reviews/GoogleBusiness.js",
   "app/app/settings/material-costs/page.js": "app/app/settings/material-costs/MaterialCostsEditor.js",
   "app/app/settings/products/page.js": "app/app/settings/products/ProductCatalogue.js",
   "app/app/settings/availability/page.js": "app/app/settings/availability/AvailabilityEditor.js",
