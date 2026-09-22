@@ -854,16 +854,16 @@ export default function DocumentBuilder({ b }) {
       )}
 
       {/* ── Staff strip: who is working it, which language ──────────────── */}
-      <div className="flex items-center gap-3 flex-wrap text-sm" data-doc-staff-strip>
+      <div className="flex items-center gap-x-3 gap-y-1 flex-wrap text-[13px]" data-doc-staff-strip>
         <label className="flex items-center gap-2">
-          <span className="text-muted-foreground">{t("app.quoteNew.assignedToHeading", "Assigned to")}</span>
+          <span className="text-muted-foreground whitespace-nowrap">{t("app.quoteNew.assignedToHeading", "Assigned to")}</span>
           <select
             value={b.assignedToId}
             onChange={(e) => {
               b.setAssignedToId(e.target.value);
               b.setAssignedToTouched(true);
             }}
-            className="border border-border rounded px-2 py-1 text-sm bg-background text-foreground"
+            className="border border-border rounded-md px-2 py-1 text-[13px] bg-background text-foreground max-w-[14rem]"
           >
             <option value="">{isEdit ? t("app.quoteNew.unassignedNeedsReview", "Unassigned — needs review") : t("app.quoteNew.meDefault", "Me (default)")}</option>
             {b.teamRoster
@@ -880,7 +880,7 @@ export default function DocumentBuilder({ b }) {
           </select>
         </label>
         {isEdit && (
-          <span className="text-xs text-muted-foreground">
+          <span className="text-[11px] text-muted-foreground">
             {t("app.quoteEdit.languageFixed", { language: b.languageMeta?.nativeName || b.quoteLanguage || b.companyLanguage })}
           </span>
         )}

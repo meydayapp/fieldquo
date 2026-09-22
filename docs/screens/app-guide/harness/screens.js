@@ -363,13 +363,15 @@ export const SCREENS = [
   // switches its painting trades on (fixtures/routes-help.js). The same
   // hand-built draft Q-1045 is photographed in both layouts, desktop and
   // phone; New quote for a painting company shows the estimate-type cards
-  // as the first thing on the page, in both layouts.
-  { slug: "quote-doc-builder", href: "/app/quotes", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1045" }, height: 1500, chapter: "help" },
-  { slug: "quote-doc-builder-mobile", href: "/app/quotes", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1045" }, width: 375, height: 812, chapter: "help" },
-  { slug: "quote-doc-builder-cost-drawer", href: "/app/quotes", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1045" }, scene: "doc-cost-drawer", height: 1100, chapter: "help" },
-  { slug: "quote-doc-builder-work-order", href: "/app/quotes", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1045" }, scene: "doc-tab-workorder", height: 1100, chapter: "help" },
-  { slug: "quote-classic-builder", href: "/app/quotes", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1045" }, height: 1500, chapter: "help" },
-  { slug: "quote-classic-builder-mobile", href: "/app/quotes", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1045" }, width: 375, height: 812, chapter: "help" },
+  // as the first thing on the page, in both layouts. The edit rows carry
+  // the REAL route as href — usePathname() in the harness answers it, and
+  // the floating + hides itself on /edit (CreateMenu.js createFabHiddenOn).
+  { slug: "quote-doc-builder", href: "/app/quotes/q_1045/edit", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1045" }, height: 1500, chapter: "help" },
+  { slug: "quote-doc-builder-mobile", href: "/app/quotes/q_1045/edit", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1045" }, width: 375, height: 812, chapter: "help" },
+  { slug: "quote-doc-builder-cost-drawer", href: "/app/quotes/q_1045/edit", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1045" }, scene: "doc-cost-drawer", height: 1100, chapter: "help" },
+  { slug: "quote-doc-builder-work-order", href: "/app/quotes/q_1045/edit", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1045" }, scene: "doc-tab-workorder", height: 1100, chapter: "help" },
+  { slug: "quote-classic-builder", href: "/app/quotes/q_1045/edit", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1045" }, height: 1500, chapter: "help" },
+  { slug: "quote-classic-builder-mobile", href: "/app/quotes/q_1045/edit", page: "app/app/quotes/[id]/edit/page.js", params: { id: "q_1045" }, width: 375, height: 812, chapter: "help" },
   { slug: "quote-new-painter-doc-builder", href: "/app/quotes/new", page: "app/app/quotes/new/page.js", height: 1000, chapter: "help" },
   { slug: "quote-new-painter-doc-builder-mobile", href: "/app/quotes/new", page: "app/app/quotes/new/page.js", width: 375, height: 812, chapter: "help" },
   { slug: "quote-new-painter-classic", href: "/app/quotes/new", page: "app/app/quotes/new/page.js", height: 1000, chapter: "help" },

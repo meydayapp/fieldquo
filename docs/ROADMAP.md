@@ -88,6 +88,31 @@ the kitchen designer (`createFabHiddenOn`, executed in the check), and
 stacked ABOVE Jennifer's launcher (bottom: tab bar + dock + 5.5rem) instead
 of on it — the two owner notes on the live shell.
 
+**The look, not only the structure.** The owner on the shell that landed
+tonight: "the same look and feel, same menu buttons". So the shell wears
+the s1–s4 mockups' skin (`mockups/shell/section.html`, the `.mk-s` CSS)
+through the theme tokens, light and dark: the rail palette
+(`--sidebar #0f2a55`, rows `#b9c7dc`, hover `#264b82` — the mockup's
+`#1b3a6b` is 1.26:1 on its rail, under check-sidebar's 1.5 floor — rule
+`#23457a`; dark `#0b1a33 / #213d68 / #1d3760`), a 232px rail with the
+brand-filled Create and the translucent Search `/` pill under the logo,
+13px/500 rows at 7×10px with 16px icons, 10px letter-spaced group
+headings, the trial line and a Collapse row in the foot (the toggle left
+the logo row), the settings index and the More page as the mockup's tiles
+(34px icon box, 13px title, the pages as ONE wrapped line of 12px chips),
+the phone tab bar solid rail with 10px-radius active tab, and the phone
+More sheet as the mockup's row list (10px headings, one row per group,
+every page of the group in the row's caption — check-shell still walks
+every destination to ≤ 2 taps). The builder wears b1/b7: the "New painting
+quote" card with the five tiles and "Other trades ›"; one card holding the
+brand-underlined tabs strip, the status tag, Save and Send…; the paper with
+a 5px 70/30 rule; rooms with the trade's 3px rule and 7% wash; the totals
+as a 360px column with the band; the Cost & margin drawer as a 260px column
+beside the document from lg up. Side-by-side proofs (mockup | shipped) are
+committed under `docs/screens/mockup-pairs/` — rail expanded, rail
+collapsed, settings index, phone home, phone More sheet, New quote for a
+painting company, the document builder at 1280 and 375.
+
 **Photographed** (harness rows 195–205, en/fr/es): the draft Q-1045 in both
 layouts at 1280 and 375, the cost drawer, the Work order tab, New quote for
 a painting company in both layouts at 1280 and 375 with the cards first,
