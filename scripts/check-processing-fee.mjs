@@ -183,6 +183,15 @@ const invoice = { id: "inv1", invoiceNumber: "INV-100", total: 2260, amountPaid:
 // The ledger seam: nothing outstanding unless a case says so.
 const NO_LEDGER = { ledger: async () => 0 };
 
+for (const currency of [undefined, "", "not_a_currency"]) {
+  captured.length = 0;
+  let error;
+  try {
+    await stripeLib.createInvoiceCheckoutSession({ invoice, company: { ...COMPANY, currency }, successUrl: "s", cancelUrl: "c" }, NO_LEDGER);
+  } catch (err) { error = err; }
+  ok("invalid invoice currency fails before creating any Stripe Session", error?.code === "INVALID_INVOICE_PAYMENT_CURRENCY" && captured.length === 0);
+}
+
 {
   captured.length = 0;
   await stripeLib.createInvoiceCheckoutSession({ invoice, company: COMPANY, successUrl: "s", cancelUrl: "c" }, NO_LEDGER);
@@ -415,14 +424,15 @@ console.log("\n── 2b. Bank debit on invoices: one method, its own fee, only 
       update: async ({ where, data }) => { writes.push(data); invoices.set(where.id, { ...invoices.get(where.id), ...data }); return invoices.get(where.id); },
     },
   };
-  await settle.markPendingPayment(fakeDb, { invoiceId: "inv_b", session: { payment_method_types: ["acss_debit"] }, paymentIntentId: "pi_pad" });
+  await settle.markPendingPayment(fakeDb, { invoiceId: "inv_b", session: { payment_method_types: ["card", "acss_debit"], payment_intent: { id: "pi_pad", payment_method: { type: "acss_debit" } } }, paymentIntentId: "pi_pad" });
   ok("completed-but-unpaid marks the invoice pending with the method and the intent",
     invoices.get("inv_b").pendingPaymentMethod === "acss_debit" && invoices.get("inv_b").pendingPaymentIntentId === "pi_pad" && invoices.get("inv_b").pendingPaymentAt instanceof Date);
   const fakeStripe = { paymentIntents: { retrieve: async () => ({ last_payment_error: { message: "Insufficient funds" } }) } };
   const failed = await settle.failCheckoutSession({ metadata: { invoiceId: "inv_b" }, payment_intent: "pi_pad", payment_method_types: ["acss_debit"] }, { db: fakeDb, stripe: fakeStripe });
   ok("async_payment_failed records the failure with Stripe's own reason",
     failed.recorded && invoices.get("inv_b").pendingPaymentFailedAt instanceof Date && invoices.get("inv_b").pendingPaymentFailure === "Insufficient funds");
-  await settle.markPendingPayment(fakeDb, { invoiceId: "inv_b", session: { payment_method_types: ["acss_debit"] }, paymentIntentId: "pi_pad2" });
+  ok("a failed payment without method evidence does not guess from permitted methods", invoices.get("inv_b").pendingPaymentMethod === null);
+  await settle.markPendingPayment(fakeDb, { invoiceId: "inv_b", session: { payment_method_types: ["acss_debit"], payment_intent: { id: "pi_pad2", payment_method: { type: "acss_debit" } } }, paymentIntentId: "pi_pad2" });
   ok("a new attempt clears the old failure", invoices.get("inv_b").pendingPaymentFailedAt === null && invoices.get("inv_b").pendingPaymentIntentId === "pi_pad2");
   const stale = await settle.clearPendingPayment(fakeDb, { invoiceId: "inv_b", paymentIntentId: "pi_pad" });
   ok("a late webhook for the FIRST attempt does not clear the second's pending mark", stale.cleared === false && invoices.get("inv_b").pendingPaymentIntentId === "pi_pad2");
@@ -722,6 +732,10 @@ function fakeStripeForIntents(intents, log = []) {
   rows.length = 0;
   await recordStripePayment(db, { invoiceId: "inv1", paymentIntentId: "pi_y", amountCents: 1000, fee: null }, { notify: async () => {}, notifyEvent: async () => {} });
   ok("  ^ a null fee leaves the columns absent — not written as 0", !("processingFeeCents" in rows[0]) && !("netCents" in rows[0]));
+  rows.length = 0;
+  await recordStripePayment(db, { invoiceId: "inv1", paymentIntentId: "pi_method_only", amountCents: 1000, selectedPaymentMethod: "future_financing_method", fee: null }, { notify: async () => {}, notifyEvent: async () => {} });
+  ok("the actual method is recorded even when fee evidence is unavailable",
+    rows[0].feeRateLabel === "future_financing_method" && !("processingFeeCents" in rows[0]) && rows[0].amount === 10);
 }
 
 // settleBookingFee writes the booking's three columns.
