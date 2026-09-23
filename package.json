@@ -413,7 +413,7 @@
     "check:material-calibration": "node --import ./scripts/alias-loader.mjs --import ./scripts/db-stub-loader.mjs scripts/check-material-calibration.mjs",
     "check:cost-revision": "node --import ./scripts/alias-loader.mjs scripts/check-cost-revision.mjs",
     "check:money-flow": "node --import ./scripts/alias-loader.mjs scripts/check-money-flow.mjs",
-    "check:processing-fee": "node --import ./scripts/alias-loader.mjs scripts/check-processing-fee.mjs",
+    "check:processing-fee": "node scripts/check-actual-payment-method.mjs && node scripts/check-invoice-payment-currency.mjs && node --import ./scripts/alias-loader.mjs scripts/check-processing-fee.mjs",
     "check:call-to-client": "node --import ./scripts/alias-loader.mjs scripts/check-call-to-client.mjs",
     "check:voice-tuning": "node --import ./scripts/alias-loader.mjs scripts/check-voice-tuning.mjs",
     "check:sales-payouts": "node --import ./scripts/alias-loader.mjs scripts/check-sales-payouts.mjs",

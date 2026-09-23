@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 14 September 2026 (the crawler reads the site's own sitemap, WordPress REST index and framework payload; a JavaScript shell withholds every verdict and says why; services offered are an evidence-cited list — schema, menu, sitemap, page index — on the rep card, in the brief and fenced in the AI summary; check:sales-services and check:sales-crawl §13 assert it, measured on 2,000 stored and 50 live sites.)
+Last updated: 23 September 2026 (partial invoice-payment safety work: selected-method evidence and strict payment-currency validation; provider-neutral financing, durable reconciliation and currency snapshots remain unimplemented pending fee policy and a safe rollback baseline. See docs/STRIPE-FINANCING-IMPLEMENTATION.md.)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
