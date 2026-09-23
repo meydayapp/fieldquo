@@ -160,9 +160,6 @@ const COMPANY = { id: "co1", stripeAccountId: "acct_contractor", currency: "CAD"
 const captured = [];
 stripe.checkout.sessions.create = async (params, opts) => {
   captured.push({ op: "checkout.sessions.create", params, opts });
-  if (params.payment_method_types?.includes("affirm") && globalThis.__affirmRejects) {
-    throw new Error("affirm not activated");
-  }
   return { id: `cs_${captured.length}`, url: "https://checkout.stripe.com/x", ...params };
 };
 stripe.paymentIntents.create = async (params, opts) => {
@@ -182,6 +179,8 @@ stripe.accounts.update = async (id, params) => {
 const invoice = { id: "inv1", invoiceNumber: "INV-100", total: 2260, amountPaid: 0 };
 // The ledger seam: nothing outstanding unless a case says so.
 const NO_LEDGER = { ledger: async () => 0 };
+process.env.STRIPE_INVOICE_PMC_FINANCING_OFF = "pmc_testfinancingoff";
+process.env.STRIPE_INVOICE_PMC_FINANCING_ALLOWED = "pmc_testfinancingallowed";
 
 for (const currency of [undefined, "", "not_a_currency"]) {
   captured.length = 0;
@@ -197,8 +196,9 @@ for (const currency of [undefined, "", "not_a_currency"]) {
   await stripeLib.createInvoiceCheckoutSession({ invoice, company: COMPANY, successUrl: "s", cancelUrl: "c" }, NO_LEDGER);
   const c = captured.find((x) => x.op === "checkout.sessions.create");
   const pid = c.params.payment_intent_data;
-  ok("invoice pay link: card only, $68.10 application fee, destination + on_behalf_of",
-    c.params.payment_method_types.join() === "card" && pid.application_fee_amount === 6810 &&
+  ok("invoice pay link: financing OFF selects the OFF configuration and uses Dynamic Payment Methods",
+    c.params.payment_method_configuration === "pmc_testfinancingoff" &&
+      !("payment_method_types" in c.params) && pid.application_fee_amount === 6810 &&
       pid.transfer_data.destination === "acct_contractor" && pid.on_behalf_of === "acct_contractor", pid);
   ok("  ^ created on the platform (no stripeAccount header)", c.opts?.stripeAccount === undefined);
 }
@@ -213,17 +213,23 @@ for (const currency of [undefined, "", "not_a_currency"]) {
   captured.length = 0;
   await stripeLib.createInvoiceCheckoutSession({ invoice, company: { ...COMPANY, offerFinancing: true }, successUrl: "s", cancelUrl: "c" }, NO_LEDGER);
   const c = captured.find((x) => x.op === "checkout.sessions.create");
-  ok("Affirm-eligible link (card + affirm in ONE session) keeps the CARD fee — the lower — at creation",
-    c.params.payment_method_types.join() === "card,affirm" && c.params.payment_intent_data.application_fee_amount === 6810);
+  ok("financing ON selects the ALLOWED configuration and does not hard-code a provider",
+    c.params.payment_method_configuration === "pmc_testfinancingallowed" &&
+      !("payment_method_types" in c.params) &&
+      !JSON.stringify(c.params).match(/affirm|klarna|afterpay|zip/i) &&
+      c.params.payment_intent_data.application_fee_amount === 6810);
   ok("  ^ on_behalf_of still set", c.params.payment_intent_data.on_behalf_of === "acct_contractor");
 }
 {
   captured.length = 0;
-  globalThis.__affirmRejects = true;
-  await stripeLib.createInvoiceCheckoutSession({ invoice, company: { ...COMPANY, offerFinancing: true }, successUrl: "s", cancelUrl: "c" }, NO_LEDGER);
-  globalThis.__affirmRejects = false;
-  const last = captured[captured.length - 1];
-  ok("  ^ and the card-only fallback carries the same fee", last.params.payment_method_types.join() === "card" && last.params.payment_intent_data.application_fee_amount === 6810);
+  delete process.env.STRIPE_INVOICE_PMC_FINANCING_ALLOWED;
+  let missingError;
+  try {
+    await stripeLib.createInvoiceCheckoutSession({ invoice, company: { ...COMPANY, offerFinancing: true }, successUrl: "s", cancelUrl: "c" }, NO_LEDGER);
+  } catch (err) { missingError = err; }
+  ok("missing financing PMC fails explicitly before Stripe is called",
+    missingError?.code === "INVOICE_PAYMENT_CONFIGURATION_MISSING" && captured.length === 0);
+  process.env.STRIPE_INVOICE_PMC_FINANCING_ALLOWED = "pmc_testfinancingallowed";
 }
 {
   captured.length = 0;
@@ -321,15 +327,18 @@ console.log("\n── 2b. Bank debit on invoices: one method, its own fee, only 
   await stripeLib.createInvoiceCheckoutSession({ invoice: { ...invoice, total: 5000, client: { type: "residential" } }, company: COMPANY, successUrl: "s", cancelUrl: "c", method: "acss_debit" }, NO_LEDGER);
   const padSession = captured.find((x) => x.op === "checkout.sessions.create");
   ok("a PAD session names ONLY acss_debit and carries the PAD fee: $5,000 → $5.00 (not the card's $150.30)",
-    padSession.params.payment_method_types.join() === "acss_debit" && padSession.params.payment_intent_data.application_fee_amount === 500, padSession.params.payment_intent_data);
+    padSession.params.payment_method_types.join() === "acss_debit" &&
+      !("payment_method_configuration" in padSession.params) &&
+      padSession.params.payment_intent_data.application_fee_amount === 500, padSession.params.payment_intent_data);
   ok("  ^ with the mandate options and on_behalf_of, and the invoice in the intent's metadata",
     padSession.params.payment_method_options.acss_debit.mandate_options.payment_schedule === "sporadic" &&
       padSession.params.payment_intent_data.on_behalf_of === "acct_contractor" && padSession.params.payment_intent_data.metadata.invoiceId === "inv1");
   captured.length = 0;
   await stripeLib.createInvoiceCheckoutSession({ invoice: { ...invoice, total: 5000 }, company: { ...COMPANY, offerFinancing: true }, successUrl: "s", cancelUrl: "c", method: "card" }, NO_LEDGER);
   const cardSession = captured.find((x) => x.op === "checkout.sessions.create");
-  ok("a card session never names a bank method (card + affirm at most), at the card fee $150.30",
-    !cardSession.params.payment_method_types.some((m) => bank.isBankDebitMethod(m)) && cardSession.params.payment_intent_data.application_fee_amount === 15_030);
+  ok("a normal invoice session has no explicit method list and preserves its financing configuration",
+    !("payment_method_types" in cardSession.params) && cardSession.params.payment_method_configuration === "pmc_testfinancingallowed" &&
+      cardSession.params.payment_intent_data.application_fee_amount === 15_030);
   captured.length = 0;
   await stripeLib.createInvoiceCheckoutSession({ invoice: { ...invoice, total: 5000 }, company: { ...COMPANY, currency: "USD" }, successUrl: "s", cancelUrl: "c", method: "us_bank_account" }, NO_LEDGER);
   const ach = captured.find((x) => x.op === "checkout.sessions.create");

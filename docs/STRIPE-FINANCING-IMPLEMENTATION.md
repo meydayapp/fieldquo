@@ -1,9 +1,9 @@
-# Financing implementation — partial safety changes, activation blocked
+# Financing implementation — Dynamic invoice Checkout
 
-23 September 2026. This is **not** a completed Dynamic Payment Methods
-implementation and is not a production activation guide. No deployment,
-database push, Stripe configuration change, account-country change, or
-historical payment rewrite has been performed.
+23 September 2026. Normal invoice Checkout now uses server-selected Stripe
+Payment Method Configurations and Dynamic Payment Methods. No database push,
+Stripe configuration change, account-country change, historical payment
+rewrite, or production deployment has been performed.
 
 ## Implemented independently of the unresolved decisions
 
@@ -24,6 +24,13 @@ historical payment rewrite has been performed.
   bank-debit invoice Checkout now validate CAD/USD/GBP/EUR/AUD explicitly.
   An absent or unrecognized currency fails before creating a Session.
   Display formatting and unrelated Billing flows retain their existing behavior.
+- `lib/stripe/invoicePaymentConfiguration.js`: selects the server-only
+  financing-allowed or financing-off parent configuration and fails before
+  Stripe when its environment variable is absent or malformed.
+- `lib/stripe.js`: normal invoice Checkout omits `payment_method_types`, sends
+  `payment_method_configuration`, and removes the legacy Affirm Checkout gate
+  and fallback. The dedicated bank-debit, booking, service-plan, and voice
+  flows retain their explicit method behavior.
 
 The new method and currency checks run as part of `npm run check:processing-fee`.
 Tests also exercise bank-debit evidence, failed-payment unknown methods, and
@@ -59,8 +66,8 @@ Stripe can prune idempotency keys after at least 24 hours; the legacy key is
 not an indefinite duplicate-operation guarantee. See
 [Stripe idempotency](https://docs.stripe.com/api/idempotent_requests).
 
-The exact production/previous Vercel deployment-to-commit mapping has not been
-independently verified in this session; the repository cannot establish it.
+The exact production/previous Vercel deployment-to-commit mapping must still
+be checked before deploying this change.
 
 Recommended sequence, requiring agreement before the broader switch:
 
@@ -74,12 +81,12 @@ Recommended sequence, requiring agreement before the broader switch:
    previous deployment then retains the settlement safeguards needed for
    Sessions created by the new release.
 
-The small changes currently in this workspace are **not** that complete
-compatibility release. Do not activate the new flow based on these changes.
+This change does not add a database schema dependency, so reverting the
+deployment restores the previous Checkout builder without a database rollback.
 
 ## Work still required
 
-All eight implementation phases remain open beyond the specific fixes above:
+The broader financing roadmap remains open beyond this narrow Checkout fix:
 
 1. Additive invoice/payment currency snapshots and durable reconciliation /
    adjustment records; review the schema diff before any `prisma db push`.
@@ -87,10 +94,7 @@ All eight implementation phases remain open beyond the specific fixes above:
 2. Read and validate the two connected-account parent configurations, including
    effective child settings and test/live mode. No configuration IDs are
    accepted from clients. Fail explicitly on absent or invalid configuration.
-3. Select the financing-allowed/off parent from server environment variables;
-   remove the Affirm amount gate, provider list and fallback retry. Preserve
-   the dedicated bank-debit path and all three destination-charge parameters.
-4. Version the approved fee policy; separate invoice completion from durable
+3. Version the approved fee policy; separate invoice completion from durable
    fee reconciliation. Persist provisional/actual/margin/target/confirmed/
    outstanding amounts with currencies and evidence. Never guess FX.
 5. Make adjustment operations durable across retries, concurrency, crashes and
@@ -106,14 +110,13 @@ All eight implementation phases remain open beyond the specific fixes above:
 
 ## Future environment and Dashboard configuration
 
-No new environment variables are consumed by the current partial change.
-The completed implementation will require server-only:
+The implementation requires these server-only environment variables:
 
 - `STRIPE_INVOICE_PMC_FINANCING_OFF`
 - `STRIPE_INVOICE_PMC_FINANCING_ALLOWED`
 
-Prepare configurations only after the compatibility release and policy are
-approved. In the FieldQuo platform Dashboard:
+Create configurations in test mode first, then separately in live mode. In the
+FieldQuo platform Dashboard:
 
 1. Select the intended test environment first. Open **Settings → Payment
    methods → For connected accounts** at
@@ -140,12 +143,13 @@ full Dashboard is unavailable. See
 
 `payment_method_configuration` is documented for Checkout on the pinned
 [`2025-01-27.acacia` API](https://docs.stripe.com/api/checkout/sessions/create?api-version=2025-01-27.acacia).
-The future normal Checkout must omit `payment_method_types` and must not add
+The normal invoice Checkout omits `payment_method_types` and does not add
 `automatic_payment_methods` to its Session request.
 
 ## Live verification — only after implementation and test-mode verification
 
-Do not run this checklist against the partial changes as a financing launch.
+Do not claim a financing provider is available until this checklist succeeds in
+the relevant LIVE account and transaction.
 
 1. Record the approved compatibility deployment ID and confirm the live parent
    IDs, account mode and API version without exposing secrets.
