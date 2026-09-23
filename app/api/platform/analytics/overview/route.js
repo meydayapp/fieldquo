@@ -206,8 +206,10 @@ export async function GET(request) {
         company: { select: { name: true } },
         plan: {
           // currency is selected because the plan mix keys on it — two rows
-          // are both called "Solo" and merging them hides the split.
-          select: { name: true, currency: true, priceMonthly: true, stripePriceId: true },
+          // are both called "Solo" and merging them hides the split. id is
+          // selected for planUsage below, the per-row count the plans screen
+          // reads.
+          select: { id: true, name: true, currency: true, priceMonthly: true, stripePriceId: true },
         },
       },
     }),
@@ -289,12 +291,20 @@ export async function GET(request) {
 
   // Plan mix — which plans people actually buy.
   const planMix = {};
+  // Active subscribers per plan ROW, keyed by Plan.id. planMix above is a
+  // display label ("Solo (CAD)") for the dashboard's breakdown; the plans
+  // screen used to look its own cards up in it by bare name, and since
+  // Plan.currency is never null the key always carried the suffix — every
+  // card printed "0 companies" and the price-change guard never fired. An
+  // id needs no string agreement and cannot merge the two "Solo" rows.
+  const planUsage = {};
   for (const s of activeOnly) {
     // Name AND currency. The ladder exists once per currency and both rows are
     // called "Solo" — keying on the name alone merged them into one bucket and
     // hid the CAD/USD split, which is the one thing this breakdown is for.
     const key = s.plan.currency ? `${s.plan.name} (${s.plan.currency})` : s.plan.name;
     planMix[key] = (planMix[key] || 0) + 1;
+    planUsage[s.plan.id] = (planUsage[s.plan.id] || 0) + 1;
   }
 
   return NextResponse.json({
@@ -331,6 +341,7 @@ export async function GET(request) {
     totalInvoices: invoiceTotal._count,
 
     planMix,
+    planUsage,
 
     // Series
     daily: {

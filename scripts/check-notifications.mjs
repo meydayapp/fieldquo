@@ -330,7 +330,7 @@ section("1. The catalog is sound, and an unrecognised audience REFUSES");
 
 ok("the catalog holds exactly the declared types", NOTIFICATION_TYPE_KEYS.length === 26, NOTIFICATION_TYPE_KEYS);
 ok(
-  "six from the audit's tier 1, the undelivered quote, and the six rota/time-clock types, and the seven HR-file types",
+  "six from the audit's tier 1, the undelivered quote, the six rota/time-clock types, the six employee-home types, and the seven HR-file types",
   JSON.stringify([...NOTIFICATION_TYPE_KEYS].sort()) ===
     JSON.stringify(
       [
@@ -343,6 +343,15 @@ ok(
         // Manny Conto's quote bounced off two spaces in his address and
         // nothing in the product said so. See the catalog entry.
         "quote.undelivered",
+        // The rota reaching the person on it, and the time clock noticing
+        // (2026-09-13). Named recipients — scripts/check-shift-notify.mjs
+        // executes the narrowing.
+        "shift.published",
+        "shift.changed",
+        "shift.cancelled",
+        "timeclock.stillClockedIn",
+        "timeclock.stillClockedInManager",
+        "attendance.noShow",
         // The employee home (2026-09-13): trades, covers and claims, the
         // availability request, the shout-out. Named recipients on the
         // worker-facing four — scripts/check-employee-home.mjs executes
@@ -353,15 +362,6 @@ ok(
         "availability.requested",
         "availability.decided",
         "shoutout.received",
-        // The rota reaching the person on it, and the time clock noticing
-        // (2026-09-13). Named recipients — scripts/check-shift-notify.mjs
-        // executes the narrowing.
-        "shift.published",
-        "shift.changed",
-        "shift.cancelled",
-        "timeclock.stillClockedIn",
-        "timeclock.stillClockedInManager",
-        "attendance.noShow",
         // The HR file (2026-09-13): a document lapsing, a checklist, a
         // policy or a note to sign. Named recipients on the worker-facing
         // five — scripts/check-hr.mjs executes the seam.
@@ -478,16 +478,6 @@ const EXPECTED = {
   // a quote nobody received is the most actionable thing on a dispatcher's
   // board. Crew is quotes:none and Legacy has no grid, so both fail closed.
   "quote.undelivered": ["m_owner", "m_admin", "m_manager", "m_dispatcher", "m_estimator"],
-  // The employee home. The worker-facing four sit on the schedule ladder's
-  // floor — everyone — and are narrowed to the named person by the call
-  // site (recipientUserIds); with nobody named, as here, the whole audience.
-  // The two manager-facing ones are user:manage, like leave.requested.
-  "shift.request.peer": ["m_owner", "m_admin", "m_manager", "m_dispatcher", "m_estimator", "m_crew"],
-  "shift.request.manager": ["m_owner", "m_admin", "m_manager", "m_dispatcher"],
-  "shift.request.decided": ["m_owner", "m_admin", "m_manager", "m_dispatcher", "m_estimator", "m_crew"],
-  "availability.requested": ["m_owner", "m_admin", "m_manager", "m_dispatcher"],
-  "availability.decided": ["m_owner", "m_admin", "m_manager", "m_dispatcher", "m_estimator", "m_crew"],
-  "shoutout.received": ["m_owner", "m_admin", "m_manager", "m_dispatcher", "m_estimator", "m_crew"],
   // ── The rota and time-clock types, UNNAMED (2026-09-13) ─────────────────
   //
   // Their call sites always pass `recipientUserIds` (the one worker, or the
@@ -502,10 +492,19 @@ const EXPECTED = {
   // The manager's copies: user:manage, the same audience as leave.requested.
   "timeclock.stillClockedInManager": ["m_owner", "m_admin", "m_manager", "m_dispatcher"],
   "attendance.noShow": ["m_owner", "m_admin", "m_manager", "m_dispatcher"],
+  // The employee home. The worker-facing four sit on the schedule ladder's
+  // floor — everyone — and are narrowed to the named person by the call
+  // site (recipientUserIds); with nobody named, as here, the whole audience.
+  // The two manager-facing ones are user:manage, like leave.requested.
+  "shift.request.peer": ["m_owner", "m_admin", "m_manager", "m_dispatcher", "m_estimator", "m_crew"],
+  "shift.request.manager": ["m_owner", "m_admin", "m_manager", "m_dispatcher"],
+  "shift.request.decided": ["m_owner", "m_admin", "m_manager", "m_dispatcher", "m_estimator", "m_crew"],
+  "availability.requested": ["m_owner", "m_admin", "m_manager", "m_dispatcher"],
+  "availability.decided": ["m_owner", "m_admin", "m_manager", "m_dispatcher", "m_estimator", "m_crew"],
+  "shoutout.received": ["m_owner", "m_admin", "m_manager", "m_dispatcher", "m_estimator", "m_crew"],
   // ── The HR file (2026-09-13) ────────────────────────────────────────────
   // Worker-facing types on the schedule floor (always called with the one
-  // worker named through notifyEvent's recipientUserIds); the manager-facing
-  // two on `user:manage`.
+  // worker named); the manager-facing two on `user:manage`.
   "hr.document.expiring": ["m_owner", "m_admin", "m_manager", "m_dispatcher", "m_estimator", "m_crew"],
   "hr.document.expiringManager": ["m_owner", "m_admin", "m_manager", "m_dispatcher"],
   "hr.onboarding.started": ["m_owner", "m_admin", "m_manager", "m_dispatcher", "m_estimator", "m_crew"],

@@ -630,6 +630,24 @@ ok("a private plan is refused by the company-facing picker", () => {
   assert.equal(isSellable({ ...LADDER_ROW, isPublic: true }), true);
 });
 
+// 2026-09-13: every plan card said "0 companies" and the price-change guard
+// never fired — the page read the dashboard's planMix ("Solo (CAD)") by bare
+// name. The overview now also returns planUsage keyed by Plan.id and the page
+// reads only that; the two "Solo" rows can never merge or miss.
+ok("the overview returns planUsage keyed by plan id, beside the display-keyed planMix", () => {
+  const overview = read("app/api/platform/analytics/overview/route.js");
+  assert(/select: \{ id: true, name: true, currency: true/.test(overview), "plan select must include id");
+  assert(/planUsage\[s\.plan\.id\] = \(planUsage\[s\.plan\.id\] \|\| 0\) \+ 1/.test(overview), "planUsage must count by s.plan.id");
+  assert(/planMix,\s*planUsage,/.test(overview), "response must return both planMix and planUsage");
+});
+ok("the plans page reads subscriber counts by plan id, never by name", () => {
+  const plansPage = read("app/platform/billing/plans/page.js");
+  assert(/setUsage\(overview\.planUsage \|\| \{\}\)/.test(plansPage), "page must read overview.planUsage");
+  assert(/usage\[draft\.id\]/.test(plansPage), "editor must read usage[draft.id]");
+  assert(/usage\[p\.id\]/.test(plansPage), "cards must read usage[p.id]");
+  assert(!/usage\[(draft|p)\.name\]/.test(plansPage), "no lookup by bare plan name");
+});
+
 console.log(
   fails.length
     ? `\nFAILED — ${fails.length} of ${pass + fails.length}\n${fails.map((f) => `  ✗ ${f}`).join("\n")}`

@@ -114,7 +114,11 @@ export default function PlatformPlansPage() {
     // people were paying for.
     try {
       const overview = await fetchJson("/api/platform/analytics/overview");
-      setUsage(overview.planMix || {});
+      // planUsage is keyed by Plan.id. planMix (the dashboard's breakdown) is
+      // keyed "Name (CUR)"; reading it by bare name never matched, so every
+      // card said "0 companies" and a price change on a plan people were on
+      // asked nobody.
+      setUsage(overview.planUsage || {});
     } catch (err) {
       setUsage({});
       setUsageError(
@@ -144,7 +148,7 @@ export default function PlatformPlansPage() {
 
   async function save() {
     const isEdit = Boolean(draft.id);
-    const subscribers = usage[draft.name] || 0;
+    const subscribers = usage[draft.id] || 0;
 
     if (isEdit && subscribers > 0) {
       const original = plans.find((p) => p.id === draft.id);
@@ -600,7 +604,7 @@ function Group({ title, note, plans, usage, usageKnown, canManage, busy, onEdit,
             <PlanCard
               key={p.id}
               plan={p}
-              subscribers={usage[p.name] || 0}
+              subscribers={usage[p.id] || 0}
               usageKnown={usageKnown}
               canManage={canManage}
               busy={busy}

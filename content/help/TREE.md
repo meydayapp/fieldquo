@@ -70,7 +70,7 @@ callbacks, the crew inbox, team chat, How You Compare, the KPI dashboard,
 
 <!-- tree:start -->
 
-_Generated 2026-09-13 — 311 articles in the tree; written: en 311, fr 311, es 311; “Only in FieldQuo”: 34._
+_Generated 2026-09-23 — 319 articles in the tree; written: en 319, fr 319, es 319; “Only in FieldQuo”: 34._
 
 ### getting-started (23)
 
@@ -227,7 +227,7 @@ _Generated 2026-09-13 — 311 articles in the tree; written: en 311, fr 311, es 
 | `referrals-from-clients` — Referrals from clients | ✓ | ✓ | ✓ |  |  |  |
 | `duplicate-clients` — Duplicate clients | ✓ | ✓ | ✓ |  | clients |  |
 
-### team-and-access (21)
+### team-and-access (26)
 
 | Article | en | fr | es | Screen | Feature | Only |
 |---|:-:|:-:|:-:|---|---|:-:|
@@ -252,6 +252,11 @@ _Generated 2026-09-13 — 311 articles in the tree; written: en 311, fr 311, es 
 | `vehicles-and-fleet` — Vehicles and fleet | ✓ | ✓ | ✓ | fleet | proof | ✓ |
 | `purchasing-orders-stock-and-suppliers` — Purchasing: orders, stock and suppliers | ✓ | ✓ | ✓ | purchasing | proof | ✓ |
 | `the-activity-log` — The Activity Log | ✓ | ✓ | ✓ | settings-activity | activity_log |  |
+| `employee-documents` — Employee documents and expiry reminders | ✓ | ✓ | ✓ |  | hr_compliance |  |
+| `new-hire-onboarding` — New-hire onboarding checklists | ✓ | ✓ | ✓ |  | hr_compliance |  |
+| `company-policies` — Company policies and acknowledgements | ✓ | ✓ | ✓ | settings-policies | hr_compliance |  |
+| `the-manager-log-book` — The manager's log book | ✓ | ✓ | ✓ | manager-log | hr_compliance |  |
+| `hr-and-compliance` — HR & compliance overview | ✓ | ✓ | ✓ |  | hr_compliance |  |
 
 ### marketing-and-website (20)
 
@@ -301,7 +306,7 @@ _Generated 2026-09-13 — 311 articles in the tree; written: en 311, fr 311, es 
 | `team-chat` — Team chat | ✓ | ✓ | ✓ | chat | team_chat | ✓ |
 | `texting-clients-what-is-and-is-not-automated` — Texting clients: what is automated and what is not | ✓ | ✓ | ✓ |  | appointment_reminders |  |
 
-### mobile-and-crew (13)
+### mobile-and-crew (16)
 
 | Article | en | fr | es | Screen | Feature | Only |
 |---|:-:|:-:|:-:|---|---|:-:|
@@ -311,6 +316,9 @@ _Generated 2026-09-13 — 311 articles in the tree; written: en 311, fr 311, es 
 | `what-a-crew-member-sees` — What a crew member sees | ✓ | ✓ | ✓ |  | team_access |  |
 | `clock-in-and-out-on-your-phone` — Clock in and out on your phone | ✓ | ✓ | ✓ | clock | time_clock |  |
 | `your-schedule-on-your-phone` — Your schedule on your phone | ✓ | ✓ | ✓ | my-schedule | crew_shifts |  |
+| `your-home-screen` — Your home screen | ✓ | ✓ | ✓ | my-home | crew_shifts |  |
+| `trading-and-covering-shifts` — Trading and covering shifts | ✓ | ✓ | ✓ |  | crew_shifts |  |
+| `changing-your-availability` — Changing your availability | ✓ | ✓ | ✓ | settings-availability | crew_shifts |  |
 | `photos-from-the-field` — Photos from the field | ✓ | ✓ | ✓ |  | job_photos |  |
 | `text-a-photo-to-the-crew-inbox` — Text a photo in without an app | ✓ | ✓ | ✓ | crew-inbox | crew_inbox |  |
 | `chat-on-your-phone` — Chat on your phone | ✓ | ✓ | ✓ | chat | team_chat |  |
