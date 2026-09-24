@@ -565,5 +565,33 @@
   "sourceCategory": "Plumbing",
   "sourceService": "Toilet Repair, Replacement, and Installation Services",
   "taskCode": "DEFAULT_HANDYMAN_SERVICE_80"
+ },
+ {
+  "seedKey": "fq.handyman.electrical.light_fixture_replacement",
+  "industry": "Handyman",
+  "sourceCategory": "Added with the estimate templates",
+  "sourceService": "Light Fixture Replacement",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.handyman.labour.home_walkthrough",
+  "industry": "Handyman",
+  "sourceCategory": "Added with the estimate templates",
+  "sourceService": "Home maintenance walkthrough and punch list",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.handyman.labour.estimate_visit",
+  "industry": "Handyman",
+  "sourceCategory": "Added with the estimate templates",
+  "sourceService": "On-site estimate visit",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.handyman.labour.seasonal_checklist",
+  "industry": "Handyman",
+  "sourceCategory": "Added with the estimate templates",
+  "sourceService": "Seasonal home maintenance visit",
+  "taskCode": null
  }
 ]
