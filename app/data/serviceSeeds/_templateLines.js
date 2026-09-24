@@ -38,19 +38,44 @@
 //   defaultDiscount { name, kind: "fixed"|"percent", amount } | null
 //   imageUrl        null — a company adds its own photo; nothing is shipped
 //   range           { min, median, max } in USD — the preset price and its
-//                   guideline (see rangeFor for where the numbers come from)
-//   rangeBasis      "benchmark" | "lines" — which of the two it was
+//                   guideline (see rangeFor for where the numbers come from);
+//                   null only when rangeBasis is "measured"
+//   rangeBasis      "benchmark" | "lines" | "measured" — where the range came
+//                   from; "measured" = a flat row with no benchmark whose
+//                   lines are all per-measurement, so there is no flat preset
 //   translations    { fr, es, it, de, uk, tl } → { name, description,
 //                   templateLines: [{ name, description }] in the same order
 //                   as `templateLines`, defaultDiscount: { name } | null }
 //
-// `measurementKey` is roofing only: the satellite report
-// (lib/measure/roofMeasurement.js → roofGeometry.js) produces `squares`,
-// `ridgeFt`, `hipFt`, `valleyFt`, `eaveFt` and `rakeFt`; a line that names one
-// has its qty filled from the report. `wastePct` is the exception: that line's
-// qty is squares × the company's rate-card waste factor (tradePriceBooks
-// roofing_service.wastePct, 10% by default), priced per square like the
-// shingle line above it.
+// ── Measurement-driven lines ───────────────────────────────────────────────
+//
+// The owner (2026-09-24): "it's not just the pricing but also taking
+// measurements like the room for an interior painter to determine sq ft".
+// So every line sold per unit of a measurement — per sq ft, per linear ft,
+// per door, per riser, per square — carries a `measurementKey`, and the app
+// fills its qty from the takeoff or the satellite report. In the seed such a
+// line keeps `qty: 1` as the fallback (enforced below); a genuinely flat line
+// (a design fee, a diagnostic visit, project management) carries no key.
+//
+// The keys are the field names the measuring modules actually produce — read
+// from the source, not from a wish list — grouped in MEASUREMENT_KEYS:
+//
+//   painting   lib/pricing/paintTakeoff.js     wallSqft, ceilingSqft,
+//              floorSqft, linearFt (the room perimeter — baseboard and trim
+//              run on it); doorCount, windowCount for the per-side and
+//              per-window picks
+//   stairs     lib/estimate/stairsFromSteps.js treads, risers, balusters,
+//              handrailFt, newels
+//   cabinets   lib/pricing/cabinetLabour.js    doorCount, drawerCount
+//   roofing    lib/measure/roofMeasurement.js → roofGeometry.js
+//              squares, ridgeFt, hipFt, valleyFt, eaveFt, rakeFt, plus
+//              stepFlashingFt from the roofing takeoff config and wastePct:
+//              that line's qty is squares × the company's rate-card waste
+//              factor (tradePriceBooks roofing_service.wastePct, 10% by
+//              default), priced per square like the shingle line above it
+//   generic    areaSqFt, linearFt, each — floor area, a run of edge, a count,
+//              for construction, flooring, drywall, tile, fencing, concrete
+//              and cleaning, where the takeoff is a room or a lot measure
 //
 // ── Prices ─────────────────────────────────────────────────────────────────
 //
@@ -65,7 +90,20 @@ const ALL_LANGUAGES = ["en", ...TEMPLATE_LANGUAGES];
 export const TEMPLATE_KINDS = ["installation", "repair", "inspection", "maintenance"];
 export const LINE_KINDS = ["labour", "material", "other"];
 export const LINE_UNITS = ["flat", "each", "hour", "sqft", "linear_ft", "square"];
-export const MEASUREMENT_KEYS = ["squares", "ridgeFt", "hipFt", "valleyFt", "eaveFt", "rakeFt", "wastePct"];
+export const MEASUREMENT_KEYS = [
+  // painting (lib/pricing/paintTakeoff.js)
+  "wallSqft", "ceilingSqft", "floorSqft", "doorCount", "windowCount",
+  // stairs (lib/estimate/stairsFromSteps.js)
+  "treads", "risers", "balusters", "handrailFt", "newels",
+  // cabinets (lib/pricing/cabinetLabour.js) — doorCount is shared with painting
+  "drawerCount",
+  // roofing (lib/measure/roofGeometry.js + the roofing takeoff config)
+  "squares", "ridgeFt", "hipFt", "valleyFt", "eaveFt", "rakeFt", "stepFlashingFt", "wastePct",
+  // generic
+  "areaSqFt", "linearFt", "each",
+];
+/** Line units that are a measurement — such a line must carry a key. */
+export const MEASURED_UNITS = ["sqft", "linear_ft", "square"];
 export const DISCOUNT_KINDS = ["fixed", "percent"];
 
 const fail = (msg) => {
@@ -102,6 +140,8 @@ export function line(kind, qty, unit, unitPrice, unitCost, text, extra = {}) {
   if (cost > price) fail(`${where}: cost ${cost} above price ${price}`);
   if (typeof qty !== "number" || !Number.isFinite(qty) || qty < 0) fail(`${where}: qty ${qty}`);
   if (extra.measurementKey !== undefined && !MEASUREMENT_KEYS.includes(extra.measurementKey)) fail(`${where}: measurementKey ${extra.measurementKey}`);
+  if (MEASURED_UNITS.includes(unit) && !extra.measurementKey) fail(`${where}: a per-${unit} line needs a measurementKey`);
+  if (extra.measurementKey && qty !== 1) fail(`${where}: a measured line keeps qty 1 as the fallback, got ${qty}`);
   return {
     kind,
     qty,
@@ -371,6 +411,13 @@ export function rangeFor(service, lines) {
   const perUnit = ["sqft", "linear_ft", "hour", "square"].includes(service.unit)
     ? lines.filter((l) => l.unit === service.unit).reduce((s, l) => s + l.unitPrice, 0)
     : 0;
+  // A flat-priced row with no benchmark whose lines are measured has no
+  // honest flat preset: qty 1 is a fallback, not a job, and inventing a
+  // "typical" area would be padding absent data. The range is null and the
+  // basis says why; the price appears once the takeoff fills the quantities.
+  if (perUnit === 0 && lines.some((l) => l.measurementKey)) {
+    return { basis: "measured", range: null };
+  }
   const total = lines.reduce((s, l) => s + l.qty * l.unitPrice, 0);
   const base = perUnit > 0 ? perUnit : total;
   if (!(base > 0)) fail(`${service.seedKey}: no benchmark and the lines total zero`);
