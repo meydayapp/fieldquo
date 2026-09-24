@@ -50,6 +50,35 @@ model Product {
   // the key is a pointer to a guideline, not a live link to a price.
   seedKey String?
 
+  // ── The template inside a service ────────────────────────────────────────
+  //
+  // A service is more than one price: the estimate a contractor sends for a
+  // "200 A panel upgrade" is two labour lines, a materials line and a
+  // new-customer discount. These three columns hold that template on the
+  // Product row so the same service always opens with the same lines.
+  //
+  //   templateLines   [{ kind: "labour"|"material"|"other", name, description,
+  //                      qty, unit, unitPrice, unitCost, taxable,
+  //                      measurementKey?, translations? }] — the lines the
+  //                      service expands to. `measurementKey` (roofing) names
+  //                      a figure the satellite report produces (squares,
+  //                      eaveFt, ridgeFt …) so the qty is taken from the
+  //                      measurement rather than typed; `translations` is the
+  //                      per-language { name, description } map, the same
+  //                      shape as `translations` above.
+  //   defaultDiscount { name, kind: "fixed"|"percent", amount } — the discount
+  //                      the template opens with, or null.
+  //   imageUrl        a photo of the service for the catalogue card.
+  //
+  // Written by Settings > Services (PATCH /api/products/[id], sanitised by
+  // lib/services/templates.js) and by the seeder from the trade's seed; read
+  // by Settings > Services and expanded by expandTemplate() in the same file.
+  // Null on every row that predates them and on a service with no template —
+  // a service with no template is priced by `unitPrice` exactly as before.
+  templateLines   Json?
+  defaultDiscount Json?
+  imageUrl        String?
+
   // Which quote types (ServiceCategory) this product/service can be added to
   // as a line item. Empty = available on every quote type (e.g. a generic
   // "Rush Fee"); non-empty = only offered when building a quote in one of
@@ -1398,7 +1427,12 @@ model Company {
   /// days once this is set. Referral months and the retention discount are
   /// not trials and do not consult it.
   trialUsedAt            DateTime?
-  shareAnonymizedPricing Boolean          @default(false)
+  /// On by default for a NEW company: sharing anonymised pricing and
+  /// conversion figures is part of the Terms (§7) a company accepts at signup,
+  /// so it is not a box to hunt for — it can be switched off in Settings >
+  /// Company. Rows created before 2026-09-24 keep whatever they had; the
+  /// default changed, no existing value did.
+  shareAnonymizedPricing Boolean          @default(true)
 
   /// ── The abandoned-signup recovery nudge ──────────────────────────────────
   ///
