@@ -488,5 +488,54 @@
   "sourceCategory": "Flooring > Repair > Other",
   "sourceService": "Repair - Something else / I don't know",
   "taskCode": "DEFAULT_FLOORING_SERVICE_70"
+ },
+ {
+  "seedKey": "fq.flooring_install.install.transitions_trim",
+  "industry": "Construction & Remodeling",
+  "sourceCategory": "Estimate templates (Flooring Installation)",
+  "sourceService": "Flooring Transition & Trim",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.flooring_install.visits.measure_visit",
+  "industry": "Flooring",
+  "sourceCategory": "Added with the estimate templates",
+  "sourceService": "On-site measure and estimate",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.flooring_install.visits.moisture_test",
+  "industry": "Flooring",
+  "sourceCategory": "Added with the estimate templates",
+  "sourceService": "Subfloor moisture test",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.flooring_install.visits.floor_inspection",
+  "industry": "Flooring",
+  "sourceCategory": "Added with the estimate templates",
+  "sourceService": "Flooring condition inspection",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.flooring_install.maintenance.hardwood_screen_recoat",
+  "industry": "Flooring",
+  "sourceCategory": "Added with the estimate templates",
+  "sourceService": "Hardwood screen and recoat",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.flooring_install.maintenance.tile_grout_seal",
+  "industry": "Flooring",
+  "sourceCategory": "Added with the estimate templates",
+  "sourceService": "Tile and grout cleaning and sealing",
+  "taskCode": null
+ },
+ {
+  "seedKey": "fq.flooring_install.maintenance.deck_clean_reseal",
+  "industry": "Flooring",
+  "sourceCategory": "Added with the estimate templates",
+  "sourceService": "Deck cleaning and resealing",
+  "taskCode": null
  }
 ]
