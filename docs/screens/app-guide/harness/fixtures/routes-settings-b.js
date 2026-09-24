@@ -1000,6 +1000,79 @@ export const ROUTES_SETTINGS_B = [
     },
   },
 
+  // Auto-translation on save (2026-09-24): the company's own wording and the
+  // text blocks with their drafts in the requested language, as
+  // app/api/settings/translations/company answers them. Payment terms and a
+  // text block are machine drafts nobody has read (Auto), the process notes
+  // were reviewed, the story headline's draft is still pending, the SMS
+  // wording is outdated because the original was edited since.
+  {
+    path: "/api/settings/translations/company",
+    method: "GET",
+    reply: ({ search }) => {
+      const languages = ["fr", "es", "uk", "pa", "tl", "de", "it"];
+      if (search.get("summary")) {
+        const keys = (search.get("keys") || "paymentTerms,defaultProcessNotes").split(",").filter(Boolean);
+        return {
+          model: "company",
+          sourceLanguage: "en",
+          languages,
+          keys: Object.fromEntries(keys.map((k) => [k, Object.fromEntries(languages.map((l) => [l, "drafted"]))])),
+        };
+      }
+      const language = search.get("language") || "fr";
+      const fr = language === "fr";
+      const items = [
+        {
+          key: "paymentTerms", labelKey: "app.translations.key.paymentTerms", label: "Payment terms", kind: "terms",
+          source: "50% deposit on approval, 50% on completion.",
+          translation: fr ? "Acompte de 50 % à l'approbation, solde de 50 % à la fin des travaux." : "",
+          status: fr ? "drafted" : "pending", draftedAt: fr ? "2026-09-24T14:02:11.000Z" : null, reviewedAt: null, previousText: null,
+        },
+        {
+          key: "defaultProcessNotes", labelKey: "app.translations.key.defaultProcessNotes", label: "What happens next", kind: "terms",
+          source: "We measure on site, then build every box and door in our Laval shop. Doors are sprayed in the booth, never on site.",
+          translation: fr ? "Nous prenons les mesures sur place, puis fabriquons chaque caisson et chaque porte dans notre atelier de Laval. Les portes sont peintes en cabine, jamais sur place." : "",
+          status: fr ? "reviewed" : "pending", draftedAt: "2026-09-20T09:14:00.000Z", reviewedAt: fr ? "2026-09-21T16:40:00.000Z" : null, previousText: null,
+        },
+        {
+          key: "storyHeadline", labelKey: "app.translations.key.storyHeadline", label: "Story headline", kind: "story",
+          source: "Two brothers, one shop, eleven years of kitchens.",
+          translation: "", status: "pending", draftedAt: null, reviewedAt: null, previousText: null,
+        },
+        {
+          key: "smsTemplates.on_my_way", labelKey: "app.smsTemplates.type.on_my_way", label: "On my way", kind: "sms",
+          source: "Hi {name}, {worker} from {company} is on the way — about {eta}. Questions? {phone}",
+          translation: fr ? "Bonjour {name}, {worker} de {company} est en route." : "",
+          status: fr ? "outdated" : "pending", draftedAt: "2026-09-18T11:00:00.000Z", reviewedAt: null, previousText: null,
+        },
+      ];
+      const textBlocks = [
+        {
+          id: "tb_exclusions",
+          source: { name: "Exclusions", body: "- Moving furniture and appliances\n- Wallpaper removal\n- Repairs to water-damaged drywall" },
+          translation: fr ? { name: "Exclusions", body: "- Déplacement des meubles et des électroménagers\n- Enlèvement du papier peint\n- Réparation des cloisons sèches endommagées par l'eau" } : { name: "", body: "" },
+          status: fr ? "drafted" : "pending", draftedAt: fr ? "2026-09-24T14:02:15.000Z" : null, reviewedAt: null,
+        },
+      ];
+      const count = (list, s) => list.filter((i) => i.status === s).length;
+      return {
+        language,
+        sourceLanguage: "en",
+        languages,
+        items,
+        textBlocks,
+        counts: {
+          drafted: count(items, "drafted") + count(textBlocks, "drafted"),
+          reviewed: count(items, "reviewed") + count(textBlocks, "reviewed"),
+          pending: count(items, "pending") + count(textBlocks, "pending"),
+          missing: count(items, "outdated") + count(textBlocks, "outdated"),
+        },
+        canEdit: true,
+      };
+    },
+  },
+
   // Checklists — the company's two, plus the starter library for its trades.
   {
     path: "/api/settings/checklists",

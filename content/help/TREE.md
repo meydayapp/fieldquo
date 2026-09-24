@@ -70,7 +70,7 @@ callbacks, the crew inbox, team chat, How You Compare, the KPI dashboard,
 
 <!-- tree:start -->
 
-_Generated 2026-09-22 — 327 articles in the tree; written: en 327, fr 327, es 327; “Only in FieldQuo”: 34._
+_Generated 2026-09-24 — 327 articles in the tree; written: en 327, fr 327, es 327; “Only in FieldQuo”: 34._
 
 ### getting-started (23)
 

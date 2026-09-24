@@ -441,4 +441,14 @@ export const SCREENS = [
   { slug: "quote-fix-painter-doc-builder-cabinets-moderate", href: "/app/quotes/new", page: "app/app/quotes/new/page.js", scene: "painter-pick-cabinets-moderate", height: 1500, chapter: "quote-fix", out: "docs/screens/quote-fix" },
   { slug: "quote-fix-purepainter-doc-builder-cabinets", href: "/app/quotes/new", page: "app/app/quotes/new/page.js", scene: "painter-pick-cabinets", height: 1100, chapter: "quote-fix", out: "docs/screens/quote-fix" },
   { slug: "quote-fix-purepainter-doc-builder-staining", href: "/app/quotes/new", page: "app/app/quotes/new/page.js", scene: "painter-pick-staining", height: 1100, chapter: "quote-fix", out: "docs/screens/quote-fix" },
+  // ── Auto-translation on save (2026-09-24) ──────────────────────────────
+  // The review page's "Your wording" rows (Auto / Reviewed / Pending /
+  // Outdated) above the catalogue, and Company Settings after Save with
+  // the "Translated automatically into 7 languages — Review" banner.
+  { slug: "translate-review", nav: "app.settings.translations", href: "/app/settings/translations", page: "app/app/settings/translations/page.js", settings: true, height: 2000, chapter: "translate", out: "docs/screens/translate-on-save" },
+  { slug: "translate-review-375", nav: "app.settings.translations", href: "/app/settings/translations", page: "app/app/settings/translations/page.js", settings: true, width: 375, height: 2600, chapter: "translate", out: "docs/screens/translate-on-save" },
+  { slug: "translate-banner", nav: "app.settings.company", href: "/app/settings/company", page: "app/app/settings/company/page.js", settings: true, scene: "company-save", height: 900, chapter: "translate", out: "docs/screens/translate-on-save" },
+  { slug: "translate-banner-375", nav: "app.settings.company", href: "/app/settings/company", page: "app/app/settings/company/page.js", settings: true, scene: "company-save", width: 375, height: 1000, chapter: "translate", out: "docs/screens/translate-on-save" },
+  { slug: "translate-client-quote-fr", href: "/q/qt_8f2c1a7d4e", page: "app/q/[token]/QuoteApproval.js", props: { token: "qt_8f2c1a7d4e" }, mode: "public", height: 3600, chapter: "translate", out: "docs/screens/translate-on-save" },
+  { slug: "translate-banner-ready", nav: "app.settings.company", href: "/app/settings/company", page: "app/app/settings/company/page.js", settings: true, scene: "company-save-ready", height: 900, chapter: "translate", out: "docs/screens/translate-on-save" },
 ];

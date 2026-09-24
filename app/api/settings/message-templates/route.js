@@ -19,6 +19,9 @@ import {
   validateTemplate,
   fillTemplate,
 } from "@/lib/sms/renderTemplate";
+// A custom wording is sent to clients who read OTHER languages too, once its
+// draft lands (renderMessage's translatedTemplates) — drafted after the save.
+import { scheduleAutoTranslate } from "@/lib/i18n/autoTranslateSchedule";
 
 /** Sample values for a type, from its token metadata — drives the preview. */
 function samplesFor(spec) {
@@ -124,7 +127,7 @@ export async function PUT(request) {
 
   const company = await db.company.findUnique({
     where: { id: member.companyId },
-    select: { smsTemplates: true, name: true, phone: true },
+    select: { smsTemplates: true, name: true, phone: true, defaultLanguage: true },
   });
   const stored = company?.smsTemplates && typeof company.smsTemplates === "object"
     ? { ...company.smsTemplates }
@@ -167,9 +170,19 @@ export async function PUT(request) {
     ...(company?.name && { company: company.name }),
     ...("phone" in spec.tokens && { phone: company?.phone || null }),
   };
+  const autoTranslate = text
+    ? scheduleAutoTranslate({
+        companyId: member.companyId,
+        model: "company",
+        fields: { [`smsTemplates.${type}`]: text },
+        sourceLanguage: company?.defaultLanguage || "en",
+      })
+    : null;
+
   return NextResponse.json({
     ok: true,
     custom: text || null,
     preview: text ? fillTemplate(type, text, samples) : spec.fallback(samples),
+    autoTranslate,
   });
 }

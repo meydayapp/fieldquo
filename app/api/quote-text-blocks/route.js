@@ -22,6 +22,10 @@ import { hasToggle } from "@/lib/permissions/enforce";
 import { LANGUAGE_CODES } from "@/app/i18n/languages";
 import { normaliseTextBlockInput, presentTextBlock } from "@/lib/quotes/textBlocks";
 import { seedTextBlocksIfEmpty } from "@/lib/quotes/textBlockSeed";
+// A block lands on quotes in other languages; its drafts are written to
+// `translations` after the response so the builder finds them stored and
+// never has to draft at the moment of adding (lib/i18n/autoTranslate.js).
+import { scheduleAutoTranslate } from "@/lib/i18n/autoTranslateSchedule";
 
 const ORDER = [{ sortOrder: "asc" }, { createdAt: "asc" }];
 
@@ -77,5 +81,12 @@ export async function POST(request) {
       sortOrder: (last._max.sortOrder ?? -1) + 1,
     },
   });
-  return NextResponse.json(presentTextBlock(row, { showPricing }), { status: 201 });
+  const autoTranslate = scheduleAutoTranslate({
+    companyId: member.companyId,
+    model: "quoteTextBlock",
+    id: row.id,
+    fields: { name: row.name, body: row.body || "" },
+    sourceLanguage: row.language || "en",
+  });
+  return NextResponse.json({ ...presentTextBlock(row, { showPricing }), autoTranslate }, { status: 201 });
 }
