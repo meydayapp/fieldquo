@@ -1769,6 +1769,17 @@ export default function QuoteDetailPage() {
                       null,
                       money(costing.materialTotal),
                     ],
+                    // The lines' own cost, when any line stated one — a
+                    // bought-in door set, a subcontracted counter (lib/costing/
+                    // lineItemCost.js). Withheld at zero: "no line stated a
+                    // cost" is not a $0.00 fact about the job.
+                    ...(Number(costing.lineItemCost) > 0
+                      ? [[
+                          t("app.quoteDetail.lineItemCost", "Line items"),
+                          t("app.quoteDetail.lineItemCostSub", "cost of the priced lines"),
+                          money(costing.lineItemCost),
+                        ]]
+                      : []),
                     [
                       t("app.quoteDetail.overhead", "Overhead"),
                       costing.overheadBasis === "per_job"

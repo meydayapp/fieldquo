@@ -30,6 +30,7 @@ import {
 } from "@/lib/costing/quoteCosting";
 import { calculateMinimumPrice } from "@/lib/analytics/minimumPrice";
 import { companyMarginTarget } from "@/lib/costing/quoteCostEstimate";
+import { scopeGroupsLineItemCost } from "@/lib/costing/lineItemCost";
 
 // The SAME gate the invoice cost panel uses, imported rather than reimplemented.
 // "Same permission" written twice is two permissions that agree until one of
@@ -156,6 +157,12 @@ export async function buildQuoteCostingRow({
     price,
     marginTargetPct: target.pct,
     recipeOverridesByCategory,
+    // Off the groups' OWN lines as the request will store them — a unitCost
+    // typed in the builder rides on the line (lib/costing/lineItemCost.js).
+    // Read from the request's groups rather than a separate field for the
+    // same reason the intake is: the cost of a line and the line are one
+    // record, and two copies would disagree the first time one was edited.
+    lineItemCost: scopeGroupsLineItemCost(scopeGroups),
   });
 
   // ── The crew is stored PRICED, not as it was typed ───────────────────────
@@ -193,6 +200,7 @@ export async function buildQuoteCostingRow({
     labourCost: summary.labourCost,
     materialTotal: summary.materialTotal,
     unpricedMaterials: summary.unpricedMaterials,
+    lineItemCost: summary.lineItemCost,
     overhead: summary.overhead,
     overheadBasis: summary.overheadBasis,
     totalCost: summary.estimatedCost,

@@ -139,6 +139,7 @@ export async function GET(request) {
           labourHours: Number(invoice.costing.labourHours),
           labourCost: Number(invoice.costing.labourCost),
           materialCost: Number(invoice.costing.materialCost),
+          lineItemCost: Number(invoice.costing.lineItemCost) || 0,
           overhead: Number(invoice.costing.overhead),
           totalCost: Number(invoice.costing.totalCost),
         },

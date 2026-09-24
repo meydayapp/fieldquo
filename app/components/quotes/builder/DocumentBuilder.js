@@ -15,6 +15,21 @@
 // the two layouts post is one function (lib/quotes/builderRequest.js) and
 // scripts/check-doc-builder.mjs holds the md5 that says so.
 //
+// ── One arrangement, two documents (`kind`) ─────────────────────────────────
+//
+// The owner (2026-09-23): "a new invoice should be the same as creating a new
+// quote, except that it is an invoice." So this file draws an invoice too —
+// `kind="invoice"`, from app/components/invoices/builder/InvoiceBuilder.js,
+// which hands over the same `b` shape from its own state and its own save.
+// The default is "quote" and every quote caller passes nothing, so a quote is
+// drawn exactly as before. What the kind changes is only what an invoice does
+// not have: the estimate-type cards, the templates, the service tiles, the
+// job address, the e-transfer line, "what happens next", the readiness block,
+// the Presentation / Work order / Notes tabs and the quote-only banners. The
+// masthead, the parties, the line cards, the totals, the notes, the photos,
+// the custom fields, the cost drawer, the review panel and the dock are the
+// same components in the same places — which is the point.
+//
 // ── The page ────────────────────────────────────────────────────────────────
 //
 //   toolbar   Estimate · Presentation · Work order · Notes   [Save] [Send… ▾]
@@ -480,8 +495,12 @@ function WorkOrderTab({ b, t }) {
   );
 }
 
-export default function DocumentBuilder({ b }) {
+export default function DocumentBuilder({ b, kind = "quote" }) {
   const { t, isEdit, quoteId, start, boot } = b;
+  const isInvoice = kind === "invoice";
+  // An invoice is one tab — its lines ARE the document; the proposal, the
+  // crew's copy and the internal notes are a quote's.
+  const tabs = isInvoice ? ["estimate"] : TABS;
   const { formatDate } = useCompanyPreferences();
   const money = (n) => formatAppMoney(n, b.companyCurrency, "en");
   const labels = documentLabels(b.quoteLanguage || b.companyLanguage);
@@ -492,10 +511,27 @@ export default function DocumentBuilder({ b }) {
   // Which region's editor is open. One at a time: the document is the thing
   // being read, and two forms open at once turns it back into the long form.
   const [editing, setEditing] = useState(null);
-  // Which service card has its editor unfolded beneath its lines.
-  const [openGroup, setOpenGroup] = useState(null);
+  // Which service card has its editor unfolded beneath its lines. An
+  // invoice opens on its lines: they are the whole document, and a card
+  // that had to be clicked open first was the old form with an extra step.
+  const [openGroup, setOpenGroup] = useState(() => (isInvoice && b.scopeGroups[0] ? b.scopeGroups[0].tempId : null));
   const [focusArea, setFocusArea] = useState(null);
+  // ── Cost & margin is open while you build, from lg up ──────────────────
+  //
+  // The owner (2026-09-23): "cost & margin visible during creation and
+  // editable" — not behind a toggle on the review. So the drawer column
+  // opens by itself on a screen wide enough to hold it beside the document,
+  // and the toggle still closes it. On a phone the same panel is a sheet
+  // over the whole document, so there it waits for the press. Decided in an
+  // effect, not in the initial state: the width is the browser's, and a
+  // server render (or the check script's) has no browser.
   const [costOpen, setCostOpen] = useState(false);
+  useEffect(() => {
+    if (!b.mayCost || typeof window === "undefined" || !window.matchMedia) return;
+    if (window.matchMedia("(min-width: 1024px)").matches) setCostOpen(true);
+    // Once, on mount: reopening on every resize would fight a hand that closed it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [company, setCompany] = useState(boot.company || null);
   const [notice, setNotice] = useState("");
   const [menuBusy, setMenuBusy] = useState("");
@@ -526,7 +562,10 @@ export default function DocumentBuilder({ b }) {
     setFocusArea(null);
   }, [focusArea, openGroup]);
 
-  const sendable = !isEdit || b.OPEN_STATUSES.includes(start.status);
+  // An invoice edit saves; sending a sent invoice again is the invoice
+  // page's own "Send again" with its ask (lib/invoices/sendAsk.js), not a
+  // builder button. A new invoice offers Save & send as the old form did.
+  const sendable = isInvoice ? !isEdit : !isEdit || b.OPEN_STATUSES.includes(start.status);
   // ── The link exists from the first SAVE, not from the first send ────────
   //
   // It used to require a sent quote, because the share token was minted by the
@@ -554,7 +593,9 @@ export default function DocumentBuilder({ b }) {
 
   const savedHint = t("app.docBuilder.savedVersionHint", "Uses the last saved version.");
   const afterSaveHint = t("app.docBuilder.afterSaveHint", "Available once the quote is saved.");
-  const menuItems = [
+  // The invoice hands in its own rows (the PDF, the invoice page) — every
+  // row below is a quote's: the client link, the staff share, the template.
+  const menuItems = isInvoice ? (Array.isArray(b.menuItems) ? b.menuItems : []) : [
     {
       key: "preview",
       label: t("app.sendMenu.preview", "Preview as client"),
@@ -643,16 +684,27 @@ export default function DocumentBuilder({ b }) {
   // ── The document's data, as the client will read it ──────────────────────
   const clientAddress = formatAddress(b.selectedClient);
   const issueDate = start.quote?.sentAt || start.quote?.createdAt || null;
-  const meta = [
-    issueDate ? { label: labels.date, value: formatDate(issueDate) } : null,
-    b.validUntil ? { label: labels.validUntil, value: formatDate(b.validUntil) } : null,
-  ].filter(Boolean);
+  const meta = (
+    isInvoice
+      ? [
+          issueDate ? { label: labels.date, value: formatDate(issueDate) } : null,
+          // The due date, or the plain fact that none is set — an invoice
+          // with no due date is a real state the reminders read (never
+          // "due today" invented for the frame).
+          { label: labels.dueDate, value: b.dueDate ? formatDate(b.dueDate) : t("app.invoiceBuilder.noDueDate", "not set") },
+        ]
+      : [
+          issueDate ? { label: labels.date, value: formatDate(issueDate) } : null,
+          b.validUntil ? { label: labels.validUntil, value: formatDate(b.validUntil) } : null,
+        ]
+  ).filter(Boolean);
 
   // The e-transfer / cheque offer: a sent quote keeps the pct it froze; a
   // draft (and a create) follows the company's switch, as the save routes
   // do (lib/payments/offlineDiscount.js).
-  const offlinePct =
-    isEdit && start.status && start.status !== "draft"
+  const offlinePct = isInvoice
+    ? null
+    : isEdit && start.status && start.status !== "draft"
       ? Number(start.quote?.offlineDiscountPct) > 0
         ? Number(start.quote.offlineDiscountPct)
         : null
@@ -703,7 +755,10 @@ export default function DocumentBuilder({ b }) {
     taxRate: b.taxRate,
     onTaxRateChange: (v) => {
       b.setTaxRate(v);
-      if (!isEdit) b.setTaxRateTouched(true);
+      // A quote edit keeps the stored rate as the truth; an invoice edit
+      // recomputes from the typed rate the moment one is typed (its
+      // unrounded-rate rule — see InvoiceBuilder).
+      if (!isEdit || isInvoice) b.setTaxRateTouched(true);
     },
     taxNote: b.taxNote,
     taxCaution: b.taxCaution,
@@ -732,17 +787,34 @@ export default function DocumentBuilder({ b }) {
   };
 
   const tabLabel = {
-    estimate: t("app.docBuilder.tab.estimate", "Estimate"),
+    estimate: isInvoice ? t("app.invoiceBuilder.tab.invoice", "Invoice") : t("app.docBuilder.tab.estimate", "Estimate"),
     presentation: t("app.docBuilder.tab.presentation", "Presentation"),
     workorder: t("app.docBuilder.tab.workorder", "Work order"),
     notes: t("app.docBuilder.tab.notes", "Notes"),
   };
 
+  // The words on the buttons, by document. An invoice's are the old form's
+  // own keys, so the labels a hand knows are the labels it finds.
+  const words = isInvoice
+    ? {
+        save: isEdit ? (b.isDraft === false ? t("app.invoiceEdit.saveNewVersion") : t("app.invoiceEdit.saveChanges")) : t("app.invoiceNew.saveDraft"),
+        saveShort: isEdit ? (b.isDraft === false ? t("app.invoiceEdit.saveNewVersion") : t("app.invoiceEdit.saveChanges")) : t("app.invoiceNew.saveDraft"),
+        send: t("app.invoiceNew.saveSend"),
+        backTo: t("app.invoiceEdit.backTo"),
+      }
+    : {
+        save: isEdit ? t("app.quoteEdit.saveChanges") : t("app.quoteNew.saveAsDraft"),
+        saveShort: isEdit ? t("app.quoteEdit.saveChangesShort") : t("app.quoteNew.saveAsDraftShort"),
+        send: t("app.quoteNew.saveAndSend"),
+        backTo: t("app.quoteEdit.backTo"),
+      };
+  const backHref = b.backHref || `/app/quotes/${quoteId}`;
+
   return (
-    <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-4" data-builder-layout="document">
+    <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-4" data-builder-layout="document" data-document-kind={kind}>
       {isEdit && (
-        <Link href={`/app/quotes/${quoteId}`} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
-          <ArrowLeft size={14} /> {t("app.quoteEdit.backTo")} {start.quoteNumber}
+        <Link href={backHref} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+          <ArrowLeft size={14} /> {words.backTo} {start.quoteNumber}
         </Link>
       )}
 
@@ -762,7 +834,7 @@ export default function DocumentBuilder({ b }) {
           fit 375px), which is why the overflow rule survives there. */}
       <div className="flex items-start justify-between gap-x-3 gap-y-2 flex-wrap -mt-1" data-doc-toolbar>
         <div role="tablist" className="flex gap-1 border-b border-border -mb-px shrink-0 max-w-full overflow-x-auto lg:overflow-x-visible">
-          {TABS.map((key) => (
+          {tabs.map((key) => (
             <button
               key={key}
               type="button"
@@ -781,7 +853,9 @@ export default function DocumentBuilder({ b }) {
           ))}
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          {start.status ? (
+          {isInvoice && b.statusChip ? (
+            b.statusChip
+          ) : start.status ? (
             <span className={`text-[10px] font-semibold px-1.5 py-px rounded ${quoteStatusClasses(start.status)}`}>{quoteStatusLabel(start.status, t)}</span>
           ) : (
             <span className="text-[10px] font-semibold px-1.5 py-px rounded bg-muted text-muted-foreground">{t("app.docBuilder.unsaved", "Not saved yet")}</span>
@@ -815,13 +889,13 @@ export default function DocumentBuilder({ b }) {
               data-doc-save
             >
               {b.saving === "draft" ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-              {isEdit ? t("app.quoteEdit.saveChangesShort") : t("app.quoteNew.saveAsDraftShort")}
+              {words.saveShort}
             </button>
             <SendMenu
               primary={
                 sendable
                   ? {
-                      label: t("app.quoteNew.saveAndSend"),
+                      label: words.send,
                       icon: Send,
                       busy: b.saving === "sent",
                       disabled: Boolean(b.saving) || (!isEdit && (!b.selectedClient || b.scopeGroups.length === 0)),
@@ -847,19 +921,22 @@ export default function DocumentBuilder({ b }) {
       {menuError && <p className="text-sm text-red-700 dark:text-red-300">{menuError}</p>}
 
       {/* ── The same banners the classic layout scrolls to ──────────────── */}
-      {isEdit && start.status === "accepted" && (
+      {/* The invoice's own: the new-version notice, money already paid, the
+          change reason, the clocked-hours offer (InvoiceBuilder). */}
+      {isInvoice && b.renderBanners ? b.renderBanners() : null}
+      {!isInvoice && isEdit && start.status === "accepted" && (
         <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-xl px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
           {t("app.quoteEdit.acceptedWarning")}
         </div>
       )}
-      {isEdit && start.quote?.autoEstimated && start.status === "draft" && (
+      {!isInvoice && isEdit && start.quote?.autoEstimated && start.status === "draft" && (
         <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-xl px-4 py-3 text-sm text-amber-900 dark:text-amber-200 space-y-1" data-auto-estimated-banner>
           <p className="font-semibold">{t("app.quoteEdit.autoEstimatedTitle")}</p>
           <p>{t("app.quoteEdit.autoEstimatedBody")}</p>
           {!start.assignedTo && <p>{t("app.quoteEdit.autoEstimatedUnassigned")}</p>}
         </div>
       )}
-      {isEdit && !b.canEditScope && (
+      {!isInvoice && isEdit && !b.canEditScope && (
         <div className="bg-muted border border-border rounded-xl px-4 py-3 text-sm text-muted-foreground">{t("app.quoteEdit.linesLocked")}</div>
       )}
       {b.conflict && (
@@ -880,6 +957,7 @@ export default function DocumentBuilder({ b }) {
       )}
 
       {/* ── Staff strip: who is working it, which language ──────────────── */}
+      {!isInvoice && (
       <div className="flex items-center gap-x-3 gap-y-1 flex-wrap text-[13px]" data-doc-staff-strip>
         <label className="flex items-center gap-2">
           <span className="text-muted-foreground whitespace-nowrap">{t("app.quoteNew.assignedToHeading", "Assigned to")}</span>
@@ -911,13 +989,17 @@ export default function DocumentBuilder({ b }) {
           </span>
         )}
       </div>
-      {!isEdit && b.selectedClient && (
+      )}
+      {!isInvoice && !isEdit && b.selectedClient && (
         <QuoteLanguageBar language={b.quoteLanguage} onChange={b.setQuoteLanguage} companyDefault={b.companyLanguage} client={b.selectedClient} />
       )}
 
       {/* ══ Estimate ═══════════════════════════════════════════════════════ */}
+      {/* 260px is the mockup's drawer; from xl the column widens to hold
+          the crew grid (name · rate · hours · cost) without squeezing its
+          boxes, now that the drawer is open by default. */}
       {tab === "estimate" && (
-        <div className={`grid gap-3.5 items-start ${b.mayCost && costOpen ? "lg:grid-cols-[minmax(0,1fr)_260px]" : ""}`} data-tab-panel="estimate">
+        <div className={`grid gap-3.5 items-start ${b.mayCost && costOpen ? "lg:grid-cols-[minmax(0,1fr)_260px] xl:grid-cols-[minmax(0,1fr)_340px]" : ""}`} data-tab-panel="estimate">
         <div className="space-y-4 min-w-0">
           {/* A painting company's first question (mockup b1) — ABOVE the
               document, before the client and the rooms, in this layout as
@@ -933,7 +1015,7 @@ export default function DocumentBuilder({ b }) {
           <DocumentFrame company={company} data-doc-editor>
             <DocumentMasthead
               company={company}
-              word={labels.quote}
+              word={isInvoice ? labels.invoice : labels.quote}
               number={start.quoteNumber}
               numberPlaceholder={t("app.docBuilder.numberOnSave", "Numbered on first save")}
               // The dates under the number (mockup b7) — click to change the
@@ -943,7 +1025,7 @@ export default function DocumentBuilder({ b }) {
                 company: canEditCompany ? () => setEditing((e) => (e === "company" ? null : "company")) : null,
                 companyLabel: t("app.docBuilder.editCompany", "Edit company details"),
                 meta: () => setEditing((e) => (e === "validUntil" ? null : "validUntil")),
-                metaLabel: t("app.quoteEdit.validUntil"),
+                metaLabel: isInvoice ? t("app.invoiceEdit.dueDate") : t("app.quoteEdit.validUntil"),
               }}
             />
             {editing === "company" && (
@@ -958,8 +1040,8 @@ export default function DocumentBuilder({ b }) {
             )}
             {editing === "validUntil" && (
               <div className="px-5 sm:px-7 pb-4">
-                <InlinePanel title={t("app.quoteEdit.validUntil")} onClose={() => setEditing(null)} t={t}>
-                  <QuoteTermsFields {...termsProps} only="validUntil" />
+                <InlinePanel title={isInvoice ? t("app.invoiceEdit.dueDate") : t("app.quoteEdit.validUntil")} onClose={() => setEditing(null)} t={t} data-doc-dates-editor>
+                  {isInvoice && b.renderDueDate ? b.renderDueDate() : <QuoteTermsFields {...termsProps} only="validUntil" />}
                 </InlinePanel>
               </div>
             )}
@@ -969,7 +1051,7 @@ export default function DocumentBuilder({ b }) {
               client={b.selectedClient}
               clientAddress={clientAddress}
               jobAddress={
-                b.selectedClient
+                !isInvoice && b.selectedClient
                   ? { label: labels.jobAddress, value: b.siteAddress, placeholder: t("app.quoteNew.jobAddressPlaceholder", "Start typing the job address…") }
                   : null
               }
@@ -988,6 +1070,9 @@ export default function DocumentBuilder({ b }) {
                         // A homeowner's job is at their address; a company's is not.
                         b.setSiteAddress(defaultSiteAddressFor(c));
                         setEditing(null);
+                        // An invoice's one card opens on its lines the moment
+                        // there is somebody to bill.
+                        if (isInvoice && b.scopeGroups[0]) setOpenGroup(b.scopeGroups[0].tempId);
                       }}
                       onClear={() => {
                         b.setSelectedClient(null);
@@ -1046,7 +1131,7 @@ export default function DocumentBuilder({ b }) {
 
             {/* ── The body: one card per service ─────────────────────────── */}
             <section className="px-5 sm:px-7 py-5 space-y-3" data-doc-body>
-              {!isEdit && b.scopeGroups.length === 0 && (
+              {!isInvoice && !isEdit && b.scopeGroups.length === 0 && (
                 <TemplatePicker
                   onApply={(tpl) => {
                     b.setScopeGroups(tpl.groups.map((g) => b.groupFromStored({ ...g, id: null }, [], t("app.quoteEdit.scopeFallback"))));
@@ -1111,7 +1196,7 @@ export default function DocumentBuilder({ b }) {
                         lineLabel: t("app.docBuilder.editLine", "Edit this line"),
                       }}
                       headExtra={
-                        !locked ? (
+                        !locked && !isInvoice ? (
                           <button
                             type="button"
                             onClick={() => b.removeScopeGroup(group.tempId)}
@@ -1173,7 +1258,7 @@ export default function DocumentBuilder({ b }) {
                             className="text-xs font-medium text-foreground inline-flex items-center gap-1"
                             data-doc-group-toggle
                           >
-                            <Pencil size={12} /> {isOpen ? t("app.docBuilder.closeEditor", "Close") : t("app.docBuilder.openEditor", "Edit lines & measurements")}
+                            <Pencil size={12} /> {isOpen ? t("app.docBuilder.closeEditor", "Close") : isInvoice ? t("app.invoiceBuilder.editLines", "Edit lines") : t("app.docBuilder.openEditor", "Edit lines & measurements")}
                           </button>
                         </div>
                       )}
@@ -1221,7 +1306,7 @@ export default function DocumentBuilder({ b }) {
                   row now — visible, after the last group, the way the classic
                   layout's picker is always on the page. The full card is kept
                   for the empty quote, where it is the first thing to do. */}
-              {b.canEditScope && !b.paintingFirst && (
+              {!isInvoice && b.canEditScope && !b.paintingFirst && (
                 <div className="pt-1" data-doc-add-service>
                   <p className="text-[11px] font-bold tracking-wider uppercase text-muted-foreground pb-1.5">
                     {t("app.docBuilder.addService", "Add a service, area or line item")}
@@ -1242,7 +1327,7 @@ export default function DocumentBuilder({ b }) {
                   )}
                 </div>
               )}
-              {isEdit && b.scopeGroups.length === 0 && !b.canEditScope && (
+              {!isInvoice && isEdit && b.scopeGroups.length === 0 && !b.canEditScope && (
                 <p className="text-sm text-muted-foreground text-center py-6">{t("app.quoteEdit.noScopeGroups")}</p>
               )}
             </section>
@@ -1280,6 +1365,7 @@ export default function DocumentBuilder({ b }) {
                 default" and all; not a second copy. b.readiness reads
                 processNotes live, so the finding clears as it is typed,
                 before any save. */}
+            {!isInvoice && (
             <div className="px-5 sm:px-7 pt-5" data-doc-process>
               <Editable onClick={() => setEditing((e) => (e === "process" ? null : "process"))} label={t("app.quoteEdit.whatHappensNext")} block>
                 <p className="text-[11px] font-bold tracking-wider uppercase text-muted-foreground">{t("app.quoteEdit.whatHappensNext")}</p>
@@ -1293,6 +1379,7 @@ export default function DocumentBuilder({ b }) {
                 </InlinePanel>
               )}
             </div>
+            )}
 
             {/* Notes — the client-facing ones, where the PDF prints them
                 (after the totals, lib/documentSections/NotesSection). */}
@@ -1333,9 +1420,11 @@ export default function DocumentBuilder({ b }) {
               writing an estimate never went. */}
           {b.renderPhotosBox()}
 
+          {!isInvoice && (
           <div className="bg-card border border-border rounded-xl px-5 pb-1">
             <QuoteReadinessBlock readiness={b.readiness} readinessItems={b.readinessItems} showReviewHint={!isEdit} />
           </div>
+          )}
 
           {b.taxAssumed || b.taxCaution ? (
             <div className="space-y-2">
@@ -1438,17 +1527,17 @@ export default function DocumentBuilder({ b }) {
         money={money}
         saving={b.saving}
         disabled={isEdit ? false : !b.selectedClient || b.scopeGroups.length === 0}
-        primaryLabel={isEdit ? t("app.quoteEdit.saveChanges") : t("app.quoteNew.saveAsDraft")}
-        primaryLabelShort={isEdit ? t("app.quoteEdit.saveChangesShort") : t("app.quoteNew.saveAsDraftShort")}
+        primaryLabel={words.save}
+        primaryLabelShort={words.saveShort}
         onSaveDraft={() => b.handleSave("draft")}
         onSaveAndSend={sendable ? () => b.handleSave("sent") : null}
         onSaveAndReview={isEdit ? null : () => b.handleSave("review")}
-        cancelHref={isEdit ? `/app/quotes/${quoteId}` : null}
+        cancelHref={isEdit ? backHref : null}
       />
 
       {b.renderSendConfirm()}
 
-      {isEdit && quoteId && (
+      {!isInvoice && isEdit && quoteId && (
         <>
           <ShareWithStaffModal
             isOpen={shareOpen}
@@ -1467,8 +1556,8 @@ export default function DocumentBuilder({ b }) {
         </>
       )}
 
-      {!isEdit && <HelpButton onClick={() => b.setShowTour(true)} />}
-      {!isEdit && b.showTour && <OnboardingTour steps={b.TOUR_STEPS} storageKey="quote-builder" onFinish={() => b.setShowTour(false)} />}
+      {!isInvoice && !isEdit && <HelpButton onClick={() => b.setShowTour(true)} />}
+      {!isInvoice && !isEdit && b.showTour && <OnboardingTour steps={b.TOUR_STEPS} storageKey="quote-builder" onFinish={() => b.setShowTour(false)} />}
     </div>
   );
 }
