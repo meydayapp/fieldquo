@@ -565,7 +565,7 @@ export default async function AppLayout({ children }) {
           rather than fix it. See lib/ai/jennifer/ for the whole boundary.
           Mounted at the shell level, not per-page, for the same reason
           ToastLayer is: one instance, reachable from anywhere in /app. */}
-      <JenniferPanel variant="app" />
+      <JenniferPanel variant="app" role={callerPermissions?.role} />
     </div>
   );
 }
