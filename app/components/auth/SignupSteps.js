@@ -30,10 +30,16 @@ import { useTranslation } from "@/app/hooks/useTranslation";
  * rendered. Filtering rather than slicing means a step added to the funnel
  * appears here without this file being edited.
  */
-export function rungsFor({ accountExists = false } = {}) {
+export function rungsFor({ accountExists = false, current = null } = {}) {
   const entry = firstStep({ accountExists });
   return STEPS.filter(
-    (step) => step === entry || (step !== "account" && step !== "business"),
+    (step) =>
+      (step === entry || (step !== "account" && step !== "business")) &&
+      // Since 2026-09-24 a new signup ends at Services — no plan, no card —
+      // so the rail counts three. The plan rung is drawn only while it is the
+      // step on screen: a company created before that date finishing its
+      // checkout (app/api/signup/resume) still walks it.
+      (step !== "plan" || current === "plan"),
   );
 }
 
@@ -50,7 +56,7 @@ const LABELS = {
 
 export default function SignupSteps({ current, accountExists = false }) {
   const { t } = useTranslation();
-  const rungs = rungsFor({ accountExists });
+  const rungs = rungsFor({ accountExists, current });
   const index = rungs.indexOf(current);
 
   // A step this rail does not know about would render every bar unfilled, which

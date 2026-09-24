@@ -1776,17 +1776,27 @@ export default function SignupPage() {
     });
   }
 
-  async function handleFinish() {
+  /**
+   * @param withoutPlan  the Services step's own finish: the company is created
+   *                     on its free trial with NO plan and NO card, and the
+   *                     browser goes straight to /app. Since 2026-09-24 this is
+   *                     how every new signup ends (the owner: "move the credit
+   *                     card and plan selection out of the sign up and just
+   *                     move it to the banner"); the plan step below it is
+   *                     kept for a company created before that date finishing
+   *                     its checkout, and for a draft saved on that step.
+   */
+  async function handleFinish({ withoutPlan = false } = {}) {
     setError("");
 
     // Refusals the button is already disabled for, restated here because a
     // disabled button is not a guard — the same three states are checked on the
     // server, and this only decides which sentence they read.
-    if (!hasSelection) {
+    if (!hasSelection && !withoutPlan) {
       setError(t("app.signup.error.selectPlan", "Please select a plan first."));
       return;
     }
-    if (!planCurrency) {
+    if (!planCurrency && !withoutPlan) {
       setError(
         basis.country
           ? t(
@@ -1870,7 +1880,13 @@ export default function SignupPage() {
           country: form.country,
           language: form.language,
           industries: selectedIndustries,
-          planId: selectedPlanId,
+          planId: withoutPlan ? undefined : selectedPlanId,
+          // What the link that brought them here asked for, kept on the
+          // company so the trial banner opens Account & Billing on that card
+          // — see Company.signupTierKey. Only meaningful when no plan is
+          // chosen here; with one, the plan itself is the answer.
+          wantedTier: withoutPlan ? wantedRef.current.tier || undefined : undefined,
+          wantedPlanId: withoutPlan ? wantedRef.current.planId || undefined : undefined,
           serviceCategoryIds: selectedCategoryIds,
           // The CADENCE, never a price. The server reprices from its own Plan
           // row either way (non-negotiable #5) and refuses "year" outright for
@@ -1895,6 +1911,21 @@ export default function SignupPage() {
 
       if (!res.ok) {
         setError(data.error || t("app.signup.error.finishCompany", "Could not finish setting up your company"));
+        return;
+      }
+
+      // ── No plan: the company exists and the app is the next screen ─────
+      //
+      // No checkout, no Stripe, no "checkout started" bar — the funnel's last
+      // two bars describe a payment that did not happen here. The draft goes
+      // for the same reason as below: the company exists now.
+      if (withoutPlan && data.appUrl) {
+        try {
+          sessionStorage.removeItem(DRAFT_KEY);
+        } catch {
+          // Nothing to do about it, and nothing that should stop the app opening.
+        }
+        window.location.href = data.appUrl;
         return;
       }
 
@@ -1996,7 +2027,7 @@ export default function SignupPage() {
               {" — "}
               {t(
                 "app.signup.subtitle",
-                "set up your business, pick your trades, then choose a plan.",
+                "set up your business and pick your trades \u2014 no card needed.",
               )}
             </>
           )
@@ -2264,7 +2295,7 @@ export default function SignupPage() {
               <p className="text-sm text-muted-foreground mt-1">
                 {t(
                   "app.signup.account.body",
-                  "We'll ask which trades you work in next, and you'll pick a plan at the end — the price depends on where your business is.",
+                  "We'll ask which trades you work in and which services you offer next \u2014 then you're in. No card and no plan today; you choose a plan from inside the app before the free month is up.",
                 )}
               </p>
             </div>
@@ -2470,15 +2501,19 @@ export default function SignupPage() {
               </button>
             )}
 
-            {/* Not "Continue to Payment" any more — the plan step is what
-                leads to payment, and it comes after this one. */}
+            {/* The last step since 2026-09-24: this creates the company on
+                its free trial — no plan, no card — and opens the app. The
+                plan is chosen later from the banner (the owner's decision;
+                see handleFinish). The button says what the press does. */}
             <button
               type="button"
-              onClick={() => goToStep(nextStep("services", { accountExists }))}
-              disabled={selectedCategoryIds.length === 0}
+              onClick={() => handleFinish({ withoutPlan: true })}
+              disabled={selectedCategoryIds.length === 0 || submitting}
               className={`${PRIMARY_BUTTON} mt-6 disabled:opacity-40`}
             >
-              {t("app.signup.continue", "Continue")}
+              {submitting
+                ? t("app.signup.settingUp", "Setting up...")
+                : t("app.signup.finishTrial", "Start my free trial")}
             </button>
 
             <button

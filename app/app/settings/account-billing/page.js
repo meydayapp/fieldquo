@@ -126,6 +126,14 @@ function AccountBillingScreen() {
   // "Custom · 20 seats" opens the card at 20, not at the default.
   const [customOffer, setCustomOffer] = useState(null);
   const [customSeats, setCustomSeats] = useState(20);
+  // ── The card the trial banner pointed at ─────────────────────────────────
+  //
+  // `?tier=crew` (or custom-20): the rung the pricing page's link named at
+  // signup (Company.signupTierKey), else the one lib/billing/recommendedTier.js
+  // says fits the roster. Marked "Suggested for you" and ringed; nothing is
+  // pre-purchased and every other card stays exactly as clickable. A key no
+  // card carries marks nothing.
+  const [wantedTier, setWantedTier] = useState(null);
   // ── Which cadence an upgrade is bought on ────────────────────────────────
   //
   // null until the subscription loads, then seeded from what the company is
@@ -266,6 +274,12 @@ function AccountBillingScreen() {
     // happens to land. Waiting for one means they pay and stay locked, which is
     // the worst possible outcome of the grace period.
     const fromPortal = params.get("reconcile") === "1";
+    const tier = params.get("tier");
+    if (tier) {
+      setWantedTier(tier);
+      const seats = customSeatsFromTierKey(tier);
+      if (seats) setCustomSeats(seats);
+    }
 
     load()
       .then(() => {
@@ -732,14 +746,20 @@ function AccountBillingScreen() {
             // The server refuses this combination, so the button must not offer
             // it. Refusing on both sides rather than trusting either.
             const unsellable = billingInterval === "year" && annualPriceOf(plan) === null;
+            const suggested = Boolean(wantedTier) && plan.tierKey === wantedTier && !isCurrent;
             return (
               <div
                 key={plan.id}
                 className={`border rounded-xl p-4 ${
                   isCurrent ? "border-inverted" : "border-border"
-                }`}
+                } ${suggested ? "ring-2 ring-amber-400 dark:ring-amber-500" : ""}`}
               >
                 <h3 className="font-semibold text-foreground">{plan.name}</h3>
+                {suggested && (
+                  <span className="inline-block mt-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-900">
+                    {t("app.billing.suggested", "Suggested for you")}
+                  </span>
+                )}
                 {/* The yearly figure is the plan's OWN priceAnnual, never twelve
                     times the monthly one — the ladder gives two months free, and
                     an operator can type a different deal per tier. A tier with no
@@ -832,11 +852,17 @@ function AccountBillingScreen() {
                   sortOrder: tier.sortOrder,
                 }
               : null;
+            const suggested = Boolean(customSeatsFromTierKey(wantedTier)) && !isCurrent;
             return (
-              <div className={`border rounded-xl p-4 ${isCurrent ? "border-inverted" : "border-border"}`}>
+              <div className={`border rounded-xl p-4 ${isCurrent ? "border-inverted" : "border-border"} ${suggested ? "ring-2 ring-amber-400 dark:ring-amber-500" : ""}`}>
                 <h3 className="font-semibold text-foreground">
                   {t("app.billing.custom.title", "Need more people?")}
                 </h3>
+                {suggested && (
+                  <span className="inline-block mt-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-900">
+                    {t("app.billing.suggested", "Suggested for you")}
+                  </span>
+                )}
                 <p className="text-xs text-muted-foreground mt-1">
                   {t("app.billing.custom.body", "Past {baseSeats} seats, add as many as you need — every seat brings a crew member with it.", {
                     baseSeats: customOffer.baseSeats,

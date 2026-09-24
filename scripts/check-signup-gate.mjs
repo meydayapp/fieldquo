@@ -639,7 +639,7 @@ console.log("\nThe gate is actually wired in\n");
 // isDemo beside createdAt and skips the setup_pending reason for it.
 {
   const src = fs.readFileSync(new URL("../lib/billing/access.js", import.meta.url), "utf8");
-  ok(/select: \{ createdAt: true, isDemo: true \}/.test(src), "accessForCompany reads isDemo with createdAt");
+  ok(/select: \{ createdAt: true, isDemo: true, trialEndsAt: true \}/.test(src), "accessForCompany reads isDemo with createdAt");
   ok(/age < CHECKOUT_GRACE_MS && !company\?\.isDemo/.test(src), "…and a demo company never gets setup_pending");
 }
 

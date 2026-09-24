@@ -365,6 +365,11 @@ const EXPECTED_BODY = [
   "language",
   "industries",
   "planId",
+  // Added 2026-09-24 with the card-free signup: what the /pricing link named
+  // (?tier= / ?plan=), kept on Company.signupTierKey so the trial banner's
+  // "Choose a plan" opens Account & Billing on that card. A name, never money.
+  "wantedTier",
+  "wantedPlanId",
   // employeeCount was here until 2026-08-31. Signup used to post a raw
   // headcount, and /api/companies minted a "Custom (N employees)" Plan from it
   // at the retired $45/licence rate — so a prospect who clicked the Solo card
@@ -452,7 +457,12 @@ for (const accountExists of [false, true]) {
   // The rail is DERIVED from the funnel rather than restating it. A rail with
   // its own list of four names is the copy that rots — this one would still be
   // showing the plan step first.
-  ok(`...and the progress rail names the same four`, rungsFor({ accountExists }).join(",") === walked.join(","), rungsFor({ accountExists }).join(","));
+  ok(`...and the progress rail names the same four while the plan step is on screen`, rungsFor({ accountExists, current: "plan" }).join(",") === walked.join(","), rungsFor({ accountExists, current: "plan" }).join(","));
+  // Since 2026-09-24 a NEW signup ends at Services — no plan, no card (the
+  // owner's decision; app/signup/page.js handleFinish withoutPlan). The rail
+  // a new visitor sees counts three; the plan rung is drawn only for a
+  // company created before that date finishing its checkout.
+  ok(`...and three, ending at services, for a new signup`, rungsFor({ accountExists, current: "services" }).join(",") === walked.slice(0, -1).join(","), rungsFor({ accountExists, current: "services" }).join(","));
 }
 // Nothing past the account step is reachable without a login: an unauthenticated
 // visitor restored straight into "services" once reached checkout and got a bare
@@ -463,10 +473,13 @@ ok(
 );
 
 console.log("\n  …and the rail says so on screen");
+// Three for a new signup (2026-09-24: it ends at Services, no plan, no card);
+// the plan rung is drawn only while it is the step on screen — a company from
+// before that date finishing its checkout.
 for (const [step, expected] of [
-  ["account", "Step 1 of 4"],
-  ["industry", "Step 2 of 4"],
-  ["services", "Step 3 of 4"],
+  ["account", "Step 1 of 3"],
+  ["industry", "Step 2 of 3"],
+  ["services", "Step 3 of 3"],
   ["plan", "Step 4 of 4"],
 ]) {
   const html = inEnglish(createElement(SignupSteps, { current: step, accountExists: false }));
@@ -525,16 +538,18 @@ ok(
 // ══════════════════════════════════════════════════════════════════════════
 console.log("\nNothing new is claimed that we do not ship");
 //
-// This is a marketing panel on a page somebody enters a password or a card on,
-// which makes it the worst place in the product to overstate. The first three
-// do not exist at all. The fourth was corrected across twelve pages earlier
-// today: signup opens a Stripe subscription with a trial and no
-// `payment_method_collection: "if_required"`, so a card IS taken.
+// This is a marketing panel on a page somebody enters a password on, which
+// makes it the worst place in the product to overstate. The first three do
+// not exist at all. The fourth turned round on 2026-09-24: signup no longer
+// opens a Stripe session at all (the owner: "move the credit card and plan
+// selection out of the sign up"), so "we take your card at checkout" — the
+// sentence this list used to REQUIRE — is now the false claim, and the
+// card-free sentence is the true one.
 const FORBIDDEN = [
   [/mobile app|iphone app|android app|app store|google play/i, "a mobile app"],
   [/quickbooks/i, "QuickBooks"],
   [/zapier/i, "Zapier"],
-  [/no (credit )?card( details)? (required|needed)|without a credit card|card-free/i, "no credit card required"],
+  [/card at checkout|take your card|pick a plan at the end|choose the plan on the last step/i, "a card or plan step signup no longer has"],
 ];
 const SURFACES = [
   ["/login", loginText],
@@ -548,9 +563,11 @@ for (const [where, text] of SURFACES) {
   }
 }
 // Said, not merely not-denied. Somebody about to hand over eleven fields
-// deserves to know a card is coming before Stripe tells them.
+// deserves to know what is NOT coming — no card, no plan step — and where the
+// plan gets chosen instead (the app's trial banner).
 const signupPanel = textOf(inEnglish(createElement(AuthAside, { variant: "signup" })));
-ok("the signup panel states the card up front", /card at checkout/i.test(signupPanel), signupPanel);
+ok("the signup panel says there is no card and no plan today", /No card and no plan today/.test(signupPanel), signupPanel);
+ok("...and where the plan is chosen instead", /from inside the app/.test(signupPanel));
 ok("...and the offer comes from trialLabel(), not a typed number", /Free first month/.test(signupPanel));
 ok(
   "...off the helper rather than restated",
