@@ -10,7 +10,7 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
-import { sanitiseTemplateLines, sanitiseDefaultDiscount, sanitiseImageUrl } from "@/lib/services/templates";
+import { sanitiseTemplateLines, sanitiseDefaultDiscount, sanitiseImageUrl, sanitiseEstimateTypes } from "@/lib/services/templates";
 
 /** Owner/admin only, matching every other company-wide settings route. */
 function requireCatalogueWrite(member) {
@@ -79,6 +79,10 @@ export async function PATCH(request, { params }) {
     templateLines,
     defaultDiscount,
     imageUrl,
+    // Where the template is offered (by quote type — `categoryIds` above —
+    // narrowed by estimate type) and whether it is offered at all.
+    estimateTypes,
+    templateEnabled,
   } = body;
 
   if (Array.isArray(categoryIds) && categoryIds.length) {
@@ -105,6 +109,8 @@ export async function PATCH(request, { params }) {
       ...(templateLines !== undefined && { templateLines: sanitiseTemplateLines(templateLines) ?? Prisma.DbNull }),
       ...(defaultDiscount !== undefined && { defaultDiscount: sanitiseDefaultDiscount(defaultDiscount) ?? Prisma.DbNull }),
       ...(imageUrl !== undefined && { imageUrl: sanitiseImageUrl(imageUrl) }),
+      ...(estimateTypes !== undefined && { estimateTypes: sanitiseEstimateTypes(estimateTypes) }),
+      ...(templateEnabled !== undefined && { templateEnabled: templateEnabled !== false }),
       // `set` fully replaces the linked quote types with this list (as
       // opposed to `connect`, which would only add) — matches how the
       // multi-select in the Products & Services edit modal works, where the

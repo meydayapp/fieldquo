@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 24 September 2026 (the estimate template inside a service — `Product.templateLines` / `defaultDiscount` / `imageUrl`, additive; a closed measurement registry every trade's lines can take their qty from; the seed LOADER contract in `lib/services/seeds.js`; Settings › Services edits each service's template; `/app/analytics/benchmark` is the preset library with an editable Your price; benchmark sharing is on by default for new companies and Terms §7 / Privacy §7 say so. The seed CONTENT — templates on every trade in seven languages — is a separate pass landing against the same contract.)
+Last updated: 24 September 2026 (the estimate template inside a service — `Product.templateLines` / `defaultDiscount` / `imageUrl` / `estimateTypes` / `templateEnabled`, additive; templates attach by quote type (`categories` + painting estimate types) through `templatesFor()`; a closed measurement registry every trade's lines can take their qty from; the seed LOADER contract in `lib/services/seeds.js`; Settings › Services edits each service's template; `/app/analytics/benchmark` is the preset library with an editable Your price; benchmark sharing is on by default for new companies and Terms §7 / Privacy §7 say so. The seed CONTENT — templates on every trade in seven languages — is a separate pass landing against the same contract.)
 **Update this line when you finish something — replace it, don't append.** Seven
 stacked "Last updated" lines had accumulated here, each agent adding one rather
 than editing the last, which left the file unable to answer the single question
@@ -29,6 +29,22 @@ only (the `migrate diff` carried another branch's DROPs, which were not run).
 measurements, currency, fromCurrency, fx, language })` → the lines an estimate
 opens with, `templateTotals`. **The builder integration — a service expanding
 onto a quote — is the next pass; this is the editor and the data.**
+
+**Where a template is offered — by quote type (the owner's decision).**
+`Product.categories` (the quote types a service can be added to) is the primary
+link; `Product.estimateTypes String[]` narrows it for painting's sub-types
+(`PAINT_ESTIMATE_TYPES`: interior · exterior · cabinets · staining · commercial;
+empty = every estimate type); `Product.templateEnabled Boolean @default(true)` is
+the company's switch on the Settings › Services row. Every company that offers a
+trade gets all its templates installed; the quote builder (a later pass) offers
+only the rows `lib/services/templates.js#templatesFor({ products, categoryKey,
+estimateType })` returns — enabled, templated, linked to the quote's type, and
+either naming no estimate type or naming the quote's. The seeder links the seed
+row's `categories` keys (resolved to the shared system categories) beside the
+trade being seeded and copies `estimateTypes`. Stairs is NOT an estimate type:
+`stairs` is its own quote type, priced by its tier grid inside a scope group
+(`lib/estimate/stairsFromSteps.js` derives its counts) — a stairs template
+carries `categories: ["stairs"]` and no estimate type.
 
 **Measurements.** `lib/services/measurementKeys.js` is the closed registry: only
 names a takeoff already produces — paint `wallSqft` / `ceilingSqft` / `floorSqft`

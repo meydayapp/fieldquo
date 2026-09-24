@@ -44,6 +44,11 @@
 //      sanitiser; a measured line takes its qty from a flat object or from
 //      summariseRoof's nested shape and is flagged needsMeasurement when the
 //      figure is missing; waste applies to material lines only.
+//   H. Where a template is offered (the owner's quote-type rule): templatesFor
+//      offers only enabled, templated rows linked to the quote's type, and
+//      narrowed by estimate type when the row names any; the seed's
+//      `categories` keys resolve to extra category links and its
+//      `estimateTypes` to known keys only; a switched-off row is never offered.
 //   F. The preset library (lib/services/presetLibrary.js): the rounding step
 //      follows the median's magnitude, every figure of a row shares it, a
 //      point stays a point (no Min/Max padded), an unconvertible currency
@@ -67,12 +72,15 @@ import {
   groupLinesByKind,
   measurementValue,
   validateTemplateLines,
+  templatesFor,
+  sanitiseEstimateTypes,
+  ESTIMATE_TYPE_KEYS,
 } from "@/lib/services/templates";
 import { MEASUREMENT_KEYS as REGISTRY, MEASUREMENT_KEY_LIST, isMeasurementKey } from "@/lib/services/measurementKeys";
 import { derivedGeometry } from "@/lib/pricing/paintTakeoff";
 import { stairsFromSteps } from "@/lib/estimate/stairsFromSteps";
 import { CAPTURE } from "../docs/screens/app-guide/harness/fixtures/estimate-templates-electrical.js";
-import { seedText, seedTemplateFor, planServiceSeeds, TEMPLATE_LANGUAGES } from "@/lib/services/seeds";
+import { seedText, seedTemplateFor, seedCategoryKeys, planServiceSeeds, TEMPLATE_LANGUAGES } from "@/lib/services/seeds";
 import { productDataForSeed } from "@/lib/products/seedServices";
 import { templatesFromCapture } from "@/lib/services/templateImport";
 import { presetStep, roundToStep, presetRange, libraryTrades, libraryForTrade, positionInRange } from "@/lib/services/presetLibrary";
@@ -376,6 +384,42 @@ section("G — the measurement registry, against the takeoffs that produce the k
   const hostile = expandTemplate(product, { measurements: { wallSqft: "abc", balusters: -3, doorCount: Infinity, squares: null }, currency: "CAD" });
   ok(hostile.every((l) => l.needsMeasurement), "non-numeric, negative, infinite and null figures all ask rather than fill", hostile.map((l) => l.quantity));
   ok(JSON.stringify(CAPTURE) === JSON.stringify(JSON.parse(read("docs/research/hcp-estimate-templates-electrical.json"))), "the harness's JS copy of the capture equals the research JSON");
+}
+
+section("H — where a template is offered: templatesFor and the seed's quote-type links");
+{
+  ok(JSON.stringify(ESTIMATE_TYPE_KEYS) === JSON.stringify(["interior", "exterior", "cabinets", "staining", "commercial"]), "estimate types are painting's five, by their exact keys", ESTIMATE_TYPE_KEYS);
+  ok(JSON.stringify(sanitiseEstimateTypes(["cabinets", "bogus", "interior", "cabinets", 5, "constructor"])) === JSON.stringify(["interior", "cabinets"]), "sanitiseEstimateTypes: known keys only, deduplicated, registry order", sanitiseEstimateTypes(["cabinets", "bogus", "interior", "cabinets", 5, "constructor"]));
+  ok(sanitiseEstimateTypes("interior").length === 0 && sanitiseEstimateTypes(null).length === 0, "non-array → []");
+  const lines = [{ kind: "labour", name: "x", qty: 1, unit: "flat", unitPrice: 10, unitCost: 5 }];
+  const cat = (key) => ({ id: `id_${key}`, key, label: key });
+  const products = [
+    { id: "a", name: "Cabinet doors — paint", templateLines: lines, categories: [cat("cabinet_refinishing"), cat("interior_painting")], estimateTypes: ["cabinets"] },
+    { id: "b", name: "Walls — two coats", templateLines: lines, categories: [cat("interior_painting")], estimateTypes: [] },
+    { id: "c", name: "Off", templateLines: lines, categories: [cat("interior_painting")], estimateTypes: [], templateEnabled: false },
+    { id: "d", name: "No template", templateLines: null, categories: [cat("interior_painting")] },
+    { id: "e", name: "Stairs — refinish", templateLines: lines, categories: [{ id: "id_stairs", label: "Stairs" }], estimateTypes: [] },
+    { id: "f", name: "Exterior only", templateLines: lines, categories: [cat("interior_painting")], estimateTypes: ["exterior"] },
+    null,
+    "junk",
+  ];
+  const ids = (r) => r.map((p) => p.id).join(",");
+  ok(ids(templatesFor({ products, categoryKey: "interior_painting", estimateType: "cabinets" })) === "a,b", "interior painting, cabinets estimate: the cabinets-only row and the any-type row; not the exterior-only, the switched-off, the untemplated", ids(templatesFor({ products, categoryKey: "interior_painting", estimateType: "cabinets" })));
+  ok(ids(templatesFor({ products, categoryKey: "interior_painting", estimateType: "interior" })) === "b", "interior estimate: only the any-type row");
+  ok(ids(templatesFor({ products, categoryKey: "interior_painting" })) === "b", "no estimate type given: rows that name one are not offered, the any-type row is");
+  ok(ids(templatesFor({ products, categoryKey: "cabinet_refinishing", estimateType: "cabinets" })) === "a", "cabinet refinishing: the row linked to that quote type");
+  ok(ids(templatesFor({ products, categoryId: "id_stairs" })) === "e", "a row whose category carries an id but no key is found by categoryId");
+  ok(templatesFor({ products, categoryKey: "roofing_service" }).length === 0 && templatesFor({ products }).length === 0 && templatesFor({ products: "x", categoryKey: "interior_painting" }).length === 0 && templatesFor().length === 0, "unlinked type, no type, hostile products → []");
+  ok(JSON.stringify(seedCategoryKeys({ categories: ["stairs", "cabinet_refinishing", "stairs", 7, "Bad Key", "interior_painting"] }, "interior_painting")) === JSON.stringify(["stairs", "cabinet_refinishing"]), "seedCategoryKeys: strings only, deduplicated, the seeding trade excluded", seedCategoryKeys({ categories: ["stairs", "cabinet_refinishing", "stairs", 7, "Bad Key", "interior_painting"] }, "interior_painting"));
+  ok(seedCategoryKeys({}).length === 0 && seedCategoryKeys(null).length === 0, "no categories → []");
+  const row = { seedKey: "fq.interior_painting.core.x", category: "core", unit: "flat", benchmark: null, name: { en: "X", fr: "X fr", es: "X es" }, description: { en: "d", fr: "d", es: "d" }, templateLines: lines, categories: ["cabinet_refinishing", "stairs", "unknown_type"], estimateTypes: ["cabinets", "nope"] };
+  const data = productDataForSeed(row, { companyId: "c", categoryId: "id_ip", language: "en", currency: "CAD", categoryIdsByKey: { cabinet_refinishing: "id_cr", stairs: "id_st" } });
+  ok(JSON.stringify(data.categories.connect) === JSON.stringify([{ id: "id_ip" }, { id: "id_cr" }, { id: "id_st" }]), "the seeder links the seeding trade plus every resolved key; the unknown key links nothing", data.categories);
+  ok(JSON.stringify(data.estimateTypes) === JSON.stringify(["cabinets"]), "estimateTypes copied, unknown key dropped", data.estimateTypes);
+  const none = productDataForSeed({ ...row, categories: undefined, estimateTypes: undefined }, { companyId: "c", categoryId: "id_ip", language: "en", currency: "CAD" });
+  ok(JSON.stringify(none.categories.connect) === JSON.stringify({ id: "id_ip" }) && !("estimateTypes" in none), "no keys: the single connect the seeder always wrote, no estimateTypes key", none.categories);
+  const same = productDataForSeed({ ...row, categories: ["interior_painting"] }, { companyId: "c", categoryId: "id_ip", language: "en", currency: "CAD", categoryIdsByKey: { interior_painting: "id_ip" } });
+  ok(JSON.stringify(same.categories.connect) === JSON.stringify({ id: "id_ip" }), "a key resolving to the seeding category is not connected twice");
 }
 
 console.log(`\n${passed} passed, ${fail} failed`);

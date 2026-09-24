@@ -38,8 +38,11 @@ import { fetchJson } from "@/lib/fetchJson";
 import { formatMoney } from "@/lib/currency";
 import { benchmarkForSeedKey } from "@/lib/services/seeds";
 import { MEASUREMENT_KEYS as MEASUREMENT_REGISTRY, MEASUREMENT_KEY_LIST } from "@/lib/services/measurementKeys";
+import { PAINT_TAKEOFF_CATEGORIES } from "@/lib/pricing/sanitiseRates";
 import {
   LINE_KINDS,
+  ESTIMATE_TYPE_KEYS,
+  sanitiseEstimateTypes,
   expandTemplate,
   templateTotals,
   groupLinesByKind,
@@ -75,6 +78,7 @@ function draftFrom(product) {
     lines,
     discount: d ? { name: d.name || "", kind: d.kind === "percent" ? "percent" : "fixed", amount: d.amount ?? "" } : { name: "", kind: "fixed", amount: "" },
     imageUrl: product?.imageUrl || null,
+    estimateTypes: sanitiseEstimateTypes(product?.estimateTypes),
   };
 }
 
@@ -84,6 +88,7 @@ function payloadFrom(draft) {
     templateLines: sanitiseTemplateLines(draft.lines.map((l) => ({ ...l, measurementKey: l.measurementKey || undefined, wastePct: l.wastePct === "" ? undefined : l.wastePct }))),
     defaultDiscount: sanitiseDefaultDiscount(draft.discount),
     imageUrl: draft.imageUrl || null,
+    estimateTypes: sanitiseEstimateTypes(draft.estimateTypes),
   };
 }
 
@@ -146,6 +151,31 @@ function TemplateRow({ product, category, currency, language, canEdit, expanded,
   const lineCount = Array.isArray(product.templateLines) ? product.templateLines.length : 0;
   const totals = useMemo(() => templateTotals(expandTemplate(product, { currency }), product.defaultDiscount), [product, currency]);
   const benchmark = product.seedKey ? benchmarkForSeedKey(product.seedKey) : null;
+  const enabled = product.templateEnabled !== false;
+  const [toggling, setToggling] = useState(false);
+  const [toggleErr, setToggleErr] = useState("");
+
+  // The company's switch: a seeded template it does not sell stays on the
+  // row, off, rather than being deleted — the quote builder offers only
+  // enabled templates (lib/services/templates.js#templatesFor).
+  async function setEnabled(next) {
+    setToggling(true);
+    setToggleErr("");
+    try {
+      const res = await fetch(`/api/products/${product.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ templateEnabled: next }),
+      });
+      if (!res.ok) {
+        setToggleErr(await reportResponseError(res));
+        return;
+      }
+      await onSaved?.();
+    } finally {
+      setToggling(false);
+    }
+  }
 
   return (
     <div data-service-template-row className="rounded-md border border-border px-3 py-2">
@@ -168,17 +198,26 @@ function TemplateRow({ product, category, currency, language, canEdit, expanded,
             )}
           </span>
         </button>
-        <div className="shrink-0 text-sm tabular-nums text-foreground sm:text-right">
-          {product.unitPrice != null ? (
-            <>
-              {whole(product.unitPrice, currency, language)}
-              {product.unit ? <span className="text-xs text-muted-foreground">{" / "}{t(`app.quoteReview.unit_${product.unit}`, product.unit)}</span> : null}
-            </>
-          ) : (
-            <span className="text-xs text-muted-foreground">{t("app.serviceSeeds.noPrice")}</span>
+        <div className="flex shrink-0 items-center gap-3 sm:flex-col sm:items-end sm:gap-1">
+          <div className="text-sm tabular-nums text-foreground sm:text-right">
+            {product.unitPrice != null ? (
+              <>
+                {whole(product.unitPrice, currency, language)}
+                {product.unit ? <span className="text-xs text-muted-foreground">{" / "}{t(`app.quoteReview.unit_${product.unit}`, product.unit)}</span> : null}
+              </>
+            ) : (
+              <span className="text-xs text-muted-foreground">{t("app.serviceSeeds.noPrice")}</span>
+            )}
+          </div>
+          {lineCount > 0 && (
+            <label className="flex items-center gap-1 text-[11px] text-muted-foreground" data-template-enabled>
+              <input type="checkbox" checked={enabled} disabled={!canEdit || toggling} onChange={(e) => setEnabled(e.target.checked)} />
+              {enabled ? t("app.serviceTemplates.enabled", "Offered on quotes") : t("app.serviceTemplates.disabled", "Switched off")}
+            </label>
           )}
         </div>
       </div>
+      {toggleErr && <p className="mt-1 text-[11px] text-red-600 dark:text-red-400">{toggleErr}</p>}
       {expanded && (
         <TemplateEditor product={product} category={category} currency={currency} language={language} canEdit={canEdit} onSaved={onSaved} t={t} />
       )}
@@ -377,6 +416,29 @@ function TemplateEditor({ product, category, currency, language, canEdit, onSave
           <option key={u} value={u}>{t(`app.quoteReview.unit_${u}`, u)}</option>
         ))}
       </datalist>
+
+      {/* Where the template is offered: painting's estimate types. Every
+          other quote type has no sub-types, so the box is not drawn — an
+          empty list means "every estimate type" and that is the default. */}
+      {PAINT_TAKEOFF_CATEGORIES.includes(category.key) && (
+        <div data-template-estimate-types>
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("app.serviceTemplates.estimateTypes", "Offered on these estimate types")}</h4>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">{t("app.serviceTemplates.estimateTypesNote", "None ticked = every estimate type of this quote type.")}</p>
+          <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
+            {ESTIMATE_TYPE_KEYS.map((k) => (
+              <label key={k} className="flex items-center gap-1 text-xs text-foreground">
+                <input
+                  type="checkbox"
+                  checked={draft.estimateTypes.includes(k)}
+                  disabled={!canEdit}
+                  onChange={(e) => setDraft((d) => ({ ...d, estimateTypes: e.target.checked ? [...d.estimateTypes, k] : d.estimateTypes.filter((x) => x !== k) }))}
+                />
+                {t(`app.paint.type.${k}`, k)}
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Default discount */}
       <div data-template-discount>
