@@ -56,6 +56,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { MessageCircle, X, Send, Loader2, Paperclip, WifiOff } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 const MARKETING_OPENERS = [
   "I want to grow, but my current setup can't keep up",
@@ -63,11 +64,35 @@ const MARKETING_OPENERS = [
   "What kind of ROI do contractors like me typically see?",
 ];
 
-const APP_OPENERS = [
-  "Is my receptionist actually switched on?",
-  "Why didn't my invoice email send?",
-  "Do I have AI credit left?",
-];
+// ── The openers a signed-in person can actually get an answer to ───────────
+//
+// Two lists, by role, because the tools are by role. The old single list
+// asked three account-status questions whose tools exist only for an owner
+// or admin — a crew member tapping "Do I have AI credit left?" got a refusal
+// from a chip the app itself had proposed, which is the dead control
+// AGENTS.md keeps being swept for. And the owner's own two questions
+// ("how many quotes are pending", "how much is owed") were not on the list
+// at all, which is how he came to type them and be sent to a page.
+//
+// Each chip here names a tool in lib/ai/copilotTools.js or lib/ai/jennifer/
+// tools.js that the role holds; scripts/check-assistant-tools.mjs executes
+// that pairing rather than trusting this comment. `role` comes from the
+// shell (app/app/layout.js), the same resolved session PermissionProvider
+// is fed — this panel mounts outside that provider, so it is passed in.
+function appOpeners(t, role) {
+  if (role === "owner" || role === "admin") {
+    return [
+      t("app.jennifer.openerQuotesWaiting", "How many quotes are waiting on a reply?"),
+      t("app.jennifer.openerMoneyOwed", "How much money is owed to us?"),
+      t("app.jennifer.openerReceptionist", "Is my receptionist actually switched on?"),
+    ];
+  }
+  return [
+    t("app.jennifer.openerThisWeek", "What's on my schedule this week?"),
+    t("app.jennifer.openerMyJobs", "Which jobs am I on?"),
+    t("app.jennifer.openerEmailFailed", "Why didn't an email send?"),
+  ];
+}
 
 const POLL_MS = 5000;
 
@@ -77,8 +102,9 @@ function roleClasses(role) {
   return "border border-border bg-background text-foreground";
 }
 
-export default function JenniferPanel({ variant = "marketing" }) {
+export default function JenniferPanel({ variant = "marketing", role = null }) {
   const isCompany = variant === "app";
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
@@ -95,7 +121,7 @@ export default function JenniferPanel({ variant = "marketing" }) {
 
   const endRef = useRef(null);
 
-  const openers = isCompany ? APP_OPENERS : MARKETING_OPENERS;
+  const openers = isCompany ? appOpeners(t, role) : MARKETING_OPENERS;
 
   useEffect(() => {
     if (open) endRef.current?.scrollIntoView({ behavior: "smooth" });
