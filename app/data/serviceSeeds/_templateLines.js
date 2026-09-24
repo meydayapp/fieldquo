@@ -408,9 +408,15 @@ export function rangeFor(service, lines) {
     const high = Number.isFinite(Number(b.high)) && Number(b.high) > 0 ? Number(b.high) : median * 1.25;
     return { basis: "benchmark", range: ordered(roundPreset(low), roundPreset(median), roundPreset(high)) };
   }
+  // Per-unit rate: the unit prices of the lines sold in the service's unit.
+  // A per-item ("each") service counts its per-item lines only when they are
+  // measured — a per-door rate is a rate; a service call plus one toilet is
+  // a job total, and stays one.
   const perUnit = ["sqft", "linear_ft", "hour", "square"].includes(service.unit)
     ? lines.filter((l) => l.unit === service.unit).reduce((s, l) => s + l.unitPrice, 0)
-    : 0;
+    : service.unit === "each" && lines.some((l) => l.measurementKey)
+      ? lines.filter((l) => l.unit === "each").reduce((s, l) => s + l.unitPrice, 0)
+      : 0;
   // A flat-priced row with no benchmark whose lines are measured has no
   // honest flat preset: qty 1 is a fallback, not a job, and inventing a
   // "typical" area would be padding absent data. The range is null and the
