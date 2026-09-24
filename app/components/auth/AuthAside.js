@@ -136,14 +136,17 @@ export default function AuthAside({ variant = "login" }) {
 
           {variant === "signup" ? (
             // ── The card sentence ────────────────────────────────────────
-            // Said here, on the panel beside the form, rather than left for
-            // the Stripe page to spring on them. trialLabel() supplies the
+            // Said here, on the panel beside the form. Since 2026-09-24 the
+            // sentence is that there IS no card step — signup ends at
+            // Services and the plan is chosen from the app's trial banner
+            // (the owner's decision) — so the panel must not promise a
+            // checkout the form no longer opens. trialLabel() supplies the
             // offer so this cannot drift from TRIAL_PRICE the way three other
             // screens had already drifted to "$1".
             <p className="mt-6 border-t border-border pt-4 text-xs text-muted-foreground leading-relaxed">
               {t(
                 "auth.aside.signup.billing",
-                "{trial}. We take your card at checkout and the first charge lands when the free month ends. You choose the plan on the last step — the price depends on where your business is.",
+                "{trial}. No card and no plan today \u2014 you pick a plan from inside the app before the free month is up, and nothing is charged until you do.",
                 { trial: trialLabel() },
               )}
             </p>

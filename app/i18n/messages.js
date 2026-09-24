@@ -613,7 +613,7 @@ const en = {
   "auth.aside.signup.point1": "Quotes and invoices in your logo and your brand colour. Nothing your client sees mentions us.",
   "auth.aside.signup.point2": "Jobs, visits, hours and materials costed against the quote, so you know what each one made.",
   "auth.aside.signup.point3": "A booking page, a website and online payment, all pointing at the same calendar.",
-  "auth.aside.signup.billing": "{trial}. We take your card at checkout and the first charge lands when the free month ends. You choose the plan on the last step — the price depends on where your business is.",
+  "auth.aside.signup.billing": "{trial}. No card and no plan today — you pick a plan from inside the app before the free month is up, and nothing is charged until you do.",
   "auth.aside.trades": "Built for {count} trades, from painting to roofing.",
 };
 
@@ -1146,7 +1146,7 @@ const fr = {
   "auth.aside.signup.point1": "Des soumissions et des factures à votre logo et à votre couleur de marque. Rien de ce que votre client voit ne parle de nous.",
   "auth.aside.signup.point2": "Chantiers, visites, heures et matériaux comparés à la soumission, pour savoir ce que chacun vous a rapporté.",
   "auth.aside.signup.point3": "Une page de réservation, un site web et le paiement en ligne, tous branchés sur le même calendrier.",
-  "auth.aside.signup.billing": "{trial}. Nous prenons votre carte au moment du paiement et le premier prélèvement arrive à la fin du mois gratuit. Vous choisissez le forfait à la dernière étape — le prix dépend de l'endroit où se trouve votre entreprise.",
+  "auth.aside.signup.billing": "{trial}. Aucune carte ni forfait aujourd'hui — vous choisissez un forfait depuis l'application avant la fin du mois gratuit, et rien n'est facturé avant.",
   "auth.aside.trades": "Conçu pour {count} métiers, de la peinture à la toiture.",
 };
 
@@ -1674,7 +1674,7 @@ const es = {
   "auth.aside.signup.point1": "Presupuestos y facturas con su logo y su color de marca. Nada de lo que ve su cliente nos menciona.",
   "auth.aside.signup.point2": "Trabajos, visitas, horas y materiales comparados contra el presupuesto, para que sepa cuánto dejó cada uno.",
   "auth.aside.signup.point3": "Una página de reservas, un sitio web y el pago en línea, todos apuntando al mismo calendario.",
-  "auth.aside.signup.billing": "{trial}. Tomamos su tarjeta al pagar y el primer cargo llega cuando termina el mes gratis. El plan lo elige en el último paso — el precio depende de dónde esté su empresa.",
+  "auth.aside.signup.billing": "{trial}. Sin tarjeta ni plan hoy — elige un plan desde la app antes de que termine el mes gratis, y no se cobra nada hasta entonces.",
   "auth.aside.trades": "Hecho para {count} oficios, de la pintura a la techumbre.",
 };
 
@@ -2203,7 +2203,7 @@ const uk = {
   "auth.aside.signup.point1": "Кошториси та рахунки з вашим логотипом і вашим фірмовим кольором. Ніде, де бачить клієнт, нас не згадано.",
   "auth.aside.signup.point2": "Роботи, візити, години та матеріали, зіставлені з кошторисом, щоб ви знали, скільки заробила кожна.",
   "auth.aside.signup.point3": "Сторінка запису, вебсайт і оплата онлайн — усе вказує на той самий календар.",
-  "auth.aside.signup.billing": "{trial}. Ми беремо вашу картку на етапі оплати, а перше списання відбувається, коли безкоштовний місяць завершується. Тариф ви обираєте на останньому кроці — ціна залежить від того, де розташований ваш бізнес.",
+  "auth.aside.signup.billing": "{trial}. Сьогодні без картки й без тарифу — ви обираєте тариф у застосунку до кінця безкоштовного місяця, і до того нічого не списується.",
   "auth.aside.trades": "Створено для {count} ремесел — від малярних робіт до покрівлі.",
 };
 
@@ -2731,7 +2731,7 @@ const pa = {
   "auth.aside.signup.point1": "ਕੋਟ ਅਤੇ ਇਨਵੌਇਸ ਤੁਹਾਡੇ ਲੋਗੋ ਅਤੇ ਤੁਹਾਡੇ ਬ੍ਰਾਂਡ ਰੰਗ ਵਿੱਚ। ਜੋ ਕੁਝ ਤੁਹਾਡਾ ਗਾਹਕ ਵੇਖਦਾ ਹੈ, ਉਸ ਵਿੱਚ ਸਾਡਾ ਜ਼ਿਕਰ ਨਹੀਂ ਹੁੰਦਾ।",
   "auth.aside.signup.point2": "ਕੰਮ, ਵਿਜ਼ਿਟਾਂ, ਘੰਟੇ ਅਤੇ ਸਮਾਨ ਕੋਟ ਦੇ ਮੁਕਾਬਲੇ ਜੋੜੇ ਜਾਂਦੇ ਹਨ, ਤਾਂ ਜੋ ਤੁਹਾਨੂੰ ਪਤਾ ਲੱਗੇ ਕਿ ਹਰ ਕੰਮ ਨੇ ਕਿੰਨਾ ਕਮਾਇਆ।",
   "auth.aside.signup.point3": "ਇੱਕ ਬੁਕਿੰਗ ਪੰਨਾ, ਇੱਕ ਵੈੱਬਸਾਈਟ ਅਤੇ ਆਨਲਾਈਨ ਭੁਗਤਾਨ — ਸਾਰੇ ਇੱਕੋ ਕੈਲੰਡਰ ਵੱਲ ਇਸ਼ਾਰਾ ਕਰਦੇ ਹਨ।",
-  "auth.aside.signup.billing": "{trial}। ਅਸੀਂ ਚੈੱਕਆਊਟ ਉੱਤੇ ਤੁਹਾਡਾ ਕਾਰਡ ਲੈਂਦੇ ਹਾਂ ਅਤੇ ਪਹਿਲਾ ਚਾਰਜ ਉਦੋਂ ਲੱਗਦਾ ਹੈ ਜਦੋਂ ਮੁਫ਼ਤ ਮਹੀਨਾ ਖ਼ਤਮ ਹੁੰਦਾ ਹੈ। ਪਲਾਨ ਤੁਸੀਂ ਆਖ਼ਰੀ ਪੜਾਅ ਵਿੱਚ ਚੁਣਦੇ ਹੋ — ਕੀਮਤ ਇਸ ਗੱਲ ਉੱਤੇ ਨਿਰਭਰ ਕਰਦੀ ਹੈ ਕਿ ਤੁਹਾਡਾ ਕਾਰੋਬਾਰ ਕਿੱਥੇ ਹੈ।",
+  "auth.aside.signup.billing": "{trial}। ਅੱਜ ਨਾ ਕਾਰਡ ਨਾ ਪਲਾਨ — ਮੁਫ਼ਤ ਮਹੀਨਾ ਖ਼ਤਮ ਹੋਣ ਤੋਂ ਪਹਿਲਾਂ ਤੁਸੀਂ ਐਪ ਦੇ ਅੰਦਰੋਂ ਪਲਾਨ ਚੁਣਦੇ ਹੋ, ਅਤੇ ਉਦੋਂ ਤੱਕ ਕੋਈ ਚਾਰਜ ਨਹੀਂ ਲੱਗਦਾ।",
   "auth.aside.trades": "{count} ਕਿੱਤਿਆਂ ਲਈ ਬਣਾਇਆ ਗਿਆ, ਪੇਂਟਿੰਗ ਤੋਂ ਲੈ ਕੇ ਛੱਤਾਂ ਤੱਕ।",
 };
 
@@ -3264,7 +3264,7 @@ const tl = {
   "auth.aside.signup.point1": "Mga quote at invoice na may logo ninyo at kulay ng brand ninyo. Walang nakikita ang kliyente na bumabanggit sa amin.",
   "auth.aside.signup.point2": "Mga trabaho, visit, oras at materyales na tinitimbang laban sa quote, para alam ninyo kung magkano ang kinita ng bawat isa.",
   "auth.aside.signup.point3": "Isang booking page, isang website at online na bayad, lahat nakaturo sa iisang kalendaryo.",
-  "auth.aside.signup.billing": "{trial}. Kukunin namin ang card ninyo sa checkout at darating ang unang singil pagkatapos ng libreng buwan. Kayo ang pipili ng plano sa huling hakbang — nakadepende ang presyo sa kung saan naroon ang negosyo ninyo.",
+  "auth.aside.signup.billing": "{trial}. Walang card at walang plano ngayon — pipili kayo ng plano mula sa loob ng app bago matapos ang libreng buwan, at walang sisingilin hangga't hindi kayo pumipili.",
   "auth.aside.trades": "Ginawa para sa {count} uri ng trabaho, mula pintura hanggang bubong.",
 };
 
@@ -3668,7 +3668,7 @@ const de = {
   "auth.aside.signup.point1": "Angebote und Rechnungen mit Ihrem Logo und Ihrer Markenfarbe. Nichts, was Ihr Kunde sieht, erwähnt uns.",
   "auth.aside.signup.point2": "Aufträge, Termine, Stunden und Material gegen das Angebot gerechnet, damit Sie wissen, was jeder Auftrag gebracht hat.",
   "auth.aside.signup.point3": "Eine Buchungsseite, eine Website und Online-Zahlung, alle auf denselben Kalender.",
-  "auth.aside.signup.billing": "{trial}. Wir hinterlegen Ihre Karte beim Bezahlvorgang, und die erste Abbuchung erfolgt am Ende des Gratismonats. Den Tarif wählen Sie im letzten Schritt — der Preis hängt davon ab, wo Ihr Betrieb sitzt.",
+  "auth.aside.signup.billing": "{trial}. Heute weder Karte noch Tarif — Sie wählen den Tarif in der App, bevor der Gratismonat endet, und bis dahin wird nichts berechnet.",
   "auth.aside.trades": "Gebaut für {count} Gewerke, vom Malerbetrieb bis zur Dachdeckerei.",
 };
 
@@ -4059,7 +4059,7 @@ const zh = {
   "auth.aside.signup.point1": "报价单和账单用你的标志和你的品牌色。客户看到的东西里没有一处提到我们。",
   "auth.aside.signup.point2": "活儿、上门、工时和材料都对着报价来算，你就知道每一单赚了多少。",
   "auth.aside.signup.point3": "一个预约页面、一个网站和在线付款，都指向同一个日历。",
-  "auth.aside.signup.billing": "{trial}。结账时我们会记下你的银行卡，免费月结束时才第一次扣款。套餐在最后一步选——价格取决于你的生意在哪里。",
+  "auth.aside.signup.billing": "{trial}。今天不需要银行卡也不用选套餐——在免费月结束前从应用内选择套餐，选择之前不会扣款。",
   "auth.aside.trades": "为 {count} 个工种打造，从油漆到屋顶。",
 };
 
@@ -4592,7 +4592,7 @@ const it = {
   "auth.aside.signup.point1": "Preventivi e fatture con il suo logo e il suo colore aziendale. Niente di ciò che vede il cliente ci nomina.",
   "auth.aside.signup.point2": "Lavori, visite, ore e materiali confrontati con il preventivo, così sa quanto ha reso ognuno.",
   "auth.aside.signup.point3": "Una pagina di prenotazione, un sito e il pagamento online, tutti collegati allo stesso calendario.",
-  "auth.aside.signup.billing": "{trial}. Prendiamo la sua carta alla cassa e il primo addebito arriva quando finisce il mese gratuito. Il piano lo sceglie all'ultimo passaggio — il prezzo dipende da dove si trova la sua impresa.",
+  "auth.aside.signup.billing": "{trial}. Oggi nessuna carta e nessun piano — sceglie il piano dall'app prima che finisca il mese gratuito, e fino ad allora non viene addebitato nulla.",
   "auth.aside.trades": "Fatto per {count} mestieri, dalla verniciatura alla copertura dei tetti.",
 };
 

@@ -131,7 +131,7 @@ async function runEarlyTouch({ now, origin, address, from }) {
     db.company.findMany({
       where: { isDemo: false, ...incompleteSignupWhere() },
       select: {
-        id: true, name: true, email: true, isDemo: true, createdAt: true, defaultLanguage: true, industries: true,
+        id: true, name: true, email: true, isDemo: true, createdAt: true, defaultLanguage: true, industries: true, trialEndsAt: true,
         subscription: { select: { id: true } },
         salesAttribution: { select: { salesRepId: true } },
         signupLead: { select: { id: true, firstName: true, language: true, trades: true, stepReached: true, lastSeenAt: true } },

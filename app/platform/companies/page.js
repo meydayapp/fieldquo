@@ -7,7 +7,7 @@
 // there are thousands of companies, and the endpoint was already built for it.
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Search, Loader2, Building2, AlertCircle } from "lucide-react";
 import { count, money } from "@/app/components/platform/MetricCard";
@@ -43,6 +43,34 @@ function trialDaysLeft(trialEndsAt) {
   return Math.ceil(ms / 86400000);
 }
 
+/**
+ * Trialling and paying companies by country, for tax-registration tracking:
+ * where FieldQuo's customers are is where FieldQuo may have to register.
+ * Counted from the rows on screen (the API already carries country,
+ * subscription and trialEndsAt), demos left out. "Paying" is a live or
+ * past-due subscription; "trialling" is a trialing subscription OR a company
+ * with no subscription whose trial has not ended — the card-free trial
+ * (lib/billing/access.js trialAccessFor). A company with neither (trial over,
+ * no plan; cancelled) is in neither column, on purpose.
+ */
+function tallyByCountry(companies) {
+  const map = new Map();
+  for (const c of companies || []) {
+    if (c.isDemo) continue;
+    const status = c.subscription?.status;
+    const paying = status === "active" || status === "past_due";
+    const trialling =
+      status === "trialing" || (!c.subscription && c.trialEndsAt && new Date(c.trialEndsAt).getTime() > Date.now());
+    if (!paying && !trialling) continue;
+    const key = c.country || "?";
+    const row = map.get(key) || { country: key, trialling: 0, paying: 0 };
+    if (paying) row.paying++;
+    else row.trialling++;
+    map.set(key, row);
+  }
+  return [...map.values()].sort((a, b) => b.paying + b.trialling - (a.paying + a.trialling) || a.country.localeCompare(b.country));
+}
+
 export default function PlatformCompaniesPage() {
   // null, not []. On a failed load an empty array printed "No companies yet."
   // — a claim that FieldQuo has no customers, rendered directly beneath the red
@@ -52,6 +80,7 @@ export default function PlatformCompaniesPage() {
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const byCountry = useMemo(() => tallyByCountry(companies), [companies]);
 
   const load = useCallback(async (q, s) => {
     setLoading(true);
@@ -157,6 +186,22 @@ export default function PlatformCompaniesPage() {
             {count(companies.length)}{" "}
             {companies.length === 1 ? "company" : "companies"}
           </p>
+          {/* Where the customers are — trialling + paying, per country, so
+              the owner can see which tax registrations are coming. Of the
+              rows listed, so a filter narrows it too. */}
+          {byCountry.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <span className="text-muted-foreground">By country (trialling · paying):</span>
+              {byCountry.map((row) => (
+                <span
+                  key={row.country}
+                  className="px-2 py-0.5 rounded-full border border-border bg-muted text-foreground tabular-nums"
+                >
+                  <strong>{row.country}</strong> · {count(row.trialling)} trialling · {count(row.paying)} paying
+                </span>
+              ))}
+            </div>
+          )}
 
           <div className="bg-card border border-border rounded-xl divide-y divide-border overflow-hidden">
             {companies.map((c) => {
@@ -202,9 +247,17 @@ export default function PlatformCompaniesPage() {
                           separates them, on the row, without opening anything.
                           Keyed off the subscription the API already includes,
                           not off a second query or a guess. */}
+                      {/* Since 2026-09-24 a company with no subscription and a
+                          trial date is a card-free TRIAL, not an abandoned
+                          checkout (lib/billing/access.js trialAccessFor); the
+                          badge says which, and how long is left. */}
                       {!c.subscription && !c.isDemo && (
                         <span className="text-xs px-2 py-0.5 rounded-full border bg-muted text-muted-foreground border-border">
-                          Never finished checkout
+                          {!c.trialEndsAt
+                            ? "Never finished checkout"
+                            : daysLeft > 0
+                              ? `Trial · no plan yet · ${daysLeft}d left`
+                              : "Trial ended · no plan"}
                         </span>
                       )}
                       {/* Expiring trials are the single most actionable thing
