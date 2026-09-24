@@ -23,26 +23,23 @@
 // blank-but-editable first, the very first save after a slow load would write
 // an empty crew over whatever was stored — the invoice would still "save
 // fine", and the hours would be gone.
+//
+// The load itself — and the three-way seed rule — moved to
+// useInvoiceCosting.js so the document-shaped invoice builder runs the same
+// fetch at the top of its screen; this card is the classic form's face of it.
 "use client";
 
-import { useEffect, useRef, useState } from "react";
 import { AlertCircle } from "lucide-react";
 import CostMarginPanel from "@/app/components/quotes/builder/CostMarginPanel";
 import { invoiceCostSummary } from "@/lib/costing/actualJobCost";
+import { useInvoiceCosting, emptyCosting } from "./useInvoiceCosting";
+
+export { emptyCosting };
 
 // Same target the quote builder uses. Above it the badge is green, below it
 // amber; a job is not scored against a different bar because it reached the
 // invoice stage.
 const MARGIN_TARGET = 30;
-// Only consulted when the company hasn't told us their real cost per job.
-const DEFAULT_OVERHEAD_PCT = 10;
-
-export const emptyCosting = () => ({
-  crew: [],
-  materialCost: "",
-  overheadPct: DEFAULT_OVERHEAD_PCT,
-  note: "",
-});
 
 export default function InvoiceCostSection({
   invoiceId = null,
@@ -51,70 +48,9 @@ export default function InvoiceCostSection({
   value,
   onChange,
 }) {
-  const [boot, setBoot] = useState(null);
-  const [state, setState] = useState("loading"); // loading | ready | denied | error
-
-  // The parent owns the value so it can post it with the invoice, but the
-  // seed arrives here. A ref keeps the fetch effect from re-running every time
-  // the user types a digit.
-  const onChangeRef = useRef(onChange);
-  onChangeRef.current = onChange;
-  const seeded = useRef(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    const qs = invoiceId ? `?invoiceId=${encodeURIComponent(invoiceId)}` : "";
-    (async () => {
-      try {
-        const res = await fetch(`/api/invoices/costing${qs}`);
-        if (cancelled) return;
-        if (res.status === 403) {
-          // No jobCosting permission. Render nothing at all rather than an
-          // empty panel: a panel that shows $0 margin because the reader isn't
-          // allowed to see the numbers is worse than no panel.
-          setState("denied");
-          onChangeRef.current?.(null);
-          return;
-        }
-        if (!res.ok) throw new Error("load failed");
-        const data = await res.json();
-        if (cancelled) return;
-        setBoot(data);
-        setState("ready");
-
-        if (seeded.current) return;
-        seeded.current = true;
-
-        if (data.saved) {
-          // Saved wins. The server doesn't even look at the timesheets once a
-          // costing row exists — an edited 6.5 must not become 8 again on the
-          // next page load.
-          onChangeRef.current?.({
-            crew: data.saved.crew || [],
-            materialCost: data.saved.materialCost || "",
-            overheadPct: data.saved.overheadPct ?? DEFAULT_OVERHEAD_PCT,
-            note: data.saved.note || "",
-          });
-        } else if (data.seed?.crew?.length) {
-          onChangeRef.current?.({
-            ...emptyCosting(),
-            crew: data.seed.crew,
-          });
-        } else {
-          onChangeRef.current?.(emptyCosting());
-        }
-      } catch {
-        if (cancelled) return;
-        // Say so, and refuse to edit. A silent failure here means the next
-        // save posts an empty crew over a real one.
-        setState("error");
-        onChangeRef.current?.(null);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [invoiceId]);
+  // The parent owns the value so it can post it with the invoice; the seed
+  // arrives through the hook, once.
+  const { boot, state } = useInvoiceCosting(invoiceId, onChange);
 
   if (state === "denied") return null;
   if (state === "loading")

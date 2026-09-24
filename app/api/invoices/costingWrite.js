@@ -18,6 +18,7 @@
 import { normaliseInvoiceCosting, invoiceCostSummary } from "@/lib/costing/actualJobCost";
 import { calculateMinimumPrice } from "@/lib/analytics/minimumPrice";
 import { hasToggle } from "@/lib/permissions/enforce";
+import { lineItemCostOf } from "@/lib/costing/lineItemCost";
 
 /**
  * Turn a request body's `costing` into the row to persist.
@@ -27,7 +28,7 @@ import { hasToggle } from "@/lib/permissions/enforce";
  *          than blanking it, because "this request didn't mention costing" is
  *          not "delete the costing".
  */
-export async function buildCostingRow({ companyId, costing, price }) {
+export async function buildCostingRow({ companyId, costing, price, lineItems = [] }) {
   const clean = normaliseInvoiceCosting(costing);
   if (!clean) return null;
 
@@ -52,6 +53,10 @@ export async function buildCostingRow({ companyId, costing, price }) {
     overheadPct: clean.overheadPct,
     overheadPerJob,
     price,
+    // The invoice's own lines' cost — quantity × the unitCost each line
+    // carries (lib/costing/lineItemCost.js), off the lines the route is
+    // about to store rather than a figure the browser asserts.
+    lineItemCost: lineItemCostOf(lineItems),
   });
 
   return {
@@ -59,6 +64,7 @@ export async function buildCostingRow({ companyId, costing, price }) {
     materialCost: clean.materialCost,
     overheadPct: clean.overheadPct,
     note: clean.note,
+    lineItemCost: summary.lineItemCost,
     labourHours: summary.labourHours,
     labourCost: summary.labourCost,
     overhead: summary.overhead,

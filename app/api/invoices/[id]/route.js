@@ -269,6 +269,9 @@ export async function PATCH(request, { params }) {
           companyId: member.companyId,
           costing,
           price: costingPrice,
+          // The lines this PATCH stores, else the ones already stored — the
+          // cost of the lines follows the lines.
+          lineItems: lineItems !== undefined ? lineItems : existing.lineItems,
         })
       : null;
 
@@ -370,6 +373,7 @@ export async function PATCH(request, { params }) {
             materialCost: existing.costing.materialCost,
             overheadPct: existing.costing.overheadPct,
             note: existing.costing.note,
+            lineItemCost: existing.costing.lineItemCost,
             labourHours: existing.costing.labourHours,
             labourCost: existing.costing.labourCost,
             overhead: existing.costing.overhead,

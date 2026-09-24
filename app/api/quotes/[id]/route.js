@@ -245,6 +245,9 @@ export async function PATCH(request, { params }) {
           // accepting a quote re-costed it from no intake and wrote zeroes over
           // the figures it was priced at.
           intakeValues: true,
+          // And the lines, for their own cost (lib/costing/lineItemCost.js):
+          // a status-only PATCH re-costs from the stored lines' unitCost.
+          lineItems: true,
         },
         orderBy: { sortOrder: "asc" },
       },

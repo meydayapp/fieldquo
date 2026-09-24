@@ -1,8 +1,20 @@
 // app/app/invoices/new/page.js
+//
+// Raising an invoice from scratch.
+//
+// The screen is the document-shaped builder — app/components/invoices/
+// builder/InvoiceBuilder.js, the same DocumentBuilder a quote is drawn by,
+// with kind="invoice" (the owner, 2026-09-23: "a new invoice should be the
+// same as creating a new quote, except that it is an invoice"). The form it
+// replaced is kept BELOW, verbatim, as ClassicNewInvoicePage, and served on
+// this same route behind ?layout=classic until the document is proven on
+// the owner's own invoices — so nothing a hand knows is gone, only not the
+// default. Remove the classic form, and this note, once it has been.
 "use client";
 
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import InvoiceBuilder from "@/app/components/invoices/builder/InvoiceBuilder";
 import { Plus, X, Trash2, Search, Clock, WifiOff } from "lucide-react";
 import Link from "next/link";
 import { fetchJson } from "@/lib/fetchJson";
@@ -22,6 +34,16 @@ import { taxLineHeadline, taxLineSource, taxLineResolved, taxLineUnresolvedHint 
 import { taxPlaceOf } from "@/lib/quotes/taxPlace";
 
 export default function NewInvoicePage() {
+  const searchParams = useSearchParams();
+  if (searchParams.get("layout") === "classic") return <ClassicNewInvoicePage />;
+  // The client and the job the URL names (/app/invoices/new?jobId=&clientId=,
+  // from a job page) — read here, by the hook this route has always used,
+  // and handed down, so the builder itself never needs the hook.
+  return <InvoiceBuilder mode="create" clientId={searchParams.get("clientId")} jobId={searchParams.get("jobId")} />;
+}
+
+/** The form this route drew until 2026-09-23 — reachable behind ?layout=classic. */
+export function ClassicNewInvoicePage() {
   // The company's billing currency, read off whatever this page already
   // loaded. Null falls back to the schema default inside the formatter — the
   // point is that it is no longer a hardcoded "$" with no grouping.

@@ -117,6 +117,7 @@ import P114 from "@/app/app/invoices/new/page.js";
 import P115 from "@/docs/screens/app-guide/harness/PaintRatesFrame.jsx";
 import P116 from "@/app/app/settings/presentation/page.js";
 import P117 from "@/app/co/[token]/ChangeOrderApproval.js";
+import P118 from "@/app/app/invoices/[id]/edit/page.js";
 export const PAGES = {
   "app/app/page.js": P0,
   "app/app/leads/page.js": P1,
@@ -236,4 +237,5 @@ export const PAGES = {
   "docs/screens/app-guide/harness/PaintRatesFrame.jsx": P115,
   "app/app/settings/presentation/page.js": P116,
   "app/co/[token]/ChangeOrderApproval.js": P117,
+  "app/app/invoices/[id]/edit/page.js": P118,
 };
