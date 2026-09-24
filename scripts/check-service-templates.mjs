@@ -37,6 +37,12 @@
 //      through the same loader and their totals after discount equal the
 //      capture's; no captured description is copied into a line.
 //   E. No client-facing route imports lib/services/templates.js.
+//   F. The preset library (lib/services/presetLibrary.js): the rounding step
+//      follows the median's magnitude, every figure of a row shares it, a
+//      point stays a point (no Min/Max padded), an unconvertible currency
+//      gives no range, the company's enabled trades come first, "Your price"
+//      is the company's own row by seed key (services) or by name (add-ons),
+//      and the position rule (below / in / above) is exact at the edges.
 
 import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
@@ -57,6 +63,7 @@ import {
 import { seedText, seedTemplateFor, planServiceSeeds, TEMPLATE_LANGUAGES } from "@/lib/services/seeds";
 import { productDataForSeed } from "@/lib/products/seedServices";
 import { templatesFromCapture } from "@/lib/services/templateImport";
+import { presetStep, roundToStep, presetRange, libraryTrades, libraryForTrade, positionInRange } from "@/lib/services/presetLibrary";
 
 let passed = 0;
 let fail = 0;
@@ -279,6 +286,39 @@ section("E — nothing client-facing imports the templates");
       ok(!/lib\/services\/templates|lib\/services\/templateImport/.test(src), `${f}: does not import the templates`);
     }
   }
+}
+
+section("F — the preset library");
+{
+  ok(presetStep(12) === 5 && presetStep(49.99) === 5 && presetStep(50) === 10 && presetStep(499) === 10 && presetStep(500) === 25 && presetStep(1999) === 25 && presetStep(2000) === 50 && presetStep(-1) === 1 && presetStep("x") === 1, "rounding step by median magnitude");
+  ok(roundToStep(1090, 25) === 1100 && roundToStep(1112, 25) === 1100 && roundToStep(2, 5) === 5 && roundToStep(0, 5) === null && roundToStep(null, 5) === null, "roundToStep: nearest step, a positive figure never rounds to zero, null stays null");
+  const bm = { low: 200, median: 400, high: 1090, currency: "USD", source: "benchmark", asOf: "2026-09-21" };
+  const usd = presetRange(bm, "USD");
+  ok(usd.min === 200 && usd.median === 400 && usd.max === 1090 && usd.step === 10, "USD: rounded to the row's $10 step", usd);
+  const cad = presetRange(bm, "CAD");
+  ok(cad.min === 275 && cad.median === 550 && cad.max === 1500 && cad.step === 25 && cad.currency === "CAD", "CAD: converted by benchmarkFx ($274 · $548 · $1,493) then rounded to the $25 step a $550 median takes", cad);
+  ok(presetRange(bm, "GBP") === null && presetRange(null, "CAD") === null && presetRange({ median: 0 }, "CAD") === null, "unconvertible currency or no median → no range");
+  const point = presetRange({ low: null, median: 1130, high: null, currency: "USD", source: "benchmark" }, "USD");
+  ok(point.min === null && point.max === null && point.median === 1125, "a point stays a point — no Min/Max padded", point);
+  const trades = libraryTrades(["plumbing", "not_a_trade", "electrical"]);
+  ok(trades[0].key === "plumbing" && trades[1].key === "electrical" && trades[0].enabled && !trades[2].enabled, "enabled seeded trades first, unknown keys ignored", trades.slice(0, 3));
+  ok(libraryTrades().length === trades.length && libraryTrades("x").length === trades.length, "no enabled list → every seeded trade");
+  const products = [
+    { id: "p1", seedKey: "fq.electrical.specialty.ev_charger", unitPrice: "890", unit: "each", name: "EV charger installation" },
+    { id: "p2", name: "  soft-close hinges ", unitPrice: 35, unit: "door" },
+  ];
+  const lib = libraryForTrade("electrical", { products, currency: "CAD", language: "fr" });
+  const ev = lib.services.find((s) => s.seedKey === "fq.electrical.specialty.ev_charger");
+  ok(ev && ev.product?.id === "p1" && ev.product.unitPrice === 890 && ev.name.startsWith("Installation de borne"), "service row: the company's row by seed key, price as a number, name in the reader's language", ev);
+  ok(lib.services.every((s) => s.product === null || s.product.id === "p1"), "no other service claims a product");
+  ok(lib.services.some((s) => s.range && s.range.currency === "CAD"), "ranges in the company's currency");
+  const cab = libraryForTrade("cabinet_refinishing", { products, currency: "CAD" });
+  ok(cab === null, "a trade without a seed → null (the page shows only seeded trades)");
+  ok(libraryForTrade("nope") === null && libraryForTrade("constructor") === null, "unknown trade → null, not Object's");
+  const plumbing = libraryForTrade("plumbing", { products: "nope", currency: "CAD" });
+  ok(plumbing.services.length > 0 && plumbing.services.every((s) => s.product === null), "hostile products → every row unmatched, nothing thrown");
+  ok(positionInRange(150, { min: 200, median: 400, max: 1090 }) === "below" && positionInRange(200, { min: 200, median: 400, max: 1090 }) === "in" && positionInRange(1090, { min: 200, median: 400, max: 1090 }) === "in" && positionInRange(1091, { min: 200, median: 400, max: 1090 }) === "above", "position: edges are inside");
+  ok(positionInRange(500, { min: null, median: 400, max: null }) === "above" && positionInRange(null, { min: 1, median: 2, max: 3 }) === null && positionInRange(5, null) === null && positionInRange(0, { min: 1, median: 2, max: 3 }) === null, "position: a point compares against itself; missing price or range → null");
 }
 
 console.log(`\n${passed} passed, ${fail} failed`);

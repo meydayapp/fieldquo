@@ -133,14 +133,20 @@ export default function TermsPage() {
         trusting a number sent from a browser.
       </p>
 
-      <h2>7. Industry benchmarking (opt-in)</h2>
+      <h2>7. Industry benchmarking (on by default, switch off in Settings)</h2>
       <p>
-        In Settings, you can choose to share your company's anonymised
-        pricing and conversion figures into a pooled industry benchmark, so
-        FieldQuo can show you how your numbers compare to similar
-        businesses. This is off by default, applies only to aggregate
-        figures (never your client-level data), and you can turn it off at
-        any time. Full detail is in our Privacy Policy, Section 7.
+        By accepting these Terms, your company agrees that its anonymised
+        pricing and conversion figures are pooled into an industry benchmark
+        that shows you, and other businesses like yours, how your numbers
+        compare. Sharing is on by default from the day your account is
+        created; it applies only to aggregate figures (never your
+        client-level data, never a figure attributed to your company), it
+        is only published where enough companies contribute that no single
+        company's figures can be worked out, and you can switch it off at
+        any time in Settings &rsaquo; Company. Switching it off stops your
+        figures from joining the pool and, while it is off, stops the
+        comparison from being shown to you. Full detail is in our Privacy
+        Policy, Section 7.
       </p>
 
       <h2>8. Automatic recurring payments you set up with your clients</h2>

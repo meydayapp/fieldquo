@@ -38,6 +38,7 @@ import PrepGuideCompanyCard from "./PrepGuideCompanyCard";
 import TextBlockLibraryCard from "./TextBlockLibraryCard";
 import ServiceDocuments from "./ServiceDocuments";
 import ServiceSeedsCard from "./ServiceSeedsCard";
+import ServiceTemplatesCard from "./ServiceTemplatesCard";
 import { usePermissions } from "@/app/providers/PermissionProvider";
 import { hasLevel } from "@/lib/permissions/enforce";
 import BackToHome from "@/app/components/BackToHome";
@@ -795,6 +796,20 @@ export default function ServicesEditor({ compact = false, focus = "services", on
                   the rates: it is prices. */}
               {showRates && c.enabled && !c.pricingHidden && (
                 <ServiceSeedsCard
+                  category={c}
+                  currency={currency}
+                  canEdit={["owner", "admin"].includes(caller?.role)}
+                  products={products}
+                  productsError={productsError}
+                  onProductsChange={loadProducts}
+                />
+              )}
+
+              {/* The estimate template inside each of the trade's services —
+                  its labour / material / other lines, discount and photo —
+                  see ServiceTemplatesCard. Same products, same gate. */}
+              {showRates && c.enabled && !c.pricingHidden && (
+                <ServiceTemplatesCard
                   category={c}
                   currency={currency}
                   canEdit={["owner", "admin"].includes(caller?.role)}
