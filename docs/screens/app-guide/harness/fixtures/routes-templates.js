@@ -15,7 +15,7 @@
 //                  company in the live database on 2026-09-24.
 //
 // Every other screen falls through to the group files.
-import capture from "../../../../research/hcp-estimate-templates-electrical.json";
+import { CAPTURE as capture } from "./estimate-templates-electrical.js";
 import { COMPANY, day, iso } from "./company.js";
 import { SERVICE_CATEGORIES, PRODUCTS_FIXTURE, BUSINESS_INFO_FIXTURE, systemCategory } from "./routes-settings-a.js";
 import { templatesFromCapture } from "@/lib/services/templateImport";
@@ -35,8 +35,8 @@ const CABINET_PRODUCTS = PRODUCTS_FIXTURE.map((p) => {
       ...p,
       imageUrl: null,
       templateLines: [
-        { kind: "labour", name: "Hinge fitting — per door", description: "Old hinges out, new ones bored and fitted, door realigned.", qty: 1, unit: "each", unitPrice: 6.5, unitCost: 3.25, taxable: true },
-        { kind: "material", name: "Blum Clip-top 110° soft-close hinge", description: "Two per door with mounting plates.", qty: 2, unit: "each", unitPrice: 4, unitCost: 2.9, taxable: true },
+        { kind: "labour", name: "Hinge fitting — per door", description: "Old hinges out, new ones bored and fitted, door realigned.", qty: 1, unit: "each", unitPrice: 6.5, unitCost: 3.25, taxable: true, measurementKey: "doorCount" },
+        { kind: "material", name: "Blum Clip-top 110° soft-close hinge", description: "Two per door with mounting plates.", qty: 2, unit: "each", unitPrice: 4, unitCost: 2.9, taxable: true, measurementKey: "doorCount", wastePct: 5 },
       ],
       defaultDiscount: { name: "Bundle discount", kind: "percent", amount: 5 },
     };

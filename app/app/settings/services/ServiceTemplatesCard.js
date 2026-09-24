@@ -31,15 +31,15 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, ChevronRight, ImagePlus, Loader2, Plus, X } from "lucide-react";
+import { ChevronDown, ChevronRight, ImagePlus, Loader2, Plus, Ruler, X } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { reportResponseError } from "@/lib/clientErrors";
 import { fetchJson } from "@/lib/fetchJson";
 import { formatMoney } from "@/lib/currency";
 import { benchmarkForSeedKey } from "@/lib/services/seeds";
+import { MEASUREMENT_KEYS as MEASUREMENT_REGISTRY, MEASUREMENT_KEY_LIST } from "@/lib/services/measurementKeys";
 import {
   LINE_KINDS,
-  MEASUREMENT_KEYS,
   expandTemplate,
   templateTotals,
   groupLinesByKind,
@@ -49,9 +49,6 @@ import {
 import BenchmarkRange from "@/app/components/pricing/BenchmarkRange";
 
 const UNITS = ["flat", "each", "hour", "sqft", "linear_ft", "square"];
-
-/** Trades whose lines may take their quantity from the satellite roof report. */
-const MEASURED_TRADES = new Set(["roofing_service"]);
 
 const whole = (n, currency, language) =>
   n == null ? "" : formatMoney(n, currency, language).replace(/[.,]00(?=\D*$)/, "");
@@ -195,7 +192,10 @@ function TemplateEditor({ product, category, currency, language, canEdit, onSave
   const [uploading, setUploading] = useState(false);
   const [msg, setMsg] = useState(null);
   const fileRef = useRef(null);
-  const measured = MEASURED_TRADES.has(category.key);
+  // Every trade measures something — a painter's wall sq ft, a stair
+  // builder's treads, a roofer's squares — so the picker is offered on every
+  // line, from the one registry (lib/services/measurementKeys.js).
+  const measureLabel = (k) => t(`app.serviceTemplates.measure_${k}`, MEASUREMENT_REGISTRY[k]?.label || k);
 
   // A fresh row from the server (after a save elsewhere) resets an untouched draft.
   const dirty = useMemo(() => JSON.stringify(payloadFrom(draft)) !== JSON.stringify(payloadFrom(draftFrom(product))), [draft, product]);
@@ -305,10 +305,19 @@ function TemplateEditor({ product, category, currency, language, canEdit, onSave
                     <div className="col-span-2 sm:col-span-5">
                       <label className="block text-[11px] text-muted-foreground">{t("app.serviceTemplates.lineName", "Line")}</label>
                       <input className={input} value={l.name} disabled={!canEdit} onChange={(e) => setLine(l._i, { name: e.target.value })} placeholder={t("app.serviceTemplates.lineNamePlaceholder", "What is done, or what is supplied")} />
+                      {l.measurementKey && (
+                        <span data-measurement-chip className="mt-1 inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2 py-0.5 text-[11px] text-foreground">
+                          <Ruler size={11} />
+                          {t("app.serviceTemplates.qtyFrom", { measure: measureLabel(l.measurementKey) })}
+                          {l.kind === "material" && l.wastePct ? ` +${l.wastePct}%` : ""}
+                        </span>
+                      )}
                     </div>
                     <div className="sm:col-span-2">
                       <label className="block text-[11px] text-muted-foreground">{t("app.serviceTemplates.qty", "Qty")}</label>
-                      <input className={num} type="number" min="0" step="any" value={l.qty} disabled={!canEdit || Boolean(l.measurementKey)} onChange={(e) => setLine(l._i, { qty: e.target.value })} />
+                      {/* Editable even when a measurement fills it: this qty is what the
+                          estimate opens with when the takeoff has no figure yet. */}
+                      <input className={num} type="number" min="0" step="any" value={l.qty} disabled={!canEdit} onChange={(e) => setLine(l._i, { qty: e.target.value })} title={l.measurementKey ? t("app.serviceTemplates.qtyFallback", "Used until the takeoff supplies the figure") : undefined} />
                     </div>
                     <div className="sm:col-span-2">
                       <label className="block text-[11px] text-muted-foreground">{t("app.serviceTemplates.unit", "Unit")}</label>
@@ -339,22 +348,23 @@ function TemplateEditor({ product, category, currency, language, canEdit, onSave
                         {t("app.serviceTemplates.taxable", "Taxable")}
                       </label>
                     </div>
-                    {measured && (
-                      <div className="sm:col-span-3">
-                        <label className="block text-[11px] text-muted-foreground">{t("app.serviceTemplates.measurement", "Qty from roof report")}</label>
-                        <div className="flex gap-1">
-                          <select className={input} value={l.measurementKey} disabled={!canEdit} onChange={(e) => setLine(l._i, { measurementKey: e.target.value })}>
-                            <option value="">{t("app.serviceTemplates.measurementNone", "Typed qty")}</option>
-                            {MEASUREMENT_KEYS.map((k) => (
-                              <option key={k} value={k}>{t(`app.serviceTemplates.measure_${k}`, k)}</option>
-                            ))}
-                          </select>
-                          {l.measurementKey && (
-                            <input className={`${num} w-20`} type="number" min="0" max="50" step="0.5" value={l.wastePct} disabled={!canEdit} onChange={(e) => setLine(l._i, { wastePct: e.target.value })} placeholder={t("app.serviceTemplates.wastePct", "Waste %")} title={t("app.serviceTemplates.wastePct", "Waste %")} />
-                          )}
-                        </div>
+                    <div className="sm:col-span-3">
+                      <label className="block text-[11px] text-muted-foreground">{t("app.serviceTemplates.measurement", "Qty from the takeoff")}</label>
+                      <div className="flex gap-1">
+                        <select className={input} value={l.measurementKey} disabled={!canEdit} onChange={(e) => setLine(l._i, { measurementKey: e.target.value })}>
+                          <option value="">{t("app.serviceTemplates.measurementNone", "Typed qty")}</option>
+                          {MEASUREMENT_KEY_LIST.map((k) => (
+                            <option key={k} value={k}>{measureLabel(k)}</option>
+                          ))}
+                        </select>
+                        {/* Waste is a material modifier — an extra 10 % of
+                            shingles is real, an extra 10 % of labour is not —
+                            so the box is offered on material lines only. */}
+                        {l.measurementKey && l.kind === "material" && (
+                          <input className={`${num} w-20`} type="number" min="0" max="50" step="0.5" value={l.wastePct} disabled={!canEdit} onChange={(e) => setLine(l._i, { wastePct: e.target.value })} placeholder={t("app.serviceTemplates.wastePct", "Waste %")} title={t("app.serviceTemplates.wastePct", "Waste %")} />
+                        )}
                       </div>
-                    )}
+                    </div>
                   </div>
                 </div>
               ))}

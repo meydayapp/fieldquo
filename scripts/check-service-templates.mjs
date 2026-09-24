@@ -37,6 +37,13 @@
 //      through the same loader and their totals after discount equal the
 //      capture's; no captured description is copied into a line.
 //   E. No client-facing route imports lib/services/templates.js.
+//   G. The measurement registry (lib/services/measurementKeys.js): every key
+//      is a name a takeoff module really produces — executed against the
+//      paint geometry and the stairs derivation — plus the roof shape; an
+//      unknown key is rejected by validateTemplateLines and ignored by the
+//      sanitiser; a measured line takes its qty from a flat object or from
+//      summariseRoof's nested shape and is flagged needsMeasurement when the
+//      figure is missing; waste applies to material lines only.
 //   F. The preset library (lib/services/presetLibrary.js): the rounding step
 //      follows the median's magnitude, every figure of a row shares it, a
 //      point stays a point (no Min/Max padded), an unconvertible currency
@@ -59,7 +66,12 @@ import {
   templateTotals,
   groupLinesByKind,
   measurementValue,
+  validateTemplateLines,
 } from "@/lib/services/templates";
+import { MEASUREMENT_KEYS as REGISTRY, MEASUREMENT_KEY_LIST, isMeasurementKey } from "@/lib/services/measurementKeys";
+import { derivedGeometry } from "@/lib/pricing/paintTakeoff";
+import { stairsFromSteps } from "@/lib/estimate/stairsFromSteps";
+import { CAPTURE } from "../docs/screens/app-guide/harness/fixtures/estimate-templates-electrical.js";
 import { seedText, seedTemplateFor, planServiceSeeds, TEMPLATE_LANGUAGES } from "@/lib/services/seeds";
 import { productDataForSeed } from "@/lib/products/seedServices";
 import { templatesFromCapture } from "@/lib/services/templateImport";
@@ -319,6 +331,51 @@ section("F — the preset library");
   ok(plumbing.services.length > 0 && plumbing.services.every((s) => s.product === null), "hostile products → every row unmatched, nothing thrown");
   ok(positionInRange(150, { min: 200, median: 400, max: 1090 }) === "below" && positionInRange(200, { min: 200, median: 400, max: 1090 }) === "in" && positionInRange(1090, { min: 200, median: 400, max: 1090 }) === "in" && positionInRange(1091, { min: 200, median: 400, max: 1090 }) === "above", "position: edges are inside");
   ok(positionInRange(500, { min: null, median: 400, max: null }) === "above" && positionInRange(null, { min: 1, median: 2, max: 3 }) === null && positionInRange(5, null) === null && positionInRange(0, { min: 1, median: 2, max: 3 }) === null, "position: a point compares against itself; missing price or range → null");
+}
+
+section("G — the measurement registry, against the takeoffs that produce the keys");
+{
+  ok(MEASUREMENT_KEY_LIST.length >= 20 && MEASUREMENT_KEYS === MEASUREMENT_KEY_LIST, "templates.js re-exports the registry's key list", MEASUREMENT_KEY_LIST.length);
+  ok(MEASUREMENT_KEY_LIST.every((k) => REGISTRY[k].label && REGISTRY[k].unit && REGISTRY[k].kind && REGISTRY[k].source), "every key carries label, unit, kind, source");
+  ok(!isMeasurementKey("constructor") && !isMeasurementKey("stepFlashingFt") && !isMeasurementKey("wastePct") && !isMeasurementKey(null), "unregistered names are not keys (constructor, stepFlashingFt, wastePct)");
+  // Paint: the geometry the takeoff derives for a 12 × 10 × 8 room.
+  const room = derivedGeometry({ lengthFt: 12, widthFt: 10, heightFt: 8 });
+  for (const k of ["wallSqft", "ceilingSqft", "floorSqft", "linearFt"]) ok(isMeasurementKey(k) && Number.isFinite(room[k]), `paint key "${k}" is produced by derivedGeometry`, room[k]);
+  ok(measurementValue(room, "wallSqft") === 352 && measurementValue(room, "linearFt") === 44, "wallSqft 352 and linearFt 44 read off the geometry", room);
+  // Stairs: the derivation for a 14-step straight flight.
+  const stairs = stairsFromSteps({ steps: 14, shape: "straight" });
+  for (const k of ["steps", "treads", "risers", "balusters", "posts", "handrailFt"]) ok(isMeasurementKey(k) && stairs && k in stairs, `stairs key "${k}" is produced by stairsFromSteps`, stairs?.[k]);
+  ok(measurementValue(stairs, "balusters") === 28 && measurementValue(stairs, "treads") === 14, "balusters 28 and treads 14 read off the derivation", stairs);
+  // Roofing: summariseRoof's shape, linear feet nested.
+  const roof = { areaSqft: 2140, squares: 21.4, footprintSqft: 1620, linear: { eaveFt: 120, ridgeFt: 44, hipFt: 0, valleyFt: 18, rakeFt: 60, perimeterFt: 180 } };
+  for (const k of ["squares", "areaSqft", "footprintSqft", "eaveFt", "rakeFt", "ridgeFt", "hipFt", "valleyFt", "perimeterFt"]) ok(isMeasurementKey(k) && measurementValue(roof, k) !== null, `roof key "${k}" reads off summariseRoof's shape`, measurementValue(roof, k));
+  // Cabinets: the intake the instant estimate reads.
+  for (const k of ["doorCount", "drawerCount", "boxLinearFt"]) ok(isMeasurementKey(k), `cabinet key "${k}" registered`);
+  ok(measurementValue({ doorCount: "12" }, "doorCount") === 12 && measurementValue({ doorCount: "twelve" }, "doorCount") === null && measurementValue({ doorCount: true }, "doorCount") === null, "a numeric string reads, a word or a boolean does not");
+  // Seed validation rejects; the sanitiser ignores.
+  const bad = [{ kind: "material", name: "Shingles", measurementKey: "stepFlashingFt" }, { kind: "labour", name: "Tear-off", measurementKey: "squares", wastePct: 10 }, { kind: "material", name: "Cap", measurementKey: "ridgeFt", wastePct: 99 }];
+  const problems = validateTemplateLines(bad);
+  ok(problems.length === 3 && /stepFlashingFt/.test(problems[0]) && /material modifier/.test(problems[1]) && /outside/.test(problems[2]), "validateTemplateLines names the unknown key, waste on labour, and waste out of range", problems);
+  ok(validateTemplateLines(null).length === 0 && validateTemplateLines("x").length === 1 && validateTemplateLines([{ kind: "material", name: "ok", measurementKey: "squares", wastePct: 10 }]).length === 0, "null is clean, a non-array is one problem, a good line is clean");
+  const san = sanitiseTemplateLines(bad);
+  ok(!("measurementKey" in san[0]) && san[1].measurementKey === "squares" && !("wastePct" in san[1]) && san[2].wastePct === 50, "sanitiser: unknown key dropped, labour waste dropped, material waste clamped", san);
+  // Expansion: every trade's figure fills qty; missing → needsMeasurement.
+  const product = { templateLines: [
+    { kind: "labour", name: "Walls — two coats", qty: 1, unit: "sqft", unitPrice: 1.2, unitCost: 0.6, measurementKey: "wallSqft" },
+    { kind: "material", name: "Balusters", qty: 1, unit: "each", unitPrice: 18, unitCost: 12, measurementKey: "balusters", wastePct: 10 },
+    { kind: "labour", name: "Hinge fitting", qty: 1, unit: "each", unitPrice: 6.5, unitCost: 3, measurementKey: "doorCount", wastePct: 10 },
+    { kind: "material", name: "Shingles", qty: 5, unit: "square", unitPrice: 120, unitCost: 90, measurementKey: "squares", wastePct: 10 },
+  ] };
+  const ex = expandTemplate(product, { measurements: { ...room, ...stairs, doorCount: 12 }, currency: "CAD" });
+  ok(ex[0].quantity === 352 && ex[0].measured && !ex[0].needsMeasurement && ex[0].amount === 422.4, "painter: wall sq ft fills the qty", ex[0]);
+  ok(ex[1].quantity === 30.8 && ex[1].measured, "stairs: 28 balusters × 1.10 waste on a material line", ex[1]);
+  ok(ex[2].quantity === 12 && ex[2].wastePct === 0, "cabinets: 12 doors, waste ignored on a labour line", ex[2]);
+  ok(ex[3].quantity === 5 && ex[3].needsMeasurement && !ex[3].measured && ex[3].warnings.includes("measurement:squares"), "no roof report: seed qty kept, needsMeasurement flagged", ex[3]);
+  const none = expandTemplate(product, { currency: "CAD" });
+  ok(none.every((l) => l.needsMeasurement) && none[1].quantity === 1, "no measurements at all: every measured line asks, seed qty kept", none.map((l) => l.quantity));
+  const hostile = expandTemplate(product, { measurements: { wallSqft: "abc", balusters: -3, doorCount: Infinity, squares: null }, currency: "CAD" });
+  ok(hostile.every((l) => l.needsMeasurement), "non-numeric, negative, infinite and null figures all ask rather than fill", hostile.map((l) => l.quantity));
+  ok(JSON.stringify(CAPTURE) === JSON.stringify(JSON.parse(read("docs/research/hcp-estimate-templates-electrical.json"))), "the harness's JS copy of the capture equals the research JSON");
 }
 
 console.log(`\n${passed} passed, ${fail} failed`);
