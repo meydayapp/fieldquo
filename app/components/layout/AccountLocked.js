@@ -29,6 +29,10 @@ export default function AccountLocked({ reason, companyName }) {
   // Said plainly, with no "start again" button: the way back is a
   // conversation with support, not a card.
   const terms = reason === "terms";
+  // A free trial that ran out with no plan chosen (lib/billing/access.js
+  // trialAccessFor). Nobody's card failed, so "update my card" would send
+  // them looking for a card they never entered.
+  const trial = reason === "trial_expired_locked";
 
   return (
     <main className="min-h-screen grid place-items-center p-6 bg-background">
@@ -38,7 +42,7 @@ export default function AccountLocked({ reason, companyName }) {
         </div>
 
         <h1 className="text-xl font-bold text-foreground mt-5">
-          {terms ? "This account was closed by FieldQuo" : cancelled ? "This subscription was cancelled" : "Your account is locked"}
+          {terms ? "This account was closed by FieldQuo" : cancelled ? "This subscription was cancelled" : trial ? "Your free trial has ended" : "Your account is locked"}
         </h1>
 
         <p className="text-sm text-muted-foreground mt-2">
@@ -54,6 +58,12 @@ export default function AccountLocked({ reason, companyName }) {
               {companyName ? <strong>{companyName}</strong> : "This account"} was
               cancelled, and the thirty days of read-only access have run out.
               Starting the plan again turns everything back on straight away.
+            </>
+          ) : trial ? (
+            <>
+              {companyName ? <strong>{companyName}</strong> : "This account"}&apos;s free
+              trial is over and the seven days of read-only access have run out.
+              Choosing a plan turns everything back on straight away.
             </>
           ) : (
             <>
@@ -80,7 +90,7 @@ export default function AccountLocked({ reason, companyName }) {
           className="mt-6 inline-flex items-center gap-2 px-6 py-3 rounded-full bg-inverted text-inverted-foreground text-sm font-bold"
         >
           <CreditCard size={16} />
-          {cancelled ? "Start my subscription again" : "Update my card"}
+          {cancelled ? "Start my subscription again" : trial ? "Choose a plan" : "Update my card"}
         </Link>
         ) : null}
 

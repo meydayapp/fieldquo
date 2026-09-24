@@ -39,6 +39,34 @@ export const INTRO_FRAMES = INTRO_TAKEOFF_TRADES.map((trade) => ({
   ...(trade === "roofing_service" || trade === "gutter_services" ? { scene: "takeoff-measure" } : {}),
 }));
 
+// ── The card-free trial (2026-09-24) — docs/screens/no-card-signup ────────
+// The trial banner in each state, the lock screen for a trial that ran out,
+// Account & Billing opened from the banner (?tier=crew) and the platform
+// list's per-country tally. TrialFrame.jsx answers the billing-state routes
+// per view; everything else is the fixture company.
+export const TRIAL_FRAMES = [
+  ["banner-trial-no-plan", "noplan", 1280],
+  ["banner-trial-no-plan-phone", "noplan", 375],
+  ["banner-trial-with-plan", "withplan", 1280],
+  ["banner-trial-expired", "expired", 1280],
+  ["banner-trial-expired-phone", "expired", 375],
+  ["locked-trial", "locked", 1280],
+  ["billing-suggested-tier", "billing", 1280],
+  ["platform-companies-by-country", "platform", 1280],
+  ["signup-last-step", "signup", 1280],
+  ["signup-last-step-phone", "signup", 375],
+].map(([slug, view, width]) => ({
+  slug,
+  href: view === "billing" ? "/app/settings/account-billing?tier=crew" : view === "platform" ? "/platform/companies" : view === "signup" ? "/signup" : "/app",
+  page: "docs/screens/app-guide/harness/TrialFrame.jsx",
+  props: { view },
+  mode: "public",
+  width,
+  height: view === "billing" ? 1400 : view === "signup" ? 1100 : 720,
+  chapter: "no-card-signup",
+  out: "docs/screens/no-card-signup",
+}));
+
 export const SCREENS = [
   // ── The main rail: Home, then the seventeen (2026-09-21 shell) ─────────
   { slug: "home", nav: "app.nav.home", href: "/app", page: "app/app/page.js" },
@@ -271,6 +299,7 @@ export const SCREENS = [
   { slug: "purchasing-requests", href: "/app/purchasing", page: "app/app/purchasing/page.js", scene: "purchasing-requests", height: 1100, chapter: "help" },
   { slug: "mobile-supplies", href: "/app/me/supplies", page: "app/app/me/supplies/page.js", member: "crew", width: 375, height: 1400, chapter: "help" },
   ...INTRO_FRAMES,
+  ...TRIAL_FRAMES,
 
   // ── The booking page at phone width, one frame per mode ────────────────
   //

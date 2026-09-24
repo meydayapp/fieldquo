@@ -20,10 +20,17 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, CreditCard, CheckCircle2, X } from "lucide-react";
+import { AlertTriangle, CreditCard, CheckCircle2, Sparkles, X } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import ResumePlanButton, { RESUMED_NOTE_KEY } from "@/app/components/billing/ResumePlanButton";
+
+/** Whole days until a date — the trial's own countdown, ceil like TrialBadge. */
+function daysUntil(value) {
+  if (!value) return null;
+  const ms = new Date(value).getTime() - Date.now();
+  return Math.max(0, Math.ceil(ms / (24 * 60 * 60 * 1000)));
+}
 
 export default function BillingBanner() {
   const { t } = useTranslation();
@@ -84,6 +91,74 @@ export default function BillingBanner() {
   ) : null;
 
   if (!state) return resumedStrip;
+  // ── The free trial ──────────────────────────────────────────────────────
+  //
+  // Since 2026-09-24 signup ends with no plan and no card (the owner: "move
+  // the credit card and plan selection out of the sign up and just move it
+  // to the banner that stays at the top always for the owner"). So this is
+  // where a plan gets chosen: the countdown, the rung that fits the roster,
+  // and one button to Account & Billing — on that card when the pricing page
+  // named one. Owner-only by the same rule as everything else here: the
+  // route masks the reason to "ok" for anyone who may not see billing state.
+  // A trial that DID choose a plan gets the calmer line — what starts when —
+  // with the same button reading "Manage plan". Not dismissible, like the
+  // rest: a warning about losing access that can be closed is closed on day
+  // one and remembered on day thirty-one.
+  if (state.level === "full" && (state.reason === "trial_no_plan" || state.reason === "trialing") && state.trial) {
+    const trial = state.trial;
+    const days = state.daysLeft ?? daysUntil(trial.trialEndsAt);
+    const rec = trial.recommended;
+    const tier = trial.signupTierKey || rec?.tierKey;
+    const href = `/app/settings/account-billing${tier && !trial.hasPlan ? `?tier=${encodeURIComponent(tier)}` : ""}`;
+    return (
+      <>
+        {resumedStrip}
+        <div
+          role="status"
+          className="px-4 py-3 text-sm bg-amber-50 dark:bg-amber-950/50 text-amber-900 dark:text-amber-200 border-b border-amber-200 dark:border-amber-900"
+        >
+          <div className="max-w-6xl mx-auto flex flex-wrap items-center gap-x-3 gap-y-2">
+            <Sparkles size={17} className="shrink-0" />
+            <p className="flex-1 min-w-[14rem]">
+              <strong>
+                {days === 1
+                  ? t("app.billingBanner.trialOneDay", "Free trial · 1 day left")
+                  : t("app.billingBanner.trialDays", "Free trial · {days} days left", { days })}
+              </strong>{" "}
+              {trial.hasPlan
+                ? t("app.billingBanner.trialWithPlanBody", "{plan} starts on {date}. Nothing is charged until then.", {
+                    plan: trial.planName,
+                    date: formatDate(trial.trialEndsAt),
+                  })
+                : t(
+                    "app.billingBanner.trialNoPlanBody",
+                    "Choose a plan before it ends to keep working. After that the account is read-only for {grace} days, then locks — nothing is deleted.",
+                    { grace: state.graceDays ?? 7 },
+                  )}
+              {!trial.hasPlan && rec ? (
+                <span className="block mt-0.5">
+                  {t("app.billingBanner.recommended", "Recommended: {plan} · {seats} seats + {crew} crew.", {
+                    plan: rec.label,
+                    seats: rec.seats,
+                    crew: rec.crewSeats,
+                  })}
+                </span>
+              ) : null}
+            </p>
+            {trial.canChoosePlan ? (
+              <Link
+                href={href}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap bg-amber-900 text-white dark:bg-amber-200 dark:text-amber-950"
+              >
+                <CreditCard size={15} />{" "}
+                {trial.hasPlan ? t("app.billingBanner.managePlan", "Manage plan") : t("app.billingBanner.choosePlan", "Choose a plan")}
+              </Link>
+            ) : null}
+          </div>
+        </div>
+      </>
+    );
+  }
   // A brand-new company that closed the Stripe tab: full access for now, and a
   // countdown to the setup gate. Said here, in amber, with the one link that
   // fixes it — the first version showed nothing and then a 307 to /signup an
@@ -151,6 +226,11 @@ export default function BillingBanner() {
   // shouting at somebody who chose to leave is the surest way to make sure they
   // don't come back.
   const cancelled = state.reason === "canceled" || state.reason === "canceled_expired";
+  // The free trial ran out with no plan chosen. Nobody's card failed, so the
+  // sentence names the trial and the button says "Choose a plan", not
+  // "Update card" — the same "different situation, different sentence" rule
+  // the cancelled branch follows.
+  const trialOver = state.reason === "trial_expired";
   const urgent = !cancelled && (locked || state.daysLeft <= 2);
 
   return (
@@ -184,6 +264,25 @@ export default function BillingBanner() {
                 {t("app.billingBanner.cancelledBody", "You can still look at everything and download what you need. Resume any time.")}
               </>
             )
+          ) : trialOver ? (
+            <>
+              <strong>
+                {state.daysLeft === 1
+                  ? t("app.billingBanner.trialEndedOneDay", "Your trial ended · read-only for 1 more day")
+                  : t("app.billingBanner.trialEndedDays", "Your trial ended · read-only for {days} more days", { days: state.daysLeft })}
+                .
+              </strong>{" "}
+              {t("app.billingBanner.trialEndedBody", "You can still see everything, but you can't create or send until you choose a plan. After that the account locks — nothing is deleted.")}
+              {state.trial?.recommended ? (
+                <span className="block mt-0.5">
+                  {t("app.billingBanner.recommended", "Recommended: {plan} · {seats} seats + {crew} crew.", {
+                    plan: state.trial.recommended.label,
+                    seats: state.trial.recommended.seats,
+                    crew: state.trial.recommended.crewSeats,
+                  })}
+                </span>
+              ) : null}
+            </>
           ) : locked ? (
             <>
               <strong>Your account is locked.</strong> Update your card to get
@@ -223,14 +322,19 @@ export default function BillingBanner() {
           />
         ) : (
           <Link
-            href="/app/settings/account-billing"
+            href={`/app/settings/account-billing${
+              trialOver && (state.trial?.signupTierKey || state.trial?.recommended?.tierKey)
+                ? `?tier=${encodeURIComponent(state.trial.signupTierKey || state.trial.recommended.tierKey)}`
+                : ""
+            }`}
             className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap ${
               urgent
                 ? "bg-white text-red-700"
                 : "bg-amber-900 text-white dark:bg-amber-200 dark:text-amber-950"
             }`}
           >
-            <CreditCard size={15} /> {t("app.billingBanner.updateCard", "Update card")}
+            <CreditCard size={15} />{" "}
+            {trialOver ? t("app.billingBanner.choosePlan", "Choose a plan") : t("app.billingBanner.updateCard", "Update card")}
           </Link>
         )}
       </div>

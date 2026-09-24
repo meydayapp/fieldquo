@@ -1398,6 +1398,22 @@ model Company {
   /// days once this is set. Referral months and the retention discount are
   /// not trials and do not consult it.
   trialUsedAt            DateTime?
+  /// The rung the pricing page's link named (?tier=crew, ?tier=custom-20) for
+  /// a company that signed up WITHOUT choosing a plan — signup ends before the
+  /// plan step since 2026-09-24 (the owner: "move the credit card and plan
+  /// selection out of the sign up"). Read by the trial banner so "Choose a
+  /// plan" opens Account & Billing on that card. Null when the link named
+  /// nothing; never a guess at what they would have picked.
+  signupTierKey          String?
+  /// When each "your free trial ends in N days" letter went out — 15, 7 and 3
+  /// days before trialEndsAt, to a company that has NOT chosen a plan (one
+  /// with a Subscription row is told by lib/billing/renewalReminder.js
+  /// instead). Claimed before the send and reverted when the send fails, so a
+  /// day is never mailed twice and a failed send is retried tomorrow —
+  /// lib/billing/trialReminder.js, app/api/cron/trial-reminders.
+  trialReminder15At      DateTime?
+  trialReminder7At       DateTime?
+  trialReminder3At       DateTime?
   shareAnonymizedPricing Boolean          @default(false)
 
   /// ── The abandoned-signup recovery nudge ──────────────────────────────────

@@ -35,6 +35,7 @@ import { deriveVia } from "@/lib/platform/signupFlags";
 import { stampSignupPlanByToken } from "@/lib/sales/signupProgress";
 import { isRetired, RETIRED_PLAN_ERROR } from "@/lib/platform/sellablePlans";
 import { recordSignupCompletion } from "@/lib/signup/salesFloor";
+import { SEAT_LADDER, customSeatsFromTierKey } from "@/lib/pricing/ladder";
 
 export async function POST(request) {
   const session = await auth.api.getSession({ headers: request.headers });
@@ -117,6 +118,17 @@ export async function POST(request) {
     // any request from a page older than this one, which is the correct default
     // — monthly is what every existing subscription is on.
     billingInterval,
+    // ── What the pricing-page link named, when no plan is chosen here ───────
+    //
+    // Since 2026-09-24 signup ends without the plan step (the owner: "move the
+    // credit card and plan selection out of the sign up and just move it to
+    // the banner"). A visitor who arrived on /signup?tier=crew still said
+    // something, and it is kept on Company.signupTierKey so the trial banner's
+    // "Choose a plan" opens Account & Billing on that card. A rung name or a
+    // plan id from an older link; validated against the ladder below, never
+    // trusted for a price — it names a card, nothing more.
+    wantedTier,
+    wantedPlanId,
   } = await request.json();
 
   // The company's default language, validated to a supported code (else English).
@@ -201,18 +213,28 @@ export async function POST(request) {
   // "?tier=custom-20" into a real row per currency (lib/billing/customPlan.js)
   // and it arrives here as an ordinary planId — priced by the server, never
   // by the browser.
-  if (!planId) {
-    return NextResponse.json(
-      { error: "planId is required" },
-      { status: 400 },
-    );
-  }
+  // ── No planId: a free trial with no plan and no card ────────────────────
+  //
+  // The signup page stopped posting one on 2026-09-24. The company is created
+  // exactly as before — trialEndsAt thirty days out — and lib/billing/access.js
+  // reads that date: full access until it passes, then GRACE_DAYS read-only,
+  // then locked, nothing deleted. The plan is chosen later from the banner
+  // (Account & Billing's "Choose plan", which carries the remaining trial days
+  // onto Stripe through lib/billing/trialOnce.js). A planId is still honoured
+  // when a caller sends one — an older page, or a draft saved on the plan
+  // step — and takes the checkout path below unchanged.
+  const chosenTier =
+    typeof wantedTier === "string" && (SEAT_LADDER.some((t) => t.tierKey === wantedTier) || customSeatsFromTierKey(wantedTier))
+      ? wantedTier
+      : typeof wantedPlanId === "string" && wantedPlanId
+        ? (await db.plan.findUnique({ where: { id: wantedPlanId }, select: { tierKey: true } }))?.tierKey || null
+        : null;
 
   // Resolve a real Plan row before we ever create a Stripe checkout session,
   // since Subscription.planId is required and the webhook can't invent one
   // after the fact.
-  const plan = await db.plan.findUnique({ where: { id: planId } });
-  if (!plan) {
+  const plan = planId ? await db.plan.findUnique({ where: { id: planId } }) : null;
+  if (planId && !plan) {
     return NextResponse.json(
       { error: "Selected plan not found" },
       { status: 400 },
@@ -228,7 +250,7 @@ export async function POST(request) {
   // it is checked BEFORE the transaction below for the same reason the
   // billable-price check is: a refusal must not leave a memberless company
   // behind it. 409, not 404 — the plan exists; it is simply not offered.
-  if (isRetired(plan)) {
+  if (plan && isRetired(plan)) {
     return NextResponse.json({ error: RETIRED_PLAN_ERROR }, { status: 409 });
   }
 
@@ -237,10 +259,12 @@ export async function POST(request) {
   // on the Stripe subscription's own metadata, how many people this plan is
   // for. The recurring charge itself comes straight off `plan` — see the note
   // on the line item in lib/platform/stripeBilling.js.
-  const pricing = {
-    trialTotal: TRIAL_PRICE,
-    employeeCount: plan.maxUsers ?? plan.seats + (plan.crewSeats || 0),
-  };
+  const pricing = plan
+    ? {
+        trialTotal: TRIAL_PRICE,
+        employeeCount: plan.maxUsers ?? plan.seats + (plan.crewSeats || 0),
+      }
+    : null;
   // ── A tier from the other currency is not buyable here ──────────────────
   //
   // The browser posts an id, and the seat ladder exists once per currency with
@@ -253,7 +277,7 @@ export async function POST(request) {
   // "Custom (N employees)" rows carry the schema's default currency rather than
   // a chosen one, and refusing those would stop a US company buying Custom at
   // all — a break, not a guard.
-  if (plan.tierKey && plan.currency !== basis.planCurrency) {
+  if (plan?.tierKey && plan.currency !== basis.planCurrency) {
     return NextResponse.json(
       {
         error: basis.planCurrency
@@ -271,8 +295,8 @@ export async function POST(request) {
   // than silently downgraded to monthly: the visitor pressed a button labelled
   // "1 year commitment", and charging them monthly instead is the failure this
   // whole guard exists for.
-  const charge = chargeFor(plan, interval);
-  if (!charge) {
+  const charge = plan ? chargeFor(plan, interval) : null;
+  if (plan && !charge) {
     return NextResponse.json(
       {
         error:
@@ -325,6 +349,7 @@ export async function POST(request) {
         industries: Array.isArray(industries) ? industries : [],
         onboardingStatus: "pending",
         trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        signupTierKey: plan ? null : chosenTier,
       },
     });
 
@@ -634,6 +659,22 @@ export async function POST(request) {
   }
 
   const baseUrl = getAppOrigin(request);
+
+  // ── No plan chosen: straight into the app ───────────────────────────────
+  //
+  // Nothing Stripe-shaped happens. The company is on its trial by virtue of
+  // trialEndsAt; the banner in the app shell says how long is left and
+  // where to choose. `next` is honoured for an internal path the same way the
+  // checkout success URL would have — a signup that began from "add this
+  // quote to your project" still lands on the quote.
+  if (!plan) {
+    return NextResponse.json({
+      appUrl: isInternalPath(next) ? next : "/app?welcome=true",
+      referral: referral
+        ? { referrerName: referral.referrer.name, trialEndsAt: referral.trialEndsAt, months: REFEREE_BONUS_MONTHS }
+        : null,
+    });
+  }
 
   // Trial length Stripe should honour = however long this company is actually
   // free for. applySignupReferral may have just extended trialEndsAt by
