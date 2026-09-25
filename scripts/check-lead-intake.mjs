@@ -421,11 +421,25 @@ async function convertOnce(intake, { email = "homeowner@example.com" } = {}) {
 {
   // A country that is not ISO alpha-2 must not sit in the column looking
   // authoritative. This is the reason the normalisation lives on the read side.
+  //
+  // "Canada" used to be the example here. Since 2026-09-21 normaliseCountry
+  // (lib/tax/jurisdictions.js) also maps the few NAMES the two tax-table
+  // countries arrive under, on the owner's report that an Ottawa client
+  // typed as "Canada" was losing its 13% — so the name now becomes "CA", and
+  // the free-text case needs free text nobody validated.
   const client = await convertOnce(
-    buildLeadIntake({ address: "5 Rue Principale", country: "Canada" }),
+    buildLeadIntake({ address: "5 Rue Principale", country: "Kanadaland" }),
     { email: "c@example.com" },
   );
   ok(client.country === null, "a country that isn't a code is dropped, not stored", client);
+}
+
+{
+  const client = await convertOnce(
+    buildLeadIntake({ address: "6 Rue Principale", country: "Canada" }),
+    { email: "c2@example.com" },
+  );
+  ok(client.country === "CA", "…while a recognised country NAME is stored as its code", client);
 }
 
 {
