@@ -19,6 +19,7 @@
 // Run: node --import ./scripts/alias-loader.mjs scripts/check-grace-warning.mjs
 
 import { readFileSync } from "node:fs";
+import { readPrismaSchema } from "./prismaSchema.mjs";
 import {
   graceWarningDecision,
   REMIND_AT_OR_BELOW_DAYS,
@@ -321,11 +322,11 @@ ok("the no-recipient branch reverts the claim too",
 ok("the cron formats decision.lockAt for the email (not left for the email module to invent)",
   /formatDateOnly\(decision\.lockAt\)/.test(cron));
 
-// Line comments only: Prisma has no block comments, so a `/*` in a schema
-// doc comment (a glob like `app/data/serviceSeeds/*`) is literal text, and
-// the JS stripper above paired it with a later `*/` and deleted thousands of
-// lines — Subscription among them.
-const schema = readFileSync("prisma/schema.prisma", "utf8").replace(/(^|[^:])\/\/.*$/gm, "$1");
+// Through the shared Prisma-aware reader, not the JS stripper above: Prisma
+// has no block comments, and that stripper paired a literal `/*` in a doc
+// comment with a later `*/` and deleted thousands of lines, Subscription
+// among them (scripts/prismaSchema.mjs says how).
+const schema = readPrismaSchema();
 const subModel = schema.slice(schema.indexOf("model Subscription {"));
 const subBody = subModel.slice(0, subModel.indexOf("\n}"));
 ok("Subscription carries the first-notice marker",
