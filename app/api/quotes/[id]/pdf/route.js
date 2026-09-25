@@ -13,6 +13,7 @@ import { attachServiceSettings } from "@/lib/documents/loadServiceSettings";
 import { resolveDocumentLanguage } from "@/lib/i18n/resolveLanguage";
 import { uploadBuffer } from "@/lib/cloudinary";
 import { hashQuote } from "@/lib/documents/signatureAudit";
+import { localisedCompany } from "@/lib/i18n/companyText";
 import {
   requireMoney,
   permissionErrorResponse,
@@ -67,6 +68,13 @@ export async function POST(request, { params }) {
   const company = await db.company.findUnique({
     where: { id: member.companyId },
   });
+  // Client-aware precedence: the quote's own language if set, else the
+  // client's language, else the company default. Reading quote.language alone
+  // gave a French client an English PDF when the quote wasn't stamped.
+  const documentLanguage = resolveDocumentLanguage(quote, quote.client, company);
+  // The company's payment terms and "what happens next" in that language
+  // when a translation of the current wording exists; the source otherwise.
+  const companyText = await localisedCompany(db, company, { companyId: member.companyId, language: documentLanguage });
 
   const template = await db.documentTemplate.findFirst({
     where: { companyId: member.companyId, type: "quote_pdf", isDefault: true },
@@ -92,14 +100,11 @@ export async function POST(request, { params }) {
 
   const pdfBuffer = await renderDocumentPdfBuffer({
     sections,
-    // Client-aware precedence: the quote's own language if set, else the
-    // client's language, else the company default. Reading quote.language alone
-    // gave a French client an English PDF when the quote wasn't stamped.
-    language: resolveDocumentLanguage(quote, quote.client, company),
+    language: documentLanguage,
     // `...quote` last would overwrite the enriched scopeGroups with the raw
     // ones — spread first, then the keys that matter.
     data: { ...quote, client: quote.client, scopeGroups, customFields },
-    company,
+    company: companyText,
   });
 
   // ── The archive copy must never cost you the download ────────────────────

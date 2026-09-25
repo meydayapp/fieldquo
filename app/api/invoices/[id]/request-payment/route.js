@@ -27,6 +27,7 @@ import {
   permissionErrorResponse,
 } from "@/lib/permissions/enforce";
 import { loadDocumentWording } from "@/lib/email/documentEmailCopies";
+import { localisedCompany } from "@/lib/i18n/companyText";
 
 export async function POST(request, { params }) {
   const { id } = await params;
@@ -154,11 +155,12 @@ export async function POST(request, { params }) {
     client: invoice.client,
     company,
   });
+  const companyText = await localisedCompany(db, company, { companyId: member.companyId, language: reminderLanguage });
 
   const { subject, html, text } = buildInvoiceEmail({
     invoice,
     client: invoice.client,
-    company: company || {},
+    company: companyText || {},
     url,
     canTakeCard,
     note,

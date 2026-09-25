@@ -60,6 +60,7 @@ import { parsePaymentSchedule } from "@/lib/documents/paymentSchedule";
 // Pure apart from the Cloudinary-URL test; imports no PDF engine either.
 import { measureEvidence } from "@/lib/measure/measureImages";
 import { traceOutline } from "@/lib/documentSections/traceOutline";
+import { localisedCompany } from "@/lib/i18n/companyText";
 
 const num = (v) => Number(v ?? 0);
 
@@ -500,6 +501,14 @@ export async function GET(request, { params }) {
     }
   }
 
+  // The company's own client-facing wording — payment terms, the story —
+  // in the document's resolved language when a translation of the current
+  // text exists; the source text otherwise (lib/i18n/companyText.js). The
+  // quote's own frozen words are not touched.
+  quote.company = await localisedCompany(db, quote.company, {
+    companyId: quote.companyId,
+    language: resolveClientLanguage({ document: quote, client: quote.client, company: quote.company }),
+  });
   const presented = present(quote);
   // Read by app/q/[token]/QuoteApproval.js, which drops Approve and Decline
   // for it — in a preview they would be two controls that cannot work, since

@@ -30,6 +30,9 @@ import {
 import { LANGUAGES } from "@/app/i18n/languages";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { useTranslation } from "@/app/hooks/useTranslation";
+// The texts auto-translated on save — the company's own wording and the
+// quote text blocks — reviewed on the same page, above the catalogue.
+import CompanyTextReview from "@/app/components/settings/CompanyTextReview";
 
 export default function TranslationsPage() {
   const { t } = useTranslation();
@@ -268,6 +271,10 @@ export default function TranslationsPage() {
           {t("app.translations.draftUnavailable", "Automatic drafting isn't switched on for this deployment. You can still type the translations in yourself.")}
         </p>
       )}
+
+      <CompanyTextReview language={language} />
+
+      <h2 className="text-lg font-semibold text-foreground pt-2">{t("app.translations.catalogueTitle", "Services, products and add-ons")}</h2>
 
       {data?.aiAvailable && data?.canDraft && data.missing > 0 && (
         <p className="text-xs text-muted-foreground">

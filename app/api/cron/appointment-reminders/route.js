@@ -31,6 +31,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { requireCronSecret } from "@/lib/security/cronAuth";
 import { db } from "@/lib/db";
+import { loadSmsTemplateTranslations } from "@/lib/i18n/companyText";
 import { sendSms, toE164 } from "@/lib/sms/twilioClient";
 import { clientSmsFrom } from "@/lib/sms/clientLine";
 import { formatWhen } from "@/lib/sms/templates";
@@ -166,6 +167,9 @@ export async function GET(request) {
         templates: row.company.smsTemplates,
         language,
         templateLanguage: row.company.defaultLanguage || "en",
+        // The company's wording in the client's language when its draft
+        // exists (lib/i18n/autoTranslate.js) — else the built-in text.
+        translatedTemplates: await loadSmsTemplateTranslations(db, row.company, { companyId: row.company.id, language }),
         values: {
           company: row.company.name,
           when: formatWhen(row.scheduledAt, { language, timezone: row.company.timezone }),

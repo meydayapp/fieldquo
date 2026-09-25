@@ -24,6 +24,7 @@ import {
   X,
 } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
+import AutoTranslateBanner from "@/app/components/settings/AutoTranslateBanner";
 import Link from "next/link";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import BackToHome from "@/app/components/BackToHome";
@@ -53,6 +54,7 @@ function emptyForm() {
 
 export default function ProductCatalogue({ compact = false, onChanged } = {}) {
   const { t } = useTranslation();
+  const [autoTranslate, setAutoTranslate] = useState(null);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -206,6 +208,10 @@ export default function ProductCatalogue({ compact = false, onChanged } = {}) {
         },
       );
       if (res.ok) {
+        // What the save queued for the other languages; the banner at the
+        // top of the list reads it and asks for the truth a moment later.
+        const answer = await res.json().catch(() => null);
+        setAutoTranslate(answer?.autoTranslate ? { ...answer.autoTranslate, id: answer.id } : null);
         setShowModal(false);
         load();
         await onChanged?.();
@@ -290,6 +296,7 @@ export default function ProductCatalogue({ compact = false, onChanged } = {}) {
 
   return (
     <div className={compact ? "space-y-6" : "p-4 sm:p-6 max-w-4xl mx-auto space-y-6"}>
+      <AutoTranslateBanner result={autoTranslate} id={autoTranslate?.id} />
       {!compact && (
         <div>
           <h1 className="text-2xl font-bold text-foreground">
