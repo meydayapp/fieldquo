@@ -426,8 +426,15 @@ export function rangeFor(service, lines) {
   // A per-item ("each") service counts its per-item lines only when they are
   // measured — a per-door rate is a rate; a service call plus one toilet is
   // a job total, and stays one.
+  // A roof sold per sq ft is costed per SQUARE (100 sq ft): its square lines
+  // count at a hundredth, and the waste line at the default 10% of that — the
+  // qty the report fills is squares × waste factor, not squares.
+  const lineRate = (l) =>
+    l.unit === service.unit ? l.unitPrice
+    : service.unit === "sqft" && l.unit === "square" ? (l.unitPrice / 100) * (l.measurementKey === "wastePct" ? 0.1 : 1)
+    : 0;
   const perUnit = ["sqft", "linear_ft", "hour", "square"].includes(service.unit)
-    ? lines.filter((l) => l.unit === service.unit).reduce((s, l) => s + l.unitPrice, 0)
+    ? lines.reduce((s, l) => s + lineRate(l), 0)
     : service.unit === "each" && lines.some((l) => l.measurementKey)
       ? lines.filter((l) => l.unit === "each").reduce((s, l) => s + l.unitPrice, 0)
       : 0;
