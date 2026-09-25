@@ -27,9 +27,13 @@ import {
   stairsFromSteps,
   stairShape,
   stairsDerivationNote,
+  stairFillPatch,
+  stairFillSnapshot,
   STAIR_SHAPES,
   DEFAULT_STAIR_SHAPE,
 } from "@/lib/estimate/stairsFromSteps";
+import { createHash } from "node:crypto";
+import { newStairSection } from "@/lib/pricing/tradeScope";
 import { computeInstantEstimate, INSTANT_ESTIMATE_DEFAULTS } from "@/lib/estimate/instantEstimate";
 import { costingInputsForInstantTrade } from "@/lib/estimate/instantQuoteCosting";
 import { buildTradeLineItems } from "@/lib/pricing/tradeScope";
@@ -186,11 +190,66 @@ ok("...rendered inside the staircase section", /<FillFromSteps/.test(TAKEOFF));
 ok("...that calls the one rule, not a copy of it", /stairsFromSteps\(\{ steps, shape \}\)/.test(TAKEOFF) && !/balusters: 2 \* /.test(TAKEOFF));
 ok("...offers the three shapes as ─ / L / U", /STAIR_SHAPE_GLYPHS = \{ straight: "─", L: "L", U: "U" \}/.test(TAKEOFF));
 ok("...defaults to L", /useState\(DEFAULT_STAIR_SHAPE\)/.test(TAKEOFF));
-ok("the fill writes every count and switches the opt-in parts on",
-  /treads: d\.treads,\s*risers: d\.risers,\s*balusters: d\.balusters,\s*posts: d\.posts,\s*handrailFt: d\.handrailFt,\s*paintRisers: true,\s*paintBalusters: true,\s*paintPosts: true/.test(TAKEOFF));
+// No Fill button (owner, 2026-09-22): the step box and the shape fill at once.
+ok("there is no Fill button any more", !/stairs-fill-apply/.test(TAKEOFF));
+ok("typing the step count fills", /onChange=\{\(e\) => fill\(e\.target\.value, shape\)\}/.test(TAKEOFF));
+ok("changing the shape fills", /onClick=\{\(\) => fill\(steps, key\)\}/.test(TAKEOFF));
+ok("the fill goes through stairFillPatch, the one rule for what is the fill's to write", /stairFillPatch\(section, d, last\)/.test(TAKEOFF));
+ok("it says it filled, and offers Undo", /app\.takeoff\.stairsFilledFrom/.test(TAKEOFF) && /data-testid="stairs-fill-undo"/.test(TAKEOFF));
 // The fields stay the same editable boxes: the fill goes through set(), which
 // merges into the section the STAIR_ELEMENTS inputs read and write.
-ok("the fill goes through the same set() the inputs use", /onFill=\{\(d\) =>\s*set\(\{/.test(TAKEOFF));
+ok("the fill goes through the same set() the inputs use", /onPatch=\{\(patch\) => set\(patch\)\}/.test(TAKEOFF));
+
+// ── The rule, executed ────────────────────────────────────────────────────
+{
+  const fresh = newStairSection("Main Staircase");
+  const d14 = stairsFromSteps({ steps: 14, shape: "L" });
+  // What the Fill button wrote, verbatim, before it was removed.
+  const buttonPatch = {
+    treads: d14.treads, risers: d14.risers, balusters: d14.balusters, posts: d14.posts, handrailFt: d14.handrailFt,
+    paintRisers: true, paintBalusters: true, paintPosts: true,
+  };
+  const first = stairFillPatch(fresh, d14, null);
+  const md5 = (v) => createHash("md5").update(JSON.stringify(v)).digest("hex");
+  ok("on a fresh section the automatic fill writes exactly what the Fill button did (md5)",
+    md5({ ...fresh, ...first.patch }) === md5({ ...fresh, ...buttonPatch }), first.patch);
+  const priced = (s) => buildTradeLineItems("stairs", { sections: [s] }, null);
+  ok("...so the priced lines are byte-identical", md5(priced({ ...fresh, ...first.patch })) === md5(priced({ ...fresh, ...buttonPatch })));
+
+  // 1 then 14: the second fill replaces the first's own numbers.
+  const d1 = stairsFromSteps({ steps: 1, shape: "L" });
+  const a = stairFillPatch(fresh, d1, null);
+  const s1 = { ...fresh, ...a.patch };
+  const b = stairFillPatch(s1, d14, a.filled);
+  ok("typing 1 then 14 ends at 14's counts", b.patch.treads === 14 && b.patch.risers === d14.risers && b.patch.balusters === 28, b.patch);
+
+  // A box typed over is left alone; the rest follow.
+  const typed = { ...fresh, ...first.patch, treads: 13, paintBalusters: false };
+  const d20 = stairsFromSteps({ steps: 20, shape: "L" });
+  const c = stairFillPatch(typed, d20, first.filled);
+  ok("a count typed over is not overwritten", !("treads" in c.patch), c.patch);
+  ok("...the counts not typed over follow the new step count", c.patch.risers === d20.risers && c.patch.balusters === 40, c.patch);
+  ok("a part switched off after a fill stays off", !("paintBalusters" in c.patch), c.patch);
+  ok("...and one still on stays on", c.patch.paintRisers === true, c.patch);
+  ok("a count typed before any fill is left alone too",
+    !("posts" in stairFillPatch({ ...fresh, posts: 6 }, d14, null).patch));
+  ok("a box cleared to 0 is the fill's again",
+    stairFillPatch({ ...typed, treads: 0 }, d20, first.filled).patch.treads === 20);
+
+  // Shape change: posts and handrail move, treads stay.
+  const u = stairFillPatch({ ...fresh, ...first.patch }, stairsFromSteps({ steps: 14, shape: "U" }), first.filled);
+  ok("changing L → U refills posts (4 → 5)", u.patch.posts === 5, u.patch);
+
+  // Undo: the snapshot is the boxes as they were.
+  ok("Undo's snapshot is the eight fillable boxes as they stood", JSON.stringify(
+    stairFillSnapshot(fresh)) === JSON.stringify(
+    { treads: 0, risers: 0, balusters: 0, posts: 0, handrailFt: 0, paintRisers: false, paintBalusters: false, paintPosts: false }));
+
+  // Hostile.
+  ok("no derived stair (bad step count) writes nothing", Object.keys(stairFillPatch(fresh, stairsFromSteps({ steps: "abc" }), null).patch).length === 0);
+  ok("a junk section or junk `last` does not throw",
+    (() => { try { stairFillPatch(null, d14, "junk"); stairFillPatch("x", d14, 7); stairFillSnapshot(undefined); return true; } catch { return false; } })());
+}
 ok("no field is disabled or read-only after a fill", !/readOnly|disabled=\{filled/.test(TAKEOFF.slice(TAKEOFF.indexOf("function StairSection"), TAKEOFF.indexOf("function StairsTakeoff"))));
 const MSGS = readFileSync(join(ROOT, "app/i18n/appMessages.js"), "utf8");
 // The preview sentence names the risers as their own figure. It read
@@ -200,7 +259,7 @@ ok("the fill preview names treads and risers separately, in every language", (MS
 ok("the form passes risers to the preview", /risers: derived\.risers/.test(TAKEOFF));
 ok("the form prints the one-line reason under it", /app\.takeoff\.stairsRiserHint/.test(TAKEOFF));
 
-for (const key of ["stairsFillTitle", "stairsSteps", "stairsShape", "stairsFill", "stairsFillPreview", "stairsRiserHint", "stairsShape_straight", "stairsShape_L", "stairsShape_U"]) {
+for (const key of ["stairsFillTitle", "stairsSteps", "stairsShape", "stairsFilledFrom", "stairsFillUndo", "stairsFillPreview", "stairsRiserHint", "stairsShape_straight", "stairsShape_L", "stairsShape_U"]) {
   ok(`app.takeoff.${key} is in nine languages`, (MSGS.match(new RegExp(`"app\\.takeoff\\.${key}":`, "g")) || []).length === 9);
 }
 

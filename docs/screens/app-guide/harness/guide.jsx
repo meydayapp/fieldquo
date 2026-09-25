@@ -687,10 +687,12 @@ async function runScene(scene) {
     Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set.call(steps, "30");
     steps.dispatchEvent(new Event("input", { bubbles: true }));
     await wait(150);
-    (await until('[data-testid="stairs-fill-apply"]')).click();
+    // No Fill button since 2026-09-25: typing the count fills; wait for the note.
+    await until('[data-testid="stairs-filled-from"]');
     await wait(300);
     if (scene === "doc-stairs-30-moderate") {
-      const moderate = [...document.querySelectorAll("[data-doc-group-editor] button")].find((b) => /^Moderate/.test(b.textContent.trim()));
+      // The tier tile, not the factor list's level chip above it (those carry aria-pressed).
+      const moderate = [...document.querySelectorAll("[data-doc-group-editor] button")].find((b) => !b.hasAttribute("aria-pressed") && /^Moderate/.test(b.textContent.trim()));
       if (!moderate) throw new Error("scene: no Moderate tile on the stairs card");
       moderate.click();
       await wait(400);
@@ -715,7 +717,8 @@ async function runScene(scene) {
       Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set.call(doors, "30");
       doors.dispatchEvent(new Event("input", { bubbles: true }));
       await wait(200);
-      const moderate = [...document.querySelectorAll("[data-doc-group-editor] button")].find((b) => /^Moderate/.test(b.textContent.trim()));
+      // The tier tile, not the factor list's level chip above it (those carry aria-pressed).
+      const moderate = [...document.querySelectorAll("[data-doc-group-editor] button")].find((b) => !b.hasAttribute("aria-pressed") && /^Moderate/.test(b.textContent.trim()));
       if (!moderate) throw new Error("scene: no Moderate chip on the cabinet card");
       moderate.click();
       await wait(400);

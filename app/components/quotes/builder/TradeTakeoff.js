@@ -39,7 +39,13 @@ import PaverDesigner from "./PaverDesigner";
 import PaintAreas from "./PaintAreas";
 import LabourPanel from "./LabourPanel";
 import { hasTakeoff } from "@/lib/pricing/takeoffTrades";
-import { stairsFromSteps, STAIR_SHAPES, DEFAULT_STAIR_SHAPE } from "@/lib/estimate/stairsFromSteps";
+import {
+  stairsFromSteps,
+  stairFillPatch,
+  stairFillSnapshot,
+  STAIR_SHAPES,
+  DEFAULT_STAIR_SHAPE,
+} from "@/lib/estimate/stairsFromSteps";
 import { pitchBand, roofLabour, roofCrewDays } from "@/lib/pricing/roofLabour";
 import { takeoffPatch, summarise, ventilation } from "@/lib/measure/roofGeometry";
 import { gutterTakeoffPatch, summariseGutters } from "@/lib/measure/gutterMeasurement";
@@ -178,12 +184,45 @@ const STAIR_ELEMENTS = [
 // stays the same editable box it was; the rule is a starting point, and the
 // derivation lives in ONE place (lib/estimate/stairsFromSteps.js) so this
 // form and the instant estimate cannot disagree about what 14 steps means.
+//
+// No Fill button (owner, 2026-09-22): typing the step count — or changing the
+// shape — fills at once, through stairFillPatch, which leaves alone any box
+// the estimator typed over. "Filled from 14 steps" says it happened, and Undo
+// puts back every box as it was before the first fill of this run.
 const STAIR_SHAPE_GLYPHS = { straight: "─", L: "L", U: "U" };
 
-function FillFromSteps({ onFill, t }) {
+function FillFromSteps({ section, onPatch, t }) {
   const [steps, setSteps] = useState("");
   const [shape, setShape] = useState(DEFAULT_STAIR_SHAPE);
+  // What the last fill wrote (so the next one can tell its own numbers from
+  // the estimator's), and the boxes as they were before the first fill.
+  const [last, setLast] = useState(null);
+  const [before, setBefore] = useState(null);
+  const [filledSteps, setFilledSteps] = useState(null);
   const derived = stairsFromSteps({ steps, shape });
+
+  // In the event handler, not an effect: the section is this render's, and a
+  // write from an effect would race the next keystroke with a stale copy.
+  const fill = (nextSteps, nextShape) => {
+    setSteps(nextSteps);
+    setShape(nextShape);
+    const d = stairsFromSteps({ steps: nextSteps, shape: nextShape });
+    if (!d) return;
+    const { patch, filled } = stairFillPatch(section, d, last);
+    if (!Object.keys(patch).length) return;
+    if (!before) setBefore(stairFillSnapshot(section));
+    setLast(filled);
+    setFilledSteps(d.steps);
+    onPatch(patch);
+  };
+  const undo = () => {
+    if (before) onPatch(before);
+    setBefore(null);
+    setLast(null);
+    setFilledSteps(null);
+    setSteps("");
+  };
+
   return (
     <div className="rounded-md border border-dashed border-border bg-muted/30 p-2 space-y-2">
       <div className="text-xs font-medium text-muted-foreground">
@@ -198,7 +237,7 @@ function FillFromSteps({ onFill, t }) {
             max={200}
             inputMode="numeric"
             value={steps}
-            onChange={(e) => setSteps(e.target.value)}
+            onChange={(e) => fill(e.target.value, shape)}
             className="w-20 border border-border rounded px-2 py-1.5 text-sm"
             data-testid="stairs-fill-steps"
           />
@@ -215,7 +254,7 @@ function FillFromSteps({ onFill, t }) {
               role="radio"
               aria-checked={shape === key}
               title={t(`app.takeoff.stairsShape_${key}`, key)}
-              onClick={() => setShape(key)}
+              onClick={() => fill(steps, key)}
               className={`min-w-[44px] min-h-[36px] px-3 text-sm font-semibold ${
                 shape === key ? "bg-inverted text-inverted-foreground" : "bg-background text-muted-foreground"
               }`}
@@ -224,16 +263,24 @@ function FillFromSteps({ onFill, t }) {
             </button>
           ))}
         </div>
-        <button
-          type="button"
-          disabled={!derived}
-          onClick={() => derived && onFill(derived)}
-          className="min-h-[36px] px-3 rounded-md bg-inverted text-inverted-foreground text-sm font-semibold disabled:opacity-50"
-          data-testid="stairs-fill-apply"
-        >
-          {t("app.takeoff.stairsFill", "Fill")}
-        </button>
       </div>
+      {before && (
+        <p className="text-xs text-foreground flex items-center gap-2 flex-wrap" data-testid="stairs-filled-from">
+          <span>
+            {t("app.takeoff.stairsFilledFrom", "Filled from {steps} steps — boxes you typed over are left alone.", {
+              steps: filledSteps,
+            })}
+          </span>
+          <button
+            type="button"
+            onClick={undo}
+            className="font-semibold underline underline-offset-2"
+            data-testid="stairs-fill-undo"
+          >
+            {t("app.takeoff.stairsFillUndo", "Undo")}
+          </button>
+        </p>
+      )}
       {derived && (
         <>
           <p className="text-xs text-muted-foreground">
@@ -296,21 +343,7 @@ function StairSection({ section, index, book, canRemove, onChange, onRemove }) {
         onChange={(v) => set({ complexityLevel: v })}
       />
 
-      <FillFromSteps
-        t={t}
-        onFill={(d) =>
-          set({
-            treads: d.treads,
-            risers: d.risers,
-            balusters: d.balusters,
-            posts: d.posts,
-            handrailFt: d.handrailFt,
-            paintRisers: true,
-            paintBalusters: true,
-            paintPosts: true,
-          })
-        }
-      />
+      <FillFromSteps t={t} section={section} onPatch={(patch) => set(patch)} />
 
       <div className="space-y-1.5">
         {STAIR_ELEMENTS.map((el) => {
