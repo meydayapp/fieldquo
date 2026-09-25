@@ -58706,7 +58706,7 @@ const pa = {
   "app.streetView.openInMaps": "Google Maps ਵਿੱਚ ਖੋਲ੍ਹੋ",
   "app.streetView.frameTitle": "ਜਾਇਦਾਦ ਦਾ Street View",
   "app.job.directions": "ਰਸਤਾ",
-  "app.job.directionsApple": "Apple Maps",
+  "app.job.directionsApple": "Apple ਨਕਸ਼ੇ",
   // ── Ad tracking, tracking links, visits & unfinished requests (2026-09-24) ──
   "app.tracking.settingsTitle": "ਇਸ਼ਤਿਹਾਰ ਟਰੈਕਿੰਗ",
   "app.tracking.settingsIntro": "ਆਪਣੇ ਪਿਕਸਲ ID ਪੇਸਟ ਕਰੋ, ਤਾਂ ਤੁਹਾਡਾ ਤੁਰੰਤ ਅੰਦਾਜ਼ਾ ਅਤੇ ਲੀਡ ਫਨਲ ਤੁਹਾਡੇ ਇਸ਼ਤਿਹਾਰ ਖਾਤਿਆਂ ਨੂੰ ਦੱਸਣਗੇ ਜਦੋਂ ਕੋਈ ਆਉਂਦਾ, ਸ਼ੁਰੂ ਕਰਦਾ ਅਤੇ ਬੇਨਤੀ ਭੇਜਦਾ ਹੈ। ਜਿਸ ਫਨਲ ਦਾ ਬਿਲਡਰ ਵਿੱਚ ਆਪਣਾ ਪਿਕਸਲ ਹੈ, ਉਹ ਉਹੀ ਰੱਖਦਾ ਹੈ।",
@@ -59634,8 +59634,8 @@ const pa = {
   "app.setWhatsApp.manual.step2": "Business Settings → Users → System users ਵਿੱਚ ਇੱਕ ਸਿਸਟਮ ਯੂਜ਼ਰ ਬਣਾਓ, ਉਸਨੂੰ WhatsApp Business Account ਸੌਂਪੋ, ਫਿਰ ਇਸ ਐਪ ਹੇਠ Generate token ਕਰੋ ਜਿਸ ਵਿੱਚ whatsapp_business_messaging, whatsapp_business_management ਅਤੇ business_management ਚੁਣੇ ਹੋਣ। ਕਦੇ ਮਿਆਦ ਨਾ ਮੁੱਕਣ ਵਾਲਾ ਵਿਕਲਪ ਚੁਣੋ।",
   "app.setWhatsApp.manual.step3": "ਹੇਠਾਂ ਤਿੰਨੇ ਮੁੱਲ ਪੇਸਟ ਕਰੋ। ਕੁਝ ਵੀ ਸੰਭਾਲਣ ਤੋਂ ਪਹਿਲਾਂ FieldQuo ਜਾਂਚਦਾ ਹੈ ਕਿ ਟੋਕਨ ਨੰਬਰ ਅਤੇ ਖਾਤਾ ਪੜ੍ਹ ਸਕਦਾ ਹੈ।",
   "app.setWhatsApp.manual.guideLink": "Meta ਦੀ ਸ਼ੁਰੂਆਤੀ ਗਾਈਡ",
-  "app.setWhatsApp.manual.wabaId": "WhatsApp Business Account ID",
-  "app.setWhatsApp.manual.phoneNumberId": "Phone number ID",
+  "app.setWhatsApp.manual.wabaId": "WhatsApp Business ਖਾਤਾ ID",
+  "app.setWhatsApp.manual.phoneNumberId": "ਫ਼ੋਨ ਨੰਬਰ ID",
   "app.setWhatsApp.manual.token": "ਸਥਾਈ ਐਕਸੈਸ ਟੋਕਨ",
   "app.setWhatsApp.manual.tokenHint": "ਇਨਕ੍ਰਿਪਟ ਕਰਕੇ ਸੰਭਾਲਿਆ ਜਾਂਦਾ ਹੈ ਅਤੇ ਮੁੜ ਕਦੇ ਨਹੀਂ ਦਿਖਾਇਆ ਜਾਂਦਾ।",
   "app.setWhatsApp.manual.submit": "ਤਸਦੀਕ ਕਰੋ ਅਤੇ ਜੋੜੋ",
@@ -62187,7 +62187,7 @@ const pa = {
   "app.setReviews.nfcStep3": "Write ਦਬਾਓ ਅਤੇ ਫ਼ੋਨ ਨੂੰ ਖਾਲੀ ਟੈਗ 'ਤੇ ਰੱਖੋ ਜਦ ਤੱਕ ਹੋ ਨਾ ਜਾਵੇ।",
   "app.setReviews.nfcStep4": "ਕਿਸੇ ਹੋਰ ਫ਼ੋਨ ਨਾਲ ਟੈਗ ਟੈਪ ਕਰਕੇ ਜਾਂਚੋ, ਫਿਰ ਉੱਥੇ ਚਿਪਕਾਓ ਜਿੱਥੇ ਗਾਹਕ ਖੜ੍ਹਦੇ ਹਨ।",
   "app.setReviews.nfcIphoneNote": "iPhone XS ਅਤੇ ਬਾਅਦ ਵਾਲੇ ਬਿਨਾਂ ਐਪ ਟੈਗ ਪੜ੍ਹਦੇ ਹਨ; ਪੁਰਾਣਿਆਂ ਨੂੰ ਕੰਟਰੋਲ ਸੈਂਟਰ ਦਾ NFC ਰੀਡਰ ਚਾਹੀਦਾ ਹੈ। 2012 ਤੋਂ ਹਰ Android ਪੜ੍ਹਦਾ ਹੈ।",
-  "app.setReviews.gbpTitle": "Google Business Profile",
+  "app.setReviews.gbpTitle": "Google ਬਿਜ਼ਨਸ ਪ੍ਰੋਫ਼ਾਈਲ",
   "app.setReviews.gbpSubtitle": "ਆਪਣੇ Google ਰਿਵਿਊ ਲਿਆਉਣ ਲਈ ਆਪਣਾ Google Business Profile ਕਨੈਕਟ ਕਰੋ। ਉਹ ਬਿਲਕੁਲ ਉਵੇਂ ਰਹਿੰਦੇ ਹਨ ਜਿਵੇਂ Google ਕੋਲ ਹਨ, ਹਰ ਰਾਤ ਤਾਜ਼ਾ ਹੁੰਦੇ ਹਨ, ਅਤੇ ਤੁਸੀਂ ਚੁਣਦੇ ਹੋ ਕਿ ਕਿਹੜੇ ਸਾਈਟ 'ਤੇ ਦਿਖਣ।",
   "app.setReviews.gbpLoadError": "ਤੁਹਾਡੇ Google ਰਿਵਿਊ ਲੋਡ ਨਹੀਂ ਹੋ ਸਕੇ।",
   "app.setReviews.gbpSaveError": "ਸੇਵ ਨਹੀਂ ਹੋ ਸਕਿਆ।",
@@ -64712,9 +64712,9 @@ const pa = {
   "app.tour.receptionist.settingsTitle": "ਇਸਨੂੰ ਚਾਲੂ ਕਰੋ, ਜਾਂ ਠੀਕ ਕਰੋ",
   "app.tour.receptionist.settingsBody": "ਜਿਸ ਨੰਬਰ ਤੇ ਇਹ ਜਵਾਬ ਦਿੰਦੀ ਹੈ, ਸੁਆਗਤੀ ਸੁਨੇਹਾ, ਅਤੇ ਤੁਹਾਡਾ ਪ੍ਰਤੀ-ਮਿੰਟ ਕ੍ਰੈਡਿਟ ਸਭ ਸੈਟਿੰਗਾਂ ਵਿੱਚ ਹਨ — ਇਹ ਬਟਨ ਤੁਹਾਨੂੰ ਉੱਥੇ ਲੈ ਜਾਂਦਾ ਹੈ।",
 
-  "app.tour.aiCredit.voiceTitle": "Phone credit",
+  "app.tour.aiCredit.voiceTitle": "ਫ਼ੋਨ ਕ੍ਰੈਡਿਟ",
   "app.tour.aiCredit.voiceBody": "ਰਿਸੈਪਸ਼ਨਿਸਟ ਅਤੇ ਕਰੂ ਟੈਕਸਟਿੰਗ ਦੋਵੇਂ ਇੱਕੋ ਬੈਲੰਸ ਵਿੱਚੋਂ ਖਰਚ ਕਰਦੇ ਹਨ। ਖਤਮ ਹੋਣ ਤੋਂ ਪਹਿਲਾਂ ਇੱਥੇ ਟਾਪ ਅੱਪ ਕਰੋ, ਜਾਂ ਫੋਨ ਸੈਟਿੰਗਾਂ ਵਿੱਚ ਆਟੋ ਟਾਪ-ਅੱਪ ਸੰਭਾਲੋ।",
-  "app.tour.aiCredit.imageTitle": "AI image credit",
+  "app.tour.aiCredit.imageTitle": "AI ਤਸਵੀਰ ਕ੍ਰੈਡਿਟ",
   "app.tour.aiCredit.imageBody": "ਤਿਆਰ ਕੀਤੀਆਂ ਮਾਰਕੀਟਿੰਗ ਤਸਵੀਰਾਂ ਅਤੇ ਕੋਟੇਸ਼ਨ ਉੱਤੇ ਡੂੰਘੀ ਫੋਟੋ ਜਾਂਚ ਲਈ ਵੱਖਰਾ ਬੈਲੰਸ — ਲੋੜ ਮੁਤਾਬਕ ਖਰੀਦੋ, ਜਾਂ ਹਰ ਕ੍ਰੈਡਿਟ ਦੀ ਘੱਟ ਕੀਮਤ ਲਈ ਮਹੀਨਾਵਾਰ ਸਬਸਕ੍ਰਾਈਬ ਕਰੋ।",
 
   "app.tour.jobBuilder.photosTitle": "ਹਰ ਫੋਟੋ, ਫਾਈਲ ਕੀਤੀ ਤੇ ਤਾਰੀਖ ਸਮੇਤ",
@@ -64725,12 +64725,12 @@ const pa = {
 
   "app.tour.designerEditor.ratiosTitle": "ਇੱਕ ਡਿਜ਼ਾਈਨ, ਹਰ ਸਾਈਜ਼",
   "app.tour.designerEditor.ratiosBody": "ਹਰ ਟੈਬ ਇੱਕ ਵੱਖਰਾ ਇਸ਼ਤਿਹਾਰ ਸਾਈਜ਼ ਹੈ — Instagram, TikTok, Facebook, YouTube। ਟੈਬਾਂ ਬਦਲੋ ਅਤੇ ਹਰ ਇੱਕ ਨੂੰ ਠੀਕ ਕਰੋ; ਤੁਹਾਡੀਆਂ ਤਬਦੀਲੀਆਂ ਹਰ ਸਾਈਜ਼ ਲਈ ਵੱਖਰੀਆਂ ਸੇਵ ਹੁੰਦੀਆਂ ਹਨ।",
-  "app.tour.designerEditor.downloadTitle": "Download all formats",
+  "app.tour.designerEditor.downloadTitle": "ਸਾਰੇ ਫਾਰਮੈਟ ਡਾਊਨਲੋਡ ਕਰੋ",
   "app.tour.designerEditor.downloadBody": "ਇੱਕ ਕਲਿੱਕ ਹਰ ਸਾਈਜ਼ ਜੋ ਤੁਸੀਂ ਛੂਹਿਆ ਹੈ ਨੂੰ PNG ਵਜੋਂ ਬਣਾਉਂਦਾ ਹੈ, ਹਰ ਪਲੇਟਫਾਰਮ ਤੇ ਅਪਲੋਡ ਕਰਨ ਲਈ ਤਿਆਰ।",
 
   "app.tour.kpis.periodTitle": "ਆਪਣੀ ਵਿੰਡੋ ਚੁਣੋ",
   "app.tour.kpis.periodBody": "ਹੇਠਾਂ ਹਰ ਕਾਰਡ ਇਸ ਸਮੇਂ ਨੂੰ ਦਿਖਾਉਂਦਾ ਹੈ — ਇਸਨੂੰ ਬਦਲੋ ਅਤੇ ਪੂਰਾ ਡੈਸ਼ਬੋਰਡ ਇਸਦੇ ਨਾਲ ਬਦਲ ਜਾਂਦਾ ਹੈ।",
-  "app.tour.kpis.notTrackedTitle": "Not tracked",
+  "app.tour.kpis.notTrackedTitle": "ਟਰੈਕ ਨਹੀਂ ਕੀਤਾ",
   "app.tour.kpis.notTrackedBody": "ਬਿਨਾਂ ਡਾਟੇ ਵਾਲਾ ਕਾਰਡ ਜ਼ੀਰੋ ਦਿਖਾਉਣ ਦੀ ਬਜਾਏ ਕਾਰਨ ਦੱਸਦਾ ਹੈ — ਇਹ ਸੂਚੀ ਦੱਸਦੀ ਹੈ ਕਿ FieldQuo ਕੀ ਅੰਦਾਜ਼ਾ ਨਹੀਂ ਲਾਵੇਗਾ।",
 
   "app.tour.website.publishTitle": "ਜਦੋਂ ਤੱਕ ਤੁਸੀਂ ਪ੍ਰਕਾਸ਼ਿਤ ਨਹੀਂ ਕਰਦੇ, ਕੁਝ ਵੀ ਜਨਤਕ ਨਹੀਂ",
