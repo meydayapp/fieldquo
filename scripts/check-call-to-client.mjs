@@ -33,6 +33,40 @@
 import { readFileSync, existsSync } from "node:fs";
 import { register } from "node:module";
 
+/* ───────────────────────── no real vendor, ever ───────────────────────────── */
+//
+// The booking follow-up (lib/booking/finalizeBooking.js) really runs below: it
+// emails the confirmation through lib/email/resend.js and texts it through
+// lib/sms/twilioClient.js. Both read their keys from the environment, so on a
+// machine with them exported this check would mail and text whoever the
+// fixtures name. They are removed before anything under test is imported
+// (every module below is loaded by a dynamic import, after this runs), and the
+// send paths then stop at their own "no key" branches — which is what the
+// assertions observe. The origin is pinned so the manage link is minted rather
+// than refused for a missing NEXT_PUBLIC_APP_URL.
+for (const k of [
+  "RESEND_API_KEY",
+  "TWILIO_ACCOUNT_SID",
+  "TWILIO_AUTH_TOKEN",
+  "TWILIO_API_KEY_SID",
+  "TWILIO_API_KEY_SECRET",
+  "TWILIO_PHONE_NUMBER",
+]) delete process.env[k];
+process.env.NEXT_PUBLIC_APP_URL = "https://app.example.test";
+
+// Every warning and error the code under test prints, kept as well as shown,
+// so a best-effort path that swallowed a failure ("[voice] booking follow-up
+// failed") is an assertion rather than a line nobody reads in the scrollback.
+globalThis.__FQ_LOG = [];
+for (const level of ["warn", "error"]) {
+  const orig = console[level].bind(console);
+  console[level] = (...args) => {
+    globalThis.__FQ_LOG.push(args.map((a) => (typeof a === "string" ? a : a?.message ?? String(a))).join(" "));
+    orig(...args);
+  };
+}
+const logged = (re) => globalThis.__FQ_LOG.filter((l) => re.test(l));
+
 /* ─────────────────────────────── the tally ────────────────────────────────── */
 
 let pass = 0;
@@ -223,8 +257,14 @@ export async function load(url, context, nextLoad) {
     return mod("export const createScoredLead = async (d) => globalThis.__FQ_DB.leadRequest.create({ data: d });");
   if (url === "fq:usage")
     return mod("export const checkAiQuota = async () => globalThis.__FQ_QUOTA; export const recordAiUsage = async (u) => { globalThis.__FQ_USAGE.push(u); };");
+  // The real module's shape: recordConsent AND the DISCLOSURE it re-exports
+  // from lib/voice/disclosure.js — re-exported from that same file here, so the
+  // strings cannot drift. Without DISCLOSURE, lib/booking/finalizeBooking.js
+  // failed to LINK, bookSlot's try/catch swallowed it as "[voice] booking
+  // follow-up failed", and every booking below passed without its follow-up
+  // (manage token, consent, reminder) ever running.
   if (url === "fq:consent")
-    return mod("export const recordConsent = async () => {};");
+    return mod("export const recordConsent = async (c) => { (globalThis.__FQ_CONSENTS ||= []).push(c); }; export { DISCLOSURE } from '@/lib/voice/disclosure';");
   if (url === "fq:ai")
     return mod("export const complete = async () => globalThis.__FQ_AI; export const isAiConfigured = () => true; export const AI_MODEL = 'test-model';");
   return nextLoad(url, context);
@@ -265,6 +305,9 @@ const transcriptRoute = await import("@/app/api/voice/calls/[id]/transcript/rout
 const reviewsRoute = await import("@/app/api/quotes/estimate-reviews/route.js");
 const publicQuote = await import("@/app/api/public/quotes/[token]/route.js");
 const { bookSlot } = await import("@/lib/voice/availability");
+// The real strings — the consent row must store what the form and the booking
+// letter say, and the stub above re-exports this same object.
+const { DISCLOSURE } = await import("@/lib/voice/disclosure");
 
 /* ══════════════════════════ 1. the caller's own words ═════════════════════ */
 
@@ -426,6 +469,7 @@ function resetDb() {
   globalThis.__FQ_ROWS = {};
   globalThis.__FQ_MODELS = {};
   globalThis.__FQ_WRITES = [];
+  globalThis.__FQ_CONSENTS = [];
 }
 
 const COMPANY_EMAIL = "algebra-curio.6k@icloud.com";
@@ -1390,7 +1434,7 @@ async function book({ modes, mode, address, clients = [] }) {
 {
   resetDb();
   globalThis.__FQ_ROWS.company = [
-    { id: "co_1", bookingModes: ["visit", "call"], stripeChargesEnabled: true, currency: "CAD", timezone: "America/Toronto" },
+    { id: "co_1", name: "Northline Cabinets", bookingModes: ["visit", "call"], stripeChargesEnabled: true, currency: "CAD", timezone: "America/Toronto" },
   ];
   // The shape that caused it: one free type the phone may book, one PAID type
   // whose existence withholds "visit".
@@ -1411,14 +1455,16 @@ async function book({ modes, mode, address, clients = [] }) {
     Object.keys(book.parameters.properties),
   );
 
-  // Exactly the arguments the real call sent: no mode, no address.
+  // The arguments the real call sent — no mode, no address — except the
+  // email, which is a reserved test address: the confirmation letter really
+  // is handed to the sender below, and a fixture must never name a real inbox.
   const res = await bookSlot({
     companyId: "co_1",
     callId: "vc_1",
     slotId: `freeXX_${Date.now() + 86400000}`,
     name: "Capri",
     phone: "+18192387263",
-    email: "emilio.boves@gmail.com",
+    email: "capri@example.com",
     reason: "Kitchen refinishing",
   });
   ok("the callback BOOKS", res.ok === true, json(res.reason));
@@ -1435,8 +1481,41 @@ async function book({ modes, mode, address, clients = [] }) {
   );
   ok(
     "...and the email the caller spelled out reaches it, so the confirmation sends",
-    globalThis.__FQ_ROWS.booking[0]?.clientEmail === "emilio.boves@gmail.com",
+    globalThis.__FQ_ROWS.booking[0]?.clientEmail === "capri@example.com",
     json(globalThis.__FQ_ROWS.booking[0]?.clientEmail),
+  );
+
+  // ── The follow-up, executed ──────────────────────────────────────────
+  //
+  // Until the consent stub exported DISCLOSURE, finalizeBooking failed to
+  // link, bookSlot's catch logged "booking follow-up failed", and every line
+  // above passed anyway. These are what the follow-up is FOR.
+  const consent = globalThis.__FQ_CONSENTS?.[0];
+  ok(
+    "...the follow-up records the caller's consent, with the exact booking disclosure",
+    globalThis.__FQ_CONSENTS?.length === 1 && consent.source === "booking" &&
+      consent.disclosure === DISCLOSURE.booking && consent.phone === "+18192387263" &&
+      consent.companyId === "co_1" && Boolean(consent.clientId),
+    json(globalThis.__FQ_CONSENTS),
+  );
+  ok(
+    "...mints the manage link's token onto the booking",
+    typeof globalThis.__FQ_ROWS.booking[0]?.manageToken === "string" && globalThis.__FQ_ROWS.booking[0].manageToken.length >= 16,
+    json(globalThis.__FQ_ROWS.booking[0]?.manageToken),
+  );
+  ok(
+    "...hands the confirmation letter to the sender, addressed to the caller and named for the company",
+    logged(/skipping email to capri@example\.com .*Northline Cabinets/).length === 1,
+    json(logged(/skipping email/)),
+  );
+  ok(
+    "...reaches the confirmation text too, stopping at the check's missing number rather than a vendor",
+    logged(/confirmation text failed: No SMS 'from' number/).length > 0,
+  );
+  ok(
+    "...and only then does the agent get to promise a confirmation",
+    res.confirmationSent === true,
+    json(res.confirmationSent),
   );
 }
 // The sentence the caller actually hears.
@@ -1752,7 +1831,7 @@ const skipWritten = () =>
 {
   const callbackCompany = () => {
     globalThis.__FQ_ROWS.company = [
-      { id: "co_1", email: COMPANY_EMAIL, bookingModes: ["visit", "call"],
+      { id: "co_1", name: "Northline Cabinets", email: COMPANY_EMAIL, bookingModes: ["visit", "call"],
         stripeChargesEnabled: true, currency: "CAD", timezone: "America/Toronto",
         businessHours: [
           { day: 0, closed: true }, { day: 1, closed: false, open: "08:00", close: "17:00" },
@@ -1842,6 +1921,25 @@ const skipWritten = () =>
     (globalThis.__FQ_ROWS.booking || []).length,
   );
   ok("…as a call", globalThis.__FQ_ROWS.booking?.[0]?.mode === "call", globalThis.__FQ_ROWS.booking?.[0]?.mode);
+  // The booking save_caller makes is followed up like any other: consent with
+  // the disclosure the caller was given, and the manage token. No email was
+  // spelled out, so no letter is promised (the say-line above) or attempted.
+  // (save_caller records its own "manual" consent for the lead first; the
+  // booking one is the follow-up's.)
+  {
+    const bookingConsents = (globalThis.__FQ_CONSENTS || []).filter((c) => c.source === "booking");
+    ok(
+      "…and followed up: the caller's consent is recorded with the booking disclosure",
+      bookingConsents.length === 1 && bookingConsents[0].disclosure === DISCLOSURE.booking &&
+        bookingConsents[0].clientId === globalThis.__FQ_ROWS.appointment?.[0]?.clientId,
+      json(globalThis.__FQ_CONSENTS),
+    );
+  }
+  ok(
+    "…and the booking carries its manage token",
+    typeof globalThis.__FQ_ROWS.booking?.[0]?.manageToken === "string",
+    json(globalThis.__FQ_ROWS.booking?.[0]?.manageToken),
+  );
   // ── And it reserves a call's worth of time, not a consultation's ───────
   //
   // The event type here is 60 minutes because that is what it was created for:
@@ -1945,6 +2043,19 @@ const skipWritten = () =>
     noHours?.body?.say,
   );
 }
+
+/* ═══════════════ 19. nothing was swallowed on the way ══════════════════════ */
+//
+// bookSlot wraps the follow-up in a try/catch by contract — the caller is
+// still on the line — which is exactly why a stub missing an export passed
+// 257 assertions with the follow-up dead on every booking. Any such failure
+// anywhere in this run is now a failure of this check.
+section("19. The booking follow-up ran every time it was reached");
+ok(
+  "no booking follow-up failed anywhere in this run",
+  logged(/booking follow-up failed/).length === 0,
+  json(logged(/booking follow-up failed/)),
+);
 
 console.log(
   fails.length
