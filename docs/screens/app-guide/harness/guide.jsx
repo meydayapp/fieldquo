@@ -621,6 +621,17 @@ async function runScene(scene) {
     await wait(300);
     return;
   }
+  if (scene === "website-client-login") {
+    // Fine-tune opens the builder's settings panel; the Client login switch
+    // is the card inside it (data-site-client-portal).
+    const buttons = [...document.querySelectorAll("button")];
+    const fine = buttons.find((b) => /Fine-tune|Ajuster|Ajustar/i.test(b.textContent || ""));
+    if (fine) fine.click();
+    const card = await until("[data-site-client-portal]");
+    card.scrollIntoView({ block: "center" });
+    await wait(400);
+    return;
+  }
   if (scene === "client-edit") {
     // The Edit button beside the client's name opens the edit sheet.
     (await until("main button svg.lucide-pencil, main button svg.lucide-edit, main button svg.lucide-square-pen")).closest("button").click();

@@ -15,6 +15,7 @@ import { clientDocCopy } from "@/lib/i18n/clientDocCopy";
 import { offlinePaymentLines } from "@/lib/payments/offlinePaymentNote";
 import { jsonBody } from "@/lib/jsonBody";
 import JobProgressCard from "./JobProgressCard";
+import PlansAndVisits from "./PlansAndVisits";
 import {
   Loader2,
   Building2,
@@ -212,6 +213,24 @@ export default function ClientPortal({ token }) {
       {(data.jobs || []).map((job) => (
         <JobProgressCard key={job.id} job={job} token={token} copy={copy} date={date} accent={accent} accentOn={accentOn} />
       ))}
+
+      {/* When somebody is next coming, the client's service plans with their
+          next dates, and the upcoming / past visit lists — with the one thing
+          a client can do about them: ask the office to move one. Renders
+          nothing when there is none of it, so a quotes-and-invoices client
+          sees the page exactly as before. */}
+      <PlansAndVisits
+        plans={data.plans || []}
+        visits={data.visits || {}}
+        token={token}
+        copy={copy}
+        locale={fmt.locale}
+        timeZone={c.timezone}
+        money={money}
+        date={date}
+        brandColor={c.brandColor}
+        companyName={c.name}
+      />
 
       {/* Balance — it's the other thing most people open this for. */}
       <div className="bg-white border border-black/10 rounded-2xl p-6 mb-6">

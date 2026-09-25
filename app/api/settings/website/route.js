@@ -5,6 +5,7 @@
 //   GET    — the site, or a not-yet-created shell with a suggested subdomain
 //   PUT    — save blocks, subdomain, SEO
 //   POST   — generate a first draft (the only path that spends tokens)
+//   PATCH  — the "Client login" switch, alone (clientPortalEnabled)
 //   DELETE — unpublish
 //
 // Owners and admins only. A published page is the company's public face, and
@@ -528,6 +529,35 @@ export async function POST(request) {
       note: "Couldn't reach the writing assistant, so this draft is built from your saved details. Everything on it is editable.",
     });
   }
+}
+
+/**
+ * One setting, on its own: "Client login" on the public site
+ * (CompanySite.clientPortalEnabled).
+ *
+ * A separate verb rather than a field on PUT, because PUT is the builder's
+ * whole-page save — it requires a valid subdomain and rewrites the blocks — and
+ * flipping a switch must not be able to re-save a page the company has unsaved
+ * edits to, or fail because the subdomain box holds a half-typed name. This
+ * touches the one column and nothing else, and only on a site that exists:
+ * there is no login page to switch on for a company with no website.
+ */
+export async function PATCH(request) {
+  const { member, error, status } = await requireAdmin(request);
+  if (error) return NextResponse.json({ error }, { status });
+
+  const body = await request.json().catch(() => ({}));
+  if (typeof body?.clientPortalEnabled !== "boolean") {
+    return NextResponse.json({ error: "clientPortalEnabled must be true or false." }, { status: 400 });
+  }
+  const result = await db.companySite.updateMany({
+    where: { companyId: member.companyId },
+    data: { clientPortalEnabled: body.clientPortalEnabled },
+  });
+  if (result.count === 0) {
+    return NextResponse.json({ error: "Create your website first." }, { status: 404 });
+  }
+  return NextResponse.json({ clientPortalEnabled: body.clientPortalEnabled });
 }
 
 /** Unpublish. The site and its content survive; it just stops being public. */

@@ -84,7 +84,13 @@ function eyebrowInk(accent2, theme) {
 // default puts our name on a paying contractor's website, which is the bug this
 // prop exists to stop. Resolved from the plan in page.js — see
 // isPaidSubscription in lib/billing/access.js.
-export default function SiteBlocks({ blocks, company, theme, fill: fillPairIn, subdomain, style, language, languages = [], menu = [], currentPage, linkBase = "", linkSuffix = "", showFieldquoCredit = false }) {
+// `clientLoginHref` is null unless the company switched "Client login" on
+// (CompanySite.clientPortalEnabled); page.js builds it, and a null draws no
+// link anywhere. Derived from a boolean at render time rather than stored as
+// a block, so there is no browser-supplied URL here for sanitiseBlocks to
+// have to police. `children` is the /client page's own content, rendered
+// inside <main> after the (empty) block list.
+export default function SiteBlocks({ blocks, company, theme, fill: fillPairIn, subdomain, style, language, languages = [], menu = [], currentPage, linkBase = "", linkSuffix = "", showFieldquoCredit = false, clientLoginHref = null, children = null }) {
   // `t` is the copy table for THIS site's language. Threaded to every block
   // rather than imported inside each, so one page always renders in one language
   // and a block can't accidentally read a different one.
@@ -99,7 +105,7 @@ export default function SiteBlocks({ blocks, company, theme, fill: fillPairIn, s
 
   return (
     <>
-      <SiteHeader company={company} theme={theme} fill={fill} accent2={accent2} blocks={visible} S={S} t={t} language={language} languages={languages} subdomain={subdomain} menu={menu} currentPage={currentPage} linkBase={linkBase} linkSuffix={linkSuffix} />
+      <SiteHeader company={company} theme={theme} fill={fill} accent2={accent2} blocks={visible} S={S} t={t} language={language} languages={languages} subdomain={subdomain} menu={menu} currentPage={currentPage} linkBase={linkBase} linkSuffix={linkSuffix} clientLoginHref={clientLoginHref} />
       <main>
         {visible.map((block) => {
           // `language` rides along with `t` for the same reason `t` does: a
@@ -135,8 +141,9 @@ export default function SiteBlocks({ blocks, company, theme, fill: fillPairIn, s
             </div>
           );
         })}
+        {children}
       </main>
-      <SiteFooter company={company} theme={theme} accent2={accent2} t={t} showFieldquoCredit={showFieldquoCredit} />
+      <SiteFooter company={company} theme={theme} accent2={accent2} t={t} showFieldquoCredit={showFieldquoCredit} clientLoginHref={clientLoginHref} />
     </>
   );
 }
@@ -259,7 +266,7 @@ const navEntry = (type, t) =>
       }
     : null;
 
-function SiteHeader({ company, theme, fill, blocks = [], S, t, language, languages = [], subdomain, menu = [], currentPage, linkBase = "", linkSuffix = "" }) {
+function SiteHeader({ company, theme, fill, blocks = [], S, t, language, languages = [], subdomain, menu = [], currentPage, linkBase = "", linkSuffix = "", clientLoginHref = null }) {
   const state = openState(company.businessHours, company.timezone);
   const neutral = neutralPair(theme);
   // The one Intl locale this page formats against — reused rather than a second
@@ -437,6 +444,21 @@ function SiteHeader({ company, theme, fill, blocks = [], S, t, language, languag
               })}
             </nav>
           )}
+          {/* "Client login" — a quiet text link beside the phone number from
+              sm up; on a phone it lives in the menu (multi-page) and in the
+              footer (always), because a 375px header already holds the name
+              and the quote button and a fourth control would push one off. */}
+          {clientLoginHref && (
+            <a
+              href={clientLoginHref}
+              data-site-client-login
+              aria-current={currentPage === "client" ? "page" : undefined}
+              className="hidden sm:inline-flex items-center min-h-11 text-sm font-semibold whitespace-nowrap hover:opacity-70"
+              style={{ color: theme.inkMuted }}
+            >
+              {t.clientLogin}
+            </a>
+          )}
           {company.phone && (
             <a href={`tel:${company.phone}`} className="hidden lg:inline text-sm font-semibold whitespace-nowrap" style={{ color: theme.accentText }}>
               {company.phone}
@@ -492,6 +514,15 @@ function SiteHeader({ company, theme, fill, blocks = [], S, t, language, languag
                     {p.title}
                   </a>
                 ))}
+                {clientLoginHref && (
+                  <a
+                    href={clientLoginHref}
+                    className="flex items-center min-h-11 px-3 rounded-lg text-sm font-medium hover:bg-black/5 border-t mt-1 pt-1"
+                    style={{ color: theme.ink, borderColor: theme.border }}
+                  >
+                    {t.clientLogin}
+                  </a>
+                )}
               </div>
             </details>
           )}
@@ -1658,7 +1689,7 @@ function CtaBand({ block, company, theme, fill, S, t }) {
 // component may mention FieldQuo. A contractor on a paid plan gets a footer
 // carrying their name and their copyright and no trace of ours — a homeowner
 // comparing three quotes must not be able to tell which of them share software.
-function SiteFooter({ company, theme, t, showFieldquoCredit = false }) {
+function SiteFooter({ company, theme, t, showFieldquoCredit = false, clientLoginHref = null }) {
   return (
     <footer className="px-5 sm:px-8 py-12 border-t" style={{ borderColor: theme.border }}>
       <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -1672,6 +1703,13 @@ function SiteFooter({ company, theme, t, showFieldquoCredit = false }) {
         </div>
         <div className="text-center sm:text-right text-xs" style={{ color: theme.inkFaint }}>
           <p>© {new Date().getFullYear()} {company.name}</p>
+          {clientLoginHref && (
+            <p className="mt-1">
+              <a href={clientLoginHref} data-site-client-login-footer className="inline-flex items-center min-h-11 font-semibold underline" style={{ color: theme.inkMuted }}>
+                {t.clientLogin}
+              </a>
+            </p>
+          )}
           {showFieldquoCredit && (
             <p className="mt-1">{t.siteBy} <a href="https://www.fieldquo.com" className="underline">FieldQuo</a></p>
           )}

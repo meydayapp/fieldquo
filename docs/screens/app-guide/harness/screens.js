@@ -451,4 +451,10 @@ export const SCREENS = [
   { slug: "translate-banner-375", nav: "app.settings.company", href: "/app/settings/company", page: "app/app/settings/company/page.js", settings: true, scene: "company-save", width: 375, height: 1000, chapter: "translate", out: "docs/screens/translate-on-save" },
   { slug: "translate-client-quote-fr", href: "/q/qt_8f2c1a7d4e", page: "app/q/[token]/QuoteApproval.js", props: { token: "qt_8f2c1a7d4e" }, mode: "public", height: 3600, chapter: "translate", out: "docs/screens/translate-on-save" },
   { slug: "translate-banner-ready", nav: "app.settings.company", href: "/app/settings/company", page: "app/app/settings/company/page.js", settings: true, scene: "company-save-ready", height: 900, chapter: "translate", out: "docs/screens/translate-on-save" },
+  // ── Client portal: Client login switch + portal link (2026-09-24) ────────
+  // Settings → Website with Fine-tune open on the "Client login on your
+  // website" switch, and a client's page with Copy / Email portal link.
+  { slug: "client-portal-website-switch", nav: "app.settings.website", href: "/app/settings/website", page: "app/app/settings/website/page.js", settings: true, scene: "website-client-login", height: 1000, chapter: "client-portal", out: "docs/screens/client-portal" },
+  { slug: "client-portal-website-switch-375", nav: "app.settings.website", href: "/app/settings/website", page: "app/app/settings/website/page.js", settings: true, scene: "website-client-login", width: 375, height: 1400, chapter: "client-portal", out: "docs/screens/client-portal" },
+  { slug: "client-portal-client-page-link", href: "/app/clients", page: "app/app/clients/[id]/page.js", params: { id: "cl_dubois" }, height: 1100, chapter: "client-portal", out: "docs/screens/client-portal" },
 ];
