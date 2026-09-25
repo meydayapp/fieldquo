@@ -62,6 +62,8 @@ export default function FunnelStepListItem({
           onClick={onMoveUp}
           disabled={isFirst}
           className="text-muted-foreground disabled:opacity-30"
+          aria-label={t("app.funnels.moveStepUp")}
+          title={t("app.funnels.moveStepUp")}
         >
           <ChevronUp size={13} />
         </button>
@@ -69,6 +71,8 @@ export default function FunnelStepListItem({
           onClick={onMoveDown}
           disabled={isLast}
           className="text-muted-foreground disabled:opacity-30"
+          aria-label={t("app.funnels.moveStepDown")}
+          title={t("app.funnels.moveStepDown")}
         >
           <ChevronDown size={13} />
         </button>
@@ -77,6 +81,8 @@ export default function FunnelStepListItem({
         <button
           onClick={onRemove}
           className="text-muted-foreground hover:text-red-600"
+          aria-label={t("app.funnels.removeStep")}
+          title={t("app.funnels.removeStep")}
         >
           <Trash2 size={13} />
         </button>

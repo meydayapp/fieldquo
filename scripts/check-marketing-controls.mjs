@@ -349,7 +349,139 @@ console.log("\n6. The builder's server-written labels reach the catalogue\n");
     ok(`funnel builder asks for ${key}`, funnelBuilder.includes(`"${key}"`));
     ok(`…defined in every language`, LANGS.every((l) => typeof APP_MESSAGES[l][key] === "string"));
   }
-  const email = stripComments(read("app/components/marketing/EmailCampaignDetail.js"));
+
+  // The step kinds. STEP_KINDS entries carry `labelKey`, never `label` — the
+  // i18n pass renamed the field and the step editor's heading kept reading
+  // `.label`, so it rendered empty in every language. The table is
+  // parsed out of the source (the file is JSX, which this loader can't import)
+  // and every reader of it in the builder is held to the new field.
+  const stepListSrc = stripComments(read("app/app/funnels/[id]/FunnelStepListItem.js"));
+  const stepKindsBlock = stepListSrc.match(/export const STEP_KINDS = \[([\s\S]*?)\];/)?.[1] || "";
+  const stepKinds = [...stepKindsBlock.matchAll(/\{\s*kind:\s*"([^"]+)",\s*labelKey:\s*"([^"]+)"\s*\}/g)]
+    .map((m) => ({ kind: m[1], labelKey: m[2] }));
+  ok("STEP_KINDS parses to seven kinds, each with a labelKey", stepKinds.length === 7 && !/\blabel:/.test(stepKindsBlock),
+    stepKinds.map((k) => k.kind));
+  ok("…every step-kind label defined (non-empty) in every language",
+    stepKinds.every(({ labelKey }) => LANGS.every((l) => typeof APP_MESSAGES[l][labelKey] === "string" && APP_MESSAGES[l][labelKey].trim())),
+    stepKinds.map((k) => k.labelKey));
+  for (const [name, src] of [["page.js", funnelBuilder], ["FunnelStepListItem.js", stepListSrc]]) {
+    const bound = [...src.matchAll(/const (\w+) = STEP_KINDS\.find\(/g)].map((m) => m[1]);
+    // [^\n]*? rather than [^)]*: the predicate itself is `(k) => …`, so the
+    // first ")" closes the arrow's parameter list, not the find() call.
+    const staleRead = /STEP_KINDS\.find\([^\n]*?\)\??\.label\b/.test(src)
+      || bound.some((v) => new RegExp(`\\b${v}\\??\\.label\\b`).test(src));
+    ok(`${name}: nothing reads .label off a STEP_KINDS entry (only labelKey exists)`, !staleRead, bound);
+  }
+  const stepEditor = funnelBuilder.slice(funnelBuilder.indexOf("function StepEditor("),
+    funnelBuilder.indexOf("\nfunction ", funnelBuilder.indexOf("function StepEditor(") + 1));
+  ok("the step editor's heading translates the kind's labelKey through t()",
+    /const \{ t \} = useTranslation\(\)/.test(stepEditor) && /t\(kind\.labelKey\)/.test(stepEditor));
+  ok("…and so does the step list", /t\(kind\.labelKey\)/.test(stepListSrc));
+
+  // ── The status pill, and every other reader of funnelStatusLabel ──────────
+  //
+  // funnelStatusLabel() returns a catalogue KEY. The list page wrapped it in
+  // t(); the builder's header rendered it bare and printed
+  // "app.funnels.status.published" in every language. Every call in the app
+  // tree is found (not a hand-kept list of files — a third screen showing the
+  // badge is exactly the caller that would be missed) and each must be the
+  // argument of t().
+  const { FUNNEL_STATUS_LABEL } = await import("@/lib/funnels/status");
+  const { readdirSync, statSync } = await import("node:fs");
+  const walk = (dir) => readdirSync(dir).flatMap((name) => {
+    const p = `${dir}/${name}`;
+    if (name === "node_modules" || name.startsWith(".")) return [];
+    return statSync(p).isDirectory() ? walk(p) : /\.(m?js|jsx)$/.test(name) ? [p] : [];
+  });
+  const statusCalls = [];
+  for (const file of ["app", "components", "lib"].flatMap((d) => { try { return walk(d); } catch { return []; } })) {
+    if (file === "lib/funnels/status.js") continue;
+    const src = stripComments(read(file));
+    for (const m of src.matchAll(/funnelStatusLabel\s*\(/g)) {
+      statusCalls.push({ file, wrapped: /\bt\(\s*$/.test(src.slice(Math.max(0, m.index - 12), m.index)) });
+    }
+  }
+  ok("funnelStatusLabel() has callers in the app tree (list + builder at least)", statusCalls.length >= 2, statusCalls);
+  ok("…and every one renders through t() — no raw key on a pill",
+    statusCalls.every((c) => c.wrapped), statusCalls.filter((c) => !c.wrapped).map((c) => c.file));
+  ok("every funnel status key exists in every language",
+    Object.values(FUNNEL_STATUS_LABEL).every((k) => LANGS.every((l) => typeof APP_MESSAGES[l][k] === "string" && !APP_MESSAGES[l][k].startsWith("app."))));
+
+  // ── The editor's own chrome: no English literal left where a key belongs ──
+  //
+  // Headline / Subtext / Preview stayed English in fr and es after the i18n
+  // pass, along with the error fallbacks, the publish blockers, the form-field
+  // chips, the band and assumption labels, and the icon buttons had no name at
+  // all. What is left as a literal on purpose is the funnel's own seeded COPY
+  // (newStep, the "Option" answer, the embed title) — the contractor's text,
+  // not ours; see the note above newStep() in page.js.
+  const previewSrc = stripComments(read("app/app/funnels/[id]/StepPreview.js"));
+  const estimateEditor = funnelBuilder.slice(funnelBuilder.indexOf("function EstimateStepEditor("));
+  const bannedLiterals = [
+    ["label=\"Headline\"", /label="Headline"/],
+    ["label=\"Subtext\"", /label="Subtext"/],
+    [">Preview<", />\s*Preview\s*</],
+    ["\"Couldn't load that funnel.\"", /"Couldn't load that funnel\."/],
+    ["\"Couldn't save.\"", /"Couldn't save\."/],
+    ["\"Instant estimate\" fallback name", /\|\|\s*"Instant estimate"/],
+    ["the not-switched-on sentence", /that service isn't switched on/],
+    ["issue.message rendered bare", /\{\s*(?:i|issue)\.message\s*\}|\$\{issue\.message\}/],
+    ["the form chip printing its token", /\{\s*f\s*\}\s*<\/button>/],
+  ];
+  for (const [what, re] of bannedLiterals) ok(`funnel builder: no hard-coded ${what}`, !re.test(funnelBuilder));
+  ok("step editor: no Field takes a string-literal label", !/<Field\s+label="/.test(stepEditor) && !/<Field\s+label="/.test(estimateEditor));
+  ok("estimate editor: band and assumption labels go through t()",
+    !/\{\s*f\.label\s*\}/.test(estimateEditor) && !/\{\s*c\.label\s*\}/.test(estimateEditor)
+    && /t\(`app\.funnels\.bandField\.\$\{f\.key\}`/.test(estimateEditor) && /t\(`app\.funnels\.choice\.\$\{c\.key\}`/.test(estimateEditor)
+    && /t\(`app\.funnels\.choiceOption\.\$\{o\}`/.test(estimateEditor));
+  ok("preview: no hard-coded \"Untitled option\"", !/"Untitled option"/.test(previewSrc));
+  for (const [name, src] of [["page.js", funnelBuilder], ["FunnelStepListItem.js", stepListSrc]]) {
+    // An icon-only <button> (its only child is a lucide icon) needs a name a
+    // screen reader can say — and that name is chrome, so it is keyed.
+    // Attributes are matched up to the next <button / </button>, not [^>]*:
+    // an onClick arrow's "=>" would otherwise end the tag early.
+    const iconOnly = [...src.matchAll(/<button\b((?:(?!<\/?button\b)[\s\S])*?)>\s*<(ArrowLeft|Trash2|ChevronUp|ChevronDown)\b[^>]*\/>\s*<\/button>/g)];
+    ok(`${name}: every icon-only button has a translated aria-label (${iconOnly.length})`,
+      iconOnly.length > 0 && iconOnly.every((m) => /aria-label=\{t\("app\.funnels\.[\w.]+"\)\}/.test(m[1])),
+      iconOnly.filter((m) => !/aria-label=\{t\(/.test(m[1])).map((m) => m[2]));
+  }
+
+  const movedKeys = ["loadFailed", "saveFailed", "nameLabel", "backToList", "field.headline", "field.subtext", "preview",
+    "blockerLine", "issue.notSwitchedOn", "previewUntitledOption", "moveStepUp", "moveStepDown", "removeStep", "removeAnswer",
+    "removeSizeOption"].map((k) => `app.funnels.${k}`);
+  const allSrc = funnelBuilder + stepListSrc + previewSrc;
+  ok("every moved label is asked for by the builder", movedKeys.every((k) => allSrc.includes(`"${k}"`)),
+    movedKeys.filter((k) => !allSrc.includes(`"${k}"`)));
+  // The keys reached through a template literal, enumerated from the modules
+  // that produce the tokens rather than listed, so a trade, field, choice or
+  // issue code added there without a catalogue entry fails here.
+  const { FUNNEL_ESTIMATE_TRADES, bandFieldsFor, choiceFieldsFor, estimateStepIssues } = await import("@/app/data/funnelBlocks");
+  const dynamicKeys = new Set(["name", "email", "phone"].map((f) => `app.funnels.formField.${f}`));
+  for (const trade of FUNNEL_ESTIMATE_TRADES) {
+    for (const f of bandFieldsFor(trade)) dynamicKeys.add(`app.funnels.bandField.${f.key}`);
+    for (const c of choiceFieldsFor(trade)) {
+      dynamicKeys.add(`app.funnels.choice.${c.key}`);
+      for (const o of c.options) dynamicKeys.add(`app.funnels.choiceOption.${o}`);
+    }
+  }
+  const issueCodes = new Set([
+    ...estimateStepIssues({ kind: "instant_estimate" }),
+    ...estimateStepIssues({ kind: "instant_estimate", trade: "painting", bands: [{ label: "", values: { squareFootage: 100 } }, { label: "x", values: {} }] }),
+  ].map((i) => i.code));
+  ok("the issue fixtures reach all four codes", issueCodes.size === 4, [...issueCodes]);
+  for (const code of issueCodes) dynamicKeys.add(`app.funnels.issue.${code}`);
+  const everyKey = [...movedKeys, ...dynamicKeys];
+  const missing = everyKey.flatMap((k) => LANGS.filter((l) => !(typeof APP_MESSAGES[l][k] === "string" && APP_MESSAGES[l][k].trim())).map((l) => `${l}:${k}`));
+  ok(`all ${everyKey.length} editor keys defined, non-empty, in all ${LANGS.length} languages`, missing.length === 0, missing.slice(0, 12));
+  const echoes = ["app.funnels.field.headline", "app.funnels.field.subtext", "app.funnels.preview"]
+    .flatMap((k) => ["fr", "es"].filter((l) => APP_MESSAGES[l][k] === APP_MESSAGES.en[k]).map((l) => `${l}:${k}`));
+  ok("fr/es: Headline, Subtext and Preview are not English", echoes.length === 0, echoes);
+  ok("every language's blocker line carries both placeholders",
+    LANGS.every((l) => /\{step\}/.test(APP_MESSAGES[l]["app.funnels.blockerLine"] || "") && /\{problem\}/.test(APP_MESSAGES[l]["app.funnels.blockerLine"] || ""))
+    && LANGS.every((l) => /\{path\}/.test(APP_MESSAGES[l]["app.funnels.issue.notSwitchedOn"] || "")));
+  ok("pa: the Punjabi sentence says ਕੋਟ for quote", /ਕੋਟ/.test(APP_MESSAGES.pa?.["app.funnels.issue.notSwitchedOn"] || ""));
+
+  const email =stripComments(read("app/components/marketing/EmailCampaignDetail.js"));
   ok("EmailCampaignDetail has no bare English button left",
     !/>\s*Send Campaign\s*</.test(email) && !/"Yes, send now"\s*\}/.test(email.replace(/t\([^)]*\)/g, "")) && /app\.mkEmail\.sendCampaign/.test(email));
   for (const key of ["sendError", "noTemplate", "editTemplate", "loadingSubscribers", "subscribedCount", "manageList", "sentOn", "partial", "sending", "resumeSend", "confirm", "sendNow", "pickTemplateFirst", "noRecipients", "sendCampaign"]) {
