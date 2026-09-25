@@ -1177,7 +1177,7 @@ function ProspectDetail({ detail, onSelect = null, onChanged = null }) {
           {p.mergedIntoId ? (
             <li>
               Retired: merged into{" "}
-              <button type="button" className="underline underline-offset-2" onClick={() => onSelect && onSelect(p.mergedIntoId)}>
+              <button type="button" className="min-h-[36px] underline underline-offset-2" onClick={() => onSelect && onSelect(p.mergedIntoId)}>
                 another row
               </button>
               , which now carries this one&rsquo;s fields and observations. Out of every queue and count.

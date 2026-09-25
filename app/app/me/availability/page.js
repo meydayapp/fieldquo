@@ -140,7 +140,8 @@ export default function MeAvailabilityPage() {
                           {r.desiredHoursPerWeek != null ? ` · ${t("app.me.availability.desiredShort", { n: Number(r.desiredHoursPerWeek) })}` : ""}
                         </div>
                         {r.note ? <div className="mt-1 text-xs text-muted-foreground">“{r.note}”</div> : null}
-                        <table className="mt-2 w-full text-xs">
+                        <div className="mt-2 overflow-x-auto">
+                        <table className="w-full text-xs">
                           <tbody>
                             {r.diff.map((d) => (
                               <tr key={d.dayOfWeek} className={d.changed ? "font-semibold text-foreground" : "text-muted-foreground"}>
@@ -152,6 +153,7 @@ export default function MeAvailabilityPage() {
                             ))}
                           </tbody>
                         </table>
+                        </div>
                         <div className="mt-2 flex gap-2">
                           <button type="button" disabled={busyId === r.id} onClick={() => decide(r.id, "approve")} className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-1 rounded-xl bg-emerald-600 text-sm font-semibold text-white disabled:opacity-60">
                             {busyId === r.id ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />} {t("app.me.action.approve")}

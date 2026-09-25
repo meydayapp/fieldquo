@@ -8,6 +8,7 @@
 import React from "react";
 
 import PlatformDashboard from "@/app/platform/page";
+import AiBillingPage from "@/app/platform/ai-billing/page";
 import AiUsagePage from "@/app/platform/ai-usage/page";
 import AnalyticsPage from "@/app/platform/analytics/page";
 import AuditLogPage from "@/app/platform/audit-log/page";
@@ -18,6 +19,7 @@ import BillingTaxPage from "@/app/platform/billing/tax/page";
 import ChatPage from "@/app/platform/chat/page";
 import CompaniesPage from "@/app/platform/companies/page";
 import CompanyDetailPage from "@/app/platform/companies/[id]/page";
+import CostsPage from "@/app/platform/costs/page";
 import CrewLinesPage from "@/app/platform/crew-lines/page";
 import DataDeletionPage from "@/app/platform/data-deletion/page";
 import DemoAvailabilityPage from "@/app/platform/demo-availability/page";
@@ -39,6 +41,7 @@ import CampaignsPage from "@/app/platform/sales/campaigns/page";
 import CampaignDetailPage from "@/app/platform/sales/campaigns/[id]/page";
 import CapabilitiesPage from "@/app/platform/sales/capabilities/page";
 import ConfidencePage from "@/app/platform/sales/confidence/page";
+import RepConversationsPage from "@/app/platform/sales/conversations/page";
 import FloorPage from "@/app/platform/sales/floor/page";
 import FunnelPage from "@/app/platform/sales/funnel/page";
 import SalesNotesPage from "@/app/platform/sales/notes/page";
@@ -46,6 +49,7 @@ import PayoutsPage from "@/app/platform/sales/payouts/page";
 import PerformancePage from "@/app/platform/sales/performance/page";
 import CallQualityPage from "@/app/platform/sales/call-quality/page";
 import CommissionPlansPage from "@/app/platform/sales/plans/page";
+import OutcomesPage from "@/app/platform/sales/outcomes/page";
 import PlaybooksPage from "@/app/platform/sales/playbooks/page";
 import PlaybookPreviewPage from "@/app/platform/sales/playbooks/preview/page";
 import ProspectsPage from "@/app/platform/sales/prospects/page";
@@ -60,6 +64,7 @@ import ServiceCategoriesPage from "@/app/platform/service-categories/page";
 import SettingsPage from "@/app/platform/settings/page";
 import SignupOriginsPage from "@/app/platform/signup-origins/page";
 import SignupsPage from "@/app/platform/signups/page";
+import SmsHealthPage from "@/app/platform/sms-health/page";
 import SupportPage from "@/app/platform/support/page";
 import SuppressionsPage from "@/app/platform/suppressions/page";
 import TeamPage from "@/app/platform/team/page";
@@ -93,6 +98,7 @@ const asyncPage = (Component, params) => {
 
 export const PAGES = {
   "/platform": { render: page(PlatformDashboard) },
+  "/platform/ai-billing": { render: page(AiBillingPage) },
   "/platform/ai-usage": { render: page(AiUsagePage) },
   "/platform/analytics": { render: page(AnalyticsPage) },
   "/platform/audit-log": { render: page(AuditLogPage) },
@@ -103,6 +109,7 @@ export const PAGES = {
   "/platform/chat": { render: page(ChatPage) },
   "/platform/companies": { render: page(CompaniesPage) },
   [`/platform/companies/${COMPANY_ID}`]: { render: asyncPage(CompanyDetailPage, { id: COMPANY_ID }), params: { id: COMPANY_ID }, file: "companies/[id]" },
+  "/platform/costs": { render: page(CostsPage) },
   "/platform/crew-lines": { render: page(CrewLinesPage) },
   "/platform/data-deletion": { render: page(DataDeletionPage) },
   "/platform/demo-availability": { render: page(DemoAvailabilityPage) },
@@ -124,12 +131,14 @@ export const PAGES = {
   [`/platform/sales/campaigns/${CAMPAIGN_ID}`]: { render: page(CampaignDetailPage, { params: Promise.resolve({ id: CAMPAIGN_ID }) }), params: { id: CAMPAIGN_ID }, file: "sales/campaigns/[id]" },
   "/platform/sales/capabilities": { render: page(CapabilitiesPage) },
   "/platform/sales/confidence": { render: page(ConfidencePage) },
+  "/platform/sales/conversations": { render: page(RepConversationsPage) },
   "/platform/sales/floor": { render: page(FloorPage) },
   "/platform/sales/funnel": { render: page(FunnelPage) },
   "/platform/sales/notes": { render: page(SalesNotesPage) },
   "/platform/sales/payouts": { render: page(PayoutsPage) },
   "/platform/sales/performance": { render: page(PerformancePage) },
   "/platform/sales/call-quality": { render: page(CallQualityPage) },
+  "/platform/sales/outcomes": { render: page(OutcomesPage) },
   "/platform/sales/plans": { render: page(CommissionPlansPage) },
   "/platform/sales/playbooks": { render: page(PlaybooksPage) },
   "/platform/sales/playbooks/preview": { render: page(PlaybookPreviewPage) },
@@ -145,6 +154,7 @@ export const PAGES = {
   "/platform/settings": { render: page(SettingsPage) },
   "/platform/signup-origins": { render: page(SignupOriginsPage) },
   "/platform/signups": { render: page(SignupsPage) },
+  "/platform/sms-health": { render: page(SmsHealthPage) },
   "/platform/support": { render: page(SupportPage) },
   "/platform/suppressions": { render: page(SuppressionsPage) },
   "/platform/team": { render: page(TeamPage) },

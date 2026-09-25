@@ -2450,7 +2450,7 @@ function DecisionDialog({ kind, quoteNumber, reason, onReason, busy, onClose, on
             onClick={onClose}
             disabled={busy}
             aria-label={t("app.action.cancel", "Cancel")}
-            className="p-1 text-muted-foreground"
+            className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center -m-2.5 text-muted-foreground"
           >
             <X size={16} />
           </button>

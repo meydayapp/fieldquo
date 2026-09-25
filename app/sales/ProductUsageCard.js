@@ -93,7 +93,7 @@ export default function ProductUsageCard({ compact = false }) {
                   <span className="text-muted-foreground tabular-nums mr-2">{it.rank}.</span>
                   {t(it.navKey)}
                 </span>
-                <span className="text-xs text-muted-foreground tabular-nums whitespace-nowrap">
+                <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
                   {t("app.salesUsage.companies", { count: it.companies })}
                 </span>
               </div>

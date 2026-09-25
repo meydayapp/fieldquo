@@ -51,9 +51,11 @@ function AddressChips({ label, chosen, options, onChange, hint }) {
             type="button"
             onClick={() => onChange(chosen.filter((x) => x !== a))}
             aria-label={t("app.chat.close")}
-            className="grid h-5 w-5 place-items-center rounded-full hover:bg-background"
+            className="group -m-2 grid h-9 w-9 place-items-center rounded-full"
           >
-            <X size={11} aria-hidden="true" />
+            <span className="grid h-5 w-5 place-items-center rounded-full group-hover:bg-background">
+              <X size={11} aria-hidden="true" />
+            </span>
           </button>
         </span>
       ))}
@@ -62,7 +64,7 @@ function AddressChips({ label, chosen, options, onChange, hint }) {
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
-            className="inline-flex items-center gap-1 rounded-md border border-dashed border-border px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground"
+            className="inline-flex min-h-[36px] lg:min-h-0 items-center gap-1 rounded-md border border-dashed border-border px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground"
           >
             {t("app.salesInbox.compose.pickRecipient")} <ChevronDown size={12} aria-hidden="true" />
           </button>
@@ -76,7 +78,7 @@ function AddressChips({ label, chosen, options, onChange, hint }) {
                       onChange([...chosen, o.address]);
                       setOpen(false);
                     }}
-                    className="flex w-full flex-col items-start rounded px-2 py-1.5 text-left hover:bg-muted"
+                    className="flex min-h-[36px] w-full flex-col items-start rounded px-2 py-1.5 text-left hover:bg-muted"
                   >
                     <span className="text-sm text-foreground break-all">{o.address}</span>
                     <span className="text-[11px] text-muted-foreground">{t(`app.salesInbox.recipient.${o.source}`)}</span>
@@ -282,7 +284,7 @@ export default function EmailComposer({
       {showCc ? (
         <AddressChips label={t("app.salesInbox.compose.cc")} chosen={cc} options={recipients.filter((r) => !to.includes(r.address))} onChange={touch(setCc)} />
       ) : recipients.length > 1 ? (
-        <button type="button" onClick={() => setShowCc(true)} className="self-start text-xs text-muted-foreground underline">
+        <button type="button" onClick={() => setShowCc(true)} className="min-h-[36px] self-start text-xs text-muted-foreground underline">
           {t("app.salesInbox.compose.addCc")}
         </button>
       ) : null}
@@ -320,7 +322,7 @@ export default function EmailComposer({
                 type="button"
                 aria-pressed={on}
                 onClick={() => touch(setPicked)(on ? picked.filter((u) => u !== a.url) : [...picked, a.url])}
-                className={`${CHIP} ${on ? "border-primary" : ""}`}
+                className={`${CHIP} min-h-[36px] lg:min-h-0 ${on ? "border-primary" : ""}`}
               >
                 <Paperclip size={11} aria-hidden="true" /> {a.filename}
               </button>
@@ -369,7 +371,7 @@ export default function EmailComposer({
                           setTemplatesOpen(false);
                           textareaRef.current?.focus();
                         }}
-                        className="w-full rounded px-2 py-1.5 text-left text-sm text-foreground hover:bg-muted"
+                        className="min-h-[36px] w-full rounded px-2 py-1.5 text-left text-sm text-foreground hover:bg-muted"
                       >
                         {tpl.label}
                       </button>

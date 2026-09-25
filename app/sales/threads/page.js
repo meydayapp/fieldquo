@@ -75,7 +75,7 @@ const FRAME_HEIGHT = "fq-sales-fill";
 const BTN =
   "inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60";
 const ACTION =
-  "inline-flex items-center gap-1.5 min-h-[44px] lg:min-h-[36px] whitespace-nowrap rounded-md border border-border bg-card px-2.5 text-xs font-medium text-foreground hover:bg-muted disabled:opacity-60";
+  "inline-flex items-center gap-1.5 min-h-[44px] lg:min-h-[36px] rounded-md border border-border bg-card px-2.5 text-xs font-medium text-foreground hover:bg-muted disabled:opacity-60";
 const TAG = "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold";
 const FOLDERS = ["inbox", "archived", "all"];
 
@@ -157,7 +157,7 @@ function Message({ message, expanded, onToggle, onReply, onForward, them }) {
   return (
     <article className="rounded-lg border border-border bg-card" data-message-direction={message.direction}>
       <header className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-border px-3 py-2">
-        <button type="button" onClick={onToggle} className="min-w-0 flex-1 text-left">
+        <button type="button" onClick={onToggle} className="min-h-[36px] min-w-0 flex-1 text-left">
           <span className={`block truncate text-sm ${mine ? "text-muted-foreground" : "font-semibold text-foreground"}`}>{who}</span>
           <span className="block truncate text-[11px] text-muted-foreground">
             {t("app.salesInbox.message.to")} {message.toAddress}
@@ -184,7 +184,7 @@ function Message({ message, expanded, onToggle, onReply, onForward, them }) {
               type="button"
               onClick={() => setShowQuoted((v) => !v)}
               aria-expanded={showQuoted}
-              className="rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground"
+              className="inline-flex min-h-[36px] lg:min-h-0 items-center rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground"
             >
               {showQuoted ? t("app.salesInbox.message.hideQuoted") : t("app.salesInbox.message.showQuoted")}
             </button>
@@ -743,7 +743,7 @@ function SalesInboxScreen() {
           className="min-w-0 flex-1 bg-transparent py-2 text-sm outline-none"
         />
         {q ? (
-          <button type="button" onClick={() => setQ("")} aria-label={t("app.chat.close")} className="grid h-7 w-7 place-items-center rounded text-muted-foreground hover:text-foreground">
+          <button type="button" onClick={() => setQ("")} aria-label={t("app.chat.close")} className="-m-1 grid h-9 w-9 place-items-center rounded text-muted-foreground hover:text-foreground">
             <X size={13} aria-hidden="true" />
           </button>
         ) : null}
@@ -757,13 +757,13 @@ function SalesInboxScreen() {
             role="tab"
             aria-selected={folder === f}
             onClick={() => setFolder(f)}
-            className={`rounded-full px-2.5 py-1 text-xs ${folder === f ? "bg-muted font-semibold text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            className={`inline-flex min-h-[36px] lg:min-h-0 items-center rounded-full px-2.5 py-1 text-xs ${folder === f ? "bg-muted font-semibold text-foreground" : "text-muted-foreground hover:text-foreground"}`}
           >
             {t(`app.salesInbox.folder.${f}`)}
           </button>
         ))}
         </div>
-        <button type="button" onClick={() => setKeysOpen(true)} aria-label={t("app.salesInbox.keys.title")} title={t("app.salesInbox.keys.title")} className="hidden h-8 w-8 shrink-0 place-items-center rounded-lg text-muted-foreground hover:bg-muted md:grid">
+        <button type="button" onClick={() => setKeysOpen(true)} aria-label={t("app.salesInbox.keys.title")} title={t("app.salesInbox.keys.title")} className="hidden h-9 w-9 shrink-0 place-items-center rounded-lg text-muted-foreground hover:bg-muted md:grid">
           <Keyboard size={14} aria-hidden="true" />
         </button>
       </div>
@@ -954,7 +954,7 @@ function SalesInboxScreen() {
 
         <div ref={threadScrollRef} className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
           {folded > 1 ? (
-            <button type="button" onClick={() => setExpanded(new Set(messages.map((m) => m.id)))} className="w-full rounded-lg border border-dashed border-border px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground">
+            <button type="button" onClick={() => setExpanded(new Set(messages.map((m) => m.id)))} className="min-h-[36px] w-full rounded-lg border border-dashed border-border px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground">
               {t("app.salesInbox.message.earlier", { count: folded })}
             </button>
           ) : null}

@@ -4,7 +4,8 @@
 // tenant board fetch, the company list and one company's detail page with all
 // five of its panels, incomplete signups, signup origins, subscriptions, the
 // CSV reports, the migration list and one migration, plans (+ the Connect fee
-// ledger), promotions, feature flags and promo codes.
+// ledger), promotions, feature flags and promo codes, who is signed in (the
+// list's badges and the company's members), and the next-steps letter card.
 //
 // ── One world, many views ───────────────────────────────────────────────────
 //
@@ -39,6 +40,12 @@ import { assembleDisputeEvidence } from "@/lib/billing/disputeEvidence";
 import { FEATURES, FEATURE_STATES, resolveFeature, normaliseState } from "@/lib/features/registry";
 import { SIGNUP_FLAG_LABELS, SIGNUP_VIA_LABELS } from "@/lib/platform/signupFlags";
 import { registrationReport } from "@/lib/platform/taxRegistrations";
+import {
+  DEFAULT_NEXT_STEPS_SETTINGS,
+  NEXT_STEPS_DELAY_HOURS_MIN,
+  NEXT_STEPS_DELAY_HOURS_MAX,
+  NEXT_STEPS_WINDOW_HOURS,
+} from "@/lib/signup/nextSteps";
 
 // ── Time and randomness ─────────────────────────────────────────────────────
 const DAY = 86400000;
@@ -733,6 +740,68 @@ const MEMBERS = [
   ["mem_5", "employee", "Tomás Herrera-Villanueva", "tomas.herrera.villanueva@gmail.com", "2026-05-19T13:20:00.000Z"],
   ["mem_6", "employee", null, "crew-tablet-2@easyroofers-exterior-renovations-moncton.ca", "2026-07-02T09:00:00.000Z"],
 ];
+
+// ── Who is signed in (app/api/platform/companies/presence, /[id]/presence) ──
+//
+// Timestamps only, the shape lib/company/memberActivity.js returns; the
+// words are the pages' own (lib/platform/companyPresence.js). The main
+// company has somebody in now, somebody earlier today and a member who has
+// never been seen; the rest spread from "active this week" to "never".
+const MEMBER_SEEN = { mem_1: ago(0, 0.02), mem_2: ago(0, 5), mem_3: ago(1, 2), mem_4: ago(6), mem_5: null, mem_6: ago(0, 4) };
+function memberPresence(c) {
+  const isMain = c.id === COMPANY_ID;
+  const rows = isMain ? MEMBERS : MEMBERS.slice(0, Math.min(c.members, 2));
+  return rows.map(([mid, role, name, email, createdAt], i) => {
+    const seen = isMain ? MEMBER_SEEN[mid] : c.profile.lastDaysAgo < 30 && i === 0 ? ago(c.profile.lastDaysAgo, 3) : null;
+    return {
+      id: `${mid}_${c.id}`,
+      name,
+      email,
+      role,
+      active: true,
+      joinedAt: createdAt,
+      lastActiveAt: seen,
+      // A sign-in without an activity record only for the member who has
+      // never been seen active, so "Signed in" appears once and honestly.
+      signedInAt: seen ? seen : mid === "mem_5" ? ago(12) : null,
+    };
+  });
+}
+function companyPresence(id) {
+  const c = COMPANY_BY_ID[id];
+  if (!c) return json({ error: "Not found" }, 404);
+  return { serverNow: new Date().toISOString(), id: c.id, isDemo: false, companyCreatedAt: c.createdAt, members: memberPresence(c) };
+}
+function companiesPresence() {
+  const latest = (xs) => xs.filter(Boolean).sort().at(-1) || null;
+  return {
+    serverNow: new Date().toISOString(),
+    companies: COMPANIES.map((c) => {
+      const members = memberPresence(c);
+      return {
+        id: c.id,
+        isDemo: false,
+        companyCreatedAt: c.createdAt,
+        memberCount: c.members,
+        lastActiveAt: latest(members.map((m) => m.lastActiveAt)),
+        signedInAt: latest(members.map((m) => m.signedInAt)),
+      };
+    }),
+  };
+}
+
+// ── The next-steps letter (app/api/platform/onboarding-email) ─────────────
+// The route's payload: the stored settings (here, the defaults), the bounds
+// the card enforces, and the count of letters the cron has sent.
+function onboardingEmail() {
+  return {
+    settings: { ...DEFAULT_NEXT_STEPS_SETTINGS },
+    defaults: DEFAULT_NEXT_STEPS_SETTINGS,
+    bounds: { min: NEXT_STEPS_DELAY_HOURS_MIN, max: NEXT_STEPS_DELAY_HOURS_MAX, windowHours: NEXT_STEPS_WINDOW_HOURS },
+    sentCount: 37,
+    serverNow: new Date().toISOString(),
+  };
+}
 
 function companyDetail(id) {
   const c = COMPANY_BY_ID[id];
@@ -1484,8 +1553,35 @@ export default function answer({ method, path, url, body }) {
   if (path === "/api/platform/email-health") return EMAIL_HEALTH;
   if (path === "/api/platform/ai-health") return AI_HEALTH;
   if (path === "/api/platform/voice-health") return VOICE_HEALTH;
+  // The Stripe webhooks strip: the last verified event per endpoint and the
+  // two event destinations as Stripe lists them. Written out rather than
+  // run through lib/platform/stripeDestinations.js, whose module imports the
+  // Stripe client and both webhook routes; the sentences are its own
+  // ("Destination OK (n events)").
+  if (path === "/api/platform/webhook-health") {
+    const at = new Date().toISOString();
+    return {
+      billing: { at: ago(0, 1.5), eventId: "evt_harness_billing", type: "invoice.paid" },
+      connect: { at: ago(0, 7), eventId: "evt_harness_connect", type: "account.updated" },
+      healthy: true,
+      destinations: {
+        at,
+        mode: "live",
+        cached: method !== "POST",
+        error: null,
+        scopeUnknown: false,
+        billing: { found: true, ok: true, problems: [], summary: "Destination OK (15 events)" },
+        connect: { found: true, ok: true, problems: [], summary: "Destination OK (9 events)" },
+        flagged: [],
+      },
+    };
+  }
 
   // Companies
+  // Before the /companies/[id] match below, which would read "presence" as
+  // a company id and answer 404 — the list's badges then never drew.
+  if (path === "/api/platform/companies/presence") return companiesPresence();
+  if (path === "/api/platform/onboarding-email" && method === "GET") return onboardingEmail();
   if (path === "/api/platform/companies" && method === "GET") {
     const q = (url.searchParams.get("q") || "").toLowerCase();
     const status = url.searchParams.get("status") || "";
@@ -1507,6 +1603,7 @@ export default function answer({ method, path, url, body }) {
         return companyDetail(id);
       }
       if (sub === "health") return companyHealth(id);
+      if (sub === "presence") return companyPresence(id);
       if (sub === "history") return companyHistory(id);
       if (sub === "activity") return companyActivity(id);
       if (sub === "dispute-evidence") return disputeEvidence(id);

@@ -15,8 +15,10 @@ import support, { scenes as supportScenes } from "./support.js";
 import salesTeam, { scenes as salesTeamScenes } from "./salesTeam.js";
 import salesDiscovery, { scenes as salesDiscoveryScenes } from "./salesDiscovery.js";
 import salesFunnel, { scenes as salesFunnelScenes } from "./salesFunnel.js";
+import salesOutcomes, { scenes as salesOutcomesScenes } from "./salesOutcomes.js";
+import ownSystems, { scenes as ownSystemsScenes } from "./ownSystems.js";
 
-export const FIXTURES = [core, customers, support, salesTeam, salesDiscovery, salesFunnel];
+export const FIXTURES = [core, customers, support, salesTeam, salesDiscovery, salesFunnel, salesOutcomes, ownSystems];
 
 /** Scenes by route, merged across the modules. */
-export const SCENES = Object.assign({}, customerScenes, supportScenes, salesTeamScenes, salesDiscoveryScenes, salesFunnelScenes);
+export const SCENES = Object.assign({}, customerScenes, supportScenes, salesTeamScenes, salesDiscoveryScenes, salesFunnelScenes, salesOutcomesScenes, ownSystemsScenes);

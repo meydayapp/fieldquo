@@ -176,7 +176,7 @@ const CARD = "rounded-xl border border-border bg-card p-4 space-y-3";
 // BTN above states; the desktop keeps its density because the row it sits
 // in is beside a thread there. Same rule in StaffChat.js and the queue.
 const ACTION =
-  "inline-flex items-center gap-1.5 min-h-[44px] lg:min-h-[36px] whitespace-nowrap rounded-md border border-border bg-card px-2.5 text-xs font-medium text-foreground hover:bg-muted disabled:opacity-60";
+  "inline-flex items-center gap-1.5 min-h-[44px] lg:min-h-[36px] rounded-md border border-border bg-card px-2.5 text-xs font-medium text-foreground hover:bg-muted disabled:opacity-60";
 const TAG = "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold";
 // The thread header's actions: an icon each, the word beside it when the
 // HEADER is wide enough for both the words and the name — a container
@@ -189,7 +189,7 @@ const TAG = "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px]
 // 100px conversation pane). The label is always in aria-label and title,
 // so an icon is never nameless.
 const ICON_ACTION =
-  "inline-flex items-center justify-center gap-1.5 h-9 min-w-[36px] lg:h-8 lg:min-w-0 whitespace-nowrap rounded-md border border-border bg-card px-2 text-xs font-medium text-foreground hover:bg-muted disabled:opacity-60 [&>span]:hidden @[56rem]:[&>span]:inline";
+  "inline-flex items-center justify-center gap-1.5 h-9 min-w-[36px] lg:h-8 lg:min-w-0 rounded-md border border-border bg-card px-2 text-xs font-medium text-foreground hover:bg-muted disabled:opacity-60 [&>span]:hidden @[56rem]:[&>span]:inline";
 
 // The frame's height: what the shell leaves between its chrome and the
 // bottom bar, MEASURED by the shell (--fq-top-bar) rather than guessed
@@ -773,7 +773,7 @@ function LinkLeadPanel({ e164, onLinked, onClose }) {
     <div className="absolute inset-x-0 top-full z-20 border-b border-border bg-card px-3 py-2 shadow-lg" data-link-lead>
       <div className="flex items-center gap-2">
         <p className="min-w-0 flex-1 text-xs font-semibold text-foreground">{t("app.salesText.linkToLeadTitle")}</p>
-        <button type="button" onClick={onClose} className="grid h-8 w-8 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-muted" aria-label={t("app.salesText.cancel")}>
+        <button type="button" onClick={onClose} className="grid h-9 w-9 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-muted" aria-label={t("app.salesText.cancel")}>
           <X size={15} aria-hidden="true" />
         </button>
       </div>

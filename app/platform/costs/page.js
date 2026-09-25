@@ -243,6 +243,7 @@ export default function PlatformCostsPage() {
                     Last pulled {when(data.openai.billed.lastPullAt)} · {data.openai.billed.daysBilled} of {data.openai.billed.daysInPeriod} days have a billed row.
                   </p>
                   {data.openai.billed.byProject.length ? (
+                    <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="text-left text-xs text-muted-foreground">
@@ -257,6 +258,7 @@ export default function PlatformCostsPage() {
                         ))}
                       </tbody>
                     </table>
+                    </div>
                   ) : (
                     <p className="text-xs text-muted-foreground">No billed rows for this period yet — the daily pull runs within the hour, or pull now below.</p>
                   )}
@@ -440,6 +442,7 @@ export default function PlatformCostsPage() {
               <Link href="/platform/voice-economics" className="underline">Voice economics</Link>; per-company AI detail is on{" "}
               <Link href="/platform/ai-usage" className="underline">AI usage</Link>.
             </p>
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-xs text-muted-foreground">
@@ -459,6 +462,7 @@ export default function PlatformCostsPage() {
                 {data.openai.tenants.byFeature.length === 0 ? <tr><td className="py-1 text-muted-foreground">Nothing metered in this period.</td></tr> : null}
               </tbody>
             </table>
+            </div>
             {/* By tier, then by area. The AI employee runs on the best tier
                 (lib/ai/provider.js); this is where that decision's cost is
                 visible beside everything on the mini. */}

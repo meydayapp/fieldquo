@@ -534,6 +534,10 @@ const HREFS_BEFORE_REGROUP = [
   // 2026-09-25: where FieldQuo must register to charge VAT/GST on its own
   // subscriptions (Earnings, beside the money it taxes).
   "/platform/billing/tax",
+  // The second pass on call outcomes (6e3dfd83): sub-reason lists, the
+  // callback agenda and the per-call-billed settings (Sales team, after
+  // the retry pool — docs/SALES-OUTCOMES.md).
+  "/platform/sales/outcomes",
 ];
 const allHrefs = [HOME?.[1], ...PLATFORM_ITEMS.map((i) => i.href)].filter(Boolean);
 const counts = new Map();
@@ -552,7 +556,7 @@ const MEMBERSHIP = {
   earnings: ["/platform/billing/subscriptions", "/platform/billing/plans", "/platform/billing/promotions", "/platform/promo-codes", "/platform/billing/tax", "/platform/growth", "/platform/reports"],
   spending: ["/platform/costs", "/platform/ai-usage", "/platform/ai-billing", "/platform/voice-economics", "/platform/voice-numbers", "/platform/crew-lines", "/platform/sales/payouts", "/platform/sales/plans"],
   companies: ["/platform/companies", "/platform/signups", "/platform/signup-origins", "/platform/migrations", "/platform/features", "/platform/demo", "/platform/demos", "/platform/demo-availability"],
-  salesTeam: ["/platform/sales/reps", "/platform/sales/floor", "/platform/sales/performance", "/platform/sales/call-quality", "/platform/sales/funnel", "/platform/sales/notes", "/platform/sales/conversations", "/platform/sales/windows", "/platform/sales/review", "/platform/sales/retry-pool"],
+  salesTeam: ["/platform/sales/reps", "/platform/sales/floor", "/platform/sales/performance", "/platform/sales/call-quality", "/platform/sales/funnel", "/platform/sales/notes", "/platform/sales/conversations", "/platform/sales/windows", "/platform/sales/review", "/platform/sales/retry-pool", "/platform/sales/outcomes"],
   leadData: ["/platform/sales/prospects", "/platform/sales/campaigns", "/platform/sales/snapshots", "/platform/sales/capabilities", "/platform/sales/rules", "/platform/sales/playbooks", "/platform/sales/confidence", "/platform/sales/signatures", "/platform/suppressions"],
   support: ["/platform/chat", "/platform/support", "/platform/feedback", "/platform/jennifer", "/platform/data-deletion", "/platform/errors"],
   own: ["/platform/sales-agent", "/platform/voice-webhooks", "/platform/sms-health", "/platform/analytics", "/platform/service-categories", "/platform/audit-log", "/platform/help", "/platform/team", "/platform/settings"],

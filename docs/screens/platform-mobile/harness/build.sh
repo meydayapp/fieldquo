@@ -13,6 +13,8 @@ NODE_PATH=$PWD/node_modules npx esbuild "$H/platform.jsx" --bundle --format=iife
   --alias:next/navigation=./$H/stubs/navigation.js \
   --alias:@/app/hooks/useTranslation=./$H/stubs/useTranslation.js \
   --alias:@/app/providers/LanguageProvider=./$H/stubs/languageProvider.js \
+  --alias:@/lib/db=./$H/stubs/db.js \
+  --alias:crypto=./$H/stubs/crypto.js \
   --define:process.env.NODE_ENV='"development"' \
   --log-level=warning --outfile="$OUT/platform.js"
 if [ -z "$SKIP_CSS" ]; then

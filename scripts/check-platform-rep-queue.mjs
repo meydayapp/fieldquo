@@ -459,7 +459,23 @@ section("5. The routes — release reused, attribution untouched, audit wired");
   // and the route is held to reaching the writer rather than re-growing one.
   const repRouteOnly = decomment(read("app/api/platform/sales/reps/[id]/route.js"));
   const repRoute = repRouteOnly + "\n" + decomment(read("lib/sales/repActivation.js"));
-  ok("the rep route flips `active` through lib/sales/repActivation.js", /changeRepActive\(\{/.test(repRouteOnly) && !/deactivationGate\(/.test(repRouteOnly) && !/\$transaction\(/.test(repRouteOnly));
+  // One exception, the owner's (2026-09-16, 79797428): deactivating an
+  // AGENCY judges every employee with the same pure deactivationGate()
+  // BEFORE anything is written, so a refusal names the employee and leaves
+  // the whole team as it was — and then flips each through changeRepActive.
+  // The gate may appear in that pre-judging block and nowhere else; the
+  // rep's own flip, and every write, still go through the writer.
+  const cascadeFrom = repRouteOnly.indexOf("existing.kind === AGENCY_KIND");
+  const cascadeTo = repRouteOnly.indexOf('if (typeof active === "boolean")');
+  const cascade = cascadeFrom !== -1 && cascadeTo > cascadeFrom ? repRouteOnly.slice(cascadeFrom, cascadeTo) : "";
+  const outsideCascade = cascade ? repRouteOnly.replace(cascade, "") : repRouteOnly;
+  const cascadeJudgesFirst = !cascade || (
+    cascade.indexOf("deactivationGate(") < cascade.indexOf("changeRepActive(") &&
+      !/salesRep\.update|\$transaction\(/.test(cascade)
+  );
+  ok("the rep route flips `active` through lib/sales/repActivation.js",
+    /changeRepActive\(\{/.test(outsideCascade) && !/deactivationGate\(/.test(outsideCascade) &&
+      !/\$transaction\(/.test(repRouteOnly) && cascadeJudgesFirst);
   const queueRoute = decomment(read("app/api/platform/sales/reps/[id]/queue/route.js"));
   const listRoute = decomment(read("app/api/platform/sales/reps/route.js"));
   const reassign = decomment(read("lib/sales/reassign.js"));
