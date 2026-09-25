@@ -23,6 +23,7 @@ import {
 import MetricCard, { money, count } from "@/app/components/platform/MetricCard";
 import Sparkline from "@/app/components/platform/Sparkline";
 import TenantBoard from "./TenantBoard";
+import MailboxHealthCard from "@/app/components/platform/MailboxHealthCard";
 import { refusedPhrase } from "@/lib/voice/webhookAttention";
 
 /** "4 min ago" / "3 h ago" / "2 d ago" — coarse on purpose; a timestamp is
@@ -709,6 +710,10 @@ export default function PlatformDashboardPage() {
           Lifted into its own component: it fetches its own data and this page
           already had 400 lines of FieldQuo's own numbers. */}
       <TenantBoard />
+
+      {/* Settings › Work email across every company: counts by provider,
+          sync errors, and Google's restricted-scope limit. No mail content. */}
+      <MailboxHealthCard />
       </>
       )}
 

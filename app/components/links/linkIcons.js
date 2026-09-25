@@ -164,6 +164,14 @@ const OUTLINE = {
       <path d="M9 9h6M9 12h4" />
     </>
   ),
+  // An email conversation filed from a connected work mailbox (lib/mailbox/).
+  // Lucide's "mail" shape, inline for the same reason as the two above.
+  email: (
+    <>
+      <rect x="2" y="4" width="20" height="16" rx="2" />
+      <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+    </>
+  ),
 };
 
 // Filled marks: these logos are solid shapes with no outline form that

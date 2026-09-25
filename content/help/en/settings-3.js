@@ -3,6 +3,7 @@
 // Part 3 of the “settings” category in en. Slugs assigned to this part
 // (lib/help/tree.js): settings-job-photo-tags, settings-client-messages,
 // settings-follow-ups, settings-notifications, settings-email-domain,
+// settings-work-email,
 // settings-payments, settings-meta-ads, settings-expense-tracking,
 // settings-ai-credit, settings-payroll, settings-website,
 // settings-instant-quotes.
@@ -434,6 +435,62 @@ export const ARTICLES = {
     ],
   },
 
+  "settings-work-email": {
+    title: "Work email",
+    summary:
+      "Connect the mailbox where you receive work email so every email with a client is filed into that client's history — Google, Microsoft 365, or any other host with an address and password.",
+    updated: "2026-09-25",
+    intro: [
+      "**Settings → Work email** connects the mailbox you already use for work. Every ten minutes FieldQuo reads what is new in the inbox and the sent folder, matches the From, To and Cc addresses against your clients and leads, and files the emails that match into that client's conversation — where the client page, the job page and **Conversations** show them.",
+      "Only email with a client or a lead is kept. Anything else — personal mail, newsletters, suppliers — is recognised by its addresses and skipped: its body is never downloaded, and only a count is kept.",
+    ],
+    sections: [
+      {
+        id: "connect",
+        heading: "How to connect",
+        blocks: [
+          { steps: [
+            "Open **Settings → Work email**. An owner or admin chooses **The company mailbox** or **My own work mailbox**; everyone else connects their own.",
+            "Pick **Google** (Gmail, Google Workspace), **Microsoft 365 / Outlook** (also Hotmail and GoDaddy's Microsoft email) or **Any other host**.",
+            "For Google or Microsoft, sign in on their page and allow reading mail. For any other host, type your address — FieldQuo recognises the provider from your domain and fills in the servers — then your password, and press **Test and connect**. The login is tested before anything is saved; if it fails you see why.",
+            "The first sync reads the last 90 days. After that, new email arrives within about ten minutes, or press **Sync now**.",
+          ] },
+          { note: "Namecheap Private Email is IMAP on mail.privateemail.com, port 993, SSL/TLS. Some providers (iCloud, Yahoo, AOL, Fastmail, Zoho with two-step sign-in) need an app password instead of your normal one — the form says so when you pick them." },
+          { warning: "Before you connect: emails you exchange with clients from this mailbox become part of the company's records, and colleagues who can see that client or job can read them." },
+        ],
+      },
+      {
+        id: "where-it-files",
+        heading: "Where an email is filed",
+        blocks: [
+          { bullets: [
+            "**Which client** — by address, ignoring capitals and +tags (dana+reno@ is dana@). An address on two client records files nowhere rather than guessing.",
+            "**Which job or quote** — the one whose quote or invoice number appears in the subject (or the body); otherwise the client's most recent open job, then open quote. Press **change** under the email to file it elsewhere.",
+            "**Replies** join the same conversation, and each email is stored once even if it is in several mailboxes.",
+            "**Attachments** up to 10 MB are copied; larger ones are listed by name and stay in the mailbox.",
+          ] },
+        ],
+      },
+      {
+        id: "sending",
+        heading: "Sending client email from your mailbox",
+        blocks: [
+          { p: "On the company mailbox an owner or admin can switch on **Send client emails from this mailbox**. Quotes, invoices, payment requests, booking confirmations and replies from Conversations then go out from that address and appear in its Sent folder. If the mailbox refuses a message — a changed password, a sending limit — FieldQuo sends it the usual way instead and the card says **Sending from your mailbox failed — sent from FieldQuo instead** with the reason. No email is ever dropped." },
+        ],
+      },
+      {
+        id: "disconnect",
+        heading: "Disconnecting",
+        blocks: [
+          { p: "**Disconnect** stops the sync and deletes the stored password or access (and revokes Google's). Emails already filed stay in your clients' history. FieldQuo never deletes, moves or marks anything as read in your mailbox." },
+        ],
+      },
+    ],
+    faq: [
+      { q: "Does FieldQuo read my personal email?", a: "It sees the addresses on each message so it can tell whether it is with a client. Anything that is not is skipped without downloading its contents, and nothing of it is stored." },
+      { q: "Why does Google say the app is unverified?", a: "Reading Gmail is a restricted permission. Until FieldQuo completes Google's verification and security assessment, Google shows that warning and only accounts FieldQuo has approved as testers can connect." },
+    ],
+  },
   "settings-payments": {
     title: "Payments",
     summary:

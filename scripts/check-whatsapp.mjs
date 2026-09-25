@@ -974,7 +974,7 @@ section("8. Three platforms, no special-casing");
 // Meta's three, then FieldQuo's own two (the site chat widget and the shared
 // SMS number, added for the AI employee — lib/messaging/platforms.js). The
 // Meta-specific reads use META_PLATFORMS, asserted by check-ai-employee.
-ok("the platform set is Meta's three plus FieldQuo's two", MESSAGING_PLATFORMS.join(",") === "facebook,instagram,whatsapp,web,sms");
+ok("the platform set is Meta's three, FieldQuo's two, and a connected work mailbox's email", MESSAGING_PLATFORMS.join(",") === "facebook,instagram,whatsapp,web,sms,email");
 ok("the set is frozen", Object.isFrozen(MESSAGING_PLATFORMS));
 ok("an unknown platform is refused", !isMessagingPlatform("telegram") && !isMessagingPlatform(null));
 

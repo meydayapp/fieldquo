@@ -1039,6 +1039,25 @@ if (!process.argv.includes("--no-mutate")) {
   }
 }
 
+// ── An EMAIL thread (lib/mailbox/) is scored like a chat one ──────────────
+//
+// The filed body is the typed part (lib/mailbox/text.js), so a reply that
+// quotes the whole history does not count the homeowner's words twice. The
+// same thread with the quotes left in would read as twice as engaged.
+{
+  const { storedBody } = await import("../lib/mailbox/text.js");
+  const q = "Can you come Thursday? We want the deck stained before winter and have the budget ready.";
+  const emailThread = [
+    inb(0, storedBody({ text: q })),
+    out(0, storedBody({ text: "Yes, Thursday at 9.\n\nOn Mon, Dana wrote:\n> " + q })),
+    inb(1, storedBody({ text: "Perfect, see you then.\n\nOn Mon, Office wrote:\n> Yes, Thursday at 9.\n>> " + q })),
+  ];
+  const chatThread = [inb(0, q), out(0, "Yes, Thursday at 9."), inb(1, "Perfect, see you then.")];
+  const e = scoreConversation({ messages: emailThread, ...CTX });
+  const c = scoreConversation({ messages: chatThread, ...CTX });
+  ok(e.score === c.score && e.temperature === c.temperature, "an email thread, stored as typed parts, scores exactly like the same chat", { email: e.score, chat: c.score });
+}
+
 console.log(`\ncheck-conversation-score: ${checks - failures}/${checks} passed`);
 if (failures) {
   console.error(`${failures} FAILED`);

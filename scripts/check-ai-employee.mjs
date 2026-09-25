@@ -445,7 +445,7 @@ ok("the troubleshooter neither books nor quotes", !toolsForRole("troubleshooter"
 ok("custom is as narrow as the troubleshooter", !toolsForRole("custom").includes("book_appointment"));
 
 // ── The platform list and the inbox ────────────────────────────────────────
-ok("five platforms, Meta's three plus FieldQuo's two", MESSAGING_PLATFORMS.join(",") === "facebook,instagram,whatsapp,web,sms" && META_PLATFORMS.join(",") === "facebook,instagram,whatsapp" && OWN_PLATFORMS.join(",") === "web,sms");
+ok("six platforms: Meta's three, FieldQuo's two, and email — which is in neither list the employee answers on", MESSAGING_PLATFORMS.join(",") === "facebook,instagram,whatsapp,web,sms,email" && META_PLATFORMS.join(",") === "facebook,instagram,whatsapp" && OWN_PLATFORMS.join(",") === "web,sms");
 ok("each own platform has a conversation source the rollup knows", OWN_PLATFORMS.every((p) => CONVERSATION_SOURCES.includes(SOURCE_FOR_PLATFORM[p])));
 ok("Meta connection reads only Meta's three", /platform: \{ in: \[\.\.\.META_PLATFORMS\] \}/.test(code("lib/messaging/channels.js")));
 ok("the notification types exist and land somewhere", Boolean(NOTIFICATION_TYPES["ai_employee.proposal"]) && Boolean(NOTIFICATION_TYPES["ai_employee.handoff"]) && hrefFor({ entityType: "aiEmployeeProposal", entityId: "x" }) === "/app/settings/ai-employee#proposals");

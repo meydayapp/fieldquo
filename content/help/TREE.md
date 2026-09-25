@@ -90,7 +90,7 @@ callbacks, the crew inbox, team chat, How You Compare, the KPI dashboard,
 
 <!-- tree:start -->
 
-_Generated 2026-09-25 — 327 articles in the tree; written: en 327, fr 327, es 327; “Only in FieldQuo”: 34._
+_Generated 2026-09-25 — 328 articles in the tree; written: en 328, fr 328, es 328; “Only in FieldQuo”: 34._
 
 ### getting-started (23)
 
@@ -378,7 +378,7 @@ _Generated 2026-09-25 — 327 articles in the tree; written: en 327, fr 327, es 
 | `import-expenses-from-a-bank-csv` — Import expenses from a bank CSV | ✓ | ✓ | ✓ | expenses | expenses |  |
 | `overhead-and-your-minimum-price` — Overhead and your minimum price | ✓ | ✓ | ✓ | settings-overhead | break_even |  |
 
-### settings (47)
+### settings (48)
 
 | Article | en | fr | es | Screen | Feature | Only |
 |---|:-:|:-:|:-:|---|---|:-:|
@@ -413,6 +413,7 @@ _Generated 2026-09-25 — 327 articles in the tree; written: en 327, fr 327, es 
 | `settings-field-work` — Field work: offline mode, labour rate, performance pay | ✓ | ✓ | ✓ | settings-field-work |  |  |
 | `settings-notifications` — Notifications | ✓ | ✓ | ✓ | settings-notifications |  |  |
 | `settings-email-domain` — Email Domain | ✓ | ✓ | ✓ | settings-email-domain | own_email_domain |  |
+| `settings-work-email` — Work email | ✓ | ✓ | ✓ | settings-work-email |  |  |
 | `settings-payments` — Payments | ✓ | ✓ | ✓ | settings-payments | stripe_connect |  |
 | `settings-meta-ads` — Meta Ads | ✓ | ✓ | ✓ | settings-meta-ads | marketing_spend |  |
 | `settings-expense-tracking` — Expense Tracking | ✓ | ✓ | ✓ | settings-expense-tracking | expenses |  |

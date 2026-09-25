@@ -351,7 +351,7 @@ export async function POST(request, { params }) {
     });
   }
 
-  const result = await sendEmail({ companyId: member.companyId, to, subject, html, text, from, replyTo, attachments });
+  const result = await sendEmail({ companyId: member.companyId, to, subject, html, text, from, replyTo, attachments, clientMail: true });
 
   // sendEmail returns { skipped } rather than throwing when RESEND_API_KEY is
   // absent. Treating that as success is how a deployment with no mail

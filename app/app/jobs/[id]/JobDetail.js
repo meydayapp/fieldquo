@@ -40,6 +40,7 @@ import ChangeOrders from "@/app/components/jobs/ChangeOrders";
 import JobDocuments from "@/app/components/jobs/JobDocuments";
 import WaiversCard from "@/app/components/waivers/WaiversCard";
 import PrepGuideCard from "@/app/components/jobs/PrepGuideCard";
+import FiledEmails from "@/app/components/mailbox/FiledEmails";
 import JobSubcontractors from "@/app/components/jobs/JobSubcontractors";
 import DailyLog from "@/app/components/jobs/DailyLog";
 import { SiteVisitRows } from "@/app/components/quotes/SiteVisitPanel";
@@ -785,6 +786,12 @@ export default function JobDetail({ jobId }) {
           is filed there; its own card because "did they get it" is a
           question asked from the van on the first morning. */}
       <PrepGuideCard jobId={job.id} />
+
+      {/* Email with the client about this job, filed from a connected work
+          mailbox (Settings → Work email) — by the job's quote or invoice
+          number in the subject, or as the client's open job. The route
+          scopes it to jobs this member can see; nothing filed, nothing drawn. */}
+      <FiledEmails jobId={job.id} />
 
       {/* What actually happened, one row per day. Above Visits deliberately:
           a visit is what was PLANNED for a day and this is what came of it,
