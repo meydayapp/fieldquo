@@ -12,6 +12,7 @@
 
 import { L, SHARED, D, T, withTemplates, hdMaterial, withLanguages } from "./_templateLines";
 import { HD } from "./_materialCosts";
+import { materialRef } from "../materialReference.js";
 import { I18N } from "./i18n/roofing_service.js";
 
 // [slug, name{en,fr,es}] — the English is the material alone: the names
@@ -554,5 +555,576 @@ const TEMPLATES = {
   ], null),
 };
 
+// ── Templates for the rest of the list (2026-09-25) ──────────────────────────
+//
+// The quote builder adds a service WITH its template lines, so the roofing
+// rows without one landed as a bare line. These follow the captured template
+// shape — a call-out, the labour, the material — at the 2026 figures above:
+// roof repair labour $110–150 an hour (tile, slate and solar dearer than
+// asphalt), a $125 roofer's call-out. Rows without a benchmark take their
+// preset from the lines (rangeFor); a flat row whose lines are all by the
+// foot has no flat preset and says so (rangeBasis "measured").
+//
+// Measurement keys. The components that follow a roof edge read the
+// satellite report: soffit, fascia and de-icing cable run the eaves
+// (`eaveFt`); attic insulation covers the building's footprint
+// (`footprintSqft`). Siding reads the walls the siding takeoff measures
+// (`wallSqft`, held back in a siding group whose calculator already bills
+// them — lib/quotes/serviceTemplateLines.js). A REPAIR is to a section, not
+// the whole roof edge, so repairs by the foot or square foot read the typed
+// run or area (`linearFt`, `areaSqFt`), and per-window or per-vent work reads
+// `each` — none of these is the whole-house figure the report would fill.
+//
+// Left without a template on purpose: the four "describe what you need"
+// catch-alls (cleaning.other, install.other, repair.other_shingles,
+// repair.other_other) — priced after a look at the roof.
+//
+// Quote types without a seed file that sell these rows (NEAREST_TRADES in
+// lib/services/confirmServices.js): siding gets the siding install and
+// repair, insulation the attic insulation install and repair, solar_energy
+// the solar-shingle repair, chimney_sweep the chimney-cricket repair.
+
+// A reference row _materialCosts.js does not list yet, built the way its
+// build() builds one. Kept here because that file is shared by every seed
+// being written in parallel; fold these keys into its USES when they merge.
+const refItem = (key) => {
+  const r = materialRef(key);
+  if (!r?.prices?.US) throw new Error(`roofing_service: reference ${key} has no US price`);
+  const cov = r.coverage;
+  const ca = r.prices.CA ? { cost: r.prices.CA.amount, unit: r.prices.CA.unit || r.unit, coverage: r.prices.CA.coverage || cov } : null;
+  return { ref: key, cost: r.prices.US.amount, unit: r.unit, per: cov ? cov.per : 1, per_unit: cov ? cov.unit : "each", ca };
+};
+const tx = (en, fr, es, it, de, uk, tl) => ({ en, fr, es, it, de, uk, tl });
+// The service's own it/de/uk/tl/pa already sit in the language file; T wants
+// them named, and reading them from there keeps one copy.
+const nm = (key) => I18N.services[key];
+const CALL = () => SHARED.serviceCall(125);
+// A per-hour repair line; each roof material names its own work.
+const hours = (qty, price, text) => L.labour(qty, "hour", price, text);
+
+const RF = {
+  // Word for word the missing-shingle template's lines above, so the
+  // Punjabi in the language file serves both.
+  shingleHours: (qty) => hours(qty, 110, tx(
+    ["Roof repair labour", "Damaged shingles lifted out, new ones woven in and every tab sealed, by the hour."],
+    ["Main-d'œuvre — réparation de toiture", "Bardeaux abîmés retirés, nouveaux insérés et chaque languette scellée, à l'heure."],
+    ["Mano de obra — reparación de techo", "Tejas dañadas retiradas, nuevas entretejidas y cada pestaña sellada, por hora."],
+    ["Manodopera — riparazione tetto", "Tegole danneggiate tolte, nuove inserite e ogni linguetta sigillata, a ore."],
+    ["Arbeit — Dachreparatur", "Beschädigte Schindeln herausgenommen, neue eingewoben und jeder Lappen verklebt, nach Stunden."],
+    ["Робота — ремонт покрівлі", "Пошкоджений гонт знято, новий вплетено, кожну пелюстку проклеєно, погодинно."],
+    ["Labor — pag-ayos ng bubong", "Tinanggal ang sirang shingles, isiningit ang bago at sinelyuhan ang bawat tab, kada oras."],
+  )),
+  matchingShingles: () => L.material(1, "each", 55, tx(
+    ["Matching shingles and sealant", "A bundle of the closest-matching shingles, nails and roofing sealant."],
+    ["Bardeaux assortis et scellant", "Un paquet de bardeaux les plus assortis possible, clous et scellant à toiture."],
+    ["Tejas a juego y sellador", "Un paquete de las tejas más parecidas, clavos y sellador para techo."],
+    ["Tegole abbinate e sigillante", "Un pacco delle tegole più simili, chiodi e sigillante per coperture."],
+    ["Passende Schindeln und Dichtmasse", "Ein Bündel möglichst passender Schindeln, Nägel und Dachdichtmasse."],
+    ["Підібраний гонт і герметик", "Пачка максимально схожого гонту, цвяхи та покрівельний герметик."],
+    ["Katernong shingles at sealant", "Isang bundle ng pinakakamukhang shingles, pako at roofing sealant."],
+  )),
+  roofVent: () => L.material(1, "each", 45, tx(
+    ["Roof vent — per vent", "Low-profile static roof vent with nails and sealant."],
+    ["Évent de toit — l'unité", "Évent statique à profil bas avec clous et scellant."],
+    ["Ventila de techo — por pieza", "Ventila estática de perfil bajo con clavos y sellador."],
+    ["Aeratore — cadauno", "Aeratore statico a basso profilo con chiodi e sigillante."],
+    ["Dachlüfter — pro Stück", "Flacher statischer Dachlüfter mit Nägeln und Dichtmasse."],
+    ["Аератор — за штуку", "Низькопрофільний статичний аератор із цвяхами та герметиком."],
+    ["Roof vent — kada isa", "Low-profile na static roof vent na may pako at sealant."],
+  ), { measurementKey: "each" }),
+  ventCutIn: (price) => L.labour(1, "each", price, tx(
+    ["Vent cut-in and flashing — per vent", "The deck cut for the vent, the vent flashed into the shingle courses and sealed."],
+    ["Découpe et pose d'évent — l'unité", "Platelage découpé pour l'évent, évent intégré aux rangs de bardeaux et scellé."],
+    ["Corte e instalación de ventila — por pieza", "Cubierta cortada para la ventila, integrada en las hileras de tejas y sellada."],
+    ["Taglio e posa aeratore — cadauno", "Tavolato tagliato per l'aeratore, inserito tra le file di tegole e sigillato."],
+    ["Lüfter einschneiden und eindecken — pro Stück", "Schalung für den Lüfter ausgeschnitten, Lüfter in die Schindelreihen eingebunden und abgedichtet."],
+    ["Вирізання та монтаж аератора — за штуку", "Настил прорізано під аератор, його вплетено в ряди гонту й загерметизовано."],
+    ["Pag-cut at pagkabit ng vent — kada isa", "Binutas ang deck para sa vent, isiningit sa shingle courses at sinelyuhan."],
+  ), { measurementKey: "each" }),
+  heatCableLab: (price) => L.labour(1, "linear_ft", price, tx(
+    ["Heat cable installation — per linear ft", "Cable clipped in a zig-zag along the eaves and run through the gutters and downspouts."],
+    ["Pose de câble chauffant — au pi lin.", "Câble fixé en zigzag le long des avant-toits et passé dans les gouttières et descentes."],
+    ["Instalación de cable calefactor — por pie lineal", "Cable fijado en zigzag a lo largo de los aleros y pasado por canaletas y bajantes."],
+    ["Posa cavo scaldante — al piede lineare", "Cavo fissato a zig-zag lungo le gronde e fatto passare in grondaie e pluviali."],
+    ["Heizkabel verlegen — pro lfd. Fuß", "Kabel im Zickzack entlang der Traufe befestigt und durch Rinnen und Fallrohre geführt."],
+    ["Монтаж нагрівального кабелю — за пог. фут", "Кабель закріплено зигзагом уздовж карнизів і проведено ринвами та трубами."],
+    ["Pagkabit ng heat cable — kada linear ft", "Ikinabit nang zig-zag ang cable sa eaves at pinadaan sa gutter at downspout."],
+  ), { measurementKey: "eaveFt" }),
+  heatCable: (price) => L.material(1, "linear_ft", price, tx(
+    ["Roof and gutter heat cable — per linear ft", "Self-regulating de-icing cable with roof clips and spacers."],
+    ["Câble chauffant toit et gouttières — au pi lin.", "Câble de déglaçage autorégulant avec attaches de toit et espaceurs."],
+    ["Cable calefactor de techo y canaleta — por pie lineal", "Cable de deshielo autorregulable con clips de techo y separadores."],
+    ["Cavo scaldante tetto e grondaie — al piede lineare", "Cavo antighiaccio autoregolante con clip da tetto e distanziali."],
+    ["Dach- und Rinnenheizkabel — pro lfd. Fuß", "Selbstregelndes Abtaukabel mit Dachclips und Abstandhaltern."],
+    ["Кабель для даху та ринв — за пог. фут", "Саморегульований кабель протизледеніння з кліпсами та дистанціонерами."],
+    ["Heat cable sa bubong at gutter — kada linear ft", "Self-regulating na de-icing cable na may roof clip at spacer."],
+  ), { measurementKey: "eaveFt" }),
+  controller: (price) => L.labour(1, "flat", price, tx(
+    ["Controller and GFCI connection", "Snow-and-ice controller mounted and the cable connected to a GFCI-protected outlet."],
+    ["Contrôleur et branchement DDFT", "Contrôleur neige et glace posé et câble branché sur une prise protégée par DDFT."],
+    ["Controlador y conexión GFCI", "Controlador de nieve y hielo montado y el cable conectado a un contacto con protección GFCI."],
+    ["Centralina e collegamento differenziale", "Centralina neve e ghiaccio montata e cavo collegato a una presa protetta da differenziale."],
+    ["Steuerung und FI-Anschluss", "Schnee- und Eissteuerung montiert und das Kabel an eine FI-geschützte Steckdose angeschlossen."],
+    ["Контролер і підключення через ПЗВ", "Контролер снігу й льоду встановлено, кабель під'єднано до розетки з ПЗВ."],
+    ["Controller at GFCI na koneksyon", "Ikinabit ang snow-and-ice controller at ikinonekta ang cable sa GFCI outlet."],
+  )),
+  flashingLab: (price) => L.labour(1, "linear_ft", price, tx(
+    ["Flashing installation — per linear ft", "Shingles lifted, new step, apron or counter-flashing fitted at the wall, chimney or valley and sealed."],
+    ["Pose de solins — au pi lin.", "Bardeaux soulevés, nouveaux solins en escalier, tablier ou contre-solin posés au mur, à la cheminée ou à la noue et scellés."],
+    ["Instalación de tapajuntas — por pie lineal", "Tejas levantadas, tapajuntas escalonado, delantal o contratapajuntas nuevo colocado en muro, chimenea o limahoya y sellado."],
+    ["Posa scossaline — al piede lineare", "Tegole sollevate, nuove scossaline a gradini, grembiale o controscossalina posate a muro, camino o compluvio e sigillate."],
+    ["Anschlussbleche montieren — pro lfd. Fuß", "Schindeln angehoben, neue Stufen-, Schürzen- oder Überhangbleche an Wand, Kamin oder Kehle gesetzt und abgedichtet."],
+    ["Монтаж примикань — за пог. фут", "Гонт піднято, нові ступінчасті, фартухові чи контрпримикання встановлено біля стіни, комина чи ендови й загерметизовано."],
+    ["Pagkabit ng flashing — kada linear ft", "Inangat ang shingles, ikinabit ang bagong step, apron o counter-flashing sa pader, chimney o valley at sinelyuhan."],
+  ), { measurementKey: "linearFt" }),
+  flashingMat: (price) => L.material(1, "linear_ft", price, tx(
+    ["Flashing metal and sealant — per linear ft", "Pre-bent aluminium or galvanised flashing, fasteners and polyurethane sealant."],
+    ["Métal de solin et scellant — au pi lin.", "Solins préformés en aluminium ou galvanisés, fixations et scellant polyuréthane."],
+    ["Lámina de tapajuntas y sellador — por pie lineal", "Tapajuntas predoblado de aluminio o galvanizado, fijaciones y sellador de poliuretano."],
+    ["Lamiera per scossaline e sigillante — al piede lineare", "Scossaline prepiegate in alluminio o zincate, fissaggi e sigillante poliuretanico."],
+    ["Blech und Dichtmasse — pro lfd. Fuß", "Vorgekantete Alu- oder verzinkte Bleche, Befestigungen und PU-Dichtmasse."],
+    ["Метал для примикань і герметик — за пог. фут", "Загнуті алюмінієві чи оцинковані примикання, кріплення та поліуретановий герметик."],
+    ["Flashing metal at sealant — kada linear ft", "Pre-bent na aluminum o galvanized na flashing, fastener at polyurethane sealant."],
+  ), { measurementKey: "linearFt" }),
+  setUp: (price) => L.labour(1, "flat", price, tx(
+    ["Roof access and set-up", "Ladders, roof anchors and harnesses set up and the work area protected below."],
+    ["Accès au toit et installation", "Échelles, ancrages et harnais installés et zone de travail protégée au sol."],
+    ["Acceso al techo y preparación", "Escaleras, anclajes y arneses instalados y el área de abajo protegida."],
+    ["Accesso al tetto e allestimento", "Scale, ancoraggi e imbracature montati e area di lavoro sottostante protetta."],
+    ["Dachzugang und Einrichtung", "Leitern, Anschlagpunkte und Gurte eingerichtet und der Bereich darunter geschützt."],
+    ["Доступ на дах і підготовка", "Драбини, анкери та страхувальні пояси встановлено, робочу зону внизу захищено."],
+    ["Access sa bubong at set-up", "Inihanda ang hagdan, roof anchor at harness at pinrotektahan ang lugar sa ibaba."],
+  )),
+  sofFasLab: (price) => L.labour(1, "linear_ft", price, tx(
+    ["Soffit and fascia installation — per linear ft", "Old boards covered or removed, new fascia and vented soffit fitted along the eave."],
+    ["Pose de soffites et bordures — au pi lin.", "Anciennes planches recouvertes ou retirées, nouvelle bordure et soffite ventilé posés le long de l'avant-toit."],
+    ["Instalación de sofito y fascia — por pie lineal", "Tablas viejas cubiertas o retiradas, fascia nueva y sofito ventilado colocados a lo largo del alero."],
+    ["Posa sottogronda e frontalino — al piede lineare", "Vecchie tavole coperte o tolte, nuovo frontalino e sottogronda ventilato posati lungo la gronda."],
+    ["Traufuntersicht und Stirnbrett montieren — pro lfd. Fuß", "Alte Bretter verkleidet oder entfernt, neues Stirnbrett und belüftete Untersicht entlang der Traufe montiert."],
+    ["Монтаж софітів і лобової дошки — за пог. фут", "Старі дошки обшито чи знято, нову лобову дошку та вентильований софіт встановлено вздовж карниза."],
+    ["Pagkabit ng soffit at fascia — kada linear ft", "Tinakpan o tinanggal ang lumang tabla, ikinabit ang bagong fascia at vented soffit sa eave."],
+  ), { measurementKey: "eaveFt" }),
+  sofFasMat: (price) => L.material(1, "linear_ft", price, tx(
+    ["Aluminium soffit and fascia — per linear ft", "Vented aluminium soffit panels, fascia wrap, J-channel and trim nails."],
+    ["Soffite et bordure d'aluminium — au pi lin.", "Panneaux de soffite ventilés en aluminium, revêtement de bordure, moulure en J et clous."],
+    ["Sofito y fascia de aluminio — por pie lineal", "Paneles de sofito ventilados de aluminio, forro de fascia, canal J y clavos."],
+    ["Sottogronda e frontalino in alluminio — al piede lineare", "Pannelli sottogronda ventilati in alluminio, rivestimento frontalino, profilo a J e chiodi."],
+    ["Alu-Untersicht und Stirnbrettverkleidung — pro lfd. Fuß", "Belüftete Alu-Untersichtpaneele, Stirnbrettverkleidung, J-Profil und Nägel."],
+    ["Алюмінієві софіти й лобова планка — за пог. фут", "Вентильовані алюмінієві софітні панелі, облицювання лобової дошки, J-профіль і цвяхи."],
+    ["Aluminum soffit at fascia — kada linear ft", "Vented na aluminum soffit panel, fascia wrap, J-channel at pako."],
+  ), { measurementKey: "eaveFt" }),
+  cricketFrame: (price) => L.labour(1, "flat", price, tx(
+    ["Cricket framing and sheathing", "A saddle framed behind the chimney and sheathed so water sheds to both sides."],
+    ["Charpente et platelage du chevalet", "Chevalet charpenté derrière la cheminée et recouvert pour que l'eau s'écoule des deux côtés."],
+    ["Estructura y cubierta del caballete", "Caballete armado detrás de la chimenea y cubierto para que el agua corra a ambos lados."],
+    ["Struttura e tavolato del displuvio", "Displuvio costruito dietro il camino e rivestito perché l'acqua scoli ai due lati."],
+    ["Sattel aufbauen und beplanken", "Hinter dem Kamin ein Sattel gezimmert und beplankt, damit das Wasser zu beiden Seiten abläuft."],
+    ["Каркас і обшивка розжолобка", "Розжолобок змонтовано за комином і обшито, щоб вода стікала в обидва боки."],
+    ["Framing at sheathing ng cricket", "Ginawa ang saddle sa likod ng chimney at nilagyan ng sheathing para dumaloy ang tubig sa magkabilang gilid."],
+  )),
+  cricketMat: (price) => L.material(1, "flat", price, tx(
+    ["Sheathing, membrane and flashing metal", "Plywood, ice-and-water membrane and the metal that wraps the cricket to the chimney."],
+    ["Platelage, membrane et métal de solin", "Contreplaqué, membrane pare-glace et le métal qui relie le chevalet à la cheminée."],
+    ["Cubierta, membrana y lámina de tapajuntas", "Triplay, membrana contra hielo y agua y la lámina que une el caballete a la chimenea."],
+    ["Tavolato, membrana e lamiera", "Compensato, membrana anti-ghiaccio e la lamiera che raccorda il displuvio al camino."],
+    ["Beplankung, Bahn und Blech", "Sperrholz, Eis- und Wassersperrbahn und das Blech, das den Sattel an den Kamin anschließt."],
+    ["Обшивка, мембрана та метал", "Фанера, протильодова мембрана та метал, що з'єднує розжолобок із комином."],
+    ["Sheathing, membrane at flashing metal", "Plywood, ice-and-water membrane at metal na nagdudugtong ng cricket sa chimney."],
+  )),
+  cricketTieIn: (price) => L.labour(1, "flat", price, tx(
+    ["Shingle tie-in around the cricket", "The surrounding shingles lifted, woven over the cricket and sealed."],
+    ["Raccord des bardeaux au chevalet", "Bardeaux voisins soulevés, repris par-dessus le chevalet et scellés."],
+    ["Unión de tejas alrededor del caballete", "Tejas de alrededor levantadas, entretejidas sobre el caballete y selladas."],
+    ["Raccordo delle tegole al displuvio", "Tegole circostanti sollevate, raccordate sopra il displuvio e sigillate."],
+    ["Schindelanschluss um den Sattel", "Umliegende Schindeln angehoben, über den Sattel eingebunden und abgedichtet."],
+    ["Примикання гонту навколо розжолобка", "Навколишній гонт піднято, вплетено над розжолобком і загерметизовано."],
+    ["Pagdugtong ng shingles sa paligid ng cricket", "Inangat ang katabing shingles, isiningit sa ibabaw ng cricket at sinelyuhan."],
+  )),
+  insulLab: (price) => L.labour(1, "sqft", price, tx(
+    ["Attic insulation installation — per sq ft", "Baffles checked at the eaves and insulation laid to the agreed R-value without blocking the vents."],
+    ["Pose d'isolant de grenier — au pi²", "Déflecteurs vérifiés aux avant-toits et isolant posé à la valeur R convenue sans boucher la ventilation."],
+    ["Instalación de aislamiento de ático — por pie²", "Deflectores revisados en los aleros y aislamiento colocado al valor R acordado sin tapar la ventilación."],
+    ["Posa isolante sottotetto — al piede quadro", "Deflettori controllati in gronda e isolante posato al valore R concordato senza chiudere la ventilazione."],
+    ["Dachbodendämmung einbringen — pro sq ft", "Lüftungskeile an der Traufe geprüft und Dämmung bis zum vereinbarten R-Wert verlegt, ohne die Lüftung zu verschließen."],
+    ["Утеплення горища — за кв. фут", "Дефлектори на карнизах перевірено, утеплювач укладено до погодженого R без перекриття вентиляції."],
+    ["Pagkabit ng insulation sa attic — kada sq ft", "Chineck ang baffle sa eaves at inilatag ang insulation sa napagkasunduang R-value nang hindi natatakpan ang vent."],
+  ), { measurementKey: "footprintSqft" }),
+  insulRoll: (measurementKey) => hdMaterial(refItem("insulation_r19"), tx(
+    ["R-19 insulation — per roll", "Faced R-19 batts, 15 in × 39 ft; one roll covers about 49 sq ft."],
+    ["Isolant R-19 — le rouleau", "Nattes R-19 avec pare-vapeur, 15 po × 39 pi; un rouleau couvre environ 49 pi²."],
+    ["Aislamiento R-19 — por rollo", "Colchoneta R-19 con barrera, 15 pulg × 39 pies; un rollo cubre unos 49 pies²."],
+    ["Isolante R-19 — per rotolo", "Pannelli R-19 con barriera, 15 pollici × 39 piedi; un rotolo copre circa 49 piedi quadri."],
+    ["R-19-Dämmung — pro Rolle", "Kaschierte R-19-Matten, 15 Zoll × 39 Fuß; eine Rolle deckt rund 49 sq ft."],
+    ["Утеплювач R-19 — за рулон", "Мати R-19 з пароізоляцією, 15 дюймів × 39 футів; рулон покриває близько 49 кв. футів."],
+    ["R-19 insulation — kada rolyo", "Faced R-19 batts, 15 in × 39 ft; ang isang rolyo ay mga 49 sq ft."],
+  ), { measurementKey }),
+  baffles: (price) => L.labour(1, "flat", price, tx(
+    ["Baffles and air sealing", "Rafter baffles fitted at the eaves and the top plates and penetrations sealed before insulating."],
+    ["Déflecteurs et étanchéité à l'air", "Déflecteurs posés aux avant-toits, sablières et percements scellés avant l'isolation."],
+    ["Deflectores y sellado de aire", "Deflectores colocados en los aleros y soleras y penetraciones sellados antes de aislar."],
+    ["Deflettori e sigillatura all'aria", "Deflettori montati in gronda, travi di banchina e passaggi sigillati prima di isolare."],
+    ["Lüftungskeile und Luftdichtung", "Lüftungskeile an der Traufe gesetzt, Rähme und Durchdringungen vor dem Dämmen abgedichtet."],
+    ["Дефлектори та герметизація", "Дефлектори встановлено на карнизах, обв'язку й проходи загерметизовано перед утепленням."],
+    ["Baffles at air sealing", "Ikinabit ang rafter baffle sa eaves at sinelyuhan ang top plate at butas bago mag-insulate."],
+  )),
+  insulRemove: (price) => L.labour(1, "sqft", price, tx(
+    ["Damaged insulation removal — per sq ft", "Wet, compressed or soiled insulation bagged and removed from the affected area."],
+    ["Retrait d'isolant endommagé — au pi²", "Isolant mouillé, tassé ou souillé ensaché et retiré de la zone touchée."],
+    ["Retiro de aislamiento dañado — por pie²", "Aislamiento mojado, compactado o sucio embolsado y retirado del área afectada."],
+    ["Rimozione isolante danneggiato — al piede quadro", "Isolante bagnato, schiacciato o sporco insaccato e rimosso dalla zona colpita."],
+    ["Beschädigte Dämmung entfernen — pro sq ft", "Nasse, verdichtete oder verschmutzte Dämmung im betroffenen Bereich eingesackt und entfernt."],
+    ["Видалення пошкодженого утеплювача — за кв. фут", "Мокрий, злежаний чи забруднений утеплювач спаковано й винесено з ураженої ділянки."],
+    ["Pagtanggal ng sirang insulation — kada sq ft", "Isinako at inalis ang basa, siksik o maruming insulation sa apektadong bahagi."],
+  ), { measurementKey: "areaSqFt" }),
+  sidingLab: (price) => L.labour(1, "sqft", price, tx(
+    ["Siding installation — per sq ft", "House wrap lapped and taped, starter and siding hung level and locked, corners and openings trimmed."],
+    ["Pose de revêtement — au pi²", "Pare-air chevauché et ruban appliqué, départ et revêtement posés de niveau, coins et ouvertures finis."],
+    ["Instalación de revestimiento — por pie²", "Membrana traslapada y encintada, arranque y revestimiento colocados a nivel, esquinas y vanos rematados."],
+    ["Posa rivestimento — al piede quadro", "Telo traspirante sormontato e nastrato, partenza e doghe posate in bolla, angoli e aperture rifiniti."],
+    ["Fassadenverkleidung montieren — pro sq ft", "Winddichtung überlappt und verklebt, Startleiste und Paneele waagerecht eingehängt, Ecken und Öffnungen verkleidet."],
+    ["Монтаж сайдингу — за кв. фут", "Вітрозахист укладено внапуск і проклеєно, стартову планку й сайдинг змонтовано за рівнем, кути й прорізи оздоблено."],
+    ["Pagkabit ng siding — kada sq ft", "Inilatag at tinape ang house wrap, ikinabit nang pantay ang starter at siding, at tinapos ang kanto at bukasan."],
+  ), { measurementKey: "wallSqft" }),
+  vinylSiding: () => hdMaterial(refItem("vinyl_siding"), tx(
+    ["Vinyl siding — per piece", "Double 4 in vinyl siding, 12.5 ft pieces; about 8.3 sq ft each."],
+    ["Revêtement de vinyle — la pièce", "Déclin de vinyle double 4 po, pièces de 12,5 pi; environ 8,3 pi² chacune."],
+    ["Revestimiento de vinilo — por pieza", "Siding de vinilo doble de 4 pulg, piezas de 12.5 pies; unos 8.3 pies² cada una."],
+    ["Rivestimento in vinile — al pezzo", "Doghe in vinile doppie da 4 pollici, pezzi da 12,5 piedi; circa 8,3 piedi quadri ciascuno."],
+    ["Vinyl-Fassadenpaneel — pro Stück", "Doppel-4-Zoll-Vinylpaneele, 12,5 Fuß lang; je rund 8,3 sq ft."],
+    ["Вініловий сайдинг — за панель", "Вініловий сайдинг подвійний 4 дюйми, панелі 12,5 фута; близько 8,3 кв. фута кожна."],
+    ["Vinyl siding — kada piraso", "Double 4 in na vinyl siding, 12.5 ft ang piraso; mga 8.3 sq ft bawat isa."],
+  ), { measurementKey: "wallSqft", wastePct: 10 }),
+  houseWrap: () => hdMaterial(refItem("house_wrap"), tx(
+    ["House wrap — per roll", "Woven weather-resistive barrier, 9 × 150 ft roll."],
+    ["Pare-air — le rouleau", "Membrane pare-intempéries tissée, rouleau de 9 × 150 pi."],
+    ["Membrana envolvente — por rollo", "Barrera tejida resistente a la intemperie, rollo de 9 × 150 pies."],
+    ["Telo traspirante — per rotolo", "Barriera tessuta contro le intemperie, rotolo da 9 × 150 piedi."],
+    ["Winddichtungsbahn — pro Rolle", "Gewebte, wetterfeste Fassadenbahn, Rolle 9 × 150 Fuß."],
+    ["Вітрозахисна мембрана — за рулон", "Тканий погодозахисний бар'єр, рулон 9 × 150 футів."],
+    ["House wrap — kada rolyo", "Woven na weather-resistive barrier, 9 × 150 ft na rolyo."],
+  ), { measurementKey: "wallSqft" }),
+  sidingTrim: (price) => L.material(1, "flat", price, tx(
+    ["Trim, J-channel and corner posts", "Starter strip, J-channel, outside and inside corners and utility trim for the walls."],
+    ["Moulures, profilés en J et coins", "Bande de départ, profilés en J, coins extérieurs et intérieurs et moulure de finition pour les murs."],
+    ["Molduras, canal J y esquineros", "Tira de arranque, canal J, esquineros exteriores e interiores y moldura de remate para los muros."],
+    ["Profili, canali a J e angolari", "Profilo di partenza, canali a J, angolari esterni e interni e profilo di finitura per le pareti."],
+    ["Profile, J-Leisten und Eckprofile", "Startleiste, J-Profile, Außen- und Innenecken und Abschlussprofil für die Wände."],
+    ["Планки, J-профілі та кути", "Стартова планка, J-профілі, зовнішні й внутрішні кути та фінішна планка для стін."],
+    ["Trim, J-channel at corner post", "Starter strip, J-channel, labas at loob na kanto at utility trim para sa pader."],
+  )),
+  windowLab: (price) => L.labour(1, "each", price, tx(
+    ["Window installation — per window", "The opening checked and flashed, the window set plumb and level, insulated and sealed inside and out."],
+    ["Pose de fenêtre — l'unité", "Ouverture vérifiée et munie de solins, fenêtre posée d'aplomb et de niveau, isolée et scellée dedans et dehors."],
+    ["Instalación de ventana — por pieza", "Vano revisado y con tapajuntas, ventana colocada a plomo y nivel, aislada y sellada por dentro y por fuera."],
+    ["Posa finestra — cadauna", "Apertura controllata e protetta, finestra posata a piombo e in bolla, isolata e sigillata dentro e fuori."],
+    ["Fenstereinbau — pro Fenster", "Öffnung geprüft und abgedichtet, Fenster lot- und waagerecht gesetzt, gedämmt und innen wie außen versiegelt."],
+    ["Монтаж вікна — за вікно", "Проріз перевірено й ізольовано, вікно встановлено по рівню та виску, утеплено й загерметизовано всередині та ззовні."],
+    ["Pagkabit ng bintana — kada isa", "Chineck at nilagyan ng flashing ang bukasan, ikinabit nang tuwid at pantay, ininsulate at sinelyuhan sa loob at labas."],
+  ), { measurementKey: "each" }),
+  windowUnit: (price) => L.material(1, "each", price, tx(
+    ["Replacement window — vinyl double-hung", "Standard-size vinyl double-hung window, low-E double glazing."],
+    ["Fenêtre de remplacement — guillotine double en vinyle", "Fenêtre à guillotine double en vinyle de format standard, double vitrage à faible émissivité."],
+    ["Ventana de reemplazo — guillotina doble de vinilo", "Ventana de guillotina doble de vinilo de medida estándar, doble vidrio low-E."],
+    ["Finestra sostitutiva — a ghigliottina in vinile", "Finestra a doppia ghigliottina in vinile di misura standard, doppio vetro basso emissivo."],
+    ["Ersatzfenster — Vinyl-Schiebefenster", "Vinyl-Doppelschiebefenster in Standardgröße, Low-E-Zweifachverglasung."],
+    ["Вікно на заміну — вінілове підйомне", "Вінілове вікно з двома підйомними стулками стандартного розміру, енергоощадний склопакет."],
+    ["Pamalit na bintana — vinyl double-hung", "Standard na sukat na vinyl double-hung na bintana, low-E double glazing."],
+  ), { measurementKey: "each" }),
+  windowFlash: (price) => L.material(1, "each", price, tx(
+    ["Flashing tape, foam and sealant — per window", "Self-adhered flashing tape, low-expansion foam and exterior sealant for one opening."],
+    ["Ruban de solin, mousse et scellant — par fenêtre", "Ruban de solin autocollant, mousse à faible expansion et scellant extérieur pour une ouverture."],
+    ["Cinta tapajuntas, espuma y sellador — por ventana", "Cinta tapajuntas autoadherible, espuma de baja expansión y sellador exterior para un vano."],
+    ["Nastro, schiuma e sigillante — per finestra", "Nastro autoadesivo per raccordi, schiuma a bassa espansione e sigillante esterno per un'apertura."],
+    ["Anschlussband, Schaum und Dichtstoff — pro Fenster", "Selbstklebendes Anschlussband, Montageschaum mit geringer Ausdehnung und Außendichtstoff für eine Öffnung."],
+    ["Стрічка, піна та герметик — на вікно", "Самоклейна ізоляційна стрічка, піна малого розширення та зовнішній герметик на один проріз."],
+    ["Flashing tape, foam at sealant — kada bintana", "Self-adhered na flashing tape, low-expansion foam at exterior sealant para sa isang bukasan."],
+  ), { measurementKey: "each" }),
+  windowReseal: (price) => L.labour(1, "each", price, tx(
+    ["Window reflash and reseal — per window", "Failed caulk cut out, the head and sill reflashed and the frame resealed to the siding."],
+    ["Reprise des solins et du scellant — par fenêtre", "Calfeutrant défaillant coupé, tête et appui refaits avec solins et cadre rescellé au revêtement."],
+    ["Nuevo tapajuntas y sellado — por ventana", "Sellador dañado retirado, cabezal y alféizar con tapajuntas nuevos y marco resellado al revestimiento."],
+    ["Nuove scossaline e sigillatura — per finestra", "Sigillante rovinato tolto, architrave e davanzale riprotetti e telaio risigillato al rivestimento."],
+    ["Neu abdichten — pro Fenster", "Defekte Fuge herausgeschnitten, Sturz und Bank neu eingeblecht und Rahmen zur Fassade neu versiegelt."],
+    ["Нова ізоляція й герметизація — за вікно", "Зіпсований герметик вирізано, верх і підвіконня заізольовано наново, раму загерметизовано до облицювання."],
+    ["Bagong flashing at selyo — kada bintana", "Tinanggal ang sirang caulk, nilagyan ulit ng flashing ang head at sill at sinelyuhan ang frame sa siding."],
+  ), { measurementKey: "each" }),
+  tileHours: (qty) => hours(qty, 125, tx(
+    ["Tile roof repair labour", "Broken tiles lifted out without cracking their neighbours, the underlayment patched and new tiles hooked in, by the hour."],
+    ["Main-d'œuvre — réparation de toit en tuiles", "Tuiles brisées retirées sans fendre les voisines, sous-couche réparée et nouvelles tuiles accrochées, à l'heure."],
+    ["Mano de obra — reparación de techo de teja", "Tejas rotas retiradas sin quebrar las vecinas, base parchada y tejas nuevas enganchadas, por hora."],
+    ["Manodopera — riparazione tetto in coppi o tegole", "Tegole rotte tolte senza incrinare le vicine, sottomanto riparato e nuove tegole agganciate, a ore."],
+    ["Arbeit — Ziegeldachreparatur", "Gebrochene Ziegel entnommen, ohne die Nachbarn zu beschädigen, Unterdeckung geflickt und neue Ziegel eingehängt, nach Stunden."],
+    ["Робота — ремонт черепичного даху", "Биту черепицю знято без пошкодження сусідньої, підкладку залатано, нову черепицю навішено, погодинно."],
+    ["Labor — pag-ayos ng tile na bubong", "Tinanggal ang basag na tile nang hindi nababasag ang katabi, tinagpian ang underlayment at ikinabit ang bago, kada oras."],
+  )),
+  clayTiles: (price) => L.material(1, "flat", price, tx(
+    ["Replacement clay tiles and underlayment patch", "Matching clay tiles, hooks and a patch of underlayment for the repair."],
+    ["Tuiles d'argile de remplacement et réparation de sous-couche", "Tuiles d'argile assorties, crochets et pièce de sous-couche pour la réparation."],
+    ["Tejas de arcilla de reposición y parche de base", "Tejas de arcilla a juego, ganchos y un parche de base para la reparación."],
+    ["Coppi in cotto di ricambio e toppa di sottomanto", "Coppi in cotto abbinati, ganci e una toppa di sottomanto per la riparazione."],
+    ["Ersatz-Tonziegel und Unterdeckflicken", "Passende Tonziegel, Haken und ein Stück Unterdeckbahn für die Reparatur."],
+    ["Керамічна черепиця на заміну та латка підкладки", "Підібрана керамічна черепиця, гачки та латка підкладки для ремонту."],
+    ["Pamalit na clay tile at patch ng underlayment", "Katernong clay tile, hook at patch ng underlayment para sa pag-ayos."],
+  )),
+  concreteTiles: (price) => L.material(1, "flat", price, tx(
+    ["Replacement concrete tiles and underlayment patch", "Matching concrete tiles, hooks and a patch of underlayment for the repair."],
+    ["Tuiles de béton de remplacement et réparation de sous-couche", "Tuiles de béton assorties, crochets et pièce de sous-couche pour la réparation."],
+    ["Tejas de concreto de reposición y parche de base", "Tejas de concreto a juego, ganchos y un parche de base para la reparación."],
+    ["Tegole in cemento di ricambio e toppa di sottomanto", "Tegole in cemento abbinate, ganci e una toppa di sottomanto per la riparazione."],
+    ["Ersatz-Betondachsteine und Unterdeckflicken", "Passende Betondachsteine, Haken und ein Stück Unterdeckbahn für die Reparatur."],
+    ["Бетонна черепиця на заміну та латка підкладки", "Підібрана бетонна черепиця, гачки та латка підкладки для ремонту."],
+    ["Pamalit na concrete tile at patch ng underlayment", "Katernong concrete tile, hook at patch ng underlayment para sa pag-ayos."],
+  )),
+  cableRepairHours: (qty) => hours(qty, 110, tx(
+    ["De-icing cable repair labour", "The fault traced along the cable, the damaged section spliced or replaced and the circuit tested, by the hour."],
+    ["Main-d'œuvre — réparation du câble de déglaçage", "Défaut localisé sur le câble, section abîmée épissée ou remplacée et circuit testé, à l'heure."],
+    ["Mano de obra — reparación del cable de deshielo", "Falla localizada en el cable, tramo dañado empalmado o reemplazado y el circuito probado, por hora."],
+    ["Manodopera — riparazione cavo antighiaccio", "Guasto individuato lungo il cavo, tratto danneggiato giuntato o sostituito e circuito provato, a ore."],
+    ["Arbeit — Heizkabel reparieren", "Fehler entlang des Kabels gesucht, beschädigtes Stück gespleißt oder ersetzt und Stromkreis geprüft, nach Stunden."],
+    ["Робота — ремонт кабелю протизледеніння", "Несправність знайдено вздовж кабелю, пошкоджену ділянку з'єднано чи замінено, коло перевірено, погодинно."],
+    ["Labor — pag-ayos ng de-icing cable", "Hinanap ang sira sa cable, dinugtong o pinalitan ang sirang bahagi at sinubok ang circuit, kada oras."],
+  )),
+  cableSplice: (price) => L.material(1, "flat", price, tx(
+    ["Heat cable section and splice kit", "A length of matching self-regulating cable with a rated splice kit and clips."],
+    ["Section de câble chauffant et trousse d'épissure", "Longueur de câble autorégulant assorti avec trousse d'épissure homologuée et attaches."],
+    ["Tramo de cable calefactor y kit de empalme", "Tramo de cable autorregulable compatible con kit de empalme certificado y clips."],
+    ["Tratto di cavo scaldante e kit di giunzione", "Tratto di cavo autoregolante compatibile con kit di giunzione omologato e clip."],
+    ["Heizkabelstück und Spleißset", "Ein Stück passendes selbstregelndes Kabel mit zugelassenem Spleißset und Clips."],
+    ["Відрізок нагрівального кабелю та з'єднувальний набір", "Відрізок сумісного саморегульованого кабелю із сертифікованим з'єднувачем і кліпсами."],
+    ["Heat cable at splice kit", "Katernong self-regulating cable na may rated splice kit at clip."],
+  )),
+  metalHours: (qty) => hours(qty, 125, tx(
+    ["Metal roof repair labour", "Loose fasteners replaced with oversized screws, seams resealed and damaged panels patched, by the hour."],
+    ["Main-d'œuvre — réparation de toit métallique", "Vis desserrées remplacées par des vis surdimensionnées, joints rescellés et panneaux abîmés rapiécés, à l'heure."],
+    ["Mano de obra — reparación de techo metálico", "Tornillos flojos cambiados por unos de mayor calibre, juntas reselladas y paneles dañados parchados, por hora."],
+    ["Manodopera — riparazione tetto in metallo", "Viti allentate sostituite con viti maggiorate, giunti risigillati e pannelli danneggiati rattoppati, a ore."],
+    ["Arbeit — Metalldachreparatur", "Lose Befestiger durch größere Schrauben ersetzt, Nähte neu abgedichtet und beschädigte Paneele geflickt, nach Stunden."],
+    ["Робота — ремонт металевого даху", "Послаблені кріплення замінено більшими шурупами, шви загерметизовано, пошкоджені панелі залатано, погодинно."],
+    ["Labor — pag-ayos ng metal na bubong", "Pinalitan ng mas malaking turnilyo ang maluwag, sinelyuhan ulit ang seam at tinagpian ang sirang panel, kada oras."],
+  )),
+  metalPatch: (price) => L.material(1, "flat", price, tx(
+    ["Panel patch, closures and fasteners", "Matching panel or patch metal, foam closures, gasketed screws and butyl tape."],
+    ["Pièce de panneau, closoirs et fixations", "Panneau assorti ou métal de réparation, closoirs en mousse, vis à rondelle et ruban butyle."],
+    ["Parche de panel, cierres y fijaciones", "Panel a juego o lámina de parche, cierres de espuma, tornillos con empaque y cinta butílica."],
+    ["Toppa, chiusure e fissaggi", "Pannello abbinato o lamiera di riparazione, chiusure in schiuma, viti con guarnizione e nastro butilico."],
+    ["Paneelflicken, Abschlüsse und Befestiger", "Passendes Paneel oder Flickblech, Schaumstoffabschlüsse, Dichtschrauben und Butylband."],
+    ["Латка, ущільнювачі та кріплення", "Підібрана панель або метал для латки, пінні ущільнювачі, шурупи з прокладкою та бутилова стрічка."],
+    ["Patch ng panel, closure at fastener", "Katernong panel o patch metal, foam closure, turnilyong may gasket at butyl tape."],
+  )),
+  generalHours: (qty) => hours(qty, 110, tx(
+    ["Roof repair labour — general", "The leak or damaged area opened, the roofing and underlayment repaired to match and sealed, by the hour."],
+    ["Main-d'œuvre — réparation de toiture générale", "Fuite ou zone abîmée ouverte, couverture et sous-couche réparées à l'identique et scellées, à l'heure."],
+    ["Mano de obra — reparación de techo general", "Fuga o zona dañada abierta, cubierta y base reparadas igual que el resto y selladas, por hora."],
+    ["Manodopera — riparazione tetto generica", "Perdita o zona danneggiata aperta, manto e sottomanto riparati in modo uniforme e sigillati, a ore."],
+    ["Arbeit — allgemeine Dachreparatur", "Leck oder Schadstelle geöffnet, Deckung und Unterdeckung passend repariert und abgedichtet, nach Stunden."],
+    ["Робота — загальний ремонт покрівлі", "Місце протікання чи пошкодження розкрито, покриття й підкладку відновлено в тон і загерметизовано, погодинно."],
+    ["Labor — pangkalahatang pag-ayos ng bubong", "Binuksan ang tumutulo o sirang bahagi, inayos ang bubong at underlayment na katerno at sinelyuhan, kada oras."],
+  )),
+  flatHours: (qty) => hours(qty, 110, tx(
+    ["Flat roof repair labour", "Blisters and splits cut out, the area primed and a membrane patch torched or adhered over it, by the hour."],
+    ["Main-d'œuvre — réparation de toit plat", "Cloques et fissures découpées, zone apprêtée et pièce de membrane soudée ou collée par-dessus, à l'heure."],
+    ["Mano de obra — reparación de techo plano", "Ampollas y grietas cortadas, zona imprimada y un parche de membrana soldado o adherido encima, por hora."],
+    ["Manodopera — riparazione tetto piano", "Bolle e crepe tagliate, zona trattata con primer e toppa di membrana saldata o incollata sopra, a ore."],
+    ["Arbeit — Flachdachreparatur", "Blasen und Risse ausgeschnitten, Fläche grundiert und ein Bahnenflicken aufgeschweißt oder verklebt, nach Stunden."],
+    ["Робота — ремонт плоского даху", "Пухирі й тріщини вирізано, ділянку заґрунтовано, латку мембрани наплавлено чи наклеєно, погодинно."],
+    ["Labor — pag-ayos ng flat na bubong", "Pinutol ang paltos at biyak, nilagyan ng primer at idinikit o tinorch ang membrane patch sa ibabaw, kada oras."],
+  )),
+  modBitPatch: (price) => L.material(1, "flat", price, tx(
+    ["Modified bitumen patch and primer", "Modified bitumen cap sheet, asphalt primer and roofing cement for the patch."],
+    ["Pièce de bitume modifié et apprêt", "Membrane de finition en bitume modifié, apprêt bitumineux et ciment à toiture pour la réparation."],
+    ["Parche de asfalto modificado y primario", "Lámina de asfalto modificado, primario asfáltico y cemento para techo para el parche."],
+    ["Toppa in bitume modificato e primer", "Membrana in bitume modificato, primer bituminoso e mastice per coperture per la toppa."],
+    ["Bitumenbahnflicken und Voranstrich", "Polymerbitumen-Oberlage, Bitumenvoranstrich und Dachkitt für den Flicken."],
+    ["Латка з модифікованого бітуму та праймер", "Модифікована бітумна мембрана, бітумний праймер і покрівельна мастика для латки."],
+    ["Modified bitumen patch at primer", "Modified bitumen cap sheet, asphalt primer at roofing cement para sa patch."],
+  )),
+  slateHours: (qty) => hours(qty, 135, tx(
+    ["Slate repair labour", "Broken slates cut out with a slate ripper and new ones hung on copper nails or hooks, by the hour."],
+    ["Main-d'œuvre — réparation d'ardoise", "Ardoises brisées retirées au tire-clou et nouvelles posées aux clous de cuivre ou crochets, à l'heure."],
+    ["Mano de obra — reparación de pizarra", "Pizarras rotas sacadas con arrancaclavos y nuevas colgadas con clavos de cobre o ganchos, por hora."],
+    ["Manodopera — riparazione ardesia", "Lastre rotte tolte con lo strappachiodi e nuove appese con chiodi di rame o ganci, a ore."],
+    ["Arbeit — Schieferreparatur", "Gebrochene Schiefer mit dem Schieferhaken entfernt und neue mit Kupfernägeln oder Haken eingehängt, nach Stunden."],
+    ["Робота — ремонт сланцевого даху", "Биті сланцеві плитки видалено гачком, нові навішено на мідні цвяхи чи гачки, погодинно."],
+    ["Labor — pag-ayos ng slate", "Tinanggal ang basag na slate gamit ang slate ripper at ikinabit ang bago sa copper nail o hook, kada oras."],
+  )),
+  slates: (price) => L.material(1, "flat", price, tx(
+    ["Replacement slates, hooks and copper nails", "Salvaged or new slates matched in colour and size, with hooks and copper nails."],
+    ["Ardoises de remplacement, crochets et clous de cuivre", "Ardoises récupérées ou neuves assorties en couleur et format, avec crochets et clous de cuivre."],
+    ["Pizarras de reposición, ganchos y clavos de cobre", "Pizarras recuperadas o nuevas del mismo color y tamaño, con ganchos y clavos de cobre."],
+    ["Ardesie di ricambio, ganci e chiodi di rame", "Ardesie di recupero o nuove abbinate per colore e misura, con ganci e chiodi di rame."],
+    ["Ersatzschiefer, Haken und Kupfernägel", "Gebrauchte oder neue Schiefer in passender Farbe und Größe, mit Haken und Kupfernägeln."],
+    ["Сланець на заміну, гачки та мідні цвяхи", "Вживаний або новий сланець у тон і розмір, із гачками та мідними цвяхами."],
+    ["Pamalit na slate, hook at copper nail", "Salvaged o bagong slate na katerno ang kulay at sukat, may hook at copper nail."],
+  )),
+  solarHours: (qty) => hours(qty, 150, tx(
+    ["Solar shingle repair labour", "The array isolated, the failed or cracked solar shingle lifted out and a new one fitted and wired, by the hour."],
+    ["Main-d'œuvre — réparation de bardeau solaire", "Installation isolée, bardeau solaire défaillant ou fissuré retiré et nouveau posé et câblé, à l'heure."],
+    ["Mano de obra — reparación de teja solar", "Sistema aislado, teja solar dañada o rota retirada y una nueva colocada y cableada, por hora."],
+    ["Manodopera — riparazione tegola fotovoltaica", "Impianto isolato, tegola solare guasta o crepata tolta e nuova montata e cablata, a ore."],
+    ["Arbeit — Solarschindelreparatur", "Anlage freigeschaltet, defekte oder gerissene Solarschindel entnommen und neue eingesetzt und verdrahtet, nach Stunden."],
+    ["Робота — ремонт сонячної черепиці", "Систему відключено, несправну чи тріснуту сонячну черепицю знято, нову встановлено й під'єднано, погодинно."],
+    ["Labor — pag-ayos ng solar shingle", "Inihiwalay ang system, tinanggal ang sira o basag na solar shingle at ikinabit at kinablehan ang bago, kada oras."],
+  )),
+  solarShingle: (price) => L.material(1, "flat", price, tx(
+    ["Solar shingle or tile replacement", "Manufacturer-matched solar shingle or tile with its connectors."],
+    ["Bardeau ou tuile solaire de remplacement", "Bardeau ou tuile solaire d'origine du fabricant avec ses connecteurs."],
+    ["Teja solar de reemplazo", "Teja solar original del fabricante con sus conectores."],
+    ["Tegola fotovoltaica di ricambio", "Tegola solare originale del produttore con i suoi connettori."],
+    ["Ersatz-Solarschindel", "Original-Solarschindel oder -ziegel des Herstellers mit Steckverbindern."],
+    ["Сонячна черепиця на заміну", "Оригінальна сонячна черепиця виробника з конекторами."],
+    ["Pamalit na solar shingle o tile", "Solar shingle o tile na tugma sa manufacturer, kasama ang connector."],
+  )),
+  solarCheck: (price) => L.labour(1, "flat", price, tx(
+    ["System check and reconnection", "The string tested, the array reconnected and production confirmed on the inverter or app."],
+    ["Vérification et remise en service", "Chaîne testée, installation reconnectée et production confirmée sur l'onduleur ou l'application."],
+    ["Revisión del sistema y reconexión", "Cadena probada, sistema reconectado y producción confirmada en el inversor o la app."],
+    ["Verifica e ricollegamento dell'impianto", "Stringa provata, impianto ricollegato e produzione confermata sull'inverter o sull'app."],
+    ["Anlagenprüfung und Wiederanschluss", "String geprüft, Anlage wieder angeschlossen und Ertrag am Wechselrichter oder in der App bestätigt."],
+    ["Перевірка та підключення системи", "Стрінг перевірено, систему під'єднано, вироблення підтверджено на інверторі чи в застосунку."],
+    ["System check at reconnection", "Sinubok ang string, ikinonekta ulit ang system at kinumpirma ang production sa inverter o app."],
+  )),
+  membraneHours: (qty) => hours(qty, 115, tx(
+    ["Membrane roof repair labour", "The membrane cleaned around the damage and a patch hot-air welded over it, seams probed, by the hour."],
+    ["Main-d'œuvre — réparation de membrane", "Membrane nettoyée autour du dommage et pièce soudée à l'air chaud par-dessus, joints vérifiés, à l'heure."],
+    ["Mano de obra — reparación de membrana", "Membrana limpiada alrededor del daño y un parche soldado con aire caliente encima, juntas revisadas, por hora."],
+    ["Manodopera — riparazione manto sintetico", "Membrana pulita attorno al danno e toppa saldata ad aria calda sopra, giunti verificati, a ore."],
+    ["Arbeit — Kunststoffbahn reparieren", "Bahn um die Schadstelle gereinigt, Flicken mit Heißluft aufgeschweißt und Nähte geprüft, nach Stunden."],
+    ["Робота — ремонт мембранного даху", "Мембрану навколо пошкодження очищено, латку приварено гарячим повітрям, шви перевірено, погодинно."],
+    ["Labor — pag-ayos ng membrane na bubong", "Nilinis ang membrane sa paligid ng sira at hot-air weld ang patch, chineck ang seam, kada oras."],
+  )),
+  pvcPatch: (price) => L.material(1, "flat", price, tx(
+    ["PVC membrane patch and cleaner", "Matching PVC membrane, membrane cleaner and cut-edge sealant."],
+    ["Pièce de membrane PVC et nettoyant", "Membrane PVC assortie, nettoyant à membrane et scellant de rive."],
+    ["Parche de membrana PVC y limpiador", "Membrana de PVC a juego, limpiador de membrana y sellador de bordes."],
+    ["Toppa in membrana PVC e detergente", "Membrana in PVC abbinata, detergente per membrane e sigillante per bordi."],
+    ["PVC-Bahnflicken und Reiniger", "Passende PVC-Bahn, Bahnenreiniger und Schnittkantendichtung."],
+    ["Латка з ПВХ-мембрани та очисник", "Підібрана ПВХ-мембрана, очисник мембрани та герметик для кромок."],
+    ["PVC membrane patch at cleaner", "Katernong PVC membrane, membrane cleaner at cut-edge sealant."],
+  )),
+  shakeHours: (qty) => hours(qty, 120, tx(
+    ["Shake roof repair labour", "Split or rotted shakes cut out, the felt interlay patched and new shakes fitted and nailed, by the hour."],
+    ["Main-d'œuvre — réparation de bardeaux de cèdre", "Bardeaux fendus ou pourris retirés, feutre intercalaire réparé et nouveaux bardeaux posés et cloués, à l'heure."],
+    ["Mano de obra — reparación de teja de madera", "Tejas partidas o podridas retiradas, fieltro intermedio parchado y tejas nuevas colocadas y clavadas, por hora."],
+    ["Manodopera — riparazione scandole in legno", "Scandole spaccate o marce tolte, feltro intermedio riparato e nuove scandole posate e chiodate, a ore."],
+    ["Arbeit — Holzschindelreparatur", "Gespaltene oder morsche Schindeln entfernt, Zwischenlage geflickt und neue Schindeln eingesetzt und genagelt, nach Stunden."],
+    ["Робота — ремонт дерев'яної гонти", "Розколоту чи гнилу гонту вирізано, прокладку залатано, нову гонту встановлено й прибито, погодинно."],
+    ["Labor — pag-ayos ng wood shake", "Tinanggal ang biyak o bulok na shake, tinagpian ang felt interlay at ikinabit at pinakuan ang bago, kada oras."],
+  )),
+  shakes: (price) => L.material(1, "flat", price, tx(
+    ["Cedar shakes and stainless nails", "Matching cedar shakes, felt interlay and stainless ring-shank nails."],
+    ["Bardeaux de cèdre et clous inox", "Bardeaux de cèdre assortis, feutre intercalaire et clous annelés en inox."],
+    ["Tejas de cedro y clavos inoxidables", "Tejas de cedro a juego, fieltro intermedio y clavos anillados de acero inoxidable."],
+    ["Scandole di cedro e chiodi inox", "Scandole di cedro abbinate, feltro intermedio e chiodi ad aderenza migliorata inox."],
+    ["Zedernschindeln und Edelstahlnägel", "Passende Zedernschindeln, Zwischenlage und Edelstahl-Rillennägel."],
+    ["Кедрова гонта та нержавіючі цвяхи", "Підібрана кедрова гонта, прокладка та нержавіючі йоржисті цвяхи."],
+    ["Cedar shakes at stainless na pako", "Katernong cedar shakes, felt interlay at stainless ring-shank na pako."],
+  )),
+  cricketReflash: (price) => L.labour(1, "flat", price, tx(
+    ["Cricket reflashing labour", "Shingles lifted around the cricket, the old metal and membrane replaced and the counter-flashing resealed to the chimney."],
+    ["Main-d'œuvre — réfection des solins du chevalet", "Bardeaux soulevés autour du chevalet, ancien métal et membrane remplacés et contre-solin rescellé à la cheminée."],
+    ["Mano de obra — nuevo tapajuntas del caballete", "Tejas levantadas alrededor del caballete, lámina y membrana viejas cambiadas y contratapajuntas resellado a la chimenea."],
+    ["Manodopera — rifacimento scossaline del displuvio", "Tegole sollevate attorno al displuvio, vecchia lamiera e membrana sostituite e controscossalina risigillata al camino."],
+    ["Arbeit — Sattel neu einblechen", "Schindeln um den Sattel angehoben, altes Blech und Bahn ersetzt und Überhangblech am Kamin neu abgedichtet."],
+    ["Робота — перекриття розжолобка", "Гонт навколо розжолобка піднято, старий метал і мембрану замінено, контрпримикання до комина загерметизовано."],
+    ["Labor — bagong flashing ng cricket", "Inangat ang shingles sa paligid ng cricket, pinalitan ang lumang metal at membrane at sinelyuhan ulit ang counter-flashing sa chimney."],
+  )),
+  flashingKit: (price) => L.material(1, "flat", price, tx(
+    ["Flashing metal, membrane and sealant", "Pre-bent flashing, ice-and-water membrane and chimney sealant for the repair."],
+    ["Métal de solin, membrane et scellant", "Solins préformés, membrane pare-glace et scellant à cheminée pour la réparation."],
+    ["Lámina de tapajuntas, membrana y sellador", "Tapajuntas predoblado, membrana contra hielo y agua y sellador para chimenea."],
+    ["Lamiera, membrana e sigillante", "Scossaline prepiegate, membrana anti-ghiaccio e sigillante per camini per la riparazione."],
+    ["Blech, Bahn und Dichtmasse", "Vorgekantete Bleche, Eis- und Wassersperrbahn und Kamindichtmasse für die Reparatur."],
+    ["Метал, мембрана та герметик", "Загнуті примикання, протильодова мембрана та герметик для комина."],
+    ["Flashing metal, membrane at sealant", "Pre-bent na flashing, ice-and-water membrane at chimney sealant para sa pag-ayos."],
+  )),
+  gutterHours: (qty) => hours(qty, 95, tx(
+    ["Gutter repair labour", "Sagging runs re-hung on new hangers, leaking seams resealed and the pitch reset, by the hour."],
+    ["Main-d'œuvre — réparation de gouttières", "Sections affaissées refixées sur crochets neufs, joints qui fuient rescellés et pente refaite, à l'heure."],
+    ["Mano de obra — reparación de canaletas", "Tramos caídos recolgados con ganchos nuevos, uniones con fuga reselladas y pendiente corregida, por hora."],
+    ["Manodopera — riparazione grondaie", "Tratti ceduti riappesi con staffe nuove, giunti che perdono risigillati e pendenza ripristinata, a ore."],
+    ["Arbeit — Dachrinnenreparatur", "Durchhängende Rinnen an neuen Haltern aufgehängt, undichte Nähte neu abgedichtet und Gefälle neu eingestellt, nach Stunden."],
+    ["Робота — ремонт ринв", "Провислі ділянки перевішано на нові гаки, протікаючі шви загерметизовано, ухил виправлено, погодинно."],
+    ["Labor — pag-ayos ng gutter", "Isinabit ulit sa bagong hanger ang lumubog na bahagi, sinelyuhan ang tumutulong dugtungan at inayos ang slope, kada oras."],
+  )),
+  gutterParts: (price) => L.material(1, "flat", price, tx(
+    ["Hangers, sealant and gutter patch", "Hidden hangers with screws, gutter sealant and patch stock for the repair."],
+    ["Crochets, scellant et pièce de gouttière", "Crochets dissimulés avec vis, scellant à gouttière et pièce de réparation."],
+    ["Ganchos, sellador y parche de canaleta", "Ganchos ocultos con tornillos, sellador de canaletas y material de parche."],
+    ["Staffe, sigillante e toppa per grondaia", "Staffe nascoste con viti, sigillante per grondaie e materiale per toppe."],
+    ["Halter, Dichtstoff und Rinnenflicken", "Verdeckte Halter mit Schrauben, Rinnendichtstoff und Flickmaterial für die Reparatur."],
+    ["Гаки, герметик і латка для ринви", "Приховані гаки з шурупами, герметик для ринв і матеріал для латки."],
+    ["Hanger, sealant at patch ng gutter", "Hidden hanger na may turnilyo, gutter sealant at patch para sa pag-ayos."],
+  )),
+  sidingHours: (qty) => hours(qty, 95, tx(
+    ["Siding repair labour", "Damaged panels unlocked and cut out, the wrap patched and new panels locked in, by the hour."],
+    ["Main-d'œuvre — réparation de revêtement", "Panneaux abîmés décrochés et retirés, pare-air réparé et nouveaux panneaux emboîtés, à l'heure."],
+    ["Mano de obra — reparación de revestimiento", "Paneles dañados destrabados y retirados, membrana parchada y paneles nuevos trabados, por hora."],
+    ["Manodopera — riparazione rivestimento", "Doghe danneggiate sganciate e tolte, telo riparato e nuove doghe agganciate, a ore."],
+    ["Arbeit — Fassadenreparatur", "Beschädigte Paneele ausgehakt und herausgeschnitten, Winddichtung geflickt und neue Paneele eingeklickt, nach Stunden."],
+    ["Робота — ремонт сайдингу", "Пошкоджені панелі розчеплено й вирізано, мембрану залатано, нові панелі защеплено, погодинно."],
+    ["Labor — pag-ayos ng siding", "Kinalas at tinanggal ang sirang panel, tinagpian ang wrap at ikinabit ang bagong panel, kada oras."],
+  )),
+  sidingPanels: (price) => L.material(1, "flat", price, tx(
+    ["Matching siding panels and trim", "Siding panels and trim pieces matched as closely as the profile and colour allow."],
+    ["Panneaux de revêtement et moulures assortis", "Panneaux et moulures aussi assortis que le profil et la couleur le permettent."],
+    ["Paneles de revestimiento y molduras a juego", "Paneles y molduras lo más parecidos que permitan el perfil y el color."],
+    ["Doghe di rivestimento e profili abbinati", "Doghe e profili abbinati per quanto lo consentono profilo e colore."],
+    ["Passende Fassadenpaneele und Profile", "Paneele und Profile so passend, wie Profil und Farbe es zulassen."],
+    ["Підібрані панелі сайдингу та планки", "Панелі й планки, максимально підібрані за профілем і кольором."],
+    ["Katernong siding panel at trim", "Siding panel at trim na pinakakatugma sa profile at kulay."],
+  )),
+  sofFasRepair: (price) => L.labour(1, "linear_ft", price, tx(
+    ["Soffit and fascia repair — per linear ft", "Rotted board cut back to sound wood, new stock scarfed in, primed and fixed, soffit refitted."],
+    ["Réparation de soffite et bordure — au pi lin.", "Planche pourrie coupée jusqu'au bois sain, nouvelle pièce ajustée, apprêtée et fixée, soffite reposé."],
+    ["Reparación de sofito y fascia — por pie lineal", "Tabla podrida cortada hasta madera sana, pieza nueva empalmada, imprimada y fijada, sofito recolocado."],
+    ["Riparazione sottogronda e frontalino — al piede lineare", "Tavola marcia tagliata fino al legno sano, nuovo pezzo giuntato, trattato e fissato, sottogronda rimontato."],
+    ["Untersicht und Stirnbrett reparieren — pro lfd. Fuß", "Morsches Brett bis ins gesunde Holz zurückgeschnitten, neues Stück angeschäftet, grundiert und befestigt, Untersicht wieder montiert."],
+    ["Ремонт софітів і лобової дошки — за пог. фут", "Гнилу дошку зрізано до здорової деревини, нову вставку зрощено, заґрунтовано й закріплено, софіт повернуто."],
+    ["Pag-ayos ng soffit at fascia — kada linear ft", "Pinutol ang bulok na tabla hanggang matibay na kahoy, isiningit ang bago, prinimer at ikinabit, at ibinalik ang soffit."],
+  ), { measurementKey: "linearFt" }),
+  sofFasStock: (price) => L.material(1, "linear_ft", price, tx(
+    ["Soffit and fascia stock — per linear ft", "Primed fascia board, soffit panel and fasteners for the repaired run."],
+    ["Matériaux de soffite et bordure — au pi lin.", "Planche de bordure apprêtée, panneau de soffite et fixations pour la section réparée."],
+    ["Material de sofito y fascia — por pie lineal", "Tabla de fascia imprimada, panel de sofito y fijaciones para el tramo reparado."],
+    ["Materiale per sottogronda e frontalino — al piede lineare", "Tavola frontalino trattata, pannello sottogronda e fissaggi per il tratto riparato."],
+    ["Material für Untersicht und Stirnbrett — pro lfd. Fuß", "Grundiertes Stirnbrett, Untersichtpaneel und Befestigungen für das reparierte Stück."],
+    ["Матеріали для софітів і лобової дошки — за пог. фут", "Заґрунтована лобова дошка, софітна панель і кріплення для відремонтованої ділянки."],
+    ["Materyales ng soffit at fascia — kada linear ft", "Primed na fascia board, soffit panel at fastener para sa inayos na bahagi."],
+  ), { measurementKey: "linearFt" }),
+};
+
+const R = (key) => `fq.roofing_service.${key}`;
+const MORE_TEMPLATES = {
+  // ── Components ──
+  [R("components.melt_system")]: T("installation", nm(R("components.melt_system")), [RF.heatCableLab(9), RF.heatCable(6), RF.controller(250), SHARED.consumables(45)], null),
+  [R("components.flashing")]: T("installation", nm(R("components.flashing")), [RF.setUp(125), RF.flashingLab(14), RF.flashingMat(4)], null),
+  [R("components.roof_vents")]: T("installation", nm(R("components.roof_vents")), [RF.ventCutIn(150), RF.roofVent()], null),
+  [R("components.soffit_fascia")]: T("installation", nm(R("components.soffit_fascia")), [RF.sofFasLab(12), RF.sofFasMat(8), SHARED.haulAway(150)], D.newCustomer("fixed", 100)),
+  [R("components.chimney_cricket")]: T("installation", nm(R("components.chimney_cricket")), [RF.cricketFrame(450), RF.cricketMat(225), RF.cricketTieIn(175)], null),
+  [R("components.insulation")]: T("installation", nm(R("components.insulation")), [RF.insulLab(0.85), RF.insulRoll("footprintSqft"), RF.baffles(150)], null, { categories: ["roofing_service", "insulation"] }),
+  [R("components.siding")]: T("installation", nm(R("components.siding")), [RF.sidingLab(3.5), RF.vinylSiding(), RF.houseWrap(), RF.sidingTrim(275)], D.newCustomer("fixed", 250), { categories: ["roofing_service", "siding"] }),
+  [R("components.windows")]: T("installation", nm(R("components.windows")), [RF.windowLab(225), RF.windowUnit(350), RF.windowFlash(35)], null),
+
+  // ── Repair ──
+  [R("repair.asphalt_shingle")]: T("repair", nm(R("repair.asphalt_shingle")), [CALL(), RF.shingleHours(2), RF.matchingShingles()], null),
+  [R("repair.cracked_shingles")]: T("repair", nm(R("repair.cracked_shingles")), [CALL(), RF.shingleHours(1.5), RF.matchingShingles()], null),
+  [R("repair.clay_tile")]: T("repair", nm(R("repair.clay_tile")), [CALL(), RF.tileHours(3), RF.clayTiles(150)], null),
+  [R("repair.concrete_tile")]: T("repair", nm(R("repair.concrete_tile")), [CALL(), RF.tileHours(3), RF.concreteTiles(110)], null),
+  [R("repair.melt_system")]: T("repair", nm(R("repair.melt_system")), [CALL(), RF.cableRepairHours(1.5), RF.cableSplice(85)], null),
+  [R("repair.metal")]: T("repair", nm(R("repair.metal")), [CALL(), RF.metalHours(2), RF.metalPatch(110)], null),
+  [R("repair.other_materials")]: T("repair", nm(R("repair.other_materials")), [CALL(), RF.generalHours(2), SHARED.materialsAllowance(100)], null),
+  [R("repair.rolled_flat")]: T("repair", nm(R("repair.rolled_flat")), [CALL(), RF.flatHours(2), RF.modBitPatch(120)], null),
+  [R("repair.slate")]: T("repair", nm(R("repair.slate")), [CALL(), RF.slateHours(3), RF.slates(140)], null),
+  [R("repair.soffit_fascia")]: T("repair", nm(R("repair.soffit_fascia")), [CALL(), RF.sofFasRepair(18), RF.sofFasStock(7)], null),
+  [R("repair.solar_shingle")]: T("repair", nm(R("repair.solar_shingle")), [SHARED.serviceCall(150), RF.solarHours(3), RF.solarShingle(450), RF.solarCheck(175)], null, { categories: ["roofing_service", "solar_energy"] }),
+  [R("repair.vinyl")]: T("repair", nm(R("repair.vinyl")), [CALL(), RF.membraneHours(2), RF.pvcPatch(95)], null),
+  [R("repair.wood_shake")]: T("repair", nm(R("repair.wood_shake")), [CALL(), RF.shakeHours(2.5), RF.shakes(120)], null),
+  [R("repair.chimney_cricket")]: T("repair", nm(R("repair.chimney_cricket")), [CALL(), RF.cricketReflash(375), RF.flashingKit(120)], null, { categories: ["roofing_service", "chimney_sweep"] }),
+  [R("repair.gutters")]: T("repair", nm(R("repair.gutters")), [CALL(), RF.gutterHours(1.5), RF.gutterParts(45)], null),
+  [R("repair.insulation")]: T("repair", nm(R("repair.insulation")), [RF.insulRemove(1.25), RF.insulRoll("areaSqFt"), SHARED.disposalFee(75)], null, { categories: ["roofing_service", "insulation"] }),
+  [R("repair.siding")]: T("repair", nm(R("repair.siding")), [CALL(), RF.sidingHours(2), RF.sidingPanels(120), SHARED.consumables(35)], null, { categories: ["roofing_service", "siding"] }),
+  [R("repair.windows")]: T("repair", nm(R("repair.windows")), [RF.windowReseal(175), RF.windowFlash(35)], null),
+};
+
 withLanguages(SEED, I18N);
-withTemplates(SEED, TEMPLATES);
+withTemplates(SEED, { ...TEMPLATES, ...MORE_TEMPLATES });
