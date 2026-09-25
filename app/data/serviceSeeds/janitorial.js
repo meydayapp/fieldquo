@@ -5,7 +5,8 @@
 // janitorial book, recurring and one-time, in source order; each row is also
 // tagged for the commercial_cleaning quote type (the catalogue has both), so
 // a company that picked either is seeded once.
-import { L, SHARED, D, T, withTemplates, tagRows } from "./_templateLines";
+import { L, SHARED, D, T, withTemplates, tagRows, withLanguages } from "./_templateLines";
+import { I18N } from "./i18n/janitorial.js";
 const BM = (low, median, high) => ({ low, median, high, currency: "USD", source: "benchmark", asOf: "2026-09-21" });
 const S = (seedKey, category, unit, benchmark, [en, fr, es], [den, dfr, des], extra = {}) => ({
   seedKey, category, name: { en, fr, es }, description: { en: den, fr: dfr, es: des },
@@ -219,6 +220,7 @@ const TEMPLATES = {
   ))], null),
 };
 
+withLanguages(SEED, I18N);
 withTemplates(SEED, TEMPLATES);
 
 // Janitorial and commercial cleaning are two catalogue trades for one kind of
