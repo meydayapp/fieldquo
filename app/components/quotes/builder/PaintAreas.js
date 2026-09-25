@@ -1501,7 +1501,7 @@ function AreaCard({
             )}
           </div>
           <MediaUploader
-            uploadUrl="/api/upload"
+            uploadUrl="/api/upload" purpose="quotes"
             value={media}
             onChange={(next) => set({ media: asList(next) })}
             max={6}

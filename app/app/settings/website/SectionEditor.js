@@ -12,7 +12,7 @@
 import { useState } from "react";
 import { X, ImagePlus, Eye, EyeOff, Loader2 } from "lucide-react";
 import { BLOCK_TYPES } from "@/app/data/siteBlocks";
-import { fetchJson } from "@/lib/fetchJson";
+import { uploadFile } from "@/lib/media/uploadClient";
 import Link from "next/link";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
@@ -243,9 +243,7 @@ export function ImageField({ value, onChange, onError }) {
     if (!file) return;
     setBusy(true);
     try {
-      const form = new FormData();
-      form.append("file", file);
-      const data = await fetchJson("/api/upload", { method: "POST", body: form });
+      const data = await uploadFile(file, { purpose: "website" });
       onChange(data.url);
     } catch (err) {
       onError?.(err.message);
@@ -305,12 +303,7 @@ export function ImageList({ images, onChange, onError }) {
     try {
       const uploaded = [];
       for (const file of Array.from(files).slice(0, 12)) {
-        const form = new FormData();
-        form.append("file", file);
-        const data = await fetchJson("/api/upload", {
-          method: "POST",
-          body: form,
-        });
+        const data = await uploadFile(file, { purpose: "website" });
         uploaded.push(data.url);
       }
       onChange([...images, ...uploaded].slice(0, 24));

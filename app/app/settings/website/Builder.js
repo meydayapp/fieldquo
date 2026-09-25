@@ -38,6 +38,7 @@ import {
   Eye, EyeOff, Save, RefreshCw, ImagePlus, Check, AlertCircle, Globe, ChevronDown, Copy,
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
+import { uploadFile } from "@/lib/media/uploadClient";
 import { embedSnippet } from "@/lib/embed/snippet";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import PairPhotos from "./PairPhotos";
@@ -493,9 +494,7 @@ export default function Builder({ data, onReload }) {
     try {
       const urls = [];
       for (const file of files) {
-        const form = new FormData();
-        form.append("file", file);
-        const d = await fetchJson("/api/upload", { method: "POST", body: form });
+        const d = await uploadFile(file, { purpose: "website" });
         if (d?.url) urls.push(d.url);
       }
       if (urls.length) {

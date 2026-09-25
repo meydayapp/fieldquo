@@ -157,7 +157,11 @@ section("3. Replay: ordered, once, server wins");
   const calls = [];
   const fetchOnce = async (url, init = {}) => {
     calls.push({ url, method: init.method || "GET", key: init.headers?.["X-Offline-Key"] || null });
-    if (url === "/api/upload") return { status: 200, json: async () => ({ url: "https://res.cloudinary.com/x/photo.jpg", kind: "photo", publicId: "pid" }) };
+    // The photo goes through lib/media/uploadClient.js: sign, the bytes to
+    // Cloudinary, verify. Each leg is answered the way the real one answers.
+    if (url === "/api/upload/sign") return { status: 200, json: async () => ({ uploadUrl: "https://api.cloudinary.com/v1_1/x/image/upload", fields: { public_id: "pid", signature: "s" }, kind: "photo", resourceType: "image" }) };
+    if (url === "https://api.cloudinary.com/v1_1/x/image/upload") return { status: 200, json: async () => ({ public_id: "pid", version: 1, signature: "a".repeat(40), resource_type: "image" }) };
+    if (url === "/api/upload/verify") return { status: 200, json: async () => ({ url: "https://res.cloudinary.com/x/photo.jpg", kind: "photo", publicId: "pid" }) };
     if (url === "/api/time-clock") {
       const body = JSON.parse(init.body);
       if (body.action === "out" && body.at === "bad") return { status: 409, json: async () => ({ error: "out of order" }) };

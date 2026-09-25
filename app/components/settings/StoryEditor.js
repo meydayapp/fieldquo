@@ -11,6 +11,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Loader2, Upload, X } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
+import { uploadFile } from "@/lib/media/uploadClient";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
 import { ReadOnlyNotice } from "@/app/components/settings/PermissionNotice";
@@ -50,9 +51,7 @@ export default function StoryEditor({ compact = false, onSaved }) {
     setUploading(true);
     setError("");
     try {
-      const form = new FormData();
-      form.append("file", file);
-      const up = await fetchJson("/api/upload", { method: "POST", body: form });
+      const up = await uploadFile(file, { purpose: "website" });
       setData((d) => ({ ...d, teamPhotoUrl: up.url }));
     } catch (err) {
       setError(err.message);

@@ -22,6 +22,7 @@ import { useState, useEffect, useRef } from "react";
 import { Upload, Loader2 } from "lucide-react";
 import BrandPreview from "@/app/components/settings/BrandPreview";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { uploadFile } from "@/lib/media/uploadClient";
 
 const PRESET_COLORS = [
   "#06356b",
@@ -157,19 +158,11 @@ export default function BrandingForm({ compact = false, onSaved } = {}) {
     setError("");
     setUploading(true);
 
-    const formData = new FormData();
-    formData.append("file", file);
-
     try {
-      const res = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
+      // "branding" — a logo may be an SVG, which the staff scope accepts.
+      const data = await uploadFile(file, { purpose: "branding" }).catch((err) => {
+        throw new Error(err?.message || t("app.setBranding.uploadFailed"));
       });
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || t("app.setBranding.uploadFailed"));
-      }
 
       setLogoUrl(data.url);
       setLogoPublicId(data.publicId || "");

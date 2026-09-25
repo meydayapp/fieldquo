@@ -11,6 +11,7 @@ import { useEffect, useRef, useState } from "react";
 import { FileText, Trash2, Upload } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { fetchJson, errorText } from "@/lib/fetchJson";
+import { uploadFile } from "@/lib/media/uploadClient";
 import { showError } from "@/lib/clientErrors";
 import { LANGUAGES } from "@/app/i18n/languages";
 import { formatBytes } from "@/lib/jobs/documents";
@@ -41,9 +42,7 @@ export default function ServiceDocuments({ categoryId = null, documents, onChang
     if (!file) return;
     setBusy(true);
     try {
-      const fd = new FormData();
-      fd.append("file", file);
-      const data = await fetchJson("/api/upload", { method: "POST", body: fd });
+      const data = await uploadFile(file, { purpose: "documents" });
       if (data.kind !== "document") {
         showError(t("app.prepGuide.docs.pdfOnly", "Technical documents must be PDFs."));
         return;

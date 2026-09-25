@@ -13,7 +13,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { FileText, Plus } from "lucide-react";
-import { reportResponseError } from "@/lib/clientErrors";
+import { reportResponseError, showError } from "@/lib/clientErrors";
+import { uploadFile } from "@/lib/media/uploadClient";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { CLIENT_MEDIA_ACCEPT } from "@/lib/media/validate";
@@ -50,14 +51,14 @@ export default function SubcontractorDocuments({ subcontractorId, onExpiryChange
 
     setBusy(true);
     try {
-      const upload = new FormData();
-      upload.append("file", file);
-      const uploaded = await fetch("/api/upload", { method: "POST", body: upload });
-      if (!uploaded.ok) {
-        await reportResponseError(uploaded, t("app.subcontractors.uploadError", "Couldn't upload that file."));
+      let uploaded;
+      try {
+        uploaded = await uploadFile(file, { purpose: "documents" });
+      } catch (err) {
+        showError(err?.message || t("app.subcontractors.uploadError", "Couldn't upload that file."));
         return;
       }
-      const { url, filename } = await uploaded.json();
+      const { url, filename } = uploaded;
 
       const res = await fetch(`/api/subcontractors/${subcontractorId}/documents`, {
         method: "POST",

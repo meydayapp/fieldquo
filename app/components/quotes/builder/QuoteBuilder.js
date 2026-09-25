@@ -2489,7 +2489,7 @@ export function QuoteBuilderForm({
         {t("app.quoteDetail.clientMedia")}
       </h2>
       <MediaUploader
-        uploadUrl="/api/upload"
+        uploadUrl="/api/upload" purpose="quotes"
         value={clientPhotos}
         onChange={setClientPhotos}
         label={t("app.quoteNew.addPhotos")}

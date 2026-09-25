@@ -289,7 +289,7 @@ function TaskRow({
                   )}
                   <div className="mt-1.5">
                     <MediaUploader
-                      uploadUrl="/api/upload"
+                      uploadUrl="/api/upload" purpose="jobs"
                       value={[]}
                       max={task.requiredPhotoCount}
                       label={t("app.job.taskAddPhoto")}

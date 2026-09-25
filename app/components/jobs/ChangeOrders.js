@@ -579,7 +579,7 @@ function ChangeOrderForm({ t, money, targets, onCancel, onSaved, jobId }) {
             // eslint-disable-next-line @next/next/no-img-element
             <img key={p.url} src={p.url} alt="" className="w-20 h-14 object-cover rounded-lg border border-border" />
           ))}
-          <MediaUploader uploadUrl="/api/upload" value={photos} max={6} label={t("app.changeOrder.addPhoto", "Add photo")} hint="" onChange={(next) => setPhotos((next || []).filter((m) => m?.url && m.kind === "photo"))} />
+          <MediaUploader uploadUrl="/api/upload" purpose="jobs" value={photos} max={6} label={t("app.changeOrder.addPhoto", "Add photo")} hint="" onChange={(next) => setPhotos((next || []).filter((m) => m?.url && m.kind === "photo"))} />
         </div>
       </div>
 
